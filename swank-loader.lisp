@@ -37,7 +37,7 @@
   '(:allegro :sbcl :openmcl :cmu :clisp :ccl :corman :armedbear :gcl))
 
 (defparameter *os-features*
-  '(:macosx :linux :windows :solaris :darwin :sunos :unix))
+  '(:macosx :linux :windows :mswindows :solaris :darwin :sunos :unix))
 
 (defparameter *architecture-features*
   '(:powerpc :ppc :x86 :x86-64 :i686 :pc386 :sparc))
