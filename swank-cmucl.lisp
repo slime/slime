@@ -14,6 +14,7 @@
       (fcntl fd unix:F-SETFL (logior flags unix:O_NONBLOCK)))))
 
 (set-fd-non-blocking (sys:fd-stream-fd sys:*stdin*))
+(setf c:*record-xref-info* t)
 
 ;;; TCP Server.
 
@@ -93,33 +94,7 @@ The request is read from the socket as a sexp and then evaluated."
     (condition (c)
       (throw 'serve-request-catcher c))))
 
-;;; Asynchronous eval
-
-(defvar *swank-debugger-condition*)
-(defvar *swank-debugger-hook*)
-
-(defun swank-debugger-hook (condition hook)
-  (let ((*swank-debugger-condition* condition)
-	(*swank-debugger-hook* hook))
-    (sldb-loop)))
-
-(defslimefun interactive-eval-region (string)
-  (let ((*package* *buffer-package*))
-    (with-input-from-string (stream string)
-      (loop for form = (read stream nil stream)
-	    until (eq form stream)
-	    for result = (multiple-value-list (eval form))
-	    do (force-output)
-	    finally (return (format nil "~{~S~^, ~}" result))))))
-
-(defslimefun re-evaluate-defvar (form)
-  (let ((*package* *buffer-package*))
-    (let ((form (read-from-string form)))
-      (destructuring-bind (dv name &optional value doc) form
-	(declare (ignore value doc))
-	(assert (eq dv 'defvar))
-	(makunbound name)
-	(prin1-to-string (eval form))))))
+;;;
 
 (defslimefun set-default-directory (directory)
   (setf (ext:default-directory) (namestring directory))
@@ -433,56 +408,6 @@ constant pool."
 (defslimefun list-callees (symbol-name)
   (stringify-function-name-list (function-callees (from-string symbol-name))))
 
-;;; 
-
-(defslimefun completions (string default-package-name)
-  "Return a list of completions for a symbol designator STRING.  
-
-The result is a list of strings.  If STRING is package qualified the
-result list will also be qualified.  If string is non-qualified the
-result strings are also not qualified and are considered relative to
-DEFAULT-PACKAGE-NAME.  All symbols accessible in the package are
-considered."
-  (flet ((parse-designator (string)
-	   (values (let ((pos (position #\: string :from-end t)))
-		     (if pos (subseq string (1+ pos)) string))
-		   (let ((pos (position #\: string)))
-		     (if pos (subseq string 0 pos) nil))
-		   (search "::" string))))
-    (multiple-value-bind (name package-name internal) (parse-designator string)
-      (let ((completions nil)
-	    (package (find-package 
-		      (string-upcase (cond ((equal package-name "") "KEYWORD")
-					   (package-name)
-					   (default-package-name))))))
-	(when package
-	  (do-symbols (symbol package)
-	    (when (and (string-prefix-p name (symbol-name symbol))
-		       (or internal
-			   (not package-name)
-			   (symbol-external-p symbol)))
-	      (push symbol completions))))
-	(let ((*print-case* (if (find-if #'upper-case-p string)
-				:upcase :downcase))
-	      (*package* package))
-	  (mapcar (lambda (s)
-		    (cond (internal (format nil "~A::~A" package-name s))
-			  (package-name (format nil "~A:~A" package-name s))
-			  (t (format nil "~A" s))))
-		  completions))))))
-
-(defun symbol-external-p (s)
-  (multiple-value-bind (_ status)
-      (find-symbol (symbol-name s) (symbol-package s))
-    (declare (ignore _))
-    (eq status :external)))
- 
-(defun string-prefix-p (s1 s2)
-  "Return true iff the string S1 is a prefix of S2.
-\(This includes the case where S1 is equal to S2.)"
-  (and (<= (length s1) (length s2))
-       (string-equal s1 s2 :end2 (length s1))))
-
 ;;;; Definitions
 
 (defvar *debug-definition-finding* nil
@@ -601,38 +526,6 @@ Return NIL if the symbol is unbound."
       (if result
 	  (list* :designator (to-string symbol) result)))))
 
-(defslimefun apropos-list-for-emacs  (name &optional external-only package)
-  "Make an apropos search for Emacs.
-The result is a list of property lists."
-  (mapcan (listify #'briefly-describe-symbol-for-emacs)
-          (sort (apropos-symbols name external-only package)
-                #'present-symbol-before-p)))
-
-(defun listify (f)
-  "Return a function like F, but which returns any non-null value
-wrapped in a list."
-  (lambda (x)
-    (let ((y (funcall f x)))
-      (and y (list y)))))
-
-(defun present-symbol-before-p (a b)
-  "Return true if A belongs before B in a printed summary of symbols.
-Sorted alphabetically by package name and then symbol name, except
-that symbols accessible in the current package go first."
-  (flet ((accessible (s)
-           (find-symbol (symbol-name s) *buffer-package*)))
-    (let ((pa (symbol-package a))
-          (pb (symbol-package b)))
-      (cond ((or (eq pa pb)
-                 (and (accessible a) (accessible b)))
-             (string< (symbol-name a) (symbol-name b)))
-            ((accessible a) t)
-            ((accessible b) nil)
-            (t
-             (string< (package-name pa) (package-name pb)))))))
-
-
-
 (defslimefun describe-setf-function (symbol-name)
   (print-description-to-string
    (or (ext:info setf inverse (from-string symbol-name))
@@ -666,24 +559,12 @@ that symbols accessible in the current package go first."
 	   (debug::trace-1 fname (debug::make-trace-info))
 	   (format nil "~S is now traced." fname)))))
 
-(defslimefun untrace-all ()
-  (untrace))
-
-(defslimefun load-file (filename)
-  (load filename))
-
 
 ;;; Debugging
 
 (defvar *sldb-level* 0)
 (defvar *sldb-stack-top*)
 (defvar *sldb-restarts*)
-
-(defslimefun ping (level)
-  (cond ((= level *sldb-level*)
-	 *sldb-level*)
-	(t
-	 (throw-to-toplevel))))
 
 (defslimefun getpid ()
   (unix:unix-getpid))
