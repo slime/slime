@@ -1,3 +1,32 @@
+2004-01-02  Wolfgang Jenkner <wjenkner@inode.at>
+
+	* swank-clisp.lisp: New file.  Merged with Vladimir's version.
+
+	* xref.lisp: New file.  Used by swank-clisp.
+
+	* swank-loader.lisp (user-init-file): Add CLISP files.
+	
+	* swank.lisp (eval-region, tokenize-completion): Modify loops a
+	bit to make CLISP happy.
+
+	* swank-backend.lisp (with-compilation-hooks): Replace () with
+	(&rest _) to make CLISP happy.
+
+	* slime.el (slime-goto-source-location): Support for CLISP style
+	line numbers. Split it up.
+	(slime-goto-location-buffer, slime-goto-location-position): New
+	functions.
+	(slime-load-system): Use slime-display-output-buffer.
+	(slime-repl-mode): Disable conservative scrolling. Not sure if it
+	was a good idea.
+	(sldb-insert-frames, sldb-show-frame-details, sldb-list-locals):
+	Minor fixes.
+	(sldb-insert-locals): Renamed from sldb-princ-locals.
+	(sldb-invoke-restart): Use slime-eval instead of
+	slime-oneway-eval, because interactive restarts may read input.
+	(slime-open-inspector): Minor indentation fixes.
+	(slime-net-output-funcall): Removed.  Was unused.
+
 2003-12-19 Alan Ruttenberg <alanralanr@comcast.net>
 	* slime.el 1.157
 	fix bug in sldb-princ-locals I introduced when adding fonts to sldb
