@@ -1,3 +1,34 @@
+2003-11-29  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el: Some tweaking to the REPL.  slime-repl-input-end-mark
+	is now always left inserting and slime-mark-input-end
+	"deactivates" the end mark by moving it to the beginning of the
+	buffer.
+	(slime-goto-source-location): Next try for more uniform
+	source-locations.  A source-location is now a structure with a
+	"buffer-designator" and  "position-designator".  The buffer-designator
+	open the file or buffer and the position-designator moves point to the
+	right position.
+	(slime-autodoc-mode): New command.
+	(slime-find-fdefinitions): Experimental support for generic functions
+	with methods.
+	(slime-show-xrefs, slime-insert-xrefs, slime-goto-xref): Rewritten to
+	work with more general source locations.
+
+	* swank.lisp: Structure definitions for source-locations.
+	(alistify, location-position<, group-xrefs): Utilities for xref
+	support.
+
+	* swank-cmucl.lisp (code-location-source-location): Renamed from
+	safe-source-location-for-emacs.
+	(code-location-from-source-location): Renamed from
+	source-location-for-emacs.
+	(find-fdefinitions, function-source-locations): New functions.
+	(safe-definition-finding): New macro.
+
+	* swank-lispworks.lisp: Xref support.
+	(make-dspec-location): Updated for the new source-location format.
+
 2003-11-29  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (complete-symbol, arglist): Updated test cases for new
