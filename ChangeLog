@@ -2,6 +2,8 @@
 
 	* swank.lisp: Move definition of `with-io-redirection' above
 	`with-connection' to avoid a CLISP error. This is really weird.
+	(interactive-eval): Bind *package* to *buffer-package*, so that
+	`C-x C-e' and related commands evaluate in the expected package.
 
 	* slime.el (sldb-insert-frames): Handle empty backtrace (I got one
 	in CLISP).
