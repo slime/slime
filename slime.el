@@ -2395,7 +2395,7 @@ package is used."
          (prefix (buffer-substring-no-properties beg end))
          (completions (slime-completions prefix)))
     (destructuring-bind (match common-substring matches unique-p)
-        (completer prefix completions nil "-")
+        (completer prefix (slime-bogus-completion-alist completions) nil "-")
       (cond ((eq unique-p t)
              (message "[Sole completion]")
              (delete-region beg end)
