@@ -444,7 +444,7 @@ element."
      (encode-message `(:read-aborted ,(drop-thread thread) ,@args) socket-io))
     ((:emacs-return-string thread tag string)
      (send (lookup-thread-id thread) `(take-input ,tag ,string)))
-    (((:read-output :new-package :new-features :ed :%apply)
+    (((:read-output :new-package :new-features :ed :%apply :indentation-update)
       &rest _)
      (declare (ignore _))
      (encode-message event socket-io))))
