@@ -698,6 +698,11 @@ stack."
         (t
          (funcall fn))))
 
+(defimplementation default-readtable-alist ()
+  (let ((readtable (shebang-readtable)))
+    (loop for p in (remove-if-not #'sbcl-package-p (list-all-packages))
+          collect (cons (package-name p) readtable))))
+
 
 ;;;; Multiprocessing
 
