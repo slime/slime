@@ -13,7 +13,8 @@
 (in-package :swank)
 
 (defclass slime-output-stream (fundamental-character-output-stream)
-  ((buffer :initform (make-string 512))
+  ((output-fn :initarg :output-fn)
+   (buffer :initform (make-string 512))
    (fill-pointer :initform 0)
    (column :initform 0)))
 
@@ -35,20 +36,24 @@
   75)
 
 (defmethod stream-force-output ((stream slime-output-stream))
-  (with-slots (buffer fill-pointer) stream
+  (with-slots (buffer fill-pointer output-fn) stream
     (let ((end fill-pointer))
       (unless (zerop end)
-        (send-to-emacs `(:read-output ,(subseq buffer 0 end)))
+        (funcall output-fn (subseq buffer 0 end))
         (setf fill-pointer 0))))
   nil)
 
 (defclass slime-input-stream (fundamental-character-input-stream)
-  ((buffer :initform "") (index :initform 0)))
+  ((output-stream :initarg :output-stream)
+   (input-fn :initarg :input-fn)
+   (buffer :initform "") (index :initform 0)))
 
 (defmethod stream-read-char ((s slime-input-stream))
-  (with-slots (buffer index) s
+  (with-slots (buffer index output-stream input-fn) s
     (when (= index (length buffer))
-      (setf buffer (slime-read-string))
+      (when output-stream
+        (force-output output-stream))
+      (setf buffer (funcall input-fn))
       (setf index 0))
     (assert (plusp (length buffer)))
     (prog1 (aref buffer index) (incf index))))
