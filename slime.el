@@ -255,6 +255,12 @@ See also `slime-translate-to-lisp-filename-function'.")
 (def-sldb-face local-value "local variable values")
 (def-sldb-face catch-tag "catch tags")
 
+(defcustom slime-compilation-finished-hook '() 
+  "Hook called with a list of compiler notes after a compilation."
+  :group 'slime
+  :type 'hook
+  :options '(slime-list-compiler-notes slime-maybe-show-xrefs-for-notes))
+  
 
 ;;; Minor modes
 
@@ -1284,9 +1290,9 @@ This command is mostly intended for debugging the multi-session code."
              (slime-lisp-implementation-type-name))))
 
 (defun slime-make-default-connection ()
-  "Make the current buffer connection the default connection."
+  "Make the current connection the default connection."
   (interactive)
-  (slime-select-connection slime-buffer-connection)
+  (slime-select-connection (slime-connection))
   (message "Connection #%S (%s) now default SLIME connection."
            (slime-connection-number)
            (slime-lisp-implementation-type-name)))
@@ -2304,7 +2310,7 @@ See `slime-compile-and-load-file' for further details."
     (slime-eval-async
      `(swank:swank-compile-file ,lisp-filename ,(if load t nil))
      nil
-     (slime-compilation-finished-continuation t))
+     (slime-compilation-finished-continuation))
     (message "Compiling %s.." lisp-filename)))
 
 (defun slime-find-asd ()
@@ -2329,7 +2335,7 @@ buffer's working directory"
   (slime-eval-async
    `(swank:swank-load-system ,system-name)
    nil
-   (slime-compilation-finished-continuation t))
+   (slime-compilation-finished-continuation))
   (message "Compiling system %s.." system-name))
 
 (defun slime-compile-defun ()
@@ -2353,7 +2359,7 @@ buffer's working directory"
   (slime-eval-async 
    `(swank:swank-compile-string ,string ,(buffer-name) ,start-offset)
    (slime-buffer-package)
-   (slime-compilation-finished-continuation nil)))
+   (slime-compilation-finished-continuation)))
 
 (defvar slime-hide-style-warning-count-if-zero t)
 
@@ -2413,25 +2419,18 @@ Each newlines and following indentation is replaced by a single space."
     (decf n))
   list)
 
-(defun slime-compilation-finished (result buffer show-notes-buffer)
+(defun slime-compilation-finished (result buffer)
   (let ((notes (slime-compiler-notes)))
     (with-current-buffer buffer
       (multiple-value-bind (result secs) result
         (slime-show-note-counts notes secs)
         (slime-highlight-notes notes)))
-    (when (and show-notes-buffer (slime-length> notes 0))
-      (slime-list-compiler-notes notes))
-    ;;(let ((xrefs (slime-xrefs-for-notes notes)))
-    ;;  (when (> (length xrefs) 1) ; >1 file
-    ;;    (slime-show-xrefs
-    ;;     xrefs 'definition "Compiler notes" (slime-buffer-package))))
-    ))
+    (run-hook-with-args 'slime-compiler-finished-hook notes)))
 
-(defun slime-compilation-finished-continuation (show-notes-buffer)
-  (lexical-let ((buffer (current-buffer))
-                (show-notes-buffer show-notes-buffer))
+(defun slime-compilation-finished-continuation ()
+  (lexical-let ((buffer (current-buffer)))
     (lambda (result) 
-      (slime-compilation-finished result buffer show-notes-buffer))))
+      (slime-compilation-finished result buffer))))
 
 (defun slime-highlight-notes (notes)
   "Highlight compiler notes, warnings, and errors in the buffer."
@@ -2457,7 +2456,17 @@ Each newlines and following indentation is replaced by a single space."
 
 ;;;;; Compiler notes list
 
+(defun slime-maybe-show-xrefs-for-notes (&optional notes)
+  "Show the compiler notes NOTES in a xref buffer if they come from
+more than one file."
+  (let* ((notes (or notes (slime-compiler-notes))) 
+         (xrefs (slime-xrefs-for-notes notes)))
+    (when (> (length xrefs) 1)          ; >1 file
+      (slime-show-xrefs
+       xrefs 'definition "Compiler notes" (slime-buffer-package)))))
+
 (defun slime-list-compiler-notes (&optional notes)
+  "Show the compiler notes NOTES in tree view."
   (interactive)
   (let ((notes (or notes (slime-compiler-notes))))
     (with-current-buffer (get-buffer-create "*compiler notes*")
@@ -4735,16 +4744,18 @@ was called originally."
   ("d"         'slime-connection-list-make-default)
   ("q"         'slime-temp-buffer-quit))
 
+(defun slime-connection-at-point ()
+  (or (get-text-property (point) 'slime-connection)
+      (error "No connection at point")))
+
 (defun slime-goto-connection ()
   (interactive)
-  (let ((slime-dispatching-connection 
-         (get-text-property (point) 'slime-connection)))
+  (let ((slime-dispatching-connection (slime-connection-at-point)))
     (slime-switch-to-output-buffer)))
 
 (defun slime-connection-list-make-default ()
   (interactive)
-  (let ((slime-dispatching-connection 
-         (get-text-property (point) 'slime-connection)))
+  (let ((slime-dispatching-connection (slime-connection-at-point))) 
     (slime-make-default-connection)
     (slime-draw-connection-list)))
 
@@ -4752,35 +4763,31 @@ was called originally."
   "Display a list of all connections."
   (interactive)
   (when (get-buffer "*SLIME connections*")
-    (kill-buffer  "*SLIME connections*"))
+    (kill-buffer "*SLIME connections*"))
   (slime-draw-connection-list))
 
 (defun slime-draw-connection-list ()
   (let ((default-pos nil))
     (slime-with-output-to-temp-buffer "*SLIME connections*"
       (slime-connection-list-mode)
-      (let ((default (slime-connection)))
+      (let ((default (slime-connection))
+            (fstring "%s%2s  %-7s  %-17s  %-7s %-s\n"))
         (insert
-         (format "%s%2s  %-7s  %-17s  %-7s %-s\n" " " "Nr" "Name" "Port" "Pid" "Type"))
-        (insert
-         (format "%s%2s  %-7s  %-17s  %-7s %-s\n" " " "--" "----" "----" "---" "----"))
+         (format fstring " " "Nr" "Name" "Port" "Pid" "Type")
+         (format fstring " " "--" "----" "----" "---" "----"))
         (dolist (p (reverse slime-net-processes))
-          (let ((slime-dispatching-connection p)
-                (line-start (point)))
-            (if (eq default p) (setf default-pos line-start))
-            (insert
-             (slime-with-connection-buffer (p)
-               (format "%s%2d  %-7s  %-17s  %-7s %-s\n"
-                       (if (eq default p) "*" " ")
-                       (slime-connection-number)
-                       (slime-lisp-implementation-type-name)
-                       (or (process-id p) (process-contact p))
-                       (slime-pid)
-                       (slime-lisp-implementation-type))))
-            (add-text-properties line-start (point) (list 'slime-connection p))))))
-    (with-current-buffer (get-buffer "*SLIME connections*")
+          (when (eq default p) (setf default-pos (point)))
+          (slime-insert-propertized 
+           (list 'slime-connection p)
+           (format fstring
+                   (if (eq default p) "*" " ")
+                   (slime-connection-number p)
+                   (slime-lisp-implementation-type-name p)
+                   (or (process-id p) (process-contact p))
+                   (slime-pid p)
+                   (slime-lisp-implementation-type p))))))
+    (with-current-buffer "*SLIME connections*"
       (goto-char default-pos))))
-
 
 
 ;;; Inspector
@@ -4967,6 +4974,16 @@ BODY is a series of forms which must return the buffer to be selected."
 (def-slime-selector-method ?e
   "the most recently visited emacs-lisp-mode buffer."
   (slime-recently-visited-buffer 'emacs-lisp-mode))
+
+(def-slime-selector-method ?c
+  "the SLIME connections buffer."
+  (slime-list-connections)
+  "*SLIME connections*")
+
+(def-slime-selector-method ?t
+  "the SLIME threads buffer."
+  (slime-list-threads)
+  "*slime-threads*")
 
 (defun slime-recently-visited-buffer (mode)
   "Return the most recently visited buffer whose major-mode is MODE.
