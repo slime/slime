@@ -1,3 +1,8 @@
+2004-11-18  Alexey Dejneka <adejneka@comail.ru>
+
+	* swank.lisp (inspect-for-emacs): Fix bug in handling of arrays
+	with fill-pointers.
+
 2004-11-15  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el: The REPL commands ,quit and ,sayoonara are now
