@@ -1,3 +1,30 @@
+2004-04-08  Marco Baringer  <mb@bese.it>
+
+	* slime.el (slime-repl-package-stack): New buffer local variable.
+	(slime-repl-directory-stack): New buffer local variable.
+	(slime-repl-command-input-complete-p): Remove.
+	(slime-repl-update-banner): New function.
+	(slime-init-output-buffer): Use slime-repl-update-banner.
+	(slime-repl-shortcut-dispatch-char): New variable.
+	(slime-repl-return): Don't check for repl commands anymore.
+	(slime-repl-send-repl-command): Remove.
+	(slime-repl-mode-map): Bind slime-repl-shortcut-dispatch-char to
+	slime-handle-repl-shortcut.
+	(slime-set-default-directory): Use read-directory-name, call
+	slime-repl-update-banner.
+	(slime-repl-shortcut-table): New global variable.
+	(slime-handle-repl-shortcut): New function.
+	(defslime-repl-shortcut): New macro for defining repl shortcuts.
+	(slime-repl-shortcut-help, "change-directory",
+	slime-repl-push-directory, slime-repl-pop-directory,
+	"change-package", slime-repl-push-package, slime-repl-pop-package,
+	slime-repl-resend, slime-repl-sayoonara, slime-repl-defparameter,
+	slime-repl-compile-and-load): New repl shortcuts.
+	(slime-kill-all-buffers): Kill sldb buffers as well.
+
+	* swank.lisp: Remove the repl related functions.
+	(requires-compile-p): New function.
+	
 2004-04-07  Lawrence Mitchell  <wence@gmx.li>
 
 	* slime.el (slime-repl-prompt-face): New face.

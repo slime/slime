@@ -88,6 +88,14 @@ Nil means never give up.")
 Don't access this value directly in a program. Call the function with
 the same name instead."))
 
+(make-variable-buffer-local
+ (defvar slime-repl-package-stack nil
+   "The stack of packages visited in this repl."))
+
+(make-variable-buffer-local
+ (defvar slime-repl-directory-stack nil
+   "The stack of default directories associated with this repl."))
+
 (defvar slime-dont-prompt nil
   "* When true, don't prompt the user for input during startup.
 This is used for batch-mode testing.")
@@ -405,25 +413,6 @@ A prefix argument disables this behaviour."
                      do (forward-sexp))
                t)))
           (t t))))
-
-(defun slime-repl-command-input-complete-p (start end)
-  "Return t if the region from START to END contains a complete SLIME repl command.
-
-  So, what's a SLIME repl command? A #\, followed by the name of
-  a repl command followed by n complete lisp forms."
-  (interactive (list (point-min) (point-max)))
-  (save-excursion
-    (goto-char start)
-    (and (looking-at " *, *")
-         (save-restriction
-           (narrow-to-region (search-forward-regexp "\\s *,") end)
-           (loop 
-              do (skip-chars-forward " \t\r\n")
-              until (eobp)
-              do (condition-case nil
-                     (forward-sexp)
-                   (scan-error (return nil)))
-              finally (return t))))))
 
 (defun inferior-slime-input-complete-p ()
   "Return true if the input is complete in the inferior lisp buffer."
@@ -1807,28 +1796,34 @@ deal with that."
           (unless noprompt (slime-repl-insert-prompt "" 0))
           (current-buffer)))))
 
+(defun slime-repl-update-banner ()
+  (let ((banner (format "%s  Port: %s  Pid: %s Pwd: %s"
+                        (slime-lisp-implementation-type)
+                        (if (featurep 'xemacs)
+                            (process-id (slime-connection))
+                            (process-contact (slime-connection)))
+                        (slime-pid)
+                        (expand-file-name default-directory))))
+    ;; Emacs21 has the fancy persistent header-line.
+    (cond ((boundp 'header-line-format)
+           (setq header-line-format banner)
+           (pop-to-buffer (current-buffer))
+           (when (fboundp 'animate-string)
+             ;; and dancing text
+             (when (zerop (buffer-size))
+               (animate-string (format "; SLIME %s" slime-changelog-date)
+                               0 0)))
+           (slime-repl-insert-prompt ""))
+          (t
+           (slime-repl-insert-prompt (concat "; " banner))
+           (pop-to-buffer (current-buffer))))))  
+
 (defun slime-init-output-buffer (connection)
   (with-current-buffer (slime-output-buffer t)
     (set (make-local-variable 'slime-buffer-connection) connection)
-    (let ((banner (format "%s  Port: %s  Pid: %s"
-                          (slime-lisp-implementation-type)
-                          (if (featurep 'xemacs)
-                              (process-id (slime-connection))
-                            (process-contact (slime-connection)))
-                          (slime-pid))))
-      ;; Emacs21 has the fancy persistent header-line.
-      (cond ((boundp 'header-line-format)
-             (setq header-line-format banner)
-             (pop-to-buffer (current-buffer))
-             (when (fboundp 'animate-string)
-               ;; and dancing text
-               (when (zerop (buffer-size))
-                 (animate-string (format "; SLIME %s" slime-changelog-date)
-                                 0 0)))
-             (slime-repl-insert-prompt ""))
-            (t
-             (slime-repl-insert-prompt (concat "; " banner))
-             (pop-to-buffer (current-buffer)))))))
+    ;; set the directory stack
+    (setq slime-repl-directory-stack (list (expand-file-name default-directory)))
+    (slime-repl-update-banner)))
 
 (defvar slime-show-last-output-function 
   'slime-maybe-display-output-buffer
@@ -1982,6 +1977,11 @@ update window-point afterwards.  If point is initially not at
  (defvar slime-repl-input-start-mark)
  (defvar slime-repl-input-end-mark)
  (defvar slime-repl-last-input-start-mark))
+
+(defcustom slime-repl-shortcut-dispatch-char ?\,
+  "Character used to distinguish repl commands from lisp forms."
+  :type '(character)
+  :group 'slime)
 
 (defvar slime-repl-mode-map)
 
@@ -2182,10 +2182,6 @@ balanced."
   (cond (current-prefix-arg
          (slime-repl-send-input)
          (insert "\n"))
-        ((slime-repl-command-input-complete-p slime-repl-input-start-mark slime-repl-input-end-mark)
-         (goto-char slime-repl-input-end-mark)
-         (insert "\n")
-         (slime-repl-send-repl-command))
         ((slime-input-complete-p slime-repl-input-start-mark 
                                  slime-repl-input-end-mark)
          (goto-char slime-repl-input-end-mark)
@@ -2204,28 +2200,6 @@ balanced."
     (slime-mark-output-start)
     (slime-mark-input-start)
     (slime-repl-send-string (concat input "\n"))))
-
-(defun slime-repl-send-repl-command ()
-  "Goto the end of the input and send the current input (which
-  we're assuming is a repl command."
-  (let ((input (buffer-substring-no-properties (save-excursion
-                                                 (goto-char slime-repl-input-start-mark)
-                                                 (search-forward-regexp "\\s-*,"))
-                                               (save-excursion
-                                                 (goto-char slime-repl-input-end-mark)
-                                                 (when (and (eq (char-before) ?\n)
-                                                            (not (slime-reading-p)))
-                                                   (backward-char 1))
-                                                 (point)))))
-    (goto-char slime-repl-input-end-mark)
-    (add-text-properties slime-repl-input-start-mark (point)
-                         '(face slime-repl-input-face rear-nonsticky (face)))
-    (slime-mark-output-start)
-    (slime-mark-input-start)
-    (if (string-match "^\\s-*\\+\\s-*$" input)
-        ;; majik ,+ command
-        (slime-repl-send-string (pop slime-repl-input-history))
-        (slime-repl-send-string (concat "(swank::repl-command " input ")\n") (concat "," input)))))
 
 (defun slime-repl-closing-return ()
   "Evaluate the current input string after closing all open lists."
@@ -2415,6 +2389,7 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   ("\C-c\C-p" 'slime-repl-previous-prompt)
   ("\M-\C-a" 'slime-repl-beginning-of-defun)
   ("\M-\C-e" 'slime-repl-end-of-defun)
+  ((string slime-repl-shortcut-dispatch-char) 'slime-handle-repl-shortcut)
   )
 
 (define-minor-mode slime-repl-read-mode 
@@ -4414,9 +4389,10 @@ CL:MACROEXPAND."
   (message "*package*: %s" (slime-eval `(swank:set-package ,package))))
 
 (defun slime-set-default-directory (directory)
-  (interactive (list (read-file-name "Directory: " nil default-directory t)))
+  (interactive (list (read-directory-name "Directory: " nil nil t)))
   (with-current-buffer (slime-output-buffer)
-    (setq default-directory (expand-file-name directory)))
+    (setq default-directory (expand-file-name directory))
+    (slime-repl-update-banner))
   (message "default-directory: %s" 
 	   (slime-eval `(swank:set-default-directory 
 			 ,(expand-file-name directory)))))
@@ -5757,6 +5733,145 @@ BODY returns true if the check succeeds."
 (put 'def-slime-test 'lisp-indent-function 4)
 (put 'slime-check 'lisp-indent-function 1)
 
+;;;; REPL handlers
+
+(defvar slime-repl-shortcut-table nil)
+
+(defun slime-handle-repl-shortcut ()
+  (interactive)
+  (if (save-excursion
+        (goto-char slime-repl-input-start-mark)
+        (looking-at " *$"))
+      (let* ((command-name (completing-read "Command: " 
+                                            slime-repl-shortcut-table
+                                            nil
+                                            t
+                                            nil
+                                            'slime-repl-shortcut-history))
+             (command-spec (cdr (assoc command-name slime-repl-shortcut-table))))
+        (call-interactively (cdr (assoc :handler command-spec))))
+      (insert (string slime-repl-shortcut-dispatch-char))))
+
+(defmacro defslime-repl-shortcut (elisp-name names &rest options)
+  `(progn
+     ,(when elisp-name
+        `(defun ,elisp-name ()
+           (interactive)
+           (call-interactively ,(cdr (assoc :handler options)))))
+     ,@(loop
+          initially (setf options (mapcar (lambda (option)
+                                           `(cons ,(first option) ,(second option)))
+                                         options))
+          for name in names
+          collect `(if (assoc ,name slime-repl-shortcut-table)
+                       (setf (cdr (assoc ,name slime-repl-shortcut-table))
+                             (list ,name ,@options))
+                       (push (list ,name ,@options) slime-repl-shortcut-table)))
+     ',elisp-name))
+
+(defslime-repl-shortcut slime-repl-shortcut-help ("?" "help")
+  (:handler (lambda ()
+              (interactive)
+              (slime-with-output-to-temp-buffer "*slime-repl-help*"
+                (dolist (repl-shortcut slime-repl-shortcut-table)
+                  (insert (first repl-shortcut) "\n")
+                  (insert "     " (cdr (assoc :one-liner repl-shortcut)) "\n")))))
+  (:one-liner "Display the help."))
+
+(defslime-repl-shortcut nil ("!d" "change-directory")
+  (:handler 'slime-set-default-directory)
+  (:one-liner "Change the current directory."))
+
+(defslime-repl-shortcut slime-repl-push-directory ("+d" "push-directory")
+  (:handler (lambda (directory)
+              (interactive (list (expand-file-name (read-directory-name "Push directory: "
+                                                                        (slime-eval '(cl:namestring
+                                                                                      (cl:truename
+                                                                                       cl:*default-pathname-defaults*)))
+                                                                        nil nil ""))))
+                (push directory slime-repl-directory-stack)
+                (slime-set-default-directory directory)))
+  (:one-liner "Push a new directory onto the directory stack."))
+
+(defslime-repl-shortcut slime-repl-pop-directory ("-d" "pop-directory")
+  (:handler (lambda ()
+              (interactive)
+              (unless (= 1 (length slime-repl-directory-stack))
+                (pop slime-repl-directory-stack))
+              (slime-set-default-directory (car slime-repl-directory-stack))))
+  (:one-liner "Pop the current directory."))
+
+(defslime-repl-shortcut nil ("!p" "change-package")
+  (:handler 'slime-repl-set-package)
+  (:one-liner "Change the current package."))
+
+(defslime-repl-shortcut slime-repl-push-package ("+p" "push-package")
+  (:handler (lambda (package)
+              (interactive (list (slime-read-package-name "Package: ")))
+              (push package slime-repl-package-stack)
+              (slime-repl-set-package package)))
+  (:one-liner "Push a package onto the package stack."))
+
+(defslime-repl-shortcut slime-repl-pop-package ("-p" "pop-package")
+  (:handler (lambda ()
+              (interactive)
+              (unless (= 1 (length slime-repl-package-stack))
+                (pop slime-repl-package-stack))
+              (slime-repl-set-package (car slime-repl-package-stack))))
+  (:one-liner "Pop the top of the package stack."))
+
+(defslime-repl-shortcut slime-repl-resend ("resend-form")
+  (:handler (lambda ()
+              (interactive)
+              (insert (car slime-repl-input-history))
+              (insert "\n")
+              (slime-repl-send-input)))
+  (:one-liner "Resend the last form."))
+
+(defslime-repl-shortcut slime-repl-sayoonara ("sayoonara")
+  (:handler (lambda ()
+              (interactive)
+              (slime-eval-async '(swank-backend:quit-lisp) "SWANK-BACKEND" (lambda (_) nil))
+              (slime-kill-all-buffers)))
+  (:one-liner "Quit the lisp and close all SLIME buffers."))
+
+(defslime-repl-shortcut slime-repl-defparameter ("!" "defparameter")
+  (:handler (lambda (name value)
+              (interactive (list (slime-read-symbol-name "Name (symbol): " t)
+                                 (slime-read-from-minibuffer "Value: " "nil")))
+              (insert "(cl:defparameter " name " " value-form " \"REPL generated global variable.\")")
+              (slime-repl-send-input)))
+  (:one-liner "Define a new global, special, variable."))
+
+(defslime-repl-shortcut slime-repl-compile-and-load ("compile-and-load")
+  (:handler (lambda (file-name)
+              (interactive (list (expand-file-name (read-file-name "File: " 
+                                                                   nil nil nil nil 
+                                                                   (lambda (filename)
+                                                                     (string-match ".*\\.\\(lisp\\|cl\\)$" filename))))))
+              (lexical-let ((lisp-file-name (slime-to-lisp-filename file.lisp)))
+                (if (slime-eval `(swank::requires-compile-p ,lisp-file-name))
+                    (progn
+                      (save-some-buffers)
+                      (slime-insert-transcript-delimiter
+                       (format "Compile file %s" lisp-file-name))
+                      (slime-display-output-buffer)
+                      (slime-eval-async
+                       `(swank:compile-file-for-emacs ,file.lisp nil)
+                       nil
+                       ;; after compiling we must load.
+                       (lexical-let ((buffer (current-buffer)))
+                         (lambda (result)
+                           (slime-compilation-finished result buffer)
+                           (message "Loading %s.." lisp-file-name)
+                           (slime-eval-with-transcript `(swank:load-file ,lisp-file-name) nil))))
+                      (message "Compiling %s.." lisp-file-name))
+                    ;; don't need to compile, just load
+                    (progn
+                      (message "Loading %s.." lisp-file-name)
+                      (slime-eval-with-transcript `(swank:load-file ,lisp-file-name) nil))))))
+  (:one-liner "Compile (if neccessary) and load a lisp file."))
+
 ;;;; Cleanup after a quit
 
 (defun slime-kill-all-buffers ()
@@ -5764,7 +5879,8 @@ BODY returns true if the check succeeds."
   repl command sayoonara."
   (dolist (buf (buffer-list))
     (when (or (member (buffer-name buf) (list "*inferior-lisp*" "*slime-events*"))
-              (string-match "\*slime-repl\[\d+\]\*" (buffer-name buf)))
+              (string-match "\*slime-repl\[\d+\]\*" (buffer-name buf))
+              (string-match "\*sldb .*\*" (buffer-name buf)))
       (kill-buffer buf))))
 
 

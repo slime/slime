@@ -1755,6 +1755,12 @@ that symbols accessible in the current package go first."
 (defslimefun load-file (filename)
   (to-string (load filename)))
 
+(defun requires-compile-p (pathname)
+  (let ((compile-file-truename (probe-file (compile-file-pathname pathname))))
+    (or (not compile-file-truename)
+        (< (file-write-date compile-file-truename)
+           (file-write-date pathname)))))
+
 
 ;;;; Profiling
 
@@ -2010,49 +2016,6 @@ a time.")
                       (lambda ()
 			(with-connection (connection)
 			  (simple-break))))))
-
-;;;; REPL Commands
-
-(defvar *repl-commands* (make-hash-table :test 'equal))
-
-(defmacro defslime-repl-command (name args &body body)
-  `(progn
-     (setf (gethash ,(symbol-name name) *repl-commands*)
-           (lambda ,args ,@body))
-     ',name))
-
-(defmacro repl-command (op &rest args)
-  `(if (gethash ,(symbol-name op) *repl-commands*)
-       (funcall (gethash ,(symbol-name op) *repl-commands*)  ,@args)
-       (error "Unknown repl command ~S." ,(symbol-name op))))
-
-(defslime-repl-command sayoonara ()
-  (eval-in-emacs '(slime-kill-all-buffers))
-  (swank-backend:quit-lisp))
-
-(defslime-repl-command cd (namestring)
-  (set-default-directory namestring))
-
-(defslime-repl-command pwd ()
-  (truename *default-pathname-defaults*))
-
-(defslime-repl-command pack (&optional new-package)
-  (setf *package* (if new-package
-                      (or (find-package new-package)
-                          (progn
-                            (warn "No package named ~S found." new-package)
-                            *package*))
-                      *package*)))
-
-(defslime-repl-command cload (file &optional force)
-  (unless (probe-file (merge-pathnames file))
-    (error "~S does not exist, can't load it." file))
-  (if (or force
-          (not (probe-file (compile-file-pathname file)))
-          (< (file-write-date (compile-file-pathname file))
-             (file-write-date file)))
-      (compile-file-for-emacs file t)
-      (load file)))
 
 ;;; Local Variables:
 ;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
