@@ -1,3 +1,31 @@
+2004-08-02  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-connect): Shorten the welcome message by leaving
+	out the port number (which is displayed in the REPL anyway). This
+	avoids line-wrapping some messages of encouragement.
+
+	* swank.lisp (with-buffer-syntax): Don't bind *readtable* to
+	*buffer-readtable* if they are already EQ. When we shadow this
+	binding the user can't assign *readtable* from the REPL so it's
+	best avoided when possible.
+
+	* swank-allegro.lisp: Removed fwrapper-based code for inheriting
+	"swankiness" to newly spawned threads. This was fighting the
+	system and not the right thing.
+
+	* slime.el (slime-choose-overlay-region): Tweaked the
+	multiline-annotation-avoidance code to work with forms not
+	starting with an open-paren, e.g. `(..) or #'(..).
+	(slime-update-modeline-package): New configurable. Non-nil (the
+	default) means update the Lisp package in the modeline using an
+	idle timer.
+	(slime-repl-send-input): Make the `slime-repl-old-input' property
+	cover the whole input (including newline) so that pressing RET on
+	the end of an input line works.
+	Use a unique integer as the value of this property to distinguish
+	adjacent inputs.
+	(slime-current-package): Deal with narrowing.
+
 2004-08-01  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-allegro.lisp (swank-compile-string): Use a temporary file
@@ -25,20 +53,6 @@
 
 	* swank-backend.lisp (sldb-condition): Show the original condition
 	in the message.
-
-2004-07-30  Luke Gorrie  <luke@bluetail.com>
-
-	* slime.el (slime-choose-overlay-region): Tweaked the
-	multiline-annotation-avoidance code to work with forms not
-	starting with an open-paren, e.g. `(..) or #'(..).
-	(slime-update-modeline-package): New configurable. Non-nil (the
-	default) means update the Lisp package in the modeline using an
-	idle timer.
-	(slime-repl-send-input): Make the `slime-repl-old-input' property
-	cover the whole input (including newline) so that pressing RET on
-	the end of an input line works.
-	Use a unique integer as the value of this property to distinguish
-	adjacent inputs.
 
 2004-07-28  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
