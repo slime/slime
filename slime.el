@@ -4709,23 +4709,15 @@ was called originally."
 (defun slime-goto-connection ()
   (interactive)
   (let ((slime-dispatching-connection 
-         (slime-find-connection-by-type-name
-          (slime-extract-type-name-from-line))))
+         (get-text-property (point) 'slime-connection)))
     (slime-switch-to-output-buffer)))
 
 (defun slime-connection-list-make-default ()
   (interactive)
   (let ((slime-dispatching-connection 
-         (slime-find-connection-by-type-name
-          (slime-extract-type-name-from-line))))
+         (get-text-property (point) 'slime-connection)))
     (slime-make-default-connection)
     (slime-draw-connection-list)))
-
-(defun slime-extract-type-name-from-line ()
-  (save-excursion
-    (beginning-of-line)
-    (search-forward-regexp "[0-9]\\s *\\([0-9a-zA-Z]+\\)")
-    (match-string 1)))
 
 (defun slime-list-connections ()
   "Display a list of all connections."
@@ -4744,8 +4736,9 @@ was called originally."
         (insert
          (format "%s%2s  %-7s  %-17s  %-7s %-s\n" " " "--" "----" "----" "---" "----"))
         (dolist (p (reverse slime-net-processes))
-          (let ((slime-dispatching-connection p))
-            (if (eq default p) (setf default-pos (point)))
+          (let ((slime-dispatching-connection p)
+                (line-start (point)))
+            (if (eq default p) (setf default-pos line-start))
             (insert
              (slime-with-connection-buffer (p)
                (format "%s%2d  %-7s  %-17s  %-7s %-s\n"
@@ -4754,7 +4747,8 @@ was called originally."
                        (slime-lisp-implementation-type-name)
                        (or (process-id p) (process-contact p))
                        (slime-pid)
-                       (slime-lisp-implementation-type))))))))
+                       (slime-lisp-implementation-type))))
+            (add-text-properties line-start (point) (list 'slime-connection p))))))
     (with-current-buffer (get-buffer "*SLIME connections*")
       (goto-char default-pos))))
 
