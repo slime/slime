@@ -193,7 +193,9 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
         (send-to-emacs (if ok `(:ok ,result) '(:aborted)))))))
 
 (defslimefun interactive-eval (string)
-  (let ((values (multiple-value-list (eval (from-string string)))))
+  (let ((values (multiple-value-list
+                 (let ((*package* *buffer-package*))
+                   (eval (from-string string))))))
     (force-output)
     (format nil "~{~S~^, ~}" values)))
 
