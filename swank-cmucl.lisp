@@ -1269,7 +1269,8 @@ Signal an error if no constructor can be found."
                 ((c::byte-function-or-closure-p fun)
                  (byte-code-function-arglist fun))
                 ((kernel:%function-arglist (kernel:%function-self fun))
-                 (read-arglist fun))
+                 (handler-case (read-arglist fun)
+                     (error () :not-available)))
                 ;; this should work both for compiled-debug-function
                 ;; and for interpreted-debug-function
                 (t 
