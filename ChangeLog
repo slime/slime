@@ -1,3 +1,7 @@
+2004-09-08  Martin Simmons <martin@xanalys.com>
+
+	* swank-lispworks.lisp: Implement call-with-compilation-hooks.
+
 2004-09-03  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* NEWS: Summarize changes since August.
