@@ -148,11 +148,11 @@ This is used for batch-mode testing.")
   :group 'slime)
 
 
-;;; Minor mode 
+;;; Minor modes
 
 (define-minor-mode slime-mode
   "\\<slime-mode-map>
-SLIME: The Superior Lisp Interaction Mode, Extended (minor-mode).
+SLIME: The Superior Lisp Interaction Mode for Emacs (minor-mode).
 
 Commands to compile the current buffer's source file and visually
 highlight any resulting compiler notes and warnings:
@@ -195,49 +195,21 @@ Evaluation commands:
 \\{slime-mode-map}"
   nil
   nil
-  '((" "        . slime-space)
-    ("\M-p"     . slime-previous-note)
-    ("\M-n"     . slime-next-note)
-    ("\C-c\M-c" . slime-remove-notes)
-    ("\C-c\C-k" . slime-compile-and-load-file)
-    ("\C-c\M-k" . slime-compile-file)
-    ("\C-c\C-c" . slime-compile-defun)
-    ("\C-c\C-l" . slime-load-file)
-    ;; Multiple bindings for completion, since M-TAB is often taken by
-    ;; the window manager.
-    ("\M-\C-i"  . slime-complete-symbol)
-    ("\C-c\C-i" . slime-complete-symbol)
-    ("\M-."     . slime-edit-fdefinition)
-    ("\M-,"     . slime-pop-find-definition-stack)
-    ("\C-x\C-e" . slime-eval-last-expression)
-    ("\C-c\C-p" . slime-pprint-eval-last-expression)
-    ("\M-\C-x"  . slime-eval-defun)
-    ("\C-c:"    . slime-interactive-eval)
-    ("\C-c\C-z" . slime-switch-to-output-buffer)
-    ("\C-c\C-d" . slime-describe-symbol)
-    ("\C-c\M-d" . slime-disassemble-symbol)
-    ("\C-c\C-t" . slime-toggle-trace-fdefinition)
-    ("\C-c\C-a" . slime-apropos)
-    ("\C-c\M-a" . slime-apropos-all)
-    ([(control c) (control m)] . slime-macroexpand-1)
-    ([(control c) (meta m)]    . slime-macroexpand-all)
-    ("\C-c\C-g" . slime-interrupt)
-    ("\C-c\M-g" . slime-quit)
-    ("\C-c\M-0" . slime-restore-window-configuration)
-    ("\C-c\C-h" . hyperspec-lookup)
-    ("\C-c\C-wc" . slime-who-calls)
-    ("\C-c\C-wr" . slime-who-references)
-    ("\C-c\C-wb" . slime-who-binds)
-    ("\C-c\C-ws" . slime-who-sets)
-    ("\C-c\C-wm" . slime-who-macroexpands)
-    ;; Not sure which binding is best yet, so both for now.
-    ([(control meta ?\.)] . slime-next-location)
-    ("\C-c\C- " . slime-next-location)
-    ("\C-c~"    . slime-sync-package-and-default-directory)
-    ("\C-c\C-i" . slime-inspect)
-    ("\C-c<"    . slime-list-callers)
-    ("\C-c>"    . slime-list-callees)
-    ))
+  ;; Fake binding to coax `define-minor-mode' to create the keymap
+  '((" " 'undefined)))
+
+(define-minor-mode inferior-slime-mode
+  "\\<slime-mode-map>
+Inferior SLIME mode: The Inferior Superior Lisp Mode for Emacs.
+
+This mode is intended for use with `inferior-lisp-mode'. It provides a
+subset of the bindings from `slime-mode'.
+
+\\{inferior-slime-mode-map}"
+  nil
+  nil
+  ;; Fake binding to coax `define-minor-mode' to create the keymap
+  '((" " 'undefined)))
 
 ;; Setup the mode-line to say when we're in slime-mode, and which CL
 ;; package we think the current buffer belongs to.
@@ -246,6 +218,82 @@ Evaluation commands:
                (" Slime"
 		((slime-buffer-package (":" slime-buffer-package) "")
 		 slime-state-name))))
+
+(add-to-list 'minor-mode-alist
+             '(inferior-slime-mode
+               (" Inf-Slime"
+		((slime-buffer-package (":" slime-buffer-package) "")
+		 slime-state-name))))
+
+;; Key bindings. See `slime-define-key' below for keyword meanings.
+(defvar slime-keys
+  '(;; Compiler notes
+    ("\M-p" slime-previous-note)
+    ("\M-n" slime-next-note)
+    ("\M-c" slime-remove-notes :prefixed t)
+    ("\C-k" slime-compile-and-load-file :prefixed t)
+    ("\M-k" slime-compile-file :prefixed t)
+    ("\C-c" slime-compile-defun :prefixed t)
+    ("\C-l" slime-load-file :prefixed t)
+    ;; Editing/navigating
+    ;; NB: Existing `slime-inspect' binding of \C-c\C-i (i.e. C-TAB)
+    ;; clashes with completion! Need a new key for one of them.
+    ("\M-\C-i" slime-complete-symbol :inferior t)
+    ("\C-i" slime-complete-symbol :prefixed t :inferior t)
+    ("\M-." slime-edit-fdefinition :inferior t)
+    ("\M-," slime-pop-find-definition-stack :inferior t)
+    ;; Evaluating
+    ("\C-x\C-e" slime-eval-last-expression :inferior t)
+    ("\C-p" slime-pprint-eval-last-expression :prefixed t :inferior t)
+    ("\C-\M-x" slime-eval-defun)
+    (":" slime-interactive-eval :prefixed t)
+    ("\C-z" slime-switch-to-output-buffer :prefixed t)
+    ("\C-g" slime-interrupt :prefixed t :inferior t)
+    ("\M-g" slime-quit :prefixed t :inferior t)
+    ;; Documentation
+    (" " slime-space :inferior t)
+    ("\C-d" slime-describe-symbol :prefixed t :inferior t)
+    ("\M-d" slime-disassemble-symbol :prefixed t :inferior t)
+    ("\C-t" slime-toggle-trace-fdefinition :prefixed t)
+    ("\C-a" slime-apropos :prefixed t :inferior t)
+    ("\M-a" slime-apropos-all :prefixed t :inferior t)
+    ("\C-m" slime-macroexpand-1 :prefixed t :inferior t)
+    ("\M-m" slime-macroexpand-all :prefixed t :inferior t)
+    ("\M-0" slime-restore-window-configuration :prefixed t :inferior t)
+    ("\C-h" hyperspec-lookup :prefixed t :inferior t)
+    ([(control meta ?\.)] slime-next-location :inferior t)
+    ("\C- " slime-next-location :prefixed t :inferior t)
+    ("~" slime-sync-package-and-default-directory :prefixed t :inferior t)
+    ;; Cross reference
+    ("\C-wc" slime-who-calls :prefixed t :inferior t)
+    ("\C-wr" slime-who-references :prefixed t :inferior t)
+    ("\C-wb" slime-who-binds :prefixed t :inferior t)
+    ("\C-ws" slime-who-sets :prefixed t :inferior t)
+    ("\C-wm" slime-who-macroexpands :prefixed t :inferior t)
+    ("<" slime-list-callers :prefixed t :inferior t)
+    (">" slime-list-callees :prefixed t :inferior t)))
+
+;; Maybe a good idea, maybe not..
+(defvar slime-prefix-key "\C-c"
+  "The prefix key to use in SLIME keybinding sequences.")
+
+(defun* slime-define-key (key command &key prefixed inferior)
+  "Define a keybinding of KEY for COMMAND.
+If PREFIXED is non-nil, `slime-prefix-key' is prepended to KEY.
+If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
+  (when prefixed
+    (setq key (concat slime-prefix-key key)))
+  (define-key slime-mode-map key command)
+  (when inferior
+    (define-key inferior-slime-mode-map key command)))
+
+(defun slime-init-keymaps ()
+  "(Re)initialize the keymaps for `slime-mode' and `inferior-slime-mode'."
+  (interactive)
+  (dolist (binding-spec slime-keys)
+    (apply #'slime-define-key binding-spec)))
+
+(slime-init-keymaps)
 
 
 ;;; Setup initial `slime-mode' hooks
@@ -325,9 +373,10 @@ DONT-CACHE is non-nil."
 (defun slime-find-buffer-package ()
   "Figure out which Lisp package the current buffer is associated with."
   (save-excursion
-    (when (let ((case-fold-search t))
-	    (re-search-backward "^(\\(cl:\\|common-lisp:\\)?in-package\\>" 
-				nil t))
+    (when (let ((case-fold-search t)
+                (regexp "^(\\(cl:\\|common-lisp:\\)?in-package\\>"))
+	    (or (re-search-backward regexp nil t)
+                (re-search-forward regexp nil t)))
       (goto-char (match-end 0))
       (skip-chars-forward " \n\t\f\r#:")
       (let ((pkg (condition-case nil (read (current-buffer)) (error nil ))))
