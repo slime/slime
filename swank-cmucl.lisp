@@ -743,14 +743,22 @@ NAME can any valid function name (e.g, (setf car))."
           (make-location `(:buffer ,emacs-buffer)
                          `(:position ,(+ emacs-buffer-offset pos))))))))
 
+(defun file-source-location-p (object) 
+  (when (fboundp 'c::file-source-location-p)
+    (c::file-source-location-p object)))
+
+(defun stream-source-location-p (object)
+  (when (fboundp 'c::stream-source-location-p)
+    (c::stream-source-location-p object)))
+
 (defun definition-source-location (object name)
   (let ((source (pcl::definition-source object)))
     (etypecase source
       (null 
        `(:error ,(format nil "No source info for: ~A" object)))
-      (c::file-source-location
+      ((satisfies file-source-location-p)
        (resolve-file-source-location source))
-      (c::stream-source-location
+      ((satisfies stream-source-location-p)
        (resolve-stream-source-location source))
       (pathname 
        (make-name-in-file-location source name))
@@ -768,17 +776,17 @@ NAME can any valid function name (e.g, (setf car))."
           (null '())
           (kernel::structure-class 
            (list (list `(defstruct ,name) (dd-location (find-dd name)))))
+          #+(or)
           (conditions::condition-class
            (list (list `(define-condition ,name) 
                        (condition-class-location class))))
           (kernel::standard-class
            (list (list `(defclass ,name) 
                        (class-location (find-class name)))))
-          (kernel::built-in-class
+          ((or kernel::built-in-class conditions::condition-class)
            (list (list `(kernel::define-type-class ,name)
                        `(:error 
-                         ,(format nil "No source info for built-in-class: ~A"
-                                  name)))))))))
+                         ,(format nil "No source info for ~A" name)))))))))
 
 (defun setf-definitions (name)
   (let ((function (or (ext:info :setf :inverse name)
