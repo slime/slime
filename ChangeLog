@@ -1,3 +1,11 @@
+2004-08-16  Luke Gorrie  <luke@bluetail.com>
+
+	* doc/slime.texi: Random updates.
+
+	* slime.el (slime-space): Use slime-message instead of
+	slime-background-message. This displays multi-line arglists.
+	(sldb-mode-map): Bind 'C' to sldb-inspect-condition.
+
 2004-08-14  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-find-buffer-package): Use "%s", not "%S", to
