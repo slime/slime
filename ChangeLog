@@ -1,3 +1,16 @@
+2004-11-09  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (features-for-emacs): New function to avoid
+	keyword/string confusion.  Case doesn't matter since Emacs will
+	downcase them anyway.
+	(connection-info, sync-features-to-emacs): Use it.  Should fix
+	highlighting bug reported by Edi Weitz.
+
+	* slime.el (slime-eval-feature-conditional): Convert AND, OR, and
+	NOT to lowercase keywords.
+	(slime-net-read3): Silly optimization: give char-after the offset
+	as argument to avoid save-excursion and forward-char.
+
 2004-11-07  Brian Downing  <bdowning@lavos.net>
 
 	* slime.el (slime-fuzzy-explanation): Added line to describe
