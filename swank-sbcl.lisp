@@ -176,7 +176,8 @@ information."
                        (sb-c:compiler-error  :error)
                        (sb-ext:compiler-note :note)
                        (style-warning        :style-warning)
-                       (warning              :warning))
+                       (warning              :warning)
+                       (error                :error))
            :short-message (brief-compiler-message-for-emacs condition)
            :references
            ;; FIXME: delete the reader conditionaloid after sbcl
@@ -278,22 +279,27 @@ compiler state."
 
 (defimplementation call-with-compilation-hooks (function)
   (declare (type function function))
-  (handler-bind ((sb-c:compiler-error  #'handle-notification-condition)
+  (handler-bind ((sb-c:fatal-compiler-error #'handle-file-compiler-termination)
+                 (sb-c:compiler-error  #'handle-notification-condition)
                  (sb-ext:compiler-note #'handle-notification-condition)
                  (style-warning        #'handle-notification-condition)
                  (warning              #'handle-notification-condition))
     (funcall function)))
 
+(defun handle-file-compiler-termination (condition)
+  "Handle a condition that caused the file compiler to terminate."
+  (handle-notification-condition
+   (sb-int:encapsulated-condition condition)))
+
 (defvar *trap-load-time-warnings* nil)
 
 (defimplementation swank-compile-file (filename load-p)
-  (flet ((loadit (fasl-file) (when (and load-p fasl-file) (load fasl-file))))
-    (cond (*trap-load-time-warnings*
-           (with-compilation-hooks ()
-             (loadit (compile-file filename))))
-          (t
-           (loadit (with-compilation-hooks () 
-                     (compile-file filename)))))))
+  (handler-case
+      (let ((output-file (with-compilation-hooks ()
+                           (compile-file filename))))
+        (when (and load-p output-file)
+          (load output-file)))
+    (sb-c:fatal-compiler-error () nil)))
 
 (defimplementation swank-compile-string (string &key buffer position)
   (let ((form (read-from-string (format nil "(~S () ~A)" 'lambda string))))
