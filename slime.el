@@ -1125,11 +1125,9 @@ The content of the *cl-connection* buffer:
                          (t "<no *cl-connection*>"))
                    )))
   (slime-disconnect)
+  (display-buffer "*SLIME bug*")
   (delete-other-windows (get-buffer-window "*SLIME bug*"))
-  (unwind-protect (unwind-protect (sit-for 2)
-                    (display-buffer "*SLIME bug*")
-                    (delete-other-windows (get-buffer-window "*SLIME bug*")))
-    (error "The SLIME protocol reached an inconsistent state.")))
+  (error "The SLIME protocol reached an inconsistent state."))
 
 
 ;;;;; Event logging to *slime-events*
@@ -2493,7 +2491,7 @@ If MARKER is nil, use the point."
         ;; If this buffer was deleted, recurse to try the next one
         (slime-pop-find-definition-stack)))))
 
-(defun slime-edit-fdefinition (name)
+(defun slime-edit-fdefinition (name &optional other-window)
   "Lookup the definition of the symbol at point.  
 If there's no symbol at point, or a prefix argument is given, then the
 function name is prompted."
@@ -2508,9 +2506,18 @@ function name is prompted."
            (slime-message "%s" (cadr source-location)))
           (t
            (slime-goto-source-location source-location)
-           (switch-to-buffer (current-buffer))
+           (cond ((not other-window)
+                  (switch-to-buffer (current-buffer)))
+                 (t
+                  (switch-to-buffer-other-window (current-buffer))))
            (ring-insert-at-beginning 
 	    slime-find-definition-history-ring origin)))))
+
+(defun slime-edit-fdefinition-other-window (name)
+  "Like `slime-edit-fdefinition' but switch to the other window."
+  (interactive (list (slime-read-symbol-name "Function name: ")))
+  (slime-edit-fdefinition name t))
+
 
 
 ;;; Interactive evaluation.
@@ -4013,6 +4020,19 @@ expires.\nThe timeout is given in seconds (a floating point number)."
      (slime-check "Automaton is back in idle state."
        (slime-test-state-stack '(slime-idle-state)))))
 
+(def-slime-test interactive-eval ()
+   "Test interactive eval and continuing from the debugger."
+   '(())
+  (let ((sldb-hook (lambda () (sldb-continue))))
+    (slime-interactive-eval 
+     "(progn(cerror \"foo\" \"restart\")(cerror \"bar\" \"restart\")(+ 1 2))")
+    (slime-sync-state-stack '(slime-idle-state) 5)
+    (slime-check "Automaton is back in idle state."
+      (slime-test-state-stack '(slime-idle-state)))
+    (let ((message (current-message)))
+      (slime-check "Minibuffer contains: \"=> 3\""
+        (equal "=> 3" message)))))
+
 (def-slime-test interrupt-bubbling-idiot ()
    "Test interrupting a loop that sends a lot of output to Emacs."
    '(())
@@ -4036,19 +4056,6 @@ expires.\nThe timeout is given in seconds (a floating point number)."
      (slime-sync-state-stack '(slime-idle-state) 15)
      (slime-check "Automaton is back in idle state."
        (slime-test-state-stack '(slime-idle-state)))))
-
-(def-slime-test interactive-eval ()
-   "Test interactive eval and continuing from the debugger."
-   '(())
-  (let ((sldb-hook (lambda () (sldb-continue))))
-    (slime-interactive-eval 
-     "(progn(cerror \"foo\" \"restart\")(cerror \"bar\" \"restart\")(+ 1 2))")
-    (slime-sync-state-stack '(slime-idle-state) 5)
-    (slime-check "Automaton is back in idle state."
-      (slime-test-state-stack '(slime-idle-state)))
-    (let ((message (current-message)))
-      (slime-check "Minibuffer contains: \"=> 3\""
-        (equal "=> 3" message)))))
 
 
 ;;; Portability library
