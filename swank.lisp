@@ -29,6 +29,7 @@
            #:unprofile-all
            #:profile-package
            #:set-default-directory
+           #:quit-lisp
            ))
 
 (in-package :swank)
@@ -779,7 +780,7 @@ exists."
     (cond (package (values symbol package))
           (t (error "Unknown symbol: ~S [in ~A]" string default-package)))))
 
-(defslimefun arglist-for-echo-area (names)
+(defslimefun arglist-for-echo-area (names &optional without-name)
   "Return the arglist for the first function, macro, or special-op in NAMES."
   (multiple-value-bind (symbol name)
       (loop for name in names
@@ -788,14 +789,16 @@ exists."
                      (macro-function symbol)
                      (special-operator-p symbol))
             return (values symbol name))
-    (cond (symbol (format-arglist-for-echo-area symbol name))
+    (cond (symbol (format-arglist-for-echo-area symbol name without-name))
           (t ""))))
 
-(defun format-arglist-for-echo-area (symbol name)
+(defun format-arglist-for-echo-area (symbol name without-name)
   (multiple-value-bind (arglist c) (ignore-errors (values (arglist symbol)))
-    (cond (c (format nil "(~A -- <not available>)" symbol))
+    (cond ((and c without-name) " <not available>)")
+          (c (format nil "(~A -- <not available>)" symbol))
           (t (let ((string (arglist-to-string arglist)))
-               (format nil "(~A~A~A)" 
+               (format nil "~:[(~A~;~*~]~A~A)"
+                       without-name
                        name
                        (if (= (length string) 2) "" " ")
                        (subseq string 1 (1- (length string)))))))))
