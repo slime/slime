@@ -106,14 +106,6 @@
             (return (sb-bsd-sockets:socket-accept socket))
           (sb-bsd-sockets:interrupted-error ()))))
 
-(defmethod make-fn-streams (input-fn output-fn)
-  (let* ((output (make-instance 'slime-output-stream
-                                :output-fn output-fn))
-         (input  (make-instance 'slime-input-stream
-                                :input-fn input-fn
-                                :output-stream output)))
-    (values input output)))
-
 (defmethod call-without-interrupts (fn)
   (sb-sys:without-interrupts (funcall fn)))
 
