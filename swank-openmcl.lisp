@@ -330,9 +330,27 @@ If the backtrace cannot be calculated, this function returns NIL."
                        result))))
            (return-from frame-locals (nreverse result))))))))
 
-(defmethod frame-catch-tags (index)
-  (declare (ignore index))
-  nil)
+(defmethod frame-catch-tags (index &aux my-frame)
+   (map-backtrace 
+   (lambda (frame-number p tcr lfun pc)
+      (declare (ignore pc lfun))
+      (if (= frame-number index) 
+          (setq my-frame p)
+          (when my-frame
+            (return-from frame-catch-tags
+              (loop for catch = (ccl::%catch-top tcr) then (ccl::next-catch catch)
+                    while catch
+                    for csp = (ccl::uvref catch ppc32::catch-frame.csp-cell)
+                    for tag = (ccl::uvref catch ppc32::catch-frame.catch-tag-cell)
+                    until (ccl::%stack< p csp tcr)
+                    do (print "-") (print catch) (terpri) (describe tag)
+                    when (ccl::%stack< my-frame csp tcr)
+                    collect (cond 
+                              ((symbolp tag)
+                               (list tag))
+                              ((and (listp tag)
+                                    (typep (car tag) 'restart)
+                                    (list `(:restart ,(restart-name (car tag))))))))))))))
                        
 (defslimefun sldb-disassemble (the-frame-number)
   "Return a string with the disassembly of frames code."
@@ -447,6 +465,20 @@ at least the filename containing it."
                                ,@(mapcar 'car bindings)))
                      ,form)))
            ))))))
+
+(defslimefun sldb-return-from-frame (form index)
+  (let ((values (multiple-value-list (eval-in-frame (from-string form) index))))
+    (map-backtrace
+     (lambda (frame-number p tcr lfun pc)
+       (declare (ignore tcr lfun pc))
+       (when (= frame-number index)
+         (ccl::apply-in-frame p #'values  values))))))
+ 
+(defslimefun sldb-restart-frame (index)
+  (map-backtrace
+   (lambda (frame-number p tcr lfun pc)
+     (when (= frame-number index)
+       (ccl::apply-in-frame p lfun (ccl::frame-supplied-args p lfun pc nil tcr))))))
 
 ;;; Utilities
 
