@@ -291,7 +291,8 @@ NIL if we aren't compiling from a buffer.")
 (defimplementation swank-compile-file (filename load-p)
   (clear-xref-info filename)
   (with-compilation-hooks ()
-    (let ((*buffer-name* nil))
+    (let ((*buffer-name* nil)
+          (ext:*ignore-extra-close-parentheses* nil))
       (multiple-value-bind (output-file warnings-p failure-p)
           (compile-file filename)
         (unless failure-p
@@ -334,16 +335,20 @@ NIL if we aren't compiling from a buffer.")
            :severity (severity-for-emacs condition)
            :short-message (brief-compiler-message-for-emacs condition)
            :message (long-compiler-message-for-emacs condition context)
-           :location (if (eq (type-of condition) 'c::compiler-read-error)
+           :location (if (read-error-p condition)
                          (read-error-location condition)
                          (compiler-note-location context)))))
 
 (defun severity-for-emacs (condition)
   "Return the severity of CONDITION."
   (etypecase condition
+    ((satisfies read-error-p) :read-error)
     (c::compiler-error :error)
     (c::style-warning :note)
     (c::warning :warning)))
+
+(defun read-error-p (condition)
+  (eq (type-of condition) 'c::compiler-read-error))
 
 (defun brief-compiler-message-for-emacs (condition)
   "Briefly describe a compiler error for Emacs.
@@ -368,10 +373,10 @@ the error-context redundant."
          (pos (c::compiler-read-error-position condition)))
     (cond ((and (eq file :stream) *buffer-name*)
            (make-location (list :buffer *buffer-name*)
-                          (list :position *buffer-start-position* pos)))
+                          (list :position (+ *buffer-start-position* pos))))
           ((and (pathnamep file) (not *buffer-name*))
            (make-location (list :file (unix-truename file))
-                          (list :position pos)))
+                          (list :position (1+ pos))))
           (t (break)))))
 
 (defun compiler-note-location (context)
