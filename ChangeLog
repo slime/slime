@@ -1,5 +1,8 @@
 2003-12-02  Daniel Barlow  <dan@telent.net>
 
+	* slime.el (slime-with-xref-buffer): moved further up the file so
+	it's defined before slime-show-xrefs needs it
+
 	* swank-sbcl.lisp (function-source-location-for-emacs): return a
 	list of source locations (one per method) when the request is
 	for a GF.  This seems to make the elisp side popup a window

@@ -2997,6 +2997,25 @@ First make the variable unbound, then evaluate the entire form."
      (lambda (result)
        (slime-show-xrefs result type symbol package)))))
 
+(defmacro* slime-with-xref-buffer ((package ref-type symbol) &body body)
+  "Execute BODY in a xref buffer, then show that buffer."
+  (let ((type (gensym))
+        (sym (gensym)))
+    `(let ((,type ,ref-type)
+           (,sym ,symbol))
+       (with-current-buffer (get-buffer-create 
+                             (format "*XREF[%s: %s]*" ,type ,sym))
+         (prog2 (progn
+                  (slime-init-xref-buffer ,package ,type ,sym)
+                  (make-local-variable 'slime-xref-saved-window-configuration)
+                  (setq slime-xref-saved-window-configuration
+                        ,(current-window-configuration)))
+             (progn ,@body)
+           (setq buffer-read-only t)
+           (select-window (or (get-buffer-window (current-buffer) t)
+                              (display-buffer (current-buffer) t)))
+           (shrink-window-if-larger-than-buffer))))))
+
 (defun slime-show-xrefs (xrefs type symbol package)
   "Show the results of an XREF query."
   (if (null xrefs)
@@ -3041,26 +3060,7 @@ If CREATE is non-nil, create it if necessary."
   (setq slime-buffer-package package)
   (slime-set-truncate-lines))
 
-(defmacro* slime-with-xref-buffer ((package ref-type symbol) &body body)
-  "(slime-with-xref-buffer (package ref-type symbol) &body body)
 
-Execute BODY in a xref buffer, then show that buffer."
-  (let ((type (gensym))
-        (sym (gensym)))
-    `(let ((,type ,ref-type)
-           (,sym ,symbol))
-       (with-current-buffer (get-buffer-create 
-                             (format "*XREF[%s: %s]*" ,type ,sym))
-         (prog2 (progn
-                  (slime-init-xref-buffer ,package ,type ,sym)
-                  (make-local-variable 'slime-xref-saved-window-configuration)
-                  (setq slime-xref-saved-window-configuration
-                        ,(current-window-configuration)))
-             (progn ,@body)
-           (setq buffer-read-only t)
-           (select-window (or (get-buffer-window (current-buffer) t)
-                              (display-buffer (current-buffer) t)))
-           (shrink-window-if-larger-than-buffer))))))
 
 (put 'slime-with-xref-buffer 'lisp-indent-function 1)
 
