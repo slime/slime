@@ -13,9 +13,13 @@
 (setq *swank-in-background* :fd-handler)
 
 (defmethod create-socket (port)
-  (ext:create-inet-listener port :stream
-                            :reuse-address t
-                            :host (resolve-hostname "localhost")))
+  (let ((fd (ext:create-inet-listener port :stream
+                                      :reuse-address t
+                                      :host (resolve-hostname "localhost"))))
+    #+MP
+    (when *multiprocessing-enabled*
+      (set-fd-non-blocking fd))
+    fd))
 
 (defmethod local-port (socket)
   (nth-value 1 (ext::get-socket-host-and-port (socket-fd socket))))
@@ -24,6 +28,7 @@
   (ext:close-socket (socket-fd socket)))
 
 (defmethod accept-connection (socket)
+  #+MP (when *multiprocessing-enabled* (mp:process-wait-until-fd-usable socket :input))
   (make-socket-io-stream (ext:accept-tcp-connection socket)))
 
 (defmethod add-input-handler (socket fn)
@@ -36,6 +41,9 @@
   (let* ((output (make-slime-output-stream output-fn))
          (input  (make-slime-input-stream input-fn output)))
     (values input output)))
+
+(defmethod spawn (fn &key (name "Anonymous"))
+  (mp:make-process fn :name name))
 
 ;;;
 ;;;;; Socket helpers.
@@ -55,6 +63,14 @@
 (defun make-socket-io-stream (fd)
   "Create a new input/output fd-stream for FD."
   (sys:make-fd-stream fd :input t :output t :element-type 'base-char))
+
+(defun set-fd-non-blocking (fd)
+  (flet ((fcntl (fd cmd arg)
+           (multiple-value-bind (flags errno) (unix:unix-fcntl fd cmd arg)
+             (or flags 
+                 (error "fcntl: ~A" (unix:get-unix-error-msg errno))))))
+    (let ((flags (fcntl fd unix:F-GETFL 0)))
+      (fcntl fd unix:F-SETFL (logior flags unix:O_NONBLOCK)))))
 
 
 ;;;; Stream handling
@@ -1253,14 +1269,14 @@ nil if there's no second element."
 
 #+MP
 (progn
-  (defvar *I/O-lock*          (mp:make-lock "SWANK I/O lock"))
-  (defvar *conversation-lock* (mp:make-lock "SWANK conversation lock"))
-
   (defvar *known-processes* '()         ; FIXME: leakage. -luke
     "List of processes that have been assigned IDs.
      The ID is the position in the list.")
 
   (defmethod startup-multiprocessing ()
+    (setq *swank-in-background* :spawn)
+    ;; Threads magic: this never returns! But top-level becomes
+    ;; available again.
     (mp::startup-idle-and-top-level-loops))
 
   (defmethod thread-id ()
@@ -1280,20 +1296,13 @@ nil if there's no second element."
   (defmethod thread-name (thread-id)
     (mp:process-name (lookup-thread thread-id)))
 
-  (defmethod call-with-I/O-lock (function)
-    (mp:with-lock-held (*I/O-lock*)
+  (defmethod make-lock (&key name)
+    (mp:make-lock name))
+
+  (defmethod call-with-lock-held (lock function)
+    (mp:with-lock-held (lock)
       (funcall function)))
-
-  (defmethod call-with-conversation-lock (function)
-    (mp:with-lock-held (*conversation-lock*)
-      (funcall function)))
-
-  (defmethod wait-goahead ()
-    (mp:disable-process (mp:current-process))
-    (mp:process-yield))
-
-  (defmethod give-goahead (thread-id)
-    (mp:enable-process (lookup-thread thread-id))))
+)
 
 
 ;;;; Epilogue
