@@ -2094,9 +2094,9 @@ side.")
       ((:debug thread level condition restarts frames)
        (assert thread)
        (sldb-setup thread level condition restarts frames))
-      ((:debug-return thread level)
+      ((:debug-return thread level &optional stepping)
        (assert thread)
-       (sldb-exit thread level))
+       (sldb-exit thread level stepping))
       ((:emacs-interrupt thread)
        (cond ((slime-use-sigint-for-interrupt) (slime-send-sigint))
              (t (slime-send `(:emacs-interrupt ,thread)))))
@@ -3689,8 +3689,10 @@ region around the first element is used."
             (values start (point))
             (values (1+ start)
                     (progn (goto-char (1+ start))
-                           (forward-sexp 1)
-                           (point))))))))
+                           (or (ignore-errors 
+                                 (forward-sexp 1)
+                                 (point))
+                               (+ start 2)))))))))
 
 (defun slime-same-line-p (pos1 pos2)
   "Return t if buffer positions POS1 and POS2 are on the same line."
@@ -4045,9 +4047,11 @@ more than one space."
           (when names
             (slime-eval-async 
              `(swank:arglist-for-echo-area (quote ,names))
-             (lambda (message)
-               (if message
-                   (slime-message "%s" message)))))))
+             (lexical-let ((buffer (current-buffer)))
+               (lambda (message)
+                 (if message
+                     (with-current-buffer buffer
+                       (slime-message "%s" message)))))))))
     (self-insert-command n)))
 
 (defun slime-arglist (name)
@@ -5799,7 +5803,9 @@ portion of the backtrace. Frames are numbered from 0."
       (pop-to-buffer (current-buffer))
       (setq buffer-read-only t)
       (when (and slime-stack-eval-tags
-                 (y-or-n-p "Enter recursive edit? "))
+                 ;; (y-or-n-p "Enter recursive edit? ")
+                 )
+        (message "Entering recursive edit..")
         (recursive-edit)))))
 
 (defun sldb-activate (thread level)
@@ -5810,14 +5816,15 @@ portion of the backtrace. Frames are numbered from 0."
                           (lambda (result)
                             (apply #'sldb-setup thread level result)))))))
 
-(defun sldb-exit (thread level)
+(defun sldb-exit (thread level &optional stepping)
   (when-let (sldb (sldb-find-buffer thread))
     (with-current-buffer sldb
-      (set-window-configuration sldb-saved-window-configuration)
+      (unless stepping
+        (set-window-configuration sldb-saved-window-configuration))
       (let ((inhibit-read-only t))
         (erase-buffer))
       (setq sldb-level nil))
-    (when (= level 1)
+    (when (and (= level 1) (not stepping))
       (setf sldb-buffers (remove* sldb sldb-buffers :key #'cdr))
       (kill-buffer sldb))))
 
@@ -6594,43 +6601,48 @@ Optionally set point to POINT."
   (with-current-buffer (slime-inspector-buffer)
     (let ((inhibit-read-only t))
       (erase-buffer)
-      (destructuring-bind (&key title type content)
-          inspected-parts
-        (macrolet ((fontify (face string) `(slime-inspector-fontify ,face ,string)))
+      (destructuring-bind (&key title type content) inspected-parts
+        (macrolet ((fontify (face string) 
+                            `(slime-inspector-fontify ,face ,string)))
           (insert (fontify topline title))
           (while (eq (char-before) ?\n)
             (backward-delete-char 1))
           (insert "\n [" (fontify label "type:") " " (fontify type type) "]\n"
                   (fontify label "--------------------") "\n")
-        (save-excursion
-          (loop for part in content
-                do (if (stringp part)
-                       (insert part)
-                       (ecase (car part)
-                         (:value
-                          (destructuring-bind (string id) (cdr part)
-                            (slime-propertize-region `(slime-part-number ,id)
-                              (insert (fontify value string)))))
-                         (:action
-                          (destructuring-bind (string id) (cdr part)
-                            (slime-propertize-region `(slime-action-number ,id)
-                              (insert (fontify action string)))))))))
-        (pop-to-buffer (current-buffer))
-        (when point (goto-char point))))
-    t)))
+          (save-excursion 
+            (mapc #'slime-inspector-insert-ispec content))
+          (pop-to-buffer (current-buffer))
+          (when point 
+            (goto-char (min (point-max) point))))))))
+
+(defun slime-inspector-insert-ispec (ispec)
+  (if (stringp ispec)
+      (insert ispec)
+    (destructure-case ispec
+      ((:value string id)
+       (slime-insert-propertized (list 'slime-part-number id 
+                                       'face 'slime-inspector-value-face)
+                                 string))
+      ((:action string id)
+       (slime-insert-propertized (list 'slime-action-number id
+                                       'face 'slime-inspector-action-face)
+                                 string)))))
 
 (defun slime-inspector-operate-on-point ()
   "If point is on a value then recursivly call the inspcetor on
   that value. If point is on an action then call that action."
   (interactive)
-  (cond
-    ((get-text-property (point) 'slime-part-number)
-     (slime-eval-async `(swank:inspect-nth-part ,(get-text-property (point) 'slime-part-number))
-                       'slime-open-inspector)
-     (push (point) slime-inspector-mark-stack))
-    ((get-text-property (point) 'slime-action-number)
-     (slime-eval-async `(swank::inspector-call-nth-action ,(get-text-property (point) 'slime-action-number))
-                       'slime-open-inspector))))
+  (let ((part-number (get-text-property (point) 'slime-part-number))
+        (action-number (get-text-property (point) 'slime-action-number)))
+    (cond (part-number
+           (slime-eval-async `(swank:inspect-nth-part ,part-number)
+                             'slime-open-inspector)
+           (push (point) slime-inspector-mark-stack))
+          (action-number 
+           (slime-eval-async `(swank::inspector-call-nth-action ,action-number)
+                             (lexical-let ((point (point)))
+                               (lambda (parts)
+                                 (slime-open-inspector parts point))))))))
 
 (defun slime-inspector-copy-down (number)
   "Evaluate the slot at point via the REPL (to set `*')."
@@ -7542,7 +7554,7 @@ Confirm that SUBFORM is correctly located."
       (slime-check-top-level)
       (let ((message (current-message)))
         (slime-check "Minibuffer contains: \"3\""
-          (equal "3" message))))))
+          (equal "3 (#x3, #o3, #b11)" message))))))
 
 (def-slime-test interrupt-bubbling-idiot 
     ()
