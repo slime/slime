@@ -349,8 +349,14 @@ as it was called originally.")
 ;;;; Definition finding
 
 (defstruct (:location (:type list) :named
-                      (:constructor make-location (buffer position)))
-  buffer position)
+                      (:constructor make-location
+                                    (buffer position &optional hints)))
+  buffer position
+  ;; Hints is a property list optionally containing:
+  ;;   :snippet SOURCE-TEXT
+  ;;     This is a snippet of the actual source text at the start of
+  ;;     the definition, which could be used in a text search.
+  hints)
 
 (defstruct (:error (:type list) :named (:constructor)) message)
 (defstruct (:file (:type list) :named (:constructor)) name)
