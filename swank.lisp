@@ -473,7 +473,7 @@ format. The cases are as follows:
                          (find-package (case-convert n))
                          *buffer-package* ))))
       (flet ((symbol-matches-p (symbol)
-               (and (string-prefix-p name (symbol-name symbol))
+               (and (compound-string-match name (symbol-name symbol))
                     (or (or internal-p (null package-name))
                         (symbol-external-p symbol package)))))
         (when package
@@ -533,6 +533,42 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
 \(This includes the case where S1 is equal to S2.)"
   (and (<= (length s1) (length s2))
        (string-equal s1 s2 :end2 (length s1))))
+
+(defun subword-prefix-p (s1 s2 &key (start1 0) end1 (start2 0))
+  "Return true if the subsequence in S1 bounded by START1 and END1
+is found in S2 at START2."
+  (let ((end2 (min (length s2)
+                   (+ start2 (- (or end1 (length s1))
+                                start1)))))
+    (string-equal s1 s2
+                  :start1 start1 :end1 end1
+                  :start2 start2 :end2 end2)))
+
+(defun word-points (string)
+  (declare (string string))
+  (loop for pos = -1 then (position #\- string :start (1+ pos))
+        while pos
+        collect (1+ pos)))
+
+(defun compound-string-match (string1 string2)
+  "Return true if STRING1 is a prefix of STRING2, or if STRING1
+represents a pattern of prefixes and delimiters matching full strings
+and delimiters in STRING2.
+Examples:
+\(compound-string-match \"foo\" \"foobar\") => t
+\(compound-string-match \"m-v-b\" \"multiple-value-bind\") => t
+\(compound-string-match \"m-v-c\" \"multiple-value-bind\") => NIL"
+  (when (<= (length string1) (length string2))
+    (let ((s1-word-points (word-points string1))
+          (s2-word-points (word-points string2)))
+      (when (<= (length s1-word-points) (length s2-word-points))
+        (loop for (start1 end1) on s1-word-points
+              for start2 in s2-word-points
+              always (subword-prefix-p string1 string2
+                                       :start1 start1
+                                       :end1 (and end1 (1- end1))
+                                       :start2 start2))))))
+
 
 
 ;;;; Documentation
