@@ -284,25 +284,27 @@ Each value is a list of (LOCATION SEVERITY MESSAGE CONTEXT) lists.
 (defun handle-notification (severity message context where-from position)
   "Hook function called by the compiler.
 See C:*COMPILER-NOTIFICATION-FUNCTION*"
-  (let* ((namestring (cond ((stringp where-from) where-from)
-			   ;; we can be passed a stream from READER-ERROR
-			   (where-from (to-string where-from))
-			   (t where-from)))
-	 (note (list 
-		:position position
-		:source-path (current-compiler-error-source-path)
-		:filename namestring
-		:severity severity
-		:message message
-		:context context
-		:buffername (if (boundp '*buffername*) 
-				*buffername*)
-		:buffer-offset (if (boundp '*buffer-offset*)
-				   *buffer-offset*))))
-    (push note *compiler-notes*)
-    (when namestring
-      (push note (gethash namestring *notes-database*)))))
-	  
+  ;; Sometimes we are called with all NILs for some reason -- ignore that
+  (when message
+    (let* ((namestring (cond ((stringp where-from) where-from)
+                             ;; we can be passed a stream from READER-ERROR
+                             (where-from (to-string where-from))
+                             (t where-from)))
+           (note (list 
+                  :position position
+                  :source-path (current-compiler-error-source-path)
+                  :filename namestring
+                  :severity severity
+                  :message message
+                  :context context
+                  :buffername (if (boundp '*buffername*) 
+                                  *buffername*)
+                  :buffer-offset (if (boundp '*buffer-offset*)
+                                     *buffer-offset*))))
+      (push note *compiler-notes*)
+      (when namestring
+        (push note (gethash namestring *notes-database*))))))
+
 (defun current-compiler-error-source-path ()
   "Return the source-path for the current compiler error.
 Returns NIL if this cannot be determined by examining internal
