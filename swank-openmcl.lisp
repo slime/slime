@@ -255,10 +255,15 @@ condition."
    #'(lambda(frame-number p context lfun pc)
        (when (= frame frame-number)
          (return-from frame-var-value 
-           (multiple-value-bind (count vsp parent-vsp)
+           (multiple-value-bind (total vsp parent-vsp)
                (ccl::count-values-in-frame p context)
-             (declare (ignore count))
-             (ccl::nth-value-in-frame p var context lfun pc vsp parent-vsp)))))))
+             (loop for count below total
+                   with varcount = -1
+                   for (value nil name) = (multiple-value-list (ccl::nth-value-in-frame p count context lfun pc vsp parent-vsp))
+                   when name do (incf varcount)
+                   until (= varcount var)
+                   finally (return value))
+             ))))))
 
 (defun xref-locations (relation name &optional (inverse nil))
   (loop for xref in (if inverse 
@@ -277,8 +282,8 @@ condition."
   (remove-duplicates
    (append (xref-locations :references name)
            (xref-locations :sets name)
-           (xref-locations :binds name)))
-  :test 'equal)
+           (xref-locations :binds name))
+   :test 'equal))
 
 (defimplementation who-sets (name)
   (xref-locations :sets name))
