@@ -401,8 +401,6 @@ of the toplevel restart."
   (connection.socket-io *emacs-connection*))
 
 (defun close-connection (c &optional condition)
-  (when condition
-    (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" condition))
   (let ((cleanup (connection.cleanup c)))
     (when cleanup
       (funcall cleanup c)))
@@ -410,11 +408,14 @@ of the toplevel restart."
   (when (connection.dedicated-output c)
     (close (connection.dedicated-output c)))
   (setf *connections* (remove c *connections*))
-  (run-hook *connection-closed-hook* c))
+  (run-hook *connection-closed-hook* c)
+  (when condition
+    (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" condition)))
 
 (defmacro with-reader-error-handler ((connection) &body body)
   `(handler-case (progn ,@body)
-    (slime-protocol-error (e) (close-connection ,connection e))))
+    (slime-protocol-error (e)
+     (close-connection ,connection e))))
 
 (defun simple-break ()
   (with-simple-restart  (continue "Continue from interrupt.")
@@ -992,9 +993,7 @@ Return the package or nil."
   "Return the arglist for the first function, macro, or special-op in NAMES."
   (with-buffer-syntax ()
     (let ((name (find-if #'valid-operator-name-p names)))
-      (if name 
-          (format-arglist-for-echo-area (parse-symbol name) name)
-          ""))))
+      (if name (format-arglist-for-echo-area (parse-symbol name) name)))))
 
 (defun format-arglist-for-echo-area (symbol name)
   "Return SYMBOL's arglist as string for display in the echo area.
@@ -1002,7 +1001,7 @@ Use the string NAME as operator name."
   (let ((arglist (arglist symbol)))
     (etypecase arglist
       ((member :not-available)
-       (format nil "(~A -- <not available>)" name))
+       nil)
       (list
        (arglist-to-string (cons name arglist)
                           (symbol-package symbol))))))
@@ -1046,6 +1045,14 @@ pretty printing of (function foo) as #'foo is suppressed."
 (assert (test-print-arglist '(&key (function #'+)) "(&key (function #'+))"))
 ;; Expected failure:
 ;; (assert (test-print-arglist '(&key ((function f))) "(&key ((function f)))"))
+
+(defslimefun variable-desc-for-echo-area (variable-name)
+  "Return a short description of VARIABLE-NAME, or NIL."
+  (with-buffer-syntax ()
+    (let ((sym (parse-symbol variable-name)))
+      (if (and sym (boundp sym))
+          (let ((*print-pretty* nil))
+            (format nil "~A => ~A" sym (symbol-value sym)))))))
 
 (defslimefun arglist-for-insertion (name)
   (with-buffer-syntax ()
