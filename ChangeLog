@@ -1,3 +1,20 @@
+2005-04-01  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-keys): Bind slime-edit-definition-other-window
+	to `C-x 4 .' and slime-edit-definition-other-frame to `C-x 5 .',
+	shadowing the equivalent find-tag... bindings.
+	(slime-goto-definition): In the other-window and other-frame cases,
+	make sure point does not move in the originating window, even when
+	the definition is found in the same buffer.
+
+2005-03-31  Luke Gorrie  <luke@synap.se>
+
+	* doc/slime.texi (slime-selector): New section.
+	(Inspector): Updated for the post-1.0 inspector.
+
+	* slime.el (slime-selector): Removed unneeded "the" prefixes in
+	descriptions of what the selector methods do.
+
 2005-03-27  Helmut Eller  <heller@common-lisp.net>
 
 	* PROBLEMS, NEWS, doc/slime.texi: Some updates for the upcoming
