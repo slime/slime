@@ -1,3 +1,9 @@
+2004-06-29  Bill Clementson  <Bill_Clementson@peoplesoft.com>
+
+	* slime.el (slime-who-map): Add extra bindings for the XREF
+	commands as with the documentation commands. Now `C-c C-w C-c' is
+	`slime-who-calls' in addition to `C-c C-w c', etc.
+
 2004-06-29  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (sldb-prune-initial-frames): Tweaked regexp for
