@@ -1,5 +1,9 @@
 2004-10-06  Luke Gorrie  <luke@synap.se>
 
+	* swank.lisp (update-indentation/delta-for-emacs): Configure Emacs
+	indentation settings not just for the symbol name but for all
+	package-qualified forms of it as well.
+
 	* doc/slime.texi (Credits): Updated the credits list to include
 	more Lisp implementors who're also SLIME hackers.
 
