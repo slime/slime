@@ -2781,6 +2781,7 @@ Useful value for `slime-compilation-finished-hook'"
       (make-local-variable 'slime-compiler-notes-saved-window-configuration)
       (setq slime-compiler-notes-saved-window-configuration
             (current-window-configuration))
+      (goto-char (point-min))
       (pop-to-buffer (current-buffer)))))
 
 (defun slime-alistify (list key test)
@@ -2844,6 +2845,7 @@ from an element and TEST is used to compare keys."
 
 (slime-define-keys slime-compiler-notes-mode-map
   ((kbd "RET") 'slime-compiler-notes-show-details)
+  ([mouse-2] 'slime-compiler-notes-show-details/mouse)
   ("q" 'slime-compiler-notes-quit))
 
 (defun slime-compiler-notes-quit ()
@@ -2861,6 +2863,12 @@ from an element and TEST is used to compare keys."
            (slime-tree-toggle tree))
           (t
            (slime-show-source-location (slime-note.location note))))))
+
+(defun slime-compiler-notes-show-details/mouse (event)
+  (interactive "e")
+  (destructuring-bind (mouse-2 (w pos &rest _) &rest __) event
+    (goto-char pos)
+    (slime-compiler-notes-show-details)))
           
 
 ;;;;;;; Tree Widget
