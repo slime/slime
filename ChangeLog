@@ -7,7 +7,7 @@
 	REPL expression too. Patch from Andras Simon.
 
 	* swank-backend.lisp (definterface): Don't use
-	NO-APPLICABLE-METHOD for detail methods. Instead just define them
+	NO-APPLICABLE-METHOD for default methods. Instead just define them
 	as regular methods with all argument types being
 	T. Defimplementation will then replace them by using the same
 	signature. N-A-M was a stupid idea!
