@@ -1,5 +1,8 @@
 2003-11-24  Luke Gorrie  <luke@bluetail.com>
 
+	* swank-backend.lisp (compiler-condition): Removed use of
+	:documentation slot option. That is not portable (to CMUCL 18e).
+
 	* swank.lisp (eval-string-in-frame): Fixed symbol-visibility
 	problem (thanks Lawrence Mitchell).
 
