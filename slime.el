@@ -1183,7 +1183,10 @@ See `slime-translate-from-lisp-filename-function'."
                      (if (eq 16 (prefix-numeric-value current-prefix-arg))
                          (read-coding-system "set slime-coding-system: "
                                              slime-net-coding-system))))
-  (let ((command (or command inferior-lisp-program))
+  (let ((symbolic-lisp-name
+         (if (slime-symbolic-lisp-name-p command) command nil))
+        (command (or (slime-find-lisp-implementation command)
+                     inferior-lisp-program))
         (buffer (or buffer "*inferior-lisp*"))
         (coding-system (or coding-system slime-net-coding-system)))
     (slime-check-coding-system coding-system)
@@ -1191,10 +1194,10 @@ See `slime-translate-from-lisp-filename-function'."
     (when (or (not (slime-bytecode-stale-p))
               (slime-urge-bytecode-recompile))
       (let ((proc (slime-maybe-start-lisp command buffer)))
-        (slime-inferior-connect proc nil)
+        (slime-inferior-connect proc nil symbolic-lisp-name)
         (pop-to-buffer (process-buffer proc))))))
 
-(defun slime-connect (host port &optional kill-old-p)
+(defun slime-connect (host port &optional kill-old-p symbolic-lisp-name)
   "Connect to a running Swank server."
   (interactive (list (read-from-minibuffer "Host: " "127.0.0.1")
                      (read-from-minibuffer "Port: " "4005" nil t)
@@ -1206,7 +1209,7 @@ See `slime-translate-from-lisp-filename-function'."
   (message "Connecting to Swank on port %S.." port)
   (let* ((process (slime-net-connect host port))
          (slime-dispatching-connection process))
-    (slime-setup-connection process)))
+    (slime-setup-connection process symbolic-lisp-name)))
 
 (defun slime-start-and-load (filename &optional package)
   "Start Slime, if needed, load the current file and set the package."
@@ -1349,12 +1352,12 @@ Return the created process."
       (lisp-mode-variables t)
       (get-buffer-process (current-buffer)))))
 
-(defun slime-inferior-connect (process &optional retries)
+(defun slime-inferior-connect (process &optional retries symbolic-lisp-name)
   "Start a Swank server in the inferior Lisp and connect."
   (when (file-regular-p (slime-swank-port-file))
     (delete-file (slime-swank-port-file)))
   (slime-start-swank-server process)
-  (slime-read-port-and-connect process retries))
+  (slime-read-port-and-connect process retries symbolic-lisp-name))
 
 (defun slime-start-swank-server (process)
   "Start a Swank server on the inferior lisp."
@@ -1372,10 +1375,11 @@ Return the created process."
                  (t "/tmp/")))
           (format "slime.%S" (emacs-pid))))
 
-(defun slime-read-port-and-connect (inferior-process retries)
+(defun slime-read-port-and-connect (inferior-process retries &optional symbolic-lisp-name)
   (lexical-let ((process inferior-process)
                 (retries retries)
-                (attempt 0))
+                (attempt 0)
+                (lisp-name symbolic-lisp-name))
     (labels
         ;; A small one-state machine to attempt a connection with
         ;; timer-based retries.
@@ -1393,7 +1397,7 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
           (cond ((file-exists-p (slime-swank-port-file))
                  (let ((port (slime-read-swank-port)))
                    (delete-file (slime-swank-port-file))
-                   (let ((c (slime-connect "127.0.0.1" port)))
+                   (let ((c (slime-connect "127.0.0.1" port nil lisp-name)))
                      (slime-set-inferior-process c process))))
                 ((and retries (zerop retries))
                  (message "Failed to connect to Swank."))
@@ -1813,6 +1817,9 @@ This is automatically synchronized from Lisp.")
 (slime-def-connection-var slime-connection-name nil
   "The short name for connection.")
 
+(slime-def-connection-var slime-symbolic-lisp-name nil
+  "The symbolic name passed to slime when starting connection.")
+
 (slime-def-connection-var slime-inferior-process nil
   "The inferior process for the connection if any.")
 
@@ -1825,14 +1832,14 @@ This is automatically synchronized from Lisp.")
   "The number of SLIME connections made. For generating serial numbers.")
 
 ;;; Interface
-(defun slime-setup-connection (process)
+(defun slime-setup-connection (process symbolic-lisp-name)
   "Make a connection out of PROCESS."
   (let ((slime-dispatching-connection process))
-    (slime-init-connection-state process)
+    (slime-init-connection-state process symbolic-lisp-name)
     (slime-select-connection process)
     process))
 
-(defun slime-init-connection-state (proc)
+(defun slime-init-connection-state (proc symbolic-lisp-name)
   "Initialize connection state in the process-buffer of PROC."
   ;; To make life simpler for the user: if this is the only open
   ;; connection then reset the connection counter.
@@ -1841,6 +1848,8 @@ This is automatically synchronized from Lisp.")
   (slime-with-connection-buffer ()
     (setq slime-buffer-connection proc))
   (setf (slime-connection-number proc) (incf slime-connection-counter))
+  (setf (slime-symbolic-lisp-name proc)
+        (slime-generate-symbolic-lisp-name symbolic-lisp-name))
   ;; We do our initialization asynchronously. The current function may
   ;; be called from a timer, and if we setup the REPL from a timer
   ;; then it mysteriously uses the wrong keymap for the first command.
@@ -1869,6 +1878,14 @@ This is automatically synchronized from Lisp.")
         while (find name slime-net-processes 
                     :key #'slime-connection-name :test #'equal)
         finally (return name)))
+
+(defun slime-generate-symbolic-lisp-name (lisp-name)
+  (loop for i from 1
+        for name = lisp-name then (format "%s<%d>" lisp-name i)
+        while (find name slime-net-processes 
+                    :key #'slime-symbolic-lisp-name :test #'equal)
+        finally (return name)))
+
 
 (defun slime-connection-close-hook (process)
   (when (eq process slime-default-connection)
@@ -2557,7 +2574,9 @@ joined together."))
 (defun slime-repl-buffer (&optional create connection)
   "Get the REPL buffer for the current connection; optionally create."
   (funcall (if create #'get-buffer-create #'get-buffer)
-           (format "*slime-repl %s*" (slime-connection-name connection))))
+           (format "*slime-repl %s*"
+                   (or (slime-symbolic-lisp-name connection)
+                       (slime-connection-name connection)))))
 
 (defun slime-repl-mode () 
   "Major mode for interacting with a superior Lisp.
@@ -6975,6 +6994,34 @@ This way you can still see what the error was after exiting SLDB."
 
 
 ;;;;; Connection listing
+
+(defvar slime-registered-lisp-implementations ())
+
+(defun slime-register-lisp-implementation (name command)
+  (interactive "sName: \nfCommand: ")
+  (let ((cons (assoc name slime-registered-lisp-implementations)))
+    (if cons
+      (setf (cdr cons) command)
+      (push (cons name command) slime-registered-lisp-implementations)))
+  (if (string= inferior-lisp-program "lisp")
+    (slime-select-lisp-implementation name)))
+
+(defun slime-select-lisp-implementation (name)
+  (interactive "sName: ")
+  (setq inferior-lisp-program
+        (cdr (assoc name slime-registered-lisp-implementations))))
+
+(defun slime-find-lisp-implementation (name)
+  (let ((cons (or (assoc name slime-registered-lisp-implementations)
+                  (rassoc name slime-registered-lisp-implementations))))
+    (if cons (cdr cons) name)))
+
+(defun slime-find-lisp-implementation-name (command)
+  (cdr (rassoc command slime-registered-lisp-implementations)))
+
+(defun slime-symbolic-lisp-name-p (name)
+  (assoc name slime-registered-lisp-implementations))
+
 
 (define-derived-mode slime-connection-list-mode fundamental-mode
   "connection-list"
