@@ -61,8 +61,14 @@
 ;;; TCP Server
 
 (defimplementation preferred-communication-style ()
-  :sigio)
-
+  (cond ((and (sb-int:featurep :sb-thread)
+              (sb-int:featurep :sb-futex))
+         :spawn)
+        ((fboundp 'sb-posix::fcntl)
+         :sigio)
+        (t
+         :fd-handler)))
+        
 (defun resolve-hostname (name)
   (car (sb-bsd-sockets:host-ent-addresses
         (sb-bsd-sockets:get-host-by-name name))))
@@ -95,52 +101,18 @@
         *sigio-handlers*))
 
 (defun set-sigio-handler ()
-  (sb-sys:enable-interrupt sb-unix:SIGIO (lambda (signal code scp)
+  (sb-sys:enable-interrupt sb-unix:sigio (lambda (signal code scp)
                                            (sigio-handler signal code scp))))
 
-
-
-;;;; XXX remove fcntl kludge when SBCL with sb-posix:fcntl is more
-;;;; widely available.
-(defconstant +o_async+ #+linux 8192 #+bsd #x40)
-(defconstant +f_setown+ #+linux 8 #+bsd 6)
-(defconstant +f_setfl+ #+(or linux bsd) 4)
-
-(unless (find-symbol (string :fcntl) :sb-posix)
-  (warn "No binding for fctnl(2) in sb-posix.
-Please upgrade to SBCL 0.8.7.36 or later."))
-
 (defun enable-sigio-on-fd (fd)
-  (cond ((fboundp 'sb-posix::fcntl)
-         (sb-posix::fcntl fd sb-posix::f-setfl sb-posix::o-async)
-         (sb-posix::fcntl fd sb-posix::f-setown (getpid)))
-        (t
-         (unless (or (sb-int:featurep :linux)
-                     (sb-int:featurep :bsd))
-           (warn "You aren't running Linux or *BSD.~
-                ~%The values of +o_async+ etc are probably bogus."))
-         (let ((fcntl (sb-alien:extern-alien 
-                       "fcntl" 
-                       (function sb-alien:int sb-alien:int 
-                                 sb-alien:int sb-alien:int))))
-           ;; XXX error checking
-           (sb-alien:alien-funcall fcntl fd +f_setfl+ +o_async+)
-           (sb-alien:alien-funcall fcntl fd +f_setown+ (getpid))))))
+  (sb-posix::fcntl fd sb-posix::f-setfl sb-posix::o-async)
+  (sb-posix::fcntl fd sb-posix::f-setown (getpid)))
 
 (defimplementation add-sigio-handler (socket fn)
   (set-sigio-handler)
   (let ((fd (socket-fd socket)))
     (format *debug-io* "Adding sigio handler: ~S ~%" fd)
     (enable-sigio-on-fd fd)
-    (push (cons fd fn) *sigio-handlers*)))
-
-#+(or)
-(defimplementation add-sigio-handler (socket fn)
-  (set-sigio-handler)
-  (let ((fd (socket-fd socket)))
-    (format *debug-io* "Adding sigio handler: ~S ~%" fd)
-    (sb-posix:fcntl fd sb-posix::f-setfl sb-posix::o-async)
-    (sb-posix:fcntl fd sb-posix::f-setown (getpid))
     (push (cons fd fn) *sigio-handlers*)))
 
 (defimplementation remove-sigio-handlers (socket)
@@ -263,14 +235,7 @@ information."
                                   (pos (eql nil)) 
                                   (path (eql nil))
                                   (source (eql nil)))
-  (cond (buffer
-         (make-location (list :buffer buffer) 
-                        (list :position *buffer-offset*)))
-        (*compile-file-truename*
-         (make-location (list :file (namestring *compile-file-truename*))
-                        (list :position 0)))
-        (t 
-         (list :error "No error location available"))))
+  (list :error "No error location available"))
 
 (defun brief-compiler-message-for-emacs (condition)
   "Briefly describe a compiler error for Emacs.
