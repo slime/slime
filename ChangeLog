@@ -1,5 +1,8 @@
 2005-03-18  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-source-path-parser.lisp (make-source-recording-readtable):
+	Ignore non-ascii chars.
+
 	* swank-sbcl.lisp (swank-compile-string): Re-implemented.  This
 	time with temp-files and proper source-location tracking.
 	(install-debug-source-patch, debug-source-for-info-advice): Patch
