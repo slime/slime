@@ -360,6 +360,7 @@ A prefix argument disables this behaviour."
     ("\M-," slime-pop-find-definition-stack :inferior t :sldb t)
     ;; Evaluating
     ("\C-x\C-e" slime-eval-last-expression :inferior t)
+    ("\C-x\M-e" slime-eval-last-expression-display-output :inferior t)
     ("\C-p" slime-pprint-eval-last-expression :prefixed t :inferior t)
     ("\C-r" slime-eval-region :prefixed t :inferior t)
     ("\C-\M-x" slime-eval-defun)
@@ -1173,7 +1174,8 @@ Return true if the event is recognised and handled."
      (setq slime-lisp-features features)
      t)
     ((:%apply fn args)
-     (apply (intern fn) args))
+     (apply (intern fn) args)
+     t)
     ((:awaiting-goahead thread-id thread-name reason)
      (slime-register-waiting-thread thread-id thread-name reason))
     (t nil)))
@@ -1551,6 +1553,13 @@ output as arguments.")
     (let ((start slime-last-output-start)
           (end slime-repl-prompt-start-mark))
       (funcall slime-show-last-output-function start end))))
+
+(defun slime-display-output-buffer ()
+  "Display the output bufer and scroll to bottom."
+  (with-current-buffer (slime-output-buffer)
+    (goto-char (point-max))
+    (set-window-start (display-buffer (current-buffer) t)
+                      (line-beginning-position))))
 
 (defmacro slime-with-output-at-eob (&rest body)
   "Execute BODY at eob.  
@@ -2035,10 +2044,7 @@ See `slime-compile-and-load-file' for further details."
   (unless (eq major-mode 'lisp-mode)
     (error "Only valid in lisp-mode"))
   (save-some-buffers)
-  (with-current-buffer (slime-output-buffer)
-    (goto-char (point-max))
-    (set-window-start (display-buffer (current-buffer) t)
-                      (line-beginning-position)))
+  (slime-display-output-buffer)
   (slime-eval-async
    `(swank:swank-compile-file ,(buffer-file-name) ,(if load t nil))
    nil
@@ -2979,6 +2985,12 @@ function name is prompted."
 (defun slime-eval-last-expression ()
   "Evaluate the expression preceding point."
   (interactive)
+  (slime-interactive-eval (slime-last-expression)))
+
+(defun slime-eval-last-expression-display-output ()
+  "Display output buffer and evaluate the expression preceding point."
+  (interactive)
+  (slime-display-output-buffer)
   (slime-interactive-eval (slime-last-expression)))
   
 (defun slime-eval-defun ()
