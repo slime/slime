@@ -1,5 +1,8 @@
 2004-03-27  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* slime.el (slime-changelog-date): Reinitialize it at load-time.
+	This avoids the need to restart Emacs (horror!) after an update.
+
 	* swank-cmucl.lisp (debug-function-arglist): Properly reconstruct
 	the arglist from the debug-info. (Not complete yet.)
 	(arglist): Use it.
