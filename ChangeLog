@@ -1,3 +1,19 @@
+2004-08-30  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* PROBLEMS: We require SBCL 0.8.13.  0.8.12 is no longer
+	supported.
+
+	* swank-allegro.lisp (find-fspec-location): Catch errors in
+	excl:source-file.
+
+	* swank.lisp (send-to-socket-io): Add some ignore declarations.
+
+	* slime.el (sldb-fetch-all-frames, sldb-end-of-backtrace)
+	(sldb-beginning-of-backtrace): New commands.
+	(slime-search-suppressed-forms): Change the start regexp so that
+	reader conditionals in single line comments, like "; #+foo", are
+	ignored.
+
 2004-08-27  Peter Seibel  <peter@javamonkey.com>
 
 	* swank-backend.lisp (swank-compile-string): Add directory
@@ -20,8 +36,8 @@
 
 2004-08-18  Matthew Danish <mrd+nospam@cmu.edu>
 
-	* slime/swank-allegro.lisp (swank-compile-string): Use #\; instead
-	of #\: to separate the position from the buffer-name.  This avoids
+	* swank-allegro.lisp (swank-compile-string): Use #\; instead of
+	#\: to separate the position from the buffer-name.  This avoids
 	troubles on Windows.
 
 2004-08-16  Luke Gorrie  <luke@bluetail.com>
