@@ -20,13 +20,16 @@ slime.info: slime.texi
 # The gist of this horror show is that the contributor list is piped
 # into texinfo-tabulate.awk with one name per line, sorted
 # alphabetically.
+#
+# Some special-case TeX-escaping of international characters.
 contributors.texi: ../ChangeLog Makefile texinfo-tabulate.awk
 	cat ../ChangeLog | \
 	grep '^[0-9]' | \
 	sed -e 's/^[^ ]* *//' -e 's/ *<.*//' | \
 	(cat; echo 'Eric Marsden') | \
 	sort -u | \
-	awk -f texinfo-tabulate.awk \
+	awk -f texinfo-tabulate.awk | \
+	sed -e 's/\o370/@norsko{}/g' \
 	> $@
 
 .INTERMEDIATE: contributors.texi

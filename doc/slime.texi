@@ -20,6 +20,18 @@
 @acronym{CVS}
 @end macro
 
+@c O with a slash through it (norwegian)
+@macro norsko
+@iftex
+@tex
+\\o
+@end tex
+@end iftex
+@ifnottex
+o
+@end ifnottex
+@end macro
+
 @macro kbditem{key, command}
 @item \key\
 @code{\command\}@*
