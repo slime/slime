@@ -838,13 +838,25 @@ change, then send Emacs an update."
 	(makunbound name)
 	(prin1-to-string (eval form))))))
 
+(defvar *swank-pprint-circle* *print-circle*
+  "*PRINT-CIRCLE* is bound to this volue when pretty printing slime output.")
+
+(defvar *swank-pprint-escape* *print-escape*
+  "*PRINT-ESCAPE* is bound to this volue when pretty printing slime output.")
+
+(defvar *swank-pprint-level* *print-level*
+  "*PRINT-LEVEL* is bound to this volue when pretty printing slime output.")
+
+(defvar *swank-pprint-length* *print-length*
+  "*PRINT-LENGTH* is bound to this volue when pretty printing slime output.")
+
 (defun swank-pprint (list)
   "Bind some printer variables and pretty print each object in LIST."
   (let ((*print-pretty* t)
-        (*print-circle* t)
-        (*print-escape* t)
-        (*print-level* nil)
-        (*print-length* nil))
+        (*print-circle* *swank-pprint-circle*)
+        (*print-escape* *swank-pprint-escape*)
+        (*print-level* *swank-pprint-level*)
+        (*print-length* *swank-pprint-length*))
     (cond ((null list) "; No value")
           (t (with-output-to-string (*standard-output*)
                (dolist (o list)
@@ -945,10 +957,7 @@ Record compiler notes signalled as `compiler-condition's."
 
 (defun apply-macro-expander (expander string)
   (declare (type function expander))
-  (let ((*print-pretty* t)
-	(*print-length* 20)
-	(*print-level* 20))
-    (to-string (funcall expander (from-string string)))))
+  (swank-pprint (list (funcall expander (from-string string)))))
 
 (defslimefun swank-macroexpand-1 (string)
   (apply-macro-expander #'macroexpand-1 string))

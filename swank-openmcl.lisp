@@ -407,7 +407,7 @@ If the backtrace cannot be calculated, this function returns NIL."
          (dolist (i info)
            (typecase (car i)
              ((member method)
-              (loop for (m . files) in (cdr i) 
+              (loop for (nil . files) in (cdr i) 
                     do (frob* files (list :function-name name))))
              ((member function variable method-combination)
               (frob* (cdr i) (list :function-name name)))
