@@ -1,3 +1,35 @@
+2004-09-17  Marco Baringer  <mb@bese.it>
+
+	* swank.lisp: Don't print "Documentation:" if none is available;
+	add support for classes specializer-direct-methods; deal with
+	eql-specializers in methods.
+	(inspector-princ): New function.
+	(method-specializers-for-inspect): New function.
+	(method-for-inspect-value): New function.
+	(inspect-for-emacs): Use inspector-princ instead of
+	princ-to-string.
+
+	* swank-backend.lisp (swank-mop): Require eql-specializer,
+	eql-specializer-object and specializer-direct-methods in swank-mop
+	package.
+
+	* swank-allegro.lisp, swank-clisp.lisp, swank-cmucl.lisp,
+	swank-openmcl.lisp, swank-sbcl.lisp (swank-mop): Export
+	eql-specializer, eql-specializer-object and
+	specializer-direct-methods from swank-mop.
+
+	* swank-cmucl.lisp (inspect-for-emacs): Thinko fix.
+
+	* swank-lispworks.lisp (swank-mop): Export
+	specializer-direct-methods.
+	(eql-specializer): Implement.
+	(eql-specializer-object): Implement.
+
+	* swank-sbcl.lisp (inspect-for-emacs): Fix broken ignore
+	declaration.
+
+	* doc/slime.texi: Update inspector documentation.
+	
 2004-09-16  Marco Baringer  <mb@bese.it>
 
 	* swank-clisp.lisp (swank-mop, inspect-for-emacs): Only define the
