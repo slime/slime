@@ -1,4 +1,4 @@
-;;; -*- indent-tabs-mode: nil -*-
+;;;; -*- indent-tabs-mode: nil; outline-regexp: ";;;;+" -*-
 
 (declaim (optimize debug))
 
@@ -175,7 +175,18 @@ The request is read from the socket as a sexp and then evaluated."
    (start-offset :initarg :start-offset)
    (string :initarg :string)))
 
-(defun handle-compiler-condition (condition)
+(defvar *previous-compiler-condition* nil
+  "Used to detect duplicates.")
+
+(defvar *previous-context* nil
+  "Previous compiler error context.")
+
+(defvar *compiler-notes* '()
+  "List of compiler notes for the last compilation unit.")
+
+;;;;; Trapping notes
+
+(defun handle-notification-condition (condition)
   "Handle a condition caused by a compiler warning.
 This traps all compiler conditions at a lower-level than using
 C:*COMPILER-NOTIFICATION-FUNCTION*. The advantage is that we get to
@@ -185,24 +196,48 @@ information."
     (let ((context (or (c::find-error-context nil) *previous-context*)))
       (setq *previous-compiler-condition* condition)
       (setq *previous-context* context)
-      (let ((note (make-compiler-note condition context)))
-	(push note *compiler-notes*)))))
+      (signal-compiler-condition condition context))))
 
-(defun make-compiler-note (condition context)
-  (list :message (brief-compiler-message-for-emacs condition context)
-	:severity (severity-for-emacs condition)
-	:location 
-	(cond (context
-	       (let ((cx context))
-		 (resolve-location
-		  *swank-source-info*
-		  (c::compiler-error-context-file-name cx)
-		  (c::compiler-error-context-file-position cx)
-		  (reverse (c::compiler-error-context-original-source-path cx))
-		  (c::compiler-error-context-original-source cx))))
-	      (t
-	       (resolve-location *swank-source-info* nil nil nil nil)))))
-  
+(defun signal-compiler-condition (condition context)
+  (signal (make-condition
+           'compiler-condition
+           :original-condition condition
+           :severity (severity-for-emacs condition)
+           :message (brief-compiler-message-for-emacs condition context)
+           :location (compiler-note-location context))))
+
+(defun compiler-note-location (context)
+  (cond (context
+         (let ((cx context))
+           (resolve-location
+            *swank-source-info*
+            (c::compiler-error-context-file-name cx)
+            (c::compiler-error-context-file-position cx)
+            (reverse (c::compiler-error-context-original-source-path cx))
+            (c::compiler-error-context-original-source cx))))
+        (t
+         (resolve-location *swank-source-info* nil nil nil nil))))
+
+(defun severity-for-emacs (condition)
+  "Return the severity of CONDITION."
+  (etypecase condition
+    (c::compiler-error :error)
+    (c::style-warning :note)
+    (c::warning :warning)))
+
+(defun brief-compiler-message-for-emacs (condition error-context)
+  "Briefly describe a compiler error for Emacs.
+When Emacs presents the message it already has the source popped up
+and the source form highlighted. This makes much of the information in
+the error-context redundant."
+  (declare (type (or c::compiler-error-context null) error-context))
+  (let ((enclosing (and error-context
+			(c::compiler-error-context-enclosing-source 
+			 error-context))))
+    (if enclosing
+        (format nil "--> ~{~<~%--> ~1:;~A~> ~}~%~A" enclosing condition)
+        (format nil "~A" condition))))
+
 (defgeneric resolve-location (source-info 
 			      file-name file-position
 			      source-path source))
@@ -226,65 +261,35 @@ information."
 			       (source (eql nil)))
   '(:null))
 
-(defun severity-for-emacs (condition)
-  (etypecase condition
-    (c::compiler-error :error)
-    (c::style-warning :note)
-    (c::warning :warning)))
+;;(defun call-trapping-compilation-notes (fn)
+(defmacro with-compilation-hooks (() &body body)
+  `(let ((*previous-compiler-condition* nil)
+         (*previous-context* nil))
+    (handler-bind ((c::compiler-error #'handle-notification-condition)
+                   (c::style-warning  #'handle-notification-condition)
+                   (c::warning        #'handle-notification-condition))
+      ,@body)))
 
-(defun brief-compiler-message-for-emacs (condition error-context)
-  "Briefly describe a compiler error for Emacs.
-When Emacs presents the message it already has the source popped up
-and the source form highlighted. This makes much of the information in
-the error-context redundant."
-  (declare (type (or c::compiler-error-context null) error-context))
-  (let ((enclosing (and error-context
-			(c::compiler-error-context-enclosing-source 
-			 error-context))))
-    (if enclosing
-        (format nil "--> ~{~<~%--> ~1:;~A~> ~}~%~A" enclosing condition)
-        (format nil "~A" condition))))
+(defmethod compile-file-for-emacs (filename load-p)
+  (clear-xref-info filename)
+  (with-compilation-hooks ()
+    (let ((*swank-source-info* (make-instance 'file-source-info
+                                              :filename filename)))
+      (compile-file filename :load load-p))))
 
-(defun current-compiler-error-source-path (context)
-  "Return the source-path for the current compiler error.
-Returns NIL if this cannot be determined by examining internal
-compiler state."
-  (cond ((c::node-p context)
-	 (reverse
-	  (c::source-path-original-source (c::node-source-path context))))
-	((c::compiler-error-context-p context)
-	 (reverse
-	  (c::compiler-error-context-original-source-path context)))))
-
-(defun call-trapping-compilation-notes (fn)
-  (handler-bind ((c::compiler-error #'handle-compiler-condition)
-                 (c::style-warning #'handle-compiler-condition)
-                 (c::warning #'handle-compiler-condition))
-    (funcall fn)))
-
-(defslimefun swank-compile-file (filename load)
-  (call-with-compilation-hooks
-   (lambda ()
-     (clear-note-database filename)
-     (clear-xref-info filename)
-     (let ((*swank-source-info* (make-instance 'file-source-info
-					       :filename filename)))
-       (compile-file filename :load load)))))
-
-(defslimefun swank-compile-string (string buffer start)
-  (call-with-compilation-hooks
-   (lambda ()
-     (let ((*package* *buffer-package*)
-	   (*swank-source-info* (make-instance 'buffer-source-info
-					       :buffer buffer
-					       :start-offset start
-					       :string string)))
-       (with-input-from-string (stream string)
-	 (ext:compile-from-stream 
-	  stream 
-	  :source-info `(:emacs-buffer ,buffer 
-			 :emacs-buffer-offset ,start
-			 :emacs-buffer-string ,string)))))))
+(defmethod compile-string-for-emacs (string &key buffer position)
+  (with-compilation-hooks ()
+    (let ((*package* *buffer-package*)
+          (*swank-source-info* (make-instance 'buffer-source-info
+                                              :buffer buffer
+                                              :start-offset position
+                                              :string string)))
+      (with-input-from-string (stream string)
+        (ext:compile-from-stream 
+         stream 
+         :source-info `(:emacs-buffer ,buffer 
+                        :emacs-buffer-offset ,position
+                        :emacs-buffer-string ,string))))))
 
 (defun clear-xref-info (namestring)
   "Clear XREF notes pertaining to FILENAME.
@@ -316,7 +321,7 @@ This is a workaround for a CMUCL bug: XREF records are cumulative."
 (defun unix-truename (pathname)
   (ext:unix-namestring (truename pathname)))
 
-(defslimefun arglist-string (fname)
+(defmethod arglist-string (fname)
   "Return a string describing the argument list for FNAME.
 The result has the format \"(...)\"."
   (declare (type string fname))
@@ -328,11 +333,8 @@ The result has the format \"(...)\"."
 	   (if (not (or (fboundp function)
 			(functionp function)))
 	       "(-- <Unknown-Function>)"
-	       (let* ((fun (etypecase function
-			     (symbol (or (macro-function function)
-					 (symbol-function function)))
-			     ;;(function function)
-			     ))
+	       (let* ((fun (or (macro-function function)
+                               (symbol-function function)))
 		      (df (di::function-debug-function fun))
 		      (arglist (kernel:%function-arglist fun)))
 		 (cond ((eval:interpreted-function-p fun)
@@ -573,21 +575,13 @@ This is useful when debugging the definition-finding code.")
 
 ;;;
 
-(defun briefly-describe-symbol-for-emacs (symbol)
-  "Return a plist describing SYMBOL.
-Return NIL if the symbol is unbound."
+(defmethod describe-symbol-for-emacs (symbol)
   (let ((result '()))
-    (labels ((first-line (string) 
-               (let ((pos (position #\newline string)))
-                 (if (null pos) string (subseq string 0 pos))))
-	     (doc (kind)
-	       (let ((string (documentation symbol kind)))
-		 (if string 
-		     (first-line string)
-		     :not-documented)))
-	     (maybe-push (property value)
-	       (when value
-		 (setf result (list* property value result)))))
+    (flet ((doc (kind)
+             (or (documentation symbol kind) :not-documented))
+           (maybe-push (property value)
+             (when value
+               (setf result (list* property value result)))))
       (maybe-push
        :variable (multiple-value-bind (kind recorded-p)
 		     (ext:info variable kind symbol)
@@ -619,8 +613,7 @@ Return NIL if the symbol is unbound."
       (maybe-push
        :alien-enum (if (ext:info alien-type enum symbol)
 		       (doc nil)))
-      (if result
-	  (list* :designator (to-string symbol) result)))))
+      result)))
 
 (defslimefun describe-setf-function (symbol-name)
   (print-description-to-string
@@ -661,8 +654,8 @@ Return NIL if the symbol is unbound."
 
 ;;; Macroexpansion
 
-(defslimefun swank-macroexpand-all (string)
-  (apply-macro-expander #'walker:macroexpand-all string))
+(defmethod macroexpand-all (form)
+  (walker:macroexpand-all form))
 
 
 ;;;

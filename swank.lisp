@@ -1,4 +1,4 @@
-;;;; -*- Mode: lisp; indent-tabs-mode: nil -*-
+;;;; -*- Mode: lisp; outline-regexp: ";;;;*"; indent-tabs-mode: nil -*-
 ;;;
 ;;; swank.lisp --- the portable bits
 ;;;
@@ -7,13 +7,16 @@
 ;;; This code has been placed in the Public Domain.  All warranties are 
 ;;; disclaimed.
 
+#+nil
 (defpackage :swank
   (:use :common-lisp)
-  (:nicknames "SWANK-IMPL")
   (:export #:start-server #:create-swank-server
            #:*sldb-pprint-frames*))
 
 (in-package :swank)
+
+;; Directly exported backend functions.
+(export '(arglist-string))
 
 (defvar *swank-io-package*
   (let ((package (make-package "SWANK-IO-PACKAGE")))
@@ -294,41 +297,17 @@ change, then send Emacs an update."
 
 ;;;; Compilation Commands.
 
-(defvar *previous-compiler-condition* nil
-  "Used to detect duplicates.")
-
-(defvar *previous-context* nil
-  "Used for compiler warnings without context.")
-
 (defvar *compiler-notes* '()
   "List of compiler notes for the last compilation unit.")
 
 (defun clear-compiler-notes ()  
-  (setf *compiler-notes* '())
-  (setf *previous-compiler-condition* nil)
-  (setf *previous-context* nil))
-
-(defvar *notes-database* (make-hash-table :test #'equal)
-  "Database of recorded compiler notes/warnings/errors (keyed by filename).
-Each value is a list of (LOCATION SEVERITY MESSAGE CONTEXT) lists.
-  LOCATION is a position in the source code (integer or source path).
-  SEVERITY is one of :ERROR, :WARNING, :STYLE-WARNING and :NOTE.
-  MESSAGE is a string describing the note.
-  CONTEXT is a string giving further details of where the error occured.")
-
-(defun clear-note-database (filename)
-  (remhash (canonicalize-filename filename) *notes-database*))
+  (setf *compiler-notes* '()))
 
 (defslimefun features ()
   (mapcar #'symbol-name *features*))
 
 (defun canonicalize-filename (filename)
   (namestring (truename filename)))
-
-(defslimefun compiler-notes-for-file (filename)
-  "Return the compiler notes recorded for FILENAME.
-\(See *NOTES-DATABASE* for a description of the return type.)"
-  (gethash (canonicalize-filename filename) *notes-database*))
 
 (defslimefun compiler-notes-for-emacs ()
   "Return the list of compiler notes for the last compilation unit."
@@ -343,14 +322,33 @@ The time is measured in microseconds."
      (* (- (get-internal-real-time) before)
         (/ 1000000 internal-time-units-per-second)))))
 
-(defmacro with-trapping-compilation-notes (() &body body)
-  `(call-trapping-compilation-notes (lambda () ,@body)))
+(defun record-note-for-condition (condition)
+  "Record a note for a compiler-condition."
+  (push (make-compiler-note condition) *compiler-notes*))
 
-(defun call-with-compilation-hooks (fn)
+(defun make-compiler-note (condition)
+  "Make a compiler note data structure from a compiler-condition."
+  (declare (type compiler-condition condition))
+  (list :message (message condition)
+        :severity (severity condition)
+        :location (location condition)))
+
+(defslimefun swank-compile-file (filename load-p)
+  (clear-compiler-notes)
   (multiple-value-bind (result usecs)
-      (with-trapping-compilation-notes ()
-        (clear-compiler-notes)
-        (measure-time-interval fn))
+      (handler-bind ((compiler-condition #'record-note-for-condition))
+        (measure-time-interval (lambda ()
+                                 (compile-file-for-emacs filename load-p))))
+    (list (to-string result)
+	  (format nil "~,2F" (/ usecs 1000000.0)))))
+
+(defslimefun swank-compile-string (string buffer start)
+  (clear-compiler-notes)
+  (multiple-value-bind (result usecs)
+      (handler-bind ((compiler-condition #'record-note-for-condition))
+        (measure-time-interval
+         (lambda ()
+           (compile-string-for-emacs string :buffer buffer :position start))))
     (list (to-string result)
 	  (format nil "~,2F" (/ usecs 1000000.0)))))
 
@@ -407,6 +405,9 @@ The time is measured in microseconds."
 
 (defslimefun disassemble-symbol (symbol-name)
   (print-output-to-string (lambda () (disassemble (from-string symbol-name)))))
+
+(defslimefun swank-macroexpand-all (string)
+  (apply-macro-expander #'macroexpand-all string))
 
 ;;; Completion
 
@@ -512,6 +513,23 @@ The result is a list of property lists."
   (mapcan (listify #'briefly-describe-symbol-for-emacs)
           (sort (apropos-symbols name external-only package)
                 #'present-symbol-before-p)))
+
+(defun briefly-describe-symbol-for-emacs (symbol)
+  "Return a property list describing SYMBOL.
+Like `describe-symbol-for-emacs' but with at most one line per item."
+  (flet ((first-line (string) 
+           (let ((pos (position #\newline string)))
+             (if (null pos) string (subseq string 0 pos)))))
+    (list* :designator (to-string symbol)
+           (map-if #'stringp #'first-line (describe-symbol-for-emacs symbol)))))
+
+(defun map-if (test fn &rest lists)
+  "Like (mapcar FN . LISTS) but only call FN on objects satisfying TEST.
+Example:
+\(map-if #'oddp #'- '(1 2 3 4 5)) => (-1 2 -3 4 -5)"
+  (apply #'mapcar
+         (lambda (x) (if (funcall test x) (funcall fn x) x))
+         lists))
 
 (defun listify (f)
   "Return a function like F, but which returns any non-null value

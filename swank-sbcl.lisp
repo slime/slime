@@ -196,6 +196,9 @@ until the remote Emacs goes away."
 (defvar *buffername*)
 (defvar *buffer-offset*)
 
+(defvar *previous-compiler-condition* nil
+  "Used to detect duplicates.")
+
 (defun handle-notification-condition (condition)
   "Handle a condition caused by a compiler warning.
 This traps all compiler conditions at a lower-level than using
@@ -205,34 +208,36 @@ information."
   (let ((context (sb-c::find-error-context nil)))
     (when (and context (not (eq condition *previous-compiler-condition*)))
       (setq *previous-compiler-condition* condition)
-      (let* ((file-name (sb-c::compiler-error-context-file-name context))
-             (file-pos (sb-c::compiler-error-context-file-position context))
-             (file (if (typep file-name 'pathname)
-                       (namestring file-name)
-                       file-name))
-             (note
-              (list
-               :severity (etypecase condition
-                           (sb-c:compiler-error :error)
-                           (sb-ext:compiler-note :note)
-                           (style-warning :style-warning)
-                           (warning :warning))
-               :message (brief-compiler-message-for-emacs condition context)
-               :location 
-               (list 
-                :sbcl
-                :buffername (if (boundp '*buffername*) *buffername*)
-                :buffer-offset (if (boundp '*buffer-offset*) *buffer-offset*)
-                :position file-pos
-                :filename (etypecase file
-                            (symbol file)
-                            ((or string pathname)
-                             (namestring (truename file))))
-                :source-path (current-compiler-error-source-path context)))))
-        #+nil
-        (let ((*print-length* nil))
-          (format *terminal-io* "handle-notification-condition ~A ~%" note))
-        (push note *compiler-notes*)))))
+      (signal-compiler-condition condition context))))
+
+(defun signal-compiler-condition (condition context)
+  (signal (make-condition
+           'compiler-condition
+           :original-condition condition
+           :severity (etypecase condition
+                       (sb-c:compiler-error  :error)
+                       (sb-ext:compiler-note :note)
+                       (style-warning        :style-warning)
+                       (warning              :warning))
+           :message (brief-compiler-message-for-emacs condition context)
+           :location (compiler-note-location context))))
+
+(defun compiler-note-location (context)
+  "Determine from CONTEXT the current compiler source location."
+  (let* ((file-name (sb-c::compiler-error-context-file-name context))
+         (file-pos (sb-c::compiler-error-context-file-position context))
+         (file (if (typep file-name 'pathname)
+                   (namestring file-name)
+                   file-name)))
+    (list :sbcl
+          :buffername    (if (boundp '*buffername*) *buffername*)
+          :buffer-offset (if (boundp '*buffer-offset*) *buffer-offset*)
+          :position      file-pos
+          :filename      (etypecase file
+                           (symbol file)
+                           ((or string pathname)
+                            (namestring (truename file))))
+          :source-path   (current-compiler-error-source-path context))))
 
 (defun brief-compiler-message-for-emacs (condition error-context)
   "Briefly describe a compiler error for Emacs.
@@ -257,40 +262,36 @@ compiler state."
          (reverse
           (sb-c::compiler-error-context-original-source-path context)))))
 
-(defun call-trapping-compilation-notes (fn)
-  (handler-bind ((sb-c:compiler-error #'handle-notification-condition)
-                 (sb-ext:compiler-note #'handle-notification-condition)
-                 (style-warning #'handle-notification-condition)
-                 (warning #'handle-notification-condition))
-    (funcall fn)))
+(defmacro with-compilation-hooks (() &body body)
+  `(handler-bind ((sb-c:compiler-error  #'handle-notification-condition)
+                  (sb-ext:compiler-note #'handle-notification-condition)
+                  (style-warning        #'handle-notification-condition)
+                  (warning              #'handle-notification-condition))
+    ,@body))
 
-(defslimefun swank-compile-file (filename load)
-  (call-with-compilation-hooks
-   (lambda ()
-     (clear-note-database filename)
-     #+xref (clear-xref-info filename)
-     (let* ((*buffername* nil)
-            (*buffer-offset* nil)
-            (ret (compile-file filename)))
-       (if load (load ret) ret)))))
+(defmethod compile-file-for-emacs (filename load-p)
+  (with-compilation-hooks ()
+    (let* ((*buffername* nil)
+           (*buffer-offset* nil)
+           (ret (compile-file filename)))
+      (if load-p (load ret) ret))))
 
-(defslimefun swank-compile-string (string buffer start)
-  (call-with-compilation-hooks
-   (lambda ()
-     (let ((*package* *buffer-package*))
-       (prog1
-           (eval (from-string
-                  (format nil "(funcall (compile nil '(lambda () ~A)))"
-                          string)))
-         (loop for n  in *compiler-notes*
-               for loc = (getf n :location)
-               for (_ . l) = loc
-               for sp = (getf l :source-path)
-               ;; account for the added lambda, replace leading
-               ;; position with 0
-               do (setf (getf l :source-path) (cons 0 (cddr sp))
-                        (getf l :buffername) buffer 
-                        (getf l :buffer-offset) start)))))))
+(defmethod compile-string-for-emacs (string &key buffer position)
+  (with-compilation-hooks ()
+    (let ((*package* *buffer-package*))
+      (prog1
+          (eval (from-string
+                 (format nil "(funcall (compile nil '(lambda () ~A)))"
+                         string)))
+        (loop for n  in *compiler-notes*
+              for loc = (getf n :location)
+              for (_ . l) = loc
+              for sp = (getf l :source-path)
+              ;; account for the added lambda, replace leading
+              ;; position with 0
+              do (setf (getf l :source-path) (cons 0 (cddr sp))
+                       (getf l :buffername) buffer 
+                       (getf l :buffer-offset) position))))))
 
 ;;;; xref stuff doesn't exist for sbcl yet
 
@@ -352,23 +353,13 @@ This is useful when debugging the definition-finding code.")
           (finder fname)
           (handler-case (finder fname)
             (error (e) (list :error (format nil "Error: ~A" e))))))))
-;; (function-source-location-for-emacs "read-next-form")
-(defun briefly-describe-symbol-for-emacs (symbol)
+
+(defmethod describe-symbol-for-emacs (symbol)
   "Return a plist describing SYMBOL.
 Return NIL if the symbol is unbound."
   (let ((result '()))
-    (labels ((first-line (string) 
-               (let ((pos (position #\newline string)))
-                 (if (null pos) string (subseq string 0 pos))))
-	     (doc (kind)
-	       (let ((string
-                      ;; sbcl 0.8.4.early signals unbound slot on
-                      ;; (documentation 'function 'type)
-                      ;; (fixed for 0.8.5)
-                      (ignore-errors (documentation symbol kind))))
-		 (if string 
-		     (first-line string)
-		     :not-documented)))
+    (labels ((doc (kind)
+	       (or (documentation symbol kind) :not-documented))
 	     (maybe-push (property value)
 	       (when value
 		 (setf result (list* property value result)))))
@@ -388,11 +379,7 @@ Return NIL if the symbol is unbound."
       (maybe-push
        :type (if (sb-int:info :type :kind symbol)
 		 (doc 'type)))
-      (maybe-push
-       :class (if (find-class symbol nil) 
-		  (doc 'class)))
-      (if result
-	  (list* :designator (to-string symbol) result)))))
+      result)))
 
 (defslimefun describe-setf-function (symbol-name)
   (print-description-to-string `(setf ,(from-string symbol-name))))
@@ -406,12 +393,9 @@ Return NIL if the symbol is unbound."
 
 ;;; macroexpansion
 
-(defun sbcl-macroexpand-all (form)
+(defmethod macroexpand-all (form)
   (let ((sb-walker:*walk-form-expand-macros-p* t))
     (sb-walker:walk-form form)))
-
-(defslimefun swank-macroexpand-all (string)
-  (apply-macro-expander #'sbcl-macroexpand-all string))
 
 
 ;;;

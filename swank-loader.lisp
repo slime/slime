@@ -65,7 +65,9 @@ recompiled."
     (cond ((probe-file filename) filename)
           (t nil))))
 
-(compile-files-if-needed-serially (cons *swank-pathname* *sysdep-pathnames*))
+(compile-files-if-needed-serially
+ (list* (make-swank-pathname "swank-backend") *swank-pathname*
+        *sysdep-pathnames*))
 
 (when (user-init-file)
   (load (user-init-file)))
