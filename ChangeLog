@@ -1,3 +1,22 @@
+2003-11-04  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-read-string-state): Add support for evaluation
+	requests.
+	(slime-repl-read-break): New command.
+	alternative.
+	slime-keys: XEmacs cannot rebind C-c C-g.  Use C-c C-b as an
+	alternative.
+	(slime-selector): XEmacs has no prompt argument for read-char.
+	(slime-underline-color, slime-face-attributes): Make face
+	definitions compatible with XEmacs and Emacs20.
+	(slime-disconnect): Delete the buffer of the socket.
+	(slime-net-connect): Prefix the connection buffer name with a
+	space to avoid accidental deletion.
+
+	* swank.lisp (slime-read-string): Send a :read-aborted event for
+	non-local exits.
+	(case-convert): Handle :invert case better.
+
 2003-11-03  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-display-message-or-view,
