@@ -1486,6 +1486,7 @@ This is automatically synchronized from Lisp.")
       ((:ed what)
        (slime-ed what))
       ((:debug-condition thread message)
+       (apply 'ignore thread) ; stupid XEmacs warns about unused variable
        (message "%s" message)))))
 
 (defun slime-reset ()
@@ -2132,6 +2133,18 @@ earlier in the buffer."
     (insert "\n")
     (lisp-indent-line)))
 
+(defun slime-repl-indent-and-complete-symbol ()
+  "Indent the current line and perform symbol completion.
+First indent the line.  If indenting doesn't move point complete the
+symbol."
+  (interactive)
+  (let ((pos (point)))
+    (lisp-indent-line)
+    (when (and (= pos (point))
+               (save-excursion 
+                 (re-search-backward "\\(\\s_\\|\\sw\\)+\\=" nil t)))
+      (slime-complete-symbol))))
+
 (defun slime-repl-delete-current-input ()
   (delete-region slime-repl-input-start-mark slime-repl-input-end-mark))
 
@@ -2277,7 +2290,8 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   ("\M-s" 'slime-repl-next-matching-input)
   ("\C-c\C-c" 'slime-interrupt)
   ("\C-c\C-g" 'slime-interrupt)
-  ("\t"   'slime-complete-symbol)
+  ;("\t"   'slime-complete-symbol)
+  ("\t"   'slime-repl-indent-and-complete-symbol)
   (" "    'slime-space)
   ("\C-\M-x" 'slime-eval-defun)
   ("\C-c\C-o" 'slime-repl-clear-output)
@@ -2830,7 +2844,7 @@ is kept."
 If the location's sexp is a list spanning multiple lines, then the
 region around the first element is used."
   (let ((location (getf note :location)))
-    (unless (eql (car location) :error) 
+    (unless (eq (car location) :error) 
       (slime-goto-source-location location)
       (let ((start (point)))
         (ignore-errors (slime-forward-sexp))
