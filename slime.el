@@ -3368,7 +3368,10 @@ from an element and TEST is used to compare keys."
 
 (defun slime-tree-for-note (note)
   (make-slime-tree :item (slime-note.message note)
-                   :plist (list 'note note)))
+                   :plist (list 'note note)
+                   :print-fn (if (slime-note.references note)
+                                 'slime-tree-print-with-references
+                               'slime-tree-default-printer)))
 
 (defun slime-tree-for-severity (severity notes collapsed-p)
   (make-slime-tree :item (format "%s (%d)" 
@@ -3446,11 +3449,11 @@ from an element and TEST is used to compare keys."
   (not (slime-tree.kids tree)))
 
 (defun slime-tree-default-printer (tree)
-  (princ (slime-tree.item tree) (current-buffer))
-  ;; FIXME: slime-tree above is pretty general.  This stuff (below) is
-  ;; tree-of-conditions specific.  At the moment we only use
-  ;; slime-trees for trees-of-conditions, so that's OK, if potentially
-  ;; confusing.
+  (princ (slime-tree.item tree) (current-buffer)))
+
+(defun slime-tree-print-with-references (tree)
+  ;; for SBCL-style references
+  (slime-tree-default-printer tree)
   (when-let (note (plist-get (slime-tree.plist tree) 'note))
     (when-let (references (slime-note.references note))
       (terpri (current-buffer))
@@ -5593,6 +5596,8 @@ Full list of commands:
   ("p"    'sldb-up)
   ("\M-n" 'sldb-details-down)
   ("\M-p" 'sldb-details-up)
+  ("<"    'sldb-beginning-of-backtrace)
+  (">"    'sldb-end-of-backtrace)
   ("l"    'sldb-list-locals)
   ("t"    'sldb-toggle-details)
   ("r"    'sldb-restart-frame)
@@ -5641,7 +5646,11 @@ Full list of commands:
 (defvar sldb-buffers '()
   "List of sldb-buffers.")
 
+(defun sldb-remove-killed-buffers ()
+  (setq sldb-buffers (remove-if-not #'buffer-live-p sldb-buffers :key #'cdr)))
+
 (defun sldb-find-buffer (thread)
+  (sldb-remove-killed-buffers)
   (let ((buffer (cdr (assoc* (cons (slime-connection) thread) 
                              sldb-buffers 
                              :test #'equal))))
@@ -5652,6 +5661,7 @@ Full list of commands:
           (t buffer))))
 
 (defun sldb-get-default-buffer ()
+  (sldb-remove-killed-buffers)
   (cdr (first sldb-buffers)))
 
 (defun sldb-get-buffer (thread)
@@ -5847,8 +5857,8 @@ MAXIMUM-LENGTH is the total number of frames in the Lisp stack."
 (defun sldb-fetch-more-frames (&rest ignore)
   "Fetch more backtrace frames.
 Called on the `point-entered' text-property hook."
-  (let ((inhibit-point-motion-hooks t))
-    (let ((inhibit-read-only t))
+  (let ((inhibit-point-motion-hooks t)
+        (inhibit-read-only t))
       (when-let (previous (get-text-property (point) 
                                              'sldb-previous-frame-number))
         (beginning-of-line)
@@ -5858,7 +5868,7 @@ Called on the `point-entered' text-property hook."
         (let ((start (1+ previous))
               (end (+ previous 40)))
           (sldb-insert-frames (slime-eval `(swank:backtrace ,start ,end))
-                              (- end start)))))))
+                              (- end start))))))
 
 
 ;;;;; SLDB commands
@@ -6066,6 +6076,11 @@ The details include local variable bindings and CATCH-tags."
 	      (point) 'frame 
 	      nil sldb-backtrace-start-marker)))
 
+(defun sldb-goto-last-frame ()
+  (goto-char (point-max))
+  (while (not (get-text-property (point) 'frame))
+    (goto-char (previous-single-property-change (point) 'frame))))
+
 (defun sldb-down ()
   "Select next frame."
   (interactive)
@@ -6132,6 +6147,28 @@ The details include local variable bindings and CATCH-tags."
 (defun sldb-list-catch-tags ()
   (interactive)
   (slime-message "%s" (sldb-catch-tags (sldb-frame-number-at-point))))
+
+(defun sldb-fetch-all-frames ()
+  (interactive)
+  (let ((inhibit-read-only t)
+        (inhibit-point-motion-hooks t))
+    (sldb-goto-last-frame)
+    (let ((last (sldb-frame-number-at-point)))
+      (goto-char (next-single-char-property-change (point) 'frame))
+      (delete-region (point) (point-max))
+      (sldb-insert-frames (slime-eval `(swank:backtrace ,(1+ last) nil))
+                          nil))))
+
+(defun sldb-end-of-backtrace ()
+  "Fetch the entire backtrace and move point to the last frame."
+  (interactive)
+  (sldb-fetch-all-frames)
+  (sldb-goto-last-frame))
+
+(defun sldb-beginning-of-backtrace ()
+  "Goto the first frame."
+  (interactive)
+  (goto-char sldb-backtrace-start-marker))
 
 
 (defun sldb-quit ()
@@ -6743,7 +6780,7 @@ is exceeded."
   "Find reader conditionalized forms where the test is false."
   (when (and slime-highlight-suppressed-forms
              (slime-connected-p)
-	     (re-search-forward "[ \n\t\r(]#[-+]" limit t))
+	     (re-search-forward "^[^;]*[ \n\t\r(]#[-+]" limit t))
     (ignore-errors
       (let* ((char (char-before))
              (e (read (current-buffer)))
