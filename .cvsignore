@@ -1,1 +1,3 @@
 *.x86f
+*.fasl
+*.dfsl
