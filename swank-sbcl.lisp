@@ -67,7 +67,7 @@
 			       :protocol :tcp)))
     (when reuse-address
       (setf (sb-bsd-sockets:sockopt-reuse-address socket) t))
-    (setf (sb-bsd-sockets:non-blocking-mode socket) t)
+    ;;(setf (sb-bsd-sockets:non-blocking-mode socket) t)
     (sb-bsd-sockets:socket-bind socket #(127 0 0 1) port)
     (sb-bsd-sockets:socket-listen socket 5)
     socket))
