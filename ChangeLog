@@ -1,3 +1,20 @@
+2004-11-01  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-easy-menu): Add item for
+	slime-update-indentation.  Suggested by Lynn Quam.
+	(slime-severity-faceslime-show-note-counts)
+	(slime-most-severe, slime-choose-overlay-region): Handle
+	read-errors.
+	(slime-show-buffer-position): New function.
+	(slime-show-source-location): Use it.
+
+	* swank-backend.lisp (deftype severity): Add read-errors.
+
+	* swank-cmucl.lisp (severity-for-emacs): Special case read-errors.
+	(read-error-location): Add the offset to the buffer start.
+
+	* swank.lisp (assign-index): Avoid linear search.
+
 2004-10-30  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-source-path-parser.lisp (source-path-stream-position):
