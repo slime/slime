@@ -1,3 +1,14 @@
+2004-01-23  Michael Weber  <michaelw@foldr.org>
+
+	* slime.el (slime-repl-set-package): New command to set the
+	package in the REPL buffer.
+
+	* swank.lisp (set-package): Return the shortest nickname.
+
+2004-01-23  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (sldb-disassemble): Was lost somewhere.
+	
 2004-01-22  Wolfgang Jenkner  <wjenkner@inode.at>
 
 	* swank-clisp.lisp: Replace defmethod by defimplementation where
@@ -20,8 +31,8 @@
 	* swank-backend.lisp (return-from-frame, restart-frame):
 	Are now interface functions.
 
-	* slime/swank.asd: Remove dependency on :sb-bsd-sockets.  Is
-	already done in swank-sbcl.
+	* swank.asd: Remove dependency on :sb-bsd-sockets.  Is already
+	done in swank-sbcl.
 
 	* swank-loader.lisp: Don't reference the swank package at
 	read-time.
