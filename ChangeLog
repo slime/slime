@@ -1,3 +1,31 @@
+2004-10-25  Marco Baringer  <mb@bese.it>
+
+	* swank.lisp (inspect-for-emacs array): Properly deal with arrays
+	without fill pointers.
+	(inspect-for-emacs function): Show function-lambda-expression
+	when available.
+
+	* swank-openmcl.lisp (specializer-name): New function.
+	(who-specializes): Use it.
+	(maybe-method-location): Use it.
+	(function-source-location): Use it.
+
+	* swank-cmucl.lisp (inspect-for-emacs function): Use next
+	method's values and simply add cmucl specific details.
+
+	* slime.el (slime-repl-defparameter): Change default value to "*".
+	
+2004-10-25  Thomas Schilling <tjs_ng@yahoo.de>
+
+	* swank-allegro.lisp (inspect-for-emacs): Use
+	excl::external-fn_symdef to get the function documentation.
+
+	* swank.lisp (inspect-for-emacs): Order generic function's methods
+	and show abbreviated docs for methods.
+	(abbrev-doc): New function.
+	(methods-by-applicability): New function.
+	(*gf-method-getter*): New variable.
+	
 2004-10-19  Luke Gorrie  <luke@synap.se>
 
 	* slime.el (slime-show-source-location): Call `push-mark' to push
