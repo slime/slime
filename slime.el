@@ -3902,6 +3902,7 @@ first element of the source-path redundant."
         (re-search-forward 
          (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\>" name) nil t)
         (re-search-forward 
+         ;; FIXME: Isn't this far to general?
          (format "[( \t]%s\\>\\(\\s \\|$\\)" name) nil t)))
      (goto-char (match-beginning 0)))
     ;; Looks for a sequence of words (def<something> method name
@@ -4271,7 +4272,7 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
 (defun slime-global-variable-name-p (name)
   "Is NAME a global variable?
 Globals are recognised purely by *this-naming-convention*."
-  (string-match "^\\(.*::?\\)?\\*.*\\*$" name))
+  (string-match "^\\(.*::?\\)?[*+].*[*+]$" name))
 
 (defun slime-get-cached-autodoc (symbol-name)
   "Return the cached autodoc documentation for SYMBOL-NAME, or nil."
