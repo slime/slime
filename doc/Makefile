@@ -43,7 +43,7 @@ slime.info: slime.texi
 contributors.texi: ../ChangeLog Makefile texinfo-tabulate.awk
 	cat ../ChangeLog | \
 	sed -ne '/^[0-9]/{s/^[^ ]* *//; s/ *<.*//; p;}' | \
-	sort -d | \
+	sort | \
 	uniq -c | \
 	sort -nr| \
 	sed -e 's/^[^A-Z]*//' | \
