@@ -120,14 +120,10 @@
   (sys::set-signal-handler +sigint+ 
                            (make-sigint-handler mp:*current-process*)))
 
-(defimplementation emacs-connected (stream)
+(defimplementation emacs-connected ()
   (declare (ignore stream))
   (set-sigint-handler)
   (let ((lw:*handle-warn-on-redefinition* :warn))
-    (defmethod stream:stream-soft-force-output  ((o comm:socket-stream))
-      (force-output o))
-    (defmethod stream:stream-soft-force-output ((o slime-output-stream))
-      (force-output o))
     (defmethod env-internals:environment-display-notifier 
         (env &key restarts condition)
       (declare (ignore restarts))
@@ -136,6 +132,11 @@
     (defmethod env-internals:environment-display-debugger
         (env)
       *debug-io*)))
+
+(defimplementation make-stream-interactive (stream)
+  (let ((lw:*handle-warn-on-redefinition* :warn))
+    (defmethod stream:stream-soft-force-output  ((o (eql stream)))
+      (force-output o))))
 
 ;;; Unix signals
 
@@ -335,11 +336,14 @@ Return NIL if the symbol is unbound."
   nil)
 
 (defimplementation frame-source-location-for-emacs (frame)
-  (let ((frame (nth-frame frame)))
+  (let ((frame (nth-frame frame))
+        (callee (if (plusp frame) (nth-frame (1- frame)))))
     (if (dbg::call-frame-p frame)
-	(let ((name (dbg::call-frame-function-name frame)))
-	  (if name
-              (function-name-location name))))))
+	(let ((dspec (dbg::call-frame-function-name frame))
+              (cname (and (dbg::call-frame-p callee)
+                          (dbg::call-frame-function-name callee))))
+	  (if dspec
+              (frame-location dspec cname))))))
 
 (defimplementation eval-in-frame (form frame-number)
   (let ((frame (nth-frame frame-number)))
@@ -357,11 +361,18 @@ Return NIL if the symbol is unbound."
 
 ;;; Definition finding
 
-(defun function-name-location (name)
-  (let ((defs (find-definitions name)))
-    (cond (defs (cadr (first defs)))
-          (t (list :error (format nil "Source location not available for: ~S" 
-                                  name))))))
+(defun frame-location (dspec callee-name)
+  (let ((infos (dspec:find-dspec-locations dspec)))
+    (cond (infos 
+           (destructuring-bind ((rdspec location) &rest _) infos
+             (declare (ignore _))
+             (let ((name (and callee-name (symbolp callee-name)
+                              (string callee-name))))
+               (make-dspec-location rdspec location 
+                                    `(:call-site ,name)))))
+          (t 
+           (list :error (format nil "Source location not available for: ~S" 
+                                dspec))))))
 
 (defimplementation find-definitions (name)
   (let ((locations (dspec:find-name-locations dspec:*dspec-classes* name)))
@@ -480,7 +491,7 @@ Return NIL if the symbol is unbound."
   (and (consp location)
        (eq (car location) :emacs-buffer)))
 
-(defun make-dspec-location (dspec location)
+(defun make-dspec-location (dspec location &optional hints)
   (etypecase location
     ((or pathname string)
      (multiple-value-bind (file err) 
@@ -488,14 +499,16 @@ Return NIL if the symbol is unbound."
        (if err
            (list :error (princ-to-string err))
            (make-location `(:file ,file)
-                          (dspec-file-position file dspec)))))
+                          (dspec-file-position file dspec)
+                          hints))))
     (symbol 
      `(:error ,(format nil "Cannot resolve location: ~S" location)))
     ((satisfies emacs-buffer-location-p)
      (destructuring-bind (_ buffer offset string) location
        (declare (ignore _ string))
        (make-location `(:buffer ,buffer)
-                      (dspec-buffer-position dspec offset))))))
+                      (dspec-buffer-position dspec offset)
+                      hints)))))
 
 (defun make-dspec-progenitor-location (dspec location)
   (let ((canon-dspec (dspec:canonicalize-dspec dspec)))
@@ -594,25 +607,21 @@ Return NIL if the symbol is unbound."
 
 (defimplementation inspect-for-emacs ((o t) (inspector lispworks-inspector))
   (declare (ignore inspector))
+  (lispworks-inspect o))
+
+(defimplementation inspect-for-emacs ((o function) 
+                                      (inspector lispworks-inspector))
+  (declare (ignore inspector))
+  (lispworks-inspect o))
+
+(defun lispworks-inspect (o)
   (multiple-value-bind (names values _getter _setter type)
       (lw:get-inspector-values o nil)
     (declare (ignore _getter _setter))
     (values "A value."
-            `("Type: " (:value ,type)
-              (:newline)
-              "Getter: " (:value ,_getter)
-              (:newline)
-              "Setter: " (:value ,_setter)
-              (:newline)
-              "Slots:"
-              (:newline)
-              ,@(loop
-                   for name in names
-                   for value in values
-                   collect `(:value ,name)
-                   collect " = "
-                   collect `(:value ,value)
-                   collect `(:newline)))))) 
+            (append 
+             (label-value-line "Type" type)
+             (mapcan #'label-value-line names values)))))
 
 ;;; Miscellaneous
 
