@@ -84,7 +84,6 @@
   (ext:close-socket (socket-fd socket)))
 
 (defimplementation accept-connection (socket)
-  #+mp (mp:process-wait-until-fd-usable socket :input)
   (make-socket-io-stream (ext:accept-tcp-connection socket)))
 
 ;;;;; Sockets
@@ -378,7 +377,12 @@ Return a `location' record, or (:error REASON) on failure."
                                    source-path file)))))
         ((and (eq file :lisp) (stringp source))
          ;; No location known, but we have the source form.
-         ;; XXX How is this case triggered? -luke (16/May/2004)
+         ;; XXX How is this case triggered?  -luke (16/May/2004) 
+         ;; This can happen if the compiler needs to expand a macro
+         ;; but the macro-expander is not yet compiled.  Calling the
+         ;; (interpreted) macro-expander triggers IR1 conversion of
+         ;; the lambda expression for the expander and invokes the
+         ;; compiler recursively.
          (make-location (list :source-form source)
                         (list :position 1)))))
 
@@ -1447,21 +1451,25 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
   (unix:unix-sigsetmask 0)
   (let* ((*sldb-stack-top* (or debug:*stack-top-hint* (di:top-frame)))
 	 (debug:*stack-top-hint* nil))
-    (handler-bind ((di:debug-condition 
+    (handler-bind ((di::unhandled-condition
 		    (lambda (condition)
-                      (signal (make-condition
-                               'sldb-condition
-                               :original-condition condition)))))
+                      (error (make-condition
+                              'sldb-condition
+                              :original-condition condition)))))
       (funcall debugger-loop-fn))))
 
+(defun frame-down (frame)
+  (handler-case (di:frame-down frame)
+    (di:no-debug-info () nil)))
+
 (defun nth-frame (index)
-  (do ((frame *sldb-stack-top* (di:frame-down frame))
+  (do ((frame *sldb-stack-top* (frame-down frame))
        (i index (1- i)))
       ((zerop i) frame)))
 
 (defimplementation compute-backtrace (start end)
   (let ((end (or end most-positive-fixnum)))
-    (loop for f = (nth-frame start) then (di:frame-down f)
+    (loop for f = (nth-frame start) then (frame-down f)
 	  for i from start below end
 	  while f
 	  collect f)))
