@@ -60,7 +60,6 @@
   (socket:socket-server-close socket))
 
 (defmethod accept-connection (socket)
-  (socket:socket-wait socket)
   (socket:socket-accept socket
 			:buffered nil ;; XXX should be t
 			:element-type 'character
