@@ -1,3 +1,11 @@
+2004-10-30  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-source-path-parser.lisp (source-path-stream-position):
+	Bind *read-suppress* only as long as we skip over forms.  The last
+	toplevel form in the path is read with *read-suppress* = nil
+	because in newer versions of CMUCL and SBCL read will return nil
+	if *read-suppress* is t.
+
 2004-10-28  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-clisp.lisp: Ups. Undo previous change.
