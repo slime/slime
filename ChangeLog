@@ -7,11 +7,12 @@
 	have OpenMCL to test with.
 
 	* swank-backend.lisp, swank.lisp (add-hook, run-hook): Moved the
-	hook mechanism and all hooks here (from swank-backend.lisp). There
-	is no compelling use for backends yet, I want to pass
-	swank.lisp-internal data structures in the existing hooks.
+	hook mechanism and all hooks to swank.lisp (from
+	swank-backend.lisp). There is no compelling use for the hooks in
+	backends yet and I want to pass swank.lisp-internal data
+	structures in the existing hooks.
 	(notify-backend-of-connection): Call `emacs-connected' with the
-	socket-io stream for its argument. Should fix previous breakage
+	user-io stream for its argument. Should fix previous breakage
 	where the connection structure was passed instead.
 	(*globally-redirect-io*): New configurable: when true the standard
 	streams are globally redirected to Emacs. That way even
