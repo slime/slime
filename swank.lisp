@@ -1162,17 +1162,91 @@ pretty printing of (function foo) as #'foo is suppressed."
                 (*print-length* 10) (*print-circle* t))
              (format nil "~A => ~A" sym (symbol-value sym)))))))
 
+(defun decode-keyword-arg (arg)
+  "Decode a keyword item of formal argument list.
+Return three values: keyword, argument name, default arg."
+  (cond ((symbolp arg)
+         (values (intern (symbol-name arg) keyword-package)
+                 arg
+                 nil))
+        ((and (consp arg)
+              (consp (car arg)))
+         (values (caar arg)
+                 (cadar arg)
+                 (cadr arg)))
+        ((consp arg)
+         (values (intern (symbol-name (car arg)) keyword-package)
+                 (car arg)
+                 (cadr arg)))
+        (t
+         (error "Bad keyword item of formal argument list"))))
+
+(defmacro values-equal? (exp (&rest values))
+  "Are the values produced by EXP equal to VALUES."
+  `(equal (multiple-value-list ,exp) (list ,@values)))
+
+(progn
+  (assert (values-equal? (decode-keyword-arg 'x)          (:x 'x nil)))
+  (assert (values-equal? (decode-keyword-arg '(x t))      (:x 'x t)))
+  (assert (values-equal? (decode-keyword-arg '((:x y)))   (:x 'y nil)))
+  (assert (values-equal? (decode-keyword-arg '((:x y) t)) (:x 'y t))))
+
+(defun decode-optional-arg (arg)
+  "Decode an optional item of a formal argument list.
+Return two values: argument name, default arg."
+  (etypecase arg
+    (symbol (values arg nil))
+    (list   (values (car arg) (cadr arg)))))
+
+(progn
+  (assert (values-equal? (decode-optional-arg 'x)     ('x nil)))
+  (assert (values-equal? (decode-optional-arg '(x t)) ('x t))))
+
+(defun arglist-to-template-string (arglist package)
+  "Print the list ARGLIST for insertion as a template for a function call."
+  (setq arglist (clean-arglist arglist))
+  (etypecase arglist
+    (null "()")
+    (cons 
+     (with-output-to-string (*standard-output*)
+       (with-standard-io-syntax
+         (let ((*package* package) (*print-case* :downcase)
+               (*print-pretty* t) (*print-circle* nil) (*print-readably* nil)
+               (*print-level* 10) (*print-length* 20))
+           (pprint-logical-block (nil nil :prefix "(" :suffix ")")  
+             (arglist-to-template-string-aux arglist))))))))
+
+(defun arglist-to-template-string-aux (arglist)
+  (let ((mode nil))
+    (loop
+     (let ((arg (pop arglist)))
+       (case arg
+         ((&key &optional &rest &body)
+          (setq mode arg))
+         (t
+          (case mode
+            (&key (multiple-value-bind (key sym) (decode-keyword-arg arg)
+                    (format t "~W ~A" key sym)))
+            (&optional (format t "[~A]" (decode-optional-arg arg)))
+            (&body (format t "~:@_~A..." arg))
+            (&rest (format t "~A..." arg))
+            (otherwise (princ arg)))
+          (unless (null arglist)
+            (write-char #\space)))))
+     (when (null arglist) (return))
+     (pprint-newline :fill))))
+
 (defslimefun arglist-for-insertion (name)
   (with-buffer-syntax ()
     (cond ((valid-operator-name-p name)
            (let ((arglist (arglist (parse-symbol name))))
              (etypecase arglist
                ((member :not-available)
-                " <not available>")
+                :not-available)
                (list
-                (arglist-to-string arglist *buffer-package*)))))
+                (arglist-to-template-string arglist *buffer-package*)))))
           (t
-           " <not available>"))))
+           :not-available))))
 
 
 ;;;; Evaluation
