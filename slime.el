@@ -4031,24 +4031,33 @@ having names in the given package."
     (error "No symbol given"))
   (slime-eval-describe `(swank:describe-function ,symbol-name)))
 
-(defun slime-apropos (string &optional only-external-p package)
+(defun slime-apropos-summary (case-sensitive-p package only-external-p)
+  "Return a short description for the performed apropos search."
+  (concat (if case-sensitive-p "Case-sensitive " "")
+          "Apropos for "
+          (format "%S" string)
+          (if package (format " in package %S" package) "")
+          (if only-external-p " (external symbols only)" "")))
+
+(defun slime-apropos (string &optional only-external-p package 
+                             case-sensitive-p)
   (interactive
    (if current-prefix-arg
        (list (read-string "SLIME Apropos: ")
              (y-or-n-p "External symbols only? ")
              (let ((pkg (slime-read-package-name "Package: ")))
-               (if (string= pkg "") nil pkg)))
-     (list (read-string "SLIME Apropos: ") t nil)))
+               (if (string= pkg "") nil pkg))
+             (y-or-n-p "Case-sensitive? "))
+     (list (read-string "SLIME Apropos: ") t nil nil)))
   (let ((buffer-package (or package (slime-buffer-package t))))
     (slime-eval-async
-     `(swank:apropos-list-for-emacs ,string ,only-external-p ,package)
+     `(swank:apropos-list-for-emacs ,string ,only-external-p
+                                    ,case-sensitive-p ,package)
      buffer-package
      (lexical-let ((string string)
                    (package (or package buffer-package))
-                   (summary (concat "Apropos for "
-                                    (format "%S" string)
-                                    (if package (format " in package %S" package) "")
-                                    (if only-external-p " (external symbols only)" ""))))
+                   (summary (slime-apropos-summary case-sensitive-p package
+                                                   only-external-p)))
        (lambda (r) (slime-show-apropos r string package summary))))))
 
 (defun slime-apropos-all ()

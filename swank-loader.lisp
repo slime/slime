@@ -29,13 +29,15 @@
 
 (defparameter *sysdep-pathnames*
   (mapcar #'make-swank-pathname 
-          #+cmu '("swank-source-path-parser" "swank-cmucl")
-          #+sbcl '("swank-sbcl" "swank-source-path-parser" "swank-gray")
-          #+openmcl '("swank-openmcl" "swank-gray")
-          #+lispworks '("swank-lispworks" "swank-gray")
-          #+allegro '("swank-allegro" "swank-gray")
-          #+clisp '("xref" "metering" "swank-clisp" "swank-gray")
-          ))
+          (append 
+           '("nregex")
+           #+cmu '("swank-source-path-parser" "swank-cmucl")
+           #+sbcl '("swank-sbcl" "swank-source-path-parser" "swank-gray")
+           #+openmcl '("swank-openmcl" "swank-gray")
+           #+lispworks '("swank-lispworks" "swank-gray")
+           #+allegro '("swank-allegro" "swank-gray")
+           #+clisp '("xref" "metering" "swank-clisp" "swank-gray")
+           )))
 
 (defparameter *lisp-name*
   #+cmu "cmu"
@@ -43,7 +45,8 @@
   #+openmcl "openmcl"
   #+lispworks "lispworks"
   #+allegro "allegro"
-  #+clisp "clisp")
+  #+clisp "clisp"
+  )
 
 (defparameter *swank-pathname* (make-swank-pathname "swank"))
 

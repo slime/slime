@@ -1639,7 +1639,8 @@ Collisions are caused because package information is ignored."
 
 ;;;; Documentation
 
-(defslimefun apropos-list-for-emacs  (name &optional external-only package)
+(defslimefun apropos-list-for-emacs  (name &optional external-only 
+                                           case-sensitive package)
   "Make an apropos search for Emacs.
 The result is a list of property lists."
   (let ((package (if package
@@ -1647,7 +1648,7 @@ The result is a list of property lists."
                          (error "No such package: ~S" package)))))
     (mapcan (listify #'briefly-describe-symbol-for-emacs)
             (sort (remove-duplicates
-                   (apropos-symbols name external-only package))
+                   (apropos-symbols name external-only case-sensitive package))
                   #'present-symbol-before-p))))
 
 (defun briefly-describe-symbol-for-emacs (symbol)
@@ -1693,12 +1694,33 @@ that symbols accessible in the current package go first."
            (string< (package-name (symbol-package a))
                     (package-name (symbol-package b)))))))
 
-(defun apropos-symbols (string external-only package)
-  (remove-if (lambda (sym)
-               (or (keywordp sym)
-                   (and external-only (not (symbol-external-p sym)))
-                   (and package (not (eq (symbol-package sym) package)))))
-             (apropos-list string package)))
+(let ((regex-hash (make-hash-table :test #'equal)))
+  (defun compiled-regex (regex-string)
+    (or (gethash regex-string regex-hash)
+        (setf (gethash regex-string regex-hash)
+              (compile nil (nregex:regex-compile regex-string))))))
+
+(defun apropos-matcher (string case-sensitive package external-only)
+  (let* ((case-modifier (if case-sensitive #'string #'string-upcase))
+         (regex (compiled-regex (funcall case-modifier string))))
+    (lambda (symbol)
+      (and (not (keywordp symbol))
+           (if package (eq (symbol-package symbol) package) t)
+           (if external-only (symbol-external-p symbol) t)
+           (funcall regex (funcall case-modifier symbol))))))
+
+(defun apropos-symbols (string external-only case-sensitive package)
+  (let ((result '())
+        (matchp (apropos-matcher string case-sensitive package external-only)))
+    (with-package-iterator (next (or package (list-all-packages))
+                                 :external :internal)
+      (loop
+       (multiple-value-bind (morep symbol) (next)
+         (cond ((not morep)
+                (return))
+               ((funcall matchp symbol)
+                (push symbol result))))))
+    result))
 
 (defun describe-to-string (object)
   (with-output-to-string (*standard-output*)
