@@ -77,7 +77,7 @@ recompiled."
                   (ensure-directories-exist binary-pathname)
                   (compile-file source-pathname :output-file binary-pathname)
                   (setq needs-recompile t))
-                (load binary-pathname))
+                (load binary-pathname :verbose t))
             #+(or)
             (error ()
               ;; If an error occurs compiling, load the source instead
