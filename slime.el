@@ -1689,7 +1689,7 @@ fixnum a specific thread."))
 (defvar slime-log-events t
   "*Log protocol events to the *slime-events* buffer.")
 
-(defvar slime-inhibit-ouline-mode-in-events-buffer t
+(defvar slime-inhibit-outline-mode-in-events-buffer t
   "*Don't use outline-mode if true.")
 
 ;;;;;;; Event logging to *slime-events*
@@ -1705,7 +1705,8 @@ fixnum a specific thread."))
       (goto-char (point-max))
       (save-excursion
         (pp event (current-buffer)))
-      (when outline-minor-mode
+      (when (and (boundp 'outline-minor-mode)
+                 outline-minor-mode)
         (hide-entry))
       (goto-char (point-max)))))
 
@@ -1716,7 +1717,7 @@ fixnum a specific thread."))
           (set (make-local-variable 'outline-regexp) "^(")
           (set (make-local-variable 'comment-start) ";")
           (set (make-local-variable 'comment-end) "")
-          (unless slime-inhibit-ouline-mode-in-events-buffer
+          (unless slime-inhibit-outline-mode-in-events-buffer
             (outline-minor-mode)))
         buffer)))
 
