@@ -37,7 +37,8 @@
 
 (defimplementation create-socket (host port)
   (multiple-value-bind (socket where errno)
-      (comm::create-tcp-socket-for-service port :address host)
+      #-lispworks4.1(comm::create-tcp-socket-for-service port :address host)
+      #+lispworks4.1(comm::create-tcp-socket-for-service port)
     (cond (socket socket)
           (t (error 'network-error 
               :format-control "~A failed: ~A (~D)"
@@ -57,10 +58,14 @@
     (make-instance 'comm:socket-stream :socket fd :direction :io 
                    :element-type 'base-char)))
 
-(defimplementation emacs-connected ()
+(defun set-sigint-handler ()
   ;; Set SIGINT handler on Swank request handler thread.
-  #-win32 
-  (sys:set-signal-handler +sigint+ (make-sigint-handler mp:*current-process*))
+  #-win32
+  (sys::set-signal-handler +sigint+ 
+                           (make-sigint-handler mp:*current-process*)))
+
+(defimplementation emacs-connected ()
+  (set-sigint-handler)
   (let ((lw:*handle-warn-on-redefinition* :warn))
     (defmethod env-internals:environment-display-notifier 
         (env &key restarts condition)
@@ -80,7 +85,7 @@
     (mp:process-interrupt process #'sigint-handler)))
 
 (defmethod call-without-interrupts (fn)
-  (lispworks:without-interrupts (funcall fn)))
+  (lw:without-interrupts (funcall fn)))
 
 (defimplementation getpid ()
   #+win32 (win32:get-current-process-id)
@@ -102,7 +107,7 @@
 (defimplementation macroexpand-all (form)
   (walker:walk-form form))
 
-(defun gfp (object)
+(defun generic-function-p (object)
   (typep object 'generic-function))
 
 (defimplementation describe-symbol-for-emacs (symbol)
@@ -125,11 +130,11 @@ Return NIL if the symbol is unbound."
                    (doc 'variable)))
       (maybe-push
        :generic-function (if (and (fboundp symbol)
-                                  (gfp (fdefinition symbol)))
+                                  (generic-function-p (fdefinition symbol)))
                              (doc 'function)))
       (maybe-push
        :function (if (and (fboundp symbol)
-                          (not (gfp (fdefinition symbol))))
+                          (not (generic-function-p (fdefinition symbol))))
                      (doc 'function)))
       (maybe-push
        :class (if (find-class symbol nil) 
@@ -312,7 +317,7 @@ Return NIL if the symbol is unbound."
 (defun dspec-buffer-position (dspec offset)
   (etypecase dspec
     (cons (let ((name (dspec:dspec-primary-name dspec)))
-            (etypecase name
+            (typecase name
               ((or symbol string) 
                (list :function-name (string name)))
               (t (list :position offset)))))
@@ -387,10 +392,14 @@ Return NIL if the symbol is unbound."
     (xref-results (,function name))))
 
 (defxref who-calls      hcl:who-calls)
-(defxref who-references hcl:who-references)
-(defxref who-binds      hcl:who-binds)
-(defxref who-sets       hcl:who-sets)
 (defxref list-callees   hcl:calls-who)
+
+;; only for lispworks 4.2 and above
+#-lispworks4.1
+(progn
+  (defxref who-references hcl:who-references)
+  (defxref who-binds      hcl:who-binds)
+  (defxref who-sets       hcl:who-sets))
 
 (defimplementation who-specializes (classname)
   (let ((methods (clos:class-direct-methods (find-class classname))))
@@ -398,8 +407,8 @@ Return NIL if the symbol is unbound."
 
 (defun xref-results (dspecs)
   (loop for dspec in dspecs
-        nconc (loop for (dspec location) in 
-                    (dspec:dspec-definition-locations dspec)
+        nconc (loop for (dspec location) 
+                    in (dspec:dspec-definition-locations dspec)
                     collect (list dspec 
                                   (make-dspec-location dspec location)))))
 ;;; Inspector
@@ -409,9 +418,7 @@ Return NIL if the symbol is unbound."
       (lw:get-inspector-values o nil)
     (declare (ignore _getter _setter))
     (values (format nil "~A~%   is a ~A" o type)
-            (mapcar (lambda (name value)
-                      (cons (princ-to-string name) value))
-                    names values))))
+            (mapcar #'cons names values))))
 
 ;;; Multithreading
 
