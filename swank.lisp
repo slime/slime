@@ -14,7 +14,7 @@
     (:export #:start-server)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defvar swank::*sysdep-pathname*
+  (defparameter swank::*sysdep-pathname*
     (merge-pathnames (or #+cmu "swank-cmucl" 
 			 #+(and sbcl sb-thread) "swank-sbcl" 
 			 #+openmcl "swank-openmcl")
@@ -22,6 +22,7 @@
 			 *default-pathname-defaults*))))
 
 (in-package :swank)
+
 (defvar *swank-io-package*
   (let ((package (make-package "SWANK-IO-PACKAGE")))
     (import '(nil t quote) package)
@@ -97,11 +98,12 @@ back to the main request handling loop."
     (force-output *emacs-io*)))
 
 (defun prin1-to-string-for-emacs (object)
-  (let ((*print-case* :downcase)
-        (*print-readably* nil)
-        (*print-pretty* nil)
-        (*package* *swank-io-package*))
-    (prin1-to-string object)))
+  (with-standard-io-syntax
+    (let ((*print-case* :downcase)
+          (*print-readably* nil)
+          (*print-pretty* nil)
+          (*package* *swank-io-package*))
+      (prin1-to-string object))))
 
 ;;; The Reader
 
@@ -111,7 +113,6 @@ back to the main request handling loop."
 
 EVAL-STRING binds *buffer-package*.  Strings originating from a slime
 buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
-
 
 (defun from-string (string)
   "Read string in the *BUFFER-PACKAGE*"
@@ -128,7 +129,6 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
            (or (find-package name)
                (find-package (string-upcase name))))
       *package*))
-
 
 ;;; public interface.  slimefuns are the things that emacs is allowed
 ;;; to call
@@ -169,7 +169,6 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
       (let ((*print-pretty* t)
 	    (*print-circle* t)
 	    (*print-level* nil)
-            #+cmu (ext:*gc-verbose* nil)
 	    (*print-length* nil))
 	(with-output-to-string (stream)
 	  (pprint value stream))))))
@@ -177,7 +176,6 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 (defslimefun set-package (package)
   (setq *package* (guess-package-from-string package))
   (package-name *package*))
-
 
 ;;;; Compilation Commands.
 
@@ -211,6 +209,10 @@ Each value is a list of (LOCATION SEVERITY MESSAGE CONTEXT) lists.
 \(See *NOTES-DATABASE* for a description of the return type.)"
   (gethash (canonicalize-filename filename) *notes-database*))
 
+(defslimefun compiler-notes-for-emacs ()
+  "Return the list of compiler notes for the last compilation unit."
+  (reverse *compiler-notes*))
+
 (defun measure-time-interval (fn)
   "Call FN and return the first return value and the elapsed time.
 The time is measured in microseconds."
@@ -235,7 +237,6 @@ The time is measured in microseconds."
   "Return the symbols matching an apropos search."
   ;; CMUCL used ext:map-apropos here, not sure why
   (remove-if #'keywordp (apropos-list string package external-only)))
-
 
 (defun print-output-to-string (fn)
   (with-output-to-string (*standard-output*)
@@ -276,4 +277,4 @@ The time is measured in microseconds."
 
 ;;; Local Variables:
 ;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
-;;; End:
+;;; End
