@@ -3275,15 +3275,14 @@ function name is prompted."
 
 (defun slime-eval-with-transcript (form package &optional fn)
   (with-current-buffer (slime-output-buffer)
-    (slime-with-output-end-mark
-     (slime-mark-output-start))
-    (with-lexical-bindings (fn)
-      (slime-eval-async form package 
-                        (lambda (value)
-                          (with-current-buffer (slime-output-buffer)
-                            (cond (fn (funcall fn value))
-                                  (t (message "=> %s" value)))
-                            (slime-show-last-output)))))))
+    (slime-with-output-end-mark (slime-mark-output-start)))
+  (with-lexical-bindings (fn)
+    (slime-eval-async form package 
+                      (lambda (value)
+                        (with-current-buffer (slime-output-buffer)
+                          (cond (fn (funcall fn value))
+                                (t (message "=> %s" value)))
+                          (slime-show-last-output))))))
 
 (defun slime-eval-describe (form)
   (lexical-let ((package (slime-buffer-package)))
@@ -4715,6 +4714,8 @@ Exits Emacs when finished. The exit code is the number of failed tests."
         (slime-test-debug-on-error nil))
     (slime)
     ;; Block until we are up and running.
+    (while (not (slime-connected-p))
+      (accept-process-output nil 2))
     (slime-sync-state-stack '(slime-idle-state) 120)
     (switch-to-buffer "*scratch*")
     (let ((failed-tests (slime-run-tests)))
