@@ -665,11 +665,17 @@ This should be called before modifying the user's window configuration.
   (when slime-saved-window-configurations
     (set-window-configuration (pop slime-saved-window-configurations))))
 
-(defun slime-temp-buffer-quit ()
-  (interactive)
-  (kill-buffer (current-buffer))
-  (slime-restore-window-configuration))
+(defvar slime-temp-buffer-saved-window-configuration nil
+  "The window configuration before the temp-buffer was displayed.
+Buffer local in temp-buffers.")
 
+(defun slime-temp-buffer-quit ()
+  "Kill the current buffer and restore the old window configuration."
+  (interactive)
+  (let ((config slime-temp-buffer-saved-window-configuration))
+    (kill-buffer (current-buffer))
+    (set-window-configuration config)))
+  
 (defvar slime-temp-buffer-map)
 
 (define-minor-mode slime-temp-buffer-mode 
@@ -683,22 +689,24 @@ This should be called before modifying the user's window configuration.
 
 (defmacro slime-with-output-to-temp-buffer (name &rest body)
   "Like `with-output-to-temp-buffer', but saves the window configuration."
+  (let ((config (gensym)))
   `(progn 
-     (slime-save-window-configuration)
-     (let ((standard-output
-            (with-current-buffer (get-buffer-create ,name)
-              (setq buffer-read-only nil)
-              (erase-buffer)
-              (current-buffer))))
+     (let ((,config (current-window-configuration))
+           (standard-output (with-current-buffer (get-buffer-create ,name)
+                              (setq buffer-read-only nil)
+                              (erase-buffer)
+                              (current-buffer))))
        (prog1 (progn ,@body)
          (with-current-buffer standard-output
+           (make-local-variable 'slime-temp-buffer-saved-window-configuration)
+           (setq slime-temp-buffer-saved-window-configuration ,config)
            (goto-char (point-min))
            (slime-mode 1)
            (set-syntax-table lisp-mode-syntax-table)
            (slime-temp-buffer-mode 1)
            (setq buffer-read-only t)
-           (unless (get-buffer-window (current-buffer))
-             (switch-to-buffer-other-window (current-buffer))))))))
+           (unless (get-buffer-window (current-buffer) t)
+             (switch-to-buffer-other-window (current-buffer)))))))))
 
 (put 'slime-with-output-to-temp-buffer 'lisp-indent-function 1)
 
@@ -1418,16 +1426,28 @@ Loops until the result is thrown to our caller, or the user aborts."
      " ...\n")
     (set-marker slime-last-output-start (point) (current-buffer))))
 
+(defvar slime-show-last-output-function 
+  'slime-maybe-display-output-buffer
+  "*This function is called when a evaluation request is finished.
+It is called in the slime-output buffer and receives the region of the
+output as arguments.")
+
+(defun slime-show-last-output-region (start end)
+  (when (< start end)
+    (slime-display-buffer-region (current-buffer) start 
+                                 slime-repl-input-start-mark)))
+
+(defun slime-maybe-display-output-buffer (start end)
+  (when (and (not (get-buffer-window (current-buffer) t))
+             (< start end))
+    (display-buffer (current-buffer))))
+
 (defun slime-show-last-output ()
-  "Show the output from the last Lisp evaluation.
-This has no effect if the output buffer is already visible."
-  (unless (get-buffer-window (slime-output-buffer) t)
-    (with-current-buffer (slime-output-buffer)
-      (let ((start slime-last-output-start)
-            (end slime-repl-prompt-start-mark))
-        (when (< start end)
-          (slime-display-buffer-region (current-buffer) start 
-                                       slime-repl-input-start-mark))))))
+  "Show the output from the last Lisp evaluation."
+  (with-current-buffer (slime-output-buffer)
+    (let ((start slime-last-output-start)
+          (end slime-repl-prompt-start-mark))
+      (funcall slime-show-last-output-function start end))))
 
 (defun slime-with-output-at-eob (fn)
   "Call FN at the eob.  In a save-excursion block if we are not at
@@ -1458,7 +1478,7 @@ eob."
 (defun slime-show-output-buffer ()
   (slime-show-last-output)
   (with-current-buffer (slime-output-buffer)
-    (display-buffer (slime-output-buffer) t)))
+    (display-buffer (slime-output-buffer) t t)))
 
 
 ;;; REPL
@@ -1781,7 +1801,7 @@ See `slime-compile-and-load-file' for further details."
   (message "Compiling %s.." (buffer-file-name))
   (with-current-buffer (slime-output-buffer)
     (goto-char (point-max))
-    (display-buffer (current-buffer) t)))
+    (display-buffer (current-buffer) t t)))
 
 (defun slime-compile-defun ()
   "Compile the current toplevel form."
@@ -2013,12 +2033,23 @@ aligned to the start of the sexp in front."
     ((:sexp string)
      (with-output-to-temp-buffer "*SLIME SEXP*"
        (princ string)))
+    ((:dspec origin dspec)
+     (destructure-case origin
+       ((:file filename) 
+        (set-buffer (find-file-noselect filename t))
+        (goto-char 1))
+       ((:buffer buffer position)
+        (set-buffer buffer) 
+        (goto-char position)))
+     (when dspec
+       (let ((case-fold-search t))
+         (re-search-forward (format "^(def.*[ \n\t(]%s[ \t)]" dspec)))
+       (goto-char (match-beginning 0))))
     ((:openmcl filename function-name)
      (set-buffer (find-file-noselect filename t))
-     (ignore-errors
-       (goto-char (point-min))
-       (re-search-forward (format "^(def\\w+\\s +%s\\s +" function-name)
-       (beginning-of-line))))
+     (goto-char (point-min))
+     (re-search-forward (format "^(def.*[ \n\t(]%s[ \t)]" function-name))
+     (beginning-of-line))
     ((:sbcl 
       &key from buffername buffer-offset 
       filename position info source-path path source-form function-name)
@@ -2601,7 +2632,7 @@ function name is prompted."
           (goto-char start)
           (beginning-of-line)
           (narrow-to-region (point) end)
-          (let ((window (display-buffer buffer other-window)))
+          (let ((window (display-buffer buffer other-window t)))
             (set-window-start window (point))
             (unless (or (one-window-p t)
                         (/= (frame-width) (window-width)))
@@ -2772,6 +2803,7 @@ First make the variable unbound, then evaluate the entire form."
 (defun slime-print-apropos (plists)
   (dolist (plist plists)
     (let ((designator (plist-get plist :designator)))
+      (assert designator)
       (slime-insert-propertized (list 'face apropos-symbol-face
                                       'item designator
                                       'action 'slime-describe-symbol)
@@ -2781,6 +2813,7 @@ First make the variable unbound, then evaluate the entire form."
       (loop for (prop namespace action) 
 	    in '((:variable "Variable" swank:describe-symbol)
 		 (:function "Function" swank:describe-function)
+		 (:generic-function "Generic Function" swank:describe-function)
 		 (:setf "Setf" swank:describe-setf-function)
 		 (:type "Type" swank:describe-type)
 		 (:class "Class" swank:describe-class)
@@ -3282,10 +3315,10 @@ the current index when the selection is completed."
   (save-selected-window
     (slime-goto-source-location source-location)
     (sldb-highlight-sexp)
-    (display-buffer (current-buffer) t)
+    (display-buffer (current-buffer) t t)
     (save-excursion
       (beginning-of-line -4)
-      (set-window-start (get-buffer-window (current-buffer)) (point)))))
+      (set-window-start (get-buffer-window (current-buffer) t) (point)))))
 
 (defun sldb-frame-details-visible-p ()
   (and (get-text-property (point) 'frame)
