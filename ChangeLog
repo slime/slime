@@ -1,7 +1,44 @@
-2004-04-02  Lawrence Mitchell  <wence@gmx.li>
+2004-04-05  Lawrence Mitchell  <wence@gmx.li>
 
-	* slime.el (slime-autodoc): Escape %-signs in arglist before
-	passing to format.
+	* swank.lisp (*swank-pprint-circle*, *swank-pprint-escape*,
+	*swank-pprint-level*, *swank,pprint-length*): Fix typo in
+	docstring.
+
+	* slime.el (slime-arglist): Don't `message' arglist directly, in
+	case it contains %-signs.
+	(slime-repl-output-face): Fix quoting.
+	(slime-symbol-at-point): Call `slime-symbol-name-at-point',
+	rather than ourselves.
+	(slime-check-protocol-version): Docstring fix.
+
+2004-04-05  Luke Gorrie  <luke@bluetail.com>
+
+	* doc/slime.texi (Semantic indentation): Documented new
+	automatically-learn-how-to-indent-macros feature.
+	Added auto version control header in subtitle.
+
+	* slime.el (slime-close-parens-at-point): New command bound to
+	C-a C-a. Inserts close-parenthesis characters at point until the
+	top-level form becomes well formed. Could perhaps be made fancier.
+	(slime-update-indentation): New command to update indentation
+	information (`common-lisp-indent-function' properties) based on
+	macro information extracted from Lisp. This happens
+	automatically, the command is just to force a full rescan.
+
+	* swank.lisp (connection): Added slots to track indentation caching.
+	(*connections*): List of all open connections.
+	(default-connection): Function to get a "default"
+	connection. This is intended to support globally using the
+	debugger hook outside the context of a SLIME request, which is
+	broken at present.
+	(with-connection): Don't setup a restart: that must be done
+	separately.
+	(sync-state-to-emacs): Call `update-connection-indentation'.
+	(update-connection-indentation): Automatically discover how to
+	indent macros and tell Emacs.
+
+	* swank-backend.lisp (arglist): Specify that strings returned
+	from ARGLIST should be READable.
 
 2004-04-02  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
