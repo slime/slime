@@ -279,11 +279,13 @@ information."
 
 (defun compiler-note-location (context)
   (if context
-      (with-struct (sb-c::compiler-error-context- file-name) context
-        (locate-compiler-note file-name (compiler-source-path context)))
+      (locate-compiler-note
+       (sb-c::compiler-error-context-file-name context)
+       (compiler-source-path context)
+       (sb-c::compiler-error-context-original-source context))
       (list :error "No error location available")))
 
-(defun locate-compiler-note (file source-path)
+(defun locate-compiler-note (file source-path source)
   (cond ((and (pathnamep file) *buffer-name*)
          ;; Compiling from a buffer
          (let ((position (+ *buffer-offset*
@@ -297,6 +299,10 @@ information."
                         (list :position
                               (1+ (source-path-file-position 
                                    source-path file)))))
+        ((and (eq file :lisp) (stringp source))
+         ;; Compiling macro generated code
+         (make-location (list :source-form source)
+                        (list :position 1)))
         (t
          (error "unhandled case"))))
 
@@ -459,7 +465,7 @@ This is useful when debugging the definition-finding code.")
       (find-function-source-location function)))
 
 (defun find-function-source-location (function)
-  (cond #+(or) ;; doesn't work unknown reasons
+  (cond #+(or) ;; doesn't work for unknown reasons
         ((function-has-start-location-p function)
          (code-location-source-location (function-start-location function)))
         ((not (function-source-filename function))
