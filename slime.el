@@ -3936,7 +3936,7 @@ first element of the source-path redundant."
            (name (regexp-quote name)))
        (or 
         (re-search-forward 
-         (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\>" name) nil t)
+         (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\S_" name) nil t)
         (re-search-forward 
          ;; FIXME: Isn't this far to general?
          (format "[( \t]%s\\>\\(\\s \\|$\\)" name) nil t)))
