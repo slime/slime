@@ -1113,7 +1113,7 @@ If you copy the HyperSpec to another location, customize the variable
                 
 ;;; FORMAT character lookup by Frode Vatvedt Fjeld <frodef@acm.org> 20030902
 ;;;
-:;; adjusted for ILISP by Nikodemus Siivola 20030903
+;;; adjusted for ILISP by Nikodemus Siivola 20030903
 
 (defvar common-lisp-hyperspec-format-history nil
   "History of format characters looked up in the Common Lisp HyperSpec.")
