@@ -1,3 +1,10 @@
+2003-10-16  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-swank-connection-retries): New default value is
+	`nil', which means unlimited retries (until user aborts). Retry
+	interval also reduced from once per second to four times per
+	second.
+
 2003-10-16  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-cmucl.lisp, swank.lisp: Fix CMUCL support. 
