@@ -433,9 +433,12 @@ This is automatically updated based on the buffer/point."))
 
 (defun slime-pretty-package-name (name)
   "Return a pretty version of a package name designator (as a string)."
-  (cond ((string-match "^:\\(.*\\)$" name)    (match-string 1 name))
-        ((string-match "^\"\\(.*\\)\"$" name) (match-string 1 name))
-        (t name)))
+  (let ((name (cond ((string-match "^:\\(.*\\)$" name)    
+                     (match-string 1 name))
+                    ((string-match "^\"\\(.*\\)\"$" name) 
+                     (match-string 1 name))
+                    (t name))))
+    (format "%s" (read name))))
 
 (when slime-update-modeline-package
   (run-with-idle-timer 0.2 0.2 'slime-update-modeline-package))
@@ -1181,7 +1184,6 @@ See `slime-translate-from-lisp-filename-function'."
          (slime-dispatching-connection process))
     (message "Initial handshake...")
     (slime-setup-connection process)
-    (slime-hide-inferior-lisp-buffer)
     (message "Connected. %s" (slime-random-words-of-encouragement))))
 
 (defun slime-start-and-load (filename &optional package)
@@ -1219,7 +1221,7 @@ HOOK is function which is run before the process is started."
          ,(format "Start up slime according to `%s'." progsym)
          (interactive)
          (let ((inferior-lisp-program ,progsym))
-           (run-hook ',hooksym)
+           (run-hooks ',hooksym)
            (call-interactively 'slime))))))
 
 ;;;;; Start inferior lisp
@@ -1374,7 +1376,8 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
 
 (defun slime-hide-inferior-lisp-buffer ()
   "Display the REPL buffer instead of the *inferior-lisp* buffer."
-  (let* ((buffer (if (slime-process) (process-buffer (slime-process))))
+  (let* ((buffer (if (slime-process) 
+                     (process-buffer (slime-process))))
          (window (if buffer (get-buffer-window buffer)))
          (repl (slime-output-buffer t)))
     (when buffer
@@ -1764,6 +1767,7 @@ This is automatically synchronized from Lisp.")
           (slime-connection-name) (slime-generate-connection-name name)
           (slime-lisp-features) features))
   (setq slime-state-name "")            ; FIXME
+  (slime-hide-inferior-lisp-buffer)
   (slime-init-output-buffer connection)
   (run-hooks 'slime-connected-hook))
 
@@ -1945,7 +1949,7 @@ The REPL buffer is a special case: it's package is `slime-lisp-package'."
       (goto-char (match-end 0))
       (skip-chars-forward " \n\t\f\r#")
       (let ((pkg (ignore-errors (read (current-buffer)))))
-        (if pkg (format "%s" pkg))))))
+        (if pkg (format "%S" pkg))))))
 
 ;;; Synchronous requests is implemented in terms of asynchronous
 ;;; ones. We make an asynchronous request with a continuation function
