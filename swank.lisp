@@ -115,15 +115,12 @@ If *REDIRECT-IO* is true, all standard I/O streams are redirected."
 
 ;;;; TCP Server
 
-(defvar *start-swank-in-background* t)
 (defvar *close-swank-socket-after-setup* nil)
-(defvar *use-dedicated-output-stream* t)
+(defvar *use-dedicated-output-stream* #+lispworks nil #-lispworks t) ; FIXME
 
 (defun start-server (port-file)
-  (create-socket-server #'init-connection
-                        :announce-fn (announce-server-port-fn port-file)
-                        :port 0
-                        :loop nil))
+  (accept-socket/run :announce-fn (announce-server-port-fn port-file)
+                     :init-fn #'init-connection))
 
 (defun announce-server-port-fn (file)
   (lambda (port)
@@ -171,13 +168,7 @@ This is an optimized way for Lisp to deliver output to Emacs."
                #'handle)
              (handle ()
                (error "Protocol error: received input on dedicated output socket.")))
-      (create-socket-server #'init
-                            :announce-fn #'announce
-                            :loop nil
-                            :accept-background nil
-                            :handle-background t)
-      (assert (streamp stream))
-      stream)))
+      (accept-socket/stream :announce-fn #'announce))))
 
 (defun handle-request (connection)
   "Read and respond to one request from CONNECTION."

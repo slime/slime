@@ -61,42 +61,29 @@
 
 ;;; TCP Server
 
-
-(defmethod create-socket-server (init-fn &key announce-fn (port 0)
-                                 (accept-background t)
-                                 (handle-background t)
-                                 (loop t)
-                                 (reuse-address t))
+(defmethod accept-socket/stream (&key (port 0) announce-fn (reuse-address t))
   (let ((socket (open-listener port reuse-address)))
     (funcall announce-fn (local-tcp-port socket))
-    (setup-socket-accept socket init-fn accept-background handle-background loop)))
+    (let ((client-socket (accept socket)))
+      (sb-bsd-sockets:socket-close socket)
+      (make-socket-io-stream client-socket))))
 
-(defun setup-socket-accept (socket init-fn accept-background handle-background loop)
-  (flet ((accept-client (&optional fd)
-           (declare (ignore fd))
-           (accept-one-client socket init-fn handle-background (not loop))))
-    (cond (accept-background (add-input-handler socket #'accept-client))
-          (loop              (loop (accept-client)))
-          (t                 (accept-client)))))
+(defmethod accept-socket/run (&key (port 0) announce-fn init-fn (reuse-address t))
+  (let ((socket (open-listener port reuse-address)))
+    (funcall announce-fn (local-tcp-port socket))
+    (add-input-handler socket (lambda ()
+                                (setup-client (accept socket) init-fn)))))
 
-(defun accept-one-client (server-socket init-fn background close)
-  (let* ((client-socket (accept server-socket))
-         (socket-stream (make-socket-io-stream client-socket))
-         (handler-fn (funcall init-fn socket-stream)))
-    (when close
-      (sb-sys:invalidate-descriptor (sb-bsd-sockets:socket-file-descriptor
-                                     server-socket))
-      (sb-bsd-sockets:socket-close server-socket))
-    (if background
-        (add-input-handler client-socket
-                           (lambda (fdes)
-                             (declare (ignore fdes))
-                             (funcall handler-fn)))
-        (loop (funcall handler-fn)))))
-
+(defun setup-client (socket init-fn)
+  (let* ((socket-io (make-socket-io-stream socket))
+         (handler-fn (funcall init-fn socket-io)))
+    (add-input-handler socket handler-fn)))
+  
 (defun add-input-handler (socket handler-fn)
   (sb-sys:add-fd-handler (sb-bsd-sockets:socket-file-descriptor socket)
-                         :input handler-fn))
+                         :input (lambda (fd)
+                                  (declare (ignore fd))
+                                  (funcall handler-fn))))
 
 (defun open-listener (port reuse-address)
   (let ((socket (make-instance 'sb-bsd-sockets:inet-socket

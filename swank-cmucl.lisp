@@ -10,36 +10,30 @@
 
 ;;;; TCP server.
 
-(defmethod create-socket-server (init-fn &key announce-fn (port 0)
-                                 (accept-background t)
-                                 (handle-background t)
-                                 (loop t)
-                                 (host "localhost"))
-  (let* ((ip (resolve-hostname host))
-         (fd (ext:create-inet-listener port :stream :reuse-address t :host ip)))
+(defvar *start-swank-in-background* t)
+
+(defmethod accept-socket/stream (&key (port 0) announce-fn (host "localhost"))
+  (let ((fd (ext:create-inet-listener port :stream
+                                      :reuse-address t
+                                      :host (resolve-hostname host))))
     (funcall announce-fn (local-tcp-port fd))
-    (setup-socket-accept fd init-fn accept-background handle-background loop)))
+    (let ((client-fd (ext:accept-tcp-connection fd)))
+      (unix:unix-close fd)
+      (make-socket-io-stream client-fd))))
 
-(defun setup-socket-accept (fd init-fn accept-background handle-background loop)
-  (flet ((accept-client (&optional (fd fd))
-           (accept-one-client fd init-fn handle-background (not loop))))
-    (cond (accept-background (add-input-handler fd #'accept-client))
-          (loop              (loop (accept-client)))
-          (t                 (accept-client)))))
+(defmethod accept-socket/run (&key (port 0) announce-fn init-fn (host "localhost"))
+  "Run in the background if *START-SWANK-IN-BACKGROUND* is true."
+  (let ((fd (ext:create-inet-listener port :stream
+                                      :reuse-address t
+                                      :host (resolve-hostname host))))
+    (funcall announce-fn (local-tcp-port fd))
+    (add-input-handler fd (lambda ()
+                            (setup-client (ext:accept-tcp-connection fd) init-fn)))))
 
-(defun accept-one-client (listen-fd init-fn background close)
-  (let* ((client-fd (ext:accept-tcp-connection listen-fd))
-         (socket-stream (make-socket-io-stream client-fd))
-         (handler-fn (funcall init-fn socket-stream)))
-    (when close
-      (sys:invalidate-descriptor listen-fd)
-      (unix:unix-close listen-fd))
-    (if background
-        (add-input-handler client-fd
-                           (lambda (fdes)
-                             (declare (ignore fdes))
-                             (funcall handler-fn)))
-        (loop (funcall handler-fn)))))
+(defun setup-client (fd init-fn)
+  (let* ((socket-io (make-socket-io-stream fd))
+         (handler-fn (funcall init-fn socket-io)))
+    (add-input-handler fd handler-fn)))
 
 (defmethod make-fn-streams (input-fn output-fn)
   (let* ((output (make-slime-output-stream output-fn))
@@ -60,7 +54,10 @@
     (ext:htonl address)))
 
 (defun add-input-handler (fd fn)
-  (system:add-fd-handler fd :input fn))
+  (let ((callback (lambda (fd)
+                    (declare (ignore fd))
+                    (funcall fn))))
+    (system:add-fd-handler fd :input callback)))
 
 (defun make-socket-io-stream (fd)
   "Create a new input/output fd-stream for FD."
