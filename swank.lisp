@@ -662,11 +662,16 @@ considered."
     (t nil)))
 
 (defun function-first-code-location (function)
-  (di:debug-function-start-location
-   (di:function-debug-function function)))
+  (and (function-has-debug-function-p function)
+       (di:debug-function-start-location
+        (di:function-debug-function function))))
 
 (defun function-debug-function-name (function)
-  (di:debug-function-name (di:function-debug-function function)))
+  (and (function-has-debug-function-p function)
+       (di:debug-function-name (di:function-debug-function function))))
+
+(defun function-has-debug-function-p (function)
+  (di:function-debug-function function))
 
 (defun function-debug-function-name= (function name)
   (equal (function-debug-function-name function) name))
@@ -718,15 +723,16 @@ considered."
 	 (struct-class-source-location 
 	  (struct-predicate-class function)))
 	(t
-	 (source-location-for-emacs 
-	  (function-first-code-location function)))))
+         (let ((location (function-first-code-location function)))
+           (when location
+             (source-location-for-emacs location))))))
 
 (defslimefun function-source-location-for-emacs (fname)
   "Return the source-location of FNAME's definition."
   (let ((fname (from-string fname)))
     (cond ((and (symbolp fname) (macro-function fname))
 	   (function-source-location (macro-function fname)))
-	  (t
+	  ((fboundp fname)
 	   (function-source-location (coerce fname 'function))))))
 
 ;;; Clone of HEMLOCK-INTERNALS::FUN-DEFINED-FROM-PATHNAME
@@ -964,7 +970,8 @@ format suitable for Emacs."
 (defun format-frame-for-emacs (frame)
   (list (di:frame-number frame)
 	(with-output-to-string (*standard-output*) 
-	  (debug::print-frame-call frame :verbosity 1 :number t))))
+          (let ((*print-pretty* nil))
+            (debug::print-frame-call frame :verbosity 1 :number t)))))
 
 (defun backtrace-length ()
   "Return the number of frames on the stack."
