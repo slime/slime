@@ -233,7 +233,7 @@ Redirection is done while Lisp is processing a request for Emacs.")
   (let* ((socket (create-socket *loopback-interface* port))
          (port (local-port socket)))
     (funcall announce-fn port)
-    (case style
+    (ecase style
       (:spawn
        (spawn (lambda () 
                 (loop do (serve-connection socket :spawn dont-close)
@@ -878,7 +878,7 @@ pretty printing of (function foo) as #'foo is suppressed."
              ((member :not-available)
               " <not available>")
              (list
-              (format nil "~(~<~{~^ ~A~}~@:>~))" (list arglist))))))
+              (format nil "~{~^ ~A~})" (list arglist))))))
         (t
          " <not available>")))
 
