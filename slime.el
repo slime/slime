@@ -2421,10 +2421,11 @@ update window-point afterwards.  If point is initially not at
     (slime-with-output-end-mark
      (slime-propertize-region '(face slime-repl-output-face)
        (insert string))
-     (when (and (= (point) slime-repl-prompt-start-mark)
-                (not (bolp)))
-       (insert "\n")
-       (set-marker slime-output-end (1- (point)))))))
+     ;;(when (and (= (point) slime-repl-prompt-start-mark)
+     ;;           (not (bolp)))
+     ;;  (insert "\n")
+     ;;  (set-marker slime-output-end (1- (point))))
+     )))
 
 (defun slime-switch-to-output-buffer (&optional connection)
   "Select the output buffer, preferably in a different window."
@@ -2742,12 +2743,18 @@ If NEWLINE is true then add a newline at the end of the input."
   (add-text-properties slime-repl-input-start-mark (point)
                        `(face slime-repl-input-face
                               rear-nonsticky (face slime-repl-old-input)
-                              slime-repl-old-input ,(incf slime-repl-old-input-counter)))
+                              slime-repl-old-input 
+                              ,(incf slime-repl-old-input-counter)))
+  (slime-make-region-read-only  slime-repl-input-start-mark (point))
   (let ((input (slime-repl-current-input)))
     (goto-char slime-repl-input-end-mark)
     (slime-mark-input-start)
     (slime-mark-output-start)
     (slime-repl-send-string input)))
+
+(defun slime-make-region-read-only (start end)
+  (add-text-properties (max start (1- end)) end '(rear-nonsticky (read-only)))
+  (add-text-properties start end `(read-only t)))
 
 (defun slime-repl-grab-old-input (replace)
   "Resend the old REPL input at point.  
@@ -2764,16 +2771,20 @@ text property `slime-repl-old-input'."
                   ;; old input. -luke (18/Jun/2004)
                   (ignore-errors (forward-char))
                   (previous-single-char-property-change (point) prop)))
-           (end (next-single-char-property-change (point) prop))
-           (old-input (buffer-substring-no-properties beg end)))
+           (end (save-excursion
+                  (goto-char (next-single-char-property-change (point) prop))
+                  (skip-chars-backward "\n \t\r" beg)
+                  (point)))
+           (old-input (buffer-substring-no-properties beg end))
+           (offset (- (point) beg)))
+      ;; Append the old input or replace the current input
       (cond (replace (goto-char slime-repl-input-start-mark))
             (t (goto-char slime-repl-input-end-mark)
                (unless (eq (char-before) ?\ )
                  (insert " "))))
       (delete-region (point) slime-repl-input-end-mark)
-      (insert old-input)
-      (while (eq (char-before) ?\n)
-        (delete-char -1)))))
+      (save-excursion (insert old-input))
+      (forward-char offset))))
 
 (defun slime-repl-closing-return ()
   "Evaluate the current input string after closing all open lists."
@@ -4958,7 +4969,7 @@ If MARKER is nil, use the point."
                              (:type list))
   dspec location)
 
-(defun slime-edit-definition (name &optional other-window)
+(defun slime-edit-definition (name &optional where)
   "Lookup the definition of the symbol at point.  
 If there's no symbol at point, or a prefix argument is given, then the
 function name is prompted."
@@ -4974,15 +4985,22 @@ function name is prompted."
             (t
              (slime-goto-source-location (slime-definition.location
                                           (car definitions)))
-             (cond ((not other-window)
-                    (switch-to-buffer (current-buffer)))
+             (cond ((equal where 'window)
+                    (switch-to-buffer-other-window (current-buffer)))
+                   ((equal where 'frame)
+                    (switch-to-buffer-other-frame (current-buffer)))
                    (t
-                    (switch-to-buffer-other-window (current-buffer)))))))))
+                    (switch-to-buffer (current-buffer)))))))))
 
 (defun slime-edit-definition-other-window (name)
   "Like `slime-edit-definition' but switch to the other window."
-  (interactive (list (slime-read-symbol-name "Function name: ")))
-  (slime-edit-definition name t))
+  (interactive (list (slime-read-symbol-name "Symbol: ")))
+  (slime-edit-definition name 'window))
+
+(defun slime-edit-definition-other-frame (name)
+  "Like `slime-edit-definition' but switch to the other window."
+  (interactive (list (slime-read-symbol-name "Symbol: ")))
+  (slime-edit-definition name 'frame))
 
 (defun slime-show-definitions (name definitions)
   (slime-show-xrefs 
