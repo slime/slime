@@ -3042,7 +3042,7 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
 (defslime-repl-shortcut slime-repl-defparameter ("defparameter" "!")
   (:handler (lambda (name value)
               (interactive (list (slime-read-symbol-name "Name (symbol): " t)
-                                 (slime-read-from-minibuffer "Value: " "nil")))
+                                 (slime-read-from-minibuffer "Value: " "*")))
               (insert "(cl:defparameter " name " " value 
                       " \"REPL generated global variable.\")")
               (slime-repl-send-input)))
