@@ -22,6 +22,7 @@
            #:*log-events*
            #:*use-dedicated-output-stream*
            #:*configure-emacs-indentation*
+           #:*readtable-alist*
            ;; re-exported from backend
            #:frame-source-location-for-emacs
            #:restart-frame
@@ -30,11 +31,15 @@
            #:profile-reset
            #:unprofile-all
            #:profile-package
+           #:default-directory
            #:set-default-directory
            #:quit-lisp
            ))
 
-(in-package :swank)
+(in-package #:swank)
+
+(defvar *cl-package* (find-package :cl))
+(defvar *keyword-package* (find-package :keyword))
 
 (defvar *swank-io-package*
   (let ((package (make-package :swank-io-package :use '())))
@@ -391,24 +396,12 @@ determined at compile time."
           *thread-counter* id)
     id))
 
-(defun drop&find (item list key test)
-  "Return LIST where item is removed together with the removed
-element."
-  (declare (type function key test))
-  (do ((stack '() (cons (car l) stack))
-       (l list (cdr l)))
-      ((null l) (values (nreverse stack) nil))
-    (when (funcall test item (funcall key (car l)))
-      (return (values (nreconc stack (cdr l))
-                      (car l))))))
-
 (defun drop-thread (thread)
   "Drop the first occurence of thread in *active-threads* and return its id."
-  (multiple-value-bind (list pair) (drop&find thread *active-threads* 
-                                              #'cdr #'eql)
-    (setq *active-threads* list)
-    (assert pair)
-    (car pair)))
+  (let ((tail (member thread *active-threads* :key #'cdr :test #'equalp)))
+    (assert tail)
+    (setq *active-threads* (append (ldiff *active-threads* tail) (rest tail)))
+    (car (first tail))))
 
 (defvar *lookup-counter* nil
   "A simple counter used to remove dead threads from *active-threads*.")
@@ -772,28 +765,65 @@ If a protocol error occurs then a SLIME-READ-ERROR is signalled."
 EVAL-FOR-EMACS binds *buffer-package*.  Strings originating from a slime
 buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 
+(defvar *buffer-readtable*)
+(setf (documentation '*buffer-readtable* 'symbol)
+      "Readtable associated with the current buffer")
+
+(defmacro with-buffer-syntax ((&rest _) &body body)
+  "Execute BODY with appropriate *package* and *readtable* bindings.
+
+This should be used for code that is conceptionally executed in an
+Emacs buffer."
+  (destructuring-bind () _
+    `(let ((*package* *buffer-package*)
+           (*readtable* *buffer-readtable*))
+      (call-with-syntax-hooks (lambda () ,@body)))))
+
 (defun from-string (string)
   "Read string in the *BUFFER-PACKAGE*"
-  (let ((*package* *buffer-package*)
-        (*read-suppress* nil))
-    (read-from-string string)))
+  (with-buffer-syntax ()
+    (let ((*read-suppress* nil))
+      (read-from-string string))))
 
-(defun symbol-from-string (string)
-  "Find the symbol named STRING in *BUFFER-PACKAGE*."
-  ;;; XXX Is this broken with respect to readtable-case?
-  (find-symbol (string-upcase string) *buffer-package*))
+(defun parse-symbol (string)
+  "Find the symbol named STRING.
+Return the symbol and a flag indicate if the symbols was found."
+  (multiple-value-bind (sym pos) (let ((*package* *keyword-package*))
+                                   (read-from-string string))
+    (if (and (symbolp sym) (= (length string) pos))
+        (find-symbol (string sym))
+        (values nil nil))))
 
+(defun parse-package (string)
+  "Find the package named STRING.
+Return the package or nil."
+  (multiple-value-bind (sym pos) (let ((*package* *keyword-package*))
+                                   (read-from-string string))
+    (if (and (keywordp sym) (= (length string) pos))
+        (find-package sym))))
+  
 (defun to-string (string)
   "Write string in the *BUFFER-PACKAGE*."
-  (let ((*package* *buffer-package*))
+  (with-buffer-syntax ()
     (prin1-to-string string)))
 
 (defun guess-package-from-string (name &optional (default-package *package*))
   (or (and name
-           (or (find-package name)
+           (or (parse-package name)
                (find-package (string-upcase name))
-               (find-package (substitute #\- #\! name))))
+               (parse-package (substitute #\- #\! name))))
       default-package))
+
+(defvar *readtable-alist* '()
+  "An alist mapping package names to readtables.")
+
+(defun guess-buffer-readtable (package-name &optional (default *readtable*))
+  (let ((package (guess-package-from-string package-name)))
+    (if package 
+        (or (cdr (assoc (package-name package) *readtable-alist* 
+                        :test #'string=))
+            default)
+        default)))
 
 (defun find-symbol-designator (string &optional
                                       (default-package *buffer-package*))
@@ -1106,8 +1136,10 @@ Errors are trapped and invoke our debugger."
   (let ((*debugger-hook* #'swank-debugger-hook))
     (let (ok result)
       (unwind-protect
-           (let ((*buffer-package* (guess-package-from-string buffer-package)))
+           (let ((*buffer-package* (guess-package-from-string buffer-package))
+                 (*buffer-readtable* (guess-buffer-readtable buffer-package)))
              (assert (packagep *buffer-package*))
+             (assert (readtablep *buffer-readtable*))
              (setq result (eval form))
              (force-output)
              (sync-state-to-emacs)
@@ -1118,24 +1150,22 @@ Errors are trapped and invoke our debugger."
                          ,id))))))
 
 (defun format-values-for-echo-area (values)
-  (let ((*package* *buffer-package*))
+  (with-buffer-syntax ()
     (cond (values (format nil "~{~S~^, ~}" values))
           (t "; No value"))))
 
 (defslimefun interactive-eval (string)
-  (let ((values (multiple-value-list
-                 (let ((*package* *buffer-package*))
-                   (eval (from-string string))))))
-    (fresh-line)
-    (force-output)
-    (format-values-for-echo-area values)))
+  (with-buffer-syntax ()
+    (let ((values (multiple-value-list (eval (read-from-string string)))))
+      (fresh-line)
+      (force-output)
+      (format-values-for-echo-area values))))
 
 (defun eval-region (string &optional package-update-p)
   "Evaluate STRING and return the result.
 If PACKAGE-UPDATE-P is non-nil, and evaluation causes a package
 change, then send Emacs an update."
-  (let ((*package* *buffer-package*)
-        - values)
+  (let (- values)
     (unwind-protect
          (with-input-from-string (stream string)
            (loop for form = (read stream nil stream)
@@ -1161,11 +1191,11 @@ change, then send Emacs an update."
         finally (return shortest)))
 
 (defslimefun interactive-eval-region (string)
-  (let ((*package* *buffer-package*))
+  (with-buffer-syntax ()
     (format-values-for-echo-area (eval-region string))))
 
 (defslimefun re-evaluate-defvar (form)
-  (let ((*package* *buffer-package*))
+  (with-buffer-syntax ()
     (let ((form (read-from-string form)))
       (destructuring-bind (dv name &optional value doc) form
 	(declare (ignore value doc))
@@ -1193,22 +1223,22 @@ change, then send Emacs an update."
 
 (defun swank-pprint (list)
   "Bind some printer variables and pretty print each object in LIST."
-  (let ((*print-pretty* t)
-        (*print-case* *swank-pprint-case*)
-        (*print-right-margin* *swank-pprint-right-margin*)
-        (*print-circle* *swank-pprint-circle*)
-        (*print-escape* *swank-pprint-escape*)
-        (*print-level* *swank-pprint-level*)
-        (*print-length* *swank-pprint-length*)
-        (*package* *buffer-package*))
-    (cond ((null list) "; No value")
-          (t (with-output-to-string (*standard-output*)
-               (dolist (o list)
-                 (pprint o)
-                 (terpri)))))))
+  (with-buffer-syntax ()
+    (let ((*print-pretty* t)
+          (*print-case* *swank-pprint-case*)
+          (*print-right-margin* *swank-pprint-right-margin*)
+          (*print-circle* *swank-pprint-circle*)
+          (*print-escape* *swank-pprint-escape*)
+          (*print-level* *swank-pprint-level*)
+          (*print-length* *swank-pprint-length*))
+      (cond ((null list) "; No value")
+            (t (with-output-to-string (*standard-output*)
+                 (dolist (o list)
+                   (pprint o)
+                   (terpri))))))))
 
 (defslimefun pprint-eval (string)
-  (let ((*package* *buffer-package*))
+  (with-buffer-syntax ()
     (swank-pprint (multiple-value-list (eval (read-from-string string))))))
 
 (defslimefun set-package (package)
@@ -1218,13 +1248,13 @@ change, then send Emacs an update."
 
 (defslimefun listener-eval (string)
   (clear-user-input)
-  (multiple-value-bind (values last-form) (eval-region string t)
-    (setq +++ ++  ++ +  + last-form
-	  *** **  ** *  * (car values)
-	  /// //  // /  / values)
-    (cond ((null values) "; No value")
-          (t
-           (let ((*package* *buffer-package*))
+  (with-buffer-syntax ()
+    (multiple-value-bind (values last-form) (eval-region string t)
+      (setq +++ ++  ++ +  + last-form
+            *** **  ** *  * (car values)
+            /// //  // /  / values)
+      (cond ((null values) "; No value")
+            (t
              (format nil "~{~S~^~%~}" values))))))
 
 (defslimefun ed-in-emacs (&optional what)
@@ -1299,9 +1329,9 @@ Record compiler notes signalled as `compiler-condition's."
 (defslimefun compile-string-for-emacs (string buffer position)
   "Compile STRING (exerpted from BUFFER at POSITION).
 Record compiler notes signalled as `compiler-condition's."
-  (swank-compiler
-   (lambda () 
-     (let ((*package* *buffer-package*))
+  (with-buffer-syntax ()
+    (swank-compiler
+     (lambda () 
        (swank-compile-string string :buffer buffer :position position)))))
 
 (defslimefun operate-on-system-for-emacs (system-name operation &rest keywords)
@@ -1345,7 +1375,8 @@ Record compiler notes signalled as `compiler-condition's."
 
 (defslimefun disassemble-symbol (name)
   (with-output-to-string (*standard-output*)
-    (disassemble (fdefinition (from-string name)))))
+    (let ((*print-readably* nil))
+      (disassemble (fdefinition (from-string name))))))
 
 
 ;;;; Completion
@@ -1524,7 +1555,8 @@ Examples:
 
 (defun prefix-match-p (prefix string)
   "Return true if PREFIX is a prefix of STRING."
-  (eql (search prefix string) 0))
+  (not (mismatch prefix string :end2 (min (length string) (length prefix)))))
+
 
 ;;;;; Extending the input string by completion
 
@@ -1637,7 +1669,7 @@ instead, we only do a full scan if the set of packages has changed."
 If FORCE is true then check all symbols, otherwise only check symbols
 belonging to the buffer package."
   (let ((alist '()))
-    (flet ((consider (symbol)
+      (flet ((consider (symbol)
              (let ((indent (symbol-indentation symbol)))
                (when indent
                  (unless (equal (gethash symbol cache) indent)
@@ -1653,14 +1685,23 @@ belonging to the buffer package."
               (consider symbol)))))
     alist))
 
+(defun cl-symbol-p (symbol)
+  "Is SYMBOL a symbol in the COMMON-LISP package?"
+  (eq (symbol-package symbol) *cl-package*))
+
+(defun known-to-emacs-p (symbol)
+  "Return true if Emacs has special rules for indenting SYMBOL."
+  (or (cl-symbol-p symbol)
+      (let ((name (symbol-name symbol)))
+        (not (or (prefix-match-p "DEF" name)
+                 (prefix-match-p "WITH-" name))))))
+
 (defun symbol-indentation (symbol)
   "Return a form describing the indentation of SYMBOL.
 The form is to be used as the `common-lisp-indent-function' property
 in Emacs."
   (if (and (macro-function symbol)
-           (let ((name (symbol-name symbol)))
-             (not (or (prefix-match-p "DEF" name)
-                      (prefix-match-p "WITH-" name)))))
+           (not (known-to-emacs-p symbol)))
       (let ((arglist (arglist symbol)))
         (etypecase arglist
           ((member :not-available)
@@ -1773,7 +1814,9 @@ that symbols accessible in the current package go first."
   (defun compiled-regex (regex-string)
     (or (gethash regex-string regex-hash)
         (setf (gethash regex-string regex-hash)
-              (compile nil (nregex:regex-compile regex-string))))))
+              (if (zerop (length regex-string))
+                  (lambda (s) (check-type s string) t)
+                  (compile nil (nregex:regex-compile regex-string)))))))
 
 (defun apropos-matcher (string case-sensitive package external-only)
   (let* ((case-modifier (if case-sensitive #'string #'string-upcase))
@@ -1798,30 +1841,37 @@ that symbols accessible in the current package go first."
     result))
 
 (defun describe-to-string (object)
-  (with-output-to-string (*standard-output*)
-    (describe object)))
+  (let ((*print-readably* nil))
+    (with-output-to-string (*standard-output*)
+      (describe object))))
 
 (defslimefun describe-symbol (symbol-name)
-  (describe-to-string (find-symbol-or-lose symbol-name)))
+  (with-buffer-syntax ()
+    (describe-to-string (find-symbol-or-lose symbol-name))))
 
-(defslimefun describe-function (symbol-name)
-  (let ((symbol (find-symbol-or-lose symbol-name)))
-    (describe-to-string (or (macro-function symbol)
-                            (symbol-function symbol)))))
+(defslimefun describe-function (name)
+  (with-buffer-syntax ()
+    (let ((symbol (find-symbol name)))
+      (describe-to-string (or (macro-function symbol)
+                              (symbol-function symbol))))))
 
 (defslimefun describe-definition-for-emacs (name kind)
-  (with-output-to-string (*standard-output*)
-    (describe-definition (find-symbol-or-lose name) kind)))
+  (with-buffer-syntax ()
+    (with-output-to-string (*standard-output*)
+      (describe-definition (find-symbol-or-lose name) kind))))
 
 (defslimefun documentation-symbol (symbol-name &optional default)
-  (let ((*package* *buffer-package*))
-    (let ((vdoc (documentation (symbol-from-string symbol-name) 'variable))
-          (fdoc (documentation (symbol-from-string symbol-name) 'function)))
-      (or (and (or vdoc fdoc)
-               (concatenate 'string
-                            fdoc
-                            (and vdoc fdoc '(#\Newline #\Newline))
-                            vdoc))
+  (with-buffer-syntax ()
+    (multiple-value-bind (sym foundp) (parse-symbol symbol-name)
+      (if foundp
+          (let ((vdoc (documentation sym 'variable))
+                (fdoc (documentation sym 'function)))
+            (or (and (or vdoc fdoc)
+                     (concatenate 'string
+                                  fdoc
+                                  (and vdoc fdoc '(#\Newline #\Newline))
+                                  vdoc))
+                default))
           default))))
 
 
@@ -1857,12 +1907,22 @@ Include the nicknames if INCLUDE-NICKNAMES is true."
 (defslimefun load-file (filename)
   (to-string (load filename)))
 
-(defun requires-compile-p (pathname)
-  (let ((compile-file-truename (probe-file (compile-file-pathname pathname))))
-    (or (not compile-file-truename)
-        (< (file-write-date compile-file-truename)
-           (file-write-date pathname)))))
+(defun file-newer-p (new-file old-file)
+  "Returns true if NEW-FILE is newer than OLD-FILE."
+  (> (file-write-date new-file) (file-write-date old-file)))
 
+(defun requires-compile-p (source-file)
+  (let ((fasl-file (probe-file (compile-file-pathname source-file))))
+    (or (not fasl-file)
+        (file-newer-p source-file fasl-file))))
+
+(defslimefun compile-file-if-needed (filename loadp)
+  (cond ((requires-compile-p filename)
+         (compile-file-for-emacs filename loadp))
+        (loadp
+         (load (compile-file-pathname filename))
+         nil)))
+        
 
 ;;;; Profiling
 
@@ -1981,8 +2041,9 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
   (setf (fill-pointer *inspector-history*) 0))
 
 (defslimefun init-inspector (string)
-  (reset-inspector)
-  (inspect-object (eval (from-string string))))
+  (with-buffer-syntax ()
+    (reset-inspector)
+    (inspect-object (eval (read-from-string string)))))
 
 (defun print-part-to-string (value)
   (let ((*print-pretty* nil)
@@ -2010,22 +2071,25 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
   (cdr (nth index *inspectee-parts*)))
 
 (defslimefun inspect-nth-part (index)
-  (inspect-object (nth-part index)))
+  (with-buffer-syntax ()
+    (inspect-object (nth-part index))))
 
 (defslimefun inspector-pop ()
   "Drop the inspector stack and inspect the second element.  Return
 nil if there's no second element."
-  (cond ((cdr *inspector-stack*)
-	 (pop *inspector-stack*)
-	 (inspect-object (pop *inspector-stack*)))
-	(t nil)))
+  (with-buffer-syntax ()
+    (cond ((cdr *inspector-stack*)
+           (pop *inspector-stack*)
+           (inspect-object (pop *inspector-stack*)))
+          (t nil))))
 
 (defslimefun inspector-next ()
   "Inspect the next element in the *inspector-history*."
-  (let ((position (position *inspectee* *inspector-history*)))
-    (cond ((= (1+ position) (length *inspector-history*))
-	   nil)
-	  (t (inspect-object (aref *inspector-history* (1+ position)))))))
+  (with-buffer-syntax ()
+    (let ((position (position *inspectee* *inspector-history*)))
+      (cond ((= (1+ position) (length *inspector-history*))
+             nil)
+            (t (inspect-object (aref *inspector-history* (1+ position))))))))
 
 (defslimefun quit-inspector ()
   (reset-inspector)
@@ -2033,7 +2097,8 @@ nil if there's no second element."
 
 (defslimefun describe-inspectee ()
   "Describe the currently inspected object."
-  (describe-to-string *inspectee*))
+  (with-buffer-syntax ()
+    (describe-to-string *inspectee*)))
 
 (defmethod inspected-parts ((object cons))
   (if (consp (cdr object))
@@ -2084,12 +2149,14 @@ nil if there's no second element."
              pairs))))
 
 (defslimefun inspect-in-frame (string index)
-  (reset-inspector)
-  (inspect-object (eval-in-frame (from-string string) index)))
+  (with-buffer-syntax ()
+    (reset-inspector)
+    (inspect-object (eval-in-frame (from-string string) index))))
 
 (defslimefun inspect-current-condition ()
-  (reset-inspector)
-  (inspect-object *swank-debugger-condition*))
+  (with-buffer-syntax ()
+    (reset-inspector)
+    (inspect-object *swank-debugger-condition*)))
 
 
 ;;;; Thread listing
