@@ -1,5 +1,15 @@
 2004-04-14  Luke Gorrie  <luke@bluetail.com>
 
+	* slime.el (slime-oos): Generic ASDF interface.
+	(force-compile-system, compile-system, load-system,
+	force-load-system): New REPL commands.
+
+	* swank-backend.lisp (operate-on-system): More generic interface
+	to ASDF.
+
+	* swank.lisp (operate-on-system-for-emacs): More generic
+	interface to ASDF.
+
 	* slime.el (slime-repl-mode-map): Portability fix for definition
 	of the REPL command character.
 	(slime-maybe-rearrange-inferior-lisp): Bugfix for running

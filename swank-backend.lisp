@@ -48,6 +48,7 @@ to execute the body if the backend doesn't provide a specific
 implementation.
 
 Backends implement these functions using DEFIMPLEMENTATION."
+  (check-type documentation string "a documentation string")
   (flet ((gen-default-impl ()
            (let ((received-args (gensym "ARGS-")))
              `(defmethod no-applicable-method ((#:method
@@ -162,16 +163,19 @@ If supplied, BUFFER and POSITION specify the source location in Emacs.
 Additionally, if POSITION is supplied, it must be added to source
 positions reported in compiler conditions.")
 
-(definterface swank-compile-system (system-name)
-  "Compile and load SYSTEM-NAME, During compilation compiler
-  conditions must be trapped and resignalled as
-  COMPILER-CONDITION ala compile-string-for-emacs."
+(definterface operate-on-system (system-name operation-name &rest keyword-args)
+  "Perform OPERATION-NAME on SYSTEM-NAME using ASDF.
+The KEYWORD-ARGS are passed on to the operation.
+Example:
+\(operate-on-system \"SWANK\" \"COMPILE-OP\" :force t)"
+  (unless (member :asdf *features*)
+    (error "ASDF is not loaded."))
   (with-compilation-hooks ()
-    (cond ((member :asdf *features*)
-           (let ((operate (find-symbol (string :operate) :asdf))
-                 (load-op (find-symbol (string :load-op) :asdf)))
-             (funcall operate load-op system-name)))
-          (t (error "ASDF not loaded")))))
+    (let ((operate (find-symbol "OPERATE" :asdf))
+          (operation (find-symbol operation-name :asdf)))
+      (when (null operation)
+        (error "Couldn't find ASDF operation ~S" operation-name))
+      (apply operate operation system-name keyword-args))))
 
 (definterface swank-compile-file (filename load-p)
    "Compile FILENAME signalling COMPILE-CONDITIONs.
