@@ -721,15 +721,16 @@ that symbols accessible in the current package go first."
   (print-description-to-string
    (symbol-function (find-symbol-designator symbol-name))))
 
-(defslimefun documentation-symbol (symbol-name)
+(defslimefun documentation-symbol (symbol-name &optional default)
   (let ((*package* *buffer-package*))
     (let ((vdoc (documentation (symbol-from-string symbol-name) 'variable))
           (fdoc (documentation (symbol-from-string symbol-name) 'function)))
-      (and (or vdoc fdoc)
-           (concatenate 'string
-                        fdoc
-                        (and vdoc fdoc '(#\Newline #\Newline))
-                        vdoc)))))
+      (or (and (or vdoc fdoc)
+               (concatenate 'string
+                            fdoc
+                            (and vdoc fdoc '(#\Newline #\Newline))
+                            vdoc))
+          default))))
 
 
 ;;;;
