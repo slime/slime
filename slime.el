@@ -173,12 +173,17 @@ This is used for batch-mode testing.")
   (cond ((featurep 'xemacs) (custom-face-bold face))
         (t (face-bold-p face))))
 
+(defun slime-face-font-name (face)
+  (cond ((featurep 'xemacs) (face-font-name face))
+        (t (face-font face))))
+
 (defun slime-face-attributes (face)
   (list :foreground (slime-color-name (face-foreground face))
         :background (slime-color-name (face-background face))
         :underline (face-underline-p face)
-        :bold (slime-face-bold-p face)))
-        
+        :bold (slime-face-bold-p face)
+        :font (slime-face-font-name face)))
+
 (defface slime-highlight-face
   `((t ,(slime-face-attributes 'highlight)))
   "Face for compiler notes while selected."
@@ -496,16 +501,22 @@ corresponding values in the CDR of VALUE."
 
 (defun slime-buffer-package (&optional dont-cache)
   "Return the Common Lisp package associated with the current buffer.
-This is heuristically determined by a text search of the buffer.
-The result is cached and returned on subsequent calls unless
-DONT-CACHE is non-nil.
+This is heuristically determined by a text search of the buffer.  The
+result is stored in `slime-buffer-package' unless DONT-CACHE is
+non-nil.  If the current package cannot be determined fall back to
+slime-buffer-package (which may also be nil).
 
 The REPL buffer is a special case: it's package is `slime-lisp-package'."
   (or (and (eq major-mode 'slime-repl-mode) slime-lisp-package)
-      (and (not dont-cache) slime-buffer-package)
-      (and (setq slime-buffer-package (slime-find-buffer-package))
-           (progn (force-mode-line-update) slime-buffer-package))
-      "CL-USER"))
+      (let ((string (slime-find-buffer-package)))
+        (cond (string
+               (cond (dont-cache)
+                     ((equal string slime-buffer-package))
+                     (t 
+                      (setq slime-buffer-package string)
+                      (force-mode-line-update)))
+               string)
+              (t slime-buffer-package)))))
 
 (defun slime-find-buffer-package ()
   "Figure out which Lisp package the current buffer is associated with."
@@ -1362,6 +1373,7 @@ Loops until the result is thrown to our caller, or the user aborts."
   (setq mode-name "REPL")
   (set (make-local-variable 'scroll-conservatively) 20)
   (set (make-local-variable 'scroll-margin) 0)
+  (slime-setup-command-hooks)
   (run-hooks 'slime-repl-mode-hook))
 
 (defun slime-repl-insert-prompt ()
@@ -1551,13 +1563,11 @@ earlier in the buffer."
   "Mode the read input from Emacs
 \\{slime-repl-read-mode-map}"
   nil
-  nil
+  "[read]"
   '(("\C-m" . slime-repl-return)
     ("\C-c\C-b" . slime-repl-read-break)
     ("\C-c\C-c" . slime-repl-read-break)
     ("\C-c\C-g" . slime-repl-read-break)))
-
-(add-to-list 'minor-mode-alist '(slime-repl-read-mode "[read]"))
 
 (defun slime-repl-read-string ()
   (slime-switch-to-output-buffer)
@@ -1826,7 +1836,10 @@ top-level form, etc."
 	   (re-search-forward (format "^(def\\w+\\s +%s\\s +"
 				      (plist-get note :function-name)))
 	   (beginning-of-line)))
-	((not (plist-get note :source-path))
+	((or (not (plist-get note :source-path))
+             (and (not (plist-get note :filename))
+                  (not (plist-get note :buffername))
+                  (plist-get note :source-path)))
 	 ;; no source-path available. hmm... move the the first sexp
 	 (cond ((plist-get note :buffername)
 		(goto-char (plist-get note :buffer-offset)))
@@ -1933,7 +1946,8 @@ top-level form, etc."
 (defun slime-show-note (overlay)
   "Present the details of a compiler note to the user."
   (slime-temporarily-highlight-note overlay)
-  (slime-message "%s" (get-char-property (point) 'help-echo)))
+  (let ((message (get-char-property (point) 'help-echo)))
+    (slime-message "%s" (if (zerop (length message)) "\"\"" message))))
 
 (defun slime-temporarily-highlight-note (overlay)
   "Temporarily highlight a compiler note's overlay.
@@ -2007,8 +2021,7 @@ printing a message."
   (slime-eval-async 
    `(swank:arglist-string ,symbol-name)
    (slime-buffer-package)
-   (lexical-let ((show-fn show-fn)
-                 (symbol-name symbol-name))
+   (with-lexical-bindings (show-fn symbol-name)
      (lambda (arglist)
        (if show-fn
            (funcall show-fn arglist)
@@ -2103,24 +2116,51 @@ the symbol at point if applicable."
 
 ;;; Completion
 
+(defvar slime-completions-buffer-name "*Completions*")
+
 (defvar slime-complete-saved-window-configuration nil
-  "Window configuration before we show the *Completions* buffer.")
+  "Window configuration before we show the *Completions* buffer.\n\
+This is buffer local in the buffer where the complition is
+perfermed.")
 
 (defun slime-complete-maybe-save-window-configuration ()
-  "Save the current window configuration, if there is no completion in
-progress."
+  (make-local-variable 'slime-complete-saved-window-configuration)
   (unless slime-complete-saved-window-configuration
     (setq slime-complete-saved-window-configuration
           (current-window-configuration))))
 
+(defun slime-complete-delay-restoration ()
+  (add-hook (make-local-variable 'pre-command-hook)
+            'slime-complete-maybe-restore-window-confguration))
+
+(defun slime-complete-forget-window-configuration ()
+  (setq slime-complete-saved-window-configuration nil))
+
 (defun slime-complete-restore-window-configuration ()
-  "Delete the *Completions* buffer and restore the window config if
-available."
-  (when (get-buffer "*Completions*")
-    (kill-buffer "*Completions*"))
+  "Restore the window config if available."
+  (remove-hook (make-local-variable 'pre-command-hook)
+               'slime-complete-maybe-restore-window-confguration)
   (when slime-complete-saved-window-configuration
     (set-window-configuration slime-complete-saved-window-configuration)
-    (setq slime-complete-saved-window-configuration nil)))
+    (setq slime-complete-saved-window-configuration nil))
+  (when (get-buffer slime-completions-buffer-name)
+    (bury-buffer slime-completions-buffer-name)))
+
+(defun slime-complete-maybe-restore-window-confguration ()
+  "Restore the window configuration, if the following command
+terminates a current completion."
+  (remove-hook (make-local-variable 'pre-command-hook)
+               'slime-complete-maybe-restore-window-confguration)
+  (cond ((find last-command-char "()\"'`,# \r\n:")
+         (slime-complete-restore-window-configuration))
+        ((memq this-command '(self-insert-command
+                              slime-complete-symbol
+                              backward-delete-char-untabify
+                              backward-delete-char
+                              scroll-other-window))
+         (slime-complete-delay-restoration))
+        (t 
+         (slime-complete-forget-window-configuration))))
 
 (defun slime-complete-symbol ()
   "Complete the symbol at point.
@@ -2145,43 +2185,17 @@ package is used."
           ((not (string= prefix completion))
            (delete-region beg end)
            (insert-and-inherit completion)
-           (if (null (cdr completions))
-               (slime-restore-window-configuration)
-               (slime-complete-delay-restoration)))
+           (cond ((null (cdr completions))
+                  (slime-complete-restore-window-configuration))
+                 (t (slime-complete-delay-restoration))))
           (t
            (message "Making completion list...")
-           (slime-complete-maybe-save-window-configuration)
            (let ((list (all-completions prefix completions-alist nil)))
+             (slime-complete-maybe-save-window-configuration)
              (slime-with-output-to-temp-buffer "*Completions*"
-	       (display-completion-list list))
+               (display-completion-list list))
              (slime-complete-delay-restoration))
            (message "Making completion list...done")))))
-
-(defun slime-complete-delay-restoration ()
-  "Install a pre-command-hook that will restore the window
-configuration if possible."
-  (add-hook (make-local-variable 'pre-command-hook)
-            'slime-complete-maybe-restore-window-confguration))
-
-(defun slime-complete-forget-window-configuration ()
-  (remove-hook 'pre-command-hook 
-               'slime-complete-maybe-restore-window-confguration)
-  (setq slime-complete-saved-window-configuration nil))
-
-(defun slime-complete-maybe-restore-window-confguration ()
-  "Restore the window configuration, if the following command
-terminates a current completion."
-  (cond ((find last-command-char "()\"'`,# \r\n:")
-         (slime-complete-restore-window-configuration)
-         (slime-complete-forget-window-configuration))
-        ((memq this-command '(self-insert-command
-                              slime-complete-symbol
-                              backward-delete-char-untabify
-                              backward-delete-char
-                              scroll-other-window))
-         ;; keep going
-         )
-        (t (slime-complete-forget-window-configuration))))
 
 (defun slime-completing-read-internal (string default-package flag)
   ;; We misuse the predicate argument to pass the default-package.
@@ -2349,16 +2363,20 @@ function name is prompted."
 
 (defun slime-display-buffer-region (buffer start end &optional other-window)
   "Like `display-buffer', but only display the specified region."
-  (with-current-buffer buffer
-    (save-excursion
-      (save-restriction
-        (goto-char start)
-        (beginning-of-line)
-        (narrow-to-region (point) end)
-        (let ((window (display-buffer buffer other-window)))
-          (set-window-start window (point))
-          (shrink-window-if-larger-than-buffer window)
-          window)))))
+  (let ((window-min-height 1))
+    (with-current-buffer buffer
+      (save-excursion
+        (save-restriction
+          (goto-char start)
+          (beginning-of-line)
+          (narrow-to-region (point) end)
+          (let ((window (display-buffer buffer other-window)))
+            (set-window-start window (point))
+            (unless (or (one-window-p t)
+                        (/= (frame-width) (window-width)))
+              (set-window-text-height window (/ (1- (frame-height)) 2)))
+            (shrink-window-if-larger-than-buffer window)
+            window))))))
 
 (defun slime-show-evaluation-result (value)
   (slime-show-last-output)
@@ -2524,7 +2542,12 @@ First make the variable unbound, then evaluate the entire form."
 		 (:function "Function" swank:describe-function)
 		 (:setf "Setf" swank:describe-setf-function)
 		 (:type "Type" swank:describe-type)
-		 (:class "Class" swank:describe-class))
+		 (:class "Class" swank:describe-class)
+                 (:alien-type "Alien type" swank:describe-alien-type)
+                 (:alien-struct "Alien struct" swank:describe-alien-struct)
+                 (:alien-union "Alien type" swank:describe-alien-union)
+                 (:alien-enum "Alien enum" swank:describe-alien-enum)
+                 )
 	    do
 	    (let ((value (plist-get plist prop))
 		  (start (point)))
@@ -2728,19 +2751,19 @@ When displaying XREF information, this goes to the next reference."
     (slime-save-window-configuration)))
 
 (defun slime-select-function (function-names package)
-  (cond ((null function-names)
-	 (message "No callers"))
-	(t
-	 (lexical-let ((function-names function-names)
-		       (package package))
-	   (slime-select function-names
-			 (lambda (index)
-			   (slime-eval-async
-			    `(swank:function-source-location-for-emacs 
-			      ,(nth index function-names))
-			    package
-			    #'slime-carefully-show-source-location))
-			 (lambda (index)))))))
+  (if (null function-names)
+      (message "No callers")
+    (with-lexical-bindings (function-names package)
+      (slime-select 
+       function-names
+       (lambda (index)
+         (slime-eval-async `(swank:function-source-location-for-emacs 
+                             ,(nth index function-names))
+                           package
+                           (lambda (loc)
+                             (let ((pop-up-windows nil))
+                               (slime-carefully-show-source-location loc)))))
+       (lambda (index))))))
 
 (defun slime-carefully-show-source-location (location)
   (condition-case e
@@ -3399,7 +3422,9 @@ See `def-slime-selector-method' for defining new methods."
   (interactive)
   (message "Select [%s]: " 
            (apply #'string (mapcar #'car slime-selector-methods)))
-  (let* ((ch (read-char))
+  (let* ((ch (save-window-excursion
+               (select-window (minibuffer-window))
+               (read-char)))
          (method (find ch slime-selector-methods :key #'car)))
     (cond ((null method)
            (message "No method for character: ?\\%c" ch)
