@@ -880,16 +880,21 @@ If a protocol error occurs then a SLIME-READ-ERROR is signalled."
 
 ;;;; Reading and printing
 
-(defvar *buffer-package*)
-(setf (documentation '*buffer-package* 'symbol)
-      "Package corresponding to slime-buffer-package.  
+(defmacro define-special (name doc)
+  "Define a special variable NAME with doc string DOC.
+This is like defvar, but NAME will not initialized."
+  `(progn
+    (defvar ,name)
+    (setf (documentation ',name 'symbol) ',doc)))
+
+(define-special *buffer-package*     
+    "Package corresponding to slime-buffer-package.  
 
 EVAL-FOR-EMACS binds *buffer-package*.  Strings originating from a slime
 buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 
-(defvar *buffer-readtable*)
-(setf (documentation '*buffer-readtable* 'symbol)
-      "Readtable associated with the current buffer")
+(define-special *buffer-readtable*
+    "Readtable associated with the current buffer")
 
 (defmacro with-buffer-syntax ((&rest _) &body body)
   "Execute BODY with appropriate *package* and *readtable* bindings.
@@ -907,14 +912,22 @@ Emacs buffer."
     (let ((*read-suppress* nil))
       (read-from-string string))))
 
-(defun parse-symbol (string)
+(defun parse-symbol (string &optional (package *package*))
   "Find the symbol named STRING.
-Return the symbol and a flag indicate if the symbols was found."
+Return the symbol and a flag indicateing if the symbols was found."
   (multiple-value-bind (sym pos) (let ((*package* keyword-package))
                                    (ignore-errors (read-from-string string)))
     (if (and (symbolp sym) (eql (length string) pos))
-        (find-symbol (string sym))
+        (if (find #\: string)
+            (find-symbol (string sym) (symbol-package sym))
+            (find-symbol (string sym) package))
         (values nil nil))))
+
+(defun parse-symbol-or-lose (string &optional (package *package*))
+  (multiple-value-bind (symbol status) (parse-symbol string package)
+    (if status
+        (values symbol status)
+        (error "Unknown symbol: ~A [in ~A]" string package))))
 
 (defun parse-package (string)
   "Find the package named STRING.
@@ -951,45 +964,20 @@ Return the package or nil."
             default)
         default)))
 
-(defun find-symbol-designator (string &optional
-                                      (default-package *buffer-package*))
-  "Return the symbol corresponding to the symbol designator STRING.
-If string is not package qualified use DEFAULT-PACKAGE for the
-resolution.  Return nil if no such symbol exists."
-  (multiple-value-bind (name package-name internal-p)
-      (tokenize-symbol-designator (case-convert-input string))
-    (cond ((and package-name (not (find-package package-name)))
-           (values nil nil))
-          (t
-           (let ((package (or (find-package package-name) default-package)))
-             (multiple-value-bind (symbol access) (find-symbol name package)
-               (cond ((and package-name (not internal-p)
-                           (not (eq access :external)))
-                      (values nil nil))
-                     (access (values symbol access)))))))))
-
-(defun find-symbol-or-lose (string &optional 
-                            (default-package *buffer-package*))
-  "Like FIND-SYMBOL-DESIGNATOR but signal an error the symbols doesn't
-exists."
-  (multiple-value-bind (symbol package)
-      (find-symbol-designator string default-package)
-    (cond (package (values symbol package))
-          (t (error "Unknown symbol: ~S [in ~A]" string default-package)))))
-
 (defun valid-operator-name-p (string)
   "Test if STRING names a function, macro, or special-operator."
-  (let ((symbol (find-symbol-designator string)))
+  (let ((symbol (parse-symbol string)))
     (or (fboundp symbol)
         (macro-function symbol)
         (special-operator-p symbol))))
 
 (defslimefun arglist-for-echo-area (names)
   "Return the arglist for the first function, macro, or special-op in NAMES."
-  (let ((name (find-if #'valid-operator-name-p names)))
-    (if name 
-        (format-arglist-for-echo-area (find-symbol-designator name) name)
-        "")))
+  (with-buffer-syntax ()
+    (let ((name (find-if #'valid-operator-name-p names)))
+      (if name 
+          (format-arglist-for-echo-area (parse-symbol name) name)
+          ""))))
 
 (defun format-arglist-for-echo-area (symbol name)
   "Return SYMBOL's arglist as string for display in the echo area.
@@ -1043,15 +1031,16 @@ pretty printing of (function foo) as #'foo is suppressed."
 ;; (assert (test-print-arglist '(&key ((function f))) "(&key ((function f)))"))
 
 (defslimefun arglist-for-insertion (name)
-  (cond ((valid-operator-name-p name)
-         (let ((arglist (arglist (find-symbol-designator name))))
-           (etypecase arglist
-             ((member :not-available)
-              " <not available>")
-             (list
-              (format nil "~{~^ ~A~})" (list arglist))))))
-        (t
-         " <not available>")))
+  (with-buffer-syntax ()
+    (cond ((valid-operator-name-p name)
+           (let ((arglist (arglist (parse-symbol name))))
+             (etypecase arglist
+               ((member :not-available)
+                " <not available>")
+               (list
+                (format nil "~{~^ ~A~})" (list arglist))))))
+          (t
+           " <not available>"))))
 
 
 ;;;; Debugger
@@ -1268,7 +1257,7 @@ Fall back to the the current if no such package exists."
 
 (defun eval-for-emacs (form buffer-package id)
   "Bind *BUFFER-PACKAGE* BUFFER-PACKAGE and evaluate FORM.
-Return the result values as a list to strings to the continuation ID.
+Return the result to the continuation ID.
 Errors are trapped and invoke our debugger."
   (let ((*debugger-hook* #'swank-debugger-hook))
     (let (ok result)
@@ -1547,19 +1536,6 @@ Record compiler notes signalled as `compiler-condition's."
 contains lower or upper case characters."
   (values (some #'lower-case-p string)
           (some #'upper-case-p string)))
-
-(defun case-convert-input (string)
-  "Convert STRING according to the current readtable-case."
-  (check-type string string)
-  (ecase (readtable-case *readtable*)
-    (:upcase (string-upcase string))
-    (:downcase (string-downcase string))
-    (:preserve string)
-    (:invert (multiple-value-bind (lower upper) (determine-case string)
-               (cond ((and upper lower) string)
-                     (lower (string-upcase string))
-                     (upper (string-downcase string))
-                     (t string))))))
 
 (defun carefully-find-package (name default-package-name)
   "Find the package with name NAME, or DEFAULT-PACKAGE-NAME, or the
@@ -2110,11 +2086,6 @@ For example:
   (intern "Foo" p)
   (intern "FOO" p)
   (setf (readtable-case *readtable*) :invert)
-  (assert (string= (case-convert-input "f") "F"))
-  (assert (string= (case-convert-input "foo") "FOO"))
-  (assert (string= (case-convert-input "Foo") "Foo"))
-  (assert (string= (case-convert-input "FOO") "foo"))
-  (assert (string= (case-convert-input "find-if") "FIND-IF"))
   (flet ((names (prefix) 
            (sort (mapcar #'symbol-name
                          (find-matching-symbols prefix p nil #'prefix-match-p))
@@ -2218,25 +2189,34 @@ that symbols accessible in the current package go first."
                 (push symbol result))))))
     result))
 
-(defun describe-to-string (object)
+(defun call-with-describe-settings (fn)
   (let ((*print-readably* nil))
+    (funcall fn)))
+
+(defmacro with-describe-settings ((&rest _) &body body)
+  (declare (ignore _))
+  `(call-with-describe-settings (lambda () ,@body)))
+    
+(defun describe-to-string (object)
+  (with-describe-settings ()
     (with-output-to-string (*standard-output*)
       (describe object))))
 
 (defslimefun describe-symbol (symbol-name)
   (with-buffer-syntax ()
-    (describe-to-string (find-symbol-or-lose symbol-name))))
+    (describe-to-string (parse-symbol-or-lose symbol-name))))
 
 (defslimefun describe-function (name)
   (with-buffer-syntax ()
-    (let ((symbol (find-symbol name)))
+    (let ((symbol (parse-symbol-or-lose name)))
       (describe-to-string (or (macro-function symbol)
                               (symbol-function symbol))))))
 
 (defslimefun describe-definition-for-emacs (name kind)
   (with-buffer-syntax ()
-    (with-output-to-string (*standard-output*)
-      (describe-definition (find-symbol-or-lose name) kind))))
+    (with-describe-settings ()
+      (with-output-to-string (*standard-output*)
+        (describe-definition (parse-symbol-or-lose name) kind)))))
 
 (defslimefun documentation-symbol (symbol-name &optional default)
   (with-buffer-syntax ()
@@ -2376,7 +2356,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
                                errors))))))))
 
 (defslimefun xref (type symbol-name)
-  (let ((symbol (find-symbol-or-lose symbol-name)))
+  (let ((symbol (parse-symbol-or-lose symbol-name)))
     (group-xrefs
      (ecase type
        (:calls (who-calls symbol))
