@@ -51,6 +51,7 @@
      clos:standard-slot-definition
      cl:method
      cl:standard-class
+     clos::eql-specializer
      ;; standard-class readers
      clos:class-default-initargs
      clos:class-direct-default-initargs
@@ -62,6 +63,9 @@
      clos:class-precedence-list
      clos:class-prototype
      clos:class-slots
+     clos:specializer-direct-methods
+     ;; eql-specializer accessors
+     clos::eql-specializer-object
      ;; generic function readers
      clos:generic-function-argument-precedence-order
      clos:generic-function-declarations

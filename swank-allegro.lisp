@@ -36,6 +36,7 @@
    mop::standard-slot-definition
    cl:method
    cl:standard-class
+   mop:eql-specializer
    ;; standard-class readers
    mop:class-default-initargs
    mop:class-direct-default-initargs
@@ -47,6 +48,9 @@
    mop:class-precedence-list
    mop:class-prototype
    mop:class-slots
+   mop:specializer-direct-methods
+   ;; eql-specializer accessors
+   mop:eql-specializer-object
    ;; generic function readers
    mop:generic-function-argument-precedence-order
    mop:generic-function-declarations
