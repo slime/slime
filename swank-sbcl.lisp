@@ -31,7 +31,6 @@
 ;;; * Cross-referencing (nor is it likely, absent XREF port to SBCL)
 ;;; * testsuite can't find LOOP, reports bogus failure on some arglist lookups
 ;;; * eval-in-frame
-;;; * M-. has an off-by-two (character positions) error
 ;;; * A slime command to load an asdf system.  Note that this might involve
 ;;;    compiling/loading files that Emacs has no buffers for
 ;;; * Dealing with multiple threads
@@ -49,6 +48,52 @@
 (in-package :swank)
 
 ;;; TCP Server
+
+
+(defun create-swank-server (port &key reuse-address)
+  "Create a SWANK TCP server."
+  (let ((socket (make-instance 'sb-bsd-sockets:inet-socket
+			       :type :stream
+			       :protocol :tcp)))
+    (when reuse-address
+      (setf (sb-bsd-sockets:sockopt-reuse-address socket) t))
+    (setf (sb-bsd-sockets:non-blocking-mode socket) t)
+    (sb-bsd-sockets:socket-bind socket #(127 0 0 1) port)
+    (sb-bsd-sockets:socket-listen socket 5)
+    (sb-sys:add-fd-handler 
+     (sb-bsd-sockets:socket-file-descriptor socket)
+     :input (lambda (fd) 
+	      (declare (ignore fd))
+	      (accept-connection socket)))))
+
+(defun accept-connection (server-socket)
+  "Accept a SWANK TCP connection on SOCKET."
+  (let* ((socket (sb-bsd-sockets:socket-accept server-socket))
+	 (stream (sb-bsd-sockets:socket-make-stream 
+		  socket :input t :output t :element-type 'unsigned-byte)))
+    (sb-sys:add-fd-handler 
+     (sb-bsd-sockets:socket-file-descriptor socket)
+     :input (lambda (fd) 
+	      (declare (ignore fd))
+	      (serve-request stream)))))
+
+(defun serve-request (*emacs-io*)
+  "Read and process a request from a SWANK client.
+The request is read from the socket as a sexp and then evaluated."
+  (let* ((completed nil)
+         (*slime-output* (make-instance 'slime-output-stream)))
+    (let ((condition (catch 'serve-request-catcher
+		       (read-from-emacs)
+		       (setq completed t))))
+      (unless completed
+	(when *swank-debug-p*
+	  (format *debug-io* 
+		  "~&;; Connection to Emacs lost.~%;; [~A]~%" condition))
+	(sb-sys:invalidate-descriptor (sb-sys:fd-stream-fd *emacs-io*))
+ 	(close *emacs-io*)))))
+
+
+#|
 
 ;; The Swank backend runs in a separate thread and simply blocks on
 ;; its TCP port while waiting for forms to evaluate.
@@ -109,6 +154,9 @@ until the remote Emacs goes away."
                     (return))))))))
     (format *terminal-io* "~&;; Swank: Closed connection: ~A~%" *emacs-io*)
     (close *emacs-io*)))
+|#
+
+
 
 ;;; Redirecting Output to Emacs
 
