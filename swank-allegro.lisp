@@ -51,10 +51,10 @@
 (defimplementation close-socket (socket)
   (close socket))
 
-(defimplementation accept-connection (socket 
-                                      &key (external-format :iso-latin-1-unix))
-  (let ((s (socket:accept-connection socket :wait t)))
-    (set-external-format s external-format)
+(defimplementation accept-connection (socket &key external-format)
+  (let ((ef (or external-format :iso-latin-1-unix))
+        (s (socket:accept-connection socket :wait t)))
+    (set-external-format s ef)
     s))
 
 (defun set-external-format (stream external-format)
@@ -89,12 +89,13 @@
   "allegro")
 
 (defimplementation set-default-directory (directory)
-  (excl:chdir directory)
-  (namestring (setf *default-pathname-defaults* 
-                    (truename (merge-pathnames directory)))))
+  (let ((dir (namestring (setf *default-pathname-defaults* 
+                               (truename (merge-pathnames directory))))))
+    (excl:chdir dir)
+    dir))
 
 (defimplementation default-directory ()
-  (excl:chdir))
+  (namestring (excl:current-directory)))
 
 ;;;; Misc
 
@@ -213,37 +214,57 @@
 (defvar *buffer-string*)
 (defvar *compile-filename* nil)
 
-(defun compiler-note-p (x)
-  (member (type-of x) '(excl::compiler-note compiler::compiler-note)))
+(defun compiler-note-p (object)
+  (member (type-of object) '(excl::compiler-note compiler::compiler-note)))
+
+(defun compiler-undefined-functions-called-warning-p (object)
+  #-allegro-v5.0
+  (typep object 'excl:compiler-undefined-functions-called-warning))
 
 (deftype compiler-note ()
   `(satisfies compiler-note-p))
 
+(defun signal-compiler-condition (&rest args)
+  (signal (apply #'make-condition 'compiler-condition args)))
+
 (defun handle-compiler-warning (condition)
+  (declare (optimize (debug 3) (speed 0) (space 0)))
+  (cond ((and (not *buffer-name*) 
+              (compiler-undefined-functions-called-warning-p condition))
+         (handle-undefined-functions-warning condition))
+        (t
+         (signal-compiler-condition
+          :original-condition condition
+          :severity (etypecase condition
+                      (warning :warning)
+                      (compiler-note :note))
+          :message (format nil "~A" condition)
+          :location (location-for-warning condition)))))
+
+(defun location-for-warning (condition)
   (let ((loc (getf (slot-value condition 'excl::plist) :loc)))
-    (signal 
-     (make-condition
-      'compiler-condition
-      :original-condition condition
-      :severity (etypecase condition
-                  (warning :warning)
-                  (compiler-note :note))
-      :message (format nil "~A" condition)
-      :location (cond (*buffer-name*
-                       (make-location 
-                        (list :buffer *buffer-name*)
-                        (list :position *buffer-start-position*)))
-                      (loc
-                       (destructuring-bind (file . pos) loc
-                         (make-location
-                          (list :file (namestring (truename file)))
-                          (list :position (1+ pos)))))
-                      (*compile-filename*
-                       (make-location
-                        (list :file *compile-filename*)
-                        (list :position 1)))
-                      (t
-                       (list :error "No error location available.")))))))
+    (cond (*buffer-name*
+           (make-location 
+            (list :buffer *buffer-name*)
+            (list :position *buffer-start-position*)))
+          (loc
+           (destructuring-bind (file . pos) loc
+             (make-location
+              (list :file (namestring (truename file)))
+              (list :position (1+ pos)))))
+          (t
+           (list :error "No error location available.")))))
+
+(defun handle-undefined-functions-warning (condition)
+  (let ((fargs (slot-value condition 'excl::format-arguments)))
+    (dolist (farg (car fargs))
+      (destructuring-bind (fname (pos file)) farg
+        (signal-compiler-condition
+         :original-condition condition
+         :severity :warning
+         :message (format nil "Undefined function referenced: ~S" fname)
+         :location (make-location (list :file file)
+                                  (list :position (1+ pos))))))))
 
 (defimplementation call-with-compilation-hooks (function)
   (handler-bind ((warning #'handle-compiler-warning)
