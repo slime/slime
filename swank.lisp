@@ -772,13 +772,14 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 
 (defun from-string (string)
   "Read string in the *BUFFER-PACKAGE*"
-  (let ((*package* *buffer-package*))
+  (let ((*package* *buffer-package*)
+        (*read-suppress* nil))
     (read-from-string string)))
 
 (defun symbol-from-string (string)
-  "Read string in the *BUFFER-PACKAGE*"
-  (let ((*package* *buffer-package*))
-    (find-symbol (string-upcase string))))
+  "Find the symbol named STRING in *BUFFER-PACKAGE*."
+  ;;; XXX Is this broken with respect to readtable-case?
+  (find-symbol (string-upcase string) *buffer-package*))
 
 (defun to-string (string)
   "Write string in the *BUFFER-PACKAGE*."
@@ -1280,11 +1281,12 @@ The time is measured in microseconds."
 
 (defun swank-compiler (function)
   (clear-compiler-notes)
-  (multiple-value-bind (result usecs)
-      (handler-bind ((compiler-condition #'record-note-for-condition))
-        (measure-time-interval function))
-    (list (to-string result)
-	  (format nil "~,2F" (/ usecs 1000000.0)))))
+  (with-simple-restart (abort "Abort SLIME compilation.")
+    (multiple-value-bind (result usecs)
+        (handler-bind ((compiler-condition #'record-note-for-condition))
+          (measure-time-interval function))
+      (list (to-string result)
+            (format nil "~,2F" (/ usecs 1000000.0))))))
 
 (defslimefun compile-file-for-emacs (filename load-p)
   "Compile FILENAME and, when LOAD-P, load the result.
@@ -1708,12 +1710,18 @@ Collisions are caused because package information is ignored."
   "Make an apropos search for Emacs.
 The result is a list of property lists."
   (let ((package (if package
-                     (or (find-package package)
+                     (or (find-package (string-to-package-designator package))
                          (error "No such package: ~S" package)))))
     (mapcan (listify #'briefly-describe-symbol-for-emacs)
             (sort (remove-duplicates
                    (apropos-symbols name external-only case-sensitive package))
                   #'present-symbol-before-p))))
+
+(defun string-to-package-designator (string)
+  "Return a package designator made from STRING.
+Uses READ to case-convert STRING."
+  (let ((*package* *swank-io-package*))
+    (read-from-string string)))
 
 (defun briefly-describe-symbol-for-emacs (symbol)
   "Return a property list describing SYMBOL.
