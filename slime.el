@@ -466,20 +466,15 @@ A prefix argument disables this behaviour."
     ;; Documentation
     (" " slime-space :inferior t)
     ("\C-s" slime-insert-arglist :prefixed t :inferior t)
-    ("\C-d" slime-describe-symbol :prefixed t :inferior t :sldb t)
     ("\C-f" slime-describe-function :prefixed t :inferior t :sldb t)
     ("\M-d" slime-disassemble-symbol :prefixed t :inferior t :sldb t)
     ("\C-t" slime-toggle-trace-fdefinition :prefixed t :sldb t)
     ("\C-u" slime-undefine-function :prefixed t)
-    ("\C-a" slime-apropos :prefixed t :inferior t :sldb t)
-    ("\M-a" slime-apropos-all :prefixed t :inferior t :sldb t)
     ;; Kinda crappy binding. Maybe we should introduce some extra
     ;; prefixes for documentation commands. -luke (17/Jan/2004)
-    ("P"    slime-apropos-package :prefixed t :inferior t :sldb t)
     ("\C-m" slime-macroexpand-1 :prefixed t :inferior t)
     ("\M-m" slime-macroexpand-all :prefixed t :inferior t)
     ("\M-0" slime-restore-window-configuration :prefixed t :inferior t)
-    ("\C-h" slime-hyperspec-lookup :prefixed t :inferior t :sldb t)
     ([(control meta ?\.)] slime-next-location :inferior t)
     ;; Emacs20 on LinuxPPC signals a 
     ;; "Invalid character: 400000040, 2147479172, 0xffffffd8"
@@ -501,6 +496,18 @@ A prefix argument disables this behaviour."
     ("\C-xt" slime-list-threads :prefixed t :inferior t :sldb t)
     ("\C-xc" slime-list-connections :prefixed t :inferior t :sldb t)))
 
+(defvar slime-doc-map (make-sparse-keymap)
+  "Keymap for documentation commands. Bound to a prefix key.")
+
+(defvar slime-doc-bindings
+  '((?a slime-apropos)
+    (?z slime-apropos-all)
+    (?p slime-apropos-package)
+    (?d slime-describe-symbol)
+    (?f slime-describe-function)
+    (?h slime-hyperspec-lookup)
+    (?~ common-lisp-hyperspec-format)))
+  
 ;; Maybe a good idea, maybe not..
 (defvar slime-prefix-key "\C-c"
   "The prefix key to use in SLIME keybinding sequences.")
@@ -525,7 +532,23 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
   (define-key inferior-slime-mode-map
     [(control return)] 'inferior-slime-closing-return)
   (define-key inferior-slime-mode-map
-    [(meta control ?m)] 'inferior-slime-closing-return))
+    [(meta control ?m)] 'inferior-slime-closing-return)
+  ;; Documentation
+  (setq slime-doc-map (make-sparse-keymap))
+  (loop for (key command) in slime-doc-bindings
+        do (progn
+             ;; We bind both unmodified and with control.
+             (define-key slime-doc-map (string key) command)
+             (unless (equal key ?h)     ; But don't bind C-h
+               (let ((modified (slime-control-modified-char key)))
+                 (define-key slime-doc-map (string modified) command)))))
+  ;; C-c C-d is the prefix for the doc map.
+  (slime-define-key "\C-d" slime-doc-map :prefixed t :inferior t))
+
+(defun slime-control-modified-char (char)
+  "Return the control-modified version of CHAR."
+  ;; Maybe better to just bitmask it?
+  (car (read-from-string (format "?\\C-%c" char))))
 
 (slime-init-keymaps)
 
@@ -2482,6 +2505,7 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   ;("\t"   'slime-complete-symbol)
   ("\t"   'slime-indent-and-complete-symbol)
   (" "    'slime-space)
+  ("\C-c\C-d" slime-doc-map)
   ("\C-\M-x" 'slime-eval-defun)
   ("\C-c\C-o" 'slime-repl-clear-output)
   ("\C-c\C-t" 'slime-repl-clear-buffer)
