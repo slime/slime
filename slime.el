@@ -1658,7 +1658,7 @@ fixnum a specific thread."))
   "Clear all pending continuations."
   (interactive)
   (setq slime-rex-continuations '())
-  (when-let (sldb (get-sldb-buffer))
+  (when-let (sldb (sldb-get-buffer))
     (kill-buffer sldb)))
                         
 (defun slime-nyi ()
@@ -3102,7 +3102,7 @@ The overlay has several properties:
       (putp 'slime note)
       (putp 'face (slime-severity-face severity))
       (putp 'severity severity)
-      (unless (emacs-20-p)
+      (unless (slime-emacs-20-p)
 	(putp 'mouse-face 'highlight))
       (putp 'help-echo message)
       overlay)))
@@ -3339,8 +3339,8 @@ If multiple matches exist the choose the one nearest to point."
                          pos1 pos2))
                     ((> len1 len2) pos1)
                     ((> len2 len1) pos2)))
-             (pos1 pos1)
-             (pos2 pos2)
+             (len1 pos1)
+             (len2 pos2)
              (t start))))))
 
 (defun slime-isearch-with-function (search-fn string)
@@ -4823,7 +4823,7 @@ Full list of commands:
 (defvar sldb-overlays '()
   "Overlays created in source code buffers to temporarily highlight expressions.")
 
-(defun get-sldb-buffer (&optional create)
+(defun sldb-get-buffer (&optional create)
   (let* ((number (slime-connection-number))
          (buffer-name (format "*sldb [connection #%S]*" number)))
     (funcall (if create #'get-buffer-create #'get-buffer)
@@ -4835,7 +4835,7 @@ CONDITION is a string describing the condition to debug.
 RESTARTS is a list of strings (NAME DESCRIPTION) for each available restart.
 FRAMES is a list (NUMBER DESCRIPTION) describing the initial
 portion of the backtrace. Frames are numbered from 0."
-  (with-current-buffer (get-sldb-buffer t)
+  (with-current-buffer (sldb-get-buffer t)
     (unless (equal sldb-level level)
       (setq buffer-read-only nil)
       (sldb-mode)
@@ -4860,7 +4860,7 @@ portion of the backtrace. Frames are numbered from 0."
         (recursive-edit)))))
 
 (defun sldb-activate (thread level)
-  (with-current-buffer (get-sldb-buffer t)
+  (with-current-buffer (sldb-get-buffer t)
     (unless (equal sldb-level level)
       (with-lexical-bindings (thread level)
         (slime-eval-async `(swank:debugger-info-for-emacs 0 1) nil
@@ -4869,7 +4869,7 @@ portion of the backtrace. Frames are numbered from 0."
 
 ;;; XXX thread is ignored
 (defun sldb-exit (thread level)
-  (when-let (sldb (get-sldb-buffer))
+  (when-let (sldb (sldb-get-buffer))
     (with-current-buffer sldb
       (set-window-configuration sldb-saved-window-configuration)
       (let ((inhibit-read-only t))
@@ -5685,9 +5685,9 @@ BODY is a series of forms which must return the buffer to be selected."
 
 (def-slime-selector-method ?d
   "the *sldb* buffer for the current connection."
-  (unless (get-sldb-buffer)
+  (unless (sldb-get-buffer)
     (error "No debugger buffer"))
-  (get-sldb-buffer))
+  (sldb-get-buffer))
 
 (def-slime-selector-method ?e
   "the most recently visited emacs-lisp-mode buffer."
@@ -6292,7 +6292,7 @@ BODY returns true if the check succeeds."
     (slime-at-top-level-p)))
 
 (defun slime-at-top-level-p ()
-  (and (null (get-sldb-buffer))
+  (and (null (sldb-get-buffer))
        (null slime-rex-continuations)))
 
 (defun slime-wait-condition (name predicate timeout)
@@ -6307,7 +6307,7 @@ BODY returns true if the check succeeds."
   (slime-wait-condition "top-level" #'slime-at-top-level-p timeout))
 
 (defun slime-check-sldb-level (expected)
-  (let ((sldb-level (when-let (sldb (get-sldb-buffer))
+  (let ((sldb-level (when-let (sldb (sldb-get-buffer))
                       (with-current-buffer sldb
                         sldb-level))))
     (slime-check ("SLDB level (%S) is %S" expected sldb-level)
@@ -6320,7 +6320,7 @@ BODY returns true if the check succeeds."
     (funcall (or test #'equal) expected actual)))
 
 (defun sldb-level ()
-  (when-let (sldb (get-sldb-buffer))
+  (when-let (sldb (sldb-get-buffer))
     (with-current-buffer sldb
       sldb-level)))
 
@@ -6440,7 +6440,7 @@ Confirm that SUBFORM is correctly located."
                 (debug-hook-max-depth 0))
     (let ((debug-hook
            (lambda ()
-             (with-current-buffer (get-sldb-buffer)
+             (with-current-buffer (sldb-get-buffer)
                (when (> sldb-level debug-hook-max-depth)
                  (setq debug-hook-max-depth sldb-level)
                  (if (= sldb-level depth)
@@ -6459,7 +6459,7 @@ Confirm that SUBFORM is correctly located."
           (= debug-hook-max-depth depth))))))
 
 (defun slime-sldb-level= (level)
-  (when-let (sldb (get-sldb-buffer))
+  (when-let (sldb (sldb-get-buffer))
     (with-current-buffer sldb
       (equal sldb-level level))))
 
@@ -6473,7 +6473,7 @@ Confirm that SUBFORM is correctly located."
   (slime-check "In eval state." (not (null slime-rex-continuations)))
   (slime-interrupt)
   (slime-wait-condition "First interrupt" (lambda () (slime-sldb-level= 1)) 5)
-  (with-current-buffer (get-sldb-buffer) 
+  (with-current-buffer (sldb-get-buffer) 
     (sldb-quit))
   (slime-sync-to-top-level 5)
   (slime-check-top-level))
@@ -6488,13 +6488,13 @@ Confirm that SUBFORM is correctly located."
   (slime-wait-condition "running" #'slime-busy-p 5)
   (slime-interrupt)
   (slime-wait-condition "First interrupt" (lambda () (slime-sldb-level= 1)) 5)
-  (with-current-buffer (get-sldb-buffer)
+  (with-current-buffer (sldb-get-buffer)
     (sldb-continue))
   (slime-wait-condition "running" (lambda () (and (slime-busy-p)
-                                                  (not (get-sldb-buffer)))) 5)
+                                                  (not (sldb-get-buffer)))) 5)
   (slime-interrupt)
   (slime-wait-condition "Second interrupt" (lambda () (slime-sldb-level= 1)) 5)
-  (with-current-buffer (get-sldb-buffer)
+  (with-current-buffer (sldb-get-buffer)
     (sldb-quit))
   (slime-sync-to-top-level 5)
   (slime-check-top-level))
@@ -6529,9 +6529,9 @@ Confirm that SUBFORM is correctly located."
   (slime-wait-condition "Debugger visible" 
                         (lambda () 
                           (and (slime-sldb-level= 1)
-                               (get-buffer-window (get-sldb-buffer))))
+                               (get-buffer-window (sldb-get-buffer))))
                         5)
-  (with-current-buffer (get-sldb-buffer)
+  (with-current-buffer (sldb-get-buffer)
     (sldb-quit))
   (slime-sync-to-top-level 5))
 
@@ -6690,11 +6690,11 @@ SWANK> " t))
   )
 
 (eval-when (compile eval)
-  (defmacro defun-if-undefined (name &rest rest)
+  (defmacro slime-defun-if-undefined (name &rest rest)
     `(unless (fboundp ',name)
        (defun ,name ,@rest))))
 
-(defun-if-undefined next-single-char-property-change
+(slime-defun-if-undefined next-single-char-property-change
   (position prop &optional object limit)
   (let ((limit (typecase limit
 		 (null nil)
@@ -6713,7 +6713,7 @@ SWANK> " t))
 			    (get-char-property pos prop object))) 
 		return pos))))))
 
-(defun-if-undefined previous-single-char-property-change 
+(slime-defun-if-undefined previous-single-char-property-change 
   (position prop &optional object limit)
   (let ((limit (typecase limit
 		 (null nil)
@@ -6736,14 +6736,14 @@ SWANK> " t))
                                 (get-char-property (1- pos) prop object))) 
                     return pos))))))))
 
-(defun-if-undefined substring-no-properties (string &optional start end)
+(slime-defun-if-undefined substring-no-properties (string &optional start end)
   (let* ((start (or start 0))
 	 (end (or end (length string)))
 	 (string (substring string start end)))
     (set-text-properties start end nil string)
     string))
 
-(defun-if-undefined set-window-text-height (window height)
+(slime-defun-if-undefined set-window-text-height (window height)
   (let ((delta (- height (window-text-height window))))
     (unless (zerop delta)
       (let ((window-min-height 1))
@@ -6753,10 +6753,10 @@ SWANK> " t))
 	      (enlarge-window delta))
 	  (enlarge-window delta))))))
 
-(defun-if-undefined window-text-height (&optional window)
+(slime-defun-if-undefined window-text-height (&optional window)
   (1- (window-height window)))
 
-(defun-if-undefined subst-char-in-string (fromchar tochar string 
+(slime-defun-if-undefined subst-char-in-string (fromchar tochar string 
 						   &optional inplace)
   "Replace FROMCHAR with TOCHAR in STRING each time it occurs.
 Unless optional argument INPLACE is non-nil, return a new string."
@@ -6768,7 +6768,7 @@ Unless optional argument INPLACE is non-nil, return a new string."
 	  (aset newstr i tochar)))
     newstr))
 
-(defun-if-undefined count-screen-lines 
+(slime-defun-if-undefined count-screen-lines 
   (&optional beg end count-final-newline window)
   (unless beg
     (setq beg (point-min)))
@@ -6788,19 +6788,19 @@ Unless optional argument INPLACE is non-nil, return a new string."
         ;; XXX make this xemacs compatible
         (1+ (vertical-motion (buffer-size) window))))))
 
-(defun-if-undefined seconds-to-time (seconds)
+(slime-defun-if-undefined seconds-to-time (seconds)
   "Convert SECONDS (a floating point number) to a time value."
   (list (floor seconds 65536)
 	(floor (mod seconds 65536))
 	(floor (* (- seconds (ffloor seconds)) 1000000))))
 
-(defun-if-undefined time-less-p (t1 t2)
+(slime-defun-if-undefined time-less-p (t1 t2)
   "Say whether time value T1 is less than time value T2."
   (or (< (car t1) (car t2))
       (and (= (car t1) (car t2))
 	   (< (nth 1 t1) (nth 1 t2)))))
 
-(defun-if-undefined time-add (t1 t2)
+(slime-defun-if-undefined time-add (t1 t2)
   "Add two time values.  One should represent a time difference."
   (let ((high (car t1))
 	(low (if (consp (cdr t1)) (nth 1 t1) (cdr t1)))
@@ -6827,18 +6827,18 @@ Unless optional argument INPLACE is non-nil, return a new string."
 
     (list high low micro)))
 
-(defun-if-undefined line-beginning-position (&optional n)
+(slime-defun-if-undefined line-beginning-position (&optional n)
   (save-excursion
     (forward-line n)
     (point)))
 
-(defun-if-undefined line-end-position (&optional n)
+(slime-defun-if-undefined line-end-position (&optional n)
   (save-excursion
     (forward-line n)
     (end-of-line)
     (point)))
 
-(defun-if-undefined check-parens ()
+(slime-defun-if-undefined check-parens ()
     "Verify that parentheses in the current buffer are balanced.
 If they are not, position point at the first syntax error found."
     (interactive)
@@ -6871,8 +6871,8 @@ If they are not, position point at the first syntax error found."
 	       (error "After quote"))
 	      (t (error "Shouldn't happen: parsing state: %S" state))))))
 
-(defun-if-undefined read-directory-name (prompt &optional dir default-dirname 
-                                                mustmatch initial)
+(slime-defun-if-undefined read-directory-name (prompt &optional dir default-dirname 
+                                                      mustmatch initial)
   (unless dir
     (setq dir default-directory))
   (unless default-dirname
@@ -6897,7 +6897,7 @@ If they are not, position point at the first syntax error found."
             (or (getenv "TMPDIR") (getenv "TMP") (getenv "TEMP") "/tmp"))))
     "The directory for writing temporary files."))
 
-(defun emacs-20-p ()
+(defun slime-emacs-20-p ()
   (and (not (featurep 'xemacs))
        (= emacs-major-version 20)))
 
