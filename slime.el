@@ -3112,7 +3112,7 @@ first element of the source-path redundant."
         (re-search-forward 
          (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\>" name) nil t)
         (re-search-forward 
-         (format "\\<%s\\>" name) nil t)))
+         (format "\\s %s\\>\\(\\s \\|$\\)" name) nil t)))
      (goto-char (match-beginning 0)))
     ((:source-path source-path start-position)
      (cond (start-position
