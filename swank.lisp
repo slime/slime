@@ -738,17 +738,33 @@ exists."
     (cond (package (values symbol package))
           (t (error "Unknown symbol: ~S [in ~A]" string default-package)))))
 
-(defslimefun arglist-string (name)
-  "Return the arglist for NAME as a string.
-NAME is a string.  The starts and ends with parens."
-  (multiple-value-bind (arglist condition)
-      (ignore-errors (values (arglist (find-symbol-or-lose name))))
-    (cond (condition (format nil "(-- ~A)" condition))
-          (t (etypecase arglist
-               (string arglist)
-               (null "()")
-               (cons (print-arglist-to-string arglist)))))))
+(defslimefun arglist-for-echo-area (names)
+  "Return the arglist for the first function, macro, or special-op in NAMES."
+  (multiple-value-bind (symbol name)
+      (loop for name in names
+            for symbol = (find-symbol-designator name)
+            when (or (fboundp symbol)
+                     (macro-function symbol)
+                     (special-operator-p symbol))
+            return (values symbol name))
+    (cond (symbol (format-arglist-for-echo-area symbol name))
+          (t ""))))
 
+(defun format-arglist-for-echo-area (symbol name)
+  (multiple-value-bind (arglist c) (ignore-errors (values (arglist symbol)))
+    (cond (c (format nil "(~A -- <not available>)" symbol))
+          (t (let ((string (arglist-to-string arglist)))
+               (format nil "(~A~A~A)" 
+                       name
+                       (if (= (length string) 2) "" " ")
+                       (subseq string 1 (1- (length string)))))))))
+
+(defun arglist-to-string (arglist)
+  (etypecase arglist
+    (string arglist)
+    (null "()")
+    (cons (print-arglist-to-string arglist))))
+    
 (defun print-arglist-to-string (arglist)
   (with-output-to-string (*standard-output*)
     (print-arglist arglist)))
