@@ -3193,6 +3193,8 @@ NIL is returned if the list is circular."
                        ,@(if (eq :internal status) 
                              `((:action " [export it]"
                                         ,(lambda () (export symbol package)))))
+                       (:action " [unintern it]"
+                                ,(lambda () (unintern symbol package)))
                        (:newline))
             '("It is a non-interned symbol." (:newline)))
 	;;
