@@ -1808,7 +1808,7 @@ deal with that."
                         (slime-lisp-implementation-type)
                         (if (featurep 'xemacs)
                             (process-id (slime-connection))
-                            (process-contact (slime-connection)))
+                          (process-contact (slime-connection)))
                         (slime-pid)
                         (expand-file-name default-directory))))
     ;; Emacs21 has the fancy persistent header-line.
@@ -1823,13 +1823,22 @@ deal with that."
            (slime-repl-insert-prompt ""))
           (t
            (slime-repl-insert-prompt (concat "; " banner))
-           (pop-to-buffer (current-buffer))))))  
+           (pop-to-buffer (current-buffer))))
+    ;; We are called from a timer function and for unkown reasons the
+    ;; first command after executing the timer function is looked up
+    ;; in the buffer in which the timer was started and not in the
+    ;; then current buffer.  Add a dummy event as workaround. -- he
+    (unless (featurep 'xemacs)
+      (setq unread-command-events
+            (append (listify-key-sequence "\C-l")
+                    unread-command-events)))))
 
 (defun slime-init-output-buffer (connection)
   (with-current-buffer (slime-output-buffer t)
     (set (make-local-variable 'slime-buffer-connection) connection)
     ;; set the directory stack
-    (setq slime-repl-directory-stack (list (expand-file-name default-directory)))
+    (setq slime-repl-directory-stack 
+          (list (expand-file-name default-directory)))
     (slime-repl-update-banner)))
 
 (defvar slime-show-last-output-function 
@@ -5775,6 +5784,9 @@ BODY returns true if the check succeeds."
 (defvar slime-repl-shortcut-table nil
   "A list of slime-repl-shortcuts")
 
+(defvar slime-repl-shortcut-history '()
+  "History list of shortcut command names.")
+
 (defun slime-handle-repl-shortcut ()
   (interactive)
   (if (save-excursion
@@ -5784,9 +5796,7 @@ BODY returns true if the check succeeds."
                        (completing-read "Command: " 
                                         (slime-bogus-completion-alist
                                          (slime-list-all-repl-shortcuts))
-                                        nil
-                                        t
-                                        nil
+                                        nil t nil
                                         'slime-repl-shortcut-history))))
         (call-interactively (slime-repl-shortcut.handler shortcut)))
       (insert (string slime-repl-shortcut-dispatch-char))))
