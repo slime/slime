@@ -504,7 +504,7 @@ stack."
 
 (defimplementation print-frame (frame stream)
   (let ((*standard-output* stream))
-    (sb-debug::print-frame-call frame :verbosity 1 :number nil)))
+    (sb-debug::print-frame-call frame stream :verbosity 1 :number nil)))
 
 (defun code-location-source-path (code-location)
   (let* ((location (sb-debug::maybe-block-start-location code-location))
@@ -554,8 +554,8 @@ stack."
       (:lisp
        (make-location
         (list :source-form (with-output-to-string (*standard-output*)
-                             (sb-debug::print-code-location-source-form
-                              code-location 100)))
+                             (print (sb-debug::code-location-source-form
+                                     code-location 100))))
         (list :position 0))))))
 
 (defun safe-source-location-for-emacs (code-location)
