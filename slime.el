@@ -745,10 +745,11 @@ the state name for the modeline.
 If PROCESS-INPUT is non-nil the available input is processed."
   (let ((state (slime-current-state)))
     (setq slime-state-name
-          (case (slime-state-name state)
+          (ecase (slime-state-name state)
             (slime-idle-state "")
             (slime-evaluating-state "[eval...]")
-            (slime-debugging-state "[debug]")))
+            (slime-debugging-state "[debug]")
+            (slime-read-input-state "[read]")))
     (force-mode-line-update)
     (slime-dispatch-event '(activate) process-input)))
 
@@ -852,7 +853,7 @@ their actions. The pattern syntax is the same as `destructure-case'."
      ,doc
      (slime-make-state ',name ,(slime-make-state-function variables events))))
 
-
+(put 'slime-defstate 'lisp-indent-function 2)
 
 
 ;;;;; The SLIME state machine definition
@@ -909,7 +910,9 @@ will pass it to CONTINUATION."
   ((:emacs-quit)
    ;; To discard the state would break our synchronization.
    ;; Instead, just cancel the continuation.
-   (setq continuation (lambda (value) t))))
+   (setq continuation (lambda (value) t)))
+  ((:read-input requested tag)
+   (slime-push-state (slime-read-input-state requested tag) t)))
 
 (slime-defstate slime-debugging-state (level condition restarts depth frames)
   "Debugging state.
@@ -942,7 +945,17 @@ state interacts with it until it is coaxed into returning."
    (slime-output-evaluate-request form-string package-name)
    (slime-push-state (slime-evaluating-state continuation) t)))
 
-(put 'slime-defstate 'lisp-indent-function 2)
+(slime-defstate slime-read-input-state (request tag)
+  "Reading state.
+Lisp waits for input from Emacs."
+  ((activate)
+   (let (input)
+     (while (or (not input)
+                (zerop (length input)))
+       (slime-show-output-buffer)
+       (setq input (ignore-errors (read-string "<= "))))
+     (slime-net-send `(swank:take-input ,tag ,(concat input "\n")))
+     (slime-pop-state t))))
 
 
 ;;;;; Utilities
@@ -1016,7 +1029,7 @@ Loops until the result is thrown to our caller, or the user aborts."
 (defun slime-ping ()
   "Check that communication works."
   (interactive)
-  (message (slime-eval "PONG")))
+  (message "%s" (slime-eval "PONG")))
 
 
 ;;; Stream output
@@ -1064,6 +1077,12 @@ Loops until the result is thrown to our caller, or the user aborts."
   (interactive)
   (slime-save-window-configuration)
   (pop-to-buffer (slime-output-buffer) nil t))
+
+(defun slime-show-output-buffer ()
+  (slime-show-last-output)
+  (with-current-buffer (slime-output-buffer)
+    (goto-char (point-max))
+    (display-buffer (slime-output-buffer) t)))
 
 
 ;;; Compilation and the creation of compiler-note annotations
@@ -1116,6 +1135,8 @@ See `slime-compile-and-load-file' for further details."
    (slime-buffer-package)
    (slime-compilation-finished-continuation)))
 
+(defvar slime-hide-style-warning-count-if-zero t)
+
 (defun slime-note-count-string (severity count &optional suppress-if-zero)
   (cond ((and (zerop count) suppress-if-zero)
          "")
@@ -1133,7 +1154,8 @@ See `slime-compile-and-load-file' for further details."
 	 "Compilation finished:%s%s%s%s%s"
          (slime-note-count-string "error" errors)
          (slime-note-count-string "warning" warnings)
-         (slime-note-count-string "style-warning" style-warnings t)
+         (slime-note-count-string "style-warning" style-warnings 
+                                  slime-hide-style-warning-count-if-zero)
          (slime-note-count-string "note" notes)
          (if secs (format "[%s secs]" secs) ""))))
 
@@ -1490,7 +1512,7 @@ Designed to be bound to the SPC key."
    (slime-buffer-package)
    (lexical-let ((symbol-name symbol-name))
      (lambda (arglist)
-       (message (slime-format-arglist symbol-name arglist))))))
+       (message "%s" (slime-format-arglist symbol-name arglist))))))
 
 (defun slime-get-arglist (symbol-name)
   "Return the argument list for SYMBOL-NAME."
@@ -2421,22 +2443,24 @@ the current index when the selection is completed."
       (let* ((props (text-properties-at (point)))
 	     (frame (plist-get props 'frame))
 	     (frame-number (car frame))
-	     (standard-output (current-buffer)))
+	     (standard-output (current-buffer))
+             (indent1 "   ")
+             (indent2 "      "))
 	(goto-char start)
 	(delete-region start end)
 	(sldb-propertize-region (plist-put props 'details-visible-p t)
 	  (insert (second frame) "\n"
-		  "   Locals:\n")
-	  (sldb-princ-locals frame-number "       ")
+                  indent1 "Locals:\n")
+	  (sldb-princ-locals frame-number indent2)
 	  (let ((catchers (sldb-catch-tags frame-number)))
 	    (cond ((null catchers)
-		   (princ "   [No catch-tags]\n"))
+                   (insert indent1 "[No catch-tags]\n"))
 		  (t
-		   (princ "   Catch-tags:\n")
+                   (insert indent1 "Catch-tags:\n")
 		   (loop for (tag . location) in catchers
 			 do (slime-insert-propertized  
 			     '(catch-tag ,tag)
-			     (format "      %S\n" tag))))))
+			     indent2 (format "%S\n" tag))))))
 	  (terpri)
 	  (point)))))
   (apply #'sldb-maybe-recenter-region (sldb-frame-region)))
