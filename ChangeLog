@@ -1,8 +1,26 @@
+2004-02-26  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-backend.lisp (:swank): export connection-info.
+
+	* swank-allegro.lisp (lisp-implementation-type-name): Implement
+	it.
+
+	* swank-sbcl.lisp (compile-file-for-emacs): Load the fasl file
+	regardless of f-p.
+
+	* swank.lisp (swank-pprint): Bind *package* to *buffer-package*.
+	Reported by Alan Picard.
+
+	* swank-lispworks.lisp (dspec-buffer-position): Renamed from
+	dspec-buffer-buffer-position.  Handle dspecs of the form (defmacro
+	foo).  Reported by Alan Picard.
+	(arglist-string): Handle unknown arglists properly.
+
 2004-02-25  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-cmucl.lisp (arglist-string): Delay the call to
 	di::function-debug-function until it is actually needed.
-	(compile-file-for-emacs): Load the fasl file even irrespective of
+	(compile-file-for-emacs): Load the fasl file irrespective of
 	COMILE-FILE's third return value.
 
 	* swank.lisp (connection-info): New function.
