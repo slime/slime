@@ -101,16 +101,14 @@
 (defun serve-request (*emacs-io* *slime-output* *slime-input* *slime-io*)
   "Read and process a request from a SWANK client.
 The request is read from the socket as a sexp and then evaluated."
-  (let ((completed nil))
-    (let ((condition (catch 'serve-request-catcher
-		       (read-from-emacs)
-		       (setq completed t))))
-      (unless completed
-	(when *swank-debug-p*
-	  (format *debug-io* 
-		  "~&;; Connection to Emacs lost.~%;; [~A]~%" condition))
-	(sys:invalidate-descriptor (sys:fd-stream-fd *emacs-io*))
- 	(close *emacs-io*)))))
+  (catch 'slime-toplevel
+    (with-simple-restart (abort "Return to Slime toplevel.")
+      (handler-case (read-from-emacs)
+	(slime-read-error (e)
+	  (when *swank-debug-p*
+	    (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
+	  (sys:invalidate-descriptor (sys:fd-stream-fd *emacs-io*))
+	  (close *emacs-io*))))))
 
 ;;;
 
@@ -590,6 +588,7 @@ Return NIL if the symbol is unbound."
 
 (defslimefun sldb-loop ()
   (unix:unix-sigsetmask 0)
+  (ignore-errors (force-output))
   (let* ((*sldb-level* (1+ *sldb-level*))
 	 (*sldb-stack-top* (or debug:*stack-top-hint* (di:top-frame)))
 	 (*sldb-restarts* (compute-restarts *swank-debugger-condition*))
@@ -722,6 +721,10 @@ stack."
 (defslimefun eval-string-in-frame (string index)
   (to-string (di:eval-in-frame (nth-frame index) (from-string string))))
 
+(defslimefun inspect-in-frame (string index)
+  (reset-inspector)
+  (inspect-object (di:eval-in-frame (nth-frame index) (from-string string))))
+
 (defslimefun frame-locals (index)
   (let* ((frame (nth-frame index))
 	 (location (di:frame-code-location frame))
@@ -731,7 +734,6 @@ stack."
 	  collect (list
 		   :symbol (di:debug-variable-symbol v)
 		   :id (di:debug-variable-id v)
-		   :validity (di:debug-variable-validity v location)
 		   :value-string
 		   (if (eq (di:debug-variable-validity v location)
 			   :valid)
@@ -745,14 +747,8 @@ stack."
 (defslimefun invoke-nth-restart (index)
   (invoke-restart (nth-restart index)))
 
-(defslimefun sldb-continue ()
-  (continue *swank-debugger-condition*))
-
 (defslimefun sldb-abort ()
   (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
-
-(defslimefun throw-to-toplevel ()
-  (throw 'lisp::top-level-catcher nil))
 
 
 ;;; Inspecting
