@@ -1212,14 +1212,14 @@ LRA  =  ~X~%" (mapcar #'fixnum
   (eval `(profile:unprofile ,fname)))
 
 (defimplementation unprofile-all ()
-  (profile:unprofile)
+  (eval '(profile:unprofile))
   "All functions unprofiled.")
 
 (defimplementation profile-report ()
-  (profile:report-time))
+  (eval '(profile:report-time)))
 
 (defimplementation profile-reset ()
-  (profile:reset-time)
+  (eval '(profile:reset-time))
   "Reset profiling counters.")
 
 (defimplementation profiled-functions ()
