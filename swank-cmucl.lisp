@@ -10,6 +10,8 @@
 
 ;;;; TCP server.
 
+(setq *swank-in-background* :fd-handler)
+
 (defmethod create-socket (port)
   (ext:create-inet-listener port :stream
                             :reuse-address t

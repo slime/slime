@@ -61,6 +61,8 @@
 
 ;;; TCP Server
 
+(setq *swank-in-background* :fd-handler)
+
 (defmethod create-socket (port)
   (let ((socket (make-instance 'sb-bsd-sockets:inet-socket
 			       :type :stream
