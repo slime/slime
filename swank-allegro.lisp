@@ -2,7 +2,7 @@
 ;;;
 ;;; swank-allegro.lisp --- Allegro CL specific code for SLIME. 
 ;;;
-;;; Created 2003, Helmut Eller
+;;; Created 2003
 ;;;
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed. This code was written for "Allegro CL Trial
@@ -29,51 +29,9 @@
 
 ;;; swank-mop
 
-;; maybe better change MOP to ACLMOP ?
-(import-to-swank-mop
- '( ;; classes
-   cl:standard-generic-function
-   mop::standard-slot-definition
-   cl:method
-   cl:standard-class
-   mop:eql-specializer
-   ;; standard-class readers
-   mop:class-default-initargs
-   mop:class-direct-default-initargs
-   mop:class-direct-slots
-   mop:class-direct-subclasses
-   mop:class-direct-superclasses
-   mop:class-finalized-p
-   cl:class-name
-   mop:class-precedence-list
-   mop:class-prototype
-   mop:class-slots
-   mop:specializer-direct-methods
-   ;; eql-specializer accessors
-   mop:eql-specializer-object
-   ;; generic function readers
-   mop:generic-function-argument-precedence-order
-   mop:generic-function-declarations
-   mop:generic-function-lambda-list
-   mop:generic-function-methods
-   mop:generic-function-method-class
-   mop:generic-function-method-combination
-   mop:generic-function-name
-   ;; method readers
-   mop:method-generic-function
-   mop:method-function
-   mop:method-lambda-list
-   mop:method-specializers
-   excl::method-qualifiers
-   ;; slot readers
-   mop:slot-definition-allocation
-   mop:slot-definition-initargs
-   mop:slot-definition-initform
-   mop:slot-definition-initfunction
-   mop:slot-definition-name
-   mop:slot-definition-type
-   mop:slot-definition-readers
-   mop:slot-definition-writers))
+;; maybe better change MOP to ACLMOP ?  
+;; CLOS also works in ACL5. --he
+(import-swank-mop-symbols :clos '(:slot-definition-documentation))
 
 (defun swank-mop:slot-definition-documentation (slot)
   (documentation slot))
@@ -316,29 +274,43 @@
     (symbol (string fspec))
     (list (string (second fspec)))))
 
+(defun find-definition-in-file (fspec type file)
+  (let* ((start (scm:find-definition-in-file fspec type file))
+         (pos (if start
+                  (list :position (1+ start))
+                  (list :function-name (fspec-primary-name fspec)))))
+         (make-location (list :file (namestring (truename file)))
+                        pos)))
+  
+(defun find-definition-in-buffer (filename)
+  (let ((pos (position #\; filename :from-end t)))
+    (make-location
+     (list :buffer (subseq filename 0 pos))
+     (list :position (parse-integer (subseq filename (1+ pos)))))))
+
 (defun find-fspec-location (fspec type)
   (multiple-value-bind (file err) (ignore-errors (excl:source-file fspec type))
     (etypecase file
       (pathname
-       (let* ((start (scm:find-definition-in-file fspec type file))
-              (pos (if start
-                       (list :position (1+ start))
-                       (list :function-name (fspec-primary-name fspec)))))
-         (make-location (list :file (namestring (truename file)))
-                        pos)))
+       (find-definition-in-file fspec type file))
       ((member :top-level)
        (list :error (format nil "Defined at toplevel: ~A"
                             (fspec->string fspec))))
       (string
-       (let ((pos (position #\; file :from-end t)))
-         (make-location
-          (list :buffer (subseq file 0 pos))
-          (list :position (parse-integer (subseq file (1+ pos)))))))
+       (find-definition-in-buffer file))
       (null 
        (list :error (if err
                         (princ-to-string err)
                         (format nil "Unknown source location for ~A" 
-                                (fspec->string fspec))))))))
+                                (fspec->string fspec)))))
+      (cons 
+       (destructuring-bind ((type . filename)) file
+         (assert (member type '(:operator)))
+         (etypecase filename
+           (pathname
+            (find-definition-in-file fspec type filename))
+           (string 
+            (find-definition-in-buffer filename))))))))
 
 (defun fspec->string (fspec)
   (etypecase fspec
@@ -447,9 +419,7 @@
           `("Name: " (:value ,(function-name f)) (:newline)
             "Its argument list is: " ,(princ-to-string (arglist f)) (:newline)
             "Documentation:" (:newline)
-            ;; AllegroCL doesn't support (documentation <function-obj> t)
-            ;; so we get the symbol and then its doc
-            ,(documentation (excl::external-fn_symdef f) 'function))))
+            ,(documentation f 'function))))
 
 (defmethod inspect-for-emacs ((class structure-class) (inspector acl-inspector))
   (values "A structure class."
@@ -486,9 +456,11 @@
                                `(:value ,(swank-mop:class-prototype class))
                                '"N/A (class not finalized)"))))
 
-(defmethod inspect-for-emacs ((slot excl::structure-slot-definition) (inspector acl-inspector))
+#-:allegro-v5.0
+(defmethod inspect-for-emacs ((slot excl::structure-slot-definition) 
+                              (inspector acl-inspector))
   (values "A structure slot." 
-          `("Name: " (:value ,(mop:slot-definition-name slot))
+          `("Name: " (:value ,(swank-mop:slot-definition-name slot))
             (:newline)
             "Documentation:" (:newline)
             ,@(when (documentation slot)
