@@ -1624,11 +1624,12 @@ output as arguments.")
       (funcall slime-show-last-output-function start end))))
 
 (defun slime-display-output-buffer ()
-  "Display the output bufer and scroll to bottom."
+  "Display the output buffer and scroll to bottom."
   (with-current-buffer (slime-output-buffer)
     (goto-char (point-max))
-    (set-window-start (display-buffer (current-buffer) t)
-                      (line-beginning-position))))
+    (slime-mark-input-end)
+    (slime-mark-output-start)
+    (display-buffer (current-buffer) t)))
 
 (defmacro slime-with-output-end-mark (&rest body)
   "Execute BODY at `slime-output-end'.  
@@ -3630,6 +3631,10 @@ CL:MACROEXPAND."
 (defvar sldb-hook nil
   "Hook run on entry to the debugger.")
 
+(defun slime-add-face (face string)
+  (add-text-properties 0 (length string) (list 'face face) string)
+  string)
+  
 (defmacro in-sldb-face (name string)
   (let ((facename (intern (format "sldb-%s-face" (symbol-name name))))
 	(var (gensym "string")))
@@ -3639,41 +3644,48 @@ CL:MACROEXPAND."
 
 (defun sldb-add-face (face string)
   (if sldb-enable-styled-backtrace
-      (add-text-properties 0 (length string) (list 'face face) string)
+      (slime-add-face face string)
       string))
 
-(defun sldb-setup (condition restarts frames)
-  (setq c condition)
-  (let (condition-english condition-type)
-    (if (string-match "\\(.*?\\)\n\\(.*\\)" condition) ;; just in case we get this wrong
-	(setq condition-english (match-string 1 condition)
-	      condition-type (match-string 2 condition))
-	(setq condition-english condition)
-	(condition-type ""))
-    (with-current-buffer (get-buffer-create "*sldb*")
-      (setq buffer-read-only nil)
-      (sldb-mode)
-      (slime-set-truncate-lines)
-      (add-hook (make-local-variable 'kill-buffer-hook) 'sldb-delete-overlays)
-      (setq sldb-condition condition)
-      (setq sldb-restarts restarts)
-      (insert (in-sldb-face topline condition-english) "\n" (in-sldb-face condition condition-type) "\n" "\n" (in-sldb-face section "Restarts:") "\n")
-      (loop for (name string) in restarts
-	    for number from 0 
-	    do (progn
-		 (slime-insert-propertized
-		  `(restart-number ,number
-		    sldb-default-action sldb-invoke-restart
-		    mouse-face highlight)
-		  "  " (in-sldb-face restart-number (number-to-string number)) ": ["  (in-sldb-face restart-type name) "] " 
+(defun sldb-insert-condition (condition)
+  (destructuring-bind (message type) condition
+    (insert (in-sldb-face topline message)
+            "\n" 
+            (in-sldb-face condition type)
+            "\n\n")))
+
+(defun sldb-insert-restarts (restarts)
+  (loop for (name string) in restarts
+        for number from 0 
+        do (progn
+             (slime-insert-propertized
+              `(restart-number ,number
+                               sldb-default-action sldb-invoke-restart
+                               mouse-face highlight)
+              "  " (in-sldb-face restart-number 
+                                 (number-to-string number)) 
+                  ": ["  (in-sldb-face restart-type name) "] " 
 		  (in-sldb-face restart string))
-		 (insert "\n")))
-      (insert "\n" (in-sldb-face section "Backtrace:") "\n")
-      (setq sldb-backtrace-start-marker (point-marker))
-      (sldb-insert-frames (sldb-prune-initial-frames frames) nil)
-      (setq buffer-read-only t)
-      (pop-to-buffer (current-buffer))
-      (run-hooks 'sldb-hook))))
+             (insert "\n")))
+  (insert "\n"))
+
+(defun sldb-setup (condition restarts frames)
+  (with-current-buffer (get-buffer-create "*sldb*")
+    (setq buffer-read-only nil)
+    (sldb-mode)
+    (slime-set-truncate-lines)
+    (add-hook (make-local-variable 'kill-buffer-hook) 'sldb-delete-overlays)
+    (setq sldb-condition condition)
+    (setq sldb-restarts restarts)
+    (sldb-insert-condition condition)
+    (insert (in-sldb-face section "Restarts:") "\n")
+    (sldb-insert-restarts restarts)
+    (insert (in-sldb-face section "Backtrace:") "\n")
+    (setq sldb-backtrace-start-marker (point-marker))
+    (sldb-insert-frames (sldb-prune-initial-frames frames) nil)
+    (setq buffer-read-only t)
+    (pop-to-buffer (current-buffer))
+    (run-hooks 'sldb-hook)))
 
 (define-derived-mode sldb-mode fundamental-mode "sldb" 
   "Superior lisp debugger mode
@@ -3697,22 +3709,19 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
             collect frame)
       frames))
 
+(defun sldb-insert-frame (frame)
+  (destructuring-bind (number string) frame
+    (slime-insert-propertized 
+     `(frame ,frame) 
+     "  " (in-sldb-face frame-label (format "%d" number)) ": "
+     (in-sldb-face frame-line string)
+     "\n")))
+
 (defun sldb-insert-frames (frames maximum-length)
   (when maximum-length
     (assert (<= (length frames) maximum-length)))
   (save-excursion
-    (loop for frame in frames
-	  for (number string) = frame
-	  do 
-	  (let (label framestring)
-	    (if (string-match "\\([0-9]*:\\)?\\s *\\(.*\\)" string) 
-		(setq label (match-string 1 string)
-		      framestring (match-string 2 string))
-		(setq label "" framestring string))
-	    (slime-insert-propertized 
-             `(frame ,frame) 
-             "  " (in-sldb-face frame-label label) " "
-             (in-sldb-face frame-line framestring) "\n")))
+    (mapc #'sldb-insert-frame frames)
     (let ((number (sldb-previous-frame-number)))
       (cond ((and maximum-length (< (length frames) maximum-length)))
 	    (t
@@ -3819,28 +3828,32 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
 (defun sldb-show-frame-details ()
   (multiple-value-bind (start end) (sldb-frame-region)
     (save-excursion
+      (goto-char start)
       (let* ((props (text-properties-at (point)))
 	     (frame (plist-get props 'frame))
 	     (frame-number (car frame))
 	     (standard-output (current-buffer))
              (indent1 "      ")
              (indent2 "        "))
-	(goto-char start)
 	(delete-region start end)
 	(slime-propertize-region (plist-put props 'details-visible-p t)
-	  (insert "  " (in-sldb-face detailed-frame-line (second frame)) "\n"
+	  (insert "  " 
+                  (in-sldb-face frame-label (format "%d" frame-number)) ": "
+                  (in-sldb-face detailed-frame-line (second frame)) "\n"
                   indent1 (in-sldb-face section "Locals:") "\n")
           (sldb-insert-locals frame-number indent2)
 	  (when sldb-show-catch-tags
 	    (let ((catchers (sldb-catch-tags frame-number)))
 	      (cond ((null catchers)
-		     (insert indent1 (in-sldb-face catch-tags "[No catch-tags]\n")))
+		     (insert indent1
+                             (in-sldb-face catch-tags "[No catch-tags]\n")))
 		    (t
-		     (insert indent1 "Catch-tags:")
+		     (insert indent1 "Catch-tags:\n")
 		     (loop for (tag . location) in catchers
 			   do (slime-insert-propertized  
 			       '(catch-tag ,tag)
-			       indent2 (in-sldb-face catch-tags (format "%S\n" tag))))))))
+			       indent2 (in-sldb-face catch-tags 
+                                                     (format "%S\n" tag))))))))
 
 	  (unless sldb-enable-styled-backtrace (terpri))
 	  (point)))))
@@ -3859,12 +3872,12 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
 (defun sldb-hide-frame-details ()
   (save-excursion
     (multiple-value-bind (start end) (sldb-frame-region)
+      (goto-char start)
       (let* ((props (text-properties-at (point)))
 	     (frame (plist-get props 'frame)))
-	(goto-char start)
 	(delete-region start end)
 	(slime-propertize-region (plist-put props 'details-visible-p nil)
-	  (insert "  " (in-sldb-face frame-line (second frame)) "\n"))))))
+          (sldb-insert-frame frame))))))
 
 (defun sldb-eval-in-frame (string)
   (interactive (list (slime-read-from-minibuffer "Eval in frame: ")))
@@ -3889,6 +3902,11 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
     (slime-eval-async `(swank:inspect-in-frame ,string ,number)
                       (slime-buffer-package)
                       'slime-open-inspector)))
+
+(defun sldb-inspect-condition ()
+  "Inspect the current debugger condition."
+  (interactive)
+  (slime-inspect "swank::*swank-debugger-condition*"))
 
 (defun sldb-forward-frame ()
   (goto-char (next-single-char-property-change (point) 'frame)))
@@ -3929,14 +3947,10 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
 
 (defun sldb-insert-locals (frame prefix)
   (dolist (l (sldb-frame-locals frame))
-    (insert prefix)
-    (let ((symbol (plist-get l :symbol)))
-      (when (symbolp symbol) 
-        (setq symbol (symbol-name symbol)))
-      (insert (in-sldb-face local-name symbol)))
+    (insert prefix (in-sldb-face local-name (plist-get l :name)))
     (let ((id (plist-get l :id)))
       (unless (zerop id) 
-        (insert (in-sldb-face local-name "#") (in-sldb-face local-name id))))
+        (insert (in-sldb-face local-name (format "#%d" id)))))
     (insert " = " 
             (in-sldb-face local-value (plist-get l :value-string))
             "\n")))
@@ -3971,14 +3985,12 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
 (defun sldb-continue ()
   (interactive)
   (slime-eval-async 
-   '(cl:and (cl:find-restart 'cl:continue swank::*swank-debugger-condition*) t)
-   nil
-   (lambda (thereis)
-     (if thereis
-	 (progn (slime-oneway-eval '(swank::sldb-continue) nil) t)
-	 (progn
-	   (message "No restart named continue") 
-	   (ding))))))
+   '(swank:sldb-can-continue-p) nil
+   (lambda (answer)
+     (cond (answer 
+            (slime-oneway-eval '(swank::sldb-continue) nil))
+           (t
+            (message "No restart named continue") (ding))))))
 
 (defun sldb-abort ()
   (interactive)
@@ -4155,41 +4167,34 @@ The buffer will be popped up any time it is modified.")
 	(slime-inspector-mode)
 	(current-buffer))))
 
-(defun inspector-fontify (string font)
-  (add-text-properties 0 (length string) (list 'face font) string)
-  string)
+(defun slime-inspector-expand-fontify (face string)
+  `(slime-add-face ',(intern (format "slime-inspector-%s-face" face))
+                   ,string))
 
 (defun slime-open-inspector (inspected-parts &optional point)
   (with-current-buffer (slime-inspector-buffer)
     (let ((inhibit-read-only t))
       (erase-buffer)
       (destructuring-bind (&key text type primitive-type parts) inspected-parts
-        (flet ((fontify (string face)
-                        (add-text-properties 0 (length string) 
-                                             (list 'face font) string)
-                        string))
-          (insert (inspector-fontify text 'slime-inspector-topline-face))
+        (macrolet ((fontify (face string)
+                            (slime-inspector-expand-fontify face string)))
+          (insert (fontify topline text))
           (while (eq (char-before) ?\n) (backward-delete-char 1))
-          (insert "\n"
-                  "   [" (fontify "type: " 'slime-inspector-label-face)
-                (fontify type  'slime-inspector-type-face) "]\n"
-                "   " 
-                (fontify primitive-type 'slime-inspector-type-face)
-                "\n" "\n"
-                (fontify "Slots" 'slime-inspector-label-face) ":\n")
+          (insert "\n" 
+                  "   [" (fontify label "type:") " " (fontify type type) "]\n"
+                  "   " 
+                  (fontify type primitive-type)
+                  "\n" "\n"
+                  (fontify label "Slots") ":\n")
         (save-excursion
           (loop for (label . value) in parts
                 for i from 0
                 do (slime-propertize-region `(slime-part-number ,i)
-                     (insert 
-                      (fontify label 'slime-inspector-label-face)
-                      ": " 
-                      (fontify value 'slime-inspector-value-face)
-                      "\n"))))
+                     (insert (fontify label label) ": " 
+                             (fontify value value) "\n"))))
         (pop-to-buffer (current-buffer))
         (when point (goto-char point))))
     t)))
-
 
 (defun slime-inspector-object-at-point ()
   (or (get-text-property (point) 'slime-part-number)
