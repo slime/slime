@@ -779,4 +779,30 @@ Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time."
   "Send OBJECT to thread THREAD.")
 
 (definterface receive ()
-  "Return the next message from current thread's mailbox.")
+  "Return the next message from current thread's mailbox."
+  nil)
+
+(definterface toggle-trace-function (spec)
+  "Trace one function, including (setf name) forms."
+  (declare (ignore spec))
+  "Sorry, function tracing has not yet been implemented on your platform.")
+
+(definterface toggle-trace-generic-function-methods (name)
+  "Trace the generic function and all methods of the generic function."
+  (declare (ignore name))
+  "Sorry, generic function tracing has to yet been implemented on your platform.")
+
+(definterface toggle-trace-method (spec)
+  "Trace one method."
+  (declare (ignore spec))
+  "Sorry, method tracing has not yet been implemented on your platform.")
+
+(definterface toggle-trace-fdefinition-wherein (name wherein)
+  "Trace function when called by another function."
+  (declare (ignore name wherein))
+  "Sorry, call-path tracing has not yet been implemented on your platform.")
+
+(definterface toggle-trace-fdefinition-within (spec)
+  "Trace local function within other function."
+  (declare (ignore spec))
+  "Sorry, local function tracing has not yet been implemented on your platform.")
