@@ -636,6 +636,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
       ("Documentation"
        [ "Describe Symbol..."      slime-describe-symbol ,C ]
        [ "Apropos..."              slime-apropos ,C ]
+       [ "Apropos all..."          slime-apropos-all ,C ]
        [ "Apropos Package..."      slime-apropos-package ,C ]
        [ "Hyperspec..."            slime-hyperspec-lookup t ])
       "--"
@@ -2796,6 +2797,14 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
               (slime-oos (slime-read-system-name) "COMPILE-OP" :force t)))
   (:one-liner "Recompile (but not load) an ASDF system."))
 
+(defslime-repl-shortcut slime-restart-lisp ("restart-lisp")
+  (:handler (lambda ()
+              (interactive)
+              ;; FIXME: Do the right thing with multiple Lisps.
+              (ignore-errors (kill-buffer "*inferior-lisp*"))
+              (slime)))
+  (:one-liner "Restart the Lisp system and reconnect SLIME."))
+              
 
 ;;;;; Cleanup after a quit
 
@@ -6510,6 +6519,12 @@ expressions out is enclosed in a set of balanced comments."
       (replace-match ""))))
 
 (defun slime-pretty-lambdas ()
+  "Show `lambda' as a lambda character, via font-lock.
+This can be called from slime-mode-hook.
+
+Warning: Some people have had this insert funny characters in their
+source files, for reasons unknown."
+  (interactive)
   (font-lock-add-keywords
    nil `(("(\\(lambda\\>\\)"
         (0 (progn (compose-region (match-beginning 1) (match-end 1)
