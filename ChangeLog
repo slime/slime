@@ -1,4 +1,17 @@
 2004-01-07  Luke Gorrie  <luke@bluetail.com>
+	
+	* slime.el: Multisession internal improvements. Now there are
+	three separate connection variables, in order of priority:
+	  slime-dispatching-connection (dynamically-bound)
+	  slime-buffer-connection      (buffer-local)
+	  slime-default-connection     (global)
+	The most specific one available is used. This is splitting
+	`slime-connection' into multiple variables, so that you can be
+	specific about what you want to assign (i.e. know if you're
+	setting a dynamic binding or a buffer-local one).
+	Fixed some related bugs.
+	(slime-connection-close-hook): If default connection closes,
+	select another connection.
 
 	* slime.el (slime): Multisession support: with prefix argument,
 	gives the option of keeping existing sessions and firing up an
