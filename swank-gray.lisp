@@ -66,7 +66,12 @@
 
 (defmethod stream-unread-char ((s slime-input-stream) char)
   (with-slots (buffer index) s
-    (setf (aref buffer (decf index)) char))
+    (decf index)
+    (cond ((eql (aref buffer index) char)
+           (setf (aref buffer index) char))
+          (t
+           (warn "stream-unread-char: ignoring ~S (expected ~S)"
+                 char (aref buffer index)))))
   nil)
 
 (defmethod stream-clear-input ((s slime-input-stream))
