@@ -1,3 +1,29 @@
+2003-10-15  Luke Gorrie  <luke@bluetail.com>
+
+	* test.sh: New file to run the test suite in batch-mode. Will need
+	a little extending to allow configuring the right variables to
+	work with non-CMUCL backends.
+
+	* slime.el: Set `indent-tabs-mode' to nil. This makes diffs look
+	better.
+	(slime-start-swank-server): Now passing the port number of
+	SWANK:START-SERVER.
+	(slime-evaluating-state): Debugging synchronous evaluations with
+	recursive edits now works.
+	(slime-forward-sexp): Added support for #|...|# reading comments.
+	(sldb-hook): New hook for entry to the debugger (used for the test
+	suite).
+	(slime-run-tests): Reworked the testing framework. Now presents
+	results in an outline-mode buffer, with only the subtrees
+	containing failed tests expanded initially.
+	(slime-check): Check-name can now be a string or
+	format-control. (Test cases have been updated to take advantage of
+	this.)
+	(compile-defun): This test case now works for the case containing
+	#|..|#
+	(async-eval-debugging): New test case for recursively debugging
+	asynchronous evaluation.
+
 2003-10-15  Daniel Barlow  <dan@telent.net>
 
 	* swank-sbcl.lisp: new file.
