@@ -965,9 +965,9 @@ It should be used for \"background\" messages such as argument lists."
 
 (defun slime-oneliner (string)
   "Return STRING truncated to fit in a single echo-area line."
-  (substring msg 0 (min (length msg)
-                        (or (position ?\n msg) most-positive-fixnum)
-                        (1- (frame-width)))))
+  (substring string 0 (min (length string)
+                           (or (position ?\n string) most-positive-fixnum)
+                           (1- (frame-width)))))
 
 ;; Interface
 (defun slime-set-truncate-lines ()
@@ -1178,7 +1178,7 @@ See `slime-translate-from-lisp-filename-function'."
   (message "Connecting to Swank on port %S.." port)
   (let* ((process (slime-net-connect host port))
          (slime-dispatching-connection process))
-    (message "Initial handshake..." port)
+    (message "Initial handshake...")
     (slime-setup-connection process)
     (slime-hide-inferior-lisp-buffer)
     (message "Connected. %s" (slime-random-words-of-encouragement))))
@@ -1735,7 +1735,7 @@ This is automatically synchronized from Lisp.")
           (slime-connection-name) (slime-generate-connection-name name)
           (slime-lisp-features) features))
   (setq slime-state-name "")            ; FIXME
-  (slime-init-output-buffer process)
+  (slime-init-output-buffer connection)
   (run-hooks 'slime-connected-hook))
 
 (defun slime-generate-connection-name (lisp-name)
@@ -2106,8 +2106,8 @@ The REPL buffer is a special case: it's package is `slime-lisp-package'."
         (hide-entry))
       (goto-char (point-max)))))
 
-(defun slime-pprint-event (object buffer)
-  "Pretty print OBJECT in BUFFER with limited depth and width."
+(defun slime-pprint-event (event buffer)
+  "Pretty print EVENT in BUFFER with limited depth and width."
   (let ((print-length 20)
 	(print-level 6)
 	(pp-escape-newlines t))
@@ -2918,9 +2918,9 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
               (interactive
                (list (read-directory-name 
                       "Push directory: "
-                      (slime-eval '(swank:default-directory)) nil nil ""))
-               (push directory slime-repl-directory-stack)
-               (slime-set-default-directory directory))))
+                      (slime-eval '(swank:default-directory)) nil nil "")))
+              (push directory slime-repl-directory-stack)
+              (slime-set-default-directory directory)))
   (:one-liner "Push a new directory onto the directory stack."))
 
 (defslime-repl-shortcut slime-repl-pop-directory ("pop-directory" "-d")
@@ -3419,7 +3419,7 @@ from an element and TEST is used to compare keys."
 
 (defun slime-compiler-notes-quit ()
   (interactive)
-  (let ((config slime-compiler-notes-saved-window-configuration))
+  (let ((config slime-temp-buffer-saved-window-configuration))
     (kill-buffer (current-buffer))
     (set-window-configuration config)))
 
@@ -3474,7 +3474,7 @@ See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
           ;; sldb-reference-foo should be altered to be not sldb
           ;; specific.
           (insert "  " (sldb-format-reference-source where) ", ")
-          (slime-insert-propertized (sldb-reference-properties where type what)
+          (slime-insert-propertized (sldb-reference-properties ref)
                                     (sldb-format-reference-node what))
           (insert (format " [%s]" (slime-cl-symbol-name type)))
           (when (cdr refs)
@@ -4215,7 +4215,7 @@ terminates a current completion."
 (defun slime-display-completion-list (completion-list)
   (let ((savedp (slime-complete-maybe-save-window-configuration)))
     (with-output-to-temp-buffer slime-completions-buffer-name
-      (display-completion-list completion-set)
+      (display-completion-list completion-list)
       (with-current-buffer standard-output
         (set-syntax-table lisp-mode-syntax-table)))
     (when savedp
@@ -4517,7 +4517,6 @@ the completion slot in the current buffer bounded by `start' and
 buffer so that it can possibly be restored when the user is
 done."
   (setq slime-fuzzy-target-buffer (current-buffer))
-  (setq slime-fuzzy-target-mtime nil)
   (setq slime-fuzzy-start (move-marker (make-marker) start))
   (setq slime-fuzzy-end (move-marker (make-marker) end))
   (set-marker-insertion-type slime-fuzzy-end t)
@@ -4785,7 +4784,7 @@ This for use in the implementation of COMMON-LISP:ED."
   (save-excursion
     (when slime-ed-use-dedicated-frame
       (unless (and slime-ed-frame (frame-live-p slime-ed-frame))
-        (setq slime-ed-frame (new-frame)))
+        (setq slime-ed-frame (make-frame)))
       (select-frame slime-ed-frame))
     (cond ((stringp what)
            (find-file (slime-from-lisp-filename what)))
@@ -5071,7 +5070,7 @@ having names in the given package."
     (error "No symbol given"))
   (slime-eval-describe `(swank:describe-function ,symbol-name)))
 
-(defun slime-apropos-summary (case-sensitive-p package only-external-p)
+(defun slime-apropos-summary (string case-sensitive-p package only-external-p)
   "Return a short description for the performed apropos search."
   (concat (if case-sensitive-p "Case-sensitive " "")
           "Apropos for "
@@ -5096,8 +5095,8 @@ having names in the given package."
                                     ,case-sensitive-p ,package)
      (lexical-let ((string string)
                    (package buffer-package)
-                   (summary (slime-apropos-summary case-sensitive-p package
-                                                   only-external-p)))
+                   (summary (slime-apropos-summary string case-sensitive-p
+                                                   package only-external-p)))
        (lambda (r) (slime-show-apropos r string package summary))))))
 
 (defun slime-apropos-all ()
@@ -5651,14 +5650,7 @@ Full list of commands:
 
 (defun sldb-find-buffer (thread)
   (sldb-remove-killed-buffers)
-  (let ((buffer (cdr (assoc* (cons (slime-connection) thread) 
-                             sldb-buffers 
-                             :test #'equal))))
-    (cond ((not buffer) nil)
-          ((not (buffer-live-p buffer))
-           (setf sldb-buffers (remove* sldb sldb-buffers :key #'cdr))
-           nil)
-          (t buffer))))
+  (cdr (assoc* (cons (slime-connection) thread) sldb-buffers :test #'equal)))
 
 (defun sldb-get-default-buffer ()
   (sldb-remove-killed-buffers)
@@ -5738,29 +5730,31 @@ portion of the backtrace. Frames are numbered from 0."
 (defun sldb-insert-references (references)
   "Insert documentation references from a condition.
 See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
-  (loop for ref in references
-        do
+  (loop for ref in references do
         (destructuring-bind (where type what) ref
           (insert (sldb-format-reference-source where) ", ")
-          (slime-insert-propertized (sldb-reference-properties where type what)
+          (slime-insert-propertized (sldb-reference-properties ref)
                                     (sldb-format-reference-node what))
           (insert (format " [%s]" (slime-cl-symbol-name type)) "\n"))))
 
-(defun sldb-reference-properties (where type what)
+(defun sldb-reference-properties (reference)
   "Return the properties for a reference.
 Only add clickability to properties we actually know how to lookup."
-  (if (or (and (eq where :sbcl) (eq type :node))
-          (and (eq where :ansi-cl)
-               (symbolp type)
-               (member (slime-cl-symbol-name type)
-                       '("function" "special-operator" "macro" "section" "glossary" "issue"))))
-      `(sldb-default-action sldb-lookup-reference
-        ;; FIXME: this is a hack!  slime-compiler-notes and sldb are a
-        ;; little too intimately entwined.
-        slime-compiler-notes-default-action sldb-lookup-reference
-        sldb-reference ,ref
-        face sldb-reference-face
-        mouse-face highlight)))
+  (destructuring-bind (where type what) reference
+    (if (or (and (eq where :sbcl) (eq type :node))
+            (and (eq where :ansi-cl)
+                 (symbolp type)
+                 (member (slime-cl-symbol-name type)
+                         '("function" "special-operator" "macro" 
+                           "section" "glossary" "issue"))))
+        `(sldb-default-action 
+          sldb-lookup-reference
+          ;; FIXME: this is a hack!  slime-compiler-notes and sldb are a
+          ;; little too intimately entwined.
+          slime-compiler-notes-default-action sldb-lookup-reference
+          sldb-reference ,reference
+          face sldb-reference-face
+          mouse-face highlight))))
 
 (defun sldb-format-reference-source (where)
   (case where
@@ -5947,7 +5941,7 @@ Called on the `point-entered' text-property hook."
          (start (save-excursion
                   (loop repeat line do (forward-line -1))
                   (point))))
-    (set-window-start w start)))
+    (set-window-start window start)))
 
 (defun sldb-highlight-sexp (&optional start end)
   "Highlight the first sexp after point."
@@ -6780,7 +6774,7 @@ is exceeded."
   "Find reader conditionalized forms where the test is false."
   (when (and slime-highlight-suppressed-forms
              (slime-connected-p)
-	     (re-search-forward "^[^;]*[ \n\t\r(]#[-+]" limit t))
+	     (re-search-forward "^\\([^;\n]*[ \t(]\\)?#[-+]" limit t))
     (ignore-errors
       (let* ((char (char-before))
              (e (read (current-buffer)))
@@ -6892,6 +6886,11 @@ be treated as a paragraph.  This is useful for filling docstrings."
 
 (defvar slime-test-buffer-name "*Tests*"
   "The name of the buffer used to display test results.")
+
+
+;; dynamically bound during a single test
+(defvar slime-current-test)
+(defvar slime-unexpected-failures)
 
 
 ;;;;; Execution engine
