@@ -11,6 +11,9 @@
 
 2004-01-19  Luke Gorrie  <luke@bluetail.com>
 
+	* swank-openmcl.lisp (thread-id, thread-name): Fixed silly bugs
+	(thanks Marco Baringer).
+
 	* swank-loader.lisp: Call (swank:warn-unimplemented-interfaces).
 
 	* swank.lisp (ed-in-emacs): New command with the same interface
