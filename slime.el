@@ -2310,7 +2310,8 @@ are supported:
         (let ((case-fold-search t)
               (name (regexp-quote name)))
           (re-search-forward 
-           (format "^(\\(def.*[ \n\t(]\\([a-z]+:\\)?\\)?%s[ \t)]" name)))
+           (format "^(\\(def.*[ \n\t(]\\([-.%%$&a-z0-9]+:?:\\)?\\)?%s[ \t)]" 
+                   name)))
         (goto-char (match-beginning 0)))
        ((:source-path source-path start-position)
         (cond (start-position
@@ -3610,10 +3611,12 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
 (defun sldb-show-source ()
   (interactive)
   (sldb-delete-overlays)
-  (let* ((number (sldb-frame-number-at-point))
-	 (source-location (slime-eval
-			   `(swank:frame-source-location-for-emacs ,number))))
-    (slime-show-source-location source-location)))
+  (let* ((number (sldb-frame-number-at-point)))
+    (slime-eval-async
+     `(swank:frame-source-location-for-emacs ,number)
+     nil
+     (lambda (source-location)
+       (slime-show-source-location source-location)))))
 
 (defun slime-show-source-location (source-location)
   (save-selected-window
@@ -4376,76 +4379,79 @@ expires.\nThe timeout is given in seconds (a floating point number)."
                     (time-less-p end (current-time)))
           do (accept-process-output nil 0 100000))))
 
-(def-slime-test loop-interrupt-quit ()
-   "Test interrupting a loop."
-   '(())
-   (slime-check "Automaton initially in idle state."
-     (slime-test-state-stack '(slime-idle-state)))
-   (slime-eval-async '(cl:loop) "CL-USER" (lambda (_) ))
-   (let ((sldb-hook
-          (lambda ()
-            (slime-check "First interrupt."
-              (and (slime-test-state-stack '(slime-debugging-state
-                                             slime-evaluating-state
+(def-slime-test loop-interrupt-quit
+    ()
+    "Test interrupting a loop."
+    '(())
+  (slime-check "Automaton initially in idle state."
+    (slime-test-state-stack '(slime-idle-state)))
+  (slime-eval-async '(cl:loop) "CL-USER" (lambda (_) ))
+  (let ((sldb-hook
+         (lambda ()
+           (slime-check "First interrupt."
+             (and (slime-test-state-stack '(slime-debugging-state
+                                            slime-evaluating-state
                                             slime-idle-state))
-                   (get-buffer "*sldb*")))
-            (sldb-quit))))
-     (accept-process-output nil 1)
-     (slime-check "In eval state."
-       (slime-test-state-stack '(slime-evaluating-state slime-idle-state)))
-     (slime-interrupt)
-     (slime-sync-state-stack '(slime-idle-state) 5)
-     (slime-check "Automaton is back in idle state."
-       (slime-test-state-stack '(slime-idle-state)))))
-
-(def-slime-test loop-interrupt-continue-interrupt-quit ()
-   "Test interrupting a previously interrupted but continued loop."
-   '(())
-   (slime-check "Automaton initially in idle state."
-     (slime-test-state-stack '(slime-idle-state)))
-   (slime-eval-async '(cl:loop) "CL-USER" (lambda (_) ))
-   (let ((sldb-hook
-          (lambda ()
-            (slime-check "First interrupt."
-              (and (slime-test-state-stack '(slime-debugging-state
-                                             slime-evaluating-state
+                  (get-buffer "*sldb*")))
+           (sldb-quit))))
+    (accept-process-output nil 1)
+    (slime-check "In eval state."
+      (slime-test-state-stack '(slime-evaluating-state slime-idle-state)))
+    (slime-interrupt)
+    (slime-sync-state-stack '(slime-idle-state) 5)
+    (slime-check "Automaton is back in idle state."
+      (slime-test-state-stack '(slime-idle-state)))))
+ 
+(def-slime-test loop-interrupt-continue-interrupt-quit
+    ()
+    "Test interrupting a previously interrupted but continued loop."
+    '(())
+  (slime-check "Automaton initially in idle state."
+    (slime-test-state-stack '(slime-idle-state)))
+  (slime-eval-async '(cl:loop) "CL-USER" (lambda (_) ))
+  (let ((sldb-hook
+         (lambda ()
+           (slime-check "First interrupt."
+             (and (slime-test-state-stack '(slime-debugging-state
+                                            slime-evaluating-state
                                             slime-idle-state))
-                   (get-buffer "*sldb*")))
-            (let ((slime-evaluating-state-activation-hook 
-                   (lambda ()
-                     (when (slime-test-state-stack '(slime-evaluating-state 
-                                                     slime-idle-state))
-                       (setq slime-evaluating-state-activation-hook nil)
-                       (slime-check "No sldb buffer."
-                         (not (get-buffer "*sldb*")))
-                       (let ((sldb-hook
-                              (lambda ()
-                                (slime-check "Second interrupt."
-                                  (and (slime-test-state-stack 
-                                        '(slime-debugging-state
-                                          slime-evaluating-state
-                                          slime-idle-state))
-                                       (get-buffer "*sldb*")))
-                                (sldb-quit))))
-                         (accept-process-output nil 1)
-                         (slime-check "In eval state."
-                           (slime-test-state-stack 
-                            '(slime-evaluating-state slime-idle-state)))
-                         (slime-interrupt)
-                         (slime-sync-state-stack '(slime-idle-state) 5))))))
-              (sldb-continue)
-              (slime-sync-state-stack '(slime-idle-state) 5)))))
-     (accept-process-output nil 1)
-     (slime-check "In eval state."
-       (slime-test-state-stack '(slime-evaluating-state slime-idle-state)))
-     (slime-interrupt)
-     (slime-sync-state-stack '(slime-idle-state) 5)
-     (slime-check "Automaton is back in idle state."
-       (slime-test-state-stack '(slime-idle-state)))))
-
-(def-slime-test interactive-eval ()
-   "Test interactive eval and continuing from the debugger."
-   '(())
+                  (get-buffer "*sldb*")))
+           (let ((slime-evaluating-state-activation-hook 
+                  (lambda ()
+                    (when (slime-test-state-stack '(slime-evaluating-state 
+                                                    slime-idle-state))
+                      (setq slime-evaluating-state-activation-hook nil)
+                      (slime-check "No sldb buffer."
+                        (not (get-buffer "*sldb*")))
+                      (let ((sldb-hook
+                             (lambda ()
+                               (slime-check "Second interrupt."
+                                 (and (slime-test-state-stack 
+                                       '(slime-debugging-state
+                                         slime-evaluating-state
+                                         slime-idle-state))
+                                      (get-buffer "*sldb*")))
+                               (sldb-quit))))
+                        (accept-process-output nil 1)
+                        (slime-check "In eval state."
+                          (slime-test-state-stack 
+                           '(slime-evaluating-state slime-idle-state)))
+                        (slime-interrupt)
+                        (slime-sync-state-stack '(slime-idle-state) 5))))))
+             (sldb-continue)
+             (slime-sync-state-stack '(slime-idle-state) 5)))))
+    (accept-process-output nil 1)
+    (slime-check "In eval state."
+      (slime-test-state-stack '(slime-evaluating-state slime-idle-state)))
+    (slime-interrupt)
+    (slime-sync-state-stack '(slime-idle-state) 5)
+    (slime-check "Automaton is back in idle state."
+      (slime-test-state-stack '(slime-idle-state)))))
+ 
+(def-slime-test interactive-eval 
+    ()
+    "Test interactive eval and continuing from the debugger."
+    '(())
   (let ((sldb-hook (lambda () (sldb-continue))))
     (slime-interactive-eval 
      "(progn(cerror \"foo\" \"restart\")(cerror \"bar\" \"restart\")(+ 1 2))")
@@ -4456,29 +4462,30 @@ expires.\nThe timeout is given in seconds (a floating point number)."
       (slime-check "Minibuffer contains: \"=> 3\""
         (equal "=> 3" message)))))
 
-(def-slime-test interrupt-bubbling-idiot ()
-   "Test interrupting a loop that sends a lot of output to Emacs."
-   '(())
+(def-slime-test interrupt-bubbling-idiot 
+    ()
+    "Test interrupting a loop that sends a lot of output to Emacs."
+    '(())
   (slime-check "Automaton initially in idle state."
     (slime-test-state-stack '(slime-idle-state)))
   (slime-eval-async '(cl:loop :for i :from 0 :do (cl:progn (cl:print i) 
                                                            (cl:force-output)))
                     "CL-USER" (lambda (_) ))
   (let ((sldb-hook
-          (lambda ()
-            (slime-check "First interrupt."
-              (and (slime-test-state-stack '(slime-debugging-state
-                                             slime-evaluating-state
+         (lambda ()
+           (slime-check "First interrupt."
+             (and (slime-test-state-stack '(slime-debugging-state
+                                            slime-evaluating-state
                                             slime-idle-state))
-                   (get-buffer "*sldb*")))
-            (sldb-quit))))
-     (accept-process-output nil 1)
-     (slime-check "In eval state."
-       (slime-test-state-stack '(slime-evaluating-state slime-idle-state)))
-     (slime-interrupt)
-     (slime-sync-state-stack '(slime-idle-state) 5)
-     (slime-check "Automaton is back in idle state."
-       (slime-test-state-stack '(slime-idle-state)))))
+                  (get-buffer "*sldb*")))
+           (sldb-quit))))
+    (accept-process-output nil 1)
+    (slime-check "In eval state."
+      (slime-test-state-stack '(slime-evaluating-state slime-idle-state)))
+    (slime-interrupt)
+    (slime-sync-state-stack '(slime-idle-state) 5)
+    (slime-check "Automaton is back in idle state."
+      (slime-test-state-stack '(slime-idle-state)))))
 
 
 ;;; Portability library
