@@ -1,3 +1,8 @@
+2004-01-23  Alan Ruttenberg <alanralanr@comcast.net>
+
+	* swank-openmcl.lisp: Bind ccl::*signal-printing-errors* to nil
+	inside debugger so that error while printing error take us down.
+	
 2004-01-23  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-sbcl.lisp (eval-in-frame, return-from-frame): Implemented.
