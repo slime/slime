@@ -50,6 +50,10 @@ This allows RPCs from Emacs to change the global value of
 *debugger-hook*, which is shadowed in a dynamic binding while they
 run.")
 
+(defparameter *redirect-io* t
+  "When non-nil redirect Lisp standard I/O to Emacs.
+Redirection is done while Lisp is processing a request for Emacs.")
+
 ;;; public interface.  slimefuns are the things that emacs is allowed
 ;;; to call
 
@@ -209,10 +213,6 @@ This is an optimized way for Lisp to deliver output to Emacs."
 ;;; These stream variables are all dynamically-bound during request
 ;;; processing.
 
-(defparameter *redirect-io* t
-  "When non-nil redirect Lisp standard I/O to Emacs.
-Redirection is done while Lisp is processing a request for Emacs.")
-
 (defun call-with-redirected-io (connection function)
   "Call FUNCTION with I/O streams redirected via CONNECTION."
   (let* ((io  (connection.user-io connection))
@@ -310,6 +310,8 @@ If a protocol error occurs then a SLIME-READ-ERROR is signalled."
 (defun send-output-to-emacs (string socket-io)
   (send-to-emacs `(:read-output ,string) socket-io))
 
+(defvar *read-input-catch-tag* 0)
+
 (defun read-user-input-from-emacs (socket-io)
   (let ((*read-input-catch-tag* (1+ *read-input-catch-tag*)))
     (send-to-emacs `(:read-string ,*read-input-catch-tag*) socket-io)
@@ -320,11 +322,6 @@ If a protocol error occurs then a SLIME-READ-ERROR is signalled."
              (setq ok t))
         (unless ok 
           (send-to-emacs `(:read-aborted)))))))
-
-
-;;;;; Input from Emacs
-
-(defvar *read-input-catch-tag* 0)
 
 (defslimefun take-input (tag input)
   (throw tag input))
