@@ -10,6 +10,9 @@
 	compatibility. The ",quit" shortcut now works in XEmacs.
 	(slime-display-message): Fixed call to `slime-typeout-message'
 	handle formatting characters. Avoids errors on certain messages.
+	(slime-list-compiler-notes): Save the window configuration
+	earlier. This fixes an error under XEmacs when dismissing the
+	notes buffer.
 
 2004-06-17  Luke Gorrie  <luke@bluetail.com>
 
