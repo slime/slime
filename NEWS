@@ -1,11 +1,76 @@
 * SLIME News                  -*- outline -*-
 
-This file records changes to SLIME that are interesting for users to
-read about. It is much higher-level than the ChangeLog.
+* 1.0 alpha-1 (June 2004)
 
-* 0.13 (work in progress)
+This preview release of SLIME is a precursor for an upcoming 1.0
+release. We're planning to use our "alpha period" to introduce SLIME
+to more users, flush out bugs, and hear some final feedback that we
+can consider for the 1.0 release.
 
-** The *slime-events* buffer now uses outline-minor-mode.
-This buffer records all the protocol messages sent between Emacs and
-Lisp.
+We're tentatively planning for our alpha period to last until around
+the end of July, then to be followed by a beta period until late
+August when we make the finished 1.0 release. We're only interested in
+adding or changing features during the alpha period, so if you want to
+change something please try to get your patch applied before the end
+of July.
+
+** Supported Lisp implementations
+
+Below is a list of the Lisp implementations that we support and their
+associated caveats.
+
+Note that some Lisp systems have received more development attention
+because they're popular with the currently active SLIME developers,
+while others have only smaller user communities so far. The support
+for a particular Lisp is primarily written and improved by its own
+users, and it's good for your karma to improve the backend for your
+favourite Lisp implementation.
+
+*** CMU Common Lisp
+
+We support CMUCL version 18e and higher. The overall support is very
+mature.
+
+The cross-reference commands are based on the CMUCL XREF
+package. You'll need to setup XREF information recording to use those
+commands, and in current CMUCLs this is slightly awkward.
+
+*** Steel Bank Common Lisp
+
+We support SBCL version 0.8.12 and higher. The support is very mature.
+
+An "SBCL exclusive" feature is reference-conditions. Some SBCL
+conditions include a slot of documentation references (e.g. to the
+Hyperspec and SBCL manual) and the SLIME debugger is able to format
+these as hyperlinks.
+
+For the (v)iew-source command in the debugger to find the exact source
+expression corresponding to a stack frame, the code must have been
+compiled with at least (optimize (debug 2)). Otherwise the results
+will only have top-level-form precision.
+
+The XREF commands are not available.
+
+*** OpenMCL
+
+We support OpenMCL 0.14.2p1, however our debugger can't invoke
+restarts in this version due to a bug in
+INVOKE-RESTART-INTERACTIVELY. This bug has been fixed in OpenMCL's CVS
+repository and we recommend upgrading to either the CVS copy or a
+later release if available.
+
+The OpenMCL support is quite mature.
+
+The XREF commands are not available.
+
+*** LispWorks
+
+We support LispWorks version 4.3 and higher. The support is quite
+mature.
+
+*** Allegro CL
+
+*** CLISP
+
+*** Armed Bear Common Lisp
 
