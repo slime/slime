@@ -1,3 +1,10 @@
+2005-03-08  Peter Seibel  <peter@gigamonkeys.com>
+
+	* swank-loader.lisp (*implementation-features*): Whoops. Forgot
+	CLISP.
+	(*architecture-features*): Added :x86-64 for SBCL on AMD64 (thanks
+	Vincent Arkesteijn)
+
 2005-03-07  Peter Seibel  <peter@gigamonkeys.com>
 
 	* swank-loader.lisp (unique-directory-name): Replaced *lisp-name*

@@ -34,13 +34,13 @@
            )))
 
 (defparameter *implementation-features*
-  '(:allegro :sbcl :openmcl :cmu :ccl :corman :armedbear :gcl))
+  '(:allegro :sbcl :openmcl :cmu ::clisp :ccl :corman :armedbear :gcl))
 
 (defparameter *os-features*
   '(:macosx :linux :windows :solaris :darwin :sunos :unix))
 
 (defparameter *architecture-features*
-  '(:powerpc :ppc :x86 :i686 :sparc))
+  '(:powerpc :ppc :x86 :x86-64 :i686 :sparc))
 
 (defun unique-directory-name ()
   "Return a name that can be used as a directory name that is
