@@ -216,7 +216,7 @@ Lisp, not just those occuring during RPCs.")
       ,(format "Face for %s." description)
       :group 'sldb)))
 
-(defcustom sldb-enable-styled-backtrace nil "Enable faces in slime backtrace" 
+(defcustom sldb-enable-styled-backtrace t "Enable faces in slime backtrace" 
   :type '(choice 
 	  (const :tag "Enable" t)
 	  (const :tag "Disable" nil))
@@ -393,8 +393,6 @@ A prefix argument disables this behaviour."
     ("\C-c" slime-compile-defun :prefixed t)
     ("\C-l" slime-load-file :prefixed t)
     ;; Editing/navigating
-    ;; NB: Existing `slime-inspect' binding of \C-c\C-i (i.e. C-TAB)
-    ;; clashes with completion! Need a new key for one of them.
     ("\M-\C-i" slime-complete-symbol :inferior t)
     ("\C-i" slime-complete-symbol :prefixed t :inferior t)
     ("\M-." slime-edit-fdefinition :inferior t :sldb t)
@@ -419,6 +417,9 @@ A prefix argument disables this behaviour."
     ("\C-t" slime-toggle-trace-fdefinition :prefixed t :sldb t)
     ("\C-a" slime-apropos :prefixed t :inferior t :sldb t)
     ("\M-a" slime-apropos-all :prefixed t :inferior t :sldb t)
+    ;; Kinda crappy binding. Maybe we should introduce some extra
+    ;; prefixes for documentation commands. -luke (17/Jan/2004)
+    ("P"    slime-apropos-package :prefixed t :inferior t :sldb t)
     ("\C-m" slime-macroexpand-1 :prefixed t :inferior t)
     ("\M-m" slime-macroexpand-all :prefixed t :inferior t)
     ("\M-0" slime-restore-window-configuration :prefixed t :inferior t)
@@ -438,6 +439,7 @@ A prefix argument disables this behaviour."
     ("<" slime-list-callers :prefixed t :inferior t :sldb t)
     (">" slime-list-callees :prefixed t :inferior t :sldb t)
     ;; "Other"
+    ("\I"  slime-inspect :prefixed t :inferior t :sldb t)
     ("\C-xt" slime-thread-control-panel :prefixed t :inferior t :sldb t)))
 
 ;; Maybe a good idea, maybe not..
@@ -874,16 +876,25 @@ If that doesn't give a function, return nil."
   (interactive)
   (if (and current-prefix-arg
            (slime-connected-p)
-           (get-buffer-create "*inferior-lisp*"))
-      (if (y-or-n-p "Start additional *inferior-lisp* for connection? ")
-          ;; Rename old inferior-lisp buffer out of the way
-          (let ((bufname (generate-new-buffer-name "*inferior-lisp*")))
-            (with-current-buffer "*inferior-lisp*"
-              (rename-buffer bufname)))
-        (slime-disconnect)))
+           (get-buffer "*inferior-lisp*"))
+      (slime-maybe-rearrange-inferior-lisp)
+    (slime-maybe-close-old-connections))
   (slime-maybe-start-lisp)
-  (slime-maybe-start-multiprocessing)
   (slime-read-port-and-connect))
+
+(defun slime-maybe-rearrange-inferior-lisp ()
+  "Offer to rename *inferior-lisp* so that another can be started."
+  (when (y-or-n-p "Create an additional *inferior-lisp*? ")
+    (let ((bufname (generate-new-buffer-name "*inferior-lisp*")))
+            (with-current-buffer "*inferior-lisp*"
+              (rename-buffer bufname)))))
+
+(defun slime-maybe-close-old-connections ()
+  "Offer to keep old connections alive, otherwise disconnect."
+  (unless (or (null slime-net-processes)
+              (y-or-n-p "Keep old connections? "))
+    (slime-disconnect)))
+
 
 (defun slime-maybe-start-lisp ()
   "Start an inferior lisp unless one is already running."
@@ -891,7 +902,8 @@ If that doesn't give a function, return nil."
     (call-interactively 'inferior-lisp)
     (comint-proc-query (inferior-lisp-proc)
                        (format "(load %S)\n"
-                               (concat slime-path slime-backend)))))
+                               (concat slime-path slime-backend)))
+    (slime-maybe-start-multiprocessing)))
 
 (defun slime-maybe-start-multiprocessing ()
   (when slime-multiprocessing
@@ -1073,9 +1085,10 @@ EVAL'd by Lisp."
 
 (defun slime-net-close (process)
   (setq slime-net-processes (remove process slime-net-processes))
+  (when (eq process slime-default-connection)
+    (setq slime-default-connection nil))
   (run-hook-with-args 'slime-net-process-close-hooks process)
   (ignore-errors (kill-buffer (process-buffer process))))
-
 
 (defun slime-net-sentinel (process message)
   (when (ignore-errors (eq (process-status (inferior-lisp-proc)) 'open))
@@ -1169,10 +1182,14 @@ Bound in the connection's process-buffer."))
 
 (defun slime-connection ()
   "Return the connection to use for Lisp interaction."
-  (or slime-dispatching-connection
-      slime-buffer-connection
-      slime-default-connection
-      (error "No connection.")))
+  (let ((conn (or slime-dispatching-connection
+                  slime-buffer-connection
+                  slime-default-connection)))
+    (cond ((null conn)
+           (error "Not connected."))
+          ((not (eq (process-status conn) 'open))
+           (error "Connection closed."))
+          (t conn))))
 
 (defvar slime-state-name "[??]"
   "Name of the current state of `slime-default-connection'.
@@ -1434,7 +1451,16 @@ Return true if the event is recognised and handled."
     ((:awaiting-goahead thread-id thread-name reason)
      (slime-register-waiting-thread thread-id thread-name reason)
      t)
+    ((:ed what)
+     (run-with-idle-timer 0 nil 'slime-call/error->message 'slime-ed what)
+     t)
     (t nil)))
+
+(defun slime-call/error->message (fun &rest args)
+  "Call FUN with ARGS. Trap and `message' errors."
+  (condition-case err
+      (apply fun args)
+    (error (message "Error: %s" (cadr err)))))
 
 (defun slime-state/event-panic (event process)
   "Signal the error that we received EVENT in a state that can't handle it.
@@ -1860,7 +1886,8 @@ output as arguments.")
   "Display the output buffer and scroll to bottom."
   (with-current-buffer (slime-output-buffer)
     (goto-char (point-max))
-    (display-buffer (current-buffer) t)))
+    (unless (get-buffer-window (current-buffer) t)
+      (display-buffer (current-buffer) t))))
 
 (defmacro slime-with-output-end-mark (&rest body)
   "Execute BODY at `slime-output-end'.  
@@ -2372,9 +2399,11 @@ See `slime-compile-and-load-file' for further details."
   (message "Compiling %s.." (buffer-file-name)))
 
 (defun slime-find-asd ()
-  (file-name-sans-extension
-   (car (directory-files
-         (file-name-directory (buffer-file-name)) nil "\.asd$"))))
+  (if (buffer-file-name)
+      (file-name-sans-extension
+       (car (directory-files
+             (file-name-directory (buffer-file-name)) nil "\.asd$")))
+    ""))
 
 (defun slime-load-system (&optional system-name)
   "Compile and load an ASDF system.  
@@ -3222,11 +3251,10 @@ package is used."
 (defvar slime-find-definition-history-ring (make-ring 20)
   "History ring recording the definition-finding \"stack\".")
 
-(defun slime-push-definition-stack (&optional marker)
+(defun slime-push-definition-stack ()
   "Add MARKER to the edit-definition history stack.
 If MARKER is nil, use the point."
-  (ring-insert-at-beginning slime-find-definition-history-ring
-                            (or marker (point-marker))))
+  (ring-insert-at-beginning slime-find-definition-history-ring (point-marker)))
 
 (defun slime-pop-find-definition-stack ()
   "Pop the edit-definition stack and goto the location."
@@ -3245,11 +3273,10 @@ If MARKER is nil, use the point."
 If there's no symbol at point, or a prefix argument is given, then the
 function name is prompted."
   (interactive (list (slime-read-symbol-name "Function name: ")))
-  (let ((origin (point-marker))
-        (locations (slime-eval `(swank:find-function-locations ,name)
+  (let ((locations (slime-eval `(swank:find-function-locations ,name)
                                (slime-buffer-package))))
     (assert locations)
-    (ring-insert-at-beginning slime-find-definition-history-ring origin)
+    (slime-push-definition-stack)
     (cond ((null (cdr locations))
            (slime-goto-source-location (car locations))
            (cond ((not other-window)
@@ -3269,6 +3296,30 @@ function name is prompted."
                     'definition
                     name
                      (slime-buffer-package)))
+
+;;;; `ED'
+
+(defvar slime-ed-frame nil
+  "The frame used by `slime-ed'.")
+
+(defvar slime-ed-use-dedicated-frame t
+  "*When non-nil, `slime-ed' will create and reuse a dedicated frame.")
+
+(defun slime-ed (what)
+  "Edit WHAT, either a filename (string) or function name (symbol), or nil.
+This for use in the implementation of COMMON-LISP:ED."
+  ;; Without `save-excursion' very strange things happen if you call
+  ;; (swank:ed-in-emacs X) from the REPL. -luke (18/Jan/2004)
+  (save-excursion
+    (when slime-ed-use-dedicated-frame
+      (unless (and slime-ed-frame (frame-live-p slime-ed-frame))
+        (setq slime-ed-frame (new-frame)))
+      (select-frame slime-ed-frame))
+    (cond ((stringp what)
+           (find-file what))
+          ((symbolp what)
+           (slime-edit-fdefinition (symbol-name what)))
+          (t nil))))                    ; nothing in particular
 
 
 ;;; Interactive evaluation.
@@ -3486,20 +3537,32 @@ compilation."
              (let ((pkg (slime-read-package-name "Package: ")))
                (if (string= pkg "") nil pkg)))
      (list (read-string "SLIME Apropos: ") t nil)))
-  (let ((buffer-package (slime-buffer-package t)))
+  (let ((buffer-package (or package (slime-buffer-package t))))
     (slime-eval-async
      `(swank:apropos-list-for-emacs ,string ,only-external-p ,package)
      buffer-package
      (lexical-let ((string string)
-		   (package (or package buffer-package)))
-       (lambda (r) (slime-show-apropos r string package))))))
+                   (package (or package buffer-package))
+                   (summary (concat "Apropos for "
+                                    (format "%S" string)
+                                    (if package (format " in package %S" package) "")
+                                    (if only-external-p " (external symbols only)" ""))))
+       (lambda (r) (slime-show-apropos r string package summary))))))
 
 (defun slime-apropos-all ()
   "Shortcut for (slime-apropos <pattern> nil nil)"
   (interactive)
   (slime-apropos (read-string "SLIME Apropos: ") nil nil))
 
-(defun slime-show-apropos (plists string package)
+(defun slime-apropos-package (package &optional internal)
+  "Show apropos listing for symbols in PACKAGE.
+With prefix argument include internal symbols."
+  (interactive (list (let ((pkg (slime-read-package-name "Package: ")))
+                       (if (string= pkg "") (slime-buffer-package t) pkg))
+                     current-prefix-arg))
+  (slime-apropos "" (not internal) package))
+
+(defun slime-show-apropos (plists string package summary)
   (if (null plists)
       (message "No apropos matches for %S" string)
     (slime-with-output-to-temp-buffer "*SLIME Apropos*"
@@ -3507,6 +3570,9 @@ compilation."
       (apropos-mode)
       (set-syntax-table lisp-mode-syntax-table)
       (slime-mode t)
+      (if (boundp 'header-line-format)
+          (setq header-line-format summary)
+        (insert summary "\n\n"))
       (setq slime-buffer-package package)
       (slime-set-truncate-lines)
       (slime-print-apropos plists))))
@@ -3534,16 +3600,16 @@ compilation."
     (terpri)
     (let ((apropos-label-properties slime-apropos-label-properties))
       (loop for (prop namespace action) 
-	    in '((:variable "Variable" swank:describe-symbol)
-		 (:function "Function" swank:describe-function)
-		 (:generic-function "Generic Function" swank:describe-function)
-		 (:setf "Setf" swank:describe-setf-function)
-		 (:type "Type" swank:describe-type)
-		 (:class "Class" swank:describe-class)
-                 (:alien-type "Alien type" swank:describe-alien-type)
-                 (:alien-struct "Alien struct" swank:describe-alien-struct)
-                 (:alien-union "Alien type" swank:describe-alien-union)
-                 (:alien-enum "Alien enum" swank:describe-alien-enum)
+	    in '((:variable "Variable")
+		 (:function "Function")
+		 (:generic-function "Generic Function")
+		 (:setf "Setf")
+		 (:type "Type")
+		 (:class "Class")
+                 (:alien-type "Alien type")
+                 (:alien-struct "Alien struct")
+                 (:alien-union "Alien type")
+                 (:alien-enum "Alien enum")
                  )
 	    do
 	    (let ((value (plist-get plist prop))
@@ -3555,12 +3621,13 @@ compilation."
 		(princ (etypecase value
 			 (string value)
 			 ((member :not-documented) "(not documented)")))
-		(put-text-property start (point) 'describer action)
+		(put-text-property start (point) 'type prop)
 		(put-text-property start (point) 'action 'slime-call-describer)
 		(terpri)))))))
 
 (defun slime-call-describer (item)
-  (slime-eval-describe `(,(get-text-property (point) 'describer) ,item)))
+  (let ((type (get-text-property (point) 'type)))
+    (slime-eval-describe `(swank:describe-definition ,item ,type))))
 
 
 ;;; XREF: cross-referencing
