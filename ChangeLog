@@ -1,3 +1,8 @@
+2004-06-16  Robert Lehr  <bozzio@the-lehrs.com>
+
+	* slime.el (slime-backend): This variable can now be set to an
+	absolute filename.
+
 2004-06-15  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-compile-file): Just prompt for saving the
