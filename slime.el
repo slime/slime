@@ -76,8 +76,10 @@ Emacs Lisp package."))
   "Number of times to try connecting to the Swank server before aborting.
 Nil means never give up.")
 
-(defvar slime-backend "swank-loader"
-  "The name of the Lisp file implementing the Swank server.")
+(defvar slime-backend "swank-loader.lisp"
+  "*The name of the Lisp file that loads the Swank server.
+This name is interpreted relative to the directory containing
+slime.el, but could also be set to an absolute filename.")
 
 (make-variable-buffer-local
  (defvar slime-buffer-package nil
@@ -1134,7 +1136,9 @@ Return true if we have been given permission to continue."
     (comint-send-string (inferior-lisp-proc)
                         (format "(load %S)\n"
                                 (slime-to-lisp-filename
-                                 (concat slime-path slime-backend))))
+                                 (if (file-name-absolute-p slime-backend)
+                                     slime-backend
+                                   (concat slime-path slime-backend)))))
     (slime-maybe-start-multiprocessing)))
 
 (defun slime-maybe-start-multiprocessing ()
