@@ -47,7 +47,6 @@
     :accessor severity)
 
    (message
-    :documentation "The error or warning message, must be a non-NIL string."
     :initarg :message
     :accessor message)
 
