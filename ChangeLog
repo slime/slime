@@ -219,7 +219,6 @@
 
 	* swank.lisp (prefixed-var): Intern *REAL-STANDARD-INPUT* etc in
 	the SWANK package instead of the COMMON-LISP package.
->>>>>>> 1.436
 
 2004-06-21  Luke Gorrie  <luke@bluetail.com>
 
