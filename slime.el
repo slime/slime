@@ -1531,6 +1531,7 @@ inside a `save-excursion' block."
 (defvar slime-repl-input-end-mark (let ((m (make-marker)))
                                     (set-marker-insertion-type m t)
                                     m))
+(defvar slime-repl-last-input-start-mark (make-marker))
 
 (defun slime-repl-mode () 
   "Major mode for interacting with a superior Lisp.
@@ -1612,6 +1613,8 @@ after the last prompt to the end of buffer."
         (insert result "\n")))))
 
 (defun slime-mark-input-start ()
+  (set-marker slime-repl-last-input-start-mark
+              (marker-position slime-repl-input-start-mark))
   (set-marker slime-repl-input-start-mark (point) (current-buffer))
   (set-marker slime-repl-input-end-mark (point) (current-buffer)))
 
@@ -1694,6 +1697,27 @@ earlier in the buffer."
 (defun slime-repl-replace-input (string)
   (slime-repl-delete-current-input)
   (insert-and-inherit string))
+
+(defun slime-repl-input-line-beginning-position ()
+  (save-excursion
+    (goto-char slime-repl-input-start-mark)
+    (line-beginning-position)))
+
+(defun slime-repl-clear-buffer ()
+  (interactive)
+  (set-marker slime-repl-last-input-start-mark nil)
+  (let ((inhibit-read-only t))
+    (delete-region (point-min) (slime-repl-input-line-beginning-position))))
+
+(defun slime-repl-clear-output ()
+  (interactive)
+  (when (marker-position slime-repl-last-input-start-mark)
+    (delete-region slime-repl-last-input-start-mark
+                   (1- (slime-repl-input-line-beginning-position)))
+    (save-excursion
+      (goto-char slime-repl-last-input-start-mark)
+      (insert ";;; output flushed"))
+    (set-marker slime-repl-last-input-start-mark nil)))
 
 ;;; Scratch
 
@@ -1799,6 +1823,8 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   ("\t"   'slime-complete-symbol)
   (" "    'slime-space)
   ("\C-\M-x" 'slime-eval-defun)
+  ("\C-c\C-o" 'slime-repl-clear-output)
+  ("\C-c\C-t" 'slime-repl-clear-buffer)
   )
 
 (define-minor-mode slime-repl-read-mode 
@@ -2378,7 +2404,8 @@ the symbol at point if applicable."
        (message "Error: %S; slime-autodoc-mode now disabled." err)))))
 
 (defun slime-autodoc-message-ok-p ()
-  "Return true if printing a message is currently okay (shouldn't annoy the user)."
+  "Return true if printing a message is currently okay (shouldn't
+annoy the user)."
   (and slime-mode
        slime-autodoc-mode
        (null (current-message))
@@ -2482,13 +2509,15 @@ terminates a current completion."
      ;; errors propagate.
      (message "Error in slime-complete-forget-window-configuration: %S" err))))
   
-(defun slime-complete-symbol ()
+(defun* slime-complete-symbol ()
   "Complete the symbol at point.
 If the symbol lacks an explicit package prefix, the current buffer's
 package is used."
   ;; NB: It is only the name part of the symbol that we actually want
   ;; to complete -- the package prefix, if given, is just context.
   (interactive)
+  (when (save-excursion (re-search-backward "\"[^ \t\n]+\\=" nil t))
+    (return-from slime-complete-symbol (comint-dynamic-complete-as-filename)))
   (let* ((end (slime-symbol-end-pos))
          (beg (slime-symbol-start-pos))
          (prefix (buffer-substring-no-properties beg end))
@@ -2845,6 +2874,14 @@ First make the variable unbound, then evaluate the entire form."
     (error "No symbol given"))
   (slime-eval-describe `(swank:describe-symbol ,symbol-name)))
 
+(defun slime-documentation (symbol-name)
+  "Display function- or symbol-documentation for SYMBOL-NAME."
+  (interactive (list (slime-read-symbol-name "Documentation for symbol: ")))
+  (when (not symbol-name)
+    (error "No symbol given"))
+  (slime-eval-describe 
+   `(swank:documentation-symbol ,symbol-name "(not documented))")))
+
 (defun slime-describe-function (symbol-name)
   (interactive (list (slime-read-symbol-name "Describe symbol: ")))
   (when (not symbol-name)
@@ -2939,6 +2976,8 @@ First make the variable unbound, then evaluate the entire form."
 ;;; XREF: cross-referencing
 
 (defvar slime-xref-mode-map)
+(defvar slime-xref-saved-window-configuration nil
+  "Buffer local variable in xref windows.")
 
 (define-derived-mode slime-xref-mode lisp-mode "xref"
   "\\<slime-xref-mode-map>
@@ -2960,6 +2999,83 @@ First make the variable unbound, then evaluate the entire form."
     (when sldb
       (let ((key (if prefixed (concat slime-prefix-key key) key)))
         (define-key slime-xref-mode-map key command)))))
+
+
+;;;; XREF results buffer and window management
+
+(defun slime-xref-buffer (&optional create)
+  "Return the XREF results buffer.
+If CREATE is non-nil, create it if necessary."
+  (if create
+      (get-buffer-create "*CMUCL xref*")
+    (or (get-buffer "*CMUCL xref*")
+        (error "No XREF buffer"))))
+
+(defun slime-init-xref-buffer (package ref-type symbol)
+  "Initialize the current buffer for displaying XREF information."
+  (slime-xref-mode)
+  (setq buffer-read-only nil)
+  (erase-buffer)
+  (setq slime-buffer-package package)
+  (slime-set-truncate-lines))
+
+(defun slime-display-xref-buffer ()
+  "Display the XREF results buffer in a window and select it."
+  (let* ((buffer (slime-xref-buffer))
+         (window (get-buffer-window buffer)))
+    (if (and window (window-live-p window))
+        (select-window window)
+      (select-window (display-buffer buffer t))
+      (shrink-window-if-larger-than-buffer))))
+
+(defmacro* slime-with-xref-buffer ((package ref-type symbol) &body body)
+  "Execute BODY in a xref buffer, then show that buffer."
+  (let ((type (gensym))
+        (sym (gensym)))
+    `(let ((,type ,ref-type)
+           (,sym ,symbol))
+       (with-current-buffer (get-buffer-create 
+                             (format "*XREF[%s: %s]*" ,type ,sym))
+         (prog2 (progn
+                  (slime-init-xref-buffer ,package ,type ,sym)
+                  (make-local-variable 'slime-xref-saved-window-configuration)
+                  (setq slime-xref-saved-window-configuration
+                        (current-window-configuration)))
+             (progn ,@body)
+           (setq buffer-read-only t)
+           (select-window (or (get-buffer-window (current-buffer) t)
+                              (display-buffer (current-buffer) t)))
+           (shrink-window-if-larger-than-buffer))))))
+
+(put 'slime-with-xref-buffer 'lisp-indent-function 1)
+
+(defun slime-insert-xrefs (xrefs)
+  "Insert XREFS in the current-buffer.
+XREFS is a list of the form ((GROUP . ((LABEL . LOCATION) ...)) ...)
+GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
+  (unless (bobp) (insert "\n"))
+  (loop for (group . refs) in xrefs do 
+        (progn
+          (slime-insert-propertized '(face bold) group "\n")
+          (loop for (label . location) in refs do
+                (slime-insert-propertized 
+                 (list 'slime-location location
+                       'face 'font-lock-keyword-face)
+                 "  " label "\n")))))
+
+(defun slime-show-xrefs (xrefs type symbol package)
+  "Show the results of an XREF query."
+  (if (null xrefs)
+      (message "No references found for %s." symbol)
+    (setq slime-next-location-function 'slime-goto-next-xref)
+    (slime-with-xref-buffer (package type symbol)
+      (slime-insert-xrefs xrefs)
+      (goto-char (point-min))
+      (forward-line)
+      (skip-chars-forward " \t"))))
+
+
+;;; XREF commands
 
 (defun slime-who-calls (symbol)
   "Show all known callers of the function SYMBOL."
@@ -2996,84 +3112,6 @@ First make the variable unbound, then evaluate the entire form."
                  (package (slime-buffer-package)))
      (lambda (result)
        (slime-show-xrefs result type symbol package)))))
-
-(defmacro* slime-with-xref-buffer ((package ref-type symbol) &body body)
-  "Execute BODY in a xref buffer, then show that buffer."
-  (let ((type (gensym))
-        (sym (gensym)))
-    `(let ((,type ,ref-type)
-           (,sym ,symbol))
-       (with-current-buffer (get-buffer-create 
-                             (format "*XREF[%s: %s]*" ,type ,sym))
-         (prog2 (progn
-                  (slime-init-xref-buffer ,package ,type ,sym)
-                  (make-local-variable 'slime-xref-saved-window-configuration)
-                  (setq slime-xref-saved-window-configuration
-                        ,(current-window-configuration)))
-             (progn ,@body)
-           (setq buffer-read-only t)
-           (select-window (or (get-buffer-window (current-buffer) t)
-                              (display-buffer (current-buffer) t)))
-           (shrink-window-if-larger-than-buffer))))))
-
-(defun slime-show-xrefs (xrefs type symbol package)
-  "Show the results of an XREF query."
-  (if (null xrefs)
-      (message "No references found for %s." symbol)
-    (setq slime-next-location-function 'slime-goto-next-xref)
-    (slime-with-xref-buffer (package type symbol)
-      (slime-insert-xrefs xrefs)
-      (goto-char (point-min))
-      (forward-line)
-      (skip-chars-forward " \t"))))
-
-(defun slime-insert-xrefs (xrefs)
-  "Insert XREFS in the current-buffer.
-XREFS is a list of the form ((GROUP . ((LABEL . LOCATION) ...)) ...)
-GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
-  (unless (bobp) (insert "\n"))
-  (loop for (group . refs) in xrefs do 
-        (progn
-          (slime-insert-propertized '(face bold) group "\n")
-          (loop for (label . location) in refs do
-                (slime-insert-propertized 
-                 (list 'slime-location location
-                       'face 'font-lock-keyword-face)
-                 "  " label "\n")))))
-
-
-;;;; XREF results buffer and window management
-
-(defun slime-xref-buffer (&optional create)
-  "Return the XREF results buffer.
-If CREATE is non-nil, create it if necessary."
-  (if create
-      (get-buffer-create "*CMUCL xref*")
-    (or (get-buffer "*CMUCL xref*")
-        (error "No XREF buffer"))))
-
-(defun slime-init-xref-buffer (package ref-type symbol)
-  "Initialize the current buffer for displaying XREF information."
-  (slime-xref-mode)
-  (setq buffer-read-only nil)
-  (erase-buffer)
-  (setq slime-buffer-package package)
-  (slime-set-truncate-lines))
-
-
-
-(put 'slime-with-xref-buffer 'lisp-indent-function 1)
-
-(defun slime-display-xref-buffer ()
-  "Display the XREF results buffer in a window and select it."
-  (let* ((buffer (slime-xref-buffer))
-         (window (get-buffer-window buffer)))
-    (if (and window (window-live-p window))
-        (select-window window)
-      (select-window (display-buffer buffer t))
-      (set-window-text-height (selected-window)
-                              (min (count-lines (point-min) (point-max))
-                                   (window-text-height))))))
 
 
 ;;;; XREF navigation
@@ -3200,6 +3238,8 @@ CL:MACROEXPAND."
 
 (defun slime-set-default-directory (directory)
   (interactive (list (read-file-name "Directory: " nil default-directory t)))
+  (with-current-buffer (slime-output-buffer)
+    (setq default-directory (expand-file-name directory)))
   (message "default-directory: %s" 
 	   (slime-eval `(swank:set-default-directory 
 			 ,(expand-file-name directory)))))
