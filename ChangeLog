@@ -1,3 +1,10 @@
+2003-12-02  Daniel Barlow  <dan@telent.net>
+
+	* swank-sbcl.lisp (function-source-location-for-emacs): return a
+	list of source locations (one per method) when the request is
+	for a GF.  This seems to make the elisp side popup a window
+	to let the user select one.  Cool.
+
 2003-12-01  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-[cmucl,sbcl,openmcl,lispworks].lisp (invoke-nth-restart):
