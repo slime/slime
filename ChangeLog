@@ -1,5 +1,8 @@
 2004-01-18  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* swank-sbcl.lisp (make-fn-streams): Deleted.  Already defined in
+	swank-gray.lisp.
+
 	* swank.lisp (find-symbol-or-lose, format-arglist): New functions.
 	(without-interrupts): New macro.
 	(send-to-emacs): Use it.
