@@ -1,3 +1,9 @@
+2004-03-26  Bjørn Nordbø <bn@telenor.net>
+
+	* swank.lisp (print-arglist): Updated to handle arglists with
+	string elements, causing arglists for macros to display properly
+	in LW 4.1.
+
 2004-03-26  Marco Baringer <mb@bese.it>
 
 	* swank-cmucl.lisp (set-default-directory): Define only once;
