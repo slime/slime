@@ -1,5 +1,24 @@
 2004-06-21  Luke Gorrie  <luke@bluetail.com>
 
+	* swank-loader.lisp (*lisp-name*): Add version number to
+	Lispwork's fasl directory. We should do this for ACL and OpenMCL
+	too, but for some reason my ACL 5.0 gets an error when trying to
+	create a directory with a version number in its name, and I don't
+	have OpenMCL to test with.
+
+	* swank-backend.lisp, swank.lisp (add-hook, run-hook): Moved the
+	hook mechanism and all hooks here (from swank-backend.lisp). There
+	is no compelling use for backends yet, I want to pass
+	swank.lisp-internal data structures in the existing hooks.
+	(notify-backend-of-connection): Call `emacs-connected' with the
+	socket-io stream for its argument. Should fix previous breakage
+	where the connection structure was passed instead.
+	(*globally-redirect-io*): New configurable: when true the standard
+	streams are globally redirected to Emacs. That way even
+	e.g. SERVE-EVENT handlers will print to Emacs. Currently does not
+	handle standard input -- that is trickier since the Lisp's native
+	REPL can be trying to read from that.
+
 	* slime.el (slime-complete-maybe-restore-window-configuration):
 	Only restore the window configuration if the completions buffer is
 	currently visible in the window that we popped it up in.
