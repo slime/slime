@@ -2,6 +2,10 @@
 
 	* slime.el (slime-repl-mode-map): Add C-up and C-down to move
 	through history. Consistent with comint-mode.
+	(slime-repl-mode-map): Add slime-load-file on `C-c C-l' and
+	slime-compile-file on `C-c C-k'. This is mostly to override
+	unwanted inf-lisp bindings in lisp-mode-map.
+	(slime-load-file): Handle (buffer-file-name) being nil.
 
 2004-11-20  Helmut Eller  <heller@common-lisp.net>
 
