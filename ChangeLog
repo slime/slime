@@ -1,3 +1,12 @@
+2003-09-20  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-choose-overlay-region): Tweaked overlay
+	placement.
+
+	* swank.lisp (handle-notification): Skipping null
+	notifications. For some reason CMUCL occasionally calls us with
+	NIL as each argument.
+
 2003-09-19  Helmut Eller <e9626484@stud3.tuwien.ac.at>
 	
 	* slime.el (slime-connect): Propose default values when called
