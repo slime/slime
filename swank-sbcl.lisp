@@ -40,14 +40,10 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require 'sb-bsd-sockets)
+  (use-package "SB-BSD-SOCKETS")
   #+nil (require 'sb-introspect)
   (load
    "/home/dan/src/sourceforge/sbcl/contrib/sb-introspect/sb-introspect"))
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defpackage :swank
-    (:use :common-lisp :sb-bsd-sockets)
-    (:export #:start-server)))
 
 (declaim (optimize (debug 3)))
 (in-package :swank)

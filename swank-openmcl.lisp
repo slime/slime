@@ -48,10 +48,6 @@
 
 ;;; Administrivia
 
-(defpackage :swank
-  (:use :common-lisp)
-  (:export #:start-server))
-
 (in-package :swank)
 
 (defconstant server-port 4005
@@ -140,11 +136,6 @@ back to the main request handling loop."
         (read-form string))
     (condition (c)
       (throw 'serve-request-catcher c))))
-
-(defvar *swank-io-package*
-  (let ((package (make-package "SWANK-IO-PACKAGE")))
-    (import 'nil package)
-    package))
 
 (defun read-form (string)
   (with-standard-io-syntax

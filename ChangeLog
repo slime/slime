@@ -1,3 +1,11 @@
+2003-10-15  Daniel Barlow  <dan@telent.net>
+
+	* swank.lisp: rearrange the backends.  rename swank.lisp to
+	swank-cmucl.lisp, then create new swank.lisp which loads an
+	appropriate backend according to *features*.  Next up, 
+	identify common functions in the backends and move them
+	into swank.lisp
+
 2003-10-15  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el: Inspector support.  list-callers, list-callees
