@@ -69,8 +69,8 @@
   (sb-sys:invalidate-descriptor (socket-fd socket))
   (sb-bsd-sockets:socket-close socket))
 
-(defimplementation accept-connection (socket)
-  (make-socket-io-stream (accept socket)))
+(defimplementation accept-connection (socket &key external-format)
+  (make-socket-io-stream (accept socket) external-format))
 
 (defvar *sigio-handlers* '()
   "List of (key . fn) pairs to be called on SIGIO.")
@@ -119,11 +119,15 @@
     (sb-bsd-sockets:socket (sb-bsd-sockets:socket-file-descriptor socket))
     (file-stream (sb-sys:fd-stream-fd socket))))
 
-(defun make-socket-io-stream (socket)
-  (sb-bsd-sockets:socket-make-stream socket
-                                     :output t
-                                     :input t
-                                     :element-type 'base-char))
+(defun make-socket-io-stream (socket external-format)
+  (let ((encoding (ecase external-format
+                    (:iso-latin-1-unix :iso-8859-1)
+                    (:utf-8-unix :utf-8))))
+    (sb-bsd-sockets:socket-make-stream socket
+                                       :output t
+                                       :input t
+                                       :element-type 'character
+                                       :external-format encoding)))
 
 (defun accept (socket)
   "Like socket-accept, but retry on EAGAIN."

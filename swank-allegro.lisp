@@ -51,8 +51,13 @@
 (defimplementation close-socket (socket)
   (close socket))
 
-(defimplementation accept-connection (socket)
-  (socket:accept-connection socket :wait t))
+(defimplementation accept-connection (socket &key external-format)
+  (let ((s (socket:accept-connection socket :wait t)))
+    (ecase external-format
+      (:iso-latin-1-unix (setf (stream-external-format s) :latin1))
+      (:emacs-mule-unix (setf (stream-external-format s) :emacs-mule))
+      (:utf-8-unix (setf (stream-external-format s) :utf8)))
+    s))
 
 (defimplementation format-sldb-condition (c)
   (princ-to-string c))
@@ -279,15 +284,16 @@
 ;; our own conversion.
 (defun count-cr (file pos)
   (let* ((bufsize 256)
-         (buf (make-array bufsize :element-type '(unsigned-byte 8)))
+         (type '(unsigned-byte 8))
+         (buf (make-array bufsize :element-type type))
          (cr-count 0))
-    (with-open-file (stream file :direction :input)
-      (loop for bytes-read = (read-sequence buf stream) do
-           (incf cr-count (count (char-code #\return) buf 
-                                 :end (min pos bytes-read)))
-           (decf pos bytes-read)
-           (when (<= pos 0)
-             (return cr-count))))))
+  (with-open-file (stream file :direction :input :element-type type)
+    (loop for bytes-read = (read-sequence buf stream) do
+          (incf cr-count (count (char-code #\return) buf 
+                                :end (min pos bytes-read)))
+          (decf pos bytes-read)
+          (when (<= pos 0)
+            (return cr-count))))))
               
 (defun find-definition-in-file (fspec type file)
   (let* ((start (or (scm:find-definition-in-file fspec type file)

@@ -151,13 +151,18 @@
 (defimplementation close-socket (socket)
   (socket:socket-server-close socket))
 
-(defimplementation accept-connection (socket)
+(defun find-encoding (external-format)
+  (ecase external-format
+    (:iso-latin-1-unix (ext:make-encoding :charset 'charset:iso-8859-1
+					  :line-terminator :unix))
+    (:utf-8-unix (ext:make-encoding :charset 'charset:utf-8
+				    :line-terminator :unix))))
+  
+(defimplementation accept-connection (socket &key external-format)
   (socket:socket-accept socket
 			:buffered nil ;; XXX should be t
 			:element-type 'character
-			:external-format (ext:make-encoding 
-					  :charset 'charset:iso-8859-1
-					  :line-terminator :unix)))
+			:external-format (find-encoding external-format)))
 
 ;;; Swank functions
 
@@ -491,7 +496,6 @@ Execute BODY with NAME's funtion slot set to FUNCTION."
 	   (with-condition-restarts condition (list (find-restart 'continue))
 				    (invoke-debugger condition)))))
    nil))
-
 
 ;;; Inspecting
 

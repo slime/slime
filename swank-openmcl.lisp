@@ -136,7 +136,8 @@
 (defimplementation close-socket (socket)
   (close socket))
 
-(defimplementation accept-connection (socket)
+(defimplementation accept-connection (socket &key external-format)
+  (assert (eq external-format :iso-latin-1-unix))
   (ccl:accept-connection socket :wait t))
 
 (defimplementation emacs-connected ()

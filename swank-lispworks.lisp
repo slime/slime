@@ -108,8 +108,9 @@
 (defimplementation close-socket (socket)
   (comm::close-socket (socket-fd socket)))
 
-(defimplementation accept-connection (socket)
-  (let ((fd (comm::get-fd-from-socket socket)))
+(defimplementation accept-connection (socket &key external-format)
+  (assert (eq external-format :iso-latin-1-unix))
+  (let* ((fd (comm::get-fd-from-socket socket)))
     (assert (/= fd -1))
     (make-instance 'comm:socket-stream :socket fd :direction :io 
                    :element-type 'base-char)))

@@ -109,8 +109,8 @@
 (defimplementation close-socket (socket)
   (ext:server-socket-close socket))
 
-
-(defimplementation accept-connection (socket)
+(defimplementation accept-connection (socket &key external-format)
+  (assert (eq external-format :iso-latin-1-unix))
   (ext:get-socket-stream (ext:socket-accept socket)))
 
 ;;;; Unix signals

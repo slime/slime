@@ -181,7 +181,7 @@ EXCEPT is a list of symbol names which should be ignored."
 (definterface close-socket (socket)
   "Close the socket SOCKET.")
 
-(definterface accept-connection (socket)
+(definterface accept-connection (socket &key external-format)
    "Accept a client connection on the listening socket SOCKET.  Return
 a stream for the new connection.")
 
