@@ -2235,7 +2235,8 @@ after the last prompt to the end of buffer."
   (if (and (>= (point) slime-repl-input-start-mark)
            (slime-same-line-p (point) slime-repl-input-start-mark))
       (goto-char slime-repl-input-start-mark)
-    (beginning-of-line 1)))
+    (beginning-of-line 1))
+  (slime-preserve-zmacs-region))
 
 (defun slime-repl-eol ()
   "Go to the end of line or the prompt."
@@ -2243,7 +2244,13 @@ after the last prompt to the end of buffer."
   (if (and (<= (point) slime-repl-input-end-mark)
            (slime-same-line-p (point) slime-repl-input-end-mark))
       (goto-char slime-repl-input-end-mark)
-    (end-of-line 1)))
+    (end-of-line 1))
+  (slime-preserve-zmacs-region))
+
+(defun slime-preserve-zmacs-region ()
+  "In XEmacs, ensure that the zmacs-region stays active after this command."
+  (when (boundp 'zmacs-region-stays)
+    (set 'zmacs-region-stays t)))
 
 (defun slime-repl-in-input-area-p ()
    (and (<= slime-repl-input-start-mark (point))
@@ -6264,8 +6271,8 @@ BODY returns true if the check succeeds."
   (dolist (buf (buffer-list))
     (when (or (member (buffer-name buf) '("*inferior-lisp*" 
                                           slime-event-buffer-name))
-              (string-match "\*slime-repl\[\d+\]\*" (buffer-name buf))
-              (string-match "\*sldb .*\*" (buffer-name buf)))
+              (string-match "^\\*slime-repl\\[[0-9]+\\]\\*$" (buffer-name buf))
+              (string-match "^\\*sldb .*\\*$" (buffer-name buf)))
       (kill-buffer buf))))
 
 
