@@ -7,8 +7,6 @@
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
 ;;;
-;;;   $Id$
-;;;
 
 (cl:defpackage :swank-loader
   (:use :common-lisp))

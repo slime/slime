@@ -7,8 +7,6 @@
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
 ;;;
-;;;   $Id$
-;;;
 
 (in-package :swank-backend)
 

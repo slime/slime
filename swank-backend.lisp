@@ -307,7 +307,12 @@ DEFINE-DEBUGGER-HOOK.")
 for a debugger stack frame.  The results are undefined unless
 this is called within the dynamic contour of a function defined
 by DEFINE-DEBUGGER-HOOK.")
-   
+
+(definterface disassemble-frame (frame-number)
+  "Disassemble the code for the FRAME-NUMBER.
+The output should be written to standard output.
+FRAME-NUMBER is a non-negative interger.")
+
 (definterface eval-in-frame (form frame-number)
    "Evaluate a Lisp form in the lexical context of a stack frame
 in the debugger.  The results are undefined unless called in the

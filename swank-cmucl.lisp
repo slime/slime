@@ -372,6 +372,16 @@ the error-context redundant."
 
 ;;;; XREF
 
+<<<<<<< swank-cmucl.lisp
+(defmacro defxref (name function)
+  `(defimplementation ,name (name)
+    (xref-results (,function ,name))))
+
+(defxref who-calls      xref:who-calls)
+(defxref who-references xref:who-references)
+(defxref who-binds      xref:who-binds)
+(defxref who-sets       xref:who-sets)
+=======
 (defimplementation who-calls (symbol)
   (xrefs (xref:who-calls symbol)))
 
@@ -383,15 +393,32 @@ the error-context redundant."
 
 (defimplementation who-sets (symbol)
   (xrefs (xref:who-sets symbol)))
+>>>>>>> 1.80
 
 #+cmu19
 (progn
+<<<<<<< swank-cmucl.lisp
+  (defxref who-macroexpands xref:who-macroexpands)
+  ;; XXX
+  (defimplementation who-specializes (symbol)
+    (let* ((methods (xref::who-specializes (find-class symbol)))
+=======
   (defimplementation who-macroexpands (macro)
     (xrefs (xref:who-macroexpands macro)))
   ;; XXX
   (defimplementation who-specializes (symbol)
     (let* ((methods (xref::who-specializes (find-class symbol)))
+>>>>>>> 1.80
            (locations (mapcar #'method-source-location methods)))
+<<<<<<< swank-cmucl.lisp
+      (mapcar #'list methods locations))))
+
+(defun xref-results (contexts)
+  (mapcar (lambda (xref)
+            (list (xref:xref-context-name xref)
+                  (resolve-xref-location xref)))
+          contexts))
+=======
       (mapcar #'list methods locations))))
 
 (defun xrefs (contexts)
@@ -399,6 +426,7 @@ the error-context redundant."
             (list (xref:xref-context-name xref)
                   (resolve-xref-location xref)))
           contexts))
+>>>>>>> 1.80
 
 (defun resolve-xref-location (xref)
   (let ((name (xref:xref-context-name xref))
@@ -1034,6 +1062,23 @@ OCFP =  ~X
 LRA  =  ~X~%" (mapcar #'fixnum 
                       (multiple-value-list (frame-registers frame)))))))
 
+<<<<<<< swank-cmucl.lisp
+(defimplementation disassemble-frame (frame-number)
+  "Return a string with the disassembly of frames code."
+  (print-frame-registers frame-number)
+  (terpri)
+  (let* ((frame (di::frame-real-frame (nth-frame frame-number)))
+         (debug-fun (di::frame-debug-function frame)))
+    (etypecase debug-fun
+      (di::compiled-debug-function
+       (let* ((component (di::compiled-debug-function-component debug-fun))
+              (fun (di:debug-function-function debug-fun)))
+         (if fun
+             (disassemble fun)
+             (disassem:disassemble-code-component component))))
+      (di::bogus-debug-function
+       (format t "~%[Disassembling bogus frames not implemented]")))))
+=======
 ;; (defslimefun sldb-disassemble (frame-number)
 ;;   "Return a string with the disassembly of frames code."
 ;;     (with-output-to-string (*standard-output*)
@@ -1050,6 +1095,7 @@ LRA  =  ~X~%" (mapcar #'fixnum
 ;;                  (disassem:disassemble-code-component component))))
 ;;           (di::bogus-debug-function
 ;;            (format t "~%[Disassembling bogus frames not implemented]"))))))
+>>>>>>> 1.80
 
 #+(or)
 (defun print-binding-stack ()
