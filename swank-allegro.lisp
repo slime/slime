@@ -230,13 +230,37 @@
     (let ((*buffer-name* nil))
       (compile-file *compile-filename* :load-after-compile load-p))))
 
+(defun call-with-temp-file (fn)
+  (let ((tmpname (system:make-temp-file-name)))
+    (unwind-protect
+         (with-open-file (file tmpname :direction :output :if-exists :error)
+           (funcall fn file tmpname))
+      (delete-file tmpname))))
+
+(defun compile-from-temp-file (string)
+  (call-with-temp-file 
+   (lambda (stream filename)
+       (write-string string stream)
+       (finish-output stream)
+       (let ((binary-filename (compile-file filename :load-after-compile t)))
+         (when binary-filename
+           (delete-file binary-filename))))))
+
 (defimplementation swank-compile-string (string &key buffer position)
+  ;; We store the source buffer in excl::*source-pathname* as a string
+  ;; of the form <buffername>:<start-offset>.  Quite ugly encoding, but
+  ;; the fasl file is corrupted if we use some other datatype.
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)
           (*buffer-start-position* position)
           (*buffer-string* string))
-      (funcall (compile nil (read-from-string
-                             (format nil "(~S () ~A)" 'lambda string)))))))
+      (compile-from-temp-file
+       (format nil "~S ~S~%~A" 
+               `(in-package ,(package-name *package*))
+               `(eval-when (:compile-toplevel :load-toplevel)
+                 (setq excl::*source-pathname*
+                  (format nil "~A:~D" ',buffer ',position)))
+               string)))))
 
 ;;;; Definition Finding
 
@@ -257,6 +281,11 @@
                         pos)))
       ((member :top-level)
        (list :error (format nil "Defined at toplevel: ~A" fspec)))
+      (string
+       (let ((pos (position #\: file)))
+         (make-location 
+          (list :buffer (subseq file 0 pos))
+          (list :position (parse-integer (subseq file (1+ pos)))))))
       (null 
        (list :error (format nil "Unknown source location for ~A" fspec))))))
 
@@ -284,6 +313,42 @@
 (defun xref-result (fspecs)
   (loop for fspec in fspecs
         append (fspec-definition-locations fspec)))
+
+;; list-callers implemented by groveling through all fbound symbols.
+;; Only symbols are considered.  Functions in the constant pool are
+;; searched recursevly.  Closure environments are ignored at the
+;; moment (constants in methods are therefore not found).
+
+(defun map-function-constants (function fn depth)
+  "Call FN with the elements of FUNCTION's constant pool."
+  (do ((i 0 (1+ i))
+       (max (excl::function-constant-count function)))
+      ((= i max))
+    (let ((c (excl::function-constant function i)))
+      (cond ((and (functionp c) 
+                  (not (eq c function))
+                  (plusp depth))
+             (map-function-constants c fn (1- depth)))
+            (t
+             (funcall fn c))))))
+
+(defun in-constants-p (fn symbol)
+  (map-function-constants 
+   fn 
+   (lambda (c) (if (eq c symbol) (return-from in-constants-p t)))
+   3))
+  
+(defun function-callers (name)
+  (let ((callers '()))
+    (do-all-symbols (sym)
+      (when (fboundp sym)
+        (let ((fn (fdefinition sym)))
+          (when (in-constants-p fn name)
+            (push sym callers)))))
+    callers))
+
+(defimplementation list-callers (name)
+  (xref-result (function-callers name)))
 
 ;;;; Inspecting
 
