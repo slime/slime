@@ -4502,7 +4502,9 @@ Completion is performed by `slime-complete-symbol-function'."
   ;; NB: It is only the name part of the symbol that we actually want
   ;; to complete -- the package prefix, if given, is just context.
   (when (save-excursion (re-search-backward "\"[^ \t\n]+\\=" nil t))
-    (return-from slime-complete-symbol* (comint-dynamic-complete-as-filename)))
+    (return-from slime-complete-symbol* 
+      (let ((comint-completion-addsuffix '("/" . "\"")))
+        (comint-dynamic-complete-as-filename))))
   (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
          (beg (move-marker (make-marker) (slime-symbol-start-pos)))
          (prefix (buffer-substring-no-properties beg end))
