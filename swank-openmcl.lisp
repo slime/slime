@@ -281,10 +281,6 @@ condition."
         collect (list (princ-to-string (restart-name restart))
                       (princ-to-string restart))))
 
-(defun format-condition-for-emacs ()
-  (format nil "~A~%   [Condition of type ~S]"
-          *swank-debugger-condition* (type-of *swank-debugger-condition*)))
-
 (defun map-backtrace (function &optional
                       (start-frame-number 0)
                       (end-frame-number most-positive-fixnum))
@@ -351,15 +347,18 @@ If the backtrace cannot be calculated, this function returns NIL."
   (let (result)
     (map-backtrace (lambda (frame-number p tcr lfun pc)
                      (push (list frame-number
-                                 (format nil "~D: (~A~A)" frame-number
-                                         (ccl::%lfun-name-string lfun)
-                                         (frame-arguments p tcr lfun pc)))
+                                 (print-with-frame-label
+                                  frame-number
+                                  (lambda (s)
+                                    (format s "(~A~A)"
+                                            (ccl::%lfun-name-string lfun)
+                                            (frame-arguments p tcr lfun pc)))))
                            result))
                    start-frame-number end-frame-number)
     (nreverse result)))
 
 (defmethod debugger-info-for-emacs (start end)
-  (list (format-condition-for-emacs)
+  (list (debugger-condition-for-emacs)
         (format-restarts-for-emacs)
         (backtrace start end)))
 
@@ -376,9 +375,8 @@ If the backtrace cannot be calculated, this function returns NIL."
                (declare (ignore type))
                (when name
                  (push (list 
-                        :symbol (to-string name)
+                        :name (to-string name)
                         :id 0
-                        :validity :valid
                         :value-string (to-string var))
                        result))))
            (return-from frame-locals (nreverse result))))))))

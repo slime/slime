@@ -169,12 +169,6 @@ Return NIL if the symbol is unbound."
     (let ((*sldb-restarts* (compute-restarts *swank-debugger-condition*)))
       (funcall fn))))
 
-(defun format-condition-for-emacs ()
-  (let ((*print-right-margin* 75)
-	(*print-pretty* t))
-    (format nil "~A~%   [Condition of type ~S]"
-	    *swank-debugger-condition* (type-of *swank-debugger-condition*))))
-
 (defun format-restarts-for-emacs ()
   (loop for restart in *sldb-restarts*
         collect (list (princ-to-string (restart-name restart))
@@ -203,22 +197,21 @@ Return NIL if the symbol is unbound."
 
 (defmethod backtrace (start end)
   (flet ((format-frame (f i)
-	   (with-output-to-string (*standard-output*)
-	     (let ((*print-pretty* *sldb-pprint-frames*))
-	       (format t "~D: ~A" i 
-		       (cond ((dbg::call-frame-p f)
-			      (format nil "~A ~A" 
-				      (dbg::call-frame-function-name f)
-				      (dbg::call-frame-arglist f)))
-			     (t f)))))))
+           (print-with-frame-label
+            i (lambda (s)
+	       (cond ((dbg::call-frame-p f)
+                      (format s "~A ~A"
+                              (dbg::call-frame-function-name f)
+                              (dbg::call-frame-arglist f)))
+                     (t (princ f s)))))))
     (loop for i from start
 	  for f in (compute-backtrace start end)
 	  collect (list i (format-frame f i)))))
 
 (defmethod debugger-info-for-emacs (start end)
-  (list (format-condition-for-emacs)
+  (list (debugger-condition-for-emacs)
         (format-restarts-for-emacs)
-        (backtrace start end)))      
+        (backtrace start end)))
 
 (defun nth-restart (index)
   (nth index *sldb-restarts*))
@@ -233,7 +226,7 @@ Return NIL if the symbol is unbound."
 	    (dbg::frame-locals-format-list frame #'list 75 0)
 	  (declare (ignore with))
 	  (loop for (name value symbol location) in vars
-		collect (list :symbol symbol :id 0
+		collect (list :name (to-string symbol) :id 0
 			      :value-string (princ-to-string value)))))))
 
 (defmethod frame-catch-tags (index)

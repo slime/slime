@@ -222,10 +222,6 @@ Return NIL if the symbol is unbound."
 ;;;    (*print-length* 10))
     (funcall debugger-loop-fn)))
 
-(defun format-condition-for-emacs ()
-  (format nil "~A~%   [Condition of type ~S]"
-	  *swank-debugger-condition* (type-of *swank-debugger-condition*)))
-
 (defun format-restarts-for-emacs ()
   (loop for restart in *sldb-restarts*
 	collect (list (princ-to-string (restart-name restart))
@@ -248,12 +244,13 @@ Return NIL if the symbol is unbound."
 
 (defmethod backtrace (start-frame-number end-frame-number)
   (flet ((format-frame (f i)
-	   (format nil "~d: ~a" i
-		   (string-left-trim
-		    '(#\Newline)
-		    (with-output-to-string (stream)
-		      (let ((*print-pretty* *sldb-pprint-frames*))
-			(sys::describe-frame stream f)))))))
+	   (print-with-frame-label
+	    i (lambda (s)
+		(princ (string-left-trim 
+			'(#\Newline)
+			(with-output-to-string (stream)
+			  (sys::describe-frame stream f)))
+		       s)))))
     (loop for i from start-frame-number
 	  for f in (compute-backtrace start-frame-number end-frame-number)
 	  collect (list i (format-frame f i)))))
@@ -275,18 +272,16 @@ Return NIL if the symbol is unbound."
 ;; NIL or #(v1 val1 ... vn valn NEXT-ENV).
 
 (defun frame-do-venv (frame venv)
-  (loop
-     for i from 1 below (length venv) by 2
-     as symbol = (svref venv (1- i))
-     and value = (svref venv i)
-     collect (list :symbol symbol :id 0
-		   :value-string
-		   (to-string
-		    (if (eq sys::specdecl value)
-			;; special variable
-			(sys::eval-at frame symbol)
-			;; lexical variable or symbol macro
-			value)))))
+  (loop for i from 1 below (length venv) by 2
+	as symbol = (svref venv (1- i))
+	and value = (svref venv i)
+	collect (list :name (to-string symbol) :id 0
+		      :value-string (to-string
+				     (if (eq sys::specdecl value)
+					 ;; special variable
+					 (sys::eval-at frame symbol)
+					 ;; lexical variable or symbol macro
+					 value)))))
 
 (defun frame-do-fenv (frame fenv)
   (declare (ignore frame fenv))
@@ -313,7 +308,7 @@ Return NIL if the symbol is unbound."
 		       (nth-frame index))))
 
 (defmethod debugger-info-for-emacs (start end)
-  (list (format-condition-for-emacs)
+  (list (debugger-condition-for-emacs)
 	(format-restarts-for-emacs)
 	(backtrace start end)))
 

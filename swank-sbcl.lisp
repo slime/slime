@@ -240,7 +240,7 @@ information."
 When Emacs presents the message it already has the source popped up
 and the source form highlighted. This makes much of the information in
 the error-context redundant."
-  (declare (type (or sb-c::compiler-error-context error-context null)))
+  (declare (type (or sb-c::compiler-error-context null) error-context))
   (let ((enclosing 
          (and error-context
               (sb-c::compiler-error-context-enclosing-source error-context))))
@@ -407,18 +407,6 @@ Return NIL if the symbol is unbound."
 
 
 ;;;
-(defun tracedp (fname)
-  (gethash (sb-debug::trace-fdefinition fname)
-	   sb-debug::*traced-funs*))
-
-(defslimefun toggle-trace-fdefinition (fname-string)
-  (let ((fname (from-string fname-string)))
-    (cond ((tracedp fname)
-	   (sb-debug::untrace-1 fname)
-	   (format nil "~S is now untraced." fname))
-	  (t
-	   (sb-debug::trace-1 fname (sb-debug::make-trace-info))
-	   (format nil "~S is now traced." fname)))))
 
 (defslimefun getpid ()
   (sb-unix:unix-getpid))
@@ -452,11 +440,6 @@ format suitable for Emacs."
 	collect (list (princ-to-string (restart-name restart))
 		      (princ-to-string restart))))
 
-(defun format-condition-for-emacs ()
-  (format nil "~A~%   [Condition of type ~S]"
-	  (ignore-errors *swank-debugger-condition*)
-          (type-of *swank-debugger-condition*)))
-
 (defun nth-frame (index)
   (do ((frame *sldb-stack-top* (sb-di:frame-down frame))
        (i index (1- i)))
@@ -465,30 +448,27 @@ format suitable for Emacs."
 (defun nth-restart (index)
   (nth index *sldb-restarts*))
 
-(defun format-frame-for-emacs (frame)
-  (list (sb-di:frame-number frame)
-	(with-output-to-string (*standard-output*) 
-          (let ((*print-pretty* *sldb-pprint-frames*))
-            (sb-debug::print-frame-call frame :verbosity 1 :number t)))))
+(defun format-frame-for-emacs (number frame)
+  (print-with-frame-label 
+   number (lambda (*standard-output*)
+            (sb-debug::print-frame-call frame :verbosity 1 :number nil))))
 
 (defun compute-backtrace (start end)
   "Return a list of frames starting with frame number START and
 continuing to frame number END or, if END is nil, the last frame on the
 stack."
   (let ((end (or end most-positive-fixnum)))
-    (do ((frame *sldb-stack-top* (sb-di:frame-down frame))
-	 (i 0 (1+ i)))
-	((= i start)
-	 (loop for f = frame then (sb-di:frame-down f)
-	       for i from start below end
-	       while f
-	       collect f)))))
+    (loop for f = (nth-frame start) then (sb-di:frame-down f)
+	  for i from start below end
+	  while f
+	  collect (cons i f))))
 
 (defmethod backtrace (start end)
-  (mapcar #'format-frame-for-emacs (compute-backtrace start end)))
+  (loop for (n . frame) in (compute-backtrace start end)
+        collect (list n (format-frame-for-emacs n frame))))
 
 (defmethod debugger-info-for-emacs (start end)
-  (list (format-condition-for-emacs)
+  (list (debugger-condition-for-emacs)
 	(format-restarts-for-emacs)
 	(backtrace start end)))
 
@@ -563,9 +543,8 @@ stack."
 	 (debug-variables (sb-di::debug-fun-debug-vars debug-function)))
     (loop for v across debug-variables
           collect (list
-                   :symbol (sb-di:debug-var-symbol v)
+                   :name (to-string (sb-di:debug-var-symbol v))
                    :id (sb-di:debug-var-id v)
-                   :validity (sb-di:debug-var-validity v location)
                    :value-string
                    (if (eq (sb-di:debug-var-validity v location)
                            :valid)

@@ -47,8 +47,9 @@
   (system:add-fd-handler fd :input fn))
 
 (defun accept-loop (fd background close)
-  "Accept clients on the the server socket FD.  
-Use fd-handlers if BACKGROUND is non-nil.  Close the server socket after the first client if CLOSE is non-nil, "
+  "Accept clients on the the server socket FD.  Use fd-handlers if
+BACKGROUND is non-nil.  Close the server socket after the first client
+if CLOSE is non-nil, "
   (cond (background
          (add-input-handler 
           fd (lambda (fd) (accept-one-client fd background close))))
@@ -415,29 +416,6 @@ reference   ::= (FUNCTION-SPECIFIER . SOURCE-LOCATION)"
               xrefs)))
     (group-xrefs xrefs)))
 
-
-(defun location-buffer= (location1 location2)
-  (equalp location1 location2))
-
-(defun file-xrefs-for-emacs (unix-filename contexts)
-  "Return a summary of the references from a particular file.
-The result is a list of the form (FILENAME ((REFERRER SOURCE-PATH) ...))"
-  (list unix-filename
-        (loop for context in (sort-contexts-by-source-path contexts)
-              collect (list (let ((*print-pretty* nil))
-                              (to-string (xref:xref-context-name context)))
-                            (xref:xref-context-source-path context)))))
-
-(defun sort-contexts-by-source-path (contexts)
-  "Sort xref contexts by lexical position of source-paths.
-It is assumed that all contexts belong to the same file."
-  (sort contexts #'source-path< :key #'xref:xref-context-source-path))
-
-(defun source-path< (path1 path2)
-  "Return true if PATH1 is lexically before PATH2."
-  (and (every #'< path1 path2)
-       (< (length path1) (length path2))))
-
 (defun clear-xref-info (namestring)
   "Clear XREF notes pertaining to FILENAME.
 This is a workaround for a CMUCL bug: XREF records are cumulative."
@@ -594,9 +572,9 @@ the code omponent CODE."
 This is useful when debugging the definition-finding code.")
 
 (defmacro safe-definition-finding (&body body)
-  "Execute BODY ignoring errors.  Return a the source location
-returned by BODY or if an error occurs a description of the error.
-The second return value is the condition or nil." 
+  "Execute BODY ignoring errors.  Return the source location returned
+by BODY or if an error occurs a description of the error.  The second
+return value is the condition or nil."  
   `(flet ((body () ,@body))
     (if *debug-definition-finding*
         (body)
@@ -974,11 +952,6 @@ format suitable for Emacs."
 	collect (list (princ-to-string (restart-name restart))
 		      (princ-to-string restart))))
 
-(defun format-condition-for-emacs ()
-  (format nil "~A~%   [Condition of type ~S]"
-	  (debug::safe-condition-message *swank-debugger-condition*)
-          (type-of *swank-debugger-condition*)))
-
 (defun nth-frame (index)
   (do ((frame *sldb-stack-top* (di:frame-down frame))
        (i index (1- i)))
@@ -987,10 +960,10 @@ format suitable for Emacs."
 (defun nth-restart (index)
   (nth index *sldb-restarts*))
 
-(defun format-frame-for-emacs (frame)
-  (with-output-to-string (*standard-output*) 
-    (let ((*print-pretty* *sldb-pprint-frames*))
-      (debug::print-frame-call frame :verbosity 1 :number t))))
+(defun format-frame-for-emacs (number frame)
+  (print-with-frame-label 
+   number (lambda (*standard-output*)
+            (debug::print-frame-call frame :verbosity 1 :number nil))))
 
 (defun compute-backtrace (start end)
   "Return a list of frames starting with frame number START and
@@ -1004,10 +977,10 @@ stack."
 
 (defmethod backtrace (start end)
   (loop for (n . frame) in (compute-backtrace start end)
-        collect (list n (format-frame-for-emacs frame))))
+        collect (list n (format-frame-for-emacs n frame))))
 
 (defmethod debugger-info-for-emacs (start end)
-  (list (format-condition-for-emacs)
+  (list (debugger-condition-for-emacs)
 	(format-restarts-for-emacs)
 	(backtrace start end)))
 
@@ -1031,15 +1004,14 @@ stack."
 	 (location (di:frame-code-location frame))
 	 (debug-function (di:frame-debug-function frame))
 	 (debug-variables (di::debug-function-debug-variables debug-function)))
-    (loop for v across debug-variables
-          for symbol = (di:debug-variable-symbol v)
-          for id =  (di:debug-variable-id v)
-          for validy = (di:debug-variable-validity v location)
-	  collect (list :symbol symbol :id id
-		   :value-string
-		   (ecase validy 
-                     (:valid (to-string (di:debug-variable-value v frame)))
-                     ((:invalid :unknown) "<not-available>"))))))
+    (loop for v across debug-variables collect 
+          (list :name (to-string (di:debug-variable-symbol v))
+                :id (di:debug-variable-id v)
+                :value-string (ecase (di:debug-variable-validity v location)
+                                (:valid 
+                                 (to-string (di:debug-variable-value v frame)))
+                                ((:invalid :unknown) 
+                                 "<not-available>"))))))
 
 (defmethod frame-catch-tags (index)
   (loop for (tag . code-location) in (di:frame-catches (nth-frame index))
