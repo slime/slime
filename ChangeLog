@@ -4,6 +4,8 @@
 	(slime-repl-insert-prompt): Use it.
 	(slime-with-chosen-connection, with-struct): Docstring
 	fix for function's arglist display.
+	(when-let, slime-with-chosen-connection, with-struct): Docstring
+	fix for function's arglist display.
 	(slime-read-package-name): Use `slime-bogus-completion-alist' to
 	construct completion table.
 	(slime-maybe-rearrange-inferior-lisp): Use `rename-buffer's
