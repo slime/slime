@@ -22,6 +22,8 @@
 
 	* swank-backend.lisp (sldb-step, default-readtable-alist): New
 	backend functions.
+	(emacs-connected): Pass the redirected stream as argument, so that
+	the OpenMCL backend can add it to CCL::*AUTO-FLUSH-STREAMS*.
 
 	* swank-sbcl.lisp (default-readtable-alist): Implement it.
 
