@@ -35,6 +35,15 @@ The cross-reference commands are based on the CMUCL XREF
 package. You'll need to setup XREF information recording to use those
 commands, and in current CMUCLs this is slightly awkward.
 
+The :sigio communication style conflicts with certain C libraries,
+e.g. libSDL.  You'll need to switch to :fd-handler in this case.
+:sigio may also not work well on Solaris.
+
+On FreeBSD or Irix may get errors like "NIL is not of type HOST-ENTRY"
+or "Error binding socket to port 0: Cannot assign requested address".
+The only known workaround at the moment is to remove the :host
+argument in CREATE-SOCKET in swank-cmucl.lisp.
+
 *** Steel Bank Common Lisp
 
 We support SBCL version 0.8.12 and higher. The support is very mature.
@@ -65,12 +74,24 @@ The XREF commands are not available.
 
 *** LispWorks
 
-We support LispWorks version 4.3 and higher. The support is quite
+We support LispWorks version 4.1 and higher. The support is quite
 mature.
+
+On OS X you'll have to remove the :address argument in CREATE-SOCKET
+in swank-lispworks.lisp.  This is a LispWorks bug.
 
 *** Allegro CL
 
 *** CLISP
+
+We support CLISP version 2.32 or newer.  You'll need a version with
+socket support; this may require to start CLISP with "clisp -K full".
+
+The backtrace for compiled functions is not very informative.
+Interpreted code is usually easer to debug.
+
+M-. (find-definition) only works if the fasl file is in the same
+directory as the source file.
 
 *** Armed Bear Common Lisp
 
