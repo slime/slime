@@ -1,3 +1,12 @@
+2003-10-19  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime): Connection setup is now asynchronous, with
+	retrying on a timer. This makes it possible to bring the server up
+	by hand while debugging. `M-x slime' while already connected will
+	cause the old connection to be dropped and a new one established.
+	(slime-disconnect): New command to disconnect from Swank, or
+	cancel asynchronous connection attempts when not yet connected.
+
 2003-10-18  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el: Fix some bugs in the state machine and be a bit more
