@@ -100,9 +100,10 @@
 (defimplementation arglist (symbol)
   (let ((arglist (lw:function-lambda-list symbol)))
     (etypecase arglist
-      ((member :dont-know)
-       (error "<arglist-unavailable>"))
-      (list arglist))))
+      ((member :dont-know) 
+       :not-available)
+      (list
+       arglist))))
 
 (defimplementation macroexpand-all (form)
   (walker:walk-form form))

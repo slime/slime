@@ -986,11 +986,11 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
                 ;; this should work both for
                 ;; compiled-debug-function and for
                 ;; interpreted-debug-function
-                (t (let ((df (di::function-debug-function fun)))
-                     (if df 
-                         (debug-function-arglist df)
-                         "(<arglist-unavailable>)"))))))
-    (check-type arglist (or list string))
+                (t 
+                 (handler-case (debug-function-arglist 
+                                (di::function-debug-function fun))
+                   (di:unhandled-condition () :not-available))))))
+    (check-type arglist (or list (member :not-available)))
     arglist))
 
 
