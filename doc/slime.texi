@@ -1,7 +1,7 @@
 \input texinfo   @c -*-texinfo-*-
 @c %**start of header
 @setfilename slime.info
-@settitle SLIME User Manual
+@settitle The Superior Lisp Interaction Mode for Emacs
 @c %**end of header
 
 @macro SLIME
@@ -37,13 +37,13 @@ o@c this comment prevents a newline!
 @code{\command\}@*
 @end macro
 
-@set EDITION Draft
-@set UPDATED March 2004
+@set EDITION DRAFT
+@set UPDATED @code{$Id$}
 
 @titlepage
 @title SLIME User Manual
 @subtitle The Superior Lisp Interaction Mode for Emacs
-@subtitle @value{EDITION}, updated @value{UPDATED}
+@subtitle @value{EDITION}, @value{UPDATED}
 @author
 @end titlepage
 
@@ -129,6 +129,7 @@ Downloading @SLIME{} (from @CVS{})
 
 * User-interface conventions::  
 * Commands::                    
+* Semantic indentation::        
 
 User-interface conventions
 
@@ -283,7 +284,8 @@ cvs diff -rHEAD ChangeLog      # or: -rFAIRLY-STABLE
 @node Installation, Running, Downloading, Getting started
 @section Installation
 
-Installation just requires a few lines in your @file{~/.emacs}:
+On Unix-like systems, installation just requires a few lines in your
+@file{~/.emacs}:
 
 @example
 (setq inferior-lisp-program "@emph{the path to your Lisp system}")
@@ -320,6 +322,7 @@ describes the @code{slime-mode} and its relatives.
 @menu
 * User-interface conventions::  
 * Commands::                    
+* Semantic indentation::        
 @end menu
 
 @node User-interface conventions, Commands, slime-mode, slime-mode
@@ -386,7 +389,7 @@ command that pops up the @code{*inferior-lisp*} buffer, that command
 doesn't belong to @SLIME{}, and you should probably lookup our
 equivalent.
 
-@node Commands,  , User-interface conventions, slime-mode
+@node Commands, Semantic indentation, User-interface conventions, slime-mode
 @section Commands
 
 @menu
@@ -655,6 +658,51 @@ Report profiler data.
 @item M-x slime-profile-reset
 Reset profiler data.
 @end table
+
+@node Semantic indentation,  , Commands, slime-mode
+@section Semantic indentation
+
+@SLIME{} automatically discovers how to indent the macros in your Lisp
+system. To do this the Lisp side scans all the macros in the system and
+reports to Emacs all the ones with @code{&body} arguments. Emacs then
+indents these specially, putting the first arguments four spaces in and
+the ``body'' arguments just two spaces, as usual.
+
+This should ``just work.'' If you are a lucky sort of person you needn't
+read the rest of this section.
+
+To simplify the implementation, @SLIME{} doesn't distinguish between
+macros with the same symbol-name but different packages. This makes it
+fit nicely with Emacs's indentation code. However, if you do have
+several macros with the same symbol-name then they will all be indented
+the same way, arbitrarily using the style from one of their
+arglists. You can find out which symbols are involved in collisions
+with:
+
+@example
+(swank:print-indentation-lossage)
+@end example
+
+If a collision causes you irritation, don't have a nervous breakdown,
+just override the Elisp symbol's @code{common-lisp-indent-function}
+property to your taste. @SLIME{} won't override your custom settings, it
+just tries to give you good defaults.
+
+A more subtle issue is that imperfect caching is used for the sake of
+performance. @footnote{@emph{Of course} we made sure it was actually too
+slow before making the ugly optimization.}
+@c
+In an ideal world, Lisp would automatically scan every symbol for
+indentation changes after each command from Emacs. However, this is too
+expensive to do every time. Instead Lisp usually just scans the symbols
+whose home package matches the one used by the Emacs buffer where the
+request comes from. That is sufficient to pick up the indentation of
+most interactively-defined macros. To catch the rest we make a full scan
+of every symbol each time a new Lisp package is created between commands
+-- that takes care of things like new systems being loaded.
+
+You can use @kbd{M-x slime-update-indentation} to force all symbols to
+be scanned for indentation information.
 
 @node REPL, Debugger, slime-mode, Top
 @chapter @REPL{}: the ``top level''
