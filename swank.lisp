@@ -314,37 +314,54 @@ result list will also be qualified.  If string is non-qualified the
 result strings are also not qualified and are considered relative to
 DEFAULT-PACKAGE-NAME.  All symbols accessible in the package are
 considered."
-  (flet ((parse-designator (string)
-	   (values (let ((pos (position #\: string :from-end t)))
-		     (if pos (subseq string (1+ pos)) string))
-		   (let ((pos (position #\: string)))
-		     (if pos (subseq string 0 pos) nil))
-		   (search "::" string))))
-    (multiple-value-bind (name package-name internal) (parse-designator string)
-      (let ((completions nil)
-	    (package (find-package 
-		      (string-upcase (cond ((equal package-name "") "KEYWORD")
-					   (package-name)
-					   (default-package-name))))))
-	(when package
-	  (do-symbols (symbol package)
-	    (when (and (string-prefix-p name (symbol-name symbol))
-		       (or internal
-			   (not package-name)
-			   (symbol-external-p symbol)))
-	      (push symbol completions))))
-	(let ((*print-case* (if (find-if #'upper-case-p string)
-				:upcase :downcase))
-	      (*package* package))
-	  (mapcar (lambda (s)
-		    (cond (internal (format nil "~A::~A" package-name s))
-			  (package-name (format nil "~A:~A" package-name s))
-			  (t (format nil "~A" s))))
-		  completions))))))
+  (multiple-value-bind (name package-name internal-p)
+      (parse-symbol-designator string)
+    (let ((completions nil)
+          (package (find-package 
+                    (string-upcase (cond ((equal package-name "") "KEYWORD")
+                                         (package-name)
+                                         (default-package-name))))))
+      (flet ((package-matches (symbol-package)
+               ;; True if SYMBOL-PACKAGE is valid for the completion.
+               ;; When the designator includes an explicit package
+               ;; prefix, only symbols in that package are considered.
+               (or (null package-name)
+                   (eq symbol-package package)))
+             (visible-p (symbol)
+               ;; True if SYMBOL is visible for this completion.
+               (or internal-p
+                   (symbol-external-p symbol))))
+        (when package
+          (do-symbols (symbol package)
+            (when (and (string-prefix-p name (symbol-name symbol))
+                       (package-matches (symbol-package symbol))
+                       (visible-p symbol))
+              (push symbol completions)))))
+      (let ((*print-case* (if (find-if #'upper-case-p string)
+                              :upcase :downcase))
+            (*package* package))
+        (mapcar (lambda (s)
+                  (cond (internal-p (format nil "~A::~A" package-name s))
+                        (package-name (format nil "~A:~A" package-name s))
+                        (t (format nil "~A" s))))
+                completions)))))
 
-(defun symbol-external-p (s)
+(defun parse-symbol-designator (string)
+  "Parse STRING as a symbol designator.
+Return three values:
+ SYMBOL-NAME
+ PACKAGE-NAME, or nil if the designator does not include an explicit package.
+ INTERNAL-P, if the symbol is qualified with `::'."
+  (values (let ((pos (position #\: string :from-end t)))
+            (if pos (subseq string (1+ pos)) string))
+          (let ((pos (position #\: string)))
+            (if pos (subseq string 0 pos) nil))
+          (search "::" string)))
+
+(defun symbol-external-p (symbol)
+  "True if SYMBOL is external in its home package."
   (multiple-value-bind (_ status)
-      (find-symbol (symbol-name s) (symbol-package s))
+      (find-symbol (symbol-name symbol) (symbol-package symbol))
     (declare (ignore _))
     (eq status :external)))
  
