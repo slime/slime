@@ -492,6 +492,239 @@ Execute BODY with NAME's funtion slot set to FUNCTION."
 				    (invoke-debugger condition)))))
    nil))
 
+(in-package :system)
+
+#.(setf (ext:package-lock :system) nil)
+
+(ext:without-package-lock () 
+
+;; Patch buggy format parser.  ~:,D was not parsed correcly.
+(defun format-parse-cs (control-string startindex csdl stop-at)
+  (declare (fixnum startindex))
+  (macrolet ((errorstring ()
+               (TEXT "The control string terminates within a format directive.")))
+    (prog* ((index startindex)  ; cs-index of the next character
+            ch                  ; current character
+            intparam            ; Integer-Parameter
+            newcsd              ; current CSD
+            (last-separator-csd (car csdl)))
+      (declare (type simple-string control-string) (type fixnum index))
+      (loop                     ; new directive altogether
+        (tagbody
+          (when (>= index (length control-string))
+            (go string-ended))
+          (setq ch (schar control-string index))
+          (unless (eql ch #\~)
+            ;; possibly transform part of string into a separate directive,
+            (setq csdl (setf (cdr csdl) (list (setq newcsd (make-csd)))))
+            (setf (csd-type     newcsd) 1)
+            (setf (csd-cs-index newcsd) index)
+            (setq index (position #\~ control-string :start index))
+            (unless index
+              (setf (csd-data newcsd) (setq index (length control-string)))
+              (go string-ended))
+            (setf (csd-data newcsd) index))
+          (setq csdl (setf (cdr csdl) (list (setq newcsd (make-csd)))))
+          (setf (csd-type         newcsd) 2)
+          (setf (csd-cs-index     newcsd) index)
+          (setf (csd-parm-list    newcsd) nil)
+          (setf (csd-v-or-#-p     newcsd) nil)
+          (setf (csd-colon-p      newcsd) nil)
+          (setf (csd-atsign-p     newcsd) nil)
+          (setf (csd-data         newcsd) nil)
+          (setf (csd-clause-chain newcsd) nil)
+
+          param                 ; parameter of a directive may begin
+          (incf index)
+          (when (>= index (length control-string))
+            (format-error control-string index (errorstring))
+            (go string-ended))
+          (setq ch (schar control-string index))
+          (when (digit-char-p ch) (go num-param))
+          (case ch
+            ((#\+ #\-) (go num-param))
+            (#\' (go quote-param))
+            ((#\V #\v #\#)
+             (push (if (eql ch #\#) ':ARG-COUNT ':NEXT-ARG)
+                   (csd-parm-list newcsd))
+             (setf (csd-v-or-#-p newcsd) T)
+             (go param-ok-1))
+            (#\, (push nil (csd-parm-list newcsd)) (go param))
+            (#\: (go colon-modifier))
+            (#\@ (go atsign-modifier))
+            (T (go directive)))
+
+          num-param             ; numerical parameter
+          (multiple-value-setq (intparam index)
+            (parse-integer control-string :start index :junk-allowed t))
+          (unless intparam
+            (format-error control-string index
+                          (TEXT "~A must introduce a number.")
+                          ch))
+          (push intparam (csd-parm-list newcsd))
+          (go param-ok-2)
+
+          quote-param           ; Quote-Parameter-Treatment
+          (incf index)
+          (when (>= index (length control-string))
+            (format-error control-string index
+              (TEXT "The control string terminates in the middle of a parameter."))
+            (go string-ended))
+          (setq ch (schar control-string index))
+          (push ch (csd-parm-list newcsd))
+
+          param-ok-1            ; Parameter OK
+          (incf index)
+          param-ok-2            ; Parameter OK
+          (when (>= index (length control-string))
+            (format-error control-string index (errorstring))
+            (go string-ended))
+          (setq ch (schar control-string index))
+          (case ch
+            (#\, (go param))
+            (#\: (go colon-modifier))
+            (#\@ (go atsign-modifier))
+            (T (go directive)))
+
+          colon-modifier        ; after :
+	  (when (csd-colon-p newcsd)
+	     (format-error control-string index
+			   (TEXT "Too many colon modifiers supplied")))
+          (setf (csd-colon-p newcsd) T)
+          (go param)
+
+          atsign-modifier       ; after @
+	  (when (csd-colon-p newcsd)
+	     (format-error control-string index
+			   (TEXT "Too many at modifiers supplied")))
+          (setf (csd-atsign-p newcsd) T)
+          (go param)
+
+          directive             ; directive (its Name) reached
+          (setf (csd-parm-list newcsd) (nreverse (csd-parm-list newcsd)))
+          (let ((directive-name
+                  (cdr (assoc (char-upcase ch)
+                           ; with function-definition     ; without function-definition
+                         '((#\A . FORMAT-ASCII)
+                           (#\S . FORMAT-S-EXPRESSION)
+                           (#\W . FORMAT-WRITE)
+                           (#\D . FORMAT-DECIMAL)
+                           (#\B . FORMAT-BINARY)
+                           (#\O . FORMAT-OCTAL)
+                           (#\X . FORMAT-HEXADECIMAL)
+                           (#\R . FORMAT-RADIX)
+                           (#\P . FORMAT-PLURAL)
+                           (#\C . FORMAT-CHARACTER)
+                           (#\F . FORMAT-FIXED-FLOAT)
+                           (#\E . FORMAT-EXPONENTIAL-FLOAT)
+                           (#\G . FORMAT-GENERAL-FLOAT)
+                           (#\$ . FORMAT-DOLLARS-FLOAT)
+                           (#\% . FORMAT-TERPRI)
+                           (#\_ . FORMAT-PPRINT-NEWLINE)
+                           (#\I . FORMAT-PPRINT-INDENT)
+                           (#\& . FORMAT-FRESH-LINE)      (#\Newline . #\Newline)
+                           (#\| . FORMAT-PAGE)
+                           (#\~ . FORMAT-TILDE)
+                           (#\T . FORMAT-TABULATE)
+                           (#\* . FORMAT-GOTO)
+                           (#\? . FORMAT-INDIRECTION)
+                           (#\/ . FORMAT-CALL-USER-FUNCTION)
+                           (#\( . FORMAT-CASE-CONVERSION) (#\) . FORMAT-CASE-CONVERSION-END)
+                           (#\[ . FORMAT-CONDITIONAL)     (#\] . FORMAT-CONDITIONAL-END)
+                           (#\{ . FORMAT-ITERATION)       (#\} . FORMAT-ITERATION-END)
+                           (#\< . FORMAT-JUSTIFICATION)   (#\> . FORMAT-JUSTIFICATION-END)
+                           (#\^ . FORMAT-UP-AND-OUT)      (#\; . FORMAT-SEPARATOR)
+                           (#\! . FORMAT-CALL))))))
+            (if directive-name
+              (setf (csd-data newcsd) directive-name)
+              (format-error control-string index
+                (TEXT "Non-existent format directive"))))
+          (incf index)
+          (case ch
+            (#\/
+             (let* ((start index)
+                    (end (or (position #\/ control-string :start start)
+                             (format-error control-string index
+                               (TEXT "Closing '/' is missing"))))
+                    (pos (position #\: control-string :start start :end end))
+                    (name (string-upcase
+                            (subseq control-string
+                                    (if pos
+                                      (if (char= #\: (char control-string (1+ pos))) (+ 2 pos) (1+ pos))
+                                      start)
+                                    end)))
+                    (pack (if pos
+                            (let ((packname
+                                    (string-upcase
+                                      (subseq control-string start pos))))
+                              (or (find-package packname)
+                                  (format-error control-string index
+                                    (TEXT "There is no package with name ~S")
+                                    packname)))
+                            *common-lisp-user-package*)))
+               (push (list (intern name pack)) (csd-parm-list newcsd))
+               (setq index (1+ end))))
+            (( #\( #\[ #\{)
+             (multiple-value-setq (index csdl)
+               (format-parse-cs control-string index csdl
+                 (case ch (#\( #\)) (#\[ #\]) (#\{ #\}) ))))
+            (#\<
+             (multiple-value-setq (index csdl)
+               (format-parse-cs control-string index csdl #\>))
+             ;; (assert (eq (csd-data (car csdl)) 'FORMAT-JUSTIFICATION-END))
+             (when (csd-colon-p (car csdl))
+               (setf (csd-data newcsd) 'FORMAT-LOGICAL-BLOCK)))
+            (( #\) #\] #\} #\> )
+             (unless stop-at
+               (format-error control-string index
+                 (TEXT "The closing format directive '~A' does not have a corresponding opening one.")
+                 ch))
+             (unless (eql ch stop-at)
+               (format-error control-string index
+                 (TEXT "The closing format directive '~A' does not match the corresponding opening one. It should read '~A'.")
+                 ch stop-at))
+             (setf (csd-clause-chain last-separator-csd) csdl)
+             (go end))
+            (#\;
+             (unless (or (eql stop-at #\]) (eql stop-at #\>))
+               (format-error control-string index
+                 (TEXT "The ~~; format directive is not allowed at this point.")))
+             (setf (csd-clause-chain last-separator-csd) csdl)
+             (setq last-separator-csd newcsd))
+            (#\Newline
+             (setf (csd-type newcsd) 0)
+             (if (csd-colon-p newcsd)
+               (if (csd-atsign-p newcsd)
+                 (format-error control-string index
+                   (TEXT "The ~~newline format directive cannot take both modifiers."))
+                 nil) ; ~:<newline> -> ignore Newline, retain Whitespace
+               (progn
+                 (when (csd-atsign-p newcsd)
+                   ;; ~@<newline> -> part of String with Newline for output
+                   (setf (csd-type newcsd) 1)
+                   (setf (csd-cs-index newcsd) (1- index))
+                   (setf (csd-data newcsd) index))
+                 (setq index
+                   (or (position-if-not #'whitespacep control-string :start index)
+                       (length control-string)))))))
+        ) ; tagbody finished
+      )   ; loop finished
+
+      string-ended
+      (when stop-at
+        (format-error control-string index
+          (TEXT "An opening format directive is never closed; expecting '~A'.")
+          stop-at))
+
+      end
+      (return (values index csdl)))))
+
+)
+
+#.(setf (ext:package-lock :system) t)
+
+(in-package :swank-backend)
+
 ;;; Inspecting
 
 (defclass clisp-inspector (inspector)
