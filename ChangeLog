@@ -1,3 +1,9 @@
+2004-01-22  Wolfgang Jenkner  <wjenkner@inode.at>
+
+	* swank-clisp.lisp: Replace defmethod by defimplementation where
+	appropriate.
+	(return-from-frame, restart-frame): Implement them.
+	
 2004-01-22  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* test.sh: Copy the ChangeLog file too.
