@@ -445,7 +445,7 @@ at least the filename containing it."
 (defslimefun sldb-abort ()
   (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
 
-(defslimefun eval-in-frame (form index)
+(defimplementation eval-in-frame (form index)
   (map-backtrace
    (lambda (frame-number p tcr lfun pc)
      (when (= frame-number index)
@@ -466,19 +466,21 @@ at least the filename containing it."
                      ,form)))
            ))))))
 
-(defslimefun sldb-return-from-frame (form index)
-  (let ((values (multiple-value-list (eval-in-frame (from-string form) index))))
+(defimplementation return-from-frame (index form)
+  (let ((values (multiple-value-list (eval-in-frame (from-string form) 
+                                                    index))))
     (map-backtrace
      (lambda (frame-number p tcr lfun pc)
        (declare (ignore tcr lfun pc))
        (when (= frame-number index)
          (ccl::apply-in-frame p #'values  values))))))
  
-(defslimefun sldb-restart-frame (index)
+(defimplementation restart-frame (index)
   (map-backtrace
    (lambda (frame-number p tcr lfun pc)
      (when (= frame-number index)
-       (ccl::apply-in-frame p lfun (ccl::frame-supplied-args p lfun pc nil tcr))))))
+       (ccl::apply-in-frame p lfun 
+                            (ccl::frame-supplied-args p lfun pc nil tcr))))))
 
 ;;; Utilities
 
