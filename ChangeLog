@@ -1,3 +1,8 @@
+2004-07-02  Martin Simmons <martin@xanalys.com>
+
+	* swank-lispworks.lisp (dspec-stream-position,
+	make-dspec-location): Fix typo in features for LW 4.1 and 4.2.
+
 2004-07-01  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-lispworks.lisp (frame-actual-args): Bind
