@@ -111,14 +111,9 @@
 Please upgrade to SBCL 0.8.7.36 or later."))
 
 (defun enable-sigio-on-fd (fd)
-  (cond ((fboundp (find-symbol (string :fcntl) :sb-posix))
-         (funcall 
-          (eval
-           (read-from-string 
-            "(lambda (fd)
-             (sb-posix:fcntl fd sb-posix::f-setfl sb-posix::o-async)
-             (sb-posix:fcntl fd sb-posix::f-setown (getpid)))"))
-          fd))
+  (cond ((fboundp 'sb-posix::fcntl)
+         (sb-posix::fcntl fd sb-posix::f-setfl sb-posix::o-async)
+         (sb-posix::fcntl fd sb-posix::f-setown (getpid)))
         (t
          (unless (or (sb-int:featurep :linux)
                      (sb-int:featurep :bsd))
@@ -130,8 +125,7 @@ Please upgrade to SBCL 0.8.7.36 or later."))
                                  sb-alien:int sb-alien:int))))
            ;; XXX error checking
            (sb-alien:alien-funcall fcntl fd +f_setfl+ +o_async+)
-           (sb-alien:alien-funcall fcntl fd +f_setown+
-                                   (getpid))))))
+           (sb-alien:alien-funcall fcntl fd +f_setown+ (getpid))))))
 
 (defimplementation add-sigio-handler (socket fn)
   (set-sigio-handler)
@@ -188,7 +182,7 @@ Please upgrade to SBCL 0.8.7.36 or later."))
   (declare (type function fn))
   (sb-sys:without-interrupts (funcall fn)))
 
-(defmethod getpid ()
+(defimplementation getpid ()
   (sb-posix:getpid))
 
 (defimplementation lisp-implementation-type-name ()
@@ -379,21 +373,22 @@ This is useful when debugging the definition-finding code.")
           collect (list `(method ,name ,(sb-pcl::unparse-specializers method)) 
                         (safe-function-source-location method name)))))
 
-(defun function-definitions (symbol)
-  (flet ((loc (fun name) (safe-function-source-location fun name)))
-    (cond ((macro-function symbol)
-           (list (list `(defmacro ,symbol) 
-                       (loc (macro-function symbol) symbol))))
-          ((fboundp symbol)
-           (let ((fun (symbol-function symbol)))
-             (cond ((typep fun 'sb-mop:generic-function)
-                    (cons (list `(defgeneric ,symbol) (loc fun symbol))
-                          (method-definitions fun)))
-                   (t
-                    (list (list `(function ,symbol) (loc fun symbol))))))))))
+(defun function-definitions (name)
+  (flet ((loc (fn name) (safe-function-source-location fn name)))
+    (cond ((and (symbolp name) (macro-function name))
+           (list (list `(defmacro ,name) 
+                       (loc (macro-function name) name))))
+          ((fboundp name)
+           (let ((fn (fdefinition name)))
+             (typecase fn
+               (generic-function
+                (cons (list `(defgeneric ,name) (loc fn name))
+                      (method-definitions fn)))
+               (t
+                (list (list `(function ,name) (loc fn name))))))))))
 
-(defimplementation find-definitions (symbol)
-  (function-definitions symbol))
+(defimplementation find-definitions (name)
+  (function-definitions name))
 
 (defimplementation describe-symbol-for-emacs (symbol)
   "Return a plist describing SYMBOL.
@@ -676,7 +671,7 @@ stack."
 
 ;;;; Multiprocessing
 
-#+SB-THREAD
+#+sb-thread
 (progn
   (defimplementation spawn (fn &key name)
     (declare (ignore name))
