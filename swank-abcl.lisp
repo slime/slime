@@ -13,30 +13,12 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :collect) ;just so that it doesn't spoil the flying letters
-  (require :gray-streams)
   (require :pprint))
 
-(defun xp::decode-stream-arg (stream)
-  (cond ((eq stream t)
-         *terminal-io*)
-	((null stream)
-         *standard-output*)
-	((gs::two-way-stream-g-p stream)
-	 (gs::two-way-stream-output-stream stream))
-	(t stream)))
-
-(import
- '(gs:fundamental-character-output-stream
-   gs:stream-write-char
-   gs:stream-force-output
-   gs:fundamental-character-input-stream
-   gs:stream-read-char
-   gs:stream-listen
-   gs:stream-unread-char
-   gs:stream-clear-input
-   gs:stream-line-column
-   gs:stream-read-char-no-hang
-   ))
+(defimplementation make-fn-streams (input-fn output-fn)
+  (let* ((output (ext:make-slime-output-stream output-fn))
+         (input  (ext:make-slime-input-stream input-fn output)))
+    (values input output)))
 
 ;;; swank-mop
 
