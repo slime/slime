@@ -55,6 +55,9 @@
 (defimplementation getpid ()
   (excl::getpid))
 
+(defimplementation lisp-implementation-type-name ()
+  "allegro")
+
 ;;;; Misc
 
 (defimplementation arglist-string (fname)
