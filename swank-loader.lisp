@@ -10,7 +10,7 @@
 ;;;   $Id$
 ;;;
 
-(defpackage :swank-loader
+(cl:defpackage :swank-loader
   (:use :common-lisp))
 
 (in-package :swank-loader)
@@ -32,6 +32,7 @@
           #+openmcl '("swank-openmcl" "swank-gray")
           #+lispworks '("swank-lispworks" "swank-gray")
           #+allegro '("swank-allegro" "swank-gray")
+          #+clisp '("xref" "swank-clisp" "swank-gray")
           ))
 
 (defparameter *swank-pathname* (make-swank-pathname "swank"))
@@ -66,7 +67,9 @@ recompiled."
   "Return the name of the user init file or nil."
   (let ((home (user-homedir-pathname)))
     (and (probe-file home)
-         (probe-file (format nil "~A/.swank.lisp"
+         (probe-file (format nil 
+                             #-mswindows "~A/.swank.lisp"
+                             #+mswindows "~A\\_swank.lsp"
                              (namestring (truename home)))))))
 
 (compile-files-if-needed-serially
