@@ -1,3 +1,38 @@
+2004-04-30   Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-repl-update-banner): Don't print the working
+	directory.  It rarely fits in a line and was only Emacs'
+	default-directory.  M-x pwd is convenient enough.
+
+	* swank.lisp (symbol-indentation): Don't infer indentation for
+	symbols starting with 'def' or 'with-'.  It was wrong most of the
+	time and Emacs' defaults are better.
+
+	* swank-lispworks.lisp (emacs-connected): Add methods to
+	stream-soft-force-output for socket-streams and
+	slime-output-streams.  This flushes those streams automatically
+	(i assume it gets called when Lisp is idle).
+
+2004-04-29   Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-repl-mode): Set slime-current-thread to
+	:repl-thread.
+
+	* swank.lisp (thread-for-evaluation, dispatch-event): Accept
+	:repl-thread as thread specifier and dispatch evaluation and
+	interrupt request properly.
+	(repl-thread-eval, repl-eval): Deleted. We do the special casing in
+	thread-for-evaluation.
+
+2004-04-29  Lars Magne Ingebrigtsen  <larsi@netfonds.no>
+
+	* slime.el (slime-event-buffer-name): New variable.
+	(slime-events-buffer): Use it.
+	(slime-space-information-p): Ditto.
+	(slime-space): Use it.
+	(slime-reply-update-banner-p): Ditto.
+	(slime-repl-update-banner): Use it.
+
 2004-04-28   Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-loader.lisp (*lisp-name*): Add versioning support for
