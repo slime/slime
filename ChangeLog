@@ -1,3 +1,22 @@
+2004-09-03  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* NEWS: Summarize changes since August.
+
+	* slime.el: Add some docstrings.
+
+	* mkdist.sh: Add PROBLEMS file. We're no longer alpha.
+
+	* swank.lisp: Remove debugging code in comment.
+
+	* swank-sbcl.lisp: Delete dead code.
+
+	* swank-lispworks.lisp (defimplementation): define-dspec-alias
+	seems to more apropriate than define-form-parser.
+
+	* swank-cmucl.lisp (print-frame): Catch errors during printing.
+
+	* README: Fix typo.
+
 2004-09-02  Wolfgang Mederle <wolfgang.mederle@stud.uni-muenchen.de>
 
 	* swank-loader.lisp (*lisp-name*): Replace / with - in CMUCL

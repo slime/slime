@@ -1,5 +1,35 @@
 * SLIME News                  -*- outline -*-
 
+* 1.0 (September 2004)
+
+** slime-interrupt
+The default key binding for slime-interrupt is now C-c C-b.
+
+** sldb-inspect-condition
+In SLDB 'C' is now bound to sldb-inspect-condition.
+
+** More Menus
+SLDB and the REPL have now pull-down menus.
+
+** Global debugger hook.
+A new configurable *global-debugger* to control whether
+swank-debugger-hook should be installed globally is available. True by
+default.
+
+** When you call sldb-eval-in-frame with a prefix argument, the result is 
+now inserted in the REPL buffer.
+
+** Compile function
+For Allegro M-. works now for functions compiled with C-c C-c.
+
+** slime-edit-definition
+Better support for Allegro: works now for different type of
+definitions not only. So M-. now works for e.g. classes in Allegro.
+
+** SBCL 0.8.13
+SBCL 0.8.12 is no longer supported.  Support for 0.8.12 was broken for
+for some time now.
+
 * 1.0 beta (August 2004)
 
 ** autodoc global variables
