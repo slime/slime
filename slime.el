@@ -6357,6 +6357,13 @@ Optionally set point to POINT."
   (set-window-configuration slime-saved-window-config)
   (kill-buffer (current-buffer)))
 
+(defun slime-inspector-next-inspectable-object ()
+  "sets the point to the next inspectable object"
+  (interactive)
+  (let ((pos (next-single-property-change (point) 'slime-part-number)))
+    (when pos
+      (goto-char pos))))
+  
 (defun slime-inspector-describe ()
   (interactive)
   (slime-eval-describe `(swank:describe-inspectee)))
@@ -6370,6 +6377,7 @@ Optionally set point to POINT."
   (" " 'slime-inspector-next)
   ("d" 'slime-inspector-describe)
   ("q" 'slime-inspector-quit)
+  ("\C-i" 'slime-inspector-next-inspectable-object)
   ("\M-." 'slime-edit-definition))
 
 
