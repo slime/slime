@@ -30,6 +30,7 @@
            #:*readtable-alist*
            #:*globally-redirect-io*
            ;; These are re-exported directly from the backend:
+           #:buffer-first-change
            #:frame-source-location-for-emacs
            #:restart-frame
            #:sldb-step

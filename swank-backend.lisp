@@ -440,6 +440,10 @@ definition, e.g., FOO or (METHOD FOO (STRING NUMBER)) or
 
 LOCATION is the source location for the definition.")
 
+(definterface buffer-first-change (filename)
+  "Called for effect the first time FILENAME's buffer is modified."
+  nil)
+
 
 ;;;; XREF
 
