@@ -1507,6 +1507,15 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
       (error (e)
         (ignore-errors (princ e stream))))))
 
+(defimplementation frame-package (frame-number)
+  (find-package
+   (ignore-errors
+     (c::compiled-debug-info-package
+      (kernel:%code-debug-info
+       (kernel:function-code-header
+        (di:debug-function-function
+         (di:frame-debug-function (nth-frame frame-number)))))))))
+          
 (defimplementation frame-source-location-for-emacs (index)
   (code-location-source-location (di:frame-code-location (nth-frame index))))
 
@@ -1826,82 +1835,70 @@ The `symbol-value' of each element is a type tag.")
 
 (defimplementation inspect-for-emacs ((o t) (inspector cmucl-inspector))
   (cond ((di::indirect-value-cell-p o)
-         (values "A value cell."
+         (values (format nil "~A is a value cell." o)
                  `("Value: " (:value ,(c:value-cell-ref o)))))
 	(t
 	 (destructuring-bind (text labeledp . parts)
-	     (inspect::describe-parts o)
-           (values "A value."
+             (inspect::describe-parts o)
+           (values (format nil "~A~%" text)
                    (if labeledp
                        (loop for (label . value) in parts
-                          collect (princ-to-string label)
-                          collect " = "
-                          collect `(:value ,value)
-                          collect '(:newline))
-                       (loop for value in parts
-                          collect `(:value ,value)
-                          collect '(:newline))))))))
+                             append (label-value-line label value))
+                       (loop for value in parts  for i from 0 
+                             append (label-value-line i value))))))))
 
 (defmethod inspect-for-emacs ((o function) (inspector cmucl-inspector))
   (declare (ignore inspector))
   (let ((header (kernel:get-type o)))
     (cond ((= header vm:function-header-type)
-	   (values "A function."
-                   `("Name: " (:value ,(kernel:%function-name o))
-                     (:newline)
-                     "Arglist: " (:value ,(kernel:%function-arglist o))
-                     (:newline)
-                     ,@(when (documentation o t)
-                         `("Documentation: " (:newline) ,(documentation o t)))
-                     (:newline)
-                     "Self: " (:value ,(kernel:%function-self o))
-                     (:newline)
-                     "Next: " (:value ,(kernel:%function-next o))
-                     (:newline)
-                     "Type: " (:value ,(kernel:%function-type o))
-                     (:newline)
-                     "Code Object: " (:value ,(kernel:function-code-header o)))))
+	   (values (format nil "~A is a function." o)
+                   (append (label-value-line*
+                            ("self" (kernel:%function-self o))
+                            ("next" (kernel:%function-next o))
+                            ("name" (kernel:%function-name o))
+                            ("arglist" (kernel:%function-arglist o))
+                            ("type" (kernel:%function-type o))
+                            ("code" (kernel:function-code-header o)))
+                           (list 
+                            (with-output-to-string (s)
+                              (disassem:disassemble-function o :stream s))))))
 	  ((= header vm:closure-header-type)
-	   (values "A closure."
-		   (list*
-                    `("Function: " (:value ,(kernel:%closure-function o))
-                      (:newline)
-                      ,@(when (documentation o t)
-                          `("Documentation: " (:newline) ,(documentation o t) (:newline)))
-                      ,@(loop
-                           for i from 0 below (- (kernel:get-closure-length o) 
-                                                 (1- vm:closure-info-offset))
-                           collect (princ-to-string i)
-                           collect " = "
-                           collect `(:value ,(kernel:%closure-index-ref o i)))))))
+	   (values (format nil "~A is a closure" o)
+                   (append 
+                    (label-value-line "function" (kernel:%closure-function o))
+                    `("Environment:" (:newline))
+                    (loop for i from 0 below (1- (kernel:get-closure-length o))
+                          append (label-value-line
+                                  i (kernel:%closure-index-ref o i))))))
 	  (t (call-next-method o)))))
 
-(defmethod inspect-for-emacs ((o kernel:code-component) (inspector cmucl-inspector))
-  (declare (ignore inspector))
-  (values "A code data-block."
-	  `("First entry point: " (:value ,(kernel:%code-entry-points o))
-            (:newline)
-            "Constants:" (:newline)
-	    ,@(loop for i from vm:code-constants-offset 
-		    below (kernel:get-header-data o)
-		    collect (princ-to-string i)
-                    collect " = "
-                    collect `(:value ,(kernel:code-header-ref o i))
-                    collect '(:newline))
-            "Debug info: " (:value ,(kernel:%code-debug-info o))
-            (:newline)
-            "Instructions: " (:value ,(kernel:code-instructions o))
-            (:newline)
-            ,@(when (documentation o t)
-                `("Documentation: " (:newline) ,(documentation o t)))
-            (:newline))))
+(defmethod inspect-for-emacs ((o kernel:code-component) (_ cmucl-inspector))
+  (declare (ignore _))
+  (values (format nil "~A is a code data-block." o)
+          (append 
+           (label-value-line* 
+            ("code-size" (kernel:%code-code-size o))
+            ("entry-points" (kernel:%code-entry-points o))
+            ("debug-info" (kernel:%code-debug-info o))
+            ("trace-table-offset" (kernel:code-header-ref 
+                                   o vm:code-trace-table-offset-slot)))
+           `("Constants:" (:newline))
+           (loop for i from vm:code-constants-offset 
+                 below (kernel:get-header-data o)
+                 append (label-value-line i (kernel:code-header-ref o i)))
+           `("Code:" (:newline)
+             , (with-output-to-string (s)
+                 (disassem:disassemble-code-component o :stream s))))))
 
 (defmethod inspect-for-emacs ((o kernel:fdefn) (inspector cmucl-inspector))
   (declare (ignore inspector))
-  (values "A fdefn object."
-	  `("Name: " (:value ,(kernel:fdefn-name o))
-            (:newline)
-            "Function: " (:value ,(kernel:fdefn-function o)))))
+  (values (format nil "~A is a fdenf object." o)
+          (label-value-line*
+           ("name" (kernel:fdefn-name o))
+           ("function" (kernel:fdefn-function o))
+           ("raw-addr" (sys:sap-ref-32
+                        (sys:int-sap (kernel:get-lisp-obj-address o))
+                        (* vm:fdefn-raw-addr-slot vm:word-bytes))))))
 
 
 ;;;; Profiling
