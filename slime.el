@@ -105,6 +105,15 @@ Lisp, not just those occuring during RPCs.")
 (defvar slime-multiprocessing nil
   "When true, enable multiprocessing in Lisp.")
 
+(defvar slime-translate-to-lisp-filename-function 'identity
+  "Function to use for translating Emacs filenames to Lisp filenames.
+
+The function recieves a string as argument and should return string.")
+
+(defvar slime-translate-from-lisp-filename-function 'identity
+  "Function to use for translating Lisp filenames to Emacs filenames.
+See also `slime-translate-to-lisp-filename-function'.")
+
 
 ;;; Customize group
 
@@ -1639,7 +1648,11 @@ will pass it to CONTINUATION."
    ;; Instead, just cancel the continuation.
    (setq continuation (lambda (value) t)))
   ((:read-string tag)
-   (slime-push-state (slime-read-string-state tag))))
+   (slime-push-state (slime-read-string-state 
+                      tag (if (eq (window-buffer) (slime-output-buffer))
+                              nil
+                            (current-window-configuration))))
+   (slime-repl-read-string)))
 
 (slime-defstate slime-debugging-state (level condition restarts frames
                                              saved-window-configuration)
@@ -1653,7 +1666,9 @@ state interacts with it until it is coaxed into returning."
                (with-current-buffer sldb-buffer 
                  (/= level sldb-level-in-buffer)))
        (setf (sldb-level) level)
-       (sldb-setup condition restarts frames))))
+       (sldb-setup condition restarts frames)))
+   (when (eq (window-buffer) (slime-output-buffer))
+     (pop-to-buffer (get-sldb-buffer))))
   ((:debug-return level)
    (assert (= level (sldb-level)))
    (sldb-cleanup)
@@ -1665,13 +1680,13 @@ state interacts with it until it is coaxed into returning."
   ((:emacs-evaluate-oneway form-string package-name)
    (slime-output-oneway-evaluate-request form-string package-name)))
 
-(slime-defstate slime-read-string-state (tag)
+(slime-defstate slime-read-string-state (tag window-configuration)
   "Reading state.
 Lisp waits for input from Emacs."
-  ((activate)
-   (slime-repl-read-string))
   ((:emacs-return-string code)
    (slime-net-send `(swank:take-input ,tag ,code) (slime-connection))
+   (when window-configuration
+     (set-window-configuration window-configuration))
    (slime-pop-state))
   ((:emacs-rex form-string package-name continuation)
    (slime-push-evaluating-state form-string package-name continuation))
@@ -2367,11 +2382,13 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
 
 (defun slime-repl-read-string ()
   (slime-switch-to-output-buffer)
-  (goto-char slime-repl-input-start-mark)
+  (goto-char (point-max))
   (slime-mark-output-end)
+  (slime-mark-input-start)
   (slime-repl-read-mode 1))
 
 (defun slime-repl-return-string (string)
+  (assert (plusp (length string)))
   (slime-dispatch-event `(:emacs-return-string ,string))
   (slime-repl-read-mode -1))
 
@@ -2383,6 +2400,19 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   (with-current-buffer (slime-output-buffer)
     (slime-repl-read-mode -1)
     (message "Read aborted")))
+
+
+;;; Filename translation
+
+(defun slime-to-lisp-filename (filename)
+  "Translate the string FILENAME to a Lisp filename.
+See `slime-translate-to-lisp-filename-function'."
+  (funcall slime-translate-to-lisp-filename-function filename))
+
+(defun slime-from-lisp-filename (filename)
+  "Translate the Lisp filename FILENAME to an Emacs filename.
+See `slime-translate-from-lisp-filename-function'."
+  (funcall slime-translate-from-lisp-filename-function filename))
 
 
 ;;; Compilation and the creation of compiler-note annotations
@@ -2405,14 +2435,15 @@ See `slime-compile-and-load-file' for further details."
   (unless (eq major-mode 'lisp-mode)
     (error "Only valid in lisp-mode"))
   (save-some-buffers)
-  (slime-insert-transcript-delimiter
-   (format "Compile file %s" (buffer-file-name)))
-  (slime-display-output-buffer)
-  (slime-eval-async
-   `(swank:swank-compile-file ,(buffer-file-name) ,(if load t nil))
-   nil
-   (slime-compilation-finished-continuation))
-  (message "Compiling %s.." (buffer-file-name)))
+  (let ((lisp-filename (slime-to-lisp-filename (buffer-file-name))))
+    (slime-insert-transcript-delimiter
+     (format "Compile file %s" lisp-filename))
+    (slime-display-output-buffer)
+    (slime-eval-async
+     `(swank:swank-compile-file ,lisp-filename ,(if load t nil))
+     nil
+     (slime-compilation-finished-continuation))
+    (message "Compiling %s.." lisp-filename)))
 
 (defun slime-find-asd ()
   (if (buffer-file-name)
@@ -2663,7 +2694,7 @@ first element of the source-path redundant."
 (defun slime-goto-location-buffer (buffer)
   (destructure-case buffer
     ((:file filename)
-     (set-buffer (find-file-noselect filename t))
+     (set-buffer (find-file-noselect (slime-from-lisp-filename filename) t))
      (goto-char (point-min)))
     ((:buffer buffer)
      (set-buffer buffer)
@@ -2672,7 +2703,7 @@ first element of the source-path redundant."
      (set-buffer (get-buffer-create "*SLIME Source Form*"))
      (erase-buffer)
      (insert string)
-     (goto-char (point-min)))))  
+     (goto-char (point-min)))))
 
 (defun slime-goto-location-position (position)
   (destructure-case position
@@ -3135,8 +3166,9 @@ package is used."
                 "Can't find completion for \"%s\"" prefix)
                (ding)
                (slime-complete-restore-window-configuration))
-      (delete-region beg end)
+      (goto-char end)
       (insert-and-inherit completed-prefix)
+      (delete-region beg end)
       (goto-char (+ beg (length completed-prefix)))
       (cond ((and (member completed-prefix completion-set)
                   (= (length completion-set) 1))
@@ -3195,9 +3227,7 @@ reading input.  The result is a string (\"\" if no input was given)."
   "Return the starting position of the symbol under point.
 The result is unspecified if there isn't a symbol under the point."
   (save-excursion
-    (unless (looking-at "\\<")
-      (backward-sexp 1))
-    (skip-syntax-forward "'")
+    (skip-syntax-backward "w_") 
     (point)))
 
 (defun slime-symbol-end-pos ()
@@ -3332,7 +3362,7 @@ This for use in the implementation of COMMON-LISP:ED."
         (setq slime-ed-frame (new-frame)))
       (select-frame slime-ed-frame))
     (cond ((stringp what)
-           (find-file what))
+           (find-file (slime-from-lisp-filename what)))
           ((symbolp what)
            (slime-edit-fdefinition (symbol-name what)))
           (t nil))))                    ; nothing in particular
@@ -3409,7 +3439,7 @@ This for use in the implementation of COMMON-LISP:ED."
   
 (defun slime-eval-defun ()
   "Evaluate the current toplevel form.
-Use `slime-re-evaluate-defvar' the current defun starts with '(defvar'"
+Use `slime-re-evaluate-defvar' if the from starts with '(defvar'"
   (interactive)
   (let ((form (slime-defun-at-point)))
     (cond ((string-match "^(defvar " form)
@@ -3502,8 +3532,8 @@ compilation."
 				nil (file-name-sans-extension
 				     (file-name-nondirectory 
 				      (buffer-file-name))))))
-  (slime-eval-with-transcript `(swank:load-file ,(expand-file-name filename))
-                              nil))
+  (let ((lisp-filename (slime-to-lisp-filename (expand-file-name filename))))
+    (slime-eval-with-transcript `(swank:load-file ,lisp-filename) nil)))
 
 
 ;;; Documentation
