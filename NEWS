@@ -1,0 +1,11 @@
+* SLIME News                  -*- outline -*-
+
+This file records changes to SLIME that are interesting for users to
+read about. It is much higher-level than the ChangeLog.
+
+* 0.13 (work in progress)
+
+** The *slime-events* buffer now uses outline-minor-mode.
+This buffer records all the protocol messages sent between Emacs and
+Lisp.
+
