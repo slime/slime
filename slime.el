@@ -4885,11 +4885,15 @@ Confirm that EXPECTED-ARGLIST is displayed."
       ("swank::compound-prefix-match"
        "(swank::compound-prefix-match prefix target)")
       ("swank::create-socket"
-       "(swank::create-socket swank::port)")
+       "(swank::create-socket port)")
       ("swank::emacs-connected"
        "(swank::emacs-connected)")
       ("swank::compile-string-for-emacs"
-       "(swank::compile-string-for-emacs string &key swank::buffer position)"))
+       "(swank::compile-string-for-emacs string &key buffer position)")
+      ("swank::connection.owner-id"
+       "(swank::connection.owner-id structure)")
+      ("cl:class-name"
+       "(cl:class-name class)"))
   (let ((arglist (slime-get-arglist function-name))) ;
     (slime-test-expect "Argument list is as expected"
                        expected-arglist arglist)))
