@@ -1,3 +1,14 @@
+2003-09-28  James Bielman  <jamesjb@jamesjb.com>
+
+	* swank-openmcl.lisp: New file, a Slime backend for OpenMCL 0.14.x.
+	(condition-function-name): Figure out the name of methods correctly
+	instead of passing a list to Emacs.
+
+	* slime.el (slime-goto-location): Try to position notes based on
+	some (questionable) regex searching if the :FUNCTION-NAME property
+	is set.  Used in the OpenMCL backend which does not support source
+	paths.
+
 2003-09-29  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el: Fairly major hacking.
