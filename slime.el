@@ -1551,10 +1551,9 @@ EVAL'd by Lisp."
 
 (defun slime-net-read3 ()
   "Read a 24-bit big-endian integer from buffer."
-  (save-excursion
-    (logior (prog1 (ash (char-after) 16) (forward-char 1))
-            (prog1 (ash (char-after) 8)  (forward-char 1))
-            (char-after))))
+  (logior (ash (char-after 1) 16)
+          (ash (char-after 2) 8)
+          (char-after 3)))
 
 (defun slime-net-enc3 (n)
   "Encode an integer into a 24-bit big-endian string."
@@ -3905,10 +3904,10 @@ are supported:
   "Interpret a reader conditional expression."
   (if (symbolp e)
       (memq (slime-to-feature-keyword e) (slime-lisp-features))
-    (funcall (ecase (car e)
-               ((and AND) #'every)
-               ((or OR) #'some)
-               ((not NOT) (lambda (f l) (not (apply f l)))))
+    (funcall (ecase (slime-to-feature-keyword (car e))
+               (:and #'every)
+               (:or #'some)
+               (:not (lambda (f l) (not (apply f l)))))
              #'slime-eval-feature-conditional
              (cdr e))))
 
