@@ -616,8 +616,9 @@ of the toplevel restart."
 
 (defun send-to-socket-io (event) 
   (log-event "DISPATCHING: ~S~%" event)
-  (flet ((send (o) (without-interrupts 
-                     (encode-message o (current-socket-io)))))
+  (flet ((send (o) 
+           (without-interrupts 
+             (encode-message o (current-socket-io)))))
     (destructure-case event
       (((:debug-activate :debug :debug-return :read-string :read-aborted) 
         thread &rest args)
@@ -1202,23 +1203,22 @@ Errors are trapped and invoke our debugger."
   "Evaluate STRING and return the result.
 If PACKAGE-UPDATE-P is non-nil, and evaluation causes a package
 change, then send Emacs an update."
-  (let (- values)
-    (unwind-protect
-         (with-input-from-string (stream string)
-           (loop for form = (read stream nil stream)
-                 until (eq form stream)
-                 do (progn
-                      (setq - form)
-                      (setq values (multiple-value-list (eval form)))
-                      (force-output))
-                 finally (progn
-                           (fresh-line)
-                           (force-output)
-                           (return (values values -)))))
-      (when (and package-update-p (not (eq *package* *buffer-package*)))
-        (send-to-emacs 
-         (list :new-package (package-name *package*)
-               (package-string-for-prompt *package*)))))))
+  (unwind-protect
+       (with-input-from-string (stream string)
+         (let (- values)
+           (loop
+            (let ((form (read stream nil stream)))
+              (when (eq form stream)
+                (fresh-line)
+                (force-output)
+                (return (values values -)))
+              (setq - form)
+              (setq values (multiple-value-list (eval form)))
+              (force-output)))))
+    (when (and package-update-p (not (eq *package* *buffer-package*)))
+      (send-to-emacs 
+       (list :new-package (package-name *package*)
+             (package-string-for-prompt *package*))))))
 
 (defun package-string-for-prompt (package)
   "Return the shortest nickname (or canonical name) of PACKAGE."
