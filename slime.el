@@ -370,7 +370,10 @@ A prefix argument disables this behaviour."
     ("\M-0" slime-restore-window-configuration :prefixed t :inferior t)
     ("\C-h" hyperspec-lookup :prefixed t :inferior t :sldb t)
     ([(control meta ?\.)] slime-next-location :inferior t)
-    ("\C- " slime-next-location :prefixed t :inferior t)
+    ;; Emacs20 on LinuxPPC signals a 
+    ;; "Invalid character: 400000040, 2147479172, 0xffffffd8"
+    ;; for "\C- ".
+    ;; ("\C- " slime-next-location :prefixed t :inferior t)
     ("~" slime-sync-package-and-default-directory :prefixed t :inferior t)
     ;; Cross reference
     ("\C-wc" slime-who-calls :prefixed t :inferior t :sldb t)
