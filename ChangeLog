@@ -1,3 +1,25 @@
+2003-12-02  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-sbcl.lisp (find-function-locations): Return a non-empty
+	list of source locations.
+
+	* slime.el (slime-with-xref-buffer): Remove spurious comma. (Bug
+	reported by Raymond Wiker).  Some reordering of the xref code.
+
+	* swank.lisp (documentation-symbol): New optional argument for
+	return value if the symbol is not documented.
+
+2003-12-02  Sean O'Rourke  <sorourke@cs.ucsd.edu>
+
+        * slime.el: (slime-repl-{clear-buffer,clear-output}): clear the
+	last and entire output in the *slime-repl* buffer
+	(slime-documentation): pop up a buffer with a symbol's
+	documentation instead of its description, if found.
+	(slime-complete-symbol): tweak to completion, taken from ilisp, to
+	complete filenames inside strings.
+	(slime-set-default-directory): also set *slime-repl*'s
+	default-directory, so e.g. find-file makes sense.
+	
 2003-12-02  Daniel Barlow  <dan@telent.net>
 
 	* slime.el (slime-with-xref-buffer): moved further up the file so
