@@ -1346,6 +1346,12 @@ symbols are returned."
           (push symbol completions))))
     (remove-duplicates completions)))
 
+(defun find-matching-packages (name matcher)
+  "Return a list of package names matching NAME."
+  (let ((to-match (string-upcase name)))
+    (remove-if-not #'(lambda (x) (funcall matcher to-match x))
+                   (mapcar #'package-name (list-all-packages)))))
+
 (defun completion-set (string default-package-name matchp)
   (declare (type simple-base-string string))
   (multiple-value-bind (name package-name package internal-p)
@@ -1356,8 +1362,12 @@ symbols are returned."
                                                 (and (not internal-p)
                                                      package-name)
                                                 matchp)))
+           (packs (and (not package-name)
+                       (find-matching-packages name matchp)))
            (converter (output-case-converter name))
-           (strings (mapcar converter (mapcar #'symbol-name symbols))))
+           (strings
+            (mapcar converter
+                    (nconc (mapcar #'symbol-name symbols) packs))))
       (format-completion-set strings internal-p package-name))))
 
 (defslimefun completions (string default-package-name)
