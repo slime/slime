@@ -1,3 +1,9 @@
+2004-06-28  Thomas F. Burdick  <tfb@OCF.Berkeley.EDU>
+	* swank.lisp (inspector-nth-part):
+	* slime.el (slime-inspector-copy-down, slime-inspector-mode-map):
+	Added copy-down command (M-RET) to easily move an object from the
+	inspector to the repl.
+	
 2004-06-28  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-doc-map): New keymap for documentation
@@ -212,6 +218,7 @@
 
 	* swank.lisp (prefixed-var): Intern *REAL-STANDARD-INPUT* etc in
 	the SWANK package instead of the COMMON-LISP package.
+>>>>>>> 1.436
 
 2004-06-21  Luke Gorrie  <luke@bluetail.com>
 

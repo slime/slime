@@ -2432,12 +2432,12 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
                          collect (cons (princ-to-string label)
                                        (print-part-to-string value)))))))
 
-(defun nth-part (index)
+(defslimefun inspector-nth-part (index)
   (cdr (nth index *inspectee-parts*)))
 
 (defslimefun inspect-nth-part (index)
   (with-buffer-syntax ()
-    (inspect-object (nth-part index))))
+    (inspect-object (inspector-nth-part index))))
 
 (defslimefun inspector-pop ()
   "Drop the inspector stack and inspect the second element.  Return

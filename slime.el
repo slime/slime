@@ -6197,6 +6197,11 @@ Optionally set point to POINT."
 		    'slime-open-inspector)
   (push (point) slime-inspector-mark-stack))
 
+(defun slime-inspector-copy-down (number)
+  (interactive (list (slime-inspector-object-at-point)))
+  (slime-repl-send-string (format "%s" `(swank:inspector-nth-part ,number)))
+  (slime-repl))
+
 (defun slime-inspector-pop ()
   (interactive)
   (slime-eval-async 
@@ -6229,6 +6234,7 @@ Optionally set point to POINT."
 
 (slime-define-keys slime-inspector-mode-map
   ([return] 'slime-inspector-inspect-object-at-point)
+  ([(meta return)] 'slime-inspector-copy-down)
   ("\C-m"   'slime-inspector-inspect-object-at-point)
   ("l" 'slime-inspector-pop)
   ("n" 'slime-inspector-next)
