@@ -1830,7 +1830,9 @@ deal with that."
     ;; then current buffer.  Add a dummy event as workaround. -- he
     (unless (featurep 'xemacs)
       (setq unread-command-events
-            (append (listify-key-sequence "\C-l")
+            (append (listify-key-sequence 
+                     (car (where-is-internal 'recenter
+                                             overriding-local-map nil nil)))
                     unread-command-events)))))
 
 (defun slime-init-output-buffer (connection)
@@ -2501,13 +2503,12 @@ See `slime-compile-and-load-file' for further details."
     (message "Compiling %s.." lisp-filename)))
 
 (defun slime-find-asd ()
-  (if (buffer-file-name)
-      (let ((asdf-systems-in-directory (directory-files
-                                        (file-name-directory (buffer-file-name)) nil "\.asd$")))
-        (if asdf-systems-in-directory
-            (file-name-sans-extension (car asdf-systems-in-directory))
-            ""))
-    ""))
+  (let ((asdf-systems-in-directory 
+         (directory-files (file-name-directory (or default-directory
+                                                   (buffer-file-name)))
+                          nil "\.asd$")))
+    (and asdf-systems-in-directory
+         (file-name-sans-extension (car asdf-systems-in-directory)))))
 
 (defun slime-load-system (&optional system-name)
   "Compile and load an ASDF system.  
@@ -2517,9 +2518,16 @@ buffer's working directory"
   (interactive (list (slime-read-system-name)))
   (slime-oos system-name "LOAD-OP"))
 
-(defun slime-read-system-name ()
-  (let ((d (slime-find-asd)))
-    (read-string (format "System: [%s] " d) nil nil d)))
+(defun slime-read-system-name (&optional prompt initial-value)
+  "Read a system name from the minibuffer, prompting with PROMPT."
+  (setq prompt (or prompt "System: "))
+  (let ((completion-ignore-case nil)
+        (alist (slime-bogus-completion-alist
+                (mapcar #'file-name-sans-extension
+                        (slime-eval 
+                         `(swank:list-all-systems-in-central-registry))))))
+    (completing-read prompt alist nil nil
+                     (or initial-value (slime-find-asd) ""))))
 
 (defun slime-oos (system-name operation &rest keyword-args)
   (save-some-buffers)
