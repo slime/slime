@@ -687,9 +687,9 @@ Supposing (for example) STREAM-VAR is *STANDARD-INPUT*, this macro:
 *CURRENT-STANDARD-INPUT*.
 
 This has the effect of making *CURRENT-STANDARD-INPUT* contain the
-effective global value for *STANDARD-INPUT*. Thus input can be
-redirected via that variable, even if *STANDARD-INPUT* itself is
-shadowed by a dynamic binding."
+effective global value for *STANDARD-INPUT*. This way we can assign
+the effective global value even when *STANDARD-INPUT* is shadowed by a
+dynamic binding."
   (let ((real-stream-var (prefixed-var "REAL" stream-var))
         (current-stream-var (prefixed-var "CURRENT" stream-var)))
     `(progn
@@ -703,10 +703,9 @@ shadowed by a dynamic binding."
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun prefixed-var (prefix variable-symbol)
-    "(PREFIXED-VAR \"FOO\" '*BAR*) => *FOO-BAR*"
+    "(PREFIXED-VAR \"FOO\" '*BAR*) => SWANK::*FOO-BAR*"
     (let ((basename (subseq (symbol-name variable-symbol) 1)))
-      (intern (format nil "*~A-~A" prefix basename)
-              (symbol-package variable-symbol)))))
+      (intern (format nil "*~A-~A" prefix basename) :swank))))
 
 ;;;;; Global redirection setup
 
