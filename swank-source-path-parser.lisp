@@ -47,7 +47,7 @@ before and after of calling FN in the hashtable SOURCE-MAP."
 The source locations are stored in SOURCE-MAP."
   (let* ((tab (copy-readtable readtable))
 	 (*readtable* tab))
-    (dotimes (code char-code-limit)
+    (dotimes (code 128)
       (let ((char (code-char code)))
 	(multiple-value-bind (fn term) (get-macro-character char tab)
 	  (when fn
@@ -70,7 +70,7 @@ subexpressions of the object to stream positions."
 (defun read-source-form (n stream)
   "Read the Nth toplevel form number with source location recording.
 Return the form and the source-map."
-  (let ((*read-suppress* t)) 
+  (let ((*read-suppress* t))
     (dotimes (i n)
       (read stream)))
   (let ((*read-suppress* nil)) 
