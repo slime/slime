@@ -1,5 +1,10 @@
 2004-01-23  Michael Weber  <michaelw@foldr.org>
 
+	* slime.el (slime-keys): Bind C-c M-p to slime-repl-set-package.
+	(slime-easy-menu): Add entry for slime-repl-set-package.
+	
+2004-01-23  Michael Weber  <michaelw@foldr.org>
+
 	* slime.el (slime-repl-set-package): New command to set the
 	package in the REPL buffer.
 
