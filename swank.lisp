@@ -2657,7 +2657,7 @@ NIL is returned if the list is circular."
             ("Total size" (array-total-size array))
             ("Adjustable" (adjustable-array-p array)))
            (when (array-has-fill-pointer-p array)
-             `(("Fill pointer" (fill-pointer array))))
+             (label-value-line "Fill pointer" (fill-pointer array)))
            '("Contents:" (:newline))
            (let ((darray (make-array (array-total-size array)
                                      :element-type (array-element-type array)
