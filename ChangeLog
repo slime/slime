@@ -1,5 +1,31 @@
 2004-02-21  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	Add support for SERVE-EVENT based communication.
+	
+	* swank-sbcl.lisp (add-sigio-handler, remove-sigio-handlers):
+	Renamed.
+	(add-fd-handler, remove-fd-handlers): Implement interface.
+
+	* swank-cmucl.lisp (fcntl): New function.
+	(add-sigio-handler, remove-sigio-handlers): Renamed.
+	(add-fd-handler, remove-fd-handlers): Implement interface.
+
+	* swank.lisp (create-connection): Add support for fd-handlers.
+	(install-fd-handler, deinstall-fd-handler): New functions.
+
+	* swank-backend.lisp (add-sigio-handler): Renamed from
+	add-input-handler.
+	(remove-sigio-handlers): Renamed from remove-input-handlers.
+	(add-fd-handler, remove-fd-handlers): New interface functions.
+
+	* slime.el (slime-batch-test): Use sit-for instead of
+	accept-process-output, so that we see something when swank gets
+	compiled.  May be problematic in real batch mode.
+	(loop-interrupt-continue-interrupt-quit): Wait a second before
+	interrupting.  The signal seems to arrive before the evaluation
+	request if don't wait => the endless loop is executed inside the
+	debugger and sldb-quit will not be processed with fd-handlers.
+
 	* swank.lisp (process-available-input): Move auxiliary function to
 	toplevel.  Test if the stream is open.
 	(install-sigio-handler): Handle the first request after installing
