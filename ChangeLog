@@ -1,3 +1,14 @@
+2005-01-20  Ian Eslick <eslick@csail.mit.edu>
+
+	* swank-allegro.lisp (restart-frame): Handle frames with arguments
+	better.
+
+2005-01-20  Edi Weitz  <edi@agharta.de>
+
+	* swank-allegro.lisp (handle-undefined-functions-warning): Prevent
+	breakage if the undefined function is called at multiple
+	locations.
+
 2005-01-19  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-gray.lisp (stream-unread-char): If the char argument
