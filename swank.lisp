@@ -65,7 +65,7 @@ run.")
 
 ;;;; Setup and Hooks
 
-(defvar *start-swank-in-background* nil)
+(defvar *start-swank-in-background* t)
 (defvar *close-swank-socket-after-setup* nil)
 (defvar *use-dedicated-output-stream* t)
 
