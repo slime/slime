@@ -1,5 +1,8 @@
 2004-01-16  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* swank-openmcl.lisp, swank-cmucl.lisp, swank-backend.lisp,
+	swank.lisp: Refactor inspector code.
+	
 	* swank.lisp (changelog-date): Use *compile-file-truename* instead
 	of *compile-file-pathname*.
 	(with-I/O-lock, with-a-connection): The usual CLISP fixes.
