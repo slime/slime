@@ -1,3 +1,12 @@
+2004-07-21  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-sync-package-and-default-directory): Sync
+	`default-directory' in the REPL buffer too.
+	(slime-set-state): Convenience function for setting a connection's
+	state-name and updating the modeline if appropriate. This function
+	is called in the right places.
+	(slime-to-lisp-filename): Use `expand-file-name'.
+
 2004-07-20  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-repl-update-banner): Restore old behaviour of
