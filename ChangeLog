@@ -1,3 +1,28 @@
+2003-11-27  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-lispworks.lisp: New backend.
+	
+	* slime.el (slime-with-output-to-temp-buffer): Save the window
+	configuration in a buffer local variable instead on a global
+	stack.
+	(slime-show-last-output): Behavior customizable with
+	slime-show-last-output-function.  Various tweaking for better
+	multi-frame support.
+
+	* swank-backend.lisp: List exported symbols explicitly.
+
+	* swank-cmucl.lisp (function-source-location): Better support for
+	generic functions.
+
+	* swank.lisp (briefly-describe-symbol-for-emacs): Don't return
+	unbound symbols.
+	(describe-symbol, describe-function): Support package-qualified
+	strings.
+
+	* swank-loader.lisp: *sysdep-pathnames*: Add Lispworks files.
+	(compile-files-if-needed-serially): Compile all files in a
+	compilation unit.
+
 2003-11-27  Luke Gorrie  <luke@bluetail.com>
 
 	* completer.el: Stolen^Wimported from ILISP version 1.4. This is
