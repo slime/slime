@@ -1,3 +1,13 @@
+2004-07-30  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-connection): Say "No default connection
+	selected" if there are open connections but no default connection.
+	(slime-tree-indent-item): Point wasn't updated correctly if the
+	last line was empty.  Use insert-before-markers instead of insert
+	to do it properly.
+	(slime-draw-connection-list): Don't break if there is no default
+	connection.
+
 2004-07-30  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-choose-overlay-region): Tweaked the
