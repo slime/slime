@@ -201,12 +201,13 @@
       frame (debugger:eval-form-in-context 
              form 
              (debugger:environment-of-frame frame)))))
-                         
-;;; XXX doesn't work for frames with arguments 
+
 (defimplementation restart-frame (frame-number)
   (let ((frame (nth-frame frame-number)))
-    (debugger:frame-retry frame (debugger:frame-function frame))))
-                          
+    (apply #'debugger:frame-retry
+           (append (list frame (debugger:frame-function frame))
+                   (cdr (debugger:frame-expression frame))))))
+
 ;;;; Compiler hooks
 
 (defvar *buffer-name* nil)
@@ -257,14 +258,15 @@
 
 (defun handle-undefined-functions-warning (condition)
   (let ((fargs (slot-value condition 'excl::format-arguments)))
-    (dolist (farg (car fargs))
-      (destructuring-bind (fname (pos file)) farg
-        (signal-compiler-condition
-         :original-condition condition
-         :severity :warning
-         :message (format nil "Undefined function referenced: ~S" fname)
-         :location (make-location (list :file file)
-                                  (list :position (1+ pos))))))))
+    (loop for (fname . pos-file) in (car fargs) do
+          (loop for (pos file) in pos-file do
+                (signal-compiler-condition
+                 :original-condition condition
+                 :severity :warning
+                 :message (format nil "Undefined function referenced: ~S" 
+                                  fname)
+                 :location (make-location (list :file file)
+                                          (list :position (1+ pos))))))))
 
 (defimplementation call-with-compilation-hooks (function)
   (handler-bind ((warning #'handle-compiler-warning)
