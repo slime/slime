@@ -1,3 +1,10 @@
+2004-03-12  Wolfgang Jenkner  <wjenkner@inode.at>
+
+	* swank.lisp (:swank): Export startup-multiprocessing,
+	restart-frame, return-from-frame.
+	What about kill-thread and interrupt-thread, which are accessed
+	as internal symbols?
+
 2004-03-10  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-cmucl.lisp (struct-definitions, find-dd)
