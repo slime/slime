@@ -202,19 +202,21 @@
 
 ;;;; Definition Finding
 
+(defun fspec-primary-name (fspec)
+  (etypecase fspec
+    (symbol (string fspec))
+    (list (string (second fspec)))))
+
 (defun find-fspec-location (fspec type)
-  (let* ((fspec (if (consp fspec) 
-                    (excl::to-internal-fspec fspec)
-                    fspec))
-         (info (car (excl::fspec-fspec-info fspec)))
-         (file (excl::fspec-info-pathname info)))
+  (let ((file (excl:source-file fspec)))
     (etypecase file
       (pathname
-       (let ((start (scm:find-definition-in-file fspec type file)))
+       (let* ((start (scm:find-definition-in-file fspec type file))
+              (pos (if start
+                       (list :position (1+ start))
+                       (list :function-name (fspec-primary-name fspec)))))
          (make-location (list :file (namestring (truename file)))
-                        (if start
-                            (list :position (1+ start))
-                            (list :function-name (string (third info)))))))
+                        pos)))
       ((member :top-level)
        (list :error (format nil "Defined at toplevel: ~A" fspec)))
       (null 
