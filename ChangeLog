@@ -2,8 +2,13 @@
 
 	* swank-sbcl.lisp (locate-compiler-note): Handle errors in macros
 	better.
+	(source-file-source-location): Read the snippet at the right
+	position.
 
-2005-03-20  Helmut Eller  <heller@common-lisp.net>
+	* swank-source-file-cache.lisp (read-snippet): Take the start
+	position as optional argument.
+
+2005-03-21  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-sbcl.lisp (quit-lisp): If we are running multithreaded,
 	terminate all other threads too.  (still broken in 0.8.20.27; used
