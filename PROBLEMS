@@ -52,7 +52,9 @@ LispWorks bug.
 
 ** Allegro CL
 
-No specific notes.
+Interrupting Allegro with C-c C-b can be slow.  This is caused by the
+a relatively large process-quantum: 2 seconds by default.  Allegro
+responds much faster if mp:*default-process-quantum* is set to 0.1.
 
 ** CLISP
 
