@@ -202,16 +202,6 @@ condition."
           (*buffer-offset* nil))
       (compile-file filename :load load-p))))
 
-(defimplementation swank-compile-system (system-name)
-  (with-compilation-hooks ()
-    (let ((*buffer-name* nil)
-          (*buffer-offset* nil))
-      (let ((oos (find-symbol (string :oos) :asdf))
-            (load-op (find-symbol (string :load-op) :asdf)))
-        (cond ((and oos load-op)
-               (funcall oos load-op system-name))
-              (t (error "ASDF not loaded")))))))
-
 (defimplementation swank-compile-string (string &key buffer position)
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)
