@@ -87,7 +87,7 @@
                               server-socket)))
 
 (defun swank-accept-connection (server-socket)
-  (request-loop (ccl:accept-connection server-socket :wait t)))
+  (loop (request-loop (ccl:accept-connection server-socket :wait t))))
 
 (defun request-loop (*emacs-io*)
   "Thread function for a single Swank connection.  Processes requests
@@ -434,6 +434,8 @@ at least the filename containing it."
                          (t 
                           (find-source-locations caller (to-string caller))))))
              callers))))
+
+(defslimefun-unimplemented list-callees (symbol-name))
 
 (defslimefun-unimplemented who-calls (symbol-name))
 (defslimefun-unimplemented who-references (symbol-name package-name))
