@@ -1614,6 +1614,7 @@ inside a `save-excursion' block."
       '(face font-lock-keyword-face 
              read-only t
              intangible t
+             slime-repl-prompt t
              ;; emacs stuff
              rear-nonsticky (slime-repl-prompt read-only face intangible)
              ;; xemacs stuff
@@ -1698,7 +1699,67 @@ after the last prompt to the end of buffer."
            (slime-same-line-p (point) slime-repl-input-start-mark))
       (goto-char slime-repl-input-start-mark)
     (beginning-of-line 1)))
-        
+
+(defun slime-repl-eol ()
+  "Go to the end of line or the prompt."
+  (interactive)
+  (if (and (<= (point) slime-repl-input-end-mark)
+           (slime-same-line-p (point) slime-repl-input-end-mark))
+      (goto-char slime-repl-input-end-mark)
+    (end-of-line 1)))
+
+(defun slime-repl-in-input-area-p ()
+   (and (<= slime-repl-input-start-mark (point))
+        (<= (point) slime-repl-input-end-mark)))
+  
+(defun slime-repl-beginning-of-defun ()
+  "Move to beginning of defun."
+  (interactive)
+  (if (slime-in-input-area-p)
+      (goto-char slime-repl-input-start-mark)
+    (beginning-of-defun)))
+
+(defun slime-repl-end-of-defun ()
+  "Move to next of defun."
+  (interactive)
+  (if (slime-in-input-area-p)
+      (goto-char slime-repl-input-end-mark)
+    (end-of-defun)))
+
+(defun slime-repl-at-prompt-end-p ()
+  (and (get-char-property (max 1 (1- (point))) 'slime-repl-prompt)
+       (not (get-char-property (point) 'slime-repl-prompt))))
+ 
+(defun slime-repl-find-prompt (move)
+  (let ((origin (point)))
+    (loop (funcall move)
+          (when (or (slime-repl-at-prompt-end-p) (bobp) (eobp))
+            (return)))
+    (unless (slime-repl-at-prompt-end-p)
+      (goto-char origin))))
+
+(defun slime-search-property-change-fn (prop &optional backward)
+  (with-lexical-bindings (prop)
+    (if backward 
+        (lambda () 
+          (goto-char
+           (previous-single-char-property-change (point) prop)))
+        (lambda () 
+          (goto-char
+           (next-single-char-property-change (point) prop))))))
+
+(defun slime-repl-previous-prompt ()
+  "Move backward to the previous prompt."
+  (interactive)
+  (slime-repl-find-prompt 
+   (slime-search-property-change-fn 'slime-repl-prompt t)))
+
+(defun slime-repl-next-prompt ()
+  "Move forward to the next prompt."
+  (interactive)
+  (slime-repl-find-prompt
+   (slime-search-property-change-fn 'slime-repl-prompt)))
+
 (defun slime-repl-return ()
   "Evaluate the current input string, or insert a newline.  
 Send the current input ony if a whole expression has been entered,
@@ -1877,6 +1938,7 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   ("\C-\M-m" 'slime-repl-closing-return)
   ([(control return)] 'slime-repl-closing-return)
   ("\C-a" 'slime-repl-bol)
+  ("\C-e" 'slime-repl-eol)
   ("\M-p" 'slime-repl-previous-input)
   ("\M-n" 'slime-repl-next-input)
   ("\M-r" 'slime-repl-previous-matching-input)
@@ -1888,6 +1950,10 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   ("\C-\M-x" 'slime-eval-defun)
   ("\C-c\C-o" 'slime-repl-clear-output)
   ("\C-c\C-t" 'slime-repl-clear-buffer)
+  ("\C-c\C-n" 'slime-repl-next-prompt)
+  ("\C-c\C-p" 'slime-repl-previous-prompt)
+  ("\M-\C-a" 'slime-repl-beginning-of-defun)
+  ("\M-\C-e" 'slime-repl-end-of-defun)
   )
 
 (define-minor-mode slime-repl-read-mode 
@@ -3298,6 +3364,12 @@ CL:MACROEXPAND."
   "Display the recursively macro expanded sexp at point."
   (interactive)
   (slime-eval-macroexpand 'swank:swank-macroexpand-all))
+
+(defun slime-ir1-expand ()
+  "Display the ir1 form of the sexp at point."
+  (interactive)
+  (slime-eval-macroexpand 'swank:print-ir1-converted-blocks))
+
 
 
 ;;; Subprocess control
