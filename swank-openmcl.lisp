@@ -112,8 +112,9 @@
                      (setq *swank-debugger-stack-frame* p)
                      (return-from find-frame))
                    (setq previous-f (ccl::lfun-name lfun)))))
-            (invoke-debugger)
-            (clear-input *terminal-io*)))))))
+      (restart-case (invoke-debugger)
+        (continue () :report (lambda (stream) (write-string "Resume interrupted evaluation" stream)) t))
+      ))))))
 
 (defun accept-loop (server-socket close)
   (unwind-protect (cond (close (accept-one-client server-socket))
