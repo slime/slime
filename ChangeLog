@@ -1,13 +1,23 @@
+2004-04-01  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-sbcl.lisp: Remove the non-working workarounds for
+	non-existent fcntl.  Reported by Brian Mastenbrook.
+	(preferred-communication-style): Use multithreading if futexes are
+	available, sigio if fcntl is present, and fd-handlers otherwise.
+	(resolve-note-location): Don't try to construct a source-location
+	if there's no context.  Notes without location will be displayed
+	in the note-listing buffer.
+
+2004-04-01  Bill Clementson <Bill_Clementson@peoplesoft.com>
+
+	* swank-allegro.lisp (send): Fix misplaced parens.
+
 2004-03-31  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-cmucl.lisp (debug-function-arglist): Return symbols if
 	possible.
 	(class-location): Support for experimental source-location
 	recording.
-
-2004-04-01  Bill Clementson <Bill_Clementson@peoplesoft.com>
-
-	* swank-allegro.lisp (send): Fix misplaced parens.
 
 2004-03-30  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
