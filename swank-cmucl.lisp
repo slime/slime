@@ -24,10 +24,17 @@
              :format-control "Trying to read characters from a binary stream."))
     ;; Let's go as low level as it seems reasonable.
     (let* ((numbytes (- end start))
-           (bytes-read (system:read-n-bytes stream s start numbytes t)))
-      (if (< bytes-read numbytes)
-          (+ start bytes-read)
-          end)))
+           (total-bytes 0))
+      ;; read-n-bytes may return fewer bytes than requested, so we need
+      ;; to keep trying.
+      (loop while (plusp numbytes) do
+            (let ((bytes-read (system:read-n-bytes stream s start numbytes nil)))
+              (when (zerop bytes-read)
+                (return-from read-into-simple-string total-bytes))
+              (incf total-bytes bytes-read)
+              (incf start bytes-read)
+              (decf numbytes bytes-read)))
+      total-bytes))
 
   (let ((s (find-symbol (string :*enable-package-locked-errors*) :lisp)))
     (when s
