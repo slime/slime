@@ -106,8 +106,7 @@ implementation.
 Backends implement these functions using DEFIMPLEMENTATION."
   (check-type documentation string "a documentation string")
   (flet ((gen-default-impl ()
-           (let ((received-args (gensym "ARGS-")))
-             `(defmethod ,name ,args ,@default-body))))
+           `(defmethod ,name ,args ,@default-body)))
      `(progn (defgeneric ,name ,args (:documentation ,documentation))
              (pushnew ',name *interface-functions*)
              ,(if (null default-body)
@@ -214,8 +213,9 @@ This is intended for setting up extra context, e.g. to discover
 that the calling thread is the one that interacts with Emacs.
 
 STREAM is the redirected user output stream to Emacs.  This is passed
-so that the backend can apply buffer flushing magic."  
-  nil)
+so that the backend can apply buffer flushing magic."
+   (declare (ignore stream))
+   nil)
 
 
 ;;;; Unix signals
@@ -346,6 +346,7 @@ This is called for each stream used for interaction with the user
 \(e.g. *standard-output*). An implementation could setup some
 implementation-specific functions to control output flushing at the
 like."
+  (declare (ignore stream))
   nil)
 
 
@@ -444,6 +445,7 @@ the stack.")
 (definterface frame-package (frame)
   "Return the preferred package to use when printing local variables.
 NIL can be used if no particular package is known."
+  (declare (ignore frame))
   nil)
 
 (definterface frame-source-location-for-emacs (frame-number)
@@ -507,12 +509,14 @@ Each reference is one of:
    {:FUNCTION | :SPECIAL-OPERATOR | :MACRO | :SECTION | :GLOSSARY }
    symbol-or-name)
   (:SBCL :NODE node-name)"
+  (declare (ignore condition))
   '())
 
 (definterface condition-extras (condition)
   "Return a list of extra for the debugger.
 The allowed elements are of the form:
   (:SHOW-FRAME-SOURCE frame-number)"
+  (declare (ignore condition))
   '())
 
 (definterface activate-stepping (frame-number)
@@ -556,6 +560,7 @@ LOCATION is the source location for the definition.")
 
 (definterface buffer-first-change (filename)
   "Called for effect the first time FILENAME's buffer is modified."
+  (declare (ignore filename))
   nil)
 
 
@@ -678,12 +683,12 @@ inserted into the buffer as is, or a list of the form:
 
  NIL - do nothing.")
 
-(defmethod inspect-for-emacs (object inspector)
+(defmethod inspect-for-emacs ((object t) (inspector t))
   "Generic method for inspecting any kind of object.
 
 Since we don't know how to deal with OBJECT we simply dump the
 output of CL:DESCRIBE."
-  (declare (ignore inspector inspection-mode))
+  (declare (ignore inspector))
   (values "A value."
           `("Type: " (:value ,(type-of object))
             (:newline)
