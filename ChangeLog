@@ -1,3 +1,8 @@
+2004-08-04  Martin Simmons <martin@xanalys.com>
+
+	* swank-lispworks.lisp (frame-actual-args): Correct syntax for
+	handler-case.
+
 2004-08-04  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el: (slime-mode-map, slime-repl-mode-map)

@@ -246,7 +246,7 @@ Return NIL if the symbol is unbound."
                 ((&rest &optional &key) arg)
                 (t
                  (handler-case (dbg::dbg-eval arg frame)
-                   (error (format nil "<~A>" arg))))))
+                   (error (e) (format nil "<~A>" arg))))))
             (dbg::call-frame-arglist frame))))
 
 (defimplementation print-frame (frame stream)
