@@ -673,7 +673,7 @@ Returns two values: a string which will be used as the title of
 the inspector buffer and a list specifying how to render the
 object for inspection.
 
-Every elementi of the list must be either a string, which will be
+Every element of the list must be either a string, which will be
 inserted into the buffer as is, or a list of the form:
 
  (:value object &optional format) - Render an inspectable
