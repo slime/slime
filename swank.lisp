@@ -51,7 +51,12 @@
            #:default-directory
            #:set-default-directory
            #:quit-lisp
-           ))
+           #:toggle-trace-function
+           #:toggle-trace-generic-function-methods
+           #:toggle-trace-method
+           #:toggle-trace-fdefinition-wherein
+           #:toggle-trace-fdefinition-within
+))
 
 (in-package :swank)
 
@@ -532,6 +537,8 @@ bound to the corresponding VALUE.")
      (encode-message `(,(car event) ,(thread-id thread) ,@args) socket-io))
     ((:read-string thread &rest args)
      (encode-message `(:read-string ,(thread-id thread) ,@args) socket-io))
+    ((:evaluate-in-emacs string thread &rest args)
+     (encode-message `(:evaluate-in-emacs ,string ,(thread-id thread) ,@args) socket-io))
     ((:read-aborted thread &rest args)
      (encode-message `(:read-aborted ,(thread-id thread) ,@args) socket-io))
     ((:emacs-return-string thread-id tag string)
@@ -949,6 +956,20 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
 (defslimefun take-input (tag input)
   "Return the string INPUT to the continuation TAG."
   (throw (intern-catch-tag tag) input))
+
+
+(defun evaluate-in-emacs (string)
+  (let ((*read-input-catch-tag* (1+ *read-input-catch-tag*)))
+    (force-output)
+    (send-to-emacs `(:evaluate-in-emacs ,string ,(current-thread) ,*read-input-catch-tag*))
+    (let ((ok nil))
+      (unwind-protect
+           (prog1 (catch (intern-catch-tag *read-input-catch-tag*)
+                    (loop (read-from-emacs)))
+             (setq ok t))
+        (unless ok 
+          (send-to-emacs `(:read-aborted ,(current-thread)
+                                         *read-input-catch-tag*)))))))
 
 (defslimefun connection-info ()
   "Return a list of the form: 
