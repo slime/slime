@@ -1,7 +1,5 @@
 ;;;; -*- indent-tabs-mode: nil; outline-regexp: ";;;;+" -*-
 
-(declaim (optimize (debug 2)))
-
 (in-package :swank-backend)
 
 (in-package :lisp)
@@ -590,13 +588,18 @@ Return NIL if the right version cannot be found."
            ;; Cache miss.
            (if (equal (file-write-date filename) date)
                ;; File on disk has the correct version.
-               (with-open-file (s filename :direction :input)
-                 (let ((string (make-string (file-length s))))
-                   (read-sequence string s)
-                   (setf (gethash filename *source-file-cache*)
-                         (make-source-cache-entry string date))
-                   string))
+               (let ((source (read-file filename)))
+                 (setf (gethash filename *source-file-cache*)
+                       (make-source-cache-entry source date))
+                 source)
                nil)))))
+
+(defun read-file (filename)
+  "Return the entire contents of FILENAME as a string."
+  (with-open-file (s filename :direction :input)
+    (let ((string (make-string (file-length s))))
+      (read-sequence string s)
+      string)))
 
 (defmacro safe-definition-finding (&body body)
   "Execute BODY ignoring errors.  Return the source location returned
@@ -1134,18 +1137,19 @@ Finish with STREAM positioned at the start of the code location."
       (:file 
        (let* ((code-date (di:debug-source-created debug-source))
               (source (source-cache-get name code-date)))
-         (if (null source)
-             ;; We don't have up-to-date sourcecode. Emacs will have
-             ;; to make a regexp search.
-             ;; XXX Leave position blank. Emacs will plug in the function name.
-             (make-location (list :file (unix-truename name)) nil)
-             (with-open-file (s name :direction :input)
-               (make-location (list :file (unix-truename name))
-                              (list :position
-                                    (1+ (code-location-stream-position
-                                         code-location s)))
-                              `(:snippet ,(read-snippet s)))))))
-      (:stream 
+         (when (null source)
+           ;; We don't have up-to-date sourcecode. Just read the
+           ;; file that we have on disk.
+           ;; XXX Maybe the right solution, but needs code cleanup anyway.
+           (setf source (read-file name)))
+         (make-location (list :file (unix-truename name)) nil)
+         (with-input-from-string (s source)
+           (make-location (list :file (unix-truename name))
+                          (list :position
+                                (1+ (code-location-stream-position
+                                     code-location s)))
+                          `(:snippet ,(read-snippet s))))))
+    (:stream 
        (assert (debug-source-info-from-emacs-buffer-p debug-source))
        (let* ((info (c::debug-source-info debug-source))
               (string (getf info :emacs-buffer-string))
