@@ -1,0 +1,7 @@
+2003-09-04  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-completions): Now supports completing
+	package-internal symbols with "pkg::prefix" syntax.
+
+	* Everything: imported slime-0.2 sources.
+
