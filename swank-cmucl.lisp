@@ -513,6 +513,37 @@ This is useful when debugging the definition-finding code.")
 	  (t (error "Cannot locate struct without constructor: ~S" 
 		    (kernel::dd-name dd))))))
 
+(defun genericp (fn)
+  (typep fn 'generic-function))
+
+(defun gf-definition-location (gf)
+  (flet ((guess-source-file (faslfile)
+           (unix-truename
+            (merge-pathnames (make-pathname :type "lisp")
+                             faslfile))))
+    (let ((def-source (pcl::definition-source gf))
+          (name (string (pcl:generic-function-name gf))))
+      (etypecase def-source
+        (pathname `(:dspec (:file ,(guess-source-file def-source)) ,name))
+        (cons
+         (destructuring-bind ((dg name) pathname) def-source
+           (declare (ignore dg))
+           (if pathname
+               `(:dspec (:file ,(guess-source-file pathname)) 
+                 ,(string name)))))))))
+
+(defun method-source-location (method)
+  (function-source-location (or (pcl::method-fast-function method)
+                                (pcl:method-function method))))
+
+(defun gf-method-locations (gf)
+  (let ((ms (pcl::generic-function-methods gf)))
+    (mapcar #'method-source-location ms)))
+
+(defun gf-source-locations (gf)
+  (list* (gf-definition-location gf)
+         (gf-method-locations gf)))
+
 (defun function-source-location (function)
   "Try to find the canonical source location of FUNCTION."
   ;; First test if FUNCTION is a closure created by defstruct; if so
@@ -525,7 +556,9 @@ This is useful when debugging the definition-finding code.")
   ;; first code-location we find.
   (cond ((struct-closure-p function)
 	 (dd-source-location (struct-closure-dd function)))
-	(t
+        ((genericp function)
+         (car (gf-source-locations function)))
+        (t
          (let ((location (function-first-code-location function)))
            (when location
              (source-location-for-emacs location))))))
@@ -561,8 +594,14 @@ This is useful when debugging the definition-finding code.")
 		   (if (or (boundp symbol) recorded-p)
 		       (doc 'variable))))
       (maybe-push
-       :function (if (fboundp symbol) 
-		     (doc 'function)))
+       :generic-function 
+       (if (and (fboundp symbol)
+                (typep (fdefinition symbol) 'generic-function))
+           (doc 'function)))
+      (maybe-push
+       :function (if (and (fboundp symbol)
+                          (not (typep (fdefinition symbol) 'generic-function)))
+                     (doc 'function)))
       (maybe-push
        :setf (if (or (ext:info setf inverse symbol)
 		     (ext:info setf expander symbol))
