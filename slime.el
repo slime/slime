@@ -1256,9 +1256,6 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
     (string-match "^[^ ]*" name)
     (capitalize (match-string 0 name))))
 
-(slime-def-connection-var slime-debug-level 0
-  "The current level of recursive debugging.")
-
 
 (defvar slime-words-of-encouragement
   `("Let the hacking commence!"
@@ -1605,11 +1602,9 @@ fixnum a specific thread."))
        (sldb-activate thread level))
       ((:debug thread level condition restarts frames)
        (assert thread)
-       (setf (slime-debug-level) level)
        (sldb-setup thread level condition restarts frames))
       ((:debug-return thread level)
        (assert thread)
-       (setf (slime-debug-level) (1- level))
        (sldb-exit thread level))
       ((:emacs-interrupt thread)
        (cond ((slime-use-sigint-for-interrupt) (slime-send-sigint))
@@ -2173,9 +2168,7 @@ end end."
     (slime-insert-propertized '(face slime-repl-result-face) result)
     (unless (bolp) (insert "\n"))
     (let ((prompt-start (point))
-          (prompt (if (> (slime-debug-level) 0)
-                      (format "%s [%d]> " (slime-lisp-package) (slime-debug-level))
-                      (format "%s> "  (slime-lisp-package)))))
+          (prompt (format "%s> "  (slime-lisp-package))))
       (slime-propertize-region
           '(face slime-repl-prompt-face
                  read-only t
