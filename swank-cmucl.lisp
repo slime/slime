@@ -365,10 +365,8 @@ the error-context redundant."
   (with-compilation-hooks ()
     (let ((*buffer-name* nil)
           (*compile-filename* filename))
-      (multiple-value-bind (fasl-file warnings-p failure-p)
-          (compile-file filename)
-        (declare (ignore warnings-p))
-        (when (and load-p (not failure-p))
+      (let ((fasl-file (compile-file filename)))
+        (when (and load-p fasl-file)
           (load fasl-file))))))
 
 (defimplementation compile-string-for-emacs (string &key buffer position)
