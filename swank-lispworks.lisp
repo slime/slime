@@ -60,7 +60,13 @@
 (defimplementation emacs-connected ()
   ;; Set SIGINT handler on Swank request handler thread.
   #-win32 
-  (sys:set-signal-handler +sigint+ (make-sigint-handler mp:*current-process*)))
+  (sys:set-signal-handler +sigint+ (make-sigint-handler mp:*current-process*))
+  (let ((lw:*handle-warn-on-redefinition* :warn))
+    (defmethod env-internals:environment-display-notifier 
+        (env &key restarts condition)
+      (funcall (find-symbol (string :swank-debugger-hook) :swank)
+               condition *debugger-hook*))))
+
 
 ;;; Unix signals
 
@@ -83,6 +89,9 @@
 (defimplementation lisp-implementation-type-name ()
   "lispworks")
 
+(defimplementation set-default-directory (directory)
+  (namestring (hcl:change-directory directory)))
+
 (defimplementation arglist (symbol)
   (let ((arglist (lw:function-lambda-list symbol)))
     (etypecase arglist
@@ -92,6 +101,9 @@
 
 (defimplementation macroexpand-all (form)
   (walker:walk-form form))
+
+(defun gfp (object)
+  (typep object 'generic-function))
 
 (defimplementation describe-symbol-for-emacs (symbol)
   "Return a plist describing SYMBOL.
@@ -112,7 +124,12 @@ Return NIL if the symbol is unbound."
        :variable (when (boundp symbol)
                    (doc 'variable)))
       (maybe-push
-       :function (if (fboundp symbol)
+       :generic-function (if (and (fboundp symbol)
+                                  (gfp (fdefinition symbol)))
+                             (doc 'function)))
+      (maybe-push
+       :function (if (and (fboundp symbol)
+                          (not (gfp (fdefinition symbol))))
                      (doc 'function)))
       (maybe-push
        :class (if (find-class symbol nil) 
@@ -123,7 +140,7 @@ Return NIL if the symbol is unbound."
   (ecase type
     (:variable (describe-symbol symbol))
     (:class (describe (find-class symbol)))
-    (:function (describe-function symbol))))
+    ((:function :generic-function) (describe-function symbol))))
 
 (defun describe-function (symbol)
   (cond ((fboundp symbol)
@@ -151,17 +168,25 @@ Return NIL if the symbol is unbound."
 
 (defimplementation call-with-debugging-environment (fn)
   (dbg::with-debugger-stack ()
-    (let ((*sldb-top-frame* (dbg::debugger-stack-current-frame 
-                             dbg::*debugger-stack*)))
+    (let ((*sldb-top-frame*
+           (dbg::frame-next  
+            (dbg::frame-next  
+             (dbg::frame-next 
+              (dbg::debugger-stack-current-frame dbg::*debugger-stack*))))))
       (funcall fn))))
 
 (defun interesting-frame-p (frame)
-  (or (dbg::call-frame-p frame)
-      (dbg::derived-call-frame-p frame)
-      (dbg::foreign-frame-p frame)
-      (dbg::interpreted-call-frame-p frame)
-      ;;(dbg::catch-frame-p frame)
-      ))
+  (cond ((or (dbg::call-frame-p frame)
+             (dbg::derived-call-frame-p frame)
+             (dbg::foreign-frame-p frame)
+             (dbg::interpreted-call-frame-p frame))
+         t)
+        ((dbg::catch-frame-p frame) dbg:*print-catch-frames*)
+        ((dbg::binding-frame-p frame) dbg:*print-binding-frames*)
+        ((dbg::handler-frame-p frame) dbg:*print-handler-frames*)
+        ((dbg::restart-frame-p frame) dbg:*print-restart-frames*)
+        ((dbg::open-frame-p frame) dbg:*print-open-frames*)
+        (t nil)))
 
 (defun nth-frame (index)
   (do ((frame *sldb-top-frame* (dbg::frame-next frame))
@@ -179,11 +204,17 @@ Return NIL if the symbol is unbound."
 	(incf i)
 	(push frame backtrace)))))
 
+(defun frame-actual-args (frame)
+    (mapcar (lambda (arg)
+              (handler-case (dbg::dbg-eval arg frame)
+                (error (format nil "<~A>" arg))))
+            (dbg::call-frame-arglist frame)))
+
 (defimplementation print-frame (frame stream)
   (cond ((dbg::call-frame-p frame)
-         (format stream "~A ~A"
+         (format stream "~S ~S"
                  (dbg::call-frame-function-name frame)
-                 (dbg::call-frame-arglist frame)))
+                 (frame-actual-args frame)))
         (t (princ frame stream))))
 
 (defimplementation frame-locals (n)
@@ -360,6 +391,10 @@ Return NIL if the symbol is unbound."
 (defxref who-binds      hcl:who-binds)
 (defxref who-sets       hcl:who-sets)
 (defxref list-callees   hcl:calls-who)
+
+(defimplementation who-specializes (classname)
+  (let ((methods (clos:class-direct-methods (find-class classname))))
+    (xref-results (mapcar #'dspec:object-dspec methods))))
 
 (defun xref-results (dspecs)
   (loop for dspec in dspecs
