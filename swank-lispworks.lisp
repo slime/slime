@@ -348,31 +348,30 @@ Return NIL if the symbol is unbound."
 
 #-(or lispworks-4.1 lispworks-4.2)      ; no dspec:parse-form-dspec prior to 4.3
 (defun dspec-stream-position (stream dspec)
-  (with-standard-io-syntax
-   (let ((*read-eval* nil))
-     (loop (let* ((pos (file-position stream))
-                  (form (read stream nil '#1=#:eof)))
-             (when (eq form '#1#)
-               (return nil))
-             (labels ((check-dspec (form)
-                        (when (consp form)
-                          (let ((operator (car form)))
-                            (case operator
-                              ((progn)
-                                (mapcar #'check-dspec
-                                        (cdr form)))
-                              ((eval-when locally macrolet symbol-macrolet)
-                                (mapcar #'check-dspec
-                                        (cddr form)))
-                              ((in-package)
-                               (let ((package (find-package (second form))))
-                                 (when package
-                                   (setq *package* package))))
-                              (otherwise
-                               (let ((form-dspec (dspec:parse-form-dspec form)))
-                                 (when (dspec:dspec-equal dspec form-dspec)
-                                   (return pos)))))))))
-               (check-dspec form)))))))
+  (let ((*read-eval* t))
+    (loop (let* ((pos (file-position stream))
+                 (form (read stream nil '#1=#:eof)))
+            (when (eq form '#1#)
+              (return nil))
+            (labels ((check-dspec (form)
+                       (when (consp form)
+                         (let ((operator (car form)))
+                           (case operator
+                             ((progn)
+                              (mapcar #'check-dspec
+                                      (cdr form)))
+                             ((eval-when locally macrolet symbol-macrolet)
+                              (mapcar #'check-dspec
+                                      (cddr form)))
+                             ((in-package)
+                              (let ((package (find-package (second form))))
+                                (when package
+                                  (setq *package* package))))
+                             (otherwise
+                              (let ((form-dspec (dspec:parse-form-dspec form)))
+                                (when (dspec:dspec-equal dspec form-dspec)
+                                  (return pos)))))))))
+              (check-dspec form))))))
 
 (defun emacs-buffer-location-p (location)
   (and (consp location)
