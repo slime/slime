@@ -95,7 +95,7 @@
 
 (defvar *saved-sigio-handler*)
 
-#+linux
+#+(or)
 (progn
   (defun set-sigio-handler ()
     (setf *saved-sigio-handler*
@@ -115,13 +115,14 @@
       (linux:fcntl3l fd linux:F_SETOWN (getpid))
       (linux:fcntl3l fd linux:F_SETFL linux:O_ASYNC)
       (push (cons fd fn) *sigio-handlers*)))
-  )
 
-(defimplementation remove-input-handlers (socket)
-  (let ((fd (socket:socket-stream-handle socket)))
-    (remove-sigio-handler fd)
-    (setf *sigio-handlers* (delete fd *sigio-handlers* :key #'car)))
-  (close socket))
+
+  (defimplementation remove-input-handlers (socket)
+    (let ((fd (socket:socket-stream-handle socket)))
+      (remove-sigio-handler fd)
+      (setf *sigio-handlers* (delete fd *sigio-handlers* :key #'car)))
+    (close socket))
+  )
 
 ;;; Swank functions
 
