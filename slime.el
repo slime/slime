@@ -2039,7 +2039,11 @@ terminates a current completion."
   (cond ((find last-command-char "()\"'`,# \r\n:")
          (slime-complete-restore-window-configuration)
          (slime-complete-forget-window-configuration))
-        ((eq this-command 'self-insert-command)
+        ((memq this-command '(self-insert-command
+                              slime-complete-symbol
+                              backward-delete-char-untabify
+                              backward-delete-char
+                              scroll-other-window))
          ;; keep going
          )
         (t (slime-complete-forget-window-configuration))))
@@ -3545,7 +3549,7 @@ BODY returns true if the check succeeds."
     "Lookup the argument list for FUNCTION-NAME.
 Confirm that EXPECTED-ARGLIST is displayed."
     '(("swank:start-server"
-       "(swank:start-server &optional (port server-port))")
+       "(swank:start-server port-file-namestring)")
       ("swank::string-prefix-p"
        "(swank::string-prefix-p s1 s2)"))
   (let ((arglist (slime-get-arglist function-name))) ;
@@ -3640,7 +3644,7 @@ expires.\nThe timeout is given in seconds (a floating point number)."
    '(())
    (slime-check "Automaton initially in idle state."
      (slime-test-state-stack '(slime-idle-state)))
-   (slime-eval-async '(loop) "CL-USER" (lambda (_) ))
+   (slime-eval-async '(cl:loop) "CL-USER" (lambda (_) ))
    (let ((sldb-hook
           (lambda ()
             (slime-check "First interrupt."
@@ -3662,7 +3666,7 @@ expires.\nThe timeout is given in seconds (a floating point number)."
    '(())
    (slime-check "Automaton initially in idle state."
      (slime-test-state-stack '(slime-idle-state)))
-   (slime-eval-async '(loop) "CL-USER" (lambda (_) ))
+   (slime-eval-async '(cl:loop) "CL-USER" (lambda (_) ))
    (let ((sldb-hook
           (lambda ()
             (slime-check "First interrupt."
