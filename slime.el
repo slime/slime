@@ -66,13 +66,14 @@
   (require 'overlay))
 (require 'easymenu)
 
-(defvar slime-path
-  (let ((path (locate-library "slime")))
-    (and path (file-name-directory path)))
-  "Directory containing the Slime package.
+(eval-and-compile 
+  (defvar slime-path
+    (let ((path (locate-library "slime")))
+      (and path (file-name-directory path)))
+    "Directory containing the Slime package.
 This is used to load the supporting Common Lisp library, Swank.
 The default value is automatically computed from the location of the
-Emacs Lisp package.")
+Emacs Lisp package."))
 
 (defvar slime-swank-connection-retries nil
   "Number of times to try connecting to the Swank server before aborting.
@@ -1133,13 +1134,14 @@ EVAL'd by Lisp."
           (while (slime-net-have-input-p)
             (let ((event (condition-case error
                              (slime-net-read)
-                           (error "PANIC!"))))
+                           (error 
+                            (ignore-errors (slime-net-close proc))
+                            (error "PANIC!")))))
               (save-current-buffer (slime-dispatch-event event proc))))))
-    (when (some (lambda (p)
-                  (with-current-buffer (process-buffer p)
-                    (slime-net-have-input-p)))
-                slime-net-processes)
-      (run-at-time 0 nil 'slime-process-available-input))))
+    (dolist (p slime-net-processes)
+      (with-current-buffer (process-buffer p)
+        (when (slime-net-have-input-p)
+          (run-at-time 0 nil 'slime-process-available-input))))))
 
 (defun slime-net-have-input-p ()
   "Return true if a complete message is available."
@@ -1307,8 +1309,6 @@ This is automatically synchronized from Lisp.")
 (put 'slime-def-connection-var 'lisp-indent-function 2)
 
 
-
-;;; ***NEW!***
 
 (defvar slime-rex-continuations '()
   "List of (ID . FUNCTION) continuations waiting for RPC results.")
@@ -3803,7 +3803,7 @@ CL:MACROEXPAND."
 
 (defun slime-quit ()
   (interactive)
-  (if (slime-evaluating-p)
+  (if (slime-busy-p)
       (slime-dispatch-event '(:emacs-quit))
     (error "Not evaluating - nothing to quit.")))
 
@@ -4905,14 +4905,6 @@ BODY returns true if the check succeeds."
 ;; Clear out old tests.
 (setq slime-tests nil)
 
-(defun slime-sync-state-stack (state-stack timeout)
-  "Wait until the machine's stack is STATE-STACK or the timeout \
-expires.\nThe timeout is given in seconds (a floating point number)."
-  (let ((end (time-add (current-time) (seconds-to-time timeout))))
-    (loop until (or (slime-test-state-stack state-stack)
-                    (time-less-p end (current-time)))
-          do (accept-process-output nil 0 100000))))
-
 (defun slime-check-top-level (&optional test-name)
   (slime-check "At the top level (no debugging or pending RPCs)"
     (slime-at-top-level-p)))
@@ -5463,7 +5455,6 @@ Unless optional argument INPLACE is non-nil, return a new string."
         slime-output-buffer
         slime-output-filter
         slime-with-output-end-mark
-        ;; Compilation warns due to runtime call to a `cl' function. Annoying.
         slime-process-available-input 
         slime-dispatch-event 
         slime-net-filter 
