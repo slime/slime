@@ -34,6 +34,7 @@
   (setf *sigio-handlers* (delete key *sigio-handlers* :key #'car)))
 
 (defun sigio-handler (signal code scp)
+  (declare (ignore signal code scp))
   (mapc (lambda (handler) (funcall (cdr handler))) *sigio-handlers*)
   )
 
@@ -224,7 +225,7 @@ C:*COMPILER-NOTIFICATION-FUNCTION*. The advantage is that we get to
 craft our own error messages, which can omit a lot of redundant
 information."
   (unless (eq condition *previous-compiler-condition*)
-    (let ((context (or (c::find-error-context nil) *previous-context*)))
+    (let ((context (c::find-error-context nil)))
       (setq *previous-compiler-condition* condition)
       (setq *previous-context* context)
       (signal-compiler-condition condition context))))
@@ -234,7 +235,8 @@ information."
            'compiler-condition
            :original-condition condition
            :severity (severity-for-emacs condition)
-           :message (brief-compiler-message-for-emacs condition context)
+           :short-message (brief-compiler-message-for-emacs condition)
+           :message (long-compiler-message-for-emacs condition context)
            :location (compiler-note-location context))))
 
 (defun severity-for-emacs (condition)
@@ -244,11 +246,15 @@ information."
     (c::style-warning :note)
     (c::warning :warning)))
 
-(defun brief-compiler-message-for-emacs (condition error-context)
+(defun brief-compiler-message-for-emacs (condition)
   "Briefly describe a compiler error for Emacs.
 When Emacs presents the message it already has the source popped up
 and the source form highlighted. This makes much of the information in
 the error-context redundant."
+  (princ-to-string condition))
+
+(defun long-compiler-message-for-emacs (condition error-context)
+  "Describe a compiler error for Emacs including context information."
   (declare (type (or c::compiler-error-context null) error-context))
   (multiple-value-bind (enclosing source)
       (if error-context
@@ -256,7 +262,6 @@ the error-context redundant."
                   (c::compiler-error-context-source error-context)))
     (format nil "~@[--> ~{~<~%--> ~1:;~A~> ~}~%~]~@[~{==>~%~A~^~%~}~]~A"
             enclosing source condition)))
-
 
 (defun compiler-note-location (context)
   (cond (context
@@ -299,10 +304,6 @@ the error-context redundant."
         (*compile-file-truename*
          (make-location (list :file (namestring *compile-file-truename*))
                         (list :position 0)))
-        (*compile-filename*
-         ;; XXX is this _ever_ used?  By what?  *compile-file-truename*
-         ;; should be set by the implementation inside any call to compile-file
-         (make-location (list :file *compile-filename*) (list :position 0)))
         (t 
          (list :error "No error location available"))))
 
@@ -339,14 +340,6 @@ the error-context redundant."
          :source-info `(:emacs-buffer ,buffer 
                         :emacs-buffer-offset ,position
                         :emacs-buffer-string ,string))))))
-
-(defimplementation compile-system-for-emacs (system-name)
-  (with-compilation-hooks ()
-    (cond ((ext:featurep :asdf)
-           (let ((operate (find-symbol (string :operate) :asdf))
-                 (load-op (find-symbol (string :load-op) :asdf)))
-             (funcall operate load-op system-name)))
-          (t (error "ASDF not loaded")))))
 
 
 ;;;; XREF
@@ -412,8 +405,8 @@ reference   ::= (FUNCTION-SPECIFIER . SOURCE-LOCATION)"
 (defun clear-xref-info (namestring)
   "Clear XREF notes pertaining to FILENAME.
 This is a workaround for a CMUCL bug: XREF records are cumulative."
-  (let ((filename (parse-namestring namestring)))
-    (when c:*record-xref-info*
+  (when c:*record-xref-info*
+    (let ((filename (parse-namestring namestring)))
       (dolist (db (list xref::*who-calls*
                         #+cmu19 xref::*who-is-called*
                         #+cmu19 xref::*who-macroexpands*
