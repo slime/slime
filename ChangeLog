@@ -1,5 +1,13 @@
 2004-01-12  Luke Gorrie  <luke@bluetail.com>
 
+	* swank-gray.lisp (slime-input-stream, slime-output-buffer): Added
+	slots to support the new `make-fn-streams' interface from
+	swank-backend.lisp. These slots need to be initialized by the
+	backend, see swank-sbcl.lisp for an example (very easy).
+
+	* swank-sbcl.lisp (create-socket-server): Implemented new server
+	interface.
+
 	* slime.el (slime-handle-oob): Added
 	:open-dedicated-output-stream message, previously implemented
 	with :%apply.
