@@ -50,17 +50,26 @@
 
 ;;;; Setup and Hooks
 
-(defun start-server (port-file-namestring)
-  "Create a SWANK server and write its port number to the file
-PORT-FILE-NAMESTRING in ascii text."
-  (let ((port (create-swank-server 0 :reuse-address t)))
-    (with-open-file (s port-file-namestring
+(defun announce-server-port (file)
+  (lambda (port)
+    (with-open-file (s file
                        :direction :output
                        :if-exists :overwrite
                        :if-does-not-exist :create)
-      (format s "~S~%" port)))
+      (format s "~S~%" port))
+    (when *swank-debug-p*
+      (format *debug-io* "~&;; Swank ready.~%"))))
+
+(defun simple-announce-function (port)
   (when *swank-debug-p*
-    (format *debug-io* "~&;; Swank ready.~%")))
+    (format *debug-io* "~&;; Swank started at port: ~A.~%" port)))
+
+(defun start-server (port-file-namestring)
+  "Create a SWANK server and write its port number to the file
+PORT-FILE-NAMESTRING in ascii text."
+  (create-swank-server 
+   0 :reuse-address t
+   :announce (announce-server-port port-file-namestring)))
 
 
 ;;;; IO to Emacs
@@ -703,7 +712,6 @@ that symbols accessible in the current package go first."
     (cond (foundp (print-description-to-string symbol))
 	  (t (format nil "Unkown symbol: ~S [in ~A]" 
 		     symbol-name *buffer-package*)))))
-	     
 
 (defslimefun describe-function (symbol-name)
   (print-description-to-string
@@ -747,7 +755,7 @@ that symbols accessible in the current package go first."
 (defstruct (:position (:type list) :named (:constructor)) pos)
 
 (defun alistify (list key test)
-  "Partition the element of LIST into an alist.  KEY extracts the key
+  "Partition the elements of LIST into an alist.  KEY extracts the key
 from an element and TEST is used to compare keys."
   (let ((alist '()))
     (dolist (e list)
@@ -757,7 +765,7 @@ from an element and TEST is used to compare keys."
 	    (push e (cdr probe))
             (push (cons k (list e)) alist))))
     alist))
-
+  
 (defun location-position< (pos1 pos2)
   (cond ((and (position-p pos1) (position-p pos2))
          (< (position-pos pos1)
@@ -769,7 +777,7 @@ from an element and TEST is used to compare keys."
 	if (funcall predicate e) collect e into yes
 	else collect e into no
 	finally (return (values yes no))))
-  
+
 (defun group-xrefs (xrefs)
   (flet ((xref-buffer (xref) (location-buffer (cdr xref)))
          (xref-position (xref) (location-position (cdr xref))))
