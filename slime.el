@@ -1130,9 +1130,7 @@ See `slime-compile-and-load-file' for further details."
 
 (defun slime-compile-string (string start-offset)
   (slime-eval-async 
-   `(swank:swank-compile-string ,string
-				,(buffer-name)
-                                ,start-offset)
+   `(swank:swank-compile-string ,string ,(buffer-name) ,start-offset)
    (slime-buffer-package)
    (slime-compilation-finished-continuation)))
 
@@ -3131,13 +3129,13 @@ expires.\nThe timeout is given in seconds."
    '(())
   (let ((sldb-hook (lambda () (sldb-continue))))
     (slime-interactive-eval 
-     "(progn (cerror \"foo\" \"restart\") (cerror \"bar\" \"restart\") t)")
+     "(progn(cerror \"foo\" \"restart\")(cerror \"bar\" \"restart\")(+ 1 2))")
     (slime-sync-state-stack '(slime-idle-state) 5)
     (slime-check "Automaton is back in idle state."
       (slime-test-state-stack '(slime-idle-state)))
     (let ((message (current-message)))
-      (slime-check "Minibuffer contains: \"=> t\""
-        (equal "=> t" message)))))
+      (slime-check "Minibuffer contains: \"=> 3\""
+        (equal "=> 3" message)))))
 
 
 ;;; Portability library
