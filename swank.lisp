@@ -254,6 +254,9 @@ resolution.  Return nil if no such symbol exists."
 (defvar *sldb-level* 0
   "The current level of recursive debugging.")
 
+(defvar *sldb-initial-frames* 20
+  "The initial number of backtrace frames to send to Emacs.")
+
 (defun swank-debugger-hook (condition hook)
   "Debugger entry point, called from *DEBUGGER-HOOK*.
 Sends a message to Emacs declaring that the debugger has been entered,
@@ -288,7 +291,8 @@ that the slime streams are visible so that it can capture them."
       #'slime-debug)))
 
 (defun sldb-loop (level)
-  (send-to-emacs (list* :debug *sldb-level* (debugger-info-for-emacs 0 1)))
+  (send-to-emacs (list* :debug *sldb-level*
+                        (debugger-info-for-emacs 0 *sldb-initial-frames*)))
   (unwind-protect
        (loop (catch 'sldb-loop-catcher
                (with-simple-restart
@@ -526,7 +530,7 @@ format. The cases are as follows:
                          (find-package (case-convert n))
                          *buffer-package* ))))
       (flet ((symbol-matches-p (symbol)
-               (and (compound-string-match name (symbol-name symbol))
+               (and (compound-prefix-match name (symbol-name symbol))
                     (or (or internal-p (null package-name))
                         (symbol-external-p symbol package)))))
         (when package
@@ -570,40 +574,24 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
 
 ;;;;; Subword-word matching
 
-(defun subword-prefix-p (s1 s2 &key (start1 0) end1 (start2 0))
-  "Return true if the subsequence in S1 bounded by START1 and END1
-is found in S2 at START2."
-  (let ((end2 (min (length s2)
-                   (+ start2 (- (or end1 (length s1))
-                                start1)))))
-    (string-equal s1 s2
-                  :start1 start1 :end1 end1
-                  :start2 start2 :end2 end2)))
+(defun compound-prefix-match (prefix target)
+  "Return true if PREFIX is a compound-prefix of TARGET.
+Viewing each of PREFIX and TARGET as a series of substrings delimited
+by hyphens, if each substring of PREFIX is a prefix of the
+corresponding substring in TARGET then we call PREFIX a
+compound-prefix of TARGET.
 
-(defun word-points (string)
-  (declare (string string))
-  (loop for pos = -1 then (position #\- string :start (1+ pos))
-        while pos
-        collect (1+ pos)))
-
-(defun compound-string-match (string1 string2)
-  "Return true if STRING1 is a prefix of STRING2, or if STRING1
-represents a pattern of prefixes and delimiters matching full strings
-and delimiters in STRING2.
 Examples:
-\(compound-string-match \"foo\" \"foobar\") => t
-\(compound-string-match \"m-v-b\" \"multiple-value-bind\") => t
-\(compound-string-match \"m-v-c\" \"multiple-value-bind\") => NIL"
-  (when (<= (length string1) (length string2))
-    (let ((s1-word-points (word-points string1))
-          (s2-word-points (word-points string2)))
-      (when (<= (length s1-word-points) (length s2-word-points))
-        (loop for (start1 end1) on s1-word-points
-              for start2 in s2-word-points
-              always (subword-prefix-p string1 string2
-                                       :start1 start1
-                                       :end1 (and end1 (1- end1))
-                                       :start2 start2))))))
+\(compound-prefix-match \"foo\" \"foobar\") => t
+\(compound-prefix-match \"m--b\" \"multiple-value-bind\") => t
+\(compound-prefix-match \"m-v-c\" \"multiple-value-bind\") => NIL"
+  (loop for ch across prefix
+        with tpos = 0
+        always (and (< tpos (length target))
+                    (if (char= ch #\-)
+                        (setf tpos (position #\- target :start tpos))
+                        (char-equal ch (aref target tpos))))
+        do (incf tpos)))
 
 
 ;;;;; Extending the input string by completion
