@@ -1685,7 +1685,9 @@ Return these values:
 *buffer-package*.  NAME and DEFAULT-PACKAGE-NAME can be nil."
   (let ((string (cond ((equal name "") "KEYWORD")
                       (t (or name default-package-name)))))
-    (if string (guess-package-from-string string nil))))
+    (if string
+        (guess-package-from-string string nil)
+        *buffer-package*)))
 
 ;;;;; Format completion results
 ;;;
