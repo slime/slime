@@ -429,11 +429,8 @@ This list of flushed between commands."))
   (setq slime-pre-command-actions nil))
 
 (defun slime-post-command-hook ()
-  (when slime-mode
-    (when (slime-connected-p)
-      (slime-process-available-input))
-    (when slime-autodoc-mode
-      (slime-autodoc-post-command-hook))))
+  (when (and slime-mode (slime-connected-p))
+    (slime-process-available-input)))
 
 (defun slime-setup-command-hooks ()
   "Setup a buffer-local `pre-command-hook' to call `slime-pre-command-hook'."
@@ -615,8 +612,10 @@ It should be used for \"background\" messages such as argument lists."
 
 (defun slime-symbol-at-point ()
   "Return the symbol at point, otherwise nil."
-  (let ((string (thing-at-point 'symbol)))
-    (if string (intern (substring-no-properties string)) nil)))
+  (save-excursion
+    (skip-syntax-backward "-")
+    (let ((string (thing-at-point 'symbol)))
+      (if string (intern (substring-no-properties string)) nil))))
 
 (defun slime-symbol-name-at-point ()
   "Return the name of the symbol at point, otherwise nil."
@@ -2318,7 +2317,8 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
   (interactive)
   (cond ((and arg (not (eq -1 arg))) (setq slime-autodoc-mode t))
         ((eq -1 arg) (setq slime-autodoc-mode nil))
-        (t (setq slime-autodoc-mode (not slime-autodoc-mode)))))
+        (t (setq slime-autodoc-mode (not slime-autodoc-mode))))
+  (when slime-autodoc-mode (slime-autodoc-start-timer)))
 
 (defun slime-autodoc ()
   "Print some apropos information about the code at point, if applicable."
@@ -2326,7 +2326,7 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
     (let ((name (symbol-name sym))
           (cache-key (slime-qualify-cl-symbol-name sym)))
       (or (when-let (documentation (slime-get-cached-autodoc cache-key))
-            (message documentation)
+            (slime-background-message documentation)
             t)
           ;; Asynchronously fetch, cache, and display arglist
           (slime-arglist
@@ -2337,7 +2337,7 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
                (unless (string-match "<Unknown-Function>" arglist)
                  (setq arglist (slime-format-arglist name arglist))
                  (slime-update-autodoc-cache cache-key arglist)
-                 (message arglist)))))))))
+                 (slime-background-message arglist)))))))))
 
 (defun slime-get-cached-autodoc (symbol-name)
   "Return the cached autodoc documentation for SYMBOL-NAME, or nil."
@@ -2361,12 +2361,29 @@ Return DOCUMENTATION."
      (put (intern symbol-name) 'slime-autodoc-cache documentation)))
   documentation)
 
-(defun slime-autodoc-post-command-hook ()
-  "Function to be called after each Emacs command in a slime-mode buffer.
+
+;;;; Asynchronous message idle timer
+
+(defvar slime-autodoc-idle-timer nil
+  "Idle timer for the next autodoc message.")
+
+(defvar slime-autodoc-delay 0.2
+  "*Delay before autodoc messages are fetched and displayed, in seconds.")
+
+(defun slime-autodoc-start-timer ()
+  "*(Re)start the timer that prints autodocs every `slime-autodoc-delay' seconds."
+  (interactive)
+  (when slime-autodoc-idle-timer
+    (cancel-timer slime-autodoc-idle-timer))
+  (setq slime-autodoc-idle-timer
+        (run-with-idle-timer slime-autodoc-delay slime-autodoc-delay
+                             'slime-autodoc-timer-hook)))
+
+(defun slime-autodoc-timer-hook ()
+  "Function to be called after each Emacs becomes idle.
 When `slime-autodoc-mode' is non-nil, print apropos information about
 the symbol at point if applicable."
-  (assert slime-mode)
-  (when (and (slime-connected-p) (slime-autodoc-message-ok-p) (not (slime-busy-p)))
+  (when (slime-autodoc-message-ok-p)
     (condition-case err
         (slime-autodoc)
       (error
@@ -2375,11 +2392,15 @@ the symbol at point if applicable."
 
 (defun slime-autodoc-message-ok-p ()
   "Return true if printing a message is currently okay (shouldn't annoy the user)."
-  (and (null (current-message))
+  (and slime-mode
+       slime-autodoc-mode
+       (null (current-message))
        (not executing-kbd-macro)
        (not (and (boundp 'edebug-active) edebug-active))
        (not cursor-in-echo-area)
-       (not (eq (selected-window) (minibuffer-window)))))
+       (not (eq (selected-window) (minibuffer-window)))
+       (slime-connected-p)
+       (not (slime-busy-p))))
 
 
 ;;; Typeout frame
@@ -2412,6 +2433,12 @@ the symbol at point if applicable."
       (select-window (frame-selected-window frame))
       (switch-to-buffer "*SLIME-Typeout*")
       (setq slime-typeout-window (selected-window)))))
+
+(defun slime-ensure-typeout-frame ()
+  "Create the typeout frame unless it already exists."
+  (interactive)
+  (unless (slime-typeout-active-p)
+    (slime-make-typeout-frame)))
 
 
 ;;; Completion
