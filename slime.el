@@ -1595,6 +1595,12 @@ EVAL'd by Lisp."
       (insert string))
     (slime-process-available-input)))
 
+(defun slime-run-when-idle (function)
+  "Call FUNCTION as soon as Emacs is idle."
+  (run-at-time (if (featurep 'xemacs) itimer-short-interval 0)
+               nil 
+               function))
+
 (defun slime-process-available-input ()
   "Process all complete messages that have arrived from Lisp."
   (unwind-protect
@@ -1615,7 +1621,7 @@ EVAL'd by Lisp."
     (dolist (p slime-net-processes)
       (with-current-buffer (process-buffer p)
         (when (slime-net-have-input-p)
-          (run-at-time 0 nil 'slime-process-available-input))))))
+          (slime-run-when-idle 'slime-process-available-input))))))
 
 (defun slime-net-have-input-p ()
   "Return true if a complete message is available."
@@ -4552,8 +4558,7 @@ Return true if the configuration was saved."
              (slime-completion-window-active-p))
     ;; XEmacs does not allow us to restore a window configuration from
     ;; pre-command-hook, so we do it asynchronously.
-    (run-at-time
-     0 nil
+    (slime-run-when-idle
      (lambda ()
        (save-excursion
          (set-window-configuration
