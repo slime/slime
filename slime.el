@@ -3698,12 +3698,34 @@ first element of the source-path redundant."
         (re-search-forward 
          (format "[( \t]%s\\>\\(\\s \\|$\\)" name) nil t)))
      (goto-char (match-beginning 0)))
+    ;; Looks for a sequence of words (def<something> method name qualifers specializers
+    ;; don't look for "T" since it isn't requires (arg without t) as class is taken as such.
+    ((:method name specializers . qualifiers)
+     (let ((case-fold-search t)
+           (name (regexp-quote name)))
+       (or 
+        (and 
+	 (re-search-forward 
+	  (setq it (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\>%s%s" name
+		  (apply 'concat (mapcan (lambda(el) (list ".+?\\<" el "\\>")) qualifiers))
+		  (apply 'concat (mapcan (lambda(el) (list ".+?\\<" el "\\>")) (remove "T" specializers)))
+		  )) nil t)
+	 (goto-char (match-beginning 0)))
+;	(slime-goto-location-position `(:function-name ,name))
+	
+	)))
     ((:source-path source-path start-position)
      (cond (start-position
             (goto-char start-position)
             (slime-forward-positioned-source-path source-path))
            (t
-            (slime-forward-source-path source-path))))))
+            (slime-forward-source-path source-path))))
+    ;; Goes to "start" then looks for the anchor text, then moves delta from that position.
+    ((:text-anchored start text delta)
+     (goto-char start)
+     (slime-isearch text)
+     (forward-char delta))
+    ))
 
 (defun slime-goto-source-location (location &optional noerror)
   "Move to the source location LOCATION.  Several kinds of locations
@@ -3719,7 +3741,9 @@ are supported:
 <position> ::= (:position <fixnum> [<align>]) ; 1 based
              | (:line <fixnum> [<fixnum>])
              | (:function-name <string>)
-             | (:source-path <list> <start-position>) "
+             | (:source-path <list> <start-position>) 
+             | (:text-anchored <fixnum> <string> <fixnum>) 
+             | (:method <name string> <specializer strings> . <qualifiers strings>)"
   (destructure-case location
     ((:location buffer position hints)
      (slime-goto-location-buffer buffer)
