@@ -1,3 +1,15 @@
+2004-03-10  Andras Simon <andras@renyi.hu>
+
+	* swank.lisp (print-arglist): Use with-standard-io-syntax.
+
+2004-03-10  Pawel Ostrowski  <pasza@zodiac.mimuw.edu.pl>
+
+	* swank-cmucl.lisp (unprofile-all): (eval '(profile:unprofile))
+	instead of just calling it since it is a macro in cmucl.
+
+	* swank.lisp (:swank): export profile symbols (profiled-functions,
+	profile-report, profile-reset, unprofile-all, profile-package)
+
 2004-03-10  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-allegro.lisp, swank-lispworks.lisp, swank-sbcl.lisp,
