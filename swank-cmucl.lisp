@@ -4,10 +4,11 @@
 
 (in-package :swank)
 
+;; Turn on xref. [should we?]
+(setf c:*record-xref-info* t)
+
 (defun without-interrupts* (body)
   (sys:without-interrupts (funcall body)))
-
-;;; Setup and hooks.
 
 (defun set-fd-non-blocking (fd)
   (flet ((fcntl (fd cmd arg)
@@ -17,10 +18,54 @@
     (let ((flags (fcntl fd unix:F-GETFL 0)))
       (fcntl fd unix:F-SETFL (logior flags unix:O_NONBLOCK)))))
 
-;; (set-fd-non-blocking (sys:fd-stream-fd sys:*stdin*))
-(setf c:*record-xref-info* t)
+
+;;;; TCP server.
 
-;;; TCP Server.
+(defun create-swank-server (port &key reuse-address (address "localhost"))
+  "Create a SWANK TCP server."
+  (let* ((hostent (ext:lookup-host-entry address))
+         (address (car (ext:host-entry-addr-list hostent)))
+         (ip (ext:htonl address)))
+    (let ((fd (ext:create-inet-listener port :stream
+                                        :reuse-address reuse-address
+                                        :host ip)))
+      (system:add-fd-handler fd :input #'accept-connection)
+      (nth-value 1 (ext::get-socket-host-and-port fd)))))
+
+(defun accept-connection (socket)
+  "Accept one Swank TCP connection on SOCKET and then close it."
+  (setup-request-handler (ext:accept-tcp-connection socket))
+  (sys:invalidate-descriptor socket)
+  (unix:unix-close socket))
+
+(defun setup-request-handler (socket)
+  "Setup request handling for SOCKET."
+  (let* ((stream (sys:make-fd-stream socket
+                                     :input t :output t
+                                     :element-type 'base-char))
+         (input (make-slime-input-stream))
+         (output (make-slime-output-stream))
+         (io (make-two-way-stream input output)))
+    (system:add-fd-handler socket
+                           :input (lambda (fd)
+                                    (declare (ignore fd))
+                                    (serve-request stream output input io)))))
+
+(defun serve-request (*emacs-io* *slime-output* *slime-input* *slime-io*)
+  "Read and process a request from a SWANK client.
+The request is read from the socket as a sexp and then evaluated."
+  (catch 'slime-toplevel
+    (with-simple-restart (abort "Return to Slime toplevel.")
+      (handler-case (read-from-emacs)
+	(slime-read-error (e)
+	  (when *swank-debug-p*
+	    (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
+	  (sys:invalidate-descriptor (sys:fd-stream-fd *emacs-io*))
+	  (close *emacs-io*)))))
+  (sys:scrub-control-stack))
+
+
+;;;; Stream handling
 
 (defstruct (slime-output-stream
 	     (:include lisp::lisp-stream
@@ -107,58 +152,7 @@
     (:element-type 'base-char)
     (:close nil)))
 
-(defun create-swank-server (port &key reuse-address (address "localhost"))
-  "Create a SWANK TCP server."
-  (let* ((hostent (ext:lookup-host-entry address))
-         (address (car (ext:host-entry-addr-list hostent)))
-         (ip (ext:htonl address)))
-    (let ((fd (ext:create-inet-listener port :stream
-                                        :reuse-address reuse-address
-                                        :host ip)))
-      (system:add-fd-handler fd :input #'accept-connection)
-      (nth-value 1 (ext::get-socket-host-and-port fd)))))
-
-(defun accept-connection (socket)
-  "Accept one Swank TCP connection on SOCKET and then close it."
-  (setup-request-handler (ext:accept-tcp-connection socket))
-  (sys:invalidate-descriptor socket)
-  (unix:unix-close socket))
-
-(defun setup-request-handler (socket)
-  "Setup request handling for SOCKET."
-  (let* ((stream (sys:make-fd-stream socket
-                                     :input t :output t
-                                     :element-type 'base-char))
-         (input (make-slime-input-stream))
-         (output (make-slime-output-stream))
-         (io (make-two-way-stream input output)))
-    (system:add-fd-handler socket
-                           :input (lambda (fd)
-                                    (declare (ignore fd))
-                                    (serve-request stream output input io)))))
-
-(defun serve-request (*emacs-io* *slime-output* *slime-input* *slime-io*)
-  "Read and process a request from a SWANK client.
-The request is read from the socket as a sexp and then evaluated."
-  (catch 'slime-toplevel
-    (with-simple-restart (abort "Return to Slime toplevel.")
-      (handler-case (read-from-emacs)
-	(slime-read-error (e)
-	  (when *swank-debug-p*
-	    (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
-	  (sys:invalidate-descriptor (sys:fd-stream-fd *emacs-io*))
-	  (close *emacs-io*)))))
-  (sys:scrub-control-stack))
-
-;;;
-
-(defslimefun set-default-directory (directory)
-  (setf (ext:default-directory) (namestring directory))
-  ;; Setting *default-pathname-defaults* to an absolute directory
-  ;; makes the behavior of MERGE-PATHNAMES a bit more intuitive.
-  (setf *default-pathname-defaults* (pathname (ext:default-directory)))
-  (namestring (ext:default-directory)))
-
+
 ;;;; Compilation Commands
 
 (defvar *swank-source-info* nil
@@ -184,6 +178,7 @@ The request is read from the socket as a sexp and then evaluated."
 (defvar *compiler-notes* '()
   "List of compiler notes for the last compilation unit.")
 
+
 ;;;;; Trapping notes
 
 (defun handle-notification-condition (condition)
@@ -261,8 +256,8 @@ the error-context redundant."
 			       (source (eql nil)))
   '(:null))
 
-;;(defun call-trapping-compilation-notes (fn)
 (defmacro with-compilation-hooks (() &body body)
+  "Execute BODY and record the set of compiler notes."
   `(let ((*previous-compiler-condition* nil)
          (*previous-context* nil))
     (handler-bind ((c::compiler-error #'handle-notification-condition)
@@ -291,65 +286,8 @@ the error-context redundant."
                         :emacs-buffer-offset ,position
                         :emacs-buffer-string ,string))))))
 
-(defun clear-xref-info (namestring)
-  "Clear XREF notes pertaining to FILENAME.
-This is a workaround for a CMUCL bug: XREF records are cumulative."
-  (let ((filename (parse-namestring namestring)))
-    (when c:*record-xref-info*
-      (dolist (db (list xref::*who-calls*
-                        #+cmu19 xref::*who-is-called*
-                        #+cmu19 xref::*who-macroexpands*
-                        xref::*who-references*
-                        xref::*who-binds*
-                        xref::*who-sets*))
-        (maphash (lambda (target contexts)
-                   (setf (gethash target db)
-                         (delete-if 
-			  (lambda (ctx)
-			    (xref-context-derived-from-p ctx filename))
-			  contexts)))
-                 db)))))
-
-(defun xref-context-derived-from-p (context filename)
-  (let ((xref-file (xref:xref-context-file context)))
-    (and xref-file (pathname= filename xref-file))))
-  
-(defun pathname= (&rest pathnames)
-  "True if PATHNAMES refer to the same file."
-  (apply #'string= (mapcar #'unix-truename pathnames)))
-
-(defun unix-truename (pathname)
-  (ext:unix-namestring (truename pathname)))
-
-(defmethod arglist-string (fname)
-  "Return a string describing the argument list for FNAME.
-The result has the format \"(...)\"."
-  (declare (type string fname))
-  (multiple-value-bind (function condition)
-      (ignore-errors (values (find-symbol-designator fname *buffer-package*)))
-    (when condition
-      (return-from arglist-string (format nil "(-- ~A)" condition)))
-    (let ((arglist
-	   (if (not (or (fboundp function)
-			(functionp function)))
-	       "(-- <Unknown-Function>)"
-	       (let* ((fun (or (macro-function function)
-                               (symbol-function function)))
-		      (df (di::function-debug-function fun))
-		      (arglist (kernel:%function-arglist fun)))
-		 (cond ((eval:interpreted-function-p fun)
-			(eval:interpreted-function-arglist fun))
-		       ((pcl::generic-function-p fun)
-			(pcl::gf-pretty-arglist fun))
-		       (arglist arglist)
-		       ;; this should work both for
-		       ;; compiled-debug-function and for
-		       ;; interpreted-debug-function
-		       (df (di::debug-function-lambda-list df))
-		       (t "(<arglist-unavailable>)"))))))
-      (if (stringp arglist)
-	  arglist
-	  (to-string arglist)))))
+
+;;;; XREF
 
 (defslimefun who-calls (function-name)
   "Return the places where FUNCTION-NAME is called."
@@ -409,6 +347,39 @@ It is assumed that all contexts belong to the same file."
   "Return true if PATH1 is lexically before PATH2."
   (and (every #'< path1 path2)
        (< (length path1) (length path2))))
+
+(defun clear-xref-info (namestring)
+  "Clear XREF notes pertaining to FILENAME.
+This is a workaround for a CMUCL bug: XREF records are cumulative."
+  (let ((filename (parse-namestring namestring)))
+    (when c:*record-xref-info*
+      (dolist (db (list xref::*who-calls*
+                        #+cmu19 xref::*who-is-called*
+                        #+cmu19 xref::*who-macroexpands*
+                        xref::*who-references*
+                        xref::*who-binds*
+                        xref::*who-sets*))
+        (maphash (lambda (target contexts)
+                   (setf (gethash target db)
+                         (delete-if 
+			  (lambda (ctx)
+			    (xref-context-derived-from-p ctx filename))
+			  contexts)))
+                 db)))))
+
+(defun xref-context-derived-from-p (context filename)
+  (let ((xref-file (xref:xref-context-file context)))
+    (and xref-file (pathname= filename xref-file))))
+  
+(defun pathname= (&rest pathnames)
+  "True if PATHNAMES refer to the same file."
+  (apply #'string= (mapcar #'unix-truename pathnames)))
+
+(defun unix-truename (pathname)
+  (ext:unix-namestring (truename pathname)))
+
+
+;;;; Find callers and callees
 
 ;;; Find callers and callees by looking at the constant pool of
 ;;; compiled code objects.  We assume every fdefn object in the
@@ -573,7 +544,8 @@ This is useful when debugging the definition-finding code.")
         (handler-case (funcall finder)
           (error (e) (list :error (format nil "Error: ~A" e)))))))
 
-;;;
+
+;;;; Documentation.
 
 (defmethod describe-symbol-for-emacs (symbol)
   (let ((result '()))
@@ -652,13 +624,41 @@ This is useful when debugging the definition-finding code.")
 (defslimefun describe-alien-enum (symbol-name)
   (%describe-alien symbol-name :enum))
 
-;;; Macroexpansion
+(defmethod arglist-string (fname)
+  "Return a string describing the argument list for FNAME.
+The result has the format \"(...)\"."
+  (declare (type string fname))
+  (multiple-value-bind (function condition)
+      (ignore-errors (values (find-symbol-designator fname *buffer-package*)))
+    (when condition
+      (return-from arglist-string (format nil "(-- ~A)" condition)))
+    (let ((arglist
+	   (if (not (or (fboundp function)
+			(functionp function)))
+	       "(-- <Unknown-Function>)"
+	       (let* ((fun (or (macro-function function)
+                               (symbol-function function)))
+		      (df (di::function-debug-function fun))
+		      (arglist (kernel:%function-arglist fun)))
+		 (cond ((eval:interpreted-function-p fun)
+			(eval:interpreted-function-arglist fun))
+		       ((pcl::generic-function-p fun)
+			(pcl::gf-pretty-arglist fun))
+		       (arglist arglist)
+		       ;; this should work both for
+		       ;; compiled-debug-function and for
+		       ;; interpreted-debug-function
+		       (df (di::debug-function-lambda-list df))
+		       (t "(<arglist-unavailable>)"))))))
+      (if (stringp arglist)
+	  arglist
+	  (to-string arglist)))))
+
+
+;;;; Miscellaneous.
 
 (defmethod macroexpand-all (form)
   (walker:macroexpand-all form))
-
-
-;;;
 
 (defun tracedp (fname)
   (gethash (debug::trace-fdefinition fname)
@@ -672,26 +672,34 @@ This is useful when debugging the definition-finding code.")
 	  (t
 	   (debug::trace-1 fname (debug::make-trace-info))
 	   (format nil "~S is now traced." fname)))))
-
-;;; Source-path business
 
-;; CMUCL uses a data structure called "source-path" to locate
-;; subforms.  The compiler assigns a source-path to each form in a
-;; compilation unit.  Compiler notes usually contain the source-path
-;; of the error location.
-;;
-;; Compiled code objects don't contain source paths, only the
-;; "toplevel-form-number" and the (sub-) "form-number".  To get from
-;; the form-number to the source-path we need the entire toplevel-form
-;; (i.e. we have to read the source code).  CMUCL has already some
-;; utilities to do this translation, but we use some extended
-;; versions, because we need more exact position info.  Apparently
-;; Hemlock is happy with the position of the toplevel-form; we also
-;; need the position of subforms.
-;;
-;; We use a special readtable to get the positions of the subforms.
-;; The readtable stores the start and end position for each subform in
-;; hashtable for later retrieval.
+(defslimefun set-default-directory (directory)
+  (setf (ext:default-directory) (namestring directory))
+  ;; Setting *default-pathname-defaults* to an absolute directory
+  ;; makes the behavior of MERGE-PATHNAMES a bit more intuitive.
+  (setf *default-pathname-defaults* (pathname (ext:default-directory)))
+  (namestring (ext:default-directory)))
+
+
+;;;; Source-paths
+
+;;; CMUCL uses a data structure called "source-path" to locate
+;;; subforms.  The compiler assigns a source-path to each form in a
+;;; compilation unit.  Compiler notes usually contain the source-path
+;;; of the error location.
+;;;
+;;; Compiled code objects don't contain source paths, only the
+;;; "toplevel-form-number" and the (sub-) "form-number".  To get from
+;;; the form-number to the source-path we need the entire toplevel-form
+;;; (i.e. we have to read the source code).  CMUCL has already some
+;;; utilities to do this translation, but we use some extended
+;;; versions, because we need more exact position info.  Apparently
+;;; Hemlock is happy with the position of the toplevel-form; we also
+;;; need the position of subforms.
+;;;
+;;; We use a special readtable to get the positions of the subforms.
+;;; The readtable stores the start and end position for each subform in
+;;; hashtable for later retrieval.
 
 (defun make-source-recorder (fn source-map)
   "Return a macro character function that does the same as FN, but
@@ -835,40 +843,30 @@ to find the position of the corresponding form."
   (handler-case (source-location-for-emacs code-location)
     (t (c) (list :error (debug::safe-condition-message c)))))
 
-
-;;; Debugging
-
-(defvar *sldb-level* 0)
-(defvar *sldb-stack-top*)
-(defvar *sldb-restarts*)
-
 (defslimefun getpid ()
   (unix:unix-getpid))
 
-(defslimefun sldb-loop ()
+
+;;;; Debugging
+
+(defvar *sldb-stack-top*)
+(defvar *sldb-restarts*)
+
+(defmethod call-with-debugging-environment (debugger-loop-fn)
   (unix:unix-sigsetmask 0)
-  (let* ((*sldb-level* (1+ *sldb-level*))
-	 (*sldb-stack-top* (or debug:*stack-top-hint* (di:top-frame)))
+  (let* ((*sldb-stack-top* (or debug:*stack-top-hint* (di:top-frame)))
 	 (*sldb-restarts* (compute-restarts *swank-debugger-condition*))
 	 (debug:*stack-top-hint* nil)
 	 (*debugger-hook* nil)
-	 (level *sldb-level*)
-	 (*package* *buffer-package*)
 	 (*readtable* (or debug:*debug-readtable* *readtable*))
 	 (*print-level* debug:*debug-print-level*)
 	 (*print-length* debug:*debug-print-length*))
-    (send-to-emacs (list* :debug *sldb-level* (debugger-info-for-emacs 0 1)))
     (handler-bind ((di:debug-condition 
 		    (lambda (condition)
-		      (send-to-emacs `(:debug-condition
-				       ,(princ-to-string condition)))
-		      (throw 'sldb-loop-catcher nil))))
-      (unwind-protect
-	   (loop
-	    (catch 'sldb-loop-catcher
- 	      (with-simple-restart (abort "Return to sldb level ~D." level)
-		(read-from-emacs))))
-	(send-to-emacs `(:debug-return ,level))))))
+                      (signal (make-condition
+                               'sldb-condition
+                               :original-condition condition)))))
+      (funcall debugger-loop-fn))))
 
 (defun format-restarts-for-emacs ()
   "Return a list of restarts for *swank-debugger-condition* in a
@@ -909,7 +907,7 @@ stack."
 (defslimefun backtrace-for-emacs (start end)
   (mapcar #'format-frame-for-emacs (compute-backtrace start end)))
 
-(defslimefun debugger-info-for-emacs (start end)
+(defmethod debugger-info-for-emacs (start end)
   (list (format-condition-for-emacs)
 	(format-restarts-for-emacs)
 	(backtrace-for-emacs start end)))
@@ -955,7 +953,7 @@ stack."
   (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
 
 
-;;; Inspecting
+;;;; Inspecting
 
 (defvar *inspectee*)
 (defvar *inspectee-parts*)

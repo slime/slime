@@ -412,39 +412,29 @@ Return NIL if the symbol is unbound."
 	   (sb-debug::trace-1 fname (sb-debug::make-trace-info))
 	   (format nil "~S is now traced." fname)))))
 
-
-;;; Debugging
-
-(defvar *sldb-level* 0)
-(defvar *sldb-stack-top*)
-(defvar *sldb-restarts*)
-
 (defslimefun getpid ()
   (sb-unix:unix-getpid))
 
-(defslimefun sldb-loop ()
-  (let* ((*sldb-level* (1+ *sldb-level*))
-	 (*sldb-stack-top* (or sb-debug:*stack-top-hint* (sb-di:top-frame)))
+
+;;; Debugging
+
+(defvar *sldb-stack-top*)
+(defvar *sldb-restarts*)
+
+(defmethod call-with-debugging-environment (debugger-loop-fn)
+  (let* ((*sldb-stack-top* (or sb-debug:*stack-top-hint* (sb-di:top-frame)))
 	 (*sldb-restarts* (compute-restarts *swank-debugger-condition*))
 	 (sb-debug:*stack-top-hint* nil)
 	 (*debugger-hook* nil)
-	 (level *sldb-level*)
-	 (*package* *buffer-package*)
 	 (*readtable* (or sb-debug:*debug-readtable* *readtable*))
 	 (*print-level* nil #+nil sb-debug:*debug-print-level*)
 	 (*print-length* nil #+nil sb-debug:*debug-print-length*))
-    (send-to-emacs (list* :debug *sldb-level* (debugger-info-for-emacs 0 1)))
     (handler-bind ((sb-di:debug-condition 
 		    (lambda (condition)
-		      (send-to-emacs `(:debug-condition
-				       ,(princ-to-string condition)))
-		      (throw 'sldb-loop-catcher nil))))
-      (unwind-protect
-	   (loop
-	    (catch 'sldb-loop-catcher
-	      (with-simple-restart (abort "Return to sldb level ~D." level)
-		(read-from-emacs))))
-	(send-to-emacs `(:debug-return ,level))))))
+                      (signal (make-condition
+                               'sldb-condition
+                               :original-condition condition)))))
+      (funcall debugger-loop-fn))))
 
 (defun format-restarts-for-emacs ()
   "Return a list of restarts for *swank-debugger-condition* in a
@@ -488,7 +478,7 @@ stack."
 (defslimefun backtrace-for-emacs (start end)
   (mapcar #'format-frame-for-emacs (compute-backtrace start end)))
 
-(defslimefun debugger-info-for-emacs (start end)
+(defmethod debugger-info-for-emacs (start end)
   (list (format-condition-for-emacs)
 	(format-restarts-for-emacs)
 	(backtrace-for-emacs start end)))

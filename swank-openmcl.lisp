@@ -157,10 +157,11 @@ condition."
            :location
            (let ((position (condition-source-position condition)))
              (if *buffer-name*
-                 (list :emacs-buffer *buffer-name* position)
+                 (list :emacs-buffer *buffer-name* position t)
                  (list :file
                        (ccl::compiler-warning-file-name condition)
-                       position))))))
+                       position
+                       t))))))
 
 (defun temp-file-name ()
   "Return a temporary file name to compile strings into."
@@ -185,19 +186,17 @@ condition."
           (delete-file binary-filename)))
       (delete-file filename))))
 
-;;; Debugging
-
-(defvar *sldb-level* 0)
-(defvar *sldb-stack-top*)
-(defvar *sldb-restarts*)
-
 (defslimefun getpid ()
   "Return the process ID of this superior Lisp."
   (ccl::getpid))
 
-(defslimefun sldb-loop ()
-  (let* ((*sldb-level* (1+ *sldb-level*))
-         (*sldb-stack-top* nil)
+;;; Debugging
+
+(defvar *sldb-stack-top*)
+(defvar *sldb-restarts*)
+
+(defmethod call-with-debugging-environment (debugger-loop-fn)
+  (let* ((*sldb-stack-top* nil)
          ;; This is a complete hack --- since we're not running at top level we
          ;; don't want to publish the last restart to Emacs which would allow
          ;; the user to break outside of the request loop.  What's the right
@@ -205,15 +204,8 @@ condition."
          (*sldb-restarts* (butlast
                            (compute-restarts *swank-debugger-condition*)))
          (*debugger-hook* nil)
-         (level *sldb-level*)
          (*package* *buffer-package*))
-    (send-to-emacs (list* :debug *sldb-level* (debugger-info-for-emacs 0 1)))
-    (unwind-protect
-         (loop
-          (catch 'sldb-loop-catcher
-            (with-simple-restart (abort "Return to sldb level ~D." level)
-              (read-from-emacs))))
-      (send-to-emacs `(:debug-return ,level)))))
+    (funcall debugger-loop-fn)))
 
 (defun format-restarts-for-emacs ()
   (loop for restart in *sldb-restarts*
@@ -299,7 +291,7 @@ If the backtrace cannot be calculated, this function returns NIL."
                    start-frame-number end-frame-number)
     (nreverse result)))
 
-(defslimefun debugger-info-for-emacs (start end)
+(defmethod debugger-info-for-emacs (start end)
   (list (format-condition-for-emacs)
         (format-restarts-for-emacs)
         (backtrace-for-emacs start end)))
