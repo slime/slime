@@ -1,3 +1,17 @@
+2003-11-15  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el: Some tweaking for better scrolling in the *slime-repl*
+	buffer (suggested by Jan Rychter).
+	(slime-compile-file): Display the output buffer at the beginning.
+	(slime-show-last-output): Include the prompt so that window-point
+	is updated properly.
+	(slime-with-output-at-eob): Update window-point if the buffer is
+	visible.
+	(slime-state/event-panic): Include the *slime-events* and
+	*cl-connection* buffers in the report.
+
+	* swank-cmucl.lisp (sos/out): Don't flush the buffer on newlines.
+
 2003-11-13  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el: Imititate an "output-mark".  Output from Lisp should
