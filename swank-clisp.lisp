@@ -32,6 +32,19 @@
   (when (find-package "LINUX")
     (pushnew :linux *features*)))
 
+;;;; if this listp has the complete CLOS then we use it, othewise we
+;;;; build up a "fake" swank-mop and then overide the methods in the
+;;;; inspector.
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defvar *have-mop*
+    (if (and (find-package :clos)
+             (eql :external
+                  (nth-value 1 (find-symbol (string ':standard-slot-definition) :clos))))
+        '(and)
+        '(or))))
+
+#+#.*have-mop*
 (import-to-swank-mop
  '(;; classes
    cl:standard-generic-function
@@ -74,8 +87,14 @@
    clos:slot-definition-writers
    ))
 
+#+#.*have-mop*
 (defun swank-mop:slot-definition-documentation (slot)
   (clos::slot-definition-documentation slot))
+
+#-#.*have-mop*
+(defclass swank-mop:standard-slot-definition ()
+  ()
+  (:documentation "Dummy class created so that swank.lisp will compile and load."))
 
 #+linux
 (defmacro with-blocked-signals ((&rest signals) &body body)
@@ -493,9 +512,41 @@ Execute BODY with NAME's funtion slot set to FUNCTION."
                    collect `(:value ,value)
                    collect '(:newline))))))
 
-(defmethod inspect-for-emacs :around ((n number) (inspector clisp-inspector))
-  (let ((custom:*warn-on-floating-point-rational-contagion* nil))
-    (call-next-method)))
+#-#.*have-mop*
+(defmethod inspect-for-emacs ((o standard-object) (inspector clisp-inspector))
+  (declare (ignore inspector))
+  (values (format nil "An instance of the class" (class-of o))
+          `("Sorry, inspecting of instances is not supported in this version of CLISP."
+            (:newline)
+            "Please upgrade to a recent version of CLISP.")))
+
+#-#.*have-mop*
+(defmethod inspect-for-emacs ((gf standard-generic-function) (inspector clisp-inspector))
+  (declare (ignore inspector))
+  (values "A generic function."
+          `("Sorry, inspecting of generic functions is not supported in this version of CLISP."
+            (:newline)
+            "Please upgrade to a recent version of CLISP.")))
+
+#-#.*have-mop*
+(defmethod inspect-for-emacs ((method standard-method) (inspector t))
+  (declare (ignore inspector))
+  (values "A standard method."
+          `("Sorry, inspecting of methods is not supported in this version of CLISP."
+            (:newline)
+            "Please upgrade to a recent version of CLISP.")))
+
+#-#.*have-mop*
+(defmethod inspect-for-emacs ((class standard-class) (inspector t))
+  (declare (ignore inspector))
+  (values "A class."
+          `("Sorry, inspecting of classes is not supported in this version of CLISP."
+            (:newline)
+            "Please upgrade to a recent version of CLISP.")))
+
+#-#.*have-mop*
+(defmethod inspect-for-emacs ((slot swank-mop:standard-slot-definition) (inspector t))
+  (declare (ignore inspector)))
 
 (defimplementation quit-lisp ()
   (#+lisp=cl ext:quit #-lisp=cl lisp:quit code))
