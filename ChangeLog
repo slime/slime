@@ -1,3 +1,13 @@
+2004-05-25  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-kill-without-query-p): Default to T.
+	(sldb-highlight): Variable to control face-based highlighting of
+	SLDB locations. (In Emacs21 the point is visible even in unselected
+	windows, which is sufficient for me.)
+	(sldb-show-location-recenter-arg): Argument to `recenter' when
+	showing SLDB locations. Default to nil, i.e. location appears in
+	the middle of the window.
+
 2004-05-24  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-input-complete-p): Return nil for unbalanced
