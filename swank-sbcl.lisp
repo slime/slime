@@ -838,8 +838,21 @@ stack."
     (format nil "Thread ~D" thread))
 
   (defimplementation thread-status (thread)
-    (declare (ignore thread))
-    "???")
+    (sb-sys:without-gcing
+     (let ((thread (sb-thread::thread-sap-from-id thread)))
+       (cond (thread
+              (let* ((sap (sb-sys:sap-ref-sap thread 
+                                              (* sb-vm::thread-state-slot
+                                                 sb-vm::n-word-bytes)))
+                     (state (ash (sb-sys:sap-int sap)
+                                 (- sb-vm::n-fixnum-tag-bits))))
+                (case state
+                  (0 "running")
+                  (1 "stopping")
+                  (2 "stopped")
+                  (3 "dead")
+                  (t (format nil "??? ~A" state)))))
+             (t "??? ???"))))))
 
   (defimplementation make-lock (&key name)
     (sb-thread:make-mutex :name name))
