@@ -33,17 +33,62 @@
            #+armedbear '("swank-abcl")
            )))
 
-(defparameter *lisp-name*
-  #+cmu       (format nil "cmu-~A" 
-                      (substitute #\- #\/ (lisp-implementation-version)))
-  #+sbcl      (format nil "sbcl-~A" (lisp-implementation-version))
-  #+openmcl   "openmcl"
-  #+lispworks (format nil "lispworks-~A" (lisp-implementation-version))
-  #+allegro   (format nil "allegro-~A" excl::*common-lisp-version-number*)
-  #+clisp     (format nil "clisp-~A" (let ((s (lisp-implementation-version)))
-                                       (subseq s 0 (position #\space s))))
-  #+armedbear "abcl"
-  )
+(defparameter *implementation-features*
+  '(:allegro :sbcl :openmcl :cmu :ccl :corman :armedbear :gcl))
+
+(defparameter *os-features*
+  '(:macosx :linux :windows :solaris :darwin :sunos :unix))
+
+(defparameter *architecture-features*
+  '(:powerpc :ppc :x86 :i686 :sparc))
+
+(defun unique-directory-name ()
+  "Return a name that can be used as a directory name that is
+unique to a Lisp implementation, Lisp implementation version,
+operating system, and hardware architecture."
+  (flet ((first-of (features)
+           (loop for f in features
+              when (find f *features*) return it)))
+    (let ((lisp         (first-of *implementation-features*))
+          (os           (first-of *os-features*))
+          (architecture (first-of *architecture-features*))
+          (version
+           (block nil
+             #+cmu
+             (return (substitute #\- #\/ (lisp-implementation-version)))
+             #+sbcl
+             (return (lisp-implementation-version))
+             #+gcl       
+             (let ((s (lisp-implementation-version))) (subseq s 4))
+             #+openmcl
+             (return (format nil "~d.~d"
+                             ccl::*openmcl-major-version*
+                             ccl::*openmcl-minor-version*))
+             #+lispworks
+             (return (lisp-implementation-version))
+             #+allegro
+             (return excl::*common-lisp-version-number*)
+             #+clisp
+             (return (let ((s (lisp-implementation-version)))
+                       (subseq s 0 (position #\space s))))
+             #+armedbear
+             (return "unknown")
+             
+             (error "Don't know how to get Lisp implementation version."))))
+
+      (unless lisp
+        (warn "No implementation feature found in ~a."
+              *implementation-features*)
+        (setf lisp "unknown"))
+      (unless os
+        (warn "No os feature found in ~a." *os-features*)
+        (setf os "unknown"))
+      (unless architecture
+        (warn "No architecture feature found in ~a."
+              *architecture-features*)
+        (setf architecture "unknown"))
+
+      (format nil "~(~@{~a~^-~}~)" lisp version os architecture))))
 
 (defparameter *swank-pathname* (make-swank-pathname "swank"))
 
@@ -55,7 +100,8 @@
   "Return the pathname where SOURCE-PATHNAME's binary should be compiled."
   (let ((cfp (compile-file-pathname source-pathname)))
     (merge-pathnames (make-pathname
-                      :directory `(:relative ".slime" "fasl" ,*lisp-name*)
+                      :directory
+                      `(:relative ".slime" "fasl" ,(unique-directory-name))
                       :name (pathname-name cfp)
                       :type (pathname-type cfp))
                      (user-homedir-pathname))))

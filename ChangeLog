@@ -1,3 +1,9 @@
+2005-03-07  Peter Seibel  <peter@gigamonkeys.com>
+
+	* swank-loader.lisp (unique-directory-name): Replaced *lisp-name*
+	variable with more sophisticated version that accounts for impl,
+	impl version, os, and hardware architecture.
+
 2005-03-07  Edi Weitz  <edi@agharta.de>
 
 	* swank.lisp: Fixed parenthesis-balancing problem.
