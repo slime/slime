@@ -1,5 +1,10 @@
 2004-04-16  Luke Gorrie  <luke@bluetail.com>
 
+	* doc/Makefile: Added 'install' and 'uninstall' targets for the
+	Info manual. It may be necessary to tweak `infodir' in the
+	Makefile to suit the local system before installing. (Patch from
+	from Richard M Kreuter.)
+
 	* doc/slime.texi (Top): The Top node is now smaller, with details
 	moved into Introduction. This makes the Info front page easier to
 	navigate. (Patch from Richard M Kreuter.)

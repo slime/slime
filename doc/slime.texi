@@ -2,7 +2,15 @@
 @c %**start of header
 @setfilename slime.info
 @settitle The Superior Lisp Interaction Mode for Emacs
+@dircategory Emacs
+@direntry
+* SLIME: (slime).    Superior Lisp Interaction Mode for Emacs.
+@end direntry
 @c %**end of header
+
+@c Written by Luke Gorrie.
+@c
+@c This file has been placed in the public domain.
 
 @macro SLIME
 @acronym{SLIME}
