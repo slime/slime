@@ -27,13 +27,17 @@
 
 (import-swank-mop-symbols :clos '(:slot-definition-documentation
                                   :eql-specializer
-                                  :eql-specializer-object))
+                                  :eql-specializer-object
+                                  :compute-applicable-methods-using-classes))
 
 (defun swank-mop:slot-definition-documentation (slot)
   (documentation slot t))
 
-;;;; lispworks doesn't have the eql-specializer class, it represents
-;;;; them as a list of `(EQL ,OBJECT)
+(defun swank-mop:compute-applicable-methods-using-classes (gf classes)
+  (clos::compute-applicable-methods-from-classes gf classes))
+
+;; lispworks doesn't have the eql-specializer class, it represents
+;; them as a list of `(EQL ,OBJECT)
 (deftype swank-mop:eql-specializer () 'cons)
 
 (defun swank-mop:eql-specializer-object (eql-spec)
@@ -88,8 +92,8 @@
 
 (defimplementation emacs-connected ()
   (declare (ignore stream))
-  (when (eq nil (symbol-value 
-                 (find-symbol (string :*communication-style*) :swank)))
+  (when (eq (symbol-value (find-symbol "*COMMUNICATION-STYLE*" :swank))
+            nil)
     (set-sigint-handler))
   (let ((lw:*handle-warn-on-redefinition* :warn))
     (defmethod env-internals:environment-display-notifier 
