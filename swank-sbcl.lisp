@@ -856,22 +856,23 @@ stack."
   (defimplementation thread-name (thread)
     (format nil "Thread ~D" thread))
 
-  (defimplementation thread-status (thread)
+  (defun %thread-state-slot (thread)
     (sb-sys:without-gcing
-     (let ((thread (sb-thread::thread-sap-from-id thread)))
-       (cond (thread
-              (let* ((sap (sb-sys:sap-ref-sap thread 
-                                              (* sb-vm::thread-state-slot
-                                                 sb-vm::n-word-bytes)))
-                     (state (ash (sb-sys:sap-int sap)
-                                 (- sb-vm::n-fixnum-tag-bits))))
-                (case state
-                  (0 "running")
-                  (1 "stopping")
-                  (2 "stopped")
-                  (3 "dead")
-                  (t (format nil "??? ~A" state)))))
-             (t "??? ???")))))
+     (sb-kernel:make-lisp-obj
+      (sb-sys:sap-int
+       (sb-sys:sap-ref-sap (sb-thread::thread-sap-from-id thread)
+                           (* sb-vm::thread-state-slot
+                              sb-vm::n-word-bytes))))))
+  
+  (defun %thread-state (thread)
+    (ecase (%thread-state-slot thread)
+      (0 :running)
+      (1 :stopping)
+      (2 :stopped)
+      (3 :dead)))
+
+  (defimplementation thread-status (thread)
+    (string (%thread-state thread)))
 
   (defimplementation make-lock (&key name)
     (sb-thread:make-mutex :name name))
@@ -884,10 +885,12 @@ stack."
     (sb-thread:current-thread-id))
 
   (defimplementation all-threads ()
-    (sb-thread::mapcar-threads
-     (lambda (sap)
-       (sb-sys:sap-ref-32 sap (* sb-vm:n-word-bytes
-                                 sb-vm::thread-pid-slot)))))
+    (let ((pids (sb-sys:without-gcing
+                 (sb-thread::mapcar-threads
+                  (lambda (sap)
+                    (sb-sys:sap-ref-32 sap (* sb-vm:n-word-bytes
+                                              sb-vm::thread-pid-slot)))))))
+      (remove :dead pids :key #'%thread-state)))
  
   (defimplementation interrupt-thread (thread fn)
     (sb-thread:interrupt-thread thread fn))
