@@ -204,7 +204,7 @@ information."
 
 (defmethod resolve-note-location ((b (eql nil)) (f pathname) pos path source)
   (make-location
-   `(:file ,(truename f))
+   `(:file ,(namestring (truename f)))
    `(:position ,(1+ (source-path-file-position path f)))))
 
 ;;; FIXME this one's broken: no source-path-string-position

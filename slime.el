@@ -2088,7 +2088,7 @@ buffer's working directory"
 (defun slime-xrefs-for-notes (notes)
   (let ((xrefs))
     (dolist (note notes)
-      (let* ((location (getf n :location))
+      (let* ((location (getf note :location))
              (fn (cadr (assq :file (cdr location))))
              (file (assoc fn xrefs))
              (node
