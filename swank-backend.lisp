@@ -1,18 +1,12 @@
 ;;;; -*- Mode: lisp; indent-tabs-mode: nil; outline-regexp: ";;;;;*" -*-
 ;;;
-;;; slime-impl.lisp --- Slime interface reference implementation.
+;;; slime-backend.lisp --- SLIME backend interface.
 ;;;
-;;; Copyright (C) 2003, James Bielman  <jamesjb@jamesjb.com>
-;;; Released into the public domain.
+;;; Created by James Bielman in 2003. Released into the public domain.
 ;;;
-;;;   $Id$
-;;;
-
-;; This is a skeletal implementation of the Slime internals interface.
-;;
-;; The idea is to create a de-facto standard interface that can be
-;; used by editor <-> CL integration software, such as Slime.  Vendors
-;; are encouraged to comment on this interface.
+;;; This file defines the functions that must be implemented
+;;; separately for each Lisp. Each is declared as a generic function
+;;; for which swank-<implementation>.lisp provides methods.
 
 (defpackage :swank
   (:use :common-lisp)
@@ -25,6 +19,7 @@
            #:call-with-conversation-lock
            #:compiler-notes-for-emacs
            #:completions
+           #:create-server
            #:create-swank-server
            #:describe-alien-enum
            #:describe-alien-struct
@@ -98,35 +93,45 @@
 (in-package :swank)
 
 
-;;;; Conditions and Error Handling
+;;;; TCP server
 
-;; XXX need to specify restart behavior for errors/warnings?
+(defgeneric create-socket-server (init-fn &key announce-fn port
+                                          accept-background handle-background loop)
+  (:documentation
+   "Create a callback-driven TCP server.
+Initially a TCP listen socket is opened, and then ANNOUNCE-FN is
+called with its port number for its argument.
 
-(define-condition not-implemented-error (error)
-  ())
+When a client connects, first a two-way stream is created for I/O
+on the socket, and then INIT-FN is called with the stream for its
+argument. INIT-FN returns another function, HANDLER-FN, to be
+called with no arguments each time the stream becomes readable.
 
-(deftype severity () '(member :error :warning :style-warning :note))
+If LOOP is true (the default), the server continues accepting
+clients until CLOSE-SOCKET-SERVER is called. Otherwise the server
+is closed after a single client has connected.
 
-;; Base condition type for compiler errors, warnings and notes.
-(define-condition compiler-condition (condition)
-  ((original-condition
-    ;; The original condition thrown by the compiler if appropriate.
-    ;; May be NIL if a compiler does not report using conditions.
-    :initarg :original-condition
-    :accessor original-condition)
+If BACKGROUND-ACCEPT is true (the default), this function
+immediately after creating the socket, and accepts connections
+asynchronously.
 
-   (severity
-    :type severity
-    :initarg :severity
-    :accessor severity)
+If BACKGROUND-HANDLE is true (the default), the... FIXME."))
 
-   (message
-    :initarg :message
-    :accessor message)
+;;; Base condition for networking errors.
+(define-condition network-error (error) ())
 
-   (location
-    :initarg :location
-    :accessor location)))
+(defgeneric emacs-connected ()
+  (:documentation
+   "Hook called when the first connection from Emacs is established.
+Called from the INIT-FN of the socket server that accepts the
+connection.
+
+This is intended for setting up extra context, e.g. to discover
+that the calling thread is the one that interacts with Emacs."))
+
+(defmethod no-applicable-method ((m (eql #'emacs-connected)) &rest _)
+  (declare (ignore _))
+  nil)
 
 
 ;;;; Compilation
@@ -134,7 +139,8 @@
 (defgeneric call-with-compilation-hooks (func)
   (:documentation
    "Call FUNC with hooks to trigger SLDB on compiler errors."))
-(defmacro with-compilation-hooks ((&rest _) &body body)
+
+(defmacro with-compilation-hooks (() &body body)
   `(call-with-compilation-hooks (lambda () (progn ,@body))))
 
 (defgeneric compile-string-for-emacs (string &key buffer position)
@@ -151,6 +157,44 @@ positions reported in compiler conditions."))
   (:documentation
    "Compile FILENAME signalling COMPILE-CONDITIONs.
 If LOAD-P is true, load the file after compilation."))
+
+;;;;; Compiler conditions
+
+(deftype severity () '(member :error :warning :style-warning :note))
+
+;; Base condition type for compiler errors, warnings and notes.
+(define-condition compiler-condition (condition)
+  ((original-condition
+    ;; The original condition thrown by the compiler if appropriate.
+    ;; May be NIL if a compiler does not report using conditions.
+    :type (or null condition)
+    :initarg :original-condition
+    :accessor original-condition)
+
+   (severity :type severity
+             :initarg :severity
+             :accessor severity)
+
+   (message :initarg :message
+            :accessor message)
+
+   (location :initarg :location
+             :accessor location)))
+
+;;;
+;;;; Streams
+
+(defgeneric make-fn-streams (input-fn output-fn)
+  (:documentation
+   "Return character input and output streams backended by functions.
+When input is needed, INPUT-FN is called with no arguments to
+return a string.
+When output is ready, OUTPUT-FN is called with the output as its
+argument.
+
+Output should be forced to OUTPUT-FN before calling INPUT-FN.
+
+The streams are returned as two values."))
 
 
 ;;;; Documentation
@@ -412,21 +456,21 @@ WAIT-GOAHEAD.
 
 Systems that do not support multiprocessing always signal an error."))
 
+
 ;;;;; Default implementation for non-MP systems
 
 ;;; Using NO-APPLICABLE-METHOD to supply a default implementation that
 ;;; works in systems that don't have multiprocessing.
 ;;; (Good or bad idea? -luke)
 
-(defvar _ nil                           ; Good or bad idea? -luke
-  "Null variable -- can be used for ignored arguments.
-Declared special, so no IGNORE declarations are necessary.")
-
 (defmethod no-applicable-method ((m (eql #'startup-multiprocessing)) &rest _)
+  (declare (ignore _))
   nil)
 (defmethod no-applicable-method ((m (eql #'thread-id)) &rest _)
+  (declare (ignore _))
   nil)
 (defmethod no-applicable-method ((m (eql #'thread-name)) &rest _)
+  (declare (ignore _))
   "The One True Thread")
 (defmethod no-applicable-method ((m (eql #'call-with-I/O-lock))
                                  &rest args)
@@ -435,7 +479,9 @@ Declared special, so no IGNORE declarations are necessary.")
                                  &rest args)
   (funcall (first args)))
 (defmethod no-applicable-method ((m (eql #'wait-goahead)) &rest _)
+  (declare (ignore _))
   t)
 (defmethod no-applicable-method ((m (eql #'give-goahead)) &rest _)
+  (declare (ignore _))
   (error "SLIME multiprocessing not available"))
 
