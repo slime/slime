@@ -49,6 +49,34 @@
 #+win32 (defslimefun getpid () (or (system::getenv "PID") -1))
 ;; the above is likely broken; we need windows NT users!
 
+
+;;; Gray streams
+
+;; From swank-gray.lisp.
+
+(defclass slime-input-stream (fundamental-character-input-stream)
+  ((buffer :initform "") (index :initform 0)))
+
+;; We have to define an additional method for the sake of the C
+;; function listen_char (see src/stream.d), on which SYS::READ-FORM
+;; depends.
+
+;; We could make do with either of the two methods below.
+
+(defmethod stream-read-char-no-hang ((s slime-input-stream))
+  (with-slots (buffer index) s
+    (when (< index (length buffer))
+      (prog1 (aref buffer index) (incf index)))))
+
+;; This CLISP extension is what listen_char actually calls.  The
+;; default method would call STREAM-READ-CHAR-NO-HANG, so it is a bit
+;; more efficient to define it directly.
+
+(defmethod stream-read-char-will-hang-p ((s slime-input-stream))
+  (with-slots (buffer index) s
+    (= index (length buffer))))
+
+
 ;;; TCP Server
 
  (defun get-socket-stream (port announce close-socket-p)
