@@ -1,5 +1,11 @@
 2004-07-03  Luke Gorrie  <luke@bluetail.com>
 
+	* hyperspec.el (common-lisp-hyperspec-section-4.0): Bugfix from
+	Lennart Staflin.
+
+	* slime.el (slime-repl-clear-output): Avoid clearing the previous
+	REPL expression too. Patch from Andras Simon.
+
 	* swank-backend.lisp (definterface): Don't use
 	NO-APPLICABLE-METHOD for detail methods. Instead just define them
 	as regular methods with all argument types being
