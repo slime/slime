@@ -25,6 +25,10 @@
    stream:stream-line-column
    ))
 
+(when (fboundp 'dspec::define-form-parser)
+  (dspec::define-form-parser defimplementation (name args &rest body)
+    `(defmethod ,name ,args ,@body)))
+
 ;;; TCP server
 
 (defimplementation preferred-communication-style ()
@@ -76,7 +80,10 @@
         (env &key restarts condition)
       (declare (ignore restarts))
       (funcall (find-symbol (string :swank-debugger-hook) :swank)
-               condition *debugger-hook*))))
+               condition *debugger-hook*))
+    (defmethod env-internals:environment-display-debugger
+        (env)
+      *debug-io*)))
 
 ;;; Unix signals
 
@@ -145,6 +152,10 @@ Return NIL if the symbol is unbound."
                           (not (generic-function-p (fdefinition symbol))))
                      (doc 'function)))
       (maybe-push
+       :setf (let ((setf-name (sys:underlying-setf-name `(setf ,symbol))))
+               (if (fboundp setf-name)
+                   (doc 'setf))))
+      (maybe-push
        :class (if (find-class symbol nil) 
                   (doc 'class)))
       result)))
@@ -153,7 +164,8 @@ Return NIL if the symbol is unbound."
   (ecase type
     (:variable (describe-symbol symbol))
     (:class (describe (find-class symbol)))
-    ((:function :generic-function) (describe-function symbol))))
+    ((:function :generic-function) (describe-function symbol))
+    (:setf (describe-function (sys:underlying-setf-name `(setf ,symbol))))))
 
 (defun describe-function (symbol)
   (cond ((fboundp symbol)
