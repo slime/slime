@@ -28,6 +28,50 @@
            #:references
            #:unbound-slot-filler))
 
+(defpackage :swank-mop
+  (:use)
+  (:export
+   ;; classes
+   #:standard-generic-function
+   #:standard-slot-definition
+   #:standard-method
+   #:standard-class
+   ;; standard-class readers
+   #:class-default-initargs
+   #:class-direct-default-initargs
+   #:class-direct-slots
+   #:class-direct-subclasses
+   #:class-direct-superclasses
+   #:class-finalized-p
+   #:class-name
+   #:class-precedence-list
+   #:class-prototype
+   #:class-slots
+   ;; generic function readers
+   #:generic-function-argument-precedence-order
+   #:generic-function-declarations
+   #:generic-function-lambda-list
+   #:generic-function-methods
+   #:generic-function-method-class
+   #:generic-function-method-combination
+   #:generic-function-name
+   ;; method readers
+   #:method-generic-function
+   #:method-function
+   #:method-lambda-list
+   #:method-specializers
+   #:method-qualifiers
+   ;; slot readers
+   #:slot-definition-allocation
+   #:slot-definition-documentation
+   #:slot-definition-initargs
+   #:slot-definition-initform
+   #:slot-definition-initfunction
+   #:slot-definition-name
+   #:slot-definition-type
+   #:slot-definition-readers
+   #:slot-definition-writers))
+
 (in-package :swank-backend)
 
 
@@ -277,10 +321,20 @@ like."
 ;;;; Documentation
 
 (definterface arglist (name)
-   "Return the lambda list for the symbol NAME.
+   "Return the lambda list for the symbol NAME. NAME can also be
+a lisp function object, on lisps which support this.
 
-The result can be a list or the :not-available if the arglist cannot
-be determined.")
+The result can be a list or the :not-available if the arglist
+cannot be determined."
+   (declare (ignore name))
+   :not-available)
+
+(definterface function-name (function)
+  "Return the name of the function object FUNCTION.
+
+The result is either a symbol, a list, or NIL if no function name is available."
+  (declare (ignore function))
+  nil)
 
 (definterface macroexpand-all (form)
    "Recursively expand all macros in FORM.

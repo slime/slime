@@ -35,6 +35,68 @@
    sb-gray:stream-line-column
    sb-gray:stream-line-length))
 
+;;; swank-mop
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun import-to-swank-mop (sym/sym-list)
+    (if (listp sym/sym-list)      
+        (dolist (sym sym/sym-list)
+          (import-to-swank-mop sym))
+        (let* ((sym sym/sym-list)
+               (swank-mop-sym (find-symbol (symbol-name sym) :swank-mop)))
+          ;; 1) "delete" the symbol form the :swank-mop package
+          (when swank-mop-sym
+            (unintern swank-mop-sym :swank-mop))
+          (import sym :swank-mop)
+          (export sym :swank-mop))))
+
+  (import-to-swank-mop
+   '( ;; classes
+     cl:standard-generic-function
+     sb-mop::standard-slot-definition
+     cl:method
+     cl:standard-class
+     ;; standard-class readers
+     sb-mop:class-default-initargs
+     sb-mop:class-direct-default-initargs
+     sb-mop:class-direct-slots
+     sb-mop:class-direct-subclasses
+     sb-mop:class-direct-superclasses
+     sb-mop:class-finalized-p
+     cl:class-name
+     sb-mop:class-precedence-list
+     sb-mop:class-prototype
+     sb-mop:class-slots
+     ;; generic function readers
+     sb-mop:generic-function-argument-precedence-order
+     sb-mop:generic-function-declarations
+     sb-mop:generic-function-lambda-list
+     sb-mop:generic-function-methods
+     sb-mop:generic-function-method-class
+     sb-mop:generic-function-method-combination
+     sb-mop:generic-function-name
+     ;; method readers
+     sb-mop:method-generic-function
+     sb-mop:method-function
+     sb-mop:method-lambda-list
+     sb-mop:method-specializers
+     sb-mop:method-qualifiers
+     ;; slot readers
+     sb-mop:slot-definition-allocation
+     sb-mop:slot-definition-initargs
+     sb-mop:slot-definition-initform
+     sb-mop:slot-definition-initfunction
+     sb-mop:slot-definition-name
+     sb-mop:slot-definition-type
+     sb-mop:slot-definition-readers
+     sb-mop:slot-definition-writers))
+
+  (defun swank-mop:slot-definition-documentation (slot)
+    (sb-pcl::documentation slot t))
+  
+  )
+
 ;;; TCP Server
 
 (defimplementation preferred-communication-style ()
@@ -147,8 +209,11 @@
 
 (defvar *swank-debugger-stack-frame*)
 
-(defimplementation arglist (fname)
+(defimplementation arglist ((fname t))
   (sb-introspect:function-arglist fname))
+
+(defimplementation function-name ((f function))
+  (sb-impl::%fun-name f))
 
 (defvar *buffer-name* nil)
 (defvar *buffer-offset*)

@@ -1,3 +1,42 @@
+2004-09-13  Marco Baringer  <mb@bese.it>
+
+	* swank.lisp: New inspector protocol. The lisp side now returns a
+	specially formated list of "things" to format which are then
+	passed to emacs and rendered in the inspector buffer. Things can
+	be either text, recursivly inspectable values, or functions to
+	call.
+	(inspected-parts): Redefine for new inspector protocol.
+	(*inspectee-parts*): Redefine as array.
+	(*inspectee-actions*): New array, similar to *inspectee-parts*.
+	(reset-inspector): Update for new implementation of
+	*inspectee-parts* and new variable *inspectee-actions*.
+	(inspector-contents-for-emacs): New function.
+	(inspect-object): Update for new inspector protocol.
+	(inspector-nth-part): Update for new *inspectee-parts*
+	implementation.
+	(inspector-call-nth-action): New function.
+
+	* slime.el (slime-inspector-action-face): New face.
+	(slime-open-inspector): Adapt to new inspector protocol.
+	(slime-inspector-operate-on-point): New function, subsumes
+	slime-inspector-inspect-object-at-point.
+	(slime-inspector-next-inspectable-object): Skip to next object,
+	not just end of current object; wrap around buffer.
+	(slime-inspector-mode-map): change bindings of [return] and "\C-m"
+
+	* swank-bacend.lisp (swank-mop): New package. Simply defines all
+	the MOP related symbols we need from an implementation.
+	(arglist): Update doc string. Provide default implementation.
+	(function-name): New backend function.
+	
+	* swank-allegro.lisp (swank-mop, slot-definition-documentation):
+	Implement.
+
+	* swank-sbcl.lisp (swank-mop, slot-definition-documentation,
+	function-name): Implement.
+
+	* swank-openmcl.lisp (swank-mop, function-name): Implement.
+	(arglist): Implement for function objects.
 2004-09-12  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank.lisp (compile-file-for-emacs): Use with-buffer-syntax so

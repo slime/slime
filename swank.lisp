@@ -2450,18 +2450,337 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
 
 ;;;; Inspecting
 
+(defgeneric inspected-parts (object)
+  (:documentation "
+Explan to emacs how to inspect OBJECT.
+
+The first value must be a string, it will be used as the
+\"title\" of the inspector buffer.
+
+The second value must be a list, this list will be rendered by
+emacs in the inspector buffer. If the element of the list is a
+string it will be rendered as is, otherwise it must be a list
+like so:
+
+ (:value object &optional format) - Render an inspectable
+ object. If format is provided it must be a string and will be
+ rendered in place of the value, otherwise use princ-to-string.
+
+ (:newline) - Render a \\n
+
+ (:action label lambda) - Render LABEL (a text string) which when
+ clicked will call LAMBDA.
+
+ NIL - do nothing."))
+
+(defmethod inspected-parts ((o t))
+  (values (format nil "~S" o)
+          `("Don't know how to inspect the object, dumping output of CL:DESCIRBE:" 
+            (:newline) (:newline)
+            ,(with-output-to-string (desc)
+               (describe o desc)))))
+
+(defun common-seperated-spec (list &optional (callback (lambda (v) `(:value ,v))))
+  (butlast
+   (loop
+      for i in list
+      collect (funcall callback i)
+      collect ", ")))
+
+(defmethod inspected-parts ((object cons))
+  (if (consp (cdr object))
+      (inspected-parts-of-nontrivial-list object)
+      (inspected-parts-of-simple-cons object)))
+
+(defun inspected-parts-of-simple-cons (cons)
+  (values (format nil "~S is a CONS." cons)
+          `("Car: " (:value ,(car cons))
+            (:newline)
+            "Cdr: " (:value ,(cdr cons)))))
+
+(defun inspected-parts-of-nontrivial-list (list)
+  (let ((circularp nil)
+        (length 0)
+        (seen (make-hash-table :test 'eq))
+        (contents '()))
+    (loop
+       for cons on list
+       when (gethash cons seen)
+         do (setf circularp t) and
+         do (return)
+       do (push '(:newline) contents)
+       do (push `(:value ,(car cons)) contents)
+       do (setf (gethash cons seen) t)
+       do (incf length))
+    (if circularp
+        (values "A circular list."
+                `("Contents:"
+                  ,@(nreverse contents)))
+        (values "A proper list."
+                `("Length: " (:value ,length)
+                  (:newline)
+                  "Contents:"
+                  ,@(nreverse contents))))))
+
+(defmethod inspected-parts ((ht hash-table))
+  (values (format nil "The hash table ~S." ht)
+          `("Count: " (:value ,(hash-table-count ht))
+            (:newline)
+            "Size: " (:value ,(hash-table-size ht))
+            (:newline)
+            "Test: " (:value ,(hash-table-test ht))
+            (:newline)
+            "Rehash size: " (:value ,(hash-table-rehash-size ht))
+            (:newline)
+            "Rehash threshold: " (:value ,(hash-table-rehash-threshold ht))
+            (:newline)
+            "Contents:" (:newline)
+            ,@(loop
+                 for key being the hash-keys of ht
+                 for value being the hash-values of ht
+                 collect `(:value ,key)
+                 collect " = "
+                 collect `(:value ,value)
+                 collect `(:newline)))))
+
+(defmethod inspected-parts ((array array))
+  (values "An array."
+          `("Dimensions: " (:value ,(array-dimensions array))
+            (:newline)
+            "It's element type is: " (:value ,(array-element-type array))
+            (:newline)
+            "Total size: " (:value ,(array-total-size array))
+            (:newline)
+            ,@(if (array-has-fill-pointer-p array)
+                  `("It's fill-pointer is " (:value ,(fill-pointer array)))
+                  `("No fill pointer."))
+            (:newline)
+            ,(if (adjustable-array-p array)
+                 "It is adjustable."
+                 "It is not adjustable.")
+            (:newline)
+            "Contents:" (:newline)
+            ,@(loop
+                 with darray = (make-array (array-total-size array)
+                                           :displaced-to array
+                                           :displaced-index-offset 0
+                                           :element-type (array-element-type array))
+                 for index upfrom 0
+                 for element across darray
+                 collect `(:value ,element)
+                 collect '(:newline)))))
+
+(defmethod inspected-parts ((char character))
+  (values (format nil "~C is a character." char)
+          `("Char code: " (:value ,(char-code char))
+            (:newline)
+            "Lower cased: " (:value ,(char-downcase char))
+            (:newline)
+            "Upper cased: " (:value ,(char-upcase char))
+            (:newline)
+            ,@(when (get-macro-character char)
+                `("In the current readtable (" (:value ,*readtable*) ") it is a macro character: "
+                  (:value ,(get-macro-character char))
+                  (:newline))))))
+
+(defmethod inspected-parts ((symbol symbol))
+  (let ((internal-external (multiple-value-bind (symbol status)
+                               (intern (symbol-name symbol) (symbol-package symbol))
+                             (declare (ignore symbol))
+                             (ecase status
+                               ((:internal :inherited) :internal)
+                               (:external :external))))
+        (package (when (find-package symbol)
+                   `("It names the package " (:value ,(find-package symbol)) (:newline))))
+        (class (when (find-class symbol nil)
+                 `("It names the class " (:value ,(find-class symbol))))))
+    (values (format nil "The symbol ~S." symbol)
+            `("It's name is: " (:value ,(symbol-name symbol))
+              (:newline)
+              ;; check to see whether it is a global variable, a
+              ;; constant, or a symbol macro.
+              ,@(let ((documentation (when (documentation symbol 'variable)
+                                       `((:newline)
+                                         "Documentation:"
+                                         (:newline)
+                                         ,(documentation symbol 'variable)))))
+                  (cond
+                    ((constantp symbol)
+                     `("It is a constant of value: " (:value ,(symbol-value symbol)) ,@documentation))
+                    ((boundp symbol)
+                     `("It is a global variable bound to: " (:value ,(symbol-value symbol)) ,@documentation))
+                    ((nth-value 1 (macroexpand symbol))
+                     `("It is a symbol macro with expansion: " (:value ,(macroexpand symbol))))
+                    (t
+                     `("It is unbound."))))
+              (:newline)
+              ,@(if (fboundp symbol)
+                    `("It's function value is " (:value ,(symbol-function symbol)) " "
+                      (:action "[make funbound]" ,(lambda () (fmakunbound symbol))))
+                    `("It has no function value."))
+              (:newline)
+              "It is " ,(case internal-external
+                          (:internal "internal")
+                          (:external "external")) " to the package: " (:value ,(symbol-package symbol))
+              ,@(when (eql :internal internal-external)
+                  `(" " (:action ,(with-output-to-string (export-label)
+                                    (princ "[export from " export-label)
+                                    (princ (package-name (symbol-package symbol)) export-label)
+                                    (princ "]" export-label))
+                                 ,(lambda () (export symbol (symbol-package symbol))))))
+              (:newline)
+              ,@package
+              ,@class))))
+
+(defmethod inspected-parts ((f function))  
+  (values (format nil "The function ~S." f)
+          `("Name: " (:value ,(function-name f)) (:newline)
+            "It's argument list is: " ,(princ-to-string (arglist f)) (:newline)
+            "Documentation:" (:newline)
+            ,(documentation f t))))
+
+(defmethod inspected-parts ((gf standard-generic-function))
+  (values (format nil "The generic function ~S." gf)
+          `("Name: " (:value ,(swank-mop:generic-function-name gf)) (:newline)
+            "It's argument list is: " ,(princ-to-string (swank-mop:generic-function-lambda-list gf)) (:newline)
+            "Documentation: " (:newline)
+            ,(princ-to-string (documentation gf t)) (:newline)
+            "It's method class is: " (:value ,(swank-mop:generic-function-method-class gf)) (:newline)
+            "It uses " (:value ,(swank-mop:generic-function-method-combination gf)) " method combination." (:newline)
+            "Methods: " (:newline)
+            ,@(loop
+                 for method in (swank-mop:generic-function-methods gf)
+                 collect `(:value ,method
+                                  , (with-output-to-string (meth)
+                                      (let ((specs (swank-mop:method-specializers method))
+                                            (quals (swank-mop:method-qualifiers method)))
+                                        (princ (mapcar #'class-name specs) meth)
+                                        (princ " " meth)
+                                        (when quals
+                                          (if (= 1 (length quals))
+                                              (princ (first quals) meth)
+                                              (princ quals meth))))))
+                 collect " "
+                 collect (let ((meth method))
+                           `(:action "[remove method]" ,(lambda () (remove-method gf meth))))
+                 collect '(:newline)))))
+
+(defmethod inspected-parts ((method standard-method))
+  (values (format nil "The method ~S." method)
+          `("Method defined on the generic function " (:value ,(swank-mop:method-generic-function method)
+                                                              ,(princ-to-string
+                                                                (swank-mop:generic-function-name
+                                                                 (swank-mop:method-generic-function method))))
+            (:newline)                                                      
+            "Documentation:" (:newline) ,(documentation method t) (:newline)
+            "Lambda List: " (:value ,(swank-mop:method-lambda-list method))
+            (:newline)
+            "Specializers: " (:value ,(swank-mop:method-specializers method))
+            (:newline)
+            "Qualifiers: " (:value ,(swank-mop:method-qualifiers method)))))
+
+(defmethod inspected-parts ((class standard-class))
+  (values (format nil "The class ~S." class)
+          `("Name: " (:value ,(class-name class))
+            (:newline)
+            "Super classes: " ,@(common-seperated-spec (swank-mop:class-direct-superclasses class))
+            (:newline)
+            "Direct Slots: " ,@(common-seperated-spec (swank-mop:class-direct-slots class)
+                                                      (lambda (slot)
+                                                        `(:value ,slot ,(princ-to-string
+                                                                         (swank-mop:slot-definition-name slot)))))
+            (:newline)
+            "Effective Slots: " ,@(common-seperated-spec (swank-mop:class-slots class)
+                                                        (lambda (slot)
+                                                          `(:value ,slot ,(princ-to-string (swank-mop:slot-definition-name slot)))))
+            (:newline)
+            "Documentation:" (:newline)
+            ,@(when (documentation class t)
+                `(,(documentation class t) (:newline)))
+            "Sub classes: " ,@(common-seperated-spec (swank-mop:class-direct-subclasses class)
+                                                     (lambda (sub)
+                                                       `(:value ,sub ,(princ-to-string (class-name sub)))))
+            (:newline)
+            "Precedence List: " ,@(common-seperated-spec (swank-mop:class-precedence-list class)
+                                                         (lambda (class)
+                                                           `(:value ,class ,(princ-to-string (class-name class)))))
+            (:newline)
+            "Prototype: " (:value ,(swank-mop:class-prototype class)))))
+
+(defmethod inspected-parts ((slot swank-mop:standard-slot-definition))
+  (values (format nil "The slot ~S." slot)
+          `("Name: " (:value ,(swank-mop:slot-definition-name slot))
+            (:newline)
+            "Documentation:" (:newline)
+            ,@(when (swank-mop:slot-definition-documentation slot)
+                `((:value ,(swank-mop:slot-definition-documentation slot)) (:newline)))
+            "Initialization:" (:newline)
+            "  Args: " (:value ,(swank-mop:slot-definition-initargs slot)) (:newline)
+            "  Form: "  ,(if (swank-mop:slot-definition-initfunction slot)
+                             `(:value ,(swank-mop:slot-definition-initform slot))
+                             "#<unspecified>") (:newline)
+            "  Function: " (:value ,(swank-mop:slot-definition-initfunction slot))
+            (:newline))))
+
+(defmethod inspected-parts ((package package))
+  (let ((internal-symbols '())
+        (external-symbols '()))
+    (do-symbols (sym package)
+      (when (eq package (symbol-package sym))
+        (push sym internal-symbols)
+        (multiple-value-bind (symbol status)
+            (intern (symbol-name sym) package)
+          (declare (ignore symbol))
+          (when (eql :external status)
+            (push sym external-symbols)))))
+    (setf internal-symbols (sort internal-symbols #'string-lessp)
+          external-symbols (sort external-symbols #'string-lessp))
+    (values (format nil "The package ~S." package)
+            `("Name: " (:value ,(package-name package))
+              (:newline)
+              "Nick names: " ,@(common-seperated-spec (sort (package-nicknames package) #'string-lessp))
+              (:newline)
+              "Documentation:" (:newline)
+              ,@(when (documentation package t)
+                      `(,(documentation package t) (:newline)))
+              "Use list: " ,@(common-seperated-spec (sort (package-use-list package) #'string-lessp :key #'package-name)
+                                                    (lambda (pack)
+                                                      `(:value ,pack ,(princ-to-string (package-name pack)))))
+              (:newline)
+              "Used by list: " ,@(common-seperated-spec (sort (package-used-by-list package) #'string-lessp :key #'package-name)
+                                                        (lambda (pack)
+                                                          `(:value ,pack ,(princ-to-string (package-name pack)))))
+              (:newline)
+              ,(if (null external-symbols)
+                   "0 external symbols."
+                   `(:value ,external-symbols ,(format nil "~D external symbols." (length external-symbols))))
+              (:newline)
+              ,(if (null internal-symbols)
+                   "0 internal symbols."
+                   `(:value ,internal-symbols ,(format nil "~D internals symbols." (length internal-symbols))))
+              (:newline)
+              ,(if (null (package-shadowing-symbols package))
+                   "0 shadowed symbols."
+                   `(:value ,(package-shadowing-symbols package)
+                            ,(format nil "~D shadowed symbols." (length (package-shadowing-symbols package)))))))))
+
+
+;;;; Inspecting
+
 (defvar *inspectee*)
-(defvar *inspectee-parts*)
+(defvar *inspectee-parts* (make-array 10 :adjustable t :fill-pointer 0))
+(defvar *inspectee-actions* (make-array 10 :adjustable t :fill-pointer 0))
 (defvar *inspector-stack* '())
 (defvar *inspector-history* (make-array 10 :adjustable t :fill-pointer 0))
 (declaim (type vector *inspector-history*))
 (defvar *inspect-length* 30)
 
 (defun reset-inspector ()
-  (setq *inspectee* nil)
-  (setq *inspectee-parts* nil)
-  (setq *inspector-stack* nil)
-  (setf (fill-pointer *inspector-history*) 0))
+  (setq *inspectee* nil
+        *inspector-stack* nil
+        *inspectee-parts* (make-array 10 :adjustable t :fill-pointer 0)
+        *inspectee-actions* (make-array 10 :adjustable t :fill-pointer 0)
+        *inspector-history* (make-array 10 :adjustable t :fill-pointer 0)))
 
 (defslimefun init-inspector (string)
   (with-buffer-syntax ()
@@ -2475,6 +2794,38 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
         (format nil "#~D=~A" pos string)
         string)))
 
+(defun inspector-content-for-emacs (spec)
+  (let ((parse-for-emacs '()))
+    (labels ((collect-part (part)
+               (push part parse-for-emacs))
+             (parse-part (part)
+               (if (stringp part)
+                   (push part parse-for-emacs)
+                   (ecase (car part)
+                     (:newline (collect-part (string #\Newline)))
+                     (:value (destructuring-bind (object &optional format)
+                                 (cdr part)
+                               (declare (ignore actions))
+                               (unless (position object *inspectee-parts*)
+                                 (vector-push-extend object *inspectee-parts*))
+                               (unless format
+                                 (setf format (block print-object
+                                                (handler-bind
+                                                    ((error (lambda (c)
+                                                              (declare (ignore c))
+                                                              (return-from print-object "#<error while printing>"))))
+                                                  (format nil "~S" object)))))
+                               (collect-part `(:value ,format
+                                                      ,(position object *inspectee-parts*)))))
+                     (:action (destructuring-bind (label lambda)
+                                  (cdr part)
+                                (unless (position lambda *inspectee-actions*)
+                                  (vector-push-extend lambda *inspectee-actions*))
+                                (collect-part `(:action ,label ,(position lambda *inspectee-actions*)))))
+                     ((nil) nil)))))
+      (map 'nil #'parse-part spec))
+    (nreverse parse-for-emacs)))
+
 (defun inspect-object (object)
   (push (setq *inspectee* object) *inspector-stack*)
   (unless (find object *inspector-history*)
@@ -2482,21 +2833,22 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
   (let ((*print-pretty* nil)            ; print everything in the same line
         (*print-circle* t)
         (*print-readably* nil))
-    (multiple-value-bind (text parts) (inspected-parts object)
-      (setq *inspectee-parts* parts)
-      (list :text text
+    (multiple-value-bind (title content)
+        (inspected-parts object)
+      (list :title title
             :type (to-string (type-of object))
-            :primitive-type (describe-primitive-type object)
-            :parts (loop for (label . value) in parts
-                         collect (cons (princ-to-string label)
-                                       (print-part-to-string value)))))))
+            :content (inspector-content-for-emacs content)))))
 
 (defslimefun inspector-nth-part (index)
-  (cdr (nth index *inspectee-parts*)))
+  (aref *inspectee-parts* index))
 
 (defslimefun inspect-nth-part (index)
   (with-buffer-syntax ()
     (inspect-object (inspector-nth-part index))))
+
+(defslimefun inspector-call-nth-action (index &rest args)
+  (apply (aref *inspectee-actions* index) args)
+  (inspect-object (pop *inspector-stack*)))
 
 (defslimefun inspector-pop ()
   "Drop the inspector stack and inspect the second element.  Return
@@ -2523,57 +2875,6 @@ nil if there's no second element."
   "Describe the currently inspected object."
   (with-buffer-syntax ()
     (describe-to-string *inspectee*)))
-
-(defmethod inspected-parts ((object cons))
-  (if (consp (cdr object))
-      (inspected-parts-of-nontrivial-list object)
-      (inspected-parts-of-simple-cons object)))
-
-(defun inspected-parts-of-simple-cons (object)
-  (values "The object is a CONS."
-	  (list (cons (string 'car) (car object))
-		(cons (string 'cdr) (cdr object)))))
-
-(defun inspected-parts-of-nontrivial-list (object)
-  (let ((length 0)
-	(in-list object)
-	(reversed-elements nil))
-    (flet ((done (description-format)
-	     (return-from inspected-parts-of-nontrivial-list
-	       (values (format nil description-format length)
-		       (nreverse reversed-elements)))))
-      (loop
-       (cond ((null in-list)
-	      (done "The object is a proper list of length ~S.~%"))
-	     ((>= length *inspect-length*)
-	      (push (cons  (string 'rest) in-list) reversed-elements)
-	      (done "The object is a long list (more than ~S elements).~%"))
-	     ((consp in-list)
-	      (push (cons (format nil "~D" length) (pop in-list))
-		    reversed-elements)
-	      (incf length))
-	     (t
-	      (push (cons (string 'rest) in-list) reversed-elements)
-	      (done "The object is an improper list of length ~S.~%")))))))
-
-(defmethod inspected-parts ((o hash-table))
-  (values (format nil "~A~%   is a ~A" o (class-of o))
-          (list*
-           (cons "Test" (hash-table-test o))
-           (cons "Count" (hash-table-count o))
-           (cons "Size" (hash-table-size o))
-           (cons "Rehash-Threshold" (hash-table-rehash-threshold o))
-           (cons "Rehash-Size" (hash-table-rehash-size o))
-           (cons "---" :---)
-           (let ((pairs '()))
-             (maphash (lambda (key value)
-                        (push (cons (to-string key) value)
-                              pairs))
-                      o)
-             pairs))))
-
-(defmethod inspected-parts ((o unbound-slot-filler))
-  (values "This slot is unbound" nil))
 
 (defslimefun inspect-in-frame (string index)
   (with-buffer-syntax ()

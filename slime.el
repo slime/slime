@@ -6422,6 +6422,11 @@ This way you can still see what the error was after exiting SLDB."
   "Face for things which can themselves be inspected."
   :group 'slime-inspector)
 
+(defface slime-inspector-action-face
+  '((t (:italic t)))
+  "Face for labels of inspector actions."
+  :group 'slime-inspector)
+
 (defface slime-inspector-type-face
   '((t ()))
   "Face for type description in inspector."
@@ -6461,39 +6466,46 @@ Optionally set point to POINT."
   (with-current-buffer (slime-inspector-buffer)
     (let ((inhibit-read-only t))
       (erase-buffer)
-      (destructuring-bind (&key text type primitive-type parts) inspected-parts
-        (macrolet ((fontify (face string)
-                            `(slime-inspector-fontify ,face ,string)))
-          (insert (fontify topline text))
-          (while (eq (char-before) ?\n) (backward-delete-char 1))
-          (insert "\n" 
-                  "   [" (fontify label "type:") " " (fontify type type) "]\n"
-                  "   [" (fontify type primitive-type) "]\n"
-                  "\n"
-                  (fontify label "Slots") ":\n")
+      (destructuring-bind (&key title type content)
+          inspected-parts
+        (macrolet ((fontify (face string) `(slime-inspector-fontify ,face ,string)))
+          (insert (fontify topline title))
+          (while (eq (char-before) ?\n)
+            (backward-delete-char 1))
+          (insert " [" (fontify label "type:") " " (fontify type type) "]\n"
+                  (fontify label "--------------------") "\n")
         (save-excursion
-          (loop for (label . value) in parts
-                for i from 0
-                do (slime-propertize-region `(slime-part-number ,i)
-                     (insert (fontify label label) ": " 
-                             (fontify value value) "\n"))))
+          (loop for part in content
+                do (if (stringp part)
+                       (insert part)
+                       (ecase (car part)
+                         (:value
+                          (destructuring-bind (string id) (cdr part)
+                            (slime-propertize-region `(slime-part-number ,id)
+                              (insert (fontify label string)))))
+                         (:action
+                          (destructuring-bind (string id) (cdr part)
+                            (slime-propertize-region `(slime-action-number ,id)
+                              (insert (fontify action string)))))))))
         (pop-to-buffer (current-buffer))
         (when point (goto-char point))))
     t)))
 
-(defun slime-inspector-object-at-point ()
-  (or (get-text-property (point) 'slime-part-number)
-      (error "No part at point")))
-
-(defun slime-inspector-inspect-object-at-point (number)
-  (interactive (list (slime-inspector-object-at-point)))
-  (slime-eval-async `(swank:inspect-nth-part ,number)
-		    'slime-open-inspector)
-  (push (point) slime-inspector-mark-stack))
+(defun slime-inspector-operate-on-point ()
+  (interactive)
+  (cond
+    ((get-text-property (point) 'slime-part-number)
+     (slime-eval-async `(swank:inspect-nth-part ,(get-text-property (point) 'slime-part-number))
+                       'slime-open-inspector)
+     (push (point) slime-inspector-mark-stack))
+    ((get-text-property (point) 'slime-action-number)
+     (slime-eval-async `(swank::inspector-call-nth-action ,(get-text-property (point) 'slime-action-number))
+                       'slime-open-inspector))))
 
 (defun slime-inspector-copy-down (number)
   "Evaluate the slot at point via the REPL (to set `*')."
-  (interactive (list (slime-inspector-object-at-point)))
+  (interactive (list (or (get-text-property (point) 'slime-part-number)
+                         (error "No part at point"))))
   (slime-repl-send-string (format "%s" `(swank:inspector-nth-part ,number)))
   (slime-repl))
 
@@ -6526,18 +6538,24 @@ Optionally set point to POINT."
 (defun slime-inspector-next-inspectable-object ()
   "sets the point to the next inspectable object"
   (interactive)
-  (let ((pos (next-single-property-change (point) 'slime-part-number)))
-    (when pos
-      (goto-char pos))))
+  (let ((pos (if (get-text-property (point) 'slime-part-number)
+                 ;; we're in a part
+                 (next-single-property-change 
+                  (or (next-single-property-change (point) 'slime-part-number) (point-min))
+                  'slime-part-number)
+                 ;; go to the next part or wrap around
+                 (or (next-single-property-change (point) 'slime-part-number)
+                     (next-single-property-change (point-min) 'slime-part-number)))))
+    (when pos (goto-char pos))))
   
 (defun slime-inspector-describe ()
   (interactive)
   (slime-eval-describe `(swank:describe-inspectee)))
 
 (slime-define-keys slime-inspector-mode-map
-  ([return] 'slime-inspector-inspect-object-at-point)
+  ([return] 'slime-inspector-operate-on-point)
   ([(meta return)] 'slime-inspector-copy-down)
-  ("\C-m"   'slime-inspector-inspect-object-at-point)
+  ("\C-m"   'slime-inspector-operate-on-point)
   ("l" 'slime-inspector-pop)
   ("n" 'slime-inspector-next)
   (" " 'slime-inspector-next)

@@ -27,6 +27,71 @@
      excl:stream-line-column
      excl:stream-read-char-no-hang)))
 
+;;; swank-mop
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  ;; Copied from swank-sbcl.lisp
+  ;; not sure if we still want a list of lists
+  ;; also not sure if we need to re-import too
+  (defun import-to-swank-mop (sym/sym-list)
+    (if (listp sym/sym-list)      
+        (dolist (sym sym/sym-list)
+          (import-to-swank-mop sym))
+        (let* ((sym sym/sym-list)
+               (swank-mop-sym (find-symbol (symbol-name sym) :swank-mop)))
+          ;; 1) "delete" the symbol form the :swank-mop package
+          (when swank-mop-sym
+            (unintern swank-mop-sym :swank-mop))
+          (import sym :swank-mop)
+          (export sym :swank-mop))))
+
+  ;; maybe better change MOP to ACLMOP ?
+  (import-to-swank-mop
+   '( ;; classes
+     cl:standard-generic-function
+     mop::standard-slot-definition
+     cl:method
+     cl:standard-class
+     ;; standard-class readers
+     mop:class-default-initargs
+     mop:class-direct-default-initargs
+     mop:class-direct-slots
+     mop:class-direct-subclasses
+     mop:class-direct-superclasses
+     mop:class-finalized-p
+     cl:class-name
+     mop:class-precedence-list
+     mop:class-prototype
+     mop:class-slots
+     ;; generic function readers
+     mop:generic-function-argument-precedence-order
+     mop:generic-function-declarations
+     mop:generic-function-lambda-list
+     mop:generic-function-methods
+     mop:generic-function-method-class
+     mop:generic-function-method-combination
+     mop:generic-function-name
+     ;; method readers
+     mop:method-generic-function
+     mop:method-function
+     mop:method-lambda-list
+     mop:method-specializers
+     excl::method-qualifiers
+     ;; slot readers
+     mop:slot-definition-allocation
+     mop:slot-definition-initargs
+     mop:slot-definition-initform
+     mop:slot-definition-initfunction
+     mop:slot-definition-name
+     mop:slot-definition-type
+     mop:slot-definition-readers
+     mop:slot-definition-writers))
+
+  (defun swank-mop:slot-definition-documentation (slot)
+    (documentation slot))
+  )
+
+
 ;;;; TCP Server
 
 (defimplementation preferred-communication-style ()
