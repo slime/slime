@@ -935,3 +935,42 @@ stack."
                                               mutex))))))))
 
   )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;Trace implementations
+;;In SBCL, we have:
+;; (trace <name>)
+;; (trace :methods '<name>) ;;to trace all methods of the gf <name>
+;; (trace (method <name> <qualifier>? (<specializer>+)))
+;; <name> can be a normal name or a (setf name)
+
+
+(defun toggle-trace (fspec &rest args)
+  (cond ((member fspec (eval '(trace)) :test #'equal)
+         (eval `(untrace ,fspec))
+         (format nil "~S is now untraced." fspec))
+        (t
+         (eval `(trace ,@(if args `(:encapsulate nil) (list)) ,fspec ,@args))
+         (format nil "~S is now traced." fspec))))
+
+(defimplementation toggle-trace-generic-function-methods (name)
+  (toggle-trace name :methods t))
+
+(defun process-fspec (fspec)
+  (cond ((consp fspec)
+         (ecase (first fspec)
+           ((:defun :defgeneric) (second fspec))
+           ((:defmethod) `(method ,@(rest fspec)))
+           ((:labels) `(labels ,(process-fspec (second fspec)) ,(third fspec)))
+           ((:flet) `(flet ,(process-fspec (second fspec)) ,(third fspec)))))
+        (t
+         fspec)))
+
+(defimplementation toggle-trace-function (spec)
+  (toggle-trace spec))
+
+(defimplementation toggle-trace-method (spec)
+  (toggle-trace `(sb-pcl::fast-method ,@(rest (process-fspec spec)))))
+
+(defimplementation toggle-trace-fdefinition-wherein (name wherein)
+  (toggle-trace name :wherein (process-fspec wherein)))

@@ -2173,6 +2173,51 @@ The `symbol-value' of each element is a type tag.")
   (when *install-gc-hooks*
     (install-gc-hooks)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;Trace implementations
+;;In CMUCL, we have:
+;; (trace <name>)
+;; (trace (method <name> <qualifier>? (<specializer>+)))
+;; (trace :methods t '<name>) ;;to trace all methods of the gf <name>
+;; <name> can be a normal name or a (setf name)
+
+(defun toggle-trace (fspec &rest args)
+  (cond ((member fspec (eval '(trace)) :test #'equal)
+         (eval `(untrace ,fspec))
+         (format nil "~S is now untraced." fspec))
+        (t
+         (eval `(trace ,fspec ,@args))
+         (format nil "~S is now traced." fspec))))
+
+(defimplementation toggle-trace-generic-function-methods (name)
+  (cond ((member name (eval '(trace)) :test #'equal)
+         (eval `(untrace ,name))
+         (eval `(untrace :methods ',name))
+         (format nil "~S is now untraced." name))
+        (t
+         (eval `(trace ,name))
+         (eval `(trace :methods ',name))
+         (format nil "~S is now traced." name))))
+
+(defun process-fspec (fspec)
+  (cond ((consp fspec)
+         (ecase (first fspec)
+           ((:defun :defgeneric) (second fspec))
+           ((:defmethod) `(method ,@(rest fspec)))
+           ((:labels) `(labels ,(process-fspec (second fspec)) ,(third fspec)))
+           ((:flet) `(flet ,(process-fspec (second fspec)) ,(third fspec)))))
+        (t
+         fspec)))
+
+(defimplementation toggle-trace-function (spec)
+  (toggle-trace spec))
+
+(defimplementation toggle-trace-method (spec)
+  (toggle-trace `(pcl:fast-method ,@(rest (process-fspec spec)))))
+
+(defimplementation toggle-trace-fdefinition-wherein (name wherein)
+  (toggle-trace name :wherein (process-fspec wherein)))
+
 ;; Local Variables:
 ;; pbook-heading-regexp:    "^;;;\\(;+\\)"
 ;; pbook-commentary-regexp: "^;;;\\($\\|[^;]\\)"
