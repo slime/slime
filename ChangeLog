@@ -1,3 +1,30 @@
+2003-11-03  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-display-message-or-view,
+	slime-remove-message-window): Display too long lines in a new
+	window.  Add a temporary pre-command-hook to remove the multiline
+	window before the next command is executed.
+
+	(slime-complete-symbol): Save the window configuration before
+	displaying the completions and try to restore it later.  The
+	configuration is restored when: (a) the completion is unique (b) there
+	are no completion.  It is also possible to delay the restoration until
+	(c) certain characters, e.g, space or a closing paren, are inserted.
+
+	(slime-selector): Don't abort when an unkown character is pressed;
+	display a message and continue.  Similiar for ?\?.  Add a selector for
+	the *sldb* buffer.
+
+	(slbd-hook, sldb-xemacs-post-command-hook): Emulate Emacs'
+	point-entered text property with a post-command hook.
+
+	* swank.lisp (case-convert, find-symbol-designator): New
+	functions.
+
+	* swank-cmucl.lisp, swank-openmcl.lisp, swank-sbcl.lisp
+	(arglist-string): Don't intern the function name.  Use
+	find-symbol-designator instead.
+
 2003-11-03  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-display-buffer-region): Hacked to fix completely
