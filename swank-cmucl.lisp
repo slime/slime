@@ -23,10 +23,15 @@
 		       (lisp::misc #'sos/misc)
 		       (lisp::out #'sos/out)
 		       (lisp::sout #'sos/sout))
-	     (:conc-name sos.))
+	     (:conc-name sos.)
+	     (:print-function %print-slime-output-stream))
   (buffer (make-string 512) :type string)
   (index 0 :type kernel:index)
   (column 0 :type kernel:index))
+
+(defun %print-slime-output-stream (s stream d)
+  (declare (ignore d))
+  (print-unreadable-object (s stream :type t :identity t)))
 
 (defun sos/out (stream char)
   (let ((buffer (sos.buffer stream))
@@ -48,7 +53,7 @@
 (defun sos/misc (stream operation &optional arg1 arg2)
   (declare (ignore arg1 arg2))
   (case operation
-    (:force-output
+    ((:force-output :finish-output)
      (let ((end (sos.index stream)))
        (unless (zerop end)
 	 (send-to-emacs `(:read-output ,(subseq (sos.buffer stream) 0 end)))
@@ -64,7 +69,8 @@
 	     (:include string-stream
 		       (lisp::in #'sis/in)
 		       (lisp::misc #'sis/misc))
-	     (:conc-name sis.))
+	     (:conc-name sis.)
+	     (:print-function %print-slime-output-stream))
   (buffer "" :type string)
   (index 0 :type kernel:index))
 
@@ -93,47 +99,6 @@
     (:line-length nil)
     (:get-command nil)
     (:element-type 'base-char)))
-
-
-;; (eval-when (:load-toplevel :compile-toplevel :execute)
-;;   (require :gray-streams))
-;; 
-;; (defclass slime-input-stream (ext:fundamental-character-input-stream)
-;;   ((buffer :initform "") (index :initform 0)))
-;; 
-;; (defmethod ext:stream-read-char ((s slime-input-stream))
-;;   (with-slots (buffer index) s
-;;     (when (= index (length buffer))
-;; 	 (setf buffer (slime-read-string))
-;; 	 (setf index 0))
-;;     (assert (plusp (length buffer)))
-;;     (prog1 (aref buffer index) (incf index))))
-;; 
-;; (defmethod ext:stream-listen ((s slime-input-stream))
-;;   (with-slots (buffer index) s
-;;     (< index (length buffer))))
-;; 
-;; (defmethod ext:stream-unread-char ((s slime-input-stream) char)
-;;   (with-slots (buffer index) s
-;;     (setf (aref buffer (decf index)) char))
-;;   nil)
-;; 
-;; (defmethod ext:stream-clear-input ((s slime-input-stream))
-;;   (with-slots (buffer index) s 
-;;     (setf buffer ""  
-;; 	     index 0))
-;;   nil)
-;; 
-;; (defmethod ext:stream-line-column ((s slime-input-stream))
-;;   nil)
-;; 
-;; (defmethod ext:stream-line-length ((s slime-input-stream))
-;;   75)
-;; 
-;; (defun make-slime-input-stream ()
-;;   (make-instance 'slime-input-stream))
-
-
 
 (defun create-swank-server (port &key reuse-address (address "localhost"))
   "Create a SWANK TCP server."
@@ -325,7 +290,7 @@ This is a workaround for a CMUCL bug: XREF records are cumulative."
 The result has the format \"(...)\"."
   (declare (type string fname))
   (multiple-value-bind (function condition)
-      (ignore-errors (values (from-string fname)))
+      (ignore-errors (values (find-symbol-designator fname *buffer-package*)))
     (when condition
       (return-from arglist-string (format nil "(-- ~A)" condition)))
     (let ((arglist

@@ -240,7 +240,7 @@ until the remote Emacs goes away."
 (defslimefun arglist-string (fname)
   (let ((*print-case* :downcase))
     (multiple-value-bind (function condition)
-        (ignore-errors (values (from-string fname)))
+        (ignore-errors (values (find-symbol-designator fname)))
       (when condition
         (return-from arglist-string (format nil "(-- ~A)" condition)))
       (let ((arglist
