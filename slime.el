@@ -1551,9 +1551,10 @@ NEXT-CANDIDATE-FN is called to find each new position for consideration."
 Designed to be bound to the SPC key."
   (interactive)
   (insert " ")
-  (unless (slime-busy-p)
-    (when (slime-function-called-at-point/line)
-      (slime-arglist (symbol-name (slime-function-called-at-point/line))))))
+  (when (and (slime-connected-p)
+             (not (slime-busy-p))
+             (slime-function-called-at-point/line))
+    (slime-arglist (symbol-name (slime-function-called-at-point/line)))))
 
 (defun slime-arglist (symbol-name)
   "Show the argument list for the nearest function call, if any."
