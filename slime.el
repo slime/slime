@@ -6226,7 +6226,7 @@ This way you can still see what the error was after exiting SLDB."
   (let ((id (get-text-property (point) 'thread-id))
         (file (slime-swank-port-file)))
     (slime-eval-async `(swank:start-swank-server-in-thread ,id ,file)))
-  (slime-read-port-and-connect-to-running-swank nil))
+  (slime-read-port-and-connect nil))
 
 (defun slime-thread-debug ()
   (interactive)
