@@ -1,11 +1,10 @@
 Overview.
 ----------------------------------------
 
-  SLIME is the Superior Lisp Interaction Mode (which has been
-  Extended). It is implemented in two main parts: the Emacs Lisp side
-  (slime.el), and the support library for the Common Lisp
-  (swank.lisp for CMUCL, swank-sbcl.lisp, swank-openmcl.lisp for 
-  the others)
+  SLIME is the Superior Lisp Interaction Mode for Emacs. It is
+  implemented in two main parts: the Emacs Lisp side (slime.el), and
+  the support library for the Common Lisp (swank.lisp for CMUCL,
+  swank-sbcl.lisp, swank-openmcl.lisp for the others)
 
   For a real description, see the commentary in slime.el.
 
@@ -18,10 +17,13 @@ Quick setup instructions for CMUCL
     (require 'slime)
     (add-hook 'lisp-mode-hook (lambda () (slime-mode t)))
 
-  Make sure your `inferior-lisp-program' is set to a recent (post-18e)
-  version of CMUCL.
+  Make sure your `inferior-lisp-program' is set to a compatible
+  version of Lisp. For CMUCL we currently require a post-18e
+  snapshot. If you use a non-CMUCL backend, you will need to customize
+  the elisp variable `slime-backend' and possibly
+  `slime-lisp-binary-extension' too.
 
-  M-x slime to fire up an inferior Lisp.
+  Use `M-x' slime to fire up and connect to an inferior Lisp.
 
   Open a lisp-mode file and do `C-h m' to see the mode description.
 
@@ -30,16 +32,16 @@ Licence.
 
   The Emacs Lisp code is licensed under the GNU GPL to fit in with Emacs.
 
-  The CMUCL and SBCL code is placed in the public domain to fit in with 
-   CMUCL and SBCL
+  The CMUCL and SBCL code is placed in the public domain to fit in
+  with CMUCL and SBCL.
 
-  The OpenMCL code is LLGPLed, just like OpenMCL
+  The OpenMCL code is LLGPLed, just like OpenMCL.
 
 Contact.
 ----------------------------------------
 
-  SLIME is maintained by Luke Gorrie, Helmut Eller, and Daniel
-  Barlow. It is an Extension of SLIM by Eric Marsden (unreleased).
+  SLIME is maintained by Luke Gorrie, Helmut Eller, James Bielman,
+  and Daniel Barlow. It is an Extension of SLIM by Eric Marsden (unreleased).
 
   Questions and comments are best directed to the mailing list:
     http://common-lisp.net/mailman/listinfo/slime-devel
