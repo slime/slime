@@ -40,6 +40,7 @@
            #:frame-source-position
            #:lisp-implementation-type-name
            #:getpid
+           #:connection-info
            #:give-goahead
            #:give-gohead
            #:init-inspector
