@@ -27,7 +27,7 @@
 
 (defparameter *sysdep-pathnames*
   (mapcar #'make-swank-pathname 
-          #+cmu '("swank-cmucl" "swank-source-path-parser")
+          #+cmu '("swank-source-path-parser" "swank-cmucl")
           #+sbcl '("swank-sbcl" "swank-source-path-parser" "swank-gray")
           #+openmcl '("swank-openmcl" "swank-gray")
           #+lispworks '("swank-lispworks" "swank-gray")
@@ -64,11 +64,12 @@ recompiled."
 
 (defun user-init-file ()
   "Return the name of the user init file or nil."
-  (let ((filename (format nil "~A/.swank.lisp"
-                          (namestring (translate-logical-pathname
-                                       (user-homedir-pathname))))))
-    (cond ((probe-file filename) filename)
-          (t nil))))
+  (let ((home (user-homedir-pathname)))
+    (when (probe-file home)
+      (let ((filename (format nil "~A/.swank.lisp"
+                              (namestring (truename home)))))
+        (cond ((probe-file filename) filename)
+              (t nil))))))
 
 (compile-files-if-needed-serially
  (list* (make-swank-pathname "swank-backend") *swank-pathname*
