@@ -138,12 +138,45 @@ If you want to fallback on TAGS you can set this to `find-tag'.")
   "*The base URL of the SBCL manual, for documentation lookup.")
 
 
-;;; Customize group
+;;; Customize groups
+;;;
+;;;;; slime
 
 (defgroup slime nil
   "Interfaction with the Superior Lisp Environment."
   :prefix "slime-"
   :group 'applications)
+
+(defcustom slime-compilation-finished-hook 'slime-maybe-list-compiler-notes
+  "Hook called with a list of compiler notes after a compilation."
+  :group 'slime
+  :type 'hook
+  :options '(slime-maybe-list-compiler-notes
+             slime-list-compiler-notes 
+             slime-maybe-show-xrefs-for-notes))
+
+(defcustom slime-complete-symbol-function 'slime-complete-symbol*
+  "Function to perform symbol completion."
+  :group 'slime
+  :type 'function
+  :options '(slime-complete-symbol* slime-simple-complete-symbol))
+  
+(defcustom slime-connected-hook nil
+  "List of functions to call when SLIME connects to Lisp."
+  :group 'slime
+  :type 'hook)
+
+(defcustom slime-startup-animation t
+  "Enable the startup animation."
+  :type '(choice (const :tag "Enable" t) (const :tag "Disable" nil))
+  :group 'slime)
+  
+;;;;; slime-mode
+
+(defgroup slime-mode nil
+  "Faces and other options for slime-mode source code buffers."
+  :prefix "slime-"
+  :group 'slime)
 
 (defun slime-underline-color (color)
   "Return a legal value for the :underline face attribute based on COLOR."
@@ -160,7 +193,7 @@ If you want to fallback on TAGS you can set this to `find-tag'.")
      (:underline ,(slime-underline-color "red")))
     (t (:underline t)))
   "Face for errors from the compiler."
-  :group 'slime)
+  :group 'slime-mode)
 
 (defface slime-warning-face
   `((((class color) (background light))
@@ -169,7 +202,7 @@ If you want to fallback on TAGS you can set this to `find-tag'.")
      (:underline ,(slime-underline-color "coral")))
     (t (:underline t)))
   "Face for warnings from the compiler."
-  :group 'slime)
+  :group 'slime-mode)
 
 (defface slime-style-warning-face
   `((((class color) (background light))
@@ -178,7 +211,7 @@ If you want to fallback on TAGS you can set this to `find-tag'.")
      (:underline ,(slime-underline-color "gold")))
     (t (:underline t)))
   "Face for style-warnings from the compiler."
-  :group 'slime)
+  :group 'slime-mode)
 
 (defface slime-note-face
   `((((class color) (background light))
@@ -187,7 +220,7 @@ If you want to fallback on TAGS you can set this to `find-tag'.")
      (:underline ,(slime-underline-color "light goldenrod")))
     (t (:underline t)))
   "Face for notes from the compiler."
-  :group 'slime)
+  :group 'slime-mode)
 
 (defun slime-face-inheritance-possible-p ()
   "Return true if the :inherit face attribute is supported." 
@@ -202,60 +235,14 @@ If you want to fallback on TAGS you can set this to `find-tag'.")
        (:background "darkolivegreen"))
       (t (:inverse-video t))))
   "Face for compiler notes while selected."
-  :group 'slime)
-
-(defface slime-repl-prompt-face
-  (if (slime-face-inheritance-possible-p)
-      '((t (:inherit font-lock-keyword-face)))
-    '((((class color) (background light)) (:foreground "Purple"))
-      (((class color) (background dark)) (:foreground "Cyan"))
-      (t (:weight bold))))
-  "Face for the prompt in the SLIME REPL."
-  :group 'slime)
-
-(defface slime-repl-output-face
-  (if (slime-face-inheritance-possible-p)
-      '((t (:inherit font-lock-string-face)))
-    '((((class color) (background light)) (:foreground "RosyBrown"))
-      (((class color) (background dark)) (:foreground "LightSalmon"))
-      (t (:slant italic))))
-  "Face for Lisp output in the SLIME REPL."
-  :group 'slime)
-
-(defface slime-repl-input-face
-  '((t (:bold t)))
-  "Face for previous input in the SLIME REPL."
-  :group 'slime)
-
-(defface slime-repl-result-face
-  '((t ()))
-  "Face for the result of an evaluation in the SLIME REPL."
-  :group 'slime)
+  :group 'slime-mode)
 
 ;; inspector
 ;; Try  '(slime-inspector-label-face ((t (:weight bold))))
 ;;      '(slime-inspector-topline-face ((t (:foreground "brown" :weight bold :height 1.2))))
 ;;      '(slime-inspector-type-face ((t (:foreground "DarkRed" :weight bold))))
 
-(defface slime-inspector-topline-face
-  '((t ()))
-  "Face for top line describing object."
-  :group 'slime)
-
-(defface slime-inspector-label-face
-  '((t (:bold t)))
-  "Face for labels in the inspector."
-  :group 'slime)
-
-(defface slime-inspector-value-face
-  '((t ()))
-  "Face for things which can themselves be inspected."
-  :group 'slime)
-
-(defface slime-inspector-type-face
-  '((t ()))
-  "Face for type description in inspector."
-  :group 'slime)
+;;;;; sldb
 
 (defgroup slime-debugger nil
   "Backtrace options and fontification."
@@ -300,30 +287,6 @@ If you want to fallback on TAGS you can set this to `find-tag'.")
 (def-sldb-face reference "documentation reference"
   (:underline t))
 
-(defcustom slime-compilation-finished-hook 'slime-maybe-list-compiler-notes
-  "Hook called with a list of compiler notes after a compilation."
-  :group 'slime
-  :type 'hook
-  :options '(slime-maybe-list-compiler-notes
-             slime-list-compiler-notes 
-             slime-maybe-show-xrefs-for-notes))
-
-(defcustom slime-complete-symbol-function 'slime-complete-symbol*
-  "Function to perform symbol completion."
-  :group 'slime
-  :type 'function
-  :options '(slime-complete-symbol* slime-simple-complete-symbol))
-  
-(defcustom slime-connected-hook nil
-  "List of functions to call when SLIME connects to Lisp."
-  :group 'slime
-  :type 'hook)
-
-(defcustom slime-startup-animation t
-  "Enable the startup animation."
-  :type '(choice (const :tag "Enable" t) (const :tag "Disable" nil))
-  :group 'slime)
-  
 
 ;;; Minor modes
 
@@ -1657,6 +1620,7 @@ fixnum a specific thread."))
   (when (equal slime-net-processes (list proc))
     (setq slime-connection-counter 0))
   (slime-with-connection-buffer ()
+    (setq slime-buffer-connection proc)
     (setq slime-connection-number (incf slime-connection-counter)))
   (with-lexical-bindings (proc)
     (slime-eval-async '(swank:connection-info) nil
@@ -1975,7 +1939,8 @@ update window-point afterwards.  If point is initially not at
 (defun slime-output-filter (process string)
   (when (and (slime-connected-p)
              (plusp (length string)))
-    (slime-output-string string)))
+    (with-current-buffer (process-buffer process)
+      (slime-output-string string))))
 
 (defun slime-open-stream-to-lisp (port)
   (let ((stream (open-network-stream "*lisp-output-stream*" 
@@ -2058,6 +2023,44 @@ update window-point afterwards.  If point is initially not at
 ;; there is no prompt between output-end and input-start.
 ;;
 
+(defgroup slime-repl nil
+  "The Read-Eval-Print Loop (*slime-repl* buffer)."
+  :prefix "slime-repl-"
+  :group 'slime)
+
+(defcustom slime-repl-shortcut-dispatch-char ?\,
+  "Character used to distinguish repl commands from lisp forms."
+  :type '(character)
+  :group 'slime-repl)
+
+(defface slime-repl-prompt-face
+  (if (slime-face-inheritance-possible-p)
+      '((t (:inherit font-lock-keyword-face)))
+    '((((class color) (background light)) (:foreground "Purple"))
+      (((class color) (background dark)) (:foreground "Cyan"))
+      (t (:weight bold))))
+  "Face for the prompt in the SLIME REPL."
+  :group 'slime-repl)
+
+(defface slime-repl-output-face
+  (if (slime-face-inheritance-possible-p)
+      '((t (:inherit font-lock-string-face)))
+    '((((class color) (background light)) (:foreground "RosyBrown"))
+      (((class color) (background dark)) (:foreground "LightSalmon"))
+      (t (:slant italic))))
+  "Face for Lisp output in the SLIME REPL."
+  :group 'slime-repl)
+
+(defface slime-repl-input-face
+  '((t (:bold t)))
+  "Face for previous input in the SLIME REPL."
+  :group 'slime-repl)
+
+(defface slime-repl-result-face
+  '((t ()))
+  "Face for the result of an evaluation in the SLIME REPL."
+  :group 'slime-repl)
+
 ;; Small helper.
 (defun slime-make-variables-buffer-local (&rest variables)
   (mapcar #'make-variable-buffer-local variables))
@@ -2073,11 +2076,6 @@ update window-point afterwards.  If point is initially not at
  (defvar slime-repl-input-start-mark)
  (defvar slime-repl-input-end-mark)
  (defvar slime-repl-last-input-start-mark))
-
-(defcustom slime-repl-shortcut-dispatch-char ?\,
-  "Character used to distinguish repl commands from lisp forms."
-  :type '(character)
-  :group 'slime)
 
 (defvar slime-repl-mode-map)
 
@@ -2724,8 +2722,8 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   "Kill all the slime related buffers. This is only used by the
   repl command sayoonara."
   (dolist (buf (buffer-list))
-    (when (or (member (buffer-name buf) '("*inferior-lisp*" 
-                                          slime-event-buffer-name))
+    (when (or (string= (buffer-name buf) slime-event-buffer-name)
+              (string-match "^\\*inferior-lisp*" (buffer-name buf))
               (string-match "^\\*slime-repl\\[[0-9]+\\]\\*$" (buffer-name buf))
               (string-match "^\\*sldb .*\\*$" (buffer-name buf)))
       (kill-buffer buf))))
@@ -5700,6 +5698,31 @@ This way you can still see what the error was after exiting SLDB."
 
 
 ;;; Inspector
+
+(defgroup slime-inspector nil
+  "Inspector faces."
+  :prefix "slime-inspector-"
+  :group 'slime)
+
+(defface slime-inspector-topline-face
+  '((t ()))
+  "Face for top line describing object."
+  :group 'slime-inspector)
+
+(defface slime-inspector-label-face
+  '((t (:bold t)))
+  "Face for labels in the inspector."
+  :group 'slime-inspector)
+
+(defface slime-inspector-value-face
+  '((t ()))
+  "Face for things which can themselves be inspected."
+  :group 'slime-inspector)
+
+(defface slime-inspector-type-face
+  '((t ()))
+  "Face for type description in inspector."
+  :group 'slime-inspector)
 
 (defvar slime-inspector-mark-stack '())
 
