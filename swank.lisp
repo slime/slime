@@ -35,6 +35,7 @@
            #:*sldb-print-level*
            #:*sldb-print-lines*
            #:*sldb-print-pprint-dispatch*
+           #:*default-worker-thread-bindings*
            ;; These are re-exported directly from the backend:
            #:buffer-first-change
            #:frame-source-location-for-emacs
