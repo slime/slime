@@ -1,5 +1,13 @@
 2004-01-10  Luke Gorrie  <luke@bluetail.com>
 
+	* slime.el (package-updating): Expected package is now a list (can
+	be any), since the shortest nickname is not
+	standardized. e.g. USER or CL-USER for COMMON-LISP-USER.
+
+	* swank-cmucl.lisp: Don't enable xref (let the user decide).
+	(set-fd-non-blocking): Removed unused function.
+	Miscellaneous refactoring of the networking code.
+
 	* slime.el (slime-complete-symbol): Use markers to hold the
 	beginning and end of the completion prefix, in case looking up
 	completions causes insertions (e.g. GC announcements).
