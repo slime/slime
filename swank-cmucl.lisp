@@ -4,19 +4,8 @@
 
 (in-package :swank)
 
-;; Turn on xref. [should we?]
-(setf c:*record-xref-info* t)
-
 (defun without-interrupts* (body)
   (sys:without-interrupts (funcall body)))
-
-(defun set-fd-non-blocking (fd)
-  (flet ((fcntl (fd cmd arg)
-	   (multiple-value-bind (flags errno) (unix:unix-fcntl fd cmd arg)
-	     (or flags 
-		 (error "fcntl: ~A" (unix:get-unix-error-msg errno))))))
-    (let ((flags (fcntl fd unix:F-GETFL 0)))
-      (fcntl fd unix:F-SETFL (logior flags unix:O_NONBLOCK)))))
 
 
 ;;;; TCP server.
@@ -36,49 +25,42 @@
          (fd (ext:create-inet-listener port :stream
                                        :reuse-address reuse-address
                                        :host ip)))
-    (funcall announce (nth-value 1 (ext::get-socket-host-and-port fd)))
-    (accept-loop fd background close)))
+    (funcall announce (tcp-port fd))
+    (accept-clients fd background close)))
 
-(defun emacs-io (fd)
-  "Create a new fd-stream for fd."
-  (sys:make-fd-stream fd :input t :output t :element-type 'base-char))
-
-(defun add-input-handler (fd fn)
-  (system:add-fd-handler fd :input fn))
-
-(defun accept-loop (fd background close)
+(defun accept-clients (fd background close)
   "Accept clients on the the server socket FD.  Use fd-handlers if
 BACKGROUND is non-nil.  Close the server socket after the first client
 if CLOSE is non-nil, "
-  (cond (background
-         (add-input-handler 
-          fd (lambda (fd) (accept-one-client fd background close))))
-        (close
-         (accept-one-client fd background close))
-        (t 
-         (loop (accept-one-client fd background close)))))
+  (flet ((accept-client (&optional (fdes fd))
+           (accept-one-client fd background close)))
+    (cond (background (add-input-handler fd #'accept-client))
+          (close      (accept-client))
+          (t          (loop (accept-client))))))
 
 (defun accept-one-client (socket background close)
   (let ((fd (ext:accept-tcp-connection socket)))
     (when close   
       (sys:invalidate-descriptor socket)
       (unix:unix-close socket))
-    (request-loop fd background)))
+    (setup-request-loop fd background)))
 
-(defun request-loop (fd background)
-  "Process all request from the socket FD."
-  (let* ((stream (emacs-io fd))
+(defun setup-request-loop (fd background)
+  "Setup request handling for connection FD.
+If BACKGROUND is true, setup SERVE-EVENT handler and return immediately.
+Otherwise enter a request handling loop until the connection closes."
+  (let* ((stream (make-emacs-io-stream fd))
          (out (if *use-dedicated-output-stream* 
                   (open-stream-to-emacs stream)
                   (make-slime-output-stream)))
          (in (make-slime-input-stream))
          (io (make-two-way-stream in out)))
-    (cond (background
-           (add-input-handler 
-            fd (lambda (fd) 
-                 (declare (ignore fd))
-                 (serve-one-request stream out in io))))
-          (t (do () ((serve-one-request stream out in io)))))))
+    (flet ((serve-request (&optional fdes)
+             (declare (ignore fdes))
+             (serve-one-request stream out in io)))
+      (if background
+          (add-input-handler fd #'serve-request)
+          (loop (serve-one-request stream out in io))))))
 
 (defun serve-one-request (*emacs-io* *slime-output* *slime-input* *slime-io*)
   "Read and process one request from a SWANK client. 
@@ -95,11 +77,31 @@ Return non-nil iff a reader-error occured."
           (return-from serve-one-request t)))))
   nil)
 
+;;;
+;;;;; Socket helpers.
+
+(defun tcp-port (fd)
+  "Return the TCP port of the socket represented by FD."
+  (nth-value 1 (ext::get-socket-host-and-port fd)))
+
+(defun resolve-hostname (hostname)
+  "Return the IP address of HOSTNAME as an integer."
+  (let* ((hostent (ext:lookup-host-entry hostname))
+         (address (car (ext:host-entry-addr-list hostent))))
+    (ext:htonl address)))
+
+(defun add-input-handler (fd fn)
+  (system:add-fd-handler fd :input fn))
+
+(defun make-emacs-io-stream (fd)
+  "Create a new input/output fd-stream for FD."
+  (sys:make-fd-stream fd :input t :output t :element-type 'base-char))
+
 (defun open-stream-to-emacs (*emacs-io*)
   "Return an output-stream to Emacs' output buffer."
   (let* ((ip (resolve-hostname "localhost"))
          (listener (ext:create-inet-listener 0 :stream :host ip))
-         (port (nth-value 1 (ext::get-socket-host-and-port listener))))
+         (port (tcp-port listener)))
     (unwind-protect
          (progn
            (eval-in-emacs `(slime-open-stream-to-lisp ,port))
