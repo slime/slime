@@ -1204,7 +1204,8 @@ LRA  =  ~X~%" (mapcar #'fixnum
      (append (apropos-list "-TYPE" "VM" t)
 	     (apropos-list "-TYPE" "BIGNUM" t)))))
 
-(defmethod describe-primitive-type (object)
+
+(defimplementation describe-primitive-type (object)
   (with-output-to-string (*standard-output*)
     (let* ((lowtag (kernel:get-lowtag object))
 	   (lowtag-symbol (find lowtag +lowtag-symbols+ :key #'symbol-value)))
@@ -1220,7 +1221,7 @@ LRA  =  ~X~%" (mapcar #'fixnum
 	       (format t ", type: ~A]" type-symbol)))
 	    (t (format t "]"))))))
 
-(defmethod inspected-parts (o)
+(defimplementation inspected-parts (o)
   (cond ((di::indirect-value-cell-p o)
 	 (inspected-parts-of-value-cell o))
 	(t
@@ -1326,6 +1327,36 @@ LRA  =  ~X~%" (mapcar #'fixnum
 
   (defimplementation all-threads ()
     (copy-list mp:*all-processes*))
+
+  (defimplementation interrupt-thread (thread fn)
+    (mp:process-interrupt thread fn))
+
+  (defvar *mailbox-lock* (mp:make-lock "mailbox lock"))
+  
+  (defstruct (mailbox (:conc-name mailbox.)) 
+    (mutex (mp:make-lock "process mailbox"))
+    (queue '() :type list))
+
+  (defun mailbox (thread)
+    "Return THREAD's mailbox."
+    (mp:with-lock-held (*mailbox-lock*)
+      (or (getf (mp:process-property-list thread) 'mailbox)
+          (setf (getf (mp:process-property-list thread) 'mailbox)
+                (make-mailbox)))))
+  
+  (defimplementation send (thread message)
+    (let* ((mbox (mailbox thread))
+           (mutex (mailbox.mutex mbox)))
+      (mp:with-lock-held (mutex)
+        (setf (mailbox.queue mbox)
+              (nconc (mailbox.queue mbox) (list message))))))
+  
+  (defimplementation receive ()
+    (let* ((mbox (mailbox mp:*current-process*))
+           (mutex (mailbox.mutex mbox)))
+      (mp:process-wait "receive" #'mailbox.queue mbox)
+      (mp:with-lock-held (mutex)
+        (pop (mailbox.queue mbox)))))
 
   )
 
