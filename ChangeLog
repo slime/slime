@@ -1,3 +1,13 @@
+2004-06-24  Christophe Rhodes  <csr21@cam.ac.uk>
+
+	* slime.el (sldb-format-reference-node): fix for when `what' is a
+	list.
+	(sldb-lookup-reference,sldb-reference-properties): support
+	:ansi-cl :section reference types.
+
+	* hyperspec.el (common-lisp-hyperspec-6.0): generalize to work
+	with section numbers lower than 10.
+
 2004-06-24  Brian Downing  <bdowning@lavos.net>
 
  	* slime.el (slime-repl-send-input): Fixed a subtle difference in
