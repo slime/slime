@@ -1,3 +1,20 @@
+2004-05-10  Luke Gorrie  <luke@bluetail.com>
+
+	* swank.lisp (from-string): Bind *READ-SUPPRESS* to NIL.
+	(swank-compiler): Bind a restart to abort compilation but still
+	report the compiler messages already trapped.
+	(string-to-package-designator): Function that uses READ to
+	case-convert package names.
+	(apropos-list-for-emacs): Use it.
+
+	* slime.el (slime-eval-with-transcript): Don't print the "=>"
+	prefix in messages showing evaluation results. It mucks up
+	alignment in multi-line messages.
+	(sldb-eval-in-frame): Don't print "==>" prefix on evaluation
+	results, for the same reason.
+	(slime-show-source-location): Move the point to the source
+	location in addition to highlighting the matching parens.
+
 2004-05-08  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-cmucl.lisp (find-definitions): Add support for variables
