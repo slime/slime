@@ -1638,7 +1638,6 @@ This is automatically synchronized from Lisp.")
 
 (defun slime-set-connection-info (connection info)
   "Initialize CONNECTION with INFO received from Lisp."
-  (message "here")
   (destructuring-bind (pid type name features) info
     (setf (slime-pid) pid
           (slime-lisp-implementation-type) type
