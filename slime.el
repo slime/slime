@@ -286,18 +286,25 @@ A prefix argument disables this behaviour."
       (narrow-to-region indent-start (point-max)))
     (lisp-indent-line)))
 
-(defun inferior-slime-input-complete-p ()
-  "Return true if the input is complete in the inferior lisp buffer."
+(defun slime-input-complete-p (start end)
+  "Return t if the region from START to END contains a complete sexp."
   (ignore-errors
     (save-excursion
-      (goto-char (process-mark (get-buffer-process (current-buffer))))
-      ;; Keep stepping over blanks and sexps until the end of buffer
-      ;; is reached or an error occurs
-      (loop do (or (skip-chars-forward " \t\r\n")
-                   (looking-at ")"))    ; tollerate extra close parens
-            until (eobp)
-            do (slime-forward-sexp))
-      t)))
+      (save-restriction
+        (narrow-to-region start end)
+        (goto-char start)
+        ;; Keep stepping over blanks and sexps until the end of buffer
+        ;; is reached or an error occurs
+        (loop do (or (skip-chars-forward " \t\r\n")
+                     (looking-at ")"))  ; tollerate extra close parens
+              until (eobp)
+              do (slime-forward-sexp))
+        t))))
+
+(defun inferior-slime-input-complete-p ()
+  "Return true if the input is complete in the inferior lisp buffer."
+  (slime-input-complete-p (process-mark (get-buffer-process (current-buffer)))
+                          (point-max)))
 
 (defun inferior-slime-closing-return ()
   "Send the current expression to Lisp after closing any open lists."
@@ -1351,6 +1358,8 @@ Loops until the result is thrown to our caller, or the user aborts."
   (setq major-mode 'slime-repl-mode)
   (use-local-map slime-repl-mode-map)
   (lisp-mode-variables t)
+  (set (make-local-variable 'lisp-indent-function)
+       'common-lisp-indent-function)
   (setq font-lock-defaults nil)
   (setq mode-name "REPL")
   (set (make-local-variable 'scroll-conservatively) 20)
@@ -1429,11 +1438,24 @@ after the last prompt to the end of buffer."
     (beginning-of-line 1)))
         
 (defun slime-repl-return ()
-  "Evaluate the current input string."
+  "Evaluate the current input string, or insert a newline.  
+Send the current input ony if a whole expression has been entered,
+i.e. the parenthesis are matched. 
+
+With prefix argument send the input even if the parenthesis are not
+balanced."
   (interactive)
   (unless (or (slime-idle-p)
               (slime-reading-p))
-    (error "Lisp is not ready for request from the REPL."))
+    (error "Lisp is not ready for requests from the REPL."))
+  (if (or current-prefix-arg
+          (slime-input-complete-p slime-repl-input-start-mark 
+                                  slime-repl-input-end-mark))
+      (slime-repl-send-input)
+    (slime-repl-newline-and-indent)))
+
+(defun slime-repl-send-input ()
+  "Goto to the end of the input and send the current input."
   (let ((input (slime-repl-current-input)))
     (goto-char slime-repl-input-end-mark)
     (slime-repl-maybe-insert-output-separator)
