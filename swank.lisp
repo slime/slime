@@ -29,12 +29,8 @@
            #:*readtable-alist*
            #:*globally-redirect-io*
            #:*global-debugger*
-           #:*sldb-print-pretty*
-           #:*sldb-print-circle*
-           #:*sldb-print-length*
-           #:*sldb-print-level*
-           #:*sldb-print-lines*
-           #:*sldb-print-pprint-dispatch*
+           #:*sldb-printer-bindings*
+           #:*swank-pprint-bindings*
            #:*default-worker-thread-bindings*
            ;; These are re-exported directly from the backend:
            #:buffer-first-change
@@ -50,13 +46,7 @@
            #:profile-package
            #:default-directory
            #:set-default-directory
-           #:quit-lisp
-           #:toggle-trace-function
-           #:toggle-trace-generic-function-methods
-           #:toggle-trace-method
-           #:toggle-trace-fdefinition-wherein
-           #:toggle-trace-fdefinition-within
-))
+           #:quit-lisp))
 
 (in-package :swank)
 
@@ -85,6 +75,44 @@
 
 (defvar *swank-debug-p* t
   "When true, print extra debugging information.")
+
+(defvar *sldb-printer-bindings*
+  `((*print-pretty*           . nil)
+    (*print-level*            . 4)
+    (*print-length*           . 10)
+    (*print-circle*           . t)
+    (*print-readably*         . nil)
+    (*print-pprint-dispatch*  . ,(copy-pprint-dispatch nil))
+    (*print-gensym*           . t)
+    (*print-base*             . 10)
+    (*print-radix*            . nil)
+    (*print-array*            . t)
+    (*print-lines*            . 200)
+    (*print-escape*           . t))
+  "A set of printer variables used in the debugger.")
+
+(defvar *swank-pprint-bindings*
+  `((*print-level*            . nil)
+    (*print-length*           . nil)
+    (*print-circle*           . t)
+    (*print-gensym*           . t)
+    (*print-readably*         . nil)
+    (*print-pprint-dispatch*  . ,(copy-pprint-dispatch nil)))
+  "A list of variables bindings during pretty printing.
+Used when printing macroexpansions and pprint-eval.")
+
+(defvar *default-worker-thread-bindings* '()
+  "An alist to initialize dynamic variables in worker threads.  
+The list has the form ((VAR . VALUE) ...).  Each variable VAR will be
+bound to the corresponding VALUE.")
+
+(defun call-with-bindings (alist fun)
+  "Call FUN with variables bound according to ALIST.
+ALIST is a list of the form ((VAR . VAL) ...)."
+  (let ((vars (mapcar #'car alist))
+        (vals (mapcar #'cdr alist)))
+    (progv vars vals
+      (funcall fun))))
 
 ;;; The `DEFSLIMEFUN' macro defines a function that Emacs can call via
 ;;; RPC.
@@ -453,11 +481,6 @@ of the toplevel restart."
 
 ;;;;;; Thread based communication
 
-(defvar *default-worker-thread-bindings* '()
-  "An alist to initialize dynamic variables in worker threads.  
-The list has the form ((VAR . VALUE) ...).  Each variable VAR will be
-bound to the corresponding VALUE.")
-
 (defvar *active-threads* '())
 
 (defun read-loop (control-thread input-stream connection)
@@ -511,12 +534,6 @@ bound to the corresponding VALUE.")
                                  (handle-request connection))))
          :name "worker"))
 
-(defun call-with-bindings (alist fn)
-  (let ((vars (mapcar #'car alist))
-        (vals (mapcar #'cdr alist)))
-    (progv vars vals
-      (funcall fn))))
-  
 (defun dispatch-event (event socket-io)
   "Handle an event triggered either by Emacs or within Lisp."
   (log-event "DISPATCHING: ~S~%" event)
@@ -1590,60 +1607,18 @@ N.B. this is not an actual package name or nickname."
 	(makunbound name)
 	(prin1-to-string (eval form))))))
 
-(defmacro define-printer-variables (prefix &body vars)
-  "Define a group of printer variables.  
-
-The elements of VARS can have the form: NAME or (NAME INIT).  NAME
-must be one of the symbols (pretty circle case escape right-margin
-level length).  PREFIX and NAME are concatenated, like *PREFIX-NAME*,
-to form the names of the actual variable.  The new variable is
-initialized with INIT or, if INIT was not specified, with the value of
-the corresponding printer variable.
-
-At macroexpansion time the names of the created symbols are stored in
-the 'printer-variables property of PREFIX."
-  (let ((valid-names '(level length circle readably pretty 
-                       case escape right-margin miser-width
-                       base radix gensym array lines pprint-dispatch)))
-    (labels ((symconc (prefix suffix)
-               (intern (format nil "*~A-~A*" (string prefix) (string suffix))
-                       :swank))
-             (parse (var)
-               (destructuring-bind (name init &optional doc) 
-                   (if (consp var)  var  (list var (symconc 'print var)))
-                 (unless (member name valid-names)
-                   (error "Not a printer variable: ~S" var))
-                 (list name init doc))))
-      (let* ((bindings (mapcar #'parse vars)))
-        (setf (get prefix 'printer-variables)
-              (loop for (name) in bindings 
-                    collect `(,(symconc 'print name) ,(symconc prefix name))))
-        `(progn 
-           ,@(loop for (name init doc) in bindings
-                   collect `(defvar ,(symconc prefix name) ,init 
-                              ,@(if doc (list doc)))))))))
-
-
-(define-printer-variables swank-pprint
-  circle level length case right-margin escape)
-
-(defmacro with-printer-settings (group &body body)
-  "Rebind the pringer variables in GROUP and execute body.
-See `define-printer-variables'."
-  (let ((bindings (get group 'printer-variables)))
-    (when (not bindings) (warn "No printer variables for: ~S" group))
-    `(let ,bindings ,@body)))
-
 (defun swank-pprint (list)
   "Bind some printer variables and pretty print each object in LIST."
   (with-buffer-syntax ()
-    (with-printer-settings swank-pprint
-      (let ((*print-pretty* t))
-        (cond ((null list) "; No value")
-              (t (with-output-to-string (*standard-output*)
-                   (dolist (o list)
-                     (pprint o)
-                     (terpri)))))))))
+    (call-with-bindings 
+     *swank-pprint-bindings*
+     (lambda ()
+       (let ((*print-pretty* t))
+         (cond ((null list) "; No value")
+               (t (with-output-to-string (*standard-output*)
+                    (dolist (o list)
+                      (pprint o)
+                      (terpri))))))))))
   
 (defslimefun pprint-eval (string)
   (with-buffer-syntax ()
@@ -1726,16 +1701,6 @@ after Emacs causes a restart to be invoked."
 (defvar *sldb-stepping-p* nil
   "True when during execution of a stepp command.")
 
-;; A set of printer variables used in the debugger.
-(define-printer-variables sldb-print
-  (pretty nil)
-  (level 4)
-  (length 10)
-  (circle t)
-  (readably nil)
-  (pprint-dispatch (copy-pprint-dispatch nil))
-  gensym base radix array lines)
-
 (defun debug-in-emacs (condition)
   (let ((*swank-debugger-condition* condition)
         (*sldb-restarts* (compute-restarts condition))
@@ -1746,9 +1711,11 @@ after Emacs causes a restart to be invoked."
         (*sldb-stepping-p* nil)
         (*swank-state-stack* (cons :swank-debugger-hook *swank-state-stack*)))
     (force-user-output)
-    (with-printer-settings sldb-print
-      (call-with-debugging-environment
-       (lambda () (sldb-loop *sldb-level*))))))
+    (call-with-bindings
+     *sldb-printer-bindings*
+     (lambda ()
+       (call-with-debugging-environment
+        (lambda () (sldb-loop *sldb-level*)))))))
 
 (defun sldb-loop (level)
   (unwind-protect
@@ -2802,14 +2769,16 @@ Include the nicknames if INCLUDE-NICKNAMES is true."
 (defun tracedp (fspec)
   (member fspec (eval '(trace))))
 
-(defslimefun toggle-trace-fdefinition (fname-string)
-  (let ((fname (from-string fname-string)))
-    (cond ((tracedp fname)
-	   (eval `(untrace ,fname))
-	   (format nil "~S is now untraced." fname))
+(defslimefun swank-toggle-trace (spec-string)
+  (let ((spec (from-string spec-string)))
+    (cond ((consp spec) ; handle complicated cases in the backend
+           (toggle-trace spec))
+          ((tracedp spec)
+	   (eval `(untrace ,spec))
+	   (format nil "~S is now untraced." spec))
 	  (t
-           (eval `(trace ,fname))
-	   (format nil "~S is now traced." fname)))))
+           (eval `(trace ,spec))
+	   (format nil "~S is now traced." spec)))))
 
 (defslimefun untrace-all ()
   (untrace))
@@ -2913,6 +2882,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
     (group-xrefs
      (ecase type
        (:calls (who-calls symbol))
+       (:calls-who (calls-who symbol))
        (:references (who-references symbol))
        (:binds (who-binds symbol))
        (:sets (who-sets symbol))
