@@ -246,15 +246,18 @@ change, then send Emacs an update."
 	(makunbound name)
 	(prin1-to-string (eval form))))))
 
+(defun swank-pprint (object)
+  "Bind some printer variables and pretty print OBJECT to a string."
+  (let ((*print-pretty* t)
+        (*print-circle* t)
+        (*print-level* nil)
+        (*print-length* nil))
+    (with-output-to-string (stream)
+      (pprint object stream))))
+
 (defslimefun pprint-eval (string)
   (let ((*package* *buffer-package*))
-    (let ((value (eval (read-from-string string))))
-      (let ((*print-pretty* t)
-	    (*print-circle* t)
-	    (*print-level* nil)
-	    (*print-length* nil))
-	(with-output-to-string (stream)
-	  (pprint value stream))))))
+    (swank-pprint (eval (read-from-string string)))))
 
 (defslimefun set-package (package)
   (setq *package* (guess-package-from-string package))
