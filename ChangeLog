@@ -1,3 +1,27 @@
+2004-03-18  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank.lisp (format-values-for-echo-area): Bind *package* to
+	*buffer-package*.
+	(load-system-for-emacs): Renamed from swank-load-system.
+	(carefully-find-package): Be friendly to case inverting
+	readtables.
+	(inspect-current-condition): New function.
+
+	* swank-backend.lisp, swank-cmucl.lisp (set-default-directory):
+	New backend function.  
+
+	* swank-allegro.lisp, swank-clisp.lisp, swank-lispworks.lisp,
+	swank-sbcl.lisp (swank-compile-string): Be friendly to
+	case-inverting readtables.
+
+	* slime.el (sldb-inspect-condition): Use
+	swank:inspect-current-condition.
+	(slime-inspector-label-face): Make it bold by default.
+	(slime-check-protocol-version, slime-process-available-input):
+	Wait 2 secs after displaying the error message.
+	(sldb-list-catch-tags, sldb-show-frame-details): Display catch
+	tags as symbols not as strings.
+
 2004-03-16  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-dispatch-event, slime-rex): Pass a form instead
