@@ -137,6 +137,12 @@ that the calling thread is the one that interacts with Emacs."
   "Return a short name for the Lisp implementation."
   (lisp-implementation-type))
 
+(definterface set-default-directory (directory)
+  "Set the default directory.
+This is used to resolve filenames without directory component."
+  (setf *default-pathname-defaults* (truename (merge-pathnames directory)))
+  (namestring *default-pathname-defaults*))
+
 
 ;;;; Compilation
 
@@ -220,7 +226,7 @@ The streams are returned as two values.")
 
 The result can be a list or a string.
 
-An error should be signaled if the lambda list cannot be found.")
+An error should be signaled if the lambda-list cannot be found.")
 
 (definterface macroexpand-all (form)
    "Recursively expand all macros in FORM.

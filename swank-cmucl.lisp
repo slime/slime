@@ -148,6 +148,10 @@
 (defimplementation lisp-implementation-type-name ()
   "cmucl")
 
+(defimplementation set-default-directory (directory)
+  (setf (ext:default-directory) directory)
+  (namestring (setf *default-pathname-defaults* (ext:default-directory))))
+
 
 ;;;; Stream handling
 
