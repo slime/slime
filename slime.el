@@ -457,6 +457,7 @@ A prefix argument disables this behaviour."
     ;; "Other"
     ("\I"  slime-inspect :prefixed t :inferior t :sldb t)
     ("\C-]" slime-close-all-sexp :prefixed t :inferior t :sldb t)
+    ([(control c) (control \))] slime-find-unbalanced-parenthesis)
     ("\C-xt" slime-list-threads :prefixed t :inferior t :sldb t)
     ("\C-xc" slime-list-connections :prefixed t :inferior t :sldb t)))
 
@@ -4901,6 +4902,39 @@ the top-level sexp before point."
       (skip-chars-forward " \t\n)")
       (skip-chars-backward " \t\n")
       (delete-region point (point)))))
+
+(defun slime-find-unbalanced-parenthesis ()
+  "Verify that parentheses in the current buffer are balanced.
+If they are not, position point at the first syntax error found."
+  (interactive)
+  (let ((saved-point (point))
+        (state (parse-partial-sexp (point-min) (point-max) -1)))
+    (destructuring-bind (depth innermost-start last-terminated-start
+                               in-string in-comment after-quote 
+                               minimum-depth comment-style 
+                               comment-or-string-start &rest _) state
+      (cond ((and (zerop depth) 
+                  (not in-string) 
+                  (or (not in-comment) 
+                      (and (eq comment-style nil) 
+                           (eobp)))
+                  (not after-quote))
+             (goto-char saved-point)
+             (message "All parentheses appear to be balanced."))
+            ((plusp depth)
+             (goto-char innermost-start)
+             (error "Missing )"))
+            ((minusp depth)
+             (error "Extra )"))
+            (in-string
+             (goto-char comment-or-string-start)
+             (error "String not terminated"))
+            (in-comment
+             (goto-char comment-or-string-start)
+             (error "Comment not terminated"))
+            (after-quote
+             (error "After quote"))
+            (t (error "Shouldn't happen: parsing state: %S" state))))))
 
 ;;; Test suite
 
