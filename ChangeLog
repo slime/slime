@@ -1,4 +1,14 @@
+2004-05-04 Thomas F. Burdick  <tfb@OCF.Berkeley.EDU>
+
+	* slime.el (slime-reindent-defun): New command on C-M-q. Reindent
+	the current Lisp defun after trying to close any unmatched
+	parenthesis. If used within a comment it just calls fill-paragraph.
+
 2004-05-04  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-goto-location-position): Regexp fix.
+	(slime-reindent-defun): New command on M-q. Reindent the current
+	Lisp defun after trying to close any unmatched parenthesis.
 
 	* swank.lisp: Remove (declaim (optimize ...)). The side-effect
 	this has on people's environment seems harmful (I saw someone
