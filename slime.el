@@ -2208,8 +2208,12 @@ Debugged requests are ignored."
        (slime-handle-indentation-update info))
       ((:open-dedicated-output-stream port)
        (slime-open-stream-to-lisp port))
-      ((:%apply fn args)
-       (apply (intern fn) args))
+      ((:eval-no-wait fun args)
+       (apply (intern fun) args))
+      ((:eval thread tag fun args)
+       (slime-eval-for-lisp thread tag (intern fun) args))
+      ((:emacs-return thread tag value)
+       (slime-send `(:emacs-return ,thread ,tag ,value)))
       ((:ed what)
        (slime-ed what))
       ((:debug-condition thread message)
@@ -2224,7 +2228,7 @@ Debugged requests are ignored."
   "Clear all pending continuations."
   (interactive)
   (setf (slime-rex-continuations) '())
-  (mapc #'kill-buffer (mapcar #'cdr (sldb-remove-killed-buffers))))
+  (mapc #'kill-buffer (sldb-buffers)))
 
 (defconst +slime-sigint+ 2)
 
@@ -5114,6 +5118,19 @@ function name is prompted."
 (add-hook 'slime-mode-hook 'slime-setup-first-change-hook)
 
 
+;;;; Eval for Lisp
+
+(defun slime-eval-for-lisp (thread tag fun args)
+  (let ((ok nil) 
+        (value nil)
+        (c (slime-connection)))
+    (unwind-protect (progn 
+                      (setq value (apply fun args))
+                      (setq ok t))
+      (let ((result (if ok `(:ok ,value) `(:abort))))
+        (slime-dispatch-event `(:emacs-return ,thread ,tag ,result))))))
+
+
 ;;;; `ED'
 
 (defvar slime-ed-frame nil
@@ -6155,34 +6172,37 @@ Full list of commands:
 (defvar sldb-overlays '()
   "List of overlays created in source code buffers to highlight expressions.")
 
-;; FIXME: Why are elements not of the form (connection thread buffer)?
-(defvar sldb-buffers '()
-  "Alist of sldb-buffers of the form (((connection . thread) . buffer) ...)")
-
 (defun sldb-buffers ()
-  (setq sldb-buffers (remove-if-not #'buffer-live-p sldb-buffers :key #'cdr)))
+  (remove-if-not (lambda (buffer) 
+                   (with-current-buffer buffer
+                     (eq major-mode 'sldb-mode)))
+                 (buffer-list)))
 
 (defun sldb-find-buffer (thread)
-  (cdr (assoc* (cons (slime-connection) thread) (sldb-buffers) :test #'equal)))
+  (let ((connection (slime-connection)))
+    (find-if (lambda (buffer)
+               (with-current-buffer buffer
+                 (and (eq slime-buffer-connection connection)
+                      (eq slime-current-thread thread))))
+             (sldb-buffers))))
 
 (defun sldb-get-default-buffer ()
-  (cdr (first (sldb-buffers))))
+  "Get a sldb buffer.  
+The buffer is chosen more or less randomly."
+  (car (sldb-buffers)))
 
 (defun sldb-get-buffer (thread)
+  "Find or create a sldb-buffer for THREAD."
   (or (sldb-find-buffer thread)
-      (let* ((name (slime-connection-name))
-             (buffer-name (format "*sldb %s/%s*" name thread))
-             (buffer (get-buffer-create buffer-name)))
-        (push (cons (cons (slime-connection) thread) buffer)
-              sldb-buffers)
-        buffer)))
+      (get-buffer-create 
+       (format "*sldb %s/%s*" (slime-connection-name) thread))))
 
 (defun sldb-debugged-continuations (connection)
   "Return the debugged continuations for CONNECTION."
   (lexical-let ((accu '()))
-    (dolist (e (sldb-buffers))
-      (when (eq (caar e) connection)
-        (with-current-buffer (cdr e)
+    (dolist (b (sldb-buffers))
+      (with-current-buffer b
+        (when (eq slime-buffer-connection connection)
           (setq accu (append sldb-continuations accu)))))
     accu))
 
@@ -6237,7 +6257,6 @@ CONTS is a list of pending Emacs continuations."
         (erase-buffer))
       (setq sldb-level nil))
     (when (and (= level 1) (not stepping))
-      (setf sldb-buffers (remove* sldb sldb-buffers :key #'cdr))
       (kill-buffer sldb))))
 
 (defun sldb-insert-condition (condition)
@@ -8608,8 +8627,9 @@ If they are not, position point at the first syntax error found."
 	       (error "After quote"))
 	      (t (error "Shouldn't happen: parsing state: %S" state))))))
 
-(slime-defun-if-undefined read-directory-name (prompt &optional dir default-dirname 
-                                                      mustmatch initial)
+(slime-defun-if-undefined read-directory-name (prompt 
+                                               &optional dir default-dirname
+                                               mustmatch initial)
   (unless dir
     (setq dir default-directory))
   (unless default-dirname
