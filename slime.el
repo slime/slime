@@ -907,6 +907,24 @@ If that doesn't give a function, return nil."
         (let ((obj (read (current-buffer))))
           (and (symbolp obj) obj))))))
 
+(defun slime-enclosing-operator-names ()
+  "Return the list of operator names of the forms containing point."
+  (let ((result '()))
+    (ignore-errors
+      (save-restriction
+        (narrow-to-region (save-excursion (beginning-of-defun) (point))
+                          (line-end-position))
+        (save-excursion
+          (while t
+            (backward-up-list 1)
+            (when (looking-at "(")
+              (forward-char 1)
+              (let ((name (slime-symbol-name-at-point)))
+                (when name
+                  (push name result)))
+              (backward-up-list 1))))))
+    (nreverse result)))
+
 (defun slime-read-package-name (prompt &optional initial-value)
   (let ((completion-ignore-case t))
     (completing-read prompt (mapcar (lambda (x) (cons x x))
@@ -3015,38 +3033,29 @@ more than one space."
 	     (or (not (slime-busy-p))
                  ;; XXX should we enable this?
                  ;; (not slime-use-sigint-for-interrupt))
-                 )
-	     (slime-function-called-at-point/line))
-    (slime-arglist (symbol-name (slime-function-called-at-point/line)))))
+                 ))
+    (let ((names (slime-enclosing-operator-names)))
+      (when names
+        (slime-eval-async 
+         `(swank:arglist-for-echo-area (quote ,names))
+         (slime-buffer-package)
+         (lambda (message)
+           (slime-background-message "%s" message)))))))
 
-(defun slime-arglist (symbol-name &optional show-fn)
+(defun slime-arglist (name)
   "Show the argument list for the nearest function call, if any.
 If SHOW-FN is non-nil, it is funcall'd with the result instead of
 printing a message."
   (interactive (list (slime-read-symbol-name "Arglist of: ")))
   (slime-eval-async 
-   `(swank:arglist-string ,symbol-name)
+   `(swank:arglist-for-echo-area (quote (,name)))
    (slime-buffer-package)
-   (with-lexical-bindings (show-fn symbol-name)
-     (lambda (arglist)
-       (if show-fn
-           (funcall show-fn arglist)
-         (slime-background-message 
-          "%s" (slime-format-arglist symbol-name arglist)))))))
+   (lambda (arglist)
+     (message "%s" arglist))))
 
 (defun slime-get-arglist (symbol-name)
   "Return the argument list for SYMBOL-NAME."
-  (slime-format-arglist symbol-name
-                        (slime-eval `(swank:arglist-string ,symbol-name))))
-
-(defun slime-format-arglist (symbol-name arglist)
-  (assert (eq ?\( (aref arglist 0)))
-  (assert (eq ?\) (aref arglist (1- (length arglist)))))
-  (let ((args (substring arglist 1 -1)))
-    (format "(%s%s%s)" 
-            symbol-name 
-            (if (zerop (length args)) "" " ")
-            args)))
+  (slime-eval `(swank:arglist-for-echo-area (quote (,symbol-name)))))
 
 
 ;;; Autodocs (automatic context-sensitive help)
@@ -3088,14 +3097,14 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
             (slime-background-message documentation)
             t)
           ;; Asynchronously fetch, cache, and display arglist
-          (slime-arglist
-           name
+          (slime-eval-async
+           `(swank:arglist-for-echo-area (quote (,name)))
+           (slime-buffer-package)
            (with-lexical-bindings (cache-key name)
              (lambda (arglist)
                ;; FIXME: better detection of "no documentation available"
-               (if (string-match "<Unknown-Function>" arglist)
-                   (setq arglist "")
-                 (setq arglist (slime-format-arglist name arglist)))
+               (if (string-match "<not available>" arglist)
+                   (setq arglist ""))
                (slime-update-autodoc-cache cache-key arglist)
                (slime-background-message arglist))))))))
 
