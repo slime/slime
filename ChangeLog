@@ -1,3 +1,28 @@
+2005-01-27  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-busy-p): Ignore debugged continuations to enable
+	arglist lookup while debugging.  Suggested by Lynn Quam.
+	(sldb-continuations): New buffer local variable in sldb buffers to
+	keep track of debugged continuations.
+	(sldb-debugged-continuations): New function.
+	(sldb-buffers): Renamed from sldb-remove-killed-buffers.
+	(slime-eval-print): New function to insert the stream output and
+	the result of an evaluation in the current buffer.
+	(slime-eval-print-last-expression): Use it.
+	(slime-interactive-eval): Use slime-eval-print when a prefix
+	argument was given.
+
+	* swank.lisp (*pending-continuations*, eval-in-emacs)
+	(debugger-info-for-emacs): Keep track of debugged continuation the
+	new variable *pending-continuations* and include the list of
+	active continuations in the debugger info for Emacs.
+	(eval-and-grab-output): New function.  Used by slime-eval-print.
+	(*log-output*): Renamed from *log-io*.  Use *standard-error* as
+	initial value instead of *terminal-io*.  CMUCL opens its own tty
+	and that makes it hard to redirect to output with a shell.
+	*standard-error* writes its output to file descriptor 2.
+	(*canonical-package-nicknames*): Fix typo.
+
 2005-01-20  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (parse-symbol): Don't break if the package doesn't
