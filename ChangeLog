@@ -1,5 +1,15 @@
 2003-12-12  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* swank-cmucl.lisp (create-swank-server): New keyword arguments to
+	control the server: BACKGROUND and CLOSE.  fd-handlers are used if
+	BACKGROUND is true.  If close CLOSE is true, close the socket
+	after the first connection; keep it open otherwise.
+	*start-swank-in-background*, *close-swank-socket-after-setup*: The
+	default values of the corresponding arguments for
+	create-swank-server.
+	(compile-file-for-emacs): Don't load the fasl-file when the
+	compilation failed.
+
 	* swank-openmcl.lisp (toggle-trace-fdefinition, tracedp):
 	Implement trace command.  Patch by Alan Ruttenberg.
 	(find-function-locations, find-source-locations): Handle
@@ -8,14 +18,18 @@
 	(list-callers): Fixed.
 	(list-callers): Fixed some more.  method-name is not exported in
 	0.14.  From Marco Baringer.
+	(swank-accept-connection): Accept multiple connections.  Patch by
+	Marco Basringer.
 
 	* swank-loader.lisp (user-init-file): Use homedir's truename.
 	Reported by Friedrich Dominicus.
 
 	* slime.el (slime-repl-current-input): Don't remove the final
-	newline only if we are in reading state.
+	newline if we are in reading state.
 	(slime-goto-source-location): Regex-quote the function-name and
 	handle package prefixes.  Reported by Alan Ruttenberg.
+	(slime-output-string): Insert asynchronous output before the
+	prompt.
 
 2003-12-12  Daniel Barlow  <dan@telent.net>
 
