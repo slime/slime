@@ -1,3 +1,9 @@
+2004-08-18  Matthew Danish <mrd+nospam@cmu.edu>
+
+	* slime/swank-allegro.lisp (swank-compile-string): Use #\; instead
+	of #\: to separate the position from the buffer-name.  This avoids
+	troubles on Windows.
+
 2004-08-16  Luke Gorrie  <luke@bluetail.com>
 
 	* doc/slime.texi: Random updates.
