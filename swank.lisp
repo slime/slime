@@ -2752,12 +2752,15 @@ NIL is returned if the list is circular."
 			 symbol 'compiler-macro)
 	;;
 	;; Package
-	`("It is " ,(string-downcase (string status)) " to the package: "
-		   (:value ,package ,(package-name package))
-		   ,@(if (eq :internal status) 
-			 `((:action " [export it]"
-				    ,(lambda () (export symbol package)))))
-		   (:newline))
+        (if package
+            `("It is " ,(string-downcase (string status)) 
+                       " to the package: "
+                       (:value ,package ,(package-name package))
+                       ,@(if (eq :internal status) 
+                             `((:action " [export it]"
+                                        ,(lambda () (export symbol package)))))
+                       (:newline))
+            '("It is a non-interned symbol." (:newline)))
 	;;
 	;; Plist
 	(label-value-line "Property list" (symbol-plist symbol))
