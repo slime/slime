@@ -912,10 +912,11 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
 (defslimefun connection-info ()
   "Return a list of the form: 
 \(PID IMPLEMENTATION-TYPE IMPLEMENTATION-NAME FEATURES)."
+  (setq *slime-features* *features*)
   (list (getpid)
         (lisp-implementation-type)
         (lisp-implementation-type-name)
-        (setq *slime-features* *features*)))
+        (features-for-emacs)))
 
 
 ;;;; Reading and printing
@@ -3279,7 +3280,11 @@ The server port is written to PORT-FILE-NAME."
   ;; FIXME: *slime-features* should be connection-local
   (unless (eq *slime-features* *features*)
     (setq *slime-features* *features*)
-    (send-to-emacs (list :new-features (mapcar #'symbol-name *features*)))))
+    (send-to-emacs (list :new-features (features-for-emacs)))))
+
+(defun features-for-emacs ()
+  "Return `*slime-features*' in a format suitable to send it to Emacs."
+  *slime-features*)
 
 (add-hook *pre-reply-hook* 'sync-features-to-emacs)
 
