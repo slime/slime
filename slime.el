@@ -555,6 +555,8 @@ A prefix argument disables this behaviour."
     ("\C-i" slime-complete-symbol :prefixed t :inferior t)
     ("\M-i" slime-fuzzy-complete-symbol :prefixed t :inferior t)
     ("\M-." slime-edit-definition :inferior t :sldb t)
+    ("\C-x4." slime-edit-definition-other-window :inferior t :sldb t)
+    ("\C-x5." slime-edit-definition-other-frame :inferior t :sldb t)
     ("\M-," slime-pop-find-definition-stack :inferior t :sldb t)
     ("\M-*" slime-pop-find-definition-stack :inferior t :sldb t)
     ("\C-q" slime-close-parens-at-point :prefixed t :inferior t)
@@ -5127,14 +5129,24 @@ function name is prompted."
   (cond ((slime-length> definitions 1)
          (slime-show-definitions name definitions))
         (t
-         (slime-goto-source-location (slime-definition.location
-                                      (car definitions)))
          (cond ((equal where 'window)
-                (switch-to-buffer-other-window (current-buffer)))
+                (slime-goto-definition-other-window (car definitions)))
                ((equal where 'frame)
-                (switch-to-buffer-other-frame (current-buffer)))
+                (let ((pop-up-frames t))
+                  (slime-goto-definition-other-window (car definitions))))
                (t
+                (slime-goto-source-location (slime-definition.location
+                                             (car definitions)))
                 (switch-to-buffer (current-buffer)))))))
+
+(defun slime-goto-definition-other-window (definition)
+  (slime-pop-to-other-window)
+  (slime-goto-source-location (slime-definition.location definition))
+  (switch-to-buffer (current-buffer)))
+
+(defun slime-pop-to-other-window ()
+  "Pop to the other window, but not to any particular buffer."
+  (pop-to-buffer (current-buffer) t))
 
 (defun slime-edit-definition-other-window (name)
   "Like `slime-edit-definition' but switch to the other window."
