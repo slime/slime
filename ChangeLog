@@ -1,3 +1,18 @@
+2003-10-17  Luke Gorrie  <luke@bluetail.com>
+
+	* swank-sbcl.lisp: Report style-warnings separately from notes
+	(patch from Christopher Rhodes). Use REQUIRE to load sb-introspect
+	instead of loading the source file (requires the sb-introspect
+	library to be installed, which doesn't yet happen in the
+	sourceforge-lagged SBCL anoncvs, but does in the real one).
+
+	* slime.el (slime-style-warning-face): Added style-warnings, which
+	are between a warning and a note in severity. (Patch from
+	Christopher Rhodes).
+
+	* test.sh: When the test fails to complete, print "crashed"
+	instead of reporting nonsense.
+
 2003-10-17  James Bielman  <jamesjb@jamesjb.com>
 
 	* swank.lisp (apropos-symbols): Change back to using the standard

@@ -189,7 +189,7 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
   "Database of recorded compiler notes/warnings/erros (keyed by filename).
 Each value is a list of (LOCATION SEVERITY MESSAGE CONTEXT) lists.
   LOCATION is a position in the source code (integer or source path).
-  SEVERITY is one of :ERROR, :WARNING, and :NOTE.
+  SEVERITY is one of :ERROR, :WARNING, :STYLE-WARNING and :NOTE.
   MESSAGE is a string describing the note.
   CONTEXT is a string giving further details of where the error occured.")
 
