@@ -87,6 +87,10 @@ the same name instead."))
   "The symbol names in the *FEATURES* list of the Superior lisp.
 This is needed to READ Common Lisp expressions adequately.")
 
+(defvar slime-lisp-package "CL-USER"
+  "The current package name of the Superior lisp.
+This is automatically synchronized from Lisp.")
+
 (defvar slime-pid nil
   "The process id of the Lisp process.")
 
@@ -143,6 +147,16 @@ This is used for batch-mode testing.")
      (:inherit highlight)
      (:underline nil)))
   "Face for compiler notes while selected."
+  :group 'slime)
+
+(defface slime-repl-output-face
+  '((t (:inherit font-lock-string-face)))
+  "Face for Lisp output in the SLIME REPL."
+  :group 'slime)
+
+(defface slime-repl-input-face
+  '((t (:inherit bold)))
+  "Face for previous input in the SLIME REPL."
   :group 'slime)
 
 
@@ -681,13 +695,7 @@ Polling %S.. (Abort with `M-x slime-disconnect'.)"
 (defun slime-init-connection ()
   (slime-init-dispatcher)
   (setq slime-pid (slime-eval '(swank:getpid)))
-  (slime-fetch-features-list)
   (slime-repl))
-
-(defun slime-fetch-features-list ()
-  "Fetch and remember the *FEATURES* of the inferior lisp."
-  (interactive)
-  (setq slime-lisp-features (slime-eval '(swank:features))))
 
 (defvar slime-words-of-encouragement
   '("Let the hacking commence!"
@@ -885,6 +893,7 @@ the state name for the modeline."
   "Dispatch an event to the current state.
 Certain \"out of band\" events are handled specially instead of going
 into the state machine."
+  (pp event (get-buffer-create "*slime-events*"))
   (or (slime-handle-oob event)
       (funcall (slime-state-function (slime-current-state)) event)))
 
@@ -894,6 +903,12 @@ Return true if the event is recognised and handled."
   (destructure-case event
     ((:read-output output)
      (slime-output-string output)
+     t)
+    ((:new-package package)
+     (setq slime-lisp-package package)
+     t)
+    ((:new-features features)
+     (setq slime-lisp-features features)
      t)
     (t nil)))
 
@@ -1198,7 +1213,9 @@ Loops until the result is thrown to our caller, or the user aborts."
     (with-current-buffer (slime-output-buffer)
       (goto-char (point-max))
       (slime-repl-maybe-insert-output-separator)
-      (insert string))))
+      (slime-insert-propertized '(face slime-output-face)
+                                string))))
+;;      (insert string))))
 
 (defun slime-switch-to-output-buffer ()
   "Select the output buffer, preferably in a different window."
@@ -1251,7 +1268,7 @@ Loops until the result is thrown to our caller, or the user aborts."
      rear-nonsticky (slime-repl-prompt read-only face intangible)
      ;; xemacs stuff
      start-open t end-open t)
-   "lisp> ")
+   (concat slime-lisp-package "> "))
   (set-marker slime-repl-input-start-mark (point) (current-buffer))
   (set-marker slime-repl-input-end-mark (point) (current-buffer))
   (let ((w (get-buffer-window (current-buffer))))
@@ -1279,7 +1296,7 @@ after the last prompt to the end of buffer."
   (slime-repl-add-to-input-history string)
   (slime-eval-async 
    `(swank:listener-eval ,string)
-   nil
+   slime-lisp-package
    (slime-repl-show-result-continutation)))
 
 (defun slime-repl-show-result-continutation ()
@@ -1288,7 +1305,7 @@ after the last prompt to the end of buffer."
   (lambda (result)
     (with-current-buffer (slime-output-buffer)
       (goto-char slime-repl-prompt-start-mark)
-      (insert ";Value: " result "\n")
+      (insert result "\n")
       (goto-char (point-max)))))
 
 (defun slime-repl-maybe-insert-output-separator ()
@@ -1298,6 +1315,14 @@ after the last prompt to the end of buffer."
     (set-marker slime-repl-input-end-mark (1- (point)) (current-buffer))
     (set-marker slime-last-output-start (point))))
     
+(defun slime-repl-bol ()
+  "Go to the beginning of line or the prompt."
+  (interactive)
+  (if (and (>= (point) slime-repl-input-start-mark)
+           (slime-same-line-p (point) slime-repl-input-start-mark))
+      (goto-char slime-repl-input-start-mark)
+    (beginning-of-line 1)))
+        
 (defun slime-repl-return ()
   "Evaluate the current input string."
   (interactive)
@@ -1308,8 +1333,29 @@ after the last prompt to the end of buffer."
     (slime-repl-maybe-insert-output-separator)
     (add-text-properties slime-repl-input-start-mark
                          slime-repl-input-end-mark
-                         '(face underline))
+                         '(face slime-repl-input-face))
     (slime-repl-eval-string input)))
+
+(defun slime-repl-closing-return ()
+  "Evaluate the current input string after closing all open lists."
+  (interactive)
+  (goto-char (point-max))
+  (save-restriction
+    (narrow-to-region slime-repl-input-start-mark (point))
+    (while (ignore-errors (save-excursion (backward-up-list 1)) t)
+      (insert ")")))
+  (slime-repl-return))
+
+(defun slime-repl-newline-and-indent ()
+  "Insert a newline, then indent the next line.
+Restrict the buffer from the prompt for indentation, to avoid being
+confused by strange characters (like unmatched quotes) appearing
+earlier in the buffer."
+  (interactive)
+  (save-restriction
+    (narrow-to-region slime-repl-prompt-start-mark (point-max))
+    (insert "\n")
+    (lisp-indent-line)))
 
 (defun slime-repl-delete-current-input ()
   (delete-region slime-repl-input-start-mark slime-repl-input-end-mark))
@@ -1379,6 +1425,10 @@ after the last prompt to the end of buffer."
 
 (slime-define-keys slime-repl-mode-map
   ("\C-m" 'slime-repl-return)
+  ("\C-j" 'slime-repl-newline-and-indent)
+  ("\C-\M-m" 'slime-repl-closing-return)
+  ([(control return)] 'slime-repl-closing-return)
+  ("\C-a" 'slime-repl-bol)
   ("\M-p" 'slime-repl-previous-input)
   ("\M-n" 'slime-repl-next-input)
   ("\M-r" 'slime-repl-previous-matching-input)
@@ -1595,10 +1645,10 @@ region around the first element is used."
                      (forward-sexp 1)
                      (point))))))
 
-(defun slime-same-line-p (start end)
-  "Return true if buffer positions START and END are on the same line."
-  (save-excursion (goto-char start)
-                  (not (search-forward "\n" end t))))
+(defun slime-same-line-p (pos1 pos2)
+  "Return true if buffer positions PoS1 and POS2 are on the same line."
+  (save-excursion (goto-char (min pos1 pos2))
+                  (not (search-forward "\n" (max pos1 pos2) t))))
 
 (defun slime-severity-face (severity)
   "Return the name of the font-lock face representing SEVERITY."
@@ -3072,6 +3122,72 @@ the current index when the selection is completed."
   ("n" 'slime-inspector-next)
   ("d" 'slime-inspector-describe)
   ("q" 'slime-inspector-quit))
+
+
+;;; `Select'
+
+(defvar slime-select-methods nil
+  "List of buffer-selection methods for the `slime-select' command.
+Each element is a list (KEY DESCRIPTION FUNCTION).
+DESCRIPTION is a one-line description of what the key selects.")
+
+(defun slime-select ()
+  "Select a new buffer by type, indicated by a single character.
+The user is prompted for a single character indicating the method by
+which to choose a new buffer. The `?' character describes the
+available methods.
+
+See `def-slime-select-method' for defining new methods."
+  (interactive)
+  (let* ((ch (read-char (format "Select [%s]: "
+                                (apply #'string
+                                       (mapcar #'car slime-select-methods)))))
+         (method (find ch slime-select-methods :key #'car)))
+    (if (null method)
+        (error "No method for character: %c" ch)
+      (funcall (third method)))))
+
+(defmacro def-slime-select-method (key description &rest body)
+  "Define a new `slime-select' buffer selection method.
+KEY is the key the user will enter to choose this method.
+DESCRIPTION is a one-line sentence describing how the method selects a
+buffer.
+BODY is a series of forms which must return the buffer to be selected."
+  `(setq slime-select-methods
+         (sort* (cons (list ,key ,description
+                            (lambda () (switch-to-buffer (progn ,@body))))
+                      (remove* ,key slime-select-methods :key #'car))
+                #'< :key #'car)))
+
+(def-slime-select-method ?? "the Select help buffer."
+  (ignore-errors (kill-buffer "*Select Help*"))
+  (with-current-buffer (get-buffer-create "*Select Help*")
+    (insert "Select Methods:\n\n")
+    (loop for (key line function) in slime-select-methods
+          do (insert (format "%c:\t%s\n" key line)))
+    (help-mode)
+    (current-buffer)))
+
+(def-slime-select-method ?r "the SLIME Read-Eval-Print-Loop."
+  "*slime-repl*")
+
+(def-slime-select-method ?i "the *inferior-lisp* buffer."
+  "*inferior-lisp*")
+
+(def-slime-select-method ?l "the most recently visited lisp-mode buffer."
+  (slime-recently-visited-buffer 'lisp-mode))
+
+(def-slime-select-method ?e "the most recently visited emacs-lisp-mode buffer."
+  (slime-recently-visited-buffer 'emacs-lisp-mode))
+
+(defun slime-recently-visited-buffer (mode)
+  "Return the most recently visited buffer whose major-mode is MODE.
+Only considers buffers that are not already visible."
+  (loop for buffer in (buffer-list)
+        when (and (with-current-buffer buffer (eq major-mode mode))
+                  (null (get-buffer-window buffer 'visible)))
+        return buffer
+        finally (error "Can't find unshown buffer in %S" mode)))
 
 
 ;;; Test suite
