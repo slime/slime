@@ -1968,24 +1968,12 @@ The overlay has several properties:
   (let ((overlay (make-overlay start end)))
     (flet ((putp (name value) (overlay-put overlay name value)))
       (putp 'slime note)
-      (putp 'priority (slime-sexp-depth start))
       (putp 'face (slime-severity-face severity))
       (putp 'severity severity)
       (unless (emacs-20-p)
 	(putp 'mouse-face 'highlight))
       (putp 'help-echo message)
       overlay)))
-
-(defun slime-sexp-depth (position)
-  "Return the number of sexps containing POSITION."
-  (let ((n 0))
-    (save-excursion
-      (goto-char position)
-      (ignore-errors
-        (while t
-          (backward-up-list 1)
-          (incf n))))
-    n))
 
 (defun slime-merge-note-into-overlay (overlay severity message)
   "Merge another compiler note into an existing overlay.
@@ -2002,8 +1990,7 @@ is kept."
 If the location's sexp is a list spanning multiple lines, then the
 region around the first element is used."
   (let ((location (getf note :location)))
-    (unless (equal location '(:null))
-      (slime-goto-source-location location)))
+    (slime-goto-source-location location))
   (let ((start (point)))
     (slime-forward-sexp)
     (if (slime-same-line-p start (point))
@@ -2541,7 +2528,7 @@ package is used."
         (if (fboundp 'temp-minibuffer-message) ;; XEmacs
             (temp-minibuffer-message text)
           (minibuffer-message text))
-      (message text))))
+      (message "%s" text))))
 
 (defun slime-completing-read-internal (string default-package flag)
   ;; We misuse the predicate argument to pass the default-package.
@@ -3840,7 +3827,7 @@ Return the number of failed tests."
           (with-current-buffer slime-test-buffer-name
             (goto-char (point-min))
             (insert summary "\n\n")))
-        (message summary)
+        (message "%s" summary)
         slime-failed-tests))))
 
 (defun slime-batch-test (results-file)
