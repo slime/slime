@@ -4,9 +4,6 @@
 
 (in-package :swank)
 
-(defun without-interrupts* (body)
-  (sys:without-interrupts (funcall body)))
-
 
 ;;;; TCP server.
 
@@ -47,10 +44,6 @@
          (input  (make-slime-input-stream input-fn output)))
     (values input output)))
 
-(defmethod spawn (fn &key (name "Anonymous"))
-  (mp:make-process fn :name name))
-
-;;;
 ;;;;; Socket helpers.
 
 (defun socket-fd (socket)
@@ -76,6 +69,15 @@
                  (error "fcntl: ~A" (unix:get-unix-error-msg errno))))))
     (let ((flags (fcntl fd unix:F-GETFL 0)))
       (fcntl fd unix:F-SETFL (logior flags unix:O_NONBLOCK)))))
+
+
+;;;; Unix signals
+
+(defmethod call-without-interrupts (fn)
+  (sys:without-interrupts (funcall fn)))
+
+(defmethod getpid ()
+  (unix:unix-getpid))
 
 
 ;;;; Stream handling
@@ -767,10 +769,9 @@ return value is the condition or nil."
   "Return a string describing the argument list for FNAME.
 The result has the format \"(...)\"."
   (declare (type string fname))
-  (multiple-value-bind (function condition)
-      (ignore-errors (values (find-symbol-designator fname *buffer-package*)))
-    (when condition
-      (return-from arglist-string (format nil "(-- ~A)" condition)))
+  (multiple-value-bind (function package) (find-symbol-designator fname)
+    (unless package
+      (return-from arglist-string (format nil "(-- Unkown symbol: ~A)" fname)))
     (let ((arglist
 	   (if (not (or (fboundp function)
 			(functionp function)))
@@ -778,11 +779,12 @@ The result has the format \"(...)\"."
 	       (let* ((fun (or (macro-function function)
                                (symbol-function function)))
 		      (df (di::function-debug-function fun))
-		      (arglist (kernel:%function-arglist fun)))
+		      (arglist (kernel:%function-arglist 
+                                (kernel:%function-self fun))))
 		 (cond ((eval:interpreted-function-p fun)
 			(eval:interpreted-function-arglist fun))
 		       ((pcl::generic-function-p fun)
-                        (pcl::arg-info-lambda-list (pcl::gf-arg-info fun)))
+                        (pcl:generic-function-lambda-list fun))
 		       (arglist arglist)
 		       ;; this should work both for
 		       ;; compiled-debug-function and for
@@ -791,7 +793,7 @@ The result has the format \"(...)\"."
 		       (t "(<arglist-unavailable>)"))))))
       (etypecase arglist
         (string arglist)
-        (cons (to-string arglist))
+        (cons (let ((*print-case* :downcase)) (princ-to-string arglist)))
         (null "()")))))
 
 
@@ -897,9 +899,6 @@ to find the position of the corresponding form."
   "Safe wrapper around `code-location-from-source-location'."
   (safe-definition-finding
    (source-location-from-code-location code-location)))
-
-(defslimefun getpid ()
-  (unix:unix-getpid))
 
 
 ;;;; Debugging
@@ -1178,6 +1177,9 @@ stack."
     ;; Threads magic: this never returns! But top-level becomes
     ;; available again.
     (mp::startup-idle-and-top-level-loops))
+
+  (defmethod spawn (fn &key (name "Anonymous"))
+    (mp:make-process fn :name name))
 
   (defmethod thread-id ()
     (mp:without-scheduling
