@@ -137,6 +137,9 @@
 (defimplementation lisp-implementation-type-name ()
   "sbcl")
 
+(defimplementation quit-lisp ()
+  (sb-ext:quit))
+
 ;;; Utilities
 
 (defvar *swank-debugger-stack-frame*)
@@ -196,11 +199,24 @@ information."
    `(:file ,(namestring (truename f)))
    `(:position ,(1+ (source-path-file-position path f)))))
 
+#+(or)
 (defmethod resolve-note-location ((b string) (f (eql :stream)) pos path source)
   (make-location
    `(:buffer ,b)
    `(:position ,(+ *buffer-offset*
                    (source-path-string-position path *buffer-substring*)))))
+
+;; SBCL doesn't have compile-from-stream, so C-c C-c ends up here
+(defmethod resolve-note-location ((b string) (f (eql :lisp)) pos path source)
+  ;; Remove the sourounding lambda from the path (was added by
+  ;; swank-compile-string)
+  (destructuring-bind (_ form &rest rest) path
+    (declare (ignore _))
+    (make-location
+     `(:buffer ,b)
+     `(:position ,(+ *buffer-offset*
+                     (source-path-string-position (list* (- form 2) rest)
+                                                  *buffer-substring*))))))
 
 (defmethod resolve-note-location (b (f (eql :lisp)) pos path (source string))
   (make-location
@@ -228,7 +244,7 @@ the error-context redundant."
       (if error-context
           (values (sb-c::compiler-error-context-enclosing-source error-context)
                   (sb-c::compiler-error-context-source error-context)))
-    (format nil "~@[--> ~{~<~%--> ~1:;~A~> ~}~%~]~@[~{==>~%~A~^~%~}~]~A"
+    (format nil "~@[--> ~{~<~%--> ~1:;~A~> ~}~%~]~@[~{==>~%~A~%~}~]~A"
             enclosing source condition)))
 
 (defun current-compiler-error-source-path (context)
@@ -615,8 +631,7 @@ stack."
     (declare (ignore name))
     (sb-thread:make-thread fn))
 
-  (defimplementation startup-multiprocessing ()
-    (setq *communication-style* :spawn))
+  (defimplementation startup-multiprocessing ())
 
   (defimplementation thread-name (thread)
     (format nil "Thread ~D" thread))
@@ -686,6 +701,3 @@ stack."
                                               mutex))))))))
 
   )
-
-(defimplementation quit-lisp ()
-  (sb-ext::quit))
