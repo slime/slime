@@ -1127,6 +1127,10 @@ stack."
 				  collect (cons (format nil "~D" i) value)))))
 	     (values text parts))))))
 
+(defun inspected-parts-of-value-cell (o)
+  (values (format nil "~A~% is a value cell." o)
+	  (list (cons "Value" (c:value-cell-ref o)))))
+
 (defmethod inspected-parts ((o function))
   (let ((header (kernel:get-type o)))
     (cond ((= header vm:function-header-type)
