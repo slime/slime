@@ -341,10 +341,12 @@ Return NIL if the symbol is unbound."
   `(let ((*error-output* (make-string-output-stream))
 	 (*compile-verbose* t))
      (multiple-value-prog1
-	 (compile-file ,@args)
+      (compile-file ,@args)
+      (handler-case  
        (with-input-from-string
-	   (*standard-input* (get-output-stream-string *error-output*))
-	 ,@body))))
+	(*standard-input* (get-output-stream-string *error-output*))
+	,@body)
+       (sys::simple-end-of-file () nil)))))
 
 (defmethod call-with-compilation-hooks (function)
   (handler-bind ((compiler-condition #'handle-notification-condition))
@@ -366,10 +368,10 @@ Return NIL if the symbol is unbound."
       (regexp:regexp-exec *compiler-note-line-regexp* line)
     (declare (ignore all))
     (if head
-	(list (let ((*package* (find-package :keyword)))
-		(read-from-string (regexp:match-string line head)))
-	      (read-from-string (regexp:match-string line tail)))
-	(list nil line))))
+	(values (let ((*package* (find-package :keyword)))
+		  (read-from-string (regexp:match-string line head)))
+		(read-from-string (regexp:match-string line tail)))
+	(values nil line))))
 
 ;;; Ugly but essentially working.
 ;;; FIXME:  I get all notes twice.
@@ -380,27 +382,27 @@ Return NIL if the symbol is unbound."
 	(compile-file-frobbing-notes (filename)
 	  (read-line)                   ;""
 	  (read-line)                   ;"Compiling file ..."
-	  (loop
-	     with condition
-	     for (severity message) = (split-compiler-note-line (read-line))
-	     until (and (stringp message) (string= message ""))
-	     if severity
-	     do (when condition
-		  (signal condition))
-	     (setq condition
-		   (make-condition 'compiler-condition
-				   :severity severity
-				   :message ""
-				   :location `(:location (:file ,filename)
-							 (:line ,message))))
-	     else do (setf (message condition)
-			   (format nil "~a~&~a" (message condition) message))
-	     finally (when condition
-		       (signal condition))))
+	  (do ((condition)
+	       (severity)
+	       (comp-message))
+	      ((and (stringp comp-message) (string= comp-message "")) t)
+	    (multiple-value-setq (severity comp-message)
+	      (split-compiler-note-line (read-line)))
+	    (when severity
+	      (setq condition
+		    (make-condition 'compiler-condition
+				    :severity severity
+				    :message ""
+				    :location `(:location (:file ,filename)
+							  (:line ,comp-message))))
+	      (setf (message condition)
+		    (format nil "~a~&~a" (message condition) comp-message))
+	      (signal condition))))
       (declare (ignore w-p))
-      (cond ((and fasl-file (not f-p) load-p)
-	     (load fasl-file))
-	    (t fasl-file)))))
+      (if (and (not (not f-p)) fasl-file load-p)
+;;;!!! CLISP provides a fixnum for failure-p and warning-p for compile-file
+	  (load fasl-file)
+	fasl-file))))
 
 (defmethod compile-string-for-emacs (string &key buffer position)
   (with-compilation-hooks ()
