@@ -1191,6 +1191,15 @@ top-level form, etc."
 	(t
 	 (error "Unsupported location type %s" note))))
 
+(defmacro slime-point-moves-p (&rest body)
+  "Execute BODY and return true if the current buffer's point moved."
+  (let ((pointvar (gensym "point-")))
+    `(let ((,pointvar (point)))
+       (save-current-buffer ,@body)
+       (/= ,pointvar (point)))))
+
+(put 'slime-point-moves-p 'lisp-indent-function 0)
+
 (defun slime-forward-sexp (&optional count)
   "Like `forward-sexp', but understands reader-conditionals (#- and #+)."
   (dotimes (i (or count 1))
