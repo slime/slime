@@ -1,3 +1,10 @@
+2003-12-04  Luke Gorrie  <luke@bluetail.com>
+
+	* hyperspec.el: Updated URL to point to a live copy of the
+	hyperspec at lispworks.com, because the one on xanalys.com has
+	disappeared. Patch from Vincent Arkesteijn on the ilisp-devel
+	mailing list.
+
 2003-12-04  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-lispworks.lisp (toggle-trace-fdefinition, tracedp): New
