@@ -423,6 +423,9 @@ If a protocol error occurs then a SLIME-READ-ERROR is signalled."
        (terpri output)
        (force-output output)))))
 
+(defun send-oob-to-emacs (object)
+  (send-to-emacs object (connection.socket-io *main-connection*)))
+
 (defun prin1-to-string-for-emacs (object)
   (with-standard-io-syntax
     (let ((*print-case* :downcase)
@@ -764,6 +767,13 @@ change, then send Emacs an update."
            (let ((*package* *buffer-package*))
              (format nil "~{~S~^~%~}" values))))))
 
+(defslimefun ed-in-emacs (&optional what)
+  "Edit WHAT in Emacs.
+WHAT can be a filename (pathname or string) or function name (symbol)."
+  (send-oob-to-emacs `(:ed ,(if (pathnamep what)
+                                (canonicalize-filename what)
+                                what))))
+
 
 ;;;; Compilation Commands.
 
@@ -824,7 +834,6 @@ Record compiler notes signalled as `compiler-condition's."
   "Compile and load SYSTEM using ASDF.
 Record compiler notes signalled as `compiler-condition's."
   (swank-compiler  (lambda ()  (compile-system-for-emacs system))))
-
 
 
 ;;;; Macroexpansion
@@ -997,7 +1006,12 @@ For example:
   "Make an apropos search for Emacs.
 The result is a list of property lists."
   (mapcan (listify #'briefly-describe-symbol-for-emacs)
-          (sort (apropos-symbols name external-only package)
+          (sort (apropos-symbols name
+                                 external-only
+                                 (if package
+                                     (or (find-package (read-from-string package))
+                                         (error "No such package: ~S" package))
+                                     nil))
                 #'present-symbol-before-p)))
 
 (defun briefly-describe-symbol-for-emacs (symbol)
@@ -1044,7 +1058,7 @@ that symbols accessible in the current package go first."
   (remove-if (lambda (sym)
                (or (keywordp sym) 
                    (and external-only
-                        (not (equal (symbol-package sym) *buffer-package*))
+;;                        (not (equal (symbol-package sym) *buffer-package*))
                         (not (symbol-external-p sym)))))
              (apropos-list string package)))
 
