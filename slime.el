@@ -4422,9 +4422,8 @@ The buffer will be popped up any time it is modified.")
 	(slime-inspector-mode)
 	(current-buffer))))
 
-(defun slime-inspector-expand-fontify (face string)
-  `(slime-add-face ',(intern (format "slime-inspector-%s-face" face))
-                   ,string))
+(defun slime-inspector-fontify (face string)
+  (slime-add-face (intern (format "slime-inspector-%s-face" face)) string))
 
 (defun slime-open-inspector (inspected-parts &optional point)
   (with-current-buffer (slime-inspector-buffer)
@@ -4432,7 +4431,7 @@ The buffer will be popped up any time it is modified.")
       (erase-buffer)
       (destructuring-bind (&key text type primitive-type parts) inspected-parts
         (macrolet ((fontify (face string)
-                            (slime-inspector-expand-fontify face string)))
+                            `(slime-inspector-fontify ',face ,string)))
           (insert (fontify topline text))
           (while (eq (char-before) ?\n) (backward-delete-char 1))
           (insert "\n" 
