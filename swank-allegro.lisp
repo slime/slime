@@ -241,7 +241,7 @@
 
 (defimplementation swank-compile-string (string &key buffer position)
   ;; We store the source buffer in excl::*source-pathname* as a string
-  ;; of the form <buffername>:<start-offset>.  Quite ugly encoding, but
+  ;; of the form <buffername>;<start-offset>.  Quite ugly encoding, but
   ;; the fasl file is corrupted if we use some other datatype.
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)
@@ -252,7 +252,7 @@
                `(in-package ,(package-name *package*))
                `(eval-when (:compile-toplevel :load-toplevel)
                  (setq excl::*source-pathname*
-                  (format nil "~A:~D" ',buffer ',position)))
+                  (format nil "~A;~D" ',buffer ',position)))
                string)))))
 
 ;;;; Definition Finding
@@ -275,18 +275,21 @@
       ((member :top-level)
        (list :error (format nil "Defined at toplevel: ~A" (fspec->string fspec))))
       (string
-       (let ((pos (position #\: file)))
+       (let ((pos (position #\; file :from-end t)))
          (make-location
           (list :buffer (subseq file 0 pos))
           (list :position (parse-integer (subseq file (1+ pos)))))))
       (null 
        (list :error (format nil "Unknown source location for ~A" (fspec->string fspec)))))))
 
-(defun fspec->string (fspec &aux (*package* (find-package :keyword)))
+(defun fspec->string (fspec)
   (etypecase fspec
-    (symbol (prin1-to-string fspec))
-    (list (format nil "(method ~A)" 
-                  (prin1-to-string (second fspec))))))
+    (symbol (let ((*package* (find-package :keyword)))
+              (prin1-to-string fspec)))
+    (list (format nil "(~A ~A)"
+                  (prin1-to-string (first fspec))
+                  (let ((*package* (find-package :keyword)))
+                    (prin1-to-string (second fspec)))))))
 
 (defun fspec-definition-locations (fspec)
   (let ((defs (excl::find-multiple-definitions fspec)))
