@@ -2,16 +2,13 @@
 ;;;
 ;;; swank-abcl.lisp --- Armedbear CL specific code for SLIME. 
 ;;;
-;;; Created 2004, Andras Simon
+;;; Adapted from swank-acl.lisp, Andras Simon, 2004
 ;;;
 ;;; This code has been placed in the Public Domain.  All warranties
-;;; are disclaimed. This code was written for "Allegro CL Trial
-;;; Edition "5.0 [Linux/X86] (8/29/98 10:57)".
+;;; are disclaimed. 
 ;;;  
 
 (in-package :swank-backend)
-(use-package :java)
-
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -140,7 +137,7 @@
     (subseq (ext:backtrace-as-list) start end)))
 
 (defimplementation print-frame (frame stream)
-  (print frame stream))
+    (pprint frame stream))
 
 #+nil
 (defimplementation frame-locals (index)
@@ -258,7 +255,7 @@
     `(((,symbol)
        (:location 
         (:file ,(namestring (ext:source-pathname symbol)))
-        (:position ,(ext:source-file-position symbol) t)
+        (:position ,(or (ext:source-file-position symbol) 0) t)
         (:snippet nil))))))
   
 
