@@ -57,16 +57,16 @@
 
 ;;; TCP Server
 
-(defmethod create-socket (port)
+(defimplementation create-socket (port)
   (socket:socket-server port))
 
-(defmethod local-port (socket)
+(defimplementation local-port (socket)
   (socket:socket-server-port socket))
 
-(defmethod close-socket (socket)
+(defimplementation close-socket (socket)
   (socket:socket-server-close socket))
 
-(defmethod accept-connection (socket)
+(defimplementation accept-connection (socket)
   (socket:socket-accept socket
 			:buffered nil ;; XXX should be t
 			:element-type 'character
@@ -76,13 +76,13 @@
 
 ;;; Swank functions
 
-(defmethod arglist-string (fname)
+(defimplementation arglist-string (fname)
   (format-arglist fname #'ext:arglist))
 
-(defmethod macroexpand-all (form)
+(defimplementation macroexpand-all (form)
   (ext:expand-form form))
 
-(defmethod describe-symbol-for-emacs (symbol)
+(defimplementation describe-symbol-for-emacs (symbol)
   "Return a plist describing SYMBOL.
 Return NIL if the symbol is unbound."
   (let ((result ()))
@@ -145,7 +145,7 @@ Return NIL if the symbol is unbound."
 		)))
       locations)))
 
-(defmethod find-function-locations (symbol-name)
+(defimplementation find-function-locations (symbol-name)
   (multiple-value-bind (symbol foundp) (find-symbol-designator symbol-name)
     (cond ((not foundp)
 	   (list (list :error (format nil "Unkown symbol: ~A" symbol-name))))
@@ -166,7 +166,7 @@ Return NIL if the symbol is unbound."
 (defvar *sldb-debugmode* 4)
 
 
-(defmethod call-with-debugging-environment (debugger-loop-fn)
+(defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let* ((sys::*break-count* (1+ sys::*break-count*))
 	 (sys::*driver* debugger-loop-fn)
 	 (sys::*fasoutput-stream* nil)
@@ -209,7 +209,7 @@ Return NIL if the symbol is unbound."
 	  until (eq f *sldb-botframe*)
 	  collect f)))
 
-(defmethod backtrace (start-frame-number end-frame-number)
+(defimplementation backtrace (start-frame-number end-frame-number)
   (flet ((format-frame (f i)
 	   (print-with-frame-label
 	    i (lambda (s)
@@ -222,10 +222,10 @@ Return NIL if the symbol is unbound."
 	  for f in (compute-backtrace start-frame-number end-frame-number)
 	  collect (list i (format-frame f i)))))
 
-(defmethod eval-in-frame (form frame-number)
+(defimplementation eval-in-frame (form frame-number)
   (sys::eval-at (nth-frame frame-number) form))
 
-(defmethod frame-locals (frame-number)
+(defimplementation frame-locals (frame-number)
   (let* ((frame (nth-frame frame-number))
 	 (frame-env (sys::eval-at frame '(sys::the-environment))))
     (append
@@ -266,15 +266,21 @@ Return NIL if the symbol is unbound."
   (declare (ignore frame denv))
   nil)
 
-(defmethod frame-catch-tags (index)
+(defimplementation frame-catch-tags (index)
   (declare (ignore index))
   nil)
 
-(defmethod frame-source-location-for-emacs (index)
+(defimplementation return-from-frame (index form)
+  (sys::return-from-eval-frame (nth-frame index) (from-string form)))
+
+(defimplementation restart-frame (index)
+  (sys::redo-eval-frame (nth-frame index)))
+
+(defimplementation frame-source-location-for-emacs (index)
   (list :error (format nil "Cannot find source for frame: ~A"
 		       (nth-frame index))))
 
-(defmethod debugger-info-for-emacs (start end)
+(defimplementation debugger-info-for-emacs (start end)
   (list (debugger-condition-for-emacs)
 	(format-restarts-for-emacs)
 	(backtrace start end)))
@@ -303,7 +309,7 @@ Return NIL if the symbol is unbound."
 	,@body)
        (sys::simple-end-of-file () nil)))))
 
-(defmethod call-with-compilation-hooks (function)
+(defimplementation call-with-compilation-hooks (function)
   (handler-bind ((compiler-condition #'handle-notification-condition))
     (funcall function)))
 
@@ -332,7 +338,7 @@ Return NIL if the symbol is unbound."
 ;;; Ugly but essentially working.
 ;;; TODO: Do something with the summary about undefined functions etc.
 
-(defmethod compile-file-for-emacs (filename load-p)
+(defimplementation compile-file-for-emacs (filename load-p)
   (with-compilation-hooks ()
     (multiple-value-bind (fas-file w-p f-p)
 	(compile-file-frobbing-notes (filename)
@@ -365,7 +371,7 @@ Return NIL if the symbol is unbound."
 	  (load fas-file)
 	  fas-file))))
 
-(defmethod compile-string-for-emacs (string &key buffer position)
+(defimplementation compile-string-for-emacs (string &key buffer position)
   (with-compilation-hooks ()
     (let ((*package* *buffer-package*)
 	  (*buffer-name* buffer)
@@ -381,22 +387,22 @@ Return NIL if the symbol is unbound."
 (defun lookup-xrefs (finder name)
   (xref-results-for-emacs (funcall finder (from-string name))))
 
-(defslimefun who-calls (function-name)
+(defimplementation who-calls (function-name)
   (lookup-xrefs #'xref:list-callers function-name))
 
-(defslimefun who-references (variable)
+(defimplementation who-references (variable)
   (lookup-xrefs #'xref:list-readers variable))
 
-(defslimefun who-binds (variable)
+(defimplementation who-binds (variable)
   (lookup-xrefs #'xref:list-setters variable))
 
-(defslimefun who-sets (variable)
+(defimplementation who-sets (variable)
   (lookup-xrefs #'xref:list-setters variable))
 
-(defslimefun list-callers (symbol-name)
+(defimplementation list-callers (symbol-name)
   (lookup-xrefs #'xref:who-calls symbol-name))
 
-(defslimefun list-callees (symbol-name)
+(defimplementation list-callees (symbol-name)
   (lookup-xrefs #'xref:list-callees symbol-name))
 
 (defun xref-results-for-emacs (fspecs)
