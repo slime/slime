@@ -638,9 +638,10 @@ corresponding values in the CDR of VALUE."
                                          &body body)
   "Make the connection choosen by PREFIX-ARG current.
 
-(slime-with-chosen-connection (&optional (PREFIX-ARG 'current-prefix-arg))
+\(slime-with-chosen-connection (&optional (PREFIX-ARG 'current-prefix-arg))
   &body BODY)"
-  `(let ((slime-buffer-connection (slime-get-named-connection ,prefix-arg)))
+  `(let ((slime-dispatching-connection 
+          (slime-get-named-connection ,prefix-arg)))
      ,@body))
 
 (put 'slime-with-chosen-connection 'lisp-indent-function 1)
@@ -1020,13 +1021,14 @@ Polling %S.. (Abort with `M-x slime-connection-abort'.)"
                        (y-or-n-p "Close old connections first? "))))
   (when kill-old-p (slime-disconnect))
   (message "Connecting to Swank on port %S.." port)
-  (slime-init-connection (slime-net-connect host port))
-  (when-let (buffer (get-buffer "*inferior-lisp*"))
-    (delete-windows-on buffer)
-    (bury-buffer buffer))
-  (slime-init-output-buffer)
-  (message "Connected to Swank server on port %S. %s"
-           port (slime-random-words-of-encouragement)))
+  (let ((process (slime-net-connect host port)))
+    (slime-init-connection process)
+    (when-let (buffer (get-buffer "*inferior-lisp*"))
+      (delete-windows-on buffer)
+      (bury-buffer buffer))
+    (slime-init-output-buffer process)
+    (message "Connected to Swank server on port %S. %s"
+             port (slime-random-words-of-encouragement))))
 
 (defun slime-changelog-date ()
   "Return the datestring of the latest entry in the ChangeLog file.
@@ -1243,6 +1245,8 @@ If PROCESS is not specified, `slime-connection' is used.
                            (error "No connection")))
      ,@body))
 
+(put 'slime-with-connection-buffer 'lisp-indent-function 1)
+
 (defun slime-select-connection (process)
   (setq slime-default-connection process))
 
@@ -1283,8 +1287,22 @@ This command is mostly intended for debugging the multi-session code."
                    (slime-connection-number)
                    (slime-lisp-implementation-type-name))))
 
+(defun slime-find-connection-by-type-name (name)
+  (find name slime-net-processes
+        :test #'string=
+        :key #'slime-lisp-implementation-type-name))
 
-(put 'slime-with-connection-buffer 'lisp-indent-function 1)
+(defun slime-read-lisp-implementation-type-name ()
+  (let ((default (slime-lisp-implementation-type-name)))
+    (completing-read
+     (format "Name (default %s): " default)
+     (slime-bogus-completion-alist
+      (mapcar #'slime-lisp-implementation-type-name slime-net-processes))
+     nil
+     t
+     nil
+     nil
+     default)))
 
 
 ;;;;; Connection-local variables
@@ -1430,20 +1448,15 @@ This is automatically synchronized from Lisp.")
   (when (equal slime-net-processes (list proc))
     (setq slime-connection-counter 0))
   (slime-with-connection-buffer ()
-    (setq slime-connection-number (incf slime-connection-counter))
-    (setf (slime-pid) (slime-eval '(swank:getpid)))
-    (setf (slime-lisp-implementation-type) 
-          (slime-eval '(cl:lisp-implementation-type)))
-    (setf (slime-lisp-implementation-type-name) 
-          (slime-eval '(swank:lisp-implementation-type-name)))
-    (setq slime-state-name "")
-    (when-let (repl-buffer (slime-repl-buffer))
-      ;; REPL buffer already exists - update its local
-      ;; `slime-connection' binding.
-      (with-current-buffer repl-buffer
-        (setq slime-buffer-connection proc)))
-    (when slime-global-debugger-hook
-      (slime-eval '(swank:install-global-debugger-hook) "COMMON-LISP-USER"))))
+    (setq slime-connection-number (incf slime-connection-counter)))
+  (setf (slime-pid) (slime-eval '(swank:getpid)))
+  (setf (slime-lisp-implementation-type) 
+        (slime-eval '(cl:lisp-implementation-type)))
+  (setf (slime-lisp-implementation-type-name) 
+        (slime-eval '(swank:lisp-implementation-type-name)))
+  (setq slime-state-name "")
+  (when slime-global-debugger-hook
+    (slime-eval '(swank:install-global-debugger-hook) "COMMON-LISP-USER")))
 
 (defun slime-busy-p ()
   slime-rex-continuations)
@@ -1628,8 +1641,9 @@ deal with that."
           (unless noprompt (slime-repl-insert-prompt "" 0))
           (current-buffer)))))
 
-(defun slime-init-output-buffer ()
+(defun slime-init-output-buffer (connection)
   (with-current-buffer (slime-output-buffer t)
+    (set (make-local-variable 'slime-buffer-connection) connection)
     (let ((banner (format "%s  Port: %s  Pid: %s"
                           (slime-lisp-implementation-type)
                           (if (featurep 'xemacs)
