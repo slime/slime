@@ -6,6 +6,7 @@
 	`slime-merge-note-into-overlay' concat'd messages together one by
 	one in O(n^2) time/space, and became noticably slow in practice
 	with ~100 notes or more.
+	(slime-tree-insert): Byte-compile this function (big speed gain).
 
 2004-03-25  Bjørn Nordbø <bn@telenor.net>
 

@@ -6144,7 +6144,8 @@ If they are not, position point at the first syntax error found."
         slime-net-read
         slime-print-apropos
         slime-show-note-counts
-        slime-insert-propertized))
+        slime-insert-propertized
+        slime-tree-insert))
 
 (run-hooks 'slime-load-hook)
 
