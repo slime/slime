@@ -1,3 +1,43 @@
+2004-01-05  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el: Multiple session support, i.e. Emacs can open
+	multiple connections to Lisps. The guts is there, but
+	user-interface is currently minimal.
+	(slime-net-process): Replaced with slime-net-processes.
+	(slime-net-send): Take process as argument.
+	(slime-process-available-input): Poll all connections.
+	(slime-connection): Current connection (process) to use for
+	talking to Lisp. Can be bound dynamically or buffer-local.
+	(slime-with-connection-buffer): Macro to enter the process-buffer
+	of `slime-connection' to manipulate the local variables.
+	(slime-stack-stack): Now buffer-local in the process-buffer of
+	each connection.
+	(slime-push-state, slime-pop-state): Operate on the stack inside
+	`slime-connection's process-buffer.
+	(slime-dispatch-event): Take optional process argument, to bind
+	`slime-connection' appropriately when events arrive from the
+	network.
+	(slime-def-connection-var): Macro to define variables that are
+	"connection-local". Such variables are used via (setf'able)
+	accessor functions, and their real bindings exist as local
+	variables in the process-buffers of connections. The accessors
+	automatically work on `slime-connection'.
+	(slime-lisp-features, slime-lisp-package, slime-pid, sldb-level):
+	These variables are now connection-local.
+	(slime-read-from-minibuffer): Inherit `slime-connection' as
+	buffer-local so that we complete towards the right Lisp.
+	(sldb-mode): Inherit `slime-connection' as buffer-local so that we
+	debug towards the right Lisp.
+	(get-sldb-buffer): New function to return (optionally create) the
+	SLDB buffer for the current connection. Since multiple Lisps can
+	be debugged simultaneously, the buffername now includes the
+	connection number.
+	(slime-connection-abort): New command to abort a connection
+	attempt (don't use `slime-disconnect' anymore - that closes all
+	connections).
+	(slime-execute-tests): Honor `slime-test-debug-on-error'.
+	(slime-next-connection): Cycle through open Lisp connections.
+
 2004-01-02  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-display-output-buffer): Move the output markers
@@ -98,6 +138,7 @@
 	(slime-open-inspector): Minor indentation fixes.
 	(slime-net-output-funcall): Removed.  Was unused.
 
+>>>>>>> 1.183
 2003-12-19 Alan Ruttenberg <alanralanr@comcast.net>
 	* slime.el 1.157
 	fix bug in sldb-princ-locals I introduced when adding fonts to sldb
