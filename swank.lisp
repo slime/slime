@@ -582,9 +582,9 @@ Examples:
   "Return the longest prefix for all COMPLETIONS."
   (untokenize-completion
    (mapcar #'longest-common-prefix
-           (transpose-matrix (mapcar #'completion-tokens completions)))))
+           (transpose-lists (mapcar #'tokenize-completion completions)))))
 
-(defun completion-tokens (string)
+(defun tokenize-completion (string)
   "Return all substrings of STRING delimited by #\-."
   (loop for start = 0 then (1+ end)
         until (> start (length string))
@@ -603,11 +603,15 @@ Examples:
                  (if diff-pos (subseq s1 0 diff-pos) s1))))
         (reduce #'common-prefix strings))))
 
-(defun transpose-matrix (matrix)
-  "Turn a matrix (of any sequence type) on its side.
-If the rows are of unequal length, truncate uniformly to the shortest."
+(defun transpose-lists (lists)
+  "Turn a list-of-lists on its side.
+If the rows are of unequal length, truncate uniformly to the shortest.
+
+For example:
+\(transpose-lists '(("ONE" "TWO" "THREE") ("1" "2")))
+  => (("ONE" "1") ("TWO" "2"))"
   ;; A cute function from PAIP p.574
-  (if matrix (apply #'mapcar #'list matrix)))
+  (if lists (apply #'mapcar #'list lists)))
 
 
 ;;;; Documentation
