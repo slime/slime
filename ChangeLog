@@ -1,3 +1,9 @@
+2004-04-06  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-bytecode-stale-p): Automatically check if
+	slime.elc is older than slime.el and try to help the user out if
+	so.
+
 2004-04-06  Marco Baringer  <mb@bese.it>
 
 	* slime.el (slime-repl-command-input-complete-p): New function.
