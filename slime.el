@@ -2854,7 +2854,11 @@ printing a message."
 (defun slime-format-arglist (symbol-name arglist)
   (assert (eq ?\( (aref arglist 0)))
   (assert (eq ?\) (aref arglist (1- (length arglist)))))
-  (format "(%s %s)" symbol-name (substring arglist 1 -1)))
+  (let ((args (substring arglist 1 -1)))
+    (format "(%s%s%s)" 
+            symbol-name 
+            (if (zerop (length args)) "" " ")
+            args)))
 
 
 ;;; Autodocs (automatic context-sensitive help)
@@ -4829,7 +4833,7 @@ expires.\nThe timeout is given in seconds (a floating point number)."
 
 (defun slime-test-expect (name expected actual &optional test)
   (slime-check ("%s:\nexpected: [%S]\n  actual: [%S]" name expected actual)
-    (funcall (or test equal) expected actual)))
+    (funcall (or test #'equal) expected actual)))
 
 (def-slime-test find-definition
     (name buffer-package)
@@ -4881,6 +4885,8 @@ Confirm that EXPECTED-ARGLIST is displayed."
        "(swank::compound-prefix-match prefix target)")
       ("swank::create-socket"
        "(swank::create-socket swank::port)")
+      ("swank::emacs-connected"
+       "(swank::emacs-connected)")
       ("swank::compile-string-for-emacs"
        "(swank::compile-string-for-emacs string &key swank::buffer position)"))
   (let ((arglist (slime-get-arglist function-name))) ;
