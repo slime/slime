@@ -317,7 +317,7 @@ On Unix-like systems, installation just requires a few lines in your
 (setq inferior-lisp-program "@emph{the path to your Lisp system}")
 (add-to-list 'load-path "@emph{the path of your @file{slime} directory}")
 (require 'slime)
-(slime-install)
+(slime-setup)
 @end example
 
 @iftex

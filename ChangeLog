@@ -1,3 +1,17 @@
+2004-07-30  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-choose-overlay-region): Tweaked the
+	multiline-annotation-avoidance code to work with forms not
+	starting with an open-paren, e.g. `(..) or #'(..).
+	(slime-update-modeline-package): New configurable. Non-nil (the
+	default) means update the Lisp package in the modeline using an
+	idle timer.
+	(slime-repl-send-input): Make the `slime-repl-old-input' property
+	cover the whole input (including newline) so that pressing RET on
+	the end of an input line works.
+	Use a unique integer as the value of this property to distinguish
+	adjacent inputs.
+
 2004-07-28  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-eval-feature-conditional): Treat uppercase
