@@ -1,5 +1,12 @@
 2004-01-16  Luke Gorrie  <luke@bluetail.com>
 
+	* swank-openmcl.lisp: Multiprocessing support.
+
+	* swank.lisp (changelog-date): make-pathname portability fix
+	(from alanr).
+	(with-io-redirection): Use (current-connection) instead of
+	*dispatching-connection* (from alanr).
+
 	* slime.el (slime-init-output-buffer): XEmacs portability fix, and
 	use header-line-format to show info about Lisp in Emacs21.
 
