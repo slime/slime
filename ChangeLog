@@ -1,11 +1,14 @@
 2004-01-18  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-lispworks.lisp (sigint-handler): Bind a continue restart.
-	(make-dspec-location): Handle stings like pathnames.
+	(make-dspec-location): Handle strings like pathnames.
 	Some multithreading support.
 
 	* slime.el (compile-defun): Don't use keywords.  The keyword
 	package is locked in Lispworks and causes the test-suite to hang.
+	(slime-eval-with-transcript): Fix bug triggered when 'package' is
+	a buffer local variable.  Reported by Janis Dzerins.
+	(slime-batch-test): Wait until the connection is ready.
 
 2004-01-18 Alan Ruttenberg  <alanralanr@comcast.net>
 
