@@ -2654,12 +2654,14 @@ earlier in the buffer."
     (line-beginning-position)))
 
 (defun slime-repl-clear-buffer ()
+  "Delete all die tage die wir im Umlauf wärhen"
   (interactive)
   (set-marker slime-repl-last-input-start-mark nil)
   (let ((inhibit-read-only t))
     (delete-region (point-min) (slime-repl-input-line-beginning-position))))
 
 (defun slime-repl-clear-output ()
+  "See slime-repl-clear-buffer."
   (interactive)
   (let ((start (save-excursion 
                  (slime-repl-previous-prompt)
@@ -5433,6 +5435,7 @@ CL:MACROEXPAND."
 ;;;; Subprocess control
 
 (defun slime-interrupt ()
+  "Interrupt Lisp."
   (interactive)
   (slime-dispatch-event `(:emacs-interrupt ,slime-current-thread)))
 
@@ -5448,6 +5451,7 @@ CL:MACROEXPAND."
   (message "*package*: %s" (slime-eval `(swank:set-package ,package))))
 
 (defun slime-set-default-directory (directory)
+  "Make DIRECTION become Lisp's current directory."
   (interactive (list (read-directory-name "Directory: " nil nil t)))
   (message "default-directory: %s" 
 	   (slime-eval `(swank:set-default-directory
@@ -5458,6 +5462,7 @@ CL:MACROEXPAND."
       (slime-repl-update-banner))))
 
 (defun slime-sync-package-and-default-directory ()
+  "Set Lisp's package and directory to the values in current buffer."
   (interactive)
   (let ((package (slime-eval `(swank:set-package 
 			       ,(slime-find-buffer-package))))
