@@ -1,4 +1,4 @@
-* The SLIME Hacker's Handbook                                    -*- outline -*-
+* The SLIME Hacker's Handbook                                   -*- outline -*-
 
 * ChangeLog
 
@@ -18,6 +18,12 @@ For information about Emacs's ChangeLog support see the `Change Log'
 and `Change Logs and VC' nodes of the Emacs manual:
   http://www.gnu.org/software/emacs/manual/html_node/emacs_333.html#SEC333
   http://www.gnu.org/software/emacs/manual/html_node/emacs_156.html#SEC156
+
+* Sending Patches
+
+If you would like to send us improvements you can create a patch with
+C-x v = in the buffer or with 'diff -c'.  You can also include a
+ChangeLog entry describing your change.  
 
 * Adding a backend function
 
