@@ -50,6 +50,10 @@
 
 ;;;; Setup and Hooks
 
+(defvar *start-swank-in-background* nil)
+(defvar *close-swank-socket-after-setup* nil)
+(defvar *use-dedicated-output-stream* t)
+
 (defun announce-server-port (file)
   (lambda (port)
     (with-open-file (s file
@@ -319,7 +323,7 @@ conditions are simply reported."
   (throw 'sldb-loop-catcher nil))
 
 (defslimefun sldb-continue ()
-  (continue *swank-debugger-condition*))
+  (continue))
 
 (defslimefun eval-string-in-frame (string index)
   (to-string (eval-in-frame (from-string string) index)))
@@ -736,6 +740,19 @@ that symbols accessible in the current package go first."
 
 (defslimefun list-all-package-names ()
   (mapcar #'package-name (list-all-packages)))
+
+;; Use eval for the sake of portability... 
+(defun tracedp (fspec)
+  (member fspec (eval '(trace))))
+
+(defslimefun toggle-trace-fdefinition (fname-string)
+  (let ((fname (from-string fname-string)))
+    (cond ((tracedp fname)
+	   (eval `(untrace ,fname))
+	   (format nil "~S is now untraced." fname))
+	  (t
+           (eval `(trace ,fname))
+	   (format nil "~S is now traced." fname)))))
 
 (defslimefun untrace-all ()
   (untrace))
