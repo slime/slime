@@ -1,3 +1,15 @@
+2004-12-15  Bryan O'Connor <bryan-slime@lunch.org>
+
+	* slime.el (slime-edit-definition): Switch to the other frame if
+	the `where' is 'frame.
+	(slime-edit-definition-other-frame): New function.
+
+2004-12-15  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-repl-send-input): Make the input read-only to
+	avoid confusion.
+	(slime-make-region-read-only): New function.
+	
 2004-12-13  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-repl-mode-map): Bind <home> to slime-repl-bol.
