@@ -6044,7 +6044,7 @@ Called on the `point-entered' text-property hook."
       (let ((w (select-window (or (get-buffer-window (current-buffer) t)
                                   (display-buffer (current-buffer) t)))))
         (goto-char position)
-        (set-mark-command nil)
+        (push-mark)
         (unless (pos-visible-in-window-p)
           (slime-recenter-window w sldb-show-location-recenter-arg))))))
 
