@@ -55,7 +55,9 @@
 (require 'inf-lisp)
 (require 'cl)
 (require 'pp)
+(require 'hideshow)
 (require 'hyperspec)
+(require 'font-lock)
 (when (featurep 'xemacs)
   (require 'overlay))
 (unless (fboundp 'define-minor-mode)
@@ -87,7 +89,15 @@ the same name instead."))
   "The symbol names in the *FEATURES* list of the Superior lisp.
 This is needed to READ Common Lisp expressions adequately.")
 
-(defvar slime-lisp-package "CL-USER"
+(defvar slime-lisp-preferred-package-nicknames
+  '(("COMMON-LISP-USER" . "CL-USER")
+    ("COMMON-LISP" . "CL"))
+  "Association list mapping package names onto their preferred nicknames.
+This determines which name appears in the REPL prompt.")
+
+(defvar slime-lisp-package
+  (or (cdr (assoc "COMMON-LISP-USER" slime-lisp-preferred-package-nicknames))
+      "COMMON-LISP-USER")
   "The current package name of the Superior lisp.
 This is automatically synchronized from Lisp.")
 
@@ -97,12 +107,6 @@ This is automatically synchronized from Lisp.")
 (defvar slime-dont-prompt nil
   "When true, don't prompt the user for input during startup.
 This is used for batch-mode testing.")
-
-(defvar slime-lisp-package-translations
-  '(("COMMON-LISP-USER" . "CL-USER")
-    ("COMMON-LISP" . "CL"))
-  "Association list mapping package names onto their preferred nicknames.
-This determines which name appears in the REPL prompt.")
 
 
 ;;; Customize group
@@ -216,6 +220,8 @@ Evaluation commands:
   ;; Fake binding to coax `define-minor-mode' to create the keymap
   '((" " 'undefined)))
 
+
+;;;; inferior-slime-mode
 (define-minor-mode inferior-slime-mode
   "\\<slime-mode-map>
 Inferior SLIME mode: The Inferior Superior Lisp Mode for Emacs.
@@ -293,7 +299,7 @@ A prefix argument disables this behaviour."
   (comint-send-input))
 
 
-;;;;; Key bindings
+;;;; Key bindings
 
 ;; See `slime-define-key' below for keyword meanings.
 (defvar slime-keys
@@ -610,7 +616,7 @@ If that doesn't give a function, return nil."
 
 (defun slime-lisp-package ()
   "Return the name of the current REPL package."
-  (or (cdr (assoc slime-lisp-package slime-lisp-package-translations))
+  (or (cdr (assoc slime-lisp-package slime-lisp-preferred-package-nicknames))
       slime-lisp-package))
 
 
@@ -761,7 +767,7 @@ EVAL'd by Lisp."
     (process-send-string slime-net-process (string-make-unibyte string))))
 
 (defun slime-net-sentinel (process message)
-  (when (ignore-errors (process-live-p (inferior-lisp-proc)))
+  (when (ignore-errors (eq (process-status (inferior-lisp-proc)) 'open))
     (message "Lisp connection closed unexpectedly: %s" message))
   (setq slime-state-name "[not connected]")
   (force-mode-line-update)
@@ -855,7 +861,7 @@ EVAL'd by Lisp."
 ;; a special function instead of reaching the state machine.
 
 
-;;;;; Basic state machine aframework
+;;;; Basic state machine framework
 
 (defvar slime-state-stack '()
   "Stack of machine states. The state at the top is the current state.")
@@ -899,11 +905,27 @@ the state name for the modeline."
     (force-mode-line-update)
     (slime-dispatch-event '(activate))))
 
+;; state datastructure
+(defun slime-make-state (name function)
+  "Make a state object called NAME that handles events with FUNCTION."
+  (list 'slime-state name function))
+
+(defun slime-state-name (state)
+  "Return the name of STATE."
+  (second state))
+
+(defun slime-state-function (state)
+  "Return STATE's event-handler function."
+  (third state))
+
+
+;;;;; Event dispatching.
+
 (defun slime-dispatch-event (event)
   "Dispatch an event to the current state.
 Certain \"out of band\" events are handled specially instead of going
 into the state machine."
-  (pp event (get-buffer-create "*slime-events*"))
+  (slime-log-event event)
   (or (slime-handle-oob event)
       (funcall (slime-state-function (slime-current-state)) event)))
 
@@ -921,19 +943,6 @@ Return true if the event is recognised and handled."
      (setq slime-lisp-features features)
      t)
     (t nil)))
-
-;; state datastructure
-(defun slime-make-state (name function)
-  "Make a state object called NAME that handles events with FUNCTION."
-  (list 'slime-state name function))
-
-(defun slime-state-name (state)
-  "Return the name of STATE."
-  (second state))
-
-(defun slime-state-function (state)
-  "Return STATE's event-handler function."
-  (third state))
 
 (defun slime-state/event-panic (event)
   "Signal the error that we received EVENT in a state that can't handle it.
@@ -973,7 +982,33 @@ The state stack was:
   (error "The SLIME protocol reached an inconsistent state."))
 
 
-;;;;; Upper layer macros for defining states
+;;;;; Event logging to *slime-events*
+(defun slime-log-event (event)
+  (with-current-buffer (slime-events-buffer)
+    ;; trim?
+    (when (> (buffer-size) 100000)
+      (goto-char (/ (buffer-size) 2))
+      (beginning-of-defun)
+      (delete-region (point-min) (point)))
+    (goto-char (point-max))
+    (save-excursion
+      (pp event (current-buffer))
+      (when (equal event '(activate))
+        (backward-char 1)
+        (insert (format " ; %s" (slime-state-name (slime-current-state))))))
+    (hs-hide-block-at-point)
+    (goto-char (point-max))))
+
+(defun slime-events-buffer ()
+  (or (get-buffer "*slime-events*")
+      (let ((buffer (get-buffer-create "*slime-events*")))
+        (with-current-buffer buffer
+          (lisp-mode)
+          (hs-minor-mode)
+          (current-buffer)))))
+
+
+;;;; Upper layer macros for defining states
 
 (eval-when (compile eval)
   (defun slime-make-state-function (arglist clauses)
@@ -1005,7 +1040,7 @@ their actions. The pattern syntax is the same as `destructure-case'."
 (put 'slime-defstate 'lisp-indent-function 2)
 
 
-;;;;; The SLIME state machine definition
+;;;; The SLIME state machine definition
 
 (defvar sldb-level 0
   "Current debug level, or 0 when not debugging.")
@@ -1101,7 +1136,7 @@ Lisp waits for input from Emacs."
    (slime-push-state (slime-evaluating-state continuation))))
 
 
-;;;;; Utilities
+;;;; Utilities
 
 (defun slime-output-evaluate-request (form-string package-name)
   "Send a request for LISP to read and evaluate FORM-STRING in PACKAGE-NAME."
@@ -1127,7 +1162,7 @@ Lisp waits for input from Emacs."
   (signal-process slime-pid +slime-sigint+))
 
 
-;;;;; Emacs Lisp programming interface
+;;;; Emacs Lisp programming interface
 
 (defun slime-eval (sexp &optional package)
   "Evaluate EXPR on the superior Lisp and return the result."
@@ -2389,7 +2424,7 @@ Each cross-reference line contains these text properties:
               (format "%s\n" referrer)))))
 
 
-;;;;; XREF results buffer and window management
+;;;; XREF results buffer and window management
 
 (defun slime-xref-buffer (&optional create)
   "Return the XREF results buffer.
@@ -2423,7 +2458,7 @@ If CREATE is non-nil, create it if necessary."
                                    (window-text-height))))))
 
 
-;;;;; XREF navigation
+;;;; XREF navigation
 (defun slime-goto-xref ()
   "Goto the cross-referenced location at point."
   (interactive)
@@ -2780,7 +2815,8 @@ the current index when the selection is completed."
        (funcall (if other-window #'find-file-other-window #'find-file)
 		(plist-get source-location :filename))
        (goto-char (plist-get source-location :position))
-       (forward-sexp) (backward-sexp))
+       (forward-sexp) (backward-sexp)
+       t)
       (:stream
        (let ((info (plist-get source-location :info)))
 	 (cond ((and (consp info) (eq :emacs-buffer (car info)))
@@ -2792,13 +2828,15 @@ the current index when the selection is completed."
 			   (get-buffer buffer))
 		  (goto-char offset)
 		  (slime-forward-source-path
-		   (plist-get source-location :path))))
+		   (plist-get source-location :path)))
+                t)
 	       (t
 		(error "Cannot locate source from stream: %s"
 		       source-location)))))
       (t
        (slime-message "Source Form:\n%s" 
-		      (plist-get source-location :source-form))))))
+		      (plist-get source-location :source-form))
+       nil))))
 	   
 (defun sldb-show-source ()
   (interactive)
@@ -2810,8 +2848,8 @@ the current index when the selection is completed."
 
 (defun slime-show-source-location (source-location)
   (save-selected-window
-    (slime-goto-source-location source-location t)
-    (sldb-highlight-sexp)))
+    (when (slime-goto-source-location source-location t)
+      (sldb-highlight-sexp))))
 
 (defun sldb-frame-details-visible-p ()
   (and (get-text-property (point) 'frame)
@@ -3004,6 +3042,7 @@ the current index when the selection is completed."
 (slime-define-keys sldb-mode-map 
   ("v"    'sldb-show-source)
   ((kbd "RET") 'sldb-default-action)
+  ("\C-m"      'sldb-default-action)
   ([mouse-2]  'sldb-default-action/mouse)
   ("e"    'sldb-eval-in-frame)
   ("p"    'sldb-pprint-eval-in-frame)
@@ -3136,58 +3175,66 @@ the current index when the selection is completed."
 
 ;;; `Select'
 
-(defvar slime-select-methods nil
+(defvar slime-selector-methods nil
   "List of buffer-selection methods for the `slime-select' command.
 Each element is a list (KEY DESCRIPTION FUNCTION).
 DESCRIPTION is a one-line description of what the key selects.")
 
-(defun slime-select ()
+(defun slime-selector ()
   "Select a new buffer by type, indicated by a single character.
 The user is prompted for a single character indicating the method by
 which to choose a new buffer. The `?' character describes the
 available methods.
 
-See `def-slime-select-method' for defining new methods."
+See `def-slime-selector-method' for defining new methods."
   (interactive)
   (let* ((ch (read-char (format "Select [%s]: "
                                 (apply #'string
-                                       (mapcar #'car slime-select-methods)))))
-         (method (find ch slime-select-methods :key #'car)))
+                                       (mapcar #'car slime-selector-methods)))))
+         (method (find ch slime-selector-methods :key #'car)))
     (if (null method)
         (error "No method for character: %c" ch)
       (funcall (third method)))))
 
-(defmacro def-slime-select-method (key description &rest body)
+(defmacro def-slime-selector-method (key description &rest body)
   "Define a new `slime-select' buffer selection method.
 KEY is the key the user will enter to choose this method.
 DESCRIPTION is a one-line sentence describing how the method selects a
 buffer.
 BODY is a series of forms which must return the buffer to be selected."
-  `(setq slime-select-methods
+  `(setq slime-selector-methods
          (sort* (cons (list ,key ,description
                             (lambda () (switch-to-buffer (progn ,@body))))
-                      (remove* ,key slime-select-methods :key #'car))
+                      (remove* ,key slime-selector-methods :key #'car))
                 #'< :key #'car)))
 
-(def-slime-select-method ?? "the Select help buffer."
+(def-slime-selector-method ?? "the Select help buffer."
   (ignore-errors (kill-buffer "*Select Help*"))
   (with-current-buffer (get-buffer-create "*Select Help*")
     (insert "Select Methods:\n\n")
-    (loop for (key line function) in slime-select-methods
+    (loop for (key line function) in slime-selector-methods
           do (insert (format "%c:\t%s\n" key line)))
     (help-mode)
     (current-buffer)))
 
-(def-slime-select-method ?r "the SLIME Read-Eval-Print-Loop."
+(def-slime-selector-method ?r
+  "the SLIME Read-Eval-Print-Loop."
   "*slime-repl*")
 
-(def-slime-select-method ?i "the *inferior-lisp* buffer."
+(def-slime-selector-method ?i
+  "the *inferior-lisp* buffer."
   "*inferior-lisp*")
 
-(def-slime-select-method ?l "the most recently visited lisp-mode buffer."
+(def-slime-selector-method ?v
+  "the *slime-events* buffer."
+  "*slime-events*")
+
+(def-slime-selector-method ?l
+  "the most recently visited lisp-mode buffer."
   (slime-recently-visited-buffer 'lisp-mode))
 
-(def-slime-select-method ?e "the most recently visited emacs-lisp-mode buffer."
+(def-slime-selector-method ?e
+  "the most recently visited emacs-lisp-mode buffer."
   (slime-recently-visited-buffer 'emacs-lisp-mode))
 
 (defun slime-recently-visited-buffer (mode)
@@ -3218,7 +3265,7 @@ Only considers buffers that are not already visible."
   "The name of the buffer used to display test results.")
 
 
-;;;;; Execution engine
+;;;; Execution engine
 
 (defun slime-run-tests ()
   "Run the test suite.
@@ -3284,7 +3331,7 @@ Exits Emacs when finished. The exit code is the number of failed tests."
       (kill-emacs failed-tests))))
 
 
-;;;;; Results buffer creation and output
+;;;; Results buffer creation and output
 
 (defun slime-create-test-results-buffer ()
   "Create and initialize the buffer for test suite results."
@@ -3333,7 +3380,7 @@ KEYWORD names the type of failure and STRING describes the reason."
     (insert string "\n")))
 
 
-;;;;; Macros for defining test cases
+;;;; Macros for defining test cases
 
 (defmacro def-slime-test (name args doc inputs &rest body)
   "Define a test case.
@@ -3381,7 +3428,7 @@ BODY returns true if the check succeeds."
 (put 'slime-check 'lisp-indent-function 1)
 
 
-;;;;; Test case definitions.
+;;;; Test case definitions
 
 ;; Clear out old tests.
 (setq slime-tests nil)
