@@ -45,7 +45,17 @@
 (defimplementation accept-connection (socket)
   (socket:accept-connection socket :wait t))
 
+;; The following defitinions are workarounds for the buggy
+;; no-applicable-method function in Allegro 5.  We have to provide an
+;; implementation.
 (defimplementation emacs-connected ())
+
+(defimplementation format-sldb-condition (c)
+  (princ-to-string c))
+
+(defimplementation condition-references (c)
+  (declare (ignore))
+  '())
 
 ;;;; Unix signals
 
