@@ -1,3 +1,18 @@
+2004-07-12  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-easy-menu): Added "Apropos all" menu item.
+	(slime-restart-lisp): Added `restart-lisp' shortcut. Doesn't do
+	the right thing if you have multiple Lisps up.
+
+	* swank.lisp: Added some docstrings.
+	Rearranged completion code and somewhat SLDB trying to layout
+	functions above their subfunctions in a tree-like way.
+	(slime-protocol-error): Renamed from slime-read-error.
+	(carefully-find-package): Now returns NIL if package can't be
+	determined, rather than *BUFFER-PACKAGE*. Correct? I didn't see
+	why it should return *BUFFER-PACKAGE*.
+	(xref): Find symbol in *BUFFER-PACKAGE*.
+
 2004-07-09  Peter Seibel  <peter@javamonkey.com>
 
 	* swank.lisp (package-string-for-prompt): Change the way package
