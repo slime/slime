@@ -1,4 +1,4 @@
-;; -*- mode: emacs-lisp; mode: outline-minor; outline-regexp: ";;;;*" -*-
+;; -*- mode: emacs-lisp; mode: outline-minor; outline-regexp: ";;;;*"; tab-width: 8; indent-tabs-mode: t -*-
 ;; slime.el -- Superior Lisp Interaction Mode, Extended
 ;;; License
 ;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
@@ -1116,7 +1116,8 @@ Severity is ordered as :NOTE < :WARNING < :ERROR."
 
 NOTE's :position property contains the byte offset of the toplevel
 form we are searching.  NOTE's :source-path property the path to the
-subexpression.
+subexpression.  NOTE's :function-name property indicates the name of
+the function the note occurred in.
 
 A source-path is a list of the form (1 2 3 4), which indicates a
 position in a file in terms of sexp positions. The first number
@@ -1125,7 +1126,13 @@ to move to: the first top-level form has number 0. The second number
 in the source-path identifies the containing sexp within that
 top-level form, etc."
   (interactive)
-  (cond ((not (plist-get note :source-path))
+  (cond ((plist-get note :function-name)
+	 (ignore-errors
+	   (goto-char (point-min))
+	   (re-search-forward (format "^(def\\w+\\s +%s\\s +"
+				      (plist-get note :function-name)))
+	   (beginning-of-line)))
+	((not (plist-get note :source-path))
 	 ;; no source-path available. hmm... move the the first sexp
 	 (cond ((plist-get note :buffername)
 		(goto-char (plist-get note :buffer-offset)))
