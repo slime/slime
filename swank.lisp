@@ -82,6 +82,33 @@
 (defvar *emacs-io* nil
   "Bound to a TCP stream to Emacs during request processing.")
 
+(defstruct (slime-output-stream
+	    (:include lisp::string-output-stream
+		      (lisp::misc #'slime-out-misc)))
+  (last-charpos 0 :type kernel:index))
+
+(defun slime-out-misc (stream operation &optional arg1 arg2)
+  (case operation
+    (:force-output
+     (setf (slime-output-stream-last-charpos stream)
+	   (slime-out-misc stream :charpos))
+     (send-to-emacs `(:read-output ,(get-output-stream-string stream))))
+    (:file-position nil)
+    (:charpos 
+     (do ((index (1- (the fixnum (lisp::string-output-stream-index stream)))
+		 (1- index))
+	  (count 0 (1+ count))
+	  (string (lisp::string-output-stream-string stream)))
+	 ((< index 0) (+ count (slime-output-stream-last-charpos stream)))
+       (declare (simple-string string)
+		(fixnum index count))
+       (if (char= (schar string index) #\newline)
+	   (return count))))
+    (t (lisp::string-out-misc stream operation arg1 arg2))))
+
+(defvar *slime-output* nil
+  "Bound to a slime-output-stream during request processing.")
+
 (defun create-swank-server (port &key reuse-address)
   "Create a SWANK TCP server."
   (system:add-fd-handler
@@ -96,13 +123,14 @@
   "Setup request handling for SOCKET."
   (let ((stream (sys:make-fd-stream socket
                                     :input t :output t
-                                    :element-type 'unsigned-byte)))
+                                    :element-type 'unsigned-byte))
+	(output (make-slime-output-stream)))
     (system:add-fd-handler socket
                            :input (lambda (fd)
                                     (declare (ignore fd))
-                                    (serve-request stream)))))
+                                    (serve-request stream output)))))
 
-(defun serve-request (*emacs-io*)
+(defun serve-request (*emacs-io* *slime-output*)
   "Read and process a request from a SWANK client.
 The request is read from the socket as a sexp and then evaluated."
   (let ((completed nil))
@@ -133,13 +161,19 @@ The request is read from the socket as a sexp and then evaluated."
     package))
 
 (defun read-form (string) 
-  (let ((*package* *swank-io-package*))
-    (with-standard-io-syntax
+  (with-standard-io-syntax
+    (let ((*package* *swank-io-package*))
       (read-from-string string))))
 
 (defun read-from-emacs ()
   "Read and process a request from Emacs."
-  (eval (read-next-form)))
+  (let ((form (read-next-form)))
+    (let ((*standard-output* *slime-output*)
+	  (*error-output* *slime-output*)
+	  (*trace-output* *slime-output*)
+	  (*debug-io*  *slime-output*)
+	  (*query-io* *slime-output*))
+      (apply #'funcall form))))
 
 (defun send-to-emacs (object)
   "Send OBJECT to Emacs."
@@ -215,7 +249,8 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
       (unwind-protect
 	   (let ((*buffer-package* (guess-package-from-string buffer-package)))
 	     (assert (packagep *buffer-package*))
-	     (setq result (eval (from-string string)))
+	     (setq result (eval (read-form string)))
+	     (force-output)
 	     (setq ok t))
 	(send-to-emacs (if ok `(:ok ,result) '(:aborted)))))))
 
@@ -560,8 +595,10 @@ considered."
 		   (search "::" string))))
     (multiple-value-bind (name package-name internal) (parse-designator string)
       (let ((completions nil)
-	    (package (find-package (string-upcase (or package-name 
-						      default-package-name)))))
+	    (package (find-package 
+		      (string-upcase (cond ((equal package-name "") "KEYWORD")
+					   (package-name)
+					   (default-package-name))))))
 	(when package
 	  (do-symbols (symbol package)
 	    (when (and (string-prefix-p name (symbol-name symbol))
@@ -583,7 +620,7 @@ considered."
       (find-symbol (symbol-name s) (symbol-package s))
     (declare (ignore _))
     (eq status :external)))
-
+ 
 (defun string-prefix-p (s1 s2)
   "Return true iff the string S1 is a prefix of S2.
 \(This includes the case where S1 is equal to S2.)"
@@ -691,8 +728,6 @@ considered."
 	   (function-source-location (macro-function fname)))
 	  (t
 	   (function-source-location (coerce fname 'function))))))
-
-;; di::code-location-%tlf-offset
 
 ;;; Clone of HEMLOCK-INTERNALS::FUN-DEFINED-FROM-PATHNAME
 (defun fdefinition-file (function)
