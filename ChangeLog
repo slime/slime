@@ -14,6 +14,8 @@
 	* swank-cmucl.lisp (arglist-string): Use
 	pcl:generic-function-lambda-list for generic functions.  Handle
 	closures.  Print arglist in lower case.
+	(inspected-parts-of-value-cell): Was lost during the inspector
+	refactoring.
 
 2004-01-18  Wolfgang Jenkner  <wjenkner@inode.at>
 
