@@ -1,3 +1,21 @@
+2004-02-28  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-compilation-finished-hook): New hook variable.
+	(slime-compilation-finished): Call it.
+	(slime-maybe-show-xrefs-for-notes): New function.
+	(slime-make-default-connection): Use the current connection.
+	(slime-connection-at-point): New function.
+	(slime-goto-connection, slime-connection-list-make-default): Use
+	it.
+	(slime-draw-connection-list): Minor cleanups.
+
+	Define selectors for t and c for thread and connection list.
+
+	* swank.lisp: (*initial-pprint-dispatch-table*)
+	(*arglist-pprint-dispatch-table*): Workaround for bug in
+	CLISP. Don't supply nil as argument to copy-pprint-dispatch.
+	(print-cons-argument): Insert a space after the car.
+
 2004-02-27  Marco Baringer  <mb@bese.it>
 
 	* slime.el (slime-read-port-and-connect,
