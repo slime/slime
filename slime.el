@@ -4786,6 +4786,22 @@ BODY returns true if the check succeeds."
 ;; Clear out old tests.
 (setq slime-tests nil)
 
+(defun slime-test-state-stack (states)
+  "True if STATES describes the current stack of states."
+  (equal states (mapcar #'slime-state-name (slime-state-stack))))
+
+(defun slime-sync-state-stack (state-stack timeout)
+  "Wait until the machine's stack is STATE-STACK or the timeout \
+expires.\nThe timeout is given in seconds (a floating point number)."
+  (let ((end (time-add (current-time) (seconds-to-time timeout))))
+    (loop until (or (slime-test-state-stack state-stack)
+                    (time-less-p end (current-time)))
+          do (accept-process-output nil 0 100000))))
+
+(defun slime-check-idle-state (&optional test-name)
+  (slime-check ((or test-name "Automaton in idle state."))
+    (slime-test-state-stack '(slime-idle-state))))
+
 (def-slime-test find-definition
     (name buffer-package)
     "Find the definition of a function or macro in swank.lisp."
@@ -4870,9 +4886,7 @@ Confirm that SUBFORM is correctly located."
 (def-slime-test async-eval-debugging (depth)
   "Test recursive debugging of asynchronous evaluation requests."
   '((1) (2) (3))
-  (slime-check "Automaton initially in idle state."
-    ;; We expect to be at the top-level when the test starts.
-    (slime-test-state-stack '(slime-idle-state)))
+  (slime-check-idle-state "Automaton initially in idle state.")
   (lexical-let ((depth depth)
                 (debug-hook-max-depth 0))
     (let ((debug-hook
@@ -4903,27 +4917,13 @@ Confirm that SUBFORM is correctly located."
                       debug-hook-max-depth depth)
           (= debug-hook-max-depth depth))
         (slime-sync-state-stack '(slime-idle-state) 5)
-        (slime-check "Automaton is back in idle state."
-          (slime-test-state-stack '(slime-idle-state)))))))
-
-(defun slime-test-state-stack (states)
-  "True if STATES describes the current stack of states."
-  (equal states (mapcar #'slime-state-name (slime-state-stack))))
-
-(defun slime-sync-state-stack (state-stack timeout)
-  "Wait until the machine's stack is STATE-STACK or the timeout \
-expires.\nThe timeout is given in seconds (a floating point number)."
-  (let ((end (time-add (current-time) (seconds-to-time timeout))))
-    (loop until (or (slime-test-state-stack state-stack)
-                    (time-less-p end (current-time)))
-          do (accept-process-output nil 0 100000))))
+        (slime-check-idle-state "Automaton is back in idle state.")))))
 
 (def-slime-test loop-interrupt-quit
     ()
     "Test interrupting a loop."
     '(())
-  (slime-check "Automaton initially in idle state."
-    (slime-test-state-stack '(slime-idle-state)))
+  (slime-check-idle-state "Automaton initially in idle state.")
   (slime-eval-async '(cl:loop) "CL-USER" (lambda (_) ))
   (let ((sldb-hook
          (lambda ()
@@ -4938,15 +4938,13 @@ expires.\nThe timeout is given in seconds (a floating point number)."
       (slime-test-state-stack '(slime-evaluating-state slime-idle-state)))
     (slime-interrupt)
     (slime-sync-state-stack '(slime-idle-state) 5)
-    (slime-check "Automaton is back in idle state."
-      (slime-test-state-stack '(slime-idle-state)))))
+    (slime-check-idle-state "Automaton is back in idle state.")))
  
 (def-slime-test loop-interrupt-continue-interrupt-quit
     ()
     "Test interrupting a previously interrupted but continued loop."
     '(())
-  (slime-check "Automaton initially in idle state."
-    (slime-test-state-stack '(slime-idle-state)))
+  (slime-check-idle-state "Automaton initially in idle state.")
   (slime-eval-async '(cl:loop) "CL-USER" (lambda (_) ))
   (let ((sldb-hook
          (lambda ()
@@ -4984,8 +4982,7 @@ expires.\nThe timeout is given in seconds (a floating point number)."
       (slime-test-state-stack '(slime-evaluating-state slime-idle-state)))
     (slime-interrupt)
     (slime-sync-state-stack '(slime-idle-state) 5)
-    (slime-check "Automaton is back in idle state."
-      (slime-test-state-stack '(slime-idle-state)))))
+    (slime-check-idle-state "Automaton is back in idle state.")))
  
 (def-slime-test interactive-eval 
     ()
@@ -4995,8 +4992,7 @@ expires.\nThe timeout is given in seconds (a floating point number)."
     (slime-interactive-eval 
      "(progn(cerror \"foo\" \"restart\")(cerror \"bar\" \"restart\")(+ 1 2))")
     (slime-sync-state-stack '(slime-idle-state) 5)
-    (slime-check "Automaton is back in idle state."
-      (slime-test-state-stack '(slime-idle-state)))
+    (slime-check-idle-state "Automaton is back in idle state.")
     (let ((message (current-message)))
       (slime-check "Minibuffer contains: \"=> 3\""
         (equal "=> 3" message)))))
@@ -5005,8 +5001,7 @@ expires.\nThe timeout is given in seconds (a floating point number)."
     ()
     "Test interrupting a loop that sends a lot of output to Emacs."
     '(())
-  (slime-check "Automaton initially in idle state."
-    (slime-test-state-stack '(slime-idle-state)))
+  (slime-check-idle-state "Automaton initially in idle state.")
   (slime-eval-async '(cl:loop :for i :from 0 :do (cl:progn (cl:print i) 
                                                            (cl:force-output)))
                     "CL-USER" (lambda (_) ))
@@ -5023,9 +5018,26 @@ expires.\nThe timeout is given in seconds (a floating point number)."
       (slime-test-state-stack '(slime-evaluating-state slime-idle-state)))
     (slime-interrupt)
     (slime-sync-state-stack '(slime-idle-state) 5)
-    (slime-check "Automaton is back in idle state."
-      (slime-test-state-stack '(slime-idle-state)))))
+    (slime-check "Automaton is back in idle state.")))
 
+(def-slime-test package-updateing
+    (package-name nickname)
+    "Test if slime-lisp-package is updated."
+    '(("COMMON-LISP" "CL")
+      ("KEYWORD" "KEYWORD")
+      ("COMMON-LISP-USER" "CL-USER"))
+  (with-current-buffer (slime-output-buffer)
+    (let ((p (slime-eval 
+              `(swank:listener-eval 
+                ,(format 
+                  "(cl:setq cl:*package* (cl:find-package %S))
+                   (cl:package-name cl:*package*)" package-name))
+              (slime-lisp-package))))
+      (slime-check ("In %s package." package-name)
+        (equal (format "\"%s\"" package-name) p))
+      (slime-check ("slime-lisp-package is %s." nickname)
+        (equal (slime-lisp-package) nickname)))))
+  
 
 ;;; Portability library
 
