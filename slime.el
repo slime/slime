@@ -55,6 +55,7 @@
     (require 'easy-mmode)
     (defalias 'define-minor-mode 'easy-mmode-define-minor-mode)))
 (require 'comint)
+(require 'timer)
 (require 'pp)
 (require 'hideshow)
 (require 'hyperspec)
