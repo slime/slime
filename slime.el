@@ -1546,11 +1546,12 @@ NEXT-CANDIDATE-FN is called to find each new position for consideration."
 
 ;;; Arglist Display
 
-(defun slime-space ()
+(defun slime-space (n)
   "Insert a space and print some relevant information (function arglist).
-Designed to be bound to the SPC key."
-  (interactive)
-  (insert " ")
+Designed to be bound to the SPC key.  Prefix argument can be used to insert
+more than one space."
+  (interactive "p")
+  (self-insert-command n)
   (when (and (slime-connected-p)
              (not (slime-busy-p))
              (slime-function-called-at-point/line))
