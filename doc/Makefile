@@ -42,15 +42,16 @@ slime.info: slime.texi
 # Some special-case TeX-escaping of international characters.
 contributors.texi: ../ChangeLog Makefile texinfo-tabulate.awk
 	cat ../ChangeLog | \
-	grep '^[0-9]' | \
-	sed -e 's/^[^ ]* *//' -e 's/ *<.*//' | \
-	(cat; echo 'Eric Marsden') | \
-	sort -u | \
+	sed -ne '/^[0-9]/{s/^[^ ]* *//; s/ *<.*//; p;}' | \
+	sort -d | \
+	uniq -c | \
+	sort -nr| \
+	sed -e 's/^[^A-Z]*//' | \
 	awk -f texinfo-tabulate.awk | \
 	sed -e 's/\o370/@norsko{}/g' \
 	> $@
 
-.INTERMEDIATE: contributors.texi
+#.INTERMEDIATE: contributors.texi
 
 # Debian's install-info wants a --section argument.
 section := $(shell grep INFO-DIR-SECTION $(infofiles) | sed 's/INFO-DIR-SECTION //')
