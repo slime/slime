@@ -1,3 +1,12 @@
+2005-02-22  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-complete-form): Emacs 20 compatibility fix.
+	(slime-repl-update-banner): Remove animation stuff.
+	(slime-startup-animation): Deleted.
+
+	* swank-lispworks.lisp (compute-applicable-methods-using-classes):
+	Implement it.
+
 2005-02-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Supersede the command slime-insert-arglist with the new command
