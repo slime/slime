@@ -769,7 +769,8 @@ It should be used for \"background\" messages such as argument lists."
 (defun slime-symbol-at-point ()
   "Return the symbol at point, otherwise nil."
   (save-excursion
-    (skip-syntax-backward "-")
+    (skip-syntax-forward "w_")
+    (skip-syntax-backward "-") 
     (let ((string (thing-at-point 'symbol)))
       (if string (intern (substring-no-properties string)) nil))))
 
@@ -1254,9 +1255,9 @@ If PROCESS is not specified, `slime-connection' is used.
   (when (eq process slime-default-connection)
     (when slime-net-processes
       (slime-select-connection (car slime-net-processes))
-      (message (format "Default connection closed; switched to #%S (%S)"
-                       (slime-connection-number)
-                       (slime-lisp-implementation-type-name))))))
+      (message "Default connection closed; switched to #%S (%S)"
+               (slime-connection-number)
+               (slime-lisp-implementation-type-name)))))
 
 (defun slime-connection-number (&optional connection)
   (slime-with-connection-buffer (connection)
@@ -1275,17 +1276,17 @@ This command is mostly intended for debugging the multi-session code."
                         (length slime-net-processes))
                    slime-net-processes)))
     (slime-select-connection conn)
-    (message (format "Selected connection #%S (%s)"
-                     (slime-connection-number)
-                     (slime-lisp-implementation-type-name)))))
+    (message "Selected connection #%S (%s)"
+             (slime-connection-number)
+             (slime-lisp-implementation-type-name))))
 
 (defun slime-make-default-connection ()
   "Make the current buffer connection the default connection."
   (interactive)
   (slime-select-connection slime-buffer-connection)
-  (message (format "Connection #%S (%s) now default SLIME connection."
-                   (slime-connection-number)
-                   (slime-lisp-implementation-type-name))))
+  (message "Connection #%S (%s) now default SLIME connection."
+           (slime-connection-number)
+           (slime-lisp-implementation-type-name)))
 
 (defun slime-find-connection-by-type-name (name)
   (find name slime-net-processes
@@ -1449,11 +1450,13 @@ This is automatically synchronized from Lisp.")
     (setq slime-connection-counter 0))
   (slime-with-connection-buffer ()
     (setq slime-connection-number (incf slime-connection-counter)))
-  (setf (slime-pid) (slime-eval '(swank:getpid)))
-  (setf (slime-lisp-implementation-type) 
-        (slime-eval '(cl:lisp-implementation-type)))
-  (setf (slime-lisp-implementation-type-name) 
-        (slime-eval '(swank:lisp-implementation-type-name)))
+  (destructuring-bind (version pid type name features)
+      (slime-eval '(swank:connection-info))
+    (slime-check-protocol-version version)
+    (setf (slime-pid) pid
+          (slime-lisp-implementation-type) type
+          (slime-lisp-implementation-type-name) name
+          (slime-lisp-features) features))
   (setq slime-state-name "")
   (when slime-global-debugger-hook
     (slime-eval '(swank:install-global-debugger-hook) "COMMON-LISP-USER")))
