@@ -2220,9 +2220,8 @@ update window-point afterwards.  If point is initially not at
 (defun slime-output-string (string)
   (with-current-buffer (slime-output-buffer)
     (slime-with-output-end-mark
-     (slime-insert-propertized
-      (list 'face 'slime-repl-output-face) 
-      string)
+     (slime-propertize-region '(face slime-repl-output-face)
+       (insert string))
      (when (and (= (point) slime-repl-prompt-start-mark)
                 (not (bolp)))
        (insert "\n")
@@ -2408,12 +2407,12 @@ after the last prompt to the end of buffer."
   (cond (slime-repl-read-mode
          (slime-repl-return-string string))
         (t (slime-repl-eval-string string))))
-
+  
 (defun slime-repl-show-abort ()
   (with-current-buffer (slime-output-buffer)
     (slime-with-output-end-mark 
-     (unless (bolp) (insert "\n"))
-     (insert "; Evaluation aborted\n"))
+     (unless (bolp) (insert-before-markers "\n"))
+     (insert-before-markers "; Evaluation aborted\n"))
     (slime-rex ()
         ((list 'swank:listener-eval "") nil)
       ((:ok result) (with-current-buffer (slime-output-buffer)
@@ -5647,7 +5646,6 @@ portion of the backtrace. Frames are numbered from 0."
                           (lambda (result)
                             (apply #'sldb-setup thread level result)))))))
 
-;; XXX thread is ignored
 (defun sldb-exit (thread level)
   (when-let (sldb (sldb-find-buffer thread))
     (with-current-buffer sldb
@@ -6675,7 +6673,6 @@ is exceeded."
                 (ignore-errors (end-of-defun) t))
         do (insert ")")))
 
-
 
 ;;;; Font Lock
 
@@ -6688,7 +6685,7 @@ is exceeded."
   "Find reader conditionalized forms where the test is false."
   (when (and slime-highlight-suppressed-forms
              (slime-connected-p)
-	     (re-search-forward "[ \n\t\r]#[-+]" limit t))
+	     (re-search-forward "[ \n\t\r(]#[-+]" limit t))
     (ignore-errors
       (let* ((char (char-before))
              (e (read (current-buffer)))
