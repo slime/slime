@@ -1,3 +1,30 @@
+2003-12-11  Daniel Barlow  <dan@telent.net>
+
+	* swank.lisp (swank-compiler): new function abstracts commonality
+	between swank-compile-{file, string}.
+	(swank-load-system): call swank-compiler to load asdf system
+
+	* swank-sbcl.lisp (compiler-note-location and elsewhere): 
+	remove all trace of *compile-filename*
+	(compile-*-for-emacs): shorten
+
+	* swank-backend.lisp (call-with-compilation-hooks): new GF
+	should set up all appropriate error condition loggers etc
+	to do a compilation preserving the notes.  Implement for
+	sbcl, cmucl
+
+	* slime.el (slime-find-asd, slime-load-system): new command
+	to compile and load an ASDF system with all the usual compiler
+	notes and stuff
+	(slime-compilation-finished): minimally handle multiple file
+	compiles, by printing the names of all files with notes in the
+	echo area
+	(slime-remove-old-overlays): bug fix: now removes overlays even
+	at start of buffer
+	(slime-overlay-note): do nothing quietly if
+	slime-choose-overlay-region returns nil
+	(slime-choose-overlay-region): return nil if note has no location
+
 2003-12-11  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-repl-previous-prompt, slime-repl-next-prompt):
