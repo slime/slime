@@ -1315,7 +1315,9 @@ their actions. The pattern syntax is the same as `destructure-case'."
                            (current-window-configuration))))
   ((:emacs-evaluate form-string package-name continuation)
    (slime-output-evaluate-request form-string package-name)
-   (slime-push-state (slime-evaluating-state continuation))))
+   (slime-push-state (slime-evaluating-state continuation)))
+  ((:emacs-evaluate-oneway form-string package-name)
+   (slime-output-oneway-evaluate-request form-string package-name)))
 
 (defvar slime-evaluating-state-activation-hook nil
   "Hook called when the evaluating state is actived.")
@@ -1378,7 +1380,11 @@ state interacts with it until it is coaxed into returning."
   ((:emacs-evaluate form-string package-name continuation)
    ;; recursive evaluation request
    (slime-output-evaluate-request form-string package-name)
-   (slime-push-state (slime-evaluating-state continuation))))
+   (slime-push-state (slime-evaluating-state continuation)))
+  ((:emacs-evaluate-oneway form-string package-name)
+   (slime-output-oneway-evaluate-request form-string package-name))
+  ((:read-string tag)
+   (slime-push-state (slime-read-string-state tag))))
 
 (slime-defstate slime-read-string-state (tag)
   "Reading state.
@@ -1401,6 +1407,10 @@ Lisp waits for input from Emacs."
 (defun slime-output-evaluate-request (form-string package-name)
   "Send a request for LISP to read and evaluate FORM-STRING in PACKAGE-NAME."
   (slime-net-send `(swank:eval-string ,form-string ,package-name)))
+
+(defun slime-output-oneway-evaluate-request (form-string package-name)
+  "Like `slime-output-oneway-evaluate-request' but without expecting a result."
+  (slime-net-send `(swank:oneway-eval-string ,form-string ,package-name)))
 
 (defun slime-check-connected ()
   (unless (slime-connected-p)
@@ -1455,6 +1465,14 @@ Loops until the result is thrown to our caller, or the user aborts."
   "Evaluate EXPR on the superior Lisp and call CONT with the result."
   (slime-check-connected)
   (slime-eval-string-async (prin1-to-string sexp) package `(:function ,cont)))
+
+(defun slime-oneway-eval (sexp &optional package)
+  "Evaluate SEXP \"one-way\" - without receiving a return value."
+  (slime-check-connected)
+  (when (slime-busy-p)
+    (error "Busy evaluating"))
+  (slime-dispatch-event
+   `(:emacs-evaluate-oneway ,(prin1-to-string sexp) ,package)))
 
 (defun slime-sync ()
   "Block until any asynchronous command has completed."
@@ -3846,10 +3864,14 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
   (let ((restart (or number
                      (sldb-restart-at-point)
                      (error "No restart at point"))))
-    (slime-eval-async `(swank:invoke-nth-restart ,restart) nil (lambda ()))))
+    (slime-oneway-eval `(swank:invoke-nth-restart-for-emacs ,sldb-level ,restart) nil)))
 
 (defun sldb-restart-at-point ()
   (get-text-property (point) 'restart-number))
+
+(defun sldb-break-with-default-debugger ()
+  (interactive)
+  (slime-eval-async '(swank:sldb-break-with-default-debugger) nil (lambda (_))))
 
 (defun sldb-step ()
   (interactive)
@@ -3883,6 +3905,7 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
   ("s"    'sldb-step)
   ("a"    'sldb-abort)
   ("q"    'sldb-quit)
+  ("B"    'sldb-break-with-default-debugger)
   (":"    'slime-interactive-eval))
 
 (dolist (spec slime-keys)
