@@ -1143,6 +1143,7 @@ Polling %S.. (Abort with `M-x slime-connection-abort'.)"
   (message "Connecting to Swank on port %S.." port)
   (let* ((process (slime-net-connect host port))
          (slime-dispatching-connection process))
+    (message "Initial handshake..." port)
     (slime-init-connection process)))
 
 (defun slime-changelog-date ()
@@ -1232,7 +1233,8 @@ The functions are called with the process as their argument.")
 
 (defun slime-net-connect (host port)
   "Establish a connection with a CL."
-  (let* ((proc (open-network-stream "SLIME Lisp" nil host port))
+  (let* ((inhibit-quit nil)
+         (proc (open-network-stream "SLIME Lisp" nil host port))
          (buffer (slime-make-net-buffer " *cl-connection*")))
     (push proc slime-net-processes)
     (set-process-buffer proc buffer)
@@ -3249,7 +3251,6 @@ Designed to be bound to the SPC key.  Prefix argument can be used to insert
 more than one space."
   (interactive "p")
   (self-insert-command n)
-  (slime-close-buffer slime-completions-buffer-name)
   (when (and (slime-connected-p)
 	     (or (not (slime-busy-p))
                  ;; XXX should we enable this?
@@ -3452,7 +3453,12 @@ annoy the user)."
 
 (defvar slime-complete-saved-window-configuration nil
   "Window configuration before we show the *Completions* buffer.
-This is buffer local in the buffer where the complition is
+This is buffer local in the buffer where the completion is
+performed.")
+
+(defvar slime-complete-modified-window-configuration nil
+  "Window configuration after we showing the *Completions* buffer.
+This is buffer local in the buffer where the completion is
 performed.")
 
 (defun slime-complete-maybe-save-window-configuration ()
@@ -3464,7 +3470,7 @@ performed.")
 (defun slime-complete-delay-restoration ()
   (make-local-hook 'pre-command-hook)
   (add-hook 'pre-command-hook
-            'slime-complete-maybe-restore-window-confguration))
+            'slime-complete-maybe-restore-window-configuration))
 
 (defun slime-complete-forget-window-configuration ()
   (setq slime-complete-saved-window-configuration nil))
@@ -3472,26 +3478,27 @@ performed.")
 (defun slime-complete-restore-window-configuration ()
   "Restore the window config if available."
   (remove-hook 'pre-command-hook
-               'slime-complete-maybe-restore-window-confguration)
+               'slime-complete-maybe-restore-window-configuration)
   (when slime-complete-saved-window-configuration
     (save-excursion
       (set-window-configuration slime-complete-saved-window-configuration))
-    (setq slime-complete-saved-window-configuration nil))
-  (slime-close-buffer slime-completions-buffer-name))
+    (setq slime-complete-saved-window-configuration nil)
+    (slime-close-buffer slime-completions-buffer-name)))
 
-(defun slime-complete-maybe-restore-window-confguration ()
+(defun slime-complete-maybe-restore-window-configuration ()
   "Restore the window configuration, if the following command
 terminates a current completion."
   (remove-hook 'pre-command-hook
-               'slime-complete-maybe-restore-window-confguration)
+               'slime-complete-maybe-restore-window-configuration)
   (condition-case err
       (cond ((find last-command-char "()\"'`,# \r\n:")
              (slime-complete-restore-window-configuration))
             ((memq this-command '(self-insert-command
                                   slime-complete-symbol
+                                  slime-repl-indent-and-complete-symbol
                                   backward-delete-char-untabify
-                              backward-delete-char
-                              scroll-other-window))
+                                  backward-delete-char
+                                  scroll-other-window))
              (slime-complete-delay-restoration))
             (t 
              (slime-complete-forget-window-configuration)))
@@ -3499,6 +3506,12 @@ terminates a current completion."
      ;; Because this is called on the pre-command-hook, we mustn't let
      ;; errors propagate.
      (message "Error in slime-complete-forget-window-configuration: %S" err))))
+
+(defun slime-display-completion-list (completion-list)
+  (with-output-to-temp-buffer "*Completions*"
+    (display-completion-list completion-set)
+    (with-current-buffer standard-output
+      (set-syntax-table lisp-mode-syntax-table))))
   
 (defun slime-complete-symbol ()
   "Complete the symbol at point.
@@ -3544,12 +3557,6 @@ Completion is performed by `slime-complete-symbol-function'."
                (slime-complete-maybe-save-window-configuration)
                (slime-display-completion-list completion-set)
                (slime-complete-delay-restoration)))))))
-
-(defun slime-display-completion-list (completion-list)
-  (with-output-to-temp-buffer "*Completions*"
-    (display-completion-list completion-set)
-    (with-current-buffer standard-output
-      (set-syntax-table lisp-mode-syntax-table))))
 
 (defun* slime-simple-complete-symbol ()
   "Complete the symbol at point.  
