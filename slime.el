@@ -697,8 +697,7 @@ function call starts on the same line at the point itself."
 The user is prompted if a prefix argument is in effect, if there is no
 symbol at point, or if QUERY is non-nil."
   (cond ((or current-prefix-arg query (not (slime-symbol-name-at-point)))
-         (slime-completing-read-symbol-name 
-          prompt (slime-symbol-name-at-point)))
+         (slime-read-from-minibuffer prompt (slime-symbol-name-at-point)))
         (t (slime-symbol-name-at-point))))
 
 (defun slime-read-symbol (prompt)
@@ -1640,7 +1639,12 @@ inside a `save-excursion' block."
   "Return the current input as string.  The input is the region from
 after the last prompt to the end of buffer."
   (buffer-substring-no-properties slime-repl-input-start-mark
-                                  slime-repl-input-end-mark))
+                                  (save-excursion
+                                    (goto-char slime-repl-input-end-mark)
+                                    (when (eq (char-before) ?\n)
+                                      (backward-char 1))
+                                    (point))))
+     
 
 (defun slime-repl-add-to-input-history (string)
   (when (and (plusp (length string))
@@ -2405,10 +2409,11 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
            (with-lexical-bindings (cache-key name)
              (lambda (arglist)
                ;; FIXME: better detection of "no documentation available"
-               (unless (string-match "<Unknown-Function>" arglist)
-                 (setq arglist (slime-format-arglist name arglist))
-                 (slime-update-autodoc-cache cache-key arglist)
-                 (slime-background-message arglist)))))))))
+               (if (string-match "<Unknown-Function>" arglist)
+                   (setq arglist "")
+                 (setq arglist (slime-format-arglist name arglist)))
+               (slime-update-autodoc-cache cache-key arglist)
+               (slime-background-message arglist))))))))
 
 (defun slime-get-cached-autodoc (symbol-name)
   "Return the cached autodoc documentation for SYMBOL-NAME, or nil."
@@ -2616,29 +2621,6 @@ package is used."
             (temp-minibuffer-message text)
           (minibuffer-message text))
       (message "%s" text))))
-
-(defun slime-completing-read-internal (string default-package flag)
-  ;; We misuse the predicate argument to pass the default-package.
-  ;; That's needed because slime-completing-read-internal is called in
-  ;; the minibuffer.
-  (ecase flag
-    ((nil) 
-     (let* ((completions (car (slime-completions string default-package))))
-       (try-completion string
-		       (slime-bogus-completion-alist completions))))
-    ((t)
-     (car (slime-completions string default-package)))
-    ((lambda)
-     (member string (car (slime-completions string default-package))))))
-
-(defun slime-completing-read-symbol-name (prompt &optional initial-value)
-  "Read the name of a CL symbol, with completion.  
-The \"name\" may include a package prefix."
-  (completing-read prompt 
-		   'slime-completing-read-internal
-		   (slime-buffer-package)
-		   nil
-		   initial-value))
 
 (defvar slime-read-expression-map (make-sparse-keymap)
   "Minibuffer keymap used for reading CL expressions.")
@@ -2921,7 +2903,7 @@ compilation."
 
 (defun slime-toggle-trace-fdefinition (fname-string)
   "Toggle trace for FNAME-STRING."
-  (interactive (list (slime-completing-read-symbol-name 
+  (interactive (list (slime-read-from-minibuffer
 		      "(Un)trace: " (slime-symbol-name-at-point))))
   (message "%s" (slime-eval `(swank:toggle-trace-fdefinition ,fname-string)
 			    (slime-buffer-package t))))
@@ -3385,7 +3367,7 @@ CL:MACROEXPAND."
 	       (insert "\n")))
     (insert "\nBacktrace:\n")
     (setq sldb-backtrace-start-marker (point-marker))
-    (sldb-insert-frames frames 1)
+    (sldb-insert-frames (sldb-prune-initial-frames frames) nil)
     (setq buffer-read-only t)
     (pop-to-buffer (current-buffer))
     (run-hooks 'sldb-hook)))
@@ -3403,14 +3385,24 @@ CL:MACROEXPAND."
   (setq sldb-level-in-buffer sldb-level)
   (setq mode-name (format "sldb[%d]" sldb-level)))
 
+(defun sldb-prune-initial-frames (frames)
+  "Return the prefix of FRAMES to initially present to the user.
+Regexp heuristics are used to avoid showing SWANK-internal frames."
+  (or (loop for frame in frames
+            for (number string) = frame
+            until (string-match "[^(]*(\\(SWANK\\|swank\\):" string)
+            collect frame)
+      frames))
+
 (defun sldb-insert-frames (frames maximum-length)
-  (assert (<= (length frames) maximum-length))
+  (when maximum-length
+    (assert (<= (length frames) maximum-length)))
   (save-excursion
     (loop for frame in frames
 	  for (number string) = frame
 	  do (slime-insert-propertized `(frame ,frame) string "\n"))
     (let ((number (sldb-previous-frame-number)))
-      (cond ((< (length frames) maximum-length))
+      (cond ((and maximum-length (< (length frames) maximum-length)))
 	    (t
 	     (slime-insert-propertized 
 	      `(sldb-default-action 
@@ -3811,6 +3803,7 @@ CL:MACROEXPAND."
 
 (slime-define-keys slime-inspector-mode-map
   ([return] 'slime-inspector-inspect-object-at-point)
+  ("\C-m"   'slime-inspector-inspect-object-at-point)
   ("l" 'slime-inspector-pop)
   ("n" 'slime-inspector-next)
   ("d" 'slime-inspector-describe)
