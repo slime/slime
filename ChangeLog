@@ -1,3 +1,18 @@
+2004-03-19  Alan Shutko  <ats@acm.org>
+
+	* swank.lisp, swank-loader.lisp: Take into account
+	`pathname-device' when deriving paths. A fix for Windows.
+
+2004-03-19  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-connected-hook): New hook called each time SLIME
+	successfully connects to Lisp. This is handy for calling
+	`slime-ensure-typeout-frame', if you want to use that feature.
+	(sldb-print-condition): New command to print the SLDB condition
+	description into the REPL, for reference after SLDB exits. Can be
+	called from `sldb-hook' if you want the condition to always be
+	printed. Bound to 'P' in SLDB.
+
 2004-03-18  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank.lisp (format-values-for-echo-area): Bind *package* to
