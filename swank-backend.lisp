@@ -95,26 +95,25 @@
 
 ;;;; TCP server
 
-(defgeneric accept-socket/stream (&key port announce-fn)
-  (:documentation
-   "Accept a single TCP connection and return an io stream for it.
-PORT is the TCP port to use; if unspecified, any can be used.
-If ANNOUNCE-FN is supplied then it is called as soon as the
-server is listening, with the TCP port as its argument."))
+(defgeneric create-socket (port)
+  (:documentation "Create a listening TCP socket on port PORT."))
 
-(defgeneric accept-socket/run (&key port announce-fn init-fn)
-  (:documentation
-   "Accept a single TCP connection and serve requests in a loop.
-PORT and ANNOUNCE-FN are as for ACCEPT-SOCKET/STREAM.
+(defgeneric local-port (socket)
+  (:documentation "Return the local port number of SOCKET."))
 
-INIT-FN is called when the first client is connected. Its
-argument is the io stream connected to the socket. INIT-FN in
-turn returns a function HANDLER-FN, which is then called each
-time the socket becomes readable.
+(defgeneric close-socket (socket)
+  (:documentation "Close the socket SOCKET."))
 
-When this function returns is unspecified. It could loop to serve
-the connection before returning, or it could return immediately
-and handle the connection asynchronously."))
+(defgeneric accept-connection (socket)
+  (:documentation 
+   "Accept a client connection on the listening socket SOCKET.  Return
+a stream for the new connection."))
+
+(defgeneric add-input-handler (socket fn)
+  (:documentation "Call FN whenever SOCKET is readable."))
+
+(defgeneric spawn (fn &key name)
+  (:documentation "Create a new process and call FN in the new process."))
 
 ;;; Base condition for networking errors.
 (define-condition network-error (error) ())
