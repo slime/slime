@@ -12,6 +12,8 @@
 	Fixed some related bugs.
 	(slime-connection-close-hook): If default connection closes,
 	select another connection.
+	(slime-lisp-package): Initially CL-USER nickname instead of
+	COMMON-LISP-USER (for REPL prompt).
 
 	* slime.el (slime): Multisession support: with prefix argument,
 	gives the option of keeping existing sessions and firing up an
