@@ -2,7 +2,9 @@
 
 	* swank-allegro.lisp (find-fspec-location): Fixed to work for more
 	types of definition than just functions. So M-. now works for e.g.
-	classes in Allegro. Patch from Matthew Danish.
+	classes in Allegro. From Matthew Danish.
+	(find-fspec-location): Include the type of the definition in the
+	designator sent to Emacs. From Matthew Danish.
 
 2004-08-04  Martin Simmons <martin@xanalys.com>
 
