@@ -95,6 +95,9 @@
 	* slime.el (package-updating): Fixing this and other tests I broke
 	with my change to how emacs keeps track of the package prompt
 	string.
+	(arglist): Fix an test failure under Allegro due to a slight
+	difference in the way EXCL:ARGLIST returns arglist (no default
+	values of &optional parameters)
 
 2004-07-16  Luke Gorrie  <luke@bluetail.com>
 
