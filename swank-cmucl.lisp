@@ -1042,10 +1042,9 @@ format suitable for Emacs."
   (nth index *sldb-restarts*))
 
 (defun format-frame-for-emacs (frame)
-  (list (di:frame-number frame)
-	(with-output-to-string (*standard-output*) 
-          (let ((*print-pretty* *sldb-pprint-frames*))
-            (debug::print-frame-call frame :verbosity 1 :number t)))))
+  (with-output-to-string (*standard-output*) 
+    (let ((*print-pretty* *sldb-pprint-frames*))
+      (debug::print-frame-call frame :verbosity 1 :number t))))
 
 (defun compute-backtrace (start end)
   "Return a list of frames starting with frame number START and
@@ -1055,10 +1054,11 @@ stack."
     (loop for f = (nth-frame start) then (di:frame-down f)
 	  for i from start below end
 	  while f
-	  collect f)))
+	  collect (cons i f))))
 
 (defmethod backtrace (start end)
-  (mapcar #'format-frame-for-emacs (compute-backtrace start end)))
+  (loop for (n . frame) in (compute-backtrace start end)
+        collect (list n (format-frame-for-emacs frame))))
 
 (defmethod debugger-info-for-emacs (start end)
   (list (format-condition-for-emacs)
@@ -1104,6 +1104,42 @@ stack."
 
 (defslimefun sldb-abort ()
   (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
+
+(defun set-step-breakpoints (frame)
+  (when (di:debug-block-elsewhere-p (di:code-location-debug-block
+                                     (di:frame-code-location frame)))
+    (error "Cannot step, in elsewhere code~%"))
+  (let* ((code-location (di:frame-code-location frame))
+         (next (debug::next-code-locations code-location)))
+    (cond (next
+           (let ((steppoints '()))
+             (flet ((hook (frame breakpoint)
+                      (let ((debug:*stack-top-hint* frame))
+                        (mapc #'di:deactivate-breakpoint steppoints)
+                        (break "Breakpoint: ~A" breakpoint))))
+               (dolist (code-location next)
+                 (let ((bp (di:make-breakpoint #'hook code-location
+                                               :kind :code-location)))
+                   (di:activate-breakpoint bp)
+                   (push bp steppoints))))))
+         (t
+          (flet ((hook (frame breakpoint values cookie)
+                   (declare (ignore cookie))
+                   (di:deactivate-breakpoint breakpoint)
+                   (let ((debug:*stack-top-hint* frame))
+                     (break "Function-end: ~A ~A" breakpoint values))))
+            (let* ((debug-function (di:frame-debug-function frame))
+                   (bp (di:make-breakpoint #'hook debug-function
+                                           :kind :function-end)))
+              (di:activate-breakpoint bp)))))))
+
+(defslimefun sldb-step (frame)
+  (cond ((find-restart 'continue *swank-debugger-condition*)
+         (set-step-breakpoints (nth-frame frame))
+         (continue *swank-debugger-condition*))
+        (t
+         (error "Cannot continue in from condition: ~A" 
+                *swank-debugger-condition*))))
 
 
 ;;;; Inspecting
