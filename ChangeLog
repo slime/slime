@@ -1,3 +1,27 @@
+2004-06-25  Thomas F. Burdick  <tfb@OCF.Berkeley.EDU>
+
+	* swank-sbcl.lisp (call-with-syntax-hooks, with-debootstrapping):
+	Preserve compatability with fairly recent SBCLs by checking for
+	the presense of the debootstrapping facilities at macroexpansion
+	time.
+
+	* slime.el (sldb-insert-condition): Initialize sldb-default-action
+	so that pressing RET inspects the condition.
+	
+2004-06-25  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-repl-insert-prompt): Set defun-promp-regexp.
+	beginning-of-defun can be very slow in the repl buffer if the
+	defun-promp-regexp is not set.
+	(sldb-insert-locals): Initialize sldb-default-action.
+	(sldb-var-number-at-point, sldb-inspect-var): New function.
+
+	* swank.lisp (inspect-frame-var): New function.
+
+	* swank-backend, swank-cmucl.lisp, swank-sbcl.lisp,
+	swank-allegro.lisp, swank-lispworks.lisp, swank-clisp.lisp
+	(frame-var-value): New backend function.
+
 2004-06-24  Christophe Rhodes  <csr21@cam.ac.uk>
 
 	* slime.el (sldb-format-reference-node): fix for when `what' is a
