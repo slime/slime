@@ -1727,7 +1727,8 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
     (c::compiled-debug-function-returns cdfun)))
 
 (define-condition breakpoint (simple-condition) 
-  ((message :initarg :message :reader breakpoint.message))
+  ((message :initarg :message :reader breakpoint.message)
+   (values  :initarg :values  :reader breakpoint.values))
   (:report (lambda (c stream) (princ (breakpoint.message c) stream))))
 
 (defimplementation condition-extras ((c breakpoint))
@@ -1737,23 +1738,24 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 (defun signal-breakpoint (breakpoint frame)
   "Signal a breakpoint condition for BREAKPOINT in FRAME.
 Try to create a informative message."
-  (flet ((brk (fstring &rest args)
+  (flet ((brk (values fstring &rest args)
            (let ((msg (apply #'format nil fstring args))
                  (debug:*stack-top-hint* frame))
-             (break 'breakpoint :message msg))))
-  (with-struct (di::breakpoint- kind what) breakpoint
-    (case kind
-      (:code-location
-       (case (di:code-location-kind what)
-         ((:single-value-return :known-return :unknown-return)
-          (brk "Return value: ~{~S ~}" (breakpoint-values breakpoint)))
-         (t
-          (brk "Breakpoint: ~S ~S" 
-               (di:code-location-kind what)
-               (di::compiled-code-location-pc what)))))
-      (:function-start
-       (brk "Function start breakpoint"))
-      (t (brk "Breakpoint: ~A in ~A" breakpoint frame))))))
+             (break 'breakpoint :message msg :values values))))
+    (with-struct (di::breakpoint- kind what) breakpoint
+      (case kind
+        (:code-location
+         (case (di:code-location-kind what)
+           ((:single-value-return :known-return :unknown-return)
+            (let ((values (breakpoint-values breakpoint)))
+              (brk values "Return value: ~{~S ~}" values)))
+           (t
+            (brk nil "Breakpoint: ~S ~S" 
+                 (di:code-location-kind what)
+                 (di::compiled-code-location-pc what)))))
+        (:function-start
+         (brk nil "Function start breakpoint"))
+        (t (brk nil "Breakpoint: ~A in ~A" breakpoint frame))))))
 
 (defimplementation sldb-break-at-start (fname)
   (let ((debug-fun (di:function-debug-function (coerce fname 'function))))
