@@ -84,14 +84,14 @@
                             (close *close-swank-socket-after-setup*))
   "Create a Swank TCP server on `port'."
   (let ((server-socket (ccl:make-socket :connect :passive :local-port port
-                                           :reuse-address reuse-address)))
+                                        :reuse-address reuse-address)))
     (funcall announce (ccl:local-port server-socket))
     (cond (background
            (let ((swank (ccl:process-run-function 
                          "Swank" #'accept-loop server-socket close)))
              ;; tell openmcl which process you want to be interrupted when
              ;; sigint is received
-             (setq ccl::*interactive-abort-process* swank))
+             (setq ccl::*interactive-abort-process* swank)
              swank))
           (t
            (accept-loop server-socket close)))))
@@ -101,17 +101,17 @@
     (ccl::process-interrupt
      p
      #'(lambda ()
-         (ccl::ignoring-without-interrupts
+         (ccl::ignoring-without-interrupts 
           (let ((*swank-debugger-stack-frame* nil)
-                (previous-p nil))
+                (previous-f nil))
             (block find-frame
-              (map-backtrace
+              (map-backtrace  
                #'(lambda(frame-number p tcr lfun pc)
                    (declare (ignore frame-number tcr pc))
-                   (when (eq (ccl::lfun-name lfun) 'swank::eval-region)
-                     (setq *swank-debugger-stack-frame* previous-p)
+                   (when (eq  previous-f 'ccl::%pascal-functions%) 
+                     (setq *swank-debugger-stack-frame* p)
                      (return-from find-frame))
-                   (setq previous-p p))))
+                   (setq previous-f (ccl::lfun-name lfun)))))
             (invoke-debugger)
             (clear-input *terminal-io*)))))))
 
