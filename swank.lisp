@@ -1349,9 +1349,9 @@ symbols are returned."
 (defun find-matching-packages (name matcher)
   "Return a list of package names matching NAME."
   (let ((to-match (string-upcase name)))
-    (mapcar (lambda (pkgname)
-              (concatenate 'string pkgname ":"))
-            (remove-if-not (lambda (x) (funcall matcher to-match x))
+    (remove-if-not (lambda (x) (funcall matcher to-match x))
+                   (mapcar (lambda (pkgname)
+                             (concatenate 'string pkgname ":"))
                            (mapcar #'package-name (list-all-packages))))))
 
 (defun completion-set (string default-package-name matchp)

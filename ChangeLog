@@ -1,3 +1,10 @@
+2004-04-07  Luke Gorrie  <luke@bluetail.com>
+
+	* swank.lisp (completion-set): Also complete package
+	names. (Patch from Sean O'Rourke.)
+	(find-matching-packages): Add a ":" to the end of package names
+	in completion.
+
 2004-04-06  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-bytecode-stale-p): Automatically check if
