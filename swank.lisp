@@ -1772,6 +1772,18 @@ WHAT can be:
                (t what))))
     (send-oob-to-emacs `(:ed ,target))))
 
+(defslimefun value-for-editing (form)
+  "Return a readable value of FORM for editing in Emacs.
+FORM is expected, but not required, to be SETF'able."
+  ;; FIXME: Can we check FORM for setfability? -luke (12/Mar/2005)
+  (prin1-to-string (eval (read-from-string form))))
+
+(defslimefun commit-edited-value (form value)
+  "Set the value of a setf'able FORM to VALUE.
+FORM and VALUE are both strings from Emacs."
+  (eval `(setf ,(read-from-string form) ',(read-from-string value)))
+  t)
+
 
 ;;;; Debugger
 
