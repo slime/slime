@@ -152,8 +152,6 @@ The request is read from the socket as a sexp and then evaluated."
 	(*package* *swank-io-package*))
     (prin1-to-string object)))
 
-
-  
 ;;; Functions for Emacs to call.
 
 (defmacro defslimefun (fun &rest rest)
@@ -204,7 +202,7 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
   (let ((*swank-debugger-condition* condition)
 	(*swank-debugger-hook* hook))
     (read-from-emacs)))
-  
+
 (defslimefun eval-string (string buffer-package)
   (let ((*debugger-hook* #'swank-debugger-hook))
     (let (ok result)
@@ -245,7 +243,7 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
       (assert (eq dv 'defvar))
       (makunbound name)
       (to-string (eval form)))))
-    
+
 ;;;; Compilation Commands
 
 (defvar *compiler-notes* '()
@@ -302,6 +300,103 @@ compiler state."
           ((c::compiler-error-context-p context)
            (reverse
             (c::compiler-error-context-original-source-path context))))))
+
+
+(in-package :c)
+
+;; Redefine print-error-message, because the default implementation
+;; passes sometimes no message to *compiler-notification-function*.
+;; We should probably send this to cmucl-imp.
+
+(ext:without-package-locks
+ (defun print-error-message (severity condition)
+   (declare (type (member :error :warning :note) severity)
+	    (type condition condition))
+   (let ((*print-level* (or *error-print-level* *print-level*))
+	 (*print-length* (or *error-print-length* *print-length*))
+	 (*print-lines* (or *error-print-lines* *print-lines*)))
+     (multiple-value-bind (format-string format-args)
+	 (if (typep condition 'simple-condition)
+	     (values (simple-condition-format-control condition)
+		     (simple-condition-format-arguments condition))
+	     (values (with-output-to-string (s)
+		       (princ condition s))
+		     ()))
+       (let ((stream (make-string-output-stream )) ; *compiler-error-output*)
+	     (context (find-error-context format-args)))
+	 (cond 
+	   (context
+	    (let ((file (compiler-error-context-file-name context))
+		  (in (compiler-error-context-context context))
+		  (form (compiler-error-context-original-source context))
+		  (enclosing (compiler-error-context-enclosing-source context))
+		  (source (compiler-error-context-source context))
+		  (last *last-error-context*))
+	      ;;(compiler-notification severity context)
+	       
+	      (unless (and last
+			   (equal file (compiler-error-context-file-name last)))
+		(when (pathnamep file)
+		  (note-message-repeats)
+		  (setq last nil)
+		  (format stream "~2&File: ~A~%" (namestring file))))
+	    
+	      (unless (and last
+			   (equal in (compiler-error-context-context last)))
+		(note-message-repeats)
+		(setq last nil)
+		(format stream "~2&In:~{~<~%   ~4:;~{ ~S~}~>~^ =>~}~%" in))
+	    
+	      (unless (and last
+			   (string= form
+				    (compiler-error-context-original-source last)))
+		(note-message-repeats)
+		(setq last nil)
+		(write-string form stream))
+	    
+	      (unless (and 
+		       last
+		       (equal enclosing
+			      (compiler-error-context-enclosing-source last)))
+		(when enclosing
+		  (note-message-repeats)
+		  (setq last nil)
+		  (format stream "--> ~{~<~%--> ~1:;~A~> ~}~%" enclosing)))
+	    
+	      (unless (and last
+			   (equal source (compiler-error-context-source last)))
+		(setq *last-format-string* nil)
+		(when source
+		  (note-message-repeats)
+		  (dolist (src source)
+		    (write-line "==>" stream)
+		    (write-string src stream))))))
+	   (t
+	    ;;(compiler-notification severity nil)
+	    (note-message-repeats)
+	    (setq *last-format-string* nil)
+	    (format stream "~2&")))
+
+	 (setq *last-error-context* context)
+    
+	 (unless (and (equal format-string *last-format-string*)
+		      (tree-equal format-args *last-format-args*))
+	   (note-message-repeats nil)
+	   (setq *last-format-string* format-string)
+	   (setq *last-format-args* format-args)
+	   (let ((*print-lines* nil))
+	     (pprint-logical-block (stream nil :per-line-prefix "; ")
+	       (format stream "~:(~A~): ~?~&" severity format-string 
+		       format-args)))
+	   (let ((message (get-output-stream-string stream)))
+	     (format *compiler-error-output* "~A~%" message)
+	     (force-output *compiler-error-output*)
+	     (compiler-notification severity context message))))))
+  
+   (incf *last-message-count*)
+   (undefined-value)))
+
+(in-package :swank)
 
 (defun canonicalize-filename (filename)
   (namestring (unix:unix-resolve-links filename)))
@@ -678,7 +773,6 @@ that symbols accessible in the current package go first."
 
 
 ;;; Debugging
-
 
 (defvar *sldb-level* 0)
 (defvar *sldb-stack-top*)
