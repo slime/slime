@@ -1,3 +1,20 @@
+2004-02-21  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank.lisp (process-available-input): Move auxiliary function to
+	toplevel.  Test if the stream is open.
+	(install-sigio-handler): Handle the first request after installing
+	the signal handler.
+
+	* slime.el (slime-keys): Bind C-c C-x t to slime-list-threads and
+	C-c C-x c to slime-list-connections.
+	(slime): Disconnect before reconnecting if the inferior-lisp
+	buffer wasn't renamed.
+	(slime-connect): Use the host argument and not "localhost".
+	(slime-compilation-finished): Undo last change.  Switch to the
+	buffer to remove old annotations.
+	(slime-choose-overlay-region): Ignore errors in
+	slime-forward-sexp.
+
 2004-02-18  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime): Just close the connection when called without
