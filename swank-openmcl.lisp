@@ -103,51 +103,65 @@ until the remote Emacs goes away."
 
 ;; This buffering is done via a Gray stream instead of the CMU-specific
 ;; stream method business...
+
 (defclass slime-output-stream (ccl:fundamental-character-output-stream)
-  ((buffer :initform (make-array 512 :element-type 'character
-                                 :fill-pointer 0 :adjustable t))
-   (last-charpos :initform 0)))
+  ((buffer :initform (make-string 512))
+   (fill-pointer :initform 0)
+   (column :initform 0)))
 
 (defmethod ccl:stream-write-char ((stream slime-output-stream) char)
-  (vector-push-extend char (slot-value stream 'buffer))
+  (with-slots (buffer fill-pointer column) stream
+    (setf (schar buffer fill-pointer) char)
+    (incf fill-pointer)
+    (incf column)
+    (cond ((char= #\newline char)
+	   (force-output stream)
+	   (setf column 0))
+	  ((= fill-pointer (length buffer))
+	   (force-output stream))))
   char)
 
 (defmethod ccl:stream-line-column ((stream slime-output-stream))
-  (with-slots (buffer last-charpos) stream
-    (do ((index (1- (fill-pointer buffer)) (1- index))
-         (count 0 (1+ count)))
-        ((< index 0) (+ count last-charpos))
-      (when (char= (aref buffer index) #\newline)
-        (return count)))))
+  (slot-value stream 'column))
 
 (defmethod ccl:stream-force-output ((stream slime-output-stream))
-  (with-slots (buffer last-charpos) stream
-    (let ((end (fill-pointer buffer)))
+  (with-slots (buffer fill-pointer last-charpos) stream
+    (let ((end fill-pointer))
       (unless (zerop end)
         (send-to-emacs `(:read-output ,(subseq buffer 0 end)))
-        (setf last-charpos (ccl:stream-line-column stream))
-        (setf (fill-pointer buffer) 0))))
+        (setf fill-pointer 0))))
   nil)
+
+(defun make-slime-output-stream ()
+  (make-instance 'slime-output-stream))
 
 (defclass slime-input-stream (ccl:fundamental-character-input-stream)
-  ((buffered-char :initform nil)))
+  ((buffer :initform "") (index :initform 0)))
 
 (defmethod ccl:stream-read-char ((s slime-input-stream))
-  (with-slots (buffered-char) s
-    (cond (buffered-char (prog1 buffered-char (setf buffered-char nil)))
-          (t (slime-read-char)))))
-
-(defmethod ccl:stream-unread-char ((s slime-input-stream) char)
-  (setf (slot-value s 'buffered-char) char)
-  nil)
+  (with-slots (buffer index) s
+    (when (= index (length buffer))
+      (setf buffer (slime-read-string))
+      (setf index 0))
+    (assert (plusp (length buffer)))
+    (prog1 (aref buffer index) (incf index))))
 
 (defmethod ccl:stream-listen ((s slime-input-stream))
+  (with-slots (buffer index) s
+    (< index (length buffer))))
+
+(defmethod ccl:stream-unread-char ((s slime-input-stream) char)
+  (with-slots (buffer index) s
+    (setf (aref buffer (decf index)) char))
+  nil)
+
+(defmethod ccl:stream-clear-input ((s slime-input-stream))
+  (with-slots (buffer index) s 
+    (setf buffer ""  
+	  index 0))
   nil)
 
 (defmethod ccl:stream-line-column ((s slime-input-stream))
-  nil)
-
-(defmethod ccl:stream-line-length ((s slime-input-stream))
   nil)
 
 ;;; Evaluation
@@ -286,14 +300,6 @@ from frames START-FRAME-NUMBER to END-FRAME-NUMBER."
               (funcall function frame-number p tcr lfun pc))
           (incf frame-number))))))
 
-(defun backtrace-length ()
-  "Return the total number of frames available in the debugger."
-  (let ((result 0))
-    (map-backtrace #'(lambda (n p tcr lfun pc)
-                       (declare (ignore n p tcr lfun pc))
-                       (incf result)))
-    result))
-
 (defun frame-arguments (p tcr lfun pc)
   "Returns a string representing the arguments of a frame."
   (multiple-value-bind (count vsp parent-vsp)
@@ -352,7 +358,6 @@ If the backtrace cannot be calculated, this function returns NIL."
 (defslimefun debugger-info-for-emacs (start end)
   (list (format-condition-for-emacs)
         (format-restarts-for-emacs)
-        (backtrace-length)
         (backtrace-for-emacs start end)))
 
 (defslimefun frame-locals (index)

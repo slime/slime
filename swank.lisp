@@ -82,7 +82,8 @@ PORT-FILE-NAMESTRING in ascii text."
 	      (*trace-output* *slime-output*)
 	      (*debug-io* *slime-io*)
 	      (*query-io* *slime-io*)
-              (*standard-input* *slime-input*))
+              (*standard-input* *slime-input*)
+              (*terminal-io* *slime-io*))
 	  (apply #'funcall form))
 	(apply #'funcall form))))
 
@@ -171,12 +172,12 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 
 (defvar *read-input-catch-tag* 0)
 
-(defun slime-read-char ()
+(defun slime-read-string ()
   (force-output)
   (let ((*read-input-catch-tag* (1+ *read-input-catch-tag*)))
-    (send-to-emacs `(:read-char ,*read-input-catch-tag*))
-    (code-char (catch *read-input-catch-tag* 
-                 (loop (read-from-emacs))))))
+    (send-to-emacs `(:read-string ,*read-input-catch-tag*))
+    (catch *read-input-catch-tag* 
+      (loop (read-from-emacs)))))
 
 (defslimefun take-input (tag input)
   (throw tag input))
@@ -255,6 +256,7 @@ change, then send Emacs an update."
   (package-name *package*))
 
 (defslimefun listener-eval (string)
+  (clear-input *slime-input*)
   (multiple-value-bind (values last-form) (eval-region string t)
     (setq +++ ++  ++ +  + last-form
 	  *** **  ** *  * (car values)

@@ -58,7 +58,6 @@
   (:use :common-lisp)
   (:export 
    #:backtrace
-   #:backtrace-length
    #:compile-file-trapping-conditions
    #:compile-stream-trapping-conditions
    #:compiler-condition
@@ -261,10 +260,6 @@ backtrace.  For some backends there is no setup and this macro
 simply expands into DEFUN."
   `(defun ,name (,condition ,hook)
     ,@body))
-
-(defun backtrace-length ()
-  "Return the total number of stack frames known to the debugger."
-  0)
 
 (defun backtrace (&optional (start 0) (end most-positive-fixnum))
   "Return a list containing a backtrace of the condition current

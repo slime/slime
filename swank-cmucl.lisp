@@ -19,53 +19,121 @@
 ;;; TCP Server.
 
 (defstruct (slime-output-stream
-	    (:include lisp::string-output-stream
-		      (lisp::misc #'slime-out-misc)))
-  (last-charpos 0 :type kernel:index))
+	     (:include lisp::lisp-stream
+		       (lisp::misc #'sos/misc)
+		       (lisp::out #'sos/out)
+		       (lisp::sout #'sos/sout))
+	     (:conc-name sos.))
+  (buffer (make-string 512) :type string)
+  (index 0 :type kernel:index)
+  (column 0 :type kernel:index))
 
-(defun slime-out-misc (stream operation &optional arg1 arg2)
+(defun sos/out (stream char)
+  (let ((buffer (sos.buffer stream))
+	(index (sos.index stream)))
+    (setf (schar buffer index) char)
+    (setf (sos.index stream) (1+ index))
+    (incf (sos.column stream))
+    (cond ((char= #\newline char)
+	   (force-output stream)
+	   (setf (sos.column stream) 0))
+	  ((= index (length buffer))
+	   (force-output stream))))
+  char)
+
+(defun sos/sout (stream string start end)
+  (loop for i from start below end 
+	do (sos/out stream (aref string i))))
+	      
+(defun sos/misc (stream operation &optional arg1 arg2)
+  (declare (ignore arg1 arg2))
   (case operation
     (:force-output
-     (unless (zerop (lisp::string-output-stream-index stream))
-       (setf (slime-output-stream-last-charpos stream)
-	     (slime-out-misc stream :charpos))
-       (send-to-emacs `(:read-output ,(get-output-stream-string stream)))))
+     (let ((end (sos.index stream)))
+       (unless (zerop end)
+	 (send-to-emacs `(:read-output ,(subseq (sos.buffer stream) 0 end)))
+	 (setf (sos.index stream) 0))))
+    (:charpos (sos.column stream))
+    (:line-length 75)
     (:file-position nil)
-    (:charpos 
-     (do ((index (1- (the fixnum (lisp::string-output-stream-index stream)))
-		 (1- index))
-	  (count 0 (1+ count))
-	  (string (lisp::string-output-stream-string stream)))
-	 ((< index 0) (+ count (slime-output-stream-last-charpos stream)))
-       (declare (simple-string string)
-		(fixnum index count))
-       (if (char= (schar string index) #\newline)
-	   (return count))))
-    (t (lisp::string-out-misc stream operation arg1 arg2))))
+    (:element-type 'base-char)
+    (:get-command nil)
+    (t (format *terminal-io* "~&~Astream: ~S~%" stream operation))))
 
 (defstruct (slime-input-stream
-	     (:include sys:lisp-stream
-		       (lisp::in #'slime-input-stream-read-char)
-		       (lisp::misc #'slime-input-stream-misc-ops)))
-  (buffered-char nil :type (or null character)))
+	     (:include string-stream
+		       (lisp::in #'sis/in)
+		       (lisp::misc #'sis/misc))
+	     (:conc-name sis.))
+  (buffer "" :type string)
+  (index 0 :type kernel:index))
 
-(defun slime-input-stream-read-char (stream &optional eoferr eofval)
-  (declare (ignore eoferr eofval))
-  (let ((c (slime-input-stream-buffered-char stream)))
-    (cond (c (setf (slime-input-stream-buffered-char stream) nil) c)
-	  (t (slime-read-char)))))
+(defun sis/in (stream eof-errorp eof-value)
+  (let ((index (sis.index stream))
+	(buffer (sis.buffer stream)))
+    (when (= index (length buffer))
+      (setf buffer (slime-read-string))
+      (setf (sis.buffer stream) buffer)
+      (setf index 0))
+    (prog1 (aref buffer index)
+      (setf (sis.index stream) (1+ index)))))
 
-(defun slime-input-stream-misc-ops (stream operation &optional arg1 arg2)
+(defun sis/misc (stream operation &optional arg1 arg2)
   (declare (ignore arg2))
   (ecase operation
-    (:unread 
-     (assert (not (slime-input-stream-buffered-char stream)))
-     (setf (slime-input-stream-buffered-char stream) arg1)
-     nil)
-    (:listen nil)
-    (:clear-input (setf (slime-input-stream-buffered-char stream) nil))
     (:file-position nil)
-    (:charpos nil)))
+    (:file-length nil)
+    (:unread (setf (aref (sis.buffer stream) 
+			 (decf (sis.index stream)))
+		   arg1))
+    (:clear-input (setf (sis.index stream) 0
+			(sis.buffer stream) ""))
+    (:listen (< (sis.index stream) (length (sis.buffer stream))))
+    (:charpos nil)
+    (:line-length nil)
+    (:get-command nil)
+    (:element-type 'base-char)))
+
+
+;; (eval-when (:load-toplevel :compile-toplevel :execute)
+;;   (require :gray-streams))
+;; 
+;; (defclass slime-input-stream (ext:fundamental-character-input-stream)
+;;   ((buffer :initform "") (index :initform 0)))
+;; 
+;; (defmethod ext:stream-read-char ((s slime-input-stream))
+;;   (with-slots (buffer index) s
+;;     (when (= index (length buffer))
+;; 	 (setf buffer (slime-read-string))
+;; 	 (setf index 0))
+;;     (assert (plusp (length buffer)))
+;;     (prog1 (aref buffer index) (incf index))))
+;; 
+;; (defmethod ext:stream-listen ((s slime-input-stream))
+;;   (with-slots (buffer index) s
+;;     (< index (length buffer))))
+;; 
+;; (defmethod ext:stream-unread-char ((s slime-input-stream) char)
+;;   (with-slots (buffer index) s
+;;     (setf (aref buffer (decf index)) char))
+;;   nil)
+;; 
+;; (defmethod ext:stream-clear-input ((s slime-input-stream))
+;;   (with-slots (buffer index) s 
+;;     (setf buffer ""  
+;; 	     index 0))
+;;   nil)
+;; 
+;; (defmethod ext:stream-line-column ((s slime-input-stream))
+;;   nil)
+;; 
+;; (defmethod ext:stream-line-length ((s slime-input-stream))
+;;   75)
+;; 
+;; (defun make-slime-input-stream ()
+;;   (make-instance 'slime-input-stream))
+
+
 
 (defun create-swank-server (port &key reuse-address (address "localhost"))
   "Create a SWANK TCP server."
@@ -107,7 +175,8 @@ The request is read from the socket as a sexp and then evaluated."
 	  (when *swank-debug-p*
 	    (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
 	  (sys:invalidate-descriptor (sys:fd-stream-fd *emacs-io*))
-	  (close *emacs-io*))))))
+	  (close *emacs-io*)))))
+  (sys:scrub-control-stack))
 
 ;;;
 
@@ -636,12 +705,6 @@ format suitable for Emacs."
           (let ((*print-pretty* nil))
             (debug::print-frame-call frame :verbosity 1 :number t)))))
 
-(defun backtrace-length ()
-  "Return the number of frames on the stack."
-  (do ((frame *sldb-stack-top* (di:frame-down frame))
-       (i 0 (1+ i)))
-      ((not frame) i)))
-
 (defun compute-backtrace (start end)
   "Return a list of frames starting with frame number START and
 continuing to frame number END or, if END is nil, the last frame on the
@@ -658,7 +721,6 @@ stack."
 (defslimefun debugger-info-for-emacs (start end)
   (list (format-condition-for-emacs)
 	(format-restarts-for-emacs)
-	(backtrace-length)
 	(backtrace-for-emacs start end)))
 
 (defun code-location-source-path (code-location)
