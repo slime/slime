@@ -119,6 +119,15 @@ This is used for batch-mode testing.")
 This applies to buffers that present lines as rows of data, such as
 debugger backtraces and apropos listings.")
 
+(defvar slime-global-debugger-hook nil
+  "When true, install the SLIME debugger hook globally in Lisp.
+
+This means the SLIME debugger will be used for all errors occuring in
+Lisp, not just those occuring during RPCs.")
+
+(defvar slime-multiprocessing nil
+  "When true, enable multiprocessing in Lisp.")
+
 
 ;;; Customize group
 
@@ -385,7 +394,9 @@ A prefix argument disables this behaviour."
     ("\C-ws" slime-who-sets :prefixed t :inferior t :sldb t)
     ("\C-wm" slime-who-macroexpands :prefixed t :inferior t :sldb t)
     ("<" slime-list-callers :prefixed t :inferior t :sldb t)
-    (">" slime-list-callees :prefixed t :inferior t :sldb t)))
+    (">" slime-list-callees :prefixed t :inferior t :sldb t)
+    ;; "Other"
+    ("\C-xt" slime-thread-control-panel :prefixed t :inferior t :sldb t)))
 
 ;; Maybe a good idea, maybe not..
 (defvar slime-prefix-key "\C-c"
@@ -823,6 +834,7 @@ If that doesn't give a function, return nil."
   (when (slime-connected-p)
     (slime-disconnect))
   (slime-maybe-start-lisp)
+  (slime-maybe-start-multiprocessing)
   (setq slime-lisp-package slime-default-lisp-package)
   (slime-read-port-and-connect))
 
@@ -833,6 +845,11 @@ If that doesn't give a function, return nil."
     (comint-proc-query (inferior-lisp-proc)
                        (format "(load %S)\n"
                                (concat slime-path slime-backend)))))
+
+(defun slime-maybe-start-multiprocessing ()
+  (when slime-multiprocessing
+    (comint-send-string (inferior-lisp-proc)
+                        "(swank:startup-multiprocessing-for-emacs)")))
 
 (defun slime-start-swank-server ()
   "Start a Swank server on the inferior lisp."
@@ -920,7 +937,9 @@ Polling %S.. (Abort with `M-x slime-disconnect'.)"
 
 (defun slime-init-connection ()
   (slime-init-dispatcher)
-  (setq slime-pid (slime-eval '(swank:getpid))))
+  (setq slime-pid (slime-eval '(swank:getpid)))
+  (when slime-global-debugger-hook
+    (slime-eval '(swank:install-global-debugger-hook) "COMMON-LISP-USER")))
 
 (defvar slime-words-of-encouragement
   '("Let the hacking commence!"
@@ -1155,6 +1174,8 @@ Return true if the event is recognised and handled."
      t)
     ((:%apply fn args)
      (apply (intern fn) args))
+    ((:awaiting-goahead thread-id thread-name reason)
+     (slime-register-waiting-thread thread-id thread-name reason))
     (t nil)))
 
 (defun slime-state/event-panic (event)
@@ -1214,11 +1235,10 @@ The content of the *cl-connection* buffer:
   (delete-other-windows (get-buffer-window "*SLIME bug*"))
   (error "The SLIME protocol reached an inconsistent state."))
 
-
-
 (defvar slime-log-events t
   "*Log protocol events to the *slime-events* buffer.")
 
+
 ;;;;; Event logging to *slime-events*
 (defun slime-log-event (event)
   (when slime-log-events
@@ -1850,7 +1870,7 @@ earlier in the buffer."
       (goto-char slime-repl-last-input-start-mark)
       (insert ";;; output flushed"))
     (set-marker slime-repl-last-input-start-mark nil)))
-
+
 ;;; Scratch
 
 (defvar slime-scratch-mode-map)
@@ -3455,6 +3475,20 @@ CL:MACROEXPAND."
       (slime-dispatch-event '(:emacs-quit))
     (error "Not evaluating - nothing to quit.")))
 
+(defun slime-give-goahead (thread-id)
+  "Allow a suspended thread to continue."
+  (interactive "xThread-ID: ")
+  (case (slime-state-name (slime-current-state))
+    (slime-idle-state
+     (slime-eval-async `(swank:give-goahead ,thread-id)
+                       (slime-buffer-package)
+                       (lambda (v) nil)))
+    (slime-debugging-state
+     (error "Already debugging - must finish first."))
+    (t
+     (error "Busy - can't attach in current state (%S)"
+            (slime-current-state)))))
+
 (defun slime-set-package (package)
   (interactive (list (slime-read-package-name "Package: " 
 					      (slime-find-buffer-package))))
@@ -3870,6 +3904,76 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
 			,(number-to-string n)))))
 
 (define-sldb-invoke-restart-keys 0 9)
+
+
+;;; Thread control panel
+
+;; The "thread control panel" is a buffer showing all interesting Lisp
+;; threads -- for now, this means threads that are waiting to be
+;; debugged. Threads can be selected with RET to have Emacs debug
+;; them.
+
+(defvar slime-waiting-threads '()
+  "List of threads waiting for attention from Emacs.
+Each entry is (ID NAME SUMMARY-STRING).")
+
+(defvar slime-popup-thread-control-panel t
+  "*When non-nil, automatically display the thread control panel.
+The buffer will be popped up any time it is modified.")
+
+(defun slime-register-waiting-thread (id name summary)
+  (unless (member* id slime-waiting-threads :test #'equal :key #'first)
+    (setq slime-waiting-threads
+          (append slime-waiting-threads (list (list id name summary)))))
+  (slime-thread-control-panel (not slime-popup-thread-control-panel))
+  (message "Thread awaiting goahead: %s" name))
+
+(defun slime-thread-control-panel (&optional dont-show)
+  (interactive)
+  (with-current-buffer (get-buffer-create "*slime-threads*")
+    (slime-thread-control-mode)
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (loop for (id name summary) in slime-waiting-threads
+            do (slime-thread-insert id name summary))
+      (goto-char (point-min))
+      (unless dont-show (pop-to-buffer (current-buffer)))
+      (setq buffer-read-only t))))
+
+(defun slime-thread-insert (id name summary)
+  (slime-propertize-region `(thread-id ,id)
+    (slime-insert-propertized '(face bold) name "\n")
+    (let ((summary-start (point)))
+      (insert summary)
+      (unless (bolp) (insert "\n"))
+      (indent-rigidly summary-start (point) 2))))
+
+(defun slime-thread-goahead ()
+  (interactive)
+  (let ((id (get-text-property (point) 'thread-id)))
+    (unless id (error "No thread at point."))
+    (slime-give-goahead id)
+    (setq slime-waiting-threads
+          (remove* id slime-waiting-threads :key #'car :test #'equal))
+    (slime-thread-control-panel t)))
+
+;;;; Major mode
+
+(define-derived-mode slime-thread-control-mode fundamental-mode
+  "thread-control"
+  "SLIME Thread Control Panel Mode.
+
+\\{slime-thread-control-mode-map}"
+  (when slime-truncate-lines
+    (set (make-local-variable 'truncate-lines) t)))
+
+(slime-define-keys slime-thread-control-mode-map
+  ((kbd "RET") 'slime-thread-goahead)
+  ("q"         'slime-thread-quit))
+
+(defun slime-thread-quit ()
+  (interactive)
+  (kill-buffer (current-buffer)))
 
 
 ;;; Inspector
