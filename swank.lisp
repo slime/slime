@@ -784,13 +784,14 @@ Return the symbol and a flag indicate if the symbols was found."
 (defun parse-package (string)
   "Find the package named STRING.
 Return the package or nil."
-  (multiple-value-bind (sym pos) 
+  (multiple-value-bind (name pos) 
       (if (zerop (length string))
           (values :|| 0)
           (let ((*package* keyword-package))
             (ignore-errors (read-from-string string))))
-    (if (and (keywordp sym) (= (length string) pos))
-        (find-package sym))))
+    (if (and (or (keywordp name) (stringp name))
+             (= (length string) pos))
+        (find-package name))))
 
 (defun to-string (string)
   "Write string in the *BUFFER-PACKAGE*."
