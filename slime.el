@@ -565,17 +565,19 @@ command."
   (when (get-buffer-window buffer-name) (delete-windows-on buffer-name))
   (cond ((or (string-match "\n" message)
              (> (length message) (1- (frame-width))))
-         (lexical-let ((buffer (get-buffer-create buffer-name)))
-           (with-current-buffer buffer
-             (erase-buffer)
-             (insert message)
-             (goto-char (point-min))
-             (let ((win (slime-create-message-window)))
-               (set-window-buffer win (current-buffer))
-               (shrink-window-if-larger-than-buffer
-                (display-buffer (current-buffer)))))
-           (push (lambda () (delete-windows-on buffer) (bury-buffer buffer))
-                 slime-pre-command-actions)))
+         (if (slime-typeout-active-p)
+             (slime-typeout-message message)
+           (lexical-let ((buffer (get-buffer-create buffer-name)))
+             (with-current-buffer buffer
+               (erase-buffer)
+               (insert message)
+               (goto-char (point-min))
+               (let ((win (slime-create-message-window)))
+                 (set-window-buffer win (current-buffer))
+                 (shrink-window-if-larger-than-buffer
+                  (display-buffer (current-buffer)))))
+             (push (lambda () (delete-windows-on buffer) (bury-buffer buffer))
+                   slime-pre-command-actions))))
         (t (message "%s" message))))
 
 ;; defun slime-message
@@ -586,6 +588,15 @@ command."
       (slime-display-message (apply #'format fmt args) "*SLIME Note*"))
   (defun slime-message (fmt &rest args)
     (apply 'message fmt args)))
+
+(defun slime-incidental-message (format-string &rest format-args)
+  "Display a message in passing.
+This is like `slime-message', but less distracting because it
+will never pop up a buffer.
+It should be used for \"background\" messages such as argument lists."
+  (apply (if (slime-typeout-active-p) #'slime-typeout-message #'message)
+         format-string
+         format-args))
 
 (defun slime-set-truncate-lines ()
   "Set `truncate-lines' in the current buffer if
@@ -2198,7 +2209,7 @@ printing a message."
      (lambda (arglist)
        (if show-fn
            (funcall show-fn arglist)
-         (message "%s" (slime-format-arglist symbol-name arglist)))))))
+         (slime-incidental-message "%s" (slime-format-arglist symbol-name arglist)))))))
 
 (defun slime-get-arglist (symbol-name)
   "Return the argument list for SYMBOL-NAME."
@@ -2283,6 +2294,38 @@ the symbol at point if applicable."
       (error
        (setq slime-autodoc-mode nil)
        (message "Error: %S; slime-autodoc-mode now disabled." err)))))
+
+
+;;; Typeout frame
+
+;; When a "typeout frame" is exists, it is used to display certain
+;; messages instead of the echo area or pop-up windows.
+
+(defvar slime-typeout-window nil
+  "The current typeout window.")
+
+(defvar slime-typeout-frame-properties
+  '((height . 16) (minibuffer . nil) (name . "SLIME Typeout"))
+  "The typeout frame properties (passed to `make-frame').")
+
+(defun slime-typeout-active-p ()
+  (and slime-typeout-window
+       (window-live-p slime-typeout-window)))
+
+(defun slime-typeout-message (format-string &rest format-args)
+  (assert (slime-typeout-active-p))
+  (with-current-buffer (window-buffer slime-typeout-window)
+    (erase-buffer)
+    (insert (apply #'format format-string format-args))))
+
+(defun slime-make-typeout-frame ()
+  "Create a frame for displaying messages (e.g. arglists)."
+  (interactive)
+  (let ((frame (make-frame slime-typeout-frame-properties)))
+    (save-selected-window
+      (select-window (frame-selected-window frame))
+      (switch-to-buffer "*SLIME-Typeout*")
+      (setq slime-typeout-window (selected-window)))))
 
 
 ;;; Completion
