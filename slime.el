@@ -1367,10 +1367,10 @@ This delivers an (activate) event to the state function, and updates
 the state name for the modeline."
   (let ((state (slime-current-state)))
     (when (eq (slime-connection) slime-default-connection)
-      (slime-update-state-name))
+      (slime-update-state-name state))
     (slime-dispatch-event '(activate))))
 
-(defun slime-update-state-name ()
+(defun slime-update-state-name (state)
   (slime-with-connection-buffer (slime-default-connection)
     (setq slime-state-name
           (ecase (slime-state-name state)
@@ -2069,14 +2069,14 @@ after the last prompt to the end of buffer."
 (defun slime-repl-beginning-of-defun ()
   "Move to beginning of defun."
   (interactive)
-  (if (slime-in-input-area-p)
+  (if (slime-repl-in-input-area-p)
       (goto-char slime-repl-input-start-mark)
     (beginning-of-defun)))
 
 (defun slime-repl-end-of-defun ()
   "Move to next of defun."
   (interactive)
-  (if (slime-in-input-area-p)
+  (if (slime-repl-in-input-area-p)
       (goto-char slime-repl-input-end-mark)
     (end-of-defun)))
 
@@ -2962,7 +2962,7 @@ annoy the user)."
        slime-autodoc-mode
        (null (current-message))
        (not executing-kbd-macro)
-       (not (and (boundp 'edebug-active) edebug-active))
+       (not (and (boundp 'edebug-active) (symbol-value 'edebug-active)))
        (not cursor-in-echo-area)
        (not (eq (selected-window) (minibuffer-window)))
        (slime-connected-p)
@@ -3983,21 +3983,6 @@ If `sldb-enable-styled-backtrace' is nil, just return STRING."
             "\n" 
             (in-sldb-face condition type)
             "\n\n")))
-
-(defun sldb-insert-restarts (restarts)
-  (loop for (name string) in restarts
-        for number from 0 
-        do (progn
-             (slime-insert-propertized
-              `(restart-number ,number
-                               sldb-default-action sldb-invoke-restart
-                               mouse-face highlight)
-              "  " (in-sldb-face restart-number 
-                                 (number-to-string number)) 
-                  ": ["  (in-sldb-face restart-type name) "] " 
-		  (in-sldb-face restart string))
-             (insert "\n")))
-  (insert "\n"))
 
 (defun sldb-setup (condition restarts frames)
   "Setup a new SLDB buffer.
@@ -5373,6 +5358,7 @@ Unless optional argument INPLACE is non-nil, return a new string."
         slime-events-buffer
         slime-output-string 
         slime-output-buffer
+        slime-output-filter
         slime-with-output-end-mark
         ;; Compilation warns due to runtime call to a `cl' function. Annoying.
 ;;        slime-process-available-input 
