@@ -81,19 +81,16 @@
 (defun serve-request (*emacs-io*)
   "Read and process a request from a SWANK client.
 The request is read from the socket as a sexp and then evaluated."
-  (let* ((completed nil)
-         (*slime-output* (make-instance 'slime-output-stream))
-         (*slime-input* *standard-input*)
-         (*slime-io* (make-two-way-stream *slime-input* *slime-output*)))
-    (let ((condition (catch 'serve-request-catcher
-		       (read-from-emacs)
-		       (setq completed t))))
-      (unless completed
-	(when *swank-debug-p*
-	  (format *debug-io* 
-		  "~&;; Connection to Emacs lost.~%;; [~A]~%" condition))
-	(sb-sys:invalidate-descriptor (sb-sys:fd-stream-fd *emacs-io*))
- 	(close *emacs-io*)))))
+  (catch 'slime-toplevel
+    (let* ((*slime-output* (make-instance 'slime-output-stream))
+           (*slime-input* *standard-input*)
+           (*slime-io* (make-two-way-stream *slime-input* *slime-output*)))
+      (handler-case (read-from-emacs)
+        (slime-read-error (e)
+          (when *swank-debug-p*
+            (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
+          (sb-sys:invalidate-descriptor (sb-sys:fd-stream-fd *emacs-io*))
+          (close *emacs-io*))))))
 
 
 #|
@@ -601,15 +598,8 @@ stack."
 (defslimefun invoke-nth-restart (index)
   (invoke-restart (nth-restart index)))
 
-(defslimefun sldb-continue ()
-  (continue *swank-debugger-condition*))
-
 (defslimefun sldb-abort ()
   (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
-
-(defslimefun throw-to-toplevel ()
-  (invoke-restart 
-   (find 'sb-impl::toplevel *sldb-restarts* :key #'restart-name)))
 
 ;;; Local Variables:
 ;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
