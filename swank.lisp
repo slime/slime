@@ -1514,7 +1514,8 @@ The time is measured in microseconds."
 (defslimefun compile-file-for-emacs (filename load-p)
   "Compile FILENAME and, when LOAD-P, load the result.
 Record compiler notes signalled as `compiler-condition's."
-  (swank-compiler (lambda () (swank-compile-file filename load-p))))
+  (with-buffer-syntax ()
+    (swank-compiler (lambda () (swank-compile-file filename load-p)))))
 
 (defslimefun compile-string-for-emacs (string buffer position directory)
   "Compile STRING (exerpted from BUFFER at POSITION).
