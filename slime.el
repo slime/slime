@@ -1184,20 +1184,25 @@ See `slime-translate-from-lisp-filename-function'."
     (message "Connected. %s" (slime-random-words-of-encouragement))))
 
 (defun slime-start-and-load (filename &optional package)
-  "Start Slime, load the current file and set the package."
+  "Start Slime, if needed, load the current file and set the package."
   (interactive (list (expand-file-name (buffer-file-name))
                      (slime-find-buffer-package)))
-  (lexical-let ((hook nil) (package package) 
-                (filename (slime-to-lisp-filename filename)))
-    (setq hook (lambda ()
-                 (remove-hook 'slime-connected-hook hook)
-                 (slime-eval-async 
-                  `(swank:load-file ,filename)
-                  (lambda (result)
-                    (when package
-                      (slime-repl-set-package package))))))
-    (add-hook 'slime-connected-hook hook)
-    (slime)))
+  (cond ((slime-connected-p)
+         (slime-load-file-set-package filename package))
+        (t
+         (lexical-let ((hook nil) (package package) (filename filename))
+           (setq hook (lambda ()
+                        (remove-hook 'slime-connected-hook hook)
+                        (slime-load-file-set-package filename package)))
+           (add-hook 'slime-connected-hook hook)
+           (slime)))))
+
+(defun slime-load-file-set-package (filename package)
+  (let ((filename (slime-to-lisp-filename filename)))
+    (slime-eval-async `(swank:load-file-set-package ,filename ,package)
+                      (lambda (package)
+                        (when package
+                          (slime-repl-set-package (second package)))))))
 
 ;;;;; Start inferior lisp
 ;;;
