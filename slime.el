@@ -845,7 +845,8 @@ Buffer local in temp-buffers.")
   (interactive)
   (let ((config slime-temp-buffer-saved-window-configuration))
     (kill-buffer (current-buffer))
-    (set-window-configuration config)))
+    (when config
+      (set-window-configuration config))))
   
 (defvar slime-temp-buffer-map)
 
@@ -1353,6 +1354,8 @@ the binding for `slime-connection'."
             (\, store)))
        '(\, varname))))
 
+(put 'slime-def-connection-var 'lisp-indent-function 2)
+
 (slime-def-connection-var slime-lisp-features '()
   "The symbol-names of Lisp's *FEATURES*.
 This is automatically synchronized from Lisp.")
@@ -1374,10 +1377,10 @@ This is automatically synchronized from Lisp.")
 (slime-def-connection-var slime-use-sigint-for-interrupt nil
   "If non-nil use a SIGINT for interrupting.")
 
-(put 'slime-def-connection-var 'lisp-indent-function 2)
-
 
 
+;; XXX pending continuations not removed if Lisp crashes.  Multiple
+;; sessions complicate the issue.  Better make this a connection variable?
 (defvar slime-rex-continuations '()
   "List of (ID . FUNCTION) continuations waiting for RPC results.")
 
@@ -3007,7 +3010,10 @@ more than one space."
   (interactive "p")
   (self-insert-command n)
   (when (and (slime-connected-p)
-	     (not (slime-busy-p))
+	     (or (not (slime-busy-p))
+                 ;; XXX should we enable this?
+                 ;; (not slime-use-sigint-for-interrupt))
+                 )
 	     (slime-function-called-at-point/line))
     (slime-arglist (symbol-name (slime-function-called-at-point/line)))))
 
@@ -3291,10 +3297,14 @@ package is used."
                                          (length completed-prefix)))))
                (goto-char (+ beg unambiguous-completion-length))
                (slime-complete-maybe-save-window-configuration)
-               (with-output-to-temp-buffer "*Completions*"
-                 (set-syntax-table lisp-mode-syntax-table)
-                 (display-completion-list completion-set))
+               (slime-display-comletion-list completion-set)
                (slime-complete-delay-restoration)))))))
+
+(defun slime-display-comletion-list (completion-list)
+  (with-output-to-temp-buffer "*Completions*"
+    (display-completion-list completion-set)
+    (with-current-buffer standard-output
+      (set-syntax-table lisp-mode-syntax-table))))
 
 (defun* slime-simple-complete-symbol ()
   "Complete the symbol at point.  
@@ -3319,9 +3329,7 @@ Perform completion more similar to Emacs' complete-symbol."
               (t
                (slime-minibuffer-respecting-message "Complete but not unique")
                (slime-complete-maybe-save-window-configuration)
-               (with-output-to-temp-buffer "*Completions*"
-                 (set-syntax-table lisp-mode-syntax-table)
-                 (display-completion-list completion-set))
+               (slime-display-comletion-list completion-set)
                (slime-complete-delay-restoration)))))))
         
 (defun slime-minibuffer-respecting-message (format &rest format-args)
@@ -4720,7 +4728,7 @@ was called originally."
    '(swank:list-threads)
    nil
    (lambda (threads)
-     (with-current-buffer (get-buffer-create "*slime-threads*")
+      (with-current-buffer (get-buffer-create "*slime-threads*")
        (slime-thread-control-mode)
        (let ((inhibit-read-only t))
          (erase-buffer)
@@ -4799,6 +4807,7 @@ was called originally."
 (slime-define-keys slime-connection-list-mode-map
   ((kbd "RET") 'slime-goto-connection)
   ("d"         'slime-connection-list-make-default)
+  ("g"         'slime-update-connection-list)
   ("q"         'slime-temp-buffer-quit))
 
 (defun slime-connection-at-point ()
@@ -4812,39 +4821,49 @@ was called originally."
 
 (defun slime-connection-list-make-default ()
   (interactive)
-  (let ((slime-dispatching-connection (slime-connection-at-point))) 
-    (slime-make-default-connection)
-    (slime-draw-connection-list)))
+  (slime-select-connection (slime-connection-at-point))
+  (slime-update-connection-list))
 
 (defun slime-list-connections ()
   "Display a list of all connections."
   (interactive)
   (when (get-buffer "*SLIME connections*")
     (kill-buffer "*SLIME connections*"))
-  (slime-draw-connection-list))
+  (with-current-buffer (get-buffer-create "*SLIME connections*")
+    (slime-draw-connection-list)
+    (slime-connection-list-mode)
+    (setq buffer-read-only t)
+    (setq slime-temp-buffer-saved-window-configuration
+          (current-window-configuration))
+    (pop-to-buffer (current-buffer))))
+
+(defun slime-update-connection-list ()
+ "Display a list of all connections."
+ (interactive)
+ (let ((pos (point))
+       (inhibit-read-only t))
+   (erase-buffer)
+   (slime-draw-connection-list)
+   (goto-char pos)))
 
 (defun slime-draw-connection-list ()
-  (let ((default-pos nil))
-    (slime-with-output-to-temp-buffer "*SLIME connections*"
-      (slime-connection-list-mode)
-      (let ((default (slime-connection))
-            (fstring "%s%2s  %-7s  %-17s  %-7s %-s\n"))
-        (insert
-         (format fstring " " "Nr" "Name" "Port" "Pid" "Type")
-         (format fstring " " "--" "----" "----" "---" "----"))
-        (dolist (p (reverse slime-net-processes))
-          (when (eq default p) (setf default-pos (point)))
-          (slime-insert-propertized 
-           (list 'slime-connection p)
-           (format fstring
-                   (if (eq default p) "*" " ")
-                   (slime-connection-number p)
-                   (slime-lisp-implementation-type-name p)
-                   (or (process-id p) (process-contact p))
-                   (slime-pid p)
-                   (slime-lisp-implementation-type p))))))
-    (with-current-buffer "*SLIME connections*"
-      (goto-char default-pos))))
+  (let ((default-pos nil)
+        (default (slime-connection))
+        (fstring "%s%2s  %-7s  %-17s  %-7s %-s\n"))
+    (insert (format fstring " " "Nr" "Name" "Port" "Pid" "Type")
+            (format fstring " " "--" "----" "----" "---" "----"))
+    (dolist (p (reverse slime-net-processes))
+      (when (eq default p) (setf default-pos (point)))
+      (slime-insert-propertized 
+       (list 'slime-connection p)
+       (format fstring
+               (if (eq default p) "*" " ")
+               (slime-connection-number p)
+               (slime-lisp-implementation-type-name p)
+               (or (process-id p) (process-contact p))
+               (slime-pid p)
+               (slime-lisp-implementation-type p))))
+    (goto-char default-pos)))
 
 
 ;;; Inspector
@@ -4852,6 +4871,7 @@ was called originally."
 (defvar slime-inspector-mark-stack '())
 
 (defun slime-inspect (string)
+  "Eval an expression and inspect the result."
   (interactive 
    (list (slime-read-from-minibuffer "Inspect value (evaluated): "
 				     (slime-sexp-at-point))))
@@ -4885,9 +4905,8 @@ was called originally."
           (while (eq (char-before) ?\n) (backward-delete-char 1))
           (insert "\n" 
                   "   [" (fontify label "type:") " " (fontify type type) "]\n"
-                  "   " 
-                  (fontify type primitive-type)
-                  "\n" "\n"
+                  "   [" (fontify type primitive-type) "]\n"
+                  "\n"
                   (fontify label "Slots") ":\n")
         (save-excursion
           (loop for (label . value) in parts
@@ -5387,7 +5406,7 @@ BODY returns true if the check succeeds."
     "Lookup the argument list for FUNCTION-NAME.
 Confirm that EXPECTED-ARGLIST is displayed."
     '(("swank:start-server"
-       "(swank:start-server port-file)")
+       "(swank:start-server port-file &optional (background *swank-in-background*) dont-close)")
       ("swank::compound-prefix-match"
        "(swank::compound-prefix-match prefix target)")
       ("swank::create-socket"
@@ -5398,6 +5417,8 @@ Confirm that EXPECTED-ARGLIST is displayed."
        "(swank::compile-string-for-emacs string &key buffer position)")
       ("swank::connection.socket-io"
        "(swank::connection.socket-io structure)")
+      ("cl:lisp-implementation-type"
+       "(cl:lisp-implementation-type)")
       )
 ;;    Different arglists found in the wild.
 ;;      ("cl:class-name"
