@@ -827,10 +827,11 @@ Also saves the window configuration, and inherts the current
                             (setq buffer-read-only nil)
                             (erase-buffer)
                             (current-buffer))))
-     (prog1 (progn ,@body)
+     (prog1 (with-current-buffer standard-output ,@body)
        (with-current-buffer standard-output
          (setq slime-buffer-connection connection)
-         (set (make-local-variable 'slime-temp-buffer-saved-window-configuration)
+         (set (make-local-variable 
+               'slime-temp-buffer-saved-window-configuration)
               ,config)
          (goto-char (point-min))
          (slime-mode 1)
@@ -1222,9 +1223,12 @@ For display in the mode-line.")
 
 (defmacro* slime-with-connection-buffer ((&optional process) &rest body)
   "Execute BODY in the process-buffer of PROCESS.
-If PROCESS is not specified, `slime-connection' is used."
+If PROCESS is not specified, `slime-connection' is used.
+
+\(slime-with-connection-buffer (&optional PROCESS) &body BODY))"
   `(with-current-buffer
-       (process-buffer (or ,process (slime-connection) (error "No connection")))
+       (process-buffer (or ,process (slime-connection)
+                           (error "No connection")))
      ,@body))
 
 (defun slime-select-connection (process)
@@ -1300,6 +1304,9 @@ This is automatically synchronized from Lisp.")
 
 (slime-def-connection-var slime-pid nil
   "The process id of the Lisp process.")
+
+(slime-def-connection-var slime-lisp-implementation-type nil
+  "The implementation type of the Lisp process.")
 
 (slime-def-connection-var sldb-level 0
   "Lisp's recursion depth in the SLDB loop.")
@@ -1395,6 +1402,8 @@ This may be called by a state machine to finish its current state."
     (setq slime-connection-number (incf slime-connection-counter)))
   (unless auxp
     (setf (slime-pid) (slime-eval '(swank:getpid)))
+    (setf (slime-lisp-implementation-type) 
+          (slime-eval '(cl:lisp-implementation-type)))
     (when-let (repl-buffer (slime-repl-buffer))
       ;; REPL buffer already exists - update its local
       ;; `slime-connection' binding.
@@ -1479,6 +1488,8 @@ Return true if the event is recognised and handled."
     ((:ed what)
      (run-with-idle-timer 0 nil 'slime-call/error->message 'slime-ed what)
      t)
+    ((:debug-condition message)
+     (message "%s" message))
     (t nil)))
 
 (defun slime-call/error->message (fun &rest args)
@@ -1666,9 +1677,7 @@ state interacts with it until it is coaxed into returning."
                (with-current-buffer sldb-buffer 
                  (/= level sldb-level-in-buffer)))
        (setf (sldb-level) level)
-       (sldb-setup condition restarts frames)))
-   (when (eq (window-buffer) (slime-output-buffer))
-     (pop-to-buffer (get-sldb-buffer))))
+       (sldb-setup condition restarts frames))))
   ((:debug-return level)
    (assert (= level (sldb-level)))
    (sldb-cleanup)
@@ -1874,7 +1883,7 @@ deal with that."
 (defun slime-init-output-buffer ()
   (with-current-buffer (slime-output-buffer t)
     (let ((banner (format "%s  Port: %s  Pid: %s"
-                          (slime-eval '(cl:lisp-implementation-type))
+                          (slime-lisp-implementation-type)
                           (if (featurep 'xemacs)
                               (process-id (slime-connection))
                             (process-contact (slime-connection)))
@@ -3613,7 +3622,6 @@ With prefix argument include internal symbols."
   (if (null plists)
       (message "No apropos matches for %S" string)
     (slime-with-output-to-temp-buffer "*SLIME Apropos*"
-      (set-buffer standard-output)
       (apropos-mode)
       (set-syntax-table lisp-mode-syntax-table)
       (slime-mode t)
@@ -4460,6 +4468,7 @@ The details include local variable bindings and CATCH-tags."
 
 (defun sldb-break-with-default-debugger ()
   (interactive)
+  (slime-switch-to-output-buffer)
   (slime-eval-async 
    '(swank:sldb-break-with-default-debugger) nil 
    (lambda (_))))
@@ -4470,17 +4479,25 @@ The details include local variable bindings and CATCH-tags."
     (slime-eval-async `(swank:sldb-step ,frame) nil (lambda ()))))
 
 (defun sldb-return-from-frame (string)
-  "reads an expression in the minibuffer and causes the function to return that value, evaluated in the context of the frame"
+  "Reads an expression in the minibuffer and causes the function to
+return that value, evaluated in the context of the frame."
   (interactive (list (slime-read-from-minibuffer "Return from frame: ")))
   (let* ((number (sldb-frame-number-at-point)))
-    (slime-oneway-eval `(swank::sldb-return-from-frame ,string ,number) (slime-buffer-package)))) 
+    (slime-rex ()
+        ((list 'swank:return-from-frame number string))
+      ((:ok value) (message "%s" value))
+      ((:abort)))))
+
 (defun sldb-restart-frame ()
-  "causes the frame to restart execution with the same arguments as it was called originally"
+  "Causes the frame to restart execution with the same arguments as it
+was called originally."
   (interactive)
   (let* ((number (sldb-frame-number-at-point)))
-    (slime-oneway-eval `(swank::sldb-restart-frame ,number) (slime-buffer-package))))
- 
-            
+    (slime-rex ()
+        ((list 'swank:restart-frame number))
+      ((:ok value) (message "%s" value))
+      ((:abort)))))
+
 
 ;;; Thread control panel
 
@@ -4551,6 +4568,38 @@ The buffer will be popped up any time it is modified.")
 (defun slime-thread-quit ()
   (interactive)
   (kill-buffer (current-buffer)))
+
+
+;;;;; Connection listing
+
+(defun slime-short-state-name (&optional state)
+  "Return a short symbol for STATEs name."
+  (ecase (slime-state-name (or state (slime-current-state)))
+    (slime-idle-state 'idle)
+    (slime-evaluating-state 'eval)
+    (slime-debugging-state 'debug)
+    (slime-read-string-state 'read)))
+                               
+(defun slime-list-connections ()
+  "Display a list of all connections."
+  (interactive)
+  (when (get-buffer "*SLIME connections*")
+    (kill-buffer  "*SLIME connections*"))
+  (slime-with-output-to-temp-buffer "*SLIME connections*"
+    (let ((default (slime-connection)))
+      (insert " Nr  State  Type                  Port                Pid\n"
+              " --  -----  ----                  ----                ---\n")
+      (dolist (p slime-net-processes)
+        (let ((slime-dispatching-connection p))
+          (insert
+           (slime-with-connection-buffer (p)
+             (format "%s%2d  %-5s  %-20s  %-17s  %-5s\n"
+                     (if (eq default p) "*" " ")
+                     (slime-connection-number)
+                     (slime-short-state-name)
+                     (slime-lisp-implementation-type)
+                     (or (process-id p) (process-contact p))
+                     (slime-pid)))))))))
 
 
 ;;; Inspector
