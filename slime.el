@@ -122,7 +122,7 @@ See also `slime-translate-to-lisp-filename-function'.")
 (defvar slime-space-information-p t
   "Whether the SPC key should offer information or not.")
 
-(defvar slime-reply-update-banner-p t
+(defvar slime-repl-update-banner-p t
   "Whether Slime should keep a repl banner updated or not.")
 
 (defvar slime-edit-definition-fallback-function nil
@@ -1235,6 +1235,26 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
     (message "Initial handshake..." port)
     (slime-init-connection process)))
 
+(defun slime-changelog-date ()
+  "Return the datestring of the latest entry in the ChangeLog file.
+If the function is compiled (with the file-compiler) return the date
+of the newest at compile time.  If the function is interpreted read
+the ChangeLog file at runtime."
+  (macrolet ((date ()
+                   (let* ((dir (or (and (boundp 'byte-compile-current-file)
+                                        byte-compile-current-file
+                                        (file-name-directory
+                                         (file-truename
+                                          byte-compile-current-file)))
+                                   slime-path))
+                          (file (concat dir "ChangeLog"))
+                          (date (with-temp-buffer 
+                                  (insert-file-contents file nil 0 100)
+                                  (goto-char (point-min))
+                                  (symbol-name (read (current-buffer))))))
+                     `(quote ,date))))
+    (date)))
+
 (defun slime-disconnect ()
   "Disconnect all connections."
   (interactive)
@@ -1907,7 +1927,7 @@ deal with that."
                          (slime-pid)))
          ;; Emacs21 has the fancy persistent header-line.
          (use-header-p (and (boundp 'header-line-format) 
-                            slime-reply-update-banner-p))
+                            slime-repl-update-banner-p))
          ;; and dancing text
          (animantep (and (fboundp 'animate-string)
                          slime-startup-animation
@@ -1916,9 +1936,8 @@ deal with that."
       (setq header-line-format banner))
     (when animantep
       (pop-to-buffer (current-buffer))
-      (animate-string "; SLIME: The Superior Lisp Interaction Mode for Emacs"
-                      0 0))
-    (slime-repl-insert-prompt (if (or (not slime-reply-update-banner-p)
+      (animate-string (format "; SLIME %s" (slime-changelog-date)) 0 0))
+    (slime-repl-insert-prompt (if (or (not slime-repl-update-banner-p)
                                       use-header-p)
                                   ""
                                 (concat "; " banner)))))
@@ -3124,7 +3143,10 @@ from an element and TEST is used to compare keys."
 	(if probe
 	    (push e (cdr probe))
             (push (cons k (list e)) alist))))
-    alist))
+    ;; Put them back in order.
+    (loop for (key . value) in alist
+          collect (cons key (cons (car value)
+                                  (reverse (cdr value)))))))
 
 (defun slime-note.severity (note)
   (plist-get note :severity))
@@ -3686,20 +3708,21 @@ NEXT-CANDIDATE-FN is called to find each new position for consideration."
 Designed to be bound to the SPC key.  Prefix argument can be used to insert
 more than one space."
   (interactive "p")
-  (self-insert-command n)
-  (when (and slime-space-information-p
-             (slime-connected-p)
-	     (or (not (slime-busy-p))
-                 ;; XXX should we enable this?
-                 ;; (not slime-use-sigint-for-interrupt))
-                 ))
-    (let ((names (slime-enclosing-operator-names)))
-      (when names
-        (slime-eval-async 
-         `(swank:arglist-for-echo-area (quote ,names))
-         (slime-buffer-package)
-         (lambda (message)
-           (slime-background-message "%s" message)))))))
+  (unwind-protect 
+      (when (and slime-space-information-p
+                 (slime-connected-p)
+                 (or (not (slime-busy-p))
+                     ;; XXX should we enable this?
+                     ;; (not slime-use-sigint-for-interrupt))
+                     ))
+        (let ((names (slime-enclosing-operator-names)))
+          (when names
+            (slime-eval-async 
+             `(swank:arglist-for-echo-area (quote ,names))
+             (slime-buffer-package)
+             (lambda (message)
+               (slime-background-message "%s" message))))))
+    (self-insert-command n)))
 
 (defun slime-arglist (name)
   "Show the argument list for NAME."
@@ -5592,7 +5615,7 @@ Only add clickability to properties we actually know how to lookup."
 Regexp heuristics are used to avoid showing SWANK-internal frames."
   (or (loop for frame in frames
             for (number string) = frame
-            until (string-match "^(+\\(SWANK\\|swank\\)\\>" string)
+            until (string-match "^(*\\(SWANK\\|swank\\)\\>" string)
             collect frame)
       frames))
 
@@ -7478,7 +7501,7 @@ If they are not, position point at the first syntax error found."
     (setq default-dirname
 	  (if initial (concat dir initial) default-directory)))
   (let ((file (read-file-name prompt dir default-dirname mustmatch initial)))
-    (setq file (expand-file-name file))
+    (setq file (file-name-as-directory (expand-file-name file)))
     (cond ((file-directory-p file)
            file)
           (t 
@@ -7517,7 +7540,8 @@ If they are not, position point at the first syntax error found."
 (require 'bytecomp)
 (let ((byte-compile-warnings '()))
   (mapc #'byte-compile
-        '(slime-log-event
+        '(slime-alistify
+          slime-log-event
           slime-events-buffer
           slime-output-string 
           slime-output-buffer
