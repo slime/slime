@@ -299,9 +299,11 @@ Execute BODY with NAME's funtion slot set to FUNCTION."
 	(lineno2 sys::*compile-file-lineno2*)
 	(file sys::*compile-file-truename*))
     (cond ((and file lineno1 lineno2)
-	   `(:location (:file ,(namestring file)) (:line ,lineno1)))
+	   (make-location (list ':file (namestring file))
+			  (list ':line lineno1)))
 	  (*buffer-name*
-	   `(:location (:buffer ,*buffer-name*) (:position ,*buffer-offset*)))
+	   (make-location (list ':buffer *buffer-name*) 
+			  (list ':position *buffer-offset*)))
 	  (t
 	   (list :error "No error location available")))))
 
