@@ -965,7 +965,8 @@ It should be used for \"background\" messages such as argument lists."
   (if (slime-typeout-active-p)
       (slime-typeout-message (apply #'format format-string format-args))
     (let* ((msg (apply #'format format-string format-args)))
-      (message "%s" (slime-oneliner msg)))))
+      (unless (minibuffer-window-active-p (minibuffer-window))
+        (message  "%s" (slime-oneliner msg))))))
 
 (defun slime-oneliner (string)
   "Return STRING truncated to fit in a single echo-area line."
@@ -1022,7 +1023,8 @@ First indent the line; if indenting doesn't move point, complete the
 symbol."
   (interactive)
   (let ((pos (point)))
-    (lisp-indent-line)
+    (unless (get-text-property (line-beginning-position) 'slime-repl-prompt)
+      (lisp-indent-line))
     (when (and (= pos (point))
                (save-excursion 
                  (re-search-backward "[^ \n\t\r]+\\=" nil t)))
@@ -1282,13 +1284,6 @@ Return true if we have been given permission to continue."
 
 ;;; Starting the inferior Lisp and loading Swank:
 
-(defun slime-maybe-rearrange-inferior-lisp ()
-  "Offer to rename *inferior-lisp* so that another can be started."
-  (when (y-or-n-p "Create an additional *inferior-lisp*? ")
-    (with-current-buffer (process-buffer (slime-process))
-      (rename-buffer (generate-new-buffer-name (buffer-name)))
-      t)))
-
 (defun slime-maybe-start-lisp (command buffername)
   "Start an inferior lisp. Instruct it to load Swank."
   (cond ((not (comint-check-proc buffername))
@@ -1377,7 +1372,7 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
                  (let ((port (slime-read-swank-port)))
                    (delete-file (slime-swank-port-file))
                    (let ((c (slime-connect "127.0.0.1" port)))
-                     (setf (slime-inferior-process c) process))))
+                     (slime-set-inferior-process c process))))
                 ((and retries (zerop retries))
                  (message "Failed to connect to Swank."))
                 (t
@@ -1860,6 +1855,10 @@ Can return nil if there's no process object for the connection."
              (memq (process-status proc) '(run stop)))
         proc)))
 
+;; Non-macro version to keep the file byte-compilable. 
+(defun slime-set-inferior-process (connection process)
+  (setf (slime-inferior-process connection) process))
+
 
 ;;;; Communication protocol
 
@@ -1964,17 +1963,24 @@ The REPL buffer is a special case: it's package is `slime-lisp-package'."
         (widen)
         (slime-find-buffer-package))))
 
+(defvar slime-find-buffer-package-function nil
+  "Function to use instead of `slime-find-buffer-package'.  
+The result should be a string.  The string will be READ at the Lisp
+side.")
+
 (defun slime-find-buffer-package ()
   "Figure out which Lisp package the current buffer is associated with."
-  (save-excursion
-    (when (let ((case-fold-search t)
-                (regexp "^(\\(cl:\\|common-lisp:\\)?in-package\\>"))
-	    (or (re-search-backward regexp nil t)
-                (re-search-forward regexp nil t)))
-      (goto-char (match-end 0))
-      (skip-chars-forward " \n\t\f\r#")
-      (let ((pkg (ignore-errors (read (current-buffer)))))
-        (if pkg (format "%S" pkg))))))
+  (if slime-find-buffer-package-function
+      (funcall slime-find-buffer-package-function)
+    (save-excursion
+      (when (let ((case-fold-search t)
+                  (regexp "^(\\(cl:\\|common-lisp:\\)?in-package\\>"))
+              (or (re-search-backward regexp nil t)
+                  (re-search-forward regexp nil t)))
+        (goto-char (match-end 0))
+        (skip-chars-forward " \n\t\f\r#")
+        (let ((pkg (ignore-errors (read (current-buffer)))))
+          (if pkg (format "%S" pkg)))))))
 
 ;;; Synchronous requests is implemented in terms of asynchronous
 ;;; ones. We make an asynchronous request with a continuation function
@@ -2482,7 +2488,7 @@ end end."
                  ;; xemacs stuff
                  start-open t end-open t)
         (insert prompt))
-      (setq defun-prompt-regexp prompt)
+      (setq defun-prompt-regexp (concat "^" prompt))
       (set-marker slime-output-end start)
       (set-marker slime-repl-prompt-start-mark prompt-start)
       (slime-mark-input-start)
@@ -2726,7 +2732,8 @@ earlier in the buffer."
   (interactive)
   (set-marker slime-repl-last-input-start-mark nil)
   (let ((inhibit-read-only t))
-    (delete-region (point-min) (slime-repl-input-line-beginning-position))))
+    (delete-region (point-min) (slime-repl-input-line-beginning-position))
+    (goto-char slime-repl-input-start-mark)))
 
 (defun slime-repl-clear-output ()
   "See slime-repl-clear-buffer."
@@ -4986,7 +4993,8 @@ Use `slime-re-evaluate-defvar' if the from starts with '(defvar'"
   "Evalute region."
   (interactive "r")
   (slime-eval-with-transcript
-   `(swank:interactive-eval-region ,(buffer-substring-no-properties start end))))
+   `(swank:interactive-eval-region 
+     ,(buffer-substring-no-properties start end))))
 
 (defun slime-eval-buffer ()
   "Evalute the current buffer.
@@ -5558,8 +5566,14 @@ CL:MACROEXPAND."
     (let ((dir default-directory))
       ;; Sync REPL dir
       (with-current-buffer (slime-output-buffer)
-        (setq default-directory dir)))
-    (message "package: %s  default-directory: %s" package directory)))
+        (setq default-directory dir))
+      ;; Sync *inferior-lisp* dir
+      (let* ((proc (slime-process))
+             (buffer (and proc (process-buffer proc))))
+        (when buffer 
+          (with-current-buffer buffer
+            (setq default-directory dir)))))
+    (message "package: %s  default-directory: %s" (car package) directory)))
 	
 
 ;;;; Debugger (SLDB)
@@ -6461,11 +6475,13 @@ This way you can still see what the error was after exiting SLDB."
       (error "No connection at point")))
 
 (defun slime-goto-connection ()
+  "Switch to the REPL buffer for the connection at point."
   (interactive)
-  (let ((p (slime-connection-at-point)))
-    (slime-switch-to-output-buffer p)))
+  (let ((slime-dispatching-connection (slime-connection-at-point)))
+    (switch-to-buffer (slime-output-buffer))))
 
 (defun slime-connection-list-make-default ()
+  "Make the connection at point the default connection."
   (interactive)
   (slime-select-connection (slime-connection-at-point))
   (slime-update-connection-list))
@@ -6681,9 +6697,9 @@ Optionally set point to POINT."
 
 ;;;; classes browser
 
-(defun slime-expand-class-node (node)
+(defun slime-expand-class-node (widget)
   (or (widget-get widget :args)
-      (let ((name (widget-get node :tag)))
+      (let ((name (widget-get widget :tag)))
 	(loop for kid in (slime-eval `(swank:mop :subclasses ,name))
 	      collect `(tree-widget :tag ,kid
 				    :dynargs slime-expand-class-node
@@ -6714,10 +6730,10 @@ Optionally set point to POINT."
 
 ;;;; Xref browser
 
-(defun slime-expand-xrefs (node)
+(defun slime-expand-xrefs (widget)
   (or (widget-get widget :args)
-      (let ((name (widget-get node :tag))
-            (type (widget-get node :xref-type)))
+      (let ((name (widget-get widget :tag))
+            (type (widget-get widget :xref-type)))
         (let ((specs (loop for (file . specs) in (slime-eval 
                                                   `(swank:xref ,type ,name))
                            append specs)))
@@ -6807,7 +6823,10 @@ BODY is a series of forms which must return the buffer to be selected."
 
 (def-slime-selector-method ?i
   "the *inferior-lisp* buffer."
-  "*inferior-lisp*")
+  (cond ((and (slime-connected-p) (slime-process))
+         (process-buffer (slime-process)))
+        (t
+         "*inferior-lisp*")))
 
 (def-slime-selector-method ?v
   "the *slime-events* buffer."
