@@ -1,3 +1,11 @@
+2004-01-18 Alan Ruttenberg  <alanralanr@comcast.net>
+
+	* swank-openmcl: Implement frame-catch-tags. Added debugger functions 
+	sldb-restart-frame, sldb-return-from-frame. Should probably be added to backend.lisp
+	but let's discuss first. Do other lisps support this?
+	
+	* slime.el sldb-restart-frame, sldb-return-from-frame
+
 2004-01-18  Wolfgang Jenkner  <wjenkner@inode.at>
 
 	* swank-clisp.lisp (call-without-interrupts): Evaluate
