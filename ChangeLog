@@ -1,3 +1,12 @@
+2004-04-23  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el: Updated top comments.
+	Make SLIME faces inherit from their font-lock cousins properly.
+	(slime-connect): Bind `slime-dispatching-connection' to avoid
+	being confused by old buffer-local variables when initializing
+	the connection. This fixes a bug where doing `M-x slime' from the
+	REPL could give a "Not connected" error.
+
 2004-04-22  Edi Weitz <edi@agharta.de>
 
 	* slime.el (slime-read-system-name): Perform completion on all
