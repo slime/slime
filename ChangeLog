@@ -1,3 +1,18 @@
+2003-09-15  Luke Gorrie  <luke@bluetail.com>
+
+	* swank.lisp (apropos-list-for-emacs): Hacked the apropos listing
+	to accept more options and to specially sort results.
+
+	* slime.el (slime-net-send): Added newlines to messages over the
+	wire. This makes the protocol nicely readable in Ethereal.
+	(slime-sync): New function for blocking until asynchronous
+	requests are complete.
+	(slime-apropos): Hacked the apropos command: by default, only
+	external symbols are shown. With a prefix argument you have the
+	option to include internal symbols and to specify a package.
+	(slime-run-tests): Extended the test suite. Use `M-x
+	slime-run-tests' to run it.
+
 2003-09-14  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el, swank.lisp: Added the debugger written by Helmut.
