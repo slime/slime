@@ -17,7 +17,7 @@
 (in-package :swank)
 
 (defvar *swank-io-package*
-  (let ((package (make-package "SWANK-IO-PACKAGE")))
+  (let ((package (make-package "SWANK-IO-PACKAGE" :use '())))
     (import '(nil t quote) package)
     package))
 
@@ -638,8 +638,8 @@ Examples:
 If the rows are of unequal length, truncate uniformly to the shortest.
 
 For example:
-\(transpose-lists '(("ONE" "TWO" "THREE") ("1" "2")))
-  => (("ONE" "1") ("TWO" "2"))"
+\(transpose-lists '((ONE TWO THREE) (1 2)))
+  => ((ONE 1) (TWO 2))"
   ;; A cute function from PAIP p.574
   (if lists (apply #'mapcar #'list lists)))
 
@@ -710,7 +710,12 @@ that symbols accessible in the current package go first."
   (print-output-to-string (lambda () (describe object))))
 
 (defslimefun describe-symbol (symbol-name)
-  (print-description-to-string (find-symbol-designator symbol-name)))
+  (multiple-value-bind (symbol foundp)
+      (find-symbol-designator symbol-name)
+    (cond (foundp (print-description-to-string symbol))
+	  (t (format nil "Unkown symbol: ~S [in ~A]" 
+		     symbol-name *buffer-package*)))))
+	     
 
 (defslimefun describe-function (symbol-name)
   (print-description-to-string
@@ -745,20 +750,12 @@ that symbols accessible in the current package go first."
 
 (defstruct (:location (:type list) :named
                       (:constructor make-location (buffer position)))
-  buffer 
-  position)
+  buffer position)
 
-(defstruct (:file (:type list) :named (:constructor))
-  name)
-
-(defstruct (:buffer (:type list) :named (:constructor))
-  name)
-
-(defstruct (:position (:type list) :named (:constructor))
-  pos)
-
-(defstruct (:buffer-position (:type list) :named (:constructor))
-  pos)
+(defstruct (:error (:type list) :named (:constructor)) message)
+(defstruct (:file (:type list) :named (:constructor)) name)
+(defstruct (:buffer (:type list) :named (:constructor)) name)
+(defstruct (:position (:type list) :named (:constructor)) pos)
 
 (defun alistify (list key test)
   "Partition the element of LIST into an alist.  KEY extracts the key
@@ -776,19 +773,27 @@ from an element and TEST is used to compare keys."
   (cond ((and (position-p pos1) (position-p pos2))
          (< (position-pos pos1)
             (position-pos pos2)))
-        ((and (buffer-position-p pos1) (buffer-position-p pos2))
-         (< (buffer-position-pos pos1)
-            (buffer-position-pos pos2)))
         (t nil)))
-              
+
+(defun partition (list predicate)
+  (loop for e in list 
+	if (funcall predicate e) collect e into yes
+	else collect e into no
+	finally (return (values yes no))))
+  
 (defun group-xrefs (xrefs)
   (flet ((xref-buffer (xref) (location-buffer (cdr xref)))
          (xref-position (xref) (location-position (cdr xref))))
-    (let ((alist (alistify xrefs #'xref-buffer #'equal)))
-      (loop for (key . list) in alist
-            collect (cons (to-string key) 
-                          (sort list #'location-position<
-                                :key #'xref-position))))))
+    (multiple-value-bind (resolved errors) 
+	(partition xrefs (lambda (x) (location-p (cdr x))))
+      (let ((alist (alistify resolved #'xref-buffer #'equal)))
+	(append 
+	 (loop for (key . list) in alist
+	       collect (cons (to-string key) 
+			     (sort list #'location-position<
+				   :key #'xref-position)))
+	 (if errors
+	     `(("Unresolved" . ,errors))))))))
 
 
 ;;; Local Variables:
