@@ -4,8 +4,7 @@
 	*debugger-hook-passback*): New variables.
 	(with-conversation-lock, with-I/O-lock): New macros.
 	(read-next-form): Use with-I/O-lock.
-	(send-to-emacs): Use with-I/O-lock instead of
-	without-interrupts*. (But should we have without-interrupts* too?)
+	(send-to-emacs): Use with-I/O-lock.
 	(swank-debugger-hook): When called asynchronously (i.e. not
 	during RPC) and multiprocessing is enabled, suspend until
 	acknowleged by Emacs.
