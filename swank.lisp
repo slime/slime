@@ -3076,8 +3076,8 @@ See `methods-by-applicability'.")
              (label-value-line "Precision" (float-precision f))))))
 
 (defvar *inspectee*)
-(defvar *inspectee-parts* (make-array 10 :adjustable t :fill-pointer 0))
-(defvar *inspectee-actions* (make-array 10 :adjustable t :fill-pointer 0))
+(defvar *inspectee-parts*) 
+(defvar *inspectee-actions*)
 (defvar *inspector-stack* '())
 (defvar *inspector-history* (make-array 10 :adjustable t :fill-pointer 0))
 (declaim (type vector *inspector-history*))
@@ -3117,9 +3117,9 @@ See `methods-by-applicability'.")
                    (action-part-for-emacs label lambda)))))))
 
 (defun assign-index (object vector)
-  (or (position object vector)
-      (progn (vector-push-extend object vector)
-             (position object vector))))
+  (let ((index (fill-pointer vector)))
+    (vector-push-extend object vector)
+    index))
 
 (defun value-part-for-emacs (object string)
   (list :value 
