@@ -212,7 +212,7 @@
   (ccl:arglist fname))
 
 (defmethod arglist ((f function))
-  (ccl::arglist-from-map f))
+  (ccl:arglist (ccl:function-name f)))
 
 (defimplementation function-name (function)
   (ccl:function-name function))
@@ -673,7 +673,7 @@ at least the filename containing it."
 	(string (gethash typecode *value2tag*))
 	(string (nth typecode '(tag-fixnum tag-list tag-misc tag-imm))))))
 
-(defmethod inspect-for-emacs ((o t) (inspector openmcl-inspector))
+(defimplementation inspect-for-emacs ((o t) (inspector openmcl-inspector))
   (declare (ignore inspector))
   (let* ((i (inspector::make-inspector o))
 	 (count (inspector::compute-line-count i))
@@ -691,6 +691,36 @@ at least the filename containing it."
                     (*print-right-margin* 80))
                 (pprint o s)))
             lines)))
+
+(defmethod inspect-for-emacs :around ((o t) (inspector openmcl-inspector))
+  (if (or (uvector-inspector-p o)
+          (not (ccl:uvectorp o)))
+      (call-next-method)
+      (multiple-value-bind (title content)
+          (call-next-method)
+        (values
+         title
+         (append content
+                 `((:newline)
+                   (:value ,(make-instance 'uvector-inspector :object o)
+                           "Underlying UVECTOR")))))))
+
+(defclass uvector-inspector ()
+  ((object :initarg :object)))
+
+(defgeneric uvector-inspector-p (object)
+  (:method ((object t)) nil)
+  (:method ((object uvector-inspector)) t))
+
+(defmethod inspect-for-emacs ((uv uvector-inspector) (inspector openmcl-inspector))
+  (with-slots (object)
+      uv
+    (values (format nil "The UVECTOR for ~S." object)
+            (loop
+               for index below (ccl::uvsize object)
+               collect (format nil "~D: " index)
+               collect `(:value ,(ccl::uvref object index))
+               collect `(:newline)))))
 
 ;;; Multiprocessing
 
