@@ -1,3 +1,31 @@
+2004-06-09  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-goto-location-position) [:function-name]: The
+	function name can also occur after a ?(, not only after
+	whitespace.
+
+	* (slime-init-output-buffer): Initialize the package stack.
+	Reported by Rui Patrocínio.
+
+	* (slime-completions): Make it consistent with
+	slime-simple-completions. The second argument was never supplied.
+	Reported by Rui Patrocínio.
+	
+2004-06-09  Eric Blood <eblood@winkywooster.org>
+
+	* slime.el (slime-indent-and-complete-symbol): Renamed from
+	slime-repl-indent-and-complete-symbol.
+
+	(slime-typeout-frame-properties): Add more default options for the
+	typeout frame--specifically it now has a default width, and moves
+	the typeout frame to the upper right.
+
+2004-06-09  Andras Simon <andras@renyi.hu>
+
+	* swank-abcl.lisp: New backend for Armed Bear Common Lisp.
+	
+	* swank-loader.lisp: Add ABCL support.
+
 2004-06-09  Martin Simmons <martin@xanalys.com>
 
 	* swank-lispworks.lisp (dspec-stream-position): New function to
