@@ -93,6 +93,48 @@
   (sb-sys:enable-interrupt sb-unix:SIGIO (lambda (signal code scp)
                                            (sigio-handler signal code scp))))
 
+
+
+;;;; XXX remove fcntl kludge when SBCL with sb-posix:fcntl is more
+;;;; widely available.
+(defconstant +o_async+ 8192)
+(defconstant +f_setown+ 8)
+(defconstant +f_setfl+ 4)
+
+(unless (find-symbol (string :fcntl) :sb-posix)
+  (warn "No binding for fctnl(2) in sb-posix.
+Please upgrade to SBCL 0.8.7.36 or later."))
+
+(defun enable-sigio-on-fd (fd)
+  (cond ((fboundp (find-symbol (string :fcntl) :sb-posix))
+         (funcall 
+          (eval
+           (read-from-string 
+            "(lambda (fd)
+             (sb-posix:fcntl fd sb-posix::f-setfl sb-posix::o-async)
+             (sb-posix:fcntl fd sb-posix::f-setown (sb-unix:unix-getpid)))"))
+          fd))
+        (t
+         (unless (sb-int:featurep :linux)
+           (warn "~
+You aren't runinng Linux. The values of +o_async+ etc are probably bogus."))
+         (let ((fcntl (sb-alien:extern-alien 
+                       "fcntl" 
+                       (function sb-alien:int sb-alien:int 
+                                 sb-alien:int sb-alien:int))))
+           ;; XXX error checking
+           (sb-alien:alien-funcall fcntl fd +f_setfl+ +o_async+)
+           (sb-alien:alien-funcall fcntl fd +f_setown+
+                                   (sb-unix:unix-getpid))))))
+
+(defimplementation add-input-handler (socket fn)
+  (set-sigio-handler)
+  (let ((fd (socket-fd socket)))
+    (format *debug-io* "Adding sigio handler: ~S ~%" fd)
+    (enable-sigio-on-fd fd)
+    (push (cons fd fn) *sigio-handlers*)))
+
+#+(or)
 (defimplementation add-input-handler (socket fn)
   (set-sigio-handler)
   (let ((fd (socket-fd socket)))
