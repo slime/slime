@@ -40,55 +40,13 @@
   (defvar *have-mop*
     (and (find-package :clos)
          (eql :external
-              (nth-value 1 (find-symbol (string ':standard-slot-definition) :clos))))
+              (nth-value 1 (find-symbol (string ':standard-slot-definition)
+					:clos))))
     "True in those CLISP imagse which have a complete MOP implementation."))
 
 #+#.(cl:if swank-backend::*have-mop* '(cl:and) '(cl:or))
 (progn
-  (import-to-swank-mop
-   '( ;; classes
-     cl:standard-generic-function
-     clos:standard-slot-definition
-     cl:method
-     cl:standard-class
-     clos::eql-specializer
-     ;; standard-class readers
-     clos:class-default-initargs
-     clos:class-direct-default-initargs
-     clos:class-direct-slots
-     clos:class-direct-subclasses
-     clos:class-direct-superclasses
-     clos:class-finalized-p
-     cl:class-name
-     clos:class-precedence-list
-     clos:class-prototype
-     clos:class-slots
-     clos:specializer-direct-methods
-     ;; eql-specializer accessors
-     clos::eql-specializer-object
-     ;; generic function readers
-     clos:generic-function-argument-precedence-order
-     clos:generic-function-declarations
-     clos:generic-function-lambda-list
-     clos:generic-function-methods
-     clos:generic-function-method-class
-     clos:generic-function-method-combination
-     clos:generic-function-name
-     ;; method readers
-     clos:method-generic-function
-     clos:method-function
-     clos:method-lambda-list
-     clos:method-specializers
-     clos:method-qualifiers
-     ;; slot readers
-     clos:slot-definition-allocation
-     clos:slot-definition-initargs
-     clos:slot-definition-initform
-     clos:slot-definition-initfunction
-     clos:slot-definition-name
-     clos:slot-definition-type
-     clos:slot-definition-readers
-     clos:slot-definition-writers))
+  (import-swank-mop-symbols :clos '(:slot-definition-documentation))
   
   (defun swank-mop:slot-definition-documentation (slot)
     (clos::slot-definition-documentation slot)))
@@ -96,7 +54,8 @@
 #-#.(cl:if swank-backend::*have-mop* '(and) '(or))
 (defclass swank-mop:standard-slot-definition ()
   ()
-  (:documentation "Dummy class created so that swank.lisp will compile and load."))
+  (:documentation 
+   "Dummy class created so that swank.lisp will compile and load."))
 
 #+linux
 (defmacro with-blocked-signals ((&rest signals) &body body)
@@ -121,7 +80,9 @@
 (defimplementation call-without-interrupts (fn)
   (funcall fn))
 
-#+unix (defmethod getpid () (system::program-id))
+#+unix 
+(defmethod getpid () 
+  (system::program-id))
 #+win32 
 (defmethod getpid ()
   (cond ((find-package :win32)
@@ -523,44 +484,11 @@ Execute BODY with NAME's funtion slot set to FUNCTION."
 		      (sys::insp-blurb inspection))
               (loop with count = (sys::insp-num-slots inspection)
                     for i upto count
-                   for (value name) = (multiple-value-list (funcall (sys::insp-nth-slot inspection) i))
-                   collect `(:value ,name)
-                   collect " = "
-                   collect `(:value ,value)
-                   collect '(:newline))))))
-
-#-#.(cl:if swank-backend::*have-mop* '(cl:and) '(cl:or))
-(progn
-  (defmethod inspect-for-emacs ((o standard-object) (inspector clisp-inspector))
-  (declare (ignore inspector))
-  (values (format nil "An instance of the class" (class-of o))
-          `("Sorry, inspecting of instances is not supported in this version of CLISP."
-            (:newline)
-            "Please upgrade to a recent version of CLISP.")))
-
-  (defmethod inspect-for-emacs ((gf standard-generic-function) (inspector clisp-inspector))
-    (declare (ignore inspector))
-    (values "A generic function."
-            `("Sorry, inspecting of generic functions is not supported in this version of CLISP."
-              (:newline)
-              "Please upgrade to a recent version of CLISP.")))
-
-  (defmethod inspect-for-emacs ((method standard-method) (inspector t))
-    (declare (ignore inspector))
-    (values "A standard method."
-            `("Sorry, inspecting of methods is not supported in this version of CLISP."
-              (:newline)
-              "Please upgrade to a recent version of CLISP.")))
-
-  (defmethod inspect-for-emacs ((class standard-class) (inspector t))
-    (declare (ignore inspector))
-    (values "A class."
-            `("Sorry, inspecting of classes is not supported in this version of CLISP."
-              (:newline)
-              "Please upgrade to a recent version of CLISP.")))
-
-  (defmethod inspect-for-emacs ((slot swank-mop:standard-slot-definition) (inspector t))
-    (declare (ignore inspector))))
+		    for (value name) = (multiple-value-list 
+					(funcall (sys::insp-nth-slot 
+						  inspection) i))
+		    collect `((:value ,name) " = " (:value ,value) 
+			      (:newline)))))))
 
 (defimplementation quit-lisp ()
   #+lisp=cl (ext:quit)
