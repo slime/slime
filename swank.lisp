@@ -70,15 +70,16 @@
 S-expression to be evaluated to handle the request.  If an error
 occurs during parsing, it will be noted and control will be tranferred
 back to the main request handling loop."
-  (handler-case
-      (let* ((length (logior (ash (read-byte *emacs-io*) 16)
-                             (ash (read-byte *emacs-io*) 8)
-                             (read-byte *emacs-io*)))
-             (string (make-string length)))
-        (read-sequence string *emacs-io*)
-        (read-form string))
-    (condition (c)
-      (throw 'serve-request-catcher c))))
+  (flet ((next-byte () (char-code (read-char *emacs-io*))))
+    (handler-case
+        (let* ((length (logior (ash (next-byte) 16)
+                               (ash (next-byte) 8)
+                               (next-byte)))
+               (string (make-string length)))
+          (read-sequence string *emacs-io*)
+          (read-form string))
+      (condition (c)
+        (throw 'serve-request-catcher c)))))
 
 (defun read-form (string)
   (with-standard-io-syntax
@@ -90,7 +91,8 @@ back to the main request handling loop."
   (let* ((string (prin1-to-string-for-emacs object))
          (length (1+ (length string))))
     (loop for position from 16 downto 0 by 8
-          do (write-byte (ldb (byte 8 position) length) *emacs-io*))
+          do (write-char (code-char (ldb (byte 8 position) length))
+                         *emacs-io*))
     (write-string string *emacs-io*)
     (terpri *emacs-io*)
     (force-output *emacs-io*)))
