@@ -524,6 +524,17 @@ stack."
     (cond (probe (throw (car probe) (eval-in-frame form index)))
           (t (format nil "Cannot return from frame: ~S" frame)))))
     
+;;;;; reference-conditions
+
+(defimplementation format-sldb-condition (condition)
+  (let ((sb-int:*print-condition-references* nil))
+    (princ-to-string condition)))
+
+(defimplementation condition-references (condition)
+  (if (typep condition 'sb-int:reference-condition)
+      (sb-int:reference-condition-references condition)
+      '()))
+
 
 ;;;; Profiling
 
