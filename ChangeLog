@@ -1,5 +1,12 @@
 2004-06-20  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* swank-sbcl.lisp (emacs-connected): Set *invoke-debugger-hook* to
+	our debugger hook.  Not optimal, but at least BREAK will then
+	invoke our debugger.
+
+	* swank.lisp (guess-buffer-package): Don't signal a continuable
+	error if the package doesn't exists; that's too annoying.
+
 	* slime.el: Fix outline structure.
 	
 	* slime.el (slime-eval-feature-conditional)
