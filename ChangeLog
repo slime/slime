@@ -1,3 +1,14 @@
+2004-07-13  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-restart-inferior-lisp): Renamed shortcut to
+	"restart-inferior-lisp" from "restart-lisp". The name better
+	suggests what it does: kill *inferior-lisp* and rerun SLIME.
+
+2004-07-13  Eric Blood  <eblood@winkywooster.org>
+
+	(slime-inspector-next-inspectable-object): New inspector command
+	to goto the next inspectable object (slot). Bound to TAB.
+
 2004-07-13  Christophe Rhodes  <csr21@cam.ac.uk>
 
 	* slime.el: add support for actionable references in the
