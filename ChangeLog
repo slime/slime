@@ -1,3 +1,24 @@
+2003-09-14  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el, swank.lisp: Added the debugger written by Helmut.
+
+	* cmucl-wire.el: Removed. The WIRE communication protocol has been
+	replaced by a simple custom TCP protocol based on READ/PRIN1 to
+	send sexps as ascii text. This simplifies the code, makes the
+	protocol nicely debugable with ethereal, and should ease porting
+	to other Lisps. Incremented TCP port number to 4005 in honor of
+	the new protocol.
+	
+	In addition, Lisp now always uses *print-case* of :DOWNCASE when
+	preparing sexps for Emacs. This is in reaction to a bug with Emacs
+	reading the empty list as `NIL' instead of `nil'.
+
+	* slime.el (slime-net-connect): The Emacs end of the new
+	communication protocol.
+
+	* swank.lisp (create-swank-server): The Lisp end of the new
+	communication protocol.
+
 2003-09-11  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-mode): Added Helmut's commands to the mode
