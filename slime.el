@@ -690,6 +690,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
       [ "Return From Definition"   slime-pop-find-definition-stack ,C ]
       [ "Complete Symbol"          slime-complete-symbol ,C ]
       [ "Fuzzy Complete Symbol"    slime-fuzzy-complete-symbol ,C ]
+      [ "Complete Form"            slime-complete-form ,C ]
       [ "Show REPL"                slime-switch-to-output-buffer ,C ]
       "--"
       ("Evaluation"
