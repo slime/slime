@@ -178,15 +178,6 @@ Return NIL if the symbol is unbound."
 
 (defvar *sldb-top-frame*)
 
-(defimplementation call-with-debugging-environment (fn)
-  (dbg::with-debugger-stack ()
-    (let ((*sldb-top-frame*
-           (dbg::frame-next  
-            (dbg::frame-next  
-             (dbg::frame-next 
-              (dbg::debugger-stack-current-frame dbg::*debugger-stack*))))))
-      (funcall fn))))
-
 (defun interesting-frame-p (frame)
   (cond ((or (dbg::call-frame-p frame)
              (dbg::derived-call-frame-p frame)
@@ -200,11 +191,29 @@ Return NIL if the symbol is unbound."
         ((dbg::open-frame-p frame) dbg:*print-open-frames*)
         (t nil)))
 
-(defun nth-frame (index)
-  (do ((frame *sldb-top-frame* (dbg::frame-next frame))
-       (i index (if (interesting-frame-p frame) (1- i) i)))
+(defun nth-next-frame (frame n)
+  "Unwind FRAME N times."
+  (do ((frame frame (dbg::frame-next frame))
+       (i n (if (interesting-frame-p frame) (1- i) i)))
       ((and (interesting-frame-p frame) (zerop i)) frame)
     (assert frame)))
+
+(defun nth-frame (index)
+  (nth-next-frame *sldb-top-frame* index))
+           
+(defun find-top-frame ()
+  "Return the most suitable top-frame for the debugger."
+  (do ((frame (dbg::debugger-stack-current-frame dbg::*debugger-stack*)
+              (nth-next-frame frame 1)))
+      ((and (dbg::call-frame-p frame)
+            (eq (dbg::call-frame-function-name frame) 
+                'invoke-debugger))
+       (nth-next-frame frame 1))))
+  
+(defimplementation call-with-debugging-environment (fn)
+  (dbg::with-debugger-stack ()
+    (let ((*sldb-top-frame* (find-top-frame)))
+      (funcall fn))))
 
 (defimplementation compute-backtrace (start end)
   (let ((end (or end most-positive-fixnum))
