@@ -5022,14 +5022,15 @@ Confirm that SUBFORM is correctly located."
       (slime-test-state-stack '(slime-evaluating-state slime-idle-state)))
     (slime-interrupt)
     (slime-sync-state-stack '(slime-idle-state) 5)
-    (slime-check "Automaton is back in idle state.")))
+    (slime-check "Automaton is back in idle state."
+      (slime-test-state-stack '(slime-idle-state)))))
 
-(def-slime-test package-updateing
-    (package-name nickname)
+(def-slime-test package-updating
+    (package-name nicknames)
     "Test if slime-lisp-package is updated."
-    '(("COMMON-LISP" "CL")
-      ("KEYWORD" "KEYWORD")
-      ("COMMON-LISP-USER" "CL-USER"))
+    '(("COMMON-LISP" ("CL"))
+      ("KEYWORD" ("" "KEYWORD"))
+      ("COMMON-LISP-USER" ("CL-USER" "USER")))
   (with-current-buffer (slime-output-buffer)
     (let ((p (slime-eval 
               `(swank:listener-eval 
@@ -5039,8 +5040,8 @@ Confirm that SUBFORM is correctly located."
               (slime-lisp-package))))
       (slime-check ("In %s package." package-name)
         (equal (format "\"%s\"" package-name) p))
-      (slime-check ("slime-lisp-package is %s." nickname)
-        (equal (slime-lisp-package) nickname)))))
+      (slime-check ("slime-lisp-package is in %S." nicknames)
+        (member (slime-lisp-package) nicknames)))))
   
 
 ;;; Portability library
