@@ -12,9 +12,6 @@
 ;;;
 ;;; The LLGPL is also available online at
 ;;; http://opensource.franz.com/preamble.html
-;;;
-;;;   $Id$
-;;;
 
 ;;;
 ;;; This is the beginning of a Slime backend for OpenMCL.  It has been
