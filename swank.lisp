@@ -286,6 +286,7 @@ determined at compile time."
                (let* ((here (or *compile-file-truename* *load-truename*))
 		      (changelog (make-pathname 
 				  :name "ChangeLog" 
+                  :device (pathname-device here)
 				  :directory (pathname-directory here)
 				  :host (pathname-host here)))
 		      (date (with-open-file (file changelog :direction :input)

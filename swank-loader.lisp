@@ -18,6 +18,10 @@
   (merge-pathnames name 
                    (make-pathname 
                     :type type
+                    :device 
+                    (pathname-device 
+                     (or *compile-file-pathname* *load-pathname*
+                         *default-pathname-defaults*))
                     :directory 
                     (pathname-directory
                      (or *compile-file-pathname* *load-pathname*
