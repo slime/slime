@@ -1,5 +1,8 @@
 2004-10-17  Helmut Eller  <heller@common-lisp.net>
 
+	* cl-indent.el: Our local copy.  Should eventually be merged the
+	file with in the main distribution.
+
 	* slime.el: (slime-find-buffer-package-function): New variable to
 	allow customization for unusal syntax.
 	(slime-maybe-rearrange-inferior-lisp): Removed unused function.
