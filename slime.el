@@ -902,7 +902,7 @@ the state name for the modeline."
             (slime-idle-state "")
             (slime-evaluating-state "[eval...]")
             (slime-debugging-state "[debug]")
-            (slime-read-char-state "[read]")))
+            (slime-read-string-state "[read]")))
     (force-mode-line-update)
     (slime-dispatch-event '(activate))))
 
@@ -1006,6 +1006,7 @@ The state stack was:
         (with-current-buffer buffer
           (lisp-mode)
           (hs-minor-mode)
+          (set (make-local-variable 'hs-block-start-regexp) "^(")
           (current-buffer)))))
 
 
@@ -1087,9 +1088,9 @@ will pass it to CONTINUATION."
       (slime-pop-state)
       (when (member tag slime-stack-eval-tags)
 	(throw tag `(:aborted))))))
-  ((:debug level condition restarts stack-depth frames)
+  ((:debug level condition restarts frames)
    (slime-push-state
-    (slime-debugging-state level condition restarts stack-depth frames
+    (slime-debugging-state level condition restarts frames
                            (current-window-configuration))))
   ((:emacs-interrupt)
    (slime-send-sigint))
@@ -1097,10 +1098,10 @@ will pass it to CONTINUATION."
    ;; To discard the state would break our synchronization.
    ;; Instead, just cancel the continuation.
    (setq continuation (lambda (value) t)))
-  ((:read-char tag)
-   (slime-push-state (slime-read-char-state tag))))
+  ((:read-string tag)
+   (slime-push-state (slime-read-string-state tag))))
 
-(slime-defstate slime-debugging-state (level condition restarts depth frames
+(slime-defstate slime-debugging-state (level condition restarts frames
                                              saved-window-configuration)
   "Debugging state.
 Lisp entered the debugger while handling one of our requests. This
@@ -1111,7 +1112,7 @@ state interacts with it until it is coaxed into returning."
      (when (or (not sldb-buffer)
                (with-current-buffer sldb-buffer
                  (/= sldb-level-in-buffer level)))
-       (sldb-setup condition restarts depth frames))))
+       (sldb-setup condition restarts frames))))
   ((:debug-return level)
    (assert (= level sldb-level))
    (sldb-cleanup)
@@ -1123,18 +1124,14 @@ state interacts with it until it is coaxed into returning."
    (slime-output-evaluate-request form-string package-name)
    (slime-push-state (slime-evaluating-state continuation))))
 
-(slime-defstate slime-read-char-state (tag)
+(slime-defstate slime-read-string-state (tag)
   "Reading state.
 Lisp waits for input from Emacs."
   ((activate)
-   (slime-repl-read-char))
-  ((:emacs-return-char-code code)
+   (slime-repl-read-string))
+  ((:emacs-return-string code)
    (slime-net-send `(swank:take-input ,tag ,code))
-   (slime-pop-state))
-  ((:emacs-evaluate form-string package-name continuation)
-   ;; recursive evaluation request
-   (slime-output-evaluate-request form-string package-name)a
-   (slime-push-state (slime-evaluating-state continuation))))
+   (slime-pop-state)))
 
 
 ;;;; Utilities
@@ -1213,6 +1210,14 @@ Loops until the result is thrown to our caller, or the user aborts."
 (defun slime-idle-p ()
   "Return true if Lisp is idle."
   (eq (slime-state-name (slime-current-state)) 'slime-idle-state))
+
+(defun slime-reading-p ()
+  "Return true if Lisp waits for input from Emacs."
+  (eq (slime-state-name (slime-current-state)) 'slime-read-string-state))
+
+(defun slime-debugging-p ()
+  "Return true if Lisp is in the debugger."
+  (eq (slime-state-name (slime-current-state)) 'slime-debugging-state))
 
 (defun slime-ping ()
   "Check that communication works."
@@ -1299,7 +1304,7 @@ Loops until the result is thrown to our caller, or the user aborts."
   (lisp-mode-variables t)
   (setq font-lock-defaults nil)
   (setq mode-name "REPL")
-  (set (make-local-variable 'scroll-conservatively) 5)
+  (set (make-local-variable 'scroll-conservatively) 20)
   (set (make-local-variable 'scroll-margin) 0)
   (run-hooks 'slime-repl-mode-hook))
 
@@ -1339,10 +1344,15 @@ after the last prompt to the end of buffer."
   (setq slime-repl-input-history-position -1))
   
 (defun slime-repl-eval-string (string)
-  (slime-repl-add-to-input-history string)
   (slime-eval-async `(swank:listener-eval ,string)
                     slime-lisp-package
                     (slime-repl-show-result-continutation)))
+
+(defun slime-repl-send-string (string)
+  (slime-repl-add-to-input-history string)
+  (ecase (slime-state-name (slime-current-state))
+    (slime-idle-state (slime-repl-eval-string string))
+    (slime-read-string-state (slime-repl-return-string (concat string "\n")))))
 
 (defun slime-repl-show-result-continutation ()
   ;; This is called _after_ the idle state is activated.  This means
@@ -1371,7 +1381,8 @@ after the last prompt to the end of buffer."
 (defun slime-repl-return ()
   "Evaluate the current input string."
   (interactive)
-  (unless (slime-idle-p)
+  (unless (or (slime-idle-p)
+              (slime-reading-p))
     (error "Lisp is not ready for request from the REPL."))
   (let ((input (slime-repl-current-input)))
     (goto-char slime-repl-input-end-mark)
@@ -1379,7 +1390,7 @@ after the last prompt to the end of buffer."
     (add-text-properties slime-repl-input-start-mark
                          slime-repl-input-end-mark
                          '(face slime-repl-input-face))
-    (slime-repl-eval-string input)))
+    (slime-repl-send-string input)))
 
 (defun slime-repl-closing-return ()
   "Evaluate the current input string after closing all open lists."
@@ -1451,10 +1462,6 @@ earlier in the buffer."
 			     :end #'1-
 			     "No later matching history item"))
 
-(defun slime-repl-read-char ()
-  (slime-switch-to-output-buffer)
-  (slime-repl-read-mode t))
-
 (defun slime-repl ()
   (interactive)
   (slime-switch-to-output-buffer))
@@ -1484,35 +1491,24 @@ earlier in the buffer."
   ("\t"   'slime-complete-symbol)
   (" "    'slime-space))
 
-(defvar slime-repl-read-mode-map)
-
 (define-minor-mode slime-repl-read-mode 
   "Mode the read input from Emacs"
   nil
   nil
-  ;; Fake binding to coax `define-minor-mode' to create the keymap
-  '((" " 'slime-repl-read-self-insert-command)))
+  '(("\C-m" . slime-repl-return)))
 
 (add-to-list 'minor-mode-alist '(slime-repl-read-mode "[read]"))
 
-(defun slime-char-code (char)
-  (if (featurep 'xemacs)
-      (char-int char)
-    char))
+(defun slime-repl-read-string ()
+  (slime-switch-to-output-buffer)
+  (set-marker slime-repl-input-start-mark (point) (current-buffer))
+  (set-marker slime-repl-input-end-mark (point) (current-buffer))
+  (slime-repl-read-mode t))
 
-(defun slime-repl-read-self-insert-command (char)
-  (interactive (list last-command-char))
-  (insert char)
-  (slime-dispatch-event `(:emacs-return-char-code ,(slime-char-code char)))
+(defun slime-repl-return-string (string)
+  (slime-dispatch-event `(:emacs-return-string ,string))
   (slime-repl-read-mode nil))
 
-(substitute-key-definition 
- 'self-insert-command 'slime-repl-read-self-insert-command
- slime-repl-read-mode-map global-map)
-
-(slime-define-keys slime-repl-read-mode-map 
-  ("\C-m" (lambda () (interactive) (slime-repl-read-self-insert-command ?\n))))
-  
 
 ;;; Compilation and the creation of compiler-note annotations
 
@@ -1929,7 +1925,7 @@ more than one space."
   (interactive "p")
   (self-insert-command n)
   (when (and (slime-connected-p)
-	     (not (slime-busy-p))
+	     (or (slime-idle-p) (slime-debugging-p))
 	     (slime-function-called-at-point/line))
     (slime-arglist (symbol-name (slime-function-called-at-point/line)))))
 
@@ -2680,7 +2676,6 @@ the current index when the selection is completed."
 
 (defvar sldb-condition)
 (defvar sldb-restarts)
-(defvar sldb-backtrace-length)
 (defvar sldb-level-in-buffer)
 (defvar sldb-backtrace-start-marker)
 (defvar sldb-mode-map)
@@ -2688,7 +2683,7 @@ the current index when the selection is completed."
 (defvar sldb-hook nil
   "Hook run on entry to the debugger.")
 
-(defun sldb-setup (condition restarts stack-depth frames)
+(defun sldb-setup (condition restarts frames)
   (with-current-buffer (get-buffer-create "*sldb*")
     (setq buffer-read-only nil)
     (sldb-mode)
@@ -2696,7 +2691,6 @@ the current index when the selection is completed."
     (add-hook (make-local-variable 'kill-buffer-hook) 'sldb-delete-overlays)
     (setq sldb-condition condition)
     (setq sldb-restarts restarts)
-    (setq sldb-backtrace-length stack-depth)
     (insert condition "\n" "\nRestarts:\n")
     (loop for (name string) in restarts
 	  for number from 0 
@@ -2710,7 +2704,7 @@ the current index when the selection is completed."
 	       (insert "\n")))
     (insert "\nBacktrace:\n")
     (setq sldb-backtrace-start-marker (point-marker))
-    (sldb-insert-frames frames)
+    (sldb-insert-frames frames 1)
     (setq buffer-read-only t)
     (pop-to-buffer (current-buffer))
     (run-hooks 'sldb-hook)))
@@ -2732,26 +2726,26 @@ the current index when the selection is completed."
   (set-syntax-table lisp-mode-syntax-table)
   (mapc #'make-local-variable '(sldb-condition 
 				sldb-restarts
-				sldb-backtrace-length
 				sldb-level-in-buffer
 				sldb-backtrace-start-marker))
   (setq sldb-level-in-buffer sldb-level)
   (setq mode-name (format "sldb[%d]" sldb-level)))
 
-(defun sldb-insert-frames (frames)
+(defun sldb-insert-frames (frames maximum-length)
+  (assert (<= (length frames) maximum-length))
   (save-excursion
     (loop for frame in frames
 	  for (number string) = frame
 	  do (slime-insert-propertized `(frame ,frame) string "\n"))
     (let ((number (sldb-previous-frame-number)))
-      (cond ((= sldb-backtrace-length (1+ number)))
+      (cond ((< (length frames) maximum-length))
 	    (t
 	     (slime-insert-propertized 
 	      `(sldb-default-action 
 		sldb-fetch-more-frames
 		point-entered sldb-fetch-more-frames
 		sldb-previous-frame-number ,number)
-	      "   --more--\n"))))))
+	      " --more--\n"))))))
 
 (defun sldb-fetch-more-frames (&optional start end)
   (let ((inhibit-point-motion-hooks t))
@@ -2763,10 +2757,11 @@ the current index when the selection is completed."
 	  (let ((start (point)))
 	    (end-of-buffer)
 	    (delete-region start (point)))
-	  (sldb-insert-frames 
-	   (slime-eval `(swank:backtrace-for-emacs 
-			 ,(1+ previous)
-			 ,(+ previous 40)))))))))
+           (let ((start (1+ previous))
+                 (end (+ previous 40)))
+             (sldb-insert-frames 
+              (slime-eval `(swank:backtrace-for-emacs ,start ,end))
+              (- end start))))))))
 
 (defun sldb-default-action/mouse (event)
   (interactive "e")
