@@ -1284,9 +1284,10 @@ Return true if we have been given permission to continue."
 (defun slime-maybe-start-lisp (command buffername)
   "Start an inferior lisp. Instruct it to load Swank."
   (cond ((not (comint-check-proc buffername))
-         (slime-start-lisp command buffername))
+         (slime-start-lisp command buffername (slime-init-command)))
         ((y-or-n-p "Create an additional *inferior-lisp*? ")
-         (slime-start-lisp command (generate-new-buffer-name buffername)))
+         (slime-start-lisp command (generate-new-buffer-name buffername)
+                           (slime-init-command)))
         (t 
          (when-let (conn (find (get-buffer-process buffername)
                                slime-net-processes 
@@ -1294,25 +1295,28 @@ Return true if we have been given permission to continue."
            (slime-net-close conn))
          (get-buffer-process buffername))))
 
-(defun slime-start-lisp (command buffername)
-  "Start a new Lisp with command and in the buffer BUFFERNAME.
+(defun slime-init-command ()
+  "Return a string to initialize Lisp."
+  (let ((swank (slime-to-lisp-filename (if (file-name-absolute-p slime-backend)
+                                           slime-backend
+                                         (concat slime-path slime-backend))))
+        (mp (if slime-multiprocessing "(swank:startup-multiprocessing)\n" "")))
+    (format "(load %S :verbose t)\n%s" swank mp)))
+
+(defun slime-start-lisp (command buffername init-string)
+  "Start Lisp with COMMAND in BUFFERNAME and send INIT-STRING to it.
 Return the new process."
   (let ((proc (slime-inferior-lisp command buffername)))
     (when slime-kill-without-query-p
       (process-kill-without-query proc))
-    (comint-send-string proc
-                        (format "(load %S :verbose t)\n"
-                                (slime-to-lisp-filename
-                                 (if (file-name-absolute-p slime-backend)
-                                     slime-backend
-                                   (concat slime-path slime-backend)))))
-    (slime-maybe-start-multiprocessing)
-    proc))
+    (when init-string
+      (comint-send-string proc init-string)
+    proc)))
 
 (defun slime-inferior-lisp (command buffername)
   "Does the same as `inferior-lisp' but less ugly.
 Return the created process."
-  (let ((args (split-string command)))
+  (let ((args (split-string command)))  ; XXX consider: cmucl -eval '(+ 1 2)'
     (with-current-buffer (get-buffer-create buffername)
       (comint-mode)
       (comint-exec (current-buffer) "inferior-lisp" (car args) nil (cdr args))
@@ -1320,11 +1324,6 @@ Return the created process."
       (setq inferior-lisp-buffer (current-buffer))
       (pop-to-buffer (current-buffer))
       (get-buffer-process (current-buffer)))))
-
-(defun slime-maybe-start-multiprocessing ()
-  (when slime-multiprocessing
-    (comint-send-string (inferior-lisp-proc)
-                        "(swank:startup-multiprocessing)\n")))
 
 (defun slime-inferior-connect (process &optional retries)
   "Start a Swank server in the inferior Lisp and connect."
@@ -2443,7 +2442,7 @@ joined together."))
 (defun slime-repl-buffer (&optional create)
   "Get the REPL buffer for the current connection; optionally create."
   (funcall (if create #'get-buffer-create #'get-buffer)
-           (format "*slime-repl[%S]*" (slime-connection-number))))
+           (format "*slime-repl %s*" (slime-connection-name))))
 
 (defun slime-repl-mode () 
   "Major mode for interacting with a superior Lisp.
@@ -3387,9 +3386,9 @@ The order of the input list is preserved."
 
 (defun slime-maybe-list-compiler-notes (notes)
   "Show the compiler notes if appropriate."
-  (unless (or (null notes)
-	      (and (eq last-command 'slime-compile-defun)
-                   (every #'slime-note-has-location-p notes)))
+  ;; don't pop up a buffer if all notes will are already annotated in
+  ;; the buffer itself
+  (unless (every #'slime-note-has-location-p notes)
     (slime-list-compiler-notes notes)))
 
 (defun slime-list-compiler-notes (&optional notes)
@@ -5545,9 +5544,10 @@ CL:MACROEXPAND."
 (defun slime-set-default-directory (directory)
   "Make DIRECTION become Lisp's current directory."
   (interactive (list (read-directory-name "Directory: " nil nil t)))
-  (message "default-directory: %s" 
-	   (slime-eval `(swank:set-default-directory
-                         ,(expand-file-name directory))))
+  (message "default-directory: %s"
+           (slime-from-lisp-filename
+            (slime-eval `(swank:set-default-directory
+                          ,(slime-to-lisp-filename directory)))))
   (with-current-buffer (slime-output-buffer)
     (setq default-directory (expand-file-name directory))
     (when (boundp 'header-line-format)
@@ -5558,8 +5558,10 @@ CL:MACROEXPAND."
   (interactive)
   (let ((package (slime-eval `(swank:set-package 
 			       ,(slime-find-buffer-package))))
-	(directory (slime-eval `(swank:set-default-directory 
-				 ,(expand-file-name default-directory)))))
+	(directory (slime-from-lisp-filename
+                    (slime-eval `(swank:set-default-directory 
+                                  ,(slime-to-lisp-filename
+                                    default-directory))))))
     (let ((dir default-directory))
       ;; Sync REPL dir
       (with-current-buffer (slime-output-buffer)
