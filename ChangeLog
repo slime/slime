@@ -20,8 +20,6 @@
 2004-06-22  Brian Downing  <bdowning@lavos.net>
 
 	* slime.el, swank.lisp: Added "fuzzy completion."
-	[I'm hacking the elisp end of this at the moment. Checked in now
-	so that I can use CVS on it. -luke]
 
 2004-06-22  Matthew Danish  <mdanish@andrew.cmu.edu>
 
