@@ -31,7 +31,12 @@
    ))
 
 ;;; swank-mop
+
+;;dummies:
 (defclass standard-slot-definition ()())
+(defun class-finalized-p (class) t)
+(defun slot-definition-documentation (slot))
+(defun slot-definition-type (slot) t)
 
 (import-to-swank-mop
  '( ;; classes
@@ -47,6 +52,7 @@
    sys::class-direct-subclasses
    sys::class-direct-superclasses
 ;   openmcl-mop:class-finalized-p
+   class-finalized-p ;;dummy
    cl:class-name
    sys::class-precedence-list
 ;   openmcl-mop:class-prototype
@@ -68,11 +74,13 @@
    ;; slot readers
    sys::slot-definition-allocation
 ;   ccl::slot-definition-documentation
+   slot-definition-documentation ;;dummy
    sys::slot-definition-initargs
    sys::slot-definition-initform
    sys::slot-definition-initfunction
    sys::slot-definition-name
 ;   openmcl-mop:slot-definition-type
+   slot-definition-type ;;dummy
    sys::slot-definition-readers
    sys::slot-definition-writers))
 
@@ -122,9 +130,14 @@
 
 ;;;; Misc
 
-(defimplementation arglist (symbol)
+
+(defimplementation arglist ((symbol symbol))
   (handler-case (sys::arglist symbol)
     (simple-error () :not-available)))
+
+;;It's a string, not a symbol, but this is better than nothing.
+(defimplementation function-name (function)
+  (nth-value 2 (function-lambda-expression function)))
 
 (defimplementation macroexpand-all (form)
   (macroexpand form))
