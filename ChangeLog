@@ -1,3 +1,10 @@
+2003-10-21  Luke Gorrie  <luke@bluetail.com>
+
+	* swank.lisp (completions): Fixed semantics: should now consider
+	only/all completions that would not cause a read-error due to
+	symbol visibility. Also avoiding duplicates, and sorting the
+	results as with apropos.
+
 2003-10-20  Luke Gorrie  <luke@bluetail.com>
 
 	* swank.lisp (completions): Slight change of semantics: when a
