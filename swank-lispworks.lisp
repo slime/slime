@@ -514,6 +514,11 @@ Return NIL if the symbol is unbound."
     (values (format nil "~A~%   is a ~A" o type)
             (mapcar #'cons names values))))
 
+;;; Miscellaneous
+
+(defimplementation quit-lisp ()
+  (lispworks:quit))
+
 ;;; Multithreading
 
 (defimplementation startup-multiprocessing ()
