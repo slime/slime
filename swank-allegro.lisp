@@ -62,7 +62,8 @@
 
 (defimplementation set-default-directory (directory)
   (excl:chdir directory)
-  (namestring (setf *default-pathname-defaults* (pathname directory))))
+  (namestring (setf *default-pathname-defaults* (truename (merge-pathnames directory)))))
+
 
 ;;;; Misc
 
