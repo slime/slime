@@ -638,7 +638,9 @@ return value is the condition or nil."
            (etypecase pathname
              (pathname 
               (make-location `(:file ,(guess-source-file pathname)) 
-                             `(:function-name ,(string name)))))))))))
+                             `(:function-name ,(string name))))
+             (null `(:error ,(format nil "Cannot resolve: ~S" def-source)))
+             )))))))
 
 (defun method-source-location (method)
   (function-source-location (or (pcl::method-fast-function method)
@@ -1129,19 +1131,17 @@ LRA  =  ~X~%" (mapcar #'fixnum
           (di::bogus-debug-function
            (format t "~%[Disassembling bogus frames not implemented]"))))))
 
-
 #+(or)
 (defun print-binding-stack ()
-  (do ((bsp (kernel:binding-stack-pointer-sap)
-            (sys:sap+ bsp (- (* vm:binding-size vm:word-bytes))))
-       (start (sys:int-sap (lisp::binding-stack-start))))
-      ((sys:sap<= bsp start))
-    (format t "~X:  ~S = ~S~%" 
-            (sys:sap-int bsp)
-            (kernel:make-lisp-obj 
-             (sys:sap-ref-32 bsp (* vm:binding-symbol-slot vm:word-bytes)))
-            (kernel:make-lisp-obj
-             (sys:sap-ref-32 bsp (* vm:binding-value-slot vm:word-bytes))))))
+  (flet ((bsp- (p) (sys:sap+ p (- (* vm:binding-size vm:word-bytes))))
+         (frob (p offset) (kernel:make-lisp-obj (sys:sap-ref-32 p offset))))
+    (do ((bsp (bsp- (kernel:binding-stack-pointer-sap)) (bsp- bsp))
+         (start (sys:int-sap (lisp::binding-stack-start))))
+        ((sys:sap= bsp start))
+      (format t "~X:  ~S = ~S~%" 
+              (sys:sap-int bsp)
+              (frob bsp (* vm:binding-symbol-slot vm:word-bytes))
+              (frob bsp (* vm:binding-value-slot vm:word-bytes))))))
 
 ;; (print-binding-stack)
 
@@ -1161,7 +1161,7 @@ LRA  =  ~X~%" (mapcar #'fixnum
       (format t "~X:  uwp = ~8X  cfp = ~8X  tag = ~X~%" 
               int uwp cfp (kernel:make-lisp-obj tag)))))))
 
-;; (print-catch-blocks)
+;; (print-catch-blocks) 
 
 #+(or)
 (defun print-unwind-blocks ()
