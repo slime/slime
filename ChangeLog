@@ -1,3 +1,7 @@
+2003-12-17  Luke Gorrie  <luke@bluetail.com>
+
+	* HACKING: New file summarising our way of working.
+
 2003-12-16  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-lisp-preferred-package-nicknames): Removed. Not
