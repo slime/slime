@@ -1978,10 +1978,10 @@ update window-point afterwards.  If point is initially not at
        (insert "\n")
        (set-marker slime-output-end (1- (point)))))))
 
-(defun slime-switch-to-output-buffer ()
+(defun slime-switch-to-output-buffer (&optional select-connection)
   "Select the output buffer, preferably in a different window."
-  (interactive)
-  (slime-with-chosen-connection ()
+  (interactive "p")
+  (slime-with-chosen-connection (select-connection)
     (set-buffer (slime-output-buffer))
     (unless (eq (current-buffer) (window-buffer))
       (pop-to-buffer (current-buffer) t))
@@ -2126,12 +2126,7 @@ end end."
   "Return the current input as string.  The input is the region from
 after the last prompt to the end of buffer."
   (buffer-substring-no-properties slime-repl-input-start-mark
-                                  (save-excursion
-                                    (goto-char slime-repl-input-end-mark)
-                                    (when (and (eq (char-before) ?\n)
-                                               (not (slime-reading-p)))
-                                      (backward-char 1))
-                                    (point))))
+                                  slime-repl-input-end-mark))
 
 (defun slime-repl-add-to-input-history (string)
   (when (and (plusp (length string))
@@ -2258,8 +2253,10 @@ balanced."
   (slime-check-connected)
   (assert (<= (point) slime-repl-input-end-mark))
   (cond (current-prefix-arg
-         (slime-repl-send-input)
-         (insert "\n"))
+         (slime-repl-send-input))
+        (slime-repl-read-mode ; bad style?
+         (insert "\n")
+         (slime-repl-send-input))
         ((slime-input-complete-p slime-repl-input-start-mark 
                                  slime-repl-input-end-mark)
          (goto-char slime-repl-input-end-mark)
@@ -2277,7 +2274,7 @@ balanced."
                          '(face slime-repl-input-face rear-nonsticky (face)))
     (slime-mark-input-start)
     (slime-mark-output-start)
-    (slime-repl-send-string (concat input "\n"))))
+    (slime-repl-send-string input)))
 
 (defun slime-repl-closing-return ()
   "Evaluate the current input string after closing all open lists."
@@ -6497,6 +6494,31 @@ SWANK> ")
     (slime-sync-to-top-level 5)
     (slime-check "Buffer contains result"
       (equal result-contents (buffer-string)))))
+
+(def-slime-test repl-read-lines
+    (command inputs final-contents)
+    "Test reading multiple lines from the repl."
+    '(("(list (read-line) (read-line) (read-line))" 
+       ("a" "b" "c")
+       "SWANK> (list (read-line) (read-line) (read-line))
+a
+b
+c
+\(\"a\" \"b\" \"c\")
+SWANK> "))
+  (when (slime-output-buffer)
+    (kill-buffer (slime-output-buffer)))
+  (with-current-buffer (slime-output-buffer)
+    (setf (slime-lisp-package) "SWANK")
+    (insert command)
+    (call-interactively 'slime-repl-return)
+    (dolist (input inputs) 
+      (slime-wait-condition "reading" #'slime-reading-p 5)
+      (insert input)
+      (call-interactively 'slime-repl-return))
+    (slime-sync-to-top-level 5)
+    (slime-check "Buffer contains result"
+      (equal final-contents (buffer-string)))))
 
 (def-slime-test interactive-eval-output
     (input result-contents visiblep)
