@@ -1,3 +1,17 @@
+2004-04-28  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-net-connect): Bind inhibit-quit to nil, so that
+	we have a chance to interrupt Emacs if open-network-stream blocks.
+	(slime-complete-maybe-restore-window-configuration): Keep trying
+	after slime-repl-indent-and-complete-symbol.
+	(slime-space): Don't close the completion buffer.  We don't know
+	the window-config before the completion, so leave the buffer open.
+
+	* swank.lisp (create-server): New keyword based variant to start
+	the server in background.
+	(setup-server): Add support to keep the socket open for
+	single-threaded Lisps.
+	
 2004-04-27  Luke Gorrie  <luke@bluetail.com>
 
 	* doc/slime.texi (Other configurables): Updated instructions on
