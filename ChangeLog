@@ -1,4 +1,4 @@
-2004-11-25 Chris Capel <pdf23ds@gmail.com>
+2004-11-25  Chris Capel <pdf23ds@gmail.com>
 
 	* slime.el (slime-indent-and-complete-symbol): Echo the arglist if
 	there's no symbol before point.  Don't complete after parens.
