@@ -1,3 +1,11 @@
+2003-10-19  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el, swank-cmucl.lisp, swank.lisp: First shoot at input
+	redirection.
+
+	* swank-sbcl.lisp, swank-openmcl.lisp: Bind *slime-input* and
+	*slime-io* to dummy values.
+
 2003-10-19  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime): Connection setup is now asynchronous, with
