@@ -22,6 +22,9 @@
 	
 	* doc/slime.texi: Fix spelling errors.
 
+	* cl-indent.el: Remove the file.  Let the Emacs developers
+	maintain it.
+
 2005-04-01  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (sldb-get-buffer): Initialize the buffer local
