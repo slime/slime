@@ -88,7 +88,6 @@
   (declare (ignore depth))
   (print-unreadable-object (connection stream :type t :identity t)))
 
-
 (defvar *emacs-connection* nil
   "The connection to Emacs.
 All threads communicate through this interface with Emacs.")
@@ -407,19 +406,21 @@ element."
                         :send #'send-to-socket-io
                         :serve-requests #'simple-serve-requests)))))
 
+(defun process-available-input (stream fn)
+  (loop while (and (open-stream-p stream) 
+                   (listen stream))
+        do (funcall fn)))
+
 (defun install-sigio-handler (connection)
   (let ((client (connection.socket-io connection)))
-    (labels ((process-available-input (fn)
-               (loop do (funcall fn)
-                     while (listen client)))
-             (handler ()   
-               (cond ((null *swank-state-stack*)
-                      (with-reader-error-handler (connection)
-                        (process-available-input #'handle-request)))
-                     ((eq (car *swank-state-stack*) :read-next-form))
-                     (t (process-available-input #'read-from-emacs)))))
-      (handler)
-      (add-input-handler client #'handler))))
+    (flet ((handler ()   
+             (cond ((null *swank-state-stack*)
+                    (with-reader-error-handler (connection)
+                      (process-available-input client #'handle-request)))
+                   ((eq (car *swank-state-stack*) :read-next-form))
+                   (t (process-available-input client #'read-from-emacs)))))
+      (add-input-handler client #'handler)
+      (handler))))
 
 (defun remove-sigio-handler (connection)
   (remove-input-handlers (connection.socket-io connection)))
