@@ -71,6 +71,8 @@
 (defun without-interrupts* (body)
   (ccl:without-interrupts (funcall body)))
 
+(defvar *swank-debugger-stack-frame*)
+
 ;;; TCP Server
 
 ;; In OpenMCL, the Swank backend runs in a separate thread and simply
@@ -95,28 +97,23 @@
            (accept-loop server-socket close)))))
 
 (let ((ccl::*warn-if-redefine-kernel* nil))
-   (defun ccl::force-break-in-listener (p)
-     (ccl::process-interrupt p
-                             #'(lambda ()
-                                 (ccl::ignoring-without-interrupts
-                                  (let ((*swank-debugger-stack-frame*
-                                  nil)
-                                        (previous-p nil))
-                                    (block find-frame
-                                      (map-backtrace
-                                       #'(lambda(frame-number p tcr
-                                        lfun pc)
-                                           (declare (ignore
-                                           frame-number tcr pc))
-                                           (when (eq (ccl::lfun-name
-                                           lfun) 'swank::eval-region)
-                                             (setq
-                                             *swank-debugger-stack-frame*
-                                             previous-p)
-                                             (return-from find-frame))
-                                           (setq previous-p p))))
-                                    (invoke-debugger)
-                                    (clear-input *terminal-io*)))))))
+  (defun ccl::force-break-in-listener (p)
+    (ccl::process-interrupt
+     p
+     #'(lambda ()
+         (ccl::ignoring-without-interrupts
+          (let ((*swank-debugger-stack-frame* nil)
+                (previous-p nil))
+            (block find-frame
+              (map-backtrace
+               #'(lambda(frame-number p tcr lfun pc)
+                   (declare (ignore frame-number tcr pc))
+                   (when (eq (ccl::lfun-name lfun) 'swank::eval-region)
+                     (setq *swank-debugger-stack-frame* previous-p)
+                     (return-from find-frame))
+                   (setq previous-p p))))
+            (invoke-debugger)
+            (clear-input *terminal-io*)))))))
 
 (defun accept-loop (server-socket close)
   (unwind-protect (cond (close (accept-one-client server-socket))
@@ -155,8 +152,6 @@
       (close listener))))
 
 ;;; Evaluation
-
-(defvar *swank-debugger-stack-frame*)
 
 (defmethod ccl::application-error :before (application condition error-pointer)
   (declare (ignore application condition))
