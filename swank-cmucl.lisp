@@ -73,7 +73,7 @@
   (mapc (lambda (handler) (funcall (cdr handler))) *sigio-handlers*))
 
 (defun set-sigio-handler ()
-  (sys:enable-interrupt unix:SIGIO (lambda (signal code scp)
+  (sys:enable-interrupt unix:sigio (lambda (signal code scp)
 				     (sigio-handler signal code scp))))
 
 (defun fcntl (fd command arg)
@@ -86,7 +86,7 @@
   (let ((fd (socket-fd socket)))
     (format *debug-io* "; Adding input handler: ~S ~%" fd)
     (fcntl fd unix:f-setown (unix:unix-getpid))
-    (fcntl fd unix:f-setfl unix:FASYNC)
+    (fcntl fd unix:f-setfl unix:fasync)
     (push (cons fd fn) *sigio-handlers*)))
 
 (defimplementation remove-sigio-handlers (socket)
@@ -133,11 +133,11 @@
            (multiple-value-bind (flags errno) (unix:unix-fcntl fd cmd arg)
              (or flags 
                  (error "fcntl: ~A" (unix:get-unix-error-msg errno))))))
-    (let ((flags (fcntl fd unix:F-GETFL 0)))
-      (fcntl fd unix:F-SETFL (logior flags unix:O_NONBLOCK)))))
+    (let ((flags (fcntl fd unix:f-getfl 0)))
+      (fcntl fd unix:f-setfl (logior flags unix:o_nonblock)))))
 
 
-;;;; Unix signals
+;;;; unix signals
 
 (defmethod call-without-interrupts (fn)
   (sys:without-interrupts (funcall fn)))
@@ -636,11 +636,13 @@ return value is the condition or nil."
   (function-location (or (pcl::method-fast-function method)
                          (pcl:method-function method))))
 
+
 (defun method-dspec (method)
   (let* ((gf (pcl:method-generic-function method))
          (name (pcl:generic-function-name gf))
-         (specializers (pcl:method-specializers method)))
-    `(method ,name ,(pcl::unparse-specializers specializers))))
+         (specializers (pcl:method-specializers method))
+         (qualifiers (pcl:method-qualifiers method)))
+    `(method ,name ,@qualifiers ,(pcl::unparse-specializers specializers))))
 
 (defun method-definition (method)
   (list (method-dspec method)
@@ -703,10 +705,61 @@ NAME can any valid function name (e.g, (setf car))."
     (if layout 
         (kernel:layout-info layout))))
 
-(defun struct-definitions (name)
-  (let ((dd (and (symbolp name) (find-dd name))))
-    (if dd
-        (list (list `(defstruct ,name) (dd-location dd))))))
+(defun condition-class-location (class)
+  (let ((slots (conditions::condition-class-slots class))
+        (name (conditions::condition-class-name class)))
+    (cond ((null slots)
+           `(:error ,(format nil "No location info for condition: ~A" name)))
+          (t
+           (let* ((slot (first slots))
+                  (gf (fdefinition 
+                       (first (conditions::condition-slot-readers slot)))))
+             (method-location 
+              (first 
+               (pcl:compute-applicable-methods-using-classes 
+                gf (list (find-class name))))))))))
+
+#+(or) ; Require new source-location recording stuff
+(progn
+  (defun class-location (class)
+    (definition-source-location class))
+
+  (defun definition-source-location (object)
+    (let ((source (pcl::definition-source object)))
+      (etypecase source
+        (null `(:error ,(format nil "No source info for: ~A" object)))
+        (c::file-source-location 
+         (let ((filename (c::file-source-location-pathname source))
+               (tlf-number (c::file-source-location-tlf-number source))
+               (form-number (c::file-source-location-tlf-number source)))
+           (with-open-file (s filename)
+             (let ((pos (form-number-stream-position tlf-number form-number 
+                                                     s)))
+               (make-location `(:file ,(unix-truename filename))
+                              `(:position ,(1+ pos)))))))))))
+
+(defun class-location (class)
+  `(:error ,(format nil "No source info for class: ~A"
+                   (pcl:class-name class))))
+
+(defun class-definitions (name)
+  (if (symbolp name)
+      (let ((class (kernel::find-class name nil)))
+        (etypecase class
+          (null '())
+          (kernel::structure-class 
+           (list (list `(defstruct ,name) (dd-location (find-dd name)))))
+          (conditions::condition-class
+           (list (list `(define-condition ,name) 
+                       (condition-class-location class))))
+          (kernel::standard-class
+           (list (list `(defclass ,name) 
+                       (class-location (find-class name)))))
+          (kernel::built-in-class
+           (list (list `(kernel::define-type-class ,name)
+                       `(:error 
+                         ,(format nil "No source info for built-in-class: ~A"
+                                  name)))))))))
 
 (defun setf-definitions (name)
   (let ((function (or (ext:info :setf :inverse name)
@@ -755,7 +808,7 @@ NAME can any valid function name (e.g, (setf car))."
 (defimplementation find-definitions (name)
   (append (function-definitions name)
           (setf-definitions name)
-          (struct-definitions name)
+          (class-definitions name)
           (type-definitions name)
           (compiler-macro-definitions name)
           (source-transform-definitions name)
@@ -840,20 +893,37 @@ NAME can any valid function name (e.g, (setf car))."
     (:alien-enum
      (describe (ext:info :alien-type :enum symbol)))))
 
-(defun debug-function-arglist (dfun)
-  (let ((args (di::debug-function-lambda-list dfun))
-        (result '())
-        (key nil))
+(defun debug-function-arglist (debug-function)
+  (let ((args (di::debug-function-lambda-list debug-function))
+        (required '())
+        (optional '())
+        (rest '())
+        (key '()))
+    ;; collect the names of debug-vars
     (dolist (arg args)
       (etypecase arg
         (di::debug-variable 
-         (push (di::debug-variable-name arg) result))
+         (push (di::debug-variable-name arg) required))
         (cons
          (ecase (car arg)
-           ((:keyword (push (second arg) result))
-           (:optional (push (di::debug-variable-name (second arg)) result))
-           ))))
-    (nreverse result))))
+           (:keyword 
+            (push (second arg) key))
+           (:optional
+            (push (di::debug-variable-name (second arg)) optional))
+           (:rest 
+            (push (di::debug-variable-name (second arg)) rest))))))
+    ;; intersperse lambda keywords as needed
+    (append (nreverse required)
+            (if optional (cons '&optional (nreverse optional)))
+            (if rest (cons '&rest (nreverse rest)))
+            (if key (cons '&key (nreverse key))))))
+
+(defun symbol-debug-function-arglist (fname)
+  "Return FNAME's debug-function-arglist and %function-arglist.
+A utility for debugging DEBUG-FUNCTION-ARGLIST."
+  (let ((fn (fdefinition fname)))
+    (values (debug-function-arglist (di::function-debug-function fn))
+            (kernel:%function-arglist (kernel:%function-self fn)))))
 
 (defimplementation arglist (symbol)
   (let* ((fun (or (macro-function symbol)
@@ -927,9 +997,12 @@ toplevel-form-number and form-number from CODE-LOCATION and use that
 to find the position of the corresponding form."
   (let* ((location (debug::maybe-block-start-location code-location))
 	 (tlf-offset (di:code-location-top-level-form-offset location))
-	 (form-number (di:code-location-form-number location))
-	 (*read-suppress* t))
-    (dotimes (i tlf-offset) (read stream))
+	 (form-number (di:code-location-form-number location)))
+    (form-number-stream-position tlf-offset form-number stream)))
+
+(defun form-number-stream-position (tlf-number form-number stream)
+  (let ((*read-suppress* t))
+    (dotimes (i tlf-number) (read stream))
     (multiple-value-bind (tlf position-map) (read-and-record-source-map stream)
       (let* ((path-table (di:form-number-translations tlf 0))
              (source-path
