@@ -1,7 +1,8 @@
 2004-09-23  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-start-and-load): Take arguments so that the
-	function can be called non-interactively.
+	function can be called non-interactively. Only start SLIME is if
+	it is not running.
 	(slime-recompile-bytecode): Don't warn about uses of cl-functions.
 	(slime-reset): Kill all sldb buffers.
 	(slime-goto-location-position): Fix syntax for Emacs 20.
@@ -23,6 +24,7 @@
 	(inspector-content-for-emacs): Use print-part-to-string so that we
 	see cycles in the data structure.
 	(inspect-for-emacs): Minor beautifications.
+	(load-file-set-package): New function.
 
 	* swank-cmucl.lisp (frame-package): Implemented.
 	(inspect-for-emacs): Only include stuff that is actually stored in
