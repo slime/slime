@@ -248,20 +248,6 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
     
 ;;;; Compilation Commands
 
-;; (defun debugger-hook (condition old-hook)
-;;   "Hook function to be invoked instead of the debugger.
-;; See CL:*DEBUGGER-HOOK*."
-;;   ;; FIXME: Debug from Emacs!
-;;   (declare (ignore old-hook))
-;;   (handler-case
-;; 	 (progn (format *error-output*
-;; 			"~@<SWANK: unhandled condition ~2I~_~A~:>~%"
-;; 			condition)
-;; 		(debug:backtrace 20 *error-output*)
-;; 		(finish-output *error-output*))
-;;     (condition ()
-;; 	 nil)))
-
 (defvar *compiler-notes* '()
   "List of compiler notes for the last compilation unit.")
 
