@@ -7507,7 +7507,7 @@ BODY is a series of forms which must return the buffer to be selected."
                 #'< :key #'car)))
 
 
-(def-slime-selector-method ?? "the Select help buffer."
+(def-slime-selector-method ?? "Selector help buffer."
   (ignore-errors (kill-buffer "*Select Help*"))
   (with-current-buffer (get-buffer-create "*Select Help*")
     (insert "Select Methods:\n\n")
@@ -7521,45 +7521,45 @@ BODY is a series of forms which must return the buffer to be selected."
   (current-buffer))
 
 (def-slime-selector-method ?r
-  "the SLIME Read-Eval-Print-Loop."
+  "SLIME Read-Eval-Print-Loop."
   (slime-output-buffer))
 
 (def-slime-selector-method ?s
-  "the *slime-scratch* buffer."
+  "*slime-scratch* buffer."
   (slime-scratch-buffer))
 
 (def-slime-selector-method ?i
-  "the *inferior-lisp* buffer."
+  "*inferior-lisp* buffer."
   (cond ((and (slime-connected-p) (slime-process))
          (process-buffer (slime-process)))
         (t
          "*inferior-lisp*")))
 
 (def-slime-selector-method ?v
-  "the *slime-events* buffer."
+  "*slime-events* buffer."
   slime-event-buffer-name)
 
 (def-slime-selector-method ?l
-  "the most recently visited lisp-mode buffer."
+  "most recently visited lisp-mode buffer."
   (slime-recently-visited-buffer 'lisp-mode))
 
 (def-slime-selector-method ?d
-  "the *sldb* buffer for the current connection."
+  "*sldb* buffer for the current connection."
   (unless (sldb-get-default-buffer)
     (error "No debugger buffer"))
   (sldb-get-default-buffer))
 
 (def-slime-selector-method ?e
-  "the most recently visited emacs-lisp-mode buffer."
+  "most recently visited emacs-lisp-mode buffer."
   (slime-recently-visited-buffer 'emacs-lisp-mode))
 
 (def-slime-selector-method ?c
-  "the SLIME connections buffer."
+  "SLIME connections buffer."
   (slime-list-connections)
   "*SLIME connections*")
 
 (def-slime-selector-method ?t
-  "the SLIME threads buffer."
+  "SLIME threads buffer."
   (slime-list-threads)
   "*slime-threads*")
 
