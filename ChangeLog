@@ -1,3 +1,10 @@
+2004-04-22  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-repl-update-banner): Add workaround to force the
+	proper behaivior of the the first command in the REPL buffer.
+	(slime-repl-shortcut-history): Define the variable to make XEmacs
+	happy.
+	
 2004-04-22  Tiago Maduro-Dias <tcmd@rnl.ist.utl.pt>
 
 	* slime.el (slime-space): Cleanup.
