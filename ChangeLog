@@ -1,3 +1,21 @@
+2004-06-09  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (sldb-insert-references): Added support for hyperlinked
+	references as part of conditions being debugged. This is a new
+	feature in SBCL to reference appropriate sections of their manual
+	or CLHS from condition objects. The references are clickable.
+
+	* swank-backend.lisp (format-sldb-condition): New backend function
+	to format conditions for SLDB.
+	(condition-references): New function to return a list of
+	documentation references associated with a condition.
+
+	* swank.lisp (debugger-condition-for-emacs): Call the above
+	backend functions to add a `references' list for Emacs.
+
+	* swank-sbcl.lisp (format-sldb-condition, condition-references):
+	Implemented. Requires a recent (latest?) SBCL release.
+
 2004-06-08  Luke Gorrie  <luke@bluetail.com>
 
 	* swank-cmucl.lisp (close-socket): Remove any SERVE-EVENT handlers
