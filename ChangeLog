@@ -1,3 +1,10 @@
+2004-01-09  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-activate-state): Only update state name when
+	`slime-default-connection' activates. This fixes an annoying
+	"Selecting deleted buffer" bug that prevented SLIME from being
+	restarted.
+
 2004-01-09  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el: Place (require 'cl) inside a eval-and-compile.
