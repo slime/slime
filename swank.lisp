@@ -268,6 +268,16 @@ The package is deleted before returning."
      (unwind-protect (progn ,@body)
        (delete-package ,var))))
 
+(defvar *log-events* nil)
+(defvar *log-io* *terminal-io*)
+
+(defun log-event (format-string &rest args)
+  "Write a message to *terminal-io* when *log-events* is non-nil.
+Useful for low level debugging."
+  (when *log-events*
+    (apply #'format *log-io* format-string args)
+    (force-output *log-io*)))
+
 ;;;; TCP Server
 
 (defparameter *redirect-io* t
@@ -276,7 +286,6 @@ Redirection is done while Lisp is processing a request for Emacs.")
 
 (defvar *use-dedicated-output-stream* t)
 (defvar *communication-style* (preferred-communication-style))
-(defvar *log-events* nil)
 
 (defun start-server (port-file &key (style *communication-style*)
                      dont-close (external-format *coding-system*))
@@ -415,7 +424,8 @@ of the toplevel restart."
   (setf *connections* (remove c *connections*))
   (run-hook *connection-closed-hook* c)
   (when condition
-    (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" condition)))
+    (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" condition)
+    (finish-output *debug-io*)))
 
 (defmacro with-reader-error-handler ((connection) &body body)
   `(handler-case (progn ,@body)
@@ -439,8 +449,10 @@ of the toplevel restart."
 
 (defun dispatch-loop (socket-io connection)
   (let ((*emacs-connection* connection))
-    (loop (with-simple-restart (abort "Restart dispatch loop.")
-            (loop (dispatch-event (receive) socket-io))))))
+    (handler-case
+        (loop (dispatch-event (receive) socket-io))
+      (error (e)
+        (close-connection connection e)))))
 
 (defun repl-thread (connection)
   (let ((thread (connection.repl-thread connection)))
@@ -524,8 +536,12 @@ of the toplevel restart."
       connection)))
 
 (defun cleanup-connection-threads (connection)
-  (kill-thread (connection.control-thread connection))
-  (kill-thread (connection.repl-thread connection)))
+  (let ((threads (list (connection.repl-thread connection)
+                       (connection.reader-thread connection)
+                       (connection.control-thread connection))))
+    (dolist (thread threads)
+      (unless (equal (current-thread) thread)
+        (kill-thread thread)))))
 
 (defun repl-loop (connection)
   (with-connection (connection)
@@ -814,15 +830,6 @@ NIL if streams are not globally redirected.")
          (*terminal-io* io))
     (funcall function)))
 
-(defvar *log-io* *terminal-io*)
-
-(defun log-event (format-string &rest args)
-  "Write a message to *terminal-io* when *log-events* is non-nil.
-Useful for low level debugging."
-  (when *log-events*
-    (apply #'format *log-io* format-string args)
-    (force-output *log-io*)))
-
 (defun read-from-emacs ()
   "Read and process a request from Emacs."
   (apply #'funcall (funcall (connection.read *emacs-connection*))))
@@ -1070,22 +1077,28 @@ Use the string NAME as operator name."
        (arglist-to-string (cons name arglist)
                           (symbol-package symbol))))))
 
+(defun clean-arglist (arglist)
+  "Remove &whole, &enviroment, and &aux elements from ARGLIST."
+  (cond ((null arglist) '())
+        ((member (car arglist) '(&whole &environment))
+         (clean-arglist (cddr arglist)))
+        ((eq (car arglist) '&aux)
+         '())
+        (t (cons (car arglist) (clean-arglist (cdr arglist))))))
+
 (defun arglist-to-string (arglist package)
   "Print the list ARGLIST for display in the echo area.
 The argument name are printed without package qualifiers and 
 pretty printing of (function foo) as #'foo is suppressed."
+  (setq arglist (clean-arglist arglist))
   (etypecase arglist
     (null "()")
     (cons 
      (with-output-to-string (*standard-output*)
        (with-standard-io-syntax
-         (let ((*package* package)
-               (*print-case* :downcase)
-               (*print-pretty* t)
-               (*print-circle* nil)
-               (*print-readably* nil)
-               (*print-level* 10)
-               (*print-length* 20))
+         (let ((*package* package) (*print-case* :downcase)
+               (*print-pretty* t) (*print-circle* nil) (*print-readably* nil)
+               (*print-level* 10) (*print-length* 20))
            (pprint-logical-block (nil nil :prefix "(" :suffix ")")
              (loop
               (let ((arg (pop arglist)))
@@ -1107,7 +1120,10 @@ pretty printing of (function foo) as #'foo is suppressed."
 (progn
   (assert (test-print-arglist '(function cons) "(function cons)"))
   (assert (test-print-arglist '(quote cons) "(quote cons)"))
-  (assert (test-print-arglist '(&key (function #'+)) "(&key (function #'+))")))
+  (assert (test-print-arglist '(&key (function #'+)) "(&key (function #'+))"))
+  (assert (test-print-arglist '(&whole x y z) "(y z)"))
+  (assert (test-print-arglist '(x &aux y z) "(x)"))
+  (assert (test-print-arglist '(x &environment env y) "(x y)")))
 ;; Expected failure:
 ;; (assert (test-print-arglist '(&key ((function f))) "(&key ((function f)))"))
 
@@ -3253,8 +3269,8 @@ a time.")
   "Interrupt the INDEXth thread and make it start a swank server.
 The server port is written to PORT-FILE-NAME."
   (interrupt-thread (nth-thread index)
-                    (lambda () 
-                      (start-server port-file-name nil))))
+                    (lambda ()
+                      (start-server port-file-name :style nil))))
 
 ;;;; Class browser
 
