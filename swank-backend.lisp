@@ -569,6 +569,10 @@ LOCATION is the source location for the definition.")
   "Return the call sites of FUNCTION-NAME (a symbol).
 The results is a list ((DSPEC LOCATION) ...).")
 
+(definterface calls-who (function-name)
+  "Return the call sites of FUNCTION-NAME (a symbol).
+The results is a list ((DSPEC LOCATION) ...).")
+
 (definterface who-references (variable-name)
   "Return the locations where VARIABLE-NAME (a symbol) is referenced.
 See WHO-CALLS for a description of the return value.")
@@ -791,30 +795,12 @@ Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time."
   "Return the next message from current thread's mailbox."
   nil)
 
-(definterface toggle-trace-function (spec)
-  "Trace one function, including (setf name) forms."
-  (cond ((symbolp spec)
-         (eval `(trace ,spec)))
-        (t 
-         (format nil "Cannot trace fspec: ~S" spec))))
-
-(definterface toggle-trace-generic-function-methods (name)
-  "Trace the generic function and all methods of the generic function."
-  (declare (ignore name))
-  "Sorry, generic function tracing has to yet been implemented on your platform.")
-
-(definterface toggle-trace-method (spec)
-  "Trace one method.
-SPEC is if the form (:defmethod ,NAME ,@QUALIFIERS (,@SPECIALIZERS))."
-  (declare (ignore spec))
-  "Sorry, method tracing has not yet been implemented on your platform.")
-
-(definterface toggle-trace-fdefinition-wherein (name wherein)
-  "Trace function when called by another function."
-  (declare (ignore name wherein))
-  "Sorry, call-path tracing has not yet been implemented on your platform.")
-
-(definterface toggle-trace-fdefinition-within (spec)
-  "Trace local function within other function."
-  (declare (ignore spec))
-  "Sorry, local function tracing has not yet been implemented on your platform.")
+(definterface toggle-trace (spec)
+  "Toggle tracing of the function(s) given with SPEC.
+SPEC can be:
+ (setf NAME)                            ; a setf function
+ (:defmethod NAME QUALIFIER... (SPECIALIZER...)) ; a specific method
+ (:defgeneric NAME)                     ; a generic function with all methods
+ (:call CALLER CALLEE)                  ; trace calls from CALLER to CALLEE.
+ (:labels TOPLEVEL LOCAL) 
+ (:flet TOPLEVEL LOCAL) ")
