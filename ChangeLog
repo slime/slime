@@ -3,6 +3,11 @@
 	* slime.el (slime-repl-return): If the user presses return on old
 	REPL input then take it and insert it as the current input.
 	Signal an error if the point is not on any input.
+	(slime-preserve-zmacs-region): Function to ensure that the current
+	command doesn't deactive zmacs-region (XEmacs only).
+	(slime-repl-bol, slime-repl-eol): Use it.
+	(slime-kill-all-buffers): Changed buffer-name regexps for XEmacs
+	compatibility. The ",quit" shortcut now works in XEmacs.
 
 2004-06-17  Luke Gorrie  <luke@bluetail.com>
 
