@@ -978,7 +978,8 @@ the ChangeLog file at runtime."
   (macrolet ((date ()
                    (let* ((dir (or (and byte-compile-current-file
                                         (file-name-directory
-                                         byte-compile-current-file))
+                                         (file-truename
+                                          byte-compile-current-file)))
                                    slime-path))
                           (file (concat dir "ChangeLog"))
                           (date (with-temp-buffer 
