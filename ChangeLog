@@ -1,5 +1,7 @@
 2003-12-06  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* swank-allegro.lisp: New file.
+
 	* swank-loader.lisp (user-init-file): Translate logical
 	pathnames.  Reported by Friedrich Dominicus.
 
