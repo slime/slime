@@ -158,11 +158,19 @@ that the calling thread is the one that interacts with Emacs."
   "Return a short name for the Lisp implementation."
   (lisp-implementation-type))
 
+(definterface default-directory ()
+  "Return the default directory."
+  (directory-namestring (truename *default-pathname-defaults*)))
+
 (definterface set-default-directory (directory)
   "Set the default directory.
 This is used to resolve filenames without directory component."
   (setf *default-pathname-defaults* (truename (merge-pathnames directory)))
-  (namestring *default-pathname-defaults*))
+  (default-directory))
+
+(definterface call-with-syntax-hooks (fn)
+  "Call FN with hooks to handle special syntax."
+  (funcall fn))
 
 
 ;;;; Compilation
