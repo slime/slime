@@ -1,5 +1,17 @@
 2004-07-17  Luke Gorrie  <luke@bluetail.com>
 
+	* swank.lisp (variable-desc-for-echo-area): New function.
+	(arglist-for-echo-area): Return nil if symbol can't be found.
+	(close-connection): Close connection before printing error
+	message. This avoids it getting lost in closed I/O redirection.
+
+	* slime.el (slime-autodoc): If there is a global variable name at
+	point then show its value.
+	(slime-autodoc-cache-type): Cache type 'full is no longer
+	supported.
+	(slime-background-message): Truncate messages to fit on a single
+	echo area line.
+
 	* README, doc/slime.texi: Updated setup instructions.
 
 2004-07-16  Luke Gorrie  <luke@bluetail.com>
