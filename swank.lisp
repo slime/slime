@@ -129,6 +129,8 @@ Backend code should treat the connection structure as opaque.")
 ;;; used solely to pipe user-output to Emacs (an optimization).
 ;;;
 
+(defvar *coding-system* ':iso-latin-1-unix)
+
 (defstruct (connection
              (:conc-name connection.)
              (:print-function print-connection))
@@ -172,7 +174,10 @@ Backend code should treat the connection structure as opaque.")
   (indentation-cache-packages '())
   ;; The communication style used.
   (communication-style nil :type (member nil :spawn :sigio :fd-handler))
-  )
+  ;; The coding system for network streams.
+  (external-format *coding-system* :type (member :iso-latin-1-unix 
+                                                 :emacs-mule-unix
+                                                 :utf-8-unix)))
 
 (defun print-connection (conn stream depth)
   (declare (ignore depth))
@@ -273,56 +278,53 @@ Redirection is done while Lisp is processing a request for Emacs.")
 (defvar *communication-style* (preferred-communication-style))
 (defvar *log-events* nil)
 
-(defun start-server (port-file &optional (style *communication-style*)
-                     dont-close)
+(defun start-server (port-file &key (style *communication-style*)
+                     dont-close (external-format *coding-system*))
   "Start the server and write the listen port number to PORT-FILE.
 This is the entry point for Emacs."
   (setup-server 0 (lambda (port) (announce-server-port port-file port))
-                style dont-close))
+                style dont-close external-format))
 
 (defun create-server (&key (port default-server-port)
                       (style *communication-style*)
-                      dont-close)
+                      dont-close (external-format *coding-system*))
   "Start a SWANK server on PORT running in STYLE.
 If DONT-CLOSE is true then the listen socket will accept multiple
 connections, otherwise it will be closed after the first."
-  (setup-server port #'simple-announce-function style dont-close))
+  (setup-server port #'simple-announce-function style dont-close 
+                external-format))
 
 (defun create-swank-server (&optional (port default-server-port)
                             (style *communication-style*)
                             (announce-fn #'simple-announce-function)
-                            dont-close)
-  (setup-server port announce-fn style dont-close))
+                            dont-close (external-format *coding-system*))
+  (setup-server port announce-fn style dont-close external-format))
 
 (defparameter *loopback-interface* "127.0.0.1")
 
-(defun setup-server (port announce-fn style dont-close)
+(defun setup-server (port announce-fn style dont-close external-format)
   (declare (type function announce-fn))
   (let* ((socket (create-socket *loopback-interface* port))
          (port (local-port socket)))
     (funcall announce-fn port)
-    (ecase style
-      (:spawn
-       (spawn (lambda () 
-                (loop do (serve-connection socket :spawn dont-close)
-                      while dont-close))
-              :name "Swank"))
-      ((:fd-handler :sigio)
-       (add-fd-handler socket 
-                       (lambda ()
-                         (serve-connection socket style dont-close))))
-      ((nil)
-       (unwind-protect
-            (loop do (serve-connection socket style dont-close)
-                  while dont-close)
-         (close-socket socket))))
-    port))
+    (flet ((serve ()
+             (serve-connection socket style dont-close external-format)))
+      (ecase style
+        (:spawn
+         (spawn (lambda () (loop do (serve) while dont-close)) 
+                :name "Swank"))
+        ((:fd-handler :sigio)
+         (add-fd-handler socket (lambda () (serve))))
+        ((nil)
+         (unwind-protect (loop do (serve) while dont-close)
+           (close-socket socket))))
+      port)))
 
-(defun serve-connection (socket style dont-close)
-  (let ((client (accept-connection socket)))
+(defun serve-connection (socket style dont-close external-format)
+  (let ((client (accept-connection socket :external-format external-format)))
     (unless dont-close
       (close-socket socket))
-    (let ((connection (create-connection client style)))
+    (let ((connection (create-connection client style external-format)))
       (run-hook *new-connection-hook* connection)
       (push connection *connections*)
       (serve-requests connection))))
@@ -367,7 +369,8 @@ returns two values: the output function, and the dedicated
 stream (or NIL if none was created)."
   (if *use-dedicated-output-stream*
       (let ((stream (open-dedicated-output-stream 
-                     (connection.socket-io connection))))
+                     (connection.socket-io connection)
+                     (connection.external-format connection))))
         (values (lambda (string)
                   (write-string string stream)
                   (force-output stream))
@@ -379,7 +382,7 @@ stream (or NIL if none was created)."
                     (send-to-emacs `(:read-output ,string)))))
               nil)))
 
-(defun open-dedicated-output-stream (socket-io)
+(defun open-dedicated-output-stream (socket-io external-format)
   "Open a dedicated output connection to the Emacs on SOCKET-IO.
 Return an output stream suitable for writing program output.
 
@@ -387,7 +390,7 @@ This is an optimized way for Lisp to deliver output to Emacs."
   (let* ((socket (create-socket *loopback-interface* 0))
          (port (local-port socket)))
     (encode-message `(:open-dedicated-output-stream ,port) socket-io)
-    (accept-connection socket)))
+    (accept-connection socket :external-format external-format)))
 
 (defun handle-request (connection)
   "Read and process one request.  The processing is done in the extend
@@ -622,7 +625,7 @@ of the toplevel restart."
           (connection.user-input connection)       in)
     connection))
 
-(defun create-connection (socket-io style)
+(defun create-connection (socket-io style external-format)
   (let ((c (ecase style
              (:spawn
               (make-connection :socket-io socket-io
@@ -648,6 +651,7 @@ of the toplevel restart."
                                :send #'send-to-socket-io
                                :serve-requests #'simple-serve-requests)))))
     (setf (connection.communication-style c) style)
+    (setf (connection.external-format c) external-format)
     (initialize-streams-for-connection c)
     c))
 
@@ -831,20 +835,23 @@ Useful for low level debugging."
   "Read an S-expression from STREAM using the SLIME protocol.
 If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
   (let ((*swank-state-stack* (cons :read-next-form *swank-state-stack*)))
-    (flet ((next-byte () (char-code (read-char stream t))))
-      (handler-case
-          (let* ((length (logior (ash (next-byte) 16)
-                                 (ash (next-byte) 8)
-                                 (next-byte)))
-                 (string (make-string length))
-                 (pos (read-sequence string stream)))
-            (assert (= pos length) ()
-                    "Short read: length=~D  pos=~D" length pos)
-            (let ((form (read-form string)))
-              (log-event "READ: ~A~%" string)
-              form))
-        (serious-condition (c)
-          (error (make-condition 'slime-protocol-error :condition c)))))))
+    (handler-case
+        (let* ((length (decode-message-length stream))
+               (string (make-string length))
+               (pos (read-sequence string stream)))
+          (assert (= pos length) ()
+                  "Short read: length=~D  pos=~D" length pos)
+          (let ((form (read-form string)))
+            (log-event "READ: ~A~%" string)
+            form))
+      (serious-condition (c)
+        (error (make-condition 'slime-protocol-error :condition c))))))
+
+(defun decode-message-length (stream)
+  (let ((buffer (make-string 6)))
+    (dotimes (i 6)
+      (setf (aref buffer i) (read-char stream)))
+    (parse-integer buffer :radix #x10)))
 
 (defun read-form (string)
   (with-standard-io-syntax
@@ -868,9 +875,7 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
   (let* ((string (prin1-to-string-for-emacs message))
          (length (1+ (length string))))
     (log-event "WRITE: ~A~%" string)
-    (loop for position from 16 downto 0 by 8
-          do (write-char (code-char (ldb (byte 8 position) length))
-                         stream))
+    (format stream "~6,'0x" length)
     (write-string string stream)
     (terpri stream)
     (force-output stream)))
