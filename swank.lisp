@@ -791,6 +791,7 @@ pretty printing of (function foo) as #'foo is suppressed."
          (let ((arg (pop arglist)))
            (etypecase arg
              (symbol (princ arg))
+             (string (princ arg))
              (cons (pprint-logical-block (nil nil :prefix "(" :suffix ")")
                      (princ (car arg))
                      (write-char #\space)
