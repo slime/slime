@@ -375,6 +375,12 @@ compiler state."
   "Return the list of compiler notes for the last compilation unit."
   (reverse *compiler-notes*))
 
+(defmacro with-trapping-compilation-notes (&body body)
+  `(handler-bind ((c::compiler-error #'handle-notification-condition)
+                  (c::style-warning #'handle-notification-condition)
+                  (c::warning #'handle-notification-condition))
+    ,@body))
+
 (defslimefun swank-compile-file (filename load)
   (clear-note-database filename)
   (clear-compiler-notes)
@@ -382,10 +388,7 @@ compiler state."
   (let ((*buffername* nil)
 	(*buffer-offset* nil))
     (multiple-value-bind (pathname errorsp notesp) 
-        (handler-bind ((c::compiler-error #'handle-notification-condition)
-                       (c::style-warning #'handle-notification-condition)
-                       (c::warning #'handle-notification-condition))
-          (compile-file filename :load load))
+        (with-trapping-compilation-notes (compile-file filename :load load))
       (list (if pathname (namestring pathname)) errorsp notesp))))
 
 (defslimefun swank-compile-string (string buffer start)
@@ -396,10 +399,11 @@ compiler state."
     (with-input-from-string (stream string)
       (multiple-value-list
        (handler-bind ((c::compiler-error #'error)) ; turn reader errors into errors
-	 (ext:compile-from-stream 
-	  stream 
-	  :source-info `(:emacs-buffer ,buffer 
-			 :emacs-buffer-offset ,start)))))))
+         (with-trapping-compilation-notes
+             (ext:compile-from-stream 
+              stream 
+              :source-info `(:emacs-buffer ,buffer 
+                             :emacs-buffer-offset ,start))))))))
 
 (defun clear-xref-info (namestring)
   "Clear XREF notes pertaining to FILENAME.
