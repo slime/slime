@@ -728,9 +728,7 @@ The REPL buffer is a special case: it's package is `slime-lisp-package'."
                       (force-mode-line-update)))
                string)
               (t
-               (if dont-cache
-                   "COMMON-LISP-USER"
-                 slime-buffer-package))))))
+               slime-buffer-package)))))
 
 (defun slime-find-buffer-package ()
   "Figure out which Lisp package the current buffer is associated with."
@@ -5526,12 +5524,14 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
             collect frame)
       frames))
 
-(defun sldb-insert-frame (frame)
+(defun sldb-insert-frame (frame &optional detailedp)
   (destructuring-bind (number string) frame
     (slime-insert-propertized 
-     `(frame ,frame) 
+     `(frame ,frame sldb-default-action sldb-toggle-details)
      "  " (in-sldb-face frame-label (format "%d" number)) ": "
-     (in-sldb-face frame-line string)
+     (if detailedp
+         (in-sldb-face detailed-frame-line string)
+       (in-sldb-face frame-line string))
      "\n")))
 
 (defun sldb-insert-frames (frames maximum-length)
@@ -5664,10 +5664,12 @@ Called on the `point-entered' text-property hook."
 The details include local variable bindings and CATCH-tags."
   (interactive)
   (sldb-frame-number-at-point)
-  (let ((inhibit-read-only t))
+  (let ((inhibit-read-only t)
+        (column (current-column)))
     (if (or on (not (sldb-frame-details-visible-p)))
 	(sldb-show-frame-details)
-      (sldb-hide-frame-details))))
+      (sldb-hide-frame-details))
+    (move-to-column column)))
 
 (defun sldb-frame-details-visible-p ()
   (and (get-text-property (point) 'frame)
@@ -5684,11 +5686,9 @@ The details include local variable bindings and CATCH-tags."
              (indent1 "      ")
              (indent2 "        "))
 	(delete-region start end)
-	(slime-propertize-region (plist-put props 'details-visible-p t)
-	  (insert "  " 
-                  (in-sldb-face frame-label (format "%d" frame-number)) ": "
-                  (in-sldb-face detailed-frame-line (second frame)) "\n"
-                  indent1 (in-sldb-face section "Locals:") "\n")
+	(slime-propertize-region `(frame ,frame details-visible-p t)
+          (sldb-insert-frame frame t)
+          (insert indent1 (in-sldb-face section "Locals:") "\n")
           (sldb-insert-locals frame-number indent2)
 	  (when sldb-show-catch-tags
 	    (let ((catchers (sldb-catch-tags frame-number)))
@@ -6109,6 +6109,7 @@ This way you can still see what the error was after exiting SLDB."
   :group 'slime-inspector)
 
 (defvar slime-inspector-mark-stack '())
+(defvar slime-saved-window-config)
 
 (defun slime-inspect (string)
   "Eval an expression and inspect the result."
@@ -6129,10 +6130,12 @@ This way you can still see what the error was after exiting SLDB."
 	(setq slime-inspector-mark-stack '())
         (slime-mode t)
 	(slime-inspector-mode)
+        (make-local-variable 'slime-saved-window-config)
+        (setq slime-saved-window-config (current-window-configuration))
 	(current-buffer))))
 
-(defun slime-inspector-fontify (face string)
-  (slime-add-face (intern (format "slime-inspector-%s-face" face)) string))
+(defmacro slime-inspector-fontify (face string)
+  `(slime-add-face ',(intern (format "slime-inspector-%s-face" face)) ,string))
 
 (defun slime-open-inspector (inspected-parts &optional point)
   "Display INSPECTED-PARTS in a new inspector window.
@@ -6142,7 +6145,7 @@ Optionally set point to POINT."
       (erase-buffer)
       (destructuring-bind (&key text type primitive-type parts) inspected-parts
         (macrolet ((fontify (face string)
-                            `(slime-inspector-fontify ',face ,string)))
+                            `(slime-inspector-fontify ,face ,string)))
           (insert (fontify topline text))
           (while (eq (char-before) ?\n) (backward-delete-char 1))
           (insert "\n" 
@@ -6193,6 +6196,7 @@ Optionally set point to POINT."
 (defun slime-inspector-quit ()
   (interactive)
   (slime-eval-async `(swank:quit-inspector) nil (lambda (_)))
+  (set-window-configuration slime-saved-window-config)
   (kill-buffer (current-buffer)))
 
 (defun slime-inspector-describe ()
@@ -6423,6 +6427,48 @@ is exceeded."
                 (beginning-of-defun)
                 (ignore-errors (end-of-defun) t))
         do (insert ")")))
+
+
+
+;;; Font Lock
+
+(defcustom slime-highlight-suppressed-forms t
+  "If enabled highlight reader conditionalized forms if the test is false."
+  :type '(choice (const :tag "Enable" t) (const :tag "Disable" nil))
+  :group 'slime)
+
+(defun slime-search-suppressed-forms (limit)
+  "Find reader conditionalized forms where the test is false."
+  (when (and slime-highlight-suppressed-forms
+             (slime-connected-p)
+	     (re-search-forward "[ \n\t\r]#[-+]" limit t))
+    (ignore-errors
+      (let* ((char (char-before))
+             (e (read (current-buffer)))
+             (val (slime-eval-feature-conditional e)))
+        (when (<= (point) limit)
+          (if (or (and (eq char ?+) (not val))
+                  (and (eq char ?-) val))
+              (let ((start (point)))
+                (forward-sexp)
+                (assert (<= (point) limit))
+                (let ((md (match-data)))
+                  (fill md nil)
+                  (setf (first md) start)
+                  (setf (second md) (point))
+                  (set-match-data md)
+                  t))
+            (slime-search-suppressed-forms limit)))))))
+
+;; XXX add XEmacs compatibility
+(defun slime-activate-font-lock-magic ()
+  (font-lock-add-keywords
+   'lisp-mode
+   '((slime-search-suppressed-forms 0 font-lock-comment-face t))))
+
+(when (and (fboundp 'font-lock-add-keywords)
+           slime-highlight-suppressed-forms)
+  (slime-activate-font-lock-magic))
 
 
 ;;; Indentation
@@ -7024,6 +7070,37 @@ SWANK> "
     (slime-test-expect "Buffer contains result" 
                        result-contents (buffer-string))))
 
+(def-slime-test repl-return 
+    (before after result-contents)
+    "Test if slime-repl-return sends the correct protion to Lisp even
+if point is not at the end of the line."
+    '(("(+ 1 2)" "" "SWANK> (+ 1 2)
+3
+SWANK> ")
+("(+ 1 " "2)" "SWANK> (+ 1 2)
+3
+SWANK> ")
+
+("(+ 1\n" "2)" "SWANK> (+ 1
+2)
+3
+SWANK> ")
+
+)
+  (with-current-buffer (slime-output-buffer)
+    (setf (slime-lisp-package) "SWANK"))
+  (kill-buffer (slime-output-buffer))
+  (with-current-buffer (slime-output-buffer)
+    (insert before)
+    (save-excursion (insert after))
+    (slime-test-expect "Buffer contains input" 
+                       (concat "SWANK> " before after)
+                       (buffer-string))
+    (call-interactively 'slime-repl-return)
+    (slime-sync-to-top-level 5)
+    (slime-test-expect "Buffer contains result" 
+                       result-contents (buffer-string))))
+  
 (def-slime-test repl-read
     (prompt input result-contents)
     "Test simple commands in the minibuffer."
@@ -7116,7 +7193,7 @@ SWANK> " t))
   (with-current-buffer (sldb-get-default-buffer)
     (sldb-quit))
   (slime-sync-to-top-level 5))
-  
+      
 
 ;;; Portability library
 
