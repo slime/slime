@@ -1,3 +1,11 @@
+2003-11-10  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-post-command-hook): Inhibit unless (still) in
+	slime-mode. Only call `slime-autodoc-post-command-hook' when
+	`slime-autodoc-mode' is non-nil.
+	(slime-setup-command-hooks): Use `make-local-hook' instead of
+	`make-local-variable'.
+
 2003-11-08  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el: slime-highlight-face: Use the :inherit attribute if
