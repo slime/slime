@@ -13,6 +13,8 @@
            #:start-server 
            #:create-swank-server
            #:ed-in-emacs
+           
+           #:frame-source-location-for-emacs
            ))
 
 (in-package :swank)
@@ -932,6 +934,10 @@ has changed, ignore the request."
 
 (defslimefun frame-catch-tags-for-emacs (frame-index)
   (frame-catch-tags frame-index))
+
+(defslimefun sldb-disassemble (index)
+  (with-output-to-string (*standard-output*)
+    (disassemble-frame index)))
 
 
 ;;;; Evaluation
