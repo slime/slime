@@ -1,5 +1,8 @@
 2005-03-13  Luke Gorrie  <luke@synap.se>
 
+	* swank.lisp (inspect-for-emacs symbol): Add an "unintern it"
+	action for symbols.
+
 	* swank-source-file-cache.lisp (read-snippet): Skip comments and
 	whitespace in SBCL. The source-positions reported by SBCL are not
 	adjusted to skip over whitespace before the definition.
