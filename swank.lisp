@@ -371,6 +371,19 @@ conditions are simply reported."
 (defslimefun sldb-continue ()
   (continue))
 
+(defslimefun invoke-nth-restart-for-emacs (sldb-level n)
+  "Invoke the Nth available restart.
+SLDB-LEVEL is the debug level when the request was made. If this
+has changed, ignore the request."
+  (when (= sldb-level *sldb-level*)
+    (invoke-nth-restart n)))
+
+(defun sldb-break-with-default-debugger ()
+  (let ((*debugger-hook* nil))
+    ;; FIXME: This will break when the SBCL backend starts using the
+    ;; extra sbcl debugger hook.
+    (break)))
+
 (defslimefun eval-string-in-frame (string index)
   (to-string (eval-in-frame (from-string string) index)))
 
@@ -399,6 +412,14 @@ conditions are simply reported."
   (when *debugger-hook-passback*
     (setq *debugger-hook* *debugger-hook-passback*)
     (setq *debugger-hook-passback* nil)))
+
+(defslimefun oneway-eval-string (string buffer-package)
+  "Evaluate STRING in BUFFER-PACKAGE, without sending a reply.
+The debugger hook is inhibited during the evaluation."
+  (let ((*buffer-package* (guess-package-from-string buffer-package))
+        (*package* *buffer-package*)
+        (*debugger-hook* nil))
+    (eval (read-form string))))
 
 (defun format-values-for-echo-area (values)
   (cond (values (format nil "~{~S~^, ~}" values))
