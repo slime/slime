@@ -55,7 +55,6 @@
 
 ;;; Declarations of dependencies, constants, and variables.
 (require 'inf-lisp)
-(require 'cmucl-wire)
 
 (when (featurep 'xemacs)
   (require 'overlay)
