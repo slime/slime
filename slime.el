@@ -1150,11 +1150,7 @@ Polling %S.. (Abort with `M-x slime-connection-abort'.)"
     (slime-init-connection process)
     (when-let (buffer (get-buffer "*inferior-lisp*"))
       (delete-windows-on buffer)
-      (bury-buffer buffer))
-    (slime-init-output-buffer process)
-    (run-hooks 'slime-connected-hook)
-    (message "Connected on port %S. %s"
-             port (slime-random-words-of-encouragement))))
+      (bury-buffer buffer))))
 
 (defun slime-changelog-date ()
   "Return the datestring of the latest entry in the ChangeLog file.
@@ -1609,6 +1605,13 @@ This is automatically synchronized from Lisp.")
                     :key #'slime-connection-name :test #'equal)
         finally (return name)))
 
+(defun slime-connection-port (connection)
+  "Return the remote port number of CONNECTION."
+  (cond ((featurep 'xemacs)
+         (car (process-id connection)))
+        (t
+         (cadr (process-contact connection)))))
+
 (defun slime-init-connection-state (proc)
   ;; To make life simpler for the user: if this is the only open
   ;; connection then reset the connection counter.
@@ -1616,17 +1619,28 @@ This is automatically synchronized from Lisp.")
     (setq slime-connection-counter 0))
   (slime-with-connection-buffer ()
     (setq slime-connection-number (incf slime-connection-counter)))
-  (destructuring-bind (version pid type name features)
-      (slime-eval '(swank:connection-info))
+  (with-lexical-bindings (proc)
+    (slime-eval-async '(swank:connection-info) nil
+                      (lambda (info)
+                        (slime-set-connection-info proc info)))))
+
+(defun slime-set-connection-info (connection info)
+  "Initialize CONNECTION with INFO received from Lisp."
+  (destructuring-bind (version pid type name features) info
     (slime-check-protocol-version version)
     (setf (slime-pid) pid
           (slime-lisp-implementation-type) type
           (slime-lisp-implementation-type-name) name
           (slime-connection-name) (slime-generate-connection-name name)
           (slime-lisp-features) features))
+  (slime-init-output-buffer process)
   (setq slime-state-name "")
   (when slime-global-debugger-hook
-    (slime-eval '(swank:install-global-debugger-hook) "COMMON-LISP-USER")))
+    (slime-eval '(swank:install-global-debugger-hook)))
+  (message "Connected on port %S. %s" 
+           (slime-connection-port connection)
+           (slime-random-words-of-encouragement))
+  (run-hooks 'slime-connected-hook))
 
 (defun slime-busy-p ()
   slime-rex-continuations)
@@ -1832,17 +1846,7 @@ deal with that."
            (slime-repl-insert-prompt ""))
           (t
            (slime-repl-insert-prompt (concat "; " banner))
-           (pop-to-buffer (current-buffer))))
-    ;; We are called from a timer function and for unkown reasons the
-    ;; first command after executing the timer function is looked up
-    ;; in the buffer in which the timer was started and not in the
-    ;; then current buffer.  Add a dummy event as workaround. -- he
-    (unless (featurep 'xemacs)
-      (setq unread-command-events
-            (append (listify-key-sequence 
-                     (car (where-is-internal 'recenter
-                                             overriding-local-map nil nil)))
-                    unread-command-events)))))
+           (pop-to-buffer (current-buffer))))))
 
 (defun slime-init-output-buffer (connection)
   (with-current-buffer (slime-output-buffer t)
