@@ -673,6 +673,7 @@ See `slime-compile-and-load-file' for further details."
    `(swank:swank-compile-string ,(slime-defun-at-point) 
 				,(buffer-name)
 				,(save-excursion
+                                   (end-of-defun)
 				   (beginning-of-defun)
 				   (point)))
    (slime-buffer-package)
@@ -791,15 +792,13 @@ If the location's sexp is a list spanning multiple lines, then the
 region around the first element is used."
   (slime-goto-location note)
   (let ((start (point)))
-    (ignore-errors (backward-up-list 1))
     (slime-forward-sexp)
-    (when (eq (char-before) ?\)) (backward-char))
-    (values start
-	    (if (slime-same-line-p start (point))
-		(point)
-		(progn (goto-char start)
-		       (forward-sexp)
-		       (point))))))
+    (if (slime-same-line-p start (point))
+        (values start (point))
+      (values (1+ start)
+              (progn (goto-char (1+ start))
+                     (forward-sexp 1)
+                     (point))))))
 
 (defun slime-same-line-p (start end)
   "Return true if buffer positions START and END are on the same line."
