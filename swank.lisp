@@ -543,18 +543,40 @@ reference     ::= (FUNCTION-SPECIFIER SOURCE-PATH)"
                               (princ-to-string (xref:xref-context-name context)))
                             (xref:xref-context-source-path context)))))
 
-(defslimefun completions (prefix package-name &optional only-external-p)
-  "Return a list of completions for a symbol's PREFIX and PACKAGE-NAME.
-The result is a list of symbol-name strings. All symbols accessible in
-the package are considered."
-  (let ((completions nil)
-        (package (find-package package-name)))
-    (when package
-      (do-symbols (symbol package)
-        (when (and (or (not only-external-p) (symbol-external-p symbol))
-                   (string-prefix-p prefix (symbol-name symbol)))
-          (push (symbol-name symbol) completions))))
-    completions))
+
+(defslimefun completions (string default-package-name)
+  "Return a list of completions for a symbol designator STRING.  
+
+The result is a list of strings.  If STRING is package qualified the
+result list will also be qualified.  If string is non-qualified the
+result strings are also not qualified and are considered relative to
+DEFAULT-PACKAGE-NAME.  All symbols accessible in the package are
+considered."
+  (flet ((parse-designator (string)
+	   (values (let ((pos (position #\: string :from-end t)))
+		     (if pos (subseq string (1+ pos)) string))
+		   (let ((pos (position #\: string)))
+		     (if pos (subseq string 0 pos) nil))
+		   (search "::" string))))
+    (multiple-value-bind (name package-name internal) (parse-designator string)
+      (let ((completions nil)
+	    (package (find-package (string-upcase (or package-name 
+						      default-package-name)))))
+	(when package
+	  (do-symbols (symbol package)
+	    (when (and (string-prefix-p name (symbol-name symbol))
+		       (or internal
+			   (not package-name)
+			   (symbol-external-p symbol)))
+	      (push symbol completions))))
+	(let ((*print-case* (if (find-if #'upper-case-p string)
+				:upcase :downcase))
+	      (*package* package))
+	  (mapcar (lambda (s)
+		    (cond (internal (format nil "~A::~A" package-name s))
+			  (package-name (format nil "~A:~A" package-name s))
+			  (t (format nil "~A" s))))
+		  completions))))))
 
 (defun symbol-external-p (s)
   (multiple-value-bind (_ status)
@@ -566,7 +588,7 @@ the package are considered."
   "Return true iff the string S1 is a prefix of S2.
 \(This includes the case where S1 is equal to S2.)"
   (and (<= (length s1) (length s2))
-       (string= s1 s2 :end2 (length s1))))
+       (string-equal s1 s2 :end2 (length s1))))
 
 (defslimefun list-all-package-names ()
   (let ((list '()))
@@ -588,7 +610,7 @@ the package are considered."
   "Return the debug-info for FUNCTION."
   (declare (type (or symbol function) function))
   (typecase function
-    (symbol
+    (symbol 
      (let ((def (or (macro-function function)
 		    (and (fboundp function)
 			 (fdefinition function)))))
@@ -654,7 +676,7 @@ the package are considered."
 	  (struct-accessor-class function)))
 	((struct-setter-p function)
 	 (struct-class-source-location 
-	  (struct-accessor-class function)))
+	  (struct-setter-class function)))
 	((struct-predicate-p function)
 	 (struct-class-source-location 
 	  (struct-predicate-class function)))
@@ -704,7 +726,7 @@ the package are considered."
             (to-namestring (c::debug-source-name source))))))))
 
 (defun briefly-describe-symbol-for-emacs (symbol)
-  "Return a plist of describing SYMBOL.
+  "Return a plist describing SYMBOL.
 Return NIL if the symbol is unbound."
   (let ((result '()))
     (labels ((first-line (string) 
