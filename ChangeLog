@@ -8,6 +8,8 @@
 	(slime-give-goahead, slime-waiting-threads)
 	(slime-popup-thread-control-panel, slime-register-waiting-thread)
 	(slime-thread-goahead): Deleted.
+	(slime-maybe-start-multiprocessing): Call
+	swank:startup-multiprocessing.  Reported by Paolo Amoroso.
 
 	* swank.lisp (dispatch-event): :debug, :debug-condition,
 	:debug-activate events were all encoded as :debug events, which
@@ -15,7 +17,7 @@
 	SLIME with a multithreaded Lisp.
 	(read-user-input-from-emacs): Flush the output before reading.
 	(sldb-loop): Add a sldb-enter-default-debugger tag, so we can
-	enter the default debugger by throwing to this it.
+	enter the default debugger by throwing to it.
 	(sldb-break-with-default-debugger): Throw to
 	sldb-enter-default-debugger.
 	(*thread-list*): New variable.
