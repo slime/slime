@@ -131,7 +131,7 @@ a stream for the new connection.")
   nil)
 
 ;;; Base condition for networking errors.
-(define-condition network-error (error) ())
+(define-condition network-error (simple-error) ())
 
 (definterface emacs-connected ()
    "Hook called when the first connection from Emacs is established.
