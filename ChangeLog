@@ -1,3 +1,25 @@
+2005-01-10  Utz-Uwe Haus <haus+slime@merkur.math.uni-magdeburg.de>
+
+	* swank-sbcl.lisp (profile-package): Add implementation for SBCL.
+
+2005-01-10  Eduardo Muñoz <emufer@terra.es>
+
+	* swank.lisp (inspect-for-emacs-list): LispWorks has a low args
+	limit for apply: use reduce instead of apply.
+
+2005-01-10  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-conservative-indentation): The default is now
+	nil.  Suggested by Travis Cross.
+
+2005-01-10  Matthias Koeppe <mkoeppe+slime@merkur.math.uni-magdeburg.de>
+
+	* slime.el (slime-inspector-next-inspectable-object): Accept a
+	prefix argument and make wrapping around more reliable.  The code
+	is adapted from `widget-move'.
+	(slime-inspector-previous-inspectable-object): New command.
+	(slime-inspector-mode-map): Bind to S-TAB.
+	
 2004-12-16  Martin Simmons <martin@xanalys.com>
 
 	* swank-lispworks.lisp (create-socket): Work around bug in
