@@ -1,3 +1,12 @@
+2005-03-02  Marco Baringer  <mb@bese.it>
+	
+	* swank-loader.lisp Look for a file in the same directory as
+	swank-loader.lisp called site-init.lisp. If it exists we load that
+	instead of attempting to load ~/.swank.lisp.
+	(user-init-file): Superseded by load-user-init-file.
+	(load-user-init-file): New function.
+	(load-site-init-file): New function.
+
 2005-03-01  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-who-bindings): Bind who-specializes to C-c W a.
