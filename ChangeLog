@@ -1,5 +1,9 @@
 2004-01-12  Luke Gorrie  <luke@bluetail.com>
 
+	* swank-lispworks.lisp: Partially updated for new backend
+	interface, but not actually working. The sockets code is broken, I
+	haven't grokked LispWorks the interface properly.
+
 	* swank-gray.lisp (slime-input-stream, slime-output-buffer): Added
 	slots to support the new `make-fn-streams' interface from
 	swank-backend.lisp. These slots need to be initialized by the
