@@ -898,7 +898,8 @@ NAME can any valid function name (e.g, (setf car))."
   (let ((macro?    (and (symbolp name) (macro-function name)))
         (special?  (and (symbolp name) (special-operator-p name)))
         (function? (and (ext:valid-function-name-p name)
-                        (ext:info :function :definition name))))
+                        (ext:info :function :definition name)
+                        (if (symbolp name) (fboundp name) t))))
     (cond (macro? 
            (list `((defmacro ,name)
                    ,(function-location (macro-function name)))))
@@ -1329,6 +1330,9 @@ Signal an error if no constructor can be found."
                (symbol-function name))))
 
 (defimplementation arglist ((fun function))
+  (function-arglist fun))
+
+(defun function-arglist (fun)
   (let ((arglist
          (cond ((eval:interpreted-function-p fun)
                 (eval:interpreted-function-arglist fun))
@@ -1750,6 +1754,9 @@ Try to create a informative message."
             (let ((values (breakpoint-values breakpoint)))
               (brk values "Return value: ~{~S ~}" values)))
            (t
+            #+(or)
+            (when (eq (di:code-location-kind what) :call-site)
+              (call-site-function breakpoint frame))
             (brk nil "Breakpoint: ~S ~S" 
                  (di:code-location-kind what)
                  (di::compiled-code-location-pc what)))))
@@ -2181,44 +2188,44 @@ The `symbol-value' of each element is a type tag.")
 ;; (trace :methods t '<name>) ;;to trace all methods of the gf <name>
 ;; <name> can be a normal name or a (setf name)
 
-(defun toggle-trace (fspec &rest args)
-  (cond ((member fspec (eval '(trace)) :test #'equal)
-         (eval `(untrace ,fspec))
-         (format nil "~S is now untraced." fspec))
-        (t
-         (eval `(trace ,fspec ,@args))
-         (format nil "~S is now traced." fspec))))
+(defun tracedp (spec)
+  (member spec (eval '(trace)) :test #'equal))
 
-(defimplementation toggle-trace-generic-function-methods (name)
-  (cond ((member name (eval '(trace)) :test #'equal)
-         (eval `(untrace ,name))
-         (eval `(untrace :methods ',name))
-         (format nil "~S is now untraced." name))
+(defun toggle-trace-aux (spec &rest options)
+  (cond ((tracedp spec)
+         (eval `(untrace ,spec))
+         (format nil "~S is now untraced." spec))
         (t
-         (eval `(trace ,name))
-         (eval `(trace :methods ',name))
-         (format nil "~S is now traced." name))))
+         (eval `(trace ,spec ,@options))
+         (format nil "~S is now traced." spec))))
+
+(defimplementation toggle-trace (spec)
+  (ecase (car spec)
+    ((setf)
+     (toggle-trace-aux spec))
+    ((:defgeneric)
+     (let ((name (second spec)))
+       (toggle-trace-aux name :methods name)))
+    ((:defmethod)
+     (toggle-trace-aux `(method ,(cdr spec)))
+     ;; Man, is this ugly
+     (toggle-trace-aux `(pcl::fast-method ,(cdr spec))))
+    ((:call)
+     (destructuring-bind (caller callee) (cdr spec)
+       (toggle-trace-aux (process-fspec callee) 
+                         :wherein (list (process-fspec caller)))))))
 
 (defun process-fspec (fspec)
   (cond ((consp fspec)
          (ecase (first fspec)
            ((:defun :defgeneric) (second fspec))
-           ((:defmethod) `(method ,@(rest fspec)))
+           ((:defmethod) 
+            `(method ,(second fspec) ,@(third fspec) ,(fourth fspec)))
+           ;; this isn't actually supported
            ((:labels) `(labels ,(process-fspec (second fspec)) ,(third fspec)))
            ((:flet) `(flet ,(process-fspec (second fspec)) ,(third fspec)))))
         (t
          fspec)))
-
-(defimplementation toggle-trace-function (spec)
-  (toggle-trace spec))
-
-#+cmu19
-(defimplementation toggle-trace-method (spec)
-  (toggle-trace `(pcl:fast-method ,@(rest (process-fspec spec)))))
-
-#+cmu19
-(defimplementation toggle-trace-fdefinition-wherein (name wherein)
-  (toggle-trace name :wherein (process-fspec wherein)))
 
 ;; Local Variables:
 ;; pbook-heading-regexp:    "^;;;\\(;+\\)"

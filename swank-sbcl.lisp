@@ -944,16 +944,13 @@ stack."
 ;; (trace (method <name> <qualifier>? (<specializer>+)))
 ;; <name> can be a normal name or a (setf name)
 
-(defun toggle-trace (fspec &rest args)
+(defun toggle-trace-aux (fspec &rest args)
   (cond ((member fspec (eval '(trace)) :test #'equal)
          (eval `(untrace ,fspec))
          (format nil "~S is now untraced." fspec))
         (t
          (eval `(trace ,@(if args `(:encapsulate nil) (list)) ,fspec ,@args))
          (format nil "~S is now traced." fspec))))
-
-(defimplementation toggle-trace-generic-function-methods (name)
-  (toggle-trace name :methods t))
 
 (defun process-fspec (fspec)
   (cond ((consp fspec)
@@ -965,11 +962,14 @@ stack."
         (t
          fspec)))
 
-(defimplementation toggle-trace-function (spec)
-  (toggle-trace spec))
-
-(defimplementation toggle-trace-method (spec)
-  (toggle-trace `(sb-pcl::fast-method ,@(rest (process-fspec spec)))))
-
-(defimplementation toggle-trace-fdefinition-wherein (name wherein)
-  (toggle-trace name :wherein (process-fspec wherein)))
+(defimplementation toggle-trace (spec)
+  (ecase (car spec)
+    ((setf) 
+     (toggle-trace-aux spec))
+    ((:defmethod)
+     (toggle-trace-aux `(sb-pcl::fast-method ,@(rest (process-fspec spec)))))
+    ((:defgeneric)
+     (toggle-trace-aux (second spec) :methods t))
+    ((:call)
+     (destructuring-bind (caller callee) (cdr spec)
+       (toggle-trace-aux callee :wherein (list (process-fspec caller)))))))

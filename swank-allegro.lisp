@@ -271,7 +271,8 @@
 
 (defimplementation call-with-compilation-hooks (function)
   (handler-bind ((warning #'handle-compiler-warning)
-                 (compiler-note #'handle-compiler-warning))
+                 ;;(compiler-note #'handle-compiler-warning)
+                 )
     (funcall function)))
 
 (defimplementation swank-compile-file (*compile-filename* load-p)
@@ -402,11 +403,11 @@
     (xref-result (xref:get-relation ,relation ,name1 ,name2))))
 
 (defxref who-calls        :calls       :wild x)
+(defxref calls-who        :calls       x :wild)
 (defxref who-references   :uses        :wild x)
 (defxref who-binds        :binds       :wild x)
 (defxref who-macroexpands :macro-calls :wild x)
 (defxref who-sets         :sets        :wild x)
-(defxref list-callees     :calls       x :wild)
 
 (defun xref-result (fspecs)
   (loop for fspec in fspecs
@@ -436,7 +437,7 @@
                             (when (eq c symbol) 
                               (return-from in-constants-p t)))
                           3))
-  
+ 
 (defun function-callers (name)
   (let ((callers '()))
     (do-all-symbols (sym)
@@ -448,6 +449,15 @@
 
 (defimplementation list-callers (name)
   (xref-result (function-callers name)))
+
+(defimplementation list-callees (name)
+  (let ((result '()))
+    (map-function-constants (fdefinition name)
+                            (lambda (c)
+                              (when (fboundp c)
+                                (push c result)))
+                            2)
+    (xref-result result)))
 
 ;;;; Inspecting
 
@@ -674,26 +684,38 @@
 ;; (trace ((labels (method <name> (<specializer>+)) <label-name>)))
 ;; <name> can be a normal name or a (setf name)
 
-#-allegro-v5.0
-(defimplementation toggle-trace-generic-function-methods (name)
-  (let ((methods (mop:generic-function-methods (fdefinition name))))
-    (cond ((member name (eval '(trace)) :test #'equal)
-           (eval `(untrace ,name))
-           (dolist (method methods (format nil "~S is now untraced." name))
-             (excl:funtrace (mop:method-function method))))
-          (t
-           (eval `(trace ,name))
-           (dolist (method methods
-                    (format nil "~S is now traced." name))
-             (excl:ftrace (mop:method-function method)))))))
+(defimplementation toggle-trace (spec)
+  (ecase (car spec) 
+    (:defgeneric (toggle-trace-generic-function-methods (second spec)))
+    ((:defmethod :labels :flet) 
+     (toggle-trace-aux (process-fspec-for-allegro spec)))
+    (:call 
+     (destructuring-bind (caller callee) (cdr spec)
+       (toggle-trace-aux callee 
+                         :inside (list (process-fspec-for-allegro caller)))))))
 
-(defun toggle-trace (fspec &rest args)
-  (cond ((member fspec (eval '(trace)) :test #'equal)
+(defun tracedp (fspec)
+  (member name (eval '(trace)) :test #'equal))
+
+(defun toggle-trace-aux (fspec &rest args)
+  (cond ((tracedp fspec)
          (eval `(untrace ,fspec))
          (format nil "~S is now untraced." fspec))
         (t
          (eval `(trace (,fspec ,@args)))
          (format nil "~S is now traced." fspec))))
+
+#-allegro-v5.0
+(defun toggle-trace-generic-function-methods (name)
+  (let ((methods (mop:generic-function-methods (fdefinition name))))
+    (cond ((tracedp name)
+           (eval `(untrace ,name))
+           (dolist (method methods (format nil "~S is now untraced." name))
+             (excl:funtrace (mop:method-function method))))
+          (t
+           (eval `(trace ,name))
+           (dolist (method methods (format nil "~S is now traced." name))
+             (excl:ftrace (mop:method-function method)))))))
 
 (defun process-fspec-for-allegro (fspec)
   (cond ((consp fspec)
@@ -706,18 +728,3 @@
                        ,(third fspec)))))
         (t
          fspec)))
-
-(defimplementation toggle-trace-function (spec)
-  (toggle-trace spec))
-
-(defimplementation toggle-trace-method (spec)
-  (toggle-trace (process-fspec-for-allegro spec)))
-
-(defimplementation toggle-trace-fdefinition-wherein (name wherein)
-  (toggle-trace name :inside (if (and (consp wherein)
-                                      (eq (first wherein) :defmethod))
-                               (list (process-fspec-for-allegro wherein))
-                               (process-fspec-for-allegro wherein))))
-
-(defimplementation toggle-trace-fdefinition-within (spec)
-  (toggle-trace (process-fspec-for-allegro spec)))

@@ -533,8 +533,9 @@ Return NIL if the symbol is unbound."
 
 (defxref who-calls      hcl:who-calls)
 (defxref who-macroexpands hcl:who-calls) ; macros are in the calls table too
-(defxref list-callees   hcl:calls-who)
+(defxref calls-who      hcl:calls-who)
 (defxref list-callers   list-callers-internal)
+(defxref list-callees   list-callees-internal)
 
 (defun list-callers-internal (name)
   (let ((callers (make-array 100
@@ -608,12 +609,12 @@ Return NIL if the symbol is unbound."
 (defun parse-fspec (fspec)
   "Return a dspec for FSPEC."
   (ecase (car fspec)
-    (:defmethod `(method ,@(cdr fspec)))))
+    ((:defmethod) `(method ,(cdr fspec)))))
 
 (defun tracedp (dspec) 
   (member dspec (eval '(trace)) :test #'equal))
 
-(defun toggle-trace (dspec)
+(defun toggle-trace-aux (dspec)
   (cond ((tracedp dspec)
          (eval `(untrace ,dspec))
          (format nil "~S is now untraced." dspec))
@@ -621,8 +622,8 @@ Return NIL if the symbol is unbound."
          (eval `(trace (,dspec)))
          (format nil "~S is now traced." dspec))))
 
-(defimplementation toggle-trace-method (fspec)
-  (toggle-trace (parse-fspec fspec)))
+(defimplementation toggle-trace (fspec)
+  (toggle-trace-aux (parse-fspec fspec)))
 
 ;;; Multithreading
 
