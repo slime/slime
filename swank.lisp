@@ -2451,16 +2451,14 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
 ;;;; Inspecting
 
 (defgeneric inspected-parts (object)
-  (:documentation "
-Explan to emacs how to inspect OBJECT.
+  (:documentation "Explain to emacs how to inspect OBJECT.
 
-The first value must be a string, it will be used as the
-\"title\" of the inspector buffer.
+Returns two values: a string which will be used as the title of
+the inspector buffer and a list specifying how to render the
+object for inspection.
 
-The second value must be a list, this list will be rendered by
-emacs in the inspector buffer. If the element of the list is a
-string it will be rendered as is, otherwise it must be a list
-like so:
+Every elementi of the list must be either a string, which will be
+inserted into the buffer as is, or a list of the form:
 
  (:value object &optional format) - Render an inspectable
  object. If format is provided it must be a string and will be
@@ -2474,6 +2472,7 @@ like so:
  NIL - do nothing."))
 
 (defmethod inspected-parts ((o t))
+  "Simply dump the output of CL:DESCRIBE."
   (values (format nil "~S" o)
           `("Don't know how to inspect the object, dumping output of CL:DESCIRBE:" 
             (:newline) (:newline)
@@ -2493,7 +2492,7 @@ like so:
       (inspected-parts-of-simple-cons object)))
 
 (defun inspected-parts-of-simple-cons (cons)
-  (values (format nil "~S is a CONS." cons)
+  (values "A cons cell."
           `("Car: " (:value ,(car cons))
             (:newline)
             "Cdr: " (:value ,(cdr cons)))))
@@ -2523,7 +2522,7 @@ like so:
                   ,@(nreverse contents))))))
 
 (defmethod inspected-parts ((ht hash-table))
-  (values (format nil "The hash table ~S." ht)
+  (values "A hash table."
           `("Count: " (:value ,(hash-table-count ht))
             (:newline)
             "Size: " (:value ,(hash-table-size ht))
@@ -2571,7 +2570,7 @@ like so:
                  collect '(:newline)))))
 
 (defmethod inspected-parts ((char character))
-  (values (format nil "~C is a character." char)
+  (values "A character."
           `("Char code: " (:value ,(char-code char))
             (:newline)
             "Lower cased: " (:value ,(char-downcase char))
@@ -2594,7 +2593,7 @@ like so:
                    `("It names the package " (:value ,(find-package symbol)) (:newline))))
         (class (when (find-class symbol nil)
                  `("It names the class " (:value ,(find-class symbol))))))
-    (values (format nil "The symbol ~S." symbol)
+    (values "A symbol."
             `("It's name is: " (:value ,(symbol-name symbol))
               (:newline)
               ;; check to see whether it is a global variable, a
@@ -2628,19 +2627,44 @@ like so:
                                     (princ (package-name (symbol-package symbol)) export-label)
                                     (princ "]" export-label))
                                  ,(lambda () (export symbol (symbol-package symbol))))))
+              "Property list: " (:value ,(symbol-plist symbol))
               (:newline)
               ,@package
               ,@class))))
 
 (defmethod inspected-parts ((f function))  
-  (values (format nil "The function ~S." f)
+  (values "A function."
           `("Name: " (:value ,(function-name f)) (:newline)
-            "It's argument list is: " ,(princ-to-string (arglist f)) (:newline)
-            "Documentation:" (:newline)
-            ,(documentation f t))))
+            "It's argument list is: " ,(princ-to-string (arglist f))
+            (:newline)
+            ,@(when (documentation f t)
+                `("Documentation:" (:newline) ,(documentation f t) (:newline))))))
+
+(defmethod inspected-parts ((o standard-object))
+  (values "An object."
+          `("Class: " (:value ,(class-of o))
+            (:newline)
+            "Slots:" (:newline)
+            ,@(loop
+                 with direct-slots = (swank-mop:class-direct-slots (class-of o))
+                 for slot in (swank-mop:class-slots (class-of o))
+                 for slot-def = (or (find-if (lambda (a)
+                                               ;; find the direct slot with the same as
+                                               ;; SLOT (an effective slot).
+                                               (eql (swank-mop:slot-definition-name a)
+                                                    (swank-mop:slot-definition-name slot)))
+                                             direct-slots)
+                                    slot)
+                 collect `(:value ,slot-def ,(princ-to-string (swank-mop:slot-definition-name slot-def)))                   
+                 collect " = "
+                 if (slot-boundp o (swank-mop:slot-definition-name slot-def))
+                   collect `(:value ,(slot-value o (swank-mop:slot-definition-name slot-def)))
+                 else
+                   collect "#<unbound>"
+                 collect '(:newline)))))
 
 (defmethod inspected-parts ((gf standard-generic-function))
-  (values (format nil "The generic function ~S." gf)
+  (values "A generic function."
           `("Name: " (:value ,(swank-mop:generic-function-name gf)) (:newline)
             "It's argument list is: " ,(princ-to-string (swank-mop:generic-function-lambda-list gf)) (:newline)
             "Documentation: " (:newline)
@@ -2666,7 +2690,7 @@ like so:
                  collect '(:newline)))))
 
 (defmethod inspected-parts ((method standard-method))
-  (values (format nil "The method ~S." method)
+  (values "A method." 
           `("Method defined on the generic function " (:value ,(swank-mop:method-generic-function method)
                                                               ,(princ-to-string
                                                                 (swank-mop:generic-function-name
@@ -2675,12 +2699,13 @@ like so:
             "Documentation:" (:newline) ,(documentation method t) (:newline)
             "Lambda List: " (:value ,(swank-mop:method-lambda-list method))
             (:newline)
-            "Specializers: " (:value ,(swank-mop:method-specializers method))
+            "Specializers: " (:value ,(swank-mop:method-specializers method)
+                                     ,(princ-to-string (mapcar #'class-name (swank-mop:method-specializers method))))
             (:newline)
             "Qualifiers: " (:value ,(swank-mop:method-qualifiers method)))))
 
 (defmethod inspected-parts ((class standard-class))
-  (values (format nil "The class ~S." class)
+  (values "A class."
           `("Name: " (:value ,(class-name class))
             (:newline)
             "Super classes: " ,@(common-seperated-spec (swank-mop:class-direct-superclasses class))
@@ -2715,7 +2740,7 @@ like so:
                                '"N/A (class not finalized)"))))
 
 (defmethod inspected-parts ((slot swank-mop:standard-slot-definition))
-  (values (format nil "The slot ~S." slot)
+  (values "A slot." 
           `("Name: " (:value ,(swank-mop:slot-definition-name slot))
             (:newline)
             "Documentation:" (:newline)
@@ -2742,7 +2767,7 @@ like so:
             (push sym external-symbols)))))
     (setf internal-symbols (sort internal-symbols #'string-lessp)
           external-symbols (sort external-symbols #'string-lessp))
-    (values (format nil "The package ~S." package)
+    (values "A package."
             `("Name: " (:value ,(package-name package))
               (:newline)
               "Nick names: " ,@(common-seperated-spec (sort (package-nicknames package) #'string-lessp))
@@ -2770,6 +2795,88 @@ like so:
                    "0 shadowed symbols."
                    `(:value ,(package-shadowing-symbols package)
                             ,(format nil "~D shadowed symbols." (length (package-shadowing-symbols package)))))))))
+
+(defmethod inspected-parts ((pathname pathname))
+  (values "A pathname."
+          `("Namestring: " (:value ,(namestring pathname))
+            (:newline)
+            "Host: " (:value ,(pathname-host pathname))
+            (:newline)
+            "Device: " (:value ,(pathname-device pathname))
+            (:newline)
+            "Directory: " (:value ,(pathname-directory pathname))
+            (:newline)
+            "Name: " (:value ,(pathname-name pathname))
+            (:newline)
+            "Type: " (:value ,(pathname-type pathname))
+            (:newline)
+            "Version: " (:value ,(pathname-version pathname))
+            (:newline)
+            "Truename: " (:value ,(truename pathname)))))
+
+(defmethod inspected-parts ((pathname logical-pathname))
+  (values "A logical pathname."
+          `("Namestring: " (:value ,(namestring pathname))
+            (:newline)
+            "Physical pathname: " (:value ,(translate-logical-pathname pathname)) 
+            (:newline)
+            "Host: " (:value ,(pathname-host pathname))
+            " (" (:value ,(logical-pathname-translations (pathname-host pathname)) "other translations") ")"
+            (:newline)
+            "Directory: " (:value ,(pathname-directory pathname))
+            (:newline)
+            "Name: " (:value ,(pathname-name pathname))
+            (:newline)
+            "Type: " (:value ,(pathname-type pathname))
+            (:newline)
+            "Version: " (:value ,(pathname-version pathname)))))
+
+(defmethod inspected-parts ((n number))
+  (values "A number." `("Value: " ,(princ-to-string n))))
+
+(defmethod inspected-parts ((i integer))
+  (values "A number."
+          `("Value: " ,(princ-to-string i)
+            " == #x" ,(format nil "~X" i)
+            " == #o" ,(format nil "~O" i)
+            " == #b" ,(format nil "~B" i)
+            " == " ,(format nil "~E" i)
+            (:newline)
+            ,@(when (< -1 i char-code-limit)
+                `("Corresponding character: " (:value ,(code-char i)) (:newline)))
+            "Length: " (:value ,(integer-length i))
+            (:newline)
+            "As time: " , (multiple-value-bind (sec min hour date month year daylight-p zone)
+                              (decode-universal-time i)
+                            (declare (ignore daylight-p zone))
+                            (format nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0DZ"
+                                    year month date hour min sec)))))
+
+(defmethod inspected-parts ((c complex))
+  (values "A complex number."
+          `("Real part: " (:value ,(realpart c))
+            (:newline)
+            "Imaginary part: " (:value ,(imagpart c)))))
+
+(defmethod inspected-parts ((r ratio))
+  (values "A non-integer ratio."
+          `("Numerator: " (:value ,(numerator r))
+            (:newline)
+            "Denominator: " (:value ,(denominator r))
+            (:newline)
+            "As float: " (:value ,(float r)))))
+
+(defmethod inspected-parts ((f float))
+  (multiple-value-bind (significand exponent sign)
+      (decode-float f)
+    (values "A floating point number."
+            `("Scientific: " ,(format nil "~E" f)
+              (:newline)
+              "Decoded: " (:value ,sign) " * " (:value ,significand) " * " (:value ,(float-radix f)) "^" (:value ,exponent)
+              (:newline)
+              "Digits: " (:value ,(float-digits f))
+              (:newline)
+              "Precision: " (:value ,(float-precision f))))))
 
 
 ;;;; Inspecting

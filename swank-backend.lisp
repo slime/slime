@@ -72,6 +72,14 @@
    #:slot-definition-readers
    #:slot-definition-writers))
 
+(defun swank-backend::import-to-swank-mop (symbol-list)
+  (dolist (sym symbol-list)
+    (let* ((swank-mop-sym (find-symbol (symbol-name sym) :swank-mop)))
+      (when swank-mop-sym
+        (unintern swank-mop-sym :swank-mop))
+      (import sym :swank-mop)
+      (export sym :swank-mop))))
+
 (in-package :swank-backend)
 
 

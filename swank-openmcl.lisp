@@ -69,60 +69,47 @@
 
 ;;; swank-mop
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun import-to-swank-mop (sym/sym-list)
-    (if (listp sym/sym-list)      
-        (dolist (sym sym/sym-list)
-          (import-to-swank-mop sym))
-        (let* ((sym sym/sym-list)
-               (swank-mop-sym (find-symbol (symbol-name sym) :swank-mop)))
-          ;; 1) "delete" the symbol form the :swank-mop package
-          (when swank-mop-sym
-            (unintern swank-mop-sym :swank-mop))
-          (import sym :swank-mop)
-          (export sym :swank-mop))))
-
-  (import-to-swank-mop
-   '( ;; classes
-     cl:standard-generic-function
-     ccl::standard-slot-definition
-     cl:method
-     cl:standard-class
-     ;; standard-class readers
-     openmcl-mop:class-default-initargs
-     openmcl-mop:class-direct-default-initargs
-     openmcl-mop:class-direct-slots
-     openmcl-mop:class-direct-subclasses
-     openmcl-mop:class-direct-superclasses
-     openmcl-mop:class-finalized-p
-     cl:class-name
-     openmcl-mop:class-precedence-list
-     openmcl-mop:class-prototype
-     openmcl-mop:class-slots
-     ;; generic function readers
-     openmcl-mop:generic-function-argument-precedence-order
-     openmcl-mop:generic-function-declarations
-     openmcl-mop:generic-function-lambda-list
-     openmcl-mop:generic-function-methods
-     openmcl-mop:generic-function-method-class
-     openmcl-mop:generic-function-method-combination
-     openmcl-mop:generic-function-name
-     ;; method readers
-     openmcl-mop:method-generic-function
-     openmcl-mop:method-function
-     openmcl-mop:method-lambda-list
-     openmcl-mop:method-specializers
-     openmcl-mop:method-qualifiers
-     ;; slot readers
-     openmcl-mop:slot-definition-allocation
-     ccl::slot-definition-documentation
-     openmcl-mop:slot-definition-initargs
-     openmcl-mop:slot-definition-initform
-     openmcl-mop:slot-definition-initfunction
-     openmcl-mop:slot-definition-name
-     openmcl-mop:slot-definition-type
-     openmcl-mop:slot-definition-readers
-     openmcl-mop:slot-definition-writers)))
+(import-to-swank-mop
+ '( ;; classes
+   cl:standard-generic-function
+   ccl::standard-slot-definition
+   cl:method
+   cl:standard-class
+   ;; standard-class readers
+   openmcl-mop:class-default-initargs
+   openmcl-mop:class-direct-default-initargs
+   openmcl-mop:class-direct-slots
+   openmcl-mop:class-direct-subclasses
+   openmcl-mop:class-direct-superclasses
+   openmcl-mop:class-finalized-p
+   cl:class-name
+   openmcl-mop:class-precedence-list
+   openmcl-mop:class-prototype
+   openmcl-mop:class-slots
+   ;; generic function readers
+   openmcl-mop:generic-function-argument-precedence-order
+   openmcl-mop:generic-function-declarations
+   openmcl-mop:generic-function-lambda-list
+   openmcl-mop:generic-function-methods
+   openmcl-mop:generic-function-method-class
+   openmcl-mop:generic-function-method-combination
+   openmcl-mop:generic-function-name
+   ;; method readers
+   openmcl-mop:method-generic-function
+   openmcl-mop:method-function
+   openmcl-mop:method-lambda-list
+   openmcl-mop:method-specializers
+   openmcl-mop:method-qualifiers
+   ;; slot readers
+   openmcl-mop:slot-definition-allocation
+   ccl::slot-definition-documentation
+   openmcl-mop:slot-definition-initargs
+   openmcl-mop:slot-definition-initform
+   openmcl-mop:slot-definition-initfunction
+   openmcl-mop:slot-definition-name
+   openmcl-mop:slot-definition-type
+   openmcl-mop:slot-definition-readers
+   openmcl-mop:slot-definition-writers))
 
 ;;; TCP Server
 

@@ -1,3 +1,21 @@
+2004-09-13  Marco Baringer  <mb@bese.it>
+
+	* swank.lisp (inspected-parts): Added inspectors for pathnames,
+	logical pathnames, standard-objects and numbers (float, ratio,
+	integer and complex).
+
+	* swank-backend.lisp: Define import-to-swank-mop.
+
+	* swank-openmcl.lisp, swank-sbcl.lisp, swank-allegro.lisp: Don't
+	define the import-to-swank-mop function (now defined in
+	swank-backend.lisp).
+
+	* swank-cmucl.lisp (swank-mop, function-name): Implement backend
+	for inspector.
+	(arglist): Add support for extracting arglists from function
+	objects.
+	(create-socket): Don't specify the host on PPC.
+
 2004-09-13  Alan Ruttenberg <alanr-l@mumble.net>
 
         * slime.el slime-goto-location-position: New location specifiers:

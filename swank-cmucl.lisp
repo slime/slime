@@ -17,6 +17,50 @@
 ;;; promptly delete them from here. It is enough to be compatible with
 ;;; the latest release.
 
+(import-to-swank-mop
+   '( ;; classes
+     cl:standard-generic-function
+     pcl:standard-slot-definition
+     cl:method
+     cl:standard-class
+     ;; standard-class readers
+     pcl:class-default-initargs
+     pcl:class-direct-default-initargs
+     pcl:class-direct-slots
+     pcl:class-direct-subclasses
+     pcl:class-direct-superclasses
+     pcl:class-finalized-p
+     cl:class-name
+     pcl:class-precedence-list
+     pcl:class-prototype
+     pcl:class-slots
+     ;; generic function readers
+     pcl:generic-function-argument-precedence-order
+     pcl:generic-function-declarations
+     pcl:generic-function-lambda-list
+     pcl:generic-function-methods
+     pcl:generic-function-method-class
+     pcl:generic-function-method-combination
+     pcl:generic-function-name
+     ;; method readers
+     pcl:method-generic-function
+     pcl:method-function
+     pcl:method-lambda-list
+     pcl:method-specializers
+     pcl:method-qualifiers
+     ;; slot readers
+     pcl:slot-definition-allocation
+     pcl:slot-definition-initargs
+     pcl:slot-definition-initform
+     pcl:slot-definition-initfunction
+     pcl:slot-definition-name
+     pcl:slot-definition-type
+     pcl:slot-definition-readers
+     pcl:slot-definition-writers))
+
+(defun swank-mop:slot-definition-documentation (slot)
+  (documentation slot t))
+
 (in-package :lisp)
 
 ;;; `READ-SEQUENCE' with large sequences has problems in 18e. This new
@@ -72,9 +116,10 @@
   :sigio)
 
 (defimplementation create-socket (host port)
+  #+ppc (declare (ignore host))
   (ext:create-inet-listener port :stream
                             :reuse-address t
-                            :host (resolve-hostname host)))
+                            #-ppc :host #-ppc (resolve-hostname host)))
 
 (defimplementation local-port (socket)
   (nth-value 1 (ext::get-socket-host-and-port (socket-fd socket))))
@@ -1282,27 +1327,39 @@ Signal an error if no constructor can be found."
 
 ;;;;; Argument lists
 
-(defimplementation arglist (symbol)
-  (let* ((fun (or (macro-function symbol)
-                  (symbol-function symbol)))
-         (arglist
-          (cond ((eval:interpreted-function-p fun)
-                 (eval:interpreted-function-arglist fun))
-                ((pcl::generic-function-p fun)
-                 (pcl:generic-function-lambda-list fun))
-                ((c::byte-function-or-closure-p fun)
-                 (byte-code-function-arglist fun))
-                ((kernel:%function-arglist (kernel:%function-self fun))
-                 (handler-case (read-arglist fun)
-                     (error () :not-available)))
-                ;; this should work both for compiled-debug-function
-                ;; and for interpreted-debug-function
-                (t 
-                 (handler-case (debug-function-arglist 
-                                (di::function-debug-function fun))
-                   (di:unhandled-condition () :not-available))))))
+(defimplementation arglist ((name symbol))
+  (arglist (or (macro-function name)
+               (symbol-function name)
+               (error "~S does not name a known function."))))
+
+(defimplementation arglist ((fun function))
+  (let ((arglist
+         (cond ((eval:interpreted-function-p fun)
+                (eval:interpreted-function-arglist fun))
+               ((pcl::generic-function-p fun)
+                (pcl:generic-function-lambda-list fun))
+               ((c::byte-function-or-closure-p fun)
+                (byte-code-function-arglist fun))
+               ((kernel:%function-arglist (kernel:%function-self fun))
+                (handler-case (read-arglist fun)
+                  (error () :not-available)))
+               ;; this should work both for compiled-debug-function
+               ;; and for interpreted-debug-function
+               (t 
+                (handler-case (debug-function-arglist 
+                               (di::function-debug-function fun))
+                  (di:unhandled-condition () :not-available))))))
     (check-type arglist (or list (member :not-available)))
     arglist))
+
+(defimplementation function-name (function)
+  (cond ((eval:interpreted-function-p function)
+         (eval:interpreted-function-name function))
+        ((pcl::generic-function-p function)
+         (pcl::generic-function-name function))
+        ((c::byte-function-or-closure-p function)
+         (c::byte-function-name function))
+        (t (kernel:%function-name (kernel:%function-self function)))))
 
 ;;; A simple case: the arglist is available as a string that we can
 ;;; `read'.
