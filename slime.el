@@ -375,7 +375,7 @@ truncate to fit on the screen."
 	(= emacs-major-version 20))
     ;; XEmacs truncates multi-line messages in the echo area.
     (defun slime-message (fmt &rest args)
-      (slime-display-message-or-view (apply #'format fmt args) "*CMUCL Note*"))
+      (slime-display-message-or-view (apply #'format fmt args) "*SLIME Note*"))
   (defun slime-message (fmt &rest args)
     (apply 'message fmt args)))
 
@@ -476,7 +476,7 @@ If that doesn't give a function, return nil."
 		     nil nil initial-value)))
 
 
-;;; CMUCL Setup: compiling and connecting to Swank
+;;; Inferior CL Setup: compiling and connecting to Swank
 
 (defvar slime-connect-retry-timer nil
   "Timer object for connection retries.")
@@ -577,14 +577,15 @@ Connecting to Swank at %s:%S. (Abort with `M-x slime-disconnect'.)"
 ;;; Networking
 
 (defvar slime-net-process nil
-  "The process (socket) connected to CMUCL.")
+  "The process (socket) connected to the CL.")
 
 (defun slime-net-connect (host port)
-  "Establish a connection with CMUCL."
+  "Establish a connection with a CL."
   (condition-case nil
       (progn
-        (setq slime-net-process (open-network-stream "CMUCL" nil host port))
-        (let ((buffer (slime-make-net-buffer "*cmucl-connection*")))
+        (setq slime-net-process
+              (open-network-stream "SLIME Lisp" nil host port))
+        (let ((buffer (slime-make-net-buffer "*cl-connection*")))
           (set-process-buffer slime-net-process buffer)
           (set-process-filter slime-net-process 'slime-net-filter)
           (set-process-sentinel slime-net-process 'slime-net-sentinel)
@@ -609,7 +610,7 @@ Connecting to Swank at %s:%S. (Abort with `M-x slime-disconnect'.)"
   (slime-net-send `(,fun ,@args)))
 
 (defun slime-net-send (sexp)
-  "Send a SEXP to CMUCL.
+  "Send a SEXP to inferior CL.
 This is the lowest level of communication. The sexp will be READ and
 EVAL'd by Lisp."
   (let* ((msg (format "%S\n" sexp))
@@ -1846,7 +1847,7 @@ First make the variable unbound, then evaluate the entire form."
   (if (null plists)
       (message "No apropos matches for %S" string)
     (save-current-buffer
-      (slime-with-output-to-temp-buffer "*CMUCL Apropos*"
+      (slime-with-output-to-temp-buffer "*SLIME Apropos*"
 	(set-buffer standard-output)
 	(apropos-mode)
 	(set-syntax-table lisp-mode-syntax-table)

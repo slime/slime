@@ -216,7 +216,7 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
   (setf *previous-context* nil))
 
 (defvar *notes-database* (make-hash-table :test #'equal)
-  "Database of recorded compiler notes/warnings/erros (keyed by filename).
+  "Database of recorded compiler notes/warnings/errors (keyed by filename).
 Each value is a list of (LOCATION SEVERITY MESSAGE CONTEXT) lists.
   LOCATION is a position in the source code (integer or source path).
   SEVERITY is one of :ERROR, :WARNING, :STYLE-WARNING and :NOTE.

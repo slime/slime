@@ -39,7 +39,6 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require 'sb-bsd-sockets)
-  (use-package "SB-BSD-SOCKETS")
   (require 'sb-introspect))
 
 (declaim (optimize (debug 3)))
@@ -603,9 +602,9 @@ stack."
 (defslimefun sldb-abort ()
   (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
 
-;;; from -openmcl
 (defslimefun throw-to-toplevel ()
-  (throw 'slime-toplevel nil))
+  (invoke-restart 
+   (find 'sb-impl::toplevel *sldb-restarts* :key #'restart-name)))
 
 ;;; Local Variables:
 ;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))

@@ -1,3 +1,13 @@
+2003-10-20  Daniel Barlow  <dan@telent.net>
+
+	* swank.lisp (*notes-database*): tyop fix
+
+	* swank-sbcl.lisp (throw-to-toplevel): select TOPLEVEL restart
+	instead of throwing to a catch that no longer exists
+
+	* slime.el: change some strings containing 'CMUCL' to more 
+        backend-agnostic phrases
+
 2003-10-19  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el, swank-cmucl.lisp, swank.lisp: First shoot at input
