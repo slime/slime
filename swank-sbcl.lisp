@@ -159,9 +159,8 @@ The request is read from the socket as a sexp and then evaluated."
             (princ-to-string arglist)
             "(-- <Unknown-Function>)")))))
 
-(defvar *buffername*)
+(defvar *buffername* nil)
 (defvar *buffer-offset*)
-(defvar *compile-filename*)
 
 (defvar *previous-compiler-condition* nil
   "Used to detect duplicates.")
@@ -197,7 +196,7 @@ information."
            (sb-c::compiler-error-context-file-name context)
            (sb-c::compiler-error-context-file-position context)
            (current-compiler-error-source-path context)))
-    (cond ((and (boundp '*buffername*) *buffername*)
+    (cond (*buffername*
            ;; account for the added lambda, replace leading
            ;; position with 0
            (make-location 
@@ -209,10 +208,9 @@ information."
               (make-location 
                (list :file (namestring (truename file-name)))
                (list :source-path source-path file-pos)))))
-          ((or *compile-file-truename* *compile-filename*)
+          (*compile-file-truename*
            (make-location 
-            (list :file (namestring (or *compile-file-truename*
-                                        *compile-filename*)))
+            (list :file (namestring *compile-file-truename*))
             (list :source-path '(0) 1)))
           (t
            (list :error "No source location")))))
@@ -242,22 +240,23 @@ compiler state."
          (reverse
           (sb-c::compiler-error-context-original-source-path context)))))
 
-(defmacro with-compilation-hooks (() &body body)
-  `(handler-bind ((sb-c:compiler-error  #'handle-notification-condition)
-                  (sb-ext:compiler-note #'handle-notification-condition)
-                  (style-warning        #'handle-notification-condition)
-                  (warning              #'handle-notification-condition))
-    ,@body))
+(defmethod call-with-compilation-hooks (function)
+  (handler-bind ((sb-c:compiler-error  #'handle-notification-condition)
+                 (sb-ext:compiler-note #'handle-notification-condition)
+                 (style-warning        #'handle-notification-condition)
+                 (warning              #'handle-notification-condition))
+    (funcall function)))
 
 (defmethod compile-file-for-emacs (filename load-p)
   (with-compilation-hooks ()
-    (let* ((*buffername* nil)
-           (*buffer-offset* nil)
-           (*compile-filename* filename)
-           (fasl-file (compile-file filename)))
-      (cond ((and fasl-file load-p)
+    (multiple-value-bind (fasl-file w-p f-p) (compile-file filename)
+      (cond ((and fasl-file (not f-p) load-p)
              (load fasl-file))
             (t fasl-file)))))
+
+(defmethod compile-system-for-emacs (system-name)
+  (with-compilation-hooks ()
+    (asdf:operate 'asdf:load-op system-name)))
 
 (defmethod compile-string-for-emacs (string &key buffer position)
   (with-compilation-hooks ()
