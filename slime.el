@@ -225,7 +225,10 @@ subset of the bindings from `slime-mode'.
 		((slime-buffer-package (":" slime-buffer-package) "")
 		 slime-state-name))))
 
-;; Key bindings. See `slime-define-key' below for keyword meanings.
+
+;;;;; Key bindings
+
+;; See `slime-define-key' below for keyword meanings.
 (defvar slime-keys
   '(;; Compiler notes
     ("\M-p" slime-previous-note)
