@@ -14,8 +14,8 @@ Interactive-eval commands now print their results to the REPL when
 given a prefix argument.
 
 ** slime-conservative-indentation
-New Elisp variable. Non-nil means that we don't exclude def* and
-with-* from indentation-learning. The default is nil.
+New Elisp variable. Non-nil means that we exclude def* and with-* from
+indentation-learning. The default is t.
 
 ** (slime-setup)
 New function to streamline setup in ~/.emacs
