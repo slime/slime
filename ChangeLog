@@ -1,3 +1,31 @@
+2004-10-26  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-sbcl.lisp (signal-compiler-condition): Remove reader
+	conditionals as the current code doesn't work in any SBCL before
+	0.8.13 anyway.
+
+	* swank-source-path-parser.lisp: Remove workarounds for SBCL bugs.
+	The bugs are fixed in the versions we support.
+
+	* swank-cmucl.lisp (read-error-location)
+	(signal-compiler-condition): Handle read-errors.
+	(swank-compile-file): Don't load the fasl file if there was an
+	error.
+
+	* swank.lisp (define-printer-variables): Handle doc strings
+	properly.
+	(*sldb-pprint-dispatch*): Initialize it with the default dispatch
+	table.
+
+	* slime.el (slime-init-command): New function to send the command
+	to load swank.  Having a separate function for the task should
+	make it easier to start a Lips with a preloaded swank.
+	(slime-maybe-start-lisp): Use it.
+	(slime-maybe-start-multiprocessing): Deleted.
+	(slime-repl-buffer): Include the name of the implementation.
+	(slime-set-default-directory)
+	(slime-sync-package-and-default-directory): Translate filenames.
+
 2004-10-25  Marco Baringer  <mb@bese.it>
 
 	* swank.lisp (inspect-for-emacs array): Properly deal with arrays
