@@ -1,5 +1,11 @@
 2004-06-30  Luke Gorrie  <luke@bluetail.com>
 
+	* slime.el (slime-read-port-and-connect-to-running-swank)
+	(slime-connect, slime-open-stream-to-lisp): Replace "localhost"
+	with "127.0.0.1". This is believed to avoid unwanted DNS lookups
+	on certain operating systems. The lookups can become crippling if
+	the DNS server isn't available.
+
 	* swank-sbcl.lisp (preferred-communication-style): Choose
 	:fd-handler instead of :sigio when threads aren't available. A lot
 	of people seem to have had problems with :sigio on SBCL.
