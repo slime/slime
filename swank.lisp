@@ -207,6 +207,13 @@ the package are considered."
           (push (symbol-name symbol) completions))))
     completions))
 
+(defun symbol-external-p (s)
+  (multiple-value-bind (_ status)
+      (find-symbol (symbol-name s) (symbol-package s))
+    (declare (ignore _))
+    (eq status :external)))
+
+
 (defun string-prefix-p (s1 s2)
   "Return true iff the string S1 is a prefix of S2.
 \(This includes the case where S1 is equal to S2.)"
