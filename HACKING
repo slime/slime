@@ -9,7 +9,7 @@ ChangeLog to use in a CVS commit message by pressing C-c C-a in a
 vc-mode or pcl-cvs commit buffer.
 
 ChangeLog diffs are automatically sent to the slime-devel mailing list
-each day as a sort-of digest summary of the slime-cvs list.
+each day as a sort of digest summary of the slime-cvs list.
 
 There are good tips on writing ChangeLog entries in the GNU Coding Standards:
   http://www.gnu.org/prep/standards_40.html#SEC40
@@ -22,7 +22,7 @@ and `Change Logs and VC' nodes of the Emacs manual:
 * Sending Patches
 
 If you would like to send us improvements, you can create a patch with
-C-x v = in the buffer or manually with 'diff -u'.  You can also
+C-x v = in the buffer or manually with 'cvs diff -u'.  You can also
 include a ChangeLog entry describing your change.
 
 * Adding a backend function
