@@ -1,3 +1,7 @@
+2004-03-24  Luke Gorrie  <luke@bluetail.com>
+
+	* doc/slime.texi: Added completion style and configuration.
+
 2004-03-23  Alan Shutko  <ats@acm.org>
 
 	* swank-clisp.lisp (set-default-directory): New function.
