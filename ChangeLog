@@ -1,3 +1,13 @@
+2004-02-25  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-with-chosen-connection): Bind
+	slime-dispatching-connection and not slime-buffer-connection.
+	slime-buffer-connection is a buffer local variable not a dynamic
+	variable.
+	(slime-find-connection-by-type-name)
+	(slime-read-lisp-implementation-type-name): Where lost during the
+	merge.
+
 2004-02-25  Peter Seibel  <peter@javamonkey.com>
 
 	* slime.el: Various bits of support for maintaining multiple SLIME
