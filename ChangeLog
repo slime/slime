@@ -1,3 +1,14 @@
+2003-12-07  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-allegro.lisp, swank-backend.lisp, swank-cmucl.lisp,
+	swank-lispworks.lisp, swank-openmcl.lisp, swank-sbcl.lisp
+	(function-source-locations): Make it at generic function.
+	(function-source-location-for-emacs): Removed.  Fixes bug reported
+	by Marco Baringer.
+
+	* slime.el (slime-interactive-eval): Insert the result at point,
+	if called with prefix argument.
+
 2003-12-06  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-easy-menu): Added menubar support, contributed
@@ -20,9 +31,9 @@
 	should be a symbol.
 	(find-function-locations): Return errors as a list of one error.
 	(call-with-debugging-environment): Set *print-level* to 4 and
-	*print-level* to 10.  (Where both nil.)
+	*print-length* to 10.  (Both where nil.)
 	(source-location-for-emacs): Fall back to the location of the
-	function, if there is no block-debug-info.
+	function, if there is no debug-block-info.
 	(safe-source-location-for-emacs): Don't catch all conditions; only
 	errors.  
 	*compile-filename*: New variable
