@@ -1,5 +1,11 @@
 2004-04-26  Luke Gorrie  <luke@bluetail.com>
 
+	* swank.lisp: Move definition of `with-io-redirection' above
+	`with-connection' to avoid a CLISP error. This is really weird.
+
+	* slime.el (sldb-insert-frames): Handle empty backtrace (I got one
+	in CLISP).
+
 	* swank-allegro.lisp (arglist): Return :not-available if arglist
 	lookup fails with an error.
 
