@@ -128,6 +128,11 @@
             (return (sb-bsd-sockets:socket-accept socket))
           (sb-bsd-sockets:interrupted-error ()))))
 
+(defimplementation emacs-connected (stream)
+  (declare (ignore stream))
+  (setq sb-ext:*invoke-debugger-hook* 
+        (find-symbol (string :swank-debugger-hook) (find-package :swank))))
+
 (defmethod call-without-interrupts (fn)
   (declare (type function fn))
   (sb-sys:without-interrupts (funcall fn)))
@@ -268,19 +273,29 @@ compiler state."
                  (warning              #'handle-notification-condition))
     (funcall function)))
 
+(defvar *trap-load-time-warnings* nil)
+
 (defimplementation swank-compile-file (filename load-p)
-  (with-compilation-hooks ()
-    (let ((fasl-file (compile-file filename)))
-      (when (and load-p fasl-file)
-        (load fasl-file)))))
+  (flet ((loadit (fasl-file) (when (and load-p fasl-file) (load fasl-file))))
+    (cond (*trap-load-time-warnings*
+           (with-compilation-hooks ()
+             (loadit (compile-file filename))))
+          (t
+           (loadit (with-compilation-hooks () 
+                     (compile-file filename)))))))
 
 (defimplementation swank-compile-string (string &key buffer position)
-  (with-compilation-hooks ()
-    (let ((*buffer-name* buffer)
-          (*buffer-offset* position)
-          (*buffer-substring* string))
-      (funcall (compile nil (read-from-string
-                             (format nil "(~S () ~A)" 'lambda string)))))))
+  (let ((form (read-from-string (format nil "(~S () ~A)" 'lambda string))))
+    (flet ((compileit (cont)
+             (with-compilation-hooks ()
+               (let ((*buffer-name* buffer)
+                     (*buffer-offset* position)
+                     (*buffer-substring* string))
+                 (funcall cont (compile nil form))))))
+      (cond (*trap-load-time-warnings*
+             (compileit #'funcall))
+            (t 
+             (funcall (compileit #'identity)))))))
 
 ;;;; Definitions
 
