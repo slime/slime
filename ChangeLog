@@ -1,3 +1,10 @@
+2004-04-14  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-repl-mode-map): Portability fix for definition
+	of the REPL command character.
+	(slime-maybe-rearrange-inferior-lisp): Bugfix for running
+	multiple inferior lisps.
+
 2004-04-13  Marco Baringer  <mb@bese.it>
 
 	* slime.el (slime-handle-repl-shortcut,
