@@ -788,15 +788,13 @@ Finish with STREAM positioned at the start of the code location."
   "Return the starting character position of a form in STREAM.
 TLF-NUMBER is the top-level-form number.
 FORM-NUMBER is an index into a source-path table for the TLF."
-  (let ((*read-suppress* t))
-    (dotimes (i tlf-number) (read stream))
-    (multiple-value-bind (tlf position-map) (read-and-record-source-map stream)
-      (let* ((path-table (di:form-number-translations tlf 0))
-             (source-path
-              (if (<= (length path-table) form-number) ; source out of sync?
-                  (list 0)              ; should probably signal a condition
-                  (reverse (cdr (aref path-table form-number))))))
-        (source-path-source-position source-path tlf position-map)))))
+  (multiple-value-bind (tlf position-map) (read-source-form tlf-number stream)
+    (let* ((path-table (di:form-number-translations tlf 0))
+           (source-path
+            (if (<= (length path-table) form-number) ; source out of sync?
+                (list 0)                ; should probably signal a condition
+                (reverse (cdr (aref path-table form-number))))))
+      (source-path-source-position source-path tlf position-map))))
   
 (defun code-location-string-offset (code-location string)
   "Return the byte offset of CODE-LOCATION in STRING.
