@@ -1,3 +1,19 @@
+2003-12-04  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-debugging-state): Don't set sldb-level after
+	sldb-setup. Breaks the test-suite.
+	(slime-eval-defun): Fix typos.
+	(slime-xref-buffer, slime-goto-next-xref): Updated for the new
+	xref code.
+	(sldb-inspect-in-frame): Query with the sexp at point as initial
+	value.
+	(sldb-step): New command. Bound to s.
+
+	* swank-cmucl.lisp (format-frame-for-emacs, compute-backtrace,
+	backtrace): Don't send CMUCL's frame numbers to Emacs, use our own
+	numbering.
+	(set-step-breakpoints, sldb-step): Lisp side of sldb-step command.
+
 2003-12-04  Luke Gorrie  <luke@bluetail.com>
 
 	* hyperspec.el: Updated URL to point to a live copy of the
