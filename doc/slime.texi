@@ -697,8 +697,11 @@ List callees of a function.
 @subsection Inspector
 
 The @SLIME{} inspector is an Emacs-based version of the Lisp function
-@code{INSPECT}. The inspected object is presented in a buffer with one
-line per slot.
+@code{INSPECT} which uses an Emacs buffer to display, navigate and
+operate on lisp objects.
+
+The inspector can be adapted to new objects by defining an appropiate
+method on the generic function @code{SWANK:INSPECT-FOR-EMACS}.
 
 @table @kbd
 @kbditem{C-c I, slime-inspect}
@@ -709,8 +712,9 @@ The commands available in the inspector are:
 
 @table @kbd
 
-@kbditem{RET, slime-inspector-inspect-object-at-point}
-Inspect the slot at point. The inspector is invoked recursively.
+@kbditem{RET, slime-inspector-operate-on-point} 
+If point is on a value then recursivly call the inspcetor on that
+value. If point is on an action then call that action.
 
 @kbditem{d, slime-inspector-describe}
 Describe the slot at point.
@@ -723,6 +727,9 @@ The inverse of @kbd{l}. Also bound to @kbd{SPC}.
 
 @kbditem{q, slime-inspector-quit}
 Dismiss the inspector buffer.
+
+@kbditem{M-RET, slime-inspector-copy-down} Evaluate the value under
+point via the REPL (to set `*').
 
 @end table
 
