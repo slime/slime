@@ -1,5 +1,8 @@
 2003-10-31  Luke Gorrie  <luke@bluetail.com>
 
+	* slime.el (slime-repl-mode-map): Bound `slime-interrupt' on both
+	C-c C-c and C-c C-g.
+
 	* swank.lisp (interactive-eval): Evaluate in *buffer-package*.
 
 	* slime.el: Tweaked debugger window management somewhat: the

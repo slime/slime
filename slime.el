@@ -1375,6 +1375,8 @@ after the last prompt to the end of buffer."
   ("\M-n" 'slime-repl-next-input)
   ("\M-r" 'slime-repl-previous-matching-input)
   ("\M-s" 'slime-repl-next-matching-input)
+  ("\C-c\C-c" 'slime-interrupt)
+  ("\C-c\C-g" 'slime-interrupt)
   ("\t"   'slime-complete-symbol)
   (" "    'slime-space))
 
