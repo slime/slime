@@ -10,7 +10,7 @@
 ;;;   $Id$
 ;;;
 
-(in-package :swank)
+(in-package :swank-backend)
 
 (defclass slime-output-stream (fundamental-character-output-stream)
   ((output-fn :initarg :output-fn)
@@ -103,7 +103,7 @@
 
 
 ;;;
-(defmethod make-fn-streams (input-fn output-fn)
+(defimplementation make-fn-streams (input-fn output-fn)
   (let* ((output (make-instance 'slime-output-stream 
                                 :output-fn output-fn))
          (input  (make-instance 'slime-input-stream
