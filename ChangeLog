@@ -41,6 +41,8 @@
 	[standard-method]: Use less than 80 columns.
 	(inspector-call-nth-action): Don't accept &rest args.  Was never
 	used.
+	(inspect-for-emacs) [integer]: Fix control string.  Thanks to CSR
+	for pointing it out.
 
 2004-10-27  Helmut Eller  <heller@common-lisp.net>
 
