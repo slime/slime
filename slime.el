@@ -201,7 +201,7 @@ If you want to fallback on TAGS you can set this to `find-tag'."
                  (const :tag "Compound" slime-complete-symbol*)
                  (const :tag "Fuzzy" slime-fuzzy-complete-symbol)))
 
-(defcustom slime-complete-symbol*-fancy nil
+(defcustom slime-complete-symbol*-fancy t
   "Use information from argument lists for DWIM'ish symbol completion.")
 
 (defcustom slime-space-information-p t
@@ -4530,16 +4530,7 @@ Completion is performed by `slime-complete-symbol-function'."
                   (= (length completion-set) 1))
              (slime-minibuffer-respecting-message "Sole completion")
              (when slime-complete-symbol*-fancy
-               (let ((arglist (slime-get-arglist
-                               (slime-symbol-name-at-point))))
-                 (when arglist
-                   (if (cdr (read arglist))
-                       (progn (insert-and-inherit " ")
-                              (when (and slime-space-information-p
-                                         (slime-background-activities-enabled-p)
-                                         (not (minibuffer-window-active-p)))
-                                (slime-echo-arglist)))
-                     (insert-and-inherit ")")))))
+               (slime-complete-symbol*-fancy-bit))
              (slime-complete-restore-window-configuration))
             ;; Incomplete
             (t
@@ -4552,6 +4543,28 @@ Completion is performed by `slime-complete-symbol-function'."
                (goto-char (+ beg unambiguous-completion-length))
                (slime-display-completion-list completion-set)
                (slime-complete-delay-restoration)))))))
+
+(defun slime-complete-symbol*-fancy-bit ()
+  "Do fancy tricks after completing a symbol.
+\(Insert a space or close-paren based on arglist information.)"
+  (let ((arglist (slime-get-arglist (slime-symbol-name-at-point))))
+    (when arglist
+      (let ((args
+             ;; Don't intern these symbols
+             (let ((obarray (make-vector 10 0)))
+               (cdr (read arglist))))
+            (function-call-position-p
+             (save-excursion
+                (backward-sexp)
+                (equal (char-before) ?\())))
+        (when function-call-position-p
+          (if (null args)
+              (insert-and-inherit ")")
+            (insert-and-inherit " ")
+            (when (and slime-space-information-p
+                       (slime-background-activities-enabled-p)
+                       (not (minibuffer-window-active-p (minibuffer-window))))
+              (slime-echo-arglist))))))))
 
 (defun* slime-simple-complete-symbol ()
   "Complete the symbol at point.  
