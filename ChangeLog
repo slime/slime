@@ -1,3 +1,22 @@
+2003-09-08  Luke Gorrie  <luke@bluetail.com>
+
+	* cmucl-wire.el (wire-symbol-name, wire-symbol-package): Fixed to
+	handle internal references (pkg::name).
+
+	* slime.el (slime-swank-connection-retries): Increased default
+	number of connection retries from 5 to ten.
+
+	* swank.lisp (find-fdefinition): Support for finding
+	function/macro definitions for Emacs.
+
+	* slime.el: Indentation "cleanups": somehow I was using
+	`common-lisp-indent-function' for Emacs Lisp code previously.
+	(slime-edit-fdefinition): Added M-. (edit definition) and M-, (pop
+	definition stack) commands. Definitions are found in much the same
+	way Hemlock does it. The user-interface is not the same as TAGS,
+	because I like this one better. We can add TAGS-compatibility as
+	an optional feature in future.
+
 2003-09-04  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-completions): Now supports completing
