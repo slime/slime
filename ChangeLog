@@ -1,3 +1,23 @@
+2004-07-03  Luke Gorrie  <luke@bluetail.com>
+
+	* swank-backend.lisp (definterface): Don't use
+	NO-APPLICABLE-METHOD for detail methods. Instead just define them
+	as regular methods with all argument types being
+	T. Defimplementation will then replace them by using the same
+	signature. N-A-M was a stupid idea!
+
+2004-07-02  Luke Gorrie  <luke@bluetail.com>
+
+	* swank.lisp (arglist-to-string): No longer takes a package
+	argument. Prints the symbol-name of symbols to avoid showing
+	package prefixes.
+
+2004-07-02  Thomas Schilling  <tjs_ng@yahoo.de>
+
+	* swank.lisp (arglist-for-insertion): Changed formatting to use
+	arglist-to-string. That results in proper cases for
+	slime-insert-arglist.
+
 2004-07-02  Brian Downing  <bdowning@lavos.net>
 
 	* slime.el (slime-reindent-defun): Added a check for (boundp
