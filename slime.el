@@ -864,7 +864,8 @@ This may be called by a state machine to finish its current state."
 (defun slime-init-dispatcher ()
   "Initialize the stack machine."
   (setq sldb-level 0)
-  (setq slime-state-stack (list (slime-idle-state))))
+  (setq slime-state-stack (list (slime-idle-state)))
+  (sldb-cleanup))
 
 (defun slime-activate-state ()
   "Activate the current state.
@@ -994,9 +995,6 @@ their actions. The pattern syntax is the same as `destructure-case'."
   "Idle state. The only event allowed is to make a request."
   ((activate)
    (assert (= sldb-level 0))
-   (when sldb-saved-window-configuration
-     (set-window-configuration sldb-saved-window-configuration)
-     (setq sldb-saved-window-configuration nil))
    (slime-repl-maybe-prompt))
   ((:emacs-evaluate form-string package-name continuation)
    (slime-output-evaluate-request form-string package-name)
