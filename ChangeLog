@@ -1,3 +1,14 @@
+2004-05-06   Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-maybe-list-compiler-notes): Display the notes
+	listing after C-c C-c only if there are no annotations in the
+	buffer.  CMUCL creates usually one warning with an error location
+	and an almost redundant warning without at the end of the
+	compilation unit.  Don't display the listing in this common case.
+
+	(slime-reindent-defun): Pass nil as the third arument to
+	indent-region.
+
 2004-05-06  Marco Baringer <mb@bese.it>
 
 	* slime.el (slime-repl-sayoonara): Don't attempt to quit the lisp
@@ -16,7 +27,7 @@
 
 	* swank-cmucl.lisp (arglist): Handle byte-code functions better.
 	We don't know much about the actual argument list, only the number
-	of arguments.  Return at lest something mildly interesting like
+	of arguments.  Return at least something mildly interesting like
 	 (arg0 arg1 &optional arg2 ...)
 	(function-location): Special-case byte-code functions.
 
