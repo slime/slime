@@ -423,7 +423,15 @@ change, then send Emacs an update."
                  do (force-output)
                  finally (return (values values -))))
       (when (and package-update-p (not (eq *package* *buffer-package*)))
-        (send-to-emacs (list :new-package (package-name *package*)))))))
+        (send-to-emacs (list :new-package (shortest-package-nickname *package*)))))))
+
+(defun shortest-package-nickname (package)
+  "Return the shortest nickname (or canonical name) of PACKAGE."
+  (loop for name in (cons (package-name package) (package-nicknames package))
+        for shortest = name then (if (< (length name) (length shortest))
+                                     name
+                                     shortest)
+        finally (return shortest)))
 
 (defslimefun interactive-eval-region (string)
   (let ((*package* *buffer-package*))
