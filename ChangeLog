@@ -1,3 +1,8 @@
+2004-09-09  Martin Simmons <martin@xanalys.com>
+
+	* swank-loader.lisp (make-swank-pathname): Preserve the host
+	component (important for LispWorks on Windows).
+
 2004-09-08  Martin Simmons <martin@xanalys.com>
 
 	* swank-lispworks.lisp: Implement call-with-compilation-hooks.
