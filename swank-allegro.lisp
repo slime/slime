@@ -141,9 +141,14 @@
 (defvar *sldb-topframe*)
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
-  (let ((*sldb-topframe* (excl::int-newest-frame))
+  (let ((*sldb-topframe* (find-topframe))
         (excl::*break-hook* nil))
     (funcall debugger-loop-fn)))
+
+(defun find-topframe ()
+  (do ((f (excl::int-newest-frame) (next-frame f))
+       (i 0 (1+ i)))
+      ((= i 3) f)))
 
 (defun next-frame (frame)
   (let ((next (excl::int-next-older-frame frame)))
@@ -415,7 +420,7 @@
 
 ;; list-callers implemented by groveling through all fbound symbols.
 ;; Only symbols are considered.  Functions in the constant pool are
-;; searched recursevly.  Closure environments are ignored at the
+;; searched recursively.  Closure environments are ignored at the
 ;; moment (constants in methods are therefore not found).
 
 (defun map-function-constants (function fn depth)
@@ -687,7 +692,7 @@
 (defimplementation toggle-trace (spec)
   (ecase (car spec) 
     (:defgeneric (toggle-trace-generic-function-methods (second spec)))
-    ((:defmethod :labels :flet) 
+    ((setf :defmethod :labels :flet) 
      (toggle-trace-aux (process-fspec-for-allegro spec)))
     (:call 
      (destructuring-bind (caller callee) (cdr spec)
@@ -695,7 +700,7 @@
                          :inside (list (process-fspec-for-allegro caller)))))))
 
 (defun tracedp (fspec)
-  (member name (eval '(trace)) :test #'equal))
+  (member fspec (eval '(trace)) :test #'equal))
 
 (defun toggle-trace-aux (fspec &rest args)
   (cond ((tracedp fspec)
@@ -720,6 +725,7 @@
 (defun process-fspec-for-allegro (fspec)
   (cond ((consp fspec)
          (ecase (first fspec)
+           ((setf) fspec)
            ((:defun :defgeneric) (second fspec))
            ((:defmethod) `(method ,@(rest fspec)))
            ((:labels) `(labels ,(process-fspec-for-allegro (second fspec))
