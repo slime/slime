@@ -3,11 +3,13 @@ Overview.
 
   SLIME is the Superior Lisp Interaction Mode (which has been
   Extended). It is implemented in two main parts: the Emacs Lisp side
-  (slime.el), and the support library for CMUCL (swank.lisp).
+  (slime.el), and the support library for the Common Lisp
+  (swank.lisp for CMUCL, swank-sbcl.lisp, swank-openmcl.lisp for 
+  the others)
 
   For a real description, see the commentary in slime.el.
 
-Quick setup instructions.
+Quick setup instructions for CMUCL
 ----------------------------------------
 
   In Emacs Lisp:
@@ -27,17 +29,22 @@ Licence.
 ----------------------------------------
 
   The Emacs Lisp code is licensed under the GNU GPL to fit in with Emacs.
-  The CMUCL code is placed in the public domain to fit in with CMUCL.
+
+  The CMUCL and SBCL code is placed in the public domain to fit in with 
+   CMUCL and SBCL
+
+  The OpenMCL code is LLGPLed, just like OpenMCL
 
 Contact.
 ----------------------------------------
 
-  SLIME is maintained by Luke Gorrie and Helmut Eller. It is an
-  Extension of SLIM by Eric Marsden (unreleased).
+  SLIME is maintained by Luke Gorrie, Helmut Eller, and Daniel
+  Barlow. It is an Extension of SLIM by Eric Marsden (unreleased).
 
   Questions and comments are best directed to the mailing list:
-    http://lists.sourceforge.net/lists/listinfo/slime-devel
+    http://common-lisp.net/mailman/listinfo/slime-devel
 
-  The mailing list archive is now on Gmane:
+  The mailing list archive was once on Gmane, and soon will be again,
+  when they catch up with our change of project hosting provider
     http://news.gmane.org/gmane.lisp.slime.devel
 

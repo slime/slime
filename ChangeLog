@@ -26,6 +26,10 @@
 
 2003-10-15  Daniel Barlow  <dan@telent.net>
 
+	* README.sbcl: new file
+
+	* README: update for new backends, change of hosting provider
+
 	* swank-sbcl.lisp: new file.
 	New SWANK backend for Steel Bank Common Lisp, adapted from
 	swank.lisp with bits of swank-openmcl.lisp
