@@ -1,3 +1,13 @@
+2004-04-02  Lawrence Mitchell  <wence@gmx.li>
+
+	* slime.el (slime-autodoc): Escape %-signs in arglist before
+	passing to format.
+
+2004-04-02  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-maybe-list-compiler-notes): Display the notes
+	for C-c C-c, when there are notes without a good source-location.
+
 2004-04-01  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-sbcl.lisp: Remove the non-working workarounds for
