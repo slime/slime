@@ -2292,7 +2292,7 @@
 	(completer-message): Cut dependency on undefined ilisp constant
 	testing for xemacs.
 
-2003-11-27  Zach  <xach@xach.com>
+2003-11-27  Zach Beane  <xach@xach.com>
 
 	* swank.lisp (completions): Complete compound symbols (see below).
 
