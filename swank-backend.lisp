@@ -140,7 +140,8 @@ that the calling thread is the one that interacts with Emacs."))
   (:documentation
    "Call FUNC with hooks to trigger SLDB on compiler errors."))
 
-(defmacro with-compilation-hooks (() &body body)
+(defmacro with-compilation-hooks ((&rest ignore) &body body)
+  (declare (ignore ignore))
   `(call-with-compilation-hooks (lambda () (progn ,@body))))
 
 (defgeneric compile-string-for-emacs (string &key buffer position)
