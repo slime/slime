@@ -2648,21 +2648,23 @@ after each command.")
     (let ((fullp (need-full-indentation-update-p *emacs-connection*)))
       (perform-indentation-update *emacs-connection* fullp))))
 
-(defun perform-indentation-update (connection force)
-  (let* ((cache (connection.indentation-cache connection))
-         (delta (update-indentation/delta-for-emacs cache force)))
-    (when force
-      (setf (connection.indentation-cache-packages connection)
-            (list-all-packages)))
-    (when delta
-      (send-to-emacs (list :indentation-update delta)))))
-
 (defun need-full-indentation-update-p (connection)
   "Return true if the whole indentation cache should be updated.
 This is a heuristic to avoid scanning all symbols all the time:
 instead, we only do a full scan if the set of packages has changed."
   (set-difference (list-all-packages)
                   (connection.indentation-cache-packages connection)))
+
+(defun perform-indentation-update (connection force)
+  "Update the indentation cache in CONNECTION and update Emacs.
+If FORCE is true then start again without considering the old cache."
+  (let ((cache (connection.indentation-cache connection)))
+    (when force (clrhash cache))
+    (let ((delta (update-indentation/delta-for-emacs cache force)))
+      (setf (connection.indentation-cache-packages connection)
+            (list-all-packages))
+      (unless (null delta)
+        (send-to-emacs (list :indentation-update delta))))))
 
 (defun update-indentation/delta-for-emacs (cache &optional force)
   "Update the cache and return the changes in a (SYMBOL . INDENT) list.
@@ -2691,10 +2693,7 @@ belonging to the buffer package."
 
 (defun known-to-emacs-p (symbol)
   "Return true if Emacs has special rules for indenting SYMBOL."
-  (or (cl-symbol-p symbol)
-      (let ((name (symbol-name symbol)))
-        (or (prefix-match-p "DEF" name)
-            (prefix-match-p "WITH-" name)))))
+  (cl-symbol-p symbol))
 
 (defun symbol-indentation (symbol)
   "Return a form describing the indentation of SYMBOL.
