@@ -2797,14 +2797,13 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
               (slime-oos (slime-read-system-name) "COMPILE-OP" :force t)))
   (:one-liner "Recompile (but not load) an ASDF system."))
 
-(defslime-repl-shortcut slime-restart-lisp ("restart-lisp")
+(defslime-repl-shortcut slime-restart-inferior-lisp ("restart-inferior-lisp")
   (:handler (lambda ()
               (interactive)
-              ;; FIXME: Do the right thing with multiple Lisps.
               (ignore-errors (kill-buffer "*inferior-lisp*"))
               (slime)))
-  (:one-liner "Restart the Lisp system and reconnect SLIME."))
-              
+  (:one-liner "Restart *inferior-lisp* and reconnect SLIME."))
+
 
 ;;;;; Cleanup after a quit
 
