@@ -135,7 +135,7 @@ REPL: the ``top level''
 SLDB: the SLIME debugger
 
 * Examining frames::            
-* restarts::                    
+* Restarts::                    
 * Frame Navigation::            
 * Miscellaneous::               
 
@@ -908,12 +908,12 @@ backtrace, and poking around in stack frames.
 
 @menu
 * Examining frames::            
-* restarts::                    
+* Restarts::                    
 * Frame Navigation::            
 * Miscellaneous::               
 @end menu
 
-@node Examining frames, restarts, Debugger, Debugger
+@node Examining frames, Restarts, Debugger, Debugger
 @section Examining frames
 
 Commands for examining the stack frame at point.
@@ -970,7 +970,7 @@ Invoke a restart by number.
 Restarts can also be invoked by pressing @kbd{RET} or @kbd{Mouse-2} on
 them in the buffer.
 
-@node Frame Navigation, Miscellaneous, restarts, Debugger
+@node Frame Navigation, Miscellaneous, Restarts, Debugger
 @section Navigating between frames
 
 @table @kbd
