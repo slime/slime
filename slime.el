@@ -764,7 +764,7 @@ The REPL buffer is a special case: it's package is `slime-lisp-package'."
 	    (or (re-search-backward regexp nil t)
                 (re-search-forward regexp nil t)))
       (goto-char (match-end 0))
-      (skip-chars-forward " \n\t\f\r#:")
+      (skip-chars-forward " \n\t\f\r#")
       (let ((pkg (ignore-errors (read (current-buffer)))))
 	(cond ((stringp pkg)
 	       pkg)
@@ -1642,7 +1642,7 @@ fixnum a specific thread."))
       ((:ed what)
        (slime-ed what))
       ((:debug-condition thread message)
-       (apply 'ignore thread) ; stupid XEmacs warns about unused variable
+       (apply 'ignore thread) ; XEmacs warns about unused variable
        (message "%s" message)))))
 
 (defun slime-reset ()
@@ -1887,6 +1887,19 @@ deal with that."
  (defvar slime-output-end nil
    "Marker for end of output. New output is inserted at this mark."))
 
+(defun slime-reset-repl-markers ()
+  (dolist (markname '(slime-output-start
+                      slime-output-end
+                      slime-repl-prompt-start-mark
+                      slime-repl-input-start-mark
+                      slime-repl-input-end-mark
+                      slime-repl-last-input-start-mark))
+    (set markname (make-marker))
+    (set-marker (symbol-value markname) (point)))
+  (set-marker-insertion-type slime-repl-input-end-mark t)
+  (set-marker-insertion-type slime-output-end t)
+  (set-marker-insertion-type slime-repl-prompt-start-mark t))
+
 (defun slime-output-buffer (&optional noprompt)
   "Return the output buffer, create it if necessary."
   (or (slime-repl-buffer)
@@ -1894,17 +1907,7 @@ deal with that."
         (with-current-buffer (slime-repl-buffer t)
           (slime-repl-mode)
           (setq slime-buffer-connection connection)
-          (dolist (markname (list 'slime-output-start
-                                  'slime-output-end
-                                  'slime-repl-prompt-start-mark
-                                  'slime-repl-input-start-mark
-                                  'slime-repl-input-end-mark
-                                  'slime-repl-last-input-start-mark))
-            (set markname (make-marker))
-            (set-marker (symbol-value markname) (point)))
-          (set-marker-insertion-type slime-repl-input-end-mark t)
-          (set-marker-insertion-type slime-output-end t)
-          (set-marker-insertion-type slime-repl-prompt-start-mark t)
+          (slime-reset-repl-markers)
           (unless noprompt (slime-repl-insert-prompt "" 0))
           (current-buffer)))))
 
@@ -6101,21 +6104,22 @@ BODY returns true if the check succeeds."
   (:handler 'slime-set-default-directory)
   (:one-liner "Change the current directory."))
 
-;;; XXX move more of this to lisp
+(defslime-repl-shortcut nil ("pwd")
+  (:handler (lambda () 
+              (interactive)
+              (let ((dir (slime-eval `(swank:default-directory))))
+                (message "Directory %s" dir))))
+  (:one-liner "Change the current directory."))
+
 (defslime-repl-shortcut slime-repl-push-directory ("push-directory" "+d" 
                                                    "pushd")
   (:handler (lambda (directory)
               (interactive
-               (list 
-                (expand-file-name 
-                 (read-directory-name 
-                  "Push directory: "
-                  (slime-eval '(cl:namestring
-                                (cl:truename
-                                 cl:*default-pathname-defaults*)))
-                  nil nil ""))))
-                (push directory slime-repl-directory-stack)
-                (slime-set-default-directory directory)))
+               (list (read-directory-name 
+                      "Push directory: "
+                      (slime-eval '(swank:default-directory)) nil nil ""))
+               (push directory slime-repl-directory-stack)
+               (slime-set-default-directory directory))))
   (:one-liner "Push a new directory onto the directory stack."))
 
 (defslime-repl-shortcut slime-repl-pop-directory ("pop-directory" "-d")
@@ -6170,36 +6174,16 @@ BODY returns true if the check succeeds."
               (slime-repl-send-input)))
   (:one-liner "Define a new global, special, variable."))
 
-;;; XXX move more of this to lisp
-(defslime-repl-shortcut slime-repl-compile-and-load ("compile-and-load")
-  (:handler (lambda (file-name)
-              (interactive (list 
-                            (expand-file-name 
-                             (read-file-name "File: " 
-                                             nil nil nil nil 
-                                             (lambda (filename)
-                                               (string-match ".*\\.\\(lisp\\|cl\\)$" filename))))))
-              (lexical-let ((lisp-file-name (slime-to-lisp-filename file.lisp)))
-                (if (slime-eval `(swank::requires-compile-p ,lisp-file-name))
-                    (progn
-                      (save-some-buffers)
-                      (slime-insert-transcript-delimiter
-                       (format "Compile file %s" lisp-file-name))
-                      (slime-display-output-buffer)
-                      (slime-eval-async
-                       `(swank:compile-file-for-emacs ,file.lisp nil)
-                       nil
-                       ;; after compiling we must load.
-                       (lexical-let ((buffer (current-buffer)))
-                         (lambda (result)
-                           (slime-compilation-finished result buffer)
-                           (message "Loading %s.." lisp-file-name)
-                           (slime-eval-with-transcript `(swank:load-file ,lisp-file-name) nil))))
-                      (message "Compiling %s.." lisp-file-name))
-                    ;; don't need to compile, just load
-                    (progn
-                      (message "Loading %s.." lisp-file-name)
-                      (slime-eval-with-transcript `(swank:load-file ,lisp-file-name) nil))))))
+(defslime-repl-shortcut slime-repl-compile-and-load ("compile-and-load" "cl")
+  (:handler (lambda (filename)
+              (interactive (list (expand-file-name
+                                  (read-file-name "File: " nil nil nil nil))))
+              (save-some-buffers)
+              (slime-eval-async 
+               `(swank:compile-file-if-needed 
+                 ,(slime-to-lisp-filename filename) t)
+               nil
+               (slime-compilation-finished-continuation))))
   (:one-liner "Compile (if neccessary) and load a lisp file."))
 
 (defslime-repl-shortcut slime-repl-load/force-system ("force-load-system")
