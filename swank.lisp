@@ -31,7 +31,6 @@ Each value is a list of (LOCATION SEVERITY MESSAGE CONTEXT) lists.
   (wire:create-request-server port nil :reuse-address t)
   (setf c:*record-xref-info* t)
   (ext:without-package-locks
-   (setq *debugger-hook* #'debugger-hook)
    (setf c:*compiler-notification-function* #'handle-notification))
   (when *swank-debug-p*
     (format *debug-io* "~&Swank ready.~%")))
@@ -85,16 +84,17 @@ compiler state."
   (when *swank-debug-p*
     (format *debug-io* "~&;; SWANK:EVALUATE (~S) |~S|~%" package string))
   (handler-case
-      (send-value (eval (let ((*package* (find-package package)))
+      (send-value (eval (let ((debug::*debugger-hook* #'debugger-hook)
+                              (*package* (find-package package)))
                           (read-from-string string))))
     (swank-error (condition)
       (send-reply +condition+
                   (format nil
                           (simple-condition-format-control condition)
                           (simple-condition-format-arguments condition))
-                  ""))
-    (error (condition)
-      (send-and-log-internal-error condition))))
+                  ""))))
+;;    (error (condition)
+;;      (send-and-log-internal-error condition))))
 
 ;;;; SWANK-COMPILE-FILE -- interface
 
@@ -182,15 +182,24 @@ The result has the format \"(...)\"."
 
 ;;;; COMPLETIONS -- interface
 
-(defun completions (prefix package-name)
+(defun completions (prefix package-name &optional only-external-p)
   "Return a list of completions for a symbol's PREFIX and PACKAGE-NAME.
 The result is a list of symbol-name strings. All symbols accessible in
 the package are considered."
-  (let ((completions nil))
-    (do-symbols (symbol (find-package package-name))
-      (when (string-prefix-p prefix (symbol-name symbol))
-        (push (symbol-name symbol) completions)))
+  (let ((completions nil)
+        (package (find-package package-name)))
+    (when package
+      (do-symbols (symbol package)
+        (when (and (or (not only-external-p) (symbol-external-p symbol))
+                   (string-prefix-p prefix (symbol-name symbol)))
+          (push (symbol-name symbol) completions))))
     completions))
+
+(defun symbol-external-p (s)
+  (multiple-value-bind (_ status)
+      (find-symbol (symbol-name s) (symbol-package s))
+    (declare (ignore _))
+    (eq status :external)))
 
 (defun string-prefix-p (s1 s2)
   "Return true iff the string S1 is a prefix of S2.
