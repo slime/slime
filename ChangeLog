@@ -1,3 +1,14 @@
+2004-08-13  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-merge-notes, slime-tree-for-note): Use the short
+	note message for annotation in the source buffer and the long
+	message in the tree widget.  Used to be the other way around.
+
+	(sldb-insert-frames): Set the `start-open' property for XEmacs.
+	Without `start-open', the `point-entered' property is inherited
+	when we insert something before the "--more--" marker.  
+	Reported by Sundar Narasimhan.
+
 2004-08-05  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-setup): Added typeout-frame keyword argument.
