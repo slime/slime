@@ -1185,7 +1185,7 @@ Return true if we have been given permission to continue."
 
 (defun slime-maybe-start-lisp ()
   "Start an inferior lisp. Instruct it to load Swank."
-  (unless (get-buffer "*inferior-lisp*")
+  (unless (get-buffer-process (get-buffer "*inferior-lisp*"))
     (call-interactively 'inferior-lisp)
     (when slime-kill-without-query-p
       (process-kill-without-query (inferior-lisp-proc)))
