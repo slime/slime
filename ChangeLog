@@ -1,8 +1,15 @@
 2004-09-16  Marco Baringer  <mb@bese.it>
 
+	* swank-clisp.lisp (swank-mop, inspect-for-emacs): Only define the
+	CLOS parts of the inspector if the underlying lisp provides the
+	required functionality. If not enough MOP is present to implement
+	the inspector then we define some very simple replacement methods.
+
+2004-09-16  Marco Baringer  <mb@bese.it>
+
 	* swank-clisp.lisp (swank-mop): Implement the MOP compatability
 	package.
-	(inspectod-for-emacs): Update for new inspection API.
+	(inspect-for-emacs): Update for new inspection API.
 
 2004-09-15  Alan Ruttenberg <alanr-l@mumble.net>
 	* swank-openmcl: typo in who-references. Fix frame-var-value
