@@ -4914,20 +4914,21 @@ Confirm that EXPECTED-ARGLIST is displayed."
     (program subform)
     "Compile PROGRAM containing errors.
 Confirm that SUBFORM is correctly located."
-    '(("(defun :foo () (:bar))" (:bar))
-      ("(defun :foo () 
+    '(("(defun cl-user::foo () (cl-user::bar))" (cl-user::bar))
+      ("(defun cl-user::foo () 
           #\\space
           ;;Sdf              
-          (:bar))"
-       (:bar))
-      ("(defun :foo () 
+          (cl-user::bar))"
+       (cl-user::bar))
+      ("(defun cl-user::foo () 
              #+(or)skipped
              #| #||#
                 #||# |#
-             (:bar))"
-       (:bar))
-      ("(defun :foo () (list `(1 ,(random 10) 2 ,@(random 10) 3 ,(:bar))))"
-       (:bar))
+             (cl-user::bar))"
+       (cl-user::bar))
+      ("(defun cl-user::foo () 
+           (list `(1 ,(random 10) 2 ,@(random 10) 3 ,(cl-user::bar))))"
+       (cl-user::bar))
       )
   (with-temp-buffer 
     (lisp-mode)
