@@ -2085,23 +2085,34 @@ buffer's working directory"
          (slime-note-count-string "note" notes)
          (if secs (format "[%s secs]" secs) ""))))
 
+(defun slime-xrefs-for-notes (notes)
+  (flet ((note-file (n) (cadr (assq :file (cdr (getf n :location))))))
+    (let ((xrefs))
+      (dolist (note notes)
+        (let ((file (assoc (note-file note) xrefs))
+              (node
+               (cons  (format "%s: %s" 
+                              (getf note :severity)
+                              (replace-regexp-in-string 
+                               "[^[:graph:]]+" " "
+                               (subseq (getf note :message) 0 )))
+                      (getf note :location))))
+          (when (note-file note)
+            (if file
+                (push node (cdr file))
+                (setf xrefs (acons (note-file note) (list node) xrefs))))))
+      xrefs)))
+
 (defun slime-compilation-finished (result buffer)
   (let ((notes (slime-compiler-notes)))
     (with-current-buffer buffer
       (multiple-value-bind (result secs) result
 	(slime-show-note-counts notes secs)
 	(slime-highlight-notes notes)))
-    (let* ((locations (mapcar (lambda (n) (getf n :location)) notes))
-           (files (remove-duplicates
-                   (mapcar (lambda (l) 
-                             (let ((f (assq :file (cdr l))))
-                               (and f (cadr f))))
-                           locations)
-                   :test 'equal)))
-      ;; we need a better way of showing the resulting notes if there
-      ;; was >1 of them
-      ;; (slime-show-definitions "Compiler notes" locations)
-      (message "files with notes: %s" files) )))
+    (let ((xrefs (slime-xrefs-for-notes notes)))
+      (when (> (length xrefs) 1) ; >1 file
+        (slime-show-xrefs
+         xrefs 'definition "Compiler notes" (slime-buffer-package))))))
 
 (defun slime-compilation-finished-continuation ()
   (lexical-let ((buffer (current-buffer)))

@@ -16,9 +16,8 @@
 	* slime.el (slime-find-asd, slime-load-system): new command
 	to compile and load an ASDF system with all the usual compiler
 	notes and stuff
-	(slime-compilation-finished): minimally handle multiple file
-	compiles, by printing the names of all files with notes in the
-	echo area
+	(slime-compilation-finished): if more than one file has new 
+	errors/notes, create an xref buffer to show them all
 	(slime-remove-old-overlays): bug fix: now removes overlays even
 	at start of buffer
 	(slime-overlay-note): do nothing quietly if
