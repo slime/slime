@@ -1,3 +1,11 @@
+2005-01-18  Luke Gorrie  <luke@synap.se>
+
+	* slime.el (slime-complete-symbol*-fancy): New variable to enable
+	extra bells and whistles with slime-complete-symbol*. Currently
+	controls whether to use arglists semantically.
+	(slime-complete-symbol*): Avoid displaying an arglist when the
+	minibuffer is active.
+
 2005-01-14  Luke Gorrie  <luke@synap.se>
 
 	* slime.el (slime-repl-send-input): Make old input read-only using
