@@ -450,6 +450,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
        [ "Who Sets..." slime-who-sets ,C ]
        [ "Who Binds..." slime-who-binds ,C ]
        [ "Who Macroexpands..." slime-who-macroexpands ,C ]
+       [ "Who Specializes..." slime-who-specializes ,C ]
        [ "List Callers..." slime-list-callers ,C ]
        [ "List Callees..." slime-list-callees ,C ]
        [ "Next Location" slime-next-location t ])
@@ -460,7 +461,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
       "--"
       [ "Interrupt Command" slime-interrupt ,C ]
       [ "Abort Async. Command" slime-quit ,C ]
-      [ "Sync Package & Directory" slime-sync-package-and-default-directory ,C ]
+      [ "Sync Package & Directory" slime-sync-package-and-default-directory ,C]
       )))
 
 (easy-menu-define menubar-slime slime-mode-map "SLIME" slime-easy-menu) 
@@ -2797,7 +2798,9 @@ function name is prompted."
   (slime-eval-async 
    `(swank:interactive-eval ,string)
    (slime-buffer-package t)
-   (slime-show-evaluation-result-continuation)))
+   (if current-prefix-arg
+       (slime-insert-evaluation-result-continuation)
+     (slime-show-evaluation-result-continuation))))
 
 (defun slime-display-buffer-region (buffer start end &optional other-window)
   "Like `display-buffer', but only display the specified region."
@@ -2825,6 +2828,12 @@ function name is prompted."
     (lambda (value)
       (with-current-buffer buffer
         (slime-show-evaluation-result value)))))
+
+(defun slime-insert-evaluation-result-continuation ()
+  (lexical-let ((buffer (current-buffer)))
+    (lambda (value)
+      (with-current-buffer buffer
+        (insert value)))))
   
 (defun slime-last-expression ()
   (buffer-substring-no-properties (save-excursion (backward-sexp) (point))
