@@ -1,5 +1,15 @@
 2003-11-23  Luke Gorrie  <luke@bluetail.com>
 
+	* slime.el (sldb-fetch-more-frames): Call swank:backtrace instead
+	of (renamed) swank:backtrace-for-emacs.
+
+	* swank-cmucl.lisp, swank-sbcl.lisp, swank-openmcl-lisp: Updated
+	to use new debugger interfaces in swank-backend.lisp.
+
+	* swank-backend.lisp (backtrace, eval-in-frame, frame-catch-tags,
+	frame-locals, frame-source-location-for-emacs): More interface
+	functions.
+
 	* slime.el (slime-goto-source-location): Added optional `align-p'
 	argument for :file and :emacs-buffer location types. This is for
 	OpenMCL - unlike CMUCL its positions are not character-accurate so
