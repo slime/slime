@@ -1162,6 +1162,7 @@ See `slime-translate-from-lisp-filename-function'."
   (interactive (list (if current-prefix-arg
 			 (read-string "Run lisp: " inferior-lisp-program))
                      "*inferior-lisp*"))
+  (slime-check-coding-system)
   (let ((command (or command inferior-lisp-program))
         (buffer (or buffer "*inferior-lisp*")))
     (when (or (not (slime-bytecode-stale-p))
@@ -1176,6 +1177,7 @@ See `slime-translate-from-lisp-filename-function'."
                      (if (null slime-net-processes)
                          t
                        (y-or-n-p "Close old connections first? "))))
+  (slime-check-coding-system)
   (when kill-old-p (slime-disconnect))
   (message "Connecting to Swank on port %S.." port)
   (let* ((process (slime-net-connect host port))
@@ -1335,9 +1337,11 @@ Return the created process."
 
 (defun slime-start-swank-server (process)
   "Start a Swank server on the inferior lisp."
-  (comint-send-string process (format "(swank:start-server %S)\n"
-                                      (slime-to-lisp-filename
-                                       (slime-swank-port-file)))))
+  (let* ((encoding (slime-coding-system-cl-name slime-net-coding-system))
+         (file (slime-to-lisp-filename (slime-swank-port-file))))
+    (comint-send-string process 
+                        (format "(swank:start-server %S :external-format %s)\n"
+                                file encoding))))
 
 (defun slime-swank-port-file ()
   "Filename where the SWANK server writes its TCP port number."
@@ -1452,6 +1456,16 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
   "List of functions called when a slime network connection closes.
 The functions are called with the process as their argument.")
 
+(defvar slime-net-coding-system 'iso-8859-1-unix
+  "*Coding system used for network connections.")
+
+(defvar slime-net-valid-coding-systems
+  '((iso-8859-1-unix nil :iso-latin-1-unix)
+    (emacs-mule-unix t :emacs-mule-unix)
+    (utf-8-unix t :utf-8-unix))
+  "A list of valid coding systems. 
+Each element is of the form: (NAME MULTIBYTEP CL-NAME)")
+
 ;;; Interface
 (defun slime-net-connect (host port)
   "Establish a connection with a CL."
@@ -1465,7 +1479,9 @@ The functions are called with the process as their argument.")
     (when slime-kill-without-query-p
       (process-kill-without-query proc))
     (when (fboundp 'set-process-coding-system)
-      (set-process-coding-system proc 'no-conversion 'no-conversion))
+      (set-process-coding-system proc 
+                                 slime-net-coding-system
+                                 slime-net-coding-system))
     proc))
 
 (defun slime-make-net-buffer (name)
@@ -1473,9 +1489,28 @@ The functions are called with the process as their argument.")
   (let ((buffer (generate-new-buffer name)))
     (with-current-buffer buffer
       (when (fboundp 'set-buffer-multibyte)
-	(set-buffer-multibyte nil))
+        (set-buffer-multibyte 
+         (slime-coding-system-mulibyte-p slime-net-coding-system)))
       (buffer-disable-undo))
     buffer))
+
+(defun slime-find-coding-system (&optional coding-system)
+  (let* ((coding-system (or coding-system slime-net-coding-system))
+         (props (assq coding-system slime-net-valid-coding-systems)))
+    (unless props
+      (error "Invalid slime-net-coding-system: %s. %s"
+             coding-system (mapcar #'car slime-net-valid-coding-systems)))
+    props))
+  
+(defun slime-check-coding-system (&optional coding-system)
+  (interactive)
+  (slime-find-coding-system coding-system))
+
+(defun slime-coding-system-mulibyte-p (coding-system)
+  (second (slime-find-coding-system coding-system)))
+
+(defun slime-coding-system-cl-name (coding-system)
+  (third (slime-find-coding-system coding-system)))
 
 ;;; Interface
 (defun slime-net-send (sexp proc)
@@ -1483,9 +1518,9 @@ The functions are called with the process as their argument.")
 This is the lowest level of communication. The sexp will be READ and
 EVAL'd by Lisp."
   (let* ((msg (concat (slime-prin1-to-string sexp) "\n"))
-         (string (concat (slime-net-enc3 (length msg)) msg)))
+         (string (concat (slime-net-encode-length (length msg)) msg)))
     (slime-log-event sexp)
-    (process-send-string proc (string-make-unibyte string))))
+    (process-send-string proc string)))
 
 (defun slime-net-close (process)
   (setq slime-net-processes (remove process slime-net-processes))
@@ -1523,6 +1558,7 @@ EVAL'd by Lisp."
                             (message "net-read error: %S" error)
                             (ding)
                             (sleep-for 2)
+                            (debug)
                             (ignore-errors (slime-net-close proc))
                             (error "PANIC!")))))
               (save-current-buffer
@@ -1536,30 +1572,26 @@ EVAL'd by Lisp."
 (defun slime-net-have-input-p ()
   "Return true if a complete message is available."
   (goto-char (point-min))
-  (and (>= (buffer-size) 3)
-       (>= (- (buffer-size) 3) (slime-net-read3))))
+  (and (>= (buffer-size) 6)
+       (>= (- (buffer-size) 6) (slime-net-decode-length))))
 
 (defun slime-net-read ()
   "Read a message from the network buffer."
   (goto-char (point-min))
-  (let* ((length (slime-net-read3))
-         (start (+ 3 (point)))
+  (let* ((length (slime-net-decode-length))
+         (start (+ 6 (point)))
          (end (+ start length)))
     (let ((string (buffer-substring start end)))
       (prog1 (read string)
         (delete-region (point-min) end)))))
 
-(defun slime-net-read3 ()
-  "Read a 24-bit big-endian integer from buffer."
-  (logior (ash (char-after 1) 16)
-          (ash (char-after 2) 8)
-          (char-after 3)))
+(defun slime-net-decode-length ()
+  "Read a 24-bit hex-encoded integer from buffer."
+  (string-to-number (buffer-substring (point) (+ (point) 6)) 16))
 
-(defun slime-net-enc3 (n)
-  "Encode an integer into a 24-bit big-endian string."
-  (string (logand (ash n -16) 255)
-          (logand (ash n -8) 255)
-          (logand n 255)))
+(defun slime-net-encode-length (n)
+  "Encode an integer into a 24-bit hex string."
+  (format "%06x" n))
 
 (defun slime-prin1-to-string (sexp)
   "Like `prin1-to-string' but don't octal-escape non-ascii characters.
@@ -2349,6 +2381,9 @@ update window-point afterwards.  If point is initially not at
     (when slime-kill-without-query-p
       (process-kill-without-query stream))
     (set-process-filter stream 'slime-output-filter)
+    (set-process-coding-system stream 
+                               slime-net-coding-system 
+                               slime-net-coding-system)
     stream))
 
 (defun slime-output-string (string)
@@ -8252,7 +8287,7 @@ If they are not, position point at the first syntax error found."
           slime-dispatch-event 
           slime-net-filter 
           slime-net-have-input-p
-          slime-net-read3
+          slime-net-decode-length
           slime-net-read
           slime-print-apropos
           slime-show-note-counts
