@@ -1,3 +1,14 @@
+2004-06-09  Martin Simmons <martin@xanalys.com>
+
+	* swank-lispworks.lisp (dspec-stream-position): New function to
+	make source location work for anything complicated e.g. methods.
+	(with-swank-compilation-unit): Refactoring.
+	(who-macroexpands): Implemented.
+	(list-callers): Implemented.
+
+	* swank-backend.lisp (network-error): Inherit from simple-error to
+	get correct initargs.
+
 2004-06-09  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (sldb-insert-references): Added support for hyperlinked
