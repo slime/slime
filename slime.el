@@ -451,13 +451,15 @@ This list of flushed between commands."))
 
 ;;; Common utility functions and macros
 
-(defmacro* when-bind ((var value) &rest body)
+(defmacro* when-let ((var value) &rest body)
   "Evaluate VALUE, and if the result is non-nil bind it to VAR and
-evaluate BODY."
+evaluate BODY.
+
+\(when-let (VAR VALUE) &rest BODY)"
   `(let ((,var ,value))
      (when ,var ,@body)))
 
-(put 'when-bind 'lisp-indent-function 1)
+(put 'when-let 'lisp-indent-function 1)
 
 (defmacro with-lexical-bindings (variables &rest body)
   "Execute BODY with VARIABLES in lexical scope."
@@ -688,6 +690,18 @@ If that doesn't give a function, return nil."
   (or (cdr (assoc slime-lisp-package slime-lisp-preferred-package-nicknames))
       slime-lisp-package))
 
+(defmacro slime-propertize-region (props &rest body)
+  (let ((start (gensym)))
+    `(let ((,start (point)))
+       (prog1 (progn ,@body)
+	 (add-text-properties ,start (point) ,props)))))
+
+(put 'slime-propertize-region 'lisp-indent-function 1)
+
+(defun slime-insert-propertized (props &rest args)
+  "Insert all ARGS and then add text-PROPS to the inserted text."
+  (slime-propertize-region props (apply #'insert args)))
+
 
 ;;; Inferior CL Setup: compiling and connecting to Swank
 
@@ -772,7 +786,6 @@ Polling %S.. (Abort with `M-x slime-disconnect'.)"
   (pop-to-buffer (slime-output-buffer))
   (message "Connected to Swank server on port %S. %s"
            port (slime-random-words-of-encouragement)))
-
 
 (defun slime-disconnect ()
   "Disconnect from the Swank server."
@@ -1344,14 +1357,22 @@ Loops until the result is thrown to our caller, or the user aborts."
       (when (< start end)
 	(slime-display-buffer-region (current-buffer) start end)))))
 
+(defun slime-with-output-at-eob (fn)
+  "Call FN at the eob.  In a save-excursion block if we are not at
+eob."
+  (cond ((eobp) (funcall fn))
+        (t (save-excursion 
+             (goto-char (point-max))
+             (funcall fn)))))
+
 (defun slime-output-string (string)
   (unless (zerop (length string))
     (with-current-buffer (slime-output-buffer)
-      (goto-char (point-max))
-      (slime-repl-maybe-insert-output-separator)
-      (slime-insert-propertized '(face slime-repl-output-face)
-                                string))))
-;;      (insert string))))
+      (slime-with-output-at-eob
+       (lambda ()
+         (slime-repl-maybe-insert-output-separator)
+         (slime-propertize-region '(face slime-repl-output-face)
+           (insert string)))))))
 
 (defun slime-switch-to-output-buffer ()
   "Select the output buffer, preferably in a different window."
@@ -1400,27 +1421,27 @@ Loops until the result is thrown to our caller, or the user aborts."
 
 (defun slime-repl-insert-prompt ()
   (unless (bolp) (insert "\n"))
-  (set-marker slime-repl-prompt-start-mark (point) (current-buffer))
-  (slime-insert-propertized 
-   '(face font-lock-keyword-face 
-     read-only t
-     intangible t
-     ;; emacs stuff
-     rear-nonsticky (slime-repl-prompt read-only face intangible)
-     ;; xemacs stuff
-     start-open t end-open t)
-   (concat (slime-lisp-package) "> "))
-  (set-marker slime-repl-input-start-mark (point) (current-buffer))
-  (set-marker slime-repl-input-end-mark (point) (current-buffer))
-  (let ((w (get-buffer-window (current-buffer))))
-    (when w (set-window-point w (point)))))
+  (let ((start (point)))
+    (slime-propertize-region
+        '(face font-lock-keyword-face 
+               read-only t
+               intangible t
+               ;; emacs stuff
+               rear-nonsticky (slime-repl-prompt read-only face intangible)
+               ;; xemacs stuff
+               start-open t end-open t)
+      (insert (slime-lisp-package) "> "))
+    (set-marker slime-repl-prompt-start-mark start (current-buffer))
+    (set-marker slime-repl-input-start-mark (point) (current-buffer))
+    (set-marker slime-repl-input-end-mark (point) (current-buffer))))
 
 (defun slime-repl-maybe-prompt ()
   "Insert a prompt if there is none."
   (with-current-buffer (slime-output-buffer)
     (unless (= (point-max) slime-repl-input-end-mark)
-      (goto-char (point-max))
-      (slime-repl-insert-prompt))))
+      (slime-with-output-at-eob
+       (lambda ()
+         (slime-repl-insert-prompt))))))
 
 (defun slime-repl-current-input ()
   "Return the current input as string.  The input is the region from
@@ -1449,9 +1470,9 @@ after the last prompt to the end of buffer."
   ;; the prompt is already printed.
   (lambda (result)
     (with-current-buffer (slime-output-buffer)
-      (goto-char slime-repl-prompt-start-mark)
-      (insert result "\n")
-      (goto-char (point-max)))))
+      (save-excursion
+        (goto-char slime-repl-prompt-start-mark)
+        (insert result "\n")))))
 
 (defun slime-repl-maybe-insert-output-separator ()
   "Insert a newline at point, if we are the end of the input."
@@ -1522,6 +1543,33 @@ earlier in the buffer."
 (defun slime-repl-replace-input (string)
   (slime-repl-delete-current-input)
   (insert-and-inherit string))
+
+;;; Scratch
+
+(defvar slime-scratch-mode-map)
+(setq slime-scratch-mode-map (make-sparse-keymap))
+(set-keymap-parent slime-scratch-mode-map lisp-mode-map)
+
+(defun slime-scratch-buffer ()
+  "Return the scratch buffer, create it if necessary."
+  (or (get-buffer "*slime-scratch*")
+      (with-current-buffer (get-buffer-create "*slime-scratch*")
+	(lisp-mode)
+	(use-local-map slime-scratch-mode-map)
+	(slime-mode t)
+	(current-buffer))))
+
+(defun slime-switch-to-scratch-buffer ()
+  (set-buffer (slime-scratch-buffer))
+  (unless (eq (current-buffer) (window-buffer))
+    (pop-to-buffer (current-buffer) t)))
+
+(defun slime-scratch ()
+  (interactive)
+  (slime-switch-to-scratch-buffer))
+
+(slime-define-keys slime-scratch-mode-map
+  ("\C-j" 'slime-eval-print-last-expression))
 
 
 ;;;; History
@@ -1598,7 +1646,9 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   ("\C-c\C-c" 'slime-interrupt)
   ("\C-c\C-g" 'slime-interrupt)
   ("\t"   'slime-complete-symbol)
-  (" "    'slime-space))
+  (" "    'slime-space)
+  ("\C-\M-x" 'slime-eval-defun)
+  )
 
 (define-minor-mode slime-repl-read-mode 
   "Mode the read input from Emacs
@@ -1798,7 +1848,9 @@ is kept."
   "Choose the start and end points for an overlay over NOTE.
 If the location's sexp is a list spanning multiple lines, then the
 region around the first element is used."
-  (slime-goto-source-location (getf note :location))
+  (let ((location (getf note :location)))
+    (unless (equal location '(:null))
+      (slime-goto-source-location location)))
   (let ((start (point)))
     (slime-forward-sexp)
     (if (slime-same-line-p start (point))
@@ -1864,10 +1916,7 @@ of locations are supported:
 
  (:file ,filename ,position)             -- A position in a file.
  (:emacs-buffer ,buffername ,position)   -- A position in a buffer.
- (:defintion-name ,name)                 -- A name of a definition.
- (:null)                                 -- A dummy.
- (:error ,message)                       -- The location cannot be found.
- (:sbcl &key "
+ (:sexp ,string)                         -- A sexp where no file is available."
   (destructure-case location
     ((:file filename position)
      (set-buffer (find-file-noselect filename t))
@@ -1875,10 +1924,9 @@ of locations are supported:
     ((:emacs-buffer buffer position)
      (set-buffer buffer)
      (goto-char position))
-    ((:null)
-     (beginning-of-defun))
-    ((:error message)
-     (error "Cannot locate source: %s" message))
+    ((:sexp string)
+     (with-output-to-temp-buffer "*SLIME SEXP*"
+       (princ string)))
     ((:openmcl filename function-name)
      (set-buffer (find-file-noselect filename t))
      (ignore-errors
@@ -2109,10 +2157,10 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
 
 (defun slime-autodoc ()
   "Print some apropos information about the code at point, if applicable."
-  (when-bind (sym (slime-function-called-at-point/line))
+  (when-let (sym (slime-function-called-at-point/line))
     (let ((name (symbol-name sym))
           (cache-key (slime-qualify-cl-symbol-name sym)))
-      (or (when-bind (documentation (slime-get-cached-autodoc cache-key))
+      (or (when-let (documentation (slime-get-cached-autodoc cache-key))
             (message documentation)
             t)
           ;; Asynchronously fetch, cache, and display arglist
@@ -2134,7 +2182,7 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
      (when (equal (car slime-autodoc-cache) symbol-name)
        (cdr slime-autodoc-cache)))
     ((all)
-     (when-bind (symbol (intern-soft symbol-name))
+     (when-let (symbol (intern-soft symbol-name))
        (get symbol 'slime-autodoc-cache)))))
 
 (defun slime-update-autodoc-cache (symbol-name documentation)
@@ -2177,7 +2225,7 @@ perfermed.")
           (current-window-configuration))))
 
 (defun slime-complete-delay-restoration ()
-  (add-hook (make-local 'pre-command-hook)
+  (add-hook (make-local-hook 'pre-command-hook)
             'slime-complete-maybe-restore-window-confguration))
 
 (defun slime-complete-forget-window-configuration ()
@@ -2185,7 +2233,8 @@ perfermed.")
 
 (defun slime-complete-restore-window-configuration ()
   "Restore the window config if available."
-  (remove-hook 'slime-complete-maybe-restore-window-confguration)
+  (remove-hook 'pre-command-hook
+               'slime-complete-maybe-restore-window-confguration)
   (when slime-complete-saved-window-configuration
     (set-window-configuration slime-complete-saved-window-configuration)
     (setq slime-complete-saved-window-configuration nil))
@@ -2195,7 +2244,8 @@ perfermed.")
 (defun slime-complete-maybe-restore-window-confguration ()
   "Restore the window configuration, if the following command
 terminates a current completion."
-  (remove-hook 'slime-complete-maybe-restore-window-confguration)
+  (remove-hook 'pre-command-hook
+               'slime-complete-maybe-restore-window-confguration)
   (condition-case err
       (cond ((find last-command-char "()\"'`,# \r\n:")
              (slime-complete-restore-window-configuration))
@@ -2391,9 +2441,9 @@ function name is prompted."
 	(source-location
 	 (slime-eval `(swank:function-source-location-for-emacs ,name)
 		     (slime-buffer-package))))
-    (cond ((null source-location)
+    (cond ((or (null source-location) (equal source-location '(:null)))
            (message "No definition found: %s" name))
-          ((eq (car source-location) :error)
+          ((equal (car source-location) :error)
            (slime-message "%s" (cadr source-location)))
           (t
            (slime-goto-source-location source-location)
@@ -2446,7 +2496,7 @@ function name is prompted."
 (defun slime-eval-last-expression ()
   (interactive)
   (slime-interactive-eval (slime-last-expression)))
-
+  
 (defun slime-eval-defun ()
   (interactive)
   (slime-interactive-eval (slime-defun-at-point)))
@@ -2474,6 +2524,20 @@ First make the variable unbound, then evaluate the entire form."
 (defun slime-pprint-eval-last-expression ()
   (interactive)
   (slime-eval-describe `(swank:pprint-eval ,(slime-last-expression))))
+
+(defun slime-eval-print-last-expression (string)
+  (interactive (list (slime-last-expression)))
+  (slime-insert-transcript-delimiter string)
+  (insert "\n")
+  (slime-eval-async 
+   `(swank:interactive-eval ,string)
+   (slime-buffer-package t)
+   (lexical-let ((buffer (current-buffer)))
+     (lambda (result)
+       (with-current-buffer buffer
+         (slime-show-last-output)
+         (princ result buffer)
+         (insert "\n"))))))
 
 (defun slime-toggle-trace-fdefinition (fname-string)
   (interactive (list (slime-completing-read-symbol-name 
@@ -2993,15 +3057,6 @@ the current index when the selection is completed."
     (pop-to-buffer (current-buffer))
     (run-hooks 'sldb-hook)))
 
-(defmacro sldb-propertize-region (props &rest body)
-  (let ((start (gensym)))
-    `(let ((,start (point)))
-       (prog1 (progn ,@body)
-	 (add-text-properties ,start (point) ,props)))))
-
-(defun slime-insert-propertized (props &rest args)
-  (sldb-propertize-region props (apply #'insert args)))
-
 (define-derived-mode sldb-mode fundamental-mode "sldb" 
   "Superior lisp debugger mode
 
@@ -3115,8 +3170,6 @@ the current index when the selection is completed."
 	(sldb-show-frame-details)
       (sldb-hide-frame-details))))
 
-(put 'sldb-propertize-region 'lisp-indent-function 1)
-
 (defun sldb-frame-region ()
   (save-excursion
     (goto-char (next-single-property-change (point) 'frame nil (point-max)))
@@ -3135,7 +3188,7 @@ the current index when the selection is completed."
              (indent2 "      "))
 	(goto-char start)
 	(delete-region start end)
-	(sldb-propertize-region (plist-put props 'details-visible-p t)
+	(slime-propertize-region (plist-put props 'details-visible-p t)
 	  (insert (second frame) "\n"
                   indent1 "Locals:\n")
 	  (sldb-princ-locals frame-number indent2)
@@ -3170,7 +3223,7 @@ the current index when the selection is completed."
 	     (frame (plist-get props 'frame)))
 	(goto-char start)
 	(delete-region start end)
-	(sldb-propertize-region (plist-put props 'details-visible-p nil)
+	(slime-propertize-region (plist-put props 'details-visible-p nil)
 	  (insert (second frame) "\n"))))))
 
 (defun sldb-eval-in-frame (string)
@@ -3373,7 +3426,7 @@ the current index when the selection is completed."
       (save-excursion
 	(loop for (label . value) in (getf inspected-parts :parts)
 	      for i from 0
-	      do (sldb-propertize-region `(slime-part-number ,i)
+	      do (slime-propertize-region `(slime-part-number ,i)
 		   (insert label ": " value "\n"))))
       (pop-to-buffer (current-buffer))
       (when point (goto-char point)))))
