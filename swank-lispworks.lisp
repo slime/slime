@@ -291,12 +291,17 @@ Return NIL if the symbol is unbound."
 
 ;;; Compilation 
 
+(defmacro with-swank-compilation-unit ((location &rest options) &body body)
+  (lw:rebinding (location)
+    `(let ((compiler::*error-database* '()))
+       (with-compilation-unit ,options
+         ,@body
+         (signal-error-data-base compiler::*error-database* ,location)
+         (signal-undefined-functions compiler::*unknown-functions* ,location)))))
+
 (defimplementation swank-compile-file (filename load-p)
-  (let ((compiler::*error-database* '()))
-    (with-compilation-unit ()
-      (compile-file filename :load load-p)
-      (signal-error-data-base compiler::*error-database* filename)
-      (signal-undefined-functions compiler::*unknown-functions* filename))))
+  (with-swank-compilation-unit (filename)
+    (compile-file filename :load load-p)))
 
 (defun map-error-database (database fn)
   (loop for (filename . defs) in database do
@@ -340,6 +345,34 @@ Return NIL if the symbol is unbound."
     (null (list :position offset))
     (symbol (list :function-name (string dspec)))))
 
+#-(or lispworks-4.1 lispworks-4.2)      ; no dspec:parse-form-dspec prior to 4.3
+(defun dspec-stream-position (stream dspec)
+  (with-standard-io-syntax
+   (let ((*read-eval* nil))
+     (loop (let* ((pos (file-position stream))
+                  (form (read stream nil '#1=#:eof)))
+             (when (eq form '#1#)
+               (return nil))
+             (labels ((check-dspec (form)
+                        (when (consp form)
+                          (let ((operator (car form)))
+                            (case operator
+                              ((progn)
+                                (mapcar #'check-dspec
+                                        (cdr form)))
+                              ((eval-when locally macrolet symbol-macrolet)
+                                (mapcar #'check-dspec
+                                        (cddr form)))
+                              ((in-package)
+                               (let ((package (find-package (second form))))
+                                 (when package
+                                   (setq *package* package))))
+                              (otherwise
+                               (let ((form-dspec (dspec:parse-form-dspec form)))
+                                 (when (dspec:dspec-equal dspec form-dspec)
+                                   (return pos)))))))))
+               (check-dspec form)))))))
+
 (defun emacs-buffer-location-p (location)
   (and (consp location)
        (eq (car location) :emacs-buffer)))
@@ -357,15 +390,33 @@ Return NIL if the symbol is unbound."
              (symbol (symbol-name dspec))
              (cons (string (dspec:dspec-primary-name dspec))))))
     (etypecase location
-      ((or pathname string) 
-       (make-location `(:file ,(filename location))
-                      (dspec-buffer-position dspec 1)))
+      ((or pathname string)
+       (let ((checked-filename (filename location)))
+         (make-location `(:file ,checked-filename)
+                        #+(or lispworks-4.1 lispworks-4.2)
+                        (dspec-buffer-position dspec 1)
+                        #-(or lispworks-4.1 lispworks-4.2)
+                        (with-open-file (stream checked-filename)
+                          (let ((position (dspec-stream-position stream dspec)))
+                            (if position
+                                (list :position (1+ position) t)
+                              (dspec-buffer-position dspec 1)))))))
       (symbol `(:error ,(format nil "Cannot resolve location: ~S" location)))
       ((satisfies emacs-buffer-location-p)
        (destructuring-bind (_ buffer offset string) location
          (declare (ignore _ string))
          (make-location `(:buffer ,buffer)
                         (dspec-buffer-position dspec offset)))))))
+
+(defun make-dspec-progenitor-location (dspec location)
+  (let ((canon-dspec (dspec:canonicalize-dspec dspec)))
+    (make-dspec-location
+     (if canon-dspec
+         (if (dspec:local-dspec-p canon-dspec)
+             (dspec:dspec-progenitor canon-dspec)
+           canon-dspec)
+       nil)
+     location)))
 
 (defun signal-error-data-base (database location)
   (map-error-database 
@@ -374,7 +425,7 @@ Return NIL if the symbol is unbound."
      (declare (ignore filename))
      (signal-compiler-condition
       (format nil "~A" condition)
-      (make-dspec-location dspec location)
+      (make-dspec-progenitor-location dspec location)
       condition))))
 
 (defun signal-undefined-functions (htab filename)
@@ -382,7 +433,7 @@ Return NIL if the symbol is unbound."
 	     (dolist (dspec dspecs)
 	       (signal-compiler-condition 
 		(format nil "Undefined function ~A" unfun)
-		(make-dspec-location dspec filename)
+		(make-dspec-progenitor-location dspec filename)
 		nil)))
 	   htab))
 
@@ -390,16 +441,13 @@ Return NIL if the symbol is unbound."
   (assert buffer)
   (assert position)
   (let* ((location (list :emacs-buffer buffer position string))
-         (compiler::*error-database* '())
          (tmpname (hcl:make-temp-file nil "lisp")))
-    (with-compilation-unit ()
+    (with-swank-compilation-unit (location)
       (compile-from-temp-file 
        (format nil "~S~%~A" `(eval-when (:compile-toplevel)
                               (setq dspec::*location* (list ,@location)))
                string)
-       tmpname)
-      (signal-error-data-base compiler::*error-database* location)
-      (signal-undefined-functions compiler::*unknown-functions* location))))
+       tmpname))))
 
 ;;; xref
 
@@ -408,7 +456,26 @@ Return NIL if the symbol is unbound."
     (xref-results (,function name))))
 
 (defxref who-calls      hcl:who-calls)
+(defxref who-macroexpands hcl:who-calls) ; macros are in the calls table too
 (defxref list-callees   hcl:calls-who)
+(defxref list-callers   list-callers-internal)
+
+(defun list-callers-internal (name)
+  (let ((callers (make-array 100
+                             :fill-pointer 0
+                             :adjustable t)))
+    (hcl:sweep-all-objects
+     #'(lambda (object)
+         (when (and #+Harlequin-PC-Lisp (low:compiled-code-p object)
+                    #-Harlequin-PC-Lisp (sys::callablep object)
+                    (system::find-constant$funcallable name object))
+           (vector-push-extend object callers))))
+    ;; Delay dspec:object-dspec until after sweep-all-objects
+    ;; to reduce allocation problems.
+    (loop for object across callers
+          collect (if (symbolp object)
+		      (list 'function object)
+		    (dspec:object-dspec object)))))
 
 ;; only for lispworks 4.2 and above
 #-lispworks4.1
