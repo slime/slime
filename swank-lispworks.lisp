@@ -25,47 +25,9 @@
    stream:stream-line-column
    ))
 
-(import-to-swank-mop
- '( ;; classes
-   cl:standard-generic-function
-   clos:standard-slot-definition
-   cl:method
-   cl:standard-class
-   ;; standard-class readers
-   clos:class-default-initargs
-   clos:class-direct-default-initargs
-   clos:class-direct-slots
-   clos:class-direct-subclasses
-   clos:class-direct-superclasses
-   clos:class-finalized-p
-   cl:class-name
-   clos:class-precedence-list
-   clos:class-prototype
-   clos:class-slots
-   clos:specializer-direct-methods
-   ;; generic function readers
-   clos:generic-function-argument-precedence-order
-   clos:generic-function-declarations
-   clos:generic-function-lambda-list
-   clos:generic-function-methods
-   clos:generic-function-method-class
-   clos:generic-function-method-combination
-   clos:generic-function-name
-   ;; method readers
-   clos:method-generic-function
-   clos:method-function
-   clos:method-lambda-list
-   clos:method-specializers
-   clos:method-qualifiers
-   ;; slot readers
-   clos:slot-definition-allocation
-   clos:slot-definition-initargs
-   clos:slot-definition-initform
-   clos:slot-definition-initfunction
-   clos:slot-definition-name
-   clos:slot-definition-type
-   clos:slot-definition-readers
-   clos:slot-definition-writers))
+(import-swank-mop-symbols :clos '(:slot-definition-documentation
+                                  :eql-specializer
+                                  :eql-specializer-object))
 
 (defun swank-mop:slot-definition-documentation (slot)
   (documentation slot t))
@@ -123,7 +85,9 @@
 
 (defimplementation emacs-connected ()
   (declare (ignore stream))
-  (set-sigint-handler)
+  (when (eq nil (symbol-value 
+                 (find-symbol (string :*communication-style*) :swank)))
+    (set-sigint-handler))
   (let ((lw:*handle-warn-on-redefinition* :warn))
     (defmethod env-internals:environment-display-notifier 
         (env &key restarts condition)
