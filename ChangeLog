@@ -1,3 +1,17 @@
+2004-05-01  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (sldb-abort): Print a message if the Emacs RPC
+	returns. It shouldn't, if ABORT manages to unwind the stack, but
+	it currently does in OpenMCL due to some bug.
+
+	* swank.lisp (list-all-systems-in-central-registry): Use explicit
+	:wild in pathname for matching (needed in at least SBCL).
+
+	* swank-openmcl.lisp: Removed obsolete `swank-compile-system'.
+
+	* swank-sbcl.lisp: Removed obsolete `swank-compile-system'.
+	Removed some stale comments about supported features.
+
 2004-04-30   Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-repl-update-banner): Don't print the working
