@@ -1,5 +1,13 @@
 2003-11-02  Luke Gorrie  <luke@bluetail.com>
 
+	* slime.el (slime-log-event): Added a *slime-events* buffer
+	recording all state machine events. The buffer uses hideshow-mode
+	to fold messages down to single lines.
+	(slime-show-source-location): Bugfix: only create source-highlight
+	overlay if the source was actually located.
+	(slime-selector): Renamed from `slime-select' because that
+	function name was already in use. Ooops!
+
 	* swank.lisp (eval-string): force-output on *slime-output* before
 	returning the result. This somewhat works around some trouble
 	where output printed by lisp is being buffered too long.
