@@ -6129,23 +6129,24 @@ If they are not, position point at the first syntax error found."
 
 ;;; Finishing up
 
-(mapc #'byte-compile
-      '(slime-log-event
-        slime-events-buffer
-        slime-output-string 
-        slime-output-buffer
-        slime-output-filter
-        slime-with-output-end-mark
-        slime-process-available-input 
-        slime-dispatch-event 
-        slime-net-filter 
-        slime-net-have-input-p
-        slime-net-read3
-        slime-net-read
-        slime-print-apropos
-        slime-show-note-counts
-        slime-insert-propertized
-        slime-tree-insert))
+(save-window-excursion
+  (mapc #'byte-compile
+        '(slime-log-event
+          slime-events-buffer
+          slime-output-string 
+          slime-output-buffer
+          slime-output-filter
+          slime-with-output-end-mark
+          slime-process-available-input 
+          slime-dispatch-event 
+          slime-net-filter 
+          slime-net-have-input-p
+          slime-net-read3
+          slime-net-read
+          slime-print-apropos
+          slime-show-note-counts
+          slime-insert-propertized
+          slime-tree-insert)))
 
 (run-hooks 'slime-load-hook)
 
