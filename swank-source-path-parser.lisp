@@ -63,17 +63,17 @@ The source locations are stored in SOURCE-MAP."
 Return the object together with a hashtable that maps
 subexpressions of the object to stream positions."
   (let* ((*source-map* (make-hash-table :test #'eq))
-         (*readtable* (make-source-recording-readtable *readtable* *source-map*)))
+         (*readtable* (make-source-recording-readtable *readtable* 
+						       *source-map*)))
     (values (read stream) *source-map*)))
 
 (defun source-path-stream-position (path stream)
   "Search the source-path PATH in STREAM and return its position."
   (destructuring-bind (tlf-number . path) path
     (let ((*read-suppress* t))
-      (dotimes (i tlf-number) (read stream))
-      (multiple-value-bind (form source-map)
-	  (read-and-record-source-map stream)
-	(source-path-source-position (cons 0 path) form source-map)))))
+      (dotimes (i tlf-number) (read stream)))
+    (multiple-value-bind (form source-map) (read-and-record-source-map stream)
+      (source-path-source-position (cons 0 path) form source-map))))
 
 (defun source-path-string-position (path string)
   (with-input-from-string (s string)
