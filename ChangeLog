@@ -7,13 +7,13 @@
 	an expression for side-effects (without getting a
 	result).
 	(slime-idle-state): Handle new :emacs-evaluate-oneway.
-	(slime-debugging-state): Handle :emacs-evaluate-oneway. Also
-	handle :read-string.
+	(slime-debugging-state): Handle :emacs-evaluate-oneway.
 	(sldb-invoke-restart): Use slime-oneway-eval. This avoids pushing
 	an evaluating state (which will be aborted, and print an unnecessary
 	message saying so).
 	(sldb-break-with-default-debugger): New command to break into the
 	default TTY debugger. Bound to 'B' in *sldb*.
+	(slime-read-string-state): Added :emacs-evaluate-oneway.
 
 	* swank.lisp (invoke-nth-restart-for-emacs): Wrapper around
 	INVOKE-NTH-RESTART that checks that Lisp and Emacs agree on the
