@@ -1512,26 +1512,21 @@ deal with that."
   "Evaluate EXPR on the superior Lisp and return the result."
   (let* ((tag (gensym "slime-result-"))
 	 (slime-stack-eval-tags (cons tag slime-stack-eval-tags)))
-    (unwind-protect
-      (catch tag
-      (slime-rex (tag sexp)
-          (sexp package)
-        ((:ok value)
-         (unless (member tag slime-stack-eval-tags)
-           (error "tag = %S eval-tags = %S sexp = %S" tag slime-stack-eval-tags sexp))
-         (throw tag value))
-        ((:abort)
-         (error "Lisp Evaluation aborted.")))
-      (let ((debug-on-quit t)
-            (inhibit-quit nil))
-        (while t
-          (accept-process-output nil 0 10000)
-          ;;(debug)
-          (when nil ;; (and (slime-debugging-p) nil) ;; FIXME
-            (recursive-edit)
-            ;; If we get here, the user completed the recursive edit without
-            ;; coaxing the debugger into returning. We abort.
-            (error "Evaluation aborted."))))))))
+    (apply
+     #'funcall 
+     (catch tag
+       (slime-rex (tag sexp)
+           (sexp package)
+         ((:ok value)
+          (unless (member tag slime-stack-eval-tags)
+            (error "tag = %S eval-tags = %S sexp = %S"
+                   tag slime-stack-eval-tags sexp))
+          (throw tag (list #'identity value)))
+         ((:abort)
+          (throw tag (list #'error "Synchronous Lisp Evaluation aborted."))))
+       (let ((debug-on-quit t)
+             (inhibit-quit nil))
+         (while t (accept-process-output nil 0 10000)))))))
 
 (defun slime-eval-async (sexp package cont)
   "Evaluate EXPR on the superior Lisp and call CONT with the result."
@@ -3982,7 +3977,10 @@ portion of the backtrace. Frames are numbered from 0."
       (sldb-insert-frames (sldb-prune-initial-frames frames) nil)
       (pop-to-buffer (current-buffer))
       (run-hooks 'sldb-hook)
-      (setq buffer-read-only t))))
+      (setq buffer-read-only t)
+      (when (and slime-stack-eval-tags
+                 (y-or-n-p "Enter recursive edit? "))
+        (recursive-edit)))))
 
 (defun sldb-activate (thread level)
   (with-current-buffer (get-sldb-buffer t)
