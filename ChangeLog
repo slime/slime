@@ -1,3 +1,46 @@
+2004-06-20  Luke Gorrie  <luke@bluetail.com>
+
+	* swank.lisp (changelog-date): Removed unneeded function.
+	(connection-info): No more version field in result.
+
+	* slime.el: Audited to remove namespace slipups. Tracking a really
+	horrible clashing-with-some-user-configuration bug and want to
+	eliminate potential symbol conflicts.
+	(sldb-get-buffer): Renamed from `get-sldb-buffer'.
+	(slime-emacs-20-p): Renamed from `emacs-20-p'.
+	(slime-defun-if-undefined): Renamed from `defun-if-undefined'.
+	(slime-isearch): Small bugfix that could cause M-. to go to the
+	wrong place in CMUCL.
+	(slime-changelog-date, slime-check-protocol-version): Removed
+	unneeded functions.
+
+	* swank-backend.lisp (add-hook, run-hook): Added an Emacs-like
+	hook mechiansm.  The hope is that this will make some sections of
+	the code more self-describing by showing where they hook in.
+	(*new-connection-hook*): Hook run when a new connection is
+	established. Initialized to '(swank-backend:emacs-connected).
+	(*pre-reply-hook*): Hook run before sending a reply to Emacs.
+
+	* swank.lisp: Added some comments and docstrings.
+	(package-external-symbols): Removed unused function.
+	(serve-connection): Call *new-connection-hook*.
+	(eval-for-emacs): Call *pre-reply-hook*.
+	(sync-features-to-emacs, sync-indentation-to-emacs): Added to
+	*pre-reply-hook*.
+	(cl-package, keyword-package): Now defconstant instead of
+	defvar. Removed the *'s accordingly.
+
+	* slime.el (slime-abort-connection): Renamed from
+	`slime-connection-abort'. The new name is easier to find with
+	completion.
+
+	* swank-sbcl.lisp: Change sb-posix:: to sb-posix:
+
+2004-06-19  Luke Gorrie  <luke@bluetail.com>
+
+	* swank.lisp (known-to-emacs-p): Bugfix. Indentation-updates was
+	broken.
+
 2004-06-18  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-buffer-package): If DONT-CACHE is true and no
