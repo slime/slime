@@ -1,3 +1,8 @@
+2004-07-20  Andreas Fuchs  <asf@boinkor.net>
+
+	* swank-sbcl.lisp (call-with-compilation-hooks): Trap and report
+	errors that cause compilation to fail, e.g. read errors.
+
 2004-07-19  Luke Gorrie  <luke@bluetail.com>
 
 	* HACKING: Updated. Some notes about Emacs features.
