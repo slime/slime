@@ -2337,13 +2337,20 @@ Each newlines and following indentation is replaced by a single space."
       (replace-match " "))
     (buffer-string)))
 
+(defun slime-length> (list n)
+  "Test if (length LIST) is greater than N."
+  (while (and (> n 0) list)
+    (setq list (cdr list))
+    (decf n))
+  list)
+
 (defun slime-compilation-finished (result buffer show-notes-buffer)
   (let ((notes (slime-compiler-notes)))
     (with-current-buffer buffer
       (multiple-value-bind (result secs) result
         (slime-show-note-counts notes secs)
         (slime-highlight-notes notes)))
-    (when (and show-notes-buffer (< 1 (length notes)))
+    (when (and show-notes-buffer (slime-length> notes 1))
       (slime-list-compiler-notes notes))
     ;;(let ((xrefs (slime-xrefs-for-notes notes)))
     ;;  (when (> (length xrefs) 1) ; >1 file
@@ -2431,16 +2438,19 @@ from an element and TEST is used to compare keys."
   (make-slime-tree :item (slime-note.short-message note)
                    :plist (list 'note note)))
 
-(defun slime-tree-for-severity (severity notes)
+(defun slime-tree-for-severity (severity notes collapsed-p)
   (make-slime-tree :item (format "%s (%d)" 
                                  (slime-severity-label severity)
                                  (length notes))
-                   :kids (mapcar #'slime-tree-for-note notes)))
+                   :kids (mapcar #'slime-tree-for-note notes)
+                   :collapsed-p collapsed-p))
 
 (defun slime-compiler-notes-to-tree (notes)
-  (let ((kids (let ((alist (slime-alistify notes #'slime-note.severity #'eq)))
+  (let ((kids (let* ((alist (slime-alistify notes #'slime-note.severity #'eq))
+                     (collapsed-p (slime-length> alist 1)))
                 (loop for (severity . notes) in alist
-                      collect (slime-tree-for-severity severity notes)))))
+                      collect (slime-tree-for-severity severity notes 
+                                                       collapsed-p)))))
     (make-slime-tree :item (format "All (%d)"  (length notes))
                      :kids kids :collapsed-p nil)))
 
