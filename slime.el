@@ -1224,7 +1224,7 @@ the binding for `slime-connection'."
 This is automatically synchronized from Lisp.")
 
 (slime-def-connection-var slime-lisp-package
-    "COMMON-LISP-USER"
+    "CL-USER"
   "The current package name of the Superior lisp.
 This is automatically synchronized from Lisp.")
 
