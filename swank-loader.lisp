@@ -36,13 +36,13 @@
            )))
 
 (defparameter *implementation-features*
-  '(:allegro :sbcl :openmcl :cmu :clisp :ccl :corman :armedbear))
+  '(:allegro :lispworks :sbcl :openmcl :cmu :clisp :ccl :corman :armedbear))
 
 (defparameter *os-features*
-  '(:macosx :linux :windows :mswindows :solaris :darwin :sunos :unix))
+  '(:macosx :linux :windows :mswindows :win32 :solaris :darwin :sunos :unix))
 
 (defparameter *architecture-features*
-  '(:powerpc :ppc :x86 :x86-64 :i686 :pc386 :sparc))
+  '(:powerpc :ppc :x86 :x86-64 :i686 :pc386 :iapx386 :sparc))
 
 (defun lisp-version-string ()
   #+cmu       (substitute #\- #\/ (lisp-implementation-version))

@@ -1,3 +1,8 @@
+2003-05-21  Edi Weitz  <edi@agharta.de>
+
+	* swank-loader-lisp (*implementation-features*, *os-features*,
+	*architecture-features*): LispWorks was completely missing.
+	
 2005-03-18  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-source-path-parser.lisp (make-source-recording-readtable):
