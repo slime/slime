@@ -44,29 +44,25 @@
     (t (lisp::string-out-misc stream operation arg1 arg2))))
 
 (defstruct (slime-input-stream
-	     (:include lisp::lisp-stream
-		       (lisp::n-bin #'slime-input-stream/n-bin)
-		       (lisp::in #'read-char) ; make read-line happy.
-		       (lisp::bin #'read-byte)
-		       (lisp::in-buffer 
-			(make-array lisp::in-buffer-length 
-				    :element-type '(unsigned-byte 8)))
-		       (lisp::in-index lisp::in-buffer-length))))
+	     (:include sys:lisp-stream
+		       (lisp::in #'slime-input-stream-read-char)
+		       (lisp::misc #'slime-input-stream-misc)))
+  (buffered-char nil :type (or null character)))
 
-(defvar *read-input-catch-tag* 0)
+(defun slime-input-stream-read-char (stream &optional eoferr eofval)
+  (declare (ignore eoferr eofval))
+  (let ((c (slime-input-stream-buffered-char stream)))
+    (cond (c (setf (slime-input-stream-buffered-char stream) nil) c)
+	  (t (slime-read-char)))))
 
-(defun slime-input-stream/n-bin (stream buffer start requested eof-errorp)
-  (let ((*read-input-catch-tag* (1+ *read-input-catch-tag*)))
-    (send-to-emacs `(:read-input ,requested ,*read-input-catch-tag*))
-    (let ((input (catch *read-input-catch-tag*
-		   (read-from-emacs))))
-      (loop for c across input
-	    for i from start
-	    do (setf (aref buffer i) (char-code c)))
-      (length input))))
-
-(defslimefun take-input (tag input)
-  (throw tag input))
+(defun slime-input-stream-misc (stream operation &optional arg1 arg2)
+  (declare (ignore arg2))
+  (case operation
+    (:unread 
+     (assert (not (slime-input-stream-buffered-char stream)))
+     (setf (slime-input-stream-buffered-char stream) arg1)
+     nil)
+    (:listen t)))
 
 (defun create-swank-server (port &key reuse-address (address "localhost"))
   "Create a SWANK TCP server."
