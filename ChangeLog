@@ -1,3 +1,9 @@
+2004-06-15  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-compile-file): Just prompt for saving the
+	current file instead of calling `save-some-buffers'. Based on a
+	patch from Brian Downing.
+
 2004-06-12  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* wank-allegro.lisp (format-sldb-condition, condition-references):
