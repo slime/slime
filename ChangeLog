@@ -80,7 +80,6 @@
 	(arglist-for-insertion): Use it
 	(decode-keyword-arg, decode-optional-arg): New functions.
 	
->>>>>>> 1.607
 2005-01-19  Lars Magne Ingebrigtsen  <larsi@gnus.org>
 
 	* slime.el (slime-header-line-p): Customize variable to
