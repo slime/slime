@@ -1,5 +1,10 @@
 2004-03-03  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* swank.lisp (setup-server, serve-connection): New dont-close
+	argument to keep the socket open after the first connection.
+	(start-server, create-swank-server): Update callers. 
+	Reported by Bill Clementson.
+
 	* swank-cmucl.lisp (resolve-note-location): Don't be too clever,
 	if there is no context available.  The compiler notes buffer is
 	probably more adequate in this situation.
@@ -18,8 +23,8 @@
 	* swank.lisp (find-completions): Deleted.
 	(simple-completions): Use longest-common-prefix instead of
 	longest-completion.
-	(inspect-in-frame): Moved here from swank-cmucl.lisp.
-
+	(inspect-in-frame): Moved here from swank-cmucl.lisp. 
+	
 	* swank-lispworks.lisp (call-with-debugging-environment): Bind
 	*sldb-top-frame*.
 	(nth-frame): Use *sldb-top-frame*.
