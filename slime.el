@@ -1975,20 +1975,28 @@ first element of the source-path redundant."
 LOCATION is a plist and defines a position in a buffer.  Several kinds
 of locations are supported:
 
- (:file ,filename ,position)             -- A position in a file.
- (:emacs-buffer ,buffername ,position)   -- A position in a buffer.
- (:sexp ,string)                         -- A sexp where no file is available."
+ (:file ,filename ,position[ ,align-p])
+   A position in a file. 
+ (:emacs-buffer ,buffername ,position[ ,align-p])
+   A position in a buffer.
+ (:sexp ,string)
+   A sexp where no file is available.
+
+align-p means the location is not character-accurate, and should be
+aligned to the start of the sexp in front."
   (destructure-case location
-    ((:file filename position)
+    ((:file filename position &optional align-p)
      (set-buffer (find-file-noselect filename t))
      (goto-char position)
-     (slime-forward-sexp)
-     (beginning-of-sexp))
-    ((:emacs-buffer buffer position)
+     (when align-p
+       (slime-forward-sexp)
+       (beginning-of-sexp)))
+    ((:emacs-buffer buffer position &optional align-p)
      (set-buffer buffer)
      (goto-char position)
-     (slime-forward-sexp)
-     (beginning-of-sexp))
+     (when align-p
+       (slime-forward-sexp)
+       (beginning-of-sexp)))
     ((:sexp string)
      (with-output-to-temp-buffer "*SLIME SEXP*"
        (princ string)))
