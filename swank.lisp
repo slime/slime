@@ -1,3 +1,4 @@
+(declaim (optimize debug))
 
 (defpackage :swank
   (:use :common-lisp)
@@ -16,6 +17,11 @@
 	   #:completions
            #:find-fdefinition
 	   #:apropos-list-for-emacs
+           #:who-calls
+           #:who-references
+           #:who-sets
+           #:who-binds
+           #:who-macroexpands
 	   #:list-all-package-names
 	   #:function-source-location-for-emacs
 	   #:swank-macroexpand-1
@@ -413,6 +419,7 @@ compiler state."
 (defslimefun swank-compile-file (filename load)
   (clear-note-database filename)
   (clear-compiler-notes)
+  (clear-xref-info filename)
   (let ((*buffername* nil)
 	(*buffer-offset* nil))
     (multiple-value-bind (pathname errorsp notesp) 
@@ -432,7 +439,34 @@ compiler state."
 	  :source-info `(:emacs-buffer ,buffer 
 			 :emacs-buffer-offset ,start)))))))
 
-;;;; ARGLIST-STRING -- interface
+(defun clear-xref-info (namestring)
+  "Clear XREF notes pertaining to FILENAME.
+This is a workaround for a CMUCL bug: XREF records are cumulative."
+  (let ((filename (parse-namestring namestring)))
+    (when c:*record-xref-info*
+      (dolist (db (list xref::*who-calls*
+                        xref::*who-macroexpands*
+                        xref::*who-references*
+                        xref::*who-binds*
+                        xref::*who-sets*))
+        (maphash (lambda (target contexts)
+                   (setf (gethash target db)
+                         (delete-if (lambda (ctx)
+                                      (xref-context-derived-from-p ctx filename))
+                                    contexts)))
+                 db)))))
+
+(defun xref-context-derived-from-p (context filename)
+  (let ((xref-file (xref:xref-context-file context)))
+    (and xref-file (pathname= filename xref-file))))
+  
+(defun pathname= (&rest pathnames)
+  "True if PATHNAMES refer to the same file."
+  (apply #'string= (mapcar #'unix-truename pathnames)))
+
+(defun unix-truename (pathname)
+  (ext:unix-namestring (truename pathname)))
+
 (defslimefun arglist-string (fname)
   "Return a string describing the argument list for FNAME.
 The result has the format \"(...)\"."
@@ -466,9 +500,45 @@ The result has the format \"(...)\"."
 	  arglist
 	  (to-string arglist)))))
 
-;;;; COMPLETIONS -- interface
+(defslimefun who-calls (function-name)
+  "Return a the callers of FUNCTION-NAME.
+The result is a list of files-referrer:
+file-referrer ::= (FILENAME ({reference}+))
+reference     ::= (FUNCTION-SPECIFIER SOURCE-PATH)"
+  (xref-results-for-emacs (xref:who-calls function-name)))
 
-(defun completions (prefix package-name &optional only-external-p)
+(defslimefun who-references (symbol)
+  (xref-results-for-emacs (xref:who-references symbol)))
+
+(defslimefun who-binds (variable)
+  (xref-results-for-emacs (xref:who-binds variable)))
+
+(defslimefun who-sets (variable)
+  (xref-results-for-emacs (xref:who-sets variable)))
+
+(defslimefun who-macroexpands (variable)
+  (xref-results-for-emacs (xref:who-macroexpands variable)))
+
+(defun xref-results-for-emacs (contexts)
+  (let ((hash (make-hash-table :test 'equal))
+        (files '()))
+    (dolist (context contexts)
+      (let ((unix-path (unix-truename (xref:xref-context-file context))))
+        (push context (gethash unix-path hash))
+        (pushnew unix-path files :test #'string=)))
+    (mapcar (lambda (unix-path)
+              (xref-contexts-to-plist unix-path (gethash unix-path hash)))
+            (sort files #'string<))))
+
+(defun xref-contexts-to-plist (unix-filename contexts)
+  "Translate an xref CONTEXT into a property list."
+  (list unix-filename
+        (loop for context in contexts
+              collect (list (let ((*print-pretty* nil))
+                              (princ-to-string (xref:xref-context-name context)))
+                            (xref:xref-context-source-path context)))))
+
+(defslimefun completions (prefix package-name &optional only-external-p)
   "Return a list of completions for a symbol's PREFIX and PACKAGE-NAME.
 The result is a list of symbol-name strings. All symbols accessible in
 the package are considered."
@@ -670,7 +740,7 @@ Return NIL if the symbol is unbound."
 The result is a list of property lists."
   (mapcan (listify #'briefly-describe-symbol-for-emacs)
           (sort (apropos-symbols name external-only package)
-                #'belongs-before-in-apropos-p)))
+                #'present-symbol-before-p)))
 
 (defun listify (f)
   "Return a function like F, but which returns any non-null value
@@ -688,12 +758,12 @@ wrapped in a list."
                      string package external-only)
     symbols))
 
-(defun belongs-before-in-apropos-p (a b)
-  "Return true if A belongs before B in an apropos listing.
+(defun present-symbol-before-p (a b)
+  "Return true if A belongs before B in a printed summary of symbols.
 Sorted alphabetically by package name and then symbol name, except
 that symbols accessible in the current package go first."
   (flet ((accessible (s)
-           (find-symbol (symbol-name s) *package*)))
+           (find-symbol (symbol-name s) *buffer-package*)))
     (let ((pa (symbol-package a))
           (pb (symbol-package b)))
       (cond ((or (eq pa pb)
