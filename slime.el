@@ -434,7 +434,7 @@ This is automatically updated based on the buffer/point."))
   "Return a pretty version of a package name designator (as a string)."
   (cond ((string-match "^:\\(.*\\)$" name)    (match-string 1 name))
         ((string-match "^\"\\(.*\\)\"$" name) (match-string 1 name))
-        ((t name))))
+        (t name)))
 
 (when slime-update-modeline-package
   (run-with-idle-timer 0.2 0.2 'slime-update-modeline-package))
