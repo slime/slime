@@ -813,7 +813,8 @@ NIL if streams are not globally redirected.")
   "Write a message to *terminal-io* when *log-events* is non-nil.
 Useful for low level debugging."
   (when *log-events*
-    (apply #'format *log-io* format-string args)))
+    (apply #'format *log-io* format-string args)
+    (force-output *log-io*)))
 
 (defun read-from-emacs ()
   "Read and process a request from Emacs."
@@ -1189,7 +1190,8 @@ change, then send Emacs an update."
                            (return (values values -)))))
       (when (and package-update-p (not (eq *package* *buffer-package*)))
         (send-to-emacs 
-         (list :new-package (package-name *package*) (package-string-for-prompt *package*)))))))
+         (list :new-package (package-name *package*)
+               (package-string-for-prompt *package*)))))))
 
 (defun package-string-for-prompt (package)
   "Return the shortest nickname (or canonical name) of PACKAGE."
@@ -1259,7 +1261,7 @@ the 'printer-variables property of PREFIX."
         `(progn 
            ,@(loop for (name init doc) in bindings
                    collect `(defvar ,(symconc prefix name) ,init 
-                              ,@(if doc doc))))))))
+                              ,@(if doc (list doc)))))))))
 
 
 (define-printer-variables swank-pprint
@@ -1368,7 +1370,8 @@ after Emacs causes a restart to be invoked."
   (length 10)
   (circle t)
   (readably nil)
-  gensym pprint-dispatch base radix array lines)
+  (pprint-dispatch (copy-pprint-dispatch nil))
+  gensym base radix array lines)
 
 (defun debug-in-emacs (condition)
   (let ((*swank-debugger-condition* condition)
@@ -2561,7 +2564,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
                  (t (princ object as-string)))))
         (printer list))))
 
-(defmethod inspect-for-emacs ((object cons) (inspector t))
+(defmethod inspect-for-emacs ((object cons) inspector)
   (declare (ignore inspector))
   (if (consp (cdr object))
       (inspect-for-emacs-list object)
@@ -2612,7 +2615,7 @@ NIL is returned if the list is circular."
           ((and (eq fast slow) (> n 0)) (return nil))
           ((not (consp (cdr fast))) (return (values (1+ n) (cdr fast)))))))
 
-(defmethod inspect-for-emacs ((ht hash-table) (inspector t))
+(defmethod inspect-for-emacs ((ht hash-table) inspector)
   (declare (ignore inspector))
   (values "A hash table."
           (append
@@ -2627,7 +2630,7 @@ NIL is returned if the list is circular."
                  for value being the hash-values of ht
                  append `((:value ,key) " = " (:value ,value) (:newline))))))
 
-(defmethod inspect-for-emacs ((array array) (inspector t))
+(defmethod inspect-for-emacs ((array array) inspector)
   (declare (ignore inspector))
   (values "An array."
           (append
@@ -2647,7 +2650,7 @@ NIL is returned if the list is circular."
                    for i from 0
                    append (label-value-line i e))))))
 
-(defmethod inspect-for-emacs ((char character) (inspector t))
+(defmethod inspect-for-emacs ((char character) inspector)
   (declare (ignore inspector))
   (values "A character."
           (append 
@@ -2661,7 +2664,7 @@ NIL is returned if the list is circular."
                  (:value ,(get-macro-character char)))))))
 
 ;; Shouldn't most of this stuff be done by describe-symbol-for-emacs? -- he
-(defmethod inspect-for-emacs ((symbol symbol) (inspector t))
+(defmethod inspect-for-emacs ((symbol symbol) inspector)
   (declare (ignore inspector))
   (let ((internal-external (multiple-value-bind (symbol status)
                                (intern (symbol-name symbol) (symbol-package symbol))
@@ -2676,7 +2679,7 @@ NIL is returned if the list is circular."
                    " " (:action ,(format nil "[remove name ~S (does not affect class object)]" symbol)
                                 ,(lambda () (setf (find-class symbol) nil)))))))
     (values "A symbol."
-            `("Its name is: " (:value ,(symbol-name symbol))
+55            `("Its name is: " (:value ,(symbol-name symbol))
               (:newline)
               ;; check to see whether it is a global variable, a
               ;; constant, or a symbol macro.
@@ -2724,7 +2727,7 @@ NIL is returned if the list is circular."
               ,@package
               ,@class))))
 
-(defmethod inspect-for-emacs ((f function) (inspector t))
+(defmethod inspect-for-emacs ((f function) inspector)
   (declare (ignore inspector))
   (values "A function."
           `("Name: " (:value ,(function-name f)) (:newline)
@@ -2764,7 +2767,7 @@ NIL is returned if the list is circular."
        (swank-mop:generic-function-name (swank-mop:method-generic-function method))
        (method-specializers-for-inspect method))))
 
-(defmethod inspect-for-emacs ((o standard-object) (inspector t))
+(defmethod inspect-for-emacs ((o standard-object) inspector)
   (declare (ignore inspector))
   (values "An object."
           `("Class: " (:value ,(class-of o))
@@ -2851,7 +2854,7 @@ more specific."
                          maxlen
                          (length doc))))
 
-(defmethod inspect-for-emacs ((gf standard-generic-function) (inspector t))
+(defmethod inspect-for-emacs ((gf standard-generic-function) inspector)
   (declare (ignore inspector))
   (values "A generic function."
           `("Name: " (:value ,(swank-mop:generic-function-name gf)) (:newline)
@@ -2875,7 +2878,7 @@ more specific."
                  collect (abbrev-doc (documentation method t)) and
                  collect '(:newline)))))
 
-(defmethod inspect-for-emacs ((method standard-method) (inspector t))
+(defmethod inspect-for-emacs ((method standard-method) inspector)
   (declare (ignore inspector))
   (values "A method." 
           `("Method defined on the generic function " (:value ,(swank-mop:method-generic-function method)
@@ -2894,7 +2897,7 @@ more specific."
             (:newline)
             "Method function: " (:value ,(swank-mop:method-function method)))))
 
-(defmethod inspect-for-emacs ((class standard-class) (inspector t))
+(defmethod inspect-for-emacs ((class standard-class) inspector)
   (declare (ignore inspector))
   (values "A class."
           `("Name: " (:value ,(class-name class))
@@ -2951,7 +2954,7 @@ more specific."
                                `(:value ,(swank-mop:class-prototype class))
                                '"#<N/A (class not finalized)>"))))
 
-(defmethod inspect-for-emacs ((slot swank-mop:standard-slot-definition) (inspector t))
+(defmethod inspect-for-emacs ((slot swank-mop:standard-slot-definition) inspector)
   (declare (ignore inspector))
   (values "A slot." 
           `("Name: " (:value ,(swank-mop:slot-definition-name slot))
@@ -2967,7 +2970,7 @@ more specific."
             "Init function: " (:value ,(swank-mop:slot-definition-initfunction slot))
             (:newline))))
 
-(defmethod inspect-for-emacs ((package package) (inspector t))
+(defmethod inspect-for-emacs ((package package) inspector)
   (declare (ignore inspector))
   (let ((internal-symbols '())
         (external-symbols '()))
@@ -3010,7 +3013,7 @@ more specific."
                    `(:value ,(package-shadowing-symbols package)
                             ,(format nil "~D shadowed symbol~:P." (length (package-shadowing-symbols package)))))))))
 
-(defmethod inspect-for-emacs ((pathname pathname) (inspector t))
+(defmethod inspect-for-emacs ((pathname pathname) inspector)
   (declare (ignore inspector))
   (values (if (wild-pathname-p pathname)
               "A wild pathname."
@@ -3027,7 +3030,7 @@ more specific."
                               (not (probe-file pathname)))
                     (label-value-line "Truename" (truename pathname))))))
 
-(defmethod inspect-for-emacs ((pathname logical-pathname) (inspector t))
+(defmethod inspect-for-emacs ((pathname logical-pathname) inspector)
   (declare (ignore inspector))
   (values "A logical pathname."
           (append 
@@ -3047,15 +3050,15 @@ more specific."
             ("Truename" (if (not (wild-pathname-p pathname))
                             (probe-file pathname)))))))
 
-(defmethod inspect-for-emacs ((n number) (inspector t))
+(defmethod inspect-for-emacs ((n number) inspector)
   (declare (ignore inspector))
   (values "A number." `("Value: " ,(princ-to-string n))))
 
-(defmethod inspect-for-emacs ((i integer) (inspector t))
+(defmethod inspect-for-emacs ((i integer) inspector)
   (declare (ignore inspector))
   (values "A number."
           (append 
-           `(,(format nil "Value: ~D = #x~X = #o~O = #b~,,' ,8B = ~E" 
+           `(,(format nil "Value: ~D = #x~X = #o~O = #b~:,,' ,8B = ~E"
                       i i i i i) 
               (:newline))
            (if (< -1 i char-code-limit)
@@ -3067,14 +3070,14 @@ more specific."
                    (format nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0DZ"
                            year month date hour min sec))))))
 
-(defmethod inspect-for-emacs ((c complex) (inspector t))
+(defmethod inspect-for-emacs ((c complex) inspector)
   (declare (ignore inspector))
   (values "A complex number."
           (label-value-line* 
            ("Real part" (realpart c))
            ("Imaginary part" (imagpart c)))))
 
-(defmethod inspect-for-emacs ((r ratio) (inspector t))
+(defmethod inspect-for-emacs ((r ratio) inspector)
   (declare (ignore inspector))
   (values "A non-integer ratio."
           (label-value-line*
@@ -3082,7 +3085,7 @@ more specific."
            ("Denominator" (denominator r))
            ("As float" (float r)))))
 
-(defmethod inspect-for-emacs ((f float) (inspector t))
+(defmethod inspect-for-emacs ((f float) inspector)
   (declare (ignore inspector))
   (multiple-value-bind (significand exponent sign) (decode-float f)
     (values "A floating point number."
