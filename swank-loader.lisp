@@ -65,11 +65,9 @@ recompiled."
 (defun user-init-file ()
   "Return the name of the user init file or nil."
   (let ((home (user-homedir-pathname)))
-    (when (probe-file home)
-      (let ((filename (format nil "~A/.swank.lisp"
-                              (namestring (truename home)))))
-        (cond ((probe-file filename) filename)
-              (t nil))))))
+    (and (probe-file home)
+         (probe-file (format nil "~A/.swank.lisp"
+                             (namestring (truename home)))))))
 
 (compile-files-if-needed-serially
  (list* (make-swank-pathname "swank-backend") *swank-pathname*
