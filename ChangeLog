@@ -1,5 +1,14 @@
 2005-03-12  Luke Gorrie  <luke@synap.se>
 
+	* slime.el (slime-edit-value): New function on `C-c E'. Prompts
+	for a Lisp expression, evaluates and displays the result in a new
+	buffer for editing, and then setf's the edited value in Lisp after
+	you press C-c C-c. Usage example: `C-c E asdf:*central-registry*'
+	Minor docstring and pull-down-menu changes.
+
+	* swank.lisp (value-for-editing, commit-edited-value): New
+	functions for slime-edit-value.
+
 	* swank-allegro.lisp (toggle-trace): Fix from Antonio Menezes
 	Leitao.
 
