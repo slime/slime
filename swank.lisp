@@ -1,11 +1,16 @@
-;;;; -*- Mode: lisp; outline-regexp: ";;;;;*"; indent-tabs-mode: nil -*-;;;
+;;; -*- Mode: lisp; outline-regexp: ";;;;;*"; indent-tabs-mode: nil -*-;;;
 ;;;
-;;; swank.lisp --- the portable bits
+;;; This code has been placed in the Public Domain.  All warranties
+;;; are disclaimed.
 ;;;
-;;; Created 2003, Daniel Barlow <dan@metacircles.com>
+;;;; swank.lisp
 ;;;
-;;; This code has been placed in the Public Domain.  All warranties are 
-;;; disclaimed.
+;;; This file defines the "Swank" TCP server for Emacs to talk to. The
+;;; code in this file is purely portable Common Lisp. We do require a
+;;; smattering of non-portable functions in order to write the server,
+;;; so we have defined them in `swank-backend.lisp' and implemented
+;;; them separately for each Lisp implementation. These extensions are
+;;; available to us here via the `SWANK-BACKEND' package.
 
 (defpackage :swank
   (:use :common-lisp :swank-backend)
@@ -16,14 +21,14 @@
            #:ed-in-emacs
            #:print-indentation-lossage
            #:swank-debugger-hook
-           ;; configurables
+           ;; These are user-configurable variables:
            #:*sldb-pprint-frames*
            #:*communication-style*
            #:*log-events*
            #:*use-dedicated-output-stream*
            #:*configure-emacs-indentation*
            #:*readtable-alist*
-           ;; re-exported from backend
+           ;; These are re-exported directly from the backend:
            #:frame-source-location-for-emacs
            #:restart-frame
            #:sldb-step
@@ -39,16 +44,21 @@
 
 (in-package #:swank)
 
-(defvar *cl-package* (find-package :cl))
-(defvar *keyword-package* (find-package :keyword))
+;;;; Top-level variables, constants, macros
+
+(defconstant cl-package (find-package :cl)
+  "The COMMON-LISP package.")
+
+(defconstant keyword-package (find-package :keyword)
+  "The KEYWORD package.")
 
 (defvar *swank-io-package*
   (let ((package (make-package :swank-io-package :use '())))
     (import '(nil t quote) package)
     package))
 
-(defconstant +server-port+ 4005
-  "Default port for the Swank TCP server.")
+(defconstant default-server-port 4005
+  "The default TCP port for the server (when started manually).")
 
 (defvar *swank-debug-p* t
   "When true, print extra debugging information.")
@@ -56,10 +66,11 @@
 (defvar *sldb-pprint-frames* nil
   "*pretty-print* is bound to this value when sldb prints a frame.")
 
-;;; public interface.  slimefuns are the things that emacs is allowed
-;;; to call
+;;; The `DEFSLIMEFUN' macro defines a function that Emacs can call via
+;;; RPC.
 
 (defmacro defslimefun (name arglist &body rest)
+  "A DEFUN for functions that Emacs can call by RPC."
   `(progn
     (defun ,name ,arglist ,@rest)
     ;; see <http://www.franz.com/support/documentation/6.2/doc/pages/variables/compiler/s_cltl1-compile-file-toplevel-compatibility-p_s.htm>
@@ -68,14 +79,11 @@
 
 (declaim (ftype (function () nil) missing-arg))
 (defun missing-arg ()
+  "A function that the compiler knows will never to return a value.
+You can use (MISSING-ARG) as the initform for defstruct slots that
+must always be supplied. This way the :TYPE slot option need not
+include some arbitrary initial value like NIL."
   (error "A required &KEY or &OPTIONAL argument was not supplied."))
-
-(defun package-external-symbols (package)
-  (let ((list '()))
-    (do-external-symbols (sym package) (push sym list))
-    list))
-
-;; (package-external-symbols (find-package :swank))
 
 
 ;;;; Connections
@@ -87,9 +95,7 @@
 ;;;
 
 (defstruct (connection
-             (:conc-name connection.)
-             ;; (:print-function %print-connection)
-             )
+             (:conc-name connection.))
   ;; Raw I/O stream of socket connection.
   (socket-io        (missing-arg) :type stream :read-only t)
   ;; Optional dedicated output socket (backending `user-output' slot).
@@ -100,36 +106,40 @@
   (user-input       nil :type (or stream null))
   (user-output      nil :type (or stream null))
   (user-io          nil :type (or stream null))
-  ;;
-  control-thread
+  ;; In multithreaded systems we delegate certain tasks to specific
+  ;; threads. The `reader-thread' is responsible for reading network
+  ;; requests from Emacs and sending them to the `control-thread'; the
+  ;; `control-thread' is responsible for dispatching requests to the
+  ;; threads that should handle them; the `repl-thread' is the one
+  ;; that evaluates REPL expressions. The control thread dispatches
+  ;; all REPL evaluations to the REPL thread and for other requests it
+  ;; spawns new threads.
   reader-thread
-  ;; The REPL thread loops receiving functions to apply.
-  ;; REPL expressions are sent to this thread for evaluation so that
-  ;; they always run in the same thread.
+  control-thread
   repl-thread
-  (read             (missing-arg) :type function)
-  (send             (missing-arg) :type function)
+  ;; Callback functions:
+  ;; (SERVE-REQUESTS <this-connection>) serves all pending requests
+  ;; from Emacs.
   (serve-requests   (missing-arg) :type function)
+  ;; (READ) is called to read and return one message from Emacs.
+  (read             (missing-arg) :type function)
+  ;; (SEND OBJECT) is called to send one message to Emacs.
+  (send             (missing-arg) :type function)
+  ;; (CLEANUP <this-connection>) is called when the connection is
+  ;; closed.
   (cleanup          nil :type (or null function))
-  ;; Cache of indentation information that has been sent to Emacs.
-  ;; This is used for preparing deltas for updates.
-  ;; Maps: symbol -> indentation specification
+  ;; Cache of macro-indentation information that has been sent to Emacs.
+  ;; This is used for preparing deltas to update Emacs's knowledge.
+  ;; Maps: symbol -> indentation-specification
   (indentation-cache (make-hash-table :test 'eq) :type hash-table)
-  ;; The list of packages represented in the cache.
-  (indentation-cache-packages nil)
-  )
-
-#+(or)
-(defun %print-connection (connection stream depth)
-  (declare (ignore depth))
-  (print-unreadable-object (connection stream :type t :identity t)))
+  ;; The list of packages represented in the cache:
+  (indentation-cache-packages '()))
 
 (defvar *connections* '()
   "List of all active connections, with the most recent at the front.")
 
 (defvar *emacs-connection* nil
-  "The connection to Emacs.
-All threads communicate through this interface with Emacs.")
+  "The connection to Emacs currently in use.")
 
 (defvar *swank-state-stack* '()
   "A list of symbols describing the current state.  Used for debugging
@@ -137,9 +147,12 @@ and to detect situations where interrupts can be ignored.")
 
 (defun default-connection ()
   "Return the 'default' Emacs connection.
+This connection can be used to talk with Emacs when no specific
+connection is in use, i.e. *EMACS-CONNECTION* is NIL.
+
 The default connection is defined (quite arbitrarily) as the most
 recently established one."
-  (car *connections*))
+  (first *connections*))
 
 (defslimefun state-stack ()
   "Return the value of *SWANK-STATE-STACK*."
@@ -154,8 +167,8 @@ recently established one."
 ;;;; Helper macros
 
 (defmacro with-io-redirection ((connection) &body body)
-  "Execute BODY with I/O redirection to CONNECTION.
-If *REDIRECT-IO* is true, all standard I/O streams are redirected."
+  "Execute BODY I/O redirection to CONNECTION.
+If *REDIRECT-IO* is true then all standard I/O streams are redirected."
   `(if *redirect-io*
        (call-with-redirected-io ,connection (lambda () ,@body))
        (progn ,@body)))
@@ -220,13 +233,13 @@ Redirection is done while Lisp is processing a request for Emacs.")
   (setup-server 0 (lambda (port) (announce-server-port port-file port))
                 style dont-close))
 
-(defun create-server (&key (port +server-port+)
+(defun create-server (&key (port default-server-port)
                       (style *communication-style*)
                       dont-close)
   "Start a SWANK server on PORT."
   (setup-server port #'simple-announce-function style dont-close))
 
-(defun create-swank-server (&optional (port +server-port+)
+(defun create-swank-server (&optional (port default-server-port)
                             (style *communication-style*)
                             (announce-fn #'simple-announce-function)
                             dont-close)
@@ -261,16 +274,13 @@ Redirection is done while Lisp is processing a request for Emacs.")
     (unless dont-close
       (close-socket socket))
     (let ((connection (create-connection client style)))
-      (init-emacs-connection connection)
+      (run-hook *new-connection-hook* connection)
       (push connection *connections*)
       (serve-requests connection))))
 
 (defun serve-requests (connection)
   "Read and process all requests on connections."
   (funcall (connection.serve-requests connection) connection))
-
-(defun init-emacs-connection (connection)
-  (emacs-connected (connection.user-io connection)))
 
 (defun announce-server-port (file port)
   (with-open-file (s file
@@ -336,21 +346,6 @@ of the toplevel restart."
     (with-connection (connection)
       (with-simple-restart (abort "Abort handling SLIME request.")
         (read-from-emacs)))))
-
-(defun changelog-date ()
-  "Return the datestring of the latest ChangeLog entry.  The date is
-determined at compile time."
-  (macrolet ((date ()
-               (let* ((here (or *compile-file-truename* *load-truename*))
-		      (changelog (make-pathname 
-				  :name "ChangeLog" 
-                  :device (pathname-device here)
-				  :directory (pathname-directory here)
-				  :host (pathname-host here)))
-		      (date (with-open-file (file changelog :direction :input)
-			      (string (read file)))))
-		 `(quote ,date))))
-    (date)))
 
 (defun current-socket-io ()
   (connection.socket-io *emacs-connection*))
@@ -682,13 +677,6 @@ If a protocol error occurs then a SLIME-READ-ERROR is signalled."
 (defvar *slime-features* nil
   "The feature list that has been sent to Emacs.")
 
-(defun sync-state-to-emacs ()
-  "Update Emacs if any relevant Lisp state has changed."
-  (unless (eq *slime-features* *features*)
-    (setq *slime-features* *features*)
-    (send-to-emacs (list :new-features (mapcar #'symbol-name *features*))))
-  (update-connection-indentation *emacs-connection*))
-
 (defun send-to-emacs (object)
   "Send OBJECT to Emacs."
   (funcall (connection.send *emacs-connection*) object))
@@ -749,8 +737,7 @@ If a protocol error occurs then a SLIME-READ-ERROR is signalled."
 (defslimefun connection-info ()
   "Return a list of the form: 
 \(VERSION PID IMPLEMENTATION-TYPE IMPLEMENTATION-NAME FEATURES)."
-  (list (changelog-date)
-        (getpid)
+  (list (getpid)
         (lisp-implementation-type)
         (lisp-implementation-type-name)
         (setq *slime-features* *features*)))
@@ -788,7 +775,7 @@ Emacs buffer."
 (defun parse-symbol (string)
   "Find the symbol named STRING.
 Return the symbol and a flag indicate if the symbols was found."
-  (multiple-value-bind (sym pos) (let ((*package* *keyword-package*))
+  (multiple-value-bind (sym pos) (let ((*package* keyword-package))
                                    (ignore-errors (read-from-string string)))
     (if (and (symbolp sym) (eql (length string) pos))
         (find-symbol (string sym))
@@ -800,7 +787,7 @@ Return the package or nil."
   (multiple-value-bind (sym pos) 
       (if (zerop (length string))
           (values :|| 0)
-          (let ((*package* *keyword-package*))
+          (let ((*package* keyword-package))
             (ignore-errors (read-from-string string))))
     (if (and (keywordp sym) (= (length string) pos))
         (find-package sym))))
@@ -1084,7 +1071,12 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
   (continue))
 
 (defslimefun throw-to-toplevel ()
-  (throw 'slime-toplevel nil))
+  "Use THROW to abort an RPC from Emacs.
+If we are not evaluating an RPC then ABORT instead."
+  (ignore-errors (throw 'slime-toplevel nil))
+  ;; If we get here then there was no catch. Try aborting as a fallback.
+  ;; That makes the 'q' command in SLDB safer to use with threads.
+  (abort))
 
 (defslimefun invoke-nth-restart-for-emacs (sldb-level n)
   "Invoke the Nth available restart.
@@ -1158,7 +1150,7 @@ Errors are trapped and invoke our debugger."
              (assert (readtablep *buffer-readtable*))
              (setq result (eval form))
              (force-output)
-             (sync-state-to-emacs)
+             (run-hook *pre-reply-hook*)
              (setq ok t))
         (force-user-output)
         (send-to-emacs `(:return ,(current-thread)
@@ -1640,129 +1632,6 @@ For example:
     (assert (equal '("foo") (names "FO")))))
            
 
-;;;; Indentation
-;;;
-;;; This code decides how macros should be indented (based on their
-;;; arglists) and tells Emacs. A per-connection cache is used to avoid
-;;; sending redundant information to Emacs -- we just say what's
-;;; changed since last time.
-;;;
-;;; The strategy is to scan all symbols, pick out the macros, and look
-;;; for &body-arguments.
-
-(defvar *configure-emacs-indentation* t
-  "When true, automatically send indentation information to Emacs
-after each command.")
-
-(defslimefun update-indentation-information ()
-  (perform-indentation-update *emacs-connection* t))
-
-;; Called automatically at the end of each request.
-(defun update-connection-indentation (connection)
-  "Send any indentation updates to Emacs via CONNECTION."
-  (when *configure-emacs-indentation*
-    (perform-indentation-update connection
-                                (need-full-indentation-update-p connection))))
-
-(defun perform-indentation-update (connection force)
-  (let* ((cache (connection.indentation-cache connection))
-         (delta (update-indentation/delta-for-emacs cache force)))
-    (when force
-      (setf (connection.indentation-cache-packages connection)
-            (list-all-packages)))
-    (when delta
-      (send-to-emacs (list :indentation-update delta)))))
-
-(defun need-full-indentation-update-p (connection)
-  "Return true if the whole indentation cache should be updated.
-This is a heuristic to avoid scanning all symbols all the time:
-instead, we only do a full scan if the set of packages has changed."
-  (set-difference (list-all-packages)
-                  (connection.indentation-cache-packages connection)))
-
-(defun update-indentation/delta-for-emacs (cache &optional force)
-  "Update the cache and return the changes in a (SYMBOL . INDENT) list.
-If FORCE is true then check all symbols, otherwise only check symbols
-belonging to the buffer package."
-  (let ((alist '()))
-      (flet ((consider (symbol)
-             (let ((indent (symbol-indentation symbol)))
-               (when indent
-                 (unless (equal (gethash symbol cache) indent)
-                   (setf (gethash symbol cache) indent)
-                   (push (cons (string-downcase (symbol-name symbol))
-                               indent)
-                         alist))))))
-      (if force
-          (do-all-symbols (symbol)
-            (consider symbol))
-          (do-symbols (symbol *buffer-package*)
-            (when (eq (symbol-package symbol) *buffer-package*)
-              (consider symbol)))))
-    alist))
-
-(defun cl-symbol-p (symbol)
-  "Is SYMBOL a symbol in the COMMON-LISP package?"
-  (eq (symbol-package symbol) *cl-package*))
-
-(defun known-to-emacs-p (symbol)
-  "Return true if Emacs has special rules for indenting SYMBOL."
-  (or (cl-symbol-p symbol)
-      (let ((name (symbol-name symbol)))
-        (or (prefix-match-p "DEF" name)
-            (prefix-match-p "WITH-" name)))))
-
-(defun symbol-indentation (symbol)
-  "Return a form describing the indentation of SYMBOL.
-The form is to be used as the `common-lisp-indent-function' property
-in Emacs."
-  (if (and (macro-function symbol)
-           (not (known-to-emacs-p symbol)))
-      (let ((arglist (arglist symbol)))
-        (etypecase arglist
-          ((member :not-available)
-           nil)
-          (list
-           (macro-indentation arglist))))
-      nil))
-
-(defun macro-indentation (arglist)
-  (if (well-formed-list-p arglist)
-      (position '&body (remove '&whole arglist))
-      nil))
-
-(defun well-formed-list-p (list)
-  "Is LIST a proper list terminated by NIL?"
-  (typecase list
-    (null t)
-    (cons (well-formed-list-p (cdr list)))
-    (t    nil)))
-
-(defun print-indentation-lossage (&optional (stream *standard-output*))
-  "Return the list of symbols whose indentation styles collide incompatibly.
-Collisions are caused because package information is ignored."
-  (let ((table (make-hash-table :test 'equal)))
-    (flet ((name (s) (string-downcase (symbol-name s))))
-      (do-all-symbols (s)
-        (setf (gethash (name s) table)
-              (cons s (symbol-indentation s))))
-      (let ((collisions '()))
-        (do-all-symbols (s)
-          (let* ((entry (gethash (name s) table))
-                 (owner (car entry))
-                 (indent (cdr entry)))
-            (unless (or (eq s owner)
-                        (equal (symbol-indentation s) indent)
-                        (and (not (fboundp s))
-                             (null (macro-function s))))
-              (pushnew owner collisions)
-              (pushnew s collisions))))
-        (if (null collisions)
-            (format stream "~&No worries!~%")
-            (format stream "~&Symbols with collisions:~%~{  ~S~%~}"
-                    collisions))))))
-
-
 ;;;; Documentation
 
 (defslimefun apropos-list-for-emacs  (name &optional external-only 
@@ -2211,6 +2080,148 @@ The server port is written to PORT-FILE-NAME."
 
 (defslimefun kill-thread-by-id (id)
   (kill-thread (lookup-thread-by-id id)))
+
+
+;;;; Automatically synchronized state
+;;;
+;;; Here we add hooks to push updates of relevant information to
+;;; Emacs.
+
+;;;;; *FEATURES*
+
+(defun sync-features-to-emacs ()
+  "Update Emacs if any relevant Lisp state has changed."
+  ;; FIXME: *slime-features* should be connection-local
+  (unless (eq *slime-features* *features*)
+    (setq *slime-features* *features*)
+    (send-to-emacs (list :new-features (mapcar #'symbol-name *features*)))))
+
+(add-hook *pre-reply-hook* 'sync-features-to-emacs)
+
+
+;;;;; Indentation of macros
+;;;
+;;; This code decides how macros should be indented (based on their
+;;; arglists) and tells Emacs. A per-connection cache is used to avoid
+;;; sending redundant information to Emacs -- we just say what's
+;;; changed since last time.
+;;;
+;;; The strategy is to scan all symbols, pick out the macros, and look
+;;; for &body-arguments.
+
+(defvar *configure-emacs-indentation* t
+  "When true, automatically send indentation information to Emacs
+after each command.")
+
+(defslimefun update-indentation-information ()
+  (perform-indentation-update *emacs-connection* t))
+
+;; This function is for *PRE-REPLY-HOOK*.
+(defun sync-indentation-to-emacs ()
+  "Send any indentation updates to Emacs via CONNECTION."
+  (when *configure-emacs-indentation*
+    (let ((fullp (need-full-indentation-update-p *emacs-connection*)))
+      (perform-indentation-update *emacs-connection* fullp))))
+
+(defun perform-indentation-update (connection force)
+  (let* ((cache (connection.indentation-cache connection))
+         (delta (update-indentation/delta-for-emacs cache force)))
+    (when force
+      (setf (connection.indentation-cache-packages connection)
+            (list-all-packages)))
+    (when delta
+      (send-to-emacs (list :indentation-update delta)))))
+
+(defun need-full-indentation-update-p (connection)
+  "Return true if the whole indentation cache should be updated.
+This is a heuristic to avoid scanning all symbols all the time:
+instead, we only do a full scan if the set of packages has changed."
+  (set-difference (list-all-packages)
+                  (connection.indentation-cache-packages connection)))
+
+(defun update-indentation/delta-for-emacs (cache &optional force)
+  "Update the cache and return the changes in a (SYMBOL . INDENT) list.
+If FORCE is true then check all symbols, otherwise only check symbols
+belonging to the buffer package."
+  (let ((alist '()))
+      (flet ((consider (symbol)
+             (let ((indent (symbol-indentation symbol)))
+               (when indent
+                 (unless (equal (gethash symbol cache) indent)
+                   (setf (gethash symbol cache) indent)
+                   (push (cons (string-downcase (symbol-name symbol))
+                               indent)
+                         alist))))))
+      (if force
+          (do-all-symbols (symbol)
+            (consider symbol))
+          (do-symbols (symbol *buffer-package*)
+            (when (eq (symbol-package symbol) *buffer-package*)
+              (consider symbol)))))
+    alist))
+
+(defun cl-symbol-p (symbol)
+  "Is SYMBOL a symbol in the COMMON-LISP package?"
+  (eq (symbol-package symbol) cl-package))
+
+(defun known-to-emacs-p (symbol)
+  "Return true if Emacs has special rules for indenting SYMBOL."
+  (or (cl-symbol-p symbol)
+      (let ((name (symbol-name symbol)))
+        (or (prefix-match-p "DEF" name)
+            (prefix-match-p "WITH-" name)))))
+
+(defun symbol-indentation (symbol)
+  "Return a form describing the indentation of SYMBOL.
+The form is to be used as the `common-lisp-indent-function' property
+in Emacs."
+  (if (and (macro-function symbol)
+           (not (known-to-emacs-p symbol)))
+      (let ((arglist (arglist symbol)))
+        (etypecase arglist
+          ((member :not-available)
+           nil)
+          (list
+           (macro-indentation arglist))))
+      nil))
+
+(defun macro-indentation (arglist)
+  (if (well-formed-list-p arglist)
+      (position '&body (remove '&whole arglist))
+      nil))
+
+(defun well-formed-list-p (list)
+  "Is LIST a proper list terminated by NIL?"
+  (typecase list
+    (null t)
+    (cons (well-formed-list-p (cdr list)))
+    (t    nil)))
+
+(defun print-indentation-lossage (&optional (stream *standard-output*))
+  "Return the list of symbols whose indentation styles collide incompatibly.
+Collisions are caused because package information is ignored."
+  (let ((table (make-hash-table :test 'equal)))
+    (flet ((name (s) (string-downcase (symbol-name s))))
+      (do-all-symbols (s)
+        (setf (gethash (name s) table)
+              (cons s (symbol-indentation s))))
+      (let ((collisions '()))
+        (do-all-symbols (s)
+          (let* ((entry (gethash (name s) table))
+                 (owner (car entry))
+                 (indent (cdr entry)))
+            (unless (or (eq s owner)
+                        (equal (symbol-indentation s) indent)
+                        (and (not (fboundp s))
+                             (null (macro-function s))))
+              (pushnew owner collisions)
+              (pushnew s collisions))))
+        (if (null collisions)
+            (format stream "~&No worries!~%")
+            (format stream "~&Symbols with collisions:~%~{  ~S~%~}"
+                    collisions))))))
+
+(add-hook *pre-reply-hook* 'sync-indentation-to-emacs)
 
 ;;; Local Variables:
 ;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
