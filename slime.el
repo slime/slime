@@ -243,38 +243,38 @@ subset of the bindings from `slime-mode'.
     ;; clashes with completion! Need a new key for one of them.
     ("\M-\C-i" slime-complete-symbol :inferior t)
     ("\C-i" slime-complete-symbol :prefixed t :inferior t)
-    ("\M-." slime-edit-fdefinition :inferior t)
-    ("\M-," slime-pop-find-definition-stack :inferior t)
+    ("\M-." slime-edit-fdefinition :inferior t :sldb t)
+    ("\M-," slime-pop-find-definition-stack :inferior t :sldb t)
     ;; Evaluating
     ("\C-x\C-e" slime-eval-last-expression :inferior t)
     ("\C-p" slime-pprint-eval-last-expression :prefixed t :inferior t)
     ("\C-\M-x" slime-eval-defun)
-    (":" slime-interactive-eval :prefixed t)
-    ("\C-z" slime-switch-to-output-buffer :prefixed t)
-    ("\C-g" slime-interrupt :prefixed t :inferior t)
-    ("\M-g" slime-quit :prefixed t :inferior t)
+    (":" slime-interactive-eval :prefixed t :sldb t)
+    ("\C-z" slime-switch-to-output-buffer :prefixed t :sldb t)
+    ("\C-g" slime-interrupt :prefixed t :inferior t :sldb t)
+    ("\M-g" slime-quit :prefixed t :inferior t :sldb t)
     ;; Documentation
     (" " slime-space :inferior t)
-    ("\C-d" slime-describe-symbol :prefixed t :inferior t)
-    ("\M-d" slime-disassemble-symbol :prefixed t :inferior t)
-    ("\C-t" slime-toggle-trace-fdefinition :prefixed t)
-    ("\C-a" slime-apropos :prefixed t :inferior t)
-    ("\M-a" slime-apropos-all :prefixed t :inferior t)
+    ("\C-d" slime-describe-symbol :prefixed t :inferior t :sldb t)
+    ("\M-d" slime-disassemble-symbol :prefixed t :inferior t :sldb t)
+    ("\C-t" slime-toggle-trace-fdefinition :prefixed t :sldb t)
+    ("\C-a" slime-apropos :prefixed t :inferior t :sldb t)
+    ("\M-a" slime-apropos-all :prefixed t :inferior t :sldb t)
     ("\C-m" slime-macroexpand-1 :prefixed t :inferior t)
     ("\M-m" slime-macroexpand-all :prefixed t :inferior t)
     ("\M-0" slime-restore-window-configuration :prefixed t :inferior t)
-    ("\C-h" hyperspec-lookup :prefixed t :inferior t)
+    ("\C-h" hyperspec-lookup :prefixed t :inferior t :sldb t)
     ([(control meta ?\.)] slime-next-location :inferior t)
     ("\C- " slime-next-location :prefixed t :inferior t)
     ("~" slime-sync-package-and-default-directory :prefixed t :inferior t)
     ;; Cross reference
-    ("\C-wc" slime-who-calls :prefixed t :inferior t)
-    ("\C-wr" slime-who-references :prefixed t :inferior t)
-    ("\C-wb" slime-who-binds :prefixed t :inferior t)
-    ("\C-ws" slime-who-sets :prefixed t :inferior t)
-    ("\C-wm" slime-who-macroexpands :prefixed t :inferior t)
-    ("<" slime-list-callers :prefixed t :inferior t)
-    (">" slime-list-callees :prefixed t :inferior t)))
+    ("\C-wc" slime-who-calls :prefixed t :inferior t :sldb t)
+    ("\C-wr" slime-who-references :prefixed t :inferior t :sldb t)
+    ("\C-wb" slime-who-binds :prefixed t :inferior t :sldb t)
+    ("\C-ws" slime-who-sets :prefixed t :inferior t :sldb t)
+    ("\C-wm" slime-who-macroexpands :prefixed t :inferior t :sldb t)
+    ("<" slime-list-callers :prefixed t :inferior t :sldb t)
+    (">" slime-list-callees :prefixed t :inferior t :sldb t)))
 
 ;; Maybe a good idea, maybe not..
 (defvar slime-prefix-key "\C-c"
@@ -293,8 +293,8 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
 (defun slime-init-keymaps ()
   "(Re)initialize the keymaps for `slime-mode' and `inferior-slime-mode'."
   (interactive)
-  (dolist (binding-spec slime-keys)
-    (apply #'slime-define-key binding-spec)))
+  (loop for (key command . keys) in slime-keys
+        do (apply #'slime-define-key key command :allow-other-keys t keys)))
 
 (slime-init-keymaps)
 
@@ -325,6 +325,15 @@ This list of flushed between commands."))
 
 (add-hook 'slime-mode-hook 'slime-setup-command-hooks)
 (add-hook 'slime-mode-hook 'slime-buffer-package)
+(add-hook 'inferior-lisp-mode-hook 
+          (lambda ()
+            (add-to-list
+             (make-local-variable 'comint-output-filter-functions)
+             (lambda (string)
+               (unless (get-buffer-window (current-buffer))
+                 (display-buffer (current-buffer) t))
+               (comint-postoutput-scroll-to-bottom string)))))
+
 
 
 ;;; Common utility functions and macros
@@ -699,9 +708,12 @@ EVAL'd by Lisp."
 (defun slime-process-available-input ()
   "Process all complete messages that have arrived from Lisp."
   (with-current-buffer (process-buffer slime-net-process)
-    (while (slime-net-have-input-p)
-      (save-current-buffer
-	(slime-dispatch-event (slime-net-read) nil)))))
+    (unwind-protect
+        (while (slime-net-have-input-p)
+          (save-current-buffer
+            (slime-dispatch-event (slime-net-read))))
+      (when (slime-net-have-input-p)
+        (run-at-time 0 nil 'slime-process-available-input)))))
 
 (defun slime-net-have-input-p ()
   "Return true if a complete message is available."
@@ -781,19 +793,17 @@ EVAL'd by Lisp."
 (defvar slime-state-name "[??]"
   "The name of the current state, for display in the modeline.")
 
-(defun slime-push-state (state process-input)
+(defun slime-push-state (state)
   "Push into a new state, saving the current state on the stack.
-This may be called by a state machine to cause a state change.
-If PROCESS-INPUT is non-nil the available input is processed."
+This may be called by a state machine to cause a state change."
   (push state slime-state-stack)
-  (slime-activate-state process-input))
+  (slime-activate-state))
 
-(defun slime-pop-state (process-input)
+(defun slime-pop-state ()
   "Pop back to the previous state from the stack.
-This may be called by a state machine to finish its current state.
-If PROCESS-INPUT is non-nil the available input is processed."
+This may be called by a state machine to finish its current state."
   (pop slime-state-stack)
-  (slime-activate-state process-input))
+  (slime-activate-state))
 
 (defun slime-current-state ()
   "The current state."
@@ -804,11 +814,10 @@ If PROCESS-INPUT is non-nil the available input is processed."
   (setq sldb-level 0)
   (setq slime-state-stack (list (slime-idle-state))))
 
-(defun slime-activate-state (process-input)
+(defun slime-activate-state ()
   "Activate the current state.
 This delivers an (activate) event to the state function, and updates
-the state name for the modeline.
-If PROCESS-INPUT is non-nil the available input is processed."
+the state name for the modeline."
   (let ((state (slime-current-state)))
     (setq slime-state-name
           (ecase (slime-state-name state)
@@ -817,18 +826,14 @@ If PROCESS-INPUT is non-nil the available input is processed."
             (slime-debugging-state "[debug]")
             (slime-read-input-state "[read]")))
     (force-mode-line-update)
-    (slime-dispatch-event '(activate) process-input)))
+    (slime-dispatch-event '(activate))))
 
-(defun slime-dispatch-event (event process-input)
+(defun slime-dispatch-event (event)
   "Dispatch an event to the current state.
 Certain \"out of band\" events are handled specially instead of going
-into the state machine.
-If PROCESS-INPUT is non-nil the available input is processed."
-  (unwind-protect
-      (or (slime-handle-oob event)
-	  (funcall (slime-state-function (slime-current-state)) event))
-    (when process-input
-      (slime-process-available-input))))
+into the state machine."
+  (or (slime-handle-oob event)
+      (funcall (slime-state-function (slime-current-state)) event)))
 
 (defun slime-handle-oob (event)
   "Handle out-of-band events.
@@ -939,7 +944,7 @@ their actions. The pattern syntax is the same as `destructure-case'."
    (assert (= sldb-level 0)))
   ((:emacs-evaluate form-string package-name continuation)
    (slime-output-evaluate-request form-string package-name)
-   (slime-push-state (slime-evaluating-state continuation) t)))
+   (slime-push-state (slime-evaluating-state continuation))))
 
 (defvar slime-evaluating-state-activation-hook nil
   "Hook called when the evaluating state is actived.")
@@ -951,7 +956,7 @@ will pass it to CONTINUATION."
   ((activate)
    (run-hooks 'slime-evaluating-state-activation-hook))
   ((:ok result)
-   (slime-pop-state nil)
+   (slime-pop-state)
    (destructure-case continuation
      ((:function f)
       (funcall f result))
@@ -962,15 +967,14 @@ will pass it to CONTINUATION."
    (destructure-case continuation
      ((:function f)
       (message "Evaluation aborted.")
-      (slime-pop-state t))
+      (slime-pop-state))
      ((:catch-tag tag)
-      (slime-pop-state nil)
+      (slime-pop-state)
       (when (member tag slime-stack-eval-tags)
 	(throw tag `(:aborted))))))
   ((:debug level condition restarts stack-depth frames)
    (slime-push-state
-    (slime-debugging-state level condition restarts stack-depth frames)
-    t))
+    (slime-debugging-state level condition restarts stack-depth frames)))
   ((:emacs-interrupt)
    (slime-send-sigint))
   ((:emacs-quit)
@@ -978,7 +982,7 @@ will pass it to CONTINUATION."
    ;; Instead, just cancel the continuation.
    (setq continuation (lambda (value) t)))
   ((:read-input requested tag)
-   (slime-push-state (slime-read-input-state requested tag) t)))
+   (slime-push-state (slime-read-input-state requested tag))))
 
 (slime-defstate slime-debugging-state (level condition restarts depth frames)
   "Debugging state.
@@ -992,24 +996,22 @@ state interacts with it until it is coaxed into returning."
                  (/= sldb-level-in-buffer level)))
        (sldb-setup condition restarts depth frames))))
   ((:debug-return level)
-   (unwind-protect
-       (progn 
-         (assert (= level sldb-level))
-         ;; We must decrement here so we will notice when we are
-         ;; activated again, especially when we continue from the
-         ;; debugger and are activated a second time without entering
-         ;; a lower break level.
-         (decf sldb-level)
-         (when (= level 1)
-           (let ((sldb-buffer (get-buffer "*sldb*")))
-             (when sldb-buffer
-               (delete-windows-on sldb-buffer)
-               (kill-buffer sldb-buffer)))))
-     (slime-pop-state t)))
+   (assert (= level sldb-level))
+   ;; We must decrement here so we will notice when we are
+   ;; activated again, especially when we continue from the
+   ;; debugger and are activated a second time without entering
+   ;; a lower break level.
+   (decf sldb-level)
+   (when (= level 1)
+     (let ((sldb-buffer (get-buffer "*sldb*")))
+       (when sldb-buffer
+         (delete-windows-on sldb-buffer)
+         (kill-buffer sldb-buffer))))
+   (slime-pop-state))
   ((:emacs-evaluate form-string package-name continuation)
    ;; recursive evaluation request
    (slime-output-evaluate-request form-string package-name)
-   (slime-push-state (slime-evaluating-state continuation) t)))
+   (slime-push-state (slime-evaluating-state continuation))))
 
 (slime-defstate slime-read-input-state (request tag)
   "Reading state.
@@ -1021,7 +1023,7 @@ Lisp waits for input from Emacs."
        (slime-show-output-buffer)
        (setq input (ignore-errors (read-string "<= "))))
      (slime-net-send `(swank:take-input ,tag ,(concat input "\n")))
-     (slime-pop-state t))))
+     (slime-pop-state))))
 
 
 ;;;;; Utilities
@@ -1042,8 +1044,7 @@ Lisp waits for input from Emacs."
 (defun slime-eval-string-async (string package continuation)
   (when (slime-busy-p)
     (error "Lisp is already busy evaluating a request."))
-  (slime-dispatch-event `(:emacs-evaluate ,string ,package ,continuation)
-                        t))
+  (slime-dispatch-event `(:emacs-evaluate ,string ,package ,continuation)))
 
 (defconst +slime-sigint+ 2)
 
@@ -2283,11 +2284,11 @@ the current index when the selection is completed."
 
 (defun slime-interrupt ()
   (interactive)
-  (slime-dispatch-event '(:emacs-interrupt) t))
+  (slime-dispatch-event '(:emacs-interrupt)))
 
 (defun slime-quit ()
   (interactive)
-  (slime-dispatch-event '(:emacs-quit) t))
+  (slime-dispatch-event '(:emacs-quit)))
 
 (defun slime-set-package (package)
   (interactive (list (slime-read-package-name "Package: " 
@@ -2672,10 +2673,13 @@ the current index when the selection is completed."
   ("a"    'sldb-abort)
   ("r"    'sldb-invoke-restart)
   ("q"    'sldb-quit)
-  
-  ("\M-." 'slime-edit-fdefinition)
-  ("\M-," 'slime-pop-find-definition-stack)
-  )
+  (":"    'slime-interactive-eval))
+
+(dolist (spec slime-keys)
+  (destructuring-bind (key command &key sldb prefixed &allow-other-keys) spec
+    (when sldb
+      (let ((key (if prefixed (concat slime-prefix-key key) key)))
+        (define-key sldb-mode-map key command)))))
 
 ;; Keys 0-9 are shortcuts to invoke particular restarts.
 (defmacro define-sldb-invoke-restart-key (number key)
@@ -3094,39 +3098,12 @@ Confirm that EXPECTED-ARGLIST is displayed."
   "True if STATES describes the current stack of states."
   (equal states (mapcar #'slime-state-name slime-state-stack)))
 
-(defun slime-time< (time1 time2)
-  "Compare two encoded time values."
-  (multiple-value-bind (high1 low1 micros1) time1
-    (multiple-value-bind (high2 low2 micros2) time2
-      (or (< high1 high2)
-          (and (= high1 high2)
-               (or (< low1 low2)
-                   (and (= low1 low2)
-                        (if (and micros1 micros2)
-                            (< micros1 micros2)
-                          micros2))))))))
-
-(defun* slime-time-add (time &key (second 0) (minute 0) (hour 0) 
-                          (day 0) (month 0) (year 0))
-  "Add the specified time to the encoded time value TIME."
-  (multiple-value-bind (old-second old-minute old-hour 
-                                   old-day old-month old-year 
-                                   old-dow old-dst old-zone)
-      (decode-time time)
-    (encode-time (+ old-second second)
-                 (+ old-minute minute)
-                 (+ old-hour hour)
-                 (+ old-day day)
-                 (+ old-month month)
-                 (+ old-year year)
-                 old-zone)))
-
 (defun slime-sync-state-stack (state-stack timeout)
   "Wait until the machine's stack is STATE-STACK or the timeout \
-expires.\nThe timeout is given in seconds."
-  (let ((end (slime-time-add (current-time) :second timeout)))
+expires.\nThe timeout is given in seconds (a floating point number)."
+  (let ((end (time-add (current-time) (seconds-to-time timeout))))
     (loop until (or (slime-test-state-stack state-stack)
-                    (slime-time< end (current-time)))
+                    (time-less-p end (current-time)))
           do (accept-process-output nil 0 100000))))
 
 (def-slime-test loop-interrupt-quit ()
@@ -3319,7 +3296,47 @@ Unless optional argument INPLACE is non-nil, return a new string."
                               (1- (max beg end))
                             (max beg end)))
         (goto-char (point-min))
+        ;; XXX make this xemacs compatible
         (1+ (vertical-motion (buffer-size) window))))))
+
+(defun-if-undefined seconds-to-time (seconds)
+  "Convert SECONDS (a floating point number) to a time value."
+  (list (floor seconds 65536)
+	(floor (mod seconds 65536))
+	(floor (* (- seconds (ffloor seconds)) 1000000))))
+
+(defun-if-undefined time-less-p (t1 t2)
+  "Say whether time value T1 is less than time value T2."
+  (or (< (car t1) (car t2))
+      (and (= (car t1) (car t2))
+	   (< (nth 1 t1) (nth 1 t2)))))
+
+(defun-if-undefined time-add (t1 t2)
+  "Add two time values.  One should represent a time difference."
+  (let ((high (car t1))
+	(low (if (consp (cdr t1)) (nth 1 t1) (cdr t1)))
+	(micro (if (numberp (car-safe (cdr-safe (cdr t1))))
+		   (nth 2 t1)
+		 0))
+	(high2 (car t2))
+	(low2 (if (consp (cdr t2)) (nth 1 t2) (cdr t2)))
+	(micro2 (if (numberp (car-safe (cdr-safe (cdr t2))))
+		    (nth 2 t2)
+		  0)))
+    ;; Add
+    (setq micro (+ micro micro2))
+    (setq low (+ low low2))
+    (setq high (+ high high2))
+
+    ;; Normalize
+    ;; `/' rounds towards zero while `mod' returns a positive number,
+    ;; so we can't rely on (= a (+ (* 100 (/ a 100)) (mod a 100))).
+    (setq low (+ low (/ micro 1000000) (if (< micro 0) -1 0)))
+    (setq micro (mod micro 1000000))
+    (setq high (+ high (/ low 65536) (if (< low 0) -1 0)))
+    (setq low (logand low 65535))
+
+    (list high low micro)))
 
 (defun emacs-20-p ()
   (and (not (featurep 'xemacs))
