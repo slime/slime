@@ -1,3 +1,14 @@
+2004-06-18  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-buffer-package): If DONT-CACHE is true and no
+	package name can be found, then default to "COMMON-LISP-USER."
+	Previously we just kept using the cached version, but that could
+	lead to error-after-error if it was incorrect.
+
+	* swank.lisp (throw-to-toplevel): If our top-level catcher isn't
+	on the stack (i.e. we're using the debugger from outside an RPC)
+	then ABORT instead. That makes 'q' DWIM in SLDB.
+
 2004-06-18  Matthew Danish  <mdanish@andrew.cmu.edu>
 
 	* swank-allegro.lisp (frame-source-location-for-emacs):
