@@ -505,8 +505,7 @@ This is useful when debugging the definition-finding code.")
   (let ((source (get-source-code (function-source-filename function)
                                  (function-source-write-date function))))
     (with-input-from-string (s source)
-      (file-position s position)
-      (read-snippet s))))
+      (read-snippet s position))))
 
 (defun function-has-start-location-p (function)
   (ignore-errors (function-start-location function)))
@@ -724,8 +723,7 @@ stack."
     (destructuring-bind (&key emacs-buffer emacs-position emacs-string) info
       (let* ((pos (string-source-position code-location emacs-string))
              (snipped (with-input-from-string (s emacs-string)
-                        (file-position s pos)
-                        (read-snippet s))))
+                        (read-snippet s pos))))
         (make-location `(:buffer ,emacs-buffer) 
                        `(:position ,(+ emacs-position pos)) 
                        `(:snippet ,snipped))))))
@@ -735,13 +733,11 @@ stack."
          (filename (code-location-debug-source-name code-location))
          (source-code (get-source-code filename code-date)))
     (with-input-from-string (s source-code)
+      (let* ((pos (stream-source-position code-location s))
+             (snippet (read-snippet s pos)))
       (make-location `(:file ,filename)
-                     `(:position ,(1+(stream-source-position code-location s)))
-                     `(:snippet ,(read-snippet s))))))
-
-(defun string-source-position (code-location string)
-  (with-input-from-string (s string)
-    (stream-source-position code-location s)))
+                     `(:position ,(1+ pos))
+                     `(:snippet ,snippet))))))
 
 (defun code-location-debug-source-info (code-location)
   (sb-c::debug-source-info (sb-di::code-location-debug-source code-location)))
@@ -781,14 +777,20 @@ stack."
 
 (defun stream-source-position (code-location stream)
   (let* ((cloc (sb-debug::maybe-block-start-location code-location))
-	 (tlf-number (1- (sb-di::code-location-toplevel-form-offset cloc)))
+	 (tlf-number (sb-di::code-location-toplevel-form-offset cloc))
 	 (form-number (sb-di::code-location-form-number cloc)))
     (multiple-value-bind (tlf pos-map) (read-source-form tlf-number stream)
       (let* ((path-table (sb-di::form-number-translations tlf 0))
-             (source-path (if (<= (length path-table) form-number)
-                              (list 0)    ; file is out of sync
-                              (reverse (cdr (aref path-table form-number))))))
-        (source-path-source-position source-path tlf pos-map)))))
+             (path (cond ((<= (length path-table) form-number)
+                          (warn "inconsistend form-number-translations")
+                          (list 0))
+                         (t
+                          (reverse (cdr (aref path-table form-number)))))))
+        (source-path-source-position path tlf pos-map)))))
+
+(defun string-source-position (code-location string)
+  (with-input-from-string (s string)
+    (stream-source-position code-location s)))
 
 ;;; source-path-file-position and friends are in swank-source-path-parser
 
