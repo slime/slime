@@ -93,7 +93,7 @@
   (ccl:process-run-function name fn))
 
 (defmethod emacs-connected ()
-  (setq ccl::*interactive-abort-process* ccl::*current-process*)
+  (setq ccl::*interactive-abort-process* ccl::*current-process*))
 
 ;;;
 
