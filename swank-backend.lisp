@@ -81,14 +81,6 @@
    #:slot-definition-readers
    #:slot-definition-writers))
 
-(defun swank-backend::import-to-swank-mop (symbol-list)
-  (dolist (sym symbol-list)
-    (let* ((swank-mop-sym (find-symbol (symbol-name sym) :swank-mop)))
-      (when swank-mop-sym
-        (unintern swank-mop-sym :swank-mop))
-      (import sym :swank-mop)
-      (export sym :swank-mop))))
-
 (in-package :swank-backend)
 
 
@@ -137,6 +129,25 @@ Backends implement these functions using DEFIMPLEMENTATION."
 The portable code calls this function at startup."
   (warn "These Swank interfaces are unimplemented:~% ~A"
         (sort (copy-list *unimplemented-interfaces*) #'string<)))
+
+(defun import-to-swank-mop (symbol-list)
+  (dolist (sym symbol-list)
+    (let* ((swank-mop-sym (find-symbol (symbol-name sym) :swank-mop)))
+      (when swank-mop-sym
+        (unintern swank-mop-sym :swank-mop))
+      (import sym :swank-mop)
+      (export sym :swank-mop))))
+
+(defun import-swank-mop-symbols (package except)
+  "Import the mop symbols from PACKAGE to SWANK-MOP.
+EXCEPT is a list of symbol names which should be ignored."
+  (do-symbols (s :swank-mop)
+    (unless (member s except :test #'string=)
+      (let ((real-symbol (find-symbol (string s) package)))
+        (assert real-symbol)
+        (unintern s :swank-mop)
+        (import real-symbol :swank-mop)
+        (export real-symbol :swank-mop)))))
 
 
 ;;;; Utilities
@@ -490,8 +501,20 @@ Each reference is one of:
   (:SBCL :NODE node-name)"
   '())
 
+(definterface condition-extras (condition)
+  "Return a list of extra for the debugger.
+The allowed elements are of the form:
+  (:SHOW-FRAME-SOURCE frame-number)"
+  '())
+
 (definterface sldb-step (frame-number)
-    "Step to the next code location in the frame FRAME-NUMBER.")
+  "Step to the next code location in the frame FRAME-NUMBER.")
+
+(definterface sldb-break-on-return (frame-number)
+  "Set a breakpoint in the frame FRAME-NUMBER.")
+
+(definterface sldb-break-at-start (symbol)
+  "Set a breakpoint on the beginning of the function for SYMBOL.")
   
 
 
