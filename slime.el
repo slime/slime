@@ -2094,10 +2094,14 @@ buffer's working directory"
              (node
               (cons (format "%s: %s" 
                             (getf note :severity)
-                            (replace-regexp-in-string 
-                             "[^[:graph:]]+" " "
-                             (subseq (getf note :message) 0 )))
+                            (getf note :message))
                     location)))
+        ;; emacs20 doesn't have `replace-regexp-in-string'
+        ;; but who gives us non-printable characters anyway and why? -luke
+;                             (replace-regexp-in-string 
+;                              "[^[:graph:]]+" " "
+;                              (subseq (getf note :message) 0 )))
+;                     location)))
         (when fn
           (if file
               (push node (cdr file))

@@ -1,3 +1,9 @@
+2003-12-11  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-xrefs-for-notes): Commented out use of
+	`replace-regexp-in-string' (not available in emacs20, and not sure
+	why we need it?)
+
 2003-12-11  Daniel Barlow  <dan@telent.net>
 
 	* swank-sbcl.lisp (compiler-note-location): replace with
