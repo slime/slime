@@ -836,7 +836,9 @@ The result has the format \"(...)\"."
 		       (t "(<arglist-unavailable>)"))))))
       (etypecase arglist
         (string arglist)
-        (cons (let ((*print-case* :downcase)) (princ-to-string arglist)))
+        (cons (let ((*print-case* :downcase)
+                    (*print-pretty* nil))
+                (princ-to-string arglist)))
         (null "()")))))
 
 

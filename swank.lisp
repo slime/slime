@@ -691,7 +691,8 @@ Call LAMBDA-LIST-FN with the symbol corresponding to FUNCTION-NAME."
         (let ((symbol (find-symbol-or-lose function-name)))
           (values (funcall lambda-list-fn symbol))))
     (cond (condition  (format nil "(-- ~A)" condition))
-          (t (let ((*print-case* :downcase))
+          (t (let ((*print-case* :downcase)
+                   (*print-pretty* nil))
                (format nil "(~{~A~^ ~})" arglist))))))
 
 
@@ -795,7 +796,7 @@ has changed, ignore the request."
 ;;;; Evaluation
 
 (defun eval-in-emacs (form)
-  "Execute FROM in Emacs."
+  "Execute FORM in Emacs."
   (destructuring-bind (fn &rest args) form
     (send-to-emacs `(:%apply ,(string-downcase (string fn)) ,args))))
 
