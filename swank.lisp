@@ -687,32 +687,6 @@ exists."
     (cond (package (values symbol package))
           (t (error "Unknown symbol: ~S [in ~A]" string default-package)))))
 
-;;; We use a special pprint-dispatch table for printing the arglist.
-;;; An argument is either a symbol or a list.  The name of the
-;;; argument is PRINCed but the other components of an argument
-;;; --default value or type-- are PPRINTed.  We do this to nicely
-;;; cover cases like (&key (function #'cons) (quote 'quote)).  Too
-;;; much code for such a minor feature?
-
-(defvar *initial-pprint-dispatch-table* (copy-pprint-dispatch))
-
-(defun print-cons-argument (stream object)
-  (pprint-logical-block (stream object :prefix "(" :suffix ")")
-    (princ (car object) stream)
-    (write-char #\space stream)
-    (let ((*print-pprint-dispatch* *initial-pprint-dispatch-table*))
-      (pprint-fill stream (cdr object) nil))))
-
-(defun print-symbol-argument (stream object)
-  (let ((*print-pprint-dispatch* *initial-pprint-dispatch-table*))
-    (princ object stream)))
-
-(defvar *arglist-pprint-dispatch-table* 
-  (let ((table (copy-pprint-dispatch)))
-    (set-pprint-dispatch 'cons #'print-cons-argument 0 table)
-    (set-pprint-dispatch 'symbol #'print-symbol-argument 0 table)
-    table))
-
 (defun format-arglist (function-name lambda-list-fn)
   "Use LAMBDA-LIST-FN to format the arglist for FUNCTION-NAME.
 Call LAMBDA-LIST-FN with the symbol corresponding to FUNCTION-NAME."
@@ -723,11 +697,9 @@ Call LAMBDA-LIST-FN with the symbol corresponding to FUNCTION-NAME."
           (values (funcall lambda-list-fn symbol))))
     (cond (condition (format nil "(-- ~A)" condition))
           (t (let ((*print-case* :downcase)
-                   (*print-pprint-dispatch* *arglist-pprint-dispatch-table*)
                    (*print-level* nil)
                    (*print-length* nil))
-               (with-output-to-string (stream)
-                 (pprint-fill stream arglist)))))))
+               (princ-to-string arglist))))))
 
 
 ;;;; Debugger
@@ -1068,6 +1040,50 @@ Record compiler notes signalled as `compiler-condition's."
         (find-package (case-convert n))
         *buffer-package*)))
 
+(defun parse-completion-arguments (string default-package-name)
+  (multiple-value-bind (name package-name internal-p)
+      (tokenize-symbol-designator string)
+    (let ((package (carefully-find-package package-name default-package-name)))
+      (values name package-name package internal-p))))
+
+(defun format-completion-set (symbols internal-p package-name)
+  (mapcar (lambda (s)
+            (cond (internal-p 
+                   (format nil "~A::~A" package-name s))
+                  (package-name 
+                   (format nil "~A:~A" package-name s))
+                  (t
+                   (format nil "~A" s))))
+          (remove-duplicates (sort symbols #'string< :key #'symbol-name))))
+
+(defun find-matching-symbols (string package external matchp)
+  (let ((completions '()))
+    (flet ((symbol-matches-p (symbol)
+             (and (funcall matchp string (symbol-name symbol))
+                  (or (not external)
+                      (symbol-external-p symbol package)))))
+      (do-symbols (symbol package)
+        (when (symbol-matches-p symbol)
+          (push symbol completions))))
+    completions))
+
+(defun completion-set (string default-package-name matchp)
+  (declare (type simple-base-string string))
+  (multiple-value-bind (name package-name package internal-p)
+      (parse-completion-arguments string default-package-name)
+    (let ((completions (and package
+                            (find-matching-symbols name package
+                                                   (and (not internal-p)
+                                                        package-name)
+                                                   matchp)))
+          (*print-case* (if (find-if #'upper-case-p string)
+                            :upcase :downcase)))
+      (format-completion-set completions internal-p package-name))))
+
+(defun find-completions (string default-package-name matchp)
+  (let ((completion-set (completion-set string default-package-name matchp)))
+    (list completion-set (longest-completion completion-set))))
+
 (defslimefun completions (string default-package-name)
   "Return a list of completions for a symbol designator STRING.  
 
@@ -1086,35 +1102,11 @@ format. The cases are as follows:
   FOO      - Symbols with matching prefix and accessible in the buffer package.
   PKG:FOO  - Symbols with matching prefix and external in package PKG.
   PKG::FOO - Symbols with matching prefix and accessible in package PKG."
-  (declare (type simple-base-string string))
-  (multiple-value-bind (name package-name internal-p)
-      (tokenize-symbol-designator string)
-    (let ((package (carefully-find-package package-name default-package-name))
-          (completions nil))
-      (flet ((symbol-matches-p (symbol)
-               (and (compound-prefix-match name (symbol-name symbol))
-                    (or internal-p 
-                        (null package-name)
-                        (symbol-external-p symbol package)))))
-        (when package 
-          (do-symbols (symbol package)
-            (when (symbol-matches-p symbol)
-              (push symbol completions)))))
-      (let ((*print-case* (if (find-if #'upper-case-p string)
-                              :upcase :downcase)))
-        (let ((completion-set
-               (mapcar (lambda (s)
-                         (cond (internal-p 
-                                (format nil "~A::~A" package-name s))
-                               (package-name 
-                                (format nil "~A:~A" package-name s))
-                               (t
-                                (format nil "~A" s))))
-                       ;; DO-SYMBOLS can consider the same symbol more than
-                       ;; once, so remove duplicates.
-                       (remove-duplicates (sort completions #'string<
-                                                :key #'symbol-name)))))
-          (list completion-set (longest-completion completion-set)))))))
+  (find-completions string default-package-name #'compound-prefix-match))
+
+(defslimefun simple-completions (string default-package-name)
+  "Return a list of completions for a symbol designator STRING."
+  (find-completions string default-package-name #'prefix-match-p))
 
 (defun tokenize-symbol-designator (string)
   "Parse STRING as a symbol designator.
@@ -1159,6 +1151,10 @@ Examples:
                         (setf tpos (position #\- target :start tpos))
                         (char-equal ch (aref target tpos))))
         do (incf tpos)))
+
+(defun prefix-match-p (prefix string)
+  "Return true if PREFIX is a prefix of STRING."
+  (eql (search prefix string :test #'char-equal) 0))
 
 
 ;;;;; Extending the input string by completion
@@ -1206,14 +1202,12 @@ For example:
 (defslimefun apropos-list-for-emacs  (name &optional external-only package)
   "Make an apropos search for Emacs.
 The result is a list of property lists."
-  (mapcan (listify #'briefly-describe-symbol-for-emacs)
-          (sort (apropos-symbols name
-                                 external-only
-                                 (if package
-                                     (or (find-package (read-from-string package))
-                                         (error "No such package: ~S" package))
-                                     nil))
-                #'present-symbol-before-p)))
+  (let ((package (if package
+                     (or (find-package (read-from-string package))
+                         (error "No such package: ~S" package)))))
+    (mapcan (listify #'briefly-describe-symbol-for-emacs)
+            (sort (apropos-symbols name external-only package)
+                  #'present-symbol-before-p))))
 
 (defun briefly-describe-symbol-for-emacs (symbol)
   "Return a property list describing SYMBOL.
