@@ -398,7 +398,14 @@ element."
                         :read #'read-from-socket-io
                         :send #'send-to-socket-io
                         :serve-requests #'install-sigio-handler
-                        :cleanup #'remove-sigio-handler))
+                        :cleanup #'deinstall-fd-handler))
+      (:fd-handler
+       (make-connection :socket-io socket-io :dedicated-output dedicated
+                        :user-input in :user-output out :user-io io
+                        :read #'read-from-socket-io
+                        :send #'send-to-socket-io
+                        :serve-requests #'install-fd-handler
+                        :cleanup #'deinstall-fd-handler))
       ((nil)
        (make-connection :socket-io socket-io :dedicated-output dedicated
                         :user-input in :user-output out :user-io io
@@ -411,6 +418,8 @@ element."
                    (listen stream))
         do (funcall fn)))
 
+;;;;;; Signal driven IO
+
 (defun install-sigio-handler (connection)
   (let ((client (connection.socket-io connection)))
     (flet ((handler ()   
@@ -419,11 +428,38 @@ element."
                       (process-available-input client #'handle-request)))
                    ((eq (car *swank-state-stack*) :read-next-form))
                    (t (process-available-input client #'read-from-emacs)))))
-      (add-input-handler client #'handler)
+      (add-sigio-handler client #'handler)
       (handler))))
 
-(defun remove-sigio-handler (connection)
-  (remove-input-handlers (connection.socket-io connection)))
+(defun deinstall-sigio-handler (connection)
+  (remove-sigio-handlers (connection.socket-io connection)))
+
+;;;;;; SERVE-EVENT based IO
+
+(defun install-fd-handler (connection)
+  (let ((client (connection.socket-io connection)))
+    (flet ((handler ()   
+             (cond ((null *swank-state-stack*)
+                    (with-reader-error-handler (connection)
+                      (process-available-input client #'handle-request)))
+                   ((eq (car *swank-state-stack*) :read-next-form))
+                   (t (process-available-input client #'read-from-emacs)))))
+      (encode-message '(:use-sigint-for-interrupt) client)
+      (setq *debugger-hook* 
+            (lambda (c h)
+              (with-reader-error-handler (connection)
+		(block debugger
+		  (catch 'slime-toplevel
+		    (swank-debugger-hook c h)
+		    (return-from debugger))
+		  (abort)))))
+      (add-fd-handler client #'handler)
+      (handler))))
+
+(defun deinstall-fd-handler (connection)
+  (remove-fd-handlers (connection.socket-io connection)))
+
+;;;;;; Simple sequential IO
 
 (defun simple-serve-requests (connection)
   (let ((socket-io (connection.socket-io connection)))
