@@ -13,20 +13,19 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :sock)
-  (require :process))
+  (require :process)
 
-(import
- '(excl:fundamental-character-output-stream
-   excl:stream-write-char
-   excl:stream-force-output
-   excl:fundamental-character-input-stream
-   excl:stream-read-char
-   excl:stream-listen
-   excl:stream-unread-char
-   excl:stream-clear-input
-   excl:stream-line-column
-   excl:stream-read-char-no-hang
-   ))
+  (import
+   '(excl:fundamental-character-output-stream
+     excl:stream-write-char
+     excl:stream-force-output
+     excl:fundamental-character-input-stream
+     excl:stream-read-char
+     excl:stream-listen
+     excl:stream-unread-char
+     excl:stream-clear-input
+     excl:stream-line-column
+     excl:stream-read-char-no-hang)))
 
 ;;;; TCP Server
 
@@ -164,7 +163,7 @@
 (defvar *buffer-name* nil)
 (defvar *buffer-start-position*)
 (defvar *buffer-string*)
-(defvar *compile-filename*)
+(defvar *compile-filename* nil)
 
 (defun handle-compiler-warning (condition)
   (let ((loc (getf (slot-value condition 'excl::plist) :loc)))
@@ -182,18 +181,24 @@
                                 (make-location
                                  (list :file (namestring (truename file)))
                                  (list :position (1+ pos)))))
-                             (t  
+                             (*compile-filename*
                               (make-location
                                (list :file *compile-filename*)
-                               (list :position 1))))))))
+                               (list :position 1)))
+                             (t
+                              (list :error "No error location available.")))))))
+
+(defimplementation call-with-compilation-hooks (function)
+  (handler-bind ((warning #'handle-compiler-warning))
+    (funcall function)))
 
 (defimplementation swank-compile-file (*compile-filename* load-p)
-  (handler-bind ((warning #'handle-compiler-warning))
+  (with-compilation-hooks ()
     (let ((*buffer-name* nil))
       (compile-file *compile-filename* :load-after-compile load-p))))
 
 (defimplementation swank-compile-string (string &key buffer position)
-  (handler-bind ((warning #'handle-compiler-warning))
+  (with-compilation-hooks ()
     (let ((*buffer-name* buffer)
           (*buffer-start-position* position)
           (*buffer-string* string))
