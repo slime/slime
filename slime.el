@@ -5252,6 +5252,8 @@ use the restart at point."
 (defun sldb-step ()
   "Select the \"continue\" restart and set a new break point."
   (interactive)
+  ;; FIXME
+  (error "Not implemented.")
   (let ((frame (sldb-frame-number-at-point)))
     (slime-eval-async `(swank:sldb-step ,frame) nil (lambda ()))))
 
