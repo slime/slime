@@ -1060,7 +1060,8 @@ Return true if we have been given permission to continue."
   "Offer to rename *inferior-lisp* so that another can be started."
   (when (y-or-n-p "Create an additional *inferior-lisp*? ")
     (with-current-buffer "*inferior-lisp*"
-      (rename-buffer (buffer-name) t))))
+      (rename-buffer (buffer-name) t)
+      t)))
 
 (defun slime-maybe-start-lisp ()
   "Start an inferior lisp unless one is already running."
@@ -1672,12 +1673,16 @@ This is automatically synchronized from Lisp.")
 (defun slime-events-buffer ()
   (or (get-buffer "*slime-events*")
       (let ((buffer (get-buffer-create "*slime-events*")))
-        (with-current-buffer buffer
-          (set (make-local-variable 'hs-block-start-regexp) "^(")
-          (set (make-local-variable 'comment-start) ";")
-          (set (make-local-variable 'comment-end) "")
-          (hs-minor-mode)
-          (current-buffer)))))
+        ;; Using hideshow mode in XEmacs has caused obscure problems
+        ;; for some users. -luke (24/Apr/2004)
+        (unless (featurep 'xemacs)
+          (with-current-buffer buffer
+            (set (make-local-variable 'hs-block-start-regexp) "^(")
+            (set (make-local-variable 'comment-start) ";")
+            (set (make-local-variable 'comment-end) "")
+            (unless (featurep 'xemacs)
+              (hs-minor-mode))))
+        buffer)))
 
 
 ;;;;; Utilities
@@ -5152,25 +5157,25 @@ This way you can still see what the error was after exiting SLDB."
 
 (defun slime-thread-kill ()
   (interactive)
-  (slime-eval `(swank::kill-thread (swank::lookup-thread-by-id ,(get-text-property (point) 'thread-id))))
+  (let ((id (get-text-property (point) 'thread-id)))
+    (slime-eval `(swank:kill-thread-by-id ,id)))
   (call-interactively 'slime-list-threads))
 
 (defun slime-thread-attach ()
   (interactive)
-  (slime-eval-async `(swank::interrupt-thread
-                      (swank::lookup-thread-by-id ,(get-text-property (point) 'thread-id))
-                      (cl:lambda ()
-                        (swank::start-server ,(slime-swank-port-file) nil)))
-                    (slime-buffer-package)
-                    (lambda (v)
-                      nil))
+  (let ((id (get-text-property (point) 'thread-id))
+        (file (slime-swank-port-file)))
+    (slime-eval-async `(swank:start-swank-server-in-thread ,id ,file)
+                      (slime-buffer-package)
+                      (lambda (v) nil)))
   (slime-read-port-and-connect-to-running-swank nil))
 
 (defun slime-thread-debug ()
   (interactive)
-  (slime-eval-async `(swank::debug-thread ,(get-text-property (point) 'thread-id))
-                    (slime-buffer-package)
-                    (lambda (v) nil)))
+  (let ((id (get-text-property (point) 'thread-id)))
+    (slime-eval-async `(swank::debug-thread-by-id ,id)
+                      (slime-buffer-package)
+                      (lambda (v) nil))))
 
 
 ;;;;; Connection listing
