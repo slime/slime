@@ -4,9 +4,10 @@
 	together compiler notes that refer to the same location. This is
 	an optimization for when there are a lot of compiler notes:
 	`slime-merge-note-into-overlay' concat'd messages together one by
-	one in O(n^2) time/space, and became noticably slow in practice
+	one in O(n^2) time/space, and became noticeably slow in practice
 	with ~100 notes or more.
-	(slime-tree-insert): Byte-compile this function (big speed gain).
+	(slime-tree-insert): This function is now automatically
+	byte-compiled (good speed gain).
 
 2004-03-25  Bjørn Nordbø <bn@telenor.net>
 
