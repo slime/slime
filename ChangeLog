@@ -14,7 +14,7 @@
 	its definitions.
 
 	* swank-allegro.lisp (make-process/inherit): Changed reader
-	conditionals to use fwrappers for #+(version>= 6.2).
+	conditionals to use fwrappers for #+(version>= 6).
 
 	* swank-backend.lisp (make-stream-interactive): This backend
 	function is called with each stream that will be used for
