@@ -3694,9 +3694,9 @@ are supported:
   (if (symbolp e)
       (memq (slime-to-feature-keyword e) (slime-lisp-features))
     (funcall (ecase (car e)
-               (and #'every)
-               (or  #'some)
-               (not (lambda (f l) (not (apply f l)))))
+               ((and AND) #'every)
+               ((or OR) #'some)
+               ((not NOT) (lambda (f l) (not (apply f l)))))
              #'slime-eval-feature-conditional
              (cdr e))))
 
@@ -5550,9 +5550,14 @@ Full list of commands:
   "List of sldb-buffers.")
 
 (defun sldb-find-buffer (thread)
-  (cdr (assoc* (cons (slime-connection) thread) 
-               sldb-buffers 
-               :test #'equal)))
+  (let ((buffer (cdr (assoc* (cons (slime-connection) thread) 
+                             sldb-buffers 
+                             :test #'equal))))
+    (cond ((not buffer) nil)
+          ((not (buffer-live-p buffer))
+           (setf sldb-buffers (remove* sldb sldb-buffers :key #'cdr))
+           nil)
+          (t buffer))))
 
 (defun sldb-get-default-buffer ()
   (cdr (first sldb-buffers)))
@@ -6038,7 +6043,8 @@ The details include local variable bindings and CATCH-tags."
 (defun sldb-quit ()
   "Quit to toplevel."
   (interactive)
-  (slime-eval-async '(swank:throw-to-toplevel)))
+  (slime-eval-async '(swank:throw-to-toplevel) 
+                    (lambda (_) (error "sldb-quit returned"))))
 
 (defun sldb-continue ()
   "Invoke the \"continue\" restart."
@@ -7403,7 +7409,7 @@ SWANK> " t))
                         (lambda () 
                           (and (slime-sldb-level= 1)
                                (get-buffer-window (sldb-get-default-buffer))))
-                        5)
+                        10)
   (with-current-buffer (sldb-get-default-buffer)
     (sldb-quit))
   (slime-sync-to-top-level 5))
