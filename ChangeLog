@@ -1,3 +1,23 @@
+2004-03-10  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-allegro.lisp, swank-lispworks.lisp, swank-sbcl.lisp,
+	swank-clisp.lisp, swank-cmucl.lisp (find-definitions): Some
+	tweaking.
+
+	* swank.lisp (print-arglist): Bind *pretty-circle* to nil to avoid
+	output like "(function . (cons))".  Suggested by Michael Livshin.
+	(test-print-arglist): Re-enable the tests.
+	(find-definitions-for-emacs): Renamed from
+	find-function-locations.
+
+	* slime.el (slime-edit-definition): Renamed from
+	slime-edit-fdefinition.  Display the dspec if there are multiple
+	definitions.
+	(slime-symbol-name-at-point): Handle the case when there is no
+	symbol at point.
+	(slime-expected-failures): New function
+	(slime-execute-tests): Use it.
+
 2004-03-09  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank.lisp (frame-source-location-for-emacs): Export it.
