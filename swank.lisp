@@ -1248,7 +1248,8 @@ change, then send Emacs an update."
     (swank-pprint (multiple-value-list (eval (read-from-string string))))))
 
 (defslimefun set-package (package)
-  "Set *package* to PACKAGE and return its name and the string to use in the prompt."
+  "Set *package* to PACKAGE.
+Return its name and the string to use in the prompt."
   (let ((p (setq *package* (guess-package-from-string package))))
     (list (package-name p) (package-string-for-prompt p))))
 
@@ -1607,6 +1608,11 @@ Record compiler notes signalled as `compiler-condition's."
 
 (defslimefun load-file (filename)
   (to-string (load filename)))
+
+(defslimefun load-file-set-package (filename &optional package)
+  (load-file filename)
+  (if package
+      (set-package package)))
 
 
 ;;;; Macroexpansion
