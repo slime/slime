@@ -12,6 +12,7 @@
   (:export #:startup-multiprocessing
            #:start-server 
            #:create-swank-server
+           #:create-server
            #:ed-in-emacs
            #:print-indentation-lossage
            #:swank-debugger-hook
@@ -208,16 +209,22 @@ Redirection is done while Lisp is processing a request for Emacs.")
 (defvar *communication-style* (preferred-communication-style))
 (defvar *log-events* nil)
 
-(defun start-server (port-file &optional (background *communication-style*)
+(defun start-server (port-file &optional (style *communication-style*)
                      dont-close)
   (setup-server 0 (lambda (port) (announce-server-port port-file port))
-                background dont-close))
-                     
+                style dont-close))
+
+(defun create-server (&key (port +server-port+)
+                      (style *communication-style*)
+                      dont-close)
+  "Start a SWANK server on PORT."
+  (setup-server port #'simple-announce-function style dont-close))
+
 (defun create-swank-server (&optional (port +server-port+)
-                            (background *communication-style*)
+                            (style *communication-style*)
                             (announce-fn #'simple-announce-function)
                             dont-close)
-  (setup-server port announce-fn background dont-close))
+  (setup-server port announce-fn style dont-close))
 
 (defparameter *loopback-interface* "127.0.0.1")
 
@@ -226,12 +233,21 @@ Redirection is done while Lisp is processing a request for Emacs.")
   (let* ((socket (create-socket *loopback-interface* port))
          (port (local-port socket)))
     (funcall announce-fn port)
-    (cond ((eq style :spawn)
-           (spawn (lambda () 
-                    (loop do (serve-connection socket :spawn dont-close)
-                          while dont-close))
-                  :name "Swank"))
-          (t (serve-connection socket style nil)))
+    (case style
+      (:spawn
+       (spawn (lambda () 
+                (loop do (serve-connection socket :spawn dont-close)
+                      while dont-close))
+              :name "Swank"))
+      ((:fd-handler :sigio)
+       (add-fd-handler socket 
+                       (lambda ()
+                         (serve-connection socket style dont-close))))
+      ((nil)
+       (unwind-protect
+            (loop do (serve-connection socket style dont-close)
+                  while dont-close)
+         (close-socket socket))))
     port))
 
 (defun serve-connection (socket style dont-close)
