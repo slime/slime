@@ -2446,7 +2446,6 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
        (:callers (list-callers symbol))
        (:callees (list-callees symbol))))))
 
-; (xref :calls "to-string")
 
 ;;;; Inspecting
 
