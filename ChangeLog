@@ -1,5 +1,8 @@
 2003-10-21  Luke Gorrie  <luke@bluetail.com>
 
+	* slime.el (slime-space): Don't give an error when not connected,
+	to avoid feeping.
+
 	* swank-sbcl.lisp (swank-compile-string): Include only one
 	:SOURCE-PATH attribute in the plist, and replace the front element
 	with a 0 (fixes a problem probably due to recent hacks to the
