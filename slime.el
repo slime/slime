@@ -1011,14 +1011,43 @@ This is more compatible with the CL reader."
 (defun slime ()
   "Start an inferior^_superior Lisp and connect to its Swank server."
   (interactive)
-  (cond ((and current-prefix-arg
-              (slime-connected-p)
-              (get-buffer "*inferior-lisp*"))
-         (unless (slime-maybe-rearrange-inferior-lisp)
-           (slime-disconnect)))
-        (t (slime-disconnect)))
-  (slime-maybe-start-lisp)
-  (slime-read-port-and-connect))
+  (when (or (not (slime-bytecode-stale-p))
+            (slime-urge-bytecode-recompile))
+    (cond ((and current-prefix-arg
+                (slime-connected-p)
+                (get-buffer "*inferior-lisp*"))
+           (unless (slime-maybe-rearrange-inferior-lisp)
+             (slime-disconnect)))
+          (t (slime-disconnect)))
+    (slime-maybe-start-lisp)
+    (slime-read-port-and-connect)))
+
+(defun slime-bytecode-stale-p ()
+  "Return true if slime.elc is older than slime.el."
+  (when-let (libfile (locate-library "slime"))
+    (let* ((basename (file-name-sans-extension libfile))
+           (sourcefile (concat basename ".el"))
+           (bytefile (concat basename ".elc")))
+      (and (file-exists-p bytefile)
+           (file-newer-than-file-p sourcefile bytefile)))))
+
+(defun slime-recompile-bytecode ()
+  "Recompile and reload slime.
+Warning: don't use this in XEmacs, it seems to crash it!"
+  (let ((sourcefile (concat (file-name-sans-extension (locate-library "slime"))
+                            ".el")))
+    (byte-compile-file sourcefile t)))
+
+(defun slime-urge-bytecode-recompile ()
+  "Urge the user to recompile slime.elc.
+Return true if we have been given permission to continue."
+  (if (featurep 'xemacs)
+      ;; My XEmacs crashes and burns if I recompile/reload an elisp
+      ;; file from itself. So they have to do it themself.
+      (y-or-n-p "slime.elc is older than slime.el. Continue? ")
+    (if (y-or-n-p "slime.elc is older than slime.el. Recompile/reload first? ")
+        (progn (slime-recompile-bytecode) t)
+      nil)))
 
 (defun slime-maybe-rearrange-inferior-lisp ()
   "Offer to rename *inferior-lisp* so that another can be started."
