@@ -95,23 +95,27 @@
 
 (defvar *saved-sigio-handler*)
 
-(defun set-sigio-handler ()
-  (setf *saved-sigio-handler*
-	(linux:set-signal-handler linux:SIGIO 
-				  (lambda (signal) (sigio-handler signal))))
-  (let* ((action (linux:signal-action-retrieve linux:SIGIO))
-	 (flags (linux:sa-flags action)))
-    (setf (linux:sa-flags action) (logior flags linux:SA_NODEFER))
-    (linux:signal-action-install linux:SIGIO action)))
+#+linux
+(progn
+  (defun set-sigio-handler ()
+    (setf *saved-sigio-handler*
+	  (linux:set-signal-handler linux:SIGIO 
+				    (lambda (signal) (sigio-handler signal))))
+    (let* ((action (linux:signal-action-retrieve linux:SIGIO))
+	   (flags (linux:sa-flags action)))
+      (setf (linux:sa-flags action) (logior flags linux:SA_NODEFER))
+      (linux:signal-action-install linux:SIGIO action)))
 
-(defimplementation add-input-handler (socket fn)
-  (set-sigio-handler)
-  (let ((fd (socket:socket-stream-handle socket)))
-    (format *debug-io* "Adding input handler: ~S ~%" fd)
-    ;; XXX error checking
-    (linux:fcntl3l fd linux:F_SETOWN (getpid))
-    (linux:fcntl3l fd linux:F_SETFL linux:O_ASYNC)
-    (push (cons fd fn) *sigio-handlers*)))
+
+  (defimplementation add-input-handler (socket fn)
+    (set-sigio-handler)
+    (let ((fd (socket:socket-stream-handle socket)))
+      (format *debug-io* "Adding input handler: ~S ~%" fd)
+      ;; XXX error checking
+      (linux:fcntl3l fd linux:F_SETOWN (getpid))
+      (linux:fcntl3l fd linux:F_SETFL linux:O_ASYNC)
+      (push (cons fd fn) *sigio-handlers*)))
+  )
 
 (defimplementation remove-input-handlers (socket)
   (let ((fd (socket:socket-stream-handle socket)))
