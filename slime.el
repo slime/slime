@@ -7047,11 +7047,16 @@ BODY returns true if the check succeeds."
     (slime-test-expect "Completion set" expected-completions completions)))
 
 (def-slime-test arglist
+    ;; N.B. Allegro apparently doesn't return the default values of
+    ;; optional parameters. Thus the regexp in the start-server
+    ;; expected value. In a perfect world we'd find a way to smooth
+    ;; over this difference between implementations--perhaps by
+    ;; convincing Franz to provide a function that does what we want.
     (function-name expected-arglist)
     "Lookup the argument list for FUNCTION-NAME.
 Confirm that EXPECTED-ARGLIST is displayed."
     '(("swank:start-server"
-       "(swank:start-server port-file &optional (style \\*communication-style\\*)\n dont-close)")
+       "(swank:start-server port-file &optional \\((style *communication-style*)\\|style\\) dont-close)")
       ("swank::compound-prefix-match"
        "(swank::compound-prefix-match prefix target)")
       ("swank::create-socket"
