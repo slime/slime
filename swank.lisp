@@ -505,6 +505,10 @@ of the toplevel restart."
       (setf (connection.repl-thread connection) repl-thread)
       connection)))
 
+(defun cleanup-connection-threads (connection)
+  (kill-thread (connection.control-thread connection))
+  (kill-thread (connection.repl-thread connection)))
+
 (defun repl-loop (connection)
   (with-connection (connection)
     (loop (handle-request connection))))
@@ -612,7 +616,8 @@ of the toplevel restart."
       (make-connection :socket-io socket-io
 		       :read #'read-from-control-thread
 		       :send #'send-to-control-thread
-		       :serve-requests #'spawn-threads-for-connection))
+		       :serve-requests #'spawn-threads-for-connection
+                       :cleanup #'cleanup-connection-threads))
      (:sigio
       (make-connection :socket-io socket-io 
                        :read #'read-from-socket-io
