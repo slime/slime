@@ -6567,7 +6567,7 @@ If they are not, position point at the first syntax error found."
 
 ;;; Finishing up
 
-(save-window-excursion
+(let ((byte-compile-warnings '()))
   (mapc #'byte-compile
         '(slime-log-event
           slime-events-buffer
