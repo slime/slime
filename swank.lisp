@@ -22,6 +22,7 @@
            #:profile-reset
            #:unprofile-all
            #:profile-package
+           #:set-default-directory
            ))
 
 (in-package :swank)
@@ -1022,8 +1023,9 @@ The debugger hook is inhibited during the evaluation."
     (eval (read-form string))))
 
 (defun format-values-for-echo-area (values)
-  (cond (values (format nil "~{~S~^, ~}" values))
-        (t "; No value")))
+  (let ((*package* *buffer-package*))
+    (cond (values (format nil "~{~S~^, ~}" values))
+          (t "; No value"))))
 
 (defslimefun interactive-eval (string)
   (let ((values (multiple-value-list
@@ -1111,10 +1113,6 @@ change, then send Emacs an update."
   (let ((p (setq *package* (guess-package-from-string package))))
     (list (package-name p) (shortest-package-nickname p))))
 
-(defslimefun set-default-directory (directory)
-  (setf *default-pathname-defaults* (truename (merge-pathnames directory)))
-  (namestring *default-pathname-defaults*))
-
 (defslimefun listener-eval (string)
   (clear-user-input)
   (multiple-value-bind (values last-form) (eval-region string t)
@@ -1192,7 +1190,7 @@ Record compiler notes signalled as `compiler-condition's."
      (let ((*package* *buffer-package*))
        (swank-compile-string string :buffer buffer :position position)))))
 
-(defslimefun swank-load-system (system)
+(defslimefun load-system-for-emacs (system)
   "Compile and load SYSTEM using ASDF.
 Record compiler notes signalled as `compiler-condition's."
   (swank-compiler (lambda () (swank-compile-system system))))
@@ -1242,10 +1240,10 @@ contains lower or upper case characters."
 (defun carefully-find-package (name default-package-name)
   "Find the package with name NAME, or DEFAULT-PACKAGE-NAME, or the
 *buffer-package*.  NAME and DEFAULT-PACKAGE-NAME can be nil."
-  (let ((n (cond ((equal name "") "KEYWORD")
-                 (t (or name default-package-name)))))
-    (if n 
-        (find-package (case-convert-input n))
+  (let ((string (cond ((equal name "") "KEYWORD")
+                      (t (or name default-package-name)))))
+    (if string
+        (guess-package-from-string string nil)
         *buffer-package*)))
 
 (defun parse-completion-arguments (string default-package-name)
@@ -1794,6 +1792,10 @@ nil if there's no second element."
 (defslimefun inspect-in-frame (string index)
   (reset-inspector)
   (inspect-object (eval-in-frame (from-string string) index)))
+
+(defslimefun inspect-current-condition ()
+  (reset-inspector)
+  (inspect-object *swank-debugger-condition*))
 
 
 ;;;; Thread listing
