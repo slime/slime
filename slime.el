@@ -57,6 +57,9 @@
 (require 'hyperspec)
 (when (featurep 'xemacs)
   (require 'overlay))
+(unless (fboundp 'define-minor-mode)
+  (require 'easy-mmode)
+  (defalias 'define-minor-mode 'easy-mmode-define-minor-mode))
 
 (defconst slime-swank-port 4005
   "TCP port number for the Lisp Swank server.")
@@ -198,7 +201,7 @@ Evaluation commands:
     ("\C-c\C-wm" . slime-who-macroexpands)
     ;; Not sure which binding is best yet, so both for now.
     ("\C-c\C- "  . slime-next-location)
-    ([(control meta .)] . slime-next-location)
+    ([(control meta ?\.)] . slime-next-location)
     ))
 
 ;; Setup the mode-line to say when we're in slime-mode, and which CL
@@ -291,7 +294,7 @@ truncate to fit on the screen."
 (defun slime-symbol-at-point ()
   "Return the symbol at point, otherwise nil."
   (let ((string (thing-at-point 'symbol)))
-    (if string (intern (slime-substring-no-properties string)) nil)))
+    (if string (intern (substring-no-properties string)) nil)))
 
 (defun slime-symbol-name-at-point ()
   "Return the name of the symbol at point, otherwise nil."
@@ -301,7 +304,7 @@ truncate to fit on the screen."
 (defun slime-sexp-at-point ()
   "Return the sexp at point, otherwise nil."
   (let ((string (thing-at-point 'sexp)))
-    (if string (slime-substring-no-properties string) nil)))
+    (if string (substring-no-properties string) nil)))
 
 (defun slime-function-called-at-point/line ()
   "Return the name of the function being called at point, provided the
@@ -311,12 +314,18 @@ function call starts on the same line at the point itself."
                             (point)))
        (slime-function-called-at-point)))
 
+(defun slime-read-symbol-name (prompt)
+  "Either read a symbol name or choose the one at point.
+The user is prompted if a prefix argument is in effect or there is no
+symbol at point."
+  (or (and (not current-prefix-arg) (slime-symbol-name-at-point))
+      (slime-completing-read-symbol-name prompt)))
+
 (defun slime-read-symbol (prompt)
   "Either read a symbol or choose the one at point.
 The user is prompted if a prefix argument is in effect or there is no
 symbol at point."
-  (or (and (not current-prefix-arg) (slime-symbol-at-point))
-      (intern (read-string prompt))))
+  (intern (slime-read-symbol-name prompt)))
 
 (defvar slime-saved-window-configuration nil
   "Window configuration before the last changes SLIME made.")
@@ -373,6 +382,12 @@ If that doesn't give a function, return nil."
 	      (let ((obj (read (current-buffer))))
 		(and (symbolp obj) obj))))
 	(error nil))))
+
+(defun slime-read-package-name (prompt)
+  (let ((completion-ignore-case t))
+    (completing-read prompt (mapcar (lambda (x) (cons x x))
+				    (slime-eval 
+				     `(swank:list-all-package-names))))))
 
 
 ;;; CMUCL Setup: compiling and connecting to Swank
@@ -504,15 +519,14 @@ EVAL'd by Lisp."
 	    (save-current-buffer
 	      (slime-take-input input)
 	      (setq aborted nil))
-	  (when (and aborted
-		     (slime-net-have-input-p))
+	  (when (and aborted (slime-net-have-input-p))
 	    (slime-process-available-input)))))))
 
 (defun slime-net-have-input-p ()
   "Return true if a complete message is available."
   (goto-char (point-min))
   (and (>= (buffer-size) 3)
-       (>= (buffer-size) (slime-net-read3))))
+       (>= (- (buffer-size) 3) (slime-net-read3))))
 
 (defun slime-net-read ()
   "Read a message from the network buffer."
@@ -1048,9 +1062,7 @@ Designed to be bound to the SPC key."
 
 (defun slime-arglist (symbol-name)
   "Show the argument list for the nearest function call, if any."
-  (interactive (list (read-string "Arglist of: "
-                                  (let ((sym (symbol-at-point)))
-                                    (and sym (symbol-name sym))))))
+  (interactive (list (slime-read-symbol "Arglist of: ")))
   (slime-eval-async 
    `(swank:arglist-string ',symbol-name)
    (slime-buffer-package)
@@ -1070,29 +1082,69 @@ package is used."
   (interactive)
   (let* ((end (point))
          (beg (slime-symbol-start-pos))
-         ;; Beginning of symbol name (i.e. after package if present).
-         (name-beg (save-excursion
-                     (if (search-backward ":" beg t)
-                         (1+ (point))
-                         beg)))
-         (whole-prefix (buffer-substring-no-properties beg end))
-         (name-prefix  (buffer-substring-no-properties name-beg end))
-         (completions (slime-completions whole-prefix))
+         (prefix (buffer-substring-no-properties beg end))
+         (completions (slime-completions prefix))
          (completions-alist (slime-bogus-completion-alist completions))
-         (completion (try-completion name-prefix completions-alist nil)))
+         (completion (try-completion prefix completions-alist nil)))
     (cond ((eq completion t))
           ((null completion)
-           (message "Can't find completion for \"%s\"" whole-prefix)
+           (message "Can't find completion for \"%s\"" prefix)
            (ding))
-          ((not (string= name-prefix completion))
-           (delete-region name-beg end)
+          ((not (string= prefix completion))
+           (delete-region beg end)
            (insert completion))
           (t
            (message "Making completion list...")
-           (let ((list (all-completions name-prefix completions-alist nil)))
+           (let ((list (all-completions prefix completions-alist nil)))
              (slime-with-output-to-temp-buffer "*Completions*"
                (display-completion-list list)))
            (message "Making completion list...done")))))
+
+(defun slime-completing-read-internal (string default-package flag)
+  ;; We misuse the predicate argument to pass the default-package.
+  ;; That's needed because slime-completing-read-internal is called in
+  ;; the minibuffer.
+  (ecase flag
+    ((nil) 
+     (let* ((completions (slime-completions string default-package)))
+       (try-completion string
+		       (slime-bogus-completion-alist completions))))
+    ((t)
+     (slime-completions string default-package))
+    ((lambda)
+     (member string (slime-completions string default-package)))))
+
+(defun slime-completing-read-symbol-name (prompt &optional initial-value)
+  "Read the name of a CL symbol, with completion.  
+The \"name\" may include a package prefix."
+  (completing-read prompt 
+		   'slime-completing-read-internal
+		   (slime-buffer-package)
+		   nil
+		   initial-value))
+
+(defvar slime-read-expression-map (make-sparse-keymap)
+  "Minibuffer keymap used for reading CL expressions.")
+
+(set-keymap-parent slime-read-expression-map minibuffer-local-map)
+
+(define-key slime-read-expression-map "\t" 'slime-complete-symbol)
+(define-key slime-read-expression-map "\M-\t" 'slime-complete-symbol)
+
+(defvar slime-read-expression-history '()
+  "History list of expressions read from the minibuffer.")
+ 
+(defun slime-read-from-minibuffer (prompt &optional initial-value)
+  "Read a string from the minibuffer, prompting with PROMPT.  
+If INITIAL-VALUE is non-nil, it is inserted into the minibuffer before
+reading input.  The result is a string (\"\" if no input was given)."
+  (let ((minibuffer-setup-hook 
+	 (cons (lexical-let ((package (slime-buffer-package)))
+		 (lambda ()
+		   (setq slime-buffer-package package)))
+	       minibuffer-setup-hook)))
+    (read-from-minibuffer prompt initial-value slime-read-expression-map
+			  nil slime-read-expression-history)))
 
 (defun slime-symbol-start-pos ()
   "Return the starting position of the symbol under point.
@@ -1109,16 +1161,13 @@ apparently very stupid `try-completions' interface, that wants an
 alist but ignores CDRs."
   (mapcar (lambda (x) (cons x nil)) list))
 
-(defun slime-completions (prefix)
-  (when (stringp prefix)
-    (setq prefix (intern prefix)))
-  (let ((package (upcase (slime-cl-symbol-package prefix (slime-buffer-package))))
-        (name (upcase (slime-cl-symbol-name prefix)))
-        (external-ref (slime-cl-symbol-external-ref-p prefix))
-        (has-upcase (let ((case-fold-search nil))
-                      (string-match "[A-Z]" (symbol-name prefix)))))
-    (mapcar (if has-upcase 'upcase 'downcase)
-            (slime-eval `(swank:completions ,name ,package ,external-ref)))))
+(defun slime-completions (prefix &optional default-package)
+  (let ((prefix (etypecase prefix
+		  (symbol (symbol-name prefix))
+		  (string prefix))))
+    (slime-eval `(swank:completions ,prefix 
+				    ,(or default-package
+					 (slime-buffer-package))))))
 
 
 (defun slime-cl-symbol-name (symbol)
@@ -1147,30 +1196,6 @@ FOO::BAR is not, and nor is BAR."
 (defvar slime-find-definition-history-ring (make-ring 20)
   "History ring recording the definition-finding \"stack\".")
 
-(defun slime-edit-fdefinition (name)
-  "Lookup the definition of the function called at point.
-If no function call is recognised, or a prefix argument is given, then
-the function name is prompted."
-  (interactive (list (let ((called (slime-symbol-at-point)))
-                       (if (and called (null current-prefix-arg))
-                           (symbol-name called)
-                         (read-string "Function name: ")))))
-  (let* ((package (upcase (slime-cl-symbol-package name
-						   (slime-buffer-package))))
-         (file (slime-eval `(swank:find-fdefinition ,name ,package))))
-    (if (null file)
-        (message "Cannot locate definition of %S" name)
-      (slime-push-definition-stack)
-      (find-file file)
-      (goto-char (point-min))
-      (let ((regexp (format "(\\(defun\\|defmacro\\)\\s *%s\\s "
-                            (regexp-quote (slime-cl-symbol-name name)))))
-        (if (re-search-forward regexp nil t)
-            (progn (beginning-of-line)
-                   (unless (pos-visible-in-window-p)
-                     (recenter 4)))
-          (message "Unable to find definition by searching."))))))
-
 (defun slime-push-definition-stack (&optional marker)
   "Add MARKER to the edit-definition history stack.
 If MARKER is nil, use the point."
@@ -1189,11 +1214,11 @@ If MARKER is nil, use the point."
         ;; If this buffer was deleted, recurse to try the next one
         (slime-pop-find-definition-stack)))))
 
-(defun slime-edit-symbol-fdefinition (name)
-  "Lookup the function definition of the symbol at point."
-  (interactive (list (cond (current-prefix-arg
-			    (read-string "Edit fdefinition: "))
-			   (t (slime-symbol-name-at-point)))))
+(defun slime-edit-fdefinition (name)
+  "Lookup the definition of the symbol at point.  
+If there's no symbol at point, or a prefix argument is given, then the
+function name is prompted."
+  (interactive (list (slime-read-symbol-name "Function name: ")))
   (let ((origin (point-marker))
 	(source-location
 	 (slime-eval `(swank:function-source-location-for-emacs ,name)
@@ -1233,7 +1258,7 @@ If MARKER is nil, use the point."
        output-start (slime-inferior-lisp-marker-position) 1))))
 
 (defun slime-interactive-eval (string)
-  (interactive "sSlime Eval: ")
+  (interactive (list (slime-read-from-minibuffer "Slime Eval: ")))
   (slime-insert-transcript-delimiter string)
   (slime-eval-async 
    `(swank:interactive-eval ,string)
@@ -1311,12 +1336,13 @@ First make the variable unbound, then evaluate the entire form."
   (slime-eval-describe `(swank:pprint-eval ,(slime-last-expression))))
 
 (defun slime-toggle-trace-fdefinition (fname-string)
-  (interactive (lisp-symprompt "(Un)trace" (slime-symbol-name-at-point)))
+  (interactive (list (slime-completing-read-symbol-name 
+		      "(Un)trace: " (slime-symbol-name-at-point))))
   (message "%s" (slime-eval `(swank:toggle-trace-fdefinition ,fname-string)
 			    (slime-buffer-package t))))
 
 (defun slime-disassemble-symbol (symbol-name)
-  (interactive (list (slime-symbol-name-at-point)))
+  (interactive (list (slime-read-symbol-name "Disassemble: ")))
   (slime-eval-describe `(swank:disassemble-symbol ,symbol-name)))
 
 (defun slime-load-file (filename)
@@ -1340,16 +1366,6 @@ First make the variable unbound, then evaluate the entire form."
       (slime-with-output-to-temp-buffer "*Help*"
 	(princ string)))))
 
-(eval-and-compile 
-  (if (fboundp 'substring-no-properties)
-      (defalias 'slime-substring-no-properties 'substring-no-properties)
-    (defun slime-substring-no-properties (string &optional start end)
-      (let* ((start (or start 0))
-	     (end (or end (length string)))
-	     (string (substring string start end)))
-	(set-text-properties start end nil string)
-	string))))
-
 (defun slime-eval-describe (form)
   (let ((package (slime-buffer-package)))
     (slime-eval-async 
@@ -1358,19 +1374,10 @@ First make the variable unbound, then evaluate the entire form."
        (lambda (string) (slime-show-description string package))))))
 
 (defun slime-describe-symbol (symbol-name)
-  (interactive
-   (list (cond (current-prefix-arg 
-		(read-string "Describe symbol: "))
-	       ((slime-symbol-name-at-point))
-	       (t (read-string "Describe symbol: ")))))
+  (interactive (list (slime-read-symbol-name "Describe symbol: ")))
   (when (not symbol-name)
     (error "No symbol given"))
   (slime-eval-describe `(swank:describe-symbol ,symbol-name)))
-
-(defun slime-read-package-name (prompt)
-  (completing-read prompt (mapcar (lambda (x) (cons x x))
-				  (slime-eval 
-				   `(swank:list-all-package-names)))))
 
 (defun slime-apropos (string &optional only-external-p package)
   (interactive
@@ -1700,10 +1707,7 @@ When displaying XREF information, this goes to the next reference."
        (when (or (not buffer)
 		 (with-current-buffer (get-buffer "*sldb*")
 		   (/= sldb-level-in-buffer sldb-level)))
-	 (sldb-setup)))
-     ;;(unless (get-buffer-window "*sldb*")
-     ;;	 (pop-to-buffer (get-buffer "*sldb*")))
-     )
+	 (sldb-setup))))
     ((:sldb-abort l)
      (assert (= l sldb-level))
      (when (get-buffer "*sldb*")
@@ -1932,13 +1936,9 @@ When displaying XREF information, this goes to the next reference."
 	(delete-region start end)
 	(sldb-propertize-region (plist-put props 'details-visible-p nil)
 	  (insert (second frame) "\n"))))))
-  
-(defvar sldb-eval-expression-history '())
 
 (defun sldb-eval-in-frame (string)
-  (interactive (list (read-from-minibuffer 
-		      "Eval in frame: " 
-		      nil nil nil 'sldb-eval-expression-history)))
+  (interactive (list (slime-read-from-minibuffer "Eval in frame: ")))
   (let* ((number (sldb-frame-number-at-point)))
     (slime-eval-async `(swank:eval-string-in-frame ,string ,number)
 		      nil
@@ -2172,14 +2172,15 @@ conditions (assertions)."
       (and (eq orig-buffer (current-buffer))
            (= orig-pos (point))))))
 
+;; (slime-completions "cl:compile")
 (def-slime-test complete-symbol
     (prefix expected-completions)
     "Find the completions of a symbol-name prefix."
-    '(("cl:compile" ("compile" "compile-file" "compile-file-pathname"
-                     "compiled-function" "compiled-function-p"
-                     "compiler-macro" "compiler-macro-function"))
+    '(("cl:compile" ("cl:compile" "cl:compile-file" "cl:compile-file-pathname"
+                     "cl:compiled-function" "cl:compiled-function-p"
+                     "cl:compiler-macro" "cl:compiler-macro-function"))
       ("cl:foobar" nil)
-      ("cl::compile-file" ("compile-file" "compile-file-pathname")))
+      ("cl::compile-file" ("cl::compile-file" "cl::compile-file-pathname")))
   (let ((completions (slime-completions prefix)))
     (slime-check expected-completions
       (equal expected-completions (sort completions 'string<)))))
@@ -2252,10 +2253,6 @@ Confirm that SUBFORM is correclty located."
     (defalias 'string-make-unibyte #'identity))
   )
 
-(unless (fboundp 'define-minor-mode)
-  (require 'easy-mmode)
-  (defalias 'define-minor-mode 'easy-mmode-define-minor-mode))
-
 (unless (fboundp 'next-single-char-property-change)
   (defun next-single-char-property-change (position prop &optional
 						    object limit)
@@ -2298,6 +2295,14 @@ Confirm that SUBFORM is correclty located."
 		  if (not (eq initial-value 
 			      (get-char-property (1- pos) prop object))) 
 		  return pos))))))))
+
+(unless (fboundp 'substring-no-properties)
+  (defun substring-no-properties (string &optional start end)
+    (let* ((start (or start 0))
+	   (end (or end (length string)))
+	   (string (substring string start end)))
+      (set-text-properties start end nil string)
+      string)))
 
 (defun emacs-20-p ()
   (and (not (featurep 'xemacs))
