@@ -1000,7 +1000,8 @@ If that doesn't give a function, return nil."
   "Like `prin1-to-string' but don't octal-escape non-ascii characters.
 This is more compatible with the CL reader."
   (with-temp-buffer
-    (let ((print-escape-nonascii nil))
+    (let ((print-escape-nonascii nil)
+          (print-escape-newlines nil))
       (prin1 sexp (current-buffer))
       (buffer-string))))
 
@@ -1667,7 +1668,8 @@ This is automatically synchronized from Lisp.")
       (goto-char (point-max))
       (save-excursion
         (pp event (current-buffer)))
-      (hs-hide-block-at-point)
+      (when hs-minor-mode
+        (hs-hide-block-at-point))
       (goto-char (point-max)))))
 
 (defun slime-events-buffer ()
