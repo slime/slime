@@ -1,3 +1,13 @@
+2004-05-04  Luke Gorrie  <luke@bluetail.com>
+
+	* swank-cmucl.lisp (source-location-from-code-location): Fixed a
+	bug where the source-file-cache was not really used.
+	Now always report the location based on source file (cached or
+	not) even if modified -- not falling back on regexps, which was
+	probably a misfeature.
+
+	* slime.el: Remove `slime-cleanup-definition-refs'.
+
 2004-05-02   Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-start-and-load): New command.  Suggested by
