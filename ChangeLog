@@ -1,3 +1,19 @@
+2004-09-15  Marco Baringer  <mb@bese.it>
+
+	* slime.el (slime-inspector-label-face,
+	slime-inspector-value-face, slime-inspector-action-face,
+	slime-inspector-type-face): These faces now inherit from similar
+	font-lock-<whatever> faces.
+	(slime-open-inspector): Use slime-inspector-value-face for values.
+
+	* swank.lisp (inspect-for-emacs): Add function and compiler-macro
+	documentation when inspecting symbols. View the truename of
+	logical pathnames where they exist. Fix typos in package
+	inspector (fix by Torsten Poulin <torsten@diku.dk>).
+
+	* swank-sbcl.lisp, swank-cmucl.lisp (inspect-for-emacs): Insert
+	function object's documentation when it's available.
+	
 2004-09-15  Eduardo Muñoz  <emufer@terra.es> 
 
 	* .cvsignore: Added *.elc
