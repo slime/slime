@@ -1,3 +1,9 @@
+2004-01-09  Wolfgang Jenkner  <wjenkner@inode.at>
+
+	* swank-clisp.lisp: Add methods for GRAY:STREAM-READ-CHAR-NO-HANG
+	and for the CLISP specific GRAY:STREAM-READ-CHAR-WILL-HANG-P.
+	This should fix the behaviour of SYS::READ-FORM.
+
 2004-01-08  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-inspector-fontify): Function to insert a string
