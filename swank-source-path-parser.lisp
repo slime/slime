@@ -44,22 +44,61 @@ before and after of calling FN in the hashtable SOURCE-MAP."
 ;; to set it from another character) we have to compare against
 ;; this undefined-macro function to avoid turning everything into
 ;; a macro  -- Dan Barlow
-;;
-;; Just copy CMUCL's implementation, to get identical behavior.  The
-;; SBCL implementation uses GET-RAW-CMT-ENTRY; we use
-;; GET-COERCED-CMT-ENTRY, which seems to be what SET-MACRO-CHARACTER
-;; expects. -- Helmut Eller
-(defun cmucl-style-get-macro-character (char table)
-  (let ((rt (or table sb-impl::*standard-readtable*)))
-    (cond ((sb-impl::constituentp char)
-	   (values (sb-impl::get-coerced-cmt-entry char rt) t))
-	  ((sb-impl::terminating-macrop char)
-	   (values (sb-impl::get-coerced-cmt-entry char rt) nil))
-	  (t nil))))
+(if (not (get-macro-character #\space nil))
+    (defun cmucl-style-get-macro-character (char table)
+      (get-macro-character char table))
+    (defun cmucl-style-get-macro-character (char table)
+      (let ((rt (or table sb-impl::*standard-readtable*)))
+	(cond ((sb-impl::constituentp char)
+	       (values (sb-impl::get-coerced-cmt-entry char rt) t))
+	      ((sb-impl::terminating-macrop char)
+	       (values (sb-impl::get-coerced-cmt-entry char rt) nil))
+	      (t 
+	       (values nil nil))))))
 
 #+cmu
 (defun cmucl-style-get-macro-character (char table)
   (get-macro-character char table))
+
+;; Unlike CMUCL, SBCL stores NIL values into the character-macro-table
+;; for constituent (in the CL sense) chars, and uses
+;; get-coerced-cmt-entry to convert those NILs to #'read-token.  In
+;; CMUCL all constituents are also macro-chars.
+;;
+;; CMUCL and SBCL use a somewhat strange encoding for CL's Character
+;; Syntax Types:
+;;
+;;  CL                    Implementation
+;;  ----------------	  --------------
+;;  Constituent           (constituentp x) i.e. (<= +char-attr-constituent+ x)
+;;  Macro Char            (constituentp x) or +char-attr-terminating-macro+ 
+;;  Single Escape         +char-attr-escape+
+;;  Invalid               (constituentp x) with undefined-macro-char as fun
+;;  Multiple Escape       +char-attr-multiple-escape+
+;;  Whitespace            +char-attr-whitespace+
+;;
+;; One effect of this encoding is that invalid chars are not detected
+;; inside tokens and it seems that there's no good way to distinguish
+;; constituents from macro-chars.
+
+(defun dump-readtable (rt)
+  (dotimes (code char-code-limit)
+    (let ((char (code-char code)))
+      (multiple-value-bind (fn terminatingp) (get-macro-character char rt)
+      (format t "~S[~D]: ~12,1T~A ~A~%" 
+	      char code fn terminatingp)))))
+			 
+;; (dump-readtable *readtable*)
+
+(let ((rt (copy-readtable nil)))
+  ;; If #\space is a macro-char, it shouldn't terminate tokens.
+  (assert (or (not (cmucl-style-get-macro-character #\space rt))
+	      (nth-value 1 (cmucl-style-get-macro-character #\space rt))))
+  ;; In SBCL (get-macro-character #\\) returns #'read-token, t.  And
+  ;; (set-macro-character #\\ #'read-token t) confuses #'read-string,
+  ;; because it uses the attributes in the readtable for parsing
+  ;; decisions.
+  (assert (not (cmucl-style-get-macro-character #\\ rt))))
 
 (defun make-source-recording-readtable (readtable source-map) 
   "Return a source position recording copy of READTABLE.
