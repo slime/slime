@@ -1,7 +1,8 @@
 (defpackage :swank
   (:use :common-lisp :wire)
-  (:export #:start-server #:evaluate #:lookup-notes
-           #:swank-compile-file #:arglist-string #:completions
+  (:export #:start-server #:evaluate #:lookup-notes #:clear-notes
+           #:swank-compile-file #:swank-compile-string 
+	   #:arglist-string #:completions
            #:find-fdefinition))
 
 (in-package :swank)
@@ -93,14 +94,14 @@ compiler state."
                   (format nil
                           (simple-condition-format-control condition)
                           (simple-condition-format-arguments condition))
-                  ""))))
-;;    (error (condition)
-;;      (send-and-log-internal-error condition))))
+                  ""))
+    (error (condition)
+      (send-and-log-internal-error condition))))
 
 ;;;; SWANK-COMPILE-FILE -- interface
 
 (defun swank-compile-file (filename load-p)
-  (remhash filename *notes-database*)
+  (clear-notes filename)
   (if (not (probe-file filename))
       (send-reply +condition+ "File does not exist" "")
       (handler-case
@@ -121,6 +122,11 @@ compiler state."
           (format *debug-io* "~&Condition: ~S / ~S~%" (type-of condition) condition)
           ;; Oops.
           (send-and-log-internal-error condition)))))
+
+(defun swank-compile-string (string buffer start)
+  (with-input-from-string (stream string)
+    (multiple-value-list
+     (ext:compile-from-stream stream :source-info (cons buffer start)))))
 
 (defun send-reply (status message result)
   "Send a result triple over the wire to Emacs."
@@ -146,13 +152,18 @@ compiler state."
 
 ;;;; LOOKUP-NOTES -- interface
 
+(defun canonicalize-filename (filename)
+  (namestring (unix:unix-resolve-links filename)))
+
 (defun lookup-notes (filename)
   "Return the compiler notes recorded for FILENAME.
 \(See *NOTES-DATABASE* for a description of the return type.)"
-  (gethash filename *notes-database*))
+  (gethash (canonicalize-filename filename) *notes-database*))
+
+(defun clear-notes (filename)
+  (remhash (canonicalize-filename filename) *notes-database*))
 
 ;;;; ARGLIST-STRING -- interface
-
 (defun arglist-string (function)
   "Return a string describing the argument list for FUNCTION.
 The result has the format \"(...)\"."
@@ -195,12 +206,6 @@ the package are considered."
                    (string-prefix-p prefix (symbol-name symbol)))
           (push (symbol-name symbol) completions))))
     completions))
-
-(defun symbol-external-p (s)
-  (multiple-value-bind (_ status)
-      (find-symbol (symbol-name s) (symbol-package s))
-    (declare (ignore _))
-    (eq status :external)))
 
 (defun string-prefix-p (s1 s2)
   "Return true iff the string S1 is a prefix of S2.
@@ -256,4 +261,106 @@ the package are considered."
         (let ((*package* package))
           (read-from-string symbol-name))
       (reader-error () nil))))
+
+;;; Asynchronous eval
+
+(defun guess-package-from-string (name)
+  (or (and name
+	   (or (find-package name) 
+	       (find-package (string-upcase name))))
+      *package*))
+
+(defun read-catch-errors (string)
+  (let (form (error nil))
+    (handler-case 
+	(setq form (read-from-string string))
+      (t (condition) (setq error (princ-to-string condition))))
+    (values form error)))
+
+(defun send-to-emacs (object)  
+  (wire-output-object *current-wire* object)
+  (wire-force-output *current-wire*))
+
+(defvar *swank-debugger-condition*)
+(defvar *swank-debugger-hook*)
+
+(defun eval-string-async (string package-name id)
+  (let ((*package* (guess-package-from-string package-name)))
+    (multiple-value-bind (form error) (read-catch-errors string)
+      (if error
+	(send-to-emacs `(:CALL-CONTINUATION ,id (:READ-FAILED ,error)))
+	(let ((*debugger-hook* 
+	       (lambda (condition hook)
+		 (send-to-emacs `(:DEBUGGER-HOOK 
+				  ,debug::*debug-command-level*))
+		 (let ((*swank-debugger-condition* condition)
+		       (*swank-debugger-hook* hook))
+		   (wire-get-object *current-wire*)))))
+	  (let (ok result)
+	    (unwind-protect
+		 (progn (setq result (eval form))
+			(setq ok t))
+	      (if ok
+		  (send-to-emacs `(:CALL-CONTINUATION ,id 
+				   (:OK ,result)))
+		  (send-to-emacs `(:CALL-CONTINUATION ,id (:ABORTED)))))))))))
+
+(defun briefely-describe-symbol-for-emacs (symbol)
+  "Return a plist of describing SYMBOL.  Return NIL if the symbol is
+unbound."
+  (let ((result '()))
+    (labels ((first-line (string) 
+	       (subseq string 0 (position #\newline string)))
+	     (doc (kind)
+	       (let ((string (documentation symbol kind)))
+		 (if string 
+		     (first-line string)
+		     :not-documented)))
+	     (maybe-push (property value)
+	       (when value
+		 (setf result (list* property value result)))))
+      (maybe-push
+       :variable (multiple-value-bind (kind recorded-p) 
+		     (ext:info variable kind symbol)
+		   (declare (ignore kind))
+		   (if (or (boundp symbol) recorded-p)
+		       (doc 'variable))))
+      (maybe-push
+       :function (if (fboundp symbol) 
+		     (doc 'function)))
+      (maybe-push
+       :setf (if (or (ext:info setf inverse symbol)
+		     (ext:info setf expander symbol))
+		 (doc 'setf)))
+      (maybe-push
+       :type (if (ext:info type kind symbol)
+		 (doc 'type)))
+      (maybe-push
+       :class (if (find-class symbol nil) 
+		  (doc 'class)))
+      (if result
+	  (list* :designator (prin1-to-string symbol) result)))))
+
+(defun apropos-list-for-emacs  (name)
+  (list (package-name *package*)
+	(ext:collect ((pack))
+	  (ext:map-apropos 
+	   (lambda (symbol)
+	     (unless (keywordp symbol)
+	       (let ((plist (briefely-describe-symbol-for-emacs symbol)))
+		 (when plist
+		   (pack plist)))))
+	   name)
+	  (pack))))
+
+(defun set-stdin-non-blocking ()
+  (let ((fd (sys:fd-stream-fd sys:*stdin*)))
+    (flet ((fcntl (fd cmd arg)
+	     (multiple-value-bind (flags errno) (unix:unix-fcntl fd cmd arg)
+	       (or flags 
+		   (error "fcntl: ~A" (unix:get-unix-error-msg errno))))))
+      (let ((flags (fcntl fd unix:F-GETFL 0)))
+	(fcntl fd unix:F-SETFL (logior flags unix:O_NONBLOCK))))))
+
+(set-stdin-non-blocking)
 

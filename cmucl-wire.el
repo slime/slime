@@ -49,6 +49,8 @@
 (defconst +wire-op/number+   7)
 (defconst +wire-op/string+   8)
 (defconst +wire-op/symbol+   9)
+(defconst +wire-op/save+     10)
+(defconst +wire-op/lookup+   11)
 (defconst +wire-op/cons+     13)
 
 (defvar wire-default-package "CL-USER")
@@ -61,55 +63,275 @@
      'error-conditions
      '(error wire-error))
 
+(put 'wire-error 'error-message "Wire error")
 
 ;; the buffer will contain all wired output from the slave CMUCL
-(defun wire-connect-to-remote-server (host port)
-  (let ((buf (get-buffer-create " *cmucl-wire*"))
-        (process nil))
-    (condition-case nil
-        (progn
-          (setq process (open-network-stream "CMUCL" buf host port))
-	  (set-process-coding-system process 'no-conversion 'no-conversion)
-	  (set-process-filter process 'wire-filter)
-	  (wire-init-process-buffer process)
-	  process)
-      (file-error
-       (kill-buffer buf)
-       (signal 'wire-error (list "Can't connect to wire server"))))))
+(defun wire-connect-to-remote-server (host port success fail)
+  (condition-case nil
+      (let ((process (open-network-stream "CMUCL" nil host port)))
+	(wire-init-process process success fail)
+	process)
+    (file-error
+     (signal 'wire-error (list "Can't connect to wire server")))))
 
-(defun wire-init-process-buffer (process)
-  (with-current-buffer (process-buffer process)
-    (unless (featurep 'xemacs)
-      (set-buffer-multibyte nil))
-    (setq wire-input-marker (make-marker))
-    (set-marker-insertion-type wire-input-marker nil)
-    (move-marker wire-input-marker (point-min))))  
+;;; building blocks to write "asynchronous" stuff.
 
-(defun wire-filter (wire string)
-  "Insert new data into the wire's buffer *without* moving the point."
-  (with-current-buffer (process-buffer wire)
-  (save-excursion
-    (goto-char (point-max))
-    (insert string))))
+;; The state of the reader is stored in buffer local variables:
+;;
+;;  - *rstack* ("return stack") contains the functions to be executed.
+;;  - *stack*  stack of argument lists for the functions.
+;;  - *cont*  the next function (to support tail calls)
+;;  - *args*  arguments for *cont*
+;;  - *success*  this function is called when a complete object is read
+;;  - *fail*  called when an errors occurs during reading.
+;;  - *end-of-file*  non-nil when eof was reached (contains condition)
+;;  - *object-cache*
+;;
+;; The separation of rstack and stack avoids the creation of closures
+;; resp. continuations.  The stacks could be implemented as vectors,
+;; but are lists for simplicity.
+
+(defvar *rstack*)
+(defvar *stack*)
+(defvar *cont*)
+(defvar *args*)
+(defvar *success*)
+(defvar *fail*)
+(defvar *end-of-file*)
+(defvar *object-cache*)
+
+(defun wire-make-buffer (name)
+  (let ((buffer (generate-new-buffer name)))
+    (with-current-buffer buffer
+      (when (fboundp 'set-buffer-multibyte)
+	(set-buffer-multibyte nil))
+      (buffer-disable-undo))
+    buffer))
+
+(defun wire-init-process (process success fail)
+  (let ((buffer (wire-make-buffer "*cmucl-wire*")))
+    (set-process-coding-system process 'no-conversion 'no-conversion)
+    (set-process-buffer process buffer)
+    (set-process-filter process 'wire-filter)
+    (set-process-sentinel process 'wire-sentinel)
+    (with-current-buffer buffer
+      (dolist (var '(*rstack* 
+		     *stack* 
+		     *cont* 
+		     *args* 
+		     *success* 
+		     *fail*
+		     *end-of-file*
+		     *object-cache*))
+	(make-local-variable var))
+      (setq *success* success)
+      (setq *fail* fail)
+      (setq *object-cache* (make-hash-table :size 16 :test #'eq))
+      (wire-initialize-stacks))))
 
 (defun wire-close (wire)
   (and wire
        (eq 'open (process-status wire))
        (kill-buffer (process-buffer wire))))
 
+(defun wire-filter (wire string)
+  "Insert new data into the wire's buffer *without* moving point."
+  (with-current-buffer (process-buffer wire)
+    (save-excursion
+      (goto-char (point-max))
+      (insert string))
+    (wire-continue)))
 
-;; returns a single value. Note that we send the function name in
-;; uppercase, because it doesn't go through the CL reader. 
-(defun wire-remote-eval (wire string package)
-  (wire-output-funcall wire 'SWANK:EVALUATE string package)
-  (let ((status (wire-get-object wire))
-	(condition (wire-get-object wire))
-	(result (wire-get-object wire)))
-    ;; for efficiency, we empty the wire buffer when it gets very large
-    (with-current-buffer (process-buffer wire)
-      (when (> wire-input-marker 100000)
-	(delete-region (point-min) wire-input-marker)))
-    (values status condition result)))
+(defun wire-sentinel (process message)
+  (message "wire sentinel: %s" message)
+  (with-current-buffer (process-buffer process)
+    (setq *end-of-file* (list 'wire-error process message))
+    (wire-continue)))
+
+(defun wire-initialize-stacks ()
+  (setq *rstack* (list 'wire-read-object 'wire-finish))
+  (setq *stack*  (list '()               '())))
+
+(defun wire-continue ()
+  (let ((result (wire-read-loop)))
+    (ecase (car result)
+      ((wait quit))
+      (finish
+       (wire-initialize-stacks)
+       (save-current-buffer (funcall *success* (second result)))
+       (wire-continue)))))
+
+(defun wire-read-loop ()
+  (let ((*cont* (pop *rstack*))
+	(*args* (pop *stack*))
+	(buffer (current-buffer))
+	(error t))
+    (unwind-protect
+	(prog1 (catch 'unloop
+		 (while t
+		   (apply *cont* *args*)))
+	  (setq error nil))
+      (when error
+	(cond ((buffer-live-p buffer)
+	       (message "buffer still alive!!"))
+	      (t
+	       (message "some strange bug")))
+	(debug)))))
+
+(defun wire-tailcall (fn args)
+  (setq *cont* fn)
+  (setq *args* args))
+
+(defun wire-bind (producer consumer freevars)
+  (push consumer *rstack*)
+  (push freevars *stack*)
+  (wire-tailcall producer freevars))
+
+(defun wire-return (arg)
+  (wire-tailcall (pop *rstack*) (cons arg (pop *stack*))))
+      
+(defun wire-finish (value)
+  (assert (null *rstack*))
+  (assert (null *stack*))
+  (throw 'unloop `(finish ,value)))
+
+(defun wire-cleanup ()
+  (when (get-buffer-process (current-buffer))
+    (delete-process (get-buffer-process (current-buffer))))
+  (kill-buffer (current-buffer))
+  (throw 'unloop '(quit)))
+
+(defun wire-error (&rest args)
+  (unwind-protect
+      (save-current-buffer
+	(funcall *fail* (etypecase (car args)
+			  (string (list 'wire-error (apply #'format args)))
+			  (symbol args))))
+    (wire-cleanup)))
+
+(defun wire-read-byte ()
+  (cond ((eobp)
+	 (wire-eat-input)
+	 (cond ((and (boundp '*end-of-file*) *end-of-file*)
+		(apply #'wire-error *end-of-file*)
+		(throw 'unloop '(wait)))
+	       (t
+		(push #'wire-read-byte *rstack*)
+		(push '()          *stack*)
+		(throw 'unloop '(wait)))))
+	(t
+	 (forward-char)
+	 (wire-return (char-before)))))
+
+(defun wire-unread-byte (c)
+  (backward-char))
+
+(defun wire-eat-input ()
+  (unless (bobp)
+    (delete-region (point-min) (1- (point)))))
+
+(defun wire-expand-bind (v exp body freevars)
+  `(progn
+     (push (lambda (,v ,@freevars)
+	     (macrolet ((bind ((v exp) body)
+			      (wire-expand-bind 
+			       v exp body ',(cons v freevars))))
+	       ,body))
+	   *rstack*)
+     (push (list ,@freevars) *stack*)
+     ,exp))
+
+;;; The reader must be carefully written, so that all nececessary
+;;; state is saved when the reader "blocks".  The macro(let)s below
+;;; are intented to simplify this task.
+
+(defmacro deffn (name args &rest body)
+  `(defun ,name ,args
+     (macrolet ((bind ((v exp) body)
+		      (wire-expand-bind v exp body ',args))
+		(call (fn &rest args)
+		      `(wire-tailcall ',fn (list ,@args)))
+		(ret (arg)
+		     `(wire-return ,arg)))
+       (,@ body))))
+
+(deffn wire-read-object ()
+  (bind (type (wire-read-byte))
+	(cond ((= type +wire-op/number+)
+	       (call wire-read-number))
+	      ((= type +wire-op/string+)
+	       (call wire-read-string))
+	      ((= type +wire-op/symbol+)
+	       (call wire-read-symbol))
+	      ((= type +wire-op/cons+)
+	       (call wire-read-cons))
+	      ((= type +wire-op/save+)
+	       (call wire-read-save))
+	      ((= type +wire-op/lookup+)
+	       (call wire-read-lookup))
+	      (t
+	       (wire-error "Unsupported wire datatype: %S" type)))))
+
+(deffn wire-read-number () 
+  (bind (b1 (wire-read-byte))
+	(bind (b2-b3-b4 (wire-read-number-aux 2 0))
+	      (progn (wire-validate-high-byte b1)
+		     (ret (logior (lsh b1 24) b2-b3-b4))))))
+
+(defun wire-validate-high-byte (byte)
+  (unless (if (zerop (logand byte 128)) ; posivite?
+	      (<= byte (eval-when-compile (lsh -1 -25)))
+	    (>= byte (eval-when-compile
+		       (logand (ash most-negative-fixnum -24)
+			       255))))
+    (wire-error "fixnum overlow: %s" byte)))
+
+(deffn wire-read-number-aux (i accum)
+  (bind (byte (wire-read-byte))
+	(let ((accum (+ (* 256 accum) byte)))
+	  (if (zerop i)
+	      (ret accum)
+	    (call wire-read-number-aux (1- i) accum)))))
+
+(deffn wire-read-string ()
+  (bind (count (wire-read-number))
+	(call wire-read-string-aux count (make-string count ??))))
+
+(deffn wire-read-string-aux (remaining string)
+  (if (zerop remaining)
+      (ret string)
+    (bind (char (wire-read-byte))
+	  (progn 
+	    (aset string (- (length string) remaining) char)
+	    (call wire-read-string-aux (1- remaining) string)))))
+
+(deffn wire-read-symbol ()
+  (bind (name (wire-read-string))
+	(bind (package (wire-read-string))
+	      (cond ((and (string= name "NIL")
+			  (string= package "COMMON-LISP"))
+		     (ret 'nil))
+		    ((string= package "KEYWORD")
+		     (ret (intern (concat ":" name))))
+		    (t
+		     (ret (intern (format "%s::%s" package name))))))))
+
+(deffn wire-read-cons ()
+  (bind (car (wire-read-object))
+	(bind (cdr (wire-read-object))
+	      (ret (cons car cdr)))))
+
+(deffn wire-read-save ()
+  (bind (index (wire-read-number))
+	(bind (object (wire-read-object))
+	      (progn 
+		(setf (gethash index *object-cache*) object)
+		(ret object)))))
+
+(deffn wire-read-lookup ()
+  (bind (index (wire-read-number))
+	(let ((object (gethash index *object-cache*)))
+	  (ret object))))
 
 ;; === low-level encoding issues === 
 
@@ -229,6 +451,19 @@ FOO::BAR is not, and nor is BAR."
     (dolist (arg args)
       (wire-output-object wire arg))
     nil))
+
+;; returns a single value. Note that we send the function name in
+;; uppercase, because it doesn't go through the CL reader. 
+(defun wire-remote-eval (wire string package)
+  (wire-output-funcall wire 'SWANK:EVALUATE string package)
+  (let ((status (wire-get-object wire))
+	(condition (wire-get-object wire))
+	(result (wire-get-object wire)))
+    ;; for efficiency, we empty the wire buffer when it gets very large
+    (with-current-buffer (process-buffer wire)
+      (when (> wire-input-marker 100000)
+	(delete-region (point-min) wire-input-marker)))
+    (values status condition result)))
 
 (provide 'cmucl-wire)
 

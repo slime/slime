@@ -1,3 +1,10 @@
+2003-09-10  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el, cmucl-wire.el, swank.lisp: Large patch from Helmut
+	Eller. Includes: apropos, describe, compile-defun, fully
+	asynchronous continuation-based wire interface, interactive
+	evaluation, and more. Very nice :-)
+
 2003-09-08  Luke Gorrie  <luke@bluetail.com>
 
 	* cmucl-wire.el (wire-symbol-name, wire-symbol-package): Fixed to
