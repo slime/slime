@@ -223,7 +223,7 @@ The streams are returned as two values.")
 (definterface arglist (name)
    "Return the lambda list for the symbol NAME.
 
-The result can be a list or a string.
+The result can be a list or a (READable) string.
 
 An error should be signaled if the lambda-list cannot be found.")
 
