@@ -1642,8 +1642,15 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
         (:unknown-return
          (let ((mv-return-pc (di::compiled-code-location-pc cl)))
            (if (= mv-return-pc *breakpoint-pc*)
-               (di::get-function-end-breakpoint-values sc)
+               (mv-function-end-breakpoint-values sc)
                (list (1st sc)))))))))
+
+;; XXX: di::get-function-end-breakpoint-values takes 2 arguments in
+;; newer versions of CMUCL (after ~March 2005).
+(defun mv-function-end-breakpoint-values (sigcontext)
+  (let ((sym (find-symbol "FUNCTION-END-BREAKPOINT-VALUES/STANDARD" :di)))
+    (cond (sym (funcall sym sigcontext))
+          (t (di::get-function-end-breakpoint-values sigcontext)))))
 
 (defun debug-function-returns (debug-fun)
   "Return the return style of DEBUG-FUN."
