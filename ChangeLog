@@ -1,5 +1,9 @@
 2003-12-08  Luke Gorrie  <luke@bluetail.com>
 
+	* swank-cmucl.lisp (*debug-definition-finding*): Now nil by
+	default, so that errors while looking for definitions are printed
+	as a message and not debugged.
+
 	* slime.el (slime-read-from-minibuffer): Now the only
 	completing-read function, stale ones deleted.
 
