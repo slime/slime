@@ -351,11 +351,12 @@ element."
   (loop (with-simple-restart (abort "Retstart dispatch loop.")
 	  (loop (dispatch-event (receive) socket-io)))))
 
-
 (defun simple-break ()
   (with-simple-restart  (continue "Continue from interrupt.")
-    (invoke-debugger (make-condition 'simple-error 
-                                     :format-control "Interrupt from Emacs"))))
+    (let ((*debugger-hook* #'swank-debugger-hook))
+      (invoke-debugger 
+       (make-condition 'simple-error 
+                       :format-control "Interrupt from Emacs")))))
 
 (defun interrupt-worker-thread (thread)
   (let ((thread (etypecase thread
