@@ -5435,7 +5435,7 @@ Only add clickability to properties we actually know how to lookup."
           (and (eq where :ansi-cl)
                (symbolp type)
                (member (slime-cl-symbol-name type)
-                       '("function" "special-operator" "macro"))))
+                       '("function" "special-operator" "macro" "section"))))
       `(sldb-default-action sldb-lookup-reference
                             sldb-reference ,ref
                             face sldb-reference-face
@@ -5450,7 +5450,9 @@ Only add clickability to properties we actually know how to lookup."
 (defun sldb-format-reference-node (what)
   (if (symbolp what)
       (upcase (slime-cl-symbol-name what))
-    what))
+    (if (listp what)
+        (mapconcat (lambda (x) (format "%S" x)) what ".")
+      what)))
 
 (defun sldb-lookup-reference ()
   "Browse the documentation reference at point."
@@ -5458,9 +5460,13 @@ Only add clickability to properties we actually know how to lookup."
       (get-text-property (point) 'sldb-reference)
     (case where
       (:ansi-cl
-       (hyperspec-lookup (if (symbolp what)
-                             (slime-cl-symbol-name what)
-                           what)))
+       (case type
+         (:section
+          (browse-url (funcall common-lisp-hyperspec-section-fun what)))
+         (t
+          (hyperspec-lookup (if (symbolp what)
+                                (slime-cl-symbol-name what)
+                              what)))))
       (t
        (let ((url (format "%s%s.html" slime-sbcl-manual-root (downcase what))))
          (browse-url url))))))
