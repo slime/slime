@@ -368,7 +368,7 @@ truncate to fit on the screen."
     ;; one). Newlines in messages are displayed as "^J" in emacs20,
     ;; which is ugly
     (string-match "^[^\r\n]*" msg)
-    (message (match-string 0 msg))))
+    (message "%s" (match-string 0 msg))))
 
 ;; defun slime-message
 (if (or (featurep 'xemacs)
@@ -597,7 +597,7 @@ EVAL'd by Lisp."
   (with-current-buffer (process-buffer slime-net-process)
     (while (slime-net-have-input-p)
       (save-current-buffer
-	(slime-dispatch-event (slime-net-read))))))
+	(slime-dispatch-event (slime-net-read) nil)))))
 
 (defun slime-net-have-input-p ()
   "Return true if a complete message is available."
@@ -677,17 +677,19 @@ EVAL'd by Lisp."
 (defvar slime-state-name "[??]"
   "The name of the current state, for display in the modeline.")
 
-(defun slime-push-state (state)
+(defun slime-push-state (state process-input)
   "Push into a new state, saving the current state on the stack.
-This may be called by a state machine to cause a state change."
+This may be called by a state machine to cause a state change.
+If PROCESS-INPUT is non-nil the available input is processed."
   (push state slime-state-stack)
-  (slime-activate-state))
+  (slime-activate-state process-input))
 
-(defun slime-pop-state ()
+(defun slime-pop-state (process-input)
   "Pop back to the previous state from the stack.
-This may be called by a state machine to finish its current state."
+This may be called by a state machine to finish its current state.
+If PROCESS-INPUT is non-nil the available input is processed."
   (pop slime-state-stack)
-  (slime-activate-state))
+  (slime-activate-state process-input))
 
 (defun slime-current-state ()
   "The current state."
@@ -695,13 +697,15 @@ This may be called by a state machine to finish its current state."
 
 (defun slime-init-dispatcher ()
   "Initialize the stack machine."
+  (setq sldb-level 0)
   (setq slime-state-stack (list (slime-idle-state)))
   (setq slime-pid (slime-eval `(swank:getpid))))
 
-(defun slime-activate-state ()
+(defun slime-activate-state (process-input)
   "Activate the current state.
 This delivers an (activate) event to the state function, and updates
-the state name for the modeline."
+the state name for the modeline.
+If PROCESS-INPUT is non-nil the available input is processed."
   (let ((state (slime-current-state)))
     (setq slime-state-name
           (case (slime-state-name state)
@@ -709,16 +713,18 @@ the state name for the modeline."
             (slime-evaluating-state "[eval...]")
             (slime-debugging-state "[debug]")))
     (force-mode-line-update)
-    (slime-dispatch-event '(activate))))
+    (slime-dispatch-event '(activate) process-input)))
 
-(defun slime-dispatch-event (event)
+(defun slime-dispatch-event (event process-input)
   "Dispatch an event to the current state.
 Certain \"out of band\" events are handled specially instead of going
-into the state machine."
+into the state machine.
+If PROCESS-INPUT is non-nil the available input is processed."
   (unwind-protect
       (or (slime-handle-oob event)
 	  (funcall (slime-state-function (slime-current-state)) event))
-    (slime-process-available-input)))
+    (when process-input
+      (slime-process-available-input))))
 
 (defun slime-handle-oob (event)
   "Handle out-of-band events.
@@ -780,23 +786,31 @@ their actions. The pattern syntax is the same as `destructure-case'."
 (defvar sldb-level 0
   "Current debug level, or 0 when not debugging.")
 
+(defvar sldb-level-in-buffer nil
+  "Buffer local variable in sldb buffer.")
+
 (defvar slime-stack-eval-tags nil
   "List of stack-tags of continuations waiting on the stack.")
 
 (slime-defstate slime-idle-state ()
   "Idle state. The only event allowed is to make a request."
   ((activate)
-   (setq sldb-level 0))
+   (assert (= sldb-level 0)))
   ((:emacs-evaluate form-string package-name continuation)
    (slime-output-evaluate-request form-string package-name)
-   (slime-push-state (slime-evaluating-state continuation))))
+   (slime-push-state (slime-evaluating-state continuation) t)))
+
+(defvar slime-evaluating-state-activation-hook nil
+  "Hook called when the evaluating state is actived.")
 
 (slime-defstate slime-evaluating-state (continuation)
   "Evaluting state.
 We have asked Lisp to evaluate a form, and when the result arrives we
 will pass it to CONTINUATION."
+  ((activate)
+   (run-hooks 'slime-evaluating-state-activation-hook))
   ((:ok result)
-   (slime-pop-state)
+   (slime-pop-state nil)
    (destructure-case continuation
      ((:function f)
       (funcall f result))
@@ -804,16 +818,18 @@ will pass it to CONTINUATION."
       (when (member tag slime-stack-eval-tags)
 	(throw tag `(:ok ,result))))))
   ((:aborted)
-   (slime-pop-state)
    (destructure-case continuation
      ((:function f)
-      (message "Evaluation aborted."))
+      (message "Evaluation aborted.")
+      (slime-pop-state t))
      ((:catch-tag tag)
+      (slime-pop-state nil)
       (when (member tag slime-stack-eval-tags)
 	(throw tag `(:aborted))))))
   ((:debug level condition restarts stack-depth frames)
    (slime-push-state
-    (slime-debugging-state level condition restarts stack-depth frames)))
+    (slime-debugging-state level condition restarts stack-depth frames)
+    t))
   ((:emacs-interrupt)
    (slime-send-sigint))
   ((:emacs-quit)
@@ -826,20 +842,31 @@ will pass it to CONTINUATION."
 Lisp entered the debugger while handling one of our requests. This
 state interacts with it until it is coaxed into returning."
   ((activate)
-   (when (/= level (prog1 sldb-level (setq sldb-level level)))
-     (sldb-setup condition restarts depth frames)))
+   (setq sldb-level level)
+   (let ((sldb-buffer (get-buffer "*sldb*")))
+     (when (or (not sldb-buffer)
+               (with-current-buffer sldb-buffer
+                 (/= sldb-level-in-buffer level)))
+       (sldb-setup condition restarts depth frames))))
   ((:debug-return level)
    (unwind-protect
-       (when (= level 1)
-         (let ((sldb-buffer (get-buffer "*sldb*")))
-           (when sldb-buffer
-             (delete-windows-on sldb-buffer)
-             (kill-buffer sldb-buffer))))
-     (slime-pop-state)))
+       (progn 
+         (assert (= level sldb-level))
+         ;; We must decrement here so we will notice when we are
+         ;; activated again, especially when we continue from the
+         ;; debugger and are activated a second time without entering
+         ;; a lower break level.
+         (decf sldb-level)
+         (when (= level 1)
+           (let ((sldb-buffer (get-buffer "*sldb*")))
+             (when sldb-buffer
+               (delete-windows-on sldb-buffer)
+               (kill-buffer sldb-buffer)))))
+     (slime-pop-state t)))
   ((:emacs-evaluate form-string package-name continuation)
    ;; recursive evaluation request
    (slime-output-evaluate-request form-string package-name)
-   (slime-push-state (slime-evaluating-state continuation))))
+   (slime-push-state (slime-evaluating-state continuation) t)))
 
 (put 'slime-defstate 'lisp-indent-function 2)
 
@@ -862,7 +889,8 @@ state interacts with it until it is coaxed into returning."
 (defun slime-eval-string-async (string package continuation)
   (when (slime-busy-p)
     (error "Lisp is already busy evaluating a request."))
-  (slime-dispatch-event `(:emacs-evaluate ,string ,package ,continuation)))
+  (slime-dispatch-event `(:emacs-evaluate ,string ,package ,continuation)
+                        t))
 
 (defconst +slime-sigint+ 2)
 
@@ -996,18 +1024,28 @@ See `slime-compile-and-load-file' for further details."
 
 (defun slime-compile-defun ()
   (interactive)
+  (slime-compile-string (slime-defun-at-point)
+                        (save-excursion 
+                          (end-of-defun)
+                          (beginning-of-defun)
+                          (point))))
+
+(defun slime-compile-region (start end)
+  (interactive "r")
+  (slime-compile-string (buffer-substring-no-properties start end) start))
+
+(defun slime-compile-string (string start-offset)
   (slime-eval-async 
-   `(swank:swank-compile-string ,(slime-defun-at-point) 
+   `(swank:swank-compile-string ,string
 				,(buffer-name)
-				,(save-excursion
-                                   (end-of-defun)
-				   (beginning-of-defun)
-				   (point)))
+                                ,start-offset)
    (slime-buffer-package)
    (slime-compilation-finished-continuation)))
 
-(defun slime-note-count-string (severity count)
-  (format "%s %s%s" count severity (if (= count 1) "" "s")))
+(defun slime-note-count-string (severity count &optional suppress-if-zero)
+  (cond ((and (zerop count) suppress-if-zero)
+         "")
+        (t (format "%2d %s%s " count severity (if (= count 1) "" "s")))))
 
 (defun slime-show-note-counts (notes &optional secs)
   (loop for note in notes 
@@ -1018,12 +1056,12 @@ See `slime-compile-and-load-file' for further details."
 	count (eq :note severity) into notes
 	finally 
 	(message 
-	 "Compilation finished: %s  %s  %s  %s%s"
+	 "Compilation finished:%s%s%s%s%s"
          (slime-note-count-string "error" errors)
          (slime-note-count-string "warning" warnings)
-         (slime-note-count-string "style-warning" style-warnings)
+         (slime-note-count-string "style-warning" style-warnings t)
          (slime-note-count-string "note" notes)
-         (if secs (format "  [%s secs]" secs) ""))))
+         (if secs (format "[%s secs]" secs) ""))))
 
 (defun slime-compilation-finished (result buffer)
   (with-current-buffer buffer
@@ -1146,13 +1184,12 @@ region around the first element is used."
 (defun slime-most-severe (sev1 sev2)
   "Return the most servere of two conditions.
 Severity is ordered as :NOTE < :STYLE-WARNING < :WARNING < :ERROR."
-  (if (or (eq sev1 :error)              ; Well, not exactly Smullyan..
-          (and (eq sev1 :warning)
-               (not (eq sev2 :error)))
-          (and (eq sev1 :style-warning)
-               (not (member sev2 '(:warning :error)))))
-      sev1
-    sev2))
+                                        ; Well, not exactly Smullyan..
+  (let ((order '(:note :style-warning :warning :error)))
+    (if (>= (position sev1 order) 
+            (position sev2 order))
+        sev1
+      sev2)))
 
 (defun slime-visit-source-path (source-path)
   "Visit a full source path including the top-level form."
@@ -1170,11 +1207,10 @@ first element of the source-path redundant."
   (let ((origin (point)))
     (condition-case nil
         (progn
-          (loop for form-number in source-path
-                for more downfrom (1- (length source-path))
+          (loop for (count . more) on source-path
                 do (progn
-                     (slime-forward-sexp form-number)
-                     (unless (zerop more) (down-list 1))))
+                     (slime-forward-sexp count)
+                     (when more (down-list 1))))
           ;; Align at beginning
           (slime-forward-sexp)
           (beginning-of-sexp))
@@ -1219,7 +1255,7 @@ top-level form, etc."
 	((stringp (plist-get note :buffername))
 	 (assert (string= (buffer-name) (plist-get note :buffername)))
 	 (goto-char (plist-get note :buffer-offset))
-	 (slime-forward-positioned-source-path (plist-get note ':source-path)))
+	 (slime-forward-source-path (plist-get note ':source-path)))
 	(t
 	 (error "Unsupported location type %s" note))))
 
@@ -1933,8 +1969,13 @@ When displaying XREF information, this goes to the next reference."
     (error "No context for finding locations."))
   (funcall slime-next-location-function))
 
-
 ;;;
+
+(defvar slime-select-mode-map)
+(defvar slime-previous-selected-line)
+(defvar slime-select-finish)
+(defvar slime-select-follow)
+(defvar slime-select-saved-window-configuration)
 
 (defun slime-list-callers (symbol-name)
   (interactive (list (slime-read-symbol-name "List callers: ")))
@@ -1972,14 +2013,27 @@ When displaying XREF information, this goes to the next reference."
     (error (message "%s" (error-message-string e))
 	   (ding))))
 
+(defvar slime-select-split-window-vectically nil)
+
 (defun slime-get-select-window (labels)
-  (split-window (selected-window)
-		(- (frame-width) 
-		   (min (1+ (max 
-			     (loop for l in labels maximize (length l))
-			     window-min-width))
-			25))
-		t))
+  (cond (slime-select-split-window-vectically
+         (split-window (selected-window)
+                       (- (frame-width) 
+                          (min (1+ (max 
+                                    (loop for l in labels maximize (length l))
+                                    window-min-width))
+                               25))
+                       t))
+        (t
+         (cond ((one-window-p)
+                (split-window (selected-window)))
+               (t (next-window))))))
+
+(defun slime-select-pop-to-window (buffer labels)
+  (let ((window (slime-get-select-window labels)))
+    (set-window-buffer window (current-buffer))
+    (select-window window)
+    (shrink-window-if-larger-than-buffer window)))
 
 (defun slime-select (labels follow finish)
   "Select an item form the list LABELS.
@@ -2000,13 +2054,8 @@ the current index when the selection is completed."
     (setq buffer-read-only t)
     (setq slime-select-saved-window-configuration 
 	  (current-window-configuration))
-    (let ((window (slime-get-select-window labels)))
-      (set-window-buffer window (current-buffer))
-      (select-window window)
-      (slime-select-post-command-hook)))
-
-(defvar slime-select-mode-map)
-(defvar slime-previous-selected-line)
+    (slime-select-pop-to-window (current-buffer) labels)
+    (slime-select-post-command-hook))
 
 (defun slime-selected-line ()
   (count-lines (point-min) (save-excursion (beginning-of-line) (point))))
@@ -2071,11 +2120,11 @@ the current index when the selection is completed."
 
 (defun slime-interrupt ()
   (interactive)
-  (slime-dispatch-event '(:emacs-interrupt)))
+  (slime-dispatch-event '(:emacs-interrupt) t))
 
 (defun slime-quit ()
   (interactive)
-  (slime-dispatch-event '(:emacs-quit)))
+  (slime-dispatch-event '(:emacs-quit) t))
 
 (defun slime-set-package (package)
   (interactive (list (slime-read-package-name "Package: " 
@@ -2108,14 +2157,6 @@ the current index when the selection is completed."
 
 (defvar sldb-hook nil
   "Hook run on entry to the debugger.")
-
-(defun slime-debugger-hook ()
-  (slime-enter-sldb))
-
-(defun slime-enter-sldb ()
-  (slime-move-to-state (slime-state sldb-state (slime-current-state)))
-  (incf sldb-level)
-  (slime-net-send `(swank:sldb-loop)))
 
 (defun sldb-setup (condition restarts stack-depth frames)
   (with-current-buffer (get-buffer-create "*sldb*")
@@ -2199,7 +2240,7 @@ the current index when the selection is completed."
 
 (defun sldb-default-action/mouse (event)
   (interactive "e")
-  (destructuring-bind (mouse-1 (w pos (x . y) time)) event
+  (destructuring-bind (mouse-1 (w pos &rest _)) event
     (save-excursion
       (goto-char pos)
       (let ((fn (get-text-property (point) 'sldb-default-action)))
@@ -2256,7 +2297,7 @@ the current index when the selection is completed."
 			     #'switch-to-buffer)
 			   (get-buffer buffer))
 		  (goto-char offset)
-		  (slime-forward-positioned-source-path
+		  (slime-forward-source-path
 		   (plist-get source-location :path))))
 	       (t
 		(error "Cannot locate source from stream: %s"
@@ -2326,7 +2367,7 @@ the current index when the selection is completed."
   (apply #'sldb-maybe-recenter-region (sldb-frame-region)))
 
 (defun sldb-maybe-recenter-region (start end)
-  (sit-for 0 1)
+  (sit-for 0 nil)
   (cond ((and (< (window-start) start)
 	      (< end (window-end))))
 	(t
@@ -2426,7 +2467,7 @@ the current index when the selection is completed."
 
 (defun sldb-quit ()
   (interactive)
-  (slime-eval-async '(swank:throw-to-toplevel) nil (lambda ())))
+  (slime-eval-async '(swank:throw-to-toplevel) nil (lambda (_))))
 
 (defun sldb-continue ()
   (interactive)
@@ -2809,18 +2850,18 @@ Confirm that EXPECTED-ARGLIST is displayed."
 (def-slime-test compile-defun 
     (program subform)
     "Compile PROGRAM containing errors.
-Confirm that SUBFORM is correctly located."
+ Confirm that SUBFORM is correctly located."
     '(("(defun :foo () (:bar))" (:bar))
       ("(defun :foo () 
-         #\\space
-         ;;Sdf              
-         (:bar))"
+          #\\space
+          ;;Sdf              
+          (:bar))"
        (:bar))
       ("(defun :foo () 
-            #+(or)skipped
-            #| #||#
-               #||# |#
-            (:bar))"
+             #+(or)skipped
+             #| #||#
+                #||# |#
+             (:bar))"
        (:bar))
       ("(defun :foo () (list `(1 ,(random 10) 2 ,@(random 10) 3 ,(:bar))))"
        (:bar))
@@ -2833,8 +2874,8 @@ Confirm that SUBFORM is correctly located."
     (slime-previous-note)
     (slime-check error-location-correct
       (equal (read (current-buffer))
-	     subform))))
-
+             subform))))
+ 
 (def-slime-test async-eval-debugging (depth)
   "Test recursive debugging of asynchronous evaluation requests."
   '((1) (2) (3))
@@ -2871,15 +2912,130 @@ Confirm that SUBFORM is correctly located."
                       debug-hook-max-depth depth)
           (= debug-hook-max-depth depth))
         ;; FIXME: synchronize properly somehow. We are expecting Lisp
-        ;; to perform a restart and unwind our stack.
-        (sit-for 2)
-        ;; and the restart should have put us back at the top level
+        ;; to perform a restart and unwind our stack.  and the restart
+        ;; should have put us back at the top level.
+        (slime-sync-state-stack '(slime-idle-state) 5)
         (slime-check "Automaton is back in idle state."
           (slime-test-state-stack '(slime-idle-state)))))))
 
 (defun slime-test-state-stack (states)
   "True if STATES describes the current stack of states."
   (equal states (mapcar #'slime-state-name slime-state-stack)))
+
+(defun slime-time< (time1 time2)
+  "Compare two encoded time values."
+  (multiple-value-bind (high1 low1 micros1) time1
+    (multiple-value-bind (high2 low2 micros2) time2
+      (or (< high1 high2)
+          (and (= high1 high2)
+               (or (< low1 low2)
+                   (and (= low1 low2)
+                        (if (and micros1 micros2)
+                            (< micros1 micros2)
+                          micros2))))))))
+
+(defun* slime-time-add (time &key (second 0) (minute 0) (hour 0) 
+                          (day 0) (month 0) (year 0))
+  "Add the specified time to the encoded time value TIME."
+  (multiple-value-bind (old-second old-minute old-hour 
+                                   old-day old-month old-year 
+                                   old-dow old-dst old-zone)
+      (decode-time time)
+    (encode-time (+ old-second second)
+                 (+ old-minute minute)
+                 (+ old-hour hour)
+                 (+ old-day day)
+                 (+ old-month month)
+                 (+ old-year year)
+                 old-zone)))
+
+(defun slime-sync-state-stack (state-stack timeout)
+  "Wait until the machine's stack is STATE-STACK or the timeout \
+expires.\nThe timeout is given in seconds."
+  (let ((end (slime-time-add (current-time) :second timeout)))
+    (loop until (or (slime-test-state-stack state-stack)
+                    (slime-time< end (current-time)))
+          do (accept-process-output nil 0 100000))))
+
+(def-slime-test loop-interrupt-quit ()
+   "Test interrupting a loop."
+   '(())
+   (slime-check "Automaton initially in idle state."
+     (slime-test-state-stack '(slime-idle-state)))
+   (slime-eval-async '(loop) "CL-USER" (lambda (_) ))
+   (let ((sldb-hook
+          (lambda ()
+            (slime-check "First interrupt."
+              (and (slime-test-state-stack '(slime-debugging-state
+                                             slime-evaluating-state
+                                            slime-idle-state))
+                   (get-buffer "*sldb*")))
+            (sldb-quit))))
+     (accept-process-output nil 1)
+     (slime-check "In eval state."
+       (slime-test-state-stack '(slime-evaluating-state slime-idle-state)))
+     (slime-interrupt)
+     (slime-sync-state-stack '(slime-idle-state) 5)
+     (slime-check "Automaton is back in idle state."
+       (slime-test-state-stack '(slime-idle-state)))))
+
+(def-slime-test loop-interrupt-continue-interrupt-quit ()
+   "Test interrupting a previously interrupted but continued loop."
+   '(())
+   (slime-check "Automaton initially in idle state."
+     (slime-test-state-stack '(slime-idle-state)))
+   (slime-eval-async '(loop) "CL-USER" (lambda (_) ))
+   (let ((sldb-hook
+          (lambda ()
+            (slime-check "First interrupt."
+              (and (slime-test-state-stack '(slime-debugging-state
+                                             slime-evaluating-state
+                                            slime-idle-state))
+                   (get-buffer "*sldb*")))
+            (let ((slime-evaluating-state-activation-hook 
+                   (lambda ()
+                     (when (slime-test-state-stack '(slime-evaluating-state 
+                                                     slime-idle-state))
+                       (setq slime-evaluating-state-activation-hook nil)
+                       (slime-check "No sldb buffer."
+                         (not (get-buffer "*sldb*")))
+                       (let ((sldb-hook
+                              (lambda ()
+                                (slime-check "Second interrupt."
+                                  (and (slime-test-state-stack 
+                                        '(slime-debugging-state
+                                          slime-evaluating-state
+                                          slime-idle-state))
+                                       (get-buffer "*sldb*")))
+                                (sldb-quit))))
+                         (accept-process-output nil 1)
+                         (slime-check "In eval state."
+                           (slime-test-state-stack 
+                            '(slime-evaluating-state slime-idle-state)))
+                         (slime-interrupt)
+                         (slime-sync-state-stack '(slime-idle-state) 5))))))
+              (sldb-continue)
+              (slime-sync-state-stack '(slime-idle-state) 5)))))
+     (accept-process-output nil 1)
+     (slime-check "In eval state."
+       (slime-test-state-stack '(slime-evaluating-state slime-idle-state)))
+     (slime-interrupt)
+     (slime-sync-state-stack '(slime-idle-state) 5)
+     (slime-check "Automaton is back in idle state."
+       (slime-test-state-stack '(slime-idle-state)))))
+
+(def-slime-test interactive-eval ()
+   "Test interactive eval and continuing from the debugger."
+   '(())
+  (let ((sldb-hook (lambda () (sldb-continue))))
+    (slime-interactive-eval 
+     "(progn (cerror \"foo\" \"restart\") (cerror \"bar\" \"restart\") t)")
+    (slime-sync-state-stack '(slime-idle-state) 5)
+    (slime-check "Automaton is back in idle state."
+      (slime-test-state-stack '(slime-idle-state)))
+    (let ((message (current-message)))
+      (slime-check "Minibuffer contains: \"=> t\""
+        (equal "=> t" message)))))
 
 
 ;;; Portability library
