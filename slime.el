@@ -323,7 +323,7 @@ DONT-CACHE is non-nil."
 				nil t))
       (goto-char (match-end 0))
       (skip-chars-forward " \n\t\f\r#:")
-      (let ((pkg (read (current-buffer))))
+      (let ((pkg (condition-case nil (read (current-buffer)) (error nil ))))
 	(cond ((stringp pkg)
 	       pkg)
 	      ((symbolp pkg)
@@ -2077,7 +2077,7 @@ the current index when the selection is completed."
 (defun slime-set-package (package)
   (interactive (list (slime-read-package-name "Package: " 
 					      (slime-find-buffer-package))))
-  (message "*package*: %s" (slime-eval `(swank:set-package package))))
+  (message "*package*: %s" (slime-eval `(swank:set-package ,package))))
 
 (defun slime-set-default-directory (directory)
   (interactive (list (read-file-name "Directory: " nil default-directory t)))
@@ -2241,7 +2241,8 @@ the current index when the selection is completed."
       (:file
        (funcall (if other-window #'find-file-other-window #'find-file)
 		(plist-get source-location :filename))
-       (goto-char (plist-get source-location :position)))
+       (goto-char (plist-get source-location :position))
+       (forward-sexp) (backward-sexp))
       (:stream
        (let ((info (plist-get source-location :info)))
 	 (cond ((and (consp info) (eq :emacs-buffer (car info)))
@@ -2805,7 +2806,7 @@ Confirm that EXPECTED-ARGLIST is displayed."
 (def-slime-test compile-defun 
     (program subform)
     "Compile PROGRAM containing errors.
-Confirm that SUBFORM is correclty located."
+Confirm that SUBFORM is correctly located."
     '(("(defun :foo () (:bar))" (:bar))
       ("(defun :foo () 
          #\\space
