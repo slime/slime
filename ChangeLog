@@ -1,3 +1,14 @@
+2004-07-01  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (sldb-lookup-reference): Preserve case in SBCL node
+	names. Previously they were downcased, but the HTML manual's
+	filenames seem to have changed.
+
+	* NEWS: Added security note about the TCP server.
+	Added notes for ACL and ABCL.
+
+	* doc/slime.texi: General updatings for an alpha release.
+
 2004-06-30  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-display-compilation-output): New customizable
@@ -20,6 +31,8 @@
 	with "127.0.0.1". This is believed to avoid unwanted DNS lookups
 	on certain operating systems. The lookups can become crippling if
 	the DNS server isn't available.
+	(line-beginning-position, line-end-position): Simple bugfix
+	suggested by Richard Klinda.
 
 	* swank-sbcl.lisp (preferred-communication-style): Choose
 	:fd-handler instead of :sigio when threads aren't available. A lot
