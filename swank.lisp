@@ -1252,10 +1252,11 @@ Record compiler notes signalled as `compiler-condition's."
      (let ((*package* *buffer-package*))
        (swank-compile-string string :buffer buffer :position position)))))
 
-(defslimefun load-system-for-emacs (system)
+(defslimefun operate-on-system-for-emacs (system-name operation &rest keywords)
   "Compile and load SYSTEM using ASDF.
 Record compiler notes signalled as `compiler-condition's."
-  (swank-compiler (lambda () (swank-compile-system system))))
+  (swank-compiler (lambda ()
+                    (apply #'operate-on-system system-name operation keywords))))
 
 
 ;;;; Macroexpansion
