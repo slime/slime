@@ -1,6 +1,7 @@
 2005-03-03  Nikodemus Siivola  <tsiivola@cc.hut.fi>
 
-	* swank-sbcl.lisp: Fixed for (and requires) 0.8.20.
+	* swank-sbcl.lisp: Fixed for latest SBCL HEAD revision and
+	temporarily backwards-compatible with the current release.
 
 2005-03-02  Marco Baringer  <mb@bese.it>
 	
