@@ -435,6 +435,7 @@ A prefix argument disables this behaviour."
     ("\C-i" slime-complete-symbol :prefixed t :inferior t)
     ("\M-." slime-edit-definition :inferior t :sldb t)
     ("\M-," slime-pop-find-definition-stack :inferior t :sldb t)
+    ("\C-q" slime-close-parens-at-point :prefixed t :inferior t)
     ;; Evaluating
     ("\C-x\C-e" slime-eval-last-expression :inferior t)
     ("\C-x\M-e" slime-eval-last-expression-display-output :inferior t)
@@ -1508,6 +1509,8 @@ This is automatically synchronized from Lisp.")
        (setf (slime-lisp-package) package))
       ((:new-features features)
        (setf (slime-lisp-features) features))
+      ((:indentation-update info)
+       (slime-handle-indentation-update info))
       ((:open-dedicated-output-stream port)
        (slime-open-stream-to-lisp port))
       ((:check-protocol-version version)
@@ -1532,6 +1535,7 @@ This is automatically synchronized from Lisp.")
 (defun slime-nyi ()
   (error "Not yet implemented!"))
 
+
 ;;;; Connection initialization
 
 (defun slime-init-connection (proc)
@@ -2862,9 +2866,9 @@ The overlay has several properties:
       (putp 'help-echo message)
       overlay)))
 
-;;; XXX Obsolete due to `slime-merge-notes-for-display' doing the
-;;; work already -- unless we decide to put several sets of notes on a
-;;; buffer without clearing in between, which only this handles.
+;; XXX Obsolete due to `slime-merge-notes-for-display' doing the
+;; work already -- unless we decide to put several sets of notes on a
+;; buffer without clearing in between, which only this handles.
 (defun slime-merge-note-into-overlay (overlay severity message)
   "Merge another compiler note into an existing overlay.
 The help text describes both notes, and the highest of the severities
@@ -3637,6 +3641,7 @@ function name is prompted."
    name
    (slime-buffer-package)))
 
+
 ;;;; `ED'
 
 (defvar slime-ed-frame nil
@@ -5414,6 +5419,45 @@ expressions out is enclosed in a set of balanced comments."
         (0 (progn (compose-region (match-beginning 1) (match-end 1)
                             ,(make-char 'greek-iso8859-7 107))
                 nil))))))
+
+(defvar slime-close-parens-limit 16
+  "Maxmimum parens for `slime-close-parens-at-point' to insert.")
+
+(defun slime-close-parens-at-point ()
+  "Close parenthesis at point to complete the top-level-form.  Simply
+inserts ')' characters at point until `beginning-of-defun' and
+`end-of-defun' execute without errors, or `slime-close-parens-limit'
+is exceeded."
+  (interactive)
+  (loop for i from 1 to close-sexps-limit
+        until (save-excursion
+                (beginning-of-defun)
+                (ignore-errors (end-of-defun) t))
+        do (insert ")")))
+
+
+;;; Indentation
+
+(defun slime-update-indentation ()
+  "Update indentation for all macros defined in the Lisp system."
+  (interactive)
+  (slime-eval-async '(swank:update-indentation-information) nil (lambda (x))))
+
+(defun slime-handle-indentation-update (alist)
+  "Update Lisp indent information.
+
+ALIST is a list of (SYMBOL-NAME . INDENT-SPEC) of proposed indentation
+settings for `common-lisp-indent-function'. The appropriate property
+is setup, unless the user already set one explicitly."
+  (dolist (info alist)
+    (let* ((symbol-name (car info))
+           (symbol (intern symbol-name))
+           (indent (cdr info)))
+      ;; Does the symbol have an indentation value that we set?
+      (when (equal (get symbol 'common-lisp-indent-function)
+                   (get symbol 'slime-indent))
+        (put symbol 'slime-indent indent)
+        (put symbol 'common-lisp-indent-function indent)))))
 
 ;;; Test suite
 
