@@ -1,3 +1,7 @@
+2003-09-21  Luke Gorrie  <luke@bluetail.com>
+
+	* README, swank.el: Updated commentary.
+
 2003-09-20  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-choose-overlay-region): Tweaked overlay
