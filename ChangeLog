@@ -6,6 +6,10 @@
 
 2004-07-16  Luke Gorrie  <luke@bluetail.com>
 
+	* swank.lisp (print-connection): print-function for connection
+	objects. Dumping the indentation-cache was damned ugly with
+	non-truncated lines (e.g. bug reports on slime-devel).
+
 	* slime.el (slime-setup): New function for installing a
 	lisp-mode-hook. You can call this from ~/.emacs to setup SLIME.
 	Takes a `autodoc' keyword argument to enable
