@@ -1,5 +1,100 @@
 2004-03-09  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* swank.lisp (frame-source-location-for-emacs): Export it.
+	Reported by Jouni K Seppanen
+	
+	* swank-source-path-parser.lisp, swank-gray.lisp (in-package): We
+	are in-package :swank-backend.  Thanks to Raymond Wiker.
+
+	Merge package-split branch into main trunk.
+	
+	* swank-clisp.lisp (find-fspec-location): Handle "No such file"
+	errors.
+
+	* swank-openmcl.lisp (preferred-communication-style): Implemented.
+	(call-without-interrupts, getpid): Use defimplementation.
+	(arglist, swank-compile-file, swank-compile-string)
+	(swank-compile-system, backtrace): Renamed.
+	(print-frame): New function.
+	(frame-catch-tags): Don't exclude nil source location.
+	(format-restarts-for-emacs, debugger-info-for-emacs,
+	inspect-in-frame). deleted
+	(frame-arguments): Don't use to-string.
+	(find-source-locations, find-function-locations
+	(method-source-location): Deleted.
+	(canonicalize-location, find-definitions,
+	function-source-location, list-callers): Use
+	ccl::edit-definition-p and
+	ccl::get-source-files-with-types&classes.  Makes things easier.
+	(return-from-frame): Take a sexp not a string.
+	(describe-definition): Describe more types.
+
+	* swank-loader.lisp: Change load order. swank.lisp is now the last
+	file.
+
+	* swank-allegro.lisp, swank-clisp.lisp, swank-cmucl.lisp,
+	swank-gray.lisp, swank-lispworks.lisp, swank-sbcl.lisp,
+	swank-source-path-parser.lisp: Implement changed backend interface
+	and remove references to frontend symbols.
+
+	* swank-backend.lisp (:swank-backend): New package.
+	(definterface): Export the symbol.
+	(:location, :error, :position, :buffer): Define structure of
+	source locations here.
+	(preferred-communication-style, compute-backtrace, print-frame):
+	New functions.
+	(debugger-info-for-emacs): Deleted.
+
+	Renaming:
+
+	compile-file-for-emacs   -> swank-compile-file
+	compile-string-for-emacs -> swank-compile-string
+	compile-system-for-emacs -> swank-compile-stystem
+	arglist-string           -> arglist
+	backrace                 -> compute-backtrace
+	find-function-locations  -> find-definitions
+
+	* swank.lisp (:swank): Create the package here.
+	(*swank-in-background*): Call the backend function
+	preferred-communication-style to for the initial value.
+	(find-symbol-designator): Handle NIL properly.
+	(arglist-string): Renamed from format-arglist.  Call backend
+	function directly.
+	(*sldb-restarts*, swank-debugger-hook, format-restarts-for-emacs)
+	(nth-restart, invoke-nth-restart, sldb-abort): Handle restarts in
+	the front end.
+	(frame-for-emacs): Renamed from print-with-frame-label.
+	(backtrace, debugger-info-for-emacs, pprint-eval-string-in-frame)
+	(set-default-directory): Now in the front end.
+	(frame-locals-for-emacs): Use print not princ for variable names.
+	(compile-file-for-emacs, compile-string-for-emacs): Small wrappers
+	around backend functions.
+	(describe-definition-for-emacs): Handle unknown symbols before
+	calling the backend.
+	(find-function-locations): Wrapper for new backend function
+	find-definitions.
+	(group-xrefs, partition, location-valid-p, xref-buffer, xref):
+	Updated for the new backend functions.
+
+	* slime.el:
+	(slime-symbol-at-point, slime-symbol-name-at-point):
+	slime-symbol-at-point calls slime-symbol-name-at-point not the
+	other way around.  This avoids the mess if the symbol at point is
+	NIL.
+	(slime-compile-file, slime-load-system, slime-compile-region)
+	(slime-call-describer, slime-who-calls, sldb-catch-tags): Updates
+	for renamed lisp functions.
+	(slime-list-callers, slime-list-callees): Unified with other xref
+	commands.
+	(sldb-show-frame-details): Catch tags no longer include the source
+	location.
+	(sldb-insert-locals): Simplified.
+
+2004-03-09  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+=======
+=======
+>>>>>>> 1.286
 	Merge package-split branch into main trunk.
 	
 	* swank-clisp.lisp (find-fspec-location): Handle "No such file"
