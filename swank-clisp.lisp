@@ -82,7 +82,10 @@
 
 #+unix 
 (defmethod getpid () 
-  (system::program-id))
+  (funcall (or (find-symbol "PROGRAM-ID" :system)
+ 	       (find-symbol "PROCESS-ID" :system)
+ 	       (error "getpid not implemented"))))
+
 #+win32 
 (defmethod getpid ()
   (cond ((find-package :win32)
@@ -333,7 +336,7 @@ Return NIL if the symbol is unbound."
 
 (defmacro dynamic-flet (names-functions &body body)
   "(dynamic-flet ((NAME FUNCTION) ...) BODY ...)
-Execute BODY with NAME's funtion slot set to FUNCTION."
+Execute BODY with NAME's function slot set to FUNCTION."
   `(ext:letf* ,(loop for (name function) in names-functions
 		     collect `((symbol-function ',name) ,function))
     ,@body))
