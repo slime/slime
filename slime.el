@@ -841,11 +841,18 @@ command."
 (defun slime-background-message (format-string &rest format-args)
   "Display a message in passing.
 This is like `slime-message', but less distracting because it
-will never pop up a buffer.
+will never pop up a buffer or display multi-line messages.
 It should be used for \"background\" messages such as argument lists."
-  (apply (if (slime-typeout-active-p) #'slime-typeout-message #'message)
-         format-string
-         format-args))
+  (if (slime-typeout-active-p)
+      (slime-typeout-message (apply #'format format-string format-args))
+    (let* ((msg (apply #'format format-string format-args)))
+      (message "%s" (slime-oneliner msg)))))
+
+(defun slime-oneliner (string)
+  "Return STRING truncated to fit in a single echo-area line."
+  (substring msg 0 (min (length msg)
+                        (or (position ?\n msg) most-positive-fixnum)
+                        (1- (frame-width)))))
 
 (defun slime-set-truncate-lines ()
   "Set `truncate-lines' in the current buffer if
@@ -982,7 +989,7 @@ Also saves the window configuration, and inherits the current
 
 (defun slime-function-called-at-point ()
   "Return a function around point or else called by the list containing point.
-If that doesn't give a function, return nil."
+Return the symbol-name, or nil."
   (ignore-errors
     (save-excursion
       (save-restriction
@@ -998,8 +1005,7 @@ If that doesn't give a function, return nil."
                   (looking-at "([ \t]"))
           (error "Probably not a Lisp function call"))
         (forward-char 1)
-        (let ((obj (read (current-buffer))))
-          (and (symbolp obj) obj))))))
+        (slime-symbol-name-at-point)))))
 
 (defun slime-enclosing-operator-names ()
   "Return the list of operator names of the forms containing point."
@@ -3798,7 +3804,8 @@ more than one space."
              `(swank:arglist-for-echo-area (quote ,names))
              (slime-buffer-package)
              (lambda (message)
-               (slime-background-message "%s" message))))))
+               (if message
+                   (slime-background-message "%s" message)))))))
     (self-insert-command n)))
 
 (defun slime-arglist (name)
@@ -3833,9 +3840,6 @@ Possible values are:
  nil  - none.
  last - cache only the most recently-looked-at symbol's documentation.
         The values are stored in the variable `slime-autodoc-cache'.
- all  - cache all symbol documentation.
-        The values are stored on the `slime-autodoc-cache' property
-        of the respective Elisp symbols.
 
 More caching means fewer calls to the Lisp process, but at the risk of
 using outdated information.")
@@ -3856,23 +3860,35 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
 
 (defun slime-autodoc ()
   "Print some apropos information about the code at point, if applicable."
-  (when-let (sym (slime-function-called-at-point/line))
-    (let ((name (symbol-name sym))
-          (cache-key (slime-qualify-cl-symbol-name sym)))
+  (when-let (name (or (slime-autodoc-global-at-point)
+                      (slime-function-called-at-point/line)))
+    (let ((cache-key (slime-qualify-cl-symbol-name name)))
       (or (when-let (documentation (slime-get-cached-autodoc cache-key))
             (slime-background-message "%s" documentation)
             t)
-          ;; Asynchronously fetch, cache, and display arglist
+          ;; Asynchronously fetch, cache, and display documentation
           (slime-eval-async
-           `(swank:arglist-for-echo-area (quote (,name)))
+           (if (slime-global-variable-name-p name)
+               `(swank:variable-desc-for-echo-area ,name)
+             `(swank:arglist-for-echo-area '(,name)))
            (slime-buffer-package)
            (with-lexical-bindings (cache-key name)
-             (lambda (arglist)
+             (lambda (doc)
                ;; FIXME: better detection of "no documentation available"
-               (if (string-match "<not available>" arglist)
-                   (setq arglist ""))
-               (slime-update-autodoc-cache cache-key arglist)
-               (slime-background-message "%s" arglist))))))))
+               (when (null doc)
+                 (setq doc ""))
+               (slime-update-autodoc-cache cache-key doc)
+               (slime-background-message "%s" doc))))))))
+
+(defun slime-autodoc-global-at-point ()
+  "Return the global variable name at point, if any."
+  (when-let (name (slime-symbol-name-at-point))
+    (if (slime-global-variable-name-p name) name)))
+
+(defun slime-global-variable-name-p (name)
+  "Is NAME a global variable?
+Globals are recognised purely by *this-naming-convention*."
+  (string-match "^\\*.*\\*$" name))
 
 (defun slime-get-cached-autodoc (symbol-name)
   "Return the cached autodoc documentation for SYMBOL-NAME, or nil."
@@ -6845,7 +6861,6 @@ Return the number of failed tests."
   "Run the test suite in batch-mode.
 Exits Emacs when finished. The exit code is the number of failed tests."
   (let ((slime-dont-prompt t)
-        (slime-swank-port 4006)         ; different port than interactive use
         (slime-test-debug-on-error nil))
     (slime)
     ;; Block until we are up and running.
