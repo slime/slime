@@ -68,7 +68,10 @@
   "Accept one Swank TCP connection on SOCKET and then close it."
   (let* ((socket (sb-bsd-sockets:socket-accept server-socket))
 	 (stream (sb-bsd-sockets:socket-make-stream 
-		  socket :input t :output t :element-type 'base-char)))
+		  socket :input t :output t :element-type 'base-char))
+         (out (make-instance 'slime-output-stream))
+         (in (make-instance 'slime-input-stream))
+         (io (make-two-way-stream in out)))
     (sb-sys:invalidate-descriptor (sb-bsd-sockets:socket-file-descriptor
                                    server-socket))
     (sb-bsd-sockets:socket-close server-socket)
@@ -76,22 +79,18 @@
      (sb-bsd-sockets:socket-file-descriptor socket)
      :input (lambda (fd) 
 	      (declare (ignore fd))
-	      (serve-request stream)))))
+	      (serve-request stream out in io)))))
 
-(defun serve-request (*emacs-io*)
+(defun serve-request (*emacs-io* *slime-output* *slime-input* *slime-io*)
   "Read and process a request from a SWANK client.
 The request is read from the socket as a sexp and then evaluated."
   (catch 'slime-toplevel
-    (let* ((*slime-output* (make-instance 'slime-output-stream))
-           (*slime-input* *standard-input*)
-           (*slime-io* (make-two-way-stream *slime-input* *slime-output*)))
-      (handler-case (read-from-emacs)
-        (slime-read-error (e)
-          (when *swank-debug-p*
-            (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
-          (sb-sys:invalidate-descriptor (sb-sys:fd-stream-fd *emacs-io*))
-          (close *emacs-io*))))))
-
+    (handler-case (read-from-emacs)
+      (slime-read-error (e)
+        (when *swank-debug-p*
+          (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
+        (sb-sys:invalidate-descriptor (sb-sys:fd-stream-fd *emacs-io*))
+        (close *emacs-io*)))))
 
 #|
 
@@ -176,6 +175,18 @@ until the remote Emacs goes away."
   (send-to-emacs `(:read-output ,(get-output-stream-string
                                   (slime-output-stream-buffer stream))))
   (setf (slime-output-stream-buffer stream) (make-string-output-stream)))
+
+(defclass slime-input-stream (sb-gray:fundamental-character-input-stream)
+  ((buffered-char :initform nil)))
+
+(defmethod sb-gray:stream-read-char ((s slime-input-stream))
+  (with-slots (buffered-char) s
+    (cond (buffered-char (prog1 buffered-char (setf buffered-char nil)))
+          (t (slime-read-char)))))
+
+(defmethod sb-gray:stream-unread-char ((s slime-input-stream) char)
+  (setf (slot-value s 'buffered-char) char)
+  nil)
 
 ;;; Utilities
 

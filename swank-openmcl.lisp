@@ -85,7 +85,7 @@ Run the connection handler in a new thread."
 until the remote Emacs goes away."
   (unwind-protect
        (let* ((*slime-output* (make-instance 'slime-output-stream))
-              (*slime-input* *standard-input*)
+              (*slime-input* (make-instance 'slime-input-stream))
               (*slime-io* (make-two-way-stream *slime-input* *slime-output*)))
          (loop
             (catch 'slime-toplevel
@@ -117,6 +117,18 @@ until the remote Emacs goes away."
   (send-to-emacs `(:read-output ,(get-output-stream-string
                                   (slime-output-stream-buffer stream))))
   (setf (slime-output-stream-buffer stream) (make-string-output-stream)))
+
+(defclass slime-input-stream (ccl::fundamental-character-input-stream)
+  ((buffered-char :initform nil)))
+
+(defmethod ccl:stream-read-char ((s slime-input-stream))
+  (with-slots (buffered-char) s
+    (cond (buffered-char (prog1 buffered-char (setf buffered-char nil)))
+          (t (slime-read-char)))))
+
+(defmethod ccl:stream-unread-char ((s slime-input-stream) char)
+  (setf (slot-value s 'buffered-char) char)
+  nil)
 
 ;;; Evaluation
 
