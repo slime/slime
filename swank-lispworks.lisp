@@ -240,10 +240,14 @@ Return NIL if the symbol is unbound."
 	(push frame backtrace)))))
 
 (defun frame-actual-args (frame)
-  (mapcar (lambda (arg)
-            (handler-case (dbg::dbg-eval arg frame)
-              (error (format nil "<~A>" arg))))
-          (dbg::call-frame-arglist frame)))
+  (let ((*break-on-signals* nil))
+    (mapcar (lambda (arg)
+              (case arg
+                ((&rest &optional &key) arg)
+                (t
+                 (handler-case (dbg::dbg-eval arg frame)
+                   (error (format nil "<~A>" arg))))))
+            (dbg::call-frame-arglist frame))))
 
 (defimplementation print-frame (frame stream)
   (cond ((dbg::call-frame-p frame)
