@@ -1,9 +1,10 @@
 2005-03-09  Peter Seibel  <peter@gigamonkeys.com>
 
+	* swank-loader.lisp (*architecture-features*): Added :pc386 for CLISP.
+
 	* slime.el (slime-register-lisp-implementation): Add facility for
 	registering lisp implementations with symbolic names that can be
 	passed to C-u M-x slime.
-
 
 2005-03-08  Peter Seibel  <peter@gigamonkeys.com>
 
