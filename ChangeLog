@@ -1,3 +1,9 @@
+2003-09-28  Luke Gorrie  <luke@bluetail.com>
+
+	* swank.lisp (create-swank-server): Bind the listen-socket on the
+	loopback interface by default, so that remote machines can't
+	connect to the Swank server.
+
 2003-09-27  Luke Gorrie  <luke@bluetail.com>
 
 	* swank.lisp (with-trapping-compilation-notes): New macro for
