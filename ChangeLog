@@ -1,9 +1,11 @@
 2004-06-17  Luke Gorrie  <luke@bluetail.com>
 
 	* swank-loader.lisp (binary-pathname): Place fasl files under
-	~/.slime/fasl/ (or _slime in win32) instead of the SLIME
-	installation directory. The installation directory can now be
-	read-only.
+	~/.slime/fasl/ instead of the SLIME installation directory. The
+	installation directory can now be read-only.
+	(binary-pathname, user-init-file): Removed Win32
+	conditionalization. The init file is now called ~/.swank.lisp
+	instead of ~/_swank.lsp.
 
 	* swank-lispworks.lisp (with-fairly-standard-io-syntax): New
 	macro. Like with-standard-io-syntax, but keeps the existing values
