@@ -123,8 +123,7 @@ until the remote Emacs goes away."
   (declare (ignore application condition))
   (setq *swank-debugger-stack-frame* error-pointer))
 
-(defslimefun arglist-string (fname)
-  "Return the lambda list for function FNAME as a string."
+(defmethod arglist-string (fname)
   (let ((*print-case* :downcase))
     (multiple-value-bind (function condition)
         (ignore-errors (values 
@@ -139,57 +138,52 @@ until the remote Emacs goes away."
 ;;; Compilation
 
 (defvar *buffer-offset*)
+(defvar *buffer-name*)
 
 (defun condition-source-position (condition)
   "Return the position in the source file of a compiler condition."
-  (+ 1 *buffer-offset* (ccl::compiler-warning-stream-position condition)))
+  (+ 1
+     (or *buffer-offset* 0)
+     (ccl::compiler-warning-stream-position condition)))
 
 (defun handle-compiler-warning (condition)
   "Construct a compiler note for Emacs from a compiler warning
 condition."
-  (push (list :message (format nil "~A" condition)
-              :severity :warning
-              :location
-              (list :file 
-                    (ccl::compiler-warning-file-name condition)
-                    (condition-source-position condition)))
-        *compiler-notes*)
-  (muffle-warning condition))
-
-(defun call-trapping-compilation-notes (fn)
-  "Call FN trapping compiler notes and storing them in the notes database."
-  (handler-bind ((ccl::compiler-warning #'handle-compiler-warning))
-    (funcall fn)))
+  (signal (make-condition
+           'compiler-condition
+           :original-condition condition
+           :message (format nil "~A" condition)
+           :severity :warning
+           :location
+           (let ((position (condition-source-position condition)))
+             (if *buffer-name*
+                 (list :emacs-buffer *buffer-name* position)
+                 (list :file
+                       (ccl::compiler-warning-file-name condition)
+                       position))))))
 
 (defun temp-file-name ()
   "Return a temporary file name to compile strings into."
   (ccl:%get-cstring (#_tmpnam (ccl:%null-ptr))))
 
-(defslimefun swank-compile-string (string buffer start)
-  "Compile STRING, using BUFFER and START as information for
-reporting back the location of compiler notes.  In OpenMCL we
-have to use the file compiler to get compiler warning positions,
-so we write the string to a temporary file and compile it."
-  (declare (ignore buffer))
-  (let ((*buffer-offset* start)
-        (*package* *buffer-package*)
-        (filename (temp-file-name)))
-    (call-with-compilation-hooks
-     (lambda ()
-       (unwind-protect
-            (progn
-              (with-open-file (s filename :direction :output :if-exists :error)
-                (write-string string s))
-              (let ((binary-filename (compile-file filename :load t)))
-                (delete-file binary-filename)))
-         (delete-file filename))))))
+(defmethod compile-file-for-emacs (filename load-p)
+  (handler-bind ((ccl::compiler-warning #'handle-compiler-warning))
+    (let ((*buffer-name* nil)
+          (*buffer-offset* nil))
+      (compile-file filename :load load-p))))
 
-(defslimefun swank-compile-file (filename load)
-  "Compile and optionally load FILENAME, trapping compiler notes for Emacs."
-  (let ((*buffer-offset* 0))
-    (call-with-compilation-hooks
-     (lambda ()
-       (compile-file filename :load load)))))
+(defmethod compile-string-for-emacs (string &key buffer position)
+  (handler-bind ((ccl::compiler-warning #'handle-compiler-warning))
+    (let ((*buffer-name* buffer)
+          (*buffer-offset* position)
+          (*package* *buffer-package*)
+          (filename (temp-file-name)))
+      (unwind-protect
+           (with-open-file (s filename :direction :output :if-exists :error)
+             (write-string string s))
+        (let ((binary-filename (compile-file filename :load t)))
+          (delete-file binary-filename)))
+      (delete-file filename))))
 
 ;;; Debugging
 
@@ -374,21 +368,13 @@ at least the filename containing it."
 (defslimefun describe-class (symbol-name)
   (print-description-to-string (find-class (from-string symbol-name) nil)))
 
-(defun briefly-describe-symbol-for-emacs (symbol)
-  "Return a plist describing SYMBOL.
-Return NIL if the symbol is unbound."
+(defmethod describe-symbol-for-emacs (symbol)
   (let ((result '()))
-    (labels ((first-line (string) 
-               (let ((pos (position #\newline string)))
-                 (if (null pos) string (subseq string 0 pos))))
-             (doc (kind &optional (sym symbol))
-               (let ((string (documentation sym kind)))
-                 (if string 
-                     (first-line string)
-                     :not-documented)))
-             (maybe-push (property value)
-               (when value
-                 (setf result (list* property value result)))))
+    (flet ((doc (kind &optional (sym symbol))
+             (or (documentation sym kind) :not-documented))
+           (maybe-push (property value)
+             (when value
+               (setf result (list* property value result)))))
       (maybe-push
        :variable (when (boundp symbol)
                    (doc 'variable)))
@@ -400,14 +386,7 @@ Return NIL if the symbol is unbound."
                                         `(setf ,symbol))))
                (when (fboundp setf-function-name)
                  (doc 'function setf-function-name))))
-;;       (maybe-push
-;;        :type (if (ext:info type kind symbol)
-;;                  (doc 'type)))
-      (maybe-push
-       :class (if (find-class symbol nil) 
-                  (doc 'class)))
-      (if result
-          (list* :designator (to-string symbol) result)))))
+      result)))
 
 ;;; Tracing and Disassembly
 
