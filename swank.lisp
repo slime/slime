@@ -32,6 +32,21 @@
 (defvar *sldb-pprint-frames* nil
   "*pretty-print* is bound to this value when sldb prints a frame.")
 
+(defvar *processing-rpc* nil
+  "True when Lisp is evaluating an RPC from Emacs.")
+
+(defvar *multiprocessing-enabled* nil
+  "True when multiprocessing support is to be used.")
+
+(defvar *debugger-hook-passback* nil
+  ;; Temporary hack!
+  "When set while processing a command, the value is copied into
+*debugger-hook*.
+
+This allows RPCs from Emacs to change the global value of
+*debugger-hook*, which is shadowed in a dynamic binding while they
+run.")
+
 ;;; public interface.  slimefuns are the things that emacs is allowed
 ;;; to call
 
@@ -74,6 +89,15 @@ PORT-FILE-NAMESTRING in ascii text."
   (create-swank-server 
    0 :reuse-address t
    :announce (announce-server-port port-file-namestring)))
+
+
+;;;; Helper macros
+
+(defmacro with-conversation-lock (&body body)
+  `(call-with-conversation-lock (lambda () ,@body)))
+
+(defmacro with-I/O-lock (&body body)
+  `(call-with-I/O-lock (lambda () ,@body)))
 
 
 ;;;; IO to Emacs
@@ -121,7 +145,7 @@ Redirection is done while Lisp is processing a request for Emacs.")
             (*terminal-io* io))
         (apply fn args))
       (apply fn args)))
-      
+
 (defun read-from-emacs ()
   "Read and process a request from Emacs."
   (let ((form (read-next-form)))
@@ -141,14 +165,15 @@ occurs during parsing, it will be noted and control will be tranferred
 back to the main request handling loop."
   (flet ((next-byte () (char-code (read-char *emacs-io*))))
     (handler-case
-        (let* ((length (logior (ash (next-byte) 16)
-                               (ash (next-byte) 8)
-                               (next-byte)))
-               (string (make-string length))
-               (pos (read-sequence string *emacs-io*)))
-          (assert (= pos length) nil
-                  "Short read: length=~D  pos=~D" length pos)
-          (read-form string))
+        (with-I/O-lock
+          (let* ((length (logior (ash (next-byte) 16)
+                                 (ash (next-byte) 8)
+                                 (next-byte)))
+                 (string (make-string length))
+                 (pos (read-sequence string *emacs-io*)))
+            (assert (= pos length) nil
+                    "Short read: length=~D  pos=~D" length pos)
+            (read-form string)))
       (serious-condition (c) 
         (error (make-condition 'slime-read-error :condition c))))))
 
@@ -168,16 +193,15 @@ back to the main request handling loop."
 
 (defun send-to-emacs (object)
   "Send `object' to Emacs."
-   (let* ((string (prin1-to-string-for-emacs object))
-          (length (1+ (length string))))
-     (without-interrupts*
-      (lambda ()
-        (loop for position from 16 downto 0 by 8
-              do (write-char (code-char (ldb (byte 8 position) length))
-                             *emacs-io*))
-        (write-string string *emacs-io*)
-        (terpri *emacs-io*)
-        (force-output *emacs-io*)))))
+  (let* ((string (prin1-to-string-for-emacs object))
+         (length (1+ (length string))))
+    (with-I/O-lock
+      (loop for position from 16 downto 0 by 8
+            do (write-char (code-char (ldb (byte 8 position) length))
+                           *emacs-io*))
+      (write-string string *emacs-io*)
+      (terpri *emacs-io*)
+      (force-output *emacs-io*))))
 
 (defun prin1-to-string-for-emacs (object)
   (with-standard-io-syntax
@@ -276,6 +300,8 @@ Sends a message to Emacs declaring that the debugger has been entered,
 then waits to handle further requests from Emacs. Eventually returns
 after Emacs causes a restart to be invoked."
   (declare (ignore hook))
+  (unless (or *processing-rpc* (not *multiprocessing-enabled*))
+    (request-async-debug condition))
   (let ((*swank-debugger-condition* condition)
         (*package* *buffer-package*))
     (let ((*sldb-level* (1+ *sldb-level*)))
@@ -300,8 +326,26 @@ that the slime streams are visible so that it can capture them."
                  (when (open-stream-p *emacs-io*)
                    (call-with-slime-streams 
                     in out io 
-                    #'swank::swank-debugger-hook (list c next))))))
+                    #'swank-debugger-hook (list c next))))))
       #'slime-debug)))
+
+(defslimefun install-global-debugger-hook ()
+  (setq *debugger-hook-passback* (slime-debugger-function))
+  t)
+
+(defun startup-multiprocessing-for-emacs ()
+  (setq *multiprocessing-enabled* t)
+  (startup-multiprocessing))
+
+(defun request-async-debug (condition)
+  "Tell Emacs that we need to debug a condition, and wait for acknowledgement.
+Called before entering the debugger for conditions that occured
+asynchronously, i.e. not during an RPC from Emacs."
+  (send-to-emacs `(:awaiting-goahead
+                   ,(thread-id)
+                   ,(thread-name (thread-id))
+                   ,(format nil "~A" condition)))
+  (wait-goahead))
 
 (defun sldb-loop (level)
   (send-to-emacs (list* :debug *sldb-level*
@@ -338,7 +382,8 @@ conditions are simply reported."
      `(:%apply ,(string-downcase (string fn)) ,args))))
 
 (defslimefun eval-string (string buffer-package)
-  (let ((*debugger-hook* #'swank-debugger-hook))
+  (let ((*processing-rpc* t)
+        (*debugger-hook* #'swank-debugger-hook))
     (let (ok result)
       (unwind-protect
            (let ((*buffer-package* (guess-package-from-string buffer-package)))
@@ -348,7 +393,10 @@ conditions are simply reported."
              (setq ok t))
         (sync-state-to-emacs)
         (force-output *slime-io*)
-        (send-to-emacs (if ok `(:ok ,result) '(:aborted)))))))
+        (send-to-emacs (if ok `(:ok ,result) '(:aborted))))))
+  (when *debugger-hook-passback*
+    (setq *debugger-hook* *debugger-hook-passback*)
+    (setq *debugger-hook-passback* nil)))
 
 (defun format-values-for-echo-area (values)
   (cond (values (format nil "~{~S~^, ~}" values))
@@ -812,6 +860,9 @@ from an element and TEST is used to compare keys."
 	 (if errors
 	     `(("Unresolved" . ,errors))))))))
 
+
+;; (put 'with-i/o-lock 'common-lisp-indent-function 0)
+;; (put 'with-conversation-lock 'common-lisp-indent-function 0)
 
 ;;; Local Variables:
 ;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
