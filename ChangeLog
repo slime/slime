@@ -1,3 +1,33 @@
+2004-04-07  Lawrence Mitchell  <wence@gmx.li>
+
+	* slime.el (slime-repl-prompt-face): New face.
+	(slime-repl-insert-prompt): Use it.
+	(slime-with-chosen-connection, with-struct): Docstring
+	fix for function's arglist display.
+	(slime-read-package-name): Use `slime-bogus-completion-alist' to
+	construct completion table.
+	(slime-maybe-rearrange-inferior-lisp): Use `rename-buffer's
+	optional argument to rename uniquely.
+	(slime-check-connected): Display keybinding for `slime' via
+	`substitute-command-keys'.
+	(slime-repl-send-repl-command): Use whitespace character class in
+	regexp.
+	(slime-autodoc-stop-timer): New function.
+	(slime-autodoc-mode): Add `interactive' spec to specify optional
+	arg.  This allows prefix toggling of mode (behaves more like
+	most Emacs modes now).  Stop timer if switching mode off with
+	`slime-autodoc-stop-timer'.
+	(slime-autodoc-start-timer, slime-complete-symbol)
+	(slime-complete-saved-window-configuration)
+	(slime-insert-balanced-comments): Docstring fix.
+	(slime-ed): Call `slime-from-lisp-filename' on filename for list
+	case of argument.
+	(slime-insert-transcript-delimiter, slime-thread-insert): Use
+	?\040 to indicate SPC.
+	(line-beginning-position): `forward-line' always puts us in
+	column 0.
+	(line-end-position): Define if not fboundp (for older XEmacs).
+
 2004-04-07  Peter Seibel  <peter@javamonkey.com>
 
 	* swank-allegro.lisp (set-default-directory): Allegro specific
@@ -47,8 +77,8 @@
 
 2004-04-05  Lawrence Mitchell  <wence@gmx.li>
 
-	* swank.lisp (*swank-pprint-circle*, *swank-pprint-escape*,
-	*swank-pprint-level*, *swank,pprint-length*): Fix typo in
+	* swank.lisp (*swank-pprint-circle*, *swank-pprint-escape*)
+	(*swank-pprint-level*, *swank-pprint-length*): Fix typo in
 	docstring.
 
 	* slime.el (slime-arglist): Don't `message' arglist directly, in
