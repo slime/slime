@@ -244,6 +244,7 @@ If you want to fallback on TAGS you can set this to `find-tag'.")
 ;;      '(slime-inspector-topline-face ((t (:foreground "brown" :weight bold :height 1.2))))
 ;;      '(slime-inspector-type-face ((t (:foreground "DarkRed" :weight bold))))
 
+
 ;;;;; sldb
 
 (defgroup slime-debugger nil
@@ -2117,7 +2118,8 @@ end end."
     (unless (bolp) (insert "\n"))
     (slime-insert-propertized '(face slime-repl-result-face) result)
     (unless (bolp) (insert "\n"))
-    (let ((prompt-start (point)))
+    (let ((prompt-start (point))
+          (prompt (format "%s> "  (slime-lisp-package))))
       (slime-propertize-region
           '(face slime-repl-prompt-face
                  read-only t
@@ -2127,7 +2129,8 @@ end end."
                  rear-nonsticky (slime-repl-prompt read-only face intangible)
                  ;; xemacs stuff
                  start-open t end-open t)
-        (insert (slime-lisp-package) "> "))
+        (insert prompt))
+      (setq defun-prompt-regexp prompt)
       (set-marker slime-output-end start)
       (set-marker slime-repl-prompt-start-mark prompt-start)
       (slime-mark-input-start)
@@ -5407,10 +5410,11 @@ portion of the backtrace. Frames are numbered from 0."
 
 (defun sldb-insert-condition (condition)
   (destructuring-bind (message type references) condition
-    (insert (in-sldb-face topline message)
-            "\n" 
-            (in-sldb-face condition type)
-            "\n\n")
+    (slime-insert-propertized '(sldb-default-action sldb-inspect-condition)
+                              (in-sldb-face topline message)
+                              "\n" 
+                              (in-sldb-face condition type)
+                              "\n\n")
     (when references
       (insert "See also:\n")
       (slime-with-rigid-indentation 2
@@ -5572,6 +5576,11 @@ Called on the `point-entered' text-property hook."
   (let ((frame (get-text-property (point) 'frame)))
     (cond (frame (car frame))
 	  (t (error "No frame at point")))))
+
+(defun sldb-var-number-at-point ()
+  (let ((var (get-text-property (point) 'var)))
+    (cond (var var)
+	  (t (error "No variable at point")))))
 
 (defun sldb-previous-frame-number ()
   (save-excursion
@@ -5776,12 +5785,23 @@ The details include local variable bindings and CATCH-tags."
   (slime-eval `(swank:frame-locals-for-emacs ,frame)))
 
 (defun sldb-insert-locals (frame prefix)
-  (dolist (var (sldb-frame-locals frame))
-    (destructuring-bind (&key name id value) var
-      (insert prefix (in-sldb-face local-name name))
-      (unless (zerop id) 
-        (insert (in-sldb-face local-name (format "#%d" id))))
-      (insert " = " (in-sldb-face local-value value) "\n"))))
+  (loop for i from 0 
+        for var in (sldb-frame-locals frame) do
+        (destructuring-bind (&key name id value) var
+          (slime-propertize-region (list 'sldb-default-action 'sldb-inspect-var
+                                         'var i)
+            (insert prefix (in-sldb-face local-name name))
+            (unless (zerop id) 
+              (insert (in-sldb-face local-name (format "#%d" id))))
+            (insert " = " (in-sldb-face local-value value)))
+          (insert "\n"))))
+
+(defun sldb-inspect-var ()
+  (let ((frame (sldb-frame-number-at-point))
+        (var (sldb-var-number-at-point)))
+    (slime-eval-async `(swank:inspect-frame-var ,frame ,var) 
+                      (slime-buffer-package)
+                      'slime-open-inspector)))
 
 (defun sldb-list-locals ()
   "List local variables in selected frame."
