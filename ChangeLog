@@ -1,5 +1,9 @@
 2005-03-13  Luke Gorrie  <luke@synap.se>
 
+	* slime.el (slime-dispatch-event): Use `slime-busy-p' to control
+	the "; pipelined request" message. This way it takes requests
+	blocked in the debugger into account and avoids spurious messages.
+
 	* swank.lisp (inspect-for-emacs symbol): Add an "unintern it"
 	action for symbols.
 
