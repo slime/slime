@@ -14,8 +14,8 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :collect) ;just so that it doesn't spoil the flying letters
   (require :gray-streams)
-  (require :pprint)
-  )
+  (require :pprint))
+
 
 (import
  '(gs:fundamental-character-output-stream
@@ -42,6 +42,7 @@
 (defun slot-definition-type (slot) t)
 (defun class-prototype (class))
 (defun generic-function-declarations (gf))
+(defun specializer-direct-methods (spec) nil)
 
 (import-to-swank-mop
  '( ;; classes
@@ -55,11 +56,15 @@
    sys::class-direct-slots
    sys::class-direct-subclasses
    sys::class-direct-superclasses
+   sys::eql-specializer
    class-finalized-p ;;dummy
    cl:class-name
    sys::class-precedence-list
    class-prototype ;;dummy
    sys::class-slots
+   specializer-direct-methods ;;dummy
+   ;; eql-specializer accessors
+   sys::eql-specializer-object
    ;; generic function readers
    sys::generic-function-argument-precedence-order
    generic-function-declarations ;;dummy
@@ -132,11 +137,12 @@
 ;;;; Misc
 
 
-(defimplementation arglist ((symbol symbol))
-  (handler-case (sys::arglist symbol)
-    (simple-error () :not-available)))
+(defimplementation arglist ((symbol t))
+  (multiple-value-bind (arglist present)
+      (sys::arglist symbol)
+    (if present arglist :not-available)))
 
-;;It's a string, not a symbol, but this is better than nothing.
+
 (defimplementation function-name (function)
   (nth-value 2 (function-lambda-expression function)))
 
@@ -323,11 +329,14 @@
 (defimplementation find-definitions (symbol)
   (source-location symbol))
 
+#| 
+Uncomment this if you have patched xref.lisp, as in 
+http://article.gmane.org/gmane.lisp.slime.devel/2425
+Also, make sure that xref.lisp is loaded by modifying the armedbear
+part of *sysdep-pathnames* in swank.loader.lisp. 
 
-#|
-Should work (with a patched xref.lisp) but is it any use without find-definitions?
 ;;;; XREF
-(setq pxref::*handle-package-forms* '(cl:in-package))
+(setq pxref:*handle-package-forms* '(cl:in-package))
 
 (defmacro defxref (name function)
   `(defimplementation ,name (name)
@@ -343,9 +352,8 @@ Should work (with a patched xref.lisp) but is it any use without find-definition
 (defun xref-results (symbols)
   (let ((xrefs '()))
     (dolist (symbol symbols)
-      (push (list symbol (fspec-location symbol)) xrefs))
+      (push (list symbol (cadar (source-location symbol))) xrefs))
     xrefs))
-
 |#
 
 ;;;; Inspecting
@@ -375,14 +383,18 @@ Should work (with a patched xref.lisp) but is it any use without find-definition
 (defmethod inspect-for-emacs ((f function) (inspector abcl-inspector))
   (declare (ignore inspector))
   (values "A function."
-          `("Name: " (:value ,(function-name f)) (:newline)
-            "Argument list: " ,(princ-to-string (sys::arglist f))
+          `(,@(when (function-name f)
+                    `("Name: " 
+                      ,(princ-to-string (function-name f)) (:newline)))
+            ,@(multiple-value-bind (args present) 
+                                   (sys::arglist f)
+                                   (when present `("Argument list: " ,(princ-to-string args) (:newline))))
             (:newline)
             #+nil,@(when (documentation f t)
                          `("Documentation:" (:newline) ,(documentation f t) (:newline)))
             ,@(when (function-lambda-expression f)
                     `("Lambda expression:" 
-                      (:newline) ,(prin1-to-string (function-lambda-expression f)) (:newline))))))
+                      (:newline) ,(princ-to-string (function-lambda-expression f)) (:newline))))))
 
 #|
 
