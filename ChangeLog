@@ -1,3 +1,36 @@
+2004-11-29  Lynn Quam <quam@ai.sri.com>
+
+	* slime.el (slime-global-variable-name-p): Allow optional
+	"<package-name>:" or "<package-name>::".
+
+2004-11-29  Chris Capel <pdf23ds@gmail.com>
+
+	* swank.lisp (macro-indentation): Ignore &whole, &aux, and
+	&environment args.
+
+2004-11-29  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-repl-wrap-history): New user variable.
+	(slime-repl-history-replace): Implement wrap around.
+	(slime-repl-easy-menu): Fix binding for "Next Input".  Reported by
+	Surendra Singhi.
+
+	* swank-lispworks.lisp (list-callers-internal): Return the
+	function if dspec:object-dspec returns nil.
+	(xref-results): Previously, functions for which
+	dspec:dspec-definition-locations returned nil were ignored.
+	Include them with a unknown source-location.
+
+	* swank-abcl.lisp, swank-allegro.lisp, swank-clisp.lisp,
+	swank-cmucl.lisp, swank-openmcl.lisp, swank-sbcl.lisp,
+	swank-lispworks (accept-connection): The :external-format argument
+	defaults now to :iso-latin-1-unix.
+	
+2004-11-26  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-cmucl.lisp (read-into-simple-string): Use #-cmu19 instead
+	of #+cmu18e.
+
 2004-11-25  Chris Capel <pdf23ds@gmail.com>
 
 	* slime.el (slime-indent-and-complete-symbol): Echo the arglist if
@@ -28,14 +61,14 @@
 	connection.  It's almost impossible to run the debugger inside the
 	control-thread, so let it crash instead.  A backtrace would be
 	nice, though.
-	(cleanup-connection-threads): Can know be called in the
+	(cleanup-connection-threads): Can now be called in the
 	control-thread.  Add a check to avoid thread suicide.
 	(start-swank-server-in-thread): Fix the call to start-server.
 
 	* swank-sbcl.lisp (%thread-state-slot, %thread-state): Refactored
 	from thread-status.
 	(thread-status): Use it.
-	(all-threads): Exclude return zombies.
+	(all-threads): Exclude zombies.
 
 2004-11-24  Helmut Eller  <heller@common-lisp.net>
 
