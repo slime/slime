@@ -616,7 +616,9 @@ EVAL'd by Lisp."
     (process-send-string slime-net-process (string-make-unibyte string))))
 
 (defun slime-net-sentinel (process message)
-  (message "wire sentinel: %s" message)
+  (message "Lisp connection closed: %s" message)
+  (setq slime-state-name "[not connected]")
+  (force-mode-line-update)
   (ignore-errors (kill-buffer (process-buffer slime-net-process))))
 
 (defun slime-net-filter (process string)
@@ -782,6 +784,43 @@ Return true if the event is recognised and handled."
   "Return STATE's event-handler function."
   (third state))
 
+(defun slime-state/event-panic (event)
+  "Signal the error that we received EVENT in a state that can't handle it.
+When this happens it is due to a bug in SLIME.
+
+The connection to Lisp is dropped, the user is presented with some
+debugging information, and an error is signaled."
+  (with-output-to-temp-buffer "*SLIME bug*"
+    (princ (format "\
+You have encountered a bug in SLIME.
+
+The communication state machine received an event that was illegal for
+its current state, which means that the communication between Emacs
+and Lisp has lost synchronization. The connection to Lisp has
+therefore been closed.
+
+You can open a fresh connection with `M-x slime'.
+
+Please report this problem to your friendly neighbourhood SLIME
+hacker, or the mailing list at slime-devel@common-lisp.net. Please
+include in your report:
+
+  A description of what you were doing when the problem occured,
+  the version of SLIME, Emacs, and Lisp that you are using,
+  the Lisp backtrace, if one was printed,
+  and the information printed below:
+
+The event was:
+%s
+
+The state stack was:
+%s"
+                   (pp-to-string event)
+                   (pp-to-string (mapcar 'slime-state-name
+                                         slime-state-stack)))))
+  (slime-disconnect)
+  (error "The SLIME protocol reached an inconsistent state."))
+
 
 ;;;;; Upper layer macros for defining states
 
@@ -799,9 +838,9 @@ The state's variables are moved into lexical bindings."
 	     ,@(if (member* '(activate) clauses :key #'car :test #'equal)
 		   '()
 		 '( ((activate) nil)) )
-	     (t (error "Can't handle event %S in state %S"
-		       ,event-var
-		       (slime-state-name (slime-current-state))))))))))
+	     (t
+              ;; Illegal event for current state. This is a BUG!
+              (slime-state/event-panic ,event-var))))))))
 
 (defmacro slime-defstate (name variables doc &rest events)
   "Define a state called NAME and comprised of VARIABLES.
