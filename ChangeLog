@@ -4,12 +4,12 @@
 	REPL input then take it and insert it as the current input.
 	Signal an error if the point is not on any input.
 	(slime-preserve-zmacs-region): Function to ensure that the current
-	command doesn't deactive zmacs-region (XEmacs only).
+	command doesn't deactivate zmacs-region (XEmacs only).
 	(slime-repl-bol, slime-repl-eol): Use it.
 	(slime-kill-all-buffers): Changed buffer-name regexps for XEmacs
 	compatibility. The ",quit" shortcut now works in XEmacs.
 	(slime-display-message): Fixed call to `slime-typeout-message'
-	handle formatting characters. Avoids errors on certain messages.
+	to handle formatting characters. Avoids errors on certain messages.
 	(slime-list-compiler-notes): Save the window configuration
 	earlier. This fixes an error under XEmacs when dismissing the
 	notes buffer.
