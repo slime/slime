@@ -1,3 +1,9 @@
+2004-07-01  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-lispworks.lisp (frame-actual-args): Bind
+	*break-on-signals* to nil and special case &rest, &optional, and
+	&key.
+
 2004-07-01  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (sldb-lookup-reference): Preserve case in SBCL node
@@ -22,7 +28,7 @@
 	* swank-lispworks.lisp (describe-symbol-for-emacs): Include
 	information about setf-functions.
 	(emacs-connected): Add a default method to
-	defenv-internals:environment-display-debugger.
+	env-internals:environment-display-debugger.
 
 2004-06-30  Luke Gorrie  <luke@bluetail.com>
 
