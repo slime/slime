@@ -108,11 +108,6 @@ Emacs Lisp package."))
   :prefix "slime-"
   :group 'slime)
 
-(defcustom slime-startup-animation t
-  "Enable the startup animation."
-  :type '(choice (const :tag "Enable" t) (const :tag "Disable" nil))
-  :group 'slime-ui)
-
 (defcustom slime-truncate-lines t
   "Set `truncate-lines' in popup buffers.
 This applies to buffers that present lines as rows of data, such as
@@ -2329,18 +2324,9 @@ Debugged requests are ignored."
                          (slime-pid)))
          ;; Emacs21 has the fancy persistent header-line.
          (use-header-p (and slime-header-line-p
-                            (boundp 'header-line-format)))
-         ;; and dancing text
-         (animantep (and (fboundp 'animate-string)
-                         slime-startup-animation
-                         (zerop (buffer-size)))))
+                            (boundp 'header-line-format))))
     (when use-header-p
       (setq header-line-format banner))
-    (when animantep
-      (pop-to-buffer (current-buffer))
-      (animate-string (format "; SLIME %s" (or (slime-changelog-date) 
-                                               "- ChangeLog file not found"))
-                      0 0))
     (slime-repl-insert-prompt (if use-header-p "" (concat "; " banner)))))
 
 (defun slime-changelog-date ()
@@ -4272,7 +4258,7 @@ currently looking at."
 functionality of `slime-insert-arglist'."
   (interactive)
   ;; Find the (possibly incomplete) form around point.
-  (let* ((start (save-excursion (backward-up-list) (point)))
+  (let* ((start (save-excursion (backward-up-list 1) (point)))
          (end (point)) ; or try to find end (tricky)?
          (form-string
           (concat (buffer-substring-no-properties start end) ")")))
