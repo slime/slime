@@ -2635,15 +2635,17 @@ NIL is returned if the list is circular."
             ("Dimensions" (array-dimensions array))
             ("Its element type is" (array-element-type array))
             ("Total size" (array-total-size array))
-            ("Fill pointer" (fill-pointer array))
             ("Adjustable" (adjustable-array-p array)))
+           (when (array-has-fill-pointer-p array)
+             `(("Fill pointer" (fill-pointer array))))
            '("Contents:" (:newline))
            (let ((darray (make-array (array-total-size array)
+                                     :element-type (array-element-type array)
                                      :displaced-to array
                                      :displaced-index-offset 0)))
              (loop for e across darray 
                    for i from 0
-                   collect (label-value-line i e))))))
+                   append (label-value-line i e))))))
 
 (defmethod inspect-for-emacs ((char character) (inspector t))
   (declare (ignore inspector))
@@ -2728,6 +2730,8 @@ NIL is returned if the list is circular."
           `("Name: " (:value ,(function-name f)) (:newline)
             "Its argument list is: " ,(inspector-princ (arglist f))
             (:newline)
+            ,@(when (function-lambda-expression f)
+                `("Lambda Expression: " (:value ,(function-lambda-expression f)) (:newline)))
             ,@(when (documentation f t)
                 `("Documentation:" (:newline) ,(documentation f t) (:newline))))))
 
@@ -2778,13 +2782,74 @@ NIL is returned if the list is circular."
                                                     (swank-mop:slot-definition-name slot)))
                                              direct-slots)
                                     slot)
-                 collect `(:value ,slot-def ,(inspector-princ (swank-mop:slot-definition-name slot-def)))                   
+                 collect `(:value ,slot-def ,(inspector-princ (swank-mop:slot-definition-name slot-def)))
                  collect " = "
                  if (slot-boundp o (swank-mop:slot-definition-name slot-def))
                    collect `(:value ,(slot-value o (swank-mop:slot-definition-name slot-def)))
                  else
                    collect "#<unbound>"
                  collect '(:newline)))))
+
+(defvar *gf-method-getter* 'methods-by-applicability
+  "This function is called to get the methods of a generic function.
+The default returns the method sorted by applicability.
+See `methods-by-applicability'.")
+
+;;; Largely inspired by (+ copied from) the McCLIM listener
+(defun methods-by-applicability (gf)
+  "Return methods ordered by qualifiers, then by most specific argument types.
+
+Qualifier ordering is: :before, :around, primary, and :after.
+We use the length of the class precedence list to determine which type is
+more specific."
+  ;;FIXME: How to deal with argument-precedence-order?
+  (let ((methods (copy-list (swank-mop:generic-function-methods gf))))
+    ;; sorter function (most specific is defined as smaller)
+    (flet ((method< (meth1 meth2)
+             ;; First ordering rule is by qualifiers, that is :before-methods
+             ;; come before :around methods, before primary methods, before
+             ;; :after methods, other qualifiers are treated like none at all
+             ;; (so like primary methods)
+             (let ((qualifier-order '(:before :around nil :after)))
+               (let ((q1 (or (position (first (swank-mop:method-qualifiers meth1)) qualifier-order) 2))
+                     (q2 (or (position (first (swank-mop:method-qualifiers meth2)) qualifier-order) 2)))
+                 (cond ((< q1 q2) (return-from method< t))
+                       ((> q1 q2) (return-from method< nil)))))
+             ;; If qualifiers are equal, go by arguments
+             (loop for sp1 in (swank-mop:method-specializers meth1)
+                   for sp2 in (swank-mop:method-specializers meth2)
+                   do (cond
+                        ((eq sp1 sp2)) ;; continue comparision
+                        ;; an eql specializer is most specific
+                        ((typep sp1 'swank-mop:eql-specializer)
+                         (return-from method< t))
+                        ((typep sp2 'swank-mop:eql-specializer)
+                         (return-from method< nil))
+                        ;; otherwise the longer the CPL the more specific
+                        ;; the specializer is
+                        ;; FIXME: Taking the CPL as indicator has the problem
+                        ;; that unfinalized classes are most specific. Can we pick
+                        ;; a reasonable default or do something with SUBTYPEP ?
+                        (t (let ((l1 (if (swank-mop:class-finalized-p sp1)
+                                         (length (swank-mop:class-precedence-list sp1))
+                                         0))
+                                 (l2 (if (swank-mop:class-finalized-p sp2)
+                                         (length (swank-mop:class-precedence-list sp2))
+                                         0)))
+                             (cond
+                               ((> l1 l2)
+                                (return-from method< t))
+                               ((< l1 l2)
+                                (return-from method< nil))))))
+                   finally (return nil))))
+      (declare (dynamic-extent #'method<))
+      (sort methods #'method<))))
+
+(defun abbrev-doc (doc &optional (maxlen 80))
+  "Return the first sentence of DOC, but not more than MAXLAN characters."
+  (subseq doc 0 (min (1+ (or (position #\. doc) (1- maxlen)))
+                         maxlen
+                         (length doc))))
 
 (defmethod inspect-for-emacs ((gf standard-generic-function) (inspector t))
   (declare (ignore inspector))
@@ -2797,13 +2862,17 @@ NIL is returned if the list is circular."
             "It uses " (:value ,(swank-mop:generic-function-method-combination gf)) " method combination." (:newline)
             "Methods: " (:newline)
             ,@(loop
-                 for method in (swank-mop:generic-function-methods gf)
+                 for method in (funcall *gf-method-getter* gf)
                  collect `(:value ,method ,(inspector-princ
                                             ;; drop the first element (the name of the generic function)
                                             (cdr (method-for-inspect-value method))))
                  collect " "
                  collect (let ((meth method))
                            `(:action "[remove method]" ,(lambda () (remove-method gf meth))))
+                 collect '(:newline)
+                 if (documentation method t)
+                 collect "  Documentation: " and
+                 collect (abbrev-doc (documentation method t)) and
                  collect '(:newline)))))
 
 (defmethod inspect-for-emacs ((method standard-method) (inspector t))
@@ -2827,41 +2896,56 @@ NIL is returned if the list is circular."
 
 (defmethod inspect-for-emacs ((class standard-class) (inspector t))
   (declare (ignore inspector))
-  (values "A stadard class."
+  (values "A class."
           `("Name: " (:value ,(class-name class))
             (:newline)
-            "Super classes: " ,@(common-seperated-spec (swank-mop:class-direct-superclasses class))
+            "Super classes: "
+            ,@(common-seperated-spec (swank-mop:class-direct-superclasses class))
             (:newline)
-            "Direct Slots: " ,@(common-seperated-spec (swank-mop:class-direct-slots class)
-                                                      (lambda (slot)
-                                                        `(:value ,slot ,(inspector-princ
-                                                                         (swank-mop:slot-definition-name slot)))))
+            "Direct Slots: "
+            ,@(common-seperated-spec
+               (swank-mop:class-direct-slots class)
+               (lambda (slot)
+                 `(:value ,slot ,(inspector-princ (swank-mop:slot-definition-name slot)))))
             (:newline)
-            "Effective Slots: " ,@(if (swank-mop:class-finalized-p class)
-                                      (common-seperated-spec (swank-mop:class-slots class)
-                                                             (lambda (slot)
-                                                               `(:value ,slot ,(inspector-princ
-                                                                                (swank-mop:slot-definition-name slot)))))
-                                      '("#<N/A (class not finalized)>"))
+            "Effective Slots: "
+            ,@(if (swank-mop:class-finalized-p class)
+                  (common-seperated-spec
+                   (swank-mop:class-slots class)
+                   (lambda (slot)
+                     `(:value ,slot ,(inspector-princ
+                                      (swank-mop:slot-definition-name slot)))))
+                  '("#<N/A (class not finalized)>"))
             (:newline)
             ,@(when (documentation class t)
-                `("Documentation:" (:newline)
-                  ,(documentation class t) (:newline)))
-            "Sub classes: " ,@(common-seperated-spec (swank-mop:class-direct-subclasses class)
-                                                     (lambda (sub)
-                                                       `(:value ,sub ,(inspector-princ (class-name sub)))))
+                `("Documentation:" (:newline) ,(documentation class t) (:newline)))
+            "Sub classes: "
+            ,@(common-seperated-spec (swank-mop:class-direct-subclasses class)
+                                     (lambda (sub)
+                                       `(:value ,sub ,(inspector-princ (class-name sub)))))
             (:newline)
-            "Precedence List: " ,@(if (swank-mop:class-finalized-p class)
-                                      (common-seperated-spec (swank-mop:class-precedence-list class)
-                                                             (lambda (class)
-                                                               `(:value ,class ,(inspector-princ (class-name class)))))
-                                      '("#<N/A (class not finalized)>"))
+            "Precedence List: "
+            ,@(if (swank-mop:class-finalized-p class)
+                  (common-seperated-spec (swank-mop:class-precedence-list class)
+                                         (lambda (class)
+                                           `(:value ,class ,(inspector-princ (class-name class)))))
+                  '("#<N/A (class not finalized)>"))
             (:newline)
             ,@(when (swank-mop:specializer-direct-methods class)
                `("It is used as a direct specializer in the following methods:" (:newline)
                  ,@(loop
-                      for method in (swank-mop:specializer-direct-methods class)
+                      for method in (sort (copy-list (swank-mop:specializer-direct-methods class))
+                                          #'string< :key (lambda (x)
+                                                           (symbol-name
+                                                            (let ((name (swank-mop::generic-function-name
+                                                                         (swank-mop::method-generic-function x))))
+                                                              (if (symbolp name) name (second name))))))
+                      collect "  "
                       collect `(:value ,method ,(inspector-princ (method-for-inspect-value method)))
+                      collect '(:newline)
+                      if (documentation method t)
+                      collect "    Documentation: " and
+                      collect (abbrev-doc (documentation method t)) and
                       collect '(:newline))))
             "Prototype: " ,(if (swank-mop:class-finalized-p class)
                                `(:value ,(swank-mop:class-prototype class))
