@@ -1,3 +1,40 @@
+2004-11-19  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-net-coding-system): New variable.  Specifies the
+	coding system to use for network communication.  The default is
+	iso-latin-1 and should work for all Lisps.  Only a small set of
+	coding systems is currently supported.
+	(slime-net-valid-coding-systems): New variable.  A list of coding
+	systems which may be used.
+	(slime-check-coding-system, slime-coding-system-mulibyte-p)
+	(slime-coding-system-cl-name): New utility function for coding
+	systems.
+	(slime-net-connect, slime-make-net-buffer,
+	slime-open-stream-to-lisp): Use it.
+	(slime-net-decode-length, slime-net-encode-length): Renamed from
+	slime-net-read3 and slime-net-enc3.  The length is now encoded as
+	a 6 char hex string.
+
+	* swank.lisp (*coding-system*): New variable.
+	(start-server): Accept external-format as argument.
+	(create-server, create-swank-server, setup-server)
+	(serve-connection, open-dedicated-output-stream)
+	(create-connection): Ditto.
+	(defstruct connection): Add external-format slot.
+	(decode-message-length): New function for new length encoding.
+	(decode-message): Use it.
+	(encode-message): Use new encoding.
+
+	* swank-cmucl.lisp (accept-connection): Accept external-format
+	argument.
+	(inspect-for-emacs): Add CMUCL specific versions for array and
+	vectors.
+
+	* swank-sbcl.lisp, swank-openmcl.lisp, swank-lispworks.lisp,
+	swank-clisp.lisp, swank-backend.lisp, swank-allegro.lisp,
+	swank-abcl.lisp (accept-connection): Accept :external-format as
+	argument.
+
 2004-11-19  Matthew Danish <mrd+nospam@cmu.edu>
 	
 	* swank-allegro.lisp: (count-cr): New function. Convert
