@@ -123,6 +123,12 @@ See also `slime-translate-to-lisp-filename-function'.")
 (defvar slime-reply-update-banner-p t
   "Whether Slime should keep a repl banner updated or not.")
 
+(defvar slime-edit-definition-fallback-function nil
+  "Function to call when edit-definition fails to find the source itself.
+The function is called with the definition name, a string, as its argument.
+
+If you want to fallback on TAGS you can set this to `find-tag'.")
+
 
 ;;; Customize group
 
@@ -3741,18 +3747,20 @@ function name is prompted."
   (interactive (list (slime-read-symbol-name "Symbol: ")))
   (let ((definitions (slime-eval `(swank:find-definitions-for-emacs ,name)
                                  (slime-buffer-package))))
-    (when (null definitions)
-      (error "No known definition for: %s" name))
-    (slime-push-definition-stack)
-    (cond ((slime-length> definitions 1)
-           (slime-show-definitions name definitions))
-          (t
-           (slime-goto-source-location (slime-definition.location
-                                        (car definitions)))
-           (cond ((not other-window)
-                  (switch-to-buffer (current-buffer)))
-                 (t
-                  (switch-to-buffer-other-window (current-buffer))))))))
+    (if (null definitions)
+        (if slime-edit-definition-fallback-function
+            (funcall slime-edit-definition-fallback-function name)
+          (error "No known definition for: %s" name))
+      (slime-push-definition-stack)
+      (cond ((slime-length> definitions 1)
+             (slime-show-definitions name definitions))
+            (t
+             (slime-goto-source-location (slime-definition.location
+                                          (car definitions)))
+             (cond ((not other-window)
+                    (switch-to-buffer (current-buffer)))
+                   (t
+                    (switch-to-buffer-other-window (current-buffer)))))))))
 
 (defun slime-edit-definition-other-window (name)
   "Like `slime-edit-definition' but switch to the other window."
