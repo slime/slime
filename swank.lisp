@@ -108,11 +108,16 @@
 (defvar *slime-output* nil
   "Bound to a slime-output-stream during request processing.")
 
-(defun create-swank-server (port &key reuse-address)
+(defun create-swank-server (port &key reuse-address (address "localhost"))
   "Create a SWANK TCP server."
-  (system:add-fd-handler
-   (ext:create-inet-listener port :stream :reuse-address reuse-address)
-   :input #'accept-connection))
+  (let* ((hostent (ext:lookup-host-entry address))
+         (address (car (ext:host-entry-addr-list hostent)))
+         (ip (ext:htonl address)))
+    (system:add-fd-handler
+     (ext:create-inet-listener port :stream
+                               :reuse-address reuse-address
+                               :host ip)
+     :input #'accept-connection)))
 
 (defun accept-connection (socket)
   "Accept a SWANK TCP connection on SOCKET."
