@@ -1,7 +1,7 @@
 2004-10-19  Luke Gorrie  <luke@synap.se>
 
-	* slime.el (slime-show-source-location): Call `set-mark-command'
-	to push the source position onto the global mark ring.
+	* slime.el (slime-show-source-location): Call `push-mark' to push
+	the source position onto the global mark ring.
 
 2004-10-19  Helmut Eller  <heller@common-lisp.net>
 
