@@ -157,11 +157,12 @@ condition."
            :location
            (let ((position (condition-source-position condition)))
              (if *buffer-name*
-                 (list :emacs-buffer *buffer-name* position t)
-                 (list :file
-                       (ccl::compiler-warning-file-name condition)
-                       position
-                       t))))))
+                 (make-location
+                  (list :buffer *buffer-name*)
+                  (list :position position t))
+                 (make-location
+                  (list :file (ccl::compiler-warning-file-name condition))
+                  (list :position position t)))))))
 
 (defun temp-file-name ()
   "Return a temporary file name to compile strings into."
@@ -324,9 +325,12 @@ named SYMBOL."
   (let ((source-info (ccl::%source-files symbol)))
     ;; This is not entirely correct---%SOURCE-FILES can apparently
     ;; return a list under some circumstances...
-    (when (and source-info (atom source-info))
-      (let ((filename (namestring (truename source-info))))
-        (list :openmcl filename (symbol-name symbol))))))
+    (cond ((and source-info (atom source-info))
+           (let ((filename (namestring (truename source-info))))
+             (make-location
+              (list :file filename)
+              (list :function-name (symbol-name symbol)))))
+          (t (list :error (format nil "No source infor for ~S"  symbol))))))
 
 (defmethod frame-source-location-for-emacs (index)
   "Return to Emacs the location of the source code for the
@@ -410,6 +414,9 @@ at least the filename containing it."
 precise location of the definition is not available, but we are
 able to return the file name in which the definition occurs."
   (function-source-location (from-string fname)))
+
+(defslimefun find-function-locations (fname)
+  (list (function-source-location-for-emacs fname)))
 
 ;;; Macroexpansion
 

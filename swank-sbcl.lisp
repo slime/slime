@@ -188,18 +188,19 @@ information."
   "Determine from CONTEXT the current compiler source location."
   (let* ((file-name (sb-c::compiler-error-context-file-name context))
          (file-pos (sb-c::compiler-error-context-file-position context))
-         (file (if (typep file-name 'pathname)
-                   (namestring file-name)
-                   file-name)))
-    (list :sbcl
-          :buffername    (if (boundp '*buffername*) *buffername*)
-          :buffer-offset (if (boundp '*buffer-offset*) *buffer-offset*)
-          :position      file-pos
-          :filename      (etypecase file
-                           (symbol file)
-                           ((or string pathname)
-                            (namestring (truename file))))
-          :source-path   (current-compiler-error-source-path context))))
+         (source-path (current-compiler-error-source-path context)))
+    (cond ((and (boundp '*buffername*) *buffername*)
+           ;; account for the added lambda, replace leading
+           ;; position with 0
+           (make-location 
+            (list :buffer *buffername*)
+            (list :source-path (cons 0 (cddr source-path)) *buffer-offset*)))
+          (t
+           (etypecase file-name
+             (pathname
+              (make-location 
+               (list :file (namestring (truename file-name)))
+               (list :source-path source-path file-pos))))))))
 
 (defun brief-compiler-message-for-emacs (condition error-context)
   "Briefly describe a compiler error for Emacs.
@@ -240,20 +241,12 @@ compiler state."
 
 (defmethod compile-string-for-emacs (string &key buffer position)
   (with-compilation-hooks ()
-    (let ((*package* *buffer-package*))
-      (prog1
-          (eval (from-string
-                 (format nil "(funcall (compile nil '(lambda () ~A)))"
-                         string)))
-        (loop for n  in *compiler-notes*
-              for loc = (getf n :location)
-              for (_ . l) = loc
-              for sp = (getf l :source-path)
-              ;; account for the added lambda, replace leading
-              ;; position with 0
-              do (setf (getf l :source-path) (cons 0 (cddr sp))
-                       (getf l :buffername) buffer 
-                       (getf l :buffer-offset) position))))))
+    (let ((*package* *buffer-package*)
+          (*buffername* buffer)
+          (*buffer-offset* position))
+      (eval (from-string
+             (format nil "(funcall (compile nil '(lambda () ~A)))"
+                     string))))))
 
 ;;;; xref stuff doesn't exist for sbcl yet
 
@@ -284,15 +277,23 @@ This is useful when debugging the definition-finding code.")
   "Try to find the canonical source location of FUNCTION."
   (let* ((def (sb-introspect:find-definition-source function))
          (pathname (sb-introspect:definition-source-pathname def))
-         (path (sb-introspect:definition-source-form-path def)))
-    (list :sbcl 
-          :filename (and pathname (namestring (truename pathname)))
-          :position (sb-introspect:definition-source-character-offset def)
-          :path path
-          ;; source-paths depend on the file having been compiled with
-          ;; lotsa debugging.  If not present, return the function name 
-          ;; for emacs to attempt to find with a regex
-          :function-name (unless path fname))))
+         (path (sb-introspect:definition-source-form-path def))
+         (position (sb-introspect:definition-source-character-offset def)))
+    (unless pathname
+      (return-from function-source-location
+        (list :error (format nil "No filename for: ~S" fname))))
+    (multiple-value-bind (truename condition) 
+        (ignore-errors (truename pathname))
+      (when condition 
+        (return-from function-source-location
+          (list :error (format nil "~A" condition))))
+      (make-location
+       (list :file (namestring truename))
+       ;; source-paths depend on the file having been compiled with
+       ;; lotsa debugging.  If not present, return the function name 
+       ;; for emacs to attempt to find with a regex
+       (cond (path (list :source-path path position))
+             (t (list :function-name fname)))))))
                                 
 (defmethod function-source-location-for-emacs (fname-string)
   "Return the source-location of FNAME's definition."
@@ -314,7 +315,11 @@ This is useful when debugging the definition-finding code.")
       (if *debug-definition-finding*
           (finder fname)
           (handler-case (finder fname)
-            (error (e) (list :error (format nil "Error: ~A" e))))))))
+            (error (e) 
+              (list :error (format nil "Error: ~A" e))))))))
+
+(defslimefun find-function-locations (name)
+  (list (function-source-location-for-emacs name)))
 
 (defmethod describe-symbol-for-emacs (symbol)
   "Return a plist describing SYMBOL.
@@ -390,7 +395,8 @@ Return NIL if the symbol is unbound."
 	 (*debugger-hook* nil)
 	 (*readtable* (or sb-debug:*debug-readtable* *readtable*))
 	 (*print-level* nil #+nil sb-debug:*debug-print-level*)
-	 (*print-length* nil #+nil sb-debug:*debug-print-length*))
+	 (*print-length* nil #+nil sb-debug:*debug-print-length*)
+         (*print-readably* nil))
     (handler-bind ((sb-di:debug-condition 
 		    (lambda (condition)
                       (signal (make-condition
@@ -421,7 +427,7 @@ format suitable for Emacs."
 (defun format-frame-for-emacs (frame)
   (list (sb-di:frame-number frame)
 	(with-output-to-string (*standard-output*) 
-          (let ((*print-pretty* nil))
+          (let ((*print-pretty* *sldb-pprint-frames*))
             (sb-debug::print-frame-call frame :verbosity 1 :number t)))))
 
 (defun compute-backtrace (start end)
@@ -478,25 +484,24 @@ stack."
   (let* ((debug-source (sb-di:code-location-debug-source code-location))
 	 (from (sb-di:debug-source-from debug-source))
 	 (name (sb-di:debug-source-name debug-source)))
-    (list
-     :sbcl
-     :from from
-     :filename (if (eq from :file)
-		   (namestring (truename name)))
-     :position (if (eq from :file)
-		   (code-location-file-position code-location))
-     :info (and (debug-source-info-from-emacs-buffer-p debug-source)
-		(sb-c::debug-source-info debug-source))
-     :path (code-location-source-path code-location)
-     :source-form
-     (unless (or (eq from :file)
-		 (debug-source-info-from-emacs-buffer-p debug-source))
-	 (with-output-to-string (*standard-output*)
-	   (sb-debug::print-code-location-source-form  code-location 100))))))
+    (ecase from
+      (:file 
+       ;; XXX: code-location-source-path reads the source !!
+       (let ((source-path (code-location-source-path code-location))
+             (position (code-location-file-position code-location)))
+         (make-location 
+          (list :file (namestring (truename name)))
+          (list :source-path source-path position))))
+      (:lisp
+       (make-location
+        (list :source-form (with-output-to-string (*standard-output*)
+                             (sb-debug::print-code-location-source-form
+                              code-location 100)))
+        (list :position 0))))))
 
 (defun safe-source-location-for-emacs (code-location)
   (handler-case (source-location-for-emacs code-location)
-    (t (c) (list :error (princ-to-string c)))))
+    (t (c) (list :error (format nil "~A" c)))))
 
 (defmethod frame-source-location-for-emacs (index)
   (safe-source-location-for-emacs 
