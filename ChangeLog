@@ -1,6 +1,7 @@
 2004-08-05  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-setup): Added typeout-frame keyword argument.
+	(slime-thread-attach): Fixed misnamed function call.
 
 2004-08-04  Luke Gorrie  <luke@bluetail.com>
 
