@@ -286,7 +286,6 @@ A prefix argument disables this behaviour."
       (insert ")")))
   (comint-send-input))
 
-
 
 ;;;;; Key bindings
 
@@ -1213,7 +1212,7 @@ Loops until the result is thrown to our caller, or the user aborts."
     (with-current-buffer (slime-output-buffer)
       (goto-char (point-max))
       (slime-repl-maybe-insert-output-separator)
-      (slime-insert-propertized '(face slime-output-face)
+      (slime-insert-propertized '(face slime-repl-output-face)
                                 string))))
 ;;      (insert string))))
 
