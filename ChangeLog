@@ -97,7 +97,7 @@
 	(function-name): New backend function.
 	
 	* swank-allegro.lisp (swank-mop, slot-definition-documentation):
-	Implement.
+	Implement. (Patch from Thomas Schilling)
 
 	* swank-sbcl.lisp (swank-mop, slot-definition-documentation,
 	function-name): Implement.
