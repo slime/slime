@@ -2188,7 +2188,7 @@ Debugged requests are ignored."
       ;;
       ((:emacs-rex form package thread continuation)
        (slime-set-state "|eval...")
-       (when (and (slime-rex-continuations) (slime-use-sigint-for-interrupt))
+       (when (and (slime-use-sigint-for-interrupt) (slime-busy-p))
          (message "; pipelined request... %S" form))
        (let ((id (incf (slime-continuation-counter))))
          (push (cons id continuation) (slime-rex-continuations))
