@@ -1321,6 +1321,7 @@ Record compiler notes signalled as `compiler-condition's."
                        (make-pathname :defaults defaults
                                       :version :newest
                                       :type "asd"
+                                      :name :wild
                                       :case :local)))))
 
 ;;;; Macroexpansion
