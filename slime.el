@@ -189,6 +189,11 @@ See also `slime-translate-to-lisp-filename-function'.")
   "Face for previous input in the SLIME REPL."
   :group 'slime)
 
+(defface slime-repl-result-face
+  '((t ()))
+  "Face for the result of an evaluation in the SLIME REPL."
+  :group 'slime)
+
 ;; inspector
 ;; Try  '(slime-inspector-label-face ((t (:weight bold))))
 ;;      '(slime-inspector-topline-face ((t (:foreground "brown" :weight bold :height 1.2))))
@@ -1954,7 +1959,7 @@ end end."
   (goto-char (point-max))
   (let ((start (point)))
     (unless (bolp) (insert "\n"))
-    (insert result)
+    (slime-insert-propertized '(face slime-repl-result-face) result)
     (unless (bolp) (insert "\n"))
     (let ((prompt-start (point)))
       (slime-propertize-region
@@ -3638,7 +3643,14 @@ function name is prompted."
   "*When non-nil, `slime-ed' will create and reuse a dedicated frame.")
 
 (defun slime-ed (what)
-  "Edit WHAT, either a filename (string) or function name (symbol), or nil.
+  "Edit WHAT.
+
+WHAT can be:
+  A filename (string),
+  A list (FILENAME LINE [COLUMN]),
+  A function name (symbol),
+  nil.
+
 This for use in the implementation of COMMON-LISP:ED."
   ;; Without `save-excursion' very strange things happen if you call
   ;; (swank:ed-in-emacs X) from the REPL. -luke (18/Jan/2004)
@@ -3649,6 +3661,16 @@ This for use in the implementation of COMMON-LISP:ED."
       (select-frame slime-ed-frame))
     (cond ((stringp what)
            (find-file (slime-from-lisp-filename what)))
+          ((listp what) 
+           (find-file (first what))
+           (goto-line (second what))
+           ;; Find the correct column, without going past the end of
+           ;; the line.
+           (let ((col (third what)))
+             (while (and col
+                         (< (point) (point-at-eol))
+                         (/= (decf col) -1))
+               (forward-char 1))))
           ((and what (symbolp what))
            (slime-edit-definition (symbol-name what)))
           (t nil))))                    ; nothing in particular
@@ -5186,7 +5208,8 @@ Optionally set point to POINT."
   ("n" 'slime-inspector-next)
   (" " 'slime-inspector-next)
   ("d" 'slime-inspector-describe)
-  ("q" 'slime-inspector-quit))
+  ("q" 'slime-inspector-quit)
+  ("\M-." 'slime-edit-definition))
 
 
 ;;; Buffer selector
@@ -5732,7 +5755,10 @@ Confirm that SUBFORM is correctly located."
       ("(defun cl-user::foo () 
            (list `(1 ,(random 10) 2 ,@(random 10) 3 ,(cl-user::bar))))"
        (cl-user::bar))
-      )
+      ("(defun cl-user::foo ()
+          \"\\\" bla bla \\\"\"
+          (cl-user::bar))"
+       (cl-user::bar)))
   (slime-check-top-level)
   (with-temp-buffer 
     (lisp-mode)
