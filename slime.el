@@ -117,56 +117,76 @@ This is used for batch-mode testing.")
   :prefix "slime-"
   :group 'applications)
 
+;; XEmacs wants underline to be a boolean.
+(defun slime-underline-color (underline)
+  (cond ((featurep 'xemacs) (if underline t nil))
+        (t underline)))
+    
 (defface slime-error-face
-  '((((class color) (background light))
-     (:underline "red"))
+  `((((class color) (background light))
+     (:underline ,(slime-underline-color "red")))
     (((class color) (background dark))
-     (:underline "red"))
+     (:underline ,(slime-underline-color "red")))
     (t (:underline t)))
   "Face for errors from the compiler."
   :group 'slime)
 
 (defface slime-warning-face
-  '((((class color) (background light))
-     (:underline "orange"))
+  `((((class color) (background light))
+     (:underline ,(slime-underline-color "orange")))
     (((class color) (background dark))
-     (:underline "coral"))
+     (:underline ,(slime-underline-color "coral")))
     (t (:underline t)))
   "Face for warnings from the compiler."
   :group 'slime)
 
 (defface slime-style-warning-face
-  '((((class color) (background light))
-     (:underline "brown"))
+  `((((class color) (background light))
+     (:underline ,(slime-underline-color "brown")))
     (((class color) (background dark))
-     (:underline "gold"))
+     (:underline ,(slime-underline-color "gold")))
     (t (:underline t)))
   "Face for style-warnings from the compiler."
   :group 'slime)
 
 (defface slime-note-face
-  '((((class color) (background light))
-     (:underline "brown4"))
+  `((((class color) (background light))
+     (:underline ,(slime-underline-color "brown4")))
     (((class color) (background dark))
-     (:underline "light goldenrod"))
+     (:underline ,(slime-underline-color "light goldenrod")))
     (t (:underline t)))
   "Face for notes from the compiler."
   :group 'slime)
 
+;; XEmacs and Emacs20 don't support the :inherit attribute in defface.
+;; We copy the most important attributes manually.
+
+(defun slime-color-name (color)
+  (cond ((featurep 'xemacs) (color-name color))
+        (t color)))
+
+(defun slime-face-bold-p (face)
+  (cond ((featurep 'xemacs) (custom-face-bold face))
+        (t (face-bold-p face))))
+
+(defun slime-face-attributes (face)
+  (list :foreground (slime-color-name (face-foreground face))
+        :background (slime-color-name (face-background face))
+        :underline (face-underline-p face)
+        :bold (slime-face-bold-p face)))
+        
 (defface slime-highlight-face
-  '((t
-     (:inherit highlight)
-     (:underline nil)))
+  `((t ,(slime-face-attributes 'highlight)))
   "Face for compiler notes while selected."
   :group 'slime)
 
 (defface slime-repl-output-face
-  '((t (:inherit font-lock-string-face)))
+  `((t ,(slime-face-attributes 'font-lock-string-face)))
   "Face for Lisp output in the SLIME REPL."
   :group 'slime)
 
 (defface slime-repl-input-face
-  '((t (:inherit bold)))
+  `((t ,(slime-face-attributes 'bold)))
   "Face for previous input in the SLIME REPL."
   :group 'slime)
 
@@ -326,6 +346,8 @@ A prefix argument disables this behaviour."
     (":" slime-interactive-eval :prefixed t :sldb t)
     ("\C-z" slime-switch-to-output-buffer :prefixed t :sldb t)
     ("\C-g" slime-interrupt :prefixed t :inferior t :sldb t)
+    ;; NB: XEmacs dosn't like \C-g.  Use \C-b as "break" key.
+    ("\C-b" slime-interrupt :prefixed t :inferior t :sldb t)
     ("\M-g" slime-quit :prefixed t :inferior t :sldb t)
     ;; Documentation
     (" " slime-space :inferior t)
@@ -491,49 +513,34 @@ Like `display-buffer', but ignores `same-window-buffer-names'."
                            (window-height previous)))))
     (split-window previous)))
   
-(defun slime-display-message-or-view (msg bufname &optional select)
-  "Like `display-buffer-or-message', but with `view-buffer-other-window'.
-That is, if a buffer pops up it will be in view mode, and pressing q
-will get rid of it.
-
-Only uses the echo area for single-line messages - or more accurately,
-messages without embedded newlines. They may still need to wrap or
-truncate to fit on the screen."
-  (when (get-buffer-window bufname) (delete-windows-on bufname))
-  (if (or (string-match "\n.*[^\\s-]" msg)
-          (> (length msg) (1- (frame-width))))
-      ;; Contains a newline with actual text after it, so display as a
-      ;; buffer
-      (with-current-buffer (get-buffer-create bufname)
-	(setq buffer-read-only t)
-	(let ((inhibit-read-only t))
-	  (erase-buffer)
-	  (insert msg)
-	  (goto-char (point-min))
-          (let ((win (slime-create-message-window)))
-            (set-window-buffer win (current-buffer))
-            (slime-display-buffer-region (current-buffer) 
-                                         (point-min) (point-max))
-            (if select
-                (select-window win)
-              (add-hook (make-local-variable 'pre-command-hook)
-                        'slime-remove-message-window)))))
-    ;; Print only the part before the newline (if there is
-    ;; one). Newlines in messages are displayed as "^J" in emacs20,
-    ;; which is ugly
-    (string-match "^[^\r\n]*" msg)
-    (message "%s" (match-string 0 msg))))
-
-(defun slime-remove-message-window ()
-  (remove-hook 'pre-command-hook 'slime-remove-message-window)
-  (delete-windows-on "*SLIME Note*"))
+(defun slime-display-message (message buffer-name) 
+  "Display MESSAGE in the echo area or in BUFFER-NAME.  Use the echo
+area if MESSAGE needs only a single line.  If the MESSAGE requires
+more than one line display it in BUFFER-NAME and add a hook to
+`slime-pre-command-actions' to remove the window before the next
+command."
+  (when (get-buffer-window buffer-name) (delete-windows-on buffer-name))
+  (cond ((or (string-match "\n" message)
+             (> (length message) (1- (frame-width))))
+         (lexical-let ((buffer (get-buffer-create buffer-name)))
+           (with-current-buffer buffer
+             (erase-buffer)
+             (insert message)
+             (goto-char (point-min))
+             (let ((win (slime-create-message-window)))
+               (set-window-buffer win (current-buffer))
+               (shrink-window-if-larger-than-buffer
+                (display-buffer (current-buffer)))))
+           (push (lambda () (delete-windows-on buffer) (bury-buffer buffer))
+                 slime-pre-command-actions)))
+        (t (message "%s" message))))
 
 ;; defun slime-message
 (if (or (featurep 'xemacs)
 	(= emacs-major-version 20))
     ;; XEmacs truncates multi-line messages in the echo area.
     (defun slime-message (fmt &rest args)
-      (slime-display-message-or-view (apply #'format fmt args) "*SLIME Note*"))
+      (slime-display-message (apply #'format fmt args) "*SLIME Note*"))
   (defun slime-message (fmt &rest args)
     (apply 'message fmt args)))
 
@@ -719,6 +726,7 @@ Polling %S.. (Abort with `M-x slime-disconnect'.)"
   "Disconnect from the Swank server."
   (interactive)
   (cond ((slime-connected-p)
+         (kill-buffer (process-buffer slime-net-process))
          (delete-process slime-net-process)
          (message "Disconnected."))
         (slime-startup-retry-timer
@@ -729,8 +737,7 @@ Polling %S.. (Abort with `M-x slime-disconnect'.)"
 
 (defun slime-init-connection ()
   (slime-init-dispatcher)
-  (setq slime-pid (slime-eval '(swank:getpid)))
-  (slime-repl))
+  (setq slime-pid (slime-eval '(swank:getpid))))
 
 (defvar slime-words-of-encouragement
   '("Let the hacking commence!"
@@ -755,7 +762,7 @@ Polling %S.. (Abort with `M-x slime-disconnect'.)"
   "Establish a connection with a CL."
   (setq slime-net-process
         (open-network-stream "SLIME Lisp" nil host port))
-  (let ((buffer (slime-make-net-buffer "*cl-connection*")))
+  (let ((buffer (slime-make-net-buffer " *cl-connection*")))
     (set-process-buffer slime-net-process buffer)
     (set-process-filter slime-net-process 'slime-net-filter)
     (set-process-sentinel slime-net-process 'slime-net-sentinel)
@@ -1149,6 +1156,12 @@ Lisp waits for input from Emacs."
    (slime-repl-read-string))
   ((:emacs-return-string code)
    (slime-net-send `(swank:take-input ,tag ,code))
+   (slime-pop-state))
+  ((:emacs-evaluate form-string package-name continuation)
+   (slime-output-evaluate-request form-string package-name)
+   (slime-push-state (slime-evaluating-state continuation)))
+  ((:read-aborted)
+   (slime-repl-abort-read)
    (slime-pop-state)))
 
 
@@ -1271,11 +1284,10 @@ Loops until the result is thrown to our caller, or the user aborts."
 
 (defun slime-show-last-output ()
   (with-current-buffer (slime-output-buffer)
-    (let ((output-start slime-last-output-start)
-	  (prompt-start slime-repl-prompt-start-mark))
-      (when (< output-start prompt-start)
-	(slime-display-buffer-region 
-         (current-buffer) output-start prompt-start)))))
+    (let ((start slime-last-output-start)
+	  (end slime-repl-prompt-start-mark))
+      (when (< start end)
+	(slime-display-buffer-region (current-buffer) start end)))))
 
 (defun slime-output-string (string)
   (unless (zerop (length string))
@@ -1510,10 +1522,14 @@ earlier in the buffer."
   (" "    'slime-space))
 
 (define-minor-mode slime-repl-read-mode 
-  "Mode the read input from Emacs"
+  "Mode the read input from Emacs
+\\{slime-repl-read-mode-map}"
   nil
   nil
-  '(("\C-m" . slime-repl-return)))
+  '(("\C-m" . slime-repl-return)
+    ("\C-c\C-b" . slime-repl-read-break)
+    ("\C-c\C-c" . slime-repl-read-break)
+    ("\C-c\C-g" . slime-repl-read-break)))
 
 (add-to-list 'minor-mode-alist '(slime-repl-read-mode "[read]"))
 
@@ -1526,6 +1542,16 @@ earlier in the buffer."
 (defun slime-repl-return-string (string)
   (slime-dispatch-event `(:emacs-return-string ,string))
   (slime-repl-read-mode nil))
+
+(defun slime-repl-read-break ()
+  (interactive)
+  (slime-eval-async `(cl:break) nil (lambda (_))))
+
+(defun slime-repl-abort-read ()
+  (with-current-buffer (slime-output-buffer)
+    (slime-repl-read-mode nil)
+    (slime-repl-maybe-insert-output-separator)
+    (message "Read aborted")))
 
 
 ;;; Compilation and the creation of compiler-note annotations
@@ -2195,31 +2221,26 @@ function name is prompted."
 
 (defun slime-display-buffer-region (buffer start end &optional other-window)
   "Like `display-buffer', but only display the specified region."
-  (save-selected-window
-    (select-window (display-buffer buffer other-window))
-    (goto-char start)
-    (when (eolp) 
-      (forward-char))
-    (beginning-of-line)
-    (let ((win (selected-window)))
-      (set-window-start win (point))
-      ;; don't resize vertically split windows
-      (when (and (not (one-window-p))
-                 (= (window-width) (frame-width)))
-        (let* ((lines (max (count-screen-lines (point) end nil win) 1))
-               (new-height (1+ (min (/ (frame-height) 2)
-                                    lines)))
-               (diff (- new-height (window-height))))
-          (let ((window-min-height 1))
-            (enlarge-window diff)))))))
+  (with-current-buffer buffer
+    (save-excursion
+      (save-restriction
+        (goto-char start)
+        (beginning-of-line)
+        (narrow-to-region (point) end)
+        (let ((window (display-buffer buffer other-window)))
+          (set-window-start window (point))
+          (shrink-window-if-larger-than-buffer window)
+          window)))))
 
 (defun slime-show-evaluation-result (value)
   (slime-show-last-output)
   (slime-message "=> %s" value))
 
 (defun slime-show-evaluation-result-continuation ()
-  (lambda (value)
-    (slime-show-evaluation-result value)))
+  (lexical-let ((buffer (current-buffer)))
+    (lambda (value)
+      (with-current-buffer buffer
+        (slime-show-evaluation-result value)))))
   
 (defun slime-last-expression ()
   (buffer-substring-no-properties (save-excursion (backward-sexp) (point))
@@ -3248,9 +3269,9 @@ available methods.
 
 See `def-slime-selector-method' for defining new methods."
   (interactive)
-  (let* ((ch (read-char (format "Select [%s]: "
-                                (apply #'string
-                                       (mapcar #'car slime-selector-methods)))))
+  (message "Select [%s]: " 
+           (apply #'string (mapcar #'car slime-selector-methods)))
+  (let* ((ch (read-char))
          (method (find ch slime-selector-methods :key #'car)))
     (cond ((null method)
            (message "No method for character: ?\\%c" ch)
@@ -3288,7 +3309,7 @@ BODY is a series of forms which must return the buffer to be selected."
 
 (def-slime-selector-method ?r
   "the SLIME Read-Eval-Print-Loop."
-  "*slime-repl*")
+  (slime-output-buffer))
 
 (def-slime-selector-method ?i
   "the *inferior-lisp* buffer."
