@@ -26,27 +26,79 @@
          (address (car (ext:host-entry-addr-list hostent))))
     (ext:htonl address)))
 
+(defvar *start-swank-in-background* t)
+(defvar *close-swank-socket-after-setup* t)
+(defvar *use-dedicated-output-stream* t)
+
 (defun create-swank-server (port &key (reuse-address t)
                             (address "localhost")
-                            (announce #'simple-announce-function))
+                            (announce #'simple-announce-function)
+                            (background *start-swank-in-background*)
+                            (close *close-swank-socket-after-setup*))
   "Create a SWANK TCP server."
   (let* ((ip (resolve-hostname address))
          (fd (ext:create-inet-listener port :stream
                                        :reuse-address reuse-address
                                        :host ip)))
     (funcall announce (nth-value 1 (ext::get-socket-host-and-port fd)))
-    (accept-connection fd)))
+    (accept-loop fd background close)))
 
-(defun accept-connection (socket)
-  "Accept one Swank TCP connection on SOCKET and then close it."
-  (let* ((fd (ext:accept-tcp-connection socket))
-         (stream (sys:make-fd-stream fd :input t :output t 
-                                     :element-type 'base-char)))
-    (sys:invalidate-descriptor socket)
-    (unix:unix-close socket)
-    (request-loop stream)))
+(defun emacs-io (fd)
+  "Create a new fd-stream for fd."
+  (sys:make-fd-stream fd :input t :output t :element-type 'base-char))
 
-(defun open-stream-to-emacs ()
+(defun add-input-handler (fd fn)
+  (system:add-fd-handler fd :input fn))
+
+(defun accept-loop (fd background close)
+  "Accept clients on the the server socket FD.  
+Use fd-handlers if BACKGROUND is non-nil.  Close the server socket after the first client if CLOSE is non-nil, "
+  (cond (background
+         (add-input-handler 
+          fd (lambda (fd) (accept-one-client fd background close))))
+        (close
+         (accept-one-client fd background close))
+        (t 
+         (loop (accept-one-client fd background close)))))
+
+(defun accept-one-client (socket background close)
+  (let ((fd (ext:accept-tcp-connection socket)))
+    (when close   
+      (sys:invalidate-descriptor socket)
+      (unix:unix-close socket))
+    (request-loop fd background)))
+
+(defun request-loop (fd background)
+  "Process all request from the socket FD."
+  (let* ((stream (emacs-io fd))
+         (out (if *use-dedicated-output-stream* 
+                  (open-stream-to-emacs stream)
+                  (make-slime-output-stream)))
+         (in (make-slime-input-stream))
+         (io (make-two-way-stream in out)))
+    (cond (background
+           (add-input-handler 
+            fd (lambda (fd) 
+                 (declare (ignore fd))
+                 (serve-one-request stream out in io))))
+          (t (do () ((serve-one-request stream out in io)))))))
+
+(defun serve-one-request (*emacs-io* *slime-output* *slime-input* *slime-io*)
+  "Read and process one request from a SWANK client. 
+The request is read from the socket as a sexp and then evaluated.
+Return non-nil iff a reader-error occured."
+  (catch 'slime-toplevel
+    (with-simple-restart (abort "Return to Slime toplevel.")
+      (handler-case (read-from-emacs)
+	(slime-read-error (e)
+	  (when *swank-debug-p*
+	    (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
+	  (sys:invalidate-descriptor (sys:fd-stream-fd *emacs-io*))
+	  (close *emacs-io*)
+          (return-from serve-one-request t)))))
+  nil)
+
+(defun open-stream-to-emacs (*emacs-io*)
   "Return an output-stream to Emacs' output buffer."
   (let* ((ip (resolve-hostname "localhost"))
          (listener (ext:create-inet-listener 0 :stream :host ip))
@@ -57,29 +109,6 @@
            (let ((fd (ext:accept-tcp-connection listener)))
              (sys:make-fd-stream fd :output t)))
       (ext:close-socket listener))))
-
-(defvar *use-dedicated-output-stream* t)
-
-(defun request-loop (*emacs-io*)
-  "Processes requests until the remote Emacs goes away."
-  (unwind-protect
-       (let* ((*slime-output* (if *use-dedicated-output-stream* 
-                                  (open-stream-to-emacs)
-                                  (make-slime-output-stream)))
-              (*slime-input* (make-slime-input-stream))
-              (*slime-io* (make-two-way-stream *slime-input* *slime-output*)))
-         (loop
-          (catch 'slime-toplevel
-            (with-simple-restart (abort "Return to Slime toplevel.")
-              (handler-case (read-from-emacs)
-                (slime-read-error (e)
-                  (when *swank-debug-p*
-                    (format *debug-io*
-                            "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
-                  (return)))))
-          (sys:scrub-control-stack)))
-    (format *terminal-io* "~&;; Swank: Closed connection: ~A~%" *emacs-io*)
-    (close *emacs-io*)))
 
 
 ;;;; Stream handling
@@ -294,7 +323,11 @@ the error-context redundant."
   (with-compilation-hooks ()
     (let ((*buffer-name* nil)
           (*compile-filename* filename))
-        (compile-file filename :load load-p))))
+      (multiple-value-bind (fasl-file warnings-p failure-p)
+          (compile-file filename)
+        (declare (ignore warnings-p))
+        (when (and load-p (not failure-p))
+          (load fasl-file))))))
 
 (defmethod compile-string-for-emacs (string &key buffer position)
   (with-compilation-hooks ()
