@@ -320,55 +320,61 @@ Return NIL if the symbol is unbound."
 
 (defun handle-notification-condition (condition)
   "Handle a condition caused by a compiler warning."
-  (signal condition))
+  (declare (ignore condition)))
 
 (defvar *buffer-name* nil)
 (defvar *buffer-offset*)
 
 (defvar *compiler-note-line-regexp*
   (regexp:regexp-compile
-   "^\\(WARNING\\|ERROR\\) .* in lines \\([0-9]\\+\\)..[0-9]\\+ :$"))
+   "^(WARNING|ERROR) .* in lines ([0-9]+)\\.\\.[0-9]+ :$"
+   :extended t))
 
 (defun split-compiler-note-line (line)
   (multiple-value-bind (all head tail)
       (regexp:regexp-exec *compiler-note-line-regexp* line)
     (declare (ignore all))
     (if head
-	(values (let ((*package* (find-package :keyword)))
-		  (read-from-string (regexp:match-string line head)))
-		(read-from-string (regexp:match-string line tail)))
-	(values nil line))))
+	(list (let ((*package* (find-package :keyword)))
+		(read-from-string (regexp:match-string line head)))
+	      (read-from-string (regexp:match-string line tail)))
+	(list nil line))))
 
 ;;; Ugly but essentially working.
-;;; FIXME:  I get all notes twice.
+;;; TODO: Do something with the summary about undefined functions etc.
 
 (defmethod compile-file-for-emacs (filename load-p)
   (with-compilation-hooks ()
-    (multiple-value-bind (fasl-file w-p f-p)
+    (multiple-value-bind (fas-file w-p f-p)
 	(compile-file-frobbing-notes (filename)
 	  (read-line)                   ;""
 	  (read-line)                   ;"Compiling file ..."
-	  (do ((condition)
-	       (severity)
-	       (comp-message))
-	      ((and (stringp comp-message) (string= comp-message "")) t)
-	    (multiple-value-setq (severity comp-message)
-	      (split-compiler-note-line (read-line)))
-	    (when severity
-	      (setq condition
-		    (make-condition 'compiler-condition
-				    :severity severity
-				    :message ""
-				    :location `(:location (:file ,filename)
-							  (:line ,comp-message))))
-	      (setf (message condition)
-		    (format nil "~a~&~a" (message condition) comp-message))
-	      (signal condition))))
-      (declare (ignore w-p))
-      (if (and (not (not f-p)) fasl-file load-p)
-;;;!!! CLISP provides a fixnum for failure-p and warning-p for compile-file
-	  (load fasl-file)
-	fasl-file))))
+	  (loop
+	     with condition
+	     for (severity message) = (split-compiler-note-line (read-line))
+	     until (and (stringp message) (string= message ""))
+	     if severity
+	     do (when condition
+		  (signal condition))
+	     (setq condition
+		   (make-condition 'compiler-condition
+				   :severity severity
+				   :message ""
+				   :location `(:location (:file ,filename)
+							 (:line ,message))))
+	     else do (setf (message condition)
+			   (format nil "~a~&~a" (message condition) message))
+	     finally (when condition
+		       (signal condition))))
+      ;; w-p = errors + warnings, f-p = errors + warnings - style warnings,
+      ;; where a result of 0 is replaced by NIL.  It follows that w-p
+      ;; is T iff there was any note whatsoever and that f-p is T iff
+      ;; there was anything more severe than a style warning.  This is
+      ;; completely ANSI compliant.
+      (declare (ignore w-p f-p))
+      (if (and fas-file load-p)
+	  (load fas-file)
+	  fas-file))))
 
 (defmethod compile-string-for-emacs (string &key buffer position)
   (with-compilation-hooks ()
