@@ -1,5 +1,8 @@
 2003-10-23  Luke Gorrie  <luke@bluetail.com>
 
+	* slime.el (slime-maybe-start-lisp): Restart inferior-lisp if the
+	process has died.
+
 	* swank-sbcl.lisp (accept-connection): Use a character stream to
 	match swank.lisp.
 
