@@ -162,11 +162,11 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
   (let ((*package* *buffer-package*))
     (prin1-to-string string)))
 
-(defun guess-package-from-string (name)
+(defun guess-package-from-string (name &optional (default-package *package*))
   (or (and name
            (or (find-package name)
                (find-package (string-upcase name))))
-      *package*))
+      default-package))
 
 ;;; Input from Emacs
 
@@ -370,6 +370,18 @@ The time is measured in microseconds."
 
 ;;; Completion
 
+(defun case-convert (string)
+  "Convert STRING according to the current readtable-case."
+  (ecase (readtable-case *readtable*)
+    (:upcase (string-upcase string))
+    (:downcase (string-downcase string))
+    (:preserve string)
+    (:invert (with-output-to-string (*standard-output*)
+               (loop for c across string do
+                     (princ (if (upper-case-p c)
+                                (char-downcase c) 
+                                c)))))))
+
 (defslimefun completions (string default-package-name)
   "Return a list of completions for a symbol designator STRING.  
 
@@ -384,12 +396,12 @@ format. The cases are as follows:
   PKG:FOO  - Symbols with matching prefix and external in package PKG.
   PKG::FOO - Symbols with matching prefix and accessible in package PKG."
   (multiple-value-bind (name package-name internal-p)
-      (parse-symbol-designator string)
+      (parse-symbol-designator (case-convert string))
     (let ((completions nil)
           (package (find-package 
-                    (string-upcase (cond ((equal package-name "") "KEYWORD")
-                                         (package-name)
-                                         (default-package-name))))))
+                    (cond ((equal package-name "") "KEYWORD")
+                          (package-name)
+                          (default-package-name)))))
       (flet ((symbol-matches-p (symbol)
                (and (string-prefix-p name (symbol-name symbol))
                     (or (or internal-p (null package-name))
@@ -421,6 +433,22 @@ Return three values:
           (let ((pos (position #\: string)))
             (if pos (subseq string 0 pos) nil))
           (search "::" string)))
+
+(defun find-symbol-designator (string default-package)
+  "Return the symbol corresponding to the symbol designator STRING.
+If string is not package qualified use DEFAULT-PACKAGE for the
+resolution.  Return nil if no such symbol exists."
+  (multiple-value-bind (name package-name internal-p)
+      (parse-symbol-designator (case-convert string))
+    (cond ((and package-name (not (find-package package-name)))
+           nil)
+          (t
+           (let ((package (or (find-package package-name) default-package)))
+             (multiple-value-bind (symbol access) (find-symbol name package)
+               (cond ((and symbol package-name (not internal-p)
+                           (not (eq access :external)))
+                      nil)
+                     (symbol (values symbol access)))))))))
 
 (defun symbol-external-p (symbol &optional (package (symbol-package symbol)))
   "True if SYMBOL is external in PACKAGE.
