@@ -712,19 +712,28 @@ NAME can any valid function name (e.g, (setf car))."
                                    `(:function-name ,string)))
           (t (list :error (princ-to-string c))))))
 
+(defun source-location-form-numbers (location)
+  (c::decode-form-numbers (c::form-numbers-form-numbers location)))
+
+(defun source-location-tlf-number (location)
+  (nth-value 0 (source-location-form-numbers location)))
+
+(defun source-location-form-number (location)
+  (nth-value 1 (source-location-form-numbers location)))
+
 (defun resolve-file-source-location (location)
   (let ((filename (c::file-source-location-pathname location))
-        (tlf-number (c::file-source-location-tlf-number location))
-        (form-number (c::file-source-location-tlf-number location)))
+        (tlf-number (source-location-tlf-number location))
+        (form-number (source-location-form-number location)))
     (with-open-file (s filename)
       (let ((pos (form-number-stream-position tlf-number form-number s)))
         (make-location `(:file ,(unix-truename filename))
                        `(:position ,(1+ pos)))))))
 
-(defun resolve-source-location (location)
-  (let ((info (c::source-location-user-info location))
-        (tlf-number (c::source-location-tlf-number location))
-        (form-number (c::source-location-tlf-number location)))
+(defun resolve-stream-source-location (location)
+  (let ((info (c::stream-source-location-user-info location))
+        (tlf-number (source-location-tlf-number location))
+        (form-number (source-location-form-number location)))
     ;; XXX duplication in frame-source-location
     (assert (info-from-emacs-buffer-p info))
     (destructuring-bind (&key emacs-buffer emacs-buffer-string 
@@ -741,8 +750,8 @@ NAME can any valid function name (e.g, (setf car))."
        `(:error ,(format nil "No source info for: ~A" object)))
       (c::file-source-location
        (resolve-file-source-location source))
-      (c::source-location
-       (resolve-source-location source))
+      (c::stream-source-location
+       (resolve-stream-source-location source))
       (pathname 
        (make-name-in-file-location source name))
       (cons
