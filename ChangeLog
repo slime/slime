@@ -1,3 +1,23 @@
+2003-12-08  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-read-from-minibuffer): Now the only
+	completing-read function, stale ones deleted.
+
+2003-12-07  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (sldb-prune-initial-frames): Use regexp-heuristics and
+	the '--more--' token to avoid showing the user Swank-internal
+	backtrace frames initially.
+	(slime-repl-current-input): Don't include the final newline
+	character, to make backtraces prettier.
+	(slime-autodoc): Fixed annoying case where autodocs would be
+	fetched in a loop for undocumented symbols.
+
+	* swank.lisp (compound-prefix-match): New name and rewritten for
+	speed. Completion is much faster now.
+	(*sldb-initial-frames*): Send up to this many (default 20)
+	backtrace frames to Emacs when entering the debugger.
+
 2003-12-07  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-allegro.lisp, swank-backend.lisp, swank-cmucl.lisp,
