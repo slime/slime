@@ -5414,7 +5414,7 @@ GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
                 (slime-insert-propertized 
                  (list 'slime-location location
                        'face 'font-lock-keyword-face)
-                 "  " label "\n"))))
+                 "  " (slime-one-line-ify label) "\n"))))
   ;; Remove the final newline to prevent accidental window-scrolling
   (backward-char 1)
   (delete-char 1))
@@ -6464,15 +6464,16 @@ This way you can still see what the error was after exiting SLDB."
        (slime-thread-control-mode)
        (let ((inhibit-read-only t))
          (erase-buffer)
-         (loop for id from 0 
-               for (name status) in threads
-               do (slime-thread-insert id name status))
+         (loop for idx from 0 
+               for (name status id) in threads
+               do (slime-thread-insert idx name status id))
          (goto-char (point-min))
          (setq buffer-read-only t)
          (pop-to-buffer (current-buffer)))))))
 
-(defun slime-thread-insert (id name summary)
-  (slime-propertize-region `(thread-id ,id)
+(defun slime-thread-insert (idx name summary id)
+  (slime-propertize-region `(thread-id ,idx)
+    (insert (format "%3s: " id))
     (slime-insert-propertized '(face bold) name)
     (insert-char ?\040 (- 30 (current-column)))
     (let ((summary-start (point)))
@@ -6496,7 +6497,6 @@ This way you can still see what the error was after exiting SLDB."
   ("d"         'slime-thread-debug)
   ("g"         'slime-list-threads)
   ("k"         'slime-thread-kill)
-  ((kbd "RET") 'slime-thread-goahead)
   ("q"         'slime-thread-quit))
 
 (defun slime-thread-quit ()
