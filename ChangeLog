@@ -1,3 +1,51 @@
+2005-02-18  Antonio Menezes Leitao  <aml@gia.ist.utl.pt>
+
+	Improve the trace mechanism (on lisps that support it). SLIME is
+	now able to trace/untrace flet/labels functions, methods and, of
+	course, regular and generic functions.
+
+	In the process support for sending code to emacs form the lisp was
+	added. The code, elisp forms, is sent over the wire like normal
+	lisp code, evaluated in emacs and the return value is returned
+	back to the lisp.
+
+	* slime.el (slime-dispatch-event): Added the :evaluale-in-emacs
+	dispatch state which simply parses the message and class
+	evaluate-in-emacs.
+	(evaluate-in-emacs): New function.
+	(complete-name-context-at-point, name-context-at-point, out-first,
+	definition-name, parameter-specializers,
+	slime-toggle-trace-fdefinition, slime-toggle-trace-function,
+	slime-toggle-trace-defgeneric, slime-toggle-trace-defmethod,
+	slime-toggle-trace-maybe-wherein, slime-toggle-trace-within): New
+	functions implementing the new intelligent slime trace.
+
+	* swank-backend.lisp (toggle-trace-function,
+	toggle-trace-generic-function-methods, toggle-trace-method,
+	toggle-trace-fdefinition-wherein,
+	toggle-trace-fdefinition-within): New backend functions
+	for the new trace facility.
+
+	* swank.lisp (dispatch-event): Handle the :evaluate-in-emacs
+	message type.
+	(evaluate-in-emacs): New function.
+
+	* swank-allegro.lisp (toggle-trace-generic-function-methods,
+	toggle-trace, toggle-trace-function, toggle-trace-method,
+	toggle-trace-fdefinition-wherein,
+	toggle-trace-fdefinition-within): Implement.
+	(process-fspec-for-allegro): New function.
+	
+	* swank-cmucl.lisp (toggle-trace-generic-function-methods,
+	toggle-trace-function, toggle-trace-method,
+	toggle-trace-fdefinition-wherein): Implement.	
+	(toggle-trace, process-fspec): New functions.
+
+	* swank-sbcl.lisp (toggle-trace-generic-function-methods,
+	toggle-trace-function, toggle-trace-method,
+	toggle-trace-fdefinition-wherein): Implement.
+	(toggle-trace, process-fspec): New functions.
+	
 2005-02-02  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el: Require the timer package explicitly.
