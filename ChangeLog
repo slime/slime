@@ -1,3 +1,37 @@
+2004-05-02  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-goto-source-location): Added support for the
+	:snippet "hint" in a location specifier. If Lisp sends the
+	(initial) source text for the definition then Emacs isearches for
+	it in both directions from the given character position. This
+	makes M-. robust when the Emacs buffer has been edited. Requires
+	backends to provide this snippet information.
+	(slime-goto-location-position): Tightened up the regular
+	expressions for :function-name style location search.
+	(slime-cleanup-definition-refs): New function to do a little
+	post-processing on definition references from Lisp. Mostly this is
+	a hack: if POSITION is NIL then we fill it in with the function
+	name, ready for regexp search. I was in a hurry and it was easier
+	to do here, and it doesn't seem entirely unreasonable.
+
+	* swank-backend.lisp (:location): Added a 'hints' property list
+	to the location structure. This is for extra information that
+	compliments the buffer/position.
+
+	* swank-cmucl.lisp (code-location-stream-position): Position the
+	argument stream at the definition before returning.
+	(source-location-from-code-location): Include the :snippet hint
+	for Emacs (see above). The snippet will only be accurate provided
+	that the source file on disk has not been modified.
+	(*source-file-cache*) The contents of all source files consulted
+	for M-. are now cached if they match the version of the running
+	code. This is so that we can accurately lookup source locations
+	even when the file is modified, provided we manage to get the
+	right version (by file timestamp) at least once.
+	(source-location-from-code-location): If the right source version
+	is not available on disk or in our cache then let Emacs fall back
+	on a regular expression search.
+
 2004-05-01   Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-lispworks.lisp (find-top-frame): New function used to hide
