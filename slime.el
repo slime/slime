@@ -52,18 +52,18 @@
 
 ;;; Dependencies, major global variables and constants
 
+(eval-and-compile
+  (require 'cl)
+  (unless (fboundp 'define-minor-mode)
+    (require 'easy-mmode)
+    (defalias 'define-minor-mode 'easy-mmode-define-minor-mode)))
 (require 'inf-lisp)
-(require 'cl)
 (require 'pp)
 (require 'hideshow)
 (require 'hyperspec)
 (require 'font-lock)
 (when (featurep 'xemacs)
   (require 'overlay))
-(eval-when (compile load eval)
-  (unless (fboundp 'define-minor-mode)
-    (require 'easy-mmode)
-    (defalias 'define-minor-mode 'easy-mmode-define-minor-mode)))
 (require 'easymenu)
 
 (defvar slime-path
@@ -306,6 +306,10 @@ subset of the bindings from `slime-mode'.
   nil
   ;; Fake binding to coax `define-minor-mode' to create the keymap
   '((" " 'undefined)))
+
+(defvar slime-state-name "[??]"
+  "Name of the current state of `slime-default-connection'.
+For display in the mode-line.")
 
 ;; Setup the mode-line to say when we're in slime-mode, and which CL
 ;; package we think the current buffer belongs to.
@@ -1148,20 +1152,16 @@ to the default."
         (setq slime-buffer-connection nil)
       (error "Buffer's connection closed."))))
 
-(defun slime-connection-number (&optional connection)
-  (slime-with-connection-buffer (connection)
-    slime-connection-number))
-
-(defvar slime-state-name "[??]"
-  "Name of the current state of `slime-default-connection'.
-For display in the mode-line.")
-
 (defmacro* slime-with-connection-buffer ((&optional process) &rest body)
   "Execute BODY in the process-buffer of PROCESS.
 If PROCESS is not specified, `slime-connection' is used."
   `(with-current-buffer
        (process-buffer (or ,process (slime-connection) (error "No connection")))
      ,@body))
+
+(defun slime-connection-number (&optional connection)
+  (slime-with-connection-buffer (connection)
+    slime-connection-number))
 
 (defun slime-select-connection (process)
   (setq slime-default-connection process)
