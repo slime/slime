@@ -1,3 +1,20 @@
+2003-12-12  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-openmcl.lisp (toggle-trace-fdefinition, tracedp):
+	Implement trace command.  Patch by Alan Ruttenberg.
+	(find-function-locations, find-source-locations): Handle
+	variables, and method-combinations.  General cleanups.
+	(source-info-first-file-name): Removed.
+	(list-callers): Fixed.
+
+	* swank-loader.lisp (user-init-file): Use homedir's truename.
+	Reported by Friedrich Dominicus.
+
+	* slime.el (slime-repl-current-input): Don't remove the final
+	newline only if we are in reading state.
+	(slime-goto-source-location): Regex-quote the function-name and
+	handle package prefixes.  Reported by Alan Ruttenberg.
+
 2003-12-12  Daniel Barlow  <dan@telent.net>
 
 	* swank-source-path-parser.lisp: new file, excerpting part of
