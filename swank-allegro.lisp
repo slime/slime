@@ -30,7 +30,6 @@
 
 ;;;; TCP Server
 
-
 (defimplementation preferred-communication-style ()
   :spawn)
 
@@ -62,8 +61,8 @@
 
 (defimplementation set-default-directory (directory)
   (excl:chdir directory)
-  (namestring (setf *default-pathname-defaults* (truename (merge-pathnames directory)))))
-
+  (namestring (setf *default-pathname-defaults* 
+                    (truename (merge-pathnames directory)))))
 
 ;;;; Misc
 
@@ -91,16 +90,6 @@
        :class (if (find-class symbol nil)
                   (doc 'class)))
       result)))
-
-
-(defimplementation describe-definition (symbol namespace)
-  (ecase namespace
-    (:variable 
-     (describe symbol))
-    ((:function :generic-function)
-     (describe (symbol-function symbol)))
-    (:class
-     (describe (find-class symbol)))))
 
 (defimplementation describe-definition (symbol namespace)
   (ecase namespace
@@ -214,14 +203,18 @@
 ;;;; Definition Finding
 
 (defun find-fspec-location (fspec type)
-  (let ((file (excl::fspec-pathname fspec type)))
+  (let* ((fspec (if (consp fspec) 
+                    (excl::to-internal-fspec fspec)
+                    fspec))
+         (info (car (excl::fspec-fspec-info fspec)))
+         (file (excl::fspec-info-pathname info)))
     (etypecase file
       (pathname
        (let ((start (scm:find-definition-in-file fspec type file)))
          (make-location (list :file (namestring (truename file)))
                         (if start
                             (list :position (1+ start))
-                            (list :function-name (string fspec))))))
+                            (list :function-name (string (third info)))))))
       ((member :top-level)
        (list :error (format nil "Defined at toplevel: ~A" fspec)))
       (null 
