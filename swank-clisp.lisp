@@ -140,11 +140,11 @@ Return NIL if the symbol is unbound."
     (etypecase file
       (pathname
        (let ((start (find-definition-in-file fspec type file)))
-	 (make-location
-	  (list :file (namestring (truename file)))
-	  (if start 
-	      (list :position (1+ start))
-	      (list :function-name (string fspec))))))
+	 (multiple-value-bind (truename c) (ignore-errors (truename file))
+	   (cond (truename 
+		  (make-location (list :file (namestring truename))
+				 (list :function-name (string fspec))))
+		 (t (list :error (princ-to-string c)))))))
       ((member :top-level)
        (list :error (format nil "Defined at toplevel: ~A" fspec)))
       (null 
