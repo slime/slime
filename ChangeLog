@@ -1,5 +1,10 @@
 2004-02-07  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* swank-cmucl.lisp (send, receive, interrupt-thread): Implement
+	more threading functions.
+
+	* swank-sbcl.lisp (inspected-parts): Implemented.
+
 	* slime.el (slime-rex): Mention thread argument in docstring.
 	(sldb-break-with-default-debugger): Use slime-rex and don't switch
 	to the output buffer (happens automatically).
