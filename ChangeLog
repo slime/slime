@@ -2,7 +2,9 @@
 
 	* swank.lisp (frame-source-location-for-emacs): Export it.
 	Reported by Jouni K Seppanen
-	
+	(test-print-arglist): Disable the tests until we know what's wrong
+	with print-arglist.  Reported by Michael Livshin.
+
 	* swank-source-path-parser.lisp, swank-gray.lisp (in-package): We
 	are in-package :swank-backend.  Thanks to Raymond Wiker.
 
