@@ -1293,12 +1293,14 @@ will pass it to CONTINUATION."
 Lisp entered the debugger while handling one of our requests. This
 state interacts with it until it is coaxed into returning."
   ((activate)
-   (setq sldb-level level)
    (let ((sldb-buffer (get-buffer "*sldb*")))
      (when (or (not sldb-buffer)
-               (with-current-buffer sldb-buffer
-                 (/= sldb-level-in-buffer level)))
-       (sldb-setup condition restarts frames))))
+               (/= sldb-level level)
+               (with-current-buffer sldb-buffer 
+                 (/= sldb-level sldb-level-in-buffer)))
+       (setq sldb-level level)
+       (sldb-setup condition restarts frames)))
+   (setq sldb-level level))
   ((:debug-return level)
    (assert (= level sldb-level))
    (sldb-cleanup)
@@ -3101,6 +3103,11 @@ GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
   "Show all known expanders of the macro SYMBOL."
   (interactive (list (slime-read-symbol-name "Who macroexpands: " t)))
   (slime-xref 'macroexpands symbol))
+
+(defun slime-who-specializes (symbol)
+  "Show all known methods specialized on class SYMBOL."
+  (interactive (list (slime-read-symbol-name "Who specializes: " t)))
+  (slime-xref 'specializes symbol))
 
 (defun slime-xref (type symbol)
   "Make an XREF request to Lisp."
