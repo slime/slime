@@ -59,36 +59,6 @@
 ;;; streams that redirect to Emacs, and optionally a second socket
 ;;; used solely to pipe user-output to Emacs (an optimization).
 ;;;
-;;; Initially Emacs connects to Lisp and the "main" connection is
-;;; created. The thread that accepts this connection then reads and
-;;; serves requests from Emacs as they arrive. Later, new connections
-;;; can be created for other threads that need to talke to Emacs,
-;;; e.g. to enter the debugger.
-;;;
-;;; Each connection is owned by the thread that accepts it. Only the
-;;; owner can use a connection to communicate with Emacs, with one
-;;; exception: Any thread may send out-of-band messages to Emacs using
-;;; the main connection. A message is "out of band" if it is
-;;; independent of the protocol state (or more specifically, if the
-;;; `slime-handle-oob' elisp function can handle it).
-;;;
-;;; When a new thread needs to talk to Emacs it must first create a
-;;; connection of its own. This is done by binding a listen-socket and
-;;; asking Emacs to connect, using an out-of-band message on the main
-;;; connection to tell Emacs what port to connect to. This logic is
-;;; encapsulated by the WITH-A-CONNECTION macro, which will execute
-;;; its body forms with a connection available, creating a temporary
-;;; one if necessary.
-;;;
-;;; Multiple threads can write to the main connection, so these writes
-;;; must by synchronized. This is coarsely achieved by using the
-;;; WITH-I/O-LOCK macro to globally serialize all writes to any
-;;; connection. Reads do not have to be synchronized because each
-;;; connection can only be read by one thread.
-;;;
-;;; Non-multiprocessing systems can ignore all of this. There is only
-;;; one connection and only one thread, so the invariants come for
-;;; free.
 
 (defstruct (connection
              (:conc-name connection.)
@@ -113,20 +83,23 @@
   (cleanup          nil :type (or null function))
   )
 
-(defvar *emacs-connection* nil
-  "The connection to Emacs.
-Any thread may send out-of-band messages to Emacs using this
-connection.")
-
-(defvar *swank-state-stack* '())
-
-(defslimefun state-stack ()
-  *swank-state-stack*)
-
 #+(or)
 (defun %print-connection (connection stream depth)
   (declare (ignore depth))
   (print-unreadable-object (connection stream :type t :identity t)))
+
+
+(defvar *emacs-connection* nil
+  "The connection to Emacs.
+All threads communicate through this interface with Emacs.")
+
+(defvar *swank-state-stack* '()
+  "A list of symbols describing the current state.  Used for debugging
+and to detect situations where interrupts can be ignored.")
+
+(defslimefun state-stack ()
+  "Return the value of *SWANK-STATE-STACK*."
+  *swank-state-stack*)
 
 ;; Condition for SLIME protocol errors.
 (define-condition slime-read-error (error) 
@@ -211,6 +184,7 @@ Redirection is done while Lisp is processing a request for Emacs.")
       (serve-requests connection))))
 
 (defun serve-requests (connection)
+  "Read and process all requests on connections."
   (funcall (connection.serve-requests connection) connection))
 
 (defun init-emacs-connection (connection)
@@ -225,7 +199,13 @@ Redirection is done while Lisp is processing a request for Emacs.")
     (format s "~S~%" port))
   (simple-announce-function port))
 
+(defun simple-announce-function (port)
+  (when *swank-debug-p*
+    (format *debug-io* "~&;; Swank started at port: ~D.~%" port)))
+
 (defun open-streams (socket-io)
+  "Return the 4 streams for IO redirection:
+ DEDICATED-OUTPUT INPUT OUTPUT IO"
   (encode-message `(:check-protocol-version ,(changelog-date)) socket-io)
   (multiple-value-bind (output-fn dedicated-output) 
       (make-output-function socket-io)
@@ -260,16 +240,15 @@ This is an optimized way for Lisp to deliver output to Emacs."
     (accept-connection socket)))
 
 (defun handle-request ()
+  "Read and process one request.  The processing is done in the extend
+of the toplevel restart."
   (assert (null *swank-state-stack*))
   (let ((*swank-state-stack* '(:handle-request)))
     (catch 'slime-toplevel
       (with-simple-restart (abort "Return to SLIME toplevel.")
         (with-io-redirection ()
-          (read-from-emacs))))))
-
-(defun simple-announce-function (port)
-  (when *swank-debug-p*
-    (format *debug-io* "~&;; Swank started at port: ~D.~%" port)))
+          (let ((*debugger-hook* #'swank-debugger-hook))
+            (read-from-emacs)))))))
 
 (defun changelog-date ()
   "Return the datestring of the latest ChangeLog entry.  The date is
@@ -378,7 +357,7 @@ element."
        (add-thread thread)))
     ((:emacs-interrupt thread)
      (interrupt-worker-thread thread))
-    ((:debug thread &rest args)
+    (((:debug :debug-condition :debug-activate) thread &rest args)
      (encode-message `(:debug ,(add-thread thread) . ,args) socket-io))
     ((:debug-return thread level)
      (encode-message `(:debug-return ,(drop-thread thread) ,level) socket-io))
@@ -391,7 +370,7 @@ element."
      (encode-message `(:read-aborted ,(drop-thread thread) ,@args) socket-io))
     ((:emacs-return-string thread tag string)
      (send (lookup-thread-id thread) `(take-input ,tag ,string)))
-    (((:read-output :new-package :new-features :ed :debug-condition)
+    (((:read-output :new-package :new-features :ed)
       &rest _)
      (declare (ignore _))
      (encode-message event socket-io))))
@@ -467,7 +446,8 @@ element."
   (log-event "DISPATCHING: ~S~%" event)
   (flet ((send (o) (encode-message o (current-socket-io))))
     (destructure-case event
-      (((:debug :debug-return :read-string :read-aborted) thread &rest args)
+      (((:debug-activate :debug :debug-return :read-string :read-aborted) 
+        thread &rest args)
        (declare (ignore thread))
        (send `(,(car event) 0 ,@args)))
       ((:return thread &rest args)
@@ -705,14 +685,13 @@ after Emacs causes a restart to be invoked."
        (lambda () (sldb-loop *sldb-level*)))))
 
 (defun sldb-loop (level)
+  (send-to-emacs (list* :debug (current-thread) *sldb-level*
+                        (debugger-info-for-emacs 0 *sldb-initial-frames*)))
   (unwind-protect
        (loop (catch 'sldb-loop-catcher
                (with-simple-restart (abort "Return to sldb level ~D." level)
-                 (send-to-emacs 
-                  (list* :debug 
-                         (current-thread)
-                         *sldb-level*
-                         (debugger-info-for-emacs 0 *sldb-initial-frames*)))
+                 (send-to-emacs (list :debug-activate (current-thread)
+                                      *sldb-level*))
                  (handler-bind ((sldb-condition #'handle-sldb-condition))
                    (read-from-emacs)))))
     (send-to-emacs `(:debug-return ,(current-thread) ,level))))
@@ -722,7 +701,8 @@ after Emacs causes a restart to be invoked."
 Rather than recursively debug the debugger (a dangerous idea!), these
 conditions are simply reported."
   (let ((real-condition (original-condition condition)))
-    (send-to-emacs `(:debug-condition ,(princ-to-string real-condition))))
+    (send-to-emacs `(:debug-condition ,(current-thread)
+                     ,(princ-to-string real-condition))))
   (throw 'sldb-loop-catcher nil))
 
 (defun safe-condition-message (condition)
