@@ -33,9 +33,12 @@
 ;;; swank-mop
 
 ;;dummies:
+
 (defclass standard-slot-definition ()())
+
 (defun class-finalized-p (class) t)
-(defun slot-definition-documentation (slot))
+
+(defun slot-definition-documentation (slot) #+nil (documentation slot 't))
 (defun slot-definition-type (slot) t)
 (defun class-prototype (class))
 (defun generic-function-declarations (gf))
@@ -345,20 +348,43 @@ Should work (with a patched xref.lisp) but is it any use without find-definition
 
 |#
 
-#|
-
 ;;;; Inspecting
 
-(defmethod inspected-parts (o)
+(defclass abcl-inspector (inspector)
+  ())
+
+(defimplementation make-default-inspector ()
+  (make-instance 'abcl-inspector))
+
+(defmethod inspect-for-emacs ((slot sys::slot-definition) (inspector t))
+  (declare (ignore inspector))
+  (values "A slot." 
+          `("Name: " (:value ,(sys::slot-definition-name slot))
+            (:newline)
+            "Documentation:" (:newline)
+            ,@(when (slot-definition-documentation slot)
+                `((:value ,(slot-definition-documentation slot)) (:newline)))
+            "Initialization:" (:newline)
+            "  Args: " (:value ,(sys::slot-definition-initargs slot)) (:newline)
+            "  Form: "  ,(if (sys::slot-definition-initfunction slot)
+                             `(:value ,(sys::slot-definition-initform slot))
+                             "#<unspecified>") (:newline)
+            "  Function: " (:value ,(sys::slot-definition-initfunction slot))
+            (:newline))))
+
+#|
+
+(defimplementation inspect-for-emacs ((o t) (inspector abcl-inspector))
   (let* ((class (class-of o))
-         (slots (clos:class-slots class)))
+         (slots (sys::class-slots class)))
     (values (format nil "~A~%   is a ~A" o class)
             (mapcar (lambda (slot)
-                      (let ((name (clos:slot-definition-name slot)))
+                      (let ((name (sys::slot-definition-name slot)))
                         (cons (princ-to-string name)
                               (slot-value o name))))
                     slots))))
 |#
+
 ;;;; Multithreading
 
 (defimplementation startup-multiprocessing ()
