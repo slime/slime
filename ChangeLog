@@ -1,3 +1,12 @@
+2003-10-15  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el: Inspector support.  list-callers, list-callees
+	implemented without xref.
+
+	* swank.lisp: Lisp side for inspector and list-callers,
+	list-calees.  Better fdefinition finding for struct-accessors.
+
+
 2003-10-15  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-point-moves-p): Macro for executing subforms and
