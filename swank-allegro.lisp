@@ -690,11 +690,13 @@
 ;; <name> can be a normal name or a (setf name)
 
 (defimplementation toggle-trace (spec)
-  (ecase (car spec) 
+  (ecase (car spec)
+    ((setf) 
+     (toggle-trace-aux spec))
     (:defgeneric (toggle-trace-generic-function-methods (second spec)))
     ((setf :defmethod :labels :flet) 
      (toggle-trace-aux (process-fspec-for-allegro spec)))
-    (:call 
+    (:call
      (destructuring-bind (caller callee) (cdr spec)
        (toggle-trace-aux callee 
                          :inside (list (process-fspec-for-allegro caller)))))))
@@ -718,7 +720,7 @@
            (dolist (method methods (format nil "~S is now untraced." name))
              (excl:funtrace (mop:method-function method))))
           (t
-           (eval `(trace ,name))
+           (eval `(trace (,name)))
            (dolist (method methods (format nil "~S is now traced." name))
              (excl:ftrace (mop:method-function method)))))))
 
