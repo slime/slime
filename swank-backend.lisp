@@ -516,27 +516,18 @@ normal function."
 (definterface spawn (fn &key name)
   "Create a new thread to call FN.")
 
-(definterface thread-id ()
-   "Return a value that uniquely identifies the current thread.
-Thread-IDs allow Emacs to refer to individual threads.
-
-When called several times by the same thread, all return values are
-EQUAL. The value has a READable printed representation that preserves
-equality. The printed representation must be identical in Emacs Lisp
-and Common Lisp, and short enough to include in the REPL prompt.
-
-For example, a THREAD-ID could be an integer or a short ASCII string.
-
-Systems that do not support multiprocessing return NIL."
-   nil)
-
-(definterface thread-name (thread-id)
-   "Return the name of the thread identified by THREAD-ID.
+(definterface thread-name (thread)
+   "Return the name of THREAD.
 
 Thread names are be single-line strings and are meaningful to the
 user. They do not have to be unique."
-   (declare (ignore thread-id))
+   (declare (ignore thread))
    "The One True Thread")
+
+(definterface thread-status (thread)
+   "Return a string describing THREAD's state."
+   (declare (ignore thread))
+   "")
 
 (definterface make-lock (&key name)
    "Make a lock for thread synchronization.
@@ -553,6 +544,12 @@ Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time."
 (definterface current-thread ()
   "Return the currently executing thread."
   0)
+
+(definterface all-threads ()
+  "Return a list of all threads.")
+
+(definterface thread-alive-p (thread)
+  "Test if THREAD is termintated.")
 
 (definterface interrupt-thread (thread fn)
   "Cause THREAD to execute FN.")
