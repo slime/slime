@@ -131,8 +131,7 @@
             (return (sb-bsd-sockets:socket-accept socket))
           (sb-bsd-sockets:interrupted-error ()))))
 
-(defimplementation emacs-connected (stream)
-  (declare (ignore stream))
+(defimplementation emacs-connected ()
   (setq sb-ext:*invoke-debugger-hook* 
         (find-symbol (string :swank-debugger-hook) (find-package :swank))))
 
