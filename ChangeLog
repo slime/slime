@@ -1,5 +1,9 @@
 2004-10-26  Helmut Eller  <heller@common-lisp.net>
 
+	* cl-indent.el: Add indentation specs for some missing CL symbols.
+	(lisp-prefix-match-indentation): Change default to
+	nil to avoid confusion for people who don't care about the issue.
+
 	* swank-sbcl.lisp (signal-compiler-condition): Remove reader
 	conditionals as the current code doesn't work in any SBCL before
 	0.8.13 anyway.
