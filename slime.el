@@ -4239,7 +4239,16 @@ more than one space."
   "Insert the argument list for NAME behind the symbol point is
 currently looking at."
   (interactive (list (slime-read-symbol-name "Arglist of: ")))
-  (insert (slime-eval `(swank:arglist-for-insertion ',name))))
+  (let ((arglist (slime-eval `(swank:arglist-for-insertion ',name))))
+    (cond ((eq arglist :not-available)
+           (error "Arglist not available"))
+          ((string-match "^(" arglist)
+           (insert " ")
+           (save-excursion 
+             (insert (substring arglist 1))))
+          (t
+           (save-excursion
+             (insert arglist))))))
 
 (defun slime-get-arglist (symbol-name)
   "Return the argument list for SYMBOL-NAME."
