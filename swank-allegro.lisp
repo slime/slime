@@ -49,7 +49,8 @@
 ;; no-applicable-method function in Allegro 5.  We have to provide an
 ;; implementation.
 (defimplementation emacs-connected (stream)
-  (declare (ignore stream)))
+  (declare (ignore stream))
+  (install-advice))
 
 (defimplementation format-sldb-condition (c)
   (princ-to-string c))
@@ -115,6 +116,9 @@
      (describe (symbol-function symbol)))
     (:class
      (describe (find-class symbol)))))
+
+(defimplementation make-stream-interactive (stream)
+  (setf (interactive-stream-p stream) t))
 
 ;;;; Debugger
 
@@ -297,11 +301,43 @@
 
 ;;;; Multithreading
 
+(defvar *swank-thread* nil
+  "Bound to true in any thread with an ancestor created by SPAWN.
+Such threads always use Emacs for debugging and user interaction.")
+
+(defvar *inherited-bindings*
+  '(*debugger-hook*
+    *standard-output* *error-output* *trace-output*
+    *standard-input*
+    *debug-io* *query-io* *terminal-io*)
+  "Variables whose values are inherited by children of Swank threads.")
+
 (defimplementation startup-multiprocessing ()
   (mp:start-scheduler))
 
 (defimplementation spawn (fn &key name)
-  (mp:process-run-function name fn))
+  (mp:process-run-function name
+                           (lambda ()
+                             (let ((*swank-thread* t))
+                               (funcall fn)))))
+
+#+allegro-v6.2
+(excl:def-fwrapper make-process/inherit (&key &allow-other-keys)
+  "Advice for MP:MAKE-PROCESS.
+New threads that have a Swank thread for an ancestor will inherit
+debugging and I/O bindings from their parent."
+  (let ((process (excl:call-next-fwrapper)))
+    (when *swank-thread*
+      (push (cons '*swank-thread* t)
+            (mp:process-initial-bindings process))
+      (dolist (variable *inherited-bindings*)
+        (push (cons variable (symbol-value variable))
+              (mp:process-initial-bindings process))))
+    process))
+
+(defun install-advice ()
+  #+allegro-v6.2
+  (excl:fwrap 'mp:make-process 'make-process/inherit 'make-process/inherit))
 
 (defvar *id-lock* (mp:make-process-lock :name "id lock"))
 (defvar *thread-id-counter* 0)
