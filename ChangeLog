@@ -1,3 +1,38 @@
+2004-11-24  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-start-and-load): Use vanilla comint instead of
+	inf-lisp.  Let's try that for a while.
+	(slime): Ask for the coding system when invoked with C-u C-u.
+	(slime-net-coding-system, slime-net-valid-coding-systems): Add
+	some alternatives for older Emacsen.
+	(slime-find-buffer-package): Skip quotes.  Old code looks
+	sometimes like (in-package 'foo).
+	(slime-repl-mode-map): Inhibit C-c C-z.  Avoids accidental loading
+	inf-lisp.
+
+	* swank.lisp (inspect-for-emacs-list): subseq on improper lists
+	breaks in Lispworks. Handle that case better.
+
+	* swank-sbcl.lisp (inspect-for-emacs)[code-component]: Disassemble
+	code-components too.
+
+	* swank-backend.lisp (import-swank-mop-symbols): Better error
+	message for the assertion.
+
+	* swank-cmucl.lisp (debug-var-value): Return #:invalid or
+	#:unknown instead of :<not-available>.
+	(swank-compile-file): Load the fasl file only if load-p is true.
+	(inspect-for-emacs, inspect-alien-record, inspect-alien-pointer):
+	Add inspector support for some alien types.
+
+	* swank-lispworks.lisp (emacs-connected): Set the sigint handler
+	only for single threaded operation. I.e. when
+	*communication-style* is nil.
+
+	* swank-allegro.lisp (set-external-format): New function.  Use LF
+	as eol mark.
+	(call-with-compilation-hooks): Trap compiler-notes too.
+
 2004-11-24  Luke Gorrie  <luke@synap.se>
 
 	* slime.el (slime-repl-mode-map): Add C-up and C-down to move
@@ -80,7 +115,7 @@
 	ACL's native inspector.
 	(inspect-for-emacs (t), inspect-for-emacs (function)): Use it.
 
-	* wank.lisp (inspect-for-emacs array): Use row-major-aref instead
+	* swank.lisp (inspect-for-emacs array): Use row-major-aref instead
 	of a displaced array.  I hope that does the same.
 	(inspect-for-emacs integer): Ignore errors in
 	decode-universal-time.  Negative values and, in SBCL, also small
