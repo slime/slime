@@ -1,3 +1,11 @@
+2003-10-29  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-interrupt, slime-quit): Only send the
+	quit/interrupt message to Lisp if it is in fact evaluating
+	something for us. This fixes a protocol bug reported by Paolo
+	Amoroso.
+	Added (require 'pp).
+	
 2003-10-25  Luke Gorrie  <luke@bluetail.com>
 
 	* Everywhere: Changed the connection setup to use a dynamic

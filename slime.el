@@ -55,6 +55,7 @@
 (require 'inf-lisp)
 (require 'cl)
 (require 'hyperspec)
+(require 'pp)
 (when (featurep 'xemacs)
   (require 'overlay))
 (unless (fboundp 'define-minor-mode)
@@ -271,6 +272,14 @@ A prefix argument disables this behaviour."
       (insert ")")))
   (comint-send-input))
 
+(defun inferior-slime-delete-char (arg)
+  "Delete ARG characters, or invoke ABORT restart if at end of buffer."
+  (interactive "p")
+  (if (not (eobp))
+      (call-interactively 'delete-char (list arg))
+    (message "Pop LISP one level")
+    (comint-send-string (get-buffer-process (current-buffer))
+                        "abort\n")))
 
 
 ;;;;; Key bindings
@@ -1158,6 +1167,10 @@ Loops until the result is thrown to our caller, or the user aborts."
 (defun slime-busy-p ()
   "Return true if Lisp is busy processing a request."
   (eq (slime-state-name (slime-current-state)) 'slime-evaluating-state))
+
+(defun slime-evaluating-p ()
+  "Return true if Lisp is evaluating a request for Emacs."
+  (slime-busy-p))
 
 (defun slime-ping ()
   "Check that communication works."
@@ -2350,11 +2363,15 @@ the current index when the selection is completed."
 
 (defun slime-interrupt ()
   (interactive)
-  (slime-dispatch-event '(:emacs-interrupt)))
+  (if (slime-evaluating-p)
+      (slime-dispatch-event '(:emacs-interrupt))
+    (error "Not evaluating - nothing to interrupt.")))
 
 (defun slime-quit ()
   (interactive)
-  (slime-dispatch-event '(:emacs-quit)))
+  (if (slime-evaluating-p)
+      (slime-dispatch-event '(:emacs-quit))
+    (error "Not evaluating - nothing to quit.")))
 
 (defun slime-set-package (package)
   (interactive (list (slime-read-package-name "Package: " 
