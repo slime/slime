@@ -1,3 +1,15 @@
+2004-05-02   Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-start-and-load): New command.  Suggested by
+	Lars Magne Ingebrigtsen.
+
+2004-05-02  Lars Magne Ingebrigtsen  <larsi@netfonds.no>
+
+	* slime.el (slime-kill-without-query-p): New variable.
+	(slime-net-connect): Use it.
+	(slime-open-stream-to-lisp): Ditto.
+	(slime-maybe-start-lisp): Ditto.
+
 2004-05-02  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-goto-source-location): Added support for the
