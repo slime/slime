@@ -1,3 +1,34 @@
+2004-09-23  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-start-and-load): Take arguments so that the
+	function can be called non-interactively.
+	(slime-recompile-bytecode): Don't warn about uses of cl-functions.
+	(slime-reset): Kill all sldb buffers.
+	(slime-goto-location-position): Fix syntax for Emacs 20.
+	(sldb-mode-map): Add C-c C-d bindings.
+	(slime-open-inspector): Insert the type in the second line so that
+	we can make longer titles, e.g we should include the princed
+	version of the inspected object.
+
+	* swank-backend.lisp (frame-package, label-value-line)
+	(label-value-line*): New functions.
+
+	* swank.lisp (frame-locals-for-emacs): Bind *print-pretty* to
+	*sldb-pprint-frames* to get more compact lines and bind *package*
+	to frame-package to get shorter labels for variables.
+	(format-values-for-echo-area): Include the hex and octal
+	representation for integers.
+	(apply-macro-expander, disassemble-symbol): Use the buffer-package
+	for reading.
+	(inspector-content-for-emacs): Use print-part-to-string so that we
+	see cycles in the data structure.
+	(inspect-for-emacs): Minor beautifications.
+
+	* swank-cmucl.lisp (frame-package): Implemented.
+	(inspect-for-emacs): Only include stuff that is actually stored in
+	the object itself (see objdef.lisp for exact object layout).
+	Include the disassembly for functions and code components.
+
 2004-09-19  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-gray.lisp (stream-read-char): Treat empty strings as
