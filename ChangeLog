@@ -1,3 +1,18 @@
+2004-07-16  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-setup): New function for installing a
+	lisp-mode-hook. You can call this from ~/.emacs to setup SLIME.
+	Takes a `autodoc' keyword argument to enable
+	slime-autodoc-mode. We can add more keywords in future.
+	(slime-keys): Moved `slime-reindent-defun' from C-M-q to
+	C-cM-q. This avoids overriding the standard binding of C-M-q to
+	index-sexp.
+	(slime-typeout-frame-properties): Removed some properties:
+	`name', because it interacts badly with X properties, `left' and
+	`top' because they don't put the frame anywhere terribly
+	convenient, and (width . 40) because it makes the frame narrower
+	than the usual word-wrapping width.
+
 2004-07-14  Peter Seibel  <peter@javamonkey.com>
 
 	* slime.el (slime-lisp-package-prompt-string): Separate SLIME's
