@@ -1,3 +1,8 @@
+2004-06-18  Matthew Danish  <mdanish@andrew.cmu.edu>
+
+	* swank-allegro.lisp (frame-source-location-for-emacs):
+	Implemented.
+
 2004-06-18  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-repl-return): If the user presses return on old
@@ -13,6 +18,9 @@
 	(slime-list-compiler-notes): Save the window configuration
 	earlier. This fixes an error under XEmacs when dismissing the
 	notes buffer.
+	(slime-recenter-window): Avoid moving the point. This puts the
+	keeps the point in the right place when showing debugger-frame
+	locations in Emacs 21.
 
 2004-06-17  Luke Gorrie  <luke@bluetail.com>
 

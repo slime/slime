@@ -5071,13 +5071,13 @@ Called on the `point-entered' text-property hook."
 
 (defun slime-recenter-window (window line)
   "Set window-start in WINDOW LINE lines before point."
-  (let ((line (if (not line)
-                  (/ (window-height window) 2)
-                line)))
-    (let ((start (ignore-errors (loop repeat line do (forward-line -1))
-                                (point))))
-      (when start
-        (set-window-start w (point))))))
+  (let* ((line (if (not line)
+                   (/ (window-height window) 2)
+                 line))
+         (start (save-excursion
+                  (loop repeat line do (forward-line -1))
+                  (point))))
+    (set-window-start w start)))
 
 (defun sldb-highlight-sexp (&optional start end)
   "Highlight the first sexp after point."
