@@ -1,5 +1,8 @@
 2003-11-24  Luke Gorrie  <luke@bluetail.com>
 
+	* swank.lisp (eval-string-in-frame): Fixed symbol-visibility
+	problem (thanks Lawrence Mitchell).
+
 	* swank-sbcl.lisp (function-source-location): Use TRUENAME to
 	resolve source file name (thanks Lawrence Mitchell).
 
