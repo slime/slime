@@ -1,3 +1,7 @@
+2004-07-17  Luke Gorrie  <luke@bluetail.com>
+
+	* README, doc/slime.texi: Updated setup instructions.
+
 2004-07-16  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-conservative-indentation): New variable. When
