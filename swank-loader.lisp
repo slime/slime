@@ -85,12 +85,6 @@ recompiled."
               (load source-pathname))
             ))))))
 
-(defun user-init-file ()
-  "Return the name of the user init file or nil."
-  (probe-file (merge-pathnames (user-homedir-pathname)
-                               (make-pathname :name ".swank" :type "lisp"))))
-
-       
 (compile-files-if-needed-serially
   (append (list (make-swank-pathname "swank-backend"))
           *sysdep-pathnames* 
@@ -98,5 +92,18 @@ recompiled."
 
 (funcall (intern (string :warn-unimplemented-interfaces) :swank-backend))
 
-(when (user-init-file)
-  (load (user-init-file)))
+(defun load-user-init-file ()
+  "Load the user init file, return NIL if it does not exist."
+  (load (merge-pathnames (user-homedir-pathname)
+                         (make-pathname :name ".swank" :type "lisp"))
+        :if-does-not-exist nil))
+(export 'load-user-init-file)
+
+(defun load-site-init-file ()
+  (load (make-pathname :name "site-init" :type "lisp"
+                       :defaults *load-truename*)
+        :if-does-not-exist nil))
+
+(or (load-site-init-file)
+    (load-user-init-file))
+
