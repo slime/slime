@@ -1,3 +1,22 @@
+2004-06-22  Luke Gorrie  <luke@bluetail.com>
+
+	* doc/Makefile (contributors.texi): The contributors list in the
+	manual is now sorted by most number of ChangeLog entries. Patch
+	from Michael Weber.
+
+	* slime.el: Some minor hacking to fuzzy completion:
+	Use the shorter `slime-fuzzy-' symbol prefix.
+	Use markers instead of numbers to remember where the completion is
+	being done. This way they are self-updating.
+	Use `buffer-modified-tick' to detect modifications instead of text
+	comparison.
+	Always restore window configuration when a completion is
+	chosen. For this completion style I think this will work okay
+	[famous last words], and the existing code wasn't
+	XEmacs-compatible for want of window-configuration-change-hook.
+	Now there is no separate keybinding for fuzzy completion, but it's
+	included as a customize option for `slime-complete-symbol-function'
+	
 2004-06-22  Brian Downing  <bdowning@lavos.net>
 
 	* slime.el, swank.lisp: Added "fuzzy completion."
