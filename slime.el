@@ -75,7 +75,11 @@ Emacs Lisp package.")
 (defvar slime-swank-connection-retries 10
   "Number of times to try connecting to the Swank server before aborting.")
 
-(defvar slime-cmucl-binary-extension ".x86f")
+(defvar slime-lisp-binary-extension ".x86f"
+  "Filename extension for Lisp object files.")
+
+(defvar slime-backend "swank"
+  "The name of the Lisp file implementing the Swank server.")
 
 (make-variable-buffer-local
  (defvar slime-buffer-package nil
@@ -486,13 +490,14 @@ If that doesn't give a function, return nil."
   "Start a Swank server on the inferior lisp."
   (slime-maybe-compile-swank)
   (comint-proc-query (inferior-lisp-proc)
-                     (format "(load %S)\n" (concat slime-path "swank")))
+                     (format "(load %S)\n"
+                             (concat slime-path slime-backend)))
   (comint-proc-query (inferior-lisp-proc)
                      "(swank:start-server)\n"))
 
 (defun slime-maybe-compile-swank ()
-  (let ((source (concat slime-path "swank.lisp"))
-        (binary (concat slime-path "swank" slime-cmucl-binary-extension)))
+  (let ((source (concat slime-path slime-backend ".lisp"))
+        (binary (concat slime-path slime-backend slime-lisp-binary-extension)))
     (flet ((compile-swank () (comint-proc-query 
 			      (inferior-lisp-proc)
 			      (format "(compile-file %S)\n" source))))
@@ -723,6 +728,7 @@ Return true if the event is recognised and handled."
   "Return STATE's event-handler function."
   (third state))
 
+
 ;;;;; Upper layer macros for defining states
 
 (defmacro slime-defstate (name variables doc &rest events)
@@ -806,8 +812,8 @@ state interacts with it until it is coaxed into returning."
    (slime-push-state (slime-evaluating-state continuation))))
 
 (put 'slime-defstate 'lisp-indent-function 2)
-(put 'slime-event-dispatch 'lisp-indent-function 0)
 
+
 ;;;;; Utilities
 
 (defun slime-output-evaluate-request (form-string package-name)
@@ -820,6 +826,8 @@ state interacts with it until it is coaxed into returning."
     (error "Not connected. Use `M-x slime' to start a Lisp.")))
 
 (defun slime-eval-string-async (string package continuation)
+  (when (slime-busy-p)
+    (error "Lisp is already busy evaluating a request."))
   (slime-dispatch-event `(:emacs-evaluate ,string ,package ,continuation)))
 
 (defconst +slime-sigint+ 2)
@@ -827,6 +835,7 @@ state interacts with it until it is coaxed into returning."
 (defun slime-send-sigint ()
   (signal-process slime-pid +slime-sigint+))
 
+
 ;;;;; Emacs Lisp programming interface
 
 (defun slime-eval (sexp &optional package)
