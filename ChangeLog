@@ -1,3 +1,74 @@
+2004-01-22  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* test.sh: Copy the ChangeLog file too.
+
+	* swank-cmucl.lisp: Replace some defmethods with
+	defimplementation.
+
+	* swank-allegro.lisp (return-from-frame, restart-name): Implement
+	interface (partly).
+
+	* swank-openmcl.lisp (restart-frame, return-from-frame): Remove
+	sldb-prefix.
+
+	* swank-backend.lisp (return-from-frame, restart-frame):
+	Are now interface functions.
+
+	* slime/swank.asd: Remove dependency on :sb-bsd-sockets.  Is
+	already done in swank-sbcl.
+
+	* swank-loader.lisp: Don't reference the swank package at
+	read-time.
+
+	* swank.lisp (completions): Never bind *package* to nil.  That's a
+	type error in SBCL.
+	(swank-debugger-hook): Flush the output streams and be careful
+	when accessing *buffer-package*.  
+	(create-swank-server): Return the port of the serve socket.
+
+	* swank-lispworks.lisp (interesting-frame-p): Don't print catch
+	frames.
+	(make-sigint-handler): New function.
+	(emacs-connected): Use it.
+
+	* slime.el (slime-lisp-implementation-type): New per connection
+	variable.
+	(slime-handle-oob): Handle debug-condition event.  Can be signaled
+	CMUCL when cannot produce a backtrace.
+	(slime-debugging-state): Don't pop up the debugger buffer an
+	activate events. Annoying.
+	(sldb-break-with-default-debugger): Switch to the output buffer
+	before returning to the tty-debugger.
+	(sldb-return-from-frame, sldb-restart-frame): Use slime-rex.
+	(slime-list-connections, slime-short-state-name): New functions.
+
+2004-01-20  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-complete-symbol): Insert the completed-prefix
+	before deleting the original text to avoid troubles with left
+	inserting markers.
+	(slime-symbol-start-pos): Skip backward across symbol
+	constituents.
+	(slime-evaluating-state): [:read-sring] Save the window
+	configuration.
+	(slime-read-string-state): Don't handle activate events
+	(troublesome if, e.g, complete-symbol is used from another
+	buffer).  Restore the window configuration.
+	(slime-repl-read-string): Goto the end of buffer.
+	(slime-debugging-state): [:activate] Display the debugger buffer
+	if not visible.
+	(slime-to-lisp-filename, slime-from-lisp-filename)
+	(slime-translate-to-lisp-filename-function)
+	(slime-translate-from-lisp-filename-function, slime-compile-file)
+	(slime-goto-location-buffer, slime-ed, slime-load-file): Support
+	for remote filename translation (untested).
+
+	* swank.lisp (create-swank-server): Take announce-fn as optional
+	argument.
+
+	* swank-allegro.lisp: Replace defmethod with defimplementation.
+	(eval-in-frame): Implemented.
+
 2004-01-20  Lasse Rasinen  <lrasinen@iki.fi>
 
 	* slime.el (slime-prin1-to-string): Replacement for
@@ -1699,7 +1770,7 @@
 	tty.  Output streams are now line buffered.  We no longer compute
 	the backtrace-length.
 
-	* /project/slime/cvsroot/slime/slime.el:
+	* slime.el:
 	(slime-repl-read-mode, slime-repl-read-string, slime-repl-return,
 	slime-repl-send-string, slime-read-string-state,
 	slime-activate-state): Reorganize input redirection.  We no longer
