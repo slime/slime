@@ -1,3 +1,15 @@
+2004-12-05  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-global-variable-name-p): Also return true for
+	names of constants like +foo+.  Suggested by Christian Lynbech.
+
+	* swank-allegro.lisp (handle-compiler-warning): Handle
+	undefined-functions warnings by looking the fromat-arguments of
+	the condition.
+	(compiler-undefined-functions-called-warning-p)
+	(location-for-warning, handle-undefined-functions-warning): New
+	functions.
+
 2004-12-02  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp: (inspect-for-emacs (symbol)): Handle non-interned
