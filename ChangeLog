@@ -1,3 +1,41 @@
+2004-01-15  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-sbcl.lisp, swank-cmucl.lisp (remove-input-handlers): New
+	method.
+
+	* swank-allegro.lisp (excl:stream-read-char-no-hang): Import it.
+	(emacs-connected): Add default method.  The method for
+	no-applicable-method doesn't seem to work.  ACL bug?
+
+	* swank-loader.lisp (compile-files-if-needed-serially): Don't
+	handle compilation errors.  We must compile everything because
+	changelog-date requires *compile-file-truename*.
+
+	* slime.el: (slime-changelog-date)
+	(slime-check-protocol-version): New functions.
+	(slime-handle-oob): Handle :check-protocol-version event.
+	(slime-init-output-buffer): Print some info about the remote Lisp.
+	(slime-connect): Use it.
+	(slime-note-transcript-start): Renamed from
+	slime-insert-transcript-delimiter.
+	(slime-note-transcript-end): New function.
+	(slime-with-output-end-mark, slime-repl-insert-prompt)
+	(slime-repl-show-result, slime-compile-file)
+	(slime-show-evaluation-result): Insert output from eval commands
+	after the prompt and asynchronous output before the prompt.  Needs
+	documentation.
+	(repl-test, repl-read, interactive-eval-output): New tests.
+	(slime-flush-output): Accept output from all processes.
+
+	* swank.lisp (serve-requests): New function.
+	(setup-server): Use it.
+	(start-server): Pass backgroud to setup-server.
+	(create-connection): Check the protocol version.
+	(changelog-date): New function.
+	(make-output-function): Use write-string instead of princ.
+
+	* swank-backend.lisp (remove-input-handlers): New function.
+
 2004-01-15  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-aux-connect, slime-handle-oob): Support for
