@@ -146,6 +146,9 @@
 (defimplementation lisp-implementation-type-name ()
   "cmucl")
 
+(defimplementation quit-lisp ()
+  (ext::quit))
+
 
 ;;;; Stream handling
 
@@ -815,6 +818,8 @@ NAME can any valid function name (e.g, (setf car))."
           (make-location `(:buffer ,emacs-buffer)
                          `(:position ,(+ emacs-buffer-offset pos))))))))
 
+;; XXX predicates for 18e backward compatibilty.  Remove them when
+;; we're 19a only.
 (defun file-source-location-p (object) 
   (when (fboundp 'c::file-source-location-p)
     (c::file-source-location-p object)))
@@ -823,15 +828,24 @@ NAME can any valid function name (e.g, (setf car))."
   (when (fboundp 'c::stream-source-location-p)
     (c::stream-source-location-p object)))
 
+(defun source-location-p (object)
+  (or (file-source-location-p object)
+      (stream-source-location-p object)))
+
+(defun resolve-source-location (location)
+  (etypecase location
+    ((satisfies file-source-location-p)
+     (resolve-file-source-location location))
+    ((satisfies stream-source-location-p)
+     (resolve-stream-source-location location))))
+
 (defun definition-source-location (object name)
   (let ((source (pcl::definition-source object)))
     (etypecase source
       (null 
        `(:error ,(format nil "No source info for: ~A" object)))
-      ((satisfies file-source-location-p)
-       (resolve-file-source-location source))
-      ((satisfies stream-source-location-p)
-       (resolve-stream-source-location source))
+      ((satisfies source-location-p)
+       (resolve-source-location source))
       (pathname 
        (make-name-in-file-location source name))
       (cons
@@ -868,6 +882,23 @@ NAME can any valid function name (e.g, (setf car))."
     (if function
         (list (list `(setf ,name) 
                     (function-location (coerce function 'function)))))))
+
+
+(defun variable-location (symbol)
+  (multiple-value-bind (location foundp)
+      ;; XXX for 18e compatibilty. rewrite this when we drop 18e
+      ;; support.
+      (ignore-errors (eval `(ext:info :source-location :defvar ',symbol)))
+    (if (and foundp location)
+        (resolve-source-location location)
+        `(:error ,(format nil "No source info for variable ~S" symbol)))))
+
+(defun variable-definitions (name)
+  (if (symbolp name)
+      (multiple-value-bind (kind recorded-p) (ext:info :variable :kind name)
+        (if recorded-p
+            (list (list `(variable ,kind ,name)
+                        (variable-location name)))))))
 
 (defun compiler-macro-definitions (symbol)
   (maybe-make-definition (compiler-macro-function symbol)
@@ -909,12 +940,14 @@ NAME can any valid function name (e.g, (setf car))."
 (defimplementation find-definitions (name)
   (append (function-definitions name)
           (setf-definitions name)
+          (variable-definitions name)
           (class-definitions name)
           (type-definitions name)
           (compiler-macro-definitions name)
           (source-transform-definitions name)
           (function-info-definitions name)
           (ir1-translator-definitions name)))
+
 
 ;;;; Documentation.
 
@@ -1115,37 +1148,6 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 
 (defimplementation macroexpand-all (form)
   (walker:macroexpand-all form))
-
-;; (in-package :c)
-;; 
-;; (defun swank-backend::expand-ir1-top-level (form)
-;;   "A scaled down version of the first pass of the compiler."
-;;   (with-compilation-unit ()
-;;     (let* ((*lexical-environment*
-;;             (make-lexenv :default (make-null-environment)
-;;                          :cookie *default-cookie*
-;;                          :interface-cookie *default-interface-cookie*))
-;;            (*source-info* (make-lisp-source-info form))
-;;            (*block-compile* nil)
-;;            (*block-compile-default* nil))
-;;       (with-ir1-namespace
-;;           (clear-stuff)
-;;         (find-source-paths form 0)
-;;         (ir1-top-level form '(0) t)))))
-;; 
-;; (in-package :swank-backend)
-;; 
-;; (defun print-ir1-converted-blocks (form)
-;;   (with-output-to-string (*standard-output*)
-;;     (c::print-all-blocks (expand-ir1-top-level (from-string form)))))
-;; 
-;; (defun print-compilation-trace (form)
-;;   (with-output-to-string (*standard-output*)
-;;     (with-input-from-string (s form)
-;;       (ext:compile-from-stream s 
-;;                                :verbose t
-;;                                :progress t
-;;                                :trace-stream *standard-output*))))
 
 (defimplementation set-default-directory (directory)
   (setf (ext:default-directory) (namestring directory))
@@ -1413,52 +1415,6 @@ LRA  =  ~X~%" (mapcar #'fixnum
       (di::bogus-debug-function
        (format t "~%[Disassembling bogus frames not implemented]")))))
 
-#+(or)
-(defun print-binding-stack ()
-  (flet ((bsp- (p) (sys:sap+ p (- (* vm:binding-size vm:word-bytes))))
-         (frob (p offset) (kernel:make-lisp-obj (sys:sap-ref-32 p offset))))
-    (do ((bsp (bsp- (kernel:binding-stack-pointer-sap)) (bsp- bsp))
-         (start (sys:int-sap (lisp::binding-stack-start))))
-        ((sys:sap= bsp start))
-      (format t "~X:  ~S = ~S~%" 
-              (sys:sap-int bsp)
-              (frob bsp (* vm:binding-symbol-slot vm:word-bytes))
-              (frob bsp (* vm:binding-value-slot vm:word-bytes))))))
-
-;; (print-binding-stack)
-
-#+(or)
-(defun print-catch-blocks ()
-  (do ((b (di::descriptor-sap lisp::*current-catch-block*)
-          (sys:sap-ref-sap b (* vm:catch-block-previous-catch-slot
-                                vm:word-bytes))))
-      (nil)
-    (let ((int (sys:sap-int b)))
-      (when (zerop int) (return))
-      (flet ((ref (offset) (sys:sap-ref-32 b (* offset vm:word-bytes))))
-        (let ((uwp (ref vm:catch-block-current-uwp-slot))
-              (cfp (ref vm:catch-block-current-cont-slot))
-              (tag (ref vm:catch-block-tag-slot))
-              )
-      (format t "~X:  uwp = ~8X  cfp = ~8X  tag = ~X~%" 
-              int uwp cfp (kernel:make-lisp-obj tag)))))))
-
-;; (print-catch-blocks) 
-
-#+(or)
-(defun print-unwind-blocks ()
-  (do ((b (di::descriptor-sap lisp::*current-unwind-protect-block*)
-          (sys:sap-ref-sap b (* vm:unwind-block-current-uwp-slot
-                                vm:word-bytes))))
-      (nil)
-    (let ((int (sys:sap-int b)))
-      (when (zerop int) (return))
-      (flet ((ref (offset) (sys:sap-ref-32 b (* offset vm:word-bytes))))
-        (let ((cfp (ref vm:unwind-block-current-cont-slot)))
-          (format t "~X:  cfp = ~X~%" int cfp))))))
-
-;; (print-unwind-blocks)
-
 
 ;;;; Inspecting
 
@@ -1473,18 +1429,19 @@ LRA  =  ~X~%" (mapcar #'fixnum
     vm:other-pointer-type))
 
 (defconstant +header-type-symbols+
-  ;; Is there a convinient place for all those constants?
-  (flet ((tail-comp (string tail)
-	   (and (>= (length string) (length tail))
-		(string= string tail :start1 (- (length string) 
-						(length tail))))))
+  (flet ((suffixp (suffix string)
+           (and (>= (length string) (length suffix))
+                (string= string suffix :start1 (- (length string) 
+                                                  (length suffix))))))
+    ;; Is there a convinient place for all those constants?
     (remove-if-not
-     (lambda (x) (and (tail-comp (symbol-name x) "-TYPE")
-		      (not (member x +lowtag-symbols+))
-		      (boundp x)
-		      (typep (symbol-value x) 'fixnum)))
+     (lambda (x) (and (suffixp "-TYPE" (symbol-name x))
+                      (not (member x +lowtag-symbols+))
+                      (boundp x)
+                      (typep (symbol-value x) 'fixnum)))
      (append (apropos-list "-TYPE" "VM" t)
-	     (apropos-list "-TYPE" "BIGNUM" t)))))
+             (apropos-list "-TYPE" "BIGNUM" t))))
+  "A list of names of the type codes in boxed objects.")
 
 (defimplementation describe-primitive-type (object)
   (with-output-to-string (*standard-output*)
@@ -1641,6 +1598,3 @@ LRA  =  ~X~%" (mapcar #'fixnum
         (pop (mailbox.queue mbox)))))
 
   )
-
-(defimplementation quit-lisp ()
-  (ext::quit))

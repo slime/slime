@@ -1,3 +1,8 @@
+2004-05-08  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-cmucl.lisp (find-definitions): Add support for variables
+	and constants.
+
 2004-05-07  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-clisp.lisp (compiler-note-location): Use make-location to
