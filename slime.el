@@ -2320,15 +2320,21 @@ side.")
       (setq header-line-format banner))
     (when animantep
       (pop-to-buffer (current-buffer))
-      (animate-string (format "; SLIME %s" (slime-changelog-date)) 0 0))
+      (animate-string (format "; SLIME %s" (or (slime-changelog-date) 
+                                               "- ChangeLog file not found"))
+                      0 0))
     (slime-repl-insert-prompt (if use-header-p "" (concat "; " banner)))))
 
 (defun slime-changelog-date ()
-  "Return the datestring of the latest entry in the ChangeLog file."
-  (with-temp-buffer 
-    (insert-file-contents (concat slime-path "ChangeLog") nil 0 100)
-    (goto-char (point-min))
-    (symbol-name (read (current-buffer)))))
+  "Return the datestring of the latest entry in the ChangeLog file.
+Return nil if the ChangeLog file cannot be found."
+  (let ((changelog (concat slime-path "ChangeLog")))
+    (if (file-exists-p changelog)
+        (with-temp-buffer 
+          (insert-file-contents changelog nil 0 100)
+          (goto-char (point-min))
+          (symbol-name (read (current-buffer))))
+      nil)))
 
 (defun slime-init-output-buffer (connection)
   (with-current-buffer (slime-output-buffer t)
