@@ -502,20 +502,28 @@ stack."
   (safe-source-location-for-emacs 
    (sb-di:frame-code-location (nth-frame index))))
 
+(defun frame-debug-vars (frame)
+  "Return a vector of debug-variables in frame."
+  (sb-di::debug-fun-debug-vars (sb-di:frame-debug-fun frame)))
+
+(defun debug-var-value (var frame location)
+  (ecase (sb-di:debug-var-validity var location)
+    (:valid (sb-di:debug-var-value var frame))
+    ((:invalid :unknown) ':<not-available>)))
+
 (defimplementation frame-locals (index)
   (let* ((frame (nth-frame index))
-	 (location (sb-di:frame-code-location frame))
-	 (debug-function (sb-di:frame-debug-fun frame))
-	 (debug-variables (sb-di::debug-fun-debug-vars debug-function)))
-    (declare (type (or null simple-vector) debug-variables))
-    (loop for v across debug-variables
-          collect (list
-                   :name (sb-di:debug-var-symbol v)
-                   :id (sb-di:debug-var-id v)
-                   :value (if (eq (sb-di:debug-var-validity v location)
-                                  :valid)
-                              (sb-di:debug-var-value v frame)
-                              '#:<not-available>)))))
+	 (loc (sb-di:frame-code-location frame))
+	 (vars (frame-debug-vars frame)))
+    (loop for v across vars collect
+          (list :name (sb-di:debug-var-symbol v)
+                :id (sb-di:debug-var-id v)
+                :value (debug-var-value v frame loc)))))
+
+(defimplementation frame-var-value (frame var)
+  (let* ((frame (nth-frame frame))
+         (dvar (aref (frame-debug-vars frame) var)))
+    (debug-var-value dvar frame (sb-di:frame-code-location frame))))
 
 (defimplementation frame-catch-tags (index)
   (mapcar #'car (sb-di:frame-catches (nth-frame index))))
@@ -704,12 +712,17 @@ stack."
 
 (defvar *debootstrap-packages* t)
 
+(defmacro with-debootstrapping (&body body)
+  (let ((not-found (find-symbol "BOOTSTRAP-PACKAGE-NOT-FOUND" "SB-INT"))
+        (debootstrap (find-symbol "DEBOOTSTRAP-PACKAGE" "SB-INT")))
+    (if (and not-found debootstrap)
+        `(handler-bind ((,not-found #',debootstrap)) ,@body)
+        `(progn ,@body))))
+
 (defimplementation call-with-syntax-hooks (fn)
   (cond ((and *debootstrap-packages* 
               (sbcl-package-p *package*))
-         (handler-bind ((sb-int:bootstrap-package-not-found 
-                         #'sb-int:debootstrap-package))
-           (funcall fn)))
+         (with-debootstrapping (funcall fn)))
         (t
          (funcall fn))))
 
