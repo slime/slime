@@ -2899,6 +2899,7 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   ("\M-\C-a" 'slime-repl-beginning-of-defun)
   ("\M-\C-e" 'slime-repl-end-of-defun)
   ("\C-c\C-l" 'slime-load-file)
+  ("\C-c\C-k" 'slime-compile-and-load-file)
   )
 
 (define-key slime-repl-mode-map
