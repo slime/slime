@@ -4744,19 +4744,20 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
 (defun sldb-insert-frames (frames maximum-length)
   "Insert FRAMES into buffer.
 MAXIMUM-LENGTH is the total number of frames in the Lisp stack."
-  (when maximum-length
-    (assert (<= (length frames) maximum-length)))
-  (save-excursion
-    (mapc #'sldb-insert-frame frames)
-    (let ((number (sldb-previous-frame-number)))
-      (cond ((and maximum-length (< (length frames) maximum-length)))
-	    (t
-	     (slime-insert-propertized 
-	      `(sldb-default-action 
-		sldb-fetch-more-frames
-		point-entered sldb-fetch-more-frames
-		sldb-previous-frame-number ,number)
-	      (in-sldb-face section " --more--\n")))))))
+  (unless (null frames)
+    (when maximum-length
+      (assert (<= (length frames) maximum-length)))
+    (save-excursion
+      (mapc #'sldb-insert-frame frames)
+      (let ((number (sldb-previous-frame-number)))
+        (cond ((and maximum-length (< (length frames) maximum-length)))
+              (t
+               (slime-insert-propertized 
+                `(sldb-default-action 
+                  sldb-fetch-more-frames
+                  point-entered sldb-fetch-more-frames
+                  sldb-previous-frame-number ,number)
+                (in-sldb-face section " --more--\n"))))))))
 
 (defun sldb-fetch-more-frames (&rest ignore)
   "Fetch more backtrace frames.
