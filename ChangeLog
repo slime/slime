@@ -1,3 +1,16 @@
+2003-09-29  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el: Fairly major hacking.
+	Rewrote the evaluation mechanics: similar design but some macros
+	to make it look more like a push-down automaton (which it really
+	was!). Debugging Lisp no longer uses recursive edits, partly as a
+	side-effect and partly to see if it's better this way.
+	Removed the asynchronous-communication test cases that tested
+	something we decided not to do.
+
+	* swank.lisp: Minor protocol changes to accomodate slime.el's
+	changes above.
+
 2003-09-28  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank.lisp 
