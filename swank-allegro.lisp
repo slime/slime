@@ -146,9 +146,10 @@
     (funcall debugger-loop-fn)))
 
 (defun find-topframe ()
-  (do ((f (excl::int-newest-frame) (next-frame f))
-       (i 0 (1+ i)))
-      ((= i 3) f)))
+  (let ((skip-frames 3))
+    (do ((f (excl::int-newest-frame) (next-frame f))
+         (i 0 (1+ i)))
+        ((= i skip-frames) f))))
 
 (defun next-frame (frame)
   (let ((next (excl::int-next-older-frame frame)))
@@ -196,9 +197,15 @@
     (second (first (fspec-definition-locations fspec)))))
 
 (defimplementation eval-in-frame (form frame-number)
-  (debugger:eval-form-in-context 
-   form
-   (debugger:environment-of-frame (nth-frame frame-number))))
+  (let ((frame (nth-frame frame-number)))
+    ;; let-bind lexical variables
+    (let ((vars (loop for i below (debugger:frame-number-vars frame)
+                      for name = (debugger:frame-var-name frame i)
+                      if (symbolp name)
+                      collect `(,name ',(debugger:frame-var-value frame i)))))
+      (debugger:eval-form-in-context 
+       `(let* ,vars ,form)
+       (debugger:environment-of-frame frame)))))
 
 (defimplementation return-from-frame (frame-number form)
   (let ((frame (nth-frame frame-number)))
@@ -472,14 +479,6 @@
 (defimplementation make-default-inspector ()
   (make-instance 'acl-inspector))
 
-;; duplicated from swank.lisp in order to avoid package dependencies
-(defun common-seperated-spec (list &optional (callback (lambda (v) `(:value ,v))))
-  (butlast
-   (loop
-      for i in list
-      collect (funcall callback i)
-      collect ", ")))
-
 #-allegro-v5.0
 (defmethod inspect-for-emacs ((f function) inspector)
   inspector
@@ -491,83 +490,6 @@
              (when doc
                `("Documentation:" (:newline) ,doc))))))
 
-
-(defmethod inspect-for-emacs ((class structure-class) (inspector acl-inspector))
-  (values "A structure class."
-          `("Name: " (:value ,(class-name class))
-            (:newline)
-            "Super classes: " ,@(common-seperated-spec (swank-mop:class-direct-superclasses class))
-            (:newline)
-            "Direct Slots: " ,@(common-seperated-spec (swank-mop:class-direct-slots class)
-                                                      (lambda (slot)
-                                                        `(:value ,slot ,(princ-to-string
-                                                                         (swank-mop:slot-definition-name slot)))))
-            (:newline)
-            "Effective Slots: " ,@(if (swank-mop:class-finalized-p class)
-                                      (common-seperated-spec (swank-mop:class-slots class)
-                                                             (lambda (slot)
-                                                               `(:value ,slot ,(princ-to-string
-                                                                                (swank-mop:slot-definition-name slot)))))
-                                      '("N/A (class not finalized)"))
-            (:newline)
-            "Documentation:" (:newline)
-            ,@(when (documentation class t)
-                `(,(documentation class t) (:newline)))
-            "Sub classes: " ,@(common-seperated-spec (swank-mop:class-direct-subclasses class)
-                                                     (lambda (sub)
-                                                       `(:value ,sub ,(princ-to-string (class-name sub)))))
-            (:newline)
-            "Precedence List: " ,@(if (swank-mop:class-finalized-p class)
-                                      (common-seperated-spec (swank-mop:class-precedence-list class)
-                                                             (lambda (class)
-                                                               `(:value ,class ,(princ-to-string (class-name class)))))
-                                      '("N/A (class not finalized)"))
-            (:newline)
-            "Prototype: " ,(if (swank-mop:class-finalized-p class)
-                               `(:value ,(swank-mop:class-prototype class))
-                               '"N/A (class not finalized)"))))
-
-#-allegro-v5.0
-(defmethod inspect-for-emacs ((slot excl::structure-slot-definition) 
-                              (inspector acl-inspector))
-  (values "A structure slot." 
-          `("Name: " (:value ,(swank-mop:slot-definition-name slot))
-            (:newline)
-            "Documentation:" (:newline)
-            ,@(when (documentation slot t)
-                `((:value ,(documentation slot t)) (:newline)))
-            "Initform: " ,(if (swank-mop:slot-definition-initform slot)
-                             `(:value ,(swank-mop:slot-definition-initform slot))
-                             "#<unspecified>") (:newline)
-            "Type: " ,(if (swank-mop:slot-definition-type slot)
-                          `(:value ,(swank-mop:slot-definition-type slot))
-                          "#<unspecified>") (:newline)
-            "Allocation: " (:value ,(excl::slotd-allocation slot)) (:newline)
-            "Read-only: " (:value ,(excl::slotd-read-only slot)) (:newline))))
-
-(defmethod inspect-for-emacs ((o structure-object) (inspector acl-inspector))
-  (values "An structure object."
-          `("Structure class: " (:value ,(class-of o))
-            (:newline)
-            "Slots:" (:newline)
-            ,@(loop
-                 with direct-slots = (swank-mop:class-direct-slots (class-of o))
-                 for slot in (swank-mop:class-slots (class-of o))
-                 for slot-def = (or (find-if (lambda (a)
-                                               ;; find the direct slot with the same as
-                                               ;; SLOT (an effective slot).
-                                               (eql (swank-mop:slot-definition-name a)
-                                                    (swank-mop:slot-definition-name slot)))
-                                             direct-slots)
-                                    slot)
-                 collect `(:value ,slot-def ,(princ-to-string (swank-mop:slot-definition-name slot-def)))
-                 collect " = "
-                 if (slot-boundp o (swank-mop:slot-definition-name slot-def))
-                   collect `(:value ,(slot-value o (swank-mop:slot-definition-name slot-def)))
-                 else
-                   collect "#<unbound>"
-                 collect '(:newline)))))
-
 (defmethod inspect-for-emacs ((o t) (inspector acl-inspector))
   inspector
   (values "A value." (allegro-inspect o)))
@@ -578,26 +500,23 @@
 
 (defun allegro-inspect (o)
   (loop for (d dd) on (inspect::inspect-ctl o)
-        until (eq d dd)
-        for i from 0
-        append (frob-allegro-field-def o d i)))
+        append (frob-allegro-field-def o d)
+        until (eq d dd)))
 
-(defun frob-allegro-field-def (object def idx)
+(defun frob-allegro-field-def (object def)
   (with-struct (inspect::field-def- name type access) def
-    (label-value-line name
-                      (ecase type
-                        ((:unsigned-word :unsigned-byte :unsigned-natural 
-                                         :unsigned-half-long)
-                         (inspect::component-ref-v object access type))
-                        (:lisp       
-                         (inspect::component-ref object access))
-                        (:indirect 
-                         (apply #'inspect::indirect-ref object idx access))))))
-
-#|
-(defun test (foo)
-  (inspect::show-object-structure foo (inspect::inspect-ctl foo) 1))
-|#
+    (ecase type
+      ((:unsigned-word :unsigned-byte :unsigned-natural 
+                       :unsigned-half-long :unsigned-3byte)
+       (label-value-line name (inspect::component-ref-v object access type)))
+      ((:lisp :value)
+       (label-value-line name (inspect::component-ref object access)))
+      (:indirect 
+       (destructuring-bind (prefix count ref set) access
+         (declare (ignore set prefix))
+         (loop for i below (funcall count object)
+               append (label-value-line (format nil "~A-~D" name i)
+                                        (funcall ref object i))))))))
 
 ;;;; Multithreading
 
