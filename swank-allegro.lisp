@@ -60,6 +60,10 @@
 (defimplementation lisp-implementation-type-name ()
   "allegro")
 
+(defimplementation set-default-directory (directory)
+  (excl:chdir directory)
+  (namestring (setf *default-pathname-defaults* (pathname directory))))
+
 ;;;; Misc
 
 (defimplementation arglist (symbol)

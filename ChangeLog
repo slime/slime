@@ -1,5 +1,8 @@
 2004-04-07  Peter Seibel  <peter@javamonkey.com>
 
+	* swank-allegro.lisp (set-default-directory): Allegro specific
+	version that also uses excl:chdir.
+
 	* swank.lisp (swank-pprint): Add swank versions of two missing
 	pretty-printer control variables.
 
