@@ -28,7 +28,8 @@
   (ext:close-socket (socket-fd socket)))
 
 (defmethod accept-connection (socket)
-  #+MP (when *multiprocessing-enabled* (mp:process-wait-until-fd-usable socket :input))
+  #+MP (when *multiprocessing-enabled*
+         (mp:process-wait-until-fd-usable socket :input))
   (make-socket-io-stream (ext:accept-tcp-connection socket)))
 
 (defmethod add-input-handler (socket fn)
@@ -781,7 +782,7 @@ The result has the format \"(...)\"."
 		 (cond ((eval:interpreted-function-p fun)
 			(eval:interpreted-function-arglist fun))
 		       ((pcl::generic-function-p fun)
-			(pcl::gf-pretty-arglist fun))
+                        (pcl::arg-info-lambda-list (pcl::gf-arg-info fun)))
 		       (arglist arglist)
 		       ;; this should work both for
 		       ;; compiled-debug-function and for
