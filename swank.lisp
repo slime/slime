@@ -2658,7 +2658,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
         (class (when (find-class symbol nil)
                  `("It names the class " (:value ,(find-class symbol) ,(inspector-princ (class-name (find-class symbol))))
                    " " (:action ,(format nil "[remove name ~S (does not affect class object)]" symbol)
-                                (lambda () (setf (find-class symbol) nil)))))))
+                                ,(lambda () (setf (find-class symbol) nil)))))))
     (values "A symbol."
             `("Its name is: " (:value ,(symbol-name symbol))
               (:newline)
@@ -2715,10 +2715,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
             "Its argument list is: " ,(inspector-princ (arglist f))
             (:newline)
             ,@(when (documentation f t)
-                `("Documentation:" (:newline) ,(documentation f t) (:newline)))
-            ,@(when (and (function-name f)
-                         
-                         )))))
+                `("Documentation:" (:newline) ,(documentation f t) (:newline))))))
 
 (defun method-specializers-for-inspect (method)
   "Return a \"pretty\" list of the method's specializers. Normal
@@ -2816,7 +2813,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
 
 (defmethod inspect-for-emacs ((class standard-class) (inspector t))
   (declare (ignore inspector))
-  (values "A class."
+  (values "A stadard class."
           `("Name: " (:value ,(class-name class))
             (:newline)
             "Super classes: " ,@(common-seperated-spec (swank-mop:class-direct-superclasses class))
@@ -2962,7 +2959,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
   (declare (ignore inspector))
   (values "A number."
           (append 
-           `(,(format nil "Value: ~D = #x~X = #o~O = ~E" i i i i) (:newline))
+           `(,(format nil "Value: ~D = #x~X = #o~O = #b~,,' ,8B = ~E" i i i i i) (:newline))
            (if (< -1 i char-code-limit)
                (label-value-line "Corresponding character" (code-char i)))
            (label-value-line "Length" (integer-length i))
