@@ -225,6 +225,28 @@ subset of the bindings from `slime-mode'.
 		((slime-buffer-package (":" slime-buffer-package) "")
 		 slime-state-name))))
 
+(defun inferior-slime-return ()
+  "Handle the return key in the inferior-lisp buffer.
+The current input should only be sent if a whole expression has been
+entered, i.e. the parenthesis are matched.
+
+A prefix argument disables this behaviour."
+  (interactive)
+  (if (or current-prefix-arg (inferior-slime-input-complete-p))
+      (comint-send-input)
+    (insert "\n")
+    (lisp-indent-line)))
+
+(defun inferior-slime-input-complete-p ()
+  "Return true if the input is complete in the inferior lisp buffer."
+  (ignore-errors
+    (save-excursion
+      (goto-char (process-mark (get-buffer-process (current-buffer))))
+      (while (not (eobp))
+        (skip-chars-forward " \t\r\n")
+        (unless (eobp) (slime-forward-sexp)))
+      t)))
+
 
 ;;;;; Key bindings
 
@@ -288,7 +310,9 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
     (setq key (concat slime-prefix-key key)))
   (define-key slime-mode-map key command)
   (when inferior
-    (define-key inferior-slime-mode-map key command)))
+    (define-key inferior-slime-mode-map key command))
+  ;; Extras..
+  (define-key inferior-slime-mode-map [return] 'inferior-slime-return))
 
 (defun slime-init-keymaps ()
   "(Re)initialize the keymaps for `slime-mode' and `inferior-slime-mode'."
