@@ -351,6 +351,7 @@ A prefix argument disables this behaviour."
     ;; Evaluating
     ("\C-x\C-e" slime-eval-last-expression :inferior t)
     ("\C-p" slime-pprint-eval-last-expression :prefixed t :inferior t)
+    ("\C-r" slime-eval-region :prefixed t :inferior t)
     ("\C-\M-x" slime-eval-defun)
     (":" slime-interactive-eval :prefixed t :sldb t)
     ("\C-z" slime-switch-to-output-buffer :prefixed t :sldb t)
