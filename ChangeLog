@@ -1,3 +1,48 @@
+2004-06-10  Christophe Rhodes <csr21@cam.ac.uk>
+
+	* swank-sbcl.lisp (call-with-syntax-hooks): Add hooks to fix
+	"SB!"-style package names.
+	(shebang-readtable): Return a readtable with readermacros needed
+	to parse SBCL sources.
+
+	* swank.lisp (with-buffer-syntax): New macro.  This should be used
+	for code which needs to READ code from Emacs buffers.  *package*
+	and *readtable* are bound suitable values.
+	(to-string, format-values-for-echo-area, interactive-eval)
+	(eval-region, interactive-eval-region, re-evaluate-defvar)
+	(swank-pprint, pprint-eval, listener-eval)
+	(compile-string-for-emacs, disassemble-symbol, describe-to-string)
+	(describe-symbol, describe-function)
+	(describe-definition-for-emacs)
+	(documentation-symbol, init-inspector, inspect-nth-part)
+	(inspector-pop, inspector-next, describe-inspectee)
+	(inspect-current-condition): Use it.
+
+2004-06-10  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-loader.lisp: Initialize swank::*readtable-alist* for SBCL.
+
+	* swank-backend.lisp (default-directory, call-with-syntax-hooks):
+	New functions.
+
+	* swank.lisp (*readtable-alist*): New configurable.  The keys are
+	package name and the values readtables.  The readtable will be
+	used to READ code originating from Emacs buffers in the associated
+	slime-buffer-package.
+	(drop-thread): Simplified.
+	(*buffer-readtable*): New variable.
+	(parse-package): New function.
+	(parse-string): Renamed from symbol-from-string.  Make it case
+	insensitive.
+	(eval-for-emacs): Initialize the *buffer-readtable*.
+	(symbol-indentation): Don't consider symbols in the CL package.
+	Emacs already knows how to indent them.
+	(compile-file-if-needed): Used for REPL shortcut
+	'compile-and-load'.
+
+	* slime.el (pwd): Re-add REPL shortcut.
+	(slime-repl-push-directory, slime-repl-compile-and-load): Simplified.
+
 2004-06-10  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (sldb-step): Command is disabled because the function
