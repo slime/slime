@@ -21,6 +21,9 @@
 
 2005-04-01  Luke Gorrie  <luke@synap.se>
 
+	* slime.el (slime-xref-mode): Summarise the most important
+	bindings in the mode description.
+
 	* metering.lisp: Now supports only CLISP and OpenMCL.
 	Removed a lot of really ugly reader-conditionalized code, much of
 	it for archaic lisps (#+cltl2, #+lcl3.0, #+mcl1.3.2, etc).

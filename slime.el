@@ -5853,7 +5853,13 @@ With prefix argument include internal symbols."
   "Buffer local variable in xref windows.")
 
 (define-derived-mode slime-xref-mode lisp-mode "xref"
-  "\\<slime-xref-mode-map>\
+  "slime-xref-mode: Major mode for cross-referencing.
+\\<slime-xref-mode-map>\
+The most important commands:
+\\[slime-xref-quit]	- Dismiss buffer.
+\\[slime-show-xref]	- Display referenced source and keep xref window.
+\\[slime-goto-xref]	- Jump to referenced source and dismiss xref window.
+
 \\{slime-xref-mode-map}"
   (setq font-lock-defaults nil)
   (setq delayed-mode-hooks nil)
