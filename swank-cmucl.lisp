@@ -387,7 +387,7 @@ the error-context redundant."
   ;; XXX
   (defimplementation who-specializes (symbol)
     (let* ((methods (xref::who-specializes (find-class symbol)))
-           (locations (mapcar #'method-source-location methods)))
+           (locations (mapcar #'method-location methods)))
       (mapcar #'list methods locations))))
 
 (defun xref-results (contexts)
@@ -525,7 +525,7 @@ the code omponent CODE."
          then (kernel::%function-next e)
          while e
          collect (list (kernel:%function-name e)
-                       (function-source-location e)))
+                       (function-location e)))
    :test #'equal))
 
 (defimplementation list-callers (symbol)
@@ -546,7 +546,7 @@ the code omponent CODE."
   (let ((fns (function-callees symbol)))
     (mapcar (lambda (fn)
               (list (kernel:%function-name fn)
-                    (function-source-location fn)))
+                    (function-location fn)))
             fns)))
 
 
@@ -600,14 +600,14 @@ return value is the condition or nil."
 	    function)))
     (kernel:layout-info (find-layout function))))
 	    
-(defun dd-source-location (dd)
+(defun dd-location (dd)
   (let ((constructor (or (kernel:dd-default-constructor dd)
                          (car (kernel::dd-constructors dd)))))
     (when (or (not constructor) (and (consp constructor)
                                      (not (car constructor))))
       (error "Cannot locate struct without constructor: ~S" 
              (kernel::dd-name dd)))
-    (function-source-location 
+    (function-location 
      (coerce (if (consp constructor) (car constructor) constructor)
              'function))))
 
@@ -623,7 +623,7 @@ return value is the condition or nil."
   ;; first code-location we find.
   (cond ((struct-closure-p function)
          (safe-definition-finding
-          (dd-source-location (struct-closure-dd function))))
+          (dd-location (struct-closure-dd function))))
         ((genericp function)
          (gf-location function))
         (t
@@ -678,8 +678,7 @@ regular functions, generic functions, methods and macros."
                  ,(function-location (macro-function symbol)))))
         ((special-operator-p symbol)
          (list `((:special-operator ,symbol) 
-                 (:error ,(format nil "Don't know where `~A' is defined" 
-                                  symbol)))))
+                 (:error ,(format nil "Special operator: ~S" symbol)))))
         ((fboundp symbol)
          (let ((function (coerce symbol 'function)))
            (cond ((genericp function)
@@ -689,8 +688,25 @@ regular functions, generic functions, methods and macros."
                  (t (list (list `(function ,symbol)
                                 (function-location function)))))))))
 
+(defun type-definitions (symbol)
+  (let ((expander (ext:info :type :expander symbol)))
+    (if expander
+        (list (list `(type ,symbol) (function-location expander))))))
+
+(defun find-dd (name)
+  (let ((layout (ext:info :type :compiler-layout name)))
+    (if layout 
+        (kernel:layout-info layout))))
+
+(defun struct-definitions (symbol)
+  (let ((dd (find-dd symbol)))
+    (if dd
+        (list (list `(defstruct ,symbol) (dd-location dd))))))
+
 (defimplementation find-definitions (symbol)
-  (function-definitions symbol))
+  (append (function-definitions symbol)
+          (type-definitions symbol)
+          (struct-definitions symbol)))
 
 
 ;;;; Documentation.
