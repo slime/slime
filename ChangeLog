@@ -1,3 +1,10 @@
+2004-10-05  Luke Gorrie  <luke@synap.se>
+
+	* swank.lisp (arglist-for-echo-area): Handle errors and return a
+	message.
+	(parse-symbol): Recognise an empty package name as the KEYWORD
+	package.
+
 2004-10-03  Reini Urban <rurban@x-ray.at>
 
 	* swank-clisp.lisp (getpid)[win32]: Use
