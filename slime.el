@@ -4697,11 +4697,20 @@ This for use in the implementation of COMMON-LISP:ED."
 ;;; Interactive evaluation.
 
 (defun slime-interactive-eval (string)
-  "Read and evaluate STRING and print value in minibuffer. "
+  "Read and evaluate STRING and print value in minibuffer.
+
+Note: If a prefix argument is in effect then the result will be output
+in the REPL."
   (interactive (list (slime-read-from-minibuffer "Slime Eval: ")))
   (slime-insert-transcript-delimiter string)
   (slime-eval-with-transcript `(swank:interactive-eval ,string)
-                              (slime-buffer-package t)))
+                              (slime-buffer-package t)
+                              (if current-prefix-arg
+                                  'slime-output-string
+                                'slime-display-eval-result)))
+
+(defun slime-display-eval-result (value)
+  (slime-message (format "%s" value)))
 
 (defun slime-eval-with-transcript (form package &optional fn)
   "Send FROM and PACKAGE to Lisp and pass the result to FN.
