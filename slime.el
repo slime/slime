@@ -2284,22 +2284,22 @@ balanced."
         (current-prefix-arg
          (slime-repl-send-input))
         (slime-repl-read-mode ; bad style?
-         (insert "\n")
-         (slime-repl-send-input))
+         (slime-repl-send-input t))
         ((slime-input-complete-p slime-repl-input-start-mark 
                                  slime-repl-input-end-mark)
-         (insert "\n")
-         (slime-repl-send-input))
+         (slime-repl-send-input t))
         (t 
          (slime-repl-newline-and-indent)
          (message "[input not complete]"))))
 
-(defun slime-repl-send-input ()
-  "Goto to the end of the input and send the current input."
+(defun slime-repl-send-input (&optional newline)
+  "Goto to the end of the input and send the current input.
+If NEWLINE is true then add a newline at the end of the input."
   (when (< (point) slime-repl-input-start-mark)
     (error "No input at point."))
   (let ((input (slime-repl-current-input)))
     (goto-char slime-repl-input-end-mark)
+    (when newline (insert "\n"))
     (add-text-properties slime-repl-input-start-mark (point)
                          '(face slime-repl-input-face
                                 rear-nonsticky (face)
@@ -3862,10 +3862,16 @@ Return true if the configuration was saved."
                'slime-complete-maybe-restore-window-configuration)
   (when (and slime-complete-saved-window-configuration
              (slime-completion-window-active-p))
-    (save-excursion
-      (set-window-configuration slime-complete-saved-window-configuration))
-    (setq slime-complete-saved-window-configuration nil)
-    (slime-close-buffer slime-completions-buffer-name)))
+    ;; XEmacs does not allow us to restore a window configuration from
+    ;; pre-command-hook, so we do it asynchronously.
+    (run-at-time
+     0 nil
+     (lambda ()
+       (save-excursion
+         (set-window-configuration
+          slime-complete-saved-window-configuration))
+       (setq slime-complete-saved-window-configuration nil)
+       (slime-close-buffer slime-completions-buffer-name)))))
 
 (defun slime-complete-maybe-restore-window-configuration ()
   "Restore the window configuration, if the following command
