@@ -1141,7 +1141,7 @@ FOO::BAR is not, and nor is BAR."
   "Lookup the definition of the function called at point.
 If no function call is recognised, or a prefix argument is given, then
 the function name is prompted."
-  (interactive (list (let ((called (slime-function-called-at-point)))
+  (interactive (list (let ((called (slime-symbol-at-point)))
                        (if (and called (null current-prefix-arg))
                            (symbol-name called)
                          (read-string "Function name: ")))))
