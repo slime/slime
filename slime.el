@@ -2156,6 +2156,7 @@ conditions (assertions)."
     `(progn
        (defun ,fname ,args
          ,doc
+         (slime-sync)
          ,@body)
        (setq slime-tests (append (remove* ',name slime-tests :key 'car)
                                  (list (list ',name ',fname ,inputs)))))))
