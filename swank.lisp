@@ -157,7 +157,8 @@ Emacs.")
 
 ;;;; Helper macros
 
-(defmacro with-I/O-lock (() &body body)
+(defmacro with-I/O-lock ((&rest ignore) &body body)
+  (declare (ignore ignore))
   `(call-with-lock-held *write-lock* (lambda () ,@body)))
 
 (defmacro with-io-redirection ((&optional (connection '(current-connection)))
@@ -270,10 +271,11 @@ This is an optimized way for Lisp to deliver output to Emacs."
   "Return the datestring of the latest ChangeLog entry.  The date is
 determined at compile time."
   (macrolet ((date ()
-               (let* ((dir (pathname-directory *compile-file-pathname*))
-                      (changelog (make-pathname :name "ChangeLog" :directory dir
-                                                :host (pathname-host
-                                                       *compile-file-pathname*)))
+               (let* ((here (or *compile-file-truename* *load-truename*))
+		      (changelog (make-pathname 
+				  :name "ChangeLog" 
+				  :directory (pathname-directory here)
+				  :host (pathname-host here)))
 		      (date (with-open-file (file changelog :direction :input)
 			      (string (read file)))))
 		 `(quote ,date))))
@@ -318,12 +320,13 @@ determined at compile time."
 (defun current-socket-io ()
   (connection.socket-io (current-connection)))
 
-(defmacro with-a-connection (() &body body)
+(defmacro with-a-connection ((&rest ignore) &body body)
   "Execute BODY with a connection.
 If no connection is currently available then a new one is
 temporarily created for the extent of the execution.
 
 Thus the BODY forms can call READ-FROM-EMACS and SEND-TO-EMACS."
+  (declare (ignore ignore))
   `(if (current-connection)
        (progn ,@body)
        (call-with-aux-connection (lambda () ,@body))))
