@@ -478,38 +478,22 @@ If that doesn't give a function, return nil."
 
 ;;; CMUCL Setup: compiling and connecting to Swank
 
-;; SLIME -- command
-;;
+(defvar slime-connect-retry-timer nil
+  "Timer object for connection retries.")
+
 (defun slime ()
   "Start an inferior^_superior Lisp and connect to its Swank server."
   (interactive)
-  (call-interactively 'inferior-lisp)
-  (slime-start-swank-server)
+  (when (slime-connected-p)
+    (slime-disconnect))
+  (slime-maybe-start-lisp)
   (slime-connect "localhost" slime-swank-port))
 
-;; SLIME-CONNECT -- command
-;;
-(defun slime-connect (host port &optional retries)
-  "Connect to a running Swank server."
-  (interactive (list (read-string "Host: " "localhost")
-		     (let ((port
-			    (read-string "Port: " 
-					 (number-to-string slime-swank-port))))
-		       (or (ignore-errors (string-to-number port)) port))))
-  (let ((retries slime-swank-connection-retries))
-    (while (not (slime-connected-p))
-      (message "Connecting to Swank at %s:%S%s..."
-               host port (if retries
-                             (format " (%S attempts remaining)" retries)
-                           ""))
-      (if (slime-net-connect host port)
-          (progn (slime-init-dispatcher)
-                 (slime-fetch-features-list)
-                 (message "Connected to Swank on %s:%S. %s"
-                          host port (slime-random-words-of-encouragement)))
-        (when (and retries (zerop (decf retries)))
-          (error "Unable to contact Swank server."))
-        (sit-for 0.25)))))
+(defun slime-maybe-start-lisp ()
+  "Start an inferior lisp unless one is already running."
+  (unless (get-buffer "*inferior-lisp*")
+    (call-interactively 'inferior-lisp)
+    (slime-start-swank-server)))
 
 (defun slime-start-swank-server ()
   "Start a Swank server on the inferior lisp."
@@ -518,6 +502,57 @@ If that doesn't give a function, return nil."
                              (concat slime-path slime-backend)))
   (comint-proc-query (inferior-lisp-proc)
                      (format "(swank:start-server %S)\n" slime-swank-port)))
+
+(defun slime-connect (host port &optional retries)
+  "Connect to a running Swank server."
+  (interactive (list (read-string "Host: " "localhost")
+		     (let ((port
+			    (read-string "Port: " 
+					 (number-to-string slime-swank-port))))
+		       (or (ignore-errors (string-to-number port)) port))))
+  (lexical-let ((host host)
+                (port port)
+                (retries (or retries slime-swank-connection-retries))
+                (attempt 0))
+    (labels
+        ;; A small one-state machine to attempt a connection with
+        ;; timer-based retries.
+        ((attempt-connection
+          ()
+          (setq slime-state-name (format "[connect:%S]" (incf attempt)))
+          (force-mode-line-update)
+          (setq slime-connect-retry-timer nil) ; remove old timer
+          (cond ((slime-net-connect host port)
+                 (slime-init-connection)
+                 (message "Connected to Swank on %s:%S. %s"
+                          host port (slime-random-words-of-encouragement)))
+                ((and retries (zerop retries))
+                 (message "Failed to connect to Swank."))
+                (t
+                 (when retries (decf retries))
+                 (setq slime-connect-retry-timer
+                       (run-with-timer 1 nil #'attempt-connection))))))
+      (message "\
+Connecting to Swank at %s:%S. (Abort with `M-x slime-disconnect'.)"
+               host port)
+      (attempt-connection))))
+
+(defun slime-disconnect ()
+  "Disconnect from the Swank server."
+  (interactive)
+  (cond ((slime-connected-p)
+         (delete-process slime-net-process)
+         (message "Disconnected."))
+        (slime-connect-retry-timer
+         (cancel-timer slime-connect-retry-timer)
+         (message "Cancelled connection attempt."))
+        (t
+         (message "Not connected."))))
+
+(defun slime-init-connection ()
+  (slime-init-dispatcher)
+  (setq slime-pid (slime-eval '(swank:getpid)))
+  (slime-fetch-features-list))
 
 (defun slime-fetch-features-list ()
   "Fetch and remember the *FEATURES* of the inferior lisp."
@@ -698,8 +733,7 @@ If PROCESS-INPUT is non-nil the available input is processed."
 (defun slime-init-dispatcher ()
   "Initialize the stack machine."
   (setq sldb-level 0)
-  (setq slime-state-stack (list (slime-idle-state)))
-  (setq slime-pid (slime-eval `(swank:getpid))))
+  (setq slime-state-stack (list (slime-idle-state))))
 
 (defun slime-activate-state (process-input)
   "Activate the current state.
@@ -933,7 +967,7 @@ Loops until the result is thrown to our caller, or the user aborts."
 (defun slime-sync ()
   "Block until any asynchronous command has completed."
   (while (slime-busy-p)
-    (accept-process-output)))
+    (accept-process-output slime-net-process)))
 
 (defun slime-busy-p ()
   "Return true if Lisp is busy processing a request."
@@ -1898,7 +1932,7 @@ Each cross-reference line contains these text properties:
                               'font-lock-function-name-face
                             'font-lock-comment-face))
               (format "%s\n" referrer)))))
-      
+
 
 ;;;;; XREF results buffer and window management
 
@@ -1969,7 +2003,8 @@ When displaying XREF information, this goes to the next reference."
     (error "No context for finding locations."))
   (funcall slime-next-location-function))
 
-;;;
+
+;;; List callers/callees
 
 (defvar slime-select-mode-map)
 (defvar slime-previous-selected-line)
@@ -2692,6 +2727,8 @@ Exits Emacs when finished. The exit code is the number of failed tests."
         (slime-swank-port 4006)         ; different port than interactive use
         (slime-test-debug-on-error nil))
     (slime)
+    ;; Block until we are up and running.
+    (slime-sync-state-stack '(slime-idle-state) 120)
     (switch-to-buffer "*scratch*")
     (let ((failed-tests (slime-run-tests)))
       (with-current-buffer slime-test-buffer-name
