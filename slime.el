@@ -5160,9 +5160,10 @@ compilation."
   "Load the Lisp file FILENAME."
   (interactive (list 
 		(read-file-name "Load file: " nil nil
-				nil (file-name-sans-extension
-				     (file-name-nondirectory 
-				      (buffer-file-name))))))
+				nil (if (buffer-file-name)
+                                        (file-name-sans-extension
+                                         (file-name-nondirectory 
+                                          (buffer-file-name)))))))
   (let ((lisp-filename (slime-to-lisp-filename (expand-file-name filename))))
     (slime-eval-with-transcript `(swank:load-file ,lisp-filename))))
 
