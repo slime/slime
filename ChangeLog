@@ -1,3 +1,6 @@
+2004-09-15  Alan Ruttenberg <alanr-l@mumble.net>
+	* swank-openmcl: typo in who-references. Fix frame-var-value
+
 2004-09-15  Marco Baringer  <mb@bese.it>
 
 	* slime.el (slime-inspector-label-face,
