@@ -1034,7 +1034,7 @@ stack."
                          (:valid 
                           (di:debug-variable-value v frame))
                          ((:invalid :unknown) 
-                          "<not-available>"))))))
+                          '#:not-available))))))
 
 (defimplementation frame-catch-tags (index)
   (loop for (tag . code-location) in (di:frame-catches (nth-frame index))
