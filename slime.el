@@ -5414,6 +5414,7 @@ in Lisp when committed with \\[slime-edit-value-commit]."
   (let ((name (generate-new-buffer-name (format "*Edit %s*" form-string))))
     (with-current-buffer (slime-get-temp-buffer-create name :mode 'lisp-mode)
     (slime-mode 1)
+    (slime-temp-buffer-mode -1)         ; don't want binding of 'q'
     (slime-edit-value-mode 1)
     (setq slime-edit-form-string form-string)
     (setq slime-buffer-connection (slime-connection))
