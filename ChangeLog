@@ -1,3 +1,10 @@
+2005-01-14  Luke Gorrie  <luke@synap.se>
+
+	* slime.el (slime-repl-send-input): Make old input read-only using
+	an overlay instead of a text property. This way if you copy&paste
+	the input elsewhere it will become editable (overlay is associated
+	with the buffer region and not the text).
+
 2005-01-14  Edi Weitz  <edi@agharta.de>
 
         * slime.el (slime-complete-symbol*): Maybe insert closing
