@@ -1,5 +1,37 @@
 * SLIME News                  -*- outline -*-
 
+* 1.2 (March 2005)
+
+** New inspector
+The lisp side now returns a specially formated list of "things" to
+format which are then passed to emacs and rendered in the inspector
+buffer. Things can be either text, recursivly inspectable values, or
+functions to call. The new inspector has much better support CLOS
+objects and methods.
+
+** Unicode
+It's now possible to send non-ascii characters to Emacs, if the
+communication channel is configured properly.  See the variable
+`slime-net-coding-system'.
+
+** Arglist lookup while debugging
+Previously, arglist lookup was disabled while debugging.  This
+restriction was removed. 
+
+** Extended tracing command
+It's now possible to trace individual a single methods or all methods
+of a generic function.  Also tracing can be restricted to situations
+in which the traced function is called from a specific function.
+
+** M-x slime-browse-classes
+A simple class browser was added.
+
+** FASL files
+The fasl files for different Lisp/OS/hardware combinations are now
+placed in different directories.
+
+** Many other small improvements and bugfixes
+
 * 1.0 (September 2004)
 
 ** slime-interrupt

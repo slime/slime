@@ -21,7 +21,8 @@ Sparc). It generally works very well on x86 so it remains the default.
 
 ** SBCL
 
-We require SBCL 0.8.13 or higher.
+SBCL versions from 0.8.15 to 0.8.20 should work.  Newer SBCL's may or
+may not work.
 
 The (v)iew-source command in the debugger can only locate exact source
 forms for code compiled at (debug 2) or higher. The default level is
@@ -30,25 +31,18 @@ defun-granularity is available with default policies.
 
 The XREF commands are not implemented.
 
-When using the :SPAWN communication style (the default on x86 if
-threads are available) disconnecting Emacs from Lisp will leave two
-threads hanging around.
-
 ** OpenMCL
 
-We support OpenMCL 0.14.2p1, however our debugger can't invoke
-restarts in this version due to a bug in
-INVOKE-RESTART-INTERACTIVELY. This bug has been fixed in OpenMCL's CVS
-repository and we recommend upgrading to either the CVS copy or a
-later release if available.
+We support OpenMCL 0.14.3.
 
 The XREF commands are not available.
 
 ** LispWorks
 
-In LispWorks on OSX it is necessary to remove the :ADDRESS argument to
-CREATE-SOCKET in swank-lispworks.lisp. This is a workaround for a
-LispWorks bug.
+On Windows, SLIME hangs when calling foreign functions or certain
+other functions.  The reason for this problem is unknown.
+
+We only support latin1 encoding.  (Unicode wouldn't be hard to add.)
 
 ** Allegro CL
 
@@ -58,10 +52,15 @@ responds much faster if mp:*default-process-quantum* is set to 0.1.
 
 ** CLISP
 
-We require version 2.32 or higher. We also require socket support, so
+We require version 2.33.2 or higher. We also require socket support, so
 you may have to start CLISP with "clisp -K full".
 
-The backtrace for compiled functions is not very informative.
+Under Windows, interrupting (with C-c C-b) doesn't work.  Emacs sends
+a signal 2 (= SIGINT), but the signal is either ignored or CLISP exits
+immediately.
+
+The backtrace doesn't include frames for compiled functions.  Changes
+to CLISP's C code are needed to fix this problem.
 Interpreted code is usually easer to debug.
 
 M-. (find-definition) only works if the fasl file is in the same

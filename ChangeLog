@@ -1,3 +1,8 @@
+2005-03-27  Helmut Eller  <heller@common-lisp.net>
+
+	* PROBLEMS, NEWS, doc/slime.texi: Some updates for the upcoming
+	release.
+
 2005-03-27  Russell McManus <russell_mcmanus@yahoo.com>
 
 	* swank-clisp.lisp (getpid): Try sys::process-id if
