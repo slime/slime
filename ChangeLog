@@ -1,3 +1,27 @@
+2005-03-18  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-sbcl.lisp (swank-compile-string): Re-implemented.  This
+	time with temp-files and proper source-location tracking.
+	(install-debug-source-patch, debug-source-for-info-advice): Patch
+	SBCL's debug-source-for-info so that we can dump our own bits of
+	debug info.
+	(function-source-location, code-location-source-path): Rewritten
+	to handle C-c C-c functions.  Also use the source-path to locate
+	the position.
+	(locate-compiler-note): Renamed from resolve-note-location.
+	(temp-file-name, call/temp-file): New utilities.
+	(file-source-location, lisp-source-location)
+	(temp-file-source-location, source-file-source-location)
+	(string-source-position, code-location-debug-source-info)
+	(code-location-debug-source-name, code-location-debug-source-created,)
+	(code-location-debug-fun-fun, code-location-from-emacs-buffer-p)
+	(function-from-emacs-buffer-p, function-debug-source-info)
+	(info-from-emacs-buffer-p, code-location-has-debug-block-info-p)
+	(stream-source-position): Lots of new helper functions.
+	(with-debootstrapping): Moved upwards so that it can be used for
+	source location searching.
+	(source-location-for-emacs): Deleted
+
 2005-03-16  Helmut Eller  <heller@common-lisp.net>
 
 	* slime/swank.lisp (*macroexpand-printer-bindings*): New user
