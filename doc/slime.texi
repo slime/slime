@@ -28,7 +28,7 @@
 @end tex
 @end iftex
 @ifnottex
-o
+o@c this comment prevents a newline!
 @end ifnottex
 @end macro
 
@@ -75,7 +75,7 @@ Emacs Lisp, and a supporting server program written in Common
 Lisp. The two sides are connected together with a socket and
 communicate using an @acronym{RPC}-like protocol.
 
-The Lisp server is primarily written in portal Common Lisp. The
+The Lisp server is primarily written in portable Common Lisp. The
 required implementation-specific functionality is specified by a
 well-defined interface and implemented separately for each Lisp
 implementation. This makes @SLIME{} readily portable.
@@ -126,6 +126,16 @@ Downloading @SLIME{} (from @CVS{})
 * CVS Incantations::            
 
 @code{slime-mode}
+
+* User-interface conventions::  
+* Commands::                    
+
+User-interface conventions
+
+* Temporary buffers::           
+* inferior-lisp::               
+
+Commands
 
 * Compilation::                 
 * Finding definitions::         
@@ -206,7 +216,7 @@ OpenMCL
 @item
 LispWorks
 @item
-Allegro Common Lisp
+Allegro Common Lisp (@acronym{ACL})
 @end itemize
 
 Most features work uniformly across implementations, but some are
@@ -308,6 +318,78 @@ used in conjunction with Emacs's @code{lisp-mode}. This chapter
 describes the @code{slime-mode} and its relatives.
 
 @menu
+* User-interface conventions::  
+* Commands::                    
+@end menu
+
+@node User-interface conventions, Commands, slime-mode, slime-mode
+@section User-interface conventions
+
+To use @SLIME{} comfortably it is important to understand a few
+``global'' user-interface characteristics. The most important
+principles are described in this section.
+
+@menu
+* Temporary buffers::           
+* inferior-lisp::               
+@end menu
+
+@node Temporary buffers, inferior-lisp, User-interface conventions, User-interface conventions
+@subsection Temporary buffers
+
+Some @SLIME{} commands create temporary buffers to display their
+results. Although these buffers usually have their own special-purpose
+major-modes, certain conventions are observed throughout.
+
+Temporary buffers can be dismissed by pressing @kbd{q}. This kills the
+buffer and restores the window configuration as it was before the
+buffer was displayed. Temporary buffers can also be killed with the
+usual commands like @code{kill-buffer}, in which case the previous
+window configuration won't be restored.
+
+Pressing @kbd{RET} is supposed to ``do the most obvious useful
+thing.'' For instance, in an apropos buffer this prints a full
+description of the symbol at point, and in an @acronym{XREF} buffer it
+displays the source code for the reference at point. This convention
+is inherited from Emacs's own buffers for apropos listings,
+compilation results, etc.
+
+Temporary buffers containing Lisp symbols use @code{slime-mode} in
+addition to any special mode of their own. This makes the usual
+@SLIME{} commands available for describing symbols, looking up
+function definitions, and so on.
+
+@node inferior-lisp,  , Temporary buffers, User-interface conventions
+@subsection @code{*inferior-lisp*} buffer
+
+@SLIME{} internally uses the @code{inferior-lisp} package to start
+Lisp processes. This has a few user-visible consequences, some good
+and some not-so-terribly. To avoid confusion it is useful to
+understand the interactions.
+
+The buffer @code{*inferior-lisp*} contains the Lisp process's own
+top-level. This direct access to Lisp is useful for troubleshooting,
+and some degree of @SLIME{} integration is available using the
+@code{inferior-slime-mode}. However, in normal use we recommend using
+the fully-integrated @SLIME{} @REPL{} and ignoring the
+@code{*inferior-lisp*} buffer.
+
+An unfortunate property of @code{inferior-lisp} is it inserts some
+commands of its own directly into the @code{lisp-mode} keymap, such
+that they aren't easily disabled. This makes Lisp source buffers
+slightly schizophrenic, having both @SLIME{} and @code{inferior-lisp}
+commands bound to keys and operating independently.
+
+@SLIME{} overrides most key bindings, so in practice you are unlikely
+to accidentally use an @code{inferior-lisp} command. If you do find a
+command that pops up the @code{*inferior-lisp*} buffer, that command
+doesn't belong to @SLIME{}, and you should probably lookup our
+equivalent.
+
+@node Commands,  , User-interface conventions, slime-mode
+@section Commands
+
+@menu
 * Compilation::                 
 * Finding definitions::         
 * Lisp Evaluation::             
@@ -319,8 +401,8 @@ describes the @code{slime-mode} and its relatives.
 * Profiling::                   
 @end menu
 
-@node Compilation, Finding definitions, slime-mode, slime-mode
-@section Compilation commands
+@node Compilation, Finding definitions, Commands, Commands
+@subsection Compilation commands
 
 @SLIME{} has fancy commands for compiling functions, files, and
 packages. The fancy part is that notes and warnings offered by the
@@ -357,8 +439,8 @@ Remove all annotations from the buffer.
 
 @end table
 
-@node Finding definitions, Lisp Evaluation, Compilation, slime-mode
-@section Finding definitions (``Meta-Point'').
+@node Finding definitions, Lisp Evaluation, Compilation, Commands
+@subsection Finding definitions (``Meta-Point'').
 
 The familiar @kbd{M-.} command is provided. For generic functions this
 command finds all methods, and with some systems it does other fancy
@@ -377,8 +459,8 @@ backtracking when @kbd{M-.} has been used several times.
 
 @end table
 
-@node Lisp Evaluation, Documentation, Finding definitions, slime-mode
-@section Lisp Evaluation
+@node Lisp Evaluation, Documentation, Finding definitions, Commands
+@subsection Lisp Evaluation
 
 @table @kbd
 
@@ -404,8 +486,8 @@ buffer you can enter Lisp expressions and evaluate them with
 
 @end table
 
-@node Documentation, Programming Helpers, Lisp Evaluation, slime-mode
-@section Documentation
+@node Documentation, Programming Helpers, Lisp Evaluation, Commands
+@subsection Documentation
 
 @SLIME{}'s online documentation commands follow the example of Emacs
 Lisp.
@@ -434,8 +516,8 @@ in a web browser. The Hyperspec is found either on the Web or in
 @code{browse-url-browser-function}.
 @end table
 
-@node Programming Helpers, Recovery, Documentation, slime-mode
-@section Programming Helpers
+@node Programming Helpers, Recovery, Documentation, Commands
+@subsection Programming Helpers
 
 @table @kbd
 @kbditem{M-TAB, slime-complete-symbol}
@@ -461,8 +543,8 @@ Disassemble the function definition of the symbol at point.
 
 @end table
 
-@node Recovery, Cross-reference, Programming Helpers, slime-mode
-@section Abort/Recovery
+@node Recovery, Cross-reference, Programming Helpers, Commands
+@subsection Abort/Recovery
 
 @table @kbd
 
@@ -478,8 +560,8 @@ Set the current package of the @acronym{REPL}.
 
 @end table
 
-@node Cross-reference, Inspector, Recovery, slime-mode
-@section Cross-reference
+@node Cross-reference, Inspector, Recovery, Commands
+@subsection Cross-reference
 
 @SLIME{}'s cross-reference commands are based on the support provided
 by the Lisp system, which varies widely between Lisps. For systems
@@ -525,8 +607,8 @@ List callers of a function.
 List callees of a function.
 @end table
 
-@node Inspector, Profiling, Cross-reference, slime-mode
-@section Inspector
+@node Inspector, Profiling, Cross-reference, Commands
+@subsection Inspector
 
 The @SLIME{} inspector is an Emacs-based version of the Lisp function
 @code{INSPECT}. The inspected object is presented in a buffer with one
@@ -558,8 +640,8 @@ Dismiss the inspector buffer.
 
 @end table
 
-@node Profiling,  , Inspector, slime-mode
-@section Profiling
+@node Profiling,  , Inspector, Commands
+@subsection Profiling
 
 @table @kbd
 @item M-x slime-toggle-profile-fdefinition
