@@ -1,3 +1,16 @@
+2004-08-13  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (sldb-eval-in-frame): Print result to the REPL when a
+	prefix argument is given.
+	Added pull-down menus for SLDB and the REPL.
+
+	* swank-source-path-parser.lisp: Removed caching of readtables and
+	the source-map hashtable. Fresh creation is ultra-cheap (<1ms).
+	The caching didn't handle modifications to readtables and
+	generally made me feel uneasy while tracking down an obscure bug
+	in a reader macro.
+	The cached source-map hashtable also wasn't thread-safe (ho hum).
+
 2004-08-13  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-merge-notes, slime-tree-for-note): Use the short
