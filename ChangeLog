@@ -1,3 +1,27 @@
+2005-04-04  James McIlree <ovrskeek@mac.com>
+
+	* slime.el (find-coding-system, check-coding-system)
+	(process-coding-system, set-process-coding-system): Dummy
+	functions for no-mule-XEmacsen.
+
+2005-04-04  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-repl-show-maximum-output): New
+	function. Immitate the scrolling behavior of a terminal.
+	(slime-with-output-end-mark, slime-repl-return)
+	(slime-repl-send-input, slime-display-output-buffer): Use it
+	(slime-lisp-implementation-version, slime-machine-instance): New
+	connection variables.  Suggested by Eduardo Muñoz.
+	(slime-set-connection-info): Initialize them.
+
+	* swank.lisp (connection-info): Include version and hostname in
+	the result.
+
+	* swank-cmucl.lisp (breakpoint-values): Fixes for CMUCL-2005-03
+	snapshot.
+	
+	* doc/slime.texi: Fix spelling errors.
+
 2005-04-01  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (sldb-get-buffer): Initialize the buffer local
