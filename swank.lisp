@@ -962,17 +962,37 @@ Emacs buffer."
     (let ((*read-suppress* nil))
       (read-from-string string))))
 
-;;; FIXME! FOO::BAR will intern FOO in BAR.
+;; FIXME: deal with #\| etc.  hard to do portably.
+(defun tokenize-symbol (string)
+  (let ((package (let ((pos (position #\: string)))
+                   (if pos (subseq string 0 pos) nil)))
+        (symbol (let ((pos (position #\: string :from-end t)))
+                  (if pos (subseq string (1+ pos)) string)))
+        (internp (search "::" string)))
+    (values symbol package internp)))
+
+;; FIXME: Escape chars are ignored
+(defun casify (string)
+  "Convert string accoring to readtable-case."
+  (ecase (readtable-case *readtable*)
+    (:preserve 
+     string)
+    (:upcase 
+     (string-upcase string))
+    (:downcase
+     (string-downcase string))
+    (:invert
+     (multiple-value-bind (lower upper) (determine-case string)
+       (cond ((and lower upper) string)
+             (lower (string-upcase string))
+             (upper (string-downcase string))
+             (t string))))))
+
 (defun parse-symbol (string &optional (package *package*))
   "Find the symbol named STRING.
 Return the symbol and a flag indicateing if the symbols was found."
-  (multiple-value-bind (sym pos) (let ((*package* keyword-package))
-                                   (ignore-errors (read-from-string string)))
-    (if (and (symbolp sym) (eql (length string) pos))
-        (if (find #\: string)
-            (find-symbol (string sym) (symbol-package sym))
-            (find-symbol (string sym) package))
-        (values nil nil))))
+  (multiple-value-bind (sname pname) (tokenize-symbol string)
+    (find-symbol (casify sname) (if pname (casify pname) package))))
 
 (defun parse-symbol-or-lose (string &optional (package *package*))
   (multiple-value-bind (symbol status) (parse-symbol string package)
@@ -980,6 +1000,7 @@ Return the symbol and a flag indicateing if the symbols was found."
         (values symbol status)
         (error "Unknown symbol: ~A [in ~A]" string package))))
 
+;; FIXME: interns the name
 (defun parse-package (string)
   "Find the package named STRING.
 Return the package or nil."
@@ -1729,16 +1750,9 @@ Return these values:
  PACKAGE, the package to complete in
  INTERNAL-P, if the symbol is qualified with `::'."
   (multiple-value-bind (name package-name internal-p)
-      (tokenize-symbol-designator string)
+      (tokenize-symbol string)
     (let ((package (carefully-find-package package-name default-package-name)))
       (values name package-name package internal-p))))
-
-(defun tokenize-symbol-designator (string)
-  (values (let ((pos (position #\: string :from-end t)))
-            (if pos (subseq string (1+ pos)) string))
-          (let ((pos (position #\: string)))
-            (if pos (subseq string 0 pos) nil))
-          (search "::" string)))
 
 (defun carefully-find-package (name default-package-name)
   "Find the package with name NAME, or DEFAULT-PACKAGE-NAME, or the
@@ -2861,7 +2875,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
       (when (eq package (symbol-package sym))
         (push sym internal-symbols)
         (multiple-value-bind (symbol status)
-            (intern (symbol-name sym) package)
+            (find-symbol (symbol-name sym) package)
           (declare (ignore symbol))
           (when (eql :external status)
             (push sym external-symbols)))))
@@ -3011,6 +3025,8 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
 (defun inspector-content-for-emacs (spec)
   (loop for part in spec collect 
         (etypecase part
+          (null ; XXX encourages sloppy programming
+           nil)
           (string part)
           (cons (destructure-case part
                   ((:newline) 
@@ -3156,8 +3172,6 @@ The server port is written to PORT-FILE-NAME."
        (mop-helper symbol #'swank-mop:class-direct-subclasses))
       (:superclasses 
        (mop-helper symbol #'swank-mop:class-direct-superclasses)))))
-
-
 
 
 ;;;; Automatically synchronized state
