@@ -32,7 +32,7 @@
           #+openmcl '("swank-openmcl" "swank-gray")
           #+lispworks '("swank-lispworks" "swank-gray")
           #+allegro '("swank-allegro" "swank-gray")
-          #+clisp '("xref" "swank-clisp" "swank-gray")
+          #+clisp '("xref" "metering" "swank-clisp" "swank-gray")
           ))
 
 (defparameter *swank-pathname* (make-swank-pathname "swank"))

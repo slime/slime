@@ -15,8 +15,16 @@
 ;;; This code is developed using the current CVS version of CLISP and
 ;;; CLISP 2.32 on Linux. Older versions may not work (2.29 and below
 ;;; are confirmed non-working; please upgrade).  You need an image
-;;; containing the "SOCKET", "REGEXP", and (optionally) "LINUX"
-;;; packages.
+;;; containing the "SOCKET", "REGEXP", and "LINUX" packages.  The
+;;; portable xref from the CMU AI repository and metering.lisp from
+;;; CLOCC are also required (alternatively, you have to manually
+;;; comment out some code below).  Note that currently SLIME comes
+;;; with xref but not with metering.  Please fetch it from
+
+;;; http://cvs.sourceforge.net/viewcvs.py/clocc/clocc/src/tools/metering/
+
+;;; and put it (or a link to it) in the directory containing the other
+;;; SLIME source files.
 
 (in-package "SWANK")
 
@@ -328,6 +336,30 @@ Return NIL if the symbol is unbound."
 
 (defslimefun sldb-abort ()
   (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
+
+;;; Profiling
+
+(defimplementation profile (fname)
+  (eval `(mon:monitor ,fname)))		;monitor is a macro
+
+(defimplementation profiled-functions ()
+  mon:*monitored-functions*)
+
+(defimplementation unprofile (fname)
+  (eval `(mon:unmonitor ,fname)))	;unmonitor is a macro
+
+(defimplementation unprofile-all ()
+  (mon:unmonitor))
+
+(defimplementation profile-report ()
+  (mon:report-monitoring))
+
+(defimplementation profile-reset ()
+  (mon:reset-all-monitoring))
+
+(defimplementation profile-package (package callers-p methods)
+  (declare (ignore callers-p methods))
+  (mon:monitor-all package))
 
 ;;; Handle compiler conditions (find out location of error etc.)
 
