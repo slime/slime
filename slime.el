@@ -1602,9 +1602,10 @@ EVAL'd by Lisp."
 
 (defun slime-run-when-idle (function)
   "Call FUNCTION as soon as Emacs is idle."
-  (run-at-time (if (featurep 'xemacs) itimer-short-interval 0)
-               nil 
-               function))
+  (cond ((featurep 'xemacs)
+         (run-at-time itimer-short-interval nil
+                      (lambda (f) (funcall f)) function))
+        (t (run-at-time 0 nil function))))
 
 (defun slime-process-available-input ()
   "Process all complete messages that have arrived from Lisp."
@@ -1824,6 +1825,9 @@ This is automatically synchronized from Lisp.")
 (slime-def-connection-var slime-lisp-implementation-type nil
   "The implementation type of the Lisp process.")
 
+(slime-def-connection-var slime-lisp-implementation-version nil
+  "The implementation type of the Lisp process.")
+
 (slime-def-connection-var slime-lisp-implementation-type-name nil
   "The short name for the implementation type of the Lisp process.")
 
@@ -1838,6 +1842,9 @@ This is automatically synchronized from Lisp.")
 
 (slime-def-connection-var slime-communication-style nil
   "The communication style.")
+
+(slime-def-connection-var slime-machine-instance nil
+  "The name of the (remote) machine running the Lisp process.")
 
 ;;;;; Connection setup
 
@@ -1872,13 +1879,15 @@ This is automatically synchronized from Lisp.")
 
 (defun slime-set-connection-info (connection info)
   "Initialize CONNECTION with INFO received from Lisp."
-  (destructuring-bind (pid type name features style) info
+  (destructuring-bind (pid type name features style version host) info
     (setf (slime-pid) pid
           (slime-lisp-implementation-type) type
           (slime-lisp-implementation-type-name) name
           (slime-connection-name) (slime-generate-connection-name name)
           (slime-lisp-features) features
-          (slime-communication-style) style))
+          (slime-communication-style) style
+          (slime-lisp-implementation-version) version
+          (slime-machine-instance) host))
   (setq slime-state-name "")            ; FIXME
   (slime-hide-inferior-lisp-buffer)
   (slime-init-output-buffer connection)
@@ -2417,9 +2426,11 @@ output as arguments.")
                                  slime-repl-input-start-mark)))
 
 (defun slime-maybe-display-output-buffer (start end)
-  (when (and (not (get-buffer-window (current-buffer) t))
-             (< start end))
-    (display-buffer (current-buffer))))
+  (when (and (< start end)
+             (not (get-buffer-window (current-buffer) t)))
+    (display-buffer (current-buffer)))
+  (when (eobp)
+    (slime-repl-show-maximum-output t)))
       
 (defun slime-flush-output ()
   (while (accept-process-output nil 0 20)))
@@ -2437,7 +2448,8 @@ output as arguments.")
   (with-current-buffer (slime-output-buffer)
     (goto-char (point-max))
     (unless (get-buffer-window (current-buffer) t)
-      (display-buffer (current-buffer) t))))
+      (display-buffer (current-buffer) t))
+    (slime-repl-show-maximum-output)))
 
 (defsetf marker-insertion-type set-marker-insertion-type)
 
@@ -2447,22 +2459,20 @@ output as arguments.")
 If point is initially at `slime-output-end' and the buffer is visible
 update window-point afterwards.  If point is initially not at
 `slime-output-end, execute body inside a `save-excursion' block."
-  `(progn
-     (cond ((= (point) slime-output-end) 
-            (let ((start (point)))
-              ;; XXX Assertion is currently easy to break, by typeing
-              ;; input while we're waiting for output
-              ;;(assert (<= (point) slime-repl-input-start-mark))
-              ,@body
-              (when-let (w (get-buffer-window (current-buffer) t))
-                (set-window-point w (point)))
-              (when (= start slime-repl-input-start-mark) 
+  `(let ((body.. (lambda () ,@body))
+         (updatep.. (and (eobp) (pos-visible-in-window-p))))
+     (cond ((= (point) slime-output-end)
+            (let ((start.. (point)))
+              (funcall body..)
+              (when (= start.. slime-repl-input-start-mark) 
                 (set-marker slime-repl-input-start-mark (point)))))
            (t 
             (save-excursion 
               (goto-char slime-output-end)
-              ;;(assert (<= (point) slime-repl-input-start-mark))
-              ,@body)))))
+              (funcall body..))))
+     (when updatep..
+       (slime-repl-show-maximum-output 
+        (> (- slime-output-end slime-output-start) 1000)))))
 
 (defun slime-output-filter (process string)
   (when (and (slime-connected-p)
@@ -2605,8 +2615,8 @@ joined together."))
   (setq font-lock-defaults nil)
   (setq mode-name "REPL")
   (setq slime-current-thread :repl-thread)
-  ;;(set (make-local-variable 'scroll-conservatively) 20)
-  ;;(set (make-local-variable 'scroll-margin) 0)
+  (set (make-local-variable 'scroll-conservatively) 20)
+  (set (make-local-variable 'scroll-margin) 0)
   (slime-setup-command-hooks)
   (run-hooks 'slime-repl-mode-hook))
 
@@ -2642,7 +2652,8 @@ end end."
                (slime-repl-move-output-mark-before-prompt (current-buffer)))
               (t 
                (run-at-time time nil 'slime-repl-move-output-mark-before-prompt
-                            (current-buffer))))))))
+                            (current-buffer)))))))
+  (slime-repl-show-maximum-output))
 
 (defun slime-repl-move-output-mark-before-prompt (buffer)
   (when (buffer-live-p buffer)
@@ -2650,6 +2661,21 @@ end end."
       (save-excursion 
         (goto-char slime-repl-prompt-start-mark)
         (slime-mark-output-start)))))
+
+(defun slime-repl-show-maximum-output (&optional force)
+  "Put the end of the buffer at the bottom of the window."
+  (assert (eobp))
+  (let ((win (get-buffer-window (current-buffer))))
+    (when (and win (or force (not (pos-visible-in-window-p))))
+      (save-selected-window
+        (save-excursion
+          (select-window win)
+          (goto-char (point-max))
+          (recenter -1))))))
+
+(defun slime-buffer-visible-p (&optional buffer)
+  (if (get-buffer-window (or buffer (current-buffer)))
+      t))
 
 (defun slime-repl-current-input ()
   "Return the current input as string.  The input is the region from
@@ -2790,7 +2816,11 @@ balanced."
   (assert (<= (point) slime-repl-input-end-mark))
   (cond ((and (get-text-property (point) 'slime-repl-old-input)
               (< (point) slime-repl-input-start-mark))
-         (slime-repl-grab-old-input end-of-input))
+         (slime-repl-grab-old-input end-of-input)
+         (unless (pos-visible-in-window-p slime-repl-input-end-mark)
+           (save-excursion
+             (goto-char slime-repl-input-end-mark)
+             (recenter -1))))
         (end-of-input
          (slime-repl-send-input))
         (slime-repl-read-mode ; bad style?
@@ -2808,7 +2838,9 @@ If NEWLINE is true then add a newline at the end of the input."
   (when (< (point) slime-repl-input-start-mark)
     (error "No input at point."))
   (goto-char slime-repl-input-end-mark)
-  (when newline (insert "\n"))
+  (when newline 
+    (insert "\n")
+    (slime-repl-show-maximum-output))
   (add-text-properties slime-repl-input-start-mark (point)
                        `(slime-repl-old-input
                          ,(incf slime-repl-old-input-counter)))
@@ -8158,13 +8190,13 @@ BODY returns true if the check succeeds."
     "Lookup the argument list for FUNCTION-NAME.
 Confirm that EXPECTED-ARGLIST is displayed."
     '(("swank:start-server"
-       "(swank:start-server port-file &optional \\((style \\*communication-style\\*)\\|style\\)[ \n]+dont-close)")
+       "(swank:start-server port-file &key \\((style \\*communication-style\\*)\\|style\\)[ \n]+dont-close[ \n]+(external-format \\*coding-system\\*))")
       ("swank::compound-prefix-match"
        "(swank::compound-prefix-match prefix target)")
       ("swank::create-socket"
        "(swank::create-socket host port)")
       ("swank::emacs-connected"
-       "(swank::emacs-connected stream)")
+       "(swank::emacs-connected)")
       ("swank::compile-string-for-emacs"
        "(swank::compile-string-for-emacs string buffer position directory)")
       ("swank::connection.socket-io"
@@ -8668,8 +8700,10 @@ Return the symbol-name, or nil."
     `(unless (fboundp ',name)
        (defun ,name ,@rest))))
 
+(put 'slime-defun-if-undefined 'lisp-indent-function 2)
+
 (slime-defun-if-undefined next-single-char-property-change
-  (position prop &optional object limit)
+    (position prop &optional object limit)
   (let ((limit (typecase limit
 		 (null nil)
 		 (marker (marker-position limit))
@@ -8688,7 +8722,7 @@ Return the symbol-name, or nil."
 		return pos))))))
 
 (slime-defun-if-undefined previous-single-char-property-change 
-  (position prop &optional object limit)
+    (position prop &optional object limit)
   (let ((limit (typecase limit
 		 (null nil)
 		 (marker (marker-position limit))
@@ -8859,6 +8893,20 @@ If they are not, position point at the first syntax error found."
           (t 
            (error "Not a directory: %s" file)))))
 
+(slime-defun-if-undefined find-coding-system (coding-system)
+  (if (eq coding-system 'binary)
+      'binary))
+
+(slime-defun-if-undefined check-coding-system (coding-system)
+  (or (find-coding-system coding-system)
+      (error "No such coding system: %S" coding-system)))
+
+(slime-defun-if-undefined process-coding-system (process)
+  '(binary . binary))
+
+(slime-defun-if-undefined set-process-coding-system 
+    (process &optional decoding encoding))
+
 (unless (boundp 'temporary-file-directory)
   (defvar temporary-file-directory
     (file-name-as-directory
@@ -8898,7 +8946,7 @@ If they are not, position point at the first syntax error found."
           slime-output-string 
           slime-output-buffer
           slime-output-filter
-          slime-with-output-end-mark
+          slime-repl-show-maximum-output
           slime-process-available-input 
           slime-dispatch-event 
           slime-net-filter 
