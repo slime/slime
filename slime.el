@@ -2548,12 +2548,14 @@ This operation is \"lossy\" in the broad sense but not for display purposes."
   "Return the list of lists of 'similar' adjacent elements of LIST.
 The function SIMILAR-P is used to test for similarity.
 The order of the input list is preserved."
-  (let ((accumulator (list (list (car list)))))
-    (dolist (x (cdr list))
-      (if (funcall similar-p x (caar accumulator))
-          (push x (car accumulator))
-        (push (list x) accumulator)))
-    (reverse (mapcar #'reverse accumulator))))
+  (if (null list)
+      nil
+    (let ((accumulator (list (list (car list)))))
+      (dolist (x (cdr list))
+        (if (funcall similar-p x (caar accumulator))
+            (push x (car accumulator))
+          (push (list x) accumulator)))
+      (reverse (mapcar #'reverse accumulator)))))
 
 
 ;;;;; Compiler notes list
