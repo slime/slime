@@ -1408,6 +1408,9 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
   ;; Setting *default-pathname-defaults* to an absolute directory
   ;; makes the behavior of MERGE-PATHNAMES a bit more intuitive.
   (setf *default-pathname-defaults* (pathname (ext:default-directory)))
+  (default-directory))
+
+(defimplementation default-directory ()
   (namestring (ext:default-directory)))
 
 (defimplementation call-without-interrupts (fn)
@@ -1513,13 +1516,12 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
                                            :kind :function-end)))
               (di:activate-breakpoint bp)))))))
 
-;; (defslimefun sldb-step (frame)
-;;   (cond ((find-restart 'continue *swank-debugger-condition*)
-;;          (set-step-breakpoints (nth-frame frame))
-;;          (continue *swank-debugger-condition*))
-;;         (t
-;;          (error "Cannot continue in from condition: ~A" 
-;;                 *swank-debugger-condition*))))
+(defimplementation sldb-step (frame)
+  (cond ((find-restart 'continue)
+         (set-step-breakpoints (nth-frame frame))
+         (continue))
+        (t
+         (error "No continue restart."))))
 
 (defun frame-cfp (frame)
   "Return the Control-Stack-Frame-Pointer for FRAME."
