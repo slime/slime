@@ -6,6 +6,10 @@
 	cause the old connection to be dropped and a new one established.
 	(slime-disconnect): New command to disconnect from Swank, or
 	cancel asynchronous connection attempts when not yet connected.
+	(slime-state/event-panic): Illegal events in the communication
+	state machine now trigger a general panic that disconnects from
+	Lisp, and displays a message describing what has happened. This is
+	a bug situation.
 
 2003-10-18  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
