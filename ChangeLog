@@ -1,3 +1,26 @@
+2005-01-12  Robert Lehr <bozzio@the-lehrs.com>
+
+	* slime.el (slime-changelog-date): Return nil if the ChangLog file
+	doesn't exits.
+	(slime-repl-update-banner): Write "ChangeLog file not found" if
+	the ChangeLog doesn't exist.
+
+2005-01-12  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-inspector-operate-on-click): New command for
+	inspecting the value value at the clicked-at position or invoking
+	an inspector action.
+	(slime-inspector-mode-map): Bind it to mouse-2.
+	(slime-inspector-insert-ispec): Add mouse-face properties for
+	clickable values and action buttons.
+
+2005-01-12  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (*default-worker-thread-bindings*): New variable to
+	initialize dynamic variables in worker threads.
+	(spawn-worker-thread, call-with-bindings): New helper functions.
+	(thread-for-evaluation): Use them.
+
 2005-01-10  Utz-Uwe Haus <haus+slime@merkur.math.uni-magdeburg.de>
 
 	* swank-sbcl.lisp (profile-package): Add implementation for SBCL.
