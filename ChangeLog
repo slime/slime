@@ -5,7 +5,6 @@
 	(slime-autodoc-message-ok-p): Test to see if a documentation
 	message should be printed (returns nil if the
 	minibuffer/echo-area is already being used).
-	(slime-log-events): When nil, don't log events to
 	(slime-symbol-at-point): Skip back over whitespace before
 	looking for the symbol.
 	(slime-autodoc-delay): New configurable to specify the delay
@@ -13,7 +12,7 @@
 	(slime-ensure-typeout-frame): New function to call create a
 	typeout frame unless it already exists. Suitable to run on
 	slime-mode-hook if you always want to have a typeout window.
-	(slime-log-events): New variable. When nil don't log to events to
+	(slime-log-events): When nil, don't log events to
 	*slime-events*. This works-around a problem Raymond Toy has when
 	starting SLIME under XEmacs. Still investigating..
 
