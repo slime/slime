@@ -1,5 +1,8 @@
 2004-02-07  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* swank-sbcl.lisp (enable-sigio-on-fd): New function.  Use
+	fallback if sb-posix:fcntl isn't fbound.
+
 	* swank-cmucl.lisp (gf-definition-location): Return an error when
 	pathname for the GF is nil (this happens if the GF is not compiled
 	from a file).
