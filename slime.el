@@ -1417,7 +1417,7 @@ Loops until the result is thrown to our caller, or the user aborts."
   "Call FN at the eob.  In a save-excursion block if we are not at
 eob."
   (cond ((eobp) (funcall fn) 
-         (when-let (w (get-buffer-window (current-buffer)))
+         (when-let (w (get-buffer-window (current-buffer) t))
            (set-window-point w (point))))
         (t (save-excursion 
              (goto-char (point-max))
