@@ -345,6 +345,9 @@
 (defimplementation interrupt-thread (thread fn)
   (mp:process-interrupt thread fn))
 
+(defimplementation kill-thread (thread)
+  (mp:process-kill thread))
+
 (defvar *mailbox-lock* (mp:make-process-lock :name "mailbox lock"))
 
 (defstruct (mailbox (:conc-name mailbox.)) 

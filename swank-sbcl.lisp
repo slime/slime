@@ -206,6 +206,7 @@ You aren't running Linux. The values of +o_async+ etc are probably bogus."))
 
 (defvar *buffer-name* nil)
 (defvar *buffer-offset*)
+(defvar *buffer-substring* nil)
 
 (defvar *previous-compiler-condition* nil
   "Used to detect duplicates.")
@@ -333,7 +334,8 @@ compiler state."
   (with-compilation-hooks ()
     (let ((*package* *buffer-package*)
           (*buffer-name* buffer)
-          (*buffer-offset* position))
+          (*buffer-offset* position)
+          (*buffer-substring* string))
       (eval (from-string
              (format nil "(funcall (compile nil '(lambda () ~A)))"
                      string))))))
@@ -767,7 +769,10 @@ stack."
   (defimplementation interrupt-thread (thread fn)
     (sb-thread:interrupt-thread thread fn))
 
-  ;; XXX there is some deadlock / race condition here
+  (defimplementation kill-thread (thread)
+    (sb-thread:terminate-thread thread))
+
+  ;; XXX there is some deadlock / race condition here (with old 2.4 kernels)
 
   (defvar *mailbox-lock* (sb-thread:make-mutex :name "mailbox lock"))
   (defvar *mailboxes* (list))
@@ -806,7 +811,3 @@ stack."
                                               mutex))))))))
 
   )
-
-;;; Local Variables:
-;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
-;;; End:

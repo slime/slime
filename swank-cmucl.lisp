@@ -1358,6 +1358,9 @@ LRA  =  ~X~%" (mapcar #'fixnum
   (defimplementation interrupt-thread (thread fn)
     (mp:process-interrupt thread fn))
 
+  (defimplementation kill-thread (thread)
+    (mp:destroy-process thread))
+
   (defvar *mailbox-lock* (mp:make-lock "mailbox lock"))
   
   (defstruct (mailbox (:conc-name mailbox.)) 
