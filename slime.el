@@ -1492,7 +1492,8 @@ The functions are called with the process as their argument.")
 (defvar slime-net-coding-system
   (find-if (if (featurep 'xemacs) #'find-coding-system #'coding-system-p)
            '(iso-latin-1-unix iso-8859-1-unix binary))
-  "*Coding system used for network connections.")
+  "*Coding system used for network connections.
+See also `slime-net-valid-coding-systems'.")
 
 (defvar slime-net-valid-coding-systems
   '((iso-latin-1-unix nil :iso-latin-1-unix)
@@ -6354,8 +6355,8 @@ Full list of commands:
                      (eq major-mode 'sldb-mode)))
                  (buffer-list)))
 
-(defun sldb-find-buffer (thread)
-  (let ((connection (slime-connection)))
+(defun sldb-find-buffer (thread &optional connection)
+  (let ((connection (or connection (slime-connection))))
     (find-if (lambda (buffer)
                (with-current-buffer buffer
                  (and (eq slime-buffer-connection connection)
@@ -6367,11 +6368,15 @@ Full list of commands:
 The buffer is chosen more or less randomly."
   (car (sldb-buffers)))
 
-(defun sldb-get-buffer (thread)
+(defun sldb-get-buffer (thread &optional connection)
   "Find or create a sldb-buffer for THREAD."
-  (or (sldb-find-buffer thread)
-      (get-buffer-create 
-       (format "*sldb %s/%s*" (slime-connection-name) thread))))
+  (let ((connection (or connection (slime-connection))))
+    (or (sldb-find-buffer thread connection)
+        (let ((name (format "*sldb %s/%s*" (slime-connection-name) thread)))
+          (with-current-buffer (get-buffer-create name)
+            (setq slime-buffer-connection connection 
+                  slime-current-thread thread)
+            (current-buffer))))))
 
 (defun sldb-debugged-continuations (connection)
   "Return the debugged continuations for CONNECTION."
