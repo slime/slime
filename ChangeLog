@@ -1,3 +1,14 @@
+2004-04-28   Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-loader.lisp (*lisp-name*): Add versioning support for
+	CLISP.
+
+	* swank-clisp.lisp (arglist): Trap exceptions and return
+	:not-available in that case.
+
+	* swank.lisp (arglist-for-insertion): Don't use ~< ..~:@>.
+	CLISP's pretty printer can't handle it.
+
 2004-04-28  Luke Gorrie  <luke@bluetail.com>
 
 	* NEWS: Created a NEWS file for recording changes that we want
