@@ -57,6 +57,7 @@
            #:interactive-eval
            #:interactive-eval-region
            #:invoke-nth-restart
+           #:invoke-nth-restart-for-emacs
            #:list-all-package-names
            #:list-callees
            #:list-callers
@@ -69,6 +70,7 @@
            #:set-default-directory
            #:set-package
            #:sldb-abort
+           #:sldb-break-with-default-debugger
            #:sldb-continue
            #:slime-debugger-function
            #:start-server
