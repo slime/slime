@@ -632,10 +632,10 @@ return value is the condition or nil."
            (cond (error (list :error (princ-to-string error)))
                  (t (code-location-source-location code-location)))))))
 
+;; XXX maybe special case setters/getters
 (defun method-location (method)
   (function-location (or (pcl::method-fast-function method)
                          (pcl:method-function method))))
-
 
 (defun method-dspec (method)
   (let* ((gf (pcl:method-generic-function method))
@@ -648,27 +648,8 @@ return value is the condition or nil."
   (list (method-dspec method)
         (method-location method)))
 
-(defun make-name-in-file-location (file string)
-  (multiple-value-bind (filename c)
-      (ignore-errors (unix-truename 
-                      (merge-pathnames (make-pathname :type "lisp")
-                                       file)))
-    (cond (filename (make-location `(:file ,filename)
-                                   `(:function-name ,string)))
-          (t (list :error (princ-to-string c))))))
-
 (defun gf-location (gf)
-  (let ((def-source (pcl::definition-source gf))
-        (name (string (nth-value 1 (ext:valid-function-name-p
-                                    (pcl:generic-function-name gf))))))
-    (etypecase def-source
-      (pathname (make-name-in-file-location def-source name))
-      (cons
-       (destructuring-bind ((dg name) pathname) def-source
-         (declare (ignore dg))
-         (etypecase pathname
-           (pathname (make-name-in-file-location pathname (string name)))
-           (null `(:error ,(format nil "Cannot resolve: ~S" def-source)))))))))
+  (definition-source-location gf (pcl::generic-function-name gf)))
 
 (defun gf-method-definitions (gf)
   (mapcar #'method-definition (pcl::generic-function-methods gf)))
@@ -719,29 +700,58 @@ NAME can any valid function name (e.g, (setf car))."
                (pcl:compute-applicable-methods-using-classes 
                 gf (list (find-class name))))))))))
 
-#+(or) ; Require new source-location recording stuff
-(progn
-  (defun class-location (class)
-    (definition-source-location class))
-
-  (defun definition-source-location (object)
-    (let ((source (pcl::definition-source object)))
-      (etypecase source
-        (null `(:error ,(format nil "No source info for: ~A" object)))
-        (c::file-source-location 
-         (let ((filename (c::file-source-location-pathname source))
-               (tlf-number (c::file-source-location-tlf-number source))
-               (form-number (c::file-source-location-tlf-number source)))
-           (with-open-file (s filename)
-             (let ((pos (form-number-stream-position tlf-number form-number 
-                                                     s)))
-               (make-location `(:file ,(unix-truename filename))
-                              `(:position ,(1+ pos)))))))))))
-
 (defun class-location (class)
-  `(:error ,(format nil "No source info for class: ~A"
-                   (pcl:class-name class))))
+  (definition-source-location class (pcl:class-name class)))
 
+(defun make-name-in-file-location (file string)
+  (multiple-value-bind (filename c)
+      (ignore-errors 
+        (unix-truename (merge-pathnames (make-pathname :type "lisp")
+                                        file)))
+    (cond (filename (make-location `(:file ,filename)
+                                   `(:function-name ,string)))
+          (t (list :error (princ-to-string c))))))
+
+(defun resolve-file-source-location (location)
+  (let ((filename (c::file-source-location-pathname location))
+        (tlf-number (c::file-source-location-tlf-number location))
+        (form-number (c::file-source-location-tlf-number location)))
+    (with-open-file (s filename)
+      (let ((pos (form-number-stream-position tlf-number form-number s)))
+        (make-location `(:file ,(unix-truename filename))
+                       `(:position ,(1+ pos)))))))
+
+(defun resolve-source-location (location)
+  (let ((info (c::source-location-user-info location))
+        (tlf-number (c::source-location-tlf-number location))
+        (form-number (c::source-location-tlf-number location)))
+    ;; XXX duplication in frame-source-location
+    (assert (info-from-emacs-buffer-p info))
+    (destructuring-bind (&key emacs-buffer emacs-buffer-string 
+                              emacs-buffer-offset) info
+      (with-input-from-string (s emacs-buffer-string)
+        (let ((pos (form-number-stream-position tlf-number form-number s)))
+          (make-location `(:buffer ,emacs-buffer)
+                         `(:position ,(+ emacs-buffer-offset pos))))))))
+
+(defun definition-source-location (object name)
+  (let ((source (pcl::definition-source object)))
+    (etypecase source
+      (null 
+       `(:error ,(format nil "No source info for: ~A" object)))
+      (c::file-source-location
+       (resolve-file-source-location source))
+      (c::source-location
+       (resolve-source-location source))
+      (pathname 
+       (make-name-in-file-location source name))
+      (cons
+       (destructuring-bind ((dg name) pathname) source
+         (declare (ignore dg))
+         (etypecase pathname
+           (pathname (make-name-in-file-location pathname (string name)))
+           (null `(:error ,(format nil "Cannot resolve: ~S" source)))))))))
+   
 (defun class-definitions (name)
   (if (symbolp name)
       (let ((class (kernel::find-class name nil)))
@@ -893,6 +903,13 @@ NAME can any valid function name (e.g, (setf car))."
     (:alien-enum
      (describe (ext:info :alien-type :enum symbol)))))
 
+(defun debug-variable-symbol-or-deleted (var)
+  (etypecase var
+    (di:debug-variable
+     (di::debug-variable-symbol var))
+    ((member :deleted)
+     '#:deleted)))
+
 (defun debug-function-arglist (debug-function)
   (let ((args (di::debug-function-lambda-list debug-function))
         (required '())
@@ -903,15 +920,17 @@ NAME can any valid function name (e.g, (setf car))."
     (dolist (arg args)
       (etypecase arg
         (di::debug-variable 
-         (push (di::debug-variable-name arg) required))
+         (push (di::debug-variable-symbol arg) required))
+        ((member :deleted) 
+         (push ':deleted required))
         (cons
          (ecase (car arg)
            (:keyword 
             (push (second arg) key))
            (:optional
-            (push (di::debug-variable-name (second arg)) optional))
+            (push (debug-variable-symbol-or-deleted (second arg)) optional))
            (:rest 
-            (push (di::debug-variable-name (second arg)) rest))))))
+            (push (debug-variable-symbol-or-deleted (second arg)) rest))))))
     ;; intersperse lambda keywords as needed
     (append (nreverse required)
             (if optional (cons '&optional (nreverse optional)))
@@ -1019,11 +1038,13 @@ to find the position of the corresponding form."
   (with-open-file (s filename :direction :input)
     (code-location-stream-position code-location s)))
 
+(defun info-from-emacs-buffer-p (info)
+  (and info 
+       (consp info)
+       (eq :emacs-buffer (car info))))
+
 (defun debug-source-info-from-emacs-buffer-p (debug-source)
-  (let ((info (c::debug-source-info debug-source)))
-    (and info 
-	 (consp info)
-	 (eq :emacs-buffer (car info)))))
+  (info-from-emacs-buffer-p (c::debug-source-info debug-source)))
 
 (defun source-location-from-code-location (code-location)
   "Return the source location for CODE-LOCATION."
