@@ -346,9 +346,20 @@ Return NIL if the symbol is unbound."
     (null (list :position offset))
     (symbol (list :function-name (string dspec)))))
 
+(defmacro with-fairly-standard-io-syntax (&body body)
+  "Like WITH-STANDARD-IO-SYNTAX but preserve *PACKAGE* and *READTABLE*."
+  (let ((package (gensym))
+        (readtable (gensym)))
+    `(let ((,package *package*)
+           (,readtable *readtable*))
+      (with-standard-io-syntax
+        (let ((*package* ,package)
+              (*readtable* ,readtable))
+          ,@body)))))
+
 #-(or lispworks-4.1 lispworks-4.2)      ; no dspec:parse-form-dspec prior to 4.3
 (defun dspec-stream-position (stream dspec)
-  (let ((*read-eval* t))
+  (with-fairly-standard-io-syntax
     (loop (let* ((pos (file-position stream))
                  (form (read stream nil '#1=#:eof)))
             (when (eq form '#1#)
