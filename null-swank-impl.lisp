@@ -59,7 +59,8 @@
   (:export 
    #:backtrace
    #:backtrace-length
-   #:compile-stream
+   #:compile-file-trapping-conditions
+   #:compile-stream-trapping-conditions
    #:compiler-condition
    #:compiler-condition-message
    #:compiler-condition-original-condition
@@ -157,11 +158,15 @@
 
 ;;; Compilation
 
-;; XXX I have this as the only entry point for doing compilation---do
-;; we want to have our own version of COMPILE-FILE that resignals
-;; portable compiler-conditions as well or is this enough?
+(defun compile-file-trapping-conditions (filename &key (load t))
+  "Compile FILENAME like COMPILE-FILE but resignal compilation
+conditions as Swank compiler conditions."
+  (declare (ignore filename load))
+  (error 'not-implemented-error 
+         :function-name 'compile-file-trapping-conditions))
 
-(defun compile-stream (stream &key filename position (load t))
+(defun compile-stream-trapping-conditions (stream &key 
+                                           filename position (load t))
   "Compile source from STREAM.  During compilation, compiler
 conditions must be trapped and resignalled as
 COMPILER-CONDITIONs.
@@ -173,7 +178,8 @@ compiler.
 Additionally, if POSITION is supplied, it must be added to
 source positions reported in compiler conditions."
   (declare (ignore stream filename position load))
-  (error 'not-implemented-error :function-name 'compile-stream))
+  (error 'not-implemented-error 
+         :function-name 'compile-stream-trapping-conditions))
 
 ;;; Symbol and Function Introspection
 
