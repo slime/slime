@@ -1982,6 +1982,54 @@ update window-point afterwards.  If point is initially not at
 
 
 ;;; REPL
+;;
+;; The REPL uses some markers to separate input from output.  The
+;; usual configuration is as follows:
+;; 
+;;    ... output ...    ... result ...    prompt> ... input ...
+;;    ^            ^                      ^       ^           ^
+;;    output-start output-end  prompt-start       input-start input-end  
+;;
+;; output-start and input-start are right inserting markers;
+;; output-end and input-end left inserting.
+;;
+;; We maintain the following invariant:
+;;
+;;  output-start <= output-end <= input-start <= input-end.
+;;
+;; This invariant is important, because we must be prepared for
+;; asynchronous output and asynchronous reads.  ("Asynchronous" means,
+;; triggered by Lisp and not by Emacs.)
+;;
+;; All output is inserted at the output-end marker.  Some care must be
+;; taken when output-end and input-start are at the same position: if
+;; we blindly insert at that point, we break the invariant stated
+;; above, because the output-end marker is left inserting.  The macro
+;; `slime-with-output-end-mark' handles this complication by moving
+;; the input-start marker to an appropriate place.  The macro also
+;; updates window-point if necessary, and tries to keep the prompt in
+;; the first column by inserting a newline.
+;;
+;; A "synchronous" evaluation request proceeds as follows: the user
+;; inserts some text between input-start and input-end and then hits
+;; return.  We send the text between the input markers to Lisp, move
+;; the output and input makers to the line after the input and wait.
+;; When we receive the result, we insert it together with a prompt
+;; between the output-end and input-start mark.
+;; `slime-repl-insert-prompt' does this.
+;;
+;; It is possible that some output for such an evaluation request
+;; arrives after the result.  This output is inserted before the
+;; result (and before the prompt).  Output that doesn't belong the
+;; evaluation request should not be inserted before the result, but
+;; immediately before the prompt.  To achieve this, we move the
+;; output-end mark to prompt-start after a short delay (by starting a
+;; timer in `slime-repl-insert-prompt').  In summary: synchronous
+;; output should go before the result, asynchronous before the prompt.
+;;
+;; If we are in "reading" state, e.g., during a call to Y-OR-N-P,
+;; there is no prompt between output-end and input-start.
+;;
 
 ;; Small helper.
 (defun slime-make-variables-buffer-local (&rest variables)
@@ -2024,6 +2072,9 @@ update window-point afterwards.  If point is initially not at
   (run-hooks 'slime-repl-mode-hook))
 
 (defun slime-repl-insert-prompt (result &optional time)
+  "Goto to point max, insert RESULT and the prompt.  Set
+slime-output-end to start of the inserted text slime-input-start to
+end end."
   (slime-flush-output)
   (goto-char (point-max))
   (let ((start (point)))
@@ -2265,6 +2316,19 @@ earlier in the buffer."
       (goto-char slime-repl-last-input-start-mark)
       (insert ";;; output flushed"))
     (set-marker slime-repl-last-input-start-mark nil)))
+
+(defun slime-repl-set-package (package)
+  "Set the package of the REPL buffer to PACKAGE."
+  (interactive (list (slime-read-package-name "Package: " 
+					      (slime-find-buffer-package))))
+  (with-current-buffer (slime-output-buffer)
+    (let ((unfinished-input (slime-repl-current-input)))
+      (destructuring-bind (name nickname)
+          (slime-eval `(swank:set-package ,package))
+        (setf (slime-lisp-package) nickname)
+        (slime-repl-insert-prompt "" 0)
+        (insert unfinished-input)))))
+
 
 ;;; Scratch
 
@@ -3380,6 +3444,9 @@ This for use in the implementation of COMMON-LISP:ED."
 ;;; Interactive evaluation.
 
 (defun slime-eval-with-transcript (form package &optional fn)
+  "Send FROM and PACKAGE to Lisp and pass the result to FN.
+Display the result in the message area, if FN is nil.
+Show the output buffer if the evaluation causes any output."
   (with-current-buffer (slime-output-buffer)
     (slime-with-output-end-mark (slime-mark-output-start)))
   (with-lexical-bindings (fn)
@@ -3391,6 +3458,7 @@ This for use in the implementation of COMMON-LISP:ED."
                           (slime-show-last-output))))))
 
 (defun slime-eval-describe (form)
+  "Evalute FORM in Lisp and display the result in a new buffer."
   (lexical-let ((package (slime-buffer-package)))
     (slime-eval-with-transcript
      form package
@@ -4477,6 +4545,14 @@ The details include local variable bindings and CATCH-tags."
   (interactive)
   (let ((frame (sldb-frame-number-at-point)))
     (slime-eval-async `(swank:sldb-step ,frame) nil (lambda ()))))
+
+(defun sldb-disassemble ()
+  "Disassemble the code for the current frame."
+  (interactive)
+  (let ((frame (sldb-frame-number-at-point)))
+    (slime-eval-async `(swank:sldb-disassemble ,frame) nil 
+                      (lambda (result)
+			(slime-show-description result nil)))))
 
 (defun sldb-return-from-frame (string)
   "Reads an expression in the minibuffer and causes the function to
