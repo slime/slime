@@ -340,6 +340,7 @@ Redirection is done while Lisp is processing a request for Emacs.")
       (multiple-value-bind (in out) (make-fn-streams input-fn output-fn)
         (let ((out (or dedicated-output out)))
           (let ((io (make-two-way-stream in out)))
+            (mapc #'make-stream-interactive (list in out io))
             (values dedicated-output in out io)))))))
 
 (defun make-output-function (connection)
