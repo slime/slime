@@ -32,6 +32,8 @@
            #:inspect-for-emacs
            #:raw-inspection
            #:fancy-inspection
+           #:label-value-line
+           #:label-value-line*
            ))
 
 (defpackage :swank-mop
@@ -438,6 +440,11 @@ the stack.")
 (definterface print-frame (frame stream)
   "Print frame to stream.")
 
+(definterface frame-package (frame)
+  "Return the preferred package to use when printing local variables.
+NIL can be used if no particular package is known."
+  nil)
+
 (definterface frame-source-location-for-emacs (frame-number)
   "Return the source location for FRAME-NUMBER.")
 
@@ -683,6 +690,16 @@ output of CL:DESCRIBE."
             (:newline) (:newline)
             ,(with-output-to-string (desc)
                (describe object desc)))))
+
+;;; Utilities to for inspector methods.
+;;; 
+(defun label-value-line (label value)
+  "Create a control list which prints \"LABEL: VALUE\" in the inspector."
+  (list (princ-to-string label) ": " `(:value ,value) '(:newline)))
+
+(defmacro label-value-line* (&rest label-values)
+  ` (append ,@(loop for (label value) in label-values
+                    collect `(label-value-line ,label ,value))))
 
 (definterface describe-primitive-type (object)
   "Return a string describing the primitive type of object."
