@@ -157,6 +157,9 @@ Return NIL if the symbol is unbound."
 
 (defun interesting-frame-p (frame)
   (or (dbg::call-frame-p frame)
+      (dbg::derived-call-frame-p frame)
+      (dbg::foreign-frame-p frame)
+      (dbg::interpreted-call-frame-p frame)
       ;;(dbg::catch-frame-p frame)
       ))
 
@@ -203,9 +206,9 @@ Return NIL if the symbol is unbound."
 (defimplementation frame-source-location-for-emacs (frame)
   (let ((frame (nth-frame frame)))
     (if (dbg::call-frame-p frame)
-	(let ((func (dbg::call-frame-function-name frame)))
-	  (if func 
-	      (cadr (name-source-location func)))))))
+	(let ((name (dbg::call-frame-function-name frame)))
+	  (if name
+              (function-name-location name))))))
 
 (defimplementation eval-in-frame (form frame-number)
   (let ((frame (nth-frame frame-number)))
@@ -223,19 +226,16 @@ Return NIL if the symbol is unbound."
 
 ;;; Definition finding
 
-(defun name-source-location (name)
-  (first (name-source-locations name)))
-
-(defun name-source-locations (name)
-  (let ((locations (dspec:find-name-locations dspec:*dspec-classes* name)))
-    (cond ((not locations) 
-	   (list :error (format nil "Cannot find source for ~S" name)))
-	  (t
-           (loop for (dspec location) in locations
-                 collect (list dspec (make-dspec-location dspec location)))))))
+(defun function-name-location (name)
+  (let ((defs (find-definitions name)))
+    (cond (defs (cadr (first defs)))
+          (t (list :error (format nil "Source location not available for: ~S" 
+                                  name))))))
 
 (defimplementation find-definitions (name)
-  (name-source-locations name))
+  (let ((locations (dspec:find-name-locations dspec:*dspec-classes* name)))
+    (loop for (dspec location) in locations
+          collect (list dspec (make-dspec-location dspec location)))))
 
 ;;; Compilation 
 
@@ -278,16 +278,8 @@ Return NIL if the symbol is unbound."
              (delete-file binary-filename))))
     (delete-file filename)))
 
-;; XXX handle all cases in dspec:*dspec-classes*
 (defun dspec-buffer-position (dspec)
-  (etypecase dspec
-    (cons (ecase (car dspec)
-            ((defun defmacro defgeneric defvar defstruct
-                    method structure package)
-             `(:function-name ,(symbol-name (cadr dspec))))
-            ;; XXX this isn't quite right
-            (lw:top-level-form `(:source-path ,(cdr dspec) nil))))
-    (symbol `(:function-name ,(symbol-name dspec)))))
+  (list :function-name (string (dspec:dspec-primary-name dspec))))
 
 (defun emacs-buffer-location-p (location)
   (and (consp location)
@@ -309,10 +301,7 @@ Return NIL if the symbol is unbound."
       ((or pathname string) 
        (make-location `(:file ,(filename location))
                       (dspec-buffer-position dspec)))
-      ((member :listener)
-       `(:error ,(format nil "Function defined in listener: ~S" dspec)))
-      ((member :unknown)
-       `(:error ,(format nil "Function location unkown: ~S" dspec)))
+      (symbol `(:error ,(format nil "Cannot resolve location: ~S" location)))
       ((satisfies emacs-buffer-location-p)
        (destructuring-bind (_ buffer offset string) location
          (declare (ignore _ offset string))

@@ -116,49 +116,28 @@ Return NIL if the symbol is unbound."
     (:function (describe (symbol-function symbol)))
     (:class (describe (find-class symbol)))))
 
-(defun fspec-pathname (symbol &optional type)
-  (declare (ignore type))
+(defun fspec-pathname (symbol)
   (let ((path (getf (gethash symbol sys::*documentation*) 'sys::file)))
     (if (and path
 	     (member (pathname-type path)
 		     custom:*compiled-file-types* :test #'string=))
-	(loop
-	   for suffix in custom:*source-file-types*
-	   thereis (make-pathname :defaults path :type suffix))
+	(loop for suffix in custom:*source-file-types*
+	      thereis (make-pathname :defaults path :type suffix))
 	path)))
 
-(defun find-multiple-definitions (fspec)
-  (list `(,fspec t)))
-
-(defun find-definition-in-file (fspec type file)
-  (declare (ignore fspec type file))
-  ;; FIXME
-  0)
-
-(defun find-fspec-location (fspec type)
-  (let ((file (fspec-pathname fspec type)))
-    (etypecase file
-      (pathname
-       (let ((start (find-definition-in-file fspec type file)))
-	 (multiple-value-bind (truename c) (ignore-errors (truename file))
-	   (cond (truename 
-		  (make-location (list :file (namestring truename))
-				 (list :function-name (string fspec))))
-		 (t (list :error (princ-to-string c)))))))
-      ((member :top-level)
-       (list :error (format nil "Defined at toplevel: ~A" fspec)))
-      (null 
-       (list :error (format nil "Unkown source location for ~A" fspec))))))
-
-(defun fspec-source-locations (fspec)
-  (let ((defs (find-multiple-definitions fspec)))
-    (loop for (fspec type) in defs 
-          collect (list fspec (find-fspec-location fspec type)))))
-
+(defun fspec-location (fspec)
+  (let ((file (fspec-pathname fspec)))
+    (cond (file
+	   (multiple-value-bind (truename c) (ignore-errors (truename file))
+	     (cond (truename 
+		    (make-location (list :file (namestring truename))
+				   (list :function-name (string fspec))))
+		   (t (list :error (princ-to-string c))))))
+	  (t (list :error (format nil "No source information available for: ~S"
+				  fspec))))))
 
 (defimplementation find-definitions (name)
-  (loop for location in (fspec-source-locations name)
-	collect (list name location)))
+  (list (list name (fspec-location name))))
 
 (defvar *sldb-topframe*)
 (defvar *sldb-botframe*)

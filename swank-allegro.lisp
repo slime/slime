@@ -207,7 +207,6 @@
 
 ;;;; Definition Finding
 
-
 (defun find-fspec-location (fspec type)
   (let ((file (excl::fspec-pathname fspec type)))
     (etypecase file

@@ -579,6 +579,9 @@ return value is the condition or nil."
 	   (vm::find-code-object function))
        (not (eq closure function))))
 
+(defun genericp (fn)
+  (typep fn 'generic-function))
+
 (defun struct-closure-p (function)
   (or (function-code-object= function #'kernel::structure-slot-accessor)
       (function-code-object= function #'kernel::structure-slot-setter)
@@ -608,44 +611,8 @@ return value is the condition or nil."
      (coerce (if (consp constructor) (car constructor) constructor)
              'function))))
 
-(defun genericp (fn)
-  (typep fn 'generic-function))
-
-(defun gf-definition-location (gf)
-  (flet ((guess-source-file (faslfile)
-           (unix-truename
-            (merge-pathnames (make-pathname :type "lisp")
-                             faslfile))))
-    (let ((def-source (pcl::definition-source gf))
-          (name (string (pcl:generic-function-name gf))))
-      (etypecase def-source
-        (pathname (make-location
-                   `(:file ,(guess-source-file def-source))
-                   `(:function-name ,name)))
-        (cons
-         (destructuring-bind ((dg name) pathname) def-source
-           (declare (ignore dg))
-           (etypecase pathname
-             (pathname 
-              (make-location `(:file ,(guess-source-file pathname)) 
-                             `(:function-name ,(string name))))
-             (null `(:error ,(format nil "Cannot resolve: ~S" def-source)))
-             )))))))
-
-(defun method-source-location (method)
-  (function-source-location (or (pcl::method-fast-function method)
-                                (pcl:method-function method))))
-
-(defun gf-method-locations (gf)
-  (let ((ms (pcl::generic-function-methods gf)))
-    (mapcar #'method-source-location ms)))
-
-(defun gf-source-locations (gf)
-  (list* (gf-definition-location gf)
-         (gf-method-locations gf)))
-
-(defun function-source-locations (function)
-  "Return a list of source locations for FUNCTION."
+(defun function-location (function)
+  "Return the source location for FUNCTION."
   ;; First test if FUNCTION is a closure created by defstruct; if so
   ;; extract the defstruct-description (dd) from the closure and find
   ;; the constructor for the struct.  Defstruct creates a defun for
@@ -655,30 +622,76 @@ return value is the condition or nil."
   ;; For an ordinary function we return the source location of the
   ;; first code-location we find.
   (cond ((struct-closure-p function)
-	 (list 
-          (safe-definition-finding
-           (dd-source-location (struct-closure-dd function)))))
+         (safe-definition-finding
+          (dd-source-location (struct-closure-dd function))))
         ((genericp function)
-         (gf-source-locations function))
+         (gf-location function))
         (t
-         (list
-          (multiple-value-bind (code-location error)
-              (safe-definition-finding (function-first-code-location function))
-            (cond (error (list :error (princ-to-string error)))
-                  (t (code-location-source-location code-location))))))))
+         (multiple-value-bind (code-location error)
+             (safe-definition-finding (function-first-code-location function))
+           (cond (error (list :error (princ-to-string error)))
+                 (t (code-location-source-location code-location)))))))
 
-(defun function-source-location (function)
-  (destructuring-bind (first) (function-source-locations function)
-    first))
+(defun method-location (method)
+  (function-location (or (pcl::method-fast-function method)
+                         (pcl:method-function method))))
+
+(defun method-dspec (method)
+  (let* ((gf (pcl:method-generic-function method))
+         (name (pcl:generic-function-name gf))
+         (specializers (pcl:method-specializers method)))
+    `(method ,name ,(pcl::unparse-specializers specializers))))
+
+(defun method-definition (method)
+  (list (method-dspec method)
+        (method-location method)))
+
+(defun make-name-in-file-location (file string)
+  (multiple-value-bind (filename c)
+      (ignore-errors (unix-truename 
+                      (merge-pathnames (make-pathname :type "lisp")
+                                       file)))
+    (cond (filename (make-location `(:file ,filename)
+                                   `(:function-name ,string)))
+          (t (list :error (princ-to-string c))))))
+
+(defun gf-location (gf)
+  (let ((def-source (pcl::definition-source gf))
+        (name (string (pcl:generic-function-name gf))))
+    (etypecase def-source
+      (pathname (make-name-in-file-location def-source name))
+      (cons
+       (destructuring-bind ((dg name) pathname) def-source
+         (declare (ignore dg))
+         (etypecase pathname
+           (pathname (make-name-in-file-location pathname (string name)))
+           (null `(:error ,(format nil "Cannot resolve: ~S" def-source)))))))))
+
+(defun gf-method-definitions (gf)
+  (mapcar #'method-definition (pcl::generic-function-methods gf)))
+
+(defun function-definitions (symbol)
+  "Return definitions in the \"function namespace\", i.e.,
+regular functions, generic functions, methods and macros."
+  (cond ((macro-function symbol)
+         (list `((macro ,symbol)
+                 ,(function-location (macro-function symbol)))))
+        ((special-operator-p symbol)
+         (list `((:special-operator ,symbol) 
+                 (:error ,(format nil "Don't know where `~A' is defined" 
+                                  symbol)))))
+        ((fboundp symbol)
+         (let ((function (coerce symbol 'function)))
+           (cond ((genericp function)
+                  (cons (list `(:generic-function ,symbol)
+                              (function-location function))
+                        (gf-method-definitions function)))
+                 (t (list (list `(function ,symbol)
+                                (function-location function)))))))))
 
 (defimplementation find-definitions (symbol)
-  (cond ((macro-function symbol)
-         (mapcar (lambda (loc) `((macro ,symbol) ,loc))
-                 (function-source-locations (macro-function symbol))))
-        ((fboundp symbol)
-         ;; XXX fixme
-         (mapcar (lambda (loc) `((function ,symbol) ,loc))
-                 (function-source-locations (coerce symbol 'function))))))
+  (function-definitions symbol))
+
 
 ;;;; Documentation.
 

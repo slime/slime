@@ -375,9 +375,7 @@ This is useful when debugging the definition-finding code.")
   (let ((methods (sb-mop:generic-function-methods gf))
         (name (sb-mop:generic-function-name gf)))
     (loop for method in methods 
-          collect (list `(method ,name ,(mapcar
-                                         #'sb-mop:class-name
-                                         (sb-mop:method-specializers method)))
+          collect (list `(method ,name ,(sb-pcl::unparse-specializers method)) 
                         (safe-function-source-location method name)))))
 
 (defun function-definitions (symbol)
@@ -387,7 +385,7 @@ This is useful when debugging the definition-finding code.")
           ((fboundp symbol)
            (let ((fun (symbol-function symbol)))
              (cond ((typep fun 'sb-mop:generic-function)
-                    (cons (list `(generic ,symbol) (loc fun symbol))
+                    (cons (list `(function ,symbol) (loc fun symbol))
                           (method-definitions fun)))
                    (t
                     (list (list symbol (loc fun symbol))))))))))
