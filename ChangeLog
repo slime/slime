@@ -10,9 +10,9 @@
 	
 2004-06-25  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
-	* slime.el (slime-repl-insert-prompt): Set defun-promp-regexp.
+	* slime.el (slime-repl-insert-prompt): Set defun-prompt-regexp.
 	beginning-of-defun can be very slow in the repl buffer if the
-	defun-promp-regexp is not set.
+	defun-prompt-regexp is not set.
 	(sldb-insert-locals): Initialize sldb-default-action.
 	(sldb-var-number-at-point, sldb-inspect-var): New function.
 
