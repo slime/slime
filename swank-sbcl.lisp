@@ -188,6 +188,8 @@ information."
            :message (brief-compiler-message-for-emacs condition context)
            :location (compiler-note-location context))))
 
+
+
 (defun compiler-note-location (context)
   (cond (context
          (resolve-note-location
@@ -207,7 +209,6 @@ information."
    `(:file ,(namestring (truename f)))
    `(:position ,(1+ (source-path-file-position path f)))))
 
-;;; FIXME this one's broken: no source-path-string-position
 (defmethod resolve-note-location ((b string) (f (eql :stream)) pos path source)
   (make-location
    `(:buffer ,b)
@@ -505,14 +506,7 @@ stack."
 	 (path (code-location-source-path code-location)))
     (source-path-file-position path filename)))
 
-(defun source-path-file-position (path filename)
-  (let ((*read-suppress* t))
-    (with-open-file (file filename)
-      (dolist (n path)
-	(dotimes (i n)
-	  (read file))
-	(read-delimited-list #\( file))
-      (file-position file))))
+;;; source-path-file-position and friends are in swank-source-path-parser
 
 (defun debug-source-info-from-emacs-buffer-p (debug-source)
   (let ((info (sb-c::debug-source-info debug-source)))

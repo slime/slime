@@ -1,3 +1,8 @@
+2003-12-12  Daniel Barlow  <dan@telent.net>
+
+	* swank-source-path-parser.lisp: new file, excerpting part of
+	swank-cmucl.lisp to where SBCL can find it as well.
+
 2003-12-11  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-one-line-ify): New function to convert

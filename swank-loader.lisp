@@ -27,8 +27,8 @@
 
 (defparameter *sysdep-pathnames*
   (mapcar #'make-swank-pathname 
-          #+cmu '("swank-cmucl")
-          #+sbcl '("swank-sbcl" "swank-gray")
+          #+cmu '("swank-cmucl" "swank-source-path-parser")
+          #+sbcl '("swank-sbcl" "swank-source-path-parser" "swank-gray")
           #+openmcl '("swank-openmcl" "swank-gray")
           #+lispworks '("swank-lispworks" "swank-gray")
           #+allegro '("swank-allegro" "swank-gray")
