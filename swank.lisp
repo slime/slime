@@ -1363,6 +1363,9 @@ after Emacs causes a restart to be invoked."
 (defvar *sldb-restarts* nil
   "The list of currenlty active restarts.")
 
+(defvar *sldb-stepping-p* nil
+  "True when during execution of a stepp command.")
+
 ;; A set of printer variables used in the debugger.
 (define-printer-variables sldb-print
   (pretty nil)
@@ -1380,6 +1383,7 @@ after Emacs causes a restart to be invoked."
                             (symbol-value '*buffer-package*))
                        *package*))
         (*sldb-level* (1+ *sldb-level*))
+        (*sldb-stepping-p* nil)
         (*swank-state-stack* (cons :swank-debugger-hook *swank-state-stack*)))
     (force-user-output)
     (with-printer-settings sldb-print
@@ -1398,7 +1402,8 @@ after Emacs causes a restart to be invoked."
                                         *sldb-level*))
                    (handler-bind ((sldb-condition #'handle-sldb-condition))
                      (read-from-emacs))))))
-    (send-to-emacs `(:debug-return ,(current-thread) ,level))))
+    (send-to-emacs `(:debug-return 
+                     ,(current-thread) ,level ,*sldb-stepping-p*))))
 
 (defun handle-sldb-condition (condition)
   "Handle an internal debugger condition.
@@ -1545,6 +1550,14 @@ the local variables in the frame INDEX."
 (defslimefun sldb-break (name)
   (with-buffer-syntax ()
     (sldb-break-at-start (read-from-string name))))
+
+(defslimefun sldb-step (frame)
+  (cond ((find-restart 'continue)
+         (activate-stepping frame)
+         (setq *sldb-stepping-p* t)
+         (continue))
+        (t
+         (error "No continue restart."))))
 
 
 ;;;; Compilation Commands.
@@ -2534,7 +2547,8 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
 
 ;;;; Inspecting
 
-(defun common-seperated-spec (list &optional (callback (lambda (v) `(:value ,v))))
+(defun common-seperated-spec (list &optional (callback (lambda (v) 
+							 `(:value ,v))))
   (butlast
    (loop
       for i in list
@@ -2542,27 +2556,11 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
       collect ", ")))
 
 (defun inspector-princ (list)
-  "Just like princ-to-string, but don't rewrite (function foo) as
-  #'foo. Do NOT pass circular lists to this function."
-  (with-output-to-string (as-string)
-    (labels ((printer (object)
-               (typecase object
-                 (null (princ nil as-string))
-                 (cons
-                  (write-char #\( as-string)
-                  (printer (car object))
-                  (loop
-                     for (head . tail) on (cdr object)
-                     do (write-char #\Space as-string)
-                     do (printer head)
-                     unless (listp tail)
-                       do (progn
-                            (write-string " . " as-string)
-                            (printer tail))
-                       and return t)
-                  (write-char #\) as-string))
-                 (t (princ object as-string)))))
-        (printer list))))
+  "Like princ-to-string, but don't rewrite (function foo) as #'foo. 
+Do NOT pass circular lists to this function."
+  (let ((*print-pprint-dispatch* (copy-pprint-dispatch)))
+    (set-pprint-dispatch '(cons (member function)) nil)
+    (princ-to-string list)))
 
 (defmethod inspect-for-emacs ((object cons) inspector)
   (declare (ignore inspector))
@@ -2663,80 +2661,93 @@ NIL is returned if the list is circular."
                  (:value ,*readtable*) ") it is a macro character: "
                  (:value ,(get-macro-character char)))))))
 
-;; Shouldn't most of this stuff be done by describe-symbol-for-emacs? -- he
+(defun docstring-ispec (label object kind)
+  "Return a inspector spec if OBJECT has a docstring of of kind KIND."
+  (let ((docstring (documentation object kind)))
+    (cond ((not docstring) nil)
+	  ((< (+ (length label) (length docstring))
+	      75)
+	   (list label ": " docstring '(:newline)))
+	  (t 
+	   (list label ": " '(:newline) "  " docstring '(:newline))))))
+
 (defmethod inspect-for-emacs ((symbol symbol) inspector)
   (declare (ignore inspector))
-  (let ((internal-external (multiple-value-bind (symbol status)
-                               (intern (symbol-name symbol) (symbol-package symbol))
-                             (declare (ignore symbol))
-                             (ecase status
-                               ((:internal :inherited) :internal)
-                               (:external :external))))
-        (package (when (find-package symbol)
-                   `("It names the package " (:value ,(find-package symbol)) (:newline))))
-        (class (when (find-class symbol nil)
-                 `("It names the class " (:value ,(find-class symbol) ,(inspector-princ (class-name (find-class symbol))))
-                   " " (:action ,(format nil "[remove name ~S (does not affect class object)]" symbol)
-                                ,(lambda () (setf (find-class symbol) nil)))))))
-    (values "A symbol."
-55            `("Its name is: " (:value ,(symbol-name symbol))
-              (:newline)
-              ;; check to see whether it is a global variable, a
-              ;; constant, or a symbol macro.
-              ,@(let ((documentation (when (documentation symbol 'variable)
-                                       `((:newline)
-                                         "Documentation:"
-                                         (:newline)
-                                         ,(documentation symbol 'variable)))))
-                  (cond
-                    ((constantp symbol)
-                     `("It is a constant of value: " (:value ,(symbol-value symbol)) ,@documentation))
-                    ((boundp symbol)
-                     `("It is a global variable bound to: " (:value ,(symbol-value symbol)) ,@documentation))
-                    ((nth-value 1 (macroexpand symbol))
-                     `("It is a symbol macro with expansion: " (:value ,(macroexpand symbol))))
-                    (t
-                     `("It is unbound."))))
-              (:newline)
-              ,@(if (fboundp symbol)
-                    (append
-                     (if (macro-function symbol)
-                         `("It a macro with macro-function: " (:value ,(macro-function symbol)))
-                         `("It is a function: " (:value ,(symbol-function symbol))))
-                     `(" " (:action "[make funbound]" ,(lambda () (fmakunbound symbol))))
-                     `((:newline))
-                     (when (documentation symbol 'function)
-                       `("Documentation:" (:newline) ,(documentation symbol 'function) (:newline)))
-                     (when (compiler-macro-function symbol)
-                       `("It also names the compiler macro: " (:value ,(compiler-macro-function symbol)) (:newline)))
-                     (when (documentation symbol 'compiler-macro)
-                       `("Documentation:" (:newline) ,(documentation symbol 'compiler-macro) (:newline))))
-                    `("It has no function value." (:newline)))
-              "It is " ,(case internal-external
-                          (:internal "internal")
-                          (:external "external")) " to the package: " (:value ,(symbol-package symbol))
-              ,@(when (eql :internal internal-external)
-                  `(" " (:action ,(with-output-to-string (export-label)
-                                    (princ "[export from " export-label)
-                                    (princ (package-name (symbol-package symbol)) export-label)
-                                    (princ "]" export-label))
-                                 ,(lambda () (export symbol (symbol-package symbol))))))
-              (:newline)
-              "Property list: " (:value ,(symbol-plist symbol))
-              (:newline)
-              ,@package
-              ,@class))))
+  (let ((package (symbol-package symbol)))
+    (multiple-value-bind (_symbol status) 
+	(and package (find-symbol (string symbol) package))
+      (declare (ignore _symbol))
+      (values 
+       "A symbol."
+       (append
+	(label-value-line "Its name is" (symbol-name symbol))
+	;;
+	;; Value 
+	(cond ((boundp symbol)
+	       (label-value-line (if (constantp symbol)
+				     "It is a constant of value"
+				     "It is a global variable bound to")
+				 (symbol-value symbol)))
+	      (t '("It is unbound." (:newline))))
+	(docstring-ispec "Documentation" symbol 'variable)
+	(multiple-value-bind (expansion definedp) (macroexpand symbol)
+	  (if definedp 
+	      (label-value-line "It is a symbol macro with expansion" 
+				expansion)))
+	;;
+	;; Function
+	(if (fboundp symbol)
+	    (append (if (macro-function symbol)
+			`("It a macro with macro-function: "
+			  (:value ,(macro-function symbol)))
+			`("It is a function: " 
+			  (:value ,(symbol-function symbol))))
+		    `(" " (:action "[make funbound]"
+				   ,(lambda () (fmakunbound symbol))))
+		    `((:newline)))
+	    `("It has no function value." (:newline)))
+	(docstring-ispec "Function Documentation" symbol 'function)
+	(if (compiler-macro-function symbol)
+	    (label-value-line "It also names the compiler macro"
+			      (compiler-macro-function symbol)))
+	(docstring-ispec "Compiler Macro Documentation" 
+			 symbol 'compiler-macro)
+	;;
+	;; Package
+	`("It is " ,(string-downcase (string status)) " to the package: "
+		   (:value ,package ,(package-name package))
+		   ,@(if (eq :internal status) 
+			 `((:action " [export it]"
+				    ,(lambda () (export symbol package)))))
+		   (:newline))
+	;;
+	;; Plist
+	(label-value-line "Property list" (symbol-plist symbol))
+	;; 
+	;; Class
+	(if (find-class symbol nil)
+	    `("It names the class " 
+	      (:value ,(find-class symbol) ,(string symbol))
+	      (:action " [remove]"
+		       ,(lambda () (setf (find-class symbol) nil)))
+	      (:newline)))
+	;;
+	;; More package
+	(if (find-package symbol)
+	    (label-value-line "It names the package" (find-package symbol)))
+	)))))
 
 (defmethod inspect-for-emacs ((f function) inspector)
   (declare (ignore inspector))
   (values "A function."
-          `("Name: " (:value ,(function-name f)) (:newline)
-            "Its argument list is: " ,(inspector-princ (arglist f))
-            (:newline)
-            ,@(when (function-lambda-expression f)
-                `("Lambda Expression: " (:value ,(function-lambda-expression f)) (:newline)))
-            ,@(when (documentation f t)
-                `("Documentation:" (:newline) ,(documentation f t) (:newline))))))
+	  (append 
+	   (label-value-line "Name" (function-name f))
+	   `("Its argument list is: " 
+	     ,(inspector-princ (arglist f)) (:newline))
+	   (docstring-ispec "Documentation" f t)
+	   (if (function-lambda-expression f)
+	       (label-value-line "Lambda Expression"
+				 (function-lambda-expression f))))))
 
 (defun method-specializers-for-inspect (method)
   "Return a \"pretty\" list of the method's specializers. Normal
@@ -2755,17 +2766,10 @@ NIL is returned if the list is circular."
   specialiazed on, the second element is the method qualifiers,
   the rest of the list is the method's specialiazers (as per
   method-specializers-for-inspect)."
-  (if (swank-mop:method-qualifiers method)
-      (list*
-       (swank-mop:generic-function-name (swank-mop:method-generic-function method))
-       (let ((quals (swank-mop:method-qualifiers method)))
-         (if (= 1 (length quals))
-             (first quals)
-             quals))
-       (method-specializers-for-inspect method))
-      (list*
-       (swank-mop:generic-function-name (swank-mop:method-generic-function method))
-       (method-specializers-for-inspect method))))
+  (append (list (swank-mop:generic-function-name
+		 (swank-mop:method-generic-function method)))
+	  (swank-mop:method-qualifiers method)
+	  (method-specializers-for-inspect method)))
 
 (defmethod inspect-for-emacs ((o standard-object) inspector)
   (declare (ignore inspector))
@@ -2798,96 +2802,69 @@ NIL is returned if the list is circular."
 The default returns the method sorted by applicability.
 See `methods-by-applicability'.")
 
-;;; Largely inspired by (+ copied from) the McCLIM listener
-(defun methods-by-applicability (gf)
-  "Return methods ordered by qualifiers, then by most specific argument types.
+(defun specializer< (specializer1 specializer2)
+  "Return true if SPECIALIZER1 is more specific than SPECIALIZER2."
+  (let ((s1 specializer1) (s2 specializer2) )
+    (cond ((typep s1 'swank-mop:eql-specializer)
+	   (not (typep s2 'swank-mop:eql-specializer)))
+	  (t
+	   (flet ((cpl (class)
+		    (and (swank-mop:class-finalized-p class)
+			 (swank-mop:class-precedence-list class))))
+	     (member s2 (cpl s1)))))))
 
-Qualifier ordering is: :before, :around, primary, and :after.
-We use the length of the class precedence list to determine which type is
-more specific."
-  ;;FIXME: How to deal with argument-precedence-order?
+(defun methods-by-applicability (gf)
+  "Return methods ordered by most specific argument types.
+
+`method-specializer<' is used for sorting."
+  ;; FIXME: argument-precedence-order and qualifiers are ignored.  
   (let ((methods (copy-list (swank-mop:generic-function-methods gf))))
-    ;; sorter function (most specific is defined as smaller)
-    (flet ((method< (meth1 meth2)
-             ;; First ordering rule is by qualifiers, that is :before-methods
-             ;; come before :around methods, before primary methods, before
-             ;; :after methods, other qualifiers are treated like none at all
-             ;; (so like primary methods)
-             (let ((qualifier-order '(:before :around nil :after)))
-               (let ((q1 (or (position (first (swank-mop:method-qualifiers meth1)) qualifier-order) 2))
-                     (q2 (or (position (first (swank-mop:method-qualifiers meth2)) qualifier-order) 2)))
-                 (cond ((< q1 q2) (return-from method< t))
-                       ((> q1 q2) (return-from method< nil)))))
-             ;; If qualifiers are equal, go by arguments
-             (loop for sp1 in (swank-mop:method-specializers meth1)
-                   for sp2 in (swank-mop:method-specializers meth2)
-                   do (cond
-                        ((eq sp1 sp2)) ;; continue comparision
-                        ;; an eql specializer is most specific
-                        ((typep sp1 'swank-mop:eql-specializer)
-                         (return-from method< t))
-                        ((typep sp2 'swank-mop:eql-specializer)
-                         (return-from method< nil))
-                        ;; otherwise the longer the CPL the more specific
-                        ;; the specializer is
-                        ;; FIXME: Taking the CPL as indicator has the problem
-                        ;; that unfinalized classes are most specific. Can we pick
-                        ;; a reasonable default or do something with SUBTYPEP ?
-                        (t (let ((l1 (if (swank-mop:class-finalized-p sp1)
-                                         (length (swank-mop:class-precedence-list sp1))
-                                         0))
-                                 (l2 (if (swank-mop:class-finalized-p sp2)
-                                         (length (swank-mop:class-precedence-list sp2))
-                                         0)))
-                             (cond
-                               ((> l1 l2)
-                                (return-from method< t))
-                               ((< l1 l2)
-                                (return-from method< nil))))))
-                   finally (return nil))))
-      (declare (dynamic-extent #'method<))
-      (sort methods #'method<))))
+    (labels ((method< (meth1 meth2)
+	       (loop for s1 in (swank-mop:method-specializers meth1)
+		     for s2 in (swank-mop:method-specializers meth2) 
+		     do (cond ((specializer< s2 s1) (return nil))
+			      ((specializer< s1 s2) (return t))))))
+      (stable-sort methods #'method<))))
 
 (defun abbrev-doc (doc &optional (maxlen 80))
   "Return the first sentence of DOC, but not more than MAXLAN characters."
   (subseq doc 0 (min (1+ (or (position #\. doc) (1- maxlen)))
-                         maxlen
-                         (length doc))))
+		     maxlen
+		     (length doc))))
 
 (defmethod inspect-for-emacs ((gf standard-generic-function) inspector)
   (declare (ignore inspector))
-  (values "A generic function."
-          `("Name: " (:value ,(swank-mop:generic-function-name gf)) (:newline)
-            "Its argument list is: " ,(inspector-princ (swank-mop:generic-function-lambda-list gf)) (:newline)
-            "Documentation: " (:newline)
-            ,(inspector-princ (documentation gf t)) (:newline)
-            "Its method class is: " (:value ,(swank-mop:generic-function-method-class gf)) (:newline)
-            "It uses " (:value ,(swank-mop:generic-function-method-combination gf)) " method combination." (:newline)
-            "Methods: " (:newline)
-            ,@(loop
-                 for method in (funcall *gf-method-getter* gf)
-                 collect `(:value ,method ,(inspector-princ
-                                            ;; drop the first element (the name of the generic function)
-                                            (cdr (method-for-inspect-value method))))
-                 collect " "
-                 collect (let ((meth method))
-                           `(:action "[remove method]" ,(lambda () (remove-method gf meth))))
-                 collect '(:newline)
-                 if (documentation method t)
-                 collect "  Documentation: " and
-                 collect (abbrev-doc (documentation method t)) and
-                 collect '(:newline)))))
+  (flet ((lv (label value) (label-value-line label value)))
+    (values 
+     "A generic function."
+     (append 
+      (lv "Name" (swank-mop:generic-function-name gf))
+      (lv "Arguments" (swank-mop:generic-function-lambda-list gf))
+      (docstring-ispec "Documentation" gf t)
+      (lv "Method class" (swank-mop:generic-function-method-class gf))
+      (lv "Method combination" 
+	  (swank-mop:generic-function-method-combination gf))
+      `("Methods: " (:newline))
+      (loop for method in (funcall *gf-method-getter* gf) append
+	    `((:value ,method ,(inspector-princ
+			       ;; drop the name of the GF
+			       (cdr (method-for-inspect-value method))))
+	      (:action " [remove method]" 
+                       ,(let ((m method)) ; LOOP reassigns method
+                          (lambda () 
+                            (remove-method gf m))))
+	      (:newline)))))))
 
 (defmethod inspect-for-emacs ((method standard-method) inspector)
   (declare (ignore inspector))
   (values "A method." 
-          `("Method defined on the generic function " (:value ,(swank-mop:method-generic-function method)
-                                                              ,(inspector-princ
-                                                                (swank-mop:generic-function-name
-                                                                 (swank-mop:method-generic-function method))))
+          `("Method defined on the generic function " 
+	    (:value ,(swank-mop:method-generic-function method)
+		    ,(inspector-princ
+		      (swank-mop:generic-function-name
+		       (swank-mop:method-generic-function method))))
             (:newline)
-            ,@(when (documentation method t)
-                `("Documentation:" (:newline) ,(documentation method t) (:newline)))
+	    ,@(docstring-ispec "Documentation" method t)
             "Lambda List: " (:value ,(swank-mop:method-lambda-list method))
             (:newline)
             "Specializers: " (:value ,(swank-mop:method-specializers method)
@@ -3172,8 +3149,8 @@ more specific."
   (with-buffer-syntax ()
     (inspect-object (inspector-nth-part index))))
 
-(defslimefun inspector-call-nth-action (index &rest args)
-  (apply (aref *inspectee-actions* index) args)
+(defslimefun inspector-call-nth-action (index)
+  (funcall (aref *inspectee-actions* index))
   (inspect-object (pop *inspector-stack*)))
 
 (defslimefun inspector-pop ()
@@ -3419,6 +3396,6 @@ Collisions are caused because package information is ignored."
 
 (add-hook *pre-reply-hook* 'sync-indentation-to-emacs)
 
-;;; Local Variables:
-;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
-;;; End:
+;; Local Variables:
+;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
+;; End:
