@@ -1,3 +1,12 @@
+2004-03-22  Luke Gorrie  <luke@bluetail.com>
+
+	* doc/slime.texi: New user manual.
+
+	* swank.lisp (*communication-style*): New name for
+	*swank-in-background*.
+	Exported configuration variables: *communication-style*,
+	*log-events*, *use-dedicated-output-stream*.
+
 2004-03-20  Julian Stecklina <der_julian@web.de>
 
 	* swank-sbcl.lisp (+o_async+, +f_setown+, +f_setfl+): Add correct

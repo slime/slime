@@ -63,7 +63,6 @@ Backends implement these functions using DEFIMPLEMENTATION."
               ',name)))
 
 (defmacro defimplementation (name args &body body)
-  ;; Is this a macro no-no -- should it be pushed out of macroexpansion?
   `(progn (defmethod ,name ,args ,@body)
           (if (member ',name *interface-functions*)
               (setq *unimplemented-interfaces*
