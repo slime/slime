@@ -312,8 +312,13 @@ The time is measured in microseconds."
 The result is a list of strings.  If STRING is package qualified the
 result list will also be qualified.  If string is non-qualified the
 result strings are also not qualified and are considered relative to
-DEFAULT-PACKAGE-NAME.  All symbols accessible in the package are
-considered."
+DEFAULT-PACKAGE-NAME.
+
+The way symbols are matched depends on the symbol designator's
+format. The cases are as follows:
+  FOO      - Symbols with matching prefix and accessible in the buffer package.
+  PKG:FOO  - Symbols with matching prefix and external in package PKG.
+  PKG::FOO - Symbols with matching prefix and accessible in package PKG."
   (multiple-value-bind (name package-name internal-p)
       (parse-symbol-designator string)
     (let ((completions nil)
@@ -321,21 +326,13 @@ considered."
                     (string-upcase (cond ((equal package-name "") "KEYWORD")
                                          (package-name)
                                          (default-package-name))))))
-      (flet ((package-matches (symbol-package)
-               ;; True if SYMBOL-PACKAGE is valid for the completion.
-               ;; When the designator includes an explicit package
-               ;; prefix, only symbols in that package are considered.
-               (or (null package-name)
-                   (eq symbol-package package)))
-             (visible-p (symbol)
-               ;; True if SYMBOL is visible for this completion.
-               (or internal-p
-                   (symbol-external-p symbol))))
+      (flet ((symbol-matches-p (symbol)
+               (and (string-prefix-p name (symbol-name symbol))
+                    (or (or internal-p (null package-name))
+                        (symbol-external-p symbol package)))))
         (when package
           (do-symbols (symbol package)
-            (when (and (string-prefix-p name (symbol-name symbol))
-                       (package-matches (symbol-package symbol))
-                       (visible-p symbol))
+            (when (symbol-matches-p symbol)
               (push symbol completions)))))
       (let ((*print-case* (if (find-if #'upper-case-p string)
                               :upcase :downcase))
@@ -344,7 +341,10 @@ considered."
                   (cond (internal-p (format nil "~A::~A" package-name s))
                         (package-name (format nil "~A:~A" package-name s))
                         (t (format nil "~A" s))))
-                completions)))))
+                ;; DO-SYMBOLS can consider the same symbol more than
+                ;; once, so remove duplicates.
+                (remove-duplicates (sort completions
+                                         #'present-symbol-before-p)))))))
 
 (defun parse-symbol-designator (string)
   "Parse STRING as a symbol designator.
@@ -358,10 +358,11 @@ Return three values:
             (if pos (subseq string 0 pos) nil))
           (search "::" string)))
 
-(defun symbol-external-p (symbol)
-  "True if SYMBOL is external in its home package."
+(defun symbol-external-p (symbol &optional (package (symbol-package symbol)))
+  "True if SYMBOL is external in PACKAGE.
+If PACKAGE is not specified, the home package of SYMBOL is used."
   (multiple-value-bind (_ status)
-      (find-symbol (symbol-name symbol) (symbol-package symbol))
+      (find-symbol (symbol-name symbol) (or package (symbol-package symbol)))
     (declare (ignore _))
     (eq status :external)))
  
@@ -393,15 +394,13 @@ Sorted alphabetically by package name and then symbol name, except
 that symbols accessible in the current package go first."
   (flet ((accessible (s)
            (find-symbol (symbol-name s) *buffer-package*)))
-    (let ((pa (symbol-package a))
-          (pb (symbol-package b)))
-      (cond ((or (eq pa pb)
-                 (and (accessible a) (accessible b)))
-             (string< (symbol-name a) (symbol-name b)))
-            ((accessible a) t)
-            ((accessible b) nil)
-            (t
-             (string< (package-name pa) (package-name pb)))))))
+    (cond ((and (accessible a) (accessible b))
+           (string< (symbol-name a) (symbol-name b)))
+          ((accessible a) t)
+          ((accessible b) nil)
+          (t
+           (string< (package-name (symbol-package a))
+                    (package-name (symbol-package b)))))))
 
 ;;;
 
