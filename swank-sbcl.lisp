@@ -117,7 +117,7 @@ Please upgrade to SBCL 0.8.7.36 or later."))
            (read-from-string 
             "(lambda (fd)
              (sb-posix:fcntl fd sb-posix::f-setfl sb-posix::o-async)
-             (sb-posix:fcntl fd sb-posix::f-setown (sb-unix:unix-getpid)))"))
+             (sb-posix:fcntl fd sb-posix::f-setown (getpid)))"))
           fd))
         (t
          (unless (or (sb-int:featurep :linux)
@@ -131,7 +131,7 @@ Please upgrade to SBCL 0.8.7.36 or later."))
            ;; XXX error checking
            (sb-alien:alien-funcall fcntl fd +f_setfl+ +o_async+)
            (sb-alien:alien-funcall fcntl fd +f_setown+
-                                   (sb-unix:unix-getpid))))))
+                                   (getpid))))))
 
 (defimplementation add-sigio-handler (socket fn)
   (set-sigio-handler)
@@ -146,7 +146,7 @@ Please upgrade to SBCL 0.8.7.36 or later."))
   (let ((fd (socket-fd socket)))
     (format *debug-io* "Adding sigio handler: ~S ~%" fd)
     (sb-posix:fcntl fd sb-posix::f-setfl sb-posix::o-async)
-    (sb-posix:fcntl fd sb-posix::f-setown (sb-unix:unix-getpid))
+    (sb-posix:fcntl fd sb-posix::f-setown (getpid))
     (push (cons fd fn) *sigio-handlers*)))
 
 (defimplementation remove-sigio-handlers (socket)
@@ -189,7 +189,7 @@ Please upgrade to SBCL 0.8.7.36 or later."))
   (sb-sys:without-interrupts (funcall fn)))
 
 (defmethod getpid ()
-  (sb-unix:unix-getpid))
+  (sb-posix:getpid))
 
 (defimplementation lisp-implementation-type-name ()
   "sbcl")
