@@ -3262,12 +3262,12 @@ package is used."
   (interactive)
   (funcall slime-complete-symbol-function))
 
-(defun slime-complete-symbol* ()
+(defun* slime-complete-symbol* ()
   "Expand abbreviations and complete the symbol at point."
   ;; NB: It is only the name part of the symbol that we actually want
   ;; to complete -- the package prefix, if given, is just context.
   (when (save-excursion (re-search-backward "\"[^ \t\n]+\\=" nil t))
-    (return-from slime-complete-symbol (comint-dynamic-complete-as-filename)))
+    (return-from slime-complete-symbol* (comint-dynamic-complete-as-filename)))
   (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
          (beg (move-marker (make-marker) (slime-symbol-start-pos)))
          (prefix (buffer-substring-no-properties beg end))
@@ -3297,10 +3297,10 @@ package is used."
                                          (length completed-prefix)))))
                (goto-char (+ beg unambiguous-completion-length))
                (slime-complete-maybe-save-window-configuration)
-               (slime-display-comletion-list completion-set)
+               (slime-display-completion-list completion-set)
                (slime-complete-delay-restoration)))))))
 
-(defun slime-display-comletion-list (completion-list)
+(defun slime-display-completion-list (completion-list)
   (with-output-to-temp-buffer "*Completions*"
     (display-completion-list completion-set)
     (with-current-buffer standard-output
@@ -3310,7 +3310,8 @@ package is used."
   "Complete the symbol at point.  
 Perform completion more similar to Emacs' complete-symbol."
   (when (save-excursion (re-search-backward "\"[^ \t\n]+\\=" nil t))
-    (return-from slime-complete-symbol (comint-dynamic-complete-as-filename)))
+    (return-from slime-simple-complete-symbol 
+      (comint-dynamic-complete-as-filename)))
   (let* ((end (point))
          (beg (slime-symbol-start-pos))
          (prefix (buffer-substring-no-properties beg end)))
@@ -3329,7 +3330,7 @@ Perform completion more similar to Emacs' complete-symbol."
               (t
                (slime-minibuffer-respecting-message "Complete but not unique")
                (slime-complete-maybe-save-window-configuration)
-               (slime-display-comletion-list completion-set)
+               (slime-display-completion-list completion-set)
                (slime-complete-delay-restoration)))))))
         
 (defun slime-minibuffer-respecting-message (format &rest format-args)
@@ -4222,7 +4223,38 @@ If `sldb-enable-styled-backtrace' is nil, just return STRING."
 ;;;;; sldb-mode
 
 (define-derived-mode sldb-mode fundamental-mode "sldb" 
-  "Superior lisp debugger mode
+  "Superior lisp debugger mode. In addition to ordinary SLIME commands,
+the following are available:\\<sldb-mode-map>
+
+Commands to examine the selected frame:
+   \\[sldb-toggle-details]   - toggle details (local bindings, CATCH tags)
+   \\[sldb-show-source]   - view source for the frame
+   \\[sldb-eval-in-frame]   - eval in frame
+   \\[sldb-pprint-eval-in-frame]   - eval in frame, pretty-print result
+   \\[sldb-disassemble]   - disassemble
+   \\[sldb-inspect-in-frame]   - inspect
+   \\[sldb-list-locals]   - list locals
+
+Commands to invoke restarts:
+   \\[sldb-quit]   - quit
+   \\[sldb-abort]   - abort
+   \\[sldb-continue]   - continue
+   \\[sldb-invoke-restart-0]-\\[sldb-invoke-restart-9] - restart shortcuts
+
+Commands to navigate frames:
+   \\[sldb-down]   - down
+   \\[sldb-up]   - up
+   \\[sldb-details-down] - down, with details
+   \\[sldb-details-up] - up, with details
+
+Miscellaneous commands:
+   \\[sldb-restart-frame]   - restart frame
+   \\[sldb-return-from-frame]   - return from frame
+   \\[sldb-step]   - step
+   \\[sldb-break-with-default-debugger]   - break
+   \\[slime-interactive-eval]   - eval
+
+Full list of commands:
 
 \\{sldb-mode-map}"
   (erase-buffer)
@@ -4233,7 +4265,35 @@ If `sldb-enable-styled-backtrace' is nil, just return STRING."
   (make-local-variable 'kill-buffer-hook)
   (add-hook 'kill-buffer-hook 'sldb-delete-overlays))
 
+(defun sldb-help-summary ()
+  "Show summary of important sldb commands"
+  (interactive)
+  (message
+   (mapconcat
+    #'(lambda (list)
+        (let* ((cmd (first list))
+               (letter (second list))
+               (name (third list))
+               (name-with-letter (fourth list))
+               (where-is (where-is-internal cmd sldb-mode-map)))
+          (if (or (member (vector (intern letter)) where-is)
+                  (member (vector (string-to-char letter)) where-is))
+              name-with-letter
+            (substitute-command-keys
+             (format "\\<sldb-mode-map>\\[%s] %s" cmd name)))))
+    '((sldb-down           "n" "next"           "n-ext")
+      (sldb-up             "p" "prev"           "p-rev")
+      (sldb-toggle-details "t" "toggle details" "t-oggle details")
+      (sldb-eval-in-frame  "e" "eval"           "e-val")
+      (sldb-continue       "c" "continue"       "c-ontinue")
+      (sldb-abort          "a" "abort"          "a-bort")
+      (sldb-show-source    "v" "view source"    "v-iew source")
+      (describe-mode       "h" "help"           "h-elp"))
+    ", ")))
+
 (slime-define-keys sldb-mode-map 
+  ("?"    'sldb-help-summary)
+  ("h"    'describe-mode)
   ("v"    'sldb-show-source)
   ((kbd "RET") 'sldb-default-action)
   ("\C-m"      'sldb-default-action)
@@ -4266,9 +4326,11 @@ If `sldb-enable-styled-backtrace' is nil, just return STRING."
 
 ;; Keys 0-9 are shortcuts to invoke particular restarts.
 (defmacro define-sldb-invoke-restart-key (number key)
-  (let ((fname (intern (format "sldb-invoke-restart-%S" number))))
+  (let ((fname (intern (format "sldb-invoke-restart-%S" number)))
+        (docstring (format "Invoke restart numbered %S." number)))
     `(progn
        (defun ,fname ()
+         ,docstring
 	 (interactive)
 	 (sldb-invoke-restart ,number))
        (define-key sldb-mode-map ,key ',fname))))
@@ -4421,6 +4483,7 @@ Called on the `point-entered' text-property hook."
 ;;;;; SLDB commands
 
 (defun sldb-default-action/mouse (event)
+  "Invoke the action pointed at by the mouse."
   (interactive "e")
   (destructuring-bind (mouse-1 (w pos &rest _)) event
     (save-excursion
@@ -4429,6 +4492,7 @@ Called on the `point-entered' text-property hook."
 	(if fn (funcall fn))))))
 
 (defun sldb-default-action ()
+  "Invoke the action at point."
   (interactive)
   (let ((fn (get-text-property (point) 'sldb-default-action)))
     (if fn (funcall fn))))
@@ -4560,6 +4624,7 @@ The details include local variable bindings and CATCH-tags."
 
 
 (defun sldb-eval-in-frame (string)
+  "Prompt for an expression and evaluate it in the selected frame."
   (interactive (list (slime-read-from-minibuffer "Eval in frame: ")))
   (let* ((number (sldb-frame-number-at-point)))
     (slime-eval-async `(swank:eval-string-in-frame ,string ,number)
@@ -4567,6 +4632,7 @@ The details include local variable bindings and CATCH-tags."
 		      (lambda (reply) (slime-message "==> %s" reply)))))
 
 (defun sldb-pprint-eval-in-frame (string)
+  "Prompt for an expression, evaluate in selected frame, pretty-print result."
   (interactive (list (slime-read-from-minibuffer "Eval in frame: ")))
   (let* ((number (sldb-frame-number-at-point)))
     (slime-eval-async `(swank:pprint-eval-string-in-frame ,string ,number)
@@ -4575,6 +4641,7 @@ The details include local variable bindings and CATCH-tags."
 			(slime-show-description result nil)))))
 
 (defun sldb-inspect-in-frame (string)
+  "Prompt for an expression and inspect it in the selected frame."
   (interactive (list (slime-read-from-minibuffer 
                       "Inspect in frame (evaluated): " 
                       (slime-sexp-at-point))))
@@ -4597,10 +4664,12 @@ The details include local variable bindings and CATCH-tags."
 	      nil sldb-backtrace-start-marker)))
 
 (defun sldb-down ()
+  "Select next frame."
   (interactive)
   (sldb-forward-frame))
 
 (defun sldb-up ()
+  "Select previous frame."
   (interactive)
   (sldb-backward-frame)
   (when (= (point) sldb-backtrace-start-marker)
@@ -4615,10 +4684,12 @@ The details include local variable bindings and CATCH-tags."
     (sldb-show-source)))
   
 (defun sldb-details-up ()
+  "Select previous frame and show details."
   (interactive)
   (sldb-sugar-move 'sldb-up))
 
 (defun sldb-details-down ()
+  "Select next frame and show details."
   (interactive)
   (sldb-sugar-move 'sldb-down))
 
@@ -4636,6 +4707,7 @@ The details include local variable bindings and CATCH-tags."
             "\n")))
 
 (defun sldb-list-locals ()
+  "List local variables in selected frame."
   (interactive)
   (let ((frame (sldb-frame-number-at-point)))
     (slime-message "%s" (with-temp-buffer
@@ -4651,10 +4723,12 @@ The details include local variable bindings and CATCH-tags."
 
 
 (defun sldb-quit ()
+  "Quit to toplevel."
   (interactive)
   (slime-eval-async '(swank:throw-to-toplevel) nil (lambda (_))))
 
 (defun sldb-continue ()
+  "Invoke the \"continue\" restart."
   (interactive)
   (slime-rex ()
       ('(swank::sldb-continue))
@@ -4664,10 +4738,14 @@ The details include local variable bindings and CATCH-tags."
     ((:abort) )))
 
 (defun sldb-abort ()
+  "Invoke the \"abort\" restart."
   (interactive)
   (slime-eval-async '(swank:sldb-abort) nil (lambda ())))
 
 (defun sldb-invoke-restart (&optional number)
+  "Invoke a restart.
+Optional NUMBER specifies the restart to invoke, otherwise 
+use the restart at point."
   (interactive)
   (let ((restart (or number (sldb-restart-at-point))))
     (slime-rex ()
@@ -4680,12 +4758,14 @@ The details include local variable bindings and CATCH-tags."
       (error "No restart at point")))
 
 (defun sldb-break-with-default-debugger ()
+  "Enter default debugger."
   (interactive)
   (slime-rex ()
       ('(swank:sldb-break-with-default-debugger) nil slime-current-thread)
     ((:abort))))
 
 (defun sldb-step ()
+  "Select the \"continue\" restart and set a new break point."
   (interactive)
   (let ((frame (sldb-frame-number-at-point)))
     (slime-eval-async `(swank:sldb-step ,frame) nil (lambda ()))))
