@@ -1,3 +1,9 @@
+2004-01-23  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-sbcl.lisp (eval-in-frame, return-from-frame): Implemented.
+	(sb-debug-catch-tag-p): New auxiliary predicate.
+	(source-path<): Delete unused function.
+
 2004-01-23  Michael Weber  <michaelw@foldr.org>
 
 	* slime.el (slime-keys): Bind C-c M-p to slime-repl-set-package.
