@@ -206,8 +206,6 @@ If LOAD-P is true, load the file after compilation.")
    (location :initarg :location
              :accessor location)))
 
-
-
 
 ;;;; Streams
 
@@ -228,9 +226,8 @@ The streams are returned as two values.")
 (definterface arglist (name)
    "Return the lambda list for the symbol NAME.
 
-The result can be a list or a (READable) string.
-
-An error should be signaled if the lambda-list cannot be found.")
+The result can be a list or the :not-available if the arglist cannot
+be determined.")
 
 (definterface macroexpand-all (form)
    "Recursively expand all macros in FORM.
