@@ -1,4 +1,4 @@
-<;;;; -*- Mode: lisp; indent-tabs-mode: nil -*-
+;;;; -*- Mode: lisp; indent-tabs-mode: nil -*-
 ;;;
 ;;; swank-sbcl.lisp --- SLIME backend for SBCL.
 ;;;
@@ -39,6 +39,7 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require 'sb-bsd-sockets)
   (require 'sb-introspect)
+  (require 'sb-posix)
   )
 
 (declaim (optimize (debug 3)))
@@ -83,7 +84,10 @@
   "List of (key . fn) pairs to be called on SIGIO.")
 
 (defun sigio-handler (signal code scp)
-  (mapc (lambda (handler) (funcall (cdr handler))) *sigio-handlers*))
+  (declare (ignore signal code scp))
+  (mapc (lambda (handler)
+          (funcall (the function (cdr handler))))
+        *sigio-handlers*))
 
 
 (defun set-sigio-handler ()
@@ -108,6 +112,13 @@
       (sb-alien:alien-funcall fcntl fd +f_setfl+ +o_async+)
       (sb-alien:alien-funcall fcntl fd +f_setown+ (sb-unix:unix-getpid))
       (push (cons fd fn) *sigio-handlers*))))
+
+;;(defimplementation add-input-handler (socket fn)
+;;  (let ((fd (socket-fd socket)))
+;;    (format *debug-io* "Adding sigio handler: ~S ~%" fd)
+;;    (sb-posix:fcntl fd sb-posix::f-setfl sb-posix::o-async)
+;;    (sb-posix:fcntl fd sb-posix::f-setown (sb-unix:unix-getpid))
+;;    (push (cons fd fn) *sigio-handlers*)))
 
 (defimplementation remove-input-handlers (socket)
   (let ((fd (socket-fd socket)))
@@ -634,6 +645,7 @@ stack."
 
   (defvar *mailbox-lock* (sb-thread:make-mutex :name "mailbox lock"))
   (defvar *mailboxes* (list))
+  (declaim (type list *mailboxes*))
 
   (defstruct (mailbox (:conc-name mailbox.)) 
     thread

@@ -47,6 +47,10 @@
       (error "Backend function ~A not implemented." ',fun))
     (export ',fun :swank)))
 
+(declaim (ftype (function () nil) missing-arg))
+(defun missing-arg ()
+  (error "A required &KEY or &OPTIONAL argument was not supplied."))
+
 
 ;;;; Connections
 ;;;
@@ -91,7 +95,7 @@
              ;; (:print-function %print-connection)
              )
   ;; Raw I/O stream of socket connection.
-  (socket-io        nil :type stream :read-only t)
+  (socket-io        (missing-arg) :type stream :read-only t)
   ;; Optional dedicated output socket (backending `user-output' slot).
   ;; Has a slot so that it can be closed with the connection.
   (dedicated-output nil :type (or stream null))
@@ -103,10 +107,10 @@
   ;;
   (control-thread   nil :read-only t)
   (reader-thread    nil :read-only t)
-  read
-  send
-  serve-requests
-  cleanup
+  (read             (missing-arg) :type function)
+  (send             (missing-arg) :type function)
+  (serve-requests   (missing-arg) :type function)
+  (cleanup          nil :type (or null function))
   )
 
 (defvar *emacs-connection* nil
@@ -178,7 +182,7 @@ Redirection is done while Lisp is processing a request for Emacs.")
 
 (defvar *use-dedicated-output-stream* t)
 (defvar *swank-in-background* nil)
-(defvar *log-events* t)
+(defvar *log-events* nil)
 
 (defun start-server (port-file)
   (setup-server 0 (lambda (port) (announce-server-port port-file port))
@@ -287,8 +291,9 @@ determined at compile time."
 (defun close-connection (c &optional condition)
   (when condition
     (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" condition))
-  (when (connection.cleanup c)
-    (funcall (connection.cleanup c) c))
+  (let ((cleanup (connection.cleanup c)))
+    (when cleanup
+      (funcall cleanup c)))
   (close (connection.socket-io c))
   (when (connection.dedicated-output c)
     (close (connection.dedicated-output c))))
@@ -313,6 +318,7 @@ determined at compile time."
 (defun drop&find (item list key test)
   "Return LIST where item is removed together with the removed
 element."
+  (declare (type function key test))
   (do ((stack '() (cons (car l) stack))
        (l list (cdr l)))
       ((null l) (values (nreverse stack) nil))
@@ -402,22 +408,22 @@ element."
                           :user-input in :user-output out :user-io io
                           :control-thread control-thread
                           :reader-thread reader-thread
-                          :read 'read-from-control-thread
-                          :send 'send-to-control-thread
+                          :read #'read-from-control-thread
+                          :send #'send-to-control-thread
                           :serve-requests (lambda (c) c))))
       (:sigio
        (make-connection :socket-io socket-io :dedicated-output dedicated
                         :user-input in :user-output out :user-io io
-                        :read 'read-from-socket-io
-                        :send 'send-to-socket-io
-                        :serve-requests 'install-sigio-handler
-                        :cleanup 'remove-sigio-handler))
+                        :read #'read-from-socket-io
+                        :send #'send-to-socket-io
+                        :serve-requests #'install-sigio-handler
+                        :cleanup #'remove-sigio-handler))
       ((nil)
        (make-connection :socket-io socket-io :dedicated-output dedicated
                         :user-input in :user-output out :user-io io
-                        :read 'read-from-socket-io
-                        :send 'send-to-socket-io
-                        :serve-requests 'simple-serve-requests)))))
+                        :read #'read-from-socket-io
+                        :send #'send-to-socket-io
+                        :serve-requests #'simple-serve-requests)))))
 
 (defun install-sigio-handler (connection)
   (let ((client (connection.socket-io connection)))
@@ -447,10 +453,13 @@ element."
     (log-event "DISPATCHING: ~S~%" event)
     (destructure-case event
       ((:emacs-rex string package thread id)
+       (declare (ignore thread))
        `(eval-string ,string ,package ,id))
       ((:emacs-interrupt thread)
+       (declare (ignore thread))
        '(simple-break))
       ((:emacs-return-string thread tag string)
+       (declare (ignore thread))
        `(take-input ,tag ,string)))))
 
 (defun send-to-socket-io (event) 
