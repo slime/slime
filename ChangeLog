@@ -13,7 +13,7 @@
 	SWANK:START-SERVER.
 	(slime-evaluating-state): Debugging synchronous evaluations with
 	recursive edits now works.
-	(slime-forward-sexp): Added support for #|...|# reading comments.
+	(slime-forward-sexp): Added support for #|...|# reader comments.
 	(sldb-hook): New hook for entry to the debugger (used for the test
 	suite).
 	(slime-run-tests): Reworked the testing framework. Now presents
