@@ -5429,7 +5429,7 @@ inserts ')' characters at point until `beginning-of-defun' and
 `end-of-defun' execute without errors, or `slime-close-parens-limit'
 is exceeded."
   (interactive)
-  (loop for i from 1 to close-sexps-limit
+  (loop for i from 1 to slime-close-parens-limit
         until (save-excursion
                 (beginning-of-defun)
                 (ignore-errors (end-of-defun) t))
