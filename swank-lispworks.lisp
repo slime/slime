@@ -30,15 +30,21 @@
 (defun without-interrupts* (body)
   (lispworks:without-interrupts (funcall body)))
 
-(defun create-swank-server (port &key reuse-address)
+(defun create-swank-server (port &key (reuse-address t)
+                            (announce #'simple-announce-function))
   "Create a Swank TCP server on `port'.
 Return the port number that the socket is actually listening on."
   (declare (ignore reuse-address))
-  (comm:start-up-server-and-mp :announce *terminal-io* :service port
-			       :process-name "Swank Request Processor"
-			       :function 'swank-accept-connection
-			       )
-  port)
+  (flet ((sentinel (socket condition)
+           (cond (socket
+                  (let ((port (nth-value 1 (comm:get-socket-address socket))))
+                    (funcall announce port)))
+                 (t
+                  (format *terminal-io* ";; Swank condition: ~A~%" 
+                          condition)))))
+    (comm:start-up-server :announce #'sentinel :service port
+                          :process-name "Swank server"
+                          :function 'swank-accept-connection)))
 
 (defconstant +sigint+ 2)
 

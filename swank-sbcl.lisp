@@ -78,7 +78,8 @@
             (return (sb-bsd-sockets:socket-accept socket))
           (sb-bsd-sockets:interrupted-error ()))))
 
-(defun create-swank-server (port &key reuse-address)
+(defun create-swank-server (port &key (reuse-address t)
+                            (announce #'simple-announce-function))
   "Create a SWANK TCP server."
   (let ((socket (open-listener port reuse-address)))
     (sb-sys:add-fd-handler 
@@ -86,7 +87,7 @@
      :input (lambda (fd) 
 	      (declare (ignore fd))
 	      (accept-connection socket)))
-    (nth-value 1 (sb-bsd-sockets:socket-name socket))))
+    (funcall announce (nth-value 1 (sb-bsd-sockets:socket-name socket)))))
 
 (defun open-stream-to-emacs ()
   (let* ((server-socket (open-listener 0 t))

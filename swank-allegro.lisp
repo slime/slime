@@ -36,27 +36,21 @@
 
 ;;; TCP Server
 
-(defun create-swank-server (port &key (reuse-address t))
-  "Create a Swank TCP server on `port'.
-Return the port number that the socket is actually listening on."
+(defun create-swank-server (port &key (reuse-address t) 
+                            (announce #'simple-announce-function))
+  "Create a Swank TCP server on `port'."
   (let ((server-socket (socket:make-socket :connect :passive :local-port port
                                            :reuse-address reuse-address)))
-    (mp:process-run-function "Swank Request Processor"
-                              #'swank-accept-connection
-                              server-socket)
-    (socket:local-port server-socket)))
+    (funcall announce (socket:local-port server-socket))
+    (swank-accept-connection server-socket)))
 
 (defun swank-accept-connection (server-socket)
   "Accept one Swank TCP connection on SOCKET.
 Run the connection handler in a new thread."
   (loop
-   (let ((socket (socket:accept-connection server-socket :wait t)))
-     (mp:process-run-function
-      (list :name (format nil "Swank Client ~D" (socket:socket-os-fd socket))
-            :initial-bindings `((*emacs-io* . ',socket)))
-      #'request-loop))))
+   (request-loop (socket:accept-connection server-socket :wait t))))
 
-(defun request-loop ()
+(defun request-loop (*emacs-io*)
   "Thread function for a single Swank connection.  Processes requests
 until the remote Emacs goes away."
   (unwind-protect
