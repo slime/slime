@@ -1,3 +1,15 @@
+2004-08-01  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-allegro.lisp (swank-compile-string): Use a temporary file
+	and set excl::*source-pathname* manually.  This way we can find
+	the source buffer of functions compiled with C-c C-c.
+	(call-with-temp-file, compile-from-temp-file): New functions.
+	(list-callers, function-callers, in-constants-p)
+	(map-function-constants): Implements list callers by groveling
+	through the constants pools of named functions.
+
+	* swank-lispworks.lisp: Minor refactoring.
+
 2004-07-30  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-connection): Say "No default connection
@@ -10,7 +22,10 @@
 
 	* swank-cmucl.lisp (call-with-debugging-environment): Only handle
 	DI::UNHANDLED-CONDITION not all DI:DEBUG-CONDITIONs.
-	
+
+	* swank-backend.lisp (sldb-condition): Show the original condition
+	in the message.
+
 2004-07-30  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-choose-overlay-region): Tweaked the
