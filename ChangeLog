@@ -5,6 +5,8 @@
 
 2003-12-15  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* swank.lisp *start-swank-in-background*: Set to t by default.
+
 	* slime.el (slime-eval-last-expression-display-output): New
 	command.  Bound to C-x M-e.  Suggested by Nicolas Neuss.
 	(slime-display-output-buffer): New function.
