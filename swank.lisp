@@ -14,6 +14,7 @@
            #:create-swank-server
            #:ed-in-emacs
            #:print-indentation-lossage
+           #:swank-debugger-hook
            ;; configurables
            #:*sldb-pprint-frames*
            #:*communication-style*
@@ -883,7 +884,7 @@ pretty printing of (function foo) as #'foo is suppressed."
   "The list of currenlty active restarts.")
 
 (defun swank-debugger-hook (condition hook)
-  "Debugger entry point, called from *DEBUGGER-HOOK*.
+  "Debugger function for binding *DEBUGGER-HOOK*.
 Sends a message to Emacs declaring that the debugger has been entered,
 then waits to handle further requests from Emacs. Eventually returns
 after Emacs causes a restart to be invoked."
@@ -1083,14 +1084,6 @@ Errors are trapped and invoke our debugger."
         (send-to-emacs `(:return ,(current-thread)
                          ,(if ok `(:ok ,result) '(:abort)) 
                          ,id))))))
-
-(defslimefun oneway-eval-string (string buffer-package)
-  "Evaluate STRING in BUFFER-PACKAGE, without sending a reply.
-The debugger hook is inhibited during the evaluation."
-  (let* ((*buffer-package* (guess-package-from-string buffer-package))
-         (*package* *buffer-package*)
-         (*debugger-hook* nil))
-    (eval (read-form string))))
 
 (defun format-values-for-echo-area (values)
   (let ((*package* *buffer-package*))
