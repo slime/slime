@@ -768,7 +768,7 @@ printing."
       ;; Beware of recursive errors in printing, so only use the condition
       ;; if it is printable itself:
       (format nil "Unable to display error condition~@[: ~A~]"
-	      (ignore-errors (princ-to-string cond))))))
+              (ignore-errors (princ-to-string cond))))))
 
 (defun debugger-condition-for-emacs ()
   (list (safe-condition-message *swank-debugger-condition*)
@@ -1082,10 +1082,6 @@ Record compiler notes signalled as `compiler-condition's."
                             :upcase :downcase)))
       (format-completion-set completions internal-p package-name))))
 
-(defun find-completions (string default-package-name matchp)
-  (let ((completion-set (completion-set string default-package-name matchp)))
-    (list completion-set (longest-completion completion-set))))
-
 (defslimefun completions (string default-package-name)
   "Return a list of completions for a symbol designator STRING.  
 
@@ -1104,11 +1100,15 @@ format. The cases are as follows:
   FOO      - Symbols with matching prefix and accessible in the buffer package.
   PKG:FOO  - Symbols with matching prefix and external in package PKG.
   PKG::FOO - Symbols with matching prefix and accessible in package PKG."
-  (find-completions string default-package-name #'compound-prefix-match))
+  (let ((completion-set (completion-set string default-package-name 
+                                        #'compound-prefix-match)))
+    (list completion-set (longest-completion completion-set))))
 
 (defslimefun simple-completions (string default-package-name)
   "Return a list of completions for a symbol designator STRING."
-  (find-completions string default-package-name #'prefix-match-p))
+  (let ((completion-set (completion-set string default-package-name 
+                                        #'prefix-match-p)))
+    (list completion-set (longest-common-prefix completion-set))))
 
 (defun tokenize-symbol-designator (string)
   "Parse STRING as a symbol designator.
@@ -1161,6 +1161,8 @@ Examples:
 
 ;;;;; Extending the input string by completion
 
+;; XXX (longest-completion '("muffle-warning" "multiple-value-bind")) 
+;;     => "mu-".  Shouldn't that be "mu"?
 (defun longest-completion (completions)
   "Return the longest prefix for all COMPLETIONS."
   (untokenize-completion
@@ -1177,7 +1179,7 @@ Examples:
         collect (subseq string start end)))
 
 (defun untokenize-completion (tokens)
-  (format nil "~{~A~^-~}" tokens))  
+  (format nil "~{~A~^-~}" tokens))
 
 (defun longest-common-prefix (strings)
   "Return the longest string that is a common prefix of STRINGS."
@@ -1494,6 +1496,10 @@ nil if there's no second element."
 	     (t
 	      (push (cons (string 'rest) in-list) reversed-elements)
 	      (done "The object is an improper list of length ~S.~%")))))))
+
+(defslimefun inspect-in-frame (string index)
+  (reset-inspector)
+  (inspect-object (eval-in-frame (from-string string) index)))
 
 
 ;;;; Thread listing
