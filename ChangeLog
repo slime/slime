@@ -1,3 +1,25 @@
+2003-11-13  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el: Imititate an "output-mark".  Output from Lisp should
+	move point only if point is at the end of the buffer.
+	(slime-with-output-at-eob): New function.
+	(slime-repl-insert-prompt): Don't move point at the end of the
+	buffer.
+	(slime-output-string, slime-repl-maybe-prompt): Use it.
+	(slime-repl-show-result-continutation): Don't move point to eob.
+
+	slime-repl-mode-map: Override "\C-\M-x".
+
+	An experimental scratch buffer:
+	(slime-eval-print-last-expression): New function.
+	(slime-scratch-mode-map, slime-scratch-buffer,
+	 slime-switch-to-scratch-buffer, slime-scratch): New functions.
+
+	* swank-cmucl.lisp:
+	((resolve-location t pathname t t t)): Emacs buffer positions are 1
+	based.  Add 1 to the 0 based file-position.
+
+	
 2003-11-13  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-connect): pop-to-buffer into *slime-repl* when
