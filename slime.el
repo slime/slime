@@ -2759,9 +2759,9 @@ The order of the input list is preserved."
 Useful value for `slime-compilation-finished-hook'"
   (unless (or (null notes)
 	      (and (eq last-command 'slime-compile-defun)
-                   (not (find ':error notes 
-                              :key (lambda (x) 
-                                     (car (slime-note.location x)))))))
+                   (some (lambda (x) 
+                           (not (eq ':error (car (slime-note.location x)))))
+                         notes)))
     (slime-list-compiler-notes notes)))
 
 (defun slime-list-compiler-notes (&optional notes)
@@ -4526,7 +4526,6 @@ CL:MACROEXPAND."
   (interactive)
   (slime-eval-macroexpand 'swank:print-ir1-converted-blocks))
 
-
 
 ;;; Subprocess control
 
@@ -5698,14 +5697,14 @@ be treated as a paragraph.  This is useful for filling docstrings."
   (save-excursion
     (if (or force-text-fill (slime-beginning-of-comment))
         (fill-paragraph nil)
-        (let ((start (progn (beginning-of-defun) (point)))
-              (end (ignore-errors (end-of-defun) (point))))
-          (unless end
-            (forward-paragraph)
-            (slime-close-all-sexp)
-            (end-of-defun)
-            (setf end (point)))
-          (indent-region start end)))))
+      (let ((start (progn (beginning-of-defun) (point)))
+            (end (ignore-errors (end-of-defun) (point))))
+        (unless end
+          (forward-paragraph)
+          (slime-close-all-sexp)
+          (end-of-defun)
+          (setf end (point)))
+        (indent-region start end nil)))))
 
 ;;; Test suite
 
