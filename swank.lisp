@@ -145,6 +145,13 @@ recently established one."
 
 ;;;; Helper macros
 
+(defmacro with-io-redirection ((connection) &body body)
+  "Execute BODY with I/O redirection to CONNECTION.
+If *REDIRECT-IO* is true, all standard I/O streams are redirected."
+  `(if *redirect-io*
+       (call-with-redirected-io ,connection (lambda () ,@body))
+       (progn ,@body)))
+
 (defmacro with-connection ((connection) &body body)
   "Execute BODY in the context of CONNECTION."
   `(let ((*emacs-connection* ,connection))
@@ -152,13 +159,6 @@ recently established one."
        (with-io-redirection (*emacs-connection*)
          (let ((*debugger-hook* #'swank-debugger-hook))
            ,@body)))))
-
-(defmacro with-io-redirection ((connection) &body body)
-  "Execute BODY with I/O redirection to CONNECTION.
-If *REDIRECT-IO* is true, all standard I/O streams are redirected."
-  `(if *redirect-io*
-       (call-with-redirected-io ,connection (lambda () ,@body))
-       (progn ,@body)))
 
 (defmacro without-interrupts (&body body)
   `(call-without-interrupts (lambda () ,@body)))
