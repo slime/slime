@@ -5,11 +5,14 @@
   (:export #:start-server
            #:eval-string
 	   #:ping
+	   #:getpid
            #:features
 	   #:interactive-eval
 	   #:interactive-eval-region
 	   #:pprint-eval
 	   #:re-evaluate-defvar
+	   #:set-package
+	   #:set-default-directory
            #:swank-compile-file 
 	   #:swank-compile-string 
 	   #:compiler-notes-for-emacs
@@ -89,9 +92,10 @@
 (defun slime-out-misc (stream operation &optional arg1 arg2)
   (case operation
     (:force-output
-     (setf (slime-output-stream-last-charpos stream)
-	   (slime-out-misc stream :charpos))
-     (send-to-emacs `(:read-output ,(get-output-stream-string stream))))
+     (unless (zerop (lisp::string-output-stream-index stream))
+       (setf (slime-output-stream-last-charpos stream)
+	     (slime-out-misc stream :charpos))
+       (send-to-emacs `(:read-output ,(get-output-stream-string stream)))))
     (:file-position nil)
     (:charpos 
      (do ((index (1- (the fixnum (lisp::string-output-stream-index stream)))
@@ -133,7 +137,6 @@
                            :input (lambda (fd)
                                     (declare (ignore fd))
                                     (serve-request stream output)))))
-
 (defun serve-request (*emacs-io* *slime-output*)
   "Read and process a request from a SWANK client.
 The request is read from the socket as a sexp and then evaluated."
@@ -169,15 +172,19 @@ The request is read from the socket as a sexp and then evaluated."
     (let ((*package* *swank-io-package*))
       (read-from-string string))))
 
+(defparameter *redirect-output* t)
+
 (defun read-from-emacs ()
   "Read and process a request from Emacs."
   (let ((form (read-next-form)))
-    (let ((*standard-output* *slime-output*)
-	  (*error-output* *slime-output*)
-	  (*trace-output* *slime-output*)
-	  (*debug-io*  *slime-output*)
-	  (*query-io* *slime-output*))
-      (apply #'funcall form))))
+    (if *redirect-output*
+	(let ((*standard-output* *slime-output*)
+	      (*error-output* *slime-output*)
+	      (*trace-output* *slime-output*)
+	      (*debug-io*  *slime-output*)
+	      (*query-io* *slime-output*))
+	  (apply #'funcall form))
+	(apply #'funcall form))))
 
 (defun send-to-emacs (object)
   "Send OBJECT to Emacs."
@@ -259,35 +266,50 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 	(send-to-emacs (if ok `(:ok ,result) '(:aborted)))))))
 
 (defslimefun interactive-eval (string)
-  (let ((values (multiple-value-list (eval (from-string string)))))
-    (force-output)
-    (format nil "~{~S~^, ~}" values)))
-
+  (let ((*package* *buffer-package*))
+    (let ((values (multiple-value-list (eval (read-from-string string)))))
+      (force-output)
+      (format nil "~{~S~^, ~}" values))))
+  
 (defslimefun interactive-eval-region (string)
-  (with-input-from-string (stream string)
-    (loop for form = (read stream nil stream)
-	  until (eq form stream)
-	  for result = (multiple-value-list (eval form))
-	  do (force-output)
-	  finally (return (format nil "~{~S~^, ~}" result)))))
+  (let ((*package* *buffer-package*))
+    (with-input-from-string (stream string)
+      (loop for form = (read stream nil stream)
+	    until (eq form stream)
+	    for result = (multiple-value-list (eval form))
+	    do (force-output)
+	    finally (return (format nil "~{~S~^, ~}" result))))))
 
 (defslimefun pprint-eval (string)
-  (let ((value (eval (from-string string))))
-    (let ((*print-pretty* t)
-	  (*print-circle* t)
-	  (*print-level* nil)
-	  (*print-length* nil)
-	  (ext:*gc-verbose* nil))
-      (with-output-to-string (stream)
-	(pprint value stream)))))
+  (let ((*package* *buffer-package*))
+    (let ((value (eval (read-from-string string))))
+      (let ((*print-pretty* t)
+	    (*print-circle* t)
+	    (*print-level* nil)
+	    (*print-length* nil)
+	    (ext:*gc-verbose* nil))
+	(with-output-to-string (stream)
+	  (pprint value stream))))))
 
 (defslimefun re-evaluate-defvar (form)
-  (let ((form (from-string form)))
-    (destructuring-bind (dv name &optional value doc) form
-      (declare (ignore value doc))
-      (assert (eq dv 'defvar))
-      (makunbound name)
-      (to-string (eval form)))))
+  (let ((*package* *buffer-package*))
+    (let ((form (read-from-string form)))
+      (destructuring-bind (dv name &optional value doc) form
+	(declare (ignore value doc))
+	(assert (eq dv 'defvar))
+	(makunbound name)
+	(prin1-to-string (eval form))))))
+
+(defslimefun set-package (package)
+  (setq *package* (guess-package-from-string package))
+  (package-name *package*))
+
+(defslimefun set-default-directory (directory)
+  (setf (ext:default-directory) (namestring directory))
+  ;; Setting *default-pathname-defaults* to an absolute directory
+  ;; makes the behavior of MERGE-PATHNAMES a bit more intuitive.
+  (setf *default-pathname-defaults* (pathname (ext:default-directory)))
+  (namestring (ext:default-directory)))
 
 ;;;; Compilation Commands
 
@@ -380,35 +402,51 @@ compiler state."
   "Return the list of compiler notes for the last compilation unit."
   (reverse *compiler-notes*))
 
-(defmacro with-trapping-compilation-notes (&body body)
+(defun measure-time-intervall (fn)
+  "Call FN and return the first return value and the elapsed time.
+The time is measured in microseconds."
+  (multiple-value-bind (ok start-secs start-usecs) (unix:unix-gettimeofday)
+    (assert ok)
+    (let ((value (funcall fn)))
+      (multiple-value-bind (ok end-secs end-usecs) (unix:unix-gettimeofday)
+	(assert ok)
+	(values value (+ (* (- end-secs start-secs) 1000000)
+			 (- end-usecs start-usecs)))))))
+	
+(defmacro with-trapping-compilation-notes (() &body body)
   `(handler-bind ((c::compiler-error #'handle-notification-condition)
                   (c::style-warning #'handle-notification-condition)
                   (c::warning #'handle-notification-condition))
     ,@body))
 
+(defun call-with-compilation-hooks (fn)
+  (multiple-value-bind (result usecs)
+      (with-trapping-compilation-notes ()
+	 (clear-compiler-notes)
+	 (measure-time-intervall fn))
+    (list (to-string result)
+	  (format nil "~,2F" (/ usecs 1000000.0)))))
+
 (defslimefun swank-compile-file (filename load)
-  (clear-note-database filename)
-  (clear-compiler-notes)
-  (clear-xref-info filename)
-  (let ((*buffername* nil)
-	(*buffer-offset* nil))
-    (multiple-value-bind (pathname errorsp notesp) 
-        (with-trapping-compilation-notes (compile-file filename :load load))
-      (list (if pathname (namestring pathname)) errorsp notesp))))
+  (call-with-compilation-hooks
+   (lambda ()
+     (clear-note-database filename)
+     (clear-xref-info filename)
+     (let ((*buffername* nil)
+	   (*buffer-offset* nil))
+       (compile-file filename :load load)))))
 
 (defslimefun swank-compile-string (string buffer start)
-  (clear-compiler-notes)
-  (let ((*package* *buffer-package*)
-	(*buffername* buffer)
-	(*buffer-offset* start))
-    (with-input-from-string (stream string)
-      (multiple-value-list
-       (handler-bind ((c::compiler-error #'error)) ; turn reader errors into errors
-         (with-trapping-compilation-notes
-             (ext:compile-from-stream 
-              stream 
-              :source-info `(:emacs-buffer ,buffer 
-                             :emacs-buffer-offset ,start))))))))
+  (call-with-compilation-hooks
+   (lambda ()
+     (let ((*package* *buffer-package*)
+	   (*buffername* buffer)
+	   (*buffer-offset* start))
+       (with-input-from-string (stream string)
+	 (ext:compile-from-stream 
+	  stream 
+	  :source-info `(:emacs-buffer ,buffer 
+			 :emacs-buffer-offset ,start)))))))
 
 (defun clear-xref-info (namestring)
   "Clear XREF notes pertaining to FILENAME.
@@ -883,6 +921,9 @@ that symbols accessible in the current package go first."
 	(t
 	 (throw-to-toplevel))))
 
+(defslimefun getpid ()
+  (unix:unix-getpid))
+
 (defslimefun sldb-loop ()
   (unix:unix-sigsetmask 0)
   (let* ((*sldb-level* (1+ *sldb-level*))
@@ -942,7 +983,7 @@ format suitable for Emacs."
 
 (defun compute-backtrace (start end)
   "Return a list of frames starting with frame number START and
-continuing to frame number END or if END is nil the last frame on the
+continuing to frame number END or, if END is nil, the last frame on the
 stack."
   (let ((end (or end most-positive-fixnum)))
     (do ((frame *sldb-stack-top* (di:frame-down frame))
@@ -1024,14 +1065,17 @@ stack."
   (let* ((frame (nth-frame index))
 	 (location (di:frame-code-location frame))
 	 (debug-function (di:frame-debug-function frame))
-	 (debug-variables (di:ambiguous-debug-variables debug-function "")))
-    (loop for v in debug-variables
+	 (debug-variables (di::debug-function-debug-variables debug-function)))
+    (loop for v across debug-variables
 	  collect (list
 		   :symbol (di:debug-variable-symbol v)
 		   :id (di:debug-variable-id v)
 		   :validity (di:debug-variable-validity v location)
 		   :value-string
-		   (to-string (di:debug-variable-value v frame))))))
+		   (if (eq (di:debug-variable-validity v location)
+			   :valid)
+		       (to-string (di:debug-variable-value v frame))
+		       "<not-available>")))))
 
 (defslimefun frame-catch-tags (index)
   (loop for (tag . code-location) in (di:frame-catches (nth-frame index))
