@@ -72,8 +72,9 @@ This is used to load the supporting Common Lisp library, Swank.
 The default value is automatically computed from the location of the
 Emacs Lisp package.")
 
-(defvar slime-swank-connection-retries 10
-  "Number of times to try connecting to the Swank server before aborting.")
+(defvar slime-swank-connection-retries nil
+  "Number of times to try connecting to the Swank server before aborting.
+Nil means never give up.")
 
 (defvar slime-lisp-binary-extension ".x86f"
   "Filename extension for Lisp object files.")
@@ -488,18 +489,22 @@ If that doesn't give a function, return nil."
 			    (read-string "Port: " 
 					 (number-to-string slime-swank-port))))
 		       (or (ignore-errors (string-to-number port)) port))))
-  (setq retries (or retries slime-swank-connection-retries))
-  (if (zerop retries)
-      (error "Unable to contact Swank server.")
-    (if (slime-net-connect host port)
-        (progn (slime-init-dispatcher)
-               (slime-fetch-features-list)
-               (message "Connected to Swank on %s:%S. %s"
-                        host port (slime-random-words-of-encouragement)))
-      (message "Connecting to Swank (%S attempts remaining)." 
-               retries)
-      (sit-for 1)
-      (slime-connect host port (1- retries)))))
+  (let ((retries slime-swank-connection-retries))
+    (while (and (not (slime-connected-p))
+                (or (null retries)
+                    (> (decf retries) 0)))
+      (message "Connecting to Swank at %s:%S%s..."
+               host port (if retries
+                             (format " (%S attempts remaining)" retries)
+                           ""))
+      (if (slime-net-connect host port)
+          (progn (slime-init-dispatcher)
+                 (slime-fetch-features-list)
+                 (message "Connected to Swank on %s:%S. %s"
+                          host port (slime-random-words-of-encouragement)))
+        (when (and retries (zerop (decf retries)))
+          (error "Unable to contact Swank server."))
+        (sit-for 0.25)))))
 
 (defun slime-start-swank-server ()
   "Start a Swank server on the inferior lisp."
@@ -856,9 +861,13 @@ state interacts with it until it is coaxed into returning."
   (slime-net-send `(swank:eval-string ,form-string ,package-name)))
 
 (defun slime-check-connected ()
-  (unless (and slime-net-process
-               (eq (process-status slime-net-process) 'open))
+  (unless (slime-connected-p)
     (error "Not connected. Use `M-x slime' to start a Lisp.")))
+
+(defun slime-connected-p ()
+  "Return true if the Swank connection is open."
+  (and slime-net-process
+       (eq (process-status slime-net-process) 'open)))
 
 (defun slime-eval-string-async (string package continuation)
   (when (slime-busy-p)
