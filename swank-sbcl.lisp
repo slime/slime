@@ -295,13 +295,14 @@ This is useful when debugging the definition-finding code.")
        (cond (path (list :source-path path position))
              (t (list :function-name fname)))))))
                                 
-(defmethod function-source-location-for-emacs (fname-string)
-  "Return the source-location(s) of FNAME's definition(s)."
+(defslimefun find-function-locations (fname-string)
+  "Return a list of source-locations of FNAME's definitions."
   (let* ((fname (from-string fname-string)))
     (labels ((finder (fname)
                (cond ((and (symbolp fname) (macro-function fname))
-                      (function-source-location (macro-function fname) 
-                                                fname-string))
+                      (list 
+                       (function-source-location (macro-function fname) 
+                                                 fname-string)))
                      ((typep fname 'sb-mop:generic-function)
                       (list*
                        (function-source-location fname fname-string)
@@ -309,7 +310,8 @@ This is useful when debugging the definition-finding code.")
                         (lambda (x) (function-source-location x fname-string))
                         (sb-mop:generic-function-methods fname))))
                      ((functionp fname) 
-                      (function-source-location fname fname-string))
+                      (list 
+                       (function-source-location fname fname-string)))
                      ((sb-introspect:valid-function-name-p fname)
                       (finder (fdefinition fname))) )))
       (if *debug-definition-finding*
@@ -317,12 +319,6 @@ This is useful when debugging the definition-finding code.")
           (handler-case (finder fname)
             (error (e) 
               (list :error (format nil "Error: ~A" e))))))))
-
-(defslimefun find-function-locations (name)
-  (let ((loc (function-source-location-for-emacs name)))
-    (if (listp loc)
-        loc
-        (list loc))))
 
 (defmethod describe-symbol-for-emacs (symbol)
   "Return a plist describing SYMBOL.
