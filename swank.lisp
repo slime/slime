@@ -930,6 +930,7 @@ Emacs buffer."
     (let ((*read-suppress* nil))
       (read-from-string string))))
 
+;;; FIXME! FOO::BAR will intern FOO in BAR.
 (defun parse-symbol (string &optional (package *package*))
   "Find the symbol named STRING.
 Return the symbol and a flag indicateing if the symbols was found."
