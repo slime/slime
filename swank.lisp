@@ -169,7 +169,10 @@ Backend code should treat the connection structure as opaque.")
   ;; Maps: symbol -> indentation-specification
   (indentation-cache (make-hash-table :test 'eq) :type hash-table)
   ;; The list of packages represented in the cache:
-  (indentation-cache-packages '()))
+  (indentation-cache-packages '())
+  ;; The communication style used.
+  (communication-style nil :type (member nil :spawn :sigio :fd-handler))
+  )
 
 (defun print-connection (conn stream depth)
   (declare (ignore depth))
@@ -205,7 +208,8 @@ recently established one."
 
 (add-hook *new-connection-hook* 'notify-backend-of-connection)
 (defun notify-backend-of-connection (connection)
-  (emacs-connected (connection.user-io connection)))
+  (declare (ignore connection))
+  (emacs-connected))
 
 ;;;; Helper macros
 
@@ -557,7 +561,6 @@ of the toplevel restart."
 		       client (lambda () (handle-request connection)))))
 		   ((eq (car *swank-state-stack*) :read-next-form))
 		   (t (process-available-input client #'read-from-emacs)))))
-      (encode-message '(:use-sigint-for-interrupt) client)
       (setq *debugger-hook* 
             (lambda (c h)
 	      (with-reader-error-handler (connection)
@@ -576,7 +579,6 @@ of the toplevel restart."
 
 (defun simple-serve-requests (connection)
   (let ((socket-io (connection.socket-io connection)))
-    (encode-message '(:use-sigint-for-interrupt) socket-io)
     (with-reader-error-handler (connection)
       (loop (handle-request connection)))))
 
@@ -621,31 +623,33 @@ of the toplevel restart."
     connection))
 
 (defun create-connection (socket-io style)
-  (initialize-streams-for-connection
-   (ecase style
-     (:spawn
-      (make-connection :socket-io socket-io
-		       :read #'read-from-control-thread
-		       :send #'send-to-control-thread
-		       :serve-requests #'spawn-threads-for-connection
-                       :cleanup #'cleanup-connection-threads))
-     (:sigio
-      (make-connection :socket-io socket-io 
-                       :read #'read-from-socket-io
-                       :send #'send-to-socket-io
-                       :serve-requests #'install-sigio-handler
-                       :cleanup #'deinstall-sigio-handler))
-     (:fd-handler
-      (make-connection :socket-io socket-io 
-                       :read #'read-from-socket-io
-                       :send #'send-to-socket-io
-                       :serve-requests #'install-fd-handler
-                       :cleanup #'deinstall-fd-handler))
-     ((nil)
-      (make-connection :socket-io socket-io 
-                       :read #'read-from-socket-io
-                       :send #'send-to-socket-io
-                       :serve-requests #'simple-serve-requests)))))
+  (let ((c (ecase style
+             (:spawn
+              (make-connection :socket-io socket-io
+                               :read #'read-from-control-thread
+                               :send #'send-to-control-thread
+                               :serve-requests #'spawn-threads-for-connection
+                               :cleanup #'cleanup-connection-threads))
+             (:sigio
+              (make-connection :socket-io socket-io 
+                               :read #'read-from-socket-io
+                               :send #'send-to-socket-io
+                               :serve-requests #'install-sigio-handler
+                               :cleanup #'deinstall-sigio-handler))
+             (:fd-handler
+              (make-connection :socket-io socket-io 
+                               :read #'read-from-socket-io
+                               :send #'send-to-socket-io
+                               :serve-requests #'install-fd-handler
+                               :cleanup #'deinstall-fd-handler))
+             ((nil)
+              (make-connection :socket-io socket-io 
+                               :read #'read-from-socket-io
+                               :send #'send-to-socket-io
+                               :serve-requests #'simple-serve-requests)))))
+    (setf (connection.communication-style c) style)
+    (initialize-streams-for-connection c)
+    c))
 
 
 ;;;; IO to Emacs
@@ -916,7 +920,8 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
   (list (getpid)
         (lisp-implementation-type)
         (lisp-implementation-type-name)
-        (features-for-emacs)))
+        (features-for-emacs)
+        (connection.communication-style *emacs-connection*)))
 
 
 ;;;; Reading and printing
