@@ -45,7 +45,8 @@
   #+openmcl   "openmcl"
   #+lispworks "lispworks"
   #+allegro   "allegro"
-  #+clisp     "clisp"
+  #+clisp     (format nil "clisp-~A" (let ((s (lisp-implementation-version)))
+                                       (subseq s 0 (position #\space s))))
   )
 
 (defparameter *swank-pathname* (make-swank-pathname "swank"))
