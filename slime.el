@@ -921,10 +921,9 @@ This is more compatible with the CL reader."
 
 (defun slime-maybe-close-old-connections ()
   "Offer to keep old connections alive, otherwise disconnect."
-  (unless (or (null slime-net-processes)
+  (unless (or (not (slime-connected-p))
               (y-or-n-p "Keep old connections? "))
     (slime-disconnect)))
-
 
 (defun slime-maybe-start-lisp ()
   "Start an inferior lisp unless one is already running."
@@ -938,7 +937,7 @@ This is more compatible with the CL reader."
 (defun slime-maybe-start-multiprocessing ()
   (when slime-multiprocessing
     (comint-send-string (inferior-lisp-proc)
-                        "(swank:startup-multiprocessing-for-emacs)")))
+                        "(swank:startup-multiprocessing)")))
 
 (defun slime-start-swank-server ()
   "Start a Swank server on the inferior lisp."
