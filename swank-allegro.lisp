@@ -15,11 +15,6 @@
   (require :sock)
   (require :process))
 
-<<<<<<< swank-allegro.lisp
-=======
-(in-package :swank-backend)
-
->>>>>>> 1.20
 (import
  '(excl:fundamental-character-output-stream
    excl:stream-write-char
@@ -35,13 +30,9 @@
 
 ;;;; TCP Server
 
-<<<<<<< swank-allegro.lisp
+
 (defimplementation preferred-communication-style ()
   :spawn)
-=======
-(defimplementation preferred-communication-style ()
-   :spawn)
->>>>>>> 1.20
 
 (defimplementation create-socket (host port)
   (socket:make-socket :connect :passive :local-port port 
@@ -71,16 +62,11 @@
 
 ;;;; Misc
 
-<<<<<<< swank-allegro.lisp
 (defimplementation arglist (symbol)
   (excl:arglist symbol))
 
 (defimplementation macroexpand-all (form)
   (excl::walk form))
-=======
-(defimplementation arglist (symbol)
-  (excl:arglist symbol))
->>>>>>> 1.20
 
 (defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))
@@ -100,18 +86,6 @@
                   (doc 'class)))
       result)))
 
-<<<<<<< swank-allegro.lisp
-(defimplementation describe-definition (symbol namespace)
-  (ecase namespace
-    (:variable 
-     (describe symbol))
-    ((:function :generic-function)
-     (describe (symbol-function symbol)))
-    (:class
-     (describe (find-class symbol)))))
-=======
-(defimplementation macroexpand-all (form)
-  (excl::walk form))
 
 (defimplementation describe-definition (symbol namespace)
   (ecase namespace
@@ -121,7 +95,15 @@
      (describe (symbol-function symbol)))
     (:class
      (describe (find-class symbol)))))
->>>>>>> 1.20
+
+(defimplementation describe-definition (symbol namespace)
+  (ecase namespace
+    (:variable 
+     (describe symbol))
+    ((:function :generic-function)
+     (describe (symbol-function symbol)))
+    (:class
+     (describe (find-class symbol)))))
 
 ;;;; Debugger
 
@@ -225,7 +207,7 @@
 
 ;;;; Definition Finding
 
-<<<<<<< swank-allegro.lisp
+
 (defun find-fspec-location (fspec type)
   (let ((file (excl::fspec-pathname fspec type)))
     (etypecase file
@@ -241,41 +223,15 @@
        (list :error (format nil "Unkown source location for ~A" fspec))))))
 
 (defun fspec-definition-locations (fspec)
-=======
-(defun find-fspec-location (fspec type)
-  (let ((file (excl::fspec-pathname fspec type)))
-    (etypecase file
-      (pathname
-       (let ((start (scm:find-definition-in-file fspec type file)))
-         (make-location (list :file (namestring (truename file)))
-                        (if start
-                            (list :position (1+ start))
-                            (list :function-name (string fspec))))))
-      ((member :top-level)
-       (list :error (format nil "Defined at toplevel: ~A" fspec)))
-      (null 
-       (list :error (format nil "Unkown source location for ~A" fspec))))))
-
-(defun fspec-source-locations (fspec)
->>>>>>> 1.20
   (let ((defs (excl::find-multiple-definitions fspec)))
-<<<<<<< swank-allegro.lisp
     (loop for (fspec type) in defs 
           collect (list fspec (find-fspec-location fspec type)))))
 
 (defimplementation find-definitions (symbol)
   (fspec-definition-locations symbol))
-=======
-    (loop for (fspec type) in defs 
-          collect (list fspec (find-fspec-location fspec type)))))
-
-(defimplementation find-definitions (symbol)
-  (fspec-source-locations symbol))
->>>>>>> 1.20
 
 ;;;; XREF
 
-<<<<<<< swank-allegro.lisp
 (defmacro defxref (name relation name1 name2)
   `(defimplementation ,name (x)
     (xref-result (xref:get-relation ,relation ,name1 ,name2))))
@@ -290,30 +246,6 @@
 (defun xref-result (fspecs)
   (loop for fspec in fspecs
         append (fspec-definition-locations fspec)))
-=======
-(defun xrefs (fspecs)
-  (loop for fspec in fspecs
-        nconc (loop for (ref location) in (fspec-source-locations fspec)
-                    collect (list ref location))))
-
-(defimplementation who-calls (name)
-  (xrefs (xref:get-relation :calls :wild name)))
-
-(defimplementation who-references (name)
-  (xrefs (xref:get-relation :uses :wild name)))
-
-(defimplementation who-binds (name)
-  (xrefs (xref:get-relation :binds :wild name)))
-
-(defimplementation who-macroexpands (name)
-  (xrefs (xref:get-relation :macro-calls :wild name)))
-
-(defimplementation who-sets (name)
-  (xrefs (xref:get-relation :sets :wild name)))
-
-(defimplementation list-callees (name)
-  (xrefs (xref:get-relation :calls name :wild)))
->>>>>>> 1.20
 
 ;;;; Inspecting
 

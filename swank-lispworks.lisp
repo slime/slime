@@ -356,7 +356,6 @@ Return NIL if the symbol is unbound."
 
 ;;; xref
 
-<<<<<<< swank-lispworks.lisp
 (defmacro defxref (name function)
   `(defimplementation ,name (name)
     (xref-results (,function name))))
@@ -373,33 +372,6 @@ Return NIL if the symbol is unbound."
                     (dspec:dspec-definition-locations dspec)
                     collect (list dspec 
                                   (make-dspec-location dspec location)))))
-=======
-(defun xrefs (dspecs)
-  (loop for dspec in dspecs
-        nconc (loop for (dspec location) in 
-                    (dspec:dspec-definition-locations dspec)
-                    collect (list dspec 
-                                  (make-dspec-location dspec location)))))
-
-(defimplementation who-calls (name)
-  (xrefs (hcl:who-calls name)))
-
-(defimplementation who-references (name)
-  (xrefs (hcl:who-references name)))
-
-(defimplementation who-binds (name)
-  (xrefs (hcl:who-binds name)))
-
-(defimplementation who-sets (name)
-  (xrefs (hcl:who-sets name)))
-
-(defimplementation list-callers (name)
-  (xrefs (hcl:who-calls name)))
-
-(defimplementation list-callees (name)
-  (xrefs (hcl:calls-who name)))
->>>>>>> 1.30
-
 ;;; Inspector
 
 (defmethod inspected-parts (o)
