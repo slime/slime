@@ -30,6 +30,52 @@
    gs:stream-read-char-no-hang
    ))
 
+;;; swank-mop
+(defclass standard-slot-definition ()())
+
+(import-to-swank-mop
+ '( ;; classes
+   cl:standard-generic-function
+;   ccl::standard-slot-definition
+   standard-slot-definition ;;dummy
+   cl:method
+   cl:standard-class
+   ;; standard-class readers
+   sys::class-default-initargs
+   sys::class-direct-default-initargs
+   sys::class-direct-slots
+   sys::class-direct-subclasses
+   sys::class-direct-superclasses
+;   openmcl-mop:class-finalized-p
+   cl:class-name
+   sys::class-precedence-list
+;   openmcl-mop:class-prototype
+   sys::class-slots
+   ;; generic function readers
+   sys::generic-function-argument-precedence-order
+;   openmcl-mop:generic-function-declarations
+   sys::generic-function-lambda-list
+   sys::generic-function-methods
+   sys::generic-function-method-class
+   sys::generic-function-method-combination
+   sys::generic-function-name
+   ;; method readers
+   sys::method-generic-function
+   sys::method-function
+   sys::method-lambda-list
+   sys::method-specializers
+   sys::method-qualifiers
+   ;; slot readers
+   sys::slot-definition-allocation
+;   ccl::slot-definition-documentation
+   sys::slot-definition-initargs
+   sys::slot-definition-initform
+   sys::slot-definition-initfunction
+   sys::slot-definition-name
+;   openmcl-mop:slot-definition-type
+   sys::slot-definition-readers
+   sys::slot-definition-writers))
+
 ;;;; TCP Server
 
 
@@ -137,7 +183,7 @@
     (subseq (ext:backtrace-as-list) start end)))
 
 (defimplementation print-frame (frame stream)
-    (pprint frame stream))
+    (print frame stream))
 
 #+nil
 (defimplementation frame-locals (index)
@@ -367,3 +413,4 @@ Should work (with a patched xref.lisp) but is it any use without find-definition
 
 (defimplementation quit-lisp ()
   (ext:exit))
+
