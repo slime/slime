@@ -419,9 +419,9 @@ Estimated total monitoring overhead: 0.88 seconds
 
 #+(and :excl :allegro-v4.0)
 (cltl1:provide "monitor")
-#+(and :excl :allegro-version>= (version>= 4 1))
+#+(and :excl :allegro-version>= (version>= 4 1) :openmcl)
 (provide "monitor")
-#+:mcl
+#+(and :mcl (not :openmcl))
 (ccl:provide "monitor")
 #+(and :cltl2
        (not (or (and :excl (or :allegro-v4.0 (and :allegro-version>=
