@@ -1,3 +1,29 @@
+2004-01-06  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank.lisp (eval-string): New argument 'id'.  Used to identify
+	the remote continuation.
+	(log-event): New debugging function.
+	(read-from-emacs, send-to-emacs): Use it.
+
+	* slime.el: The new macro 'slime-rex' can now be used to evaluate
+	sexps remotely.  It offers finer control what to do when the
+	evaluation aborts.
+	(slime-rex): New macro
+	(slime-eval, slime-eval-async, sldb-continue)
+	(sldb-invoke-restart): Use it.
+	(slime-continuation-counter, slime-push-evaluating-state): New
+	functions.
+	(slime-output-buffer): Initialize markers.
+	(sldb-mode): XEmacs doesn't like (add-hook (make-local-hook ...)).
+	(slime-init-connection): New optional argument SELECT.
+	(slime-def-connection-var): Workarounds for Emacs 20 reader bugs.
+	Backquote is pretty broken Emacs 20.
+	
+2004-01-06  Ignas Mikalajunas <i.mikalajunas@mbt.lt>
+
+	* swank-loader.lisp (user-init-file): Use merge-pathames.  Fix
+	Windows support.
+
 2004-01-05  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el: Multiple session support, i.e. Emacs can open
@@ -138,7 +164,6 @@
 	(slime-open-inspector): Minor indentation fixes.
 	(slime-net-output-funcall): Removed.  Was unused.
 
->>>>>>> 1.183
 2003-12-19 Alan Ruttenberg <alanralanr@comcast.net>
 	* slime.el 1.157
 	fix bug in sldb-princ-locals I introduced when adding fonts to sldb
