@@ -262,7 +262,8 @@ This list of flushed between commands."))
   (setq slime-pre-command-actions nil))
 
 (defun slime-post-command-hook ()
-  (slime-process-available-input))
+  (when (slime-connected-p)
+    (slime-process-available-input)))
 
 (defun slime-setup-command-hooks ()
   "Setup a buffer-local `pre-command-hook' to call `slime-pre-command-hook'."
@@ -555,7 +556,8 @@ If that doesn't give a function, return nil."
             (set-process-coding-system slime-net-process 
                                        'no-conversion 'no-conversion)))
 	slime-net-process)
-    (file-error () nil)))
+    (file-error () nil)
+    (network-error () nil)))
     
 (defun slime-make-net-buffer (name)
   "Make a buffer suitable for a network process."
