@@ -1,3 +1,15 @@
+2004-01-09  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el: Place (require 'cl) inside a eval-and-compile.
+	(slime-with-connection-buffer): Move definition upwards before the
+	first use.
+
+	* swank.lisp (eval-region): Bind *package* outside the
+	unwind-protect to detect updates.
+
+	* swank-backend.lisp (debugger-info-for-emacs)
+	(find-function-locations): Doc fix.
+
 2004-01-09  Wolfgang Jenkner  <wjenkner@inode.at>
 
 	* swank-clisp.lisp: Add methods for GRAY:STREAM-READ-CHAR-NO-HANG
