@@ -91,15 +91,7 @@ the same name instead."))
   "The symbol names in the *FEATURES* list of the Superior lisp.
 This is needed to READ Common Lisp expressions adequately.")
 
-(defvar slime-lisp-preferred-package-nicknames
-  '(("COMMON-LISP-USER" . "CL-USER")
-    ("COMMON-LISP" . "CL"))
-  "Association list mapping package names onto their preferred nicknames.
-This determines which name appears in the REPL prompt.")
-
-(defvar slime-default-lisp-package
-  (or (cdr (assoc "COMMON-LISP-USER" slime-lisp-preferred-package-nicknames))
-      "COMMON-LISP-USER")
+(defvar slime-default-lisp-package "CL-USER"
   "The default and initial package for the REPL.")
 
 (defvar slime-lisp-package
@@ -808,8 +800,7 @@ If that doesn't give a function, return nil."
 
 (defun slime-lisp-package ()
   "Return the name of the current REPL package."
-  (or (cdr (assoc slime-lisp-package slime-lisp-preferred-package-nicknames))
-      slime-lisp-package))
+  slime-lisp-package)
 
 (defmacro slime-propertize-region (props &rest body)
   (let ((start (gensym)))
