@@ -439,17 +439,15 @@
       collect ", ")))
 
 (defmethod inspect-for-emacs ((f function) (inspector acl-inspector))
-  (declare (ignore inspector))
   (values "A function."
           `("Name: " (:value ,(function-name f)) (:newline)
             "It's argument list is: " ,(princ-to-string (arglist f)) (:newline)
             "Documentation:" (:newline)
             ;; AllegroCL doesn't support (documentation <function-obj> t)
             ;; so we get the symbol and then its doc
-            ,(documentation (excl::external-fn_symdef obj) 'function))))
+            ,(documentation (excl::external-fn_symdef f) 'function))))
 
 (defmethod inspect-for-emacs ((class structure-class) (inspector acl-inspector))
-  (declare (ignore inspector))
   (values "A structure class."
           `("Name: " (:value ,(class-name class))
             (:newline)
@@ -485,7 +483,6 @@
                                '"N/A (class not finalized)"))))
 
 (defmethod inspect-for-emacs ((slot excl::structure-slot-definition) (inspector acl-inspector))
-  (declare (ignore inspector))
   (values "A structure slot." 
           `("Name: " (:value ,(mop:slot-definition-name slot))
             (:newline)
@@ -502,7 +499,6 @@
             "Read-only: " (:value ,(excl::slotd-read-only slot)) (:newline))))
 
 (defmethod inspect-for-emacs ((o structure-object) (inspector acl-inspector))
-  (declare (ignore inspector))
   (values "An structure object."
           `("Structure class: " (:value ,(class-of o))
             (:newline)
