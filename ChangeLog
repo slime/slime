@@ -9,6 +9,10 @@
 	sometimes like (in-package 'foo).
 	(slime-repl-mode-map): Inhibit C-c C-z.  Avoids accidental loading
 	inf-lisp.
+	(slime-net-coding-system): Use find-coding-system in XEmacs.
+	coding-system-p means something different here.
+	(slime-repl-mode-map): XEmacs compatibilty: use (kbd "C-<up>")
+	instead of [C-up].
 
 	* swank.lisp (inspect-for-emacs-list): subseq on improper lists
 	breaks in Lispworks. Handle that case better.
