@@ -27,6 +27,13 @@ Quick setup instructions for CMUCL
 
   Open a lisp-mode file and do `C-h m' to see the mode description.
 
+  If you have bad luck, you may checkout a copy of SLIME that is
+  completely broken, depending on what's happening in CVS at the
+  time. To avoid this you can checkout from the CVS tag
+  `FAIRLY-STABLE' like this:
+
+      cvs <options> checkout -r FAIRLY-STABLE slime
+
 Licence.
 ----------------------------------------
 
