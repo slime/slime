@@ -367,6 +367,36 @@ conditions are simply reported."
     (send-to-emacs `(:debug-condition ,(princ-to-string real-condition))))
   (throw 'sldb-loop-catcher nil))
 
+(defun safe-condition-message (condition)
+  "Safely print condition to a string, handling any errors during
+printing."
+  (handler-case
+      (princ-to-string condition)
+    (error (cond)
+      ;; Beware of recursive errors in printing, so only use the condition
+      ;; if it is printable itself:
+      (format nil "Unable to display error condition~@[: ~A~]"
+	      (ignore-errors (princ-to-string cond))))))
+
+(defun debugger-condition-for-emacs ()
+  (list (safe-condition-message *swank-debugger-condition*)
+        (format nil "   [Condition of type ~S]"
+                (type-of *swank-debugger-condition*))))
+
+(defun print-with-frame-label (n fn)
+  "Bind some printer variables to properly indent the frame and call
+FN with a string-stream for printing a frame of a bracktrace.  Return
+the string."
+  (let* ((label (format nil "  ~D: " n))
+         (string (with-output-to-string (stream) 
+                   (let ((*print-pretty* *sldb-pprint-frames*))
+                     (princ label stream) (funcall fn stream)))))
+    (subseq string (length label))))
+
+(defslimefun sldb-can-continue-p ()
+  "Return T if there is a continue restart; otherwise NIL."
+  (if (find-restart 'continue) t nil))
+  
 (defslimefun sldb-continue ()
   (continue))
 
