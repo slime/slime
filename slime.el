@@ -5037,7 +5037,9 @@ The details include local variable bindings and CATCH-tags."
 (defun sldb-abort ()
   "Invoke the \"abort\" restart."
   (interactive)
-  (slime-eval-async '(swank:sldb-abort) nil (lambda ())))
+  (slime-eval-async '(swank:sldb-abort)
+                    nil
+                    (lambda (v) (message "Restart returned: %S" v))))
 
 (defun sldb-invoke-restart (&optional number)
   "Invoke a restart.
