@@ -1,5 +1,11 @@
 2003-11-23  Luke Gorrie  <luke@bluetail.com>
 
+	* swank-openmcl.lisp: Updated after refactoring of other backends
+	(was broken).
+
+	* slime.el (slime-goto-source-location): Align at beginning of
+	sexp after (:file name pos) and (:emacs-buffer buffer pos).
+
 	* swank-sbcl.lisp (describe-symbol-for-emacs): Don't ask for
 	(documentation SYM 'class), CLHS says there isn't any 'class
 	documentation (and SBCL warns).
