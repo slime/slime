@@ -95,6 +95,10 @@
   ;;
   control-thread
   reader-thread
+  ;; The REPL thread loops receiving functions to apply.
+  ;; REPL expressions are sent to this thread for evaluation so that
+  ;; they always run in the same thread.
+  repl-thread
   (read             (missing-arg) :type function)
   (send             (missing-arg) :type function)
   (serve-requests   (missing-arg) :type function)
@@ -402,7 +406,7 @@ element."
         (*active-threads* '())
         (*thread-counter* 0)
         (*lookup-counter* 50))
-    (loop (with-simple-restart (abort "Retstart dispatch loop.")
+    (loop (with-simple-restart (abort "Restart dispatch loop.")
             (loop (dispatch-event (receive) socket-io))))))
 
 (defun simple-break ()
@@ -461,7 +465,13 @@ element."
                                                connection))
                                   :name "reader-thread")))
         (setf (connection.reader-thread connection) reader-thread)
+        (setf (connection.repl-thread connection)
+              (spawn (lambda () (repl-loop connection))))
         connection))))
+
+(defun repl-loop (connection)
+  (with-connection (connection)
+    (loop do (funcall (receive)))))
 
 (defun initialize-streams-for-connection (connection)
   (multiple-value-bind (dedicated in out io) (open-streams connection)
@@ -1180,6 +1190,30 @@ change, then send Emacs an update."
     (list (package-name p) (shortest-package-nickname p))))
 
 (defslimefun listener-eval (string)
+  (if (connection.repl-thread *emacs-connection*)
+      (repl-thread-eval string)
+      (repl-eval string)))
+
+(defun repl-thread-eval (string)
+  "Evaluate STRING using REPL-EVAL in the REPL thread."
+  ;; XXX Perhaps we should somehow formalize the set of "important"
+  ;; specials which are here being passed to the other thread? -luke (26/Apr/2004)
+  (let ((self (current-thread))
+        (connection *emacs-connection*)
+        (package *package*)
+        (buffer-package *buffer-package*))
+    (send (connection.repl-thread connection)
+          (lambda ()
+            (with-connection (connection)
+              (let ((*buffer-package* buffer-package)
+                    (*package* package))
+                (restart-case (send self (repl-eval string))
+                  (abort ()
+                    :report "Abort REPL evaluation"
+                    (send self "; Aborted")))))))
+    (receive)))
+
+(defun repl-eval (string)
   (clear-user-input)
   (multiple-value-bind (values last-form) (eval-region string t)
     (setq +++ ++  ++ +  + last-form
@@ -1198,11 +1232,14 @@ WHAT can be:
   A list (FILENAME LINE [COLUMN]),
   A function name (symbol),
   nil."
-  (if (and (listp what) (pathnamep (first what)))
-      (setf (car what) (canonicalize-filename (car what))))
-  (send-oob-to-emacs `(:ed ,(if (pathnamep what)
-                                (canonicalize-filename what)
-                                what))))
+  (let ((target
+         (cond ((and (listp what) (pathnamep (first what)))
+                (cons (canonicalize-filename (car what)) (cdr what)))
+               ((pathnamep what)
+                (canonicalize-filename what))
+               (t what))))
+    (send-oob-to-emacs `(:ed ,target))))
+
 
 ;;;; Compilation Commands.
 
@@ -2061,12 +2098,22 @@ a time.")
 (defun lookup-thread-by-id (id)
   (nth id *thread-list*))
 
-(defun debug-thread (thread-id)
+(defslimefun debug-thread-by-id (thread-id)
   (let ((connection *emacs-connection*))
     (interrupt-thread (lookup-thread-by-id thread-id)
                       (lambda ()
 			(with-connection (connection)
 			  (simple-break))))))
+
+(defslimefun start-swank-server-in-thread (id port-file-name)
+  "Interrupt a thread by ID and make it start a swank server.
+The server port is written to PORT-FILE-NAME."
+  (interrupt-thread (lookup-thread-by-id id)
+                    (lambda ()
+                      (start-server port-file-name nil))))
+
+(defslimefun kill-thread-by-id (id)
+  (kill-thread (lookup-thread-by-id id)))
 
 ;;; Local Variables:
 ;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
