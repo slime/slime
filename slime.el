@@ -490,7 +490,8 @@ will get rid of it.
 Only uses the echo area for single-line messages - or more accurately,
 messages without embedded newlines. They may still need to wrap or
 truncate to fit on the screen."
-  (if (string-match "\n.*[^\\s-]" msg)
+  (if (or (string-match "\n.*[^\\s-]" msg)
+          (> (length msg) (1- (frame-width))))
       ;; Contains a newline with actual text after it, so display as a
       ;; buffer
       (with-current-buffer (get-buffer-create bufname)
@@ -499,16 +500,24 @@ truncate to fit on the screen."
 	  (erase-buffer)
 	  (insert msg)
 	  (goto-char (point-min))
-	  (let ((win (display-buffer (current-buffer))))
-	    (slime-display-buffer-region (current-buffer) 
-					 (point-min) (point-max))
-	    (when select (select-window win)))))
+          (let ((win (split-window (previous-window (minibuffer-window)))))
+            (set-window-buffer win (current-buffer))
+            (slime-display-buffer-region (current-buffer) 
+                                         (point-min) (point-max))
+            (if select
+                (select-window win)
+              (add-hook (make-local-variable 'pre-command-hook)
+                        'slime-remove-message-window)))))
     (when (get-buffer-window bufname) (delete-windows-on bufname))
     ;; Print only the part before the newline (if there is
     ;; one). Newlines in messages are displayed as "^J" in emacs20,
     ;; which is ugly
     (string-match "^[^\r\n]*" msg)
     (message "%s" (match-string 0 msg))))
+
+(defun slime-remove-message-window ()
+  (remove-hook 'pre-command-hook 'slime-remove-message-window)
+  (delete-windows-on "*SLIME Note*"))
 
 ;; defun slime-message
 (if (or (featurep 'xemacs)
@@ -1950,6 +1959,25 @@ more than one space."
 
 ;;; Completion
 
+(defvar slime-complete-saved-window-configuration nil
+  "Window configuration before we show the *Completions* buffer.")
+
+(defun slime-complete-maybe-save-window-configuration ()
+  "Save the current window configuration, if there is no completion in
+progress."
+  (unless slime-complete-saved-window-configuration
+    (setq slime-complete-saved-window-configuration
+          (current-window-configuration))))
+
+(defun slime-complete-restore-window-configuration ()
+  "Delete the *Completions* buffer and restore the window config if
+available."
+  (when (get-buffer "*Completions*")
+    (kill-buffer "*Completions*"))
+  (when slime-complete-saved-window-configuration
+    (set-window-configuration slime-complete-saved-window-configuration)
+    (setq slime-complete-saved-window-configuration nil)))
+
 (defun slime-complete-symbol ()
   "Complete the symbol at point.
 If the symbol lacks an explicit package prefix, the current buffer's
@@ -1963,19 +1991,49 @@ package is used."
          (completions (slime-completions prefix))
          (completions-alist (slime-bogus-completion-alist completions))
          (completion (try-completion prefix completions-alist nil)))
-    (cond ((eq completion t))
+    (cond ((eq completion t)
+           (message "[Sole completion]")
+           (slime-complete-restore-window-configuration))
           ((null completion)
            (message "Can't find completion for \"%s\"" prefix)
-           (ding))
+           (ding)
+           (slime-complete-restore-window-configuration))
           ((not (string= prefix completion))
            (delete-region beg end)
-           (insert-and-inherit completion))
+           (insert-and-inherit completion)
+           (if (null (cdr completions))
+               (slime-restore-window-configuration)
+               (slime-complete-delay-restoration)))
           (t
            (message "Making completion list...")
+           (slime-complete-maybe-save-window-configuration)
            (let ((list (all-completions prefix completions-alist nil)))
              (slime-with-output-to-temp-buffer "*Completions*"
-	       (display-completion-list list)))
+	       (display-completion-list list))
+             (slime-complete-delay-restoration))
            (message "Making completion list...done")))))
+
+(defun slime-complete-delay-restoration ()
+  "Install a pre-command-hook that will restore the window
+configuration if possible."
+  (add-hook (make-local-variable 'pre-command-hook)
+            'slime-complete-maybe-restore-window-confguration))
+
+(defun slime-complete-forget-window-configuration ()
+  (remove-hook 'pre-command-hook 
+               'slime-complete-maybe-restore-window-confguration)
+  (setq slime-complete-saved-window-configuration nil))
+
+(defun slime-complete-maybe-restore-window-confguration ()
+  "Restore the window configuration, if the following command
+terminates a current completion."
+  (cond ((find last-command-char "()\"'`,# \r\n:")
+         (slime-complete-restore-window-configuration)
+         (slime-complete-forget-window-configuration))
+        ((eq this-command 'self-insert-command)
+         ;; keep going
+         )
+        (t (slime-complete-forget-window-configuration))))
 
 (defun slime-completing-read-internal (string default-package flag)
   ;; We misuse the predicate argument to pass the default-package.
@@ -2122,32 +2180,29 @@ function name is prompted."
    (slime-buffer-package t)
    (slime-show-evaluation-result-continuation)))
 
-(defun slime-display-buffer-region (buffer start end &optional border)
-  (let ((border (or border 0)))
-    (save-selected-window
-      (select-window (display-buffer buffer t))
-      (goto-char start)
-      (when (eolp) 
-        (forward-char))
-      (beginning-of-line)
-      (let ((win (get-buffer-window buffer)))
-        ;; set start before select to force update.
-        ;; (set-window-start sets a "modified" flag, but only if the
-        ;; window is not selected.)
-        (set-window-start (selected-window) (point))
-        ;; don't resize vertically split windows
-        (when (and (not (one-window-p))
-                   (= (window-width) (frame-width)))
-          (let* ((lines (max (count-screen-lines (point) end) 1))
-                 (new-height (1+ (min (/ (frame-height) 2)
-                                      (+ border lines))))
-                 (diff (- new-height (window-height))))
-            (let ((window-min-height 1))
-              (enlarge-window diff))))))))
+(defun slime-display-buffer-region (buffer start end &optional other-window)
+  "Like `display-buffer', but only display the specified region."
+  (save-selected-window
+    (select-window (display-buffer buffer other-window))
+    (goto-char start)
+    (when (eolp) 
+      (forward-char))
+    (beginning-of-line)
+    (let ((win (selected-window)))
+      (set-window-start win (point))
+      ;; don't resize vertically split windows
+      (when (and (not (one-window-p))
+                 (= (window-width) (frame-width)))
+        (let* ((lines (max (count-screen-lines (point) end nil win) 1))
+               (new-height (1+ (min (/ (frame-height) 2)
+                                    lines)))
+               (diff (- new-height (window-height))))
+          (let ((window-min-height 1))
+            (enlarge-window diff)))))))
 
 (defun slime-show-evaluation-result (value)
-  (message "=> %s" value)
-  (slime-show-last-output))
+  (slime-show-last-output)
+  (slime-message "=> %s" value))
 
 (defun slime-show-evaluation-result-continuation ()
   (lambda (value)
@@ -3030,7 +3085,7 @@ the current index when the selection is completed."
 
 (defun sldb-restart-at-point ()
   (get-text-property (point) 'restart-number))
-
+            
 (slime-define-keys sldb-mode-map 
   ("v"    'sldb-show-source)
   ((kbd "RET") 'sldb-default-action)
@@ -3184,9 +3239,13 @@ See `def-slime-selector-method' for defining new methods."
                                 (apply #'string
                                        (mapcar #'car slime-selector-methods)))))
          (method (find ch slime-selector-methods :key #'car)))
-    (if (null method)
-        (error "No method for character: %c" ch)
-      (funcall (third method)))))
+    (cond ((null method)
+           (message "No method for character: ?\\%c" ch)
+           (ding)
+           (sit-for 1)
+           (slime-selector))
+          (t
+           (funcall (third method))))))
 
 (defmacro def-slime-selector-method (key description &rest body)
   "Define a new `slime-select' buffer selection method.
@@ -3200,6 +3259,7 @@ BODY is a series of forms which must return the buffer to be selected."
                       (remove* ,key slime-selector-methods :key #'car))
                 #'< :key #'car)))
 
+
 (def-slime-selector-method ?? "the Select help buffer."
   (ignore-errors (kill-buffer "*Select Help*"))
   (with-current-buffer (get-buffer-create "*Select Help*")
@@ -3207,7 +3267,11 @@ BODY is a series of forms which must return the buffer to be selected."
     (loop for (key line function) in slime-selector-methods
           do (insert (format "%c:\t%s\n" key line)))
     (help-mode)
-    (current-buffer)))
+    (display-buffer (current-buffer) t)
+    (shrink-window-if-larger-than-buffer 
+     (get-buffer-window (current-buffer))))
+  (slime-selector)
+  (current-buffer))
 
 (def-slime-selector-method ?r
   "the SLIME Read-Eval-Print-Loop."
@@ -3224,6 +3288,12 @@ BODY is a series of forms which must return the buffer to be selected."
 (def-slime-selector-method ?l
   "the most recently visited lisp-mode buffer."
   (slime-recently-visited-buffer 'lisp-mode))
+
+(def-slime-selector-method ?d
+  "the *sldb* buffer buffer"
+  (unless (get-buffer "*sldb*")
+    (error "No debugger buffer"))
+  "*sldb*")
 
 (def-slime-selector-method ?e
   "the most recently visited emacs-lisp-mode buffer."
@@ -3792,6 +3862,17 @@ Unless optional argument INPLACE is non-nil, return a new string."
 (defun emacs-20-p ()
   (and (not (featurep 'xemacs))
        (= emacs-major-version 20)))
+
+(when (featurep 'xemacs)
+  (add-hook 'sldb-hook 'sldb-xemacs-emulate-point-entered-hook))
+
+(defun sldb-xemacs-emulate-point-entered-hook ()
+  (add-hook (make-local-variable 'post-command-hook)
+            'sldb-xemacs-post-command-hook))
+
+(defun sldb-xemacs-post-command-hook ()
+  (when (get-text-property (point) 'point-entered)
+    (funcall (get-text-property (point) 'point-entered))))
 
 
 ;;; Finishing up
