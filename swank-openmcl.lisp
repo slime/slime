@@ -75,6 +75,7 @@
    ccl::standard-slot-definition
    cl:method
    cl:standard-class
+   ccl::eql-specializer
    ;; standard-class readers
    openmcl-mop:class-default-initargs
    openmcl-mop:class-direct-default-initargs
@@ -86,6 +87,9 @@
    openmcl-mop:class-precedence-list
    openmcl-mop:class-prototype
    openmcl-mop:class-slots
+   openmcl-mop:specializer-direct-methods
+   ;; eql-specializer accessors
+   openmcl-mop:eql-specializer-object
    ;; generic function readers
    openmcl-mop:generic-function-argument-precedence-order
    openmcl-mop:generic-function-declarations
