@@ -445,6 +445,7 @@ This is a workaround for a CMUCL bug: XREF records are cumulative."
   (let ((filename (parse-namestring namestring)))
     (when c:*record-xref-info*
       (dolist (db (list xref::*who-calls*
+                        xref::*who-is-called*
                         xref::*who-macroexpands*
                         xref::*who-references*
                         xref::*who-binds*
@@ -523,11 +524,15 @@ reference     ::= (FUNCTION-SPECIFIER SOURCE-PATH)"
   (let ((hash (make-hash-table :test 'equal))
         (files '()))
     (dolist (context contexts)
-      (let ((unix-path (unix-truename (xref:xref-context-file context))))
+      (let* ((file (xref:xref-context-file context))
+             (unix-path (if file (unix-truename file) "<unknown>")))
         (push context (gethash unix-path hash))
         (pushnew unix-path files :test #'string=)))
     (mapcar (lambda (unix-path)
-              (xref-contexts-to-plist unix-path (gethash unix-path hash)))
+              (let ((real-path (if (string= unix-path "<unknown>")
+                                   nil
+                                   unix-path)))
+                (xref-contexts-to-plist real-path (gethash unix-path hash))))
             (sort files #'string<))))
 
 (defun xref-contexts-to-plist (unix-filename contexts)
