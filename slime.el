@@ -129,7 +129,7 @@ The function is called with the definition name, a string, as its argument.
 
 If you want to fallback on TAGS you can set this to `find-tag'.")
 
-(defun slime-kill-without-query-p nil
+(defvar slime-kill-without-query-p nil
   "If non-nil, kill Slime processes without query when quitting Emacs.")
 
 
