@@ -1235,7 +1235,6 @@ their actions. The pattern syntax is the same as `destructure-case'."
    (assert (= sldb-level 0))
    (slime-repl-activate))
   ((:emacs-evaluate form-string package-name continuation)
-   (slime-repl-deactivate)
    (slime-output-evaluate-request form-string package-name)
    (slime-push-state (slime-evaluating-state continuation))))
 
@@ -1491,6 +1490,7 @@ inside a `save-excursion' block."
 
 (defun slime-output-string (string)
   (with-current-buffer (slime-output-buffer)
+    (slime-mark-input-end)
     (slime-with-output-at-eob
      (insert string))))
 
@@ -1555,24 +1555,17 @@ inside a `save-excursion' block."
    (slime-mark-output-start))
 
 (defun slime-repl-activate ()
-  ;; The slime-repl-input-end-mark is left inserting in the idle and
-  ;; reading state; right inserting otherwise.  The idea is that the
-  ;; input-end-mark is not moved by output from Lisp.  We use the
-  ;; input-end-mark also to decide if we should insert a prompt or
-  ;; not.  We don't print a prompt if point is at the input-end-mark.
-  ;; This situation occurs when we are after a slime-space command.
-  ;; In the normal case slime-repl-return triggers printing of the
-  ;; prompt by inserting a newline after the input-end-mark.
+  ;; We use the input-end-mark to decide if we should insert a prompt
+  ;; or not.  We don't print a prompt if input-end-mark at the of the
+  ;; buffer. This situation occurs when we are after a slime-space
+  ;; command.  slime-mark-input-end sets the input-end-mark to some
+  ;; position before the end and triggers printing of the prompt.
   (with-current-buffer (slime-output-buffer)
     (slime-flush-output)
-    (set-marker-insertion-type slime-repl-input-end-mark t)
     (unless (= (point-max) slime-repl-input-end-mark)
       (slime-mark-output-end)
       (slime-with-output-at-eob
        (slime-repl-insert-prompt)))))
-
-(defun slime-repl-deactivate ()
-  (set-marker-insertion-type slime-repl-input-end-mark nil))
 
 (defun slime-repl-current-input ()
   "Return the current input as string.  The input is the region from
@@ -1581,7 +1574,8 @@ after the last prompt to the end of buffer."
                                   slime-repl-input-end-mark))
 
 (defun slime-repl-add-to-input-history (string)
-  (when (eq ?\n  (aref string (1- (length string))))
+  (when (and (plusp (length string))
+             (eq ?\n (aref string (1- (length string)))))
     (setq string (substring string 0 -1)))
   (unless (equal string (car slime-repl-input-history))
     (push string slime-repl-input-history))
@@ -1595,11 +1589,8 @@ after the last prompt to the end of buffer."
 (defun slime-repl-send-string (string)
   (slime-repl-add-to-input-history string)
   (ecase (slime-state-name (slime-current-state))
-    (slime-idle-state 
-     (setq slime-repl-prompt-on-activate-p t)
-     (slime-repl-eval-string string))
-    (slime-read-string-state 
-     (slime-repl-return-string string))))
+    (slime-idle-state        (slime-repl-eval-string string))
+    (slime-read-string-state (slime-repl-return-string string))))
 
 (defun slime-repl-show-result-continutation ()
   ;; This is called _after_ the idle state is activated.  This means
@@ -1612,14 +1603,10 @@ after the last prompt to the end of buffer."
 
 (defun slime-mark-input-start ()
   (set-marker slime-repl-input-start-mark (point) (current-buffer))
-  (set-marker slime-repl-input-end-mark (point) (current-buffer))
-  (set-marker-insertion-type slime-repl-input-end-mark t))
+  (set-marker slime-repl-input-end-mark (point) (current-buffer)))
 
 (defun slime-mark-input-end ()
-  (set-marker slime-repl-input-end-mark (point))
-  (set-marker-insertion-type slime-repl-input-end-mark nil)
-  (add-text-properties slime-repl-input-start-mark slime-repl-input-end-mark
-                       '(face slime-repl-input-face rear-nonsticky (face))))
+  (set-marker slime-repl-input-end-mark (point-min)))
 
 (defun slime-mark-output-start ()
   (set-marker slime-output-start (point)))
@@ -1654,9 +1641,7 @@ balanced."
         ((slime-input-complete-p slime-repl-input-start-mark 
                                  slime-repl-input-end-mark)
          (insert "\n")
-         (slime-repl-send-input)
-         ;; move markers before newline
-         (delete-backward-char 1) (insert "\n"))
+         (slime-repl-send-input))
         (t 
          (slime-repl-newline-and-indent)
          (message "[input not complete]"))))
@@ -1665,6 +1650,8 @@ balanced."
   "Goto to the end of the input and send the current input."
   (let ((input (slime-repl-current-input)))
     (goto-char slime-repl-input-end-mark)
+    (add-text-properties slime-repl-input-start-mark (point)
+                         '(face slime-repl-input-face rear-nonsticky (face)))
     (slime-mark-input-end)
     (slime-mark-output-start)
     (slime-repl-send-string input)))
@@ -1818,11 +1805,9 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   (slime-flush-output)
   (slime-mark-output-end)
   (slime-mark-input-start)
-  (set-marker-insertion-type slime-repl-input-end-mark t)
   (slime-repl-read-mode t))
 
 (defun slime-repl-return-string (string)
-  (set-marker-insertion-type slime-repl-input-end-mark nil)
   (slime-dispatch-event `(:emacs-return-string ,string))
   (slime-repl-read-mode nil))
 
@@ -2081,6 +2066,21 @@ of locations are supported:
 align-p means the location is not character-accurate, and should be
 aligned to the start of the sexp in front."
   (destructure-case location
+    ((:location buffer position)
+     (destructure-case buffer
+       ((:file filename)
+        (set-buffer (find-file-noselect filename t))
+        (goto-char (point-min)))
+       ((:buffer buffer)
+        (set-buffer buffer)
+        (goto-char (point-min))))
+     (destructure-case position
+       ((:position pos)
+        (goto-char pos))
+       ((:dspec name)
+        (let ((case-fold-search t))
+          (re-search-forward (format "^(def.*[ \n\t(]%s[ \t)]" name)))
+        (goto-char (match-beginning 0)))))
     ((:file filename position &optional align-p)
      (set-buffer (find-file-noselect filename t))
      (goto-char position)
@@ -2336,6 +2336,13 @@ using outdated information.")
 (defvar slime-autodoc-cache nil
   "Cache variable for when `slime-autodoc-cache-type' is 'last'.
 The value is (SYMBOL-NAME . DOCUMENTATION).")
+
+(defun slime-autodoc-mode (&optional arg)
+  "Enable `slime-autodoc'."
+  (interactive)
+  (cond ((and arg (not (eq -1 arg))) (setq slime-autodoc-mode t))
+        ((eq -1 arg) (setq slime-autodoc-mode nil))
+        (t (setq slime-autodoc-mode (not slime-autodoc-mode)))))
 
 (defun slime-autodoc ()
   "Print some apropos information about the code at point, if applicable."
@@ -2692,6 +2699,28 @@ function name is prompted."
   (interactive (list (slime-read-symbol-name "Function name: ")))
   (slime-edit-fdefinition name t))
 
+(defun slime-find-fdefinitions (name)
+  "Like `slime-edit-fdefinition' but with support for generic functions." 
+  (interactive (list (slime-read-symbol-name "Function name: ")))
+  (let ((origin (point-marker))
+	(locations (slime-eval `(swank:find-fdefinitions ,name)
+                               (slime-buffer-package))))
+    (assert locations)
+    (cond ((null (cdr locations))
+           (slime-goto-source-location (car locations))
+           (switch-to-buffer (current-buffer))
+           (ring-insert-at-beginning slime-find-definition-history-ring 
+                                     origin))
+          (t
+           (slime-show-definitions name locations)))))
+
+(defun slime-show-definitions (name locations)
+  (slime-show-xrefs `((,name . ,(loop for l in locations
+                                      collect (cons (format "%s" l) l))))
+                    'definition
+                    name
+                     (slime-buffer-package)))
+  
 
 
 ;;; Interactive evaluation.
@@ -2975,42 +3004,33 @@ First make the variable unbound, then evaluate the entire form."
      (lambda (result)
        (slime-show-xrefs result type symbol package)))))
 
-(defun slime-show-xrefs (file-referrers type symbol package)
+(defun slime-show-xrefs (xrefs type symbol package)
   "Show the results of an XREF query."
-  (if (null file-referrers)
+  (if (null xrefs)
       (message "No references found for %s." symbol)
-    (slime-save-window-configuration)
     (setq slime-next-location-function 'slime-goto-next-xref)
     (with-current-buffer (slime-xref-buffer t)
       (slime-init-xref-buffer package type symbol)
-      (dolist (ref file-referrers)
-        (apply #'slime-insert-xrefs ref))
+      (slime-insert-xrefs xrefs)
       (setq buffer-read-only t)
       (goto-char (point-min))
       (save-selected-window
         (delete-windows-on (slime-xref-buffer))
         (slime-display-xref-buffer)))))
 
-(defun slime-insert-xrefs (filename refs)
+(defun slime-insert-xrefs (xrefs)
   "Insert the cross-references for a file.
-Each cross-reference line contains these text properties:
- slime-xref:             a unique object
- slime-file:             filename of reference
- slime-xref-source-path: source-path of reference
- slime-xref-complete:    true iff both file and source-path are known."
+XREFS is a list of the form ((GROUP . ((LABEL . LOCATION) ...)) ...)
+GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
   (unless (bobp) (insert "\n"))
-  (insert (format "In %s:\n" (or filename "unidentified files")))
-  (loop for (referrer source-path) in refs
-        do (let ((complete (and filename source-path)))
-             (slime-insert-propertized
-              (list 'slime-xref (make-symbol "#:unique-ref")
-                    'slime-xref-complete complete
-                    'slime-xref-file filename
-                    'slime-xref-source-path source-path
-                    'face (if complete
-                              'font-lock-function-name-face
-                            'font-lock-comment-face))
-              (format "%s\n" referrer)))))
+  (loop for (group . refs) in xrefs do 
+        (progn
+          (slime-insert-propertized '(face bold) group "\n")
+          (loop for (label . location) in refs do
+                (slime-insert-propertized 
+                 (list 'slime-location location
+                       'face 'font-lock-keyword-face)
+                 "  " label "\n")))))
 
 
 ;;;; XREF results buffer and window management
@@ -3051,13 +3071,11 @@ If CREATE is non-nil, create it if necessary."
 (defun slime-goto-xref ()
   "Goto the cross-referenced location at point."
   (interactive)
-  (let ((file (get-text-property (point) 'slime-xref-file))
-        (path (get-text-property (point) 'slime-xref-source-path)))
-    (unless (and file path)
+  (let ((location (get-text-property (point) 'slime-location)))
+    (unless location
       (error "No reference at point."))
-    (find-file-other-window file)
-    (goto-char (point-min))
-    (slime-visit-source-path path)))
+    (slime-show-source-location location)))
+
 
 (defun slime-goto-next-xref ()
   "Goto the next cross-reference location."
@@ -3212,6 +3230,8 @@ the current index when the selection is completed."
 (slime-define-keys slime-select-mode-map
   ([return] 'slime-select-done)
   ("q" 'slime-select-quit))
+
+;;; 
 
 
 ;;; Macroexpansion
@@ -4399,6 +4419,18 @@ Unless optional argument INPLACE is non-nil, return a new string."
     (forward-line n)
     (beginning-of-line)
     (point)))
+
+(unless (boundp 'temporary-file-directory)
+  (defvar temporary-file-directory
+    (file-name-as-directory
+     (cond ((memq system-type '(ms-dos windows-nt))
+            (or (getenv "TEMP") (getenv "TMPDIR") (getenv "TMP") "c:/temp"))
+           ((memq system-type '(vax-vms axp-vms))
+            (or (getenv "TMPDIR") (getenv "TMP") 
+                (getenv "TEMP") "SYS$SCRATCH:"))
+           (t
+            (or (getenv "TMPDIR") (getenv "TMP") (getenv "TEMP") "/tmp"))))
+    "The directory for writing temporary files."))
 
 (defun emacs-20-p ()
   (and (not (featurep 'xemacs))
