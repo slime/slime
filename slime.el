@@ -89,22 +89,22 @@ Don't access this value directly in a program. Call the function with
 the same name instead."))
 
 (defvar slime-dont-prompt nil
-  "When true, don't prompt the user for input during startup.
+  "* When true, don't prompt the user for input during startup.
 This is used for batch-mode testing.")
 
 (defvar slime-truncate-lines t
-  "When true, set `truncate-lines' in certain popup buffers.
+  "* When true, set `truncate-lines' in certain popup buffers.
 This applies to buffers that present lines as rows of data, such as
 debugger backtraces and apropos listings.")
 
 (defvar slime-global-debugger-hook nil
-  "When true, install the SLIME debugger hook globally in Lisp.
+  "* When true, install the SLIME debugger hook globally in Lisp.
 
 This means the SLIME debugger will be used for all errors occuring in
 Lisp, not just those occuring during RPCs.")
 
 (defvar slime-multiprocessing nil
-  "When true, enable multiprocessing in Lisp.")
+  "* When true, enable multiprocessing in Lisp.")
 
 (defvar slime-translate-to-lisp-filename-function 'identity
   "Function to use for translating Emacs filenames to Lisp filenames.
@@ -1375,8 +1375,10 @@ This is automatically synchronized from Lisp.")
 (defun slime-reset ()
   "Clear all pending continuations."
   (interactive)
-  (setq slime-rex-continuations '()))
-
+  (setq slime-rex-continuations '())
+  (when-let (sldb (get-sldb-buffer))
+    (kill-buffer sldb)))
+                        
 (defun slime-nyi ()
   (error "Not yet implemented!"))
 
@@ -3498,7 +3500,7 @@ With prefix argument include internal symbols."
                                 designator))
     (terpri)
     (let ((apropos-label-properties slime-apropos-label-properties))
-      (loop for (prop namespace action) 
+      (loop for (prop namespace) 
 	    in '((:variable "Variable")
 		 (:function "Function")
 		 (:generic-function "Generic Function")
@@ -3968,8 +3970,8 @@ portion of the backtrace. Frames are numbered from 0."
       (insert "\n" (in-sldb-face section "Backtrace:") "\n")
       (setq sldb-backtrace-start-marker (point-marker))
       (sldb-insert-frames (sldb-prune-initial-frames frames) nil)
-      (pop-to-buffer (current-buffer))
       (run-hooks 'sldb-hook)
+      (pop-to-buffer (current-buffer))
       (setq buffer-read-only t)
       (when (and slime-stack-eval-tags
                  (y-or-n-p "Enter recursive edit? "))
@@ -4157,13 +4159,13 @@ The details include local variable bindings and CATCH-tags."
 	    (let ((catchers (sldb-catch-tags frame-number)))
 	      (cond ((null catchers)
 		     (insert indent1
-                             (in-sldb-face catch-tags "[No catch-tags]\n")))
+                             (in-sldb-face catch-tag "[No catch-tags]\n")))
 		    (t
 		     (insert indent1 "Catch-tags:\n")
 		     (loop for (tag . location) in catchers
 			   do (slime-insert-propertized  
 			       '(catch-tag ,tag)
-			       indent2 (in-sldb-face catch-tags 
+			       indent2 (in-sldb-face catch-tag
                                                      (format "%S\n" tag))))))))
 
 	  (unless sldb-enable-styled-backtrace (terpri))
@@ -4918,6 +4920,7 @@ BODY returns true if the check succeeds."
       (swank::read-from-emacs "CL-USER")
       (swank:start-server "CL-USER"))
   (switch-to-buffer "*scratch*")        ; not buffer of definition
+  (slime-check-top-level)
   (let ((orig-buffer (current-buffer))
         (orig-pos (point))
         (enable-local-variables nil)    ; don't get stuck on -*- eval: -*-
@@ -4933,7 +4936,8 @@ BODY returns true if the check succeeds."
     (slime-pop-find-definition-stack)
     (slime-check "Returning from definition restores original buffer/position."
       (and (eq orig-buffer (current-buffer))
-           (= orig-pos (point))))))
+           (= orig-pos (point)))))
+    (slime-check-top-level))
 
 (def-slime-test complete-symbol
     (prefix expected-completions)
@@ -4947,9 +4951,11 @@ BODY returns true if the check succeeds."
                            "cl::compile-file"))
       ("cl:m-v-l" (("cl:multiple-value-list" "cl:multiple-values-limit")
                    "cl:multiple-value-li")))
+  (slime-check-top-level)
   (let ((completions (slime-completions prefix)))
     (slime-check "Completion set is as expected."
-      (equal expected-completions completions))))
+      (equal expected-completions completions)))
+  (slime-check-top-level))
 
 (def-slime-test arglist
     (function-name expected-arglist)
@@ -4960,7 +4966,7 @@ Confirm that EXPECTED-ARGLIST is displayed."
       ("swank::compound-prefix-match"
        "(swank::compound-prefix-match prefix target)")
       ("swank::create-socket"
-       "(swank::create-socket port)")
+       "(swank::create-socket host port)")
       ("swank::emacs-connected"
        "(swank::emacs-connected)")
       ("swank::compile-string-for-emacs"
@@ -4971,9 +4977,11 @@ Confirm that EXPECTED-ARGLIST is displayed."
 ;;    Different arglists found in the wild.
 ;;      ("cl:class-name"
 ;;       "(cl:class-name structure)"))
+  (slime-check-top-level)
   (let ((arglist (slime-get-arglist function-name))) ;
     (slime-test-expect "Argument list is as expected"
-                       expected-arglist arglist)))
+                       expected-arglist arglist))
+  (slime-check-top-level))
 
 (def-slime-test compile-defun 
     (program subform)
@@ -4995,6 +5003,7 @@ Confirm that SUBFORM is correctly located."
            (list `(1 ,(random 10) 2 ,@(random 10) 3 ,(cl-user::bar))))"
        (cl-user::bar))
       )
+  (slime-check-top-level)
   (with-temp-buffer 
     (lisp-mode)
     (insert program)
@@ -5004,26 +5013,30 @@ Confirm that SUBFORM is correctly located."
     (slime-previous-note)
     (slime-check error-location-correct
       (equal (read (current-buffer))
-             subform))))
+             subform)))
+  (slime-check-top-level))
 
 (def-slime-test async-eval-debugging (depth)
   "Test recursive debugging of asynchronous evaluation requests."
   '((1) (2) (3))
+  (slime-check-top-level)
   (lexical-let ((depth depth)
                 (debug-hook-max-depth 0))
     (let ((debug-hook
            (lambda ()
-             (when (> sldb-level debug-hook-max-depth)
-               (setq debug-hook-max-depth sldb-level)
-               (if (= sldb-level depth)
-                   ;; We're at maximum recursion - time to unwind
-                   (sldb-quit)
-                 ;; Going down - enter another recursive debug
-                 ;; Recursively debug.
-                 (slime-eval-async 'no-such-variable nil (lambda (_) nil)))))))
+             (with-current-buffer (get-sldb-buffer)
+               (when (> sldb-level debug-hook-max-depth)
+                 (setq debug-hook-max-depth sldb-level)
+                 (if (= sldb-level depth)
+                     ;; We're at maximum recursion - time to unwind
+                     (sldb-quit)
+                   ;; Going down - enter another recursive debug
+                   ;; Recursively debug.
+                   (slime-eval-async 'no-such-variable 
+                                     nil (lambda (_) nil))))))))
       (let ((sldb-hook (cons debug-hook sldb-hook)))
         (slime-eval-async 'no-such-variable nil (lambda (_) nil))
-        (slime-sync-to-top-level 5)
+        (slime-sync-to-top-level 15)
         (slime-check-top-level)
         (slime-check ("Maximum depth reached (%S) is %S."
                       debug-hook-max-depth depth)
@@ -5061,8 +5074,7 @@ Confirm that SUBFORM is correctly located."
   (with-current-buffer (get-sldb-buffer)
     (sldb-continue))
   (slime-wait-condition "running" (lambda () (and (slime-busy-p)
-                                                   (not (get-sldb-buffer))))
-                        5)
+                                                  (not (get-sldb-buffer)))) 5)
   (slime-interrupt)
   (slime-wait-condition "Second interrupt" (lambda () (slime-sldb-level= 1)) 5)
   (with-current-buffer (get-sldb-buffer)
