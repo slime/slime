@@ -116,33 +116,34 @@ If *REDIRECT-IO* is true, all standard I/O streams are redirected."
 ;;;; TCP Server
 
 (defvar *close-swank-socket-after-setup* nil)
-(defvar *use-dedicated-output-stream* #+lispworks nil #-lispworks t) ; FIXME
+(defvar *use-dedicated-output-stream* t)
 
 (defun start-server (port-file)
-  (accept-socket/run :announce-fn (announce-server-port-fn port-file)
-                     :init-fn #'init-connection))
+  (let ((socket (create-socket 0)))
+    (announce-server-port port-file (local-port socket))
+    (let ((client (accept-connection socket)))
+      (close-socket socket)
+      (let ((connection (init-connection client)))
+        (loop until (handle-request connection))))))
 
-(defun announce-server-port-fn (file)
-  (lambda (port)
-    (with-open-file (s file
-                       :direction :output
-                       :if-exists :overwrite
-                       :if-does-not-exist :create)
-      (format s "~S~%" port))
-    (simple-announce-function port)))
+(defun announce-server-port (file port)
+  (with-open-file (s file
+                     :direction :output
+                     :if-exists :overwrite
+                     :if-does-not-exist :create)
+    (format s "~S~%" port))
+  (simple-announce-function port))
 
 (defun init-connection (socket-io)
   (emacs-connected)
-  (let ((connection (create-connection socket-io)))
-    (lambda ()
-      (handle-request connection))))
+  (create-connection socket-io))
 
 (defun create-connection (socket-io)
   (let ((output-fn (make-output-function socket-io))
         (input-fn  (lambda () (read-user-input-from-emacs socket-io))))
-    (multiple-value-bind (user-in user-out) (make-fn-streams input-fn output-fn)
-      (let ((user-io (make-two-way-stream user-in user-out)))
-        (make-connection socket-io user-in user-out user-io)))))
+    (multiple-value-bind (in out) (make-fn-streams input-fn output-fn)
+      (let ((io (make-two-way-stream in out)))
+        (make-connection socket-io in out io)))))
 
 (defun make-output-function (socket-io)
   (if *use-dedicated-output-stream*
@@ -160,15 +161,10 @@ Return an output stream suitable for writing program output.
 This is an optimized way for Lisp to deliver output to Emacs."
   ;; We start a server process, ask Emacs to connect to it, and then
   ;; return the socket's stream.
-  (let (stream)
-    (labels ((announce (port)
-               (send-to-emacs `(:open-dedicated-output-stream ,port) socket-io))
-             (init (client-stream)
-               (setf stream client-stream)
-               #'handle)
-             (handle ()
-               (error "Protocol error: received input on dedicated output socket.")))
-      (accept-socket/stream :announce-fn #'announce))))
+  (let* ((socket (create-socket 0))
+         (port (local-port socket)))
+    (send-to-emacs `(:open-dedicated-output-stream ,port) socket-io)
+    (accept-connection socket)))
 
 (defun handle-request (connection)
   "Read and respond to one request from CONNECTION."
@@ -221,7 +217,7 @@ This is an optimized way for Lisp to deliver output to Emacs."
 (defun current-socket-io ()
   (connection.socket-io *dispatching-connection*))
 
-(defvar *log-events* nil)
+(defparameter *log-events* nil)
 
 (defun log-event (format-string &rest args)
   "Write a message to *terminal-io* when *log-events* is non-nil.
@@ -275,8 +271,8 @@ If a protocol error occurs then a SLIME-READ-ERROR is signalled."
       (without-interrupts*
        (lambda ()
          (loop for position from 16 downto 0 by 8
-            do (write-char (code-char (ldb (byte 8 position) length))
-                           output))
+               do (write-char (code-char (ldb (byte 8 position) length))
+                              output))
          (write-string string output)
          (terpri output)
          (force-output output))))))
