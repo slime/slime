@@ -1,3 +1,45 @@
+2004-10-28  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-clisp.lisp: Add workaround for CLISP's broken control
+	string parser.
+
+	* swank-cmucl.lisp (set-step-breakpoints): Handle breakpoints at
+	single-return points in escaped frames better.  Previously we
+	tried to set a breakpoint at the current position and consequently
+	was only hit during the next call.
+	(inspect-for-emacs)[function]: Call the next method only for
+	funcallable instances.
+	(profile-report, profile-reset, unprofile-all): We have to use
+	eval because the macro expansion depends on the value of
+	*timed-functions*.  Reported by Chisheng Huang.
+
+	* slime.el (slime-space): Call slime-message in the right buffer,
+	so that after-command hooks are added in the right buffer.
+	Reported by Juho Snellman.
+	(slime-dispatch-event): Accept stepping flag.
+	(sldb-setup): Don't query when entering a recursive edit.
+	(sldb-exit): Don't kill the buffer if we are in stepping mode.
+	(slime-inspector-insert-ispec): New function.
+	(slime-open-inspector): Use it.
+	(slime-inspector-operate-on-point): Simplified.
+	(test interactive-eval): Fix test case.
+	(slime-kill-all-buffers): More regexp kludges.  From Bill Clementson.
+
+	* swank-backend.lisp (activate-stepping): New function.
+
+	* swank.lisp (*sldb-stepping-p*): New variable.  Used to tell
+	emacs that the debugger buffer should not be closed even if we
+	unwind.
+	(debug-in-emacs): Use it.
+	(sldb-step): Moved to the front end.
+	(inspector-princ, method-specializers-for-inspect): Simplified.
+	(methods-by-applicability): Use a simpler algorithm. I doubt there
+	is much difference in practice.
+	(inspect-for-emacs)[symbol, function, standard-generic-function]
+	[standard-method]: Use less than 80 columns.
+	(inspector-call-nth-action): Don't accept &rest args.  Was never
+	used.
+
 2004-10-27  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-sbcl.lisp (signal-compiler-condition): Actually delete one
