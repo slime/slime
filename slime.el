@@ -534,10 +534,13 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
        [ "Compile Defun"           slime-compile-defun ,C ]
        [ "Compile/Load File"       slime-compile-and-load-file ,C ]
        [ "Compile File"            slime-compile-file ,C ]
+       [ "Compile Region"          slime-compile-region ,C ]
+       [ "Compile System"          slime-load-system ,C ]
        "--"
        [ "Next Note"               slime-next-note t ]
        [ "Previous Note"           slime-previous-note t ]
-       [ "Remove Notes"            slime-remove-notes t ])
+       [ "Remove Notes"            slime-remove-notes t ]
+       [ "List Notes"              slime-list-compiler-notes ,C ])
       ("Cross Reference"
        [ "Who Calls..."            slime-who-calls ,C ]
        [ "Who References... "      slime-who-references ,C ]
@@ -548,6 +551,10 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
        [ "List Callers..."         slime-list-callers ,C ]
        [ "List Callees..."         slime-list-callees ,C ]
        [ "Next Location"           slime-next-location t ])
+      ("Editing"
+       [ "Close All Parens"        slime-close-all-sexp t]
+       [ "Check Parens"            check-parens t]
+       [ "Select Buffer"           slime-selector t])
       ("Profiling"
        [ "Toggle Profiling..."     slime-toggle-profile-fdefinition ,C ]
        [ "Profile Package"         slime-profile-package ,C]
@@ -568,7 +575,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
       [ "Set Package in REPL"      slime-repl-set-package ,C]
       )))
 
-(easy-menu-define menubar-slime slime-mode-map "SLIME" slime-easy-menu) 
+(easy-menu-define menubar-slime slime-mode-map "SLIME" slime-easy-menu)
 
 (defun slime-add-easy-menu ()
   (easy-menu-add slime-easy-menu 'slime-mode-map))
@@ -865,7 +872,7 @@ Buffer local in temp-buffers.")
 
 (defmacro slime-with-output-to-temp-buffer (name &rest body)
   "Similar to `with-output-to-temp-buffer'.
-Also saves the window configuration, and inherts the current
+Also saves the window configuration, and inherits the current
 `slime-connection' in a buffer-local variable."
   (let ((config (gensym)))
   `(let ((,config (current-window-configuration))
@@ -917,19 +924,19 @@ If that doesn't give a function, return nil."
     (ignore-errors
       (save-restriction
         (narrow-to-region (save-excursion (beginning-of-defun) (point))
-                          (line-end-position))
+                          (point))
         (save-excursion
           (while t
             (backward-up-list 1)
             (when (looking-at "(")
               (forward-char 1)
-              (let ((name (slime-symbol-name-at-point)))
-                (when name
-                  (push name result)))
+              (when-let (name (slime-symbol-name-at-point))
+                (push name result))
               (backward-up-list 1))))))
     (nreverse result)))
 
 (defun slime-read-package-name (prompt &optional initial-value)
+  "Read a package name from the minibuffer, prompting with PROMPT."
   (let ((completion-ignore-case t))
     (completing-read prompt (mapcar (lambda (x) (cons x x))
 				    (slime-eval 
@@ -1080,7 +1087,8 @@ If the function is compiled (with the file-compiler) return the date
 of the newest at compile time.  If the function is interpreted read
 the ChangeLog file at runtime."
   (macrolet ((date ()
-                   (let* ((dir (or (and byte-compile-current-file
+                   (let* ((dir (or (and (boundp 'byte-compile-current-file)
+                                        byte-compile-current-file
                                         (file-name-directory
                                          (file-truename
                                           byte-compile-current-file)))
@@ -1093,12 +1101,14 @@ the ChangeLog file at runtime."
                      `(quote ,date))))
     (date)))
 
+(defvar slime-changelog-date (slime-changelog-date))
+
 (defun slime-check-protocol-version (lisp-version)
   "Signal an error LISP-VERSION equal to `slime-changelog-date'"
-  (unless (and lisp-version (equal lisp-version (slime-changelog-date)))
+  (unless (and lisp-version (equal lisp-version slime-changelog-date))
     (slime-disconnect)
     (let ((message (format "Protocol mismatch: Lisp: %s  ELisp: %s"
-                           lisp-version (slime-changelog-date))))
+                           lisp-version slime-changelog-date)))
       (message "%s" message)
       (ding)
       (sleep-for 2)
@@ -1543,7 +1553,7 @@ This is automatically synchronized from Lisp.")
       ;; trim?
       (when (> (buffer-size) 100000)
         (goto-char (/ (buffer-size) 2))
-        (beginning-of-defun)
+        (re-search-forward "^(" nil t)
         (delete-region (point-min) (point)))
       (goto-char (point-max))
       (save-excursion
@@ -1555,10 +1565,10 @@ This is automatically synchronized from Lisp.")
   (or (get-buffer "*slime-events*")
       (let ((buffer (get-buffer-create "*slime-events*")))
         (with-current-buffer buffer
-          (lisp-mode)
           (set (make-local-variable 'hs-block-start-regexp) "^(")
+          (set (make-local-variable 'comment-start) ";")
+          (set (make-local-variable 'comment-end) "")
           (hs-minor-mode)
-          (setq font-lock-defaults nil)
           (current-buffer)))))
 
 
@@ -1723,7 +1733,7 @@ deal with that."
              (when (fboundp 'animate-string)
                ;; and dancing text
                (when (zerop (buffer-size))
-                 (animate-string (format "; SLIME %s" (slime-changelog-date))
+                 (animate-string (format "; SLIME %s" slime-changelog-date)
                                  0 0)))
              (slime-repl-insert-prompt ""))
             (t
