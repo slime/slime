@@ -1,3 +1,13 @@
+2003-11-02  Luke Gorrie  <luke@bluetail.com>
+
+	* swank.lisp (eval-string): force-output on *slime-output* before
+	returning the result. This somewhat works around some trouble
+	where output printed by lisp is being buffered too long.
+
+	* slime.el (slime-lisp-package-translations): Association list of
+	preferred package nicknames, for the REPL prompt. By default maps
+	COMMON-LISP->CL and COMMON-LISP-USER->CL-USER.
+
 2003-11-01  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-select): Added an extensible "Select" command,
