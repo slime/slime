@@ -1,3 +1,15 @@
+2003-11-13  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el, swank-cmucl.lisp, swank-sbcl.lisp, swank-openmcl: New
+	representation for "source-locations".  Compiler notes have now a
+	message, a severity, and a source-location field.  Compiler notes,
+	edit-definition, and the debugger all use now the same
+	representation for source-location.  CMUCL does the source-path to
+	file-position translation at the Lisp side.  This works better
+	with reader macros, in particular with backquote.  The SBCL
+	backend still does the translation on the Emacs side.  OpenMCL
+	support is probably totally broken at the moment
+ 	
 2003-11-13  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-repl-previous-input, slime-repl-next-input):
