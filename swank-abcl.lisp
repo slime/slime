@@ -37,11 +37,12 @@
 (defun class-finalized-p (class) t)
 (defun slot-definition-documentation (slot))
 (defun slot-definition-type (slot) t)
+(defun class-prototype (class))
+(defun generic-function-declarations (gf))
 
 (import-to-swank-mop
  '( ;; classes
    cl:standard-generic-function
-;   ccl::standard-slot-definition
    standard-slot-definition ;;dummy
    cl:method
    cl:standard-class
@@ -51,15 +52,14 @@
    sys::class-direct-slots
    sys::class-direct-subclasses
    sys::class-direct-superclasses
-;   openmcl-mop:class-finalized-p
    class-finalized-p ;;dummy
    cl:class-name
    sys::class-precedence-list
-;   openmcl-mop:class-prototype
+   class-prototype ;;dummy
    sys::class-slots
    ;; generic function readers
    sys::generic-function-argument-precedence-order
-;   openmcl-mop:generic-function-declarations
+   generic-function-declarations ;;dummy
    sys::generic-function-lambda-list
    sys::generic-function-methods
    sys::generic-function-method-class
@@ -73,13 +73,11 @@
    sys::method-qualifiers
    ;; slot readers
    sys::slot-definition-allocation
-;   ccl::slot-definition-documentation
    slot-definition-documentation ;;dummy
    sys::slot-definition-initargs
    sys::slot-definition-initform
    sys::slot-definition-initfunction
    sys::slot-definition-name
-;   openmcl-mop:slot-definition-type
    slot-definition-type ;;dummy
    sys::slot-definition-readers
    sys::slot-definition-writers))
