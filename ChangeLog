@@ -1,3 +1,10 @@
+2004-01-08  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-inspector-fontify): Function to insert a string
+	in a particular inspector face. Replaces macro-code-generation
+	function `slime-inspector-expand-fontify'. Fixes a byte-compile
+	problem (macro was calling function not defined at compile-time).
+
 2004-01-07  Luke Gorrie  <luke@bluetail.com>
 	
 	* slime.el: Multisession internal improvements. Now there are
