@@ -200,7 +200,7 @@ See also `slime-translate-to-lisp-filename-function'.")
   :group 'slime)
 
 (defface slime-inspector-label-face
-  '((t ()))
+  '((t (:bold t)))
   "Face for labels in the inspector."
   :group 'slime)
 
@@ -1091,8 +1091,12 @@ the ChangeLog file at runtime."
   "Signal an error LISP-VERSION equal to `slime-changelog-date'"
   (unless (and lisp-version (equal lisp-version (slime-changelog-date)))
     (slime-disconnect)
-    (error "Protocol mismatch: Lisp: %s  ELisp: %s"
-           lisp-version (slime-changelog-date))))
+    (let ((message (format "Protocol mismatch: Lisp: %s  ELisp: %s"
+                           lisp-version (slime-changelog-date))))
+      (message "%s" message)
+      (ding)
+      (sleep-for 2)
+      (error message))))
 
 (defun slime-disconnect ()
   "Disconnect all connections."
@@ -1192,6 +1196,9 @@ EVAL'd by Lisp."
             (let ((event (condition-case error
                              (slime-net-read)
                            (error 
+                            (message "net-read error: %S" error)
+                            (ding)
+                            (sleep-for 2)
                             (ignore-errors (slime-net-close proc))
                             (error "PANIC!")))))
               (save-current-buffer (slime-dispatch-event event proc))))))
@@ -1400,8 +1407,9 @@ This is automatically synchronized from Lisp.")
 
 
 
-;; XXX pending continuations not removed if Lisp crashes.  Multiple
-;; sessions complicate the issue.  Better make this a connection variable?
+;; XXX pending continuations are not removed if Lisp crashes.
+;; Multiple sessions complicate the issue.  Better make this a
+;; connection variable?
 (defvar slime-rex-continuations '()
   "List of (ID . FUNCTION) continuations waiting for RPC results.")
 
@@ -1585,7 +1593,7 @@ VAR is either a symbol or a list (VAR INIT-VALUE).
 
 SEXP is evaluated and the princed version is sent to Lisp.
 
-PACKAGE is evaluated and Lisp reads the princed form in this package.
+PACKAGE is evaluated and Lisp binds *BUFFER-PACKAGE* to this package.
 The default value is `slime-buffer-package'.
 
 CLAUSES is a list of patterns with same syntax as `destructure-case'.
@@ -4263,7 +4271,7 @@ Miscellaneous commands:
    \\[sldb-restart-frame]   - restart frame
    \\[sldb-return-from-frame]   - return from frame
    \\[sldb-step]   - step
-   \\[sldb-break-with-default-debugger]   - break
+   \\[sldb-break-with-default-debugger]   - switch to default debugger
    \\[slime-interactive-eval]   - eval
 
 Full list of commands:
@@ -4283,16 +4291,13 @@ Full list of commands:
   (message
    (mapconcat
     #'(lambda (list)
-        (let* ((cmd (first list))
-               (letter (second list))
-               (name (third list))
-               (name-with-letter (fourth list))
-               (where-is (where-is-internal cmd sldb-mode-map)))
-          (if (or (member (vector (intern letter)) where-is)
-                  (member (vector (string-to-char letter)) where-is))
-              name-with-letter
-            (substitute-command-keys
-             (format "\\<sldb-mode-map>\\[%s] %s" cmd name)))))
+        (destructuring-bind (cmd letter name name-with-letter) list
+          (let ((where-is (where-is-internal cmd sldb-mode-map)))
+            (if (or (member (vector (intern letter)) where-is)
+                    (member (vector (string-to-char letter)) where-is))
+                name-with-letter
+              (substitute-command-keys
+               (format "\\<sldb-mode-map>\\[%s] %s" cmd name))))))
     '((sldb-down           "n" "next"           "n-ext")
       (sldb-up             "p" "prev"           "p-rev")
       (sldb-toggle-details "t" "toggle details" "t-oggle details")
@@ -4600,8 +4605,8 @@ The details include local variable bindings and CATCH-tags."
                      (dolist (tag catchers)
                         (slime-insert-propertized  
                          '(catch-tag ,tag)
-                         indent2 (in-sldb-face catch-tag
-                                               (format "%S\n" tag))))))))
+                         indent2 (in-sldb-face catch-tag 
+                                               (format "%s\n" tag))))))))
 
 	  (unless sldb-enable-styled-backtrace (terpri))
 	  (point)))))
@@ -4665,7 +4670,8 @@ The details include local variable bindings and CATCH-tags."
 (defun sldb-inspect-condition ()
   "Inspect the current debugger condition."
   (interactive)
-  (slime-inspect "swank::*swank-debugger-condition*"))
+  (slime-eval-async '(swank:inspect-current-condition) (slime-buffer-package)
+                    'slime-open-inspector))
 
 (defun sldb-forward-frame ()
   (goto-char (next-single-char-property-change (point) 'frame)))
@@ -4706,7 +4712,7 @@ The details include local variable bindings and CATCH-tags."
   (sldb-sugar-move 'sldb-down))
 
 (defun sldb-frame-locals (frame)
-  (slime-eval `(swank::frame-locals-for-emacs ,frame)))
+  (slime-eval `(swank:frame-locals-for-emacs ,frame)))
 
 (defun sldb-insert-locals (frame prefix)
   (dolist (var (sldb-frame-locals frame))
@@ -4729,7 +4735,7 @@ The details include local variable bindings and CATCH-tags."
 
 (defun sldb-list-catch-tags ()
   (interactive)
-  (slime-message "%S" (sldb-catch-tags (sldb-frame-number-at-point))))
+  (slime-message "%s" (sldb-catch-tags (sldb-frame-number-at-point))))
 
 
 (defun sldb-quit ()
@@ -4741,7 +4747,7 @@ The details include local variable bindings and CATCH-tags."
   "Invoke the \"continue\" restart."
   (interactive)
   (slime-rex ()
-      ('(swank::sldb-continue))
+      ('(swank:sldb-continue))
     ((:ok _) 
      (message "No restart named continue")
      (ding))
@@ -4985,6 +4991,8 @@ was called originally."
   (slime-add-face (intern (format "slime-inspector-%s-face" face)) string))
 
 (defun slime-open-inspector (inspected-parts &optional point)
+  "Display INSPECTED-PARTS in a new inspector window.
+Optionally set point to POINT."
   (with-current-buffer (slime-inspector-buffer)
     (let ((inhibit-read-only t))
       (erase-buffer)
@@ -5080,7 +5088,7 @@ See `def-slime-selector-method' for defining new methods."
     (cond ((null method)
            (message "No method for character: ?\\%c" ch)
            (ding)
-           (sit-for 1)
+           (sleep-for 1)
            (slime-selector))
           (t
            (funcall (third method))))))
@@ -6049,13 +6057,11 @@ If they are not, position point at the first syntax error found."
   (when (get-text-property (point) 'point-entered)
     (funcall (get-text-property (point) 'point-entered))))
 
-
 
 ;;; Finishing up
 
 (mapc #'byte-compile
-      '(slime-handle-oob 
-        slime-log-event
+      '(slime-log-event
         slime-events-buffer
         slime-output-string 
         slime-output-buffer
