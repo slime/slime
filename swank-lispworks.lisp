@@ -90,26 +90,6 @@
   (sys::set-signal-handler +sigint+ 
                            (make-sigint-handler mp:*current-process*)))
 
-(defimplementation emacs-connected ()
-  (declare (ignore stream))
-  (when (eq (symbol-value (find-symbol "*COMMUNICATION-STYLE*" :swank))
-            nil)
-    (set-sigint-handler))
-  (let ((lw:*handle-warn-on-redefinition* :warn))
-    (defmethod env-internals:environment-display-notifier 
-        (env &key restarts condition)
-      (declare (ignore restarts))
-      (funcall (find-symbol (string :swank-debugger-hook) :swank)
-               condition *debugger-hook*))
-    (defmethod env-internals:environment-display-debugger
-        (env)
-      *debug-io*)))
-
-(defimplementation make-stream-interactive (stream)
-  (let ((lw:*handle-warn-on-redefinition* :warn))
-    (defmethod stream:stream-soft-force-output  ((o (eql stream)))
-      (force-output o))))
-
 ;;; Unix signals
 
 (defun sigint-handler ()
@@ -216,6 +196,27 @@ Return NIL if the symbol is unbound."
     (describe-function sym)))
 
 ;;; Debugging
+
+(defclass slime-env (env:environment) 
+  ((debugger-hook :initarg :debugger-hoook)))
+
+(defun slime-env (hook io-bindings) 
+  (make-instance 'slime-env :name "SLIME Environment" 
+                 :io-bindings io-bindings
+                 :debugger-hoook hook))
+
+(defmethod env-internals:environment-display-notifier
+    ((env slime-env) &key restarts condition)
+  (declare (ignore restarts))
+  (funcall (slot-value env 'debugger-hook) condition *debugger-hook*))
+
+(defmethod env-internals:environment-display-debugger ((env slime-env))
+  *debug-io*)
+
+(defimplementation call-with-debugger-hook (hook fun)
+  (let ((*debugger-hook* hook))
+    (env:with-environment ((slime-env hook '()))
+      (funcall fun))))
 
 (defvar *sldb-top-frame*)
 
@@ -571,6 +572,7 @@ Return NIL if the symbol is unbound."
                  (t `((,dspec (:error "Source location not available")))))))
     (loop for dspec in dspecs
           append (frob-locs dspec (dspec:dspec-definition-locations dspec)))))
+
 ;;; Inspector
 (defclass lispworks-inspector (inspector)
   ())
@@ -600,6 +602,27 @@ Return NIL if the symbol is unbound."
 
 (defimplementation quit-lisp ()
   (lispworks:quit))
+
+;;; Tracing
+
+(defun parse-fspec (fspec)
+  "Return a dspec for FSPEC."
+  (ecase (car fspec)
+    (:defmethod `(method ,@(cdr fspec)))))
+
+(defun tracedp (dspec) 
+  (member dspec (eval '(trace)) :test #'equal))
+
+(defun toggle-trace (dspec)
+  (cond ((tracedp dspec)
+         (eval `(untrace ,dspec))
+         (format nil "~S is now untraced." dspec))
+        (t
+         (eval `(trace (,dspec)))
+         (format nil "~S is now traced." dspec))))
+
+(defimplementation toggle-trace-method (fspec)
+  (toggle-trace (parse-fspec fspec)))
 
 ;;; Multithreading
 
@@ -669,3 +692,23 @@ Return NIL if the symbol is unbound."
 (defimplementation send (thread object)
   (mp:mailbox-send (mailbox thread) object))
 
+;;; Some intergration with the lispworks environment
+
+(defun swank-sym (name) (find-symbol (string name) (string :swank)))
+
+(defimplementation emacs-connected ()
+  (when (eq (eval (swank-sym :*communication-style*))
+            nil)
+    (set-sigint-handler)))
+
+(defimplementation make-stream-interactive (stream)
+  (unless (find-method #'stream:stream-soft-force-output nil `((eql ,stream))
+                       nil)
+    (let ((lw:*handle-warn-on-redefinition* :warn))
+      (defmethod stream:stream-soft-force-output  ((o (eql stream)))
+        (force-output o)))))
+
+(defmethod env-internals:confirm-p ((e slime-env) &optional msg &rest args)
+  (let ((prompt (cond (msg (apply #'format nil msg args))
+                      (t ""))))
+    (funcall (swank-sym :eval-in-emacs) `(y-or-n-p  ,prompt))))
