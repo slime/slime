@@ -546,6 +546,7 @@ A prefix argument disables this behaviour."
     ("\M-i" slime-fuzzy-complete-symbol :prefixed t :inferior t)
     ("\M-." slime-edit-definition :inferior t :sldb t)
     ("\M-," slime-pop-find-definition-stack :inferior t :sldb t)
+    ("\M-*" slime-pop-find-definition-stack :inferior t :sldb t)
     ("\C-q" slime-close-parens-at-point :prefixed t :inferior t)
     ("\C-c\M-q" slime-reindent-defun :inferior t)
     ;; Evaluating
@@ -6127,9 +6128,9 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
 
 (defun sldb-insert-frame (frame &optional detailedp)
   (destructuring-bind (number string) frame
-    (slime-insert-propertized 
+    (slime-insert-propertized
      `(frame ,frame sldb-default-action sldb-toggle-details)
-     "  " (in-sldb-face frame-label (format "%d" number)) ": "
+     " " (in-sldb-face frame-label (format "%2d" number)) ": "
      (if detailedp
          (in-sldb-face detailed-frame-line string)
        (in-sldb-face frame-line string))
@@ -7347,6 +7348,7 @@ be treated as a paragraph.  This is useful for filling docstrings."
 The results are presented in an outline-mode buffer, with the tests
 that succeeded initially folded away."
   (interactive)
+  (assert (not (slime-busy-p)))
   (slime-create-test-results-buffer)
   (unwind-protect
       (slime-execute-tests)
