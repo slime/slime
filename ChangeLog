@@ -1,3 +1,9 @@
+2005-03-21  Luke Gorrie  <luke@synap.se>
+
+	* swank-sbcl.lisp (function-source-location): For definitions
+	compiled in Emacs buffers, include the :emacs-string as a :snippet
+	hint for search-based M-. lookup.
+
 2003-05-21  Edi Weitz  <edi@agharta.de>
 
 	* swank-loader-lisp (*implementation-features*, *os-features*,
