@@ -16,6 +16,14 @@
   (require :gray-streams)
   (require :pprint))
 
+(defun xp::decode-stream-arg (stream)
+  (cond ((eq stream t)
+         *terminal-io*)
+	((null stream)
+         *standard-output*)
+	((gs::two-way-stream-g-p stream)
+	 (gs::two-way-stream-output-stream stream))
+	(t stream)))
 
 (import
  '(gs:fundamental-character-output-stream
