@@ -1441,7 +1441,7 @@ This is automatically synchronized from Lisp.")
       ((:%apply fn args)
        (apply (intern fn) args))
       ((:ed what)
-       (run-with-idle-timer 0 nil 'slime-call/error->message 'slime-ed what))
+       (slime-ed what))
       ((:debug-condition thread message)
        (message "%s" message)))))
 
@@ -3524,7 +3524,7 @@ This for use in the implementation of COMMON-LISP:ED."
       (select-frame slime-ed-frame))
     (cond ((stringp what)
            (find-file (slime-from-lisp-filename what)))
-          ((symbolp what)
+          ((and what (symbolp what))
            (slime-edit-definition (symbol-name what)))
           (t nil))))                    ; nothing in particular
 
@@ -4778,7 +4778,7 @@ return that value, evaluated in the context of the frame."
   (interactive (list (slime-read-from-minibuffer "Return from frame: ")))
   (let* ((number (sldb-frame-number-at-point)))
     (slime-rex ()
-        ((list 'swank:return-from-frame number string))
+        ((list 'swank:sldb-return-from-frame number string))
       ((:ok value) (message "%s" value))
       ((:abort)))))
 
