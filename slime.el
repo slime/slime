@@ -98,6 +98,12 @@ This is automatically synchronized from Lisp.")
   "When true, don't prompt the user for input during startup.
 This is used for batch-mode testing.")
 
+(defvar slime-lisp-package-translations
+  '(("COMMON-LISP-USER" . "CL-USER")
+    ("COMMON-LISP" . "CL"))
+  "Association list mapping package names onto their preferred nicknames.
+This determines which name appears in the REPL prompt.")
+
 
 ;;; Customize group
 
@@ -601,6 +607,11 @@ If that doesn't give a function, return nil."
 				    (slime-eval 
 				     `(swank:list-all-package-names)))
 		     nil nil initial-value)))
+
+(defun slime-lisp-package ()
+  "Return the name of the current REPL package."
+  (or (cdr (assoc slime-lisp-package slime-lisp-package-translations))
+      slime-lisp-package))
 
 
 ;;; Inferior CL Setup: compiling and connecting to Swank
@@ -1267,7 +1278,7 @@ Loops until the result is thrown to our caller, or the user aborts."
      rear-nonsticky (slime-repl-prompt read-only face intangible)
      ;; xemacs stuff
      start-open t end-open t)
-   (concat slime-lisp-package "> "))
+   (concat (slime-lisp-package) "> "))
   (set-marker slime-repl-input-start-mark (point) (current-buffer))
   (set-marker slime-repl-input-end-mark (point) (current-buffer))
   (let ((w (get-buffer-window (current-buffer))))
@@ -1286,17 +1297,16 @@ after the last prompt to the end of buffer."
   (buffer-substring-no-properties slime-repl-input-start-mark
                                   slime-repl-input-end-mark))
 
-(defun slime-repl-add-to-input-history (sting)
+(defun slime-repl-add-to-input-history (string)
   (unless (equal string (car slime-repl-input-history))
     (push string slime-repl-input-history))
   (setq slime-repl-input-history-position -1))
   
 (defun slime-repl-eval-string (string)
   (slime-repl-add-to-input-history string)
-  (slime-eval-async 
-   `(swank:listener-eval ,string)
-   slime-lisp-package
-   (slime-repl-show-result-continutation)))
+  (slime-eval-async `(swank:listener-eval ,string)
+                    slime-lisp-package
+                    (slime-repl-show-result-continutation)))
 
 (defun slime-repl-show-result-continutation ()
   ;; This is called _after_ the idle state is activated.  This means
@@ -1371,6 +1381,7 @@ earlier in the buffer."
 
 (defun slime-repl-previous-input ()
   (interactive)
+  
   (unless (< (1+ slime-repl-input-history-position)
 	     (length slime-repl-input-history))
     (error "End of history; no preceding item"))
@@ -1384,10 +1395,10 @@ earlier in the buffer."
 
 (defun slime-repl-matching-input (prompt bound increment error)
   (let* ((regexp (read-from-minibuffer prompt))
-	 (pos (position-if 
-	       (lambda (string) (string-match regexp string))
-	       slime-repl-input-history
-	       bound (funcall increment slime-repl-input-history-position))))
+         (pos (position-if 
+               (lambda (string) (string-match regexp string))
+               slime-repl-input-history
+               bound (funcall increment slime-repl-input-history-position))))
     (unless pos (error error))
     (setq slime-repl-input-history-position pos)
     (slime-repl-insert-from-history #'identity)))
