@@ -55,6 +55,22 @@
 
 (in-package :swank)
 
+(import
+ '(ccl:fundamental-character-output-stream
+   ccl:stream-write-char
+   ccl:stream-line-length
+   ccl:stream-force-output
+   ccl:fundamental-character-input-stream
+   ccl:stream-read-char
+   ccl:stream-listen
+   ccl:stream-unread-char
+   ccl:stream-clear-input
+   ccl:stream-line-column
+   ccl:stream-line-length))
+
+(defun without-interrupts* (body)
+  (ccl:without-interrupts (funcall body)))
+
 ;;; TCP Server
 
 ;; In OpenMCL, the Swank backend runs in a separate thread and simply
@@ -98,71 +114,6 @@ until the remote Emacs goes away."
                     (return)))))))
     (format *terminal-io* "~&;; Swank: Closed connection: ~A~%" *emacs-io*)
     (close *emacs-io*)))
-
-;;; Redirecting Output to Emacs
-
-;; This buffering is done via a Gray stream instead of the CMU-specific
-;; stream method business...
-
-(defclass slime-output-stream (ccl:fundamental-character-output-stream)
-  ((buffer :initform (make-string 512))
-   (fill-pointer :initform 0)
-   (column :initform 0)))
-
-(defmethod ccl:stream-write-char ((stream slime-output-stream) char)
-  (with-slots (buffer fill-pointer column) stream
-    (setf (schar buffer fill-pointer) char)
-    (incf fill-pointer)
-    (incf column)
-    (cond ((char= #\newline char)
-	   (force-output stream)
-	   (setf column 0))
-	  ((= fill-pointer (length buffer))
-	   (force-output stream))))
-  char)
-
-(defmethod ccl:stream-line-column ((stream slime-output-stream))
-  (slot-value stream 'column))
-
-(defmethod ccl:stream-force-output ((stream slime-output-stream))
-  (with-slots (buffer fill-pointer last-charpos) stream
-    (let ((end fill-pointer))
-      (unless (zerop end)
-        (send-to-emacs `(:read-output ,(subseq buffer 0 end)))
-        (setf fill-pointer 0))))
-  nil)
-
-(defun make-slime-output-stream ()
-  (make-instance 'slime-output-stream))
-
-(defclass slime-input-stream (ccl:fundamental-character-input-stream)
-  ((buffer :initform "") (index :initform 0)))
-
-(defmethod ccl:stream-read-char ((s slime-input-stream))
-  (with-slots (buffer index) s
-    (when (= index (length buffer))
-      (setf buffer (slime-read-string))
-      (setf index 0))
-    (assert (plusp (length buffer)))
-    (prog1 (aref buffer index) (incf index))))
-
-(defmethod ccl:stream-listen ((s slime-input-stream))
-  (with-slots (buffer index) s
-    (< index (length buffer))))
-
-(defmethod ccl:stream-unread-char ((s slime-input-stream) char)
-  (with-slots (buffer index) s
-    (setf (aref buffer (decf index)) char))
-  nil)
-
-(defmethod ccl:stream-clear-input ((s slime-input-stream))
-  (with-slots (buffer index) s 
-    (setf buffer ""  
-	  index 0))
-  nil)
-
-(defmethod ccl:stream-line-column ((s slime-input-stream))
-  nil)
 
 ;;; Evaluation
 

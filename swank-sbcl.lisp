@@ -44,6 +44,22 @@
 (declaim (optimize (debug 3)))
 (in-package :swank)
 
+(import
+ '(sb-gray:fundamental-character-output-stream
+   sb-gray:stream-write-char
+   sb-gray:stream-line-length
+   sb-gray:stream-force-output
+   sb-gray:fundamental-character-input-stream
+   sb-gray:stream-read-char
+   sb-gray:stream-listen
+   sb-gray:stream-unread-char
+   sb-gray:stream-clear-input
+   sb-gray:stream-line-column
+   sb-gray:stream-line-length))
+
+(defun without-interrupts* (body)
+  (sb-sys:without-interrupts (funcall body)))
+
 ;;; TCP Server
 
 
@@ -154,76 +170,6 @@ until the remote Emacs goes away."
     (format *terminal-io* "~&;; Swank: Closed connection: ~A~%" *emacs-io*)
     (close *emacs-io*)))
 |#
-
-
-
-;;; Redirecting Output to Emacs
-
-;; This buffering is done via a Gray stream instead of the CMU-specific
-;; stream method business...
-
-(defclass slime-output-stream (sb-gray:fundamental-character-output-stream)
-  ((buffer :initform (make-string 512))
-   (fill-pointer :initform 0)
-   (column :initform 0)))
-
-(defmethod sb-gray:stream-write-char ((stream slime-output-stream) char)
-  (with-slots (buffer fill-pointer column) stream
-    (setf (schar buffer fill-pointer) char)
-    (incf fill-pointer)
-    (incf column)
-    (cond ((char= #\newline char)
-	   (force-output stream)
-	   (setf column 0))
-	  ((= fill-pointer (length buffer))
-	   (force-output stream))))
-  char)
-
-(defmethod sb-gray:stream-line-column ((stream slime-output-stream))
-  (slot-value stream 'column))
-
-(defmethod sb-gray:stream-line-length ((stream slime-output-stream))
-  75)
-
-(defmethod sb-gray:stream-force-output ((stream slime-output-stream))
-  (with-slots (buffer fill-pointer) stream
-    (let ((end fill-pointer))
-      (unless (zerop end)
-        (send-to-emacs `(:read-output ,(subseq buffer 0 end)))
-        (setf fill-pointer 0))))
-  nil)
-
-(defclass slime-input-stream (sb-gray:fundamental-character-input-stream)
-  ((buffer :initform "") (index :initform 0)))
-
-(defmethod sb-gray:stream-read-char ((s slime-input-stream))
-  (with-slots (buffer index) s
-    (when (= index (length buffer))
-      (setf buffer (slime-read-string))
-      (setf index 0))
-    (assert (plusp (length buffer)))
-    (prog1 (aref buffer index) (incf index))))
-
-(defmethod sb-gray:stream-listen ((s slime-input-stream))
-  (with-slots (buffer index) s
-    (< index (length buffer))))
-
-(defmethod sb-gray:stream-unread-char ((s slime-input-stream) char)
-  (with-slots (buffer index) s
-    (setf (aref buffer (decf index)) char))
-  nil)
-
-(defmethod sb-gray:stream-clear-input ((s slime-input-stream))
-  (with-slots (buffer index) s 
-    (setf buffer ""  
-	  index 0))
-  nil)
-
-(defmethod sb-gray:stream-line-column ((s slime-input-stream))
-  nil)
-
-(defmethod sb-gray:stream-line-length ((s slime-input-stream))
-  75)
 
 ;;; Utilities
 
