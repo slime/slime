@@ -51,58 +51,21 @@ o@c this comment prevents a newline!
 
 @contents
 
-@node Top, Getting started, (dir), (dir)
+@node Top, Introduction, (dir), (dir)
 
-@c @node Introduction, Getting started, Top, Top
-@chapter Introduction
+@ifinfo
+@top SLIME
 
 @SLIME{} is the ``Superior Lisp Interaction Mode for Emacs.''
 
-@SLIME{} extends Emacs with new support interactive programming in
-Common Lisp. The features are centred around @code{slime-mode}, an
-Emacs minor-mode that compliments the standard @code{lisp-mode}. While
-@code{lisp-mode} supports editing Lisp source files, @code{slime-mode}
-adds support for interacting with a running Common Lisp process for
-compilation, debugging, documentation lookup, and so on.
+Like @SLIME{}, this manual is a work in progress. It documents an
+unreleased version of @SLIME{}.
 
-The @code{slime-mode} programming environment follows the example of
-Emacs's native Emacs Lisp environment. We have also included good
-ideas from similar systems (such as @acronym{ILISP}) and some new
-ideas of our own.
+For a list of hackers who've worked on @SLIME{}, @ref{Credits}.
 
-@SLIME{} is constructed from two parts: a user-interface written in
-Emacs Lisp, and a supporting server program written in Common
-Lisp. The two sides are connected together with a socket and
-communicate using an @acronym{RPC}-like protocol.
-
-The Lisp server is primarily written in portable Common Lisp. The
-required implementation-specific functionality is specified by a
-well-defined interface and implemented separately for each Lisp
-implementation. This makes @SLIME{} readily portable.
-
-@c @node Status,  , Introduction, Introduction
-@section Status: under development
-
-@SLIME{} is a program under development and has not yet been
-``released.'' Unlike many other free software projects, we are not
-making ``0.x'' releases, but instead evolving directly towards a
-``1.0'' release. We find this continuous style of development very
-comfortable, so rather than setting short-term milestones we've taken
-to merrily hacking away as @SLIME{} progresses towards a ``final''
-shape at its own pace.
-
-We warmly invite Lisp hackerdom to join in the development in any way
-you like. As frugal hospitality we offer access to the @CVS{} tree and
-a cosy mailing list, but not yet such luxuries as supported tarballs,
-a snazzy website, or guarantees of backward-compatibility.
-
-We hope that nowadays @SLIME{} is suitable for doing ``real work''
-with. To make support easy we do expect @SLIME{} users to keep fairly
-up-to-date with the current code-base, so an adventurous nature is an
-advantage. For people looking for something to just install and not
-have to upgrade or muck about with, we ain't yet it.
-
+@end ifinfo
 @menu
+* Introduction::                
 * Getting started::             
 * slime-mode::                  
 * REPL::                        
@@ -152,6 +115,7 @@ Commands
 
 * REPL commands::               
 * Input Navigation::            
+* Shortcuts::                   
 
 @SLDB{}: the @SLIME{} debugger
 
@@ -183,7 +147,56 @@ Lisp-side (Swank)
 @end detailmenu
 @end menu
 
-@node Getting started, slime-mode, Top, Top
+@node Introduction, Getting started, Top, Top
+@chapter Introduction
+
+@SLIME{} is the ``Superior Lisp Interaction Mode for Emacs.''
+
+@SLIME{} extends Emacs with new support interactive programming in
+Common Lisp. The features are centred around @code{slime-mode}, an
+Emacs minor-mode that compliments the standard @code{lisp-mode}. While
+@code{lisp-mode} supports editing Lisp source files, @code{slime-mode}
+adds support for interacting with a running Common Lisp process for
+compilation, debugging, documentation lookup, and so on.
+
+The @code{slime-mode} programming environment follows the example of
+Emacs's native Emacs Lisp environment. We have also included good
+ideas from similar systems (such as @acronym{ILISP}) and some new
+ideas of our own.
+
+@SLIME{} is constructed from two parts: a user-interface written in
+Emacs Lisp, and a supporting server program written in Common
+Lisp. The two sides are connected together with a socket and
+communicate using an @acronym{RPC}-like protocol.
+
+The Lisp server is primarily written in portable Common Lisp. The
+required implementation-specific functionality is specified by a
+well-defined interface and implemented separately for each Lisp
+implementation. This makes @SLIME{} readily portable.
+
+@c @node Status,  , Introduction, Introduction
+@section Status: under development
+
+@SLIME{} is a program under development and has not yet been
+``released.'' Unlike many other free software projects, we are not
+making ``0.x'' releases, but instead evolving directly towards a
+``1.0'' release. We find this continuous style of development very
+comfortable, so rather than setting short-term milestones we've taken
+to merrily hacking away as @SLIME{} progresses towards a ``final''
+shape at its own pace.
+
+We warmly invite Lisp hackerdom to join in the development in any way
+you like. As frugal hospitality we offer access to the @CVS{} tree and
+a cosy mailing list, but not yet such luxuries as supported tarballs,
+a snazzy website, or guarantees of backward-compatibility.
+
+We hope that nowadays @SLIME{} is suitable for doing ``real work''
+with. To make support easy we do expect @SLIME{} users to keep fairly
+up-to-date with the current code-base, so an adventurous nature is an
+advantage. For people looking for something to just install and not
+have to upgrade or muck about with, we ain't yet it.
+
+@node Getting started, slime-mode, Introduction, Top
 @chapter Getting started
 
 This chapter tells you how to get @SLIME{} up and running.
@@ -727,6 +740,7 @@ user input.
 @menu
 * REPL commands::               
 * Input Navigation::            
+* Shortcuts::                   
 @end menu
 
 @node REPL commands, Input Navigation, REPL, REPL
@@ -761,7 +775,7 @@ Clear the entire buffer, leaving only a prompt.
 
 @end table
 
-@node Input Navigation,  , REPL commands, REPL
+@node Input Navigation, Shortcuts, REPL commands, REPL
 @section Input navigation
 
 @table @kbd
@@ -791,7 +805,8 @@ instead go directly to the beginning or the end, respectively.
 
 @end table
 
-@node Shortcuts
+@comment  node-name,  next,  previous,  up
+@node Shortcuts,  , Input Navigation, REPL
 @section Shortcuts
 
 ``Shortcuts'' are a special set of @REPL{} commands that are invoked
