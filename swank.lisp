@@ -176,9 +176,14 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
   (force-output)
   (let ((*read-input-catch-tag* (1+ *read-input-catch-tag*)))
     (send-to-emacs `(:read-string ,*read-input-catch-tag*))
-    (catch *read-input-catch-tag* 
-      (loop (read-from-emacs)))))
-
+    (let (ok)
+      (unwind-protect
+           (prog1 (catch *read-input-catch-tag* 
+                    (loop (read-from-emacs)))
+             (setq ok t))
+        (unless ok 
+          (send-to-emacs `(:read-aborted)))))))
+      
 (defslimefun take-input (tag input)
   (throw tag input))
 
@@ -376,11 +381,9 @@ The time is measured in microseconds."
     (:upcase (string-upcase string))
     (:downcase (string-downcase string))
     (:preserve string)
-    (:invert (with-output-to-string (*standard-output*)
-               (loop for c across string do
-                     (princ (if (upper-case-p c)
-                                (char-downcase c) 
-                                c)))))))
+    (:invert (cond ((every #'lower-case-p string) (string-upcase string))
+                   ((every #'upper-case-p string) (string-downcase string))
+                   (t string)))))
 
 (defslimefun completions (string default-package-name)
   "Return a list of completions for a symbol designator STRING.  
