@@ -109,6 +109,7 @@ User-interface conventions
 * Temporary buffers::           
 * Key bindings::                
 * inferior-lisp::               
+* Multithreading::              
 
 Commands
 
@@ -137,6 +138,7 @@ SLDB: the SLIME debugger
 
 Extras
 
+* slime-selector::              
 * slime-autodoc-mode::          
 * Multiple connections::        
 * Typeout frames::              
@@ -363,7 +365,7 @@ principles are described in this section.
 * Temporary buffers::           
 * Key bindings::                
 * inferior-lisp::               
-* Multithreading::
+* Multithreading::              
 @end menu
 
 @node Temporary buffers, Key bindings, User-interface conventions, User-interface conventions
@@ -412,7 +414,7 @@ will display all bindings starting with that prefix, so @kbd{C-c C-d
 C-h} will actually list the bindings for all documentation commands.
 This feature is just a bit too useful to clobber!
 
-@node inferior-lisp,  Multithreading, Key bindings, User-interface conventions
+@node inferior-lisp, Multithreading, Key bindings, User-interface conventions
 @subsection @code{*inferior-lisp*} buffer
 
 @SLIME{} internally uses the @code{inferior-lisp} package to start
@@ -439,7 +441,7 @@ command that pops up the @code{*inferior-lisp*} buffer, that command
 doesn't belong to @SLIME{}, and you should probably lookup our
 equivalent.
 
-@node Multithreading, , inferior-lisp, User-interface conventions
+@node Multithreading,  , inferior-lisp, User-interface conventions
 @subsection Multithreading
 
 If the Lisp system supports multithreading, SLIME spawns a new thread
@@ -562,6 +564,7 @@ Evaluate the region.
 @kbditem{C-c :, slime-interactive-eval}
 Evaluate an expression read from the minibuffer.
 
+@anchor{slime-scratch}
 @item M-x slime-scratch
 Create a @file{*slime-scratch*} buffer. In this
 buffer you can enter Lisp expressions and evaluate them with
@@ -725,19 +728,25 @@ List callees of a function.
 @node Inspector, Profiling, Cross-reference, Commands
 @subsection Inspector
 
-The @SLIME{} inspector is an Emacs-based version of the Lisp function
-@code{INSPECT} which uses an Emacs buffer to display, navigate and
-operate on lisp objects.
+The @SLIME{} inspector is a very fancy Emacs-based alternative to the
+standard @code{INSPECT} function. The inspector presents objects in
+Emacs buffers using a combination of plain text, hyperlinks to related
+objects, and ``actions'' that can be selected to invoke Lisp code on
+the inspected object. For example, to present a generic function the
+inspector shows the documentation in plain text and presents each
+method with both a hyperlink to inspect the method object and a
+``remove method'' action that you can invoke interactively.
 
-The inspector can be adapted to new objects by defining an appropiate
-method on the generic function @code{SWANK:INSPECT-FOR-EMACS}.
+The inspector can easily be specialized for the objects in your own
+programs. For details see the the @code{inspect-for-emacs} generic
+function in @file{swank-backend.lisp}.
 
 @table @kbd
 @kbditem{C-c I, slime-inspect}
 Inspect the value of an expression entered in the minibuffer.
 @end table
 
-The commands available in the inspector are:
+The standard commands available in the inspector are:
 
 @table @kbd
 
@@ -1055,12 +1064,48 @@ Evaluate an expression entered in the minibuffer.
 @chapter Extras
 
 @menu
+* slime-selector::              
 * slime-autodoc-mode::          
 * Multiple connections::        
 * Typeout frames::              
 @end menu
 
-@node slime-autodoc-mode, Multiple connections, Extras, Extras
+@node slime-selector, slime-autodoc-mode, Extras, Extras
+@section @code{slime-selector}
+
+The @code{slime-selector} is for quickly switching to important
+buffers: the @REPL{}, @SLDB{}, the Lisp source you were just hacking,
+etc. Once invoked the command prompts for a single letter to specify
+which buffer it should display. Here are some of the options:
+
+@table @kbd
+@item ?
+A help buffer listing all @code{slime-selectors}'s available buffers.
+@item r
+The @REPL{} buffer for the current @SLIME{} connection.
+@item d
+The most recently activated @SLDB{} buffer for the current connection.
+@item l
+The most recently visited @code{lisp-mode} source buffer.
+@item s
+The @code{*slime-scratch*} buffer. @xref{slime-scratch}.
+@end table
+
+@code{slime-selector} doesn't have a key binding by default but we
+suggest that you assign it a global one. You can bind @kbd{C-c s} like
+this:
+
+@example
+(global-set-key "\C-cs" 'slime-selector)
+@end example
+
+And then you can switch to the @REPL{} from anywhere with @kbd{C-c s
+r}.
+
+The macro @code{def-slime-selector-method} can be used to define new
+buffers for @code{slime-selector} to find.
+
+@node slime-autodoc-mode, Multiple connections, slime-selector, Extras
 @section @code{slime-autodoc-mode}
 
 @code{slime-autodoc-mode} is an additional minor-mode for
