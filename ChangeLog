@@ -1,3 +1,14 @@
+2004-07-09  Peter Seibel  <peter@javamonkey.com>
+
+	* swank.lisp (package-string-for-prompt): Change the way package
+	name in prompt is computed. N.B. after this change the name
+	displayed will not necsarily be either an actual name or nickname
+	of the package: if the name contains dots by default the prompt
+	will only display the last element, i.e. COM.GIGAMONKEYS.SPAM will
+	be shown as SPAM. This change also makes CL-USER the canonical
+	name for COMMON-LISP-USER even in implementations that provide a
+	shorter nickname such as USER.
+
 2004-07-09  Christophe Rhodes  <csr21@cam.ac.uk>
 
 	* slime.el (sldb-lookup-reference): substitute hyphens for spaces

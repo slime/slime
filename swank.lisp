@@ -54,6 +54,13 @@
 (defconstant keyword-package (find-package :keyword)
   "The KEYWORD package.")
 
+(defvar *canonical-packge-nicknames*
+  '(("COMMON-LISP-USER" . "CL-USER"))
+  "Canonical package names to use instead of shortest name/nickname.")
+
+(defvar *auto-abbreviate-dotted-packages* t
+  "Automatically abbreviate dotted package names to their last component when T.")
+
 (defvar *swank-io-package*
   (let ((package (make-package :swank-io-package :use '())))
     (import '(nil t quote) package)
@@ -1309,15 +1316,32 @@ change, then send Emacs an update."
                            (return (values values -)))))
       (when (and package-update-p (not (eq *package* *buffer-package*)))
         (send-to-emacs 
-         (list :new-package (shortest-package-nickname *package*)))))))
+         (list :new-package (package-string-for-prompt *package*)))))))
+
+(defun package-string-for-prompt (package)
+  "Return the shortest nickname (or canonical name) of PACKAGE."
+  (or (canonical-package-nickname package)
+      (auto-abbreviated-package-name package)
+      (shortest-package-nickname package)))
+
+(defun canonical-package-nickname (package)
+  "Return the canonical package nickname, if any, of PACKAGE."
+  (cdr (assoc (package-name package) *canonical-packge-nicknames* :test #'string=)))
+
+(defun auto-abbreviated-package-name (package)
+  "Return an abbreviated 'name' for PACKAGE. N.B. this is not an actual package name or nickname."
+  (when *auto-abbreviate-dotted-packages*
+    (let ((last-dot (position #\. (package-name package) :from-end t)))
+      (when last-dot (subseq (package-name package) (1+ last-dot))))))
 
 (defun shortest-package-nickname (package)
   "Return the shortest nickname (or canonical name) of PACKAGE."
   (loop for name in (cons (package-name package) (package-nicknames package))
         for shortest = name then (if (< (length name) (length shortest))
-                                     name
-                                     shortest)
-        finally (return shortest)))
+                                   name
+                                   shortest)
+              finally (return shortest)))
+
 
 (defslimefun interactive-eval-region (string)
   (with-buffer-syntax ()
@@ -1371,9 +1395,9 @@ change, then send Emacs an update."
     (swank-pprint (multiple-value-list (eval (read-from-string string))))))
 
 (defslimefun set-package (package)
-  "Set *package* to PACKAGE and return its name and shortest nickname."
+  "Set *package* to PACKAGE and return its name and the string to use in the prompt."
   (let ((p (setq *package* (guess-package-from-string package))))
-    (list (package-name p) (shortest-package-nickname p))))
+    (list (package-name p) (package-string-for-prompt p))))
 
 (defslimefun listener-eval (string)
   (clear-user-input)
