@@ -2832,6 +2832,28 @@ First make the variable unbound, then evaluate the entire form."
          (princ result buffer)
          (insert "\n"))))))
 
+(defun slime-eval/compile-defun-dwim (&optional arg)
+  "Call the computation command you want (Do What I Mean).
+Look at defun and determine whether to call `slime-eval-defun' or
+`slime-compile-defun'.
+
+A prefix of `-' forces evaluation, any other prefix forces
+compilation."
+  (interactive "P")
+  (case arg
+    ;; prefix is `-', evaluate defun
+    ((-) (slime-eval-defun))
+    ;; no prefix, automatically determine action
+    ((nil) (let ((form (slime-defun-at-point)))
+             (cond ((string-match "^(defvar " form)
+                    (slime-re-evaluate-defvar form))
+                   ((string-match "^(def" form)
+                    (slime-compile-defun))
+                   (t
+                    (slime-eval-defun)))))
+    ;; prefix is not `-', compile defun
+    (otherwise (slime-compile-defun))))
+
 (defun slime-toggle-trace-fdefinition (fname-string)
   "Toggle trace for FNAME-STRING."
   (interactive (list (slime-completing-read-symbol-name 
