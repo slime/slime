@@ -3232,7 +3232,7 @@ Designed to be bound to the SPC key.  Prefix argument can be used to insert
 more than one space."
   (interactive "p")
   (self-insert-command n)
-  (slime-close-buffer "*Completions*")
+  (slime-close-buffer slime-completions-buffer-name)
   (when (and (slime-connected-p)
 	     (or (not (slime-busy-p))
                  ;; XXX should we enable this?
@@ -3460,8 +3460,7 @@ performed.")
     (save-excursion
       (set-window-configuration slime-complete-saved-window-configuration))
     (setq slime-complete-saved-window-configuration nil))
-  (when (get-buffer slime-completions-buffer-name)
-    (bury-buffer slime-completions-buffer-name)))
+  (slime-close-buffer slime-completions-buffer-name))
 
 (defun slime-complete-maybe-restore-window-confguration ()
   "Restore the window configuration, if the following command
