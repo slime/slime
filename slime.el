@@ -113,6 +113,11 @@ This is automatically synchronized from Lisp.")
   "When true, don't prompt the user for input during startup.
 This is used for batch-mode testing.")
 
+(defvar slime-truncate-lines t
+  "When true, set `truncate-lines' in certain popup buffers.
+This applies to buffers that present lines as rows of data, such as
+debugger backtraces and apropos listings.")
+
 
 ;;; Customize group
 
@@ -575,6 +580,12 @@ command."
       (slime-display-message (apply #'format fmt args) "*SLIME Note*"))
   (defun slime-message (fmt &rest args)
     (apply 'message fmt args)))
+
+(defun slime-set-truncate-lines ()
+  "Set `truncate-lines' in the current buffer if
+`slime-truncate-lines' is non-nil."
+  (when slime-truncate-lines
+    (set (make-local-variable 'truncate-lines) t)))
 
 (defun slime-defun-at-point ()
   "Return the text of the defun at point."
@@ -1349,6 +1360,7 @@ Loops until the result is thrown to our caller, or the user aborts."
 
 (defvar slime-repl-input-history '()
   "History list of strings read from the REPL buffer.")
+
 (defvar slime-repl-input-history-position 0)
 (defvar slime-repl-mode-map)
 
@@ -1500,47 +1512,53 @@ earlier in the buffer."
   (slime-repl-delete-current-input)
   (insert-and-inherit string))
 
-(defun slime-repl-insert-from-history (fn)
-  (setq slime-repl-input-history-position
-	(funcall fn  slime-repl-input-history-position))
-  (slime-repl-replace-input
-   (nth slime-repl-input-history-position slime-repl-input-history)))
+
+;;;; History
+
+(defvar slime-repl-history-pattern nil
+  "The regexp most recently used for finding input history.")
+
+(defun slime-repl-history-replace (direction regexp)
+  "Replace the current input with the next line in DIRECTION matching REGEXP.
+DIRECTION is 'forward' or 'backward' (in the history list)."
+  (let* ((step (ecase direction
+                 (forward -1)
+                 (backward 1)))
+         (history-pos0 slime-repl-input-history-position))
+    (setq slime-repl-history-pattern regexp)
+    ;; Loop through the history list looking for a matching line
+    (loop for pos = (+ history-pos0 step) then (+ pos step)
+          while (and (<= 0 pos)
+                     (< pos (length slime-repl-input-history)))
+          do (let ((string (nth pos slime-repl-input-history)))
+               (when (and (string-match regexp string)
+                          (not (string= string (slime-repl-current-input))))
+                 (slime-repl-replace-input string)
+                 (setq slime-repl-input-history-position pos)
+                 (return)))
+          finally (message "End of history; no matching item"))))
+
+(defun slime-repl-matching-input-regexp ()
+  (if (memq last-command
+            '(slime-repl-previous-input slime-repl-next-input))
+      slime-repl-history-pattern
+    (concat "^" (regexp-quote (slime-repl-current-input)))))
 
 (defun slime-repl-previous-input ()
   (interactive)
-  
-  (unless (< (1+ slime-repl-input-history-position)
-	     (length slime-repl-input-history))
-    (error "End of history; no preceding item"))
-  (slime-repl-insert-from-history #'1+))
+  (slime-repl-history-replace 'backward (slime-repl-matching-input-regexp)))
 
 (defun slime-repl-next-input ()
   (interactive)
-  (unless (plusp slime-repl-input-history-position)
-    (error "End of history; no next item"))
-  (slime-repl-insert-from-history #'1-))
+  (slime-repl-history-replace 'forward (slime-repl-matching-input-regexp)))
 
-(defun slime-repl-matching-input (prompt bound increment error)
-  (let* ((regexp (read-from-minibuffer prompt))
-         (pos (position-if 
-               (lambda (string) (string-match regexp string))
-               slime-repl-input-history
-               bound (funcall increment slime-repl-input-history-position))))
-    (unless pos (error error))
-    (setq slime-repl-input-history-position pos)
-    (slime-repl-insert-from-history #'identity)))
+(defun slime-repl-previous-matching-input (regexp)
+  (interactive "sPrevious element matching (regexp): ")
+  (slime-repl-history-replace 'backward regexp))
 
-(defun slime-repl-previous-matching-input ()
-  (interactive)
-  (slime-repl-matching-input "Previous element matching (regexp): "
-			     :start #'1+
-			     "No earlier matching history item"))
-
-(defun slime-repl-next-matching-input ()
-  (interactive)
-  (slime-repl-matching-input "Next element matching (regexp): "
-			     :end #'1-
-			     "No later matching history item"))
+(defun slime-repl-next-matching-input (regexp)
+  (interactive "sNext element matching (regexp): ")
+  (slime-repl-history-replace 'forward regexp))
 
 (defun slime-repl ()
   (interactive)
@@ -2140,7 +2158,7 @@ perfermed.")
           (current-window-configuration))))
 
 (defun slime-complete-delay-restoration ()
-  (add-hook (make-local-variable 'pre-command-hook)
+  (add-hook (make-local 'pre-command-hook)
             'slime-complete-maybe-restore-window-confguration))
 
 (defun slime-complete-forget-window-configuration ()
@@ -2148,8 +2166,7 @@ perfermed.")
 
 (defun slime-complete-restore-window-configuration ()
   "Restore the window config if available."
-  (remove-hook (make-local-variable 'pre-command-hook)
-               'slime-complete-maybe-restore-window-confguration)
+  (remove-hook 'slime-complete-maybe-restore-window-confguration)
   (when slime-complete-saved-window-configuration
     (set-window-configuration slime-complete-saved-window-configuration)
     (setq slime-complete-saved-window-configuration nil))
@@ -2159,19 +2176,23 @@ perfermed.")
 (defun slime-complete-maybe-restore-window-confguration ()
   "Restore the window configuration, if the following command
 terminates a current completion."
-  (remove-hook (make-local-variable 'pre-command-hook)
-               'slime-complete-maybe-restore-window-confguration)
-  (cond ((find last-command-char "()\"'`,# \r\n:")
-         (slime-complete-restore-window-configuration))
-        ((memq this-command '(self-insert-command
-                              slime-complete-symbol
-                              backward-delete-char-untabify
+  (remove-hook 'slime-complete-maybe-restore-window-confguration)
+  (condition-case err
+      (cond ((find last-command-char "()\"'`,# \r\n:")
+             (slime-complete-restore-window-configuration))
+            ((memq this-command '(self-insert-command
+                                  slime-complete-symbol
+                                  backward-delete-char-untabify
                               backward-delete-char
                               scroll-other-window))
-         (slime-complete-delay-restoration))
-        (t 
-         (slime-complete-forget-window-configuration))))
-
+             (slime-complete-delay-restoration))
+            (t 
+             (slime-complete-forget-window-configuration)))
+    (error
+     ;; Because this is called on the pre-command-hook, we mustn't let
+     ;; errors propagate.
+     (message "Error in slime-complete-forget-window-configuration: %S" err))))
+  
 (defun slime-complete-symbol ()
   "Complete the symbol at point.
 If the symbol lacks an explicit package prefix, the current buffer's
@@ -2464,15 +2485,12 @@ First make the variable unbound, then evaluate the entire form."
 (defun slime-show-description (string package)
   (slime-save-window-configuration)
   (save-current-buffer
-    (let* ((slime-package-for-help-mode package)
-	   (temp-buffer-show-hook 
-	    (cons (lambda ()
-		    (setq slime-buffer-package slime-package-for-help-mode)
-		    (set-syntax-table lisp-mode-syntax-table)
-		    (slime-mode t))
-		  temp-buffer-show-hook)))
-      (slime-with-output-to-temp-buffer "*Help*"
-	(princ string)))))
+    (slime-with-output-to-temp-buffer "*Help*"
+      (princ string))
+    (with-current-buffer "*Help*"
+      (setq slime-buffer-package package)
+      (set-syntax-table lisp-mode-syntax-table)
+      (slime-mode t))))
 
 (defun slime-eval-describe (form)
   (let ((package (slime-buffer-package)))
@@ -2518,7 +2536,7 @@ First make the variable unbound, then evaluate the entire form."
 	(set-syntax-table lisp-mode-syntax-table)
 	(slime-mode t)
 	(setq slime-buffer-package package)
-	(set (make-local-variable 'truncate-lines) t)
+        (slime-set-truncate-lines)
 	(slime-print-apropos plists)))))
 
 (defun slime-princ-propertized (string props)
@@ -2685,7 +2703,7 @@ If CREATE is non-nil, create it if necessary."
   (set-syntax-table lisp-mode-syntax-table)
   (slime-mode t)
   (setq slime-buffer-package package)
-  (set (make-local-variable 'truncate-lines) t)
+  (slime-set-truncate-lines)
   (setq slime-xref-summary
         (format " XREF[%s: %s]" ref-type symbol)))
 
@@ -2933,7 +2951,7 @@ the current index when the selection is completed."
   (with-current-buffer (get-buffer-create "*sldb*")
     (setq buffer-read-only nil)
     (sldb-mode)
-    (set (make-local-variable 'truncate-lines) t)
+    (slime-set-truncate-lines)
     (add-hook (make-local-variable 'kill-buffer-hook) 'sldb-delete-overlays)
     (setq sldb-condition condition)
     (setq sldb-restarts restarts)
@@ -3332,13 +3350,13 @@ the current index when the selection is completed."
 (defun slime-inspect (string)
   (interactive 
    (list (slime-read-from-minibuffer "Inspect value (evaluated): "
-				     (slime-last-expression))))
+				     (slime-sexp-at-point))))
   (slime-eval-async `(swank:init-inspector ,string) (slime-buffer-package)
 		    'slime-open-inspector))
 
 (define-derived-mode slime-inspector-mode fundamental-mode "Slime-Inspector"
   (set-syntax-table lisp-mode-syntax-table)
-  (set (make-local-variable 'truncate-lines) t)
+  (slime-set-truncate-lines)
   (slime-mode t)
   (setq buffer-read-only t))
 
@@ -3599,7 +3617,7 @@ Exits Emacs when finished. The exit code is the number of failed tests."
     (erase-buffer)
     (outline-mode)
     (set (make-local-variable 'outline-regexp) "\\*+")
-    (set (make-local-variable 'truncate-lines) t)))
+    (slime-set-truncate-lines)))
 
 (defun slime-delete-hidden-outline-text ()
   "Delete the hidden parts of an outline-mode buffer."
