@@ -1,3 +1,38 @@
+2004-07-04  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el, swank-backend.lisp, swank.lisp: Added a new backend
+	function `buffer-first-change' which is called via Emacs's
+	`first-change-hook' in slime-mode buffers. This gives Lisp a
+	chance to do something with source files before you change them on
+	disk.
+
+	* swank-cmucl.lisp (buffer-first-change): Suck the source file
+	into the cache unless already present. This is for M-. to increase
+	the chances of our having a copy of the sources corresponding with
+	the loaded code. Should help with the case where a user edits a
+	file (without recompiling it) and then M-.'s for one of its
+	definitions.
+
+	* swank-allegro.lisp (make-process/inherit): Changed reader
+	conditionals to use fwrappers for #+(version>= 6.2).
+
+	* swank-backend.lisp (make-stream-interactive): This backend
+	function is called with each stream that will be used for
+	user-interaction, i.e. the redirected stdio streams. Can be used
+	to setup special output-flushing or similar.
+
+	* swank.lisp (open-streams): Call make-stream-interactive on the
+	redirected io streams.
+
+	* swank-allegro.lisp (make-stream-interactive): Set
+	interactive-stream-p slot on the stream to make it auto-flush.
+	(*swank-thread*, *inherited-bindings*): New variables.
+	(spawn): Bind *swank-thread* to T.
+	(make-process/inherit): Fwrapper (advice) for
+	mp:make-process. When *swank-thread* is T then make the new thread
+	inherit "sliminess": debugger hook, I/O streams, and also
+	*swank-thread* so that its children will inherit too.
+
 2004-07-03  Luke Gorrie  <luke@bluetail.com>
 
 	* hyperspec.el (common-lisp-hyperspec-section-4.0): Bugfix from
