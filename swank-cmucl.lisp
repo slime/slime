@@ -39,9 +39,12 @@
 
 (defun accept-connection (socket)
   "Accept one Swank TCP connection on SOCKET and then close it."
-  (setup-request-handler (ext:accept-tcp-connection socket))
-  (sys:invalidate-descriptor socket)
-  (unix:unix-close socket))
+  (let* ((fd (ext:accept-tcp-connection socket))
+         (stream (sys:make-fd-stream fd :input t :output t 
+                                     :element-type 'base-char)))
+    (sys:invalidate-descriptor socket)
+    (unix:unix-close socket)
+    (request-loop stream)))
 
 (defun open-stream-to-emacs ()
   "Return an output-stream to Emacs' output buffer."
@@ -57,33 +60,26 @@
 
 (defvar *use-dedicated-output-stream* t)
 
-(defun setup-request-handler (socket)
-  "Setup request handling for SOCKET."
-  (let* ((stream (sys:make-fd-stream socket
-                                     :input t :output t
-                                     :element-type 'base-char))
-         (input (make-slime-input-stream))
-         (output (if *use-dedicated-output-stream*
-                     (let ((*emacs-io* stream)) (open-stream-to-emacs))
-                     (make-slime-output-stream)))
-         (io (make-two-way-stream input output)))
-    (system:add-fd-handler socket
-                           :input (lambda (fd)
-                                    (declare (ignore fd))
-                                    (serve-request stream output input io)))))
-
-(defun serve-request (*emacs-io* *slime-output* *slime-input* *slime-io*)
-  "Read and process a request from a SWANK client.
-The request is read from the socket as a sexp and then evaluated."
-  (catch 'slime-toplevel
-    (with-simple-restart (abort "Return to Slime toplevel.")
-      (handler-case (read-from-emacs)
-	(slime-read-error (e)
-	  (when *swank-debug-p*
-	    (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
-	  (sys:invalidate-descriptor (sys:fd-stream-fd *emacs-io*))
-	  (close *emacs-io*)))))
-  (sys:scrub-control-stack))
+(defun request-loop (*emacs-io*)
+  "Processes requests until the remote Emacs goes away."
+  (unwind-protect
+       (let* ((*slime-output* (if *use-dedicated-output-stream* 
+                                  (open-stream-to-emacs)
+                                  (make-slime-output-stream)))
+              (*slime-input* (make-slime-input-stream))
+              (*slime-io* (make-two-way-stream *slime-input* *slime-output*)))
+         (loop
+          (catch 'slime-toplevel
+            (with-simple-restart (abort "Return to Slime toplevel.")
+              (handler-case (read-from-emacs)
+                (slime-read-error (e)
+                  (when *swank-debug-p*
+                    (format *debug-io*
+                            "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
+                  (return)))))
+          (sys:scrub-control-stack)))
+    (format *terminal-io* "~&;; Swank: Closed connection: ~A~%" *emacs-io*)
+    (close *emacs-io*)))
 
 
 ;;;; Stream handling
@@ -808,6 +804,29 @@ The result has the format \"(...)\"."
 (defmethod macroexpand-all (form)
   (walker:macroexpand-all form))
 
+(in-package :c)
+
+(defun swank::expand-ir1-top-level (form)
+  "A scaled down version of the first pass of the compiler."
+  (with-compilation-unit ()
+    (let* ((*lexical-environment*
+	    (make-lexenv :default (make-null-environment)
+			 :cookie *default-cookie*
+			 :interface-cookie *default-interface-cookie*))
+	   (*source-info* (make-lisp-source-info form))
+	   (*block-compile* nil)
+	   (*block-compile-default* nil))
+      (with-ir1-namespace
+	  (clear-stuff)
+	(find-source-paths form 0)
+	(ir1-top-level form '(0) t)))))
+
+(in-package :swank)
+
+(defslimefun print-ir1-converted-blocks (form)
+  (with-output-to-string (*standard-output*)
+    (c::print-all-blocks (expand-ir1-top-level (from-string form)))))
+
 (defun tracedp (fname)
   (gethash (debug::trace-fdefinition fname)
 	   debug::*traced-functions*))
@@ -1087,14 +1106,14 @@ stack."
 	 (debug-function (di:frame-debug-function frame))
 	 (debug-variables (di::debug-function-debug-variables debug-function)))
     (loop for v across debug-variables
-	  collect (list
-		   :symbol (di:debug-variable-symbol v)
-		   :id (di:debug-variable-id v)
+          for symbol = (di:debug-variable-symbol v)
+          for id =  (di:debug-variable-id v)
+          for validy = (di:debug-variable-validity v location)
+	  collect (list :symbol symbol :id id
 		   :value-string
-		   (if (eq (di:debug-variable-validity v location)
-			   :valid)
-		       (to-string (di:debug-variable-value v frame))
-		       "<not-available>")))))
+		   (ecase validy 
+                     (:valid (to-string (di:debug-variable-value v frame)))
+                     ((:invalid :unknown) "<not-available>"))))))
 
 (defmethod frame-catch-tags (index)
   (loop for (tag . code-location) in (di:frame-catches (nth-frame index))
@@ -1155,7 +1174,7 @@ stack."
          (frame-pointer (di::frame-pointer real-frame))
          (debug-fun (di:frame-debug-function real-frame)))
     (with-output-to-string (*standard-output*)
-      (format t "Frame: ~S~%~:[~;Real Frame: ~S~%~]Frame Pointer: ~S~%"
+      (format t "Frame: ~S~%~:[Real Frame: ~S~%~;~]Frame Pointer: ~S~%"
               frame (eq frame real-frame) real-frame frame-pointer)
       (etypecase debug-fun
         (di::compiled-debug-function
@@ -1168,11 +1187,11 @@ stack."
                           :unkown
                           (di:code-location-kind code-loc)))
                 (fun (di:debug-function-function debug-fun)))
-           (format t "Instruction pointer: #x~X [pc: ~S kind: ~S]~%" 
+           (format t "Instruction pointer: #x~X [pc: ~S kind: ~S]~%~%~%" 
                    ip pc kind)
            (if fun
-                   (disassemble fun)
-                   (disassem:disassemble-code-component component))))
+               (disassemble fun)
+               (disassem:disassemble-code-component component))))
         (di::bogus-debug-function
          (format t "~%[Disassembling bogus frames not implemented]"))))))
 
