@@ -800,7 +800,7 @@ command."
   (cond ((or (string-match "\n" message)
              (> (length message) (1- (frame-width))))
          (if (slime-typeout-active-p)
-             (slime-typeout-message message)
+             (slime-typeout-message "%s" message)
            (lexical-let ((buffer (get-buffer-create buffer-name)))
              (with-current-buffer buffer
                (erase-buffer)
