@@ -1393,6 +1393,9 @@ Return true if the event is recognised and handled."
     ((:new-features features)
      (setf (slime-lisp-features) features)
      t)
+    ((:open-dedicated-output-stream port)
+     (slime-open-stream-to-lisp port)
+     t)
     ((:%apply fn args)
      (apply (intern fn) args)
      t)
@@ -1484,8 +1487,8 @@ The content of the *cl-connection* buffer:
       (let ((buffer (get-buffer-create "*slime-events*")))
         (with-current-buffer buffer
           (lisp-mode)
-          (hs-minor-mode)
           (set (make-local-variable 'hs-block-start-regexp) "^(")
+          (hs-minor-mode)
           (setq font-lock-defaults nil)
           (current-buffer)))))
 
@@ -2290,11 +2293,11 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   (slime-switch-to-output-buffer)
   (slime-mark-output-end)
   (slime-mark-input-start)
-  (slime-repl-read-mode t))
+  (slime-repl-read-mode 1))
 
 (defun slime-repl-return-string (string)
   (slime-dispatch-event `(:emacs-return-string ,string))
-  (slime-repl-read-mode nil))
+  (slime-repl-read-mode -1))
 
 (defun slime-repl-read-break ()
   (interactive)
@@ -2302,7 +2305,7 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
 
 (defun slime-repl-abort-read ()
   (with-current-buffer (slime-output-buffer)
-    (slime-repl-read-mode nil)
+    (slime-repl-read-mode -1)
     (message "Read aborted")))
 
 
@@ -4851,7 +4854,7 @@ expires.\nThe timeout is given in seconds (a floating point number)."
     "Lookup the argument list for FUNCTION-NAME.
 Confirm that EXPECTED-ARGLIST is displayed."
     '(("swank:start-server"
-       "(swank:start-server port-file-namestring)")
+       "(swank:start-server port-file)")
       ("swank::compound-prefix-match"
        "(swank::compound-prefix-match prefix target)"))
   (let ((arglist (slime-get-arglist function-name))) ;
