@@ -27,9 +27,11 @@
 
 (defparameter *sysdep-pathnames*
   (mapcar #'make-swank-pathname 
-           #+cmu '("swank-cmucl")
-           #+sbcl '("swank-sbcl" "swank-gray")
-           #+openmcl '("swank-openmcl" "swank-gray")))
+          #+cmu '("swank-cmucl")
+          #+sbcl '("swank-sbcl" "swank-gray")
+          #+openmcl '("swank-openmcl" "swank-gray")
+          #+lispworks '("swank-lispworks" "swank-gray")
+          ))
 
 (defparameter *swank-pathname* (make-swank-pathname "swank"))
 
@@ -41,25 +43,26 @@
   "Compile each file in FILES if the source is newer than
 its corresponding binary, or the file preceding it was 
 recompiled."
-  (let ((needs-recompile nil))
-    (dolist (source-pathname files)
-      (let ((binary-pathname (compile-file-pathname source-pathname)))
-        (handler-case
-            (progn
-              (when (or needs-recompile
-                        (not (probe-file binary-pathname))
-                        (file-newer-p source-pathname binary-pathname))
-                (format t "~&;; Compiling ~A...~%" source-pathname)
-                (compile-file source-pathname)
-                (setq needs-recompile t))
-              (load binary-pathname))
-          (error ()
-            ;; If an error occurs compiling, load the source instead
-            ;; so we can try to debug it.
-            (load source-pathname)))))))
+  (with-compilation-unit ()
+    (let ((needs-recompile nil))
+      (dolist (source-pathname files)
+        (let ((binary-pathname (compile-file-pathname source-pathname)))
+          (handler-case
+              (progn
+                (when (or needs-recompile
+                          (not (probe-file binary-pathname))
+                          (file-newer-p source-pathname binary-pathname))
+                  (format t "~&;; Compiling ~A...~%" source-pathname)
+                  (compile-file source-pathname)
+                  (setq needs-recompile t))
+                (load binary-pathname))
+            (error ()
+              ;; If an error occurs compiling, load the source instead
+              ;; so we can try to debug it.
+              (load source-pathname))))))))
 
 (defun user-init-file ()
-  "Return a the name of the user init file or nil."
+  "Return the name of the user init file or nil."
   (let ((filename (format nil "~A/.swank.lisp"
                           (namestring (user-homedir-pathname)))))
     (cond ((probe-file filename) filename)
