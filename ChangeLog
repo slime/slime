@@ -1,3 +1,18 @@
+2003-10-17  James Bielman  <jamesjb@jamesjb.com>
+
+	* .cvsignore: Add OpenMCL and SBCL fasl file extensions.
+
+	* swank-openmcl.lisp (who-calls): Fix bug where we would try to
+	take the TRUENAME of NIL when source information isn't available
+	for a caller.
+	(backtrace-for-emacs): Clean up the backtrace code a bit in 
+	preparation for implementing FRAME-LOCALS.
+	(frame-catch-tags): Implement a stub version of this.
+	(frame-locals): Implemented fully for OpenMCL.
+
+	* swank-loader.lisp (compile-files-if-needed-serially): Be a little
+	more verbose when compiling files.
+
 2003-10-17  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank.lisp, swank-sbcl.lisp, swank-openmcl.lisp,
