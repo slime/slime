@@ -2631,7 +2631,7 @@ Do NOT pass circular lists to this function."
                            (let ((a (if (null l)
                                         a
                                         (cons (label-value-line :tail l) a))))
-                             (apply #'append (reverse a)))))))
+                             (reduce #'append (reverse a) :from-end t))))))
                  (values title (append '("Elements:" (:newline)) lines)))))
                                
         (cond ((not length)             ; circular
