@@ -1,3 +1,19 @@
+2003-12-17  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el: Better handling of asynchronous output.
+	(slime-output-end): New variable.  Use this marker to insert
+	output.  Insert asynchronous output inserted before the "input
+	region" and before the prompt.
+	(slime-show-last-output): Use it.
+	(slime-repl-insert-prompt): Initialize it.
+	(slime-last-output-start): Removed.
+	(slime-flush-output): Increase delay to 20 usecs.
+	(slime-with-output-end-mark): Renamed from
+	slime-with-output-at-eob.  Insert a newline if needed.
+	(slime-output-string, slime-repl-activate): Use it.
+	(slime-repl-return): Ensure that slime-repl-input-end-mark points
+	to a reasonable location.
+	
 2003-12-17  Luke Gorrie  <luke@bluetail.com>
 
 	* HACKING: New file summarising our way of working.
