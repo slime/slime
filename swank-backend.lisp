@@ -112,9 +112,6 @@ a stream for the new connection."))
 (defgeneric add-input-handler (socket fn)
   (:documentation "Call FN whenever SOCKET is readable."))
 
-(defgeneric spawn (fn &key name)
-  (:documentation "Create a new process and call FN in the new process."))
-
 ;;; Base condition for networking errors.
 (define-condition network-error (error) ())
 
@@ -157,8 +154,6 @@ positions reported in compiler conditions."))
    "Compile FILENAME signalling COMPILE-CONDITIONs.
 If LOAD-P is true, load the file after compilation."))
 
-;;;;; Compiler conditions
-
 (deftype severity () '(member :error :warning :style-warning :note))
 
 ;; Base condition type for compiler errors, warnings and notes.
@@ -180,7 +175,7 @@ If LOAD-P is true, load the file after compilation."))
    (location :initarg :location
              :accessor location)))
 
-;;;
+
 ;;;; Streams
 
 (defgeneric make-fn-streams (input-fn output-fn)
@@ -397,6 +392,9 @@ from Emacs. This is to support interfaces such as CMUCL's
 MP::STARTUP-IDLE-AND-TOP-LEVEL-LOOPS which does not return like a
 normal function."))
 
+(defgeneric spawn (fn &key name)
+  (:documentation "Create a new thread to call FN."))
+
 (defgeneric thread-id ()
   (:documentation
    "Return a value that uniquely identifies the current thread.
@@ -418,42 +416,14 @@ Systems that do not support multiprocessing return NIL."))
 Thread names are be single-line strings and are meaningful to the
 user. They do not have to be unique."))
 
-(defgeneric call-with-I/O-lock (function)
+(defgeneric make-lock (&key name)
   (:documentation
-   "Call FUNCTION with the \"I/O\" lock held.
-Only one thread can hold the I/O lock at a time -- others are blocked
-until they acquire it. When called recursively (i.e. lock already
-held), simply calls FUNCTION.
+   "Make a lock for thread synchronization.
+Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time."))
 
-This is a low-level lock used for mutual exclusion on individual
-messages read and written to the socket connecting Emacs.
-
-Systems that do not support multiprocessing simply call FUNCTION."))
-
-(defgeneric call-with-conversation-lock (function)
+(defgeneric call-with-lock-held (lock function)
   (:documentation
-   "Call FUNCTION with the \"conversation\" lock held.
-The semantics are analogous to CALL-WITH-I/O-HOOK.
-
-This is a high-level lock used for mutual exclusion in conversations
-with Emacs that can span multiple messages. The I/O lock must
-separately be held when reading and writing individual messages."))
-
-;;; Functions for attracting the Emacs user's attention.
-
-(defgeneric wait-goahead ()
-  (:documentation
-   "Block until told to continue by `give-gohead'.
-
-Systems that do not support multiprocessing return immediately."))
-
-(defgeneric give-goahead (thread-id)
-  (:documentation
-   "Permit THREAD-ID to continue from WAIT-GOAHEAD.
-It is an error to call (GIVE-GOAHEAD ID) unless ID is blocking in
-WAIT-GOAHEAD.
-
-Systems that do not support multiprocessing always signal an error."))
+   "Call FUNCTION with LOCK held, queueing if necessary."))
 
 
 ;;;;; Default implementation for non-MP systems
@@ -471,16 +441,9 @@ Systems that do not support multiprocessing always signal an error."))
 (defmethod no-applicable-method ((m (eql #'thread-name)) &rest _)
   (declare (ignore _))
   "The One True Thread")
-(defmethod no-applicable-method ((m (eql #'call-with-I/O-lock))
-                                 &rest args)
-  (funcall (first args)))
-(defmethod no-applicable-method ((m (eql #'call-with-conversation-lock))
-                                 &rest args)
-  (funcall (first args)))
-(defmethod no-applicable-method ((m (eql #'wait-goahead)) &rest _)
+(defmethod no-applicable-method ((m (eql #'make-lock)) &rest _)
   (declare (ignore _))
-  t)
-(defmethod no-applicable-method ((m (eql #'give-goahead)) &rest _)
-  (declare (ignore _))
-  (error "SLIME multiprocessing not available"))
+  :null-lock)
+(defmethod no-applicable-method ((m (eql #'call-with-lock-held)) &rest args)
+  (funcall (second args)))
 
