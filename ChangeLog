@@ -1,3 +1,9 @@
+2003-10-20  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el: Updated test suite to work with the different backends:
+	(find-definition): Lookup definitions in swank.lisp.
+	(arglist): Lookup arglists of functions in swank.lisp.
+
 2003-10-20  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (interactive-eval): Make test case independent of
