@@ -469,6 +469,7 @@ A prefix argument disables this behaviour."
     ("\M-." slime-edit-definition :inferior t :sldb t)
     ("\M-," slime-pop-find-definition-stack :inferior t :sldb t)
     ("\C-q" slime-close-parens-at-point :prefixed t :inferior t)
+    ("\C-\M-q" slime-reindent-defun :inferior t)
     ;; Evaluating
     ("\C-x\C-e" slime-eval-last-expression :inferior t)
     ("\C-x\M-e" slime-eval-last-expression-display-output :inferior t)
@@ -5674,6 +5675,29 @@ is setup, unless the user already set one explicitly."
                    (get symbol 'slime-indent))
         (put symbol 'slime-indent indent)
         (put symbol 'common-lisp-indent-function indent)))))
+
+(defun slime-reindent-defun (&optional force-text-fill)
+  "Reindent the current defun, or refill the current paragraph.
+If point is inside a comment block, the text around point will be
+treated as a paragraph and will be filled with `fill-paragraph'.
+Otherwise, it will be treated as Lisp code, and the current defun
+will be reindented.  If the current defun has unbalanced parens,
+an attempt will be made to fix it before reindenting.
+
+When given a prefix argument, the text around point will always
+be treated as a paragraph.  This is useful for filling docstrings."
+  (interactive "P")
+  (save-excursion
+    (if (or force-text-fill (slime-beginning-of-comment))
+        (fill-paragraph nil)
+        (let ((start (progn (beginning-of-defun) (point)))
+              (end (ignore-errors (end-of-defun) (point))))
+          (unless end
+            (forward-paragraph)
+            (slime-close-all-sexp)
+            (end-of-defun)
+            (setf end (point)))
+          (indent-region start end)))))
 
 ;;; Test suite
 
