@@ -1,3 +1,28 @@
+2004-03-30  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-repl-result-face): New face.
+	(slime-inspector-mode-map): Add a binding for M-.
+	(compile-defun): Add test case for escaped double quotes inside a
+	string.
+
+	* swank.lisp (ed-in-emacs): New allowed form for argument.
+	(pprint-eval-string-in-frame): Apply arguments in proper order.
+
+	* swank-cmucl.lisp (method-dspec): Include the specializers.
+	(class-definitions): Renamed from struct-definitions.  Try to
+	locate condition-classes and PCL classes (in the future).
+	(debug-function-arglist): Insert &optional, &key, &rest in the
+	right places.
+	(form-number-stream-position): Make it a separate function.
+
+2004-03-29  Lawrence Mitchell  <wence@gmx.li>
+
+	* swank.lisp (ed-in-emacs): New allowed form for argument.
+
+	* slime.el (slime-ed): Deal with list form of argument.  For a
+	list (FILENAME LINE [COLUMN]), visit the correct line and column
+	number.
+
 2004-03-29  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-source-path-parser.lisp (cmucl-style-get-macro-character):
