@@ -24,7 +24,9 @@
 	   #:describe-type
 	   #:describe-class
 	   #:disassemble-symbol
+	   #:load-file
 	   #:toggle-trace-fdefinition
+	   #:untrace-all
            #:sldb-loop
 	   #:debugger-info-for-emacs
 	   #:backtrace-for-emacs
@@ -145,6 +147,8 @@ The request is read from the socket as a sexp and then evaluated."
 	(*print-pretty* nil)
 	(*package* *swank-io-package*))
     (prin1-to-string object)))
+
+
   
 ;;; Functions for Emacs to call.
 
@@ -153,6 +157,32 @@ The request is read from the socket as a sexp and then evaluated."
     (defun ,fun ,@rest)
     (export ',fun :swank)))
 
+;;; Utilities.
+
+(defvar *buffer-package*)
+(setf (documentation '*buffer-package* 'symbol)
+      "Package corresponding to slime-buffer-package.  
+
+EVAL-STRING binds *buffer-package*.  Strings originating from a slime
+buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
+
+(defun from-string (string)
+  "Read string in the *BUFFER-PACKAGE*"
+  (let ((*package* *buffer-package*))
+    (read-from-string string)))
+
+(defun to-string (string)
+  "Write string in the *BUFFER-PACKAGE*"
+  (let ((*package* *buffer-package*))
+    (prin1-to-string string)))
+
+(defun read-symbol/package (symbol-name package-name)
+  (let ((package (find-package package-name)))
+    (unless package (error "No such package: ~S" package-name))
+    (handler-case 
+        (let ((*package* package))
+          (read-from-string symbol-name))
+      (reader-error () nil))))
 
 ;;; Asynchronous eval
 
@@ -165,17 +195,7 @@ The request is read from the socket as a sexp and then evaluated."
 (defvar *swank-debugger-condition*)
 (defvar *swank-debugger-hook*)
 
-(defvar *buffer-package*)
-(setf (documentation '*buffer-package* 'symbol)
-      "Package corresponding to slime-buffer-package.  
 
-EVAL-STRING binds *buffer-package*.  Strings originating from a slime
-buffer are best read in this package.  See also READ-STRING.")
-
-(defun read-string (string)
-  "Read string in the *BUFFER-PACKAGE*"
-  (let ((*package* *buffer-package*))
-    (read-from-string string)))
 
 (defun swank-debugger-hook (condition hook)
   (send-to-emacs '(:debugger-hook))
@@ -188,17 +208,18 @@ buffer are best read in this package.  See also READ-STRING.")
     (let (ok result)
       (unwind-protect
 	   (let ((*buffer-package* (guess-package-from-string buffer-package)))
-	     (setq result (eval (read-string string)))
+	     (assert (packagep *buffer-package*))
+	     (setq result (eval (from-string string)))
 	     (setq ok t))
 	(send-to-emacs (if ok `(:ok ,result) '(:aborted)))))))
 
 (defslimefun interactive-eval (string)
-  (let ((values (multiple-value-list (eval (read-string string)))))
+  (let ((values (multiple-value-list (eval (from-string string)))))
     (force-output)
     (format nil "~{~S~^, ~}" values)))
 
 (defslimefun pprint-eval (string)
-  (let ((value (eval (read-string string))))
+  (let ((value (eval (from-string string))))
     (let ((*print-pretty* t)
 	  (*print-circle* t)
 	  (*print-level* nil)
@@ -247,8 +268,7 @@ Each value is a list of (LOCATION SEVERITY MESSAGE CONTEXT) lists.
 See C:*COMPILER-NOTIFICATION-FUNCTION*"
   (let* ((namestring (cond ((stringp where-from) where-from)
 			   ;; we can be passed a stream from READER-ERROR
-			   ((lisp::fd-stream-p where-from)
-			    (lisp::fd-stream-file where-from))
+			   (where-from (to-string where-from))
 			   (t where-from)))
 	 (note (list 
 		:position position
@@ -310,34 +330,38 @@ compiler state."
 	:source-info `(:emacs-buffer ,buffer :emacs-buffer-offset ,start))))))
 
 ;;;; ARGLIST-STRING -- interface
-(defslimefun arglist-string (function)
-  "Return a string describing the argument list for FUNCTION.
+(defslimefun arglist-string (fname)
+  "Return a string describing the argument list for FNAME.
 The result has the format \"(...)\"."
-  (declare (type (or symbol function) function))
-  (let ((arglist
-         (if (not (or (fboundp function)
-                      (functionp function)))
-             "(-- <Unknown-Function>)"
-             (let* ((fun (etypecase function
-                           (symbol (or (macro-function function)
-                                       (symbol-function function)))
-                           ;;(function function)
-			   ))
-                    (df (di::function-debug-function fun))
-                    (arglist (kernel:%function-arglist fun)))
-               (cond ((eval:interpreted-function-p fun)
-                      (eval:interpreted-function-arglist fun))
-                     ((pcl::generic-function-p fun)
-                      (pcl::gf-pretty-arglist fun))
-                     (arglist arglist)
-                     ;; this should work both for
-                     ;; compiled-debug-function and for
-                     ;; interpreted-debug-function
-                     (df (di::debug-function-lambda-list df))
-                     (t "(<arglist-unavailable>)"))))))
-    (if (stringp arglist)
-        arglist
-        (prin1-to-string-for-emacs arglist))))
+  (declare (type string fname))
+  (multiple-value-bind (function condition)
+      (ignore-errors (values (from-string fname)))
+    (when condition
+      (return-from arglist-string (format nil "(-- ~A)" condition)))
+    (let ((arglist
+	   (if (not (or (fboundp function)
+			(functionp function)))
+	       "(-- <Unknown-Function>)"
+	       (let* ((fun (etypecase function
+			     (symbol (or (macro-function function)
+					 (symbol-function function)))
+			     ;;(function function)
+			     ))
+		      (df (di::function-debug-function fun))
+		      (arglist (kernel:%function-arglist fun)))
+		 (cond ((eval:interpreted-function-p fun)
+			(eval:interpreted-function-arglist fun))
+		       ((pcl::generic-function-p fun)
+			(pcl::gf-pretty-arglist fun))
+		       (arglist arglist)
+		       ;; this should work both for
+		       ;; compiled-debug-function and for
+		       ;; interpreted-debug-function
+		       (df (di::debug-function-lambda-list df))
+		       (t "(<arglist-unavailable>)"))))))
+      (if (stringp arglist)
+	  arglist
+	  (to-string arglist)))))
 
 ;;;; COMPLETIONS -- interface
 
@@ -445,7 +469,7 @@ the package are considered."
   ;; constructor for the struct-class.  Defstruct creates a defun for
   ;; the default constructor and we use that as an approximation to
   ;; the source location of the defstruct.  Unfortunately, some
-  ;; defstruct have no or non-default constructors, in that case we
+  ;; defstructs have no or non-default constructors, in that case we
   ;; are out of luck.
   ;;
   ;; For an ordinary function we return the source location of the
@@ -465,7 +489,7 @@ the package are considered."
 
 (defslimefun function-source-location-for-emacs (fname)
   "Return the source-location of FNAME's definition."
-  (let ((fname (read-string fname)))
+  (let ((fname (from-string fname)))
     (cond ((and (symbolp fname) (macro-function fname))
 	   (function-source-location (macro-function fname)))
 	  (t
@@ -504,17 +528,6 @@ the package are considered."
           (when (and source (eq (c::debug-source-from source) :file))
             (to-namestring (c::debug-source-name source))))))))
 
-;;;; Utilities.
-
-(defun read-symbol/package (symbol-name package-name)
-  (let ((package (find-package package-name)))
-    (unless package (error "No such package: ~S" package-name))
-    (handler-case 
-        (let ((*package* package))
-          (read-from-string symbol-name))
-      (reader-error () nil))))
-
-
 (defun briefly-describe-symbol-for-emacs (symbol)
   "Return a plist of describing SYMBOL.
 Return NIL if the symbol is unbound."
@@ -550,7 +563,7 @@ Return NIL if the symbol is unbound."
        :class (if (find-class symbol nil) 
 		  (doc 'class)))
       (if result
-	  (list* :designator (prin1-to-string symbol) result)))))
+	  (list* :designator (to-string symbol) result)))))
 
 (defslimefun apropos-list-for-emacs  (name &optional external-only package)
   "Make an apropos search for Emacs.
@@ -599,22 +612,22 @@ that symbols accessible in the current package go first."
   (print-output-to-string (lambda () (describe object))))
 
 (defslimefun describe-symbol (symbol-name)
-  (print-desciption-to-string (read-string symbol-name)))
+  (print-desciption-to-string (from-string symbol-name)))
 
 (defslimefun describe-function (symbol-name)
-  (print-desciption-to-string (symbol-function (read-string symbol-name))))
+  (print-desciption-to-string (symbol-function (from-string symbol-name))))
 
 (defslimefun describe-setf-function (symbol-name)
   (print-desciption-to-string
-   (or (ext:info setf inverse (read-string symbol-name))
-       (ext:info setf expander (read-string symbol-name)))))
+   (or (ext:info setf inverse (from-string symbol-name))
+       (ext:info setf expander (from-string symbol-name)))))
 
 (defslimefun describe-type (symbol-name)
   (print-desciption-to-string
-   (kernel:values-specifier-type (read-string symbol-name))))
+   (kernel:values-specifier-type (from-string symbol-name))))
 
 (defslimefun describe-class (symbol-name)
-  (print-desciption-to-string (find-class (read-string symbol-name) nil)))
+  (print-desciption-to-string (find-class (from-string symbol-name) nil)))
 
 ;;; Macroexpansion
 
@@ -622,7 +635,7 @@ that symbols accessible in the current package go first."
   (let ((*print-pretty* t)
 	(*print-length* 20)
 	(*print-level* 20))
-    (prin1-to-string (funcall expander (read-string string)))))
+    (to-string (funcall expander (from-string string)))))
 
 (defslimefun swank-macroexpand-1 (string)
   (apply-macro-expander #'macroexpand-1 string))
@@ -633,17 +646,15 @@ that symbols accessible in the current package go first."
 (defslimefun swank-macroexpand-all (string)
   (apply-macro-expander #'walker:macroexpand-all string))
 
-   
 
 
-;;; Debugging
-
+;;;
 (defun tracedp (fname)
   (gethash (debug::trace-fdefinition fname)
 	   debug::*traced-functions*))
 
 (defslimefun toggle-trace-fdefinition (fname-string)
-  (let ((fname (read-string fname-string)))
+  (let ((fname (from-string fname-string)))
     (cond ((tracedp fname)
 	   (debug::untrace-1 fname)
 	   (format nil "~S is now untraced." fname))
@@ -651,8 +662,18 @@ that symbols accessible in the current package go first."
 	   (debug::trace-1 fname (debug::make-trace-info))
 	   (format nil "~S is now traced." fname)))))
 
+(defslimefun untrace-all ()
+  (untrace))
+
 (defslimefun disassemble-symbol (symbol-name)
-  (print-output-to-string (lambda () (disassemble (read-string symbol-name)))))
+  (print-output-to-string (lambda () (disassemble (from-string symbol-name)))))
+   
+(defslimefun load-file (filename)
+  (load filename))
+
+
+;;; Debugging
+
 
 (defvar *sldb-level* 0)
 (defvar *sldb-stack-top*)
@@ -665,7 +686,11 @@ that symbols accessible in the current package go first."
 	 (*sldb-restarts* (compute-restarts *swank-debugger-condition*))
 	 (debug:*stack-top-hint* nil)
 	 (*debugger-hook* nil)
-	 (level *sldb-level*))
+	 (level *sldb-level*)
+	 (*package* *buffer-package*)
+	 (*readtable* (or debug:*debug-readtable* *readtable*))
+	 (*print-level* debug:*debug-print-level*)
+	 (*print-length* debug:*debug-print-length*))
     (handler-bind ((di:debug-condition 
 		    (lambda (condition)
 		      (send-to-emacs `(:debug-condition
@@ -755,9 +780,10 @@ stack."
 	(read-delimited-list #\( file))
       (file-position file))))
 
-(defun debug-source-from-emacs-buffer-p (debug-source)
+(defun debug-source-info-from-emacs-buffer-p (debug-source)
   (let ((info (c::debug-source-info debug-source)))
     (and info 
+	 (consp info)
 	 (eq :emacs-buffer (car info)))))
 
 (defun source-location-for-emacs (code-location)
@@ -770,11 +796,12 @@ stack."
 		   (ext:unix-namestring (truename name)))
      :position (if (eq from :file)
 		   (code-location-file-position code-location))
-     :info (c::debug-source-info debug-source)
+     :info (and (debug-source-info-from-emacs-buffer-p debug-source)
+		(c::debug-source-info debug-source))
      :path (code-location-source-path code-location)
      :source-form
      (unless (or (eq from :file)
-		 (debug-source-from-emacs-buffer-p debug-source))
+		 (debug-source-info-from-emacs-buffer-p debug-source))
 	 (with-output-to-string (*standard-output*)
 	   (debug::print-code-location-source-form code-location 100 t))))))
 
@@ -786,8 +813,7 @@ stack."
   (safe-source-location-for-emacs (di:frame-code-location (nth-frame index))))
 
 (defslimefun eval-string-in-frame (string index)
-  (prin1-to-string
-   (di:eval-in-frame (nth-frame index) (read-string string))))
+  (to-string (di:eval-in-frame (nth-frame index) (from-string string))))
 
 (defslimefun frame-locals (index)
   (let* ((frame (nth-frame index))
@@ -800,7 +826,7 @@ stack."
 		   :id (di:debug-variable-id v)
 		   :validity (di:debug-variable-validity v location)
 		   :value-string
-		   (prin1-to-string (di:debug-variable-value v frame))))))
+		   (to-string (di:debug-variable-value v frame))))))
 
 (defslimefun frame-catch-tags (index)
   (loop for (tag . code-location) in (di:frame-catches (nth-frame index))
