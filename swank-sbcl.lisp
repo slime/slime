@@ -209,7 +209,7 @@ information."
 
 ;; SBCL doesn't have compile-from-stream, so C-c C-c ends up here
 (defmethod resolve-note-location ((b string) (f (eql :lisp)) pos path source)
-  ;; Remove the sourounding lambda from the path (was added by
+  ;; Remove the surrounding lambda from the path (was added by
   ;; swank-compile-string)
   (destructuring-bind (_ form &rest rest) path
     (declare (ignore _))
@@ -633,6 +633,70 @@ stack."
                  (sb-pcl::generic-function-pretty-arglist o))
            (cons "Initial-Methods" 
                  (sb-pcl::generic-function-initial-methods  o)))))
+
+
+;;;; Support for SBCL syntax
+
+(defun feature-in-list-p (feature list)
+  (etypecase feature
+    (symbol (member feature list :test #'eq))
+    (cons (flet ((subfeature-in-list-p (subfeature)
+		   (feature-in-list-p subfeature list)))
+	    (ecase (first feature)
+	      (:or  (some  #'subfeature-in-list-p (rest feature)))
+	      (:and (every #'subfeature-in-list-p (rest feature)))
+	      (:not (let ((rest (cdr feature)))
+		      (if (or (null (car rest)) (cdr rest))
+			(error "wrong number of terms in compound feature ~S"
+			       feature)
+			(not (subfeature-in-list-p (second feature)))))))))))
+
+(defun shebang-reader (stream sub-character infix-parameter)
+  (declare (ignore sub-character))
+  (when infix-parameter
+    (error "illegal read syntax: #~D!" infix-parameter))
+  (let ((next-char (read-char stream)))
+    (unless (find next-char "+-")
+      (error "illegal read syntax: #!~C" next-char))
+    ;; When test is not satisfied
+    ;; FIXME: clearer if order of NOT-P and (NOT NOT-P) were reversed? then
+    ;; would become "unless test is satisfied"..
+    (when (let* ((*package* (find-package "KEYWORD"))
+		 (*read-suppress* nil)
+		 (not-p (char= next-char #\-))
+		 (feature (read stream)))
+	    (if (feature-in-list-p feature *features*)
+		not-p
+		(not not-p)))
+      ;; Read (and discard) a form from input.
+      (let ((*read-suppress* t))
+	(read stream t nil t))))
+ (values))
+
+(defvar *shebang-readtable* 
+  (let ((*readtable* (copy-readtable nil)))
+    (set-dispatch-macro-character #\# #\! 
+                                  (lambda (s c n) (shebang-reader s c n))
+                                  *readtable*)
+    *readtable*))
+
+(defun shebang-readtable ()
+  *shebang-readtable*)
+
+(defun sbcl-package-p (package)
+  (let ((name (package-name package)))
+    (eql (mismatch "SB-" name) 3)))
+
+(defvar *debootstrap-packages* t)
+
+(defimplementation call-with-syntax-hooks (fn)
+  (cond ((and *debootrap-packages* 
+              (sbcl-package-p *package*))
+         (handler-bind ((sb-int:bootstrap-package-not-found 
+                         #'sb-int:debootstrap-package))
+           (funcall fn)))
+        (t
+         (funcall fn))))
 
 
 ;;;; Multiprocessing
