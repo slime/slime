@@ -67,7 +67,8 @@
 
 (defun sigint-handler (&rest args)
   (declare (ignore args))
-  (invoke-debugger "SIGINT"))
+  (with-simple-restart  (continue "Continue from SIGINT handler.")
+    (invoke-debugger "SIGINT")))
 
 (defmethod call-without-interrupts (fn)
   (lispworks:without-interrupts (funcall fn)))
@@ -304,7 +305,7 @@ Return NIL if the symbol is unbound."
            (make-location `(:buffer ,buffer) `(:position ,position)))
           (t
            (etypecase location
-             (pathname 
+             ((or pathname string) 
               (make-location `(:file ,(filename location))
                              `(:function-name ,(function-name dspec))))
              ((member :listener)
@@ -378,9 +379,24 @@ Return NIL if the symbol is unbound."
 (defslimefun list-callees (symbol-name)
   (lookup-xrefs #'hcl:calls-who symbol-name))
 
-;; (dspec:at-location 
-;;  ('(:inside (:buffer "foo" 34)))
-;;  (defun foofun () (foofun)))
+;;; Multithreading
 
-;; (dspec:find-dspec-locations 'xref-results-for-emacs)
-;; (who-binds '*package*)
+(defmethod startup-multiprocessing ()
+  (mp:initialize-multiprocessing))
+
+(defmethod spawn (fn &key name)
+  (mp:process-run-function name () fn))
+
+;; XXX: shurtcut
+(defmethod thread-id ()
+  (mp:process-name mp:*current-process*))
+
+(defmethod thread-name (thread-id)
+  thread-id)
+
+(defmethod make-lock (&key name)
+  (mp:make-lock :name name))
+
+(defmethod call-with-lock-held (lock function)
+  (mp:with-lock (lock) (funcall function)))
+
