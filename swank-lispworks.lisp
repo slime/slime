@@ -25,6 +25,50 @@
    stream:stream-line-column
    ))
 
+(import-to-swank-mop
+ '( ;; classes
+   cl:standard-generic-function
+   clos:standard-slot-definition
+   cl:method
+   cl:standard-class
+   ;; standard-class readers
+   clos:class-default-initargs
+   clos:class-direct-default-initargs
+   clos:class-direct-slots
+   clos:class-direct-subclasses
+   clos:class-direct-superclasses
+   clos:class-finalized-p
+   cl:class-name
+   clos:class-precedence-list
+   clos:class-prototype
+   clos:class-slots
+   ;; generic function readers
+   clos:generic-function-argument-precedence-order
+   clos:generic-function-declarations
+   clos:generic-function-lambda-list
+   clos:generic-function-methods
+   clos:generic-function-method-class
+   clos:generic-function-method-combination
+   clos:generic-function-name
+   ;; method readers
+   clos:method-generic-function
+   clos:method-function
+   clos:method-lambda-list
+   clos:method-specializers
+   clos:method-qualifiers
+   ;; slot readers
+   clos:slot-definition-allocation
+   clos:slot-definition-initargs
+   clos:slot-definition-initform
+   clos:slot-definition-initfunction
+   clos:slot-definition-name
+   clos:slot-definition-type
+   clos:slot-definition-readers
+   clos:slot-definition-writers))
+
+(defun swank-mop:slot-definition-documentation (slot)
+  (documentation slot t))
+
 (when (fboundp 'dspec::define-dspec-alias)
   (dspec::define-dspec-alias defimplementation (name args &rest body)
     `(defmethod ,name ,args ,@body)))
@@ -111,13 +155,16 @@
 
 ;;;; Documentation
 
-(defimplementation arglist (symbol)
-  (let ((arglist (lw:function-lambda-list symbol)))
+(defimplementation arglist (symbol-or-function)
+  (let ((arglist (lw:function-lambda-list symbol-or-function)))
     (etypecase arglist
       ((member :dont-know) 
        :not-available)
       (list
        arglist))))
+
+(defimplementation function-name (function)
+  (nth-value 2 (function-lambda-expression function)))
 
 (defimplementation macroexpand-all (form)
   (walker:walk-form form))
