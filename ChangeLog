@@ -1,3 +1,20 @@
+2005-03-16  Helmut Eller  <heller@common-lisp.net>
+
+	* slime/swank.lisp (*macroexpand-printer-bindings*): New user
+	variable.
+	(apply-macro-expander): Use it.
+	(call-with-bindings): Bind variables in reverse order. Thit makes
+	it easer to cons or push a new binding at the front the list.
+	(with-bindings): New macro.
+
+	* slime.el (slime-run-when-idle): New function to hide
+	Emacs/XEmacs differences.
+	(slime-process-available-input): Use it.
+
+	* swank-loader.lisp (unique-directory-name): Rewritten to avoid
+	the rather irritating warning that (warn "Don't know ...") is
+	unreachable.
+	
 2005-03-13  Luke Gorrie  <luke@synap.se>
 
 	* slime.el (slime-dispatch-event): Use `slime-busy-p' to control
