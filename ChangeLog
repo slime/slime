@@ -38,6 +38,8 @@
 	(all-qualified-readnames): Removed. It was not needed because
 	common-lisp-indent-function strips of any package prefix and
 	downcases the symbol anyway.
+ 	(printer-variables sldb-print): Ooops. Better use sldb-print as prefix
+	than sldb alone.  *sldb-level* was already defined.
 
 	* swank-cmucl.lisp (inspect-for-emacs (code-component)):
 	Disassemble the memory region if there's not enough debug info.
