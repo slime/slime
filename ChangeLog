@@ -3,14 +3,20 @@
 	* swank-sbcl.lisp (emacs-connected): Set *invoke-debugger-hook* to
 	our debugger hook.  Not optimal, but at least BREAK will then
 	invoke our debugger.
-
+	(*trap-load-time-warnings*): New variable.  If it is true,
+	conditions, most notably redefinition warnings, signalled at load
+	time are not trapped.
+	(swank-compile-file, swank-compile-string): Use it.
+	
 	* swank.lisp (guess-buffer-package): Don't signal a continuable
 	error if the package doesn't exists; that's too annoying.
 
 	* slime.el: Fix outline structure.
-	
-	* slime.el (slime-eval-feature-conditional)
-	(slime-to-feature-keyword): Add a ?: to the symbol-name if needed.
+        (slime-maybe-list-compiler-notes): Fix thinko.
+	(break): New test.  Reorganize the test-suite a bit to support
+	"expected failures".
+	(slime-eval-feature-conditional, slime-to-feature-keyword): Add a
+	?: to the symbol-name if needed.
 	
 2004-06-20  Luke Gorrie  <luke@bluetail.com>
 
