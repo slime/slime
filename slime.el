@@ -773,10 +773,8 @@ The REPL buffer is a special case: it's package is `slime-lisp-package'."
       (goto-char (match-end 0))
       (skip-chars-forward " \n\t\f\r#")
       (let ((pkg (ignore-errors (read (current-buffer)))))
-	(cond ((stringp pkg)
-	       pkg)
-	      ((symbolp pkg)
-	       (symbol-name pkg)))))))
+        (if pkg
+            (format "%S" pkg))))))
 
 (defun slime-display-buffer-other-window (buffer &optional not-this-window)
   "Display BUFFER in some other window.
@@ -3015,14 +3013,15 @@ The order of the input list is preserved."
       (slime-show-xrefs
        xrefs 'definition "Compiler notes" (slime-buffer-package)))))
 
+(defun slime-note-has-location-p (note)
+  (not (eq ':error (car (slime-note.location note)))))
+
 (defun slime-maybe-list-compiler-notes (notes)
   "Show the compiler notes if appropriate.
 Useful value for `slime-compilation-finished-hook'"
   (unless (or (null notes)
 	      (and (eq last-command 'slime-compile-defun)
-                   (some (lambda (x) 
-                           (not (eq ':error (car (slime-note.location x)))))
-                         notes)))
+                   (every #'slime-note-has-location-p notes)))
     (slime-list-compiler-notes notes)))
 
 (defun slime-list-compiler-notes (&optional notes)
@@ -3822,6 +3821,9 @@ annoy the user)."
 
 ;;; Completion
 
+;; XXX those long names are ugly to read; long names an indicator for
+;; bad factoring?
+
 (defvar slime-completions-buffer-name "*Completions*")
 
 (defvar slime-complete-saved-window-configuration nil
@@ -4515,8 +4517,7 @@ With prefix argument include internal symbols."
                  (:alien-type "Alien type")
                  (:alien-struct "Alien struct")
                  (:alien-union "Alien type")
-                 (:alien-enum "Alien enum")
-                 )
+                 (:alien-enum "Alien enum"))
 	    do
 	    (let ((value (plist-get plist prop))
 		  (start (point)))
@@ -6048,6 +6049,9 @@ be treated as a paragraph.  This is useful for filling docstrings."
 
 ;;; Test suite
 
+(defstruct (slime-test (:conc-name slime-test.))
+  name fname args doc inputs fails-for)
+  
 (defvar slime-tests '()
   "Names of test functions.")
 
@@ -6097,46 +6101,55 @@ that succeeded initially folded away."
         (goto-char (overlay-start o))
         (show-subtree)))))
 
+(defun slime-test-should-fail-p (test)
+  (member (slime-lisp-implementation-type-name)
+          (slime-test.fails-for test)))
+
 (defun slime-execute-tests ()
   "Execute each test case with each input.
 Return the number of failed tests."
   (save-window-excursion
     (let ((slime-total-tests 0)
-          (slime-failed-tests 0))
-      (loop for (name function inputs) in slime-tests
-            do (progn
-                 (slime-test-heading 1 "%s" name)
-                 (dolist (input inputs)
-                   (incf slime-total-tests)
-                   (slime-test-heading 2 "input: %s" input)
-                   (if slime-test-debug-on-error
-                       (let ((debug-on-error t)
-                             (debug-on-quit t))
-                         (apply function input))
-                     (condition-case err
-                         (apply function input)
-                       (error
-                        (when slime-test-debug-on-error
-                          (debug (format "Error in test: %S" err)))
-                        (incf slime-failed-tests)
-                        (slime-print-check-error err)))))))
-      (let ((summary (cond ((zerop slime-failed-tests)
+          (slime-expected-passes 0)
+          (slime-unexpected-failures 0)
+          (slime-expected-failures 0))
+      (dolist (slime-current-test slime-tests)
+        (with-struct (slime-test. name (function fname) inputs) 
+            slime-current-test
+          (slime-test-heading 1 "%s" name)
+          (dolist (input inputs)
+            (incf slime-total-tests)
+            (slime-test-heading 2 "input: %s" input)
+            (if slime-test-debug-on-error
+                (let ((debug-on-error t)
+                      (debug-on-quit t))
+                  (apply function input))
+              (condition-case err
+                  (apply function input)
+                (error
+                 (cond ((slime-test-should-fail-p slime-current-test)
+                        (incf slime-expected-failures)
+                        (slime-test-failure "ERROR (expected)"
+                                            (format "%S" err)))
+                       (t
+                        (incf slime-unexpected-failures)
+                        (slime-print-check-error err)))))))))
+      (let ((summary (cond ((and (zerop slime-expected-failures)
+                                 (zerop slime-unexpected-failures))
                             (format "All %S tests completed successfully."
                                     slime-total-tests))
-                           ((plusp (slime-expected-failures))
-                            (format "Failed on %S (%S expected) of %S tests."
-                                    slime-failed-tests 
-                                    (slime-expected-failures)
-                                    slime-total-tests))
                            (t
-                            (format "Failed on %S of %S tests."
-                                    slime-failed-tests slime-total-tests)))))
+                            (format "Failed on %S (%S expected) of %S tests."
+                                    (+ slime-expected-failures
+                                       slime-unexpected-failures)
+                                    slime-expected-failures
+                                    slime-total-tests)))))
         (save-excursion
           (with-current-buffer slime-test-buffer-name
             (goto-char (point-min))
             (insert summary "\n\n")))
         (message "%s" summary)
-        slime-failed-tests))))
+        slime-unexpected-failures))))
 
 (defun slime-batch-test (results-file)
   "Run the test suite in batch-mode.
@@ -6212,20 +6225,26 @@ KEYWORD names the type of failure and STRING describes the reason."
 
 (defmacro def-slime-test (name args doc inputs &rest body)
   "Define a test case.
-NAME is a symbol naming the test.
+NAME ::= SYMBOL | (SYMBOL (FAILS-FOR*)) is a symbol naming the test.
 ARGS is a lambda-list.
 DOC is a docstring.
 INPUTS is a list of argument lists, each tested separately.
 BODY is the test case. The body can use `slime-check' to test
 conditions (assertions)."
-  (let ((fname (intern (format "slime-test-%s" name))))
-    `(progn
-       (defun ,fname ,args
-         ,doc
-         (slime-sync)
-         ,@body)
-       (setq slime-tests (append (remove* ',name slime-tests :key 'car)
-                                 (list (list ',name ',fname ,inputs)))))))
+  (multiple-value-bind (name fails-for) (etypecase name
+                                          (symbol (values name '()))
+                                          (cons name))
+    (let ((fname (intern (format "slime-test-%s" name))))
+      `(progn
+         (defun ,fname ,args
+           ,doc
+           (slime-sync)
+           ,@body)
+         (setq slime-tests 
+               (append (remove* ',name slime-tests :key 'slime-test.name)
+                       (list (make-slime-test :name ',name :fname ',fname
+                                              :fails-for ',fails-for
+                                              :inputs ,inputs))))))))
 
 (defmacro slime-check (test-name &rest body)
   "Check a condition (assertion.)
@@ -6238,8 +6257,12 @@ BODY returns true if the check succeeds."
                            (cons `(format ,@test-name)))))
        (if (progn ,@body)
            (slime-print-check-ok ,check-name)
-         (incf slime-failed-tests)
-         (slime-print-check-failed ,check-name)
+         (cond ((slime-test-should-fail-p slime-current-test)
+                (incf slime-expected-failures)
+                (slime-test-failure "FAIL (expected)" ,check-name))
+               (t
+                (incf slime-unexpected-failures)
+                (slime-print-check-failed ,check-name)))
          (when slime-test-debug-on-error
            (debug (format "Check failed: %S" ,check-name)))))))
 
@@ -6298,6 +6321,11 @@ BODY returns true if the check succeeds."
     (with-current-buffer sldb
       sldb-level)))
 
+(defun slime-sldb-level= (level)
+  (when-let (sldb (sldb-get-buffer))
+    (with-current-buffer sldb
+      (equal sldb-level level))))
+
 (def-slime-test find-definition
     (name buffer-package)
     "Find the definition of a function or macro in swank.lisp."
@@ -6336,11 +6364,8 @@ BODY returns true if the check succeeds."
                            "cl::compile-file"))
       ("cl:m-v-l" (("cl:multiple-value-list" "cl:multiple-values-limit")
                    "cl:multiple-value-li")))
-  (slime-check-top-level)
   (let ((completions (slime-completions prefix)))
-    (slime-check "Completion set is as expected."
-      (equal expected-completions completions)))
-  (slime-check-top-level))
+    (slime-test-expect "Completion set" expected-completions completions)))
 
 (def-slime-test arglist
     (function-name expected-arglist)
@@ -6353,11 +6378,11 @@ Confirm that EXPECTED-ARGLIST is displayed."
       ("swank::create-socket"
        "(swank::create-socket host port)")
       ("swank::emacs-connected"
-       "(swank::emacs-connected)")
+       "(swank::emacs-connected stream)")
       ("swank::compile-string-for-emacs"
        "(swank::compile-string-for-emacs string buffer position)")
       ("swank::connection.socket-io"
-       "(swank::connection.socket-io structure)")
+       "(swank::connection.socket-io \\(struct\\(ure\\)?\\|object\\|instance\\))")
       ("cl:lisp-implementation-type"
        "(cl:lisp-implementation-type)")
       )
@@ -6367,10 +6392,11 @@ Confirm that EXPECTED-ARGLIST is displayed."
   (slime-check-top-level)
   (let ((arglist (slime-get-arglist function-name))) ;
     (slime-test-expect "Argument list is as expected"
-                       expected-arglist arglist))
+                       expected-arglist arglist
+                       #'string-match))
   (slime-check-top-level))
 
-(def-slime-test compile-defun 
+(def-slime-test (compile-defun ("allegro" "lispworks" "clisp"))
     (program subform)
     "Compile PROGRAM containing errors.
 Confirm that SUBFORM is correctly located."
@@ -6431,11 +6457,6 @@ Confirm that SUBFORM is correctly located."
         (slime-check ("Maximum depth reached (%S) is %S."
                       debug-hook-max-depth depth)
           (= debug-hook-max-depth depth))))))
-
-(defun slime-sldb-level= (level)
-  (when-let (sldb (sldb-get-buffer))
-    (with-current-buffer sldb
-      (equal sldb-level level))))
 
 (def-slime-test loop-interrupt-quit
     ()
@@ -6648,6 +6669,23 @@ SWANK> " t))
                        visiblep
                        (not (not (get-buffer-window (current-buffer)))))))
 
+(def-slime-test break 
+    ()
+    "Test if BREAK invokes SLDB."
+    '(())
+  (slime-compile-string (prin1-to-string '(cl:defun cl-user::foo () 
+                                                    (cl:break))) 
+                        0)
+  (slime-eval-async '(cl-user::foo) nil (lambda (_)))
+  (slime-wait-condition "Debugger visible" 
+                        (lambda () 
+                          (and (slime-sldb-level= 1)
+                               (get-buffer-window (sldb-get-buffer))))
+                        5)
+  (with-current-buffer (sldb-get-buffer)
+    (sldb-quit))
+  (slime-sync-to-top-level 5))
+  
 
 ;;; Portability library
 
