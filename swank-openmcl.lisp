@@ -50,7 +50,7 @@
 ;;;   run correctly (it hangs upon entering the debugger).
 ;;;
 
-(in-package :swank)
+(in-package :swank-backend)
 
 (import
  '(ccl:fundamental-character-output-stream
@@ -69,7 +69,8 @@
 
 ;;; TCP Server
 
-(setq *swank-in-background* :spawn)
+(defimplementation preferred-communication-style ()
+  :spawn)
 
 (defimplementation create-socket (host port)
   (ccl:make-socket :connect :passive :local-port port 
@@ -89,10 +90,10 @@
 
 ;;; Unix signals
 
-(defmethod call-without-interrupts (fn)
+(defimplementation call-without-interrupts (fn)
   (ccl:without-interrupts (funcall fn)))
 
-(defmethod getpid ()
+(defimplementation getpid ()
   (ccl::getpid))
 
 (defimplementation lisp-implementation-type-name ()
@@ -155,8 +156,8 @@
   (declare (ignore application condition))
   (setq *swank-debugger-stack-frame* error-pointer))
 
-(defimplementation arglist-string (fname)
-  (format-arglist fname #'ccl:arglist))
+(defimplementation arglist (fname)
+  (ccl:arglist fname))
 
 ;;; Compilation
 
@@ -195,13 +196,13 @@ condition."
   (handler-bind ((ccl::compiler-warning #'handle-compiler-warning))
     (funcall function)))
 
-(defimplementation compile-file-for-emacs (filename load-p)
+(defimplementation swank-compile-file (filename load-p)
   (with-compilation-hooks ()
     (let ((*buffer-name* nil)
           (*buffer-offset* nil))
       (compile-file filename :load load-p))))
 
-(defimplementation compile-system-for-emacs (system-name)
+(defimplementation swank-compile-system (system-name)
   (with-compilation-hooks ()
     (let ((*buffer-name* nil)
           (*buffer-offset* nil))
@@ -211,11 +212,10 @@ condition."
                (funcall oos load-op system-name))
               (t (error "ASDF not loaded")))))))
 
-(defimplementation compile-string-for-emacs (string &key buffer position)
+(defimplementation swank-compile-string (string &key buffer position)
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)
           (*buffer-offset* position)
-          (*package* *buffer-package*)
           (filename (temp-file-name)))
       (unwind-protect
            (with-open-file (s filename :direction :output :if-exists :error)
@@ -227,19 +227,12 @@ condition."
 ;;; Debugging
 
 (defvar *sldb-stack-top*)
-(defvar *sldb-restarts*)
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let* ((*sldb-stack-top* nil)
-         (*sldb-restarts* (compute-restarts *swank-debugger-condition*))
          (*debugger-hook* nil)
          (ccl::*signal-printing-errors* nil)) ; don't let error while printing error take us down
     (funcall debugger-loop-fn)))
-
-(defun format-restarts-for-emacs ()
-  (loop for restart in *sldb-restarts*
-        collect (list (princ-to-string (restart-name restart))
-                      (princ-to-string restart))))
 
 (defun map-backtrace (function &optional
                       (start-frame-number 0)
@@ -271,56 +264,30 @@ condition."
               (ccl::nth-value-in-frame p i tcr lfun pc vsp parent-vsp)
             (when name
               (cond ((equal type "required")
-                     (push (to-string var) result))
+                     (push (princ-to-string var) result))
                     ((equal type "optional")
-                     (push (to-string var) result))
+                     (push (princ-to-string var) result))
                     ((equal type "keyword")
                      (push (format nil "~S ~A" 
                                    (intern (symbol-name name) "KEYWORD")
-                                   (to-string var))
+                                   (princ-to-string var))
                            result))))))
         (format nil "~{ ~A~}" (nreverse result)))))
 
-(defimplementation backtrace (start-frame-number end-frame-number)
-  "Return a list containing a stack backtrace of the condition
-currently being debugged.  The return value of this function is
-unspecified unless called in the dynamic contour of a function
-defined by DEFINE-DEBUGGER-HOOK.
-
-START-FRAME-NUMBER and END-FRAME-NUMBER are zero-based indices
-constraining the number of frames returned.  Frame zero is
-defined as the frame which invoked the debugger.
-
-The backtrace is returned as a list of tuples of the form
-\(FRAME-NUMBER FRAME-DESCRIPTION\), where FRAME-NUMBER is the
-index of the frame, defined like START-FRAME-NUMBER, and
-FRAME-DESCRIPTION is a string containing a textual description
-of the call at this stack frame.
-
-An example return value:
-
-   ((0 \"(HELLO \"world\"))
-    (1 \"(RUN-EXCITING-LISP-DEMO)\")
-    (2 \"(SYS::%TOPLEVEL #<SYS::ENVIRONMENT #x2930843>)\"))
-
-If the backtrace cannot be calculated, this function returns NIL."
+;; XXX should return something less stringy
+(defimplementation compute-backtrace (start-frame-number end-frame-number)
   (let (result)
     (map-backtrace (lambda (frame-number p tcr lfun pc)
-                     (push (list frame-number
-                                 (print-with-frame-label
-                                  frame-number
-                                  (lambda (s)
-                                    (format s "(~A~A)"
-                                            (ccl::%lfun-name-string lfun)
-                                            (frame-arguments p tcr lfun pc)))))
+                     (push (with-output-to-string (s)
+                             (format s "(~A~A)"
+                                     (ccl::%lfun-name-string lfun)
+                                     (frame-arguments p tcr lfun pc)))
                            result))
                    start-frame-number end-frame-number)
     (nreverse result)))
 
-(defimplementation debugger-info-for-emacs (start end)
-  (list (debugger-condition-for-emacs)
-        (format-restarts-for-emacs)
-        (backtrace start end)))
+(defimplementation print-frame (frame stream)
+  (princ frame stream))
 
 (defimplementation frame-locals (index)
   (map-backtrace 
@@ -342,7 +309,7 @@ If the backtrace cannot be calculated, this function returns NIL."
            (return-from frame-locals (nreverse result))))))))
 
 (defimplementation frame-catch-tags (index &aux my-frame)
-   (map-backtrace 
+  (map-backtrace 
    (lambda (frame-number p tcr lfun pc)
       (declare (ignore pc lfun))
       (if (= frame-number index) 
@@ -358,12 +325,12 @@ If the backtrace cannot be calculated, this function returns NIL."
                     when (ccl::%stack< my-frame csp tcr)
                     collect (cond 
                               ((symbolp tag)
-                               (list tag))
+                               tag)
                               ((and (listp tag)
-                                    (typep (car tag) 'restart)
-                                    (list `(:restart ,(restart-name (car tag))))))))))))))
-                       
-(defslimefun sldb-disassemble (the-frame-number)
+                                    (typep (car tag) 'restart))
+                               `(:restart ,(restart-name (car tag))))))))))))
+
+(defimplementation sldb-disassemble (the-frame-number)
   "Return a string with the disassembly of frames code."
   (let ((function-to-disassemble nil))
     (block find-frame
@@ -379,48 +346,24 @@ If the backtrace cannot be calculated, this function returns NIL."
 
 ;;;
 
-(defun find-source-locations (symbol name)
-  (let* ((info (ccl::source-file-or-files symbol nil nil nil))
-         (locations '()))
-    (labels ((frob (pathname position)
-               (multiple-value-bind (truename c) 
-                   (ignore-errors (truename pathname))
-                 (cond (c 
-                        (push (list :error (princ-to-string c)) locations))
-                       (t 
-                        (push (make-location (list :file (namestring truename))
-                                             position)
-                              locations)))))
-             (frob* (list position)
-               (etypecase list
-                 (cons (dolist (file list) (frob file position)))
-                 ((or string pathname) (frob list position)))))
-      (etypecase info
-        (null (return-from find-source-locations
-                (list
-                 (list :error 
-                       (format nil "No source info available for ~A" 
-                               symbol)))))
-        ((or string pathname) (frob info (list :function-name name)))
-        (cons
-         (dolist (i info)
-           (typecase (car i)
-             ((member method)
-              (loop for (nil . files) in (cdr i) 
-                    do (frob* files (list :function-name name))))
-             ((member function variable method-combination)
-              (frob* (cdr i) (list :function-name name)))
-             (t (list :error "Cannot resolve source info: ~A" info)))))))
-      locations))
+(defun canonicalize-location (file symbol)
+  (etypecase file
+    ((or string pathname)
+     (multiple-value-bind (truename c) (ignore-errors (truename file))
+       (cond (c (list :error (princ-to-string c)))
+             (t (make-location (list :file (namestring truename))
+                               (list :function-name (string symbol)))))))))
 
-(defimplementation find-function-locations (fname)
-  (let ((symbol (from-string fname)))
-    (find-source-locations symbol (symbol-name symbol))))
+(defimplementation find-definitions (symbol)
+  (let ((info (ccl::get-source-files-with-types&classes symbol)))
+    (loop for (type . file) in info
+          collect (list (list type symbol) 
+                        (canonicalize-location file symbol)))))
 
-(defun function-source-location (symbol)
-  "Return a plist containing a source location for the function
-named SYMBOL."
-  (car (find-source-locations symbol (string symbol))))
+(defun function-source-location (function)
+  (multiple-value-bind (info name) (ccl::edit-definition-p function)
+    (cond ((not info) (list :error "No source info available for ~A" function))
+          (t (canonicalize-location (cdr (first info)) name)))))
 
 (defimplementation frame-source-location-for-emacs (index)
   "Return to Emacs the location of the source code for the
@@ -432,29 +375,7 @@ at least the filename containing it."
      (declare (ignore p tcr pc))
      (when (and (= frame-number index) lfun)
        (return-from frame-source-location-for-emacs
-         (if (typep lfun 'ccl::method-function)
-             (method-source-location lfun)
-             (function-source-location (ccl:function-name lfun))))))))
-
-;; FIXME this is still wrong since it doesn't pass back which method in the file is the one you are looking for.
-(defun method-source-location (method)
-  (multiple-value-bind (files name type specializers qualifiers)
-      (ccl::edit-definition-p method)
-    (declare (ignore type specializers qualifiers))
-    (let ((file (cdr (car files))))
-      `(:location
-        (:file
-         ,(namestring (translate-logical-pathname file)))
-        (:function-name ,(string name))))))
-
-(defun nth-restart (index)
-  (nth index *sldb-restarts*))
-
-(defslimefun invoke-nth-restart (index)
-  (invoke-restart-interactively (nth-restart index)))
-
-(defslimefun sldb-abort ()
-  (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
+         (function-source-location lfun))))))
 
 (defimplementation eval-in-frame (form index)
   (map-backtrace
@@ -478,13 +399,12 @@ at least the filename containing it."
            ))))))
 
 (defimplementation return-from-frame (index form)
-  (let ((values (multiple-value-list (eval-in-frame (from-string form) 
-                                                    index))))
+  (let ((values (multiple-value-list (eval-in-frame form index))))
     (map-backtrace
      (lambda (frame-number p tcr lfun pc)
        (declare (ignore tcr lfun pc))
        (when (= frame-number index)
-         (ccl::apply-in-frame p #'values  values))))))
+         (ccl::apply-in-frame p #'values values))))))
  
 (defimplementation restart-frame (index)
   (map-backtrace
@@ -494,9 +414,6 @@ at least the filename containing it."
                             (ccl::frame-supplied-args p lfun pc nil tcr))))))
 
 ;;; Utilities
-
-(defslimefun describe-class (symbol-name)
-  (print-description-to-string (find-class (from-string symbol-name) nil)))
 
 (defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))
@@ -518,30 +435,29 @@ at least the filename containing it."
                  (doc 'function setf-function-name))))
       result)))
 
-(defimplementation describe-definition (symbol-name type)
-  (case type
-    ;; FIXME: This should cover all types returned by
-    ;; DESCRIBE-SYMBOL-FOR-EMACS.
+(defimplementation describe-definition (symbol namespace)
+  (ecase namespace
+    (:variable 
+     (describe symbol))
+    ((:function :generic-function)
+     (describe (symbol-function symbol)))
+    (:setf
+     (describe (ccl::setf-function-spec-name `(setf ,symbol))))
     (:class
-     (print-description-to-string (find-class (from-string symbol-name) nil)))))
+     (describe (find-class symbol)))))
 
 ;;; XREF
 
-(defimplementation list-callers (symbol-name)
-  (let ((callers (ccl::callers (from-string symbol-name))))
-    (group-xrefs 
-     (mapcan (lambda (caller)
-               (mapcar (lambda (loc) (cons (to-string caller) loc))
-                       (typecase caller
-                         (symbol
-                          (find-source-locations caller (symbol-name caller)))
-                         (method 
-                          (let ((n (ccl::method-name caller)))
-                            (find-source-locations n (symbol-name n))))
-                         (t 
-                          (find-source-locations caller (to-string caller))))))
-             callers))))
-
+(defimplementation list-callers (symbol)
+  (loop for caller in (ccl::callers symbol)
+        append (multiple-value-bind (info name type specializers modifiers)
+                   (ccl::edit-definition-p caller)
+                 (loop for (dspec . file) in info
+                       collect (list (if (eq t type)
+                                         name
+                                         `(,type ,name ,specializers
+                                           ,@modifiers))
+                                     (canonicalize-location file name))))))
 ;;; Macroexpansion
 
 (defvar *value2tag* (make-hash-table))
@@ -579,10 +495,6 @@ at least the filename containing it."
 		 (pprint o s))))
 	    (cddr lines))))
 
-(defslimefun inspect-in-frame (string index)
-  (reset-inspector)
-  (inspect-object (eval-in-frame (from-string string) index)))
-
 ;;; Multiprocessing
 
 (defvar *known-processes* '()         ; FIXME: leakage. -luke
@@ -599,8 +511,7 @@ out IDs for.")
 (defimplementation spawn (fn &key name)
   (ccl:process-run-function (or name "Anonymous (Swank)") fn))
 
-(defimplementation startup-multiprocessing ()
-  (setq *swank-in-background* :spawn))
+(defimplementation startup-multiprocessing ())
 
 (defimplementation thread-name (thread)
   (ccl::process-name thread))
