@@ -1,3 +1,9 @@
+2004-11-20  Marco Baringer  <mb@bese.it>
+
+	* swank-openmcl.lisp (make-stream-interactive): Only add ouptut
+	streams (subclasses of ccl:fundamental-output-stream) to
+	ccl::*auto-flush-streams*.
+	
 2004-11-19  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-net-coding-system): New variable.  Specifies the
