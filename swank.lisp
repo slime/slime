@@ -1,4 +1,4 @@
-;;;; -*- Mode: lisp; outline-regexp: ";;;;+"; indent-tabs-mode: nil -*-
+;;;; -*- Mode: lisp; outline-regexp: ";;;;;*"; indent-tabs-mode: nil -*-
 ;;;
 ;;; swank.lisp --- the portable bits
 ;;;
@@ -419,7 +419,7 @@ Record compiler notes signalled as `compiler-condition's."
 	  (format nil "~,2F" (/ usecs 1000000.0)))))
 
 
-;;; Macroexpansion
+;;;; Macroexpansion
 
 (defun apply-macro-expander (expander string)
   (let ((*print-pretty* t)
@@ -440,7 +440,7 @@ Record compiler notes signalled as `compiler-condition's."
   (apply-macro-expander #'macroexpand-all string))
 
 
-;;; Completion
+;;;; Completion
 
 (defun case-convert (string)
   "Convert STRING according to the current readtable-case."
@@ -456,9 +456,14 @@ Record compiler notes signalled as `compiler-condition's."
 (defslimefun completions (string default-package-name)
   "Return a list of completions for a symbol designator STRING.  
 
-The result is a list of strings.  If STRING is package qualified the
-result list will also be qualified.  If string is non-qualified the
-result strings are also not qualified and are considered relative to
+The result is the list (COMPLETION-SET
+COMPLETED-PREFIX). COMPLETION-SET is the list of all matching
+completions, and COMPLETED-PREFIX is the best (partial)
+completion of the input string.
+
+If STRING is package qualified the result list will also be
+qualified.  If string is non-qualified the result strings are
+also not qualified and are considered relative to
 DEFAULT-PACKAGE-NAME.
 
 The way symbols are matched depends on the symbol designator's
@@ -533,7 +538,7 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
     (eq status :external)))
  
 
-;;;; Subword-word matching
+;;;;; Subword-word matching
 
 (defun subword-prefix-p (s1 s2 &key (start1 0) end1 (start2 0))
   "Return true if the subsequence in S1 bounded by START1 and END1
@@ -571,7 +576,7 @@ Examples:
                                        :start2 start2))))))
 
 
-;;;; Extending the input string by completion
+;;;;; Extending the input string by completion
 
 (defun longest-completion (completions)
   "Return the longest prefix for all COMPLETIONS."
@@ -599,7 +604,8 @@ Examples:
         (reduce #'common-prefix strings))))
 
 (defun transpose-matrix (matrix)
-  "Turn a matrix (of any sequence type) on its side."
+  "Turn a matrix (of any sequence type) on its side.
+If the rows are of unequal length, truncate uniformly to the shortest."
   ;; A cute function from PAIP p.574
   (if matrix (apply #'mapcar #'list matrix)))
 
