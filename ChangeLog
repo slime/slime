@@ -20,6 +20,8 @@
 	(slime-connect): Hide the *inferior-lisp-buffer* when we are
 	connected.  
 	sldb-mode-map: Bind n and p to sldb-down and sldb-up.
+	(slime-edit-fdefinition-other-window): New function. Suggested by
+	Christian Lynbech.
 	
 	* swank-loader.lisp (user-init-file): There is now a user init
 	file (~/.swank.lisp).  It is loaded after the other files.
