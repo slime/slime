@@ -1,3 +1,14 @@
+2004-06-12  heller  <heller@xaital>
+2004-06-12  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* wank-allegro.lisp (format-sldb-condition, condition-references):
+	Add workarounds for buggy no-applicable-method.
+
+	* swank.lisp (parse-symbol, parse-package): Handle reader errors.
+
+	* swank-openmcl.lisp (send, receive): Ensure that messages are
+	never nil.
+
 2004-06-10  Christophe Rhodes <csr21@cam.ac.uk>
 
 	* swank-sbcl.lisp (call-with-syntax-hooks): Add hooks to fix
