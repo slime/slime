@@ -1271,11 +1271,14 @@ structure (different ``mount points''). This is most common with
 @item slime-net-coding-system
 If you want to transmit Unicode characters between Emacs and the Lisp
 system, you should customize this variable.  E.g., if you use SBCL, you
-can set @code{slime-net-coding-system} to @code{utf-8-unix}.  To
-actually display a Unicode character you also need apropriate fonts,
-otherwise the character will be rendered as a hollow box.  If you are
+can set:
+@example
+(setq slime-net-coding-system 'utf-8-unix)
+@end example
+To actually display Unicode characters you also need appropriate fonts,
+otherwise the characters will be rendered as hollow boxes.  If you are
 using Allegro CL and GNU Emacs, you can also use @code{emacs-mule-unix}
-as coding system.  GNU Emacs has often nicer fonts for the later
+as coding system.  GNU Emacs has often nicer fonts for the latter
 encoding.
 
 @end table
@@ -1398,13 +1401,12 @@ to handle all debugging in the Lisp image. This is for debugging
 multithreaded and callback-driven applications.
 
 @item SWANK:*SLDB-PRINTER-BINDINGS*
-@item SWANK:*MACROEXPAND-PRINTER-BINDINGS*
-@item SWANK:*SWANK-PPRINT-BINDINGS*
+@itemx SWANK:*MACROEXPAND-PRINTER-BINDINGS*
+@itemx SWANK:*SWANK-PPRINT-BINDINGS*
 These variables can be used to customize the printer in various
 situations.  The values of the variables are association lists of
 printer variable names with the corresponding value.  E.g., to enable
 the pretty printer for formatting backtraces in @SLDB{}, you can use:
-
 @example
 (push '(*print-pretty* . t) swank:*sldb-printer-bindings*).
 @end example
@@ -1464,4 +1466,3 @@ LispWorks. Thanks also to Alain Picard and Memetrics for funding
 Martin's initial work on the LispWorks backend!
 
 @bye
-
