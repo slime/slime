@@ -1,3 +1,48 @@
+2004-06-16  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-set-default-directory): Don't call
+	slime-repl-update-banner in Emacs 20.
+	(slime-show-source-location, slime-recenter-window): Use
+	set-window-start instead of recenter; this avoids flickering.
+	(sldb-list-locals): Don't forget about slime-current-thread in the
+	temporary buffer.  (Fixes bug reported by Mike Beedle.)
+	(sldb-step): Re-enabled.  The CMUCL backend has rudimentary support
+	for stepping.
+
+	* swank.lisp (*readtable-alist*): Call backend function for
+	initialization.
+	(eval-for-emacs, guess-buffer-package): Signal a continuable error
+	if a package name was supplied but no such package exists.  Not
+	sure if this is better than what we did before (i.e. silently use
+	the current package).
+
+	* swank-cmucl.lisp (default-directory): Add implementation.
+	(sldb-step): Uncomment it and remove references to
+	*swank-debugger-condition*.
+
+	* swank-backend.lisp (sldb-step, default-readtable-alist): New
+	backend functions.
+
+	* swank-sbcl.lisp (default-readtable-alist): Implement it.
+
+	* swank-loader.lisp: Move readtable-alist initialization to
+	swank-sbcl.lisp.
+
+	* swank-allegro.lisp (default-directory, call-with-syntax-hooks):
+	Add implementations as workarounds for ACL5 bugs.
+
+2004-06-16  Lawrence Mitchell <wence@gmx.li>
+
+	* slime.el (slime-maybe-rearrange-inferior-lisp): Call
+	`generate-new-buffer-name' manually, rather than relying on the
+	UNIQUE argument to `rename-buffer' to do so.
+
+2004-06-16  Frederic Brunel <frederic.brunel@in-fusio.com>
+
+	* slime.el (slime-startup-animation): Use defcustom to declare the
+	variable.
+	(slime-enable-startup-animation-p): Deleted.
+
 2004-06-16  Robert Lehr  <bozzio@the-lehrs.com>
 
 	* slime.el (slime-backend): This variable can now be set to an
