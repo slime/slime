@@ -3955,8 +3955,7 @@ annoy the user)."
   "The current typeout window.")
 
 (defvar slime-typeout-frame-properties
-  '((width . 40) (height . 10) (minibuffer . nil)
-    (left . -10) (top . 10) (name . "SLIME Typeout"))
+  '((height . 10) (minibuffer . nil))
   "The typeout frame properties (passed to `make-frame').")
 
 (defun slime-typeout-active-p ()
