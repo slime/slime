@@ -771,10 +771,13 @@ exists."
 (defun test-print-arglist (list string)
   (string= (print-arglist-to-string list) string))
 
+(loop for s being the symbols in (find-package :cl)
+      minimize (length (string s)))
+
 ;; Should work:
 (assert (test-print-arglist '(function cons) "(function cons)"))
 (assert (test-print-arglist '(quote cons) "(quote cons)"))
-(assert (test-print-arglist '(&key (function #'f)) "(&key (function #'f))"))
+(assert (test-print-arglist '(&key (function #'+)) "(&key (function #'+))"))
 ;; Expected failure:
 ;; (assert (test-print-arglist '(&key ((function f))) "(&key ((function f)))"))
 
