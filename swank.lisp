@@ -218,6 +218,23 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
                (find-package (string-upcase name))))
       default-package))
 
+(defun find-symbol-designator (string &optional
+                                      (default-package *buffer-package*))
+  "Return the symbol corresponding to the symbol designator STRING.
+If string is not package qualified use DEFAULT-PACKAGE for the
+resolution.  Return nil if no such symbol exists."
+  (multiple-value-bind (name package-name internal-p)
+      (parse-symbol-designator (case-convert string))
+    (cond ((and package-name (not (find-package package-name)))
+           (values nil nil))
+          (t
+           (let ((package (or (find-package package-name) default-package)))
+             (multiple-value-bind (symbol access) (find-symbol name package)
+               (cond ((and symbol package-name (not internal-p)
+                           (not (eq access :external)))
+                      (values nil nil))
+                     (symbol (values symbol access)))))))))
+
 
 ;;;; Debugger
 
@@ -513,22 +530,6 @@ Return three values:
             (if pos (subseq string 0 pos) nil))
           (search "::" string)))
 
-(defun find-symbol-designator (string &optional (default-package *buffer-package*))
-  "Return the symbol corresponding to the symbol designator STRING.
-If string is not package qualified use DEFAULT-PACKAGE for the
-resolution.  Return nil if no such symbol exists."
-  (multiple-value-bind (name package-name internal-p)
-      (parse-symbol-designator (case-convert string))
-    (cond ((and package-name (not (find-package package-name)))
-           nil)
-          (t
-           (let ((package (or (find-package package-name) default-package)))
-             (multiple-value-bind (symbol access) (find-symbol name package)
-               (cond ((and symbol package-name (not internal-p)
-                           (not (eq access :external)))
-                      nil)
-                     (symbol (values symbol access)))))))))
-
 (defun symbol-external-p (symbol &optional (package (symbol-package symbol)))
   "True if SYMBOL is external in PACKAGE.
 If PACKAGE is not specified, the home package of SYMBOL is used."
@@ -710,6 +711,56 @@ that symbols accessible in the current package go first."
 
 (defslimefun throw-to-toplevel ()
   (throw 'slime-toplevel nil))
+
+;;; Source Locations
+
+(defstruct (:location (:type list) :named
+                      (:constructor make-location (buffer position)))
+  buffer 
+  position)
+
+(defstruct (:file (:type list) :named (:constructor))
+  name)
+
+(defstruct (:buffer (:type list) :named (:constructor))
+  name)
+
+(defstruct (:position (:type list) :named (:constructor))
+  pos)
+
+(defstruct (:buffer-position (:type list) :named (:constructor))
+  pos)
+
+(defun alistify (list key test)
+  "Partition the element of LIST into an alist.  KEY extracts the key
+from an element and TEST is used to compare keys."
+  (let ((alist '()))
+    (dolist (e list)
+      (let* ((k (funcall key e))
+	     (probe (assoc k alist :test test)))
+	(if probe
+	    (push e (cdr probe))
+            (push (cons k (list e)) alist))))
+    alist))
+
+(defun location-position< (pos1 pos2)
+  (cond ((and (position-p pos1) (position-p pos2))
+         (< (position-pos pos1)
+            (position-pos pos2)))
+        ((and (buffer-position-p pos1) (buffer-position-p pos2))
+         (< (buffer-position-pos pos1)
+            (buffer-position-pos pos2)))
+        (t nil)))
+              
+(defun group-xrefs (xrefs)
+  (flet ((xref-buffer (xref) (location-buffer (cdr xref)))
+         (xref-position (xref) (location-position (cdr xref))))
+    (let ((alist (alistify xrefs #'xref-buffer #'equal)))
+      (loop for (key . list) in alist
+            collect (cons (to-string key) 
+                          (sort list #'location-position<
+                                :key #'xref-position))))))
+
 
 ;;; Local Variables:
 ;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
