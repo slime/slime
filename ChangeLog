@@ -1,3 +1,10 @@
+2004-02-22  Lawrence Mitchell  <wence@gmx.li>
+
+	* swank.lisp (format-arglist): Bind *PRINT-PRETTY* to NIL.
+	(eval-in-emacs): Fix typo in docstring.
+
+	* swank-cmucl.lisp (arglist-string): Bind *PRINT-PRETTY* to NIL.
+	
 2004-02-21  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	Add support for SERVE-EVENT based communication.
