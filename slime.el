@@ -58,6 +58,7 @@
 (require 'hideshow)
 (require 'hyperspec)
 (require 'font-lock)
+(require 'completer)
 (when (featurep 'xemacs)
   (require 'overlay))
 (eval-when (compile load eval)
@@ -2389,33 +2390,27 @@ package is used."
   ;; NB: It is only the name part of the symbol that we actually want
   ;; to complete -- the package prefix, if given, is just context.
   (interactive)
-  (let* ((end (point))
+  (let* ((end (slime-symbol-end-pos))
          (beg (slime-symbol-start-pos))
          (prefix (buffer-substring-no-properties beg end))
-         (completions (slime-completions prefix))
-         (completions-alist (slime-bogus-completion-alist completions))
-         (completion (try-completion prefix completions-alist nil)))
-    (cond ((eq completion t)
-           (message "[Sole completion]")
-           (slime-complete-restore-window-configuration))
-          ((null completion)
-           (message "Can't find completion for \"%s\"" prefix)
-           (ding)
-           (slime-complete-restore-window-configuration))
-          ((not (string= prefix completion))
-           (delete-region beg end)
-           (insert-and-inherit completion)
-           (cond ((null (cdr completions))
-                  (slime-complete-restore-window-configuration))
-                 (t (slime-complete-delay-restoration))))
-          (t
-           (message "Making completion list...")
-           (let ((list (all-completions prefix completions-alist nil)))
+         (completions (slime-completions prefix)))
+    (destructuring-bind (match common-substring matches unique-p)
+        (completer prefix completions nil "-")
+      (cond ((eq unique-p t)
+             (message "[Sole completion]")
+             (delete-region beg end)
+             (insert match)
+             (slime-complete-restore-window-configuration))
+            ((null match)
+             (message "Can't find completion for \"%s\"" prefix)
+             (ding)
+             (slime-complete-restore-window-configuration))
+            (t 
              (slime-complete-maybe-save-window-configuration)
-             (with-output-to-temp-buffer "*Completions*"
-               (display-completion-list list))
-             (slime-complete-delay-restoration))
-           (message "Making completion list...done")))))
+             (completer-display-choices completions)
+             (slime-complete-delay-restoration)
+             (completer-goto match common-substring 
+                             matches unique-p "^ \t\n\('\"#.\)<>" "-"))))))
 
 (defun slime-completing-read-internal (string default-package flag)
   ;; We misuse the predicate argument to pass the default-package.
@@ -2471,6 +2466,11 @@ The result is unspecified if there isn't a symbol under the point."
     (backward-sexp 1)
     (skip-syntax-forward "'")
     (point)))
+
+(defun slime-symbol-end-pos ()
+  (save-excursion
+    (skip-syntax-forward "_")
+    (min (1+ (point)) (point-max))))
 
 (defun slime-bogus-completion-alist (list)
   "Make an alist out of list.
