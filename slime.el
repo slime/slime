@@ -2751,16 +2751,13 @@ If NEWLINE is true then add a newline at the end of the input."
                               rear-nonsticky (face slime-repl-old-input)
                               slime-repl-old-input 
                               ,(incf slime-repl-old-input-counter)))
-  (slime-make-region-read-only  slime-repl-input-start-mark (point))
+  (let ((overlay (make-overlay slime-repl-input-start-mark (point))))
+    (overlay-put overlay 'read-only t))
   (let ((input (slime-repl-current-input)))
     (goto-char slime-repl-input-end-mark)
     (slime-mark-input-start)
     (slime-mark-output-start)
     (slime-repl-send-string input)))
-
-(defun slime-make-region-read-only (start end)
-  (add-text-properties (max start (1- end)) end '(rear-nonsticky (read-only)))
-  (add-text-properties start end `(read-only t)))
 
 (defun slime-repl-grab-old-input (replace)
   "Resend the old REPL input at point.  
