@@ -1382,9 +1382,7 @@ state interacts with it until it is coaxed into returning."
    (slime-output-evaluate-request form-string package-name)
    (slime-push-state (slime-evaluating-state continuation)))
   ((:emacs-evaluate-oneway form-string package-name)
-   (slime-output-oneway-evaluate-request form-string package-name))
-  ((:read-string tag)
-   (slime-push-state (slime-read-string-state tag))))
+   (slime-output-oneway-evaluate-request form-string package-name)))
 
 (slime-defstate slime-read-string-state (tag)
   "Reading state.
@@ -1397,6 +1395,8 @@ Lisp waits for input from Emacs."
   ((:emacs-evaluate form-string package-name continuation)
    (slime-output-evaluate-request form-string package-name)
    (slime-push-state (slime-evaluating-state continuation)))
+  ((:emacs-evaluate-oneway form-string package-name)
+   (slime-output-oneway-evaluate-request form-string package-name))
   ((:read-aborted)
    (slime-repl-abort-read)
    (slime-pop-state)))
