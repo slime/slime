@@ -132,7 +132,7 @@ The function is called with the definition name, a string, as its argument.
 
 If you want to fallback on TAGS you can set this to `find-tag'.")
 
-(defvar slime-kill-without-query-p nil
+(defvar slime-kill-without-query-p t
   "If non-nil, kill Slime processes without query when quitting Emacs.")
 
 
@@ -4893,6 +4893,12 @@ Called on the `point-entered' text-property hook."
 
 ;;;;; SLDB commands
 
+(defvar sldb-highlight t
+  "When non-nil use temporary face attributes to mark buffer expressions.")
+
+(defvar sldb-show-location-recenter-arg nil
+  "Argument to pass to `recenter' when displaying a source location.")
+
 (defun sldb-default-action/mouse (event)
   "Invoke the action pointed at by the mouse."
   (interactive "e")
@@ -4911,16 +4917,6 @@ Called on the `point-entered' text-property hook."
 (defun sldb-delete-overlays ()
   (mapc #'delete-overlay sldb-overlays)
   (setq sldb-overlays '()))
-  
-(defun sldb-highlight-sexp (&optional start end)
-  "Highlight the first sexp after point."
-  (sldb-delete-overlays)
-  (let ((start (or start (point)))
-	(end (or end (save-excursion (forward-sexp)  (point)))))
-    (push (make-overlay start (1+ start)) sldb-overlays)
-    (push (make-overlay (1- end) end) sldb-overlays)
-    (dolist (overlay sldb-overlays)
-      (overlay-put overlay 'face 'secondary-selection))))
 
 (defun sldb-frame-number-at-point ()
   (let ((frame (get-text-property (point) 'frame)))
@@ -4949,17 +4945,25 @@ Called on the `point-entered' text-property hook."
           (slime-show-source-location source-location)))))))
 
 (defun slime-show-source-location (source-location)
-  (save-selected-window
-    (slime-goto-source-location source-location)
-    (sldb-highlight-sexp)
-    (display-buffer (current-buffer) t)
-    (save-excursion
-      (beginning-of-line -4)
-      (let ((window (get-buffer-window (current-buffer) t))
-            (pos (point)))
-        (set-window-start (get-buffer-window (current-buffer) t) (point))
-        (select-window window)
-        (goto-char pos)))))
+  (slime-goto-source-location source-location)
+  (when sldb-highlight (sldb-highlight-sexp))
+  (let ((position (point)))
+    (save-selected-window
+      (select-window (or (get-buffer-window (current-buffer) t)
+                         (display-buffer (current-buffer) t)))
+      (goto-char position)
+      (unless (pos-visible-in-window-p)
+        (recenter sldb-show-location-recenter-arg)))))
+
+(defun sldb-highlight-sexp (&optional start end)
+  "Highlight the first sexp after point."
+  (sldb-delete-overlays)
+  (let ((start (or start (point)))
+	(end (or end (save-excursion (forward-sexp)  (point)))))
+    (push (make-overlay start (1+ start)) sldb-overlays)
+    (push (make-overlay (1- end) end) sldb-overlays)
+    (dolist (overlay sldb-overlays)
+      (overlay-put overlay 'face 'secondary-selection))))
 
 
 (defun sldb-toggle-details (&optional on)
