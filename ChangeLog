@@ -1,3 +1,35 @@
+2005-03-01  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-who-bindings): Bind who-specializes to C-c W a.
+	(slime-extract-context): Renamed from name-context-at-point.
+	(slime-beginning-of-list): Renamed from out-first.
+	(slime-slime-parse-toplevel-form): Renamed from definition-name.
+	(slime-arglist-specializers): Renamed from parameter-specializers.
+	(slime-toggle-trace-function, slime-toggle-trace-defgeneric)
+	(slime-toggle-trace-defmethod, slime-toggle-trace-maybe-wherein)
+	(slime-toggle-trace-within): Deleted. Everything is now handled
+	by slime-trace-query.
+	(slime-calls-who): For symmetry with silme-who-calls.
+	(slime-edit-definition-with-etags): Better intergration with TAGS.
+	(slime-edit-definition-fallback-function): Mention it in the
+	docstring.
+
+	* swank-backend (calls-who, toggle-trace): New functions.
+	(toggle-trace-function, toggle-trace-generic-function-methods,
+	(toggle-trace-method,  toggle-trace-fdefinition-wherein): Replaced
+	by toggle-trace.
+
+	* swank.lisp (*sldb-printer-bindings*, *swank-pprint-bindings*):
+	New variables.  The alists replace the variables which where
+	previously hidden with the define-printer-variables macro.
+	(define-printer-variables, with-printer-settings): Deleted,
+	because the variable names where not visible in the source code.
+	(swank-toggle-trace): Renamed from toggle-trace-fdefinition.
+
+	* swank-cmucl.lisp, swank-lispworks, swank-sbcl.lisp,
+	swank-allegro.lisp (toggle-trace): Update tracing code for new
+	interface.
+
 2005-02-24  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-dispatch-event): Add :eval-no-wait and :eval
