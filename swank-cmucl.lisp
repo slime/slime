@@ -211,7 +211,7 @@ compiler state."
 	 (reverse
 	  (c::compiler-error-context-original-source-path context)))))
 
-(defmacro call-trapping-compilation-notes (fn)
+(defun call-trapping-compilation-notes (fn)
   (handler-bind ((c::compiler-error #'handle-notification-condition)
                  (c::style-warning #'handle-notification-condition)
                  (c::warning #'handle-notification-condition))

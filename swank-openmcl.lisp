@@ -163,7 +163,7 @@ condition."
               :buffer-offset 0)
         *compiler-notes*))
 
-(defmacro call-trapping-compilation-notes (fn)
+(defun call-trapping-compilation-notes (fn)
   (handler-bind ((ccl::compiler-warning #'handle-compiler-warning))
     (funcall fn)))
 
