@@ -1507,11 +1507,13 @@ Loops until the result is thrown to our caller, or the user aborts."
 
 ;;; Stream output
 
-(defvar slime-last-output-start (make-marker)
-  "Marker for the start of the output for the last evaluation.")
-
 (defvar slime-output-start (make-marker)
   "Marker for the start of the output for the evaluation.")
+
+(defvar slime-output-end (let ((m (make-marker)))
+                           (set-marker-insertion-type m t)
+                           m)
+  "Marker for end of output. New output is inserted at this mark.")
 
 (defun slime-output-buffer ()
   "Return the output buffer, create it if necessary."
@@ -1553,14 +1555,14 @@ output as arguments.")
 
 (defun slime-flush-output ()
   (when-let (stream (get-process "*lisp-output-stream*"))
-    (while (accept-process-output stream 0 10))))
+    (while (accept-process-output stream 0 20))))
 
 (defun slime-show-last-output ()
   "Show the output from the last Lisp evaluation."
   (with-current-buffer (slime-output-buffer)
     (slime-flush-output)
-    (let ((start slime-last-output-start)
-          (end slime-repl-prompt-start-mark))
+    (let ((start slime-output-start)
+          (end slime-output-end))
       (funcall slime-show-last-output-function start end))))
 
 (defun slime-display-output-buffer ()
@@ -1570,18 +1572,27 @@ output as arguments.")
     (set-window-start (display-buffer (current-buffer) t)
                       (line-beginning-position))))
 
-(defmacro slime-with-output-at-eob (&rest body)
-  "Execute BODY at eob.  
-If point is initially at eob and the buffer is visible update
-window-point afterwards.  If point is initially not at eob, execute body
-inside a `save-excursion' block."
-  `(cond ((eobp) ,@body
-          (when-let (w (get-buffer-window (current-buffer) t))
-            (set-window-point w (point))))
-         (t 
-          (save-excursion 
-            (goto-char (point-max))
-            ,@body))))
+(defmacro slime-with-output-end-mark (&rest body)
+  "Execute BODY at `slime-output-end'.  
+
+If point is initially at `slime-output-end' and the buffer is visible
+update window-point afterwards.  If point is initially not at
+`slime-output-end, execute body inside a `save-excursion' block."
+  `(progn
+     (cond ((= (point) slime-output-end) 
+            (let ((start (point)))
+              ,@body
+              (when-let (w (get-buffer-window (current-buffer) t))
+                (set-window-point w (point)))
+              (when (= start slime-repl-input-start-mark)
+                (set-marker slime-repl-input-start-mark (point)))))
+           (t 
+            (save-excursion 
+              (goto-char slime-output-end)
+              ,@body
+              (unless (eolp)
+                (insert "\n")
+                (set-marker slime-output-end (1- slime-output-end))))))))
 
 (defun slime-output-filter (process string)
   (slime-output-string string))
@@ -1595,18 +1606,10 @@ inside a `save-excursion' block."
 
 (defun slime-output-string (string)
   (with-current-buffer (slime-output-buffer)
-    (cond ((slime-idle-p) 
-           ;; asynchrounous output
-           (save-excursion
-             (goto-char slime-repl-prompt-start-mark)
-             (slime-insert-propertized
-              (list 'face 'slime-repl-output-face) 
-              string "\n")
-             (set-marker slime-repl-prompt-start-mark (point))))
-          (t
-           (slime-mark-input-end)
-           (slime-with-output-at-eob
-            (insert string))))))
+    (slime-with-output-end-mark
+     (slime-insert-propertized
+      (list 'face 'slime-repl-output-face) 
+      string))))
 
 (defun slime-switch-to-output-buffer ()
   "Select the output buffer, preferably in a different window."
@@ -1655,20 +1658,21 @@ inside a `save-excursion' block."
   (run-hooks 'slime-repl-mode-hook))
 
 (defun slime-repl-insert-prompt ()
-  (unless (bolp) (insert "\n"))
-  (set-marker slime-repl-prompt-start-mark (point) (current-buffer))
-  (slime-propertize-region
-      '(face font-lock-keyword-face 
-             read-only t
-             intangible t
-             slime-repl-prompt t
-             ;; emacs stuff
-             rear-nonsticky (slime-repl-prompt read-only face intangible)
-             ;; xemacs stuff
-             start-open t end-open t)
-    (insert (slime-lisp-package) "> "))
-   (slime-mark-input-start)
-   (slime-mark-output-start))
+  (let ((start (point)))
+    (unless (bolp) (insert "\n"))
+    (set-marker slime-repl-prompt-start-mark (point) (current-buffer))
+    (slime-propertize-region
+        '(face font-lock-keyword-face 
+               read-only t
+               intangible t
+               slime-repl-prompt t
+               ;; emacs stuff
+               rear-nonsticky (slime-repl-prompt read-only face intangible)
+               ;; xemacs stuff
+               start-open t end-open t)
+      (insert (slime-lisp-package) "> "))
+    (set-marker slime-output-end start)
+    (slime-mark-input-start)))
 
 (defun slime-repl-activate ()
   ;; We use the input-end-mark to decide if we should insert a prompt
@@ -1679,7 +1683,7 @@ inside a `save-excursion' block."
   (with-current-buffer (slime-output-buffer)
     (unless (= (point-max) slime-repl-input-end-mark)
       (slime-mark-output-end)
-      (slime-with-output-at-eob
+      (slime-with-output-end-mark
        (slime-repl-insert-prompt)))))
 
 (defun slime-repl-current-input ()
@@ -1719,7 +1723,9 @@ after the last prompt to the end of buffer."
     (with-current-buffer (slime-output-buffer)
       (save-excursion
         (goto-char slime-repl-prompt-start-mark)
-        (insert result "\n")))))
+        (let ((start (point)))
+          (insert result "\n")
+          (set-marker slime-output-end start))))))
 
 (defun slime-mark-input-start ()
   (set-marker slime-repl-last-input-start-mark
@@ -1731,11 +1737,11 @@ after the last prompt to the end of buffer."
   (set-marker slime-repl-input-end-mark (point-min)))
 
 (defun slime-mark-output-start ()
-  (set-marker slime-output-start (point)))
+  (set-marker slime-output-start (point))
+  (set-marker slime-output-end (point)))
 
 (defun slime-mark-output-end ()
-  (set-marker slime-last-output-start slime-output-start)
-  (add-text-properties slime-output-start (point-max)
+  (add-text-properties slime-output-start slime-output-end
                        '(face slime-repl-output-face rear-nonsticky (face))))
 
 (defun slime-repl-bol ()
@@ -1818,6 +1824,7 @@ balanced."
   (unless (or (slime-idle-p)
               (slime-reading-p))
     (error "Lisp is not ready for requests from the REPL."))
+  (assert (<= (point) slime-repl-input-end-mark))
   (cond (current-prefix-arg
          (slime-repl-send-input)
          (insert "\n"))
@@ -2014,7 +2021,6 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
 
 (defun slime-repl-read-string ()
   (slime-switch-to-output-buffer)
-  (slime-flush-output)
   (slime-mark-output-end)
   (slime-mark-input-start)
   (slime-repl-read-mode t))
@@ -4816,7 +4822,7 @@ Unless optional argument INPLACE is non-nil, return a new string."
         slime-events-buffer
         slime-output-string 
         slime-output-buffer
-        slime-with-output-at-eob
+        slime-with-output-end-mark
         slime-process-available-input 
         slime-dispatch-event 
         slime-net-filter 
