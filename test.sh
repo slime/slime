@@ -29,6 +29,8 @@ cp $slimedir/*.el $slimedir/*.lisp $testdir
 
 # you can remove "--batch" to get an emacs window for troubleshooting.
 $emacs --batch --no-site-file --no-init-file \
+       --eval "(setq debug-on-quit t)" \
+       --eval "(setq slime-swank-connection-retries 50)" \
        --eval "(setq load-path (cons \"$testdir\" load-path))" \
        --eval "(require 'slime)" \
        --eval "(setq inferior-lisp-program \"$lisp\")" \
