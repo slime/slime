@@ -1,3 +1,9 @@
+2005-03-23  Marco Baringer  <mb@bese.it>
+
+	* swank.lisp (commit-edited-value): Read a backquated string,
+	instead of quating the result of read. This allows one to put
+	,(form) into edit-value buffers.
+
 2005-03-22  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-lispworks.lisp (swank-compile-string): Bind *print-radix*
