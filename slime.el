@@ -3936,7 +3936,7 @@ more than one space."
              `(swank:arglist-for-echo-area (quote ,names))
              (lambda (message)
                (if message
-                   (slime-background-message "%s" message)))))))
+                   (slime-message "%s" message)))))))
     (self-insert-command n)))
 
 (defun slime-arglist (name)
@@ -5599,6 +5599,7 @@ Full list of commands:
   ("q"    'sldb-quit)
   ("B"    'sldb-break-with-default-debugger)
   ("P"    'sldb-print-condition)
+  ("C"    'sldb-inspect-condition)
   (":"    'slime-interactive-eval))
 
 ;; Inherit bindings from slime-mode
