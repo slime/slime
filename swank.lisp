@@ -249,10 +249,9 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 (defvar *swank-debugger-hook*)
 
 (defun swank-debugger-hook (condition hook)
-  (send-to-emacs '(:debugger-hook))
   (let ((*swank-debugger-condition* condition)
 	(*swank-debugger-hook* hook))
-    (read-from-emacs)))
+    (sldb-loop)))
 
 (defslimefun eval-string (string buffer-package)
   (let ((*debugger-hook* #'swank-debugger-hook))
@@ -936,6 +935,7 @@ that symbols accessible in the current package go first."
 	 (*readtable* (or debug:*debug-readtable* *readtable*))
 	 (*print-level* debug:*debug-print-level*)
 	 (*print-length* debug:*debug-print-length*))
+    (send-to-emacs (list* :debug *sldb-level* (debugger-info-for-emacs 0 1)))
     (handler-bind ((di:debug-condition 
 		    (lambda (condition)
 		      (send-to-emacs `(:debug-condition
@@ -945,9 +945,8 @@ that symbols accessible in the current package go first."
 	   (loop
 	    (catch 'sldb-loop-catcher
 	      (with-simple-restart (abort "Return to sldb level ~D." level)
-		(send-to-emacs `(:sldb-prompt ,level))
 		(read-from-emacs))))
-	(send-to-emacs `(:sldb-abort ,level))))))
+	(send-to-emacs `(:debug-return ,level))))))
 
 (defun format-restarts-for-emacs ()
   "Return a list of restarts for *swank-debugger-condition* in a
