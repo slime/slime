@@ -1,4 +1,33 @@
+2003-09-22  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-symbol-at-point): Now returns a symbol, as the
+	name suggests.
+	(slime-symbol-name-at-point): This one returns a string.
+	(slime-read-symbol): New function for taking the symbol at point,
+	or prompting if there isn't one.
+	(slime-edit-fdefinition): Now uses looks up the symbol at point,
+	not the function being called at point.
+
+	* swank.lisp (who-calls, who-references, who-binds, who-sets,
+	who-macroexpands): New function.
+	(present-symbol-before-p): Use `*buffer-package*' when checking
+	accessibility of symbols.
+
+	* slime.el (slime-restore-window-configuration): New command to
+	put the Emacs window configuration back the way it was before
+	SLIME last changed it.
+	(slime-who-calls, etc): Very basic WHO-{CALLS,..} support. Not
+	finished, wrestling around trying to make `view-mode' or
+	`help-mode' help me (I just want to hijack RET and C-m). Bound to
+	"C-c C-w ...".
+
 2003-09-21  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el: Rearranged the `outline-mode' structure slightly.
+	(slime-check-connected): Using new function to give a helpful
+	error message if you try to use commands before establishing a
+	connection to CMUCL.
+	(sldb-mode): Keys 0-9 are now shortcuts to invoke restarts.
 
 	* README, swank.el: Updated commentary.
 
