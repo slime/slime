@@ -1,3 +1,8 @@
+2003-12-03  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-completing-read-internal): Fix from Sean
+	O'Rourke.
+
 2003-12-02  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-sbcl.lisp (find-function-locations): Return a non-empty
