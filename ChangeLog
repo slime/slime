@@ -1,3 +1,14 @@
+2004-03-08  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-start-swank-server, slime-maybe-start-lisp):
+	Translate filenames.
+
+2004-03-08  Bill Clementson <Bill_Clementson@peoplesoft.com>
+
+	* slime.el (slime-insert-balanced-comments)
+	(slime-remove-balanced-comments, slime-pretty-lambdas): New
+	functions.
+
 2004-03-07  Jouni K Seppanen  <jks@iki.fi>
 
 	* slime.el (sldb-help-summary): New function.
