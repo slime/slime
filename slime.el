@@ -2497,16 +2497,22 @@ See `slime-compile-and-load-file' for further details."
 
 Default system name is taken from first file matching *.asd in current
 buffer's working directory"
-  (interactive
-   (list (let ((d (slime-find-asd)))
-           (read-string (format "System: [%s] " d) nil nil d))))
+  (interactive (list (slime-read-system-name)))
+  (slime-oos system-name "LOAD-OP"))
+
+(defun slime-read-system-name ()
+  (let ((d (slime-find-asd)))
+    (read-string (format "System: [%s] " d) nil nil d)))
+
+(defun slime-oos (system-name operation &rest keyword-args)
   (save-some-buffers)
   (slime-display-output-buffer)
+  (message "Performing ASDF %S%s on system %S"
+           system-name (if keyword-args (format " %S" keyword-args) "") operation)
   (slime-eval-async
-   `(swank:load-system-for-emacs ,system-name)
+   `(swank:operate-on-system-for-emacs ,system-name ,operation ,@keyword-args)
    nil
-   (slime-compilation-finished-continuation))
-  (message "Compiling system %s.." system-name))
+   (slime-compilation-finished-continuation)))
 
 (defun slime-compile-defun ()
   "Compile the current toplevel form."
@@ -5902,6 +5908,30 @@ BODY returns true if the check succeeds."
                       (message "Loading %s.." lisp-file-name)
                       (slime-eval-with-transcript `(swank:load-file ,lisp-file-name) nil))))))
   (:one-liner "Compile (if neccessary) and load a lisp file."))
+
+(defslime-repl-shortcut slime-repl-load/force-system ("force-load-system")
+  (:handler (lambda ()
+              (interactive)
+              (slime-oos (slime-read-system-name) "LOAD-OP" :force t)))
+  (:one-liner "Recompile and load an ASDF system."))
+
+(defslime-repl-shortcut slime-repl-load-system ("load-system")
+  (:handler (lambda ()
+              (interactive)
+              (slime-oos (slime-read-system-name) "LOAD-OP")))
+  (:one-liner "Compile (as needed) and load an ASDF system."))
+
+(defslime-repl-shortcut slime-repl-compile-system ("compile-system")
+  (:handler (lambda ()
+              (interactive)
+              (slime-oos (slime-read-system-name) "COMPILE-OP")))
+  (:one-liner "Compile (but not load) an ASDF system."))
+
+(defslime-repl-shortcut slime-repl-compile/force-system ("force-compile-system")
+  (:handler (lambda ()
+              (interactive)
+              (slime-oos (slime-read-system-name) "COMPILE-OP" :force t)))
+  (:one-liner "Recompile (but not load) an ASDF system."))
 
 ;;;; Cleanup after a quit
 
