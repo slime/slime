@@ -1,3 +1,27 @@
+2003-09-27  Luke Gorrie  <luke@bluetail.com>
+
+	* swank.lisp (handle-notification-condition): Rewrote
+	compiler-note collection. Now it uses lower-level condition
+	handlers instead of c:*compiler-notification-function*. This way
+	the error messages are tailored to omit redundant information,
+	like the filename and original source text (which are displayed
+	and highlighted in Emacs already). Much nicer.
+	(sort-contexts-by-source-path): Now sorting xref results by
+	lexical source-path order, so that you're always jumping in the
+	same direction.
+	(*debug-definition-finding*): New variable. You can set this to
+	true if you want to be popped into the debugger when M-. fails to
+	find a definition (for debugging the
+	definition-finding). Otherwise it reports the error to Emacs as a
+	message, like "Error: SETQ is a special form."
+
+	* slime.el (slime-fetch-features-list): New command to fetch the
+	*FEATURES* list from Lisp and store it away. This is done
+	automatically upon connection, but can also be called manually to
+	update.
+	(slime-forward-reader-conditional): Now does the right things with
+	reader-conditionals (#+ and #-) based on the Lisp features.
+
 2003-09-26  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (sldb-setup): Setting `truncate-lines' to t in the
