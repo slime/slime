@@ -1,3 +1,65 @@
+2004-09-13  Alan Ruttenberg <alanr-l@mumble.net>
+
+        * slime.el slime-goto-location-position: New location specifiers:
+	(:method name specializers . qualifiers) all are strings. Looks
+	for defxxx name then the qualifiers as words, in order then the
+	specializers as words, in order (except for "T", which is
+	optional). Pass the symbols names for specializers and qualifiers 
+	(no packages). Used by openmcl but might be useful for others
+	(:text-anchored <position fixnum> <string> <delta fixnum>) 
+	Got to position, then search for string, then move delta. To
+	support upcoming source recording for openmcl debugging.
+
+	* swank-openmcl multiple changes: - fix support for *sldb-top*
+	 (formerly *swank-debugger-stack-frame*) Was not thread safe. Now
+	 (application-error), and (interrupt-thread) records the error
+	 pointer in a table associated with thread and map-backtrace picks
+	 up the appropriate pointer. *process-to-stack-top*,
+	(grab-stack-top), (record-stack-top).
+
+  	 - Other adjustments for changes to multiprocessing: remove
+	(force-break-in-listener) no longer necessary since we use
+	process-interrupt instead of ccl::*interactive-abort-process*
+	Adjust break-in-sldb to do so for swank repl connections
+	(abstraction breaking reference to swank::*connections*, but
+	nicely via intern)
+
+	 - changes to (find-definitions) (function-source-location),
+	 addition of (maybe-method-location) (remove-filename-quoting).  To support
+	editing definitions of methods. To fix bug with pathnames with
+	quoted characters (like "\\.swank.lisp"). To remove bogus source
+	recording of l1-boot-3 in functions that didn't have a source file
+	noted.
+
+	 - Implementation of xref functions: (xref-locations) uses xref
+	implementation added to openmcl recently. Note that you have to
+	(ccl::start-xref) for it to work for other than who-calls, and
+	that xref information is not currently persisted in fasl files (I
+	will release a patch for this soon) Backend functions (who-binds)
+	(who-macroexpands) (who-references) (who-sets)
+	(who-calls) (list-callees) (who-specializes)
+	
+  	 - Lifted profile backend functions from swank-clisp which use
+	 "metering.lisp"
+
+	 - (openmcl-set-debug-switches) turns on the various variables I.
+	know about that have the lisp record extra debugging
+	information(including starting xref). I suggest you call
+	it. Should it be called by default?
+
+	- (frame-arguments) use builtin ccl::frame-supplied-args since the
+	current version was sometimes missing the first argument to the
+	function. (I think this was when it was passed by register. If you
+	don't want to lose it in the frame locals in backtrace, call
+	(openmcl-set-debug-switches) specifically, set
+	ccl::*ppc2-compiler-register-save-label* to t
+
+	- implement frame-var-value backend
+
+	* metering.lisp: Minor changes to #+ #- to recognize openmcl
+
+	* swank-loader.lisp: Load "metering.lisp"
+		
 2004-09-13  Marco Baringer  <mb@bese.it>
 
 	* swank.lisp (inspected-parts): Deal with unfinalized classes in
