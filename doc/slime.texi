@@ -1271,7 +1271,8 @@ doesn't always keep up if Lisp starts ``spewing'' copious output.
 
 @unnumberedsec Hackers of the good hack
 
-At the time of writing, the authors and code-contributors of @SLIME{} are:
+@SLIME{} is an Extension of @acronym{SLIM} by Eric Marsden. At the
+time of writing, the authors and code-contributors of @SLIME{} are:
 
 @include contributors.texi
 
@@ -1291,8 +1292,9 @@ Implementors of the Lisps that we support have been a great
 help. Thanks to the @acronym{CMUCL} maintainers on the
 @code{cmucl-imp} list, Dan Barlow@footnote{Dan is one of ``us'', so
 naturally these thanks apply to the @acronym{SBCL}-hacker side of his
-personality.} and Christophe Rhodes of @acronym{SBCL}, and Gary Byers
-of OpenMCL.
+personality.} and Christophe Rhodes of @acronym{SBCL}, Gary Byers of
+OpenMCL, and Martin Simmons of LispWorks (generously sponsored by
+Alain Picard of Memetrics).
 
 And thanks in advance to the Lisp maintainers who we haven't
 approached yet.. @code{:-)}
