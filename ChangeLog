@@ -4,6 +4,13 @@
 	`slime-default-connection' activates. This fixes an annoying
 	"Selecting deleted buffer" bug that prevented SLIME from being
 	restarted.
+	(slime-next-connection): Fixed a bug where buffer-local connection
+	bindings could get in the way and prevent the connection from
+	actually changing.
+	(slime-complete-restore-window-configuration): Wrap
+	`set-window-configuration' in `save-excursion'. This fixes a
+	problem where the cursor would end up in the wrong place after
+	completion in XEmacs.
 
 2004-01-09  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
