@@ -1053,7 +1053,9 @@ the point moving and they can't be restored."
 (defun slime-to-lisp-filename (filename)
   "Translate the string FILENAME to a Lisp filename.
 See `slime-translate-to-lisp-filename-function'."
-  (funcall slime-translate-to-lisp-filename-function filename))
+  (funcall slime-translate-to-lisp-filename-function
+           ;; expand-file-name so that Lisp doesn't see ~foo/bar, etc
+           (expand-file-name filename)))
 
 (defun slime-from-lisp-filename (filename)
   "Translate the Lisp filename FILENAME to an Emacs filename.
@@ -1234,8 +1236,7 @@ Return true if we have been given permission to continue."
             (message "\
 Polling %S.. (Abort with `M-x slime-abort-connection'.)"
                      (slime-swank-port-file)))
-          (setq slime-state-name (format "[polling:%S]" (incf attempt)))
-          (force-mode-line-update)
+          (slime-set-state (format "[polling:%S]" (incf attempt)))
           (when slime-connect-retry-timer
             (cancel-timer slime-connect-retry-timer))
           (setq slime-connect-retry-timer nil) ; remove old timer
@@ -1369,9 +1370,7 @@ EVAL'd by Lisp."
 (defun slime-net-sentinel (process message)
   (when (ignore-errors (eq (process-status (inferior-lisp-proc)) 'open))
     (message "Lisp connection closed unexpectedly: %s" message))
-  (when (eq process slime-default-connection)
-    (setq slime-state-name "[not connected]"))
-  (force-mode-line-update)
+  (slime-set-state "[not connected]")
   (slime-net-close process))
 
 ;;; Socket input is handled by `slime-net-filter', which decodes any
@@ -1533,10 +1532,18 @@ If PROCESS is not specified, `slime-connection' is used.
 
 (put 'slime-with-connection-buffer 'lisp-indent-function 1)
 
-;;; FIXME: Global, ugly
 (defvar slime-state-name "[??]"
   "Name of the current state of `slime-default-connection'.
 Just used for informational display in the mode-line.")
+
+(defun slime-set-state (name)
+  "Set the current connection's informational state name.
+If this is the default connection then the state will be displayed in
+the modeline."
+  (when (and (slime-connected-p)
+             (eq (slime-connection) slime-default-connection))
+    (setq slime-state-name name)
+    (force-mode-line-update)))
 
 ;;; Connection-local variables:
 
@@ -1912,6 +1919,7 @@ The REPL buffer is a special case: it's package is `slime-lisp-package'."
        (slime-output-string output))
       ;;
       ((:emacs-rex form package thread continuation)
+       (slime-set-state "|eval...")
        (when (and (slime-rex-continuations) (slime-use-sigint-for-interrupt))
          (message "; pipelined request... %S" form))
        (let ((id (incf (slime-continuation-counter))))
@@ -1921,6 +1929,8 @@ The REPL buffer is a special case: it's package is `slime-lisp-package'."
        (let ((rec (assq id (slime-rex-continuations))))
          (cond (rec (setf (slime-rex-continuations )
                           (remove rec (slime-rex-continuations)))
+                    (when (null (slime-rex-continuations))
+                      (slime-set-state ""))
                     (funcall (cdr rec) value))
                (t
                 (error "Unexpected reply: %S %S" id value)))))
@@ -5355,6 +5365,10 @@ CL:MACROEXPAND."
 			       ,(slime-find-buffer-package))))
 	(directory (slime-eval `(swank:set-default-directory 
 				 ,(expand-file-name default-directory)))))
+    (let ((dir default-directory))
+      ;; Sync REPL dir
+      (with-current-buffer (slime-output-buffer)
+        (setq default-directory dir)))
     (message "package: %s  default-directory: %s" package directory)))
 	
 
