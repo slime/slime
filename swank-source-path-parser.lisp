@@ -114,30 +114,17 @@ The source locations are stored in SOURCE-MAP."
 				 term tab)))))
     tab))
 
-(defun make-source-map ()
-  (make-hash-table :test #'eq))
-
-(defvar *source-map* (make-source-map)
+(defvar *source-map* nil
   "The hashtable table used for source position recording.")
 
-(defvar *recording-readtable-cache* '()
-  "An alist of (READTABLE . RECORDING-READTABLE) pairs.")
-
-(defun lookup-recording-readtable (readtable)
-  "Find a cached or create a new recording readtable for READTABLE."
-  (or (cdr (assoc readtable *recording-readtable-cache*))
-      (let ((table (make-source-recording-readtable readtable *source-map*)))
-	(push (cons readtable table) *recording-readtable-cache*)
-	table)))
-			
 (defun read-and-record-source-map (stream)
   "Read the next object from STREAM.
 Return the object together with a hashtable that maps
 subexpressions of the object to stream positions."
-  (let ((*readtable* (lookup-recording-readtable *readtable*)))
-    (clrhash *source-map*)
+  (let* ((*source-map* (make-hash-table :test #'eq))
+         (*readtable* (make-source-recording-readtable *readtable* *source-map*)))
     (values (read stream) *source-map*)))
-  
+
 (defun source-path-stream-position (path stream)
   "Search the source-path PATH in STREAM and return its position."
   (destructuring-bind (tlf-number . path) path
