@@ -492,7 +492,7 @@ stack."
      (unless (or (eq from :file)
 		 (debug-source-info-from-emacs-buffer-p debug-source))
 	 (with-output-to-string (*standard-output*)
-	   (sb-debug::print-code-location-source-form code-location 100 t))))))
+	   (sb-debug::print-code-location-source-form  code-location 100))))))
 
 (defun safe-source-location-for-emacs (code-location)
   (handler-case (source-location-for-emacs code-location)
