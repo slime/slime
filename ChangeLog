@@ -2,6 +2,8 @@
 
 	* swank-cmucl.lisp (arglist-string): Delay the call to
 	di::function-debug-function until it is actually needed.
+	(compile-file-for-emacs): Load the fasl file even irrespective of
+	COMILE-FILE's third return value.
 
 	* swank.lisp (connection-info): New function.
 	(open-streams): Don't send the :check-protocol-version message.  Now
