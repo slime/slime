@@ -1,3 +1,8 @@
+2004-01-16  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-init-output-buffer): XEmacs portability fix, and
+	use header-line-format to show info about Lisp in Emacs21.
+
 2004-01-15  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-sbcl.lisp, swank-cmucl.lisp (remove-input-handlers): New
