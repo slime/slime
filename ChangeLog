@@ -1,9 +1,43 @@
+2003-12-14  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-lispworks.lisp (tracedp, toggle-trace-fdefinition): Moved
+	to swank.lisp.
+
+	* swank-allegro.lisp (create-swank-server): Add support for
+	BACKGROUND and CLOSE argument.
+	(call-with-debugging-environment): Use excl::int-newest-frame to
+	avoid the kludge with *break-hook*.
+	(sldb-abort): New function.
+	(frame-source-location-for-emacs): Dummy definition.
+	(compile-file-for-emacs): The argument is called
+	:load-after-compile and not :load.
+	(xref-results-for-emacs): Use dolist instead of loop.
+
+	* swank-openmcl.lisp (create-swank-server): Add support for
+	BACKGROUND and CLOSE argument.
+	(open-stream-to-emacs): Support for dedicated output stream.
+
+	* swank.lisp: *start-swank-in-background*,
+	*close-swank-socket-after-setup*, *use-dedicated-output-stream*:
+	Moved here from swank-cmucl.
+	(sldb-continue): Don't pass the condition as argument, because
+	that doesn't work with Allegro.
+	(toggle-trace-fdefinition, tracedp): Replace backend specific code
+	with portable, but ugly, calls to eval.
+
+	* swank-cmucl.lisp (compile-system-for-emacs): Add method for
+	CMUCL.
+
+	* slime.el (slime-goto-source-location): Better regexp for package
+	qualified symbols.  Allow dashes in the name and two colons.
+	Reported by Alan Ruttenberg.
+
 2003-12-13  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-openmcl.lisp (create-swank-server): Interrupt the right
 	thread.  Patch by Alan Ruttenberg.  Not yet enabled, due to lack
 	of test platform.
-	(sldb-disassemble): Implement sldb-disasssemble command.  Patch by
+	(sldb-disassemble): Implement sldb-disassemble command.  Patch by
 	Alan Ruttenberg.
 	Remove #' from lambdas.
 
