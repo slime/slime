@@ -323,12 +323,12 @@
 (defimplementation spawn (fn &key name)
   (mp:process-run-function name fn))
 
-;; XXX: shurtcut
-(defimplementation thread-id ()
-  (mp:process-name mp:*current-process*))
+(defimplementation thread-name (thread)
+  (mp:process-name thread))
 
-(defimplementation thread-name (thread-id)
-  thread-id)
+(defimplementation thread-status (thread)
+  (format nil "~A ~D" (mp:process-whostate thread)
+          (mp:process-priority thread)))
 
 (defimplementation make-lock (&key name)
   (mp:make-process-lock :name name))
@@ -340,7 +340,7 @@
   mp:*current-process*)
 
 (defimplementation all-threads ()
-  mp:*all-processes*)
+  (copy-list mp:*all-processes*))
 
 (defimplementation interrupt-thread (thread fn)
   (mp:process-interrupt thread fn))

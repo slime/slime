@@ -1306,10 +1306,6 @@ LRA  =  ~X~%" (mapcar #'fixnum
 
 #+MP
 (progn
-  (defvar *known-processes* '()         ; FIXME: leakage. -luke
-    "List of processes that have been assigned IDs.
-     The ID is the position in the list.")
-
   (defimplementation startup-multiprocessing ()
     (setq *swank-in-background* :spawn)
     ;; Threads magic: this never returns! But top-level becomes
@@ -1319,29 +1315,17 @@ LRA  =  ~X~%" (mapcar #'fixnum
   (defimplementation spawn (fn &key (name "Anonymous"))
     (mp:make-process fn :name name))
 
-  (defimplementation thread-id ()
-    (mp:without-scheduling
-     (or (find-thread-id)
-         (prog1 (length *known-processes*)
-           (setq *known-processes*
-                 (append *known-processes* (list (mp:current-process))))))))
+  (defimplementation thread-name (thread)
+    (mp:process-name thread))
 
-  (defun find-thread-id (&optional (process (mp:current-process)))
-    (position process *known-processes*))
+  (defimplementation thread-status (thread)
+    (mp:process-whostate thread))
 
-  (defun lookup-thread (thread-id)
-    (or (nth thread-id *known-processes*)
-        (error "Unknown Thread-ID: ~S" thread-id)))
+  (defimplementation current-thread ()
+    mp:*current-process*)
 
-  (defimplementation thread-name (thread-id)
-    (mp:process-name (lookup-thread thread-id)))
-
-  (defimplementation make-lock (&key name)
-    (mp:make-lock name))
-
-  (defimplementation call-with-lock-held (lock function)
-    (mp:with-lock-held (lock)
-      (funcall function)))
+  (defimplementation all-threads ()
+    (copy-list mp:*all-processes*))
 
   )
 

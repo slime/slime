@@ -7,8 +7,6 @@
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
 ;;;
-;;;   $Id$
-;;;
 
 (in-package :swank)
 
@@ -210,15 +208,21 @@ Return NIL if the symbol is unbound."
   (invoke-restart-interactively (nth-restart index)))
 
 (defimplementation frame-locals (n)
-  (let ((frame (nth-frame n)))
+  (let ((frame (nth-frame n))
+        (*print-readably* nil)
+        (*print-pretty* t)
+        (*print-circle* t))
     (if (dbg::call-frame-p frame)
 	(destructuring-bind (vars with)
 	    (dbg::frame-locals-format-list frame #'list 75 0)
 	  (declare (ignore with))
-	  (loop for (name value symbol location) in vars
-		collect (list :name (to-string symbol) :id 0
-			      :value-string 
-                              (to-string value)))))))
+          (mapcar (lambda (var)
+                    (destructuring-bind (name value symbol location) var
+                      (declare (ignore name location))
+                      (list :name (to-string symbol) :id 0
+                            :value-string 
+                            (to-string value))))
+                  vars)))))
 
 (defimplementation frame-catch-tags (index)
   (declare (ignore index))
@@ -402,12 +406,13 @@ Return NIL if the symbol is unbound."
 (defimplementation spawn (fn &key name)
   (mp:process-run-function name () fn))
 
-;; XXX: shortcut
-(defimplementation thread-id ()
-  (mp:process-name mp:*current-process*))
+(defimplementation thread-name (thread)
+  (mp:process-name thread))
 
-(defimplementation thread-name (thread-id)
-  thread-id)
+(defimplementation thread-status (thread)
+  (format nil "~A ~D" 
+          (mp:process-whostate thread)
+          (mp:process-priority thread)))
 
 (defimplementation make-lock (&key name)
   (mp:make-lock :name name))
@@ -417,6 +422,9 @@ Return NIL if the symbol is unbound."
 
 (defimplementation current-thread ()
   mp:*current-process*)
+
+(defimplementation all-threads ()
+  (mp:list-all-processes))
 
 (defimplementation interrupt-thread (thread fn)
   (mp:process-interrupt thread fn))

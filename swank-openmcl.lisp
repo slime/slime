@@ -603,18 +603,11 @@ out IDs for.")
 (defimplementation startup-multiprocessing ()
   (setq *swank-in-background* :spawn))
 
-(defimplementation thread-id ()
-  (let* ((thread ccl:*current-process*)
-         (id (ccl::process-serial-number thread)))
-    (ccl:with-lock-grabbed (*known-processes-lock*)
-      (unless (rassoc thread *known-processes* :key #'car)
-        (setq *known-processes*
-              (acons id (list thread (make-mailbox)) *known-processes*))))
-    id))
+(defimplementation thread-name (thread)
+  (ccl::process-name thread))
 
-(defimplementation thread-name (thread-id)
-  (ccl:with-lock-grabbed (*known-processes-lock*)
-    (ccl::process-name (cdr (assoc thread-id *known-processes*)))))
+(defimplementation thread-status (thread)
+  (format nil "~A" (ccl:process-whostate thread)))
 
 (defimplementation make-lock (&key name)
   (ccl:make-lock name))
@@ -625,6 +618,9 @@ out IDs for.")
 
 (defimplementation current-thread ()
   ccl:*current-process*)
+
+(defimplementation all-threads ()
+  (ccl:all-processes))
 
 (defimplementation interrupt-thread (thread fn)
   (ccl:process-interrupt thread fn))

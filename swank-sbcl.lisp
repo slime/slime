@@ -628,6 +628,11 @@ stack."
   (sb-profile:profile))
 
 
+;;;;
+
+
+
+
 ;;;; Multiprocessing
 
 #+SB-THREAD
@@ -639,11 +644,12 @@ stack."
   (defimplementation startup-multiprocessing ()
     (setq *swank-in-background* :spawn))
 
-  (defimplementation thread-id ()
-    (sb-thread:current-thread-id))
+  (defimplementation thread-name (thread)
+    (format nil "Thread ~D" thread))
 
-  (defimplementation thread-name (thread-id)
-    (format nil "Thread ~S" thread-id))
+  (defimplementation thread-status (thread)
+    (declare (ignore thread))
+    "???")
 
   (defimplementation make-lock (&key name)
     (sb-thread:make-mutex :name name))
@@ -655,7 +661,7 @@ stack."
   (defimplementation current-thread ()
     (sb-thread:current-thread-id))
 
-  (defun all-threads ()
+  (defimplementation all-threads ()
     (sb-thread::mapcar-threads
      (lambda (sap)
        (sb-sys:sap-ref-32 sap (* sb-vm:n-word-bytes
