@@ -76,11 +76,17 @@
 (defimplementation preferred-communication-style ()
   :sigio)
 
+#-(or ppc mips)
 (defimplementation create-socket (host port)
-  #+ppc (declare (ignore host))
   (ext:create-inet-listener port :stream
-                            :reuse-address t
-                            #-ppc :host #-ppc (resolve-hostname host)))
+                            :reuse-address t 
+                            :host (resolve-hostname host)))
+
+;; There seems to be a bug in create-inet-listener on Mac/OSX and Irix.
+#+(or ppc mips)
+(defimplementation create-socket (host port)
+  (declare (ignore host))
+  (ext:create-inet-listener port :stream :reuse-address t))
 
 (defimplementation local-port (socket)
   (nth-value 1 (ext::get-socket-host-and-port (socket-fd socket))))
@@ -89,10 +95,10 @@
   (sys:invalidate-descriptor socket)
   (ext:close-socket (socket-fd socket)))
 
-(defimplementation accept-connection (socket 
-                                      &key (external-format :iso-latin-1-unix))
-  (assert (eq external-format ':iso-latin-1-unix))
-  (make-socket-io-stream (ext:accept-tcp-connection socket)))
+(defimplementation accept-connection (socket &key external-format)
+  (let ((ef (or external-format :iso-latin-1-unix)))
+    (assert (eq ef ':iso-latin-1-unix))
+    (make-socket-io-stream (ext:accept-tcp-connection socket))))
 
 ;;;;; Sockets
 
@@ -1588,7 +1594,7 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 (defimplementation sldb-break-on-return (frame)
   (break-on-return (nth-frame frame)))
 
-;;; We set the breakpoint the caller which might be a bit confusing.
+;;; We set the breakpoint in the caller which might be a bit confusing.
 ;;;
 (defun break-on-return (frame)
   (let* ((caller (di:frame-down frame))
@@ -2126,10 +2132,12 @@ The `symbol-value' of each element is a type tag.")
 ;;; normal output.
 ;;;
 
+(defun swank-sym (name) (find-symbol (string name) :swank))
+(defun sending-safe-p () (symbol-value (swank-sym :*emacs-connection*)))
+
 ;; this should probably not be here, but where else?
 (defun eval-in-emacs (form)
-  (let ((sym (find-symbol (string :eval-in-emacs) :swank)))
-    (funcall sym form)))
+  (funcall (swank-sym :eval-in-emacs) form))
 
 (defun print-bytes (nbytes &optional stream)
   "Print the number NBYTES to STREAM in KB, MB, or GB units."
@@ -2147,15 +2155,16 @@ The `symbol-value' of each element is a type tag.")
 (defun pre-gc-hook (bytes-in-use)
   (let ((msg (format nil "[Commencing GC with ~A in use.]" 
 		     (print-bytes bytes-in-use))))
-    (eval-in-emacs `(slime-background-message "%s" ,msg))))
+    (when (sending-safe-p)
+      (eval-in-emacs `(slime-background-message "%s" ,msg)))))
 
 (defun post-gc-hook (bytes-retained bytes-freed trigger)
-  (force-output)
   (let ((msg (format nil "[GC completed. ~A freed  ~A retained  ~A trigger]"
 		     (print-bytes bytes-freed)
 		     (print-bytes bytes-retained)
 		     (print-bytes trigger))))
-    (eval-in-emacs `(slime-background-message "%s" ,msg))))
+    (when (sending-safe-p)
+      (eval-in-emacs `(slime-background-message "%s" ,msg)))))
 
 (defun install-gc-hooks ()
   (setq ext:*gc-notify-before* #'pre-gc-hook)
@@ -2164,9 +2173,13 @@ The `symbol-value' of each element is a type tag.")
 (defun remove-gc-hooks ()
   (setq ext:*gc-notify-before* nil)
   (setq ext:*gc-notify-after* nil))
-  
+
+(defvar *install-gc-hooks* t
+  "If non-nil install GC hooks")
+
 (defimplementation emacs-connected ()
-  (install-gc-hooks))
+  (when *install-gc-hooks*
+    (install-gc-hooks)))
 
 ;; Local Variables:
 ;; pbook-heading-regexp:    "^;;;\\(;+\\)"
