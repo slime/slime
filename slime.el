@@ -566,7 +566,7 @@ A prefix argument disables this behaviour."
     ("\M-g" slime-quit :prefixed t :inferior t :sldb t)
     ;; Documentation
     (" " slime-space :inferior t)
-    ("\C-s" slime-insert-arglist :prefixed t :inferior t)
+    ("\C-s" slime-complete-form :prefixed t :inferior t)
     ("\C-f" slime-describe-function :prefixed t :inferior t :sldb t)
     ("\M-d" slime-disassemble-symbol :prefixed t :inferior t :sldb t)
     ("\C-t" slime-toggle-trace-fdefinition :prefixed t :sldb t)
@@ -4266,6 +4266,23 @@ currently looking at."
           (t
            (save-excursion
              (insert arglist))))))
+
+(defun slime-complete-form ()
+  "Complete the form at point.  This is a superset of the
+functionality of `slime-insert-arglist'."
+  (interactive)
+  ;; Find the (possibly incomplete) form around point.
+  (let* ((start (save-excursion (backward-up-list) (point)))
+         (end (point)) ; or try to find end (tricky)?
+         (form-string
+          (concat (buffer-substring-no-properties start end) ")")))
+    (let ((result (slime-eval `(swank:complete-form ,form-string))))
+      (if (eq result :not-available)
+          (error "Arglist not available")
+          (progn
+            (just-one-space)
+            (save-excursion
+              (insert result)))))))
 
 (defun slime-get-arglist (symbol-name)
   "Return the argument list for SYMBOL-NAME."
