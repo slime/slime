@@ -1,3 +1,24 @@
+2005-04-01  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (sldb-get-buffer): Initialize the buffer local
+	variables slime-buffer-connection and slime-current-thread when
+	creating a fresh buffer.
+
+	* swank.lisp (spawn-repl-thread): Use
+	*default-worker-thread-bindings* just like spawn-worker-thread.
+	(wrap-sldb-vars): New function.  Rebind *sldb-level* to avoid
+	confusion with recursive errors during eval-in-frame.
+	(eval-string-in-frame, pprint-eval-string-in-frame): Use it.
+
+	* swank-allegro.lisp (eval-in-frame): Allegro's
+	eval-form-in-context does nothing special with lexical variables
+	in the frame.  Wrap an explicit LET around the form to get similar
+	behavior as in the other Lisps.
+	(inspect-for-emacs (structure-object)): Remove structure related
+	methods.  It's already covered by the general case with
+	allegro-inspect.
+	(common-seperated-spec): Deleted
+
 2005-04-01  Luke Gorrie  <luke@synap.se>
 
 	* metering.lisp: Now supports only CLISP and OpenMCL.
