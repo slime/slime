@@ -263,7 +263,7 @@
     (list (string (second fspec)))))
 
 (defun find-fspec-location (fspec type)
-  (let ((file (excl:source-file fspec)))
+  (let ((file (excl:source-file fspec type)))
     (etypecase file
       (pathname
        (let* ((start (scm:find-definition-in-file fspec type file))
