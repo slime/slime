@@ -972,7 +972,7 @@ conditions are simply reported."
 printing."
   (let ((*print-pretty* t))
     (handler-case
-        (princ-to-string condition)
+        (format-sldb-condition condition)
       (error (cond)
         ;; Beware of recursive errors in printing, so only use the condition
         ;; if it is printable itself:
@@ -982,7 +982,8 @@ printing."
 (defun debugger-condition-for-emacs ()
   (list (safe-condition-message *swank-debugger-condition*)
         (format nil "   [Condition of type ~S]"
-                (type-of *swank-debugger-condition*))))
+                (type-of *swank-debugger-condition*))
+        (condition-references *swank-debugger-condition*)))
 
 (defun format-restarts-for-emacs ()
   "Return a list of restarts for *swank-debugger-condition* in a
