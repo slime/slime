@@ -954,7 +954,7 @@ Polling %S.. (Abort with `M-x slime-connection-abort'.)"
                        (y-or-n-p "Close old connections first? "))))
   (when kill-old-p (slime-disconnect))
   (message "Connecting to Swank on port %S.." port)
-  (slime-init-connection (slime-net-connect "localhost" port))
+  (slime-init-connection (slime-net-connect "localhost" port) t)
   (when-let (buffer (get-buffer "*inferior-lisp*"))
     (delete-windows-on buffer)
     (bury-buffer buffer))
@@ -1194,9 +1194,9 @@ the binding for `slime-connection'."
        ;; Setf
        (defsetf ,varname () (store)
          `(slime-with-connection-buffer ()
-            (setq ,',real-var ,store)
-            ,store))
-       ',varname)))
+            (setq (\, (quote (\, real-var))) (\, store))
+            (\, store)))
+       '(\, varname))))
 
 (slime-def-connection-var slime-lisp-features '()
   "The symbol-names of Lisp's *FEATURES*.
@@ -1286,12 +1286,12 @@ This may be called by a state machine to finish its current state."
   (slime-with-connection-buffer ()
     slime-state-stack))
 
-(defun slime-init-connection (proc)
+(defun slime-init-connection (proc &optional select)
   "Initialize the stack machine."
   (let ((slime-connection proc))
     (slime-init-connection-state)
     (sldb-cleanup))
-  (when (null slime-connection)
+  (when (or select (null slime-connection))
     (slime-select-connection proc)))
 
 (defun slime-init-connection-state ()
@@ -1491,9 +1491,6 @@ their actions. The pattern syntax is the same as `destructure-case'."
 
 ;;;;; The SLIME state machine definition
 
-(defvar slime-stack-eval-tags nil
-  "List of stack-tags of continuations waiting on the stack.")
-
 (slime-defstate slime-idle-state ()
   "Idle state. The user may make a request, or Lisp may invoke the debugger."
   ((activate)
@@ -1503,38 +1500,24 @@ their actions. The pattern syntax is the same as `destructure-case'."
    (slime-push-state
     (slime-debugging-state level condition restarts frames
                            (current-window-configuration))))
-  ((:emacs-evaluate form-string package-name continuation)
-   (slime-output-evaluate-request form-string package-name)
-   (slime-push-state (slime-evaluating-state continuation)))
+  ((:emacs-rex form-string package-name continuation)
+   (slime-push-evaluating-state form-string package-name continuation))
   ((:emacs-evaluate-oneway form-string package-name)
    (slime-output-oneway-evaluate-request form-string package-name)))
 
 (defvar slime-evaluating-state-activation-hook nil
   "Hook called when the evaluating state is actived.")
 
-(slime-defstate slime-evaluating-state (continuation)
+(slime-defstate slime-evaluating-state (saved-id continuation)
   "Evaluting state.
 We have asked Lisp to evaluate a form, and when the result arrives we
 will pass it to CONTINUATION."
   ((activate)
    (run-hooks 'slime-evaluating-state-activation-hook))
-  ((:ok result)
+  ((:return result id)
+   (assert (= id saved-id) nil "Continuation mismatch: %s %s" id saved-id)
    (slime-pop-state)
-   (destructure-case continuation
-     ((:function f)
-      (funcall f result))
-     ((:catch-tag tag)
-      (when (member tag slime-stack-eval-tags)
-	(throw tag `(:ok ,result))))))
-  ((:aborted)
-   (destructure-case continuation
-     ((:function f)
-      (message "Evaluation aborted.")
-      (slime-pop-state))
-     ((:catch-tag tag)
-      (slime-pop-state)
-      (when (member tag slime-stack-eval-tags)
-	(throw tag `(:aborted))))))
+   (funcall continuation result))
   ((:debug level condition restarts frames)
    (slime-push-state
     (slime-debugging-state level condition restarts frames
@@ -1567,10 +1550,8 @@ state interacts with it until it is coaxed into returning."
    (decf (sldb-level))
    (set-window-configuration saved-window-configuration)
    (slime-pop-state))
-  ((:emacs-evaluate form-string package-name continuation)
-   ;; recursive evaluation request
-   (slime-output-evaluate-request form-string package-name)
-   (slime-push-state (slime-evaluating-state continuation)))
+  ((:emacs-rex form-string package-name continuation)
+   (slime-push-evaluating-state form-string package-name continuation))
   ((:emacs-evaluate-oneway form-string package-name)
    (slime-output-oneway-evaluate-request form-string package-name)))
 
@@ -1582,9 +1563,8 @@ Lisp waits for input from Emacs."
   ((:emacs-return-string code)
    (slime-net-send `(swank:take-input ,tag ,code) slime-connection)
    (slime-pop-state))
-  ((:emacs-evaluate form-string package-name continuation)
-   (slime-output-evaluate-request form-string package-name)
-   (slime-push-state (slime-evaluating-state continuation)))
+  ((:emacs-rex form-string package-name continuation)
+   (slime-push-evaluating-state form-string package-name continuation))
   ((:emacs-evaluate-oneway form-string package-name)
    (slime-output-oneway-evaluate-request form-string package-name))
   ((:read-aborted)
@@ -1593,10 +1573,6 @@ Lisp waits for input from Emacs."
 
 
 ;;;;; Utilities
-
-(defun slime-output-evaluate-request (form-string package-name)
-  "Send a request for LISP to read and evaluate FORM-STRING in PACKAGE-NAME."
-  (slime-send `(swank:eval-string ,form-string ,package-name)))
 
 (defun slime-output-oneway-evaluate-request (form-string package-name)
   "Like `slime-output-oneway-evaluate-request' but without expecting a result."
@@ -1610,11 +1586,6 @@ Lisp waits for input from Emacs."
   "Return true if the Swank connection is open."
   (not (null slime-net-processes)))
 
-(defun slime-eval-string-async (string package continuation)
-  (when (slime-busy-p)
-    (error "Lisp is already busy evaluating a request."))
-  (slime-dispatch-event `(:emacs-evaluate ,string ,package ,continuation)))
-
 (defconst +slime-sigint+ 2)
 
 (defun slime-send-sigint ()
@@ -1623,37 +1594,84 @@ Lisp waits for input from Emacs."
 
 ;;;;; Emacs Lisp programming interface
 
+(defvar slime-continuation-counter 0)
+
+(defun slime-push-evaluating-state (form-string package-name continuation)
+  "Send a request for LISP to read and evaluate FORM-STRING in PACKAGE-NAME."
+  (slime-push-state (slime-evaluating-state (incf slime-continuation-counter)
+                                            continuation))
+  (slime-send `(swank:eval-string ,form-string ,package-name 
+                                  ,slime-continuation-counter)))
+
+(defmacro* slime-rex ((&rest saved-vars)
+                      (sexp &optional (package 'slime-buffer-package))
+                      &rest continuations)
+  "(slime-rex (VAR ...) (SEXP [PACKAGE]) CLAUSES ...)
+
+Remote EXecute SEXP.
+
+VARs are a list of saved variables visible in the other forms.  Each
+VAR is either a symbol or a list (VAR INIT-VALUE).
+
+SEXP is evaluated and the princed version is sent to Lisp.
+
+PACKAGE is evaluated and Lisp reads the princed form in this package.
+The default value is `slime-buffer-package'.
+
+CLAUSES is a list of patterns with same syntax as `destructure-case'.
+The result of the evaluation is dispatched on CLAUSES.  The result is
+either a sexp of the form (:ok VALUE) or (:abort).  CLAUSES is
+executed asynchronously.
+
+Note: don't use backquote syntax for SEXP, because Emacs20 cannot
+deal with that."
+  (let ((result (gensym)))
+    `(lexical-let ,(loop for var in saved-vars
+                         collect (etypecase var
+                                   (symbol (list var var))
+                                   (cons var)))
+       (when (slime-busy-p)
+         (error "Lisp is already busy evaluating a request."))
+       (slime-dispatch-event (list :emacs-rex (prin1-to-string ,sexp) ,package 
+                                   (lambda (,result)
+                                     (destructure-case ,result
+                                       ,@continuations)))))))
+
+(put 'slime-rex 'lisp-indent-function 2)
+
+(defvar slime-stack-eval-tags nil
+  "List of stack-tags of continuations waiting on the stack.")
+
 (defun slime-eval (sexp &optional package)
   "Evaluate EXPR on the superior Lisp and return the result."
-  (slime-check-connected)
   (let* ((tag (gensym "slime-result-"))
 	 (slime-stack-eval-tags (cons tag slime-stack-eval-tags)))
-    (destructure-case
-	(catch tag (slime-do-eval sexp package `(:catch-tag ,tag)))
-      ((:ok value)
-       value)
-      ((:aborted)
-       (error "Lisp Evaluation aborted.")))))
-
-(defun slime-do-eval (sexp package continuation)
-  "Perform an evaluation synchronously.
-Loops until the result is thrown to our caller, or the user aborts."
-  (slime-eval-string-async (prin1-to-string sexp) package continuation)
-  (let ((debug-on-quit t)
-        (inhibit-quit nil))
-    (while (slime-busy-p)
-      (accept-process-output)))
-  ;; No longer busy, but result not delivered. That means we have
-  ;; entered the debugger.
-  (recursive-edit)
-  ;; If we get here, the user completed the recursive edit without
-  ;; coaxing the debugger into returning. We abort.
-  (error "Evaluation aborted."))
+    (catch tag
+      (slime-rex (tag)
+          (sexp package)
+        ((:ok value)
+         (assert (member tag slime-stack-eval-tags))
+         (throw tag value))
+        ((:abort)
+         (error "Lisp Evaluation aborted.")))
+      (let ((debug-on-quit t)
+            (inhibit-quit nil))
+        (while t
+          (accept-process-output nil 0 10000)
+          (when (slime-debugging-p)
+            (recursive-edit)
+            ;; If we get here, the user completed the recursive edit without
+            ;; coaxing the debugger into returning. We abort.
+            (error "Evaluation aborted.")))))))
 
 (defun slime-eval-async (sexp package cont)
   "Evaluate EXPR on the superior Lisp and call CONT with the result."
-  (slime-check-connected)
-  (slime-eval-string-async (prin1-to-string sexp) package `(:function ,cont)))
+  (slime-rex (cont)
+      (sexp package)
+    ((:ok result) 
+     (funcall cont result))
+    ((:abort) 
+     (message "Evaluation aborted."))))
 
 (defun slime-oneway-eval (sexp &optional package)
   "Evaluate SEXP \"one-way\" - without receiving a return value."
@@ -1711,6 +1729,13 @@ Loops until the result is thrown to our caller, or the user aborts."
   "Return the output buffer, create it if necessary."
   (or (get-buffer "*slime-repl*")
       (with-current-buffer (get-buffer-create "*slime-repl*")
+        (dolist (mark (list slime-output-start
+                            slime-output-end
+                            slime-repl-prompt-start-mark
+                            slime-repl-input-start-mark
+                            slime-repl-input-end-mark
+                            slime-repl-last-input-start-mark))
+          (set-marker mark (point)))
 	(slime-repl-mode)
         (slime-repl-insert-prompt)
 	(current-buffer))))
@@ -3808,7 +3833,8 @@ If `sldb-enable-styled-backtrace' is nil, just return STRING."
   (slime-set-truncate-lines)
   ;; Make original `slime-connection' "sticky" for SLDB commands in this buffer
   (make-local-variable 'slime-connection)
-  (add-hook (make-local-hook 'kill-buffer-hook) 'sldb-delete-overlays))
+  (make-local-hook 'kill-buffer-hook)
+  (add-hook 'kill-buffer-hook 'sldb-delete-overlays))
 
 (slime-define-keys sldb-mode-map 
   ("v"    'sldb-show-source)
@@ -4220,13 +4246,12 @@ The details include local variable bindings and CATCH-tags."
 
 (defun sldb-continue ()
   (interactive)
-  (slime-eval-async 
-   '(swank:sldb-can-continue-p) nil
-   (lambda (answer)
-     (cond (answer 
-            (slime-oneway-eval '(swank::sldb-continue) nil))
-           (t
-            (message "No restart named continue") (ding))))))
+  (slime-rex ()
+      ('(swank::sldb-continue))
+    ((:ok _) 
+     (message "No restart named continue")
+     (ding))
+    ((:abort) )))
 
 (defun sldb-abort ()
   (interactive)
@@ -4235,8 +4260,10 @@ The details include local variable bindings and CATCH-tags."
 (defun sldb-invoke-restart (&optional number)
   (interactive)
   (let ((restart (or number (sldb-restart-at-point))))
-    (slime-oneway-eval `(swank:invoke-nth-restart-for-emacs ,(sldb-level) ,restart)
-                       nil)))
+    (slime-rex ()
+        ((list 'swank:invoke-nth-restart-for-emacs (sldb-level) restart))
+      ((:ok value) (message "Restart returned: %s" value))
+      ((:abort)))))
 
 (defun sldb-restart-at-point ()
   (or (get-text-property (point) 'restart-number)
