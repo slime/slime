@@ -1,3 +1,28 @@
+2004-01-13  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	New more direct socket interface.  The new interface is closer to
+	the functions provided by the implementations.  For Lispworks we
+	use some non-exported functions to get a sane interface.  The
+	interface also includes add-input-handler and a spawn function
+	(not used yet).  The idea is that most of the logic can be shared
+	between similar backends.
+
+	* swank-gray.lisp (make-fn-streams): New function.
+	(stream-read-char-no-hang, stream-read-char-will-hang-p): Moved to
+	here from swank-clisp.lisp.
+
+	* swank-allegro.lisp, swank-clisp.lisp, swank-cmucl.lisp,
+	swank-lispworks.lisp, swank-openmcl.lisp, swank-sbcl.lisp:
+	(create-socket, local-port, close-socket, accept-connection)
+	(add-input-handler, spawn): Implement new socket interface.
+
+	* swank.lisp (start-server, open-dedicated-output-stream &etc):
+	Use new socket functions.
+
+	* swank-backend.lisp (create-socket, local-port, close-socket)
+	(accept-connection, add-input-handler, spawn): New functions.
+	(accept-socket/stream, accept-socket/run): Deleted.
+
 2004-01-13  Luke Gorrie  <luke@bluetail.com>
 
 	* swank-clisp.lisp: Updated for new network interface but not
