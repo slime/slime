@@ -1,3 +1,24 @@
+2004-04-26  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el: Moved snippets of Common Lisp code into swank.lisp
+	from the thread control panel. (Remember, no CL code in slime.el!)
+
+	* swank-loader.lisp (*lisp-name*): Include a short version number
+	in the Lisp name to separate FASL files for different
+	versions. Only implemented for CMUCL and SBCL sofar.
+
+	* swank.lisp (ed-in-emacs): Avoid mutating the argument.
+	(spawn-repl-thread): Add a new thread for evaluating REPL
+	expressions. This same thread is used for all REPL
+	evaluation. This fixes some issues with variables like * and **
+	in at least SBCL.
+
+	* nregex.lisp: Typo fix (thanks Barry Fishman).
+
+	* slime.el (slime-events-buffer): Don't use hideshow-mode in
+	XEmacs for the *slime-events* buffer. It causes obscure problems
+	for some users. Still used in GNU Emacs.
+
 2004-04-25  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-backend.lisp (arglist): Return a list or :not-available.
