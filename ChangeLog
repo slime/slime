@@ -1,3 +1,11 @@
+2003-12-10  Daniel Barlow  <dan@telent.net>
+
+	* swank-sbcl.lisp (serve-request): more fiddling with serve-event
+	descriptors
+
+	* slime.el (slime-repl-return): slime-check-connected, otherwise
+	pressing Return in an unconnected repl gets a bit weird 
+
 2003-12-10  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-allegro.lisp, swank-lispworks.lisp, swank-openmcl.lisp,

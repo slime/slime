@@ -1707,6 +1707,7 @@ i.e. the parenthesis are matched.
 With prefix argument send the input even if the parenthesis are not
 balanced."
   (interactive)
+  (slime-check-connected)
   (unless (or (slime-idle-p)
               (slime-reading-p))
     (error "Lisp is not ready for requests from the REPL."))

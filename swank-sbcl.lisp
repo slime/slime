@@ -103,7 +103,7 @@
 (defvar *use-dedicated-output-stream* t)
 
 (defun accept-connection (server-socket)
-  "Accept one Swank TCP connection on SOCKET and then close it."
+  "Accept one Swank TCP connection on SERVER-SOCKET and then close it."
   (let* ((socket (accept server-socket))
 	 (stream (sb-bsd-sockets:socket-make-stream 
 		  socket :input t :output t :element-type 'base-char))
@@ -132,7 +132,10 @@ The request is read from the socket as a sexp and then evaluated."
       (slime-read-error (e)
         (when *swank-debug-p*
           (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
-        (close *emacs-io* :abort t)))))
+        (sb-sys:invalidate-descriptor (sb-impl::fd-stream-fd *emacs-io*))
+        (close *emacs-io* :abort t)
+        (when *use-dedicated-output-stream* 
+          (close *slime-output* :abort t))))))
 
 ;;; Utilities
 
