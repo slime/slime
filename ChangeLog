@@ -1,5 +1,8 @@
 2004-01-13  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* swank-clisp.lisp (accept-connection): Remove superfluous call to
+	socket-wait.
+
 	New more direct socket interface.  The new interface is closer to
 	the functions provided by the implementations.  For Lispworks we
 	use some non-exported functions to get a sane interface.  The
