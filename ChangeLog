@@ -1,3 +1,49 @@
+2005-02-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	Supersede the command slime-insert-arglist with the new command
+	slime-complete-form and bind it to C-c C-s.  The command completes
+	an incomplete form with a template for the missing arguments.
+	There is special code for discovering extra keywords of generic
+	functions and for handling make-instance. Examples:
+
+	  (subseq "abc" <C-c C-s>
+	    --inserts--> start [end])
+	  (find 17 <C-c C-s>
+	    --inserts--> sequence :from-end from-end :test test
+	                 :test-not test-not :start start :end end :key key)
+	  (find 17 '(17 18 19) :test #'= <C-c C-s>
+	    --inserts--> :from-end from-end
+	                 :test-not test-not :start start :end end :key key)
+	  (defclass foo () ((bar :initarg :bar)))
+	  (defmethod initialize-instance :after ((object foo) &key blub))
+	  (make-instance 'foo <C-c C-s>
+	    --inserts--> :bar bar :blub blub initargs...)
+	
+	* swank.lisp (arglist): New struct for storing decoded arglists.
+	(decode-arglist): New function.
+	(arglist-keywords, methods-keywords, generic-function-keywords,
+	applicable-methods-keywords): New functions.
+	(decoded-arglist-to-template-string,
+	print-decoded-arglist-as-template): New functions.
+	(arglist-to-template-string): Rewrite using above functions.
+	(remove-actual-args): New function.
+	(complete-form): New slimefun.
+	
+	* swank.lisp (extra-keywords): New generic function.
+	
+	* swank-backend.lisp (:swank-mop package):
+	Export compute-applicable-methods-using-classes.
+	
+	* swank.lisp (arglist-for-insertion): Use extra-keywords to
+	enrich the list of keywords.
+	
+	* swank.lisp (valid-operator-symbol-p): New function.
+	(valid-operator-name-p): Use valid-operator-symbol-p.
+	
+	* slime.el (slime-complete-form): New command.
+	(slime-keys): Bind C-c C-s to slime-complete-form rather than
+	slime-insert-arglist.
+	
 2005-02-18  Antonio Menezes Leitao  <aml@gia.ist.utl.pt>
 
 	Improve the trace mechanism (on lisps that support it). SLIME is
@@ -122,7 +168,7 @@
 	make return values inspectable in the debugger.
 	(signal-breakpoint): Initialize the new slot.
 
-2005-01-19  Matthias Koeppe <mkoeppe+slime@merkur.math.uni-magdeburg.de>
+2005-01-19  Matthias Koeppe <mkoeppe@merkur.math.uni-magdeburg.de>
 
 	* slime.el (slime-insert-arglist): Inserts a template for a
 	function call instead of the plain arglist; this makes a
@@ -205,7 +251,7 @@
 	* slime.el (slime-conservative-indentation): The default is now
 	nil.  Suggested by Travis Cross.
 
-2005-01-10  Matthias Koeppe <mkoeppe+slime@merkur.math.uni-magdeburg.de>
+2005-01-10  Matthias Koeppe <mkoeppe@merkur.math.uni-magdeburg.de>
 
 	* slime.el (slime-inspector-next-inspectable-object): Accept a
 	prefix argument and make wrapping around more reliable.  The code
@@ -224,7 +270,7 @@
 	comint-completion-addsuffix so unambiguous or exact completion
 	closes the string automatically.
 
-2004-12-16  Matthias Koeppe <mkoeppe+slime@merkur.math.uni-magdeburg.de>
+2004-12-16  Matthias Koeppe <mkoeppe@merkur.math.uni-magdeburg.de>
 
 	* slime.el (slime-keys): Bind M-* to
 	slime-pop-find-definition-stack for compatibility with standard
@@ -243,7 +289,7 @@
 	* swank.lisp (frame-for-emacs): Print the frame number a little
 	nicer with ~2D.
 
-2004-12-15  Matthias Koeppe  <mkoeppe+slime@merkur.math.uni-magdeburg.de>
+2004-12-15  Matthias Koeppe  <mkoeppe@merkur.math.uni-magdeburg.de>
 
 	* slime.el (slime-lisp-modes): New variable to make C-c C-k
 	customizable and usable in scheme-mode.
@@ -1375,207 +1421,7 @@
 	slime-background-message. This displays multi-line arglists.
 	(sldb-mode-map): Bind 'C' to sldb-inspect-condition.
 
-2004-08-14  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
-
-	* slime.el (slime-find-buffer-package): Use "%s", not "%S", to
-	avoid ugly escape characters, if the package name contains dots.
-
-2004-08-13  Luke Gorrie  <luke@bluetail.com>
-
-	* slime.el (sldb-eval-in-frame): Print result to the REPL when a
-	prefix argument is given.
-	Added pull-down menus for SLDB and the REPL.
-
-	* swank-source-path-parser.lisp: Removed caching of readtables and
-	the source-map hashtable. Fresh creation is ultra-cheap (<1ms).
-	The caching didn't handle modifications to readtables and
-	generally made me feel uneasy while tracking down an obscure bug
-	in a reader macro.
-	The cached source-map hashtable also wasn't thread-safe (ho hum).
-
-2004-08-13  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
-
-	* slime.el (slime-merge-notes, slime-tree-for-note): Use the short
-	note message for annotation in the source buffer and the long
-	message in the tree widget.  Used to be the other way around.
-	(sldb-insert-frames): Set the `start-open' property for XEmacs.
-	Without `start-open', the `point-entered' property is inherited
-	when we insert something before the "--more--" marker.  Reported
-	by Sundar Narasimhan.
-
-	* swank.lisp (variable-desc-for-echo-area): Bind some printer
-	variables to limit the length of the output.
-
-2004-08-05  Luke Gorrie  <luke@bluetail.com>
-
-	* slime.el (slime-setup): Added typeout-frame keyword argument.
-	(slime-thread-attach): Fixed misnamed function call.
-
-2004-08-04  Luke Gorrie  <luke@bluetail.com>
-
-	* swank-allegro.lisp (find-fspec-location): Fixed to work for more
-	types of definition than just functions. So M-. now works for e.g.
-	classes in Allegro. From Matthew Danish.
-	(find-fspec-location): Include the type of the definition in the
-	designator sent to Emacs. From Matthew Danish.
-
-2004-08-04  Martin Simmons <martin@xanalys.com>
-
-	* swank-lispworks.lisp (frame-actual-args): Correct syntax for
-	handler-case.
-
-2004-08-04  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
-
-	* slime.el: (slime-mode-map, slime-repl-mode-map)
-	(slime-repl-read-mode-map): Remove the binding for C-c C-g.  C-c
-	C-b is now the default interrupt key.
-	(slime-list-repl-short-cuts): Don't trash the shortcut-table: copy
-	it before sorting.  (Thanks to Mark Simpson.)
-
-2004-08-02  Luke Gorrie  <luke@bluetail.com>
-
-	* slime.el (slime-connect): Shorten the welcome message by leaving
-	out the port number (which is displayed in the REPL anyway). This
-	avoids line-wrapping some messages of encouragement.
-
-	* swank.lisp (with-buffer-syntax): Don't bind *readtable* to
-	*buffer-readtable* if they are already EQ. When we shadow this
-	binding the user can't assign *readtable* from the REPL so it's
-	best avoided when possible.
-
-	* swank-allegro.lisp: Removed fwrapper-based code for inheriting
-	"swankiness" to newly spawned threads. This was fighting the
-	system and not the right thing.
-
-	* slime.el (slime-choose-overlay-region): Tweaked the
-	multiline-annotation-avoidance code to work with forms not
-	starting with an open-paren, e.g. `(..) or #'(..).
-	(slime-update-modeline-package): New configurable. Non-nil (the
-	default) means update the Lisp package in the modeline using an
-	idle timer.
-	(slime-repl-send-input): Make the `slime-repl-old-input' property
-	cover the whole input (including newline) so that pressing RET on
-	the end of an input line works.
-	Use a unique integer as the value of this property to distinguish
-	adjacent inputs.
-	(slime-current-package): Deal with narrowing.
-
-2004-08-01  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
-
-	* swank-allegro.lisp (swank-compile-string): Use a temporary file
-	and set excl::*source-pathname* manually.  This way we can find
-	the source buffer of functions compiled with C-c C-c.
-	(call-with-temp-file, compile-from-temp-file): New functions.
-	(list-callers, function-callers, in-constants-p)
-	(map-function-constants): Implements list callers by groveling
-	through the constants pools of named functions.
-
-	* swank-lispworks.lisp: Minor refactoring.
-
-2004-07-30  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
-
-	* slime.el (slime-connection): Say "No default connection
-	selected" if there are open connections but no default connection.
-	(slime-tree-indent-item): Point wasn't updated correctly if the
-	last line was empty.  Use insert-before-markers instead of insert
-	to do it properly.
-	(slime-draw-connection-list): Don't break if there is no default
-	connection.
-
-	* swank-cmucl.lisp (call-with-debugging-environment): Only handle
-	DI::UNHANDLED-CONDITION not all DI:DEBUG-CONDITIONs.
-
-	* swank-backend.lisp (sldb-condition): Show the original condition
-	in the message.
-
-2004-07-28  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
-
-	* slime.el (slime-eval-feature-conditional): Treat uppercase
-	operators NOT, AND, OR correctly.
-	(sldb-find-buffer): Remove killed buffers.
-	(sldb-quit): Raise an error if the RPC returns.
-	(slime-expected-failures): Delete unused function.
-	(complete-symbol): Test completion of
-	swank::compile-file. LispWorks has extra completions for
-	cl::compile-file.
-	(arglist): Test arglist of method cl:class-name.  Add enough
-	regexpery to pass the test in most implementations.
-
-	* swank-sbcl.lisp (list-callers, list-callees): Implemented.
-
-2004-07-26  Luke Gorrie  <luke@bluetail.com>
-
-	* slime.el (slime-first-change-hook): Add `save-match-data' to
-	avoid breaking e.g. query-replace. Also added `save-excursion'
-	just to be safe.
-
-	* README: s/setup-slime/slime-setup/ in the .emacs snippet.
-
-2004-07-23  Luke Gorrie  <luke@bluetail.com>
-
-	* slime.el (slime-set-state): Show the message in the modeline in
-	the case where we aren't connected. Otherwise the "not connected"
-	status is ignored.
-	(slime-net-sentinel): Close the connection before changing the
-	status message. The old behaviour of this combined with the old
-	behaviour of `slime-set-state' could generally cause spurious
-	errors after a connection was closed.
-
-2004-07-22  Luke Gorrie  <luke@bluetail.com>
-
-	* swank.lisp (carefully-find-package): Return *BUFFER-PACKAGE* if
-	no other package can be found. This is reverting a previous change
-	that broke completion in buffers with no known package.
-
-	* slime.el (slime-maybe-start-lisp): Check that *inferior-lisp*
-	exists /and/ has a running process. Fixes a startup problem if
-	your inferior-lisp has died and you want to restart SLIME.
-
-2004-07-21  Luke Gorrie  <luke@bluetail.com>
-
-	* slime.el (slime-sync-package-and-default-directory): Sync
-	`default-directory' in the REPL buffer too.
-	(slime-set-state): Convenience function for setting a connection's
-	state-name and updating the modeline if appropriate. This function
-	is called in the right places.
-	(slime-to-lisp-filename): Use `expand-file-name'.
-
-2004-07-20  Luke Gorrie  <luke@bluetail.com>
-
-	* slime.el (slime-repl-update-banner): Restore old behaviour of
-	using an asynchronous evaluation to setup the REPL. This works
-	around a problem I'd reintroduced where the first REPL command
-	uses the wrong keymap.
-
-2004-07-20  Andreas Fuchs  <asf@boinkor.net>
-
-	* swank-sbcl.lisp (call-with-compilation-hooks): Trap and report
-	errors that cause compilation to fail, e.g. read errors.
-
-2004-07-19  Luke Gorrie  <luke@bluetail.com>
-
-	* HACKING: Updated. Some notes about Emacs features.
-
-	* slime.el: More major refactoring.
-	Restructured and documented the networking and protocol code.
-	(slime-rex-continuations): Now connection-local.
-
-2004-07-18  Luke Gorrie  <luke@bluetail.com>
-
-	* slime.el: Major refactoring.
-	Mostly resectioning and reordering definitions to try and improve
-	readability.
-	(slime-get-temp-buffer-create): New utility function to popup a
-	temporary buffer that automatically has a binding on `q' to
-	intelligently restore window configuration. Handy, but currently
-	not applicable to all of our temporary buffers.
-	(slime-with-chosen-connection): Removed this macro. Consequently
-	the compilation commands no longer prompt for which connection to
-	use when given a prefix argument. `slime-switch-to-output-buffer'
-	still works like that, but for other cases I think the
-	connection-list buffer is sufficient.
-	(slime-eval-async): New arglist: (form &optional cont pkg). If the
-	continuation is unspecified then the evaluation result is ignored,
+2004-08-14  Helmut Eller  <e
 	and if the package is unspecified then (slime-buffer-package) is
 	used.
 	(slime-eval): Package arg now defaults to (slime-buffer-package).
@@ -3339,109 +3185,7 @@
 	(describe-symbol-for-emacs, describe-definition): Distinguish
 	between ordinary and generic functions.
 	(call-with-debugging-environment): Unwind a few frames.  Looks
-	better and avoids the problems with the real topframe.
-	(interesting-frame-p): Use Lispworks dbg:*print-xxx* variables to
-	decide which frames are interesting.
-	(frame-actual-args): New function.
-	(print-frame): Use it.
-
-	* swank.lisp (open-streams, make-output-function): Capture the
-	connection not only the socket.  This way the streams can be used
-	from unrelated threads.  Reported by Alain Picard.
-	(create-connection): Factorized.  Initialize the streams after the
-	connection is created.
-	(initialize-streams-for-connection, spawn-threads-for-connection):
-	New functions.
-	(with-connection): Fix quoting bug and move upwards before first
-	use.
-	(guess-package-from-string): Add kludge for SBCL !-package names.
-	(apropos-list-for-emacs): Lispworks apparently returns duplicates;
-	remove them.
-	(inspect-object): Princ the label to allow strings and symbols.
-	(send-output-to-emacs): Deleted.
-	(defslimefun-unimplemented): Deleted.  Was unused.
-
-	* slime.el (slime-easy-menu): Add some more commands.
-	(slime-changelog-date): New variable. Initialized with the value
-	returned by the function of the same name.  This detects
-	incompatible versions if Emacs has not been restarted after an
-	upgrade.
-	(slime-check-protocol-version, slime-init-output-buffer): Use it.
-	(slime-events-buffer, slime-log-event): Use fundamental mode
-	instead of lisp-mode to avoid excessive font-locking for messages
-	with lots of strings.
-
-2004-03-22  Luke Gorrie  <luke@bluetail.com>
-
-	* doc/slime.texi: New user manual.
-
-	* swank.lisp (*communication-style*): New name for
-	*swank-in-background*.
-	Exported configuration variables: *communication-style*,
-	*log-events*, *use-dedicated-output-stream*.
-
-2004-03-20  Julian Stecklina <der_julian@web.de>
-
-	* swank-sbcl.lisp (+o_async+, +f_setown+, +f_setfl+): Add correct
-	constants for FreeBSD.
-
-2004-03-19  Alan Shutko  <ats@acm.org>
-
-	* swank.lisp, swank-loader.lisp: Take into account
-	`pathname-device' when deriving paths. A fix for Windows.
-
-2004-03-19  Luke Gorrie  <luke@bluetail.com>
-
-	* slime.el (slime-connected-hook): New hook called each time SLIME
-	successfully connects to Lisp. This is handy for calling
-	`slime-ensure-typeout-frame', if you want to use that feature.
-	(sldb-print-condition): New command to print the SLDB condition
-	description into the REPL, for reference after SLDB exits. Can be
-	called from `sldb-hook' if you want the condition to always be
-	printed. Bound to 'P' in SLDB.
-
-2004-03-18  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
-
-	* swank.lisp (format-values-for-echo-area): Bind *package* to
-	*buffer-package*.
-	(load-system-for-emacs): Renamed from swank-load-system.
-	(carefully-find-package): Be friendly to case inverting
-	readtables.
-	(inspect-current-condition): New function.
-
-	* swank-backend.lisp, swank-cmucl.lisp (set-default-directory):
-	New backend function.  
-
-	* swank-allegro.lisp, swank-clisp.lisp, swank-lispworks.lisp,
-	swank-sbcl.lisp (swank-compile-string): Be friendly to
-	case-inverting readtables.
-
-	* slime.el (sldb-inspect-condition): Use
-	swank:inspect-current-condition.
-	(slime-inspector-label-face): Make it bold by default.
-	(slime-check-protocol-version, slime-process-available-input):
-	Wait 2 secs after displaying the error message.
-	(sldb-list-catch-tags, sldb-show-frame-details): Display catch
-	tags as symbols not as strings.
-
-2004-03-16  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
-
-	* slime.el (slime-dispatch-event, slime-rex): Pass a form instead
-	of a string with :emacs-rex.
-	(slime-connection-name): New connection variable.  Use it in
-	various places instead of slime-lisp-implementation-type-name.
-
-	* swank.lisp: Better symbol completion for case-inverting
-	readtables.  (Thanks Thomas F. Burdick for suggestions.)
-	(output-case-converter): New function.
-	(find-matching-symbols): Case convert the symbol-name before
-	comparing.
-	(compound-prefix-match, prefix-match-p): Use char= instead of
-	char-equal.
-	(case-convert-input): Renamed from case-convert.
-	(eval-for-emacs): Renamed from eval-string.  Take a form instead
-	of a string.
-	(dispatch-event, read-from-socket-io): Update callers.
+	bette
 	(eval-region, interactive-eval): Use fresh-line to reset the column.
 
 2004-03-13  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
