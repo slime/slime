@@ -183,8 +183,9 @@ If *REDIRECT-IO* is true, all standard I/O streams are redirected."
                 *swank-in-background*))
                      
 (defun create-swank-server (&optional (port 4005) 
-                            (background *swank-in-background*))
-  (setup-server port #'simple-announce-function background))
+                            (background *swank-in-background*)
+                            (announce-fn #'simple-announce-function))
+  (setup-server port announce-fn background))
 
 (defun setup-server (port announce-fn background)
   (setq *write-lock* (make-lock :name "Swank write lock"))
