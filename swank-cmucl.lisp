@@ -4,6 +4,39 @@
 
 (in-package :swank)
 
+(in-package :lisp)
+
+;; Fix for read-sequence in 18e
+#+cmu18e
+(progn
+  (let ((s (find-symbol (string :*enable-package-locked-errors*) :lisp)))
+    (when s
+      (setf (symbol-value s) nil)))
+
+  (defun read-into-simple-string (s stream start end)
+    (declare (type simple-string s))
+    (declare (type stream stream))
+    (declare (type index start end))
+    (unless (subtypep (stream-element-type stream) 'character)
+      (error 'type-error
+             :datum (read-char stream nil #\Null)
+             :expected-type (stream-element-type stream)
+             :format-control "Trying to read characters from a binary stream."))
+    ;; Let's go as low level as it seems reasonable.
+    (let* ((numbytes (- end start))
+           (bytes-read (system:read-n-bytes stream s start numbytes t)))
+      (if (< bytes-read numbytes)
+          (+ start bytes-read)
+          end)))
+
+  (let ((s (find-symbol (string :*enable-package-locked-errors*) :lisp)))
+    (when s
+      (setf (symbol-value s) t)))
+
+  )
+
+(in-package :swank)
+
 
 ;;;; TCP server.
 
