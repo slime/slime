@@ -1147,10 +1147,7 @@ Polling %S.. (Abort with `M-x slime-connection-abort'.)"
   (message "Connecting to Swank on port %S.." port)
   (let* ((process (slime-net-connect host port))
          (slime-dispatching-connection process))
-    (slime-init-connection process)
-    (when-let (buffer (get-buffer "*inferior-lisp*"))
-      (delete-windows-on buffer)
-      (bury-buffer buffer))))
+    (slime-init-connection process)))
 
 (defun slime-changelog-date ()
   "Return the datestring of the latest entry in the ChangeLog file.
@@ -1633,10 +1630,13 @@ This is automatically synchronized from Lisp.")
           (slime-lisp-implementation-type-name) name
           (slime-connection-name) (slime-generate-connection-name name)
           (slime-lisp-features) features))
-  (slime-init-output-buffer process)
   (setq slime-state-name "")
   (when slime-global-debugger-hook
     (slime-eval '(swank:install-global-debugger-hook)))
+  (when-let (buffer (get-buffer "*inferior-lisp*"))
+    (delete-windows-on buffer)
+    (bury-buffer buffer))
+  (slime-init-output-buffer process)
   (message "Connected on port %S. %s" 
            (slime-connection-port connection)
            (slime-random-words-of-encouragement))
@@ -3289,7 +3289,7 @@ more than one space."
   "Insert the argument list for NAME behind the symbol point is
 currently looking at."
   (interactive (list (slime-read-symbol-name "Arglist of: ")))
-  (insert (slime-eval `(swank:arglist-for-echo-area (quote (,name)) t)
+  (insert (slime-eval `(swank:arglist-for-insertion ',name)
                       (slime-buffer-package))))
 
 (defun slime-get-arglist (symbol-name)
