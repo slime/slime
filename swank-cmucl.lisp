@@ -1,10 +1,25 @@
-;;;; -*- indent-tabs-mode: nil; outline-regexp: ";;;;+" -*-
+;;; -*- indent-tabs-mode: nil; outline-regexp: ";;;;+" -*-
+;;;
+;;;; Introduction
+;;;
+;;; This is the CMUCL implementation of the `swank-backend' package.
 
 (in-package :swank-backend)
 
+;;;; "Hot fixes"
+;;;
+;;; Here are necessary bugfixes to the latest released version of
+;;; CMUCL (currently 18e). Any fixes placed here should also be
+;;; submitted to the `cmucl-imp' mailing list and confirmed as
+;;; good. When a new release is made that includes the fixes we should
+;;; promptly delete them from here. It is enough to be compatible with
+;;; the latest release.
+
 (in-package :lisp)
 
-;; Fix for read-sequence in 18e
+;;; `READ-SEQUENCE' with large sequences has problems in 18e. This new
+;;; definition works better.
+
 #+cmu18e
 (progn
   (let ((s (find-symbol (string :*enable-package-locked-errors*) :lisp)))
@@ -43,7 +58,13 @@
 (in-package :swank-backend)
 
 
-;;;; TCP server.
+;;;; TCP server
+;;;
+;;; In CMUCL we support all communication styles. By default we use
+;;; `:SIGIO' because it is the most responsive, but it's somewhat
+;;; dangerous: CMUCL is not in general "signal safe", and you don't
+;;; know for sure what you'll be interrupting. Both `:FD-HANDLER' and
+;;; `:SPAWN' are reasonable alternatives.
 
 (defimplementation preferred-communication-style ()
   :sigio)
@@ -63,52 +84,7 @@
   #+mp (mp:process-wait-until-fd-usable socket :input)
   (make-socket-io-stream (ext:accept-tcp-connection socket)))
 
-(defvar *sigio-handlers* '()
-  "List of (key . (fn . args)) pairs to be called on SIGIO.")
-
-(defun sigio-handler (signal code scp)
-  (declare (ignore signal code scp))
-  (mapc (lambda (handler) (funcall (cdr handler))) *sigio-handlers*))
-
-(defun set-sigio-handler ()
-  (sys:enable-interrupt :sigio (lambda (signal code scp)
-                                 (sigio-handler signal code scp))))
-
-(defun fcntl (fd command arg)
-  (multiple-value-bind (ok error) (unix:unix-fcntl fd command arg)
-    (cond (ok)
-          (t (error "fcntl: ~A" (unix:get-unix-error-msg error))))))
-
-(defimplementation add-sigio-handler (socket fn)
-  (set-sigio-handler)
-  (let ((fd (socket-fd socket)))
-    (format *debug-io* "; Adding input handler: ~S ~%" fd)
-    (fcntl fd unix:f-setown (unix:unix-getpid))
-    (fcntl fd unix:f-setfl unix:fasync)
-    (push (cons fd fn) *sigio-handlers*)))
-
-(defimplementation remove-sigio-handlers (socket)
-  (let ((fd (socket-fd socket)))
-    (setf *sigio-handlers* (delete fd *sigio-handlers* :key #'car))
-    (sys:invalidate-descriptor fd))
-  (close socket))
-
-(defimplementation add-fd-handler (socket fn)
-  (let ((fd (socket-fd socket)))
-    (format *debug-io* "; Adding fd handler: ~S ~%" fd)
-    (sys:add-fd-handler fd :input (lambda (_) 
-                                    _
-                                    (funcall fn)))))
-
-(defimplementation remove-fd-handlers (socket)
-  (sys:invalidate-descriptor (socket-fd socket)))
-
-(defimplementation make-fn-streams (input-fn output-fn)
-  (let* ((output (make-slime-output-stream output-fn))
-         (input  (make-slime-input-stream input-fn output)))
-    (values input output)))
-
-;;;;; Socket helpers.
+;;;;; Sockets
 
 (defun socket-fd (socket)
   "Return the filedescriptor for the socket represented by SOCKET."
@@ -126,31 +102,60 @@
   "Create a new input/output fd-stream for FD."
   (sys:make-fd-stream fd :input t :output t :element-type 'base-char))
 
-(defun set-fd-non-blocking (fd)
-  (flet ((fcntl (fd cmd arg)
-           (multiple-value-bind (flags errno) (unix:unix-fcntl fd cmd arg)
-             (or flags 
-                 (error "fcntl: ~A" (unix:get-unix-error-msg errno))))))
-    (let ((flags (fcntl fd unix:f-getfl 0)))
-      (fcntl fd unix:f-setfl (logior flags unix:o_nonblock)))))
+;;;;; Signal-driven I/O
 
-
-;;;; unix signals
+(defvar *sigio-handlers* '()
+  "List of (key . function) pairs.
+All functions are called on SIGIO, and the key is used for removing
+specific functions.")
 
-(defmethod call-without-interrupts (fn)
-  (sys:without-interrupts (funcall fn)))
+(defun set-sigio-handler ()
+  (sys:enable-interrupt :sigio (lambda (signal code scp)
+                                 (sigio-handler signal code scp))))
 
-(defimplementation getpid ()
-  (unix:unix-getpid))
+(defun sigio-handler (signal code scp)
+  (declare (ignore signal code scp))
+  (mapc #'funcall (mapcar #'cdr *sigio-handlers*)))
 
-(defimplementation lisp-implementation-type-name ()
-  "cmucl")
+(defun fcntl (fd command arg)
+  "fcntl(2) - manipulate a file descriptor."
+  (multiple-value-bind (ok error) (unix:unix-fcntl fd command arg)
+    (unless ok (error "fcntl: ~A" (unix:get-unix-error-msg error)))))
 
-(defimplementation quit-lisp ()
-  (ext::quit))
+(defimplementation add-sigio-handler (socket fn)
+  (set-sigio-handler)
+  (let ((fd (socket-fd socket)))
+    (format *debug-io* "; Adding input handler: ~S ~%" fd)
+    (fcntl fd unix:f-setown (unix:unix-getpid))
+    (fcntl fd unix:f-setfl unix:fasync)
+    (push (cons fd fn) *sigio-handlers*)))
+
+(defimplementation remove-sigio-handlers (socket)
+  (let ((fd (socket-fd socket)))
+    (setf *sigio-handlers* (remove fd *sigio-handlers* :key #'car))
+    (sys:invalidate-descriptor fd))
+  (close socket))
+
+;;;;; SERVE-EVENT
+
+(defimplementation add-fd-handler (socket fn)
+  (let ((fd (socket-fd socket)))
+    (format *debug-io* "; Adding fd handler: ~S ~%" fd)
+    (sys:add-fd-handler fd :input (lambda (_) 
+                                    _
+                                    (funcall fn)))))
+
+(defimplementation remove-fd-handlers (socket)
+  (sys:invalidate-descriptor (socket-fd socket)))
 
 
 ;;;; Stream handling
+;;; XXX: How come we don't use Gray streams in CMUCL too? -luke (15/May/2004)
+
+(defimplementation make-fn-streams (input-fn output-fn)
+  (let* ((output (make-slime-output-stream output-fn))
+         (input  (make-slime-input-stream input-fn output)))
+    (values input output)))
 
 (defstruct (slime-output-stream
              (:include lisp::lisp-stream
@@ -254,19 +259,53 @@
 (defvar *previous-context* nil
   "Previous compiler error context.")
 
-(defvar *buffer-name* nil)
+(defvar *buffer-name* nil
+  "The name of the Emacs buffer we are compiling from.
+NIL if we aren't compiling from a buffer.")
+
 (defvar *buffer-start-position* nil)
 (defvar *buffer-substring* nil)
 
+(defimplementation call-with-compilation-hooks (function)
+  (let ((*previous-compiler-condition* nil)
+        (*previous-context* nil)
+        (*print-readably* nil))
+    (handler-bind ((c::compiler-error #'handle-notification-condition)
+                   (c::style-warning  #'handle-notification-condition)
+                   (c::warning        #'handle-notification-condition))
+      (funcall function))))
+
+(defimplementation swank-compile-file (filename load-p)
+  (clear-xref-info filename)
+  (with-compilation-hooks ()
+    (let ((*buffer-name* nil))
+      (multiple-value-bind (output-file warnings-p failure-p)
+          (compile-file filename :load load-p)
+        (unless failure-p
+          ;; Cache the latest source file for definition-finding.
+          (source-cache-get filename (file-write-date filename)))
+        (values output-file warnings-p failure-p)))))
+
+(defimplementation swank-compile-string (string &key buffer position)
+  (with-compilation-hooks ()
+    (let ((*buffer-name* buffer)
+          (*buffer-start-position* position)
+          (*buffer-substring* string))
+      (with-input-from-string (stream string)
+        (ext:compile-from-stream 
+         stream 
+         :source-info `(:emacs-buffer ,buffer 
+                        :emacs-buffer-offset ,position
+                        :emacs-buffer-string ,string))))))
+
 
 ;;;;; Trapping notes
+;;;
+;;; We intercept conditions from the compiler and resignal them as
+;;; `SWANK:COMPILER-CONDITION's.
 
 (defun handle-notification-condition (condition)
-  "Handle a condition caused by a compiler warning.
-This traps all compiler conditions at a lower-level than using
-C:*COMPILER-NOTIFICATION-FUNCTION*. The advantage is that we get to
-craft our own error messages, which can omit a lot of redundant
-information."
+  "Handle a condition caused by a compiler warning."
   (unless (eq condition *previous-compiler-condition*)
     (let ((context (c::find-error-context nil)))
       (setq *previous-compiler-condition* condition)
@@ -307,71 +346,57 @@ the error-context redundant."
             enclosing source condition)))
 
 (defun compiler-note-location (context)
-  (cond (context
-         (resolve-note-location
-          *buffer-name*
-          (c::compiler-error-context-file-name context)
-          (c::compiler-error-context-file-position context)
-          (reverse (c::compiler-error-context-original-source-path context))
-          (c::compiler-error-context-original-source context)))
-        (t
-         (resolve-note-location *buffer-name* nil nil nil nil))))
+  "Derive the location of a complier message from its context.
+Return a `location' record, or (:error REASON) on failure."
+  (if (null context)
+      (note-error-location)
+      (let ((file (c::compiler-error-context-file-name context))
+            (source (c::compiler-error-context-original-source context))
+            (path
+             (reverse (c::compiler-error-context-original-source-path context))))
+        (or (locate-compiler-note file source path)
+            (note-error-location)))))
 
-(defgeneric resolve-note-location (buffer file-name file-position 
-                                          source-path source))
+(defun note-error-location ()
+  "Pseudo-location for notes that can't be located."
+  (list :error "No error location available."))
 
-(defmethod resolve-note-location ((b (eql nil)) (f pathname) pos path source)
-  (make-location
-   `(:file ,(unix-truename f))
-   `(:position ,(1+ (source-path-file-position path f)))))
+(defun locate-compiler-note (file source source-path)
+  (cond ((and (eq file :stream) *buffer-name*)
+         ;; Compiling from a buffer
+         (let ((position (+ *buffer-start-position*
+                            (source-path-string-position
+                             source-path *buffer-substring*))))
+           (make-location (list :buffer *buffer-name*)
+                          (list :position position))))
+        ((and (pathnamep file) (null *buffer-name*))
+         ;; Compiling from a file
+         (make-location (list :file (unix-truename file))
+                        (list :position
+                              (1+ (source-path-file-position
+                                   source-path file)))))
+        ((and (eq file :lisp) (stringp source))
+         ;; No location known, but we have the source form.
+         ;; XXX How is this case triggered? -luke (16/May/2004)
+         (make-location (list :source-form source)
+                        (list :position 1)))))
 
-(defmethod resolve-note-location ((b string) (f (eql :stream)) pos path source)
-  (make-location
-   `(:buffer ,b)
-   `(:position ,(+ *buffer-start-position*
-                   (source-path-string-position path *buffer-substring*)))))
-
-(defmethod resolve-note-location (b (f (eql :lisp)) pos path (source string))
-  (make-location
-   `(:source-form ,source)
-   `(:position 1)))
-
-(defmethod resolve-note-location (buffer
-                                  (file (eql nil)) 
-                                  (pos (eql nil)) 
-                                  (path (eql nil))
-                                  (source (eql nil)))
-  (list :error "No error location available"))
-
-(defimplementation call-with-compilation-hooks (function)
-  (let ((*previous-compiler-condition* nil)
-        (*previous-context* nil)
-        (*print-readably* nil))
-    (handler-bind ((c::compiler-error #'handle-notification-condition)
-                   (c::style-warning  #'handle-notification-condition)
-                   (c::warning        #'handle-notification-condition))
-      (funcall function))))
-
-(defimplementation swank-compile-file (filename load-p)
-  (clear-xref-info filename)
-  (with-compilation-hooks ()
-    (let ((*buffer-name* nil))
-      (compile-file filename :load load-p))))
-
-(defimplementation swank-compile-string (string &key buffer position)
-  (with-compilation-hooks ()
-    (let ((*buffer-name* buffer)
-          (*buffer-start-position* position)
-          (*buffer-substring* string))
-      (with-input-from-string (stream string)
-        (ext:compile-from-stream 
-         stream 
-         :source-info `(:emacs-buffer ,buffer 
-                        :emacs-buffer-offset ,position
-                        :emacs-buffer-string ,string))))))
+(defun unix-truename (pathname)
+  (ext:unix-namestring (truename pathname)))
 
 
 ;;;; XREF
+;;;
+;;; Cross-reference support is based on the standard CMUCL `XREF'
+;;; package. This package has some caveats: XREF information is
+;;; recorded during compilation and not preserved in fasl files, and
+;;; XREF recording is disabled by default. Redefining functions can
+;;; also cause duplicate references to accumulate, but
+;;; `swank-compile-file' will automatically clear out any old records
+;;; from the same filename.
+;;;
+;;; To enable XREF recording, set `c:*record-xref-info*' to true. To
+;;; clear out the XREF database call `xref:init-xref-database'.
 
 (defmacro defxref (name function)
   `(defimplementation ,name (name)
@@ -382,6 +407,8 @@ the error-context redundant."
 (defxref who-binds      xref:who-binds)
 (defxref who-sets       xref:who-sets)
 
+;;; More types of XREF information were added since 18e:
+;;;
 #+cmu19
 (progn
   (defxref who-macroexpands xref:who-macroexpands)
@@ -431,12 +458,9 @@ This is a workaround for a CMUCL bug: XREF records are cumulative."
                                  :test #'equalp)))
                  db)))))
 
-(defun unix-truename (pathname)
-  (ext:unix-namestring (truename pathname)))
-
 
 ;;;; Find callers and callees
-
+;;;
 ;;; Find callers and callees by looking at the constant pool of
 ;;; compiled code objects.  We assume every fdefn object in the
 ;;; constant pool corresponds to a call to that function.  A better
@@ -551,7 +575,20 @@ the code omponent CODE."
             fns)))
 
 
-;;;; Definitions
+;;;; Resolving source locations
+;;;
+;;; Our mission here is to "resolve" references to code locations into
+;;; actual file/buffer names and character positions. The references
+;;; we work from come out of the compiler's statically-generated debug
+;;; information, such as `code-location''s and `debug-source''s. For
+;;; more details, see the "Debugger Programmer's Interface" section of
+;;; the CMUCL manual.
+;;;
+;;; The first step is usually to find the corresponding "source-path"
+;;; for the location. Once we have the source-path we can pull up the
+;;; source file and `READ' our way through to the right position. The
+;;; main source-code groveling work is done in
+;;; `swank-source-path-parser.lisp'.
 
 (defvar *debug-definition-finding* nil
   "When true don't handle errors while looking for definitions.
@@ -563,11 +600,185 @@ Snippets at the beginning of definitions are used to tell Emacs what
 the definitions looks like, so that it can accurately find them by
 text search.")
 
+(defmacro safe-definition-finding (&body body)
+  "Execute BODY and return the source-location it returns.
+If an error occurs and `*debug-definition-finding*' is false, then
+return an error pseudo-location.
+
+The second return value is NIL if no error occurs, otherwise it is the
+condition object."
+  `(flet ((body () ,@body))
+    (if *debug-definition-finding*
+        (body)
+        (handler-case (values (progn ,@body) nil)
+          (error (c) (values (list :error (princ-to-string c)) c))))))
+
+(defun code-location-source-location (code-location)
+  "Safe wrapper around `code-location-from-source-location'."
+  (safe-definition-finding
+   (source-location-from-code-location code-location)))
+
+(defun source-location-from-code-location (code-location)
+  "Return the source location for CODE-LOCATION."
+  (let ((debug-fun (di:code-location-debug-function code-location)))
+    (when (di::bogus-debug-function-p debug-fun)
+      ;; Those lousy cheapskates! They've put in a bogus debug source
+      ;; because the code was compiled at a low debug setting.
+      (error "Bogus debug function: ~A" debug-fun)))
+  (let* ((debug-source (di:code-location-debug-source code-location))
+         (from (di:debug-source-from debug-source))
+         (name (di:debug-source-name debug-source)))
+    (ecase from
+      (:file 
+       (location-in-file name code-location debug-source))
+      (:stream
+       (location-in-stream code-location debug-source))
+      (:lisp
+       ;; The location comes from a form passed to `compile'.
+       ;; The best we can do is return the form itself for printing.
+       (make-location
+        (list :source-form (with-output-to-string (*standard-output*)
+                             (debug::print-code-location-source-form 
+                              code-location 100 t)))
+        (list :position 1))))))
+
+(defun location-in-file (filename code-location debug-source)
+  "Resolve the source location for CODE-LOCATION in FILENAME."
+  (let* ((code-date (di:debug-source-created debug-source))
+         (source-code (or (source-cache-get filename code-date)
+                          (read-file filename))))
+    (make-location (list :file (unix-truename filename)) nil)
+    (with-input-from-string (s source-code)
+      (make-location (list :file (unix-truename filename))
+                     (list :position
+                           (1+ (code-location-stream-position
+                                code-location s)))
+                     `(:snippet ,(read-snippet s))))))
+
+(defun location-in-stream (code-location debug-source)
+  "Resolve the source location for a CODE-LOCATION from a stream.
+This only succeeds if the code was compiled from an Emacs buffer."
+  (unless (debug-source-info-from-emacs-buffer-p debug-source)
+    (error "The code is compiled from a non-SLIME stream."))
+  (let* ((info (c::debug-source-info debug-source))
+         (string (getf info :emacs-buffer-string))
+         (position (code-location-string-offset 
+                    code-location
+                    string)))
+    (make-location
+     (list :buffer (getf info :emacs-buffer))
+     (list :position (+ (getf info :emacs-buffer-offset) position))
+     (list :snippet (with-input-from-string (s string)
+                      (file-position s position)
+                      (read-snippet s))))))
+
+(defun read-file (filename)
+  "Return the entire contents of FILENAME as a string."
+  (with-open-file (s filename :direction :input)
+    (let ((string (make-string (file-length s))))
+      (read-sequence string s)
+      string)))
+
+(defun read-snippet (stream)
+  "Read a string of upto *SOURCE-SNIPPET-SIZE* characters from STREAM."
+  (read-upto-n-chars stream *source-snippet-size*))
+
+(defun read-upto-n-chars (stream n)
+  "Return a string of upto N chars from STREAM."
+  (let* ((string (make-string n))
+         (chars  (read-sequence string stream)))
+    (subseq string 0 chars)))
+
+;;;;; Function-name locations
+;;;
+(defun debug-info-function-name-location (debug-info)
+  "Return a function-name source-location for DEBUG-INFO.
+Function-name source-locations are a fallback for when precise
+positions aren't available."
+  (with-struct (c::debug-info- (fname name) source) debug-info
+    (with-struct (c::debug-source- info from name) (car source)
+      (ecase from
+        (:file 
+         (make-location (list :file (namestring (truename name)))
+                        (list :function-name fname)))
+        (:stream
+         (assert (debug-source-info-from-emacs-buffer-p (car source)))
+         (make-location (list :buffer (getf info :emacs-buffer))
+                        (list :function-name fname)))
+        (:lisp
+         (make-location (list :source-form (princ-to-string (aref name 0)))
+                        (list :position 1)))))))
+
+(defun debug-source-info-from-emacs-buffer-p (debug-source)
+  "Does the `info' slot of DEBUG-SOURCE contain an Emacs buffer location?
+This is true for functions that were compiled directly from buffers."
+  (info-from-emacs-buffer-p (c::debug-source-info debug-source)))
+
+(defun info-from-emacs-buffer-p (info)
+  (and info 
+       (consp info)
+       (eq :emacs-buffer (car info))))
+
+
+;;;;; Groveling source-code for positions
+
+(defun code-location-stream-position (code-location stream)
+  "Return the byte offset of CODE-LOCATION in STREAM.  Extract the
+toplevel-form-number and form-number from CODE-LOCATION and use that
+to find the position of the corresponding form.
+
+Finish with STREAM positioned at the start of the code location."
+  (let* ((location (debug::maybe-block-start-location code-location))
+	 (tlf-offset (di:code-location-top-level-form-offset location))
+	 (form-number (di:code-location-form-number location)))
+    (let ((pos (form-number-stream-position tlf-offset form-number stream)))
+      (file-position stream pos)
+      pos)))
+
+(defun form-number-stream-position (tlf-number form-number stream)
+  "Return the starting character position of a form in STREAM.
+TLF-NUMBER is the top-level-form number.
+FORM-NUMBER is an index into a source-path table for the TLF."
+  (let ((*read-suppress* t))
+    (dotimes (i tlf-number) (read stream))
+    (multiple-value-bind (tlf position-map) (read-and-record-source-map stream)
+      (let* ((path-table (di:form-number-translations tlf 0))
+             (source-path
+              (if (<= (length path-table) form-number) ; source out of sync?
+                  (list 0)              ; should probably signal a condition
+                  (reverse (cdr (aref path-table form-number))))))
+        (source-path-source-position source-path tlf position-map)))))
+  
+(defun code-location-string-offset (code-location string)
+  "Return the byte offset of CODE-LOCATION in STRING.
+See CODE-LOCATION-STREAM-POSITION."
+  (with-input-from-string (s string)
+    (code-location-stream-position code-location s)))
+
+;;;;; Source-file cache
+;;;
+;;; To robustly find source locations it's useful to have the exact
+;;; source code that the loaded code was compiled from. In this source
+;;; we can accurately find the right location, and from that location
+;;; we can extract a "snippet" of code to show what the definition
+;;; looks like. Emacs can use this snippet in a best-match search to
+;;; locate the right definition, which works well even if the buffer
+;;; has been modified.
+;;;
+;;; The idea is that if a definition previously started with
+;;; `(define-foo bar' then it probably still does.
+;;;
+;;; Whenever we see that the file on disk has the same
+;;; `file-write-date' as a location we're looking for, we cache the
+;;; whole file inside Lisp. That way we will still have the matching
+;;; version even if the file is later modified on disk. If the file is
+;;; later recompiled and reloaded then we replace our cache entry.
+
 (defvar *cache-sourcecode* t
   "When true complete source files are cached.
 The cache is used to keep known good copies of the source text which
 correspond to the loaded code. Finding definitions is much more
-reliable when the exact source is available, so we cache it incase it
+reliable when the exact source is available, so we cache it in case it
 gets edited on disk later.")
 
 (defvar *source-file-cache* (make-hash-table :test 'equal)
@@ -580,7 +791,7 @@ Maps from truename to source-cache-entry structure.")
   text date)
 
 (defun source-cache-get (filename date)
-  "Return the source code for FILENAME written on DATE as a string.
+  "Return the source code for FILENAME as written on DATE in a string.
 Return NIL if the right version cannot be found."
   (let ((entry (gethash filename *source-file-cache*)))
     (cond ((and entry (equal date (source-cache-entry.date entry)))
@@ -597,24 +808,81 @@ Return NIL if the right version cannot be found."
                  source)
                nil)))))
 
-(defun read-file (filename)
-  "Return the entire contents of FILENAME as a string."
-  (with-open-file (s filename :direction :input)
-    (let ((string (make-string (file-length s))))
-      (read-sequence string s)
-      string)))
+
+;;;; Finding definitions
 
-(defmacro safe-definition-finding (&body body)
-  "Execute BODY ignoring errors.  Return the source location returned
-by BODY or if an error occurs a description of the error.  The second
-return value is the condition or nil."  
-  `(flet ((body () ,@body))
-    (if *debug-definition-finding*
-        (body)
-        (handler-case (values (progn ,@body) nil)
-          (error (c) (values (list :error (princ-to-string c)) c))))))
+;;; There are a great many different types of definition for us to
+;;; find. We search for definitions of every kind and return them in a
+;;; list.
+
+(defimplementation find-definitions (name)
+  (append (function-definitions name)
+          (setf-definitions name)
+          (variable-definitions name)
+          (class-definitions name)
+          (type-definitions name)
+          (compiler-macro-definitions name)
+          (source-transform-definitions name)
+          (function-info-definitions name)
+          (ir1-translator-definitions name)))
+
+;;;;; Functions, macros, generic functions, methods
+;;;
+;;; We make extensive use of the compile-time debug information that
+;;; CMUCL records, in particular "debug functions" and "code
+;;; locations." Refer to the "Debugger Programmer's Interface" section
+;;; of the CMUCL manual for more details.
+
+(defun function-definitions (name)
+  "Return definitions for NAME in the \"function namespace\", i.e.,
+regular functions, generic functions, methods and macros.
+NAME can any valid function name (e.g, (setf car))."
+  (let ((macro?    (and (symbolp name) (macro-function name)))
+        (special?  (and (symbolp name) (special-operator-p name)))
+        (function? (and (ext:valid-function-name-p name)
+                        (ext:info :function :definition name))))
+    (cond (macro? 
+           (list `((defmacro ,name)
+                   ,(function-location (macro-function name)))))
+          (special?
+           (list `((:special-operator ,name) 
+                   (:error ,(format nil "Special operator: ~S" name)))))
+          (function?
+           (let ((function (fdefinition name)))
+             (if (genericp function)
+                 (generic-function-definitions name function)
+                 (list (list `(function ,name)
+                             (function-location function)))))))))
+
+;;;;;; Ordinary (non-generic/macro/special) functions
+;;;
+;;; First we test if FUNCTION is a closure created by defstruct, and
+;;; if so extract the defstruct-description (`dd') from the closure
+;;; and find the constructor for the struct.  Defstruct creates a
+;;; defun for the default constructor and we use that as an
+;;; approximation to the source location of the defstruct.
+;;;
+;;; For an ordinary function we return the source location of the
+;;; first code-location we find.
+;;;
+(defun function-location (function)
+  "Return the source location for FUNCTION."
+  (cond ((struct-closure-p function)
+         (struct-closure-location function))
+        ((c::byte-function-or-closure-p function)
+         (byte-function-location function))
+        (t
+         (compiled-function-location function))))
+
+(defun compiled-function-location (function)
+  "Return the location of a regular compiled function."
+  (multiple-value-bind (code-location error)
+      (safe-definition-finding (function-first-code-location function))
+    (cond (error (list :error (princ-to-string error)))
+          (t (code-location-source-location code-location)))))
 
 (defun function-first-code-location (function)
+  "Return the first code-location we can find for FUNCTION."
   (and (function-has-debug-function-p function)
        (di:debug-function-start-location
         (di:function-debug-function function))))
@@ -627,15 +895,35 @@ return value is the condition or nil."
 	   (vm::find-code-object function))
        (not (eq closure function))))
 
-(defun genericp (fn)
-  (typep fn 'generic-function))
+
+(defun byte-function-location (fn)
+  "Return the location of the byte-compiled function FN."
+  (etypecase fn
+    ((or c::hairy-byte-function c::simple-byte-function)
+     (let* ((component (c::byte-function-component fn))
+            (debug-info (kernel:%code-debug-info component)))
+       (debug-info-function-name-location debug-info)))
+    (c::byte-closure
+     (byte-function-location (c::byte-closure-function fn)))))
+
+;;; Here we deal with structure accessors. Note that `dd' is a
+;;; "defstruct descriptor" structure in CMUCL. A `dd' describes a
+;;; `defstruct''d structure.
 
 (defun struct-closure-p (function)
+  "Is FUNCTION a closure created by defstruct?"
   (or (function-code-object= function #'kernel::structure-slot-accessor)
       (function-code-object= function #'kernel::structure-slot-setter)
       (function-code-object= function #'kernel::%defstruct)))
 
+(defun struct-closure-location (function)
+  "Return the location of the structure that FUNCTION belongs to."
+  (assert (struct-closure-p function))
+  (safe-definition-finding
+    (dd-location (struct-closure-dd function))))
+
 (defun struct-closure-dd (function)
+  "Return the defstruct-definition (dd) of FUNCTION."
   (assert (= (kernel:get-type function) vm:closure-header-type))
   (flet ((find-layout (function)
 	   (sys:find-if-in-closure 
@@ -647,107 +935,58 @@ return value is the condition or nil."
 		  (return-from find-layout value))))
 	    function)))
     (kernel:layout-info (find-layout function))))
-	    
+
 (defun dd-location (dd)
+  "Return the location of a `defstruct'."
+  ;; Find the location in a constructor.
+  (function-location (struct-constructor dd)))
+
+(defun struct-constructor (dd)
+  "Return a constructor function from a defstruct definition.
+Signal an error if no constructor can be found."
   (let ((constructor (or (kernel:dd-default-constructor dd)
                          (car (kernel::dd-constructors dd)))))
-    (when (or (not constructor) (and (consp constructor)
-                                     (not (car constructor))))
-      (error "Cannot locate struct without constructor: ~S" 
+    (when (or (null constructor)
+              (and (consp constructor) (null (car constructor))))
+      (error "Cannot find structure's constructor: ~S"
              (kernel::dd-name dd)))
-    (function-location 
-     (coerce (if (consp constructor) (car constructor) constructor)
-             'function))))
+    (coerce (if (consp constructor) (first constructor) constructor)
+            'function)))
 
-(defun debug-info-function-name-location (debug-info)
-  "Return a function-name source-location for DEBUG-INFO."
-  (with-struct (c::debug-info- (fname name) source) debug-info
-    (with-struct (c::debug-source- info from name) (car source)
-      (ecase from
-        (:file 
-         (make-location (list :file (namestring (truename name)))
-                        (list :function-name fname)))
-        (:stream
-         (assert (debug-source-info-from-emacs-buffer-p (car source)))
-         (make-location (list :buffer (getf info :emacs-buffer))
-                        (list :function-name fname)))
-        (:lisp
-         (make-location (list :source-form (princ-to-string (aref name 0)))
-                        (list :position 1)))))))
-       
-(defun byte-function-location (fn)
-  (etypecase fn
-    ((or c::hairy-byte-function c::simple-byte-function)
-     (let* ((component (c::byte-function-component fn))
-            (debug-info (kernel:%code-debug-info component)))
-       (debug-info-function-name-location debug-info)))
-    (c::byte-closure
-     (byte-function-location (c::byte-closure-function fn)))))
+;;;;;; Generic functions and methods
 
-(defun function-location (function)
-  "Return the source location for FUNCTION."
-  ;; First test if FUNCTION is a closure created by defstruct; if so
-  ;; extract the defstruct-description (dd) from the closure and find
-  ;; the constructor for the struct.  Defstruct creates a defun for
-  ;; the default constructor and we use that as an approximation to
-  ;; the source location of the defstruct.
-  ;;
-  ;; For an ordinary function we return the source location of the
-  ;; first code-location we find.
-  (cond ((struct-closure-p function)
-         (safe-definition-finding
-          (dd-location (struct-closure-dd function))))
-        ((genericp function)
-         (gf-location function))
-        ((c::byte-function-or-closure-p function)
-         (byte-function-location function))
-        (t
-         (multiple-value-bind (code-location error)
-             (safe-definition-finding (function-first-code-location function))
-           (cond (error (list :error (princ-to-string error)))
-                 (t (code-location-source-location code-location)))))))
+(defun generic-function-definitions (name function)
+  "Return the definitions of a generic function and its methods."
+  (cons (list `(defgeneric ,name) (gf-location function))
+        (gf-method-definitions function)))
 
-;; XXX maybe special case setters/getters
-(defun method-location (method)
-  (function-location (or (pcl::method-fast-function method)
-                         (pcl:method-function method))))
+(defun gf-location (gf)
+  "Return the location of the generic function GF."
+  (definition-source-location gf (pcl::generic-function-name gf)))
+
+(defun gf-method-definitions (gf)
+  "Return the locations of all methods of the generic function GF."
+  (mapcar #'method-definition (pcl::generic-function-methods gf)))
+
+(defun method-definition (method)
+  (list (method-dspec method)
+        (method-location method)))
 
 (defun method-dspec (method)
+  "Return a human-readable \"definition specifier\" for METHOD."
   (let* ((gf (pcl:method-generic-function method))
          (name (pcl:generic-function-name gf))
          (specializers (pcl:method-specializers method))
          (qualifiers (pcl:method-qualifiers method)))
     `(method ,name ,@qualifiers ,(pcl::unparse-specializers specializers))))
 
-(defun method-definition (method)
-  (list (method-dspec method)
-        (method-location method)))
+;; XXX maybe special case setters/getters
+(defun method-location (method)
+  (function-location (or (pcl::method-fast-function method)
+                         (pcl:method-function method))))
 
-(defun gf-location (gf)
-  (definition-source-location gf (pcl::generic-function-name gf)))
-
-(defun gf-method-definitions (gf)
-  (mapcar #'method-definition (pcl::generic-function-methods gf)))
-
-(defun function-definitions (name)
-  "Return definitions for NAME in the \"function namespace\", i.e.,
-regular functions, generic functions, methods and macros.
-NAME can any valid function name (e.g, (setf car))."
-  (cond ((and (symbolp name) (macro-function name))
-         (list `((defmacro ,name)
-                 ,(function-location (macro-function name)))))
-        ((and (symbolp name) (special-operator-p name))
-         (list `((:special-operator ,name) 
-                 (:error ,(format nil "Special operator: ~S" name)))))
-        ((and (ext:valid-function-name-p name)
-              (ext:info :function :definition name))
-         (let ((function (fdefinition name)))
-           (cond ((genericp function)
-                  (cons (list `(defgeneric ,name)
-                              (function-location function))
-                        (gf-method-definitions function)))
-                 (t (list (list `(function ,name)
-                                (function-location function)))))))))
+(defun genericp (fn)
+  (typep fn 'generic-function))
 
 (defun maybe-make-definition (function kind name)
   (if function
@@ -937,17 +1176,6 @@ NAME can any valid function name (e.g, (setf car))."
   (maybe-make-definition (ext:info :function :ir1-convert name)
                          'c:def-ir1-translator name))
 
-(defimplementation find-definitions (name)
-  (append (function-definitions name)
-          (setf-definitions name)
-          (variable-definitions name)
-          (class-definitions name)
-          (type-definitions name)
-          (compiler-macro-definitions name)
-          (source-transform-definitions name)
-          (function-info-definitions name)
-          (ir1-translator-definitions name)))
-
 
 ;;;; Documentation.
 
@@ -998,43 +1226,79 @@ NAME can any valid function name (e.g, (setf car))."
       result)))
 
 (defimplementation describe-definition (symbol namespace)
-  (ecase namespace
-    (:variable
-     (describe symbol))
-    ((:function :generic-function)
-     (describe (symbol-function symbol)))
-    (:setf
-     (describe (or (ext:info setf inverse symbol))
-               (ext:info setf expander symbol)))
-    (:type
-     (describe (kernel:values-specifier-type symbol)))
-    (:class
-     (describe (find-class symbol)))
-    (:alien-type
-     (ecase (ext:info :alien-type :kind symbol)
-       (:primitive
-        (describe (let ((alien::*values-type-okay* t))
+  (describe (ecase namespace
+              (:variable
+               symbol)
+              ((:function :generic-function)
+               (symbol-function symbol))
+              (:setf
+               (or (ext:info setf inverse symbol)
+                   (ext:info setf expander symbol)))
+              (:type
+               (kernel:values-specifier-type symbol))
+              (:class
+               (find-class symbol))
+              (:alien-struct
+               (ext:info :alien-type :struct symbol))
+              (:alien-union
+               (ext:info :alien-type :union symbol))
+              (:alien-enum
+               (ext:info :alien-type :enum symbol))
+              (:alien-type
+               (ecase (ext:info :alien-type :kind symbol)
+                 (:primitive
+                  (let ((alien::*values-type-okay* t))
                     (funcall (ext:info :alien-type :translator symbol) 
-                             (list symbol)))))
-       ((:defined)
-        (describe (ext:info :alien-type :definition symbol)))
-       (:unknown
-        (format nil "Unkown alien type: ~S" symbol))))
-    (:alien-struct
-     (describe (ext:info :alien-type :struct symbol)))
-    (:alien-union
-     (describe (ext:info :alien-type :union symbol)))
-    (:alien-enum
-     (describe (ext:info :alien-type :enum symbol)))))
+                             (list symbol))))
+                 ((:defined)
+                  (ext:info :alien-type :definition symbol))
+                 (:unknown
+                  (return-from describe-definition
+                    (format nil "Unknown alien type: ~S" symbol))))))))
 
-(defun debug-variable-symbol-or-deleted (var)
-  (etypecase var
-    (di:debug-variable
-     (di::debug-variable-symbol var))
-    ((member :deleted)
-     '#:deleted)))
+;;;;; Argument lists
+
+(defimplementation arglist (symbol)
+  (let* ((fun (or (macro-function symbol)
+                  (symbol-function symbol)))
+         (arglist
+          (cond ((eval:interpreted-function-p fun)
+                 (eval:interpreted-function-arglist fun))
+                ((pcl::generic-function-p fun)
+                 (pcl:generic-function-lambda-list fun))
+                ((c::byte-function-or-closure-p fun)
+                 (byte-code-function-arglist fun))
+                ((kernel:%function-arglist (kernel:%function-self fun))
+                 (read-arglist fun))
+                ;; this should work both for compiled-debug-function
+                ;; and for interpreted-debug-function
+                (t 
+                 (handler-case (debug-function-arglist 
+                                (di::function-debug-function fun))
+                   (di:unhandled-condition () :not-available))))))
+    (check-type arglist (or list (member :not-available)))
+    arglist))
+
+;;; A simple case: the arglist is available as a string that we can
+;;; `read'.
+
+(defun read-arglist (fn)
+  "Parse the arglist-string of the function object FN."
+  (let ((string (kernel:%function-arglist 
+                 (kernel:%function-self fn)))
+        (package (find-package
+                  (c::compiled-debug-info-package
+                   (kernel:%code-debug-info
+                    (vm::find-code-object fn))))))
+    (with-standard-io-syntax
+      (let ((*package* (or package *package*)))
+        (read-from-string string)))))
+
+;;; A harder case: an approximate arglist is derived from available
+;;; debugging information.
 
 (defun debug-function-arglist (debug-function)
+  "Derive the argument list of DEBUG-FUNCTION from debug info."
   (let ((args (di::debug-function-lambda-list debug-function))
         (required '())
         (optional '())
@@ -1045,7 +1309,7 @@ NAME can any valid function name (e.g, (setf car))."
       (etypecase arg
         (di::debug-variable 
          (push (di::debug-variable-symbol arg) required))
-        ((member :deleted) 
+        ((member :deleted)
          (push ':deleted required))
         (cons
          (ecase (car arg)
@@ -1061,6 +1325,13 @@ NAME can any valid function name (e.g, (setf car))."
             (if rest (cons '&rest (nreverse rest)))
             (if key (cons '&key (nreverse key))))))
 
+(defun debug-variable-symbol-or-deleted (var)
+  (etypecase var
+    (di:debug-variable
+     (di::debug-variable-symbol var))
+    ((member :deleted)
+     '#:deleted)))
+
 (defun symbol-debug-function-arglist (fname)
   "Return FNAME's debug-function-arglist and %function-arglist.
 A utility for debugging DEBUG-FUNCTION-ARGLIST."
@@ -1068,21 +1339,28 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
     (values (debug-function-arglist (di::function-debug-function fn))
             (kernel:%function-arglist (kernel:%function-self fn)))))
 
-(defun read-arglist (fn)
-  "Parse the arglist-string of the function object FN."
-  (let ((string (kernel:%function-arglist 
-                 (kernel:%function-self fn)))
-        (package (find-package
-                  (c::compiled-debug-info-package
-                   (kernel:%code-debug-info
-                    (vm::find-code-object fn))))))
-    (with-standard-io-syntax
-      (let ((*package* (or package *package*)))
-        (read-from-string string)))))
+;;; Deriving arglists for byte-compiled functions:
+;;;
+(defun byte-code-function-arglist (fn)
+  ;; There doesn't seem to be much arglist information around for
+  ;; byte-code functions.  Use the arg-count and return something like
+  ;; (arg0 arg1 ...)
+  (etypecase fn
+    (c::simple-byte-function 
+     (loop for i from 0 below (c::simple-byte-function-num-args fn)
+           collect (make-arg-symbol i)))
+    (c::hairy-byte-function 
+     (hairy-byte-function-arglist fn))
+    (c::byte-closure
+     (byte-code-function-arglist (c::byte-closure-function fn)))))
 
 (defun make-arg-symbol (i)
   (make-symbol (format nil "~A~D" (string 'arg) i)))
 
+;;; A "hairy" byte-function is one that takes a variable number of
+;;; arguments. `hairy-byte-function' is a type from the bytecode
+;;; interpreter.
+;;;
 (defun hairy-byte-function-arglist (fn)
   (let ((counter -1))
     (flet ((next-arg () (make-arg-symbol (incf counter))))
@@ -1091,6 +1369,7 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
         (let ((arglist '())
               (optional (- max-args min-args)))
           ;; XXX isn't there a better way to write this?
+          ;; (Looks fine to me. -luke)
           (dotimes (i min-args)
             (push (next-arg) arglist))
           (when (plusp optional)
@@ -1107,41 +1386,6 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
             (when (eq keywords-p :allow-others)
               (push '&allow-other-keys arglist)))
           (nreverse arglist))))))
-  
-(defun byte-code-function-arglist (fn)
-  ;; There doesn't seem to be much arglist information around for
-  ;; byte-code functions.  Use the arg-count and return something like
-  ;; (arg0 arg1 ...)
-  (etypecase fn
-    (c::simple-byte-function 
-     (loop for i from 0 below (c::simple-byte-function-num-args fn)
-           collect (make-arg-symbol i)))
-    (c::hairy-byte-function 
-     (hairy-byte-function-arglist fn))
-    (c::byte-closure
-     (byte-code-function-arglist (c::byte-closure-function fn)))))
-
-(defimplementation arglist (symbol)
-  (let* ((fun (or (macro-function symbol)
-                  (symbol-function symbol)))
-         (arglist
-          (cond ((eval:interpreted-function-p fun)
-                 (eval:interpreted-function-arglist fun))
-                ((pcl::generic-function-p fun)
-                 (pcl:generic-function-lambda-list fun))
-                ((c::byte-function-or-closure-p fun)
-                 (byte-code-function-arglist fun))
-                ((kernel:%function-arglist (kernel:%function-self fun))
-                 (read-arglist fun))
-                ;; this should work both for
-                ;; compiled-debug-function and for
-                ;; interpreted-debug-function
-                (t 
-                 (handler-case (debug-function-arglist 
-                                (di::function-debug-function fun))
-                   (di:unhandled-condition () :not-available))))))
-    (check-type arglist (or list (member :not-available)))
-    arglist))
 
 
 ;;;; Miscellaneous.
@@ -1156,106 +1400,20 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
   (setf *default-pathname-defaults* (pathname (ext:default-directory)))
   (namestring (ext:default-directory)))
 
+(defimplementation call-without-interrupts (fn)
+  (sys:without-interrupts (funcall fn)))
+
+(defimplementation getpid ()
+  (unix:unix-getpid))
+
+(defimplementation lisp-implementation-type-name ()
+  "cmucl")
+
+(defimplementation quit-lisp ()
+  (ext::quit))
+
 ;;; source-path-{stream,file,string,etc}-position moved into 
 ;;; swank-source-path-parser
-
-(defun code-location-stream-position (code-location stream)
-  "Return the byte offset of CODE-LOCATION in STREAM.  Extract the
-toplevel-form-number and form-number from CODE-LOCATION and use that
-to find the position of the corresponding form.
-
-Finish with STREAM positioned at the start of the code location."
-  (let* ((location (debug::maybe-block-start-location code-location))
-	 (tlf-offset (di:code-location-top-level-form-offset location))
-	 (form-number (di:code-location-form-number location)))
-    (let ((pos (form-number-stream-position tlf-offset form-number stream)))
-      (file-position stream pos)
-      pos)))
-
-(defun form-number-stream-position (tlf-number form-number stream)
-  (let ((*read-suppress* t))
-    (dotimes (i tlf-number) (read stream))
-    (multiple-value-bind (tlf position-map) (read-and-record-source-map stream)
-      (let* ((path-table (di:form-number-translations tlf 0))
-             (source-path
-              (if (<= (length path-table) form-number) ; source out of sync?
-                  (list 0)              ; should probably signal a condition
-                  (reverse (cdr (aref path-table form-number))))))
-        (source-path-source-position source-path tlf position-map)))))
-  
-(defun code-location-string-offset (code-location string)
-  (with-input-from-string (s string)
-    (code-location-stream-position code-location s)))
-
-(defun code-location-file-position (code-location filename)
-  (with-open-file (s filename :direction :input)
-    (code-location-stream-position code-location s)))
-
-(defun info-from-emacs-buffer-p (info)
-  (and info 
-       (consp info)
-       (eq :emacs-buffer (car info))))
-
-(defun debug-source-info-from-emacs-buffer-p (debug-source)
-  (info-from-emacs-buffer-p (c::debug-source-info debug-source)))
-
-(defun source-location-from-code-location (code-location)
-  "Return the source location for CODE-LOCATION."
-  (let ((debug-fun (di:code-location-debug-function code-location)))
-    (when (di::bogus-debug-function-p debug-fun)
-      (error "Bogus debug function: ~A" debug-fun)))
-  (let* ((debug-source (di:code-location-debug-source code-location))
-         (from (di:debug-source-from debug-source))
-         (name (di:debug-source-name debug-source)))
-    (ecase from
-      (:file 
-       (let* ((code-date (di:debug-source-created debug-source))
-              (source (source-cache-get name code-date)))
-         (when (null source)
-           ;; We don't have up-to-date sourcecode. Just read the
-           ;; file that we have on disk.
-           ;; XXX Maybe the right solution, but needs code cleanup anyway.
-           (setf source (read-file name)))
-         (make-location (list :file (unix-truename name)) nil)
-         (with-input-from-string (s source)
-           (make-location (list :file (unix-truename name))
-                          (list :position
-                                (1+ (code-location-stream-position
-                                     code-location s)))
-                          `(:snippet ,(read-snippet s))))))
-      (:stream 
-       (assert (debug-source-info-from-emacs-buffer-p debug-source))
-       (let* ((info (c::debug-source-info debug-source))
-              (string (getf info :emacs-buffer-string))
-              (position (code-location-string-offset 
-                         code-location
-                         string)))
-         (make-location
-          (list :buffer (getf info :emacs-buffer))
-          (list :position (+ (getf info :emacs-buffer-offset) position))
-          (list :snippet (with-input-from-string (s string)
-                           (file-position s position)
-                           (read-snippet s))))))
-      (:lisp
-       (make-location
-        (list :source-form (with-output-to-string (*standard-output*)
-                             (debug::print-code-location-source-form 
-                              code-location 100 t)))
-        (list :position 1))))))
-
-(defun code-location-source-location (code-location)
-  "Safe wrapper around `code-location-from-source-location'."
-  (safe-definition-finding
-   (source-location-from-code-location code-location)))
-
-(defun read-snippet (stream)
-  (read-upto-n-chars stream *source-snippet-size*))
-
-(defun read-upto-n-chars (stream n)
-  "Return a string of upto N chars from STREAM."
-  (let* ((string (make-string n))
-         (chars  (read-sequence string stream)))
-    (subseq string 0 chars)))
 
 
 ;;;; Debugging
@@ -1426,7 +1584,9 @@ LRA  =  ~X~%" (mapcar #'fixnum
     vm:odd-fixnum-type
     vm:instance-pointer-type
     vm:other-immediate-1-type
-    vm:other-pointer-type))
+    vm:other-pointer-type)
+  "Names of the constants that specify type tags.
+The `symbol-value' of each element is a type tag.")
 
 (defconstant +header-type-symbols+
   (flet ((suffixp (suffix string)
@@ -1597,4 +1757,9 @@ LRA  =  ~X~%" (mapcar #'fixnum
       (mp:with-lock-held (mutex)
         (pop (mailbox.queue mbox)))))
 
-  )
+  ) ;; #+mp
+
+;; Local Variables:
+;; pbook-heading-regexp:    "^;;;\\(;+\\)"
+;; pbook-commentary-regexp: "^;;;\\($\\|[^;]\\)"
+;; End:
