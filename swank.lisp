@@ -267,7 +267,7 @@ conditions are simply reported."
   (continue *swank-debugger-condition*))
 
 (defslimefun eval-string-in-frame (string index)
-  (to-string (swank-backend:eval-in-frame (from-string string) index)))
+  (to-string (eval-in-frame (from-string string) index)))
 
 
 ;;;; Evaluation
