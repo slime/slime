@@ -202,7 +202,7 @@ information."
 			      source-path source))
 
 (defmethod resolve-location (i (f pathname) position path source)
-  `(:file ,(unix-truename f) ,(source-path-file-position path f)))
+  `(:file ,(unix-truename f) ,(1+ (source-path-file-position path f))))
 
 (defmethod resolve-location ((i buffer-source-info) (f (eql :stream))
 			     position path source)
