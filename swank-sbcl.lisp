@@ -17,8 +17,9 @@
   (require 'sb-posix)
   )
 
-(declaim (optimize (debug 3)))
+
 (in-package :swank-backend)
+(declaim (optimize (debug 2)))
 
 (import
  '(sb-gray:fundamental-character-output-stream
@@ -187,16 +188,15 @@ information."
                        (warning              :warning)
                        (error                :error))
            :short-message (brief-compiler-message-for-emacs condition)
-           :references
-           (let ((c (if (typep condition 'sb-int:encapsulated-condition)
-                        (sb-int:encapsulated-condition condition)
-                        condition)))
-             (when (typep c 'sb-int:reference-condition)
-               (sb-int:reference-condition-references c)))
-           (when (typep condition 'sb-int:reference-condition)
-             (sb-int:reference-condition-references condition))
+           :references (condition-references (real-condition condition))
            :message (long-compiler-message-for-emacs condition context)
            :location (compiler-note-location context))))
+
+(defun real-condition (condition)
+  "Return the encapsulated condition or CONDITION itself."
+  (typecase condition
+    (sb-int:encapsulated-condition (sb-int:encapsulated-condition condition))
+    (t condition)))
 
 (defun compiler-note-location (context)
   (cond (context
