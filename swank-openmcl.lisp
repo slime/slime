@@ -90,13 +90,9 @@ Return the port number that the socket is actually listening on."
   "Accept one Swank TCP connection on SOCKET and then close it.
 Run the connection handler in a new thread."
   (let ((socket (ccl:accept-connection server-socket :wait t)))
-    (close server-socket)
-    (ccl:process-run-function
-     (list :name (format nil "Swank Client ~D" (ccl:socket-os-fd socket))
-           :initial-bindings `((*emacs-io* . ',socket)))
-     #'request-loop)))
+    (request-loop socket)))
 
-(defun request-loop ()
+(defun request-loop (*emacs-io*)
   "Thread function for a single Swank connection.  Processes requests
 until the remote Emacs goes away."
   (unwind-protect
@@ -221,7 +217,7 @@ condition."
                       (start-frame-number 0)
                       (end-frame-number most-positive-fixnum))
   "Call FUNCTION passing information about each stack frame
-from frames START-FRAME-NUMBER to END-FRAME-NUMBER."
+ from frames START-FRAME-NUMBER to END-FRAME-NUMBER."
   (let ((tcr (ccl::%current-tcr))
         (frame-number 0)
         (top-stack-frame (or *swank-debugger-stack-frame* 
@@ -319,18 +315,26 @@ If the backtrace cannot be calculated, this function returns NIL."
   (declare (ignore index))
   nil)
 
+(defun source-info-first-file-name (info)
+  (etypecase info
+    ((or pathname string) (namestring (truename info)))
+    (cons 
+     (etypecase (car info)
+       (cons (source-info-first-file-name (car info)))
+       (standard-method (source-info-first-file-name (cdr info)))
+       ((member function) (source-info-first-file-name (cdr info)))
+       ((member method) (source-info-first-file-name (cdr info)))
+       ((or pathname string) (namestring (truename (car info))))))))
+
 (defun function-source-location (symbol)
   "Return a plist containing a source location for the function
 named SYMBOL."
-  (let ((source-info (ccl::%source-files symbol)))
-    ;; This is not entirely correct---%SOURCE-FILES can apparently
-    ;; return a list under some circumstances...
-    (cond ((and source-info (atom source-info))
-           (let ((filename (namestring (truename source-info))))
-             (make-location
-              (list :file filename)
-              (list :function-name (symbol-name symbol)))))
-          (t (list :error (format nil "No source infor for ~S"  symbol))))))
+  (let ((source-info (ccl::source-file-or-files symbol nil nil nil)))
+    (if source-info
+        (make-location
+         (list :file (source-info-first-file-name source-info))
+         (list :function-name (symbol-name symbol)))
+        (list :error (format nil "No source infor for ~S"  symbol)))))
 
 (defmethod frame-source-location-for-emacs (index)
   "Return to Emacs the location of the source code for the
@@ -416,8 +420,39 @@ able to return the file name in which the definition occurs."
   (function-source-location (from-string fname)))
 
 (defslimefun find-function-locations (fname)
-  (list (function-source-location-for-emacs fname)))
+  (let* ((symbol (from-string fname))
+         (symbol-name (string symbol))
+         (info (ccl::source-file-or-files symbol nil nil nil))
+         (locations '()))
+    (labels ((frob (pathname position)
+               (multiple-value-bind (truename c) (truename pathname)
+                 (cond (c 
+                        (push (list :error (princ-to-string c)) locations))
+                       (t 
+                        (push (make-location (list :file (namestring truename))
+                                             position)
+                              locations)))))
+             (frob* (list position)
+               (etypecase list
+                 (cons (dolist (file list) (frob file position)))
+                 ((or string pathname) (frob list position)))))
+      (etypecase info
+        (null (return-from find-function-locations
+                (list
+                 (list :error 
+                       (format nil "No source info available for ~A" fname)))))
+        ((or string pathname) (frob info (list :function-name fname)))
+        (cons
+         (dolist (i info)
+           (etypecase (car i)
+             ((member method)
+              (loop for (m . files) in (cdr i) 
+                    do (frob* files 
+                              (list :function-name symbol-name))))
+             ((member function) 
+              (frob* (cdr i) 
+                     (list :function-name fname))))))))
+      locations))
 
 ;;; Macroexpansion
-
 (defslimefun-unimplemented swank-macroexpand-all (string))
