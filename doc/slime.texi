@@ -310,8 +310,8 @@ cvs diff -rHEAD ChangeLog      # or: -rFAIRLY-STABLE
 @node Installation, Running, Downloading, Getting started
 @section Installation
 
-On Unix-like systems, installation just requires a few lines in your
-@file{~/.emacs}:
+With a Lisp implementation that can be started from the command-line,
+installation just requires a few lines in your @file{~/.emacs}:
 
 @example
 (setq inferior-lisp-program "@emph{the path to your Lisp system}")
@@ -325,6 +325,11 @@ The snippet above also appears in the @file{README} file. You can
 copy&paste it from there, but remember to fill in the appropriate
 path.
 @end iftex
+
+We recommend not loading the @acronym{ILISP} package into Emacs if you
+intend to use @SLIME{}. Doing so will add a lot of extra bindings to
+the keymap for Lisp source files that may be confusing and may not
+work correctly for a Lisp process started by @SLIME{}.
 
 @node Running,  , Installation, Getting started
 @section Running SLIME
@@ -401,6 +406,14 @@ it also works to type @kbd{C-c C-d C-d}. We're simply binding both key
 sequences because some people like to hold control for all three keys
 and others don't, and with the two-key prefix we're not afraid of
 running out of keys.
+
+There is one exception to this rule, just to trip you up. We never
+bind @kbd{C-h} anywhere in a key sequence, so @kbd{C-c C-d C-h}
+doesn't do the same thing as @kbd{C-c C-d h}. This is because Emacs
+has a builtin default so that typing a prefix followed by @kbd{C-h}
+will display all bindings starting with that prefix, so @kbd{C-c C-d
+C-h} will actually list the bindings for all documentation commands.
+This feature is just a bit too useful to clobber!
 
 @node inferior-lisp,  , Key bindings, User-interface conventions
 @subsection @code{*inferior-lisp*} buffer
@@ -919,7 +932,8 @@ Evaluate an expression in the frame. The expression can refer to the
 available local variables in the frame.
 
 @kbditem{d, sldb-pprint-eval-in-frame}
-Evaluate an expression in the frame and pretty-print the result.
+Evaluate an expression in the frame and pretty-print the result in a
+temporary buffer.
 
 @kbditem{D, sldb-disassemble}
 Disassemble the frame's function. Includes information such as the
@@ -933,7 +947,7 @@ List the local variables and their bindings in the frame.
 
 @end table
 
-@node restarts, Frame Navigation, Examining frames, Debugger
+@node Restarts, Frame Navigation, Examining frames, Debugger
 @section Invoking restarts
 
 @table @kbd
@@ -982,21 +996,21 @@ only.
 @table @kbd
 
 @kbditem{r, sldb-restart-frame}
-Restart frame. Restart execution of the frame with the same arguments
-it was originally called with. (This command is not available in all
+Restart execution of the frame with the same arguments it was
+originally called with. (This command is not available in all
 implementations.)
 
 @kbditem{R, sldb-return-from-frame}
-Return from frame. Return from the frame with a value entered in the
-minibuffer. (This command is not available in all implementations.)
+Return from the frame with a value entered in the minibuffer. (This
+command is not available in all implementations.)
 
 @kbditem{s, sldb-step}
 Step to the next expression in the frame. (This command is not
 available in all implementations.)
 
 @kbditem{B, sldb-break-with-default-debugger}
-Switch to default debugger. Exit @SLDB{} and debug the condition using
-the Lisp system's default debugger.
+Exit @SLDB{} and debug the condition using the Lisp system's default
+debugger.
 
 @kbditem{:, slime-interactive-eval}
 Evaluate an expression entered in the minibuffer.
@@ -1016,31 +1030,17 @@ Evaluate an expression entered in the minibuffer.
 @section @code{slime-autodoc-mode}
 
 @code{slime-autodoc-mode} is an additional minor-mode for
-automatically showing documentation (argument lists) for code near the
-point. It is a clone of @code{eldoc-mode} for Emacs Lisp.
+automatically showing information about symbols near the point. For
+function names the argument list is displayed and for global variables
+we show the value. This is a clone of @code{eldoc-mode} for Emacs
+Lisp.
 
-The mode can be enabled in your @code{~/.emacs}:
+The mode can be enabled in the @code{slime-setup} call of your
+@code{~/.emacs}:
 
 @example
-(add-hook 'slime-mode-hook (lambda () (slime-autodoc-mode t)))
+(slime-setup :autodoc t)
 @end example
-
-Autodoc has the potential to cause a lot of @acronym{RPC} messages, so
-simple caching is supported. The variable
-@code{slime-autodoc-cache-type} can be set to use one of three caching
-strategies:
-
-@table @code
-@item nil
-Don't cache anything. This means a lot of network requests.
-@item last
-Cache only documentation for the most recently queried symbol.
-@item all
-Cache all documentation forever. This uses the fewest network
-requests, but does not learn about documentation changes.
-@end table
-
-The default caching strategy is @code{last}.
 
 @node Multiple connections, Typeout frames, slime-autodoc-mode, Extras
 @section Multiple connections
@@ -1100,15 +1100,12 @@ Quit the connection list (kill buffer, restore window configuration).
 @section Typeout frames
 
 A ``typeout frame'' is a special Emacs frame which is used instead of
-the echo area (minibuffer) to display messages from @SLIME{}
-commands.@footnote{The name ``typeout frame'' is intended to be
-consistent with historical usage. If we are using the term
-inappropriately, please set us straight.} This is an optional
-feature. The advantage of a typeout frame over the echo area is that
-it can hold more text, it can be scrolled, and its contents don't
-disappear when you press a key. All potentially long messages are sent
-to the typeout frame, such as argument lists, macro expansions, and so
-on.
+the echo area (minibuffer) to display messages from @SLIME{} commands.
+This is an optional feature. The advantage of a typeout frame over the
+echo area is that it can hold more text, it can be scrolled, and its
+contents don't disappear when you press a key. All potentially long
+messages are sent to the typeout frame, such as argument lists, macro
+expansions, and so on.
 
 @table @kbd
 @item M-x slime-ensure-typeout-frame
@@ -1160,7 +1157,7 @@ styles are available. The default @code{slime-complete-symbol*}
 performs completion ``in parallel'' over the hyphen-delimited
 sub-words of a symbol name.
 @footnote{This style of completion is modelled on @file{completer.el}
-by Chris McConnell. This package is bundled with @acronym{ILISP}.}
+by Chris McConnell. That package is bundled with @acronym{ILISP}.}
 Formally this means that ``@code{a-b-c}'' can complete to any symbol
 matching the regular expression ``@code{^a.*-b.*-c.*}'' (where ``dot''
 matches anything but a hyphen). Examples give a more intuitive
