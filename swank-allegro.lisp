@@ -13,7 +13,7 @@
   (require :sock)
   (require :process))
 
-(in-package :swank)
+(in-package :swank-backend)
 
 (import
  '(excl:fundamental-character-output-stream
@@ -30,7 +30,8 @@
 
 ;;;; TCP Server
 
-(setq *swank-in-background* :spawn)
+(defimplementation preferred-communication-style ()
+   :spawn)
 
 (defimplementation create-socket (host port)
   (socket:make-socket :connect :passive :local-port port 
@@ -60,16 +61,8 @@
 
 ;;;; Misc
 
-(defimplementation arglist-string (fname)
-  (format-arglist fname #'excl:arglist))
-
-(defun apropos-symbols (string &optional external-only package)
-  (remove-if (lambda (sym)
-               (or (keywordp sym) 
-                   (and external-only
-                        (not (equal (symbol-package sym) *buffer-package*))
-                        (not (symbol-external-p sym)))))
-             (apropos-list string package external-only t)))
+(defimplementation arglist (symbol)
+  (excl:arglist symbol))
 
 (defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))
@@ -92,26 +85,22 @@
 (defimplementation macroexpand-all (form)
   (excl::walk form))
 
-(defimplementation describe-definition (symbol-name type)
-  (let ((symbol (from-string symbol-name)))
-    (ecase type
-      (:variable (print-description-to-string symbol))
-      ((:function :generic-function)
-       (print-description-to-string (symbol-function symbol)))
-      (:class
-       (print-description-to-string (find-class symbol))))))
+(defimplementation describe-definition (symbol namespace)
+  (ecase namespace
+    (:variable 
+     (describe symbol))
+    ((:function :generic-function)
+     (describe (symbol-function symbol)))
+    (:class
+     (describe (find-class symbol)))))
 
 ;;;; Debugger
 
 (defvar *sldb-topframe*)
-(defvar *sldb-source*)
-(defvar *sldb-restarts*)
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let ((*sldb-topframe* (excl::int-newest-frame))
-        (excl::*break-hook* nil)
-        (*sldb-restarts*
-         (compute-restarts *swank-debugger-condition*)))
+        (excl::*break-hook* nil))
     (funcall debugger-loop-fn)))
 
 (defun format-restarts-for-emacs ()
@@ -124,34 +113,15 @@
        (i index (1- i)))
       ((zerop i) frame)))
 
-(defun compute-backtrace (start end)
+(defimplementation compute-backtrace (start end)
   (let ((end (or end most-positive-fixnum)))
     (loop for f = (nth-frame start) then (excl::int-next-older-frame f)
 	  for i from start below end
 	  while f
 	  collect f)))
 
-(defimplementation backtrace (start-frame-number end-frame-number)
-  (flet ((format-frame (f i)
-           (print-with-frame-label 
-            i (lambda (s) (debugger:output-frame s f :moderate)))))
-    (loop for i from start-frame-number
-	  for f in (compute-backtrace start-frame-number end-frame-number)
-	  collect (list i (format-frame f i)))))
-
-(defimplementation debugger-info-for-emacs (start end)
-  (list (debugger-condition-for-emacs)
-        (format-restarts-for-emacs)
-        (backtrace start end)))
-
-(defun nth-restart (index)
-  (nth index *sldb-restarts*))
-
-(defslimefun invoke-nth-restart (index)
-  (invoke-restart-interactively (nth-restart index)))
-
-(defslimefun sldb-abort ()
-  (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
+(defimplementation print-frame (frame stream)
+  (debugger:output-frame stream frame :moderate))
 
 (defimplementation frame-locals (index)
   (let ((frame (nth-frame index)))
@@ -177,7 +147,8 @@
   (let ((frame (nth-frame frame-number)))
     (multiple-value-call #'debugger:frame-return 
       frame (debugger:eval-form-in-context 
-             (from-string form) (debugger:environment-of-frame frame)))))
+             form 
+             (debugger:environment-of-frame frame)))))
                          
 ;;; XXX doens't work for frames with arguments 
 (defimplementation restart-frame (frame-number)
@@ -212,101 +183,67 @@
                                (list :file *compile-filename*)
                                (list :position 1))))))))
 
-(defimplementation compile-file-for-emacs (*compile-filename* load-p)
+(defimplementation swank-compile-file (*compile-filename* load-p)
   (handler-bind ((warning #'handle-compiler-warning))
     (let ((*buffer-name* nil))
       (compile-file *compile-filename* :load-after-compile load-p))))
 
-(defimplementation compile-string-for-emacs (string &key buffer position)
+(defimplementation swank-compile-string (string &key buffer position)
   (handler-bind ((warning #'handle-compiler-warning))
-    (let ((*package* *buffer-package*)
-          (*buffer-name* buffer)
+    (let ((*buffer-name* buffer)
           (*buffer-start-position* position)
           (*buffer-string* string))
-      (eval (from-string
-	     (format nil "(funcall (compile nil '(lambda () ~A)))" string))))))
+      (funcall (compile nil (read-from-string
+                             (format nil "(CL:LAMBDA () ~A)" string)))))))
 
 ;;;; Definition Finding
 
+(defun find-fspec-location (fspec type)
+  (let ((file (excl::fspec-pathname fspec type)))
+    (etypecase file
+      (pathname
+       (let ((start (scm:find-definition-in-file fspec type file)))
+         (make-location (list :file (namestring (truename file)))
+                        (if start
+                            (list :position (1+ start))
+                            (list :function-name (string fspec))))))
+      ((member :top-level)
+       (list :error (format nil "Defined at toplevel: ~A" fspec)))
+      (null 
+       (list :error (format nil "Unkown source location for ~A" fspec))))))
+
 (defun fspec-source-locations (fspec)
   (let ((defs (excl::find-multiple-definitions fspec)))
-    (let ((locations '()))
-      (loop for (fspec type) in defs do
-            (let ((file (excl::fspec-pathname fspec type)))
-              (etypecase file
-                (pathname
-                 (let ((start (scm:find-definition-in-file fspec type file)))
-                   (push (make-location 
-                          (list :file (namestring (truename file)))
-                          (if start
-                              (list :position (1+ start))
-                              (list :function-name (string fspec))))
-                         locations)))
-                ((member :top-level)
-                 (push (list :error (format nil "Defined at toplevel: ~A" 
-                                            fspec))
-                       locations))
-                (null 
-                 (push (list :error (format nil 
-                                            "Unkown source location for ~A" 
-                                            fspec))
-                       locations))
-                )))
-      locations)))
+    (loop for (fspec type) in defs 
+          collect (list fspec (find-fspec-location fspec type)))))
 
-(defimplementation find-function-locations (symbol-name)
-  (multiple-value-bind (symbol foundp) (find-symbol-designator symbol-name)
-    (cond ((not foundp)
-           (list (list :error (format nil "Unkown symbol: ~A" symbol-name))))
-          ((macro-function symbol)
-           (fspec-source-locations symbol))
-          ((special-operator-p symbol)
-           (list (list :error (format nil "~A is a special-operator" symbol))))
-          ((fboundp symbol)
-           (fspec-source-locations symbol))
-          (t (list (list :error
-                         (format nil "Symbol not fbound: ~A" symbol-name))))
-          )))
+(defimplementation find-definitions (symbol)
+  (fspec-source-locations symbol))
 
 ;;;; XREF
 
-(defun lookup-xrefs (finder name)
-  (xref-results-for-emacs (funcall finder (from-string name))))
+(defun xrefs (fspecs)
+  (loop for fspec in fspecs
+        nconc (loop for (ref location) in (fspec-source-locations fspec)
+                    collect (list ref location))))
 
-(defimplementation who-calls (function-name)
-  (lookup-xrefs (lambda (x) (xref:get-relation :calls :wild x))
-                function-name))
+(defimplementation who-calls (name)
+  (xrefs (xref:get-relation :calls :wild name)))
 
-(defimplementation who-references (variable)
-  (lookup-xrefs (lambda (x) (xref:get-relation :uses :wild x))
-                variable))
+(defimplementation who-references (name)
+  (xrefs (xref:get-relation :uses :wild name)))
 
-(defimplementation who-binds (variable)
-  (lookup-xrefs (lambda (x) (xref:get-relation :binds :wild x))
-                variable))
+(defimplementation who-binds (name)
+  (xrefs (xref:get-relation :binds :wild name)))
 
-(defimplementation who-macroexpands (variable)
-  (lookup-xrefs (lambda (x) (xref:get-relation :macro-calls :wild x))
-                variable))
+(defimplementation who-macroexpands (name)
+  (xrefs (xref:get-relation :macro-calls :wild name)))
 
-(defimplementation who-sets (variable)
-  (lookup-xrefs (lambda (x) (xref:get-relation :sets :wild x))
-                variable))
-
-(defimplementation list-callers (name)
-  (lookup-xrefs (lambda (x) (xref:get-relation :calls :wild x))
-                name))
+(defimplementation who-sets (name)
+  (xrefs (xref:get-relation :sets :wild name)))
 
 (defimplementation list-callees (name)
-  (lookup-xrefs (lambda (x) (xref:get-relation :calls x :wild))
-                name))
-
-(defun xref-results-for-emacs (fspecs)
-  (let ((xrefs '()))
-    (dolist (fspec fspecs)
-      (dolist (location (fspec-source-locations fspec))
-        (push (cons (to-string fspec) location) xrefs)))
-    (group-xrefs xrefs)))
+  (xrefs (xref:get-relation :calls name :wild)))
 
 ;;;; Inspecting
 
@@ -316,7 +253,7 @@
     (values (format nil "~A~%   is a ~A" o class)
             (mapcar (lambda (slot)
                       (let ((name (clos:slot-definition-name slot)))
-                        (cons (to-string name)
+                        (cons (princ-to-string name)
                               (slot-value o name))))
                     slots))))
 

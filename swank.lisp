@@ -7,12 +7,13 @@
 ;;; This code has been placed in the Public Domain.  All warranties are 
 ;;; disclaimed.
 
-;;; Currently the package is declared in swank-backend.lisp
-#+nil
 (defpackage :swank
-  (:use :common-lisp)
-  (:export #:start-server #:create-swank-server
-           #:*sldb-pprint-frames*))
+  (:use :common-lisp :swank-backend)
+  (:export #:*sldb-pprint-frames*
+           #:start-server 
+           #:create-swank-server
+           #:ed-in-emacs
+           ))
 
 (in-package :swank)
 
@@ -50,6 +51,13 @@
 (declaim (ftype (function () nil) missing-arg))
 (defun missing-arg ()
   (error "A required &KEY or &OPTIONAL argument was not supplied."))
+
+(defun package-external-symbols (package)
+  (let ((list '()))
+    (do-external-symbols (sym package) (push sym list))
+    list))
+
+;; (package-external-symbols (find-package :swank))
 
 
 ;;;; Connections
@@ -152,7 +160,7 @@ corresponding values in the CDR of VALUE."
 Redirection is done while Lisp is processing a request for Emacs.")
 
 (defvar *use-dedicated-output-stream* t)
-(defvar *swank-in-background* nil)
+(defvar *swank-in-background* (preferred-communication-style))
 (defvar *log-events* nil)
 
 (defun start-server (port-file &optional (background *swank-in-background*)
@@ -706,10 +714,10 @@ resolution.  Return nil if no such symbol exists."
           (t
            (let ((package (or (find-package package-name) default-package)))
              (multiple-value-bind (symbol access) (find-symbol name package)
-               (cond ((and symbol package-name (not internal-p)
+               (cond ((and package-name (not internal-p)
                            (not (eq access :external)))
                       (values nil nil))
-                     (symbol (values symbol access)))))))))
+                     (access (values symbol access)))))))))
 
 (defun find-symbol-or-lose (string &optional 
                             (default-package *buffer-package*))
@@ -720,18 +728,14 @@ exists."
     (cond (package (values symbol package))
           (t (error "Unknown symbol: ~S [in ~A]" string default-package)))))
 
-(defun format-arglist (function-name lambda-list-fn)
-  "Use LAMBDA-LIST-FN to format the arglist for FUNCTION-NAME.
-Call LAMBDA-LIST-FN with the symbol corresponding to FUNCTION-NAME."
-  (declare (type function lambda-list-fn))
+(defslimefun arglist-string (name)
   (multiple-value-bind (arglist condition)
-      (ignore-errors 
-        (let ((symbol (find-symbol-or-lose function-name)))
-          (values (funcall lambda-list-fn symbol))))
+      (ignore-errors (values (arglist (find-symbol-or-lose name))))
     (cond (condition (format nil "(-- ~A)" condition))
-          (t (if (null arglist) 
-                 "()"
-                 (print-arglist-to-string arglist))))))
+          (t (etypecase arglist
+               (string arglist)
+               (null "()")
+               (cons (print-arglist-to-string arglist)))))))
 
 (defun print-arglist-to-string (arglist)
   (with-output-to-string (*standard-output*)
@@ -776,6 +780,8 @@ Call LAMBDA-LIST-FN with the symbol corresponding to FUNCTION-NAME."
 (defvar *sldb-initial-frames* 20
   "The initial number of backtrace frames to send to Emacs.")
 
+(defvar *sldb-restarts*)
+
 (defun swank-debugger-hook (condition hook)
   "Debugger entry point, called from *DEBUGGER-HOOK*.
 Sends a message to Emacs declaring that the debugger has been entered,
@@ -783,11 +789,13 @@ then waits to handle further requests from Emacs. Eventually returns
 after Emacs causes a restart to be invoked."
   (declare (ignore hook))
   (let ((*swank-debugger-condition* condition)
+        (*sldb-restarts* (compute-restarts condition))
         (*package* (or (and (boundp '*buffer-package*)
                             (symbol-value '*buffer-package*))
                        *package*))
         (*sldb-level* (1+ *sldb-level*))
-        (*swank-state-stack* (cons :swank-debugger-hook *swank-state-stack*)))
+        (*swank-state-stack* (cons :swank-debugger-hook *swank-state-stack*))
+        (*print-readably* nil))
       (force-user-output)
       (call-with-debugging-environment
        (lambda () (sldb-loop *sldb-level*)))))
@@ -834,17 +842,65 @@ printing."
         (format nil "   [Condition of type ~S]"
                 (type-of *swank-debugger-condition*))))
 
-(defun print-with-frame-label (n fn)
-  "Bind some printer variables to properly indent the frame and call
-FN with a string-stream for printing a frame of a bracktrace.  Return
-the string."
-  (declare (type function fn))
+(defun format-restarts-for-emacs ()
+  "Return a list of restarts for *swank-debugger-condition* in a
+format suitable for Emacs."
+  (loop for restart in *sldb-restarts*
+	collect (list (princ-to-string (restart-name restart))
+		      (princ-to-string restart))))
+
+(defun frame-for-emacs (n frame)
   (let* ((label (format nil "  ~D: " n))
          (string (with-output-to-string (stream) 
                    (let ((*print-pretty* *sldb-pprint-frames*)
                          (*print-circle* t))
-                     (princ label stream) (funcall fn stream)))))
+                     (princ label stream) 
+                     (print-frame frame stream)))))
     (subseq string (length label))))
+
+(defslimefun backtrace (start end)
+  (loop for frame in (compute-backtrace start end)
+        for i from start
+        collect (list i (frame-for-emacs i frame))))
+
+(defslimefun debugger-info-for-emacs (start end)
+  "Return debugger state, with stack frames from START to END.
+The result is a list:
+  (condition ({restart}*) ({stack-frame}*)
+where
+  condition   ::= (description type)
+  restart     ::= (name description)
+  stack-frame ::= (number description)
+
+condition---a pair of strings: message, and type.
+
+restart---a pair of strings: restart name, and description.
+
+stack-frame---a number from zero (the top), and a printed
+representation of the frame's call.
+
+Below is an example return value. In this case the condition was a
+division by zero (multi-line description), and only one frame is being
+fetched (start=0, end=1).
+
+ ((\"Arithmetic error DIVISION-BY-ZERO signalled.
+Operation was KERNEL::DIVISION, operands (1 0).\"
+   \"[Condition of type DIVISION-BY-ZERO]\")
+  ((\"ABORT\" \"Return to Slime toplevel.\")
+   (\"ABORT\" \"Return to Top-Level.\"))
+  ((0 \"(KERNEL::INTEGER-/-INTEGER 1 0)\")))"
+  (list (debugger-condition-for-emacs)
+	(format-restarts-for-emacs)
+	(backtrace start end)))
+
+(defun nth-restart (index)
+  (nth index *sldb-restarts*))
+
+(defslimefun invoke-nth-restart (index)
+  (invoke-restart-interactively (nth-restart index)))
+
+(defslimefun sldb-abort ()
+  (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
 
 (defslimefun sldb-continue ()
   (continue))
@@ -859,15 +915,23 @@ has changed, ignore the request."
 (defslimefun eval-string-in-frame (string index)
   (to-string (eval-in-frame (from-string string) index)))
 
-(defun frame-locals-for-emacs (frame-index)
+(defslimefun pprint-eval-string-in-frame (string index)
+  (swank-pprint
+   (multiple-value-list 
+    (eval-in-frame index (from-string string)))))
+
+(defslimefun frame-locals-for-emacs (frame-index)
   (let ((*print-readably* nil)
         (*print-pretty* t)
         (*print-circle* t))
     (mapcar (lambda (frame-locals)
               (destructuring-bind (&key name id value) frame-locals
-                (list :name (princ-to-string name) :id id
+                (list :name (to-string name) :id id
                       :value (to-string value))))
             (frame-locals frame-index))))
+
+(defslimefun frame-catch-tags-for-emacs (frame-index)
+  (frame-catch-tags frame-index))
 
 
 ;;;; Evaluation
@@ -987,6 +1051,10 @@ change, then send Emacs an update."
   (let ((p (setq *package* (guess-package-from-string package))))
     (list (package-name p) (shortest-package-nickname p))))
 
+(defslimefun set-default-directory (directory)
+  (setf *default-pathname-defaults* (merge-pathnames directory))
+  (namestring *default-pathname-defaults*))
+
 (defslimefun listener-eval (string)
   (clear-user-input)
   (multiple-value-bind (values last-form) (eval-region string t)
@@ -1052,22 +1120,23 @@ The time is measured in microseconds."
     (list (to-string result)
 	  (format nil "~,2F" (/ usecs 1000000.0)))))
 
-(defslimefun swank-compile-file (filename load-p)
+(defslimefun compile-file-for-emacs (filename load-p)
   "Compile FILENAME and, when LOAD-P, load the result.
 Record compiler notes signalled as `compiler-condition's."
-  (swank-compiler (lambda () (compile-file-for-emacs filename load-p))))
+  (swank-compiler (lambda () (swank-compile-file filename load-p))))
 
-(defslimefun swank-compile-string (string buffer position)
+(defslimefun compile-string-for-emacs (string buffer position)
   "Compile STRING (exerpted from BUFFER at POSITION).
 Record compiler notes signalled as `compiler-condition's."
   (swank-compiler
    (lambda () 
-     (compile-string-for-emacs string :buffer buffer :position position))))
+     (let ((*package* *buffer-package*))
+       (swank-compile-string string :buffer buffer :position position)))))
 
 (defslimefun swank-load-system (system)
   "Compile and load SYSTEM using ASDF.
 Record compiler notes signalled as `compiler-condition's."
-  (swank-compiler  (lambda ()  (compile-system-for-emacs system))))
+  (swank-compiler (lambda () (swank-compile-system system))))
 
 
 ;;;; Macroexpansion
@@ -1082,11 +1151,12 @@ Record compiler notes signalled as `compiler-condition's."
 (defslimefun swank-macroexpand (string)
   (apply-macro-expander #'macroexpand string))
 
-(defslimefun disassemble-symbol (symbol-name)
-  (print-output-to-string (lambda () (disassemble (from-string symbol-name)))))
-
 (defslimefun swank-macroexpand-all (string)
   (apply-macro-expander #'macroexpand-all string))
+
+(defslimefun disassemble-symbol (symbol-name)
+  (with-output-to-string (*standard-output*)
+    (disassemble (find-symbol-or-lose symbol-name))))
 
 
 ;;;; Completion
@@ -1333,25 +1403,26 @@ that symbols accessible in the current package go first."
                         (not (symbol-external-p sym)))))
              (apropos-list string package)))
 
-(defun print-output-to-string (fn)
-  (declare (type function fn))
+(defun describe-to-string (object)
   (with-output-to-string (*standard-output*)
-    (let ((*debug-io* *standard-output*))
-      (funcall fn))))
-
-(defun print-description-to-string (object)
-  (print-output-to-string (lambda () (describe object))))
+    (describe object)))
 
 (defslimefun describe-symbol (symbol-name)
-  (multiple-value-bind (symbol foundp)
-      (find-symbol-designator symbol-name)
-    (cond (foundp (print-description-to-string symbol))
-	  (t (format nil "Unknown symbol: ~S [in ~A]" 
-		     symbol-name *buffer-package*)))))
+  (describe-to-string (find-symbol-or-lose symbol-name)))
 
 (defslimefun describe-function (symbol-name)
-  (print-description-to-string
-   (symbol-function (find-symbol-designator symbol-name))))
+  (let ((symbol (find-symbol-or-lose symbol-name)))
+    (describe-to-string (or (macro-function symbol)
+                            (symbol-function symbol)))))
+
+(defslimefun describe-definition-for-emacs (symbol-name kind)
+  (multiple-value-bind (symbol foundp) (find-symbol-designator symbol-name)
+    (cond (foundp 
+           (with-output-to-string (*standard-output*)
+               (describe-definition symbol kind)))
+	  (t 
+           (format nil "Unknown symbol: ~S [in ~A]" 
+                   symbol-name *buffer-package*)))))
 
 (defslimefun documentation-symbol (symbol-name &optional default)
   (let ((*package* *buffer-package*))
@@ -1414,14 +1485,20 @@ that symbols accessible in the current package go first."
 
 ;;;; Source Locations
 
-(defstruct (:location (:type list) :named
-                      (:constructor make-location (buffer position)))
-  buffer position)
+(defslimefun find-function-locations (symbol-name)
+  "Return a list of source-locations for SYMBOL-NAME's functions."
+  (multiple-value-bind (symbol foundp) (find-symbol-designator symbol-name)
+    (cond ((not foundp)
+           (list (list :error (format nil "Unkown symbol: ~A" symbol-name))))
+          ((macro-function symbol)
+           (mapcar #'second (find-definitions symbol)))
+          ((special-operator-p symbol)
+           (list (list :error (format nil "~A is a special-operator" symbol))))
+          ((fboundp symbol)
+           (mapcar #'second (find-definitions symbol)))
+          (t (list (list :error
+                         (format nil "Symbol not fbound: ~A" symbol-name)))))))
 
-(defstruct (:error (:type list) :named (:constructor)) message)
-(defstruct (:file (:type list) :named (:constructor)) name)
-(defstruct (:buffer (:type list) :named (:constructor)) name)
-(defstruct (:position (:type list) :named (:constructor)) pos)
 
 (defun alistify (list key test)
   "Partition the elements of LIST into an alist.  KEY extracts the key
@@ -1442,27 +1519,59 @@ from an element and TEST is used to compare keys."
             (position-pos pos2)))
         (t nil)))
 
-(defun partition (list predicate)
-  (declare (type function predicate))
+(defun partition (list test key)
+  (declare (type function test key))
   (loop for e in list 
-	if (funcall predicate e) collect e into yes
+	if (funcall test (funcall key e)) collect e into yes
 	else collect e into no
 	finally (return (values yes no))))
 
-(defun group-xrefs (xrefs)
-  (flet ((xref-buffer (xref) (location-buffer (cdr xref)))
-         (xref-position (xref) (location-position (cdr xref))))
-    (multiple-value-bind (resolved errors) 
-	(partition xrefs (lambda (x) (location-p (cdr x))))
-      (let ((alist (alistify resolved #'xref-buffer #'equal)))
-	(append 
-	 (loop for (key . list) in alist
-	       collect (cons (to-string key) 
-			     (sort list #'location-position<
-				   :key #'xref-position)))
-	 (if errors
-	     `(("Unresolved" . ,errors))))))))
+(defstruct (xref (:conc-name xref.)
+                 (:type list))
+  dspec location)
 
+(defun location-valid-p (location)
+  (eq (car location) :location))
+
+(defun xref-buffer (xref)
+  (location-buffer (xref.location xref)))
+
+(defun xref-position (xref)
+  (location-buffer (xref.location xref)))
+
+(defun group-xrefs (xrefs)
+  (multiple-value-bind (resolved errors) 
+      (partition xrefs #'location-valid-p #'xref.location)
+    (let ((alist (alistify resolved #'xref-buffer #'equal)))
+      (append 
+       (loop for (buffer . list) in alist
+             collect (cons (second buffer)
+                           (mapcar (lambda (xref)
+                                     (cons (to-string (xref.dspec xref))
+                                           (xref.location xref)))
+                                   (sort list #'location-position<
+                                         :key #'xref-position))))
+       (if errors 
+           (list (cons "Unresolved" 
+                       (mapcar (lambda (xref)
+                                 (cons (to-string (xref.dspec xref))
+                                       (xref.location xref)))
+                               errors))))))))
+
+(defslimefun xref (type symbol-name)
+  (let ((symbol (find-symbol-or-lose symbol-name)))
+    (group-xrefs
+     (ecase type
+       (:calls (who-calls symbol))
+       (:references (who-references symbol))
+       (:binds (who-binds symbol))
+       (:sets (who-sets symbol))
+       (:macroexpands (who-macroexpands symbol))
+       (:specializes (who-specializes symbol))
+       (:callers (list-callers symbol))
+       (:callees (list-callees symbol))))))
+
+; (xref :calls "to-string")
 
 ;;;; Inspecting
 
@@ -1532,7 +1641,7 @@ nil if there's no second element."
 
 (defslimefun describe-inspectee ()
   "Describe the currently inspected object."
-  (print-description-to-string *inspectee*))
+  (describe-to-string *inspectee*))
 
 (defmethod inspected-parts ((object cons))
   (if (consp (cdr object))

@@ -87,10 +87,11 @@ recompiled."
                     #+mswindows (make-pathname :name "_swank" :type "lsp"))))
 
 (compile-files-if-needed-serially
-  (list* (make-swank-pathname "swank-backend") *swank-pathname*
-         *sysdep-pathnames*))
+  (append (list (make-swank-pathname "swank-backend"))
+          *sysdep-pathnames* 
+          (list *swank-pathname*)))
 
-(funcall (intern (string :warn-unimplemented-interfaces) :swank))
+(funcall (intern (string :warn-unimplemented-interfaces) :swank-backend))
 
 (when (user-init-file)
   (load (user-init-file)))
