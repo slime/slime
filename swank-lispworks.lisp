@@ -278,8 +278,15 @@ Return NIL if the symbol is unbound."
              (delete-file binary-filename))))
     (delete-file filename)))
 
-(defun dspec-buffer-position (dspec)
-  (list :function-name (string (dspec:dspec-primary-name dspec))))
+(defun dspec-buffer-position (dspec offset)
+  (etypecase dspec
+    (cons (let ((name (dspec:dspec-primary-name dspec)))
+            (etypecase name
+              ((or symbol string) 
+               (list :function-name (string name)))
+              (t (list :position offset)))))
+    (null (list :position offset))
+    (symbol (list :function-name (string dspec)))))
 
 (defun emacs-buffer-location-p (location)
   (and (consp location)
@@ -300,13 +307,13 @@ Return NIL if the symbol is unbound."
     (etypecase location
       ((or pathname string) 
        (make-location `(:file ,(filename location))
-                      (dspec-buffer-position dspec)))
+                      (dspec-buffer-position dspec 1)))
       (symbol `(:error ,(format nil "Cannot resolve location: ~S" location)))
       ((satisfies emacs-buffer-location-p)
        (destructuring-bind (_ buffer offset string) location
-         (declare (ignore _ offset string))
+         (declare (ignore _ string))
          (make-location `(:buffer ,buffer)
-                        (dspec-buffer-position dspec)))))))
+                        (dspec-buffer-position dspec offset)))))))
 
 (defun signal-error-data-base (database location)
   (map-error-database 

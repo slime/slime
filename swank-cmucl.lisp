@@ -674,7 +674,7 @@ return value is the condition or nil."
   "Return definitions in the \"function namespace\", i.e.,
 regular functions, generic functions, methods and macros."
   (cond ((macro-function symbol)
-         (list `((macro ,symbol)
+         (list `((defmacro ,symbol)
                  ,(function-location (macro-function symbol)))))
         ((special-operator-p symbol)
          (list `((:special-operator ,symbol) 
@@ -683,7 +683,7 @@ regular functions, generic functions, methods and macros."
         ((fboundp symbol)
          (let ((function (coerce symbol 'function)))
            (cond ((genericp function)
-                  (cons (list `(:generic-function ,symbol)
+                  (cons (list `(defgeneric ,symbol)
                               (function-location function))
                         (gf-method-definitions function)))
                  (t (list (list `(function ,symbol)

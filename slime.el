@@ -3499,7 +3499,7 @@ function name is prompted."
 (defun slime-show-definitions (name definitions)
   (slime-show-xrefs 
    `((,name . ,(loop for (dspec location) in definitions
-                     collect (cons (format "%s" dspec) location))))
+                     collect (cons dspec location))))
    'definition
    name
    (slime-buffer-package)))
