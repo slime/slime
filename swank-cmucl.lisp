@@ -961,6 +961,18 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
     (values (debug-function-arglist (di::function-debug-function fn))
             (kernel:%function-arglist (kernel:%function-self fn)))))
 
+(defun read-arglist (fn)
+  "Parse the arglist-string of the function object FN."
+  (let ((string (kernel:%function-arglist 
+                 (kernel:%function-self fn)))
+        (package (find-package
+                  (c::compiled-debug-info-package
+                   (kernel:%code-debug-info
+                    (vm::find-code-object fn))))))
+    (with-standard-io-syntax
+      (let ((*package* (or package *package*)))
+        (read-from-string string)))))
+
 (defimplementation arglist (symbol)
   (let* ((fun (or (macro-function symbol)
                   (symbol-function symbol)))
@@ -969,7 +981,8 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
                  (eval:interpreted-function-arglist fun))
                 ((pcl::generic-function-p fun)
                  (pcl:generic-function-lambda-list fun))
-                ((kernel:%function-arglist (kernel:%function-self fun)))
+                ((kernel:%function-arglist (kernel:%function-self fun))
+                 (read-arglist fun))
                 ;; this should work both for
                 ;; compiled-debug-function and for
                 ;; interpreted-debug-function
