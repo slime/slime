@@ -2905,20 +2905,24 @@ BODY returns true if the check succeeds."
 (setq slime-tests nil)
 
 (def-slime-test find-definition
-    (name expected-filename)
-    "Find the definition of a function or macro."
-    '((list "list.lisp")
-      (loop "loop.lisp")
-      (aref "array.lisp"))
+    (name buffer-package)
+    "Find the definition of a function or macro in swank.lisp."
+    '((read-from-emacs "SWANK")
+      (swank::read-from-emacs "CL-USER")
+      (swank:start-server "CL-USER"))
+  (switch-to-buffer "*scratch*")        ; not buffer of definition
   (let ((orig-buffer (current-buffer))
-        (orig-pos (point)))
+        (orig-pos (point))
+        (enable-local-variables nil)    ; don't get stuck on -*- eval: -*-
+        (slime-buffer-package buffer-package))
     (slime-edit-fdefinition (symbol-name name))
     ;; Postconditions
-    (slime-check ("Definition of `%S' is in %S." name expected-filename)
+    (slime-check ("Definition of `%S' is in swank.lisp." name)
       (string= (file-name-nondirectory (buffer-file-name))
-               expected-filename))
+               "swank.lisp"))
     (slime-check "Definition now at point."
-      (looking-at (format "(\\(defun\\|defmacro\\)\\s *%s\\s " name)))
+      (looking-at (format "(\\(defun\\|defmacro\\)\\s *%s\\s "
+                          (slime-cl-symbol-name name))))
     (slime-pop-find-definition-stack)
     (slime-check "Returning from definition restores original buffer/position."
       (and (eq orig-buffer (current-buffer))
@@ -2940,9 +2944,10 @@ BODY returns true if the check succeeds."
     (function-name expected-arglist)
     "Lookup the argument list for FUNCTION-NAME.
 Confirm that EXPECTED-ARGLIST is displayed."
-    '(("list" "(list &rest args)")
-      ("defun" "(defun &whole source name lambda-list &parse-body (body decls doc))")
-      ("cl::defun" "(cl::defun &whole source name lambda-list &parse-body (body decls doc))"))
+    '(("swank:start-server"
+       "(swank:start-server &optional (port server-port))")
+      ("swank::string-prefix-p"
+       "(swank::string-prefix-p s1 s2)"))
   (let ((arglist (slime-get-arglist function-name))) ;
     (slime-check ("Argument list %S is as expected." arglist)
       (string= expected-arglist arglist))))
