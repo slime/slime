@@ -992,7 +992,10 @@ Emacs buffer."
   "Find the symbol named STRING.
 Return the symbol and a flag indicateing if the symbols was found."
   (multiple-value-bind (sname pname) (tokenize-symbol string)
-    (find-symbol (casify sname) (if pname (casify pname) package))))
+    (find-symbol (casify sname)
+                 (cond ((string= pname "") "KEYWORD")
+                       (pname              (casify pname))
+                       (t                  package)))))
 
 (defun parse-symbol-or-lose (string &optional (package *package*))
   (multiple-value-bind (symbol status) (parse-symbol string package)
@@ -1045,9 +1048,12 @@ Return the package or nil."
 
 (defslimefun arglist-for-echo-area (names)
   "Return the arglist for the first function, macro, or special-op in NAMES."
-  (with-buffer-syntax ()
-    (let ((name (find-if #'valid-operator-name-p names)))
-      (if name (format-arglist-for-echo-area (parse-symbol name) name)))))
+  (handler-case
+      (with-buffer-syntax ()
+        (let ((name (find-if #'valid-operator-name-p names)))
+          (if name (format-arglist-for-echo-area (parse-symbol name) name))))
+    (error (cond)
+      (format nil "ARGLIST: ~A" cond))))
 
 (defun format-arglist-for-echo-area (symbol name)
   "Return SYMBOL's arglist as string for display in the echo area.
@@ -2540,9 +2546,8 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
 
 (defmethod inspect-for-emacs ((object cons) (inspector t))
   (declare (ignore inspector))
-  (if (or (consp (cdr object))
-          (null (cdr object)))
-      (inspect-for-emacs-nontrivial-list object)
+  (if (listp object)
+      (inspect-for-emacs-list object)
       (inspect-for-emacs-simple-cons object)))
 
 (defun inspect-for-emacs-simple-cons (cons)
@@ -2551,7 +2556,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
             (:newline)
             "Cdr: " (:value ,(cdr cons)))))
 
-(defun inspect-for-emacs-nontrivial-list (list)
+(defun inspect-for-emacs-list (list)
   (let ((circularp nil)
         (length 0)
         (seen (make-hash-table :test 'eq))
