@@ -3437,8 +3437,9 @@ First make the variable unbound, then evaluate the entire form."
      (slime-buffer-package t)
      (lambda (result) (with-current-buffer buffer
                         (slime-show-last-output)
-                        (princ result buffer)
-                        (insert "\n"))))))
+                        (insert "\n"
+                                (format "%s" result)
+                                "\n"))))))
 
 (defun slime-eval/compile-defun-dwim (&optional arg)
   "Call the computation command you want (Do What I Mean).
