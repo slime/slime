@@ -288,7 +288,7 @@ Commands for visiting compiler notes:
 \\[slime-remove-notes]	- Remove compiler-note annotations in buffer.
 
 Finding definitions:
-\\[slime-edit-fdefinition]	- Edit the definition of the function called at point.
+\\[slime-edit-definition]	- Edit the definition of the function called at point.
 \\[slime-pop-find-definition-stack]	- Pop the definition stack to go back from a definition.
 
 Programming aids:
@@ -423,7 +423,7 @@ A prefix argument disables this behaviour."
     ;; Editing/navigating
     ("\M-\C-i" slime-complete-symbol :inferior t)
     ("\C-i" slime-complete-symbol :prefixed t :inferior t)
-    ("\M-." slime-edit-fdefinition :inferior t :sldb t)
+    ("\M-." slime-edit-definition :inferior t :sldb t)
     ("\M-," slime-pop-find-definition-stack :inferior t :sldb t)
     ;; Evaluating
     ("\C-x\C-e" slime-eval-last-expression :inferior t)
@@ -508,7 +508,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
 (defvar slime-easy-menu
   (let ((C '(slime-connected-p)))
     `("SLIME"
-      [ "Edit Definition..."       slime-edit-fdefinition ,C ]
+      [ "Edit Definition..."       slime-edit-definition ,C ]
       [ "Return From Definition"   slime-pop-find-definition-stack ,C ]
       [ "Complete Symbol"          slime-complete-symbol ,C ]
       "--"
@@ -786,7 +786,7 @@ It should be used for \"background\" messages such as argument lists."
     (skip-syntax-forward "w_")
     (skip-syntax-backward "-") 
     (let ((string (thing-at-point 'symbol)))
-      (substring-no-properties string))))
+      (and string (substring-no-properties string)))))
 
 (defun slime-symbol-at-point ()
   "Return the symbol at point, otherwise nil."
@@ -3467,34 +3467,42 @@ If MARKER is nil, use the point."
         ;; If this buffer was deleted, recurse to try the next one
         (slime-pop-find-definition-stack)))))
 
-(defun slime-edit-fdefinition (name &optional other-window)
+(defstruct (slime-definition (:conc-name slime-definition.)
+                             (:type list))
+  dspec location)
+
+(defun slime-edit-definition (name &optional other-window)
   "Lookup the definition of the symbol at point.  
 If there's no symbol at point, or a prefix argument is given, then the
 function name is prompted."
-  (interactive (list (slime-read-symbol-name "Function name: ")))
-  (let ((locations (slime-eval `(swank:find-function-locations ,name)
-                               (slime-buffer-package))))
-    (assert locations)
+  (interactive (list (slime-read-symbol-name "Symbol: ")))
+  (let ((definitions (slime-eval `(swank:find-definitions-for-emacs ,name)
+                                 (slime-buffer-package))))
+    (when (null definitions)
+      (error "No known definition for: %s" name))
     (slime-push-definition-stack)
-    (cond ((null (cdr locations))
-           (slime-goto-source-location (car locations))
+    (cond ((slime-length> definitions 1)
+           (slime-show-definitions name definitions))
+          (t
+           (slime-goto-source-location (slime-definition.location
+                                        (car definitions)))
            (cond ((not other-window)
                   (switch-to-buffer (current-buffer)))
                  (t
-                  (switch-to-buffer-other-window (current-buffer)))))
-          (t (slime-show-definitions name locations)))))
+                  (switch-to-buffer-other-window (current-buffer))))))))
 
-(defun slime-edit-fdefinition-other-window (name)
-  "Like `slime-edit-fdefinition' but switch to the other window."
+(defun slime-edit-definition-other-window (name)
+  "Like `slime-edit-definition' but switch to the other window."
   (interactive (list (slime-read-symbol-name "Function name: ")))
-  (slime-edit-fdefinition name t))
+  (slime-edit-definition name t))
 
-(defun slime-show-definitions (name locations)
-  (slime-show-xrefs `((,name . ,(loop for l in locations
-                                      collect (cons (format "%s" l) l))))
-                    'definition
-                    name
-                     (slime-buffer-package)))
+(defun slime-show-definitions (name definitions)
+  (slime-show-xrefs 
+   `((,name . ,(loop for (dspec location) in definitions
+                     collect (cons (format "%s" dspec) location))))
+   'definition
+   name
+   (slime-buffer-package)))
 
 ;;;; `ED'
 
@@ -3517,7 +3525,7 @@ This for use in the implementation of COMMON-LISP:ED."
     (cond ((stringp what)
            (find-file (slime-from-lisp-filename what)))
           ((symbolp what)
-           (slime-edit-fdefinition (symbol-name what)))
+           (slime-edit-definition (symbol-name what)))
           (t nil))))                    ; nothing in particular
 
 
@@ -5249,6 +5257,20 @@ expressions out is enclosed in a set of balanced comments."
 (defvar slime-test-buffer-name "*Tests*"
   "The name of the buffer used to display test results.")
 
+(defvar slime-expected-failures
+  '(("cmucl" 0)
+    ("sbcl" 7)
+    ("clisp" 13)
+    ("lispworks" 7)
+    ("allegro" 6))
+  "The number of expected failed tests for each implementation.")
+
+(defun slime-expected-failures ()
+  "Return the numbers of expected failure for the current implementation."
+  (or (cadr (assoc (slime-lisp-implementation-type-name)
+                   slime-expected-failures))
+      0))
+
 
 ;;;;; Execution engine
 
@@ -5292,11 +5314,17 @@ Return the number of failed tests."
                           (debug (format "Error in test: %S" err)))
                         (incf slime-failed-tests)
                         (slime-print-check-error err)))))))
-      (let ((summary (if (zerop slime-failed-tests)
-                         (format "All %S tests completed successfully."
-                                 slime-total-tests)
-                       (format "Failed on %S of %S tests."
-                               slime-failed-tests slime-total-tests))))
+      (let ((summary (cond ((zerop slime-failed-tests)
+                            (format "All %S tests completed successfully."
+                                    slime-total-tests))
+                           ((plusp (slime-expected-failures))
+                            (format "Failed on %S (%S expected) of %S tests."
+                                    slime-failed-tests 
+                                    (slime-expected-failures)
+                                    slime-total-tests))
+                           (t
+                            (format "Failed on %S of %S tests."
+                                    slime-failed-tests slime-total-tests)))))
         (save-excursion
           (with-current-buffer slime-test-buffer-name
             (goto-char (point-min))
@@ -5476,7 +5504,7 @@ BODY returns true if the check succeeds."
         (orig-pos (point))
         (enable-local-variables nil)    ; don't get stuck on -*- eval: -*-
         (slime-buffer-package buffer-package))
-    (slime-edit-fdefinition (symbol-name name))
+    (slime-edit-definition (symbol-name name))
     ;; Postconditions
     (slime-check ("Definition of `%S' is in swank.lisp." name)
       (string= (file-name-nondirectory (buffer-file-name))
