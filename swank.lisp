@@ -94,19 +94,27 @@ PORT-FILE-NAMESTRING in ascii text."
   "When non-nil redirect Lisp standard I/O to Emacs.
 Redirection is done while Lisp is processing a request for Emacs.")
 
+(defun call-with-slime-streams (in out io fn args)
+  (if *redirect-output*
+      (let ((*standard-output* out)
+            (*slime-input* in)
+            (*slime-output* out)
+            (*slime-io* io)
+            (*error-output* out)
+            (*trace-output* out)
+            (*debug-io* io)
+            (*query-io* io)
+            (*standard-input* in)
+            (*terminal-io* io))
+        (apply fn args))
+      (apply fn args)))
+      
 (defun read-from-emacs ()
   "Read and process a request from Emacs."
   (let ((form (read-next-form)))
-    (if *redirect-output*
-	(let ((*standard-output* *slime-output*)
-	      (*error-output* *slime-output*)
-	      (*trace-output* *slime-output*)
-	      (*debug-io* *slime-io*)
-	      (*query-io* *slime-io*)
-              (*standard-input* *slime-input*)
-              (*terminal-io* *slime-io*))
-	  (apply #'funcall form))
-	(apply #'funcall form))))
+    (call-with-slime-streams
+     *slime-input* *slime-output* *slime-io*
+     #'funcall form)))
 
 (define-condition slime-read-error (error) 
   ((condition :initarg :condition :reader slime-read-error.condition))
@@ -257,6 +265,27 @@ after Emacs causes a restart to be invoked."
     (let ((*sldb-level* (1+ *sldb-level*)))
       (call-with-debugging-environment
        (lambda () (sldb-loop *sldb-level*))))))
+
+(defun slime-debugger-function ()
+  "Returns a function suitable for use as the value of *DEBUGGER-HOOK*
+or SB-DEBUG::*INVOKE-DEBUGGER-HOOK*, to install the SLIME debugger
+globally.  Must be run from the *slime-repl* buffer or somewhere else
+that the slime streams are visible so that it can capture them."
+  (let ((package *buffer-package*)
+        (in *slime-input*)
+        (out *slime-output*)
+	(io *slime-io*)
+        (eio *emacs-io*))
+    (labels ((slime-debug (c &optional next)
+               (let ((*buffer-package* package)
+		     (*emacs-io* eio))
+                 ;; check emacs is still there: don't want to end up
+                 ;; in recursive debugger loops if it's disconnected
+                 (when (open-stream-p *emacs-io*)
+                   (call-with-slime-streams 
+                    in out io 
+                    #'swank::swank-debugger-hook (list c next))))))
+      #'slime-debug)))
 
 (defun sldb-loop (level)
   (send-to-emacs (list* :debug *sldb-level* (debugger-info-for-emacs 0 1)))
