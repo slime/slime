@@ -1,3 +1,8 @@
+2005-01-20  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (parse-symbol): Don't break if the package doesn't
+	exist.  Reported by Lynn Quam.
+	
 2005-01-20  Ian Eslick <eslick@csail.mit.edu>
 
 	* swank-allegro.lisp (restart-frame): Handle frames with arguments
