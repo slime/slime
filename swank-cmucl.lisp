@@ -1227,17 +1227,16 @@ LRA  =  ~X~%" (mapcar #'fixnum
   (with-output-to-string (*standard-output*)
     (let* ((lowtag (kernel:get-lowtag object))
 	   (lowtag-symbol (find lowtag +lowtag-symbols+ :key #'symbol-value)))
-      (format t "[lowtag: ~A" lowtag-symbol)
-      (cond ((member lowtag (list vm:other-pointer-type
-				  vm:function-pointer-type
-				  vm:other-immediate-0-type
-				  vm:other-immediate-1-type
-				  ))
-	     (let* ((type (kernel:get-type object))
-		    (type-symbol (find type +header-type-symbols+
-				       :key #'symbol-value)))
-	       (format t ", type: ~A]" type-symbol)))
-	    (t (format t "]"))))))
+      (format t "lowtag: ~A" lowtag-symbol)
+      (when (member lowtag (list vm:other-pointer-type
+                                 vm:function-pointer-type
+                                 vm:other-immediate-0-type
+                                 vm:other-immediate-1-type
+                                 ))
+        (let* ((type (kernel:get-type object))
+               (type-symbol (find type +header-type-symbols+
+                                  :key #'symbol-value)))
+          (format t ", type: ~A" type-symbol))))))
 
 (defimplementation inspected-parts (o)
   (cond ((di::indirect-value-cell-p o)

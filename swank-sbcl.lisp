@@ -649,10 +649,6 @@ stack."
 
 ;;;; Inspector
 
-(defimplementation describe-primitive-type (object)
-  (declare (ignore object))
-  "NYI")
-
 (defmethod inspected-parts (o)
   (cond ((sb-di::indirect-value-cell-p o)
 	 (inspected-parts-of-value-cell o))

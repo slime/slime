@@ -160,7 +160,7 @@ Return NIL if the symbol is unbound."
 
 (defun find-multiple-definitions (fspec)
   (list `(,fspec t)))
-
+(fspec-pathname 'disassemble)
 (defun find-definition-in-file (fspec type file)
   (declare (ignore fspec type file))
   ;; FIXME
@@ -509,6 +509,31 @@ Return NIL if the symbol is unbound."
 	   (with-condition-restarts condition (list (find-restart 'CONTINUE))
 				    (invoke-debugger condition)))))
    nil))
+
+;;; Inspecting
+
+(defmethod inspected-parts (o)
+  (let* ((*print-array* nil) (*print-pretty* t)
+	 (*print-circle* t) (*print-escape* t)
+	 (*print-lines* custom:*inspect-print-lines*)
+	 (*print-level* custom:*inspect-print-level*)
+	 (*print-length* custom:*inspect-print-length*)
+	 (sys::*inspect-all* (make-array 10 :fill-pointer 0 :adjustable t))
+	 (tmp-pack (make-package (gensym "INSPECT-TMP-PACKAGE-")))
+	 (*package* tmp-pack)
+	 (sys::*inspect-unbound-value* (intern "#<unbound>" tmp-pack)))
+    (let ((inspection (sys::inspect-backend o)))
+      (values (format nil "~S~% ~A~{~%~A~}" o 
+		      (sys::insp-title inspection)
+		      (sys::insp-blurb inspection))
+	      (let ((count (sys::insp-num-slots inspection))
+		    (pairs '()))
+		(dotimes (i count)
+		  (multiple-value-bind (value name)
+		      (funcall (sys::insp-nth-slot inspection) i)
+		    (push (cons (to-string (or name i)) value)
+			  pairs)))
+		(nreverse pairs))))))
 
 ;;; Local Variables:
 ;;; eval: (put 'compile-file-frobbing-notes 'lisp-indent-function 1)

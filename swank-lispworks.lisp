@@ -429,10 +429,6 @@ Return NIL if the symbol is unbound."
 
 ;;; Inspector
 
-(defimplementation describe-primitive-type (object)
-  (declare (ignore object))
-  "NYI")
-
 (defmethod inspected-parts (o)
   (multiple-value-bind (names values _getter _setter type)
       (lw:get-inspector-values o nil)
@@ -475,6 +471,9 @@ Return NIL if the symbol is unbound."
 
 (defimplementation kill-thread (thread)
   (mp:process-kill thread))
+
+(defimplementation thread-alive-p (thread)
+  (mp:process-alive-p thread))
 
 (defvar *mailbox-lock* (mp:make-lock))
 

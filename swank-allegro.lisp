@@ -309,7 +309,19 @@
         (push (cons (to-string fspec) location) xrefs)))
     (group-xrefs xrefs)))
 
-;;;; Multiprocessing 
+;;;; Inspecting
+
+(defmethod inspected-parts (o)
+  (let* ((class (class-of o))
+         (slots (clos:class-slots class)))
+    (values (format nil "~A~%   is a ~A" o class)
+            (mapcar (lambda (slot)
+                      (let ((name (clos:slot-definition-name slot)))
+                        (cons (to-string name)
+                              (slot-value o name))))
+                    slots))))
+
+;;;; Multithreading
 
 (defimplementation startup-multiprocessing ()
   (mp:start-scheduler))

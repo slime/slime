@@ -524,12 +524,13 @@ LOCATION is a source location of the form:
 
 ;;;; Inspector
 
-(defgeneric inspected-parts (object)
-  (:documentation
-   "Return a short description and a list of (LABEL . VALUE) pairs."))
+(definterface inspected-parts (object)
+  "Return a short description and a list of (LABEL . VALUE) pairs."
+  (values (format nil "~S is an atom." object) '()))
 
 (definterface describe-primitive-type (object)
-  "Return a string describing the primitive type of object.")
+  "Return a string describing the primitive type of object."
+  "N/A")
 
 
 ;;;; Multiprocessing
@@ -582,7 +583,8 @@ Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time."
   "Return a list of all threads.")
 
 (definterface thread-alive-p (thread)
-  "Test if THREAD is termintated.")
+  "Test if THREAD is termintated."
+  (member thread (all-threads)))
 
 (definterface interrupt-thread (thread fn)
   "Cause THREAD to execute FN.")
