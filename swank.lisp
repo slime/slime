@@ -2659,13 +2659,8 @@ NIL is returned if the list is circular."
            (when (array-has-fill-pointer-p array)
              (label-value-line "Fill pointer" (fill-pointer array)))
            '("Contents:" (:newline))
-           (let ((darray (make-array (array-total-size array)
-                                     :element-type (array-element-type array)
-                                     :displaced-to array
-                                     :displaced-index-offset 0)))
-             (loop for e across darray 
-                   for i from 0
-                   append (label-value-line i e))))))
+           (loop for i below (array-total-size array)
+                 append (label-value-line i (row-major-aref array i))))))
 
 (defmethod inspect-for-emacs ((char character) inspector)
   (declare (ignore inspector))
@@ -3060,11 +3055,12 @@ See `methods-by-applicability'.")
            (if (< -1 i char-code-limit)
                (label-value-line "Corresponding character" (code-char i)))
            (label-value-line "Length" (integer-length i))
-           (list "As time: " 
-                 (multiple-value-bind (sec min hour date month year)
-                     (decode-universal-time i)
-                   (format nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0DZ"
-                           year month date hour min sec))))))
+           (ignore-errors
+             (list "As time: " 
+                   (multiple-value-bind (sec min hour date month year)
+                       (decode-universal-time i)
+                     (format nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0DZ"
+                             year month date hour min sec)))))))
 
 (defmethod inspect-for-emacs ((c complex) inspector)
   (declare (ignore inspector))
@@ -3226,7 +3222,8 @@ a time.")
   (setq *thread-list* (all-threads))
   (loop for thread in  *thread-list* 
         collect (list (thread-name thread)
-                      (thread-status thread))))
+                      (thread-status thread)
+                      (thread-id thread))))
 
 (defslimefun quit-thread-browser ()
   (setq *thread-list* nil))
