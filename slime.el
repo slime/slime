@@ -1130,9 +1130,7 @@ See `slime-translate-from-lisp-filename-function'."
     (message "Initial handshake..." port)
     (slime-setup-connection process)
     (slime-hide-inferior-lisp-buffer)
-    (message "Connected on port %S. %s"
-             port
-             (slime-random-words-of-encouragement))))
+    (message "Connected. %s" (slime-random-words-of-encouragement))))
 
 (defun slime-start-and-load ()
   "Start Slime, load the current file and set the package."
@@ -1844,7 +1842,9 @@ search for and read an `in-package' form.
 The REPL buffer is a special case: it's package is `slime-lisp-package'."
   (or (and (eq major-mode 'slime-repl-mode) (slime-lisp-package))
       slime-buffer-package
-      (slime-find-buffer-package)))
+      (save-restriction
+        (widen)
+        (slime-find-buffer-package))))
 
 (defun slime-find-buffer-package ()
   "Figure out which Lisp package the current buffer is associated with."
