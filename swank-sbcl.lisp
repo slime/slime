@@ -102,9 +102,9 @@
 
 ;;;; XXX remove fcntl kludge when SBCL with sb-posix:fcntl is more
 ;;;; widely available.
-(defconstant +o_async+ 8192)
-(defconstant +f_setown+ 8)
-(defconstant +f_setfl+ 4)
+(defconstant +o_async+ #+linux 8192 #+bsd #x40)
+(defconstant +f_setown+ #+linux 8 #+bsd 6)
+(defconstant +f_setfl+ #+(or linux bsd) 4)
 
 (unless (find-symbol (string :fcntl) :sb-posix)
   (warn "No binding for fctnl(2) in sb-posix.
@@ -120,9 +120,10 @@ Please upgrade to SBCL 0.8.7.36 or later."))
              (sb-posix:fcntl fd sb-posix::f-setown (sb-unix:unix-getpid)))"))
           fd))
         (t
-         (unless (sb-int:featurep :linux)
-           (warn "~
-You aren't running Linux. The values of +o_async+ etc are probably bogus."))
+         (unless (or (sb-int:featurep :linux)
+                     (sb-int:featurep :bsd))
+           (warn "You aren't running Linux or *BSD.~
+                ~%The values of +o_async+ etc are probably bogus."))
          (let ((fcntl (sb-alien:extern-alien 
                        "fcntl" 
                        (function sb-alien:int sb-alien:int 
