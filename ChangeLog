@@ -1,5 +1,10 @@
 2004-09-13  Marco Baringer  <mb@bese.it>
 
+	* swank.lisp (inspected-parts): Deal with unfinalized classes in
+	standard-class inspector. (Patch from Thomas Schilling)
+
+2004-09-13  Marco Baringer  <mb@bese.it>
+
 	* swank.lisp: New inspector protocol. The lisp side now returns a
 	specially formated list of "things" to format which are then
 	passed to emacs and rendered in the inspector buffer. Things can
@@ -37,6 +42,7 @@
 
 	* swank-openmcl.lisp (swank-mop, function-name): Implement.
 	(arglist): Implement for function objects.
+
 2004-09-12  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank.lisp (compile-file-for-emacs): Use with-buffer-syntax so
