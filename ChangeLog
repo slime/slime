@@ -1,3 +1,10 @@
+2004-10-19  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (define-printer-variables): NIL is not a valid
+	docstring.  Reported by Alain Picard.
+	(printer-variables sldb-print): Include print-gensym,
+	pprint-dispatch, base, radix, array, and lines.
+
 2004-10-17  Luke Gorrie  <luke@synap.se>
 
 	* slime.el (slime-message): Use slime-typeout-frame if available.
