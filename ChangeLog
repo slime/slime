@@ -1,5 +1,8 @@
 2004-07-07  Luke Gorrie  <luke@bluetail.com>
 
+	* swank-loader.lisp (*lisp-name*): Include the version number in
+	ACL.
+
 	* slime.el (slime-alistify): Preserve order. This keeps the
 	*compiler-notes* right. Pointed out by Christophe Rhodes.
 	(slime-repl-update-banner-p): Renamed from slime-reply-..
