@@ -23,9 +23,6 @@
     (import '(nil t quote) package)
     package))
 
-(defvar *dispatching-connection* nil
-  "Connection currently being served.")
-
 (defconstant server-port 4005
   "Default port for the Swank TCP server.")
 
@@ -70,37 +67,83 @@ Redirection is done while Lisp is processing a request for Emacs.")
     (export ',fun :swank)))
 
 
-;;;; Helper macros
-
-(defmacro with-conversation-lock (&body body)
-  `(call-with-conversation-lock (lambda () ,@body)))
-
-(defmacro with-I/O-lock (&body body)
-  `(call-with-I/O-lock (lambda () ,@body)))
-
-(defmacro with-io-redirection ((&optional (connection '*dispatching-connection*))
-                               &body body)
-  "Execute BODY with I/O redirection to CONNECTION.
-If *REDIRECT-IO* is true, all standard I/O streams are redirected."
-  `(if *redirect-io*
-       (call-with-redirected-io ,connection (lambda () ,@body))
-       (progn ,@body)))
-
+;;;; Connections
 ;;;
-;;;; Connection datatype
+;;; Connection structures represent the network connections between
+;;; Emacs and Lisp. Each has a socket stream, a set of user I/O
+;;; streams that redirect to Emacs, and optionally a second socket
+;;; used solely to pipe user-output to Emacs (an optimization).
+;;;
+;;; Initially Emacs connects to Lisp and the "main" connection is
+;;; created. The thread that accepts this connection then reads and
+;;; serves requests from Emacs as they arrive. Later, new connections
+;;; can be created for other threads that need to talke to Emacs,
+;;; e.g. to enter the debugger.
+;;;
+;;; Each connection is owned by the thread that accepts it. Only the
+;;; owner can use a connection to communicate with Emacs, with one
+;;; exception: Any thread may send out-of-band messages to Emacs using
+;;; the main connection. A message is "out of band" if it is
+;;; independent of the protocol state (or more specifically, if the
+;;; `slime-handle-oob' elisp function can handle it).
+;;;
+;;; When a new thread needs to talk to Emacs it must first create a
+;;; connection of its own. This is done by binding a listen-socket and
+;;; asking Emacs to connect, using an out-of-band message on the main
+;;; connection to tell Emacs what port to connect to. This logic is
+;;; encapsulated by the WITH-A-CONNECTION macro, which will execute
+;;; its body forms with a connection available, creating a temporary
+;;; one if necessary.
+;;;
+;;; Multiple threads can write to the main connection, so these writes
+;;; must by synchronized. This is coarsely achieved by using the
+;;; WITH-I/O-LOCK macro to globally serialize all writes to any
+;;; connection. Reads do not have to be synchronized because each
+;;; connection can only be read by one thread.
+;;;
+;;; Non-multiprocessing systems can ignore all of this. There is only
+;;; one connection and only one thread, so the invariants come for
+;;; free.
 
 (defstruct (connection
              (:conc-name connection.)
              (:print-function %print-connection)
-             (:constructor make-connection (socket-io user-input user-output user-io)))
+             (:constructor make-connection (owner-id socket-io dedicated-output
+                                                     user-input user-output user-io)))
+  ;; Thread-id of the connection's owner.
+  (owner-id         nil)
   ;; Raw I/O stream of socket connection.
-  (socket-io   nil :type stream)
+  (socket-io        nil :type stream)
+  ;; Optional dedicated output socket (backending `user-output' slot).
+  ;; Has a slot so that it can be closed with the connection.
+  (dedicated-output nil :type (or stream null))
   ;; Streams that can be used for user interaction, with requests
-  ;; redirected to Emacs. These streams must be initialized but,
-  ;; depending on configuration, may not be used.
-  (user-input  nil :type (or stream null))
-  (user-output nil :type (or stream null))
-  (user-io     nil :type (or stream null)))
+  ;; redirected to Emacs.
+  (user-input       nil :type (or stream null))
+  (user-output      nil :type (or stream null))
+  (user-io          nil :type (or stream null)))
+
+(defvar *main-connection* nil
+  "The main (first established) connection to Emacs.
+Any thread may send out-of-band messages to Emacs using this
+connection.")
+
+(defvar *main-thread-id* nil
+  "ID of the thread that established *MAIN-CONNECTION*.
+Only this thread can read from or send in-band messages to the
+*MAIN-CONNECTION*.")
+
+;; This can't be initialized right away due to our compilation/loading
+;; order: it ends up calling the NO-APPLICABLE-METHOD version from
+;; swank-backend before the real one loads.
+(makunbound
+ (defvar *write-lock* nil
+   "Lock held while writing to sockets."))
+
+(defvar *dispatching-connection* nil
+  "Connection currently being served.
+Dynamically bound while dispatching a request that arrives from
+Emacs.")
 
 (defun %print-connection (connection stream depth)
   (declare (ignore depth))
@@ -112,7 +155,19 @@ If *REDIRECT-IO* is true, all standard I/O streams are redirected."
   (:report (lambda (condition stream)
              (format stream "~A" (slime-read-error.condition condition)))))
 
-
+;;;; Helper macros
+
+(defmacro with-I/O-lock (() &body body)
+  `(call-with-lock-held *write-lock* (lambda () ,@body)))
+
+(defmacro with-io-redirection ((&optional (connection '*dispatching-connection*))
+                               &body body)
+  "Execute BODY with I/O redirection to CONNECTION.
+If *REDIRECT-IO* is true, all standard I/O streams are redirected."
+  `(if *redirect-io*
+       (call-with-redirected-io ,connection (lambda () ,@body))
+       (progn ,@body)))
+
 ;;;; TCP Server
 
 (defvar *close-swank-socket-after-setup* nil)
@@ -120,6 +175,15 @@ If *REDIRECT-IO* is true, all standard I/O streams are redirected."
 (defvar *swank-in-background* nil)
 
 (defun start-server (port-file)
+  (setq *write-lock* (make-lock :name "Swank write lock"))
+  (if (eq *swank-in-background* :spawn)
+      (spawn (lambda ()
+               (let ((*swank-in-background* nil))
+                 (setup-server port-file)))
+             :name "Swank")
+      (setup-server port-file)))
+
+(defun setup-server (port-file)
   (let ((socket (create-socket 0)))
     (announce-server-port port-file (local-port socket))
     (let ((client (accept-connection socket)))
@@ -127,16 +191,16 @@ If *REDIRECT-IO* is true, all standard I/O streams are redirected."
       (let ((connection (create-connection client)))
         (ecase *swank-in-background*
           (:fd-handler
-           (emacs-connected)
+           (init-main-connection connection)
            (add-input-handler client (lambda () (handle-request connection))))
-          (:spawn
-           (spawn (lambda () 
-                    (emacs-connected)
-                    (loop until (handle-request connection)))
-                  :name "Swank"))
           ((nil) 
-           (emacs-connected)
+           (init-main-connection connection)
            (loop until (handle-request connection))))))))
+
+(defun init-main-connection (connection)
+  (setq *main-connection* connection)
+  (setq *main-thread-id* (thread-id))
+  (emacs-connected))
 
 (defun announce-server-port (file port)
   (with-open-file (s file
@@ -147,28 +211,31 @@ If *REDIRECT-IO* is true, all standard I/O streams are redirected."
   (simple-announce-function port))
 
 (defun create-connection (socket-io)
-  (let ((output-fn (make-output-function socket-io))
-        (input-fn  (lambda () (read-user-input-from-emacs socket-io))))
-    (multiple-value-bind (in out) (make-fn-streams input-fn output-fn)
-      (let ((io (make-two-way-stream in out)))
-        (make-connection socket-io in out io)))))
+  (multiple-value-bind (output-fn dedicated-output) (make-output-function socket-io)
+    (let ((input-fn  (lambda () (read-user-input-from-emacs socket-io))))
+      (multiple-value-bind (in out) (make-fn-streams input-fn output-fn)
+        (let ((io (make-two-way-stream in out)))
+          (make-connection (thread-id) socket-io dedicated-output in out io))))))
 
 (defun make-output-function (socket-io)
+  "Create function to send user output to Emacs.
+This function may open a dedicated socket to send output. It
+returns two values: the output function, and the dedicated
+stream (or NIL if none was created)."
   (if *use-dedicated-output-stream*
       (let ((stream (open-dedicated-output-stream socket-io)))
-        (lambda (string)
-          (princ string stream)
-          (force-output stream)))
-      (lambda (string)
-        (send-output-to-emacs string socket-io))))
-
+        (values (lambda (string)
+                  (princ string stream)
+                  (force-output stream))
+                stream))
+      (values (lambda (string) (send-output-to-emacs string socket-io))
+              nil)))
+  
 (defun open-dedicated-output-stream (socket-io)
   "Open a dedicated output connection to the Emacs on SOCKET-IO.
 Return an output stream suitable for writing program output.
 
 This is an optimized way for Lisp to deliver output to Emacs."
-  ;; We start a server process, ask Emacs to connect to it, and then
-  ;; return the socket's stream.
   (let* ((socket (create-socket 0))
          (port (local-port socket)))
     (send-to-emacs `(:open-dedicated-output-stream ,port) socket-io)
@@ -184,7 +251,7 @@ This is an optimized way for Lisp to deliver output to Emacs."
             (slime-read-error (e)
               (when *swank-debug-p*
                 (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
-              (close (connection.socket-io connection))
+              (close-connection connection)
               (return-from handle-request t)))))))
   nil)
 
@@ -195,18 +262,10 @@ This is an optimized way for Lisp to deliver output to Emacs."
 
 ;;;; IO to Emacs
 ;;;
-;;; We have two layers of I/O:
-;;;
 ;;; The lower layer is a socket connection. Emacs sends us forms to
 ;;; evaluate, and we accept these by calling READ-FROM-EMACS. These
 ;;; evaluations can send messages back to Emacs as a side-effect by
 ;;; calling SEND-TO-EMACS.
-;;;
-;;; The upper layer is streams for redirecting I/O through Emacs, by
-;;; mapping I/O requests onto messages.
-
-;;; These stream variables are all dynamically-bound during request
-;;; processing.
 
 (defun call-with-redirected-io (connection function)
   "Call FUNCTION with I/O streams redirected via CONNECTION."
@@ -222,10 +281,56 @@ This is an optimized way for Lisp to deliver output to Emacs."
          (*terminal-io* io))
     (funcall function)))
 
-(defun current-socket-io ()
-  (connection.socket-io *dispatching-connection*))
+(defun current-connection ()
+  (cond ((and *dispatching-connection*
+              ;; In SBCL new threads inherit the dynamic bindings of
+              ;; their parent. That means the *dispatching-connection*
+              ;; when the thread is created (e.g. from SLIME REPL)
+              ;; will be visible to the new thread, even though it's
+              ;; not the owner and mustn't use it. Must ask Dan all
+              ;; about this. -luke (15/Jan/2004)
+              #+SBCL (equal (thread-id) (connection.owner-id *dispatching-connection*)))
+         *dispatching-connection*)
+        ((equal (thread-id) *main-thread-id*)
+         *main-connection*)
+        (t nil)))
 
-(defparameter *log-events* nil)
+(defun current-socket-io ()
+  (connection.socket-io (current-connection)))
+
+(defmacro with-a-connection (() &body body)
+  "Execute BODY with a connection.
+If no connection is currently available then a new one is
+temporarily created for the extent of the execution.
+
+Thus the BODY forms can call READ-FROM-EMACS and SEND-TO-EMACS."
+  `(if (current-connection)
+       (progn ,@body)
+       (call-with-aux-connection (lambda () ,@body))))
+
+(defun call-with-aux-connection (fn)
+  (let* ((c (open-aux-connection))
+         (*dispatching-connection* c))
+    (unwind-protect (funcall fn)
+      (close-connection c))))
+
+(defun close-connection (c)
+  (close (connection.socket-io c))
+  (when (connection.dedicated-output c)
+    (close (connection.dedicated-output c))))
+
+(defun open-aux-connection ()
+  (let* ((socket (create-socket 0))
+         (port (local-port socket)))
+    (send-to-emacs `(:open-aux-connection ,port)
+                   (connection.socket-io *main-connection*))
+    (create-connection (accept-connection socket))))
+
+(defun announce-aux-server (port)
+  (send-to-emacs `(:open-aux-connection ,port)
+                 (connection.socket-io *main-connection*)))
+
+(defvar *log-events* nil)
 
 (defun log-event (format-string &rest args)
   "Write a message to *terminal-io* when *log-events* is non-nil.
@@ -244,15 +349,14 @@ Useful for low level debugging."
 If a protocol error occurs then a SLIME-READ-ERROR is signalled."
   (flet ((next-byte () (char-code (read-char stream))))
     (handler-case
-        (with-I/O-lock
-          (let* ((length (logior (ash (next-byte) 16)
-                                 (ash (next-byte) 8)
-                                 (next-byte)))
-                 (string (make-string length))
-                 (pos (read-sequence string stream)))
-            (assert (= pos length) ()
-                    "Short read: length=~D  pos=~D" length pos)
-            (read-form string)))
+        (let* ((length (logior (ash (next-byte) 16)
+                               (ash (next-byte) 8)
+                               (next-byte)))
+               (string (make-string length))
+               (pos (read-sequence string stream)))
+          (assert (= pos length) ()
+                  "Short read: length=~D  pos=~D" length pos)
+          (read-form string))
       (serious-condition (c)
         (error (make-condition 'slime-read-error :condition c))))))
 
@@ -275,7 +379,7 @@ If a protocol error occurs then a SLIME-READ-ERROR is signalled."
   (let* ((string (prin1-to-string-for-emacs object))
          (length (1+ (length string))))
     (log-event "SEND: ~A~%" string)
-    (with-I/O-lock
+    (with-I/O-lock ()
       (without-interrupts*
        (lambda ()
          (loop for position from 16 downto 0 by 8
@@ -389,8 +493,8 @@ Sends a message to Emacs declaring that the debugger has been entered,
 then waits to handle further requests from Emacs. Eventually returns
 after Emacs causes a restart to be invoked."
   (declare (ignore hook))
-  (unless (or *processing-rpc* (not *multiprocessing-enabled*))
-    (request-async-debug condition))
+;;  (unless (or *processing-rpc* (not *multiprocessing-enabled*))
+;;    (request-async-debug condition))
   (let ((*swank-debugger-condition* condition)
         (*package* *buffer-package*))
     (let ((*sldb-level* (1+ *sldb-level*)))
@@ -402,16 +506,15 @@ after Emacs causes a restart to be invoked."
 or SB-DEBUG::*INVOKE-DEBUGGER-HOOK*, to install the SLIME debugger
 globally.  Must be run from the *slime-repl* buffer or somewhere else
 that the slime streams are visible so that it can capture them."
-  (let ((package *buffer-package*)
-        (connection *dispatching-connection*))
+  (let ((package *buffer-package*))
     (labels ((slime-debug (c &optional next)
-               (let ((*buffer-package* package)
-                     (*dispatching-connection* connection))
+               (let ((*buffer-package* package))
                  ;; check emacs is still there: don't want to end up
                  ;; in recursive debugger loops if it's disconnected
-                 (when (open-stream-p (connection.socket-io connection))
-                   (with-io-redirection ()
-                     (swank-debugger-hook c next))))))
+                 (when (open-stream-p (connection.socket-io *main-connection*))
+                   (with-a-connection ()
+                     (with-io-redirection ()
+                       (swank-debugger-hook c next)))))))
       #'slime-debug)))
 
 (defslimefun install-global-debugger-hook ()
@@ -421,16 +524,6 @@ that the slime streams are visible so that it can capture them."
 (defun startup-multiprocessing-for-emacs ()
   (setq *multiprocessing-enabled* t)
   (startup-multiprocessing))
-
-(defun request-async-debug (condition)
-  "Tell Emacs that we need to debug a condition, and wait for acknowledgement.
-Called before entering the debugger for conditions that occured
-asynchronously, i.e. not during an RPC from Emacs."
-  (send-to-emacs `(:awaiting-goahead
-                   ,(thread-id)
-                   ,(thread-name (thread-id))
-                   ,(format nil "~A" condition)))
-  (wait-goahead))
 
 (defun sldb-loop (level)
   (send-to-emacs (list* :debug *sldb-level*
@@ -1008,9 +1101,6 @@ from an element and TEST is used to compare keys."
 	 (if errors
 	     `(("Unresolved" . ,errors))))))))
 
-
-;; (put 'with-i/o-lock 'common-lisp-indent-function 0)
-;; (put 'with-conversation-lock 'common-lisp-indent-function 0)
 
 ;;; Local Variables:
 ;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
