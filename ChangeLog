@@ -1,3 +1,34 @@
+2004-03-27  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-cmucl.lisp (debug-function-arglist): Properly reconstruct
+	the arglist from the debug-info. (Not complete yet.)
+	(arglist): Use it.
+
+	* swank-lispworks.lisp (spawn): Remove CL symbols from
+	mp:*process-initial-bindings*, to avoid the irritating behavior
+	for request execute in different threads.  E.g., when someone
+	tries to set *package*.
+
+	* swank.lisp (*log-io*): New variable.  Bind it to *terminal-io*
+	at load-time, so we can log to a non-redirected stream.
+	(disassemble-symbol): Allow generalized function names.
+	(apropos-symbols): Handle the PACKAGE argument properly to get
+	useful output for C-c P.
+
+	* slime.el (slime-repl-indent-and-complete-symbol): New command.
+	Bound to TAB in the REPL mode.  First try to indent the current
+	line then try to complete the symbol at point.
+	(slime-dispatch-event): Ignore a unused thread variable to keep
+	XEmacs' byte compiler quiet.
+
+	* swank-sbcl.lisp (enable-sigio-on-fd): Use sb-posix::fcntl
+	instead of sb-posix:fcntl to avoid the ugly reader hack.  SBCL
+	doesn't have package locks and even if they add locks in the
+	future sb-posix::fcntl will still be valid.
+	(getpid): Use defimplementation instead of defmethod.
+	(function-definitions): Take generalized function names ala '(setf
+	car)' as argument.
+
 2004-03-26  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-group-similar): Bugfix: return NIL if the input
