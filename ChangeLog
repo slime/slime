@@ -1,3 +1,9 @@
+2004-08-27  Peter Seibel  <peter@javamonkey.com>
+
+	* swank-backend.lisp (swank-compile-string): Add directory
+	argument which is used by Allegro backend to improve source
+	recording for definitions compiled with C-c C-c.
+ 
 2004-08-23  John Paul Wallington  <jpw@gnu.org>
 
 	* slime.el (slime-pretty-package-name): Fix last cond clause.

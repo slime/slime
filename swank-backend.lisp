@@ -191,14 +191,18 @@ This is used to resolve filenames without directory component."
   (declare (ignore ignore))
   `(call-with-compilation-hooks (lambda () (progn ,@body))))
 
-(definterface swank-compile-string (string &key buffer position)
+(definterface swank-compile-string (string &key buffer position directory)
   "Compile source from STRING.  During compilation, compiler
 conditions must be trapped and resignalled as COMPILER-CONDITIONs.
 
 If supplied, BUFFER and POSITION specify the source location in Emacs.
 
 Additionally, if POSITION is supplied, it must be added to source
-positions reported in compiler conditions.")
+positions reported in compiler conditions.
+
+If DIRECTORY is specified it may be used by certain implementations to
+rebind *DEFAULT-PATHNAME-DEFAULTS* which may improve the recording of
+source information.")
 
 (definterface operate-on-system (system-name operation-name &rest keyword-args)
   "Perform OPERATION-NAME on SYSTEM-NAME using ASDF.

@@ -203,7 +203,8 @@ condition."
           (*buffer-offset* nil))
       (compile-file filename :load load-p))))
 
-(defimplementation swank-compile-string (string &key buffer position)
+(defimplementation swank-compile-string (string &key buffer position directory)
+  (declare (ignore directory))
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)
           (*buffer-offset* position)

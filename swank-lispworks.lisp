@@ -466,7 +466,8 @@ Return NIL if the symbol is unbound."
 		nil)))
 	   htab))
 
-(defimplementation swank-compile-string (string &key buffer position)
+(defimplementation swank-compile-string (string &key buffer position directory)
+  (declare (ignore directory))
   (assert buffer)
   (assert position)
   (let* ((location (list :emacs-buffer buffer position string))

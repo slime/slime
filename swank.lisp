@@ -1515,13 +1515,13 @@ The time is measured in microseconds."
 Record compiler notes signalled as `compiler-condition's."
   (swank-compiler (lambda () (swank-compile-file filename load-p))))
 
-(defslimefun compile-string-for-emacs (string buffer position)
+(defslimefun compile-string-for-emacs (string buffer position directory)
   "Compile STRING (exerpted from BUFFER at POSITION).
 Record compiler notes signalled as `compiler-condition's."
   (with-buffer-syntax ()
     (swank-compiler
      (lambda () 
-       (swank-compile-string string :buffer buffer :position position)))))
+       (swank-compile-string string :buffer buffer :position position :directory directory)))))
 
 (defslimefun operate-on-system-for-emacs (system-name operation &rest keywords)
   "Compile and load SYSTEM using ASDF.

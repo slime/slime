@@ -239,14 +239,17 @@
          (when binary-filename
            (delete-file binary-filename))))))
 
-(defimplementation swank-compile-string (string &key buffer position)
+(defimplementation swank-compile-string (string &key buffer position directory)
   ;; We store the source buffer in excl::*source-pathname* as a string
   ;; of the form <buffername>;<start-offset>.  Quite ugly encoding, but
   ;; the fasl file is corrupted if we use some other datatype.
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)
           (*buffer-start-position* position)
-          (*buffer-string* string))
+          (*buffer-string* string)
+          (*default-pathname-defaults*
+           (if directory (merge-pathnames (pathname directory))
+               *default-pathname-defaults*)))
       (compile-from-temp-file
        (format nil "~S ~S~%~A" 
                `(in-package ,(package-name *package*))

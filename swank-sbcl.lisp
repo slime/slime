@@ -301,7 +301,8 @@ compiler state."
           (load output-file)))
     (sb-c:fatal-compiler-error () nil)))
 
-(defimplementation swank-compile-string (string &key buffer position)
+(defimplementation swank-compile-string (string &key buffer position directory)
+  (declare (ignore directory))
   (let ((form (read-from-string (format nil "(~S () ~A)" 'lambda string))))
     (flet ((compileit (cont)
              (with-compilation-hooks ()

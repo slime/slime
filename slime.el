@@ -3147,7 +3147,11 @@ buffer's working directory"
 
 (defun slime-compile-string (string start-offset)
   (slime-eval-async 
-   `(swank:compile-string-for-emacs ,string ,(buffer-name) ,start-offset)
+   `(swank:compile-string-for-emacs
+     ,string
+     ,(buffer-name)
+     ,start-offset
+     ,(if (buffer-file-name) (file-name-directory (buffer-file-name))))
    (slime-compilation-finished-continuation)))
 
 (defvar slime-hide-style-warning-count-if-zero t)
@@ -7157,7 +7161,7 @@ Confirm that EXPECTED-ARGLIST is displayed."
       ("swank::emacs-connected"
        "(swank::emacs-connected stream)")
       ("swank::compile-string-for-emacs"
-       "(swank::compile-string-for-emacs string buffer position)")
+       "(swank::compile-string-for-emacs string buffer position directory)")
       ("swank::connection.socket-io"
        "(swank::connection.socket-io \\(struct\\(ure\\)?\\|object\\|instance\\))")
       ("cl:lisp-implementation-type"

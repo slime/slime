@@ -137,7 +137,7 @@
     (subseq (ext:backtrace-as-list) start end)))
 
 (defimplementation print-frame (frame stream)
-    (print frame stream))
+    (pprint frame stream))
 
 #+nil
 (defimplementation frame-locals (index)
