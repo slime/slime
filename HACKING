@@ -21,9 +21,9 @@ and `Change Logs and VC' nodes of the Emacs manual:
 
 * Sending Patches
 
-If you would like to send us improvements you can create a patch with
-C-x v = in the buffer or with 'diff -c'.  You can also include a
-ChangeLog entry describing your change.  
+If you would like to send us improvements, you can create a patch with
+C-x v = in the buffer or manually with 'diff -u'.  You can also
+include a ChangeLog entry describing your change.
 
 * Adding a backend function
 
