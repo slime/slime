@@ -596,11 +596,11 @@ at least the filename containing it."
 (defimplementation thread-id ()
   (let ((id (ccl::process-serial-number ccl:*current-process*)))
     ;; Possibly not thread-safe.
-    (pushnew (cons id ccl:*current-process*) *known-processes*)
+    (pushnew (cons id ccl:*current-process*) *known-processes* :key #'car)
     id))
 
 (defimplementation thread-name (thread-id)
-  (ccl::process-name (cdr (assq thread-id *known-processes*))))
+  (ccl::process-name (cdr (assoc thread-id *known-processes*))))
 
 (defimplementation make-lock (&key name)
   (ccl:make-lock name))
