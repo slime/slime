@@ -514,8 +514,8 @@ The allowed elements are of the form:
   (:SHOW-FRAME-SOURCE frame-number)"
   '())
 
-(definterface sldb-step (frame-number)
-  "Step to the next code location in the frame FRAME-NUMBER.")
+(definterface activate-stepping (frame-number)
+  "Prepare the frame FRAME-NUMBER for stepping.")
 
 (definterface sldb-break-on-return (frame-number)
   "Set a breakpoint in the frame FRAME-NUMBER.")
