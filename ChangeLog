@@ -1,10 +1,17 @@
+2005-01-19  Lars Magne Ingebrigtsen  <larsi@gnus.org>
+
+	* slime.el (slime-header-line-p): Customize variable to
+	enable/disable the header-line in the REPL.
+
 2005-01-18  Luke Gorrie  <luke@synap.se>
 
 	* slime.el (slime-complete-symbol*-fancy): New variable to enable
 	extra bells and whistles with slime-complete-symbol*. Currently
-	controls whether to use arglists semantically.
-	(slime-complete-symbol*): Avoid displaying an arglist when the
-	minibuffer is active.
+	controls whether to use arglists semantically. Default is t.
+	(slime-complete-symbol*-fancy-bit): Factored out this function.
+	Only do "semantic" completion when the symbol is in
+	function-position, avoid interning argument names in Emacs, and
+	don't display arglists if the minibuffer is active.
 
 2005-01-14  Luke Gorrie  <luke@synap.se>
 
