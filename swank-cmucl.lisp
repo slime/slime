@@ -27,7 +27,7 @@
 ;;; `READ-SEQUENCE' with large sequences has problems in 18e. This new
 ;;; definition works better.
 
-#+cmu18e
+#-cmu19
 (progn
   (let ((s (find-symbol (string :*enable-package-locked-errors*) :lisp)))
     (when s
