@@ -1,8 +1,7 @@
 2004-12-09  Helmut Eller  <heller@common-lisp.net>
 
-	* /project/slime/cvsroot/slime/swank.lisp:
-	(*sldb-print-pretty*, *sldb-print-circle*, *sldb-print-length*)
-	(*sldb-print-level*, *sldb-print-lines*)
+	* swank.lisp (*sldb-print-pretty*, *sldb-print-circle*)
+	(*sldb-print-length*, (*sldb-print-level*, *sldb-print-lines*)
 	(*sldb-print-pprint-dispatch*): Export those symbols.
 
 2004-12-05  Helmut Eller  <heller@common-lisp.net>
