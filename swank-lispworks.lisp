@@ -84,7 +84,7 @@
     (declare (ignore args))
     (mp:process-interrupt process #'sigint-handler)))
 
-(defmethod call-without-interrupts (fn)
+(defimplementation call-without-interrupts (fn)
   (lw:without-interrupts (funcall fn)))
 
 (defimplementation getpid ()
@@ -154,7 +154,7 @@ Return NIL if the symbol is unbound."
                  (mapcar #'string-upcase 
                          (lispworks:function-lambda-list symbol))
                  (documentation symbol 'function))
-         (describe (symbol-function symbol)))
+         (describe (fdefinition symbol)))
         (t (format t "~S is not fbound" symbol))))
 
 (defun describe-symbol (sym)
@@ -426,7 +426,11 @@ Return NIL if the symbol is unbound."
   (mp:initialize-multiprocessing))
 
 (defimplementation spawn (fn &key name)
-  (mp:process-run-function name () fn))
+  (let ((mp:*process-initial-bindings* 
+         (remove (find-package :cl) 
+                 mp:*process-initial-bindings*
+                 :key (lambda (x) (symbol-package (car x))))))
+    (mp:process-run-function name () fn)))
 
 (defimplementation thread-name (thread)
   (mp:process-name thread))
