@@ -618,8 +618,8 @@ Disassemble the function definition of the symbol at point.
 
 @table @kbd
 
-@kbditem{C-c C-g, slime-interrupt}
-Interrupt Lisp (send @code{SIGINT}). In XEmacs use @kbd{C-c C-b}.
+@kbditem{C-c C-b, slime-interrupt}
+Interrupt Lisp (send @code{SIGINT}).
 
 @kbditem{C-c ~, slime-sync-package-and-default-directory}
 Synchronize the current package and working directory from Emacs to

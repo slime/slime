@@ -1,3 +1,11 @@
+2004-08-04  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el: (slime-mode-map, slime-repl-mode-map)
+	(slime-repl-read-mode-map): Remove the binding for C-c C-g.  C-c
+	C-b is now the default interrupt key.
+	(slime-list-repl-short-cuts): Don't trash the shortcut-table: copy
+	it before sorting.  (Thanks to Mark Simpson.)
+
 2004-08-02  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-connect): Shorten the welcome message by leaving
