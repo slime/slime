@@ -334,7 +334,8 @@ Redirection is done while Lisp is processing a request for Emacs.")
     (let ((input-fn
            (lambda () 
              (with-connection (connection)
-               (with-simple-restart (abort "Abort reading input from Emacs.")
+               (with-simple-restart (abort-read
+                                     "Abort reading input from Emacs.")
                  (read-user-input-from-emacs))))))
       (multiple-value-bind (in out) (make-fn-streams input-fn output-fn)
         (let ((out (or dedicated-output out)))
