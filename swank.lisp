@@ -538,16 +538,21 @@ bound to the corresponding VALUE.")
     ((:read-string thread &rest args)
      (encode-message `(:read-string ,(thread-id thread) ,@args) socket-io))
     ((:evaluate-in-emacs string thread &rest args)
-     (encode-message `(:evaluate-in-emacs ,string ,(thread-id thread) ,@args) socket-io))
+     (encode-message `(:evaluate-in-emacs ,string ,(thread-id thread) ,@args)
+                     socket-io))
     ((:read-aborted thread &rest args)
      (encode-message `(:read-aborted ,(thread-id thread) ,@args) socket-io))
     ((:emacs-return-string thread-id tag string)
      (send (find-thread thread-id) `(take-input ,tag ,string)))
-    (((:read-output :new-package :new-features :ed :%apply :indentation-update)
+    ((:eval thread &rest args)
+     (encode-message `(:eval ,(thread-id thread) ,@args) socket-io))
+    ((:emacs-return thread-id tag value)
+     (send (find-thread thread-id) `(take-input ,tag ,value)))
+    (((:read-output :new-package :new-features :ed :%apply :indentation-update
+                    :eval-no-wait)
       &rest _)
      (declare (ignore _))
-     (encode-message event socket-io))
-    ))
+     (encode-message event socket-io))))
 
 (defun spawn-threads-for-connection (connection)
   (let* ((socket-io (connection.socket-io connection))
@@ -644,7 +649,10 @@ bound to the corresponding VALUE.")
        '(simple-break))
       ((:emacs-return-string thread tag string)
        (declare (ignore thread))
-       `(take-input ,tag ,string)))))
+       `(take-input ,tag ,string))
+      ((:emacs-return thread tag value)
+       (declare (ignore thread))
+       `(take-input ,tag ,value)))))
 
 (defun send-to-socket-io (event) 
   (log-event "DISPATCHING: ~S~%" event)
@@ -652,7 +660,8 @@ bound to the corresponding VALUE.")
            (without-interrupts 
              (encode-message o (current-socket-io)))))
     (destructure-case event
-      (((:debug-activate :debug :debug-return :read-string :read-aborted) 
+      (((:debug-activate :debug :debug-return :read-string :read-aborted 
+                         :eval)
         thread &rest args)
        (declare (ignore thread))
        (send `(,(car event) 0 ,@args)))
@@ -660,7 +669,7 @@ bound to the corresponding VALUE.")
        (declare (ignore thread))
        (send `(:return ,@args)))
       (((:read-output :new-package :new-features :debug-condition
-                      :indentation-update :ed :%apply)
+                      :indentation-update :ed :%apply :eval-no-wait)
         &rest _)
        (declare (ignore _))
        (send event)))))
@@ -941,36 +950,52 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
   (intern (format nil "~D" tag) :swank))
 
 (defun read-user-input-from-emacs ()
-  (let ((*read-input-catch-tag* (1+ *read-input-catch-tag*)))
+  (let ((tag (incf *read-input-catch-tag*)))
     (force-output)
-    (send-to-emacs `(:read-string ,(current-thread) ,*read-input-catch-tag*))
+    (send-to-emacs `(:read-string ,(current-thread) ,tag))
     (let ((ok nil))
       (unwind-protect
-           (prog1 (catch (intern-catch-tag *read-input-catch-tag*)
+           (prog1 (catch (intern-catch-tag tag)
                     (loop (read-from-emacs)))
              (setq ok t))
         (unless ok 
-          (send-to-emacs `(:read-aborted ,(current-thread)
-                                         *read-input-catch-tag*)))))))
+          (send-to-emacs `(:read-aborted ,(current-thread) ,tag)))))))
 
 (defslimefun take-input (tag input)
   "Return the string INPUT to the continuation TAG."
   (throw (intern-catch-tag tag) input))
 
-
 (defun evaluate-in-emacs (string)
-  (let ((*read-input-catch-tag* (1+ *read-input-catch-tag*)))
+  (let ((tag (incf *read-input-catch-tag*)))
     (force-output)
-    (send-to-emacs `(:evaluate-in-emacs ,string ,(current-thread) ,*read-input-catch-tag*))
+    (send-to-emacs `(:evaluate-in-emacs ,string ,(current-thread) ,tag))
     (let ((ok nil))
       (unwind-protect
-           (prog1 (catch (intern-catch-tag *read-input-catch-tag*)
+           (prog1 (catch (intern-catch-tag tag)
                     (loop (read-from-emacs)))
              (setq ok t))
         (unless ok 
-          (send-to-emacs `(:read-aborted ,(current-thread)
-                                         *read-input-catch-tag*)))))))
+          (send-to-emacs `(:read-aborted ,(current-thread) ,tag)))))))
 
+(defun eval-in-emacs (form &optional nowait)
+  "Eval FORM in Emacs."
+  (destructuring-bind (fun &rest args) form
+    (let ((fun (string-downcase (string fun))))
+      (cond (nowait 
+             (send-to-emacs `(:eval-no-wait ,fun ,args)))
+            (t
+             (force-output)
+             (let* ((tag (incf *read-input-catch-tag*)))
+               (send-to-emacs `(:eval ,(current-thread) ,tag ,fun ,args))
+               (receive-eval-result tag)))))))
+
+(defun receive-eval-result (tag)
+  (let ((value (catch (intern-catch-tag tag)
+                 (loop (read-from-emacs)))))
+    (destructure-case value
+      ((:ok value) value)
+      ((:abort) (abort)))))
+                                    
 (defslimefun connection-info ()
   "Return a list of the form: 
 \(PID IMPLEMENTATION-TYPE IMPLEMENTATION-NAME FEATURES)."
@@ -1296,7 +1321,8 @@ As a secondary value, return whether &allow-other-keys appears somewhere."
 applicable for argument of CLASSES.  As a secondary value, return
 whether &allow-other-keys appears somewhere."
   (methods-keywords 
-   (swank-mop:compute-applicable-methods-using-classes generic-function classes)))
+   (swank-mop:compute-applicable-methods-using-classes 
+    generic-function classes)))
 
 (defun arglist-to-template-string (arglist package)
   "Print the list ARGLIST for insertion as a template for a function call."
@@ -1450,11 +1476,6 @@ by adding a template for the missing arguments."
 (defvar *pending-continuations* '()
   "List of continuations for Emacs. (thread local)")
 
-(defun eval-in-emacs (form)
-  "Execute FORM in Emacs."
-  (destructuring-bind (fn &rest args) form
-    (send-to-emacs `(:%apply ,(string-downcase (string fn)) ,args))))
-
 (defun guess-buffer-package (string)
   "Return a package for STRING. 
 Fall back to the the current if no such package exists."
@@ -1465,22 +1486,24 @@ Fall back to the the current if no such package exists."
   "Bind *BUFFER-PACKAGE* BUFFER-PACKAGE and evaluate FORM.
 Return the result to the continuation ID.
 Errors are trapped and invoke our debugger."
-  (let ((*debugger-hook* #'swank-debugger-hook))
-    (let (ok result)
-      (unwind-protect
-           (let ((*buffer-package* (guess-buffer-package buffer-package))
-                 (*buffer-readtable* (guess-buffer-readtable buffer-package))
-                 (*pending-continuations* (cons id *pending-continuations*)))
-             (assert (packagep *buffer-package*))
-             (assert (readtablep *buffer-readtable*))
-             (setq result (eval form))
-             (force-output)
-             (run-hook *pre-reply-hook*)
-             (setq ok t))
-        (force-user-output)
-        (send-to-emacs `(:return ,(current-thread)
-                                 ,(if ok `(:ok ,result) '(:abort)) 
-                                 ,id))))))
+  (call-with-debugger-hook
+   #'swank-debugger-hook
+   (lambda ()
+     (let (ok result)
+       (unwind-protect
+            (let ((*buffer-package* (guess-buffer-package buffer-package))
+                  (*buffer-readtable* (guess-buffer-readtable buffer-package))
+                  (*pending-continuations* (cons id *pending-continuations*)))
+              (assert (packagep *buffer-package*))
+              (assert (readtablep *buffer-readtable*))
+              (setq result (eval form))
+              (force-output)
+              (run-hook *pre-reply-hook*)
+              (setq ok t))
+         (force-user-output)
+         (send-to-emacs `(:return ,(current-thread)
+                                  ,(if ok `(:ok ,result) '(:abort)) 
+                                  ,id)))))))
 
 (defun format-values-for-echo-area (values)
   (with-buffer-syntax ()
