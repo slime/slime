@@ -2620,7 +2620,10 @@ more than one file."
   "Show the compiler notes if appropriate.
 Useful value for `slime-compilation-finished-hook'"
   (unless (or (null notes)
-	      (eq last-command 'slime-compile-defun))
+	      (and (eq last-command 'slime-compile-defun)
+                   (not (find ':error notes 
+                              :key (lambda (x) 
+                                     (car (slime-note.location x)))))))
     (slime-list-compiler-notes notes)))
 
 (defun slime-list-compiler-notes (&optional notes)
@@ -3215,7 +3218,7 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
     (let ((name (symbol-name sym))
           (cache-key (slime-qualify-cl-symbol-name sym)))
       (or (when-let (documentation (slime-get-cached-autodoc cache-key))
-            (slime-background-message documentation)
+            (slime-background-message "%s" documentation)
             t)
           ;; Asynchronously fetch, cache, and display arglist
           (slime-eval-async
@@ -3227,7 +3230,7 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
                (if (string-match "<not available>" arglist)
                    (setq arglist ""))
                (slime-update-autodoc-cache cache-key arglist)
-               (slime-background-message arglist))))))))
+               (slime-background-message "%s" arglist))))))))
 
 (defun slime-get-cached-autodoc (symbol-name)
   "Return the cached autodoc documentation for SYMBOL-NAME, or nil."
