@@ -1,5 +1,9 @@
 2005-04-01  Luke Gorrie  <luke@synap.se>
 
+	* metering.lisp: Now supports only CLISP and OpenMCL.
+	Removed a lot of really ugly reader-conditionalized code, much of
+	it for archaic lisps (#+cltl2, #+lcl3.0, #+mcl1.3.2, etc).
+
 	* swank-source-path-parser.lisp (check-source-path): Signal an
 	error if a source path is malformed. SBCL sometimes gives (NIL).
 	(source-path-stream-position): Use it.
