@@ -906,7 +906,7 @@ If a protocol error occurs then a SLIME-READ-ERROR is signalled."
 
 (defslimefun connection-info ()
   "Return a list of the form: 
-\(VERSION PID IMPLEMENTATION-TYPE IMPLEMENTATION-NAME FEATURES)."
+\(PID IMPLEMENTATION-TYPE IMPLEMENTATION-NAME FEATURES)."
   (list (getpid)
         (lisp-implementation-type)
         (lisp-implementation-type-name)
@@ -1578,7 +1578,7 @@ Record compiler notes signalled as `compiler-condition's."
 ;;;; Completion
 
 (defun determine-case (string)
-  "Return to booleans LOWER and UPPER indicating whether STRING
+  "Return two booleans LOWER and UPPER indicating whether STRING
 contains lower or upper case characters."
   (values (some #'lower-case-p string)
           (some #'upper-case-p string)))
@@ -2446,26 +2446,27 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
     (inspect-object (eval (read-from-string string)))))
 
 (defun print-part-to-string (value)
-  (let ((*print-pretty* nil)
-        (*print-circle* t))
-    (let ((string (to-string value))
-	  (pos (position value *inspector-history*)))
-      (if pos
-	  (format nil "#~D=~A" pos string)
-	  string))))
+  (let ((string (to-string value))
+        (pos (position value *inspector-history*)))
+    (if pos
+        (format nil "#~D=~A" pos string)
+        string)))
 
 (defun inspect-object (object)
   (push (setq *inspectee* object) *inspector-stack*)
   (unless (find object *inspector-history*)
     (vector-push-extend object *inspector-history*))
-  (multiple-value-bind (text parts) (inspected-parts object)
-    (setq *inspectee-parts* parts)
-    (list :text text
-          :type (to-string (type-of object))
-          :primitive-type (describe-primitive-type object)
-          :parts (loop for (label . value) in parts
-                       collect (cons (princ-to-string label)
-                                     (print-part-to-string value))))))
+  (let ((*print-pretty* nil)            ; print everything in the same line
+        (*print-circle* t)
+        (*print-readably* nil))
+    (multiple-value-bind (text parts) (inspected-parts object)
+      (setq *inspectee-parts* parts)
+      (list :text text
+            :type (to-string (type-of object))
+            :primitive-type (describe-primitive-type object)
+            :parts (loop for (label . value) in parts
+                         collect (cons (princ-to-string label)
+                                       (print-part-to-string value)))))))
 
 (defun nth-part (index)
   (cdr (nth index *inspectee-parts*)))
@@ -2560,6 +2561,11 @@ nil if there's no second element."
   (with-buffer-syntax ()
     (reset-inspector)
     (inspect-object *swank-debugger-condition*)))
+
+(defslimefun inspect-frame-var (frame var)
+  (with-buffer-syntax ()
+    (reset-inspector)
+    (inspect-object (frame-var-value frame var))))
 
 
 ;;;; Thread listing
