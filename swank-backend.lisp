@@ -24,6 +24,7 @@
            #:describe-definition
            #:describe-symbol
            #:describe-symbol-for-emacs
+           #:describe-function
            #:disassemble-symbol
            #:documentation-symbol
            #:eval-in-frame
@@ -31,6 +32,7 @@
            #:restart-frame
            #:eval-string
            #:eval-string-in-frame
+           #:oneway-eval-string
            #:find-function-locations
            #:frame-catch-tags
            #:frame-locals
@@ -44,6 +46,7 @@
            #:inspect-nth-part
            #:inspector-next
            #:inspector-pop
+           #:describe-inspectee
            #:interactive-eval
            #:interactive-eval-region
            #:invoke-nth-restart
@@ -62,12 +65,15 @@
            #:sldb-abort
            #:sldb-break-with-default-debugger
            #:sldb-continue
+           #:sldb-disassemble
+           #:sldb-step
            #:slime-debugger-function
            #:debugger-info-for-emacs
            #:start-server
            #:startup-multiprocessing
            #:swank-compile-file
            #:swank-compile-string
+           #:swank-load-system
            #:swank-macroexpand
            #:swank-macroexpand-1
            #:swank-macroexpand-all
@@ -84,6 +90,7 @@
            #:profile-report
            #:profile-reset
            #:profile-package
+           #:toggle-profile-fdefinition
            #:wait-goahead
            #:warn-unimplemented-interfaces
            #:who-binds
@@ -91,6 +98,10 @@
            #:who-macroexpands
            #:who-references
            #:who-sets
+           #:who-specializes
+           #:list-threads
+           #:quit-thread-browser
+           #:ed-in-emacs
            ))
 
 (in-package :swank)
@@ -210,7 +221,13 @@ positions reported in compiler conditions.")
 (definterface compile-system-for-emacs (system-name)
   "Compile and load SYSTEM-NAME, During compilation compiler
   conditions must be trapped and resignalled as
-  COMPILER-CONDITION ala compile-string-for-emacs.")
+  COMPILER-CONDITION ala compile-string-for-emacs."
+  (with-compilation-hooks ()
+    (cond ((member :asdf *features*)
+           (let ((operate (find-symbol (string :operate) :asdf))
+                 (load-op (find-symbol (string :load-op) :asdf)))
+             (funcall operate load-op system-name)))
+          (t (error "ASDF not loaded")))))
 
 (definterface compile-file-for-emacs (filename load-p)
    "Compile FILENAME signalling COMPILE-CONDITIONs.
@@ -234,8 +251,14 @@ If LOAD-P is true, load the file after compilation.")
    (message :initarg :message
             :accessor message)
 
+   (short-message :initarg :short-message
+                  :initform nil
+                  :accessor short-message)
+
    (location :initarg :location
              :accessor location)))
+
+
 
 
 ;;;; Streams
