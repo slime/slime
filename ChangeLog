@@ -3,8 +3,16 @@
 	* swank.lisp (changelog-date): Use *compile-file-truename* instead
 	of *compile-file-pathname*.
 	(with-I/O-lock, with-a-connection): The usual CLISP fixes.
+	(create-swank-server): Patch by Marco Baringer <mb@bese.it>.
+	Bring it back again.
+	(create-connection): Use return the dedicated output stream if
+	available.
 
 	* slime.el: Numerous REPL related fixes.
+	(slime-update-state-name): Take state as argument.
+	(slime-repl-beginning-of-defun, slime-repl-end-of-defun): Fix
+	typos.
+	(sldb-insert-restarts): Remove duplicate definition.
 
 2004-01-16  Luke Gorrie  <luke@bluetail.com>
 
