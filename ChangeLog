@@ -1,3 +1,39 @@
+2005-02-24  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-dispatch-event): Add :eval-no-wait and :eval
+	events.
+	(slime-eval-for-lisp): New function.
+	(sldb-buffers): Delete the variable.  Use buffer-list instead.
+
+	* swank.lisp: (eval-for-emacs): Use the new backend function
+	call-with-debugger-hook.
+	(eval-in-emacs): Cleaned up. Add support for synchronous RPCs.
+	(receive-eval-result): New function.
+	(dispatch-event, read-from-socket-io, send-to-socket-io): New
+	:eval event. Rename :%apply to :eval-no-wait.
+	(read-user-input-from-emacs, evaluate-in-emacs): Increment
+	*read-input-catch-tag* instead of re-binding it. Reduces the
+	danger of throwing to the wrong tag a bit.
+
+	* swank-backend.lisp (call-with-debugger-hook): New function.
+	Useful if the backend needs special incantations for BREAK.
+	(toggle-trace-function): Add a default implementation for simple
+	symbols.
+
+	* swank-lispworks.lisp (slime-env): New class. 
+	(call-with-debugger-hook): Use env:with-environment to pop up our
+	debugger on a BREAK.
+	(toggle-trace-method, parse-fspec, tracedp, toggle-trace):
+	Implement method tracing.
+
+	* swank-sbcl.lisp (call-with-debugger-hook): Bind
+	sb-ext:*invoke-debugger-hook* instead of setting it in
+	emacs-connected.
+	(emacs-connected): Deleted.
+
+	* swank-loader.lisp (compile-files-if-needed-serially): Reduce
+	verbosity by setting the :print argument for compile-file to nil.
+	
 2005-02-23  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-startup-animation, slime-repl-update-banner):
