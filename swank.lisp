@@ -1012,27 +1012,25 @@ Emacs buffer."
 (defun casify (string)
   "Convert string accoring to readtable-case."
   (ecase (readtable-case *readtable*)
-    (:preserve 
-     string)
-    (:upcase 
-     (string-upcase string))
-    (:downcase
-     (string-downcase string))
-    (:invert
-     (multiple-value-bind (lower upper) (determine-case string)
-       (cond ((and lower upper) string)
-             (lower (string-upcase string))
-             (upper (string-downcase string))
-             (t string))))))
+    (:preserve string)
+    (:upcase   (string-upcase string))
+    (:downcase (string-downcase string))
+    (:invert (multiple-value-bind (lower upper) (determine-case string)
+               (cond ((and lower upper) string)
+                     (lower (string-upcase string))
+                     (upper (string-downcase string))
+                     (t string))))))
 
 (defun parse-symbol (string &optional (package *package*))
   "Find the symbol named STRING.
-Return the symbol and a flag indicateing if the symbols was found."
+Return the symbol and a flag indicating whether the symbols was found."
   (multiple-value-bind (sname pname) (tokenize-symbol string)
-    (find-symbol (casify sname)
-                 (cond ((string= pname "") "KEYWORD")
-                       (pname              (casify pname))
-                       (t                  package)))))
+    (let ((package (cond ((string= pname "") keyword-package)
+                         (pname              (find-package (casify pname)))
+                         (t                  package))))
+      (if package
+          (find-symbol (casify sname) package)
+          (values nil nil)))))
 
 (defun parse-symbol-or-lose (string &optional (package *package*))
   (multiple-value-bind (symbol status) (parse-symbol string package)
