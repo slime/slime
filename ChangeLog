@@ -1,5 +1,10 @@
 2003-10-20  Luke Gorrie  <luke@bluetail.com>
 
+	* swank.lisp (completions): Slight change of semantics: when a
+	prefix-designator is package-qualified, like "swank:", only match
+	symbols whose home-package matches the one given - ignore
+	inherited symbols.
+
 	* slime.el: Updated test suite to work with the different backends:
 	(find-definition): Lookup definitions in swank.lisp.
 	(arglist): Lookup arglists of functions in swank.lisp.
