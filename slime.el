@@ -780,18 +780,18 @@ It should be used for \"background\" messages such as argument lists."
       (beginning-of-defun)
       (buffer-substring-no-properties (point) end))))
 
-(defun slime-symbol-at-point ()
-  "Return the symbol at point, otherwise nil."
+(defun slime-symbol-name-at-point ()
+  "Return the name of the symbol at point, otherwise nil."
   (save-excursion
     (skip-syntax-forward "w_")
     (skip-syntax-backward "-") 
     (let ((string (thing-at-point 'symbol)))
-      (if string (intern (substring-no-properties string)) nil))))
+      (substring-no-properties string))))
 
-(defun slime-symbol-name-at-point ()
-  "Return the name of the symbol at point, otherwise nil."
-  (let ((sym (slime-symbol-at-point)))
-    (and sym (symbol-name sym))))
+(defun slime-symbol-at-point ()
+  "Return the symbol at point, otherwise nil."
+  (let ((name (slime-symbol-at-point)))
+    (and name (intern name))))
 
 (defun slime-sexp-at-point ()
   "Return the sexp at point, otherwise nil."
@@ -2321,7 +2321,7 @@ See `slime-compile-and-load-file' for further details."
      (format "Compile file %s" lisp-filename))
     (slime-display-output-buffer)
     (slime-eval-async
-     `(swank:swank-compile-file ,lisp-filename ,(if load t nil))
+     `(swank:compile-file-for-emacs ,lisp-filename ,(if load t nil))
      nil
      (slime-compilation-finished-continuation))
     (message "Compiling %s.." lisp-filename)))
@@ -2346,7 +2346,7 @@ buffer's working directory"
   (save-some-buffers)
   (slime-display-output-buffer)
   (slime-eval-async
-   `(swank:swank-load-system ,system-name)
+   `(swank:load-system-for-emacs ,system-name)
    nil
    (slime-compilation-finished-continuation))
   (message "Compiling system %s.." system-name))
@@ -2370,7 +2370,7 @@ buffer's working directory"
 
 (defun slime-compile-string (string start-offset)
   (slime-eval-async 
-   `(swank:swank-compile-string ,string ,(buffer-name) ,start-offset)
+   `(swank:compile-string-for-emacs ,string ,(buffer-name) ,start-offset)
    (slime-buffer-package)
    (slime-compilation-finished-continuation)))
 
@@ -3768,6 +3768,7 @@ having names in the given package."
     (princ string)))
 
 (defun slime-describe-symbol (symbol-name)
+  "Describe the symbol at point."
   (interactive (list (slime-read-symbol-name "Describe symbol: ")))
   (when (not symbol-name)
     (error "No symbol given"))
@@ -3884,7 +3885,7 @@ With prefix argument include internal symbols."
 
 (defun slime-call-describer (item)
   (let ((type (get-text-property (point) 'type)))
-    (slime-eval-describe `(swank:describe-definition ,item ,type))))
+    (slime-eval-describe `(swank:describe-definition-for-emacs ,item ,type))))
 
 
 ;;; XREF: cross-referencing
@@ -3994,37 +3995,47 @@ GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
 (defun slime-who-calls (symbol)
   "Show all known callers of the function SYMBOL."
   (interactive (list (slime-read-symbol-name "Who calls: " t)))
-  (slime-xref 'calls symbol))
+  (slime-xref :calls symbol))
 
 (defun slime-who-references (symbol)
   "Show all known referrers of the global variable SYMBOL."
   (interactive (list (slime-read-symbol-name "Who references: " t)))
-  (slime-xref 'references symbol))
+  (slime-xref :references symbol))
 
 (defun slime-who-binds (symbol)
   "Show all known binders of the global variable SYMBOL."
   (interactive (list (slime-read-symbol-name "Who binds: " t)))
-  (slime-xref 'binds symbol))
+  (slime-xref :binds symbol))
 
 (defun slime-who-sets (symbol)
   "Show all known setters of the global variable SYMBOL."
   (interactive (list (slime-read-symbol-name "Who sets: " t)))
-  (slime-xref 'sets symbol))
+  (slime-xref :sets symbol))
 
 (defun slime-who-macroexpands (symbol)
   "Show all known expanders of the macro SYMBOL."
   (interactive (list (slime-read-symbol-name "Who macroexpands: " t)))
-  (slime-xref 'macroexpands symbol))
+  (slime-xref :macroexpands symbol))
 
 (defun slime-who-specializes (symbol)
   "Show all known methods specialized on class SYMBOL."
   (interactive (list (slime-read-symbol-name "Who specializes: " t)))
-  (slime-xref 'specializes symbol))
+  (slime-xref :specializes symbol))
+
+(defun slime-list-callers (symbol-name)
+  "List the callers of SYMBOL-NAME in a xref window."
+  (interactive (list (slime-read-symbol-name "List callers: ")))
+  (slime-xref :callers symbol-name))
+
+(defun slime-list-callees (symbol-name)
+  "List the callees of SYMBOL-NAME in a xref window."
+  (interactive (list (slime-read-symbol-name "List callees: ")))
+  (slime-xref :callees symbol-name))
 
 (defun slime-xref (type symbol)
   "Make an XREF request to Lisp."
   (slime-eval-async
-   `(,(intern (format "swank:who-%s" type)) ',symbol)
+   `(swank:xref ',type ',symbol)
    (slime-buffer-package t)
    (lexical-let ((type type)
                  (symbol symbol)
@@ -4094,31 +4105,6 @@ When displaying XREF information, this goes to the next reference."
     (delete-windows-on buffer)
     (kill-buffer buffer)))
   
-
-;;; List callers/callees
-
-(defun slime-eval-show-function-list (form type name)
-  "Eval FROM in Lisp and display the result in a xref window."
-  (ring-insert-at-beginning slime-find-definition-history-ring (point-marker))
-  (lexical-let ((package (slime-buffer-package))
-                (name name)
-                (type type))
-    (slime-eval-async form package
-                      (lambda (result)
-                        (slime-show-xrefs result type name package)))))
-
-(defun slime-list-callers (symbol-name)
-  "List the callers of SYMBOL-NAME in a xref window."
-  (interactive (list (slime-read-symbol-name "List callers: ")))
-  (slime-eval-show-function-list `(swank:list-callers ,symbol-name)
-                                 'callers symbol-name))
-
-(defun slime-list-callees (symbol-name)
-  "List the callees of SYMBOL-NAME in a xref window."
-  (interactive (list (slime-read-symbol-name "List callees: ")))
-  (slime-eval-show-function-list `(swank:list-callees ,symbol-name)
-                                 'callees symbol-name))
-
 
 ;;; Macroexpansion
 
@@ -4587,11 +4573,11 @@ The details include local variable bindings and CATCH-tags."
                              (in-sldb-face catch-tag "[No catch-tags]\n")))
 		    (t
 		     (insert indent1 "Catch-tags:\n")
-		     (loop for (tag . location) in catchers
-			   do (slime-insert-propertized  
-			       '(catch-tag ,tag)
-			       indent2 (in-sldb-face catch-tag
-                                                     (format "%S\n" tag))))))))
+                     (dolist (tag catchers)
+                        (slime-insert-propertized  
+                         '(catch-tag ,tag)
+                         indent2 (in-sldb-face catch-tag
+                                               (format "%S\n" tag))))))))
 
 	  (unless sldb-enable-styled-backtrace (terpri))
 	  (point)))))
@@ -4699,14 +4685,12 @@ The details include local variable bindings and CATCH-tags."
   (slime-eval `(swank::frame-locals-for-emacs ,frame)))
 
 (defun sldb-insert-locals (frame prefix)
-  (dolist (l (sldb-frame-locals frame))
-    (insert prefix (in-sldb-face local-name (plist-get l :name)))
-    (let ((id (plist-get l :id)))
+  (dolist (var (sldb-frame-locals frame))
+    (destructuring-bind (&key name id value) var
+      (insert prefix (in-sldb-face local-name name))
       (unless (zerop id) 
-        (insert (in-sldb-face local-name (format "#%d" id)))))
-    (insert " = " 
-            (in-sldb-face local-value (plist-get l :value))
-            "\n")))
+        (insert (in-sldb-face local-name (format "#%d" id))))
+      (insert " = " (in-sldb-face local-value value) "\n"))))
 
 (defun sldb-list-locals ()
   "List local variables in selected frame."
@@ -4717,7 +4701,7 @@ The details include local variable bindings and CATCH-tags."
                           (buffer-string)))))
 
 (defun sldb-catch-tags (frame)
-  (slime-eval `(swank:frame-catch-tags ,frame)))
+  (slime-eval `(swank:frame-catch-tags-for-emacs ,frame)))
 
 (defun sldb-list-catch-tags ()
   (interactive)
@@ -5537,7 +5521,7 @@ Confirm that EXPECTED-ARGLIST is displayed."
       ("swank::emacs-connected"
        "(swank::emacs-connected)")
       ("swank::compile-string-for-emacs"
-       "(swank::compile-string-for-emacs string &key buffer position)")
+       "(swank::compile-string-for-emacs string buffer position)")
       ("swank::connection.socket-io"
        "(swank::connection.socket-io structure)")
       ("cl:lisp-implementation-type"
