@@ -409,20 +409,52 @@ This is useful when debugging the definition-finding code.")
 
 (defun function-definitions (name)
   (flet ((loc (fn name) (safe-function-source-location fn name)))
-    (cond ((and (symbolp name) (macro-function name))
-           (list (list `(defmacro ,name) 
-                       (loc (macro-function name) name))))
-          ((fboundp name)
-           (let ((fn (fdefinition name)))
-             (typecase fn
-               (generic-function
-                (cons (list `(defgeneric ,name) (loc fn name))
-                      (method-definitions fn)))
-               (t
-                (list (list `(function ,name) (loc fn name))))))))))
+    (append
+     (cond ((and (symbolp name) (macro-function name))
+            (list (list `(defmacro ,name) 
+                        (loc (macro-function name) name))))
+           ((fboundp name)
+            (let ((fn (fdefinition name)))
+              (typecase fn
+                (generic-function
+                 (cons (list `(defgeneric ,name) (loc fn name))
+                       (method-definitions fn)))
+                (t
+                 (list (list `(function ,name) (loc fn name))))))))
+     (when (compiler-macro-function name)
+       (list (list `(define-compiler-macro ,name)
+                   (loc (compiler-macro-function name) name)))))))
+
+(defun transform-definitions (fun-info name)
+  (loop for xform in (sb-c::fun-info-transforms fun-info)
+        for loc = (safe-function-source-location
+                   (sb-c::transform-function xform) name)
+        for typespec = (sb-kernel:type-specifier (sb-c::transform-type xform))
+        for note = (sb-c::transform-note xform)
+        for spec = (if (consp typespec)
+                       `(sb-c:deftransform ,(second typespec) ,note)
+                       `(sb-c:deftransform ,note))
+        collect `(,spec ,loc)))
+
+(defun optimizer-definitions (fun-info fun-name)
+  (let ((otypes '((sb-c::fun-info-derive-type . sb-c:derive-type)
+                  (sb-c::fun-info-ltn-annotate . sb-c:ltn-annotate)
+                  (sb-c::fun-info-ltn-annotate . sb-c:ltn-annotate)
+                  (sb-c::fun-info-optimizer . sb-c:optimizer))))
+    (loop for (reader . name) in otypes
+          for fn = (funcall reader fun-info)
+          when fn collect `((sb-c:defoptimizer ,name)
+                            ,(safe-function-source-location fn fun-name)))))
+
+(defun compiler-definitions (name)
+  (let ((fun-info (sb-int:info :function :info name)))
+    (when fun-info
+      (append (transform-definitions fun-info name)
+              (optimizer-definitions fun-info name)))))
 
 (defimplementation find-definitions (name)
-  (function-definitions name))
+  (append (function-definitions name)
+          (compiler-definitions name)))
 
 (defimplementation describe-symbol-for-emacs (symbol)
   "Return a plist describing SYMBOL.
