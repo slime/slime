@@ -920,9 +920,13 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 This should be used for code that is conceptionally executed in an
 Emacs buffer."
   (destructuring-bind () _
-    `(let ((*package* *buffer-package*)
-           (*readtable* *buffer-readtable*))
-      (call-with-syntax-hooks (lambda () ,@body)))))
+    `(let ((*package* *buffer-package*))
+      ;; Don't shadow *readtable* unnecessarily because that prevents
+      ;; the user from assigning to it.
+      (if (eq *readtable* *buffer-readtable*)
+          #1=(call-with-syntax-hooks (lambda () ,@body))
+          (let ((*readtable* *buffer-readtable*))
+            #1#)))))
 
 (defun from-string (string)
   "Read string in the *BUFFER-PACKAGE*"
