@@ -2276,6 +2276,11 @@ side.")
 
 ;;;; Stream output
 
+(defcustom slime-header-line-p t
+  "If non-nil, display a header line in Slime buffers."
+  :type 'boolean
+  :group 'slime-repl)
+
 (make-variable-buffer-local
  (defvar slime-output-start nil
    "Marker for the start of the output for the evaluation."))
@@ -2314,7 +2319,8 @@ side.")
                          (slime-connection-port (slime-connection))
                          (slime-pid)))
          ;; Emacs21 has the fancy persistent header-line.
-         (use-header-p (boundp 'header-line-format))
+         (use-header-p (and slime-header-line-p
+                            (boundp 'header-line-format)))
          ;; and dancing text
          (animantep (and (fboundp 'animate-string)
                          slime-startup-animation
