@@ -103,7 +103,7 @@ Emacs Lisp package."))
 ;;;;; slime-ui
 
 (defgroup slime-ui nil
-  "Interfaction with the Superior Lisp Environment."
+  "Interaction with the Superior Lisp Environment."
   :prefix "slime-"
   :group 'slime)
 
@@ -911,16 +911,13 @@ corresponding values in the CDR of VALUE."
 ;; Interface
 (defun slime-message (format &rest args)
   "Like `message' but with special support for multi-line messages.
-Single-line messages use the echo area.
-
-Multi-line messages will use the echo area only in GNU Emacs 21.  In
-other Emacsen they use the \"typeout frame\" if it is active,
-otherwise a temporary window that is automatically dismissed before
-the next command."
-  (if (or (featurep 'xemacs)
-          (= emacs-major-version 20))
-      (slime-display-message (apply #'format format args) "*SLIME Note*")
-    (apply 'message format args)))
+Single-line messages use the echo area."
+  (if (slime-typeout-active-p)
+      (apply #'slime-typeout-message format args)
+    (if (or (featurep 'xemacs)
+            (= emacs-major-version 20))
+        (slime-display-message (apply #'format format args) "*SLIME Note*")
+      (apply 'message format args))))
 
 (defun slime-display-message (message buffer-name) 
   "Display MESSAGE in the echo area or in BUFFER-NAME.
