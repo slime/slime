@@ -1,3 +1,7 @@
+2004-01-02  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-hyperspec-lookup): New function.
+
 2004-01-02  Wolfgang Jenkner <wjenkner@inode.at>
 
 	* swank-clisp.lisp: New file.  Merged with Vladimir's version.
