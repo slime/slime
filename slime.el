@@ -235,6 +235,19 @@ A prefix argument disables this behaviour."
   (if (or current-prefix-arg (inferior-slime-input-complete-p))
       (comint-send-input)
     (insert "\n")
+    (inferior-slime-indent-line)))
+
+(defun inferior-slime-indent-line ()
+  "Indent the current line, ignoring everything before the prompt."
+  (interactive)
+  (save-restriction
+    (let ((indent-start
+           (save-excursion
+             (goto-char (process-mark (get-buffer-process (current-buffer))))
+             (let ((inhibit-field-text-motion t))
+               (beginning-of-line 1))
+             (point))))
+      (narrow-to-region indent-start (point-max)))
     (lisp-indent-line)))
 
 (defun inferior-slime-input-complete-p ()
@@ -242,10 +255,25 @@ A prefix argument disables this behaviour."
   (ignore-errors
     (save-excursion
       (goto-char (process-mark (get-buffer-process (current-buffer))))
-      (while (not (eobp))
-        (skip-chars-forward " \t\r\n")
-        (unless (eobp) (slime-forward-sexp)))
+      ;; Keep stepping over blanks and sexps until the end of buffer
+      ;; is reached or an error occurs
+      (loop do (or (skip-chars-forward " \t\r\n")
+                   (looking-at ")"))    ; tollerate extra close parens
+            until (eobp)
+            do (slime-forward-sexp))
       t)))
+
+(defun inferior-slime-closing-return ()
+  "Send the current expression to Lisp after closing any open lists."
+  (interactive)
+  (goto-char (point-max))
+  (save-restriction
+    (narrow-to-region (process-mark (get-buffer-process (current-buffer)))
+                      (point-max))
+    (while (ignore-errors (save-excursion (backward-up-list 1) t))
+      (insert ")")))
+  (comint-send-input))
+
 
 
 ;;;;; Key bindings
@@ -310,15 +338,19 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
     (setq key (concat slime-prefix-key key)))
   (define-key slime-mode-map key command)
   (when inferior
-    (define-key inferior-slime-mode-map key command))
-  ;; Extras..
-  (define-key inferior-slime-mode-map [return] 'inferior-slime-return))
+    (define-key inferior-slime-mode-map key command)))
 
 (defun slime-init-keymaps ()
   "(Re)initialize the keymaps for `slime-mode' and `inferior-slime-mode'."
   (interactive)
   (loop for (key command . keys) in slime-keys
-        do (apply #'slime-define-key key command :allow-other-keys t keys)))
+        do (apply #'slime-define-key key command :allow-other-keys t keys))
+  ;; Extras..
+  (define-key inferior-slime-mode-map [return] 'inferior-slime-return)
+  (define-key inferior-slime-mode-map
+    [(control return)] 'inferior-slime-closing-return)
+  (define-key inferior-slime-mode-map
+    [(meta control ?m)] 'inferior-slime-closing-return))
 
 (slime-init-keymaps)
 
