@@ -1,6 +1,6 @@
 ;;;; SWANK support for CLISP.
 
-;;;; Copyright (C) 2003 W. Jenkner, V. Sedach
+;;;; Copyright (C) 2003, 2004 W. Jenkner, V. Sedach
 
 ;;;; swank-clisp.lisp is free software; you can redistribute it and/or
 ;;;; modify it under the terms of the GNU General Public License as
@@ -12,10 +12,11 @@
 ;;; swank-allegro (I don't use allegro at all, but it's the shortest
 ;;; one and I found Helmut Eller's code there enlightening).
 
-;;; Note that I use the current CVS version of CLISP and I haven't
-;;; tested older versions.  You need an image containing the "SOCKET",
-;;; "LINUX" and "REGEXP" packages.  You should also fetch the portable
-;;; XREF from the CMU AI repository.
+;;; This code is developed using the current CVS version of CLISP and
+;;; CLISP 2.32 on Linux. Older versions may not work (2.29 and below
+;;; are confirmed non-working; please upgrade).  You need an image
+;;; containing the "SOCKET", "REGEXP", and (optionally) "LINUX"
+;;; packages.
 
 (in-package "SWANK")
 
@@ -27,6 +28,7 @@
 (setq *start-swank-in-background* nil)
 ;(setq *redirect-output* nil)
 
+#+linux
 (defmacro without-interrupts (&body body)
   `(let ((sigact (linux:signal-action-retrieve linux:SIGINT)))
      (unwind-protect
@@ -35,71 +37,79 @@
 	    ,@body)
        (linux:set-sigprocmask linux:SIG_UNBLOCK (linux:sa-mask sigact)))))
 
+#-linux
+(defmacro without-interrupts (body)
+  body)
+
 (defun without-interrupts* (fun)
   (without-interrupts (funcall fun)))
 
-(defslimefun getpid () (linux::getpid))
+#+linux (defslimefun getpid () (linux::getpid))
+#+unix (defslimefun getpid () (system::program-id))
+#+win32 (defslimefun getpid () (or (system::getenv "PID") -1))
+;; the above is likely broken; we need windows NT users!
 
 ;;; TCP Server
 
-(defun create-swank-server (port &key (reuse-address t)
-			    (announce #'simple-announce-function)
-			    (background *start-swank-in-background*)
-			    (close *close-swank-socket-after-setup*))
-  "Create a Swank TCP server on `port'."
-  (declare (ignore reuse-address))
-  (let ((server-socket (socket-server port)))
-    ;; :connect :passive :reuse-address reuse-address
-    (funcall announce (socket-server-port server-socket))
-    (cond (background
-	   (error "Starting swank server in background not implemented."))
-	  (t
-	   (accept-loop server-socket close)))))
+ (defun get-socket-stream (port announce close-socket-p)
+   (let ((socket (socket:socket-server port)))
+     (socket:socket-wait socket 0)
+     (funcall announce (socket:socket-server-port socket))
+     (prog1
+ 	(socket:socket-accept socket
+			      :buffered nil
+			      :element-type 'character
+			      :external-format (ext:make-encoding 
+						:charset 'charset:iso-8859-1
+						:line-terminator :unix))
+ 	(when close-socket-p
+ 	  (socket:socket-server-close socket)))))
 
-(defun accept-loop (server-socket close)
-  (unwind-protect (cond (close (accept-one-client server-socket))
-			(t (loop (accept-one-client server-socket))))
-    (socket-server-close server-socket)))
-
-(defun accept-one-client (server-socket)
-  (request-loop
-   (socket-accept server-socket 
-		  :buffered nil
-		  :element-type 'character
-		  :external-format (ext:make-encoding 
-				    :charset 'charset:iso-8859-1
-				    :line-terminator :unix))))
-
-(defun request-loop (stream)
-  (let* ((out (if *use-dedicated-output-stream*
-		  (open-stream-to-emacs stream)
-		  (make-instance 'slime-output-stream)))
-	 (in (make-instance 'slime-input-stream))
-	 (io (make-two-way-stream in out)))
-    (do () ((serve-one-request stream out in io)))))
-
-(defun serve-one-request (*emacs-io* *slime-output* *slime-input* *slime-io*)
+(defun serve-request (*emacs-io* *slime-output* *slime-input* *slime-io*)
+  "Read and process a request from a SWANK client.
+ The request is read from the socket as a sexp and then evaluated."
   (catch 'slime-toplevel
     (with-simple-restart (abort "Return to Slime toplevel.")
-      (handler-case (read-from-emacs)
-	(slime-read-error (e)
-	  (when *swank-debug-p*
-	    (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
-	  (close *emacs-io*)
-	  (return-from serve-one-request t)))))
-  nil)
+    (handler-case (read-from-emacs)
+ 		  (ext:simple-charset-type-error (err)
+						 (format *debug-io* "Wrong slime stream encoding:~%~A" err))
+ 		  (slime-read-error (e)
+ 				    (when *swank-debug-p*
+ 				      (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
+ 				    (close *emacs-io* :abort t)
+ 				    (when *use-dedicated-output-stream* 
+ 				      (close *slime-output* :abort t))
+ 				    (throw 'closed-connection
+ 					   (print "Connection to emacs closed" *debug-io*)))))))
 
 (defun open-stream-to-emacs (*emacs-io*)
-  (let* ((listener (socket-server 0))
-	 (port (socket-server-port listener)))
-    (unwind-protect (progn
-		      (eval-in-emacs `(slime-open-stream-to-lisp ,port))
-		      (socket-accept listener 
-				     :buffered t
-				     :external-format charset:iso-8859-1
-				     :element-type 'character
-				     ))
-      (socket-server-close listener))))
+  "Return an output-stream to Emacs' output buffer."
+  (let* ((listener (socket:socket-server))
+  	 (port (socket:socket-server-port listener)))
+    (unwind-protect
+ 	(prog2
+	    (eval-in-emacs `(slime-open-stream-to-lisp ,port))
+	    (socket:socket-accept listener
+				  :buffered t
+				  :external-format charset:iso-8859-1
+				  :element-type 'character))
+      (socket:socket-server-close listener))))
+
+(defun create-swank-server (port &key (announce #'simple-announce-function)
+ 				 reuse-address
+ 				 background
+ 				 (close *close-swank-socket-after-setup*))
+  (declare (ignore reuse-address background))
+  (let* ((emacs (get-socket-stream port announce close))
+	 (slime-out (if *use-dedicated-output-stream*
+			(open-stream-to-emacs emacs)
+		      (make-instance 'slime-output-stream)))
+ 	 (slime-in (make-instance 'slime-input-stream))
+ 	 (slime-io (make-two-way-stream slime-in slime-out)))
+    (catch 'closed-connection
+      (loop (serve-request emacs slime-out slime-in slime-io)))))
+
+;;; Swank functions
 
 (defmethod arglist-string (fname)
   (declare (type string fname))
