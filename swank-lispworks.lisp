@@ -58,6 +58,7 @@
 
 (defimplementation emacs-connected ()
   ;; Set SIGINT handler on Swank request handler thread.
+  #-win32 
   (sys:set-signal-handler +sigint+ (make-sigint-handler mp:*current-process*)))
 
 ;;; Unix signals
@@ -74,8 +75,9 @@
 (defmethod call-without-interrupts (fn)
   (lispworks:without-interrupts (funcall fn)))
 
-(defmethod getpid ()
-  (system::getpid))
+(defimplementation getpid ()
+  #+win32 (win32:get-current-process-id)
+  #-win32 (system::getpid))
 
 (defimplementation lisp-implementation-type-name ()
   "lispworks")
@@ -219,10 +221,7 @@ Return NIL if the symbol is unbound."
   (invoke-restart-interactively (nth-restart index)))
 
 (defimplementation frame-locals (n)
-  (let ((frame (nth-frame n))
-        (*print-readably* nil)
-        (*print-pretty* t)
-        (*print-circle* t))
+  (let ((frame (nth-frame n)))
     (if (dbg::call-frame-p frame)
 	(destructuring-bind (vars with)
 	    (dbg::frame-locals-format-list frame #'list 75 0)
