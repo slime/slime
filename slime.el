@@ -1075,6 +1075,24 @@ Assumes all insertions are made at point."
 (put 'slime-with-rigid-indentation 'lisp-indent-function 1)
 
 
+;;; Setup hooks
+
+(defvar slime-use-autodoc-mode nil
+  "When non-nil always enabled slime-autodoc-mode in slime-mode.")
+
+(defun* slime-setup (&key autodoc)
+  "Setup Emacs so that lisp-mode buffers always use SLIME."
+  (add-hook 'lisp-mode-hook 'slime-lisp-mode-hook)
+  (setq slime-use-autodoc-mode autodoc))
+
+(defun slime-lisp-mode-hook ()
+  (slime-mode 1)
+  (set (make-local-variable 'lisp-indent-function)
+       'common-lisp-indent-function)
+  (when slime-use-autodoc-mode
+    (slime-autodoc-mode 1)))
+
+
 ;;; Inferior CL Setup: compiling and connecting to Swank
 
 (defvar slime-connect-retry-timer nil
