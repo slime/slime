@@ -131,7 +131,8 @@ Backend code should treat the connection structure as opaque.")
 ;;;
 
 (defstruct (connection
-             (:conc-name connection.))
+             (:conc-name connection.)
+             (:print-function print-connection))
   ;; Raw I/O stream of socket connection.
   (socket-io        (missing-arg) :type stream :read-only t)
   ;; Optional dedicated output socket (backending `user-output' slot).
@@ -170,6 +171,10 @@ Backend code should treat the connection structure as opaque.")
   (indentation-cache (make-hash-table :test 'eq) :type hash-table)
   ;; The list of packages represented in the cache:
   (indentation-cache-packages '()))
+
+(defun print-connection (conn stream depth)
+  (declare (ignore depth))
+  (print-unreadable-object (conn stream :type t :identity t)))
 
 (defvar *connections* '()
   "List of all active connections, with the most recent at the front.")
