@@ -70,7 +70,8 @@
 (defimplementation close-socket (socket)
   (comm::close-socket (socket-fd socket)))
 
-(defimplementation accept-connection (socket &key external-format)
+(defimplementation accept-connection (socket 
+                                      &key (external-format :iso-latin-1-unix))
   (assert (eq external-format :iso-latin-1-unix))
   (let* ((fd (comm::get-fd-from-socket socket)))
     (assert (/= fd -1))
@@ -543,7 +544,7 @@ Return NIL if the symbol is unbound."
     (loop for object across callers
           collect (if (symbolp object)
 		      (list 'function object)
-                      (dspec:object-dspec object)))))
+                      (or (dspec:object-dspec object) object)))))
 
 ;; only for lispworks 4.2 and above
 #-lispworks4.1
@@ -557,13 +558,14 @@ Return NIL if the symbol is unbound."
     (xref-results (mapcar #'dspec:object-dspec methods))))
 
 (defun xref-results (dspecs)
-  (loop for dspec in dspecs
-        nconc (loop for (dspec location) 
-                    in (dspec:dspec-definition-locations dspec)
-                    collect (list dspec 
-                                  (make-dspec-location dspec location)))))
+  (flet ((frob-locs (dspec locs)
+           (cond (locs
+                  (loop for (name loc) in locs
+                        collect (list name (make-dspec-location name loc))))
+                 (t `((,dspec (:error "Source location not available")))))))
+    (loop for dspec in dspecs
+          append (frob-locs dspec (dspec:dspec-definition-locations dspec)))))
 ;;; Inspector
-
 (defclass lispworks-inspector (inspector)
   ())
 
