@@ -1,10 +1,9 @@
 2004-06-17  Luke Gorrie  <luke@bluetail.com>
 
-	* swank-lispworks.lisp (dspec-stream-position): Remove
-	`with-standard-io-syntax' so that we can read files with custom
-	read syntax.
-	Bind *READ-EVAL* to T instead of NIL (at the suggestion of Alain
-	Picard).
+	* swank-lispworks.lisp (with-fairly-standard-io-syntax): New
+	macro. Like with-standard-io-syntax, but keeps the existing values
+	of *package* and *readtable*.
+	(dspec-stream-position): Use it.
 
 2004-06-16  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
