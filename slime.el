@@ -1230,10 +1230,14 @@ their actions. The pattern syntax is the same as `destructure-case'."
   "List of stack-tags of continuations waiting on the stack.")
 
 (slime-defstate slime-idle-state ()
-  "Idle state. The only event allowed is to make a request."
+  "Idle state. The user may make a request, or Lisp may invoke the debugger."
   ((activate)
    (assert (= sldb-level 0))
    (slime-repl-activate))
+  ((:debug level condition restarts frames)
+   (slime-push-state
+    (slime-debugging-state level condition restarts frames
+                           (current-window-configuration))))
   ((:emacs-evaluate form-string package-name continuation)
    (slime-output-evaluate-request form-string package-name)
    (slime-push-state (slime-evaluating-state continuation))))
