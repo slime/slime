@@ -8,6 +8,9 @@
 	(slime-draw-connection-list): Don't break if there is no default
 	connection.
 
+	* swank-cmucl.lisp (call-with-debugging-environment): Only handle
+	DI::UNHANDLED-CONDITION not all DI:DEBUG-CONDITIONs.
+	
 2004-07-30  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-choose-overlay-region): Tweaked the
