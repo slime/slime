@@ -361,7 +361,7 @@ This is useful when debugging the definition-finding code.")
          (position (sb-introspect:definition-source-character-offset def))
          (stamp
           ;; FIXME: Symbol doesn't exist in released SBCL yet.
-          (let ((sym (find-symbol "DEFINITION-SOURCE-CREATED"
+          (let ((sym (find-symbol "DEFINITION-SOURCE-FILE-WRITE-DATE"
                                   (find-package "SB-INTROSPECT"))))
             (when sym (funcall sym def)))))
     (unless pathname
