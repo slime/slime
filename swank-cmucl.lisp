@@ -293,10 +293,11 @@ NIL if we aren't compiling from a buffer.")
   (with-compilation-hooks ()
     (let ((*buffer-name* nil))
       (multiple-value-bind (output-file warnings-p failure-p)
-          (compile-file filename :load load-p)
+          (compile-file filename)
         (unless failure-p
           ;; Cache the latest source file for definition-finding.
-          (source-cache-get filename (file-write-date filename)))
+          (source-cache-get filename (file-write-date filename))
+          (load output-file))
         (values output-file warnings-p failure-p)))))
 
 (defimplementation swank-compile-string (string &key buffer position directory)
@@ -333,7 +334,9 @@ NIL if we aren't compiling from a buffer.")
            :severity (severity-for-emacs condition)
            :short-message (brief-compiler-message-for-emacs condition)
            :message (long-compiler-message-for-emacs condition context)
-           :location (compiler-note-location context))))
+           :location (if (eq (type-of condition) 'c::compiler-read-error)
+                         (read-error-location condition)
+                         (compiler-note-location context)))))
 
 (defun severity-for-emacs (condition)
   "Return the severity of CONDITION."
@@ -358,6 +361,18 @@ the error-context redundant."
                   (c::compiler-error-context-source error-context)))
     (format nil "~@[--> ~{~<~%--> ~1:;~A~> ~}~%~]~@[~{==>~%~A~^~%~}~]~A"
             enclosing source condition)))
+
+(defun read-error-location (condition)
+  (let* ((finfo (car (c::source-info-current-file c::*source-info*)))
+         (file (c::file-info-name finfo))
+         (pos (c::compiler-read-error-position condition)))
+    (cond ((and (eq file :stream) *buffer-name*)
+           (make-location (list :buffer *buffer-name*)
+                          (list :position *buffer-start-position* pos)))
+          ((and (pathnamep file) (not *buffer-name*))
+           (make-location (list :file (unix-truename file))
+                          (list :position pos)))
+          (t (break)))))
 
 (defun compiler-note-location (context)
   "Derive the location of a complier message from its context.
