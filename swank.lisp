@@ -1258,9 +1258,25 @@ Record compiler notes signalled as `compiler-condition's."
 (defslimefun operate-on-system-for-emacs (system-name operation &rest keywords)
   "Compile and load SYSTEM using ASDF.
 Record compiler notes signalled as `compiler-condition's."
-  (swank-compiler (lambda ()
-                    (apply #'operate-on-system system-name operation keywords))))
+  (swank-compiler 
+   (lambda ()
+     (apply #'operate-on-system system-name operation keywords))))
 
+(defun asdf-central-registry ()
+  (when (find-package :asdf)
+    (symbol-value (find-symbol (string :*central-registry*) :asdf))))
+
+(defslimefun list-all-systems-in-central-registry ()
+  "Returns a list of all systems in ASDF's central registry."
+  (loop for dir in (asdf-central-registry)
+        for defaults = (eval dir)
+        when defaults
+        nconc (mapcar #'file-namestring
+                      (directory
+                       (make-pathname :defaults defaults
+                                      :version :newest
+                                      :type "asd"
+                                      :case :local)))))
 
 ;;;; Macroexpansion
 
