@@ -2523,6 +2523,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
                  collect `(:value ,key)
                  collect " = "
                  collect `(:value ,value)
+                 collect " "
                  collect `(:newline)))))
 
 (defmethod inspect-for-emacs ((array array) (inspector t))
@@ -2602,10 +2603,20 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
                      `("It is unbound."))))
               (:newline)
               ,@(if (fboundp symbol)
-                    `("It's function value is " (:value ,(symbol-function symbol)) " "
-                      (:action "[make funbound]" ,(lambda () (fmakunbound symbol))))
-                    `("It has no function value."))
-              (:newline)
+                    (append
+                     (if (macro-function symbol)
+                         `("It a macro with macro-function: " (:value ,(macro-function symbol)))
+                         `("It is a function: " (:value ,(symbol-function symbol))))
+                     `(" " (:action "[make funbound]" ,(lambda () (fmakunbound symbol))))
+                     `((:newline))
+                     (when (documentation symbol 'function)
+                       `("Documentation:" (:newline) ,(documentation symbol 'function) (:newline)))
+                     (when (compiler-macro-function symbol)
+                       `("It also names the compiler macro: " (:value ,(compiler-macro-function symbol))))
+                     `((:newline))
+                     (when (documentation symbol 'compiler-macro)
+                       `("Documentation:" (:newline) ,(documentation symbol 'compiler-macro) (:newline))))
+                    `("It has no function value." (:newline)))
               "It is " ,(case internal-external
                           (:internal "internal")
                           (:external "external")) " to the package: " (:value ,(symbol-package symbol))
@@ -2716,7 +2727,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
                                                              (lambda (slot)
                                                                `(:value ,slot ,(princ-to-string
                                                                                 (swank-mop:slot-definition-name slot)))))
-                                      '("N/A (class not finalized)"))
+                                      '("#<N/A (class not finalized)>"))
             (:newline)
             "Documentation:" (:newline)
             ,@(when (documentation class t)
@@ -2729,11 +2740,11 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
                                       (common-seperated-spec (swank-mop:class-precedence-list class)
                                                              (lambda (class)
                                                                `(:value ,class ,(princ-to-string (class-name class)))))
-                                      '("N/A (class not finalized)"))
+                                      '("#<N/A (class not finalized)>"))
             (:newline)
             "Prototype: " ,(if (swank-mop:class-finalized-p class)
                                `(:value ,(swank-mop:class-prototype class))
-                               '"N/A (class not finalized)"))))
+                               '"#<N/A (class not finalized)>"))))
 
 (defmethod inspect-for-emacs ((slot swank-mop:standard-slot-definition) (inspector t))
   (declare (ignore inspector))
@@ -2743,12 +2754,11 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
             "Documentation:" (:newline)
             ,@(when (swank-mop:slot-definition-documentation slot)
                 `((:value ,(swank-mop:slot-definition-documentation slot)) (:newline)))
-            "Initialization:" (:newline)
-            "  Args: " (:value ,(swank-mop:slot-definition-initargs slot)) (:newline)
-            "  Form: "  ,(if (swank-mop:slot-definition-initfunction slot)
+            "Init args: " (:value ,(swank-mop:slot-definition-initargs slot)) (:newline)
+            "Init form: "  ,(if (swank-mop:slot-definition-initfunction slot)
                              `(:value ,(swank-mop:slot-definition-initform slot))
                              "#<unspecified>") (:newline)
-            "  Function: " (:value ,(swank-mop:slot-definition-initfunction slot))
+            "Init function: " (:value ,(swank-mop:slot-definition-initfunction slot))
             (:newline))))
 
 (defmethod inspect-for-emacs ((package package) (inspector t))
@@ -2783,16 +2793,16 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
               (:newline)
               ,(if (null external-symbols)
                    "0 external symbols."
-                   `(:value ,external-symbols ,(format nil "~D external symbols." (length external-symbols))))
+                   `(:value ,external-symbols ,(format nil "~D external symbol~:P." (length external-symbols))))
               (:newline)
               ,(if (null internal-symbols)
                    "0 internal symbols."
-                   `(:value ,internal-symbols ,(format nil "~D internals symbols." (length internal-symbols))))
+                   `(:value ,internal-symbols ,(format nil "~D internal symbol~:P." (length internal-symbols))))
               (:newline)
               ,(if (null (package-shadowing-symbols package))
                    "0 shadowed symbols."
                    `(:value ,(package-shadowing-symbols package)
-                            ,(format nil "~D shadowed symbols." (length (package-shadowing-symbols package)))))))))
+                            ,(format nil "~D shadowed symbol~:P." (length (package-shadowing-symbols package)))))))))
 
 (defmethod inspect-for-emacs ((pathname pathname) (inspector t))
   (declare (ignore inspector))
@@ -2833,7 +2843,11 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
             (:newline)
             "Type: " (:value ,(pathname-type pathname))
             (:newline)
-            "Version: " (:value ,(pathname-version pathname)))))
+            "Version: " (:value ,(pathname-version pathname))
+            ,@(unless (or (wild-pathname-p pathname)
+                          (not (probe-file pathname)))
+                `((:newline)
+                  "Truename: " (:value ,(truename pathname)))))))
 
 (defmethod inspect-for-emacs ((n number) (inspector t))
   (declare (ignore inspector))
@@ -2928,7 +2942,6 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
                      (:newline (collect-part (string #\Newline)))
                      (:value (destructuring-bind (object &optional format)
                                  (cdr part)
-                               (declare (ignore actions))
                                (unless (position object *inspectee-parts*)
                                  (vector-push-extend object *inspectee-parts*))
                                (unless format
