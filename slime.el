@@ -7404,13 +7404,12 @@ Unless optional argument INPLACE is non-nil, return a new string."
 
 (slime-defun-if-undefined line-beginning-position (&optional n)
   (save-excursion
-    (forward-line n)
+    (beginning-of-line n)
     (point)))
 
 (slime-defun-if-undefined line-end-position (&optional n)
   (save-excursion
-    (forward-line n)
-    (end-of-line)
+    (end-of-line n)
     (point)))
 
 (slime-defun-if-undefined check-parens ()
