@@ -1040,7 +1040,7 @@ pretty printing of (function foo) as #'foo is suppressed."
                ((member :not-available)
                 " <not available>")
                (list
-                (format nil "~{~^ ~A~})" (list arglist))))))
+                (arglist-to-string arglist *buffer-package*)))))
           (t
            " <not available>"))))
 
