@@ -366,6 +366,19 @@ from the frame.")
   "Restart execution of the frame FRAME-NUMBER with the same arguments
 as it was called originally.")
 
+(definterface format-sldb-condition (condition)
+  "Format a condition for display in SLDB."
+  (princ-to-string condition))
+
+(definterface condition-references (condition)
+  "Return a list of documentation references for a condition.
+Each reference is one of:
+  (:ANSI-CL
+   {:FUNCTION | :SPECIAL-OPERATOR | :MACRO | :SECTION | :GLOSSARY }
+   symbol-or-name)
+  (:SBCL :NODE node-name)"
+  '())
+
 
 ;;;; Definition finding
 
