@@ -121,7 +121,7 @@ Please upgrade to SBCL 0.8.7.36 or later."))
         (t
          (unless (sb-int:featurep :linux)
            (warn "~
-You aren't runinng Linux. The values of +o_async+ etc are probably bogus."))
+You aren't running Linux. The values of +o_async+ etc are probably bogus."))
          (let ((fcntl (sb-alien:extern-alien 
                        "fcntl" 
                        (function sb-alien:int sb-alien:int 
@@ -216,7 +216,8 @@ information."
                        (sb-ext:compiler-note :note)
                        (style-warning        :style-warning)
                        (warning              :warning))
-           :message (brief-compiler-message-for-emacs condition context)
+           :short-message (brief-compiler-message-for-emacs condition)
+           :message (long-compiler-message-for-emacs condition context)
            :location (compiler-note-location context))))
 
 
@@ -265,19 +266,22 @@ information."
         (t 
          (list :error "No error location available"))))
 
-
-(defun brief-compiler-message-for-emacs (condition error-context)
+(defun brief-compiler-message-for-emacs (condition)
   "Briefly describe a compiler error for Emacs.
 When Emacs presents the message it already has the source popped up
 and the source form highlighted. This makes much of the information in
 the error-context redundant."
+  (princ-to-string condition))
+
+(defun long-compiler-message-for-emacs (condition error-context)
+  "Describe a compiler error for Emacs including context information."
   (declare (type (or sb-c::compiler-error-context null) error-context))
-  (let ((enclosing 
-         (and error-context
-              (sb-c::compiler-error-context-enclosing-source error-context))))
-    (if enclosing
-        (format nil "--> ~{~<~%--> ~1:;~A~> ~}~%~A" enclosing condition)
-        (format nil "~A" condition))))
+  (multiple-value-bind (enclosing source)
+      (if error-context
+          (values (sb-c::compiler-error-context-enclosing-source error-context)
+                  (sb-c::compiler-error-context-source error-context)))
+    (format nil "~@[--> ~{~<~%--> ~1:;~A~> ~}~%~]~@[~{==>~%~A~^~%~}~]~A"
+            enclosing source condition)))
 
 (defun current-compiler-error-source-path (context)
   "Return the source-path for the current compiler error.
