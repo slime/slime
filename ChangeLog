@@ -1,3 +1,11 @@
+2003-10-31  Luke Gorrie  <luke@bluetail.com>
+
+	* swank.lisp (interactive-eval): Evaluate in *buffer-package*.
+
+	* slime.el: Tweaked debugger window management somewhat: the
+	window configuration is saved when the debugger is first entered
+	and then restored when the idle state is reached.
+
 2003-10-31  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el: (slime-repl-read-mode, slime-repl-read-xxx): New minor
@@ -43,6 +51,10 @@
 
 	* slime.el (slime-net-sentinel): Only show a message about
 	disconnection if the inferior-lisp is still running.
+	(slime-interrupt, slime-quit): Only send the quit/interrupt
+	message to Lisp if it is in fact evaluating something for us. This
+	fixes a protocol bug reported by Paolo Amoroso.  Added (require
+	'pp).
 
 2003-10-28  James Bielman  <jamesjb@jamesjb.com>
 
