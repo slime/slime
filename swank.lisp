@@ -741,10 +741,6 @@ the string."
                      (princ label stream) (funcall fn stream)))))
     (subseq string (length label))))
 
-(defslimefun sldb-can-continue-p ()
-  "Return T if there is a continue restart; otherwise NIL."
-  (if (find-restart 'continue) t nil))
-  
 (defslimefun sldb-continue ()
   (continue))
 
@@ -927,6 +923,8 @@ The time is measured in microseconds."
   "Make a compiler note data structure from a compiler-condition."
   (declare (type compiler-condition condition))
   (list :message (message condition)
+        :short-message (or (short-message condition)
+                           (message condition))
         :severity (severity condition)
         :location (location condition)))
 
