@@ -1,3 +1,21 @@
+2003-11-27  Luke Gorrie  <luke@bluetail.com>
+
+	* completer.el: Stolen^Wimported from ILISP version 1.4. This is
+	one revision prior to their latest, where they added a (require)
+	for some other ILISP code. I backed down a revision to make it
+	stand-alone, but this may mean that putting SLIME in the load-path
+	before ILISP will break ILISP. So, beware.
+
+2003-11-27  Zach  <xach@xach.com>
+
+	* swank.lisp (completions): Complete compound symbols (see below).
+
+	* slime.el (slime-complete-symbol): Use `completer' package to
+	handle more sophisticated completions. This includes abbreviations
+	like "m-v-b" => "multiple-value-bind". It also (somewhat scarily)
+	redefines other standard Emacs completion functions with similar
+	capabilities. See commentary in completer.erl for details.
+
 2003-11-25  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-make-typeout-frame): New command to create a
