@@ -358,7 +358,7 @@ element."
     ((:emacs-interrupt thread)
      (interrupt-worker-thread thread))
     (((:debug :debug-condition :debug-activate) thread &rest args)
-     (encode-message `(:debug ,(add-thread thread) . ,args) socket-io))
+     (encode-message `(,(car event) ,(add-thread thread) . ,args) socket-io))
     ((:debug-return thread level)
      (encode-message `(:debug-return ,(drop-thread thread) ,level) socket-io))
     ((:return thread &rest args)
@@ -571,6 +571,7 @@ If a protocol error occurs then a SLIME-READ-ERROR is signalled."
 
 (defun read-user-input-from-emacs ()
   (let ((*read-input-catch-tag* (1+ *read-input-catch-tag*)))
+    (force-output)
     (send-to-emacs `(:read-string ,(current-thread)
                      ,*read-input-catch-tag*))
     (let ((ok nil))
@@ -687,14 +688,18 @@ after Emacs causes a restart to be invoked."
 (defun sldb-loop (level)
   (send-to-emacs (list* :debug (current-thread) *sldb-level*
                         (debugger-info-for-emacs 0 *sldb-initial-frames*)))
-  (unwind-protect
-       (loop (catch 'sldb-loop-catcher
-               (with-simple-restart (abort "Return to sldb level ~D." level)
-                 (send-to-emacs (list :debug-activate (current-thread)
-                                      *sldb-level*))
-                 (handler-bind ((sldb-condition #'handle-sldb-condition))
-                   (read-from-emacs)))))
-    (send-to-emacs `(:debug-return ,(current-thread) ,level))))
+  (catch 'sldb-enter-default-debugger
+    (unwind-protect
+         (loop (catch 'sldb-loop-catcher
+                 (with-simple-restart (abort "Return to sldb level ~D." level)
+                   (send-to-emacs (list :debug-activate (current-thread)
+                                        *sldb-level*))
+                   (handler-bind ((sldb-condition #'handle-sldb-condition))
+                     (read-from-emacs)))))
+      (send-to-emacs `(:debug-return ,(current-thread) ,level)))))
+
+(defun sldb-break-with-default-debugger ()
+  (throw 'sldb-enter-default-debugger nil))
 
 (defun handle-sldb-condition (condition)
   "Handle an internal debugger condition.
@@ -746,12 +751,6 @@ SLDB-LEVEL is the debug level when the request was made. If this
 has changed, ignore the request."
   (when (= sldb-level *sldb-level*)
     (invoke-nth-restart n)))
-
-(defun sldb-break-with-default-debugger ()
-  (let ((*debugger-hook* nil))
-    ;; FIXME: This will break when the SBCL backend starts using the
-    ;; extra sbcl debugger hook.
-    (break)))
 
 (defslimefun eval-string-in-frame (string index)
   (to-string (eval-in-frame (from-string string) index)))
@@ -1416,6 +1415,25 @@ nil if there's no second element."
 	     (t
 	      (push (cons (string 'rest) in-list) reversed-elements)
 	      (done "The object is an improper list of length ~S.~%")))))))
+
+
+;;;; Thread listing
+
+(defvar *thread-list* ()
+  "List of threads displayed in Emacs.  We don't care a about
+synchronization issues (yet).  There can only be one thread listing at
+a time.")
+
+(defslimefun list-threads ()
+  "Return a list ((NAME DESCRIPTION) ...) of all threads."
+  (setq *thread-list* (all-threads))
+  (loop for thread in  *thread-list* 
+        collect (list (thread-name thread)
+                      (thread-status thread))))
+
+(defslimefun quit-thread-browser ()
+  (setq *thread-list* nil))
+
 
 ;;; Local Variables:
 ;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
