@@ -1,3 +1,9 @@
+2004-02-05  Wolfgang Jenkner  <wjenkner@inode.at>
+
+	* swank-clisp.lisp, swank-loader.lisp: Add profiling support via
+	Kantrowitz's metering package.  Reporting needs to be
+	refined (profile-package currently ignores callers-p and methods).
+
 2004-02-04  Bryan O'Connor <bryan-slime@lunch.org>
 
 	* swank-openmcl.lisp (mailbox): Use a semaphore instead of
