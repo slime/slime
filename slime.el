@@ -61,9 +61,6 @@
   (require 'easy-mmode)
   (defalias 'define-minor-mode 'easy-mmode-define-minor-mode))
 
-(defvar slime-swank-port 4005
-  "TCP port number for the Lisp Swank server.")
-
 (defvar slime-path
   (let ((path (locate-library "slime")))
     (and path (file-name-directory path)))
@@ -599,50 +596,45 @@ If that doesn't give a function, return nil."
   "Timer object for connection retries.")
 
 (defun slime ()
-  "Start an inferior^_superior Lisp and connect to its Swank server.
-With a prefix argument, prompt for the port number for Lisp
-communication. The port is remembered for future connections."
+  "Start an inferior^_superior Lisp and connect to its Swank server."
   (interactive)
-  (when current-prefix-arg
-    (slime-read-and-update-swank-port))
   (when (slime-connected-p)
     (slime-disconnect))
   (slime-maybe-start-lisp)
-  (slime-connect "localhost" slime-swank-port))
+  (slime-connect))
 
-(defun slime-read-and-update-swank-port ()
-  "Prompt the user for the port number to use for Lisp communication."
-  (let* ((port-string (format "%S" slime-swank-port))
-         (new-port-string (read-from-minibuffer "SLIME Port: " port-string))
-         (new-port (read new-port-string)))
-    (if (integerp new-port)
-        (setq slime-swank-port new-port)
-      (error "Not a valid port: %S" new-port-string))))
-        
 (defun slime-maybe-start-lisp ()
   "Start an inferior lisp unless one is already running."
   (unless (get-buffer-process (get-buffer "*inferior-lisp*"))
     (call-interactively 'inferior-lisp)
-    (slime-start-swank-server)))
+    (comint-proc-query (inferior-lisp-proc)
+                       (format "(load %S)\n"
+                               (concat slime-path slime-backend)))))
 
 (defun slime-start-swank-server ()
   "Start a Swank server on the inferior lisp."
   (comint-proc-query (inferior-lisp-proc)
-                     (format "(load %S)\n"
-                             (concat slime-path slime-backend)))
-  (comint-proc-query (inferior-lisp-proc)
-                     (format "(swank:start-server %S)\n" slime-swank-port)))
+                     (format "(swank:start-server %S)\n"
+                             (slime-swank-port-file))))
 
-(defun slime-connect (host port &optional retries)
+(defun slime-swank-port-file ()
+  "Filename where the SWANK server writes its TCP port number."
+  (format "/tmp/slime.%S" (emacs-pid)))
+
+(defun slime-read-swank-port ()
+  "Read the Swank server port number from the `slime-swank-port-file'."
+  (save-excursion
+    (with-temp-buffer
+      (insert-file-contents (slime-swank-port-file))
+      (goto-char (point-min))
+      (let ((port (read (current-buffer))))
+        (assert (integerp port))
+        port))))
+
+(defun slime-connect (&optional retries)
   "Connect to a running Swank server."
-  (interactive (list (read-string "Host: " "localhost")
-		     (let ((port
-			    (read-string "Port: " 
-					 (number-to-string slime-swank-port))))
-		       (or (ignore-errors (string-to-number port)) port))))
-  (lexical-let ((host host)
-                (port port)
-                (retries (or retries slime-swank-connection-retries))
+  (slime-start-swank-server)
+  (lexical-let ((retries (or retries slime-swank-connection-retries))
                 (attempt 0))
     (labels
         ;; A small one-state machine to attempt a connection with
@@ -651,15 +643,19 @@ communication. The port is remembered for future connections."
           ()
           (unless (active-minibuffer-window)
             (message "\
-Connecting to Swank at %s:%S. (Abort with `M-x slime-disconnect'.)"
-                     host port))
-          (setq slime-state-name (format "[connect:%S]" (incf attempt)))
+Polling %S.. (Abort with `M-x slime-disconnect'.)"
+                     (slime-swank-port-file)))
+          (setq slime-state-name (format "[polling:%S]" (incf attempt)))
           (force-mode-line-update)
           (setq slime-connect-retry-timer nil) ; remove old timer
-          (cond ((slime-net-connect host port)
-                 (slime-init-connection)
-                 (message "Connected to Swank on %s:%S. %s"
-                          host port (slime-random-words-of-encouragement)))
+          (cond ((file-exists-p (slime-swank-port-file))
+                 (let ((port (slime-read-swank-port)))
+                   (message "Connecting to Swank on port %S.." port)
+                   (delete-file (slime-swank-port-file))
+                   (slime-net-connect "localhost" port)
+                   (slime-init-connection)
+                   (message "Connected to Swank server on port %S. %s"
+                            port (slime-random-words-of-encouragement))))
                 ((and retries (zerop retries))
                  (message "Failed to connect to Swank."))
                 (t
@@ -711,20 +707,16 @@ Connecting to Swank at %s:%S. (Abort with `M-x slime-disconnect'.)"
 
 (defun slime-net-connect (host port)
   "Establish a connection with a CL."
-  (condition-case nil
-      (progn
-        (setq slime-net-process
-              (open-network-stream "SLIME Lisp" nil host port))
-        (let ((buffer (slime-make-net-buffer "*cl-connection*")))
-          (set-process-buffer slime-net-process buffer)
-          (set-process-filter slime-net-process 'slime-net-filter)
-          (set-process-sentinel slime-net-process 'slime-net-sentinel)
-          (when (fboundp 'set-process-coding-system)
-            (set-process-coding-system slime-net-process 
-                                       'no-conversion 'no-conversion)))
-	slime-net-process)
-    (file-error () nil)
-    (network-error () nil)))
+  (setq slime-net-process
+        (open-network-stream "SLIME Lisp" nil host port))
+  (let ((buffer (slime-make-net-buffer "*cl-connection*")))
+    (set-process-buffer slime-net-process buffer)
+    (set-process-filter slime-net-process 'slime-net-filter)
+    (set-process-sentinel slime-net-process 'slime-net-sentinel)
+    (when (fboundp 'set-process-coding-system)
+      (set-process-coding-system slime-net-process 
+                                 'no-conversion 'no-conversion)))
+  slime-net-process)
     
 (defun slime-make-net-buffer (name)
   "Make a buffer suitable for a network process."

@@ -30,9 +30,15 @@
 
 ;;; Setup and Hooks
 
-(defun start-server (&optional (port server-port))
-  "Start the Slime backend on TCP port `port'."
-  (create-swank-server port :reuse-address t)
+(defun start-server (port-file-namestring)
+  "Create a SWANK server and write its port number to the file
+PORT-FILE-NAMESTRING in ascii text."
+  (let ((port (create-swank-server 0 :reuse-address t)))
+    (with-open-file (s port-file-namestring
+                       :direction :output
+                       :if-exists :overwrite
+                       :if-does-not-exist :create)
+      (format s "~S~%" port)))
   (when *swank-debug-p*
     (format *debug-io* "~&;; Swank ready.~%")))
 

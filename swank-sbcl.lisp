@@ -61,13 +61,17 @@
      (sb-bsd-sockets:socket-file-descriptor socket)
      :input (lambda (fd) 
 	      (declare (ignore fd))
-	      (accept-connection socket)))))
+	      (accept-connection socket)))
+    (nth-value 1 (sb-bsd-sockets:socket-name socket))))
 
 (defun accept-connection (server-socket)
-  "Accept a SWANK TCP connection on SOCKET."
+  "Accept one Swank TCP connection on SOCKET and then close it."
   (let* ((socket (sb-bsd-sockets:socket-accept server-socket))
 	 (stream (sb-bsd-sockets:socket-make-stream 
 		  socket :input t :output t :element-type 'base-char)))
+    (sb-sys:invalidate-descriptor (sb-bsd-sockets:socket-file-descriptor
+                                   server-socket))
+    (sb-bsd-sockets:socket-close server-socket)
     (sb-sys:add-fd-handler 
      (sb-bsd-sockets:socket-file-descriptor socket)
      :input (lambda (fd) 

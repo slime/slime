@@ -59,20 +59,24 @@
 ;; blocks on its TCP port while waiting for forms to evaluate.
 
 (defun create-swank-server (port &key reuse-address)
-  "Create a Swank TCP server on `port'."
-  (ccl:process-run-function "Swank Request Processor" #'swank-main-loop
-                            port reuse-address))
-
-(defun swank-main-loop (port reuse-address)
-  "Create the TCP server and accept connections in a new thread."
+  "Create a Swank TCP server on `port'.
+Return the port number that the socket is actually listening on."
   (let ((server-socket (ccl:make-socket :connect :passive :local-port port
                                         :reuse-address reuse-address)))
-    (loop
-     (let ((socket (ccl:accept-connection server-socket :wait t)))
-       (ccl:process-run-function
-        (list :name (format nil "Swank Client ~D" (ccl:socket-os-fd socket))
-              :initial-bindings `((*emacs-io* . ',socket)))
-        #'request-loop)))))
+    (ccl:process-run-function "Swank Request Processor"
+                              #'swank-accept-connection
+                              server-socket)
+    (ccl:local-port server-socket)))
+
+(defun swank-accept-connection (server-socket)
+  "Accept one Swank TCP connection on SOCKET and then close it.
+Run the connection handler in a new thread."
+  (let ((socket (ccl:accept-connection server-socket :wait t)))
+    (close server-socket)
+    (ccl:process-run-function
+     (list :name (format nil "Swank Client ~D" (ccl:socket-os-fd socket))
+           :initial-bindings `((*emacs-io* . ',socket)))
+     #'request-loop)))
 
 (defun request-loop ()
   "Thread function for a single Swank connection.  Processes requests

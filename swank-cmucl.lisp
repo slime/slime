@@ -73,15 +73,17 @@
   (let* ((hostent (ext:lookup-host-entry address))
          (address (car (ext:host-entry-addr-list hostent)))
          (ip (ext:htonl address)))
-    (system:add-fd-handler
-     (ext:create-inet-listener port :stream
-                               :reuse-address reuse-address
-                               :host ip)
-     :input #'accept-connection)))
+    (let ((fd (ext:create-inet-listener port :stream
+                                        :reuse-address reuse-address
+                                        :host ip)))
+      (system:add-fd-handler fd :input #'accept-connection)
+      (nth-value 1 (ext::get-socket-host-and-port fd)))))
 
 (defun accept-connection (socket)
-  "Accept a SWANK TCP connection on SOCKET."
-  (setup-request-handler (ext:accept-tcp-connection socket)))
+  "Accept one Swank TCP connection on SOCKET and then close it."
+  (setup-request-handler (ext:accept-tcp-connection socket))
+  (sys:invalidate-descriptor socket)
+  (unix:unix-close socket))
 
 (defun setup-request-handler (socket)
   "Setup request handling for SOCKET."

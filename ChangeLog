@@ -1,5 +1,23 @@
 2003-10-25  Luke Gorrie  <luke@bluetail.com>
 
+	* Everywhere: Changed the connection setup to use a dynamic
+	collision-free TCP port. The new protocol is this:
+	
+	  Emacs calls (swank:start-server FILENAME) via the
+	    listener. FILENAME is /tmp/slime.${emacspid}
+	  Lisp starts a TCP server on a dynamic available port and writes
+	    the port number it gets to FILENAME.
+	  Emacs asynchronously polls for FILENAME's creation. When it
+	    exists, Emacs reads the port number, deletes the file, and makes
+	    the connection.
+	
+	The advantage is that you can run multiple Emacsen each with an
+	inferior lisp, and the port numbers will never collide and Emacs
+	will always connect to the right lisp.
+
+	All backends are updated, but only CMUCL and SBCL are
+	tested. Therefore, OpenMCL is almost certainly broken just now.
+	
 	* slime.el (inferior-slime-closing-return): New command that
 	closes all open lists and sends the result to Lisp. Bound to C-RET
 	and (for people who use C-m for RET) C-M-m.
