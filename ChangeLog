@@ -1,3 +1,17 @@
+2004-06-21  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-complete-maybe-restore-window-configuration):
+	Only restore the window configuration if the completions buffer is
+	currently visible in the window that we popped it up in.
+	(slime-complete-maybe-save-window-configuration): Don't save the
+	window configuration if the completions buffer is already visible.
+	(slime-repl-return): Make sure the newline goes at the end of the
+	input, not at point.
+	(slime-complete-restore-window-configuration): Wrap the
+	`set-window-configuration' call in (run-at-time 0 ..). XEmacs does
+	not allow us to set the window configuration from inside
+	pre-command-hook.
+
 2004-06-20  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-sbcl.lisp (emacs-connected): Set *invoke-debugger-hook* to
