@@ -1,3 +1,8 @@
+2003-12-19  Luke Gorrie  <luke@bluetail.com>
+
+	* null-swank-impl.lisp: Deleted this old file. See
+	swank-backend.lisp instead.
+
 2003-12-18 Alan Ruttenberg <alanralanr@comcast.net>
 	* swank-openmcl.lisp 1.41
 	in openmcl (break) now goes into slime debugger. 
