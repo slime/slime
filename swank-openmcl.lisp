@@ -221,54 +221,118 @@ condition."
   (format nil "~A~%   [Condition of type ~S]"
           *swank-debugger-condition* (type-of *swank-debugger-condition*)))
 
-;; This is deep voodoo copied from ccl:lib/backtrace.lisp --- ideally
-;; OpenMCL would provide a function for copying backtrace info into a
-;; vector or something.
-(defun frame-parameters (p tcr lfun pc)
-  (with-output-to-string (s)
-    (multiple-value-bind (count vsp parent-vsp)
-        (ccl::count-values-in-frame p tcr)
-      (declare (fixnum count))
-      (dotimes (i count)
-        (multiple-value-bind (var type name)
-            (ccl::nth-value-in-frame p i tcr lfun pc vsp parent-vsp)
-          (declare (ignore name type))
-          (format s " ~S" var))))))
-
-;; Also copied almost verbatim from the OpenMCL sources.
-(defun compute-backtrace (start end &key (start-frame (ccl::%get-frame-ptr)))
+(defun do-backtrace (function &optional
+                     (start-frame-number 0)
+                     (end-frame-number most-positive-fixnum))
+  "Call FUNCTION passing information about each stack frame
+from frames START-FRAME-NUMBER to END-FRAME-NUMBER."
   (let ((tcr (ccl::%current-tcr))
-        (result)
         (frame-number 0)
-        (total 0))
-    (do* ((p start-frame (ccl::parent-frame p tcr))
+        (top-stack-frame (or *swank-debugger-stack-frame* 
+                             (ccl::%get-frame-ptr))))
+    (do* ((p top-stack-frame (ccl::parent-frame p tcr))
           (q (ccl::last-frame-ptr tcr)))
          ((or (null p) (eq p q) (ccl::%stack< q p tcr))
           (values))
-      (declare (fixnum frame-number))
-      (progn
-        (multiple-value-bind (lfun pc) (ccl::cfp-lfun p)
-          (declare (ignore pc))
-          (when lfun
-            (incf total)
-            (if (and (>= frame-number start) (< frame-number end))
-                (push (list frame-number
-                          (format nil "~D: (~A)"
-                                  frame-number
-                                  (ccl::%lfun-name-string lfun)))
-                      result))
-            (incf frame-number)))))
-    (values (nreverse result) total)))
+      (multiple-value-bind (lfun pc) (ccl::cfp-lfun p)
+        (when lfun
+          (if (and (>= frame-number start-frame-number)
+                   (< frame-number end-frame-number))
+              (funcall function frame-number p tcr lfun pc))
+          (incf frame-number))))))
 
-(defslimefun backtrace-for-emacs (start end)
-  (compute-backtrace start end :start-frame *swank-debugger-stack-frame*))
+(defun backtrace-length ()
+  "Return the total number of frames available in the debugger."
+  (let ((result 0))
+    (do-backtrace #'(lambda (n p tcr lfun pc)
+                      (declare (ignore n p tcr lfun pc))
+                      (incf result)))
+    result))
+
+(defun frame-arguments (p tcr lfun pc)
+  "Returns a string representing the arguments of a frame."
+  (multiple-value-bind (count vsp parent-vsp)
+      (ccl::count-values-in-frame p tcr)
+    (let (result)
+        (dotimes (i count)
+          (multiple-value-bind (var type name)
+              (ccl::nth-value-in-frame p i tcr lfun pc vsp parent-vsp)
+            (when name
+              (cond ((equal type "required")
+                     (push (to-string var) result))
+                    ((equal type "optional")
+                     (push (to-string var) result))
+                    ((equal type "keyword")
+                     (push (format nil "~S ~A" 
+                                   (intern (symbol-name name) "KEYWORD")
+                                   (to-string var))
+                           result))))))
+        (format nil "~{ ~A~}" (nreverse result)))))
+
+(defslimefun backtrace-for-emacs (&optional
+                  (start-frame-number 0)
+                  (end-frame-number most-positive-fixnum))
+  "Return a list containing a stack backtrace of the condition
+currently being debugged.  The return value of this function is
+unspecified unless called in the dynamic contour of a function
+defined by DEFINE-DEBUGGER-HOOK.
+
+START-FRAME-NUMBER and END-FRAME-NUMBER are zero-based indices
+constraining the number of frames returned.  Frame zero is
+defined as the frame which invoked the debugger.
+
+The backtrace is returned as a list of tuples of the form
+\(FRAME-NUMBER FRAME-DESCRIPTION\), where FRAME-NUMBER is the
+index of the frame, defined like START-FRAME-NUMBER, and
+FRAME-DESCRIPTION is a string containing a textual description
+of the call at this stack frame.
+
+An example return value:
+
+   ((0 \"(HELLO \"world\"))
+    (1 \"(RUN-EXCITING-LISP-DEMO)\")
+    (2 \"(SYS::%TOPLEVEL #<SYS::ENVIRONMENT #x2930843>)\"))
+
+If the backtrace cannot be calculated, this function returns NIL."
+  (let (result)
+    (do-backtrace #'(lambda (frame-number p tcr lfun pc)
+                      (push (list frame-number
+                                  (format nil "~D: (~A~A)" frame-number
+                                          (ccl::%lfun-name-string lfun)
+                                          (frame-arguments p tcr lfun pc)))
+                            result))
+      start-frame-number end-frame-number)
+    (nreverse result)))
 
 (defslimefun debugger-info-for-emacs (start end)
-  (multiple-value-bind (backtrace length)
-      (backtrace-for-emacs start end)
-    (list (format-condition-for-emacs)
-          (format-restarts-for-emacs)
-          length backtrace)))
+  (list (format-condition-for-emacs)
+        (format-restarts-for-emacs)
+        (backtrace-length)
+        (backtrace-for-emacs start end)))
+
+(defslimefun frame-locals (index)
+  (do-backtrace 
+      #'(lambda (frame-number p tcr lfun pc)
+          (when (= frame-number index)
+            (multiple-value-bind (count vsp parent-vsp)
+                (ccl::count-values-in-frame p tcr)
+              (let (result)
+                (dotimes (i count)
+                  (multiple-value-bind (var type name)
+                      (ccl::nth-value-in-frame p i tcr lfun pc vsp parent-vsp)
+                    (declare (ignore type))
+                    (when name
+                      (push (list 
+                             :symbol name
+                             :id 0
+                             :validity :valid
+                             :value-string (to-string var))
+                            result))))
+                (return-from frame-locals (nreverse result))))))))
+
+(defslimefun frame-catch-tags (index)
+  (declare (ignore index))
+  nil)
 
 (defun nth-restart (index)
   (nth index *sldb-restarts*))
@@ -337,7 +401,7 @@ Return NIL if the symbol is unbound."
         (list nil))
     (dolist (caller callers)
       (let ((source-info (ccl::%source-files caller)))
-        (when (atom source-info)
+        (when (and source-info (atom source-info))
           (let ((filename (namestring (truename source-info)))
                 ;; This is clearly not the real source path but it will
                 ;; get us into the file at least...
@@ -360,3 +424,4 @@ Return NIL if the symbol is unbound."
 ;;; Macroexpansion
 
 (defslimefun-unimplemented swank-macroexpand-all (string))
+
