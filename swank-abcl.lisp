@@ -15,6 +15,16 @@
   (require :collect) ;just so that it doesn't spoil the flying letters
   (require :pprint))
 
+(defun sys::break (&optional (format-control "BREAK called") &rest format-arguments)
+  (let ((*saved-backtrace* (sys::backtrace-as-list)))
+    (with-simple-restart (continue "Return from BREAK.")
+      (invoke-debugger
+       (sys::%make-condition 'simple-condition
+                             (list :format-control format-control
+                                   :format-arguments format-arguments))))
+    nil))
+
+
 (defimplementation make-fn-streams (input-fn output-fn)
   (let* ((output (ext:make-slime-output-stream output-fn))
          (input  (ext:make-slime-input-stream input-fn output)))
