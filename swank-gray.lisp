@@ -2,7 +2,7 @@
 ;;;
 ;;; swank-gray.lisp --- Gray stream based IO redirection.
 ;;;
-;;; Created 2003, Helmut Eller
+;;; Created 2003
 ;;;
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
@@ -51,8 +51,12 @@
     (when (= index (length buffer))
       (when output-stream
         (force-output output-stream))
-      (setf buffer (funcall input-fn))
-      (setf index 0))
+      (let ((string (funcall input-fn)))
+        (cond ((zerop (length string))
+               (return-from stream-read-char :eof))
+              (t
+               (setf buffer string)
+               (setf index 0)))))
     (assert (plusp (length buffer)))
     (prog1 (aref buffer index) (incf index))))
 
