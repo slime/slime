@@ -1,3 +1,8 @@
+2005-03-13  Luke Gorrie  <luke@synap.se>
+
+	* swank-loader.lisp (*os-features*): Added :mswindows. Thanks Will
+	Glozer.
+
 2005-03-12  Luke Gorrie  <luke@synap.se>
 
 	* slime.el (slime-edit-value): New function on `C-c E'. Prompts
