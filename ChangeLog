@@ -1,9 +1,16 @@
 2003-09-27  Luke Gorrie  <luke@bluetail.com>
 
+	* swank.lisp (with-trapping-compilation-notes): New macro for
+	bindings the handlers to record compiler notes. Now being used in
+	`compile-string', which I had broken when removing the compilation
+	hook.
+
 	* slime.el (slime-function-called-at-point): Rewritten to work
 	better. Now considers "((foo ..." _not_ to be a function call to
 	foo because of the double ('s - this will keep it from misfiring
 	in e.g. LET bindings.
+	(def-slime-test): All tests now being with (slime-sync). This
+	fixes some accidental/bogus test failures.
 
 	* swank.lisp (handle-notification-condition): Rewrote
 	compiler-note collection. Now it uses lower-level condition
