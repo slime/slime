@@ -1,6 +1,6 @@
 2003-11-13  Luke Gorrie  <luke@bluetail.com>
 
-	* slime.el (slime-repl-previous-input, slime-repl-previous-input):
+	* slime.el (slime-repl-previous-input, slime-repl-next-input):
 	When partial input has already been entered, the M-{p,n} REPL
 	history commands only match lines that start with the
 	already-entered prefix. This is comint-compatible behaviour which
