@@ -1,3 +1,10 @@
+2003-10-18  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el: Fix some bugs in the state machine and be a bit more
+	careful when processing pending input.
+	(slime-compile-region): New command.
+	Some more tests.
+	
 2003-10-17  James Bielman  <jamesjb@jamesjb.com>
 
 	* .cvsignore: Add OpenMCL and SBCL fasl file extensions.
