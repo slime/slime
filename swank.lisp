@@ -1,7 +1,8 @@
 (defpackage :swank
   (:use :common-lisp :wire)
   (:export #:start-server #:evaluate #:lookup-notes
-           #:swank-compile-file #:arglist-string #:completions))
+           #:swank-compile-file #:arglist-string #:completions
+           #:find-fdefinition))
 
 (in-package :swank)
 
@@ -206,4 +207,53 @@ the package are considered."
 \(This includes the case where S1 is equal to S2.)"
   (and (<= (length s1) (length s2))
        (string= s1 s2 :end2 (length s1))))
+
+;;;; Definitions
+
+;;; FIND-FDEFINITION -- interface
+;;;
+(defun find-fdefinition (symbol-name package-name)
+  "Return the name of the file in which the function was defined, or NIL."
+  (fdefinition-file (read-symbol/package symbol-name package-name)))
+
+;;; Clone of HEMLOCK-INTERNALS::FUN-DEFINED-FROM-PATHNAME
+(defun fdefinition-file (function)
+  "Return the name of the file in which FUNCTION was defined."
+  (declare (type (or symbol function) function))
+  (typecase function
+    (symbol
+     (let ((def (or (macro-function function)
+                                  (and (fboundp function)
+                                       (fdefinition function)))))
+       (when def (fdefinition-file def))))
+    (kernel:byte-closure
+     (fdefinition-file (kernel:byte-closure-function function)))
+    (kernel:byte-function
+     (code-definition-file (c::byte-function-component function)))
+    (function
+     (code-definition-file (kernel:function-code-header
+                              (kernel:%function-self function))))
+    (t nil)))
+
+(defun code-definition-file (code)
+  "Return the name of the file in which CODE was defined."
+  (declare (type kernel:code-component code))
+  (flet ((to-namestring (pathname)
+           (handler-case (namestring (truename pathname))
+             (file-error () nil))))
+    (let ((info (kernel:%code-debug-info code)))
+      (when info
+        (let ((source (car (c::debug-info-source info))))
+          (when (and source (eq (c::debug-source-from source) :file))
+            (to-namestring (c::debug-source-name source))))))))
+
+;;;; Utilities.
+
+(defun read-symbol/package (symbol-name package-name)
+  (let ((package (find-package package-name)))
+    (unless package (error "No such package: %S" package-name))
+    (handler-case 
+        (let ((*package* package))
+          (read-from-string symbol-name))
+      (reader-error () nil))))
 
