@@ -201,7 +201,7 @@
     (subseq (ext:backtrace-as-list) start end)))
 
 (defimplementation print-frame (frame stream)
-    (print frame stream))
+    (pprint frame stream))
 
 #+nil
 (defimplementation frame-locals (index)
@@ -316,13 +316,13 @@
 |#
 
 (defun source-location (symbol)
-  (when (ext:source symbol)
+  (when (pathnamep (ext:source-pathname symbol))
     `(((,symbol)
        (:location 
         (:file ,(namestring (ext:source-pathname symbol)))
         (:position ,(or (ext:source-file-position symbol) 0) t)
         (:snippet nil))))))
-  
+
 
 (defimplementation find-definitions (symbol)
   (source-location symbol))
