@@ -1,3 +1,9 @@
+2004-01-31 Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* Merge stateless-emacs branch into main trunk.  We use now signal
+	driven IO for CMUCL and one thread per request for multithreaded
+	Lisps.
+
 2004-01-31  Robert E. Brown <bbrown@speakeasy.net>
 
 	* swank-backend.lisp, swank-sbcl.lisp,
