@@ -1,3 +1,14 @@
+2003-12-14  Alan Ruttenberg <alanralanr@comcast.net>
+
+	* swank-openmcl.lisp (eval-in-frame, inspect-object and friends):
+	Most of this is copied from swank-cmucl. The parts between &&&&&
+	are what I added for openmcl. I piggyback off the inspector which
+	is shipped with openmcl, so inspecting won't look the same as it
+	would in cmucl, I imagine. Still, it's a start.  eval in frame
+	uses frame-locals to get bindings so if you have debug settings
+	low or don't have *save-local-symbols* set you won't be able to
+	evaluate.
+		
 2003-12-14  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-lispworks.lisp (tracedp, toggle-trace-fdefinition): Moved
