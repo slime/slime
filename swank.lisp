@@ -728,7 +728,8 @@ the string."
   (declare (type function fn))
   (let* ((label (format nil "  ~D: " n))
          (string (with-output-to-string (stream) 
-                   (let ((*print-pretty* *sldb-pprint-frames*))
+                   (let ((*print-pretty* *sldb-pprint-frames*)
+                         (*print-circle* t))
                      (princ label stream) (funcall fn stream)))))
     (subseq string (length label))))
 
@@ -1236,6 +1237,10 @@ that symbols accessible in the current package go first."
 (defslimefun untrace-all ()
   (untrace))
 
+(defslimefun undefine-function (fname-string)
+  (let ((fname (from-string fname-string)))
+    (format nil "~S" (fmakunbound fname))))
+
 (defslimefun load-file (filename)
   (to-string (load filename)))
 
@@ -1330,7 +1335,8 @@ from an element and TEST is used to compare keys."
   (inspect-object (eval (from-string string))))
 
 (defun print-part-to-string (value)
-  (let ((*print-pretty* nil))
+  (let ((*print-pretty* nil)
+        (*print-circle* t))
     (let ((string (to-string value))
 	  (pos (position value *inspector-history*)))
       (if pos
