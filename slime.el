@@ -123,6 +123,9 @@ See also `slime-translate-to-lisp-filename-function'.")
 (defvar slime-reply-update-banner-p t
   "Whether Slime should keep a repl banner updated or not.")
 
+(defvar slime-enable-startup-animation-p t
+  "*Flag to suppress the animation at the beginning.")
+
 (defvar slime-edit-definition-fallback-function nil
   "Function to call when edit-definition fails to find the source itself.
 The function is called with the definition name, a string, as its argument.
@@ -1453,7 +1456,8 @@ This command is mostly intended for debugging the multi-session code."
   (interactive)
   (when (null slime-net-processes)
     (error "Not connected."))
-  (let ((conn (nth (mod (1+ (or (position slime-default-connection slime-net-processes)
+  (let ((conn (nth (mod (1+ (or (position slime-default-connection 
+                                          slime-net-processes)
                                 0))
                         (length slime-net-processes))
                    slime-net-processes)))
@@ -1671,14 +1675,24 @@ fixnum a specific thread."))
           (slime-connection-name) (slime-generate-connection-name name)
           (slime-lisp-features) features))
   (setq slime-state-name "")
-  (when-let (buffer (get-buffer "*inferior-lisp*"))
-    (delete-windows-on buffer)
-    (bury-buffer buffer))
+  (slime-hide-inferior-lisp-buffer)
   (slime-init-output-buffer process)
   (message "Connected on port %S. %s" 
            (slime-connection-port connection)
            (slime-random-words-of-encouragement))
   (run-hooks 'slime-connected-hook))
+
+(defun slime-hide-inferior-lisp-buffer ()
+  "Display the REPL buffer instead of the *inferior-lisp* buffer."
+  (let* ((buffer (get-buffer "*inferior-lisp*"))
+         (window (if buffer (get-buffer-window buffer)))
+         (repl (slime-output-buffer t)))
+    (when buffer
+      (bury-buffer buffer))
+    (cond (window 
+           (set-window-buffer window repl))
+          ((not (get-buffer-window repl))
+           (pop-to-buffer repl)))))
 
 (defun slime-busy-p ()
   slime-rex-continuations)
@@ -1706,7 +1720,9 @@ fixnum a specific thread."))
         (delete-region (point-min) (point)))
       (goto-char (point-max))
       (save-excursion
-        (pp event (current-buffer)))
+        (let ((print-level 5)
+              (print-length 20))
+          (pp event (current-buffer))))
       (when (and (boundp 'outline-minor-mode)
                  outline-minor-mode)
         (hide-entry))
@@ -1861,29 +1877,26 @@ deal with that."
           (current-buffer)))))
 
 (defun slime-repl-update-banner ()
-  (let ((banner (format "%s  Port: %s  Pid: %s"
-                        (slime-lisp-implementation-type)
-                        (if (featurep 'xemacs)
-                            (process-id (slime-connection))
-                          (process-contact (slime-connection)))
-                        (slime-pid))))
-    ;; Emacs21 has the fancy persistent header-line.
-    (cond ((boundp 'header-line-format)
-           (when slime-reply-update-banner-p
-             (setq header-line-format banner))
-           (pop-to-buffer (current-buffer))
-           (when (fboundp 'animate-string)
-             ;; and dancing text
-             (when (zerop (buffer-size))
-               (animate-string (format "; SLIME %s" slime-changelog-date)
-                               0 0)))
-           (slime-repl-insert-prompt ""))
-          (t
-           (slime-repl-insert-prompt 
-            (if slime-reply-update-banner-p
-                (concat "; " banner)
-              ""))
-           (pop-to-buffer (current-buffer))))))
+  (let* ((banner (format "%s  Port: %s  Pid: %s"
+                         (slime-lisp-implementation-type)
+                         (slime-connection-port (slime-connection))
+                         (slime-pid)))
+         ;; Emacs21 has the fancy persistent header-line.
+         (use-header-p (and (boundp 'header-line-format) 
+                            slime-reply-update-banner-p))
+         ;; and dancing text
+         (animantep (and (fboundp 'animate-string)
+                         slime-enable-startup-animation-p
+                         (zerop (buffer-size)))))
+    (when use-header-p
+      (setq header-line-format banner))
+    (when animantep
+      (pop-to-buffer (current-buffer))
+      (animate-string (format "; SLIME %s" slime-changelog-date) 0 0))
+    (slime-repl-insert-prompt (if (or (not slime-reply-update-banner-p)
+                                      use-header-p)
+                                  ""
+                                (concat "; " banner)))))
 
 (defun slime-init-output-buffer (connection)
   (with-current-buffer (slime-output-buffer t)
@@ -1980,7 +1993,7 @@ update window-point afterwards.  If point is initially not at
 
 (defun slime-switch-to-output-buffer (&optional select-connection)
   "Select the output buffer, preferably in a different window."
-  (interactive "p")
+  (interactive "P")
   (slime-with-chosen-connection (select-connection)
     (set-buffer (slime-output-buffer))
     (unless (eq (current-buffer) (window-buffer))
