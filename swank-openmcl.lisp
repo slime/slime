@@ -161,8 +161,8 @@
 
 ;;; Compilation
 
-(defvar *buffer-offset*)
-(defvar *buffer-name*)
+(defvar *buffer-offset* nil)
+(defvar *buffer-name* nil)
 
 (defun condition-source-position (condition)
   "Return the position in the source file of a compiler condition."

@@ -5952,7 +5952,7 @@ BODY returns true if the check succeeds."
 (defmacro defslime-repl-shortcut (elisp-name names &rest options)
   "Define a new repl shortcut. ELISP-NAME is a symbol specifying
   the name of the interactive function to create, or NIL if no
-  function whould be created. NAMES is a list of (full-name .
+  function should be created. NAMES is a list of (full-name .
   aliases). OPTIONS is an olist specifying the handler and the
   help text."
   `(progn
@@ -6052,7 +6052,8 @@ BODY returns true if the check succeeds."
 (defslime-repl-shortcut slime-repl-sayoonara ("sayoonara")
   (:handler (lambda ()
               (interactive)
-              (slime-eval-async '(swank:quit-lisp) nil (lambda (_) nil))
+              (when (slime-connected-p)
+                (slime-eval-async '(swank:quit-lisp) nil (lambda (_) nil)))
               (slime-kill-all-buffers)))
   (:one-liner "Quit the lisp and close all SLIME buffers."))
 

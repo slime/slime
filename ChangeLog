@@ -1,3 +1,12 @@
+2004-05-06  Marco Baringer <mb@bese.it>
+
+	* slime.el (slime-repl-sayoonara): Don't attempt to quit the lisp
+	if we're not connected.
+
+	* swank-openmcl.lisp (*buffer-offset*, *buffer-name*): Supply
+	default values. This avoids unbound value errors when compiling an
+	asdf system signals errors.
+	
 2004-05-04  Alan Shutko  <ats@acm.org>
 
 	* slime.el (slime-compiler-notes-show-details/mouse): New command.
