@@ -352,8 +352,7 @@ at least the filename containing it."
   (nth index *sldb-restarts*))
 
 (defslimefun invoke-nth-restart (index)
-  (let ((restart (nth-restart index)))
-    (invoke-restart restart)))
+  (invoke-restart-interactively (nth-restart index)))
 
 (defslimefun sldb-abort ()
   (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))

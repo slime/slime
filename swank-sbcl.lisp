@@ -532,7 +532,7 @@ stack."
 	collect `(,tag . ,(safe-source-location-for-emacs code-location))))
 
 (defslimefun invoke-nth-restart (index)
-  (invoke-restart (nth-restart index)))
+  (invoke-restart-interactively (nth-restart index)))
 
 (defslimefun sldb-abort ()
   (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))

@@ -233,6 +233,7 @@ the error-context redundant."
     (format nil "~@[--> ~{~<~%--> ~1:;~A~> ~}~%~]~@[~{==>~%~A~^~%~}~]~A"
             enclosing source condition)))
 
+
 (defun compiler-note-location (context)
   (cond (context
          (resolve-note-location
@@ -658,7 +659,7 @@ The second return value is the condition or nil."
           ((macro-function symbol)
            (function-source-locations (macro-function symbol)))
           ((special-operator-p symbol)
-           (list (list :error (format nil "~A is special-operator" symbol))))
+           (list (list :error (format nil "~A is a special-operator" symbol))))
           ((fboundp symbol)
            (function-source-locations (coerce symbol 'function)))
           (t (list (list :error
@@ -1083,7 +1084,7 @@ stack."
 	collect `(,tag . ,(code-location-source-location code-location))))
 
 (defslimefun invoke-nth-restart (index)
-  (invoke-restart (nth-restart index)))
+  (invoke-restart-interactively (nth-restart index)))
 
 (defslimefun sldb-abort ()
   (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))

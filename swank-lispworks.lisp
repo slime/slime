@@ -218,8 +218,7 @@ Return NIL if the symbol is unbound."
   (nth index *sldb-restarts*))
 
 (defslimefun invoke-nth-restart (index)
-  (let ((restart (nth-restart index)))
-    (invoke-restart restart)))
+  (invoke-restart-interactively (nth-restart index)))
 
 (defmethod frame-locals (n)
   (let ((frame (nth-frame n)))
