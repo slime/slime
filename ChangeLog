@@ -1,12 +1,17 @@
 2004-04-27  Luke Gorrie  <luke@bluetail.com>
 
+	* doc/slime.texi (Other configurables): Updated instructions on
+	globally installing SLDB on *debugger-hook*.
+
 	* slime.el (slime-log-event): Better bug-avoidance with
 	hs-minor-mode. Hopefully XEmacs users can rest safely now.
 	(slime-prin1-to-string): Bind `print-escape-newlines' to nil.
+	(slime-set-connection-info): Commented out call to
+	`slime-check-protocol-version'. Let's see how we do without it.
+	(slime-oneway-eval): Removed unused function.
 
-	* swank.lisp (oneway-eval-string): Bind *package* to
-	*buffer-package*.
-
+	* swank.lisp (oneway-eval-string): Removed unused function.
+	
 2004-04-26  Luke Gorrie  <luke@bluetail.com>
 
 	* swank.lisp: Move definition of `with-io-redirection' above
