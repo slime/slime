@@ -1160,22 +1160,27 @@ The content of the *cl-connection* buffer:
   (error "The SLIME protocol reached an inconsistent state."))
 
 
+
+(defvar slime-log-events t
+  "*Log protocol events to the *slime-events* buffer.")
+
 ;;;;; Event logging to *slime-events*
 (defun slime-log-event (event)
-  (with-current-buffer (slime-events-buffer)
-    ;; trim?
-    (when (> (buffer-size) 100000)
-      (goto-char (/ (buffer-size) 2))
-      (beginning-of-defun)
-      (delete-region (point-min) (point)))
-    (goto-char (point-max))
-    (save-excursion
-      (pp event (current-buffer))
-      (when (equal event '(activate))
-        (backward-char 1)
-        (insert (format " ; %s" (slime-state-name (slime-current-state))))))
-    (hs-hide-block-at-point)
-    (goto-char (point-max))))
+  (when slime-log-events
+    (with-current-buffer (slime-events-buffer)
+      ;; trim?
+      (when (> (buffer-size) 100000)
+        (goto-char (/ (buffer-size) 2))
+        (beginning-of-defun)
+        (delete-region (point-min) (point)))
+      (goto-char (point-max))
+      (save-excursion
+        (pp event (current-buffer))
+        (when (equal event '(activate))
+          (backward-char 1)
+          (insert (format " ; %s" (slime-state-name (slime-current-state))))))
+      (hs-hide-block-at-point)
+      (goto-char (point-max)))))
 
 (defun slime-events-buffer ()
   (or (get-buffer "*slime-events*")
@@ -1646,6 +1651,7 @@ balanced."
          (insert "\n"))
         ((slime-input-complete-p slime-repl-input-start-mark 
                                  slime-repl-input-end-mark)
+         (goto-char slime-repl-input-end-mark)
          (insert "\n")
          (slime-repl-send-input))
         (t 
@@ -2360,12 +2366,20 @@ Return DOCUMENTATION."
 When `slime-autodoc-mode' is non-nil, print apropos information about
 the symbol at point if applicable."
   (assert slime-mode)
-  (when (and (slime-connected-p) (not (slime-busy-p)))
+  (when (and (slime-connected-p) (slime-autodoc-message-ok-p) (not (slime-busy-p)))
     (condition-case err
         (slime-autodoc)
       (error
        (setq slime-autodoc-mode nil)
        (message "Error: %S; slime-autodoc-mode now disabled." err)))))
+
+(defun slime-autodoc-message-ok-p ()
+  "Return true if printing a message is currently okay (shouldn't annoy the user)."
+  (and (null (current-message))
+       (not executing-kbd-macro)
+       (not (and (boundp 'edebug-active) edebug-active))
+       (not cursor-in-echo-area)
+       (not (eq (selected-window) (minibuffer-window)))))
 
 
 ;;; Typeout frame
