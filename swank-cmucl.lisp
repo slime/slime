@@ -1536,15 +1536,6 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
       (error (e)
         (ignore-errors (princ e stream))))))
 
-(defimplementation frame-package (frame-number)
-  (find-package
-   (ignore-errors
-     (c::compiled-debug-info-package
-      (kernel:%code-debug-info
-       (kernel:function-code-header
-        (di:debug-function-function
-         (di:frame-debug-function (nth-frame frame-number)))))))))
-          
 (defimplementation frame-source-location-for-emacs (index)
   (code-location-source-location (di:frame-code-location (nth-frame index))))
 
