@@ -713,21 +713,33 @@ stack."
                           collect '(:newline)))))
 	  (t (call-next-method o)))))
 
-(defmethod inspect-for-emacs ((o sb-kernel:code-component) (inspector sbcl-inspector))
-  (declare (ignore inspector))
-  (values "A code data-block."
-	  `("First entry point: " (:value ,(sb-kernel:%code-entry-points o))
-            (:newline)
-            "Constants: " (:newline)
-	    ,@(loop
-                 for i from sb-vm:code-constants-offset 
+(defmethod inspect-for-emacs ((o sb-kernel:code-component) (_ sbcl-inspector))
+  (declare (ignore _))
+  (values (format nil "~A is a code data-block." o)
+          (append 
+           (label-value-line* 
+            (:code-size (sb-kernel:%code-code-size o))
+            (:entry-points (sb-kernel:%code-entry-points o))
+            (:debug-info (sb-kernel:%code-debug-info o))
+            (:trace-table-offset (sb-kernel:code-header-ref 
+                                  o sb-vm:code-trace-table-offset-slot)))
+           `("Constants:" (:newline))
+           (loop for i from sb-vm:code-constants-offset 
                  below (sb-kernel:get-header-data o)
-                 collect (princ-to-string i)
-                 collect " = "
-                 collect `(:value ,(sb-kernel:code-header-ref o i))
-                 collect '(:newline))
-	    "Debug info: " (:value ,(sb-kernel:%code-debug-info o))
-	    "Instructions: "  (:value ,(sb-kernel:code-instructions o)))))
+                 append (label-value-line i (sb-kernel:code-header-ref o i)))
+           `("Code:" (:newline)
+             , (with-output-to-string (s)
+                 (cond ((sb-kernel:%code-debug-info o)
+                        (sb-disassem:disassemble-code-component o :stream s))
+                       (t
+                        (sb-disassem:disassemble-memory 
+                         (sb-disassem::align 
+                          (+ (logandc2 (sb-kernel:get-lisp-obj-address o)
+                                       sb-vm:lowtag-mask)
+                             (* sb-vm:code-constants-offset sb-vm:n-word-bytes))
+                          (ash 1 sb-vm:n-lowtag-bits))
+                         (ash (sb-kernel:%code-code-size o) sb-vm:word-shift)
+                         :stream s))))))))
 
 (defmethod inspect-for-emacs ((o sb-kernel:fdefn) (inspector sbcl-inspector))
   (declare (ignore inspector))
