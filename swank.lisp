@@ -1474,7 +1474,7 @@ format suitable for Emacs."
 		      (princ-to-string restart))))
 
 (defun frame-for-emacs (n frame)
-  (let* ((label (format nil "  ~D: " n))
+  (let* ((label (format nil " ~2D: " n))
          (string (with-output-to-string (stream) 
                      (princ label stream) 
                      (print-frame frame stream))))
