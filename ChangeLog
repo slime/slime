@@ -1,3 +1,10 @@
+2004-01-20  Lasse Rasinen  <lrasinen@iki.fi>
+
+	* slime.el (slime-prin1-to-string): Replacement for
+	prin1-to-string that avoids escaping non-ascii characters in a
+	way that the CL reader doesn't understand. Allows use of 8-bit
+	characters in Lisp expressions with Emacs in unibyte-mode.
+
 2004-01-20  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-eval-print-last-expression): Insert a newline
