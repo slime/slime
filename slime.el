@@ -2565,13 +2565,13 @@ package is used."
   ;; the minibuffer.
   (ecase flag
     ((nil) 
-     (let* ((completions (slime-completions string default-package)))
+     (let* ((completions (car (slime-completions string default-package))))
        (try-completion string
 		       (slime-bogus-completion-alist completions))))
     ((t)
-     (slime-completions string default-package))
+     (car (slime-completions string default-package)))
     ((lambda)
-     (member string (slime-completions string default-package)))))
+     (member string (car (slime-completions string default-package))))))
 
 (defun slime-completing-read-symbol-name (prompt &optional initial-value)
   "Read the name of a CL symbol, with completion.  
@@ -2880,7 +2880,7 @@ First make the variable unbound, then evaluate the entire form."
   (when (not symbol-name)
     (error "No symbol given"))
   (slime-eval-describe 
-   `(swank:documentation-symbol ,symbol-name "(not documented))")))
+   `(swank:documentation-symbol ,symbol-name "(not documented)")))
 
 (defun slime-describe-function (symbol-name)
   (interactive (list (slime-read-symbol-name "Describe symbol: ")))
