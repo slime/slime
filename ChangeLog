@@ -1,3 +1,16 @@
+2004-02-08  Marco Baringer  <mb@bese.it>
+
+	* swank-openmcl.lisp (find-source-locations): Eliminate unused
+	variable warning.
+
+	* swank.lisp (swank-pprint): Bind pretty print vars to
+	*swank-pprint-X* counter parts.
+	(*swank-pprint-circle*, *swank-pprint-escape*,
+	*swank-pprint-level*, *swank-pprint-length*): Swank counterparts
+	to *print-X* variables used when swank needs to pretty print a
+	form.
+	(apply-macro-expander): Use swank-pprint.
+
 2004-02-07  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-cmucl.lisp (send, receive, interrupt-thread): Implement
