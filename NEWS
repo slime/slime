@@ -1,6 +1,6 @@
 * SLIME News                  -*- outline -*-
 
-* 1.0 alpha-1 (June 2004)
+* 1.0 alpha (June 2004)
 
 This preview release of SLIME is a precursor for an upcoming 1.0
 release. We're planning to use our "alpha period" to introduce SLIME
@@ -13,6 +13,13 @@ August when we make the finished 1.0 release. We're only interested in
 adding or changing features during the alpha period, so if you want to
 change something please try to get your patch applied before the end
 of July.
+
+Security note: SLIME has Lisp open a one-use TCP listen socket for
+Emacs to connect to for setting up communication. With all Lisps
+except CLISP and ABCL this socket is bound to the loopback interface
+and thus inaccessible to remote hosts. Be aware that if an attacker
+connected to this server port before Emacs then he could have the Lisp
+process execute arbitrary code.
 
 ** Supported Lisp implementations
 
@@ -82,6 +89,10 @@ in swank-lispworks.lisp.  This is a LispWorks bug.
 
 *** Allegro CL
 
+We support Allegro Common Lisp version 5.0 and higher. The support is
+quite complete, though it hasn't yet been used as heavily as the Lisps
+listed above.
+
 *** CLISP
 
 We support CLISP version 2.32 or newer.  You'll need a version with
@@ -94,4 +105,7 @@ M-. (find-definition) only works if the fasl file is in the same
 directory as the source file.
 
 *** Armed Bear Common Lisp
+
+We have new and experimental support for the latest CVS version of
+ABCL.
 
