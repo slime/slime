@@ -1,3 +1,20 @@
+2004-01-07  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime): Multisession support: with prefix argument,
+	gives the option of keeping existing sessions and firing up an
+	additional *inferior-lisp* to connect to. Each connection now has
+	its own *slime-repl[<n>]* buffer.
+	(slime-connection): Should now be read via the function of the
+	same name. The accessor will check if the value is NIL, and if so
+	use `slime-default-connection'.
+	(slime-default-connection): The connection that will be used by
+	default, i.e. unless `slime-connection' is bound. Renamed from
+	`slime-primary-connection'.
+	(slime-init-connection-state): When reconnecting, update the
+	`slime-connection' binding in the REPL to use the new connection.
+	(slime-repl-input-history, ...): REPL variables are now
+	buffer-local.
+
 2004-01-06  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank.lisp (eval-string): New argument 'id'.  Used to identify
