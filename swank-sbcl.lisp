@@ -10,29 +10,6 @@
 ;;; This is a Slime backend for SBCL.  Requires SBCL 0.8.5 or later
 ;;; for the SB-INTROSPECT contrib
 
-;;; Cursory testing has found that the following appear to work
-;;;
-;;; * Symbol completion.
-;;; * Evaluation of forms with C-M-x
-;;; * Apropos
-;;; * Compilation of defuns with C-c C-c
-;;; * File compilation with C-c C-k, apparently including error parsing
-;;; * Disassembling the symbol at point with C-c M-d
-;;; * Describing symbol at point with C-c C-d
-;;; * Macroexpanding with C-c RET
-;;; * find-definition, using sb-introspect
-;;; * Basic debugger stuff: restarts, backtrace, toggle details
-;;; * Can now interrupt a busy sbcl with C-c C-g
-;;; * Most of the tests
-;;;
-;;; Things that aren't done/don't work yet:
-;;;
-;;; * Cross-referencing (nor is it likely, absent XREF port to SBCL)
-;;; * testsuite can't find LOOP, reports bogus failure on some arglist lookups
-;;; * eval-in-frame
-;;; * A slime command to load an asdf system.  Note that this might involve
-;;;    compiling/loading files that Emacs has no buffers for
-;;; * Dealing with multiple threads
 
 ;;; Administrivia
 
@@ -279,10 +256,6 @@ compiler state."
     (let ((fasl-file (compile-file filename)))
       (when (and load-p fasl-file)
         (load fasl-file)))))
-
-(defimplementation swank-compile-system (system-name)
-  (with-compilation-hooks ()
-    (asdf:operate 'asdf:load-op system-name)))
 
 (defimplementation swank-compile-string (string &key buffer position)
   (with-compilation-hooks ()
