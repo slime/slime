@@ -526,6 +526,14 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
        [ "List Callers..."         slime-list-callers ,C ]
        [ "List Callees..."         slime-list-callees ,C ]
        [ "Next Location"           slime-next-location t ])
+      ("Profiling"
+       [ "Toggle Profiling..."     slime-toggle-profile-fdefinition ,C ]
+       [ "Profile Package"         slime-profile-package ,C]
+       [ "Unprofile All"           slime-unprofile-all ,C ]
+       [ "Show Profiled"           slime-profiled-functions ,C ]
+       "--"
+       [ "Report"                  slime-profile-report ,C ]
+       [ "Reset Counters"          slime-profile-reset ,C ])
       ("Documentation"
        [ "Describe Symbol..."      slime-describe-symbol ,C ]
        [ "Apropos..."              slime-apropos ,C ]
@@ -572,14 +580,6 @@ This list of flushed between commands."))
 
 (add-hook 'slime-mode-hook 'slime-setup-command-hooks)
 (add-hook 'slime-mode-hook 'slime-buffer-package)
-(add-hook 'inferior-lisp-mode-hook 
-          (lambda ()
-            (add-to-list
-             (make-local-variable 'comint-output-filter-functions)
-             (lambda (string)
-               (unless (get-buffer-window (current-buffer) t)
-                 (display-buffer (current-buffer) t))
-               (comint-postoutput-scroll-to-bottom string)))))
 
 
 ;;; Common utility functions and macros
@@ -3173,7 +3173,7 @@ annoy the user)."
 (defvar slime-complete-saved-window-configuration nil
   "Window configuration before we show the *Completions* buffer.\n\
 This is buffer local in the buffer where the complition is
-perfermed.")
+performed.")
 
 (defun slime-complete-maybe-save-window-configuration ()
   (make-local-variable 'slime-complete-saved-window-configuration)
@@ -3613,6 +3613,53 @@ compilation."
 				      (buffer-file-name))))))
   (let ((lisp-filename (slime-to-lisp-filename (expand-file-name filename))))
     (slime-eval-with-transcript `(swank:load-file ,lisp-filename) nil)))
+
+
+;;;; Profiling
+
+(defun slime-toggle-profile-fdefinition (fname-string)
+  "Toggle profiling for FNAME-STRING."
+  (interactive (list (slime-read-from-minibuffer
+		      "(Un)Profile: " (slime-symbol-name-at-point))))
+  (slime-eval-async `(swank:toggle-profile-fdefinition ,fname-string)
+                    (slime-buffer-package t)
+                    (lambda (r) (message "%s" r))))
+
+(defun slime-unprofile-all ()
+  "Unprofile all functions."
+  (interactive)
+  (slime-eval-async '(swank:unprofile-all) (slime-buffer-package t)
+                    (lambda (r) (message "%s" r))))
+
+(defun slime-profile-report ()
+  "Print profile report."
+  (interactive)
+  (slime-eval-with-transcript '(swank:profile-report) nil))
+
+(defun slime-profile-reset ()
+  "Reset profile counters."
+  (interactive)
+  (slime-eval-async (slime-eval `(swank:profile-reset)) nil 
+                    (lambda (r) (message "%s" r))))
+
+(defun slime-profiled-functions ()
+  "Return list of names of currently profiled functions."
+  (interactive)
+  (slime-eval-async `(swank:profiled-functions) nil
+                    (lambda (r) (message "%s" r))))
+
+(defun slime-profile-package (package callers methods)
+  "Profile all functions in PACKAGE.  
+If CALLER is non-nil names have counts of the most common calling
+functions recorded. 
+If METHODS is non-nil, profile all methods of all generic function
+having names in the given package."
+  (interactive (list (slime-read-package-name "Package: ")
+                     (y-or-n-p "Record the most common callers? ")
+                     (y-or-n-p "Profile methods? ")))
+  (slime-eval-async `(swank:profile-package ,package ,callers ,methods) nil
+                    (lambda (r) (message "%s" r))))
+
 
 
 ;;; Documentation
@@ -4133,6 +4180,8 @@ If `sldb-enable-styled-backtrace' is nil, just return STRING."
   ("\M-p" 'sldb-details-up)
   ("l"    'sldb-list-locals)
   ("t"    'sldb-toggle-details)
+  ("r"    'sldb-restart-frame)
+  ("R"    'sldb-return-from-frame)
   ("c"    'sldb-continue)
   ("s"    'sldb-step)
   ("a"    'sldb-abort)

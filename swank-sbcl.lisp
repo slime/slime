@@ -536,6 +536,30 @@ stack."
     (cond (probe (throw (car probe) (eval-in-frame form index)))
           (t (format nil "Cannot return from frame: ~S" frame)))))
     
+
+;;;; Profiling
+
+(defimplementation profile (fname)
+  (when fname (eval `(sb-profile:profile ,fname))))
+
+(defimplementation unprofile (fname)
+  (when fname (eval `(sb-profile:unprofile ,fname))))
+
+(defimplementation unprofile-all ()
+  (sb-profile:unprofile)
+  "All functions unprofiled.")
+
+(defimplementation profile-report ()
+  (sb-profile:report))
+
+(defimplementation profile-reset ()
+  (sb-profile:reset)
+  "Reset profiling counters.")
+
+(defimplementation profiled-functions ()
+  (sb-profile:profile))
+
+
 ;;;; Multiprocessing
 
 #+SB-THREAD

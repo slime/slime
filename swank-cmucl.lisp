@@ -819,6 +819,15 @@ The result has the format \"(...)\"."
   (with-output-to-string (*standard-output*)
     (c::print-all-blocks (expand-ir1-top-level (from-string form)))))
 
+(defslimefun print-compilation-trace (form)
+  (with-output-to-string (*standard-output*)
+    (with-input-from-string (s form)
+      (let ((*package* *buffer-package*))
+        (ext:compile-from-stream s 
+                                 :verbose t
+                                 :progress t
+                                 :trace-stream *standard-output*)))))
+
 (defslimefun set-default-directory (directory)
   (setf (ext:default-directory) (namestring directory))
   ;; Setting *default-pathname-defaults* to an absolute directory
@@ -1036,34 +1045,116 @@ stack."
          (error "Cannot continue in from condition: ~A" 
                 *swank-debugger-condition*))))
 
+(defun frame-cfp (frame)
+  "Return the Control-Stack-Frame-Pointer for FRAME."
+  (etypecase frame
+    (di::compiled-frame (di::frame-pointer frame))
+    ((or di::interpreted-frame null) -1)))
+
+(defun frame-ip (frame)
+  "Return the (absolute) instruction pointer and the relative pc of FRAME."
+  (if (not frame)
+      -1
+      (let ((debug-fun (di::frame-debug-function frame)))
+        (etypecase debug-fun
+          (di::compiled-debug-function 
+           (let* ((code-loc (di:frame-code-location frame))
+                  (component (di::compiled-debug-function-component debug-fun))
+                  (pc (di::compiled-code-location-pc code-loc))
+                  (ip (sys:without-gcing
+                       (sys:sap-int
+                        (sys:sap+ (kernel:code-instructions component) pc)))))
+             (values ip pc)))
+          ((or di::bogus-debug-function di::interpreted-debug-function)
+           -1)))))
+
+(defun frame-registers (frame)
+  "Return the lisp registers CSP, CFP, IP, OCFP, LRA for FRAME-NUMBER."
+  (let* ((cfp (frame-cfp frame))
+         (csp (frame-cfp (di::frame-up frame)))
+         (ip (frame-ip frame))
+         (ocfp (frame-cfp (di::frame-down frame)))
+         (lra (frame-ip (di::frame-down frame))))
+    (values csp cfp ip ocfp lra)))
+
+(defun print-frame-registers (frame-number)
+  (let ((frame (di::frame-real-frame (nth-frame frame-number))))
+    (flet ((fixnum (p) (etypecase p
+                         (integer p)
+                         (sys:system-area-pointer (sys:sap-int p)))))
+      (apply #'format t "~
+CSP  =  ~X
+CFP  =  ~X
+IP   =  ~X
+OCFP =  ~X
+LRA  =  ~X~%" (mapcar #'fixnum 
+                      (multiple-value-list (frame-registers frame)))))))
+
 (defslimefun sldb-disassemble (frame-number)
   "Return a string with the disassembly of frames code."
-  ;; this could need some refactoring.
-  (let* ((frame (nth-frame frame-number))
-         (real-frame (di::frame-real-frame frame))
-         (frame-pointer (di::frame-pointer real-frame))
-         (debug-fun (di:frame-debug-function real-frame)))
     (with-output-to-string (*standard-output*)
-      (format t "Frame: ~S~%~:[Real Frame: ~S~%~;~]Frame Pointer: ~S~%"
-              frame (eq frame real-frame) real-frame frame-pointer)
-      (etypecase debug-fun
-        (di::compiled-debug-function
-         (let* ((code-loc (di:frame-code-location frame))
-                (component (di::compiled-debug-function-component debug-fun))
-                (pc (di::compiled-code-location-pc code-loc))
-                (ip (sys:sap-int
-                     (sys:sap+ (kernel:code-instructions component) pc)))
-                (kind (if (di:code-location-unknown-p code-loc)
-                          :unkown
-                          (di:code-location-kind code-loc)))
-                (fun (di:debug-function-function debug-fun)))
-           (format t "Instruction pointer: #x~X [pc: ~S kind: ~S]~%~%~%" 
-                   ip pc kind)
-           (if fun
-               (disassemble fun)
-               (disassem:disassemble-code-component component))))
-        (di::bogus-debug-function
-         (format t "~%[Disassembling bogus frames not implemented]"))))))
+      (print-frame-registers frame-number)
+      (terpri)
+      (let* ((frame (di::frame-real-frame (nth-frame frame-number)))
+             (debug-fun (di::frame-debug-function frame)))
+        (etypecase debug-fun
+          (di::compiled-debug-function
+           (let* ((component (di::compiled-debug-function-component debug-fun))
+                  (fun (di:debug-function-function debug-fun)))
+             (if fun
+                 (disassemble fun)
+                 (disassem:disassemble-code-component component))))
+          (di::bogus-debug-function
+           (format t "~%[Disassembling bogus frames not implemented]"))))))
+
+
+#+(or)
+(defun print-binding-stack ()
+  (do ((bsp (kernel:binding-stack-pointer-sap)
+            (sys:sap+ bsp (- (* vm:binding-size vm:word-bytes))))
+       (start (sys:int-sap (lisp::binding-stack-start))))
+      ((sys:sap<= bsp start))
+    (format t "~X:  ~S = ~S~%" 
+            (sys:sap-int bsp)
+            (kernel:make-lisp-obj 
+             (sys:sap-ref-32 bsp (* vm:binding-symbol-slot vm:word-bytes)))
+            (kernel:make-lisp-obj
+             (sys:sap-ref-32 bsp (* vm:binding-value-slot vm:word-bytes))))))
+
+;; (print-binding-stack)
+
+#+(or)
+(defun print-catch-blocks ()
+  (do ((b (di::descriptor-sap lisp::*current-catch-block*)
+          (sys:sap-ref-sap b (* vm:catch-block-previous-catch-slot
+                                vm:word-bytes))))
+      (nil)
+    (let ((int (sys:sap-int b)))
+      (when (zerop int) (return))
+      (flet ((ref (offset) (sys:sap-ref-32 b (* offset vm:word-bytes))))
+        (let ((uwp (ref vm:catch-block-current-uwp-slot))
+              (cfp (ref vm:catch-block-current-cont-slot))
+              (tag (ref vm:catch-block-tag-slot))
+              )
+      (format t "~X:  uwp = ~8X  cfp = ~8X  tag = ~X~%" 
+              int uwp cfp (kernel:make-lisp-obj tag)))))))
+
+;; (print-catch-blocks)
+
+#+(or)
+(defun print-unwind-blocks ()
+  (do ((b (di::descriptor-sap lisp::*current-unwind-protect-block*)
+          (sys:sap-ref-sap b (* vm:unwind-block-current-uwp-slot
+                                vm:word-bytes))))
+      (nil)
+    (let ((int (sys:sap-int b)))
+      (when (zerop int) (return))
+      (flet ((ref (offset) (sys:sap-ref-32 b (* offset vm:word-bytes))))
+        (let ((cfp (ref vm:unwind-block-current-cont-slot)))
+          (format t "~X:  cfp = ~X~%" int cfp))))))
+
+;; (print-unwind-blocks)
+
 
 ;;;; Inspecting
 
@@ -1160,6 +1251,33 @@ stack."
   (values (format nil "~A~% is a fdefn object." o)
 	  `(("Name" . ,(kernel:fdefn-name o))
 	    ("Function" . ,(kernel:fdefn-function o)))))
+
+
+;;;; Profiling
+(defimplementation profile (fname)
+  (eval `(profile:profile ,fname)))
+
+(defimplementation unprofile (fname)
+  (eval `(profile:unprofile ,fname)))
+
+(defimplementation unprofile-all ()
+  (profile:unprofile)
+  "All functions unprofiled.")
+
+(defimplementation profile-report ()
+  (profile:report-time))
+
+(defimplementation profile-reset ()
+  (profile:reset-time)
+  "Reset profiling counters.")
+
+(defimplementation profiled-functions ()
+  profile:*timed-functions*)
+
+(defimplementation profile-package (package callers methods)
+  (profile:profile-all :package package  
+                       :callers-p callers
+                       :methods methods))
 
 
 ;;;; Multiprocessing

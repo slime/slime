@@ -77,6 +77,13 @@
            #:throw-to-toplevel
            #:toggle-trace-fdefinition
            #:untrace-all
+           #:profile
+           #:unprofile
+           #:unprofile-all
+           #:profiled-functions
+           #:profile-report
+           #:profile-reset
+           #:profile-package
            #:wait-goahead
            #:warn-unimplemented-interfaces
            #:who-binds
@@ -392,6 +399,43 @@ from the frame.")
 as it was called originally.")
 
 
+;;;; Profiling
+
+;;; The following functions define a minimal profiling interface.
+
+(definterface profile (fname)
+  "Marks symbol FNAME for profiling.")
+
+(definterface profiled-functions ()
+  "Returns a list of profiled functions.")
+
+(definterface unprofile (fname)
+  "Marks symbol FNAME as not profiled.")
+
+(definterface unprofile-all ()
+  "Marks all currently profiled functions as not profiled."
+  (dolist (f (profiled-functions))
+    (unprofile f)))
+
+(definterface profile-report ()
+  "Prints profile report.")
+
+(definterface profile-reset ()
+  "Resets profile counters.")
+
+(definterface profile-package (package callers-p methods)
+  "Wrap profiling code around all functions in PACKAGE.  If a function
+is already profiled, then unprofile and reprofile (useful to notice
+function redefinition.)
+
+If CALLERS-P is T names have counts of the most common calling
+functions recorded.
+
+When called with arguments :METHODS T, profile all methods of all
+generic functions having names in the given package.  Generic functions
+themselves, that is, their dispatch functions, are left alone.")
+
+
 ;;;; Queries
 
 #+(or)
@@ -489,6 +533,7 @@ user. They do not have to be unique."
 (definterface make-lock (&key name)
    "Make a lock for thread synchronization.
 Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time."
+   (declare (ignore name))
    :null-lock)
 
 (definterface call-with-lock-held (lock function)

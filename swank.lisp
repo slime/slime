@@ -1136,6 +1136,21 @@ that symbols accessible in the current package go first."
   (throw 'slime-toplevel nil))
 
 
+;;;; Profiling
+
+(defun profiledp (fspec)
+  (member fspec (profiled-functions)))
+
+(defslimefun toggle-profile-fdefinition (fname-string)
+  (let ((fname (from-string fname-string)))
+    (cond ((profiledp fname)
+	   (unprofile fname)
+	   (format nil "~S is now unprofiled." fname))
+	  (t
+           (profile fname)
+	   (format nil "~S is now profiled." fname)))))  
+
+
 ;;;; Source Locations
 
 (defstruct (:location (:type list) :named
