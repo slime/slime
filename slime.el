@@ -1183,19 +1183,18 @@ See `slime-translate-from-lisp-filename-function'."
                      (if (eq 16 (prefix-numeric-value current-prefix-arg))
                          (read-coding-system "set slime-coding-system: "
                                              slime-net-coding-system))))
-  (let ((symbolic-lisp-name
-         (if (slime-symbolic-lisp-name-p command) command nil))
-        (command (or (slime-find-lisp-implementation command)
+  (let ((command (or (slime-find-lisp-implementation command)
                      inferior-lisp-program))
         (buffer (or buffer "*inferior-lisp*"))
         (coding-system (or coding-system slime-net-coding-system)))
-    (slime-check-coding-system coding-system)
-    (setq slime-net-coding-system coding-system)
-    (when (or (not (slime-bytecode-stale-p))
-              (slime-urge-bytecode-recompile))
-      (let ((proc (slime-maybe-start-lisp command buffer)))
-        (slime-inferior-connect proc nil symbolic-lisp-name)
-        (pop-to-buffer (process-buffer proc))))))
+    (let ((symbolic-lisp-name (slime-symbolic-lisp-name-p command)))
+      (slime-check-coding-system coding-system)
+      (setq slime-net-coding-system coding-system)
+      (when (or (not (slime-bytecode-stale-p))
+                (slime-urge-bytecode-recompile))
+        (let ((proc (slime-maybe-start-lisp command buffer)))
+          (slime-inferior-connect proc nil symbolic-lisp-name)
+          (pop-to-buffer (process-buffer proc)))))))
 
 (defun slime-connect (host port &optional kill-old-p symbolic-lisp-name)
   "Connect to a running Swank server."
@@ -1880,11 +1879,12 @@ This is automatically synchronized from Lisp.")
         finally (return name)))
 
 (defun slime-generate-symbolic-lisp-name (lisp-name)
-  (loop for i from 1
-        for name = lisp-name then (format "%s<%d>" lisp-name i)
-        while (find name slime-net-processes 
-                    :key #'slime-symbolic-lisp-name :test #'equal)
-        finally (return name)))
+  (if lisp-name
+    (loop for i from 1
+       for name = lisp-name then (format "%s<%d>" lisp-name i)
+       while (find name slime-net-processes 
+                   :key #'slime-symbolic-lisp-name :test #'equal)
+       finally (return name))))
 
 
 (defun slime-connection-close-hook (process)
@@ -7020,7 +7020,9 @@ This way you can still see what the error was after exiting SLDB."
   (cdr (rassoc command slime-registered-lisp-implementations)))
 
 (defun slime-symbolic-lisp-name-p (name)
-  (assoc name slime-registered-lisp-implementations))
+  (let ((cons (or (assoc name slime-registered-lisp-implementations)
+                  (rassoc name slime-registered-lisp-implementations))))
+    (if cons (car cons))))
 
 
 (define-derived-mode slime-connection-list-mode fundamental-mode
