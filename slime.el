@@ -381,7 +381,7 @@ Your Swank binary is older than the source. Recompile now? ")))
   "Send a SEXP to CMUCL.
 This is the lowest level of communication. The sexp will be READ and
 EVAL'd by Lisp."
-  (let* ((msg (prin1-to-string sexp))
+  (let* ((msg (format "%S\n" sexp))
 	 (string (concat (slime-net-enc3 (length msg)) msg)))
     (process-send-string slime-net-process (string-make-unibyte string))))
 
@@ -566,6 +566,11 @@ EVAL'd by Lisp."
     (when error
       (error "slime-eval failed: %S" error))
     value))
+
+(defun slime-sync ()
+  "Block until all asynchronous commands are completed."
+  (while (eq (car slime-current-state) 'slime-eval-async-state)
+    (accept-process-output slime-net-process)))
 
 (defun slime-buffer-package (&optional dont-cache)
   "Return the Common Lisp package associated with the current buffer.
@@ -1270,37 +1275,44 @@ the function name is prompted."
 ;;   (slime-buffer-package t)
 ;;   'slime-show-description))
 
-(defun slime-apropos (string)
-  (interactive "sSlime apropos: ")
+(defun slime-apropos (string &optional only-external-p package)
+  (interactive
+   (if current-prefix-arg
+       (list (read-string "SLIME Apropos: ")
+             (y-or-n-p "External symbols only? ")
+             (let ((pkg (read-string "Package: ")))
+               (if (string= pkg "") nil pkg)))
+     (list (read-string "SLIME Apropos: ") t nil)))
   (slime-eval-async
-   `(SWANK::APROPOS-LIST-FOR-EMACS ,string)
+   `(SWANK::APROPOS-LIST-FOR-EMACS ,string ,only-external-p ,package)
    (slime-buffer-package t)
-   (lexical-let ((string string))
-     (lambda (r) (slime-show-apropos r string)))))
+   (lexical-let ((string string)
+                 (package package))
+     (lambda (r) (slime-show-apropos r string package)))))
 
 ;; Buffer-local variable. Holds the name of *package* when apropos was
 ;; apropos was called.
 (defvar slime-apropos-package)
 
-(defun slime-show-apropos (result string)
-  (destructuring-bind (package plists) result
-    (if (null plists)
-	(message "No apropos matches for %S" string)
-      (save-current-buffer
-	(with-output-to-temp-buffer "*CMUCL Apropos*"
-	  (set-buffer standard-output)
-	  (apropos-mode)
-	  (set-syntax-table lisp-mode-syntax-table)
-	  (slime-mode t)
-	  (make-local-variable 'slime-apropos-package)
-	  (setq slime-apropos-package package)
-	  (set (make-local-variable 'truncate-lines) t)
-	  (slime-print-apropos plists))))))
+(defun slime-show-apropos (plists string package)
+  (if (null plists)
+      (message "No apropos matches for %S" string)
+    (save-current-buffer
+      (with-output-to-temp-buffer "*CMUCL Apropos*"
+        (set-buffer standard-output)
+        (apropos-mode)
+        (set-syntax-table lisp-mode-syntax-table)
+        (slime-mode t)
+        (make-local-variable 'slime-apropos-package)
+        (setq slime-apropos-package package)
+        (set (make-local-variable 'truncate-lines) t)
+        (slime-print-apropos plists)))))
 
 (defun slime-princ-propertized (string props)
-  (let ((start (point)))
-    (princ string)
-    (add-text-properties start (point) props)))
+  (with-current-buffer standard-output
+    (let ((start (point)))
+      (princ string)
+      (add-text-properties start (point) props))))
 
 (autoload 'apropos-mode "apropos")
 (defvar apropos-label-properties)
@@ -1782,29 +1794,87 @@ the function name is prompted."
 (defvar slime-tests '()
   "Names of test functions.")
 
+(defvar slime-test-debug-on-error nil
+  "*When non-nil debug errors in test cases.")
+
+(defvar slime-test-verbose-p nil
+  "*When non-nil do not display the results of individual checks.")
+
+(defvar slime-total-tests nil
+  "Total number of tests executed during a test run.")
+
+(defvar slime-failed-tests nil
+  "Total number of failed tests during a test run.")
+
 (defun slime-run-tests ()
   (interactive)
+  (with-output-to-temp-buffer "*Tests*"
+    (with-current-buffer standard-output
+      (set (make-local-variable 'truncate-lines) t))
+    (slime-execute-tests)))
+
+(defun slime-execute-tests ()
   (save-window-excursion
-    (loop for (function inputs) in slime-tests
-          do (dolist (input inputs)
-               (apply function input))))
-  (message "Done."))
+    (let ((slime-total-tests 0)
+          (slime-failed-tests 0))
+      (loop for (name function inputs) in slime-tests
+            do (dolist (input inputs)
+                 (incf slime-total-tests)
+                 (princ (format "%s: %S\n" name input))
+                 (condition-case err
+                     (apply function input)
+                   (error (incf slime-failed-tests)
+                          (slime-print-check-error err)))))
+      (if (zerop slime-failed-tests)
+          (message "All %S tests completed successfully." slime-total-tests)
+        (message "Failed on %S of %S tests."
+                 slime-failed-tests slime-total-tests)))))
+
+(defun slime-batch-test ()
+  "Run the test suite in batch-mode."
+  (let ((standard-output t)
+        (slime-test-debug-on-error nil))
+    (slime)
+    (slime-run-tests)))
 
 (defmacro def-slime-test (name args doc inputs &rest body)
+  "Define a test case.
+NAME is a symbol naming the test.
+ARGS is a lambda-list.
+DOC is a docstring.
+INPUTS is a list of argument lists, each tested separately.
+BODY is the test case. The body can use `slime-check' to test
+conditions (assertions)."
   (let ((fname (intern (format "slime-test-%s" name))))
     `(progn
-      (defun ,fname ,args
-        ,doc
-        ,@body)
-      (setq slime-tests (append (remove* ',fname slime-tests :key 'car)
-                                (list (list ',fname ,inputs)))))))
+       (defun ,fname ,args
+         ,doc
+         ,@body)
+       (setq slime-tests (append (remove* ',name slime-tests :key 'car)
+                                 (list (list ',name ',fname ,inputs)))))))
 
 (defmacro slime-check (test-name &rest body)
-  `(unless (progn ,@body)
-     (message "Test failed: %S" ',test-name)
-     (debug)))
+  `(if (progn ,@body)
+       (slime-print-check-ok ',test-name)
+     (incf slime-failed-tests)
+     (slime-print-check-failed ',test-name)
+     (when slime-test-debug-on-error
+       (debug (format "Check failed: %S" ',test-name)))))
 
-(def-slime-test find-definition (name expected-filename)
+(defun slime-print-check-ok (test-name)
+  (when slime-test-verbose-p
+    (princ (format "        ok:     %s\n" test-name))))
+
+(defun slime-print-check-failed (test-name)
+  (slime-princ-propertized (format "        FAILED: %s\n" test-name)
+                           '(face font-lock-warning-face)))
+
+(defun slime-print-check-error (reason)
+  (slime-princ-propertized (format "        ERROR:  %S\n" reason)
+                           '(face font-lock-warning-face)))
+
+(def-slime-test find-definition
+    (name expected-filename)
     "Find the definition of a function or macro."
     '((list "list.lisp")
       (loop "loop.lisp")
@@ -1823,7 +1893,8 @@ the function name is prompted."
       (and (eq orig-buffer (current-buffer))
            (= orig-pos (point))))))
 
-(def-slime-test complete-symbol (prefix expected-completions)
+(def-slime-test complete-symbol
+    (prefix expected-completions)
     "Find the completions of a symbol-name prefix."
     '(("cl:compile" ("compile" "compile-file" "compile-file-pathname"
                      "compiled-function" "compiled-function-p"
@@ -1833,6 +1904,30 @@ the function name is prompted."
   (let ((completions (slime-completions prefix)))
     (slime-check expected-completions
       (equal expected-completions (sort completions 'string<)))))
+
+(def-slime-test arglist
+    (symbol expected-arglist)
+    "Lookup the argument list for SYMBOL.
+Confirm that EXPECTED-ARGLIST is displayed."
+    '(("list" "(list &rest args)")
+      ("defun" "(defun &whole source name lambda-list &parse-body (body decls doc))")
+      ("cl::defun" "(cl::defun &whole source name lambda-list &parse-body (body decls doc))"))
+  (slime-arglist symbol)
+  (slime-sync)
+  (slime-check expected-arglist
+    (string= expected-arglist (current-message))))
+
+;; This one currently fails.
+(def-slime-test concurrent-async-requests
+    (n)
+    "Test making concurrent asynchronous requests."
+    '((3) (5) (10))
+  (lexical-let ((replies 0))
+    (dotimes (i n)
+      (slime-eval-async t "CL-USER" (lambda (r) (incf replies))))
+    (slime-sync)
+    (slime-check continuations-called
+      (= replies n))))
 
 (put 'def-slime-test 'lisp-indent-function 4)
 (put 'slime-check 'lisp-indent-function 1)
