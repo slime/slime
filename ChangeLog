@@ -1,3 +1,16 @@
+2004-02-25  Peter Seibel  <peter@javamonkey.com>
+
+	* slime.el: Various bits of support for maintaining multiple SLIME
+	connections to different Lisp implementations simultaneously.
+
+	* swank-backend.lisp (lisp-implementation-type-name): Add function to
+	return simple name of lisp implementation; used by new
+	multi-connection functionality in slime.el.
+
+2004-02-25  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank.lisp (format-arglist): Use a special pprint-dispatch table.
+
 2004-02-22  Lawrence Mitchell  <wence@gmx.li>
 
 	* swank.lisp (format-arglist): Bind *PRINT-PRETTY* to NIL.
