@@ -211,11 +211,11 @@ compiler state."
 	 (reverse
 	  (c::compiler-error-context-original-source-path context)))))
 
-(defmacro with-trapping-compilation-notes (() &body body)
-  `(handler-bind ((c::compiler-error #'handle-notification-condition)
-                  (c::style-warning #'handle-notification-condition)
-                  (c::warning #'handle-notification-condition))
-    ,@body))
+(defmacro call-trapping-compilation-notes (fn)
+  (handler-bind ((c::compiler-error #'handle-notification-condition)
+                 (c::style-warning #'handle-notification-condition)
+                 (c::warning #'handle-notification-condition))
+    (funcall fn)))
 
 (defslimefun swank-compile-file (filename load)
   (call-with-compilation-hooks

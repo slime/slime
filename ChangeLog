@@ -1,5 +1,11 @@
 2003-10-16  Luke Gorrie  <luke@bluetail.com>
 
+	* swank*.lisp (with-trapping-compiler-notes): This macro is now
+	defined here, and expands to a call to the backend-defined
+	`call-trapping-compiler-notes' with the body wrapped in a
+	lambda. This is to avoid swank.lisp referring to macros in the
+	backends -- it gets compiled first so it thinks they're functions.
+
 	* slime.el (slime-swank-connection-retries): New default value is
 	`nil', which means unlimited retries (until user aborts). Retry
 	interval also reduced from once per second to four times per

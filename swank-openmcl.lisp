@@ -163,9 +163,9 @@ condition."
               :buffer-offset 0)
         *compiler-notes*))
 
-(defmacro with-trapping-compilation-notes (() &body body)
-  `(handler-bind ((ccl::compiler-warning #'handle-compiler-warning))
-    ,@body))
+(defmacro call-trapping-compilation-notes (fn)
+  (handler-bind ((ccl::compiler-warning #'handle-compiler-warning))
+    (funcall fn)))
 
 (defslimefun swank-compile-string (string buffer start)
   (declare (ignore buffer start))
