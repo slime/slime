@@ -1,5 +1,27 @@
 2004-01-13  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* slime.el (slime-input-complete-p): Tolerate extra close parens.
+	(slime-idle-state): Don't active the repl.
+	(slime-insert-transcript-delimiter): Insert output before prompt.
+	(slime-open-stream-to-lisp): Initialize the process-buffer with
+	the connection buffer.
+	(slime-repl-activate): Deleted.
+	(slime-repl-eval-string, slime-repl-show-result)
+	(slime-repl-show-abort): Better handling of abortion.
+	(slime-compile-file): Insert output before prompt.
+
+	* swank-lispworks.lisp (create-socket): Fix condition message.
+
+	* swank-openmcl.lisp (*swank-in-background*): Set to :spawn.
+	(emacs-connected): Initialize ccl::*interactive-abort-process*.
+
+	* swank.lisp (*swank-in-background*): New variable.
+	(start-server): Start swank in background, depending on
+	*swank-in-background*.
+
+	* swank-cmucl.lisp, swank-sbcl.lisp (*swank-in-background*): Set
+	to :fd-handler.
+	
 	* swank-clisp.lisp (accept-connection): Remove superfluous call to
 	socket-wait.
 
