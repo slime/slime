@@ -1402,6 +1402,7 @@ This is automatically synchronized from Lisp.")
   (setf (slime-pid) (slime-eval '(swank:getpid)))
   (setf (slime-lisp-implementation-type) 
         (slime-eval '(cl:lisp-implementation-type)))
+  (setq slime-state-name "")
   (when-let (repl-buffer (slime-repl-buffer))
     ;; REPL buffer already exists - update its local
     ;; `slime-connection' binding.
@@ -2237,7 +2238,7 @@ See `slime-compile-and-load-file' for further details."
     (slime-eval-async
      `(swank:swank-compile-file ,lisp-filename ,(if load t nil))
      nil
-     (slime-compilation-finished-continuation))
+     (slime-compilation-finished-continuation t))
     (message "Compiling %s.." lisp-filename)))
 
 (defun slime-find-asd ()
@@ -2262,7 +2263,7 @@ buffer's working directory"
   (slime-eval-async
    `(swank:swank-load-system ,system-name)
    nil
-   (slime-compilation-finished-continuation))
+   (slime-compilation-finished-continuation t))
   (message "Compiling system %s.." system-name))
 
 (defun slime-compile-defun ()
@@ -2283,7 +2284,7 @@ buffer's working directory"
   (slime-eval-async 
    `(swank:swank-compile-string ,string ,(buffer-name) ,start-offset)
    (slime-buffer-package)
-   (slime-compilation-finished-continuation)))
+   (slime-compilation-finished-continuation nil)))
 
 (defvar slime-hide-style-warning-count-if-zero t)
 
@@ -2336,21 +2337,25 @@ Each newlines and following indentation is replaced by a single space."
       (replace-match " "))
     (buffer-string)))
 
-(defun slime-compilation-finished (result buffer)
+(defun slime-compilation-finished (result buffer show-notes-buffer)
   (let ((notes (slime-compiler-notes)))
     (with-current-buffer buffer
       (multiple-value-bind (result secs) result
         (slime-show-note-counts notes secs)
         (slime-highlight-notes notes)))
-    (let ((xrefs (slime-xrefs-for-notes notes)))
-      (when (> (length xrefs) 1) ; >1 file
-        (slime-show-xrefs
-         xrefs 'definition "Compiler notes" (slime-buffer-package))))))
+    (when (and show-notes-buffer (< 1 (length notes)))
+      (slime-list-compiler-notes notes))
+    ;;(let ((xrefs (slime-xrefs-for-notes notes)))
+    ;;  (when (> (length xrefs) 1) ; >1 file
+    ;;    (slime-show-xrefs
+    ;;     xrefs 'definition "Compiler notes" (slime-buffer-package))))
+    ))
 
-(defun slime-compilation-finished-continuation ()
-  (lexical-let ((buffer (current-buffer)))
+(defun slime-compilation-finished-continuation (show-notes-buffer)
+  (lexical-let ((buffer (current-buffer))
+                (show-notes-buffer show-notes-buffer))
     (lambda (result) 
-      (slime-compilation-finished result buffer))))
+      (slime-compilation-finished result buffer show-notes-buffer))))
 
 (defun slime-highlight-notes (notes)
   "Highlight compiler notes, warnings, and errors in the buffer."
@@ -2372,6 +2377,200 @@ Each newlines and following indentation is replaced by a single space."
         (when (overlay-get o 'slime)
           (delete-overlay o)))
       (goto-char (next-overlay-change (point))))))
+
+
+;;;;; Compiler notes list
+
+(defun slime-list-compiler-notes (&optional notes)
+  (interactive)
+  (let ((notes (or notes (slime-compiler-notes))))
+    (with-current-buffer (get-buffer-create "*compiler notes*")
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (slime-tree-insert (slime-compiler-notes-to-tree notes) ""))
+      (slime-compiler-notes-mode)
+      (setq buffer-read-only t)
+      (make-local-variable 'slime-compiler-notes-saved-window-configuration)
+      (setq slime-compiler-notes-saved-window-configuration
+            (current-window-configuration))
+      (display-buffer (current-buffer)))))
+
+(defun slime-alistify (list key test)
+  "Partition the elements of LIST into an alist.  KEY extracts the key
+from an element and TEST is used to compare keys."
+  (declare (type function key))
+  (let ((alist '()))
+    (dolist (e list)
+      (let* ((k (funcall key e))
+	     (probe (assoc* k alist :test test)))
+	(if probe
+	    (push e (cdr probe))
+            (push (cons k (list e)) alist))))
+    alist))
+
+(defun slime-note.severity (note)
+  (plist-get note :severity))
+
+(defun slime-note.message (note)
+  (plist-get note :message))
+
+(defun slime-note.short-message (note)
+  (plist-get note :short-message))
+
+(defun slime-note.location (note)
+  (plist-get note :location))
+
+(defun slime-severity-label (severity)
+  (ecase severity
+    (:note "Notes")
+    (:warning "Warnings")
+    (:error "Errors")
+    (:style-warning "Style Warnings")))
+
+(defun slime-tree-for-note (note)
+  (make-slime-tree :item (slime-note.short-message note)
+                   :plist (list 'note note)))
+
+(defun slime-tree-for-severity (severity notes)
+  (make-slime-tree :item (format "%s (%d)" 
+                                 (slime-severity-label severity)
+                                 (length notes))
+                   :kids (mapcar #'slime-tree-for-note notes)))
+
+(defun slime-compiler-notes-to-tree (notes)
+  (let ((kids (let ((alist (slime-alistify notes #'slime-note.severity #'eq)))
+                (loop for (severity . notes) in alist
+                      collect (slime-tree-for-severity severity notes)))))
+    (make-slime-tree :item (format "All (%d)"  (length notes))
+                     :kids kids :collapsed-p nil)))
+
+(defvar slime-compiler-notes-mode-map)
+
+(define-derived-mode slime-compiler-notes-mode fundamental-mode 
+  "Compiler Notes"
+  "\\<slime-compiler-notes-mode-map>
+\\{slime-compiler-notes-mode-map}"
+  (slime-set-truncate-lines))
+
+(slime-define-keys slime-compiler-notes-mode-map
+  ((kbd "RET") 'slime-compiler-notes-show-details)
+  ("q" 'slime-compiler-notes-quit))
+
+(defun slime-compiler-notes-quit ()
+  (interactive)
+  (let ((config slime-compiler-notes-saved-window-configuration))
+    (kill-buffer (current-buffer))
+    (set-window-configuration config)))
+
+(defun slime-compiler-notes-show-details ()
+  (interactive)
+  (let* ((tree (slime-tree-at-point))
+         (note (plist-get (slime-tree.plist tree) 'note))
+         (inhibit-read-only t))
+    (cond ((not (slime-tree-leaf-p tree))
+           (slime-tree-toggle tree))
+          (t
+           (slime-show-source-location (slime-note.location note))))))
+          
+
+;;;;;;; Tree Widget
+
+(defmacro* with-struct ((conc-name &rest slots) struct &body body)
+  "Like with-slots but works only for structs."
+  (flet ((reader (slot) (intern (concat (symbol-name conc-name)
+					(symbol-name slot)))))
+    (let ((struct-var (gensym "struct")))
+      `(let ((,struct-var ,struct))
+	 (symbol-macrolet
+	     ,(mapcar (lambda (slot)
+			(etypecase slot
+			  (symbol `(,slot (,(reader slot) ,struct-var)))
+			  (cons `(,(first slot) (,(reader (second slot)) 
+						 ,struct-var)))))
+		      slots)
+	   . ,body)))))
+
+(put 'with-struct 'lisp-indent-function 2)
+
+(defstruct (slime-tree (:conc-name slime-tree.))
+  item
+  (print-fn #'slime-tree-default-printer :type function)
+  (kids '() :type list)
+  (collapsed-p t :type boolean)
+  (prefix "" :type string)
+  (start-mark nil)
+  (end-mark nil)
+  (plist '() :type list))
+
+(defun slime-tree-leaf-p (tree)
+  (not (slime-tree.kids tree)))
+
+(defun slime-tree-default-printer (tree)
+  (princ (slime-tree.item tree) (current-buffer)))
+
+(defun slime-tree-decoration (tree)
+  (cond ((slime-tree-leaf-p tree) "-- ")
+	((slime-tree.collapsed-p tree) "[+] ")
+	(t "-+  ")))
+
+(defun slime-tree-insert-list (list prefix)
+  "Insert a list of trees."
+  (loop for (elt . rest) on list 
+	do (cond (rest
+		  (insert prefix " |")
+		  (slime-tree-insert elt (concat prefix " |")))
+		 (t
+		  (insert prefix " `")
+		  (slime-tree-insert elt (concat prefix "  "))))))
+
+(defun slime-tree-insert-decoration (tree)
+  (insert (slime-tree-decoration tree)))
+
+(defun slime-tree-indent-item (start end prefix)
+  "Insert PREFIX at the beginning of each but the first line.
+This is used for labels spanning multiple lines."
+  (save-excursion 
+    (goto-char end)
+    (beginning-of-line)
+    (while (< start (point))
+      (insert prefix)
+      (forward-line -1))))
+
+(defun slime-tree-insert (tree prefix)
+  "Insert TREE prefixed with PREFIX at point."
+  (with-struct (slime-tree. print-fn kids collapsed-p start-mark end-mark) tree
+    (setf start-mark (point-marker))
+    (slime-tree-insert-decoration tree)
+    (funcall print-fn tree)
+    (slime-tree-indent-item start-mark (point) (concat prefix "   "))
+    (let ((end (point)))
+      (terpri (current-buffer))
+      (add-text-properties start-mark end (list 'slime-tree tree)))
+    (when (and kids (not collapsed-p))
+      (slime-tree-insert-list kids prefix))
+    (setf (slime-tree.prefix tree) prefix)
+    (setf end-mark (point-marker))))
+
+(defun slime-tree-at-point ()
+  (cond ((get-text-property (point) 'slime-tree))
+        (t (error "No tree at point"))))
+
+(defun slime-tree-delete (tree)
+  "Delete the region for TREE."
+  (delete-region (slime-tree.start-mark tree)
+                 (slime-tree.end-mark tree)))
+
+(defun slime-tree-toggle (tree)
+  "Toggle the visibility of TREE's children."
+  (with-struct (slime-tree. collapsed-p start-mark end-mark prefix) tree
+    (setf collapsed-p (not collapsed-p))
+    (slime-tree-delete tree)
+    (goto-char end-mark)
+    (insert-before-markers " ") ; keep markers separated
+    (backward-char)
+    (slime-tree-insert tree prefix)
+    (delete-char 1)
+    (goto-char start-mark)))
 
 
 ;;;;; Adding a single compiler note
@@ -5436,6 +5635,7 @@ Unless optional argument INPLACE is non-nil, return a new string."
         slime-net-read3
         slime-net-read
         slime-print-apropos
+        slime-show-note-counts
         slime-insert-propertized))
 
 (run-hooks 'slime-load-hook)
