@@ -58,7 +58,6 @@
 (require 'hideshow)
 (require 'hyperspec)
 (require 'font-lock)
-(require 'completer)
 (when (featurep 'xemacs)
   (require 'overlay))
 (eval-when (compile load eval)
@@ -786,7 +785,11 @@ If that doesn't give a function, return nil."
 
 (defun slime-swank-port-file ()
   "Filename where the SWANK server writes its TCP port number."
-  (concat temporary-file-directory (format "slime.%S" (emacs-pid))))
+  (concat (file-name-as-directory
+           (cond ((fboundp 'temp-directory) (temp-directory))
+                 ((boundp 'temporary-file-directory) temporary-file-directory)
+                 (t "/tmp/")))
+          (format "slime.%S" (emacs-pid))))
 
 (defun slime-read-swank-port ()
   "Read the Swank server port number from the `slime-swank-port-file'."
@@ -2484,24 +2487,42 @@ package is used."
   (let* ((end (slime-symbol-end-pos))
          (beg (slime-symbol-start-pos))
          (prefix (buffer-substring-no-properties beg end))
-         (completions (slime-completions prefix)))
-    (destructuring-bind (match common-substring matches unique-p)
-        (completer prefix (slime-bogus-completion-alist completions) nil "-")
-      (cond ((eq unique-p t)
-             (message "[Sole completion]")
-             (delete-region beg end)
-             (insert match)
+         (completion-result (slime-completions prefix))
+         (completion-set (first completion-result))
+         (completed-prefix (second completion-result)))
+    (if (null completion-set)
+        (progn (slime-minibuffer-respecting-message
+                "Can't find completion for \"%s\"" prefix)
+               (ding)
+               (slime-complete-restore-window-configuration))
+      (delete-region beg end)
+      (insert-and-inherit completed-prefix)
+      (goto-char (+ beg (length completed-prefix)))
+      (cond ((member completed-prefix completion-set)
+             (if (= (length completion-set) 1)
+                 (slime-minibuffer-respecting-message "Sole completion")
+               (slime-minibuffer-respecting-message "Complete but not unique"))
              (slime-complete-restore-window-configuration))
-            ((null match)
-             (message "Can't find completion for \"%s\"" prefix)
-             (ding)
-             (slime-complete-restore-window-configuration))
-            (t 
-             (slime-complete-maybe-save-window-configuration)
-             (completer-display-choices completions)
-             (slime-complete-delay-restoration)
-             (completer-goto match common-substring 
-                             matches unique-p "^ \t\n\('\"#.\)<>" "-"))))))
+            ;; Incomplete
+            (t
+             (let ((unambiguous-completion-length
+                    (loop for c in completion-set
+                          minimizing (or (mismatch completed-prefix c)
+                                         (length completed-prefix)))))
+               (goto-char (+ beg unambiguous-completion-length))
+               (slime-complete-maybe-save-window-configuration)
+               (with-output-to-temp-buffer "*Completions*"
+                 (display-completion-list completion-set))
+               (slime-complete-delay-restoration)))))))
+        
+(defun slime-minibuffer-respecting-message (format &rest format-args)
+  "Display TEXT as a message, without hiding any minibuffer contents."
+  (let ((text (format " [%s]" (apply #'format format format-args))))
+    (if (minibuffer-window-active-p (minibuffer-window))
+        (if (fboundp 'temp-minibuffer-message) ;; XEmacs
+            (temp-minibuffer-message text)
+          (minibuffer-message text))
+      (message text))))
 
 (defun slime-completing-read-internal (string default-package flag)
   ;; We misuse the predicate argument to pass the default-package.
@@ -2554,17 +2575,15 @@ reading input.  The result is a string (\"\" if no input was given)."
   "Return the starting position of the symbol under point.
 The result is unspecified if there isn't a symbol under the point."
   (save-excursion
-    (backward-sexp 1)
+    (unless (looking-at "\\<")
+      (backward-sexp 1))
     (skip-syntax-forward "'")
     (point)))
 
-;;(defun slime-symbol-end-pos ()
-;;  (save-excursion
-;;    (skip-syntax-forward "_")
-;;    (min (1+ (point)) (point-max))))
-
 (defun slime-symbol-end-pos ()
-  (point))
+  (save-excursion
+    (skip-syntax-forward "w_")
+    (point)))
 
 (defun slime-bogus-completion-alist (list)
   "Make an alist out of list.
