@@ -5412,12 +5412,12 @@ The result is a string."
             (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string n)))
            ((:defgeneric n)
             (let* ((name (prin1-to-string n))
-                   (answer (slime-read-from-minibuffer "(Un)trace: " n)))
+                   (answer (slime-read-from-minibuffer "(Un)trace: " name)))
               (cond ((and (string= name answer)
                           (y-or-n-p (concat "(Un)trace also all " 
                                             "methods implementing " 
                                             name "? ")))
-                     (prin1-to-string `(:defgeneric ,name)))
+                     (prin1-to-string `(:defgeneric ,n)))
                     (t
                      answer))))
            ((:defmethod &rest _)
@@ -5480,7 +5480,7 @@ For other contexts we return the symbol at point."
                 (slime-in-expression-p `(,name)))
            ;; looks like a regular call
            (let ((toplevel (ignore-errors (slime-parse-toplevel-form))))
-             (cond ((slime-in-expression-p `(setf *))  ;a setf-call
+             (cond ((slime-in-expression-p `(setf (*)))  ;a setf-call
                     (if toplevel
                         `(:call ,toplevel (setf ,name))
                       `(setf ,name)))
