@@ -4137,8 +4137,8 @@ BODY returns true if the check succeeds."
 Confirm that EXPECTED-ARGLIST is displayed."
     '(("swank:start-server"
        "(swank:start-server port-file-namestring)")
-      ("swank::compound-string-match"
-       "(swank::compound-string-match string1 string2)"))
+      ("swank::compound-prefix-match"
+       "(swank::compound-prefix-match prefix target)"))
   (let ((arglist (slime-get-arglist function-name))) ;
     (slime-check ("Argument list %S is as expected." arglist)
       (string= expected-arglist arglist))))
