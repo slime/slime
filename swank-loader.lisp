@@ -102,6 +102,12 @@ recompiled."
 
 (funcall (intern (string :warn-unimplemented-interfaces) :swank-backend))
 
+#+sbcl
+(let ((readtable (swank-backend::shebang-readtable)))
+  (dolist (p (list-all-packages))
+    (when (swank-backend::sbcl-package-p p)
+      (push (cons (package-name p) readtable) swank::*readtable-alist*))))
+
 (when (user-init-file)
   (load (user-init-file)))
 
