@@ -1,3 +1,56 @@
+2004-03-23  Alan Shutko  <ats@acm.org>
+
+	* swank-clisp.lisp (set-default-directory): New function.
+
+2004-03-23  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-allegro.lisp (send): Wait a bit if there are already many
+	message in the mailbox.
+
+	* swank-clisp.lisp (xref-results): Use fspec-location instead of
+	the of fspec-source-locations.  Reported by Alan Shutko.
+	(break): Be friendly to case-inverting readtables.
+
+	* swank-lispworks.lisp (emacs-connected): Add default method to
+	environment-display-notifier.  Reported by Bjørn Nordbø.
+	(set-default-directory, who-specializes): Implemented for
+	Lispworks.
+	(gfp): New function.
+	(describe-symbol-for-emacs, describe-definition): Distinguish
+	between ordinary and generic functions.
+	(call-with-debugging-environment): Unwind a few frames.  Looks
+	better and avoids the problems with the real topframe.
+	(interesting-frame-p): Use Lispworks dbg:*print-xxx* variables to
+	decide which frames are interesting.
+	(frame-actual-args): New function.
+	(print-frame): Use it.
+
+	* swank.lisp (open-streams, make-output-function): Capture the
+	connection not only the socket.  This way the streams can be used
+	from unrelated threads.  Reported by Alain Picard.
+	(create-connection): Factorized.  Initialize the streams after the
+	connection is created.
+	(initialize-streams-for-connection, spawn-threads-for-connection):
+	New functions.
+	(with-connection): Fix quoting bug and move upwards before first
+	use.
+	(send-output-to-emacs): Add kludge for SBCL !-package names.
+	(apropos-list-for-emacs): Lispworks apparently returns duplicates;
+	remove them.
+	(inspect-object): Princ the label to allow strings and symbols.
+	(send-output-to-emacs): Deleted.
+	(defslimefun-unimplemented): Deleted.  Was unused.
+
+	* slime.el (slime-easy-menu): Add some more commands.
+	(slime-changelog-date): New variable. Initialized with the value
+	returned by the function of the same name.  This detects
+	incompatible versions if Emacs has not been restarted after an
+	upgrade.
+	(slime-check-protocol-version, slime-init-output-buffer): Use it.
+	(slime-events-buffer, slime-log-event): Use fundamental mode
+	instead of lisp-mode to avoid excessive font-locking for messages
+	with lots of strings.
+
 2004-03-22  Luke Gorrie  <luke@bluetail.com>
 
 	* doc/slime.texi: New user manual.
