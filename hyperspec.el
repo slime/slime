@@ -1153,7 +1153,8 @@ If you copy the HyperSpec to another location, customize the variable
 
 (defun common-lisp-hyperspec-format (character-name)
    (interactive 
-    (list (let ((char-at-point (char-to-string (char-after (point)))))
+    (list (let ((char-at-point
+                 (ignore-errors (char-to-string (char-after (point))))))
 	    (if (and char-at-point
 		     (intern-soft (upcase char-at-point)
 				  common-lisp-hyperspec-format-characters))
