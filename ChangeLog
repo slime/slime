@@ -1,5 +1,72 @@
 2004-01-02  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* slime.el (slime-display-output-buffer): Move the output markers
+	to the end of the buffer.
+
+	* swank-clisp.lisp (frame-do-venv): Rename the :symbol property to
+	:name.
+	(format-condition-for-emacs): Replaced with
+	debugger-condition-for-emacs.
+	(backtrace): Use print-with-frame-label.
+	
+	* swank-openmcl.lisp (format-condition-for-emacs): Replaced with
+	debugger-condition-for-emacs.
+	(backtrace): Use print-with-frame-label.
+	(frame-locals): Rename the :symbol property to :name.
+
+	* swank-lispworks.lisp (format-condition-for-emacs): Replaced with
+	debugger-condition-for-emacs.
+	(backtrace): Use print-with-frame-label.
+	(frame-locals): Rename the :symbol property to :name.
+
+	* swank-allegro.lisp (frame-locals): Rename the :symbol property
+	to :name.
+	(format-condition-for-emacs): Replaced with
+	debugger-condition-for-emacs.
+	(backtrace): Use print-with-frame-label.
+
+	* swank-sbcl.lisp (tracedp, toggle-trace-fdefinition)
+	(format-condition-for-emacs): Remove unused functions.
+	(format-frame-for-emacs): Use print-with-frame-label.
+	(compute-backtrace): Simplified.
+	(backtrace): Return our frame numbers.
+	(frame-locals): Rename the :symbol property to :name.  Remove the
+	:validity property.
+	
+	* swank-cmucl.lisp (accept-loop, safe-definition-finding): Doc
+	fix.
+	(location-buffer=, file-xrefs-for-emacs)
+	(sort-contexts-by-source-path, source-path<)
+	(format-condition-for-emacs): Remove unused functions.
+	(format-frame-for-emacs): Don't include the frame number in the
+	description, but use the frame number for indentation. Update
+	callers.
+	(frame-locals): Rename the :symbol property to :name.
+	
+	* slime.el (slime-add-face): New function.
+	(sldb-add-face): Use it.
+	(sldb-setup): Some refactoring.
+	(sldb-insert-condition): New function.  Factorized from
+	sldb-setup.  Message and types are now separate.
+	(sldb-insert-restarts): New function.  Factorized from sldb-setup.
+	(sldb-insert-frame): Factorized from slime-insert-frames. The
+	frame number in no longer part of the string describing the frame.
+	(sldb-insert-frames): Use it.
+	(sldb-show-frame-details): Print frame numbers.  Fix printing of
+	catch tags.  Move to the start of the frame before at the
+	beginning to get unfontified text properties.
+	(sldb-inspect-condition): New command.
+	(sldb-insert-locals): The :symbol property is now called :name.
+	Fix locals with :id attribute.
+	(slime-open-inspector): Fix the bugs I introduced last time.
+	
+	* swank.lisp (safe-condition-message): New function.
+	(debugger-condition-for-emacs): Used to be
+	format-condition-for-emacs in each backend.  Separate the
+	condition message from the type description.  Update all backends
+	accordingly.
+	(print-with-frame-label): New function. 
+	
 	* slime.el (slime-hyperspec-lookup): New function.
 
 2004-01-02  Wolfgang Jenkner <wjenkner@inode.at>
