@@ -1,0 +1,38 @@
+Overview.
+----------------------------------------
+
+  SLIME is the Superior Lisp Interaction Mode (which has been
+  Extended). It is implemented in two main parts: the Emacs Lisp side
+  (slime.el), and the support library for CMUCL (swank.lisp).
+
+  For a real description, see the commentary in slime.el.
+
+Quick setup instructions.
+----------------------------------------
+
+  In Emacs Lisp:
+
+    (add-to-list 'load-path "/the/path/to/this/directory")
+    (require 'slime)
+    (add-hook 'lisp-mode-hook (lambda () (slime-mode t)))
+
+  Make sure your `inferior-lisp-program' is set to a recent (post-18e)
+  version of CMUCL.
+
+  M-x slime to fire up an inferior Lisp.
+
+  Open a lisp-mode file and do `C-h m' to see the mode description.
+
+Licence.
+----------------------------------------
+
+  The Emacs Lisp code is licensed under the GNU GPL to fit in with Emacs.
+  The CMUCL code is placed in the public domain to fit in with CMUCL.
+
+Contact.
+----------------------------------------
+
+  SLIME is maintained by Luke Gorrie <luke@bluetail.com>.
+
+  It is derived from SLIM by Eric Marsden <emarsden@laas.fr> (unreleased).
+
