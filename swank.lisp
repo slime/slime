@@ -351,7 +351,7 @@ determined at compile time."
 (defvar *thread-counter* 0)
 
 (defun remove-dead-threads ()
-  (setq *active-threads* 
+  (setq *active-threads*
         (remove-if-not #'thread-alive-p *active-threads*)))
 
 (defun add-thread (thread)
@@ -1730,8 +1730,12 @@ that symbols accessible in the current package go first."
 
 ;;;;
 
-(defslimefun list-all-package-names ()
-  (mapcar #'package-name (list-all-packages)))
+(defslimefun list-all-package-names (&optional include-nicknames)
+  "Return a list of all package names.
+Include the nicknames if INCLUDE-NICKNAMES is true."
+  (loop for package in (list-all-packages)
+        collect (package-name package)
+        when include-nicknames append (package-nicknames package)))
 
 ;; Use eval for the sake of portability... 
 (defun tracedp (fspec)
