@@ -1046,7 +1046,7 @@ Return true if we have been given permission to continue."
   "Offer to rename *inferior-lisp* so that another can be started."
   (when (y-or-n-p "Create an additional *inferior-lisp*? ")
     (with-current-buffer "*inferior-lisp*"
-      (rename-buffer bufname t))))
+      (rename-buffer (buffer-name) t))))
 
 (defun slime-maybe-start-lisp ()
   "Start an inferior lisp unless one is already running."
@@ -2389,8 +2389,10 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   ("\C-c\C-p" 'slime-repl-previous-prompt)
   ("\M-\C-a" 'slime-repl-beginning-of-defun)
   ("\M-\C-e" 'slime-repl-end-of-defun)
-  ((string slime-repl-shortcut-dispatch-char) 'slime-handle-repl-shortcut)
   )
+
+(define-key slime-repl-mode-map
+  (string slime-repl-shortcut-dispatch-char) 'slime-handle-repl-shortcut)
 
 (define-minor-mode slime-repl-read-mode 
   "Mode the read input from Emacs
