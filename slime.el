@@ -3283,12 +3283,14 @@ between compiler notes and to display their full details."
   (interactive)
   (slime-compile-file t))
 
+(defvar slime-lisp-modes '(lisp-mode))
+
 (defun slime-compile-file (&optional load)
   "Compile current buffer's file and highlight resulting compiler notes.
 
 See `slime-compile-and-load-file' for further details."
   (interactive)
-  (unless (eq major-mode 'lisp-mode)
+  (unless (memq major-mode slime-lisp-modes)
     (error "Only valid in lisp-mode"))
   (unless buffer-file-name
     (error "Buffer %s is not associated with a file." (buffer-name)))

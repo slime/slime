@@ -1562,12 +1562,11 @@ has changed, ignore the request."
 (defslimefun frame-locals-for-emacs (index)
   "Return a property list ((&key NAME ID VALUE) ...) describing
 the local variables in the frame INDEX."
-  (let* ((*package* (or (frame-package index) *package*)))
-    (mapcar (lambda (frame-locals)
-              (destructuring-bind (&key name id value) frame-locals
-                (list :name (prin1-to-string name) :id id
-                      :value (to-string value))))
-            (frame-locals index))))
+  (mapcar (lambda (frame-locals)
+            (destructuring-bind (&key name id value) frame-locals
+              (list :name (prin1-to-string name) :id id
+                    :value (to-string value))))
+          (frame-locals index)))
 
 (defslimefun frame-catch-tags-for-emacs (frame-index)
   (mapcar #'to-string (frame-catch-tags frame-index)))
