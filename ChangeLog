@@ -1,3 +1,22 @@
+2004-12-16  Matthias Koeppe <mkoeppe+slime@merkur.math.uni-magdeburg.de>
+
+	* slime.el (slime-keys): Bind M-* to
+	slime-pop-find-definition-stack for compatibility with standard
+	Emacs conventions.
+
+2004-12-16  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-source-path-parser.lisp (read-source-form): New function
+	which uses *read-suppress* properly.  Common code from
+	source-path-stream-position and form-number-stream-position.
+	(source-path-stream-position): Use it.
+
+	* swank-cmucl.lisp (form-number-stream-position): Use
+	read-source-form.
+
+	* swank.lisp (frame-for-emacs): Print the frame number a little
+	nicer with ~2D.
+
 2004-12-15  Matthias Koeppe  <mkoeppe+slime@merkur.math.uni-magdeburg.de>
 
 	* slime.el (slime-lisp-modes): New variable to make C-c C-k
