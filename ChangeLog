@@ -1,3 +1,9 @@
+2004-01-10  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-complete-symbol): Use markers to hold the
+	beginning and end of the completion prefix, in case looking up
+	completions causes insertions (e.g. GC announcements).
+
 2004-01-09  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-activate-state): Only update state name when
