@@ -33,6 +33,7 @@
            #:*sldb-printer-bindings*
            #:*swank-pprint-bindings*
            #:*default-worker-thread-bindings*
+           #:*macroexpand-printer-bindings*
            ;; These are re-exported directly from the backend:
            #:buffer-first-change
            #:frame-source-location-for-emacs
@@ -92,16 +93,6 @@
     (*print-escape*           . t))
   "A set of printer variables used in the debugger.")
 
-(defvar *swank-pprint-bindings*
-  `((*print-level*            . nil)
-    (*print-length*           . nil)
-    (*print-circle*           . t)
-    (*print-gensym*           . t)
-    (*print-readably*         . nil)
-    (*print-pprint-dispatch*  . ,(copy-pprint-dispatch nil)))
-  "A list of variables bindings during pretty printing.
-Used when printing macroexpansions and pprint-eval.")
-
 (defvar *default-worker-thread-bindings* '()
   "An alist to initialize dynamic variables in worker threads.  
 The list has the form ((VAR . VALUE) ...).  Each variable VAR will be
@@ -110,10 +101,15 @@ bound to the corresponding VALUE.")
 (defun call-with-bindings (alist fun)
   "Call FUN with variables bound according to ALIST.
 ALIST is a list of the form ((VAR . VAL) ...)."
-  (let ((vars (mapcar #'car alist))
-        (vals (mapcar #'cdr alist)))
+  (let* ((rlist (reverse alist))
+         (vars (mapcar #'car rlist))
+         (vals (mapcar #'cdr rlist)))
     (progv vars vals
       (funcall fun))))
+
+(defmacro with-bindings (alist &body body)
+  "See `call-with-bindings'."
+  `(call-with-bindings ,alist (lambda () ,@body)))
 
 ;;; The `DEFSLIMEFUN' macro defines a function that Emacs can call via
 ;;; RPC.
@@ -530,9 +526,8 @@ of the toplevel restart."
 
 (defun spawn-worker-thread (connection)
   (spawn (lambda () 
-           (call-with-bindings *default-worker-thread-bindings*
-                               (lambda () 
-                                 (handle-request connection))))
+           (with-bindings *default-worker-thread-bindings*
+             (handle-request connection)))
          :name "worker"))
 
 (defun dispatch-event (event socket-io)
@@ -1722,18 +1717,25 @@ N.B. this is not an actual package name or nickname."
 	(makunbound name)
 	(prin1-to-string (eval form))))))
 
+(defvar *swank-pprint-bindings*
+  `((*print-pretty*   . t) 
+    (*print-level*    . nil)
+    (*print-length*   . nil)
+    (*print-circle*   . t)
+    (*print-gensym*   . t)
+    (*print-readably* . nil))
+  "A list of variables bindings during pretty printing.
+Used by pprint-eval.")
+
 (defun swank-pprint (list)
   "Bind some printer variables and pretty print each object in LIST."
   (with-buffer-syntax ()
-    (call-with-bindings 
-     *swank-pprint-bindings*
-     (lambda ()
-       (let ((*print-pretty* t))
-         (cond ((null list) "; No value")
-               (t (with-output-to-string (*standard-output*)
-                    (dolist (o list)
-                      (pprint o)
-                      (terpri))))))))))
+    (with-bindings *swank-pprint-bindings*
+      (cond ((null list) "; No value")
+            (t (with-output-to-string (*standard-output*)
+                 (dolist (o list)
+                   (pprint o)
+                   (terpri))))))))
   
 (defslimefun pprint-eval (string)
   (with-buffer-syntax ()
@@ -1776,7 +1778,8 @@ WHAT can be:
   "Return a readable value of FORM for editing in Emacs.
 FORM is expected, but not required, to be SETF'able."
   ;; FIXME: Can we check FORM for setfability? -luke (12/Mar/2005)
-  (prin1-to-string (eval (read-from-string form))))
+  (with-buffer-syntax ()
+    (prin1-to-string (eval (read-from-string form)))))
 
 (defslimefun commit-edited-value (form value)
   "Set the value of a setf'able FORM to VALUE.
@@ -1838,11 +1841,9 @@ after Emacs causes a restart to be invoked."
         (*sldb-stepping-p* nil)
         (*swank-state-stack* (cons :swank-debugger-hook *swank-state-stack*)))
     (force-user-output)
-    (call-with-bindings
-     *sldb-printer-bindings*
-     (lambda ()
-       (call-with-debugging-environment
-        (lambda () (sldb-loop *sldb-level*)))))))
+    (with-bindings *sldb-printer-bindings*
+      (call-with-debugging-environment
+       (lambda () (sldb-loop *sldb-level*))))))
 
 (defun sldb-loop (level)
   (unwind-protect
@@ -2135,10 +2136,18 @@ Record compiler notes signalled as `compiler-condition's."
 
 ;;;; Macroexpansion
 
+(defvar *macroexpand-printer-bindings*
+  '((*print-circle* . nil)
+    (*print-pretty* . t)
+    (*print-escape* . t)
+    (*print-level* . nil)
+    (*print-length* . nil)))
+
 (defun apply-macro-expander (expander string)
   (declare (type function expander))
   (with-buffer-syntax ()
-    (swank-pprint (list (funcall expander (from-string string))))))
+    (with-bindings *macroexpand-printer-bindings*
+      (prin1-to-string (funcall expander (from-string string))))))
 
 (defslimefun swank-macroexpand-1 (string)
   (apply-macro-expander #'macroexpand-1 string))
