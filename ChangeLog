@@ -1,5 +1,7 @@
 2004-01-16  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* swank-allegro.lisp: Multiprocessing support.
+
 	* swank-openmcl.lisp, swank-cmucl.lisp, swank-backend.lisp,
 	swank.lisp: Refactor inspector code.
 	
