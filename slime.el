@@ -1514,7 +1514,10 @@ This is automatically synchronized from Lisp.")
 
 (make-variable-buffer-local
  (defvar slime-current-thread t
-   "The id of the current thread on the Lisp side.  t don't care."))
+   "The id of the current thread on the Lisp side.  
+t means the \"current\" thread
+:repl-thread the thread to execute repl requests
+fixnum a specific thread."))
 
 (defun slime-dispatch-event (event &optional process)
   (let ((slime-dispatching-connection (or process (slime-connection))))
@@ -2018,6 +2021,7 @@ update window-point afterwards.  If point is initially not at
        'common-lisp-indent-function)
   (setq font-lock-defaults nil)
   (setq mode-name "REPL")
+  (setq slime-current-thread :repl-thread)
   ;;(set (make-local-variable 'scroll-conservatively) 20)
   ;;(set (make-local-variable 'scroll-margin) 0)
   (slime-setup-command-hooks)
