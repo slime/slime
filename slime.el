@@ -62,6 +62,7 @@
 (when (featurep 'xemacs)
   (require 'overlay))
 (require 'easymenu)
+(require 'tree-widget)
 
 (defvar slime-use-autodoc-mode nil
   "When non-nil always enabled slime-autodoc-mode in slime-mode.")
@@ -1160,7 +1161,7 @@ See `slime-translate-from-lisp-filename-function'."
             (slime-urge-bytecode-recompile))
     (cond ((and current-prefix-arg
                 (slime-connected-p)
-                (get-buffer "*inferior-lisp*"))
+                (slime-process))
            (unless (slime-maybe-rearrange-inferior-lisp)
              (slime-disconnect)))
           (t (slime-disconnect)))
@@ -1203,6 +1204,23 @@ See `slime-translate-from-lisp-filename-function'."
                       (lambda (package)
                         (when package
                           (slime-repl-set-package (second package)))))))
+
+(defmacro define-slime-dialect (name &optional program hook)
+  "Define a command slime-dialect-NAME to start a specific Lisp.
+PROGRAM is the command to start the inferior process.
+HOOK is function which is run before the process is started."
+  (let ((funsym (intern (format "slime-dialect-%s" name)))
+        (hooksym (intern (format "slime-dialect-%s-hook" name)))
+        (progsym (intern (format "slime-dialect-%s-program" name))))
+    `(progn
+       (defvar ,progsym ,program)
+       (defvar ,hooksym ,hook)
+       (defun ,funsym ()
+         ,(format "Start up slime according to `%s'." progsym)
+         (interactive)
+         (let ((inferior-lisp-program ,progsym))
+           (run-hook ',hooksym)
+           (call-interactively 'slime))))))
 
 ;;;;; Start inferior lisp
 ;;;
@@ -1268,23 +1286,26 @@ Return true if we have been given permission to continue."
 (defun slime-maybe-rearrange-inferior-lisp ()
   "Offer to rename *inferior-lisp* so that another can be started."
   (when (y-or-n-p "Create an additional *inferior-lisp*? ")
-    (with-current-buffer "*inferior-lisp*"
+    (with-current-buffer (process-buffer (slime-process))
       (rename-buffer (generate-new-buffer-name (buffer-name)))
       t)))
 
 (defun slime-maybe-start-lisp ()
   "Start an inferior lisp. Instruct it to load Swank."
-  (unless (get-buffer-process (get-buffer "*inferior-lisp*"))
-    (call-interactively 'inferior-lisp)
-    (when slime-kill-without-query-p
-      (process-kill-without-query (inferior-lisp-proc)))
-    (comint-send-string (inferior-lisp-proc)
-                        (format "(load %S)\n"
-                                (slime-to-lisp-filename
-                                 (if (file-name-absolute-p slime-backend)
-                                     slime-backend
-                                   (concat slime-path slime-backend)))))
-    (slime-maybe-start-multiprocessing)))
+  (unless (get-buffer-process inferior-lisp-buffer)
+    (slime-start-lisp)))
+
+(defun slime-start-lisp ()
+  (call-interactively 'inferior-lisp)
+  (when slime-kill-without-query-p
+    (process-kill-without-query (inferior-lisp-proc)))
+  (comint-send-string (inferior-lisp-proc)
+                      (format "(load %S)\n"
+                              (slime-to-lisp-filename
+                               (if (file-name-absolute-p slime-backend)
+                                   slime-backend
+                                 (concat slime-path slime-backend)))))
+  (slime-maybe-start-multiprocessing))
 
 (defun slime-maybe-start-multiprocessing ()
   (when slime-multiprocessing
@@ -1353,7 +1374,7 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
 
 (defun slime-hide-inferior-lisp-buffer ()
   "Display the REPL buffer instead of the *inferior-lisp* buffer."
-  (let* ((buffer (get-buffer "*inferior-lisp*"))
+  (let* ((buffer (if (slime-process) (process-buffer (slime-process))))
          (window (if buffer (get-buffer-window buffer)))
          (repl (slime-output-buffer t)))
     (when buffer
@@ -1800,6 +1821,15 @@ This is automatically synchronized from Lisp.")
   (if (featurep 'xemacs)
       (car (process-id connection))
     (cadr (process-contact connection))))
+
+(defun slime-process (&optional connection)
+  "Return the Lisp process for CONNECTION (default `slime-connection').
+Can return nil if there's no process object for the connection."
+  (let* ((pid (slime-pid connection))
+         (proc (find pid (process-list) :key #'process-id)))
+    (case (and proc (process-status proc))
+      ((run stop) proc)
+      ((exit nil signal) nil))))
 
 
 ;;;; Communication protocol
@@ -3024,8 +3054,16 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
 (defslime-repl-shortcut slime-restart-inferior-lisp ("restart-inferior-lisp")
   (:handler (lambda ()
               (interactive)
-              (ignore-errors (kill-buffer "*inferior-lisp*"))
-              (slime)))
+              (let* ((proc (slime-process))
+                     (inferior-lisp-program ; for the new process
+                      (if proc 
+                          (mapconcat #'identity (process-command proc) " ")
+                        inferior-lisp-program)))
+                (ignore-errors (kill-process proc))
+                (while (comint-check-proc (process-buffer proc))
+                  (sit-for 0 20))
+                (slime-start-lisp)
+                (slime-inferior-connect))))
   (:one-liner "Restart *inferior-lisp* and reconnect SLIME."))
 
 
@@ -6610,6 +6648,69 @@ Optionally set point to POINT."
   ("q" 'slime-inspector-quit)
   ("\C-i" 'slime-inspector-next-inspectable-object)
   ("\M-." 'slime-edit-definition))
+
+
+;;;; classes browser
+
+(defun slime-expand-class-node (node)
+  (or (widget-get widget :args)
+      (let ((name (widget-get node :tag)))
+	(loop for kid in (slime-eval `(swank:mop :subclasses ,name))
+	      collect `(tree-widget :tag ,kid
+				    :dynargs slime-expand-class-node
+				    :has-children t)))))
+
+(defun slime-browse-classes (name)
+  "Read the name of a class and show its subclasses."
+  (interactive (list (slime-read-symbol-name "Class Name: ")))
+  (slime-call-with-browser-setup 
+   "*slime class browser*" (slime-current-package) "Class Browser"
+   (lambda ()
+     (widget-create 'tree-widget :tag name 
+                    :dynargs 'slime-expand-class-node 
+                    :has-echildren t))))
+
+(defun slime-call-with-browser-setup (buffer package title fn)
+  (switch-to-buffer buffer)
+  (kill-all-local-variables)
+  (setq slime-buffer-package package)
+  (let ((inhibit-read-only t)) (erase-buffer))
+  (widget-insert title "\n\n")
+  (funcall fn)
+  (lisp-mode)
+  (slime-mode t)
+  (use-local-map widget-keymap)
+  (widget-setup))
+  
+
+;;;; Xref browser
+
+(defun slime-expand-xrefs (node)
+  (or (widget-get widget :args)
+      (let ((name (widget-get node :tag))
+            (type (widget-get node :xref-type)))
+        (let ((specs (loop for (file . specs) in (slime-eval 
+                                                  `(swank:xref ,type ,name))
+                           append specs)))
+                     
+          (loop for (dspec . _) in specs
+                collect `(tree-widget :tag ,dspec
+                                      :xref-type ,type
+                                      :dynargs slime-expand-xrefs
+                                      :has-children t))))))
+
+(defun slime-browse-xrefs (name type)
+  "Show the xref graph of a function in a tree widget."
+  (interactive (list (read-from-minibuffer "Name: ")
+                     (read (completing-read "Type: "
+                                            (slime-bogus-completion-alist
+                                             '(":callees" ":callers" ":calls"))
+                                            nil t ":"))))
+  (slime-call-with-browser-setup 
+   "*slime xref browser*" (slime-current-package) "Xref Browser"
+   (lambda ()
+     (widget-create 'tree-widget :tag name :xref-type type 
+                    :dynargs 'slime-expand-xrefs :has-echildren t))))
 
 
 ;;;; Buffer selector
