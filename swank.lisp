@@ -1264,7 +1264,8 @@ the 'printer-variables property of PREFIX."
                     collect `(,(symconc 'print name) ,(symconc prefix name))))
         `(progn 
            ,@(loop for (name init doc) in bindings
-                   collect `(defvar ,(symconc prefix name) ,init ,doc)))))))
+                   collect `(defvar ,(symconc prefix name) ,init 
+                              ,@(if doc doc))))))))
 
 (define-printer-variables swank-pprint
   circle level length case right-margin escape)
@@ -3041,8 +3042,8 @@ NIL is returned if the list is circular."
         (format nil "#~D=~A" pos string)
         string)))
 
-(defun inspector-content-for-emacs (spec)
-  (loop for part in spec collect 
+(defun inspector-content-for-emacs (specs)
+  (loop for part in specs collect 
         (etypecase part
           (null ; XXX encourages sloppy programming
            nil)
