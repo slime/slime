@@ -38,8 +38,9 @@
 ;;   highlighted. Commands exist for navigating between compiler
 ;;   notes.
 ;;
-;;   Comforts familiar from ILISP: completion of symbols, and
-;;   automatic display of arglists in function calls.
+;;   Comforts familiar from ILISP: completion of symbols, automatic
+;;   display of arglists in function calls, and TAGS-like definition
+;;   finding.
 ;;
 ;; The goal is to make Emacs support CMU Common Lisp as well as it
 ;; supports Emacs Lisp. The strategy is to take maximum advantage of
@@ -79,7 +80,7 @@ This is used to load the supporting Common Lisp library, Swank.
 The default value is automatically computed from the location of the
 Emacs Lisp package.")
 
-(defvar slime-swank-connection-retries 5
+(defvar slime-swank-connection-retries 10
   "Number of times to try connecting to the Swank server before aborting.")
 
 (defvar slime-cmucl-binary-extension ".x86f")
@@ -103,36 +104,36 @@ the same name instead."))
   :group 'applications)
 
 (defface slime-error-face
-    '((((class color) (background light))
-       (:underline "red"))
-      (((class color) (background dark))
-       (:underline "red"))
-      (t (:underline t)))
+  '((((class color) (background light))
+     (:underline "red"))
+    (((class color) (background dark))
+     (:underline "red"))
+    (t (:underline t)))
   "Face for errors from the compiler."
   :group 'slime)
 
 (defface slime-warning-face
-    '((((class color) (background light))
-       (:underline "orange"))
-      (((class color) (background dark))
-       (:underline "coral"))
-      (t (:underline t)))
+  '((((class color) (background light))
+     (:underline "orange"))
+    (((class color) (background dark))
+     (:underline "coral"))
+    (t (:underline t)))
   "Face for warnings from the compiler."
   :group 'slime)
 
 (defface slime-note-face
-    '((((class color) (background light))
-       (:underline "brown"))
-      (((class color) (background dark))
-       (:underline "gold"))
-      (t (:underline t)))
+  '((((class color) (background light))
+     (:underline "brown"))
+    (((class color) (background dark))
+     (:underline "gold"))
+    (t (:underline t)))
   "Face for notes from the compiler."
   :group 'slime)
 
 (defface slime-highlight-face
-    '((t
-       (:inherit highlight)
-       (:underline nil)))
+  '((t
+     (:inherit highlight)
+     (:underline nil)))
   "Face for compiler notes while selected."
   :group 'slime)
 
@@ -140,7 +141,7 @@ the same name instead."))
 ;;; Minor mode.
 
 (define-minor-mode slime-mode
-    "
+  "
 The Superior Lisp Interaction Mode, Extended (minor-mode).
 
 Compilation commands compile the current buffer's source file and
@@ -153,6 +154,10 @@ Commands for visiting compiler notes:
 \\[slime-previous-note]	- Goto the previous form with a compiler note.
 \\[slime-remove-notes]	- Get rid of any compiler-note annotations in the buffer.
 
+Commands for finding definitions:
+\\[slime-edit-fdefinition]	- Edit the definition of the function called at point.
+\\[slime-pop-find-definition-stack]	- Pop the definition stack to go back from a definition.
+
 Other commands:
 \\[slime-complete-symbol]       - Complete the Lisp symbol at point. (Also M-TAB.)
 "
@@ -161,12 +166,16 @@ Other commands:
   '((" "        . slime-space)
     ("\M-p"     . slime-previous-note)
     ("\M-n"     . slime-next-note)
+    ("\C-c\M-c" . slime-remove-notes)
     ("\C-c\C-k" . slime-compile-and-load-file)
     ("\C-c\M-k" . slime-compile-file)
     ;; Multiple bindings for completion, since M-TAB is often taken by
     ;; the window manager.
     ("\M-\C-i"  . slime-complete-symbol)
-    ("\C-c\C-i" . slime-complete-symbol)))
+    ("\C-c\C-i" . slime-complete-symbol)
+    ("\M-."     . slime-edit-fdefinition)
+    ("\M-,"     . slime-pop-find-definition-stack)
+    ))
 
 ;; Setup the mode-line to say when we're in slime-mode, and which CL
 ;; package we think the current buffer belongs to.
@@ -219,14 +228,14 @@ This list of flushed between commands."))
   (setq retries (or retries slime-swank-connection-retries))
   (if (zerop retries)
       (error "Unable to contact Swank server.")
-      (condition-case ()
-          (progn (setq slime-wire (wire-connect-to-remote-server host port))
-                 (message "Connected to Swank on %s:%S. %s"
-                          host port (slime-random-words-of-encouragement)))
-        (wire-error (message "Connecting to Swank (%S attempts remaining)." 
-                             retries)
-                    (sit-for 1)
-                    (slime-connect host port (1- retries))))))
+    (condition-case ()
+        (progn (setq slime-wire (wire-connect-to-remote-server host port))
+               (message "Connected to Swank on %s:%S. %s"
+                        host port (slime-random-words-of-encouragement)))
+      (wire-error (message "Connecting to Swank (%S attempts remaining)." 
+                           retries)
+                  (sit-for 2)
+                  (slime-connect host port (1- retries))))))
 
 (defun slime-start-swank-server ()
   "Start a Swank server on the inferior lisp."
@@ -240,8 +249,8 @@ This list of flushed between commands."))
   (let ((source (concat slime-path "swank.lisp"))
         (binary (concat slime-path "swank" slime-cmucl-binary-extension)))
     (flet ((compile-swank ()
-             (comint-proc-query (inferior-lisp-proc)
-                                (format "(compile-file %S)\n" source))))
+                          (comint-proc-query (inferior-lisp-proc)
+                                             (format "(compile-file %S)\n" source))))
       (when (or (and (not (file-exists-p binary))
                      (y-or-n-p "\
 The CMUCL support library (Swank) is not compiled. Compile now? "))
@@ -274,7 +283,7 @@ Your Swank binary is older than the source. Recompile now? ")))
       (wire-remote-eval slime-wire (prin1-to-string expr) package)
     (if (eql status slime-wire-success-code)
         (slime-downcase-symbols (car (read-from-string result)))
-        (error "slime-eval failed: %S" condition))))
+      (error "slime-eval failed: %S" condition))))
 
 (defun slime-downcase-symbols (x)
   "Convert all symbols in the term X to lowercase."
@@ -388,7 +397,7 @@ new overlay is created."
     (let ((appropriate-overlay (slime-note-at-point)))
       (if appropriate-overlay
 	  (slime-merge-note-into-overlay appropriate-overlay severity message)
-	  (slime-create-note-overlay start end severity message)))))
+        (slime-create-note-overlay start end severity message)))))
 
 (defun slime-create-note-overlay (start end severity message)
   "Create an overlay representing a compiler note.
@@ -442,9 +451,9 @@ region around the first element is used."
     (values start
 	    (if (slime-same-line-p start (point))
 		(point)
-		(progn (goto-char start)
-		       (forward-sexp)
-		       (point))))))
+              (progn (goto-char start)
+                     (forward-sexp)
+                     (point))))))
 
 (defun slime-same-line-p (start end)
   "Return true if buffer positions START and END are on the same line."
@@ -465,7 +474,7 @@ Severity is ordered as :NOTE < :WARNING < :ERROR."
           (and (eq sev1 :warning)
                (not (eq sev2 :error))))
       sev1
-      sev2))
+    sev2))
 
 (defun slime-goto-location (location)
   "Goto the source location by position or source path.
@@ -512,7 +521,7 @@ top-level form, etc."
   (slime-find-next-note)
   (if (slime-note-at-point)
       (slime-show-note (slime-note-at-point))
-      (message "No next note.")))
+    (message "No next note.")))
 
 ;; SLIME-PREVIOUS-NOTE -- command
 ;;
@@ -522,7 +531,7 @@ top-level form, etc."
   (slime-find-previous-note)
   (if (slime-note-at-point)
       (slime-show-note (slime-note-at-point))
-      (message "No previous note.")))
+    (message "No previous note.")))
 
 ;; SLIME-REMOVE-NOTES -- command
 ;;
@@ -540,8 +549,8 @@ top-level form, etc."
     ;; XEmacs truncates multi-line messages in the echo area.
     (defun slime-message (fmt &rest args)
       (slime-display-message-or-view (format fmt args) "*CMUCL Note*"))
-    (defun slime-message (fmt &rest args)
-      (apply 'message fmt args)))
+  (defun slime-message (fmt &rest args)
+    (apply 'message fmt args)))
 
 (defun slime-display-message-or-view (msg bufname &optional select)
   "Like `display-buffer-or-message', but with `view-buffer-other-window'.
@@ -698,7 +707,7 @@ package is used."
          (name-beg (save-excursion
                      (if (search-backward ":" beg t)
                          (1+ (point))
-                         beg)))
+                       beg)))
          (whole-prefix (buffer-substring-no-properties beg end))
          (name-prefix  (buffer-substring-no-properties name-beg end))
          (completions (slime-completions whole-prefix))
@@ -743,6 +752,47 @@ alist but ignores CDRs."
                       (string-match "[A-Z]" (symbol-name prefix)))))
     (mapcar (if has-upcase 'upcase 'downcase)
             (slime-eval `(swank:completions ,name ,package ,external-ref)))))
+
+
+;;; Edit definition
+
+(defvar slime-find-definition-history-ring (make-ring 20)
+  "History ring recording the definition-finding \"stack\".")
+
+(defun slime-edit-fdefinition (name)
+  "Lookup the definition of the function called at point.
+If no function call is recognised, or a prefix argument is given, then
+the function name is prompted."
+  (interactive (list (let ((called (slime-function-called-at-point)))
+                       (if (and called (null current-prefix-arg))
+                           (symbol-name called)
+                         (read-string "Function name: ")))))
+  (let* ((package (upcase (wire-symbol-package name (slime-buffer-package))))
+         (file (slime-eval `(swank:find-fdefinition ,name ,package))))
+    (if (null file)
+        (message "Cannot locate definition of %S" name)
+      (ring-insert-at-beginning slime-find-definition-history-ring
+                                (point-marker))
+      (find-file file)
+      (goto-char (point-min))
+      (let ((regexp (format "(\\(defun\\|defmacro\\)\\s *%s\\s "
+                            (regexp-quote (wire-symbol-name name)))))
+        (if (re-search-forward regexp nil t)
+            (progn (beginning-of-line)
+                   (unless (pos-visible-in-window-p)
+                     (recenter 4)))
+          (message "Unable to find definition by searching."))))))
+
+(defun slime-pop-find-definition-stack ()
+  (interactive)
+  (unless (ring-empty-p slime-find-definition-history-ring)
+    (let* ((marker (ring-remove slime-find-definition-history-ring))
+	   (buffer (marker-buffer marker)))
+      (if (buffer-live-p buffer)
+	  (progn (switch-to-buffer buffer)
+		 (goto-char (marker-position marker)))
+        ;; If this buffer was deleted, recurse to try the next one
+        (slime-pop-find-definition-stack)))))
 
 
 (provide 'slime)
