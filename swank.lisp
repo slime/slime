@@ -1288,12 +1288,12 @@ Return three values: keyword, argument name, default arg."
 
 (progn
   (assert (equalp (decode-keyword-arg 'x) 
-                  (make-keyword-arg :x 'x nil))
+                  (make-keyword-arg :x 'x nil)))
   (assert (equalp (decode-keyword-arg '(x t)) 
-                  (make-keyword-arg :x 'x t))))
-  (assert (equalp (decode-keyword-arg '((:x y)))   
+                  (make-keyword-arg :x 'x t)))
+  (assert (equalp (decode-keyword-arg '((:x y)))
                   (make-keyword-arg :x 'y nil)))
-  (assert (equalp (decode-keyword-arg '((:x y) t)) 
+  (assert (equalp (decode-keyword-arg '((:x y) t))
                   (make-keyword-arg :x 'y t))))
 
 (defstruct (optional-arg 
