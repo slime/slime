@@ -586,6 +586,7 @@ the code omponent CODE."
                                  (function-source-location fn)))
                          fns))))
 
+
 ;;;; Definitions
 
 (defvar *debug-definition-finding* nil
@@ -1318,6 +1319,55 @@ nil if there's no second element."
 	  `(("Name" . ,(kernel:fdefn-name o))
 	    ("Function" . ,(kernel:fdefn-function o)))))
 
+
+;;;; Multiprocessing
+
+#+MP
+(progn
+  (defvar *I/O-lock*          (mp:make-lock "SWANK I/O lock"))
+  (defvar *conversation-lock* (mp:make-lock "SWANK conversation lock"))
+
+  (defvar *known-processes* '()         ; FIXME: leakage. -luke
+    "List of processes that have been assigned IDs.
+     The ID is the position in the list.")
+
+  (defmethod startup-multiprocessing ()
+    (mp::startup-idle-and-top-level-loops))
+
+  (defmethod thread-id ()
+    (mp:without-scheduling
+     (or (find-thread-id)
+         (prog1 (length *known-processes*)
+           (setq *known-processes*
+                 (append *known-processes* (list (mp:current-process))))))))
+
+  (defun find-thread-id (&optional (process (mp:current-process)))
+    (position process *known-processes*))
+
+  (defun lookup-thread (thread-id)
+    (or (nth thread-id *known-processes*)
+        (error "Unknown Thread-ID: ~S" thread-id)))
+
+  (defmethod thread-name (thread-id)
+    (mp:process-name (lookup-thread thread-id)))
+
+  (defmethod call-with-I/O-lock (function)
+    (mp:with-lock-held (*I/O-lock*)
+      (funcall function)))
+
+  (defmethod call-with-conversation-lock (function)
+    (mp:with-lock-held (*conversation-lock*)
+      (funcall function)))
+
+  (defmethod wait-goahead ()
+    (mp:disable-process (mp:current-process))
+    (mp:process-yield))
+
+  (defmethod give-goahead (thread-id)
+    (mp:enable-process (lookup-thread thread-id))))
+
+
+;;;; Epilogue
 ;;; Local Variables:
 ;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
 ;;; End:
