@@ -1,3 +1,8 @@
+2003-11-03  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-display-buffer-region): Hacked to fix completely
+	inexplicable XEmacs problems.
+
 2003-11-2  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* null-swank-impl.lisp, swank-cmucl.lisp, swank-openmcl.lisp,
