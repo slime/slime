@@ -1,5 +1,9 @@
 2003-11-29  Daniel Barlow  <dan@telent.net>
 
+	* swank-sbcl.lisp (source-location-for-emacs):
+	sb-debug::print-description-to-string takes only two args, not
+	three.  Now 'v' command works in sldb :-)
+
 	* slime.el (slime-idle-state): added :debug as a valid transition
 
 	* swank.lisp (slime-debugger-function): New.  Returns a function
