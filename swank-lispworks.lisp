@@ -30,56 +30,58 @@
 (defun without-interrupts* (body)
   (lispworks:without-interrupts (funcall body)))
 
-(defun create-swank-server (port &key (reuse-address t)
-                            (announce #'simple-announce-function))
-  "Create a Swank TCP server on `port'.
-Return the port number that the socket is actually listening on."
-  (declare (ignore reuse-address))
+(defconstant +sigint+ 2)
+
+(defmethod create-socket-server (init-fn &key announce-fn (port 0)
+                                 (accept-background t)
+                                 (handle-background t)
+                                 (loop t))
   (flet ((sentinel (socket condition)
            (cond (socket
                   (let ((port (nth-value 1 (comm:get-socket-address socket))))
-                    (funcall announce port)))
+                    (funcall announce-fn port)))
                  (t
                   (format *terminal-io* ";; Swank condition: ~A~%" 
-                          condition)))))
-    (comm:start-up-server :announce #'sentinel :service port
-                          :process-name "Swank server"
-                          :function 'swank-accept-connection)))
+                          condition))))
+         (accept (fd)
+           (accept-connection fd init-fn handle-background)
+           (unless loop (mp:process-kill mp:*current-process*))))
+    (let ((server-process
+           (comm:start-up-server :announce #'sentinel :service port
+                                 :process-name "Swank server"
+                                 :function #'accept)))
+      (unless accept-background
+        (wait-process-death server-process)))))
 
-(defconstant +sigint+ 2)
+(defun accept-connection (fd init-fn background)
+  (let ((socket-io (make-instance 'comm:socket-stream
+                                  :socket fd
+                                  :direction :io
+                                  :element-type 'base-char)))
+    (sys:set-signal-handler +sigint+ #'sigint-handler)
+    (let* ((handler-fn (funcall init-fn socket-io))
+           (loop-fn (lambda () (loop (funcall handler-fn)))))
+      (if background
+          (mp:process-run-function "Swank request handler" () loop-fn)
+          (funcall loop-fn)))))
+
+(defun wait-process-death (process)
+  (mp:process-wait "Letting Emacs connect"
+                   (lambda () (not (mp:process-alive-p process)))))
+
 
 (defun sigint-handler (&rest args)
   (declare (ignore args))
   (invoke-debugger "SIGINT"))
 
-(defun swank-accept-connection (fd)
-  "Accept one Swank TCP connection on SOCKET and then close it.
-Run the connection handler in a new thread."
-  (let ((*emacs-io* (make-instance 'comm:socket-stream
-				   :socket fd
-				   :direction :io
-				   :element-type 'base-char)))
-    (sys:set-signal-handler +sigint+ #'sigint-handler)
-    (request-loop)))
+(defmethod make-fn-streams (input-fn output-fn)
+  (let* ((output (make-instance 'slime-output-stream
+                                :output-fn output-fn))
+         (input  (make-instance 'slime-input-stream
+                                :input-fn input-fn
+                                :output-stream output)))
+    (values input output)))
 
-(defun request-loop ()
-  "Thread function for a single Swank connection.  Processes requests
-until the remote Emacs goes away."
-  (unwind-protect
-       (let* ((*slime-output* (make-instance 'slime-output-stream))
-              (*slime-input* (make-instance 'slime-input-stream))
-              (*slime-io* (make-two-way-stream *slime-input* *slime-output*)))
-         (loop
-            (catch 'slime-toplevel
-              (with-simple-restart (abort "Return to Slime event loop.")
-                (handler-case (read-from-emacs)
-                  (slime-read-error (e)
-                    (when *swank-debug-p*
-                      (format *debug-io*
-                              "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
-                    (return)))))))
-    (format *terminal-io* "~&;; Swank: Closed connection: ~A~%" *emacs-io*)
-    (close *emacs-io*)))
 
 (defslimefun getpid ()
   "Return the process ID of this superior Lisp."
