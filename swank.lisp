@@ -871,6 +871,10 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
 
 (defvar *read-input-catch-tag* 0)
 
+(defun intern-catch-tag (tag)
+  ;; fixnums aren't eq in ABCL, so we use intern to create tags
+  (intern (format nil "~D" tag) :swank))
+
 (defun read-user-input-from-emacs ()
   (let ((*read-input-catch-tag* (1+ *read-input-catch-tag*)))
     (force-output)
@@ -878,7 +882,7 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
                      ,*read-input-catch-tag*))
     (let ((ok nil))
       (unwind-protect
-           (prog1 (catch *read-input-catch-tag* 
+           (prog1 (catch (intern-catch-tag *read-input-catch-tag*)
                     (loop (read-from-emacs)))
              (setq ok t))
         (unless ok 
@@ -887,7 +891,7 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
 
 (defslimefun take-input (tag input)
   "Return the string INPUT to the continuation TAG."
-  (throw tag input))
+  (throw (intern-catch-tag tag) input))
 
 (defslimefun connection-info ()
   "Return a list of the form: 
@@ -902,10 +906,10 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
 
 (defmacro define-special (name doc)
   "Define a special variable NAME with doc string DOC.
-This is like defvar, but NAME will not initialized."
+This is like defvar, but NAME will not be initialized."
   `(progn
     (defvar ,name)
-    (setf (documentation ',name 'symbol) ',doc)))
+    (setf (documentation ',name 'variable) ',doc)))
 
 (define-special *buffer-package*     
     "Package corresponding to slime-buffer-package.  
