@@ -1735,6 +1735,7 @@ See `slime-compile-and-load-file' for further details."
     (display-buffer (current-buffer) t)))
 
 (defun slime-compile-defun ()
+  "Compile the current toplevel form."
   (interactive)
   (slime-compile-string (slime-defun-at-point)
                         (save-excursion 
@@ -1743,6 +1744,7 @@ See `slime-compile-and-load-file' for further details."
                           (point))))
 
 (defun slime-compile-region (start end)
+  "Compile the region."
   (interactive "r")
   (slime-compile-string (buffer-substring-no-properties start end) start))
 
@@ -2478,6 +2480,7 @@ function name is prompted."
 ;;; Interactive evaluation.
 
 (defun slime-interactive-eval (string)
+  "Read and evaluate STRING and print value in minibuffer. "
   (interactive (list (slime-read-from-minibuffer "Slime Eval: ")))
   (slime-insert-transcript-delimiter string)
   (slime-eval-async 
@@ -2517,14 +2520,17 @@ function name is prompted."
 				  (point)))
 
 (defun slime-eval-last-expression ()
+  "Evaluate the expression preceding point."
   (interactive)
   (slime-interactive-eval (slime-last-expression)))
   
 (defun slime-eval-defun ()
+  "Evaluate the current toplevel form."
   (interactive)
   (slime-interactive-eval (slime-defun-at-point)))
 
 (defun slime-eval-region (start end)
+  "Evalute region."
   (interactive "r")
   (slime-eval-async
    `(swank:interactive-eval-region ,(buffer-substring-no-properties start end))
@@ -2532,6 +2538,8 @@ function name is prompted."
    (slime-show-evaluation-result-continuation)))
 
 (defun slime-eval-buffer ()
+  "Evalute the current buffer.
+The value is printed in the echo area."
   (interactive)
   (slime-eval-region (point-min) (point-max)))
 
@@ -2545,10 +2553,12 @@ First make the variable unbound, then evaluate the entire form."
 		    (slime-show-evaluation-result-continuation)))
 
 (defun slime-pprint-eval-last-expression ()
+  "Evalute the form before point; pprint the value in a buffer."
   (interactive)
   (slime-eval-describe `(swank:pprint-eval ,(slime-last-expression))))
 
 (defun slime-eval-print-last-expression (string)
+  "Evalute sexp before point; print value into the current buffer"
   (interactive (list (slime-last-expression)))
   (slime-insert-transcript-delimiter string)
   (insert "\n")
@@ -2563,20 +2573,24 @@ First make the variable unbound, then evaluate the entire form."
          (insert "\n"))))))
 
 (defun slime-toggle-trace-fdefinition (fname-string)
+  "Toggle trace for FNAME-STRING."
   (interactive (list (slime-completing-read-symbol-name 
 		      "(Un)trace: " (slime-symbol-name-at-point))))
   (message "%s" (slime-eval `(swank:toggle-trace-fdefinition ,fname-string)
 			    (slime-buffer-package t))))
 
 (defun slime-untrace-all ()
+  "Untrace all functions."
   (interactive)
   (slime-eval `(swank:untrace-all)))
 
 (defun slime-disassemble-symbol (symbol-name)
+  "Display the disassembly for SYMBOL-NAME."
   (interactive (list (slime-read-symbol-name "Disassemble: ")))
   (slime-eval-describe `(swank:disassemble-symbol ,symbol-name)))
 
 (defun slime-load-file (filename)
+  "Load the Lisp file FILENAME."
   (interactive (list 
 		(read-file-name "Load file: " nil nil
 				nil (file-name-sans-extension
@@ -3968,6 +3982,30 @@ expires.\nThe timeout is given in seconds (a floating point number)."
        (slime-test-state-stack '(slime-evaluating-state slime-idle-state)))
      (slime-interrupt)
      (slime-sync-state-stack '(slime-idle-state) 5)
+     (slime-check "Automaton is back in idle state."
+       (slime-test-state-stack '(slime-idle-state)))))
+
+(def-slime-test interrupt-bubbling-idiot ()
+   "Test interrupting a loop that sends a lot of output to Emacs."
+   '(())
+  (slime-check "Automaton initially in idle state."
+    (slime-test-state-stack '(slime-idle-state)))
+  (slime-eval-async '(cl:loop :for i :from 0 :do (cl:progn (cl:print i) 
+                                                           (cl:force-output)))
+                    "CL-USER" (lambda (_) ))
+  (let ((sldb-hook
+          (lambda ()
+            (slime-check "First interrupt."
+              (and (slime-test-state-stack '(slime-debugging-state
+                                             slime-evaluating-state
+                                            slime-idle-state))
+                   (get-buffer "*sldb*")))
+            (sldb-quit))))
+     (accept-process-output nil 1)
+     (slime-check "In eval state."
+       (slime-test-state-stack '(slime-evaluating-state slime-idle-state)))
+     (slime-interrupt)
+     (slime-sync-state-stack '(slime-idle-state) 15)
      (slime-check "Automaton is back in idle state."
        (slime-test-state-stack '(slime-idle-state)))))
 
