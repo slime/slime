@@ -1,3 +1,15 @@
+2003-10-15  Daniel Barlow  <dan@telent.net>
+
+	* swank-sbcl.lisp: new file.
+	New SWANK backend for Steel Bank Common Lisp, adapted from
+	swank.lisp with bits of swank-openmcl.lisp
+
+2003-10-12  Daniel Barlow  <dan@telent.net>
+
+	* slime.el (sldb-mode-map): add mouse-2 clickability for areas
+	in sldb buffers covered by the sldb-default-action property:
+	restarts can now be mouse-activated
+
 2003-09-28  James Bielman  <jamesjb@jamesjb.com>
 
 	* swank-openmcl.lisp: New file, a Slime backend for OpenMCL 0.14.x.

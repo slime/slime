@@ -1898,12 +1898,14 @@ When displaying XREF information, this goes to the next reference."
     (insert condition "\n" "\nRestarts:\n")
     (loop for (name string) in restarts
 	  for number from 0 
-	  do (slime-insert-propertized
-	      `(face bold 
-		     restart-number ,number
-		     sldb-default-action sldb-invoke-restart
-		     mouse-face highlight)
-	      "  " (number-to-string number) ": ["  name "] " string "\n"))
+	  do (progn
+	       (slime-insert-propertized
+		`(face bold 
+		       restart-number ,number
+		       sldb-default-action sldb-invoke-restart
+		       mouse-face highlight)
+		"  " (number-to-string number) ": ["  name "] " string)
+	       (insert "\n")))
     (insert "\nBacktrace:\n")
     (setq sldb-backtrace-start-marker (point-marker))
     (sldb-insert-frames frames)
@@ -1955,6 +1957,14 @@ When displaying XREF information, this goes to the next reference."
 	 (slime-eval `(swank:backtrace-for-emacs 
 		       ,(1+ previous)
 		       ,(+ previous 40))))))))
+
+(defun sldb-default-action/mouse (event)
+  (interactive "e")
+  (destructuring-bind (mouse-1 (w pos (x . y) time)) event
+    (save-excursion
+      (goto-char pos)
+      (let ((fn (get-text-property (point) 'sldb-default-action)))
+	(if fn (funcall fn))))))
 
 (defun sldb-default-action ()
   (interactive)
@@ -2204,6 +2214,7 @@ When displaying XREF information, this goes to the next reference."
 (slime-define-keys sldb-mode-map 
   ("v"    'sldb-show-source)
   ((kbd "RET") 'sldb-default-action)
+  ([mouse-2]  'sldb-default-action/mouse)
   ("e"    'sldb-eval-in-frame)
   ("d"    'sldb-down)
   ("u"    'sldb-up)
