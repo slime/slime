@@ -490,9 +490,7 @@ If that doesn't give a function, return nil."
 					 (number-to-string slime-swank-port))))
 		       (or (ignore-errors (string-to-number port)) port))))
   (let ((retries slime-swank-connection-retries))
-    (while (and (not (slime-connected-p))
-                (or (null retries)
-                    (> (decf retries) 0)))
+    (while (not (slime-connected-p))
       (message "Connecting to Swank at %s:%S%s..."
                host port (if retries
                              (format " (%S attempts remaining)" retries)
