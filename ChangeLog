@@ -1,3 +1,19 @@
+2004-03-12  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-backend.lisp (find-definitions): Fix docstring.
+
+	* slime.el (slime-dispatch-event): Re-enable :ed command.
+	(sldb-return-from-frame): Send swank:sldb-return-from-frame.
+
+	* swank-cmucl.lisp (find-definitions): Allow names like (setf car).
+
+	* swank.lisp (sldb-return-from-frame): Convert the string to a
+	sexp.
+	(dispatch-event, send-to-socket-io): Allow %apply events.
+	(safe-condition-message): Bind *pretty-print* to t.
+	(set-default-directory): Use the truename.
+	(find-definitions-for-emacs): Allow names like (setf car).
+
 2004-03-12  Wolfgang Jenkner  <wjenkner@inode.at>
 
 	* swank.lisp (:swank): Export startup-multiprocessing,
