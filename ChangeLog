@@ -1,3 +1,11 @@
+2005-01-13  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-cmucl.lisp (create-socket): The byte-order of the :host
+	argument for CREATE-INET-LISTENER was changed in the Jan 2005
+	snapshot.  Test whether the symbol 'ext:socket-error exists to
+	decide if we are in a older version.
+	(resolve-hostname): Return the address in host byte-order.
+
 2005-01-12  Robert Lehr <bozzio@the-lehrs.com>
 
 	* slime.el (slime-changelog-date): Return nil if the ChangLog file
