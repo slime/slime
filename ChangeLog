@@ -1,3 +1,28 @@
+2004-09-27  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-process): New function intended to replace all
+	those references to the *inferior-lisp* buffer.
+	(slime-maybe-start-lisp): Split it up.
+	(slime-start-lisp): New function.
+	(slime-restart-inferior-lisp): Use the command from the existing
+	process to start the new process.
+
+2004-09-27 Christian Lynbech <christian@defun.dk>
+
+	* slime.el (define-slime-dialect): New macro to make starting
+	Lisps with different command line options easier.
+	
+2004-09-27 Rui Patrocínio <rui.patrocinio@netvisao.pt>
+
+	* swank.lisp (mop, mop-helper): Support functions for the class
+	browser.
+
+	* slime.el (slime-browse-classes, slime-browse-xrefs): New
+	commands to browse class hierarchies and xref graphs in a tree
+	widget.
+
+	* tree-widget.el: New file.  Only needed for older Emacsen.
+	
 2004-09-23  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-start-and-load): Take arguments so that the
