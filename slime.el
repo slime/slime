@@ -2300,13 +2300,14 @@ balanced."
 If NEWLINE is true then add a newline at the end of the input."
   (when (< (point) slime-repl-input-start-mark)
     (error "No input at point."))
+  (goto-char slime-repl-input-end-mark)
+  (add-text-properties slime-repl-input-start-mark (point)
+                       '(face slime-repl-input-face
+                              rear-nonsticky (face)
+                              slime-repl-old-input t))
+  (when newline (insert "\n"))
   (let ((input (slime-repl-current-input)))
     (goto-char slime-repl-input-end-mark)
-    (when newline (insert "\n"))
-    (add-text-properties slime-repl-input-start-mark (point)
-                         '(face slime-repl-input-face
-                                rear-nonsticky (face)
-                                slime-repl-old-input t))
     (slime-mark-input-start)
     (slime-mark-output-start)
     (slime-repl-send-string input)))

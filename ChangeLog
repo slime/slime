@@ -1,3 +1,19 @@
+2004-06-24  Brian Downing  <bdowning@lavos.net>
+
+ 	* slime.el (slime-repl-send-input): Fixed a subtle difference in
+	sending input to the Lisp introduced in 1.316.  The newline was
+	not getting sent, resulting in the Lisp constantly asking for more
+	read data.  I believe the code has been adjusted to behave the
+	same as 1.315 with regard to sending newlines.
+	Also adjusted the `slime-repl-old-input' text property to end just
+	before the newline, not just after.  This causes a gap between
+	inputs even if no Lisp output appeared in between, so that putting
+	point on an old line and hitting RET will only call up that line,
+	and hitting RET in the middle of the current line will send it and
+	not bring up a confusing combination of all previous input.
+	Many thanks to Loyd Fueston for pinpointing the date and exact
+	patch for when this problem was introduced.
+
 2004-06-23  Brian Downing  <bdowning@lavos.net>
 
 	* slime.el: Re-added most of Luke's patches from yesterday.  It
