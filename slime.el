@@ -1033,6 +1033,18 @@ This is more compatible with the CL reader."
   (when (buffer-live-p (get-buffer buffer-name))
     (kill-buffer buffer-name)))
 
+(defun slime-indent-and-complete-symbol ()
+  "Indent the current line and perform symbol completion.
+First indent the line; if indenting doesn't move point, complete the
+symbol."
+  (interactive)
+  (let ((pos (point)))
+    (lisp-indent-line)
+    (when (and (= pos (point))
+               (save-excursion 
+                 (re-search-backward "[^ \n\t\r]+\\=" nil t)))
+      (slime-complete-symbol))))
+
 (defmacro slime-with-rigid-indentation (level &rest body)
   "Execute BODY and then rigidly indent its text insertions.
 Assumes all insertions are made at point."
@@ -1683,7 +1695,7 @@ fixnum a specific thread."))
 (defun slime-set-connection-info (connection info)
   "Initialize CONNECTION with INFO received from Lisp."
   (destructuring-bind (version pid type name features) info
-;;    (slime-check-protocol-version version)
+;;;    (slime-check-protocol-version version)
     (setf (slime-pid) pid
           (slime-lisp-implementation-type) type
           (slime-lisp-implementation-type-name) name
@@ -1924,6 +1936,7 @@ deal with that."
     ;; set the directory stack
     (setq slime-repl-directory-stack 
           (list (expand-file-name default-directory)))
+    (setq slime-repl-package-stack (list (slime-lisp-package)))
     (slime-repl-update-banner)))
 
 (defvar slime-show-last-output-function 
@@ -1971,7 +1984,7 @@ update window-point afterwards.  If point is initially not at
   `(progn
      (cond ((= (point) slime-output-end) 
             (let ((start (point)))
-              ;; XXX Assertion is currently easy to break, by type
+              ;; XXX Assertion is currently easy to break, by typeing
               ;; input while we're waiting for output
               ;;(assert (<= (point) slime-repl-input-start-mark))
               ,@body
@@ -2330,18 +2343,6 @@ earlier in the buffer."
     (insert "\n")
     (lisp-indent-line)))
 
-(defun slime-repl-indent-and-complete-symbol ()
-  "Indent the current line and perform symbol completion.
-First indent the line.  If indenting doesn't move point complete the
-symbol."
-  (interactive)
-  (let ((pos (point)))
-    (lisp-indent-line)
-    (when (and (= pos (point))
-               (save-excursion 
-                 (re-search-backward "\\(\\s_\\|\\sw\\)+\\=" nil t)))
-      (slime-complete-symbol))))
-
 (defun slime-repl-delete-current-input ()
   (delete-region slime-repl-input-start-mark slime-repl-input-end-mark))
 
@@ -2490,7 +2491,7 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   ("\C-c:"    'slime-interactive-eval)
   ("\C-c\C-e" 'slime-interactive-eval)
   ;("\t"   'slime-complete-symbol)
-  ("\t"   'slime-repl-indent-and-complete-symbol)
+  ("\t"   'slime-indent-and-complete-symbol)
   (" "    'slime-space)
   ("\C-\M-x" 'slime-eval-defun)
   ("\C-c\C-o" 'slime-repl-clear-output)
@@ -3166,7 +3167,7 @@ first element of the source-path redundant."
         (re-search-forward 
          (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\>" name) nil t)
         (re-search-forward 
-         (format "\\s %s\\>\\(\\s \\|$\\)" name) nil t)))
+         (format "[( \t]%s\\>\\(\\s \\|$\\)" name) nil t)))
      (goto-char (match-beginning 0)))
     ((:source-path source-path start-position)
      (cond (start-position
@@ -3565,7 +3566,8 @@ annoy the user)."
   "The current typeout window.")
 
 (defvar slime-typeout-frame-properties
-  '((height . 16) (minibuffer . nil) (name . "SLIME Typeout"))
+  '((width . 40) (height . 10) (minibuffer . nil)
+    (left . -10) (top . 10) (name . "SLIME Typeout"))
   "The typeout frame properties (passed to `make-frame').")
 
 (defun slime-typeout-active-p ()
@@ -3637,7 +3639,7 @@ terminates a current completion."
              (slime-complete-restore-window-configuration))
             ((memq this-command '(self-insert-command
                                   slime-complete-symbol
-                                  slime-repl-indent-and-complete-symbol
+                                  slime-indent-and-complete-symbol
                                   backward-delete-char-untabify
                                   backward-delete-char
                                   scroll-other-window))
@@ -3781,20 +3783,15 @@ apparently very stupid `try-completions' interface, that wants an
 alist but ignores CDRs."
   (mapcar (lambda (x) (cons x nil)) list))
 
-(defun slime-completions (prefix &optional default-package)
-  (let ((prefix (etypecase prefix
-		  (symbol (symbol-name prefix))
-		  (string prefix))))
-    (slime-eval `(swank:completions ,prefix 
-				    ,(or default-package
-					 (slime-find-buffer-package)
-					 (slime-buffer-package))))))
+(defun slime-completions (prefix)
+  (slime-eval `(swank:completions ,prefix 
+                                  ,(or (slime-find-buffer-package)
+                                       (slime-buffer-package)))))
 
 (defun slime-simple-completions (prefix)
-  (slime-eval `(swank:simple-completions 
-                ,prefix 
-                ,(or (slime-find-buffer-package)
-                     (slime-buffer-package)))))
+  (slime-eval `(swank:simple-completions ,prefix 
+                                         ,(or (slime-find-buffer-package)
+                                              (slime-buffer-package)))))
 
 
 ;;; Interpreting Elisp symbols as CL symbols (package qualifiers)
