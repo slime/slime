@@ -520,6 +520,12 @@ out IDs for.")
 
 (defimplementation startup-multiprocessing ())
 
+(defimplementation thread-id (thread)
+  (ccl::process-serial-number thread))
+
+(defimplementation find-thread (id)
+  (find id (ccl:all-processes) :key #'ccl::process-serial-number))
+
 (defimplementation thread-name (thread)
   (ccl::process-name thread))
 

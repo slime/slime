@@ -742,6 +742,13 @@ stack."
 
   (defimplementation startup-multiprocessing ())
 
+  (defimplementation thread-id (thread)
+    thread)
+
+  (defimplementation find-thread (id)
+    (if (member id (all-threads))
+        id))
+  
   (defimplementation thread-name (thread)
     (format nil "Thread ~D" thread))
 

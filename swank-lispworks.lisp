@@ -91,7 +91,7 @@
 
 (defimplementation call-without-interrupts (fn)
   (lw:without-interrupts (funcall fn)))
-
+  
 (defimplementation getpid ()
   #+win32 (win32:get-current-process-id)
   #-win32 (system::getpid))
@@ -196,8 +196,9 @@ Return NIL if the symbol is unbound."
   "Unwind FRAME N times."
   (do ((frame frame (dbg::frame-next frame))
        (i n (if (interesting-frame-p frame) (1- i) i)))
-      ((and (interesting-frame-p frame) (zerop i)) frame)
-    (assert frame)))
+      ((or (not frame)
+           (and (interesting-frame-p frame) (zerop i)))
+       frame)))
 
 (defun nth-frame (index)
   (nth-next-frame *sldb-top-frame* index))
@@ -536,6 +537,19 @@ Return NIL if the symbol is unbound."
                  mp:*process-initial-bindings*
                  :key (lambda (x) (symbol-package (car x))))))
     (mp:process-run-function name () fn)))
+
+(defvar *id-lock* (mp:make-lock))
+(defvar *thread-id-counter* 0)
+
+(defimplementation thread-id (thread)
+  (mp:with-lock (*id-lock*)
+    (or (getf (mp:process-plist thread) 'id)
+        (setf (getf (mp:process-plist thread) 'id)
+              (incf *thread-id-counter*)))))
+
+(defimplementation find-thread (id)
+  (find id (mp:list-all-processes) 
+        :key (lambda (p) (getf (mp:process-plist p) 'id))))
 
 (defimplementation thread-name (thread)
   (mp:process-name thread))

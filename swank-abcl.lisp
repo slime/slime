@@ -309,9 +309,26 @@ Should work (with a patched xref.lisp) but is it any use without find-definition
 (defimplementation startup-multiprocessing ()
   #+nil(mp:start-scheduler))
 
-
 (defimplementation spawn (fn &key name)
   (ext:make-thread (lambda () (funcall fn))))
+
+(defvar *thread-props-lock* (ext:make-thread-lock))
+
+(defvar *thread-props* (make-hash-table) ; should be a weak table
+  "A hashtable mapping threads to a plist.")
+
+(defvar *thread-id-counter* 0)
+
+(defimplementation thread-id (thread)
+  (ext:with-thread-lock (*thread-props-lock*)
+    (or (getf (gethash thread *thread-props*) 'id)
+        (setf (getf (gethash thread *thread-props*) 'id)
+              (incf *thread-id-counter*)))))
+
+(defimplementation find-thread (id)
+  (find id (all-threads) 
+        :test (lambda (thread)
+                (getf (gethash thread *thread-props*) 'id))))
 
 (defimplementation thread-name (thread)
   (princ-to-string thread))
@@ -337,15 +354,11 @@ Should work (with a patched xref.lisp) but is it any use without find-definition
 (defimplementation kill-thread (thread)
   (ext:destroy-thread thread))
 
-(defvar *mailbox-lock* (ext:make-thread-lock))
-
-(defvar *thread-mailbox* (make-hash-table))
-
 (defun mailbox (thread)
   "Return THREAD's mailbox."
-  (ext:with-thread-lock (*mailbox-lock*)
-    (or (gethash thread *thread-mailbox*)
-        (setf (gethash thread *thread-mailbox*)
+  (ext:with-thread-lock (*thread-props-lock*)
+    (or (getf (gethash thread *thread-props*) 'mailbox)
+        (setf (getf (gethash thread *thread-props*) 'mailbox)
               (ext:make-mailbox)))))
 
 (defimplementation send (thread object)

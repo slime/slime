@@ -297,6 +297,19 @@
 (defimplementation spawn (fn &key name)
   (mp:process-run-function name fn))
 
+(defvar *id-lock* (mp:make-process-lock :name "id lock"))
+(defvar *thread-id-counter* 0)
+
+(defimplementation thread-id (thread)
+  (mp:with-process-lock (*id-lock*)
+    (or (getf (mp:process-property-list thread) 'id)
+        (setf (getf (mp:process-property-list thread) 'id)
+              (incf *thread-id-counter*)))))
+
+(defimplementation find-thread (id)
+  (find id mp:*all-processes*
+        :key (lambda (p) (getf (mp:process-property-list p) 'id))))
+
 (defimplementation thread-name (thread)
   (mp:process-name thread))
 

@@ -180,6 +180,9 @@ This is used to resolve filenames without directory component."
     "Return a suitable initial value for SWANK:*READTABLE-ALIST*."
   '())
 
+(definterface quit-lisp ()
+  "Exit the current lisp image.")
+
 
 ;;;; Compilation
 
@@ -550,6 +553,17 @@ normal function."
 (definterface spawn (fn &key name)
   "Create a new thread to call FN.")
 
+(definterface thread-id (thread)
+  "Return an Emacs-parsable object to identify THREAD.
+
+Ids should be comparable with equal, i.e.:
+ (equal (thread-id <t1>) (thread-id <t2>)) <==> (eq <t1> <t2>)")
+
+(definterface find-thread (id)
+  "Return the thread for ID.
+ID should be an id previously obtained with THREAD-ID.
+Can return nil if the thread no longer exists.")
+
 (definterface thread-name (thread)
    "Return the name of THREAD.
 
@@ -599,6 +613,3 @@ Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time."
 
 (definterface receive ()
   "Return the next message from current thread's mailbox.")
-
-(definterface quit-lisp ()
-  "Exit the current lisp image.")

@@ -1735,6 +1735,17 @@ The `symbol-value' of each element is a type tag.")
   (defimplementation spawn (fn &key (name "Anonymous"))
     (mp:make-process fn :name name))
 
+  (defvar *thread-id-counter* 0)
+
+  (defimplementation thread-id (thread)
+    (or (getf (mp:process-property-list thread) 'id)
+        (setf (getf (mp:process-property-list thread) 'id)
+              (incf *thread-id-counter*))))
+
+  (defimplementation find-thread (id)
+    (find id (all-threads)
+          :key (lambda (p) (getf (mp:process-property-list p) 'id))))
+
   (defimplementation thread-name (thread)
     (mp:process-name thread))
 
