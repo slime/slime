@@ -1,3 +1,9 @@
+2003-10-22  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime): With a prefix argument, prompt for the port
+	number to use for communication with Lisp. This is remembered for
+	future connections.
+
 2003-10-22  Hannu Koivisto  <azure@iki.fi>
 
 	* slime.el (slime-space): Now allows one to insert several spaces
