@@ -29,6 +29,8 @@
 
 ;;; TCP server
 
+(setq *swank-in-background* :spawn)
+
 (defun socket-fd (socket)
   (etypecase socket
     (fixnum socket)
@@ -56,26 +58,26 @@
     (make-instance 'comm:socket-stream :socket fd :direction :io 
                    :element-type 'base-char)))
 
-(defimplementation spawn (fn &key name)
-  (mp:process-run-function name () fn))
-
 (defimplementation emacs-connected ()
   ;; Set SIGINT handler on Swank request handler thread.
-  (sys:set-signal-handler +sigint+ #'sigint-handler))
+  (sys:set-signal-handler +sigint+ (make-sigint-handler mp:*current-process*)))
 
 ;;; Unix signals
 
-(defun sigint-handler (&rest args)
-  (declare (ignore args))
+(defun sigint-handler ()
   (with-simple-restart  (continue "Continue from SIGINT handler.")
     (invoke-debugger "SIGINT")))
+
+(defun make-sigint-handler (process)
+  (lambda (&rest args)
+    (declare (ignore args))
+    (mp:process-interrupt process #'sigint-handler)))
 
 (defmethod call-without-interrupts (fn)
   (lispworks:without-interrupts (funcall fn)))
 
 (defmethod getpid ()
   (system::getpid))
-
 
 (defimplementation arglist-string (fname)
   (format-arglist fname #'lw:function-lambda-list))
@@ -214,7 +216,8 @@ Return NIL if the symbol is unbound."
 	  (declare (ignore with))
 	  (loop for (name value symbol location) in vars
 		collect (list :name (to-string symbol) :id 0
-			      :value-string (princ-to-string value)))))))
+			      :value-string 
+                              (to-string value)))))))
 
 (defimplementation frame-catch-tags (index)
   (declare (ignore index))
@@ -226,6 +229,8 @@ Return NIL if the symbol is unbound."
 	(let ((func (dbg::call-frame-function-name frame)))
 	  (if func 
 	      (dspec-source-location func))))))
+
+;;; Definition finding
 
 (defun dspec-source-location (dspec)
   (destructuring-bind (first) (dspec-source-locations dspec)
@@ -241,6 +246,8 @@ Return NIL if the symbol is unbound."
 
 (defimplementation find-function-locations (fname)
   (dspec-source-locations (from-string fname)))
+
+;;; Compilation 
 
 (defimplementation compile-file-for-emacs (filename load-p)
   (let ((compiler::*error-database* '()))
@@ -281,6 +288,17 @@ Return NIL if the symbol is unbound."
              (delete-file binary-filename))))
     (delete-file filename)))
 
+
+;; (dspec:dspec-primary-name '(:top-level-form 19))
+
+(defun dspec-buffer-buffer-position (dspec)
+  (etypecase dspec
+    (cons (ecase (car dspec)
+            (defun `(:function-name ,(symbol-name (cadr dspec))))
+            ;; XXX this isn't quite right
+            (lw:top-level-form `(:source-path ,(cdr dspec) nil))))
+    (symbol `(:function-name ,(symbol-name dspec)))))
+
 (defun make-dspec-location (dspec location &optional tmpfile buffer position)
   (flet ((from-buffer-p () 
            (and (pathnamep location) tmpfile 
@@ -295,19 +313,19 @@ Return NIL if the symbol is unbound."
          (function-name (dspec)
            (etypecase dspec
              (symbol (symbol-name dspec))
-             (cons (symbol-name (dspec:dspec-primary-name dspec))))))
+             (cons (string (dspec:dspec-primary-name dspec))))))
     (cond ((from-buffer-p)
            (make-location `(:buffer ,buffer) `(:position ,position)))
           (t
            (etypecase location
              ((or pathname string) 
               (make-location `(:file ,(filename location))
-                             `(:function-name ,(function-name dspec))))
+                             (dspec-buffer-buffer-position dspec)))
              ((member :listener)
               `(:error ,(format nil "Function defined in listener: ~S" dspec)))
              ((member :unknown)
               `(:error ,(format nil "Function location unkown: ~S" dspec))))
-           )))) 
+           ))))
 
 (defun signal-error-data-base (database &optional tmpfile buffer position)
   (map-error-database 
@@ -376,22 +394,22 @@ Return NIL if the symbol is unbound."
 
 ;;; Multithreading
 
-(defmethod startup-multiprocessing ()
+(defimplementation startup-multiprocessing ()
   (mp:initialize-multiprocessing))
 
-(defmethod spawn (fn &key name)
+(defimplementation spawn (fn &key name)
   (mp:process-run-function name () fn))
 
-;; XXX: shurtcut
-(defmethod thread-id ()
+;; XXX: shortcut
+(defimplementation thread-id ()
   (mp:process-name mp:*current-process*))
 
-(defmethod thread-name (thread-id)
+(defimplementation thread-name (thread-id)
   thread-id)
 
-(defmethod make-lock (&key name)
+(defimplementation make-lock (&key name)
   (mp:make-lock :name name))
 
-(defmethod call-with-lock-held (lock function)
+(defimplementation call-with-lock-held (lock function)
   (mp:with-lock (lock) (funcall function)))
 
