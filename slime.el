@@ -1190,7 +1190,8 @@ See `slime-translate-from-lisp-filename-function'."
     (when (or (not (slime-bytecode-stale-p))
               (slime-urge-bytecode-recompile))
       (let ((proc (slime-maybe-start-lisp command buffer)))
-        (slime-inferior-connect proc nil)))))
+        (slime-inferior-connect proc nil)
+        (pop-to-buffer (process-buffer proc))))))
 
 (defun slime-connect (host port &optional kill-old-p)
   "Connect to a running Swank server."
@@ -1345,7 +1346,6 @@ Return the created process."
       (comint-mode)
       (comint-exec (current-buffer) "inferior-lisp" (car args) nil (cdr args))
       (lisp-mode-variables t)
-      (pop-to-buffer (current-buffer))
       (get-buffer-process (current-buffer)))))
 
 (defun slime-inferior-connect (process &optional retries)
@@ -1417,16 +1417,18 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
   (let* ((buffer (if (slime-process) 
                      (process-buffer (slime-process))))
          (window (if buffer (get-buffer-window buffer)))
-         (repl (slime-output-buffer t)))
+         (repl-buffer (slime-output-buffer t))
+         (repl-window (get-buffer-window repl-buffer)))
     (when buffer
       (bury-buffer buffer))
-    (if window
-        (if (null (get-buffer-window repl))
-            (set-window-buffer window repl)
-          (save-selected-window
-            (select-window window)
-            (switch-to-buffer (other-buffer))))
-      (pop-to-buffer repl))))
+    (cond (repl-window
+           (when window
+             (delete-window window)))
+          (window
+           (set-window-buffer window repl-buffer))
+          (t
+           (pop-to-buffer repl-buffer)
+           (goto-char (point-max))))))
 
 ;;; Words of encouragement
 
@@ -1571,8 +1573,7 @@ EVAL'd by Lisp."
   (ignore-errors (kill-buffer (process-buffer process))))
 
 (defun slime-net-sentinel (process message)
-  (when (ignore-errors (eq (process-status (inferior-lisp-proc)) 'open))
-    (message "Lisp connection closed unexpectedly: %s" message))
+  (message "Lisp connection closed unexpectedly: %s" message)
   (slime-net-close process)
   (slime-set-state "[not connected]" process))
 
@@ -1599,7 +1600,6 @@ EVAL'd by Lisp."
                             (message "net-read error: %S" error)
                             (ding)
                             (sleep-for 2)
-                            (debug)
                             (ignore-errors (slime-net-close proc))
                             (error "PANIC!")))))
               (save-current-buffer
@@ -2553,10 +2553,10 @@ joined together."))
 
 (defvar slime-repl-mode-map)
 
-(defun slime-repl-buffer (&optional create)
+(defun slime-repl-buffer (&optional create connection)
   "Get the REPL buffer for the current connection; optionally create."
   (funcall (if create #'get-buffer-create #'get-buffer)
-           (format "*slime-repl %s*" (slime-connection-name))))
+           (format "*slime-repl %s*" (slime-connection-name connection))))
 
 (defun slime-repl-mode () 
   "Major mode for interacting with a superior Lisp.
@@ -3200,7 +3200,7 @@ Return nil of no item matches"
   (:handler (lambda ()
               (interactive)
               (when (slime-connected-p)
-                (slime-eval-async '(swank:quit-lisp)))
+                (slime-quit-lisp))
               (slime-kill-all-buffers)))
   (:one-liner "Quit all Lisps and close all SLIME buffers."))
 
@@ -3254,20 +3254,36 @@ Return nil of no item matches"
   (:one-liner "Recompile (but not load) an ASDF system."))
 
 (defslime-repl-shortcut slime-restart-inferior-lisp ("restart-inferior-lisp")
-  (:handler (lambda ()
-              (interactive)
-              (when (slime-connected-p)
-                (slime-eval-async '(swank:quit-lisp)))
-              (let ((proc (slime-process)))
-                (kill-process proc)
-                (while (memq (process-status proc) '(run stop))
-                  (sit-for 0 20))
-                (let* ((args (mapconcat #'identity (process-command proc) " "))
-                       (buffer (buffer-name (process-buffer proc)))
-                       (new-proc (slime-start-lisp args buffer 
-                                                   (slime-init-command))))
-                (slime-inferior-connect new-proc)))))
+  (:handler 'slime-restart-inferior-lisp-aux)
   (:one-liner "Restart *inferior-lisp* and reconnect SLIME."))
+
+(defun slime-restart-inferior-lisp-aux ()
+  (interactive)
+  (slime-eval-async '(swank:quit-lisp))
+  (set-process-sentinel (slime-connection) 'slime-restart-sentinel))
+  
+(defun slime-restart-sentinel (process message)
+  "Restart the inferior lisp process.
+Also rearrange windows."
+  (assert (process-status process) 'closed)
+  (let* ((proc (slime-inferior-process process))
+         (args (mapconcat #'identity (process-command proc) " "))
+         (buffer (buffer-name (process-buffer proc)))
+         (buffer-window (get-buffer-window buffer))
+         (new-proc (slime-start-lisp args buffer (slime-init-command)))
+         (repl-buffer (slime-repl-buffer nil process))
+         (repl-window (and repl-buffer (get-buffer-window repl-buffer))))
+    (slime-net-close process)
+    (slime-inferior-connect new-proc)
+    (cond ((and repl-window (not buffer-window))
+           (set-window-buffer repl-window buffer)
+           (select-window repl-window))
+          (repl-window
+           (select-window repl-window))
+          (t 
+           (pop-to-buffer buffer)))
+    (switch-to-buffer buffer)
+    (goto-char (point-max))))
 
 
 ;;;;; Cleanup after a quit
@@ -5111,6 +5127,7 @@ function name is prompted."
 (defun slime-etags-definitions (name)
   "Search definitions matching NAME in the tags file.
 The result is a (possibly empty) list of definitions."
+  (require 'etags)
   (let ((defs '()))
     (save-excursion
       (let ((first-time t))
@@ -5364,19 +5381,19 @@ First make the variable unbound, then evaluate the entire form."
              (message "%s" (slime-eval `(swank:swank-toggle-trace ,spec))))))))
 
 (defun slime-trace-query (spec)
-  "Ask the user which function to query; SPEC is the default.
+  "Ask the user which function to trace; SPEC is the default.
 The result is a string."
   (cond ((symbolp spec)
          (slime-read-from-minibuffer "(Un)trace: " (symbol-name spec)))
         (t
          (destructure-case spec
-           ((:setf n)
+           ((setf n)
             (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string spec)))
            (((:defun :defmacro) n)
             (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string n)))
            ((:defgeneric n)
             (let* ((name (prin1-to-string n))
-                   (answer (slime-read-from-minibuffer "(Un)trace: " name)))
+                   (answer (slime-read-from-minibuffer "(Un)trace: " n)))
               (cond ((and (string= name answer)
                           (y-or-n-p (concat "(Un)trace also all " 
                                             "methods implementing " 
@@ -5432,7 +5449,8 @@ For other contexts we return the symbol at point."
            (backward-up-list 1)
            (slime-parse-context `(setf ,name)))
           ((slime-in-expression-p '(defmethod *))
-           (forward-sexp 1)
+           (unless (looking-at "\\>\\|\\s ")
+             (forward-sexp 1)) ; skip over the methodname
            (let (qualifiers arglist)
              (loop for e = (read (current-buffer))
                    until (listp e) do (push e qualifiers)
@@ -5997,17 +6015,22 @@ CL:MACROEXPAND."
 (defun slime-quit ()
   (error "Not implemented properly.  Use `slime-interrupt' instead."))
 
-(defun slime-quit-lisp ()
+(defun slime-quit-lisp (&optional keep-buffers)
   "Quit lisp, kill the inferior process and associated buffers."
   (interactive)
-  (let* ((connection (slime-connection))
-         (output (slime-output-buffer))
-         (inferior (slime-inferior-process))
+  (slime-eval-async '(swank:quit-lisp))
+  (kill-buffer (slime-output-buffer))
+  (set-process-sentinel (slime-connection) 'slime-quit-sentinel))
+
+(defun slime-quit-sentinel (process message)
+  (assert (process-status process) 'closed)
+  (let* ((inferior (slime-inferior-process process))
          (inferior-buffer (if inferior (process-buffer inferior))))
-    (slime-eval-async '(swank:quit-lisp))
-    (kill-buffer output)
     (when inferior (delete-process inferior))
-    (when inferior-buffer (kill-buffer inferior-buffer))))
+    (when inferior-buffer (kill-buffer inferior-buffer))
+    (slime-net-close process)
+    (slime-set-state "[not connected]" process)
+    (message "Connection closed.")))
 
 (defun slime-set-package (package)
   (interactive (list (slime-read-package-name "Package: " 
