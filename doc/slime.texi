@@ -280,8 +280,8 @@ to the repository.
 @example
 export CVSROOT=:pserver:anonymous@@common-lisp.net:/project/slime/cvsroot
 cvs login
-@emph{(Just press return when prompted for a password.)}
 @end example
+@emph{(The password is @code{anonymous})}
 
 The latest version can then be checked out with:
 @example
@@ -458,7 +458,7 @@ placing the mouse over the text or with the selection commands below.
 @code{slime-next-note, slime-previous-note}@*
 These commands move the point between compiler notes and display the new note.
 
-@kbditem{M-c, slime-remove-notes}
+@kbditem{C-c M-c, slime-remove-notes}
 Remove all annotations from the buffer.
 
 @end table
