@@ -1,3 +1,9 @@
+2004-06-28  Luke Gorrie  <luke@bluetail.com>
+
+	* hyperspec.el (common-lisp-hyperspec-format): This command now
+	works at the end of the buffer, fixed `char-after' usage as
+	suggested by Johan Bockgård.
+
 2004-06-28  Christophe Rhodes  <csr21@cam.ac.uk>
 
 	* hyperspec.el: add support for issue cross-reference lookups,
