@@ -160,7 +160,7 @@ Emacs.")
 (defmacro with-I/O-lock (() &body body)
   `(call-with-lock-held *write-lock* (lambda () ,@body)))
 
-(defmacro with-io-redirection ((&optional (connection '*dispatching-connection*))
+(defmacro with-io-redirection ((&optional (connection '(current-connection)))
                                &body body)
   "Execute BODY with I/O redirection to CONNECTION.
 If *REDIRECT-IO* is true, all standard I/O streams are redirected."
