@@ -2307,15 +2307,14 @@ balanced."
   (interactive)
   (slime-check-connected)
   (assert (<= (point) slime-repl-input-end-mark))
-  (cond (current-prefix-arg
+  (cond ((get-text-property (point) 'slime-repl-old-input)
+         (slime-repl-grab-old-input))
+        (current-prefix-arg
          (slime-repl-send-input))
         (slime-repl-read-mode ; bad style?
-         (insert "\n")
          (slime-repl-send-input))
         ((slime-input-complete-p slime-repl-input-start-mark 
                                  slime-repl-input-end-mark)
-         (goto-char slime-repl-input-end-mark)
-         (insert "\n")
          (slime-repl-send-input))
         (t 
          (slime-repl-newline-and-indent)
@@ -2323,13 +2322,39 @@ balanced."
 
 (defun slime-repl-send-input ()
   "Goto to the end of the input and send the current input."
+  (when (< (point) slime-repl-input-start-mark)
+    (error "No input at point."))
   (let ((input (slime-repl-current-input)))
     (goto-char slime-repl-input-end-mark)
+    (insert "\n")
     (add-text-properties slime-repl-input-start-mark (point)
-                         '(face slime-repl-input-face rear-nonsticky (face)))
+                         '(face slime-repl-input-face
+                                rear-nonsticky (face)
+                                slime-repl-old-input t))
     (slime-mark-input-start)
     (slime-mark-output-start)
     (slime-repl-send-string input)))
+
+(defun slime-repl-grab-old-input ()
+  "Resend the old REPL input at point.
+The old input has the text property `slime-repl-old-input'."
+  (let ((prop 'slime-repl-old-input))
+    (let* ((beg (save-excursion
+                  ;; previous-single-char-property-change searches for
+                  ;; a property change from the previous character,
+                  ;; but we want to look for a change from the
+                  ;; point. We step forward one char to avoid doing
+                  ;; the wrong thing if we're at the beginning of the
+                  ;; old input. -luke (18/Jun/2004)
+                  (ignore-errors (forward-char))
+                  (previous-single-char-property-change (point) prop)))
+           (end (next-single-char-property-change (point) prop))
+           (old-input (buffer-substring beg end)))
+      (goto-char slime-repl-input-start-mark)
+      (delete-region (point) slime-repl-input-end-mark)
+      (insert old-input)
+      (while (eq (char-before) ?\n)
+        (delete-char -1)))))
 
 (defun slime-repl-closing-return ()
   "Evaluate the current input string after closing all open lists."
