@@ -63,10 +63,10 @@ Emacs Lisp, and a supporting server program written in Common
 Lisp. The two sides are connected together with a socket and
 communicate using an @acronym{RPC}-like protocol.
 
-The Lisp server is primarily written in @acronym{ANSI} Common
-Lisp. The required implementation-specific functionality is specified
-by a well-defined interface and implemented separately for each Common
-Lisp implementation. This makes @SLIME{} readily portable.
+The Lisp server is primarily written in portal Common Lisp. The
+required implementation-specific functionality is specified by a
+well-defined interface and implemented separately for each Lisp
+implementation. This makes @SLIME{} readily portable.
 
 @c @node Status,  , Introduction, Introduction
 @section Status: under development
@@ -125,12 +125,12 @@ Downloading @SLIME{} (from @CVS{})
 * Inspector::                   
 * Profiling::                   
 
-@REPL{}: The ``top level''
+@REPL{}: the ``top level''
 
 * REPL commands::               
 * Input Navigation::            
 
-@SLDB{}: The @SLIME{} debugger
+@SLDB{}: the @SLIME{} debugger
 
 * Examining frames::            
 * restarts::                    
@@ -145,7 +145,7 @@ Extras
 
 Customization
 
-* Emacs-side::                  
+* Emacs-side customization::    
 * Lisp-side::                   
 
 Emacs-side
@@ -186,7 +186,7 @@ The supported Lisp implementations are:
 @item
 CMU Common Lisp (@acronym{CMUCL})
 @item
-Steele Bank Common Lisp (@acronym{SBCL})
+Steel Bank Common Lisp (@acronym{SBCL})
 @item
 OpenMCL
 @item
@@ -234,7 +234,7 @@ To download @SLIME{} you first configure your @code{CVSROOT} and login
 to the repository.
 
 @example
-export CVSROOT=:pserver:anonymous@@common-lisp.net:/cvsroot/slime
+export CVSROOT=:pserver:anonymous@@common-lisp.net:/project/slime/cvsroot
 cvs login
 @emph{(Just press return when prompted for a password.)}
 @end example
@@ -404,10 +404,10 @@ Lisp.
 Describe the symbol at point.
 
 @kbditem{C-c C-a, slime-apropos}
-Apropos search. Search Lisp documentation
-strings for a substring match. By default the external symbols of all
-packages are searched. With a prefix argument you can choose to a
-specific package and whether to include non-exported symbols.
+Apropos search. Search Lisp symbol names for a substring match and
+present their documentation strings. By default the external symbols
+of all packages are searched. With a prefix argument you can choose a
+specific package and whether to include unexported symbols.
 
 @kbditem{C-c P, slime-apropos-package}
 Show apropos results of all symbols in a package. This command is for
@@ -427,10 +427,9 @@ in a web browser. The Hyperspec is found either on the Web or in
 
 @table @kbd
 @kbditem{M-TAB, slime-complete-symbol}
-Complete the symbol at point. Symbol completion is extended to
-consider each hyphen-delimited subword of symbol names ``in
-parallel''. This allows @code{m-v-b} to expand into
-@code{multiple-value-bind}, for example. Also bound to @kbd{C-c TAB}.
+Complete the symbol at point. Note that two styles of completion are
+available in @SLIME{}, and the default differs from normal Emacs
+completion. @xref{Emacs-side customization}.
 
 @kbditem{SPC, slime-space}
 The space key inserts a space and also looks up and displays the
@@ -569,13 +568,19 @@ Reset profiler data.
 @SLIME{} uses a custom Read-Eval-Print Loop (@REPL{}, also known as a
 ``top level''). The @REPL{} user-interface is written in Emacs Lisp,
 which gives more Emacs-integration than the traditional
-@code{comint}-based Lisp interaction.
+@code{comint}-based Lisp interaction:
 
-Conditions signalled by expressions in the @REPL{} are debugged with
-@SLDB{}. Return values are distinguished from printed output by
-separate Emacs faces (colours). The @REPL{} prompt is managed by Emacs
-using markers to ensure that Lisp output is inserted in the right
-place and doesn't get mixed up with user input.
+@itemize @bullet
+@item
+Conditions signalled in @REPL{} expressions are debugged with @SLDB{}.
+@item
+Return values are distinguished from printed output by separate Emacs
+faces (colours).
+@item
+Emacs manages the @REPL{} prompt with markers. This ensures that Lisp
+output is inserted in the right place, and doesn't get mixed up with
+user input.
+@end itemize
 
 @menu
 * REPL commands::               
@@ -892,11 +897,11 @@ the @code{slime-connected-hook}:
 @chapter Customization
 
 @menu
-* Emacs-side::                  
+* Emacs-side customization::    
 * Lisp-side::                   
 @end menu
 
-@node Emacs-side, Lisp-side, Customization, Customization
+@node Emacs-side customization, Lisp-side, Customization, Customization
 @section Emacs-side
 
 The Emacs part of @SLIME{} can be configured both with the Emacs
@@ -915,6 +920,32 @@ The value to use for @code{truncate-lines} in line-by-line summary
 buffers popped up by @SLIME{}. This is @code{t} by default, which
 ensures that lines do not wrap in backtraces, apropos listings, and so
 on. It can however cause information to spill off the screen.
+
+@item slime-complete-symbol-function
+The function to use for completion of Lisp symbols. Two completion
+styles are available. The default @code{slime-complete-symbol*}
+performs completion ``in parallel'' over the hyphen-delimited
+sub-words of a symbol name.
+@footnote{This style of completion is modelled on @file{completer.el}
+by Chris McConnell. This package is bundled with @acronym{ILISP}.}
+Formally this means that ``@code{a-b-c}'' can complete to any symbol
+matching the regular expression ``@code{^a.*-b.*-c.*}'' (where ``dot''
+matches anything but a hyphen). Examples give a more intuitive
+feeling:
+@itemize @bullet
+@item
+@code{m-v-b} completes to @code{multiple-value-bind}.
+@item
+@code{w-open} is ambiguous: it completes to either
+@code{with-open-file} or @code{with-open-stream}. The symbol is
+expanded to the longest common completion (@code{with-open-}) and the
+point is placed at the first point of ambiguity, which in this case is
+the end.
+@item
+@code{w--stream} completes to @code{with-open-stream}.
+@end itemize
+The alternative is @code{slime-simple-complete-symbol}, which
+completes in the usual Emacs way.
 
 @item slime-multiprocessing
 This should be set to @code{t} if you want to use multiprocessing
@@ -941,7 +972,7 @@ structure (different ``mount points''). This is most common with
 * Hooks::                       
 @end menu
 
-@node Hooks,  , Emacs-side, Emacs-side
+@node Hooks,  , Emacs-side customization, Emacs-side customization
 @subsection Hooks
 
 @table @code
@@ -965,7 +996,7 @@ conditions debugged with @SLDB{} be recorded in the @REPL{} buffer.
 
 @end table
 
-@node Lisp-side,  , Emacs-side, Customization
+@node Lisp-side,  , Emacs-side customization, Customization
 @section Lisp-side (Swank)
 
 The Lisp server side of @SLIME{} (known as ``Swank'') offers several
