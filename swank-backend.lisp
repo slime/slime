@@ -39,7 +39,7 @@
   "List of interface functions that are not implemented.
 DEFINTERFACE adds to this list and DEFIMPLEMENTATION removes.")
 
-(defmacro definterface (name args documentation &body default-body)
+(defmacro definterface (name args documentation &rest default-body)
   "Define an interface function for the backend to implement.
 A generic function is defined with NAME, ARGS, and DOCUMENTATION.
 
@@ -171,6 +171,10 @@ This is used to resolve filenames without directory component."
 (definterface call-with-syntax-hooks (fn)
   "Call FN with hooks to handle special syntax."
   (funcall fn))
+
+(definterface default-readtable-alist ()
+    "Return a suitable initial value for SWANK:*READTABLE-ALIST*."
+  '())
 
 
 ;;;; Compilation
@@ -386,6 +390,10 @@ Each reference is one of:
    symbol-or-name)
   (:SBCL :NODE node-name)"
   '())
+
+(definterface sldb-step (frame-number)
+    "Step to the next code location in the frame FRAME-NUMBER.")
+  
 
 
 ;;;; Definition finding
