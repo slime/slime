@@ -1,3 +1,25 @@
+2003-12-06  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-sbcl.lisp (handle-notification-condition): Don't ignore
+	warnings without context.
+	(compiler-note-location, brief-compiler-message-for-emacs,
+	compiler-note-location): Handle null context.
+	(compile-file-for-emacs): Bind *compile-filename* and load the
+	fasl file only if it exists.
+	(function-source-location): The name argument is now optional and
+	should be a symbol.
+	(find-function-locations): Return errors as a list of one error.
+	(call-with-debugging-environment): Set *print-level* to 4 and
+	*print-level* to 10.  (Where both nil.)
+	(source-location-for-emacs): Fall back to the location of the
+	function, if there is no block-debug-info.
+	(safe-source-location-for-emacs): Don't catch all conditions; only
+	errors.  
+	*compile-filename*: New variable
+
+	* slime.el (slime-eval/compile-defun-dwim): New command.
+	Suggested by "jan" <janmar@iprimus.com.au>.
+
 2003-12-04  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-debugging-state): Don't set sldb-level after
