@@ -690,7 +690,7 @@ stack."
 (defvar *debootstrap-packages* t)
 
 (defimplementation call-with-syntax-hooks (fn)
-  (cond ((and *debootrap-packages* 
+  (cond ((and *debootstrap-packages* 
               (sbcl-package-p *package*))
          (handler-bind ((sb-int:bootstrap-package-not-found 
                          #'sb-int:debootstrap-package))
