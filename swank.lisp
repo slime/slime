@@ -63,7 +63,7 @@
 (defconstant keyword-package (find-package :keyword)
   "The KEYWORD package.")
 
-(defvar *canonical-packge-nicknames*
+(defvar *canonical-package-nicknames*
   '(("COMMON-LISP-USER" . "CL-USER"))
   "Canonical package names to use instead of shortest name/nickname.")
 
@@ -276,14 +276,14 @@ The package is deleted before returning."
        (delete-package ,var))))
 
 (defvar *log-events* nil)
-(defvar *log-io* *terminal-io*)
+(defvar *log-output* *error-output*)
 
 (defun log-event (format-string &rest args)
   "Write a message to *terminal-io* when *log-events* is non-nil.
 Useful for low level debugging."
   (when *log-events*
-    (apply #'format *log-io* format-string args)
-    (force-output *log-io*)))
+    (apply #'format *log-output* format-string args)
+    (force-output *log-output*)))
 
 ;;;; TCP Server
 
@@ -1249,6 +1249,9 @@ Return two values: argument name, default arg."
 
 ;;;; Evaluation
 
+(defvar *pending-continuations* '()
+  "List of continuations for Emacs. (thread local)")
+
 (defun eval-in-emacs (form)
   "Execute FORM in Emacs."
   (destructuring-bind (fn &rest args) form
@@ -1268,7 +1271,8 @@ Errors are trapped and invoke our debugger."
     (let (ok result)
       (unwind-protect
            (let ((*buffer-package* (guess-buffer-package buffer-package))
-                 (*buffer-readtable* (guess-buffer-readtable buffer-package)))
+                 (*buffer-readtable* (guess-buffer-readtable buffer-package))
+                 (*pending-continuations* (cons id *pending-continuations*)))
              (assert (packagep *buffer-package*))
              (assert (readtablep *buffer-readtable*))
              (setq result (eval form))
@@ -1295,6 +1299,14 @@ Errors are trapped and invoke our debugger."
       (fresh-line)
       (force-output)
       (format-values-for-echo-area values))))
+
+(defslimefun eval-and-grab-output (string)
+  (with-buffer-syntax ()
+    (let* ((s (make-string-output-stream))
+           (*standard-output* s)
+           (values (multiple-value-list (eval (read-from-string string)))))
+      (list (get-output-stream-string s) 
+            (format nil "~{~S~^~%~}" values)))))
 
 (defun eval-region (string &optional package-update-p)
   "Evaluate STRING and return the result.
@@ -1325,10 +1337,13 @@ change, then send Emacs an update."
 
 (defun canonical-package-nickname (package)
   "Return the canonical package nickname, if any, of PACKAGE."
-  (cdr (assoc (package-name package) *canonical-packge-nicknames* :test #'string=)))
+  (cdr (assoc (package-name package) *canonical-package-nicknames* 
+              :test #'string=)))
 
 (defun auto-abbreviated-package-name (package)
-  "Return an abbreviated 'name' for PACKAGE. N.B. this is not an actual package name or nickname."
+  "Return an abbreviated 'name' for PACKAGE. 
+
+N.B. this is not an actual package name or nickname."
   (when *auto-abbreviate-dotted-packages*
     (let ((last-dot (position #\. (package-name package) :from-end t)))
       (when last-dot (subseq (package-name package) (1+ last-dot))))))
@@ -1587,12 +1602,13 @@ I is an integer describing and FRAME a string."
 (defslimefun debugger-info-for-emacs (start end)
   "Return debugger state, with stack frames from START to END.
 The result is a list:
-  (condition ({restart}*) ({stack-frame}*)
+  (condition ({restart}*) ({stack-frame}*) (cont*))
 where
   condition   ::= (description type [extra])
   restart     ::= (name description)
   stack-frame ::= (number description)
-  extra       ::= (:references 
+  extra       ::= (:references and other random things)
+  cont        ::= continutation
 condition---a pair of strings: message, and type.  If show-source is
 not nil it is a frame number for which the source should be displayed.
 
@@ -1600,6 +1616,8 @@ restart---a pair of strings: restart name, and description.
 
 stack-frame---a number from zero (the top), and a printed
 representation of the frame's call.
+
+continutation---the id of a pending Emacs continuation.
 
 Below is an example return value. In this case the condition was a
 division by zero (multi-line description), and only one frame is being
@@ -1610,10 +1628,12 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
    \"[Condition of type DIVISION-BY-ZERO]\")
   ((\"ABORT\" \"Return to Slime toplevel.\")
    (\"ABORT\" \"Return to Top-Level.\"))
-  ((0 \"(KERNEL::INTEGER-/-INTEGER 1 0)\")))"
+  ((0 \"(KERNEL::INTEGER-/-INTEGER 1 0)\"))
+  (4))"
   (list (debugger-condition-for-emacs)
 	(format-restarts-for-emacs)
-	(backtrace start end)))
+	(backtrace start end)
+        *pending-continuations*))
 
 (defun nth-restart (index)
   (nth index *sldb-restarts*))
