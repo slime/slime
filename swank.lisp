@@ -365,6 +365,15 @@ determined at compile time."
   `(handler-case (progn ,@body)
     (slime-read-error (e) (close-connection ,connection e))))
 
+(defun simple-break ()
+  (with-simple-restart  (continue "Continue from interrupt.")
+    (let ((*debugger-hook* #'swank-debugger-hook))
+      (invoke-debugger 
+       (make-condition 'simple-error 
+                       :format-control "Interrupt from Emacs")))))
+
+;;;;;; Thread based communication
+
 (defun read-loop (control-thread input-stream connection)
   (with-reader-error-handler (connection)
     (loop (send control-thread (decode-message input-stream)))))
@@ -426,29 +435,32 @@ element."
     (loop (with-simple-restart (abort "Restart dispatch loop.")
             (loop (dispatch-event (receive) socket-io))))))
 
-(defun simple-break ()
-  (with-simple-restart  (continue "Continue from interrupt.")
-    (let ((*debugger-hook* #'swank-debugger-hook))
-      (invoke-debugger 
-       (make-condition 'simple-error 
-                       :format-control "Interrupt from Emacs")))))
-
 (defun interrupt-worker-thread (thread)
   (let ((thread (etypecase thread
-                  ((member t) (cdr (car *active-threads*)))
-                  (fixnum (lookup-thread-id thread)))))
+                  ((member t) 
+                   (cdr (car *active-threads*)))
+                  ((member :repl-thread) 
+                   (connection.repl-thread *emacs-connection*))
+                  (fixnum 
+                   (lookup-thread-id thread)))))
     (interrupt-thread thread #'simple-break)))
 
+(defun thread-for-evaluation (thread)
+  "Find or create a thread to evaluate the next request."
+  (let ((c *emacs-connection*))
+    (etypecase thread
+      ((member t)
+       (spawn (lambda () (handle-request c)) :name "worker"))
+      ((member :repl-thread)
+       (connection.repl-thread c)) 
+      (fixnum
+       (lookup-thread-id thread)))))
+  
 (defun dispatch-event (event socket-io)
   (log-event "DISPATCHING: ~S~%" event)
   (destructure-case event
     ((:emacs-rex form package thread id)
-     (let ((thread (etypecase thread
-                     ((member t)
-                      (let ((c *emacs-connection*))
-                        (spawn (lambda () (handle-request c))
-                               :name "worker")))
-                     (fixnum (lookup-thread-id thread)))))
+     (let ((thread (thread-for-evaluation thread)))
        (send thread `(eval-for-emacs ,form ,package ,id))
        (add-thread thread)))
     ((:emacs-interrupt thread)
@@ -472,57 +484,24 @@ element."
      (encode-message event socket-io))))
 
 (defun spawn-threads-for-connection (connection)
-  (let ((socket-io (connection.socket-io connection)))
-    (let ((control-thread (spawn (lambda ()
-                                   (dispatch-loop socket-io connection))
-                                 :name "control-thread")))
-      (setf (connection.control-thread connection) control-thread)
-      (let ((reader-thread (spawn (lambda () 
-                                    (read-loop control-thread socket-io
-                                               connection))
-                                  :name "reader-thread")))
-        (setf (connection.reader-thread connection) reader-thread)
-        (setf (connection.repl-thread connection)
-              (spawn (lambda () (repl-loop connection))))
-        connection))))
+  (let* ((socket-io (connection.socket-io connection))
+         (control-thread (spawn (lambda ()
+                                  (dispatch-loop socket-io connection))
+                                :name "control-thread")))
+    (setf (connection.control-thread connection) control-thread)
+    (let ((reader-thread (spawn (lambda () 
+                                  (read-loop control-thread socket-io
+                                             connection))
+                                :name "reader-thread"))
+          (repl-thread (spawn (lambda () (repl-loop connection))
+                              :name "repl-thread")))
+      (setf (connection.reader-thread connection) reader-thread)
+      (setf (connection.repl-thread connection) repl-thread)
+      connection)))
 
 (defun repl-loop (connection)
   (with-connection (connection)
-    (loop do (funcall (receive)))))
-
-(defun initialize-streams-for-connection (connection)
-  (multiple-value-bind (dedicated in out io) (open-streams connection)
-    (setf (connection.dedicated-output connection) dedicated
-          (connection.user-io connection)          io
-          (connection.user-output connection)      out
-          (connection.user-input connection)       in)
-    connection))
-
-(defun create-connection (socket-io style)
-  (initialize-streams-for-connection
-   (ecase style
-     (:spawn
-      (make-connection :socket-io socket-io
-		       :read #'read-from-control-thread
-		       :send #'send-to-control-thread
-		       :serve-requests #'spawn-threads-for-connection))
-     (:sigio
-      (make-connection :socket-io socket-io 
-                       :read #'read-from-socket-io
-                       :send #'send-to-socket-io
-                       :serve-requests #'install-sigio-handler
-                       :cleanup #'deinstall-sigio-handler))
-     (:fd-handler
-      (make-connection :socket-io socket-io 
-                       :read #'read-from-socket-io
-                       :send #'send-to-socket-io
-                       :serve-requests #'install-fd-handler
-                       :cleanup #'deinstall-fd-handler))
-     ((nil)
-      (make-connection :socket-io socket-io 
-                       :read #'read-from-socket-io
-                       :send #'send-to-socket-io
-                       :serve-requests #'simple-serve-requests)))))
+    (loop (handle-request connection))))
 
 (defun process-available-input (stream fn)
   (loop while (and (open-stream-p stream) 
@@ -610,6 +589,40 @@ element."
         &rest _)
        (declare (ignore _))
        (send event)))))
+
+(defun initialize-streams-for-connection (connection)
+  (multiple-value-bind (dedicated in out io) (open-streams connection)
+    (setf (connection.dedicated-output connection) dedicated
+          (connection.user-io connection)          io
+          (connection.user-output connection)      out
+          (connection.user-input connection)       in)
+    connection))
+
+(defun create-connection (socket-io style)
+  (initialize-streams-for-connection
+   (ecase style
+     (:spawn
+      (make-connection :socket-io socket-io
+		       :read #'read-from-control-thread
+		       :send #'send-to-control-thread
+		       :serve-requests #'spawn-threads-for-connection))
+     (:sigio
+      (make-connection :socket-io socket-io 
+                       :read #'read-from-socket-io
+                       :send #'send-to-socket-io
+                       :serve-requests #'install-sigio-handler
+                       :cleanup #'deinstall-sigio-handler))
+     (:fd-handler
+      (make-connection :socket-io socket-io 
+                       :read #'read-from-socket-io
+                       :send #'send-to-socket-io
+                       :serve-requests #'install-fd-handler
+                       :cleanup #'deinstall-fd-handler))
+     ((nil)
+      (make-connection :socket-io socket-io 
+                       :read #'read-from-socket-io
+                       :send #'send-to-socket-io
+                       :serve-requests #'simple-serve-requests)))))
 
 
 ;;;; IO to Emacs
@@ -1201,30 +1214,6 @@ change, then send Emacs an update."
     (list (package-name p) (shortest-package-nickname p))))
 
 (defslimefun listener-eval (string)
-  (if (connection.repl-thread *emacs-connection*)
-      (repl-thread-eval string)
-      (repl-eval string)))
-
-(defun repl-thread-eval (string)
-  "Evaluate STRING using REPL-EVAL in the REPL thread."
-  ;; XXX Perhaps we should somehow formalize the set of "important"
-  ;; specials which are here being passed to the other thread? -luke (26/Apr/2004)
-  (let ((self (current-thread))
-        (connection *emacs-connection*)
-        (package *package*)
-        (buffer-package *buffer-package*))
-    (send (connection.repl-thread connection)
-          (lambda ()
-            (with-connection (connection)
-              (let ((*buffer-package* buffer-package)
-                    (*package* package))
-                (restart-case (send self (repl-eval string))
-                  (abort ()
-                    :report "Abort REPL evaluation"
-                    (send self "; Aborted")))))))
-    (receive)))
-
-(defun repl-eval (string)
   (clear-user-input)
   (multiple-value-bind (values last-form) (eval-region string t)
     (setq +++ ++  ++ +  + last-form
