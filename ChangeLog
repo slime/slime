@@ -1,3 +1,8 @@
+2005-03-10  Antonio Menezes Leitao  <aml@gia.ist.utl.pt>
+
+	* slime.el (slime-toggle-trace-fdefinition): If there is no symbol
+	at point then prompt for one.
+
 2005-03-09  Peter Seibel  <peter@gigamonkeys.com>
 
 	* swank-loader.lisp (*architecture-features*): Added :pc386 for CLISP.
