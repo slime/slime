@@ -203,8 +203,9 @@ specific functions.")
     ((:force-output :finish-output)
      (let ((end (sos.index stream)))
        (unless (zerop end)
-         (funcall (sos.output-fn stream) (subseq (sos.buffer stream) 0 end))
-         (setf (sos.index stream) 0))))
+         (let ((s (subseq (sos.buffer stream) 0 end)))
+           (setf (sos.index stream) 0)
+           (funcall (sos.output-fn stream) s)))))
     (:charpos (sos.column stream))
     (:line-length 75)
     (:file-position nil)
@@ -2057,6 +2058,52 @@ The `symbol-value' of each element is a type tag.")
         (pop (mailbox.queue mbox)))))
 
   ) ;; #+mp
+
+
+
+;;;; GC hooks 
+;;;
+;;; Display GC messages in the echo area to avoid cluttering the
+;;; normal output.
+;;;
+
+;; this should probably not be here, but where else?
+(defun eval-in-emacs (form)
+  (let ((sym (find-symbol (string :eval-in-emacs) :swank)))
+    (funcall sym form)))
+
+(defun print-bytes (nbytes &optional stream)
+  "Print the number NBYTES to STREAM in KB, MB, or GB units."
+  (let ((names '((0 bytes) (10 kb) (20 mb) (30 gb) (40 tb) (50 eb))))
+    (multiple-value-bind (power name)
+	(loop for ((p1 n1) (p2 n2)) on names
+	      while n2 do
+	      (when (<= (expt 2 p1) nbytes (1- (expt 2 p2)))
+		(return (values p1 n1))))
+      (cond (name
+	     (format stream "~,1F ~A" (/ nbytes (expt 2 power)) name))
+	    (t
+	     (format stream "~:D bytes" nbytes))))))
+
+(defun pre-gc-hook (bytes-in-use)
+  (let ((msg (format nil "[Commencing GC with ~A in use.]" 
+		     (print-bytes bytes-in-use))))
+    (eval-in-emacs `(slime-background-message "%s" ,msg))))
+
+(defun post-gc-hook (bytes-retained bytes-freed trigger)
+  (force-output)
+  (let ((msg (format nil "[GC completed. ~A freed  ~A retained  ~A trigger]"
+		     (print-bytes bytes-freed)
+		     (print-bytes bytes-retained)
+		     (print-bytes trigger))))
+    (eval-in-emacs `(slime-background-message "%s" ,msg))))
+
+(defun install-gc-hooks ()
+  (setq ext:*gc-notify-before* #'pre-gc-hook)
+  (setq ext:*gc-notify-after* #'post-gc-hook))
+
+(defimplementation emacs-connected ()
+  (install-gc-hooks))
 
 ;; Local Variables:
 ;; pbook-heading-regexp:    "^;;;\\(;+\\)"
