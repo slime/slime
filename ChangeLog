@@ -1,5 +1,8 @@
 2003-12-01  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* swank-[cmucl,sbcl,openmcl,lispworks].lisp (invoke-nth-restart):
+	Use invoke-restart-interactively.
+
 	* slime.el (slime-create-note-overlay, slime-sexp-depth): The
 	'priority' property is unused. Remove it.
 
