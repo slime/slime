@@ -1,3 +1,51 @@
+2004-10-17  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el: (slime-find-buffer-package-function): New variable to
+	allow customization for unusal syntax.
+	(slime-maybe-rearrange-inferior-lisp): Removed unused function.
+	(slime-set-inferior-process): Non-macro version to make
+	byte-compiler happy.  Reported by Raymond Wiker.
+	(slime-maybe-start-lisp): Use it.
+	(slime-sync-package-and-default-directory): Synch the
+	default-directory in the REPL buffer too.
+	(slime-goto-connection): Close the connection list window.
+	Suggested by Andras Simon.
+	(slime-repl-clear-buffer): Place point after the prompt.
+	(selector-method ?i): Use slime-process to switch to the right
+	buffer.
+	(slime-background-message): Do nothing if the minibuffer is
+	active.
+	(slime-indent-and-complete-symbol): Don't indent if we at the same
+	line as the prompt.
+
+	* swank.lisp (*sldb-pprint-frames*): Renamed to
+	*sldb-print-pretty*.
+	(*sldb-print-level*, *sldb-print-length*, *sldb-print-circle*)
+	(*sldb-print-readbly): Group of new variables to customize
+	printing in the debugger.  The default values should be safe.
+	(define-printer-variables, with-printer-settings): New macros to
+	make defining and binding groups of printer variables easier.
+	(inspect-for-emacs-list): Fix bug with circular lists and only
+	shows the first 40 elements.
+	(inspect-for-emacs): Various cleanups.
+	(all-qualified-readnames): Removed. It was not needed because
+	common-lisp-indent-function strips of any package prefix and
+	downcases the symbol anyway.
+
+	* swank-cmucl.lisp (inspect-for-emacs (code-component)):
+	Disassemble the memory region if there's not enough debug info.
+
+2004-10-17  Jan Rychter  <jan@rychter.com>
+
+	* swank-cmucl.lisp (return-from-frame): Add it.
+
+2004-10-11  Thomas Burdick  <tfb@OCF.Berkeley.EDU>
+
+	* swank-sbcl.lisp (function-definitions): Find compiler macros, too.
+	(find-defintions, compiler-definitions)
+	(optimizer-definitions, transform-definitions): Add compiler
+	transformers and optimizers to the list of definitions.
+
 2004-10-07  Peter Seibel  <peter@javamonkey.com>
 
 	* swank.lisp (spawn-threads-for-connection): Bind *debugger-hook*
