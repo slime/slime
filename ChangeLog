@@ -1,5 +1,7 @@
 2004-10-28  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-clisp.lisp: Ups. Undo previous change.
+
 	* swank-clisp.lisp: Add workaround for CLISP's broken control
 	string parser.
 
