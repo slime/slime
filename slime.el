@@ -749,7 +749,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
       [ "Interrupt Lisp process" slime-interrupt ,C ]
       "--"
       [ "Previous Input"         slime-repl-previous-input t ]
-      [ "Next Input"             slime-repl-previous-input t ]
+      [ "Next Input"             slime-repl-next-input t ]
       [ "Goto Previous Prompt "  slime-repl-previous-prompt t ]
       [ "Goto Next Prompt "      slime-repl-next-prompt t ]
       [ "Clear Last Output"      slime-repl-clear-output t ]
@@ -2841,6 +2841,11 @@ earlier in the buffer."
 
 ;;;;; History
 
+(defcustom slime-repl-wrap-history nil
+  "T to wrap history around when the end is reached."
+  :type 'boolean
+  :group 'slime-repl)
+
 (defvar slime-repl-history-pattern nil
   "The regexp most recently used for finding input history.")
 
@@ -2856,13 +2861,16 @@ history is reached."
            (slime-repl-replace-input (nth pos slime-repl-input-history))
            (setq slime-repl-input-history-position pos)
            (message "History item: %d" pos))
-          (delete-at-end-p 
-           (cond (forward
-                  (slime-repl-replace-input "")
-                  (setq slime-repl-input-history-position -1)
-                  (message "End of history; no default available"))
-                 (t
-                  (message "Beginning of history; no preceeding item"))))
+          ((and delete-at-end-p (not slime-repl-wrap-history))
+           (cond (forward (slime-repl-replace-input "")
+                          (message "End of history"))
+                 (t (message "Beginning of history")))
+           (setq slime-repl-input-history-position
+                 (if forward -1 (length slime-repl-input-history))))
+          ((and delete-at-end-p slime-repl-wrap-history)
+           (slime-repl-replace-input "")
+           (setq slime-repl-input-history-position
+                 (if forward (length slime-repl-input-history) -1)))
           (t
            (message "End of history; no matching item")))))
 
@@ -4262,7 +4270,7 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
 (defun slime-global-variable-name-p (name)
   "Is NAME a global variable?
 Globals are recognised purely by *this-naming-convention*."
-  (string-match "^\\*.*\\*$" name))
+  (string-match "^\\(.*::?\\)?\\*.*\\*$" name))
 
 (defun slime-get-cached-autodoc (symbol-name)
   "Return the cached autodoc documentation for SYMBOL-NAME, or nil."
