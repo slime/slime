@@ -166,14 +166,15 @@ This is used to resolve filenames without directory component."
 ;;;; Compilation
 
 (definterface call-with-compilation-hooks (func)
-   "Call FUNC with hooks to trigger SLDB on compiler errors.")
+  "Call FUNC with hooks to record compiler conditions.")
 
 (defmacro with-compilation-hooks ((&rest ignore) &body body)
+  "Execute BODY as in CALL-WITH-COMPILATION-HOOKS."
   (declare (ignore ignore))
   `(call-with-compilation-hooks (lambda () (progn ,@body))))
 
 (definterface swank-compile-string (string &key buffer position)
-   "Compile source from STRING.  During compilation, compiler
+  "Compile source from STRING.  During compilation, compiler
 conditions must be trapped and resignalled as COMPILER-CONDITIONs.
 
 If supplied, BUFFER and POSITION specify the source location in Emacs.
