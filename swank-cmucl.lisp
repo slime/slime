@@ -822,7 +822,6 @@ The result has the format \"(...)\"."
 	       "(-- <Unknown-Function>)"
 	       (let* ((fun (or (macro-function function)
                                (symbol-function function)))
-		      (df (di::function-debug-function fun))
 		      (arglist (kernel:%function-arglist 
                                 (kernel:%function-self fun))))
 		 (cond ((eval:interpreted-function-p fun)
@@ -833,8 +832,10 @@ The result has the format \"(...)\"."
 		       ;; this should work both for
 		       ;; compiled-debug-function and for
 		       ;; interpreted-debug-function
-		       (df (di::debug-function-lambda-list df))
-		       (t "(<arglist-unavailable>)"))))))
+		       (t (let ((df (di::function-debug-function fun)))
+                            (if df 
+                                (di::debug-function-lambda-list df)
+                                "(<arglist-unavailable>)"))))))))
       (etypecase arglist
         (string arglist)
         (cons (let ((*print-case* :downcase)
