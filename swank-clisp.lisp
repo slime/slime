@@ -42,11 +42,11 @@
 	    (progn ,@body)
 	 (linux:sigprocmask-set ,linux:SIG_SETMASK ,mask nil)))))
 	
-#+linux
-(defmethod call-without-interrupts (fn)
-  (with-blocked-signals (#.linux:SIGINT) (funcall fn)))
-
-#-linux
+;; #+linux
+;; (defmethod call-without-interrupts (fn)
+;;   (with-blocked-signals (#.linux:SIGINT) (funcall fn)))
+;; 
+;; #-linux
 (defmethod call-without-interrupts (fn)
   (funcall fn))
 
@@ -56,6 +56,8 @@
 
 
 ;;; TCP Server
+
+(setq *swank-in-background* nil)
 
 (defimplementation create-socket (port)
   (socket:socket-server port))
@@ -73,6 +75,40 @@
 			:external-format (ext:make-encoding 
 					  :charset 'charset:iso-8859-1
 					  :line-terminator :unix)))
+
+(defvar *sigio-handlers* '()
+  "List of (key . fn) pairs to be called on SIGIO.")
+
+(defun sigio-handler (signal)
+  (mapc (lambda (handler) (funcall (cdr handler))) *sigio-handlers*))
+
+;(trace sigio-handler)
+
+(defvar *saved-sigio-handler*)
+
+(defun set-sigio-handler ()
+  (setf *saved-sigio-handler*
+	(linux:set-signal-handler linux:SIGIO 
+				  (lambda (signal) (sigio-handler signal))))
+  (let* ((action (linux:signal-action-retrieve linux:SIGIO))
+	 (flags (linux:sa-flags action)))
+    (setf (linux:sa-flags action) (logior flags linux:SA_NODEFER))
+    (linux:signal-action-install linux:SIGIO action)))
+
+(defimplementation add-input-handler (socket fn)
+  (set-sigio-handler)
+  (let ((fd (socket:socket-stream-handle socket)))
+    (format *debug-io* "Adding input handler: ~S ~%" fd)
+    ;; XXX error checking
+    (linux:fcntl3l fd linux:F_SETOWN (getpid))
+    (linux:fcntl3l fd linux:F_SETFL linux:O_ASYNC)
+    (push (cons fd fn) *sigio-handlers*)))
+
+(defimplementation remove-input-handlers (socket)
+  (let ((fd (socket:socket-stream-handle socket)))
+    (remove-sigio-handler fd)
+    (setf *sigio-handlers* (delete fd *sigio-handlers* :key #'car)))
+  (close socket))
 
 ;;; Swank functions
 
@@ -165,7 +201,6 @@ Return NIL if the symbol is unbound."
 (defvar *sldb-restarts*)
 (defvar *sldb-debugmode* 4)
 
-
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let* ((sys::*break-count* (1+ sys::*break-count*))
 	 (sys::*driver* debugger-loop-fn)
@@ -199,7 +234,7 @@ Return NIL if the symbol is unbound."
 							  sys::*debug-mode*)
 	repeat index
 	never (eq frame *sldb-botframe*)
-	finally (return frame)));(setq sys::*debug-frame* frame))))
+	finally (return frame)))
 
 (defun compute-backtrace (start end)
   (let ((end (or end most-positive-fixnum)))

@@ -1,4 +1,4 @@
-;;;; -*- Mode: lisp; indent-tabs-mode: nil -*-
+<;;;; -*- Mode: lisp; indent-tabs-mode: nil -*-
 ;;;
 ;;; swank-sbcl.lisp --- SLIME backend for SBCL.
 ;;;
@@ -38,7 +38,8 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require 'sb-bsd-sockets)
-  (require 'sb-introspect))
+  (require 'sb-introspect)
+  )
 
 (declaim (optimize (debug 3)))
 (in-package :swank)
@@ -58,7 +59,7 @@
 
 ;;; TCP Server
 
-(setq *swank-in-background* :fd-handler)
+(setq *swank-in-background* :sigio)
 
 (defimplementation create-socket (port)
   (let ((socket (make-instance 'sb-bsd-sockets:inet-socket
@@ -78,15 +79,40 @@
 (defimplementation accept-connection (socket)
   (make-socket-io-stream (accept socket)))
 
+(defvar *sigio-handlers* '()
+  "List of (key . fn) pairs to be called on SIGIO.")
+
+(defun sigio-handler (signal code scp)
+  (mapc (lambda (handler) (funcall (cdr handler))) *sigio-handlers*))
+
+
+(defun set-sigio-handler ()
+  (sb-sys:enable-interrupt sb-unix:SIGIO (lambda (signal code scp)
+                                           (sigio-handler signal code scp))))
+
+(set-sigio-handler)
+
+#+linux
+(progn
+  (defconstant +o_async+ 8192)
+  (defconstant +f_setown+ 8)
+  (defconstant +f_setfl+ 4))
+
 (defimplementation add-input-handler (socket fn)
-  (declare (type function fn))
-  (sb-sys:add-fd-handler (socket-fd  socket)
-                         :input (lambda (fd)
-                                  (declare (ignore fd))
-                                  (funcall fn))))
+  (let ((fd (socket-fd socket)))
+    (format *debug-io* "Adding sigio handler: ~S ~%" fd)
+    (let ((fcntl (sb-alien:extern-alien "fcntl" 
+                                        (function sb-alien:int sb-alien:int 
+                                                  sb-alien:int sb-alien:int))))
+      ;; XXX error checking
+      (sb-alien:alien-funcall fcntl fd +f_setfl+ +o_async+)
+      (sb-alien:alien-funcall fcntl fd +f_setown+ (sb-unix:unix-getpid))
+      (push (cons fd fn) *sigio-handlers*))))
 
 (defimplementation remove-input-handlers (socket)
-  (sb-sys:invalidate-descriptor (socket-fd socket))
+  (let ((fd (socket-fd socket)))
+    (setf *sigio-handlers* (delete fd *sigio-handlers* :key #'car))
+    (sb-sys:invalidate-descriptor fd)) 
   (close socket))
 
 (defun socket-fd (socket)
@@ -591,7 +617,57 @@ stack."
   (defimplementation call-with-lock-held (lock function)
     (declare (type function function))
     (sb-thread:with-mutex (lock) (funcall function)))
-)
+
+  (defimplementation current-thread ()
+    (sb-thread:current-thread-id))
+
+  (defun all-threads ()
+    (sb-thread::mapcar-threads
+     (lambda (sap)
+       (sb-sys:sap-ref-32 sap (* sb-vm:n-word-bytes
+                                 sb-vm::thread-pid-slot)))))
+ 
+  (defimplementation interrupt-thread (thread fn)
+    (sb-thread:interrupt-thread thread fn))
+
+  ;; XXX there is some deadlock / race condition here
+
+  (defvar *mailbox-lock* (sb-thread:make-mutex :name "mailbox lock"))
+  (defvar *mailboxes* (list))
+
+  (defstruct (mailbox (:conc-name mailbox.)) 
+    thread
+    (mutex (sb-thread:make-mutex))
+    (waitqueue  (sb-thread:make-waitqueue))
+    (queue '() :type list))
+
+  (defun mailbox (thread)
+    "Return THREAD's mailbox."
+    (sb-thread:with-mutex (*mailbox-lock*)
+      (or (find thread *mailboxes* :key #'mailbox.thread)
+          (let ((mb (make-mailbox :thread thread)))
+            (push mb *mailboxes*)
+            mb))))
+
+  (defimplementation send (thread message)
+    (let* ((mbox (mailbox thread))
+           (mutex (mailbox.mutex mbox)))
+      (sb-thread:with-mutex (mutex)
+        (setf (mailbox.queue mbox)
+              (nconc (mailbox.queue mbox) (list message)))
+        (sb-thread:condition-broadcast (mailbox.waitqueue mbox)))))
+
+  (defimplementation receive ()
+    (let* ((mbox (mailbox (sb-thread:current-thread-id)))
+           (mutex (mailbox.mutex mbox)))
+      (sb-thread:with-mutex (mutex)
+        (loop
+         (let ((q (mailbox.queue mbox)))
+           (cond (q (return (pop (mailbox.queue mbox))))
+                 (t (sb-thread:condition-wait (mailbox.waitqueue mbox)
+                                              mutex))))))))
+
+  )
 
 ;;; Local Variables:
 ;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
