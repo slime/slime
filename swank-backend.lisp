@@ -25,10 +25,6 @@
            #:position-pos
            #:print-output-to-string
            #:quit-lisp
-           #:*new-connection-hook*
-           #:*pre-reply-hook*
-           #:add-hook
-           #:run-hook
            ))
 
 (in-package :swank-backend)
@@ -102,28 +98,6 @@ The portable code calls this function at startup."
                      (cons `(,(first name) (,(reader (second name)) ,tmp)))
                      (t (error "Malformed syntax in WITH-STRUCT: ~A" name))))
           ,@body)))))
-
-;;;; Hooks
-;;;
-;;; We use Emacs-like `add-hook' and `run-hook' utilities to support
-;;; simple indirection. The interface is more CLish than the Emacs
-;;; Lisp one.
-
-(defmacro add-hook (place function)
-  "Add FUNCTION to the list of values on HOOK-VARIABLE."
-  `(pushnew ,function ,place))
-
-(defun run-hook (functions &rest arguments)
-  "Call each of FUNCTIONS with ARGUMENTS."
-  (dolist (function functions)
-    (apply function arguments)))
-
-(defvar *new-connection-hook* '(emacs-connected)
-  "This hook is run each time a connection is established.
-The connection structure is given as the argument.")
-
-(defvar *pre-reply-hook* '()
-  "Hook run (without arguments) immediately before replying to an RPC.")
 
 
 ;;;; TCP server
