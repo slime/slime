@@ -3,8 +3,11 @@
   (:use :common-lisp)
   (:export #:start-server
            #:eval-string
+	   #:ping
 	   #:interactive-eval
+	   #:interactive-eval-region
 	   #:pprint-eval
+	   #:re-evaluate-defvar
            #:swank-compile-file 
 	   #:swank-compile-string 
 	   #:compiler-notes-for-emacs
@@ -56,7 +59,7 @@
   (ext:without-package-locks
    (setf c:*compiler-notification-function* 'handle-notification))
   (when *swank-debug-p*
-    (format *debug-io* "~&Swank ready.~%")))
+    (format *debug-io* "~&;; Swank ready.~%")))
 
 (defun set-fd-non-blocking (fd)
   (flet ((fcntl (fd cmd arg)
@@ -135,10 +138,11 @@ The request is read from the socket as a sexp and then evaluated."
 (defun send-to-emacs (object)
   "Send OBJECT to Emacs."
   (let* ((string (prin1-to-string-for-emacs object))
-         (length (length string)))
+         (length (1+ (length string))))
     (loop for position from 16 downto 0 by 8
           do (write-byte (ldb (byte 8 position) length) *emacs-io*))
     (write-string string *emacs-io*)
+    (terpri *emacs-io*)
     (force-output *emacs-io*)))
 
 (defun prin1-to-string-for-emacs (object)
@@ -195,8 +199,6 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 (defvar *swank-debugger-condition*)
 (defvar *swank-debugger-hook*)
 
-
-
 (defun swank-debugger-hook (condition hook)
   (send-to-emacs '(:debugger-hook))
   (let ((*swank-debugger-condition* condition)
@@ -218,6 +220,14 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
     (force-output)
     (format nil "~{~S~^, ~}" values)))
 
+(defslimefun interactive-eval-region (string)
+  (with-input-from-string (stream string)
+    (loop for form = (read stream nil stream)
+	  until (eq form stream)
+	  for result = (multiple-value-list (eval form))
+	  do (force-output)
+	  finally (return (format nil "~{~S~^, ~}" result)))))
+
 (defslimefun pprint-eval (string)
   (let ((value (eval (from-string string))))
     (let ((*print-pretty* t)
@@ -225,9 +235,17 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 	  (*print-level* nil)
 	  (*print-length* nil)
 	  (ext:*gc-verbose* nil))
-      (with-output-to-string (*standard-output*) 
-	(pprint value)))))
+      (with-output-to-string (stream)
+	(pprint value stream)))))
 
+(defslimefun re-evaluate-defvar (form)
+  (let ((form (from-string form)))
+    (destructuring-bind (dv name &optional value doc) form
+      (declare (ignore value doc))
+      (assert (eq dv 'defvar))
+      (makunbound name)
+      (to-string (eval form)))))
+    
 ;;;; Compilation Commands
 
 ;; (defun debugger-hook (condition old-hook)
@@ -314,7 +332,7 @@ compiler state."
   (clear-compiler-notes)
   (let ((*buffername* nil)
 	(*buffer-offset* nil))
-    (multiple-value-bind (pathname errorsp notesp)
+    (multiple-value-bind (pathname errorsp notesp) 
 	(compile-file filename :load load)
       (list (if pathname (namestring pathname)) errorsp notesp))))
 
@@ -325,9 +343,11 @@ compiler state."
 	(*buffer-offset* start))
     (with-input-from-string (stream string)
       (multiple-value-list
-       (ext:compile-from-stream 
-	stream 
-	:source-info `(:emacs-buffer ,buffer :emacs-buffer-offset ,start))))))
+       (handler-bind ((c::compiler-error #'error)) ; turn reader errors into errors
+	 (ext:compile-from-stream 
+	  stream 
+	  :source-info `(:emacs-buffer ,buffer 
+			 :emacs-buffer-offset ,start)))))))
 
 ;;;; ARGLIST-STRING -- interface
 (defslimefun arglist-string (fname)
@@ -425,11 +445,8 @@ the package are considered."
     (t nil)))
 
 (defun function-first-code-location (function)
-  (let* ((first-block (di:do-debug-function-blocks
-			  (b (di:function-debug-function function))
-			(return b))))
-    (di:do-debug-block-locations (l first-block)
-      (return l))))
+  (di:debug-function-start-location
+   (di:function-debug-function function)))
 
 (defun function-debug-function-name (function)
   (di:debug-function-name (di:function-debug-function function)))
@@ -678,6 +695,12 @@ that symbols accessible in the current package go first."
 (defvar *sldb-level* 0)
 (defvar *sldb-stack-top*)
 (defvar *sldb-restarts*)
+
+(defslimefun ping (level)
+  (cond ((= level *sldb-level*)
+	 *sldb-level*)
+	(t
+	 (throw-to-toplevel))))
 
 (defslimefun sldb-loop ()
   (unix:unix-sigsetmask 0)
