@@ -13,6 +13,8 @@
 	   #:completions
            #:find-fdefinition
 	   #:apropos-list-for-emacs
+	   #:list-all-package-names
+	   #:function-source-location-for-emacs
 	   #:swank-macroexpand-1
 	   #:swank-macroexpand
 	   #:swank-macroexpand-all
@@ -22,12 +24,13 @@
 	   #:describe-type
 	   #:describe-class
 	   #:disassemble-symbol
+	   #:toggle-trace-fdefinition
            #:sldb-loop
 	   #:debugger-info-for-emacs
 	   #:backtrace-for-emacs
 	   #:frame-catch-tags
 	   #:frame-locals
-	   #:frame-code-location-for-emacs
+	   #:frame-source-location-for-emacs
 	   #:eval-string-in-frame
 	   #:invoke-nth-restart
 	   #:sldb-abort
@@ -256,7 +259,7 @@ See C:*COMPILER-NOTIFICATION-FUNCTION*"
 		:context context
 		:buffername (if (boundp '*buffername*) 
 				*buffername*)
-		:buffer-offset (if (boundp '*buffer-offset*) 
+		:buffer-offset (if (boundp '*buffer-offset*)
 				   *buffer-offset*))))
     (push note *compiler-notes*)
     (when namestring
@@ -302,7 +305,9 @@ compiler state."
 	(*buffer-offset* start))
     (with-input-from-string (stream string)
       (multiple-value-list
-       (ext:compile-from-stream stream :source-info (cons buffer start))))))
+       (ext:compile-from-stream 
+	stream 
+	:source-info `(:emacs-buffer ,buffer :emacs-buffer-offset ,start))))))
 
 ;;;; ARGLIST-STRING -- interface
 (defslimefun arglist-string (function)
@@ -361,6 +366,14 @@ the package are considered."
   (and (<= (length s1) (length s2))
        (string= s1 s2 :end2 (length s1))))
 
+(defslimefun list-all-package-names ()
+  (let ((list '()))
+    (maphash (lambda (name package)
+	       (declare (ignore package)) 
+	       (pushnew name list))
+	     lisp::*package-names*)
+    list))
+
 ;;;; Definitions
 
 ;;; FIND-FDEFINITION -- interface
@@ -368,6 +381,97 @@ the package are considered."
 (defslimefun find-fdefinition (symbol-name package-name)
   "Return the name of the file in which the function was defined, or NIL."
   (fdefinition-file (read-symbol/package symbol-name package-name)))
+
+(defun function-debug-info (function)
+  "Return the debug-info for FUNCTION."
+  (declare (type (or symbol function) function))
+  (typecase function
+    (symbol
+     (let ((def (or (macro-function function)
+		    (and (fboundp function)
+			 (fdefinition function)))))
+       (when def (function-debug-info def))))
+    (kernel:byte-closure
+     (function-debug-info (kernel:byte-closure-function function)))
+    (kernel:byte-function
+     (kernel:%code-debug-info (c::byte-function-component function)))
+    (function
+     (kernel:%code-debug-info (kernel:function-code-header
+			       (kernel:%function-self function))))
+    (t nil)))
+
+(defun function-first-code-location (function)
+  (let* ((first-block (di:do-debug-function-blocks
+			  (b (di:function-debug-function function))
+			(return b))))
+    (di:do-debug-block-locations (l first-block)
+      (return l))))
+
+(defun function-debug-function-name (function)
+  (di:debug-function-name (di:function-debug-function function)))
+
+(defun function-debug-function-name= (function name)
+  (equal (function-debug-function-name function) name))
+
+(defun struct-accessor-p (function)
+  (function-debug-function-name= function "DEFUN STRUCTURE-SLOT-ACCESSOR"))
+
+(defun struct-accessor-class (function)
+  (kernel:%closure-index-ref function 0)) 
+
+(defun struct-setter-p (function)
+  (function-debug-function-name= function "DEFUN STRUCTURE-SLOT-SETTER"))
+
+(defun struct-setter-class (function) 
+  (kernel:%closure-index-ref function 0))
+
+(defun struct-predicate-p (function)
+  (function-debug-function-name= function "DEFUN %DEFSTRUCT"))
+
+(defun struct-predicate-class (function)
+  (kernel:layout-class
+   (c:value-cell-ref 
+    (kernel:%closure-index-ref function 0))))
+
+(defun struct-class-source-location (class)
+  (let ((constructor (kernel::structure-class-constructor class)))
+    (cond (constructor (function-source-location constructor))
+	  (t (error "Cannot locate struct without constructor: ~A" class)))))
+
+(defun function-source-location (function)
+  "Try to find the canonical source location of FUNCTION."
+  ;; First test if FUNCTION is a closure created by defstruct; if so
+  ;; extract the struct-class from the closure and find the
+  ;; constructor for the struct-class.  Defstruct creates a defun for
+  ;; the default constructor and we use that as an approximation to
+  ;; the source location of the defstruct.  Unfortunately, some
+  ;; defstruct have no or non-default constructors, in that case we
+  ;; are out of luck.
+  ;;
+  ;; For an ordinary function we return the source location of the
+  ;; first code-location we find.
+  (cond ((struct-accessor-p function)
+	 (struct-class-source-location 
+	  (struct-accessor-class function)))
+	((struct-setter-p function)
+	 (struct-class-source-location 
+	  (struct-accessor-class function)))
+	((struct-predicate-p function)
+	 (struct-class-source-location 
+	  (struct-predicate-class function)))
+	(t
+	 (source-location-for-emacs 
+	  (function-first-code-location function)))))
+
+(defslimefun function-source-location-for-emacs (fname)
+  "Return the source-location of FNAME's definition."
+  (let ((fname (read-string fname)))
+    (cond ((and (symbolp fname) (macro-function fname))
+	   (function-source-location (macro-function fname)))
+	  (t
+	   (function-source-location (coerce fname 'function))))))
+
+;; di::code-location-%tlf-offset
 
 ;;; Clone of HEMLOCK-INTERNALS::FUN-DEFINED-FROM-PATHNAME
 (defun fdefinition-file (function)
@@ -487,21 +591,6 @@ that symbols accessible in the current package go first."
             (t
              (string< (package-name pa) (package-name pb)))))))
 
-(defun apply-macro-expander (expander string)
-  (let ((*print-pretty* t)
-	(*print-length* 20)
-	(*print-level* 20))
-    (prin1-to-string (funcall expander (read-string string)))))
-
-(defslimefun swank-macroexpand-1 (string)
-  (apply-macro-expander #'macroexpand-1 string))
-
-(defslimefun swank-macroexpand (string)
-  (apply-macro-expander #'macroexpand string))
-
-(defslimefun swank-macroexpand-all (string)
-  (apply-macro-expander #'walker:macroexpand-all string))
-
 (defun print-output-to-string (fn)
   (with-output-to-string (*standard-output*)
     (funcall fn)))
@@ -526,12 +615,44 @@ that symbols accessible in the current package go first."
 
 (defslimefun describe-class (symbol-name)
   (print-desciption-to-string (find-class (read-string symbol-name) nil)))
+
+;;; Macroexpansion
+
+(defun apply-macro-expander (expander string)
+  (let ((*print-pretty* t)
+	(*print-length* 20)
+	(*print-level* 20))
+    (prin1-to-string (funcall expander (read-string string)))))
+
+(defslimefun swank-macroexpand-1 (string)
+  (apply-macro-expander #'macroexpand-1 string))
+
+(defslimefun swank-macroexpand (string)
+  (apply-macro-expander #'macroexpand string))
+
+(defslimefun swank-macroexpand-all (string)
+  (apply-macro-expander #'walker:macroexpand-all string))
+
    
-(defslimefun disassemble-symbol (symbol-name)
-  (print-output-to-string (lambda () (disassemble (read-string symbol-name)))))
 
 
-;;; Debugging stuff
+;;; Debugging
+
+(defun tracedp (fname)
+  (gethash (debug::trace-fdefinition fname)
+	   debug::*traced-functions*))
+
+(defslimefun toggle-trace-fdefinition (fname-string)
+  (let ((fname (read-string fname-string)))
+    (cond ((tracedp fname)
+	   (debug::untrace-1 fname)
+	   (format nil "~S is now untraced." fname))
+	  (t
+	   (debug::trace-1 fname (debug::make-trace-info))
+	   (format nil "~S is now traced." fname)))))
+
+(defslimefun disassemble-symbol (symbol-name)
+  (print-output-to-string (lambda () (disassemble (read-string symbol-name)))))
 
 (defvar *sldb-level* 0)
 (defvar *sldb-stack-top*)
@@ -632,12 +753,14 @@ stack."
 	(dotimes (i n)
 	  (read file))
 	(read-delimited-list #\( file))
-      (let ((start (file-position file)))
-	(file-position file (1- start))
-	(read file)
-	(list start (file-position file))))))
+      (file-position file))))
 
-(defun code-location-for-emacs (code-location)
+(defun debug-source-from-emacs-buffer-p (debug-source)
+  (let ((info (c::debug-source-info debug-source)))
+    (and info 
+	 (eq :emacs-buffer (car info)))))
+
+(defun source-location-for-emacs (code-location)
   (let* ((debug-source (di:code-location-debug-source code-location))
 	 (from (di:debug-source-from debug-source))
 	 (name (di:debug-source-name debug-source)))
@@ -647,17 +770,20 @@ stack."
 		   (ext:unix-namestring (truename name)))
      :position (if (eq from :file)
 		   (code-location-file-position code-location))
+     :info (c::debug-source-info debug-source)
+     :path (code-location-source-path code-location)
      :source-form
-     (if (not (eq from :file))
+     (unless (or (eq from :file)
+		 (debug-source-from-emacs-buffer-p debug-source))
 	 (with-output-to-string (*standard-output*)
 	   (debug::print-code-location-source-form code-location 100 t))))))
 
-(defun safe-code-location-for-emacs (code-location)
-  (handler-case (code-location-for-emacs code-location)
+(defun safe-source-location-for-emacs (code-location)
+  (handler-case (source-location-for-emacs code-location)
     (t (c) (list :error (debug::safe-condition-message c)))))
 
-(defslimefun frame-code-location-for-emacs (index)
-  (safe-code-location-for-emacs (di:frame-code-location (nth-frame index))))
+(defslimefun frame-source-location-for-emacs (index)
+  (safe-source-location-for-emacs (di:frame-code-location (nth-frame index))))
 
 (defslimefun eval-string-in-frame (string index)
   (prin1-to-string
@@ -678,7 +804,7 @@ stack."
 
 (defslimefun frame-catch-tags (index)
   (loop for (tag . code-location) in (di:frame-catches (nth-frame index))
-	collect `(,tag . ,(safe-code-location-for-emacs code-location))))
+	collect `(,tag . ,(safe-source-location-for-emacs code-location))))
 
 (defslimefun invoke-nth-restart (index)
   (invoke-restart (nth-restart index)))
