@@ -239,6 +239,8 @@ OpenMCL
 LispWorks
 @item
 Allegro Common Lisp (@acronym{ACL})
+@item
+Armed Bear Common Lisp (@acronym{ABCL})
 @end itemize
 
 Most features work uniformly across implementations, but some are
