@@ -4,6 +4,8 @@
 	argument for :file and :emacs-buffer location types. This is for
 	OpenMCL - unlike CMUCL its positions are not character-accurate so
 	it needs to be aligned to the beginning of the sexp.
+	(slime-connect): Don't delete a random window when *inferior-lisp*
+	isn't visible.
 
 	* swank-cmucl.lisp: Tidied up outline-minor-mode structure and
 	added comments and docstrings.
