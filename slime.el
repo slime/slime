@@ -494,7 +494,15 @@ A prefix argument disables this behaviour."
     ("\I"  slime-inspect :prefixed t :inferior t :sldb t)
     ("\C-]" slime-close-all-sexp :prefixed t :inferior t :sldb t)
     ("\C-xt" slime-list-threads :prefixed t :inferior t :sldb t)
-    ("\C-xc" slime-list-connections :prefixed t :inferior t :sldb t)))
+    ("\C-xc" slime-list-connections :prefixed t :inferior t :sldb t)
+    ;; Shadow unwanted bindings from inf-lisp
+    ("\C-a" slime-nop :prefixed t :inferior t :sldb t)
+    ("\C-v" slime-nop :prefixed t :inferior t :sldb t)))
+
+(defun slime-nop ()
+  "The null command. Used to shadow currently-unused keybindings."
+  (interactive)
+  nil)
 
 (defvar slime-doc-map (make-sparse-keymap)
   "Keymap for documentation commands. Bound to a prefix key.")
@@ -5544,7 +5552,7 @@ Only add clickability to properties we actually know how to lookup."
 Regexp heuristics are used to avoid showing SWANK-internal frames."
   (or (loop for frame in frames
             for (number string) = frame
-            until (string-match "[^(]*(\\(SWANK\\|swank\\):" string)
+            until (string-match "^(+\\(SWANK\\|swank\\)\\>" string)
             collect frame)
       frames))
 
@@ -6198,6 +6206,7 @@ Optionally set point to POINT."
   (push (point) slime-inspector-mark-stack))
 
 (defun slime-inspector-copy-down (number)
+  "Evaluate the slot at point via the REPL (to set `*')."
   (interactive (list (slime-inspector-object-at-point)))
   (slime-repl-send-string (format "%s" `(swank:inspector-nth-part ,number)))
   (slime-repl))
