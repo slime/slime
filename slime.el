@@ -5752,7 +5752,8 @@ BODY returns true if the check succeeds."
         (looking-at " *$"))
       (let ((command-spec (slime-lookup-shortcut
                            (completing-read "Command: " 
-                                            (slime-list-all-repl-shortcuts)
+                                            (slime-bogus-completion-alist
+                                             (slime-list-all-repl-shortcuts))
                                             nil
                                             t
                                             nil
