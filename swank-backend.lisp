@@ -25,7 +25,7 @@
            #:position-pos
            #:print-output-to-string
            #:quit-lisp
-           ))
+           #:unbound-slot-filler))
 
 (in-package :swank-backend)
 
@@ -509,6 +509,13 @@ themselves, that is, their dispatch functions, are left alone.")
 
 
 ;;;; Inspector
+
+(defstruct (unbound-slot-filler
+             (:print-object 
+              (lambda (obj stream)
+                (print-unreadable-object (obj stream :type t)))))
+  "The definition of an object which serves as a placeholder in
+an unbound slot for inspection purposes.")
 
 (definterface inspected-parts (object)
   "Return a short description and a list of (LABEL . VALUE) pairs."
