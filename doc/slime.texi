@@ -539,7 +539,7 @@ Describe the slot at point.
 Go back to the previous object (return from @kbd{RET}).
 
 @kbditem{n, slime-inspector-next}
-The inverse of @kbd{l}.
+The inverse of @kbd{l}. Also bound to @kbd{SPC}.
 
 @kbditem{q, slime-inspector-quit}
 Dismiss the inspector buffer.

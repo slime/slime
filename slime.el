@@ -5087,6 +5087,7 @@ Optionally set point to POINT."
   ("\C-m"   'slime-inspector-inspect-object-at-point)
   ("l" 'slime-inspector-pop)
   ("n" 'slime-inspector-next)
+  (" " 'slime-inspector-next)
   ("d" 'slime-inspector-describe)
   ("q" 'slime-inspector-quit))
 
