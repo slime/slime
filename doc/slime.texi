@@ -45,8 +45,13 @@ o@c this comment prevents a newline!
 @code{\command\}@*
 @end macro
 
+<<<<<<< slime.texi
 @set EDITION 1.0
 @set UPDATED @code{$Date$}
+=======
+@set EDITION 1.0
+@set UPDATED @code{$Date$}
+>>>>>>> 1.28
 
 @titlepage
 @title SLIME User Manual
@@ -64,12 +69,8 @@ o@c this comment prevents a newline!
 @ifinfo
 @top SLIME
 
-@SLIME{} is the ``Superior Lisp Interaction Mode for Emacs.''
-
-Like @SLIME{}, this manual is a work in progress. It documents an
-unreleased version of @SLIME{}.
-
-For a list of hackers who've worked on @SLIME{}, @ref{Credits}.
+@SLIME{} is the ``Superior Lisp Interaction Mode for Emacs''. This is
+the manual for version 1.0.
 
 @end ifinfo
 @menu
@@ -169,7 +170,7 @@ Lisp-side (Swank)
 
 @SLIME{} extends Emacs with new support for interactive programming in
 Common Lisp. The features are centred around @code{slime-mode}, an Emacs
-minor-mode that compliments the standard @code{lisp-mode}. While
+minor-mode that complements the standard @code{lisp-mode}. While
 @code{lisp-mode} supports editing Lisp source files, @code{slime-mode}
 adds support for interacting with a running Common Lisp process for
 compilation, debugging, documentation lookup, and so on.
