@@ -407,102 +407,66 @@ of the toplevel restart."
 
 ;;;;;; Thread based communication
 
+(defvar *active-threads* '())
+
 (defun read-loop (control-thread input-stream connection)
   (with-reader-error-handler (connection)
     (loop (send control-thread (decode-message input-stream)))))
 
-(defvar *active-threads* '())
-(defvar *thread-counter* 0)
-
-(defun remove-dead-threads ()
-  (setq *active-threads*
-        (remove-if-not #'thread-alive-p *active-threads*)))
-
-(defun add-thread (thread)
-  (let ((id (mod (1+ *thread-counter*) most-positive-fixnum)))
-    (setq *active-threads* (acons id thread *active-threads*)
-          *thread-counter* id)
-    id))
-
-(defun drop-thread (thread)
-  "Drop the first occurence of thread in *active-threads* and return its id."
-  (let ((tail (member thread *active-threads* :key #'cdr :test #'equalp)))
-    (assert tail)
-    (setq *active-threads* (append (ldiff *active-threads* tail) (rest tail)))
-    (car (first tail))))
-
-(defvar *lookup-counter* nil
-  "A simple counter used to remove dead threads from *active-threads*.")
-
-(defun lookup-thread (thread)
-  (when (zerop (decf *lookup-counter*))
-    (setf *lookup-counter* 50)
-    (remove-dead-threads))
-  (let ((probe (rassoc thread *active-threads*)))
-    (cond (probe (car probe))
-          (t (add-thread thread)))))
-
-(defun lookup-thread-id (id &optional noerror)
-  (let ((probe (assoc id *active-threads*)))
-    (cond (probe (cdr probe))
-          (noerror nil)
-          (t (error "Thread id not found ~S" id)))))
-
 (defun dispatch-loop (socket-io connection)
-  (let ((*emacs-connection* connection)
-        (*active-threads* '())
-        (*thread-counter* 0)
-        (*lookup-counter* 50))
+  (let ((*emacs-connection* connection))
     (loop (with-simple-restart (abort "Restart dispatch loop.")
             (loop (dispatch-event (receive) socket-io))))))
 
-(defun interrupt-worker-thread (thread)
-  (let ((thread (etypecase thread
-                  ((member t) 
-                   (cdr (car *active-threads*)))
+(defun interrupt-worker-thread (id)
+  (let ((thread (etypecase id
+                  ((member t)
+                   (car *active-threads*))
                   ((member :repl-thread) 
                    (connection.repl-thread *emacs-connection*))
                   (fixnum 
-                   (lookup-thread-id thread)))))
+                   (find-thread id)))))
     (interrupt-thread thread #'simple-break)))
 
-(defun thread-for-evaluation (thread)
+(defun thread-for-evaluation (id)
   "Find or create a thread to evaluate the next request."
   (let ((c *emacs-connection*))
-    (etypecase thread
+    (etypecase id
       ((member t)
        (spawn (lambda () (handle-request c)) :name "worker"))
       ((member :repl-thread)
        (connection.repl-thread c)) 
       (fixnum
-       (lookup-thread-id thread)))))
+       (find-thread id)))))
   
 (defun dispatch-event (event socket-io)
   (log-event "DISPATCHING: ~S~%" event)
   (destructure-case event
-    ((:emacs-rex form package thread id)
-     (let ((thread (thread-for-evaluation thread)))
-       (send thread `(eval-for-emacs ,form ,package ,id))
-       (add-thread thread)))
-    ((:emacs-interrupt thread)
-     (interrupt-worker-thread thread))
-    (((:debug :debug-condition :debug-activate) thread &rest args)
-     (encode-message `(,(car event) ,(add-thread thread) . ,args) socket-io))
-    ((:debug-return thread level)
-     (encode-message `(:debug-return ,(drop-thread thread) ,level) socket-io))
+    ((:emacs-rex form package thread-id id)
+     (let ((thread (thread-for-evaluation thread-id)))
+       (push thread *active-threads*)
+       (send thread `(eval-for-emacs ,form ,package ,id))))
     ((:return thread &rest args)
-     (drop-thread thread)
+     (let ((tail (member thread *active-threads*)))
+       (setq *active-threads* (nconc (ldiff *active-threads* tail)
+                                     (cdr tail))))
      (encode-message `(:return ,@args) socket-io))
+    ((:emacs-interrupt thread-id)
+     (interrupt-worker-thread thread-id))
+    (((:debug :debug-condition :debug-activate :debug-return)
+      thread &rest args)
+     (encode-message `(,(car event) ,(thread-id thread) ,@args) socket-io))
     ((:read-string thread &rest args)
-     (encode-message `(:read-string ,(add-thread thread) ,@args) socket-io))
+     (encode-message `(:read-string ,(thread-id thread) ,@args) socket-io))
     ((:read-aborted thread &rest args)
-     (encode-message `(:read-aborted ,(drop-thread thread) ,@args) socket-io))
-    ((:emacs-return-string thread tag string)
-     (send (lookup-thread-id thread) `(take-input ,tag ,string)))
+     (encode-message `(:read-aborted ,(thread-id thread) ,@args) socket-io))
+    ((:emacs-return-string thread-id tag string)
+     (send (find-thread thread-id) `(take-input ,tag ,string)))
     (((:read-output :new-package :new-features :ed :%apply :indentation-update)
       &rest _)
      (declare (ignore _))
-     (encode-message event socket-io))))
+     (encode-message event socket-io))
+    ))
 
 (defun spawn-threads-for-connection (connection)
   (let* ((socket-io (connection.socket-io connection))
@@ -596,7 +560,8 @@ of the toplevel restart."
 
 (defun send-to-socket-io (event) 
   (log-event "DISPATCHING: ~S~%" event)
-  (flet ((send (o) (encode-message o (current-socket-io))))
+  (flet ((send (o) (without-interrupts 
+                     (encode-message o (current-socket-io)))))
     (destructure-case event
       (((:debug-activate :debug :debug-return :read-string :read-aborted) 
         thread &rest args)
@@ -861,13 +826,12 @@ If a protocol error occurs then a SLIME-READ-ERROR is signalled."
   (let* ((string (prin1-to-string-for-emacs message))
          (length (1+ (length string))))
     (log-event "WRITE: ~A~%" string)
-    (without-interrupts
-     (loop for position from 16 downto 0 by 8
-           do (write-char (code-char (ldb (byte 8 position) length))
-                          stream))
-     (write-string string stream)
-     (terpri stream)
-     (force-output stream))))
+    (loop for position from 16 downto 0 by 8
+          do (write-char (code-char (ldb (byte 8 position) length))
+                         stream))
+    (write-string string stream)
+    (terpri stream)
+    (force-output stream)))
 
 (defun prin1-to-string-for-emacs (object)
   (with-standard-io-syntax
@@ -2585,25 +2549,25 @@ a time.")
 (defslimefun quit-thread-browser ()
   (setq *thread-list* nil))
 
-(defun lookup-thread-by-id (id)
-  (nth id *thread-list*))
+(defun nth-thread (index)
+  (nth index *thread-list*))
 
-(defslimefun debug-thread-by-id (thread-id)
+(defslimefun debug-nth-thread (index)
   (let ((connection *emacs-connection*))
-    (interrupt-thread (lookup-thread-by-id thread-id)
+    (interrupt-thread (nth-thread index)
                       (lambda ()
 			(with-connection (connection)
 			  (simple-break))))))
 
-(defslimefun start-swank-server-in-thread (id port-file-name)
-  "Interrupt a thread by ID and make it start a swank server.
-The server port is written to PORT-FILE-NAME."
-  (interrupt-thread (lookup-thread-by-id id)
-                    (lambda ()
-                      (start-server port-file-name nil))))
+(defslimefun kill-nth-thread (index)
+  (kill-thread (nth-thread index)))
 
-(defslimefun kill-thread-by-id (id)
-  (kill-thread (lookup-thread-by-id id)))
+(defslimefun start-swank-server-in-thread (index port-file-name)
+  "Interrupt the INDEXth thread and make it start a swank server.
+The server port is written to PORT-FILE-NAME."
+  (interrupt-thread (nth-thread index)
+                    (lambda () 
+                      (start-server port-file-name nil))))
 
 
 ;;;; Automatically synchronized state
