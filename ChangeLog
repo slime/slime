@@ -1,3 +1,8 @@
+2004-04-15  Ivan Boldyrev  <email@secret-by-request>
+
+	* slime.el (slime-handle-repl-shortcut): Call `completing-read'
+	with an alist as expected, using `slime-bogus-completion-alist'.
+
 2004-04-14  Luke Gorrie  <luke@bluetail.com>
 
 	* doc/slime.texi (Shortcuts): Described REPL shortcuts.
