@@ -36,8 +36,6 @@
 
 (in-package :swank)
 
-(declaim (optimize (debug 3)))
-
 (defvar *swank-io-package*
   (let ((package (make-package :swank-io-package :use '())))
     (import '(nil t quote) package)
