@@ -1,24 +1,44 @@
+
 (defpackage :swank
   (:use :common-lisp)
-  (:export #:start-server #:evaluate #:lookup-notes #:clear-notes
-           #:swank-compile-file #:swank-compile-string 
-	   #:arglist-string #:completions
-           #:find-fdefinition
+  (:export #:start-server
            #:eval-string
-           #:sldb-loop))
+	   #:interactive-eval
+	   #:pprint-eval
+           #:swank-compile-file 
+	   #:swank-compile-string 
+	   #:compiler-notes-for-emacs
+	   #:compiler-notes-for-file
+	   #:arglist-string 
+	   #:completions
+           #:find-fdefinition
+	   #:apropos-list-for-emacs
+	   #:swank-macroexpand-1
+	   #:swank-macroexpand
+	   #:swank-macroexpand-all
+	   #:describe-symbol
+	   #:describe-function
+	   #:describe-setf-function 
+	   #:describe-type
+	   #:describe-class
+	   #:disassemble-symbol
+           #:sldb-loop
+	   #:debugger-info-for-emacs
+	   #:backtrace-for-emacs
+	   #:frame-catch-tags
+	   #:frame-locals
+	   #:frame-code-location-for-emacs
+	   #:eval-string-in-frame
+	   #:invoke-nth-restart
+	   #:sldb-abort
+	   #:sldb-continue
+	   #:throw-to-toplevel 
+	   ))
 
 (in-package :swank)
 
 (defconstant server-port 4005
   "Default port for the swank TCP server.")
-
-(defvar *notes-database* (make-hash-table :test #'equal)
-  "Database of recorded compiler notes/warnings/erros (keyed by filename).
-Each value is a list of (LOCATION SEVERITY MESSAGE CONTEXT) lists.
-  LOCATION is a position in the source code (integer or source path).
-  SEVERITY is one of :ERROR, :WARNING, and :NOTE.
-  MESSAGE is a string describing the note.
-  CONTEXT is a string giving further details of where the error occured.")
 
 (defvar *swank-debug-p* t
   "When true extra debug printouts are enabled.")
@@ -29,48 +49,19 @@ Each value is a list of (LOCATION SEVERITY MESSAGE CONTEXT) lists.
   (create-swank-server port :reuse-address t)
   (setf c:*record-xref-info* t)
   (ext:without-package-locks
-   (setf c:*compiler-notification-function* #'handle-notification))
+   (setf c:*compiler-notification-function* 'handle-notification))
   (when *swank-debug-p*
     (format *debug-io* "~&Swank ready.~%")))
 
-(defun debugger-hook (condition old-hook)
-  "Hook function to be invoked instead of the debugger.
-See CL:*DEBUGGER-HOOK*."
-  ;; FIXME: Debug from Emacs!
-  (declare (ignore old-hook))
-  (handler-case
-      (progn (format *error-output*
-                     "~@<SWANK: unhandled condition ~2I~_~A~:>~%"
-                     condition)
-             (debug:backtrace 20 *error-output*)
-             (finish-output *error-output*))
-    (condition ()
-      nil)))
+(defun set-fd-non-blocking (fd)
+  (flet ((fcntl (fd cmd arg)
+	   (multiple-value-bind (flags errno) (unix:unix-fcntl fd cmd arg)
+	     (or flags 
+		 (error "fcntl: ~A" (unix:get-unix-error-msg errno))))))
+    (let ((flags (fcntl fd unix:F-GETFL 0)))
+      (fcntl fd unix:F-SETFL (logior flags unix:O_NONBLOCK)))))
 
-(defun handle-notification (severity message context where-from position)
-  "Hook function called by the compiler.
-See C:*COMPILER-NOTIFICATION-FUNCTION*"
-  (let ((location (or (current-compiler-error-source-path) position))
-        (namestring (cond ((stringp where-from) where-from)
-                          ;; we can be passed a stream from READER-ERROR
-                          ((lisp::fd-stream-p where-from)
-                           (lisp::fd-stream-file where-from))
-                          (t where-from))))
-    (when namestring
-      (push (list location severity message context)
-            (gethash namestring *notes-database*)))))
-
-(defun current-compiler-error-source-path ()
-  "Return the source-path for the current compiler error.
-Returns NIL if this cannot be determined by examining internal
-compiler state."
-  (let ((context c::*compiler-error-context*))
-    (cond ((c::node-p context)
-           (reverse
-            (c::source-path-original-source (c::node-source-path context))))
-          ((c::compiler-error-context-p context)
-           (reverse
-            (c::compiler-error-context-original-source-path context))))))
+(set-fd-non-blocking (sys:fd-stream-fd sys:*stdin*))
 
 ;;; TCP Server.
 
@@ -154,21 +145,167 @@ The request is read from the socket as a sexp and then evaluated."
   
 ;;; Functions for Emacs to call.
 
-;;;; LOOKUP-NOTES -- interface
+(defmacro defslimefun (fun &rest rest)
+  `(progn
+    (defun ,fun ,@rest)
+    (export ',fun :swank)))
+
+
+;;; Asynchronous eval
+
+(defun guess-package-from-string (name)
+  (or (and name
+	   (or (find-package name) 
+	       (find-package (string-upcase name))))
+      *package*))
+
+(defvar *swank-debugger-condition*)
+(defvar *swank-debugger-hook*)
+
+(defvar *buffer-package*)
+(setf (documentation '*buffer-package* 'symbol)
+      "Package corresponding to slime-buffer-package.  
+
+EVAL-STRING binds *buffer-package*.  Strings originating from a slime
+buffer are best read in this package.  See also READ-STRING.")
+
+(defun read-string (string)
+  "Read string in the *BUFFER-PACKAGE*"
+  (let ((*package* *buffer-package*))
+    (read-from-string string)))
+
+(defun swank-debugger-hook (condition hook)
+  (send-to-emacs '(:debugger-hook))
+  (let ((*swank-debugger-condition* condition)
+	(*swank-debugger-hook* hook))
+    (read-from-emacs)))
+  
+(defslimefun eval-string (string buffer-package)
+  (let ((*debugger-hook* #'swank-debugger-hook))
+    (let (ok result)
+      (unwind-protect
+	   (let ((*buffer-package* (guess-package-from-string buffer-package)))
+	     (setq result (eval (read-string string)))
+	     (setq ok t))
+	(send-to-emacs (if ok `(:ok ,result) '(:aborted)))))))
+
+(defslimefun interactive-eval (string)
+  (let ((values (multiple-value-list (eval (read-string string)))))
+    (force-output)
+    (format nil "~{~S~^, ~}" values)))
+
+(defslimefun pprint-eval (string)
+  (let ((value (eval (read-string string))))
+    (let ((*print-pretty* t)
+	  (*print-circle* t)
+	  (*print-level* nil)
+	  (*print-length* nil)
+	  (ext:*gc-verbose* nil))
+      (with-output-to-string (*standard-output*) 
+	(pprint value)))))
+
+;;;; Compilation Commands
+
+;; (defun debugger-hook (condition old-hook)
+;;   "Hook function to be invoked instead of the debugger.
+;; See CL:*DEBUGGER-HOOK*."
+;;   ;; FIXME: Debug from Emacs!
+;;   (declare (ignore old-hook))
+;;   (handler-case
+;; 	 (progn (format *error-output*
+;; 			"~@<SWANK: unhandled condition ~2I~_~A~:>~%"
+;; 			condition)
+;; 		(debug:backtrace 20 *error-output*)
+;; 		(finish-output *error-output*))
+;;     (condition ()
+;; 	 nil)))
+
+(defvar *compiler-notes* '()
+  "List of compiler notes for the last compilation unit.")
+
+(defun clear-compiler-notes ()  (setf *compiler-notes* '()))
+
+(defvar *notes-database* (make-hash-table :test #'equal)
+  "Database of recorded compiler notes/warnings/erros (keyed by filename).
+Each value is a list of (LOCATION SEVERITY MESSAGE CONTEXT) lists.
+  LOCATION is a position in the source code (integer or source path).
+  SEVERITY is one of :ERROR, :WARNING, and :NOTE.
+  MESSAGE is a string describing the note.
+  CONTEXT is a string giving further details of where the error occured.")
+
+(defun clear-note-database (filename)
+  (remhash (canonicalize-filename filename) *notes-database*))
+
+(defvar *buffername*)
+(defvar *buffer-offset*)
+  
+(defun handle-notification (severity message context where-from position)
+  "Hook function called by the compiler.
+See C:*COMPILER-NOTIFICATION-FUNCTION*"
+  (let* ((namestring (cond ((stringp where-from) where-from)
+			   ;; we can be passed a stream from READER-ERROR
+			   ((lisp::fd-stream-p where-from)
+			    (lisp::fd-stream-file where-from))
+			   (t where-from)))
+	 (note (list 
+		:position position
+		:source-path (current-compiler-error-source-path)
+		:filename namestring
+		:severity severity
+		:message message
+		:context context
+		:buffername (if (boundp '*buffername*) 
+				*buffername*)
+		:buffer-offset (if (boundp '*buffer-offset*) 
+				   *buffer-offset*))))
+    (push note *compiler-notes*)
+    (when namestring
+      (push note (gethash namestring *notes-database*)))))
+	  
+(defun current-compiler-error-source-path ()
+  "Return the source-path for the current compiler error.
+Returns NIL if this cannot be determined by examining internal
+compiler state."
+  (let ((context c::*compiler-error-context*))
+    (cond ((c::node-p context)
+           (reverse
+            (c::source-path-original-source (c::node-source-path context))))
+          ((c::compiler-error-context-p context)
+           (reverse
+            (c::compiler-error-context-original-source-path context))))))
 
 (defun canonicalize-filename (filename)
   (namestring (unix:unix-resolve-links filename)))
 
-(defun lookup-notes (filename)
+(defslimefun compiler-notes-for-file (filename)
   "Return the compiler notes recorded for FILENAME.
 \(See *NOTES-DATABASE* for a description of the return type.)"
   (gethash (canonicalize-filename filename) *notes-database*))
 
-(defun clear-notes (filename)
-  (remhash (canonicalize-filename filename) *notes-database*))
+(defslimefun compiler-notes-for-emacs ()
+  "Return the list of compiler notes for the last compilation unit."
+  (reverse *compiler-notes*))
+
+(defslimefun swank-compile-file (filename load)
+  (clear-note-database filename)
+  (clear-compiler-notes)
+  (let ((*buffername* nil)
+	(*buffer-offset* nil))
+    (multiple-value-bind (pathname errorsp notesp)
+	(compile-file filename :load load)
+      (list (if pathname (namestring pathname)) errorsp notesp))))
+
+(defslimefun swank-compile-string (string buffer start)
+  (clear-compiler-notes)
+  (let ((*package* *buffer-package*)
+	(*buffername* buffer)
+	(*buffer-offset* start))
+    (with-input-from-string (stream string)
+      (multiple-value-list
+       (ext:compile-from-stream stream :source-info (cons buffer start))))))
 
 ;;;; ARGLIST-STRING -- interface
-(defun arglist-string (function)
+(defslimefun arglist-string (function)
   "Return a string describing the argument list for FUNCTION.
 The result has the format \"(...)\"."
   (declare (type (or symbol function) function))
@@ -179,7 +316,8 @@ The result has the format \"(...)\"."
              (let* ((fun (etypecase function
                            (symbol (or (macro-function function)
                                        (symbol-function function)))
-                           (function function)))
+                           ;;(function function)
+			   ))
                     (df (di::function-debug-function fun))
                     (arglist (kernel:%function-arglist fun)))
                (cond ((eval:interpreted-function-p fun)
@@ -227,7 +365,7 @@ the package are considered."
 
 ;;; FIND-FDEFINITION -- interface
 ;;;
-(defun find-fdefinition (symbol-name package-name)
+(defslimefun find-fdefinition (symbol-name package-name)
   "Return the name of the file in which the function was defined, or NIL."
   (fdefinition-file (read-symbol/package symbol-name package-name)))
 
@@ -238,8 +376,8 @@ the package are considered."
   (typecase function
     (symbol
      (let ((def (or (macro-function function)
-                                  (and (fboundp function)
-                                       (fdefinition function)))))
+		    (and (fboundp function)
+			 (fdefinition function)))))
        (when def (fdefinition-file def))))
     (kernel:byte-closure
      (fdefinition-file (kernel:byte-closure-function function)))
@@ -247,7 +385,7 @@ the package are considered."
      (code-definition-file (c::byte-function-component function)))
     (function
      (code-definition-file (kernel:function-code-header
-                              (kernel:%function-self function))))
+			    (kernel:%function-self function))))
     (t nil)))
 
 (defun code-definition-file (code)
@@ -272,43 +410,6 @@ the package are considered."
           (read-from-string symbol-name))
       (reader-error () nil))))
 
-;;; Asynchronous eval
-
-(defun guess-package-from-string (name)
-  (or (and name
-	   (or (find-package name) 
-	       (find-package (string-upcase name))))
-      *package*))
-
-(defvar *swank-debugger-condition*)
-(defvar *swank-debugger-hook*)
-
-(defvar *buffer-package*)
-
-(defun read-string (string)
-  (let ((*package* *buffer-package*))
-    (read-from-string string)))
-
-(defun swank-debugger-hook (condition hook)
-  (send-to-emacs '(:debugger-hook))
-  (let ((*swank-debugger-condition* condition)
-	(*swank-debugger-hook* hook))
-    (read-from-emacs)))
-  
-(defun eval-string (string package-name)
-  (let ((*debugger-hook* #'swank-debugger-hook))
-    (let (ok result)
-      (unwind-protect
-	   (let ((*buffer-package* (guess-package-from-string package-name)))
-	     (setq result (eval (read-string string)))
-	     (setq ok t))
-	(send-to-emacs (if ok `(:ok ,result) '(:aborted)))))))
-
-(defun swank-compile-string (string buffer start)
-  (let ((*package* *buffer-package*))
-    (with-input-from-string (stream string)
-      (multiple-value-list
-       (ext:compile-from-stream stream :source-info (cons buffer start))))))
 
 (defun briefly-describe-symbol-for-emacs (symbol)
   "Return a plist of describing SYMBOL.
@@ -326,7 +427,7 @@ Return NIL if the symbol is unbound."
 	       (when value
 		 (setf result (list* property value result)))))
       (maybe-push
-       :variable (multiple-value-bind (kind recorded-p) 
+       :variable (multiple-value-bind (kind recorded-p)
 		     (ext:info variable kind symbol)
 		   (declare (ignore kind))
 		   (if (or (boundp symbol) recorded-p)
@@ -347,7 +448,7 @@ Return NIL if the symbol is unbound."
       (if result
 	  (list* :designator (prin1-to-string symbol) result)))))
 
-(defun apropos-list-for-emacs  (name &optional external-only package)
+(defslimefun apropos-list-for-emacs  (name &optional external-only package)
   "Make an apropos search for Emacs.
 The result is a list of property lists."
   (mapcan (listify #'briefly-describe-symbol-for-emacs)
@@ -386,16 +487,48 @@ that symbols accessible in the current package go first."
             (t
              (string< (package-name pa) (package-name pb)))))))
 
-(defun set-stdin-non-blocking ()
-  (let ((fd (sys:fd-stream-fd sys:*stdin*)))
-    (flet ((fcntl (fd cmd arg)
-	     (multiple-value-bind (flags errno) (unix:unix-fcntl fd cmd arg)
-	       (or flags 
-		   (error "fcntl: ~A" (unix:get-unix-error-msg errno))))))
-      (let ((flags (fcntl fd unix:F-GETFL 0)))
-	(fcntl fd unix:F-SETFL (logior flags unix:O_NONBLOCK))))))
+(defun apply-macro-expander (expander string)
+  (let ((*print-pretty* t)
+	(*print-length* 20)
+	(*print-level* 20))
+    (prin1-to-string (funcall expander (read-string string)))))
 
-(set-stdin-non-blocking)
+(defslimefun swank-macroexpand-1 (string)
+  (apply-macro-expander #'macroexpand-1 string))
+
+(defslimefun swank-macroexpand (string)
+  (apply-macro-expander #'macroexpand string))
+
+(defslimefun swank-macroexpand-all (string)
+  (apply-macro-expander #'walker:macroexpand-all string))
+
+(defun print-output-to-string (fn)
+  (with-output-to-string (*standard-output*)
+    (funcall fn)))
+
+(defun print-desciption-to-string (object)
+  (print-output-to-string (lambda () (describe object))))
+
+(defslimefun describe-symbol (symbol-name)
+  (print-desciption-to-string (read-string symbol-name)))
+
+(defslimefun describe-function (symbol-name)
+  (print-desciption-to-string (symbol-function (read-string symbol-name))))
+
+(defslimefun describe-setf-function (symbol-name)
+  (print-desciption-to-string
+   (or (ext:info setf inverse (read-string symbol-name))
+       (ext:info setf expander (read-string symbol-name)))))
+
+(defslimefun describe-type (symbol-name)
+  (print-desciption-to-string
+   (kernel:values-specifier-type (read-string symbol-name))))
+
+(defslimefun describe-class (symbol-name)
+  (print-desciption-to-string (find-class (read-string symbol-name) nil)))
+   
+(defslimefun disassemble-symbol (symbol-name)
+  (print-output-to-string (lambda () (disassemble (read-string symbol-name)))))
 
 
 ;;; Debugging stuff
@@ -404,7 +537,7 @@ that symbols accessible in the current package go first."
 (defvar *sldb-stack-top*)
 (defvar *sldb-restarts*)
 
-(defun sldb-loop ()
+(defslimefun sldb-loop ()
   (unix:unix-sigsetmask 0)
   (let* ((*sldb-level* (1+ *sldb-level*))
 	 (*sldb-stack-top* (or debug:*stack-top-hint* (di:top-frame)))
@@ -457,8 +590,9 @@ format suitable for Emacs."
       ((not frame) i)))
 
 (defun compute-backtrace (start end)
-  "Return a list of frames staring with frame number START and
-continueing to END or if END is nil the last frame on the stack."
+  "Return a list of frames starting with frame number START and
+continuing to frame number END or if END is nil the last frame on the
+stack."
   (let ((end (or end most-positive-fixnum)))
     (do ((frame *sldb-stack-top* (di:frame-down frame))
 	 (i 0 (1+ i)))
@@ -468,10 +602,10 @@ continueing to END or if END is nil the last frame on the stack."
 	       while f
 	       collect f)))))
 
-(defun backtrace-for-emacs (start end)
+(defslimefun backtrace-for-emacs (start end)
   (mapcar #'format-frame-for-emacs (compute-backtrace start end)))
 
-(defun debugger-info-for-emacs (start end)
+(defslimefun debugger-info-for-emacs (start end)
   (list (format-condition-for-emacs)
 	(format-restarts-for-emacs)
 	(backtrace-length)
@@ -522,14 +656,14 @@ continueing to END or if END is nil the last frame on the stack."
   (handler-case (code-location-for-emacs code-location)
     (t (c) (list :error (debug::safe-condition-message c)))))
 
-(defun frame-code-location-for-emacs (index)
+(defslimefun frame-code-location-for-emacs (index)
   (safe-code-location-for-emacs (di:frame-code-location (nth-frame index))))
 
-(defun eval-string-in-frame (string index)
+(defslimefun eval-string-in-frame (string index)
   (prin1-to-string
    (di:eval-in-frame (nth-frame index) (read-string string))))
 
-(defun frame-locals (index)
+(defslimefun frame-locals (index)
   (let* ((frame (nth-frame index))
 	 (location (di:frame-code-location frame))
 	 (debug-function (di:frame-debug-function frame))
@@ -542,15 +676,22 @@ continueing to END or if END is nil the last frame on the stack."
 		   :value-string
 		   (prin1-to-string (di:debug-variable-value v frame))))))
 
-(defun frame-catch-tags (index)
+(defslimefun frame-catch-tags (index)
   (loop for (tag . code-location) in (di:frame-catches (nth-frame index))
 	collect `(,tag . ,(safe-code-location-for-emacs code-location))))
 
-(defun invoke-nth-restart (index)
+(defslimefun invoke-nth-restart (index)
   (invoke-restart (nth-restart index)))
 
-(defun sldb-abort ()
+(defslimefun sldb-continue ()
+  (continue *swank-debugger-condition*))
+
+(defslimefun sldb-abort ()
   (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
 
-(defun throw-to-toplevel ()
+(defslimefun throw-to-toplevel ()
   (throw 'lisp::top-level-catcher nil))
+
+;;; Local Variables:
+;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
+;;; End:
