@@ -1,3 +1,17 @@
+2004-04-17  Raymond Toy <rtoy@earthlink.net>
+
+	* swank-cmucl.lisp (source-location-tlf-number)
+	(source-location-form-number): New functions to extract the
+	encoded form-numbers from source locations.
+	(resolve-stream-source-location, resolve-file-source-location):
+	Use them.
+
+2004-04-17  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-merge-notes): Use mapconcat instead of
+	(concat (slime-intersperse (mapcar ....)))
+	(slime-intersperse): Handle empty lists.
+
 2004-04-16  Luke Gorrie  <luke@bluetail.com>
 
 	* doc/Makefile: Added 'install' and 'uninstall' targets for the
