@@ -1,3 +1,15 @@
+2003-09-23  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-show-xrefs): Improved the xrefs buffer, now
+	using a custom minor mode.
+	(slime-next-location): This function goes to the next "something"
+	by funcall'ing slime-next-location-function. Currently that
+	variable is set by xref commands like who-calls to go to the next
+	matching reference. In future it can also be used to go to the
+	next function definition for a generic-function-understanding
+	version of edit-fdefinition. Bound to C-M-. and C-c C-SPC, until
+	we see which binding is better.
+
 2003-09-22  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-symbol-at-point): Now returns a symbol, as the
