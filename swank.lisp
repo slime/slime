@@ -2947,7 +2947,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
            (if (< -1 i char-code-limit)
                (label-value-line "Corresponding character" (code-char i)))
            (label-value-line "Length" (integer-length i))
-           (list "As time" 
+           (list "As time: " 
                  (multiple-value-bind (sec min hour date month year)
                      (decode-universal-time i)
                    (format nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0DZ"
@@ -2958,15 +2958,15 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
   (values "A complex number."
           (label-value-line* 
            ("Real part" (realpart c))
-           ("Imaginary part" (imagpart c))))) 
+           ("Imaginary part" (imagpart c)))))
 
 (defmethod inspect-for-emacs ((r ratio) (inspector t))
   (declare (ignore inspector))
   (values "A non-integer ratio."
           (label-value-line*
-           ("Numerator" (numerator r)
+           ("Numerator" (numerator r))
            ("Denominator" (denominator r))
-           ("As float" (float r))))))
+           ("As float" (float r)))))
 
 (defmethod inspect-for-emacs ((f float) (inspector t))
   (declare (ignore inspector))
@@ -2980,9 +2980,6 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
                (:value ,(float-radix f)) "^" (:value ,exponent) (:newline))
              (label-value-line "Digits" (float-digits f))
              (label-value-line "Precision" (float-precision f))))))
-
-
-;;;; Inspecting
 
 (defvar *inspectee*)
 (defvar *inspectee-parts* (make-array 10 :adjustable t :fill-pointer 0))
@@ -3138,6 +3135,29 @@ The server port is written to PORT-FILE-NAME."
   (interrupt-thread (nth-thread index)
                     (lambda () 
                       (start-server port-file-name nil))))
+
+;;;; Class browser
+
+(defun mop-helper (class-name fn)
+  (let ((class (find-class class-name nil)))
+    (if class
+        (mapcar (lambda (x) (to-string (class-name x)))
+                (funcall fn class)))))
+
+(defslimefun mop (type symbol-name)
+  "Return info about classes using mop.
+
+    When type is:
+     :subclasses - return the list of subclasses of class.
+     :superclasses - return the list of superclasses of class."
+  (let ((symbol (parse-symbol symbol-name *buffer-package*)))
+    (ecase type
+      (:subclasses
+       (mop-helper symbol #'swank-mop:class-direct-subclasses))
+      (:superclasses 
+       (mop-helper symbol #'swank-mop:class-direct-superclasses)))))
+
+
 
 
 ;;;; Automatically synchronized state
