@@ -1907,7 +1907,7 @@ The REPL buffer is a special case: it's package is `slime-lisp-package'."
       (goto-char (match-end 0))
       (skip-chars-forward " \n\t\f\r#")
       (let ((pkg (ignore-errors (read (current-buffer)))))
-        (if pkg (format "%S" pkg))))))
+        (if pkg (format "%s" pkg))))))
 
 ;;; Synchronous requests is implemented in terms of asynchronous
 ;;; ones. We make an asynchronous request with a continuation function
