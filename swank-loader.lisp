@@ -15,17 +15,10 @@
 
 (defun make-swank-pathname (name &optional (type "lisp"))
   "Return a pathname with name component NAME in the Slime directory."
-  (merge-pathnames name 
-                   (make-pathname 
-                    :type type
-                    :device 
-                    (pathname-device 
-                     (or *compile-file-pathname* *load-pathname*
-                         *default-pathname-defaults*))
-                    :directory 
-                    (pathname-directory
-                     (or *compile-file-pathname* *load-pathname*
-                         *default-pathname-defaults*)))))
+  (merge-pathnames (make-pathname :name name :type type)
+                   (or *compile-file-pathname*
+                       *load-pathname*
+                       *default-pathname-defaults*)))
 
 (defparameter *sysdep-pathnames*
   (mapcar #'make-swank-pathname 
