@@ -1,3 +1,7 @@
+2005-02-02  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el: Require the timer package explicitly.
+
 2005-02-02  Luke Gorrie  <luke@synap.se>
 
 	* slime.el (slime-repl-send-input): Move some properties
