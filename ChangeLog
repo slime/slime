@@ -1,5 +1,8 @@
 2003-11-16  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* slime.el: [slime-keys] Override C-c C-r with slime-eval-region
+	 (reported by Paolo Amoroso).
+	
 	* swank-loader.lisp: Compile and load gray stream stuff for SBCL
 	and OpenMCL.
 
@@ -17,6 +20,7 @@
 
 	* slime.el: Add some docstring.
 	(interrupt-bubbling-idiot): New test.
+	[slime-keys]:  Don't bind "\C- ".  Problematic on LinuxPPC.
 
 2003-11-15  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
