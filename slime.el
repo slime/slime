@@ -3107,7 +3107,7 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   (dolist (buf (buffer-list))
     (when (or (string= (buffer-name buf) slime-event-buffer-name)
               (string-match "^\\*inferior-lisp*" (buffer-name buf))
-              (string-match "^\\*slime-repl\\[[0-9]+\\]\\*$" (buffer-name buf))
+              (string-match "^\\*slime-repl .*\\*$" (buffer-name buf))
               (string-match "^\\*sldb .*\\*$" (buffer-name buf)))
       (kill-buffer buf))))
 
