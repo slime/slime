@@ -1084,7 +1084,8 @@ that symbols accessible in the current package go first."
 (defslimefun throw-to-toplevel ()
   (throw 'slime-toplevel nil))
 
-;;; Source Locations
+
+;;;; Source Locations
 
 (defstruct (:location (:type list) :named
                       (:constructor make-location (buffer position)))
@@ -1133,6 +1134,106 @@ from an element and TEST is used to compare keys."
 	 (if errors
 	     `(("Unresolved" . ,errors))))))))
 
+
+;;;; Inspecting
+
+(defvar *inspectee*)
+(defvar *inspectee-parts*)
+(defvar *inspector-stack* '())
+(defvar *inspector-history* (make-array 10 :adjustable t :fill-pointer 0))
+(defvar *inspect-length* 30)
+
+(defun reset-inspector ()
+  (setq *inspectee* nil)
+  (setq *inspectee-parts* nil)
+  (setq *inspector-stack* nil)
+  (setf (fill-pointer *inspector-history*) 0))
+
+(defslimefun init-inspector (string)
+  (reset-inspector)
+  (inspect-object (eval (from-string string))))
+
+(defun print-part-to-string (value)
+  (let ((*print-pretty* nil))
+    (let ((string (to-string value))
+	  (pos (position value *inspector-history*)))
+      (if pos
+	  (format nil "#~D=~A" pos string)
+	  string))))
+
+(defun inspect-object (object)
+  (push (setq *inspectee* object) *inspector-stack*)
+  (unless (find object *inspector-history*)
+    (vector-push-extend object *inspector-history*))
+  (multiple-value-bind (text parts) (inspected-parts object)
+    (setq *inspectee-parts* parts)
+    (list :text text
+          :type (to-string (type-of object))
+          :primitive-type (describe-primitive-type object)
+          :parts (loop for (label . value) in parts
+                       collect (cons label
+                                     (print-part-to-string value))))))
+
+(defun nth-part (index)
+  (cdr (nth index *inspectee-parts*)))
+
+(defslimefun inspect-nth-part (index)
+  (inspect-object (nth-part index)))
+
+(defslimefun inspector-pop ()
+  "Drop the inspector stack and inspect the second element.  Return
+nil if there's no second element."
+  (cond ((cdr *inspector-stack*)
+	 (pop *inspector-stack*)
+	 (inspect-object (pop *inspector-stack*)))
+	(t nil)))
+
+(defslimefun inspector-next ()
+  "Inspect the next element in the *inspector-history*."
+  (let ((position (position *inspectee* *inspector-history*)))
+    (cond ((= (1+ position) (length *inspector-history*))
+	   nil)
+	  (t (inspect-object (aref *inspector-history* (1+ position)))))))
+
+(defslimefun quit-inspector ()
+  (reset-inspector)
+  nil)
+
+(defslimefun describe-inspectee ()
+  "Describe the currently inspected object."
+  (print-description-to-string *inspectee*))
+
+(defmethod inspected-parts ((object cons))
+  (if (consp (cdr object))
+      (inspected-parts-of-nontrivial-list object)
+      (inspected-parts-of-simple-cons object)))
+
+(defun inspected-parts-of-simple-cons (object)
+  (values "The object is a CONS."
+	  (list (cons (string 'car) (car object))
+		(cons (string 'cdr) (cdr object)))))
+
+(defun inspected-parts-of-nontrivial-list (object)
+  (let ((length 0)
+	(in-list object)
+	(reversed-elements nil))
+    (flet ((done (description-format)
+	     (return-from inspected-parts-of-nontrivial-list
+	       (values (format nil description-format length)
+		       (nreverse reversed-elements)))))
+      (loop
+       (cond ((null in-list)
+	      (done "The object is a proper list of length ~S.~%"))
+	     ((>= length *inspect-length*)
+	      (push (cons  (string 'rest) in-list) reversed-elements)
+	      (done "The object is a long list (more than ~S elements).~%"))
+	     ((consp in-list)
+	      (push (cons (format nil "~D" length) (pop in-list))
+		    reversed-elements)
+	      (incf length))
+	     (t
+	      (push (cons (string 'rest) in-list) reversed-elements)
+	      (done "The object is an improper list of length ~S.~%")))))))
 
 ;;; Local Variables:
 ;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))

@@ -384,6 +384,17 @@ LOCATION is a source location of the form:
 "))
 
 
+;;;; Inspector
+
+(defgeneric inspected-parts (object)
+  (:documentation
+   "Return a short description and a list of (LABEL . VALUE) pairs."))
+
+(defgeneric describe-primitive-type (object)
+  (:documentation
+   "Return a string describing the primitive type of object."))
+
+
 ;;;; Multiprocessing
 
 (defgeneric startup-multiprocessing ()

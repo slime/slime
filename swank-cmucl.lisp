@@ -1072,42 +1072,6 @@ stack."
 
 ;;;; Inspecting
 
-(defvar *inspectee*)
-(defvar *inspectee-parts*)
-(defvar *inspector-stack* '())
-(defvar *inspector-history* (make-array 10 :adjustable t :fill-pointer 0))
-(defvar *inspect-length* 30)
-
-(defun reset-inspector ()
-  (setq *inspectee* nil)
-  (setq *inspectee-parts* nil)
-  (setq *inspector-stack* nil)
-  (setf (fill-pointer *inspector-history*) 0))
-
-(defslimefun init-inspector (string)
-  (reset-inspector)
-  (inspect-object (eval (from-string string))))
-
-(defun print-part-to-string (value)
-  (let ((*print-pretty* nil))
-    (let ((string (to-string value))
-	  (pos (position value *inspector-history*)))
-      (if pos 
-	  (format nil "#~D=~A" pos string)
-	  string))))
-
-(defun inspect-object (object)
-  (push (setq *inspectee* object) *inspector-stack*)
-  (unless (find object *inspector-history*)
-    (vector-push-extend object *inspector-history*))
-  (multiple-value-bind (text parts) (inspected-parts object)
-    (setq *inspectee-parts* parts)
-      (list :text text 
-	    :type (to-string (type-of object))
-	    :primitive-type (describe-primitive-type object)
-	    :parts (loop for (label . value) in parts
-			 collect (cons label 
-				       (print-part-to-string value))))))
 (defconstant +lowtag-symbols+ 
   '(vm:even-fixnum-type
     vm:function-pointer-type
@@ -1132,7 +1096,7 @@ stack."
      (append (apropos-list "-TYPE" "VM" t)
 	     (apropos-list "-TYPE" "BIGNUM" t)))))
 
-(defun describe-primitive-type (object)
+(defmethod describe-primitive-type (object)
   (with-output-to-string (*standard-output*)
     (let* ((lowtag (kernel:get-lowtag object))
 	   (lowtag-symbol (find lowtag +lowtag-symbols+ :key #'symbol-value)))
@@ -1148,39 +1112,6 @@ stack."
 	       (format t ", type: ~A]" type-symbol)))
 	    (t (format t "]"))))))
 
-(defun nth-part (index)
-  (cdr (nth index *inspectee-parts*)))
-
-(defslimefun inspect-nth-part (index)
-  (inspect-object (nth-part index)))
-
-(defslimefun inspector-pop ()
-  "Drop the inspector stack and inspect the second element.  Return
-nil if there's no second element."
-  (cond ((cdr *inspector-stack*)
-	 (pop *inspector-stack*)
-	 (inspect-object (pop *inspector-stack*)))
-	(t nil)))
-
-(defslimefun inspector-next ()
-  "Inspect the next element in the *inspector-history*."
-  (let ((position (position *inspectee* *inspector-history*)))
-    (cond ((= (1+ position) (length *inspector-history*))
-	   nil)
-	  (t (inspect-object (aref *inspector-history* (1+ position)))))))
-
-(defslimefun quit-inspector ()
-  (reset-inspector)
-  nil)
-
-(defslimefun describe-inspectee ()
-  "Describe the currently inspected object."
-  (print-description-to-string *inspectee*))
-
-(defgeneric inspected-parts (object)
-  (:documentation
-   "Return a short description and a list of (label . value) pairs."))
-
 (defmethod inspected-parts (o)
   (cond ((di::indirect-value-cell-p o)
 	 (inspected-parts-of-value-cell o))
@@ -1194,43 +1125,6 @@ nil if there's no second element."
 				  for i from 0
 				  collect (cons (format nil "~D" i) value)))))
 	     (values text parts))))))
-
-(defun inspected-parts-of-value-cell (o)
-  (values (format nil "~A~% is a value cell." o)
-	  (list (cons "Value" (c:value-cell-ref o)))))
-
-;; borrowed from sbcl
-(defmethod inspected-parts ((object cons))
-  (if (consp (cdr object))
-      (inspected-parts-of-nontrivial-list object)
-      (inspected-parts-of-simple-cons object)))
-
-(defun inspected-parts-of-simple-cons (object)
-  (values "The object is a CONS."
-	  (list (cons (string 'car) (car object))
-		(cons (string 'cdr) (cdr object)))))
-
-(defun inspected-parts-of-nontrivial-list (object)
-  (let ((length 0)
-	(in-list object)
-	(reversed-elements nil))
-    (flet ((done (description-format)
-	     (return-from inspected-parts-of-nontrivial-list
-	       (values (format nil description-format length)
-		       (nreverse reversed-elements)))))
-      (loop
-       (cond ((null in-list)
-	      (done "The object is a proper list of length ~S.~%"))
-	     ((>= length *inspect-length*)
-	      (push (cons  (string 'rest) in-list) reversed-elements)
-	      (done "The object is a long list (more than ~S elements).~%"))
-	     ((consp in-list)
-	      (push (cons (format nil "~D" length) (pop in-list)) 
-		    reversed-elements)
-	      (incf length))
-	     (t
-	      (push (cons (string 'rest) in-list) reversed-elements)
-	      (done "The object is an improper list of length ~S.~%")))))))
 
 (defmethod inspected-parts ((o function))
   (let ((header (kernel:get-type o)))
