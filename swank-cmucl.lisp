@@ -565,13 +565,13 @@ code (are theree others?)"
 (defun code-component-entry-points (code)
   "Return a list ((NAME LOCATION) ...) of function definitons for
 the code omponent CODE."
-  (delete-duplicates
-   (loop for e = (kernel:%code-entry-points code)
-         then (kernel::%function-next e)
-         while e
-         collect (list (kernel:%function-name e)
-                       (function-location e)))
-   :test #'equal))
+  (let ((names '()))
+    (do ((f (kernel:%code-entry-points code) (kernel::%function-next f)))
+        ((not f))
+      (let ((name (kernel:%function-name f)))
+        (when (ext:valid-function-name-p name)
+          (push (list name (function-location f)) names))))
+    names))
 
 (defimplementation list-callers (symbol)
   "Return a list ((NAME LOCATION) ...) of callers."
