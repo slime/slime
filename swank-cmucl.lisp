@@ -10,7 +10,7 @@
 (setq *swank-in-background* :sigio)
 
 (defimplementation create-socket (host port)
-  (ext:create-inet-listener 0 :stream
+  (ext:create-inet-listener port :stream
                             :reuse-address t
                             :host (resolve-hostname host)))
 
