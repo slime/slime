@@ -816,9 +816,9 @@ Polling %S.. (Abort with `M-x slime-disconnect'.)"
   (message "Connecting to Swank on port %S.." port)
   (slime-net-connect "localhost" port)
   (slime-init-connection)
-  (pop-to-buffer (slime-output-buffer))
   (delete-windows-on (get-buffer "*inferior-lisp*"))
   (bury-buffer (get-buffer "*inferior-lisp*"))
+  (pop-to-buffer (slime-output-buffer))
   (message "Connected to Swank server on port %S. %s"
            port (slime-random-words-of-encouragement)))
 
