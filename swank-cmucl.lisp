@@ -60,35 +60,42 @@
 (defvar *sigio-handlers* '()
   "List of (key . (fn . args)) pairs to be called on SIGIO.")
 
-(defun add-sigio-handler (key fn)
-  (push (cons key fn) *sigio-handlers*))
-
-(defun remove-sigio-handler (key)
-  (setf *sigio-handlers* (delete key *sigio-handlers* :key #'car)))
-
 (defun sigio-handler (signal code scp)
   (declare (ignore signal code scp))
-  (mapc (lambda (handler) (funcall (cdr handler))) *sigio-handlers*)
-  )
+  (mapc (lambda (handler) (funcall (cdr handler))) *sigio-handlers*))
 
 (defun set-sigio-handler ()
   (sys:enable-interrupt unix:SIGIO (lambda (signal code scp)
 				     (sigio-handler signal code scp))))
-(set-sigio-handler)
 
-(defimplementation add-input-handler (socket fn)
-  (let ((fd (socket-fd socket)))
-    (format *debug-io* "Adding input handler: ~S ~%" fd)
-    ;; XXX error checking
-    (unix:unix-fcntl fd unix:f-setown (unix:unix-getpid))
-    (unix:unix-fcntl fd unix:f-setfl unix:FASYNC)
-    (add-sigio-handler fd fn)))
+(defun fcntl (fd command arg)
+  (multiple-value-bind (ok error) (unix:unix-fcntl fd command arg)
+    (cond (ok)
+          (t (error "fcntl: ~A" (unix:get-unix-error-msg error))))))
 
-(defimplementation remove-input-handlers (socket)
+(defimplementation add-sigio-handler (socket fn)
+  (set-sigio-handler)
   (let ((fd (socket-fd socket)))
-    (remove-sigio-handler fd)
-    (sys:invalidate-descriptor fd)) 
+    (format *debug-io* "; Adding input handler: ~S ~%" fd)
+    (fcntl fd unix:f-setown (unix:unix-getpid))
+    (fcntl fd unix:f-setfl unix:FASYNC)
+    (push (cons fd fn) *sigio-handlers*)))
+
+(defimplementation remove-sigio-handlers (socket)
+  (let ((fd (socket-fd socket)))
+    (setf *sigio-handlers* (delete fd *sigio-handlers* :key #'car))
+    (sys:invalidate-descriptor fd))
   (close socket))
+
+(defimplementation add-fd-handler (socket fn)
+  (let ((fd (socket-fd socket)))
+    (format *debug-io* "; Adding fd handler: ~S ~%" fd)
+    (sys:add-fd-handler fd :input (lambda (_) 
+                                    _
+                                    (funcall fn)))))
+
+(defimplementation remove-fd-handlers (socket)
+  (sys:invalidate-descriptor (socket-fd socket)))
 
 (defimplementation make-fn-streams (input-fn output-fn)
   (let* ((output (make-slime-output-stream output-fn))
@@ -336,6 +343,9 @@ the error-context redundant."
                         (list :position *buffer-start-position*)))
         (*compile-file-truename*
          (make-location (list :file (namestring *compile-file-truename*))
+                        (list :position 0)))
+        (*compile-filename*
+         (make-location (list :file *compile-filename*)
                         (list :position 0)))
         (t 
          (list :error "No error location available"))))
