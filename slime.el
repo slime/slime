@@ -420,7 +420,8 @@ This list of flushed between commands."))
 
 (defun slime-post-command-hook ()
   (when (slime-connected-p)
-    (slime-process-available-input)))
+    (slime-process-available-input))
+  (slime-autodoc-post-command-hook))
 
 (defun slime-setup-command-hooks ()
   "Setup a buffer-local `pre-command-hook' to call `slime-pre-command-hook'."
@@ -442,6 +443,22 @@ This list of flushed between commands."))
 
 
 ;;; Common utility functions and macros
+
+(defmacro* when-bind ((var value) &rest body)
+  "Evaluate VALUE, and if the result is non-nil bind it to VAR and
+evaluate BODY."
+  `(let ((,var ,value))
+     (when ,var ,@body)))
+
+(put 'when-bind 'lisp-indent-function 1)
+
+(defmacro with-lexical-bindings (variables &rest body)
+  "Execute BODY with VARIABLES in lexical scope."
+  `(lexical-let ,(mapcar (lambda (variable) (list variable variable))
+                         variables)
+     ,@body))
+
+(put 'with-lexical-bindings 'lisp-indent-function 1)
 
 (defmacro destructure-case (value &rest patterns)
   "Dispatch VALUE to one of PATTERNS.
@@ -1982,15 +1999,20 @@ more than one space."
 	     (slime-function-called-at-point/line))
     (slime-arglist (symbol-name (slime-function-called-at-point/line)))))
 
-(defun slime-arglist (symbol-name)
-  "Show the argument list for the nearest function call, if any."
+(defun slime-arglist (symbol-name &optional show-fn)
+  "Show the argument list for the nearest function call, if any.
+If SHOW-FN is non-nil, it is funcall'd with the result instead of
+printing a message."
   (interactive (list (slime-read-symbol "Arglist of: ")))
   (slime-eval-async 
    `(swank:arglist-string ,symbol-name)
    (slime-buffer-package)
-   (lexical-let ((symbol-name symbol-name))
+   (lexical-let ((show-fn show-fn)
+                 (symbol-name symbol-name))
      (lambda (arglist)
-       (message "%s" (slime-format-arglist symbol-name arglist))))))
+       (if show-fn
+           (funcall show-fn arglist)
+         (message "%s" (slime-format-arglist symbol-name arglist)))))))
 
 (defun slime-get-arglist (symbol-name)
   "Return the argument list for SYMBOL-NAME."
@@ -1999,6 +2021,82 @@ more than one space."
 
 (defun slime-format-arglist (symbol-name arglist)
   (format "(%s %s)" symbol-name (substring arglist 1 -1)))
+
+
+;;; Autodocs (automatic context-sensitive help)
+
+(defvar slime-autodoc-mode nil
+  "*When non-nil, print documentation about symbols as the point moves.")
+
+(defvar slime-autodoc-cache-type 'last
+  "*Cache policy for automatically fetched documentation.
+Possible values are:
+ nil  - none.
+ last - cache only the most recently-looked-at symbol's documentation.
+        The values are stored in the variable `slime-autodoc-cache'.
+ all  - cache all symbol documentation.
+        The values are stored on the `slime-autodoc-cache' property
+        of the respective Elisp symbols.
+
+More caching means fewer calls to the Lisp process, but at the risk of
+using outdated information.")
+
+(defvar slime-autodoc-cache nil
+  "Cache variable for when `slime-autodoc-cache-type' is 'last'.
+The value is (SYMBOL-NAME . DOCUMENTATION).")
+
+(defun slime-autodoc ()
+  (when-bind (sym (slime-function-called-at-point/line))
+    (let ((name (symbol-name sym))
+          (cache-key (slime-qualify-cl-symbol-name sym)))
+      (or (slime-get-cached-autodoc cache-key)
+          ;; Asynchronously fetch, cache, and display arglist
+          (slime-arglist
+           name
+           (with-lexical-bindings (cache-key name)
+             (lambda (arglist)
+               ;; FIXME: better detection of "no documentation available"
+               (unless (string-match "<Unknown-Function>" arglist)
+                 (setq arglist (slime-format-arglist name arglist))
+                 (slime-update-autodoc-cache cache-key arglist)
+                 (message arglist)))))))))
+
+(defun slime-get-cached-autodoc (symbol-name)
+  "Return the cached autodoc documentation for SYMBOL-NAME, or nil."
+  (ecase slime-autodoc-cache-type
+    ((nil) nil)
+    ((last)
+     (when (equal (car slime-autodoc-cache) symbol-name)
+       (cdr slime-autodoc-cache)))
+    ((all)
+     (when-bind (symbol (intern-soft symbol-name))
+       (get symbol 'slime-autodoc-cache)))))
+
+(defun slime-update-autodoc-cache (symbol-name documentation)
+  "Update the autodoc cache for SYMBOL with DOCUMENTATION.
+Return DOCUMENTATION."
+  (ecase slime-autodoc-cache-type
+    ((nil) nil)
+    ((last)
+     (setq slime-autodoc-cache (cons symbol-name documentation)))
+    ((all)
+     (put (intern symbol-name) 'slime-autodoc-cache documentation)))
+  documentation)
+
+(defun slime-autodoc-post-command-hook ()
+  "Function to be called after each Emacs command in a slime-mode buffer.
+When `slime-autodoc-mode' is non-nil, print apropos information about
+the symbol at point if applicable."
+  (assert slime-mode)
+  (unless (or (not slime-autodoc-mode)
+              (not (slime-connected-p))
+              (slime-busy-p))
+    (condition-case err
+        (when-bind (documentation (slime-autodoc))
+          (message documentation))
+      (error
+       (setq slime-autodoc-mode nil)
+       (message "Error: %S; slime-autodoc-mode now disabled." err)))))
 
 
 ;;; Completion
@@ -2155,6 +2253,8 @@ alist but ignores CDRs."
 					 (slime-buffer-package))))))
 
 
+;;; Interpreting Elisp symbols as CL symbols (package qualifiers)
+
 (defun slime-cl-symbol-name (symbol)
   (let ((n (if (stringp symbol) symbol (symbol-name symbol))))
     (if (string-match ":\\([^:]*\\)$" n)
@@ -2174,6 +2274,23 @@ FOO::BAR is not, and nor is BAR."
   (let ((name (if (stringp symbol) symbol (symbol-name symbol))))
     (and (string-match ":" name)
          (not (string-match "::" name)))))
+
+(defun slime-qualify-cl-symbol (symbol-or-name)
+  "Like `slime-qualify-cl-symbol-name', but interns the result."
+  (intern (slime-qualify-cl-symbol-name symbol-or-name)))
+
+(defun slime-qualify-cl-symbol-name (symbol-or-name)
+  "Return a package-qualified symbol-name that indicates the CL symbol
+SYMBOL. If SYMBOL doesn't already have a package prefix, the buffer
+package is used."
+  (let ((s (if (stringp symbol-or-name)
+               symbol-or-name
+             (symbol-name symbol-or-name))))
+    (if (slime-cl-symbol-package s)
+        s
+      (format "%s::%s"
+              (slime-buffer-package)
+              (slime-cl-symbol-name s)))))
 
 
 ;;; Edit definition
