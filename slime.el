@@ -1183,21 +1183,21 @@ See `slime-translate-from-lisp-filename-function'."
     (slime-hide-inferior-lisp-buffer)
     (message "Connected. %s" (slime-random-words-of-encouragement))))
 
-(defun slime-start-and-load ()
+(defun slime-start-and-load (filename &optional package)
   "Start Slime, load the current file and set the package."
-  (interactive)
-  (let ((package (slime-find-buffer-package)))
-    (when (not package)
-      (error "No package to load"))
-    (lexical-let ((hook nil)
-                  (package package)
-                  (filename (expand-file-name (buffer-file-name))))
-      (setq hook (lambda ()
-                   (remove-hook 'slime-connected-hook hook)
-                   (slime-load-file filename)
-                   (slime-repl-set-package package)))
-      (add-hook 'slime-connected-hook hook)
-      (slime))))
+  (interactive (list (expand-file-name (buffer-file-name))
+                     (slime-find-buffer-package)))
+  (lexical-let ((hook nil) (package package) 
+                (filename (slime-to-lisp-filename filename)))
+    (setq hook (lambda ()
+                 (remove-hook 'slime-connected-hook hook)
+                 (slime-eval-async 
+                  `(swank:load-file ,filename)
+                  (lambda (result)
+                    (when package
+                      (slime-repl-set-package package))))))
+    (add-hook 'slime-connected-hook hook)
+    (slime)))
 
 ;;;;; Start inferior lisp
 ;;;
@@ -1232,8 +1232,11 @@ See `slime-translate-from-lisp-filename-function'."
 (defun slime-recompile-bytecode ()
   "Recompile and reload slime.
 Warning: don't use this in XEmacs, it seems to crash it!"
+  (interactive)
   (let ((sourcefile (concat (file-name-sans-extension (locate-library "slime"))
-                            ".el")))
+                            ".el"))
+        (byte-compile-warning-types (remove 'cl-functions 
+                                            byte-compile-warning-types)))
     (byte-compile-file sourcefile t)))
 
 (defun slime-urge-bytecode-recompile ()
@@ -2066,7 +2069,8 @@ The REPL buffer is a special case: it's package is `slime-lisp-package'."
 (defun slime-reset ()
   "Clear all pending continuations."
   (interactive)
-  (setf (slime-rex-continuations) '()))
+  (setf (slime-rex-continuations) '())
+  (mapc #'kill-buffer (mapcar #'cdr (sldb-remove-killed-buffers))))
 
 (defconst +slime-sigint+ 2)
 
@@ -3697,34 +3701,34 @@ first element of the source-path redundant."
         (re-search-forward 
          (format "[( \t]%s\\>\\(\\s \\|$\\)" name) nil t)))
      (goto-char (match-beginning 0)))
-    ;; Looks for a sequence of words (def<something> method name qualifers specializers
-    ;; don't look for "T" since it isn't requires (arg without t) as class is taken as such.
-    ((:method name specializers . qualifiers)
-     (let ((case-fold-search t)
-           (name (regexp-quote name)))
-       (or 
-        (and 
-	 (re-search-forward 
-	  (setq it (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\>%s%s" name
-		  (apply 'concat (mapcan (lambda(el) (list ".+?\\<" el "\\>")) qualifiers))
-		  (apply 'concat (mapcan (lambda(el) (list ".+?\\<" el "\\>")) (remove "T" specializers)))
-		  )) nil t)
-	 (goto-char (match-beginning 0)))
-;	(slime-goto-location-position `(:function-name ,name))
-	
-	)))
+    ;; Looks for a sequence of words (def<something> method name
+    ;; qualifers specializers don't look for "T" since it isn't
+    ;; requires (arg without t) as class is taken as such.
+    ((:method name specializers &rest qualifiers)
+     (let* ((case-fold-search t)
+            (name (regexp-quote name))
+            (qualifiers (mapconcat (lambda (el) (concat ".+?\\<" el "\\>"))
+                                   qualifiers ""))
+            (specializers (mapconcat (lambda (el) (concat ".+?\\<" el "\\>"))
+                                     (remove "T" specializers) ""))
+            (regexp (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\>%s%s" name
+                            qualifiers specializers)))
+       (or (and (re-search-forward regexp  nil t)
+                (goto-char (match-beginning 0)))
+           ;;	(slime-goto-location-position `(:function-name ,name))
+           )))
     ((:source-path source-path start-position)
      (cond (start-position
             (goto-char start-position)
             (slime-forward-positioned-source-path source-path))
            (t
             (slime-forward-source-path source-path))))
-    ;; Goes to "start" then looks for the anchor text, then moves delta from that position.
+    ;; Goes to "start" then looks for the anchor text, then moves
+    ;; delta from that position.
     ((:text-anchored start text delta)
      (goto-char start)
      (slime-isearch text)
-     (forward-char delta))
-    ))
+     (forward-char delta))))
 
 (defun slime-goto-source-location (location &optional noerror)
   "Move to the source location LOCATION.  Several kinds of locations
@@ -4833,7 +4837,7 @@ in the REPL."
 (defun slime-display-eval-result (value)
   (slime-message "%s" value))
 
-(defun slime-eval-with-transcript (form &optional fn)
+(defun slime-eval-with-transcript (form &optional fn wait)
   "Send FROM and PACKAGE to Lisp and pass the result to FN.
 Display the result in the message area, if FN is nil.
 Show the output buffer if the evaluation causes any output."
@@ -4859,7 +4863,7 @@ Show the output buffer if the evaluation causes any output."
      (unless (bolp) (insert "\n"))
      (slime-insert-propertized
       '(slime-transcript-delimiter t)
-      ";;;; " (subst-char-in-string ?\n ?\040
+      ";;;; " (subst-char-in-string ?\n ?\ 
                                     (substring string 0 
                                                (min 60 (length string))))
       " ...\n"))))
@@ -4982,7 +4986,7 @@ compilation."
 
 (defun slime-undefine-function (symbol-name)
   "Unbind the function slot of SYMBOL-NAME."
-  (interactive (list (slime-read-symbol-name "fmakunbound: ")))
+  (interactive (list (slime-read-symbol-name "fmakunbound: " t)))
   (slime-eval-async `(swank:undefine-function ,symbol-name)
                     (lambda (result) (message "%s" result))))
 
@@ -5625,7 +5629,8 @@ Full list of commands:
   ("B"    'sldb-break-with-default-debugger)
   ("P"    'sldb-print-condition)
   ("C"    'sldb-inspect-condition)
-  (":"    'slime-interactive-eval))
+  (":"    'slime-interactive-eval)
+  ("\C-c\C-d" slime-doc-map))
 
 ;; Inherit bindings from slime-mode
 (dolist (spec slime-keys)
@@ -6507,7 +6512,7 @@ Optionally set point to POINT."
           (insert (fontify topline title))
           (while (eq (char-before) ?\n)
             (backward-delete-char 1))
-          (insert " [" (fontify label "type:") " " (fontify type type) "]\n"
+          (insert "\n [" (fontify label "type:") " " (fontify type type) "]\n"
                   (fontify label "--------------------") "\n")
         (save-excursion
           (loop for part in content
