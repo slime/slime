@@ -1270,6 +1270,7 @@ This is the lowest level of communication. The sexp will be READ and
 EVAL'd by Lisp."
   (let* ((msg (concat (slime-prin1-to-string sexp) "\n"))
          (string (concat (slime-net-enc3 (length msg)) msg)))
+    (slime-log-event sexp)
     (process-send-string proc (string-make-unibyte string))))
 
 (defun slime-net-close (process)
@@ -1309,7 +1310,9 @@ EVAL'd by Lisp."
                             (sleep-for 2)
                             (ignore-errors (slime-net-close proc))
                             (error "PANIC!")))))
-              (save-current-buffer (slime-dispatch-event event proc))))))
+              (save-current-buffer
+                (slime-log-event event)
+                (slime-dispatch-event event proc))))))
     (dolist (p slime-net-processes)
       (with-current-buffer (process-buffer p)
         (when (slime-net-have-input-p)
@@ -1533,7 +1536,6 @@ fixnum a specific thread."))
 
 (defun slime-dispatch-event (event &optional process)
   (let ((slime-dispatching-connection (or process (slime-connection))))
-    (slime-log-event event)
     (destructure-case event
       ((:read-output output)
        (slime-output-string output))
