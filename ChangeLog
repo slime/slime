@@ -4,16 +4,6 @@
 	:fd-handler instead of :sigio when threads aren't available. A lot
 	of people seem to have had problems with :sigio on SBCL.
 
-	* slime.el: Backed out the previous change (below). Has bugs and
-	needs more thinking.
-
-2004-06-29  Thomas Burdick  <tfb@OCF.Berkeley.EDU>
-
-	* slime.el: Indicate when the REPL is in the debugger's context
-	(slime-debug-level): new connection var
-	(slime-dispatch-event): set slime-debug-level to match *sldb-level*
-	(slime-repl-insert-prompt): show debug-level in prompt when > 0 
-
 2004-06-30  Luke Gorrie  <luke@bluetail.com>
 
 	* NEWS: Wrote preliminary release notes for alpha-1.
