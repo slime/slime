@@ -443,6 +443,7 @@ A prefix argument disables this behaviour."
     ;; for "\C- ".
     ;; ("\C- " slime-next-location :prefixed t :inferior t)
     ("~" slime-sync-package-and-default-directory :prefixed t :inferior t)
+    ("\M-p" slime-repl-set-package :prefixed t :inferior t)
     ;; Cross reference
     ("\C-wc" slime-who-calls :prefixed t :inferior t :sldb t)
     ("\C-wr" slime-who-references :prefixed t :inferior t :sldb t)
@@ -500,7 +501,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
        [ "Eval And Pretty-Print"   slime-pprint-eval-last-expression ,C ]
        [ "Eval Region"             slime-eval-region ,C ]
        [ "Interactive Eval"        slime-interactive-eval ,C ]
-       [ "Scratch Buffer"          slime-scratch-buffer ,C ])
+       [ "Scratch Buffer"          slime-scratch ,C ])
       ("Debugging"
        [ "Macroexpand Once..."     slime-macroexpand-1 ,C ]
        [ "Macroexpand All..."      slime-macroexpand-all ,C ]
@@ -534,6 +535,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
       [ "Interrupt Command"        slime-interrupt ,C ]
       [ "Abort Async. Command"     slime-quit ,C ]
       [ "Sync Package & Directory" slime-sync-package-and-default-directory ,C]
+      [ "Set Package in REPL"      slime-repl-set-package ,C]
       )))
 
 (easy-menu-define menubar-slime slime-mode-map "SLIME" slime-easy-menu) 
