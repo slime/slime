@@ -1824,13 +1824,12 @@ deal with that."
           (current-buffer)))))
 
 (defun slime-repl-update-banner ()
-  (let ((banner (format "%s  Port: %s  Pid: %s Pwd: %s"
+  (let ((banner (format "%s  Port: %s  Pid: %s"
                         (slime-lisp-implementation-type)
                         (if (featurep 'xemacs)
                             (process-id (slime-connection))
                           (process-contact (slime-connection)))
-                        (slime-pid)
-                        (expand-file-name default-directory))))
+                        (slime-pid))))
     ;; Emacs21 has the fancy persistent header-line.
     (cond ((boundp 'header-line-format)
            (when slime-reply-update-banner-p
