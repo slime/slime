@@ -377,6 +377,7 @@ The time is measured in microseconds."
 
 (defun case-convert (string)
   "Convert STRING according to the current readtable-case."
+  (check-type string string)
   (ecase (readtable-case *readtable*)
     (:upcase (string-upcase string))
     (:downcase (string-downcase string))
@@ -401,11 +402,11 @@ format. The cases are as follows:
   (multiple-value-bind (name package-name internal-p)
       (parse-symbol-designator string)
     (let ((completions nil)
-          (package (find-package 
-                    (case-convert
-                     (cond ((equal package-name "") "KEYWORD")
-                           (package-name)
-                           (default-package-name))))))
+          (package (let ((n (cond ((equal package-name "") "KEYWORD")
+                                  (t (or package-name default-package-name)))))
+                     (if n 
+                         (find-package (case-convert n))
+                         *buffer-package* ))))
       (flet ((symbol-matches-p (symbol)
                (and (string-prefix-p name (symbol-name symbol))
                     (or (or internal-p (null package-name))
