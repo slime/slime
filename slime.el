@@ -649,7 +649,7 @@ This list of flushed between commands."))
   "Evaluate VALUE, and if the result is non-nil bind it to VAR and
 evaluate BODY.
 
-\(when-let (VAR VALUE) &rest BODY)"
+\(fn (VAR VALUE) &rest BODY)"
   `(let ((,var ,value))
      (when ,var ,@body)))
 
@@ -696,8 +696,7 @@ corresponding values in the CDR of VALUE."
                                          &body body)
   "Make the connection choosen by PREFIX-ARG current.
 
-\(slime-with-chosen-connection (&optional (PREFIX-ARG 'current-prefix-arg))
-  &body BODY)"
+\(fn (&optional (PREFIX-ARG 'current-prefix-arg)) &body BODY)"
   `(let ((slime-dispatching-connection 
           (slime-get-named-connection ,prefix-arg)))
      ,@body))
@@ -1386,7 +1385,7 @@ For display in the mode-line.")
   "Execute BODY in the process-buffer of PROCESS.
 If PROCESS is not specified, `slime-connection' is used.
 
-\(slime-with-connection-buffer (&optional PROCESS) &body BODY))"
+\(fn (&optional PROCESS) &body BODY))"
   `(with-current-buffer
        (process-buffer (or ,process (slime-connection)
                            (error "No connection")))
@@ -2813,7 +2812,7 @@ from an element and TEST is used to compare keys."
 (defmacro* with-struct ((conc-name &rest slots) struct &body body)
   "Like with-slots but works only for structs.
 
-\(with-struct (CONC-NAME &rest SLOTS) STRUCT &body BODY)"
+\(fn (CONC-NAME &rest SLOTS) STRUCT &body BODY)"
   (flet ((reader (slot) (intern (concat (symbol-name conc-name)
 					(symbol-name slot)))))
     (let ((struct-var (gensym "struct")))
