@@ -9,9 +9,9 @@
 	* swank-cmucl.lisp (buffer-first-change): Suck the source file
 	into the cache unless already present. This is for M-. to increase
 	the chances of our having a copy of the sources corresponding with
-	the loaded code. Should help with the case where a user edits a
-	file (without recompiling it) and then M-.'s for one of its
-	definitions.
+	the loaded code. Should help with the case where a user edits and
+	saves a file (without recompiling it) and then M-.'s for one of
+	its definitions.
 
 	* swank-allegro.lisp (make-process/inherit): Changed reader
 	conditionals to use fwrappers for #+(version>= 6.2).
