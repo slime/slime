@@ -1,3 +1,9 @@
+2005-01-14  Edi Weitz  <edi@agharta.de>
+
+        * slime.el (slime-complete-symbol*): Maybe insert closing
+        parenthesis or space (depending on arglist) after symbol
+        completion has finished.  Optionally also show arglist.
+
 2005-01-13  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-cmucl.lisp (create-socket): The byte-order of the :host

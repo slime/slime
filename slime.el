@@ -4529,6 +4529,15 @@ Completion is performed by `slime-complete-symbol-function'."
       (cond ((and (member completed-prefix completion-set)
                   (= (length completion-set) 1))
              (slime-minibuffer-respecting-message "Sole completion")
+             (let ((arglist (slime-get-arglist
+                             (slime-symbol-name-at-point))))
+               (when arglist
+                 (if (cdr (read arglist))
+                   (progn (insert-and-inherit " ")
+                          (when (and slime-space-information-p
+                                     (slime-background-activities-enabled-p))
+                            (slime-echo-arglist)))
+                   (insert-and-inherit ")"))))
              (slime-complete-restore-window-configuration))
             ;; Incomplete
             (t
