@@ -8,6 +8,11 @@
 
 (in-package :swank-backend)
 
+(import-swank-mop-symbols :pcl '(:slot-definition-documentation))
+
+(defun swank-mop:slot-definition-documentation (slot)
+  (documentation slot t))
+
 ;;;; "Hot fixes"
 ;;;
 ;;; Here are necessary bugfixes to the latest released version of
@@ -16,54 +21,6 @@
 ;;; good. When a new release is made that includes the fixes we should
 ;;; promptly delete them from here. It is enough to be compatible with
 ;;; the latest release.
-
-(import-to-swank-mop
-   '( ;; classes
-     cl:standard-generic-function
-     pcl:standard-slot-definition
-     cl:method
-     cl:standard-class
-     pcl:eql-specializer
-     ;; standard-class readers
-     pcl:class-default-initargs
-     pcl:class-direct-default-initargs
-     pcl:class-direct-slots
-     pcl:class-direct-subclasses
-     pcl:class-direct-superclasses
-     pcl:class-finalized-p
-     cl:class-name
-     pcl:class-precedence-list
-     pcl:class-prototype
-     pcl:class-slots
-     pcl:specializer-direct-methods
-     ;; eql-specializer accessors
-     pcl:eql-specializer-object
-     ;; generic function readers
-     pcl:generic-function-argument-precedence-order
-     pcl:generic-function-declarations
-     pcl:generic-function-lambda-list
-     pcl:generic-function-methods
-     pcl:generic-function-method-class
-     pcl:generic-function-method-combination
-     pcl:generic-function-name
-     ;; method readers
-     pcl:method-generic-function
-     pcl:method-function
-     pcl:method-lambda-list
-     pcl:method-specializers
-     pcl:method-qualifiers
-     ;; slot readers
-     pcl:slot-definition-allocation
-     pcl:slot-definition-initargs
-     pcl:slot-definition-initform
-     pcl:slot-definition-initfunction
-     pcl:slot-definition-name
-     pcl:slot-definition-type
-     pcl:slot-definition-readers
-     pcl:slot-definition-writers))
-
-(defun swank-mop:slot-definition-documentation (slot)
-  (documentation slot t))
 
 (in-package :lisp)
 
@@ -230,7 +187,8 @@ specific functions.")
     (setf (sos.index stream) (1+ index))
     (incf (sos.column stream))
     (when (char= #\newline char)
-      (setf (sos.column stream) 0))
+      (setf (sos.column stream) 0)
+      (force-output stream))
     (when (= index (1- (length buffer)))
       (force-output stream)))
   char)
@@ -270,14 +228,20 @@ specific functions.")
   (index    0   :type kernel:index))
 
 (defun sis/in (stream eof-errorp eof-value)
-  (declare (ignore eof-errorp eof-value))
   (let ((index (sis.index stream))
 	(buffer (sis.buffer stream)))
     (when (= index (length buffer))
       (force-output (sis.sos stream))
-      (setf buffer (funcall (sis.input-fn stream)))
-      (setf (sis.buffer stream) buffer)
-      (setf index 0))
+      (let ((string (funcall (sis.input-fn stream))))
+        (cond ((zerop (length string))
+               (return-from sis/in
+                 (if eof-errorp
+                     (error (make-condition 'end-of-file :stream stream))
+                     eof-value)))
+              (t
+               (setf buffer string)
+               (setf (sis.buffer stream) buffer)
+               (setf index 0)))))
     (prog1 (aref buffer index)
       (setf (sis.index stream) (1+ index)))))
 
@@ -545,7 +509,8 @@ This is a workaround for a CMUCL bug: XREF records are cumulative."
 receives the object as argument.  SPACES should be a list of the
 symbols :dynamic, :static, or :read-only."
   (dolist (space spaces)
-    (declare (inline vm::map-allocated-objects))
+    (declare (inline vm::map-allocated-objects)
+             (optimize (ext:inhibit-warnings 3)))
     (vm::map-allocated-objects
      (lambda (obj header size)
        (declare (type fixnum size) (ignore size))
@@ -595,7 +560,7 @@ code (are theree others?)"
          (list (list name
                      (make-location 
                       (list :file (unix-truename (c::debug-source-name first)))
-                      (list :function-name name)))))))))
+                      (list :function-name (string name))))))))))
 
 (defun code-component-entry-points (code)
   "Return a list ((NAME LOCATION) ...) of function definitons for
@@ -755,11 +720,11 @@ positions aren't available."
       (ecase from
         (:file 
          (make-location (list :file (namestring (truename name)))
-                        (list :function-name fname)))
+                        (list :function-name (string fname))))
         (:stream
          (assert (debug-source-info-from-emacs-buffer-p (car source)))
          (make-location (list :buffer (getf info :emacs-buffer))
-                        (list :function-name fname)))
+                        (list :function-name (string fname))))
         (:lisp
          (make-location (list :source-form (princ-to-string (aref name 0)))
                         (list :position 1)))))))
@@ -1117,7 +1082,7 @@ Signal an error if no constructor can be found."
         (unix-truename (merge-pathnames (make-pathname :type "lisp")
                                         file)))
     (cond (filename (make-location `(:file ,filename)
-                                   `(:function-name ,string)))
+                                   `(:function-name ,(string string))))
           (t (list :error (princ-to-string c))))))
 
 (defun source-location-form-numbers (location)
@@ -1332,9 +1297,8 @@ Signal an error if no constructor can be found."
 ;;;;; Argument lists
 
 (defimplementation arglist ((name symbol))
-  (arglist (or (macro-function name)
-               (symbol-function name)
-               (error "~S does not name a known function."))))
+  (arglist (or (symbol-macro name)
+               (symbol-function name))))
 
 (defimplementation arglist ((fun function))
   (let ((arglist
@@ -1575,45 +1539,177 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 (defimplementation frame-catch-tags (index)
   (mapcar #'car (di:frame-catches (nth-frame index))))
 
-(defun set-step-breakpoints (frame)
-  (when (di:debug-block-elsewhere-p (di:code-location-debug-block
-                                     (di:frame-code-location frame)))
-    (error "Cannot step, in elsewhere code~%"))
-  (let* ((code-location (di:frame-code-location frame))
-         (debug::*bad-code-location-types* 
-          (remove :call-site debug::*bad-code-location-types*))
-         (next (debug::next-code-locations code-location)))
-    (cond (next
-           (let ((steppoints '()))
-             (flet ((hook (frame breakpoint)
-                      (let ((debug:*stack-top-hint* frame))
-                        (mapc #'di:delete-breakpoint steppoints)
-                        (let ((cl (di::breakpoint-what breakpoint)))
-                          (break "Breakpoint: ~S ~S" 
-                                 (di:code-location-kind cl)
-                                 (di::compiled-code-location-pc cl))))))
-               (dolist (code-location next)
-                 (let ((bp (di:make-breakpoint #'hook code-location
-                                               :kind :code-location)))
-                   (di:activate-breakpoint bp)
-                   (push bp steppoints))))))
-         (t
-          (flet ((hook (frame breakpoint values cookie)
-                   (declare (ignore cookie))
-                   (di:delete-breakpoint breakpoint)
-                   (let ((debug:*stack-top-hint* frame))
-                     (break "Function-end: ~A ~A" breakpoint values))))
-            (let* ((debug-function (di:frame-debug-function frame))
-                   (bp (di:make-breakpoint #'hook debug-function
-                                           :kind :function-end)))
-              (di:activate-breakpoint bp)))))))
-
 (defimplementation sldb-step (frame)
   (cond ((find-restart 'continue)
          (set-step-breakpoints (nth-frame frame))
          (continue))
         (t
          (error "No continue restart."))))
+
+(defimplementation sldb-break-on-return (frame)
+  (break-on-return (nth-frame frame)))
+
+;;; We set the breakpoint the caller which might be a bit confusing.
+;;;
+(defun break-on-return (frame)
+  (let* ((caller (di:frame-down frame))
+         (cl (di:frame-code-location caller)))
+    (flet ((hook (frame bp)
+             (when (frame-pointer= frame caller)
+               (di:delete-breakpoint bp)
+               (signal-breakpoint bp frame))))
+      (let* ((info (ecase (di:code-location-kind cl)
+                     ((:single-value-return :unknown-return) nil)
+                     (:known-return (debug-function-returns 
+                                     (di:frame-debug-function frame)))))
+             (bp (di:make-breakpoint #'hook cl :kind :code-location
+                                     :info info)))
+        (di:activate-breakpoint bp)
+        `(:ok ,(format nil "Set breakpoint in ~A" caller))))))
+
+(defun frame-pointer= (frame1 frame2)
+  "Return true if the frame pointers of FRAME1 and FRAME2 are the same."
+  (sys:sap= (di::frame-pointer frame1) (di::frame-pointer frame2)))
+
+(defun set-step-breakpoints (frame)
+  (let ((cl (di:frame-code-location frame)))
+    (when (di:debug-block-elsewhere-p (di:code-location-debug-block cl))
+      (error "Cannot step in elsewhere code"))
+    (let* ((debug::*bad-code-location-types* 
+            (remove :call-site debug::*bad-code-location-types*))
+           (next (debug::next-code-locations cl)))
+      (cond (next
+             (let ((steppoints '()))
+               (flet ((hook (bp-frame bp)
+                        (mapc #'di:delete-breakpoint steppoints)
+                        (signal-breakpoint bp bp-frame)))
+                 (dolist (code-location next)
+                   (let ((bp (di:make-breakpoint #'hook code-location
+                                                 :kind :code-location)))
+                     (di:activate-breakpoint bp)
+                     (push bp steppoints))))))
+            (t
+             (break-on-return frame))))))
+
+
+;; XXX the return values at return breakpoints should be passed to the
+;; user hooks. debug-int.lisp should be changed to do this cleanly.
+
+;;; The sigcontext and the PC for a breakpoint invocation are not
+;;; passed to user hook functions, but we need them to extract return
+;;; values. So we advice di::handle-breakpoint and bind the values to
+;;; special variables.  
+;;;
+(defvar *breakpoint-sigcontext*)
+(defvar *breakpoint-pc*)
+
+;; XXX don't break old versions without fwrappers.  Remove this one day.
+#+#.(cl:if (cl:find-package :fwrappers) '(and) '(or))
+(progn
+  (fwrappers:define-fwrapper bind-breakpoint-sigcontext (offset c sigcontext)
+    (let ((*breakpoint-sigcontext* sigcontext)
+          (*breakpoint-pc* offset))
+      (fwrappers:call-next-function)))
+  (fwrappers:set-fwrappers 'di::handle-breakpoint '())
+  (fwrappers:fwrap 'di::handle-breakpoint #'bind-breakpoint-sigcontext))
+
+(defun sigcontext-object (sc index)
+  "Extract the lisp object in sigcontext SC at offset INDEX."
+  (kernel:make-lisp-obj (vm:sigcontext-register sc index)))
+
+(defun known-return-point-values (sigcontext sc-offsets)
+  (let ((fp (system:int-sap (vm:sigcontext-register sigcontext
+                                                    vm::cfp-offset))))
+    (system:without-gcing
+     (loop for sc-offset across sc-offsets
+           collect (di::sub-access-debug-var-slot fp sc-offset sigcontext)))))
+
+;;; CMUCL returns the first few values in registers and the rest on
+;;; the stack. In the multiple value case, the number of values is
+;;; stored in a dedicated register. The values of the registers can be
+;;; accessed in the sigcontext for the breakpoint.  There are 3 kinds
+;;; of return conventions: :single-value-return, :unknown-return, and
+;;; :known-return.
+;;;
+;;; The :single-value-return convention returns the value in a
+;;; register without setting the nargs registers.  
+;;;
+;;; The :unknown-return variant is used for multiple values. A
+;;; :unknown-return point consists actually of 2 breakpoints: one for
+;;; the single value case and one for the general case.  The single
+;;; value breakpoint comes vm:single-value-return-byte-offset after
+;;; the multiple value breakpoint.
+;;;
+;;; The :known-return convention is used by local functions.
+;;; :known-return is currently not supported because we don't know
+;;; where the values are passed.
+;;;
+(defun breakpoint-values (breakpoint)
+  "Return the list of return values for a return point."
+  (flet ((1st (sc) (sigcontext-object sc (car vm::register-arg-offsets))))
+    (let ((sc (locally (declare (optimize (ext:inhibit-warnings 3)))
+                (alien:sap-alien *breakpoint-sigcontext* (* unix:sigcontext))))
+          (cl (di:breakpoint-what breakpoint)))
+      (ecase (di:code-location-kind cl)
+        (:single-value-return
+         (list (1st sc)))
+        (:known-return
+         (let ((info (di:breakpoint-info breakpoint)))
+           (if (vectorp info)
+               (known-return-point-values sc info)
+               (list "<<known-return convention not supported>>"))))
+        (:unknown-return
+         (let ((mv-return-pc (di::compiled-code-location-pc cl)))
+           (if (= mv-return-pc *breakpoint-pc*)
+               (di::get-function-end-breakpoint-values sc)
+               (list (1st sc)))))))))
+
+(defun debug-function-returns (debug-fun)
+  "Return the return style of DEBUG-FUN."
+  (let* ((cdfun (di::compiled-debug-function-compiler-debug-fun debug-fun)))
+    (c::compiled-debug-function-returns cdfun)))
+
+(define-condition breakpoint (simple-condition) 
+  ((message :initarg :message :reader breakpoint.message))
+  (:report (lambda (c stream) (princ (breakpoint.message c) stream))))
+
+(defimplementation condition-extras ((c breakpoint))
+  ;; simply pop up the source buffer
+  `((:short-frame-source 0)))
+
+(defun signal-breakpoint (breakpoint frame)
+  "Signal a breakpoint condition for BREAKPOINT in FRAME.
+Try to create a informative message."
+  (flet ((brk (fstring &rest args)
+           (let ((msg (apply #'format nil fstring args))
+                 (debug:*stack-top-hint* frame))
+             (break 'breakpoint :message msg))))
+  (with-struct (di::breakpoint- kind what) breakpoint
+    (case kind
+      (:code-location
+       (case (di:code-location-kind what)
+         ((:single-value-return :known-return :unknown-return)
+          (brk "Return value: ~{~S ~}" (breakpoint-values breakpoint)))
+         (t
+          (brk "Breakpoint: ~S ~S" 
+               (di:code-location-kind what)
+               (di::compiled-code-location-pc what)))))
+      (:function-start
+       (brk "Function start breakpoint"))
+      (t (brk "Breakpoint: ~A in ~A" breakpoint frame))))))
+
+(defimplementation sldb-break-at-start (fname)
+  (let ((debug-fun (di:function-debug-function (coerce fname 'function))))
+    (cond ((not debug-fun)
+           `(:error ,(format nil "~S has no debug-function" fname)))
+          (t
+           (flet ((hook (frame bp &optional args cookie)
+                    (declare (ignore args cookie))
+                    (signal-breakpoint bp frame)))
+             (let ((bp (di:make-breakpoint #'hook debug-fun
+                                           :kind :function-start)))
+               (di:activate-breakpoint bp)
+               `(:ok ,(format nil "Set breakpoint in ~S" fname))))))))
 
 (defun frame-cfp (frame)
   "Return the Control-Stack-Frame-Pointer for FRAME."
