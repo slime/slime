@@ -135,7 +135,7 @@
     (loop for f = (nth-frame start) then (excl::int-next-older-frame f)
 	  for i from start below end
 	  while f
-	  collect f)))
+	  when (debugger:frame-visible-p f) collect f)))
 
 (defimplementation print-frame (frame stream)
   (debugger:output-frame stream frame :moderate))
