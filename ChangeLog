@@ -4,6 +4,7 @@
 	before and after the result.
 	(slime-easy-menu): Added menu items:
 	"Eval Region", "Scratch Buffer", "Apropos Package..."
+	Added some bold to default SLDB faces.
 
 2004-01-19  Alan Ruttenberg  <alanralanr@comcast.net>
         *swank-openmcl.lisp in frame-catch-tags, ppc32::catch-frame.catch-tag-cell -> 0,
