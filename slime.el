@@ -68,7 +68,7 @@
 
 (eval-and-compile 
   (defvar slime-path
-    (let ((path (locate-library "slime")))
+    (let ((path (or (locate-library "slime") load-file-name)))
       (and path (file-name-directory path)))
     "Directory containing the Slime package.
 This is used to load the supporting Common Lisp library, Swank.
@@ -1339,6 +1339,12 @@ This is automatically synchronized from Lisp.")
                     (funcall (cdr rec) value))
                (t
                 (error "Unexpected reply: %S %S" id value)))))
+      ((:debug-activate thread level)
+       (sldb-activate thread level))
+      ((:debug thread level condition restarts frames)
+       (sldb-setup thread level condition restarts frames))
+      ((:debug-return thread level)
+       (sldb-exit thread level))
       ((:emacs-interrupt thread)
        (cond ((slime-use-sigint-for-interrupt) (slime-send-sigint))
              (t (slime-send `(:emacs-interrupt ,thread)))))
@@ -1348,10 +1354,6 @@ This is automatically synchronized from Lisp.")
        (slime-repl-abort-read thread tag))
       ((:emacs-return-string thread tag string)
        (slime-send `(:emacs-return-string ,thread ,tag ,string)))
-      ((:debug thread level condition restarts frames)
-       (sldb-setup thread level condition restarts frames))
-      ((:debug-return thread level)
-       (sldb-exit thread level))
       ;;
       ((:new-package package)
        (setf (slime-lisp-package) package))
@@ -1369,17 +1371,6 @@ This is automatically synchronized from Lisp.")
        (run-with-idle-timer 0 nil 'slime-call/error->message 'slime-ed what))
       ((:debug-condition thread message)
        (message "%s" message)))))
-
-;;; XXX thread is ignored
-(defun sldb-exit (thread level)
-  (when-let (sldb (get-sldb-buffer))
-    (with-current-buffer sldb
-      (set-window-configuration sldb-saved-window-configuration)
-      (let ((inhibit-read-only t))
-        (erase-buffer))
-      (setq sldb-level nil))
-    (when (= level 1)
-      (kill-buffer sldb))))
 
 (defun slime-reset ()
   "Clear all pending continuations."
@@ -3896,7 +3887,7 @@ If `sldb-enable-styled-backtrace' is nil, just return STRING."
   (slime-set-truncate-lines)
   ;; Make original slime-connection "sticky" for SLDB commands in this buffer
   (setq slime-buffer-connection (slime-connection))
-  (make-local-hook 'kill-buffer-hook)
+  (make-local-variable 'kill-buffer-hook)
   (add-hook 'kill-buffer-hook 'sldb-delete-overlays))
 
 (slime-define-keys sldb-mode-map 
@@ -3989,9 +3980,28 @@ portion of the backtrace. Frames are numbered from 0."
       (insert "\n" (in-sldb-face section "Backtrace:") "\n")
       (setq sldb-backtrace-start-marker (point-marker))
       (sldb-insert-frames (sldb-prune-initial-frames frames) nil)
-      (setq buffer-read-only t)
       (pop-to-buffer (current-buffer))
-      (run-hooks 'sldb-hook))))
+      (run-hooks 'sldb-hook)
+      (setq buffer-read-only t))))
+
+(defun sldb-activate (thread level)
+  (with-current-buffer (get-sldb-buffer t)
+    (unless (equal sldb-level level)
+      (with-lexical-bindings (thread level)
+        (slime-eval-async `(swank:debugger-info-for-emacs 0 1) nil
+                          (lambda (result)
+                            (apply #'sldb-setup thread level result)))))))
+
+;;; XXX thread is ignored
+(defun sldb-exit (thread level)
+  (when-let (sldb (get-sldb-buffer))
+    (with-current-buffer sldb
+      (set-window-configuration sldb-saved-window-configuration)
+      (let ((inhibit-read-only t))
+        (erase-buffer))
+      (setq sldb-level nil))
+    (when (= level 1)
+      (kill-buffer sldb))))
 
 (defun sldb-insert-restarts (restarts)
   (loop for (name string) in restarts
@@ -4084,7 +4094,7 @@ Called on the `point-entered' text-property hook."
   "Highlight the first sexp after point."
   (sldb-delete-overlays)
   (let ((start (or start (point)))
-	(end (or end (save-excursion (forward-sexp) (point)))))
+	(end (or end (save-excursion (forward-sexp)  (point)))))
     (push (make-overlay start (1+ start)) sldb-overlays)
     (push (make-overlay (1- end) end) sldb-overlays)
     (dolist (overlay sldb-overlays)
@@ -4431,14 +4441,6 @@ The buffer will be popped up any time it is modified.")
 
 ;;;;; Connection listing
 
-(defun slime-short-state-name (&optional state)
-  "Return a short symbol for STATEs name."
-  (ecase (slime-state-name (or state (slime-current-state)))
-    (slime-idle-state 'idle)
-    (slime-evaluating-state 'eval)
-    (slime-debugging-state 'debug)
-    (slime-read-string-state 'read)))
-                               
 (defun slime-list-connections ()
   "Display a list of all connections."
   (interactive)
@@ -4446,16 +4448,15 @@ The buffer will be popped up any time it is modified.")
     (kill-buffer  "*SLIME connections*"))
   (slime-with-output-to-temp-buffer "*SLIME connections*"
     (let ((default (slime-connection)))
-      (insert " Nr  State  Type                  Port                Pid\n"
-              " --  -----  ----                  ----                ---\n")
+      (insert " Nr  Type                  Port                Pid\n"
+              " --  ----                  ----                ---\n")
       (dolist (p slime-net-processes)
         (let ((slime-dispatching-connection p))
           (insert
            (slime-with-connection-buffer (p)
-             (format "%s%2d  %-5s  %-20s  %-17s  %-5s\n"
+             (format "%s%2d  %-20s  %-17s  %-5s\n"
                      (if (eq default p) "*" " ")
                      (slime-connection-number)
-                     (slime-short-state-name)
                      (slime-lisp-implementation-type)
                      (or (process-id p) (process-contact p))
                      (slime-pid)))))))))
@@ -5060,6 +5061,11 @@ Confirm that SUBFORM is correctly located."
                       debug-hook-max-depth depth)
           (= debug-hook-max-depth depth))))))
 
+(defun slime-sldb-level= (level)
+  (when-let (sldb (get-sldb-buffer))
+    (with-current-buffer sldb
+      (equal sldb-level level))))
+
 (def-slime-test loop-interrupt-quit
     ()
     "Test interrupting a loop."
@@ -5077,13 +5083,12 @@ Confirm that SUBFORM is correctly located."
     (slime-check "In eval state."
       (not (null slime-rex-continuations)))
     (slime-interrupt)
+    (slime-wait-condition "First interrupt" (lambda () (slime-sldb-level= 1))
+                          5)
+    (with-current-buffer (get-sldb-buffer)
+      (sldb-quit))
     (slime-sync-to-top-level 5)
     (slime-check-top-level)))
-
-(defun slime-sldb-level= (level)
-  (when-let (sldb (get-sldb-buffer))
-    (with-current-buffer sldb
-      (equal sldb-level level))))
 
 (def-slime-test loop-interrupt-continue-interrupt-quit
     ()
