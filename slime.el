@@ -2807,7 +2807,6 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   (slime-repl-read-mode 1))
 
 (defun slime-repl-return-string (string)
-  (assert (plusp (length string)))
   (slime-dispatch-event `(:emacs-return-string 
                           ,(pop slime-read-string-threads)
                           ,(pop slime-read-string-tags)
@@ -4353,18 +4352,6 @@ reading input.  The result is a string (\"\" if no input was given)."
     (read-from-minibuffer prompt initial-value slime-read-expression-map
 			  nil 'slime-read-expression-history)))
 
-(defun slime-symbol-start-pos ()
-  "Return the starting position of the symbol under point.
-The result is unspecified if there isn't a symbol under the point."
-  (save-excursion
-    (skip-syntax-backward "w_") 
-    (point)))
-
-(defun slime-symbol-end-pos ()
-  (save-excursion
-    (skip-syntax-forward "w_")
-    (point)))
-
 (defun slime-bogus-completion-alist (list)
   "Make an alist out of list.
 The same elements go in the CAR, and nil in the CDR. To support the
@@ -5632,6 +5619,7 @@ Full list of commands:
   ("R"    'sldb-return-from-frame)
   ("c"    'sldb-continue)
   ("s"    'sldb-step)
+  ("b"    'sldb-break-on-return)
   ("a"    'sldb-abort)
   ("q"    'sldb-quit)
   ("B"    'sldb-break-with-default-debugger)
@@ -5744,7 +5732,7 @@ portion of the backtrace. Frames are numbered from 0."
       (kill-buffer sldb))))
 
 (defun sldb-insert-condition (condition)
-  (destructuring-bind (message type references) condition
+  (destructuring-bind (message type references extras) condition
     (slime-insert-propertized '(sldb-default-action sldb-inspect-condition)
                               (in-sldb-face topline message)
                               "\n" 
@@ -5754,7 +5742,8 @@ portion of the backtrace. Frames are numbered from 0."
       (insert "See also:\n")
       (slime-with-rigid-indentation 2
         (sldb-insert-references references))
-      (insert "\n"))))
+      (insert "\n"))
+    (sldb-dispatch-extras extras)))
 
 (defun sldb-insert-references (references)
   "Insert documentation references from a condition.
@@ -5821,6 +5810,12 @@ Only add clickability to properties we actually know how to lookup."
                           (subst-char-in-string ?\  ?\- what))))
          (browse-url url))))))
 
+(defun sldb-dispatch-extras (extras)
+  (dolist (extra extras)
+    (destructure-case extra
+      ((:short-frame-source n)
+       (sldb-show-frame-source n)))))
+  
 (defun sldb-insert-restarts (restarts)
   (loop for (name string) in restarts
         for number from 0 
@@ -5939,17 +5934,19 @@ Called on the `point-entered' text-property hook."
 (defun sldb-show-source ()
   "Highlight the frame at point's expression in a source code buffer."
   (interactive)
+  (sldb-show-frame-source (sldb-frame-number-at-point)))
+
+(defun sldb-show-frame-source (frame-number)
   (sldb-delete-overlays)
-  (let* ((number (sldb-frame-number-at-point)))
-    (slime-eval-async
-     `(swank:frame-source-location-for-emacs ,number)
-     (lambda (source-location)
-       (destructure-case source-location
-         ((:error message)
-          (message "%s" message)
-          (ding))
-         (t
-          (slime-show-source-location source-location)))))))
+  (slime-eval-async
+   `(swank:frame-source-location-for-emacs ,frame-number)
+   (lambda (source-location)
+     (destructure-case source-location
+       ((:error message)
+        (message "%s" message)
+        (ding))
+       (t
+        (slime-show-source-location source-location))))))
 
 (defun slime-show-source-location (source-location)
   (slime-goto-source-location source-location)
@@ -6243,6 +6240,20 @@ use the restart at point."
   (interactive)
   (let ((frame (sldb-frame-number-at-point)))
     (slime-eval-async `(swank:sldb-step ,frame))))
+
+(defun sldb-break-on-return ()
+  "Set a breakpoint at the current frame. 
+The debugger is entered when the frame exits."
+  (interactive)
+  (let ((frame (sldb-frame-number-at-point)))
+    (slime-eval-async `(swank:sldb-break-on-return ,frame)
+                      (lambda (msg) (message "%s" msg)))))
+
+(defun sldb-break (name)
+  "Set a breakpoint at the start of the function NAME."
+  (interactive (list (slime-read-symbol-name "Function: " t)))
+  (slime-eval-async `(swank:sldb-break ,name) 
+                    (lambda (msg) (message "%s" msg))))
 
 (defun sldb-disassemble ()
   "Disassemble the code for the current frame."
@@ -7636,6 +7647,27 @@ package is used."
       (beginning-of-defun)
       (buffer-substring-no-properties (point) end))))
 
+(defun slime-beginning-of-symbol ()
+  "Move point to the beginning of the current symbol."
+  (and (minusp (skip-syntax-backward "w_"))
+       (when (eq (char-before) ?#) ; special case for things like "#<foo"
+         (forward-char))))
+
+(defun slime-end-of-symbol ()
+  "Move point to the end of the current symbol."
+  (skip-syntax-forward "w_"))
+
+(put 'slime-symbol 'end-op 'slime-end-of-symbol)
+(put 'slime-symbol 'beginning-op 'slime-beginning-of-symbol)
+
+(defun slime-symbol-start-pos ()
+  "Return the starting position of the symbol under point.
+The result is unspecified if there isn't a symbol under the point."
+  (save-excursion (slime-beginning-of-symbol) (point)))
+
+(defun slime-symbol-end-pos ()
+  (save-excursion (slime-end-of-symbol) (point)))
+
 (defun slime-symbol-name-at-point ()
   "Return the name of the symbol at point, otherwise nil."
   (save-restriction
@@ -7644,9 +7676,7 @@ package is used."
                (>= (point) slime-repl-input-start-mark))
       (narrow-to-region slime-repl-input-start-mark (point-max)))
     (save-excursion
-      (skip-syntax-forward "w_")
-      (skip-syntax-backward "-") 
-      (let ((string (thing-at-point 'symbol)))
+      (let ((string (thing-at-point 'slime-symbol)))
         (and string
              ;; In Emacs20 (thing-at-point 'symbol) returns "" instead
              ;; of nil when called from an empty (or
