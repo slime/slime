@@ -1,4 +1,4 @@
-2004-09-16  marco  <mb@bese.it>
+2004-09-16  Marco Baringer  <mb@bese.it>
 
 	* swank-clisp.lisp (swank-mop): Implement the MOP compatability
 	package.
