@@ -3,6 +3,7 @@
 	* slime.el: Place (require 'cl) inside a eval-and-compile.
 	(slime-with-connection-buffer): Move definition upwards before the
 	first use.
+	(package-updateing): New test for package updates in the listeners.
 
 	* swank.lisp (eval-region): Bind *package* outside the
 	unwind-protect to detect updates.
