@@ -1,3 +1,25 @@
+2004-02-29  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-complete-symbol): Make slime-complete-symbol
+	customizable.  I don't understand how the ILISP style completion
+	is supposed to work and find it unintuitive.
+	(slime-complete-symbol-function): New variable.
+	(slime-complete-symbol*): Renamed from slime-complete-symbol.
+	(slime-simple-complete-symbol, slime-simple-completions): New
+	function.
+	(slime-compiler-notes-to-tree): Return a list of trees, not a single
+	tree.
+
+	* swank.lisp (format-arglist): Don't use a custom pprint table.
+	Didn't work with CLISP and the behavior was different in SBCL and
+	Lispworks.
+	(completions): Factorize.
+	(parse-completion-arguments, format-completion-set,
+	(completion-set, find-matching-symbols, find-completions): New
+	functions.
+	(simple-completions): New function.
+	(prefix-match-p) New function.
+
 2004-02-28  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-compilation-finished-hook): New hook variable.
