@@ -786,7 +786,7 @@ If that doesn't give a function, return nil."
 
 (defun slime-swank-port-file ()
   "Filename where the SWANK server writes its TCP port number."
-  (format "/tmp/slime.%S" (emacs-pid)))
+  (concat temporary-file-directory (format "slime.%S" (emacs-pid))))
 
 (defun slime-read-swank-port ()
   "Read the Swank server port number from the `slime-swank-port-file'."
