@@ -108,69 +108,6 @@ The request is read from the socket as a sexp and then evaluated."
         (sb-sys:invalidate-descriptor (sb-sys:fd-stream-fd *emacs-io*))
         (close *emacs-io*)))))
 
-#|
-
-;; The Swank backend runs in a separate thread and simply blocks on
-;; its TCP port while waiting for forms to evaluate.
-
-(defun create-swank-server (port &key reuse-address)
-  "Create a Swank TCP server on `port'."
-  (sb-thread:make-thread
-   (lambda () (swank-main-loop port reuse-address))))
-
-(defun swank-main-loop (port reuse-address)
-  "Create the TCP server and accept connections in a new thread."
-  (let ((server-socket (make-instance 'inet-socket
-                                      :type :stream :protocol :tcp)))
-    (unwind-protect
-         (progn
-           (when reuse-address
-             (setf (sockopt-reuse-address server-socket) t))
-           (socket-bind server-socket #(127 0 0 1) port)
-           (socket-listen server-socket 10)
-           (format *terminal-io*
-                   "~&;; Swank: Accepting connections on port ~D.~%"
-                   port)
-           (loop
-            (let ((socket (socket-accept server-socket)))
-              (format *terminal-io*
-                      "~&;; Swank: Accepted connection ~A~%" socket)
-              (sb-thread:make-thread
-               (lambda ()
-                 (sb-sys:enable-interrupt 
-                  sb-unix:sigint #'sb-unix::sigint-handler)
-                 (let ((*emacs-io*
-                        (socket-make-stream socket
-                                            :element-type '(unsigned-byte 8)
-                                            :input t
-                                            :output t
-                                            :buffering :none)))
-                   (request-loop)))))))
-      (socket-close server-socket))))
-
-(defun request-loop ()
-  "Thread function for a single Swank connection.  Processes requests
-until the remote Emacs goes away."
-  (unwind-protect
-       (loop
-        (catch 'slime-toplevel
-          (with-simple-restart (abort "Return to Slime event loop.")
-            (let ((completed nil))
-              (let ((*slime-output* (make-instance 'slime-output-stream)))
-                (let ((condition (catch 'serve-request-catcher
-                                   (read-from-emacs)
-                                   (setq completed t))))
-                  (close *slime-output*)
-                  (unless completed
-                    (when *swank-debug-p*
-                      (format *terminal-io*
-                              "~&;; Connection to Emacs lost.~%;; [~A]~%"
-                              condition))
-                    (return))))))))
-    (format *terminal-io* "~&;; Swank: Closed connection: ~A~%" *emacs-io*)
-    (close *emacs-io*)))
-|#
-
 ;;; Utilities
 
 (defvar *swank-debugger-stack-frame*)
