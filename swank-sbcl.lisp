@@ -628,9 +628,84 @@ stack."
   (sb-profile:profile))
 
 
-;;;;
+;;;; Inspector
+
+(defimplementation describe-primitive-type (object)
+  (declare (ignore object))
+  "NYI")
+
+(defmethod inspected-parts (o)
+  (cond ((sb-di::indirect-value-cell-p o)
+	 (inspected-parts-of-value-cell o))
+	(t
+	 (multiple-value-bind (text labeledp parts)
+             (sb-impl::inspected-parts o)
+	   (let ((parts (if labeledp 
+			    (loop for (label . value) in parts
+				  collect (cons (string label) value))
+			    (loop for value in parts
+				  for i from 0
+				  collect (cons (format nil "~D" i) value)))))
+	     (values text parts))))))
+
+(defun inspected-parts-of-value-cell (o)
+  (values (format nil "~A~% is a value cell." o)
+	  (list (cons "Value" (sb-kernel:value-cell-ref o)))))
+
+(defmethod inspected-parts ((o function))
+  (let ((header (sb-kernel:widetag-of o)))
+    (cond ((= header sb-vm:simple-fun-header-widetag)
+	   (values 
+	    (format nil "~A~% is a simple-fun." o)
+	    (list (cons "Self" (sb-kernel:%simple-fun-self o))
+		  (cons "Next" (sb-kernel:%simple-fun-next o))
+		  (cons "Name" (sb-kernel:%simple-fun-name o))
+		  (cons "Arglist" (sb-kernel:%simple-fun-arglist o))
+		  (cons "Type" (sb-kernel:%simple-fun-type o))
+		  (cons "Code Object" (sb-kernel:fun-code-header o)))))
+	  ((= header sb-vm:closure-header-widetag)
+	   (values (format nil "~A~% is a closure." o)
+		   (list* 
+		    (cons "Function" (sb-kernel:%closure-fun o))
+		    (loop for i from 0 
+                          below (- (sb-kernel:get-closure-length o) 
+                                   (1- sb-vm:closure-info-offset))
+			  collect (cons (format nil "~D" i)
+					(sb-kernel:%closure-index-ref o i))))))
+	  (t (call-next-method o)))))
+
+(defmethod inspected-parts ((o sb-kernel:code-component))
+  (values (format nil "~A~% is a code data-block." o)
+	  `(("First entry point" . ,(sb-kernel:%code-entry-points o))
+	    ,@(loop for i from sb-vm:code-constants-offset 
+		    below (sb-kernel:get-header-data o)
+		    collect (cons (format nil "Constant#~D" i)
+				  (sb-kernel:code-header-ref o i)))
+	    ("Debug info" . ,(sb-kernel:%code-debug-info o))
+	    ("Instructions"  . ,(sb-kernel:code-instructions o)))))
+
+(defmethod inspected-parts ((o sb-kernel:fdefn))
+  (values (format nil "~A~% is a fdefn object." o)
+	  `(("Name" . ,(sb-kernel:fdefn-name o))
+	    ("Function" . ,(sb-kernel:fdefn-fun o)))))
 
 
+(defmethod inspected-parts ((o generic-function))
+  (values (format nil "~A~% is a generic function." o)
+          (list
+           (cons "Method-Class" (sb-pcl:generic-function-method-class o))
+           (cons "Methods" (sb-pcl:generic-function-methods o))
+           (cons "Name" (sb-pcl:generic-function-name o))
+           (cons "Declarations" (sb-pcl:generic-function-declarations o))
+           (cons "Method-Combination" 
+                 (sb-pcl:generic-function-method-combination o))
+           (cons "Lambda-List" (sb-pcl:generic-function-lambda-list o))
+           (cons "Precedence-Order" 
+                 (sb-pcl:generic-function-argument-precedence-order o))
+           (cons "Pretty-Arglist"
+                 (sb-pcl::generic-function-pretty-arglist o))
+           (cons "Initial-Methods" 
+                 (sb-pcl::generic-function-initial-methods  o)))))
 
 
 ;;;; Multiprocessing
