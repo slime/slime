@@ -3674,6 +3674,14 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
   (interactive)
   (let ((frame (sldb-frame-number-at-point)))
     (slime-eval-async `(swank:sldb-step ,frame) nil (lambda ()))))
+
+(defun sldb-disassemble ()
+  "Disassemble the code for the current frame."
+  (interactive)
+  (let ((frame (sldb-frame-number-at-point)))
+    (slime-eval-async `(swank:sldb-disassemble ,frame) nil 
+                      (lambda (result)
+			(slime-show-description result nil)))))
             
 (slime-define-keys sldb-mode-map 
   ("v"    'sldb-show-source)
@@ -3682,6 +3690,7 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
   ([mouse-2]  'sldb-default-action/mouse)
   ("e"    'sldb-eval-in-frame)
   ("d"    'sldb-pprint-eval-in-frame)
+  ("D"    'sldb-disassemble)
   ("i"    'sldb-inspect-in-frame)
   ("n"    'sldb-down)
   ("p"    'sldb-up)
