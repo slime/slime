@@ -701,7 +701,7 @@ If that doesn't give a function, return nil."
     (slime-disconnect))
   (slime-maybe-start-lisp)
   (setq slime-lisp-package slime-default-lisp-package)
-  (slime-connect))
+  (slime-read-port-and-connect))
 
 (defun slime-maybe-start-lisp ()
   "Start an inferior lisp unless one is already running."
@@ -731,7 +731,7 @@ If that doesn't give a function, return nil."
         (assert (integerp port))
         port))))
 
-(defun slime-connect (&optional retries)
+(defun slime-read-port-and-connect (&optional retries)
   "Connect to a running Swank server."
   (slime-start-swank-server)
   (lexical-let ((retries (or retries slime-swank-connection-retries))
@@ -752,12 +752,8 @@ Polling %S.. (Abort with `M-x slime-disconnect'.)"
           (setq slime-startup-retry-timer nil) ; remove old timer
           (cond ((file-exists-p (slime-swank-port-file))
                  (let ((port (slime-read-swank-port)))
-                   (message "Connecting to Swank on port %S.." port)
                    (delete-file (slime-swank-port-file))
-                   (slime-net-connect "localhost" port)
-                   (slime-init-connection)
-                   (message "Connected to Swank server on port %S. %s"
-                            port (slime-random-words-of-encouragement))))
+                   (slime-connect "localhost" port)))
                 ((and retries (zerop retries))
                  (message "Failed to connect to Swank."))
                 (t
@@ -765,6 +761,17 @@ Polling %S.. (Abort with `M-x slime-disconnect'.)"
                  (setq slime-startup-retry-timer
                        (run-with-timer 1 nil #'attempt-connection))))))
       (attempt-connection))))
+
+(defun slime-connect (host port)
+  "Connect to a running Swank server"
+  (interactive (list (read-from-minibuffer "Host: " "localhost")
+                     (read-from-minibuffer "Port: " "4005" nil t)))
+  (message "Connecting to Swank on port %S.." port)
+  (slime-net-connect "localhost" port)
+  (slime-init-connection)
+  (message "Connected to Swank server on port %S. %s"
+           port (slime-random-words-of-encouragement)))
+
 
 (defun slime-disconnect ()
   "Disconnect from the Swank server."
@@ -854,12 +861,15 @@ EVAL'd by Lisp."
 (defun slime-process-available-input ()
   "Process all complete messages that have arrived from Lisp."
   (with-current-buffer (process-buffer slime-net-process)
-    (unwind-protect
-        (while (slime-net-have-input-p)
-          (save-current-buffer
-            (slime-dispatch-event (slime-net-read))))
-      (when (slime-net-have-input-p)
-        (run-at-time 0 nil 'slime-process-available-input)))))
+    (let (reader-error)
+      (unwind-protect
+          (while (slime-net-have-input-p)
+            (setq reader-error t)
+            (let ((event (slime-net-read)))
+              (setq reader-error nil)
+              (save-current-buffer (slime-dispatch-event event))))
+        (when (and (not reader-error) (slime-net-have-input-p))
+          (run-at-time 0 nil 'slime-process-available-input))))))
 
 (defun slime-net-have-input-p ()
   "Return true if a complete message is available."
@@ -1706,7 +1716,7 @@ See `slime-compile-and-load-file' for further details."
 
 (defun slime-highlight-notes (notes)
   "Highlight compiler notes, warnings, and errors in the buffer."
-  (interactive (list (slime-compiler-notes-for-file (buffer-file-name))))
+  (interactive (list (slime-compiler-notes)))
   (save-excursion
     (slime-remove-old-overlays)
     (mapc #'slime-overlay-note notes)))
@@ -1787,7 +1797,7 @@ is kept."
   "Choose the start and end points for an overlay over NOTE.
 If the location's sexp is a list spanning multiple lines, then the
 region around the first element is used."
-  (slime-goto-location note)
+  (slime-goto-source-location (getf note :location))
   (let ((start (point)))
     (slime-forward-sexp)
     (if (slime-same-line-p start (point))
@@ -1845,51 +1855,57 @@ first element of the source-path redundant."
           (beginning-of-sexp))
       (error (goto-char origin)))))
 
-(defun slime-goto-location (note)
-  "Move to the location fiven with the note NOTE.
+(defun slime-goto-source-location (location)
+  "Move to the source location LOCATION.
 
-NOTE's :position property contains the byte offset of the toplevel
-form we are searching.  NOTE's :source-path property the path to the
-subexpression.  NOTE's :function-name property indicates the name of
-the function the note occurred in.
+LOCATION is a plist and defines a position in a buffer.  Several kinds
+of locations are supported:
 
-A source-path is a list of the form (1 2 3 4), which indicates a
-position in a file in terms of sexp positions. The first number
-identifies the top-level form that contains the position that we wish
-to move to: the first top-level form has number 0. The second number
-in the source-path identifies the containing sexp within that
-top-level form, etc."
-  (interactive)
-  (cond ((plist-get note :function-name)
-	 (ignore-errors
-	   (goto-char (point-min))
-	   (re-search-forward (format "^(def\\w+\\s +%s\\s +"
-				      (plist-get note :function-name)))
-	   (beginning-of-line)))
-	((or (not (plist-get note :source-path))
-             (and (not (plist-get note :filename))
-                  (not (plist-get note :buffername))
-                  (plist-get note :source-path)))
-	 ;; no source-path available. hmm... move the the first sexp
-	 (cond ((plist-get note :buffername)
-		(goto-char (plist-get note :buffer-offset)))
-	       (t
-		(goto-char (point-min))))
-	 (forward-sexp)
-	 (backward-sexp))
-	((stringp (plist-get note :filename))
-	 ;; Jump to the offset given with the :position property (and avoid
-	 ;; most of the reader issues)
-	 (goto-char (plist-get note ':position))
-	 ;; Drop the the toplevel form from the source-path and go the
-	 ;; expression.
-	 (slime-forward-positioned-source-path (plist-get note ':source-path)))
-	((stringp (plist-get note :buffername))
-	 (assert (string= (buffer-name) (plist-get note :buffername)))
-	 (goto-char (plist-get note :buffer-offset))
-	 (slime-forward-source-path (plist-get note ':source-path)))
-	(t
-	 (error "Unsupported location type %s" note))))
+ (:file ,filename ,position)             -- A position in a file.
+ (:emacs-buffer ,buffername ,position)   -- A position in a buffer.
+ (:defintion-name ,name)                 -- A name of a definition.
+ (:null)                                 -- A dummy.
+ (:error ,message)                       -- The location cannot be found.
+ (:sbcl &key "
+  (destructure-case location
+    ((:file filename position)
+     (set-buffer (find-file-noselect filename t))
+     (goto-char position))
+    ((:emacs-buffer buffer position)
+     (set-buffer buffer)
+     (goto-char position))
+    ((:null)
+     (beginning-of-defun))
+    ((:error message)
+     (error "Cannot locate source: %s" message))
+    ((:openmcl &key function-name)
+     (ignore-errors
+       (goto-char (point-min))
+       (re-search-forward (format "^(def\\w+\\s +%s\\s +" function-name)
+       (beginning-of-line))))
+    ((:sbcl 
+      &key from buffername buffer-offset 
+      filename position info source-path path source-form function-name)
+     (cond (function-name
+            (ignore-errors
+              (goto-char (point-min))
+              (re-search-forward (format "^(def\\w+\\s +%s\\s +"
+                                         function-name))
+              (beginning-of-line)))
+           ((and (eq filename :lisp) (not buffername))
+            (beginning-of-defun))
+           (t
+            (cond (buffername
+                   (set-buffer buffername) (goto-char buffer-offset))
+                  (filename
+                   (set-buffer (find-file-noselect filename))
+                   (when position (goto-char position))))
+            (cond (path 
+                   (slime-forward-source-path (cdr path)))
+                  (source-path
+                   (slime-forward-positioned-source-path source-path))
+                  (t
+                   (forward-sexp) (backward-sexp))))))))
 
 (defmacro slime-point-moves-p (&rest body)
   "Execute BODY and return true if the current buffer's point moved."
@@ -1945,7 +1961,8 @@ top-level form, etc."
       (member* (symbol-name e) slime-lisp-features :test #'equalp)
     (funcall (ecase (car e)
                (and #'every)
-               (or  #'some))
+               (or  #'some)
+               (not (lambda (f l) (not (apply f l)))))
              #'slime-eval-feature-conditional
              (cdr e))))
 
@@ -2378,6 +2395,7 @@ function name is prompted."
            (slime-message "%s" (cadr source-location)))
           (t
            (slime-goto-source-location source-location)
+           (switch-to-buffer (current-buffer))
            (ring-insert-at-beginning 
 	    slime-find-definition-history-ring origin)))))
 
@@ -3065,38 +3083,6 @@ the current index when the selection is completed."
   (save-excursion
     (sldb-backward-frame)
     (sldb-frame-number-at-point)))
-
-(defun slime-goto-source-location (source-location &optional other-window)
-  (let ((error (plist-get source-location :error)))
-    (when error
-      (error "Cannot locate source: %s" error))
-    (case (plist-get source-location :from)
-      (:file
-       (funcall (if other-window #'find-file-other-window #'find-file)
-		(plist-get source-location :filename))
-       (goto-char (plist-get source-location :position))
-       (forward-sexp) (backward-sexp)
-       t)
-      (:stream
-       (let ((info (plist-get source-location :info)))
-	 (cond ((and (consp info) (eq :emacs-buffer (car info)))
-		(let ((buffer (plist-get info :emacs-buffer))
-		      (offset (plist-get info :emacs-buffer-offset)))
-		  (funcall (if other-window 
-			       #'switch-to-buffer-other-window 
-			     #'switch-to-buffer)
-			   (get-buffer buffer))
-		  (goto-char offset)
-		  (slime-forward-source-path
-		   (plist-get source-location :path)))
-                t)
-	       (t
-		(error "Cannot locate source from stream: %s"
-		       source-location)))))
-      (t
-       (slime-message "Source Form:\n%s" 
-		      (plist-get source-location :source-form))
-       nil))))
 	   
 (defun sldb-show-source ()
   (interactive)
@@ -3108,8 +3094,12 @@ the current index when the selection is completed."
 
 (defun slime-show-source-location (source-location)
   (save-selected-window
-    (when (slime-goto-source-location source-location t)
-      (sldb-highlight-sexp))))
+    (slime-goto-source-location source-location)
+    (sldb-highlight-sexp)
+    (display-buffer (current-buffer) t)
+    (save-excursion
+      (beginning-of-line -4)
+      (set-window-start (get-buffer-window (current-buffer)) (point)))))
 
 (defun sldb-frame-details-visible-p ()
   (and (get-text-property (point) 'frame)
@@ -3191,7 +3181,7 @@ the current index when the selection is completed."
 (defun sldb-pprint-eval-in-frame (string)
   (interactive (list (slime-read-from-minibuffer "Eval in frame: ")))
   (let* ((number (sldb-frame-number-at-point)))
-    (slime-eval-async `(swank:eval-string-in-frame ,string ,number)
+    (slime-eval-async `(swank:pprint-eval-string-in-frame ,string ,number)
 		      nil
 		      (lambda (result)
 			(slime-show-description result nil)))))
