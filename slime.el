@@ -4355,6 +4355,18 @@ The details include local variable bindings and CATCH-tags."
   (interactive)
   (let ((frame (sldb-frame-number-at-point)))
     (slime-eval-async `(swank:sldb-step ,frame) nil (lambda ()))))
+
+(defun sldb-return-from-frame (string)
+  "reads an expression in the minibuffer and causes the function to return that value, evaluated in the context of the frame"
+  (interactive (list (slime-read-from-minibuffer "Return from frame: ")))
+  (let* ((number (sldb-frame-number-at-point)))
+    (slime-oneway-eval `(swank::sldb-return-from-frame ,string ,number) (slime-buffer-package)))) 
+(defun sldb-restart-frame ()
+  "causes the frame to restart execution with the same arguments as it was called originally"
+  (interactive)
+  (let* ((number (sldb-frame-number-at-point)))
+    (slime-oneway-eval `(swank::sldb-restart-frame ,number) (slime-buffer-package))))
+ 
             
 
 ;;; Thread control panel
