@@ -1573,12 +1573,8 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
                 (t (format nil "Cannot return from frame: ~S" frame))))
         "return-from-frame is not implemented in this version of CMUCL.")))
 
-(defimplementation sldb-step (frame)
-  (cond ((find-restart 'continue)
-         (set-step-breakpoints (nth-frame frame))
-         (continue))
-        (t
-         (error "No continue restart."))))
+(defimplementation activate-stepping (frame)
+  (set-step-breakpoints (nth-frame frame)))
 
 (defimplementation sldb-break-on-return (frame)
   (break-on-return (nth-frame frame)))
@@ -1605,18 +1601,40 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
   "Return true if the frame pointers of FRAME1 and FRAME2 are the same."
   (sys:sap= (di::frame-pointer frame1) (di::frame-pointer frame2)))
 
+;;; The PC in escaped frames at a single-return-value point is
+;;; actually vm:single-value-return-byte-offset bytes after the
+;;; position given in the debug info.  Here we try to recognize such
+;;; cases.
+;;;
+(defun next-code-locations (frame code-location)
+  "Like `debug::next-code-locations' but be careful in escaped frames."
+  (let ((next (debug::next-code-locations code-location)))
+    (flet ((adjust-pc ()
+             (let ((cl (di::copy-compiled-code-location code-location)))
+               (incf (di::compiled-code-location-pc cl) 
+                     vm:single-value-return-byte-offset)
+               cl)))
+      (cond ((and (di::compiled-frame-escaped frame)
+                  (eq (di:code-location-kind code-location)
+                      :single-value-return)
+                  (= (length next) 1)
+                  (di:code-location= (car next) (adjust-pc)))
+             (debug::next-code-locations (car next)))
+            (t
+             next)))))
+
 (defun set-step-breakpoints (frame)
   (let ((cl (di:frame-code-location frame)))
     (when (di:debug-block-elsewhere-p (di:code-location-debug-block cl))
       (error "Cannot step in elsewhere code"))
-    (let* ((debug::*bad-code-location-types* 
+    (let* ((debug::*bad-code-location-types*
             (remove :call-site debug::*bad-code-location-types*))
-           (next (debug::next-code-locations cl)))
+           (next (next-code-locations frame cl)))
       (cond (next
              (let ((steppoints '()))
                (flet ((hook (bp-frame bp)
-                        (mapc #'di:delete-breakpoint steppoints)
-                        (signal-breakpoint bp bp-frame)))
+                        (signal-breakpoint bp bp-frame)
+                        (mapc #'di:delete-breakpoint steppoints)))
                  (dolist (code-location next)
                    (let ((bp (di:make-breakpoint #'hook code-location
                                                  :kind :code-location)))
@@ -1874,29 +1892,30 @@ The `symbol-value' of each element is a type tag.")
 
 (defmethod inspect-for-emacs :around ((o function) (inspector cmucl-inspector))
   (declare (ignore inspector))
-  (multiple-value-bind (title contents)
-      (call-next-method)
-    (let ((header (kernel:get-type o)))
-      (cond ((= header vm:function-header-type)
-             (values (format nil "~A is a function." o)
-                     (append contents
-                             (label-value-line*
-                              ("Self" (kernel:%function-self o))
-                              ("Next" (kernel:%function-next o))
-                              ("Type" (kernel:%function-type o))
-                              ("Code" (kernel:function-code-header o)))
-                             (list 
-                              (with-output-to-string (s)
-                                (disassem:disassemble-function o :stream s))))))
-            ((= header vm:closure-header-type)
-             (values (format nil "~A is a closure" o)
-                     (append 
-                      (label-value-line "Function Object" (kernel:%closure-function o))
-                      `("Environment:" (:newline))
-                      (loop
-                         for i from 0 below (1- (kernel:get-closure-length o))
-                         append (label-value-line i (kernel:%closure-index-ref o i))))))
-	  (t (values title contents))))))
+  (let ((header (kernel:get-type o)))
+    (cond ((= header vm:function-header-type)
+           (values (format nil "~A is a function." o)
+                   (append (label-value-line*
+                            ("Self" (kernel:%function-self o))
+                            ("Next" (kernel:%function-next o))
+                            ("Name" (kernel:%function-name o))
+                            ("Arglist" (kernel:%function-arglist o))
+                            ("Type" (kernel:%function-type o))
+                            ("Code" (kernel:function-code-header o)))
+                           (list 
+                            (with-output-to-string (s)
+                              (disassem:disassemble-function o :stream s))))))
+          ((= header vm:closure-header-type)
+           (values (format nil "~A is a closure" o)
+                   (append 
+                    (label-value-line "Function" (kernel:%closure-function o))
+                    `("Environment:" (:newline))
+                    (loop for i from 0 below (1- (kernel:get-closure-length o))
+                          append (label-value-line 
+                                  i (kernel:%closure-index-ref o i))))))
+          (t 
+           (call-next-method)))))
+
 
 (defmethod inspect-for-emacs ((o kernel:code-component) (_ cmucl-inspector))
   (declare (ignore _))
@@ -1945,14 +1964,14 @@ The `symbol-value' of each element is a type tag.")
   (eval `(profile:unprofile ,fname)))
 
 (defimplementation unprofile-all ()
-  (profile:unprofile)
+  (eval `(profile:unprofile))
   "All functions unprofiled.")
 
 (defimplementation profile-report ()
-  (profile:report-time))
+  (eval `(profile:report-time)))
 
 (defimplementation profile-reset ()
-  (profile:reset-time)
+  (eval `(profile:reset-time))
   "Reset profiling counters.")
 
 (defimplementation profiled-functions ()
