@@ -62,6 +62,10 @@
 (defimplementation lisp-implementation-type-name ()
   "clisp")
 
+(defimplementation set-default-directory (directory)
+  (setf (ext:default-directory) directory)
+  (namestring (setf *default-pathname-defaults* (ext:default-directory))))
+
 
 ;;; TCP Server
 
@@ -365,11 +369,10 @@ Execute BODY with NAME's funtion slot set to FUNCTION."
 (defxref list-callers   xref:list-callers)
 (defxref list-callees   xref:list-callees)
 
-(defun xref-results (fspecs)
+(defun xref-results (symbols)
   (let ((xrefs '()))
-    (dolist (fspec fspecs)
-      (dolist (location (fspec-source-locations fspec))
-	(push (list fspec location) xrefs)))
+    (dolist (symbol symbols)
+      (push (list symbol (fspec-location symbol)) xrefs))
     xrefs))
 
 (when (find-package :swank-loader)
@@ -398,12 +401,12 @@ Execute BODY with NAME's funtion slot set to FUNCTION."
 	     ;; Issue 91
 	     )				
 	 (ext:with-restarts
-	     ((CONTINUE
+	     ((continue
 	       :report (lambda (stream)
-			 (format stream (sys::TEXT "Return from ~S loop")
+			 (format stream (sys::text "Return from ~S loop")
 				 'break))
 	       ()))
-	   (with-condition-restarts condition (list (find-restart 'CONTINUE))
+	   (with-condition-restarts condition (list (find-restart 'continue))
 				    (invoke-debugger condition)))))
    nil))
 
