@@ -1,3 +1,27 @@
+2004-09-01  John Paul Wallington  <jpw@gnu.org>
+
+	* slime.el (slime-oneliner): Don't use free variable.
+	(slime-recenter-window, slime-set-connection-info)
+	(slime-pprint-event, slime-compiler-notes-quit)
+	(slime-apropos-summary): Likewise.
+	(slime-connect): Tidy up handshake `message' call.
+
+2004-09-01  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-repl-push-directory): Fix interactive spec.
+	(sldb-reference-properties): Take a the reference object as
+	argument instead of its parts. Fix callers accordingly.
+	(slime-fuzzy-choices-buffer): Remove assignment to unused variable
+	slime-fuzzy-target-mtime.
+	(slime-ed): Replace call to new-frame with make-frame.
+	(sldb-find-buffer): Cleanup.
+	(sldb-highlight-sexp): Fix regexp. It's now almost a full line.
+
+	* swank.lisp (completion-set, tokenize-symbol-designator)
+	(tokenize-completion, fuzzy-completion-set)
+	(briefly-describe-symbol-for-emacs): Remove simple-base-string
+	declarations.
+
 2004-08-30  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* PROBLEMS: We require SBCL 0.8.13.  0.8.12 is no longer

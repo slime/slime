@@ -167,9 +167,9 @@ Lisp-side (Swank)
 
 @SLIME{} is the ``Superior Lisp Interaction Mode for Emacs.''
 
-@SLIME{} extends Emacs with new support interactive programming in
-Common Lisp. The features are centred around @code{slime-mode}, an
-Emacs minor-mode that compliments the standard @code{lisp-mode}. While
+@SLIME{} extends Emacs with new support for interactive programming in
+Common Lisp. The features are centred around @code{slime-mode}, an Emacs
+minor-mode that compliments the standard @code{lisp-mode}. While
 @code{lisp-mode} supports editing Lisp source files, @code{slime-mode}
 adds support for interacting with a running Common Lisp process for
 compilation, debugging, documentation lookup, and so on.
