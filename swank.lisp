@@ -340,11 +340,8 @@ element."
 (defun interrupt-worker-thread (thread)
   (let ((thread (etypecase thread
                   ((member t) (cdr (car *active-threads*)))
-                  (fixnum (lookup-thread-id thread))))
-        (hook #'swank-debugger-hook))
-    (interrupt-thread thread (lambda ()
-			       (let ((*debugger-hook* hook))
-				 (simple-break))))))
+                  (fixnum (lookup-thread-id thread)))))
+    (interrupt-thread thread #'simple-break)))
 
 (defun dispatch-event (event socket-io)
   (log-event "DISPATCHING: ~S~%" event)
@@ -697,11 +694,12 @@ exists."
 ;;; cover cases like (&key (function #'cons) (quote 'quote)).  Too
 ;;; much code for such a minor feature?
 
-(defvar *initial-pprint-dispatch-table* (copy-pprint-dispatch nil))
+(defvar *initial-pprint-dispatch-table* (copy-pprint-dispatch))
 
 (defun print-cons-argument (stream object)
   (pprint-logical-block (stream object :prefix "(" :suffix ")")
     (princ (car object) stream)
+    (write-char #\space stream)
     (let ((*print-pprint-dispatch* *initial-pprint-dispatch-table*))
       (pprint-fill stream (cdr object) nil))))
 
@@ -710,7 +708,7 @@ exists."
     (princ object stream)))
 
 (defvar *arglist-pprint-dispatch-table* 
-  (let ((table (copy-pprint-dispatch nil)))
+  (let ((table (copy-pprint-dispatch)))
     (set-pprint-dispatch 'cons #'print-cons-argument 0 table)
     (set-pprint-dispatch 'symbol #'print-symbol-argument 0 table)
     table))
