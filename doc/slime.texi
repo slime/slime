@@ -249,7 +249,7 @@ compiler-note annotations, @acronym{XREF} support, and fancy debugger
 commands (like ``restart frame'').
 
 @node Downloading, Installation, Platforms, Getting started
-@section Downloading @SLIME{} (from @CVS{})
+@section Downloading SLIME (from CVS)
 
 @SLIME{} is available from the @CVS{} repository on
 @file{common-lisp.net}. You have the option to use either the very
@@ -274,7 +274,7 @@ once or twice per month).
 @end menu
 
 @node CVS Incantations,  , Downloading, Downloading
-@subsection @CVS{} incantations
+@subsection CVS incantations
 
 To download @SLIME{} you first configure your @code{CVSROOT} and login
 to the repository.
@@ -325,7 +325,7 @@ path.
 @end iftex
 
 @node Running,  , Installation, Getting started
-@section Running @SLIME{}
+@section Running SLIME
 
 @SLIME{} is started with the Emacs command @kbd{M-x slime}. This uses
 the @code{inferior-lisp} package to start a Lisp process, loads and
@@ -744,7 +744,7 @@ You can use @kbd{M-x slime-update-indentation} to force all symbols to
 be scanned for indentation information.
 
 @node REPL, Debugger, slime-mode, Top
-@chapter @REPL{}: the ``top level''
+@chapter REPL: the ``top level''
 
 @SLIME{} uses a custom Read-Eval-Print Loop (@REPL{}, also known as a
 ``top level''). The @REPL{} user-interface is written in Emacs Lisp,
@@ -770,7 +770,7 @@ user input.
 @end menu
 
 @node REPL commands, Input Navigation, REPL, REPL
-@section @REPL{} commands
+@section REPL commands
 
 @table @kbd
 
@@ -845,7 +845,7 @@ currently documented in this manual, but you can use the @code{help}
 shortcut to list them interactively.
 
 @node Debugger, Extras, REPL, Top
-@chapter @SLDB{}: the @SLIME{} debugger
+@chapter SLDB: the SLIME debugger
 
 @SLIME{} has a custom Emacs-based debugger called @SLDB{}. Conditions
 signalled in the Lisp system invoke @SLDB{} in Emacs by way of the
