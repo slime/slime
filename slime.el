@@ -1840,7 +1840,7 @@ output as arguments.")
   (when (and (not (get-buffer-window (current-buffer) t))
              (< start end))
     (display-buffer (current-buffer))))
-
+      
 (defun slime-flush-output ()
   (while (accept-process-output nil 0 20)))
 
@@ -2640,9 +2640,9 @@ This operation is \"lossy\" in the broad sense but not for display purposes."
 
 (defun slime-merge-notes (notes)
   "Merge NOTES together. Keep the highest severity, concatenate the messages."
-  (let* ((new-severity (reduce #'slime-most-severe notes :key #'slime-note.severity))
-         (messages (mapcar #'slime-note.message notes))
-         (new-message (apply #'concat (slime-intersperse "\n" messages))))
+  (let* ((new-severity (reduce #'slime-most-severe notes
+                               :key #'slime-note.severity))
+         (new-message (mapconcat #'slime-note.message notes "\n")))
     (let ((new-note (copy-list (car notes))))
       (setf (getf new-note :message) new-message)
       (setf (getf new-note :severity) new-severity)
@@ -2650,8 +2650,10 @@ This operation is \"lossy\" in the broad sense but not for display purposes."
 
 (defun slime-intersperse (element list)
   "Intersperse ELEMENT between each element of LIST."
-  (cons (car list)
-        (mapcan (lambda (x) (list element x)) list)))
+  (if (null list) 
+      '()
+    (cons (car list)
+          (mapcan (lambda (x) (list element x)) (cdr list)))))
 
 (defun slime-notes-in-same-location-p (a b)
   (equal (slime-note.location a) (slime-note.location b)))
