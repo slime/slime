@@ -84,7 +84,7 @@ If nil, indent backquoted lists as data, i.e., like quoted lists."
   :type 'boolean
   :group 'lisp-indent)
 
-(defcustom lisp-prefix-match-indentation nil
+(defcustom lisp-prefix-match-indentation t
   "*Indent forms starting with \"def\" or \"do\" like defun or dolist."
   :type 'boolean
   :group 'lisp-indent)
@@ -510,6 +510,7 @@ If nil, indent backquoted lists as data, i.e., like quoted lists."
            (define-setf-expander . defun)
            (defmacro . defun) (defsubst . defun) (deftype . defun)
 	   (defmethod	lisp-indent-defmethod)
+           (defgeneric  . defmethod)
            (defpackage  (4 2))
            (defstruct   ((&whole 4 &rest (&whole 2 &rest 1))
                          &rest (&whole 2 &rest 1)))
@@ -565,7 +566,15 @@ If nil, indent backquoted lists as data, i.e., like quoted lists."
            (with-output-to-string (4 2))
            (with-slots . multiple-value-bind)
            (with-standard-io-syntax (2))
-	   (with-open-file (&lambda &body)))))
+	   (with-open-file (&lambda &body))
+	   (with-open-stream (&lambda &body))
+	   (with-input-from-string (&lambda &body))
+	   (with-hash-table-iterator 1)
+	   (with-compilation-unit (&lambda &body))	   
+	   (with-simple-restart (&lambda &body))
+	   (do-external-symbols (&lambda &body))
+	   (define-symbol-macro 1)
+	   )))
   (dolist (el l)
     (put (car el) 'common-lisp-indent-function
          (if (symbolp (cdr el))
