@@ -1,5 +1,21 @@
 * The SLIME Hacker's Handbook                                   -*- outline -*-
 
+* Lisp code file structure
+
+The Lisp code is organised into these files:
+
+  swank-backend.lisp:
+    Definition of the interface to non-portable features.
+    Stand-alone.
+
+  swank-<cmucl|...>.lisp:
+    Backend implementation for a specific Common Lisp system.
+    Uses swank-backend.lisp.
+
+  swank.lisp:
+    The top-level server program, built from the other components.
+    Uses swank-backend.lisp as an interface to the actual backends.
+
 * ChangeLog
 
 For each change we make an entry in the ChangeLog file. This is
@@ -21,65 +37,9 @@ and `Change Logs and VC' nodes of the Emacs manual:
 
 * Sending Patches
 
-If you would like to send us improvements, you can create a patch with
-C-x v = in the buffer or manually with 'cvs diff -u'.  You can also
-include a ChangeLog entry describing your change.
-
-* Adding a backend function
-
-To add a new "backend" function that must be implemented separately
-for each Lisp, we add a generic function in swank-backend.lisp and
-export the function name. We then provide a method for the function in
-the specific backend file for each Lisp that supports it. If a
-reasonable default implementation can be provided, we do so in
-swank-backend.lisp by specializing NO-APPLICABLE-METHOD [or is that a
-bad idea? -luke].
-
-Because these generic functions define our interface for people
-porting to new Lisps, it is especially helpful to clearly document
-them.
-
-Currently not all backend functions are defined in this way. We are
-ongoingly refactoring the code so that swank.lisp will only call
-backend functions via the generic functions defined in
-swank-backend.lisp. When this refactoring is complete we intend to
-make the separation stronger by putting the portable and non-portable
-code in separate Lisp packages.
-
-Refactoring code to avoid direct calls from swank.lisp to functions
-defined in swank-<impl>.lisp is good for karma.
-
-* Lisp code structure
-
-The ideal is to structure things like this:
-
-  swank-backend.lisp:
-    Definition of the interface to non-portable features.
-    Stand-alone.
-
-  swank-<cmucl|...>.lisp:
-    Backend implementation for a specific Common Lisp system.
-    Uses swank-backend.lisp.
-
-  swank.lisp:
-    The top-level server program, built from the other components.
-    Uses swank-backend.lisp as an interface to the actual backends.
-
-Today things are more messy. Originally everything was in one file,
-and we haven't finished the reorganisation yet.
-
-* Calling Lisp from Emacs
-
-By convention our Elisp code only calls functions in the SWANK package
-that are defined with DEFSLIMEFUN, and calls them with constants for
-arguments. The idea is to keep all of the Common Lisp code in separate
-source files so that it's easy to see what Lisp code runs, without
-needing to look for snippets of CL in the Elisp sources.
-
-Our current Elisp code sometimes calls SWANK-exported functions that
-are not defined by DEFSLIMEFUN, but by DEFGENERIC in
-swank-backend.lisp. [Is it just me that does this, and should I stop
-it? -luke]
+If you would like to send us improvements you can create a patch with
+C-x v = in the buffer or manually with 'cvs diff -u'.  It's helpful if
+you also include a ChangeLog entry describing your change.
 
 * Test Suite
 
@@ -88,28 +48,75 @@ suite. This can give a pretty good sanity-check for your changes.
 
 Some backends do not pass the full test suite because of missing
 features. In these cases the test suite is still useful to ensure that
-changes don't introduce new errors. CMUCL has historically passed the
-full test suite, and so it makes a good sanity check for fundamental
-changes (e.g. to the protocol).
+changes don't introduce new errors. CMUCL historically passes the full
+test suite so it makes a good sanity check for fundamental changes
+(e.g. to the protocol).
 
 Running the test suite, adding new cases, and increasing the number of
 cases that backends support are all very good for karma.
 
-* outline-minor-mode
+
+* Source code layout
 
-The SLIME source files have special comments that outline-minor-mode
-can use to "fold" source buffers down to a section-by-section
-outline. See the `Outline Mode' node of the Emacs manual for details:
-  http://www.gnu.org/software/emacs/manual/html_node/emacs_246.html#SEC246
+We use a special source file layout to take advantage of some fancy
+Emacs features: outline-mode and "narrowing".
 
-Some tips to make the most of outline mode:
-  You can set `outline-minor-mode-prefix' for more convenient
-  keybindings, e.g. to [(control \;)].
-  `<prefix> C-a' displays all levels.
-  `C-3 <prefix> C-q' displays only top-level headings.
-  `<prefix> C-t' displays only/all headings.
-  `<prefix> {n,p}' for next/previous heading.
+** Outline structure
 
+Our source files have a hierarchical structure using comments like
+these:
+
+  ;;;; Heading
+  ;;;;; Subheading
+  ... etc
+
+We do this as a nice way to structure the program. We try to keep each
+(sub)section small enough to fit in your head: typically around 50-200
+lines of code each. Each section usually begins with a brief
+introduction, followed by its highest-level functions, followed by
+their subroutines. This is a pleasing shape for a source file to have.
+
+Of course the comments mean something to Emacs too. One handy usage is
+to bring up a hyperlinked "table of contents" for the source file
+using this command:
+
+  (defun show-outline-structure ()
+    "Show the outline-mode structure of the current buffer."
+    (interactive)
+    (occur (concat "^" outline-regexp)))
+
+Another is to use `outline-minor-mode' to fold away certain parts of
+the buffer. See the `Outline Mode' section of the Emacs manual for
+details about that.
+
+(This file is also formatted for outline mode. If you're reading in
+Emacs you can play around e.g. by pressing `C-c C-d' right now.)
+
+** Pagebreak characters (^L)
+
+We partition source files into chunks using pagebreak characters. Each
+chunk is a substantial piece of code that can be considered in
+isolation, that could perhaps be a separate source file if we were
+fanatical about small source files (rather than big ones!)
+
+The page breaks usually go in the same place as top-level outline-mode
+headings, but they don't have to. They're flexible.
+
+In the old days, when slime.el was less than 100 pages long, these
+page breaks were helpful when printing it out to read. Now they're
+useful for something else: narrowing.
+
+You can use `C-x n p' (narrow-to-page) to "zoom in" on a
+pagebreak-delimited section of the file as if it were a separate
+buffer in itself. You can then use `C-x n w' (widen) to "zoom out" and
+see the whole file again. This is tremendously helpful for focusing
+your attention on one part of the program as if it were its own file.
+
+(This file contains some page break characters. If you're reading in
+Emacs you can press `C-x n p' to narrow to this page, and then later
+`C-x n w' to make the whole buffer visible again.)
+
+
 * Coding style
 
 We like the fact that each function in SLIME will fit on a single
