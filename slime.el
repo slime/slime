@@ -6882,18 +6882,60 @@ Optionally set point to POINT."
   (set-window-configuration slime-saved-window-config)
   (kill-buffer (current-buffer)))
 
-(defun slime-inspector-next-inspectable-object ()
-  "sets the point to the next inspectable object"
-  (interactive)
-  (let ((pos (if (get-text-property (point) 'slime-part-number)
-                 ;; we're in a part
-                 (next-single-property-change 
-                  (or (next-single-property-change (point) 'slime-part-number) (point-min))
-                  'slime-part-number)
-                 ;; go to the next part or wrap around
-                 (or (next-single-property-change (point) 'slime-part-number)
-                     (next-single-property-change (point-min) 'slime-part-number)))))
-    (when pos (goto-char pos))))
+(defun slime-inspector-next-inspectable-object (arg)
+  "Move point to the next inspectable object.
+With optional ARG, move across that many objects.
+If ARG is negative, move backwards."
+  (interactive "p")
+  (or (bobp) (> arg 0) (backward-char))
+  (let ((wrapped 0)
+	(number arg)
+	(old (get-text-property (point) 'slime-part-number))
+	new)
+    ;; Forward.
+    (while (> arg 0)
+      (cond ((eobp)
+	     (goto-char (point-min))
+	     (setq wrapped (1+ wrapped)))
+	    (t
+	     (goto-char (or (next-single-property-change (point) 
+                                                         'slime-part-number)
+                            (point-max)))))
+      (and (= wrapped 2)
+	   (eq arg number)
+	   (error "No inspectable objects"))
+      (let ((new (get-text-property (point) 'slime-part-number)))
+	(when new
+	  (unless (eq new old)
+	    (setq arg (1- arg))
+	    (setq old new)))))
+    ;; Backward.
+    (while (< arg 0)
+      (cond ((bobp)
+	     (goto-char (point-max))
+	     (setq wrapped (1+ wrapped)))
+	    (t
+	     (goto-char (or (previous-single-property-change 
+                             (point) 'slime-part-number)
+                            (point-min)))))
+      (and (= wrapped 2)
+	   (eq arg number)
+	   (error "No inspectable objects"))
+      (let ((new (get-text-property (point) 'slime-part-number)))
+	(when new
+	  (unless (eq new old)
+	    (setq arg (1+ arg))))))
+    (let ((new (get-text-property (point) 'slime-part-number)))
+      (while (eq (get-text-property (point) 'slime-part-number) new)
+	(backward-char)))
+    (forward-char)))
+
+(defun slime-inspector-previous-inspectable-object (arg)
+  "Move point to the previous inspectable object.
+With optional ARG, move across that many objects.
+If ARG is negative, move forwards."
+  (interactive "p")
+  (slime-inspector-next-inspectable-object (- arg)))
   
 (defun slime-inspector-describe ()
   (interactive)
@@ -6909,6 +6951,7 @@ Optionally set point to POINT."
   ("d" 'slime-inspector-describe)
   ("q" 'slime-inspector-quit)
   ("\C-i" 'slime-inspector-next-inspectable-object)
+  ([(shift tab)] 'slime-inspector-previous-inspectable-object)
   ("\M-." 'slime-edit-definition))
 
 
@@ -7256,7 +7299,7 @@ is exceeded."
 
 ;;;; Indentation
 
-(defcustom slime-conservative-indentation t
+(defcustom slime-conservative-indentation nil
   "If true then don't discover indentation of \"with-\" or \"def\" symbols."
   :type 'boolean
   :group 'slime-mode)
