@@ -1,3 +1,9 @@
+2004-07-16  Peter Seibel  <peter@javamonkey.com>
+
+	* slime.el (package-updating): Fixing this and other tests I broke
+	with my change to how emacs keeps track of the package prompt
+	string.
+
 2004-07-16  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-setup): New function for installing a
