@@ -83,6 +83,10 @@ Emacs Lisp package.")
 Don't access this value directly in a program. Call the function with
 the same name instead."))
 
+(defvar slime-lisp-features nil
+  "The symbol names in the *FEATURES* list of the Superior lisp.
+This is needed to READ Common Lisp expressions adequately.")
+
 (defvar sldb-level 0)
 
 
@@ -131,11 +135,11 @@ the same name instead."))
 ;;; Minor mode
 
 (define-minor-mode slime-mode
-  "\\<slime-mode-map>\
-The Superior Lisp Interaction Mode, Extended (minor-mode).
+  "\\<slime-mode-map>
+SLIME: The Superior Lisp Interaction Mode, Extended (minor-mode).
 
-Compilation commands compile the current buffer's source file and
-visually highlight any resulting compiler notes and warnings:
+Commands to compile the current buffer's source file and visually
+highlight any resulting compiler notes and warnings:
 \\[slime-compile-and-load-file]	- Compile and load the current buffer's file.
 \\[slime-compile-file]	- Compile (but not load) the current buffer's file.
 \\[slime-compile-defun]	- Compile the top-level form at point.
@@ -154,10 +158,18 @@ Programming aids:
 \\[slime-macroexpand-1]	- Macroexpand once.
 \\[slime-macroexpand-all]	- Macroexpand all.
 
+Cross-referencing (see CMUCL manual):
+\\[slime-who-calls]	- WHO-CALLS a function.
+\\[slime-who-references]	- WHO-REFERENCES a global variable.
+\\[slime-who-sets]	- WHO-SETS a global variable.
+\\[slime-who-binds]	- WHO-BINDS a global variable.
+\\[slime-who-macroexpands]	- WHO-MACROEXPANDS a macro.
+C-M-.		- Goto the next reference source location. (Also C-c C-SPC)
+
 Documentation commands:
-\\[slime-describe-symbol]:	Describe symbol.
-\\[slime-apropos]:	Apropos search.
-\\[slime-disassemble-symbol]:	Disassemble a function.
+\\[slime-describe-symbol]	- Describe symbol.
+\\[slime-apropos]	- Apropos search.
+\\[slime-disassemble-symbol]	- Disassemble a function.
 
 Evaluation commands:
 \\[slime-eval-defun]	- Evaluate top-level from containing point.
@@ -202,8 +214,8 @@ Evaluation commands:
     ("\C-c\C-ws" . slime-who-sets)
     ("\C-c\C-wm" . slime-who-macroexpands)
     ;; Not sure which binding is best yet, so both for now.
-    ("\C-c\C- "  . slime-next-location)
     ([(control meta ?\.)] . slime-next-location)
+    ("\C-c\C- "  . slime-next-location)
     ))
 
 ;; Setup the mode-line to say when we're in slime-mode, and which CL
@@ -241,6 +253,7 @@ This list of flushed between commands."))
 (add-hook 'slime-mode-hook 'slime-setup-command-hooks)
 (add-hook 'slime-mode-hook 'slime-buffer-package)
 
+
 ;;; Common utility functions
 
 (defun slime-display-buffer-other-window (buffer &optional not-this-window)
@@ -419,6 +432,7 @@ If that doesn't give a function, return nil."
       (error "Unable to contact Swank server.")
     (if (slime-net-connect host port)
         (progn (slime-init-dispatcher)
+               (slime-fetch-features-list)
                (message "Connected to Swank on %s:%S. %s"
                         host port (slime-random-words-of-encouragement)))
       (message "Connecting to Swank (%S attempts remaining)." 
@@ -447,6 +461,11 @@ The CMUCL support library (Swank) is not compiled. Compile now? "))
                      (y-or-n-p "\
 Your Swank binary is older than the source. Recompile now? ")))
         (compile-swank)))))
+
+(defun slime-fetch-features-list ()
+  "Fetch and remember the *FEATURES* of the inferior lisp."
+  (interactive)
+  (setq slime-lisp-features (slime-eval '(swank:features))))
 
 (defvar slime-words-of-encouragement
   '("Let the hacking commence!"
@@ -918,7 +937,7 @@ is kept."
 	 (getp (name)       (overlay-get overlay name)))
     (putp 'severity (slime-most-severe severity (getp 'severity)))
     (putp 'face (slime-severity-face (getp 'severity)))
-    (putp 'help-echo (concat (getp 'help-echo) "\n;;\n" message))))
+    (putp 'help-echo (concat (getp 'help-echo) "\n" message))))
 
 (defun slime-choose-overlay-region (note)
   "Choose the start and end points for an overlay over NOTE.
@@ -960,17 +979,17 @@ Severity is ordered as :NOTE < :WARNING < :ERROR."
   "Visit a full source path including the top-level form."
   (ignore-errors
     (goto-char (point-min))
-    (forward-sexp (car source-path))
+    (slime-forward-sexp (car source-path))
     (slime-forward-source-path (cdr source-path))))
 
 (defun slime-forward-source-path (source-path)
   (let ((origin (point)))
     (cond ((null source-path)
-	   (or (ignore-errors (forward-sexp) (backward-sexp) t)
+	   (or (ignore-errors (slime-forward-sexp) (backward-sexp) t)
 	       (goto-char origin)))
 	  (t 
 	   (or (ignore-errors (down-list 1)
-			      (forward-sexp (car source-path))
+			      (slime-forward-sexp (car source-path))
 			      (slime-forward-source-path (cdr source-path)))
 	       (goto-char origin))))))
 
@@ -988,8 +1007,8 @@ to move to: the first top-level form has number 0. The second number
 in the source-path identifies the containing sexp within that
 top-level form, etc."
   (interactive)
-  (cond ((not (plist-get note :context))
-	 ;; no context available. hmm... move the the first sexp
+  (cond ((not (plist-get note :source-path))
+	 ;; no source-path available. hmm... move the the first sexp
 	 (cond ((plist-get note :buffername)
 		(goto-char (plist-get note :buffer-offset)))
 	       (t
@@ -1011,14 +1030,37 @@ top-level form, etc."
 	 (error "Unsupported location type %s" note))))
 
 (defun slime-forward-sexp (&optional count)
-  "Like `forward-sexp', but steps over reader-conditionals (#- and #+)."
+  "Like `forward-sexp', but understands reader-conditionals (#- and #+)."
   (dotimes (i (or count 1))
-    (forward-sexp)
-    (backward-sexp)
-    (when (or (looking-at "#+")
-	      (looking-at "#-"))
-      (forward-sexp))
+    (slime-forward-reader-conditional)
     (forward-sexp)))
+
+(defun slime-forward-reader-conditional ()
+  "Move past any reader conditionals (#+ or #-) at point."
+  (while (progn (slime-beginning-of-next-sexp)
+                (or (looking-at "\\s *#\\+")
+                    (looking-at "\\s *#-")))
+    (goto-char (match-end 0))
+    (let* ((plus-conditional-p (eq (char-before) ?+))
+           (result (slime-eval-feature-conditional (read (current-buffer)))))
+      (unless (if plus-conditional-p result (not result))
+        ;; skip this sexp
+        (forward-sexp)))))
+    
+(defun slime-beginning-of-next-sexp ()
+  "Move the point to the first character of the next sexp."
+  (forward-sexp)
+  (backward-sexp))
+
+(defun slime-eval-feature-conditional (e)
+  "Interpret a reader conditional expression."
+  (if (symbolp e)
+      (member* (symbol-name e) slime-lisp-features :test #'equalp)
+    (destructure-case e
+      ((and . operands)
+       (every #'slime-eval-feature-conditional operands))
+      ((or . operands)
+       (some #'slime-eval-feature-conditional operands)))))
 
 
 ;;;; Visiting and navigating the overlays of compiler notes
@@ -1274,11 +1316,14 @@ function name is prompted."
 	(source-location
 	 (slime-eval `(swank:function-source-location-for-emacs ,name)
 		     (slime-buffer-package))))
-    (if (null source-location)
-        (message "No definition found: %s" name)
-      (slime-goto-source-location source-location)
-      (ring-insert-at-beginning slime-find-definition-history-ring origin))))
-    
+    (cond ((null source-location)
+           (message "No definition found: %s" name))
+          ((eq (car source-location) :error)
+           (message (cadr source-location)))
+          (t
+           (slime-goto-source-location source-location)
+           (ring-insert-at-beginning slime-find-definition-history-ring origin)))))
+
 
 ;;; Interactive evaluation.
 
@@ -1380,6 +1425,7 @@ First make the variable unbound, then evaluate the entire form."
 ;;; Documentation
 
 (defun slime-show-description (string package)
+  (slime-save-window-configuration)
   (save-current-buffer
     (let* ((slime-package-for-help-mode package)
 	   (temp-buffer-show-hook 
@@ -2330,6 +2376,7 @@ Unless optional argument INPLACE is non-nil, return a new string."
   (and (not (featurep 'xemacs))
        (= emacs-major-version 20)))
 
+
 ;;; Finishing up
 
 (run-hooks 'slime-load-hook)

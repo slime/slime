@@ -5,6 +5,7 @@
   (:export #:start-server
            #:eval-string
 	   #:ping
+           #:features
 	   #:interactive-eval
 	   #:interactive-eval-region
 	   #:pprint-eval
@@ -62,8 +63,6 @@
 (defun start-server (&optional (port server-port))
   (create-swank-server port :reuse-address t)
   (setf c:*record-xref-info* t)
-  (ext:without-package-locks
-   (setf c:*compiler-notification-function* 'handle-notification))
   (when *swank-debug-p*
     (format *debug-io* "~&;; Swank ready.~%")))
 
@@ -305,30 +304,49 @@ Each value is a list of (LOCATION SEVERITY MESSAGE CONTEXT) lists.
 
 (defvar *buffername*)
 (defvar *buffer-offset*)
-  
-(defun handle-notification (severity message context where-from position)
-  "Hook function called by the compiler.
-See C:*COMPILER-NOTIFICATION-FUNCTION*"
-  ;; Sometimes we are called with all NILs for some reason -- ignore that
-  (when message
-    (let* ((namestring (cond ((stringp where-from) where-from)
-                             ;; we can be passed a stream from READER-ERROR
-                             (where-from (to-string where-from))
-                             (t where-from)))
-           (note (list 
-                  :position position
-                  :source-path (current-compiler-error-source-path)
-                  :filename namestring
-                  :severity severity
-                  :message message
-                  :context context
-                  :buffername (if (boundp '*buffername*) 
-                                  *buffername*)
-                  :buffer-offset (if (boundp '*buffer-offset*)
-                                     *buffer-offset*))))
-      (push note *compiler-notes*)
-      (when namestring
-        (push note (gethash namestring *notes-database*))))))
+
+(defvar *previous-compiler-condition* nil
+  "Used to detect duplicates.")
+
+(defun handle-notification-condition (condition)
+  "Handle a condition caused by a compiler warning.
+This traps all compiler conditions at a lower-level than using
+C:*COMPILER-NOTIFICATION-FUNCTION*. The advantage is that we get to
+craft our own error messages, which can omit a lot of redundant
+information."
+  (let ((context (c::find-error-context nil)))
+    (when (and context (not (eq condition *previous-compiler-condition*)))
+      (setq *previous-compiler-condition* condition)
+      (let* ((file-name (c::compiler-error-context-file-name context))
+             (file-pos (c::compiler-error-context-file-position context))
+             (file (if (typep file-name 'pathname)
+                       (unix-truename file-name)
+                       file-name))
+             (note
+              (list
+               :position file-pos
+               :filename (and (stringp file) file)
+               :source-path (current-compiler-error-source-path)
+               :severity (etypecase condition
+                           (c::compiler-error :error)
+                           (c::style-warning :note)
+                           (c::warning :warning))
+               :message (brief-compiler-message-for-emacs condition context)
+               :buffername (if (boundp '*buffername*) *buffername*)
+               :buffer-offset (if (boundp '*buffer-offset*) *buffer-offset*))))
+        (push note *compiler-notes*)
+        (push note (gethash file *notes-database*))))))
+
+(defun brief-compiler-message-for-emacs (condition error-context)
+  "Briefly describe a compiler error for Emacs.
+When Emacs presents the message it already has the source popped up
+and the source form highlighted. This makes much of the information in
+the error-context redundant."
+  (declare (type c::compiler-error-context error-context))
+  (let ((enclosing (c::compiler-error-context-enclosing-source error-context)))
+    (if enclosing
+        (format nil "--> ~{~<~%--> ~1:;~A~> ~}~%~A" enclosing condition)
+        (format nil "~A" condition))))
 
 (defun current-compiler-error-source-path ()
   "Return the source-path for the current compiler error.
@@ -342,102 +360,8 @@ compiler state."
            (reverse
             (c::compiler-error-context-original-source-path context))))))
 
-
-(in-package :c)
-
-;; Redefine print-error-message, because the default implementation
-;; passes sometimes no message to *compiler-notification-function*.
-;; We should probably send this to cmucl-imp.
-
-(ext:without-package-locks
- (defun print-error-message (severity condition)
-   (declare (type (member :error :warning :note) severity)
-	    (type condition condition))
-   (let ((*print-level* (or *error-print-level* *print-level*))
-	 (*print-length* (or *error-print-length* *print-length*))
-	 (*print-lines* (or *error-print-lines* *print-lines*)))
-     (multiple-value-bind (format-string format-args)
-	 (if (typep condition 'simple-condition)
-	     (values (simple-condition-format-control condition)
-		     (simple-condition-format-arguments condition))
-	     (values (with-output-to-string (s)
-		       (princ condition s))
-		     ()))
-       (let ((stream (make-string-output-stream )) ; *compiler-error-output*)
-	     (context (find-error-context format-args)))
-	 (cond 
-	   (context
-	    (let ((file (compiler-error-context-file-name context))
-		  (in (compiler-error-context-context context))
-		  (form (compiler-error-context-original-source context))
-		  (enclosing (compiler-error-context-enclosing-source context))
-		  (source (compiler-error-context-source context))
-		  (last *last-error-context*))
-	      ;;(compiler-notification severity context)
-	       
-	      (unless (and last
-			   (equal file (compiler-error-context-file-name last)))
-		(when (pathnamep file)
-		  (note-message-repeats)
-		  (setq last nil)
-		  (format stream "~2&File: ~A~%" (namestring file))))
-	    
-	      (unless (and last
-			   (equal in (compiler-error-context-context last)))
-		(note-message-repeats)
-		(setq last nil)
-		(format stream "~2&In:~{~<~%   ~4:;~{ ~S~}~>~^ =>~}~%" in))
-	    
-	      (unless (and last
-			   (string= form
-				    (compiler-error-context-original-source last)))
-		(note-message-repeats)
-		(setq last nil)
-		(write-string form stream))
-	    
-	      (unless (and 
-		       last
-		       (equal enclosing
-			      (compiler-error-context-enclosing-source last)))
-		(when enclosing
-		  (note-message-repeats)
-		  (setq last nil)
-		  (format stream "--> ~{~<~%--> ~1:;~A~> ~}~%" enclosing)))
-	    
-	      (unless (and last
-			   (equal source (compiler-error-context-source last)))
-		(setq *last-format-string* nil)
-		(when source
-		  (note-message-repeats)
-		  (dolist (src source)
-		    (write-line "==>" stream)
-		    (write-string src stream))))))
-	   (t
-	    ;;(compiler-notification severity nil)
-	    (note-message-repeats)
-	    (setq *last-format-string* nil)
-	    (format stream "~2&")))
-
-	 (setq *last-error-context* context)
-    
-	 (unless (and (equal format-string *last-format-string*)
-		      (tree-equal format-args *last-format-args*))
-	   (note-message-repeats nil)
-	   (setq *last-format-string* format-string)
-	   (setq *last-format-args* format-args)
-	   (let ((*print-lines* nil))
-	     (pprint-logical-block (stream nil :per-line-prefix "; ")
-	       (format stream "~:(~A~): ~?~&" severity format-string 
-		       format-args)))
-	   (let ((message (get-output-stream-string stream)))
-	     (format *compiler-error-output* "~A~%" message)
-	     (force-output *compiler-error-output*)
-	     (compiler-notification severity context message))))))
-  
-   (incf *last-message-count*)
-   (undefined-value)))
-
-(in-package :swank)
+(defslimefun features ()
+  (mapcar #'symbol-name *features*))
 
 (defun canonicalize-filename (filename)
   (namestring (unix:unix-resolve-links filename)))
@@ -458,7 +382,10 @@ compiler state."
   (let ((*buffername* nil)
 	(*buffer-offset* nil))
     (multiple-value-bind (pathname errorsp notesp) 
-	(compile-file filename :load load)
+        (handler-bind ((c::compiler-error #'handle-notification-condition)
+                       (c::style-warning #'handle-notification-condition)
+                       (c::warning #'handle-notification-condition))
+          (compile-file filename :load load))
       (list (if pathname (namestring pathname)) errorsp notesp))))
 
 (defslimefun swank-compile-string (string buffer start)
@@ -537,25 +464,30 @@ The result has the format \"(...)\"."
 	  (to-string arglist)))))
 
 (defslimefun who-calls (function-name)
-  "Return a the callers of FUNCTION-NAME.
-The result is a list of files-referrer:
-file-referrer ::= (FILENAME ({reference}+))
-reference     ::= (FUNCTION-SPECIFIER SOURCE-PATH)"
+  "Return the places where FUNCTION-NAME is called."
   (xref-results-for-emacs (xref:who-calls function-name)))
 
-(defslimefun who-references (symbol)
-  (xref-results-for-emacs (xref:who-references symbol)))
+(defslimefun who-references (variable)
+  "Return the places where the global variable VARIABLE is referenced."
+  (xref-results-for-emacs (xref:who-references variable)))
 
 (defslimefun who-binds (variable)
+  "Return the places where the global variable VARIABLE is bound."
   (xref-results-for-emacs (xref:who-binds variable)))
 
 (defslimefun who-sets (variable)
+  "Return the places where the global variable VARIABLE is set."
   (xref-results-for-emacs (xref:who-sets variable)))
 
-(defslimefun who-macroexpands (variable)
-  (xref-results-for-emacs (xref:who-macroexpands variable)))
+(defslimefun who-macroexpands (macro)
+  "Return the places where MACRO is expanded."
+  (xref-results-for-emacs (xref:who-macroexpands macro)))
 
 (defun xref-results-for-emacs (contexts)
+  "Prepare a list of xref contexts for Emacs.
+The result is a list of file-referrers:
+file-referrer ::= (FILENAME ({reference}+))
+reference     ::= (FUNCTION-SPECIFIER SOURCE-PATH)"
   (let ((hash (make-hash-table :test 'equal))
         (files '()))
     (dolist (context contexts)
@@ -567,17 +499,27 @@ reference     ::= (FUNCTION-SPECIFIER SOURCE-PATH)"
               (let ((real-path (if (string= unix-path "<unknown>")
                                    nil
                                    unix-path)))
-                (xref-contexts-to-plist real-path (gethash unix-path hash))))
+                (file-xrefs-for-emacs real-path (gethash unix-path hash))))
             (sort files #'string<))))
 
-(defun xref-contexts-to-plist (unix-filename contexts)
-  "Translate an xref CONTEXT into a property list."
+(defun file-xrefs-for-emacs (unix-filename contexts)
+  "Return a summary of the references from a particular file.
+The result is a list of the form (FILENAME ((REFERRER SOURCE-PATH) ...))"
   (list unix-filename
-        (loop for context in contexts
+        (loop for context in (sort-contexts-by-source-path contexts)
               collect (list (let ((*print-pretty* nil))
-                              (princ-to-string (xref:xref-context-name context)))
+                              (to-string (xref:xref-context-name context)))
                             (xref:xref-context-source-path context)))))
 
+(defun sort-contexts-by-source-path (contexts)
+  "Sort xref contexts by lexical position of source-paths.
+It is assumed that all contexts belong to the same file."
+  (sort contexts #'source-path< :key #'xref:xref-context-source-path))
+
+(defun source-path< (path1 path2)
+  "Return true if PATH1 is lexically before PATH2."
+  (and (every #'< path1 path2)
+       (< (length path1) (length path2))))
 
 (defslimefun completions (string default-package-name)
   "Return a list of completions for a symbol designator STRING.  
@@ -636,6 +578,10 @@ considered."
     list))
 
 ;;;; Definitions
+
+(defvar *debug-definition-finding* nil
+  "When true don't handle errors while looking for definitions.
+This is useful when debugging the definition-finding code.")
 
 ;;; FIND-FDEFINITION -- interface
 ;;;
@@ -729,11 +675,17 @@ considered."
 
 (defslimefun function-source-location-for-emacs (fname)
   "Return the source-location of FNAME's definition."
-  (let ((fname (from-string fname)))
-    (cond ((and (symbolp fname) (macro-function fname))
-	   (function-source-location (macro-function fname)))
-	  ((fboundp fname)
-	   (function-source-location (coerce fname 'function))))))
+  (let* ((fname (from-string fname))
+         (finder
+          (lambda ()
+            (cond ((and (symbolp fname) (macro-function fname))
+                   (function-source-location (macro-function fname)))
+                  ((fboundp fname)
+                   (function-source-location (coerce fname 'function)))))))
+    (if *debug-definition-finding*
+        (funcall finder)
+        (handler-case (funcall finder)
+          (error (e) (list :error (format nil "Error: ~A" e)))))))
 
 ;;; Clone of HEMLOCK-INTERNALS::FUN-DEFINED-FROM-PATHNAME
 (defun fdefinition-file (function)
