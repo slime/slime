@@ -1,3 +1,18 @@
+2004-07-28  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-eval-feature-conditional): Treat uppercase
+	operators NOT, AND, OR correctly.
+	(sldb-find-buffer): Remove killed buffers.
+	(sldb-quit): Raise an error if the RPC returns.
+	(slime-expected-failures): Delete unused function.
+	(complete-symbol): Test completion of
+	swank::compile-file. LispWorks has extra completions for
+	cl::compile-file.
+	(arglist): Test arglist of method cl:class-name.  Add enough
+	regexpery to pass the test in most implementations.
+
+	* swank-sbcl.lisp (list-callers, list-callees): Implemented.
+
 2004-07-26  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-first-change-hook): Add `save-match-data' to
