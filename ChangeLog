@@ -1,3 +1,27 @@
+2003-11-28  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-sbcl.lisp, swank-cmucl.lisp: Support for output
+	redirection to an Emacs buffer via a dedicated network stream.
+	Can be enabled with *use-dedicated-output-stream*.
+
+	* swank.lisp (slime-read-string, eval-string): Flush *emacs-io*.
+	(eval-in-emacs): New function.
+
+	* slime.el: Support for output from a dedicated socket.
+	(slime-open-stream-to-lisp, slime-output-filter): New functions.
+	Reorganized REPL code a bit.
+	(slime-input-complete-p): Use vanilla forward-sexp, because
+	slime-forward-sexp sometimes caused endless loops.
+	(slime-disconnect): Close the output-stream-connection if present.
+	(slime-handle-oob): A new :%apply event.  Executes arbitrary code;
+	useful for bootstrapping.
+	(slime-flush-output): New function.
+	(slime-symbol-end-pos): Didn't work at all in Emacs20.  Just use
+	point until someone commits a proper fix.
+	Various uses of display-buffer: The second argument is different in
+	XEmacs.
+	(interrupt-bubbling-idiot): Reduce the timeout to 5 seconds.
+	
 2003-11-27  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-swank-port-file): Use `temporary-file-directory'
