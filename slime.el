@@ -924,7 +924,7 @@ Buffer local in temp-buffers.")
 (slime-define-keys slime-temp-buffer-mode-map
   ("q" 'slime-temp-buffer-quit))
 
-(defmacro slime-with-output-to-temp-buffer (name &rest body)
+(defmacro slime-with-output-to-temp-buffer (name package &rest body)
   "Similar to `with-output-to-temp-buffer'.
 Also saves the window configuration, and inherits the current
 `slime-connection' in a buffer-local variable."
@@ -946,6 +946,7 @@ Also saves the window configuration, and inherits the current
          (set-syntax-table lisp-mode-syntax-table)
          (slime-temp-buffer-mode 1)
          (setq buffer-read-only t)
+         (setq slime-buffer-package ,package)
          (unless (get-buffer-window (current-buffer) t)
            (switch-to-buffer-other-window (current-buffer))))))))
 
@@ -4151,8 +4152,7 @@ having names in the given package."
   (hyperspec-lookup symbol-name))
   
 (defun slime-show-description (string package)
-  (slime-with-output-to-temp-buffer "*SLIME Description*"
-    (princ string)))
+  (slime-with-output-to-temp-buffer "*SLIME Description*" package (princ string)))
 
 (defun slime-describe-symbol (symbol-name)
   "Describe the symbol at point."
@@ -4220,14 +4220,13 @@ With prefix argument include internal symbols."
 (defun slime-show-apropos (plists string package summary)
   (if (null plists)
       (message "No apropos matches for %S" string)
-    (slime-with-output-to-temp-buffer "*SLIME Apropos*"
+    (slime-with-output-to-temp-buffer "*SLIME Apropos*" package
       (apropos-mode)
       (set-syntax-table lisp-mode-syntax-table)
       (slime-mode t)
       (if (boundp 'header-line-format)
           (setq header-line-format summary)
         (insert summary "\n\n"))
-      (setq slime-buffer-package package)
       (slime-set-truncate-lines)
       (slime-print-apropos plists))))
 
@@ -5987,7 +5986,7 @@ BODY returns true if the check succeeds."
 
 (defun slime-list-repl-short-cuts ()
   (interactive)
-  (slime-with-output-to-temp-buffer "*slime-repl-help*"
+  (slime-with-output-to-temp-buffer "*slime-repl-help*" nil
     (let ((table (sort* slime-repl-shortcut-table #'string<
                         :key (lambda (x) 
                                (car (slime-repl-shortcut.names x))))))
