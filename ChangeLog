@@ -1,3 +1,37 @@
+2003-10-22  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-cmucl.lisp (setup-request-handler): Create a character
+	stream.
+	(read-next-form): Removed.
+
+	* swank.lisp (read-next-form, send-to-emacs): Assume *emacs-io* is
+	a character stream. Add the necessary char-code/code-char
+	conversions.
+
+	* slime.el: slime-keys: Add :sldb keywords for keys useful in the
+	debugger.
+	(slime-init-keymaps): Allow allow :sldb keywords.
+
+	inferior-lisp-mode-hook: Display the inf-lisp buffer if there is
+	some output.
+
+	(slime-process-available-input): Start a timer to process any
+	remaining input.
+	(slime-dispatch-event): The timer should take care of any lost
+	input. So don't process the available input here.  Remove the
+	process-input argument.
+	(slime-push-state, slime-pop-state, slime-activate-state,
+	 slime-idle-state, slime-evaluating-state): Update callers.
+	(slime-debugging-state): Remove the unwind-protect in the
+	:debug-return clause.  Should not be necessary.
+
+	sldb-mode-map: Define more slime-mode keys.
+
+	(slime-time<, slime-time-add): Removed. Emacs-21 has equivalent time
+	functions.
+	(slime-sync-state-stack): Use Emacs-21 time-date functions.
+	(seconds-to-time, time-less-p, time-add): Compatibility defuns.
+
 2003-10-22  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime): With a prefix argument, prompt for the port
