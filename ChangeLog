@@ -1,3 +1,37 @@
+2004-11-19  Matthew Danish <mrd+nospam@cmu.edu>
+	
+	* swank-allegro.lisp: (count-cr): New function. Convert
+	file-offsets to match Emacs' eol-conventions.
+	(find-definition-in-file): Use it.
+
+	* slime.el (slime-insert-xrefs): Display the multi-line label much
+	more cleanly.
+	
+2004-11-19  Helmut Eller  <heller@common-lisp.net>
+	
+	* swank-sbcl.lisp (thread-status): Decode the thread-state-slot
+	instead of returning ???.
+
+	* swank-allegro.lisp (swank-mop:slot-definition-documentation):
+	ACL 7 says documentation should have 2 args. So, pass t as second
+	argument.
+	(fspec-primary-name): Recurse until we have a symbol.
+	(allegro-inspect): New function.  Mostly reverse engineered from
+	ACL's native inspector.
+	(inspect-for-emacs (t), inspect-for-emacs (function)): Use it.
+
+	* wank.lisp (inspect-for-emacs array): Use row-major-aref instead
+	of a displaced array.  I hope that does the same.
+	(inspect-for-emacs integer): Ignore errors in
+	decode-universal-time.  Negative values and, in SBCL, also small
+	values cannot be decoded.
+	(list-threads): Include the thread-id. Useful for SLIME debugging.
+
+	* slime.el (slime-list-threads, slime-thread-insert): Show the
+	thread-id.
+	(slime-thread-control-mode-map): Remove the binding for the
+	no-longer-existent slime-thread-goahead command.
+	
 2004-11-18  Alexey Dejneka <adejneka@comail.ru>
 
 	* swank.lisp (inspect-for-emacs): Fix bug in handling of arrays
