@@ -8,6 +8,11 @@
 	(case-convert-input): Deleted.  Replaced with calls to
 	parse-symbol{-or-lose}.
 
+	* swank-lispworks.lisp (describe-symbol-for-emacs): Include
+	information about setf-functions.
+	(emacs-connected): Add a default method to
+	defenv-internals:environment-display-debugger.
+
 2004-06-30  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-read-port-and-connect-to-running-swank)
