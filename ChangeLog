@@ -1,5 +1,18 @@
 2004-03-03  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* swank.lisp: Use *emacs-connection*, *active-threads*, and
+	*thread-counter* as thread local dynamic variables.
+	(init-emacs-connection): Don't set *emacs-connection*.
+	(create-connection, dispatch-event): Pass the connection object to
+	newly created threads.
+	(with-connection): New macro
+	(handle-request, install-fd-handler, debug-thread): Use it.
+
+	* swank-allegro.lisp, swank-clisp.lisp, swank-cmucl.lisp,
+	swank-openmcl.lisp, swank-sbcl.lisp (call-with-compilation-hooks):
+	Bind fewer variables. Most of them are already bound in
+	swank.lisp.
+
 	* swank.lisp (setup-server, serve-connection): New dont-close
 	argument to keep the socket open after the first connection.
 	(start-server, create-swank-server): Update callers. 
