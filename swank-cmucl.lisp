@@ -108,7 +108,6 @@ The request is read from the socket as a sexp and then evaluated."
     (setf (sos.index stream) (1+ index))
     (incf (sos.column stream))
     (when (char= #\newline char)
-      ;;(force-output stream)
       (setf (sos.column stream) 0))
     (when (= index (1- (length buffer)))
       (force-output stream)))
@@ -331,22 +330,27 @@ the error-context redundant."
 
 (defun xref-results-for-emacs (contexts)
   "Prepare a list of xref contexts for Emacs.
-The result is a list of file-referrers:
-file-referrer ::= (FILENAME ({reference}+))
-reference     ::= (FUNCTION-SPECIFIER SOURCE-PATH)"
-  (let ((hash (make-hash-table :test 'equal))
-        (files '()))
-    (dolist (context contexts)
-      (let* ((file (xref:xref-context-file context))
-             (unix-path (if file (unix-truename file) "<unknown>")))
-        (push context (gethash unix-path hash))
-        (pushnew unix-path files :test #'string=)))
-    (mapcar (lambda (unix-path)
-              (let ((real-path (if (string= unix-path "<unknown>")
-                                   nil
-                                   unix-path)))
-                (file-xrefs-for-emacs real-path (gethash unix-path hash))))
-            (sort files #'string<))))
+The result is a list of xrefs:
+group       ::= (FILENAME . ({reference}+))
+reference   ::= (FUNCTION-SPECIFIER . SOURCE-LOCATION)"
+  (let ((xrefs '()))
+    (dolist (cxt contexts)
+      (let* ((name (xref:xref-context-name cxt))
+             (file (xref:xref-context-file cxt))
+             (source-path (xref:xref-context-source-path cxt))
+             (position (source-path-file-position source-path file)))
+        (push (cons (to-string name)
+                    (make-location (list :file (unix-truename file))
+                                   (list :position (1+ position))))
+              xrefs)))
+    (group-xrefs xrefs)))
+
+
+(defun location-buffer= (location1 location2)
+  (equalp location1 location2))
+
+;; (xref-results-for-emacs (xref:who-binds '*package*))
+
 
 (defun file-xrefs-for-emacs (unix-filename contexts)
   "Return a summary of the references from a particular file.
@@ -487,10 +491,20 @@ constant pool."
 
 ;;;; Definitions
 
-(defvar *debug-definition-finding* nil
+(defvar *debug-definition-finding* t
   "When true don't handle errors while looking for definitions.
 This is useful when debugging the definition-finding code.")
 
+(defmacro safe-definition-finding (&body body)
+  "Execute BODY ignoring errors.  Return a the source location
+returned by BODY or if an error occurs a description of the error.
+The second return value is the condition or nil." 
+  `(flet ((body () ,@body))
+    (if *debug-definition-finding*
+        (body)
+        (handler-case (values (progn ,@body) nil)
+          (error (c) (values (list :error (princ-to-string c)) c))))))
+    
 (defun function-first-code-location (function)
   (and (function-has-debug-function-p function)
        (di:debug-function-start-location
@@ -563,8 +577,8 @@ This is useful when debugging the definition-finding code.")
   (list* (gf-definition-location gf)
          (gf-method-locations gf)))
 
-(defun function-source-location (function)
-  "Try to find the canonical source location of FUNCTION."
+(defun function-source-locations (function)
+  "Return a list of source locations for FUNCTION."
   ;; First test if FUNCTION is a closure created by defstruct; if so
   ;; extract the defstruct-description (dd) from the closure and find
   ;; the constructor for the struct.  Defstruct creates a defun for
@@ -574,27 +588,42 @@ This is useful when debugging the definition-finding code.")
   ;; For an ordinary function we return the source location of the
   ;; first code-location we find.
   (cond ((struct-closure-p function)
-	 (dd-source-location (struct-closure-dd function)))
+	 (list 
+          (safe-definition-finding
+           (dd-source-location (struct-closure-dd function)))))
         ((genericp function)
-         (car (gf-source-locations function)))
+         (gf-source-locations function))
         (t
-         (let ((location (function-first-code-location function)))
-           (when location
-             (source-location-for-emacs location))))))
+         (list
+          (multiple-value-bind (code-location error)
+              (safe-definition-finding (function-first-code-location function))
+            (cond (error (list :error (princ-to-string error)))
+                  (t (code-location-source-location code-location))))))))
+
+(defun function-source-location (function)
+  (destructuring-bind (first) (function-source-locations function)
+    first))
 
 (defmethod function-source-location-for-emacs (fname)
   "Return the source-location of FNAME's definition."
-  (let* ((fname (from-string fname))
-         (finder
-          (lambda ()
-            (cond ((and (symbolp fname) (macro-function fname))
-                   (function-source-location (macro-function fname)))
-                  ((fboundp fname)
-                   (function-source-location (coerce fname 'function)))))))
-    (if *debug-definition-finding*
-        (funcall finder)
-        (handler-case (funcall finder)
-          (error (e) (list :error (format nil "Error: ~A" e)))))))
+  (car (find-fdefinitions fname)))
+
+(defslimefun find-fdefinitions (symbol-name)
+  "Return a list of source-locations for SYMBOL-NAME's functions."
+  (multiple-value-bind (symbol foundp) (find-symbol-designator symbol-name)
+    (cond ((not foundp)
+           (list (list :error (format nil "Unkown symbol: ~A" symbol-name))))
+          ((macro-function symbol)
+           (function-source-locations (macro-function symbol)))
+          ((special-operator-p symbol)
+           (list (list :error (format nil "~A is special-operator" symbol))))
+          ((fboundp symbol)
+           (function-source-locations (coerce symbol 'function)))
+          (t (list (list :error
+                         (format nil "Symbol not fbound: ~A" symbol-name))))
+          )))
+
+;; (find-fdefinitions "function-source-location-for-emacs")
 
 
 ;;;; Documentation.
@@ -879,7 +908,8 @@ to find the position of the corresponding form."
 	 (consp info)
 	 (eq :emacs-buffer (car info)))))
 
-(defun source-location-for-emacs (code-location)
+(defun code-location-from-source-location (code-location)
+  "Return the source location for CODE-LOCATION."
   (let* ((debug-source (di:code-location-debug-source code-location))
 	 (from (di:debug-source-from debug-source))
 	 (name (di:debug-source-name debug-source)))
@@ -897,9 +927,10 @@ to find the position of the corresponding form."
 		   (debug::print-code-location-source-form 
 		    code-location 100 t)))))))
 
-(defun safe-source-location-for-emacs (code-location)
-  (handler-case (source-location-for-emacs code-location)
-    (t (c) (list :error (debug::safe-condition-message c)))))
+(defun code-location-source-location (code-location)
+  "Safe wrapper around `code-location-from-source-location'."
+  (safe-definition-finding
+   (code-location-from-source-location code-location)))
 
 (defslimefun getpid ()
   (unix:unix-getpid))
@@ -971,7 +1002,7 @@ stack."
 	(backtrace start end)))
 
 (defmethod frame-source-location-for-emacs (index)
-  (safe-source-location-for-emacs (di:frame-code-location (nth-frame index))))
+  (code-location-source-location (di:frame-code-location (nth-frame index))))
 
 (defmethod eval-in-frame (form index)
   (di:eval-in-frame (nth-frame index) form))
@@ -1002,7 +1033,7 @@ stack."
 
 (defmethod frame-catch-tags (index)
   (loop for (tag . code-location) in (di:frame-catches (nth-frame index))
-	collect `(,tag . ,(safe-source-location-for-emacs code-location))))
+	collect `(,tag . ,(code-location-source-location code-location))))
 
 (defslimefun invoke-nth-restart (index)
   (invoke-restart (nth-restart index)))
