@@ -1,3 +1,35 @@
+2004-10-03  Reini Urban <rurban@x-ray.at>
+
+	* swank-clisp.lisp (getpid)[win32]: Use
+	win32:|GetCurrentProcessId|.
+
+2004-10-03  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el: Reduce dependency on inf-lisp internals. Make it
+	possible to start the inferior lisp in a buffer different from
+	"*inferior-lisp*".
+	(slime): Parse the command argument explicitly and don't rely on
+	`inferior-lisp'.  Don't close all connections, but only the one
+	for the inferior lisp buffer we are using.
+	(slime-maybe-start-lisp): Take the command and buffer as argument.
+	Decide here whether we should start start a new processwe or just
+	disconnect and reconnect .
+	(slime-start-lisp): Load verbosely.
+	(slime-inferior-lisp): New function.  Replaces call to
+	`inferior-lisp'.
+	(slime-inferior-connect, slime-start-swank-server): Take the
+	inferior process as argument
+	(slime-read-port-and-connect): Set the slime-inferior-process
+	variable in the new connection.
+	(slime-inferior-process): New connection local variable.
+	(slime-process): Use it.
+	(slime-restart-inferior-lisp): Don't use inferior lisp stuff.
+	(slime-switch-to-output-buffer): Process interactive arguments
+	properly.
+
+	* swank-loader.lisp (compile-files-if-needed-serially): Load
+	verbosely.
+
 2004-10-01  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-allegro.lisp (find-fspec-location): excl:source-file can
@@ -5,7 +37,7 @@
 
 	* swank-cmucl.lisp (code-component-entry-points): Only include
 	entry points with "valid" functions names.  This excludes internal
-	lambdas, which have usually a string as name, like "defun foo".
+	lambdas which have usually a string as name, like "defun foo".
 
 	* swank.lisp (parse-symbol): Don't use the reader to avoid
 	interning unknown symbols.  The downside is that we no longer
@@ -14,7 +46,6 @@
 	* slime.el (slime-set-connection-info): Hide the *inferior-lisp*
 	buffer after we know Lisp's pid.  Print the words of encouragement
 	here, when all the other asynchronous initialization is completed.
-
 	(slime-find-buffer-package): We need to preserve the case for
 	things like (:in-package "foo"), so return "\"foo\"".
 
