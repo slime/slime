@@ -116,6 +116,12 @@ debugger backtraces and apropos listings."
   :type 'boolean
   :group 'slime-ui)
 
+(defcustom slime-update-modeline-package t
+  "Automatically update the Lisp package name in the minibuffer.
+This is done with a text-search that runs on an idle timer."
+  :type 'boolean
+  :group 'slime-ui)
+
 (defcustom slime-kill-without-query-p t
   "If non-nil, kill SLIME processes without query when quitting Emacs.
 This applies to the *inferior-lisp* buffer and the network connections."
@@ -407,6 +413,30 @@ Full set of commands:
   ;; Fake binding to coax `define-minor-mode' to create the keymap
   '((" " 'undefined)))
 
+(make-variable-buffer-local
+ (defvar slime-modeline-package nil
+   "The Lisp package to show in the modeline.
+This is automatically updated based on the buffer/point."))
+
+(defun slime-update-modeline-package ()
+  (ignore-errors
+    (when (and slime-update-modeline-package
+               (eq major-mode 'lisp-mode)
+               slime-mode)
+      (let ((package (slime-current-package)))
+        (when package
+          (setq slime-modeline-package
+                (slime-pretty-package-name package)))))))
+
+(defun slime-pretty-package-name (name)
+  "Return a pretty version of a package name designator (as a string)."
+  (cond ((string-match "^:\\(.*\\)$" name)    (match-string 1 name))
+        ((string-match "^\"\\(.*\\)\"$" name) (match-string 1 name))
+        ((t name))))
+
+(when slime-update-modeline-package
+  (run-with-idle-timer 0.2 0.2 'slime-update-modeline-package))
+
 ;;;;; inferior-slime-mode
 (define-minor-mode inferior-slime-mode
   "\\<slime-mode-map>
@@ -425,7 +455,9 @@ subset of the bindings from `slime-mode'.
 ;; package we think the current buffer belongs to.
 (add-to-list 'minor-mode-alist
              '(slime-mode
-               (" Slime" slime-state-name)))
+               (" Slime"
+		((slime-modeline-package (":" slime-modeline-package) "")
+		 slime-state-name))))
 
 (add-to-list 'minor-mode-alist
              '(inferior-slime-mode
@@ -1802,7 +1834,7 @@ deal with that."
 (put 'slime-rex 'lisp-indent-function 2)
 
 ;;; Interface
-(defun slime-current-package (&optional dont-cache)
+(defun slime-current-package ()
   "Return the Common Lisp package in the current context.
 If `slime-buffer-package' has a value then return that, otherwise
 search for and read an `in-package' form.
@@ -2277,7 +2309,11 @@ update window-point afterwards.  If point is initially not at
  (defvar slime-repl-prompt-start-mark)
  (defvar slime-repl-input-start-mark)
  (defvar slime-repl-input-end-mark)
- (defvar slime-repl-last-input-start-mark))
+ (defvar slime-repl-last-input-start-mark)
+ (defvar slime-repl-old-input-counter 0
+   "Counter used to generate unique `slime-repl-old-input' properties.
+This property value must be unique to avoid having adjacent inputs be
+joined together."))
 
 (defvar slime-repl-mode-map)
 
@@ -2500,11 +2536,11 @@ If NEWLINE is true then add a newline at the end of the input."
   (when (< (point) slime-repl-input-start-mark)
     (error "No input at point."))
   (goto-char slime-repl-input-end-mark)
-  (add-text-properties slime-repl-input-start-mark (point)
-                       '(face slime-repl-input-face
-                              rear-nonsticky (face)
-                              slime-repl-old-input t))
   (when newline (insert "\n"))
+  (add-text-properties slime-repl-input-start-mark (point)
+                       `(face slime-repl-input-face
+                              rear-nonsticky (face slime-repl-old-input)
+                              slime-repl-old-input ,(incf slime-repl-old-input-counter)))
   (let ((input (slime-repl-current-input)))
     (goto-char slime-repl-input-end-mark)
     (slime-mark-input-start)
@@ -3509,6 +3545,7 @@ region around the first element is used."
   (let ((location (getf note :location)))
     (unless (eq (car location) :error) 
       (slime-goto-source-location location)
+      (skip-chars-forward "'#`")
       (let ((start (point)))
         (ignore-errors (slime-forward-sexp))
         (if (slime-same-line-p start (point))
