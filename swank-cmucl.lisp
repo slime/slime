@@ -240,8 +240,8 @@ This is a workaround for a CMUCL bug: XREF records are cumulative."
   (let ((filename (parse-namestring namestring)))
     (when c:*record-xref-info*
       (dolist (db (list xref::*who-calls*
-                        xref::*who-is-called*
-                        xref::*who-macroexpands*
+                        #+cmu19 xref::*who-is-called*
+                        #+cmu19 xref::*who-macroexpands*
                         xref::*who-references*
                         xref::*who-binds*
                         xref::*who-sets*))
@@ -312,6 +312,7 @@ The result has the format \"(...)\"."
   "Return the places where the global variable VARIABLE is set."
   (xref-results-for-emacs (xref:who-sets variable)))
 
+#+cmu19
 (defslimefun who-macroexpands (macro)
   "Return the places where MACRO is expanded."
   (xref-results-for-emacs (xref:who-macroexpands macro)))
