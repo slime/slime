@@ -1,3 +1,10 @@
+2004-02-06  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (sldb-setup): Offer to enter a recursive edit if there
+	are pending continuations.  
+	(slime-eval): Unwind the stack, thereby exititing recursive edits,
+	before signaling the error.
+
 2004-02-05  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-openmcl.lisp (compile-system-for-emacs): Remove compile
