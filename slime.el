@@ -219,6 +219,42 @@ Lisp, not just those occuring during RPCs.")
   "Face for type description in inspector."
   :group 'slime)
 
+(defgroup slime-debugger nil
+  "Backtrace options and fontification."
+  :prefix "sldb-"
+  :group 'slime)
+
+(defmacro def-sldb-face (name description &optional default)
+  (let ((facename (intern (format "sldb-%s-face" (symbol-name name)))))
+    `(defface ,facename
+      '((t ,default))
+      ,(format "Face for %s." description)
+      :group 'sldb)))
+
+(defcustom sldb-enable-styled-backtrace nil "Enable faces in slime backtrace" 
+  :type '(choice 
+	  (const :tag "Enable" t)
+	  (const :tag "Disable" nil))
+  :group 'sldb)
+
+(defcustom sldb-show-catch-tags t "Show catch tags in frames" 
+  :type '(choice 
+	  (const :tag "Show" t)
+	  (const :tag "Don't show" nil))
+  :group 'sldb)
+
+(def-sldb-face topline "top line describing error")
+(def-sldb-face condition "condition class")
+(def-sldb-face section "labels for major sections of backtrace")
+(def-sldb-face frame-label "Backtrace frame number")
+(def-sldb-face restart-type "restart types")
+(def-sldb-face restart "restart descriptions")
+(def-sldb-face restart-number "restart numbers (correspond to keystrokes to invoke)")
+(def-sldb-face frame-line "function names and arguments in backtrace")
+(def-sldb-face detailed-frame-line "function names and arguments in backtrace for detailed frame")
+(def-sldb-face local-name "label for local variable")
+(def-sldb-face local-value "local variable values")
+(def-sldb-face catch-tag "catch tags")
 
 
 ;;; Minor modes
@@ -3575,31 +3611,50 @@ CL:MACROEXPAND."
 (defvar sldb-hook nil
   "Hook run on entry to the debugger.")
 
+(defmacro in-sldb-face (name string)
+  (let ((facename (intern (format "sldb-%s-face" (symbol-name name))))
+	(var (gensym "string")))
+    `(let ((,var ,string))
+      (sldb-add-face ',facename ,var)
+      ,var)))
+
+(defun sldb-add-face (face string)
+  (if sldb-enable-styled-backtrace
+      (add-text-properties 0 (length string) (list 'face face) string)
+      string))
+
 (defun sldb-setup (condition restarts frames)
-  (with-current-buffer (get-buffer-create "*sldb*")
-    (setq buffer-read-only nil)
-    (sldb-mode)
-    (slime-set-truncate-lines)
-    (add-hook (make-local-variable 'kill-buffer-hook) 'sldb-delete-overlays)
-    (setq sldb-condition condition)
-    (setq sldb-restarts restarts)
-    (insert condition "\n" "\nRestarts:\n")
-    (loop for (name string) in restarts
-	  for number from 0 
-	  do (progn
-	       (slime-insert-propertized
-		`(face bold 
-		       restart-number ,number
-		       sldb-default-action sldb-invoke-restart
-		       mouse-face highlight)
-		"  " (number-to-string number) ": ["  name "] " string)
-	       (insert "\n")))
-    (insert "\nBacktrace:\n")
-    (setq sldb-backtrace-start-marker (point-marker))
-    (sldb-insert-frames (sldb-prune-initial-frames frames) nil)
-    (setq buffer-read-only t)
-    (pop-to-buffer (current-buffer))
-    (run-hooks 'sldb-hook)))
+  (setq c condition)
+  (let (condition-english condition-type)
+    (if (string-match "\\(.*?\\)\n\\(.*\\)" condition) ;; just in case we get this wrong
+	(setq condition-english (match-string 1 condition)
+	      condition-type (match-string 2 condition))
+	(setq condition-english condition)
+	(condition-type ""))
+    (with-current-buffer (get-buffer-create "*sldb*")
+      (setq buffer-read-only nil)
+      (sldb-mode)
+      (slime-set-truncate-lines)
+      (add-hook (make-local-variable 'kill-buffer-hook) 'sldb-delete-overlays)
+      (setq sldb-condition condition)
+      (setq sldb-restarts restarts)
+      (insert (in-sldb-face topline condition-english) "\n" (in-sldb-face condition condition-type) "\n" "\n" (in-sldb-face section "Restarts:") "\n")
+      (loop for (name string) in restarts
+	    for number from 0 
+	    do (progn
+		 (slime-insert-propertized
+		  `(restart-number ,number
+		    sldb-default-action sldb-invoke-restart
+		    mouse-face highlight)
+		  "  " (in-sldb-face restart-number (number-to-string number)) ": ["  (in-sldb-face restart-type name) "] " 
+		  (in-sldb-face restart string))
+		 (insert "\n")))
+      (insert "\n" (in-sldb-face section "Backtrace:") "\n")
+      (setq sldb-backtrace-start-marker (point-marker))
+      (sldb-insert-frames (sldb-prune-initial-frames frames) nil)
+      (setq buffer-read-only t)
+      (pop-to-buffer (current-buffer))
+      (run-hooks 'sldb-hook))))
 
 (define-derived-mode sldb-mode fundamental-mode "sldb" 
   "Superior lisp debugger mode
@@ -3629,7 +3684,15 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
   (save-excursion
     (loop for frame in frames
 	  for (number string) = frame
-	  do (slime-insert-propertized `(frame ,frame) string "\n"))
+	  do 
+	  (let (label framestring)
+	    (if (string-match "\\([0-9]*:\\)?\\s *\\(.*\\)" string) 
+		(setq label (match-string 1 string)
+		      framestring (match-string 2 string))
+		(setq label "" framestring string))
+	    (slime-insert-propertized `(frame ,frame) "  " 
+				      (in-sldb-face frame-label label) " "
+				      (in-sldb-face frame-line framestring) "\n")))
     (let ((number (sldb-previous-frame-number)))
       (cond ((and maximum-length (< (length frames) maximum-length)))
 	    (t
@@ -3638,7 +3701,7 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
 		sldb-fetch-more-frames
 		point-entered sldb-fetch-more-frames
 		sldb-previous-frame-number ,number)
-	      " --more--\n"))))))
+	      (in-sldb-face section " --more--\n")))))))
 
 (defun sldb-fetch-more-frames (&optional start end)
   (let ((inhibit-point-motion-hooks t))
@@ -3740,25 +3803,26 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
 	     (frame (plist-get props 'frame))
 	     (frame-number (car frame))
 	     (standard-output (current-buffer))
-             (indent1 "   ")
-             (indent2 "      "))
+             (indent1 "      ")
+             (indent2 "        "))
 	(goto-char start)
 	(delete-region start end)
 	(slime-propertize-region (plist-put props 'details-visible-p t)
-	  (insert (second frame) "\n"
-                  indent1 "Locals:\n")
+	  (insert "  " (in-sldb-face detailed-frame-line (second frame)) "\n"
+                  indent1 (in-sldb-face section "Locals:") "\n")
 	  (sldb-princ-locals frame-number indent2)
-          (let ((catchers (sldb-catch-tags frame-number)))
-            (cond ((null catchers)
-                   (insert indent1 "[No catch-tags]\n"))
-                  (t
-                   (insert indent1 "Catch-tags:\n")
-                   (loop for (tag . location) in catchers
-                         do (slime-insert-propertized  
-                             '(catch-tag ,tag)
-                             indent2 (format "%S\n" tag))))))
+	  (when sldb-show-catch-tags
+	    (let ((catchers (sldb-catch-tags frame-number)))
+	      (cond ((null catchers)
+		     (insert indent1 (in-sldb-face catch-tags "[No catch-tags]\n")))
+		    (t
+		     (insert indent1 "Catch-tags:")
+		     (loop for (tag . location) in catchers
+			   do (slime-insert-propertized  
+			       '(catch-tag ,tag)
+			       indent2 (in-sldb-face catch-tags (format "%S\n" tag))))))))
 
-	  (terpri)
+	  (unless sldb-enable-styled-backtrace (terpri))
 	  (point)))))
   (apply #'sldb-maybe-recenter-region (sldb-frame-region)))
 
@@ -3780,7 +3844,7 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
 	(goto-char start)
 	(delete-region start end)
 	(slime-propertize-region (plist-put props 'details-visible-p nil)
-	  (insert (second frame) "\n"))))))
+	  (insert "  " (in-sldb-face frame-line (second frame)) "\n"))))))
 
 (defun sldb-eval-in-frame (string)
   (interactive (list (slime-read-from-minibuffer "Eval in frame: ")))
@@ -3845,13 +3909,13 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
 
 (defun sldb-princ-locals (frame prefix)
   (dolist (l (sldb-frame-locals frame))
-    (princ prefix)
-    (princ (plist-get l :symbol))
+    (insert prefix)
+    (insert (in-sldb-face local-name (setq it (plist-get l :symbol))))
     (let ((id (plist-get l :id)))
-      (unless (zerop id) (princ "#") (princ id)))
-    (princ " = ")
-    (princ (plist-get l :value-string))
-    (terpri)))
+      (unless (zerop id) (insert (in-sldb-face local-name "#") (in-sldb-face local-name id))))
+    (insert " = ")
+    (insert (in-sldb-face local-value (plist-get l :value-string)))
+    (insert "\n")))
 
 (defun sldb-list-locals ()
   (interactive)
