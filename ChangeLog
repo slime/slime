@@ -7,6 +7,13 @@
 	side-effect and partly to see if it's better this way.
 	Removed the asynchronous-communication test cases that tested
 	something we decided not to do.
+	(slime-eval-string-async): Give a meaningful error message when
+	trying to make a request while already busy.
+	(slime-lisp-binary-extension): Uh oh, time to start taking out
+	gratuitous CMUCL-isms. This variable renamed from
+	`slime-cmucl-binary-extension'.
+	(slime-backend): Name of the Lisp backend file, defaulting to
+	"swank", but can be set to e.g. "swank-openmcl".
 
 	* swank.lisp: Minor protocol changes to accomodate slime.el's
 	changes above.
