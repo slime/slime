@@ -1133,12 +1133,6 @@ This should be set to @code{t} if you want to use multiprocessing
 (threads) in your Lisp system. It causes any necessary initialization
 to be performed during Lisp server startup.
 
-@item slime-global-debugger-hook
-Setting this variable to @code{t} causes the @SLDB{}
-@code{*DEBUGGER-HOOK*} to be set globally. This means that @SLDB{}
-will be used for all debugging in the Lisp system. Otherwise it is
-used only when evaluating code via Emacs commands.
-
 @item slime-translate-to-lisp-filename-function
 @itemx slime-translate-from-lisp-filename-function
 These functions can be used to translate filenames between Emacs and
@@ -1240,6 +1234,15 @@ your Swank init file.
 
 @node Other configurables,  , Communication style, Lisp-side
 @subsection Other configurables
+
+To use the @SLDB{} debugger globally for all debugging in the Lisp
+system you can add this line to your init file:
+
+@example
+(setq *debugger-hook* #'swank:swank-debugger-hook)
+@end example
+
+You can also modify these Swank variables:
 
 @table @code
 
