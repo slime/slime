@@ -137,7 +137,7 @@
     (subseq (ext:backtrace-as-list) start end)))
 
 (defimplementation print-frame (frame stream)
-    (pprint frame stream))
+    (print frame stream))
 
 #+nil
 (defimplementation frame-locals (index)
@@ -215,7 +215,8 @@
                       (compile-file *compile-filename*)
                     (when load-p (unless fail (load fn)))))))
 
-(defimplementation swank-compile-string (string &key buffer position)
+(defimplementation swank-compile-string (string &key buffer position directory)
+  (declare (ignore directory))
   (handler-bind ((warning #'handle-compiler-warning))
     (let ((*buffer-name* buffer)
           (*buffer-start-position* position)
