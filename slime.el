@@ -3814,10 +3814,8 @@ If MARKER is nil, use the point."
 If there's no symbol at point, or a prefix argument is given, then the
 function name is prompted."
   (interactive (list (slime-read-symbol-name "Symbol: ")))
-  (let ((definitions (slime-cleanup-definition-refs
-                      (slime-cl-symbol-name name)
-                      (slime-eval `(swank:find-definitions-for-emacs ,name)
-                                  (slime-buffer-package)))))
+  (let ((definitions (slime-eval `(swank:find-definitions-for-emacs ,name)
+                                 (slime-buffer-package))))
     (if (null definitions)
         (if slime-edit-definition-fallback-function
             (funcall slime-edit-definition-fallback-function name)
@@ -3832,19 +3830,6 @@ function name is prompted."
                     (switch-to-buffer (current-buffer)))
                    (t
                     (switch-to-buffer-other-window (current-buffer)))))))))
-
-(defun slime-cleanup-definition-refs (name definitions)
-  "Cleanup a list of definition references.
-If the position is NIL then replace it with NAME."
-  (loop for (dspec location) in definitions
-        collect (list dspec
-                      (destructure-case location
-                        ((:location buffer position hints)
-                         (list :location
-                               buffer
-                               (or position (list :function-name name))
-                               hints))
-                        ((:error _) location)))))
 
 (defun slime-edit-definition-other-window (name)
   "Like `slime-edit-definition' but switch to the other window."
