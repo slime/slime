@@ -186,14 +186,24 @@ condition."
   "Return a temporary file name to compile strings into."
   (ccl:%get-cstring (#_tmpnam (ccl:%null-ptr))))
 
-(defimplementation compile-file-for-emacs (filename load-p)
+(defimplementation call-with-compilation-hooks (function)
   (handler-bind ((ccl::compiler-warning #'handle-compiler-warning))
+    (funcall function)))
+
+(defimplementation compile-file-for-emacs (filename load-p)
+  (with-compilation-hooks ()
     (let ((*buffer-name* nil)
           (*buffer-offset* nil))
       (compile-file filename :load load-p))))
 
+(defimplementation compile-system-for-emacs (system-name)
+  (with-compilation-hooks ()
+    (let ((*buffer-name* nil)
+          (*buffer-offset* nil))
+      (asdf:oos 'asdf:load-op system-name))))
+
 (defimplementation compile-string-for-emacs (string &key buffer position)
-  (handler-bind ((ccl::compiler-warning #'handle-compiler-warning))
+  (with-compilation-hooks ()
     (let ((*buffer-name* buffer)
           (*buffer-offset* position)
           (*package* *buffer-package*)
@@ -482,9 +492,6 @@ at least the filename containing it."
 
 ;;; Utilities
 
-(defslimefun-unimplemented describe-setf-function (symbol-name))
-(defslimefun-unimplemented describe-type (symbol-name))
-
 (defslimefun describe-class (symbol-name)
   (print-description-to-string (find-class (from-string symbol-name) nil)))
 
@@ -517,7 +524,7 @@ at least the filename containing it."
 
 ;;; XREF
 
-(defslimefun list-callers (symbol-name)
+(defimplementation list-callers (symbol-name)
   (let ((callers (ccl::callers (from-string symbol-name))))
     (group-xrefs 
      (mapcan (lambda (caller)
@@ -532,16 +539,7 @@ at least the filename containing it."
                           (find-source-locations caller (to-string caller))))))
              callers))))
 
-(defslimefun-unimplemented list-callees (symbol-name))
-
-(defslimefun-unimplemented who-calls (symbol-name))
-(defslimefun-unimplemented who-references (symbol-name package-name))
-(defslimefun-unimplemented who-binds (symbol-name package-name))
-(defslimefun-unimplemented who-sets (symbol-name package-name))
-(defslimefun-unimplemented who-macroexpands (symbol-name package-name))
-
 ;;; Macroexpansion
-(defslimefun-unimplemented swank-macroexpand-all (string))
 
 (defvar *value2tag* (make-hash-table))
 

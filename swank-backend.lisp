@@ -207,6 +207,11 @@ If supplied, BUFFER and POSITION specify the source location in Emacs.
 Additionally, if POSITION is supplied, it must be added to source
 positions reported in compiler conditions.")
 
+(definterface compile-system-for-emacs (system-name)
+  "Compile and load SYSTEM-NAME, During compilation compiler
+  conditions must be trapped and resignalled as
+  COMPILER-CONDITION ala compile-string-for-emacs.")
+
 (definterface compile-file-for-emacs (filename load-p)
    "Compile FILENAME signalling COMPILE-CONDITIONs.
 If LOAD-P is true, load the file after compilation.")

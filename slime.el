@@ -2254,9 +2254,11 @@ See `slime-compile-and-load-file' for further details."
 
 (defun slime-find-asd ()
   (if (buffer-file-name)
-      (file-name-sans-extension
-       (car (directory-files
-             (file-name-directory (buffer-file-name)) nil "\.asd$")))
+      (let ((asdf-systems-in-directory (directory-files
+                                        (file-name-directory (buffer-file-name)) nil "\.asd$")))
+        (if asdf-systems-in-directory
+            (file-name-sans-extension (car asdf-systems-in-directory))
+            ""))
     ""))
 
 (defun slime-load-system (&optional system-name)

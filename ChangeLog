@@ -1,3 +1,18 @@
+2004-01-31  Marco Baringer  <mb@bese.it>
+
+	* swank-openmcl.lisp: remove defslimefun-unimplemented forms.
+	(call-with-compilation-hooks, compile-system-for-emacs): Implement
+	them.
+	(compile-file-for-emacs, compile-string-for-emacs): Use
+	with-compilation-hooks.
+	(list-callers): Define with defimplementation and not defslimefun.
+
+	* swank-backend.lisp (compile-system-for-emacs): Declare method
+	as part of the interface.
+
+	* slime.el (slime-find-asd): Handle files whose directory does
+	not contain an asdf system definition.
+	
 2004-01-31 Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* Merge stateless-emacs branch into main trunk.  We use now signal
