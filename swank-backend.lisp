@@ -8,105 +8,25 @@
 ;;; separately for each Lisp. Each is declared as a generic function
 ;;; for which swank-<implementation>.lisp provides methods.
 
-(defpackage :swank
+(defpackage :swank-backend
   (:use :common-lisp)
-  (:nicknames #:swank-backend)
-  (:export #:*sldb-pprint-frames*
-           #:apropos-list-for-emacs
-           #:arglist-string
-           #:backtrace
-           #:call-with-I/O-lock
-           #:call-with-conversation-lock
-           #:compiler-notes-for-emacs
-           #:completions
-           #:create-server
-           #:create-swank-server
-           #:describe-definition
-           #:describe-symbol
-           #:describe-symbol-for-emacs
-           #:describe-function
-           #:disassemble-symbol
-           #:documentation-symbol
-           #:eval-in-frame
-           #:return-from-frame
-           #:restart-frame
-           #:eval-string
-           #:eval-string-in-frame
-           #:oneway-eval-string
-           #:find-function-locations
-           #:frame-catch-tags
-           #:frame-locals
-           #:frame-source-location-for-emacs
-           #:frame-source-position
-           #:lisp-implementation-type-name
-           #:getpid
-           #:connection-info
-           #:give-goahead
-           #:give-gohead
-           #:init-inspector
-           #:inspect-in-frame
-           #:inspect-nth-part
-           #:inspector-next
-           #:inspector-pop
-           #:describe-inspectee
-           #:interactive-eval
-           #:interactive-eval-region
-           #:invoke-nth-restart
-           #:invoke-nth-restart-for-emacs
-           #:list-all-package-names
-           #:list-callees
-           #:list-callers
-           #:listener-eval
-           #:load-file
-           #:pprint-eval
-           #:pprint-eval-string-in-frame
-           #:quit-inspector
-           #:re-evaluate-defvar
-           #:set-default-directory
-           #:set-package
-           #:sldb-abort
-           #:sldb-break-with-default-debugger
-           #:sldb-continue
-           #:sldb-disassemble
-           #:sldb-step
-           #:slime-debugger-function
-           #:debugger-info-for-emacs
-           #:start-server
-           #:startup-multiprocessing
-           #:swank-compile-file
-           #:swank-compile-string
-           #:swank-load-system
-           #:swank-macroexpand
-           #:swank-macroexpand-1
-           #:swank-macroexpand-all
-           #:take-input
-           #:thread-id
-           #:thread-name
-           #:throw-to-toplevel
-           #:toggle-trace-fdefinition
-           #:untrace-all
-           #:profile
-           #:unprofile
-           #:unprofile-all
-           #:profiled-functions
-           #:profile-report
-           #:profile-reset
-           #:profile-package
-           #:toggle-profile-fdefinition
-           #:wait-goahead
-           #:warn-unimplemented-interfaces
-           #:who-binds
-           #:who-calls
-           #:who-macroexpands
-           #:who-references
-           #:who-sets
-           #:who-specializes
-           #:list-threads
-           #:quit-thread-browser
-           #:ed-in-emacs
+  (:export #:sldb-condition
+           #:original-condition
+           #:compiler-condition
+           #:message
+           #:short-message
+           #:condition
+           #:severity
+           #:location
+           #:location-p
+           #:location-buffer
+           #:location-position
+           #:position-p
+           #:position-pos
+           #:print-output-to-string
            ))
 
-(in-package :swank)
+(in-package :swank-backend)
 
 
 ;;;; Metacode
@@ -134,12 +54,13 @@ Backends implement these functions using DEFIMPLEMENTATION."
                                                &rest ,received-args)
                (destructuring-bind ,args ,received-args
                  ,@default-body)))))
-    `(progn (defgeneric ,name ,args (:documentation ,documentation))
-            (pushnew ',name *interface-functions*)
-            ,(if (null default-body)
-                 `(pushnew ',name *unimplemented-interfaces*)
-                 (gen-default-impl))
-            ',name)))
+     ` (progn (defgeneric ,name ,args (:documentation ,documentation))
+              (pushnew ',name *interface-functions*)
+              ,(if (null default-body)
+                   `(pushnew ',name *unimplemented-interfaces*)
+                   (gen-default-impl))
+              (export ',name :swank-backend)
+              ',name)))
 
 (defmacro defimplementation (name args &body body)
   ;; Is this a macro no-no -- should it be pushed out of macroexpansion?
@@ -184,6 +105,10 @@ a stream for the new connection.")
 (definterface remove-fd-handlers (socket)
   "Remove all fd-handlers for SOCKET.")
 
+(definterface preferred-communication-style ()
+  "Return one of the symbols :spawn, :sigio, :fd-handler, or NIL."
+  nil)
+
 ;;; Base condition for networking errors.
 (define-condition network-error (error) ())
 
@@ -201,8 +126,9 @@ that the calling thread is the one that interacts with Emacs."
 
 (defconstant +sigint+ 2)
 
-(defgeneric call-without-interrupts (fn)
-  (:documentation "Call FN in a context where interrupts are disabled."))
+(definterface call-without-interrupts (fn)
+  "Call FN in a context where interrupts are disabled."
+  (funcall fn))
 
 (definterface getpid ()
   "Return the (Unix) process ID of this superior Lisp.")
@@ -221,7 +147,7 @@ that the calling thread is the one that interacts with Emacs."
   (declare (ignore ignore))
   `(call-with-compilation-hooks (lambda () (progn ,@body))))
 
-(definterface compile-string-for-emacs (string &key buffer position)
+(definterface swank-compile-string (string &key buffer position)
    "Compile source from STRING.  During compilation, compiler
 conditions must be trapped and resignalled as COMPILER-CONDITIONs.
 
@@ -230,7 +156,7 @@ If supplied, BUFFER and POSITION specify the source location in Emacs.
 Additionally, if POSITION is supplied, it must be added to source
 positions reported in compiler conditions.")
 
-(definterface compile-system-for-emacs (system-name)
+(definterface swank-compile-system (system-name)
   "Compile and load SYSTEM-NAME, During compilation compiler
   conditions must be trapped and resignalled as
   COMPILER-CONDITION ala compile-string-for-emacs."
@@ -241,7 +167,7 @@ positions reported in compiler conditions.")
              (funcall operate load-op system-name)))
           (t (error "ASDF not loaded")))))
 
-(definterface compile-file-for-emacs (filename load-p)
+(definterface swank-compile-file (filename load-p)
    "Compile FILENAME signalling COMPILE-CONDITIONs.
 If LOAD-P is true, load the file after compilation.")
 
@@ -289,9 +215,12 @@ The streams are returned as two values.")
 
 ;;;; Documentation
 
-(definterface arglist-string (function-name)
-   "Return the argument for FUNCTION-NAME as a string.
-The result should begin and end with parenthesis.")
+(definterface arglist (name)
+   "Return the lambda list for the symbol NAME.
+
+The result can be a list or a string.
+
+An error should be signaled if the lambda list cannot be found.")
 
 (definterface macroexpand-all (form)
    "Recursively expand all macros in FORM.
@@ -351,54 +280,18 @@ debug the debugger! Instead, such conditions can be reported to the
 user without (re)entering the debugger by wrapping them as
 `sldb-condition's."))
 
-(definterface debugger-info-for-emacs (start end)
-   "Return debugger state, with stack frames from START to END.
-The result is a list:
-  (condition ({restart}*) ({stack-frame}*)
-where
-  condition   ::= (description type)
-  restart     ::= (name description)
-  stack-frame ::= (number description)
-
-condition---a pair of strings: message, and type.
-
-restart---a pair of strings: restart name, and description.
-
-stack-frame---a number from zero (the top), and a printed
-representation of the frame's call.
-
-Below is an example return value. In this case the condition was a
-division by zero (multi-line description), and only one frame is being
-fetched (start=0, end=1).
-
- ((\"Arithmetic error DIVISION-BY-ZERO signalled.
-Operation was KERNEL::DIVISION, operands (1 0).\"
-   \"[Condition of type DIVISION-BY-ZERO]\")
-  ((\"ABORT\" \"Return to Slime toplevel.\")
-   (\"ABORT\" \"Return to Top-Level.\"))
-  ((0 \"(KERNEL::INTEGER-/-INTEGER 1 0)\")))")
-
-(definterface backtrace (start end)
+(definterface compute-backtrace (start end)
    "Return a list containing a backtrace of the condition current
 being debugged.  The results are unspecified if this function is
-called outside the dynamic contour of a debugger hook defined by
-DEFINE-DEBUGGER-HOOK.
+called outside the dynamic contour CALL-WITH-DEBUGGING-ENVIRONMENT.
 
-START and END are zero-based indices constraining the number of
-frames returned.  Frame zero is defined as the frame which invoked
-the debugger.
+START and END are zero-based indices constraining the number of frames
+returned.  Frame zero is defined as the frame which invoked the
+debugger.  If END is nil, return the frames from START to the end of
+the stack.")
 
-The backtrace is returned as a list of tuples of the form
-\(FRAME-NUMBER FRAME-DESCRIPTION), where FRAME-NUMBER is the
-index of the frame, defined like START/END, and FRAME-DESCRIPTION
-is a string containing text to display in the debugger for this
-frame.
-
-An example return value:
-
-   ((0 \"(HELLO \"world\")\")
-    (1 \"(RUN-EXCITING-LISP-DEMO)\")
-    (2 \"(SYS::%TOPLEVEL #<SYS::ENVIRONMENT #x394834>)\"))")
+(definterface print-frame (frame stream)
+  "Print frame to stream.")
 
 (definterface frame-source-location-for-emacs (frame-number)
   "Return the source location for FRAME-NUMBER.")
@@ -441,6 +334,69 @@ from the frame.")
 as it was called originally.")
 
 
+;;;; Definition finding
+
+(defstruct (:location (:type list) :named
+                      (:constructor make-location (buffer position)))
+  buffer position)
+
+(defstruct (:error (:type list) :named (:constructor)) message)
+(defstruct (:file (:type list) :named (:constructor)) name)
+(defstruct (:buffer (:type list) :named (:constructor)) name)
+(defstruct (:position (:type list) :named (:constructor)) pos)
+
+(definterface find-definitions (name)
+   "Return a list ((DSPEC LOCATION) ...) for NAME's definitions.
+
+NAME is string denoting a symbol or \"definition specifier\".
+
+DSPEC is a symbol or a \"definition specifier\" describing the
+definition, e.g., FOO or (METHOD FOO (STRING NUMBER)) or
+\(DEFVAR BAR).")
+
+
+;;;; XREF
+
+(definterface who-calls (function-name)
+  "Return the call sites of FUNCTION-NAME (a symbol).
+The results is a list ((DSPEC LOCATION) ...).")
+
+(definterface who-references (variable-name)
+  "Return the locations where VARIABLE-NAME (a symbol) is referenced.
+See WHO-CALLS for a description of the return value.")
+
+(definterface who-binds (variable-name)
+  "Return the locations where VARIABLE-NAME (a symbol) is bound.
+See WHO-CALLS for a description of the return value.")
+
+(definterface who-sets (variable-name)
+  "Return the locations where VARIABLE-NAME (a symbol) is set.
+See WHO-CALLS for a description of the return value.")
+
+(definterface who-macroexpands (macro-name)
+  "Return the locations where MACRO-NAME (a symbol) is expanded.
+See WHO-CALLS for a description of the return value.")
+
+(definterface who-specializes (class-name)
+  "Return the locations where CLASS-NAME (a symbol) is specialized.
+See WHO-CALLS for a description of the return value.")
+
+;;; Simpler variants.
+
+(definterface list-callers (function-name)
+  "List the callers of FUNCTION-NAME.
+This function is like WHO-CALLS except that it is expected to use
+lower-level means. Whereas WHO-CALLS is usually implemented with
+special compiler support, LIST-CALLERS is usually implemented by
+groveling for constants in function objects throughout the heap.
+
+The return value is as for WHO-CALLS.")
+
+(definterface list-callees (function-name)
+  "List the functions called by FUNCTION-NAME.
+See LIST-CALLERS for a description of the return value.")
+
+
 ;;;; Profiling
 
 ;;; The following functions define a minimal profiling interface.
@@ -478,50 +434,6 @@ generic functions having names in the given package.  Generic functions
 themselves, that is, their dispatch functions, are left alone.")
 
 
-;;;; Queries
-
-#+(or)
-;;; This is probably a better interface than find-function-locations.
-(definterface find-definitions (name)
-   "Return a list of (LABEL . LOCATION) pairs for NAME's definitions.
-
-NAME is string denoting a symbol or \"definition specifier\".
-
-LABEL is a string describing the definition, e.g., \"foo\" or
-\"(method foo (string number))\" or \"(variable bar)\".
-
-LOCATION is a source location of the form:
-
-<location> ::= (:location <buffer> <position>)
-             | (:error <message>) 
-
-<buffer>   ::= (:file <filename>)
-             | (:buffer <buffername>)
-             | (:source-form <string>)
-
-<position> ::= (:position <fixnum> [<align>]) ; 1 based
-             | (:function-name <string>)
-")
-
-(definterface find-function-locations (name)
-   "Return a list (LOCATION LOCATION ...) for NAME's definitions.
-
-LOCATION is a source location of the form:
-
-<location> ::= (:location <buffer> <position>)
-             | (:error <message>) 
-
-<buffer>   ::= (:file <filename>)
-             | (:buffer <buffername>)
-             | (:source-form <string>)
-
-<position> ::= (:position <fixnum> [<align>]) ; 1 based
-             | (:line <fixnum> [<fixnum>])
-             | (:function-name <string>)
-             | (:source-path <list> <start-position>)
-")
-
-
 ;;;; Inspector
 
 (definterface inspected-parts (object)
@@ -530,10 +442,11 @@ LOCATION is a source location of the form:
 
 (definterface describe-primitive-type (object)
   "Return a string describing the primitive type of object."
+  (declare (ignore object))
   "N/A")
 
 
-;;;; Multiprocessing
+;;;; Multithreading
 ;;;
 ;;; The default implementations are sufficient for non-multiprocessing
 ;;; implementations.
@@ -599,51 +512,3 @@ Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time."
 
 (definterface receive ()
   "Return the next message from current thread's mailbox.")
-
-
-;;;; XREF
-
-(definterface who-calls (function-name)
-  "Return the call sites of FUNCTION-NAME (a string).
-The results are grouped together by filename:
-  <result>    ::= (<file>*)
-  <file>      ::= (<filename> . (<reference>*))
-  <reference> ::= (<label> . <location>)
-  <label>     ::= string
-  <location>  ::= source-location")
-
-(definterface who-references (variable-name)
-  "Return the locations where VARIABLE-NAME (a string) is referenced.
-See WHO-CALLS for a description of the return value.")
-
-(definterface who-binds (variable-name)
-  "Return the locations where VARIABLE-NAME (a string) is bound.
-See WHO-CALLS for a description of the return value.")
-
-(definterface who-sets (variable-name)
-  "Return the locations where VARIABLE-NAME (a string) is set.
-See WHO-CALLS for a description of the return value.")
-
-(definterface who-macroexpands (macro-name)
-  "Return the locations where MACRO-NAME (a string) is expanded.
-See WHO-CALLS for a description of the return value.")
-
-(definterface who-specializes (class-name)
-  "Return the locations where CLASS-NAME (a string) is specialized.
-See WHO-CALLS for a description of the return value.")
-
-;;; Simpler variants.
-
-(definterface list-callers (function-name)
-  "List the callers of FUNCTION-NAME.
-This function is like WHO-CALLS except that it is expected to use
-lower-level means. Whereas WHO-CALLS is usually implemented with
-special compiler support, LIST-CALLERS is usually implemented by
-groveling for constants in function objects throughout the heap.
-
-The return value is as for WHO-CALLS.")
-
-(definterface list-callees (function-name)
-  "List the functions called by FUNCTION-NAME.
-See LIST-CALLERS for a description of the return value.")
-
