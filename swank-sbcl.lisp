@@ -296,22 +296,22 @@ This is useful when debugging the definition-finding code.")
              (t (list :function-name fname)))))))
                                 
 (defmethod function-source-location-for-emacs (fname-string)
-  "Return the source-location of FNAME's definition."
+  "Return the source-location(s) of FNAME's definition(s)."
   (let* ((fname (from-string fname-string)))
     (labels ((finder (fname)
                (cond ((and (symbolp fname) (macro-function fname))
                       (function-source-location (macro-function fname) 
                                                 fname-string))
                      ((typep fname 'sb-mop:generic-function)
-                      (function-source-location
-                       ;; FIXME really we should do something to present 
-                       ;; all methods instead of just presenting the first
-                       (car (sb-mop:generic-function-methods fname))
-                       fname-string))
-                     ((sb-introspect:valid-function-name-p fname)
-                      (finder (fdefinition fname)))
+                      (list*
+                       (function-source-location fname fname-string)
+                       (mapcar 
+                        (lambda (x) (function-source-location x fname-string))
+                        (sb-mop:generic-function-methods fname))))
                      ((functionp fname) 
-                      (function-source-location fname fname-string)))))
+                      (function-source-location fname fname-string))
+                     ((sb-introspect:valid-function-name-p fname)
+                      (finder (fdefinition fname))) )))
       (if *debug-definition-finding*
           (finder fname)
           (handler-case (finder fname)
@@ -319,7 +319,10 @@ This is useful when debugging the definition-finding code.")
               (list :error (format nil "Error: ~A" e))))))))
 
 (defslimefun find-function-locations (name)
-  (list (function-source-location-for-emacs name)))
+  (let ((loc (function-source-location-for-emacs name)))
+    (if (listp loc)
+        loc
+        (list loc))))
 
 (defmethod describe-symbol-for-emacs (symbol)
   "Return a plist describing SYMBOL.
