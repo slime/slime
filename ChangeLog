@@ -1,3 +1,9 @@
+2004-06-10  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (sldb-step): Command is disabled because the function
+	`swank:sldb-step' that it calls doesn't exist. I don't see any
+	stepping code in our backends.
+
 2004-06-09  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-goto-location-position) [:function-name]: The
