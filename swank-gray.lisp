@@ -79,3 +79,34 @@
 (defmethod stream-line-length ((s slime-input-stream))
   75)
 
+
+;;; CLISP extensions
+
+;; We have to define an additional method for the sake of the C
+;; function listen_char (see src/stream.d), on which SYS::READ-FORM
+;; depends.
+
+;; We could make do with either of the two methods below.
+
+(defmethod stream-read-char-no-hang ((s slime-input-stream))
+  (with-slots (buffer index) s
+    (when (< index (length buffer))
+      (prog1 (aref buffer index) (incf index)))))
+
+;; This CLISP extension is what listen_char actually calls.  The
+;; default method would call STREAM-READ-CHAR-NO-HANG, so it is a bit
+;; more efficient to define it directly.
+
+(defmethod stream-read-char-will-hang-p ((s slime-input-stream))
+  (with-slots (buffer index) s
+    (= index (length buffer))))
+
+
+;;;
+(defmethod make-fn-streams (input-fn output-fn)
+  (let* ((output (make-instance 'slime-output-stream 
+                                :output-fn output-fn))
+         (input  (make-instance 'slime-input-stream
+                                :input-fn input-fn 
+                                :output-stream output)))
+    (values input output)))
