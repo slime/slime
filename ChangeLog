@@ -1,5 +1,8 @@
 2004-04-26  Luke Gorrie  <luke@bluetail.com>
 
+	* swank-allegro.lisp (arglist): Return :not-available if arglist
+	lookup fails with an error.
+
 	* slime.el: Moved snippets of Common Lisp code into swank.lisp
 	from the thread control panel. (Remember, no CL code in slime.el!)
 
