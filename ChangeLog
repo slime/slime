@@ -1,3 +1,8 @@
+2004-10-06  Luke Gorrie  <luke@synap.se>
+
+	* doc/slime.texi (Credits): Updated the credits list to include
+	more Lisp implementors who're also SLIME hackers.
+
 2004-10-05  Luke Gorrie  <luke@synap.se>
 
 	* swank.lisp (arglist-for-echo-area): Handle errors and return a
