@@ -63,6 +63,7 @@
   (nth-value 1 (sb-bsd-sockets:socket-name socket)))
 
 (defimplementation close-socket (socket)
+  (sb-sys:invalidate-descriptor (socket-fd socket))
   (sb-bsd-sockets:socket-close socket))
 
 (defimplementation accept-connection (socket)

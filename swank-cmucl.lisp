@@ -78,6 +78,7 @@
   (nth-value 1 (ext::get-socket-host-and-port (socket-fd socket))))
 
 (defimplementation close-socket (socket)
+  (sys:invalidate-descriptor socket)
   (ext:close-socket (socket-fd socket)))
 
 (defimplementation accept-connection (socket)
