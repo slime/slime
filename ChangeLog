@@ -1,7 +1,6 @@
 2004-09-14  Thomas Schilling <tjs_ng@yahoo.de>
 
-	* swank-allegro.lisp (inspect-for-emacs): Update for new
-	inspect-for-emacs protocol.
+	* swank-allegro.lisp (inspect-for-emacs): Fixes to previous patch.
 
 2004-09-14  Marco Baringer  <mb@bese.it>
 
