@@ -1,9 +1,16 @@
 2003-10-21  Luke Gorrie  <luke@bluetail.com>
 
+	* swank-sbcl.lisp (swank-compile-string): Include only one
+	:SOURCE-PATH attribute in the plist, and replace the front element
+	with a 0 (fixes a problem probably due to recent hacks to the
+	elisp source-path lookups).
+
 	* slime.el (inferior-slime-mode): New minor mode for use with
 	`inferior-lisp-mode'. Defines a subset of the `slime-mode' keys
 	which don't clash with comint (e.g. doesn't bind M-{p,n}).
 	(slime-keys): List of keybinding specifications.
+	(slime-find-buffer-package): If we don't find the "(in-package" by
+	searching backwards, then try forwards too.
 
 	* swank.lisp (completions): Fixed semantics: should now consider
 	only/all completions that would not cause a read-error due to
