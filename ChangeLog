@@ -1,3 +1,13 @@
+2003-11-24  Luke Gorrie  <luke@bluetail.com>
+
+	* swank-sbcl.lisp (function-source-location): Use TRUENAME to
+	resolve source file name (thanks Lawrence Mitchell).
+
+	* slime.el (slime-goto-source-location): Fixes when finding
+	definition by regexp: open the right file (was missed), and
+	tweaked regexp to match more 'def' forms - especially
+	`defmacro-mundanely' (hyphen wasn't allowed before).
+
 2003-11-23  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (sldb-fetch-more-frames): Call swank:backtrace instead
