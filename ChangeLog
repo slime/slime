@@ -1,3 +1,10 @@
+2004-06-22  Matthew Danish  <mdanish@andrew.cmu.edu>
+
+	* swank-backend.lisp (unbound-slot-filler): New structure for
+	representing an unbound slot in the inspector functions.
+
+	* swank.lisp, swank-allegro.lisp: Use it.
+
 2004-06-22  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-output-filter): Choose connection based on
