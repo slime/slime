@@ -692,13 +692,15 @@ stack."
   (let ((header (sb-kernel:widetag-of o)))
     (cond ((= header sb-vm:simple-fun-header-widetag)
 	   (values "A simple-fun." 
-                   `("Self: " (:value ,(sb-kernel:%simple-fun-self o))
-                     (:newline)
-                     "Next: " (:value ,(sb-kernel:%simple-fun-next o))
-                     (:newline)
-                     "Name: " (:value ,(sb-kernel:%simple-fun-name o))
+                   `("Name: " (:value ,(sb-kernel:%simple-fun-name o))
                      (:newline)
                      "Arglist: " (:value ,(sb-kernel:%simple-fun-arglist o))
+                     (:newline)
+                     ,@(when (documentation o t)
+                         `("Documentation: " (:newline) ,(documentation o t) (:newline)))
+                     "Self: " (:value ,(sb-kernel:%simple-fun-self o))
+                     (:newline)
+                     "Next: " (:value ,(sb-kernel:%simple-fun-next o))
                      (:newline)
                      "Type: " (:value ,(sb-kernel:%simple-fun-type o))
                      (:newline)
@@ -707,6 +709,8 @@ stack."
 	   (values "A closure."
 		   `("Function: " (:value ,(sb-kernel:%closure-fun o))
                      (:newline)
+                     ,@(when (documentation o t)
+                         `("Documentation: " (:newline) ,(documentation o t) (:newline)))
                      "Closed over values:"
                      (:newline)
                      ,@(loop for i from 0 
@@ -739,7 +743,10 @@ stack."
   (values "A fdefn object."
 	  `("Name: "  (:value ,(sb-kernel:fdefn-name o))
             (:newline)
-            "Function" (:value,(sb-kernel:fdefn-fun o)))))
+            "Function" (:value,(sb-kernel:fdefn-fun o))
+            (:newline)
+            ,@(when (documentation o t)
+                `("Documentation: " (:newline) ,(documentation o t) (:newline))))))
 
 (defmethod inspect-for-emacs :around ((o generic-function) (inspector sbcl-inspector))
   (declare (ignore inspector))
