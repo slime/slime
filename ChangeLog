@@ -1,3 +1,8 @@
+2004-09-12  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank.lisp (compile-file-for-emacs): Use with-buffer-syntax so
+	that SBCL source files can be compiled.  From Christophe Rhodes.
+
 2004-09-09  Martin Simmons <martin@xanalys.com>
 
 	* swank-loader.lisp (make-swank-pathname): Preserve the host
