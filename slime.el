@@ -5983,7 +5983,7 @@ This way you can still see what the error was after exiting SLDB."
 (defun slime-thread-kill ()
   (interactive)
   (let ((id (get-text-property (point) 'thread-id)))
-    (slime-eval `(swank:kill-thread-by-id ,id)))
+    (slime-eval `(swank:kill-nth-thread ,id)))
   (call-interactively 'slime-list-threads))
 
 (defun slime-thread-attach ()
@@ -5998,7 +5998,7 @@ This way you can still see what the error was after exiting SLDB."
 (defun slime-thread-debug ()
   (interactive)
   (let ((id (get-text-property (point) 'thread-id)))
-    (slime-eval-async `(swank::debug-thread-by-id ,id)
+    (slime-eval-async `(swank:debug-nth-thread ,id)
                       (slime-buffer-package)
                       (lambda (v) nil))))
 

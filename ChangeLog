@@ -1,3 +1,22 @@
+2004-06-27  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* doc/slime.texi: Remove macros from chapter and section headings
+	to avoid texi2pdf breakage.
+
+	* swank-source-path-parser.lisp (cmucl-style-get-macro-character):
+	Add tests for #\space and #\\.  Suggested by Christophe Rhodes.
+
+	* swank-sbcl.lisp, swank-openmcl.lisp, swank-lispworks.lisp,
+	swank-cmucl.lisp, swank-backend.lisp, swank-allegro.lisp,
+	swank-abcl.lisp (thread-id, find-thread): New backend functions.
+
+	* swank.lisp (dispatch-event): Quitting from the debugger was
+	seriously broken.  Fix it.  Move generation of thread ids to the
+	backends.
+
+	* slime.el (sldb-get-buffer): Add support for sldb buffers for
+	multiple threads.
+
 2004-06-25  Thomas F. Burdick  <tfb@OCF.Berkeley.EDU>
 
 	* swank-sbcl.lisp (call-with-syntax-hooks, with-debootstrapping):
