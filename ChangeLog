@@ -1,3 +1,15 @@
+2003-11-29  Daniel Barlow  <dan@telent.net>
+
+	* slime.el (slime-idle-state): added :debug as a valid transition
+
+	* swank.lisp (slime-debugger-function): New.  Returns a function
+	suitable for use as the value of *DEBUGGER-HOOK* to install the
+	SLIME debugger globally.  Must be run from the *slime-repl* buffer
+	or somewhere else that the slime streams are visible so that it
+	can capture them.  e.g. for Araneida:
+	PKG> (setf araneida:*restart-on-handler-errors* 
+	           (swank:slime-debugger-fucntion))
+
 2003-11-29  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el: Some tweaking to the REPL.  slime-repl-input-end-mark
@@ -144,7 +156,7 @@
 
 2003-11-25  Daniel Barlow  <dan@telent.net>
 
-	* swank-sbcl.lisp: delete big chunk of leftover commented-out
+	* swank-sbcl.lisp: delete big chunk of leftover commented-out 
 	code
 
 	* slime.el: arglist command to use slime-read-symbol-name,
