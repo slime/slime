@@ -321,7 +321,7 @@ compiler state."
   (with-compilation-hooks ()
     (multiple-value-bind (fasl-file w-p f-p) (compile-file filename)
       (declare (ignore w-p))
-      (cond ((and fasl-file (not f-p) load-p)
+      (cond ((and load-p fasl-file)
              (load fasl-file))
             (t fasl-file)))))
 
