@@ -45,7 +45,7 @@
   #+sbcl      (format nil "sbcl-~A" (lisp-implementation-version))
   #+openmcl   "openmcl"
   #+lispworks (format nil "lispworks-~A" (lisp-implementation-version))
-  #+allegro   "allegro"
+  #+allegro   (format nil "allegro-~A" excl::*common-lisp-version-number*)
   #+clisp     (format nil "clisp-~A" (let ((s (lisp-implementation-version)))
                                        (subseq s 0 (position #\space s))))
   #+armedbear "abcl"
