@@ -1,5 +1,9 @@
 2004-07-26  Luke Gorrie  <luke@bluetail.com>
 
+	* slime.el (slime-first-change-hook): Add `save-match-data' to
+	avoid breaking e.g. query-replace. Also added `save-excursion'
+	just to be safe.
+
 	* README: s/setup-slime/slime-setup/ in the .emacs snippet.
 
 2004-07-23  Luke Gorrie  <luke@bluetail.com>
