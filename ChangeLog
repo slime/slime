@@ -1,11 +1,28 @@
 2004-02-25  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* swank-cmucl.lisp (arglist-string): Delay the call to
+	di::function-debug-function until it is actually needed.
+
+	* swank.lisp (connection-info): New function.
+	(open-streams): Don't send the :check-protocol-version message.  Now
+	handled with CONNECTION-INFO.
+
+	* slime.el (slime-symbol-at-point): Don't skip backwards across
+	whitespace when we are at the first character of a symbol.  To
+	handle this case: skip symbol constituents forward before skipping
+	whitespace backwards.  Reported by Jan Richter.
+	(slime-connection-close-hook, slime-next-connection)
+	(slime-make-default-connection): Remove extra call to format.
+	(slime-init-connection-state): Use only a single RPC instead of 4.
+
+2004-02-25  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
 	* slime.el (slime-with-chosen-connection): Bind
 	slime-dispatching-connection and not slime-buffer-connection.
 	slime-buffer-connection is a buffer local variable not a dynamic
 	variable.
 	(slime-find-connection-by-type-name)
-	(slime-read-lisp-implementation-type-name): Where lost during the
+	(slime-read-lisp-implementation-type-name): Were lost during the
 	merge.
 	(sldb-fetch-more-frames): Use (goto-char (point-max)) instead of
 	end-of-buffer. 
