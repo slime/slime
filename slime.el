@@ -7030,13 +7030,14 @@ is exceeded."
              (slime-connected-p)
 	     (re-search-forward "^\\([^;\n]*[ \t(]\\)?#[-+]" limit t))
     (ignore-errors
-      (let* ((char (char-before))
+      (let* ((start (- (point) 2))
+             (char (char-before))
              (e (read (current-buffer)))
              (val (slime-eval-feature-conditional e)))
         (when (<= (point) limit)
           (if (or (and (eq char ?+) (not val))
                   (and (eq char ?-) val))
-              (let ((start (point)))
+              (progn 
                 (forward-sexp)
                 (assert (<= (point) limit))
                 (let ((md (match-data)))
@@ -7047,14 +7048,19 @@ is exceeded."
                   t))
             (slime-search-suppressed-forms limit)))))))
 
-;; XXX add XEmacs compatibility
 (defun slime-activate-font-lock-magic ()
-  (font-lock-add-keywords
-   'lisp-mode
-   '((slime-search-suppressed-forms 0 font-lock-comment-face t))))
+  (if (featurep 'xemacs)
+      (let ((pattern '((slime-search-suppressed-forms
+                        (0 font-lock-comment-face t)))))
+        (dolist (sym '(lisp-font-lock-keywords
+                       lisp-font-lock-keywords-1
+                       lisp-font-lock-keywords-2))
+          (set sym (append (symbol-value sym) pattern))))
+    (font-lock-add-keywords
+     'lisp-mode
+     '((slime-search-suppressed-forms 0 font-lock-comment-face t)))))
 
-(when (and (fboundp 'font-lock-add-keywords)
-           slime-highlight-suppressed-forms)
+(when slime-highlight-suppressed-forms
   (slime-activate-font-lock-magic))
 
 
