@@ -295,16 +295,18 @@ able to return the file name in which the definition occurs."
 	   (delete-file binary-filename)))
     (delete-file filename)))
 
-(defun make-dspec-location (dspec filename &optional tmpfile buffer position)
-  (list :dspec 
-        (cond ((and tmpfile (pathname-match-p filename tmpfile))
-               (list :buffer buffer position))
-              (t 
-               (let ((name (namestring (translate-logical-pathname filename))))
-                 (list :file name))))
-	(string (etypecase dspec
-		  (symbol dspec)
-		  (cons (dspec:dspec-primary-name dspec))))))
+(defun make-dspec-location (dspec location &optional tmpfile buffer position)
+  (flet ((from-buffer-p () (and (pathnamep location) tmpfile 
+                                (pathname-match-p location tmpfile))))
+    (make-location
+     (etypecase location
+       (pathname (cond ((from-buffer-p) `(:buffer ,buffer))
+                       (t `(:file ,(namestring (truename location)))))))
+     (cond ((from-buffer-p) `(:position ,position))
+           (t `(:dspec , (etypecase dspec
+                           (symbol (symbol-name dspec))
+                           (cons (symbol-name
+                                  (dspec:dspec-primary-name dspec))))))))))
 
 (defun signal-error-data-base (database &optional tmpfile buffer position)
   (map-error-database 
@@ -339,3 +341,32 @@ able to return the file name in which the definition occurs."
       (signal-undefined-functions compiler::*unknown-functions*
                                   tmpname tmpname buffer position))))
 
+;;; xref
+
+(defslimefun who-calls (function-name)
+  (xref-results-for-emacs (hcl:who-calls function-name)))
+
+(defslimefun who-references (variable)
+  (xref-results-for-emacs (hcl:who-references variable)))
+
+(defslimefun who-binds (variable)
+  (xref-results-for-emacs (hcl:who-binds variable)))
+
+(defslimefun who-sets (variable)
+  (xref-results-for-emacs (hcl:who-sets variable)))
+
+(defun xref-results-for-emacs (dspecs)
+  (let ((xrefs '()))
+    (dolist (dspec dspecs)
+      (loop for (dspec location) in (dspec:find-dspec-locations dspec)
+            do (push (cons (to-string dspec)
+                           (make-dspec-location dspec location))
+                     xrefs)))
+    (group-xrefs xrefs)))
+
+;; (dspec:at-location 
+;;  ('(:inside (:buffer "foo" 34)))
+;;  (defun foofun () (foofun)))
+
+;; (dspec:find-dspec-locations 'xref-results-for-emacs)
+;; (who-binds '*package*)
