@@ -2212,9 +2212,11 @@ The `symbol-value' of each element is a type tag.")
 (defimplementation toggle-trace-function (spec)
   (toggle-trace spec))
 
+#+cmu19
 (defimplementation toggle-trace-method (spec)
   (toggle-trace `(pcl:fast-method ,@(rest (process-fspec spec)))))
 
+#+cmu19
 (defimplementation toggle-trace-fdefinition-wherein (name wherein)
   (toggle-trace name :wherein (process-fspec wherein)))
 
