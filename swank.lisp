@@ -222,8 +222,8 @@ The time is measured in microseconds."
      (* (- (get-internal-real-time) before)
         (/ 1000000 internal-time-units-per-second)))))
 
-(defmacro with-trapping-compiler-notes (() &body body)
-  `(call-trapping-compiler-notes (lambda () ,@body)))
+(defmacro with-trapping-compilation-notes (() &body body)
+  `(call-trapping-compilation-notes (lambda () ,@body)))
 
 (defun call-with-compilation-hooks (fn)
   (multiple-value-bind (result usecs)
