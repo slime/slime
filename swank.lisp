@@ -166,9 +166,11 @@ Redirection is done while Lisp is processing a request for Emacs.")
                             (announce-fn #'simple-announce-function))
   (setup-server port announce-fn background))
 
+(defparameter *loopback-interface* "127.0.0.1")
+
 (defun setup-server (port announce-fn style)
   (declare (type function announce-fn))
-  (let* ((socket (create-socket port))
+  (let* ((socket (create-socket *loopback-interface* port))
          (port (local-port socket)))
     (funcall announce-fn port)
     (cond ((eq style :spawn)
@@ -234,7 +236,7 @@ stream (or NIL if none was created)."
 Return an output stream suitable for writing program output.
 
 This is an optimized way for Lisp to deliver output to Emacs."
-  (let* ((socket (create-socket 0))
+  (let* ((socket (create-socket *loopback-interface* 0))
          (port (local-port socket)))
     (encode-message `(:open-dedicated-output-stream ,port) socket-io)
     (accept-connection socket)))
@@ -686,17 +688,18 @@ after Emacs causes a restart to be invoked."
        (lambda () (sldb-loop *sldb-level*)))))
 
 (defun sldb-loop (level)
-  (send-to-emacs (list* :debug (current-thread) *sldb-level*
-                        (debugger-info-for-emacs 0 *sldb-initial-frames*)))
-  (catch 'sldb-enter-default-debugger
-    (unwind-protect
+  (unwind-protect
+       (catch 'sldb-enter-default-debugger
+         (send-to-emacs 
+          (list* :debug (current-thread) *sldb-level* 
+                 (debugger-info-for-emacs 0 *sldb-initial-frames*)))
          (loop (catch 'sldb-loop-catcher
                  (with-simple-restart (abort "Return to sldb level ~D." level)
                    (send-to-emacs (list :debug-activate (current-thread)
                                         *sldb-level*))
                    (handler-bind ((sldb-condition #'handle-sldb-condition))
-                     (read-from-emacs)))))
-      (send-to-emacs `(:debug-return ,(current-thread) ,level)))))
+                     (read-from-emacs))))))
+    (send-to-emacs `(:debug-return ,(current-thread) ,level))))
 
 (defun sldb-break-with-default-debugger ()
   (throw 'sldb-enter-default-debugger nil))
