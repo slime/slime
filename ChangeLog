@@ -1,3 +1,23 @@
+2003-11-13  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-repl-previous-input, slime-repl-previous-input):
+	When partial input has already been entered, the M-{p,n} REPL
+	history commands only match lines that start with the
+	already-entered prefix. This is comint-compatible behaviour which
+	has been requested. The history commands also skip over line
+	identical to the one already entered.
+	(slime-complete-maybe-restore-window-confguration): Catch errors,
+	so that we don't cause `pre-command-hook' to be killed.
+	(slime-truncate-lines): If you set this to nil, slime won't set
+	`truncate-lines' in buffers like sldb, apropos, etc.
+
+2003-11-12  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-show-description): XEmacs portability: don't use
+	`temp-buffer-show-hook'.
+	(slime-inspect): Use `(slime-sexp-at-point)' as default inspection
+	value (thanks Jan Rychter).
+
 2003-11-10  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-post-command-hook): Inhibit unless (still) in
