@@ -1,3 +1,14 @@
+2004-04-21  Edi Weitz <edi@agharta.de>
+
+	* swank.lisp (list-all-package-names): Optionally include
+	nicknames in the result.
+
+	* slime.el (slime-read-package-name): Include nicknames in the
+	completions set.
+	(slime-repl-mode-map): Bind C-c : to slime-interactive-eval just
+	like in most other SLIME buffers.
+	(read-directory-name): Compatibilty defun.
+	
 2004-04-20  Tiago Maduro-Dias <tcmd@rnl.ist.utl.pt>
 
 	* slime.el (slime-close-buffer): New utility function.
