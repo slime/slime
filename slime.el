@@ -269,6 +269,11 @@ See also `slime-translate-to-lisp-filename-function'.")
   :type 'function
   :options '(slime-complete-symbol* slime-simple-complete-symbol))
   
+(defcustom slime-connected-hook nil
+  "List of functions to call when SLIME connects to Lisp."
+  :group 'slime
+  :type 'hook)
+  
 
 ;;; Minor modes
 
@@ -1065,6 +1070,7 @@ Polling %S.. (Abort with `M-x slime-connection-abort'.)"
       (delete-windows-on buffer)
       (bury-buffer buffer))
     (slime-init-output-buffer process)
+    (run-hooks 'slime-connected-hook)
     (message "Connected to Swank server on port %S. %s"
              port (slime-random-words-of-encouragement))))
 
@@ -4221,7 +4227,7 @@ If `sldb-enable-styled-backtrace' is nil, just return STRING."
 
 (make-variable-buffer-local
  (defvar sldb-condition nil
-   "String describing the condition being debugged."))
+   "List of (DESCRIPTION TYPE) strings describing the condition being debugged."))
 
 (make-variable-buffer-local
  (defvar sldb-restarts nil
@@ -4332,6 +4338,7 @@ Full list of commands:
   ("a"    'sldb-abort)
   ("q"    'sldb-quit)
   ("B"    'sldb-break-with-default-debugger)
+  ("P"    'sldb-print-condition)
   (":"    'slime-interactive-eval))
 
 ;; Inherit bindings from slime-mode
@@ -4813,6 +4820,16 @@ was called originally."
         ((list 'swank:restart-frame number))
       ((:ok value) (message "%s" value))
       ((:abort)))))
+
+(defun sldb-print-condition ()
+  "Print the condition SLDB is handling in the REPL.
+This way you can still see what the error was after exiting SLDB."
+  (interactive)
+  (when (null sldb-condition)
+    (error "No condition known (wrong buffer?)"))
+  (slime-output-string (format "%s\n%s\n"
+                               (first sldb-condition)
+                               (second sldb-condition))))
 
 
 ;;; Thread control panel
