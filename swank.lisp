@@ -169,15 +169,18 @@ If *REDIRECT-IO* is true, all standard I/O streams are redirected."
        (call-with-redirected-io ,connection (lambda () ,@body))
        (progn ,@body)))
 
+(defmacro without-interrupts (&body body)
+  `(call-without-interrupts (lambda () ,@body)))
+  
 ;;;; TCP Server
 
 (defvar *close-swank-socket-after-setup* nil)
 (defvar *use-dedicated-output-stream* t)
 (defvar *swank-in-background* nil)
 
-(defun start-server (port-file &optional (background *swank-in-background*))
+(defun start-server (port-file)
   (setup-server 0 (lambda (port) (announce-server-port port-file port))
-                background))
+                *swank-in-background*))
                      
 (defun create-swank-server (&optional (port 4005) 
                             (background *swank-in-background*))
@@ -412,14 +415,13 @@ If a protocol error occurs then a SLIME-READ-ERROR is signalled."
          (length (1+ (length string))))
     (log-event "SEND: ~A~%" string)
     (with-I/O-lock ()
-      (without-interrupts*
-       (lambda ()
-         (loop for position from 16 downto 0 by 8
-               do (write-char (code-char (ldb (byte 8 position) length))
-                              output))
-         (write-string string output)
-         (terpri output)
-         (force-output output))))))
+      (without-interrupts
+       (loop for position from 16 downto 0 by 8
+             do (write-char (code-char (ldb (byte 8 position) length))
+                            output))
+       (write-string string output)
+       (terpri output)
+       (force-output output)))))
 
 (defun prin1-to-string-for-emacs (object)
   (with-standard-io-syntax
@@ -504,6 +506,26 @@ resolution.  Return nil if no such symbol exists."
                            (not (eq access :external)))
                       (values nil nil))
                      (symbol (values symbol access)))))))))
+
+(defun find-symbol-or-lose (string &optional 
+                            (default-package *buffer-package*))
+  "Like FIND-SYMBOL-DESIGNATOR but signal an error the symbols doesn't
+exists."
+  (multiple-value-bind (symbol package)
+      (find-symbol-designator string default-package)
+    (cond (package (values symbol package))
+          (t (error "Unknown symbol: ~S [in ~A]" string default-package)))))
+
+(defun format-arglist (function-name lambda-list-fn)
+  "Use LAMBDA-LIST-FN to format the arglist for FUNCTION-NAME.
+Call LAMBDA-LIST-FN with the symbol corresponding to FUNCTION-NAME."
+    (multiple-value-bind (arglist condition)
+        (ignore-errors 
+          (let ((symbol (find-symbol-or-lose function-name)))
+            (values (funcall lambda-list-fn symbol))))
+      (cond (condition  (format nil "(-- ~A)" condition))
+            (t (let ((*print-case* :downcase))
+                 (format nil "(~{~A~^ ~})" arglist))))))
 
 
 ;;;; Debugger
