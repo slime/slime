@@ -45,7 +45,7 @@ o@c this comment prevents a newline!
 @code{\command\}@*
 @end macro
 
-@set EDITION 1.0
+@set EDITION 1.2
 @set UPDATED @code{$Date$}
 
 @titlepage
@@ -65,7 +65,7 @@ o@c this comment prevents a newline!
 @top SLIME
 
 @SLIME{} is the ``Superior Lisp Interaction Mode for Emacs''. This is
-the manual for version 1.0.
+the manual for version 1.2.
 
 @end ifinfo
 @menu
@@ -210,17 +210,17 @@ best-supported, are:
 
 @itemize @bullet
 @item
-CMU Common Lisp (@acronym{CMUCL})
+CMU Common Lisp (@acronym{CMUCL}), 18e or newer
 @item
-Steel Bank Common Lisp (@acronym{SBCL})
+Steel Bank Common Lisp (@acronym{SBCL}), from version 0.8.15 to 0.8.20
 @item
-OpenMCL
+OpenMCL, version 0.14.3
 @item
-LispWorks
+LispWorks, version 4.3 or newer
 @item
-Allegro Common Lisp (@acronym{ACL})
+Allegro Common Lisp (@acronym{ACL}), version 4.3 or newer
 @item
-@acronym{CLISP}
+@acronym{CLISP}, version 2.33.2 or newer
 @item
 Armed Bear Common Lisp (@acronym{ABCL})
 @end itemize
@@ -363,6 +363,7 @@ principles are described in this section.
 * Temporary buffers::           
 * Key bindings::                
 * inferior-lisp::               
+* Multithreading::
 @end menu
 
 @node Temporary buffers, Key bindings, User-interface conventions, User-interface conventions
@@ -411,7 +412,7 @@ will display all bindings starting with that prefix, so @kbd{C-c C-d
 C-h} will actually list the bindings for all documentation commands.
 This feature is just a bit too useful to clobber!
 
-@node inferior-lisp,  , Key bindings, User-interface conventions
+@node inferior-lisp,  Multithreading, Key bindings, User-interface conventions
 @subsection @code{*inferior-lisp*} buffer
 
 @SLIME{} internally uses the @code{inferior-lisp} package to start
@@ -437,6 +438,32 @@ to accidentally use an @code{inferior-lisp} command. If you do find a
 command that pops up the @code{*inferior-lisp*} buffer, that command
 doesn't belong to @SLIME{}, and you should probably lookup our
 equivalent.
+
+@node Multithreading, , inferior-lisp, User-interface conventions
+@subsection Multithreading
+
+If the Lisp system supports multithreading, SLIME spawns a new thread
+for each request, e.g., @kbd{C-x C-e} creates a new thread to evaluate
+the expression.  An exception to this rule are requests from the
+@REPL{}: all commands entered in the @REPL{} buffer are evaluated in a
+dedicated @REPL{} thread.
+
+Some complications arise with multithreading and special variables.
+Non-global special bindings are thread-local, e.g., changing the value
+of a let bound special variable in one thread has no effect on the
+binding of the variables with the same name in other threads.  This
+makes it sometimes difficult to change the printer or reader behaviour
+for new threads.  The variable
+@code{swank:*default-worker-thread-bindings*} was introduced for such
+situtuations: instead of modifying the global value of a variable, add a
+binding the @code{swank:*default-worker-thread-bindings*}.  E.g., with
+the following code, new threads will read floating point values as
+doubles by default:
+
+@example
+(push '(*read-default-float-format* . double-float)
+       swank:*default-worker-thread-bindings*).
+@end example
 
 @node Commands, Semantic indentation, User-interface conventions, slime-mode
 @section Commands
@@ -523,7 +550,7 @@ causes the results to be printed in the @REPL{} instead.
 @kbditem{C-M-x, slime-eval-defun}
 Evaluate top-level form.
 
-@kbditem{C-c C-e, slime-eval-last-expression}
+@kbditem{C-x C-e, slime-eval-last-expression}
 Evaluate the expression before point.
 
 @kbditem{C-c C-p, slime-pprint-eval-last-expression}
@@ -541,6 +568,10 @@ buffer you can enter Lisp expressions and evaluate them with
 @kbd{C-j}, like in Emacs's @file{*scratch*} buffer.
 
 @end table
+
+If `C-M-x' or `C-x C-e' is given a numeric argument, it inserts the
+value into the current buffer at point, rather than displaying it in the
+echo area.
 
 @node Documentation, Programming Helpers, Lisp Evaluation, Commands
 @subsection Documentation
@@ -609,13 +640,16 @@ Looks up and inserts into the current buffer the argument list for the
 function at point, if there is one.
 
 @kbditem{C-c C-m, slime-macroexpand-1}
-Macroexpand the expression at point once.
+Macroexpand the expression at point once.  If invoked with a prefix
+argument, use macroexpand instead of macroexpand-1.
 
 @kbditem{C-c M-m, slime-macroexpand-all}
 Fully macroexpand the expression at point.
 
 @kbditem{C-c C-t, slime-toggle-trace-fdefinition}
-Toggle tracing of the function at point.
+Toggle tracing of the function at point.  If invoked with a prefix
+argument, read additional information, like which particular method
+should be traced.
 
 @kbditem{C-c M-d, slime-disassemble-symbol}
 Disassemble the function definition of the symbol at point.
@@ -945,9 +979,6 @@ instruction pointer within the frame.
 @kbditem{i, sldb-inspect-in-frame}
 Inspect the result of evaluating an expression in the frame.
 
-@kbditem{l, sldb-list-locals}
-List the local variables and their bindings in the frame.
-
 @end table
 
 @node Restarts, Frame Navigation, Examining frames, Debugger
@@ -1192,6 +1223,16 @@ machines which share a common file system but use a different directory
 structure (different ``mount points''). This is most common with
 @acronym{SMB}-based file sharing.
 
+@item slime-net-coding-system
+If you want to transmit Unicode characters between Emacs and the Lisp
+system, you should customize this variable.  E.g., if you use SBCL, you
+can set @code{slime-net-coding-system} to @code{utf-8-unix}.  To
+actually display a Unicode character you also need apropriate fonts,
+otherwise the character will be rendered as a hollow box.  If you are
+using Allegro CL and GNU Emacs, you can also use @code{emacs-mule-unix}
+as coding system.  GNU Emacs has often nicer fonts for the later
+encoding.
+
 @end table
 
 @menu
@@ -1311,9 +1352,17 @@ globally set to @code{SWANK:SWANK-DEBUGGER-HOOK} and thus for @SLIME{}
 to handle all debugging in the Lisp image. This is for debugging
 multithreaded and callback-driven applications.
 
-@item SWANK:*SLDB-PPRINT-FRAMES*
-@code{*PRINT-PRETTY*} is bound to this value while formatting
-backtraces in @SLDB{}. The default value is @code{NIL}.
+@item SWANK:*SLDB-PRINTER-BINDINGS*
+@item SWANK:*MACROEXPAND-PRINTER-BINDINGS*
+@item SWANK:*SWANK-PPRINT-BINDINGS*
+These variables can be used to customize the printer in various
+situations.  The values of the variables are association lists of
+printer variable names with the corresponding value.  E.g., to enable
+the pretty printer for formatting backtraces in @SLDB{}, you can use:
+
+@example
+(push '(*print-pretty* . t) swank:*sldb-printer-bindings*).
+@end example
 
 @item SWANK:*USE-DEDICATED-OUTPUT-STREAM*
 This variable controls an optimization for sending printed output from
