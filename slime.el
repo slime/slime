@@ -543,7 +543,6 @@ top-level form, etc."
     (defun slime-message (fmt &rest args)
       (apply 'message fmt args)))
 
-
 (defun slime-display-message-or-view (msg bufname &optional select)
   "Like `display-buffer-or-message', but with `view-buffer-other-window'.
 That is, if a buffer pops up it will be in view mode, and pressing q
@@ -739,10 +738,11 @@ alist but ignores CDRs."
     (setq prefix (intern prefix)))
   (let ((package (upcase (wire-symbol-package prefix (slime-buffer-package))))
         (name (upcase (wire-symbol-name prefix)))
+        (external-ref (wire-symbol-external-ref-p prefix))
         (has-upcase (let ((case-fold-search nil))
                       (string-match "[A-Z]" (symbol-name prefix)))))
     (mapcar (if has-upcase 'upcase 'downcase)
-            (slime-eval `(swank:completions ,name ,package)))))
+            (slime-eval `(swank:completions ,name ,package ,external-ref)))))
 
 
 (provide 'slime)
