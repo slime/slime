@@ -1366,7 +1366,7 @@ after Emacs causes a restart to be invoked."
   "The list of currenlty active restarts.")
 
 ;; A set of printer variables used in the debugger.
-(define-printer-variables sldb 
+(define-printer-variables sldb-print
   (pretty nil)
   (level 4)
   (length 10)
@@ -1382,7 +1382,7 @@ after Emacs causes a restart to be invoked."
         (*sldb-level* (1+ *sldb-level*))
         (*swank-state-stack* (cons :swank-debugger-hook *swank-state-stack*)))
     (force-user-output)
-    (with-printer-settings sldb
+    (with-printer-settings sldb-print
       (call-with-debugging-environment
        (lambda () (sldb-loop *sldb-level*))))))
 
