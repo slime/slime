@@ -300,7 +300,7 @@ NIL if we aren't compiling from a buffer.")
         (unless failure-p
           ;; Cache the latest source file for definition-finding.
           (source-cache-get filename (file-write-date filename))
-          (load output-file))
+          (when load-p (load output-file)))
         (values output-file warnings-p failure-p)))))
 
 (defimplementation swank-compile-string (string &key buffer position directory)
@@ -1549,9 +1549,10 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
   (di::debug-function-debug-variables (di:frame-debug-function frame)))
 
 (defun debug-var-value (var frame location)
-  (ecase (di:debug-variable-validity var location)
-    (:valid (di:debug-variable-value var frame))
-    ((:invalid :unknown) ':<not-available>)))
+  (let ((validity (di:debug-variable-validity var location)))
+    (ecase validity
+      (:valid (di:debug-variable-value var frame))
+      ((:invalid :unknown) (make-symbol (string validity))))))
 
 (defimplementation frame-locals (index)
   (let* ((frame (nth-frame index))
@@ -1887,15 +1888,19 @@ The `symbol-value' of each element is a type tag.")
   (cond ((di::indirect-value-cell-p o)
          (values (format nil "~A is a value cell." o)
                  `("Value: " (:value ,(c:value-cell-ref o)))))
+        ((alien::alien-value-p o)
+         (inspect-alien-value o))
 	(t
-	 (destructuring-bind (text labeledp . parts)
-             (inspect::describe-parts o)
-           (values (format nil "~A~%" text)
-                   (if labeledp
-                       (loop for (label . value) in parts
-                             append (label-value-line label value))
-                       (loop for value in parts  for i from 0 
-                             append (label-value-line i value))))))))
+         (cmucl-inspect o))))
+
+(defun cmucl-inspect (o)
+  (destructuring-bind (text labeledp . parts) (inspect::describe-parts o)
+    (values (format nil "~A~%" text)
+            (if labeledp
+                (loop for (label . value) in parts
+                      append (label-value-line label value))
+                (loop for value in parts  for i from 0 
+                      append (label-value-line i value))))))
 
 (defmethod inspect-for-emacs :around ((o function) (inspector cmucl-inspector))
   (declare (ignore inspector))
@@ -1986,6 +1991,34 @@ The `symbol-value' of each element is a type tag.")
            (loop for i below (length o)
                  append (label-value-line i (aref o i))))))
 
+(defun inspect-alien-record (alien)
+  (values
+   (format nil "~A is an alien value." alien)
+   (with-struct (alien::alien-value- sap type) alien
+     (with-struct (alien::alien-record-type- kind name fields) type
+       (append
+        (label-value-line*
+         (:sap sap)
+         (:kind kind)
+         (:name name))
+        (loop for field in fields 
+              append (let ((slot (alien::alien-record-field-name field)))
+                       (label-value-line slot (alien:slot alien slot)))))))))
+
+(defun inspect-alien-pointer (alien)
+  (values
+   (format nil "~A is an alien value." alien)
+   (with-struct (alien::alien-value- sap type) alien
+     (label-value-line* 
+      (:sap sap)
+      (:type type)
+      (:to (alien::deref alien))))))
+  
+(defun inspect-alien-value (alien)
+  (typecase (alien::alien-value-type alien)
+    (alien::alien-record-type (inspect-alien-record alien))
+    (alien::alien-pointer-type (inspect-alien-pointer alien))
+    (t (cmucl-inspect alien))))
 
 ;;;; Profiling
 (defimplementation profile (fname)
