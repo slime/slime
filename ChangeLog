@@ -1,3 +1,20 @@
+2003-10-31  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el: (slime-repl-read-mode, slime-repl-read-xxx): New minor
+	mode for stream character based input to Lisp.
+
+	* swank.lisp: *read-input-catch-tag*, take-input, slime-read-char:
+	Moved here from swank-cmucl.lisp.
+	(defslimefun, defslimefun-unimplemented): Move macro definitions to
+	the beginning of the file.
+
+	* swank-cmucl.lisp: (slime-input-stream, slime-input-stream-read-char,
+	lime-input-stream-misc): Character input stream from Emacs.
+	(slime-input-stream/n-bin): Removed.
+
+	* swank-openmcl.lisp, swank-sbcl.lisp: Gray stream based input
+	redirection from Emacs.
+	
 2003-10-29  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el:
