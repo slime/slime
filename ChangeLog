@@ -1,3 +1,10 @@
+2004-04-24  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-init-connection-state): Use an asynchronous RPC
+	instead of slime-eval to reduce the amount of work we do in the
+	timer function.  We can remove the workaround for the timer
+	problem.
+
 2004-04-23  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el: Updated top comments.
