@@ -2190,7 +2190,7 @@ more than one space."
   "Show the argument list for the nearest function call, if any.
 If SHOW-FN is non-nil, it is funcall'd with the result instead of
 printing a message."
-  (interactive (list (slime-read-symbol "Arglist of: ")))
+  (interactive (list (slime-read-symbol-name "Arglist of: ")))
   (slime-eval-async 
    `(swank:arglist-string ,symbol-name)
    (slime-buffer-package)
