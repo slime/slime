@@ -1,3 +1,23 @@
+2003-12-11  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-repl-previous-prompt, slime-repl-next-prompt):
+	New commands.  Suggested by Håkon Alstadheim.
+	(slime-repl-beginning-of-defun, slime-repl-end-of-defun): New
+	commands.  Suggested by Andreas Fuchs.
+	(slime-repl-insert-prompt): Mark the prompt with a
+	slime-repl-prompt text property.
+	(slime-repl-eol): New function. Mostly for symmetry.
+	(slime-repl-in-input-area-p, slime-repl-at-prompt-end-p): New
+	predicates.
+	(slime-repl-find-prompt, slime-search-property-change-fn): New
+	functions.
+	(slime-ir1-expand): New command.
+
+	* swank-cmucl.lisp (accept-connection, request-loop): Don't use
+	fd-handlers. The code for the request-loop itself is now almost
+	the same as in the Allegro version.
+	(print-ir1-converted-blocks, expand-ir1-top-level): New functions.
+
 2003-12-10  Daniel Barlow  <dan@telent.net>
 
 	* swank-sbcl.lisp (serve-request): more fiddling with serve-event
