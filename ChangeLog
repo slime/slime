@@ -1,3 +1,7 @@
+2004-06-30  Luke Gorrie  <luke@bluetail.com>
+
+	* NEWS: Wrote preliminary release notes for alpha-1.
+
 2004-06-29  Luke Gorrie  <luke@bluetail.com>
 
 	* mkdist.sh: New shell script for creating a tarball for
