@@ -73,6 +73,12 @@
   (namestring (setf *default-pathname-defaults* 
                     (truename (merge-pathnames directory)))))
 
+(defimplementation default-directory ()
+  (excl:chdir))
+
+(defimplementation call-with-syntax-hooks (fn)
+  (funcall fn))
+
 ;;;; Misc
 
 (defimplementation arglist (symbol)
