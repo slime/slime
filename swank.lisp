@@ -386,14 +386,14 @@ element."
 (defun dispatch-event (event socket-io)
   (log-event "DISPATCHING: ~S~%" event)
   (destructure-case event
-    ((:emacs-rex string package thread id)
+    ((:emacs-rex form package thread id)
      (let ((thread (etypecase thread
                      ((member t)
                       (let ((c *emacs-connection*))
                         (spawn (lambda () (handle-request c))
                                :name "worker")))
                      (fixnum (lookup-thread-id thread)))))
-       (send thread `(eval-string ,string ,package ,id))
+       (send thread `(eval-for-emacs ,form ,package ,id))
        (add-thread thread)))
     ((:emacs-interrupt thread)
      (interrupt-worker-thread thread))
@@ -517,9 +517,9 @@ element."
   (let ((event (decode-message (current-socket-io))))
     (log-event "DISPATCHING: ~S~%" event)
     (destructure-case event
-      ((:emacs-rex string package thread id)
+      ((:emacs-rex form package thread id)
        (declare (ignore thread))
-       `(eval-string ,string ,package ,id))
+       `(eval-for-emacs ,form ,package ,id))
       ((:emacs-interrupt thread)
        (declare (ignore thread))
        '(simple-break))
@@ -688,7 +688,7 @@ If a protocol error occurs then a SLIME-READ-ERROR is signalled."
 (setf (documentation '*buffer-package* 'symbol)
       "Package corresponding to slime-buffer-package.  
 
-EVAL-STRING binds *buffer-package*.  Strings originating from a slime
+EVAL-FOR-EMACS binds *buffer-package*.  Strings originating from a slime
 buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 
 (defun from-string (string)
@@ -718,7 +718,7 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 If string is not package qualified use DEFAULT-PACKAGE for the
 resolution.  Return nil if no such symbol exists."
   (multiple-value-bind (name package-name internal-p)
-      (tokenize-symbol-designator (case-convert string))
+      (tokenize-symbol-designator (case-convert-input string))
     (cond ((and package-name (not (find-package package-name)))
            (values nil nil))
           (t
@@ -779,16 +779,16 @@ pretty printing of (function foo) as #'foo is suppressed."
           (*print-circle* nil)
           (*print-level* 10)
           (*print-length* 20))
-      (pprint-logical-block (nil arglist :prefix "(" :suffix ")")
+      (pprint-logical-block (nil nil :prefix "(" :suffix ")")
         (loop
-         (let ((arg (pprint-pop)))
+         (let ((arg (pop arglist)))
            (etypecase arg
              (symbol (princ arg))
              (cons (pprint-logical-block (nil nil :prefix "(" :suffix ")")
                      (princ (car arg))
                      (write-char #\space)
                      (pprint-fill *standard-output* (cdr arg) nil))))
-           (pprint-exit-if-list-exhausted)
+           (when (null arglist) (return))
            (write-char #\space)
            (pprint-newline :fill)))))))
 
@@ -995,17 +995,16 @@ the local variables in the frame INDEX."
   (destructuring-bind (fn &rest args) form
     (send-to-emacs `(:%apply ,(string-downcase (string fn)) ,args))))
 
-(defslimefun eval-string (string buffer-package id)
-  "Read and evaluate STRING in BUFFER-PACKAGE.
+(defun eval-for-emacs (form buffer-package id)
+  "Bind *BUFFER-PACKAGE* BUFFER-PACKAGE and evaluate FORM.
 Return the result values as a list to strings to the continuation ID.
 Errors are trapped and invoke our debugger."
   (let ((*debugger-hook* #'swank-debugger-hook))
     (let (ok result)
       (unwind-protect
-           (let ((*buffer-package* (guess-package-from-string buffer-package))
-                 (*swank-state-stack* (cons :eval-string *swank-state-stack*)))
+           (let ((*buffer-package* (guess-package-from-string buffer-package)))
              (assert (packagep *buffer-package*))
-             (setq result (eval (read-form string)))
+             (setq result (eval form))
              (force-output)
              (setq ok t))
         (sync-state-to-emacs)
@@ -1030,6 +1029,7 @@ The debugger hook is inhibited during the evaluation."
   (let ((values (multiple-value-list
                  (let ((*package* *buffer-package*))
                    (eval (from-string string))))))
+    (fresh-line)
     (force-output)
     (format-values-for-echo-area values)))
 
@@ -1047,7 +1047,10 @@ change, then send Emacs an update."
                       (setq - form)
                       (setq values (multiple-value-list (eval form)))
                       (force-output))
-                 finally (return (values values -))))
+                 finally (progn
+                           (fresh-line)
+                           (force-output)
+                           (return (values values -)))))
       (when (and package-update-p (not (eq *package* *buffer-package*)))
         (send-to-emacs 
          (list :new-package (shortest-package-nickname *package*)))))))
@@ -1217,16 +1220,24 @@ Record compiler notes signalled as `compiler-condition's."
 
 ;;;; Completion
 
-(defun case-convert (string)
+(defun determine-case (string)
+  "Return to booleans LOWER and UPPER indicating whether STRING
+contains lower or upper case characters."
+  (values (some #'lower-case-p string)
+          (some #'upper-case-p string)))
+
+(defun case-convert-input (string)
   "Convert STRING according to the current readtable-case."
   (check-type string string)
   (ecase (readtable-case *readtable*)
     (:upcase (string-upcase string))
     (:downcase (string-downcase string))
     (:preserve string)
-    (:invert (cond ((every #'lower-case-p string) (string-upcase string))
-                   ((every #'upper-case-p string) (string-downcase string))
-                   (t string)))))
+    (:invert (multiple-value-bind (lower upper) (determine-case string)
+               (cond ((and upper lower) string)
+                     (lower (string-upcase string))
+                     (upper (string-downcase string))
+                     (t string))))))
 
 (defun carefully-find-package (name default-package-name)
   "Find the package with name NAME, or DEFAULT-PACKAGE-NAME, or the
@@ -1234,7 +1245,7 @@ Record compiler notes signalled as `compiler-condition's."
   (let ((n (cond ((equal name "") "KEYWORD")
                  (t (or name default-package-name)))))
     (if n 
-        (find-package (case-convert n))
+        (find-package (case-convert-input n))
         *buffer-package*)))
 
 (defun parse-completion-arguments (string default-package-name)
@@ -1243,39 +1254,59 @@ Record compiler notes signalled as `compiler-condition's."
     (let ((package (carefully-find-package package-name default-package-name)))
       (values name package-name package internal-p))))
 
-(defun format-completion-set (symbols internal-p package-name)
-  (mapcar (lambda (s)
-            (cond (internal-p 
-                   (format nil "~A::~A" package-name s))
-                  (package-name 
-                   (format nil "~A:~A" package-name s))
+(defun format-completion-set (strings internal-p package-name)
+  (mapcar (lambda (string)
+            (cond (internal-p
+                   (format nil "~A::~A" package-name string))
+                  (package-name
+                   (format nil "~A:~A" package-name string))
                   (t
-                   (format nil "~A" s))))
-          (remove-duplicates (sort symbols #'string< :key #'symbol-name))))
+                   (format nil "~A" string))))
+          (sort strings #'string<)))
 
-(defun find-matching-symbols (string package external matchp)
-  (let ((completions '()))
+(defun output-case-converter (input)
+  "Return a function to case convert strings for output.
+INPUT is used to guess the preferred case."
+  (ecase (readtable-case *readtable*)
+    (:upcase (if (some #'lower-case-p input) #'string-downcase #'identity))
+    (:invert (lambda (output)
+               (multiple-value-bind (lower upper) (determine-case output)
+                 (cond ((and lower upper) output)
+                       (lower (string-upcase output))
+                       (upper (string-downcase output))
+                       (t output)))))
+    (:downcase (if (some #'upper-case-p input) #'string-upcase #'identity))
+    (:preserve #'identity)))
+
+(defun find-matching-symbols (string package external test)
+  "Return a list of symbols in PACKAGE matching STRING.
+TEST is called with two strings.  If EXTERNAL is true, only external
+symbols are returned."
+  (let ((completions '())
+        (converter (output-case-converter string)))
     (flet ((symbol-matches-p (symbol)
-             (and (funcall matchp string (symbol-name symbol))
-                  (or (not external)
-                      (symbol-external-p symbol package)))))
-      (do-symbols (symbol package)
+             (and (or (not external)
+                      (symbol-external-p symbol package))
+                  (funcall test string
+                           (funcall converter (symbol-name symbol))))))
+      (do-symbols (symbol package) 
         (when (symbol-matches-p symbol)
           (push symbol completions))))
-    completions))
+    (remove-duplicates completions)))
 
 (defun completion-set (string default-package-name matchp)
   (declare (type simple-base-string string))
   (multiple-value-bind (name package-name package internal-p)
       (parse-completion-arguments string default-package-name)
-    (let ((completions (and package
-                            (find-matching-symbols name package
-                                                   (and (not internal-p)
-                                                        package-name)
-                                                   matchp)))
-          (*print-case* (if (find-if #'upper-case-p string)
-                            :upcase :downcase)))
-      (format-completion-set completions internal-p package-name))))
+    (let* ((symbols (and package
+                         (find-matching-symbols name
+                                                package
+                                                (and (not internal-p)
+                                                     package-name)
+                                                matchp)))
+           (converter (output-case-converter name))
+           (strings (mapcar converter (mapcar #'symbol-name symbols))))
+      (format-completion-set strings internal-p package-name))))
 
 (defslimefun completions (string default-package-name)
   "Return a list of completions for a symbol designator STRING.  
@@ -1340,19 +1371,18 @@ Examples:
 \(compound-prefix-match \"foo\" \"foobar\") => t
 \(compound-prefix-match \"m--b\" \"multiple-value-bind\") => t
 \(compound-prefix-match \"m-v-c\" \"multiple-value-bind\") => NIL"
-  (declare (type simple-base-string prefix target))
+  (declare (type simple-string prefix target))
   (loop for ch across prefix
         with tpos = 0
         always (and (< tpos (length target))
                     (if (char= ch #\-)
                         (setf tpos (position #\- target :start tpos))
-                        (char-equal ch (aref target tpos))))
+                        (char= ch (aref target tpos))))
         do (incf tpos)))
 
 (defun prefix-match-p (prefix string)
   "Return true if PREFIX is a prefix of STRING."
-  (eql (search prefix string :test #'char-equal) 0))
-
+  (eql (search prefix string) 0))
 
 ;;;;; Extending the input string by completion
 
@@ -1395,6 +1425,32 @@ For example:
   ;; A cute function from PAIP p.574
   (if lists (apply #'mapcar #'list lists)))
 
+
+;;;;; Completion Tests
+
+(defpackage :swank-completion-test
+  (:use))
+
+(let ((*readtable* (copy-readtable *readtable*))
+      (p (find-package :swank-completion-test)))
+  (intern "foo" p)
+  (intern "Foo" p)
+  (intern "FOO" p)
+  (setf (readtable-case *readtable*) :invert)
+  (assert (string= (case-convert-input "f") "F"))
+  (assert (string= (case-convert-input "foo") "FOO"))
+  (assert (string= (case-convert-input "Foo") "Foo"))
+  (assert (string= (case-convert-input "FOO") "foo"))
+  (assert (string= (case-convert-input "find-if") "FIND-IF"))
+  (flet ((names (prefix) 
+           (sort (mapcar #'symbol-name
+                         (find-matching-symbols prefix p nil #'prefix-match-p))
+                 #'string<)))
+    (assert (equal '("FOO") (names "f")))
+    (assert (equal '("Foo" "foo") (names "F")))
+    (assert (equal '("Foo") (names "Fo")))
+    (assert (equal '("foo") (names "FO")))))
+           
 
 ;;;; Documentation
 
@@ -1538,7 +1594,7 @@ that symbols accessible in the current package go first."
 DSPEC is a string and LOCATION a source location. NAME is a string."
   (multiple-value-bind (sexp error)
       (ignore-errors (values (from-string name)))
-    (cond (error ())
+    (cond (error '())
           (t (loop for (dspec loc) in (find-definitions sexp)
                    collect (list (to-string dspec) loc))))))
 
