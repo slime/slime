@@ -3094,7 +3094,7 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
                   (sit-for 0 20))
                 (let* ((args (mapconcat #'identity (process-command proc) " "))
                        (buffer (buffer-name (process-buffer proc)))
-                       (new-proc (slime-start-lisp args buffer)))
+                       (new-proc (slime-start-lisp args buffer (slime-init-command))))
                 (slime-inferior-connect new-proc)))))
   (:one-liner "Restart *inferior-lisp* and reconnect SLIME."))
 
