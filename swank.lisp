@@ -14,9 +14,9 @@
            #:start-server 
            #:create-swank-server
            #:ed-in-emacs
+           ;; re-exported from backend
            #:frame-source-location-for-emacs
            #:restart-frame
-           #:return-from-frame
            #:profiled-functions
            #:profile-report
            #:profile-reset
@@ -410,7 +410,7 @@ element."
      (encode-message `(:read-aborted ,(drop-thread thread) ,@args) socket-io))
     ((:emacs-return-string thread tag string)
      (send (lookup-thread-id thread) `(take-input ,tag ,string)))
-    (((:read-output :new-package :new-features :ed)
+    (((:read-output :new-package :new-features :ed :%apply)
       &rest _)
      (declare (ignore _))
      (encode-message event socket-io))))
@@ -538,7 +538,7 @@ element."
       ((:return thread &rest args)
        (declare (ignore thread))
        (send `(:return ,@args)))
-      (((:read-output :new-package :new-features :ed :debug-condition)
+      (((:read-output :new-package :new-features :debug-condition :ed :%apply)
         &rest _)
        (declare (ignore _))
        (send event)))))
@@ -669,6 +669,7 @@ If a protocol error occurs then a SLIME-READ-ERROR is signalled."
                            *read-input-catch-tag*)))))))
 
 (defslimefun take-input (tag input)
+  "Return the string INPUT to the continuation TAG."
   (throw tag input))
 
 (defslimefun connection-info ()
@@ -738,6 +739,8 @@ exists."
           (t (error "Unknown symbol: ~S [in ~A]" string default-package)))))
 
 (defslimefun arglist-string (name)
+  "Return the arglist for NAME as a string.
+NAME is a string.  The starts and ends with parens."
   (multiple-value-bind (arglist condition)
       (ignore-errors (values (arglist (find-symbol-or-lose name))))
     (cond (condition (format nil "(-- ~A)" condition))
@@ -751,6 +754,9 @@ exists."
     (print-arglist arglist)))
 
 (defun print-arglist (arglist)
+  "Print the list ARGLIST for display in the echo area.
+The argument name are printed without package qualifiers and 
+pretty printing of (function foo) as #'foo is suppressed."
   (with-standard-io-syntax
     (let ((*print-case* :downcase)
           (*print-pretty* t)
@@ -794,7 +800,8 @@ exists."
 (defvar *sldb-initial-frames* 20
   "The initial number of backtrace frames to send to Emacs.")
 
-(defvar *sldb-restarts*)
+(defvar *sldb-restarts* nil
+  "The list of currenlty active restarts.")
 
 (defun swank-debugger-hook (condition hook)
   "Debugger entry point, called from *DEBUGGER-HOOK*.
@@ -828,7 +835,8 @@ after Emacs causes a restart to be invoked."
                      (read-from-emacs))))))
     (send-to-emacs `(:debug-return ,(current-thread) ,level))))
 
-(defun sldb-break-with-default-debugger ()
+(defslimefun sldb-break-with-default-debugger ()
+  "Invoke the default debugger by returning from our debugger-loop."
   (throw 'sldb-enter-default-debugger nil))
 
 (defun handle-sldb-condition (condition)
@@ -843,13 +851,14 @@ conditions are simply reported."
 (defun safe-condition-message (condition)
   "Safely print condition to a string, handling any errors during
 printing."
-  (handler-case
-      (princ-to-string condition)
-    (error (cond)
-      ;; Beware of recursive errors in printing, so only use the condition
-      ;; if it is printable itself:
-      (format nil "Unable to display error condition~@[: ~A~]"
-              (ignore-errors (princ-to-string cond))))))
+  (let ((*print-pretty* t))
+    (handler-case
+        (princ-to-string condition)
+      (error (cond)
+        ;; Beware of recursive errors in printing, so only use the condition
+        ;; if it is printable itself:
+        (format nil "Unable to display error condition~@[: ~A~]"
+                (ignore-errors (princ-to-string cond)))))))
 
 (defun debugger-condition-for-emacs ()
   (list (safe-condition-message *swank-debugger-condition*)
@@ -873,6 +882,8 @@ format suitable for Emacs."
     (subseq string (length label))))
 
 (defslimefun backtrace (start end)
+  "Return a list ((I FRAME) ...) of frames from START to END.
+I is an integer describing and FRAME a string."
   (loop for frame in (compute-backtrace start end)
         for i from start
         collect (list i (frame-for-emacs i frame))))
@@ -937,7 +948,9 @@ has changed, ignore the request."
    (multiple-value-list 
     (eval-in-frame index (from-string string)))))
 
-(defslimefun frame-locals-for-emacs (frame-index)
+(defslimefun frame-locals-for-emacs (index)
+  "Return a property list ((&key NAME ID VALUE) ...) describing
+the local variables in the frame INDEX."
   (let ((*print-readably* nil)
         (*print-pretty* t)
         (*print-circle* t))
@@ -945,14 +958,18 @@ has changed, ignore the request."
               (destructuring-bind (&key name id value) frame-locals
                 (list :name (to-string name) :id id
                       :value (to-string value))))
-            (frame-locals frame-index))))
+            (frame-locals index))))
 
 (defslimefun frame-catch-tags-for-emacs (frame-index)
-  (frame-catch-tags frame-index))
+  (mapcar #'to-string (frame-catch-tags frame-index)))
 
 (defslimefun sldb-disassemble (index)
   (with-output-to-string (*standard-output*)
     (disassemble-frame index)))
+
+(defslimefun sldb-return-from-frame (index string)
+  (let ((form (from-string string)))
+    (to-string (multiple-value-list (return-from-frame index form)))))
 
 
 ;;;; Evaluation
@@ -963,6 +980,9 @@ has changed, ignore the request."
     (send-to-emacs `(:%apply ,(string-downcase (string fn)) ,args))))
 
 (defslimefun eval-string (string buffer-package id)
+  "Read and evaluate STRING in BUFFER-PACKAGE.
+Return the result values as a list to strings to the continuation ID.
+Errors are trapped and invoke our debugger."
   (let ((*debugger-hook* #'swank-debugger-hook))
     (let (ok result)
       (unwind-protect
@@ -1073,7 +1093,7 @@ change, then send Emacs an update."
     (list (package-name p) (shortest-package-nickname p))))
 
 (defslimefun set-default-directory (directory)
-  (setf *default-pathname-defaults* (merge-pathnames directory))
+  (setf *default-pathname-defaults* (truename (merge-pathnames directory)))
   (namestring *default-pathname-defaults*))
 
 (defslimefun listener-eval (string)
@@ -1093,7 +1113,6 @@ WHAT can be a filename (pathname or string) or function name (symbol)."
   (send-oob-to-emacs `(:ed ,(if (pathnamep what)
                                 (canonicalize-filename what)
                                 what))))
-
 
 ;;;; Compilation Commands.
 
@@ -1436,14 +1455,9 @@ that symbols accessible in the current package go first."
     (describe-to-string (or (macro-function symbol)
                             (symbol-function symbol)))))
 
-(defslimefun describe-definition-for-emacs (symbol-name kind)
-  (multiple-value-bind (symbol foundp) (find-symbol-designator symbol-name)
-    (cond (foundp 
-           (with-output-to-string (*standard-output*)
-               (describe-definition symbol kind)))
-	  (t 
-           (format nil "Unknown symbol: ~S [in ~A]" 
-                   symbol-name *buffer-package*)))))
+(defslimefun describe-definition-for-emacs (name kind)
+  (with-output-to-string (*standard-output*)
+    (describe-definition (find-symbol-or-lose name) kind)))
 
 (defslimefun documentation-symbol (symbol-name &optional default)
   (let ((*package* *buffer-package*))
@@ -1503,12 +1517,15 @@ that symbols accessible in the current package go first."
 
 ;;;; Source Locations
 
-(defslimefun find-definitions-for-emacs (symbol-name)
-  (multiple-value-bind (symbol foundp) (find-symbol-designator symbol-name)
-    (cond ((not foundp) '())
-          (t (loop for (dspec loc) in (find-definitions symbol)
+(defslimefun find-definitions-for-emacs (name)
+  "Return a list ((DSPEC LOCATION) ...) of definitions for NAME.
+DSPEC is a string and LOCATION a source location. NAME is a string."
+  (multiple-value-bind (sexp error)
+      (ignore-errors (values (from-string name)))
+    (cond (error ())
+          (t (loop for (dspec loc) in (find-definitions sexp)
                    collect (list (to-string dspec) loc))))))
-           
+
 (defun alistify (list key test)
   "Partition the elements of LIST into an alist.  KEY extracts the key
 from an element and TEST is used to compare keys."
@@ -1549,6 +1566,8 @@ from an element and TEST is used to compare keys."
   (location-buffer (xref.location xref)))
 
 (defun group-xrefs (xrefs)
+  "Group XREFS, a list of the form ((DSPEC LOCATION) ...) by location.
+The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
   (multiple-value-bind (resolved errors) 
       (partition xrefs #'location-valid-p #'xref.location)
     (let ((alist (alistify resolved #'xref-buffer #'equal)))
