@@ -201,6 +201,9 @@ If you want to fallback on TAGS you can set this to `find-tag'."
                  (const :tag "Compound" slime-complete-symbol*)
                  (const :tag "Fuzzy" slime-fuzzy-complete-symbol)))
 
+(defcustom slime-complete-symbol*-fancy nil
+  "Use information from argument lists for DWIM'ish symbol completion.")
+
 (defcustom slime-space-information-p t
   "Have the SPC key offer arglist information."
   :type 'boolean
@@ -4526,15 +4529,17 @@ Completion is performed by `slime-complete-symbol-function'."
       (cond ((and (member completed-prefix completion-set)
                   (= (length completion-set) 1))
              (slime-minibuffer-respecting-message "Sole completion")
-             (let ((arglist (slime-get-arglist
-                             (slime-symbol-name-at-point))))
-               (when arglist
-                 (if (cdr (read arglist))
-                   (progn (insert-and-inherit " ")
-                          (when (and slime-space-information-p
-                                     (slime-background-activities-enabled-p))
-                            (slime-echo-arglist)))
-                   (insert-and-inherit ")"))))
+             (when slime-complete-symbol*-fancy
+               (let ((arglist (slime-get-arglist
+                               (slime-symbol-name-at-point))))
+                 (when arglist
+                   (if (cdr (read arglist))
+                       (progn (insert-and-inherit " ")
+                              (when (and slime-space-information-p
+                                         (slime-background-activities-enabled-p)
+                                         (not (minibuffer-window-active-p)))
+                                (slime-echo-arglist)))
+                     (insert-and-inherit ")")))))
              (slime-complete-restore-window-configuration))
             ;; Incomplete
             (t
