@@ -78,9 +78,11 @@
 
 #-(or ppc mips)
 (defimplementation create-socket (host port)
-  (ext:create-inet-listener port :stream
-                            :reuse-address t 
-                            :host (resolve-hostname host)))
+  (let* ((addr (resolve-hostname host))
+         (addr (if (not (find-symbol "SOCKET-ERROR" :ext))
+                   (ext:htonl addr)
+                   addr)))
+    (ext:create-inet-listener port :stream :reuse-address t :host addr)))
 
 ;; There seems to be a bug in create-inet-listener on Mac/OSX and Irix.
 #+(or ppc mips)
@@ -109,10 +111,9 @@
     (sys:fd-stream (sys:fd-stream-fd socket))))
 
 (defun resolve-hostname (hostname)
-  "Return the IP address of HOSTNAME as an integer."
-  (let* ((hostent (ext:lookup-host-entry hostname))
-         (address (car (ext:host-entry-addr-list hostent))))
-    (ext:htonl address)))
+  "Return the IP address of HOSTNAME as an integer (in host byte-order)."
+  (let ((hostent (ext:lookup-host-entry hostname)))
+    (car (ext:host-entry-addr-list hostent))))
 
 (defun make-socket-io-stream (fd)
   "Create a new input/output fd-stream for FD."
