@@ -5,7 +5,7 @@ Overview.
   implemented in two main parts: the Emacs Lisp side (slime.el), and
   the support library for the Common Lisp (swank.lisp and swank-*.lisp)
 
-  For a real description, see the commentary in slime.el.
+  For a real description, see the manual in doc/
 
 Quick setup instructions
 ------------------------
@@ -14,40 +14,25 @@ Quick setup instructions
 
     (add-to-list 'load-path "/the/path/to/this/directory")
     (require 'slime)
-    (add-hook 'lisp-mode-hook (lambda () (slime-mode t)))
-    (add-hook 'inferior-lisp-mode-hook (lambda () (inferior-slime-mode t)))
+    (setup-slime)
 
   Make sure your `inferior-lisp-program' is set to a compatible
-  version of Lisp. For CMUCL we currently require version 18e or
-  later. For SBCL we require the "sb-introspect" contrib, for which
-  you need 0.8.5 or later.
+  version of Lisp.
 
   Use `M-x' slime to fire up and connect to an inferior Lisp.
-
-  Open a lisp-mode file and do `C-h m' to see the mode description.
-
-  If you have bad luck, you may checkout a copy of SLIME that is
-  completely broken, depending on what's happening in CVS at the
-  time. To avoid this you can checkout from the CVS tag
-  `FAIRLY-STABLE' like this:
-
-      cvs <options> checkout -r FAIRLY-STABLE slime
+  SLIME will now automatically be available in your Lisp source
+  buffers.
 
 Licence.
 ----------------------------------------
 
-  The Emacs Lisp code is licensed under the GNU GPL to fit in with Emacs.
-
-  The CMUCL and SBCL code is placed in the public domain to fit in
-  with CMUCL and SBCL.
-
-  The OpenMCL code is LLGPLed, just like OpenMCL.
+  SLIME is free software. The source files are licensed separately for
+  maximum compatibility with their host environment, for example
+  slime.el is GPL and swank-cmucl.lisp is public domain. See the
+  source files for more details.
 
 Contact.
 ----------------------------------------
-
-  SLIME is maintained by Luke Gorrie, Helmut Eller, James Bielman,
-  and Daniel Barlow. It is an Extension of SLIM by Eric Marsden (unreleased).
 
   Questions and comments are best directed to the mailing list:
     http://common-lisp.net/mailman/listinfo/slime-devel

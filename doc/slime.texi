@@ -317,8 +317,7 @@ On Unix-like systems, installation just requires a few lines in your
 (setq inferior-lisp-program "@emph{the path to your Lisp system}")
 (add-to-list 'load-path "@emph{the path of your @file{slime} directory}")
 (require 'slime)
-(add-hook 'lisp-mode-hook (lambda () (slime-mode t)))
-(add-hook 'inferior-lisp-mode-hook (lambda () (inferior-slime-mode t)))
+(slime-install)
 @end example
 
 @iftex
@@ -505,6 +504,10 @@ backtracking when @kbd{M-.} has been used several times.
 
 @node Lisp Evaluation, Documentation, Finding definitions, Commands
 @subsection Lisp Evaluation
+
+These commands each evaluate a Lisp expression in a different way. By
+default they show their results in a message, but a prefix argument
+causes the results to be printed in the @REPL{} instead.
 
 @table @kbd
 
