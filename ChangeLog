@@ -1,3 +1,9 @@
+2004-04-09  Lawrence Mitchell  <wence@gmx.li>
+
+	* slime.el (slime-same-line-p): Use `line-end-position', rather
+	than searching for a newline manually.
+	(slime-repl-defparameter): Use VALUE, not VALUE-FORM.
+
 2004-04-08  Marco Baringer  <mb@bese.it>
 
 	* slime.el (slime-repl-package-stack): New buffer local variable.

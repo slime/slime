@@ -2951,9 +2951,9 @@ region around the first element is used."
                            (point))))))))
 
 (defun slime-same-line-p (pos1 pos2)
-  "Return true if buffer positions PoS1 and POS2 are on the same line."
-  (save-excursion (goto-char (min pos1 pos2))
-                  (not (search-forward "\n" (max pos1 pos2) t))))
+  "Return t if buffer positions POS1 and POS2 are on the same line."
+    (save-excursion (goto-char (min pos1 pos2))
+                    (<= (max pos1 pos2) (line-end-position))))
 
 (defun slime-severity-face (severity)
   "Return the name of the font-lock face representing SEVERITY."
@@ -5839,7 +5839,7 @@ BODY returns true if the check succeeds."
   (:handler (lambda (name value)
               (interactive (list (slime-read-symbol-name "Name (symbol): " t)
                                  (slime-read-from-minibuffer "Value: " "nil")))
-              (insert "(cl:defparameter " name " " value-form " \"REPL generated global variable.\")")
+              (insert "(cl:defparameter " name " " value " \"REPL generated global variable.\")")
               (slime-repl-send-input)))
   (:one-liner "Define a new global, special, variable."))
 
