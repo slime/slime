@@ -81,7 +81,9 @@
    #:slot-definition-name
    #:slot-definition-type
    #:slot-definition-readers
-   #:slot-definition-writers))
+   #:slot-definition-writers
+   ;; generic function protocol
+   #:compute-applicable-methods-using-classes))
 
 (in-package :swank-backend)
 
