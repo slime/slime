@@ -3183,7 +3183,7 @@ the current index when the selection is completed."
            (let ((start (1+ previous))
                  (end (+ previous 40)))
              (sldb-insert-frames 
-              (slime-eval `(swank:backtrace-for-emacs ,start ,end))
+              (slime-eval `(swank:backtrace ,start ,end))
               (- end start))))))))
 
 (defun sldb-default-action/mouse (event)
