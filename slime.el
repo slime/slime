@@ -6567,6 +6567,7 @@ If they are not, position point at the first syntax error found."
 
 ;;; Finishing up
 
+(require 'bytecomp)
 (let ((byte-compile-warnings '()))
   (mapc #'byte-compile
         '(slime-log-event
