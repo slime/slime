@@ -1,3 +1,8 @@
+2004-06-30  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el: Backed out the previous change (below). Has bugs and
+	needs more thinking.
+
 2004-06-29  Thomas Burdick  <tfb@OCF.Berkeley.EDU>
 
 	* slime.el: Indicate when the REPL is in the debugger's context
