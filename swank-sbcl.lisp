@@ -79,7 +79,9 @@
   "Read and process a request from a SWANK client.
 The request is read from the socket as a sexp and then evaluated."
   (let* ((completed nil)
-         (*slime-output* (make-instance 'slime-output-stream)))
+         (*slime-output* (make-instance 'slime-output-stream))
+         (*slime-input* *standard-input*)
+         (*slime-io* (make-two-way-stream *slime-input* *slime-output*)))
     (let ((condition (catch 'serve-request-catcher
 		       (read-from-emacs)
 		       (setq completed t))))

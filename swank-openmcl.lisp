@@ -82,7 +82,10 @@ until the remote Emacs goes away."
         (catch 'slime-toplevel
           (with-simple-restart (abort "Return to Slime event loop.")
             (let ((completed nil))
-              (let ((*slime-output* (make-instance 'slime-output-stream)))
+              (let* ((*slime-output* (make-instance 'slime-output-stream))
+                     (*slime-input* *standard-input*)
+                     (*slime-io* (make-two-way-stream *slime-input* 
+                                                      *slime-output*)))
                 (let ((condition (catch 'serve-request-catcher
                                    (read-from-emacs)
                                    (setq completed t))))
