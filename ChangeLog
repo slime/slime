@@ -1,5 +1,15 @@
 2004-06-28  Luke Gorrie  <luke@bluetail.com>
 
+	* slime.el: Events in the *slime-events* buffer are now exact
+	on-the-wire messages, without including e.g. Elisp continuation
+	functions. This is easier for debugging I think.
+
+	* swank-allegro.lisp (compute-backtrace): Only include frames
+	satisfying `debugger:frame-visible-p'. I did this as a lame
+	workaround for a problem where `output-frame' was segfaulting on
+	certain frames, and those frames happened not to be visible-p. I
+	don't know if it really fixes anything.
+
 	* hyperspec.el (common-lisp-hyperspec-format): This command now
 	works at the end of the buffer, fixed `char-after' usage as
 	suggested by Johan Bockgård.
