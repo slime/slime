@@ -1,3 +1,14 @@
+2005-02-02  Luke Gorrie  <luke@synap.se>
+
+	* slime.el (slime-repl-send-input): Move some properties
+	of old REPL input (e.g. read-only) from text properties into an
+	overlay, so that kill/yank will leave them behind. Left
+	`slime-repl-old-input' as a text properties because it's more
+	convenient to lookup that way.
+	(slime-repl-return): Ignore `slime-repl-old-input' property if the
+	point is in front of the current REPL prompt, i.e. if the user has
+	copy&pasted some old REPL input into the current input area.
+
 2005-01-30  Bryan O'Connor <bryan-slime@lunch.org>
 
 	* slime.el (slime-goto-location-position): Changed the regexp to
@@ -69,6 +80,7 @@
 	(arglist-for-insertion): Use it
 	(decode-keyword-arg, decode-optional-arg): New functions.
 	
+>>>>>>> 1.607
 2005-01-19  Lars Magne Ingebrigtsen  <larsi@gnus.org>
 
 	* slime.el (slime-header-line-p): Customize variable to
