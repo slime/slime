@@ -1,3 +1,8 @@
+2003-11-13  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-connect): pop-to-buffer into *slime-repl* when
+	we connect.
+
 2003-11-13  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el, swank-cmucl.lisp, swank-sbcl.lisp, swank-openmcl: New
