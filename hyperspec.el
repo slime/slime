@@ -1135,10 +1135,9 @@ If you copy the HyperSpec to another location, customize the variable
 		       "")
 	    ".htm")))
 
-(defun common-lisp-hyperpsec-section-4.0 (indices)
-  (let ((string (format "%sBody/sec%s_" 
-			common-lisp-hyperspec-root
-			(pop indices))))
+(defun common-lisp-hyperspec-section-4.0 (indices)
+  (let ((string (format "%sBody/sec_"
+ 			common-lisp-hyperspec-root)))			
     (concat string
 	    (mapconcat (lambda (n)
 			 (format "%d" n))
