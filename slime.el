@@ -647,9 +647,9 @@ Polling %S.. (Abort with `M-x slime-disconnect'.)"
                      (slime-swank-port-file)))
           (setq slime-state-name (format "[polling:%S]" (incf attempt)))
           (force-mode-line-update)
-          (when slime-connect-retry-timer
-            (cancel-timer slime-connect-retry-timer))
-          (setq slime-connect-retry-timer nil) ; remove old timer
+          (when slime-startup-retry-timer
+            (cancel-timer slime-startup-retry-timer))
+          (setq slime-startup-retry-timer nil) ; remove old timer
           (cond ((file-exists-p (slime-swank-port-file))
                  (let ((port (slime-read-swank-port)))
                    (message "Connecting to Swank on port %S.." port)
@@ -662,7 +662,7 @@ Polling %S.. (Abort with `M-x slime-disconnect'.)"
                  (message "Failed to connect to Swank."))
                 (t
                  (when retries (decf retries))
-                 (setq slime-connect-retry-timer
+                 (setq slime-startup-retry-timer
                        (run-with-timer 1 nil #'attempt-connection))))))
       (attempt-connection))))
 
@@ -672,8 +672,8 @@ Polling %S.. (Abort with `M-x slime-disconnect'.)"
   (cond ((slime-connected-p)
          (delete-process slime-net-process)
          (message "Disconnected."))
-        (slime-connect-retry-timer
-         (cancel-timer slime-connect-retry-timer)
+        (slime-startup-retry-timer
+         (cancel-timer slime-startup-retry-timer)
          (message "Cancelled connection attempt."))
         (t
          (message "Not connected."))))
