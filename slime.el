@@ -180,25 +180,38 @@ the same name instead."))
 ;;; Minor mode.
 
 (define-minor-mode slime-mode
-    "
+    "\\<slime-mode-map>\
 The Superior Lisp Interaction Mode, Extended (minor-mode).
 
 Compilation commands compile the current buffer's source file and
 visually highlight any resulting compiler notes and warnings:
 \\[slime-compile-and-load-file]	- Compile and load the current buffer's file.
 \\[slime-compile-file]	- Compile (but not load) the current buffer's file.
+\\[slime-compile-defun]	- Compile the top-level form at point.
 
 Commands for visiting compiler notes:
 \\[slime-next-note]	- Goto the next form with a compiler note.
 \\[slime-previous-note]	- Goto the previous form with a compiler note.
-\\[slime-remove-notes]	- Get rid of any compiler-note annotations in the buffer.
+\\[slime-remove-notes]	- Remove compiler-note annotations in buffer.
 
-Commands for finding definitions:
+Finding definitions:
 \\[slime-edit-fdefinition]	- Edit the definition of the function called at point.
 \\[slime-pop-find-definition-stack]	- Pop the definition stack to go back from a definition.
 
-Other commands:
-\\[slime-complete-symbol]       - Complete the Lisp symbol at point. (Also M-TAB.)
+Programming aids:
+\\[slime-complete-symbol]	- Complete the Lisp symbol at point. (Also M-TAB.)
+\\[slime-macroexpand-1]	- Macroexpand once.
+\\[slime-macroexpand-all]	- Macroexpand all.
+
+Documentation commands:
+\\[slime-describe-symbol]:	Describe symbol.
+\\[slime-apropos]:	Apropos search.
+\\[slime-diassemble]: Disassemble a function.
+
+Evaluation commands:
+\\[slime-eval-defun]	- Evaluate top-level from containing point.
+\\[slime-eval-last-expression]	- Evaluate sexp before point.
+\\[slime-pprint-eval-list-expression]	- Evaluate sexp before point, pretty-print result.
 
 \\{slime-mode-map}"
   nil
@@ -1156,6 +1169,7 @@ the function name is prompted."
 	 (apropos-mode)
 	 (make-local-variable 'slime-apropos-package)
 	 (setq slime-apropos-package package)
+         (set (make-local-variable 'truncate-lines) t)
 	 (slime-print-apropos plists))))))
 
 (defun slime-princ-propertized (string props)
@@ -1252,5 +1266,66 @@ the function name is prompted."
 (run-hooks 'slime-load-hook)
 
 (provide 'slime)
+
+;;; Test suite.
+
+(defvar slime-tests '()
+  "Names of test functions.")
+
+(defun slime-run-tests ()
+  (interactive)
+  (save-window-excursion
+    (loop for (function inputs) in slime-tests
+          do (dolist (input inputs)
+               (apply function input))))
+  (message "Done."))
+
+
+(defmacro def-slime-test (name args doc inputs &rest body)
+  (let ((fname (intern (format "slime-test-%s" name))))
+    `(progn
+      (defun ,fname ,args
+        ,doc
+        ,@body)
+      (setq slime-tests (append (remove* ',fname slime-tests :key 'car)
+                                (list (list ',fname ,inputs)))))))
+
+(defmacro slime-check (test-name &rest body)
+  `(unless (progn ,@body)
+     (message "Test failed: %S" ',test-name)
+     (debug)))
+
+(def-slime-test find-definition (name expected-filename)
+    "Find the definition of a function or macro."
+    '((list "list.lisp")
+      (loop "loop.lisp")
+      (aref "array.lisp"))
+  (let ((orig-buffer (current-buffer))
+        (orig-pos (point)))
+    (slime-edit-fdefinition (symbol-name name))
+    ;; Postconditions
+    (slime-check correct-file
+      (string= (file-name-nondirectory (buffer-file-name))
+               expected-filename))
+    (slime-check looking-at-definition
+      (looking-at (format "(\\(defun\\|defmacro\\)\\s *%s\\s " name)))
+    (slime-pop-find-definition-stack)
+    (slime-check return-from-definition
+      (and (eq orig-buffer (current-buffer))
+           (= orig-pos (point))))))
+
+(def-slime-test complete-symbol (prefix expected-completions)
+    "Find the completions of a symbol-name prefix."
+    '(("cl:compile" ("compile" "compile-file" "compile-file-pathname"
+                     "compiled-function" "compiled-function-p"
+                     "compiler-macro" "compiler-macro-function"))
+      ("cl:foobar" nil)
+      ("cl::compile-file" ("compile-file" "compile-file-pathname")))
+  (let ((completions (slime-completions prefix)))
+    (slime-check expected-completions
+      (equal expected-completions (sort completions 'string<)))))
+
+(put 'def-slime-test 'lisp-indent-function 4)
+(put 'slime-check 'lisp-indent-function 1)
 
 ;;; slime.el ends here
