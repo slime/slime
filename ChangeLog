@@ -1,3 +1,27 @@
+2003-10-29  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el:
+	Beginnings of a REPL-mode.
+	Minor debugger cleanups.
+
+	* swank.lisp:
+	slime-read-error: New condition.
+	(read-next-form): Re-signal the conditions as slime-read-errors.  And
+	check the result of read-sequence (i.e. detect CMUCL's read-sequence
+	bug).
+	(sldb-continue, throw-to-toplevel): Was more or less the same in all
+	backends.
+
+	* swank-openmcl.lisp, swank-sbcl.lisp, swank-cmucl.lisp:
+	(serve-request): Handle slime-read-errors and bind a
+	slime-toplevel catcher.
+
+	* swank-cmucl.lisp:
+	(sldb-loop): Flush output at the beginning.
+	(inspect-in-frame): New function.
+	(frame-locals): Don't send the validity indicator across wire.  Too
+	cmucl specific.
+
 2003-10-29  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-net-sentinel): Only show a message about
