@@ -740,7 +740,8 @@ EVAL'd by Lisp."
     (process-send-string slime-net-process (string-make-unibyte string))))
 
 (defun slime-net-sentinel (process message)
-  (message "Lisp connection closed: %s" message)
+  (when (ignore-errors (process-live-p (inferior-lisp-proc)))
+    (message "Lisp connection closed unexpectedly: %s" message))
   (setq slime-state-name "[not connected]")
   (force-mode-line-update)
   (ignore-errors (kill-buffer (process-buffer slime-net-process))))
