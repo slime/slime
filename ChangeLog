@@ -3,6 +3,10 @@
 	* swank-loader-lisp (*implementation-features*, *os-features*,
 	*architecture-features*): LispWorks was completely missing.
 	
+2005-03-18  Luke Gorrie  <luke@synap.se>
+
+	* slime.el (slime-complete-symbol*-fancy): Now nil by default.
+
 2005-03-18  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-source-path-parser.lisp (make-source-recording-readtable):
