@@ -24,8 +24,8 @@
   (mapcar #'make-swank-pathname 
           (append 
            '("nregex")
-           #+cmu '("swank-source-path-parser" "swank-cmucl")
-           #+sbcl '("swank-sbcl" "swank-source-path-parser" "swank-gray")
+           #+cmu '("swank-source-path-parser"  "swank-source-file-cache" "swank-cmucl")
+           #+sbcl '("swank-sbcl" "swank-source-path-parser" "swank-source-file-cache" "swank-gray")
            #+openmcl '("metering" "swank-openmcl" "swank-gray")
            #+lispworks '("swank-lispworks" "swank-gray")
            #+allegro '("swank-allegro" "swank-gray")
