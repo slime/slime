@@ -565,7 +565,7 @@ communication. The port is remembered for future connections."
         
 (defun slime-maybe-start-lisp ()
   "Start an inferior lisp unless one is already running."
-  (unless (get-buffer "*inferior-lisp*")
+  (unless (get-buffer-process (get-buffer "*inferior-lisp*"))
     (call-interactively 'inferior-lisp)
     (slime-start-swank-server)))
 
