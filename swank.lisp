@@ -575,11 +575,13 @@ element."
          (*terminal-io* io))
     (funcall function)))
 
+(defvar *log-io* *terminal-io*)
+
 (defun log-event (format-string &rest args)
   "Write a message to *terminal-io* when *log-events* is non-nil.
 Useful for low level debugging."
   (when *log-events*
-    (apply #'format *terminal-io* format-string args)))
+    (apply #'format *log-io* format-string args)))
 
 (defun read-from-emacs ()
   "Read and process a request from Emacs."
@@ -1036,8 +1038,8 @@ The debugger hook is inhibited during the evaluation."
 
 (defslimefun interactive-eval (string)
   (let ((values (multiple-value-list
-                 (let ((*package* *buffer-package*))
-                   (eval (from-string string))))))
+                 (eval (let ((*package* *buffer-package*))
+                         (from-string string))))))
     (fresh-line)
     (force-output)
     (format-values-for-echo-area values)))
@@ -1218,9 +1220,9 @@ Record compiler notes signalled as `compiler-condition's."
 (defslimefun swank-macroexpand-all (string)
   (apply-macro-expander #'macroexpand-all string))
 
-(defslimefun disassemble-symbol (symbol-name)
+(defslimefun disassemble-symbol (name)
   (with-output-to-string (*standard-output*)
-    (disassemble (find-symbol-or-lose symbol-name))))
+    (disassemble (fdefinition (from-string name)))))
 
 
 ;;;; Completion
@@ -1513,12 +1515,11 @@ that symbols accessible in the current package go first."
            (string< (package-name (symbol-package a))
                     (package-name (symbol-package b)))))))
 
-(defun apropos-symbols (string &optional external-only package)
+(defun apropos-symbols (string external-only package)
   (remove-if (lambda (sym)
-               (or (keywordp sym) 
-                   (and external-only
-;;                        (not (equal (symbol-package sym) *buffer-package*))
-                        (not (symbol-external-p sym)))))
+               (or (keywordp sym)
+                   (and external-only (not (symbol-external-p sym)))
+                   (and package (not (eq (symbol-package sym) package)))))
              (apropos-list string package)))
 
 (defun describe-to-string (object)
