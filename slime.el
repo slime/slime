@@ -2501,7 +2501,7 @@ Each newlines and following indentation is replaced by a single space."
   (interactive (list (slime-compiler-notes)))
   (save-excursion
     (slime-remove-old-overlays)
-    (mapc #'slime-overlay-note notes)))
+    (mapc #'slime-overlay-note (slime-merge-notes-for-display notes))))
 
 (defun slime-compiler-notes ()
   "Return all compiler notes, warnings, and errors."
@@ -2516,6 +2516,44 @@ Each newlines and following indentation is replaced by a single space."
         (when (overlay-get o 'slime)
           (delete-overlay o)))
       (goto-char (next-overlay-change (point))))))
+
+
+;;;;; Merging together compiler notes in the same location.
+
+(defun slime-merge-notes-for-display (notes)
+  "Merge together notes that refer to the same location.
+This operation is \"lossy\" in the broad sense but not for display purposes."
+  (mapcar #'slime-merge-notes
+          (slime-group-similar 'slime-notes-in-same-location-p notes)))
+
+(defun slime-merge-notes (notes)
+  "Merge NOTES together. Keep the highest severity, concatenate the messages."
+  (let* ((new-severity (reduce #'slime-most-severe notes :key #'slime-note.severity))
+         (messages (mapcar #'slime-note.message notes))
+         (new-message (apply #'concat (slime-intersperse "\n" messages))))
+    (let ((new-note (copy-list (car notes))))
+      (setf (getf new-note :message) new-message)
+      (setf (getf new-note :severity) new-severity)
+      new-note)))
+
+(defun slime-intersperse (element list)
+  "Intersperse ELEMENT between each element of LIST."
+  (cons (car list)
+        (mapcan (lambda (x) (list element x)) list)))
+
+(defun slime-notes-in-same-location-p (a b)
+  (equal (slime-note.location a) (slime-note.location b)))
+
+(defun slime-group-similar (similar-p list)
+  "Return the list of lists of 'similar' adjacent elements of LIST.
+The function SIMILAR-P is used to test for similarity.
+The order of the input list is preserved."
+  (let ((accumulator (list (list (car list)))))
+    (dolist (x (cdr list))
+      (if (funcall similar-p x (caar accumulator))
+          (push x (car accumulator))
+        (push (list x) accumulator)))
+    (reverse (mapcar #'reverse accumulator))))
 
 
 ;;;;; Compiler notes list
@@ -2772,6 +2810,9 @@ The overlay has several properties:
       (putp 'help-echo message)
       overlay)))
 
+;;; XXX Obsolete due to `slime-merge-notes-for-display' doing the
+;;; work already -- unless we decide to put several sets of notes on a
+;;; buffer without clearing in between, which only this handles.
 (defun slime-merge-note-into-overlay (overlay severity message)
   "Merge another compiler note into an existing overlay.
 The help text describes both notes, and the highest of the severities
