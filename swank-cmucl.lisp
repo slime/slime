@@ -696,12 +696,10 @@ condition object."
   "Resolve the source location for CODE-LOCATION in FILENAME."
   (let* ((code-date (di:debug-source-created debug-source))
          (source-code (get-source-code filename code-date)))
-    (make-location (list :file (unix-truename filename)) nil)
     (with-input-from-string (s source-code)
       (make-location (list :file (unix-truename filename))
-                     (list :position
-                           (1+ (code-location-stream-position
-                                code-location s)))
+                     (list :position (1+ (code-location-stream-position
+                                          code-location s)))
                      `(:snippet ,(read-snippet s))))))
 
 (defun location-in-stream (code-location debug-source)
@@ -1427,7 +1425,8 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (unix:unix-sigsetmask 0)
   (let* ((*sldb-stack-top* (or debug:*stack-top-hint* (di:top-frame)))
-	 (debug:*stack-top-hint* nil))
+	 (debug:*stack-top-hint* nil)
+         (kernel:*current-level* 0))
     (handler-bind ((di::unhandled-condition
 		    (lambda (condition)
                       (error (make-condition
@@ -1637,7 +1636,9 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
          (let ((info (di:breakpoint-info breakpoint)))
            (if (vectorp info)
                (known-return-point-values sc info)
-               (list "<<known-return convention not supported>>"))))
+               (progn 
+                 ;;(break)
+                 (list "<<known-return convention not supported>>" info)))))
         (:unknown-return
          (let ((mv-return-pc (di::compiled-code-location-pc cl)))
            (if (= mv-return-pc *breakpoint-pc*)
@@ -1850,7 +1851,9 @@ The `symbol-value' of each element is a type tag.")
                     (loop for i from 0 below (1- (kernel:get-closure-length o))
                           append (label-value-line 
                                   i (kernel:%closure-index-ref o i))))))
-          (t 
+          ((eval::interpreted-function-p o)
+           (cmucl-inspect o))
+          (t
            (call-next-method)))))
 
 
