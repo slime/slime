@@ -27,14 +27,15 @@
     (ext:htonl address)))
 
 (defun create-swank-server (port &key (reuse-address t)
-                            (address "localhost"))
+                            (address "localhost")
+                            (announce #'simple-announce-function))
   "Create a SWANK TCP server."
   (let* ((ip (resolve-hostname address))
          (fd (ext:create-inet-listener port :stream
                                        :reuse-address reuse-address
                                        :host ip)))
-    (system:add-fd-handler fd :input #'accept-connection)
-    (nth-value 1 (ext::get-socket-host-and-port fd))))
+    (funcall announce (nth-value 1 (ext::get-socket-host-and-port fd)))
+    (accept-connection fd)))
 
 (defun accept-connection (socket)
   "Accept one Swank TCP connection on SOCKET and then close it."
@@ -1110,13 +1111,18 @@ stack."
                                      (di:frame-code-location frame)))
     (error "Cannot step, in elsewhere code~%"))
   (let* ((code-location (di:frame-code-location frame))
+         (debug::*bad-code-location-types* 
+          (remove :call-site debug::*bad-code-location-types*))
          (next (debug::next-code-locations code-location)))
     (cond (next
            (let ((steppoints '()))
              (flet ((hook (frame breakpoint)
                       (let ((debug:*stack-top-hint* frame))
-                        (mapc #'di:deactivate-breakpoint steppoints)
-                        (break "Breakpoint: ~A" breakpoint))))
+                        (mapc #'di:delete-breakpoint steppoints)
+                        (let ((cl (di::breakpoint-what breakpoint)))
+                          (break "Breakpoint: ~S ~S" 
+                                 (di:code-location-kind cl)
+                                 (di::compiled-code-location-pc cl))))))
                (dolist (code-location next)
                  (let ((bp (di:make-breakpoint #'hook code-location
                                                :kind :code-location)))
@@ -1125,7 +1131,7 @@ stack."
          (t
           (flet ((hook (frame breakpoint values cookie)
                    (declare (ignore cookie))
-                   (di:deactivate-breakpoint breakpoint)
+                   (di:delete-breakpoint breakpoint)
                    (let ((debug:*stack-top-hint* frame))
                      (break "Function-end: ~A ~A" breakpoint values))))
             (let* ((debug-function (di:frame-debug-function frame))
@@ -1141,6 +1147,34 @@ stack."
          (error "Cannot continue in from condition: ~A" 
                 *swank-debugger-condition*))))
 
+(defslimefun sldb-disassemble (frame-number)
+  "Return a string with the disassembly of frames code."
+  ;; this could need some refactoring.
+  (let* ((frame (nth-frame frame-number))
+         (real-frame (di::frame-real-frame frame))
+         (frame-pointer (di::frame-pointer real-frame))
+         (debug-fun (di:frame-debug-function real-frame)))
+    (with-output-to-string (*standard-output*)
+      (format t "Frame: ~S~%~:[~;Real Frame: ~S~%~]Frame Pointer: ~S~%"
+              frame (eq frame real-frame) real-frame frame-pointer)
+      (etypecase debug-fun
+        (di::compiled-debug-function
+         (let* ((code-loc (di:frame-code-location frame))
+                (component (di::compiled-debug-function-component debug-fun))
+                (pc (di::compiled-code-location-pc code-loc))
+                (ip (sys:sap-int
+                     (sys:sap+ (kernel:code-instructions component) pc)))
+                (kind (if (di:code-location-unknown-p code-loc)
+                          :unkown
+                          (di:code-location-kind code-loc)))
+                (fun (di:debug-function-function debug-fun)))
+           (format t "Instruction pointer: #x~X [pc: ~S kind: ~S]~%" 
+                   ip pc kind)
+           (if fun
+                   (disassemble fun)
+                   (disassem:disassemble-code-component component))))
+        (di::bogus-debug-function
+         (format t "~%[Disassembling bogus frames not implemented]"))))))
 
 ;;;; Inspecting
 
