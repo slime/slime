@@ -55,8 +55,10 @@
 
 (defimplementation create-socket (host port)
   (multiple-value-bind (socket where errno)
-      #-lispworks4.1(comm::create-tcp-socket-for-service port :address host)
-      #+lispworks4.1(comm::create-tcp-socket-for-service port)
+      #-(or lispworks4.1 (and macosx lispworks4.3))
+      (comm::create-tcp-socket-for-service port :address host)
+      #+(or lispworks4.1 (and macosx lispworks4.3))
+      (comm::create-tcp-socket-for-service port)
     (cond (socket socket)
           (t (error 'network-error 
               :format-control "~A failed: ~A (~D)"
