@@ -179,6 +179,11 @@ See also `slime-translate-to-lisp-filename-function'.")
   "Face for compiler notes while selected."
   :group 'slime)
 
+(defface slime-repl-prompt-face
+  '((t (:inherit font-lock-keyword-face)))
+  "Face for the prompt in the SLIME REPL."
+  :group 'slime)
+
 (defface slime-repl-output-face
   '((t (:inherit font-lock-string-face)))
   "Face for Lisp output in the SLIME REPL."
@@ -977,9 +982,9 @@ If that doesn't give a function, return nil."
 (defun slime-read-package-name (prompt &optional initial-value)
   "Read a package name from the minibuffer, prompting with PROMPT."
   (let ((completion-ignore-case t))
-    (completing-read prompt (mapcar (lambda (x) (cons x x))
-				    (slime-eval 
-				     `(swank:list-all-package-names)))
+    (completing-read prompt (slime-bogus-completion-alist 
+                             (slime-eval 
+                              `(swank:list-all-package-names)))
 		     nil nil initial-value)))
 
 (defmacro slime-propertize-region (props &rest body)
@@ -1052,9 +1057,8 @@ Return true if we have been given permission to continue."
 (defun slime-maybe-rearrange-inferior-lisp ()
   "Offer to rename *inferior-lisp* so that another can be started."
   (when (y-or-n-p "Create an additional *inferior-lisp*? ")
-    (let ((bufname (generate-new-buffer-name "*inferior-lisp*")))
-            (with-current-buffer "*inferior-lisp*"
-              (rename-buffer bufname)))))
+    (with-current-buffer "*inferior-lisp*"
+      (rename-buffer bufname t))))
 
 (defun slime-maybe-start-lisp ()
   "Start an inferior lisp unless one is already running."
@@ -1666,7 +1670,8 @@ This is automatically synchronized from Lisp.")
 
 (defun slime-check-connected ()
   (unless (slime-connected-p)
-    (error "Not connected. Use `M-x slime' to start a Lisp.")))
+    (error "Not connected. Use `%s' to start a Lisp."
+           (substitute-command-keys "\\[slime]"))))
 
 (defun slime-connected-p ()
   "Return true if the Swank connection is open."
@@ -2015,7 +2020,7 @@ end end."
     (unless (bolp) (insert "\n"))
     (let ((prompt-start (point)))
       (slime-propertize-region
-          '(face font-lock-keyword-face 
+          '(face slime-repl-prompt-face
                  read-only t
                  intangible t
                  slime-repl-prompt t
@@ -2206,7 +2211,7 @@ balanced."
   we're assuming is a repl command."
   (let ((input (buffer-substring-no-properties (save-excursion
                                                  (goto-char slime-repl-input-start-mark)
-                                                 (search-forward-regexp " *,"))
+                                                 (search-forward-regexp "\\s-*,"))
                                                (save-excursion
                                                  (goto-char slime-repl-input-end-mark)
                                                  (when (and (eq (char-before) ?\n)
@@ -2218,7 +2223,7 @@ balanced."
                          '(face slime-repl-input-face rear-nonsticky (face)))
     (slime-mark-output-start)
     (slime-mark-input-start)
-    (if (string-match "^ *\\+ *$" input)
+    (if (string-match "^\\s-*\\+\\s-*$" input)
         ;; majik ,+ command
         (slime-repl-send-string (pop slime-repl-input-history))
         (slime-repl-send-string (concat "(swank::repl-command " input ")\n") (concat "," input)))))
@@ -2806,7 +2811,9 @@ from an element and TEST is used to compare keys."
 ;;;;;;; Tree Widget
 
 (defmacro* with-struct ((conc-name &rest slots) struct &body body)
-  "Like with-slots but works only for structs."
+  "Like with-slots but works only for structs.
+
+\(with-struct (CONC-NAME &rest SLOTS) STRUCT &body BODY)"
   (flet ((reader (slot) (intern (concat (symbol-name conc-name)
 					(symbol-name slot)))))
     (let ((struct-var (gensym "struct")))
@@ -3284,11 +3291,13 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
 
 (defun slime-autodoc-mode (&optional arg)
   "Enable `slime-autodoc'."
-  (interactive)
-  (cond ((and arg (not (eq -1 arg))) (setq slime-autodoc-mode t))
-        ((eq -1 arg) (setq slime-autodoc-mode nil))
+  (interactive "P")
+  (cond ((< (prefix-numeric-value arg) 0) (setq slime-autodoc-mode nil))
+        (arg (setq slime-autodoc-mode t))
         (t (setq slime-autodoc-mode (not slime-autodoc-mode))))
-  (when slime-autodoc-mode (slime-autodoc-start-timer)))
+  (if slime-autodoc-mode
+      (slime-autodoc-start-timer)
+    (slime-autodoc-stop-timer)))
 
 (defun slime-autodoc ()
   "Print some apropos information about the code at point, if applicable."
@@ -3342,13 +3351,20 @@ Return DOCUMENTATION."
   "*Delay before autodoc messages are fetched and displayed, in seconds.")
 
 (defun slime-autodoc-start-timer ()
-  "*(Re)start the timer that prints autodocs every `slime-autodoc-delay' seconds."
+  "(Re)start the timer that prints autodocs every `slime-autodoc-delay' seconds."
   (interactive)
   (when slime-autodoc-idle-timer
     (cancel-timer slime-autodoc-idle-timer))
   (setq slime-autodoc-idle-timer
         (run-with-idle-timer slime-autodoc-delay slime-autodoc-delay
                              'slime-autodoc-timer-hook)))
+
+(defun slime-autodoc-stop-timer ()
+  "Stop the timer that prints autodocs.
+See also `slime-autodoc-start-timer'."
+  (when slime-autodoc-idle-timer
+    (cancel-timer slime-autodoc-idle-timer)
+    (setq slime-autodoc-idle-timer nil)))
 
 (defun slime-autodoc-timer-hook ()
   "Function to be called after each Emacs becomes idle.
@@ -3418,7 +3434,7 @@ annoy the user)."
 (defvar slime-completions-buffer-name "*Completions*")
 
 (defvar slime-complete-saved-window-configuration nil
-  "Window configuration before we show the *Completions* buffer.\n\
+  "Window configuration before we show the *Completions* buffer.
 This is buffer local in the buffer where the complition is
 performed.")
 
@@ -3470,8 +3486,8 @@ terminates a current completion."
   
 (defun slime-complete-symbol ()
   "Complete the symbol at point.
-If the symbol lacks an explicit package prefix, the current buffer's
-package is used."
+
+Completion is performed by `slime-complete-symbol-function'."
   (interactive)
   (funcall slime-complete-symbol-function))
 
@@ -3744,7 +3760,7 @@ This for use in the implementation of COMMON-LISP:ED."
     (cond ((stringp what)
            (find-file (slime-from-lisp-filename what)))
           ((listp what) 
-           (find-file (first what))
+           (find-file (first (slime-from-lisp-filename what)))
            (goto-line (second what))
            ;; Find the correct column, without going past the end of
            ;; the line.
@@ -3787,7 +3803,7 @@ Show the output buffer if the evaluation causes any output."
      (unless (bolp) (insert "\n"))
      (slime-insert-propertized
       '(slime-transcript-delimiter t)
-      ";;;; " (subst-char-in-string ?\n ?\ 
+      ";;;; " (subst-char-in-string ?\n ?\040
                                     (substring string 0 
                                                (min 60 (length string))))
       " ...\n"))))
@@ -5066,7 +5082,7 @@ This way you can still see what the error was after exiting SLDB."
 (defun slime-thread-insert (id name summary)
   (slime-propertize-region `(thread-id ,id)
     (slime-insert-propertized '(face bold) name)
-    (insert-char ?\  (- 30 (current-column)))
+    (insert-char ?\040 (- 30 (current-column)))
     (let ((summary-start (point)))
       (insert " " summary)
       (unless (bolp) (insert "\n"))
@@ -5456,7 +5472,7 @@ the top-level sexp before point."
 (defun slime-insert-balanced-comments (arg)
   "Insert a set of balanced comments around the s-expression
 containing the point.  If this command is invoked repeatedly
-(without any other command occurring between invocations), the
+\(without any other command occurring between invocations), the
 comment progressively moves outward over enclosing expressions.
 If invoked with a positive prefix argument, the s-expression arg
 expressions out is enclosed in a set of balanced comments."
@@ -6276,7 +6292,12 @@ Unless optional argument INPLACE is non-nil, return a new string."
 (defun-if-undefined line-beginning-position (&optional n)
   (save-excursion
     (forward-line n)
-    (beginning-of-line)
+    (point)))
+
+(defun-if-undefined line-end-position (&optional n)
+  (save-excursion
+    (forward-line n)
+    (end-of-line)
     (point)))
 
 (defun-if-undefined check-parens ()
