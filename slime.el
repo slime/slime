@@ -5582,7 +5582,7 @@ BODY returns true if the check succeeds."
     "Lookup the argument list for FUNCTION-NAME.
 Confirm that EXPECTED-ARGLIST is displayed."
     '(("swank:start-server"
-       "(swank:start-server port-file &optional (background *swank-in-background*) dont-close)")
+       "(swank:start-server port-file &optional (background *communication-style*) dont-close)")
       ("swank::compound-prefix-match"
        "(swank::compound-prefix-match prefix target)")
       ("swank::create-socket"
