@@ -1,6 +1,11 @@
 2003-11-08  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
-	* slime/slime.el (slime-buffer-package): Try to find be the
+	* slime.el: Remove the non-working face inheriting stuff.
+	Hardcode colors for slime-highlight-face and specify the :inherit
+	attribute for slime-repl-output-face.  So Emacs21 will do the
+	right thing and the others get at least a customizable face.
+
+	* slime.el (slime-buffer-package): Try to find be the
 	package name before resorting to slime-buffer-package.  Return nil
 	and not "CL-USER" if the package cannot be determined.
 	(slime-goto-location): Insert notes with a source path, but
