@@ -69,7 +69,7 @@
 
 (defun read-next-form ()
   "Read the next Slime request from *EMACS-IO* and return an
-S-expression to be evaulated to handle the request.  If an error
+S-expression to be evaluated to handle the request.  If an error
 occurs during parsing, it will be noted and control will be tranferred
 back to the main request handling loop."
   (handler-case
