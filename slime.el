@@ -1550,8 +1550,8 @@ deal with that."
   "Block until the most recent request has finished."
   (when slime-rex-continuations
     (let ((tag (caar slime-rex-continuations)))
-      (loop while (find tag slime-rex-continuations :key #'car)
-            do (accept-process-output nil 0 100000)))))
+      (while (find tag slime-rex-continuations :key #'car)
+        (accept-process-output nil 0 100000)))))
 
 (defun slime-ping ()
   "Check that communication works."
@@ -4983,7 +4983,7 @@ Exits Emacs when finished. The exit code is the number of failed tests."
     (slime)
     ;; Block until we are up and running.
     (while (not (slime-connected-p))
-      (accept-process-output nil 2))
+      (sit-for 1))
     (slime-sync-to-top-level 5)
     (switch-to-buffer "*scratch*")
     (let ((failed-tests (slime-run-tests)))
@@ -5289,6 +5289,7 @@ Confirm that SUBFORM is correctly located."
     '(())
   (slime-check-top-level)
   (slime-eval-async '(cl:loop) "CL-USER" (lambda (_) ))
+  (sleep-for 1)
   (slime-wait-condition "running" #'slime-busy-p 5)
   (slime-interrupt)
   (slime-wait-condition "First interrupt" (lambda () (slime-sldb-level= 1)) 5)
