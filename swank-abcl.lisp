@@ -254,6 +254,19 @@
 
 |#
 
+(defun source-location (symbol)
+  (when (ext:source symbol)
+    `(((,symbol)
+       (:location 
+        (:file ,(namestring (ext:source-pathname symbol)))
+        (:position ,(ext:source-file-position symbol) t)
+        (:snippet nil))))))
+  
+
+(defimplementation find-definitions (symbol)
+  (source-location symbol))
+
+
 #|
 Should work (with a patched xref.lisp) but is it any use without find-definitions?
 ;;;; XREF
