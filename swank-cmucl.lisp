@@ -565,7 +565,7 @@ return value is the condition or nil."
         (body)
         (handler-case (values (progn ,@body) nil)
           (error (c) (values (list :error (princ-to-string c)) c))))))
-    
+
 (defun function-first-code-location (function)
   (and (function-has-debug-function-p function)
        (di:debug-function-start-location
@@ -671,49 +671,48 @@ return value is the condition or nil."
 (defun gf-method-definitions (gf)
   (mapcar #'method-definition (pcl::generic-function-methods gf)))
 
-(defun function-definitions (symbol)
-  "Return definitions in the \"function namespace\", i.e.,
-regular functions, generic functions, methods and macros."
-  (cond ((macro-function symbol)
-         (list `((defmacro ,symbol)
-                 ,(function-location (macro-function symbol)))))
-        ((special-operator-p symbol)
-         (list `((:special-operator ,symbol) 
-                 (:error ,(format nil "Special operator: ~S" symbol)))))
-        ((fboundp symbol)
-         (let ((function (coerce symbol 'function)))
+(defun function-definitions (name)
+  "Return definitions for NAME in the \"function namespace\", i.e.,
+regular functions, generic functions, methods and macros.
+NAME can any valid function name (e.g, (setf car))."
+  (cond ((and (symbolp name) (macro-function name))
+         (list `((defmacro ,name)
+                 ,(function-location (macro-function name)))))
+        ((and (symbolp name) (special-operator-p name))
+         (list `((:special-operator ,name) 
+                 (:error ,(format nil "Special operator: ~S" name)))))
+        ((and (ext:valid-function-name-p name)
+              (ext:info :function :definition name))
+         (let ((function (coerce name 'function)))
            (cond ((genericp function)
-                  (cons (list `(defgeneric ,symbol)
+                  (cons (list `(defgeneric ,name)
                               (function-location function))
                         (gf-method-definitions function)))
-                 (t (list (list `(function ,symbol)
+                 (t (list (list `(function ,name)
                                 (function-location function)))))))))
 
-(defun maybe-make-definition (function kind symbol)
+(defun maybe-make-definition (function kind name)
   (if function
-      (list (list `(,kind ,symbol) (function-location function)))))
+      (list (list `(,kind ,name) (function-location function)))))
 
-(defun type-definitions (symbol)
-  (maybe-make-definition (ext:info :type :expander symbol) 'deftype symbol))
+(defun type-definitions (name)
+  (maybe-make-definition (ext:info :type :expander name) 'deftype name))
 
 (defun find-dd (name)
   (let ((layout (ext:info :type :compiler-layout name)))
     (if layout 
         (kernel:layout-info layout))))
 
-(defun struct-definitions (symbol)
-  (let ((dd (find-dd symbol)))
+(defun struct-definitions (name)
+  (let ((dd (and (symbolp name) (find-dd name))))
     (if dd
-        (list (list `(defstruct ,symbol) (dd-location dd))))))
+        (list (list `(defstruct ,name) (dd-location dd))))))
 
-(defun setf-definitions (symbol)
-  (let ((function (or (let ((name `(setf ,symbol)))
-                        (if (lisp::fdefinition-object name nil)
-                            name))
-                      (ext:info :setf :inverse symbol)
-                      (ext:info :setf :expander symbol))))
+(defun setf-definitions (name)
+  (let ((function (or (ext:info :setf :inverse name)
+                      (ext:info :setf :expander name))))
     (if function
-        (list (list `(setf ,symbol) 
+        (list (list `(setf ,name) 
                     (function-location (coerce function 'function)))))))
 
 (defun compiler-macro-definitions (symbol)
@@ -721,47 +720,47 @@ regular functions, generic functions, methods and macros."
                          'define-compiler-macro
                          symbol))
 
-(defun source-transform-definitions (symbol)
-  (maybe-make-definition (ext:info :function :source-transform symbol)
+(defun source-transform-definitions (name)
+  (maybe-make-definition (ext:info :function :source-transform name)
                          'c:def-source-transform
-                         symbol))
+                         name))
 
-(defun function-info-definitions (symbol)
-  (let ((info (ext:info :function :info symbol)))
+(defun function-info-definitions (name)
+  (let ((info (ext:info :function :info name)))
     (if info
         (append (loop for transform in (c::function-info-transforms info)
-                      collect (list `(c:deftransform ,symbol 
+                      collect (list `(c:deftransform ,name 
                                       ,(c::type-specifier 
                                         (c::transform-type transform)))
                                     (function-location (c::transform-function 
                                                         transform))))
                 (maybe-make-definition (c::function-info-derive-type info)
-                                       'c::derive-type symbol)
+                                       'c::derive-type name)
                 (maybe-make-definition (c::function-info-optimizer info)
-                                       'c::optimizer symbol)
+                                       'c::optimizer name)
                 (maybe-make-definition (c::function-info-ltn-annotate info)
-                                       'c::ltn-annotate symbol)
+                                       'c::ltn-annotate name)
                 (maybe-make-definition (c::function-info-ir2-convert info)
-                                       'c::ir2-convert symbol)
+                                       'c::ir2-convert name)
                 (loop for template in (c::function-info-templates info)
                       collect (list `(c::vop ,(c::template-name template))
                                     (function-location 
                                      (c::vop-info-generator-function 
                                       template))))))))
 
-(defun ir1-translator-definitions (symbol)
-  (maybe-make-definition (ext:info :function :ir1-convert symbol)
-                         'c:def-ir1-translator symbol))
+(defun ir1-translator-definitions (name)
+  (maybe-make-definition (ext:info :function :ir1-convert name)
+                         'c:def-ir1-translator name))
 
-(defimplementation find-definitions (symbol)
-  (append (function-definitions symbol)
-          (setf-definitions symbol)
-          (struct-definitions symbol)
-          (type-definitions symbol)
-          (compiler-macro-definitions symbol)
-          (source-transform-definitions symbol)
-          (function-info-definitions symbol)
-          (ir1-translator-definitions symbol)))
+(defimplementation find-definitions (name)
+  (append (function-definitions name)
+          (setf-definitions name)
+          (struct-definitions name)
+          (type-definitions name)
+          (compiler-macro-definitions name)
+          (source-transform-definitions name)
+          (function-info-definitions name)
+          (ir1-translator-definitions name)))
 
 ;;;; Documentation.
 
