@@ -335,9 +335,9 @@ If the backtrace cannot be calculated, this function returns NIL."
                (declare (ignore type))
                (when name
                  (push (list 
-                        :name (to-string name)
+                        :name name
                         :id 0
-                        :value-string (to-string var))
+                        :value var)
                        result))))
            (return-from frame-locals (nreverse result))))))))
 

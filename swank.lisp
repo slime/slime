@@ -859,6 +859,17 @@ has changed, ignore the request."
 (defslimefun eval-string-in-frame (string index)
   (to-string (eval-in-frame (from-string string) index)))
 
+(defun frame-locals-for-emacs (frame-index)
+  (mapcar (lambda (frame-locals)
+            (loop
+               for (key value) on frame-locals by #'cddr
+               collect key
+               if (member key (list :name :value))
+                 collect (to-string value)
+               else
+                 collect value))
+          (frame-locals frame-index)))
+
 
 ;;;; Evaluation
 

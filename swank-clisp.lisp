@@ -281,13 +281,12 @@ Return NIL if the symbol is unbound."
   (loop for i from 1 below (length venv) by 2
 	as symbol = (svref venv (1- i))
 	and value = (svref venv i)
-	collect (list :name (to-string symbol) :id 0
-		      :value-string (to-string
-				     (if (eq sys::specdecl value)
-					 ;; special variable
-					 (sys::eval-at frame symbol)
-					 ;; lexical variable or symbol macro
-					 value)))))
+	collect (list :name symbol :id 0
+		      :value (if (eq sys::specdecl value)
+                                 ;; special variable
+                                 (sys::eval-at frame symbol)
+                                 ;; lexical variable or symbol macro
+                                 value))))
 
 (defun frame-do-fenv (frame fenv)
   (declare (ignore frame fenv))

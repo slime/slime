@@ -1,3 +1,17 @@
+2004-03-05  Marco Baringer  <mb@bese.it>
+
+	* swank.lisp (frame-locals-for-emacs): New function.
+
+	* slime.el (sldb-frame-locals): Use swank::frame-locals-for-emacs
+	not swank::frame-locals.
+	(sldb-insert-locals): use the :value property, not the
+	:value-string property.
+
+	* swank-allegro.lisp, swank-clisp.lisp, swank-cmucl.lisp,
+	swank-lispworks.lisp, swank-sbcl.lisp (frame-locals): Return lisp
+	objects, not strings. Use the :value property and not the
+	:value-string property.
+
 2004-03-04  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-display-comletion-list): New function. Set

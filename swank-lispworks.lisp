@@ -230,9 +230,8 @@ Return NIL if the symbol is unbound."
           (mapcar (lambda (var)
                     (destructuring-bind (name value symbol location) var
                       (declare (ignore name location))
-                      (list :name (to-string symbol) :id 0
-                            :value-string 
-                            (to-string value))))
+                      (list :name symbol :id 0
+                            :value value)))
                   vars)))))
 
 (defimplementation frame-catch-tags (index)

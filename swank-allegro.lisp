@@ -156,10 +156,9 @@
 (defimplementation frame-locals (index)
   (let ((frame (nth-frame index)))
     (loop for i from 0 below (debugger:frame-number-vars frame)
-	  collect (list :name (to-string (debugger:frame-var-name frame i))
+	  collect (list :name (debugger:frame-var-name frame i)
 			:id 0
-			:value-string 
-			(to-string (debugger:frame-var-value frame i))))))
+			:value (debugger:frame-var-value frame i)))))
 
 (defimplementation frame-catch-tags (index)
   (declare (ignore index))

@@ -1030,11 +1030,11 @@ stack."
     (loop for v across debug-variables collect 
           (list :name (to-string (di:debug-variable-symbol v))
                 :id (di:debug-variable-id v)
-                :value-string (ecase (di:debug-variable-validity v location)
-                                (:valid 
-                                 (to-string (di:debug-variable-value v frame)))
-                                ((:invalid :unknown) 
-                                 "<not-available>"))))))
+                :value (ecase (di:debug-variable-validity v location)
+                         (:valid 
+                          (di:debug-variable-value v frame))
+                         ((:invalid :unknown) 
+                          "<not-available>"))))))
 
 (defimplementation frame-catch-tags (index)
   (loop for (tag . code-location) in (di:frame-catches (nth-frame index))

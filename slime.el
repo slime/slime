@@ -4623,7 +4623,7 @@ The details include local variable bindings and CATCH-tags."
   (sldb-sugar-move 'sldb-down))
 
 (defun sldb-frame-locals (frame)
-  (slime-eval `(swank:frame-locals ,frame)))
+  (slime-eval `(swank::frame-locals-for-emacs ,frame)))
 
 (defun sldb-insert-locals (frame prefix)
   (dolist (l (sldb-frame-locals frame))
@@ -4632,7 +4632,7 @@ The details include local variable bindings and CATCH-tags."
       (unless (zerop id) 
         (insert (in-sldb-face local-name (format "#%d" id)))))
     (insert " = " 
-            (in-sldb-face local-value (plist-get l :value-string))
+            (in-sldb-face local-value (plist-get l :value))
             "\n")))
 
 (defun sldb-list-locals ()

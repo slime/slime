@@ -585,13 +585,12 @@ stack."
     (declare (type (or null simple-vector) debug-variables))
     (loop for v across debug-variables
           collect (list
-                   :name (to-string (sb-di:debug-var-symbol v))
+                   :name (sb-di:debug-var-symbol v)
                    :id (sb-di:debug-var-id v)
-                   :value-string
-                   (if (eq (sb-di:debug-var-validity v location)
-                           :valid)
-                       (to-string (sb-di:debug-var-value v frame))
-                       "<not-available>")))))
+                   :value (if (eq (sb-di:debug-var-validity v location)
+                                  :valid)
+                              (sb-di:debug-var-value v frame)
+                              "<not-available>")))))
 
 (defimplementation frame-catch-tags (index)
   (loop for (tag . code-location) in (sb-di:frame-catches (nth-frame index))
