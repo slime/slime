@@ -43,18 +43,15 @@
 	 (linux:sigprocmask-set ,linux:SIG_SETMASK ,mask nil)))))
 	
 #+linux
-(defmacro without-interrupts (&body body)
-  `(with-blocked-signals (,linux:SIGINT) ,@body))
+(defmethod call-without-interrupts (fn)
+  (with-blocked-signals (linux:SIGINT) (funcall fn)))
 
 #-linux
-(defmacro without-interrupts (&body body)
-  `(progn ,@body))
+(defmethod call-without-interrupts (fn)
+  (funcall fn))
 
-(defun without-interrupts* (fun)
-  (without-interrupts (funcall fun)))
-
-#+unix (defslimefun getpid () (system::program-id))
-#+win32 (defslimefun getpid () (or (system::getenv "PID") -1))
+#+unix (defmethod getpid () (system::program-id))
+#+win32 (defmethod getpid () (or (system::getenv "PID") -1))
 ;; the above is likely broken; we need windows NT users!
 
 
@@ -80,15 +77,7 @@
 ;;; Swank functions
 
 (defmethod arglist-string (fname)
-  (declare (type string fname))
-  (multiple-value-bind (function condition)
-      (ignore-errors (values (from-string fname)))
-    (when condition
-      (return-from arglist-string (format nil "(-- ~A)" condition)))
-    (multiple-value-bind (arglist condition)
-	(ignore-errors (values (ext:arglist function)))
-      (cond (condition (format  nil "(-- ~A)" condition))
-	    (t (format nil "(~{~A~^ ~})" arglist))))))
+  (format-arglist fname #'ext:arglist))
 
 (defmethod macroexpand-all (form)
   (ext:expand-form form))

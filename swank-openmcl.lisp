@@ -65,9 +65,6 @@
    ccl:stream-line-column
    ccl:stream-line-length))
 
-(defun without-interrupts* (body)
-  (ccl:without-interrupts (funcall body)))
-
 (defvar *swank-debugger-stack-frame* nil)
 
 ;;; TCP Server
@@ -92,7 +89,13 @@
 (defmethod emacs-connected ()
   (setq ccl::*interactive-abort-process* ccl::*current-process*))
 
-;;;
+;;; Unix signals
+
+(defmethod call-without-interrupts (fn)
+  (ccl:without-interrupts (funcall fn)))
+
+(defmethod getpid ()
+  (ccl::getpid))
 
 (let ((ccl::*warn-if-redefine-kernel* nil))
   (defun ccl::force-break-in-listener (p)
@@ -151,16 +154,7 @@
   (setq *swank-debugger-stack-frame* error-pointer))
 
 (defmethod arglist-string (fname)
-  (let ((*print-case* :downcase))
-    (multiple-value-bind (function condition)
-        (ignore-errors (values 
-                        (find-symbol-designator fname *buffer-package*)))
-      (when condition
-        (return-from arglist-string (format nil "(-- ~A)" condition)))
-      (let ((arglist (ccl:arglist function)))
-        (if arglist
-            (princ-to-string arglist)
-            "(-- <Unknown-Function>)")))))
+  (format-arglist fname #'ccl:arglist))
 
 ;;; Compilation
 
@@ -213,10 +207,6 @@ condition."
         (let ((binary-filename (compile-file filename :load t)))
           (delete-file binary-filename)))
       (delete-file filename))))
-
-(defslimefun getpid ()
-  "Return the process ID of this superior Lisp."
-  (ccl::getpid))
 
 ;;; Debugging
 

@@ -56,9 +56,6 @@
    sb-gray:stream-line-column
    sb-gray:stream-line-length))
 
-(defun without-interrupts* (body)
-  (sb-sys:without-interrupts (funcall body)))
-
 ;;; TCP Server
 
 (setq *swank-in-background* :fd-handler)
@@ -117,6 +114,12 @@
                                 :output-stream output)))
     (values input output)))
 
+(defmethod call-without-interrupts (fn)
+  (sb-sys:without-interrupts (funcall fn)))
+
+(defmethod getpid ()
+  (sb-unix:unix-getpid))
+
 ;;; Utilities
 
 (defvar *swank-debugger-stack-frame*)
@@ -127,17 +130,7 @@
   (namestring *default-pathname-defaults*))
 
 (defmethod arglist-string (fname)
-  (let ((*print-case* :downcase))
-    (multiple-value-bind (function condition)
-        (ignore-errors (values 
-                        (find-symbol-designator fname *buffer-package*)))
-      (when condition
-        (return-from arglist-string (format nil "(-- ~A)" condition)))
-      (let ((arglist
-             (ignore-errors (sb-introspect:function-arglist function))))
-        (if arglist
-            (princ-to-string arglist)
-            "(-- <Unknown-Function>)")))))
+  (format-arglist fname #'sb-introspect:function-arglist))
 
 (defvar *buffer-name* nil)
 (defvar *buffer-offset*)
@@ -384,12 +377,6 @@ Return NIL if the symbol is unbound."
 (defmethod macroexpand-all (form)
   (let ((sb-walker:*walk-form-expand-macros-p* t))
     (sb-walker:walk-form form)))
-
-
-;;;
-
-(defslimefun getpid ()
-  (sb-unix:unix-getpid))
 
 
 ;;; Debugging

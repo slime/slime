@@ -32,9 +32,6 @@
    excl:stream-read-char-no-hang
    ))
 
-(defun without-interrupts* (body)
-  (excl:without-interrupts (funcall body)))
-
 ;;;; TCP Server
 
 (defmethod create-socket (port)
@@ -51,21 +48,18 @@
 
 (defmethod emacs-connected ())
 
-(defslimefun getpid ()
+;;;; Unix signals
+
+(defmethod call-without-interrupts (fn)
+  (excl:without-interrupts (funcall fn)))
+
+(defmethod getpid ()
   (excl::getpid))
 
 ;;;; Misc
 
 (defmethod arglist-string (fname)
-  (declare (type string fname))
-  (multiple-value-bind (function condition)
-      (ignore-errors (values (from-string fname)))
-    (when condition
-      (return-from arglist-string (format nil "(-- ~A)" condition)))
-    (multiple-value-bind (arglist condition) 
-        (ignore-errors (values (excl:arglist function)))
-      (cond (condition (format  nil "(-- ~A)" condition))
-            (t (format nil "(~{~A~^ ~})" arglist))))))
+  (format-arglist fname #'excl:arglist))
 
 (defun apropos-symbols (string &optional external-only package)
   (remove-if (lambda (sym)

@@ -132,6 +132,17 @@ that the calling thread is the one that interacts with Emacs."))
   nil)
 
 
+;;;; Unix signals
+
+(defconstant +sigint+ 2)
+
+(defgeneric call-without-interrupts (fn)
+  (:documentation "Call FN in a context where interrupts are disabled."))
+
+(defgeneric getpid ()
+  (:documentation "Return the (Unix) process ID of this superior Lisp."))
+
+
 ;;;; Compilation
 
 (defgeneric call-with-compilation-hooks (func)
