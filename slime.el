@@ -698,7 +698,7 @@ If that doesn't give a function, return nil."
 
 (put 'slime-propertize-region 'lisp-indent-function 1)
 
-(defun slime-insert-propertized (props &rest args)
+(defsubst slime-insert-propertized (props &rest args)
   "Insert all ARGS and then add text-PROPS to the inserted text."
   (slime-propertize-region props (apply #'insert args)))
 
@@ -875,15 +875,14 @@ EVAL'd by Lisp."
 (defun slime-process-available-input ()
   "Process all complete messages that have arrived from Lisp."
   (with-current-buffer (process-buffer slime-net-process)
-    (let (reader-error)
-      (unwind-protect
-          (while (slime-net-have-input-p)
-            (setq reader-error t)
-            (let ((event (slime-net-read)))
-              (setq reader-error nil)
-              (save-current-buffer (slime-dispatch-event event))))
-        (when (and (not reader-error) (slime-net-have-input-p))
-          (run-at-time 0 nil 'slime-process-available-input))))))
+    (unwind-protect
+        (while (slime-net-have-input-p)
+          (let ((event (condition-case error
+                           (slime-net-read)
+                         (error (slime-state/event-panic error)))))
+            (save-current-buffer (slime-dispatch-event event))))
+      (when (slime-net-have-input-p)
+        (run-at-time 0 nil 'slime-process-available-input)))))
 
 (defun slime-net-have-input-p ()
   "Return true if a complete message is available."
@@ -1068,12 +1067,34 @@ The event was:
 %s
 
 The state stack was:
-%s"
+%s
+
+The content of the *slime-events* buffer:
+%s
+
+The content of the *cl-connection* buffer:
+%s
+
+"
                    (pp-to-string event)
                    (pp-to-string (mapcar 'slime-state-name
-                                         slime-state-stack)))))
+                                         slime-state-stack))
+                   (cond ((get-buffer "*slime-events*")
+                          (with-current-buffer "*slime-events*"
+                            (buffer-string)))
+                         (t "<no *slime-event* buffer>"))
+                   (cond ((process-buffer slime-net-process)
+                          (with-current-buffer 
+                              (process-buffer slime-net-process)
+                            (buffer-string)))
+                         (t "<no *cl-connection*>"))
+                   )))
   (slime-disconnect)
-  (error "The SLIME protocol reached an inconsistent state."))
+  (delete-other-windows (get-buffer-window "*SLIME bug*"))
+  (unwind-protect (unwind-protect (sit-for 2)
+                    (display-buffer "*SLIME bug*")
+                    (delete-other-windows (get-buffer-window "*SLIME bug*")))
+    (error "The SLIME protocol reached an inconsistent state.")))
 
 
 ;;;;; Event logging to *slime-events*
@@ -1100,6 +1121,7 @@ The state stack was:
           (lisp-mode)
           (hs-minor-mode)
           (set (make-local-variable 'hs-block-start-regexp) "^(")
+          (setq font-lock-defaults nil)
           (current-buffer)))))
 
 
@@ -1353,26 +1375,28 @@ Loops until the result is thrown to our caller, or the user aborts."
 (defun slime-show-last-output ()
   (with-current-buffer (slime-output-buffer)
     (let ((start slime-last-output-start)
-	  (end slime-repl-prompt-start-mark))
+          (end slime-repl-prompt-start-mark))
       (when (< start end)
-	(slime-display-buffer-region (current-buffer) start end)))))
+        (slime-display-buffer-region (current-buffer) start 
+                                     slime-repl-input-start-mark)))))
 
 (defun slime-with-output-at-eob (fn)
   "Call FN at the eob.  In a save-excursion block if we are not at
 eob."
-  (cond ((eobp) (funcall fn))
+  (cond ((eobp) (funcall fn) 
+         (when-let (w (get-buffer-window (current-buffer)))
+           (set-window-point w (point))))
         (t (save-excursion 
              (goto-char (point-max))
              (funcall fn)))))
 
 (defun slime-output-string (string)
-  (unless (zerop (length string))
-    (with-current-buffer (slime-output-buffer)
-      (slime-with-output-at-eob
-       (lambda ()
-         (slime-repl-maybe-insert-output-separator)
-         (slime-propertize-region '(face slime-repl-output-face)
-           (insert string)))))))
+  (with-current-buffer (slime-output-buffer)
+    (slime-with-output-at-eob
+     (lambda ()
+       (slime-repl-maybe-insert-output-separator)
+       (slime-propertize-region '(face slime-repl-output-face)
+         (insert string))))))
 
 (defun slime-switch-to-output-buffer ()
   "Select the output buffer, preferably in a different window."
@@ -1480,7 +1504,7 @@ after the last prompt to the end of buffer."
     (insert "\n")
     (set-marker slime-repl-input-end-mark (1- (point)) (current-buffer))
     (set-marker slime-last-output-start (point))))
-    
+
 (defun slime-repl-bol ()
   "Go to the beginning of line or the prompt."
   (interactive)
@@ -1706,10 +1730,9 @@ See `slime-compile-and-load-file' for further details."
    nil
    (slime-compilation-finished-continuation))
   (message "Compiling %s.." (buffer-file-name))
-  ;;(with-current-buffer (slime-output-buffer)
-  ;;  (display-buffer (slime-output-buffer) t)
-  ;;  (set-window-start (get-buffer-window (current-buffer)) (point-max)))
-  )
+  (with-current-buffer (slime-output-buffer)
+    (goto-char (point-max))
+    (display-buffer (current-buffer) t)))
 
 (defun slime-compile-defun ()
   (interactive)
@@ -2623,32 +2646,27 @@ First make the variable unbound, then evaluate the entire form."
         (slime-set-truncate-lines)
 	(slime-print-apropos plists)))))
 
-(defun slime-princ-propertized (string props)
-  (with-current-buffer standard-output
-    (let ((start (point)))
-      (princ string)
-      (add-text-properties start (point) props))))
-
-(eval-when (compile) (require 'apropos))
-(autoload 'apropos-mode "apropos")
-(defvar apropos-label-properties)
+(defvar slime-apropos-label-properties
+  (progn
+    (require 'apropos)
+    (cond ((and (boundp 'apropos-label-properties) 
+                (symbol-value 'apropos-label-properties)))
+          ((boundp 'apropos-label-face)
+           (typecase (symbol-value 'apropos-label-face)
+             (symbol `(face ,(or (symbol-value 'apropos-label-face)
+                                 'italic)
+                            mouse-face highlight))
+             (list (symbol-value 'apropos-label-face)))))))
 
 (defun slime-print-apropos (plists)
   (dolist (plist plists)
     (let ((designator (plist-get plist :designator)))
-      (slime-princ-propertized designator 
-			       (list 'face apropos-symbol-face
-				     'item designator
-				     'action 'slime-describe-symbol)))
+      (slime-insert-propertized (list 'face apropos-symbol-face
+                                      'item designator
+                                      'action 'slime-describe-symbol)
+                                designator))
     (terpri)
-    (let ((apropos-label-properties 
-	   (cond ((and (boundp 'apropos-label-properties) 
-		       apropos-label-properties))
-		 ((boundp 'apropos-label-face)
-		  (typecase apropos-label-face
-		    (symbol `(face ,(or apropos-label-face 'italic)
-				   mouse-face highlight))
-		    (list apropos-label-face))))))
+    (let ((apropos-label-properties slime-apropos-label-properties))
       (loop for (prop namespace action) 
 	    in '((:variable "Variable" swank:describe-symbol)
 		 (:function "Function" swank:describe-function)
@@ -2665,7 +2683,7 @@ First make the variable unbound, then evaluate the entire form."
 		  (start (point)))
 	      (when value
 		(princ "  ") 
-		(slime-princ-propertized namespace apropos-label-properties)
+		(slime-insert-propertized apropos-label-properties namespace)
 		(princ ": ")
 		(princ (etypecase value
 			 (string value)
@@ -4136,6 +4154,22 @@ Unless optional argument INPLACE is non-nil, return a new string."
 
 
 ;;; Finishing up
+
+(mapc #'byte-compile
+      '(slime-handle-oob 
+        slime-log-event
+        slime-events-buffer
+        slime-output-string 
+        slime-output-buffer
+        slime-with-output-at-eob
+        slime-process-available-input 
+        slime-dispatch-event 
+        slime-net-filter 
+        slime-net-have-input-p
+        slime-net-read3
+        slime-net-read
+        slime-print-apropos
+        slime-insert-propertized))
 
 (run-hooks 'slime-load-hook)
 
