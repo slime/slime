@@ -129,6 +129,9 @@ The function is called with the definition name, a string, as its argument.
 
 If you want to fallback on TAGS you can set this to `find-tag'.")
 
+(defun slime-kill-without-query-p nil
+  "If non-nil, kill Slime processes without query when quitting Emacs.")
+
 
 ;;; Customize group
 
@@ -1077,6 +1080,8 @@ Return true if we have been given permission to continue."
   "Start an inferior lisp unless one is already running."
   (unless (get-buffer-process (get-buffer "*inferior-lisp*"))
     (call-interactively 'inferior-lisp)
+    (when slime-kill-without-query-p
+      (process-kill-without-query (inferior-lisp-proc)))
     (comint-send-string (inferior-lisp-proc)
                         (format "(load %S)\n"
                                 (slime-to-lisp-filename
@@ -1255,6 +1260,8 @@ The functions are called with the process as their argument.")
     (set-process-buffer proc buffer)
     (set-process-filter proc 'slime-net-filter)
     (set-process-sentinel proc 'slime-net-sentinel)
+    (when slime-kill-without-query-p
+      (process-kill-without-query proc))
     (when (fboundp 'set-process-coding-system)
       (set-process-coding-system proc 'no-conversion 'no-conversion))
     proc))
@@ -1925,6 +1932,8 @@ update window-point afterwards.  If point is initially not at
                                      (slime-with-connection-buffer ()
                                        (current-buffer))
 				     "localhost" port)))
+    (when slime-kill-without-query-p
+      (process-kill-without-query stream))
     (set-process-filter stream 'slime-output-filter)
     stream))
 
@@ -3524,11 +3533,6 @@ annoy the user)."
 This is buffer local in the buffer where the completion is
 performed.")
 
-(defvar slime-complete-modified-window-configuration nil
-  "Window configuration after we showing the *Completions* buffer.
-This is buffer local in the buffer where the completion is
-performed.")
-
 (defun slime-complete-maybe-save-window-configuration ()
   (make-local-variable 'slime-complete-saved-window-configuration)
   (unless slime-complete-saved-window-configuration
@@ -3823,7 +3827,8 @@ If the position is NIL then replace it with NAME."
                          (list :location
                                buffer
                                (or position (list :function-name name))
-                               hints))))))
+                               hints))
+                        ((:error _) location)))))
 
 (defun slime-edit-definition-other-window (name)
   "Like `slime-edit-definition' but switch to the other window."
@@ -6188,7 +6193,7 @@ BODY returns true if the check succeeds."
     "Lookup the argument list for FUNCTION-NAME.
 Confirm that EXPECTED-ARGLIST is displayed."
     '(("swank:start-server"
-       "(swank:start-server port-file &optional (background *communication-style*) dont-close)")
+       "(swank:start-server port-file &optional (style *communication-style*) dont-close)")
       ("swank::compound-prefix-match"
        "(swank::compound-prefix-match prefix target)")
       ("swank::create-socket"
