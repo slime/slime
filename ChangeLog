@@ -1,3 +1,22 @@
+2003-11-1  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-debugging-state): Save the window configuration
+	in a state variable.  
+	sldb-saved-window-configuration: Removed.
+	(slime-repl-mode): Use conservative scrolling.
+	(slime-repl-insert-prompt): Set window-point after the prompt.
+	(slime-repl-add-to-input-history): Don't add subsequent duplicates to
+	the history.
+
+	* swank.lisp (slime-read-char): Flush the output before reading.
+	(listener-eval): Like eval region but set reader variables (*, **,
+	*** etc.)
+
+	* swank-openmcl.lisp, swank-sbcl.lisp: Implement stream-line-column.
+
+	* swank-cmucl.lisp (slime-input-stream-misc-ops): Renamed from
+	slime-input-stream-misc.
+
 2003-10-31  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-repl-mode-map): Bound `slime-interrupt' on both
