@@ -87,7 +87,6 @@ the same name instead."))
   "The symbol names in the *FEATURES* list of the Superior lisp.
 This is needed to READ Common Lisp expressions adequately.")
 
-(defvar sldb-level 0)
 (defvar slime-pid nil
   "The process id of the Lisp process.")
 
@@ -228,7 +227,7 @@ Evaluation commands:
              '(slime-mode
                (" Slime"
 		((slime-buffer-package (":" slime-buffer-package) "")
-		 ("|" slime-state-name)))))
+		 slime-state-name))))
 
 
 ;;; Setup initial `slime-mode' hooks
@@ -258,7 +257,57 @@ This list of flushed between commands."))
 (add-hook 'slime-mode-hook 'slime-buffer-package)
 
 
-;;; Common utility functions
+;;; Common utility functions and macros
+
+(defmacro destructure-case (value &rest patterns)
+  "Dispatch VALUE to one of PATTERNS.
+A cross between `case' and `destructuring-bind'.
+The pattern syntax is:
+  ((HEAD . ARGS) . BODY)
+The list of patterns is searched for a HEAD `eq' to the car of
+VALUE. If one is found, the BODY is executed with ARGS bound to the
+corresponding values in the CDR of VALUE."
+  (let ((operator (gensym "op-"))
+	(operands (gensym "rand-"))
+	(tmp (gensym "tmp-")))
+    `(let* ((,tmp ,value)
+	    (,operator (car ,tmp))
+	    (,operands (cdr ,tmp)))
+       (case ,operator
+	 ,@(mapcar (lambda (clause)
+                     (if (eq (car clause) t)
+                         `(t ,@(cdr clause))
+                       (destructuring-bind ((op &rest rands) &rest body) clause
+                         `(,op (destructuring-bind ,rands ,operands
+                                 . ,body)))))
+		   patterns)
+	 (t (error "destructure-case failed: %S" ,tmp))))))
+
+(put 'destructure-case 'lisp-indent-function 1)
+
+(defun slime-buffer-package (&optional dont-cache)
+  "Return the Common Lisp package associated with the current buffer.
+This is heuristically determined by a text search of the buffer.
+The result is cached and returned on subsequent calls unless
+DONT-CACHE is non-nil."
+  (or (and (not dont-cache) slime-buffer-package)
+      (and (setq slime-buffer-package (slime-find-buffer-package))
+           (progn (force-mode-line-update) slime-buffer-package))
+      "CL-USER"))
+
+(defun slime-find-buffer-package ()
+  "Figure out which Lisp package the current buffer is associated with."
+  (save-excursion
+    (when (let ((case-fold-search t))
+	    (re-search-backward "^(\\(cl:\\|common-lisp:\\)?in-package\\>" 
+				nil t))
+      (goto-char (match-end 0))
+      (skip-chars-forward " \n\t\f\r#:")
+      (let ((pkg (read (current-buffer))))
+	(cond ((stringp pkg)
+	       pkg)
+	      ((symbolp pkg)
+	       (symbol-name pkg)))))))
 
 (defun slime-display-buffer-other-window (buffer &optional not-this-window)
   "Display BUFFER in some other window.
@@ -515,7 +564,8 @@ EVAL'd by Lisp."
     (process-send-string slime-net-process (string-make-unibyte string))))
 
 (defun slime-net-sentinel (process message)
-  (message "wire sentinel: %s" message))
+  (message "wire sentinel: %s" message)
+  (ignore-errors (kill-buffer (process-buffer slime-net-process))))
 
 (defun slime-net-filter (process string)
   "Accept output from the socket and input all complete messages."
@@ -530,7 +580,7 @@ EVAL'd by Lisp."
   (with-current-buffer (process-buffer slime-net-process)
     (while (slime-net-have-input-p)
       (save-current-buffer
-	(slime-take-input (slime-net-read))))))
+	(slime-dispatch-event (slime-net-read))))))
 
 (defun slime-net-have-input-p ()
   "Return true if a complete message is available."
@@ -564,196 +614,247 @@ EVAL'd by Lisp."
 
 ;;; Evaluation mechanics
 
-(defmacro destructure-case (value &rest patterns)
-  (let ((operator (gensym "op-"))
-	(operands (gensym "rand-"))
-	(tmp (gensym "tmp-")))
-    `(let* ((,tmp ,value)
-	    (,operator (car ,tmp))
-	    (,operands (cdr ,tmp)))
-       (case ,operator
-	 ,@(mapcar (lambda (clause)
-		     (destructuring-bind ((op &rest rands) &rest body) clause
-		       `(,op (destructuring-bind ,rands ,operands
-			       . ,body))))
-		   patterns)
-	 (t (error "destructure-case failed: %S" ,tmp))))))
+;; The SLIME protocol is implemented with a small state machine. That
+;; means the program uses "state" data structures to remember where
+;; it's up to -- whether it's idle, or waiting for an evaluation
+;; request from Lisp, whether it's debugging, and so on.
+;;
+;; The state machine has a stack for putting states that are only
+;; partially complete, i.e. it is a "push-down automaton" like they
+;; use in parsers. This design works well because the SLIME protocol
+;; can be described as a context-free grammar, loosely:
+;;
+;;   CONVERSATION ::= <EXCHANGE>*
+;;   EXCHANGE     ::= request reply
+;;                or  request <DEBUG> reply
+;;   DEBUG        ::= enter-debugger <CONVERSATION> debug-return
+;;
+;; Or, in plain english, in the simplest case Emacs asks Lisp to
+;; evaluate something and Lisp sends the result. But it's also
+;; possible that Lisp signals a condition and enters the debugger
+;; while computing the reply. In that case both sides enter a
+;; debugging state, and can have arbitrary nested conversations until
+;; a restart makes the debugger return.
+;;
+;; The state machine's stack represents the interesting parts of the
+;; remote Lisp stack. Each Emacs state on the stack corresponds to a
+;; particular Lisp stack frame. When that frame returns it sends a
+;; message to Emacs delivering a result, which Emacs delivers to the
+;; state and pops its stack. So the stacks are kept synchronized.
+;;
+;; The format of events is lists whose CAR is a symbol identifying the
+;; type of event and whose CDR contains any extra arguments. We treat
+;; events created by Emacs the same as events sent by Lisp, but by
+;; convention use "emacs-" as a prefix on the names of events
+;; originating locally in Emacs.
+;;
+;; There are also certain "out of band" messages which are handled by
+;; a special function instead of reaching the state machine.
 
-(put 'destructure-case 'lisp-indent-function 1)
+
+;;;;; Basic state machine aframework
 
-(defvar slime-state-name "??")
-(defvar slime-current-state)
+(defvar slime-state-stack '()
+  "Stack of machine states. The state at the top is the current state.")
 
-(defun slime-move-to-state (state)
-  (let ((fn (car state)))
-    (setq slime-state-name (case fn
-			     (slime-idle-state "idle")
-			     (slime-eval-async-state "eval-async")
-			     (sldb-state (format "sldb[%d]" sldb-level))
-			     (t (prin1-to-string fn))))
-    (setq slime-current-state state)))
+(defvar slime-state-name "[??]"
+  "The name of the current state, for display in the modeline.")
 
-(defun slime-make-state (function saved-values)
-  (cons function saved-values))
+(defun slime-push-state (state)
+  "Push into a new state, saving the current state on the stack.
+This may be called by a state machine to cause a state change."
+  (push state slime-state-stack)
+  (slime-activate-state))
 
-(defmacro slime-state (function saved-values)
-  `(slime-make-state (function ,function) (list ,@saved-values)))
+(defun slime-pop-state ()
+  "Pop back to the previous state from the stack.
+This may be called by a state machine to finish its current state."
+  (pop slime-state-stack)
+  (slime-activate-state))
+
+(defun slime-current-state ()
+  "The current state."
+  (car slime-state-stack))
 
 (defun slime-init-dispatcher ()
-  (setq sldb-level 0)
-  (slime-move-to-state (slime-state slime-idle-state ()))
+  "Initialize the stack machine."
+  (setq slime-state-stack (list (slime-idle-state)))
   (setq slime-pid (slime-eval `(swank:getpid))))
 
-(defun slime-take-input (object)
-  (slime-check-connected)
-  (apply (car slime-current-state) object (cdr slime-current-state)))
+(defun slime-activate-state ()
+  "Activate the current state.
+This delivers an (activate) event to the state function, and updates
+the state name for the modeline."
+  (let ((state (slime-current-state)))
+    (setq slime-state-name
+          (case (slime-state-name state)
+            (slime-idle-state "")
+            (slime-evaluating-state "[eval...]")
+            (slime-debugging-state "[debug]")))
+    (force-mode-line-update)
+    (slime-dispatch-event '(activate))))
 
-(defun slime-idle-state (message)
-  (destructure-case message
-    ((send-eval-string string package next-state)
-     (slime-move-to-state next-state)
-     (slime-net-send `(swank:eval-string ,string ,package)))))
+(defun slime-dispatch-event (event)
+  "Dispatch an event to the current state.
+Certain \"out of band\" events are handled specially instead of going
+into the state machine."
+  (or (slime-handle-oob event)
+      (funcall (slime-state-function (slime-current-state)) event)))
 
-(defun slime-ping ()
-  (interactive)
-  (slime-eval `(swank:ping ,sldb-level) nil)
-  (message "Connection ok."))
+(defun slime-handle-oob (event)
+  "Handle out-of-band events.
+Return true if the event is recognised and handled."
+  (destructure-case event
+    ((:read-output output)
+     (slime-output-string output)
+     t)
+    (t nil)))
 
+;; state datastructure
+(defun slime-make-state (name function)
+  "Make a state object called NAME that handles events with FUNCTION."
+  (list 'slime-state name function))
+
+(defun slime-state-name (state)
+  "Return the name of STATE."
+  (second state))
+
+(defun slime-state-function (state)
+  "Return STATE's event-handler function."
+  (third state))
+
+;;;;; Upper layer macros for defining states
+
+(defmacro slime-defstate (name variables doc &rest events)
+  "Define a state called NAME and comprised of VARIABLES.
+DOC is a documentation string.
+EVENTS is a set of event-handler patterns for matching events with
+their actions. The pattern syntax is the same as `destructure-case'."
+  `(defun ,name ,variables
+     ,doc
+     (slime-make-state ',name ,(slime-make-state-function variables events))))
+
+(defun slime-make-state-function (arglist clauses)
+  "Build the function that implements a state.
+The state's variables are moved into lexical bindings."
+  (let ((event-var (gensym "event-")))
+    `(lexical-let ,(mapcar* #'list arglist arglist)
+       (lambda (,event-var)
+         (destructure-case ,event-var
+           ,@clauses
+           ;; Every state can handle the event (activate). By default
+           ;; it does nothing.
+           ,@(if (member* '(activate) clauses :key #'car :test #'equal)
+                 '()
+               '( ((activate) nil)) )
+           (t (error "Can't handle event %S in state %S"
+                     ,event-var
+                     (slime-state-name (slime-current-state)))))))))
+
+
+;;;;; The SLIME state machine definition
+
+(defvar sldb-level 0
+  "Current debug level, or 0 when not debugging.")
+
+(slime-defstate slime-idle-state ()
+  "Idle state. The only event allowed is to make a request."
+  ((activate)
+   (setq sldb-level 0))
+  ((:emacs-evaluate form-string package-name continuation)
+   (slime-output-evaluate-request form-string package-name)
+   (slime-push-state (slime-evaluating-state continuation))))
+
+(slime-defstate slime-evaluating-state (continuation)
+  "Evaluting state.
+We have asked Lisp to evaluate a form, and when the result arrives we
+will pass it to CONTINUATION."
+  ((:ok result)
+   (slime-pop-state)
+   (funcall continuation result))
+  ((:aborted)
+   (slime-pop-state)
+   (message "Evaluation aborted."))
+  ((:debug level condition restarts stack-depth frames)
+   (slime-push-state
+    (slime-debugging-state level condition restarts stack-depth frames)))
+  ((:emacs-interrupt)
+   (slime-send-sigint))
+  ((:emacs-quit)
+   ;; To discard the state would break our synchronization.
+   ;; Instead, just cancel the continuation.
+   (setq continuation (lambda (value) t))))
+
+(slime-defstate slime-debugging-state (level condition restarts depth frames)
+  "Debugging state.
+Lisp entered the debugger while handling one of our requests. This
+state interacts with it until it is coaxed into returning."
+  ((activate)
+   (when (/= level (prog1 sldb-level (setq sldb-level level)))
+     (sldb-setup condition restarts depth frames)))
+  ((:debug-return level)
+   (unwind-protect
+       (when (= level 1)
+         (let ((sldb-buffer (get-buffer "*sldb*")))
+           (when sldb-buffer
+             (delete-windows-on sldb-buffer)
+             (kill-buffer sldb-buffer))))
+     (slime-pop-state)))
+  ((:emacs-evaluate form-string package-name continuation)
+   ;; recursive evaluation request
+   (slime-output-evaluate-request form-string package-name)
+   (slime-push-state (slime-evaluating-state continuation))))
+
+(put 'slime-defstate 'lisp-indent-function 2)
+(put 'slime-event-dispatch 'lisp-indent-function 0)
+
+;;;;; Utilities
+
+(defun slime-output-evaluate-request (form-string package-name)
+  "Send a request for LISP to read and evaluate FORM-STRING in PACKAGE-NAME."
+  (slime-net-send `(swank:eval-string ,form-string ,package-name)))
+                
 (defun slime-check-connected ()
   (unless (and slime-net-process
                (eq (process-status slime-net-process) 'open))
     (error "Not connected. Use `M-x slime' to start a Lisp.")))
 
-(defun slime-eval-string-async (string package next-state)
-  (slime-take-input `(send-eval-string ,string ,package ,next-state)))
+(defun slime-eval-string-async (string package continuation)
+  (slime-dispatch-event `(:emacs-evaluate ,string ,package ,continuation)))
 
 (defconst +slime-sigint+ 2)
 
 (defun slime-send-sigint ()
   (signal-process slime-pid +slime-sigint+))
 
-(defun slime-eval-async-state (reply cont next-state)
-  (destructure-case reply
-    ((:read-output string)
-     (slime-output-string string))
-    ((:ok result)
-     (slime-move-to-state next-state)
-     (funcall cont result))
-    ((:aborted)
-     (slime-move-to-state next-state)
-     (message "Evaluation aborted"))
-    ((:debugger-hook)
-     (slime-debugger-hook))
-    ((interrupt)
-     (slime-send-sigint))
-    ((quit)
-     (slime-send-sigint)
-     (slime-move-to-state
-      (slime-state
-       (lambda (message state)
-	 (destructure-case message
-	   ((:debugger-hook)
-	    (slime-move-to-state state)
-	    (slime-net-send '(swank:throw-to-toplevel))
-	    (pop-to-buffer inferior-lisp-buffer))))
-       (slime-current-state))))))
-
-(defun slime-eval-async (sexp package cont)
-  "Evaluate EXPR on the superior Lisp and call CONT with the result."
-  (slime-check-connected)
-  (slime-eval-string-async (prin1-to-string sexp) package
-			   (slime-state slime-eval-async-state
-					(cont slime-current-state))))
+;;;;; Emacs Lisp programming interface
 
 (defun slime-eval (sexp &optional package)
   "Evaluate EXPR on the superior Lisp and return the result."
   (slime-check-connected)
-  (lexical-let ((el-level (recursion-depth))
-		(cl-level sldb-level)
-		(done nil)
-		(error nil)
-		value)
-    (slime-eval-string-async
-     (prin1-to-string sexp)
-     package
-     (slime-state
-      (lambda (message next-state)
-	(destructure-case message
-	  ((:read-output string)
-	   (slime-output-string string))
-	  ((:ok result)
-	   (slime-move-to-state next-state)
-	   (setq done t)
-	   (setq value result))
-	  ((:aborted)
-	   (slime-move-to-state next-state)
-	   (setq done t)
-	   (setq error "slime-eval aborted"))
-	  ((:sldb-prompt l) 
-	   (assert (= sldb-level l)))
-	  ((:debug-condition message)
-	   (slime-message "%s" message))
-	  ((:debugger-hook)
-	   (slime-move-to-state (slime-state
-				 (lambda (m here)
-				   (assert (= cl-level sldb-level))
-				   (slime-move-to-state here)
-				   (slime-take-input m)
-				   (when (> (recursion-depth) el-level)
-				     (throw 'el-quit nil)))
-				 (slime-current-state)))
-	   (slime-debugger-hook)
-	   (lexical-let ((aborted t))
-	     (unwind-protect
-		 (catch 'el-quit
-		   (save-current-buffer
-		     (let ((max-lisp-eval-depth (max (* 2 max-lisp-eval-depth)
-						     4000))
-			   (max-specpdl-size (max (* 2 max-lisp-eval-depth)
-						  20000)))
-		       (debug)
-		       (setq aborted nil)
-		       ;; "continue" on the Emacs side aborts the one level
-		       (when (> sldb-level cl-level)
-			 (slime-take-input '(abort-from-el))))))
-	       (when (and aborted (> sldb-level cl-level))
-		 (slime-take-input '(quit-from-el))))))))
-      (slime-current-state)))
-    (let ((debug-on-quit t))
-      (while (not done)
-	(accept-process-output))
-      (when error
-	(error error))
-      value)))
+  (catch 'slime-result
+    (let ((continuation (lambda (value) (throw 'slime-result value))))
+      (slime-eval-async sexp package continuation)
+      (loop (accept-process-output)))))
+
+(defun slime-eval-async (sexp package cont)
+  "Evaluate EXPR on the superior Lisp and call CONT with the result."
+  (slime-check-connected)
+  (slime-eval-string-async (prin1-to-string sexp) package cont))
 
 (defun slime-sync ()
-  "Block until all asynchronous commands are completed."
-  (while (eq (car slime-current-state) 'slime-eval-async-state)
-    (accept-process-output slime-net-process)))
+  "Block until any asynchronous command has completed."
+  (while (slime-busy-p)
+    (accept-process-output)))
 
-(defun slime-buffer-package (&optional dont-cache)
-  "Return the Common Lisp package associated with the current buffer.
-This is heuristically determined by a text search of the buffer.
-The result is cached and returned on subsequent calls unless
-DONT-CACHE is non-nil."
-  (or (and (not dont-cache) slime-buffer-package)
-      (and (setq slime-buffer-package (slime-find-buffer-package))
-           (progn (force-mode-line-update) slime-buffer-package))
-      "CL-USER"))
+(defun slime-busy-p ()
+  "Return true if Lisp is busy processing a request."
+  (eq (slime-state-name (slime-current-state)) 'slime-evaluating-state))
 
-(defun slime-find-buffer-package ()
-  "Figure out which Lisp package the current buffer is associated with."
-  (save-excursion
-    (when (let ((case-fold-search t))
-	    (re-search-backward "^(\\(cl:\\|common-lisp:\\)?in-package\\>" 
-				nil t))
-      (goto-char (match-end 0))
-      (skip-chars-forward " \n\t\f\r#:")
-      (let ((pkg (read (current-buffer))))
-	(cond ((stringp pkg)
-	       pkg)
-	      ((symbolp pkg)
-	       (symbol-name pkg)))))))
+(defun slime-ping ()
+  "Check that communication works."
+  (interactive)
+  (message (slime-eval "PONG")))
 
 
 ;;; Stream output
@@ -1064,11 +1165,11 @@ top-level form, etc."
   "Interpret a reader conditional expression."
   (if (symbolp e)
       (member* (symbol-name e) slime-lisp-features :test #'equalp)
-    (destructure-case e
-      ((and . operands)
-       (every #'slime-eval-feature-conditional operands))
-      ((or . operands)
-       (some #'slime-eval-feature-conditional operands)))))
+    (funcall (ecase (car e)
+               (and #'every)
+               (or  #'some))
+             #'slime-eval-feature-conditional
+             (cdr e))))
 
 
 ;;;; Visiting and navigating the overlays of compiler notes
@@ -1157,7 +1258,7 @@ NEXT-CANDIDATE-FN is called to find each new position for consideration."
 Designed to be bound to the SPC key."
   (interactive)
   (insert " ")
-  (when (memq (car slime-current-state) '(slime-idle-state sldb-state))
+  (unless (slime-busy-p)
     (when (slime-function-called-at-point/line)
       (slime-arglist (symbol-name (slime-function-called-at-point/line))))))
 
@@ -1726,11 +1827,11 @@ When displaying XREF information, this goes to the next reference."
 
 (defun slime-interrupt ()
   (interactive)
-  (slime-take-input '(interrupt)))
+  (slime-dispatch-event '(:emacs-interrupt)))
 
 (defun slime-quit ()
   (interactive)
-  (slime-take-input '(quit)))
+  (slime-dispatch-event '(:emacs-quit)))
 
 (defun slime-set-package (package)
   (interactive (list (slime-read-package-name "Package: " 
@@ -1769,46 +1870,34 @@ When displaying XREF information, this goes to the next reference."
   (incf sldb-level)
   (slime-net-send `(swank:sldb-loop)))
 
-(defun sldb-state (message previous-state)
-  (destructure-case message
-    ((:read-output string)
-     (slime-output-string string))
-    ((:sldb-prompt l)
-     (assert (= l sldb-level))
-     (let ((buffer (get-buffer "*sldb*")))
-       (when (or (not buffer)
-		 (with-current-buffer (get-buffer "*sldb*")
-		   (/= sldb-level-in-buffer sldb-level)))
-	 (sldb-setup))))
-    ((:sldb-abort l)
-     (assert (= l sldb-level))
-     (when (get-buffer "*sldb*")
-       (sldb-cleanup (get-buffer "*sldb*")))
-     (decf sldb-level)
-     (slime-move-to-state previous-state))
-    ((:debug-condition message)
-     (slime-message "%s" message))
-    ((abort-from-el)
-     (sldb-abort))
-    ((quit-from-el)
-     (sldb-quit))
-    ((send-eval-string string package next-state)
-     (slime-idle-state `(send-eval-string ,string ,package ,next-state)))))
-
-(defun sldb-setup ()
+(defun sldb-setup (condition restarts stack-depth frames)
   (with-current-buffer (get-buffer-create "*sldb*")
     (setq buffer-read-only nil)
     (sldb-mode)
-    (setq buffer-read-only t)
     (set (make-local-variable 'truncate-lines) t)
     (add-hook (make-local-variable 'kill-buffer-hook) 'sldb-delete-overlays)
+    (setq sldb-condition condition)
+    (setq sldb-restarts restarts)
+    (setq sldb-backtrace-length stack-depth)
+    (insert condition "\n" "\nRestarts:\n")
+    (loop for (name string) in restarts
+	  for number from 0 
+	  do (slime-insert-propertized
+	      `(face bold 
+		     restart-number ,number
+		     sldb-default-action sldb-invoke-restart
+		     mouse-face highlight)
+	      "  " (number-to-string number) ": ["  name "] " string "\n"))
+    (insert "\nBacktrace:\n")
+    (setq sldb-backtrace-start-marker (point-marker))
+    (sldb-insert-frames frames)
+    (setq buffer-read-only t)
     (pop-to-buffer (current-buffer))))
 
 (defun slime-insert-propertized (props &rest args)
   (let ((start (point)))
     (apply #'insert args)
     (add-text-properties start (point) props)))
-
 
 (define-derived-mode sldb-mode fundamental-mode "sldb" 
   "Superior lisp debugger mode
@@ -1822,24 +1911,7 @@ When displaying XREF information, this goes to the next reference."
 				sldb-level-in-buffer
 				sldb-backtrace-start-marker))
   (setq sldb-level-in-buffer sldb-level)
-  (setq mode-name (format "sldb[%d]" sldb-level))
-  (destructuring-bind (condition restarts length frames)
-      (slime-eval `(swank:debugger-info-for-emacs 0 1))
-    (setq sldb-condition condition)
-    (setq sldb-restarts restarts)
-    (setq sldb-backtrace-length length)
-    (insert condition "\n" "\nRestarts:\n")
-    (loop for (name string) in restarts
-	  for number from 0 
-	  do (slime-insert-propertized
-	      `(face bold 
-		     restart-number ,number
-		     sldb-default-action sldb-invoke-restart
-		     mouse-face highlight)
-	      "  " (number-to-string number) ": ["  name "] " string "\n"))
-    (insert "\nBacktrace:\n")
-    (setq sldb-backtrace-start-marker (point-marker))
-    (sldb-insert-frames frames)))
+  (setq mode-name (format "sldb[%d]" sldb-level)))
 
 (defun sldb-insert-frames (frames)
   (save-excursion
@@ -2235,6 +2307,9 @@ conditions (assertions)."
   (slime-princ-propertized (format "        ERROR:  %S\n" reason)
                            '(face font-lock-warning-face)))
 
+;; Clear out old tests.
+(setq slime-tests nil)
+
 (def-slime-test find-definition
     (name expected-filename)
     "Find the definition of a function or macro."
@@ -2304,18 +2379,6 @@ Confirm that SUBFORM is correclty located."
     (slime-check error-location-correct
       (equal (read (current-buffer))
 	     subform))))
-
-;; This one currently fails.
-(def-slime-test concurrent-async-requests
-    (n)
-    "Test making concurrent asynchronous requests."
-    '((1) (2) (5))
-  (lexical-let ((replies 0))
-    (dotimes (i n)
-      (slime-eval-async t "CL-USER" (lambda (r) (incf replies))))
-    (slime-sync)
-    (slime-check continuations-called
-      (= replies n))))
 
 (put 'def-slime-test 'lisp-indent-function 4)
 (put 'slime-check 'lisp-indent-function 1)
