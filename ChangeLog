@@ -1,3 +1,8 @@
+2004-04-07  Peter Seibel  <peter@javamonkey.com>
+
+	* swank.lisp (swank-pprint): Add swank versions of two missing
+	pretty-printer control variables.
+
 2004-04-07  Luke Gorrie  <luke@bluetail.com>
 
 	* swank.lisp (completion-set): Also complete package

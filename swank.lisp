@@ -1128,6 +1128,12 @@ change, then send Emacs an update."
 (defvar *swank-pprint-circle* *print-circle*
   "*PRINT-CIRCLE* is bound to this value when pretty printing slime output.")
 
+(defvar *swank-pprint-case* *print-case*
+  "*PRINT-CASE* is bound to this value when pretty printing slime output.")
+
+(defvar *swank-pprint-right-margin* *print-right-margin*
+  "*PRINT-RIGHT-MARGIN* is bound to this value when pretty printing slime output.")
+
 (defvar *swank-pprint-escape* *print-escape*
   "*PRINT-ESCAPE* is bound to this value when pretty printing slime output.")
 
@@ -1140,6 +1146,8 @@ change, then send Emacs an update."
 (defun swank-pprint (list)
   "Bind some printer variables and pretty print each object in LIST."
   (let ((*print-pretty* t)
+        (*print-case* *swank-pprint-case*)
+        (*print-right-margin* *swank-pprint-right-margin*)
         (*print-circle* *swank-pprint-circle*)
         (*print-escape* *swank-pprint-escape*)
         (*print-level* *swank-pprint-level*)
