@@ -1,3 +1,23 @@
+2004-06-28  Christophe Rhodes  <csr21@cam.ac.uk>
+
+	* hyperspec.el: add support for issue cross-reference lookups,
+	strongly inspired by hyperspec symbol lookup.
+	(common-lisp-hyperspec-issuex-table,
+	common-lisp-hyperspec-issuex-symbols): new variables
+	(common-lisp-issuex): new function
+
+	* slime.el (sldb-format-reference-node, sldb-lookup-reference):
+	(sldb-reference-properties): use new support for issue lookups
+	to support :ansi-cl :issue reference types.
+
+	* hyperspec.el: add support for glossary lookups.
+	(common-lisp-glossary-fun): new variable
+	(common-lisp-glossary-4.0, common-lisp-glossary-6.0): new functions
+	
+	* slime.el (sldb-format-reference-node, sldb-lookup-reference):
+	(sldb-reference-properties): use new support for glossary lookupts
+	to support :ansi-cl :glossary reference types.
+
 2004-06-27  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* doc/slime.texi: Remove macros from chapter and section headings
@@ -59,7 +79,7 @@
 
 2004-06-24  Brian Downing  <bdowning@lavos.net>
 
- 	* slime.el (slime-repl-send-input): Fixed a subtle difference in
+	* slime.el (slime-repl-send-input): Fixed a subtle difference in
 	sending input to the Lisp introduced in 1.316.  The newline was
 	not getting sent, resulting in the Lisp constantly asking for more
 	read data.  I believe the code has been adjusted to behave the
