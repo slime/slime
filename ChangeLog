@@ -1,3 +1,12 @@
+2003-12-13  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-openmcl.lisp (create-swank-server): Interrupt the right
+	thread.  Patch by Alan Ruttenberg.  Not yet enabled, due to lack
+	of test platform.
+	(sldb-disassemble): Implement sldb-disasssemble command.  Patch by
+	Alan Ruttenberg.
+	Remove #' from lambdas.
+
 2003-12-12  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-cmucl.lisp (create-swank-server): New keyword arguments to
