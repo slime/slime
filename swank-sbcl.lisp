@@ -139,10 +139,6 @@
             (return (sb-bsd-sockets:socket-accept socket))
           (sb-bsd-sockets:interrupted-error ()))))
 
-(defimplementation emacs-connected ()
-  (setq sb-ext:*invoke-debugger-hook* 
-        (find-symbol (string :swank-debugger-hook) (find-package :swank))))
-
 (defmethod call-without-interrupts (fn)
   (declare (type function fn))
   (sb-sys:without-interrupts (funcall fn)))
@@ -486,6 +482,10 @@ Return a list of the form (NAME LOCATION)."
                                'sldb-condition
                                :original-condition condition)))))
       (funcall debugger-loop-fn))))
+
+(defimplementation call-with-debugger-hook (hook fun)
+  (let ((sb-ext:*invoke-debugger-hook* hook))
+    (funcall fun)))
 
 (defun nth-frame (index)
   (do ((frame *sldb-stack-top* (sb-di:frame-down frame))
@@ -936,14 +936,13 @@ stack."
 
   )
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ;;Trace implementations
 ;;In SBCL, we have:
 ;; (trace <name>)
-;; (trace :methods '<name>) ;;to trace all methods of the gf <name>
+;; (trace :methods '<name>) ;to trace all methods of the gf <name>
 ;; (trace (method <name> <qualifier>? (<specializer>+)))
 ;; <name> can be a normal name or a (setf name)
-
 
 (defun toggle-trace (fspec &rest args)
   (cond ((member fspec (eval '(trace)) :test #'equal)
