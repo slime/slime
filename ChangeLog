@@ -1,3 +1,9 @@
+2004-04-22  Tiago Maduro-Dias <tcmd@rnl.ist.utl.pt>
+
+	* slime.el (slime-space): Cleanup.
+	(slime-complete-restore-window-configuration): Use
+	slime-close-buffer instead of bury-buffer.
+
 2004-04-21  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el: Suppress byte-compiler warnings by binding
