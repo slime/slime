@@ -1653,9 +1653,9 @@ belonging to the buffer package."
 The form is to be used as the `common-lisp-indent-function' property
 in Emacs."
   (if (and (macro-function symbol)
-           (let ((s (symbol-name 'defmethod)))
-             (not (or (search "DEF" s :end2 (min (length s) 3))
-                      (search "WITH-" s :end2 (min (length s) 5))))))
+           (let ((name (symbol-name symbol)))
+             (not (or (prefix-match-p "DEF" name)
+                      (prefix-match-p "WITH-" name)))))
       (let ((arglist (arglist symbol)))
         (etypecase arglist
           ((member :not-available)
