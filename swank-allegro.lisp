@@ -68,7 +68,8 @@
 ;;;; Misc
 
 (defimplementation arglist (symbol)
-  (excl:arglist symbol))
+  (handler-case (excl:arglist symbol)
+    (simple-error () :not-available)))
 
 (defimplementation macroexpand-all (form)
   (excl::walk form))
