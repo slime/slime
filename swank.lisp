@@ -1,4 +1,4 @@
-;;;; -*- Mode: lisp; outline-regexp: ";;;;*"; indent-tabs-mode: nil -*-
+;;;; -*- Mode: lisp; outline-regexp: ";;;;+"; indent-tabs-mode: nil -*-
 ;;;
 ;;; swank.lisp --- the portable bits
 ;;;
@@ -7,6 +7,7 @@
 ;;; This code has been placed in the Public Domain.  All warranties are 
 ;;; disclaimed.
 
+;;; Currently the package is declared in swank-backend.lisp
 #+nil
 (defpackage :swank
   (:use :common-lisp)
@@ -49,7 +50,8 @@
       (error "Backend function ~A not implemented." ',fun))
     (export ',fun :swank)))
 
-;;; Setup and Hooks
+
+;;;; Setup and Hooks
 
 (defun start-server (port-file-namestring)
   "Create a SWANK server and write its port number to the file
@@ -63,21 +65,37 @@ PORT-FILE-NAMESTRING in ascii text."
   (when *swank-debug-p*
     (format *debug-io* "~&;; Swank ready.~%")))
 
-;;; IO to emacs
+
+;;;; IO to Emacs
+;;;
+;;; We have two layers of I/O:
+;;;
+;;; The lower layer is a socket connection. Emacs sends us forms to
+;;; evaluate, and we accept these by calling READ-FROM-EMACS. These
+;;; evaluations can send messages back to Emacs as a side-effect by
+;;; calling SEND-TO-EMACS.
+;;;
+;;; The upper layer is streams for redirecting I/O through Emacs, by
+;;; mapping I/O requests onto messages.
+
+;;; These stream variables are all dynamically-bound during request
+;;; processing.
 
 (defvar *emacs-io* nil
-  "Bound to a TCP stream to Emacs during request processing.")
+  "The raw TCP stream connected to Emacs.")
 
 (defvar *slime-output* nil
-  "Bound to a slime-output-stream during request processing.")
+  "Output stream for writing Lisp output text to Emacs.")
 
 (defvar *slime-input* nil
-  "Bound to a slime-input-stream during request processing.")
+  "Input stream to read user input from Emacs.")
 
 (defvar *slime-io* nil
-  "Bound to a two-way-stream built from *slime-input* and *slime-output*.")
+  "Two-way-stream built from *slime-input* and *slime-output*.")
 
-(defparameter *redirect-output* t)
+(defparameter *redirect-output* t
+  "When non-nil redirect Lisp standard I/O to Emacs.
+Redirection is done while Lisp is processing a request for Emacs.")
 
 (defun read-from-emacs ()
   "Read and process a request from Emacs."
@@ -151,7 +169,28 @@ back to the main request handling loop."
           (*package* *swank-io-package*))
       (prin1-to-string object))))
 
-;;; The Reader
+
+;;;;; Input from Emacs
+
+(defvar *read-input-catch-tag* 0)
+
+(defun slime-read-string ()
+  (force-output)
+  (let ((*read-input-catch-tag* (1+ *read-input-catch-tag*)))
+    (send-to-emacs `(:read-string ,*read-input-catch-tag*))
+    (let (ok)
+      (unwind-protect
+           (prog1 (catch *read-input-catch-tag* 
+                    (loop (read-from-emacs)))
+             (setq ok t))
+        (unless ok 
+          (send-to-emacs `(:read-aborted)))))))
+      
+(defslimefun take-input (tag input)
+  (throw tag input))
+
+
+;;;; Reading and printing
 
 (defvar *buffer-package*)
 (setf (documentation '*buffer-package* 'symbol)
@@ -181,34 +220,52 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
                (find-package (string-upcase name))))
       default-package))
 
-;;; Input from Emacs
+
+;;;; Debugger
 
-(defvar *read-input-catch-tag* 0)
+;;; These variables are dynamically bound during debugging.
 
-(defun slime-read-string ()
-  (force-output)
-  (let ((*read-input-catch-tag* (1+ *read-input-catch-tag*)))
-    (send-to-emacs `(:read-string ,*read-input-catch-tag*))
-    (let (ok)
-      (unwind-protect
-           (prog1 (catch *read-input-catch-tag* 
-                    (loop (read-from-emacs)))
-             (setq ok t))
-        (unless ok 
-          (send-to-emacs `(:read-aborted)))))))
-      
-(defslimefun take-input (tag input)
-  (throw tag input))
+(makunbound
+ (defvar *swank-debugger-condition* nil
+   "The condition being debugged."))
 
-;;; Evaluation
-
-(defvar *swank-debugger-condition*)
-(defvar *swank-debugger-hook*)
+(defvar *sldb-level* 0
+  "The current level of recursive debugging.")
 
 (defun swank-debugger-hook (condition hook)
+  "Debugger entry point, called from *DEBUGGER-HOOK*.
+Sends a message to Emacs declaring that the debugger has been entered,
+then waits to handle further requests from Emacs. Eventually returns
+after Emacs causes a restart to be invoked."
   (let ((*swank-debugger-condition* condition)
-	(*swank-debugger-hook* hook))
-    (sldb-loop)))
+        (*package* *buffer-package*))
+    (let ((*sldb-level* (1+ *sldb-level*)))
+      (call-with-debugging-environment
+       (lambda () (sldb-loop *sldb-level*))))))
+
+(defun sldb-loop (level)
+  (send-to-emacs (list* :debug *sldb-level* (debugger-info-for-emacs 0 1)))
+  (unwind-protect
+       (loop (catch 'sldb-loop-catcher
+               (with-simple-restart
+                   (abort "Return to sldb level ~D." level)
+                 (handler-bind ((sldb-condition #'handle-sldb-condition))
+                   (read-from-emacs)))))
+    (send-to-emacs `(:debug-return ,level))))
+
+(defun handle-sldb-condition (condition)
+  "Handle an internal debugger condition.
+Rather than recursively debug the debugger (a dangerous idea!), these
+conditions are simply reported."
+  (let ((real-condition (original-condition condition)))
+    (send-to-emacs `(:debug-condition ,(princ-to-string real-condition))))
+  (throw 'sldb-loop-catcher nil))
+
+(defslimefun sldb-continue ()
+  (continue *swank-debugger-condition*))
+
+
+;;;; Evaluation
 
 (defslimefun eval-string (string buffer-package)
   (let ((*debugger-hook* #'swank-debugger-hook))
@@ -295,6 +352,7 @@ change, then send Emacs an update."
            (let ((*package* *buffer-package*))
              (format nil "~{~S~^~%~}" values))))))
 
+
 ;;;; Compilation Commands.
 
 (defvar *compiler-notes* '()
@@ -302,9 +360,6 @@ change, then send Emacs an update."
 
 (defun clear-compiler-notes ()  
   (setf *compiler-notes* '()))
-
-(defslimefun features ()
-  (mapcar #'symbol-name *features*))
 
 (defun canonicalize-filename (filename)
   (namestring (truename filename)))
@@ -334,6 +389,8 @@ The time is measured in microseconds."
         :location (location condition)))
 
 (defslimefun swank-compile-file (filename load-p)
+  "Compile FILENAME and, when LOAD-P, load the result.
+Record compiler notes signalled as `compiler-condition's."
   (clear-compiler-notes)
   (multiple-value-bind (result usecs)
       (handler-bind ((compiler-condition #'record-note-for-condition))
@@ -342,53 +399,19 @@ The time is measured in microseconds."
     (list (to-string result)
 	  (format nil "~,2F" (/ usecs 1000000.0)))))
 
-(defslimefun swank-compile-string (string buffer start)
+(defslimefun swank-compile-string (string buffer position)
+  "Compile STRING (exerpted from BUFFER at POSITION).
+Record compiler notes signalled as `compiler-condition's."
   (clear-compiler-notes)
   (multiple-value-bind (result usecs)
       (handler-bind ((compiler-condition #'record-note-for-condition))
         (measure-time-interval
          (lambda ()
-           (compile-string-for-emacs string :buffer buffer :position start))))
+           (compile-string-for-emacs string :buffer buffer :position position))))
     (list (to-string result)
 	  (format nil "~,2F" (/ usecs 1000000.0)))))
 
-(defslimefun list-all-package-names ()
-  (mapcar #'package-name (list-all-packages)))
-
-
-(defun apropos-symbols (string &optional external-only package)
-  (remove-if (lambda (sym)
-               (or (keywordp sym) 
-                   (and external-only
-                        (not (equal (symbol-package sym) *buffer-package*))
-                        (not (symbol-external-p sym)))))
-             (apropos-list string package)))
-
-(defun print-output-to-string (fn)
-  (with-output-to-string (*standard-output*)
-    (let ((*debug-io* *standard-output*))
-      (funcall fn))))
-
-(defun print-description-to-string (object)
-  (print-output-to-string (lambda () (describe object))))
-
-(defslimefun describe-symbol (symbol-name)
-  (print-description-to-string (symbol-from-string symbol-name)))
-
-(defslimefun describe-function (symbol-name)
-  (print-description-to-string
-   (symbol-function (symbol-from-string symbol-name))))
-
-(defslimefun documentation-symbol (symbol-name)
-  (let ((*package* *buffer-package*))
-    (let ((vdoc (documentation (symbol-from-string symbol-name) 'variable))
-          (fdoc (documentation (symbol-from-string symbol-name) 'function)))
-      (and (or vdoc fdoc)
-           (concatenate 'string
-                        fdoc
-                        (and vdoc fdoc '(#\Newline #\Newline))
-                        vdoc)))))
-
+
 ;;; Macroexpansion
 
 (defun apply-macro-expander (expander string)
@@ -409,6 +432,7 @@ The time is measured in microseconds."
 (defslimefun swank-macroexpand-all (string)
   (apply-macro-expander #'macroexpand-all string))
 
+
 ;;; Completion
 
 (defun case-convert (string)
@@ -505,7 +529,8 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
   (and (<= (length s1) (length s2))
        (string-equal s1 s2 :end2 (length s1))))
 
-;;; Apropos
+
+;;;; Documentation
 
 (defslimefun apropos-list-for-emacs  (name &optional external-only package)
   "Make an apropos search for Emacs.
@@ -552,7 +577,44 @@ that symbols accessible in the current package go first."
            (string< (package-name (symbol-package a))
                     (package-name (symbol-package b)))))))
 
-;;;
+(defun apropos-symbols (string &optional external-only package)
+  (remove-if (lambda (sym)
+               (or (keywordp sym) 
+                   (and external-only
+                        (not (equal (symbol-package sym) *buffer-package*))
+                        (not (symbol-external-p sym)))))
+             (apropos-list string package)))
+
+(defun print-output-to-string (fn)
+  (with-output-to-string (*standard-output*)
+    (let ((*debug-io* *standard-output*))
+      (funcall fn))))
+
+(defun print-description-to-string (object)
+  (print-output-to-string (lambda () (describe object))))
+
+(defslimefun describe-symbol (symbol-name)
+  (print-description-to-string (symbol-from-string symbol-name)))
+
+(defslimefun describe-function (symbol-name)
+  (print-description-to-string
+   (symbol-function (symbol-from-string symbol-name))))
+
+(defslimefun documentation-symbol (symbol-name)
+  (let ((*package* *buffer-package*))
+    (let ((vdoc (documentation (symbol-from-string symbol-name) 'variable))
+          (fdoc (documentation (symbol-from-string symbol-name) 'function)))
+      (and (or vdoc fdoc)
+           (concatenate 'string
+                        fdoc
+                        (and vdoc fdoc '(#\Newline #\Newline))
+                        vdoc)))))
+
+
+;;;;
+
+(defslimefun list-all-package-names ()
+  (mapcar #'package-name (list-all-packages)))
 
 (defslimefun untrace-all ()
   (untrace))
@@ -560,14 +622,8 @@ that symbols accessible in the current package go first."
 (defslimefun load-file (filename)
   (load filename))
 
-;;;
-
-(defslimefun sldb-continue ()
-  (continue *swank-debugger-condition*))
-
 (defslimefun throw-to-toplevel ()
   (throw 'slime-toplevel nil))
-
 
 ;;; Local Variables:
 ;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
