@@ -440,14 +440,26 @@ of the toplevel restart."
     (loop (with-simple-restart (abort "Restart dispatch loop.")
             (loop (dispatch-event (receive) socket-io))))))
 
+(defun repl-thread (connection)
+  (let ((thread (connection.repl-thread connection)))
+    (if (thread-alive-p thread) 
+        thread
+        (setf (connection.repl-thread connection)
+              (spawn (lambda () (repl-loop connection))
+                     :name "new-repl-thread")))))
+
+(defun find-worker-thread (id)
+  (etypecase id
+    ((member t)
+     (car *active-threads*))
+    ((member :repl-thread) 
+     (repl-thread *emacs-connection*))
+    (fixnum 
+     (find-thread id))))
+
 (defun interrupt-worker-thread (id)
-  (let ((thread (etypecase id
-                  ((member t)
-                   (car *active-threads*))
-                  ((member :repl-thread) 
-                   (connection.repl-thread *emacs-connection*))
-                  (fixnum 
-                   (find-thread id)))))
+  (let ((thread (or (find-worker-thread id)
+                    (repl-thread *emacs-connection*))))
     (interrupt-thread thread #'simple-break)))
 
 (defun thread-for-evaluation (id)
@@ -457,12 +469,7 @@ of the toplevel restart."
       ((member t)
        (spawn (lambda () (handle-request c)) :name "worker"))
       ((member :repl-thread)
-       (let ((thread (connection.repl-thread c)) )
-         (if (thread-alive-p thread) 
-             thread
-             (setf (connection.repl-thread c)
-                   (spawn (lambda () (repl-loop c))
-                          :name "new-repl-thread")))))
+       (repl-thread c))
       (fixnum
        (find-thread id)))))
   
@@ -499,10 +506,12 @@ of the toplevel restart."
 (defun spawn-threads-for-connection (connection)
   (let* ((socket-io (connection.socket-io connection))
          (control-thread (spawn (lambda ()
+                                  (setq *debugger-hook* nil)
                                   (dispatch-loop socket-io connection))
                                 :name "control-thread")))
     (setf (connection.control-thread connection) control-thread)
     (let ((reader-thread (spawn (lambda () 
+                                  (setq *debugger-hook* nil)
                                   (read-loop control-thread socket-io
                                              connection))
                                 :name "reader-thread"))
