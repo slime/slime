@@ -67,11 +67,15 @@
 (defimplementation emacs-connected ()
   (set-sigint-handler)
   (let ((lw:*handle-warn-on-redefinition* :warn))
+    (defmethod stream:stream-soft-force-output  ((o comm:socket-stream))
+      (force-output o))
+    (defmethod stream:stream-soft-force-output ((o slime-output-stream))
+      (force-output o))
     (defmethod env-internals:environment-display-notifier 
         (env &key restarts condition)
+      (declare (ignore restarts))
       (funcall (find-symbol (string :swank-debugger-hook) :swank)
                condition *debugger-hook*))))
-
 
 ;;; Unix signals
 
@@ -96,6 +100,8 @@
 
 (defimplementation set-default-directory (directory)
   (namestring (hcl:change-directory directory)))
+
+;;;; Documentation
 
 (defimplementation arglist (symbol)
   (let ((arglist (lw:function-lambda-list symbol)))
