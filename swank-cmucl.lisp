@@ -71,8 +71,8 @@
   (mapc (lambda (handler) (funcall (cdr handler))) *sigio-handlers*))
 
 (defun set-sigio-handler ()
-  (sys:enable-interrupt unix:sigio (lambda (signal code scp)
-				     (sigio-handler signal code scp))))
+  (sys:enable-interrupt :sigio (lambda (signal code scp)
+                                 (sigio-handler signal code scp))))
 
 (defun fcntl (fd command arg)
   (multiple-value-bind (ok error) (unix:unix-fcntl fd command arg)
@@ -656,6 +656,31 @@ return value is the condition or nil."
      (coerce (if (consp constructor) (car constructor) constructor)
              'function))))
 
+(defun debug-info-function-name-location (debug-info)
+  "Return a function-name source-location for DEBUG-INFO."
+  (with-struct (c::debug-info- (fname name) source) debug-info
+    (with-struct (c::debug-source- info from name) (car source)
+      (ecase from
+        (:file 
+         (make-location (list :file (namestring (truename name)))
+                        (list :function-name fname)))
+        (:stream
+         (assert (debug-source-info-from-emacs-buffer-p (car source)))
+         (make-location (list :buffer (getf info :emacs-buffer))
+                        (list :function-name fname)))
+        (:lisp
+         (make-location (list :source-form (princ-to-string (aref name 0)))
+                        (list :position 1)))))))
+       
+(defun byte-function-location (fn)
+  (etypecase fn
+    ((or c::hairy-byte-function c::simple-byte-function)
+     (let* ((component (c::byte-function-component fn))
+            (debug-info (kernel:%code-debug-info component)))
+       (debug-info-function-name-location debug-info)))
+    (c::byte-closure
+     (byte-function-location (c::byte-closure-function fn)))))
+
 (defun function-location (function)
   "Return the source location for FUNCTION."
   ;; First test if FUNCTION is a closure created by defstruct; if so
@@ -671,6 +696,8 @@ return value is the condition or nil."
           (dd-location (struct-closure-dd function))))
         ((genericp function)
          (gf-location function))
+        ((c::byte-function-or-closure-p function)
+         (byte-function-location function))
         (t
          (multiple-value-bind (code-location error)
              (safe-definition-finding (function-first-code-location function))
@@ -711,7 +738,7 @@ NAME can any valid function name (e.g, (setf car))."
                  (:error ,(format nil "Special operator: ~S" name)))))
         ((and (ext:valid-function-name-p name)
               (ext:info :function :definition name))
-         (let ((function (coerce name 'function)))
+         (let ((function (fdefinition name)))
            (cond ((genericp function)
                   (cons (list `(defgeneric ,name)
                               (function-location function))
@@ -828,7 +855,9 @@ NAME can any valid function name (e.g, (setf car))."
           (kernel::standard-class
            (list (list `(defclass ,name) 
                        (class-location (find-class name)))))
-          ((or kernel::built-in-class conditions::condition-class)
+          ((or kernel::built-in-class 
+               conditions::condition-class
+               kernel:funcallable-structure-class)
            (list (list `(kernel::define-type-class ,name)
                        `(:error 
                          ,(format nil "No source info for ~A" name)))))))))
@@ -1018,6 +1047,47 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
       (let ((*package* (or package *package*)))
         (read-from-string string)))))
 
+(defun make-arg-symbol (i)
+  (make-symbol (format nil "~A~D" (string 'arg) i)))
+
+(defun hairy-byte-function-arglist (fn)
+  (let ((counter -1))
+    (flet ((next-arg () (make-arg-symbol (incf counter))))
+      (with-struct (c::hairy-byte-function- min-args max-args rest-arg-p
+                                            keywords-p keywords) fn
+        (let ((arglist '())
+              (optional (- max-args min-args)))
+          ;; XXX isn't there a better way to write this?
+          (dotimes (i min-args)
+            (push (next-arg) arglist))
+          (when (plusp optional)
+            (push '&optional arglist)
+            (dotimes (i optional)
+              (push (next-arg) arglist)))
+          (when rest-arg-p
+            (push '&rest arglist)
+            (push (next-arg) arglist))
+          (when keywords-p
+            (push '&key arglist)
+            (loop for (key _ __) in keywords
+                  do (push key arglist))
+            (when (eq keywords-p :allow-others)
+              (push '&allow-other-keys arglist)))
+          (nreverse arglist))))))
+  
+(defun byte-code-function-arglist (fn)
+  ;; There doesn't seem to be much arglist information around for
+  ;; byte-code functions.  Use the arg-count and return something like
+  ;; (arg0 arg1 ...)
+  (etypecase fn
+    (c::simple-byte-function 
+     (loop for i from 0 below (c::simple-byte-function-num-args fn)
+           collect (make-arg-symbol i)))
+    (c::hairy-byte-function 
+     (hairy-byte-function-arglist fn))
+    (c::byte-closure
+     (byte-code-function-arglist (c::byte-closure-function fn)))))
+
 (defimplementation arglist (symbol)
   (let* ((fun (or (macro-function symbol)
                   (symbol-function symbol)))
@@ -1026,6 +1096,8 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
                  (eval:interpreted-function-arglist fun))
                 ((pcl::generic-function-p fun)
                  (pcl:generic-function-lambda-list fun))
+                ((c::byte-function-or-closure-p fun)
+                 (byte-code-function-arglist fun))
                 ((kernel:%function-arglist (kernel:%function-self fun))
                  (read-arglist fun))
                 ;; this should work both for
@@ -1149,7 +1221,7 @@ Finish with STREAM positioned at the start of the code location."
                                 (1+ (code-location-stream-position
                                      code-location s)))
                           `(:snippet ,(read-snippet s))))))
-    (:stream 
+      (:stream 
        (assert (debug-source-info-from-emacs-buffer-p debug-source))
        (let* ((info (c::debug-source-info debug-source))
               (string (getf info :emacs-buffer-string))
@@ -1160,8 +1232,8 @@ Finish with STREAM positioned at the start of the code location."
           (list :buffer (getf info :emacs-buffer))
           (list :position (+ (getf info :emacs-buffer-offset) position))
           (list :snippet (with-input-from-string (s string)
-                        (file-position s position)
-                        (read-snippet s))))))
+                           (file-position s position)
+                           (read-snippet s))))))
       (:lisp
        (make-location
         (list :source-form (with-output-to-string (*standard-output*)
