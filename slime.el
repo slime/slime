@@ -1,11 +1,7 @@
 ;; -*- mode: emacs-lisp; mode: outline-minor; outline-regexp: ";;;;*" -*-
 ;;; slime.el -- Superior Lisp Interaction Mode, Extended
 ;;
-;; Originally slim.el by Eric Marsden <emarsden@laas.fr>
-;; Hacked some more by Luke Gorrie <luke@bluetail.com> (maintainer)
-;;
-;;     Copyright (C) 2003  Eric Marsden
-;;     Copyright (C) 2003  Luke Gorrie
+;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
 ;;
 ;;     This program is free software; you can redistribute it and/or
 ;;     modify it under the terms of the GNU General Public License as
@@ -28,29 +24,30 @@
 ;; This minor mode extends Lisp-Mode with CMUCL-specific features.
 ;; The features can be summarised thusly:
 ;;
-;;   Separate control channel (WIRE) for communication with CMUCL,
-;;   similar to Hemlock. This is used to implement other features,
-;;   rather than talking to the Lisp listener "in-band".
+;;   Separate control channel for communication with CMUCL, similar to
+;;   Hemlock. This is used to implement other features, rather than
+;;   talking to the Lisp listener "in-band".
 ;;
-;;   Associates compiler notes/warnings with sexps in the source
-;;   buffer. The text of each compiler note is annotated on the
-;;   appropriate sexp in the buffer and the sexp is visually
-;;   highlighted. Commands exist for navigating between compiler
-;;   notes.
+;;   Compiler notes and warnings are visually annotated in the source
+;;   buffer. Commands are provided for inspecting and navigating
+;;   between notes.
 ;;
-;;   Comforts familiar from ILISP: completion of symbols, automatic
-;;   display of arglists in function calls, and TAGS-like definition
-;;   finding.
+;;   Comforts familiar from ILISP and Emacs Lisp: completion of
+;;   symbols, automatic display of arglists in function calls,
+;;   TAGS-like definition finding, Lisp evaluation, online
+;;   documentation, etc.
+;;
+;;   Common Lisp debugger interface.
 ;;
 ;; The goal is to make Emacs support CMU Common Lisp as well as it
 ;; supports Emacs Lisp. The strategy is to take maximum advantage of
 ;; all CMUCL features and hooks, portability be damned to hades.
 ;;
-;; Compatibility with other Common Lisps is not a goal.
+;; Compatibility with other Common Lisps is not an immediate
+;; goal. SBCL support would be highly desirable in the future.
 ;;
-;; Compatibility with GNU Emacs 20 and 21 and XEmacs 21 is a goal. It
-;; is not achieved yet, but will be required for all public
-;; releases. Meanwhile we support GNU Emacs 21.
+;; SLIME is compatible with GNU Emacs 20 and 21, and XEmacs 21.
+;; Development copies may have temporary have portability bugs.
 
 
 ;;; Declarations of dependencies, constants, and variables.

@@ -32,7 +32,9 @@ Licence.
 Contact.
 ----------------------------------------
 
-  SLIME is maintained by Luke Gorrie <luke@bluetail.com>.
+  SLIME is maintained by Luke Gorrie and Helmut Eller. It is an
+  Extension of SLIM by Eric Marsden (unreleased).
 
-  It is derived from SLIM by Eric Marsden <emarsden@laas.fr> (unreleased).
+  Questions and comments are best directed to the mailing list:
+    http://lists.sourceforge.net/lists/listinfo/slime-devel
 
