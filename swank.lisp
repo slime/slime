@@ -117,14 +117,26 @@ If *REDIRECT-IO* is true, all standard I/O streams are redirected."
 
 (defvar *close-swank-socket-after-setup* nil)
 (defvar *use-dedicated-output-stream* t)
+(defvar *swank-in-background* nil)
 
 (defun start-server (port-file)
   (let ((socket (create-socket 0)))
     (announce-server-port port-file (local-port socket))
     (let ((client (accept-connection socket)))
       (close-socket socket)
-      (let ((connection (init-connection client)))
-        (loop until (handle-request connection))))))
+      (let ((connection (create-connection client)))
+        (ecase *swank-in-background*
+          (:fd-handler
+           (emacs-connected)
+           (add-input-handler client (lambda () (handle-request connection))))
+          (:spawn
+           (spawn (lambda () 
+                    (emacs-connected)
+                    (loop until (handle-request connection)))
+                  :name "Swank"))
+          ((nil) 
+           (emacs-connected)
+           (loop until (handle-request connection))))))))
 
 (defun announce-server-port (file port)
   (with-open-file (s file
@@ -133,10 +145,6 @@ If *REDIRECT-IO* is true, all standard I/O streams are redirected."
                      :if-does-not-exist :create)
     (format s "~S~%" port))
   (simple-announce-function port))
-
-(defun init-connection (socket-io)
-  (emacs-connected)
-  (create-connection socket-io))
 
 (defun create-connection (socket-io)
   (let ((output-fn (make-output-function socket-io))
