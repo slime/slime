@@ -1,5 +1,9 @@
 2003-11-08  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* slime.el: slime-highlight-face: Use the :inherit attribute if
+	possible.
+	(slime-face-inheritance-possible-p): New function.
+
 	* slime.el (slime-repl-return): Only send the current input to
 	Lisp if it is a complete expression, like inferior-slime-return.
 
