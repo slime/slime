@@ -1,3 +1,8 @@
+2003-10-22  Hannu Koivisto  <azure@iki.fi>
+
+	* slime.el (slime-space): Now allows one to insert several spaces
+	with a prefix argument.
+
 2003-10-21  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-space): Don't give an error when not connected,
