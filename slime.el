@@ -96,9 +96,13 @@ This is needed to READ Common Lisp expressions adequately.")
   "Association list mapping package names onto their preferred nicknames.
 This determines which name appears in the REPL prompt.")
 
-(defvar slime-lisp-package
+(defvar slime-default-lisp-package
   (or (cdr (assoc "COMMON-LISP-USER" slime-lisp-preferred-package-nicknames))
       "COMMON-LISP-USER")
+  "The default and initial package for the REPL.")
+
+(defvar slime-lisp-package
+  slime-default-lisp-package
   "The current package name of the Superior lisp.
 This is automatically synchronized from Lisp.")
 
@@ -477,8 +481,11 @@ corresponding values in the CDR of VALUE."
   "Return the Common Lisp package associated with the current buffer.
 This is heuristically determined by a text search of the buffer.
 The result is cached and returned on subsequent calls unless
-DONT-CACHE is non-nil."
-  (or (and (not dont-cache) slime-buffer-package)
+DONT-CACHE is non-nil.
+
+The REPL buffer is a special case: it's package is `slime-lisp-package'."
+  (or (and (eq major-mode 'slime-repl-mode) slime-lisp-package)
+      (and (not dont-cache) slime-buffer-package)
       (and (setq slime-buffer-package (slime-find-buffer-package))
            (progn (force-mode-line-update) slime-buffer-package))
       "CL-USER"))
@@ -657,6 +664,7 @@ If that doesn't give a function, return nil."
   (when (slime-connected-p)
     (slime-disconnect))
   (slime-maybe-start-lisp)
+  (setq slime-lisp-package slime-default-lisp-package)
   (slime-connect))
 
 (defun slime-maybe-start-lisp ()
@@ -1330,6 +1338,7 @@ Loops until the result is thrown to our caller, or the user aborts."
 \\{slime-repl-mode-map}"
   (interactive)
   (kill-all-local-variables)
+  (setq major-mode 'slime-repl-mode)
   (use-local-map slime-repl-mode-map)
   (lisp-mode-variables t)
   (setq font-lock-defaults nil)
