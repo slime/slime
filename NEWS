@@ -1,111 +1,48 @@
 * SLIME News                  -*- outline -*-
 
+* 1.0 beta (August 2004)
+
+** autodoc global variables
+The slime-autodoc-mode will now automatically show the value of a
+global variable at point.
+
+** Customize group
+The customize group is expanded and better-organised.
+
+** slime-interactive-eval
+Interactive-eval commands now print their results to the REPL when
+given a prefix argument.
+
+** slime-conservative-indentation
+New Elisp variable. Non-nil means that we don't exclude def* and
+with-* from indentation-learning. The default is nil.
+
+** (slime-setup)
+New function to streamline setup in ~/.emacs
+
+** Modeline package
+The package name in the modeline is now updated on an idle timer. The
+message should now be more meaningful when moving around in files
+containing multiple IN-PACKAGE forms.
+
+** XREF bugfix
+The XREF commands did not find symbols in the right package.
+
+** REPL prompt
+The package name in the REPL's prompt is now abbreviated to the last
+`.'-delimited token, e.g. MY.COMPANY.PACKAGE would be PACKAGE. This
+can be disabled by setting SWANK::*AUTO-ABBREVIATE-DOTTED-PACKAGES* to
+NIL.
+
+** CMUCL source cache
+The source cache is now populated on `first-change-hook'. This makes
+M-. work accurately in more file modification scenarios.
+
+** SBCL compiler errors
+Detect compiler errors and make some noise. Previously certain
+problems (e.g. reader-errors) could slip by quietly.
+
 * 1.0 alpha (June 2004)
 
-This preview release of SLIME is a precursor for an upcoming 1.0
-release. We're planning to use our "alpha period" to introduce SLIME
-to more users, flush out bugs, and hear some final feedback that we
-can consider for the 1.0 release.
-
-We're tentatively planning for our alpha period to last until around
-the end of July, then to be followed by a beta period until late
-August when we make the finished 1.0 release. We're only interested in
-adding or changing features during the alpha period, so if you want to
-change something please try to get your patch applied before the end
-of July.
-
-Security note: SLIME has Lisp open a one-use TCP listen socket for
-Emacs to connect to for setting up communication. With all Lisps
-except CLISP and ABCL this socket is bound to the loopback interface
-and thus inaccessible to remote hosts. Be aware that if an attacker
-connected to this server port before Emacs then he could have the Lisp
-process execute arbitrary code.
-
-** Supported Lisp implementations
-
-Below is a list of the Lisp implementations that we support and their
-associated caveats.
-
-Note that some Lisp systems have received more development attention
-because they're popular with the currently active SLIME developers,
-while others have only smaller user communities so far. The support
-for a particular Lisp is primarily written and improved by its own
-users, and it's good for your karma to improve the backend for your
-favourite Lisp implementation.
-
-*** CMU Common Lisp
-
-We support CMUCL version 18e and higher. The overall support is very
-mature.
-
-The cross-reference commands are based on the CMUCL XREF
-package. You'll need to setup XREF information recording to use those
-commands, and in current CMUCLs this is slightly awkward.
-
-The :sigio communication style conflicts with certain C libraries,
-e.g. libSDL.  You'll need to switch to :fd-handler in this case.
-:sigio may also not work well on Solaris.
-
-On FreeBSD or Irix may get errors like "NIL is not of type HOST-ENTRY"
-or "Error binding socket to port 0: Cannot assign requested address".
-The only known workaround at the moment is to remove the :host
-argument in CREATE-SOCKET in swank-cmucl.lisp.
-
-*** Steel Bank Common Lisp
-
-We support SBCL version 0.8.12 and higher. The support is very mature.
-
-An "SBCL exclusive" feature is reference-conditions. Some SBCL
-conditions include a slot of documentation references (e.g. to the
-Hyperspec and SBCL manual) and the SLIME debugger is able to format
-these as hyperlinks.
-
-For the (v)iew-source command in the debugger to find the exact source
-expression corresponding to a stack frame, the code must have been
-compiled with at least (optimize (debug 2)). Otherwise the results
-will only have top-level-form precision.
-
-The XREF commands are not available.
-
-*** OpenMCL
-
-We support OpenMCL 0.14.2p1, however our debugger can't invoke
-restarts in this version due to a bug in
-INVOKE-RESTART-INTERACTIVELY. This bug has been fixed in OpenMCL's CVS
-repository and we recommend upgrading to either the CVS copy or a
-later release if available.
-
-The OpenMCL support is quite mature.
-
-The XREF commands are not available.
-
-*** LispWorks
-
-We support LispWorks version 4.1 and higher. The support is quite
-mature.
-
-On OS X you'll have to remove the :address argument in CREATE-SOCKET
-in swank-lispworks.lisp.  This is a LispWorks bug.
-
-*** Allegro CL
-
-We support Allegro Common Lisp version 5.0 and higher. The support is
-quite complete, though it hasn't yet been used as heavily as the Lisps
-listed above.
-
-*** CLISP
-
-We support CLISP version 2.32 or newer.  You'll need a version with
-socket support; this may require to start CLISP with "clisp -K full".
-
-The backtrace for compiled functions is not very informative.
-Interpreted code is usually easer to debug.
-
-M-. (find-definition) only works if the fasl file is in the same
-directory as the source file.
-
-*** Armed Bear Common Lisp
-
-We have new and experimental support for the latest CVS version of
-ABCL.
+The first preview release of SLIME.
 

@@ -1,0 +1,71 @@
+Known problems with SLIME                                   -*- outline -*-
+
+* Common to all backends
+
+** Caution: network security
+The `M-x slime' command has Lisp listen on a TCP socket and wait for
+Emacs to connect, which typically takes on the order of one second. If
+someone else were to connect to this socket then they could use the
+SLIME protocol to control the Lisp process.
+
+The listen socket is bound on the loopback interface in all Lisps that
+support this. This way remote hosts are unable to connect.
+
+* Backend-specific problems
+
+** CMUCL
+
+The default communication style :SIGIO is reportedly unreliable with
+certain libraries (like libSDL) and certain platforms (like Solaris on
+Sparc). It generally works very well on x86 so it remains the default.
+
+** SBCL
+
+We require SBCL 0.8.12 or higher.
+
+The (v)iew-source command in the debugger can only locate exact source
+forms for code compiled at (debug 2) or higher. The default level is
+lower and SBCL itself is compiled at a lower setting. Thus only
+defun-granularity is available with default policies.
+
+The XREF commands are not implemented.
+
+When using the :SPAWN communication style (the default on x86 if
+threads are available) disconnecting Emacs from Lisp will leave two
+threads hanging around.
+
+** OpenMCL
+
+We support OpenMCL 0.14.2p1, however our debugger can't invoke
+restarts in this version due to a bug in
+INVOKE-RESTART-INTERACTIVELY. This bug has been fixed in OpenMCL's CVS
+repository and we recommend upgrading to either the CVS copy or a
+later release if available.
+
+The XREF commands are not available.
+
+** LispWorks
+
+In LispWorks on OSX it is necessary to remove the :ADDRESS argument to
+CREATE-SOCKET in swank-lispworks.lisp. This is a workaround for a
+LispWorks bug.
+
+** Allegro CL
+
+No specific notes.
+
+** CLISP
+
+We require version 2.32 or higher. We also require socket support, so
+you may have to start CLISP with "clisp -K full".
+
+The backtrace for compiled functions is not very informative.
+Interpreted code is usually easer to debug.
+
+M-. (find-definition) only works if the fasl file is in the same
+directory as the source file.
+
+** Armed Bear Common Lisp
+
+The ABCL support is still new and experimental.
+
