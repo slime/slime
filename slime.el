@@ -1981,10 +1981,14 @@ of locations are supported:
   (destructure-case location
     ((:file filename position)
      (set-buffer (find-file-noselect filename t))
-     (goto-char position))
+     (goto-char position)
+     (slime-forward-sexp)
+     (beginning-of-sexp))
     ((:emacs-buffer buffer position)
      (set-buffer buffer)
-     (goto-char position))
+     (goto-char position)
+     (slime-forward-sexp)
+     (beginning-of-sexp))
     ((:sexp string)
      (with-output-to-temp-buffer "*SLIME SEXP*"
        (princ string)))
