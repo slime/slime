@@ -10,6 +10,9 @@
 	state machine now trigger a general panic that disconnects from
 	Lisp, and displays a message describing what has happened. This is
 	a bug situation.
+	(slime-connect): Print a message during connection attempts unless
+	the minibuffer is active (it's annoying to get messages while
+	trying to enter commands).
 
 2003-10-18  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
