@@ -633,6 +633,27 @@ corresponding values in the CDR of VALUE."
 
 (put 'destructure-case 'lisp-indent-function 1)
 
+(defmacro* slime-with-chosen-connection ((&optional 
+                                          (prefix-arg 'current-prefix-arg))
+                                         &body body)
+  "Make the connection choosen by PREFIX-ARG current.
+
+(slime-with-chosen-connection (&optional (PREFIX-ARG 'current-prefix-arg))
+  &body BODY)"
+  `(let ((slime-buffer-connection (slime-get-named-connection ,prefix-arg)))
+     ,@body))
+
+(put 'slime-with-chosen-connection 'lisp-indent-function 1)
+
+(defun slime-get-named-connection (prefix-arg)
+  "Get a connection based on PREIFX-ARG."
+  (cond ((not prefix-arg) 
+         (slime-connection))
+        ((equal prefix-arg '(4))
+         (slime-find-connection-by-type-name 
+          (slime-read-lisp-implementation-type-name)))
+        (t (error "Invalid prefix argument: %S" prefix-arg))))
+
 (defmacro slime-define-keys (keymap &rest key-command)
   `(progn . ,(mapcar (lambda (k-c) `(define-key ,keymap . ,k-c))
 		     key-command)))
@@ -1229,8 +1250,9 @@ If PROCESS is not specified, `slime-connection' is used.
   (when (eq process slime-default-connection)
     (when slime-net-processes
       (slime-select-connection (car slime-net-processes))
-      (message (format "Default connection closed; switched to #%S"
-                       (slime-connection-number))))))
+      (message (format "Default connection closed; switched to #%S (%S)"
+                       (slime-connection-number)
+                       (slime-lisp-implementation-type-name))))))
 
 (defun slime-connection-number (&optional connection)
   (slime-with-connection-buffer (connection)
@@ -1249,7 +1271,18 @@ This command is mostly intended for debugging the multi-session code."
                         (length slime-net-processes))
                    slime-net-processes)))
     (slime-select-connection conn)
-    (message (format "Selected connection #%S" (slime-connection-number)))))
+    (message (format "Selected connection #%S (%s)"
+                     (slime-connection-number)
+                     (slime-lisp-implementation-type-name)))))
+
+(defun slime-make-default-connection ()
+  "Make the current buffer connection the default connection."
+  (interactive)
+  (slime-select-connection slime-buffer-connection)
+  (message (format "Connection #%S (%s) now default SLIME connection."
+                   (slime-connection-number)
+                   (slime-lisp-implementation-type-name))))
+
 
 (put 'slime-with-connection-buffer 'lisp-indent-function 1)
 
@@ -1275,8 +1308,8 @@ the binding for `slime-connection'."
        (make-variable-buffer-local
         (defvar ,real-var ,@initial-value-and-doc))
        ;; Accessor
-       (defun ,varname ()
-         (slime-with-connection-buffer () ,real-var))
+       (defun ,varname (&optional process)
+         (slime-with-connection-buffer (process) ,real-var))
        ;; Setf
        (defsetf ,varname () (store)
          `(slime-with-connection-buffer ()
@@ -1298,6 +1331,9 @@ This is automatically synchronized from Lisp.")
 
 (slime-def-connection-var slime-lisp-implementation-type nil
   "The implementation type of the Lisp process.")
+
+(slime-def-connection-var slime-lisp-implementation-type-name nil
+  "The short name for the implementation type of the Lisp process.")
 
 (slime-def-connection-var slime-use-sigint-for-interrupt nil
   "If non-nil use a SIGINT for interrupting.")
@@ -1394,18 +1430,20 @@ This is automatically synchronized from Lisp.")
   (when (equal slime-net-processes (list proc))
     (setq slime-connection-counter 0))
   (slime-with-connection-buffer ()
-    (setq slime-connection-number (incf slime-connection-counter)))
-  (setf (slime-pid) (slime-eval '(swank:getpid)))
-  (setf (slime-lisp-implementation-type) 
-        (slime-eval '(cl:lisp-implementation-type)))
-  (setq slime-state-name "")
-  (when-let (repl-buffer (slime-repl-buffer))
-    ;; REPL buffer already exists - update its local
-    ;; `slime-connection' binding.
-    (with-current-buffer repl-buffer
-      (setq slime-buffer-connection proc)))
-  (when slime-global-debugger-hook
-    (slime-eval '(swank:install-global-debugger-hook) "COMMON-LISP-USER")))
+    (setq slime-connection-number (incf slime-connection-counter))
+    (setf (slime-pid) (slime-eval '(swank:getpid)))
+    (setf (slime-lisp-implementation-type) 
+          (slime-eval '(cl:lisp-implementation-type)))
+    (setf (slime-lisp-implementation-type-name) 
+          (slime-eval '(swank:lisp-implementation-type-name)))
+    (setq slime-state-name "")
+    (when-let (repl-buffer (slime-repl-buffer))
+      ;; REPL buffer already exists - update its local
+      ;; `slime-connection' binding.
+      (with-current-buffer repl-buffer
+        (setq slime-buffer-connection proc)))
+    (when slime-global-debugger-hook
+      (slime-eval '(swank:install-global-debugger-hook) "COMMON-LISP-USER"))))
 
 (defun slime-busy-p ()
   slime-rex-continuations)
@@ -1692,10 +1730,11 @@ update window-point afterwards.  If point is initially not at
 (defun slime-switch-to-output-buffer ()
   "Select the output buffer, preferably in a different window."
   (interactive)
-  (set-buffer (slime-output-buffer))
-  (unless (eq (current-buffer) (window-buffer))
-    (pop-to-buffer (current-buffer) t))
-  (goto-char (point-max)))
+  (slime-with-chosen-connection ()
+    (set-buffer (slime-output-buffer))
+    (unless (eq (current-buffer) (window-buffer))
+      (pop-to-buffer (current-buffer) t))
+    (goto-char (point-max))))
 
 
 ;;; REPL
@@ -2227,7 +2266,8 @@ underlined and annotated with the relevant information. The commands
 `slime-next-note' and `slime-previous-note' can be used to navigate
 between compiler notes and to display their full details."
   (interactive)
-  (slime-compile-file t))
+  (slime-with-chosen-connection ()
+    (slime-compile-file t)))
 
 (defun slime-compile-file (&optional load)
   "Compile current buffer's file and highlight resulting compiler notes.
@@ -2275,16 +2315,19 @@ buffer's working directory"
 (defun slime-compile-defun ()
   "Compile the current toplevel form."
   (interactive)
-  (slime-compile-string (slime-defun-at-point)
-                        (save-excursion 
-                          (end-of-defun)
-                          (beginning-of-defun)
-                          (point))))
+  (slime-with-chosen-connection ()
+    (slime-compile-string
+     (slime-defun-at-point)
+     (save-excursion 
+       (end-of-defun)
+       (beginning-of-defun)
+       (point)))))
 
 (defun slime-compile-region (start end)
   "Compile the region."
   (interactive "r")
-  (slime-compile-string (buffer-substring-no-properties start end) start))
+  (slime-with-chosen-connection ()
+    (slime-compile-string (buffer-substring-no-properties start end) start)))
 
 (defun slime-compile-string (string start-offset)
   (slime-eval-async 
@@ -4639,18 +4682,21 @@ was called originally."
     (kill-buffer  "*SLIME connections*"))
   (slime-with-output-to-temp-buffer "*SLIME connections*"
     (let ((default (slime-connection)))
-      (insert " Nr  Type                  Port                Pid\n"
-              " --  ----                  ----                ---\n")
+      (insert
+       (format "%s%2s  %-7s  %-17s  %-7s %-s\n" " " "Nr" "Name" "Port" "Pid" "Type"))
+      (insert
+       (format "%s%2s  %-7s  %-17s  %-7s %-s\n" " " "--" "----" "----" "---" "----"))
       (dolist (p slime-net-processes)
         (let ((slime-dispatching-connection p))
           (insert
            (slime-with-connection-buffer (p)
-             (format "%s%2d  %-20s  %-17s  %-5s\n"
+             (format "%s%2d  %-7s  %-17s  %-7s %-s\n"
                      (if (eq default p) "*" " ")
                      (slime-connection-number)
-                     (slime-lisp-implementation-type)
+                     (slime-lisp-implementation-type-name)
                      (or (process-id p) (process-contact p))
-                     (slime-pid)))))))))
+                     (slime-pid)
+                     (slime-lisp-implementation-type)))))))))
 
 
 ;;; Inspector

@@ -77,6 +77,9 @@
 (defmethod getpid ()
   (system::getpid))
 
+(defimplementation lisp-implementation-type-name ()
+  "lispworks")
+
 (defimplementation arglist-string (fname)
   (format-arglist fname #'lw:function-lambda-list))
 

@@ -38,6 +38,7 @@
            #:frame-locals
            #:frame-source-location-for-emacs
            #:frame-source-position
+           #:lisp-implementation-type-name
            #:getpid
            #:give-goahead
            #:give-gohead
@@ -202,8 +203,12 @@ that the calling thread is the one that interacts with Emacs."
 (defgeneric call-without-interrupts (fn)
   (:documentation "Call FN in a context where interrupts are disabled."))
 
-(defgeneric getpid ()
-  (:documentation "Return the (Unix) process ID of this superior Lisp."))
+(definterface getpid ()
+  "Return the (Unix) process ID of this superior Lisp.")
+
+(definterface lisp-implementation-type-name ()
+  "Return a short name for the Lisp implementation."
+  (lisp-implementation-type))
 
 
 ;;;; Compilation

@@ -189,6 +189,9 @@ You aren't running Linux. The values of +o_async+ etc are probably bogus."))
 (defmethod getpid ()
   (sb-unix:unix-getpid))
 
+(defimplementation lisp-implementation-type-name ()
+  "sbcl")
+
 ;;; Utilities
 
 (defvar *swank-debugger-stack-frame*)

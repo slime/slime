@@ -132,12 +132,13 @@
 ;;;; Unix signals
 
 (defmethod call-without-interrupts (fn)
-  (sys:without-interrupts (funcall fn))
-  ;;(funcall fn)
-  )
+  (sys:without-interrupts (funcall fn)))
 
-(defmethod getpid ()
+(defimplementation getpid ()
   (unix:unix-getpid))
+
+(defimplementation lisp-implementation-type-name ()
+  "cmucl")
 
 
 ;;;; Stream handling

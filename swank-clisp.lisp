@@ -58,6 +58,9 @@
 #+win32 (defmethod getpid () (or (system::getenv "PID") -1))
 ;; the above is likely broken; we need windows NT users!
 
+(defimplementation lisp-implementation-type-name ()
+  "clisp")
+
 
 ;;; TCP Server
 

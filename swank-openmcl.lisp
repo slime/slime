@@ -95,6 +95,9 @@
 (defmethod getpid ()
   (ccl::getpid))
 
+(defimplementation lisp-implementation-type-name ()
+  "openmcl")
+
 (let ((ccl::*warn-if-redefine-kernel* nil))
   (defun ccl::force-break-in-listener (p)
     (ccl::process-interrupt
