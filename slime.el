@@ -697,7 +697,7 @@ corresponding values in the CDR of VALUE."
   (cond ((not prefix-arg) 
          (slime-connection))
         ((equal prefix-arg '(4))
-         (slime-find-connection-by-type-name (slime-read-connection-name)))
+         (slime-find-connection-by-name (slime-read-connection-name)))
         (t (error "Invalid prefix argument: %S" prefix-arg))))
 
 (defmacro slime-define-keys (keymap &rest key-command)
@@ -734,7 +734,7 @@ The REPL buffer is a special case: it's package is `slime-lisp-package'."
                 (re-search-forward regexp nil t)))
       (goto-char (match-end 0))
       (skip-chars-forward " \n\t\f\r#:")
-      (let ((pkg (condition-case nil (read (current-buffer)) (error nil ))))
+      (let ((pkg (ignore-errors (read (current-buffer)))))
 	(cond ((stringp pkg)
 	       pkg)
 	      ((symbolp pkg)
@@ -972,7 +972,7 @@ If that doesn't give a function, return nil."
   (let ((completion-ignore-case t))
     (completing-read prompt (slime-bogus-completion-alist 
                              (slime-eval 
-                              `(swank:list-all-package-names)))
+                              `(swank:list-all-package-names t)))
 		     nil nil initial-value)))
 
 (defmacro slime-propertize-region (props &rest body)
@@ -1179,7 +1179,7 @@ the ChangeLog file at runtime."
       (message "%s" message)
       (ding)
       (sleep-for 2)
-      (error message))))
+      (error "%s" message))))
 
 (defun slime-disconnect ()
   "Disconnect all connections."
@@ -2384,6 +2384,7 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   ("\M-s" 'slime-repl-next-matching-input)
   ("\C-c\C-c" 'slime-interrupt)
   ("\C-c\C-g" 'slime-interrupt)
+  ("\C-c:" 'slime-interactive-eval)
   ;("\t"   'slime-complete-symbol)
   ("\t"   'slime-repl-indent-and-complete-symbol)
   (" "    'slime-space)
@@ -5890,10 +5891,11 @@ BODY returns true if the check succeeds."
 
 (defslime-repl-shortcut slime-repl-compile-and-load ("compile-and-load")
   (:handler (lambda (file-name)
-              (interactive (list (expand-file-name (read-file-name "File: " 
-                                                                   nil nil nil nil 
-                                                                   (lambda (filename)
-                                                                     (string-match ".*\\.\\(lisp\\|cl\\)$" filename))))))
+              (interactive (list 
+                            (expand-file-name 
+                             (read-file-name "File: " nil nil nil nil 
+                                             (lambda (filename)
+                                               (string-match ".*\\.\\(lisp\\|cl\\)$" filename))))))
               (lexical-let ((lisp-file-name (slime-to-lisp-filename file.lisp)))
                 (if (slime-eval `(swank::requires-compile-p ,lisp-file-name))
                     (progn
@@ -5935,8 +5937,7 @@ BODY returns true if the check succeeds."
               (slime-oos (slime-read-system-name) "COMPILE-OP")))
   (:one-liner "Compile (but not load) an ASDF system."))
 
-(defslime-repl-shortcut slime-repl-compile/force-system ("force-compile-system")
-  (:handler (lambda ()
+(defslime-repl-shortcut slime-repl-compile/force-system ("force-compile-system")  (:handler (lambda ()
               (interactive)
               (slime-oos (slime-read-system-name) "COMPILE-OP" :force t)))
   (:one-liner "Recompile (but not load) an ASDF system."))
@@ -5947,7 +5948,7 @@ BODY returns true if the check succeeds."
   "Kill all the slime related buffers. This is only used by the
   repl command sayoonara."
   (dolist (buf (buffer-list))
-    (when (or (member (buffer-name buf) (list "*inferior-lisp*" "*slime-events*"))
+    (when (or (member (buffer-name buf) '("*inferior-lisp*" "*slime-events*"))
               (string-match "\*slime-repl\[\d+\]\*" (buffer-name buf))
               (string-match "\*sldb .*\*" (buffer-name buf)))
       (kill-buffer buf))))
@@ -6516,6 +6517,16 @@ If they are not, position point at the first syntax error found."
 	      (after-quote
 	       (error "After quote"))
 	      (t (error "Shouldn't happen: parsing state: %S" state))))))
+
+(defun-if-undefined read-directory-name (prompt &optional dir default-dirname 
+                                                mustmatch initial)
+  (unless dir
+    (setq dir default-directory))
+  (unless default-dirname
+    (setq default-dirname
+	  (if initial (concat dir initial) default-directory)))
+  (read-file-name prompt dir default-dirname mustmatch initial
+		  'file-directory-p))
 
 (unless (boundp 'temporary-file-directory)
   (defvar temporary-file-directory
