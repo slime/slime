@@ -1,8 +1,10 @@
 2004-03-10  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-cmucl.lisp (struct-definitions, find-dd)
-	(type-definitions): New functions.
-	(find-definitions): Include struct and type definitions.
+	(type-definitions, function-info-definitions)
+	(source-transform-definitions, setf-definitions): New funtions.
+	(find-definitions): Include struct definitions, deftypes, setf
+	defintions, compiler-macros and compiler transforms.
 
 2004-03-10  Andras Simon <andras@renyi.hu>
 
