@@ -10,9 +10,11 @@
 	* swank.lisp (parse-symbol): Don't use the reader to avoid
 	interning unknown symbols.  The downside is that we no longer
 	handle escaped |symbols| correctly.
-
+	
 	* slime.el (slime-set-connection-info): Hide the *inferior-lisp*
-	buffer after we know Lisp's pid.
+	buffer after we know Lisp's pid.  Print the words of encouragement
+	here, when all the other asynchronous initialization is completed.
+
 	(slime-find-buffer-package): We need to preserve the case for
 	things like (:in-package "foo"), so return "\"foo\"".
 
