@@ -75,6 +75,8 @@
 
 ;;; TCP Server
 
+(setq *swank-in-background* :spawn)
+
 (defmethod create-socket (port)
   (ccl:make-socket :connect :passive :local-port port :reuse-address t))
 
@@ -89,6 +91,9 @@
 
 (defmethod spawn (fn &key name)
   (ccl:process-run-function name fn))
+
+(defmethod emacs-connected ()
+  (setq ccl::*interactive-abort-process* ccl::*current-process*)
 
 ;;;
 
