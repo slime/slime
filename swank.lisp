@@ -2625,13 +2625,13 @@ inserted into the buffer as is, or a list of the form:
               "It is " ,(case internal-external
                           (:internal "internal")
                           (:external "external")) " to the package: " (:value ,(symbol-package symbol))
-              (:newline)
               ,@(when (eql :internal internal-external)
                   `(" " (:action ,(with-output-to-string (export-label)
                                     (princ "[export from " export-label)
                                     (princ (package-name (symbol-package symbol)) export-label)
                                     (princ "]" export-label))
                                  ,(lambda () (export symbol (symbol-package symbol))))))
+              (:newline)
               "Property list: " (:value ,(symbol-plist symbol))
               (:newline)
               ,@package
