@@ -1,3 +1,21 @@
+2004-07-07  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-alistify): Preserve order. This keeps the
+	*compiler-notes* right. Pointed out by Christophe Rhodes.
+	(slime-repl-update-banner-p): Renamed from slime-reply-..
+	(slime-changelog-date): Reintroduced for informational purposes.
+	(slime-repl-update-banner): Show ChangeLog date in the animation.
+	(slime-space): Do arglist lookup before inserting the
+	space. Otherwise we get a funky race condition: entering the space
+	may trigger `first-change-hook', which would send an async
+	notification to Lisp, which would put us in the 'busy' state and
+	thus we wouldn't lookup the arglist! Detective work by Edi Weitz.
+	(sldb-prune-initial-frames): More regexp fudgery :-(.
+	(read-directory-name): Use `file-name-as-directory' to ensure we
+	have the trailing / on the directory name.
+	(byte-compile-warnings): Bye-compile slime-alistify. Its inputs
+	can be pretty big.
+
 2004-07-04  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el, swank-backend.lisp, swank.lisp: Added a new backend
