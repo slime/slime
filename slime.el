@@ -3849,11 +3849,15 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
 
 (defun sldb-continue ()
   (interactive)
-  (slime-eval-async '(swank:sldb-continue)
-		    nil
-		    (lambda (foo)
-		      (message "No restart named continue") 
-		      (ding))))
+  (slime-eval-async 
+   '(cl:and (cl:find-restart 'cl:continue swank::*swank-debugger-condition*) t)
+   nil
+   (lambda (thereis)
+     (if thereis
+	 (progn (slime-oneway-eval '(swank::sldb-continue) nil) t)
+	 (progn
+	   (message "No restart named continue") 
+	   (ding))))))
 
 (defun sldb-abort ()
   (interactive)
