@@ -1160,14 +1160,14 @@ If PROCESS is not specified, `slime-connection' is used."
      ,@body))
 
 (defun slime-select-connection (process)
-  (setq slime-default-connection process)
-  (unless (get-buffer-window (slime-output-buffer) t)
-    (message (format "Selected connection: %S" (slime-connection-number)))))
+  (setq slime-default-connection process))
 
 (defun slime-connection-close-hook (process)
   (when (eq process slime-default-connection)
     (when slime-net-processes
-      (slime-select-connection (car slime-net-processes)))))
+      (slime-select-connection (car slime-net-processes))
+      (message (format "Default connection closed; switched to #%S"
+                       (slime-connection-number))))))
 
 (defun slime-connection-number (&optional connection)
   (slime-with-connection-buffer (connection)
@@ -1181,10 +1181,12 @@ This command is mostly intended for debugging the multi-session code."
   (interactive)
   (when (null slime-net-processes)
     (error "Not connected."))
-  (let ((conn (nth (mod (1+ (or (position (slime-connection) slime-net-processes) 0))
+  (let ((conn (nth (mod (1+ (or (position slime-default-connection slime-net-processes)
+                                0))
                         (length slime-net-processes))
                    slime-net-processes)))
-    (slime-select-connection conn)))
+    (slime-select-connection conn)
+    (message (format "Selected connection #%S" (slime-connection-number)))))
 
 (put 'slime-with-connection-buffer 'lisp-indent-function 1)
 
@@ -2996,7 +2998,8 @@ perfermed.")
   (remove-hook 'pre-command-hook
                'slime-complete-maybe-restore-window-confguration)
   (when slime-complete-saved-window-configuration
-    (set-window-configuration slime-complete-saved-window-configuration)
+    (save-excursion
+      (set-window-configuration slime-complete-saved-window-configuration))
     (setq slime-complete-saved-window-configuration nil))
   (when (get-buffer slime-completions-buffer-name)
     (bury-buffer slime-completions-buffer-name)))
