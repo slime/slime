@@ -1,3 +1,25 @@
+2005-01-19  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-gray.lisp (stream-unread-char): If the char argument
+	doesn't match the contents in the buffer, ignore it and emit a
+	warning instead.
+
+2005-01-19  Utz-Uwe Haus <haus+slime@merkur.math.uni-magdeburg.de>
+
+	* swank-cmucl.lisp (breakpoint): Add a slot for return values to
+	make return values inspectable in the debugger.
+	(signal-breakpoint): Initialize the new slot.
+
+2005-01-19  Matthias Koeppe <mkoeppe+slime@merkur.math.uni-magdeburg.de>
+
+	* slime.el (slime-insert-arglist): Inserts a template for a
+	function call instead of the plain arglist; this makes a
+	difference for functions with optional and keyword arguments.
+
+	* swank.lisp (arglist-to-template-string): New function.
+	(arglist-for-insertion): Use it
+	(decode-keyword-arg, decode-optional-arg): New functions.
+	
 2005-01-19  Lars Magne Ingebrigtsen  <larsi@gnus.org>
 
 	* slime.el (slime-header-line-p): Customize variable to
