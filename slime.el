@@ -646,6 +646,8 @@ Polling %S.. (Abort with `M-x slime-disconnect'.)"
                      (slime-swank-port-file)))
           (setq slime-state-name (format "[polling:%S]" (incf attempt)))
           (force-mode-line-update)
+          (when slime-connect-retry-timer
+            (cancel-timer slime-connect-retry-timer))
           (setq slime-connect-retry-timer nil) ; remove old timer
           (cond ((file-exists-p (slime-swank-port-file))
                  (let ((port (slime-read-swank-port)))
@@ -873,7 +875,7 @@ the state name for the modeline."
             (slime-idle-state "")
             (slime-evaluating-state "[eval...]")
             (slime-debugging-state "[debug]")
-            (slime-read-input-state "[read]")))
+            (slime-read-char-state "[read]")))
     (force-mode-line-update)
     (slime-dispatch-event '(activate))))
 
@@ -1031,8 +1033,8 @@ will pass it to CONTINUATION."
    ;; To discard the state would break our synchronization.
    ;; Instead, just cancel the continuation.
    (setq continuation (lambda (value) t)))
-  ((:read-input requested tag)
-   (slime-push-state (slime-read-input-state requested tag))))
+  ((:read-char tag)
+   (slime-push-state (slime-read-char-state tag))))
 
 (slime-defstate slime-debugging-state (level condition restarts depth frames)
   "Debugging state.
@@ -1055,17 +1057,14 @@ state interacts with it until it is coaxed into returning."
    (slime-output-evaluate-request form-string package-name)
    (slime-push-state (slime-evaluating-state continuation))))
 
-(slime-defstate slime-read-input-state (request tag)
+(slime-defstate slime-read-char-state (tag)
   "Reading state.
 Lisp waits for input from Emacs."
   ((activate)
-   (let (input)
-     (while (or (not input)
-                (zerop (length input)))
-       (slime-show-output-buffer)
-       (setq input (ignore-errors (read-string "<= "))))
-     (slime-net-send `(swank:take-input ,tag ,(concat input "\n")))
-     (slime-pop-state))))
+   (slime-repl-read-char))
+  ((:emacs-return-char-code code)
+   (slime-net-send `(swank:take-input ,tag ,code))
+   (slime-pop-state)))
 
 
 ;;;;; Utilities
@@ -1112,8 +1111,10 @@ Lisp waits for input from Emacs."
   "Perform an evaluation synchronously.
 Loops until the result is thrown to our caller, or the user aborts."
   (slime-eval-string-async (prin1-to-string sexp) package continuation)
-  (while (slime-busy-p)
-    (accept-process-output))
+  (let ((debug-on-quit t)
+        (inhibit-quit nil))
+    (while (slime-busy-p)
+      (accept-process-output)))
   ;; No longer busy, but result not delivered. That means we have
   ;; entered the debugger.
   (recursive-edit)
@@ -1189,7 +1190,9 @@ Loops until the result is thrown to our caller, or the user aborts."
 (defun slime-switch-to-output-buffer ()
   "Select the output buffer, preferably in a different window."
   (interactive)
-  (switch-to-buffer-other-window (slime-output-buffer))
+  (set-buffer (slime-output-buffer))
+  (unless (eq (current-buffer) (window-buffer))
+    (pop-to-buffer (current-buffer) t))
   (goto-char (point-max)))
 
 (defun slime-show-output-buffer ()
@@ -1335,12 +1338,23 @@ after the last prompt to the end of buffer."
 			     :end #'1-
 			     "No later matching history item"))
 
+(defun slime-repl-read-char ()
+  (slime-switch-to-output-buffer)
+  (slime-repl-read-mode t))
+
 (defun slime-repl ()
   (interactive)
   (slime-switch-to-output-buffer))
 
 (setq slime-repl-mode-map (make-sparse-keymap))
 (set-keymap-parent slime-repl-mode-map lisp-mode-map)
+
+(dolist (spec slime-keys)
+  (destructuring-bind (key command &key inferior prefixed 
+                           &allow-other-keys) spec
+    (when inferior
+      (let ((key (if prefixed (concat slime-prefix-key key) key)))
+        (define-key slime-repl-mode-map key command)))))
 
 (slime-define-keys slime-repl-mode-map
   ("\C-m" 'slime-repl-return)
@@ -1351,6 +1365,35 @@ after the last prompt to the end of buffer."
   ("\t"   'slime-complete-symbol)
   (" "    'slime-space))
 
+(defvar slime-repl-read-mode-map)
+
+(define-minor-mode slime-repl-read-mode 
+  "Mode the read input from Emacs"
+  nil
+  nil
+  ;; Fake binding to coax `define-minor-mode' to create the keymap
+  '((" " 'slime-repl-read-self-insert-command)))
+
+(add-to-list 'minor-mode-alist '(slime-repl-read-mode "[read]"))
+
+(defun slime-char-code (char)
+  (if (featurep 'xemacs)
+      (char-int char)
+    char))
+
+(defun slime-repl-read-self-insert-command (char)
+  (interactive (list last-command-char))
+  (insert char)
+  (slime-dispatch-event `(:emacs-return-char-code ,(slime-char-code char)))
+  (slime-repl-read-mode nil))
+
+(substitute-key-definition 
+ 'self-insert-command 'slime-repl-read-self-insert-command
+ slime-repl-read-mode-map global-map)
+
+(slime-define-keys slime-repl-read-mode-map 
+  ("\C-m" (lambda () (interactive) (slime-repl-read-self-insert-command ?\n))))
+  
 
 ;;; Compilation and the creation of compiler-note annotations
 
