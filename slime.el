@@ -2740,7 +2740,8 @@ balanced."
   (interactive "P")
   (slime-check-connected)
   (assert (<= (point) slime-repl-input-end-mark))
-  (cond ((get-text-property (point) 'slime-repl-old-input)
+  (cond ((and (get-text-property (point) 'slime-repl-old-input)
+              (< (point) slime-repl-input-start-mark))
          (slime-repl-grab-old-input end-of-input))
         (end-of-input
          (slime-repl-send-input))
@@ -2761,12 +2762,14 @@ If NEWLINE is true then add a newline at the end of the input."
   (goto-char slime-repl-input-end-mark)
   (when newline (insert "\n"))
   (add-text-properties slime-repl-input-start-mark (point)
-                       `(face slime-repl-input-face
-                              rear-nonsticky (face slime-repl-old-input)
-                              slime-repl-old-input 
-                              ,(incf slime-repl-old-input-counter)))
+                       `(slime-repl-old-input
+                         ,(incf slime-repl-old-input-counter)))
   (let ((overlay (make-overlay slime-repl-input-start-mark (point))))
-    (overlay-put overlay 'read-only t))
+    ;; These properties are on an overlay so that they won't be taken
+    ;; by kill/yank.
+    (overlay-put overlay 'read-only t)
+    (overlay-put overlay 'face 'slime-repl-input-face)
+    (overlay-put overlay 'rear-nonsticky '(face slime-repl-old-input-counter)))
   (let ((input (slime-repl-current-input)))
     (goto-char slime-repl-input-end-mark)
     (slime-mark-input-start)
