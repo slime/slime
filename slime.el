@@ -2765,7 +2765,7 @@ text property `slime-repl-old-input'."
                   (ignore-errors (forward-char))
                   (previous-single-char-property-change (point) prop)))
            (end (next-single-char-property-change (point) prop))
-           (old-input (buffer-substring beg end)))
+           (old-input (buffer-substring-no-properties beg end)))
       (cond (replace (goto-char slime-repl-input-start-mark))
             (t (goto-char slime-repl-input-end-mark)
                (unless (eq (char-before) ?\ )
