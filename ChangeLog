@@ -1,3 +1,66 @@
+2004-11-15  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el: The REPL commands ,quit and ,sayoonara are now
+	distinct.  Previously Quit killed all Lisps an all buffers.  The
+	new Quit command kills only the current Lisp.
+	(slime-quit-lisp): New function.
+	(repl-command quit): Use it. Don't delete all buffers.
+	(repl-command sayoonara): No longer an alias for ,quit.
+	(slime-connection-list-mode-map): Bind C-k to slime-quit-lisp.
+	(slime-communication-style): New connection variable.
+	(slime-use-sigint-for-interrupt): Is no longer a connection local
+	variable.  It's derived from the new slime-communication-style.
+	(slime-inhibit-pipelining): New user option.
+	(slime-background-activities-enabled-p): New predicate to control
+	various background activities like autodoc and arglist fetching.
+	(slime-space, slime-autodoc-message-ok-p): Use it.
+	(slime-search-call-site): Use hints provided to search a call-site
+	in a defun.  Useful for the show-frame-source command.
+	(slime-goto-source-location): Use it.
+	(slime-quit): Deleted, as it was broken.  May come back later.
+	(slime-inspector-label-face, slime-inspector-value-face)
+	(slime-inspector-action-face, slime-reader-conditional-face):
+	Provide better defaults for Emacsen which don't support :inherited
+	faces.
+
+	* swank-backend.lisp (emacs-connected): Don't pass the stream as
+	argument.  make-stream-interactive is a better place for setting
+	buffering options.
+
+	* swank-cmucl.lisp (emacs-connected): Install GC hooks to display
+	GC messages in the echo area.
+	(sos/misc :flush-output): There seem to be funny signal safety
+	issues if the dedicated output stream is not used.  So, lets first
+	reset the buffer index before sending the buffer to the underlying
+	stream.
+
+	* swank-lispworks.lisp (frame-source-location-for-emacs): Pass the
+	function name of the next (newer) frame as a hint to Emacs.  This
+	way we can highlight the call site in some cases, instead of the
+	entire defun.
+	(frame-location): Renamed from function-name-location.  The
+	argument is now a dspec, not only a name. Also include hints for
+	Emacs.
+	(lispworks-inspect): Simplified from old code.
+	(inspect-for-emacs): Use it for also for simple functions.
+	(emacs-connected, make-stream-interactive): Move the
+	soft-force-output stuff to make-stream-interactive.
+
+	* swank-abcl.lisp (emacs-connected): Deleted.  The default
+	implementation should be good enough.
+
+	* swank-sbcl.lisp (emacs-connected): Updated for new interface.
+
+	* swank-openmcl.lisp (emacs-connected, make-stream-interactive):
+	Move buffering stuff to make-stream-interactive.
+
+	* swank.lisp (defstruct connection): Add new slot:
+	communication-style for convenience.
+	(create-connection): Initialize the new slot.
+	(connection-info): Send the communication-style to Emacs.
+	(install-fd-handler, simple-serve-requests): Sending
+	:use-sigint-for-interrupt is no longer necessary.
+
 2004-11-11  Raymond Toy <raymond.toy@ericsson.com>
 
 	* slime.el (slime-activate-font-lock-magic): Add XEmacs support.
