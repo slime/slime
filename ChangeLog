@@ -1,3 +1,16 @@
+2003-09-11  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-mode): Added Helmut's commands to the mode
+	description.
+	(slime-show-apropos): Setting `truncate-lines' to t in apropos
+	listings, to avoid line-wrapping on overly long descriptions.
+	(slime-run-tests): Added the beginnings of an automated test
+	suite. (This is most useful for testing cross-Emacsen
+	compatibility before releases.)
+
+	* swank.lisp (symbol-external-p): Put back this function which was
+	lost in a merge.
+
 2003-09-10  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el, cmucl-wire.el, swank.lisp: Large patch from Helmut
