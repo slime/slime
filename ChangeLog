@@ -1,5 +1,8 @@
 2005-03-12  Luke Gorrie  <luke@synap.se>
 
+	* swank-allegro.lisp (toggle-trace): Fix from Antonio Menezes
+	Leitao.
+
 	* swank-sbcl.lisp: Use swank-source-file-cache to find snippets of
 	definitions. M-. is now much more robust to modifications in the
 	source file.
