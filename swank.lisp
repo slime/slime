@@ -217,6 +217,7 @@ If *REDIRECT-IO* is true, all standard I/O streams are redirected."
 
 (defun init-main-connection (connection)
   (setq *main-connection* connection)
+;;  (setq *dispatching-connection* *main-connection*) ;**
   (setq *main-thread-id* (thread-id))
   (emacs-connected))
 
@@ -589,12 +590,13 @@ that the slime streams are visible so that it can capture them."
   (startup-multiprocessing))
 
 (defun sldb-loop (level)
-  (send-to-emacs (list* :debug *sldb-level*
-                        (debugger-info-for-emacs 0 *sldb-initial-frames*)))
   (unwind-protect
        (loop (catch 'sldb-loop-catcher
                (with-simple-restart
                    (abort "Return to sldb level ~D." level)
+                 (send-to-emacs (list* :debug *sldb-level*
+                                       (debugger-info-for-emacs 0
+                                                                *sldb-initial-frames*)))
                  (handler-bind ((sldb-condition #'handle-sldb-condition))
                    (read-from-emacs)))))
     (send-to-emacs `(:debug-return ,level))))
