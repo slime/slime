@@ -57,7 +57,7 @@ before and after of calling FN in the hashtable SOURCE-MAP."
 	   (values (sb-impl::get-coerced-cmt-entry char rt) nil))
 	  (t nil))))
 
-#+cmucl
+#+cmu
 (defun cmucl-style-get-macro-character (char table)
   (get-macro-character char table))
 
