@@ -1,3 +1,8 @@
+2004-09-02  Wolfgang Mederle <wolfgang.mederle@stud.uni-muenchen.de>
+
+	* swank-loader.lisp (*lisp-name*): Replace / with - in CMUCL
+	version strings.
+
 2004-09-01  John Paul Wallington  <jpw@gnu.org>
 
 	* slime.el (slime-oneliner): Don't use free variable.
