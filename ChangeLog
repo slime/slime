@@ -1,3 +1,21 @@
+2003-09-23  Helmut Eller <e9626484@stud3.tuwien.ac.at>
+
+	* swank.lisp (completions):
+	Moved most of the completion code to Lisp.
+	(string-prefix-p): Be case insensitive.
+
+	* slime.el:
+	Make sure define-minor-mode is defined before we use it.
+	(slime-completing-read-internal, slime-completing-read-symbol-name,
+	slime-read-from-minibuffer, slime-completions, slime-complete-symbol):
+	Support for reading symbols and expressions with completion.
+	(slime-read-symbol-name): New function.
+	(slime-read-symbol): Use it.
+	(slime-read-package-name): Case insensitive completion.
+
+	(slime-edit-symbol-fdefinition, slime-edit-fdefinition): Rename
+	slime-edit-symbol-fdefinition to slime-edit-fdefinition.
+
 2003-09-23  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-show-xrefs): Improved the xrefs buffer, now
