@@ -314,10 +314,10 @@ Should work (with a patched xref.lisp) but is it any use without find-definition
   (ext:make-thread (lambda () (funcall fn))))
 
 (defimplementation thread-name (thread)
-  "thread-name not implemented")
+  (princ-to-string thread))
 
 (defimplementation thread-status (thread)
-  (format nil "Thread is ~[dead~;alive~]" (thread-alive-p thread)))
+  (format nil "Thread is ~:[dead~;alive~]" (ext:thread-alive-p thread)))
 
 (defimplementation make-lock (&key name)
   (ext:make-thread-lock))
