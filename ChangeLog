@@ -1,3 +1,10 @@
+2004-01-18  Wolfgang Jenkner  <wjenkner@inode.at>
+
+	* swank-clisp.lisp (call-without-interrupts): Evaluate
+	linux:SIGFOO at read time since the macro with-blocked-signals
+	expects a fixnum.
+	(compile-file-for-emacs): Comment fix.
+
 2004-01-18  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-sbcl.lisp (make-fn-streams): Deleted.  Already defined in
