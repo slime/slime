@@ -2,6 +2,13 @@
 
 	* slime.el (slime-repl-mode-map): Bind <home> to slime-repl-bol.
 	Suggested by Chris Capel.
+	(slime-repl-grab-old-input): Remove the 'old-input text-property
+	from the copied text.  Reported by Tim Oates.
+	(slime-repl-grab-old-input): Append the old input to the current
+	input by default.  If the new `replace' argument is true, replace
+	the current input.  Suggested by Antonio Menezes Leitao.
+	(slime-repl-return): Pass the prefix argument to
+	slime-repl-grab-old-input.
 
 2004-12-09  Helmut Eller  <heller@common-lisp.net>
 
