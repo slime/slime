@@ -718,6 +718,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
       ("Editing"
        [ "Close All Parens"        slime-close-all-sexp t]
        [ "Check Parens"            check-parens t]
+       [ "Update Indentation"      slime-update-indentation ,C]
        [ "Select Buffer"           slime-selector t])
       ("Profiling"
        [ "Toggle Profiling..."     slime-toggle-profile-fdefinition ,C ]
@@ -3242,21 +3243,21 @@ buffer's working directory"
         (t (format "%2d %s%s " count severity (if (= count 1) "" "s")))))
 
 (defun slime-show-note-counts (notes &optional secs)
-  (loop for note in notes 
-	for severity = (plist-get note :severity)
-	count (eq :error severity) into errors
-	count (eq :warning severity) into warnings
-        count (eq :style-warning severity) into style-warnings
-	count (eq :note severity) into notes
-	finally 
-	(message 
-	 "Compilation finished:%s%s%s%s%s"
-         (slime-note-count-string "error" errors)
-         (slime-note-count-string "warning" warnings)
-         (slime-note-count-string "style-warning" style-warnings 
-                                  slime-hide-style-warning-count-if-zero)
-         (slime-note-count-string "note" notes)
-         (if secs (format "[%s secs]" secs) ""))))
+  (let ((nerrors 0) (nwarnings 0) (nstyle-warnings 0) (nnotes 0))
+    (dolist (note notes)
+      (ecase (slime-note.severity note)
+	((:error :read-error) (incf nerrors))
+        (:warning             (incf nwarnings))
+        (:style-warning       (incf nstyle-warnings))
+        (:note                (incf nnotes))))
+    (message
+     "Compilation finished:%s%s%s%s%s"
+     (slime-note-count-string "error" nerrors)
+     (slime-note-count-string "warning" nwarnings)
+     (slime-note-count-string "style-warning" nstyle-warnings 
+                              slime-hide-style-warning-count-if-zero)
+     (slime-note-count-string "note" nnotes)
+     (if secs (format "[%s secs]" secs) ""))))
 
 (defun slime-xrefs-for-notes (notes)
   (let ((xrefs))
@@ -3444,6 +3445,7 @@ from an element and TEST is used to compare keys."
     (:note "Notes")
     (:warning "Warnings")
     (:error "Errors")
+    (:read-error "Read Errors")
     (:style-warning "Style Warnings")))
 
 (defun slime-tree-for-note (note)
@@ -3493,8 +3495,7 @@ from an element and TEST is used to compare keys."
 (defun slime-compiler-notes-default-action-or-show-details ()
   "Invoke the action at point, or show details."
   (interactive)
-  (let ((fn (get-text-property (point) 
-                               'slime-compiler-notes-default-action)))
+  (let ((fn (get-text-property (point) 'slime-compiler-notes-default-action)))
     (if fn (funcall fn) (slime-compiler-notes-show-details))))
 
 (defun slime-compiler-notes-quit ()
@@ -3512,6 +3513,7 @@ from an element and TEST is used to compare keys."
            (slime-tree-toggle tree))
           (t
            (slime-show-source-location (slime-note.location note))))))
+
 
 ;;;;;; Tree Widget
 
@@ -3679,20 +3681,29 @@ is kept."
   "Choose the start and end points for an overlay over NOTE.
 If the location's sexp is a list spanning multiple lines, then the
 region around the first element is used."
-  (let ((location (getf note :location)))
-    (unless (eq (car location) :error) 
-      (slime-goto-source-location location)
-      (skip-chars-forward "'#`")
-      (let ((start (point)))
-        (ignore-errors (slime-forward-sexp))
-        (if (slime-same-line-p start (point))
-            (values start (point))
-            (values (1+ start)
-                    (progn (goto-char (1+ start))
-                           (or (ignore-errors 
-                                 (forward-sexp 1)
-                                 (point))
-                               (+ start 2)))))))))
+  (let ((location (slime-note.location note)))
+    (destructure-case location
+      ((:error msg) )                       ; do nothing
+      ((:location _file pos _hints)
+       (destructure-case pos
+         ((:position pos &optional alignp)
+          (if (eq (slime-note.severity note) :read-error)
+              (values pos (1+ pos))
+            (slime-choose-overlay-for-sexp location)))
+         (t 
+          (slime-choose-overlay-for-sexp location)))))))
+          
+(defun slime-choose-overlay-for-sexp (location)
+  (slime-goto-source-location location)
+  (skip-chars-forward "'#`")
+  (let ((start (point)))
+    (ignore-errors (slime-forward-sexp))
+    (if (slime-same-line-p start (point))
+        (values start (point))
+      (values (1+ start)
+              (progn (goto-char (1+ start))
+                     (or (forward-sexp 1)
+                         (point)))))))
 
 (defun slime-same-line-p (pos1 pos2)
   "Return t if buffer positions POS1 and POS2 are on the same line."
@@ -3703,6 +3714,7 @@ region around the first element is used."
   "Return the name of the font-lock face representing SEVERITY."
   (ecase severity
     (:error         'slime-error-face)
+    (:read-error    'slime-error-face)
     (:warning       'slime-warning-face)
     (:style-warning 'slime-style-warning-face)
     (:note          'slime-note-face)))
@@ -3711,7 +3723,7 @@ region around the first element is used."
   "Return the most servere of two conditions.
 Severity is ordered as :NOTE < :STYLE-WARNING < :WARNING < :ERROR."
                                         ; Well, not exactly Smullyan..
-  (let ((order '(:note :style-warning :warning :error)))
+  (let ((order '(:note :style-warning :warning :error :read-error)))
     (if (>= (position sev1 order) 
             (position sev2 order))
         sev1
@@ -6048,14 +6060,17 @@ Called on the `point-entered' text-property hook."
 (defun slime-show-source-location (source-location)
   (slime-goto-source-location source-location)
   (when sldb-highlight (sldb-highlight-sexp))
-  (let ((position (point)))
-    (save-selected-window
-      (let ((w (select-window (or (get-buffer-window (current-buffer) t)
-                                  (display-buffer (current-buffer) t)))))
-        (goto-char position)
-        (push-mark)
-        (unless (pos-visible-in-window-p)
-          (slime-recenter-window w sldb-show-location-recenter-arg))))))
+  (slime-show-buffer-position (point)))
+
+(defun slime-show-buffer-position (position)
+  "Ensure sure that the POSITION in the current buffer is visible."
+  (save-selected-window
+    (let ((w (select-window (or (get-buffer-window (current-buffer) t)
+                                (display-buffer (current-buffer) t)))))
+      (goto-char position)
+      (push-mark)
+      (unless (pos-visible-in-window-p)
+        (slime-recenter-window w sldb-show-location-recenter-arg)))))
 
 (defun slime-recenter-window (window line)
   "Set window-start in WINDOW LINE lines before point."
@@ -6071,7 +6086,7 @@ Called on the `point-entered' text-property hook."
   "Highlight the first sexp after point."
   (sldb-delete-overlays)
   (let ((start (or start (point)))
-	(end (or end (save-excursion (forward-sexp)  (point)))))
+	(end (or end (save-excursion (ignore-errors (forward-sexp)) (point)))))
     (push (make-overlay start (1+ start)) sldb-overlays)
     (push (make-overlay (1- end) end) sldb-overlays)
     (dolist (overlay sldb-overlays)
