@@ -35,11 +35,24 @@
           #+clisp '("xref" "metering" "swank-clisp" "swank-gray")
           ))
 
+(defparameter *lisp-name*
+  #+cmu "cmu"
+  #+sbcl "sbcl"
+  #+openmcl "openmcl"
+  #+lispworks "lispworks"
+  #+allegro "allegro"
+  #+clisp "clisp")
+
 (defparameter *swank-pathname* (make-swank-pathname "swank"))
 
 (defun file-newer-p (new-file old-file)
   "Returns true if NEW-FILE is newer than OLD-FILE."
   (> (file-write-date new-file) (file-write-date old-file)))
+
+(defun binary-pathname (source-pathname)
+  (merge-pathnames
+   (make-pathname :directory `(:relative "fasl" ,*lisp-name*))
+   (merge-pathnames (compile-file-pathname source-pathname))))
 
 (defun compile-files-if-needed-serially (files)
   "Compile each file in FILES if the source is newer than
@@ -48,14 +61,15 @@ recompiled."
   (with-compilation-unit ()
     (let ((needs-recompile nil))
       (dolist (source-pathname files)
-        (let ((binary-pathname (compile-file-pathname source-pathname)))
+        (let ((binary-pathname (binary-pathname source-pathname)))
           (handler-case
               (progn
                 (when (or needs-recompile
                           (not (probe-file binary-pathname))
                           (file-newer-p source-pathname binary-pathname))
                   (format t "~&;; Compiling ~A...~%" source-pathname)
-                  (compile-file source-pathname)
+                  (ensure-directories-exist binary-pathname)
+                  (compile-file source-pathname :output-file binary-pathname)
                   (setq needs-recompile t))
                 (load binary-pathname))
             #+(or)
