@@ -10,7 +10,7 @@
 (defpackage :swank
   (:use :common-lisp)
   (:nicknames "SWANK-IMPL")
-  (:export #:start-server
+  (:export #:start-server #:create-swank-server
            #:*sldb-pprint-frames*))
 
 (in-package :swank)
@@ -162,6 +162,11 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
   (let ((*package* *buffer-package*))
     (read-from-string string)))
 
+(defun symbol-from-string (string)
+  "Read string in the *BUFFER-PACKAGE*"
+  (let ((*package* *buffer-package*))
+    (find-symbol (string-upcase string))))
+
 (defun to-string (string)
   "Write string in the *BUFFER-PACKAGE*."
   (let ((*package* *buffer-package*))
@@ -283,7 +288,9 @@ change, then send Emacs an update."
 	  *** **  ** *  * (car values)
 	  /// //  // /  / values)
     (cond ((null values) "; No value")
-          (t (format nil "~{~S~^~%~}" values)))))
+          (t
+           (let ((*package* *buffer-package*))
+             (format nil "~{~S~^~%~}" values))))))
 
 ;;;; Compilation Commands.
 
@@ -368,10 +375,21 @@ The time is measured in microseconds."
   (print-output-to-string (lambda () (describe object))))
 
 (defslimefun describe-symbol (symbol-name)
-  (print-description-to-string (from-string symbol-name)))
+  (print-description-to-string (symbol-from-string symbol-name)))
 
 (defslimefun describe-function (symbol-name)
-  (print-description-to-string (symbol-function (from-string symbol-name))))
+  (print-description-to-string
+   (symbol-function (symbol-from-string symbol-name))))
+
+(defslimefun documentation-symbol (symbol-name)
+  (let ((*package* *buffer-package*))
+    (let ((vdoc (documentation (symbol-from-string symbol-name) 'variable))
+          (fdoc (documentation (symbol-from-string symbol-name) 'function)))
+      (and (or vdoc fdoc)
+           (concatenate 'string
+                        fdoc
+                        (and vdoc fdoc '(#\Newline #\Newline))
+                        vdoc)))))
 
 ;;; Macroexpansion
 
@@ -456,7 +474,7 @@ Return three values:
             (if pos (subseq string 0 pos) nil))
           (search "::" string)))
 
-(defun find-symbol-designator (string default-package)
+(defun find-symbol-designator (string &optional (default-package *buffer-package*))
   "Return the symbol corresponding to the symbol designator STRING.
 If string is not package qualified use DEFAULT-PACKAGE for the
 resolution.  Return nil if no such symbol exists."
