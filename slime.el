@@ -1274,8 +1274,10 @@ function name is prompted."
 	(source-location
 	 (slime-eval `(swank:function-source-location-for-emacs ,name)
 		     (slime-buffer-package))))
-    (slime-goto-source-location source-location)
-    (ring-insert-at-beginning slime-find-definition-history-ring origin)))
+    (if (null source-location)
+        (message "No definition found: %s" name)
+      (slime-goto-source-location source-location)
+      (ring-insert-at-beginning slime-find-definition-history-ring origin))))
     
 
 ;;; Interactive evaluation.
@@ -1720,6 +1722,7 @@ When displaying XREF information, this goes to the next reference."
     (setq buffer-read-only nil)
     (sldb-mode)
     (setq buffer-read-only t)
+    (set (make-local-variable 'truncate-lines) t)
     (add-hook (make-local-variable 'kill-buffer-hook) 'sldb-delete-overlays)
     (pop-to-buffer (current-buffer))))
 
