@@ -1,7 +1,0 @@
-The file swank-sbcl.lisp contains a partial port of SLIME to SBCL. 
-Presently requires 
-
- * SBCL 0.8.4.20 or later
- * The SB-THREAD feature (so, x86 Linux-only).  This will change
-
-
