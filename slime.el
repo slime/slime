@@ -2428,6 +2428,8 @@ earlier in the buffer."
   (interactive)
   (let ((start (save-excursion 
                  (slime-repl-previous-prompt)
+                 (ignore-errors (forward-sexp))
+                 (forward-line)
                  (point)))
         (end (1- (slime-repl-input-line-beginning-position))))
     (when (< start end)
