@@ -71,6 +71,11 @@ PORT-FILE-NAMESTRING in ascii text."
 	  (apply #'funcall form))
 	(apply #'funcall form))))
 
+(define-condition slime-read-error (error) 
+  ((condition :initarg :condition :reader slime-read-error.condition))
+  (:report (lambda (condition stream)
+             (format stream "~A" (slime-read-error.condition condition)))))
+
 (defun read-next-form ()
   "Read the next Slime request from *EMACS-IO* and return an
 S-expression to be evaluated to handle the request.  If an error
@@ -81,11 +86,13 @@ back to the main request handling loop."
         (let* ((length (logior (ash (next-byte) 16)
                                (ash (next-byte) 8)
                                (next-byte)))
-               (string (make-string length)))
-          (read-sequence string *emacs-io*)
+               (string (make-string length))
+               (pos (read-sequence string *emacs-io*)))
+          (assert (= pos length) nil 
+                  "Short read: length=~D  pos=~D" length pos)
           (read-form string))
-      (condition (c)
-        (throw 'serve-request-catcher c)))))
+      (serious-condition (c) 
+        (error (make-condition 'slime-read-error :condition c))))))
 
 (defun read-form (string)
   (with-standard-io-syntax
@@ -417,6 +424,15 @@ that symbols accessible in the current package go first."
 
 (defslimefun load-file (filename)
   (load filename))
+
+;;;
+
+(defslimefun sldb-continue ()
+  (continue *swank-debugger-condition*))
+
+(defslimefun throw-to-toplevel ()
+  (throw 'slime-toplevel nil))
+
 
 ;;; Local Variables:
 ;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
