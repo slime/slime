@@ -403,10 +403,10 @@ reference   ::= (FUNCTION-SPECIFIER . SOURCE-LOCATION)"
     (group-xrefs xrefs)))
 
 (defun clear-xref-info (namestring)
-  "Clear XREF notes pertaining to FILENAME.
+  "Clear XREF notes pertaining to NAMESTRING.
 This is a workaround for a CMUCL bug: XREF records are cumulative."
   (when c:*record-xref-info*
-    (let ((filename (parse-namestring namestring)))
+    (let ((filename (truename namestring)))
       (dolist (db (list xref::*who-calls*
                         #+cmu19 xref::*who-is-called*
                         #+cmu19 xref::*who-macroexpands*
@@ -414,20 +414,12 @@ This is a workaround for a CMUCL bug: XREF records are cumulative."
                         xref::*who-binds*
                         xref::*who-sets*))
         (maphash (lambda (target contexts)
+                   ;; XXX update during traversal?  
                    (setf (gethash target db)
-                         (delete-if 
-			  (lambda (ctx)
-			    (xref-context-derived-from-p ctx filename))
-			  contexts)))
+                         (delete filename contexts 
+                                 :key #'xref:xref-context-file
+                                 :test #'equalp)))
                  db)))))
-
-(defun xref-context-derived-from-p (context filename)
-  (let ((xref-file (xref:xref-context-file context)))
-    (and xref-file (pathname= filename xref-file))))
-  
-(defun pathname= (&rest pathnames)
-  "True if PATHNAMES refer to the same file."
-  (apply #'string= (mapcar #'unix-truename pathnames)))
 
 (defun unix-truename (pathname)
   (ext:unix-namestring (truename pathname)))
