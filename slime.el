@@ -162,12 +162,18 @@ This is used for batch-mode testing.")
   "Face for notes from the compiler."
   :group 'slime)
 
+(defun slime-face-inheritance-possible-p ()
+  (assq :inherit custom-face-attributes))
+
 (defface slime-highlight-face
-  `((((class color) (background light))
-     (:background "darkseagreen2"))
-    (((class color) (background dark))
-     (:background "darkolivegreen"))
-    (t (:inverse-video t)))
+  (cond ((slime-face-inheritance-possible-p)
+         '((t (:inherit highlight :underline nil))))
+        (t 
+         '((((class color) (background light))
+            (:background "darkseagreen2"))
+           (((class color) (background dark))
+            (:background "darkolivegreen"))
+           (t (:inverse-video t)))))
   "Face for compiler notes while selected."
   :group 'slime)
 
@@ -177,7 +183,7 @@ This is used for batch-mode testing.")
   :group 'slime)
 
 (defface slime-repl-input-face
-  `((t (:inherit bold :bold t)))
+  '((t (:bold t)))
   "Face for previous input in the SLIME REPL."
   :group 'slime)
 
