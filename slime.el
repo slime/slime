@@ -5589,7 +5589,8 @@ Only add clickability to properties we actually know how to lookup."
                                 (slime-cl-symbol-name what)
                               what)))))
       (t
-       (let ((url (format "%s%s.html" slime-sbcl-manual-root what)))
+       (let ((url (format "%s%s.html" slime-sbcl-manual-root 
+                          (subst-char-in-string ?\  ?\- what))))
          (browse-url url))))))
 
 (defun sldb-insert-restarts (restarts)

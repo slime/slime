@@ -1,3 +1,8 @@
+2004-07-09  Christophe Rhodes  <csr21@cam.ac.uk>
+
+	* slime.el (sldb-lookup-reference): substitute hyphens for spaces
+	in the url.
+
 2004-07-07  Thomas Schilling  <tjs_ng@yahoo.de>
 
 	* swank.lisp (arglist-for-insertion): Changed formatting to use
