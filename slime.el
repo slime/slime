@@ -1878,7 +1878,8 @@ of locations are supported:
      (beginning-of-defun))
     ((:error message)
      (error "Cannot locate source: %s" message))
-    ((:openmcl &key function-name)
+    ((:openmcl filename function-name)
+     (set-buffer (find-file-noselect filename t))
      (ignore-errors
        (goto-char (point-min))
        (re-search-forward (format "^(def\\w+\\s +%s\\s +" function-name)

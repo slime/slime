@@ -196,14 +196,12 @@ until the remote Emacs goes away."
 (defun handle-compiler-warning (condition)
   "Construct a compiler note for Emacs from a compiler warning
 condition."
-  (push (list :position nil
-              :source-path nil
-              :filename (ccl::compiler-warning-file-name condition)
+  (push (list :message (format nil "~A" condition)
               :severity :warning
-              :message (format nil "~A" condition)
-              :context nil
-              :buffername 'anything
-              :buffer-offset (condition-source-position condition))
+              :location
+              (list :file 
+                    (ccl::compiler-warning-file-name condition)
+                    (condition-source-position condition)))
         *compiler-notes*)
   (muffle-warning condition))
 
@@ -393,8 +391,7 @@ named SYMBOL."
     ;; return a list under some circumstances...
     (when (and source-info (atom source-info))
       (let ((filename (namestring (truename source-info))))
-        (list :from :file :filename filename :source-path '(0) :position 0
-              :function-name (symbol-name symbol))))))
+        (list :openmcl filename (symbol-name symbol))))))
 
 (defslimefun frame-source-location-for-emacs (index)
   "Return to Emacs the location of the source code for the

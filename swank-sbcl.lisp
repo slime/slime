@@ -186,7 +186,7 @@ until the remote Emacs goes away."
   75)
 
 (defmethod sb-gray:stream-force-output ((stream slime-output-stream))
-  (with-slots (buffer fill-pointer last-charpos) stream
+  (with-slots (buffer fill-pointer) stream
     (let ((end fill-pointer))
       (unless (zerop end)
         (send-to-emacs `(:read-output ,(subseq buffer 0 end)))
@@ -266,25 +266,27 @@ information."
                        file-name))
              (note
               (list
-               :position file-pos
-               :filename (etypecase file
-			   (symbol file)
-			   ((or string pathname)
-			    (namestring (truename file))))
-               :source-path (current-compiler-error-source-path context)
                :severity (etypecase condition
                            (sb-c:compiler-error :error)
                            (sb-ext:compiler-note :note)
                            (style-warning :style-warning)
                            (warning :warning))
                :message (brief-compiler-message-for-emacs condition context)
-               :buffername (if (boundp '*buffername*) *buffername*)
-               :buffer-offset (if (boundp '*buffer-offset*) *buffer-offset*))))
+               :location 
+               (list 
+                :sbcl
+                :buffername (if (boundp '*buffername*) *buffername*)
+                :buffer-offset (if (boundp '*buffer-offset*) *buffer-offset*)
+                :position file-pos
+                :filename (etypecase file
+                            (symbol file)
+                            ((or string pathname)
+                             (namestring (truename file))))
+                :source-path (current-compiler-error-source-path context)))))
         #+nil
         (let ((*print-length* nil))
           (format *terminal-io* "handle-notification-condition ~A ~%" note))
-        (push note *compiler-notes*)
-        (push note (gethash file *notes-database*))))))
+        (push note *compiler-notes*)))))
 
 (defun brief-compiler-message-for-emacs (condition error-context)
   "Briefly describe a compiler error for Emacs.
@@ -334,15 +336,15 @@ compiler state."
            (eval (from-string
                   (format nil "(funcall (compile nil '(lambda () ~A)))"
                           string)))
-         (setf *compiler-notes* 
-               (loop for n in *compiler-notes*
-                     for sp = (getf n :source-path)
-                     ;; account for the added lambda, replace leading
-                     ;; position with 0
-                     do (setf (getf n :source-path) (cons 0 (cddr sp)))
-                     collect (list* :buffername buffer 
-                                    :buffer-offset start
-                                    n))))))))
+         (loop for n  in *compiler-notes*
+               for loc = (getf n :location)
+               for (_ . l) = loc
+               for sp = (getf l :source-path)
+               ;; account for the added lambda, replace leading
+               ;; position with 0
+               do (setf (getf l :source-path) (cons 0 (cddr sp))
+                        (getf l :buffername) buffer 
+                        (getf l :buffer-offset) start)))))))
 
 ;;;; xref stuff doesn't exist for sbcl yet
 
@@ -374,16 +376,14 @@ This is useful when debugging the definition-finding code.")
   (let* ((def (sb-introspect:find-definition-source function))
          (pathname (sb-introspect:definition-source-pathname def))
          (path (sb-introspect:definition-source-form-path def)))
-    (list :from :file
+    (list :sbcl 
           :filename (and pathname (namestring pathname))
           :position (sb-introspect:definition-source-character-offset def)
-          :info nil                     ; should be a source-info structure
           :path path
           ;; source-paths depend on the file having been compiled with
           ;; lotsa debugging.  If not present, return the function name 
           ;; for emacs to attempt to find with a regex
-          :function-name (unless path fname)
-          :source-form nil)))
+          :function-name (unless path fname))))
                                 
 (defslimefun function-source-location-for-emacs (fname-string)
   "Return the source-location of FNAME's definition."
@@ -406,7 +406,7 @@ This is useful when debugging the definition-finding code.")
           (finder fname)
           (handler-case (finder fname)
             (error (e) (list :error (format nil "Error: ~A" e))))))))
-
+;; (function-source-location-for-emacs "read-next-form")
 (defun briefly-describe-symbol-for-emacs (symbol)
   "Return a plist describing SYMBOL.
 Return NIL if the symbol is unbound."
@@ -597,6 +597,7 @@ stack."
 	 (from (sb-di:debug-source-from debug-source))
 	 (name (sb-di:debug-source-name debug-source)))
     (list
+     :sbcl
      :from from
      :filename (if (eq from :file)
 		   (namestring (truename name)))
@@ -616,7 +617,8 @@ stack."
     (t (c) (list :error (princ-to-string c)))))
 
 (defslimefun frame-source-location-for-emacs (index)
-  (safe-source-location-for-emacs (sb-di:frame-code-location (nth-frame index))))
+  (safe-source-location-for-emacs 
+   (sb-di:frame-code-location (nth-frame index))))
 
 #+nil
 (defslimefun eval-string-in-frame (string index)
