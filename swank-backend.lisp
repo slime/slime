@@ -411,6 +411,13 @@ other debugger callbacks that will be called within the debugger loop.
 For example, this is a reasonable place to compute a backtrace, switch
 to safe reader/printer settings, and so on.")
 
+(definterface call-with-debugger-hook (hook fun)
+  "Call FUN and use HOOK as debugger hook.
+
+HOOK should be called for both BREAK and INVOKE-DEBUGGER."
+  (let ((*debugger-hook* hook))
+    (funcall fun)))
+
 (define-condition sldb-condition (condition)
   ((original-condition
     :initarg :original-condition
@@ -786,8 +793,10 @@ Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time."
 
 (definterface toggle-trace-function (spec)
   "Trace one function, including (setf name) forms."
-  (declare (ignore spec))
-  "Sorry, function tracing has not yet been implemented on your platform.")
+  (cond ((symbolp spec)
+         (eval `(trace ,spec)))
+        (t 
+         (format nil "Cannot trace fspec: ~S" spec))))
 
 (definterface toggle-trace-generic-function-methods (name)
   "Trace the generic function and all methods of the generic function."
@@ -795,7 +804,8 @@ Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time."
   "Sorry, generic function tracing has to yet been implemented on your platform.")
 
 (definterface toggle-trace-method (spec)
-  "Trace one method."
+  "Trace one method.
+SPEC is if the form (:defmethod ,NAME ,@QUALIFIERS (,@SPECIALIZERS))."
   (declare (ignore spec))
   "Sorry, method tracing has not yet been implemented on your platform.")
 
