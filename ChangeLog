@@ -1,3 +1,10 @@
+2004-07-14  Peter Seibel  <peter@javamonkey.com>
+
+	* slime.el (slime-lisp-package-prompt-string): Separate SLIME's
+	notion of package into two parts, an actual package name and the
+	name used in the prompt since the latter isn't necessarily an
+	actual package nickname any more.
+
 2004-07-13  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-restart-inferior-lisp): Renamed shortcut to

@@ -1323,7 +1323,7 @@ change, then send Emacs an update."
                            (return (values values -)))))
       (when (and package-update-p (not (eq *package* *buffer-package*)))
         (send-to-emacs 
-         (list :new-package (package-string-for-prompt *package*)))))))
+         (list :new-package (package-name *package*) (package-string-for-prompt *package*)))))))
 
 (defun package-string-for-prompt (package)
   "Return the shortest nickname (or canonical name) of PACKAGE."

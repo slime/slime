@@ -1563,6 +1563,11 @@ the binding for `slime-connection'."
 This is automatically synchronized from Lisp.")
 
 (slime-def-connection-var slime-lisp-package
+    "COMMON-LISP-USER"
+  "The current package name of the Superior lisp.
+This is automatically synchronized from Lisp.")
+
+(slime-def-connection-var slime-lisp-package-prompt-string
     "CL-USER"
   "The current package name of the Superior lisp.
 This is automatically synchronized from Lisp.")
@@ -1639,8 +1644,9 @@ fixnum a specific thread."))
       ((:emacs-return-string thread tag string)
        (slime-send `(:emacs-return-string ,thread ,tag ,string)))
       ;;
-      ((:new-package package)
-       (setf (slime-lisp-package) package))
+      ((:new-package package prompt-string)
+       (setf (slime-lisp-package) package)
+       (setf (slime-lisp-package-prompt-string) prompt-string))
       ((:new-features features)
        (setf (slime-lisp-features) features))
       ((:indentation-update info)
@@ -2188,7 +2194,7 @@ end end."
     (slime-insert-propertized '(face slime-repl-result-face) result)
     (unless (bolp) (insert "\n"))
     (let ((prompt-start (point))
-          (prompt (format "%s> "  (slime-lisp-package))))
+          (prompt (format "%s> " (slime-lisp-package-prompt-string))))
       (slime-propertize-region
           '(face slime-repl-prompt-face
                  read-only t
@@ -2464,9 +2470,10 @@ earlier in the buffer."
 					      (slime-find-buffer-package))))
   (with-current-buffer (slime-output-buffer)
     (let ((unfinished-input (slime-repl-current-input)))
-      (destructuring-bind (name nickname)
+      (destructuring-bind (name prompt-string)
           (slime-eval `(swank:set-package ,package))
-        (setf (slime-lisp-package) nickname)
+        (setf (slime-lisp-package) name)
+        (setf (slime-lisp-package-prompt-string) prompt-string)
         (slime-repl-insert-prompt "" 0)
         (insert unfinished-input)))))
 
