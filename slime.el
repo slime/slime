@@ -1689,6 +1689,9 @@ fixnum a specific thread."))
 (defvar slime-log-events t
   "*Log protocol events to the *slime-events* buffer.")
 
+(defvar slime-inhibit-ouline-mode-in-events-buffer t
+  "*Don't use outline-mode if true.")
+
 ;;;;;;; Event logging to *slime-events*
 
 (defun slime-log-event (event)
@@ -1713,7 +1716,8 @@ fixnum a specific thread."))
           (set (make-local-variable 'outline-regexp) "^(")
           (set (make-local-variable 'comment-start) ";")
           (set (make-local-variable 'comment-end) "")
-          (outline-minor-mode))
+          (unless slime-inhibit-ouline-mode-in-events-buffer
+            (outline-minor-mode)))
         buffer)))
 
 
@@ -1920,6 +1924,8 @@ output as arguments.")
     (unless (get-buffer-window (current-buffer) t)
       (display-buffer (current-buffer) t))))
 
+(defsetf marker-insertion-type set-marker-insertion-type)
+
 (defmacro slime-with-output-end-mark (&rest body)
   "Execute BODY at `slime-output-end'.  
 
@@ -1929,6 +1935,9 @@ update window-point afterwards.  If point is initially not at
   `(progn
      (cond ((= (point) slime-output-end) 
             (let ((start (point)))
+              ;; XXX Assertion is currently easy to break, by type
+              ;; input while we're waiting for output
+              ;;(assert (<= (point) slime-repl-input-start-mark))
               ,@body
               (when-let (w (get-buffer-window (current-buffer) t))
                 (set-window-point w (point)))
@@ -1937,6 +1946,7 @@ update window-point afterwards.  If point is initially not at
            (t 
             (save-excursion 
               (goto-char slime-output-end)
+              ;;(assert (<= (point) slime-repl-input-start-mark))
               ,@body)))))
 
 (defun slime-output-filter (process string)
@@ -2157,9 +2167,10 @@ after the last prompt to the end of buffer."
   (set-marker slime-repl-input-start-mark (point) (current-buffer))
   (set-marker slime-repl-input-end-mark (point) (current-buffer)))
 
-(defun slime-mark-output-start ()
-  (set-marker slime-output-start (point))
-  (set-marker slime-output-end (point)))
+(defun slime-mark-output-start (&optional position)
+  (let ((position (or position (point))))
+    (set-marker slime-output-start position)
+    (set-marker slime-output-end position)))
 
 (defun slime-mark-output-end ()
   (add-text-properties slime-output-start slime-output-end
@@ -2261,8 +2272,8 @@ balanced."
     (goto-char slime-repl-input-end-mark)
     (add-text-properties slime-repl-input-start-mark (point)
                          '(face slime-repl-input-face rear-nonsticky (face)))
-    (slime-mark-output-start)
     (slime-mark-input-start)
+    (slime-mark-output-start)
     (slime-repl-send-string (concat input "\n"))))
 
 (defun slime-repl-closing-return ()
@@ -5728,7 +5739,7 @@ be treated as a paragraph.  This is useful for filling docstrings."
 
 (defvar slime-expected-failures
   '(("cmucl" 0)
-    ("sbcl" 7)
+    ("sbcl" 2)
     ("clisp" 13)
     ("lispworks" 7)
     ("allegro" 6))
