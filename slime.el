@@ -534,13 +534,26 @@ If that doesn't give a function, return nil."
   "Timer object for connection retries.")
 
 (defun slime ()
-  "Start an inferior^_superior Lisp and connect to its Swank server."
+  "Start an inferior^_superior Lisp and connect to its Swank server.
+With a prefix argument, prompt for the port number for Lisp
+communication. The port is remembered for future connections."
   (interactive)
+  (when current-prefix-arg
+    (slime-read-and-update-swank-port))
   (when (slime-connected-p)
     (slime-disconnect))
   (slime-maybe-start-lisp)
   (slime-connect "localhost" slime-swank-port))
 
+(defun slime-read-and-update-swank-port ()
+  "Prompt the user for the port number to use for Lisp communication."
+  (let* ((port-string (format "%S" slime-swank-port))
+         (new-port-string (read-from-minibuffer "SLIME Port: " port-string))
+         (new-port (read new-port-string)))
+    (if (integerp new-port)
+        (setq slime-swank-port new-port)
+      (error "Not a valid port: %S" new-port-string))))
+        
 (defun slime-maybe-start-lisp ()
   "Start an inferior lisp unless one is already running."
   (unless (get-buffer "*inferior-lisp*")
