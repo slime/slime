@@ -1,3 +1,23 @@
+2004-02-18  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime): Just close the connection when called without
+	prefix-argument.  Keeping the connection open doesn't make sense.
+	We could ask if the Lisp process should be killed, though.
+	(slime-maybe-close-old-connections): Delete unused function.
+	(slime-start-swank-server): Use comint-send-string instead of
+	comint-proc-query, 'cause I don't like Olin "100%" Shivers' code.
+	(slime-init-output-buffer): Show some animations.
+	(slime-repl-clear-output): Fixed.
+	(slime-compilation-finished): It's not necessary to switch to the
+	original buffer, because the buffer is encoded in the
+	source-locations.
+	(sldb-show-source): Don't raise an error if the source cannot be
+	located.  Print a message instead, because errors in
+	process-filters cause a 1 second delay.
+
+	* swank-cmucl.lisp (read-into-simple-string): Workaround for
+	read-sequence bug in 18e.
+
 2004-02-18  Peter Seibel <peter@javamonkey.com>
 
 	* swank-loader.lisp: Place the fasl files of different
