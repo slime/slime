@@ -201,16 +201,24 @@
   nil)
 
 (defun wire-symbol-name (symbol)
-  (let ((n (symbol-name symbol)))
-    (if (string-match ":\\(.*\\)$" n)
+  (let ((n (if (stringp symbol) symbol (symbol-name symbol))))
+    (if (string-match ":\\([^:]*\\)$" n)
 	(match-string 1 n)
 	n)))
 
 (defun wire-symbol-package (symbol &optional default)
-  (let ((n (symbol-name symbol)))
-    (if (string-match "^\\(.*\\):" n)
+  (let ((n (if (stringp symbol) symbol (symbol-name symbol))))
+    (if (string-match "^\\([^:]*\\):" n)
 	(match-string 1 n)
 	default)))
+
+(defun wire-symbol-external-ref-p (symbol)
+  "Does SYMBOL refer to an external symbol?
+FOO:BAR is an external reference.
+FOO::BAR is not, and nor is BAR."
+  (let ((name (if (stringp symbol) symbol (symbol-name symbol))))
+    (and (string-match ":" name)
+         (not (string-match "::" name)))))
 
 ;; send the function and its arguments down the wire as a funcall. 
 (defun wire-output-funcall (wire function &rest args)
@@ -221,8 +229,6 @@
     (dolist (arg args)
       (wire-output-object wire arg))
     nil))
-
-
 
 (provide 'cmucl-wire)
 
