@@ -2720,7 +2720,7 @@ balanced."
   (slime-check-connected)
   (assert (<= (point) slime-repl-input-end-mark))
   (cond ((get-text-property (point) 'slime-repl-old-input)
-         (slime-repl-grab-old-input))
+         (slime-repl-grab-old-input end-of-input))
         (end-of-input
          (slime-repl-send-input))
         (slime-repl-read-mode ; bad style?
@@ -2749,9 +2749,11 @@ If NEWLINE is true then add a newline at the end of the input."
     (slime-mark-output-start)
     (slime-repl-send-string input)))
 
-(defun slime-repl-grab-old-input ()
-  "Resend the old REPL input at point.
-The old input has the text property `slime-repl-old-input'."
+(defun slime-repl-grab-old-input (replace)
+  "Resend the old REPL input at point.  
+If replace it non-nil the current input is replaced with the old
+input; otherwise the new input is appended.  The old input has the
+text property `slime-repl-old-input'."
   (let ((prop 'slime-repl-old-input))
     (let* ((beg (save-excursion
                   ;; previous-single-char-property-change searches for
@@ -2764,7 +2766,10 @@ The old input has the text property `slime-repl-old-input'."
                   (previous-single-char-property-change (point) prop)))
            (end (next-single-char-property-change (point) prop))
            (old-input (buffer-substring beg end)))
-      (goto-char slime-repl-input-start-mark)
+      (cond (replace (goto-char slime-repl-input-start-mark))
+            (t (goto-char slime-repl-input-end-mark)
+               (unless (eq (char-before) ?\ )
+                 (insert " "))))
       (delete-region (point) slime-repl-input-end-mark)
       (insert old-input)
       (while (eq (char-before) ?\n)
