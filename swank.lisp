@@ -1098,7 +1098,9 @@ The debugger hook is inhibited during the evaluation."
           (t "; No value"))))
 
 (defslimefun interactive-eval (string)
-  (let ((values (multiple-value-list (eval (from-string string)))))
+  (let ((values (multiple-value-list
+                 (let ((*package* *buffer-package*))
+                   (eval (from-string string))))))
     (fresh-line)
     (force-output)
     (format-values-for-echo-area values)))
