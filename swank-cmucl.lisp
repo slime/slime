@@ -2,7 +2,7 @@
 
 (declaim (optimize (debug 2)))
 
-(in-package :swank)
+(in-package :swank-backend)
 
 (in-package :lisp)
 
@@ -42,12 +42,13 @@
 
   )
 
-(in-package :swank)
+(in-package :swank-backend)
 
 
 ;;;; TCP server.
 
-(setq *swank-in-background* :sigio)
+(defimplementation preferred-communication-style ()
+  :sigio)
 
 (defimplementation create-socket (host port)
   (ext:create-inet-listener port :stream
@@ -246,22 +247,15 @@
 
 ;;;; Compilation Commands
 
-(defvar *swank-source-info* nil
-  "Bound to a SOURCE-INFO object during compilation.")
-
 (defvar *previous-compiler-condition* nil
   "Used to detect duplicates.")
 
 (defvar *previous-context* nil
   "Previous compiler error context.")
 
-(defvar *compiler-notes* '()
-  "List of compiler notes for the last compilation unit.")
-
 (defvar *buffer-name* nil)
 (defvar *buffer-start-position* nil)
 (defvar *buffer-substring* nil)
-(defvar *compile-filename* nil)
 
 
 ;;;;; Trapping notes
@@ -346,19 +340,7 @@ the error-context redundant."
                                   (pos (eql nil)) 
                                   (path (eql nil))
                                   (source (eql nil)))
-  (list :error "No error location available")
-  #+(or)
-  (cond (buffer
-         (make-location (list :buffer buffer) 
-                        (list :position *buffer-start-position*)))
-        (*compile-file-truename*
-         (make-location (list :file (namestring *compile-file-truename*))
-                        (list :source-path '(0) 1)))
-        (*compile-filename*
-         (make-location (list :file *compile-filename*)
-                        (list :source-path '(0) 1)))
-        (t 
-         (list :error "No error location available"))))
+  (list :error "No error location available"))
 
 (defimplementation call-with-compilation-hooks (function)
   (let ((*previous-compiler-condition* nil)
@@ -369,18 +351,15 @@ the error-context redundant."
                    (c::warning        #'handle-notification-condition))
       (funcall function))))
 
-(defimplementation compile-file-for-emacs (filename load-p)
+(defimplementation swank-compile-file (filename load-p)
   (clear-xref-info filename)
   (with-compilation-hooks ()
-    (let ((*buffer-name* nil)
-          (*compile-filename* filename))
+    (let ((*buffer-name* nil))
       (compile-file filename :load load-p))))
 
-(defimplementation compile-string-for-emacs (string &key buffer position)
+(defimplementation swank-compile-string (string &key buffer position)
   (with-compilation-hooks ()
-    (let ((*package* *buffer-package*)
-          (*compile-filename* nil)
-          (*buffer-name* buffer)
+    (let ((*buffer-name* buffer)
           (*buffer-start-position* position)
           (*buffer-substring* string))
       (with-input-from-string (stream string)
@@ -393,34 +372,33 @@ the error-context redundant."
 
 ;;;; XREF
 
-(defun lookup-xrefs (finder name)
-  (xref-results-for-emacs (funcall finder (from-string name))))
+(defimplementation who-calls (symbol)
+  (xrefs (xref:who-calls symbol)))
 
-(defimplementation who-calls (function-name)
-  (lookup-xrefs #'xref:who-calls function-name))
+(defimplementation who-references (symbol)
+  (xrefs (xref:who-references symbol)))
 
-(defimplementation who-references (variable)
-  (lookup-xrefs #'xref:who-references variable))
+(defimplementation who-binds (symbol)
+  (xrefs (xref:who-binds symbol)))
 
-(defimplementation who-binds (variable)
-  (lookup-xrefs #'xref:who-binds variable))
-
-(defimplementation who-sets (variable)
-  (lookup-xrefs #'xref:who-sets variable))
+(defimplementation who-sets (symbol)
+  (xrefs (xref:who-sets symbol)))
 
 #+cmu19
 (progn
   (defimplementation who-macroexpands (macro)
-    (lookup-xrefs #'xref:who-macroexpands macro))
-  
-  (defimplementation who-specializes (class)
-    (let* ((methods (xref::who-specializes (find-class (from-string class))))
+    (xrefs (xref:who-macroexpands macro)))
+  ;; XXX
+  (defimplementation who-specializes (symbol)
+    (let* ((methods (xref::who-specializes (find-class symbol)))
            (locations (mapcar #'method-source-location methods)))
-      (group-xrefs (mapcar (lambda (m l)
-                             (cons (let ((*print-pretty* nil))
-                                     (to-string m))
-                                   l))
-                           methods locations)))))
+      (mapcar #'list methods locations))))
+
+(defun xrefs (contexts)
+  (mapcar (lambda (xref)
+            (list (xref:xref-context-name xref)
+                  (resolve-xref-location xref)))
+          contexts))
 
 (defun resolve-xref-location (xref)
   (let ((name (xref:xref-context-name xref))
@@ -436,20 +414,6 @@ the error-context redundant."
           (t
            `(:error ,(format nil "Unkown source location: ~S ~S ~S " 
                              name file source-path))))))
-
-
-(defun xref-results-for-emacs (contexts)
-  "Prepare a list of xref contexts for Emacs.
-The result is a list of xrefs:
-group       ::= (FILENAME . ({reference}+))
-reference   ::= (FUNCTION-SPECIFIER . SOURCE-LOCATION)"
-  (let ((xrefs '()))
-    (dolist (cxt contexts)
-      (let ((name (xref:xref-context-name cxt)))
-        (push (cons (to-string name)
-                    (resolve-xref-location cxt))
-              xrefs)))
-    (group-xrefs xrefs)))
 
 (defun clear-xref-info (namestring)
   "Clear XREF notes pertaining to NAMESTRING.
@@ -539,7 +503,7 @@ constant pool."
     (map-caller-code-components function spaces 
                                 (lambda (code) (push code referrers)))
     referrers))
-  
+
 (defun debug-info-definitions (debug-info)
   "Return the defintions for a debug-info.  This should only be used
 for code-object without entry points, i.e., byte compiled
@@ -552,26 +516,25 @@ code (are theree others?)"
     (destructuring-bind (first) source 
       (ecase (c::debug-source-from first)
         (:file 
-         (list 
-          (cons name
-                (make-location 
-                 (list :file (unix-truename (c::debug-source-name first)))
-                 (list :function-name name)))))))))
+         (list (list name
+                     (make-location 
+                      (list :file (unix-truename (c::debug-source-name first)))
+                      (list :function-name name)))))))))
 
 (defun code-component-entry-points (code)
-  "Return a list ((NAME . LOCATION) ...) of function definitons for
+  "Return a list ((NAME LOCATION) ...) of function definitons for
 the code omponent CODE."
   (delete-duplicates
    (loop for e = (kernel:%code-entry-points code)
          then (kernel::%function-next e)
          while e
-         collect (cons (to-string (kernel:%function-name e))
+         collect (list (kernel:%function-name e)
                        (function-source-location e)))
    :test #'equal))
 
-(defimplementation list-callers (symbol-name)
-  "Return a list ((FILE . ((NAME . LOCATION) ...)) ...) of callers."
-  (let ((components (function-callers (from-string symbol-name)))
+(defimplementation list-callers (symbol)
+  "Return a list ((NAME LOCATION) ...) of callers."
+  (let ((components (function-callers symbol))
         (xrefs '()))
     (dolist (code components)
       (let* ((entry (kernel:%code-entry-points code))
@@ -581,14 +544,14 @@ the code omponent CODE."
                        (debug-info-definitions 
                         (kernel:%code-debug-info code)))))
         (setq xrefs (nconc defs xrefs))))
-    (group-xrefs xrefs)))
+    xrefs))
 
-(defimplementation list-callees (symbol-name)
-  (let ((fns (function-callees (from-string symbol-name))))
-    (group-xrefs (mapcar (lambda (fn)
-                           (cons (to-string (kernel:%function-name fn))
-                                 (function-source-location fn)))
-                         fns))))
+(defimplementation list-callees (symbol)
+  (let ((fns (function-callees symbol)))
+    (mapcar (lambda (fn)
+              (list (kernel:%function-name fn)
+                    (function-source-location fn)))
+            fns)))
 
 
 ;;;; Definitions
@@ -712,21 +675,14 @@ return value is the condition or nil."
   (destructuring-bind (first) (function-source-locations function)
     first))
 
-(defimplementation find-function-locations (symbol-name)
-  "Return a list of source-locations for SYMBOL-NAME's functions."
-  (multiple-value-bind (symbol foundp) (find-symbol-designator symbol-name)
-    (cond ((not foundp)
-           (list (list :error (format nil "Unkown symbol: ~A" symbol-name))))
-          ((macro-function symbol)
-           (function-source-locations (macro-function symbol)))
-          ((special-operator-p symbol)
-           (list (list :error (format nil "~A is a special-operator" symbol))))
-          ((fboundp symbol)
-           (function-source-locations (coerce symbol 'function)))
-          (t (list (list :error
-                         (format nil "Symbol not fbound: ~A" symbol-name))))
-          )))
-
+(defimplementation find-definitions (symbol)
+  (cond ((macro-function symbol)
+         (mapcar (lambda (loc) `((macro ,symbol) ,loc))
+                 (function-source-locations (macro-function symbol))))
+        ((fboundp symbol)
+         ;; XXX fixme
+         (mapcar (lambda (loc) `((function ,symbol) ,loc))
+                 (function-source-locations (coerce symbol 'function))))))
 
 ;;;; Documentation.
 
@@ -776,77 +732,54 @@ return value is the condition or nil."
 		       (doc nil)))
       result)))
 
-(defmacro %describe-alien (symbol-name namespace)
-  `(print-description-to-string
-    (ext:info :alien-type ,namespace (from-string ,symbol-name))))
-
-(defimplementation describe-definition (symbol-name type)
-  (case type
+(defimplementation describe-definition (symbol namespace)
+  (ecase namespace
     (:variable
-     (describe-symbol symbol-name))
+     (describe symbol))
     ((:function :generic-function)
-     (describe-function symbol-name))
+     (describe (symbol-function symbol)))
     (:setf
-     (print-description-to-string
-      (or (ext:info setf inverse (from-string symbol-name))
-          (ext:info setf expander (from-string symbol-name)))))
+     (describe (or (ext:info setf inverse symbol))
+               (ext:info setf expander symbol)))
     (:type
-     (print-description-to-string
-      (kernel:values-specifier-type (from-string symbol-name))))
+     (describe (kernel:values-specifier-type symbol)))
     (:class
-     (print-description-to-string (find-class (from-string symbol-name) nil)))
+     (describe (find-class symbol)))
     (:alien-type
-     (let ((name (from-string symbol-name)))
-       (ecase (ext:info :alien-type :kind name)
-         (:primitive
-          (print-description-to-string
-           (let ((alien::*values-type-okay* t))
-             (funcall (ext:info :alien-type :translator name) (list name)))))
-         ((:defined)
-          (print-description-to-string (ext:info :alien-type
-                                                 :definition name)))
-         (:unknown
-          (format nil "Unkown alien type: ~A" symbol-name)))))
+     (ecase (ext:info :alien-type :kind symbol)
+       (:primitive
+        (describe (let ((alien::*values-type-okay* t))
+                    (funcall (ext:info :alien-type :translator symbol) 
+                             (list symbol)))))
+       ((:defined)
+        (describe (ext:info :alien-type :definition symbol)))
+       (:unknown
+        (format nil "Unkown alien type: ~S" symbol))))
     (:alien-struct
-     (%describe-alien symbol-name :struct))
+     (describe (ext:info :alien-type :struct symbol)))
     (:alien-union
-     (%describe-alien symbol-name :union))
+     (describe (ext:info :alien-type :union symbol)))
     (:alien-enum
-     (%describe-alien symbol-name :enum))))
+     (describe (ext:info :alien-type :enum symbol)))))
 
-(defimplementation arglist-string (fname)
-  "Return a string describing the argument list for FNAME.
-The result has the format \"(...)\"."
-  (declare (type string fname))
-  (multiple-value-bind (function package) (find-symbol-designator fname)
-    (unless package
-      (return-from arglist-string (format nil "(-- Unkown symbol: ~A)" fname)))
-    (let ((arglist
-	   (if (not (or (fboundp function)
-			(functionp function)))
-	       "(-- <Unknown-Function>)"
-	       (let* ((fun (or (macro-function function)
-                               (symbol-function function)))
-		      (arglist (kernel:%function-arglist 
-                                (kernel:%function-self fun))))
-		 (cond ((eval:interpreted-function-p fun)
-			(eval:interpreted-function-arglist fun))
-		       ((pcl::generic-function-p fun)
-                        (pcl:generic-function-lambda-list fun))
-		       (arglist arglist)
-		       ;; this should work both for
-		       ;; compiled-debug-function and for
-		       ;; interpreted-debug-function
-		       (t (let ((df (di::function-debug-function fun)))
-                            (if df 
-                                (di::debug-function-lambda-list df)
-                                "(<arglist-unavailable>)"))))))))
-      (etypecase arglist
-        (string arglist)
-        (cons (let ((*print-case* :downcase)
-                    (*print-pretty* nil))
-                (princ-to-string arglist)))
-        (null "()")))))
+(defimplementation arglist (symbol)
+  (let* ((fun (or (macro-function symbol)
+                  (symbol-function symbol)))
+         (arglist
+          (cond ((eval:interpreted-function-p fun)
+                 (eval:interpreted-function-arglist fun))
+                ((pcl::generic-function-p fun)
+                 (pcl:generic-function-lambda-list fun))
+                ((kernel:%function-arglist (kernel:%function-self fun)))
+                ;; this should work both for
+                ;; compiled-debug-function and for
+                ;; interpreted-debug-function
+                (t (let ((df (di::function-debug-function fun)))
+                     (if df 
+                         (di::debug-function-lambda-list df)
+                         "(<arglist-unavailable>)"))))))
+    (check-type arglist (or list string))
+    arglist))
 
 
 ;;;; Miscellaneous.
@@ -854,39 +787,38 @@ The result has the format \"(...)\"."
 (defimplementation macroexpand-all (form)
   (walker:macroexpand-all form))
 
-(in-package :c)
+;; (in-package :c)
+;; 
+;; (defun swank-backend::expand-ir1-top-level (form)
+;;   "A scaled down version of the first pass of the compiler."
+;;   (with-compilation-unit ()
+;;     (let* ((*lexical-environment*
+;;             (make-lexenv :default (make-null-environment)
+;;                          :cookie *default-cookie*
+;;                          :interface-cookie *default-interface-cookie*))
+;;            (*source-info* (make-lisp-source-info form))
+;;            (*block-compile* nil)
+;;            (*block-compile-default* nil))
+;;       (with-ir1-namespace
+;;           (clear-stuff)
+;;         (find-source-paths form 0)
+;;         (ir1-top-level form '(0) t)))))
+;; 
+;; (in-package :swank-backend)
+;; 
+;; (defun print-ir1-converted-blocks (form)
+;;   (with-output-to-string (*standard-output*)
+;;     (c::print-all-blocks (expand-ir1-top-level (from-string form)))))
+;; 
+;; (defun print-compilation-trace (form)
+;;   (with-output-to-string (*standard-output*)
+;;     (with-input-from-string (s form)
+;;       (ext:compile-from-stream s 
+;;                                :verbose t
+;;                                :progress t
+;;                                :trace-stream *standard-output*))))
 
-(defun swank::expand-ir1-top-level (form)
-  "A scaled down version of the first pass of the compiler."
-  (with-compilation-unit ()
-    (let* ((*lexical-environment*
-	    (make-lexenv :default (make-null-environment)
-			 :cookie *default-cookie*
-			 :interface-cookie *default-interface-cookie*))
-	   (*source-info* (make-lisp-source-info form))
-	   (*block-compile* nil)
-	   (*block-compile-default* nil))
-      (with-ir1-namespace
-	  (clear-stuff)
-	(find-source-paths form 0)
-	(ir1-top-level form '(0) t)))))
-
-(in-package :swank)
-
-(defslimefun print-ir1-converted-blocks (form)
-  (with-output-to-string (*standard-output*)
-    (c::print-all-blocks (expand-ir1-top-level (from-string form)))))
-
-(defslimefun print-compilation-trace (form)
-  (with-output-to-string (*standard-output*)
-    (with-input-from-string (s form)
-      (let ((*package* *buffer-package*))
-        (ext:compile-from-stream s 
-                                 :verbose t
-                                 :progress t
-                                 :trace-stream *standard-output*)))))
-
-(defslimefun set-default-directory (directory)
+(defun set-default-directory (directory)
   (setf (ext:default-directory) (namestring directory))
   ;; Setting *default-pathname-defaults* to an absolute directory
   ;; makes the behavior of MERGE-PATHNAMES a bit more intuitive.
@@ -965,12 +897,10 @@ to find the position of the corresponding form."
 ;;;; Debugging
 
 (defvar *sldb-stack-top*)
-(defvar *sldb-restarts*)
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (unix:unix-sigsetmask 0)
   (let* ((*sldb-stack-top* (or debug:*stack-top-hint* (di:top-frame)))
-	 (*sldb-restarts* (compute-restarts *swank-debugger-condition*))
 	 (debug:*stack-top-hint* nil))
     (handler-bind ((di:debug-condition 
 		    (lambda (condition)
@@ -979,44 +909,21 @@ to find the position of the corresponding form."
                                :original-condition condition)))))
       (funcall debugger-loop-fn))))
 
-(defun format-restarts-for-emacs ()
-  "Return a list of restarts for *swank-debugger-condition* in a
-format suitable for Emacs."
-  (loop for restart in *sldb-restarts*
-	collect (list (princ-to-string (restart-name restart))
-		      (princ-to-string restart))))
-
 (defun nth-frame (index)
   (do ((frame *sldb-stack-top* (di:frame-down frame))
        (i index (1- i)))
       ((zerop i) frame)))
 
-(defun nth-restart (index)
-  (nth index *sldb-restarts*))
-
-(defun format-frame-for-emacs (number frame)
-  (print-with-frame-label 
-   number (lambda (*standard-output*)
-            (debug::print-frame-call frame :verbosity 1 :number nil))))
-
-(defun compute-backtrace (start end)
-  "Return a list of frames starting with frame number START and
-continuing to frame number END or, if END is nil, the last frame on the
-stack."
+(defimplementation compute-backtrace (start end)
   (let ((end (or end most-positive-fixnum)))
     (loop for f = (nth-frame start) then (di:frame-down f)
 	  for i from start below end
 	  while f
-	  collect (cons i f))))
+	  collect f)))
 
-(defimplementation backtrace (start end)
-  (loop for (n . frame) in (compute-backtrace start end)
-        collect (list n (format-frame-for-emacs n frame))))
-
-(defimplementation debugger-info-for-emacs (start end)
-  (list (debugger-condition-for-emacs)
-	(format-restarts-for-emacs)
-	(backtrace start end)))
+(defimplementation print-frame (frame stream)
+  (let ((*standard-output* stream))
+    (debug::print-frame-call frame :verbosity 1 :number nil)))
 
 (defimplementation frame-source-location-for-emacs (index)
   (code-location-source-location (di:frame-code-location (nth-frame index))))
@@ -1024,34 +931,22 @@ stack."
 (defimplementation eval-in-frame (form index)
   (di:eval-in-frame (nth-frame index) form))
 
-(defslimefun pprint-eval-string-in-frame (string index)
-  (swank-pprint 
-   (multiple-value-list
-    (di:eval-in-frame (nth-frame index) (from-string string)))))
-
 (defimplementation frame-locals (index)
   (let* ((frame (nth-frame index))
 	 (location (di:frame-code-location frame))
 	 (debug-function (di:frame-debug-function frame))
 	 (debug-variables (di::debug-function-debug-variables debug-function)))
     (loop for v across debug-variables collect 
-          (list :name (to-string (di:debug-variable-symbol v))
+          (list :name (di:debug-variable-symbol v)
                 :id (di:debug-variable-id v)
                 :value (ecase (di:debug-variable-validity v location)
                          (:valid 
                           (di:debug-variable-value v frame))
                          ((:invalid :unknown) 
-                          '#:not-available))))))
+                          ':not-available))))))
 
 (defimplementation frame-catch-tags (index)
-  (loop for (tag . code-location) in (di:frame-catches (nth-frame index))
-	collect `(,tag . ,(code-location-source-location code-location))))
-
-(defslimefun invoke-nth-restart (index)
-  (invoke-restart-interactively (nth-restart index)))
-
-(defslimefun sldb-abort ()
-  (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
+  (mapcar #'car (di:frame-catches (nth-frame index))))
 
 (defun set-step-breakpoints (frame)
   (when (di:debug-block-elsewhere-p (di:code-location-debug-block
@@ -1086,13 +981,13 @@ stack."
                                            :kind :function-end)))
               (di:activate-breakpoint bp)))))))
 
-(defslimefun sldb-step (frame)
-  (cond ((find-restart 'continue *swank-debugger-condition*)
-         (set-step-breakpoints (nth-frame frame))
-         (continue *swank-debugger-condition*))
-        (t
-         (error "Cannot continue in from condition: ~A" 
-                *swank-debugger-condition*))))
+;; (defslimefun sldb-step (frame)
+;;   (cond ((find-restart 'continue *swank-debugger-condition*)
+;;          (set-step-breakpoints (nth-frame frame))
+;;          (continue *swank-debugger-condition*))
+;;         (t
+;;          (error "Cannot continue in from condition: ~A" 
+;;                 *swank-debugger-condition*))))
 
 (defun frame-cfp (frame)
   "Return the Control-Stack-Frame-Pointer for FRAME."
@@ -1139,22 +1034,22 @@ OCFP =  ~X
 LRA  =  ~X~%" (mapcar #'fixnum 
                       (multiple-value-list (frame-registers frame)))))))
 
-(defslimefun sldb-disassemble (frame-number)
-  "Return a string with the disassembly of frames code."
-    (with-output-to-string (*standard-output*)
-      (print-frame-registers frame-number)
-      (terpri)
-      (let* ((frame (di::frame-real-frame (nth-frame frame-number)))
-             (debug-fun (di::frame-debug-function frame)))
-        (etypecase debug-fun
-          (di::compiled-debug-function
-           (let* ((component (di::compiled-debug-function-component debug-fun))
-                  (fun (di:debug-function-function debug-fun)))
-             (if fun
-                 (disassemble fun)
-                 (disassem:disassemble-code-component component))))
-          (di::bogus-debug-function
-           (format t "~%[Disassembling bogus frames not implemented]"))))))
+;; (defslimefun sldb-disassemble (frame-number)
+;;   "Return a string with the disassembly of frames code."
+;;     (with-output-to-string (*standard-output*)
+;;       (print-frame-registers frame-number)
+;;       (terpri)
+;;       (let* ((frame (di::frame-real-frame (nth-frame frame-number)))
+;;              (debug-fun (di::frame-debug-function frame)))
+;;         (etypecase debug-fun
+;;           (di::compiled-debug-function
+;;            (let* ((component (di::compiled-debug-function-component debug-fun))
+;;                   (fun (di:debug-function-function debug-fun)))
+;;              (if fun
+;;                  (disassemble fun)
+;;                  (disassem:disassemble-code-component component))))
+;;           (di::bogus-debug-function
+;;            (format t "~%[Disassembling bogus frames not implemented]"))))))
 
 #+(or)
 (defun print-binding-stack ()
@@ -1322,7 +1217,7 @@ LRA  =  ~X~%" (mapcar #'fixnum
   profile:*timed-functions*)
 
 (defimplementation profile-package (package callers methods)
-  (profile:profile-all :package package  
+  (profile:profile-all :package package
                        :callers-p callers
                        :methods methods))
 
@@ -1332,7 +1227,6 @@ LRA  =  ~X~%" (mapcar #'fixnum
 #+MP
 (progn
   (defimplementation startup-multiprocessing ()
-    (setq *swank-in-background* :spawn)
     ;; Threads magic: this never returns! But top-level becomes
     ;; available again.
     (mp::startup-idle-and-top-level-loops))
@@ -1386,9 +1280,3 @@ LRA  =  ~X~%" (mapcar #'fixnum
         (pop (mailbox.queue mbox)))))
 
   )
-
-
-;;;; Epilogue
-;;; Local Variables:
-;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
-;;; End:

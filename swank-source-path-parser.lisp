@@ -20,7 +20,7 @@
 
 ;;; Taken from swank-cmucl.lisp, by Helmut Eller
 
-(in-package :swank)
+(in-package :swank-backend)
 
 (defun make-source-recorder (fn source-map)
   "Return a macro character function that does the same as FN, but

@@ -22,7 +22,7 @@
 ;;;
 ;;; [1] http://cvs.sourceforge.net/viewcvs.py/clocc/clocc/src/tools/metering/
 
-(in-package "SWANK")
+(in-package :swank-backend)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (use-package "SOCKET")
@@ -45,7 +45,8 @@
        (unwind-protect
 	    (progn ,@body)
 	 (linux:sigprocmask-set ,linux:SIG_SETMASK ,mask nil)))))
-	
+
+;; XXX currently only works in CVS version. 2.32 breaks.
 ;; #+linux
 ;; (defmethod call-without-interrupts (fn)
 ;;   (with-blocked-signals (#.linux:SIGINT) (funcall fn)))
@@ -63,8 +64,6 @@
 
 
 ;;; TCP Server
-
-(setq *swank-in-background* nil)
 
 (defimplementation create-socket (host port)
   (declare (ignore host))
@@ -84,47 +83,10 @@
 					  :charset 'charset:iso-8859-1
 					  :line-terminator :unix)))
 
-(defvar *sigio-handlers* '()
-  "List of (key . fn) pairs to be called on SIGIO.")
-
-(defun sigio-handler (signal)
-  (mapc (lambda (handler) (funcall (cdr handler))) *sigio-handlers*))
-
-;(trace sigio-handler)
-
-(defvar *saved-sigio-handler*)
-
-#+(or)
-(progn
-  (defun set-sigio-handler ()
-    (setf *saved-sigio-handler*
-	  (linux:set-signal-handler linux:SIGIO 
-				    (lambda (signal) (sigio-handler signal))))
-    (let* ((action (linux:signal-action-retrieve linux:SIGIO))
-	   (flags (linux:sa-flags action)))
-      (setf (linux:sa-flags action) (logior flags linux:SA_NODEFER))
-      (linux:signal-action-install linux:SIGIO action)))
-
-  (defimplementation add-input-handler (socket fn)
-    (set-sigio-handler)
-    (let ((fd (socket:socket-stream-handle socket)))
-      (format *debug-io* "Adding input handler: ~S ~%" fd)
-      ;; XXX error checking
-      (linux:fcntl3l fd linux:F_SETOWN (getpid))
-      (linux:fcntl3l fd linux:F_SETFL linux:O_ASYNC)
-      (push (cons fd fn) *sigio-handlers*)))
-
-  (defimplementation remove-input-handlers (socket)
-    (let ((fd (socket:socket-stream-handle socket)))
-      (remove-sigio-handler fd)
-      (setf *sigio-handlers* (delete fd *sigio-handlers* :key #'car)))
-    (close socket))
-  )
-
 ;;; Swank functions
 
-(defimplementation arglist-string (fname)
-  (format-arglist fname #'ext:arglist))
+(defimplementation arglist (fname)
+  (ext:arglist fname))
 
 (defimplementation macroexpand-all (form)
   (ext:expand-form form))
@@ -141,11 +103,18 @@ Return NIL if the symbol is unbound."
       (when (fboundp symbol)
 	(if (macro-function symbol)
 	    (setf (getf result :macro) (doc 'function))
-	  (setf (getf result :function) (doc 'function))))
+	    (setf (getf result :function) (doc 'function))))
       (maybe-push :variable (when (boundp symbol) (doc 'variable)))
       (maybe-push :class (when (find-class symbol nil) 
 			   (doc 'type))) ;this should be fixed
       result)))
+
+(defimplementation describe-definition (symbol namespace)
+  (ecase namespace
+    (:variable (describe symbol))
+    (:macro (describe (macro-function symbol)))
+    (:function (describe (symbol-function symbol)))
+    (:class (describe (find-class symbol)))))
 
 (defun fspec-pathname (symbol &optional type)
   (declare (ignore type))
@@ -160,56 +129,40 @@ Return NIL if the symbol is unbound."
 
 (defun find-multiple-definitions (fspec)
   (list `(,fspec t)))
-(fspec-pathname 'disassemble)
+
 (defun find-definition-in-file (fspec type file)
   (declare (ignore fspec type file))
   ;; FIXME
   0)
 
+(defun find-fspec-location (fspec type)
+  (let ((file (fspec-pathname fspec type)))
+    (etypecase file
+      (pathname
+       (let ((start (find-definition-in-file fspec type file)))
+	 (make-location
+	  (list :file (namestring (truename file)))
+	  (if start 
+	      (list :position (1+ start))
+	      (list :function-name (string fspec))))))
+      ((member :top-level)
+       (list :error (format nil "Defined at toplevel: ~A" fspec)))
+      (null 
+       (list :error (format nil "Unkown source location for ~A" fspec))))))
+
 (defun fspec-source-locations (fspec)
   (let ((defs (find-multiple-definitions fspec)))
-    (let ((locations '()))
-      (loop for (fspec type) in defs do
-	    (let ((file (fspec-pathname fspec type)))
-	      (etypecase file
-		(pathname
-		 (let ((start (find-definition-in-file fspec type file)))
-		   (push (make-location
-			  (list :file (namestring (truename file)))
-			  (if start
-			      (list :position (1+ start))
-			      (list :function-name (string fspec))))
-			 locations)))
-		((member :top-level)
-		 (push (list :error (format nil "Defined at toplevel: ~A"
-					    fspec))
-		       locations))
-		(null
-		 (push (list :error (format nil
-					    "Unkown source location for ~A"
-					    fspec))
-		       locations))
-		)))
-      locations)))
+    (loop for (fspec type) in defs 
+          collect (list fspec (find-fspec-location fspec type)))))
 
-(defimplementation find-function-locations (symbol-name)
-  (multiple-value-bind (symbol foundp) (find-symbol-designator symbol-name)
-    (cond ((not foundp)
-	   (list (list :error (format nil "Unkown symbol: ~A" symbol-name))))
-	  ((macro-function symbol)
-	   (fspec-source-locations symbol))
-	  ((special-operator-p symbol)
-	   (list (list :error (format nil "~A is a special-operator" symbol))))
-	  ((fboundp symbol)
-	   (fspec-source-locations symbol))
-	  (t (list (list :error
-			 (format nil "Symbol not fbound: ~A" symbol-name))))
-	  )))
+
+(defimplementation find-definitions (name)
+  (loop for location in (fspec-source-locations name)
+	collect (list name location)))
 
 (defvar *sldb-topframe*)
 (defvar *sldb-botframe*)
 (defvar *sldb-source*)
-(defvar *sldb-restarts*)
 (defvar *sldb-debugmode* 4)
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
@@ -224,14 +177,8 @@ Return NIL if the symbol is unbound."
 	  (sys::frame-down-1
 	   (sys::frame-up-1 sys::*frame-limit1* sys::*debug-mode*)
 	   sys::*debug-mode*))
-	 (*sldb-botframe* (sys::frame-up *sldb-topframe* sys::*debug-mode*))
-	 (*sldb-restarts* (compute-restarts *swank-debugger-condition*)))
+	 (*sldb-botframe* (sys::frame-up *sldb-topframe* sys::*debug-mode*)))
     (funcall debugger-loop-fn)))
-
-(defun format-restarts-for-emacs ()
-  (loop for restart in *sldb-restarts*
-	collect (list (princ-to-string (restart-name restart))
-		      (princ-to-string restart))))
 
 (defun nth-frame (index)
   (loop for frame = *sldb-topframe* then (sys::frame-up-1 frame 
@@ -240,7 +187,7 @@ Return NIL if the symbol is unbound."
 	never (eq frame *sldb-botframe*)
 	finally (return frame)))
 
-(defun compute-backtrace (start end)
+(defimplementation compute-backtrace (start end)
   (let ((end (or end most-positive-fixnum)))
     (loop for f = (nth-frame start)
 	  then (sys::frame-up-1 f sys::*debug-mode*)
@@ -248,18 +195,11 @@ Return NIL if the symbol is unbound."
 	  until (eq f *sldb-botframe*)
 	  collect f)))
 
-(defimplementation backtrace (start-frame-number end-frame-number)
-  (flet ((format-frame (f i)
-	   (print-with-frame-label
-	    i (lambda (s)
-		(princ (string-left-trim 
-			'(#\Newline)
-			(with-output-to-string (stream)
-			  (sys::describe-frame stream f)))
-		       s)))))
-    (loop for i from start-frame-number
-	  for f in (compute-backtrace start-frame-number end-frame-number)
-	  collect (list i (format-frame f i)))))
+(defimplementation print-frame (frame stream)
+  (write-string (string-left-trim '(#\Newline)
+				  (with-output-to-string (stream)
+				    (sys::describe-frame stream frame)))
+		stream))
 
 (defimplementation eval-in-frame (form frame-number)
   (sys::eval-at (nth-frame frame-number) form))
@@ -309,7 +249,7 @@ Return NIL if the symbol is unbound."
   nil)
 
 (defimplementation return-from-frame (index form)
-  (sys::return-from-eval-frame (nth-frame index) (from-string form)))
+  (sys::return-from-eval-frame (nth-frame index) form))
 
 (defimplementation restart-frame (index)
   (sys::redo-eval-frame (nth-frame index)))
@@ -317,20 +257,6 @@ Return NIL if the symbol is unbound."
 (defimplementation frame-source-location-for-emacs (index)
   (list :error (format nil "Cannot find source for frame: ~A"
 		       (nth-frame index))))
-
-(defimplementation debugger-info-for-emacs (start end)
-  (list (debugger-condition-for-emacs)
-	(format-restarts-for-emacs)
-	(backtrace start end)))
-
-(defun nth-restart (index)
-  (nth index *sldb-restarts*))
-
-(defslimefun invoke-nth-restart (index)
-  (invoke-restart-interactively (nth-restart index)))
-
-(defslimefun sldb-abort ()
-  (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
 
 ;;; Profiling
 
@@ -371,108 +297,101 @@ Return NIL if the symbol is unbound."
 	,@body)
        (sys::simple-end-of-file () nil)))))
 
+(defvar *orig-c-warn* (symbol-function 'system::c-warn))
+(defvar *orig-c-style-warn* (symbol-function 'system::c-style-warn))
+(defvar *orig-c-error* (symbol-function 'system::c-error))
+(defvar *orig-c-report-problems* (symbol-function 'system::c-report-problems))
+
+(defmacro dynamic-flet (names-functions &body body)
+  "(dynamic-flet ((NAME FUNCTION) ...) BODY ...)
+Temporary the symbol slot of NAME in the dynamic extend of BODY to FUNCTION."
+  `(ext:letf* ,(loop for (name function) in names-functions
+		     collect `((symbol-function ',name) ,function))
+    ,@body))
+ 
+(defun compiler-note-location ()
+  "Return the current compiler location of the compiler."
+  (let ((lineno1 sys::*compile-file-lineno1*)
+	(lineno2 sys::*compile-file-lineno2*)
+	(file sys::*compile-file-truename*))
+    (cond ((and file lineno1 lineno2)
+	   `(:location (:file ,(namestring file)) (:line ,lineno1)))
+	  (*buffer-name*
+	   `(:location (:buffer ,*buffer-name*) (:position ,*buffer-offset*)))
+	  (t
+	   (list :error "No error location available")))))
+
+(defun signal-compiler-warning (cstring args severity orig-fn)
+  (signal (make-condition 'compiler-condition
+			  :severity severity
+			  :message (apply #'format nil cstring args)
+			  :location (compiler-note-location)))
+  (apply orig-fn cstring args))
+
+(defun c-warn (cstring &rest args)
+  (signal-compiler-warning cstring args :warning *orig-c-warn*))
+
+(defun c-style-warn (cstring &rest args)
+  (dynamic-flet ((sys::c-warn *orig-c-warn*))
+    (signal-compiler-warning cstring args :style-warning *orig-c-style-warn*)))
+
+(defun c-error (cstring &rest args)
+  (signal-compiler-warning cstring args :error *orig-c-error*))
+
 (defimplementation call-with-compilation-hooks (function)
-  (handler-bind ((compiler-condition #'handle-notification-condition))
-    (funcall function)))
+  (handler-bind ((warning #'handle-notification-condition))
+    (dynamic-flet ((system::c-warn #'c-warn)
+		   (system::c-style-warn #'c-style-warn)
+		   (system::c-error #'c-error))
+      (funcall function))))
 
 (defun handle-notification-condition (condition)
   "Handle a condition caused by a compiler warning."
-  (declare (ignore condition)))
+  (signal (make-condition 'compiler-condition
+			  :original-condition condition
+			  :severity :warning
+			  :message (princ-to-string condition)
+			  :location (compiler-note-location))))
 
 (defvar *buffer-name* nil)
 (defvar *buffer-offset*)
 
-(defvar *compiler-note-line-regexp*
-  (regexp:regexp-compile
-   "^(WARNING|ERROR) .* in lines ([0-9]+)\\.\\.[0-9]+ :$"
-   :extended t))
-
-(defun split-compiler-note-line (line)
-  (multiple-value-bind (all head tail)
-      (regexp:regexp-exec *compiler-note-line-regexp* line)
-    (declare (ignore all))
-    (if head
-	(list (let ((*package* (find-package :keyword)))
-		(read-from-string (regexp:match-string line head)))
-	      (read-from-string (regexp:match-string line tail)))
-	(list nil line))))
-
-;;; Ugly but essentially working.
-;;; TODO: Do something with the summary about undefined functions etc.
-
-(defimplementation compile-file-for-emacs (filename load-p)
+(defimplementation swank-compile-file (filename load-p)
   (with-compilation-hooks ()
-    (multiple-value-bind (fas-file w-p f-p)
-	(compile-file-frobbing-notes (filename)
-	  (read-line)                   ;""
-	  (read-line)                   ;"Compiling file ..."
-	  (loop
-	     with condition
-	     for (severity message) = (split-compiler-note-line (read-line))
-	     until (and (stringp message) (string= message ""))
-	     if severity
-	     do (when condition
-		  (signal condition))
-	     (setq condition
-		   (make-condition 'compiler-condition
-				   :severity severity
-				   :message ""
-				   :location `(:location (:file ,filename)
-							 (:line ,message))))
-	     else do (setf (message condition)
-			   (format nil "~a~&~a" (message condition) message))
-	     finally (when condition
-		       (signal condition))))
-      ;; w-p = errors + warnings, f-p = errors + warnings - style warnings,
-      ;; where a result of 0 is replaced by NIL.  It follows that w-p
-      ;; is non-NIL iff there was any note whatsoever and that f-p is
-      ;; non-NIL iff there was anything more severe than a style
-      ;; warning.  This is completely ANSI compliant.
-      (declare (ignore w-p f-p))
-      (if (and fas-file load-p)
-	  (load fas-file)
-	  fas-file))))
+    (with-compilation-unit ()
+      (let ((fasl-file (compile-file filename)))
+	(when (and load-p fasl-file)
+	  (load fasl-file))
+	nil))))
 
-(defimplementation compile-string-for-emacs (string &key buffer position)
+(defimplementation swank-compile-string (string &key buffer position)
   (with-compilation-hooks ()
-    (let ((*package* *buffer-package*)
-	  (*buffer-name* buffer)
+    (let ((*buffer-name* buffer)
 	  (*buffer-offset* position))
-      (eval (from-string
-	     (format nil "(funcall (compile nil '(lambda () ~A)))"
-		     string))))))
+      (funcall (compile nil (read-from-string
+                             (format nil "(CL:LAMBDA () ~A)" string)))))))
 
 ;;; Portable XREF from the CMU AI repository.
 
 (setq xref::*handle-package-forms* '(cl:in-package))
 
-(defun lookup-xrefs (finder name)
-  (xref-results-for-emacs (funcall finder (from-string name))))
+(defmacro defxref (name function)
+  `(defimplementation ,name (name)
+    (xref-results (,function name))))
 
-(defimplementation who-calls (function-name)
-  (lookup-xrefs #'xref:list-callers function-name))
+(defxref who-calls      xref:list-callers)
+(defxref who-references xref:list-readers)
+(defxref who-binds      xref:list-setters)
+(defxref who-sets       xref:list-setters)
+(defxref list-callers   xref:list-callers)
+(defxref list-callees   xref:list-callees)
 
-(defimplementation who-references (variable)
-  (lookup-xrefs #'xref:list-readers variable))
-
-(defimplementation who-binds (variable)
-  (lookup-xrefs #'xref:list-setters variable))
-
-(defimplementation who-sets (variable)
-  (lookup-xrefs #'xref:list-setters variable))
-
-(defimplementation list-callers (symbol-name)
-  (lookup-xrefs #'xref:who-calls symbol-name))
-
-(defimplementation list-callees (symbol-name)
-  (lookup-xrefs #'xref:list-callees symbol-name))
-
-(defun xref-results-for-emacs (fspecs)
+(defun xref-results (fspecs)
   (let ((xrefs '()))
     (dolist (fspec fspecs)
       (dolist (location (fspec-source-locations fspec))
-	(push (cons (to-string fspec) location) xrefs)))
-    (group-xrefs xrefs)))
+	(push (list fspec location) xrefs)))
+    xrefs))
 
 (when (find-package :swank-loader)
   (setf (symbol-function (intern "USER-INIT-FILE" :swank-loader))
@@ -530,10 +449,11 @@ Return NIL if the symbol is unbound."
 		(dotimes (i count)
 		  (multiple-value-bind (value name)
 		      (funcall (sys::insp-nth-slot inspection) i)
-		    (push (cons (to-string (or name i)) value)
+		    (push (cons (princ-to-string (or name i)) value)
 			  pairs)))
 		(nreverse pairs))))))
 
 ;;; Local Variables:
 ;;; eval: (put 'compile-file-frobbing-notes 'lisp-indent-function 1)
+;;; eval: (put 'dynamic-flet 'common-lisp-indent-function 1)
 ;;; End:

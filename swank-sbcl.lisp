@@ -43,7 +43,7 @@
   )
 
 (declaim (optimize (debug 3)))
-(in-package :swank)
+(in-package :swank-backend)
 
 (import
  '(sb-gray:fundamental-character-output-stream
@@ -60,7 +60,8 @@
 
 ;;; TCP Server
 
-(setq *swank-in-background* :sigio)
+(defimplementation preferred-communication-style ()
+  :sigio)
 
 (defun resolve-hostname (name)
   (car (sb-bsd-sockets:host-ent-addresses
@@ -196,13 +197,8 @@ You aren't running Linux. The values of +o_async+ etc are probably bogus."))
 
 (defvar *swank-debugger-stack-frame*)
 
-;;; adapted from cmucl
-(defslimefun set-default-directory (directory)
-  (setf *default-pathname-defaults* (merge-pathnames directory))
-  (namestring *default-pathname-defaults*))
-
-(defimplementation arglist-string (fname)
-  (format-arglist fname #'sb-introspect:function-arglist))
+(defimplementation arglist (fname)
+  (sb-introspect:function-arglist fname))
 
 (defvar *buffer-name* nil)
 (defvar *buffer-offset*)
@@ -318,39 +314,23 @@ compiler state."
                  (warning              #'handle-notification-condition))
     (funcall function)))
 
-(defimplementation compile-file-for-emacs (filename load-p)
+(defimplementation swank-compile-file (filename load-p)
   (with-compilation-hooks ()
-    (multiple-value-bind (fasl-file w-p f-p) (compile-file filename)
-      (declare (ignore w-p))
-      (cond ((and load-p fasl-file)
-             (load fasl-file))
-            (t fasl-file)))))
+    (let ((fasl-file (compile-file filename)))
+      (when (and load-p fasl-file)
+        (load fasl-file)))))
 
-(defimplementation compile-system-for-emacs (system-name)
+(defimplementation swank-compile-system (system-name)
   (with-compilation-hooks ()
     (asdf:operate 'asdf:load-op system-name)))
 
-(defimplementation compile-string-for-emacs (string &key buffer position)
+(defimplementation swank-compile-string (string &key buffer position)
   (with-compilation-hooks ()
-    (let ((*package* *buffer-package*)
-          (*buffer-name* buffer)
+    (let ((*buffer-name* buffer)
           (*buffer-offset* position)
           (*buffer-substring* string))
-      (eval (from-string
-             (format nil "(funcall (compile nil '(lambda () ~A)))"
-                     string))))))
-
-;;;; xref stuff doesn't exist for sbcl yet
-
-(defslimefun-unimplemented who-calls (function-name))
-
-(defslimefun-unimplemented who-references (variable))
-
-(defslimefun-unimplemented who-binds (variable))
-
-(defslimefun-unimplemented who-sets (variable))
-
-(defslimefun-unimplemented who-macroexpands (macro))
+      (funcall (compile nil (read-from-string
+                             (format nil "(CL:LAMBDA () ~A)" string)))))))
 
 ;;;; Definitions
 
@@ -382,33 +362,38 @@ This is useful when debugging the definition-finding code.")
        (cond (path (list :source-path path position))
              (t (list :function-name 
                       (or (and name (string name))
-                          (sb-kernel:%fun-name function)))))))))
-                                
-(defimplementation find-function-locations (fname-string)
-  (let* ((symbol (from-string fname-string)))
-    (labels ((finder (fun)
-               (cond ((and (symbolp fun) (macro-function fun))
-                      (list 
-                       (function-source-location (macro-function fun)
-                                                 symbol)))
-                     ((typep fun 'sb-mop:generic-function)
-                      (list*
-                       (function-source-location fun symbol)
-                       (mapcar 
-                        (lambda (x) (function-source-location x symbol))
-                        (sb-mop:generic-function-methods fun))))
-                     ((functionp fun) 
-                      (list 
-                       (function-source-location fun symbol)))
-                     ((sb-introspect:valid-function-name-p fun)
-                      (finder (fdefinition fun)))
-                     (t (list 
-                         (list :error "Not a function: ~A" fun))))))
-      (if *debug-definition-finding*
-          (finder symbol)
-          (handler-case (finder symbol)
-            (error (e) 
-              (list (list :error (format nil "Error: ~A" e)))))))))
+                          (string (sb-kernel:%fun-name function))))))))))
+
+(defun safe-function-source-location (fun name)
+  (if *debug-definition-finding*
+      (function-source-location fun name)
+      (handler-case (function-source-location fun name)
+        (error (e) 
+          (list (list :error (format nil "Error: ~A" e)))))))
+
+(defun method-definitions (gf)
+  (let ((methods (sb-mop:generic-function-methods gf))
+        (name (sb-mop:generic-function-name gf)))
+    (loop for method in methods 
+          collect (list `(method ,name ,(mapcar
+                                         #'sb-mop:class-name
+                                         (sb-mop:method-specializers method)))
+                        (safe-function-source-location method name)))))
+
+(defun function-definitions (symbol)
+  (flet ((loc (fun name) (safe-function-source-location fun name)))
+    (cond ((macro-function symbol)
+           (list (list `(macro ,symbol) (loc (macro-function symbol) symbol))))
+          ((fboundp symbol)
+           (let ((fun (symbol-function symbol)))
+             (cond ((typep fun 'sb-mop:generic-function)
+                    (cons (list `(generic ,symbol) (loc fun symbol))
+                          (method-definitions fun)))
+                   (t
+                    (list (list symbol (loc fun symbol))))))))))
+
+(defimplementation find-definitions (symbol)
+  (function-definitions symbol))
 
 (defimplementation describe-symbol-for-emacs (symbol)
   "Return a plist describing SYMBOL.
@@ -437,17 +422,19 @@ Return NIL if the symbol is unbound."
 		 (doc 'type)))
       result)))
 
-(defimplementation describe-definition (symbol-name type)
+(defimplementation describe-definition (symbol type)
   (case type
     (:variable
-     (describe-symbol symbol-name))
+     (describe symbol))
+    (:function
+     (describe (symbol-function symbol)))
     (:setf
-     (print-description-to-string `(setf ,(from-string symbol-name))))
+     (describe (or (sb-int:info :setf :inverse symbol)
+                   (sb-int:info :setf :expander symbol))))
     (:class
-     (print-description-to-string (find-class (from-string symbol-name) nil)))
+     (describe (find-class symbol)))
     (:type
-     (print-description-to-string
-      (sb-kernel:values-specifier-type (from-string symbol-name))))))
+     (describe (sb-kernel:values-specifier-type symbol)))))
 
 ;;; macroexpansion
 
@@ -459,13 +446,10 @@ Return NIL if the symbol is unbound."
 ;;; Debugging
 
 (defvar *sldb-stack-top*)
-(defvar *sldb-restarts* nil)
-(declaim (type list *sldb-restarts*))
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
   (let* ((*sldb-stack-top* (or sb-debug:*stack-top-hint* (sb-di:top-frame)))
-	 (*sldb-restarts* (compute-restarts *swank-debugger-condition*))
 	 (sb-debug:*stack-top-hint* nil))
     (handler-bind ((sb-di:debug-condition 
 		    (lambda (condition)
@@ -474,27 +458,12 @@ Return NIL if the symbol is unbound."
                                :original-condition condition)))))
       (funcall debugger-loop-fn))))
 
-(defun format-restarts-for-emacs ()
-  "Return a list of restarts for *swank-debugger-condition* in a
-format suitable for Emacs."
-  (loop for restart in *sldb-restarts*
-	collect (list (princ-to-string (restart-name restart))
-		      (princ-to-string restart))))
-
 (defun nth-frame (index)
   (do ((frame *sldb-stack-top* (sb-di:frame-down frame))
        (i index (1- i)))
       ((zerop i) frame)))
 
-(defun nth-restart (index)
-  (nth index *sldb-restarts*))
-
-(defun format-frame-for-emacs (number frame)
-  (print-with-frame-label 
-   number (lambda (*standard-output*)
-            (sb-debug::print-frame-call frame :verbosity 1 :number nil))))
-
-(defun compute-backtrace (start end)
+(defimplementation compute-backtrace (start end)
   "Return a list of frames starting with frame number START and
 continuing to frame number END or, if END is nil, the last frame on the
 stack."
@@ -502,16 +471,11 @@ stack."
     (loop for f = (nth-frame start) then (sb-di:frame-down f)
 	  for i from start below end
 	  while f
-	  collect (cons i f))))
+	  collect f)))
 
-(defimplementation backtrace (start end)
-  (loop for (n . frame) in (compute-backtrace start end)
-        collect (list n (format-frame-for-emacs n frame))))
-
-(defimplementation debugger-info-for-emacs (start end)
-  (list (debugger-condition-for-emacs)
-	(format-restarts-for-emacs)
-	(backtrace start end)))
+(defimplementation print-frame (frame stream)
+  (let ((*standard-output* stream))
+    (sb-debug::print-frame-call frame :verbosity 1 :number nil)))
 
 (defun code-location-source-path (code-location)
   (let* ((location (sb-debug::maybe-block-start-location code-location))
@@ -573,10 +537,6 @@ stack."
   (safe-source-location-for-emacs 
    (sb-di:frame-code-location (nth-frame index))))
 
-#+nil
-(defimplementation eval-in-frame (form index)
-  (sb-di:eval-in-frame (nth-frame index) string))
-
 (defimplementation frame-locals (index)
   (let* ((frame (nth-frame index))
 	 (location (sb-di:frame-code-location frame))
@@ -590,17 +550,10 @@ stack."
                    :value (if (eq (sb-di:debug-var-validity v location)
                                   :valid)
                               (sb-di:debug-var-value v frame)
-                              "<not-available>")))))
+                              '#:<not-available>)))))
 
 (defimplementation frame-catch-tags (index)
-  (loop for (tag . code-location) in (sb-di:frame-catches (nth-frame index))
-	collect `(,tag . ,(safe-source-location-for-emacs code-location))))
-
-(defslimefun invoke-nth-restart (index)
-  (invoke-restart-interactively (nth-restart index)))
-
-(defslimefun sldb-abort ()
-  (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
+  (mapcar #'car (sb-di:frame-catches (nth-frame index))))
 
 (defimplementation eval-in-frame (form index)
   (let ((frame (nth-frame index)))
@@ -616,7 +569,6 @@ stack."
 
 (defimplementation return-from-frame (index form)
   (let* ((frame (nth-frame index))
-         (form (from-string form))
          (probe (assoc-if #'sb-debug-catch-tag-p
                           (sb-di::frame-catches frame))))
     (cond (probe (throw (car probe) (eval-in-frame form index)))

@@ -8,7 +8,7 @@
 ;;; are disclaimed.
 ;;;
 
-(in-package :swank)
+(in-package :swank-backend)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require "comm"))
@@ -27,7 +27,8 @@
 
 ;;; TCP server
 
-(setq *swank-in-background* :spawn)
+(defimplementation preferred-communication-style ()
+  :spawn)
 
 (defun socket-fd (socket)
   (etypecase socket
@@ -82,14 +83,12 @@
 (defimplementation lisp-implementation-type-name ()
   "lispworks")
 
-(defimplementation arglist-string (fname)
-  (format-arglist fname 
-                  (lambda (symbol)
-                    (let ((arglist (lw:function-lambda-list symbol)))
-                      (etypecase arglist
-                        ((member :dont-know)
-                         (error "<arglist-unavailable>"))
-                        (cons arglist))))))
+(defimplementation arglist (symbol)
+  (let ((arglist (lw:function-lambda-list symbol)))
+    (etypecase arglist
+      ((member :dont-know)
+       (error "<arglist-unavailable>"))
+      (list arglist))))
 
 (defimplementation macroexpand-all (form)
   (walker:walk-form form))
@@ -118,29 +117,25 @@ Return NIL if the symbol is unbound."
       (maybe-push
        :class (if (find-class symbol nil) 
                   (doc 'class)))
-      (if result
-          (list* :designator (to-string symbol) result)))))
+      result)))
 
-(defimplementation describe-definition (symbol-name type)
-  (case type
-    ;; FIXME: This should cover all types returned by
-    ;; DESCRIBE-SYMBOL-FOR-EMACS.
-    (:function (describe-function symbol-name))))
+(defimplementation describe-definition (symbol type)
+  (ecase type
+    (:variable (describe-symbol symbol))
+    (:class (describe (find-class symbol)))
+    (:function (describe-function symbol))))
 
-(defun describe-function (symbol-name)
-  (with-output-to-string (*standard-output*)
-    (let ((sym (from-string symbol-name)))
-      (cond ((fboundp sym)
-             (format t "~%(~A~{ ~A~})~%~%~:[(not documented)~;~:*~A~]~%"
-                     (string-downcase sym)
-                     (mapcar #'string-upcase 
-                             (lispworks:function-lambda-list sym))
-                     (documentation sym 'function))
-             (describe (symbol-function sym)))
-            (t (format t "~S is not fbound" sym))))))
+(defun describe-function (symbol)
+  (cond ((fboundp symbol)
+         (format t "~%(~A~{ ~A~})~%~%~:[(not documented)~;~:*~A~]~%"
+                 (string-downcase symbol)
+                 (mapcar #'string-upcase 
+                         (lispworks:function-lambda-list symbol))
+                 (documentation symbol 'function))
+         (describe (symbol-function symbol)))
+        (t (format t "~S is not fbound" symbol))))
 
-#+(or)
-(defimplementation describe-object ((sym symbol) *standard-output*)
+(defun describe-symbol (sym)
   (format t "~A is a symbol in package ~A." sym (symbol-package sym))
   (when (boundp sym)
     (format t "~%~%Value: ~A" (symbol-value sym)))
@@ -148,32 +143,17 @@ Return NIL if the symbol is unbound."
     (when doc 
       (format t "~%~%Variable documentation:~%~A"  doc)))
   (when (fboundp sym)
-    (format t "~%~%(~A~{ ~A~})" 
-	    (string-downcase sym)
-	    (mapcar #'string-upcase 
-		    (lispworks:function-lambda-list sym))))
-  (let ((doc (documentation sym 'function)))
-    (when doc (format t "~%~%~A~%"  doc))))
+    (describe-function sym)))
 
 ;;; Debugging
 
-(defvar *sldb-restarts*)
 (defvar *sldb-top-frame*)
-
-(defslimefun sldb-abort ()
-  (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
 
 (defimplementation call-with-debugging-environment (fn)
   (dbg::with-debugger-stack ()
-    (let ((*sldb-restarts* (compute-restarts *swank-debugger-condition*))
-          (*sldb-top-frame* (dbg::debugger-stack-current-frame 
+    (let ((*sldb-top-frame* (dbg::debugger-stack-current-frame 
                              dbg::*debugger-stack*)))
       (funcall fn))))
-
-(defun format-restarts-for-emacs ()
-  (loop for restart in *sldb-restarts*
-        collect (list (princ-to-string (restart-name restart))
-                      (princ-to-string restart))))
 
 (defun interesting-frame-p (frame)
   (or (dbg::call-frame-p frame)
@@ -186,7 +166,7 @@ Return NIL if the symbol is unbound."
       ((and (interesting-frame-p frame) (zerop i)) frame)
     (assert frame)))
 
-(defun compute-backtrace (start end)
+(defimplementation compute-backtrace (start end)
   (let ((end (or end most-positive-fixnum))
 	(backtrace '()))
     (do ((frame (nth-frame start) (dbg::frame-next frame))
@@ -196,29 +176,12 @@ Return NIL if the symbol is unbound."
 	(incf i)
 	(push frame backtrace)))))
 
-(defimplementation backtrace (start end)
-  (flet ((format-frame (f i)
-           (print-with-frame-label
-            i (lambda (s)
-	       (cond ((dbg::call-frame-p f)
-                      (format s "~A ~A"
-                              (dbg::call-frame-function-name f)
-                              (dbg::call-frame-arglist f)))
-                     (t (princ f s)))))))
-    (loop for i from start
-	  for f in (compute-backtrace start end)
-	  collect (list i (format-frame f i)))))
-
-(defimplementation debugger-info-for-emacs (start end)
-  (list (debugger-condition-for-emacs)
-        (format-restarts-for-emacs)
-        (backtrace start end)))
-
-(defun nth-restart (index)
-  (nth index *sldb-restarts*))
-
-(defslimefun invoke-nth-restart (index)
-  (invoke-restart-interactively (nth-restart index)))
+(defimplementation print-frame (frame stream)
+  (cond ((dbg::call-frame-p frame)
+         (format stream "~A ~A"
+                 (dbg::call-frame-function-name frame)
+                 (dbg::call-frame-arglist frame)))
+        (t (princ frame stream))))
 
 (defimplementation frame-locals (n)
   (let ((frame (nth-frame n)))
@@ -242,7 +205,7 @@ Return NIL if the symbol is unbound."
     (if (dbg::call-frame-p frame)
 	(let ((func (dbg::call-frame-function-name frame)))
 	  (if func 
-	      (name-source-location func))))))
+	      (cadr (name-source-location func)))))))
 
 (defimplementation eval-in-frame (form frame-number)
   (let ((frame (nth-frame frame-number)))
@@ -250,8 +213,7 @@ Return NIL if the symbol is unbound."
 
 (defimplementation return-from-frame (frame-number form)
   (let* ((frame (nth-frame frame-number))
-         (return-frame (dbg::find-frame-for-return frame))
-         (form (from-string form)))
+         (return-frame (dbg::find-frame-for-return frame)))
     (dbg::dbg-return-from-call-frame frame form return-frame 
                                      dbg::*debugger-stack*)))
 
@@ -270,14 +232,14 @@ Return NIL if the symbol is unbound."
 	   (list :error (format nil "Cannot find source for ~S" name)))
 	  (t
            (loop for (dspec location) in locations
-                 collect (make-dspec-location dspec location))))))
+                 collect (list dspec (make-dspec-location dspec location)))))))
 
-(defimplementation find-function-locations (fname)
-  (name-source-locations (from-string fname)))
+(defimplementation find-definitions (name)
+  (name-source-locations name))
 
 ;;; Compilation 
 
-(defimplementation compile-file-for-emacs (filename load-p)
+(defimplementation swank-compile-file (filename load-p)
   (let ((compiler::*error-database* '()))
     (with-compilation-unit ()
       (compile-file filename :load load-p)
@@ -376,11 +338,10 @@ Return NIL if the symbol is unbound."
 		nil)))
 	   htab))
 
-(defimplementation compile-string-for-emacs (string &key buffer position)
+(defimplementation swank-compile-string (string &key buffer position)
   (assert buffer)
   (assert position)
-  (let* ((*package* *buffer-package*)
-         (location (list :emacs-buffer buffer position string))
+  (let* ((location (list :emacs-buffer buffer position string))
          (compiler::*error-database* '())
          (tmpname (hcl:make-temp-file nil "lisp")))
     (with-compilation-unit ()
@@ -395,35 +356,30 @@ Return NIL if the symbol is unbound."
 
 ;;; xref
 
-(defun lookup-xrefs (finder name)
-  (xref-results-for-emacs (funcall finder (from-string name))))
+(defun xrefs (dspecs)
+  (loop for dspec in dspecs
+        nconc (loop for (dspec location) in 
+                    (dspec:dspec-definition-locations dspec)
+                    collect (list dspec 
+                                  (make-dspec-location dspec location)))))
 
-(defimplementation who-calls (function-name)
-  (lookup-xrefs #'hcl:who-calls function-name))
+(defimplementation who-calls (name)
+  (xrefs (hcl:who-calls name)))
 
-(defimplementation who-references (variable)
-  (lookup-xrefs #'hcl:who-references variable))
+(defimplementation who-references (name)
+  (xrefs (hcl:who-references name)))
 
-(defimplementation who-binds (variable)
-  (lookup-xrefs #'hcl:who-binds variable))
+(defimplementation who-binds (name)
+  (xrefs (hcl:who-binds name)))
 
-(defimplementation who-sets (variable)
-  (lookup-xrefs #'hcl:who-sets variable))
+(defimplementation who-sets (name)
+  (xrefs (hcl:who-sets name)))
 
-(defun xref-results-for-emacs (dspecs)
-  (let ((xrefs '()))
-    (dolist (dspec dspecs)
-      (loop for (dspec location) in (dspec:find-dspec-locations dspec)
-            do (push (cons (to-string dspec)
-                           (make-dspec-location dspec location))
-                     xrefs)))
-    (group-xrefs xrefs)))
+(defimplementation list-callers (name)
+  (xrefs (hcl:who-calls name)))
 
-(defimplementation list-callers (symbol-name)
-  (lookup-xrefs #'hcl:who-calls symbol-name))
-
-(defimplementation list-callees (symbol-name)
-  (lookup-xrefs #'hcl:calls-who symbol-name))
+(defimplementation list-callees (name)
+  (xrefs (hcl:calls-who name)))
 
 ;;; Inspector
 
