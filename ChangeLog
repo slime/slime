@@ -1,3 +1,8 @@
+2004-09-14  Thomas Schilling <tjs_ng@yahoo.de>
+
+	* swank-allegro.lisp (inspected-parts): Implement inspector for
+	structs.
+
 2004-09-13  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank.lisp (intern-catch-tag): New function.

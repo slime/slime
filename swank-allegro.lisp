@@ -421,6 +421,100 @@
                                   (make-unbound-slot-filler)))))
                     slots))))
 
+;; duplicated from swank.lisp in order to avoid package dependencies
+(defun common-seperated-spec (list &optional (callback (lambda (v) `(:value ,v))))
+  (butlast
+   (loop
+      for i in list
+      collect (funcall callback i)
+      collect ", ")))
+
+;; AllegroCL doesn't support (documentation <function-obj> t)
+;; so we get the symbol and then its doc
+(defun function-documentation (obj)
+  (documentation (excl::external-fn_symdef obj) 'function))
+
+(defmethod inspected-parts ((f function))  
+  (values (format nil "The function ~S." f)
+          `("Name: " (:value ,(function-name f)) (:newline)
+            "It's argument list is: " ,(princ-to-string (arglist f)) (:newline)
+            "Documentation:" (:newline)
+            ,(function-documentation f))))
+
+(defmethod inspected-parts ((class structure-class))
+  (values "A structure class."
+          `("Name: " (:value ,(class-name class))
+            (:newline)
+            "Super classes: " ,@(common-seperated-spec (swank-mop:class-direct-superclasses class))
+            (:newline)
+            "Direct Slots: " ,@(common-seperated-spec (swank-mop:class-direct-slots class)
+                                                      (lambda (slot)
+                                                        `(:value ,slot ,(princ-to-string
+                                                                         (swank-mop:slot-definition-name slot)))))
+            (:newline)
+            "Effective Slots: " ,@(if (swank-mop:class-finalized-p class)
+                                      (common-seperated-spec (swank-mop:class-slots class)
+                                                             (lambda (slot)
+                                                               `(:value ,slot ,(princ-to-string
+                                                                                (swank-mop:slot-definition-name slot)))))
+                                      '("N/A (class not finalized)"))
+            (:newline)
+            "Documentation:" (:newline)
+            ,@(when (documentation class t)
+                `(,(documentation class t) (:newline)))
+            "Sub classes: " ,@(common-seperated-spec (swank-mop:class-direct-subclasses class)
+                                                     (lambda (sub)
+                                                       `(:value ,sub ,(princ-to-string (class-name sub)))))
+            (:newline)
+            "Precedence List: " ,@(if (swank-mop:class-finalized-p class)
+                                      (common-seperated-spec (swank-mop:class-precedence-list class)
+                                                             (lambda (class)
+                                                               `(:value ,class ,(princ-to-string (class-name class)))))
+                                      '("N/A (class not finalized)"))
+            (:newline)
+            "Prototype: " ,(if (swank-mop:class-finalized-p class)
+                               `(:value ,(swank-mop:class-prototype class))
+                               '"N/A (class not finalized)"))))
+
+(defmethod inspected-parts ((slot excl::structure-slot-definition))
+  (values "A structure slot." 
+          `("Name: " (:value ,(mop:slot-definition-name slot))
+            (:newline)
+            "Documentation:" (:newline)
+            ,@(when (documentation slot)
+                `((:value ,(documentation slot)) (:newline)))
+            "Initform: " ,(if (swank-mop:slot-definition-initform slot)
+                             `(:value ,(swank-mop:slot-definition-initform slot))
+                             "#<unspecified>") (:newline)
+            "Type: " ,(if (swank-mop:slot-definition-type slot)
+                          `(:value ,(swank-mop:slot-definition-type slot))
+                          "#<unspecified>") (:newline)
+            "Allocation: " (:value ,(excl::slotd-allocation slot)) (:newline)
+            "Read-only: " (:value ,(excl::slotd-read-only slot)) (:newline))))
+
+(defmethod inspected-parts ((o structure-object))
+  (values "An structure object."
+          `("Structure class: " (:value ,(class-of o))
+            (:newline)
+            "Slots:" (:newline)
+            ,@(loop
+                 with direct-slots = (swank-mop:class-direct-slots (class-of o))
+                 for slot in (swank-mop:class-slots (class-of o))
+                 for slot-def = (or (find-if (lambda (a)
+                                               ;; find the direct slot with the same as
+                                               ;; SLOT (an effective slot).
+                                               (eql (swank-mop:slot-definition-name a)
+                                                    (swank-mop:slot-definition-name slot)))
+                                             direct-slots)
+                                    slot)
+                 collect `(:value ,slot-def ,(princ-to-string (swank-mop:slot-definition-name slot-def)))
+                 collect " = "
+                 if (slot-boundp o (swank-mop:slot-definition-name slot-def))
+                   collect `(:value ,(slot-value o (swank-mop:slot-definition-name slot-def)))
+                 else
+                   collect "#<unbound>"
+                 collect '(:newline)))))
+
 ;;;; Multithreading
 
 (defimplementation startup-multiprocessing ()
