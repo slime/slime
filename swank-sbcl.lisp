@@ -418,6 +418,20 @@ Return NIL if the symbol is unbound."
     (:type
      (describe (sb-kernel:values-specifier-type symbol)))))
 
+(defun function-dspec (fn)
+  "Describe where the function FN was defined.
+Return a list of the form (NAME LOCATION)."
+  (let ((name (sb-kernel:%fun-name fn)))
+    (list name (safe-function-source-location fn name))))
+
+(defimplementation list-callers (symbol)
+  (let ((fn (fdefinition symbol)))
+    (mapcar #'function-dspec (sb-introspect:find-function-callers fn))))
+
+(defimplementation list-callees (symbol)
+  (let ((fn (fdefinition symbol)))
+    (mapcar #'function-dspec (sb-introspect:find-function-callees fn))))
+
 ;;; macroexpansion
 
 (defimplementation macroexpand-all (form)
