@@ -587,6 +587,11 @@ Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time."
 (definterface interrupt-thread (thread fn)
   "Cause THREAD to execute FN.")
 
+(definterface kill-thread (thread)
+  "Kill THREAD."
+  (declare (ignore thread))
+  nil)
+
 (definterface send (thread object)
   "Send OBJECT to thread THREAD.")
 

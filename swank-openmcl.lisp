@@ -627,6 +627,9 @@ out IDs for.")
 (defimplementation all-threads ()
   (ccl:all-processes))
 
+(defimplementation kill-thread (thread)
+  (ccl:process-kill thread))
+
 (defimplementation interrupt-thread (thread fn)
   (ccl:process-interrupt thread fn))
 

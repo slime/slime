@@ -985,6 +985,9 @@ This is more compatible with the CL reader."
 (defun slime-read-port-and-connect (&optional retries)
   "Connect to a running Swank server."
   (slime-start-swank-server)
+  (slime-read-port-and-connect-to-running-swank retries))
+
+(defun slime-read-port-and-connect-to-running-swank (retries)
   (lexical-let ((retries (or retries slime-swank-connection-retries))
                 (attempt 0))
     (labels
@@ -4683,12 +4686,38 @@ was called originally."
     (set (make-local-variable 'truncate-lines) t)))
 
 (slime-define-keys slime-thread-control-mode-map
+  ("a"         'slime-thread-attach)
+  ("d"         'slime-thread-debug)
+  ("g"         'slime-list-threads)
+  ("k"         'slime-thread-kill)
   ((kbd "RET") 'slime-thread-goahead)
   ("q"         'slime-thread-quit))
 
 (defun slime-thread-quit ()
   (interactive)
   (kill-buffer (current-buffer)))
+
+(defun slime-thread-kill ()
+  (interactive)
+  (slime-eval `(swank::kill-thread (swank::lookup-thread-by-id ,(get-text-property (point) 'thread-id))))
+  (call-interactively 'slime-list-threads))
+
+(defun slime-thread-attach ()
+  (interactive)
+  (slime-eval-async `(swank::interrupt-thread
+                      (swank::lookup-thread-by-id ,(get-text-property (point) 'thread-id))
+                      (cl:lambda ()
+                        (swank::start-server ,(slime-swank-port-file) nil)))
+                    (slime-buffer-package)
+                    (lambda (v)
+                      nil))
+  (slime-read-port-and-connect-to-running-swank nil))
+
+(defun slime-thread-debug ()
+  (interactive)
+  (slime-eval-async `(swank::debug-thread ,(get-text-property (point) 'thread-id))
+                    (slime-buffer-package)
+                    (lambda (v) nil)))
 
 
 ;;;;; Connection listing

@@ -156,9 +156,9 @@ Redirection is done while Lisp is processing a request for Emacs.")
 (defvar *swank-in-background* nil)
 (defvar *log-events* nil)
 
-(defun start-server (port-file)
+(defun start-server (port-file &optional (background *swank-in-background*))
   (setup-server 0 (lambda (port) (announce-server-port port-file port))
-                *swank-in-background*))
+                background))
                      
 (defun create-swank-server (&optional (port +server-port+)
                             (background *swank-in-background*)
@@ -1518,6 +1518,32 @@ a time.")
 
 (defslimefun quit-thread-browser ()
   (setq *thread-list* nil))
+
+(defun lookup-thread-by-id (id)
+  (nth id (all-threads)))
+
+(defun debug-thread (thread-id)
+  (interrupt-thread (lookup-thread-by-id thread-id)
+                    (let ((pack *package*))
+                      (lambda ()
+                        (catch 'slime-toplevel
+                          (let ((*debugger-hook* (lambda (c h)
+                                                   (declare (ignore h))
+                                                   ;; cut 'n paste from swank-debugger-hook
+                                                   (let ((*swank-debugger-condition* c)
+                                                         (*buffer-package* pack)
+                                                         (*package* pack)
+                                                         (*sldb-level* (1+ *sldb-level*))
+                                                         (*swank-state-stack* (cons :swank-debugger-hook *swank-state-stack*)))
+                                                     (force-user-output)
+                                                     (call-with-debugging-environment
+                                                      (lambda () (sldb-loop *sldb-level*)))))))
+                            (restart-case
+                                (error (make-condition 'simple-error
+                                                       :format-control "Interrupt from Emacs"))
+                              (un-interrupt ()
+                                :report "Abandon control of this thread."
+                                nil))))))))
 
 ;;; Local Variables:
 ;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))

@@ -1,3 +1,25 @@
+2004-02-27  Marco Baringer  <mb@bese.it>
+
+	* slime.el (slime-read-port-and-connect,
+	slime-read-port-and-connect-to-running-swank): Refactor
+	slime-read-port-and-connect into two functions so that
+	slime-thread-attach can use the logic in
+	slime-read-port-and-connect.
+	(slime-thread-control-mode-map): Added key bindings for
+	slime-thread-kill, slime-thread-attach, slime-thread-debug and
+	slime-list-threads.
+	(slime-thread-kill, slime-thread-attach, slime-thread-debug): New
+	functions.
+
+	* swank-backend.lisp (kill-thread): Added to swank interface.
+
+	* swank-openmcl.lisp (kill-thread): Implement.
+
+	* swank.lisp (start-server): Add optional background argument,
+	defaults to *swank-background*.
+	(lookup-thread-by-id): New function.
+	(debug-thread): New function.
+	
 2004-02-26  Peter Seibel  <peter@javamonkey.com>
 
 	* slime.el (slime-draw-connection-list): Use text-properties to
