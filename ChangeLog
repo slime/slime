@@ -1,3 +1,20 @@
+2003-12-10  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-allegro.lisp, swank-lispworks.lisp, swank-openmcl.lisp,
+	swank-sbcl.lisp (create-swank-server): Accept an announce-function
+	keyword argument.
+
+	* swank.lisp (start-server): Pass an announce callback function to
+	create-swank-server.  Works better with single threaded
+	implementations.
+	(announce-server-port, simple-announce-function): New functions.
+	(alistify): Doc fix.
+
+	* swank-cmucl.lisp (create-swank-server): Use announce callback.
+	(sldb-disassemble): New function.
+
+	* slime.el (sldb-disassemble): New command. Bound to D.
+
 2003-12-08  Luke Gorrie  <luke@bluetail.com>
 
 	* swank-cmucl.lisp (*debug-definition-finding*): Now nil by
