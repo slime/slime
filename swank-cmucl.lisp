@@ -13,7 +13,7 @@
     (let ((flags (fcntl fd unix:F-GETFL 0)))
       (fcntl fd unix:F-SETFL (logior flags unix:O_NONBLOCK)))))
 
-(set-fd-non-blocking (sys:fd-stream-fd sys:*stdin*))
+;; (set-fd-non-blocking (sys:fd-stream-fd sys:*stdin*))
 (setf c:*record-xref-info* t)
 
 ;;; TCP Server.
@@ -42,7 +42,7 @@
     (cond ((char= #\newline char)
 	   (force-output stream)
 	   (setf (sos.column stream) 0))
-	  ((= index (length buffer))
+	  ((= index (1- (length buffer)))
 	   (force-output stream))))
   char)
 
@@ -155,10 +155,21 @@ The request is read from the socket as a sexp and then evaluated."
 
 ;;;; Compilation Commands
 
-(defvar *buffername*)
-(defvar *buffer-offset*)
+(defvar *swank-source-info* nil
+  "Bound to a SOURCE-INFO object during compilation.")
 
-(defun handle-notification-condition (condition)
+(defclass source-info () ()
+	  (:documentation "Some info about the current compilatoin unit."))
+
+(defclass file-source-info (source-info) 
+  ((filename :initarg :filename)))
+
+(defclass buffer-source-info (source-info)
+  ((buffer :initarg :buffer) 
+   (start-offset :initarg :start-offset)
+   (string :initarg :string)))
+
+(defun handle-compiler-condition (condition)
   "Handle a condition caused by a compiler warning.
 This traps all compiler conditions at a lower-level than using
 C:*COMPILER-NOTIFICATION-FUNCTION*. The advantage is that we get to
@@ -168,39 +179,46 @@ information."
     (let ((context (or (c::find-error-context nil) *previous-context*)))
       (setq *previous-compiler-condition* condition)
       (setq *previous-context* context)
-      (let ((note (if context
-		      (compiler-note-for-emacs condition context)
-		      (minimal-compiler-note-for-emacs condition))))
-	(push note *compiler-notes*)
-	(when *compile-file-truename*
-	  (push note (gethash (namestring *compile-file-truename*)
-			      *notes-database*)))))))
-	       
-(defun compiler-note-for-emacs (condition context)
-  (let* ((file-name (c::compiler-error-context-file-name context))
-	 (file-position (c::compiler-error-context-file-position context))
-	 (file (if (typep file-name 'pathname)
-		   (unix-truename file-name)
-		   file-name)))
-    (list
-     :position file-position
-     :filename (and (stringp file) file)
-     :source-path (current-compiler-error-source-path context)
-     :severity (severity-for-emacs condition)
-     :message (brief-compiler-message-for-emacs condition context)
-     :buffername (if (boundp '*buffername*) *buffername*)
-     :buffer-offset (if (boundp '*buffer-offset*) *buffer-offset*))))
+      (let ((note (make-compiler-note condition context)))
+	(push note *compiler-notes*)))))
 
-(defun minimal-compiler-note-for-emacs (condition)
-  "Return compiler note with only minimal context information."
-  (list :position 0
-	:filename (if *compile-file-truename* 
-		      (namestring *compile-file-truename*))
-	:source-path nil 
+(defun make-compiler-note (condition context)
+  (list :message (brief-compiler-message-for-emacs condition context)
 	:severity (severity-for-emacs condition)
-	:message (princ-to-string condition)
-	:buffername (if (boundp '*buffername*) *buffername*)
-	:buffer-offset (if (boundp '*buffer-offset*) *buffer-offset*)))
+	:location 
+	(cond (context
+	       (let ((cx context))
+		 (resolve-location
+		  *swank-source-info*
+		  (c::compiler-error-context-file-name cx)
+		  (c::compiler-error-context-file-position cx)
+		  (reverse (c::compiler-error-context-original-source-path cx))
+		  (c::compiler-error-context-original-source cx))))
+	      (t
+	       (resolve-location *swank-source-info* nil nil nil nil)))))
+  
+(defgeneric resolve-location (source-info 
+			      file-name file-position
+			      source-path source))
+
+(defmethod resolve-location (i (f pathname) position path source)
+  `(:file ,(unix-truename f) ,(source-path-file-position path f)))
+
+(defmethod resolve-location ((i buffer-source-info) (f (eql :stream))
+			     position path source)
+  (with-slots (buffer start-offset string) i
+    `(:emacs-buffer 
+      ,buffer
+      ,(+ start-offset (source-path-string-position path string)))))
+
+(defmethod resolve-location (i (f (eql :lisp)) position path source)
+  '(:null))
+
+(defmethod resolve-location (i (f (eql nil)) 
+			       (pos (eql nil)) 
+			       (path (eql nil))
+			       (source (eql nil)))
+  '(:null))
 
 (defun severity-for-emacs (condition)
   (etypecase condition
@@ -213,8 +231,10 @@ information."
 When Emacs presents the message it already has the source popped up
 and the source form highlighted. This makes much of the information in
 the error-context redundant."
-  (declare (type c::compiler-error-context error-context))
-  (let ((enclosing (c::compiler-error-context-enclosing-source error-context)))
+  (declare (type (or c::compiler-error-context null) error-context))
+  (let ((enclosing (and error-context
+			(c::compiler-error-context-enclosing-source 
+			 error-context))))
     (if enclosing
         (format nil "--> ~{~<~%--> ~1:;~A~> ~}~%~A" enclosing condition)
         (format nil "~A" condition))))
@@ -231,9 +251,9 @@ compiler state."
 	  (c::compiler-error-context-original-source-path context)))))
 
 (defun call-trapping-compilation-notes (fn)
-  (handler-bind ((c::compiler-error #'handle-notification-condition)
-                 (c::style-warning #'handle-notification-condition)
-                 (c::warning #'handle-notification-condition))
+  (handler-bind ((c::compiler-error #'handle-compiler-condition)
+                 (c::style-warning #'handle-compiler-condition)
+                 (c::warning #'handle-compiler-condition))
     (funcall fn)))
 
 (defslimefun swank-compile-file (filename load)
@@ -241,21 +261,24 @@ compiler state."
    (lambda ()
      (clear-note-database filename)
      (clear-xref-info filename)
-     (let ((*buffername* nil)
-	   (*buffer-offset* nil))
+     (let ((*swank-source-info* (make-instance 'file-source-info
+					       :filename filename)))
        (compile-file filename :load load)))))
 
 (defslimefun swank-compile-string (string buffer start)
   (call-with-compilation-hooks
    (lambda ()
      (let ((*package* *buffer-package*)
-	   (*buffername* buffer)
-	   (*buffer-offset* start))
+	   (*swank-source-info* (make-instance 'buffer-source-info
+					       :buffer buffer
+					       :start-offset start
+					       :string string)))
        (with-input-from-string (stream string)
 	 (ext:compile-from-stream 
 	  stream 
 	  :source-info `(:emacs-buffer ,buffer 
-			 :emacs-buffer-offset ,start)))))))
+			 :emacs-buffer-offset ,start
+			 :emacs-buffer-string ,string)))))))
 
 (defun clear-xref-info (namestring)
   "Clear XREF notes pertaining to FILENAME.
@@ -270,9 +293,10 @@ This is a workaround for a CMUCL bug: XREF records are cumulative."
                         xref::*who-sets*))
         (maphash (lambda (target contexts)
                    (setf (gethash target db)
-                         (delete-if (lambda (ctx)
-                                      (xref-context-derived-from-p ctx filename))
-                                    contexts)))
+                         (delete-if 
+			  (lambda (ctx)
+			    (xref-context-derived-from-p ctx filename))
+			  contexts)))
                  db)))))
 
 (defun xref-context-derived-from-p (context filename)
@@ -402,28 +426,29 @@ It is assumed that all contexts belong to the same file."
 	       callees))))
     callees))
 
-(declaim (inline map-allocated-code-components))
+(declaim (ext:maybe-inline map-allocated-code-components))
 (defun map-allocated-code-components (spaces fn)
   "Call FN for each allocated code component in one of SPACES.  FN
-receives the object and it's size as arguments.  SPACES should be a
-list of the symbols :dynamic, :static, or :read-only."
+receives the object as argument.  SPACES should be a list of the
+symbols :dynamic, :static, or :read-only."
   (dolist (space spaces)
     (declare (inline vm::map-allocated-objects))
     (vm::map-allocated-objects
      (lambda (obj header size)
+       (declare (type fixnum size) (ignore size))
        (when (= vm:code-header-type header)
-	 (funcall fn obj size)))
+	 (funcall fn obj)))
      space)))
 
-(declaim (inline map-caller-code-components))
+(declaim (ext:maybe-inline map-caller-code-components))
 (defun map-caller-code-components (function spaces fn)
   "Call FN for each code component with a fdefn for FUNCTION in its
 constant pool."
   (let ((function (coerce function 'function)))
+    (declare (inline map-allocated-code-components))
     (map-allocated-code-components
      spaces 
-     (lambda (obj size)
-       (declare (ignore size))
+     (lambda (obj)
        (map-code-constants 
 	obj 
 	(lambda (constant)
@@ -436,6 +461,7 @@ constant pool."
 						      :dynamic)))
   "Return FUNCTION's callers as a list of names."
   (let ((referrers '()))
+    (declare (inline map-caller-code-components))
     (map-caller-code-components 
      function
      spaces
@@ -647,6 +673,168 @@ Return NIL if the symbol is unbound."
 	  (t
 	   (debug::trace-1 fname (debug::make-trace-info))
 	   (format nil "~S is now traced." fname)))))
+
+;;; Source-path business
+
+;; CMUCL uses a data structure called "source-path" to locate
+;; subforms.  The compiler assigns a source-path to each form in a
+;; compilation unit.  Compiler notes usually contain the source-path
+;; of the error location.
+;;
+;; Compiled code objects don't contain source paths, only the
+;; "toplevel-form-number" and the (sub-) "form-number".  To get from
+;; the form-number to the source-path we need the entire toplevel-form
+;; (i.e. we have to read the source code).  CMUCL has already some
+;; utilities to do this translation, but we use some extended
+;; versions, because we need more exact position info.  Apparently
+;; Hemlock is happy with the position of the toplevel-form; we also
+;; need the position of subforms.
+;;
+;; We use a special readtable to get the positions of the subforms.
+;; The readtable stores the start and end position for each subform in
+;; hashtable for later retrieval.
+
+(defun make-source-recorder (fn source-map)
+  "Return a macro character function that does the same as FN, but
+additionally stores the result together with the stream positions
+before and after of calling FN in the hashtable SOURCE-MAP."
+  (lambda (stream char)
+    (let ((start (file-position stream))
+	  (values (multiple-value-list (funcall fn stream char)))
+	  (end (file-position stream)))
+      #+(or) (format t "~&[~D ~{~A~^, ~} ~D]~%" start values end)
+      (unless (null values) 
+	(push (cons start end) (gethash (car values) source-map)))
+      (values-list values))))
+
+(defun make-source-recording-readtable (readtable source-map) 
+  "Return a source position recording copy of READTABLE.
+The source locations are stored in SOURCE-MAP."
+  (let* ((tab (copy-readtable readtable))
+	 (*readtable* tab))
+    (dotimes (code char-code-limit)
+      (let ((char (code-char code)))
+	(multiple-value-bind (fn term) (get-macro-character char tab)
+	  (when fn
+	    (set-macro-character char (make-source-recorder fn source-map) 
+				 term tab)))))
+    tab))
+
+(defun make-source-map ()
+  (make-hash-table :test #'eq))
+
+(defvar *source-map* (make-source-map)
+  "The hashtable table used for source position recording.")
+
+(defvar *recording-readtable-cache* '()
+  "An alist of (READTABLE . RECORDING-READTABLE) pairs.")
+
+(defun lookup-recording-readtable (readtable)
+  "Find a cached or create a new recording readtable for READTABLE."
+  (or (cdr (assoc readtable *recording-readtable-cache*))
+      (let ((table (make-source-recording-readtable readtable *source-map*)))
+	(push (cons readtable table) *recording-readtable-cache*)
+	table)))
+			
+(defun read-and-record-source-map (stream)
+  "Read the next object from STREAM.
+Return the object together with a hashtable that maps
+subexpressions of the object to stream positions."
+  (let ((*readtable* (lookup-recording-readtable *readtable*)))
+    (clrhash *source-map*)
+    (values (read stream) *source-map*)))
+  
+(defun source-path-stream-position (path stream)
+  "Search the source-path PATH in STREAM and return its position."
+  (destructuring-bind (tlf-number . path) path
+    (let ((*read-suppress* t))
+      (dotimes (i tlf-number) (read stream))
+      (multiple-value-bind (form source-map)
+	  (read-and-record-source-map stream)
+	(source-path-source-position (cons 0 path) form source-map)))))
+
+(defun source-path-string-position (path string)
+  (with-input-from-string (s string)
+    (source-path-stream-position path s)))
+
+(defun source-path-file-position (path filename)
+  (with-open-file (file filename)
+    (source-path-stream-position path file)))
+
+(defun source-path-source-position (path form source-map)
+  "Return the start position of PATH form FORM and SOURCE-MAP.  All
+subforms along the path are considered and the start and end position
+of deepest (i.e. smallest) possible form is returned."
+  ;; compute all subforms along path
+  (let ((forms (loop for n in path
+		     for f = form then (nth n f)
+		     collect f)))
+    ;; select the first subform present in source-map
+    (loop for form in (reverse forms)
+	  for positions = (gethash form source-map)
+	  until positions 
+	  finally (destructuring-bind ((start . end)) positions
+		    (return (values (1- start) end))))))
+
+(defun code-location-stream-position (code-location stream)
+  "Return the byte offset of CODE-LOCATION in STREAM.  Extract the
+toplevel-form-number and form-number from CODE-LOCATION and use that
+to find the position of the corresponding form."
+  (let* ((location (debug::maybe-block-start-location code-location))
+	 (tlf-offset (di:code-location-top-level-form-offset location))
+	 (form-number (di:code-location-form-number location))
+	 (*read-suppress* t))
+    (dotimes (i tlf-offset) (read stream))
+    (multiple-value-bind (tlf position-map) (read-and-record-source-map stream)
+      (let* ((path-table (di:form-number-translations tlf 0))
+	     (source-path (reverse (cdr (aref path-table form-number)))))
+	(source-path-source-position source-path tlf position-map)))))
+  
+(defun code-location-string-offset (code-location string)
+  (with-input-from-string (s string)
+    (code-location-stream-position code-location s)))
+
+(defun code-location-file-position (code-location filename)
+  (with-open-file (s filename :direction :input)
+    (code-location-stream-position code-location s)))
+
+(defun make-file-location (pathname code-location)
+  (list :file
+	(unix-truename pathname) 
+	(1+ (code-location-file-position code-location pathname))))
+
+(defun make-buffer-location (buffer start string code-location)
+  (list :emacs-buffer
+	buffer 
+	(+ start (code-location-string-offset code-location string))))
+
+(defun debug-source-info-from-emacs-buffer-p (debug-source)
+  (let ((info (c::debug-source-info debug-source)))
+    (and info 
+	 (consp info)
+	 (eq :emacs-buffer (car info)))))
+
+(defun source-location-for-emacs (code-location)
+  (let* ((debug-source (di:code-location-debug-source code-location))
+	 (from (di:debug-source-from debug-source))
+	 (name (di:debug-source-name debug-source)))
+    (ecase from
+      (:file (make-file-location name code-location))
+      (:stream 
+       (assert (debug-source-info-from-emacs-buffer-p debug-source))
+       (let ((info (c::debug-source-info debug-source)))
+	 (make-buffer-location (getf info :emacs-buffer)
+			       (getf info :emacs-buffer-offset)
+			       (getf info :emacs-buffer-string)
+			       code-location)))
+      (:lisp
+       `(:sexp , (with-output-to-string (*standard-output*)
+		   (debug::print-code-location-source-form 
+		    code-location 100 t)))))))
+
+(defun safe-source-location-for-emacs (code-location)
+  (handler-case (source-location-for-emacs code-location)
+    (t (c) (list :error (debug::safe-condition-message c)))))
 
 
 ;;; Debugging
@@ -727,130 +915,14 @@ stack."
 	(format-restarts-for-emacs)
 	(backtrace-for-emacs start end)))
 
-(defun code-location-source-path (code-location)
-  (let* ((location (debug::maybe-block-start-location code-location))
-	 (form-num (di:code-location-form-number location)))
-    (let ((translations (debug::get-top-level-form location)))
-      (unless (< form-num (length translations))
-	(error "Source path no longer exists."))
-      (reverse (cdr (svref translations form-num))))))
-
-(defun code-location-file-position (code-location)
-  (let* ((debug-source (di:code-location-debug-source code-location))
-	 (filename (di:debug-source-name debug-source))
-	 (path (code-location-source-path code-location)))
-    (source-path-file-position path filename)))
-
-(defun source-path-file-position (path filename)
-  (with-open-file (file filename)
-    (source-path-stream-position path file)))
-
-(defun make-source-recorder (fn source-map)
-  "Return a macro character function that does the same as FN, but
-additionally stores the result together with the stream positions
-before and after of calling FN in the hashtable SOURCE-MAP."
-  (lambda (stream char)
-    (let ((start (file-position stream))
-	  (values (multiple-value-list (funcall fn stream char)))
-	  (end (file-position stream)))
-      #+(or) (format t "~&[~D ~{~A~^, ~} ~D]~%" start values end)
-      (unless (null values) 
-	(push (cons start end) (gethash (car values) source-map)))
-      (values-list values))))
-
-(defun make-source-recording-readtable (readtable source-map) 
-  "Return a source position recording copy of READTABLE.
-The source locations are stored in SOURCE-MAP."
-  (let* ((tab (copy-readtable readtable))
-	 (*readtable* tab))
-    (dotimes (code char-code-limit)
-      (let ((char (code-char code)))
-	(multiple-value-bind (fn term) (get-macro-character char tab)
-	  (when fn
-	    (set-macro-character char (make-source-recorder fn source-map) 
-				 term tab)))))
-    tab))
-
-(defun make-source-map ()
-  (make-hash-table :test #'eq))
-
-(defvar *source-map* (make-source-map)
-  "The hashtable table used for source position recording.")
-
-(defvar *recording-readtable-cache* '()
-  "An alist of (READTABLE . RECORDING-READTABLE) pairs.")
-
-(defun lookup-recording-readtable (readtable)
-  "Find a cached or create a new recording readtable for READTABLE."
-  (or (cdr (assoc readtable *recording-readtable-cache*))
-      (let ((table (make-source-recording-readtable readtable *source-map*)))
-	(push (cons readtable table) *recording-readtable-cache*)
-	table)))
-			
-(defun read-and-record-source-map (stream)
-  "Read the next object from STREAM.
-Return the object together with a hashtable that maps
-subexpressions of the object to stream positions."
-  (let ((*readtable* (lookup-recording-readtable *readtable*))
-	(*read-suppress* t))
-    (clrhash *source-map*)
-    (values (read stream) *source-map*)))
-  
-(defun source-path-stream-position (path stream)
-  "Search the source-path PATH in STREAM and return its position."
-  (destructuring-bind (toplevel-number . path) path
-    (dotimes (i toplevel-number)
-      (let ((*read-suppress* t)) (read stream)))
-    (multiple-value-bind (form source-map) (read-and-record-source-map stream)
-      (find-form-in-source-map (find-path-in-form (cons 0 path) (list form))
-			       source-map))))
-
-(defun find-path-in-form (path form)
-  "Return the subform of FORM corresponding to the source-path PATH."
-  (loop for f = form then (nth n f)
-	for n in path
-	finally (return f)))
-
-(defun find-form-in-source-map (form source-map)
-  "Return FORM's start position in SOURCE-MAP."
-  (let ((positions (gethash form source-map)))
-    (assert (= (length positions) 1))
-    (car (first positions))))
-
-(defun debug-source-info-from-emacs-buffer-p (debug-source)
-  (let ((info (c::debug-source-info debug-source)))
-    (and info 
-	 (consp info)
-	 (eq :emacs-buffer (car info)))))
-
-(defun source-location-for-emacs (code-location)
-  (let* ((debug-source (di:code-location-debug-source code-location))
-	 (from (di:debug-source-from debug-source))
-	 (name (di:debug-source-name debug-source)))
-    (list
-     :from from
-     :filename (if (eq from :file)
-		   (ext:unix-namestring (truename name)))
-     :position (if (eq from :file)
-		   (code-location-file-position code-location))
-     :info (and (debug-source-info-from-emacs-buffer-p debug-source)
-		(c::debug-source-info debug-source))
-     :path (code-location-source-path code-location)
-     :source-form
-     (unless (or (eq from :file)
-		 (debug-source-info-from-emacs-buffer-p debug-source))
-	 (with-output-to-string (*standard-output*)
-	   (debug::print-code-location-source-form code-location 100 t))))))
-
-(defun safe-source-location-for-emacs (code-location)
-  (handler-case (source-location-for-emacs code-location)
-    (t (c) (list :error (debug::safe-condition-message c)))))
-
 (defslimefun frame-source-location-for-emacs (index)
   (safe-source-location-for-emacs (di:frame-code-location (nth-frame index))))
 
 (defslimefun eval-string-in-frame (string index)
   (to-string (di:eval-in-frame (nth-frame index) (from-string string))))
+
+(defslimefun pprint-eval-string-in-frame (string index)
+  (swank-pprint (di:eval-in-frame (nth-frame index) (from-string string))))
 
 (defslimefun inspect-in-frame (string index)
   (reset-inspector)
