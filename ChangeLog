@@ -1,5 +1,9 @@
 2004-05-04  Luke Gorrie  <luke@bluetail.com>
 
+	* swank.lisp: Remove (declaim (optimize ...)). The side-effect
+	this has on people's environment seems harmful (I saw someone
+	having trouble on the OpenMCL list).
+
 	* swank-cmucl.lisp (source-location-from-code-location): Fixed a
 	bug where the source-file-cache was not really used.
 	Now always report the location based on source file (cached or
