@@ -6826,10 +6826,12 @@ Optionally set point to POINT."
     (destructure-case ispec
       ((:value string id)
        (slime-insert-propertized (list 'slime-part-number id 
+                                       'mouse-face 'highlight
                                        'face 'slime-inspector-value-face)
                                  string))
       ((:action string id)
        (slime-insert-propertized (list 'slime-action-number id
+                                       'mouse-face 'highlight
                                        'face 'slime-inspector-action-face)
                                  string)))))
 
@@ -6848,6 +6850,18 @@ Optionally set point to POINT."
                              (lexical-let ((point (point)))
                                (lambda (parts)
                                  (slime-open-inspector parts point))))))))
+
+(defun slime-inspector-operate-on-click (event)
+  "Inspect the value at the clicked-at position or invoke an action."
+  (interactive "@e")
+  (let ((point (posn-point (event-end event))))
+    (cond ((and point
+                (or (get-text-property point 'slime-part-number)
+                    (get-text-property point 'slime-action-number)))
+           (goto-char point)
+           (slime-inspector-operate-on-point))
+          (t
+           (error "No clickable part here")))))
 
 (defun slime-inspector-copy-down (number)
   "Evaluate the slot at point via the REPL (to set `*')."
@@ -6945,6 +6959,7 @@ If ARG is negative, move forwards."
   ([return] 'slime-inspector-operate-on-point)
   ([(meta return)] 'slime-inspector-copy-down)
   ("\C-m"   'slime-inspector-operate-on-point)
+  ([mouse-2] 'slime-inspector-operate-on-click)
   ("l" 'slime-inspector-pop)
   ("n" 'slime-inspector-next)
   (" " 'slime-inspector-next)
