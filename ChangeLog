@@ -1,3 +1,7 @@
+2004-07-26  Luke Gorrie  <luke@bluetail.com>
+
+	* README: s/setup-slime/slime-setup/ in the .emacs snippet.
+
 2004-07-23  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-set-state): Show the message in the modeline in
