@@ -26,7 +26,8 @@
          (address (car (ext:host-entry-addr-list hostent))))
     (ext:htonl address)))
 
-(defun create-swank-server (port &key reuse-address (address "localhost"))
+(defun create-swank-server (port &key (reuse-address t)
+                            (address "localhost"))
   "Create a SWANK TCP server."
   (let* ((ip (resolve-hostname address))
          (fd (ext:create-inet-listener port :stream
@@ -259,6 +260,11 @@ the error-context redundant."
    `(:position ,(+ *buffer-start-position*
                    (source-path-string-position path *buffer-substring*)))))
 
+(defmethod resolve-note-location (b (f (eql :lisp)) pos path (source string))
+  (make-location
+   `(:source-form ,source)
+   `(:position 1)))
+
 (defmethod resolve-note-location (buffer
                                   (file (eql nil)) 
                                   (pos (eql nil)) 
@@ -329,9 +335,21 @@ the error-context redundant."
   (lookup-xrefs #'xref:who-sets variable))
 
 #+cmu19
-(defslimefun who-macroexpands (macro)
-  "Return the places where MACRO is expanded."
-  (lookup-xrefs #'xref:who-macroexpands macro))
+(progn
+  (defslimefun who-macroexpands (macro)
+    "Return the places where MACRO is expanded."
+    (lookup-xrefs #'xref:who-macroexpands macro))
+  
+  (defslimefun who-specializes (class)
+    "Return the methods with specializers for CLASS."
+    (let* ((methods (xref::who-specializes (find-class (from-string class))))
+           (locations (mapcar #'method-source-location methods)))
+      (group-xrefs (mapcar (lambda (m l)
+                             (cons (let ((*print-pretty* nil))
+                                     (to-string m))
+                                   l))
+                           methods locations))))
+  )
 
 (defun resolve-xref-location (xref)
   (let ((name (xref:xref-context-name xref))
@@ -582,13 +600,14 @@ The second return value is the condition or nil."
 	    
 (defun dd-source-location (dd)
   (let ((constructor (or (kernel:dd-default-constructor dd)
-			 (car (kernel::dd-constructors dd)))))
-    (cond (constructor 
-	   (function-source-location 
-	    (coerce (if (consp constructor) (car constructor) constructor)
-		    'function)))
-	  (t (error "Cannot locate struct without constructor: ~S" 
-		    (kernel::dd-name dd))))))
+                         (car (kernel::dd-constructors dd)))))
+    (when (or (not constructor) (and (consp constructor)
+                                     (not (car constructor))))
+      (error "Cannot locate struct without constructor: ~S" 
+             (kernel::dd-name dd)))
+    (function-source-location 
+     (coerce (if (consp constructor) (car constructor) constructor)
+             'function))))
 
 (defun genericp (fn)
   (typep fn 'generic-function))
@@ -907,7 +926,7 @@ of deepest (i.e. smallest) possible form is returned."
     ;; select the first subform present in source-map
     (loop for form in (reverse forms)
 	  for positions = (gethash form source-map)
-	  until positions 
+	  until (and positions (null (cdr positions)))
 	  finally (destructuring-bind ((start . end)) positions
 		    (return (values (1- start) end))))))
 
@@ -936,16 +955,6 @@ to find the position of the corresponding form."
   (with-open-file (s filename :direction :input)
     (code-location-stream-position code-location s)))
 
-(defun make-file-location (pathname code-location)
-  (make-location
-   `(:file ,(unix-truename pathname))
-   `(:position ,(1+ (code-location-file-position code-location pathname)))))
-
-(defun make-buffer-location (buffer start string code-location)
-  (make-location
-   `(:buffer ,buffer)
-   `(:position ,(+ start (code-location-string-offset code-location string)))))
-
 (defun debug-source-info-from-emacs-buffer-p (debug-source)
   (let ((info (c::debug-source-info debug-source)))
     (and info 
@@ -961,18 +970,25 @@ to find the position of the corresponding form."
          (from (di:debug-source-from debug-source))
          (name (di:debug-source-name debug-source)))
     (ecase from
-      (:file (make-file-location name code-location))
+      (:file 
+       (make-location (list :file (unix-truename name))
+                      (list :position (1+ (code-location-file-position
+                                           code-location name)))))
       (:stream 
        (assert (debug-source-info-from-emacs-buffer-p debug-source))
        (let ((info (c::debug-source-info debug-source)))
-         (make-buffer-location (getf info :emacs-buffer)
-                               (getf info :emacs-buffer-offset)
-                               (getf info :emacs-buffer-string)
-                               code-location)))
+         (make-location
+          (list :buffer (getf info :emacs-buffer))
+          (list :position (+ (getf info :emacs-buffer-offset) 
+                             (code-location-string-offset 
+                              code-location
+                              (getf info :emacs-buffer-string)))))))
       (:lisp
-       `(:sexp , (with-output-to-string (*standard-output*)
-                   (debug::print-code-location-source-form 
-                    code-location 100 t)))))))
+       (make-location
+        (list :source-form (with-output-to-string (*standard-output*)
+                             (debug::print-code-location-source-form 
+                              code-location 100 t)))
+        (list :position 1))))))
 
 (defun code-location-source-location (code-location)
   "Safe wrapper around `code-location-from-source-location'."
