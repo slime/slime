@@ -35,6 +35,8 @@
            #:frame-source-location-for-emacs
            #:restart-frame
            #:sldb-step
+           #:sldb-break
+           #:sldb-break-on-return
            #:profiled-functions
            #:profile-report
            #:profile-reset
@@ -455,7 +457,12 @@ of the toplevel restart."
       ((member t)
        (spawn (lambda () (handle-request c)) :name "worker"))
       ((member :repl-thread)
-       (connection.repl-thread c)) 
+       (let ((thread (connection.repl-thread c)) )
+         (if (thread-alive-p thread) 
+             thread
+             (setf (connection.repl-thread c)
+                   (spawn (lambda () (repl-loop c))
+                          :name "new-repl-thread")))))
       (fixnum
        (find-thread id)))))
   
@@ -914,7 +921,7 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
 This is like defvar, but NAME will not be initialized."
   `(progn
     (defvar ,name)
-    (setf (documentation ',name 'variable) ',doc)))
+    (setf (documentation ',name 'variable) ,doc)))
 
 (define-special *buffer-package*     
     "Package corresponding to slime-buffer-package.  
@@ -1352,7 +1359,8 @@ printing."
   (list (safe-condition-message *swank-debugger-condition*)
         (format nil "   [Condition of type ~S]"
                 (type-of *swank-debugger-condition*))
-        (condition-references *swank-debugger-condition*)))
+        (condition-references *swank-debugger-condition*)
+        (condition-extras *swank-debugger-condition*)))
 
 (defun format-restarts-for-emacs ()
   "Return a list of restarts for *swank-debugger-condition* in a
@@ -1388,11 +1396,12 @@ I is an integer describing and FRAME a string."
 The result is a list:
   (condition ({restart}*) ({stack-frame}*)
 where
-  condition   ::= (description type)
+  condition   ::= (description type [extra])
   restart     ::= (name description)
   stack-frame ::= (number description)
-
-condition---a pair of strings: message, and type.
+  extra       ::= (:references 
+condition---a pair of strings: message, and type.  If show-source is
+not nil it is a frame number for which the source should be displayed.
 
 restart---a pair of strings: restart name, and description.
 
@@ -1470,6 +1479,10 @@ the local variables in the frame INDEX."
 (defslimefun sldb-return-from-frame (index string)
   (let ((form (from-string string)))
     (to-string (multiple-value-list (return-from-frame index form)))))
+
+(defslimefun sldb-break (name)
+  (with-buffer-syntax ()
+    (sldb-break-at-start (read-from-string name))))
 
 
 ;;;; Compilation Commands.
