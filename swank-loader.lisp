@@ -40,12 +40,12 @@
            )))
 
 (defparameter *lisp-name*
-  #+cmu "cmu"
-  #+sbcl "sbcl"
-  #+openmcl "openmcl"
+  #+cmu       (format nil "cmu-~A" (lisp-implementation-version))
+  #+sbcl      (format nil "sbcl-~A" (lisp-implementation-version))
+  #+openmcl   "openmcl"
   #+lispworks "lispworks"
-  #+allegro "allegro"
-  #+clisp "clisp"
+  #+allegro   "allegro"
+  #+clisp     "clisp"
   )
 
 (defparameter *swank-pathname* (make-swank-pathname "swank"))
