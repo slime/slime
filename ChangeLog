@@ -1,3 +1,16 @@
+2003-12-04  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-lispworks.lisp (toggle-trace-fdefinition, tracedp): New
+	support functions for toggle-trace command.  Written by Alain
+	Picard.
+	(compile-from-temp-file): Don't delete the binary file if there is
+	none.
+	(lispworks-severity): Map all ERRORs to :error.
+
+	* slime.el (slime-eval-defun): Use slime-re-evaluate-defvar if the
+	defun starts with "defvar".  C-M-x in elisp does this too.
+	(slime-re-evaluate-defvar): Take the form as argument.
+
 2003-12-03  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-debugging-state): Initialize the sldb-buffer if
