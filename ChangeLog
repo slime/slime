@@ -1,4 +1,8 @@
 2003-12-19 Alan Ruttenberg <alanralanr@comcast.net>
+	* slime.el 1.157
+	fix bug in sldb-princ-locals I introduced when adding fonts to sldb
+	
+2003-12-19 Alan Ruttenberg <alanralanr@comcast.net>
 	* swank-openmcl.lisp 1.42
 	in request-loop register output stream to be periodically slushed per Gary Byer's email.
 	* slime.el 1.156
