@@ -47,6 +47,7 @@ recompiled."
               (when (or needs-recompile
                         (not (probe-file binary-pathname))
                         (file-newer-p source-pathname binary-pathname))
+                (format t "~&;; Compiling ~A...~%" source-pathname)
                 (compile-file source-pathname)
                 (setq needs-recompile t))
               (load binary-pathname))
