@@ -296,7 +296,8 @@ Example:
    "Compile FILENAME signalling COMPILE-CONDITIONs.
 If LOAD-P is true, load the file after compilation.")
 
-(deftype severity () '(member :error :warning :style-warning :note))
+(deftype severity () 
+  '(member :error :read-error :warning :style-warning :note))
 
 ;; Base condition type for compiler errors, warnings and notes.
 (define-condition compiler-condition (condition)
