@@ -1,3 +1,8 @@
+2004-06-29  Luke Gorrie  <luke@bluetail.com>
+
+	* mkdist.sh: New shell script for creating a tarball for
+	distribution.
+
 2004-06-29  Bill Clementson  <Bill_Clementson@peoplesoft.com>
 
 	* slime.el (slime-who-map): Add extra bindings for the XREF
