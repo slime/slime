@@ -703,11 +703,11 @@ shadowed by a dynamic binding."
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun prefixed-var (prefix variable-symbol)
-    "(PREFIXED-VAR '*FOO* \"BAR\") => *FOO-BAR*"
+    "(PREFIXED-VAR \"FOO\" '*BAR*) => *FOO-BAR*"
     (let ((basename (subseq (symbol-name variable-symbol) 1)))
       (intern (format nil "*~A-~A" prefix basename)
               (symbol-package variable-symbol)))))
-        
+
 ;;;;; Global redirection setup
 
 (setup-stream-indirection *standard-output*)
