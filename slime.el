@@ -1157,16 +1157,17 @@ See `slime-translate-from-lisp-filename-function'."
 
 ;;;;; Entry points
 
-(defun slime (command buffer)
+(defun slime (&optional command buffer)
   "Start an inferior^_superior Lisp and connect to its Swank server."
   (interactive (list (if current-prefix-arg
-			 (read-string "Run lisp: " inferior-lisp-program)
-                       inferior-lisp-program)
+			 (read-string "Run lisp: " inferior-lisp-program))
                      "*inferior-lisp*"))
-  (when (or (not (slime-bytecode-stale-p))
-            (slime-urge-bytecode-recompile))
-    (let ((proc (slime-maybe-start-lisp command buffer)))
-      (slime-inferior-connect proc nil))))
+  (let ((command (or command inferior-lisp-program))
+        (buffer (or buffer "*inferior-lisp*")))
+    (when (or (not (slime-bytecode-stale-p))
+              (slime-urge-bytecode-recompile))
+      (let ((proc (slime-maybe-start-lisp command buffer)))
+        (slime-inferior-connect proc nil)))))
 
 (defun slime-connect (host port &optional kill-old-p)
   "Connect to a running Swank server."
