@@ -1,5 +1,5 @@
 #!/bin/sh
-version="1.0alpha0"
+version="1.0alpha"
 dist="slime-$version"
 
 if [ -d $dist ]; then rm -rf $dist; fi
