@@ -122,11 +122,20 @@ This is used for batch-mode testing.")
   "Face for warnings from the compiler."
   :group 'slime)
 
-(defface slime-note-face
+(defface slime-style-warning-face
   '((((class color) (background light))
      (:underline "brown"))
     (((class color) (background dark))
      (:underline "gold"))
+    (t (:underline t)))
+  "Face for style-warnings from the compiler."
+  :group 'slime)
+
+(defface slime-note-face
+  '((((class color) (background light))
+     (:underline "brown4"))
+    (((class color) (background dark))
+     (:underline "light goldenrod"))
     (t (:underline t)))
   "Face for notes from the compiler."
   :group 'slime)
@@ -995,16 +1004,24 @@ See `slime-compile-and-load-file' for further details."
    (slime-buffer-package)
    (slime-compilation-finished-continuation)))
 
+(defun slime-note-count-string (severity count)
+  (format "%s %s%s" count severity (if (= count 1) "" "s")))
+
 (defun slime-show-note-counts (notes &optional secs)
   (loop for note in notes 
 	for severity = (plist-get note :severity)
 	count (eq :error severity) into errors
 	count (eq :warning severity) into warnings
+        count (eq :style-warning severity) into style-warnings
 	count (eq :note severity) into notes
 	finally 
 	(message 
-	 "Compilation finished: %s errors  %s warnings  %s notes%s"
-	 errors warnings notes (if secs (format "  [%s secs]" secs) ""))))
+	 "Compilation finished: %s  %s  %s  %s%s"
+         (slime-note-count-string "error" errors)
+         (slime-note-count-string "warning" warnings)
+         (slime-note-count-string "style-warning" style-warnings)
+         (slime-note-count-string "note" notes)
+         (if secs (format "  [%s secs]" secs) ""))))
 
 (defun slime-compilation-finished (result buffer)
   (with-current-buffer buffer
@@ -1060,7 +1077,7 @@ new overlay is created."
   "Create an overlay representing a compiler note.
 The overlay has several properties:
   FACE       - to underline the relevant text.
-  SEVERITY   - for future reference, :NOTE, :WARNING, or :ERROR.
+  SEVERITY   - for future reference, :NOTE, :STYLE-WARNING, :WARNING, or :ERROR.
   MOUSE-FACE - highlight the note when the mouse passes over.
   HELP-ECHO  - a string describing the note, both for future reference
                and for display as a tooltip (due to the special
@@ -1119,16 +1136,19 @@ region around the first element is used."
 (defun slime-severity-face (severity)
   "Return the name of the font-lock face representing SEVERITY."
   (ecase severity
-    (:error   'slime-error-face)
-    (:warning 'slime-warning-face)
-    (:note    'slime-note-face)))
+    (:error         'slime-error-face)
+    (:warning       'slime-warning-face)
+    (:style-warning 'slime-style-warning-face)
+    (:note          'slime-note-face)))
 
 (defun slime-most-severe (sev1 sev2)
   "Return the most servere of two conditions.
-Severity is ordered as :NOTE < :WARNING < :ERROR."
+Severity is ordered as :NOTE < :STYLE-WARNING < :WARNING < :ERROR."
   (if (or (eq sev1 :error)              ; Well, not exactly Smullyan..
           (and (eq sev1 :warning)
-               (not (eq sev2 :error))))
+               (not (eq sev2 :error)))
+          (and (eq sev1 :style-warning)
+               (not (member sev2 '(:warning :error)))))
       sev1
     sev2))
 
