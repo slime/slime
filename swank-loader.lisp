@@ -76,6 +76,8 @@ recompiled."
   (list* (make-swank-pathname "swank-backend") *swank-pathname*
          *sysdep-pathnames*))
 
+(swank:warn-unimplemented-interfaces)
+
 (when (user-init-file)
   (load (user-init-file)))
 
