@@ -310,12 +310,13 @@ the package are considered."
       (multiple-value-list
        (ext:compile-from-stream stream :source-info (cons buffer start))))))
 
-(defun briefely-describe-symbol-for-emacs (symbol)
-  "Return a plist of describing SYMBOL.  Return NIL if the symbol is
-unbound."
+(defun briefly-describe-symbol-for-emacs (symbol)
+  "Return a plist of describing SYMBOL.
+Return NIL if the symbol is unbound."
   (let ((result '()))
     (labels ((first-line (string) 
-	       (subseq string 0 (position #\newline string)))
+               (let ((pos (position #\newline string)))
+                 (if (null pos) string (subseq string 0 pos))))
 	     (doc (kind)
 	       (let ((string (documentation symbol kind)))
 		 (if string 
@@ -344,19 +345,46 @@ unbound."
        :class (if (find-class symbol nil) 
 		  (doc 'class)))
       (if result
-	  (list* :designator (prin1-to-string-for-emacs symbol) result)))))
+	  (list* :designator (prin1-to-string symbol) result)))))
 
-(defun apropos-list-for-emacs  (name)
-  (list (package-name *package*)
-	(ext:collect ((pack))
-	  (ext:map-apropos 
-	   (lambda (symbol)
-	     (unless (keywordp symbol)
-	       (let ((plist (briefely-describe-symbol-for-emacs symbol)))
-		 (when plist
-		   (pack plist)))))
-	   name)
-	  (pack))))
+(defun apropos-list-for-emacs  (name &optional external-only package)
+  "Make an apropos search for Emacs.
+The result is a list of property lists."
+  (mapcan (listify #'briefly-describe-symbol-for-emacs)
+          (sort (apropos-symbols name external-only package)
+                #'belongs-before-in-apropos-p)))
+
+(defun listify (f)
+  "Return a function like F, but which returns any non-null value
+wrapped in a list."
+  (lambda (x)
+    (let ((y (funcall f x)))
+      (and y (list y)))))
+
+(defun apropos-symbols (string &optional external-only package)
+  "Return the symbols matching an apropos search."
+  (let ((symbols '()))
+    (ext:map-apropos (lambda (sym)
+                       (unless (keywordp sym)
+                         (push sym symbols)))
+                     string package external-only)
+    symbols))
+
+(defun belongs-before-in-apropos-p (a b)
+  "Return true if A belongs before B in an apropos listing.
+Sorted alphabetically by package name and then symbol name, except
+that symbols accessible in the current package go first."
+  (flet ((accessible (s)
+           (find-symbol (symbol-name s) *package*)))
+    (let ((pa (symbol-package a))
+          (pb (symbol-package b)))
+      (cond ((or (eq pa pb)
+                 (and (accessible a) (accessible b)))
+             (string< (symbol-name a) (symbol-name b)))
+            ((accessible a) t)
+            ((accessible b) nil)
+            (t
+             (string< (package-name pa) (package-name pb)))))))
 
 (defun set-stdin-non-blocking ()
   (let ((fd (sys:fd-stream-fd sys:*stdin*)))
