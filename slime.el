@@ -2421,11 +2421,10 @@ update window-point afterwards.  If point is initially not at
     (slime-with-output-end-mark
      (slime-propertize-region '(face slime-repl-output-face)
        (insert string))
-     ;;(when (and (= (point) slime-repl-prompt-start-mark)
-     ;;           (not (bolp)))
-     ;;  (insert "\n")
-     ;;  (set-marker slime-output-end (1- (point))))
-     )))
+     (when (and (= (point) slime-repl-prompt-start-mark)
+                (not (bolp)))
+       (insert "\n")
+       (set-marker slime-output-end (1- (point)))))))
 
 (defun slime-switch-to-output-buffer (&optional connection)
   "Select the output buffer, preferably in a different window."
