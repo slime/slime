@@ -54,7 +54,7 @@
   (unless (fboundp 'define-minor-mode)
     (require 'easy-mmode)
     (defalias 'define-minor-mode 'easy-mmode-define-minor-mode)))
-(require 'inf-lisp)
+(require 'comint)
 (require 'pp)
 (require 'hideshow)
 (require 'hyperspec)
@@ -1157,14 +1157,20 @@ See `slime-translate-from-lisp-filename-function'."
 
 ;;;;; Entry points
 
-(defun slime (&optional command buffer)
+(defun slime (&optional command buffer coding-system)
   "Start an inferior^_superior Lisp and connect to its Swank server."
   (interactive (list (if current-prefix-arg
-			 (read-string "Run lisp: " inferior-lisp-program))
-                     "*inferior-lisp*"))
-  (slime-check-coding-system)
+			 (read-string "Run lisp: " inferior-lisp-program
+                                      'slime-inferior-lisp-program-history))
+                     "*inferior-lisp*"
+                     (if (eq 16 (prefix-numeric-value current-prefix-arg))
+                         (read-coding-system "set slime-coding-system: "
+                                             slime-net-coding-system))))
   (let ((command (or command inferior-lisp-program))
-        (buffer (or buffer "*inferior-lisp*")))
+        (buffer (or buffer "*inferior-lisp*"))
+        (coding-system (or coding-system slime-net-coding-system)))
+    (slime-check-coding-system coding-system)
+    (setq slime-net-coding-system coding-system)
     (when (or (not (slime-bytecode-stale-p))
               (slime-urge-bytecode-recompile))
       (let ((proc (slime-maybe-start-lisp command buffer)))
@@ -1182,7 +1188,6 @@ See `slime-translate-from-lisp-filename-function'."
   (message "Connecting to Swank on port %S.." port)
   (let* ((process (slime-net-connect host port))
          (slime-dispatching-connection process))
-    (message "Initial handshake...")
     (slime-setup-connection process)))
 
 (defun slime-start-and-load (filename &optional package)
@@ -1323,8 +1328,7 @@ Return the created process."
     (with-current-buffer (get-buffer-create buffername)
       (comint-mode)
       (comint-exec (current-buffer) "inferior-lisp" (car args) nil (cdr args))
-      (inferior-lisp-mode)
-      (setq inferior-lisp-buffer (current-buffer))
+      (lisp-mode-variables t)
       (pop-to-buffer (current-buffer))
       (get-buffer-process (current-buffer)))))
 
@@ -1456,13 +1460,16 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
   "List of functions called when a slime network connection closes.
 The functions are called with the process as their argument.")
 
-(defvar slime-net-coding-system 'iso-8859-1-unix
+(defvar slime-net-coding-system 
+  (find-if #'coding-system-p '(iso-8859-1-unix iso-8859-1 raw-text-unix))
   "*Coding system used for network connections.")
 
 (defvar slime-net-valid-coding-systems
   '((iso-8859-1-unix nil :iso-latin-1-unix)
-    (emacs-mule-unix t :emacs-mule-unix)
-    (utf-8-unix t :utf-8-unix))
+    (iso-8859-1      nil :iso-latin-1-unix)   ; for oldish Emacsen
+    (raw-text-unix   nil :iso-latin-1-unix)   ; ditto
+    (utf-8-unix      t   :utf-8-unix)
+    (emacs-mule-unix t   :emacs-mule-unix))
   "A list of valid coding systems. 
 Each element is of the form: (NAME MULTIBYTEP CL-NAME)")
 
@@ -1496,7 +1503,8 @@ Each element is of the form: (NAME MULTIBYTEP CL-NAME)")
 
 (defun slime-find-coding-system (&optional coding-system)
   (let* ((coding-system (or coding-system slime-net-coding-system))
-         (props (assq coding-system slime-net-valid-coding-systems)))
+         (props (assq coding-system slime-net-valid-coding-systems)))  
+    (check-coding-system coding-system)
     (unless props
       (error "Invalid slime-net-coding-system: %s. %s"
              coding-system (mapcar #'car slime-net-valid-coding-systems)))
@@ -1895,7 +1903,7 @@ Can return nil if there's no process object for the connection."
       ((:spawn :sigio) nil))))
 
 (defvar slime-inhibit-pipelining t
-  "*If true, don't send background requests if Lisp already busy.")
+  "*If true, don't send background requests if Lisp is already busy.")
 
 (defun slime-background-activities-enabled-p ()
   (and (slime-connected-p)
@@ -2021,7 +2029,7 @@ side.")
               (or (re-search-backward regexp nil t)
                   (re-search-forward regexp nil t)))
         (goto-char (match-end 0))
-        (skip-chars-forward " \n\t\f\r#")
+        (skip-chars-forward " \n\t\f\r#'")
         (let ((pkg (ignore-errors (read (current-buffer)))))
           (if pkg (format "%S" pkg)))))))
 
@@ -2900,7 +2908,7 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   ("\M-\C-e" 'slime-repl-end-of-defun)
   ("\C-c\C-l" 'slime-load-file)
   ("\C-c\C-k" 'slime-compile-and-load-file)
-  )
+  ("\C-c\C-z" 'slime-nop))
 
 (define-key slime-repl-mode-map
   (string slime-repl-shortcut-dispatch-char) 'slime-handle-repl-shortcut)
