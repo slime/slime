@@ -10,6 +10,8 @@
 	should be a symbol.
 	(find-function-locations): Return errors as a list of one error.
 	(call-with-debugging-environment): Set *print-level* to 4 and
+	(open-listener): Don't make the socket non-blocking.
+
 	*print-level* to 10.  (Where both nil.)
 	(source-location-for-emacs): Fall back to the location of the
 	function, if there is no block-debug-info.
