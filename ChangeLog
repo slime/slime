@@ -1,3 +1,14 @@
+2003-12-01  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-repl-return): Goto end of input area before
+	inserting newline.
+	(slime-autodoc-message-ok-p): Test to see if a documentation
+	message should be printed (returns nil if the
+	minibuffer/echo-area is already being used).
+	(slime-log-events): When nil, don't log events to
+	*slime-events*. This works-around a problem Raymond Toy has when
+	starting SLIME under XEmacs. Still investigating..
+
 2003-11-29  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 	
 	* slime.el: Rewrite the xref code to work with other source
