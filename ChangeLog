@@ -1,3 +1,14 @@
+2004-02-18  Peter Seibel <peter@javamonkey.com>
+
+	* swank-loader.lisp: Place the fasl files of different
+	implementations in different directories.
+
+2004-02-18  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-clisp.lisp: Update comments about metering package.
+
+	* metering.lisp: Imported from CLOCC.  Suggested by Peter Seibel.
+
 2004-02-17  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank.lisp, slime.el (make-compiler-note): Don't send the
