@@ -15,7 +15,7 @@
 	unneeded functions.
 
 	* swank-backend.lisp (add-hook, run-hook): Added an Emacs-like
-	hook mechiansm.  The hope is that this will make some sections of
+	hook mechanism.  The hope is that this will make some sections of
 	the code more self-describing by showing where they hook in.
 	(*new-connection-hook*): Hook run when a new connection is
 	established. Initialized to '(swank-backend:emacs-connected).
