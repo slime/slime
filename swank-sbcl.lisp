@@ -293,8 +293,11 @@ compiler state."
   (handler-case
       (let ((output-file (with-compilation-hooks ()
                            (compile-file filename))))
-        (when (and load-p output-file)
-          (load output-file)))
+        (when output-file
+          ;; Cache the latest source file for definition-finding.
+          (source-cache-get filename (file-write-date filename))
+          (when load-p
+            (load output-file))))
     (sb-c:fatal-compiler-error () nil)))
 
 (defimplementation swank-compile-string (string &key buffer position directory)
@@ -317,45 +320,11 @@ compiler state."
   "When true don't handle errors while looking for definitions.
 This is useful when debugging the definition-finding code.")
 
-;;; FIXME we don't handle the compiled-interactively case yet.  That
-;;; should have NIL :filename & :position, and non-NIL :source-form
-(defun function-source-location (function &optional name)
-  "Try to find the canonical source location of FUNCTION."
-  (let* ((def (sb-introspect:find-definition-source function))
-         (pathname (sb-introspect:definition-source-pathname def))
-         (path (sb-introspect:definition-source-form-path def))
-         (position (sb-introspect:definition-source-character-offset def)))
-    (unless pathname
-      (return-from function-source-location
-        (list :error (format nil "No filename for: ~S" function))))
-    (multiple-value-bind (truename condition) 
-        (ignore-errors (truename pathname))
-      (when condition 
-        (return-from function-source-location
-          (list :error (format nil "~A" condition))))
-      (make-location
-       (list :file (namestring truename))
-       ;; source-paths depend on the file having been compiled with
-       ;; lotsa debugging.  If not present, return the function name 
-       ;; for emacs to attempt to find with a regex
-       (cond (path (list :source-path path position))
-             (t (list :function-name 
-                      (or (and name (string name))
-                          (string (sb-kernel:%fun-name function))))))))))
+(defimplementation find-definitions (name)
+  (append (function-definitions name)
+          (compiler-definitions name)))
 
-(defun safe-function-source-location (fun name)
-  (if *debug-definition-finding*
-      (function-source-location fun name)
-      (handler-case (function-source-location fun name)
-        (error (e) 
-          (list (list :error (format nil "Error: ~A" e)))))))
-
-(defun method-definitions (gf)
-  (let ((methods (sb-mop:generic-function-methods gf))
-        (name (sb-mop:generic-function-name gf)))
-    (loop for method in methods 
-          collect (list `(method ,name ,(sb-pcl::unparse-specializers method)) 
-                        (safe-function-source-location method name)))))
+;;;;; Function definitions
 
 (defun function-definitions (name)
   (flet ((loc (fn name) (safe-function-source-location fn name)))
@@ -374,6 +343,64 @@ This is useful when debugging the definition-finding code.")
      (when (compiler-macro-function name)
        (list (list `(define-compiler-macro ,name)
                    (loc (compiler-macro-function name) name)))))))
+
+(defun safe-function-source-location (fun name)
+  (if *debug-definition-finding*
+      (function-source-location fun name)
+      (handler-case (function-source-location fun name)
+        (error (e) 
+          (list (list :error (format nil "Error: ~A" e)))))))
+
+;;; FIXME we don't handle the compiled-interactively case yet.  That
+;;; should have NIL :filename & :position, and non-NIL :source-form
+(defun function-source-location (function &optional name)
+  "Try to find the canonical source location of FUNCTION."
+  (let* ((def (sb-introspect:find-definition-source function))
+         (pathname (sb-introspect:definition-source-pathname def))
+         (path (sb-introspect:definition-source-form-path def))
+         (position (sb-introspect:definition-source-character-offset def))
+         (stamp
+          ;; FIXME: Symbol doesn't exist in released SBCL yet.
+          (let ((sym (find-symbol "DEFINITION-SOURCE-CREATED"
+                                  (find-package "SB-INTROSPECT"))))
+            (when sym (funcall sym def)))))
+    (unless pathname
+      (return-from function-source-location
+        (list :error (format nil "No filename for: ~S" function))))
+    (multiple-value-bind (truename condition) 
+        (ignore-errors (truename pathname))
+      (when condition 
+        (return-from function-source-location
+          (list :error (format nil "~A" condition))))
+      (make-location
+       (list :file (namestring truename))
+       ;; source-paths depend on the file having been compiled with
+       ;; lotsa debugging.  If not present, return the function name 
+       ;; for emacs to attempt to find with a regex
+       (cond (path (list :source-path path position))
+             (t (list :function-name 
+                      (or (and name (string name))
+                          (string (sb-kernel:%fun-name function))))))
+       (let ((source (get-source-code pathname stamp)))
+         (if source
+             (with-input-from-string (stream source)
+               (file-position stream position)
+               (list :snippet (read-snippet stream)))))))))
+
+(defun method-definitions (gf)
+  (let ((methods (sb-mop:generic-function-methods gf))
+        (name (sb-mop:generic-function-name gf)))
+    (loop for method in methods 
+          collect (list `(method ,name ,(sb-pcl::unparse-specializers method)) 
+                        (safe-function-source-location method name)))))
+
+;;;;; Compiler definitions
+
+(defun compiler-definitions (name)
+  (let ((fun-info (sb-int:info :function :info name)))
+    (when fun-info
+      (append (transform-definitions fun-info name)
+              (optimizer-definitions fun-info name)))))
 
 (defun transform-definitions (fun-info name)
   (loop for xform in (sb-c::fun-info-transforms fun-info)
@@ -395,16 +422,6 @@ This is useful when debugging the definition-finding code.")
           for fn = (funcall reader fun-info)
           when fn collect `((sb-c:defoptimizer ,name)
                             ,(safe-function-source-location fn fun-name)))))
-
-(defun compiler-definitions (name)
-  (let ((fun-info (sb-int:info :function :info name)))
-    (when fun-info
-      (append (transform-definitions fun-info name)
-              (optimizer-definitions fun-info name)))))
-
-(defimplementation find-definitions (name)
-  (append (function-definitions name)
-          (compiler-definitions name)))
 
 (defimplementation describe-symbol-for-emacs (symbol)
   "Return a plist describing SYMBOL.
@@ -447,12 +464,6 @@ Return NIL if the symbol is unbound."
     (:type
      (describe (sb-kernel:values-specifier-type symbol)))))
 
-(defun function-dspec (fn)
-  "Describe where the function FN was defined.
-Return a list of the form (NAME LOCATION)."
-  (let ((name (sb-kernel:%fun-name fn)))
-    (list name (safe-function-source-location fn name))))
-
 (defimplementation list-callers (symbol)
   (let ((fn (fdefinition symbol)))
     (mapcar #'function-dspec (sb-introspect:find-function-callers fn))))
@@ -460,6 +471,12 @@ Return a list of the form (NAME LOCATION)."
 (defimplementation list-callees (symbol)
   (let ((fn (fdefinition symbol)))
     (mapcar #'function-dspec (sb-introspect:find-function-callees fn))))
+
+(defun function-dspec (fn)
+  "Describe where the function FN was defined.
+Return a list of the form (NAME LOCATION)."
+  (let ((name (sb-kernel:%fun-name fn)))
+    (list name (safe-function-source-location fn name))))
 
 ;;; macroexpansion
 
@@ -573,7 +590,8 @@ stack."
 (defun source-location-for-emacs (code-location)
   (let* ((debug-source (sb-di:code-location-debug-source code-location))
 	 (from (sb-di:debug-source-from debug-source))
-	 (name (sb-di:debug-source-name debug-source)))
+	 (name (sb-di:debug-source-name debug-source))
+         (created (sb-di:debug-source-created debug-source)))
     (ecase from
       (:file 
        (let ((source-path (ignore-errors
@@ -583,7 +601,12 @@ stack."
                 (let ((position (code-location-file-position code-location)))
                   (make-location 
                    (list :file (namestring (truename name)))
-                   (list :source-path source-path position))))
+                   (list :source-path source-path position)
+                   (let ((source (get-source-code name created)))
+                     (if source
+                         (with-input-from-string (stream source)
+                           (file-position stream position)
+                           (list :snippet (read-snippet stream))))))))
                (t
                 (let* ((dfn (sb-di:code-location-debug-fun code-location))
                        (fn (sb-di:debug-fun-fun dfn)))
