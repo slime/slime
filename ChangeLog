@@ -1,3 +1,24 @@
+2003-11-02  heller  <heller@xaital>
+
+	* null-swank-impl.lisp, swank-cmucl.lisp, swank-openmcl.lisp,
+	swank.lisp: Input redirection works now on the line level, like a
+	tty.  Output streams are now line buffered.  We no longer compute
+	the backtrace-length.
+
+	* /project/slime/cvsroot/slime/slime.el:
+	(slime-repl-read-mode, slime-repl-read-string, slime-repl-return,
+	slime-repl-send-string, slime-read-string-state,
+	slime-activate-state): Reorganize input redirection.  We no longer
+	work on the character level but on a line or region; more like a
+	terminal.  This works better, because REPLs and debuggers are
+	usually written with a line buffering tty in mind.
+	(sldb-backtrace-length, slime-debugging-state,
+	slime-evaluating-state, sldb-setup, sldb-mode, sldb-insert-frames,
+	sldb-fetch-more-frames): Don't use backtrace-length.  Computing
+	the length of the backtrace is (somewhat strangely) an expensive
+	operation in CMUCL, e.g., it takes >30 seconds to compute the
+	length when the yellow zone stack guard is hit.
+
 2003-11-02  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-log-event): Added a *slime-events* buffer
