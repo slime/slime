@@ -2094,19 +2094,23 @@ buffer's working directory"
              (node
               (cons (format "%s: %s" 
                             (getf note :severity)
-                            (getf note :message))
+                            (slime-one-line-ify (getf note :message)))
                     location)))
-        ;; emacs20 doesn't have `replace-regexp-in-string'
-        ;; but who gives us non-printable characters anyway and why? -luke
-;                             (replace-regexp-in-string 
-;                              "[^[:graph:]]+" " "
-;                              (subseq (getf note :message) 0 )))
-;                     location)))
         (when fn
           (if file
               (push node (cdr file))
               (setf xrefs (acons fn (list node) xrefs))))))
     xrefs))
+
+(defun slime-one-line-ify (string)
+  "Return a single-line version of STRING.
+Each newlines and following indentation is replaced by a single space."
+  (with-temp-buffer
+    (insert string)
+    (goto-char (point-min))
+    (while (re-search-forward "\n[\n \t]*" nil t)
+      (replace-match " "))
+    (buffer-string)))
 
 (defun slime-compilation-finished (result buffer)
   (let ((notes (slime-compiler-notes)))

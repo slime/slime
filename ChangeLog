@@ -1,8 +1,9 @@
 2003-12-11  Luke Gorrie  <luke@bluetail.com>
 
-	* slime.el (slime-xrefs-for-notes): Commented out use of
-	`replace-regexp-in-string' (not available in emacs20, and not sure
-	why we need it?)
+	* slime.el (slime-one-line-ify): New function to convert
+	multi-line strings to one-liners by replacing any newline
+	followed by indentation by a single space.
+	(slime-xrefs-for-notes): Use it.
 
 2003-12-11  Daniel Barlow  <dan@telent.net>
 
