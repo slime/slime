@@ -7024,6 +7024,16 @@ is exceeded."
   :type '(choice (const :tag "Enable" t) (const :tag "Disable" nil))
   :group 'slime-mode)
 
+(defface slime-reader-conditional-face
+  (if (slime-face-inheritance-possible-p)
+      '((t (:inherit font-lock-comment-face)))
+    '((((class grayscale) (background light))
+       (:foreground "DimGray" :weight bold))
+      (((class grayscale) (background dark))
+       (:foreground "LightGray" :weight bold))))
+  "Face for compiler notes while selected."
+  :group 'slime-mode-faces)
+
 (defun slime-search-suppressed-forms (limit)
   "Find reader conditionalized forms where the test is false."
   (when (and slime-highlight-suppressed-forms
@@ -7050,15 +7060,15 @@ is exceeded."
 
 (defun slime-activate-font-lock-magic ()
   (if (featurep 'xemacs)
-      (let ((pattern '((slime-search-suppressed-forms
-                        (0 font-lock-comment-face t)))))
+      (let ((pattern `((slime-search-suppressed-forms
+                        (0 slime-reader-conditional-face t)))))
         (dolist (sym '(lisp-font-lock-keywords
                        lisp-font-lock-keywords-1
                        lisp-font-lock-keywords-2))
           (set sym (append (symbol-value sym) pattern))))
     (font-lock-add-keywords
      'lisp-mode
-     '((slime-search-suppressed-forms 0 font-lock-comment-face t)))))
+     `((slime-search-suppressed-forms 0 ,''slime-reader-conditional-face t)))))
 
 (when slime-highlight-suppressed-forms
   (slime-activate-font-lock-magic))
