@@ -1542,7 +1542,9 @@ Used for all Lisp communication, except when overridden by
   (let ((conn (or slime-dispatching-connection
                   slime-buffer-connection
                   slime-default-connection)))
-    (cond ((null conn)
+    (cond ((and (not conn) slime-net-processes)
+           (error "No default connection selected."))
+          ((not conn)
            (error "Not connected."))
           ((not (eq (process-status conn) 'open))
            (error "Connection closed."))
@@ -3286,8 +3288,7 @@ from an element and TEST is used to compare keys."
             (push (cons k (list e)) alist))))
     ;; Put them back in order.
     (loop for (key . value) in alist
-          collect (cons key (cons (car value)
-                                  (reverse (cdr value)))))))
+          collect (cons key (reverse value)))))
 
 (defun slime-note.severity (note)
   (plist-get note :severity))
@@ -3445,11 +3446,11 @@ See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
 (defun slime-tree-indent-item (start end prefix)
   "Insert PREFIX at the beginning of each but the first line.
 This is used for labels spanning multiple lines."
-  (save-excursion 
+  (save-excursion
     (goto-char end)
     (beginning-of-line)
     (while (< start (point))
-      (insert prefix)
+      (insert-before-markers prefix)
       (forward-line -1))))
 
 (defun slime-tree-insert (tree prefix)
@@ -4762,7 +4763,7 @@ in the REPL."
                                 'slime-display-eval-result)))
 
 (defun slime-display-eval-result (value)
-  (slime-message (format "%s" value)))
+  (slime-message "%s" value))
 
 (defun slime-eval-with-transcript (form &optional fn)
   "Send FROM and PACKAGE to Lisp and pass the result to FN.
@@ -6288,7 +6289,7 @@ This way you can still see what the error was after exiting SLDB."
 
 (defun slime-draw-connection-list ()
   (let ((default-pos nil)
-        (default (slime-connection))
+        (default slime-default-connection)
         (fstring "%s%2s  %-7s  %-17s  %-7s %-s\n"))
     (insert (format fstring " " "Nr" "Name" "Port" "Pid" "Type")
             (format fstring " " "--" "----" "----" "---" "----"))
@@ -6303,7 +6304,8 @@ This way you can still see what the error was after exiting SLDB."
                (or (process-id p) (process-contact p))
                (slime-pid p)
                (slime-lisp-implementation-type p))))
-    (goto-char default-pos)))
+    (when default 
+      (goto-char default-pos))))
 
 
 ;;;; Inspector
