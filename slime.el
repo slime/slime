@@ -1474,7 +1474,7 @@ This is automatically synchronized from Lisp.")
                             (package 'slime-buffer-package)
                             (thread 'slime-current-thread))
                       &rest continuations)
-  "(slime-rex (VAR ...) (SEXP [PACKAGE]) CLAUSES ...)
+  "(slime-rex (VAR ...) (SEXP &optional PACKAGE THREAD) CLAUSES ...)
 
 Remote EXecute SEXP.
 
@@ -3801,20 +3801,6 @@ CL:MACROEXPAND."
       (slime-dispatch-event '(:emacs-quit))
     (error "Not evaluating - nothing to quit.")))
 
-(defun slime-give-goahead (thread-id)
-  "Allow a suspended thread to continue."
-  (interactive "xThread-ID: ")
-  (case (slime-state-name (slime-current-state))
-    (slime-idle-state
-     (slime-eval-async `(swank:give-goahead ,thread-id)
-                       (slime-buffer-package)
-                       (lambda (v) nil)))
-    (slime-debugging-state
-     (error "Already debugging - must finish first."))
-    (t
-     (error "Busy - can't attach in current state (%S)"
-            (slime-current-state)))))
-
 (defun slime-set-package (package)
   (interactive (list (slime-read-package-name "Package: " 
 					      (slime-find-buffer-package))))
@@ -4335,10 +4321,9 @@ The details include local variable bindings and CATCH-tags."
 
 (defun sldb-break-with-default-debugger ()
   (interactive)
-  (slime-switch-to-output-buffer)
-  (slime-eval-async 
-   '(swank:sldb-break-with-default-debugger) nil 
-   (lambda (_))))
+  (slime-rex ()
+      ('(swank:sldb-break-with-default-debugger) nil slime-current-thread)
+    ((:abort))))
 
 (defun sldb-step ()
   (interactive)
@@ -4376,54 +4361,32 @@ was called originally."
 
 ;;; Thread control panel
 
-;; The "thread control panel" is a buffer showing all interesting Lisp
-;; threads -- for now, this means threads that are waiting to be
-;; debugged. Threads can be selected with RET to have Emacs debug
-;; them.
-
-(defvar slime-waiting-threads '()
-  "List of threads waiting for attention from Emacs.
-Each entry is (ID NAME SUMMARY-STRING).")
-
-(defvar slime-popup-thread-control-panel t
-  "*When non-nil, automatically display the thread control panel.
-The buffer will be popped up any time it is modified.")
-
-(defun slime-register-waiting-thread (id name summary)
-  (unless (member* id slime-waiting-threads :test #'equal :key #'first)
-    (setq slime-waiting-threads
-          (append slime-waiting-threads (list (list id name summary)))))
-  (slime-thread-control-panel (not slime-popup-thread-control-panel))
-  (message "Thread awaiting goahead: %s" name))
-
-(defun slime-thread-control-panel (&optional dont-show)
+(defun slime-list-threads ()
+  "Display a list of threads."
   (interactive)
-  (with-current-buffer (get-buffer-create "*slime-threads*")
-    (slime-thread-control-mode)
-    (let ((inhibit-read-only t))
-      (erase-buffer)
-      (loop for (id name summary) in slime-waiting-threads
-            do (slime-thread-insert id name summary))
-      (goto-char (point-min))
-      (unless dont-show (pop-to-buffer (current-buffer)))
-      (setq buffer-read-only t))))
+  (slime-eval-async 
+   '(swank:list-threads)
+   nil
+   (lambda (threads)
+     (with-current-buffer (get-buffer-create "*slime-threads*")
+       (slime-thread-control-mode)
+       (let ((inhibit-read-only t))
+         (erase-buffer)
+         (loop for id from 0 
+               for (name status) in threads
+               do (slime-thread-insert id name status))
+         (goto-char (point-min))
+         (setq buffer-read-only t)
+         (pop-to-buffer (current-buffer)))))))
 
 (defun slime-thread-insert (id name summary)
   (slime-propertize-region `(thread-id ,id)
-    (slime-insert-propertized '(face bold) name "\n")
+    (slime-insert-propertized '(face bold) name)
+    (insert-char ?\  (- 30 (current-column)))
     (let ((summary-start (point)))
-      (insert summary)
+      (insert " " summary)
       (unless (bolp) (insert "\n"))
       (indent-rigidly summary-start (point) 2))))
-
-(defun slime-thread-goahead ()
-  (interactive)
-  (let ((id (get-text-property (point) 'thread-id)))
-    (unless id (error "No thread at point."))
-    (slime-give-goahead id)
-    (setq slime-waiting-threads
-          (remove* id slime-waiting-threads :key #'car :test #'equal))
-    (slime-thread-control-panel t)))
 
 
 ;;;;; Major mode
