@@ -340,8 +340,8 @@ If the backtrace cannot be calculated, this function returns NIL."
             (return-from frame-catch-tags
               (loop for catch = (ccl::%catch-top tcr) then (ccl::next-catch catch)
                     while catch
-                    for csp = (ccl::uvref catch ppc32::catch-frame.csp-cell)
-                    for tag = (ccl::uvref catch ppc32::catch-frame.catch-tag-cell)
+                    for csp = (ccl::uvref catch 3) ; ppc32::catch-frame.csp-cell) defined in arch.lisp
+                    for tag = (ccl::uvref catch 0) ; ppc32::catch-frame.catch-tag-cell)
                     until (ccl::%stack< p csp tcr)
                     do (print "-") (print catch) (terpri) (describe tag)
                     when (ccl::%stack< my-frame csp tcr)
