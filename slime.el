@@ -366,39 +366,26 @@ This should be called before modifying the user's window configuration.
 
 (put 'slime-with-output-to-temp-buffer 'lisp-indent-function 1)
 
-;; What a tragedy!
-;;
-;; Twenty-nine whole lines of code copy-and-yanked from help.el's
-;; `function-called-at-point', all because it only considers symbols
-;; that are fbound in Emacs!
 (defun slime-function-called-at-point ()
   "Return a function around point or else called by the list containing point.
 If that doesn't give a function, return nil."
-  (or (condition-case ()
-	  (save-excursion
-	    (or (not (zerop (skip-syntax-backward "_w")))
-		(eq (char-syntax (following-char)) ?w)
-		(eq (char-syntax (following-char)) ?_)
-		(forward-sexp -1))
-	    (skip-chars-forward "'")
-	    (let ((obj (read (current-buffer))))
-	      (and (symbolp obj) obj)))
-	(error nil))
-      (condition-case ()
-	  (save-excursion
-	    (save-restriction
-	      (narrow-to-region (max (point-min)
-				     (- (point) 1000)) (point-max))
-	      ;; Move up to surrounding paren, then after the open.
-	      (backward-up-list 1)
-	      (forward-char 1)
-	      ;; If there is space here, this is probably something
-	      ;; other than a real Lisp function call, so ignore it.
-	      (if (looking-at "[ \t]")
-		  (error "Probably not a Lisp function call"))
-	      (let ((obj (read (current-buffer))))
-		(and (symbolp obj) obj))))
-	(error nil))))
+  (ignore-errors
+    (save-excursion
+      (save-restriction
+        (narrow-to-region (max (point-min) (- (point) 1000))
+                          (point-max))
+        ;; Move up to surrounding paren, then after the open.
+        (backward-up-list 1)
+        (when (or (ignore-errors
+                    ;; "((foo" is probably not a function call
+                    (save-excursion (backward-up-list 1)
+                                    (looking-at "(\\s *(")))
+                  ;; nor is "( foo"
+                  (looking-at "([ \t]"))
+          (error "Probably not a Lisp function call"))
+        (forward-char 1)
+        (let ((obj (read (current-buffer))))
+          (and (symbolp obj) obj))))))
 
 (defun slime-read-package-name (prompt)
   (let ((completion-ignore-case t))
