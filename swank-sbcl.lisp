@@ -324,7 +324,7 @@ This is useful when debugging the definition-finding code.")
          (pathname (sb-introspect:definition-source-pathname def))
          (path (sb-introspect:definition-source-form-path def)))
     (list :sbcl 
-          :filename (and pathname (namestring pathname))
+          :filename (and pathname (namestring (truename pathname)))
           :position (sb-introspect:definition-source-character-offset def)
           :path path
           ;; source-paths depend on the file having been compiled with
