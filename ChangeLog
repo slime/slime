@@ -1,5 +1,9 @@
 2005-04-01  Luke Gorrie  <luke@synap.se>
 
+	* swank-source-path-parser.lisp (check-source-path): Signal an
+	error if a source path is malformed. SBCL sometimes gives (NIL).
+	(source-path-stream-position): Use it.
+
 	* slime.el (slime-goto-definition): Handle :error locations here
 	before any window/buffer changes are made.
 
