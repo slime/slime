@@ -3085,10 +3085,9 @@ first element of the source-path redundant."
            (name (regexp-quote name)))
        (or 
         (re-search-forward 
-         (format "^(\\(def.*[ \n\t(]\\([-.%%$&a-z0-9]+:?:\\)?\\)?%s[ \t)]" 
-                 name) nil t)
+         (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\>" name) nil t)
         (re-search-forward 
-         (format "\\s %s" name) nil t)))
+         (format "\\<%s\\>" name) nil t)))
      (goto-char (match-beginning 0)))
     ((:source-path source-path start-position)
      (cond (start-position
@@ -3113,9 +3112,11 @@ are supported:
              | (:function-name <string>)
              | (:source-path <list> <start-position>) "
   (destructure-case location
-    ((:location buffer position)
+    ((:location buffer position hints)
      (slime-goto-location-buffer buffer)
-     (slime-goto-location-position position))
+     (slime-goto-location-position position)
+     (when-let (snippet (getf hints :snippet))
+       (slime-isearch snippet)))
     ((:error message)
      (if noerror
          (slime-message "%s" message)
@@ -3179,6 +3180,54 @@ are supported:
                (not (lambda (f l) (not (apply f l)))))
              #'slime-eval-feature-conditional
              (cdr e))))
+
+
+;;;;; Incremental search
+;;
+;; Search for the longest match of a string in either direction.
+;;
+;; This is for locating text that is expected to be near the point and
+;; may have been modified (but hopefully not near the beginning!)
+
+(defun slime-isearch (string)
+  "Find the longest occurence of STRING either backwards of forwards.
+If multiple matches exist the choose the one nearest to point."
+  (goto-char
+   (let* ((start (point))
+          (len1 (slime-isearch-with-function 'search-forward string))
+          (pos1 (point)))
+     (goto-char start)
+     (let* ((len2 (slime-isearch-with-function 'search-backward string))
+            (pos2 (point)))
+       (cond ((and len1 len2)
+              ;; Have a match in both directions
+              (cond ((= len1 len2)
+                     ;; Both are full matches -- choose the nearest.
+                     (if (< (abs (- start pos1))
+                            (abs (- start pos2)))
+                         pos1 pos2))
+                    ((> len1 len2) pos1)
+                    ((> len2 len1) pos2)))
+             (pos1 pos1)
+             (pos2 pos2)
+             (t start))))))
+
+(defun slime-isearch-with-function (search-fn string)
+  "Search for the longest substring of STRING using SEARCH-FN.
+SEARCH-FN is either the symbol `search-forward' or `search-backward'."
+  (unless (string= string "")
+    (loop for i from 1 to (length string)
+          while (funcall search-fn (substring string 0 i) nil t)
+          for match-data = (match-data)
+          do (case search-fn
+               (search-forward  (goto-char (match-beginning 0)))
+               (search-backward (goto-char (1+ (match-end 0)))))
+          finally (return (if (null match-data)
+                              nil
+                            ;; Finish based on the last successful match
+                            (store-match-data match-data)
+                            (goto-char (match-beginning 0))
+                            (- (match-end 0) (match-beginning 0)))))))
 
 
 ;;;;; Visiting and navigating the overlays of compiler notes
@@ -3745,8 +3794,10 @@ If MARKER is nil, use the point."
 If there's no symbol at point, or a prefix argument is given, then the
 function name is prompted."
   (interactive (list (slime-read-symbol-name "Symbol: ")))
-  (let ((definitions (slime-eval `(swank:find-definitions-for-emacs ,name)
-                                 (slime-buffer-package))))
+  (let ((definitions (slime-cleanup-definition-refs
+                      (slime-cl-symbol-name name)
+                      (slime-eval `(swank:find-definitions-for-emacs ,name)
+                                  (slime-buffer-package)))))
     (if (null definitions)
         (if slime-edit-definition-fallback-function
             (funcall slime-edit-definition-fallback-function name)
@@ -3761,6 +3812,18 @@ function name is prompted."
                     (switch-to-buffer (current-buffer)))
                    (t
                     (switch-to-buffer-other-window (current-buffer)))))))))
+
+(defun slime-cleanup-definition-refs (name definitions)
+  "Cleanup a list of definition references.
+If the position is NIL then replace it with NAME."
+  (loop for (dspec location) in definitions
+        collect (list dspec
+                      (destructure-case location
+                        ((:location buffer position hints)
+                         (list :location
+                               buffer
+                               (or position (list :function-name name))
+                               hints))))))
 
 (defun slime-edit-definition-other-window (name)
   "Like `slime-edit-definition' but switch to the other window."
