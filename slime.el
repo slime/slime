@@ -665,8 +665,7 @@ corresponding values in the CDR of VALUE."
   (cond ((not prefix-arg) 
          (slime-connection))
         ((equal prefix-arg '(4))
-         (slime-find-connection-by-type-name 
-          (slime-read-lisp-implementation-type-name)))
+         (slime-find-connection-by-type-name (slime-read-connection-name)))
         (t (error "Invalid prefix argument: %S" prefix-arg))))
 
 (defmacro slime-define-keys (keymap &rest key-command)
@@ -1295,7 +1294,7 @@ If PROCESS is not specified, `slime-connection' is used.
       (slime-select-connection (car slime-net-processes))
       (message "Default connection closed; switched to #%S (%S)"
                (slime-connection-number)
-               (slime-lisp-implementation-type-name)))))
+               (slime-connection-name)))))
 
 (defun slime-connection-number (&optional connection)
   (slime-with-connection-buffer (connection)
@@ -1316,7 +1315,7 @@ This command is mostly intended for debugging the multi-session code."
     (slime-select-connection conn)
     (message "Selected connection #%S (%s)"
              (slime-connection-number)
-             (slime-lisp-implementation-type-name))))
+             (slime-connection-name))))
 
 (defun slime-make-default-connection ()
   "Make the current connection the default connection."
@@ -1324,19 +1323,18 @@ This command is mostly intended for debugging the multi-session code."
   (slime-select-connection (slime-connection))
   (message "Connection #%S (%s) now default SLIME connection."
            (slime-connection-number)
-           (slime-lisp-implementation-type-name)))
+           (slime-connection-name)))
 
-(defun slime-find-connection-by-type-name (name)
-  (find name slime-net-processes
-        :test #'string=
-        :key #'slime-lisp-implementation-type-name))
+(defun slime-find-connection-by-name (name)
+  (find name slime-net-processes 
+        :test #'string= :key #'slime-connection-name))
 
-(defun slime-read-lisp-implementation-type-name ()
-  (let ((default (slime-lisp-implementation-type-name)))
+(defun slime-read-connection-name ()
+  (let ((default (slime-connection-name)))
     (completing-read
      (format "Name (default %s): " default)
      (slime-bogus-completion-alist
-      (mapcar #'slime-lisp-implementation-type-name slime-net-processes))
+      (mapcar #'slime-connection-name slime-net-processes))
      nil
      t
      nil
@@ -1394,6 +1392,9 @@ This is automatically synchronized from Lisp.")
 (slime-def-connection-var slime-lisp-implementation-type-name nil
   "The short name for the implementation type of the Lisp process.")
 
+(slime-def-connection-var slime-connection-name nil
+  "The short name for connection.")
+
 (slime-def-connection-var slime-use-sigint-for-interrupt nil
   "If non-nil use a SIGINT for interrupting.")
 
@@ -1417,12 +1418,12 @@ This is automatically synchronized from Lisp.")
       ((:read-output output)
        (slime-output-string output))
       ;;
-      ((:emacs-rex form-string package thread continuation)
+      ((:emacs-rex form package thread continuation)
        (when (and slime-rex-continuations (slime-use-sigint-for-interrupt))
-         (message "; pipelined request... %s" form-string))
+         (message "; pipelined request... %S" form))
        (let ((id (incf slime-continuation-counter)))
          (push (cons id continuation) slime-rex-continuations)
-         (slime-send `(:emacs-rex ,form-string ,package ,thread ,id))))
+         (slime-send `(:emacs-rex ,form ,package ,thread ,id))))
       ((:return value id)
        (let ((rec (assq id slime-rex-continuations)))
          (cond (rec (setq slime-rex-continuations 
@@ -1483,6 +1484,13 @@ This is automatically synchronized from Lisp.")
     (slime-select-connection proc)
     proc))
 
+(defun slime-generate-connection-name (lisp-name)
+  (loop for i from 1
+        for name = lisp-name then (format "%s<%d>" lisp-name i)
+        while (find name slime-net-processes 
+                    :key #'slime-connection-name :test #'equal)
+        finally (return name)))
+
 (defun slime-init-connection-state (proc)
   ;; To make life simpler for the user: if this is the only open
   ;; connection then reset the connection counter.
@@ -1496,6 +1504,7 @@ This is automatically synchronized from Lisp.")
     (setf (slime-pid) pid
           (slime-lisp-implementation-type) type
           (slime-lisp-implementation-type-name) name
+          (slime-connection-name) (slime-generate-connection-name name)
           (slime-lisp-features) features))
   (setq slime-state-name "")
   (when slime-global-debugger-hook
@@ -1592,7 +1601,7 @@ deal with that."
                                    (symbol (list var var))
                                    (cons var)))
        (slime-dispatch-event 
-        (list :emacs-rex (slime-prin1-to-string ,sexp) ,package ,thread
+        (list :emacs-rex ,sexp ,package ,thread
               (lambda (,result)
                 (destructure-case ,result
                   ,@continuations)))))))
@@ -3043,9 +3052,7 @@ more than one space."
            (slime-background-message "%s" message)))))))
 
 (defun slime-arglist (name)
-  "Show the argument list for the nearest function call, if any.
-If SHOW-FN is non-nil, it is funcall'd with the result instead of
-printing a message."
+  "Show the argument list for NAME."
   (interactive (list (slime-read-symbol-name "Arglist of: ")))
   (slime-eval-async 
    `(swank:arglist-for-echo-area (quote (,name)))
@@ -4942,7 +4949,7 @@ was called originally."
        (format fstring
                (if (eq default p) "*" " ")
                (slime-connection-number p)
-               (slime-lisp-implementation-type-name p)
+               (slime-connection-name p)
                (or (process-id p) (process-contact p))
                (slime-pid p)
                (slime-lisp-implementation-type p))))
