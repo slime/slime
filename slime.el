@@ -2110,8 +2110,13 @@ side.")
            (substitute-command-keys "\\[slime]"))))
 
 (defun slime-busy-p ()
-  "True if Lisp has outstanding requests."
-  (slime-rex-continuations))
+  "True if Lisp has outstanding requests.
+Debugged requests are ignored."
+  (let ((debugged (sldb-debugged-continuations (slime-connection))))
+    (remove-if (lambda (id) 
+                 (memq id debugged))
+               (slime-rex-continuations)
+               :key #'car)))
 
 (defun slime-reading-p ()
   "True if Lisp is currently reading input from the REPL."
@@ -2172,9 +2177,9 @@ side.")
       ((:debug-activate thread level)
        (assert thread)
        (sldb-activate thread level))
-      ((:debug thread level condition restarts frames)
+      ((:debug thread level condition restarts frames conts)
        (assert thread)
-       (sldb-setup thread level condition restarts frames))
+       (sldb-setup thread level condition restarts frames conts))
       ((:debug-return thread level &optional stepping)
        (assert thread)
        (sldb-exit thread level stepping))
@@ -5127,17 +5132,27 @@ This for use in the implementation of COMMON-LISP:ED."
 (defun slime-interactive-eval (string)
   "Read and evaluate STRING and print value in minibuffer.
 
-Note: If a prefix argument is in effect then the result will be output
-in the REPL."
+Note: If a prefix argument is in effect then the result will be
+inserted in the current buffer."
   (interactive (list (slime-read-from-minibuffer "Slime Eval: ")))
   (slime-insert-transcript-delimiter string)
-  (slime-eval-with-transcript `(swank:interactive-eval ,string)
-                              (if current-prefix-arg
-                                  'slime-output-string
-                                'slime-display-eval-result)))
+  (cond ((not current-prefix-arg)
+         (slime-eval-with-transcript `(swank:interactive-eval ,string) 
+                                     'slime-display-eval-result))
+        (t
+         (slime-eval-print string))))
 
 (defun slime-display-eval-result (value)
   (slime-message "%s" value))
+
+(defun slime-eval-print (string)
+  "Eval STRING in Lisp; insert any output and the result at point."
+  (slime-eval-async `(swank:eval-and-grab-output ,string)
+                    (lexical-let ((buffer (current-buffer)))
+                      (lambda (result)
+                        (with-current-buffer buffer
+                          (destructuring-bind (output value) result
+                            (insert output value)))))))
 
 (defun slime-eval-with-transcript (form &optional fn wait)
   "Send FROM and PACKAGE to Lisp and pass the result to FN.
@@ -5240,14 +5255,8 @@ First make the variable unbound, then evaluate the entire form."
 (defun slime-eval-print-last-expression (string)
   "Evalute sexp before point; print value into the current buffer"
   (interactive (list (slime-last-expression)))
-  (lexical-let ((buffer (current-buffer)))
-    (slime-eval-with-transcript    
-     `(swank:interactive-eval ,string)
-     (lambda (result) (with-current-buffer buffer
-                        (slime-show-last-output)
-                        (insert "\n"
-                                (format "%s" result)
-                                "\n"))))))
+  (insert "\n")
+  (slime-eval-print string))
 
 (defun slime-eval/compile-defun-dwim (&optional arg)
   "Call the computation command you want (Do What I Mean).
@@ -5852,6 +5861,10 @@ If `sldb-enable-styled-backtrace' is nil, just return STRING."
 (make-variable-buffer-local
  (defvar sldb-backtrace-start-marker nil
    "Marker placed at the beginning of the backtrace text."))
+
+(make-variable-buffer-local
+ (defvar sldb-continuations nil
+   "List of ids for pending continuation."))
    
 
 ;;;;; sldb-mode
@@ -5986,19 +5999,18 @@ Full list of commands:
 (defvar sldb-overlays '()
   "List of overlays created in source code buffers to highlight expressions.")
 
+;; FIXME: Why are elements not of the form (connection thread buffer)?
 (defvar sldb-buffers '()
-  "List of sldb-buffers.")
+  "Alist of sldb-buffers of the form (((connection . thread) . buffer) ...)")
 
-(defun sldb-remove-killed-buffers ()
+(defun sldb-buffers ()
   (setq sldb-buffers (remove-if-not #'buffer-live-p sldb-buffers :key #'cdr)))
 
 (defun sldb-find-buffer (thread)
-  (sldb-remove-killed-buffers)
-  (cdr (assoc* (cons (slime-connection) thread) sldb-buffers :test #'equal)))
+  (cdr (assoc* (cons (slime-connection) thread) (sldb-buffers) :test #'equal)))
 
 (defun sldb-get-default-buffer ()
-  (sldb-remove-killed-buffers)
-  (cdr (first sldb-buffers)))
+  (cdr (first (sldb-buffers))))
 
 (defun sldb-get-buffer (thread)
   (or (sldb-find-buffer thread)
@@ -6009,12 +6021,22 @@ Full list of commands:
               sldb-buffers)
         buffer)))
 
-(defun sldb-setup (thread level condition restarts frames)
+(defun sldb-debugged-continuations (connection)
+  "Return the debugged continuations for CONNECTION."
+  (lexical-let ((accu '()))
+    (dolist (e (sldb-buffers))
+      (when (eq (caar e) connection)
+        (with-current-buffer (cdr e)
+          (setq accu (append sldb-continuations accu)))))
+    accu))
+
+(defun sldb-setup (thread level condition restarts frames conts)
   "Setup a new SLDB buffer.
 CONDITION is a string describing the condition to debug.
 RESTARTS is a list of strings (NAME DESCRIPTION) for each available restart.
 FRAMES is a list (NUMBER DESCRIPTION) describing the initial
-portion of the backtrace. Frames are numbered from 0."
+portion of the backtrace. Frames are numbered from 0.
+CONTS is a list of pending Emacs continuations."
   (with-current-buffer (sldb-get-buffer thread)
     (unless (equal sldb-level level)
       (setq buffer-read-only nil)
@@ -6026,6 +6048,7 @@ portion of the backtrace. Frames are numbered from 0."
       (setq mode-name (format "sldb[%d]" sldb-level))
       (setq sldb-condition condition)
       (setq sldb-restarts restarts)
+      (setq sldb-continuations conts)
       (sldb-insert-condition condition)
       (insert (in-sldb-face section "Restarts:") "\n")
       (sldb-insert-restarts restarts)
@@ -7653,7 +7676,7 @@ BODY returns true if the check succeeds."
 
 (defun slime-at-top-level-p ()
   (and (not (sldb-get-default-buffer))
-       (null (slime-busy-p))))
+       (null (slime-rex-continuations))))
 
 (defun slime-wait-condition (name predicate timeout)
   (let ((end (time-add (current-time) (seconds-to-time timeout))))
