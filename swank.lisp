@@ -17,7 +17,10 @@
 (in-package :swank)
 
 ;; Directly exported backend functions.
-(export '(arglist-string))
+(export '(arglist-string backtrace function-source-location-for-emacs
+          frame-locals frame-catch-tags frame-source-position
+          frame-source-location-for-emacs
+          eval-in-frame eval-string-in-frame))
 
 (defvar *swank-io-package*
   (let ((package (make-package "SWANK-IO-PACKAGE")))
@@ -262,6 +265,9 @@ conditions are simply reported."
 
 (defslimefun sldb-continue ()
   (continue *swank-debugger-condition*))
+
+(defslimefun eval-string-in-frame (string index)
+  (to-string (swank-backend:eval-in-frame (from-string string) index)))
 
 
 ;;;; Evaluation

@@ -256,9 +256,7 @@ from frames START-FRAME-NUMBER to END-FRAME-NUMBER."
                            result))))))
         (format nil "~{ ~A~}" (nreverse result)))))
 
-(defslimefun backtrace-for-emacs (&optional
-                  (start-frame-number 0)
-                  (end-frame-number most-positive-fixnum))
+(defmethod backtrace (start-frame-number end-frame-number)
   "Return a list containing a stack backtrace of the condition
 currently being debugged.  The return value of this function is
 unspecified unless called in the dynamic contour of a function
@@ -294,9 +292,9 @@ If the backtrace cannot be calculated, this function returns NIL."
 (defmethod debugger-info-for-emacs (start end)
   (list (format-condition-for-emacs)
         (format-restarts-for-emacs)
-        (backtrace-for-emacs start end)))
+        (backtrace start end)))
 
-(defslimefun frame-locals (index)
+(defmethod frame-locals (index)
   (map-backtrace 
    #'(lambda (frame-number p tcr lfun pc)
        (when (= frame-number index)
@@ -316,7 +314,7 @@ If the backtrace cannot be calculated, this function returns NIL."
                          result))))
              (return-from frame-locals (nreverse result))))))))
 
-(defslimefun frame-catch-tags (index)
+(defmethod frame-catch-tags (index)
   (declare (ignore index))
   nil)
 
@@ -330,7 +328,7 @@ named SYMBOL."
       (let ((filename (namestring (truename source-info))))
         (list :openmcl filename (symbol-name symbol))))))
 
-(defslimefun frame-source-location-for-emacs (index)
+(defmethod frame-source-location-for-emacs (index)
   "Return to Emacs the location of the source code for the
 function in a debugger frame.  In OpenMCL, we are not able to
 find the precise position of the frame, but we do attempt to give

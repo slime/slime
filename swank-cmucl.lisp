@@ -530,7 +530,7 @@ This is useful when debugging the definition-finding code.")
            (when location
              (source-location-for-emacs location))))))
 
-(defslimefun function-source-location-for-emacs (fname)
+(defmethod function-source-location-for-emacs (fname)
   "Return the source-location of FNAME's definition."
   (let* ((fname (from-string fname))
          (finder
@@ -904,19 +904,19 @@ stack."
 	  while f
 	  collect f)))
 
-(defslimefun backtrace-for-emacs (start end)
+(defmethod backtrace (start end)
   (mapcar #'format-frame-for-emacs (compute-backtrace start end)))
 
 (defmethod debugger-info-for-emacs (start end)
   (list (format-condition-for-emacs)
 	(format-restarts-for-emacs)
-	(backtrace-for-emacs start end)))
+	(backtrace start end)))
 
-(defslimefun frame-source-location-for-emacs (index)
+(defmethod frame-source-location-for-emacs (index)
   (safe-source-location-for-emacs (di:frame-code-location (nth-frame index))))
 
-(defslimefun eval-string-in-frame (string index)
-  (to-string (di:eval-in-frame (nth-frame index) (from-string string))))
+(defmethod eval-in-frame (form index)
+  (di:eval-in-frame (nth-frame index) form))
 
 (defslimefun pprint-eval-string-in-frame (string index)
   (swank-pprint 
@@ -927,7 +927,7 @@ stack."
   (reset-inspector)
   (inspect-object (di:eval-in-frame (nth-frame index) (from-string string))))
 
-(defslimefun frame-locals (index)
+(defmethod frame-locals (index)
   (let* ((frame (nth-frame index))
 	 (location (di:frame-code-location frame))
 	 (debug-function (di:frame-debug-function frame))
@@ -942,7 +942,7 @@ stack."
 		       (to-string (di:debug-variable-value v frame))
 		       "<not-available>")))))
 
-(defslimefun frame-catch-tags (index)
+(defmethod frame-catch-tags (index)
   (loop for (tag . code-location) in (di:frame-catches (nth-frame index))
 	collect `(,tag . ,(safe-source-location-for-emacs code-location))))
 

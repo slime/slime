@@ -180,7 +180,7 @@ until the remote Emacs goes away."
   (setf *default-pathname-defaults* (merge-pathnames directory))
   (namestring *default-pathname-defaults*))
 
-(defslimefun arglist-string (fname)
+(defmethod arglist-string (fname)
   (let ((*print-case* :downcase))
     (multiple-value-bind (function condition)
         (ignore-errors (values 
@@ -332,7 +332,7 @@ This is useful when debugging the definition-finding code.")
           ;; for emacs to attempt to find with a regex
           :function-name (unless path fname))))
                                 
-(defslimefun function-source-location-for-emacs (fname-string)
+(defmethod function-source-location-for-emacs (fname-string)
   "Return the source-location of FNAME's definition."
   (let* ((fname (from-string fname-string)))
     (labels ((finder (fname)
@@ -475,13 +475,13 @@ stack."
 	       while f
 	       collect f)))))
 
-(defslimefun backtrace-for-emacs (start end)
+(defmethod backtrace (start end)
   (mapcar #'format-frame-for-emacs (compute-backtrace start end)))
 
 (defmethod debugger-info-for-emacs (start end)
   (list (format-condition-for-emacs)
 	(format-restarts-for-emacs)
-	(backtrace-for-emacs start end)))
+	(backtrace start end)))
 
 (defun code-location-source-path (code-location)
   (let* ((location (sb-debug::maybe-block-start-location code-location))
@@ -536,15 +536,15 @@ stack."
   (handler-case (source-location-for-emacs code-location)
     (t (c) (list :error (princ-to-string c)))))
 
-(defslimefun frame-source-location-for-emacs (index)
+(defmethod frame-source-location-for-emacs (index)
   (safe-source-location-for-emacs 
    (sb-di:frame-code-location (nth-frame index))))
 
 #+nil
-(defslimefun eval-string-in-frame (string index)
-  (to-string (sb-di:eval-in-frame (nth-frame index) (from-string string))))
+(defmethod eval-in-frame (form index)
+  (sb-di:eval-in-frame (nth-frame index) string))
 
-(defslimefun frame-locals (index)
+(defmethod frame-locals (index)
   (let* ((frame (nth-frame index))
 	 (location (sb-di:frame-code-location frame))
 	 (debug-function (sb-di:frame-debug-fun frame))
@@ -560,7 +560,7 @@ stack."
                        (to-string (sb-di:debug-var-value v frame))
                        "<not-available>")))))
 
-(defslimefun frame-catch-tags (index)
+(defmethod frame-catch-tags (index)
   (loop for (tag . code-location) in (sb-di:frame-catches (nth-frame index))
 	collect `(,tag . ,(safe-source-location-for-emacs code-location))))
 
