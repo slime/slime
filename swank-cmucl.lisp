@@ -10,77 +10,46 @@
 
 ;;;; TCP server.
 
-(defun resolve-hostname (name)
-  (let* ((hostent (ext:lookup-host-entry name))
-         (address (car (ext:host-entry-addr-list hostent))))
-    (ext:htonl address)))
+(defmethod create-socket-server (init-fn &key announce-fn (port 0)
+                                 (accept-background t)
+                                 (handle-background t)
+                                 (loop t)
+                                 (host "localhost"))
+  (let* ((ip (resolve-hostname host))
+         (fd (ext:create-inet-listener port :stream :reuse-address t :host ip)))
+    (funcall announce-fn (local-tcp-port fd))
+    (setup-socket-accept fd init-fn accept-background handle-background loop)))
 
-(defun create-swank-server (port &key (reuse-address t)
-                            (address "localhost")
-                            (announce #'simple-announce-function)
-                            (background *start-swank-in-background*)
-                            (close *close-swank-socket-after-setup*))
-  "Create a SWANK TCP server."
-  (let* ((ip (resolve-hostname address))
-         (fd (ext:create-inet-listener port :stream
-                                       :reuse-address reuse-address
-                                       :host ip)))
-    (funcall announce (tcp-port fd))
-    (accept-clients fd background close)))
+(defun setup-socket-accept (fd init-fn accept-background handle-background loop)
+  (flet ((accept-client (&optional (fd fd))
+           (accept-one-client fd init-fn handle-background (not loop))))
+    (cond (accept-background (add-input-handler fd #'accept-client))
+          (loop              (loop (accept-client)))
+          (t                 (accept-client)))))
 
-(defun accept-clients (fd background close)
-  "Accept clients on the the server socket FD.  Use fd-handlers if
-BACKGROUND is non-nil.  Close the server socket after the first client
-if CLOSE is non-nil, "
-  (flet ((accept-client (&optional (fdes fd))
-           (accept-one-client fd background close)))
-    (cond (background (add-input-handler fd #'accept-client))
-          (close      (accept-client))
-          (t          (loop (accept-client))))))
+(defun accept-one-client (listen-fd init-fn background close)
+  (let* ((client-fd (ext:accept-tcp-connection listen-fd))
+         (socket-stream (make-socket-io-stream client-fd))
+         (handler-fn (funcall init-fn socket-stream)))
+    (when close
+      (sys:invalidate-descriptor listen-fd)
+      (unix:unix-close listen-fd))
+    (if background
+        (add-input-handler client-fd
+                           (lambda (fdes)
+                             (declare (ignore fdes))
+                             (funcall handler-fn)))
+        (loop (funcall handler-fn)))))
 
-(defun accept-one-client (socket background close)
-  (let ((fd (ext:accept-tcp-connection socket)))
-    (when close   
-      (sys:invalidate-descriptor socket)
-      (unix:unix-close socket))
-    (setup-request-loop fd background)))
-
-(defun setup-request-loop (fd background)
-  "Setup request handling for connection FD.
-If BACKGROUND is true, setup SERVE-EVENT handler and return immediately.
-Otherwise enter a request handling loop until the connection closes."
-  (let* ((stream (make-emacs-io-stream fd))
-         (out (if *use-dedicated-output-stream* 
-                  (open-stream-to-emacs stream)
-                  (make-slime-output-stream)))
-         (in (make-slime-input-stream))
-         (io (make-two-way-stream in out)))
-    (flet ((serve-request (&optional fdes)
-             (declare (ignore fdes))
-             (serve-one-request stream out in io)))
-      (if background
-          (add-input-handler fd #'serve-request)
-          (loop (serve-one-request stream out in io))))))
-
-(defun serve-one-request (*emacs-io* *slime-output* *slime-input* *slime-io*)
-  "Read and process one request from a SWANK client. 
-The request is read from the socket as a sexp and then evaluated.
-Return non-nil iff a reader-error occured."
-  (catch 'slime-toplevel
-    (with-simple-restart (abort "Return to Slime toplevel.")
-      (handler-case (read-from-emacs)
-	(slime-read-error (e)
-	  (when *swank-debug-p*
-	    (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
-	  (sys:invalidate-descriptor (sys:fd-stream-fd *emacs-io*))
-	  (close *emacs-io*)
-          (return-from serve-one-request t)))))
-  nil)
+(defmethod make-fn-streams (input-fn output-fn)
+  (let* ((output (make-slime-output-stream output-fn))
+         (input  (make-slime-input-stream input-fn output)))
+    (values input output)))
 
 ;;;
 ;;;;; Socket helpers.
 
-(defun tcp-port (fd)
+(defun local-tcp-port (fd)
   "Return the TCP port of the socket represented by FD."
   (nth-value 1 (ext::get-socket-host-and-port fd)))
 
@@ -93,32 +62,22 @@ Return non-nil iff a reader-error occured."
 (defun add-input-handler (fd fn)
   (system:add-fd-handler fd :input fn))
 
-(defun make-emacs-io-stream (fd)
+(defun make-socket-io-stream (fd)
   "Create a new input/output fd-stream for FD."
   (sys:make-fd-stream fd :input t :output t :element-type 'base-char))
-
-(defun open-stream-to-emacs (*emacs-io*)
-  "Return an output-stream to Emacs' output buffer."
-  (let* ((ip (resolve-hostname "localhost"))
-         (listener (ext:create-inet-listener 0 :stream :host ip))
-         (port (tcp-port listener)))
-    (unwind-protect
-         (progn
-           (eval-in-emacs `(slime-open-stream-to-lisp ,port))
-           (let ((fd (ext:accept-tcp-connection listener)))
-             (sys:make-fd-stream fd :output t)))
-      (ext:close-socket listener))))
 
 
 ;;;; Stream handling
 
 (defstruct (slime-output-stream
-	     (:include lisp::lisp-stream
-		       (lisp::misc #'sos/misc)
-		       (lisp::out #'sos/out)
-		       (lisp::sout #'sos/sout))
-	     (:conc-name sos.)
-	     (:print-function %print-slime-output-stream))
+             (:include lisp::lisp-stream
+                       (lisp::misc #'sos/misc)
+                       (lisp::out #'sos/out)
+                       (lisp::sout #'sos/sout))
+             (:conc-name sos.)
+             (:print-function %print-slime-output-stream)
+             (:constructor make-slime-output-stream (output-fn)))
+  (output-fn nil :type function)
   (buffer (make-string 512) :type string)
   (index 0 :type kernel:index)
   (column 0 :type kernel:index))
@@ -142,15 +101,15 @@ Return non-nil iff a reader-error occured."
 (defun sos/sout (stream string start end)
   (loop for i from start below end 
 	do (sos/out stream (aref string i))))
-	      
+
 (defun sos/misc (stream operation &optional arg1 arg2)
   (declare (ignore arg1 arg2))
   (case operation
     ((:force-output :finish-output)
      (let ((end (sos.index stream)))
        (unless (zerop end)
-	 (send-to-emacs `(:read-output ,(subseq (sos.buffer stream) 0 end)))
-	 (setf (sos.index stream) 0))))
+         (funcall (sos.output-fn stream) (subseq (sos.buffer stream) 0 end))
+         (setf (sos.index stream) 0))))
     (:charpos (sos.column stream))
     (:line-length 75)
     (:file-position nil)
@@ -160,20 +119,26 @@ Return non-nil iff a reader-error occured."
     (t (format *terminal-io* "~&~Astream: ~S~%" stream operation))))
 
 (defstruct (slime-input-stream
-	     (:include string-stream
-		       (lisp::in #'sis/in)
-		       (lisp::misc #'sis/misc))
-	     (:conc-name sis.)
-	     (:print-function %print-slime-output-stream))
-  (buffer "" :type string)
-  (index 0 :type kernel:index))
+             (:include string-stream
+                       (lisp::in #'sis/in)
+                       (lisp::misc #'sis/misc))
+             (:conc-name sis.)
+             (:print-function %print-slime-output-stream)
+             (:constructor make-slime-input-stream (input-fn sos)))
+  (input-fn nil :type function)
+  ;; We know our sibling output stream, so that we can force it before
+  ;; requesting input.
+  (sos      nil :type slime-output-stream)
+  (buffer   ""  :type string)
+  (index    0   :type kernel:index))
 
 (defun sis/in (stream eof-errorp eof-value)
   (declare (ignore eof-errorp eof-value))
   (let ((index (sis.index stream))
 	(buffer (sis.buffer stream)))
     (when (= index (length buffer))
-      (setf buffer (slime-read-string))
+      (force-output (sis.sos stream))
+      (setf buffer (funcall (sis.input-fn stream)))
       (setf (sis.buffer stream) buffer)
       (setf index 0))
     (prog1 (aref buffer index)
