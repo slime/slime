@@ -240,6 +240,7 @@ Evaluation commands:
     ("\C-c:"    . slime-interactive-eval)
     ("\C-c\C-d" . slime-describe-symbol)
     ("\C-c\M-d" . slime-disassemble-symbol)
+    ("\C-c\C-t" . slime-toggle-trace-fdefinition)
     ("\C-c\C-a" . slime-apropos)
     ([(control c) (control m)] . slime-macroexpand-1)
     ([(control c) (meta m)]    . slime-macroexpand-all)
@@ -641,6 +642,12 @@ See `slime-compile-and-load-file' for further details."
       (beginning-of-defun)
       (buffer-substring-no-properties (point) end))))
 
+(defun slime-symbol-at-point ()
+  (slime-substring-no-properties (thing-at-point 'symbol)))
+
+(defun slime-sexp-at-point ()
+  (slime-substring-no-properties (thing-at-point 'sexp)))
+
 (defun slime-compile-defun ()
   (interactive)
   (slime-eval-async 
@@ -652,7 +659,7 @@ See `slime-compile-and-load-file' for further details."
    (slime-buffer-package)
    (lexical-let ((buffer (current-buffer)))
      (lambda (result)
-e       (slime-compilation-finished result buffer)))))
+       (slime-compilation-finished result buffer)))))
 
 (defun slime-show-note-counts (notes)
   (loop for note in notes 
@@ -1162,6 +1169,16 @@ the function name is prompted."
         ;; If this buffer was deleted, recurse to try the next one
         (slime-pop-find-definition-stack)))))
 
+(defun slime-edit-symbol-fdefinition (name)
+  "Lookup the function definition of the symbol at point."
+  (interactive (list (slime-symbol-at-point)))
+  (let ((origin (point-marker))
+	(source-location
+	 (slime-eval `(swank:function-source-location-for-emacs ,name)
+		     (slime-buffer-package))))
+    (slime-goto-source-location source-location)
+    (ring-insert-at-beginning slime-find-definition-history-ring origin)))
+    
 
 ;;; Interactive evaluation.
 
@@ -1169,7 +1186,7 @@ the function name is prompted."
   (interactive "sSlime Eval: ")
   (with-current-buffer inferior-lisp-buffer
     (goto-char (point-max))
-    (insert "\n--------------------------------------------------------\n")
+    (insert "\n;;;; ----\n")
     (set-marker (process-mark (get-buffer-process (current-buffer))) (point)))
   (delete-windows-on inferior-lisp-buffer)
   (slime-eval-async 
@@ -1229,6 +1246,15 @@ the function name is prompted."
    (slime-buffer-package t)
    'slime-show-description))
 
+(defun slime-toggle-trace-fdefinition (fname-string)
+  (interactive (lisp-symprompt "(Un)trace" (slime-symbol-at-point)))
+  (message "%s" (slime-eval `(swank:toggle-trace-fdefinition ,fname-string)
+			    (slime-buffer-package t))))
+
+(defun slime-disassemble-symbol (symbol-name)
+  (interactive (list (slime-symbol-at-point)))
+  (slime-eval-describe `(swank:disassemble-symbol ,symbol-name)))
+
 ;;; 
 
 (defun slime-show-description (string)
@@ -1254,25 +1280,24 @@ the function name is prompted."
 (defun slime-describe-symbol (symbol-name)
   (interactive
    (list (cond (current-prefix-arg 
-		(car (lisp-symprompt "Describe" 
-				     (thing-at-point 'symbol))))
-	       ((thing-at-point 'symbol))
+		(car (lisp-symprompt "Describe" (slime-symbol-at-point))))
+	       ((slime-symbol-at-point))
 	       ((car (lisp-symprompt "Describe" nil))))))
   (when (not symbol-name)
     (error "No symbol given"))
-  (slime-eval-describe `(swank:describe-symbol
-			 ,(slime-substring-no-properties symbol-name))))
+  (slime-eval-describe `(swank:describe-symbol ,symbol-name)))
 
-(defun slime-disassemble-symbol (symbol-name)
-  (interactive (list (slime-substring-no-properties (thing-at-point 'symbol))))
-  (slime-eval-describe `(swank:disassemble-symbol ,symbol-name)))
+(defun slime-read-package-name (prompt)
+  (completing-read prompt (mapcar (lambda (x) (cons x x))
+				  (slime-eval 
+				   `(swank:list-all-package-names)))))
 
 (defun slime-apropos (string &optional only-external-p package)
   (interactive
    (if current-prefix-arg
        (list (read-string "SLIME Apropos: ")
              (y-or-n-p "External symbols only? ")
-             (let ((pkg (read-string "Package: ")))
+             (let ((pkg (slime-read-package-name "Package: ")))
                (if (string= pkg "") nil pkg)))
      (list (read-string "SLIME Apropos: ") t nil)))
   (slime-eval-async
@@ -1281,10 +1306,6 @@ the function name is prompted."
    (lexical-let ((string string)
                  (package package))
      (lambda (r) (slime-show-apropos r string package)))))
-
-;; Buffer-local variable. Holds the name of *package* when apropos was
-;; apropos was called.
-(defvar slime-apropos-package)
 
 (defun slime-show-apropos (plists string package)
   (if (null plists)
@@ -1295,7 +1316,6 @@ the function name is prompted."
         (apropos-mode)
         (set-syntax-table lisp-mode-syntax-table)
         (slime-mode t)
-        (make-local-variable 'slime-buffer-package)
         (setq slime-buffer-package package)
         (set (make-local-variable 'truncate-lines) t)
         (slime-print-apropos plists)))))
@@ -1352,7 +1372,7 @@ the function name is prompted."
 ;;; Macroexpansion
 
 (defun slime-eval-macroexpand (expander)
-  (let ((string (slime-substring-no-properties (thing-at-point 'sexp))))
+  (let ((string (slime-sexp-at-point)))
     (slime-eval-describe `(,expander ,string))))
 
 (defun slime-macroexpand-1 (&optional repeatedly)
@@ -1554,28 +1574,43 @@ the function name is prompted."
     (sldb-backward-frame)
     (sldb-frame-number-at-point)))
 
+(defun slime-goto-source-location (source-location &optional other-window)
+  (let ((error (plist-get source-location :error)))
+    (when error
+      (error "Cannot locate source: %s" error))
+    (case (plist-get source-location :from)
+      (:file
+       (funcall (if other-window #'find-file-other-window #'find-file)
+		(plist-get source-location :filename))
+	 (goto-char (plist-get source-location :position)))
+      (:stream
+       (let ((info (plist-get source-location :info)))
+	 (cond ((eq :emacs-buffer (car info))
+		(let ((buffer (plist-get info :emacs-buffer))
+		      (offset (plist-get info :emacs-buffer-offset)))
+		  (funcall (if other-window 
+			       #'switch-to-buffer-other-window 
+			     #'switch-to-buffer)
+			   (get-buffer buffer))
+		  (goto-char offset)
+		  (slime-forward-source-path 
+		   (cdr (plist-get source-location :path)))))
+	       (t
+		(error "Cannot locate source from stream: %s"
+		       source-location)))))
+      (t
+       (slime-message "Source Form:\n%s" 
+		      (plist-get source-location :source-form))))))
+	   
 (defun sldb-show-source ()
   (interactive)
   (sldb-delete-overlays)
   (let* ((number (sldb-frame-number-at-point))
 	 (source-location (slime-eval
-			   `(swank:frame-code-location-for-emacs ,number)))
-	 (error (plist-get source-location :error)))
-    (when error
-      (error "Cannot locate source: %s" error))
-    (case (plist-get source-location :from)
-      (:file
-       (with-current-buffer (find-file-noselect 
-			     (plist-get source-location :filename))
-	 (let ((positions (plist-get source-location :position)))
-	   (goto-char (car positions))
-	   (apply #'sldb-highlight-sexp positions)
-	   (set-window-point 
-	    (display-buffer (current-buffer) t)
-	    (point)))))
-      (t 
-       (slime-message "Source Form:\n%s" 
-		      (plist-get source-location :source-form))))))
+			   `(swank:frame-source-location-for-emacs ,number))))
+    (save-selected-window
+      (slime-goto-source-location source-location t)
+      (sldb-highlight-sexp))))
 
 (defun sldb-toggle-details ()
   (interactive)
