@@ -6437,22 +6437,22 @@ This way you can still see what the error was after exiting SLDB."
   :group 'slime-inspector)
 
 (defface slime-inspector-label-face
-  '((t (:bold t)))
+    '((t (:inherit font-lock-constant-face)))
   "Face for labels in the inspector."
   :group 'slime-inspector)
 
 (defface slime-inspector-value-face
-  '((t ()))
+    '((t (:inherit font-lock-builtin-face)))
   "Face for things which can themselves be inspected."
   :group 'slime-inspector)
 
 (defface slime-inspector-action-face
-  '((t (:italic t)))
+    '((t (:inherit font-lock-warning-face)))
   "Face for labels of inspector actions."
   :group 'slime-inspector)
 
 (defface slime-inspector-type-face
-  '((t ()))
+    '((t (:inherit font-lock-type-face)))
   "Face for type description in inspector."
   :group 'slime-inspector)
 
@@ -6506,7 +6506,7 @@ Optionally set point to POINT."
                          (:value
                           (destructuring-bind (string id) (cdr part)
                             (slime-propertize-region `(slime-part-number ,id)
-                              (insert (fontify label string)))))
+                              (insert (fontify value string)))))
                          (:action
                           (destructuring-bind (string id) (cdr part)
                             (slime-propertize-region `(slime-action-number ,id)
@@ -6516,6 +6516,8 @@ Optionally set point to POINT."
     t)))
 
 (defun slime-inspector-operate-on-point ()
+  "If point is on a value then recursivly call the inspcetor on
+  that value. If point is on an action then call that action."
   (interactive)
   (cond
     ((get-text-property (point) 'slime-part-number)
