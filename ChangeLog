@@ -1,3 +1,14 @@
+2003-12-01  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-create-note-overlay, slime-sexp-depth): The
+	'priority' property is unused. Remove it.
+
+	* swank-openmcl.lisp (find-function-locations): Return all methods
+	for generic functions. Doesn't work very well if multiple methods
+	are in the same file.
+	(swank-accept-connection): Don't create an extra thread, call
+	request-loop directly.
+
 2003-12-01  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-repl-return): Goto end of input area before
