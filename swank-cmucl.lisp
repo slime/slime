@@ -553,7 +553,7 @@ the code omponent CODE."
 
 ;;;; Definitions
 
-(defvar *debug-definition-finding* t
+(defvar *debug-definition-finding* nil
   "When true don't handle errors while looking for definitions.
 This is useful when debugging the definition-finding code.")
 
