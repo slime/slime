@@ -165,7 +165,8 @@
     (:unread (setf (aref (sis.buffer stream) 
 			 (decf (sis.index stream)))
 		   arg1))
-    (:clear-input (setf (sis.index stream) 0
+    (:clear-input 
+     (setf (sis.index stream) 0
 			(sis.buffer stream) ""))
     (:listen (< (sis.index stream) (length (sis.buffer stream))))
     (:charpos nil)
@@ -334,38 +335,31 @@ the error-context redundant."
 (defun lookup-xrefs (finder name)
   (xref-results-for-emacs (funcall finder (from-string name))))
 
-(defslimefun who-calls (function-name)
-  "Return the places where FUNCTION-NAME is called."
+(defimplementation who-calls (function-name)
   (lookup-xrefs #'xref:who-calls function-name))
 
-(defslimefun who-references (variable)
-  "Return the places where the global variable VARIABLE is referenced."
+(defimplementation who-references (variable)
   (lookup-xrefs #'xref:who-references variable))
 
-(defslimefun who-binds (variable)
-  "Return the places where the global variable VARIABLE is bound."
+(defimplementation who-binds (variable)
   (lookup-xrefs #'xref:who-binds variable))
 
-(defslimefun who-sets (variable)
-  "Return the places where the global variable VARIABLE is set."
+(defimplementation who-sets (variable)
   (lookup-xrefs #'xref:who-sets variable))
 
 #+cmu19
 (progn
-  (defslimefun who-macroexpands (macro)
-    "Return the places where MACRO is expanded."
+  (defimplementation who-macroexpands (macro)
     (lookup-xrefs #'xref:who-macroexpands macro))
   
-  (defslimefun who-specializes (class)
-    "Return the methods with specializers for CLASS."
+  (defimplementation who-specializes (class)
     (let* ((methods (xref::who-specializes (find-class (from-string class))))
            (locations (mapcar #'method-source-location methods)))
       (group-xrefs (mapcar (lambda (m l)
                              (cons (let ((*print-pretty* nil))
                                      (to-string m))
                                    l))
-                           methods locations))))
-  )
+                           methods locations)))))
 
 (defun resolve-xref-location (xref)
   (let ((name (xref:xref-context-name xref))
@@ -522,7 +516,7 @@ the code omponent CODE."
                        (function-source-location e)))
    :test #'equal))
 
-(defslimefun list-callers (symbol-name)
+(defimplementation list-callers (symbol-name)
   "Return a list ((FILE . ((NAME . LOCATION) ...)) ...) of callers."
   (let ((components (function-callers (from-string symbol-name)))
         (xrefs '()))
@@ -536,8 +530,7 @@ the code omponent CODE."
         (setq xrefs (nconc defs xrefs))))
     (group-xrefs xrefs)))
 
-
-(defslimefun list-callees (symbol-name)
+(defimplementation list-callees (symbol-name)
   (let ((fns (function-callees (from-string symbol-name))))
     (group-xrefs (mapcar (lambda (fn)
                            (cons (to-string (kernel:%function-name fn))
