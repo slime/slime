@@ -440,6 +440,7 @@ A prefix argument disables this behaviour."
     (">" slime-list-callees :prefixed t :inferior t :sldb t)
     ;; "Other"
     ("\I"  slime-inspect :prefixed t :inferior t :sldb t)
+    ("\C-]" slime-close-all-sexp :prefixed t :inferior t :sldb t)
     ("\C-xt" slime-thread-control-panel :prefixed t :inferior t :sldb t)))
 
 ;; Maybe a good idea, maybe not..
@@ -4701,6 +4702,60 @@ Only considers buffers that are not already visible."
         finally (error "Can't find unshown buffer in %S" mode)))
 
 
+;;; Editing commands
+
+(defvar *slime-comment-start-regexp*
+  "\\(\\(^\\|[^\n\\\\]\\)\\([\\\\][\\\\]\\)*\\);+[ \t]*"
+  "Regexp to match the start of a comment.")
+
+(defun slime-beginning-of-comment ()
+  "Move point to beginning of comment.
+If point is inside a comment move to beginning of comment and return point.
+Otherwise leave point unchanged and return NIL."
+  (let ((boundary (point)))
+    (beginning-of-line)
+    (cond ((re-search-forward *slime-comment-start-regexp* boundary t)
+           (point))
+          (t (goto-char boundary) 
+             nil))))
+
+(defun slime-close-all-sexp (&optional region)
+  "Balance parentheses of open s-expressions at point.
+Insert enough right parentheses to balance unmatched left parentheses.
+Delete extra left parentheses.  Reformat trailing parentheses 
+Lisp-stylishly.
+
+If REGION is true, operate on the region. Otherwise operate on
+the top-level sexp before point."
+  (interactive "P")
+  (message "region = %S" region)
+  (let ((sexp-level 0)
+        point)
+    (save-excursion
+      (save-restriction
+        (when region
+          (narrow-to-region (region-beginning) (region-end))
+          (goto-char (point-max)))
+        ;; skip over closing parens, but not into comment
+        (skip-chars-backward ") \t\n")
+        (when (slime-beginning-of-comment)
+          (forward-line)
+          (skip-chars-forward " \t"))
+        (setq point (point))
+        ;; count sexps until either '(' or comment is found at first column
+        (while (and (not (looking-at "^[(;]"))
+                  (ignore-errors (backward-up-list 1) t))
+          (incf sexp-level))))
+    (when (> sexp-level 0)
+      ;; insert correct number of right parens
+      (goto-char point)
+      (dotimes (i sexp-level) (insert ")"))
+      ;; delete extra right parens
+      (setq point (point))
+      (skip-chars-forward " \t\n)")
+      (skip-chars-backward " \t\n")
+      (delete-region point (point)))))
+
 ;;; Test suite
 
 (defvar slime-tests '()
