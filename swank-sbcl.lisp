@@ -105,6 +105,14 @@
             (return (sb-bsd-sockets:socket-accept socket))
           (sb-bsd-sockets:interrupted-error ()))))
 
+(defmethod make-fn-streams (input-fn output-fn)
+  (let* ((output (make-instance 'slime-output-stream
+                                :output-fn output-fn))
+         (input  (make-instance 'slime-input-stream
+                                :input-fn input-fn
+                                :output-stream output)))
+    (values input output)))
+
 ;;; Utilities
 
 (defvar *swank-debugger-stack-frame*)
@@ -528,6 +536,30 @@ stack."
 
 (defslimefun sldb-abort ()
   (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
+
+;;;; Multiprocessing
+
+#+SB-THREAD
+(progn
+  (defmethod spawn (fn &key name)
+    (declare (ignore name))
+    (sb-thread:make-thread fn))
+
+  (defmethod startup-multiprocessing ()
+    (setq *swank-in-background* :spawn))
+
+  (defmethod thread-id ()
+    (sb-thread:current-thread-id))
+
+  (defmethod thread-name (thread-id)
+    (format nil "Thread ~S" thread-id))
+
+  (defmethod make-lock (&key name)
+    (sb-thread:make-mutex :name name))
+
+  (defmethod call-with-lock-held (lock function)
+    (sb-thread:with-mutex (lock) (funcall function)))
+)
 
 ;;; Local Variables:
 ;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
