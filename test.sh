@@ -25,10 +25,10 @@ test -d $testdir && rm -r $testdir
 trap "rm -r $testdir" EXIT	# remove temporary directory on exit
 
 mkdir $testdir
-cp $slimedir/*.el $slimedir/*.lisp $testdir
+cp $slimedir/*.el $slimedir/*.lisp ChangeLog $testdir
 
 # you can remove "--batch" to get an emacs window for troubleshooting.
-$emacs --batch --no-site-file --no-init-file \
+$emacs --no-site-file --no-init-file \
        --eval "(setq debug-on-quit t)" \
        --eval "(setq max-lisp-eval-depth 1000)" \
        --eval "(setq load-path (cons \"$testdir\" load-path))" \
