@@ -448,7 +448,7 @@ This list of flushed between commands."))
             (add-to-list
              (make-local-variable 'comint-output-filter-functions)
              (lambda (string)
-               (unless (get-buffer-window (current-buffer))
+               (unless (get-buffer-window (current-buffer) t)
                  (display-buffer (current-buffer) t))
                (comint-postoutput-scroll-to-bottom string)))))
 
