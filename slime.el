@@ -1,4 +1,4 @@
-;; -*- mode: emacs-lisp; mode: outline-minor; outline-regexp: ";;;;*"; tab-width: 8; indent-tabs-mode: t -*-
+;; -*- mode: emacs-lisp; mode: outline-minor; outline-regexp: ";;;;*"; indent-tabs-mode: nil -*-
 ;; slime.el -- Superior Lisp Interaction Mode, Extended
 ;;; License
 ;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
@@ -61,7 +61,7 @@
   (require 'easy-mmode)
   (defalias 'define-minor-mode 'easy-mmode-define-minor-mode))
 
-(defconst slime-swank-port 4005
+(defvar slime-swank-port 4005
   "TCP port number for the Lisp Swank server.")
 
 (defvar slime-path
@@ -93,6 +93,10 @@ This is needed to READ Common Lisp expressions adequately.")
 
 (defvar slime-pid nil
   "The process id of the Lisp process.")
+
+(defvar slime-dont-prompt nil
+  "When true, don't prompt the user for input during startup.
+This is used for batch-mode testing.")
 
 
 ;;; Customize group
@@ -493,7 +497,7 @@ If that doesn't give a function, return nil."
                      (format "(load %S)\n"
                              (concat slime-path slime-backend)))
   (comint-proc-query (inferior-lisp-proc)
-                     "(swank:start-server)\n"))
+                     (format "(swank:start-server %S)\n" slime-swank-port)))
 
 (defun slime-maybe-compile-swank ()
   (let ((source (concat slime-path slime-backend ".lisp"))
@@ -502,11 +506,13 @@ If that doesn't give a function, return nil."
 			      (inferior-lisp-proc)
 			      (format "(compile-file %S)\n" source))))
       (when (or (and (not (file-exists-p binary))
-                     (y-or-n-p "\
-The CMUCL support library (Swank) is not compiled. Compile now? "))
+                     (or slime-dont-prompt
+                         (y-or-n-p "\
+The CMUCL support library (Swank) is not compiled. Compile now? ")))
                 (and (file-newer-than-file-p source binary)
-                     (y-or-n-p "\
-Your Swank binary is older than the source. Recompile now? ")))
+                     (or slime-dont-prompt
+                         (y-or-n-p "\
+Your Swank binary is older than the source. Recompile now? "))))
         (compile-swank)))))
 
 (defun slime-fetch-features-list ()
@@ -703,8 +709,10 @@ the state name for the modeline."
   "Dispatch an event to the current state.
 Certain \"out of band\" events are handled specially instead of going
 into the state machine."
-  (or (slime-handle-oob event)
-      (funcall (slime-state-function (slime-current-state)) event)))
+  (unwind-protect
+      (or (slime-handle-oob event)
+	  (funcall (slime-state-function (slime-current-state)) event))
+    (slime-process-available-input)))
 
 (defun slime-handle-oob (event)
   "Handle out-of-band events.
@@ -763,6 +771,9 @@ The state's variables are moved into lexical bindings."
 (defvar sldb-level 0
   "Current debug level, or 0 when not debugging.")
 
+(defvar slime-stack-eval-tags nil
+  "List of stack-tags of continuations waiting on the stack.")
+
 (slime-defstate slime-idle-state ()
   "Idle state. The only event allowed is to make a request."
   ((activate)
@@ -777,10 +788,20 @@ We have asked Lisp to evaluate a form, and when the result arrives we
 will pass it to CONTINUATION."
   ((:ok result)
    (slime-pop-state)
-   (funcall continuation result))
+   (destructure-case continuation
+     ((:function f)
+      (funcall f result))
+     ((:catch-tag tag)
+      (when (member tag slime-stack-eval-tags)
+	(throw tag `(:ok ,result))))))
   ((:aborted)
    (slime-pop-state)
-   (message "Evaluation aborted."))
+   (destructure-case continuation
+     ((:function f)
+      (message "Evaluation aborted."))
+     ((:catch-tag tag)
+      (when (member tag slime-stack-eval-tags)
+	(throw tag `(:aborted))))))
   ((:debug level condition restarts stack-depth frames)
    (slime-push-state
     (slime-debugging-state level condition restarts stack-depth frames)))
@@ -819,7 +840,7 @@ state interacts with it until it is coaxed into returning."
 (defun slime-output-evaluate-request (form-string package-name)
   "Send a request for LISP to read and evaluate FORM-STRING in PACKAGE-NAME."
   (slime-net-send `(swank:eval-string ,form-string ,package-name)))
-                
+
 (defun slime-check-connected ()
   (unless (and slime-net-process
                (eq (process-status slime-net-process) 'open))
@@ -841,15 +862,32 @@ state interacts with it until it is coaxed into returning."
 (defun slime-eval (sexp &optional package)
   "Evaluate EXPR on the superior Lisp and return the result."
   (slime-check-connected)
-  (catch 'slime-result
-    (let ((continuation (lambda (value) (throw 'slime-result value))))
-      (slime-eval-async sexp package continuation)
-      (loop (accept-process-output)))))
+  (let* ((tag (gensym "slime-result-"))
+	 (slime-stack-eval-tags (cons tag slime-stack-eval-tags)))
+    (destructure-case
+	(catch tag (slime-do-eval sexp package `(:catch-tag ,tag)))
+      ((:ok value)
+       value)
+      ((:aborted)
+       (error "Lisp Evaluation aborted.")))))
+
+(defun slime-do-eval (sexp package continuation)
+  "Perform an evaluation synchronously.
+Loops until the result is thrown to our caller, or the user aborts."
+  (slime-eval-string-async (prin1-to-string sexp) package continuation)
+  (while (slime-busy-p)
+    (accept-process-output))
+  ;; No longer busy, but result not delivered. That means we have
+  ;; entered the debugger.
+  (recursive-edit)
+  ;; If we get here, the user completed the recursive edit without
+  ;; coaxing the debugger into returning. We abort.
+  (error "Evaluation aborted."))
 
 (defun slime-eval-async (sexp package cont)
   "Evaluate EXPR on the superior Lisp and call CONT with the result."
   (slime-check-connected)
-  (slime-eval-string-async (prin1-to-string sexp) package cont))
+  (slime-eval-string-async (prin1-to-string sexp) package `(:function ,cont)))
 
 (defun slime-sync ()
   "Block until any asynchronous command has completed."
@@ -1092,7 +1130,6 @@ Severity is ordered as :NOTE < :WARNING < :ERROR."
       sev1
     sev2))
 
-
 (defun slime-visit-source-path (source-path)
   "Visit a full source path including the top-level form."
   (ignore-errors
@@ -1157,21 +1194,42 @@ top-level form, etc."
 (defun slime-forward-sexp (&optional count)
   "Like `forward-sexp', but understands reader-conditionals (#- and #+)."
   (dotimes (i (or count 1))
-    (slime-forward-reader-conditional)
+    (while (slime-point-moves-p (slime-forward-blanks)
+                                (slime-forward-reader-comment)
+                                (slime-forward-reader-conditional)))
     (forward-sexp)))
 
+(defun slime-forward-blanks ()
+  "Move forward over all whitespace and newlines at point."
+  (while (slime-point-moves-p
+           (skip-syntax-forward " ")
+           ;; newlines aren't in lisp-mode's whitespace syntax class
+           (when (eolp) (forward-char)))))
+
+;; Emacs 21's forward-sexp understands #| |# comments in lisp-mode
+;; buffers, but (at least) Emacs 20's doesn't, so here it is.
+(defun slime-forward-reader-comment ()
+  "Move forward over #|...|# reader comments. The comments may be nested."
+  (when (looking-at "#|")
+    (goto-char (match-end 0))
+    (while (not (looking-at "|#"))
+      (re-search-forward (regexp-opt '("|#" "#|")))
+      (goto-char (match-beginning 0))
+      (when (looking-at "#|")           ; nested comment
+        (slime-forward-reader-comment)))
+    (goto-char (match-end 0))))
+
 (defun slime-forward-reader-conditional ()
-  "Move past any reader conditionals (#+ or #-) at point."
-  (while (progn (slime-beginning-of-next-sexp)
-                (or (looking-at "\\s *#\\+")
-                    (looking-at "\\s *#-")))
+  "Move past any reader conditional (#+ or #-) at point."
+  (when (or (looking-at "#\\+")
+            (looking-at "#-"))
     (goto-char (match-end 0))
     (let* ((plus-conditional-p (eq (char-before) ?+))
            (result (slime-eval-feature-conditional (read (current-buffer)))))
       (unless (if plus-conditional-p result (not result))
         ;; skip this sexp
-        (forward-sexp)))))
-    
+        (slime-forward-sexp)))))
+
 (defun slime-beginning-of-next-sexp ()
   "Move the point to the first character of the next sexp."
   (forward-sexp)
@@ -1282,11 +1340,19 @@ Designed to be bound to the SPC key."
   "Show the argument list for the nearest function call, if any."
   (interactive (list (slime-read-symbol "Arglist of: ")))
   (slime-eval-async 
-   `(swank:arglist-string ',symbol-name)
+   `(swank:arglist-string ,symbol-name)
    (slime-buffer-package)
    (lexical-let ((symbol-name symbol-name))
      (lambda (arglist)
-       (message "(%s %s)" symbol-name (substring arglist 1 -1))))))
+       (message (slime-format-arglist symbol-name arglist))))))
+
+(defun slime-get-arglist (symbol-name)
+  "Return the argument list for SYMBOL-NAME."
+  (slime-format-arglist symbol-name
+                        (slime-eval `(swank:arglist-string ,symbol-name))))
+
+(defun slime-format-arglist (symbol-name arglist)
+  (format "(%s %s)" symbol-name (substring arglist 1 -1)))
 
 
 ;;; Completion
@@ -1878,6 +1944,9 @@ When displaying XREF information, this goes to the next reference."
 (defvar sldb-backtrace-start-marker)
 (defvar sldb-mode-map)
 
+(defvar sldb-hook nil
+  "Hook run on entry to the debugger.")
+
 (defun slime-debugger-hook ()
   (slime-enter-sldb))
 
@@ -1910,7 +1979,8 @@ When displaying XREF information, this goes to the next reference."
     (setq sldb-backtrace-start-marker (point-marker))
     (sldb-insert-frames frames)
     (setq buffer-read-only t)
-    (pop-to-buffer (current-buffer))))
+    (pop-to-buffer (current-buffer))
+    (run-hooks 'sldb-hook)))
 
 (defun slime-insert-propertized (props &rest args)
   (let ((start (point)))
@@ -2257,45 +2327,130 @@ When displaying XREF information, this goes to the next reference."
 (defvar slime-test-debug-on-error nil
   "*When non-nil debug errors in test cases.")
 
-(defvar slime-test-verbose-p nil
-  "*When non-nil do not display the results of individual checks.")
-
 (defvar slime-total-tests nil
   "Total number of tests executed during a test run.")
 
 (defvar slime-failed-tests nil
   "Total number of failed tests during a test run.")
 
+(defvar slime-test-buffer-name "*Tests*"
+  "The name of the buffer used to display test results.")
+
+
+;;;;; Execution engine
+
 (defun slime-run-tests ()
+  "Run the test suite.
+The results are presented in an outline-mode buffer, with the tests
+that succeeded initially folded away."
   (interactive)
-  (slime-with-output-to-temp-buffer "*Tests*"
-    (with-current-buffer standard-output
-      (set (make-local-variable 'truncate-lines) t))
-    (slime-execute-tests)))
+  (slime-create-test-results-buffer)
+  (unwind-protect
+      (slime-execute-tests)
+    (pop-to-buffer slime-test-buffer-name)
+    (goto-char (point-min))
+    (hide-body)
+    ;; Expose failed tests
+    (dolist (o (overlays-in (point-min) (point-max)))
+      (when (overlay-get o 'slime-failed-test)
+        (goto-char (overlay-start o))
+        (show-subtree)))))
 
 (defun slime-execute-tests ()
+  "Execute each test case with each input.
+Return the number of failed tests."
   (save-window-excursion
     (let ((slime-total-tests 0)
           (slime-failed-tests 0))
       (loop for (name function inputs) in slime-tests
-            do (dolist (input inputs)
-                 (incf slime-total-tests)
-                 (princ (format "%s: %S\n" name input))
-                 (condition-case err
-                     (apply function input)
-                   (error (incf slime-failed-tests)
-                          (slime-print-check-error err)))))
-      (if (zerop slime-failed-tests)
-          (message "All %S tests completed successfully." slime-total-tests)
-        (message "Failed on %S of %S tests."
-                 slime-failed-tests slime-total-tests)))))
+            do (progn
+                 (slime-test-heading 1 "%s" name)
+                 (dolist (input inputs)
+                   (incf slime-total-tests)
+                   (slime-test-heading 2 "input: %s" input)
+                   (condition-case err
+                       (apply function input)
+                     (error (incf slime-failed-tests)
+                            (slime-print-check-error err))))))
+      (let ((summary (if (zerop slime-failed-tests)
+                         (format "All %S tests completed successfully."
+                                 slime-total-tests)
+                       (format "Failed on %S of %S tests."
+                               slime-failed-tests slime-total-tests))))
+        (save-excursion
+          (with-current-buffer slime-test-buffer-name
+            (goto-char (point-min))
+            (insert summary "\n\n")))
+        (message summary)
+        slime-failed-tests))))
 
-(defun slime-batch-test ()
-  "Run the test suite in batch-mode."
-  (let ((standard-output t)
+(defun slime-batch-test (results-file)
+  "Run the test suite in batch-mode.
+Exits Emacs when finished. The exit code is the number of failed tests."
+  (let ((slime-dont-prompt t)
+        (slime-swank-port 4006)         ; different port than interactive use
         (slime-test-debug-on-error nil))
     (slime)
-    (slime-run-tests)))
+    (switch-to-buffer "*scratch*")
+    (let ((failed-tests (slime-run-tests)))
+      (with-current-buffer slime-test-buffer-name
+        (slime-delete-hidden-outline-text)
+        (goto-char (point-min))
+        (insert "-*- outline -*-\n\n")
+        (write-file results-file))
+      (kill-emacs failed-tests))))
+
+
+;;;;; Results buffer creation and output
+
+(defun slime-create-test-results-buffer ()
+  "Create and initialize the buffer for test suite results."
+  (ignore-errors (kill-buffer slime-test-buffer-name))
+  (with-current-buffer (get-buffer-create slime-test-buffer-name)
+    (erase-buffer)
+    (outline-mode)
+    (set (make-local-variable 'outline-regexp) "\\*+")
+    (set (make-local-variable 'truncate-lines) t)))
+
+(defun slime-delete-hidden-outline-text ()
+  "Delete the hidden parts of an outline-mode buffer."
+  (loop do (when (eq (get-char-property (point) 'invisible) 'outline)
+             (delete-region (point)
+                            (next-single-char-property-change (point)
+                                                              'invisible)))
+        until (eobp)
+        do (goto-char (next-single-char-property-change (point) 'invisible))))
+
+(defun slime-test-heading (level format &rest args)
+  "Output a test suite heading.
+LEVEL gives the depth of nesting: 1 for top-level, 2 for a subheading, etc."
+  (with-current-buffer slime-test-buffer-name
+    (goto-char (point-max))
+    (insert (make-string level ?*)
+            " "
+            (apply 'format format args)
+            "\n")))
+
+(defun slime-test-failure (keyword string)
+  "Output a failure message from the test suite.
+KEYWORD names the type of failure and STRING describes the reason."
+  (with-current-buffer slime-test-buffer-name
+    (goto-char (point-max))
+    (let ((start (point)))
+      (insert keyword ": ")
+      (let ((overlay (make-overlay start (point))))
+        (overlay-put overlay 'slime-failed-test t)
+        (overlay-put overlay 'face 'bold)))
+    (insert string "\n")))
+
+(defun slime-test-message (string)
+  "Output a message from the test suite."
+  (with-current-buffer slime-test-buffer-name
+    (goto-char (point-max))
+    (insert string "\n")))
+
+
+;;;;; Macros for defining test cases
 
 (defmacro def-slime-test (name args doc inputs &rest body)
   "Define a test case.
@@ -2315,24 +2470,35 @@ conditions (assertions)."
                                  (list (list ',name ',fname ,inputs)))))))
 
 (defmacro slime-check (test-name &rest body)
-  `(if (progn ,@body)
-       (slime-print-check-ok ',test-name)
-     (incf slime-failed-tests)
-     (slime-print-check-failed ',test-name)
-     (when slime-test-debug-on-error
-       (debug (format "Check failed: %S" ',test-name)))))
+  "Check a condition (assertion.)
+TEST-NAME can be a symbol, a string, or a (FORMAT-STRING . ARGS) list.
+BODY returns true if the check succeeds."
+  (let ((check-name (gensym "check-name-")))
+    `(let ((,check-name ,(typecase test-name
+                           (symbol (symbol-name test-name))
+                           (string test-name)
+                           (cons `(format ,@test-name)))))
+       (if (progn ,@body)
+           (slime-print-check-ok ,check-name)
+         (incf slime-failed-tests)
+         (slime-print-check-failed ,check-name)
+         (when slime-test-debug-on-error
+           (debug (format "Check failed: %S" ,check-name)))))))
 
 (defun slime-print-check-ok (test-name)
-  (when slime-test-verbose-p
-    (princ (format "        ok:     %s\n" test-name))))
+  (slime-test-message test-name))
 
 (defun slime-print-check-failed (test-name)
-  (slime-princ-propertized (format "        FAILED: %s\n" test-name)
-                           '(face font-lock-warning-face)))
+  (slime-test-failure "FAILED" test-name))
 
 (defun slime-print-check-error (reason)
-  (slime-princ-propertized (format "        ERROR:  %S\n" reason)
-                           '(face font-lock-warning-face)))
+  (slime-test-failure "ERROR" (format "%S" reason)))
+
+(put 'def-slime-test 'lisp-indent-function 4)
+(put 'slime-check 'lisp-indent-function 1)
+
+
+;;;;; Test case definitions.
 
 ;; Clear out old tests.
 (setq slime-tests nil)
@@ -2347,13 +2513,13 @@ conditions (assertions)."
         (orig-pos (point)))
     (slime-edit-fdefinition (symbol-name name))
     ;; Postconditions
-    (slime-check correct-file
+    (slime-check ("Definition of `%S' is in %S." name expected-filename)
       (string= (file-name-nondirectory (buffer-file-name))
                expected-filename))
-    (slime-check looking-at-definition
+    (slime-check "Definition now at point."
       (looking-at (format "(\\(defun\\|defmacro\\)\\s *%s\\s " name)))
     (slime-pop-find-definition-stack)
-    (slime-check return-from-definition
+    (slime-check "Returning from definition restores original buffer/position."
       (and (eq orig-buffer (current-buffer))
            (= orig-pos (point))))))
 
@@ -2366,20 +2532,19 @@ conditions (assertions)."
       ("cl:foobar" nil)
       ("cl::compile-file" ("cl::compile-file" "cl::compile-file-pathname")))
   (let ((completions (slime-completions prefix)))
-    (slime-check expected-completions
+    (slime-check "Completion set is as expected."
       (equal expected-completions (sort completions 'string<)))))
 
 (def-slime-test arglist
-    (symbol expected-arglist)
-    "Lookup the argument list for SYMBOL.
+    (function-name expected-arglist)
+    "Lookup the argument list for FUNCTION-NAME.
 Confirm that EXPECTED-ARGLIST is displayed."
     '(("list" "(list &rest args)")
       ("defun" "(defun &whole source name lambda-list &parse-body (body decls doc))")
       ("cl::defun" "(cl::defun &whole source name lambda-list &parse-body (body decls doc))"))
-  (slime-arglist symbol)
-  (slime-sync)
-  (slime-check expected-arglist
-    (string= expected-arglist (current-message))))
+  (let ((arglist (slime-get-arglist function-name))) ;
+    (slime-check ("Argument list %S is as expected." arglist)
+      (string= expected-arglist arglist))))
 
 (def-slime-test compile-defun 
     (program subform)
@@ -2391,9 +2556,10 @@ Confirm that SUBFORM is correclty located."
          ;;Sdf              
          (:bar))"
        (:bar))
-      ;; this fails
       ("(defun :foo () 
-            #| |#
+            #+(or)skipped
+            #| #||#
+               #||# |#
             (:bar))"
        (:bar))
       )
@@ -2407,8 +2573,51 @@ Confirm that SUBFORM is correclty located."
       (equal (read (current-buffer))
 	     subform))))
 
-(put 'def-slime-test 'lisp-indent-function 4)
-(put 'slime-check 'lisp-indent-function 1)
+(def-slime-test async-eval-debugging (depth)
+  "Test recursive debugging of asynchronous evaluation requests."
+  '((1) (2) (3))
+  (slime-check "Automaton initially in idle state."
+    ;; We expect to be at the top-level when the test starts.
+    (slime-test-state-stack '(slime-idle-state)))
+  (lexical-let ((depth depth)
+                (debug-hook-max-depth 0))
+    (let ((debug-hook
+           (lambda ()
+             (when (> sldb-level debug-hook-max-depth)
+               (setq debug-hook-max-depth sldb-level)
+               (slime-check
+                   ("Automaton stack reflects debug level %S." sldb-level)
+                 ;; Inspect the stack to ensure we are debugging at the
+                 ;; expected recursion depth.
+                 (let ((expected-stack '(slime-idle-state)))
+                   (dotimes (i sldb-level)
+                     (push 'slime-evaluating-state expected-stack)
+                     (push 'slime-debugging-state expected-stack))
+                   (slime-test-state-stack expected-stack)))
+               (if (= sldb-level depth)
+                   ;; We're at maximum recursion - time to unwind
+                   (sldb-quit)
+                 ;; Going down - enter another recursive debug
+                 ;; Recursively debug.
+                 (slime-eval-async 'no-such-variable nil (lambda (_) nil))
+                 (slime-sync))))))
+      (let ((sldb-hook (cons debug-hook sldb-hook)))
+        (slime-eval-async 'no-such-variable nil (lambda (_) nil))
+        (slime-sync)
+        ;; Now the hook should have run once for each ,
+        (slime-check ("Maximum depth reached (%S) is %S."
+                      debug-hook-max-depth depth)
+          (= debug-hook-max-depth depth))
+        ;; FIXME: synchronize properly somehow. We are expecting Lisp
+        ;; to perform a restart and unwind our stack.
+        (sit-for 2)
+        ;; and the restart should have put us back at the top level
+        (slime-check "Automaton is back in idle state."
+          (slime-test-state-stack '(slime-idle-state)))))))
+
+(defun slime-test-state-stack (states)
+  "True if STATES describes the current stack of states."
+  (equal states (mapcar #'slime-state-name slime-state-stack)))
 
 
 ;;; Portability library
