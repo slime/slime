@@ -330,7 +330,7 @@ compiler state."
           (*buffer-offset* position)
           (*buffer-substring* string))
       (funcall (compile nil (read-from-string
-                             (format nil "(CL:LAMBDA () ~A)" string)))))))
+                             (format nil "(~S () ~A)" 'lambda string)))))))
 
 ;;;; Definitions
 

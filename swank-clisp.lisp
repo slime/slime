@@ -48,11 +48,11 @@
 
 ;; XXX currently only works in CVS version. 2.32 breaks.
 ;; #+linux
-;; (defmethod call-without-interrupts (fn)
+;; (defimplementation call-without-interrupts (fn)
 ;;   (with-blocked-signals (#.linux:SIGINT) (funcall fn)))
 ;; 
 ;; #-linux
-(defmethod call-without-interrupts (fn)
+(defimplementation call-without-interrupts (fn)
   (funcall fn))
 
 #+unix (defmethod getpid () (system::program-id))
@@ -283,13 +283,13 @@ Return NIL if the symbol is unbound."
 
 (defmacro dynamic-flet (names-functions &body body)
   "(dynamic-flet ((NAME FUNCTION) ...) BODY ...)
-Temporary the symbol slot of NAME in the dynamic extend of BODY to FUNCTION."
+Execute BODY with NAME's funtion slot set to FUNCTION."
   `(ext:letf* ,(loop for (name function) in names-functions
 		     collect `((symbol-function ',name) ,function))
     ,@body))
  
 (defun compiler-note-location ()
-  "Return the current compiler location of the compiler."
+  "Return the current compiler location."
   (let ((lineno1 sys::*compile-file-lineno1*)
 	(lineno2 sys::*compile-file-lineno2*)
 	(file sys::*compile-file-truename*))
@@ -348,7 +348,7 @@ Temporary the symbol slot of NAME in the dynamic extend of BODY to FUNCTION."
     (let ((*buffer-name* buffer)
 	  (*buffer-offset* position))
       (funcall (compile nil (read-from-string
-                             (format nil "(CL:LAMBDA () ~A)" string)))))))
+                             (format nil "(~S () ~A)" 'lambda string)))))))
 
 ;;; Portable XREF from the CMU AI repository.
 

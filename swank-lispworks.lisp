@@ -342,10 +342,9 @@ Return NIL if the symbol is unbound."
          (tmpname (hcl:make-temp-file nil "lisp")))
     (with-compilation-unit ()
       (compile-from-temp-file 
-       (with-standard-io-syntax 
-         (format nil "~S~%~A" `(eval-when (:compile-toplevel)
-                                (setq dspec::*location* (list ,@location)))
-                 string))
+       (format nil "~S~%~A" `(eval-when (:compile-toplevel)
+                              (setq dspec::*location* (list ,@location)))
+               string)
        tmpname)
       (signal-error-data-base compiler::*error-database* location)
       (signal-undefined-functions compiler::*unknown-functions* location))))
