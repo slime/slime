@@ -1,3 +1,35 @@
+2004-02-16  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank.lisp (make-compiler-note): Include short-message.
+
+	* swank-sbcl.lisp (signal-compiler-condition): Initialize
+	short-message slot.
+	(long-compiler-message-for-emacs): New function.
+
+	* swank-cmucl.lisp (handle-notification-condition): Don't use the
+	context of the previous message.
+	(signal-compiler-condition): Set short message slot.
+	(long-compiler-message-for-emacs): New function.
+	(sigio-handler): Ignore arguments.
+
+	* swank-clisp.lisp (set-sigio-handler, add-input-handler):
+	Conditionalize for linux.
+
+	* swank-backend.lisp (compile-system-for-emacs): Add default
+	implementation.
+	(compiler-condition): New slot short-message.
+
+	* slime.el (slime-compilation-finished): Display compiler notes
+	grouped by severity in a separate buffer.
+	(slime-compilation-finished-continuation, slime-compile-file)
+	(slime-load-system, slime-compile-string): Update callers.
+	(slime-list-compiler-notes, slime-alistify, slime-tree-for-note)
+	(slime-tree-for-severity, slime-compiler-notes-to-tree)
+	(slime-compiler-notes-mode, slime-compiler-notes-quit): New
+	functions.
+	(with-struct, slime-tree): New code for pseudo tree widget.
+	(slime-init-connection-state): Set slime-state-name to "".
+
 2004-02-08  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-cmucl.lisp (create-socket): Fix last fix.  Use the proper
