@@ -136,9 +136,9 @@ Only this thread can read from or send in-band messages to the
 ;; This can't be initialized right away due to our compilation/loading
 ;; order: it ends up calling the NO-APPLICABLE-METHOD version from
 ;; swank-backend before the real one loads.
-(makunbound
- (defvar *write-lock* nil
-   "Lock held while writing to sockets."))
+(defvar *write-lock*)
+(setf (documentation '*write-lock* 'variable)
+      "Lock held while writing to sockets.")
 
 (defvar *dispatching-connection* nil
   "Connection currently being served.
@@ -175,16 +175,24 @@ If *REDIRECT-IO* is true, all standard I/O streams are redirected."
 (defvar *use-dedicated-output-stream* t)
 (defvar *swank-in-background* nil)
 
-(defun start-server (port-file)
+(defun start-server (port-file &optional (background *swank-in-background*))
+  (setup-server 0 (lambda (port) (announce-server-port port-file port))
+                background))
+                     
+(defun create-swank-server (&optional (port 4005) 
+                            (background *swank-in-background*))
+  (setup-server port #'simple-announce-function background))
+
+(defun setup-server (port announce-fn background)
   (setq *write-lock* (make-lock :name "Swank write lock"))
   (if (eq *swank-in-background* :spawn)
-      (spawn (lambda () (setup-server port-file nil))
+      (spawn (lambda () (open-swank-socket port announce-fn nil))
              :name "Swank")
-      (setup-server port-file *swank-in-background*)))
+      (open-swank-socket port announce-fn background)))
 
-(defun setup-server (port-file background)
-  (let ((socket (create-socket 0)))
-    (announce-server-port port-file (local-port socket))
+(defun open-swank-socket (port announce-fn background)
+  (let ((socket (create-socket port)))
+    (funcall announce-fn (local-port socket))
     (let ((client (accept-connection socket)))
       (close-socket socket)
       (let ((connection (create-connection client)))
@@ -221,9 +229,10 @@ If *REDIRECT-IO* is true, all standard I/O streams are redirected."
       (make-output-function socket-io)
     (let ((input-fn  (lambda () (read-user-input-from-emacs socket-io))))
       (multiple-value-bind (in out) (make-fn-streams input-fn output-fn)
-        (let ((io (make-two-way-stream in out)))
-          (make-connection (thread-id) socket-io dedicated-output 
-                           in out io))))))
+        (let ((out (or dedicated-output out)))
+          (let ((io (make-two-way-stream in out)))
+            (make-connection (thread-id) socket-io dedicated-output 
+                             in out io)))))))
 
 (defun make-output-function (socket-io)
   "Create function to send user output to Emacs.
