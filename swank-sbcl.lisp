@@ -7,9 +7,7 @@
 ;;; This code has been placed in the Public Domain.  All warranties are 
 ;;; disclaimed.
 
-;;; This is a Slime backend for SBCL.  Requires SBCL 0.8.5 or later
-;;; for the SB-INTROSPECT contrib
-
+;;; Requires the SB-INTROSPECT contrib.
 
 ;;; Administrivia
 
@@ -37,50 +35,7 @@
 
 ;;; swank-mop
 
-(import-to-swank-mop
- '( ;; classes
-   cl:standard-generic-function
-   sb-mop::standard-slot-definition
-   cl:method
-   cl:standard-class
-   sb-mop:eql-specializer
-   ;; standard-class readers
-   sb-mop:class-default-initargs
-   sb-mop:class-direct-default-initargs
-   sb-mop:class-direct-slots
-   sb-mop:class-direct-subclasses
-   sb-mop:class-direct-superclasses
-   sb-mop:class-finalized-p
-   cl:class-name
-   sb-mop:class-precedence-list
-   sb-mop:class-prototype
-   sb-mop:class-slots
-   sb-mop:specializer-direct-methods
-   ;; eql-specializer accessors
-   sb-mop:eql-specializer-object
-   ;; generic function readers
-   sb-mop:generic-function-argument-precedence-order
-   sb-mop:generic-function-declarations
-   sb-mop:generic-function-lambda-list
-   sb-mop:generic-function-methods
-   sb-mop:generic-function-method-class
-   sb-mop:generic-function-method-combination
-   sb-mop:generic-function-name
-   ;; method readers
-   sb-mop:method-generic-function
-   sb-mop:method-function
-   sb-mop:method-lambda-list
-   sb-mop:method-specializers
-   sb-mop:method-qualifiers
-   ;; slot readers
-   sb-mop:slot-definition-allocation
-   sb-mop:slot-definition-initargs
-   sb-mop:slot-definition-initform
-   sb-mop:slot-definition-initfunction
-   sb-mop:slot-definition-name
-   sb-mop:slot-definition-type
-   sb-mop:slot-definition-readers
-   sb-mop:slot-definition-writers))
+(import-swank-mop-symbols :sb-mop '(:slot-definition-documentation))
 
 (defun swank-mop:slot-definition-documentation (slot)
   (sb-pcl::documentation slot t))  
@@ -233,17 +188,11 @@ information."
                        (error                :error))
            :short-message (brief-compiler-message-for-emacs condition)
            :references
-           ;; FIXME: delete the reader conditionaloid after sbcl
-           ;; 0.8.13 is released.
-           #+#.(cl:if (cl:find-symbol "ENCAPSULATED-CONDITION" "SB-INT")
-                      '(and) '(or))
            (let ((c (if (typep condition 'sb-int:encapsulated-condition)
                         (sb-int:encapsulated-condition condition)
                         condition)))
              (when (typep c 'sb-int:reference-condition)
                (sb-int:reference-condition-references c)))
-           #-#.(cl:if (cl:find-symbol "ENCAPSULATED-CONDITION" "SB-INT")
-                      '(and) '(or))
            (when (typep condition 'sb-int:reference-condition)
              (sb-int:reference-condition-references condition))
            :message (long-compiler-message-for-emacs condition context)
@@ -914,8 +863,6 @@ stack."
 
   (defimplementation kill-thread (thread)
     (sb-thread:terminate-thread thread))
-
-  ;; XXX there is some deadlock / race condition here (with old 2.4 kernels)
 
   (defvar *mailbox-lock* (sb-thread:make-mutex :name "mailbox lock"))
   (defvar *mailboxes* (list))
