@@ -1,3 +1,42 @@
+2004-01-12  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-handle-oob): Added
+	:open-dedicated-output-stream message, previously implemented
+	with :%apply.
+	(slime-repl-read-string, slime-repl-return-string): Pass integer
+	argument to `slime-repl-read-mode' to set rather than toggle.
+
+	* swank.lisp: Taking over previously non-portable jobs:
+	(start-server): Now only uses sockets code from the backend.
+	(handle-request): Top-level request loop.
+	(open-dedicated-output-stream): Dedicated output socket.
+	(connection): New data structure that bundles together the things
+	that constitute a connection to Emacs: socket-level stream and
+	user-level redirected streams.
+
+	* swank-cmucl.lisp (create-socket-server): Generic TCP server
+	driven by SERVE-EVENT.
+	(serve-one-request, open-stream-to-emacs): Deleted. Now handled
+	portably in swank.lisp.
+	(make-fn-streams): Implement new stream-redirection interface.
+	(slime-input-stream): New slot referencing output sibling, so it
+	can be forced before input requests.
+
+	* swank-backend.lisp (create-socket-server): Generic
+	callback-driven TCP server interface. Replaces
+	`create-swank-server', with the higher-level logic moved into
+	swank.lisp.
+	(emacs-connected): Invoked when Emacs initially connects, as a
+	hook for backend implementations.
+	(make-fn-streams): Interface for creating pairs of input/output
+	streams that are backended by callback functions. Used to
+	implement redirected-via-Emacs standard I/O streams.
+
+2004-01-12  Lawrence Mitchell  <wence@gmx.li>
+
+	* slime.el (slime-events-buffer): Set `hs-block-start-regexp'
+	before running `hs-minor-mode'.
+
 2004-01-10  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (package-updating): Expected package is now a list (can

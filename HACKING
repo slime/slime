@@ -9,9 +9,9 @@ ChangeLog to use in a CVS commit message by pressing C-c C-a in a
 vc-mode or pcl-cvs commit buffer.
 
 ChangeLog diffs are automatically sent to the slime-devel mailing list
-each day as a digest summary of the slime-cvs list.
+each day as a sort-of digest summary of the slime-cvs list.
 
-For good tips on writing ChangeLog entries see the GNU Coding Standards:
+There are good tips on writing ChangeLog entries in the GNU Coding Standards:
   http://www.gnu.org/prep/standards_40.html#SEC40
 
 For information about Emacs's ChangeLog support see the `Change Log'
@@ -42,6 +42,25 @@ code in separate Lisp packages.
 
 Refactoring code to avoid direct calls from swank.lisp to functions
 defined in swank-<impl>.lisp is good for karma.
+
+* Lisp code structure
+
+The ideal is to structure things like this:
+
+  swank-backend.lisp:
+    Definition of the interface to non-portable features.
+    Stand-alone.
+
+  swank-<cmucl|...>.lisp:
+    Backend implementation for a specific Common Lisp system.
+    Uses swank-backend.lisp.
+
+  swank.lisp:
+    The top-level server program, built from the other components.
+    Uses swank-backend.lisp as an interface to the actual backends.
+
+Today things are more messy. Originally everything was in one file,
+and we haven't finished the reorganisation yet.
 
 * Calling Lisp from Emacs
 
@@ -77,6 +96,14 @@ can use to "fold" source buffers down to a section-by-section
 outline. See the `Outline Mode' node of the Emacs manual for details:
   http://www.gnu.org/software/emacs/manual/html_node/emacs_246.html#SEC246
 
+Some tips to make the most of outline mode:
+  You can set `outline-minor-mode-prefix' for more convenient
+  keybindings, e.g. to [(control \;)].
+  `<prefix> C-a' displays all levels.
+  `C-3 <prefix> C-q' displays only top-level headings.
+  `<prefix> C-t' displays only/all headings.
+  `<prefix> {n,p}' for next/previous heading.
+
 * Coding style
 
 We like the fact that each function in SLIME will fit on a single
@@ -88,6 +115,6 @@ Norvig and Pitman's _Tutorial on Good Lisp Programming Style_:
   http://www.norvig.com/luv-slides.ps
 
 Remember that to rewrite a program better is the sincerest form of
-code appreciation. If you can see a way to rewrite a part of SLIME
+code appreciation. When you can see a way to rewrite a part of SLIME
 better, please do so!
 
