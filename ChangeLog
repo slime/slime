@@ -1,3 +1,8 @@
+2003-10-20  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (interactive-eval): Make test case independent of
+	*print-case*.
+
 2003-10-20  Luke Gorrie  <luke@bluetail.com>
 
 	* swank-cmucl.lisp (clear-xref-info): Conditionalised
