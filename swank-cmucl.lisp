@@ -900,7 +900,7 @@ format suitable for Emacs."
 (defun format-frame-for-emacs (frame)
   (list (di:frame-number frame)
 	(with-output-to-string (*standard-output*) 
-          (let ((*print-pretty* nil))
+          (let ((*print-pretty* *sldb-pprint-frames*))
             (debug::print-frame-call frame :verbosity 1 :number t)))))
 
 (defun compute-backtrace (start end)
@@ -928,7 +928,9 @@ stack."
   (to-string (di:eval-in-frame (nth-frame index) (from-string string))))
 
 (defslimefun pprint-eval-string-in-frame (string index)
-  (swank-pprint (di:eval-in-frame (nth-frame index) (from-string string))))
+  (swank-pprint 
+   (multiple-value-list
+    (di:eval-in-frame (nth-frame index) (from-string string)))))
 
 (defslimefun inspect-in-frame (string index)
   (reset-inspector)
