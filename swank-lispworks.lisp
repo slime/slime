@@ -165,7 +165,8 @@ Return NIL if the symbol is unbound."
 
 (defun interesting-frame-p (frame)
   (or (dbg::call-frame-p frame)
-      (dbg::catch-frame-p frame)))
+      ;;(dbg::catch-frame-p frame)
+      ))
 
 (defun nth-frame (index)
   (do ((frame (dbg::debugger-stack-current-frame dbg::*debugger-stack*)
