@@ -554,18 +554,20 @@ The debugger hook is inhibited during the evaluation."
   "Evaluate STRING and return the result.
 If PACKAGE-UPDATE-P is non-nil, and evaluation causes a package
 change, then send Emacs an update."
-  (let ((*package* *buffer-package*))
+  (let ((*package* *buffer-package*)
+        - values)
     (unwind-protect
-	 (do ((length (length string))
-	      (pos 0)
-	      (- nil)
-	      (return-value nil (multiple-value-list (eval -))))
-	     ((= pos length) (values return-value -))
-	   (multiple-value-setq (- pos)
-	     (read-from-string string nil nil :start pos)))
+         (with-input-from-string (stream string)
+           (loop for form = (read stream nil stream)
+                 until (eq form stream)
+                 do (progn
+                      (setq - form)
+                      (setq values (multiple-value-list (eval form)))
+                      (force-output))
+                 finally (return (values values -))))
       (when (and package-update-p (not (eq *package* *buffer-package*)))
-	(send-to-emacs (list :new-package 
-                             (shortest-package-nickname *package*)))))))
+        (send-to-emacs 
+         (list :new-package (shortest-package-nickname *package*)))))))
 
 (defun shortest-package-nickname (package)
   "Return the shortest nickname (or canonical name) of PACKAGE."
