@@ -25,8 +25,8 @@
    stream:stream-line-column
    ))
 
-(when (fboundp 'dspec::define-form-parser)
-  (dspec::define-form-parser defimplementation (name args &rest body)
+(when (fboundp 'dspec::define-dspec-alias)
+  (dspec::define-dspec-alias defimplementation (name args &rest body)
     `(defmethod ,name ,args ,@body)))
 
 ;;; TCP server
