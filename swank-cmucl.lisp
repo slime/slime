@@ -82,14 +82,16 @@ The request is read from the socket as a sexp and then evaluated."
 	(sys:invalidate-descriptor (sys:fd-stream-fd *emacs-io*))
  	(close *emacs-io*)))))
 
-
-(defun read-symbol/package (symbol-name package-name)
-  (let ((package (find-package package-name)))
-    (unless package (error "No such package: ~S" package-name))
-    (handler-case 
-        (let ((*package* package))
-          (read-from-string symbol-name))
-      (reader-error () nil))))
+(defun read-next-form ()
+  (handler-case 
+      (let* ((length (logior (ash (read-byte *emacs-io*) 16)
+			     (ash (read-byte *emacs-io*) 8)
+			     (read-byte *emacs-io*)))
+	     (string (make-string length)))
+	(sys:read-n-bytes *emacs-io* string 0 length)
+	(read-form string))
+    (condition (c)
+      (throw 'serve-request-catcher c))))
 
 ;;; Asynchronous eval
 
@@ -127,8 +129,6 @@ The request is read from the socket as a sexp and then evaluated."
   (namestring (ext:default-directory)))
 
 ;;;; Compilation Commands
-
-
 
 (defvar *previous-compiler-condition* nil
   "Used to detect duplicates.")
@@ -508,21 +508,25 @@ This is useful when debugging the definition-finding code.")
 	   (vm::find-code-object function))
        (not (eq closure function))))
 
-(defun struct-accessor-p (function)
-  (function-code-object= function #'kernel::structure-slot-accessor))
+(defun struct-closure-p (function)
+  (or (function-code-object= function #'kernel::structure-slot-accessor)
+      (function-code-object= function #'kernel::structure-slot-setter)
+      (function-code-object= function #'kernel::%defstruct)))
 
-(defun struct-accessor-dd (function)
-  (kernel:layout-info (kernel:%closure-index-ref function 2)))
-
-(defun struct-misc-op-p (function)
-  (function-code-object= function #'kernel::%defstruct))
-
-(defun struct-misc-op-dd (function)
+(defun struct-closure-dd (function)
   (assert (= (kernel:get-type function) vm:closure-header-type))
-  (kernel:layout-info
-   (c:value-cell-ref 
-    (sys:find-if-in-closure #'di::indirect-value-cell-p function))))
-
+  (flet ((find-layout (function)
+	   (sys:find-if-in-closure 
+	    (lambda (x) 
+	      (cond ((kernel::layout-p x)
+		     (return-from find-layout x))
+		    ((di::indirect-value-cell-p x)
+		     (let ((value (c:value-cell-ref x)))
+		       (when (kernel::layout-p value)
+			 (return-from find-layout value))))))
+	    function)))
+    (kernel:layout-info (find-layout function))))
+	    
 (defun dd-source-location (dd)
   (let ((constructor (or (kernel:dd-default-constructor dd)
 			 (car (kernel::dd-constructors dd)))))
@@ -543,10 +547,8 @@ This is useful when debugging the definition-finding code.")
   ;;
   ;; For an ordinary function we return the source location of the
   ;; first code-location we find.
-  (cond ((struct-accessor-p function)
-	 (dd-source-location (struct-accessor-dd function)))
-	((struct-misc-op-p function)
-	 (dd-source-location (struct-misc-op-dd function)))
+  (cond ((struct-closure-p function)
+	 (dd-source-location (struct-closure-dd function)))
 	(t
          (let ((location (function-first-code-location function)))
            (when location
@@ -964,7 +966,7 @@ nil if there's no second element."
 
 (defslimefun describe-inspectee ()
   "Describe the currently inspected object."
-  (print-desciption-to-string *inspectee*))
+  (print-description-to-string *inspectee*))
 
 (defgeneric inspected-parts (object)
   (:documentation
