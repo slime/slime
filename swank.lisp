@@ -3248,9 +3248,8 @@ belonging to the buffer package."
                (when indent
                  (unless (equal (gethash symbol cache) indent)
                    (setf (gethash symbol cache) indent)
-                   (push (cons (string-downcase (symbol-name symbol))
-                               indent)
-                         alist))))))
+                   (dolist (readname (all-qualified-readnames symbol))
+                     (push (cons readname indent) alist)))))))
       (if force
           (do-all-symbols (symbol)
             (consider symbol))
@@ -3258,6 +3257,19 @@ belonging to the buffer package."
             (when (eq (symbol-package symbol) *buffer-package*)
               (consider symbol)))))
     alist))
+
+(defun all-qualified-readnames (symbol)
+  "Return the list of SYMBOL's readnames with each package qualifier.
+The resulting strings are always downcase (for Emacs indentation)."
+  (cons (symbol-name symbol)
+        (loop for p in (package-names (symbol-package symbol))
+              collect (format nil "~A:~A"
+                              (string-downcase p)
+                              (string-downcase (symbol-name symbol))))))
+
+(defun package-names (package)
+  "Return the name and all nicknames of PACKAGE in a list."
+  (cons (package-name package) (package-nicknames package)))
 
 (defun cl-symbol-p (symbol)
   "Is SYMBOL a symbol in the COMMON-LISP package?"
