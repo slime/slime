@@ -1,3 +1,21 @@
+2004-04-25  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-backend.lisp (arglist): Return a list or :not-available.
+	Don't return strings or raise exceptions.
+
+	* swank.lisp (arglist-for-echo-area): Simplified and adapted for
+	the new semantic of ARGLIST.
+	(arglist-for-insertion): Now a separate function.
+	(read-arglist): Deleted. No longer needed.
+
+	* swank-cmucl.lisp, swank-lispworks.lisp (arglist): Return
+	:not-available if the arglist cannot be determined.
+
+	* slime.el (slime-set-connection-info): Hide the *inferior-lisp*
+	buffer here, so that we have all the buffer rearrangement in one
+	place.
+	(slime-insert-arglist): Use swank:arglist-for-insertion.
+
 2004-04-24  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-init-connection-state): Use an asynchronous RPC
