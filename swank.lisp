@@ -2466,6 +2466,29 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
       collect (funcall callback i)
       collect ", ")))
 
+(defun inspector-princ (list)
+  "Just like princ-to-string, but don't rewrite (function foo) as
+  #'foo. Do NOT pass circular lists to this function."
+  (with-output-to-string (as-string)
+    (labels ((printer (object)
+               (typecase object
+                 (null (princ nil as-string))
+                 (cons
+                  (write-char #\( as-string)
+                  (printer (car object))
+                  (loop
+                     for (head . tail) on (cdr object)
+                     do (write-char #\Space as-string)
+                     do (printer head)
+                     unless (listp tail)
+                       do (progn
+                            (write-string " . " as-string)
+                            (printer tail))
+                       and return t)
+                  (write-char #\) as-string))
+                 (t (princ object as-string)))))
+        (printer list))))
+
 (defmethod inspect-for-emacs ((object cons) (inspector t))
   (declare (ignore inspector))
   (if (or (consp (cdr object))
@@ -2579,7 +2602,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
         (package (when (find-package symbol)
                    `("It names the package " (:value ,(find-package symbol)) (:newline))))
         (class (when (find-class symbol nil)
-                 `("It names the class " (:value ,(find-class symbol) ,(princ-to-string (class-name (find-class symbol))))
+                 `("It names the class " (:value ,(find-class symbol) ,(inspector-princ (class-name (find-class symbol))))
                    " " (:action ,(format nil "[remove name ~S (does not affect class object)]" symbol)
                                 (lambda () (setf (find-class symbol) nil)))))))
     (values "A symbol."
@@ -2635,10 +2658,42 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
   (declare (ignore inspector))
   (values "A function."
           `("Name: " (:value ,(function-name f)) (:newline)
-            "Its argument list is: " ,(princ-to-string (arglist f))
+            "Its argument list is: " ,(inspector-princ (arglist f))
             (:newline)
             ,@(when (documentation f t)
-                `("Documentation:" (:newline) ,(documentation f t) (:newline))))))
+                `("Documentation:" (:newline) ,(documentation f t) (:newline)))
+            ,@(when (and (function-name f)
+                         
+                         )))))
+
+(defun method-specializers-for-inspect (method)
+  "Return a \"pretty\" list of the method's specializers. Normal
+  specializers are replaced by the name of the class, eql
+  specializers are replaced by `(eql ,object)."
+  (mapcar (lambda (spec)
+            (typecase spec
+              (swank-mop:eql-specializer
+               `(eql ,(swank-mop:eql-specializer-object spec)))
+              (t (swank-mop:class-name spec))))
+          (swank-mop:method-specializers method)))
+
+(defun method-for-inspect-value (method)
+  "Returns a \"pretty\" list describing METHOD. The first element
+  of the list is the name of generic-function method is
+  specialiazed on, the second element is the method qualifiers,
+  the rest of the list is the method's specialiazers (as per
+  method-specializers-for-inspect)."
+  (if (swank-mop:method-qualifiers method)
+      (list*
+       (swank-mop:generic-function-name (swank-mop:method-generic-function method))
+       (let ((quals (swank-mop:method-qualifiers method)))
+         (if (= 1 (length quals))
+             (first quals)
+             quals))
+       (method-specializers-for-inspect method))
+      (list*
+       (swank-mop:generic-function-name (swank-mop:method-generic-function method))
+       (method-specializers-for-inspect method))))
 
 (defmethod inspect-for-emacs ((o standard-object) (inspector t))
   (declare (ignore inspector))
@@ -2650,13 +2705,15 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
                  with direct-slots = (swank-mop:class-direct-slots (class-of o))
                  for slot in (swank-mop:class-slots (class-of o))
                  for slot-def = (or (find-if (lambda (a)
-                                               ;; find the direct slot with the same as
-                                               ;; SLOT (an effective slot).
+                                               ;; find the direct slot
+                                               ;; with the same name
+                                               ;; as SLOT (an
+                                               ;; effective slot).
                                                (eql (swank-mop:slot-definition-name a)
                                                     (swank-mop:slot-definition-name slot)))
                                              direct-slots)
                                     slot)
-                 collect `(:value ,slot-def ,(princ-to-string (swank-mop:slot-definition-name slot-def)))                   
+                 collect `(:value ,slot-def ,(inspector-princ (swank-mop:slot-definition-name slot-def)))                   
                  collect " = "
                  if (slot-boundp o (swank-mop:slot-definition-name slot-def))
                    collect `(:value ,(slot-value o (swank-mop:slot-definition-name slot-def)))
@@ -2668,24 +2725,17 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
   (declare (ignore inspector))
   (values "A generic function."
           `("Name: " (:value ,(swank-mop:generic-function-name gf)) (:newline)
-            "Its argument list is: " ,(princ-to-string (swank-mop:generic-function-lambda-list gf)) (:newline)
+            "Its argument list is: " ,(inspector-princ (swank-mop:generic-function-lambda-list gf)) (:newline)
             "Documentation: " (:newline)
-            ,(princ-to-string (documentation gf t)) (:newline)
+            ,(inspector-princ (documentation gf t)) (:newline)
             "Its method class is: " (:value ,(swank-mop:generic-function-method-class gf)) (:newline)
             "It uses " (:value ,(swank-mop:generic-function-method-combination gf)) " method combination." (:newline)
             "Methods: " (:newline)
             ,@(loop
                  for method in (swank-mop:generic-function-methods gf)
-                 collect `(:value ,method
-                                  , (with-output-to-string (meth)
-                                      (let ((specs (swank-mop:method-specializers method))
-                                            (quals (swank-mop:method-qualifiers method)))
-                                        (princ (mapcar #'class-name specs) meth)
-                                        (princ " " meth)
-                                        (when quals
-                                          (if (= 1 (length quals))
-                                              (princ (first quals) meth)
-                                              (princ quals meth))))))
+                 collect `(:value ,method ,(inspector-princ
+                                            ;; drop the first element (the name of the generic function)
+                                            (cdr (method-for-inspect-value method))))
                  collect " "
                  collect (let ((meth method))
                            `(:action "[remove method]" ,(lambda () (remove-method gf meth))))
@@ -2695,15 +2745,16 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
   (declare (ignore inspector))
   (values "A method." 
           `("Method defined on the generic function " (:value ,(swank-mop:method-generic-function method)
-                                                              ,(princ-to-string
+                                                              ,(inspector-princ
                                                                 (swank-mop:generic-function-name
                                                                  (swank-mop:method-generic-function method))))
-            (:newline)                                                      
-            "Documentation:" (:newline) ,(documentation method t) (:newline)
+            (:newline)
+            ,@(when (documentation method t)
+                `("Documentation:" (:newline) ,(documentation method t) (:newline)))
             "Lambda List: " (:value ,(swank-mop:method-lambda-list method))
             (:newline)
             "Specializers: " (:value ,(swank-mop:method-specializers method)
-                                     ,(princ-to-string (mapcar #'class-name (swank-mop:method-specializers method))))
+                                     ,(inspector-princ (method-specializers-for-inspect method)))
             (:newline)
             "Qualifiers: " (:value ,(swank-mop:method-qualifiers method))
             (:newline)
@@ -2718,29 +2769,35 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
             (:newline)
             "Direct Slots: " ,@(common-seperated-spec (swank-mop:class-direct-slots class)
                                                       (lambda (slot)
-                                                        `(:value ,slot ,(princ-to-string
+                                                        `(:value ,slot ,(inspector-princ
                                                                          (swank-mop:slot-definition-name slot)))))
             (:newline)
             "Effective Slots: " ,@(if (swank-mop:class-finalized-p class)
                                       (common-seperated-spec (swank-mop:class-slots class)
                                                              (lambda (slot)
-                                                               `(:value ,slot ,(princ-to-string
+                                                               `(:value ,slot ,(inspector-princ
                                                                                 (swank-mop:slot-definition-name slot)))))
                                       '("#<N/A (class not finalized)>"))
             (:newline)
-            "Documentation:" (:newline)
             ,@(when (documentation class t)
-                `(,(documentation class t) (:newline)))
+                `("Documentation:" (:newline)
+                  ,(documentation class t) (:newline)))
             "Sub classes: " ,@(common-seperated-spec (swank-mop:class-direct-subclasses class)
                                                      (lambda (sub)
-                                                       `(:value ,sub ,(princ-to-string (class-name sub)))))
+                                                       `(:value ,sub ,(inspector-princ (class-name sub)))))
             (:newline)
             "Precedence List: " ,@(if (swank-mop:class-finalized-p class)
                                       (common-seperated-spec (swank-mop:class-precedence-list class)
                                                              (lambda (class)
-                                                               `(:value ,class ,(princ-to-string (class-name class)))))
+                                                               `(:value ,class ,(inspector-princ (class-name class)))))
                                       '("#<N/A (class not finalized)>"))
             (:newline)
+            ,@(when (swank-mop:specializer-direct-methods class)
+               `("It is used as a direct specializer in the following methods:" (:newline)
+                 ,@(loop
+                      for method in (swank-mop:specializer-direct-methods class)
+                      collect `(:value ,method ,(inspector-princ (method-for-inspect-value method)))
+                      collect '(:newline))))
             "Prototype: " ,(if (swank-mop:class-finalized-p class)
                                `(:value ,(swank-mop:class-prototype class))
                                '"#<N/A (class not finalized)>"))))
@@ -2750,9 +2807,10 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
   (values "A slot." 
           `("Name: " (:value ,(swank-mop:slot-definition-name slot))
             (:newline)
-            "Documentation:" (:newline)
             ,@(when (swank-mop:slot-definition-documentation slot)
-                `((:value ,(swank-mop:slot-definition-documentation slot)) (:newline)))
+                `("Documentation:"  (:newline)
+                  (:value ,(swank-mop:slot-definition-documentation slot))
+                  (:newline)))
             "Init args: " (:value ,(swank-mop:slot-definition-initargs slot)) (:newline)
             "Init form: "  ,(if (swank-mop:slot-definition-initfunction slot)
                              `(:value ,(swank-mop:slot-definition-initform slot))
@@ -2779,16 +2837,16 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
               (:newline)
               "Nick names: " ,@(common-seperated-spec (sort (package-nicknames package) #'string-lessp))
               (:newline)
-              "Documentation:" (:newline)
               ,@(when (documentation package t)
-                      `(,(documentation package t) (:newline)))
+                  `("Documentation:" (:newline)
+                    ,(documentation package t) (:newline)))
               "Use list: " ,@(common-seperated-spec (sort (package-use-list package) #'string-lessp :key #'package-name)
                                                     (lambda (pack)
-                                                      `(:value ,pack ,(princ-to-string (package-name pack)))))
+                                                      `(:value ,pack ,(inspector-princ (package-name pack)))))
               (:newline)
               "Used by list: " ,@(common-seperated-spec (sort (package-used-by-list package) #'string-lessp :key #'package-name)
                                                         (lambda (pack)
-                                                          `(:value ,pack ,(princ-to-string (package-name pack)))))
+                                                          `(:value ,pack ,(inspector-princ (package-name pack)))))
               (:newline)
               ,(if (null external-symbols)
                    "0 external symbols."
