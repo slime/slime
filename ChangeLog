@@ -1,3 +1,8 @@
+2005-03-21  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-sbcl.lisp (locate-compiler-note): Handle errors in macros
+	better.
+
 2005-03-20  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-sbcl.lisp (quit-lisp): If we are running multithreaded,
