@@ -38,13 +38,10 @@
 ;;; TCP Server
 
 (defimplementation preferred-communication-style ()
-  (cond ((and (sb-int:featurep :sb-thread)
-              (sb-int:featurep :sb-futex))
-         :spawn)
-        ((fboundp 'sb-posix::fcntl)
-         :sigio)
-        (t
-         :fd-handler)))
+  (if (and (sb-int:featurep :sb-thread)
+           (sb-int:featurep :sb-futex))
+      :spawn
+      :fd-handler))
         
 (defun resolve-hostname (name)
   (car (sb-bsd-sockets:host-ent-addresses
