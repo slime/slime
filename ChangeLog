@@ -9,7 +9,7 @@
 
 	* slime.el: Set `indent-tabs-mode' to nil. This makes diffs look
 	better.
-	(slime-start-swank-server): Now passing the port number of
+	(slime-start-swank-server): Now passing the port number to
 	SWANK:START-SERVER.
 	(slime-evaluating-state): Debugging synchronous evaluations with
 	recursive edits now works.
