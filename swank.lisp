@@ -780,65 +780,62 @@ exists."
     (cond (package (values symbol package))
           (t (error "Unknown symbol: ~S [in ~A]" string default-package)))))
 
-(defslimefun arglist-for-echo-area (names &optional without-name)
+(defun valid-operator-name-p (string)
+  "Test if STRING names a function, macro, or special-operator."
+  (let ((symbol (find-symbol-designator string)))
+    (or (fboundp symbol)
+        (macro-function symbol)
+        (special-operator-p symbol))))
+
+(defslimefun arglist-for-echo-area (names)
   "Return the arglist for the first function, macro, or special-op in NAMES."
-  (multiple-value-bind (symbol name)
-      (loop for name in names
-            for symbol = (find-symbol-designator name)
-            when (or (fboundp symbol)
-                     (macro-function symbol)
-                     (special-operator-p symbol))
-            return (values symbol name))
-    (cond (symbol (format-arglist-for-echo-area symbol name without-name))
-          (t ""))))
+  (let ((name (find-if #'valid-operator-name-p names)))
+    (if name 
+        (format-arglist-for-echo-area (find-symbol-designator name) name)
+        "")))
 
-(defun format-arglist-for-echo-area (symbol name without-name)
-  (multiple-value-bind (arglist c) (ignore-errors (values (arglist symbol)))
-    (cond ((and c without-name) " <not available>)")
-          (c (format nil "(~A -- <not available>)" symbol))
-          (t (let ((string (arglist-to-string arglist)))
-               (format nil "~:[(~A~;~*~]~A~A)"
-                       without-name
-                       name
-                       (if (= (length string) 2) "" " ")
-                       (subseq string 1 (1- (length string)))))))))
+(defun format-arglist-for-echo-area (symbol name)
+  "Return SYMBOL's arglist as string for display in the echo area.
+Use the string NAME as operator name."
+  (let ((arglist (arglist symbol)))
+    (etypecase arglist
+      ((member :not-available)
+       (format nil "(~A -- <not available>)" name))
+      (list
+       (arglist-to-string (cons name arglist)
+                          (symbol-package symbol))))))
 
-(defun arglist-to-string (arglist)
-  (etypecase arglist
-    (string arglist)
-    (null "()")
-    (cons (print-arglist-to-string arglist))))
-    
-(defun print-arglist-to-string (arglist)
-  (with-output-to-string (*standard-output*)
-    (print-arglist arglist)))
-
-(defun print-arglist (arglist)
+(defun arglist-to-string (arglist package)
   "Print the list ARGLIST for display in the echo area.
 The argument name are printed without package qualifiers and 
 pretty printing of (function foo) as #'foo is suppressed."
-  (with-standard-io-syntax
-    (let ((*print-case* :downcase)
-          (*print-pretty* t)
-          (*print-circle* nil)
-          (*print-level* 10)
-          (*print-length* 20))
-      (pprint-logical-block (nil nil :prefix "(" :suffix ")")
-        (loop
-         (let ((arg (pop arglist)))
-           (etypecase arg
-             (symbol (princ arg))
-             (string (princ arg))
-             (cons (pprint-logical-block (nil nil :prefix "(" :suffix ")")
-                     (princ (car arg))
-                     (write-char #\space)
-                     (pprint-fill *standard-output* (cdr arg) nil))))
-           (when (null arglist) (return))
-           (write-char #\space)
-           (pprint-newline :fill)))))))
+  (etypecase arglist
+    (null "()")
+    (cons 
+     (with-output-to-string (*standard-output*)
+       (with-standard-io-syntax
+         (let ((*package* package)
+               (*print-case* :downcase)
+               (*print-pretty* t)
+               (*print-circle* nil)
+               (*print-level* 10)
+               (*print-length* 20))
+           (pprint-logical-block (nil nil :prefix "(" :suffix ")")
+             (loop
+              (let ((arg (pop arglist)))
+                (etypecase arg
+                  (symbol (princ arg))
+                  (string (princ arg))
+                  (cons (pprint-logical-block (nil nil :prefix "(" :suffix ")")
+                          (princ (car arg))
+                          (write-char #\space)
+                          (pprint-fill *standard-output* (cdr arg) nil))))
+                (when (null arglist) (return))
+                (write-char #\space)
+                (pprint-newline :fill))))))))))
 
 (defun test-print-arglist (list string)
-  (string= (print-arglist-to-string list) string))
+  (string= (arglist-to-string list (find-package :swank)) string))
 
 ;; Should work:
 (assert (test-print-arglist '(function cons) "(function cons)"))
@@ -846,6 +843,17 @@ pretty printing of (function foo) as #'foo is suppressed."
 (assert (test-print-arglist '(&key (function #'+)) "(&key (function #'+))"))
 ;; Expected failure:
 ;; (assert (test-print-arglist '(&key ((function f))) "(&key ((function f)))"))
+
+(defslimefun arglist-for-insertion (name)
+  (cond ((valid-operator-name-p name)
+         (let ((arglist (arglist (find-symbol-designator name))))
+           (etypecase arglist
+             ((member :not-available)
+              " <not available>")
+             (list
+              (format nil "~(~<~{~^ ~A~}~@:>~))" (list arglist))))))
+        (t
+         " <not available>")))
 
 
 ;;;; Debugger
@@ -1608,21 +1616,18 @@ belonging to the buffer package."
 The form is to be used as the `common-lisp-indent-function' property
 in Emacs."
   (if (macro-function symbol)
-      (macro-indentation (ignore-errors (read-arglist (arglist symbol))))
+      (let ((arglist (arglist symbol)))
+        (etypecase arglist
+          ((member :not-available)
+           nil)
+          (list
+           (macro-indentation arglist))))
       nil))
 
 (defun macro-indentation (arglist)
   (if (well-formed-list-p arglist)
       (position '&body (remove '&whole arglist))
       nil))
-
-(defun read-arglist (args)
-  (etypecase args
-    (cons args)
-    (null args)
-    (string
-     (with-temp-package *package*
-       (read-from-string args)))))
 
 (defun well-formed-list-p (list)
   "Is LIST a proper list terminated by NIL?"
