@@ -1073,10 +1073,10 @@ Evaluate an expression entered in the minibuffer.
 @node slime-selector, slime-autodoc-mode, Extras, Extras
 @section @code{slime-selector}
 
-The @code{slime-selector} is for quickly switching to important
-buffers: the @REPL{}, @SLDB{}, the Lisp source you were just hacking,
-etc. Once invoked the command prompts for a single letter to specify
-which buffer it should display. Here are some of the options:
+The @code{slime-selector} command is for quickly switching to
+important buffers: the @REPL{}, @SLDB{}, the Lisp source you were just
+hacking, etc. Once invoked the command prompts for a single letter to
+specify which buffer it should display. Here are some of the options:
 
 @table @kbd
 @item ?
