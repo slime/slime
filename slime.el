@@ -1153,21 +1153,29 @@ Severity is ordered as :NOTE < :WARNING < :ERROR."
 
 (defun slime-visit-source-path (source-path)
   "Visit a full source path including the top-level form."
-  (ignore-errors
-    (goto-char (point-min))
-    (slime-forward-sexp (car source-path))
-    (slime-forward-source-path (cdr source-path))))
+  (goto-char (point-min))
+  (slime-forward-source-path source-path))
+
+(defun slime-forward-positioned-source-path (source-path)
+  "Move forward through a sourcepath from a fixed position.
+The point is assumed to already be at the outermost sexp, making the
+first element of the source-path redundant."
+  (ignore-errors (down-list 1))
+  (slime-forward-source-path (cdr source-path)))
 
 (defun slime-forward-source-path (source-path)
   (let ((origin (point)))
-    (cond ((null source-path)
-	   (or (ignore-errors (down-list 1) (backward-char 1) t)
-	       (goto-char origin)))
-	  (t 
-	   (or (ignore-errors (down-list 1)
-			      (slime-forward-sexp (car source-path))
-			      (slime-forward-source-path (cdr source-path)))
-	       (goto-char origin))))))
+    (condition-case nil
+        (progn
+          (loop for form-number in source-path
+                for more downfrom (1- (length source-path))
+                do (progn
+                     (slime-forward-sexp form-number)
+                     (unless (zerop more) (down-list 1))))
+          ;; Align at beginning
+          (slime-forward-sexp)
+          (beginning-of-sexp))
+      (error (goto-char origin)))))
 
 (defun slime-goto-location (note)
   "Move to the location fiven with the note NOTE.
@@ -1204,11 +1212,11 @@ top-level form, etc."
 	 (goto-char (plist-get note ':position))
 	 ;; Drop the the toplevel form from the source-path and go the
 	 ;; expression.
-	 (slime-forward-source-path (cdr (plist-get note ':source-path))))
+	 (slime-forward-positioned-source-path (plist-get note ':source-path)))
 	((stringp (plist-get note :buffername))
 	 (assert (string= (buffer-name) (plist-get note :buffername)))
 	 (goto-char (plist-get note :buffer-offset))
-	 (slime-forward-source-path (cdr (plist-get note ':source-path))))
+	 (slime-forward-positioned-source-path (plist-get note ':source-path)))
 	(t
 	 (error "Unsupported location type %s" note))))
 
@@ -1259,11 +1267,6 @@ top-level form, etc."
       (unless (if plus-conditional-p result (not result))
         ;; skip this sexp
         (slime-forward-sexp)))))
-
-(defun slime-beginning-of-next-sexp ()
-  "Move the point to the first character of the next sexp."
-  (forward-sexp)
-  (backward-sexp))
 
 (defun slime-eval-feature-conditional (e)
   "Interpret a reader conditional expression."
@@ -2249,8 +2252,8 @@ the current index when the selection is completed."
 			     #'switch-to-buffer)
 			   (get-buffer buffer))
 		  (goto-char offset)
-		  (slime-forward-source-path 
-		   (cdr (plist-get source-location :path)))))
+		  (slime-forward-positioned-source-path
+		   (plist-get source-location :path))))
 	       (t
 		(error "Cannot locate source from stream: %s"
 		       source-location)))))
