@@ -1,3 +1,20 @@
+2004-06-28  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-doc-map): New keymap for documentation
+	commands. These all use the `C-c C-d' prefix, followed by:
+	  a - apropos
+	  p - apropos-package
+	  z - apropos-all
+	  d - describe-symbol
+	  f - describe-function
+	  h - hyperspec lookup
+	  ~ - hyperspec lookup of a format character
+	The final keystroke is bound both unmodified and with control, so
+	both `C-c C-d a' and `C-c C-d C-a' will make an apropos
+	search. The exception is hyperspec-lookup, because it's nice to
+	leave C-h unbound so that `C-c C-d C-h' will summarise the
+	documentation bindings.
+
 2004-06-28  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-allegro.lisp (nth-frame): Skip frames where
