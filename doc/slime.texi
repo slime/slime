@@ -553,6 +553,10 @@ completion. @xref{Emacs-side customization}.
 The space key inserts a space and also looks up and displays the
 argument list for the function at point, if there is one.
 
+@kbditem{C-c C-s, slime-insert-arglist}
+Looks up and inserts into the current buffer the argument list for the
+function at point, if there is one.
+
 @kbditem{C-c C-m, slime-macroexpand-1}
 Macroexpand the expression at point once.
 
