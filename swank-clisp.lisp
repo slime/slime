@@ -44,7 +44,7 @@
 	
 #+linux
 (defmethod call-without-interrupts (fn)
-  (with-blocked-signals (linux:SIGINT) (funcall fn)))
+  (with-blocked-signals (#.linux:SIGINT) (funcall fn)))
 
 #-linux
 (defmethod call-without-interrupts (fn)
@@ -357,9 +357,9 @@ Return NIL if the symbol is unbound."
 		       (signal condition))))
       ;; w-p = errors + warnings, f-p = errors + warnings - style warnings,
       ;; where a result of 0 is replaced by NIL.  It follows that w-p
-      ;; is T iff there was any note whatsoever and that f-p is T iff
-      ;; there was anything more severe than a style warning.  This is
-      ;; completely ANSI compliant.
+      ;; is non-NIL iff there was any note whatsoever and that f-p is
+      ;; non-NIL iff there was anything more severe than a style
+      ;; warning.  This is completely ANSI compliant.
       (declare (ignore w-p f-p))
       (if (and fas-file load-p)
 	  (load fas-file)
