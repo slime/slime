@@ -1,3 +1,45 @@
+2003-11-01  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-select): Added an extensible "Select" command,
+	which I gather is a LispM/Martin-Cracauer knock-off. When invoked,
+	the select command reads a single character and uses that to
+	decide which buffer to switch to. New characters can be defined,
+	and the currently availables ones can be seen with '?'. I have not
+	assigned a key to Select, because it seems like a command that
+	should have a global binding. I would suggest `C-c s'.
+
+	* swank.lisp (*slime-features*): Variable remembering the FEATURES
+	list.
+	(sync-state-to-emacs): Update Emacs about any state changes -
+	currently this just means changes to the FEATURES list.
+	(eval-string): Call `sync-state-to-emacs' before sending result.
+	(eval-region): With optional PACKAGE-UPDATE-P, if the evaluation
+	changes the current package, tell Emacs about the new package.
+	(listener-eval): Tell `eval-region' to notify Emacs of package
+	changes, so that e.g. (in-package :swank) does the right thing
+	when evaluated in the REPL.
+
+	* slime.el (slime-repl-output-face, slime-repl-input-face): Face
+	definitions for output printed by Lisp and for previous REPL user
+	inputs, respectively. Defaulting the input face to bold rather
+	than underline, because it looks better on multi-line input.
+	(slime-handle-oob): Two new out-of-band messages
+	(:new-features FEATURES) and (:new-package PACKAGE-NAME). These
+	are used for Lisp to tell Emacs about changes to *FEATURES* and
+	*PACKAGE* when appropriate.
+	(slime-same-line-p): Better implementation (does what the name
+	suggests).
+	(slime-lisp-package): New variable keeping track of *PACKAGE* in
+	Lisp -- or at least, the package to use for the REPL.
+	(slime-repl-insert-prompt): The prompt now includes the package
+	name.
+	(slime-repl-bol): C-a in the REPL now stops at the prompt.
+	(slime-repl-closing-return): C-RET & C-M-m now close all open
+	lists and then send input in REPL.
+	(slime-repl-newline-and-indent): C-j in REPL is now better with
+	indentation (won't get confused by unmatched quotes etc appearing
+	before the prompt).
+
 2003-11-1  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-debugging-state): Save the window configuration
