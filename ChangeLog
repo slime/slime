@@ -1,3 +1,9 @@
+2003-12-16  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-lisp-preferred-package-nicknames): Removed. Not
+	very interesting (and slightly broken) now that shortest-nicknames
+	are automatically used.
+
 2003-12-15  Luke Gorrie  <luke@bluetail.com>
 
 	* swank-openmcl.lisp (ccl::*warn-if-redefine-kernel*): Support for
