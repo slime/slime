@@ -1,3 +1,8 @@
+2004-05-12  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el: Fixes for outline-mode in *slime-events* from Edi
+	Weitz.
+
 2004-05-11  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-events-buffer): Disable outline-mode by default.
