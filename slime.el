@@ -231,6 +231,7 @@ Evaluation commands:
     ("\C-c\C-k" . slime-compile-and-load-file)
     ("\C-c\M-k" . slime-compile-file)
     ("\C-c\C-c" . slime-compile-defun)
+    ("\C-c\C-l" . slime-load-file)
     ;; Multiple bindings for completion, since M-TAB is often taken by
     ;; the window manager.
     ("\M-\C-i"  . slime-complete-symbol)
@@ -303,7 +304,11 @@ This list of flushed between commands."))
 ;;
 (defun slime-connect (host port &optional retries)
   "Connect to a running Swank server."
-  (interactive "sHost: \nnPort: ")
+  (interactive (list (read-string "Host: " "localhost")
+		     (let ((port
+			    (read-string "Port: " 
+					 (number-to-string slime-swank-port))))
+		       (or (ignore-errors (string-to-number port)) port))))
   (setq retries (or retries slime-swank-connection-retries))
   (if (zerop retries)
       (error "Unable to contact Swank server.")
@@ -357,12 +362,10 @@ Your Swank binary is older than the source. Recompile now? ")))
 (defvar slime-net-process nil
   "The process (socket) connected to CMUCL.")
 
-(defun slime-net-connect (&optional host port)
+(defun slime-net-connect (host port)
   "Establish a connection with CMUCL."
   (condition-case nil
       (progn
-        (setq host (or host "localhost"))
-        (setq port (or port slime-swank-port))
         (setq slime-net-process (open-network-stream "CMUCL" nil host port))
         (let ((buffer (slime-make-net-buffer "*cmucl-connection*")))
           (set-process-buffer slime-net-process buffer)
@@ -407,11 +410,16 @@ EVAL'd by Lisp."
 
 (defun slime-process-available-input ()
   (with-current-buffer (process-buffer slime-net-process)
-    (when (slime-net-have-input-p)
-      (let ((input (slime-net-read)))
+    (while (slime-net-have-input-p)
+      (let ((input (slime-net-read))
+	    (aborted t))
 	(unwind-protect
-	    (slime-take-input input)
-	  (slime-process-available-input))))))
+	    (save-current-buffer
+	      (slime-take-input input)
+	      (setq aborted nil))
+	  (when (and aborted
+		     (slime-net-have-input-p))
+	    (slime-process-available-input)))))))
 
 (defun slime-net-have-input-p ()
   "Return true if a complete message is available."
@@ -493,6 +501,12 @@ EVAL'd by Lisp."
      (slime-move-to-state next-state)
      (slime-net-send `(swank:eval-string ,string ,package)))))
 
+(defun slime-ping ()
+  (interactive)
+  (slime-eval `(swank:ping ,sldb-level) nil)
+  (message "Connection ok."))
+
+
 (defun slime-eval-string-async (string package next-state)
   (slime-take-input `(send-eval-string ,string ,package ,next-state)))
 
@@ -534,7 +548,10 @@ EVAL'd by Lisp."
 (defun slime-eval (sexp &optional package)
   "Evaluate EXPR on the superior Lisp and return the result."
   (lexical-let ((el-level (recursion-depth))
-		(cl-level sldb-level))
+		(cl-level sldb-level)
+		(done nil)
+		(error nil)
+		value)
     (slime-eval-string-async
      (prin1-to-string sexp)
      package
@@ -543,10 +560,12 @@ EVAL'd by Lisp."
 	(destructure-case message
 	  ((:ok result)
 	   (slime-move-to-state next-state)
-	   (throw 'sync-eval-ok result))
+	   (setq done t)
+	   (setq value result))
 	  ((:aborted)
 	   (slime-move-to-state next-state)
-	   (error "slime-eval aborted"))
+	   (setq done t)
+	   (setq error "slime-eval aborted"))
 	  ((:sldb-prompt l) 
 	   (assert (= sldb-level l)))
 	  ((:debugger-hook)
@@ -558,19 +577,20 @@ EVAL'd by Lisp."
 				   (when (> (recursion-depth) el-level)
 				     (throw 'el-quit nil)))
 				 (slime-current-state)))
-	   (slime-debugger-hook))))
+	   (slime-debugger-hook)
+	   (unwind-protect
+	       (catch 'el-quit
+		 (save-current-buffer
+		   (debug)))
+	     (when (> sldb-level cl-level)
+	       (slime-take-input '(abort-from-el)))))))
       (slime-current-state)))
-    (catch 'sync-eval-ok
-      (let ((debug-on-quit t))
-	(while t
-	  (when (> sldb-level cl-level)
-	    (unwind-protect
-		(catch 'el-quit
-		  (save-current-buffer
-		    (debug)))
-	      (when (> sldb-level cl-level)
-		(slime-take-input '(abort-from-el)))))
-	  (accept-process-output))))))
+    (let ((debug-on-quit t))
+      (while (not done)
+	(accept-process-output))
+      (when error
+	(error error))
+      value)))
 
 (defun slime-sync ()
   "Block until all asynchronous commands are completed."
@@ -629,9 +649,7 @@ See `slime-compile-and-load-file' for further details."
   (slime-eval-async
    `(swank:swank-compile-file ,(buffer-file-name) ,(if load t nil))
    nil
-   (lexical-let ((buffer (current-buffer)))
-     (lambda (result) 
-       (slime-compilation-finished result buffer))))
+   (slime-compilation-finished-continuation))
   (message "Compiling %s.." (buffer-file-name)))
 
 (defun slime-defun-at-point ()
@@ -658,9 +676,7 @@ See `slime-compile-and-load-file' for further details."
 				   (beginning-of-defun)
 				   (point)))
    (slime-buffer-package)
-   (lexical-let ((buffer (current-buffer)))
-     (lambda (result)
-       (slime-compilation-finished result buffer)))))
+   (slime-compilation-finished-continuation)))
 
 (defun slime-show-note-counts (notes)
   (loop for note in notes 
@@ -678,6 +694,11 @@ See `slime-compile-and-load-file' for further details."
     (let ((notes (slime-compiler-notes)))
       (slime-show-note-counts notes)
       (slime-highlight-notes notes))))
+
+(defun slime-compilation-finished-continuation ()
+  (lexical-let ((buffer (current-buffer)))
+    (lambda (result) 
+      (slime-compilation-finished result buffer))))
 
 (defun slime-display-buffer-other-window (buffer &optional not-this-window)
   "Display BUFFER in some other window.
@@ -801,12 +822,17 @@ Severity is ordered as :NOTE < :WARNING < :ERROR."
       sev1
       sev2))
 
+
 (defun slime-forward-source-path (source-path)
-  (dolist (count source-path)
-    (down-list 1)
-    (forward-sexp count))
-  (forward-sexp)
-  (backward-sexp))
+  (let ((origin (point)))
+    (cond ((null source-path)
+	   (or (ignore-errors (forward-sexp) (backward-sexp) t)
+	       (goto-char origin)))
+	  (t 
+	   (or (ignore-errors (down-list 1) 
+			      (forward-sexp (car source-path))
+			      (slime-forward-source-path (cdr source-path)))
+	       (goto-char origin))))))
 
 (defun slime-goto-location (note)
   "Move to the location fiven with the note NOTE.
@@ -1131,9 +1157,6 @@ FOO::BAR is not, and nor is BAR."
 (defvar slime-find-definition-history-ring (make-ring 20)
   "History ring recording the definition-finding \"stack\".")
 
-(defun slime-inferior-lisp-marker-position ()
-  (marker-position (process-mark (get-buffer-process inferior-lisp-buffer))))
-
 (defun slime-edit-fdefinition (name)
   "Lookup the definition of the function called at point.
 If no function call is recognised, or a prefix argument is given, then
@@ -1185,19 +1208,41 @@ the function name is prompted."
 
 ;;; Interactive evaluation.
 
+(defun slime-use-inf-lisp-p ()
+  (and inferior-lisp-buffer (get-buffer inferior-lisp-buffer)))
+
+(defun slime-insert-transcript-delimiter (string)
+  (when (slime-use-inf-lisp-p)
+    (delete-windows-on inferior-lisp-buffer)
+    (with-current-buffer inferior-lisp-buffer
+      (goto-char (point-max))
+      (insert "\n;;;; " 
+	      (subst-char-in-string ?\n ?\ 
+				    (substring string 0 
+					       (min 60 (length string))))
+	      " ...\n")
+      (set-marker 
+       (process-mark (get-buffer-process (current-buffer))) (point)))))
+
+(defun slime-inferior-lisp-marker-position ()
+  (when (slime-use-inf-lisp-p)
+    (marker-position 
+     (process-mark (get-buffer-process inferior-lisp-buffer)))))
+    
+(defun slime-inferior-lisp-show-last-output (output-start)
+  (when (slime-use-inf-lisp-p)
+    (when (< output-start (slime-inferior-lisp-marker-position))
+      (slime-display-buffer-region 
+       inferior-lisp-buffer 
+       output-start (slime-inferior-lisp-marker-position) 1))))
+
 (defun slime-interactive-eval (string)
   (interactive "sSlime Eval: ")
-  (with-current-buffer inferior-lisp-buffer
-    (goto-char (point-max))
-    (insert "\n;;;; ----\n")
-    (set-marker (process-mark (get-buffer-process (current-buffer))) (point)))
-  (delete-windows-on inferior-lisp-buffer)
+  (slime-insert-transcript-delimiter string)
   (slime-eval-async 
    `(swank:interactive-eval ,string)
    (slime-buffer-package t)
-   (lexical-let ((output-start (slime-inferior-lisp-marker-position)))
-     (lambda (reply)
-       (slime-show-evaluation-result output-start reply)))))
+   (slime-show-evaluation-result-continuation)))
 
 (defun slime-display-buffer-region (buffer start end &optional border)
   (let ((border (or border 0)))
@@ -1225,11 +1270,13 @@ the function name is prompted."
 
 (defun slime-show-evaluation-result (output-start value)
   (message "=> %s" value)
-  (when (< output-start (slime-inferior-lisp-marker-position))
-    (slime-display-buffer-region 
-     inferior-lisp-buffer 
-     output-start (slime-inferior-lisp-marker-position) 1)))
+  (slime-inferior-lisp-show-last-output output-start))
 
+(defun slime-show-evaluation-result-continuation ()
+  (lexical-let ((output-start (slime-inferior-lisp-marker-position)))
+     (lambda (value)
+       (slime-show-evaluation-result output-start value))))
+  
 (defun slime-last-expression ()
   (buffer-substring-no-properties (save-excursion (backward-sexp) (point))
 				  (point)))
@@ -1244,8 +1291,23 @@ the function name is prompted."
 
 (defun slime-eval-region (start end)
   (interactive "r")
-  (slime-interactive-eval 
-   (concat "(CL:PROGN " (buffer-substring-no-properties start end) ")")))
+  (slime-eval-async
+   `(swank:interactive-eval-region ,(buffer-substring-no-properties start end))
+   (slime-buffer-package)
+   (slime-show-evaluation-result-continuation)))
+
+(defun slime-eval-buffer ()
+  (interactive)
+  (slime-eval-region (point-min) (point-max)))
+
+(defun slime-re-evaluate-defvar ()
+  "Force the re-evaluaton of the defvar form before point.  
+
+First make the variable unbound, then evaluate the entire form."
+  (interactive)
+  (slime-eval-async `(swank:re-evaluate-defvar ,(slime-last-expression))
+		    (slime-buffer-package)
+		    (slime-show-evaluation-result-continuation)))
 
 (defun slime-pprint-eval-last-expression ()
   (interactive)
@@ -1264,9 +1326,7 @@ the function name is prompted."
   (interactive "fLoad file: ")
   (slime-eval-async 
    `(swank:load-file ,(expand-file-name filename)) nil 
-   (lexical-let ((output-start (slime-inferior-lisp-marker-position)))
-     (lambda (result)
-       (slime-show-evaluation-result output-start result)))))
+   (slime-show-evaluation-result-continuation)))
 
 ;;; 
 
@@ -1428,7 +1488,12 @@ the function name is prompted."
 (defvar slime-use-tty-debugger nil
   "*")
 
-(setq slime-use-tty-debugger nil)
+(defvar sldb-condition)
+(defvar sldb-restarts)
+(defvar sldb-backtrace-length)
+(defvar sldb-level-in-buffer)
+(defvar sldb-backtrace-start-marker)
+(defvar sldb-mode-map)
 
 (defun slime-debugger-hook ()
   (if slime-use-tty-debugger
@@ -1500,18 +1565,11 @@ the function name is prompted."
     (setq buffer-read-only t)
     (pop-to-buffer (current-buffer))))
 
-(defvar sldb-condition)
-(defvar sldb-restarts)
-(defvar sldb-backtrace-length)
-(defvar sldb-level-in-buffer)
-(defvar sldb-backtrace-start-marker)
-
 (defun slime-insert-propertized (props &rest args)
   (let ((start (point)))
     (apply #'insert args)
     (add-text-properties start (point) props)))
 
-(defvar sldb-mode-map)
 
 (define-derived-mode sldb-mode fundamental-mode "sldb" 
   "Superior lisp debugger mode
@@ -1519,10 +1577,11 @@ the function name is prompted."
 \\{sldb-mode-map}"
   (erase-buffer)
   (set-syntax-table lisp-mode-syntax-table)
-  (mapc #'make-local-variable '(sldb-restarts 
-				sldb-restarts 
+  (mapc #'make-local-variable '(sldb-condition 
+				sldb-restarts
 				sldb-backtrace-length
-				sldb-level-in-buffer))
+				sldb-level-in-buffer
+				sldb-backtrace-start-marker))
   (setq sldb-level-in-buffer sldb-level)
   (setq mode-name (format "sldb[%d]" sldb-level))
   (destructuring-bind (condition restarts length frames)
@@ -1639,13 +1698,17 @@ the function name is prompted."
       (slime-goto-source-location source-location t)
       (sldb-highlight-sexp))))
 
-(defun sldb-toggle-details ()
+(defun sldb-frame-details-visible-p ()
+  (and (get-text-property (point) 'frame)
+       (get-text-property (point) 'details-visible-p)))
+
+(defun sldb-toggle-details (&optional on)
   (interactive)
   (sldb-frame-number-at-point)
   (let ((inhibit-read-only t))
-    (if (get-text-property (point) 'details-visible-p)
-	(sldb-hide-frame-details)
-      (sldb-show-frame-details))))
+    (if (or on (not (sldb-frame-details-visible-p)))
+	(sldb-show-frame-details)
+      (sldb-hide-frame-details))))
 
 (defmacro* sldb-propertize-region (props &body body)
   (let ((start (gensym)))
@@ -1667,14 +1730,16 @@ the function name is prompted."
     (let ((end
 	   (save-excursion
 	     (let* ((props (text-properties-at (point)))
-		    (frame (car (plist-get props 'frame)))
+		    (frame (plist-get props 'frame))
+		    (frame-number (car frame))
 		    (standard-output (current-buffer)))
 	       (goto-char start)
+	       (delete-region start end)
 	       (sldb-propertize-region (plist-put props 'details-visible-p t)
-		 (goto-char end)
-		 (insert "   Locals:\n")
-		 (sldb-princ-locals frame "       ")
-		 (let ((catchers (sldb-catch-tags frame)))
+		 (insert (second frame) "\n"
+			 "   Locals:\n")
+		 (sldb-princ-locals frame-number "       ")
+		 (let ((catchers (sldb-catch-tags frame-number)))
 		   (cond ((null catchers)
 			  (princ "   [No catch-tags]\n"))
 			 (t
@@ -1737,6 +1802,22 @@ the function name is prompted."
   (when (= (point) sldb-backtrace-start-marker)
     (recenter (1+ (count-lines (point-min) (point))))))
 
+(defun sldb-sugar-move (move-fn)
+  (let ((inhibit-read-only t))
+    (when (sldb-frame-details-visible-p)
+      (sldb-hide-frame-details))
+    (funcall move-fn)
+    (sldb-toggle-details t)
+    (sldb-show-source)))
+  
+(defun sldb-details-up ()
+  (interactive)
+  (sldb-sugar-move 'sldb-up))
+
+(defun sldb-details-down ()
+  (interactive)
+  (sldb-sugar-move 'sldb-down))
+
 (defun sldb-frame-locals (frame)
   (slime-eval `(swank:frame-locals ,frame)))
 
@@ -1798,13 +1879,15 @@ the function name is prompted."
 (define-key sldb-mode-map "e" 'sldb-eval-in-frame)
 (define-key sldb-mode-map "d" 'sldb-down)
 (define-key sldb-mode-map "u" 'sldb-up)
+(define-key sldb-mode-map "\M-n" 'sldb-details-down)
+(define-key sldb-mode-map "\M-p" 'sldb-details-up)
 (define-key sldb-mode-map "l" 'sldb-list-locals)
 (define-key sldb-mode-map "t" 'sldb-toggle-details)
 (define-key sldb-mode-map "c" 'sldb-continue)
 (define-key sldb-mode-map "a" 'sldb-abort)
 (define-key sldb-mode-map "r" 'sldb-invoke-restart)
 (define-key sldb-mode-map "q" 'sldb-quit)
-	  
+
 (run-hooks 'slime-load-hook)
 
 (provide 'slime)
@@ -1936,6 +2019,32 @@ Confirm that EXPECTED-ARGLIST is displayed."
   (slime-sync)
   (slime-check expected-arglist
     (string= expected-arglist (current-message))))
+
+(def-slime-test compile-defun 
+    (program subform)
+    "Compile PROGRAM containing errors.
+Confirm that SUBFORM is correclty located."
+    '(("(defun :foo () (:bar))" (:bar))
+      ("(defun :foo () 
+         #\\space
+         ;;Sdf              
+         (:bar))"
+       (:bar))
+      ;; this fails
+      ("(defun :foo () 
+            #| |#
+            (:bar))"
+       (:bar))
+      )
+  (with-temp-buffer 
+    (lisp-mode)
+    (insert program)
+    (slime-compile-defun)
+    (slime-sync)
+    (slime-previous-note)
+    (slime-check error-location-correct
+      (equal (read (current-buffer))
+	     subform))))
 
 ;; This one currently fails.
 (def-slime-test concurrent-async-requests
