@@ -307,10 +307,6 @@ subset of the bindings from `slime-mode'.
   ;; Fake binding to coax `define-minor-mode' to create the keymap
   '((" " 'undefined)))
 
-(defvar slime-state-name "[??]"
-  "Name of the current state of `slime-default-connection'.
-For display in the mode-line.")
-
 ;; Setup the mode-line to say when we're in slime-mode, and which CL
 ;; package we think the current buffer belongs to.
 (add-to-list 'minor-mode-alist
@@ -1152,16 +1148,16 @@ to the default."
         (setq slime-buffer-connection nil)
       (error "Buffer's connection closed."))))
 
+(defvar slime-state-name "[??]"
+  "Name of the current state of `slime-default-connection'.
+For display in the mode-line.")
+
 (defmacro* slime-with-connection-buffer ((&optional process) &rest body)
   "Execute BODY in the process-buffer of PROCESS.
 If PROCESS is not specified, `slime-connection' is used."
   `(with-current-buffer
        (process-buffer (or ,process (slime-connection) (error "No connection")))
      ,@body))
-
-(defun slime-connection-number (&optional connection)
-  (slime-with-connection-buffer (connection)
-    slime-connection-number))
 
 (defun slime-select-connection (process)
   (setq slime-default-connection process)
@@ -1172,6 +1168,10 @@ If PROCESS is not specified, `slime-connection' is used."
   (when (eq process slime-default-connection)
     (when slime-net-processes
       (slime-select-connection (car slime-net-processes)))))
+
+(defun slime-connection-number (&optional connection)
+  (slime-with-connection-buffer (connection)
+    slime-connection-number))
 
 (add-hook 'slime-net-process-close-hooks 'slime-connection-close-hook)
 
@@ -1339,7 +1339,8 @@ This may be called by a state machine to finish its current state."
 This delivers an (activate) event to the state function, and updates
 the state name for the modeline."
   (let ((state (slime-current-state)))
-    (slime-update-state-name)
+    (when (eq (slime-connection) slime-default-connection)
+      (slime-update-state-name))
     (slime-dispatch-event '(activate))))
 
 (defun slime-update-state-name ()
