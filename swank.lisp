@@ -10,7 +10,8 @@
 (defpackage :swank
   (:use :common-lisp)
   (:nicknames "SWANK-IMPL")
-  (:export #:start-server))
+  (:export #:start-server
+           #:*sldb-pprint-frames*))
 
 (in-package :swank)
 
@@ -26,6 +27,9 @@
 
 (defvar *swank-debug-p* t
   "When true, print extra debugging information.")
+
+(defvar *sldb-pprint-frames* nil
+  "*pretty-print* is bound to this value when sldb prints a frame.")
 
 ;;; public interface.  slimefuns are the things that emacs is allowed
 ;;; to call
@@ -211,12 +215,16 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
         (force-output *slime-output*)
         (send-to-emacs (if ok `(:ok ,result) '(:aborted)))))))
 
+(defun format-values-for-echo-area (values)
+  (cond (values (format nil "~{~S~^, ~}" values))
+        (t "; No value")))
+
 (defslimefun interactive-eval (string)
   (let ((values (multiple-value-list
                  (let ((*package* *buffer-package*))
                    (eval (from-string string))))))
     (force-output)
-    (format nil "~{~S~^, ~}" values)))
+    (format-values-for-echo-area values)))
 
 (defun eval-region (string &optional package-update-p)
   "Evaluate STRING and return the result.
@@ -236,7 +244,7 @@ change, then send Emacs an update."
 
 (defslimefun interactive-eval-region (string)
   (let ((*package* *buffer-package*))
-    (format nil "~{~S~^, ~}" (eval-region string))))
+    (format-values-for-echo-area (eval-region string))))
 
 (defslimefun re-evaluate-defvar (form)
   (let ((*package* *buffer-package*))
@@ -247,18 +255,22 @@ change, then send Emacs an update."
 	(makunbound name)
 	(prin1-to-string (eval form))))))
 
-(defun swank-pprint (object)
-  "Bind some printer variables and pretty print OBJECT to a string."
+(defun swank-pprint (list)
+  "Bind some printer variables and pretty print each object in LIST."
   (let ((*print-pretty* t)
         (*print-circle* t)
+        (*print-escape* t)
         (*print-level* nil)
         (*print-length* nil))
-    (with-output-to-string (stream)
-      (pprint object stream))))
+    (cond ((null list) "; No value")
+          (t (with-output-to-string (*standard-output*)
+               (dolist (o list)
+                 (pprint o)
+                 (terpri)))))))
 
 (defslimefun pprint-eval (string)
   (let ((*package* *buffer-package*))
-    (swank-pprint (eval (read-from-string string)))))
+    (swank-pprint (multiple-value-list (eval (read-from-string string))))))
 
 (defslimefun set-package (package)
   (setq *package* (guess-package-from-string package))
@@ -270,7 +282,8 @@ change, then send Emacs an update."
     (setq +++ ++  ++ +  + last-form
 	  *** **  ** *  * (car values)
 	  /// //  // /  / values)
-    (format nil "~{~S~^, ~}" values)))
+    (cond ((null values) "; No value")
+          (t (format nil "~{~S~^~%~}" values)))))
 
 ;;;; Compilation Commands.
 
