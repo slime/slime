@@ -31,10 +31,10 @@
 
 (in-package :swank)
 
-(declaim (optimize (debug 2)))
+(declaim (optimize (debug 3)))
 
 (defvar *swank-io-package*
-  (let ((package (make-package "SWANK-IO-PACKAGE" :use '())))
+  (let ((package (make-package :swank-io-package :use '())))
     (import '(nil t quote) package)
     package))
 
@@ -53,13 +53,6 @@
 (defmacro defslimefun (fun &rest rest)
   `(progn
     (defun ,fun ,@rest)
-    (export ',fun :swank)))
-
-(defmacro defslimefun-unimplemented (fun args)
-  `(progn
-    (defun ,fun ,args
-      (declare (ignore ,@args))
-      (error "Backend function ~A not implemented." ',fun))
     (export ',fun :swank)))
 
 (declaim (ftype (function () nil) missing-arg))
@@ -129,6 +122,15 @@ and to detect situations where interrupts can be ignored.")
              (format stream "~A" (slime-read-error.condition condition)))))
 
 ;;;; Helper macros
+
+(defmacro with-connection ((connection) &body body)
+  "Execute BODY in the context of CONNECTION."
+  `(let ((*emacs-connection* ,connection))
+    (catch 'slime-toplevel
+      (with-simple-restart (abort "Return to SLIME toplevel.")
+	(with-io-redirection (*emacs-connection*)
+	  (let ((*debugger-hook* #'swank-debugger-hook))
+	    ,@body))))))
 
 (defmacro with-io-redirection ((connection) &body body)
   "Execute BODY with I/O redirection to CONNECTION.
@@ -231,29 +233,34 @@ Redirection is done while Lisp is processing a request for Emacs.")
   (when *swank-debug-p*
     (format *debug-io* "~&;; Swank started at port: ~D.~%" port)))
 
-(defun open-streams (socket-io)
+(defun open-streams (connection)
   "Return the 4 streams for IO redirection:
  DEDICATED-OUTPUT INPUT OUTPUT IO"
   (multiple-value-bind (output-fn dedicated-output) 
-      (make-output-function socket-io)
-    (let ((input-fn  (lambda () (read-user-input-from-emacs))))
+      (make-output-function connection)
+    (let ((input-fn  (lambda () 
+                       (with-connection (connection)
+                         (read-user-input-from-emacs)))))
       (multiple-value-bind (in out) (make-fn-streams input-fn output-fn)
         (let ((out (or dedicated-output out)))
           (let ((io (make-two-way-stream in out)))
             (values dedicated-output in out io)))))))
 
-(defun make-output-function (socket-io)
+(defun make-output-function (connection)
   "Create function to send user output to Emacs.
 This function may open a dedicated socket to send output. It
 returns two values: the output function, and the dedicated
 stream (or NIL if none was created)."
   (if *use-dedicated-output-stream*
-      (let ((stream (open-dedicated-output-stream socket-io)))
+      (let ((stream (open-dedicated-output-stream 
+                     (connection.socket-io connection))))
         (values (lambda (string)
                   (write-string string stream)
                   (force-output stream))
                 stream))
-      (values (lambda (string) (send-output-to-emacs string socket-io))
+      (values (lambda (string) 
+                (with-connection (connection)
+                  (send-to-emacs `(:read-output ,string))))
               nil)))
 
 (defun open-dedicated-output-stream (socket-io)
@@ -265,15 +272,6 @@ This is an optimized way for Lisp to deliver output to Emacs."
          (port (local-port socket)))
     (encode-message `(:open-dedicated-output-stream ,port) socket-io)
     (accept-connection socket)))
-
-(defmacro with-connection ((connection) &body body)
-  "Execute BODY in the context of CONNECTION."
-  `(let ((*emacs-connection* ,connection))
-    (catch 'slime-toplevel
-      (with-simple-restart (abort "Return to SLIME toplevel.")
-	(with-io-redirection (connection)
-	  (let ((*debugger-hook* #'swank-debugger-hook))
-	    ,@body))))))
 
 (defun handle-request (connection)
   "Read and process one request.  The processing is done in the extend
@@ -421,47 +419,52 @@ element."
      (declare (ignore _))
      (encode-message event socket-io))))
 
+(defun spawn-threads-for-connection (connection)
+  (let ((socket-io (connection.socket-io connection)))
+    (let ((control-thread (spawn (lambda ()
+                                   (dispatch-loop socket-io connection))
+                                 :name "control-thread")))
+      (setf (connection.control-thread connection) control-thread)
+      (let ((reader-thread (spawn (lambda () 
+                                    (read-loop control-thread socket-io
+                                               connection))
+                                  :name "reader-thread")))
+        (setf (connection.reader-thread connection) reader-thread)
+        connection))))
+
+(defun initialize-streams-for-connection (connection)
+  (multiple-value-bind (dedicated in out io) (open-streams connection)
+    (setf (connection.dedicated-output connection) dedicated
+          (connection.user-io connection)          io
+          (connection.user-output connection)      out
+          (connection.user-input connection)       in)
+    connection))
+
 (defun create-connection (socket-io style)
-  (multiple-value-bind (dedicated in out io) (open-streams socket-io)
-    (ecase style
-      (:spawn
-       (let ((connection
-              (make-connection :socket-io socket-io :dedicated-output dedicated
-                               :user-input in :user-output out :user-io io
-                               :read #'read-from-control-thread
-                               :send #'send-to-control-thread
-                               :serve-requests (lambda (c) c))))
-         (let ((control-thread (spawn (lambda () 
-                                        (dispatch-loop socket-io connection))
-                                      :name "control-thread")))
-           (setf (connection.control-thread connection) control-thread)
-           (let ((reader-thread (spawn (lambda () 
-                                         (read-loop control-thread
-                                                    socket-io
-                                                    connection))
-                                       :name "reader-thread")))
-             (setf (connection.reader-thread connection) reader-thread)
-             connection))))
-      (:sigio
-       (make-connection :socket-io socket-io :dedicated-output dedicated
-                        :user-input in :user-output out :user-io io
-                        :read #'read-from-socket-io
-                        :send #'send-to-socket-io
-                        :serve-requests #'install-sigio-handler
-                        :cleanup #'deinstall-fd-handler))
-      (:fd-handler
-       (make-connection :socket-io socket-io :dedicated-output dedicated
-                        :user-input in :user-output out :user-io io
-                        :read #'read-from-socket-io
-                        :send #'send-to-socket-io
-                        :serve-requests #'install-fd-handler
-                        :cleanup #'deinstall-fd-handler))
-      ((nil)
-       (make-connection :socket-io socket-io :dedicated-output dedicated
-                        :user-input in :user-output out :user-io io
-                        :read #'read-from-socket-io
-                        :send #'send-to-socket-io
-                        :serve-requests #'simple-serve-requests)))))
+  (initialize-streams-for-connection
+   (ecase style
+     (:spawn
+      (make-connection :socket-io socket-io
+		       :read #'read-from-control-thread
+		       :send #'send-to-control-thread
+		       :serve-requests #'spawn-threads-for-connection))
+     (:sigio
+      (make-connection :socket-io socket-io 
+                       :read #'read-from-socket-io
+                       :send #'send-to-socket-io
+                       :serve-requests #'install-sigio-handler
+                       :cleanup #'deinstall-sigio-handler))
+     (:fd-handler
+      (make-connection :socket-io socket-io 
+                       :read #'read-from-socket-io
+                       :send #'send-to-socket-io
+                       :serve-requests #'install-fd-handler
+                       :cleanup #'deinstall-fd-handler))
+     ((nil)
+      (make-connection :socket-io socket-io 
+                       :read #'read-from-socket-io
+                       :send #'send-to-socket-io
+                       :serve-requests #'simple-serve-requests)))))
 
 (defun process-available-input (stream fn)
   (loop while (and (open-stream-p stream) 
@@ -655,9 +658,6 @@ If a protocol error occurs then a SLIME-READ-ERROR is signalled."
 (defun clear-user-input  ()
   (clear-input (connection.user-input *emacs-connection*)))
 
-(defun send-output-to-emacs (string socket-io)
-  (encode-message `(:read-output ,string) socket-io))
-
 (defvar *read-input-catch-tag* 0)
 
 (defun read-user-input-from-emacs ()
@@ -715,7 +715,8 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 (defun guess-package-from-string (name &optional (default-package *package*))
   (or (and name
            (or (find-package name)
-               (find-package (string-upcase name))))
+               (find-package (string-upcase name))
+               (find-package (substitute #\- #\! name))))
       default-package))
 
 (defun find-symbol-designator (string &optional
@@ -1389,7 +1390,7 @@ Examples:
 
 ;;;;; Extending the input string by completion
 
-;; XXX (longest-completion '("muffle-warning" "multiple-value-bind")) 
+;; XXX (longest-completion '("muffle-warning" "multiple-value-bind"))
 ;;     => "mu-".  Shouldn't that be "mu"?
 (defun longest-completion (completions)
   "Return the longest prefix for all COMPLETIONS."
@@ -1461,10 +1462,11 @@ For example:
   "Make an apropos search for Emacs.
 The result is a list of property lists."
   (let ((package (if package
-                     (or (find-package (read-from-string package))
+                     (or (find-package package)
                          (error "No such package: ~S" package)))))
     (mapcan (listify #'briefly-describe-symbol-for-emacs)
-            (sort (apropos-symbols name external-only package)
+            (sort (remove-duplicates
+                   (apropos-symbols name external-only package))
                   #'present-symbol-before-p))))
 
 (defun briefly-describe-symbol-for-emacs (symbol)
@@ -1714,7 +1716,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
           :type (to-string (type-of object))
           :primitive-type (describe-primitive-type object)
           :parts (loop for (label . value) in parts
-                       collect (cons label
+                       collect (cons (princ-to-string label)
                                      (print-part-to-string value))))))
 
 (defun nth-part (index)
