@@ -122,7 +122,13 @@
   (funcall fn))
 
 #+unix (defmethod getpid () (system::program-id))
-#+win32 (defmethod getpid () (or (system::getenv "PID") -1))
+#+win32 
+(defmethod getpid ()
+  (cond ((find-package :win32)
+	 (funcall (find-symbol "GetCurrentProcessId" :win32)))
+	(t
+	 (system::getenv "PID"))))
+
 ;; the above is likely broken; we need windows NT users!
 
 (defimplementation lisp-implementation-type-name ()
@@ -308,8 +314,11 @@ Return NIL if the symbol is unbound."
   (sys::redo-eval-frame (nth-frame index)))
 
 (defimplementation frame-source-location-for-emacs (index)
-  (list :error (format nil "Cannot find source for frame: ~A"
-		       (nth-frame index))))
+  (let ((f (nth-frame index)))
+    (list :error (format nil "Cannot find source for frame: ~A ~A ~A" 
+			 f
+			 (sys::eval-frame-p f)
+			 (sys::the-frame)))))
 
 ;;; Profiling
 
@@ -548,7 +557,8 @@ Execute BODY with NAME's funtion slot set to FUNCTION."
     (declare (ignore inspector))))
 
 (defimplementation quit-lisp ()
-  (#+lisp=cl ext:quit #-lisp=cl lisp:quit code))
+  #+lisp=cl (ext:quit)
+  #-lisp=cl (lisp:quit))
 
 ;;; Local Variables:
 ;;; eval: (put 'compile-file-frobbing-notes 'lisp-indent-function 1)
