@@ -67,7 +67,7 @@
   "Accept a SWANK TCP connection on SOCKET."
   (let* ((socket (sb-bsd-sockets:socket-accept server-socket))
 	 (stream (sb-bsd-sockets:socket-make-stream 
-		  socket :input t :output t :element-type 'unsigned-byte)))
+		  socket :input t :output t :element-type 'base-char)))
     (sb-sys:add-fd-handler 
      (sb-bsd-sockets:socket-file-descriptor socket)
      :input (lambda (fd) 
