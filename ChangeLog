@@ -1,3 +1,8 @@
+2003-12-06  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-easy-menu): Added menubar support, contributed
+	by Friedrich Dominicus.
+
 2003-12-06  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-allegro.lisp: New file.
