@@ -1,3 +1,7 @@
+2004-01-19  Alan Ruttenberg  <alanralanr@comcast.net>
+        *swank-openmcl.lisp in frame-catch-tags, ppc32::catch-frame.catch-tag-cell -> 0,
+	ppc32::catch-frame.csp-cell -> 3. FIXME when this code is more stable in openMCL.
+	
 2004-01-19  Michael Weber  <michaelw@foldr.org>
 
 	* slime.el (slime-close-all-sexp): New command to close all
