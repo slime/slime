@@ -18,10 +18,9 @@ Quick setup instructions for CMUCL
     (add-hook 'lisp-mode-hook (lambda () (slime-mode t)))
 
   Make sure your `inferior-lisp-program' is set to a compatible
-  version of Lisp. For CMUCL we currently require a post-18e
-  snapshot. If you use a non-CMUCL backend, you will need to customize
-  the elisp variable `slime-backend' and possibly
-  `slime-lisp-binary-extension' too.
+  version of Lisp. For CMUCL we currently require version 18e or
+  later. For SBCL we require the "sb-introspect" contrib, which exist
+  in the current CVS version.
 
   Use `M-x' slime to fire up and connect to an inferior Lisp.
 
