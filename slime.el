@@ -6756,22 +6756,11 @@ be treated as a paragraph.  This is useful for filling docstrings."
 (defvar slime-failed-tests nil
   "Total number of failed tests during a test run.")
 
+(defvar slime-expected-failures nil
+  "Total number of expected failures during a test run")
+
 (defvar slime-test-buffer-name "*Tests*"
   "The name of the buffer used to display test results.")
-
-(defvar slime-expected-failures
-  '(("cmucl" 0)
-    ("sbcl" 2)
-    ("clisp" 13)
-    ("lispworks" 7)
-    ("allegro" 6))
-  "The number of expected failed tests for each implementation.")
-
-(defun slime-expected-failures ()
-  "Return the numbers of expected failure for the current implementation."
-  (or (cadr (assoc (slime-lisp-implementation-type-name)
-                   slime-expected-failures))
-      0))
 
 
 ;;;;; Execution engine
@@ -7050,8 +7039,11 @@ BODY returns true if the check succeeds."
                       "cl:compiler-macro-function")
                      "cl:compile"))
       ("cl:foobar" (nil ""))
-      ("cl::compile-file" (("cl::compile-file" "cl::compile-file-pathname")
-                           "cl::compile-file"))
+      ("swank::compile-file" (("swank::compile-file" 
+                               "swank::compile-file-for-emacs"
+                               "swank::compile-file-if-needed"
+                               "swank::compile-file-pathname")
+                              "swank::compile-file"))
       ("cl:m-v-l" (("cl:multiple-value-list" "cl:multiple-values-limit")
                    "cl:multiple-value-li")))
   (let ((completions (slime-completions prefix)))
@@ -7067,7 +7059,7 @@ BODY returns true if the check succeeds."
     "Lookup the argument list for FUNCTION-NAME.
 Confirm that EXPECTED-ARGLIST is displayed."
     '(("swank:start-server"
-       "(swank:start-server port-file &optional \\((style *communication-style*)\\|style\\) dont-close)")
+       "(swank:start-server port-file &optional \\((style \\*communication-style\\*)\\|style\\)[ \n]+dont-close)")
       ("swank::compound-prefix-match"
        "(swank::compound-prefix-match prefix target)")
       ("swank::create-socket"
@@ -7080,10 +7072,8 @@ Confirm that EXPECTED-ARGLIST is displayed."
        "(swank::connection.socket-io \\(struct\\(ure\\)?\\|object\\|instance\\))")
       ("cl:lisp-implementation-type"
        "(cl:lisp-implementation-type)")
-      )
-;;    Different arglists found in the wild.
-;;      ("cl:class-name"
-;;       "(cl:class-name structure)"))
+      ("cl:class-name" 
+       "(cl:class-name \\(class\\|object\\|instance\\|structure\\))"))
   (slime-check-top-level)
   (let ((arglist (slime-get-arglist function-name))) ;
     (slime-test-expect "Argument list is as expected"
