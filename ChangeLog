@@ -1,3 +1,29 @@
+2004-02-04  Bryan O'Connor <bryan-slime@lunch.org>
+
+	* swank-openmcl.lisp (mailbox): Use a semaphore instead of
+	process-wait.  Works better with native threads.
+
+2004-02-04  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-backend.lisp (debugger-info-for-emacs): Export it.
+
+	* swank-sbcl.lisp (add-input-handler): Use fcntl from the sb-posix
+	package.
+	
+	* swank.lisp (sldb-loop, dispatch-event, send-to-socket-io): Send
+	a :debug-activate event instead of a :debug event (to avoid
+	sending a potentially long backtrace each time).
+	(handle-sldb-condition): Include the thread-id in the message.
+
+	* slime.el (slime-path): Use load-file-name as fallback.
+	Suggested by Lawrence Mitchell.
+	(slime-dispatch-event): Add support for :debug-activate event.
+	(sldb-activate): New function.
+	(sldb-mode): make-local-hook doesn't seem to work in Emacs 20.
+	Use a buffer local variable instead.
+	(slime-list-connections): Don't print Lisp's state.
+	(slime-short-state-name): Deleted.
+	
 2004-02-02  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-debugger): The customization group is called
