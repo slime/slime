@@ -76,12 +76,11 @@ run.")
                        :if-exists :overwrite
                        :if-does-not-exist :create)
       (format s "~S~%" port))
-    (when *swank-debug-p*
-      (format *debug-io* "~&;; Swank ready.~%"))))
+    (simple-announce-function port)))
 
 (defun simple-announce-function (port)
   (when *swank-debug-p*
-    (format *debug-io* "~&;; Swank started at port: ~A.~%" port)))
+    (format *debug-io* "~&;; Swank started at port: ~D.~%" port)))
 
 (defun start-server (port-file-namestring)
   "Create a SWANK server and write its port number to the file
@@ -436,17 +435,20 @@ The debugger hook is inhibited during the evaluation."
   "Evaluate STRING and return the result.
 If PACKAGE-UPDATE-P is non-nil, and evaluation causes a package
 change, then send Emacs an update."
-  (let ((*package* *buffer-package*))
+  (let ((*package* *buffer-package*)
+        - values)
     (unwind-protect
          (with-input-from-string (stream string)
            (loop for form = (read stream nil stream)
                  until (eq form stream)
-                 for - = form
-                 for values = (multiple-value-list (eval form))
-                 do (force-output)
+                 do (progn
+                      (setq - form)
+                      (setq values (multiple-value-list (eval form)))
+                      (force-output))
                  finally (return (values values -))))
       (when (and package-update-p (not (eq *package* *buffer-package*)))
-        (send-to-emacs (list :new-package (shortest-package-nickname *package*)))))))
+        (send-to-emacs 
+         (list :new-package (shortest-package-nickname *package*)))))))
 
 (defun shortest-package-nickname (package)
   "Return the shortest nickname (or canonical name) of PACKAGE."
@@ -699,9 +701,10 @@ Examples:
 
 (defun tokenize-completion (string)
   "Return all substrings of STRING delimited by #\-."
-  (loop for start = 0 then (1+ end)
+  (loop with end
+        for start = 0 then (1+ end)
         until (> start (length string))
-        for end = (or (position #\- string :start start) (length string))
+        do (setq end (or (position #\- string :start start) (length string)))
         collect (subseq string start end)))
 
 (defun untokenize-completion (tokens)
