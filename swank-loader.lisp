@@ -24,8 +24,10 @@
   (mapcar #'make-swank-pathname 
           (append 
            '("nregex")
-           #+cmu '("swank-source-path-parser"  "swank-source-file-cache" "swank-cmucl")
-           #+sbcl '("swank-sbcl" "swank-source-path-parser" "swank-source-file-cache" "swank-gray")
+           #+cmu '("swank-source-path-parser" "swank-source-file-cache" 
+                   "swank-cmucl")
+           #+sbcl '("swank-sbcl" "swank-source-path-parser" 
+                    "swank-source-file-cache" "swank-gray")
            #+openmcl '("metering" "swank-openmcl" "swank-gray")
            #+lispworks '("swank-lispworks" "swank-gray")
            #+allegro '("swank-allegro" "swank-gray")
@@ -34,7 +36,7 @@
            )))
 
 (defparameter *implementation-features*
-  '(:allegro :sbcl :openmcl :cmu :clisp :ccl :corman :armedbear :gcl))
+  '(:allegro :sbcl :openmcl :cmu :clisp :ccl :corman :armedbear))
 
 (defparameter *os-features*
   '(:macosx :linux :windows :mswindows :solaris :darwin :sunos :unix))
@@ -42,54 +44,41 @@
 (defparameter *architecture-features*
   '(:powerpc :ppc :x86 :x86-64 :i686 :pc386 :sparc))
 
+(defun lisp-version-string ()
+  #+cmu       (substitute #\- #\/ (lisp-implementation-version))
+  #+sbcl      (lisp-implementation-version)
+  #+openmcl   (format nil "~d.~d"
+                      ccl::*openmcl-major-version* 
+                      ccl::*openmcl-minor-version*)
+  #+lispworks (lisp-implementation-version)
+  #+allegro   excl::*common-lisp-version-number*
+  #+clisp     (let ((s (lisp-implementation-version)))
+                (subseq s 0 (position #\space s)))
+  #+armedbear (lisp-implementation-version))
+  
 (defun unique-directory-name ()
   "Return a name that can be used as a directory name that is
 unique to a Lisp implementation, Lisp implementation version,
 operating system, and hardware architecture."
   (flet ((first-of (features)
            (loop for f in features
-              when (find f *features*) return it)))
-    (let ((lisp         (first-of *implementation-features*))
-          (os           (first-of *os-features*))
-          (architecture (first-of *architecture-features*))
-          (version
-           (block nil
-             #+cmu
-             (return (substitute #\- #\/ (lisp-implementation-version)))
-             #+sbcl
-             (return (lisp-implementation-version))
-             #+gcl       
-             (let ((s (lisp-implementation-version))) (subseq s 4))
-             #+openmcl
-             (return (format nil "~d.~d"
-                             ccl::*openmcl-major-version*
-                             ccl::*openmcl-minor-version*))
-             #+lispworks
-             (return (lisp-implementation-version))
-             #+allegro
-             (return excl::*common-lisp-version-number*)
-             #+clisp
-             (return (let ((s (lisp-implementation-version)))
-                       (subseq s 0 (position #\space s))))
-             #+armedbear
-             (return "unknown")
-             
-             (warn "Don't know how to get Lisp implementation version.")
-             (return "unknown"))))
-
-      (unless lisp
-        (warn "No implementation feature found in ~a."
-              *implementation-features*)
-        (setf lisp "unknown"))
-      (unless os
-        (warn "No os feature found in ~a." *os-features*)
-        (setf os "unknown"))
-      (unless architecture
-        (warn "No architecture feature found in ~a."
-              *architecture-features*)
-        (setf architecture "unknown"))
-
-      (format nil "~(~@{~a~^-~}~)" lisp version os architecture))))
+                 when (find f *features*) return it))
+         (maybe-warn (value fstring &rest args)
+           (cond (value)
+                 (t (apply #'warn fstring args)
+                    "unknown"))))
+    (let ((lisp (maybe-warn (first-of *implementation-features*)
+                            "No implementation feature found in ~a." 
+                            *implementation-features*))
+          (os   (maybe-warn (first-of *os-features*)
+                            "No os feature found in ~a." *os-features*))
+          (arch (maybe-warn (first-of *architecture-features*)
+                            "No architecture feature found in ~a."
+                            *architecture-features*))
+          (version (maybe-warn (lisp-version-string)
+                               "Don't know how to get Lisp ~
+                                implementation version.")))
+      (format nil "~(~@{~a~^-~}~)" lisp version os arch))))
 
 (defparameter *swank-pathname* (make-swank-pathname "swank"))
 
