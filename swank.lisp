@@ -1,4 +1,4 @@
-;;;; -*- Mode: lisp; outline-regexp: ";;;;;*"; indent-tabs-mode: nil -*-
+;;;; -*- Mode: lisp; outline-regexp: ";;;;;*"; indent-tabs-mode: nil -*-;;;
 ;;;
 ;;; swank.lisp --- the portable bits
 ;;;
@@ -546,6 +546,7 @@ Call LAMBDA-LIST-FN with the symbol corresponding to FUNCTION-NAME."
 (defvar *sldb-initial-frames* 20
   "The initial number of backtrace frames to send to Emacs.")
 
+
 (defun swank-debugger-hook (condition hook)
   "Debugger entry point, called from *DEBUGGER-HOOK*.
 Sends a message to Emacs declaring that the debugger has been entered,
@@ -555,8 +556,11 @@ after Emacs causes a restart to be invoked."
 ;;  (unless (or *processing-rpc* (not *multiprocessing-enabled*))
 ;;    (request-async-debug condition))
   (let ((*swank-debugger-condition* condition)
-        (*package* *buffer-package*))
+        (*package* (or (and (boundp '*buffer-package*)
+                            (symbol-value '*buffer-package*))
+                       *package*)))
     (let ((*sldb-level* (1+ *sldb-level*)))
+      (force-user-output)
       (call-with-debugging-environment
        (lambda () (sldb-loop *sldb-level*))))))
 
