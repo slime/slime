@@ -54,6 +54,7 @@
 
 (require 'inf-lisp)
 (require 'cl)
+(require 'pp)
 (require 'hyperspec)
 (when (featurep 'xemacs)
   (require 'overlay))
@@ -591,8 +592,8 @@ If that doesn't give a function, return nil."
 
 ;;; Inferior CL Setup: compiling and connecting to Swank
 
-(defvar slime-connect-retry-timer nil
-  "Timer object for connection retries.")
+(defvar slime-startup-retry-timer nil
+  "Timer object while waiting for an inferior-lisp to start.")
 
 (defun slime ()
   "Start an inferior^_superior Lisp and connect to its Swank server."
@@ -989,10 +990,16 @@ their actions. The pattern syntax is the same as `destructure-case'."
 (defvar slime-stack-eval-tags nil
   "List of stack-tags of continuations waiting on the stack.")
 
+(defvar sldb-saved-window-configuration nil
+  "Window configuration before the debugger was entered.")
+
 (slime-defstate slime-idle-state ()
   "Idle state. The only event allowed is to make a request."
   ((activate)
    (assert (= sldb-level 0))
+   (when sldb-saved-window-configuration
+     (set-window-configuration sldb-saved-window-configuration)
+     (setq sldb-saved-window-configuration nil))
    (slime-repl-maybe-prompt))
   ((:emacs-evaluate form-string package-name continuation)
    (slime-output-evaluate-request form-string package-name)
@@ -1025,6 +1032,8 @@ will pass it to CONTINUATION."
       (when (member tag slime-stack-eval-tags)
 	(throw tag `(:aborted))))))
   ((:debug level condition restarts stack-depth frames)
+   (when (zerop sldb-level)
+     (setq sldb-saved-window-configuration (current-window-configuration)))
    (slime-push-state
     (slime-debugging-state level condition restarts stack-depth frames)))
   ((:emacs-interrupt)
@@ -1135,6 +1144,10 @@ Loops until the result is thrown to our caller, or the user aborts."
 (defun slime-busy-p ()
   "Return true if Lisp is busy processing a request."
   (eq (slime-state-name (slime-current-state)) 'slime-evaluating-state))
+
+(defun slime-evaluating-p ()
+  "Return true if Lisp is evaluating a request for Emacs."
+  (slime-busy-p))
 
 (defun slime-idle-p ()
   "Return true if Lisp is idle."
@@ -2527,11 +2540,15 @@ the current index when the selection is completed."
 
 (defun slime-interrupt ()
   (interactive)
-  (slime-dispatch-event '(:emacs-interrupt)))
+  (if (slime-evaluating-p)
+      (slime-dispatch-event '(:emacs-interrupt))
+    (error "Not evaluating - nothing to interrupt.")))
 
 (defun slime-quit ()
   (interactive)
-  (slime-dispatch-event '(:emacs-quit)))
+  (if (slime-evaluating-p)
+      (slime-dispatch-event '(:emacs-quit))
+    (error "Not evaluating - nothing to quit.")))
 
 (defun slime-set-package (package)
   (interactive (list (slime-read-package-name "Package: " 
@@ -2882,8 +2899,11 @@ the current index when the selection is completed."
 (defun sldb-cleanup ()
   (let ((sldb-buffer (get-buffer "*sldb*")))
     (when sldb-buffer
-      (delete-windows-on sldb-buffer)
-      (kill-buffer sldb-buffer))))
+      (if (> sldb-level 1)
+          (with-current-buffer sldb-buffer
+            (let ((inhibit-read-only t))
+              (erase-buffer)))
+        (kill-buffer sldb-buffer)))))
       
 (defun sldb-quit ()
   (interactive)
