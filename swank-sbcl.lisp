@@ -193,9 +193,6 @@ until the remote Emacs goes away."
         (setf fill-pointer 0))))
   nil)
 
-(defun make-slime-output-stream ()
-  (make-instance 'slime-output-stream))
-
 (defclass slime-input-stream (sb-gray:fundamental-character-input-stream)
   ((buffer :initform "") (index :initform 0)))
 
@@ -463,7 +460,12 @@ Return NIL if the symbol is unbound."
 
 ;;; macroexpansion
 
-(defslimefun-unimplemented swank-macroexpand-all (string))
+(defun sbcl-macroexpand-all (form)
+  (let ((sb-walker:*walk-form-expand-macros-p* t))
+    (sb-walker:walk-form form)))
+
+(defslimefun swank-macroexpand-all (string)
+  (apply-macro-expander #'sbcl-macroexpand-all string))
 
 
 ;;;
