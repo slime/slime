@@ -37,6 +37,7 @@
            #+lispworks '("swank-lispworks" "swank-gray")
            #+allegro '("swank-allegro" "swank-gray")
            #+clisp '("xref" "metering" "swank-clisp" "swank-gray")
+           #+armedbear '("swank-abcl" "swank-gray")
            )))
 
 (defparameter *lisp-name*
@@ -47,6 +48,7 @@
   #+allegro   "allegro"
   #+clisp     (format nil "clisp-~A" (let ((s (lisp-implementation-version)))
                                        (subseq s 0 (position #\space s))))
+  #+armedbear "abcl"
   )
 
 (defparameter *swank-pathname* (make-swank-pathname "swank"))
@@ -92,6 +94,7 @@ recompiled."
                     #-mswindows (make-pathname :name ".swank" :type "lisp")
                     #+mswindows (make-pathname :name "_swank" :type "lsp"))))
 
+       
 (compile-files-if-needed-serially
   (append (list (make-swank-pathname "swank-backend"))
           *sysdep-pathnames* 
