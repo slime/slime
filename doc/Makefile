@@ -12,7 +12,7 @@ INSTALL_CMD=install -m 644
 # Info files generated here.
 infofiles=slime.info
 
-all: slime.ps slime.info
+all: slime.ps slime.info slime.pdf
 
 install: install-info
 
@@ -24,10 +24,10 @@ slime.ps: slime.dvi
 slime.dvi: slime.texi contributors.texi
 	texi2dvi slime.texi
 
-slime.pdf: slime.texi
+slime.pdf: slime.texi contributors.texi
 	texi2pdf $<
 
-slime.info: slime.texi
+slime.info: slime.texi contributors.texi
 	makeinfo $<
 
 # Create contributors.texi, a texinfo table listing all known
@@ -75,3 +75,22 @@ uninstall-info:
 		echo "install-info --infodir=$(infodir) --remove $(infodir)/$(infofiles)";\
 		install-info --infodir="$(infodir)" --remove "$(infodir)/$(infofiles)" || :; fi
 	rm -f $(infodir)/$(infofiles)
+
+clean:
+	rm -f contributors.texi
+	rm -f slime.aux
+	rm -f slime.cp
+	rm -f slime.dvi
+	rm -f slime.fn
+	rm -f slime.ky
+	rm -f slime.log
+	rm -f slime.pg
+	rm -f slime.tmp
+	rm -f slime.toc
+	rm -f slime.tp
+	rm -f slime.vr
+
+really_clean: clean
+	rm -f slime.info
+	rm -f slime.pdf
+	rm -f slime.ps

@@ -1,5 +1,8 @@
 2005-03-08  Peter Seibel  <peter@gigamonkeys.com>
 
+	* doc/Makefile (clean): added clean and really_clean targets.
+	(all): and added slime.pdf to all prerequisites.
+
 	* swank-loader.lisp (*implementation-features*): Whoops. Forgot
 	CLISP.
 	(*architecture-features*): Added :x86-64 for SBCL on AMD64 (thanks
