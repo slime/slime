@@ -287,9 +287,10 @@ compiler state."
          (setf *compiler-notes* 
                (loop for n in *compiler-notes*
                      for sp = (getf n :source-path)
-                     do (setf (getf n :source-path) (cdr sp))
+                     ;; account for the added lambda, replace leading
+                     ;; position with 0
+                     do (setf (getf n :source-path) (cons 0 (cddr sp)))
                      collect (list* :buffername buffer 
-                                    :source-path (cdr sp)
                                     :buffer-offset start
                                     n))))))))
 
