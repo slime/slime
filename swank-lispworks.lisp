@@ -32,43 +32,39 @@
 
 (defconstant +sigint+ 2)
 
-(defmethod create-socket-server (init-fn &key announce-fn (port 0)
-                                 (accept-background t)
-                                 (handle-background t)
-                                 (loop t))
+(defmethod accept-socket/run (&key (port 0) announce-fn init-fn)
   (flet ((sentinel (socket condition)
-           (cond (socket
-                  (let ((port (nth-value 1 (comm:get-socket-address socket))))
-                    (funcall announce-fn port)))
-                 (t
-                  (format *terminal-io* ";; Swank condition: ~A~%" 
-                          condition))))
-         (accept (fd)
-           (accept-connection fd init-fn handle-background)
-           (unless loop (mp:process-kill mp:*current-process*))))
-    (let ((server-process
-           (comm:start-up-server :announce #'sentinel :service port
-                                 :process-name "Swank server"
-                                 :function #'accept)))
-      (unless accept-background
-        (wait-process-death server-process)))))
+           (when socket
+             (funcall announce-fn (local-tcp-port socket))))
+         (accept (socket)
+           (let ((handler-fn (funcall init-fn (make-socket-stream socket))))
+             (loop while t do (funcall handler-fn)))))
+    (comm:start-up-server :announce #'sentinel
+                          :service port
+                          :process-name "Swank server"
+                          :function #'accept)))
 
-(defun accept-connection (fd init-fn background)
-  (let ((socket-io (make-instance 'comm:socket-stream
-                                  :socket fd
-                                  :direction :io
-                                  :element-type 'base-char)))
-    (sys:set-signal-handler +sigint+ #'sigint-handler)
-    (let* ((handler-fn (funcall init-fn socket-io))
-           (loop-fn (lambda () (loop (funcall handler-fn)))))
-      (if background
-          (mp:process-run-function "Swank request handler" () loop-fn)
-          (funcall loop-fn)))))
+;;; FIXME: Broken. Why?
+(defmethod accept-socket/stream (&key (port 0) announce-fn)
+  (let ((mbox (mp:make-mailbox)))
+    (flet ((init (stream)
+             (mp:mailbox-send mbox stream)
+             (mp:process-kill mp:*current-process*)))
+    (accept-socket/run :port port :announce-fn announce-fn :init-fn #'init)
+    (mp:mailbox-read mbox "Waiting for socket stream"))))
 
-(defun wait-process-death (process)
-  (mp:process-wait "Letting Emacs connect"
-                   (lambda () (not (mp:process-alive-p process)))))
+(defun make-socket-stream (socket)
+  (make-instance 'comm:socket-stream
+                 :socket socket
+                 :direction :io
+                 :element-type 'base-char))
 
+(defun local-tcp-port (socket)
+  (nth-value 1 (comm:get-socket-address socket)))
+
+(defmethod emacs-connected ()
+  ;; Set SIGINT handler on Swank request handler thread.
+  (sys:set-signal-handler +sigint+ #'sigint-handler))
 
 (defun sigint-handler (&rest args)
   (declare (ignore args))
