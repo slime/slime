@@ -1126,16 +1126,16 @@ change, then send Emacs an update."
 	(prin1-to-string (eval form))))))
 
 (defvar *swank-pprint-circle* *print-circle*
-  "*PRINT-CIRCLE* is bound to this volue when pretty printing slime output.")
+  "*PRINT-CIRCLE* is bound to this value when pretty printing slime output.")
 
 (defvar *swank-pprint-escape* *print-escape*
-  "*PRINT-ESCAPE* is bound to this volue when pretty printing slime output.")
+  "*PRINT-ESCAPE* is bound to this value when pretty printing slime output.")
 
 (defvar *swank-pprint-level* *print-level*
-  "*PRINT-LEVEL* is bound to this volue when pretty printing slime output.")
+  "*PRINT-LEVEL* is bound to this value when pretty printing slime output.")
 
 (defvar *swank-pprint-length* *print-length*
-  "*PRINT-LENGTH* is bound to this volue when pretty printing slime output.")
+  "*PRINT-LENGTH* is bound to this value when pretty printing slime output.")
 
 (defun swank-pprint (list)
   "Bind some printer variables and pretty print each object in LIST."
