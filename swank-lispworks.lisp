@@ -313,6 +313,7 @@ Return NIL if the symbol is unbound."
     (loop for (dspec location) in locations
           collect (list dspec (make-dspec-location dspec location)))))
 
+
 ;;; Compilation 
 
 (defmacro with-swank-compilation-unit ((location &rest options) &body body)
@@ -326,6 +327,10 @@ Return NIL if the symbol is unbound."
 (defimplementation swank-compile-file (filename load-p)
   (with-swank-compilation-unit (filename)
     (compile-file filename :load load-p)))
+
+(defimplementation call-with-compilation-hooks (function)
+  ;; #'pray instead of #'handler-bind
+  (funcall function))
 
 (defun map-error-database (database fn)
   (loop for (filename . defs) in database do
