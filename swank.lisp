@@ -719,7 +719,7 @@ If a protocol error occurs then a SLIME-READ-ERROR is signalled."
 (defun prin1-to-string-for-emacs (object)
   (with-standard-io-syntax
     (let ((*print-case* :downcase)
-          (*print-readably* t)
+          (*print-readably* nil)
           (*print-pretty* nil)
           (*package* *swank-io-package*))
       (prin1-to-string object))))
@@ -856,6 +856,7 @@ pretty printing of (function foo) as #'foo is suppressed."
                (*print-case* :downcase)
                (*print-pretty* t)
                (*print-circle* nil)
+               (*print-readably* nil)
                (*print-level* 10)
                (*print-length* 20))
            (pprint-logical-block (nil nil :prefix "(" :suffix ")")
