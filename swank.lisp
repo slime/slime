@@ -44,6 +44,12 @@
 (defvar *slime-output* nil
   "Bound to a slime-output-stream during request processing.")
 
+(defvar *slime-input* nil
+  "Bound to a slime-input-stream during request processing.")
+
+(defvar *slime-io* nil
+  "Bound to a two-way-stream built from *slime-input* and *slime-output*.")
+
 (defparameter *redirect-output* t)
 
 (defun read-from-emacs ()
@@ -53,8 +59,9 @@
 	(let ((*standard-output* *slime-output*)
 	      (*error-output* *slime-output*)
 	      (*trace-output* *slime-output*)
-	      (*debug-io*  *slime-output*)
-	      (*query-io* *slime-output*))
+	      (*debug-io* *slime-io*)
+	      (*query-io* *slime-io*)
+              (*standard-input* *slime-input*))
 	  (apply #'funcall form))
 	(apply #'funcall form))))
 
