@@ -204,9 +204,10 @@
 
 (defimplementation restart-frame (frame-number)
   (let ((frame (nth-frame frame-number)))
-    (apply #'debugger:frame-retry
-           (append (list frame (debugger:frame-function frame))
-                   (cdr (debugger:frame-expression frame))))))
+    (cond ((debugger:frame-retryable-p frame)
+           (apply #'debugger:frame-retry frame (debugger:frame-function frame)
+                  (cdr (debugger:frame-expression frame))))
+          (t "Frame is not retryable"))))
 
 ;;;; Compiler hooks
 
@@ -664,7 +665,7 @@
 (defimplementation quit-lisp ()
   (excl:exit 0 :quiet t))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ;;Trace implementations
 ;;In Allegro 7.0, we have:
 ;; (trace <name>)
@@ -673,6 +674,7 @@
 ;; (trace ((labels (method <name> (<specializer>+)) <label-name>)))
 ;; <name> can be a normal name or a (setf name)
 
+#-allegro-v5.0
 (defimplementation toggle-trace-generic-function-methods (name)
   (let ((methods (mop:generic-function-methods (fdefinition name))))
     (cond ((member name (eval '(trace)) :test #'equal)
@@ -698,8 +700,10 @@
          (ecase (first fspec)
            ((:defun :defgeneric) (second fspec))
            ((:defmethod) `(method ,@(rest fspec)))
-           ((:labels) `(labels ,(process-fspec-for-allegro (second fspec)) ,(third fspec)))
-           ((:flet) `(flet ,(process-fspec-for-allegro (second fspec)) ,(third fspec)))))
+           ((:labels) `(labels ,(process-fspec-for-allegro (second fspec))
+                         ,(third fspec)))
+           ((:flet) `(flet ,(process-fspec-for-allegro (second fspec)) 
+                       ,(third fspec)))))
         (t
          fspec)))
 
