@@ -1,3 +1,14 @@
+2004-01-18  Wolfgang Jenkner  <wjenkner@inode.at>
+
+	* swank-clisp.lisp (compile-file-for-emacs,
+	split-compiler-note-line): Revert last change.
+	(handle-notification-condition): Don't signal the condition.
+	(*compiler-note-line-regexp*): Fix and rewrite it as extended
+	regexp.
+
+	* slime.el (slime-changelog-date): Use file-truename of
+	byte-compile-current-file.
+	
 2004-01-17  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-format-arglist): Add some sanity checks and
