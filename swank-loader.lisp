@@ -65,12 +65,10 @@ recompiled."
 
 (defun user-init-file ()
   "Return the name of the user init file or nil."
-  (let ((home (user-homedir-pathname)))
-    (and (probe-file home)
-         (probe-file (format nil 
-                             #-mswindows "~A/.swank.lisp"
-                             #+mswindows "~A\\_swank.lsp"
-                             (namestring (truename home)))))))
+  (probe-file
+   (merge-pathnames (user-homedir-pathname)
+                    #-mswindows (make-pathname :name ".swank" :type "lisp")
+                    #+mswindows (make-pathname :name "_swank" :type "lsp"))))
 
 (compile-files-if-needed-serially
  (list* (make-swank-pathname "swank-backend") *swank-pathname*
