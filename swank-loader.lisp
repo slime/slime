@@ -74,7 +74,8 @@ operating system, and hardware architecture."
              #+armedbear
              (return "unknown")
              
-             (error "Don't know how to get Lisp implementation version."))))
+             (warn "Don't know how to get Lisp implementation version.")
+             (return "unknown"))))
 
       (unless lisp
         (warn "No implementation feature found in ~a."
