@@ -1,3 +1,29 @@
+2003-11-19  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank.lisp: Better printing off return values.  In the REPL
+	buffer we print now every value in a separate line and in the echo
+	area separated by a comma.  We also print "; No value" for the
+	degenerated case (values).  A new variable *sldb-pprint-frames*
+	controls the printing of frames in the debugger. (Thanks Raymond
+	Toy for the suggestions.)
+
+	* swank-cmucl.lisp (format-frame-for-emacs): Bind *pretty-print*
+	to *sldb-pprint-frames*.
+
+	* slime.el: Window configuration are now saved on a stack, not in
+	a single global variable.
+	(slime-with-output-to-temp-buffer) We use now our own version of
+	with-output-to-temp-buffer.  The default version is painfully
+	incompatible between Emacs versions.  The version selects the
+	temporary buffer and the behaivor of "q" is now more consistent
+	(as suggested by Jan Rychter).
+	(slime-connect): Hide the *inferior-lisp-buffer* when we are
+	connected.  
+	sldb-mode-map: Bind n and p to sldb-down and sldb-up.
+	
+	* swank-loader.lisp (user-init-file): There is now a user init
+	file (~/.swank.lisp).  It is loaded after the other files.
+
 2003-11-16  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el: [slime-keys] Override C-c C-r with slime-eval-region
