@@ -148,10 +148,6 @@
 (defimplementation lisp-implementation-type-name ()
   "cmucl")
 
-(defimplementation set-default-directory (directory)
-  (setf (ext:default-directory) directory)
-  (namestring (setf *default-pathname-defaults* (ext:default-directory))))
-
 
 ;;;; Stream handling
 
@@ -900,7 +896,7 @@ NAME can any valid function name (e.g, (setf car))."
 ;;                                :progress t
 ;;                                :trace-stream *standard-output*))))
 
-(defun set-default-directory (directory)
+(defimplementation set-default-directory (directory)
   (setf (ext:default-directory) (namestring directory))
   ;; Setting *default-pathname-defaults* to an absolute directory
   ;; makes the behavior of MERGE-PATHNAMES a bit more intuitive.
