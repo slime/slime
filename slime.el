@@ -2017,6 +2017,30 @@ See `slime-compile-and-load-file' for further details."
    (slime-compilation-finished-continuation))
   (message "Compiling %s.." (buffer-file-name)))
 
+(defun slime-find-asd ()
+  (file-name-sans-extension
+   (car (directory-files
+         (file-name-directory (buffer-file-name)) nil "\.asd$"))))
+
+(defun slime-load-system (&optional system-name)
+  "Compile and load an ASDF system.  
+
+Default system name is taken from first file matching *.asd in current
+buffer's working directory"
+  (interactive
+   (list (let ((d (slime-find-asd)))
+           (read-string (format "System: [%s] " d) nil nil d))))
+  (save-some-buffers)
+  (with-current-buffer (slime-output-buffer)
+    (goto-char (point-max))
+    (set-window-start (display-buffer (current-buffer) t)
+                      (line-beginning-position)))
+  (slime-eval-async
+   `(swank:swank-load-system ,system-name)
+   nil
+   (slime-compilation-finished-continuation))
+  (message "Compiling system %s.." system-name))
+
 (defun slime-compile-defun ()
   "Compile the current toplevel form."
   (interactive)
@@ -2062,11 +2086,22 @@ See `slime-compile-and-load-file' for further details."
          (if secs (format "[%s secs]" secs) ""))))
 
 (defun slime-compilation-finished (result buffer)
-  (with-current-buffer buffer
-    (multiple-value-bind (result secs) result
-      (let ((notes (slime-compiler-notes)))
+  (let ((notes (slime-compiler-notes)))
+    (with-current-buffer buffer
+      (multiple-value-bind (result secs) result
 	(slime-show-note-counts notes secs)
-	(slime-highlight-notes notes)))))
+	(slime-highlight-notes notes)))
+    (let* ((locations (mapcar (lambda (n) (getf n :location)) notes))
+           (files (remove-duplicates
+                   (mapcar (lambda (l) 
+                             (let ((f (assq :file (cdr l))))
+                               (and f (cadr f))))
+                           locations)
+                   :test 'equal)))
+      ;; we need a better way of showing the resulting notes if there
+      ;; was >1 of them
+      ;; (slime-show-definitions "Compiler notes" locations)
+      (message "files with notes: %s" files) )))
 
 (defun slime-compilation-finished-continuation ()
   (lexical-let ((buffer (current-buffer)))
@@ -2089,10 +2124,10 @@ See `slime-compile-and-load-file' for further details."
   (save-excursion
     (goto-char (point-min))
     (while (not (eobp))
-      (goto-char (next-overlay-change (point)))
       (dolist (o (overlays-at (point)))
         (when (overlay-get o 'slime)
-          (delete-overlay o))))))
+          (delete-overlay o)))
+      (goto-char (next-overlay-change (point))))))
 
 
 ;;;; Adding a single compiler note
@@ -2103,13 +2138,14 @@ If an appropriate overlay for a compiler note in the same location
 already exists then the new information is merged into it. Otherwise a
 new overlay is created."
   (multiple-value-bind (start end) (slime-choose-overlay-region note)
-    (goto-char start)
-    (let ((severity (plist-get note :severity))
-	  (message (plist-get note :message))
-	  (appropriate-overlay (slime-note-at-point)))
-      (if appropriate-overlay
-	  (slime-merge-note-into-overlay appropriate-overlay severity message)
-	(slime-create-note-overlay note start end severity message)))))
+    (when start
+      (goto-char start)
+      (let ((severity (plist-get note :severity))
+            (message (plist-get note :message))
+            (appropriate-overlay (slime-note-at-point)))
+        (if appropriate-overlay
+            (slime-merge-note-into-overlay appropriate-overlay severity message)
+            (slime-create-note-overlay note start end severity message))))))
 
 (defun slime-create-note-overlay (note start end severity message)
   "Create an overlay representing a compiler note.
@@ -2145,15 +2181,16 @@ is kept."
 If the location's sexp is a list spanning multiple lines, then the
 region around the first element is used."
   (let ((location (getf note :location)))
-    (slime-goto-source-location location))
-  (let ((start (point)))
-    (slime-forward-sexp)
-    (if (slime-same-line-p start (point))
-        (values start (point))
-      (values (1+ start)
-              (progn (goto-char (1+ start))
-                     (forward-sexp 1)
-                     (point))))))
+    (unless (eql (car location) :error) 
+      (slime-goto-source-location location)
+      (let ((start (point)))
+        (slime-forward-sexp)
+        (if (slime-same-line-p start (point))
+            (values start (point))
+            (values (1+ start)
+                    (progn (goto-char (1+ start))
+                           (forward-sexp 1)
+                           (point))))))))
 
 (defun slime-same-line-p (pos1 pos2)
   "Return true if buffer positions PoS1 and POS2 are on the same line."
