@@ -1552,17 +1552,22 @@ fixnum a specific thread."))
                (t
                 (error "Unexpected reply: %S %S" id value)))))
       ((:debug-activate thread level)
+       (assert thread)
        (sldb-activate thread level))
       ((:debug thread level condition restarts frames)
+       (assert thread)
        (sldb-setup thread level condition restarts frames))
       ((:debug-return thread level)
+       (assert thread)
        (sldb-exit thread level))
       ((:emacs-interrupt thread)
        (cond ((slime-use-sigint-for-interrupt) (slime-send-sigint))
              (t (slime-send `(:emacs-interrupt ,thread)))))
       ((:read-string thread tag)
+       (assert thread)
        (slime-repl-read-string thread tag))
       ((:read-aborted thread tag)
+       (assert thread)
        (slime-repl-abort-read thread tag))
       ((:emacs-return-string thread tag string)
        (slime-send `(:emacs-return-string ,thread ,tag ,string)))
@@ -1582,15 +1587,13 @@ fixnum a specific thread."))
       ((:ed what)
        (slime-ed what))
       ((:debug-condition thread message)
-       (apply 'ignore thread) ; XEmacs warns about unused variable
+       (assert thread)
        (message "%s" message)))))
 
 (defun slime-reset ()
   "Clear all pending continuations."
   (interactive)
-  (setq slime-rex-continuations '())
-  (when-let (sldb (sldb-get-buffer))
-    (kill-buffer sldb)))
+  (setq slime-rex-continuations '()))
                         
 (defun slime-nyi ()
   (error "Not yet implemented!"))
@@ -5351,13 +5354,27 @@ Full list of commands:
 ;;;;; SLDB buffer creation & update
 
 (defvar sldb-overlays '()
-  "Overlays created in source code buffers to temporarily highlight expressions.")
+  "List of overlays created in source code buffers to highlight expressions.")
 
-(defun sldb-get-buffer (&optional create)
-  (let* ((number (slime-connection-number))
-         (buffer-name (format "*sldb [connection #%S]*" number)))
-    (funcall (if create #'get-buffer-create #'get-buffer)
-             buffer-name)))
+(defvar sldb-buffers '()
+  "List of sldb-buffers.")
+
+(defun sldb-find-buffer (thread)
+  (cdr (assoc* (cons (slime-connection) thread) 
+               sldb-buffers 
+               :test #'equal)))
+
+(defun sldb-get-default-buffer ()
+  (cdr (first sldb-buffers)))
+
+(defun sldb-get-buffer (thread)
+  (or (sldb-find-buffer thread)
+      (let* ((name (slime-connection-name))
+             (buffer-name (format "*sldb [%s/%s]*" name thread))
+             (buffer (get-buffer-create buffer-name)))
+        (push (cons (cons (slime-connection) thread) buffer)
+              sldb-buffers)
+        buffer)))
 
 (defun sldb-setup (thread level condition restarts frames)
   "Setup a new SLDB buffer.
@@ -5365,7 +5382,7 @@ CONDITION is a string describing the condition to debug.
 RESTARTS is a list of strings (NAME DESCRIPTION) for each available restart.
 FRAMES is a list (NUMBER DESCRIPTION) describing the initial
 portion of the backtrace. Frames are numbered from 0."
-  (with-current-buffer (sldb-get-buffer t)
+  (with-current-buffer (sldb-get-buffer thread)
     (unless (equal sldb-level level)
       (setq buffer-read-only nil)
       (sldb-mode)
@@ -5390,7 +5407,7 @@ portion of the backtrace. Frames are numbered from 0."
         (recursive-edit)))))
 
 (defun sldb-activate (thread level)
-  (with-current-buffer (sldb-get-buffer t)
+  (with-current-buffer (sldb-find-buffer thread)
     (unless (equal sldb-level level)
       (with-lexical-bindings (thread level)
         (slime-eval-async `(swank:debugger-info-for-emacs 0 1) nil
@@ -5399,13 +5416,14 @@ portion of the backtrace. Frames are numbered from 0."
 
 ;; XXX thread is ignored
 (defun sldb-exit (thread level)
-  (when-let (sldb (sldb-get-buffer))
+  (when-let (sldb (sldb-find-buffer thread))
     (with-current-buffer sldb
       (set-window-configuration sldb-saved-window-configuration)
       (let ((inhibit-read-only t))
         (erase-buffer))
       (setq sldb-level nil))
     (when (= level 1)
+      (setf sldb-buffers (remove* sldb sldb-buffers :key #'cdr))
       (kill-buffer sldb))))
 
 (defun sldb-insert-condition (condition)
@@ -6263,9 +6281,9 @@ BODY is a series of forms which must return the buffer to be selected."
 
 (def-slime-selector-method ?d
   "the *sldb* buffer for the current connection."
-  (unless (sldb-get-buffer)
+  (unless (sldb-get-default-buffer)
     (error "No debugger buffer"))
-  (sldb-get-buffer))
+  (sldb-get-default-buffer))
 
 (def-slime-selector-method ?e
   "the most recently visited emacs-lisp-mode buffer."
@@ -6695,7 +6713,7 @@ BODY returns true if the check succeeds."
     (slime-at-top-level-p)))
 
 (defun slime-at-top-level-p ()
-  (and (null (sldb-get-buffer))
+  (and (not (sldb-get-default-buffer))
        (null slime-rex-continuations)))
 
 (defun slime-wait-condition (name predicate timeout)
@@ -6710,7 +6728,7 @@ BODY returns true if the check succeeds."
   (slime-wait-condition "top-level" #'slime-at-top-level-p timeout))
 
 (defun slime-check-sldb-level (expected)
-  (let ((sldb-level (when-let (sldb (sldb-get-buffer))
+  (let ((sldb-level (when-let (sldb (sldb-get-default-buffer))
                       (with-current-buffer sldb
                         sldb-level))))
     (slime-check ("SLDB level (%S) is %S" expected sldb-level)
@@ -6723,12 +6741,12 @@ BODY returns true if the check succeeds."
     (funcall (or test #'equal) expected actual)))
 
 (defun sldb-level ()
-  (when-let (sldb (sldb-get-buffer))
+  (when-let (sldb (sldb-get-default-buffer))
     (with-current-buffer sldb
       sldb-level)))
 
 (defun slime-sldb-level= (level)
-  (when-let (sldb (sldb-get-buffer))
+  (when-let (sldb (sldb-get-default-buffer))
     (with-current-buffer sldb
       (equal sldb-level level))))
 
@@ -6846,7 +6864,7 @@ Confirm that SUBFORM is correctly located."
                 (debug-hook-max-depth 0))
     (let ((debug-hook
            (lambda ()
-             (with-current-buffer (sldb-get-buffer)
+             (with-current-buffer (sldb-get-default-buffer)
                (when (> sldb-level debug-hook-max-depth)
                  (setq debug-hook-max-depth sldb-level)
                  (if (= sldb-level depth)
@@ -6874,7 +6892,7 @@ Confirm that SUBFORM is correctly located."
   (slime-check "In eval state." (not (null slime-rex-continuations)))
   (slime-interrupt)
   (slime-wait-condition "First interrupt" (lambda () (slime-sldb-level= 1)) 5)
-  (with-current-buffer (sldb-get-buffer) 
+  (with-current-buffer (sldb-get-default-buffer) 
     (sldb-quit))
   (slime-sync-to-top-level 5)
   (slime-check-top-level))
@@ -6889,13 +6907,14 @@ Confirm that SUBFORM is correctly located."
   (slime-wait-condition "running" #'slime-busy-p 5)
   (slime-interrupt)
   (slime-wait-condition "First interrupt" (lambda () (slime-sldb-level= 1)) 5)
-  (with-current-buffer (sldb-get-buffer)
+  (with-current-buffer (sldb-get-default-buffer)
     (sldb-continue))
-  (slime-wait-condition "running" (lambda () (and (slime-busy-p)
-                                                  (not (sldb-get-buffer)))) 5)
+  (slime-wait-condition "running" (lambda () 
+                                    (and (slime-busy-p)
+                                         (not (sldb-get-default-buffer)))) 5)
   (slime-interrupt)
   (slime-wait-condition "Second interrupt" (lambda () (slime-sldb-level= 1)) 5)
-  (with-current-buffer (sldb-get-buffer)
+  (with-current-buffer (sldb-get-default-buffer)
     (sldb-quit))
   (slime-sync-to-top-level 5)
   (slime-check-top-level))
@@ -6930,9 +6949,9 @@ Confirm that SUBFORM is correctly located."
   (slime-wait-condition "Debugger visible" 
                         (lambda () 
                           (and (slime-sldb-level= 1)
-                               (get-buffer-window (sldb-get-buffer))))
+                               (get-buffer-window (sldb-get-default-buffer))))
                         5)
-  (with-current-buffer (sldb-get-buffer)
+  (with-current-buffer (sldb-get-default-buffer)
     (sldb-quit))
   (slime-sync-to-top-level 5))
 
@@ -7086,9 +7105,9 @@ SWANK> " t))
   (slime-wait-condition "Debugger visible" 
                         (lambda () 
                           (and (slime-sldb-level= 1)
-                               (get-buffer-window (sldb-get-buffer))))
+                               (get-buffer-window (sldb-get-default-buffer))))
                         5)
-  (with-current-buffer (sldb-get-buffer)
+  (with-current-buffer (sldb-get-default-buffer)
     (sldb-quit))
   (slime-sync-to-top-level 5))
   
