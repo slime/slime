@@ -83,6 +83,8 @@ Emacs Lisp package.")
 Don't access this value directly in a program. Call the function with
 the same name instead."))
 
+(defvar sldb-level 0)
+
 
 ;;; Customize group
 
@@ -129,7 +131,7 @@ the same name instead."))
 ;;; Minor mode
 
 (define-minor-mode slime-mode
-    "\\<slime-mode-map>\
+  "\\<slime-mode-map>\
 The Superior Lisp Interaction Mode, Extended (minor-mode).
 
 Compilation commands compile the current buffer's source file and
@@ -280,8 +282,8 @@ truncate to fit on the screen."
     ;; XEmacs truncates multi-line messages in the echo area.
     (defun slime-message (fmt &rest args)
       (slime-display-message-or-view (apply #'format fmt args) "*CMUCL Note*"))
-    (defun slime-message (fmt &rest args)
-      (apply 'message fmt args)))
+  (defun slime-message (fmt &rest args)
+    (apply 'message fmt args)))
 
 (defun slime-defun-at-point ()
   "Return the text of the defun at point."
@@ -348,6 +350,8 @@ This should be called before modifying the user's window configuration.
   "Like `with-output-to-temp-buffer', but saves the window configuration."
   `(progn (slime-save-window-configuration)
           (with-output-to-temp-buffer ,@args)))
+
+(put 'slime-with-output-to-temp-buffer 'lisp-indent-function 1)
 
 ;; What a tragedy!
 ;;
@@ -433,9 +437,9 @@ If that doesn't give a function, return nil."
 (defun slime-maybe-compile-swank ()
   (let ((source (concat slime-path "swank.lisp"))
         (binary (concat slime-path "swank" slime-cmucl-binary-extension)))
-    (flet ((compile-swank ()
-             (comint-proc-query (inferior-lisp-proc)
-                                (format "(compile-file %S)\n" source))))
+    (flet ((compile-swank () (comint-proc-query 
+			      (inferior-lisp-proc)
+			      (format "(compile-file %S)\n" source))))
       (when (or (and (not (file-exists-p binary))
                      (y-or-n-p "\
 The CMUCL support library (Swank) is not compiled. Compile now? "))
@@ -475,7 +479,7 @@ Your Swank binary is older than the source. Recompile now? ")))
 	  (set-process-coding-system slime-net-process 
 				     'no-conversion 'no-conversion))
 	slime-net-process)
-      (file-error () nil)))
+    (file-error () nil)))
     
 (defun slime-make-net-buffer (name)
   "Make a buffer suitable for a network process."
@@ -513,14 +517,8 @@ EVAL'd by Lisp."
   "Process all complete messages that have arrived from Lisp."
   (with-current-buffer (process-buffer slime-net-process)
     (while (slime-net-have-input-p)
-      (let ((input (slime-net-read))
-	    (aborted t))
-	(unwind-protect
-	    (save-current-buffer
-	      (slime-take-input input)
-	      (setq aborted nil))
-	  (when (and aborted (slime-net-have-input-p))
-	    (slime-process-available-input)))))))
+      (save-current-buffer
+	(slime-take-input (slime-net-read))))))
 
 (defun slime-net-have-input-p ()
   "Return true if a complete message is available."
@@ -623,6 +621,8 @@ EVAL'd by Lisp."
 
 (defun slime-eval-async-state (reply cont next-state)
   (destructure-case reply
+    ((:read-output string)
+     (slime-output-string string))
     ((:ok result)
      (slime-move-to-state next-state)
      (funcall cont result))
@@ -666,6 +666,8 @@ EVAL'd by Lisp."
      (slime-state
       (lambda (message next-state)
 	(destructure-case message
+	  ((:read-output string)
+	   (slime-output-string string))
 	  ((:ok result)
 	   (slime-move-to-state next-state)
 	   (setq done t)
@@ -686,12 +688,21 @@ EVAL'd by Lisp."
 				     (throw 'el-quit nil)))
 				 (slime-current-state)))
 	   (slime-debugger-hook)
-	   (unwind-protect
-	       (catch 'el-quit
-		 (save-current-buffer
-		   (debug)))
-	     (when (> sldb-level cl-level)
-	       (slime-take-input '(abort-from-el)))))))
+	   (lexical-let ((aborted t))
+	     (unwind-protect
+		 (catch 'el-quit
+		   (save-current-buffer
+		     (let ((max-lisp-eval-depth (max (* 2 max-lisp-eval-depth)
+						     4000))
+			   (max-specpdl-size (max (* 2 max-lisp-eval-depth)
+						  20000)))
+		       (debug)
+		       (setq aborted nil)
+		       ;; "continue" on the Emacs side aborts the one level
+		       (when (> sldb-level cl-level)
+			 (slime-take-input '(abort-from-el))))))
+	       (when (and aborted (> sldb-level cl-level))
+		 (slime-take-input '(quit-from-el))))))))
       (slime-current-state)))
     (let ((debug-on-quit t))
       (while (not done)
@@ -728,6 +739,46 @@ DONT-CACHE is non-nil."
 	       pkg)
 	      ((symbolp pkg)
 	       (symbol-name pkg)))))))
+
+
+;;; Stream output
+
+(defvar slime-last-output-start (make-marker)
+  "Marker for the start of the output for the evaluation.")
+
+(defun slime-output-buffer ()
+  "Return the output buffer, create it if necessary."
+  (get-buffer-create "*slime-messages*"))
+
+(defun slime-output-buffer-position ()
+  (with-current-buffer (slime-output-buffer) (point-max)))
+
+(defun slime-insert-transcript-delimiter (string)
+  ;;(delete-windows-on (slime-output-buffer))
+  (with-current-buffer (slime-output-buffer)
+    (goto-char (point-max))
+    (insert "\n;;;; " 
+	    (subst-char-in-string ?\n ?\ 
+				  (substring string 0 
+					     (min 60 (length string))))
+	    " ...\n")
+    (set-marker slime-last-output-start (point) (current-buffer))))
+
+(defun slime-show-last-output (&optional output-start)
+  (let ((output-start (or output-start 
+			  (marker-position slime-last-output-start))))
+    (when (< output-start (slime-output-buffer-position))
+      (slime-display-buffer-region 
+       (slime-output-buffer)
+       output-start (slime-output-buffer-position)
+       1))))
+
+(defun slime-output-string (string)
+  (unless (zerop (length string))
+    (with-current-buffer (slime-output-buffer)
+      (goto-char (point-max))
+      (insert string))))
+
 
 
 ;;; Compilation and the creation of compiler-note annotations
@@ -902,7 +953,7 @@ Severity is ordered as :NOTE < :WARNING < :ERROR."
           (and (eq sev1 :warning)
                (not (eq sev2 :error))))
       sev1
-      sev2))
+    sev2))
 
 
 (defun slime-visit-source-path (source-path)
@@ -965,8 +1016,8 @@ top-level form, etc."
     (forward-sexp)
     (backward-sexp)
     (when (or (looking-at "#+")
-		 (looking-at "#-"))
-	 (forward-sexp))
+	      (looking-at "#-"))
+      (forward-sexp))
     (forward-sexp)))
 
 
@@ -978,7 +1029,7 @@ top-level form, etc."
   (slime-find-next-note)
   (if (slime-note-at-point)
       (slime-show-note (slime-note-at-point))
-      (message "No next note.")))
+    (message "No next note.")))
 
 (defun slime-previous-note ()
   "Go to and describe the previous compiler note in the buffer."
@@ -986,7 +1037,7 @@ top-level form, etc."
   (slime-find-previous-note)
   (if (slime-note-at-point)
       (slime-show-note (slime-note-at-point))
-      (message "No previous note.")))
+    (message "No previous note.")))
 
 (defun slime-remove-notes ()
   "Remove compiler-note annotations from the current buffer."
@@ -1097,7 +1148,7 @@ package is used."
            (message "Making completion list...")
            (let ((list (all-completions prefix completions-alist nil)))
              (slime-with-output-to-temp-buffer "*Completions*"
-               (display-completion-list list)))
+	       (display-completion-list list)))
            (message "Making completion list...done")))))
 
 (defun slime-completing-read-internal (string default-package flag)
@@ -1174,13 +1225,13 @@ alist but ignores CDRs."
   (let ((n (if (stringp symbol) symbol (symbol-name symbol))))
     (if (string-match ":\\([^:]*\\)$" n)
 	(match-string 1 n)
-	n)))
+      n)))
 
 (defun slime-cl-symbol-package (symbol &optional default)
   (let ((n (if (stringp symbol) symbol (symbol-name symbol))))
     (if (string-match "^\\([^:]*\\):" n)
 	(match-string 1 n)
-	default)))
+      default)))
 
 (defun slime-cl-symbol-external-ref-p (symbol)
   "Does SYMBOL refer to an external symbol?
@@ -1229,34 +1280,6 @@ function name is prompted."
 
 ;;; Interactive evaluation.
 
-(defun slime-use-inf-lisp-p ()
-  (and inferior-lisp-buffer (get-buffer inferior-lisp-buffer)))
-
-(defun slime-insert-transcript-delimiter (string)
-  (when (slime-use-inf-lisp-p)
-    (delete-windows-on inferior-lisp-buffer)
-    (with-current-buffer inferior-lisp-buffer
-      (goto-char (point-max))
-      (insert "\n;;;; " 
-	      (subst-char-in-string ?\n ?\ 
-				    (substring string 0 
-					       (min 60 (length string))))
-	      " ...\n")
-      (set-marker 
-       (process-mark (get-buffer-process (current-buffer))) (point)))))
-
-(defun slime-inferior-lisp-marker-position ()
-  (when (slime-use-inf-lisp-p)
-    (marker-position 
-     (process-mark (get-buffer-process inferior-lisp-buffer)))))
-    
-(defun slime-inferior-lisp-show-last-output (output-start)
-  (when (slime-use-inf-lisp-p)
-    (when (< output-start (slime-inferior-lisp-marker-position))
-      (slime-display-buffer-region 
-       inferior-lisp-buffer 
-       output-start (slime-inferior-lisp-marker-position) 1))))
-
 (defun slime-interactive-eval (string)
   (interactive (list (slime-read-from-minibuffer "Slime Eval: ")))
   (slime-insert-transcript-delimiter string)
@@ -1292,12 +1315,12 @@ function name is prompted."
 
 (defun slime-show-evaluation-result (output-start value)
   (message "=> %s" value)
-  (slime-inferior-lisp-show-last-output output-start))
+  (slime-show-last-output output-start))
 
 (defun slime-show-evaluation-result-continuation ()
-  (lexical-let ((output-start (slime-inferior-lisp-marker-position)))
-     (lambda (value)
-       (slime-show-evaluation-result output-start value))))
+  (lexical-let ((output-start (slime-output-buffer-position)))
+    (lambda (value)
+      (slime-show-evaluation-result output-start value))))
   
 (defun slime-last-expression ()
   (buffer-substring-no-properties (save-excursion (backward-sexp) (point))
@@ -1404,13 +1427,13 @@ First make the variable unbound, then evaluate the entire form."
       (message "No apropos matches for %S" string)
     (save-current-buffer
       (slime-with-output-to-temp-buffer "*CMUCL Apropos*"
-        (set-buffer standard-output)
-        (apropos-mode)
-        (set-syntax-table lisp-mode-syntax-table)
-        (slime-mode t)
-        (setq slime-buffer-package package)
-        (set (make-local-variable 'truncate-lines) t)
-        (slime-print-apropos plists)))))
+	(set-buffer standard-output)
+	(apropos-mode)
+	(set-syntax-table lisp-mode-syntax-table)
+	(slime-mode t)
+	(setq slime-buffer-package package)
+	(set (make-local-variable 'truncate-lines) t)
+	(slime-print-apropos plists)))))
 
 (defun slime-princ-propertized (string props)
   (with-current-buffer standard-output
@@ -1572,7 +1595,7 @@ If CREATE is non-nil, create it if necessary."
   (setq slime-buffer-package package)
   (set (make-local-variable 'truncate-lines) t)
   (setq slime-xref-summary
-        (format " XREF[%s: %s]\n" ref-type symbol)))
+        (format " XREF[%s: %s]" ref-type symbol)))
 
 (defun slime-display-xref-buffer ()
   "Display the XREF results buffer in a window and select it."
@@ -1651,9 +1674,6 @@ When displaying XREF information, this goes to the next reference."
 
 ;;; Debugger
 
-(defvar slime-use-tty-debugger nil
-  "*")
-
 (defvar sldb-condition)
 (defvar sldb-restarts)
 (defvar sldb-backtrace-length)
@@ -1662,37 +1682,7 @@ When displaying XREF information, this goes to the next reference."
 (defvar sldb-mode-map)
 
 (defun slime-debugger-hook ()
-  (if slime-use-tty-debugger
-      (slime-enter-tty-debugger)
-    (slime-enter-sldb)))
-
-(defun slime-enter-tty-debugger ()
-  (slime-move-to-state (slime-state slime-tty-debugger-state 
-				    (slime-current-state)))
-  (pop-to-buffer inferior-lisp-buffer t t)
-  (enlarge-window (- (/ (frame-height) 2) (window-height)))
-  (goto-char (point-max))
-  (slime-net-send
-   `(swank:eval-string
-     ,(prin1-to-string '(let ((*debugger-hook* nil))
-			  (invoke-debugger swank::*swank-debugger-condition*)))
-     nil)))
-
-(defun slime-tty-debugger-state (event next-state)
-  (destructure-case event
-    ((:ok)
-     (slime-move-to-state next-state)
-     (delete-windows-on inferior-lisp-buffer))
-    ((:aborted)
-     (slime-move-to-state next-state)
-     (delete-windows-on inferior-lisp-buffer))
-    ((:debugger-hook)
-     (slime-debugger-hook))))
-
-(add-hook 'inferior-lisp-mode-hook
-	     (lambda ()
-	       (setq comint-scroll-to-bottom-on-input t)
-	       (setq comint-scroll-show-maximum-output t)))
+  (slime-enter-sldb))
 
 (defun slime-enter-sldb ()
   (slime-move-to-state (slime-state sldb-state (slime-current-state)))
@@ -1701,6 +1691,8 @@ When displaying XREF information, this goes to the next reference."
 
 (defun sldb-state (message previous-state)
   (destructure-case message
+    ((:read-output string)
+     (slime-output-string string))
     ((:sldb-prompt l)
      (assert (= l sldb-level))
      (let ((buffer (get-buffer "*sldb*")))
@@ -1718,6 +1710,8 @@ When displaying XREF information, this goes to the next reference."
      (message "%s" message))
     ((abort-from-el)
      (sldb-abort))
+    ((quit-from-el)
+     (sldb-quit))
     ((send-eval-string string package next-state)
      (slime-idle-state `(send-eval-string ,string ,package ,next-state)))))
 
@@ -1832,7 +1826,7 @@ When displaying XREF information, this goes to the next reference."
       (:file
        (funcall (if other-window #'find-file-other-window #'find-file)
 		(plist-get source-location :filename))
-	 (goto-char (plist-get source-location :position)))
+       (goto-char (plist-get source-location :position)))
       (:stream
        (let ((info (plist-get source-location :info)))
 	 (cond ((and (consp info) (eq :emacs-buffer (car info)))
@@ -1877,8 +1871,8 @@ When displaying XREF information, this goes to the next reference."
 (defmacro* sldb-propertize-region (props &body body)
   (let ((start (gensym)))
     `(let ((,start (point)))
-      (prog1 (progn ,@body)
-	(add-text-properties ,start (point) ,props)))))
+       (prog1 (progn ,@body)
+	 (add-text-properties ,start (point) ,props)))))
 
 (put 'sldb-propertize-region 'lisp-indent-function 1)
 
@@ -1891,31 +1885,28 @@ When displaying XREF information, this goes to the next reference."
 
 (defun sldb-show-frame-details ()
   (multiple-value-bind (start end) (sldb-frame-region)
-    (let ((end
-	   (save-excursion
-	     (let* ((props (text-properties-at (point)))
-		    (frame (plist-get props 'frame))
-		    (frame-number (car frame))
-		    (standard-output (current-buffer)))
-	       (goto-char start)
-	       (delete-region start end)
-	       (sldb-propertize-region (plist-put props 'details-visible-p t)
-		 (insert (second frame) "\n"
-			 "   Locals:\n")
-		 (sldb-princ-locals frame-number "       ")
-		 (let ((catchers (sldb-catch-tags frame-number)))
-		   (cond ((null catchers)
-			  (princ "   [No catch-tags]\n"))
-			 (t
-			  (princ "   Catch-tags:\n")
-			  (loop for (tag . location) in catchers
-				do (slime-insert-propertized  
-				    '(catch-tag ,tag)
-				    (format "      %S\n" tag)))))
-		   (terpri)
-		   (point)))))))
-    ;;(sldb-maybe-recenter-region start end)
-    )))
+    (save-excursion
+      (let* ((props (text-properties-at (point)))
+	     (frame (plist-get props 'frame))
+	     (frame-number (car frame))
+	     (standard-output (current-buffer)))
+	(goto-char start)
+	(delete-region start end)
+	(sldb-propertize-region (plist-put props 'details-visible-p t)
+	  (insert (second frame) "\n"
+		  "   Locals:\n")
+	  (sldb-princ-locals frame-number "       ")
+	  (let ((catchers (sldb-catch-tags frame-number)))
+	    (cond ((null catchers)
+		   (princ "   [No catch-tags]\n"))
+		  (t
+		   (princ "   Catch-tags:\n")
+		   (loop for (tag . location) in catchers
+			 do (slime-insert-propertized  
+			     '(catch-tag ,tag)
+			     (format "      %S\n" tag)))))
+	    (terpri)
+	    (point)))))))
 
 (defun sldb-maybe-recenter-region (start end)
   (sit-for 0 1)
@@ -2052,21 +2043,22 @@ When displaying XREF information, this goes to the next reference."
 (define-key sldb-mode-map "q" 'sldb-quit)
 
 ;; Keys 0-9 are shortcuts to invoke particular restarts.
-(defun def-sldb-invoke-restart (n key)
-  ;; I don't like using EVAL, but what's the right way to do this? -luke
-  (let ((fname (intern (format "sldb-invoke-restart-%S" (eval n)))))
-    (eval
-     `(progn
-        (defun ,fname ()
-          (interactive)
-          (sldb-invoke-restart ,n))
-        (define-key sldb-mode-map ,key ',fname)))))
+(defmacro define-sldb-invoke-restart-key (number key)
+  (let ((fname (intern (format "sldb-invoke-restart-%S" (eval number)))))
+    `(progn
+       (defun ,fname ()
+	 (interactive)
+	 (sldb-invoke-restart ,number))
+       (define-key sldb-mode-map ,key ',fname))))
 
-;; (NB: XEmacs has a separate char type)
-(loop for c across "0123456789"
-      for n from 0 to 9
-      do (def-sldb-invoke-restart n (string c)))
+(defmacro define-sldb-invoke-restart-keys (from to)
+  `(progn
+     ,@(loop for n from from to to
+	     collect `(define-sldb-invoke-restart-key ,n 
+			,(number-to-string n)))))
 
+(define-sldb-invoke-restart-keys 0 9)
+  
 
 ;;; Test suite
 
@@ -2172,7 +2164,6 @@ conditions (assertions)."
       (and (eq orig-buffer (current-buffer))
            (= orig-pos (point))))))
 
-;; (slime-completions "cl:compile")
 (def-slime-test complete-symbol
     (prefix expected-completions)
     "Find the completions of a symbol-name prefix."
@@ -2253,13 +2244,18 @@ Confirm that SUBFORM is correclty located."
     (defalias 'string-make-unibyte #'identity))
   )
 
-(unless (fboundp 'next-single-char-property-change)
-  (defun next-single-char-property-change (position prop &optional
-						    object limit)
-    (let ((limit (typecase limit
-		   (null nil)
-		   (marker (marker-position limit))
-		   (t limit))))
+(eval-when (compile eval)
+  (defmacro defun-if-undefined (name &rest rest)
+    `(eval-when (compile load eval)
+       (unless (fboundp ',name)
+	 (defun ,name ,@rest)))))
+
+(defun-if-undefined next-single-char-property-change
+  (position prop &optional object limit)
+  (let ((limit (typecase limit
+		 (null nil)
+		 (marker (marker-position limit))
+		 (t limit))))
     (if (stringp object)
 	(or (next-single-property-change position prop object limit)
 	    limit 
@@ -2271,15 +2267,14 @@ Confirm that SUBFORM is correclty located."
 		if (>= pos limit) return limit
 		if (not (eq initial-value 
 			    (get-char-property pos prop object))) 
-		return pos)))))))
+		return pos))))))
 
-(unless (fboundp 'previous-single-char-property-change)
-  (defun previous-single-char-property-change (position prop &optional
-							object limit)
-    (let ((limit (typecase limit
-		   (null nil)
-		   (marker (marker-position limit))
-		   (t limit))))
+(defun-if-undefined previous-single-char-property-change 
+  (position prop &optional object limit)
+  (let ((limit (typecase limit
+		 (null nil)
+		 (marker (marker-position limit))
+		 (t limit))))
     (if (stringp object)
 	(or (previous-single-property-change position prop object limit)
 	    limit 
@@ -2294,15 +2289,39 @@ Confirm that SUBFORM is correclty located."
 		  if (<= pos limit) return limit
 		  if (not (eq initial-value 
 			      (get-char-property (1- pos) prop object))) 
-		  return pos))))))))
+		  return pos)))))))
 
-(unless (fboundp 'substring-no-properties)
-  (defun substring-no-properties (string &optional start end)
-    (let* ((start (or start 0))
-	   (end (or end (length string)))
-	   (string (substring string start end)))
-      (set-text-properties start end nil string)
-      string)))
+(defun-if-undefined substring-no-properties (string &optional start end)
+  (let* ((start (or start 0))
+	 (end (or end (length string)))
+	 (string (substring string start end)))
+    (set-text-properties start end nil string)
+    string))
+
+(defun-if-undefined set-window-text-height (window height)
+  (let ((delta (- height (window-text-height window))))
+    (unless (zerop delta)
+      (let ((window-min-height 1))
+	(if (and window (not (eq window (selected-window))))
+	    (save-selected-window
+	      (select-window window)
+	      (enlarge-window delta))
+	  (enlarge-window delta))))))
+
+(defun-if-undefined window-text-height (&optional window)
+  (1- (window-height window)))
+
+(defun-if-undefined subst-char-in-string (fromchar tochar string 
+						   &optional inplace)
+  "Replace FROMCHAR with TOCHAR in STRING each time it occurs.
+Unless optional argument INPLACE is non-nil, return a new string."
+  (let ((i (length string))
+	(newstr (if inplace string (copy-sequence string))))
+    (while (> i 0)
+      (setq i (1- i))
+      (if (eq (aref newstr i) fromchar)
+	  (aset newstr i tochar)))
+    newstr))
 
 (defun emacs-20-p ()
   (and (not (featurep 'xemacs))
