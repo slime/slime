@@ -1,3 +1,7 @@
+2005-03-06  Luke Gorrie  <luke@synap.se>
+
+	* swank.lisp: Export *LOG-OUTPUT*.
+
 2005-03-05  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-net-sentinel): Always print a message when the
