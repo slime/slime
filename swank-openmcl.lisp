@@ -82,9 +82,33 @@
   (let ((server-socket (ccl:make-socket :connect :passive :local-port port
                                         :reuse-address reuse-address)))
     (funcall announce (ccl:local-port server-socket))
-    (ccl:process-run-function "Swank Request Processor"
-                              #'swank-accept-connection
-                              server-socket)))
+    (let ((swank (ccl:process-run-function "Swank Request Processor"
+                                           #'swank-accept-connection
+                                           server-socket)))
+      ;; tell openmcl which process you want to be interrupted when
+      ;; sigint is received
+      ;;(setq ccl::*interactive-abort-process* swank)
+      )))
+
+#+(or)
+(defun ccl::force-break-in-listener (p)
+  (ccl::process-interrupt 
+   p (lambda ()
+       (ccl::ignoring-without-interrupts
+        (let ((*swank-debugger-stack-frame* nil)
+              (previous-p nil))
+          (block find-frame
+            (map-backtrace
+             (lambda (frame-number p tcr lfun pc)
+               (declare (ignore frame-number tcr
+                                pc))
+               (when (eq (ccl::lfun-name lfun) 'swank::eval-region)
+                 (setq
+                  *swank-debugger-stack-frame* previous-p)
+                 (return-from find-frame))
+               (setq previous-p p))))
+          (invoke-debugger)
+          (clear-input *terminal-io*))))))
 
 (defun swank-accept-connection (server-socket)
   (loop (request-loop (ccl:accept-connection server-socket :wait t))))
@@ -274,12 +298,12 @@ An example return value:
 
 If the backtrace cannot be calculated, this function returns NIL."
   (let (result)
-    (map-backtrace #'(lambda (frame-number p tcr lfun pc)
-                       (push (list frame-number
-                                   (format nil "~D: (~A~A)" frame-number
-                                           (ccl::%lfun-name-string lfun)
-                                           (frame-arguments p tcr lfun pc)))
-                            result))
+    (map-backtrace (lambda (frame-number p tcr lfun pc)
+                     (push (list frame-number
+                                 (format nil "~D: (~A~A)" frame-number
+                                         (ccl::%lfun-name-string lfun)
+                                         (frame-arguments p tcr lfun pc)))
+                           result))
                    start-frame-number end-frame-number)
     (nreverse result)))
 
@@ -290,27 +314,43 @@ If the backtrace cannot be calculated, this function returns NIL."
 
 (defmethod frame-locals (index)
   (map-backtrace 
-   #'(lambda (frame-number p tcr lfun pc)
-       (when (= frame-number index)
-         (multiple-value-bind (count vsp parent-vsp)
-                (ccl::count-values-in-frame p tcr)
-           (let (result)
-             (dotimes (i count)
-               (multiple-value-bind (var type name)
-                   (ccl::nth-value-in-frame p i tcr lfun pc vsp parent-vsp)
-                 (declare (ignore type))
-                 (when name
-                   (push (list 
-                          :symbol (to-string name)
-                          :id 0
-                          :validity :valid
-                          :value-string (to-string var))
-                         result))))
-             (return-from frame-locals (nreverse result))))))))
+   (lambda (frame-number p tcr lfun pc)
+     (when (= frame-number index)
+       (multiple-value-bind (count vsp parent-vsp)
+           (ccl::count-values-in-frame p tcr)
+         (let (result)
+           (dotimes (i count)
+             (multiple-value-bind (var type name)
+                 (ccl::nth-value-in-frame p i tcr lfun pc vsp parent-vsp)
+               (declare (ignore type))
+               (when name
+                 (push (list 
+                        :symbol (to-string name)
+                        :id 0
+                        :validity :valid
+                        :value-string (to-string var))
+                       result))))
+           (return-from frame-locals (nreverse result))))))))
 
 (defmethod frame-catch-tags (index)
   (declare (ignore index))
   nil)
+                       
+(defslimefun sldb-disassemble (the-frame-number)
+  "Return a string with the disassembly of frames code."
+  (let ((function-to-disassemble nil))
+    (block find-frame
+      (map-backtrace
+       (lambda(frame-number p tcr lfun pc)
+         (declare (ignore p tcr pc))
+         (when (= frame-number the-frame-number)
+           (setq function-to-disassemble lfun)
+           (return-from find-frame)))))
+    (with-output-to-string (s)
+      (ccl::print-ppc-instructions 
+       s (ccl::function-to-dll-header function-to-disassemble) nil))))
+
+;;;
 
 (defun find-source-locations (symbol name)
   (let* ((info (ccl::source-file-or-files symbol nil nil nil))
@@ -361,11 +401,11 @@ function in a debugger frame.  In OpenMCL, we are not able to
 find the precise position of the frame, but we do attempt to give
 at least the filename containing it."
   (map-backtrace
-   #'(lambda (frame-number p tcr lfun pc)
-       (declare (ignore p tcr pc))
-       (when (and (= frame-number index) lfun)
-         (return-from frame-source-location-for-emacs
-           (function-source-location (ccl:function-name lfun)))))))
+   (lambda (frame-number p tcr lfun pc)
+     (declare (ignore p tcr pc))
+     (when (and (= frame-number index) lfun)
+       (return-from frame-source-location-for-emacs
+         (function-source-location (ccl:function-name lfun)))))))
 
 (defun nth-restart (index)
   (nth index *sldb-restarts*))
