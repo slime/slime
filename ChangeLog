@@ -1,3 +1,31 @@
+2005-03-20  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-sbcl.lisp (quit-lisp): If we are running multithreaded,
+	terminate all other threads too.  (still broken in 0.8.20.27; used
+	to work in ~0.8.20.2.)
+	(with-debootstrapping, call-with-debootstrapping): Remove ugly
+	backward compatibility code.
+	(sbcl-source-file-p, guess-readtable-for-filename): New utilities.
+	(function-source-location): Handle work off to helper functions.
+	(find-function-source-location): New function.  Use the
+	shebang-readtable for SBCL source files.
+	(function-source-position, function-source-filename)
+	(function-source-write-date, function-toplevel-form-number)
+	(function-hint-snippet, function-has-start-location-p)
+	(function-start-location): New helpers.
+	(safe-source-location-for-emacs): Don't catch errors if
+	*debug-definition-finding* is true.
+	(inspect-for-emacs): Minor beautifications.
+ 
+	* swank.lisp (commit-edited-value): Use buffer syntax.
+	(compile-file-for-emacs, compile-string-for-emacs): Bind
+	*compile-print* to nil.
+
+	* swank-cmucl.lisp (call-with-debugging-environment): Rebind
+	kernel:*current-level* 0.  Useful for debugging pretty printer
+	code.
+	(inspect-for-emacs): Show details of interpreted functions.
+
 2005-03-21  Luke Gorrie  <luke@synap.se>
 
 	* swank-sbcl.lisp (function-source-location): For definitions
