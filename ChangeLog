@@ -1,3 +1,27 @@
+2004-03-04  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-display-comletion-list): New function. Set
+	syntax table properly.
+	(slime-complete-symbol*, slime-simple-complete-symbol): Use it.
+	(slime-update-connection-list): New function.
+	(slime-draw-connection-list): Simplified.
+	(slime-connection-list-mode-map): Bind g to update-connection-list.
+	(slime-open-inspector): Print the primitive type in brackets.
+	(slime-test-arglist): Add test for empty arglist.
+
+	* swank-allegro.lisp, swank-clisp.lisp, swank-cmucl.lisp,
+	swank-lispworks.lisp, swank-sbcl.lisp, swank-backend.lisp
+	(thread-alive-p): Add default implementation.
+	(describe-primitive-type): Add default implementation.
+	(inspected-parts): Implemented for Allegro and CLISP.
+
+	* swank.lisp (remove-dead-threads): New function.
+	(lookup-thread): Use it.
+	(print-arglist): New function. This time without a custom pretty
+	print dispatch table.
+	(format-arglist): Use it.
+	(inspected-parts): Add method for hash-tables.
+
 2004-03-03  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank.lisp: Use *emacs-connection*, *active-threads*, and
