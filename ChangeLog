@@ -1,3 +1,9 @@
+2004-04-06  Luke Gorrie  <luke@bluetail.com>
+
+	* swank.lisp (macro-indentation): Check that the arglist is
+	well-formed. This works around a problem with ACL returning
+	arglists that aren't real lambda-lists.
+
 2004-04-05  Lawrence Mitchell  <wence@gmx.li>
 
 	* swank.lisp (*swank-pprint-circle*, *swank-pprint-escape*,
