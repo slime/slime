@@ -71,7 +71,7 @@
 (defun without-interrupts* (body)
   (ccl:without-interrupts (funcall body)))
 
-(defvar *swank-debugger-stack-frame*)
+(defvar *swank-debugger-stack-frame* nil)
 
 ;;; TCP Server
 
@@ -115,6 +115,37 @@
       (restart-case (invoke-debugger)
         (continue () :report (lambda (stream) (write-string "Resume interrupted evaluation" stream)) t))
       ))))))
+
+(defvar *break-in-sldb* t)
+
+(let ((ccl::*warn-if-redefine-kernel* nil))
+  (ccl::advise 
+   cl::break 
+   (if (and *break-in-sldb* 
+            (eq ccl::*current-process* ccl::*interactive-abort-process*))
+       (apply 'break-in-sldb ccl::arglist)
+       (:do-it)) :when :around :name sldb-break))
+  
+
+(defun break-in-sldb (&optional string &rest args)
+  (let ((c (make-condition 'simple-condition
+                           :format-control (or string "Break")
+                           :format-arguments args)))
+    (let ((*swank-debugger-stack-frame* nil)
+          (previous-f nil)
+          (previous-f2 nil))
+      (block find-frame
+        (map-backtrace  
+         #'(lambda(frame-number p tcr lfun pc)
+             (declare (ignore frame-number tcr pc))
+             (when (eq  previous-f2 'break-in-sldb) 
+               (setq *swank-debugger-stack-frame* p)
+               (return-from find-frame))
+             (setq previous-f2 previous-f)
+             (setq previous-f (ccl::lfun-name lfun)))))
+      (restart-case (invoke-debugger c)
+        (continue () :report (lambda (stream) (write-string "Resume interrupted evaluation" stream)) t))
+      )))
 
 (defun accept-loop (server-socket close)
   (unwind-protect (cond (close (accept-one-client server-socket))
