@@ -158,8 +158,6 @@
 
 ;;; Utilities
 
-(defvar *swank-debugger-stack-frame*)
-
 (defimplementation arglist ((fname t))
   (sb-introspect:function-arglist fname))
 
@@ -647,6 +645,10 @@ stack."
 (defimplementation profiled-functions ()
   (sb-profile:profile))
 
+(defimplementation profile-package (package callers methods)
+  (declare (ignore callers methods))
+  (eval `(sb-profile:profile ,(package-name (find-package package)))))
+
 
 ;;;; Inspector
 
@@ -773,11 +775,8 @@ stack."
 	    (ecase (first feature)
 	      (:or  (some  #'subfeature-in-list-p (rest feature)))
 	      (:and (every #'subfeature-in-list-p (rest feature)))
-	      (:not (let ((rest (cdr feature)))
-		      (if (or (null (car rest)) (cdr rest))
-			(error "wrong number of terms in compound feature ~S"
-			       feature)
-			(not (subfeature-in-list-p (second feature)))))))))))
+	      (:not (destructuring-bind (e) (cdr feature)
+                      (not (subfeature-in-list-p e)))))))))
 
 (defun shebang-reader (stream sub-character infix-parameter)
   (declare (ignore sub-character))
