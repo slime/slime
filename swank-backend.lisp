@@ -51,11 +51,7 @@ Backends implement these functions using DEFIMPLEMENTATION."
   (check-type documentation string "a documentation string")
   (flet ((gen-default-impl ()
            (let ((received-args (gensym "ARGS-")))
-             `(defmethod no-applicable-method ((#:method
-                                                (eql (function ,name)))
-                                               &rest ,received-args)
-               (destructuring-bind ,args ,received-args
-                 ,@default-body)))))
+             `(defmethod ,name ,args ,@default-body))))
      `(progn (defgeneric ,name ,args (:documentation ,documentation))
              (pushnew ',name *interface-functions*)
              ,(if (null default-body)
