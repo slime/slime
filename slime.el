@@ -6680,7 +6680,9 @@ is exceeded."
 ;;; Indentation
 
 (defcustom slime-conservative-indentation t
-  "If true then don't discover indentation of \"with-\" or \"def\" symbols.")
+  "If true then don't discover indentation of \"with-\" or \"def\" symbols."
+  :type 'boolean
+  :group 'slime)
 
 (defun slime-update-indentation ()
   "Update indentation for all macros defined in the Lisp system."

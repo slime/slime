@@ -1,5 +1,13 @@
 2004-07-16  Luke Gorrie  <luke@bluetail.com>
 
+	* slime.el (slime-conservative-indentation): New variable. When
+	true (the default) don't auto-learn indentation of def* and with-*
+	macros. Set to nil if you want to learn them.
+	(slime-handle-indentation-update): Use it.
+
+	* swank.lisp (known-to-emacs-p): Removed filtering of def* and
+	with-*. Now handled by Emacs.
+
 	* slime.el (slime-interactive-eval): Changed display of results.
 	By default the result goes to `slime-message', which leads either
 	to echo area, temporary buffer, or typeout frame.
