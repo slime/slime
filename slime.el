@@ -463,6 +463,7 @@ A prefix argument disables this behaviour."
     ("\M-g" slime-quit :prefixed t :inferior t :sldb t)
     ;; Documentation
     (" " slime-space :inferior t)
+    ("\C-s" slime-insert-arglist :prefixed t :inferior t)
     ("\C-d" slime-describe-symbol :prefixed t :inferior t :sldb t)
     ("\C-f" slime-describe-function :prefixed t :inferior t :sldb t)
     ("\M-d" slime-disassemble-symbol :prefixed t :inferior t :sldb t)
@@ -1172,13 +1173,14 @@ the ChangeLog file at runtime."
 
 (defun slime-check-protocol-version (lisp-version)
   "Signal an error unless LISP-VERSION is equal to `slime-changelog-date'."
-  (unless (and lisp-version (equal lisp-version slime-changelog-date))
+  (unless (or (and lisp-version (equal lisp-version slime-changelog-date)))
+    (message "Disconnecting ...")
     (slime-disconnect)
     (let ((message (format "Protocol mismatch: Lisp: %s  ELisp: %s"
                            lisp-version slime-changelog-date)))
       (message "%s" message)
-      (ding)
       (sleep-for 2)
+      (ding 2)
       (error "%s" message))))
 
 (defun slime-disconnect ()
@@ -2514,7 +2516,8 @@ buffer's working directory"
   (save-some-buffers)
   (slime-display-output-buffer)
   (message "Performing ASDF %S%s on system %S"
-           system-name (if keyword-args (format " %S" keyword-args) "") operation)
+           operation (if keyword-args (format " %S" keyword-args) "")
+           system-name)
   (slime-eval-async
    `(swank:operate-on-system-for-emacs ,system-name ,operation ,@keyword-args)
    nil
@@ -3251,6 +3254,13 @@ more than one space."
    (slime-buffer-package)
    (lambda (arglist)
      (message "%s" arglist))))
+
+(defun slime-insert-arglist (name)
+  "Insert the argument list for NAME behind the symbol point is
+currently looking at."
+  (interactive (list (slime-read-symbol-name "Arglist of: ")))
+  (insert (slime-eval `(swank:arglist-for-echo-area (quote (,name)) t)
+                      (slime-buffer-package))))
 
 (defun slime-get-arglist (symbol-name)
   "Return the argument list for SYMBOL-NAME."
@@ -5760,35 +5770,35 @@ BODY returns true if the check succeeds."
 
 ;;;; REPL handlers
 
-(defvar slime-repl-shortcut-table nil)
+(defstruct (slime-repl-shortcut (:conc-name slime-repl-shortcut.))
+  symbol names handler one-liner)
+
+(defvar slime-repl-shortcut-table nil
+  "A list of slime-repl-shortcuts")
 
 (defun slime-handle-repl-shortcut ()
   (interactive)
   (if (save-excursion
         (goto-char slime-repl-input-start-mark)
         (looking-at " *$"))
-      (let ((command-spec (slime-lookup-shortcut
-                           (completing-read "Command: " 
-                                            (slime-bogus-completion-alist
-                                             (slime-list-all-repl-shortcuts))
-                                            nil
-                                            t
-                                            nil
-                                            'slime-repl-shortcut-history))))
-        (call-interactively (cdr (assoc :handler command-spec))))
+      (let ((shortcut (slime-lookup-shortcut
+                       (completing-read "Command: " 
+                                        (slime-bogus-completion-alist
+                                         (slime-list-all-repl-shortcuts))
+                                        nil
+                                        t
+                                        nil
+                                        'slime-repl-shortcut-history))))
+        (call-interactively (slime-repl-shortcut.handler shortcut)))
       (insert (string slime-repl-shortcut-dispatch-char))))
 
 (defun slime-list-all-repl-shortcuts ()
-  (loop
-     for shortcut-spec in slime-repl-shortcut-table
-     append (car shortcut-spec)))
+  (loop for shortcut in slime-repl-shortcut-table
+        append (slime-repl-shortcut.names shortcut)))
 
 (defun slime-lookup-shortcut (name)
-  (block lookup
-    (loop for shortcut-spec in slime-repl-shortcut-table
-       when (member name (car shortcut-spec))
-         do (return-from lookup shortcut-spec))
-    (return-from lookup nil)))
+  (find-if (lambda (s) (member name (slime-repl-shortcut.names s)))
+           slime-repl-shortcut-table))
 
 (defmacro defslime-repl-shortcut (elisp-name names &rest options)
   "Define a new repl shortcut. ELISP-NAME is a symbol specifying
@@ -5801,49 +5811,56 @@ BODY returns true if the check succeeds."
         `(defun ,elisp-name ()
            (interactive)
            (call-interactively ,(second (assoc :handler options)))))
-     (let ((new-spec (list (list ,@names)
-                           ,@(loop
-                                for op in options
-                                collect (case (car op)
-                                          (:handler `(cons :handler ,(second op)))
-                                          (:one-liner `(cons :one-liner ,(second op)))
-                                          (t (error "Unknown repl shortcut option: %s" (car op)))))))
-           (existing-spec (slime-lookup-shortcut ,(car names))))
-       (if existing-spec
-           ;; replace an existing spec "in place"
-           (setf (car existing-spec) (car new-spec)
-                 (cdr existing-spec) (cdr new-spec))
-           ;; need to create a new spec
-           (push new-spec slime-repl-shortcut-table)))
-     ',elisp-name))
+     (let ((new-shortcut (make-slime-repl-shortcut
+                          :symbol ',elisp-name
+                          :names (list ,@names)
+                          ,@(apply #'append options))))
+       (setq slime-repl-shortcut-table
+             (remove-if (lambda (s)
+                          (member ',(car names) (slime-repl-shortcut.names s)))
+                        slime-repl-shortcut-table))
+       (push new-shortcut slime-repl-shortcut-table)
+       ',elisp-name)))
 
+(defun slime-list-repl-short-cuts ()
+  (interactive)
+  (slime-with-output-to-temp-buffer "*slime-repl-help*"
+    (let ((table (sort* slime-repl-shortcut-table #'string<
+                        :key (lambda (x) 
+                               (car (slime-repl-shortcut.names x))))))
+      (dolist (shortcut table)
+        (let ((names (slime-repl-shortcut.names shortcut)))
+          (insert (pop names)) ;; first print the "full" name
+          (when names
+            ;; we also have aliases
+            (insert " (aka ")
+            (while (cdr names)
+              (insert (pop names) ", "))
+            (insert (car names) ")"))
+        (insert "\n     " (slime-repl-shortcut.one-liner shortcut) 
+                "\n"))))))
+  
 (defslime-repl-shortcut slime-repl-shortcut-help ("help" "?")
-  (:handler (lambda ()
-              (interactive)
-              (slime-with-output-to-temp-buffer "*slime-repl-help*"
-                (dolist (repl-shortcut (sort slime-repl-shortcut-table (lambda (a b)
-                                                                         (string< (caar a) (caar b)))))
-                  (insert (caar repl-shortcut)) ;; first print the "full" name
-                  (when (cdr (car repl-shortcut))
-                    ;; we also have aliases
-                    (insert " (aka ")
-                    (dolist (alias (butlast (cdr (car repl-shortcut))))
-                      (insert alias ", "))
-                    (insert (car (last (cdr (car repl-shortcut)))) ")"))
-                  (insert "\n     " (cdr (assoc :one-liner (cdr repl-shortcut))) "\n")))))
+  (:handler 'slime-list-repl-short-cuts)
   (:one-liner "Display the help."))
 
-(defslime-repl-shortcut nil ("change-directory" "!d")
+(defslime-repl-shortcut nil ("change-directory" "!d" "cd")
   (:handler 'slime-set-default-directory)
   (:one-liner "Change the current directory."))
 
-(defslime-repl-shortcut slime-repl-push-directory ("push-directory" "+d")
+;;; XXX move more of this to lisp
+(defslime-repl-shortcut slime-repl-push-directory ("push-directory" "+d" 
+                                                   "pushd")
   (:handler (lambda (directory)
-              (interactive (list (expand-file-name (read-directory-name "Push directory: "
-                                                                        (slime-eval '(cl:namestring
-                                                                                      (cl:truename
-                                                                                       cl:*default-pathname-defaults*)))
-                                                                        nil nil ""))))
+              (interactive
+               (list 
+                (expand-file-name 
+                 (read-directory-name 
+                  "Push directory: "
+                  (slime-eval '(cl:namestring
+                                (cl:truename
+                                 cl:*default-pathname-defaults*)))
+                  nil nil ""))))
                 (push directory slime-repl-directory-stack)
                 (slime-set-default-directory directory)))
   (:one-liner "Push a new directory onto the directory stack."))
@@ -5886,7 +5903,7 @@ BODY returns true if the check succeeds."
 (defslime-repl-shortcut slime-repl-sayoonara ("sayoonara")
   (:handler (lambda ()
               (interactive)
-              (slime-eval-async '(swank-backend:quit-lisp) "SWANK-BACKEND" (lambda (_) nil))
+              (slime-eval-async '(swank:quit-lisp) nil (lambda (_) nil))
               (slime-kill-all-buffers)))
   (:one-liner "Quit the lisp and close all SLIME buffers."))
 
@@ -5894,15 +5911,18 @@ BODY returns true if the check succeeds."
   (:handler (lambda (name value)
               (interactive (list (slime-read-symbol-name "Name (symbol): " t)
                                  (slime-read-from-minibuffer "Value: " "nil")))
-              (insert "(cl:defparameter " name " " value " \"REPL generated global variable.\")")
+              (insert "(cl:defparameter " name " " value 
+                      " \"REPL generated global variable.\")")
               (slime-repl-send-input)))
   (:one-liner "Define a new global, special, variable."))
 
+;;; XXX move more of this to lisp
 (defslime-repl-shortcut slime-repl-compile-and-load ("compile-and-load")
   (:handler (lambda (file-name)
               (interactive (list 
                             (expand-file-name 
-                             (read-file-name "File: " nil nil nil nil 
+                             (read-file-name "File: " 
+                                             nil nil nil nil 
                                              (lambda (filename)
                                                (string-match ".*\\.\\(lisp\\|cl\\)$" filename))))))
               (lexical-let ((lisp-file-name (slime-to-lisp-filename file.lisp)))
@@ -5946,7 +5966,9 @@ BODY returns true if the check succeeds."
               (slime-oos (slime-read-system-name) "COMPILE-OP")))
   (:one-liner "Compile (but not load) an ASDF system."))
 
-(defslime-repl-shortcut slime-repl-compile/force-system ("force-compile-system")  (:handler (lambda ()
+(defslime-repl-shortcut slime-repl-compile/force-system 
+  ("force-compile-system")  
+  (:handler (lambda ()
               (interactive)
               (slime-oos (slime-read-system-name) "COMPILE-OP" :force t)))
   (:one-liner "Recompile (but not load) an ASDF system."))
@@ -6534,8 +6556,12 @@ If they are not, position point at the first syntax error found."
   (unless default-dirname
     (setq default-dirname
 	  (if initial (concat dir initial) default-directory)))
-  (read-file-name prompt dir default-dirname mustmatch initial
-		  'file-directory-p))
+  (let ((file (read-file-name prompt dir default-dirname mustmatch initial)))
+    (setq file (expand-file-name file))
+    (cond ((file-directory-p file)
+           file)
+          (t 
+           (error "Not a directory: %s" file)))))
 
 (unless (boundp 'temporary-file-directory)
   (defvar temporary-file-directory
