@@ -27,6 +27,8 @@
            #:disassemble-symbol
            #:documentation-symbol
            #:eval-in-frame
+           #:return-from-frame
+           #:restart-frame
            #:eval-string
            #:eval-string-in-frame
            #:find-function-locations
@@ -124,7 +126,7 @@ Backends implement these functions using DEFIMPLEMENTATION."
     (if (member ',name *interface-functions*)
         (setq *unimplemented-interfaces*
               (remove ',name *unimplemented-interfaces*))
-        (warn "DEFIMPLEMENTATION of undefined interface (S)" ',name))))
+        (warn "DEFIMPLEMENTATION of undefined interface (~S)" ',name))))
 
 (defun warn-unimplemented-interfaces ()
   "Warn the user about unimplemented backend features.
@@ -374,6 +376,20 @@ frame which invoked the debugger.
 
 The return value is the result of evaulating FORM in the
 appropriate context.")
+
+(definterface return-from-frame (frame-number form)
+  "Unwind the stack to the frame FRAME-NUMBER and return the value(s)
+produced by evaluating FORM in the frame context to its caller.
+
+Execute any clean-up code from unwind-protect forms above the frame
+during unwinding.
+
+Return a string describing the error if it's not possible to return
+from the frame.")
+
+(definterface restart-frame (frame-number)
+  "Restart execution of the frame FRAME-NUMBER with the same arguments
+as it was called originally.")
 
 
 ;;;; Queries
