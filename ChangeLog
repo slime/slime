@@ -1,5 +1,23 @@
 2003-11-23  Luke Gorrie  <luke@bluetail.com>
 
+	* slime.el (slime-goto-source-location): Added optional `align-p'
+	argument for :file and :emacs-buffer location types. This is for
+	OpenMCL - unlike CMUCL its positions are not character-accurate so
+	it needs to be aligned to the beginning of the sexp.
+
+	* swank-cmucl.lisp: Tidied up outline-minor-mode structure and
+	added comments and docstrings.
+
+	* swank-cmucl.lisp, swank-sbcl.lisp, swank-openmcl-lisp: Updated
+	to use new debugger interface in swank-backend.lisp.
+
+	* swank-backend.lisp (call-with-debugging-environment,
+	sldb-condition, debugger-info-for-emacs): More callbacks defined.
+
+	* swank.lisp: Tidied up outline-minor-mode structure, added
+	comments and docstrings.
+	(sldb-loop): Took over the main debugger loop.
+
 	* swank-openmcl.lisp: Updated after refactoring of other backends
 	(was broken).
 

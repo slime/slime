@@ -225,9 +225,8 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 
 ;;; These variables are dynamically bound during debugging.
 
-(makunbound
- (defvar *swank-debugger-condition* nil
-   "The condition being debugged."))
+;; The condition being debugged.
+(defvar *swank-debugger-condition* nil)
 
 (defvar *sldb-level* 0
   "The current level of recursive debugging.")
