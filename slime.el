@@ -1224,42 +1224,6 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
     (message "Initial handshake..." port)
     (slime-init-connection process)))
 
-(defun slime-changelog-date ()
-  "Return the datestring of the latest entry in the ChangeLog file.
-If the function is compiled (with the file-compiler) return the date
-of the newest at compile time.  If the function is interpreted read
-the ChangeLog file at runtime."
-  (macrolet ((date ()
-                   (let* ((dir (or (and (boundp 'byte-compile-current-file)
-                                        byte-compile-current-file
-                                        (file-name-directory
-                                         (file-truename
-                                          byte-compile-current-file)))
-                                   slime-path))
-                          (file (concat dir "ChangeLog"))
-                          (date (with-temp-buffer 
-                                  (insert-file-contents file nil 0 100)
-                                  (goto-char (point-min))
-                                  (symbol-name (read (current-buffer))))))
-                     `(quote ,date))))
-    (date)))
-
-(defvar slime-changelog-date nil
-  "Holds the latest datestring from the ChangeLog as seen at loadtime.")
-(setq slime-changelog-date (slime-changelog-date))
-
-(defun slime-check-protocol-version (lisp-version)
-  "Signal an error unless LISP-VERSION is equal to `slime-changelog-date'."
-  (unless (or (and lisp-version (equal lisp-version slime-changelog-date)))
-    (message "Disconnecting ...")
-    (slime-disconnect)
-    (let ((message (format "Protocol mismatch: Lisp: %s  ELisp: %s"
-                           lisp-version slime-changelog-date)))
-      (message "%s" message)
-      (sleep-for 2)
-      (ding 2)
-      (error "%s" message))))
-
 (defun slime-disconnect ()
   "Disconnect all connections."
   (interactive)
@@ -1703,8 +1667,7 @@ fixnum a specific thread."))
 
 (defun slime-set-connection-info (connection info)
   "Initialize CONNECTION with INFO received from Lisp."
-  (destructuring-bind (version pid type name features) info
-;;;    (slime-check-protocol-version version)
+  (destructuring-bind (pid type name features) info
     (setf (slime-pid) pid
           (slime-lisp-implementation-type) type
           (slime-lisp-implementation-type-name) name
@@ -1936,7 +1899,8 @@ deal with that."
       (setq header-line-format banner))
     (when animantep
       (pop-to-buffer (current-buffer))
-      (animate-string (format "; SLIME %s" slime-changelog-date) 0 0))
+      (animate-string "; SLIME: The Superior Lisp Interaction Mode for Emacs"
+                      0 0))
     (slime-repl-insert-prompt (if (or (not slime-reply-update-banner-p)
                                       use-header-p)
                                   ""
