@@ -270,9 +270,10 @@ This is an optimized way for Lisp to deliver output to Emacs."
   "Return the datestring of the latest ChangeLog entry.  The date is
 determined at compile time."
   (macrolet ((date ()
-	       (let* ((dir (pathname-directory *compile-file-pathname*))
-		      (changelog (make-pathname :name "ChangeLog" 
-						:directory dir))
+               (let* ((dir (pathname-directory *compile-file-pathname*))
+                      (changelog (make-pathname :name "ChangeLog" :directory dir
+                                                :host (pathname-host
+                                                       *compile-file-pathname*)))
 		      (date (with-open-file (file changelog :direction :input)
 			      (string (read file)))))
 		 `(quote ,date))))
