@@ -3909,7 +3909,7 @@ Show the output buffer if the evaluation causes any output."
                       (lambda (value)
                         (with-current-buffer (slime-output-buffer)
                           (cond (fn (funcall fn value))
-                                (t (message "=> %s" value)))
+                                (t (message "%s" value)))
                           (slime-show-last-output))))))
 
 (defun slime-eval-describe (form)
@@ -4927,7 +4927,11 @@ Called on the `point-entered' text-property hook."
     (display-buffer (current-buffer) t)
     (save-excursion
       (beginning-of-line -4)
-      (set-window-start (get-buffer-window (current-buffer) t) (point)))))
+      (let ((window (get-buffer-window (current-buffer) t))
+            (pos (point)))
+        (set-window-start (get-buffer-window (current-buffer) t) (point))
+        (select-window window)
+        (goto-char pos)))))
 
 
 (defun sldb-toggle-details (&optional on)
@@ -5012,7 +5016,7 @@ The details include local variable bindings and CATCH-tags."
   (let* ((number (sldb-frame-number-at-point)))
     (slime-eval-async `(swank:eval-string-in-frame ,string ,number)
 		      (slime-buffer-package)
-		      (lambda (reply) (slime-message "==> %s" reply)))))
+		      (lambda (reply) (slime-message "%s" reply)))))
 
 (defun sldb-pprint-eval-in-frame (string)
   "Prompt for an expression, evaluate in selected frame, pretty-print result."
@@ -5575,7 +5579,6 @@ Lisp-stylishly.
 If REGION is true, operate on the region. Otherwise operate on
 the top-level sexp before point."
   (interactive "P")
-  (message "region = %S" region)
   (let ((sexp-level 0)
         point)
     (save-excursion
@@ -6365,8 +6368,8 @@ Confirm that SUBFORM is correctly located."
       (slime-sync-to-top-level 5)
       (slime-check-top-level)
       (let ((message (current-message)))
-        (slime-check "Minibuffer contains: \"=> 3\""
-          (equal "=> 3" message))))))
+        (slime-check "Minibuffer contains: \"3\""
+          (equal "3" message))))))
 
 (def-slime-test interrupt-bubbling-idiot 
     ()
