@@ -551,8 +551,6 @@ A prefix argument disables this behaviour."
     (":"    slime-interactive-eval :prefixed t :sldb t)
     ("\C-e" slime-interactive-eval :prefixed t :sldb t :inferior t)
     ("\C-z" slime-switch-to-output-buffer :prefixed t :sldb t)
-    ("\C-g" slime-interrupt :prefixed t :inferior t :sldb t)
-    ;; NB: XEmacs dosn't like \C-g.  Use \C-b as "break" key.
     ("\C-b" slime-interrupt :prefixed t :inferior t :sldb t)
     ("\M-g" slime-quit :prefixed t :inferior t :sldb t)
     ;; Documentation
@@ -2709,7 +2707,7 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   ("\M-r" 'slime-repl-previous-matching-input)
   ("\M-s" 'slime-repl-next-matching-input)
   ("\C-c\C-c" 'slime-interrupt)
-  ("\C-c\C-g" 'slime-interrupt)
+  ("\C-c\C-b" 'slime-interrupt)
   ("\C-c:"    'slime-interactive-eval)
   ("\C-c\C-e" 'slime-interactive-eval)
   ;("\t"   'slime-complete-symbol)
@@ -2736,8 +2734,7 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   "[read]"
   '(("\C-m" . slime-repl-return)
     ("\C-c\C-b" . slime-repl-read-break)
-    ("\C-c\C-c" . slime-repl-read-break)
-    ("\C-c\C-g" . slime-repl-read-break)))
+    ("\C-c\C-c" . slime-repl-read-break)))
 
 (make-variable-buffer-local
  (defvar slime-read-string-threads nil))
@@ -2832,7 +2829,7 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
 (defun slime-list-repl-short-cuts ()
   (interactive)
   (slime-with-output-to-temp-buffer ("*slime-repl-help*") nil
-    (let ((table (sort* slime-repl-shortcut-table #'string<
+    (let ((table (sort* (copy-list slime-repl-shortcut-table) #'string<
                         :key (lambda (x) 
                                (car (slime-repl-shortcut.names x))))))
       (dolist (shortcut table)
@@ -2844,7 +2841,7 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
             (while (cdr names)
               (insert (pop names) ", "))
             (insert (car names) ")"))
-        (insert "\n     " (slime-repl-shortcut.one-liner shortcut) 
+        (insert "\n     " (slime-repl-shortcut.one-liner shortcut)
                 "\n"))))))
   
 (defslime-repl-shortcut slime-repl-shortcut-help ("help" "?")
