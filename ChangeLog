@@ -3,6 +3,26 @@
 	* slime.el (slime-lisp-preferred-package-nicknames): Removed. Not
 	very interesting (and slightly broken) now that shortest-nicknames
 	are automatically used.
+	(slime-output-oneway-evaluate-request): New function to evaluate
+	an expression for side-effects (without getting a
+	result).
+	(slime-idle-state): Handle new :emacs-evaluate-oneway.
+	(slime-debugging-state): Handle :emacs-evaluate-oneway. Also
+	handle :read-string.
+	(sldb-invoke-restart): Use slime-oneway-eval. This avoids pushing
+	an evaluating state (which will be aborted, and print an unnecessary
+	message saying so).
+	(sldb-break-with-default-debugger): New command to break into the
+	default TTY debugger. Bound to 'B' in *sldb*.
+
+	* swank.lisp (invoke-nth-restart-for-emacs): Wrapper around
+	INVOKE-NTH-RESTART that checks that Lisp and Emacs agree on the
+	debug level. This detects and ignores old restart requests when
+	several are sent at once (possible because of new oneway-eval
+	feature).
+	(oneway-eval-string): New function to evaluate a string without
+	sending a result, and with *DEBUGGER-HOOK* bound to NIL. (The
+	debugger hook is inhibited to avoid state conflicts.)
 
 2003-12-15  Luke Gorrie  <luke@bluetail.com>
 
