@@ -1,3 +1,13 @@
+2004-06-30  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-display-compilation-output): New customizable
+	variable.
+
+	* swank.lisp: Minor cleanups.
+	(find-symbol-designator, find-symbol-or-lose)
+	(case-convert-input): Deleted.  Replaced with calls to
+	parse-symbol{-or-lose}.
+
 2004-06-30  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-read-port-and-connect-to-running-swank)
@@ -66,19 +76,19 @@
 	* swank-allegro.lisp (nth-frame): Skip frames where
 	frame-visible-p is false.
 
-	* slime.el (slime-buffer-package): Return the cached package if
-	can't something more sensible; this reverts a previous change.
-	The Lisp side will now fall back to an existing package if the one
-	supplied by Emacs doesn't exist.  Using the cached version is also
-	necessary for some commands in the apropos buffer.
+	* slime.el (slime-buffer-package): Return the cached package if we
+	can't find something more sensible; this reverts a previous
+	change.  The Lisp side will now fall back to an existing package
+	if the one supplied by Emacs doesn't exist.  Using the cached
+	version is also necessary for some commands in the apropos buffer.
 	(sldb-insert-frame): Set the default-action property; pressing RET
 	on frame lines now shows/hides details.
 	(sldb-toggle-details): Preserve the current column.
 	(slime-inspector-buffer, slime-saved-window-config)
 	(slime-inspector-quit): Save and restore the window configuration.
 	(slime-highlight-suppressed-forms, slime-search-suppressed-forms):
-	Display expressions with reader conditionals (#+/#-) where the
-	test is false in font-lock-comment-face.  No implemented for
+	Display expressions with reader conditionals (#+/#-) in
+	font-lock-comment-face if the test is false.  Not implemented for
 	XEmacs.
 	(repl-return): New test.
 
