@@ -1157,19 +1157,16 @@ See `slime-translate-from-lisp-filename-function'."
 
 ;;;;; Entry points
 
-(defun slime ()
+(defun slime (command buffer)
   "Start an inferior^_superior Lisp and connect to its Swank server."
-  (interactive)
+  (interactive (list (if current-prefix-arg
+			 (read-string "Run lisp: " inferior-lisp-program)
+                       inferior-lisp-program)
+                     "*inferior-lisp*"))
   (when (or (not (slime-bytecode-stale-p))
             (slime-urge-bytecode-recompile))
-    (cond ((and current-prefix-arg
-                (slime-connected-p)
-                (slime-process))
-           (unless (slime-maybe-rearrange-inferior-lisp)
-             (slime-disconnect)))
-          (t (slime-disconnect)))
-    (slime-maybe-start-lisp)
-    (slime-inferior-connect)))
+    (let ((proc (slime-maybe-start-lisp command buffer)))
+      (slime-inferior-connect proc nil))))
 
 (defun slime-connect (host port &optional kill-old-p)
   "Connect to a running Swank server."
@@ -1291,41 +1288,63 @@ Return true if we have been given permission to continue."
       (rename-buffer (generate-new-buffer-name (buffer-name)))
       t)))
 
-(defun slime-maybe-start-lisp ()
+(defun slime-maybe-start-lisp (command buffername)
   "Start an inferior lisp. Instruct it to load Swank."
-  (unless (get-buffer-process inferior-lisp-buffer)
-    (slime-start-lisp)))
+  (cond ((not (comint-check-proc buffername))
+         (slime-start-lisp command buffername))
+        ((y-or-n-p "Create an additional *inferior-lisp*? ")
+         (slime-start-lisp command (generate-new-buffer-name buffername)))
+        (t 
+         (when-let (conn (find (get-buffer-process buffername)
+                               slime-net-processes 
+                               :key #'slime-inferior-process))
+           (slime-net-close conn))
+         (get-buffer-process buffername))))
 
-(defun slime-start-lisp ()
-  (call-interactively 'inferior-lisp)
-  (when slime-kill-without-query-p
-    (process-kill-without-query (inferior-lisp-proc)))
-  (comint-send-string (inferior-lisp-proc)
-                      (format "(load %S)\n"
-                              (slime-to-lisp-filename
-                               (if (file-name-absolute-p slime-backend)
-                                   slime-backend
-                                 (concat slime-path slime-backend)))))
-  (slime-maybe-start-multiprocessing))
+(defun slime-start-lisp (command buffername)
+  "Start a new Lisp with command and in the buffer BUFFERNAME.
+Return the new process."
+  (let ((proc (slime-inferior-lisp command buffername)))
+    (when slime-kill-without-query-p
+      (process-kill-without-query proc))
+    (comint-send-string proc
+                        (format "(load %S :verbose t)\n"
+                                (slime-to-lisp-filename
+                                 (if (file-name-absolute-p slime-backend)
+                                     slime-backend
+                                   (concat slime-path slime-backend)))))
+    (slime-maybe-start-multiprocessing)
+    proc))
+
+(defun slime-inferior-lisp (command buffername)
+  "Does the same as `inferior-lisp' but less ugly.
+Return the created process."
+  (let ((args (split-string command)))
+    (with-current-buffer (get-buffer-create buffername)
+      (comint-mode)
+      (comint-exec (current-buffer) "inferior-lisp" (car args) nil (cdr args))
+      (inferior-lisp-mode)
+      (setq inferior-lisp-buffer (current-buffer))
+      (pop-to-buffer (current-buffer))
+      (get-buffer-process (current-buffer)))))
 
 (defun slime-maybe-start-multiprocessing ()
   (when slime-multiprocessing
     (comint-send-string (inferior-lisp-proc)
                         "(swank:startup-multiprocessing)\n")))
 
-(defun slime-inferior-connect (&optional retries)
+(defun slime-inferior-connect (process &optional retries)
   "Start a Swank server in the inferior Lisp and connect."
   (when (file-regular-p (slime-swank-port-file))
     (delete-file (slime-swank-port-file)))
-  (slime-start-swank-server)
-  (slime-read-port-and-connect retries))
+  (slime-start-swank-server process)
+  (slime-read-port-and-connect process retries))
 
-(defun slime-start-swank-server ()
+(defun slime-start-swank-server (process)
   "Start a Swank server on the inferior lisp."
-  (comint-send-string (inferior-lisp-proc) 
-                      (format "(swank:start-server %S)\n"
-                                (slime-to-lisp-filename
-                                 (slime-swank-port-file)))))
+  (comint-send-string process (format "(swank:start-server %S)\n"
+                                      (slime-to-lisp-filename
+                                       (slime-swank-port-file)))))
 
 (defun slime-swank-port-file ()
   "Filename where the SWANK server writes its TCP port number."
@@ -1335,8 +1354,9 @@ Return true if we have been given permission to continue."
                  (t "/tmp/")))
           (format "slime.%S" (emacs-pid))))
 
-(defun slime-read-port-and-connect (retries)
-  (lexical-let ((retries retries)
+(defun slime-read-port-and-connect (inferior-process retries)
+  (lexical-let ((process inferior-process)
+                (retries retries)
                 (attempt 0))
     (labels
         ;; A small one-state machine to attempt a connection with
@@ -1347,14 +1367,16 @@ Return true if we have been given permission to continue."
             (message "\
 Polling %S.. (Abort with `M-x slime-abort-connection'.)"
                      (slime-swank-port-file)))
-          (slime-set-state (format "[polling:%S]" (incf attempt)))
+          (unless (slime-connected-p)
+            (slime-set-state (format "[polling:%S]" (incf attempt))))
           (when slime-connect-retry-timer
             (cancel-timer slime-connect-retry-timer))
           (setq slime-connect-retry-timer nil) ; remove old timer
           (cond ((file-exists-p (slime-swank-port-file))
                  (let ((port (slime-read-swank-port)))
                    (delete-file (slime-swank-port-file))
-                   (slime-connect "127.0.0.1" port)))
+                   (let ((c (slime-connect "127.0.0.1" port)))
+                     (setf (slime-inferior-process c) process))))
                 ((and retries (zerop retries))
                  (message "Failed to connect to Swank."))
                 (t
@@ -1483,7 +1505,7 @@ EVAL'd by Lisp."
   (when (ignore-errors (eq (process-status (inferior-lisp-proc)) 'open))
     (message "Lisp connection closed unexpectedly: %s" message))
   (slime-net-close process)
-  (slime-set-state "[not connected]"))
+  (slime-set-state "[not connected]" process))
 
 ;;; Socket input is handled by `slime-net-filter', which decodes any
 ;;; complete messages and hands them off to the event dispatcher.
@@ -1650,12 +1672,12 @@ If PROCESS is not specified, `slime-connection' is used.
   "Name of the current state of `slime-default-connection'.
 Just used for informational display in the mode-line.")
 
-(defun slime-set-state (name)
+(defun slime-set-state (name &optional connection)
   "Set the current connection's informational state name.
 If this is the default connection then the state will be displayed in
 the modeline."
   (when (or (not (slime-connected-p))
-            (eq (slime-connection) slime-default-connection))
+            (eq (or connection (slime-connection)) slime-default-connection))
     (setq slime-state-name name)
     (force-mode-line-update)))
 
@@ -1727,6 +1749,9 @@ This is automatically synchronized from Lisp.")
 
 (slime-def-connection-var slime-use-sigint-for-interrupt nil
   "Non-nil means use SIGINT for interrupting.")
+
+(slime-def-connection-var slime-inferior-process nil
+  "The inferior process for the connection if any.")
 
 ;;;;; Connection setup
 
@@ -1829,11 +1854,10 @@ This is automatically synchronized from Lisp.")
 (defun slime-process (&optional connection)
   "Return the Lisp process for CONNECTION (default `slime-connection').
 Can return nil if there's no process object for the connection."
-  (let* ((pid (slime-pid connection))
-         (proc (find pid (process-list) :key #'process-id)))
-    (case (and proc (process-status proc))
-      ((run stop) proc)
-      ((exit nil signal) nil))))
+  (let ((proc (slime-inferior-process connection)))
+    (if (and proc 
+             (memq (process-status proc) '(run stop)))
+        proc)))
 
 
 ;;;; Communication protocol
@@ -2321,11 +2345,11 @@ update window-point afterwards.  If point is initially not at
        (insert "\n")
        (set-marker slime-output-end (1- (point)))))))
 
-(defun slime-switch-to-output-buffer (&optional select-connection)
+(defun slime-switch-to-output-buffer (&optional connection)
   "Select the output buffer, preferably in a different window."
-  (interactive "P")
-  (let ((slime-dispatching-connection
-         (if select-connection (slime-choose-connection))))
+  (interactive (list (if prefix-arg (slime-choose-connection))))
+  (let ((slime-dispatching-connection (or connection 
+                                          slime-dispatching-connection)))
     (set-buffer (slime-output-buffer))
     (unless (eq (current-buffer) (window-buffer))
       (pop-to-buffer (current-buffer) t))
@@ -3058,16 +3082,16 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
 (defslime-repl-shortcut slime-restart-inferior-lisp ("restart-inferior-lisp")
   (:handler (lambda ()
               (interactive)
-              (let* ((proc (slime-process))
-                     (inferior-lisp-program ; for the new process
-                      (if proc 
-                          (mapconcat #'identity (process-command proc) " ")
-                        inferior-lisp-program)))
-                (ignore-errors (kill-process proc))
-                (while (comint-check-proc (process-buffer proc))
+              (when (slime-connected-p)
+                (slime-eval-async '(swank:quit-lisp)))
+              (let ((proc (slime-process)))
+                (kill-process proc)
+                (while (memq (process-status proc) '(run stop))
                   (sit-for 0 20))
-                (slime-start-lisp)
-                (slime-inferior-connect))))
+                (let* ((args (mapconcat #'identity (process-command proc) " "))
+                       (buffer (buffer-name (process-buffer proc)))
+                       (new-proc (slime-start-lisp args buffer)))
+                (slime-inferior-connect new-proc)))))
   (:one-liner "Restart *inferior-lisp* and reconnect SLIME."))
 
 
@@ -6408,7 +6432,7 @@ This way you can still see what the error was after exiting SLDB."
   (let ((id (get-text-property (point) 'thread-id))
         (file (slime-swank-port-file)))
     (slime-eval-async `(swank:start-swank-server-in-thread ,id ,file)))
-  (slime-read-port-and-connect nil))
+  (slime-read-port-and-connect nil nil))
 
 (defun slime-thread-debug ()
   (interactive)
@@ -6437,8 +6461,8 @@ This way you can still see what the error was after exiting SLDB."
 
 (defun slime-goto-connection ()
   (interactive)
-  (let ((slime-dispatching-connection (slime-connection-at-point)))
-    (slime-switch-to-output-buffer)))
+  (let ((p (slime-connection-at-point)))
+    (slime-switch-to-output-buffer p)))
 
 (defun slime-connection-list-make-default ()
   (interactive)
