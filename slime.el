@@ -64,6 +64,7 @@
   (unless (fboundp 'define-minor-mode)
     (require 'easy-mmode)
     (defalias 'define-minor-mode 'easy-mmode-define-minor-mode)))
+(require 'easymenu)
 
 (defvar slime-path
   (let ((path (locate-library "slime")))
@@ -413,6 +414,61 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
     [(meta control ?m)] 'inferior-slime-closing-return))
 
 (slime-init-keymaps)
+
+
+;;;; Pull-down menu
+
+(defvar slime-easy-menu
+  (let ((C '(slime-connected-p)))
+    `("SLIME"
+      [ "Edit Definition..." slime-edit-fdefinition ,C ]
+      [ "Return From Definition" slime-pop-find-definition-stack ,C ]
+      [ "Complete Symbol" slime-complete-symbol ,C ]
+      "--"
+      ("Evaluation"
+       [ "Eval Defun"  slime-eval-defun ,C ]
+       [ "Eval Last Expression" slime-eval-last-expression ,C ]
+       [ "Eval And Pretty-Print" slime-pprint-eval-last-expression ,C ]
+       [ "Interactive Eval" slime-interactive-eval ,C ])
+      ("Debugging"
+       [ "Macroexpand Once..." slime-macroexpand-1 ,C ]
+       [ "Macroexpand All..." slime-macroexpand-all ,C ]
+       [ "Toggle Trace..." slime-toggle-trace-fdefinition ,C ]
+       [ "Disassemble..." slime-disassemble-symbol ,C ]
+       [ "Inspect..." slime-inspect ,C ])
+      ("Compilation"
+       [ "Compile Defun" slime-compile-defun ,C ]
+       [ "Compile/Load File" slime-compile-and-load-file ,C ]
+       [ "Compile File" slime-compile-file ,C ]
+       "--"
+       [ "Next Note" slime-next-note t ]
+       [ "Previous Note" slime-previous-note t ]
+       [ "Remove Notes" slime-remove-notes t ])
+      ("Cross Reference"
+       [ "Who Calls..." slime-who-calls ,C ]
+       [ "Who References... " slime-who-references ,C ]
+       [ "Who Sets..." slime-who-sets ,C ]
+       [ "Who Binds..." slime-who-binds ,C ]
+       [ "Who Macroexpands..." slime-who-macroexpands ,C ]
+       [ "List Callers..." slime-list-callers ,C ]
+       [ "List Callees..." slime-list-callees ,C ]
+       [ "Next Location" slime-next-location t ])
+      ("Documentation"
+       [ "Describe Symbol..." slime-describe-symbol ,C ]
+       [ "Apropos..." slime-apropos ,C ]
+       [ "Hyperspec..." hyperspec-lookup t ])
+      "--"
+      [ "Interrupt Command" slime-interrupt ,C ]
+      [ "Abort Async. Command" slime-quit ,C ]
+      [ "Sync Package & Directory" slime-sync-package-and-default-directory ,C ]
+      )))
+
+(easy-menu-define menubar-slime slime-mode-map "SLIME" slime-easy-menu) 
+
+(defun slime-add-easy-menu ()
+  (easy-menu-add slime-easy-menu 'slime-mode-map))
+
+(add-hook 'slime-mode-hook 'slime-add-easy-menu)
 
 
 ;;; Setup initial `slime-mode' hooks
