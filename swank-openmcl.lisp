@@ -109,8 +109,8 @@
                 (previous-f nil))
             (block find-frame
               (map-backtrace  
-               #'(lambda(frame-number p tcr lfun pc)
-                   (declare (ignore frame-number tcr pc))
+               #'(lambda(frame-number p context lfun pc)
+                   (declare (ignore frame-number context pc))
                    (when (eq  previous-f 'ccl::%pascal-functions%) 
                      (setq *swank-debugger-stack-frame* p)
                      (return-from find-frame))
@@ -139,8 +139,8 @@
           (previous-f2 nil))
       (block find-frame
         (map-backtrace  
-         #'(lambda(frame-number p tcr lfun pc)
-             (declare (ignore frame-number tcr pc))
+         #'(lambda(frame-number p context lfun pc)
+             (declare (ignore frame-number context pc))
              (when (eq  previous-f2 'break-in-sldb) 
                (setq *swank-debugger-stack-frame* p)
                (return-from find-frame))
@@ -224,54 +224,72 @@ condition."
          (ccl::*signal-printing-errors* nil)) ; don't let error while printing error take us down
     (funcall debugger-loop-fn)))
 
+(defun backtrace-context ()
+  (if (and (= ccl::*openmcl-major-version* 0)
+           (<= ccl::*openmcl-minor-version* 14)
+           (< ccl::*openmcl-revision* 2))
+      (ccl::%current-tcr)
+      nil))
+
 (defun map-backtrace (function &optional
                       (start-frame-number 0)
                       (end-frame-number most-positive-fixnum))
   "Call FUNCTION passing information about each stack frame
  from frames START-FRAME-NUMBER to END-FRAME-NUMBER."
-  (let ((tcr (ccl::%current-tcr))
+  (let ((context (backtrace-context))
         (frame-number 0)
         (top-stack-frame (or *swank-debugger-stack-frame* 
                              (ccl::%get-frame-ptr))))
-    (do* ((p top-stack-frame (ccl::parent-frame p tcr))
-          (q (ccl::last-frame-ptr tcr)))
-         ((or (null p) (eq p q) (ccl::%stack< q p tcr))
+    (do* ((p top-stack-frame (ccl::parent-frame p context))
+          (q (ccl::last-frame-ptr context)))
+         ((or (null p) (eq p q) (ccl::%stack< q p context))
           (values))
       (multiple-value-bind (lfun pc) (ccl::cfp-lfun p)
         (when lfun
           (if (and (>= frame-number start-frame-number)
                    (< frame-number end-frame-number))
-              (funcall function frame-number p tcr lfun pc))
+              (funcall function frame-number p context lfun pc))
           (incf frame-number))))))
 
-(defun frame-arguments (p tcr lfun pc)
+;; May 13, 2004 alanr: use prin1 instead of princ so I see " around strings. Write ' in front of symbol names and lists.
+
+(defun frame-arguments (p context lfun pc)
   "Returns a string representing the arguments of a frame."
   (multiple-value-bind (count vsp parent-vsp)
-      (ccl::count-values-in-frame p tcr)
+      (ccl::count-values-in-frame p nil)
     (let (result)
         (dotimes (i count)
           (multiple-value-bind (var type name)
-              (ccl::nth-value-in-frame p i tcr lfun pc vsp parent-vsp)
+              (ccl::nth-value-in-frame p i context lfun pc vsp parent-vsp)
             (when name
+	      (when (or (symbolp var) (listp var)) (setq var (list 'quote var)))
               (cond ((equal type "required")
-                     (push (princ-to-string var) result))
+                     (push (prin1-to-string var) result))
                     ((equal type "optional")
-                     (push (princ-to-string var) result))
+                     (push (prin1-to-string var) result))
                     ((equal type "keyword")
                      (push (format nil "~S ~A" 
                                    (intern (symbol-name name) "KEYWORD")
-                                   (princ-to-string var))
+                                   (prin1-to-string var))
                            result))))))
         (format nil "~{ ~A~}" (nreverse result)))))
 
+
+
+
 ;; XXX should return something less stringy
+;; alanr May 13, 2004: put #<> around anonymous functions in the backtrace.
+
 (defimplementation compute-backtrace (start-frame-number end-frame-number)
   (let (result)
-    (map-backtrace (lambda (frame-number p tcr lfun pc)
+    (map-backtrace (lambda (frame-number p  context lfun pc)
+		     (declare (ignore  frame-number))
                      (push (with-output-to-string (s)
                              (format s "(~A~A)"
-                                     (ccl::%lfun-name-string lfun)
-                                     (frame-arguments p tcr lfun pc)))
+                                     (if (ccl::function-name lfun)
+					 (ccl::%lfun-name-string lfun)
+					 lfun)
+                                     (frame-arguments p context lfun pc)))
                            result))
                    start-frame-number end-frame-number)
     (nreverse result)))
@@ -281,14 +299,14 @@ condition."
 
 (defimplementation frame-locals (index)
   (map-backtrace 
-   (lambda (frame-number p tcr lfun pc)
+   (lambda (frame-number p context lfun pc)
      (when (= frame-number index)
        (multiple-value-bind (count vsp parent-vsp)
-           (ccl::count-values-in-frame p tcr)
+           (ccl::count-values-in-frame p context)
          (let (result)
            (dotimes (i count)
              (multiple-value-bind (var type name)
-                 (ccl::nth-value-in-frame p i tcr lfun pc vsp parent-vsp)
+                 (ccl::nth-value-in-frame p i context lfun pc vsp parent-vsp)
                (declare (ignore type))
                (when name
                  (push (list 
@@ -300,19 +318,19 @@ condition."
 
 (defimplementation frame-catch-tags (index &aux my-frame)
   (map-backtrace 
-   (lambda (frame-number p tcr lfun pc)
+   (lambda (frame-number p context lfun pc)
       (declare (ignore pc lfun))
       (if (= frame-number index) 
           (setq my-frame p)
           (when my-frame
             (return-from frame-catch-tags
-              (loop for catch = (ccl::%catch-top tcr) then (ccl::next-catch catch)
+              (loop for catch = (ccl::%catch-top (ccl::%current-tcr)) then (ccl::next-catch catch)
                     while catch
                     for csp = (ccl::uvref catch 3) ; ppc32::catch-frame.csp-cell) defined in arch.lisp
                     for tag = (ccl::uvref catch 0) ; ppc32::catch-frame.catch-tag-cell)
-                    until (ccl::%stack< p csp tcr)
+                    until (ccl::%stack< p csp context)
                     do (print "-") (print catch) (terpri) (describe tag)
-                    when (ccl::%stack< my-frame csp tcr)
+                    when (ccl::%stack< my-frame csp context)
                     collect (cond 
                               ((symbolp tag)
                                tag)
@@ -324,8 +342,8 @@ condition."
   (let ((function-to-disassemble nil))
     (block find-frame
       (map-backtrace
-       (lambda(frame-number p tcr lfun pc)
-         (declare (ignore p tcr pc))
+       (lambda(frame-number p context lfun pc)
+         (declare (ignore p context pc))
          (when (= frame-number the-frame-number)
            (setq function-to-disassemble lfun)
            (return-from find-frame)))))
@@ -360,47 +378,46 @@ function in a debugger frame.  In OpenMCL, we are not able to
 find the precise position of the frame, but we do attempt to give
 at least the filename containing it."
   (map-backtrace
-   (lambda (frame-number p tcr lfun pc)
-     (declare (ignore p tcr pc))
+   (lambda (frame-number p context lfun pc)
+     (declare (ignore p context pc))
      (when (and (= frame-number index) lfun)
        (return-from frame-source-location-for-emacs
          (function-source-location lfun))))))
 
 (defimplementation eval-in-frame (form index)
   (map-backtrace
-   (lambda (frame-number p tcr lfun pc)
+   (lambda (frame-number p context lfun pc)
      (when (= frame-number index)
        (multiple-value-bind (count vsp parent-vsp)
-           (ccl::count-values-in-frame p tcr)
+           (ccl::count-values-in-frame p context)
          (let ((bindings nil))
            (dotimes (i count)
              (multiple-value-bind (var type name)
-                 (ccl::nth-value-in-frame p i tcr lfun pc vsp parent-vsp)
+                 (ccl::nth-value-in-frame p i context lfun pc vsp parent-vsp)
                (declare (ignore type))
                (when name
                  (push (list name `',var) bindings))
                ))
            (return-from eval-in-frame
              (eval `(let ,bindings
-                     (Declare (ccl::ignore-if-unused 
-                               ,@(mapcar 'car bindings)))
+                     (declare (ignorable ,@(mapcar 'car bindings)))
                      ,form)))
            ))))))
 
 (defimplementation return-from-frame (index form)
   (let ((values (multiple-value-list (eval-in-frame form index))))
     (map-backtrace
-     (lambda (frame-number p tcr lfun pc)
-       (declare (ignore tcr lfun pc))
+     (lambda (frame-number p context lfun pc)
+       (declare (ignore context lfun pc))
        (when (= frame-number index)
          (ccl::apply-in-frame p #'values values))))))
  
 (defimplementation restart-frame (index)
   (map-backtrace
-   (lambda (frame-number p tcr lfun pc)
+   (lambda (frame-number p context lfun pc)
      (when (= frame-number index)
        (ccl::apply-in-frame p lfun 
-                            (ccl::frame-supplied-args p lfun pc nil tcr))))))
+                            (ccl::frame-supplied-args p lfun pc nil context))))))
 
 ;;; Utilities
 
@@ -441,7 +458,7 @@ at least the filename containing it."
   (loop for caller in (ccl::callers symbol)
         append (multiple-value-bind (info name type specializers modifiers)
                    (ccl::edit-definition-p caller)
-                 (loop for (dspec . file) in info
+                 (loop for (nil . file) in info
                        collect (list (if (eq t type)
                                          name
                                          `(,type ,name ,specializers

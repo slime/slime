@@ -1,3 +1,31 @@
+2004-05-12  Alan Ruttenberg  <alanr-l@mumble.net>
+	* swank-openmcl.lisp: Fixes to support openmcl 0.14.2 changes in
+	backtrace protocol, from Gary Byers.
+	- Replace string "tcr" to "context".
+	- Change the call to %current-tcr in map-backtrace to get-backtrace-context, 
+	defined so as to be back compatible with 0.14.1.
+	- Change the call to %catch-top to explicitly use %current-tcr
+	instead of the passed in tcr-which-is-now-called-context.
+
+	Users of map-backtrace (outside of slime code) note: The tcr position in the
+	function call is now occupied by the backtrace "context" which is always nil.
+	If you really need the tcr then you need to call %current-tcr yourself now.
+	
+	Gary comments: The part that's a little hard to document about
+	the new "context" stuff - used to walk the stacks of thread A from
+	thread B - is that thread B has to be aware of when a context
+	becomes invalid (a context describing part of thread A's stack is
+	valid while thread A's sitting in a break loop and becomes invalid
+	as soon as it exits that break loop.)  A thread sort of announces
+	when a context becomes valid and when it becomes invalid; whether
+	and how SWANK could hook into that isn't yet clear.
+
+	* swank-openmcl.lisp: Minor changes to backtrace display: Anonymous 
+	functions names in function position surrounded by #<>. Use prin1 instead of 
+	princ to print function arguments (so strings have "s around them). 
+	prefix symbol and list arguments by "'" to make them more look like a 
+	valid function call. Let me know if you don't like this...
+
 2004-05-12  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el: Fixes for outline-mode in *slime-events* from Edi
@@ -1670,7 +1698,7 @@
 	* slime.el, swank-backend.lisp, swank-cmucl.lisp, swank-sbcl.lisp,
 	swank.lisp: Profiler support.
 
-2004-01-23  Alan Ruttenberg <alanralanr@comcast.net>
+2004-01-23  Alan Ruttenberg <alanr-l@mumble.net>
 
 	* swank-openmcl.lisp: Bind ccl::*signal-printing-errors* to nil
 	inside debugger so that error while printing error take us down.
@@ -1789,7 +1817,7 @@
 	"Eval Region", "Scratch Buffer", "Apropos Package..."
 	Added some bold to default SLDB faces.
 
-2004-01-19  Alan Ruttenberg  <alanralanr@comcast.net>
+2004-01-19  Alan Ruttenberg  <alanr-l@mumble.net>
         *swank-openmcl.lisp in frame-catch-tags, ppc32::catch-frame.catch-tag-cell -> 0,
 	ppc32::catch-frame.csp-cell -> 3. FIXME when this code is more stable in openMCL.
 	
@@ -1859,7 +1887,7 @@
 	a buffer local variable.  Reported by Janis Dzerins.
 	(slime-batch-test): Wait until the connection is ready.
 
-2004-01-18 Alan Ruttenberg  <alanralanr@comcast.net>
+2004-01-18 Alan Ruttenberg  <alanr-l@mumble.net>
 
 	* swank-openmcl: Implement frame-catch-tags. Added debugger functions 
 	sldb-restart-frame, sldb-return-from-frame. Should probably be added to backend.lisp
@@ -2395,11 +2423,11 @@
 	(slime-open-inspector): Minor indentation fixes.
 	(slime-net-output-funcall): Removed.  Was unused.
 
-2003-12-19 Alan Ruttenberg <alanralanr@comcast.net>
+2003-12-19 Alan Ruttenberg <alanr-l@mumble.net>
 	* slime.el 1.157
 	fix bug in sldb-princ-locals I introduced when adding fonts to sldb
 	
-2003-12-19 Alan Ruttenberg <alanralanr@comcast.net>
+2003-12-19 Alan Ruttenberg <alanr-l@mumble.net>
 	* swank-openmcl.lisp 1.42
 	in request-loop register output stream to be periodically slushed per Gary Byer's email.
 	* slime.el 1.156
@@ -2411,12 +2439,12 @@
 	* null-swank-impl.lisp: Deleted this old file. See
 	swank-backend.lisp instead.
 
-2003-12-18 Alan Ruttenberg <alanralanr@comcast.net>
+2003-12-18 Alan Ruttenberg <alanr-l@mumble.net>
 	* swank-openmcl.lisp 1.41
 	in openmcl (break) now goes into slime debugger. 
 	(setq swank:*break-in-sldb* nil) to disable that.
 	
-2003-12-17 Alan Ruttenberg <alanralanr@comcast.net>
+2003-12-17 Alan Ruttenberg <alanr-l@mumble.net>
         * slime.el 1.155
         Allow font choices for backtrack. Add group for customizing them: sldb.
 	Whole thing is enabled with sldb-enable-styled-backtrace which is off by default, for now.
@@ -2431,7 +2459,7 @@
 	 '(sldb-selected-frame-line-face ((t (:foreground "brown" :weight bold :height 1.2))))
 	 '(sldb-topline-face ((t (:foreground "brown" :weight bold :height 1.2))))
 
-2003-12-17 Alan Ruttenberg <alanralanr@comcast.net>
+2003-12-17 Alan Ruttenberg <alanr-l@mumble.net>
         * slime.el 1.154
 	Allow some face choices in the inspector. Try
 	 '(slime-inspector-label-face ((t (:weight bold))))
@@ -2439,7 +2467,7 @@
 	 '(slime-inspector-type-face ((t (:foreground "DarkRed" :weight bold))))
 	You can also set slime-inspector-value-face
 	
-2003-12-17 Alan Ruttenberg <alanralanr@comcast.net>
+2003-12-17 Alan Ruttenberg <alanr-l@mumble.net>
 
 	* swank-openmcl.lisp 1.40
 	Fix an error with frame-source-location-for-emacs when the
@@ -2555,7 +2583,7 @@
 	(slime-popup-thread-control-panel): When true, automatically
 	popup the thread-control buffer when a new thread suspends.
 
-2003-12-14  Alan Ruttenberg <alanralanr@comcast.net>
+2003-12-14  Alan Ruttenberg <alanr-l@mumble.net>
 
 	* swank-openmcl.lisp (eval-in-frame, inspect-object and friends):
 	Most of this is copied from swank-cmucl. The parts between &&&&&
