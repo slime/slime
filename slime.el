@@ -66,9 +66,11 @@
 (defvar slime-use-autodoc-mode nil
   "When non-nil always enabled slime-autodoc-mode in slime-mode.")
 
-(defun* slime-setup (&key autodoc)
+(defun* slime-setup (&key autodoc typeout-frame)
   "Setup Emacs so that lisp-mode buffers always use SLIME."
   (add-hook 'lisp-mode-hook 'slime-lisp-mode-hook)
+  (when typeout-frame
+    (add-hook 'slime-connected-hook 'slime-ensure-typeout-frame))
   (setq slime-use-autodoc-mode autodoc))
 
 (defun slime-lisp-mode-hook ()

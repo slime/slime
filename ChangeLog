@@ -1,3 +1,7 @@
+2004-08-05  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-setup): Added typeout-frame keyword argument.
+
 2004-08-04  Luke Gorrie  <luke@bluetail.com>
 
 	* swank-allegro.lisp (find-fspec-location): Fixed to work for more
