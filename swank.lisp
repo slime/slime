@@ -1067,6 +1067,182 @@ pretty printing of (function foo) as #'foo is suppressed."
            " <not available>"))))
 
 
+;;;; Evaluation
+
+(defun eval-in-emacs (form)
+  "Execute FORM in Emacs."
+  (destructuring-bind (fn &rest args) form
+    (send-to-emacs `(:%apply ,(string-downcase (string fn)) ,args))))
+
+(defun guess-buffer-package (string)
+  "Return a package for STRING. 
+Fall back to the the current if no such package exists."
+  (or (guess-package-from-string string nil)
+      *package*))
+
+(defun eval-for-emacs (form buffer-package id)
+  "Bind *BUFFER-PACKAGE* BUFFER-PACKAGE and evaluate FORM.
+Return the result to the continuation ID.
+Errors are trapped and invoke our debugger."
+  (let ((*debugger-hook* #'swank-debugger-hook))
+    (let (ok result)
+      (unwind-protect
+           (let ((*buffer-package* (guess-buffer-package buffer-package))
+                 (*buffer-readtable* (guess-buffer-readtable buffer-package)))
+             (assert (packagep *buffer-package*))
+             (assert (readtablep *buffer-readtable*))
+             (setq result (eval form))
+             (force-output)
+             (run-hook *pre-reply-hook*)
+             (setq ok t))
+        (force-user-output)
+        (send-to-emacs `(:return ,(current-thread)
+                         ,(if ok `(:ok ,result) '(:abort)) 
+                         ,id))))))
+
+(defun format-values-for-echo-area (values)
+  (with-buffer-syntax ()
+    (let ((*print-readably* nil))
+      (cond (values (format nil "~{~S~^, ~}" values))
+            (t "; No value")))))
+
+(defslimefun interactive-eval (string)
+  (with-buffer-syntax ()
+    (let ((values (multiple-value-list (eval (read-from-string string)))))
+      (fresh-line)
+      (force-output)
+      (format-values-for-echo-area values))))
+
+(defun eval-region (string &optional package-update-p)
+  "Evaluate STRING and return the result.
+If PACKAGE-UPDATE-P is non-nil, and evaluation causes a package
+change, then send Emacs an update."
+  (let (- values)
+    (unwind-protect
+         (with-input-from-string (stream string)
+           (loop for form = (read stream nil stream)
+                 until (eq form stream)
+                 do (progn
+                      (setq - form)
+                      (setq values (multiple-value-list (eval form)))
+                      (force-output))
+                 finally (progn
+                           (fresh-line)
+                           (force-output)
+                           (return (values values -)))))
+      (when (and package-update-p (not (eq *package* *buffer-package*)))
+        (send-to-emacs 
+         (list :new-package (package-name *package*) (package-string-for-prompt *package*)))))))
+
+(defun package-string-for-prompt (package)
+  "Return the shortest nickname (or canonical name) of PACKAGE."
+  (or (canonical-package-nickname package)
+      (auto-abbreviated-package-name package)
+      (shortest-package-nickname package)))
+
+(defun canonical-package-nickname (package)
+  "Return the canonical package nickname, if any, of PACKAGE."
+  (cdr (assoc (package-name package) *canonical-packge-nicknames* :test #'string=)))
+
+(defun auto-abbreviated-package-name (package)
+  "Return an abbreviated 'name' for PACKAGE. N.B. this is not an actual package name or nickname."
+  (when *auto-abbreviate-dotted-packages*
+    (let ((last-dot (position #\. (package-name package) :from-end t)))
+      (when last-dot (subseq (package-name package) (1+ last-dot))))))
+
+(defun shortest-package-nickname (package)
+  "Return the shortest nickname (or canonical name) of PACKAGE."
+  (loop for name in (cons (package-name package) (package-nicknames package))
+        for shortest = name then (if (< (length name) (length shortest))
+                                   name
+                                   shortest)
+              finally (return shortest)))
+
+
+(defslimefun interactive-eval-region (string)
+  (with-buffer-syntax ()
+    (format-values-for-echo-area (eval-region string))))
+
+(defslimefun re-evaluate-defvar (form)
+  (with-buffer-syntax ()
+    (let ((form (read-from-string form)))
+      (destructuring-bind (dv name &optional value doc) form
+	(declare (ignore value doc))
+	(assert (eq dv 'defvar))
+	(makunbound name)
+	(prin1-to-string (eval form))))))
+
+(defvar *swank-pprint-circle* *print-circle*
+  "*PRINT-CIRCLE* is bound to this value when pretty printing slime output.")
+
+(defvar *swank-pprint-case* *print-case*
+  "*PRINT-CASE* is bound to this value when pretty printing slime output.")
+
+(defvar *swank-pprint-right-margin* *print-right-margin*
+  "*PRINT-RIGHT-MARGIN* is bound to this value when pretty printing slime output.")
+
+(defvar *swank-pprint-escape* *print-escape*
+  "*PRINT-ESCAPE* is bound to this value when pretty printing slime output.")
+
+(defvar *swank-pprint-level* *print-level*
+  "*PRINT-LEVEL* is bound to this value when pretty printing slime output.")
+
+(defvar *swank-pprint-length* *print-length*
+  "*PRINT-LENGTH* is bound to this value when pretty printing slime output.")
+
+(defun swank-pprint (list)
+  "Bind some printer variables and pretty print each object in LIST."
+  (with-buffer-syntax ()
+    (let ((*print-pretty* t)
+          (*print-case* *swank-pprint-case*)
+          (*print-right-margin* *swank-pprint-right-margin*)
+          (*print-circle* *swank-pprint-circle*)
+          (*print-escape* *swank-pprint-escape*)
+          (*print-level* *swank-pprint-level*)
+          (*print-length* *swank-pprint-length*))
+      (cond ((null list) "; No value")
+            (t (with-output-to-string (*standard-output*)
+                 (dolist (o list)
+                   (pprint o)
+                   (terpri))))))))
+
+(defslimefun pprint-eval (string)
+  (with-buffer-syntax ()
+    (swank-pprint (multiple-value-list (eval (read-from-string string))))))
+
+(defslimefun set-package (package)
+  "Set *package* to PACKAGE and return its name and the string to use in the prompt."
+  (let ((p (setq *package* (guess-package-from-string package))))
+    (list (package-name p) (package-string-for-prompt p))))
+
+(defslimefun listener-eval (string)
+  (clear-user-input)
+  (with-buffer-syntax ()
+    (multiple-value-bind (values last-form) (eval-region string t)
+      (setq +++ ++  ++ +  + last-form
+            *** **  ** *  * (car values)
+            /// //  // /  / values)
+      (cond ((null values) "; No value")
+            (t
+             (format nil "~{~S~^~%~}" values))))))
+
+(defslimefun ed-in-emacs (&optional what)
+  "Edit WHAT in Emacs.
+
+WHAT can be:
+  A filename (string),
+  A list (FILENAME LINE [COLUMN]),
+  A function name (symbol),
+  nil."
+  (let ((target
+         (cond ((and (listp what) (pathnamep (first what)))
+                (cons (canonicalize-filename (car what)) (cdr what)))
+               ((pathnamep what)
+                (canonicalize-filename what))
+               (t what))))
+    (send-oob-to-emacs `(:ed ,target))))
+
+
 ;;;; Debugger
 
 (defun swank-debugger-hook (condition hook)
@@ -1268,182 +1444,6 @@ the local variables in the frame INDEX."
 (defslimefun sldb-return-from-frame (index string)
   (let ((form (from-string string)))
     (to-string (multiple-value-list (return-from-frame index form)))))
-
-
-;;;; Evaluation
-
-(defun eval-in-emacs (form)
-  "Execute FORM in Emacs."
-  (destructuring-bind (fn &rest args) form
-    (send-to-emacs `(:%apply ,(string-downcase (string fn)) ,args))))
-
-(defun guess-buffer-package (string)
-  "Return a package for STRING. 
-Fall back to the the current if no such package exists."
-  (or (guess-package-from-string string nil)
-      *package*))
-
-(defun eval-for-emacs (form buffer-package id)
-  "Bind *BUFFER-PACKAGE* BUFFER-PACKAGE and evaluate FORM.
-Return the result to the continuation ID.
-Errors are trapped and invoke our debugger."
-  (let ((*debugger-hook* #'swank-debugger-hook))
-    (let (ok result)
-      (unwind-protect
-           (let ((*buffer-package* (guess-buffer-package buffer-package))
-                 (*buffer-readtable* (guess-buffer-readtable buffer-package)))
-             (assert (packagep *buffer-package*))
-             (assert (readtablep *buffer-readtable*))
-             (setq result (eval form))
-             (force-output)
-             (run-hook *pre-reply-hook*)
-             (setq ok t))
-        (force-user-output)
-        (send-to-emacs `(:return ,(current-thread)
-                         ,(if ok `(:ok ,result) '(:abort)) 
-                         ,id))))))
-
-(defun format-values-for-echo-area (values)
-  (with-buffer-syntax ()
-    (let ((*print-readably* nil))
-      (cond (values (format nil "~{~S~^, ~}" values))
-            (t "; No value")))))
-
-(defslimefun interactive-eval (string)
-  (with-buffer-syntax ()
-    (let ((values (multiple-value-list (eval (read-from-string string)))))
-      (fresh-line)
-      (force-output)
-      (format-values-for-echo-area values))))
-
-(defun eval-region (string &optional package-update-p)
-  "Evaluate STRING and return the result.
-If PACKAGE-UPDATE-P is non-nil, and evaluation causes a package
-change, then send Emacs an update."
-  (let (- values)
-    (unwind-protect
-         (with-input-from-string (stream string)
-           (loop for form = (read stream nil stream)
-                 until (eq form stream)
-                 do (progn
-                      (setq - form)
-                      (setq values (multiple-value-list (eval form)))
-                      (force-output))
-                 finally (progn
-                           (fresh-line)
-                           (force-output)
-                           (return (values values -)))))
-      (when (and package-update-p (not (eq *package* *buffer-package*)))
-        (send-to-emacs 
-         (list :new-package (package-name *package*) (package-string-for-prompt *package*)))))))
-
-(defun package-string-for-prompt (package)
-  "Return the shortest nickname (or canonical name) of PACKAGE."
-  (or (canonical-package-nickname package)
-      (auto-abbreviated-package-name package)
-      (shortest-package-nickname package)))
-
-(defun canonical-package-nickname (package)
-  "Return the canonical package nickname, if any, of PACKAGE."
-  (cdr (assoc (package-name package) *canonical-packge-nicknames* :test #'string=)))
-
-(defun auto-abbreviated-package-name (package)
-  "Return an abbreviated 'name' for PACKAGE. N.B. this is not an actual package name or nickname."
-  (when *auto-abbreviate-dotted-packages*
-    (let ((last-dot (position #\. (package-name package) :from-end t)))
-      (when last-dot (subseq (package-name package) (1+ last-dot))))))
-
-(defun shortest-package-nickname (package)
-  "Return the shortest nickname (or canonical name) of PACKAGE."
-  (loop for name in (cons (package-name package) (package-nicknames package))
-        for shortest = name then (if (< (length name) (length shortest))
-                                   name
-                                   shortest)
-              finally (return shortest)))
-
-
-(defslimefun interactive-eval-region (string)
-  (with-buffer-syntax ()
-    (format-values-for-echo-area (eval-region string))))
-
-(defslimefun re-evaluate-defvar (form)
-  (with-buffer-syntax ()
-    (let ((form (read-from-string form)))
-      (destructuring-bind (dv name &optional value doc) form
-	(declare (ignore value doc))
-	(assert (eq dv 'defvar))
-	(makunbound name)
-	(prin1-to-string (eval form))))))
-
-(defvar *swank-pprint-circle* *print-circle*
-  "*PRINT-CIRCLE* is bound to this value when pretty printing slime output.")
-
-(defvar *swank-pprint-case* *print-case*
-  "*PRINT-CASE* is bound to this value when pretty printing slime output.")
-
-(defvar *swank-pprint-right-margin* *print-right-margin*
-  "*PRINT-RIGHT-MARGIN* is bound to this value when pretty printing slime output.")
-
-(defvar *swank-pprint-escape* *print-escape*
-  "*PRINT-ESCAPE* is bound to this value when pretty printing slime output.")
-
-(defvar *swank-pprint-level* *print-level*
-  "*PRINT-LEVEL* is bound to this value when pretty printing slime output.")
-
-(defvar *swank-pprint-length* *print-length*
-  "*PRINT-LENGTH* is bound to this value when pretty printing slime output.")
-
-(defun swank-pprint (list)
-  "Bind some printer variables and pretty print each object in LIST."
-  (with-buffer-syntax ()
-    (let ((*print-pretty* t)
-          (*print-case* *swank-pprint-case*)
-          (*print-right-margin* *swank-pprint-right-margin*)
-          (*print-circle* *swank-pprint-circle*)
-          (*print-escape* *swank-pprint-escape*)
-          (*print-level* *swank-pprint-level*)
-          (*print-length* *swank-pprint-length*))
-      (cond ((null list) "; No value")
-            (t (with-output-to-string (*standard-output*)
-                 (dolist (o list)
-                   (pprint o)
-                   (terpri))))))))
-
-(defslimefun pprint-eval (string)
-  (with-buffer-syntax ()
-    (swank-pprint (multiple-value-list (eval (read-from-string string))))))
-
-(defslimefun set-package (package)
-  "Set *package* to PACKAGE and return its name and the string to use in the prompt."
-  (let ((p (setq *package* (guess-package-from-string package))))
-    (list (package-name p) (package-string-for-prompt p))))
-
-(defslimefun listener-eval (string)
-  (clear-user-input)
-  (with-buffer-syntax ()
-    (multiple-value-bind (values last-form) (eval-region string t)
-      (setq +++ ++  ++ +  + last-form
-            *** **  ** *  * (car values)
-            /// //  // /  / values)
-      (cond ((null values) "; No value")
-            (t
-             (format nil "~{~S~^~%~}" values))))))
-
-(defslimefun ed-in-emacs (&optional what)
-  "Edit WHAT in Emacs.
-
-WHAT can be:
-  A filename (string),
-  A list (FILENAME LINE [COLUMN]),
-  A function name (symbol),
-  nil."
-  (let ((target
-         (cond ((and (listp what) (pathnamep (first what)))
-                (cons (canonicalize-filename (car what)) (cdr what)))
-               ((pathnamep what)
-                (canonicalize-filename what))
-               (t what))))
-    (send-oob-to-emacs `(:ed ,target))))
 
 
 ;;;; Compilation Commands.
