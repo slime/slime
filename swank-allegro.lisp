@@ -409,17 +409,26 @@
 
 ;;;; Inspecting
 
-(defmethod inspected-parts (o)
-  (let* ((class (class-of o))
-         (slots (clos:class-slots class)))
-    (values (format nil "~A~%   is a ~A" o class)
-            (mapcar (lambda (slot)
-                      (let ((name (clos:slot-definition-name slot)))
-                        (cons (princ-to-string name)
-                              (if (slot-boundp o name)
-                                  (slot-value o name)
-                                  (make-unbound-slot-filler)))))
-                    slots))))
+(defclass acl-inspector (inspector)
+  ())
+
+(defimplementation make-default-inspector ()
+  (make-instance 'acl-inspector))
+
+(defimplementation inspect-for-emacs ((o t) (inspector acl-inspector))
+  (declare (ignore inspector))
+  (values "A value."
+          `("Type: " (:value ,(class-of o))
+            (:newline)
+            "Slots:" (:newline)
+            ,@(loop
+                 for slot in (clos:class-slots class)
+                 for name = (clos:slot-definition-name slot)
+                 collect `(:value ,name)
+                 collect " = "
+                 collect (if (slot-boundp o name)
+                             `(:value ,(slot-value o name))
+                             "#<unbound>")))))
 
 ;; duplicated from swank.lisp in order to avoid package dependencies
 (defun common-seperated-spec (list &optional (callback (lambda (v) `(:value ,v))))
@@ -429,19 +438,18 @@
       collect (funcall callback i)
       collect ", ")))
 
-;; AllegroCL doesn't support (documentation <function-obj> t)
-;; so we get the symbol and then its doc
-(defun function-documentation (obj)
-  (documentation (excl::external-fn_symdef obj) 'function))
-
-(defmethod inspected-parts ((f function))  
-  (values (format nil "The function ~S." f)
+(defmethod inspect-for-emacs ((f function) (inspector acl-inspector))
+  (declare (ignore inspector))
+  (values "A function."
           `("Name: " (:value ,(function-name f)) (:newline)
             "It's argument list is: " ,(princ-to-string (arglist f)) (:newline)
             "Documentation:" (:newline)
-            ,(function-documentation f))))
+            ;; AllegroCL doesn't support (documentation <function-obj> t)
+            ;; so we get the symbol and then its doc
+            ,(documentation (excl::external-fn_symdef obj) 'function))))
 
-(defmethod inspected-parts ((class structure-class))
+(defmethod inspect-for-emacs ((class structure-class) (inspector acl-inspector))
+  (declare (ignore inspector))
   (values "A structure class."
           `("Name: " (:value ,(class-name class))
             (:newline)
@@ -476,7 +484,8 @@
                                `(:value ,(swank-mop:class-prototype class))
                                '"N/A (class not finalized)"))))
 
-(defmethod inspected-parts ((slot excl::structure-slot-definition))
+(defmethod inspect-for-emacs ((slot excl::structure-slot-definition) (inspector acl-inspector))
+  (declare (ignore inspector))
   (values "A structure slot." 
           `("Name: " (:value ,(mop:slot-definition-name slot))
             (:newline)
@@ -492,7 +501,8 @@
             "Allocation: " (:value ,(excl::slotd-allocation slot)) (:newline)
             "Read-only: " (:value ,(excl::slotd-read-only slot)) (:newline))))
 
-(defmethod inspected-parts ((o structure-object))
+(defmethod inspect-for-emacs ((o structure-object) (inspector acl-inspector))
+  (declare (ignore inspector))
   (values "An structure object."
           `("Structure class: " (:value ,(class-of o))
             (:newline)

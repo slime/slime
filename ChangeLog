@@ -1,3 +1,24 @@
+2004-09-14  Marco Baringer  <mb@bese.it>
+
+	* swank-backend.lisp (inspector, make-default-inspector): Add an
+	INSPECTOR object argument to the inspector protocol. This allows
+	implementations to provide more information regarding cretain
+	objects which can't be, or simply aren't, inspected using the
+	generic inspector implementation. also export inspect-for-emacs
+	and related symbols from the backend package.
+	(make-default-inspector): New function.
+	
+	* swank.lisp (inspected-parts): Rename to inspect-for-emacs and
+	add an inspector argument. Move inspect-for-emacs to
+	swank-backend.lisp, leave only the default implementations.
+
+	* swank-openml.lisp, swank-sbcl.lisp, swank-allegro.lisp,
+	swank-cmucl.lisp, swank-lispworks.lisp (inspected-parts): Rename
+	and change argument list. Many of the inspected-parts methods were
+	being clobbered by the inspected-parts in swank.lisp, now that
+	they're being used the return values have been updated for the new
+	inspect-for-emacs API.
+	
 2004-09-14  Thomas Schilling <tjs_ng@yahoo.de>
 
 	* swank-allegro.lisp (inspected-parts): Implement inspector for

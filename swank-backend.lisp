@@ -26,7 +26,13 @@
            #:print-output-to-string
            #:quit-lisp
            #:references
-           #:unbound-slot-filler))
+           #:unbound-slot-filler
+           ;; inspector related symbols
+           #:inspector
+           #:inspect-for-emacs
+           #:raw-inspection
+           #:fancy-inspection
+           ))
 
 (defpackage :swank-mop
   (:use)
@@ -600,17 +606,57 @@ themselves, that is, their dispatch functions, are left alone.")
 
 ;;;; Inspector
 
-(defstruct (unbound-slot-filler (:print-function print-unbound-slot))
-  "The definition of an object which serves as a placeholder in
-an unbound slot for inspection purposes.")
+(defclass inspector ()
+  ()
+  (:documentation "Super class of inspector objects.
 
-(defun print-unbound-slot (o stream depth)
-  (declare (ignore depth))
-  (print-unreadable-object (o stream :type t)))
+Implementations should sub class in order to dispatch off of the
+inspect-for-emacs method."))
 
-(definterface inspected-parts (object)
-  "Return a short description and a list of (LABEL . VALUE) pairs."
-  (values (format nil "~S is an atom." object) '()))
+(definterface make-default-inspector ()
+  "Return an inspector object suitable for passing to inspect-for-emacs.")
+
+(definterface inspect-for-emacs (object inspector)
+   "Explain to emacs how to inspect OBJECT.
+
+The argument INSPECTOR is an object representing how to get at
+the internals of OBJECT, it is usually an implementation specific
+class used simply for dispatching to the proper method.
+
+The orgument INSPECTION-MODE is an object specifying how, and
+what, to show to the user.
+
+Returns two values: a string which will be used as the title of
+the inspector buffer and a list specifying how to render the
+object for inspection.
+
+Every elementi of the list must be either a string, which will be
+inserted into the buffer as is, or a list of the form:
+
+ (:value object &optional format) - Render an inspectable
+ object. If format is provided it must be a string and will be
+ rendered in place of the value, otherwise use princ-to-string.
+
+ (:newline) - Render a \\n
+
+ (:action label lambda) - Render LABEL (a text string) which when
+ clicked will call LAMBDA.
+
+ NIL - do nothing.")
+
+(defmethod inspect-for-emacs (object inspector)
+  "Generic method for inspecting any kind of object.
+
+Since we don't know how to deal with OBJECT we simply dump the
+output of CL:DESCRIBE."
+  (declare (ignore inspector inspection-mode))
+  (values "A value."
+          `("Type: " (:value ,(type-of object))
+            (:newline)
+            "Don't know how to inspect the object, dumping output of CL:DESCIRBE:" 
+            (:newline) (:newline)
+            ,(with-output-to-string (desc)
+               (describe object desc)))))
 
 (definterface describe-primitive-type (object)
   "Return a string describing the primitive type of object."

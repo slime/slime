@@ -658,78 +658,98 @@ stack."
 
 ;;;; Inspector
 
-(defmethod inspected-parts (o)
+(defclass sbcl-inspector (inspector)
+  ())
+
+(defimplementation make-default-inspector ()
+  (make-instance 'sbcl-inspector))
+
+(defmethod inspect-for-emacs ((o t) (inspector sbcl-inspector))
+  (declare (ignore inspector))
   (cond ((sb-di::indirect-value-cell-p o)
-	 (inspected-parts-of-value-cell o))
+         (values "A value cell."
+                 `("Value: " (:value ,(sb-kernel:value-cell-ref o)))))
 	(t
 	 (multiple-value-bind (text labeledp parts)
              (sb-impl::inspected-parts o)
-	   (let ((parts (if labeledp 
-			    (loop for (label . value) in parts
-				  collect (cons (string label) value))
-			    (loop for value in parts
-				  for i from 0
-				  collect (cons (format nil "~D" i) value)))))
-	     (values text parts))))))
+           (if labeledp
+               (values text
+                       (loop for (label . value) in parts
+                             collect `(:value ,label)
+                             collect " = "
+                             collect `(:value ,value)
+                             collect '(:newline)))
+               (values text
+                       (loop for value in parts
+                             for i from 0
+                             collect (princ-to-string i)
+                             collect " = "
+                             collect `(:value ,value)
+                             collect '(:newline))))))))
 
-(defun inspected-parts-of-value-cell (o)
-  (values (format nil "~A~% is a value cell." o)
-	  (list (cons "Value" (sb-kernel:value-cell-ref o)))))
-
-(defmethod inspected-parts ((o function))
+(defmethod inspect-for-emacs ((o function) (inspector sbcl-inspector))
+  (declare (ignore inspector))
   (let ((header (sb-kernel:widetag-of o)))
     (cond ((= header sb-vm:simple-fun-header-widetag)
-	   (values 
-	    (format nil "~A~% is a simple-fun." o)
-	    (list (cons "Self" (sb-kernel:%simple-fun-self o))
-		  (cons "Next" (sb-kernel:%simple-fun-next o))
-		  (cons "Name" (sb-kernel:%simple-fun-name o))
-		  (cons "Arglist" (sb-kernel:%simple-fun-arglist o))
-		  (cons "Type" (sb-kernel:%simple-fun-type o))
-		  (cons "Code Object" (sb-kernel:fun-code-header o)))))
+	   (values "A simple-fun." 
+                   `("Self: " (:value ,(sb-kernel:%simple-fun-self o))
+                     (:newline)
+                     "Next: " (:value ,(sb-kernel:%simple-fun-next o))
+                     (:newline)
+                     "Name: " (:value ,(sb-kernel:%simple-fun-name o))
+                     (:newline)
+                     "Arglist: " (:value ,(sb-kernel:%simple-fun-arglist o))
+                     (:newline)
+                     "Type: " (:value ,(sb-kernel:%simple-fun-type o))
+                     (:newline)
+                     "Code Object: " (:value ,(sb-kernel:fun-code-header o)))))
 	  ((= header sb-vm:closure-header-widetag)
-	   (values (format nil "~A~% is a closure." o)
-		   (list* 
-		    (cons "Function" (sb-kernel:%closure-fun o))
-		    (loop for i from 0 
+	   (values "A closure."
+		   `("Function: " (:value ,(sb-kernel:%closure-fun o))
+                     (:newline)
+                     "Closed over values:"
+                     (:newline)
+                     ,@(loop for i from 0 
                           below (- (sb-kernel:get-closure-length o) 
                                    (1- sb-vm:closure-info-offset))
-			  collect (cons (format nil "~D" i)
-					(sb-kernel:%closure-index-ref o i))))))
+			  collect (princ-to-string i)
+                          collect " = "
+                          collect `(:value ,(sb-kernel:%closure-index-ref o i))
+                          collect '(:newline)))))
 	  (t (call-next-method o)))))
 
-(defmethod inspected-parts ((o sb-kernel:code-component))
-  (values (format nil "~A~% is a code data-block." o)
-	  `(("First entry point" . ,(sb-kernel:%code-entry-points o))
-	    ,@(loop for i from sb-vm:code-constants-offset 
-		    below (sb-kernel:get-header-data o)
-		    collect (cons (format nil "Constant#~D" i)
-				  (sb-kernel:code-header-ref o i)))
-	    ("Debug info" . ,(sb-kernel:%code-debug-info o))
-	    ("Instructions"  . ,(sb-kernel:code-instructions o)))))
+(defmethod inspect-for-emacs ((o sb-kernel:code-component) (inspector sbcl-inspector))
+  (declare (ignore inspector))
+  (values "A code data-block."
+	  `("First entry point: " (:value ,(sb-kernel:%code-entry-points o))
+            (:newline)
+            "Constants: " (:newline)
+	    ,@(loop
+                 for i from sb-vm:code-constants-offset 
+                 below (sb-kernel:get-header-data o)
+                 collect (princ-to-string i)
+                 collect " = "
+                 collect `(:value ,(sb-kernel:code-header-ref o i))
+                 collect '(:newline))
+	    "Debug info: " (:value ,(sb-kernel:%code-debug-info o))
+	    "Instructions: "  (:value ,(sb-kernel:code-instructions o)))))
 
-(defmethod inspected-parts ((o sb-kernel:fdefn))
-  (values (format nil "~A~% is a fdefn object." o)
-	  `(("Name" . ,(sb-kernel:fdefn-name o))
-	    ("Function" . ,(sb-kernel:fdefn-fun o)))))
+(defmethod inspect-for-emacs ((o sb-kernel:fdefn) (inspector sbcl-inspector))
+  (declare (ignore sbcl-inspector))
+  (values "A fdefn object."
+	  `("Name: "  (:value ,(sb-kernel:fdefn-name o))
+            (:newline)
+            "Function" (:value,(sb-kernel:fdefn-fun o)))))
 
-
-(defmethod inspected-parts ((o generic-function))
-  (values (format nil "~A~% is a generic function." o)
-          (list
-           (cons "Method-Class" (sb-pcl:generic-function-method-class o))
-           (cons "Methods" (sb-pcl:generic-function-methods o))
-           (cons "Name" (sb-pcl:generic-function-name o))
-           (cons "Declarations" (sb-pcl:generic-function-declarations o))
-           (cons "Method-Combination" 
-                 (sb-pcl:generic-function-method-combination o))
-           (cons "Lambda-List" (sb-pcl:generic-function-lambda-list o))
-           (cons "Precedence-Order" 
-                 (sb-pcl:generic-function-argument-precedence-order o))
-           (cons "Pretty-Arglist"
-                 (sb-pcl::generic-function-pretty-arglist o))
-           (cons "Initial-Methods" 
-                 (sb-pcl::generic-function-initial-methods  o)))))
+(defmethod inspect-for-emacs :around ((o generic-function) (inspector sbcl-inspector))
+  (declare (ignore inspector))
+  (multiple-value-bind (title contents)
+      (call-next-method)
+    (values title
+            (append contents
+                    `("Pretty arglist: " (:value ,(sb-pcl::generic-function-pretty-arglist o))
+                      (:newline)
+                      "Initial methods: " (:value ,(sb-pcl::generic-function-initial-methods  o)))))))
 
 
 ;;;; Support for SBCL syntax

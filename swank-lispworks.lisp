@@ -578,12 +578,33 @@ Return NIL if the symbol is unbound."
                                   (make-dspec-location dspec location)))))
 ;;; Inspector
 
-(defmethod inspected-parts (o)
+(defclass lispworks-inspector (inspector)
+  ())
+
+(defimplementation make-default-inspector ()
+  (make-instance 'lispworks-inspector))
+
+(defimplementation inspect-for-emacs ((o t) (inspector lispworks-inspector))
+  (declare (ignore inspector))
   (multiple-value-bind (names values _getter _setter type)
       (lw:get-inspector-values o nil)
     (declare (ignore _getter _setter))
-    (values (format nil "~A~%   is a ~A" o type)
-            (mapcar #'cons names values))))
+    (values "A value."
+            `("Type: " (:value ,type)
+              (:newline)
+              "Getter: " (:value ,_getter)
+              (:newline)
+              "Setter: " (:value ,_setter)
+              (:newline)
+              "Slots:"
+              (:newline)
+              ,@(loop
+                   for name in names
+                   for value in values
+                   collect `(:value ,name)
+                   collect " = "
+                   collect `(:value ,value)
+                   collect `(:newline)))))) 
 
 ;;; Miscellaneous
 

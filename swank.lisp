@@ -2454,35 +2454,6 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
 
 ;;;; Inspecting
 
-(defgeneric inspected-parts (object)
-  (:documentation "Explain to emacs how to inspect OBJECT.
-
-Returns two values: a string which will be used as the title of
-the inspector buffer and a list specifying how to render the
-object for inspection.
-
-Every elementi of the list must be either a string, which will be
-inserted into the buffer as is, or a list of the form:
-
- (:value object &optional format) - Render an inspectable
- object. If format is provided it must be a string and will be
- rendered in place of the value, otherwise use princ-to-string.
-
- (:newline) - Render a \\n
-
- (:action label lambda) - Render LABEL (a text string) which when
- clicked will call LAMBDA.
-
- NIL - do nothing."))
-
-(defmethod inspected-parts ((o t))
-  "Simply dump the output of CL:DESCRIBE."
-  (values (format nil "~S" o)
-          `("Don't know how to inspect the object, dumping output of CL:DESCIRBE:" 
-            (:newline) (:newline)
-            ,(with-output-to-string (desc)
-               (describe o desc)))))
-
 (defun common-seperated-spec (list &optional (callback (lambda (v) `(:value ,v))))
   (butlast
    (loop
@@ -2490,18 +2461,20 @@ inserted into the buffer as is, or a list of the form:
       collect (funcall callback i)
       collect ", ")))
 
-(defmethod inspected-parts ((object cons))
-  (if (consp (cdr object))
-      (inspected-parts-of-nontrivial-list object)
-      (inspected-parts-of-simple-cons object)))
+(defmethod inspect-for-emacs ((object cons) (inspector t))
+  (declare (ignore inspector))
+  (if (or (consp (cdr object))
+          (null (cdr object)))
+      (inspect-for-emacs-nontrivial-list object)
+      (inspect-for-emacs-simple-cons object)))
 
-(defun inspected-parts-of-simple-cons (cons)
+(defun inspect-for-emacs-simple-cons (cons)
   (values "A cons cell."
           `("Car: " (:value ,(car cons))
             (:newline)
             "Cdr: " (:value ,(cdr cons)))))
 
-(defun inspected-parts-of-nontrivial-list (list)
+(defun inspect-for-emacs-nontrivial-list (list)
   (let ((circularp nil)
         (length 0)
         (seen (make-hash-table :test 'eq))
@@ -2525,7 +2498,8 @@ inserted into the buffer as is, or a list of the form:
                   "Contents:"
                   ,@(nreverse contents))))))
 
-(defmethod inspected-parts ((ht hash-table))
+(defmethod inspect-for-emacs ((ht hash-table) (inspector t))
+  (declare (ignore inspector))
   (values "A hash table."
           `("Count: " (:value ,(hash-table-count ht))
             (:newline)
@@ -2546,7 +2520,8 @@ inserted into the buffer as is, or a list of the form:
                  collect `(:value ,value)
                  collect `(:newline)))))
 
-(defmethod inspected-parts ((array array))
+(defmethod inspect-for-emacs ((array array) (inspector t))
+  (declare (ignore inspector))
   (values "An array."
           `("Dimensions: " (:value ,(array-dimensions array))
             (:newline)
@@ -2573,7 +2548,8 @@ inserted into the buffer as is, or a list of the form:
                  collect `(:value ,element)
                  collect '(:newline)))))
 
-(defmethod inspected-parts ((char character))
+(defmethod inspect-for-emacs ((char character) (inspector t))
+  (declare (ignore inspector))
   (values "A character."
           `("Char code: " (:value ,(char-code char))
             (:newline)
@@ -2586,7 +2562,8 @@ inserted into the buffer as is, or a list of the form:
                   (:value ,(get-macro-character char))
                   (:newline))))))
 
-(defmethod inspected-parts ((symbol symbol))
+(defmethod inspect-for-emacs ((symbol symbol) (inspector t))
+  (declare (ignore inspector))
   (let ((internal-external (multiple-value-bind (symbol status)
                                (intern (symbol-name symbol) (symbol-package symbol))
                              (declare (ignore symbol))
@@ -2596,7 +2573,9 @@ inserted into the buffer as is, or a list of the form:
         (package (when (find-package symbol)
                    `("It names the package " (:value ,(find-package symbol)) (:newline))))
         (class (when (find-class symbol nil)
-                 `("It names the class " (:value ,(find-class symbol))))))
+                 `("It names the class " (:value ,(find-class symbol) ,(princ-to-string (class-name (find-class symbol))))
+                   " " (:action ,(format nil "[remove name ~S (does not affect class object)]" symbol)
+                                (lambda () (setf (find-class symbol) nil)))))))
     (values "A symbol."
             `("It's name is: " (:value ,(symbol-name symbol))
               (:newline)
@@ -2637,7 +2616,8 @@ inserted into the buffer as is, or a list of the form:
               ,@package
               ,@class))))
 
-(defmethod inspected-parts ((f function))  
+(defmethod inspect-for-emacs ((f function) (inspector t))
+  (declare (ignore inspector))
   (values "A function."
           `("Name: " (:value ,(function-name f)) (:newline)
             "It's argument list is: " ,(princ-to-string (arglist f))
@@ -2645,7 +2625,8 @@ inserted into the buffer as is, or a list of the form:
             ,@(when (documentation f t)
                 `("Documentation:" (:newline) ,(documentation f t) (:newline))))))
 
-(defmethod inspected-parts ((o standard-object))
+(defmethod inspect-for-emacs ((o standard-object) (inspector t))
+  (declare (ignore inspector))
   (values "An object."
           `("Class: " (:value ,(class-of o))
             (:newline)
@@ -2668,7 +2649,8 @@ inserted into the buffer as is, or a list of the form:
                    collect "#<unbound>"
                  collect '(:newline)))))
 
-(defmethod inspected-parts ((gf standard-generic-function))
+(defmethod inspect-for-emacs ((gf standard-generic-function) (inspector t))
+  (declare (ignore inspector))
   (values "A generic function."
           `("Name: " (:value ,(swank-mop:generic-function-name gf)) (:newline)
             "It's argument list is: " ,(princ-to-string (swank-mop:generic-function-lambda-list gf)) (:newline)
@@ -2694,7 +2676,8 @@ inserted into the buffer as is, or a list of the form:
                            `(:action "[remove method]" ,(lambda () (remove-method gf meth))))
                  collect '(:newline)))))
 
-(defmethod inspected-parts ((method standard-method))
+(defmethod inspect-for-emacs ((method standard-method) (inspector t))
+  (declare (ignore inspector))
   (values "A method." 
           `("Method defined on the generic function " (:value ,(swank-mop:method-generic-function method)
                                                               ,(princ-to-string
@@ -2707,9 +2690,12 @@ inserted into the buffer as is, or a list of the form:
             "Specializers: " (:value ,(swank-mop:method-specializers method)
                                      ,(princ-to-string (mapcar #'class-name (swank-mop:method-specializers method))))
             (:newline)
-            "Qualifiers: " (:value ,(swank-mop:method-qualifiers method)))))
+            "Qualifiers: " (:value ,(swank-mop:method-qualifiers method))
+            (:newline)
+            "Method function: " (:value ,(swank-mop:method-function method)))))
 
-(defmethod inspected-parts ((class standard-class))
+(defmethod inspect-for-emacs ((class standard-class) (inspector t))
+  (declare (ignore inspector))
   (values "A class."
           `("Name: " (:value ,(class-name class))
             (:newline)
@@ -2744,7 +2730,8 @@ inserted into the buffer as is, or a list of the form:
                                `(:value ,(swank-mop:class-prototype class))
                                '"N/A (class not finalized)"))))
 
-(defmethod inspected-parts ((slot swank-mop:standard-slot-definition))
+(defmethod inspect-for-emacs ((slot swank-mop:standard-slot-definition) (inspector t))
+  (declare (ignore inspector))
   (values "A slot." 
           `("Name: " (:value ,(swank-mop:slot-definition-name slot))
             (:newline)
@@ -2759,7 +2746,8 @@ inserted into the buffer as is, or a list of the form:
             "  Function: " (:value ,(swank-mop:slot-definition-initfunction slot))
             (:newline))))
 
-(defmethod inspected-parts ((package package))
+(defmethod inspect-for-emacs ((package package) (inspector t))
+  (declare (ignore inspector))
   (let ((internal-symbols '())
         (external-symbols '()))
     (do-symbols (sym package)
@@ -2801,8 +2789,11 @@ inserted into the buffer as is, or a list of the form:
                    `(:value ,(package-shadowing-symbols package)
                             ,(format nil "~D shadowed symbols." (length (package-shadowing-symbols package)))))))))
 
-(defmethod inspected-parts ((pathname pathname))
-  (values "A pathname."
+(defmethod inspect-for-emacs ((pathname pathname) (inspector t))
+  (declare (ignore inspector))
+  (values (if (wild-pathname-p pathname)
+              "A wild pathname."
+              "A pathname.")
           `("Namestring: " (:value ,(namestring pathname))
             (:newline)
             "Host: " (:value ,(pathname-host pathname))
@@ -2816,10 +2807,13 @@ inserted into the buffer as is, or a list of the form:
             "Type: " (:value ,(pathname-type pathname))
             (:newline)
             "Version: " (:value ,(pathname-version pathname))
-            (:newline)
-            "Truename: " (:value ,(truename pathname)))))
+            ,@(unless (or (wild-pathname-p pathname)
+                          (not (probe-file pathname)))
+                `((:newline)
+                  "Truename: " (:value ,(truename pathname)))))))
 
-(defmethod inspected-parts ((pathname logical-pathname))
+(defmethod inspect-for-emacs ((pathname logical-pathname) (inspector t))
+  (declare (ignore inspector))
   (values "A logical pathname."
           `("Namestring: " (:value ,(namestring pathname))
             (:newline)
@@ -2836,10 +2830,12 @@ inserted into the buffer as is, or a list of the form:
             (:newline)
             "Version: " (:value ,(pathname-version pathname)))))
 
-(defmethod inspected-parts ((n number))
+(defmethod inspect-for-emacs ((n number) (inspector t))
+  (declare (ignore inspector))
   (values "A number." `("Value: " ,(princ-to-string n))))
 
-(defmethod inspected-parts ((i integer))
+(defmethod inspect-for-emacs ((i integer) (inspector t))
+  (declare (ignore inspector))
   (values "A number."
           `("Value: " ,(princ-to-string i)
             " == #x" ,(format nil "~X" i)
@@ -2857,13 +2853,15 @@ inserted into the buffer as is, or a list of the form:
                             (format nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0DZ"
                                     year month date hour min sec)))))
 
-(defmethod inspected-parts ((c complex))
+(defmethod inspect-for-emacs ((c complex) (inspector t))
+  (declare (ignore inspector))
   (values "A complex number."
           `("Real part: " (:value ,(realpart c))
             (:newline)
             "Imaginary part: " (:value ,(imagpart c)))))
 
-(defmethod inspected-parts ((r ratio))
+(defmethod inspect-for-emacs ((r ratio) (inspector t))
+  (declare (ignore inspector))
   (values "A non-integer ratio."
           `("Numerator: " (:value ,(numerator r))
             (:newline)
@@ -2871,7 +2869,8 @@ inserted into the buffer as is, or a list of the form:
             (:newline)
             "As float: " (:value ,(float r)))))
 
-(defmethod inspected-parts ((f float))
+(defmethod inspect-for-emacs ((f float) (inspector t))
+  (declare (ignore inspector))
   (multiple-value-bind (significand exponent sign)
       (decode-float f)
     (values "A floating point number."
@@ -2945,7 +2944,7 @@ inserted into the buffer as is, or a list of the form:
       (map 'nil #'parse-part spec))
     (nreverse parse-for-emacs)))
 
-(defun inspect-object (object)
+(defun inspect-object (object &optional (inspector (make-default-inspector)))
   (push (setq *inspectee* object) *inspector-stack*)
   (unless (find object *inspector-history*)
     (vector-push-extend object *inspector-history*))
@@ -2953,7 +2952,7 @@ inserted into the buffer as is, or a list of the form:
         (*print-circle* t)
         (*print-readably* nil))
     (multiple-value-bind (title content)
-        (inspected-parts object)
+        (inspect-for-emacs object inspector)
       (list :title title
             :type (to-string (type-of object))
             :content (inspector-content-for-emacs content)))))

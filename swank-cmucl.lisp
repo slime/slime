@@ -1676,6 +1676,12 @@ LRA  =  ~X~%" (mapcar #'fixnum
 
 ;;;; Inspecting
 
+(defclass cmucl-inspector (inspector)
+  ())
+
+(defimplementation make-default-inspector ()
+  (make-instance 'cmucl-inspector))
+
 (defconstant +lowtag-symbols+ 
   '(vm:even-fixnum-type
     vm:function-pointer-type
@@ -1718,59 +1724,74 @@ The `symbol-value' of each element is a type tag.")
                                   :key #'symbol-value)))
           (format t ", type: ~A" type-symbol))))))
 
-(defimplementation inspected-parts (o)
+(defimplementation inspect-for-emacs ((o t) (inspector cmucl-inspector))
   (cond ((di::indirect-value-cell-p o)
-	 (inspected-parts-of-value-cell o))
+         (values "A value cell."
+                 `("Value: " (:value ,(c:value-cell-ref o)))))
 	(t
 	 (destructuring-bind (text labeledp . parts)
 	     (inspect::describe-parts o)
-	   (let ((parts (if labeledp 
-			    (loop for (label . value) in parts
-				  collect (cons (string label) value))
-			    (loop for value in parts
-				  for i from 0
-				  collect (cons (format nil "~D" i) value)))))
-	     (values text parts))))))
+           (values "A value."
+                   (if labeledp
+                       (loop for (label . value) in parts
+                          collect (princ-to-string label)
+                          collect " = "
+                          collect `(:value ,value)
+                          collect '(:newline))
+                       (loop for value in parts
+                          collect `(:value ,value)
+                          collect '(:newline))))))))
 
-(defun inspected-parts-of-value-cell (o)
-  (values (format nil "~A~% is a value cell." o)
-	  (list (cons "Value" (c:value-cell-ref o)))))
-
-(defmethod inspected-parts ((o function))
+(defmethod inspect-for-emacs ((o function) (inspector cmucl-inspector))
+  (declare (ignore inspector))
   (let ((header (kernel:get-type o)))
     (cond ((= header vm:function-header-type)
-	   (values 
-	    (format nil "~A~% is a function." o)
-	    (list (cons "Self" (kernel:%function-self o))
-		  (cons "Next" (kernel:%function-next o))
-		  (cons "Name" (kernel:%function-name o))
-		  (cons "Arglist" (kernel:%function-arglist o))
-		  (cons "Type" (kernel:%function-type o))
-		  (cons "Code Object" (kernel:function-code-header o)))))
+	   (values "A function."
+                   `("Self: " (:value ,(kernel:%function-self o))
+                     (:newline)
+                     "Next: " (:value ,(kernel:%function-next o))
+                     (:newline)
+                     "Name: " (:value ,(kernel:%function-name o))
+                     (:newline)
+                     "Arglist: " (:value ,(kernel:%function-arglist o))
+                     (:newline)
+                     "Type: " (:value ,(kernel:%function-type o))
+                     (:newline)
+                     "Code Object: " (:value ,(kernel:function-code-header o)))))
 	  ((= header vm:closure-header-type)
-	   (values (format nil "~A~% is a closure." o)
-		   (list* 
-		    (cons "Function" (kernel:%closure-function o))
-		    (loop for i from 0 below (- (kernel:get-closure-length o) 
-						(1- vm:closure-info-offset))
-			  collect (cons (format nil "~D" i)
-					(kernel:%closure-index-ref o i))))))
+	   (values "A closure."
+		   (list*
+                    `("Function: " (:value ,(kernel:%closure-function o))
+                      (:newline)
+                      (loop for i from 0 below (- (kernel:get-closure-length o) 
+                                                  (1- vm:closure-info-offset))
+                         collect (princ-to-string i)
+                         collect " = "
+                         collect (:value ,(kernel:%closure-index-ref o i)))))))
 	  (t (call-next-method o)))))
 
-(defmethod inspected-parts ((o kernel:code-component))
-  (values (format nil "~A~% is a code data-block." o)
-	  `(("First entry point" . ,(kernel:%code-entry-points o))
+(defmethod inspect-for-emacs ((o kernel:code-component) (inspector cmucl-inspector))
+  (declare (ignore inspector))
+  (values "A code data-block."
+	  `("First entry point: " (:value ,(kernel:%code-entry-points o))
+            (:newline)
+            "Constants:" (:newline)
 	    ,@(loop for i from vm:code-constants-offset 
 		    below (kernel:get-header-data o)
-		    collect (cons (format nil "Constant#~D" i)
-				  (kernel:code-header-ref o i)))
-	    ("Debug info" . ,(kernel:%code-debug-info o))
-	    ("Instructions"  . ,(kernel:code-instructions o)))))
+		    collect (princ-to-string i)
+                    collect " = "
+                    collect `(:value ,(kernel:code-header-ref o i))
+                    collect '(:newline))
+            "Debug info: " (:value ,(kernel:%code-debug-info o))
+            (:newline)
+            "Instructions: " (:value ,(kernel:code-instructions o)))))
 
-(defmethod inspected-parts ((o kernel:fdefn))
-  (values (format nil "~A~% is a fdefn object." o)
-	  `(("Name" . ,(kernel:fdefn-name o))
-	    ("Function" . ,(kernel:fdefn-function o)))))
+(defmethod inspect-for-emacs ((o kernel:fdefn) (inspector cmucl-inspector))
+  (declare (ignore inspector))
+  (values "A fdefn object."
+	  `("Name: " (:value ,(kernel:fdefn-name o))
+            (:newline)
+            "Function: " (:value ,(kernel:fdefn-function o)))))
 
 
 ;;;; Profiling

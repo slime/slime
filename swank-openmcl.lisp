@@ -638,30 +638,38 @@ at least the filename containing it."
 	   (< (symbol-value s) 255))
       (setf (gethash (symbol-value s) *value2tag*) s)))
 
+;;;; Inspection
+
+(defclass openmcl-inspector (inspector)
+  ())
+
+(defimplementation make-default-inspector ()
+  (make-instance 'openmcl-inspector))
+
 (defmethod describe-primitive-type (thing)
   (let ((typecode (ccl::typecode thing)))
     (if (gethash typecode *value2tag*)
 	(string (gethash typecode *value2tag*))
 	(string (nth typecode '(tag-fixnum tag-list tag-misc tag-imm))))))
 
-(defmethod inspected-parts (o)
+(defmethod inspect-for-emacs ((o t) (inspector openmcl-inspector))
+  (declare (ignore inspector))
   (let* ((i (inspector::make-inspector o))
 	 (count (inspector::compute-line-count i))
 	 (lines 
-          (loop for l below count
-                for (value label) = (multiple-value-list 
-                                     (inspector::line-n i l))
-                collect (cons (string-right-trim 
-                               " :" (string-capitalize 
-                                     (format nil "~a" label)))
-                              value))))
-    (values (string-left-trim
-	     (string #\newline)
-	     (with-output-to-string (s)
-	       (let ((*print-lines* 1)
-		     (*print-right-margin* 80))
-		 (pprint o s))))
-	    (cddr lines))))
+          (loop
+             for l below count
+             for (value label) = (multiple-value-list 
+                                  (inspector::line-n i l))
+             collect `(:value ,label ,(string-capitalize (format nil "~a" label)))
+             collect " = "
+             collect `(:value ,value)
+             collect '(:newline))))
+    (values (with-output-to-string (s)
+              (let ((*print-lines* 1)
+                    (*print-right-margin* 80))
+                (pprint o s)))
+            lines)))
 
 ;;; Multiprocessing
 
