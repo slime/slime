@@ -140,7 +140,7 @@
   (ccl:accept-connection socket :wait t))
 
 (defimplementation emacs-connected ()
-  (setq ccl::*interactive-abort-process* ccl::*current-process*)
+  (setq ccl::*interactive-abort-process* ccl::*current-process*))
 
 (defimplementation make-stream-interactive (stream)
   (push stream ccl::*auto-flush-streams*))
