@@ -1,3 +1,48 @@
+2003-11-29  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+	
+	* slime.el: Rewrite the xref code to work with other source
+	locations.
+	(slime-edit-fdefinition): Use the xref window to display generic
+	functions with methods.
+	(slime-goto-source-location): New representation for source
+	locations. Drop old code.
+	(slime-list-callers, slime-list-callees): Use the xref window.
+	Remove the slime-select-* stuff.
+	(slime-describe-function): New command. Bound to C-c C-f.
+	Primarily useful in Lispworks.
+	(slime-complete-symbol): Display the completion window if the
+	prefix is complete but not unique.
+	(slime-forward-positioned-source-path): Enter the sexp only if the
+	remaining sourcepath is not empty.
+	(slime-read-symbol-name): New optional argument QUERY forces
+	querying.
+
+	* swank.lisp (group-xrefs): Handle unresolved source locations.
+	(describe-symbol): Print something sensible about unknown symbols.
+
+	* swank-cmucl.lisp: Use the new format for source locations.
+	(find-function-locations): New function.  Replaces
+	function-source-location-for-emacs.  Returns a list of
+	source-locations.
+	(resolve-note-location): Renamed from resolve-location.
+	Simplified.
+	(brief-compiler-message-for-emacs): Print the source context
+	 (that's the thing after ==>).
+	(who-xxxx): Take strings, not symbols, as arguments.
+	(function-callees, function-callers): Use the same format as the
+	who-xxx functions.  Support for byte-compiled stuff.
+	(code-location-stream-position): Try to be clever is the source
+	path doesn't match the form.
+	(call-with-debugging-environment): Bind *print-readably* to nil.
+
+	* swank-lispworks.lisp: Use the new format for source
+	locations. Implement the find-function-locations.
+	(list-callers, list-callers): New functions.
+
+	* swank-sbcl.lisp, swank-openmcl.lisp: Use the new format for
+	source locations and implement find-function-locations (just calls
+	the old code).
+
 2003-11-29  Daniel Barlow  <dan@telent.net>
 
 	* swank-sbcl.lisp (source-location-for-emacs):
