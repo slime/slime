@@ -87,6 +87,10 @@
                                   (declare (ignore fd))
                                   (funcall fn))))
 
+(defmethod remove-input-handlers (socket)
+  (sb-sys:invalidate-descriptor (socket-fd socket))
+  (close socket))
+
 (defun socket-fd (socket)
   (etypecase socket
     (fixnum socket)

@@ -37,6 +37,10 @@
            (funcall fn)))
     (system:add-fd-handler (socket-fd socket) :input #'callback)))
 
+(defmethod remove-input-handlers (socket)
+  (sys:invalidate-descriptor (socket-fd socket))
+  (close socket))
+
 (defmethod make-fn-streams (input-fn output-fn)
   (let* ((output (make-slime-output-stream output-fn))
          (input  (make-slime-input-stream input-fn output)))
