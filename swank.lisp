@@ -1126,16 +1126,9 @@ the local variables in the frame INDEX."
 
 (defun guess-buffer-package (string)
   "Return a package for STRING. 
-Print a warning if STRING is not nil but no such package exists."
-  (cond ((guess-package-from-string string nil))
-        (string 
-         (cerror (format nil "Use current package. [~A]" 
-                         (package-name *package*))
-                 "Package ~A not found." 
-                 string (package-name *package*))
-         *package*)
-        (t 
-         *package*)))
+Fall back to the the current if no such package exists."
+  (or (guess-package-from-string string nil)
+      *package*))
 
 (defun eval-for-emacs (form buffer-package id)
   "Bind *BUFFER-PACKAGE* BUFFER-PACKAGE and evaluate FORM.
@@ -1159,8 +1152,9 @@ Errors are trapped and invoke our debugger."
 
 (defun format-values-for-echo-area (values)
   (with-buffer-syntax ()
-    (cond (values (format nil "~{~S~^, ~}" values))
-          (t "; No value"))))
+    (let ((*print-readably* nil))
+      (cond (values (format nil "~{~S~^, ~}" values))
+            (t "; No value")))))
 
 (defslimefun interactive-eval (string)
   (with-buffer-syntax ()
@@ -1365,6 +1359,29 @@ Record compiler notes signalled as `compiler-condition's."
                                       :type "asd"
                                       :name :wild
                                       :case :local)))))
+
+(defun file-newer-p (new-file old-file)
+  "Returns true if NEW-FILE is newer than OLD-FILE."
+  (> (file-write-date new-file) (file-write-date old-file)))
+
+(defun requires-compile-p (source-file)
+  (let ((fasl-file (probe-file (compile-file-pathname source-file))))
+    (or (not fasl-file)
+        (file-newer-p source-file fasl-file))))
+
+(defslimefun compile-file-if-needed (filename loadp)
+  (cond ((requires-compile-p filename)
+         (compile-file-for-emacs filename loadp))
+        (loadp
+         (load (compile-file-pathname filename))
+         nil)))
+
+
+;;;; Loading
+
+(defslimefun load-file (filename)
+  (to-string (load filename)))
+
 
 ;;;; Macroexpansion
 
@@ -1760,7 +1777,7 @@ that symbols accessible in the current package go first."
           default))))
 
 
-;;;;
+;;;; Package Commands
 
 (defslimefun list-all-package-names (&optional include-nicknames)
   "Return a list of all package names.
@@ -1768,6 +1785,9 @@ Include the nicknames if INCLUDE-NICKNAMES is true."
   (loop for package in (list-all-packages)
         collect (package-name package)
         when include-nicknames append (package-nicknames package)))
+
+
+;;;; Tracing
 
 ;; Use eval for the sake of portability... 
 (defun tracedp (fspec)
@@ -1785,29 +1805,13 @@ Include the nicknames if INCLUDE-NICKNAMES is true."
 (defslimefun untrace-all ()
   (untrace))
 
+
+;;;; Undefing
+
 (defslimefun undefine-function (fname-string)
   (let ((fname (from-string fname-string)))
     (format nil "~S" (fmakunbound fname))))
 
-(defslimefun load-file (filename)
-  (to-string (load filename)))
-
-(defun file-newer-p (new-file old-file)
-  "Returns true if NEW-FILE is newer than OLD-FILE."
-  (> (file-write-date new-file) (file-write-date old-file)))
-
-(defun requires-compile-p (source-file)
-  (let ((fasl-file (probe-file (compile-file-pathname source-file))))
-    (or (not fasl-file)
-        (file-newer-p source-file fasl-file))))
-
-(defslimefun compile-file-if-needed (filename loadp)
-  (cond ((requires-compile-p filename)
-         (compile-file-for-emacs filename loadp))
-        (loadp
-         (load (compile-file-pathname filename))
-         nil)))
-        
 
 ;;;; Profiling
 
