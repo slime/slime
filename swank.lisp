@@ -22,7 +22,6 @@
            #:print-indentation-lossage
            #:swank-debugger-hook
            ;; These are user-configurable variables:
-           #:*sldb-pprint-frames*
            #:*communication-style*
            #:*log-events*
            #:*use-dedicated-output-stream*
@@ -75,19 +74,16 @@
 (defvar *swank-debug-p* t
   "When true, print extra debugging information.")
 
-(defvar *sldb-pprint-frames* nil
-  "*pretty-print* is bound to this value when sldb prints a frame.")
-
 ;;; The `DEFSLIMEFUN' macro defines a function that Emacs can call via
 ;;; RPC.
 
 (defmacro defslimefun (name arglist &body rest)
   "A DEFUN for functions that Emacs can call by RPC."
   `(progn
-    (defun ,name ,arglist ,@rest)
-    ;; see <http://www.franz.com/support/documentation/6.2/doc/pages/variables/compiler/s_cltl1-compile-file-toplevel-compatibility-p_s.htm>
-    (eval-when (:compile-toplevel :load-toplevel :execute)
-      (export ',name :swank))))
+     (defun ,name ,arglist ,@rest)
+     ;; see <http://www.franz.com/support/documentation/6.2/doc/pages/variables/compiler/s_cltl1-compile-file-toplevel-compatibility-p_s.htm>
+     (eval-when (:compile-toplevel :load-toplevel :execute)
+       (export ',name :swank))))
 
 (declaim (ftype (function () nil) missing-arg))
 (defun missing-arg ()
@@ -245,25 +241,23 @@ corresponding values in the CDR of VALUE."
     `(let* ((,tmp ,value)
 	    (,operator (car ,tmp))
 	    (,operands (cdr ,tmp)))
-      (case ,operator
-        ,@(mapcar (lambda (clause)
-                    (if (eq (car clause) t)
-                        `(t ,@(cdr clause))
-                        (destructuring-bind ((op &rest rands) &rest body) 
-                            clause
-                          `(,op (destructuring-bind ,rands ,operands
-                                  . ,body)))))
-                  patterns)
-        ,@(if (eq (caar (last patterns)) t)
-              '()
-              `((t (error "destructure-case failed: ~S" ,tmp))))))))
+       (case ,operator
+         ,@(loop for (pattern . body) in patterns collect 
+                   (if (eq pattern t)
+                       `(t ,@body)
+                       (destructuring-bind (op &rest rands) pattern
+                         `(,op (destructuring-bind ,rands ,operands 
+                                 ,@body)))))
+         ,@(if (eq (caar (last patterns)) t)
+               '()
+               `((t (error "destructure-case failed: ~S" ,tmp))))))))
 
 (defmacro with-temp-package (var &body body)
   "Execute BODY with VAR bound to a temporary package.
 The package is deleted before returning."
   `(let ((,var (make-package (gensym "TEMP-PACKAGE-"))))
-    (unwind-protect (progn ,@body)
-      (delete-package ,var))))
+     (unwind-protect (progn ,@body)
+       (delete-package ,var))))
 
 ;;;; TCP Server
 
@@ -418,8 +412,8 @@ of the toplevel restart."
 
 (defmacro with-reader-error-handler ((connection) &body body)
   `(handler-case (progn ,@body)
-    (slime-protocol-error (e)
-     (close-connection ,connection e))))
+     (slime-protocol-error (e)
+       (close-connection ,connection e))))
 
 (defun simple-break ()
   (with-simple-restart  (continue "Continue from interrupt.")
@@ -701,13 +695,13 @@ dynamic binding."
   (let ((real-stream-var (prefixed-var "REAL" stream-var))
         (current-stream-var (prefixed-var "CURRENT" stream-var)))
     `(progn
-      ;; Save the real stream value for the future.
-      (defvar ,real-stream-var ,stream-var)
-      ;; Define a new variable for the effective stream.
-      ;; This can be reassigned.
-      (defvar ,current-stream-var ,stream-var)
-      ;; Assign the real binding as a synonym for the current one.
-      (setq ,stream-var (make-synonym-stream ',current-stream-var)))))
+       ;; Save the real stream value for the future.
+       (defvar ,real-stream-var ,stream-var)
+       ;; Define a new variable for the effective stream.
+       ;; This can be reassigned.
+       (defvar ,current-stream-var ,stream-var)
+       ;; Assign the real binding as a synonym for the current one.
+       (setq ,stream-var (make-synonym-stream ',current-stream-var)))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun prefixed-var (prefix variable-symbol)
@@ -900,8 +894,7 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
 (defun read-user-input-from-emacs ()
   (let ((*read-input-catch-tag* (1+ *read-input-catch-tag*)))
     (force-output)
-    (send-to-emacs `(:read-string ,(current-thread)
-                     ,*read-input-catch-tag*))
+    (send-to-emacs `(:read-string ,(current-thread) ,*read-input-catch-tag*))
     (let ((ok nil))
       (unwind-protect
            (prog1 (catch (intern-catch-tag *read-input-catch-tag*)
@@ -909,7 +902,7 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
              (setq ok t))
         (unless ok 
           (send-to-emacs `(:read-aborted ,(current-thread)
-                           *read-input-catch-tag*)))))))
+                                         *read-input-catch-tag*)))))))
 
 (defslimefun take-input (tag input)
   "Return the string INPUT to the continuation TAG."
@@ -949,12 +942,12 @@ This should be used for code that is conceptionally executed in an
 Emacs buffer."
   (destructuring-bind () _
     `(let ((*package* *buffer-package*))
-      ;; Don't shadow *readtable* unnecessarily because that prevents
-      ;; the user from assigning to it.
-      (if (eq *readtable* *buffer-readtable*)
-          #1=(call-with-syntax-hooks (lambda () ,@body))
-          (let ((*readtable* *buffer-readtable*))
-            #1#)))))
+       ;; Don't shadow *readtable* unnecessarily because that prevents
+       ;; the user from assigning to it.
+       (if (eq *readtable* *buffer-readtable*)
+           #1=(call-with-syntax-hooks (lambda () ,@body))
+           (let ((*readtable* *buffer-readtable*))
+             #1#)))))
 
 (defun from-string (string)
   "Read string in the *BUFFER-PACKAGE*"
@@ -1158,8 +1151,8 @@ Errors are trapped and invoke our debugger."
              (setq ok t))
         (force-user-output)
         (send-to-emacs `(:return ,(current-thread)
-                         ,(if ok `(:ok ,result) '(:abort)) 
-                         ,id))))))
+                                 ,(if ok `(:ok ,result) '(:abort)) 
+                                 ,id))))))
 
 (defun format-values-for-echo-area (values)
   (with-buffer-syntax ()
@@ -1236,40 +1229,64 @@ change, then send Emacs an update."
 	(makunbound name)
 	(prin1-to-string (eval form))))))
 
-(defvar *swank-pprint-circle* *print-circle*
-  "*PRINT-CIRCLE* is bound to this value when pretty printing slime output.")
+(defun foo (&key ((:x a)) ((y b)))
+  (cons a b))
 
-(defvar *swank-pprint-case* *print-case*
-  "*PRINT-CASE* is bound to this value when pretty printing slime output.")
+(foo 'y 10)
 
-(defvar *swank-pprint-right-margin* *print-right-margin*
-  "*PRINT-RIGHT-MARGIN* is bound to this value when pretty printing slime output.")
 
-(defvar *swank-pprint-escape* *print-escape*
-  "*PRINT-ESCAPE* is bound to this value when pretty printing slime output.")
+(defmacro define-printer-variables (prefix &body vars)
+  "Define a group of printer variables.  
 
-(defvar *swank-pprint-level* *print-level*
-  "*PRINT-LEVEL* is bound to this value when pretty printing slime output.")
+The elements of VARS can have the form: NAME or (NAME INIT).  NAME
+must be one of the symbols (pretty circle case escape right-margin
+level length).  PREFIX and NAME are concatenated, like *PREFIX-NAME*,
+to form the names of the actual variable.  The new variable is
+initialized with INIT or, if INIT was not specified, with the value of
+the corresponding printer variable.
 
-(defvar *swank-pprint-length* *print-length*
-  "*PRINT-LENGTH* is bound to this value when pretty printing slime output.")
+At macroexpansion time the names of the created symbols are stored in
+the 'printer-variables property of PREFIX."
+  (let ((valid-names '(level length circle readably pretty 
+                       case escape right-margin)))
+    (labels ((symconc (prefix suffix)
+               (intern (format nil "*~A-~A*" (string prefix) (string suffix))
+                       :swank))
+             (parse (var)
+               (destructuring-bind (name init &optional doc) 
+                   (if (consp var)  var  (list var (symconc 'print var)))
+                 (unless (member name valid-names)
+                   (error "Not a printer variable: ~S" var))
+                 (list name init doc))))
+      (let* ((bindings (mapcar #'parse vars)))
+        (setf (get prefix 'printer-variables)
+              (loop for (name) in bindings 
+                    collect `(,(symconc 'print name) ,(symconc prefix name))))
+        `(progn 
+           ,@(loop for (name init doc) in bindings
+                   collect `(defvar ,(symconc prefix name) ,init ,doc)))))))
+
+(define-printer-variables swank-pprint
+  circle level length case right-margin escape)
+
+(defmacro with-printer-settings (group &body body)
+  "Rebind the pringer variables in GROUP and execute body.
+See `define-printer-variables'."
+  (let ((bindings (get group 'printer-variables)))
+    (when (not bindings) (warn "No printer variables for: ~S" group))
+    `(let ,bindings ,@body)))
 
 (defun swank-pprint (list)
   "Bind some printer variables and pretty print each object in LIST."
   (with-buffer-syntax ()
-    (let ((*print-pretty* t)
-          (*print-case* *swank-pprint-case*)
-          (*print-right-margin* *swank-pprint-right-margin*)
-          (*print-circle* *swank-pprint-circle*)
-          (*print-escape* *swank-pprint-escape*)
-          (*print-level* *swank-pprint-level*)
-          (*print-length* *swank-pprint-length*))
-      (cond ((null list) "; No value")
-            (t (with-output-to-string (*standard-output*)
-                 (dolist (o list)
-                   (pprint o)
-                   (terpri))))))))
-
+    (with-printer-settings swank-pprint
+      (let ((*print-pretty* t))
+        (cond ((null list) "; No value")
+              (t (with-output-to-string (*standard-output*)
+                   (dolist (o list)
+                     (pprint o)
+                     (terpri)))))))))
+  
 (defslimefun pprint-eval (string)
   (with-buffer-syntax ()
     (swank-pprint (multiple-value-list (eval (read-from-string string))))))
@@ -1348,6 +1365,14 @@ after Emacs causes a restart to be invoked."
 (defvar *sldb-restarts* nil
   "The list of currenlty active restarts.")
 
+;; A set of printer variables used in the debugger.
+(define-printer-variables sldb 
+  (pretty nil)
+  (level 4)
+  (length 10)
+  (circle t)
+  (readably nil))
+
 (defun debug-in-emacs (condition)
   (let ((*swank-debugger-condition* condition)
         (*sldb-restarts* (compute-restarts condition))
@@ -1355,11 +1380,11 @@ after Emacs causes a restart to be invoked."
                             (symbol-value '*buffer-package*))
                        *package*))
         (*sldb-level* (1+ *sldb-level*))
-        (*swank-state-stack* (cons :swank-debugger-hook *swank-state-stack*))
-        (*print-readably* nil))
+        (*swank-state-stack* (cons :swank-debugger-hook *swank-state-stack*)))
     (force-user-output)
-    (call-with-debugging-environment
-     (lambda () (sldb-loop *sldb-level*)))))
+    (with-printer-settings sldb
+      (call-with-debugging-environment
+       (lambda () (sldb-loop *sldb-level*))))))
 
 (defun sldb-loop (level)
   (unwind-protect
@@ -1381,7 +1406,7 @@ Rather than recursively debug the debugger (a dangerous idea!), these
 conditions are simply reported."
   (let ((real-condition (original-condition condition)))
     (send-to-emacs `(:debug-condition ,(current-thread)
-                     ,(princ-to-string real-condition))))
+                                      ,(princ-to-string real-condition))))
   (throw 'sldb-loop-catcher nil))
 
 (defun safe-condition-message (condition)
@@ -1413,10 +1438,8 @@ format suitable for Emacs."
 (defun frame-for-emacs (n frame)
   (let* ((label (format nil "  ~D: " n))
          (string (with-output-to-string (stream) 
-                   (let ((*print-pretty* *sldb-pprint-frames*)
-                         (*print-circle* t))
                      (princ label stream) 
-                     (print-frame frame stream)))))
+                     (print-frame frame stream))))
     (subseq string (length label))))
 
 ;;;;; SLDB entry points
@@ -1501,10 +1524,7 @@ has changed, ignore the request."
 (defslimefun frame-locals-for-emacs (index)
   "Return a property list ((&key NAME ID VALUE) ...) describing
 the local variables in the frame INDEX."
-  (let* ((*print-readably* nil)
-         (*print-pretty* *sldb-pprint-frames*)
-         (*print-circle* t)
-         (*package* (or (frame-package index) *package*)))
+  (let* ((*package* (or (frame-package index) *package*)))
     (mapcar (lambda (frame-locals)
               (destructuring-bind (&key name id value) frame-locals
                 (list :name (prin1-to-string name) :id id
@@ -2546,105 +2566,102 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
 
 (defmethod inspect-for-emacs ((object cons) (inspector t))
   (declare (ignore inspector))
-  (if (listp object)
+  (if (consp (cdr object))
       (inspect-for-emacs-list object)
       (inspect-for-emacs-simple-cons object)))
 
 (defun inspect-for-emacs-simple-cons (cons)
   (values "A cons cell."
-          `("Car: " (:value ,(car cons))
-            (:newline)
-            "Cdr: " (:value ,(cdr cons)))))
+          (label-value-line* 
+           ('car (car cons))
+           ('cdr (cdr cons)))))
 
 (defun inspect-for-emacs-list (list)
-  (let ((circularp nil)
-        (length 0)
-        (seen (make-hash-table :test 'eq))
-        (contents '()))
-    (loop
-       for cons on list
-       when (gethash cons seen)
-         do (setf circularp t) and
-         do (return)
-       do (push '(:newline) contents)
-       do (push `(:value ,(car cons)) contents)
-       do (setf (gethash cons seen) t)
-       do (incf length))
-    (if circularp
-        (values "A circular list."
-                `("Contents:"
-                  ,@(nreverse contents)))
-        (values "A proper list."
-                `("Length: " (:value ,length)
-                  (:newline)
-                  "Contents:"
-                  ,@(nreverse contents))))))
+  (let ((maxlen 40))
+    (multiple-value-bind (length tail) (safe-length list)
+      (flet ((frob (title list &rest rest)
+               (values title 
+                       (append '("Elements:" (:newline))
+                               (loop for i from 0 
+                                     for e in list 
+                                     append (label-value-line i e))
+                               rest))))
+        (cond ((not length)             ; circular
+               (frob "A circular list."
+                     (cons (car list)
+                           (ldiff (cdr list) list))))
+              ((and (<= length maxlen) (not tail))
+               (frob "A proper list." list))
+              (tail
+               (frob "An improper list." 
+                     (subseq list 0 length)
+                     (list :value tail "tail")))
+              (t
+               (frob "A proper list." 
+                     (subseq list 0 maxlen)
+                     (list :value (nthcdr maxlen list) "rest"))))))))
+
+(defun safe-length (list)
+  "Similar to `list-length', but avoid errors on improper lists.
+Return two values: the length of the list and the last cdr.
+NIL is returned if the list is circular."
+  (do ((n 0 (+ n 2))                    ;Counter.
+       (fast list (cddr fast))          ;Fast pointer: leaps by 2.
+       (slow list (cdr slow)))          ;Slow pointer: leaps by 1.
+      (nil)
+    (cond ((null fast) (return (values n nil)))
+          ((not (consp fast)) (return (values n fast)))
+          ((null (cdr fast)) (return (values (1+ n) (cdr fast))))
+          ((and (eq fast slow) (> n 0)) (return nil))
+          ((not (consp (cdr fast))) (return (values (1+ n) (cdr fast)))))))
 
 (defmethod inspect-for-emacs ((ht hash-table) (inspector t))
   (declare (ignore inspector))
   (values "A hash table."
-          `("Count: " (:value ,(hash-table-count ht))
-            (:newline)
-            "Size: " (:value ,(hash-table-size ht))
-            (:newline)
-            "Test: " (:value ,(hash-table-test ht))
-            (:newline)
-            "Rehash size: " (:value ,(hash-table-rehash-size ht))
-            (:newline)
-            "Rehash threshold: " (:value ,(hash-table-rehash-threshold ht))
-            (:newline)
-            "Contents:" (:newline)
-            ,@(loop
-                 for key being the hash-keys of ht
+          (append
+           (label-value-line*
+            ("Count" (hash-table-count ht))
+            ("Size" (hash-table-size ht))
+            ("Test" (hash-table-test ht))
+            ("Rehash size" (hash-table-rehash-size ht))
+            ("Rehash threshold" (hash-table-rehash-threshold ht)))
+           '("Contents: " (:newline))
+           (loop for key being the hash-keys of ht
                  for value being the hash-values of ht
-                 collect `(:value ,key)
-                 collect " = "
-                 collect `(:value ,value)
-                 collect " "
-                 collect `(:newline)))))
+                 append `((:value ,key) " = " (:value ,value) (:newline))))))
 
 (defmethod inspect-for-emacs ((array array) (inspector t))
   (declare (ignore inspector))
   (values "An array."
-          `("Dimensions: " (:value ,(array-dimensions array))
-            (:newline)
-            "Its element type is: " (:value ,(array-element-type array))
-            (:newline)
-            "Total size: " (:value ,(array-total-size array))
-            (:newline)
-            ,@(if (array-has-fill-pointer-p array)
-                  `("Its fill-pointer is " (:value ,(fill-pointer array)))
-                  `("No fill pointer."))
-            (:newline)
-            ,(if (adjustable-array-p array)
-                 "It is adjustable."
-                 "It is not adjustable.")
-            (:newline)
-            "Contents:" (:newline)
-            ,@(loop
-                 with darray = (make-array (array-total-size array)
-                                           :displaced-to array
-                                           :displaced-index-offset 0
-                                           :element-type (array-element-type array))
-                 for index upfrom 0
-                 for element across darray
-                 collect `(:value ,element)
-                 collect '(:newline)))))
+          (append
+           (label-value-line*
+            ("Dimensions" (array-dimensions array))
+            ("Its element type is" (array-element-type array))
+            ("Total size" (array-total-size array))
+            ("Fill pointer" (fill-pointer array))
+            ("Adjustable" (adjustable-array-p array)))
+           '("Contents:" (:newline))
+           (let ((darray (make-array (array-total-size array)
+                                     :displaced-to array
+                                     :displaced-index-offset 0)))
+             (loop for e across darray 
+                   for i from 0
+                   collect (label-value-line i e))))))
 
 (defmethod inspect-for-emacs ((char character) (inspector t))
   (declare (ignore inspector))
   (values "A character."
-          `("Char code: " (:value ,(char-code char))
-            (:newline)
-            "Lower cased: " (:value ,(char-downcase char))
-            (:newline)
-            "Upper cased: " (:value ,(char-upcase char))
-            (:newline)
-            ,@(when (get-macro-character char)
-                `("In the current readtable (" (:value ,*readtable*) ") it is a macro character: "
-                  (:value ,(get-macro-character char))
-                  (:newline))))))
+          (append 
+           (label-value-line*
+            ("Char code" (char-code char))
+            ("Lower cased" (char-downcase char))
+            ("Upper cased" (char-upcase char)))
+           (if (get-macro-character char)
+               `("In the current readtable (" 
+                 (:value ,*readtable*) ") it is a macro character: "
+                 (:value ,(get-macro-character char)))))))
 
+;; Shouldn't most of this stuff be done by describe-symbol-for-emacs? -- he
 (defmethod inspect-for-emacs ((symbol symbol) (inspector t))
   (declare (ignore inspector))
   (let ((internal-external (multiple-value-bind (symbol status)
@@ -2932,24 +2949,22 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
 (defmethod inspect-for-emacs ((pathname logical-pathname) (inspector t))
   (declare (ignore inspector))
   (values "A logical pathname."
-          `("Namestring: " (:value ,(namestring pathname))
-            (:newline)
-            "Physical pathname: " (:value ,(translate-logical-pathname pathname)) 
-            (:newline)
-            "Host: " (:value ,(pathname-host pathname))
-            " (" (:value ,(logical-pathname-translations (pathname-host pathname)) "other translations") ")"
-            (:newline)
-            "Directory: " (:value ,(pathname-directory pathname))
-            (:newline)
-            "Name: " (:value ,(pathname-name pathname))
-            (:newline)
-            "Type: " (:value ,(pathname-type pathname))
-            (:newline)
-            "Version: " (:value ,(pathname-version pathname))
-            ,@(unless (or (wild-pathname-p pathname)
-                          (not (probe-file pathname)))
-                `((:newline)
-                  "Truename: " (:value ,(truename pathname)))))))
+          (append 
+           (label-value-line*
+            ("Namestring" (namestring pathname))
+            ("Physical pathname: " (translate-logical-pathname pathname)))
+           `("Host: " (pathname-host pathname)
+                    " (" (:value ,(logical-pathname-translations 
+                                   (pathname-host pathname))) 
+                    "other translations)"
+                    (:newline))
+           (label-value-line*
+            ("Directory" (pathname-directory pathname))
+            ("Name" (pathname-name pathname))
+            ("Type" (pathname-type pathname))
+            ("Version" (pathname-version pathname))
+            ("Truename" (if (not (wild-pathname-p pathname))
+                            (probe-file pathname)))))))
 
 (defmethod inspect-for-emacs ((n number) (inspector t))
   (declare (ignore inspector))
@@ -2959,7 +2974,9 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
   (declare (ignore inspector))
   (values "A number."
           (append 
-           `(,(format nil "Value: ~D = #x~X = #o~O = #b~,,' ,8B = ~E" i i i i i) (:newline))
+           `(,(format nil "Value: ~D = #x~X = #o~O = #b~,,' ,8B = ~E" 
+                      i i i i i) 
+              (:newline))
            (if (< -1 i char-code-limit)
                (label-value-line "Corresponding character" (code-char i)))
            (label-value-line "Length" (integer-length i))
@@ -3245,8 +3262,7 @@ belonging to the buffer package."
                (when indent
                  (unless (equal (gethash symbol cache) indent)
                    (setf (gethash symbol cache) indent)
-                   (dolist (readname (all-qualified-readnames symbol))
-                     (push (cons readname indent) alist)))))))
+                   (push (cons (string-downcase symbol) indent) alist))))))
       (if force
           (do-all-symbols (symbol)
             (consider symbol))
@@ -3254,15 +3270,6 @@ belonging to the buffer package."
             (when (eq (symbol-package symbol) *buffer-package*)
               (consider symbol)))))
     alist))
-
-(defun all-qualified-readnames (symbol)
-  "Return the list of SYMBOL's readnames with each package qualifier.
-The resulting strings are always downcase (for Emacs indentation)."
-  (cons (symbol-name symbol)
-        (loop for p in (package-names (symbol-package symbol))
-              collect (format nil "~A:~A"
-                              (string-downcase p)
-                              (string-downcase (symbol-name symbol))))))
 
 (defun package-names (package)
   "Return the name and all nicknames of PACKAGE in a list."
