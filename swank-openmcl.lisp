@@ -31,7 +31,8 @@
 ;;; * Evaluation of forms with C-M-x.
 ;;; * Compilation of defuns with C-c C-c.
 ;;; * File compilation with C-c C-k.
-;;; * Basic debugger functionality, jumping to frames is not implemented yet.
+;;; * Most of the debugger functionality, except EVAL-IN-FRAME,
+;;;   FRAME-SOURCE-LOCATION, and FRAME-CATCH-TAGS.
 ;;; * Macroexpanding with C-c RET.
 ;;; * Disassembling the symbol at point with C-c M-d.
 ;;; * Describing symbol at point with C-c C-d.
@@ -42,7 +43,8 @@
 ;;; Things that sort of work:
 ;;;
 ;;; * WHO-CALLS is implemented but is only able to return the file a
-;;;   caller is defined in---source location information is not available.
+;;;   caller is defined in---source location information is not
+;;;   available.
 ;;;
 ;;; Things that aren't done yet:
 ;;;
@@ -130,6 +132,7 @@ until the remote Emacs goes away."
   (setq *swank-debugger-stack-frame* error-pointer))
 
 (defslimefun arglist-string (fname)
+  "Return the lambda list for function FNAME as a string."
   (let ((*print-case* :downcase))
     (multiple-value-bind (function condition)
         (ignore-errors (values (from-string fname)))
@@ -163,13 +166,19 @@ condition."
   (muffle-warning condition))
 
 (defun call-trapping-compilation-notes (fn)
+  "Call FN trapping compiler notes and storing them in the notes database."
   (handler-bind ((ccl::compiler-warning #'handle-compiler-warning))
     (funcall fn)))
 
 (defun temp-file-name ()
+  "Return a temporary file name to compile strings into."
   (ccl:%get-cstring (#_tmpnam (ccl:%null-ptr))))
 
 (defslimefun swank-compile-string (string buffer start)
+  "Compile STRING, using BUFFER and START as information for
+reporting back the location of compiler notes.  In OpenMCL we
+have to use the file compiler to get compiler warning positions,
+so we write the string to a temporary file and compile it."
   (declare (ignore buffer))
   (let ((*buffer-offset* start)
         (*package* *buffer-package*)
@@ -185,6 +194,7 @@ condition."
          (delete-file filename))))))
 
 (defslimefun swank-compile-file (filename load)
+  "Compile and optionally load FILENAME, trapping compiler notes for Emacs."
   (let ((*buffer-offset* 0))
     (call-with-compilation-hooks
      (lambda ()
@@ -197,6 +207,7 @@ condition."
 (defvar *sldb-restarts*)
 
 (defslimefun getpid ()
+  "Return the process ID of this superior Lisp."
   (ccl::getpid))
 
 (defslimefun sldb-loop ()
@@ -228,9 +239,9 @@ condition."
   (format nil "~A~%   [Condition of type ~S]"
           *swank-debugger-condition* (type-of *swank-debugger-condition*)))
 
-(defun do-backtrace (function &optional
-                     (start-frame-number 0)
-                     (end-frame-number most-positive-fixnum))
+(defun map-backtrace (function &optional
+                      (start-frame-number 0)
+                      (end-frame-number most-positive-fixnum))
   "Call FUNCTION passing information about each stack frame
 from frames START-FRAME-NUMBER to END-FRAME-NUMBER."
   (let ((tcr (ccl::%current-tcr))
@@ -251,9 +262,9 @@ from frames START-FRAME-NUMBER to END-FRAME-NUMBER."
 (defun backtrace-length ()
   "Return the total number of frames available in the debugger."
   (let ((result 0))
-    (do-backtrace #'(lambda (n p tcr lfun pc)
-                      (declare (ignore n p tcr lfun pc))
-                      (incf result)))
+    (map-backtrace #'(lambda (n p tcr lfun pc)
+                       (declare (ignore n p tcr lfun pc))
+                       (incf result)))
     result))
 
 (defun frame-arguments (p tcr lfun pc)
@@ -302,13 +313,13 @@ An example return value:
 
 If the backtrace cannot be calculated, this function returns NIL."
   (let (result)
-    (do-backtrace #'(lambda (frame-number p tcr lfun pc)
-                      (push (list frame-number
-                                  (format nil "~D: (~A~A)" frame-number
-                                          (ccl::%lfun-name-string lfun)
-                                          (frame-arguments p tcr lfun pc)))
+    (map-backtrace #'(lambda (frame-number p tcr lfun pc)
+                       (push (list frame-number
+                                   (format nil "~D: (~A~A)" frame-number
+                                           (ccl::%lfun-name-string lfun)
+                                           (frame-arguments p tcr lfun pc)))
                             result))
-      start-frame-number end-frame-number)
+                   start-frame-number end-frame-number)
     (nreverse result)))
 
 (defslimefun debugger-info-for-emacs (start end)
@@ -318,28 +329,51 @@ If the backtrace cannot be calculated, this function returns NIL."
         (backtrace-for-emacs start end)))
 
 (defslimefun frame-locals (index)
-  (do-backtrace 
-      #'(lambda (frame-number p tcr lfun pc)
-          (when (= frame-number index)
-            (multiple-value-bind (count vsp parent-vsp)
+  (map-backtrace 
+   #'(lambda (frame-number p tcr lfun pc)
+       (when (= frame-number index)
+         (multiple-value-bind (count vsp parent-vsp)
                 (ccl::count-values-in-frame p tcr)
-              (let (result)
-                (dotimes (i count)
-                  (multiple-value-bind (var type name)
-                      (ccl::nth-value-in-frame p i tcr lfun pc vsp parent-vsp)
-                    (declare (ignore type))
-                    (when name
-                      (push (list 
-                             :symbol name
-                             :id 0
-                             :validity :valid
-                             :value-string (to-string var))
-                            result))))
-                (return-from frame-locals (nreverse result))))))))
+           (let (result)
+             (dotimes (i count)
+               (multiple-value-bind (var type name)
+                   (ccl::nth-value-in-frame p i tcr lfun pc vsp parent-vsp)
+                 (declare (ignore type))
+                 (when name
+                   (push (list 
+                          :symbol (to-string name)
+                          :id 0
+                          :validity :valid
+                          :value-string (to-string var))
+                         result))))
+             (return-from frame-locals (nreverse result))))))))
 
 (defslimefun frame-catch-tags (index)
   (declare (ignore index))
   nil)
+
+(defun function-source-location (symbol)
+  "Return a plist containing a source location for the function
+named SYMBOL."
+  (let ((source-info (ccl::%source-files symbol)))
+    ;; This is not entirely correct---%SOURCE-FILES can apparently
+    ;; return a list under some circumstances...
+    (when (and source-info (atom source-info))
+      (let ((filename (namestring (truename source-info))))
+        (list :from :file :filename filename :source-path '(0) :position 0
+              :function-name (symbol-name symbol))))))
+
+(defslimefun frame-source-location-for-emacs (index)
+  "Return to Emacs the location of the source code for the
+function in a debugger frame.  In OpenMCL, we are not able to
+find the precise position of the frame, but we do attempt to give
+at least the filename containing it."
+  (map-backtrace
+   #'(lambda (frame-number p tcr lfun pc)
+       (declare (ignore p tcr pc))
+       (when (and (= frame-number index) lfun)
+         (return-from frame-source-location-for-emacs
+           (function-source-location (ccl:function-name lfun)))))))
 
 (defun nth-restart (index)
   (nth index *sldb-restarts*))
@@ -426,9 +460,13 @@ Return NIL if the symbol is unbound."
 (defslimefun-unimplemented who-macroexpands (symbol-name package-name))
 
 (defslimefun-unimplemented find-fdefinition (symbol-name package-name))
-(defslimefun-unimplemented function-source-location-for-emacs (fname))
+
+(defslimefun function-source-location-for-emacs (fname)
+  "Return a source position of the definition of FNAME.  The
+precise location of the definition is not available, but we are
+able to return the file name in which the definition occurs."
+  (function-source-location (from-string fname)))
 
 ;;; Macroexpansion
 
 (defslimefun-unimplemented swank-macroexpand-all (string))
-
