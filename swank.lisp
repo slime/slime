@@ -1709,8 +1709,8 @@ belonging to the buffer package."
   "Return true if Emacs has special rules for indenting SYMBOL."
   (or (cl-symbol-p symbol)
       (let ((name (symbol-name symbol)))
-        (not (or (prefix-match-p "DEF" name)
-                 (prefix-match-p "WITH-" name))))))
+        (or (prefix-match-p "DEF" name)
+            (prefix-match-p "WITH-" name)))))
 
 (defun symbol-indentation (symbol)
   "Return a form describing the indentation of SYMBOL.
