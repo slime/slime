@@ -441,26 +441,27 @@ Estimated total monitoring overhead: 0.88 seconds
 ;;; wants to subtract out the consing during GC, replace the following
 ;;; two lines with the commented out code.
 #+openmcl
-(progn
-  (defmacro get-cons () `(the consing-type (ccl::total-bytes-allocated)))
-  (in-package :ccl)
-  (defvar *bytes-consed-chkpt* 0)
-  (defun reset-consing () (setq *bytes-consed-chkpt* 0))
-  (let ((old-gc (symbol-function 'gc))
-        (ccl:*warn-if-redefine-kernel* nil))
-    (setf (symbol-function 'gc)
-          #'(lambda ()
-              (let ((old-consing (total-bytes-consed)))
-                (prog1
-                    (funcall old-gc)
-                  (incf *bytes-consed-chkpt*
-                        (- old-consing (total-bytes-consed))))))))
-  (defun total-bytes-consed ()
-    "Returns number of conses (8 bytes each)"
-    (ccl::total-bytes-allocated))
-  (in-package "MONITOR")
-  (defun get-cons ()
-    (the consing-type (+ (ccl::total-bytes-consed) ccl::*bytes-consed-chkpt*))))
+(defmacro get-cons () `(the consing-type (ccl::total-bytes-allocated)))
+;; #+openmcl
+;; (progn
+;;   (in-package :ccl)
+;;   (defvar *bytes-consed-chkpt* 0)
+;;   (defun reset-consing () (setq *bytes-consed-chkpt* 0))
+;;   (let ((old-gc (symbol-function 'gc))
+;;         (ccl:*warn-if-redefine-kernel* nil))
+;;     (setf (symbol-function 'gc)
+;;           #'(lambda ()
+;;               (let ((old-consing (total-bytes-consed)))
+;;                 (prog1
+;;                     (funcall old-gc)
+;;                   (incf *bytes-consed-chkpt*
+;;                         (- old-consing (total-bytes-consed))))))))
+;;   (defun total-bytes-consed ()
+;;     "Returns number of conses (8 bytes each)"
+;;     (ccl::total-bytes-allocated))
+;;   (in-package "MONITOR")
+;;   (defun get-cons ()
+;;     (the consing-type (+ (ccl::total-bytes-consed) ccl::*bytes-consed-chkpt*))))
 
 
 #-(or clisp openmcl)
