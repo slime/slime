@@ -449,7 +449,7 @@ A prefix argument disables this behaviour."
     ("\M-." slime-edit-definition :inferior t :sldb t)
     ("\M-," slime-pop-find-definition-stack :inferior t :sldb t)
     ("\C-q" slime-close-parens-at-point :prefixed t :inferior t)
-    ("\C-\M-q" slime-reindent-defun :inferior t)
+    ("\C-c\M-q" slime-reindent-defun :inferior t)
     ;; Evaluating
     ("\C-x\C-e" slime-eval-last-expression :inferior t)
     ("\C-x\M-e" slime-eval-last-expression-display-output :inferior t)
@@ -4697,6 +4697,13 @@ This for use in the implementation of COMMON-LISP:ED."
 
 ;;; Interactive evaluation.
 
+(defun slime-interactive-eval (string)
+  "Read and evaluate STRING and print value in minibuffer. "
+  (interactive (list (slime-read-from-minibuffer "Slime Eval: ")))
+  (slime-insert-transcript-delimiter string)
+  (slime-eval-with-transcript `(swank:interactive-eval ,string)
+                              (slime-buffer-package t)))
+
 (defun slime-eval-with-transcript (form package &optional fn)
   "Send FROM and PACKAGE to Lisp and pass the result to FN.
 Display the result in the message area, if FN is nil.
@@ -4728,13 +4735,6 @@ Show the output buffer if the evaluation causes any output."
                                     (substring string 0 
                                                (min 60 (length string))))
       " ...\n"))))
-
-(defun slime-interactive-eval (string)
-  "Read and evaluate STRING and print value in minibuffer. "
-  (interactive (list (slime-read-from-minibuffer "Slime Eval: ")))
-  (slime-insert-transcript-delimiter string)
-  (slime-eval-with-transcript `(swank:interactive-eval ,string)
-                              (slime-buffer-package t)))
 
 (defun slime-display-buffer-region (buffer start end &optional other-window)
   "Like `display-buffer', but only display the specified region."
