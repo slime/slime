@@ -1,3 +1,42 @@
+2004-11-25 Chris Capel <pdf23ds@gmail.com>
+
+	* slime.el (slime-indent-and-complete-symbol): Echo the arglist if
+	there's no symbol before point.  Don't complete after parens.
+	(slime-echo-arglist): Factorized from slime-space.
+	(slime-space): Use it.
+	(slime-repl-history-replace): Clear the input at the end of the
+	history.
+	
+	* swank.lisp (arglist-to-string): Don't show &whole, &aux and
+	&environment args.
+	(clean-arglist): New function.
+
+2004-11-25  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-net-coding-system): Emacs does funky encoding
+	for `raw-text-unix' use `binary' instead.
+	(slime-safe-encoding-p): New function.
+	(slime-net-send): Use it and don't try to send stuff which can't
+	be decoded by Lisp.
+	(slime-inferior-lisp-program-history): XEmacs compatibility:
+	declare it as a variable.
+	(slime-xref-mode): In Emacs 21, set delayed-mode-hooks to nil
+	because we don't want to run the lisp-mode-hook.  Reported by
+	Chris Capel.
+
+	* swank.lisp (dispatch-loop): Catch errors and close the
+	connection.  It's almost impossible to run the debugger inside the
+	control-thread, so let it crash instead.  A backtrace would be
+	nice, though.
+	(cleanup-connection-threads): Can know be called in the
+	control-thread.  Add a check to avoid thread suicide.
+	(start-swank-server-in-thread): Fix the call to start-server.
+
+	* swank-sbcl.lisp (%thread-state-slot, %thread-state): Refactored
+	from thread-status.
+	(thread-status): Use it.
+	(all-threads): Exclude return zombies.
+
 2004-11-24  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-start-and-load): Use vanilla comint instead of
@@ -11,7 +50,7 @@
 	inf-lisp.
 	(slime-net-coding-system): Use find-coding-system in XEmacs.
 	coding-system-p means something different here.
-	(slime-repl-mode-map): XEmacs compatibilty: use (kbd "C-<up>")
+	(slime-repl-mode-map): XEmacs compatibility: use (kbd "C-<up>")
 	instead of [C-up].
 
 	* swank.lisp (inspect-for-emacs-list): subseq on improper lists
