@@ -1,3 +1,4 @@
+
 (declaim (optimize debug))
 
 (defpackage :swank
@@ -26,6 +27,8 @@
            #:who-sets
            #:who-binds
            #:who-macroexpands
+	   #:list-callers
+	   #:list-callees
 	   #:list-all-package-names
 	   #:function-source-location-for-emacs
 	   #:swank-macroexpand-1
@@ -51,6 +54,12 @@
 	   #:sldb-abort
 	   #:sldb-continue
 	   #:throw-to-toplevel 
+	   #:init-inspector 
+	   #:inspect-nth-part 
+	   #:inspector-pop 
+	   #:inspector-next
+	   #:describe-inspectee
+	   #:quit-inspector 
 	   ))
 
 (in-package :swank)
@@ -137,6 +146,7 @@
                            :input (lambda (fd)
                                     (declare (ignore fd))
                                     (serve-request stream output)))))
+
 (defun serve-request (*emacs-io* *slime-output*)
   "Read and process a request from a SWANK client.
 The request is read from the socket as a sexp and then evaluated."
@@ -164,7 +174,7 @@ The request is read from the socket as a sexp and then evaluated."
 
 (defvar *swank-io-package* 
   (let ((package (make-package "SWANK-IO-PACKAGE")))
-    (import 'nil package)
+    (import '(nil t quote) package)
     package))
 
 (defun read-form (string) 
@@ -197,11 +207,12 @@ The request is read from the socket as a sexp and then evaluated."
     (force-output *emacs-io*)))
 
 (defun prin1-to-string-for-emacs (object)
-  (let ((*print-case* :downcase)
-	(*print-readably* t)
-	(*print-pretty* nil)
-	(*package* *swank-io-package*))
-    (prin1-to-string object)))
+  (with-standard-io-syntax
+    (let ((*print-case* :downcase)
+	  (*print-readably* t)
+	  (*print-pretty* nil)
+	  (*package* *swank-io-package*))
+      (prin1-to-string object))))
 
 ;;; Functions for Emacs to call.
 
@@ -315,7 +326,11 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 (defvar *compiler-notes* '()
   "List of compiler notes for the last compilation unit.")
 
-(defun clear-compiler-notes ()  (setf *compiler-notes* '()))
+(defvar *previous-compiler-condition* nil
+  "Used to detect duplicates.")
+
+(defvar *previous-context* nil
+  "Used for compiler warnings without context.")
 
 (defvar *notes-database* (make-hash-table :test #'equal)
   "Database of recorded compiler notes/warnings/erros (keyed by filename).
@@ -325,14 +340,16 @@ Each value is a list of (LOCATION SEVERITY MESSAGE CONTEXT) lists.
   MESSAGE is a string describing the note.
   CONTEXT is a string giving further details of where the error occured.")
 
+(defun clear-compiler-notes ()  
+  (setf *compiler-notes* '())
+  (setf *previous-compiler-condition* nil)
+  (setf *previous-context* nil))
+
 (defun clear-note-database (filename)
   (remhash (canonicalize-filename filename) *notes-database*))
 
 (defvar *buffername*)
 (defvar *buffer-offset*)
-
-(defvar *previous-compiler-condition* nil
-  "Used to detect duplicates.")
 
 (defun handle-notification-condition (condition)
   "Handle a condition caused by a compiler warning.
@@ -340,28 +357,49 @@ This traps all compiler conditions at a lower-level than using
 C:*COMPILER-NOTIFICATION-FUNCTION*. The advantage is that we get to
 craft our own error messages, which can omit a lot of redundant
 information."
-  (let ((context (c::find-error-context nil)))
-    (when (and context (not (eq condition *previous-compiler-condition*)))
+  (unless (eq condition *previous-compiler-condition*)
+    (let ((context (or (c::find-error-context nil) *previous-context*)))
       (setq *previous-compiler-condition* condition)
-      (let* ((file-name (c::compiler-error-context-file-name context))
-             (file-pos (c::compiler-error-context-file-position context))
-             (file (if (typep file-name 'pathname)
-                       (unix-truename file-name)
-                       file-name))
-             (note
-              (list
-               :position file-pos
-               :filename (and (stringp file) file)
-               :source-path (current-compiler-error-source-path)
-               :severity (etypecase condition
-                           (c::compiler-error :error)
-                           (c::style-warning :note)
-                           (c::warning :warning))
-               :message (brief-compiler-message-for-emacs condition context)
-               :buffername (if (boundp '*buffername*) *buffername*)
-               :buffer-offset (if (boundp '*buffer-offset*) *buffer-offset*))))
-        (push note *compiler-notes*)
-        (push note (gethash file *notes-database*))))))
+      (setq *previous-context* context)
+      (let ((note (if context
+		      (compiler-note-for-emacs condition context)
+		      (minimal-compiler-note-for-emacs condition))))
+	(push note *compiler-notes*)
+	(when *compile-file-truename*
+	  (push note (gethash (namestring *compile-file-truename*)
+			      *notes-database*)))))))
+	       
+(defun compiler-note-for-emacs (condition context)
+  (let* ((file-name (c::compiler-error-context-file-name context))
+	 (file-position (c::compiler-error-context-file-position context))
+	 (file (if (typep file-name 'pathname)
+		   (unix-truename file-name)
+		   file-name)))
+    (list
+     :position file-position
+     :filename (and (stringp file) file)
+     :source-path (current-compiler-error-source-path context)
+     :severity (severity-for-emacs condition)
+     :message (brief-compiler-message-for-emacs condition context)
+     :buffername (if (boundp '*buffername*) *buffername*)
+     :buffer-offset (if (boundp '*buffer-offset*) *buffer-offset*))))
+
+(defun minimal-compiler-note-for-emacs (condition)
+  "Return compiler note with only minimal context information."
+  (list :position 0
+	:filename (if *compile-file-truename* 
+		      (namestring *compile-file-truename*))
+	:source-path nil 
+	:severity (severity-for-emacs condition)
+	:message (princ-to-string condition)
+	:buffername (if (boundp '*buffername*) *buffername*)
+	:buffer-offset (if (boundp '*buffer-offset*) *buffer-offset*)))
+
+(defun severity-for-emacs (condition)
+  (etypecase condition
+    (c::compiler-error :error)
+    (c::style-warning :note)
+    (c::warning :warning)))
 
 (defun brief-compiler-message-for-emacs (condition error-context)
   "Briefly describe a compiler error for Emacs.
@@ -374,17 +412,16 @@ the error-context redundant."
         (format nil "--> ~{~<~%--> ~1:;~A~> ~}~%~A" enclosing condition)
         (format nil "~A" condition))))
 
-(defun current-compiler-error-source-path ()
+(defun current-compiler-error-source-path (context)
   "Return the source-path for the current compiler error.
 Returns NIL if this cannot be determined by examining internal
 compiler state."
-  (let ((context c::*compiler-error-context*))
-    (cond ((c::node-p context)
-           (reverse
-            (c::source-path-original-source (c::node-source-path context))))
-          ((c::compiler-error-context-p context)
-           (reverse
-            (c::compiler-error-context-original-source-path context))))))
+  (cond ((c::node-p context)
+	 (reverse
+	  (c::source-path-original-source (c::node-source-path context))))
+	((c::compiler-error-context-p context)
+	 (reverse
+	  (c::compiler-error-context-original-source-path context)))))
 
 (defslimefun features ()
   (mapcar #'symbol-name *features*))
@@ -421,8 +458,8 @@ The time is measured in microseconds."
 (defun call-with-compilation-hooks (fn)
   (multiple-value-bind (result usecs)
       (with-trapping-compilation-notes ()
-	 (clear-compiler-notes)
-	 (measure-time-intervall fn))
+	(clear-compiler-notes)
+	(measure-time-intervall fn))
     (list (to-string result)
 	  (format nil "~,2F" (/ usecs 1000000.0)))))
 
@@ -567,6 +604,89 @@ It is assumed that all contexts belong to the same file."
   (and (every #'< path1 path2)
        (< (length path1) (length path2))))
 
+;;; Find callers and callees by looking at the constant pool of
+;;; compiled code objects.  We assume every fdefn object in the
+;;; constant pool corresponds to a call to that function.  A better
+;;; strategy would be to use the disassembler to find actual
+;;; call-sites.
+
+(declaim (inline map-code-constants))
+(defun map-code-constants (code fn)
+  "Call FN for each constant in CODE's constant pool."
+  (check-type code kernel:code-component)
+  (loop for i from vm:code-constants-offset below (kernel:get-header-data code)
+	do (funcall fn (kernel:code-header-ref code i))))
+
+(defun function-callees (function)
+  "Return FUNCTION's callees as a list of names."
+  (let ((callees '()))
+    (map-code-constants 
+     (vm::find-code-object function)
+     (lambda (obj)
+       (when (kernel:fdefn-p obj)
+	 (push (kernel:fdefn-name obj) 
+	       callees))))
+    callees))
+
+(declaim (inline map-allocated-code-components))
+(defun map-allocated-code-components (spaces fn)
+  "Call FN for each allocated code component in one of SPACES.  FN
+receives the object and it's size as arguments.  SPACES should be a
+list of the symbols :dynamic, :static, or :read-only."
+  (dolist (space spaces)
+    (vm::map-allocated-objects
+     (lambda (obj header size)
+       (when (= vm:code-header-type header)
+	 (funcall fn obj size)))
+     space)))
+
+(declaim (inline map-caller-code-components))
+(defun map-caller-code-components (function spaces fn)
+  "Call FN for each code component with a fdefn for FUNCTION in its
+constant pool."
+  (let ((function (coerce function 'function)))
+    (map-allocated-code-components
+     spaces 
+     (lambda (obj size)
+       (declare (ignore size))
+       (map-code-constants 
+	obj 
+	(lambda (constant)
+	  (when (and (kernel:fdefn-p constant)
+		     (eq (kernel:fdefn-function constant)
+			 function))
+	    (funcall fn obj))))))))
+
+(defun function-callers (function &optional (spaces '(:read-only :static 
+						      :dynamic)))
+  "Return FUNCTION's callers as a list of names."
+  (let ((referrers '()))
+    (map-caller-code-components 
+     function
+     spaces
+     (lambda (code)
+       (let ((entry (kernel:%code-entry-points code)))
+	 (cond ((not entry)
+		(push (princ-to-string code) referrers))
+	       (t 
+		(loop for e = entry then (kernel::%function-next e)
+		      while e
+		      for name = (kernel:%function-name e)
+		      do (pushnew name referrers :test #'equal)))))))
+    referrers))
+
+(defun stringify-function-name-list (list)
+  (let ((*print-pretty* nil))
+    (mapcar #'to-string (remove-if-not #'ext:valid-function-name-p list))))
+
+(defslimefun list-callers (symbol-name)
+  (stringify-function-name-list (function-callers (from-string symbol-name))))
+
+(defslimefun list-callees (symbol-name)
+  (stringify-function-name-list (function-callees (from-string symbol-name))))
+
+;;; 
+
 (defslimefun completions (string default-package-name)
   "Return a list of completions for a symbol designator STRING.  
 
@@ -618,7 +738,7 @@ considered."
 (defslimefun list-all-package-names ()
   (let ((list '()))
     (maphash (lambda (name package)
-	       (declare (ignore package)) 
+	       (declare (ignore package))
 	       (pushnew name list))
 	     lisp::*package-names*)
     list))
@@ -629,91 +749,58 @@ considered."
   "When true don't handle errors while looking for definitions.
 This is useful when debugging the definition-finding code.")
 
-;;; FIND-FDEFINITION -- interface
-;;;
-(defslimefun find-fdefinition (symbol-name package-name)
-  "Return the name of the file in which the function was defined, or NIL."
-  (fdefinition-file (read-symbol/package symbol-name package-name)))
-
-(defun function-debug-info (function)
-  "Return the debug-info for FUNCTION."
-  (declare (type (or symbol function) function))
-  (typecase function
-    (symbol 
-     (let ((def (or (macro-function function)
-		    (and (fboundp function)
-			 (fdefinition function)))))
-       (when def (function-debug-info def))))
-    (kernel:byte-closure
-     (function-debug-info (kernel:byte-closure-function function)))
-    (kernel:byte-function
-     (kernel:%code-debug-info (c::byte-function-component function)))
-    (function
-     (kernel:%code-debug-info (kernel:function-code-header
-			       (kernel:%function-self function))))
-    (t nil)))
-
 (defun function-first-code-location (function)
   (and (function-has-debug-function-p function)
        (di:debug-function-start-location
         (di:function-debug-function function))))
 
-(defun function-debug-function-name (function)
-  (and (function-has-debug-function-p function)
-       (di:debug-function-name (di:function-debug-function function))))
-
 (defun function-has-debug-function-p (function)
   (di:function-debug-function function))
 
-(defun function-debug-function-name= (function name)
-  (equal (function-debug-function-name function) name))
+(defun function-code-object= (closure function)
+  (and (eq (vm::find-code-object closure)
+	   (vm::find-code-object function))
+       (not (eq closure function))))
 
 (defun struct-accessor-p (function)
-  (function-debug-function-name= function "DEFUN STRUCTURE-SLOT-ACCESSOR"))
+  (function-code-object= function #'kernel::structure-slot-accessor))
 
-(defun struct-accessor-class (function)
-  (kernel:%closure-index-ref function 0)) 
+(defun struct-accessor-dd (function)
+  (kernel:layout-info (kernel:%closure-index-ref function 2)))
 
-(defun struct-setter-p (function)
-  (function-debug-function-name= function "DEFUN STRUCTURE-SLOT-SETTER"))
+(defun struct-misc-op-p (function)
+  (function-code-object= function #'kernel::%defstruct))
 
-(defun struct-setter-class (function) 
-  (kernel:%closure-index-ref function 0))
-
-(defun struct-predicate-p (function)
-  (function-debug-function-name= function "DEFUN %DEFSTRUCT"))
-
-(defun struct-predicate-class (function)
-  (kernel:layout-class
+(defun struct-misc-op-dd (function)
+  (assert (= (kernel:get-type function) vm:closure-header-type))
+  (kernel:layout-info
    (c:value-cell-ref 
-    (kernel:%closure-index-ref function 0))))
+    (sys:find-if-in-closure #'di::indirect-value-cell-p function))))
 
-(defun struct-class-source-location (class)
-  (let ((constructor (kernel::structure-class-constructor class)))
-    (cond (constructor (function-source-location constructor))
-	  (t (error "Cannot locate struct without constructor: ~A" class)))))
+(defun dd-source-location (dd)
+  (let ((constructor (or (kernel:dd-default-constructor dd)
+			 (car (kernel::dd-constructors dd)))))
+    (cond (constructor 
+	   (function-source-location 
+	    (coerce (if (consp constructor) (car constructor) constructor)
+		    'function)))
+	  (t (error "Cannot locate struct without constructor: ~S" 
+		    (kernel::dd-name dd))))))
 
 (defun function-source-location (function)
   "Try to find the canonical source location of FUNCTION."
   ;; First test if FUNCTION is a closure created by defstruct; if so
-  ;; extract the struct-class from the closure and find the
-  ;; constructor for the struct-class.  Defstruct creates a defun for
+  ;; extract the defstruct-description (dd) from the closure and find
+  ;; the constructor for the struct.  Defstruct creates a defun for
   ;; the default constructor and we use that as an approximation to
-  ;; the source location of the defstruct.  Unfortunately, some
-  ;; defstructs have no or non-default constructors, in that case we
-  ;; are out of luck.
+  ;; the source location of the defstruct.
   ;;
   ;; For an ordinary function we return the source location of the
   ;; first code-location we find.
   (cond ((struct-accessor-p function)
-	 (struct-class-source-location 
-	  (struct-accessor-class function)))
-	((struct-setter-p function)
-	 (struct-class-source-location 
-	  (struct-setter-class function)))
-	((struct-predicate-p function)
-	 (struct-class-source-location 
-	  (struct-predicate-class function)))
+	 (dd-source-location (struct-accessor-dd function)))
+	((struct-misc-op-p function)
+	 (dd-source-location (struct-misc-op-dd function)))
 	(t
          (let ((location (function-first-code-location function)))
            (when location
@@ -733,36 +820,7 @@ This is useful when debugging the definition-finding code.")
         (handler-case (funcall finder)
           (error (e) (list :error (format nil "Error: ~A" e)))))))
 
-;;; Clone of HEMLOCK-INTERNALS::FUN-DEFINED-FROM-PATHNAME
-(defun fdefinition-file (function)
-  "Return the name of the file in which FUNCTION was defined."
-  (declare (type (or symbol function) function))
-  (typecase function
-    (symbol
-     (let ((def (or (macro-function function)
-		    (and (fboundp function)
-			 (fdefinition function)))))
-       (when def (fdefinition-file def))))
-    (kernel:byte-closure
-     (fdefinition-file (kernel:byte-closure-function function)))
-    (kernel:byte-function
-     (code-definition-file (c::byte-function-component function)))
-    (function
-     (code-definition-file (kernel:function-code-header
-			    (kernel:%function-self function))))
-    (t nil)))
-
-(defun code-definition-file (code)
-  "Return the name of the file in which CODE was defined."
-  (declare (type kernel:code-component code))
-  (flet ((to-namestring (pathname)
-           (handler-case (namestring (truename pathname))
-             (file-error () nil))))
-    (let ((info (kernel:%code-debug-info code)))
-      (when info
-        (let ((source (car (c::debug-info-source info))))
-          (when (and source (eq (c::debug-source-from source) :file))
-            (to-namestring (c::debug-source-name source))))))))
+;;;
 
 (defun briefly-describe-symbol-for-emacs (symbol)
   "Return a plist describing SYMBOL.
@@ -882,9 +940,9 @@ that symbols accessible in the current package go first."
 (defslimefun swank-macroexpand-all (string)
   (apply-macro-expander #'walker:macroexpand-all string))
 
-
 
 ;;;
+
 (defun tracedp (fname)
   (gethash (debug::trace-fdefinition fname)
 	   debug::*traced-functions*))
@@ -944,7 +1002,7 @@ that symbols accessible in the current package go first."
       (unwind-protect
 	   (loop
 	    (catch 'sldb-loop-catcher
-	      (with-simple-restart (abort "Return to sldb level ~D." level)
+ 	      (with-simple-restart (abort "Return to sldb level ~D." level)
 		(read-from-emacs))))
 	(send-to-emacs `(:debug-return ,level))))))
 
@@ -985,13 +1043,10 @@ format suitable for Emacs."
 continuing to frame number END or, if END is nil, the last frame on the
 stack."
   (let ((end (or end most-positive-fixnum)))
-    (do ((frame *sldb-stack-top* (di:frame-down frame))
-	 (i 0 (1+ i)))
-	((= i start)
-	 (loop for f = frame then (di:frame-down f)
-	       for i from start below end
-	       while f
-	       collect f)))))
+    (loop for f = (nth-frame start) then (di:frame-down f)
+	  for i from start below end
+	  while f
+	  collect f)))
 
 (defslimefun backtrace-for-emacs (start end)
   (mapcar #'format-frame-for-emacs (compute-backtrace start end)))
@@ -1091,6 +1146,205 @@ stack."
 
 (defslimefun throw-to-toplevel ()
   (throw 'lisp::top-level-catcher nil))
+
+
+;;; Inspecting
+
+(defvar *inspectee*)
+(defvar *inspectee-parts*)
+(defvar *inspector-stack* '())
+(defvar *inspector-history* (make-array 10 :adjustable t :fill-pointer 0))
+(defvar *inspect-length* 30)
+
+(defun reset-inspector ()
+  (setq *inspectee* nil)
+  (setq *inspectee-parts* nil)
+  (setq *inspector-stack* nil)
+  (setf (fill-pointer *inspector-history*) 0))
+
+(defslimefun init-inspector (string)
+  (reset-inspector)
+  (inspect-object (eval (from-string string))))
+
+(defun print-part-to-string (value)
+  (let ((*print-pretty* nil))
+    (let ((string (to-string value))
+	  (pos (position value *inspector-history*)))
+      (if pos 
+	  (format nil "#~D=~A" pos string)
+	  string))))
+
+(defun inspect-object (object)
+  (push (setq *inspectee* object) *inspector-stack*)
+  (unless (find object *inspector-history*)
+    (vector-push-extend object *inspector-history*))
+  (multiple-value-bind (text parts) (inspected-parts object)
+    (setq *inspectee-parts* parts)
+      (list :text text 
+	    :type (to-string (type-of object))
+	    :primitive-type (describe-primitive-type object)
+	    :parts (loop for (label . value) in parts
+			 collect (cons label 
+				       (print-part-to-string value))))))
+(defconstant +lowtag-symbols+ 
+  '(vm:even-fixnum-type
+    vm:function-pointer-type
+    vm:other-immediate-0-type
+    vm:list-pointer-type
+    vm:odd-fixnum-type
+    vm:instance-pointer-type
+    vm:other-immediate-1-type
+    vm:other-pointer-type))
+
+(defconstant +header-type-symbols+
+  ;; Is there a convinient place for all those constants?
+  (flet ((tail-comp (string tail)
+	   (and (>= (length string) (length tail))
+		(string= string tail :start1 (- (length string) 
+						(length tail))))))
+    (remove-if-not
+     (lambda (x) (and (tail-comp (symbol-name x) "-TYPE")
+		      (not (member x +lowtag-symbols+))
+		      (boundp x)
+		      (typep (symbol-value x) 'fixnum)))
+     (append (apropos-list "-TYPE" "VM" t)
+	     (apropos-list "-TYPE" "BIGNUM" t)))))
+
+(defun describe-primitive-type (object)
+  (with-output-to-string (*standard-output*)
+    (let* ((lowtag (kernel:get-lowtag object))
+	   (lowtag-symbol (find lowtag +lowtag-symbols+ :key #'symbol-value)))
+      (format t "[lowtag: ~A" lowtag-symbol)
+      (cond ((member lowtag (list vm:other-pointer-type
+				  vm:function-pointer-type
+				  vm:other-immediate-0-type
+				  vm:other-immediate-1-type
+				  ))
+	     (let* ((type (kernel:get-type object))
+		    (type-symbol (find type +header-type-symbols+
+				       :key #'symbol-value)))
+	       (format t ", type: ~A]" type-symbol)))
+	    (t (format t "]"))))))
+
+(defun nth-part (index)
+  (cdr (nth index *inspectee-parts*)))
+
+(defslimefun inspect-nth-part (index)
+  (inspect-object (nth-part index)))
+
+(defslimefun inspector-pop ()
+  "Drop the inspector stack and inspect the second element.  Return
+nil if there's no second element."
+  (cond ((cdr *inspector-stack*)
+	 (pop *inspector-stack*)
+	 (inspect-object (pop *inspector-stack*)))
+	(t nil)))
+
+(defslimefun inspector-next ()
+  "Inspect the next element in the *inspector-history*."
+  (let ((position (position *inspectee* *inspector-history*)))
+    (cond ((= (1+ position) (length *inspector-history*))
+	   nil)
+	  (t (inspect-object (aref *inspector-history* (1+ position)))))))
+
+(defslimefun quit-inspector ()
+  (reset-inspector)
+  nil)
+
+(defslimefun describe-inspectee ()
+  "Describe the currently inspected object."
+  (print-desciption-to-string *inspectee*))
+
+(defgeneric inspected-parts (object)
+  (:documentation
+   "Return a short description and a list of (label . value) pairs."))
+
+(defmethod inspected-parts (o)
+  (cond ((di::indirect-value-cell-p o)
+	 (inspected-parts-of-value-cell o))
+	(t
+	 (destructuring-bind (text labeledp . parts)
+	     (inspect::describe-parts o)
+	   (let ((parts (if labeledp 
+			    (loop for (label . value) in parts
+				  collect (cons (string label) value))
+			    (loop for value in parts
+				  for i from 0
+				  collect (cons (format nil "~D" i) value)))))
+	     (values text parts))))))
+
+(defun inspected-parts-of-value-cell (o)
+  (values (format nil "~A~% is a value cell." o)
+	  (list (cons "Value" (c:value-cell-ref o)))))
+
+;; borrowed from sbcl
+(defmethod inspected-parts ((object cons))
+  (if (consp (cdr object))
+      (inspected-parts-of-nontrivial-list object)
+      (inspected-parts-of-simple-cons object)))
+
+(defun inspected-parts-of-simple-cons (object)
+  (values "The object is a CONS."
+	  (list (cons (string 'car) (car object))
+		(cons (string 'cdr) (cdr object)))))
+
+(defun inspected-parts-of-nontrivial-list (object)
+  (let ((length 0)
+	(in-list object)
+	(reversed-elements nil))
+    (flet ((done (description-format)
+	     (return-from inspected-parts-of-nontrivial-list
+	       (values (format nil description-format length)
+		       (nreverse reversed-elements)))))
+      (loop
+       (cond ((null in-list)
+	      (done "The object is a proper list of length ~S.~%"))
+	     ((>= length *inspect-length*)
+	      (push (cons  (string 'rest) in-list) reversed-elements)
+	      (done "The object is a long list (more than ~S elements).~%"))
+	     ((consp in-list)
+	      (push (cons (format nil "~D" length) (pop in-list)) 
+		    reversed-elements)
+	      (incf length))
+	     (t
+	      (push (cons (string 'rest) in-list) reversed-elements)
+	      (done "The object is an improper list of length ~S.~%")))))))
+
+(defmethod inspected-parts ((o function))
+  (let ((header (kernel:get-type o)))
+    (cond ((= header vm:function-header-type)
+	   (values 
+	    (format nil "~A~% is a function." o)
+	    (list (cons "Self" (kernel:%function-self o))
+		  (cons "Next" (kernel:%function-next o))
+		  (cons "Name" (kernel:%function-name o))
+		  (cons "Arglist" (kernel:%function-arglist o))
+		  (cons "Type" (kernel:%function-type o))
+		  (cons "Code Object" (kernel:function-code-header o)))))
+	  ((= header vm:closure-header-type)
+	   (values (format nil "~A~% is a closure." o)
+		   (list* 
+		    (cons "Function" (kernel:%closure-function o))
+		    (loop for i from 0 below (- (kernel:get-closure-length o) 
+						(1- vm:closure-info-offset))
+			  collect (cons (format nil "~D" i)
+					(kernel:%closure-index-ref o i))))))
+	  (t (call-next-method o)))))
+
+(defmethod inspected-parts ((o kernel:code-component))
+  (values (format nil "~A~% is a code data-block." o)
+	  `(("First entry point" . ,(kernel:%code-entry-points o))
+	    ,@(loop for i from vm:code-constants-offset 
+		    below (kernel:get-header-data o)
+		    collect (cons (format nil "Constant#~D" i)
+				  (kernel:code-header-ref o i)))
+	    ("Debug info" . ,(kernel:%code-debug-info o))
+	    ("Instructions"  . ,(kernel:code-instructions o)))))
+
+(defmethod inspected-parts ((o kernel:fdefn))
+  (values (format nil "~A~% is a fdefn object." o)
+	  `(("Name" . ,(kernel:fdefn-name o))
+	    ("Function" . ,(kernel:fdefn-function o)))))
 
 ;;; Local Variables:
 ;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
