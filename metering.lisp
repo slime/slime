@@ -1,6 +1,5 @@
 ;;; -*- Mode: LISP; Package: monitor; Syntax: Common-lisp; Base: 10.;  -*-
 ;;; Tue Jan 25 18:32:28 1994 by Mark Kantrowitz <mkant@GLINDA.OZ.CS.CMU.EDU>
-;;; metering.cl -- 56711 bytes
 
 ;;; ****************************************************************
 ;;; Metering System ************************************************
@@ -22,7 +21,7 @@
 ;;; This code is in the public domain and is distributed without warranty
 ;;; of any kind.
 ;;;
-;;; Bug reports, comments, and suggestions should be sent to mkant@cs.cmu.edu.
+;;; This copy is from SLIME, http://www.common-lisp.net/project/slime/
 ;;;
 ;;;
 
@@ -58,7 +57,10 @@
 ;;; 01-JAN-93 mk  v2.0  Support for MCL 2.0, CMU CL 16d, Allegro V3.1/4.0/4.1,
 ;;;                     Lucid 4.0, ibcl
 ;;; 25-JAN-94 mk  v2.1  Patches for CLISP from Bruno Haible.
-
+;;; 01-APR-05 lgorrie   Removed support for all Lisps except CLISP and OpenMCL.
+;;;                     Purely to cut down on stale code (e.g. #+cltl2) in this
+;;;                     version that is bundled with SLIME.
+;;;                     
 ;;;
 
 ;;; ********************************
@@ -345,56 +347,18 @@ Estimated total monitoring overhead: 0.88 seconds
 ;;; ****************************************************************
 
 ;;; ********************************
-;;; Fix up the *features* list *****
+;;; Warn people using the wrong Lisp
 ;;; ********************************
 
-(eval-when (compile load eval)
-  ;; The *features* list for Macintosh Allegro Common Lisp 1.3.2
-  ;; isn't really unambiguous, so we add the :mcl1.3.2 feature.
-  (when (or (and (string-equal (lisp-implementation-type)
-                               "Macintosh Allegro Common Lisp")
-                 (string-equal (lisp-implementation-version)
-                               "1.3.2"))
-            (and (find :ccl *features*)
-                 (not (find :lispworks *features*))
-                 (not (find :mcl *features*))))
-    (pushnew :mcl1.3.2 *features*))
-  ;; We assume that :mcl means version 2.0 or greater. If it doesn't,
-  ;; use :mcl2.0 which is defined by:
-  (when (or (and (string-equal (lisp-implementation-type)
-                               "Macintosh Common Lisp")
-                 (string-equal (lisp-implementation-version)
-                               "Version 2.0"))
-            (and (find :ccl *features*)
-                 (find :ccl-2 *features*)
-                 (not (find :lispworks *features*))
-                 (find :mcl *features*)))
-    (pushnew :mcl2.0 *features*))
-  )
-
-;;; Let's be smart about CLtL2 compatible Lisps:
-(eval-when (compile load eval)
-  #+(or (and :excl (or :allegro-v4.0 (and :allegro-version>= (version>= 4 1))))
-        :mcl
-        :cmu)
-  (pushnew :cltl2 *features*))
+#-(or clisp openmcl)
+(warn "metering.lisp does not support your Lisp implementation!")
 
 ;;; ********************************
 ;;; Packages ***********************
 ;;; ********************************
 
-#-(or cltl2 ansi-cl)
-(in-package "MONITOR" :nicknames '("MON"))
-
 ;;; For CLtL2 compatible lisps
 
-#+(and :excl (or :allegro-v4.0 (and :allegro-version>= (version>= 4 1))))
-(defpackage "MONITOR" (:nicknames "MON") (:use "COMMON-LISP")
-  (:import-from cltl1 provide require))
-#+:mcl
-(defpackage "MONITOR" (:nicknames "MON") (:use "COMMON-LISP")
-  (:import-from ccl provide require))
-#+(or :clisp :lispworks :cmu :sbcl)
 (defpackage "MONITOR" (:nicknames "MON") (:use "COMMON-LISP")
   (:export "*MONITORED-FUNCTIONS*"
 	   "MONITOR" "MONITOR-ALL" "UNMONITOR" "MONITOR-FORM"
@@ -405,43 +369,7 @@ Estimated total monitoring overhead: 0.88 seconds
 	   "DISPLAY-MONITORING-RESULTS"
 	   "MONITORING-ENCAPSULATE" "MONITORING-UNENCAPSULATE"
 	   "REPORT"))
-#+(and :cltl2
-       (not (or (and :excl (or :allegro-v4.0 (and :allegro-version>=
-                                                  (version>= 4 1))))
-                :mcl :clisp :lispworks
-                :cmu)))
-(unless (find-package "MONITOR")
-  (make-package "MONITOR" :nicknames '("MON") :use '("COMMON-LISP")))
-
-#+(or cltl2 ansi-cl)
 (in-package "MONITOR")
-
-
-#+(and :excl :allegro-v4.0)
-(cltl1:provide "monitor")
-#+(and :excl :allegro-version>= (version>= 4 1) :openmcl)
-(provide "monitor")
-#+(and :mcl (not :openmcl))
-(ccl:provide "monitor")
-#+(and :cltl2
-       (not (or (and :excl (or :allegro-v4.0 (and :allegro-version>=
-                                                  (version>= 4 1))))
-                :mcl
-                :cmu)))
-(provide "monitor")
-#-:cltl2
-(provide "monitor")
-
-(export '(*monitored-functions*
-	  monitor monitor-all unmonitor monitor-form
-	  with-monitoring
-	  reset-monitoring-info reset-all-monitoring
-	  monitored
-	  report-monitoring
-	  display-monitoring-results
-	  monitoring-encapsulate monitoring-unencapsulate
-	  report))
-
 
 ;;; Warn user if they're loading the source instead of compiling it first.
 (eval-when (eval)
@@ -460,36 +388,21 @@ Estimated total monitoring overhead: 0.88 seconds
 ;;; ****************************************************************
 
 ;;; ********************************
-;;; Type Definitions ***************
-;;; ********************************
-
-#+(or cmu sbcl)
-(eval-when (compile load eval)
-  (deftype time-type () '(unsigned-byte 32))
-  (deftype consing-type () '(unsigned-byte 32)))
-
-;;; ********************************
 ;;; Timing Functions ***************
 ;;; ********************************
 ;;; The get-time function is called to find the total number of ticks since
 ;;; the beginning of time. time-units-per-second allows us to convert units
 ;;; to seconds.
 
-(progn
-  #-(or :cmu
-        :clisp
-        :allegro-v3.1 :allegro-v4.0 :allegro-v4.1 :allegro-v5.0.1
-        :mcl :mcl1.3.2
-        :lcl3.0 :lcl4.0)
-  (eval-when (compile eval)
-    (warn
-     "You may want to supply implementation-specific get-time functions."))
+#-(or clisp openmcl)
+(eval-when (compile eval)
+  (warn
+   "You may want to supply implementation-specific get-time functions."))
 
-  (defconstant time-units-per-second internal-time-units-per-second)
+(defconstant time-units-per-second internal-time-units-per-second)
 
-  (defmacro get-time ()
-    `(the time-type (get-internal-run-time)))
-)
+(defmacro get-time ()
+  `(the time-type (get-internal-run-time)))
 
 ;;; NOTE: In Macintosh Common Lisp, CCL::GCTIME returns the number of
 ;;;       milliseconds spent during GC. We could subtract this from
@@ -500,8 +413,8 @@ Estimated total monitoring overhead: 0.88 seconds
 ;;;       cost of doing business, and will average out in the long run.
 ;;;       If it seems really important to a user that GC times not be
 ;;;       counted, then uncomment the following three lines and read-time
-;;;       conditionalize the definition of get-time above with #-:mcl.
-;#+:mcl
+;;;       conditionalize the definition of get-time above with #-:openmcl.
+;#+openmcl
 ;(defmacro get-time ()
 ;  `(the time-type (- (get-internal-run-time) (ccl:gctime))))
 
@@ -511,106 +424,12 @@ Estimated total monitoring overhead: 0.88 seconds
 ;;; The get-cons macro is called to find the total number of bytes
 ;;; consed since the beginning of time.
 
-#+:cmu
-(defmacro get-cons ()
-  "The get-cons macro is called to find the total number of bytes
-   consed since the beginning of time."
-;  #-:new-compiler
-;  '(ext:get-bytes-consed)
-;  #+:new-compiler
-  '(the consing-type (ext:get-bytes-consed)))
-
-#+:clisp
+#+clisp
 (defun get-cons ()
   (multiple-value-bind (real1 real2 run1 run2 gc1 gc2 space1 space2 gccount)
       (sys::%%time)
     (declare (ignore real1 real2 run1 run2 gc1 gc2 gccount))
     (dpb space1 (byte 24 24) space2)))
-
-;;; Lucid. 4 bytes/word. This returns bytes.
-;;; For some reason this doesn't work properly under Lucid 4.0, but
-;;; that's OK, because they have PC-based profiling which is more accurate.
-#+(or :lcl3.0 :lcl4.0)
-(defmacro get-cons () `(the consing-type (gc-size)))
-
-;;; Allegro V4.0/1. SYS::GSGC-MAP takes one argument, and returns an
-;;; array representing the memory state.
-#+(or :allegro-v4.0 :allegro-v4.1 :allegro-v5.0.1)
-(defvar *gc-space-array* (make-array 4 :element-type '(unsigned-byte 32)))
-#+(or :allegro-v4.0 :allegro-v4.1 :allegro-v5.0.1)
-(defun bytes-consed ()
-  (system::gsgc-totalloc *gc-space-array* t)
-  (aref *gc-space-array* 0))
-
-#+:allegro-v3.1
-(defun bytes-consed ()
-  (let ((gs (sys::gsgc-map)))
-    (+ (aref gs 3)                      ; new space
-       (let ((sum 0))                   ; old space
-         (dotimes (i (1+ (floor (/ (- (length gs) 13) 10))))
-           (incf sum (aref gs (+ (* i 10) 13))))
-         sum)))
-  )
-
-#+(or :allegro-v3.1 :allegro-v4.0 :allegro-v4.1 :allegro-v5.0.1)
-(defmacro get-cons () `(the consing-type (bytes-consed)))
-
-;;; Macintosh Allegro Common Lisp 1.3.2
-;;; Based on CCL's sample code for memory usage.
-;;; They key trick here is that we maintain the information about total
-;;; consing since time zero by keeping track of how much memory was free
-;;; before and after gc (by advising gc). Luckily, MACL's garbage collection
-;;; seems to always be invoked internally by calling GC.
-;;;
-;;; Maybe instead of showing bytes consed since time zero, we should
-;;; return bytes consed since the first time the function is called?
-;;; And the first time the function is called, it should set the
-;;; value to zero. No real need to do this -- what we have works fine,
-;;; and involves less code.
-#+:mcl1.3.2
-(in-package :ccl)
-
-#+:mcl1.3.2
-(defvar *bytes-consed-chkpt* 0)
-
-#+:mcl1.3.2
-(defun reset-consing () (setq *bytes-consed-chkpt* 0))
-
-(eval-when (eval compile)
-  #+:mcl1.3.2(defconstant $currentA5 #x904)
-  #+:mcl1.3.2(defconstant $pagecounts #x-18e)
-  #+:mcl1.3.2(defconstant $lstFP #x-a42)
-  #+:mcl1.3.2(defconstant $consfirstob 64)
-  #+:mcl1.3.2(defconstant $pagesize 4096))
-
-#+:mcl1.3.2
-(let ((old-gc (symbol-function 'gc))
-      (ccl:*warn-if-redefine-kernel* nil))
-  (setf (symbol-function 'gc)
-        #'(lambda ()
-            (let ((old-consing (total-bytes-consed)))
-              (prog1
-                (funcall old-gc)
-                (incf *bytes-consed-chkpt*
-                      (- old-consing (total-bytes-consed))))))))
-
-#+:mcl1.3.2
-(defun total-bytes-consed (&aux pages fp)
-  "Returns number of conses (8 bytes each)"
-  (let* ((a5 (%get-ptr $currentA5))
-         (ptr (%inc-ptr a5 $pagecounts)))
-    (%ilsr 3 (%i+ (%i- (%ilsl 12 (%i- (setq pages (%get-word ptr 0)) 1))
-                       (%i* pages $consfirstob))
-                   (if (eq 0 (setq fp (%get-long a5 $lstFP)))
-                       $pagesize
-                     (%ilogand2 #xfff fp))))))
-
-#+:mcl1.3.2
-(in-package "MONITOR")
-
-#+:mcl1.3.2
-(defun get-cons ()
-  (the consing-type (+ (ccl::total-bytes-consed) ccl::*bytes-consed-chkpt*)))
 
 ;;; Macintosh Common Lisp 2.0
 ;;; Note that this includes bytes that were allocated during GC.
@@ -621,40 +440,30 @@ Estimated total monitoring overhead: 0.88 seconds
 ;;; avoid the consing values being too lopsided. If a user really really
 ;;; wants to subtract out the consing during GC, replace the following
 ;;; two lines with the commented out code.
-#+:mcl
-(defmacro get-cons () `(the consing-type (ccl::total-bytes-allocated)))
-;#+:mcl
-;(in-package :ccl)
-;#+:mcl
-;(defvar *bytes-consed-chkpt* 0)
-;#+:mcl
-;(defun reset-consing () (setq *bytes-consed-chkpt* 0))
-;#+:mcl
-;(let ((old-gc (symbol-function 'gc))
-;      (ccl:*warn-if-redefine-kernel* nil))
-;  (setf (symbol-function 'gc)
-;       #'(lambda ()
-;           (let ((old-consing (total-bytes-consed)))
-;             (prog1
-;               (funcall old-gc)
-;               (incf *bytes-consed-chkpt*
-;                     (- old-consing (total-bytes-consed))))))))
-;#+:mcl
-;(defun total-bytes-consed ()
-;  "Returns number of conses (8 bytes each)"
-;  (ccl::total-bytes-allocated))
-;#+:mcl
-;(in-package "MONITOR")
-;#+:mcl
-;(defun get-cons ()
-;  (the consing-type (+ (ccl::total-bytes-consed) ccl::*bytes-consed-chkpt*)))
+#+openmcl
+(progn
+  (defmacro get-cons () `(the consing-type (ccl::total-bytes-allocated)))
+  (in-package :ccl)
+  (defvar *bytes-consed-chkpt* 0)
+  (defun reset-consing () (setq *bytes-consed-chkpt* 0))
+  (let ((old-gc (symbol-function 'gc))
+        (ccl:*warn-if-redefine-kernel* nil))
+    (setf (symbol-function 'gc)
+          #'(lambda ()
+              (let ((old-consing (total-bytes-consed)))
+                (prog1
+                    (funcall old-gc)
+                  (incf *bytes-consed-chkpt*
+                        (- old-consing (total-bytes-consed))))))))
+  (defun total-bytes-consed ()
+    "Returns number of conses (8 bytes each)"
+    (ccl::total-bytes-allocated))
+  (in-package "MONITOR")
+  (defun get-cons ()
+    (the consing-type (+ (ccl::total-bytes-consed) ccl::*bytes-consed-chkpt*))))
 
 
-#-(or :cmu
-      :clisp
-      :lcl3.0 :lcl4.0
-      :allegro-v3.1 :allegro-v4.0 :allegro-v4.1 :allegro-v5.0.1
-      :mcl1.3.2 :mcl)
+#-(or clisp openmcl)
 (progn
   (eval-when (compile eval)
     (warn "No consing will be reported unless a get-cons function is ~
@@ -676,46 +485,46 @@ Estimated total monitoring overhead: 0.88 seconds
                (,delta-cons (- (get-cons) ,start-cons)))
            ,@post-process)))))
 
-#+:clisp
-(defmacro delta4 (nv1 nv2 ov1 ov2 by)
-  `(- (dpb (- ,nv1 ,ov1) (byte ,by ,by) ,nv2) ,ov2))
-#+:clisp                        ; CLISP 2.29 built-in
-(let ((del (find-symbol "DELTA4" "SYS")))
-  (when del (setf (fdefinition 'delta4) (fdefinition del))))
-#+:clisp
-(if (< internal-time-units-per-second 1000000)
-    ;; TIME_1: AMIGA, OS/2, UNIX_TIMES
-    (defmacro delta4-time (new-time1 new-time2 old-time1 old-time2)
-      `(delta4 ,new-time1 ,new-time2 ,old-time1 ,old-time2 16))
-    ;; TIME_2: other UNIX, WIN32
-    (defmacro delta4-time (new-time1 new-time2 old-time1 old-time2)
-      `(+ (* (- ,new-time1 ,old-time1) internal-time-units-per-second)
-          (- ,new-time2 ,old-time2))))
-#+:clisp
-(defmacro delta4-cons (new-cons1 new-cons2 old-cons1 old-cons2)
-  `(delta4 ,new-cons1 ,new-cons2 ,old-cons1 ,old-cons2 24))
+#+clisp
+(progn
+  (defmacro delta4 (nv1 nv2 ov1 ov2 by)
+    `(- (dpb (- ,nv1 ,ov1) (byte ,by ,by) ,nv2) ,ov2))
 
-;; avoid consing: when the application conses a lot,
-;; get-cons may return a bignum, so we really should not use it.
-#+:clisp
-(defmacro with-time/cons ((delta-time delta-cons) form &body post-process)
-  (let ((beg-cons1 (gensym "BEG-CONS1-")) (end-cons1 (gensym "END-CONS1-"))
-        (beg-cons2 (gensym "BEG-CONS2-")) (end-cons2 (gensym "END-CONS2-"))
-        (beg-time1 (gensym "BEG-TIME1-")) (end-time1 (gensym "END-TIME1-"))
-        (beg-time2 (gensym "BEG-TIME2-")) (end-time2 (gensym "END-TIME2-"))
-        (re1 (gensym)) (re2 (gensym)) (gc1 (gensym)) (gc2 (gensym)))
-    `(multiple-value-bind (,re1 ,re2 ,beg-time1 ,beg-time2
-                           ,gc1 ,gc2 ,beg-cons1 ,beg-cons2) (sys::%%time)
-       (declare (ignore ,re1 ,re2 ,gc1 ,gc2))
-       (multiple-value-prog1 ,form
-         (multiple-value-bind (,re1 ,re2 ,end-time1 ,end-time2
-                               ,gc1 ,gc2 ,end-cons1 ,end-cons2) (sys::%%time)
-           (declare (ignore ,re1 ,re2 ,gc1 ,gc2))
-           (let ((,delta-time (delta4-time ,end-time1 ,end-time2
-                                           ,beg-time1 ,beg-time2))
-                 (,delta-cons (delta4-cons ,end-cons1 ,end-cons2
-                                           ,beg-cons1 ,beg-cons2)))
-             ,@post-process))))))
+  (let ((del (find-symbol "DELTA4" "SYS")))
+    (when del (setf (fdefinition 'delta4) (fdefinition del))))
+
+  (if (< internal-time-units-per-second 1000000)
+      ;; TIME_1: AMIGA, OS/2, UNIX_TIMES
+      (defmacro delta4-time (new-time1 new-time2 old-time1 old-time2)
+        `(delta4 ,new-time1 ,new-time2 ,old-time1 ,old-time2 16))
+      ;; TIME_2: other UNIX, WIN32
+      (defmacro delta4-time (new-time1 new-time2 old-time1 old-time2)
+        `(+ (* (- ,new-time1 ,old-time1) internal-time-units-per-second)
+            (- ,new-time2 ,old-time2))))
+
+  (defmacro delta4-cons (new-cons1 new-cons2 old-cons1 old-cons2)
+    `(delta4 ,new-cons1 ,new-cons2 ,old-cons1 ,old-cons2 24))
+
+  ;; avoid consing: when the application conses a lot,
+  ;; get-cons may return a bignum, so we really should not use it.
+  (defmacro with-time/cons ((delta-time delta-cons) form &body post-process)
+    (let ((beg-cons1 (gensym "BEG-CONS1-")) (end-cons1 (gensym "END-CONS1-"))
+          (beg-cons2 (gensym "BEG-CONS2-")) (end-cons2 (gensym "END-CONS2-"))
+          (beg-time1 (gensym "BEG-TIME1-")) (end-time1 (gensym "END-TIME1-"))
+          (beg-time2 (gensym "BEG-TIME2-")) (end-time2 (gensym "END-TIME2-"))
+          (re1 (gensym)) (re2 (gensym)) (gc1 (gensym)) (gc2 (gensym)))
+      `(multiple-value-bind (,re1 ,re2 ,beg-time1 ,beg-time2
+                                  ,gc1 ,gc2 ,beg-cons1 ,beg-cons2) (sys::%%time)
+         (declare (ignore ,re1 ,re2 ,gc1 ,gc2))
+         (multiple-value-prog1 ,form
+           (multiple-value-bind (,re1 ,re2 ,end-time1 ,end-time2
+                                      ,gc1 ,gc2 ,end-cons1 ,end-cons2) (sys::%%time)
+             (declare (ignore ,re1 ,re2 ,gc1 ,gc2))
+             (let ((,delta-time (delta4-time ,end-time1 ,end-time2
+                                             ,beg-time1 ,beg-time2))
+                   (,delta-cons (delta4-cons ,end-cons1 ,end-cons2
+                                             ,beg-cons1 ,beg-cons2)))
+               ,@post-process)))))))
 
 ;;; ********************************
 ;;; Required Arguments *************
@@ -728,71 +537,12 @@ Estimated total monitoring overhead: 0.88 seconds
 ;;; arguments.  The function Required-Arguments returns two values: the first
 ;;; is the number of required arguments, and the second is T iff there are any
 ;;; non-required arguments (e.g. &optional, &rest, &key).
-#+cmu
-(progn
-  #| #-new-compiler
-  (defun required-arguments (name)
-    (let ((function (symbol-function name)))
-      (if (eql (system:%primitive get-type function) system:%function-type)
-          (let ((min (ldb system:%function-min-args-byte
-                          (system:%primitive header-ref function
-                                             system:%function-min-args-slot)))
-                (max (ldb system:%function-max-args-byte
-                          (system:%primitive header-ref function
-                                             system:%function-max-args-slot)))
-                (rest (ldb system:%function-rest-arg-byte
-                           (system:%primitive header-ref function
-                                              system:%function-rest-arg-slot)))
-                (key (ldb system:%function-keyword-arg-byte
-                          (system:%primitive
-                           header-ref function
-                           system:%function-keyword-arg-slot))))
-            (values min (or (/= min max) (/= rest 0) (/= key 0))))
-          (values 0 t))))
-  |#
-  #| #+new-compiler
-  (defun required-arguments (name)
-    (let* ((function (symbol-function name))
-           (stype (system:%primitive get-vector-subtype function)))
-      (if (eql stype system:%function-entry-subtype)
-          (let* ((args (cadr (system:%primitive
-                              header-ref
-                              function
-                              system:%function-entry-type-slot)))
-                 (pos (position-if #'(lambda (x)
-                                       (and (symbolp x)
-                                            (let ((name (symbol-name x)))
-                                              (and (>= (length name) 1)
-                                                   (char= (schar name 0)
-                                                          #\&)))))
-                                   args)))
-            (if pos
-                (values pos t)
-                (values (length args) nil)))
-          (values 0 t)))))|#
-
-  (defun required-arguments (name)
-    (let ((type (ext:info function type name)))
-      (cond ((not (kernel:function-type-p type))
-             (warn "No argument count information available for:~%  ~S~@
-                  Allow for &rest arg consing."
-                   name)
-             (values 0 t))
-            (t
-             (values (length (kernel:function-type-required type))
-                     (if (or (kernel:function-type-optional type)
-                             (kernel:function-type-keyp type)
-                             (kernel:function-type-rest type))
-                         t nil))))))
-)
 
 ;;; Lucid, Allegro, and Macintosh Common Lisp
-#+(OR :lcl3.0 :lcl4.0 :excl :mcl)
+#+openmcl
 (defun required-arguments (name)
   (let* ((function (symbol-function name))
-         (args #+:excl(excl::arglist function)
-               #+:mcl(ccl:arglist function)
-               #-(or :excl :mcl)(arglist function))
+         (args (ccl:arglist function))
          (pos (position-if #'(lambda (x)
                                (and (symbolp x)
                                     (let ((name (symbol-name x)))
@@ -804,30 +554,7 @@ Estimated total monitoring overhead: 0.88 seconds
         (values pos t)
         (values (length args) nil))))
 
-;;; Macintosh Allegro Common Lisp version 1.3.2
-#+:mcl1.3.2
-(defun required-arguments (name)
-  (let ((arguments-string
-         (let ((the-string
-                (with-output-to-string (*standard-output*)
-                    (ccl:arglist-to-stream name *standard-output*))))
-           (cond ((and (>=  (length the-string) 23)
-                       (string-equal (subseq the-string 0 22)
-                                     "Can't find arglist for")) nil)
-                 ((position  #\( the-string :test 'char-equal) the-string)
-                 (T  (concatenate 'string "(" the-string ")"))))))
-    (if (null arguments-string)
-        (values 0 t)
-      (let* ((pos (position #\& arguments-string))
-             (args (length (read-from-string
-                            (concatenate 'string
-                                         (subseq arguments-string 0 pos)
-                                         ")")))))
-        (if pos
-            (values args t)
-          (values args nil))))))
-
-#+:clisp
+#+clisp
 (defun required-arguments (name)
   (multiple-value-bind (name req-num opt-num rest-p key-p keywords allow-p)
       (sys::function-signature name t)
@@ -835,7 +562,7 @@ Estimated total monitoring overhead: 0.88 seconds
         (values req-num (or (/= 0 opt-num) rest-p key-p keywords allow-p))
         (values 0 t))))
 
-#-(or :cmu :clisp :lcl3.0 :lcl4.0 :mcl1.3.2 :mcl :excl)
+#-(or clisp openmcl)
 (progn
  (eval-when (compile eval)
    (warn
@@ -954,22 +681,10 @@ variables/arrays/structures."
 ;;;
 (defstruct metering-functions
   (name nil)
-  (old-definition #-cmu nil
-                  #+cmu
-                  (error "Missing required keyword argument :old-definition")
-                  :type function)
-  (new-definition #-cmu nil
-                  #+cmu
-                  (error "Missing required keyword argument :new-definition")
-                  :type function)
-  (read-metering  #-cmu nil
-                  #+cmu
-                  (error "Missing required keyword argument :read-metering")
-                  :type function)
-  (reset-metering #-cmu nil
-                  #+cmu
-                  (error "Missing required keyword argument :reset-metering")
-                  :type function))
+  (old-definition nil :type function)
+  (new-definition nil :type function)
+  (read-metering  nil :type function)
+  (reset-metering nil :type function))
 
 ;;; In general using hash tables in time-critical programs is a bad idea,
 ;;; because when one has to grow the table and rehash everything, the
@@ -1078,8 +793,7 @@ adjusted for overhead."
 	 (setf (place-function name)
 	       #'(lambda (,@required-args
 			  ,@(when optionals-p
-				  #+cmu `(c:&more arg-context arg-count)
-				  #-cmu `(&rest optional-args)))
+                              `(&rest optional-args)))
 		   (let ((prev-total-time *total-time*)
 			 (prev-total-cons *total-cons*)
 			 (prev-total-calls *total-calls*)
@@ -1093,14 +807,8 @@ adjusted for overhead."
                      (with-time/cons (delta-time delta-cons)
                        ;; form
                        ,(if optionals-p
-                            #+cmu `(multiple-value-call
-                                       old-definition
-                                     (values ,@required-args)
-                                     (c:%more-arg-values arg-context
-                                                         0
-                                                         arg-count))
-                            #-cmu `(apply old-definition
-                                          ,@required-args optional-args)
+                            `(apply old-definition
+                                    ,@required-args optional-args)
                             `(funcall old-definition ,@required-args))
                        ;; post-processing:
                        ;; Calls
