@@ -1,3 +1,10 @@
+2004-06-08  Luke Gorrie  <luke@bluetail.com>
+
+	* swank-cmucl.lisp (close-socket): Remove any SERVE-EVENT handlers
+	for the socket's file descriptor.
+
+	* swank-sbcl.lisp (close-socket): Same fix.
+
 2004-06-07  Luke Gorrie  <luke@bluetail.com>
 
 	* swank-cmucl.lisp: Minor refactorings.
