@@ -63,6 +63,7 @@
            #:sldb-break-with-default-debugger
            #:sldb-continue
            #:slime-debugger-function
+           #:debugger-info-for-emacs
            #:start-server
            #:startup-multiprocessing
            #:startup-multiprocessing-for-emacs
