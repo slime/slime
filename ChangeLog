@@ -1,3 +1,14 @@
+2004-05-22  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-allegro.lisp (fspec-primary-name): New function.
+	(find-fspec-location): Use it, if the start position cannot be
+	found.
+
+	* slime.el (slime-pprint-event): New function.
+	(slime-log-event): Use it.
+	(slime-reindent-defun): Indent the form after point, if point is
+	in the first column an immediately before a #\(.
+
 2004-05-21 Bill Clementson <Bill_Clementson@peoplesoft.com>
 
 	* slime.el (slime-switch-to-output-buffer): Use "P" as interactive
