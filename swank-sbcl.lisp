@@ -264,11 +264,6 @@ compiler state."
 
 (defslimefun-unimplemented who-macroexpands (macro))
 
-(defun source-path< (path1 path2)
-  "Return true if PATH1 is lexically before PATH2."
-  (and (every #'< path1 path2)
-       (< (length path1) (length path2))))
-
 ;;;; Definitions
 
 (defvar *debug-definition-finding* nil
@@ -522,6 +517,25 @@ stack."
 (defslimefun sldb-abort ()
   (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
 
+(defimplementation eval-in-frame (form index)
+  (let ((frame (nth-frame index)))
+    (funcall (sb-di:preprocess-for-eval form 
+                                        (sb-di:frame-code-location frame))
+             frame)))
+
+(defun sb-debug-catch-tag-p (tag)
+  (and (symbolp tag)
+       (not (symbol-package tag))
+       (string= tag :sb-debug-catch-tag)))
+
+(defimplementation return-from-frame (index form)
+  (let* ((frame (nth-frame index))
+         (form (from-string form))
+         (probe (assoc-if #'sb-debug-catch-tag-p
+                          (sb-di::frame-catches frame))))
+    (cond (probe (throw (car probe) (eval-in-frame form index)))
+          (t (format nil "Cannot return from frame: ~S" frame)))))
+    
 ;;;; Multiprocessing
 
 #+SB-THREAD
