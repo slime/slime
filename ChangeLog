@@ -1,3 +1,20 @@
+2003-11-28  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-complete-symbol): Use the new completion
+	support from the Lisp side. Don't obscure minibuffer input with
+	completion messages.
+
+	* completer.el: Dead and buried! Replaced by half a page of Common
+	Lisp. Thanks Bill Clementson for a motivational and well-deserved
+	taunt.
+
+	* swank.lisp (longest-completion): Compute the best partial
+	completion for Emacs.
+
+	* slime.el (slime-swank-port-file): Try (temp-directory),
+	temporary-file-directory, or "/tmp/", depending on what
+	is (f)bound.
+
 2003-11-28  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-lispworks.lisp (make-dspec-location): Handle logical
