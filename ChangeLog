@@ -1,3 +1,14 @@
+2004-05-11  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-events-buffer): Disable outline-mode by default.
+	(slime-inhibit-ouline-mode-in-events-buffer): New variable.
+	(slime-expected-failures): Reduce the number for SBCL.
+	
+	* swank-sbcl.lisp (resolve-note-location): Resolve the location if
+	we are called by swank-compile-string.  The pathname argument is
+	never :stream in SBCL, so the method written for CMUCL was never
+	called.
+
 2004-05-10  Luke Gorrie  <luke@bluetail.com>
 
 	* swank.lisp (from-string): Bind *READ-SUPPRESS* to NIL.
