@@ -302,14 +302,19 @@ Return NIL if the symbol is unbound."
              (delete-file binary-filename))))
     (delete-file filename)))
 
+;; XXX handle all cases in dspec:*dspec-classes*
 (defun dspec-buffer-position (dspec)
   (etypecase dspec
     (cons (ecase (car dspec)
-            ((defun method defmacro)
+            ((defun method defmacro defgeneric)
              `(:function-name ,(symbol-name (cadr dspec))))
             ;; XXX this isn't quite right
             (lw:top-level-form `(:source-path ,(cdr dspec) nil))))
     (symbol `(:function-name ,(symbol-name dspec)))))
+
+(defun emacs-buffer-location-p (location)
+  (and (consp location)
+       (eq (car location) :emacs-buffer)))
 
 (defun make-dspec-location (dspec location &optional tmpfile buffer position)
   (flet ((from-buffer-p () 
@@ -336,7 +341,12 @@ Return NIL if the symbol is unbound."
              ((member :listener)
               `(:error ,(format nil "Function defined in listener: ~S" dspec)))
              ((member :unknown)
-              `(:error ,(format nil "Function location unkown: ~S" dspec))))
+              `(:error ,(format nil "Function location unkown: ~S" dspec)))
+             ((satisfies emacs-buffer-location-p)
+              (destructuring-bind (_ buffer offset) location
+                (declare (ignore _ offset))
+                (make-location `(:buffer ,buffer)
+                               (dspec-buffer-position dspec)))))
            ))))
 
 (defun signal-error-data-base (database &optional tmpfile buffer position)
@@ -358,6 +368,25 @@ Return NIL if the symbol is unbound."
 		nil)))
 	   htab))
 
+(defun replace-source-file (info tmpfile buffer position)
+  (dolist (cons info)
+    (destructuring-bind (dspec . location) cons
+      (etypecase dspec
+        (cons (when (and (or (stringp location)
+                             (pathnamep location))
+                         (pathname-match-p location tmpfile))
+                (setf (cdr cons) 
+                      (list :emacs-buffer buffer position))))
+        (symbol 
+         (dolist (info location)
+           (replace-source-file info tmpfile buffer position)))))))
+
+(defun patch-source-locations (tmpname buffer position)
+  (maphash (lambda (name info)
+             (declare (ignore name))
+             (replace-source-file info tmpname buffer position))
+           (dspec::dc-database (dspec::find-dc 'function))))
+
 (defimplementation compile-string-for-emacs (string &key buffer position)
   (assert buffer)
   (assert position)
@@ -370,7 +399,8 @@ Return NIL if the symbol is unbound."
       (signal-error-data-base
        compiler::*error-database* tmpname buffer position)
       (signal-undefined-functions compiler::*unknown-functions*
-                                  tmpname tmpname buffer position))))
+                                  tmpname tmpname buffer position)
+      (patch-source-locations tmpname buffer position))))
 
 ;;; xref
 
@@ -404,6 +434,21 @@ Return NIL if the symbol is unbound."
 (defimplementation list-callees (symbol-name)
   (lookup-xrefs #'hcl:calls-who symbol-name))
 
+;;; Inspector
+
+(defimplementation describe-primitive-type (object)
+  (declare (ignore object))
+  "NYI")
+
+(defmethod inspected-parts (o)
+  (multiple-value-bind (names values _getter _setter type)
+      (lw:get-inspector-values o nil)
+    (declare (ignore _getter _setter))
+    (values (format nil "~A~%   is a ~A" o type)
+            (mapcar (lambda (name value)
+                      (cons (princ-to-string name) value))
+                    names values))))
+
 ;;; Multithreading
 
 (defimplementation startup-multiprocessing ()
@@ -434,6 +479,9 @@ Return NIL if the symbol is unbound."
 
 (defimplementation interrupt-thread (thread fn)
   (mp:process-interrupt thread fn))
+
+(defimplementation kill-thread (thread)
+  (mp:process-kill thread))
 
 (defvar *mailbox-lock* (mp:make-lock))
 
