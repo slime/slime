@@ -1042,6 +1042,22 @@ This is more compatible with the CL reader."
     (slime-maybe-start-lisp)
     (slime-read-port-and-connect)))
 
+(defun slime-start-and-load ()
+  "Start Slime, load the current file and set the package."
+  (interactive)
+  (let ((package (slime-find-buffer-package)))
+    (when (not package)
+      (error "No package to load"))
+    (lexical-let ((hook nil)
+                  (package package)
+                  (filename (expand-file-name (buffer-file-name))))
+      (setq hook (lambda ()
+                   (remove-hook 'slime-connected-hook hook)
+                   (slime-load-file filename)
+                   (slime-repl-set-package package)))
+      (add-hook 'slime-connected-hook hook)
+      (slime))))
+
 (defun slime-bytecode-stale-p ()
   "Return true if slime.elc is older than slime.el."
   (when-let (libfile (locate-library "slime"))
