@@ -441,7 +441,7 @@
 (defmethod inspect-for-emacs ((f function) (inspector acl-inspector))
   (values "A function."
           `("Name: " (:value ,(function-name f)) (:newline)
-            "It's argument list is: " ,(princ-to-string (arglist f)) (:newline)
+            "Its argument list is: " ,(princ-to-string (arglist f)) (:newline)
             "Documentation:" (:newline)
             ;; AllegroCL doesn't support (documentation <function-obj> t)
             ;; so we get the symbol and then its doc

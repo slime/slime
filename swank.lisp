@@ -2531,12 +2531,12 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
   (values "An array."
           `("Dimensions: " (:value ,(array-dimensions array))
             (:newline)
-            "It's element type is: " (:value ,(array-element-type array))
+            "Its element type is: " (:value ,(array-element-type array))
             (:newline)
             "Total size: " (:value ,(array-total-size array))
             (:newline)
             ,@(if (array-has-fill-pointer-p array)
-                  `("It's fill-pointer is " (:value ,(fill-pointer array)))
+                  `("Its fill-pointer is " (:value ,(fill-pointer array)))
                   `("No fill pointer."))
             (:newline)
             ,(if (adjustable-array-p array)
@@ -2583,7 +2583,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
                    " " (:action ,(format nil "[remove name ~S (does not affect class object)]" symbol)
                                 (lambda () (setf (find-class symbol) nil)))))))
     (values "A symbol."
-            `("It's name is: " (:value ,(symbol-name symbol))
+            `("Its name is: " (:value ,(symbol-name symbol))
               (:newline)
               ;; check to see whether it is a global variable, a
               ;; constant, or a symbol macro.
@@ -2612,8 +2612,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
                      (when (documentation symbol 'function)
                        `("Documentation:" (:newline) ,(documentation symbol 'function) (:newline)))
                      (when (compiler-macro-function symbol)
-                       `("It also names the compiler macro: " (:value ,(compiler-macro-function symbol))))
-                     `((:newline))
+                       `("It also names the compiler macro: " (:value ,(compiler-macro-function symbol)) (:newline)))
                      (when (documentation symbol 'compiler-macro)
                        `("Documentation:" (:newline) ,(documentation symbol 'compiler-macro) (:newline))))
                     `("It has no function value." (:newline)))
@@ -2636,7 +2635,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
   (declare (ignore inspector))
   (values "A function."
           `("Name: " (:value ,(function-name f)) (:newline)
-            "It's argument list is: " ,(princ-to-string (arglist f))
+            "Its argument list is: " ,(princ-to-string (arglist f))
             (:newline)
             ,@(when (documentation f t)
                 `("Documentation:" (:newline) ,(documentation f t) (:newline))))))
@@ -2669,10 +2668,10 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
   (declare (ignore inspector))
   (values "A generic function."
           `("Name: " (:value ,(swank-mop:generic-function-name gf)) (:newline)
-            "It's argument list is: " ,(princ-to-string (swank-mop:generic-function-lambda-list gf)) (:newline)
+            "Its argument list is: " ,(princ-to-string (swank-mop:generic-function-lambda-list gf)) (:newline)
             "Documentation: " (:newline)
             ,(princ-to-string (documentation gf t)) (:newline)
-            "It's method class is: " (:value ,(swank-mop:generic-function-method-class gf)) (:newline)
+            "Its method class is: " (:value ,(swank-mop:generic-function-method-class gf)) (:newline)
             "It uses " (:value ,(swank-mop:generic-function-method-combination gf)) " method combination." (:newline)
             "Methods: " (:newline)
             ,@(loop
