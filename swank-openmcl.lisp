@@ -103,22 +103,33 @@ until the remote Emacs goes away."
 
 ;; This buffering is done via a Gray stream instead of the CMU-specific
 ;; stream method business...
-(defclass slime-output-stream (ccl::fundamental-character-output-stream)
-  ((buffer :initform (make-string-output-stream :element-type 'character)
-           :accessor slime-output-stream-buffer)))
+(defclass slime-output-stream (ccl:fundamental-character-output-stream)
+  ((buffer :initform (make-array 512 :element-type 'character
+                                 :fill-pointer 0 :adjustable t))
+   (last-charpos :initform 0)))
 
 (defmethod ccl:stream-write-char ((stream slime-output-stream) char)
-  (write-char char (slime-output-stream-buffer stream)))
+  (vector-push-extend char (slot-value stream 'buffer))
+  char)
 
 (defmethod ccl:stream-line-column ((stream slime-output-stream))
-  nil)
+  (with-slots (buffer last-charpos) stream
+    (do ((index (1- (fill-pointer buffer)) (1- index))
+         (count 0 (1+ count)))
+        ((< index 0) (+ count last-charpos))
+      (when (char= (aref buffer index) #\newline)
+        (return count)))))
 
 (defmethod ccl:stream-force-output ((stream slime-output-stream))
-  (send-to-emacs `(:read-output ,(get-output-stream-string
-                                  (slime-output-stream-buffer stream))))
-  (setf (slime-output-stream-buffer stream) (make-string-output-stream)))
+  (with-slots (buffer last-charpos) stream
+    (let ((end (fill-pointer buffer)))
+      (unless (zerop end)
+        (send-to-emacs `(:read-output ,(subseq buffer 0 end)))
+        (setf last-charpos (ccl:stream-line-column stream))
+        (setf (fill-pointer buffer) 0))))
+  nil)
 
-(defclass slime-input-stream (ccl::fundamental-character-input-stream)
+(defclass slime-input-stream (ccl:fundamental-character-input-stream)
   ((buffered-char :initform nil)))
 
 (defmethod ccl:stream-read-char ((s slime-input-stream))
@@ -128,6 +139,15 @@ until the remote Emacs goes away."
 
 (defmethod ccl:stream-unread-char ((s slime-input-stream) char)
   (setf (slot-value s 'buffered-char) char)
+  nil)
+
+(defmethod ccl:stream-listen ((s slime-input-stream))
+  nil)
+
+(defmethod ccl:stream-line-column ((s slime-input-stream))
+  nil)
+
+(defmethod ccl:stream-line-length ((s slime-input-stream))
   nil)
 
 ;;; Evaluation
