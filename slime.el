@@ -419,14 +419,16 @@ This list of flushed between commands."))
   (setq slime-pre-command-actions nil))
 
 (defun slime-post-command-hook ()
-  (when (slime-connected-p)
-    (slime-process-available-input))
-  (slime-autodoc-post-command-hook))
+  (when slime-mode
+    (when (slime-connected-p)
+      (slime-process-available-input))
+    (when slime-autodoc-mode
+      (slime-autodoc-post-command-hook))))
 
 (defun slime-setup-command-hooks ()
   "Setup a buffer-local `pre-command-hook' to call `slime-pre-command-hook'."
-  (make-local-variable 'pre-command-hook)
-  (make-local-variable 'post-command-hook)
+  (make-local-hook 'pre-command-hook)
+  (make-local-hook 'post-command-hook)
   (add-hook 'pre-command-hook 'slime-pre-command-hook)
   (add-hook 'post-command-hook 'slime-post-command-hook))
 
@@ -2114,9 +2116,7 @@ Return DOCUMENTATION."
 When `slime-autodoc-mode' is non-nil, print apropos information about
 the symbol at point if applicable."
   (assert slime-mode)
-  (unless (or (not slime-autodoc-mode)
-              (not (slime-connected-p))
-              (slime-busy-p))
+  (when (and (slime-connected-p) (not (slime-busy-p)))
     (condition-case err
         (slime-autodoc)
       (error
