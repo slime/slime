@@ -736,13 +736,64 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
       [ "Set Package in REPL"      slime-repl-set-package ,C]
       )))
 
+(defvar slime-repl-easy-menu
+  (let ((C '(slime-connected-p)))
+    `("REPL"
+      [ "Send Input"             slime-repl-return ,C ]
+      [ "Close and Send Input "  slime-repl-closing-return ,C ]
+      [ "Interrupt Lisp process" slime-interrupt ,C ]
+      "--"
+      [ "Previous Input"         slime-repl-previous-input t ]
+      [ "Next Input"             slime-repl-previous-input t ]
+      [ "Goto Previous Prompt "  slime-repl-previous-prompt t ]
+      [ "Goto Next Prompt "      slime-repl-next-prompt t ]
+      [ "Clear Last Output"      slime-repl-clear-output t ]
+      [ "Clear Buffer "          slime-repl-clear-buffer t ])))
+      
+(defvar slime-sldb-easy-menu
+  (let ((C '(slime-connected-p)))
+    `("SLDB"
+      [ "Next Frame" sldb-down t ]
+      [ "Previous Frame" sldb-up t ]
+      [ "Toggle Frame Details" sldb-toggle-details t ]
+      [ "List Locals" sldb-list-locals ,C ]
+      [ "Next Frame (Details)" sldb-details-down t ]
+      [ "Previous Frame (Details)" sldb-details-up t ]
+      "--"
+      [ "Eval Expression..." slime-interactive-eval ,C ]
+      [ "Eval in Frame..." sldb-eval-in-frame ,C ]
+      [ "Eval in Frame (pretty print)..." sldb-pprint-eval-in-frame ,C ]
+      [ "Inspect In Frame..." sldb-inspect-in-frame ,C ]
+      [ "Print Condition to REPL" sldb-print-condition t ]
+      "--"
+      [ "Restart Frame" sldb-restart-frame ,C ]
+      [ "Return from Frame..." sldb-return-from-frame ,C ]
+      ("Invoke Restart"
+       [ "Continue" sldb-continue ,C ]
+       [ "Abort"    sldb-abort ,C ]
+       [ "Step"     sldb-step ,C ])
+      "--"
+      [ "Quit (throw)" sldb-quit ,C ]
+      [ "Break With Default Debugger" sldb-break-with-default-debugger ,C ])))
+
+
 (easy-menu-define menubar-slime slime-mode-map "SLIME" slime-easy-menu)
 
-(defun slime-add-easy-menu ()
-  (easy-menu-add slime-easy-menu 'slime-mode-map))
+(add-hook 'slime-mode-hook
+          (defun slime-add-easy-menu ()
+            (easy-menu-add slime-easy-menu 'slime-mode-map)))
 
-(add-hook 'slime-mode-hook 'slime-add-easy-menu)
-(add-hook 'slime-repl-mode-hook 'slime-add-easy-menu)
+(add-hook 'slime-repl-mode-hook
+          (defun slime-repl-add-easy-menu ()
+            (easy-menu-define menubar-slime-repl slime-repl-mode-map
+              "REPL" slime-repl-easy-menu)
+            (easy-menu-add slime-repl-easy-menu 'slime-repl-mode-map)))
+
+(add-hook 'sldb-mode-hook
+          (defun slime-sldb-add-easy-menu ()
+            (easy-menu-define menubar-slime-sldb sldb-mode-map
+              "SLDB" slime-sldb-easy-menu)
+            (easy-menu-add slime-sldb-easy-menu 'sldb-mode-map)))
 
 
 ;;;; Setup initial `slime-mode' hooks
@@ -5975,7 +6026,9 @@ The details include local variable bindings and CATCH-tags."
   (interactive (list (slime-read-from-minibuffer "Eval in frame: ")))
   (let* ((number (sldb-frame-number-at-point)))
     (slime-eval-async `(swank:eval-string-in-frame ,string ,number)
-		      (lambda (reply) (slime-message "%s" reply)))))
+                      (if current-prefix-arg
+                          'slime-output-string
+                        'slime-display-eval-result))))
 
 (defun sldb-pprint-eval-in-frame (string)
   "Prompt for an expression, evaluate in selected frame, pretty-print result."
