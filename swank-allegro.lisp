@@ -173,8 +173,7 @@ until the remote Emacs goes away."
   (nth index *sldb-restarts*))
 
 (defslimefun invoke-nth-restart (index)
-  (let ((restart (nth-restart index)))
-    (invoke-restart restart)))
+  (invoke-restart-interactively (nth-restart index)))
 
 (defmethod frame-locals (index)
   (let ((frame (nth-frame index)))
@@ -254,7 +253,7 @@ until the remote Emacs goes away."
                 )))
       locations)))
 
-(defslimefun find-function-locations (symbol-name)
+(defmethod find-function-locations (symbol-name)
   (multiple-value-bind (symbol foundp) (find-symbol-designator symbol-name)
     (cond ((not foundp)
            (list (list :error (format nil "Unkown symbol: ~A" symbol-name))))

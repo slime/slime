@@ -412,13 +412,7 @@ at least the filename containing it."
 
 (defslimefun-unimplemented find-fdefinition (symbol-name package-name))
 
-(defslimefun function-source-location-for-emacs (fname)
-  "Return a source position of the definition of FNAME.  The
-precise location of the definition is not available, but we are
-able to return the file name in which the definition occurs."
-  (function-source-location (from-string fname)))
-
-(defslimefun find-function-locations (fname)
+(defmethod find-function-locations (fname)
   (let* ((symbol (from-string fname))
          (symbol-name (string symbol))
          (info (ccl::source-file-or-files symbol nil nil nil))

@@ -313,8 +313,7 @@ This is useful when debugging the definition-finding code.")
                       (or (and name (string name))
                           (sb-kernel:%fun-name function)))))))))
                                 
-(defslimefun find-function-locations (fname-string)
-  "Return a list of source-locations of FNAME's definitions."
+(defmethod find-function-locations (fname-string)
   (let* ((symbol (from-string fname-string)))
     (labels ((finder (fun)
                (cond ((and (symbolp fun) (macro-function fun))

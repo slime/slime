@@ -253,13 +253,7 @@ Return NIL if the symbol is unbound."
            (loop for (dspec location) in locations
                  collect (make-dspec-location dspec location))))))
 
-(defmethod function-source-location-for-emacs (fname)
-  "Return a source position of the definition of FNAME.  The
-precise location of the definition is not available, but we are
-able to return the file name in which the definition occurs."
-  (dspec-source-location (from-string fname)))
-
-(defslimefun find-function-locations (fname)
+(defmethod find-function-locations (fname)
   (dspec-source-locations (from-string fname)))
 
 ;;; Tracing
@@ -269,7 +263,6 @@ able to return the file name in which the definition occurs."
 
 (defslimefun toggle-trace-fdefinition (fname-string)
   (let ((fname (from-string fname-string)))
-    ;;(print `(got ,fname-string and ,fname))
     (cond ((tracedp fname)
            (compiler::ensure-untrace-1 (list fname))
 	   (format nil "~S is now untraced." fname))

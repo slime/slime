@@ -670,7 +670,7 @@ The second return value is the condition or nil."
   (destructuring-bind (first) (function-source-locations function)
     first))
 
-(defslimefun find-function-locations (symbol-name)
+(defmethod find-function-locations (symbol-name)
   "Return a list of source-locations for SYMBOL-NAME's functions."
   (multiple-value-bind (symbol foundp) (find-symbol-designator symbol-name)
     (cond ((not foundp)
