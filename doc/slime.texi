@@ -45,7 +45,7 @@ o@c this comment prevents a newline!
 @code{\command\}@*
 @end macro
 
-@set EDITION 1.0 (alpha1)
+@set EDITION 1.0 alpha
 @set UPDATED @code{$Date$}
 
 @titlepage
@@ -106,6 +106,7 @@ Downloading from CVS
 * User-interface conventions::  
 * Commands::                    
 * Semantic indentation::        
+* Reader conditionals::         
 
 User-interface conventions
 
@@ -348,6 +349,7 @@ describes the @code{slime-mode} and its relatives.
 * User-interface conventions::  
 * Commands::                    
 * Semantic indentation::        
+* Reader conditionals::         
 @end menu
 
 @node User-interface conventions, Commands, slime-mode, slime-mode
@@ -723,7 +725,7 @@ Report profiler data.
 Reset profiler data.
 @end table
 
-@node Semantic indentation,  , Commands, slime-mode
+@node Semantic indentation, Reader conditionals, Commands, slime-mode
 @section Semantic indentation
 
 @SLIME{} automatically discovers how to indent the macros in your Lisp
@@ -768,7 +770,7 @@ of every symbol each time a new Lisp package is created between commands
 You can use @kbd{M-x slime-update-indentation} to force all symbols to
 be scanned for indentation information.
 
-@node Reader conditionals
+@node Reader conditionals,  , Semantic indentation, slime-mode
 @section Reader conditional fontification
 
 @SLIME{} automatically evaluates reader-conditional expressions in
