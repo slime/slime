@@ -194,7 +194,7 @@ recently established one."
 
 (add-hook *new-connection-hook* 'notify-backend-of-connection)
 (defun notify-backend-of-connection (connection)
-  (emacs-connected (connection.socket-io connection)))
+  (emacs-connected (connection.user-io connection)))
 
 ;;;; Helper macros
 
