@@ -396,12 +396,13 @@ format. The cases are as follows:
   PKG:FOO  - Symbols with matching prefix and external in package PKG.
   PKG::FOO - Symbols with matching prefix and accessible in package PKG."
   (multiple-value-bind (name package-name internal-p)
-      (parse-symbol-designator (case-convert string))
+      (parse-symbol-designator string)
     (let ((completions nil)
           (package (find-package 
-                    (cond ((equal package-name "") "KEYWORD")
-                          (package-name)
-                          (default-package-name)))))
+                    (case-convert
+                     (cond ((equal package-name "") "KEYWORD")
+                           (package-name)
+                           (default-package-name))))))
       (flet ((symbol-matches-p (symbol)
                (and (string-prefix-p name (symbol-name symbol))
                     (or (or internal-p (null package-name))

@@ -482,6 +482,15 @@ Like `display-buffer', but ignores `same-window-buffer-names'."
   (let ((same-window-buffer-names nil))
     (display-buffer buffer not-this-window)))
 
+(defun slime-create-message-window ()
+  (let ((previous (previous-window (minibuffer-window))))
+    (when (<= (window-height previous) (* 2 window-min-height))
+      (save-selected-window 
+        (select-window previous)
+        (enlarge-window (- (1+ (* 2 window-min-height))
+                           (window-height previous)))))
+    (split-window previous)))
+  
 (defun slime-display-message-or-view (msg bufname &optional select)
   "Like `display-buffer-or-message', but with `view-buffer-other-window'.
 That is, if a buffer pops up it will be in view mode, and pressing q
@@ -490,6 +499,7 @@ will get rid of it.
 Only uses the echo area for single-line messages - or more accurately,
 messages without embedded newlines. They may still need to wrap or
 truncate to fit on the screen."
+  (when (get-buffer-window bufname) (delete-windows-on bufname))
   (if (or (string-match "\n.*[^\\s-]" msg)
           (> (length msg) (1- (frame-width))))
       ;; Contains a newline with actual text after it, so display as a
@@ -500,7 +510,7 @@ truncate to fit on the screen."
 	  (erase-buffer)
 	  (insert msg)
 	  (goto-char (point-min))
-          (let ((win (split-window (previous-window (minibuffer-window)))))
+          (let ((win (slime-create-message-window)))
             (set-window-buffer win (current-buffer))
             (slime-display-buffer-region (current-buffer) 
                                          (point-min) (point-max))
@@ -508,7 +518,6 @@ truncate to fit on the screen."
                 (select-window win)
               (add-hook (make-local-variable 'pre-command-hook)
                         'slime-remove-message-window)))))
-    (when (get-buffer-window bufname) (delete-windows-on bufname))
     ;; Print only the part before the newline (if there is
     ;; one). Newlines in messages are displayed as "^J" in emacs20,
     ;; which is ugly
