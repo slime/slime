@@ -1,3 +1,8 @@
+2004-10-27  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-sbcl.lisp (signal-compiler-condition): Actually delete one
+	of the reader-conditionalized forms.
+
 2004-10-26  Helmut Eller  <heller@common-lisp.net>
 
 	* cl-indent.el: Add indentation specs for some missing CL symbols.
