@@ -1,5 +1,8 @@
 2003-10-15  Luke Gorrie  <luke@bluetail.com>
 
+	* slime.el (slime-point-moves-p): Macro for executing subforms and
+	returning true if they move the point.
+
 	* test.sh: New file to run the test suite in batch-mode. Will need
 	a little extending to allow configuring the right variables to
 	work with non-CMUCL backends.
