@@ -7,6 +7,8 @@
 	(slime-find-connection-by-type-name)
 	(slime-read-lisp-implementation-type-name): Where lost during the
 	merge.
+	(sldb-fetch-more-frames): Use (goto-char (point-max)) instead of
+	end-of-buffer. 
 
 2004-02-25  Peter Seibel  <peter@javamonkey.com>
 
