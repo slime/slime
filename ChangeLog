@@ -1,5 +1,9 @@
 2004-06-22  Luke Gorrie  <luke@bluetail.com>
 
+	* slime.el: Backed out all of my changes to fuzzy completion. I
+	was too hasty and didn't do good things. Now it's back in pristine
+	state from Brian's patch -- use `C-c M-i' to fuzzy-complete.
+
 	* doc/Makefile (contributors.texi): The contributors list in the
 	manual is now sorted by most number of ChangeLog entries. Patch
 	from Michael Weber.
