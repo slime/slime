@@ -547,9 +547,21 @@ in a web browser. The Hyperspec is found either on the Web or in
 
 @table @kbd
 @kbditem{M-TAB, slime-complete-symbol}
-Complete the symbol at point. Note that two styles of completion are
+Complete the symbol at point. Note that three styles of completion are
 available in @SLIME{}, and the default differs from normal Emacs
 completion. @xref{Emacs-side customization}.
+
+@anchor{slime-fuzzy-complete-symbol}
+@kbditem{C-c M-i, slime-fuzzy-complete-symbol}
+Presents a list of likely completions to choose from for an
+abbreviation at point.  This is a third completion method and it is
+very different from the more traditional completion to which
+@command{slime-complete-symbol} defaults.  It attempts to complete a
+symbol all at once, instead of in pieces.  For example, ``mvb'' will
+find ``@code{multiple-value-bind}'' and ``norm-df'' will find
+``@code{least-positive-normalized-double-float}''.  This can also be
+selected as the method of completion used for
+@code{slime-complete-symbol}.
 
 @kbditem{SPC, slime-space}
 The space key inserts a space and also looks up and displays the
@@ -1105,7 +1117,7 @@ ensures that lines do not wrap in backtraces, apropos listings, and so
 on. It can however cause information to spill off the screen.
 
 @item slime-complete-symbol-function
-The function to use for completion of Lisp symbols. Two completion
+The function to use for completion of Lisp symbols. Three completion
 styles are available. The default @code{slime-complete-symbol*}
 performs completion ``in parallel'' over the hyphen-delimited
 sub-words of a symbol name.
@@ -1127,8 +1139,12 @@ the end.
 @item
 @code{w--stream} completes to @code{with-open-stream}.
 @end itemize
-The alternative is @code{slime-simple-complete-symbol}, which
-completes in the usual Emacs way.
+An alternative is @code{slime-simple-complete-symbol}, which
+completes in the usual Emacs way.  Finally, there is
+@code{slime-fuzzy-complete-symbol}, which is quite different from both
+of the above and tries to find best matches to an abbreviated symbol.
+It also has its own keybinding, defaulting to @kbd{C-c M-i}.
+@xref{slime-fuzzy-complete-symbol}, for more information.
 
 @item slime-multiprocessing
 This should be set to @code{t} if you want to use multiprocessing

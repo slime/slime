@@ -1,3 +1,22 @@
+2004-06-23  Brian Downing  <bdowning@lavos.net>
+
+	* slime.el: Re-added most of Luke's patches from yesterday.  It
+	has the shortened names, uses markers instead of stored `(point)'
+	values, and `slime-fuzzy-complete-symbol' is an option for
+	`slime-complete-symbol-function'.
+	It still string compares the target buffer instead of using
+	`(buffer-modified-tick)'.
+	I left the `C-c M-i' keybinding in, as it allows use of the
+	regular completion as well.  If there's an objection to this it
+	can be removed.
+	`window-configuration-change-hook' is used if the variable is
+	present, and ignored it not.  This neatly sidesteps its absence in
+	XEmacs while not killing the functionality for GNU Emacs.
+
+	* doc/slime.texi: Added a command entry and short description for
+	`C-c M-I, slime-fuzzy-complete-symbol', and added its existence to
+	the `slime-complete-symbol-function' documentation.
+	
 2004-06-22  Luke Gorrie  <luke@bluetail.com>
 
 	* doc/slime.texi: Noted ABCL support.
