@@ -1,9 +1,15 @@
 2004-06-17  Luke Gorrie  <luke@bluetail.com>
 
+	* swank-loader.lisp (binary-pathname): Place fasl files under
+	~/.slime/fasl/ (or _slime in win32) instead of the SLIME
+	installation directory. The installation directory can now be
+	read-only.
+
 	* swank-lispworks.lisp (with-fairly-standard-io-syntax): New
 	macro. Like with-standard-io-syntax, but keeps the existing values
 	of *package* and *readtable*.
 	(dspec-stream-position): Use it.
+	(quit-lisp): Implemented.
 
 2004-06-16  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
