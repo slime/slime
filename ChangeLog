@@ -1,3 +1,17 @@
+2004-02-07  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-cmucl.lisp (gf-definition-location): Return an error when
+	pathname for the GF is nil (this happens if the GF is not compiled
+	from a file).
+
+	* swank.lisp (undefine-function): New function.
+	(print-with-frame-label, print-part-to-string): Bind
+	*print-circle* to t, to avoid unbound recursion when printing
+	cyclic data structures.
+
+	* slime.el (slime-undefine-function): New command.  Bound to C-c
+	C-u.
+
 2004-02-06  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (sldb-setup): Offer to enter a recursive edit if there
