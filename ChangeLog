@@ -1,3 +1,11 @@
+2004-02-02  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-debugger): The customization group is called
+	'slime-debugger', fix referrers.  Reported by Jouni K Seppanen.
+
+	* swank.lisp (simple-break): Bind *debugger-hook* before invoking
+	the debugger.  Reported by Michael Livshin.
+
 2004-01-31  Robert E. Brown <bbrown@speakeasy.net>
 
 	* swank-sbcl.lisp, swank.lisp: Add more type declarations and
@@ -7,7 +15,6 @@
 
 	* slime.el (slime-path): Placed inside an eval-and-compile.  Works
 	around some problems when byte-compiling slime-changelog-date.
-	(slime-swank-connection-retries): 
 
 2004-01-31  Marco Baringer  <mb@bese.it>
 
@@ -26,7 +33,7 @@
 	
 2004-01-31 Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
-	* Merge stateless-emacs branch into main trunk.  We use now signal
+	Merge stateless-emacs branch into main trunk.  We use now signal
 	driven IO for CMUCL and one thread per request for multithreaded
 	Lisps.
 
