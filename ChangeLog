@@ -1,3 +1,35 @@
+2005-03-05  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-net-sentinel): Always print a message when the
+	lisp disconnects.
+	(slime-inferior-lisp): Don't display the buffer.  Let callers do
+	that.
+	(slime): Display the inferior buffer here.
+	(slime-quit-lisp, slime-quit-sentinel): Use set a special sentinel
+	and do most of the cleanups there.
+	(slime-repl-sayoonara): Use slime-quit-lisp.
+	(slime-restart-inferior-lisp, slime-restart-inferior-lisp-aux)
+	(slime-restart-sentinel): Use a special sentinel to restart
+	processes.
+	(slime-hide-inferior-lisp-buffer): Do the windows arrangement a
+	bit differently. Related to restart-lisp.
+	(slime-repl-buffer): Take the connection as second optional
+	argument.  Useful for rearranging windows for dead processes.
+
+	* swank-allegro.lisp (call-with-debugging-environment)
+	(find-topframe): Hide the first 2 frames. Those are created
+	by swank-internal functions.
+
+2005-03-04  Antonio Menezes Leitao <aml@gia.ist.utl.pt>
+
+	* swank-allegro.lisp (process-fspec-for-allegro, toggle-trace):
+	Handle setf functions.
+	(tracedp): Fix free variable.
+
+ 	* slime.el (slime-trace-query): The :defgeneric query was bogus.
+	(slime-extract-context): Don't skip over the method name if we are
+	already at the end of the name.
+	
 2005-03-03  Nikodemus Siivola  <tsiivola@cc.hut.fi>
 
 	* swank-sbcl.lisp: Fixed for latest SBCL HEAD revision and
