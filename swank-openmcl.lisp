@@ -231,14 +231,8 @@ condition."
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let* ((*sldb-stack-top* nil)
-         ;; This is a complete hack --- since we're not running at top level we
-         ;; don't want to publish the last restart to Emacs which would allow
-         ;; the user to break outside of the request loop.  What's the right
-         ;; way to do this?
-         (*sldb-restarts* (butlast
-                           (compute-restarts *swank-debugger-condition*)))
+         (*sldb-restarts* (compute-restarts *swank-debugger-condition*))
          (*debugger-hook* nil)
-         (*package* *buffer-package*)
          (ccl::*signal-printing-errors* nil)) ; don't let error while printing error take us down
     (funcall debugger-loop-fn)))
 

@@ -964,12 +964,7 @@ to find the position of the corresponding form."
   (unix:unix-sigsetmask 0)
   (let* ((*sldb-stack-top* (or debug:*stack-top-hint* (di:top-frame)))
 	 (*sldb-restarts* (compute-restarts *swank-debugger-condition*))
-	 (debug:*stack-top-hint* nil)
-	 (*debugger-hook* nil)
-	 (*readtable* (or debug:*debug-readtable* *readtable*))
-	 (*print-level* debug:*debug-print-level*)
-	 (*print-length* debug:*debug-print-length*)
-         (*print-readably* nil))
+	 (debug:*stack-top-hint* nil))
     (handler-bind ((di:debug-condition 
 		    (lambda (condition)
                       (signal (make-condition

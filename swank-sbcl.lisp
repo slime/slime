@@ -466,12 +466,7 @@ Return NIL if the symbol is unbound."
   (declare (type function debugger-loop-fn))
   (let* ((*sldb-stack-top* (or sb-debug:*stack-top-hint* (sb-di:top-frame)))
 	 (*sldb-restarts* (compute-restarts *swank-debugger-condition*))
-	 (sb-debug:*stack-top-hint* nil)
-	 (*debugger-hook* nil)
-	 (*readtable* (or sb-debug:*debug-readtable* *readtable*))
-	 (*print-level* 4 #+nil sb-debug:*debug-print-level*)
-	 (*print-length* 10 #+nil sb-debug:*debug-print-length*)
-         (*print-readably* nil))
+	 (sb-debug:*stack-top-hint* nil))
     (handler-bind ((sb-di:debug-condition 
 		    (lambda (condition)
                       (signal (make-condition

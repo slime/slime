@@ -225,14 +225,7 @@ Return NIL if the symbol is unbound."
 	   (sys::frame-up-1 sys::*frame-limit1* sys::*debug-mode*)
 	   sys::*debug-mode*))
 	 (*sldb-botframe* (sys::frame-up *sldb-topframe* sys::*debug-mode*))
-	 (*debugger-hook* nil)
-	 (*package* *buffer-package*)
-	 (*sldb-restarts*
-	  (compute-restarts *swank-debugger-condition*))
-	 (*print-pretty* nil)
-	 (*print-readably* nil))
-;;;    (*print-level* 3)
-;;;    (*print-length* 10))
+	 (*sldb-restarts* (compute-restarts *swank-debugger-condition*)))
     (funcall debugger-loop-fn)))
 
 (defun format-restarts-for-emacs ()

@@ -109,15 +109,9 @@
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let ((*sldb-topframe* (excl::int-newest-frame))
-        (*debugger-hook* nil)
         (excl::*break-hook* nil)
-        (*package* *buffer-package*)
         (*sldb-restarts*
-         (compute-restarts *swank-debugger-condition*))
-        (*print-pretty* nil)
-        (*print-readably* nil)
-        (*print-level* 3)
-        (*print-length* 10))
+         (compute-restarts *swank-debugger-condition*)))
     (funcall debugger-loop-fn)))
 
 (defun format-restarts-for-emacs ()
