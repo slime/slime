@@ -17,14 +17,10 @@
 ;;; are confirmed non-working; please upgrade).  You need an image
 ;;; containing the "SOCKET", "REGEXP", and "LINUX" packages.  The
 ;;; portable xref from the CMU AI repository and metering.lisp from
-;;; CLOCC are also required (alternatively, you have to manually
-;;; comment out some code below).  Note that currently SLIME comes
-;;; with xref but not with metering.  Please fetch it from
-
-;;; http://cvs.sourceforge.net/viewcvs.py/clocc/clocc/src/tools/metering/
-
-;;; and put it (or a link to it) in the directory containing the other
-;;; SLIME source files.
+;;; CLOCC [1] are also required (alternatively, you have to manually
+;;; comment out some code below). 
+;;;
+;;; [1] http://cvs.sourceforge.net/viewcvs.py/clocc/clocc/src/tools/metering/
 
 (in-package "SWANK")
 
@@ -106,7 +102,6 @@
       (setf (linux:sa-flags action) (logior flags linux:SA_NODEFER))
       (linux:signal-action-install linux:SIGIO action)))
 
-
   (defimplementation add-input-handler (socket fn)
     (set-sigio-handler)
     (let ((fd (socket:socket-stream-handle socket)))
@@ -115,7 +110,6 @@
       (linux:fcntl3l fd linux:F_SETOWN (getpid))
       (linux:fcntl3l fd linux:F_SETFL linux:O_ASYNC)
       (push (cons fd fn) *sigio-handlers*)))
-
 
   (defimplementation remove-input-handlers (socket)
     (let ((fd (socket:socket-stream-handle socket)))
