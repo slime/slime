@@ -25,7 +25,7 @@
 (in-package :swank-backend)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (use-package "SOCKET")
+  ;;(use-package "SOCKET")
   (use-package "GRAY"))
 
 (eval-when (:compile-toplevel :execute)
@@ -197,6 +197,9 @@ Return NIL if the symbol is unbound."
      (frame-do-benv frame (svref frame-env 2))
      (frame-do-genv frame (svref frame-env 3))
      (frame-do-denv frame (svref frame-env 4)))))
+
+(defimplementation frame-var-value (frame var)
+  (getf (nth var (frame-locals frame)) :value))
 
 ;; Interpreter-Variablen-Environment has the shape
 ;; NIL or #(v1 val1 ... vn valn NEXT-ENV).

@@ -347,10 +347,15 @@ within the dynamic contour of a function defined by
 DEFINE-DEBUGGER-HOOK.")
 
 (definterface frame-locals (frame-number)
-   "Return a list of XXX local variable designators define me
+  "Return a list of XXX local variable designators define me
 for a debugger stack frame.  The results are undefined unless
 this is called within the dynamic contour of a function defined
 by DEFINE-DEBUGGER-HOOK.")
+
+(definterface frame-var-value (frame var)
+  "Return the value of VAR in FRAME.  
+FRAME is the number of the frame in the backtrace.
+VAR is the number of the variable in the frame.")
 
 (definterface disassemble-frame (frame-number)
   "Disassemble the code for the FRAME-NUMBER.
@@ -510,12 +515,13 @@ themselves, that is, their dispatch functions, are left alone.")
 
 ;;;; Inspector
 
-(defstruct (unbound-slot-filler
-             (:print-object 
-              (lambda (obj stream)
-                (print-unreadable-object (obj stream :type t)))))
+(defstruct (unbound-slot-filler (:print-function print-unbound-slot))
   "The definition of an object which serves as a placeholder in
 an unbound slot for inspection purposes.")
+
+(defun print-unbound-slot (o stream depth)
+  (declare (ignore depth))
+  (print-unreadable-object (o stream :type t)))
 
 (definterface inspected-parts (object)
   "Return a short description and a list of (LABEL . VALUE) pairs."

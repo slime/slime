@@ -239,18 +239,24 @@ Return NIL if the symbol is unbound."
                  (frame-actual-args frame)))
         (t (princ frame stream))))
 
+(defun frame-vars (frame)
+  (first (dbg::frame-locals-format-list frame #'list 75 0)))
+
 (defimplementation frame-locals (n)
   (let ((frame (nth-frame n)))
     (if (dbg::call-frame-p frame)
-	(destructuring-bind (vars with)
-	    (dbg::frame-locals-format-list frame #'list 75 0)
-	  (declare (ignore with))
-          (mapcar (lambda (var)
-                    (destructuring-bind (name value symbol location) var
-                      (declare (ignore name location))
-                      (list :name symbol :id 0
-                            :value value)))
-                  vars)))))
+        (mapcar (lambda (var)
+                  (destructuring-bind (name value symbol location) var
+                    (declare (ignore name location))
+                    (list :name symbol :id 0
+                          :value value)))
+                (frame-vars frame)))))
+
+(defimplementation frame-var-value (frame var)
+  (let ((frame (nth-frame frame)))
+    (destructuring-bind (_n value _s _l) (nth var (frame-vars frame))
+      (declare (ignore _n _s _l))
+      value)))
 
 (defimplementation frame-catch-tags (index)
   (declare (ignore index))

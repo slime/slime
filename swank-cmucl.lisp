@@ -1,5 +1,7 @@
 ;;; -*- indent-tabs-mode: nil; outline-regexp: ";;;;+" -*-
 ;;;
+;;; License: Public Domain
+;;;
 ;;;; Introduction
 ;;;
 ;;; This is the CMUCL implementation of the `swank-backend' package.
@@ -521,7 +523,7 @@ constant pool."
   "Return FUNCTION's callers.  The result is a list of code-objects."
   (let ((referrers '()))
     (declare (inline map-caller-code-components))
-    (ext:gc :full t)
+    ;;(ext:gc :full t)
     (map-caller-code-components function spaces 
                                 (lambda (code) (push code referrers)))
     referrers))
@@ -1466,19 +1468,28 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 (defimplementation eval-in-frame (form index)
   (di:eval-in-frame (nth-frame index) form))
 
+(defun frame-debug-vars (frame)
+  "Return a vector of debug-variables in frame."
+  (di::debug-function-debug-variables (di:frame-debug-function frame)))
+
+(defun debug-var-value (var frame location)
+  (ecase (di:debug-variable-validity var location)
+    (:valid (di:debug-variable-value var frame))
+    ((:invalid :unknown) ':<not-available>)))
+
 (defimplementation frame-locals (index)
   (let* ((frame (nth-frame index))
-	 (location (di:frame-code-location frame))
-	 (debug-function (di:frame-debug-function frame))
-	 (debug-variables (di::debug-function-debug-variables debug-function)))
-    (loop for v across debug-variables collect 
+	 (loc (di:frame-code-location frame))
+	 (vars (frame-debug-vars frame)))
+    (loop for v across vars collect
           (list :name (di:debug-variable-symbol v)
                 :id (di:debug-variable-id v)
-                :value (ecase (di:debug-variable-validity v location)
-                         (:valid 
-                          (di:debug-variable-value v frame))
-                         ((:invalid :unknown) 
-                          ':not-available))))))
+                :value (debug-var-value v frame loc)))))
+
+(defimplementation frame-var-value (frame var)
+  (let* ((frame (nth-frame frame))
+         (dvar (aref (frame-debug-vars frame) var)))
+    (debug-var-value dvar frame (di:frame-code-location frame))))
 
 (defimplementation frame-catch-tags (index)
   (mapcar #'car (di:frame-catches (nth-frame index))))

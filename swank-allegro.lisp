@@ -55,8 +55,11 @@
   (princ-to-string c))
 
 (defimplementation condition-references (c)
-  (declare (ignore))
+  (declare (ignore c))
   '())
+
+(defimplementation call-with-syntax-hooks (fn)
+  (funcall fn))
 
 ;;;; Unix signals
 
@@ -76,9 +79,6 @@
 
 (defimplementation default-directory ()
   (excl:chdir))
-
-(defimplementation call-with-syntax-hooks (fn)
-  (funcall fn))
 
 ;;;; Misc
 
@@ -147,6 +147,10 @@
 			:id 0
 			:value (debugger:frame-var-value frame i)))))
 
+(defimplementation frame-var-value (frame var)
+  (let ((frame (nth-frame frame)))
+    (debugger:frame-var-value frame var)))
+        
 (defimplementation frame-catch-tags (index)
   (declare (ignore index))
   nil)
