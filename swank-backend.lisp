@@ -17,70 +17,80 @@
 (defpackage :swank
   (:use :common-lisp)
   (:nicknames #:swank-backend)
-  (:export #:start-server #:create-swank-server
-           #:*sldb-pprint-frames*
-           #:eval-string
-           #:interactive-eval-region
-           #:interactive-eval
-           #:pprint-eval
-           #:re-evaluate-defvar
-           #:listener-eval
-           #:swank-compile-file
-           #:swank-compile-string
+  (:export #:*sldb-pprint-frames*
+           #:apropos-list-for-emacs
+           #:arglist-string
+           #:backtrace
+           #:call-with-I/O-lock
+           #:call-with-conversation-lock
            #:compiler-notes-for-emacs
+           #:completions
+           #:create-swank-server
+           #:describe-alien-enum
+           #:describe-alien-struct
+           #:describe-alien-type
+           #:describe-alien-union
+           #:describe-class
+           #:describe-function
+           #:describe-inspectee
+           #:describe-setf-function
+           #:describe-symbol
+           #:describe-type
+           #:disassemble-symbol
+           #:documentation-symbol
+           #:eval-in-frame
+           #:eval-string
+           #:eval-string-in-frame
+           #:find-function-locations
+           #:frame-catch-tags
+           #:frame-locals
+           #:frame-source-location-for-emacs
+           #:frame-source-position
+           #:getpid
+           #:give-goahead
+           #:give-gohead
+           #:init-inspector
+           #:inspect-in-frame
+           #:inspect-nth-part
+           #:inspector-next
+           #:inspector-pop
+           #:interactive-eval
+           #:interactive-eval-region
+           #:invoke-nth-restart
+           #:list-all-package-names
+           #:list-callees
+           #:list-callers
+           #:listener-eval
            #:load-file
+           #:pprint-eval
+           #:pprint-eval-string-in-frame
+           #:quit-inspector
+           #:re-evaluate-defvar
            #:set-default-directory
            #:set-package
-           #:list-all-package-names
-           #:getpid
-           #:disassemble-symbol
-           #:describe-symbol
-           #:describe-alien-type
-           #:describe-function
-           #:describe-type
-           #:describe-alien-struct
-           #:describe-class
-           #:describe-inspectee
-           #:describe-alien-union
-           #:describe-alien-enum
-           #:describe-setf-function
-           #:documentation-symbol
-           #:arglist-string
-           #:completions
-           #:apropos-list-for-emacs
-           #:inspect-nth-part
-           #:inspect-in-frame
-           #:init-inspector
-           #:quit-inspector
-           #:inspector-next
-           #:swank-macroexpand-all
-           #:swank-macroexpand
-           #:swank-macroexpand-1
-           #:untrace-all
-           #:toggle-trace-fdefinition
-           #:find-function-locations
-           #:who-binds
-           #:who-references
-           #:who-calls
-           #:who-sets
-           #:who-macroexpands
-           #:list-callers
-           #:list-callees
-           #:backtrace
-           #:frame-catch-tags
-           #:frame-source-position
-           #:frame-locals
-           #:throw-to-toplevel
-           #:inspector-pop
-           #:invoke-nth-restart
-           #:pprint-eval-string-in-frame
-           #:frame-source-location-for-emacs
-           #:eval-in-frame
-           #:eval-string-in-frame
            #:sldb-abort
            #:sldb-continue
-           #:take-input
            #:slime-debugger-function
+           #:start-server
+           #:startup-multiprocessing
+           #:startup-multiprocessing-for-emacs
+           #:swank-compile-file
+           #:swank-compile-string
+           #:swank-macroexpand
+           #:swank-macroexpand-1
+           #:swank-macroexpand-all
+           #:take-input
+           #:thread-id
+           #:thread-name
+           #:throw-to-toplevel
+           #:toggle-trace-fdefinition
+           #:untrace-all
+           #:wait-goahead
+           #:who-binds
+           #:who-calls
+           #:who-macroexpands
+           #:who-references
+           #:who-sets
            ))
 
 (in-package :swank)
@@ -326,4 +336,101 @@ LOCATION is a source location of the form:
 
 <position> ::= (:position <fixnum> [<align>]) ; 1 based
              | (:function-name <string>)"))
+
+
+;;;; Multiprocessing
+
+(defgeneric startup-multiprocessing ()
+  (:documentation
+   "Initialize multiprocessing, if necessary.
+
+This function is called directly through the listener, not in an RPC
+from Emacs. This is to support interfaces such as CMUCL's
+MP::STARTUP-IDLE-AND-TOP-LEVEL-LOOPS which does not return like a
+normal function."))
+
+(defgeneric thread-id ()
+  (:documentation
+   "Return a value that uniquely identifies the current thread.
+Thread-IDs allow Emacs to refer to individual threads.
+
+When called several times by the same thread, all return values are
+EQUAL. The value has a READable printed representation that preserves
+equality. The printed representation must be identical in Emacs Lisp
+and Common Lisp, and short enough to include in the REPL prompt.
+
+For example, a THREAD-ID could be an integer or a short ASCII string.
+
+Systems that do not support multiprocessing return NIL."))
+
+(defgeneric thread-name (thread-id)
+  (:documentation
+   "Return the name of the thread identified by THREAD-ID.
+
+Thread names are be single-line strings and are meaningful to the
+user. They do not have to be unique."))
+
+(defgeneric call-with-I/O-lock (function)
+  (:documentation
+   "Call FUNCTION with the \"I/O\" lock held.
+Only one thread can hold the I/O lock at a time -- others are blocked
+until they acquire it. When called recursively (i.e. lock already
+held), simply calls FUNCTION.
+
+This is a low-level lock used for mutual exclusion on individual
+messages read and written to the socket connecting Emacs.
+
+Systems that do not support multiprocessing simply call FUNCTION."))
+
+(defgeneric call-with-conversation-lock (function)
+  (:documentation
+   "Call FUNCTION with the \"conversation\" lock held.
+The semantics are analogous to CALL-WITH-I/O-HOOK.
+
+This is a high-level lock used for mutual exclusion in conversations
+with Emacs that can span multiple messages. The I/O lock must
+separately be held when reading and writing individual messages."))
+
+;;; Functions for attracting the Emacs user's attention.
+
+(defgeneric wait-goahead ()
+  (:documentation
+   "Block until told to continue by `give-gohead'.
+
+Systems that do not support multiprocessing return immediately."))
+
+(defgeneric give-goahead (thread-id)
+  (:documentation
+   "Permit THREAD-ID to continue from WAIT-GOAHEAD.
+It is an error to call (GIVE-GOAHEAD ID) unless ID is blocking in
+WAIT-GOAHEAD.
+
+Systems that do not support multiprocessing always signal an error."))
+
+;;;;; Default implementation for non-MP systems
+
+;;; Using NO-APPLICABLE-METHOD to supply a default implementation that
+;;; works in systems that don't have multiprocessing.
+;;; (Good or bad idea? -luke)
+
+(defvar _ nil                           ; Good or bad idea? -luke
+  "Null variable -- can be used for ignored arguments.
+Declared special, so no IGNORE declarations are necessary.")
+
+(defmethod no-applicable-method ((m (eql #'startup-multiprocessing)) &rest _)
+  nil)
+(defmethod no-applicable-method ((m (eql #'thread-id)) &rest _)
+  nil)
+(defmethod no-applicable-method ((m (eql #'thread-name)) &rest _)
+  "The One True Thread")
+(defmethod no-applicable-method ((m (eql #'call-with-I/O-lock))
+                                 &rest args)
+  (funcall (first args)))
+(defmethod no-applicable-method ((m (eql #'call-with-conversation-lock))
+                                 &rest args)
+  (funcall (first args)))
+(defmethod no-applicable-method ((m (eql #'wait-goahead)) &rest _)
+  t)
+(defmethod no-applicable-method ((m (eql #'give-goahead)) &rest _)
+  (error "SLIME multiprocessing not available"))
 
