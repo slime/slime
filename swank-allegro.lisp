@@ -273,19 +273,26 @@
          (make-location (list :file (namestring (truename file)))
                         pos)))
       ((member :top-level)
-       (list :error (format nil "Defined at toplevel: ~A" fspec)))
+       (list :error (format nil "Defined at toplevel: ~A" (fspec->string fspec))))
       (string
        (let ((pos (position #\: file)))
-         (make-location 
+         (make-location
           (list :buffer (subseq file 0 pos))
           (list :position (parse-integer (subseq file (1+ pos)))))))
       (null 
-       (list :error (format nil "Unknown source location for ~A" fspec))))))
+       (list :error (format nil "Unknown source location for ~A" (fspec->string fspec)))))))
+
+(defun fspec->string (fspec &aux (*package* (find-package :keyword)))
+  (etypecase fspec
+    (symbol (prin1-to-string fspec))
+    (list (format nil "(method ~A)" 
+                  (prin1-to-string (second fspec))))))
 
 (defun fspec-definition-locations (fspec)
   (let ((defs (excl::find-multiple-definitions fspec)))
     (loop for (fspec type) in defs 
-          collect (list fspec (find-fspec-location fspec type)))))
+          collect (list (list type fspec)
+                        (find-fspec-location fspec type)))))
 
 (defimplementation find-definitions (symbol)
   (fspec-definition-locations symbol))
