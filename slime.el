@@ -1815,11 +1815,17 @@ deal with that."
 (defun slime-init-output-buffer ()
   (with-current-buffer (slime-output-buffer)
     (goto-char (point-max))
-    (slime-repl-insert-prompt 
-     (format "; %s  Port: %s  Pid: %s"
-             (slime-eval '(cl:lisp-implementation-type))
-             (process-contact (slime-connection))
-             (slime-pid)))
+    (let ((banner (format "%s  Port: %s  Pid: %s"
+                          (slime-eval '(cl:lisp-implementation-type))
+                          (if (featurep 'xemacs)
+                              (process-id (slime-connection))
+                            (process-contact (slime-connection)))
+                          (slime-pid))))
+      ;; Emacs21 has the fancy persistent header-line.
+      (if (boundp 'header-line-format)
+          (progn (setq header-line-format banner)
+                 (slime-repl-insert-prompt ""))
+        (slime-repl-insert-prompt (concat "; " banner))))
     (pop-to-buffer (current-buffer))))
 
 (defun slime-note-transcript-start (string)
