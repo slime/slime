@@ -1,5 +1,8 @@
 2003-11-28  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* swank-lispworks.lisp (make-dspec-location): Handle logical
+	pathnames.  Reported by Alain Picard.
+
 	* swank-sbcl.lisp, swank-cmucl.lisp: Support for output
 	redirection to an Emacs buffer via a dedicated network stream.
 	Can be enabled with *use-dedicated-output-stream*.
