@@ -1611,14 +1611,16 @@ contains lower or upper case characters."
     (let ((package (carefully-find-package package-name default-package-name)))
       (values name package-name package internal-p))))
 
+(defun format-completion-result (string internal-p package-name)
+  (let ((prefix (cond (internal-p (format nil "~A::" package-name))
+                      (package-name (format nil "~A:" package-name))
+                      (t ""))))
+    (values (concatenate 'string prefix string)
+            (length prefix))))
+
 (defun format-completion-set (strings internal-p package-name)
   (mapcar (lambda (string)
-            (cond (internal-p
-                   (format nil "~A::~A" package-name string))
-                  (package-name
-                   (format nil "~A:~A" package-name string))
-                  (t
-                   (format nil "~A" string))))
+            (format-completion-result string internal-p package-name))
           (sort strings #'string<)))
 
 (defun output-case-converter (input)
@@ -1677,6 +1679,80 @@ symbols are returned."
                     (nconc (mapcar #'symbol-name symbols) packs))))
       (format-completion-set strings internal-p package-name))))
 
+(defun fuzzy-find-matching-symbols (string package external)
+  "Return a list of symbols in PACKAGE matching STRING using the
+fuzzy completion algorithm.  If EXTERNAL is true, only external
+symbols are returned."
+  (let ((completions '())
+        (converter (output-case-converter string)))
+    (flet ((symbol-match (symbol)
+             (and (or (not external)
+                      (symbol-external-p symbol package))
+                  (compute-highest-scoring-completion 
+                   string (funcall converter (symbol-name symbol)) #'char=))))
+      (do-symbols (symbol package) 
+        (multiple-value-bind (result score) (symbol-match symbol)
+          (when result
+            (push (list symbol score result) completions)))))
+    (remove-duplicates completions :key #'first)))
+
+(defun fuzzy-find-matching-packages (name)
+  "Return a list of package names matching NAME using the fuzzy
+completion algorithm."
+  (let ((converter (output-case-converter name)))
+    (loop for package in (list-all-packages)
+          for package-name = (concatenate 'string 
+                                          (funcall converter
+                                                   (package-name package)) 
+                                          ":")
+          for (result score) = (multiple-value-list
+                                (compute-highest-scoring-completion
+                                 name package-name #'char=))
+          if result collect (list package-name score result))))
+
+(defun fuzzy-completion-set (string default-package-name &optional limit)
+  "Prepares list of completion objects, sorted by SCORE, of fuzzy
+completions of STRING in DEFAULT-PACKAGE-NAME.  If LIMIT is set,
+only the top LIMIT results will be returned."
+  (declare (type simple-base-string string))
+  (multiple-value-bind (name package-name package internal-p)
+      (parse-completion-arguments string default-package-name)
+    (let* ((symbols (and package
+                         (fuzzy-find-matching-symbols name
+                                                      package
+                                                      (and (not internal-p)
+                                                           package-name))))
+           (packs (and (not package-name)
+                       (fuzzy-find-matching-packages name)))
+           (converter (output-case-converter name))
+           (results
+            (sort (mapcar 
+                   #'(lambda (result)
+                       (destructuring-bind (symbol-or-name score chunks) result
+                         (multiple-value-bind (name added-length)
+                             (format-completion-result
+                              (funcall converter 
+                                       (if (symbolp symbol-or-name)
+                                           (symbol-name symbol-or-name)
+                                           symbol-or-name))
+                              internal-p package-name)
+                           (list name score 
+                                 (mapcar
+                                  #'(lambda (chunk)
+                                      ;; fix up chunk positions to
+                                      ;; account for possible added
+                                      ;; package identifier
+                                      (list (+ added-length (first chunk))
+                                            (second chunk))) 
+                                  chunks)))))
+                   (nconc symbols packs))
+                  #'> :key #'second)))
+      (when (and limit 
+                 (> limit 0) 
+                 (< limit (length results)))
+        (setf (cdr (nthcdr (1- limit) results)) nil))
+      results)))
+
 (defslimefun completions (string default-package-name)
   "Return a list of completions for a symbol designator STRING.  
 
@@ -1705,6 +1781,45 @@ format. The cases are as follows:
                                         #'prefix-match-p)))
     (list completion-set (longest-common-prefix completion-set))))
 
+(defslimefun fuzzy-completions (string default-package-name &optional limit)
+  "Return an (optionally limited to LIMIT best results) list of
+fuzzy completions for a symbol designator STRING.  The list will
+be sorted by score, most likely match first.
+
+The result is a list of completion objects, where a completion
+object is:
+    (COMPLETED-STRING SCORE (&rest CHUNKS))
+where a CHUNK is a description of a matched string of characters:
+    (OFFSET STRING)
+For example, the top result for completing \"mvb\" in a package
+that uses COMMON-LISP would be something like:
+    (\"multiple-value-bind\" 42.391666 ((0 \"mul\") (9 \"v\") (15 \"b\")))
+
+If STRING is package qualified the result list will also be
+qualified.  If string is non-qualified the result strings are
+also not qualified and are considered relative to
+DEFAULT-PACKAGE-NAME.
+
+Which symbols are candidates for matching depends on the symbol
+designator's format. The cases are as follows:
+  FOO      - Symbols accessible in the buffer package.
+  PKG:FOO  - Symbols external in package PKG.
+  PKG::FOO - Symbols accessible in package PKG."
+  (fuzzy-completion-set string default-package-name limit))
+
+(defslimefun fuzzy-completion-selected (original-string completion)
+  "This function is called by Slime when a fuzzy completion is
+selected by the user.  It is for future expansion to make
+testing, say, a machine learning algorithm for completion scoring
+easier.
+
+ORIGINAL-STRING is the string the user completed from, and
+COMPLETION is the completion object (see docstring for
+SWANK:FUZZY-COMPLETIONS) corresponding to the completion that the
+user selected."
+  (declare (ignore original-string completion))
+  nil)
+
 (defun tokenize-symbol-designator (string)
   "Parse STRING as a symbol designator.
 Return three values:
@@ -1726,6 +1841,231 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
     (declare (ignore _))
     (eq status :external)))
  
+;;; Fuzzy completion core
+
+(defparameter *fuzzy-recursion-soft-limit* 30
+  "This is a soft limit for recursion in
+RECURSIVELY-COMPUTE-MOST-COMPLETIONS.  Without this limit,
+completing a string such as \"ZZZZZZ\" with a symbol named
+\"ZZZZZZZZZZZZZZZZZZZZZZZ\" will result in explosive recursion to
+find all the ways it can match.
+
+Most natural language searches and symbols do not have this
+problem -- this is only here as a safeguard.")
+
+(defun recursively-compute-most-completions 
+    (short full test 
+     short-index initial-full-index 
+     chunks current-chunk current-chunk-pos 
+     recurse-p)
+  "Recursively (if RECURSE-P is true) find /most/ possible ways
+to fuzzily map the letters in SHORT onto FULL, with TEST being a
+function to determine if two letters match.
+
+A chunk is a list of elements that have matched consecutively.
+When consecutive matches stop, it is coerced into a string,
+paired with the starting position of the chunk, and pushed onto
+CHUNKS.
+
+Whenever a letter matches, if RECURSE-P is true,
+RECURSIVELY-COMPUTE-MOST-COMPLETIONS calls itself with a position
+one index ahead, to find other possibly higher scoring
+possibilities.  If there are less than
+*FUZZY-RECURSION-SOFT-LIMIT* results in *ALL-CHUNKS* currently,
+this call will also recurse.
+
+Once a word has been completely matched, the chunks are pushed
+onto the special variable *ALL-CHUNKS* and the function returns."
+  (declare (special *all-chunks*))
+  (flet ((short-cur () 
+           "Returns the next letter from the abbreviation, or NIL
+            if all have been used."
+           (if (= short-index (length short))
+               nil
+               (aref short short-index)))
+         (add-to-chunk (char pos)
+           "Adds the CHAR at POS in FULL to the current chunk,
+            marking the start position if it is empty."
+           (unless current-chunk
+             (setf current-chunk-pos pos))
+           (push char current-chunk))
+         (collect-chunk ()
+           "Collects the current chunk to CHUNKS and prepares for
+            a new chunk."
+           (when current-chunk
+             (push (list current-chunk-pos
+                         (coerce (reverse current-chunk) 'string)) chunks)
+             (setf current-chunk nil
+                   current-chunk-pos nil))))
+    ;; If there's an outstanding chunk coming in collect it.  Since
+    ;; we're recursively called on skipping an input character, the
+    ;; chunk can't possibly continue on.
+    (when current-chunk (collect-chunk))
+    (do ((pos initial-full-index (1+ pos)))
+        ((= pos (length full)))
+      (let ((cur-char (aref full pos)))
+        (if (and (short-cur) 
+                 (funcall test cur-char (short-cur)))
+            (progn
+              (when recurse-p
+                ;; Try other possibilities, limiting insanely deep
+                ;; recursion somewhat.
+                (recursively-compute-most-completions 
+                 short full test short-index (1+ pos) 
+                 chunks current-chunk current-chunk-pos
+                 (not (> (length *all-chunks*) 
+                         *fuzzy-recursion-soft-limit*))))
+              (incf short-index)
+              (add-to-chunk cur-char pos))
+            (collect-chunk))))
+    (collect-chunk)
+    ;; If we've exhausted the short characters we have a match.
+    (if (short-cur)
+        nil
+        (let ((rev-chunks (reverse chunks)))
+          (push rev-chunks *all-chunks*)
+          rev-chunks))))
+
+(defun compute-most-completions (short full test)
+  "Finds most possible ways to complete FULL with the letters in SHORT.
+Calls RECURSIVELY-COMPUTE-MOST-COMPLETIONS recursively.  Returns
+a list of (&rest CHUNKS), where each CHUNKS is a description of
+how a completion matches."
+  (let ((*all-chunks* nil))
+    (declare (special *all-chunks*))
+    (recursively-compute-most-completions short full test 0 0 nil nil nil t)
+    *all-chunks*))
+
+(defun compute-completion (short full test)
+  "Finds the first way to complete FULL with the letters in SHORT.
+Calls RECURSIVELY-COMPUTE-MOST-COMPLETIONS non-recursively.
+Returns a list of one (&rest CHUNKS), where CHUNKS is a
+description of how the completion matched."
+  (let ((*all-chunks* nil))
+    (declare (special *all-chunks*))
+    (recursively-compute-most-completions short full test 0 0 nil nil nil nil)
+    *all-chunks*))
+
+(defparameter *fuzzy-completion-symbol-prefixes* "*+-%&?<"
+  "Letters that are likely to be at the beginning of a symbol.
+Letters found after one of these prefixes will be scored as if
+they were at the beginning of ths symbol.")
+(defparameter *fuzzy-completion-symbol-suffixes* "*+->"
+  "Letters that are likely to be at the end of a symbol.
+Letters found before one of these suffixes will be scored as if
+they were at the end of the symbol.")
+(defparameter *fuzzy-completion-word-separators* "-/."
+  "Letters that separate different words in symbols.  Letters
+after one of these symbols will be scores more highly than other
+letters.")
+
+(defun score-completion (completion short full)
+  "Scores the completion chunks COMPLETION as a completion from
+the abbreviation SHORT to the full string FULL.  COMPLETION is a
+list like:
+    ((0 \"mul\") (9 \"v\") (15 \"b\"))
+Which, if SHORT were \"mulvb\" and full were \"multiple-value-bind\", 
+would indicate that it completed as such (completed letters
+capitalized):
+    MULtiple-Value-Bind
+
+Letters are given scores based on their position in the string.
+Letters at the beginning of a string or after a prefix letter at
+the beginning of a string are scored highest.  Letters after a
+word separator such as #\- are scored next highest.  Letters at
+the end of a string or before a suffix letter at the end of a
+string are scored medium, and letters anywhere else are scored
+low.
+
+If a letter is directly after another matched letter, and its
+intrinsic value in that position is less than a percentage of the
+previous letter's value, it will use that percentage instead.
+
+Finally, a small scaling factor is applied to favor shorter
+matches, all other things being equal."
+  (flet ((score-chunk (chunk)
+           (let ((initial-pos (first chunk))
+                 (str (second chunk)))
+             (labels ((at-beginning-p (pos) 
+                        (= pos 0))
+                      (after-prefix-p (pos) 
+                        (and (= pos 1) 
+                             (find (aref full 0)
+                                   *fuzzy-completion-symbol-prefixes*)))
+                      (word-separator-p (pos)
+                        (find (aref full pos) 
+                              *fuzzy-completion-word-separators*))
+                      (after-word-separator-p (pos)
+                        (find (aref full (1- pos))
+                              *fuzzy-completion-word-separators*))
+                      (at-end-p (pos)
+                        (= pos (1- (length full))))
+                      (before-suffix-p (pos)
+                        (and (= pos (- (length full) 2))
+                             (find (aref full (1- (length full)))
+                                   *fuzzy-completion-symbol-suffixes*)))
+                      (score-or-percentage-of-previous 
+                          (base-score pos chunk-pos)
+                        (if (zerop chunk-pos) 
+                            base-score 
+                            (max base-score 
+                                 (* (score-char (1- pos) (1- chunk-pos)) 
+                                    0.85))))
+                      (score-char (pos chunk-pos)
+                        (score-or-percentage-of-previous
+                         (cond ((at-beginning-p pos)         10)
+                               ((after-prefix-p pos)         10)
+                               ((word-separator-p pos)       1)
+                               ((after-word-separator-p pos) 8)
+                               ((at-end-p pos)               6)
+                               ((before-suffix-p pos)        6)
+                               (t                            1))
+                         pos chunk-pos)))
+               (loop for chunk-pos below (length str)
+                     for pos from initial-pos 
+                     summing (score-char pos chunk-pos))))))
+    (let* ((chunk-scores (mapcar #'score-chunk completion))
+           (length-score 
+            (/ 10 (coerce (1+ (- (length full) (length short)))
+                          'single-float))))
+      (values
+       (+ (apply #'+ chunk-scores) length-score)
+       (list (mapcar #'list chunk-scores completion) length-score)))))
+
+(defun compute-highest-scoring-completion (short full test)
+  "Finds the highest scoring way to complete the abbreviation
+SHORT onto the string FULL, using TEST as a equality function for
+letters.  Returns two values:  The first being the completion
+chunks of the high scorer, and the second being the score."
+  (let* ((scored-results
+          (mapcar #'(lambda (result)
+                      (cons (score-completion result short full) result))
+                  (compute-most-completions short full test)))
+         (winner (first (sort scored-results #'> :key #'first))))
+    (values (rest winner) (first winner))))
+
+(defun highlight-completion (completion full)
+  "Given a chunk definition COMPLETION and the string FULL,
+HIGHLIGHT-COMPLETION will create a string that demonstrates where
+the completion matched in the string.  Matches will be
+capitalized, while the rest of the string will be lower-case."
+  (let ((highlit (string-downcase full)))
+    (dolist (chunk completion)
+      (setf highlit (string-upcase highlit 
+                                   :start (first chunk)
+                                   :end (+ (first chunk) 
+                                           (length (second chunk))))))
+    highlit))
+
+(defun format-fuzzy-completions (winners)
+  "Given a list of completion objects such as on returned by
+FUZZY-COMPLETIONS, format the list into user-readable output."
+  (let ((max-len 
+         (loop for winner in winners maximizing (length (first winner)))))
+    (loop for (sym score result) in winners do
+          (format t "~&~VA  score ~8,2F  ~A"
+                  max-len (highlight-completion result sym) score result))))
+
 
 ;;;;; Subword-word matching
 
