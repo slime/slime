@@ -1,3 +1,14 @@
+2004-03-13  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-space): Send a list of the operator names
+	surrounding point to Lisp.  Lisp can use the list to select the
+	most suitable arglist for the echo area.  Suggested by Christophe
+	Rhodes and Ivan Boldyrev.
+	(slime-enclosing-operator-names): New function.
+
+	* swank.lisp (arglist-for-echo-area): Renamed from arglist-string.
+	(format-arglist-for-echo-area, arglist-to-string): New functions.
+
 2004-03-12  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-backend.lisp (find-definitions): Fix docstring.
