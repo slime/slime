@@ -1642,10 +1642,10 @@ after the last prompt to the end of buffer."
   (buffer-substring-no-properties slime-repl-input-start-mark
                                   (save-excursion
                                     (goto-char slime-repl-input-end-mark)
-                                    (when (eq (char-before) ?\n)
+                                    (when (and (eq (char-before) ?\n)
+                                               (not (slime-reading-p)))
                                       (backward-char 1))
                                     (point))))
-     
 
 (defun slime-repl-add-to-input-history (string)
   (when (and (plusp (length string))
@@ -2299,8 +2299,10 @@ are supported:
           (slime-forward-sexp)
           (beginning-of-sexp)))
        ((:function-name name)
-        (let ((case-fold-search t))
-          (re-search-forward (format "^(\\(def.*[ \n\t(]\\)?%s[ \t)]" name)))
+        (let ((case-fold-search t)
+              (name (regexp-quote name)))
+          (re-search-forward 
+           (format "^(\\(def.*[ \n\t(]\\([a-z]+:\\)?\\)?%s[ \t)]" name)))
         (goto-char (match-beginning 0)))
        ((:source-path source-path start-position)
         (cond (start-position
