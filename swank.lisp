@@ -1785,7 +1785,7 @@ FORM is expected, but not required, to be SETF'able."
   "Set the value of a setf'able FORM to VALUE.
 FORM and VALUE are both strings from Emacs."
   (with-buffer-syntax ()
-    (eval `(setf ,(read-from-string form) ',(read-from-string value)))
+    (eval `(setf ,(read-from-string form) ,(read-from-string (concatenate 'string "`" value))))
     t))
 
 
