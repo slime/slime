@@ -24,6 +24,7 @@
            ;; These are user-configurable variables:
            #:*communication-style*
            #:*log-events*
+           #:*log-output*
            #:*use-dedicated-output-stream*
            #:*configure-emacs-indentation*
            #:*readtable-alist*
