@@ -1,5 +1,10 @@
 2003-10-17  Luke Gorrie  <luke@bluetail.com>
 
+	* slime.el (slime-post-command-hook): Check that we are connected
+	before trying to process input.
+	(slime-net-connect): Handle `network-error' condition for XEmacs
+	21.5. (Thanks Raymond Toy.)
+
 	* swank-sbcl.lisp: Report style-warnings separately from notes
 	(patch from Christopher Rhodes). Use REQUIRE to load sb-introspect
 	instead of loading the source file (requires the sb-introspect
