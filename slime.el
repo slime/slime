@@ -990,9 +990,6 @@ their actions. The pattern syntax is the same as `destructure-case'."
 (defvar slime-stack-eval-tags nil
   "List of stack-tags of continuations waiting on the stack.")
 
-(defvar sldb-saved-window-configuration nil
-  "Window configuration before the debugger was entered.")
-
 (slime-defstate slime-idle-state ()
   "Idle state. The only event allowed is to make a request."
   ((activate)
@@ -1032,10 +1029,9 @@ will pass it to CONTINUATION."
       (when (member tag slime-stack-eval-tags)
 	(throw tag `(:aborted))))))
   ((:debug level condition restarts stack-depth frames)
-   (when (zerop sldb-level)
-     (setq sldb-saved-window-configuration (current-window-configuration)))
    (slime-push-state
-    (slime-debugging-state level condition restarts stack-depth frames)))
+    (slime-debugging-state level condition restarts stack-depth frames
+                           (current-window-configuration))))
   ((:emacs-interrupt)
    (slime-send-sigint))
   ((:emacs-quit)
@@ -1045,7 +1041,8 @@ will pass it to CONTINUATION."
   ((:read-char tag)
    (slime-push-state (slime-read-char-state tag))))
 
-(slime-defstate slime-debugging-state (level condition restarts depth frames)
+(slime-defstate slime-debugging-state (level condition restarts depth frames
+                                             saved-window-configuration)
   "Debugging state.
 Lisp entered the debugger while handling one of our requests. This
 state interacts with it until it is coaxed into returning."
@@ -1060,6 +1057,7 @@ state interacts with it until it is coaxed into returning."
    (assert (= level sldb-level))
    (sldb-cleanup)
    (decf sldb-level)
+   (set-window-configuration saved-window-configuration)
    (slime-pop-state))
   ((:emacs-evaluate form-string package-name continuation)
    ;; recursive evaluation request
@@ -1073,7 +1071,11 @@ Lisp waits for input from Emacs."
    (slime-repl-read-char))
   ((:emacs-return-char-code code)
    (slime-net-send `(swank:take-input ,tag ,code))
-   (slime-pop-state)))
+   (slime-pop-state))
+  ((:emacs-evaluate form-string package-name continuation)
+   ;; recursive evaluation request
+   (slime-output-evaluate-request form-string package-name)a
+   (slime-push-state (slime-evaluating-state continuation))))
 
 
 ;;;;; Utilities
@@ -1178,7 +1180,7 @@ Loops until the result is thrown to our caller, or the user aborts."
     (slime-repl-maybe-insert-output-separator)
     (slime-insert-propertized
      '(slime-transcript-delimiter t)
-     "\n;;;; " 
+     ";;;; " 
      (subst-char-in-string ?\n ?\ 
 			   (substring string 0 
 				      (min 60 (length string))))
@@ -1190,8 +1192,8 @@ Loops until the result is thrown to our caller, or the user aborts."
     (let ((output-start slime-last-output-start)
 	  (prompt-start slime-repl-prompt-start-mark))
       (when (< output-start prompt-start)
-	(slime-display-buffer-region (current-buffer) 
-				     output-start prompt-start)))))
+	(slime-display-buffer-region 
+         (current-buffer) output-start prompt-start)))))
 
 (defun slime-output-string (string)
   (unless (zerop (length string))
@@ -1236,6 +1238,8 @@ Loops until the result is thrown to our caller, or the user aborts."
   (lisp-mode-variables t)
   (setq font-lock-defaults nil)
   (setq mode-name "REPL")
+  (set (make-local-variable 'scroll-conservatively) 5)
+  (set (make-local-variable 'scroll-margin) 0)
   (run-hooks 'slime-repl-mode-hook))
 
 (defun slime-repl-insert-prompt ()
@@ -1251,7 +1255,9 @@ Loops until the result is thrown to our caller, or the user aborts."
      start-open t end-open t)
    "lisp> ")
   (set-marker slime-repl-input-start-mark (point) (current-buffer))
-  (set-marker slime-repl-input-end-mark (point) (current-buffer)))
+  (set-marker slime-repl-input-end-mark (point) (current-buffer))
+  (let ((w (get-buffer-window (current-buffer))))
+    (when w (set-window-point w (point)))))
 
 (defun slime-repl-maybe-prompt ()
   "Insert a prompt if there is none."
@@ -1266,11 +1272,15 @@ after the last prompt to the end of buffer."
   (buffer-substring-no-properties slime-repl-input-start-mark
                                   slime-repl-input-end-mark))
 
+(defun slime-repl-add-to-input-history (sting)
+  (unless (equal string (car slime-repl-input-history))
+    (push string slime-repl-input-history))
+  (setq slime-repl-input-history-position -1))
+  
 (defun slime-repl-eval-string (string)
-  (push string slime-repl-input-history)
-  (setq slime-repl-input-history-position -1)
+  (slime-repl-add-to-input-history string)
   (slime-eval-async 
-   `(swank:interactive-eval-region ,string)
+   `(swank:listener-eval ,string)
    nil
    (slime-repl-show-result-continutation)))
 
@@ -1284,7 +1294,7 @@ after the last prompt to the end of buffer."
       (goto-char (point-max)))))
 
 (defun slime-repl-maybe-insert-output-separator ()
-  "Insert a newline character point, if we are the end of the input."
+  "Insert a newline at point, if we are the end of the input."
   (when (= (point) slime-repl-input-end-mark)
     (insert "\n")
     (set-marker slime-repl-input-end-mark (1- (point)) (current-buffer))
