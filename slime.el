@@ -310,7 +310,7 @@ A prefix argument disables this behaviour."
         (loop do (or (skip-chars-forward " \t\r\n")
                      (looking-at ")"))  ; tollerate extra close parens
               until (eobp)
-              do (slime-forward-sexp))
+              do (forward-sexp))
         t))))
 
 (defun inferior-slime-input-complete-p ()
@@ -854,7 +854,9 @@ Polling %S.. (Abort with `M-x slime-disconnect'.)"
          (cancel-timer slime-startup-retry-timer)
          (message "Cancelled connection attempt."))
         (t
-         (message "Not connected."))))
+         (message "Not connected.")))
+  (when-let (stream (get-process "*lisp-output-stream*"))
+    (delete-process stream)))
 
 (defun slime-init-connection ()
   (slime-init-dispatcher)
@@ -1091,6 +1093,8 @@ Return true if the event is recognised and handled."
     ((:new-features features)
      (setq slime-lisp-features features)
      t)
+    ((:%apply fn args)
+     (apply (intern fn) args))
     (t nil)))
 
 (defun slime-state/event-panic (event)
@@ -1226,8 +1230,9 @@ their actions. The pattern syntax is the same as `destructure-case'."
   "Idle state. The only event allowed is to make a request."
   ((activate)
    (assert (= sldb-level 0))
-   (slime-repl-maybe-prompt))
+   (slime-repl-activate))
   ((:emacs-evaluate form-string package-name continuation)
+   (slime-repl-deactivate)
    (slime-output-evaluate-request form-string package-name)
    (slime-push-state (slime-evaluating-state continuation))))
 
@@ -1403,6 +1408,9 @@ Loops until the result is thrown to our caller, or the user aborts."
 ;;; Stream output
 
 (defvar slime-last-output-start (make-marker)
+  "Marker for the start of the output for the last evaluation.")
+
+(defvar slime-output-start (make-marker)
   "Marker for the start of the output for the evaluation.")
 
 (defun slime-output-buffer ()
@@ -1416,7 +1424,7 @@ Loops until the result is thrown to our caller, or the user aborts."
 (defun slime-insert-transcript-delimiter (string)
   (with-current-buffer (slime-output-buffer)
     (goto-char (point-max))
-    (slime-repl-maybe-insert-output-separator)
+    (slime-mark-input-end)
     (slime-insert-propertized
      '(slime-transcript-delimiter t)
      ";;;; " 
@@ -1424,7 +1432,8 @@ Loops until the result is thrown to our caller, or the user aborts."
 			   (substring string 0 
 				      (min 60 (length string))))
      " ...\n")
-    (set-marker slime-last-output-start (point) (current-buffer))))
+    (slime-mark-output-start)))
+
 
 (defvar slime-show-last-output-function 
   'slime-maybe-display-output-buffer
@@ -1442,30 +1451,45 @@ output as arguments.")
              (< start end))
     (display-buffer (current-buffer))))
 
+(defun slime-flush-output ()
+  (when-let (stream (get-process "*lisp-output-stream*"))
+    (while (accept-process-output stream 0 10))))
+
 (defun slime-show-last-output ()
   "Show the output from the last Lisp evaluation."
   (with-current-buffer (slime-output-buffer)
+    (slime-flush-output)
     (let ((start slime-last-output-start)
           (end slime-repl-prompt-start-mark))
       (funcall slime-show-last-output-function start end))))
 
-(defun slime-with-output-at-eob (fn)
-  "Call FN at the eob.  In a save-excursion block if we are not at
-eob."
-  (cond ((eobp) (funcall fn) 
-         (when-let (w (get-buffer-window (current-buffer) t))
-           (set-window-point w (point))))
-        (t (save-excursion 
-             (goto-char (point-max))
-             (funcall fn)))))
+(defmacro slime-with-output-at-eob (&rest body)
+  "Execute BODY at eob.  
+If point is initially at eob and the buffer is visible update
+window-point afterwards.  If point is initially not at eob, execute body
+inside a `save-excursion' block."
+  `(cond ((eobp) ,@body
+          (when-let (w (get-buffer-window (current-buffer) t))
+            (set-window-point w (point))))
+         (t 
+          (save-excursion 
+            (goto-char (point-max))
+            ,@body))))
+
+(defun slime-output-filter (process string)
+  (slime-output-string string))
+
+(defun slime-open-stream-to-lisp (port)
+  (let ((stream (open-network-stream "*lisp-output-stream*" 
+				     nil
+				     "localhost" port)))
+    (set-process-filter stream 'slime-output-filter)
+    stream))
 
 (defun slime-output-string (string)
   (with-current-buffer (slime-output-buffer)
     (slime-with-output-at-eob
-     (lambda ()
-       (slime-repl-maybe-insert-output-separator)
-       (slime-propertize-region '(face slime-repl-output-face)
-         (insert string))))))
+     (insert string))))
 
 (defun slime-switch-to-output-buffer ()
   "Select the output buffer, preferably in a different window."
@@ -1514,27 +1538,38 @@ eob."
 
 (defun slime-repl-insert-prompt ()
   (unless (bolp) (insert "\n"))
-  (let ((start (point)))
-    (slime-propertize-region
-        '(face font-lock-keyword-face 
-               read-only t
-               intangible t
-               ;; emacs stuff
-               rear-nonsticky (slime-repl-prompt read-only face intangible)
-               ;; xemacs stuff
-               start-open t end-open t)
-      (insert (slime-lisp-package) "> "))
-    (set-marker slime-repl-prompt-start-mark start (current-buffer))
-    (set-marker slime-repl-input-start-mark (point) (current-buffer))
-    (set-marker slime-repl-input-end-mark (point) (current-buffer))))
+  (set-marker slime-repl-prompt-start-mark (point) (current-buffer))
+  (slime-propertize-region
+      '(face font-lock-keyword-face 
+             read-only t
+             intangible t
+             ;; emacs stuff
+             rear-nonsticky (slime-repl-prompt read-only face intangible)
+             ;; xemacs stuff
+             start-open t end-open t)
+    (insert (slime-lisp-package) "> "))
+   (slime-mark-input-start)
+   (slime-mark-output-start))
 
-(defun slime-repl-maybe-prompt ()
-  "Insert a prompt if there is none."
+(defun slime-repl-activate ()
+  ;; The slime-repl-input-end-mark is left inserting in the idle and
+  ;; reading state; right inserting otherwise.  The idea is that the
+  ;; input-end-mark is not moved by output from Lisp.  We use the
+  ;; input-end-mark also to decide if we should insert a prompt or
+  ;; not.  We don't print a prompt if point is at the input-end-mark.
+  ;; This situation occurs when we are after a slime-space command.
+  ;; In the normal case slime-repl-return triggers printing of the
+  ;; prompt by inserting a newline after the input-end-mark.
   (with-current-buffer (slime-output-buffer)
+    (slime-flush-output)
+    (set-marker-insertion-type slime-repl-input-end-mark t)
     (unless (= (point-max) slime-repl-input-end-mark)
+      (slime-mark-output-end)
       (slime-with-output-at-eob
-       (lambda ()
-         (slime-repl-insert-prompt))))))
+       (slime-repl-insert-prompt)))))
+
+(defun slime-repl-deactivate ()
+  (set-marker-insertion-type slime-repl-input-end-mark nil))
 
 (defun slime-repl-current-input ()
   "Return the current input as string.  The input is the region from
@@ -1543,6 +1578,8 @@ after the last prompt to the end of buffer."
                                   slime-repl-input-end-mark))
 
 (defun slime-repl-add-to-input-history (string)
+  (when (eq ?\n  (aref string (1- (length string))))
+    (setq string (substring string 0 -1)))
   (unless (equal string (car slime-repl-input-history))
     (push string slime-repl-input-history))
   (setq slime-repl-input-history-position -1))
@@ -1555,8 +1592,11 @@ after the last prompt to the end of buffer."
 (defun slime-repl-send-string (string)
   (slime-repl-add-to-input-history string)
   (ecase (slime-state-name (slime-current-state))
-    (slime-idle-state (slime-repl-eval-string string))
-    (slime-read-string-state (slime-repl-return-string (concat string "\n")))))
+    (slime-idle-state 
+     (setq slime-repl-prompt-on-activate-p t)
+     (slime-repl-eval-string string))
+    (slime-read-string-state 
+     (slime-repl-return-string string))))
 
 (defun slime-repl-show-result-continutation ()
   ;; This is called _after_ the idle state is activated.  This means
@@ -1567,12 +1607,24 @@ after the last prompt to the end of buffer."
         (goto-char slime-repl-prompt-start-mark)
         (insert result "\n")))))
 
-(defun slime-repl-maybe-insert-output-separator ()
-  "Insert a newline at point, if we are the end of the input."
-  (when (= (point) slime-repl-input-end-mark)
-    (insert "\n")
-    (set-marker slime-repl-input-end-mark (1- (point)) (current-buffer))
-    (set-marker slime-last-output-start (point))))
+(defun slime-mark-input-start ()
+  (set-marker slime-repl-input-start-mark (point) (current-buffer))
+  (set-marker slime-repl-input-end-mark (point) (current-buffer))
+  (set-marker-insertion-type slime-repl-input-end-mark t))
+
+(defun slime-mark-input-end ()
+  (set-marker slime-repl-input-end-mark (point))
+  (set-marker-insertion-type slime-repl-input-end-mark nil)
+  (add-text-properties slime-repl-input-start-mark slime-repl-input-end-mark
+                       '(face slime-repl-input-face rear-nonsticky (face))))
+
+(defun slime-mark-output-start ()
+  (set-marker slime-output-start (point)))
+
+(defun slime-mark-output-end ()
+  (set-marker slime-last-output-start slime-output-start)
+  (add-text-properties slime-output-start (point-max)
+                       '(face slime-repl-output-face rear-nonsticky (face))))
 
 (defun slime-repl-bol ()
   "Go to the beginning of line or the prompt."
@@ -1593,20 +1645,25 @@ balanced."
   (unless (or (slime-idle-p)
               (slime-reading-p))
     (error "Lisp is not ready for requests from the REPL."))
-  (if (or current-prefix-arg
-          (slime-input-complete-p slime-repl-input-start-mark 
-                                  slime-repl-input-end-mark))
-      (slime-repl-send-input)
-    (slime-repl-newline-and-indent)))
+  (cond (current-prefix-arg
+         (slime-repl-send-input)
+         (insert "\n"))
+        ((slime-input-complete-p slime-repl-input-start-mark 
+                                 slime-repl-input-end-mark)
+         (insert "\n")
+         (slime-repl-send-input)
+         ;; move markers before newline
+         (delete-backward-char 1) (insert "\n"))
+        (t 
+         (slime-repl-newline-and-indent)
+         (message "[input not complete]"))))
 
 (defun slime-repl-send-input ()
   "Goto to the end of the input and send the current input."
   (let ((input (slime-repl-current-input)))
     (goto-char slime-repl-input-end-mark)
-    (slime-repl-maybe-insert-output-separator)
-    (add-text-properties slime-repl-input-start-mark
-                         slime-repl-input-end-mark
-                         '(face slime-repl-input-face))
+    (slime-mark-input-end)
+    (slime-mark-output-start)
     (slime-repl-send-string input)))
 
 (defun slime-repl-closing-return ()
@@ -1755,11 +1812,14 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
 
 (defun slime-repl-read-string ()
   (slime-switch-to-output-buffer)
-  (set-marker slime-repl-input-start-mark (point) (current-buffer))
-  (set-marker slime-repl-input-end-mark (point) (current-buffer))
+  (slime-flush-output)
+  (slime-mark-output-end)
+  (slime-mark-input-start)
+  (set-marker-insertion-type slime-repl-input-end-mark t)
   (slime-repl-read-mode t))
 
 (defun slime-repl-return-string (string)
+  (set-marker-insertion-type slime-repl-input-end-mark nil)
   (slime-dispatch-event `(:emacs-return-string ,string))
   (slime-repl-read-mode nil))
 
@@ -1770,7 +1830,6 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
 (defun slime-repl-abort-read ()
   (with-current-buffer (slime-output-buffer)
     (slime-repl-read-mode nil)
-    (slime-repl-maybe-insert-output-separator)
     (message "Read aborted")))
 
 
@@ -1794,14 +1853,15 @@ See `slime-compile-and-load-file' for further details."
   (unless (eq major-mode 'lisp-mode)
     (error "Only valid in lisp-mode"))
   (save-some-buffers)
+  (with-current-buffer (slime-output-buffer)
+    (goto-char (point-max))
+    (set-window-start (display-buffer (current-buffer) t)
+                      (line-beginning-position)))
   (slime-eval-async
    `(swank:swank-compile-file ,(buffer-file-name) ,(if load t nil))
    nil
    (slime-compilation-finished-continuation))
-  (message "Compiling %s.." (buffer-file-name))
-  (with-current-buffer (slime-output-buffer)
-    (goto-char (point-max))
-    (display-buffer (current-buffer) t t)))
+  (message "Compiling %s.." (buffer-file-name)))
 
 (defun slime-compile-defun ()
   "Compile the current toplevel form."
@@ -2498,10 +2558,13 @@ The result is unspecified if there isn't a symbol under the point."
     (skip-syntax-forward "'")
     (point)))
 
+;;(defun slime-symbol-end-pos ()
+;;  (save-excursion
+;;    (skip-syntax-forward "_")
+;;    (min (1+ (point)) (point-max))))
+
 (defun slime-symbol-end-pos ()
-  (save-excursion
-    (skip-syntax-forward "_")
-    (min (1+ (point)) (point-max))))
+  (point))
 
 (defun slime-bogus-completion-alist (list)
   "Make an alist out of list.
@@ -3315,7 +3378,7 @@ the current index when the selection is completed."
   (save-selected-window
     (slime-goto-source-location source-location)
     (sldb-highlight-sexp)
-    (display-buffer (current-buffer) t t)
+    (display-buffer (current-buffer) t)
     (save-excursion
       (beginning-of-line -4)
       (set-window-start (get-buffer-window (current-buffer) t) (point)))))
@@ -3697,6 +3760,10 @@ BODY is a series of forms which must return the buffer to be selected."
 (def-slime-selector-method ?r
   "the SLIME Read-Eval-Print-Loop."
   (slime-output-buffer))
+
+(def-slime-selector-method ?s
+  "the *slime-scratch* buffer."
+  (slime-scratch-buffer))
 
 (def-slime-selector-method ?i
   "the *inferior-lisp* buffer."
@@ -4147,7 +4214,7 @@ expires.\nThe timeout is given in seconds (a floating point number)."
      (slime-check "In eval state."
        (slime-test-state-stack '(slime-evaluating-state slime-idle-state)))
      (slime-interrupt)
-     (slime-sync-state-stack '(slime-idle-state) 15)
+     (slime-sync-state-stack '(slime-idle-state) 5)
      (slime-check "Automaton is back in idle state."
        (slime-test-state-stack '(slime-idle-state)))))
 
@@ -4303,6 +4370,12 @@ Unless optional argument INPLACE is non-nil, return a new string."
     (setq low (logand low 65535))
 
     (list high low micro)))
+
+(defun-if-undefined line-beginning-position (&optional n)
+  (save-excursion
+    (forward-line n)
+    (beginning-of-line)
+    (point)))
 
 (defun emacs-20-p ()
   (and (not (featurep 'xemacs))
