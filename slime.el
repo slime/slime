@@ -132,7 +132,7 @@ This is needed to READ Common Lisp expressions adequately.")
   :group 'slime)
 
 
-;;; Minor mode
+;;; Minor mode 
 
 (define-minor-mode slime-mode
   "\\<slime-mode-map>
