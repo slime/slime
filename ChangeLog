@@ -1,3 +1,10 @@
+2003-12-19 Alan Ruttenberg <alanralanr@comcast.net>
+	* swank-openmcl.lisp 1.42
+	in request-loop register output stream to be periodically slushed per Gary Byer's email.
+	* slime.el 1.156
+	slime-goto-source-location. Sometimes source information is recorded but it isn't a standard "def"
+	in that case, don't error out, just look for the most likely place for the definition. 
+	
 2003-12-19  Luke Gorrie  <luke@bluetail.com>
 
 	* null-swank-impl.lisp: Deleted this old file. See
