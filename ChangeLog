@@ -1,3 +1,28 @@
+2004-01-15  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-aux-connect, slime-handle-oob): Support for
+	(:open-aux-connection port) message where Lisp requests that
+	Emacs make a connection. These are "auxiliary" connections which
+	don't (or at least shouldn't) have their own REPL etc.
+
+	* swank.lisp: New support for multiprocessing and multiple
+	connections + commentary.
+	(with-a-connection): Macro to execute some forms "with a
+	connection". This is used in the debugger hook to automatically
+	create a temporary connection if needed (i.e. if the current
+	thread doesn't already have one).
+	(open-aux-connection): Helper function to create an extra
+	connection to Emacs.
+
+	* swank-sbcl.lisp: Implemented multiprocessing. Not perfect.
+
+	* swank-cmucl.lisp: Implemented new multiprocessing interface.
+	(create-socket): Make FDs non-blocking when multiprocessing is
+	enabled.
+	(startup-multiprocessing): Set *swank-in-background* to :spawn.
+
+	* swank-backend.lisp: Changed multiprocessing interface.
+
 2004-01-15  Wolfgang Jenkner  <wjenkner@inode.at>
 
 	* swank-clisp.lisp (with-blocked-signals): New macro.
