@@ -26,10 +26,6 @@
          (address (car (ext:host-entry-addr-list hostent))))
     (ext:htonl address)))
 
-(defvar *start-swank-in-background* t)
-(defvar *close-swank-socket-after-setup* t)
-(defvar *use-dedicated-output-stream* t)
-
 (defun create-swank-server (port &key (reuse-address t)
                             (address "localhost")
                             (announce #'simple-announce-function)
@@ -342,6 +338,14 @@ the error-context redundant."
          :source-info `(:emacs-buffer ,buffer 
                         :emacs-buffer-offset ,position
                         :emacs-buffer-string ,string))))))
+
+(defmethod compile-system-for-emacs (system-name)
+  (with-compilation-hooks ()
+    (cond ((ext:featurep :asdf)
+           (let ((operate (find-symbol (string :operate) :asdf))
+                 (load-op (find-symbol (string :load-op) :asdf)))
+             (funcall operate load-op system-name)))
+          (t (error "ASDF not loaded")))))
 
 
 ;;;; XREF
@@ -860,19 +864,6 @@ The result has the format \"(...)\"."
 (defslimefun print-ir1-converted-blocks (form)
   (with-output-to-string (*standard-output*)
     (c::print-all-blocks (expand-ir1-top-level (from-string form)))))
-
-(defun tracedp (fname)
-  (gethash (debug::trace-fdefinition fname)
-	   debug::*traced-functions*))
-
-(defslimefun toggle-trace-fdefinition (fname-string)
-  (let ((fname (from-string fname-string)))
-    (cond ((tracedp fname)
-	   (debug::untrace-1 fname)
-	   (format nil "~S is now untraced." fname))
-	  (t
-	   (debug::trace-1 fname (debug::make-trace-info))
-	   (format nil "~S is now traced." fname)))))
 
 (defslimefun set-default-directory (directory)
   (setf (ext:default-directory) (namestring directory))
