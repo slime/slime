@@ -1,4 +1,12 @@
 2003-12-17 Alan Ruttenberg <alanralanr@comcast.net>
+        * slime.el 1.154
+	Allow some face choices in the inspector. Try
+	 '(slime-inspector-label-face ((t (:weight bold))))
+	 '(slime-inspector-topline-face ((t (:foreground "brown" :weight bold :height 1.2))))
+	 '(slime-inspector-type-face ((t (:foreground "DarkRed" :weight bold))))
+	You can also set slime-inspector-value-face
+	
+2003-12-17 Alan Ruttenberg <alanralanr@comcast.net>
 
 	* swank-openmcl.lisp 1.40
 	Fix an error with frame-source-location-for-emacs when the
