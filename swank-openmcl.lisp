@@ -429,7 +429,7 @@ at least the filename containing it."
                          (symbol
                           (find-source-locations caller (symbol-name caller)))
                          (method 
-                          (let ((n (ccl:method-name  caller)))
+                          (let ((n (ccl::method-name caller)))
                             (find-source-locations n (symbol-name n))))
                          (t 
                           (find-source-locations caller (to-string caller))))))
