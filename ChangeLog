@@ -1,4 +1,82 @@
+2003-09-19  Helmut Eller <e9626484@stud3.tuwien.ac.at>
+	
+	* slime.el (slime-connect): Propose default values when called
+	interactively.
+	(slime-process-available-input): If possible, use while rather than
+	recursion.
+	(slime-compilation-finished-continuation): New function.
+	(slime-compile-file, slime-compile-defun): Use it.
+	(slime-forward-source-path): Id an error is encounter move back to the
+	last valid point.
+	(slime-eval-region): Use append COND.  Send the entire string to the
+	Lisp side and read&evaluate it there.
+	(slime-eval-buffer): New function.
+	(sldb-sugar-move, sldb-details-up, sldb-details-down): New functions.
+	
+	* swank.lisp (interactive-eval-region): New function.
+	(re-evaluate-defvar): New function.
+	(compile-defun): Install handler for compiler-errors.
+	(function-first-code-location): Simplified.
+	
+2003-09-17  Helmut Eller <e9626484@stud3.tuwien.ac.at>
+	
+	* slime.el (slime-apropos-all): New command, bound to C-c M-a.
+	(slime-eval): Simplified.
+	(swank:arglist-string): Send a string and not a symbol.  It easier
+	to package related thins in CL.
+	(slime-edit-symbol-fdefinition): Prompt when called with
+	prefix-argument.
+	(slime-eval-region): New function.
+	(slime-load-file): New function.
+	(slime-show-description): Set slime minor mode in Help buffer.
+
+	* swank.lisp: (read-string, from-string): Renamed read-string to
+	from-string.
+	(to-string) New function.
+	(arglist-string): Catch reader errors.
+	(sldb-loop): Also bind *readstrable*.
+
+	
+2003-09-16  Helmut Eller <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-toggle-trace-fdefinition): New command.
+	(slime-symbol-at-point, slime-sexp-at-point): New utility functions.
+	(slime-edit-symbol-fdefinition): Similar to slime-edit-fdefinition but
+	uses swank:function-source-location-for-emacs.
+	(slime-goto-source-location): New function.
+	(sldb-show-source): Use it.
+	(slime-read-package-name): Completing read for package names.
+	(slime-apropos): Use it.
+
+	* swank.lisp (function-source-location,
+	function-source-location-for-emacs): New functions to extract
+	source locations from compiled code.  For struct-accessors we try
+	to find the source location of the corresponding constructor.
+	(list-all-package-names): New function.
+	(toggle-trace-fdefinition, tracedp): New functions.
+
+2003-09-15  Helmut Eller <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el: Moved many CL fragments from slime.el to swank.lisp.
+	(slime-compile-file, slime-compile-defun, slime-goto-location):
+	Compiler notes are now represented with a property list.  To find
+	the source expression first move to the file offset of the
+	top-level form and then use the source path to find the
+	expression.  This should avoid many reader issues.  For
+	compile-defun store the start position of the top-level expression
+	from the buffer in the compiler notes and use that to locate error
+	messages.  Add error overlays for notes without context to the
+	first available expression.
+
+	* swank.lisp: Moved many CL fragments from slime.el to swank.lisp.
+	(defslimefun): New macro.
+
 2003-09-15  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-setup-command-hooks): Removed post-command-hook
+	that was used for cleaning up input that was unprocessed due to an
+	error breaking out of the process filter. This is now handled by
+	an `unwind-protect' in the filter.
 
 	* swank.lisp (apropos-list-for-emacs): Hacked the apropos listing
 	to accept more options and to specially sort results.
