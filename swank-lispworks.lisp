@@ -246,12 +246,15 @@ Return NIL if the symbol is unbound."
            
 (defun find-top-frame ()
   "Return the most suitable top-frame for the debugger."
-  (do ((frame (dbg::debugger-stack-current-frame dbg::*debugger-stack*)
-              (nth-next-frame frame 1)))
-      ((and (dbg::call-frame-p frame)
-            (eq (dbg::call-frame-function-name frame) 
-                'invoke-debugger))
-       (nth-next-frame frame 1))))
+  (or (do ((frame (dbg::debugger-stack-current-frame dbg::*debugger-stack*)
+                  (nth-next-frame frame 1)))
+          ((or (null frame)             ; no frame found!
+               (and (dbg::call-frame-p frame)
+                    (eq (dbg::call-frame-function-name frame) 
+                        'invoke-debugger)))
+           (nth-next-frame frame 1)))
+      ;; if we can't find a invoke-debugger frame, take any old frame at the top
+      (dbg::debugger-stack-current-frame dbg::*debugger-stack*)))
   
 (defimplementation call-with-debugging-environment (fn)
   (dbg::with-debugger-stack ()
