@@ -1,5 +1,13 @@
 2005-03-13  Luke Gorrie  <luke@synap.se>
 
+	* swank-source-file-cache.lisp (read-snippet): Skip comments and
+	whitespace in SBCL. The source-positions reported by SBCL are not
+	adjusted to skip over whitespace before the definition.
+
+	* swank-sbcl.lisp (function-source-location): Updated for revised
+	sb-introspect patch:
+	s/DEFINITION-SOURCE-CREATED/DEFINITION-SOURCE-WRITE-DATE/
+
 	* swank-loader.lisp (*os-features*): Added :mswindows. Thanks Will
 	Glozer.
 
