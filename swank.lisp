@@ -454,28 +454,31 @@ The time is measured in microseconds."
         :severity (severity condition)
         :location (location condition)))
 
-(defslimefun swank-compile-file (filename load-p)
-  "Compile FILENAME and, when LOAD-P, load the result.
-Record compiler notes signalled as `compiler-condition's."
+(defun swank-compiler (function)
   (clear-compiler-notes)
   (multiple-value-bind (result usecs)
       (handler-bind ((compiler-condition #'record-note-for-condition))
-        (measure-time-interval (lambda ()
-                                 (compile-file-for-emacs filename load-p))))
+        (measure-time-interval function))
     (list (to-string result)
 	  (format nil "~,2F" (/ usecs 1000000.0)))))
+
+(defslimefun swank-compile-file (filename load-p)
+  "Compile FILENAME and, when LOAD-P, load the result.
+Record compiler notes signalled as `compiler-condition's."
+  (swank-compiler (lambda () (compile-file-for-emacs filename load-p))))
 
 (defslimefun swank-compile-string (string buffer position)
   "Compile STRING (exerpted from BUFFER at POSITION).
 Record compiler notes signalled as `compiler-condition's."
-  (clear-compiler-notes)
-  (multiple-value-bind (result usecs)
-      (handler-bind ((compiler-condition #'record-note-for-condition))
-        (measure-time-interval
-         (lambda ()
-           (compile-string-for-emacs string :buffer buffer :position position))))
-    (list (to-string result)
-	  (format nil "~,2F" (/ usecs 1000000.0)))))
+  (swank-compiler
+   (lambda () 
+     (compile-string-for-emacs string :buffer buffer :position position))))
+
+(defslimefun swank-load-system (system)
+  "Compile and load SYSTEM using ASDF.
+Record compiler notes signalled as `compiler-condition's."
+  (swank-compiler  (lambda ()  (compile-system-for-emacs system))))
+
 
 
 ;;;; Macroexpansion
