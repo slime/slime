@@ -86,12 +86,18 @@ the definitions looks like, so that it can accurately find them by
 text search.")
 
 (defun read-snippet (stream)
-  "Read a string of upto *SOURCE-SNIPPET-SIZE* characters from STREAM.
-Skip leading whitespace."
-  (loop while (member (peek-char nil stream)
-                      '(#\Space #\Tab #\Newline #\Linefeed))
-        do (read-char stream))
+  "Read a string of upto *SOURCE-SNIPPET-SIZE* characters from STREAM."
+  #+SBCL (skip-comments-and-whitespace stream)
   (read-upto-n-chars stream *source-snippet-size*))
+
+(defun skip-comments-and-whitespace (stream)
+  (case (peek-char nil stream)
+    ((#\Space #\Tab #\Newline #\Linefeed)
+     (read-char stream)
+     (skip-comments-and-whitespace stream))
+    (#\;
+     (read-line stream)
+     (skip-comments-and-whitespace stream))))
 
 (defun read-upto-n-chars (stream n)
   "Return a string of upto N chars from STREAM."
