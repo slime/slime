@@ -2012,8 +2012,10 @@ aligned to the start of the sexp in front."
       filename position info source-path path source-form function-name)
      (cond (function-name
             (ignore-errors
+              (when filename
+                (set-buffer (find-file-noselect filename)))
               (goto-char (point-min))
-              (re-search-forward (format "^(def\\w+\\s +%s\\s +"
+              (re-search-forward (format "^(def\\S-+\\s +%s\\s +"
                                          function-name))
               (beginning-of-line)))
            ((and (eq filename :lisp) (not buffername))
