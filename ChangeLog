@@ -1,3 +1,10 @@
+2004-07-02  Brian Downing  <bdowning@lavos.net>
+
+	* slime.el (slime-reindent-defun): Added a check for (boundp
+	'slime-repl-input-start-mark) before checking the variable, as
+	XEmacs leaves variables unbound when `make-variable-buffer-local'
+	is run, while GNU Emacs binds them to NIL.
+
 2004-07-02  Martin Simmons <martin@xanalys.com>
 
 	* swank-lispworks.lisp (dspec-stream-position,

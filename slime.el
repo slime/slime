@@ -6571,7 +6571,8 @@ be treated as a paragraph.  This is useful for filling docstrings."
         (fill-paragraph nil)
       (let ((start (progn (unless (and (zerop (current-column))
                                        (eq ?\( (char-after)))
-                            (if slime-repl-input-start-mark
+                            (if (and (boundp 'slime-repl-input-start-mark)
+                                     slime-repl-input-start-mark)
                                 (slime-repl-beginning-of-defun)
                               (beginning-of-defun)))
                           (point)))
