@@ -1,3 +1,7 @@
+2004-03-01  Marco Baringer  <mb@bese.it>
+
+	* swank.lisp (format-arglist): deal with nil arglists.
+
 2004-03-01  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-lispworks.lisp (compile-string-for-emacs): Patch the

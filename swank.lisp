@@ -696,10 +696,12 @@ Call LAMBDA-LIST-FN with the symbol corresponding to FUNCTION-NAME."
         (let ((symbol (find-symbol-or-lose function-name)))
           (values (funcall lambda-list-fn symbol))))
     (cond (condition (format nil "(-- ~A)" condition))
-          (t (let ((*print-case* :downcase)
-                   (*print-level* nil)
-                   (*print-length* nil))
-               (princ-to-string arglist))))))
+          (t (if (null arglist)
+                 "()"
+                 (let ((*print-case* :downcase)
+                       (*print-level* nil)
+                       (*print-length* nil))
+                   (princ-to-string arglist)))))))
 
 
 ;;;; Debugger
