@@ -496,8 +496,8 @@ of the toplevel restart."
     (if (thread-alive-p thread) 
         thread
         (setf (connection.repl-thread connection)
-              (spawn (lambda () (repl-loop connection))
-                     :name "new-repl-thread")))))
+              (spawn-repl-thread connection "new-repl-thread")))))
+
 
 (defun find-worker-thread (id)
   (etypecase id
@@ -529,6 +529,12 @@ of the toplevel restart."
            (with-bindings *default-worker-thread-bindings*
              (handle-request connection)))
          :name "worker"))
+
+(defun spawn-repl-thread (connection name)
+  (spawn (lambda () 
+           (with-bindings *default-worker-thread-bindings*
+             (repl-loop connection)))
+         :name name))
 
 (defun dispatch-event (event socket-io)
   "Handle an event triggered either by Emacs or within Lisp."
@@ -579,8 +585,7 @@ of the toplevel restart."
                                     (read-loop control-thread socket-io
                                                connection)))
                                 :name "reader-thread"))
-          (repl-thread (spawn (lambda () (repl-loop connection))
-                              :name "repl-thread")))
+          (repl-thread (spawn-repl-thread connection "repl-thread")))
       (setf (connection.reader-thread connection) reader-thread)
       (setf (connection.repl-thread connection) repl-thread)
       connection)))
@@ -1797,12 +1802,11 @@ Sends a message to Emacs declaring that the debugger has been entered,
 then waits to handle further requests from Emacs. Eventually returns
 after Emacs causes a restart to be invoked."
   (declare (ignore hook))
-  (flet ((debug-it () (debug-in-emacs condition)))
-    (cond (*emacs-connection*
-           (debug-it))
-          ((default-connection)
-           (with-connection ((default-connection))
-             (debug-in-emacs condition))))))
+  (cond (*emacs-connection*
+         (debug-in-emacs condition))
+        ((default-connection)
+         (with-connection ((default-connection))
+           (debug-in-emacs condition)))))
 
 (defvar *global-debugger* t
   "Non-nil means the Swank debugger hook will be installed globally.")
@@ -1850,15 +1854,15 @@ after Emacs causes a restart to be invoked."
   (unwind-protect
        (catch 'sldb-enter-default-debugger
          (send-to-emacs 
-          (list* :debug (current-thread) *sldb-level* 
+          (list* :debug (current-thread) level
                  (debugger-info-for-emacs 0 *sldb-initial-frames*)))
          (loop (catch 'sldb-loop-catcher
                  (with-simple-restart (abort "Return to sldb level ~D." level)
                    (send-to-emacs (list :debug-activate (current-thread)
-                                        *sldb-level*))
+                                        level))
                    (handler-bind ((sldb-condition #'handle-sldb-condition))
                      (read-from-emacs))))))
-    (send-to-emacs `(:debug-return 
+    (send-to-emacs `(:debug-return
                      ,(current-thread) ,level ,*sldb-stepping-p*))))
 
 (defun handle-sldb-condition (condition)
@@ -1979,13 +1983,18 @@ has changed, ignore the request."
   (when (= sldb-level *sldb-level*)
     (invoke-nth-restart n)))
 
+(defun wrap-sldb-vars (form)
+  `(let ((*sldb-level* ,*sldb-level*))
+     ,form))
+
 (defslimefun eval-string-in-frame (string index)
-  (to-string (eval-in-frame (from-string string) index)))
+  (to-string (eval-in-frame (wrap-sldb-vars (from-string string))
+                            index)))
 
 (defslimefun pprint-eval-string-in-frame (string index)
   (swank-pprint
    (multiple-value-list 
-    (eval-in-frame (from-string string) index))))
+    (eval-in-frame (wrap-sldb-vars (from-string string)) index))))
 
 (defslimefun frame-locals-for-emacs (index)
   "Return a property list ((&key NAME ID VALUE) ...) describing
