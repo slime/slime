@@ -1,3 +1,8 @@
+2003-12-18 Alan Ruttenberg <alanralanr@comcast.net>
+	* slime.el 1.156
+	in openmcl (break) now goes into slime debugger. 
+	(setq swank:*break-in-sldb* nil) to disable that.
+	
 2003-12-17 Alan Ruttenberg <alanralanr@comcast.net>
         * slime.el 1.155
         Allow font choices for backtrack. Add group for customizing them: sldb.
