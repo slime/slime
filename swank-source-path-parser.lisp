@@ -36,23 +36,41 @@ before and after of calling FN in the hashtable SOURCE-MAP."
 	(push (cons start end) (gethash (car values) source-map)))
       (values-list values))))
 
+#+sbcl
+;; not sure why this should be the case, but SBCL 0.8.6 returns
+;; #<FUNCTION "top level local call SB!IMPL::UNDEFINED-MACRO-CHAR">
+;; for (get-macro-character) on characters that aren't macros.
+;; As there's no way to detect the syntax of a character (only
+;; to set it from another character) we have to compare against
+;; this undefined-macro function to avoid turning everything into
+;; a macro  -- Dan Barlow
+;;
+;; Just copy CMUCL's implementation, to get identical behavior.  The
+;; SBCL implementation uses GET-RAW-CMT-ENTRY; we use
+;; GET-COERCED-CMT-ENTRY, which seems to be what SET-MACRO-CHARACTER
+;; expects. -- Helmut Eller
+(defun cmucl-style-get-macro-character (char table)
+  (let ((rt (or table sb-impl::*standard-readtable*)))
+    (cond ((sb-impl::constituentp char)
+	   (values (sb-impl::get-coerced-cmt-entry char rt) t))
+	  ((sb-impl::terminating-macrop char)
+	   (values (sb-impl::get-coerced-cmt-entry char rt) nil))
+	  (t nil))))
+
+#+cmucl
+(defun cmucl-style-get-macro-character (char table)
+  (get-macro-character char table))
+
 (defun make-source-recording-readtable (readtable source-map) 
   "Return a source position recording copy of READTABLE.
 The source locations are stored in SOURCE-MAP."
   (let* ((tab (copy-readtable readtable))
-	 (*readtable* tab)
-	 (undefined-macro (get-macro-character #\Space tab)))
-    ;; not sure why this should be the case, but SBCL 0.8.6 returns
-    ;; #<FUNCTION "top level local call SB!IMPL::UNDEFINED-MACRO-CHAR">
-    ;; for (get-macro-character) on characters that aren't macros.
-    ;; As there's no way to detect the syntax of a character (only
-    ;; to set it from another character) we have to compare against
-    ;; this undefined-macro function to avoid turning everything into
-    ;;  a macro
+	 (*readtable* tab))
     (dotimes (code char-code-limit)
       (let ((char (code-char code)))
-	(multiple-value-bind (fn term) (get-macro-character char tab)
-	  (when (and fn (not (eq fn undefined-macro)))
+	(multiple-value-bind (fn term) 
+	    (cmucl-style-get-macro-character char tab)
+	  (when fn
 	    (set-macro-character char (make-source-recorder fn source-map) 
 				 term tab)))))
     tab))
