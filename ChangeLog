@@ -1,3 +1,11 @@
+2003-10-25  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (inferior-slime-closing-return): New command that
+	closes all open lists and sends the result to Lisp. Bound to C-RET
+	and (for people who use C-m for RET) C-M-m.
+	(inferior-slime-indent-line): Improved indentation in the inferior
+	list buffer.
+
 2003-10-24  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (inferior-slime-return): Command bound to RET in
