@@ -196,6 +196,9 @@ Evaluation commands:
     ("\C-c\C-wb" . slime-who-binds)
     ("\C-c\C-ws" . slime-who-sets)
     ("\C-c\C-wm" . slime-who-macroexpands)
+    ;; Not sure which binding is best yet, so both for now.
+    ("\C-c\C- "  . slime-next-location)
+    ([(control meta .)] . slime-next-location)
     ))
 
 ;; Setup the mode-line to say when we're in slime-mode, and which CL
@@ -307,6 +310,13 @@ function call starts on the same line at the point itself."
          (slime-same-line-p (save-excursion (backward-up-list 1) (point))
                             (point)))
        (slime-function-called-at-point)))
+
+(defun slime-read-symbol (prompt)
+  "Either read a symbol or choose the one at point.
+The user is prompted if a prefix argument is in effect or there is no
+symbol at point."
+  (or (and (not current-prefix-arg) (slime-symbol-at-point))
+      (intern (read-string prompt))))
 
 (defvar slime-saved-window-configuration nil
   "Window configuration before the last changes SLIME made.")
@@ -1444,79 +1454,134 @@ First make the variable unbound, then evaluate the entire form."
   (slime-eval-describe `(,(get-text-property (point) 'describer) ,item)))
 
 
-;;; Cross-referencing
+;;; XREF: cross-referencing
+
+(defvar slime-xref-summary nil
+  "Summary of a cross reference list, for the mode line.")
+
+(define-minor-mode slime-xref-mode
+  "\\<slime-xref-mode-map>"
+  nil
+  nil
+  '(("RET"  . slime-goto-xref)
+    ("\C-m" . slime-goto-xref)
+    ))
+
+;; Setup the mode-line to say when we're in slime-mode, and which CL
+;; package we think the current buffer belongs to.
+(add-to-list 'minor-mode-alist '(slime-xref-mode slime-xref-summary))
 
 (defun slime-who-calls (symbol)
   "Show all known callers of the function SYMBOL."
   (interactive (list (slime-read-symbol "Who calls: ")))
-  (slime-xref 'swank:who-calls))
+  (slime-xref 'calls symbol))
 
 (defun slime-who-references (symbol)
   "Show all known referrers of the global variable SYMBOL."
   (interactive (list (slime-read-symbol "Who references: ")))
-  (slime-xref 'swank:who-references))
+  (slime-xref 'references symbol))
 
 (defun slime-who-binds (symbol)
   "Show all known binders of the global variable SYMBOL."
   (interactive (list (slime-read-symbol "Who binds: ")))
-  (slime-xref 'swank:who-binds))
+  (slime-xref 'binds symbol))
 
 (defun slime-who-sets (symbol)
   "Show all known setters of the global variable SYMBOL."
   (interactive (list (slime-read-symbol "Who sets: ")))
-  (slime-xref 'swank:who-sets))
+  (slime-xref 'sets symbol))
 
 (defun slime-who-macroexpands (symbol)
   "Show all known expanders of the macro SYMBOL."
   (interactive (list (slime-read-symbol "Who macroexpands: ")))
-  (slime-xref 'swank:who-macroexpands))
+  (slime-xref 'macroexpands symbol))
 
-(defun slime-read-symbol (prompt)
-  (or (and (not current-prefix-arg) (slime-symbol-at-point))
-      (intern (read-string prompt))))
-
-(defun slime-xref (swank-function)
+(defun slime-xref (type symbol)
+  "Make an XREF request to Lisp."
   (slime-eval-async
-   `(,swank-function ',symbol)
+   `(,(intern (format "swank:who-%s" type)) ',symbol)
    (slime-buffer-package t)
-   'slime-show-xrefs))
-  
+   (lexical-let ((type type)
+                 (symbol symbol)
+                 (package (slime-buffer-package)))
+     (lambda (result)
+       (slime-show-xrefs result type symbol package)))))
 
-(defun slime-show-xrefs (file-referrers)
+(defun slime-show-xrefs (file-referrers type symbol package)
+  "Show the results of an XREF query."
   (if (null file-referrers)
       (message "No references found.")
     (slime-save-window-configuration)
-    (save-selected-window
-      (view-buffer-other-window (get-buffer-create "*CMUCL xref*"))
-      (setq buffer-read-only nil)
-      (erase-buffer)
-      (set-syntax-table lisp-mode-syntax-table)
-      (slime-mode t)
-      (set (make-local-variable 'truncate-lines) t)
+    (setq slime-next-location-function 'slime-goto-next-xref)
+    (with-current-buffer (slime-xref-buffer t)
+      (slime-init-xref-buffer package type symbol)
       (dolist (ref file-referrers)
         (apply #'slime-insert-xrefs ref))
+      (setq buffer-read-only t)
       (goto-char (point-min))
-      (forward-line 1)
-      (set-window-text-height (selected-window)
-                              (min (1+ (count-lines (point-min) (point-max)))
-                                   (window-text-height))))))
-
-(defun slime-xref-init-keys ()
-  (use-local-map (make-sparse-keymap))
-  (define-key (current-local-map) "\C-m"   'slime-goto-xref)
-  (define-key (current-local-map) [return] 'slime-goto-xref))
+      (save-selected-window
+        (delete-windows-on (slime-xref-buffer))
+        (slime-display-xref-buffer)))))
 
 (defun slime-insert-xrefs (filename refs)
+  "Insert the cross-references for a file.
+Each cross-reference line contains these text properties:
+ slime-xref:             a unique object
+ slime-file:             filename of reference
+ slime-xref-source-path: source-path of reference
+ slime-xref-complete:    true iff both file and source-path are known."
   (unless (bobp) (insert "\n"))
-  (insert (format "In %s:\n" filename))
-  (dolist (ref refs)
-    (destructuring-bind (referrer source-path) ref
-      (slime-insert-propertized (list 'slime-xref-file filename
-                                      'slime-xref-source-path source-path
-                                      'face 'font-lock-function-name-face)
-                                (format "%s\n" referrer)))))
+  (insert (format "In %s:\n" (or filename "unidentified files")))
+  (loop for (referrer source-path) in refs
+        do (let ((complete (and filename source-path)))
+             (slime-insert-propertized
+              (list 'slime-xref (make-symbol "#:unique-ref")
+                    'slime-xref-complete complete
+                    'slime-xref-file filename
+                    'slime-xref-source-path source-path
+                    'face (if complete
+                              'font-lock-function-name-face
+                            'font-lock-comment-face))
+              (format "%s\n" referrer)))))
 
+
+;;;;; XREF results buffer and window management
+
+(defun slime-xref-buffer (&optional create)
+  "Return the XREF results buffer.
+If CREATE is non-nil, create it if necessary."
+  (if create
+      (get-buffer-create "*CMUCL xref*")
+    (or (get-buffer "*CMUCL xref*")
+        (error "No XREF buffer"))))
+
+(defun slime-init-xref-buffer (package ref-type symbol)
+  "Initialize the current buffer for displaying XREF information."
+  (slime-xref-mode t)
+  (setq buffer-read-only nil)
+  (erase-buffer)
+  (set-syntax-table lisp-mode-syntax-table)
+  (slime-mode t)
+  (setq slime-buffer-package package)
+  (set (make-local-variable 'truncate-lines) t)
+  (setq slime-xref-summary
+        (format " XREF[%s: %s]\n" ref-type symbol)))
+
+(defun slime-display-xref-buffer ()
+  "Display the XREF results buffer in a window and select it."
+  (let* ((buffer (slime-xref-buffer))
+         (window (get-buffer-window buffer)))
+    (if (and window (window-live-p window))
+        (select-window window)
+      (select-window (display-buffer buffer t))
+      (set-window-text-height (selected-window)
+                              (min (count-lines (point-min) (point-max))
+                                   (window-text-height))))))
+
+
+;;;;; XREF navigation
 (defun slime-goto-xref ()
+  "Goto the cross-referenced location at point."
   (interactive)
   (let ((file (get-text-property (point) 'slime-xref-file))
         (path (get-text-property (point) 'slime-xref-source-path)))
@@ -1525,6 +1590,29 @@ First make the variable unbound, then evaluate the entire form."
     (find-file-other-window file)
     (goto-char (point-min))
     (slime-visit-source-path path)))
+
+(defun slime-goto-next-xref ()
+  "Goto the next cross-reference location."
+  (save-selected-window
+    (slime-display-xref-buffer)
+    (loop do (goto-char (next-single-char-property-change (point) 'slime-xref))
+          until (or (get-text-property (point) 'slime-xref-complete)
+                    (eobp)))
+    (if (not (eobp))
+        (slime-goto-xref)
+      (forward-line -1)
+      (message "No more xrefs."))))
+
+(defvar slime-next-location-function nil
+  "Function to call for going to the next location.")
+
+(defun slime-next-location ()
+  "Go to the next location, depending on context.
+When displaying XREF information, this goes to the next reference."
+  (interactive)
+  (when (null slime-next-location-function)
+    (error "No context for finding locations."))
+  (funcall slime-next-location-function))
 
 
 ;;; Macroexpansion
