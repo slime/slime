@@ -207,7 +207,6 @@ Redirection is done while Lisp is processing a request for Emacs.")
 (defun open-streams (socket-io)
   "Return the 4 streams for IO redirection:
  DEDICATED-OUTPUT INPUT OUTPUT IO"
-  (encode-message `(:check-protocol-version ,(changelog-date)) socket-io)
   (multiple-value-bind (output-fn dedicated-output) 
       (make-output-function socket-io)
     (let ((input-fn  (lambda () (read-user-input-from-emacs))))
@@ -624,6 +623,15 @@ If a protocol error occurs then a SLIME-READ-ERROR is signalled."
 
 (defslimefun take-input (tag input)
   (throw tag input))
+
+(defslimefun connection-info ()
+  "Return a list of the form: 
+\(VERSION PID IMPLEMENTATION-TYPE IMPLEMENTATION-NAME FEATURES)."
+  (list (changelog-date)
+        (getpid)
+        (lisp-implementation-type)
+        (lisp-implementation-type-name)
+        (setq *slime-features* *features*)))
 
 
 ;;;; Reading and printing
