@@ -1,5 +1,11 @@
 2003-11-08  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* slime.el (slime-repl-return): Only send the current input to
+	Lisp if it is a complete expression, like inferior-slime-return.
+
+	* swank.lisp (completions): Use *buffer-package* if no other
+	package is given.
+
 	* slime.el: Remove the non-working face inheriting stuff.
 	Hardcode colors for slime-highlight-face and specify the :inherit
 	attribute for slime-repl-output-face.  So Emacs21 will do the
