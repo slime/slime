@@ -1,8 +1,16 @@
+2003-11-22  Brian Mastenbrook  <bmastenb@cs.indiana.edu>
+
+	* swank.asd: ASDF definition to load "swank-loader.lisp". This is
+	useful for starting the Swank server in a separate Lisp and later
+	connecting with Emacs. The file includes commentary.
+
 2003-11-22  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-connect): Slightly reordered some window
 	operations to ensure that *slime-repl* is popped up after `M-x
 	slime-connect'.
+	(slime-show-last-output): If the *slime-repl* buffer is already
+	visible in any frame, don't change anything.
 
 	* swank.lisp (listener-eval): Format results in *buffer-package*.
 	Exporting (CREATE-SWANK-SERVER <port>). This function can be
