@@ -45,7 +45,7 @@ o@c this comment prevents a newline!
 @code{\command\}@*
 @end macro
 
-@set EDITION 1.0 alpha
+@set EDITION 1.0 beta
 @set UPDATED @code{$Date$}
 
 @titlepage
