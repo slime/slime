@@ -1,5 +1,15 @@
 2003-12-11  Daniel Barlow  <dan@telent.net>
 
+	* swank-sbcl.lisp (compiler-note-location): replace with
+	thinly-ported version from the CMUCL backend which understands
+	:lisp as a pathname
+
+	* slime.el (slime-xrefs-for-notes): a little more temporary
+	variables, a little less cdr.  Should be slightly faster on
+	big systems
+	(slime-goto-next-xref): set window point as well as buffer point -
+	now works in GNU Emacs 21.2.1 
+
 	* swank.lisp (swank-compiler): new function abstracts commonality
 	between swank-compile-{file, string}.
 	(swank-load-system): call swank-compiler to load asdf system

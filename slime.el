@@ -2086,22 +2086,23 @@ buffer's working directory"
          (if secs (format "[%s secs]" secs) ""))))
 
 (defun slime-xrefs-for-notes (notes)
-  (flet ((note-file (n) (cadr (assq :file (cdr (getf n :location))))))
-    (let ((xrefs))
-      (dolist (note notes)
-        (let ((file (assoc (note-file note) xrefs))
-              (node
-               (cons  (format "%s: %s" 
-                              (getf note :severity)
-                              (replace-regexp-in-string 
-                               "[^[:graph:]]+" " "
-                               (subseq (getf note :message) 0 )))
-                      (getf note :location))))
-          (when (note-file note)
-            (if file
-                (push node (cdr file))
-                (setf xrefs (acons (note-file note) (list node) xrefs))))))
-      xrefs)))
+  (let ((xrefs))
+    (dolist (note notes)
+      (let* ((location (getf n :location))
+             (fn (cadr (assq :file (cdr location))))
+             (file (assoc fn xrefs))
+             (node
+              (cons (format "%s: %s" 
+                            (getf note :severity)
+                            (replace-regexp-in-string 
+                             "[^[:graph:]]+" " "
+                             (subseq (getf note :message) 0 )))
+                    location)))
+        (when fn
+          (if file
+              (push node (cdr file))
+              (setf xrefs (acons fn (list node) xrefs))))))
+    xrefs))
 
 (defun slime-compilation-finished (result buffer)
   (let ((notes (slime-compiler-notes)))
@@ -3331,9 +3332,10 @@ GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
 (defun slime-goto-next-xref ()
   "Goto the next cross-reference location."
   (let ((location (with-current-buffer (slime-xref-buffer)
-                    (display-buffer (current-buffer) t)
-                    (goto-char (next-single-char-property-change 
-                                (point) 'slime-location))
+                    (let ((w (display-buffer (current-buffer) t)))
+                      (goto-char (1+ (next-single-char-property-change 
+                                      (point) 'slime-location)))
+                      (set-window-point w (point)))
                     (cond ((eobp)
                            (message "No more xrefs.")
                            nil)

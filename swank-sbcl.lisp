@@ -159,7 +159,7 @@ The request is read from the socket as a sexp and then evaluated."
             (princ-to-string arglist)
             "(-- <Unknown-Function>)")))))
 
-(defvar *buffername* nil)
+(defvar *buffer-name* nil)
 (defvar *buffer-offset*)
 
 (defvar *previous-compiler-condition* nil
@@ -189,31 +189,50 @@ information."
            :location (compiler-note-location context))))
 
 (defun compiler-note-location (context)
-  "Determine from CONTEXT the current compiler source location."
-  (multiple-value-bind (file-name file-pos source-path)
-      (if context
-          (values 
-           (sb-c::compiler-error-context-file-name context)
-           (sb-c::compiler-error-context-file-position context)
-           (current-compiler-error-source-path context)))
-    (cond (*buffername*
-           ;; account for the added lambda, replace leading
-           ;; position with 0
-           (make-location 
-            (list :buffer *buffername*)
-            (list :source-path (cons 0 (cddr source-path)) *buffer-offset*)))
-          (file-name
-           (etypecase file-name
-             (pathname
-              (make-location 
-               (list :file (namestring (truename file-name)))
-               (list :source-path source-path file-pos)))))
-          (*compile-file-truename*
-           (make-location 
-            (list :file (namestring *compile-file-truename*))
-            (list :source-path '(0) 1)))
-          (t
-           (list :error "No source location")))))
+  (cond (context
+         (resolve-note-location
+          *buffer-name*
+          (sb-c::compiler-error-context-file-name context)
+          (sb-c::compiler-error-context-file-position context)
+          (current-compiler-error-source-path context)
+          (sb-c::compiler-error-context-original-source  context)))
+        (t
+         (resolve-note-location *buffer-name* nil nil nil nil))))
+
+(defgeneric resolve-note-location (buffer file-name file-position 
+                                          source-path source))
+
+(defmethod resolve-note-location ((b (eql nil)) (f pathname) pos path source)
+  (make-location
+   `(:file ,(truename f))
+   `(:position ,(1+ (source-path-file-position path f)))))
+
+;;; FIXME this one's broken: no source-path-string-position
+(defmethod resolve-note-location ((b string) (f (eql :stream)) pos path source)
+  (make-location
+   `(:buffer ,b)
+   `(:position ,(+ *buffer-offset*
+                   (source-path-string-position path *buffer-substring*)))))
+
+(defmethod resolve-note-location (b (f (eql :lisp)) pos path (source string))
+  (make-location
+   `(:source-form ,source)
+   `(:position 1)))
+
+(defmethod resolve-note-location (buffer
+                                  (file (eql nil)) 
+                                  (pos (eql nil)) 
+                                  (path (eql nil))
+                                  (source (eql nil)))
+  (cond (buffer
+         (make-location (list :buffer buffer) 
+                        (list :position *buffer-offset*)))
+        (*compile-file-truename*
+         (make-location (list :file (namestring *compile-file-truename*))
+                        (list :position 0)))
+        (t 
+         (list :error "No error location available"))))
+
 
 (defun brief-compiler-message-for-emacs (condition error-context)
   "Briefly describe a compiler error for Emacs.
@@ -261,7 +280,7 @@ compiler state."
 (defmethod compile-string-for-emacs (string &key buffer position)
   (with-compilation-hooks ()
     (let ((*package* *buffer-package*)
-          (*buffername* buffer)
+          (*buffer-name* buffer)
           (*buffer-offset* position))
       (eval (from-string
              (format nil "(funcall (compile nil '(lambda () ~A)))"
