@@ -73,9 +73,9 @@ recompiled."
                 (when (or needs-recompile
                           (not (probe-file binary-pathname))
                           (file-newer-p source-pathname binary-pathname))
-                  (format t "~&;; Compiling ~A...~%" source-pathname)
                   (ensure-directories-exist binary-pathname)
-                  (compile-file source-pathname :output-file binary-pathname)
+                  (compile-file source-pathname :output-file binary-pathname
+                                :print nil :verbose t)
                   (setq needs-recompile t))
                 (load binary-pathname :verbose t))
             #+(or)
@@ -100,4 +100,3 @@ recompiled."
 
 (when (user-init-file)
   (load (user-init-file)))
-
