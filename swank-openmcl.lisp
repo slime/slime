@@ -89,30 +89,34 @@
                          "Swank" #'accept-loop server-socket close)))
              ;; tell openmcl which process you want to be interrupted when
              ;; sigint is received
-             ;; (setq ccl::*interactive-abort-process* swank))
+             (setq ccl::*interactive-abort-process* swank))
              swank))
           (t
            (accept-loop server-socket close)))))
 
-#+(or)
-(defun ccl::force-break-in-listener (p)
-  (ccl::process-interrupt 
-   p (lambda ()
-       (ccl::ignoring-without-interrupts
-        (let ((*swank-debugger-stack-frame* nil)
-              (previous-p nil))
-          (block find-frame
-            (map-backtrace
-             (lambda (frame-number p tcr lfun pc)
-               (declare (ignore frame-number tcr
-                                pc))
-               (when (eq (ccl::lfun-name lfun) 'swank::eval-region)
-                 (setq
-                  *swank-debugger-stack-frame* previous-p)
-                 (return-from find-frame))
-               (setq previous-p p))))
-          (invoke-debugger)
-          (clear-input *terminal-io*))))))
+(let ((ccl::*warn-if-redefine-kernel* nil))
+   (defun ccl::force-break-in-listener (p)
+     (ccl::process-interrupt p
+                             #'(lambda ()
+                                 (ccl::ignoring-without-interrupts
+                                  (let ((*swank-debugger-stack-frame*
+                                  nil)
+                                        (previous-p nil))
+                                    (block find-frame
+                                      (map-backtrace
+                                       #'(lambda(frame-number p tcr
+                                        lfun pc)
+                                           (declare (ignore
+                                           frame-number tcr pc))
+                                           (when (eq (ccl::lfun-name
+                                           lfun) 'swank::eval-region)
+                                             (setq
+                                             *swank-debugger-stack-frame*
+                                             previous-p)
+                                             (return-from find-frame))
+                                           (setq previous-p p))))
+                                    (invoke-debugger)
+                                    (clear-input *terminal-io*)))))))
 
 (defun accept-loop (server-socket close)
   (unwind-protect (cond (close (accept-one-client server-socket))
