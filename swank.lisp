@@ -163,6 +163,7 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 (defvar *read-input-catch-tag* 0)
 
 (defun slime-read-char ()
+  (force-output)
   (let ((*read-input-catch-tag* (1+ *read-input-catch-tag*)))
     (send-to-emacs `(:read-char ,*read-input-catch-tag*))
     (code-char (catch *read-input-catch-tag* 
@@ -199,14 +200,18 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
     (force-output)
     (format nil "~{~S~^, ~}" values)))
 
+(defun eval-region (string)
+  (with-input-from-string (stream string)
+    (loop for form = (read stream nil stream)
+	  until (eq form stream)
+	  for - = form
+	  for values = (multiple-value-list (eval form))
+	  do (force-output)
+	  finally (return (values values -)))))
+
 (defslimefun interactive-eval-region (string)
   (let ((*package* *buffer-package*))
-    (with-input-from-string (stream string)
-      (loop for form = (read stream nil stream)
-	    until (eq form stream)
-	    for result = (multiple-value-list (eval form))
-	    do (force-output)
-	    finally (return (format nil "~{~S~^, ~}" result))))))
+    (format nil "~{~S~^, ~}" (eval-region string))))
 
 (defslimefun re-evaluate-defvar (form)
   (let ((*package* *buffer-package*))
@@ -230,6 +235,13 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 (defslimefun set-package (package)
   (setq *package* (guess-package-from-string package))
   (package-name *package*))
+
+(defslimefun listener-eval (string)
+  (multiple-value-bind (values last-form) (eval-region string)
+    (setq +++ ++  ++ +  + last-form
+	  *** **  ** *  * (car values)
+	  /// //  // /  / values)
+    (format nil "~{~S~^, ~}" values)))
 
 ;;;; Compilation Commands.
 
