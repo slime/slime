@@ -75,26 +75,22 @@
 
 ;;; TCP Server
 
-;; In OpenMCL, the Swank backend runs in a separate thread and simply
-;; blocks on its TCP port while waiting for forms to evaluate.
+(defmethod create-socket (port)
+  (ccl:make-socket :connect :passive :local-port port :reuse-address t))
 
-(defun create-swank-server (port &key (reuse-address t) 
-                            (announce #'simple-announce-function)
-                            (background *start-swank-in-background*)
-                            (close *close-swank-socket-after-setup*))
-  "Create a Swank TCP server on `port'."
-  (let ((server-socket (ccl:make-socket :connect :passive :local-port port
-                                        :reuse-address reuse-address)))
-    (funcall announce (ccl:local-port server-socket))
-    (cond (background
-           (let ((swank (ccl:process-run-function 
-                         "Swank" #'accept-loop server-socket close)))
-             ;; tell openmcl which process you want to be interrupted when
-             ;; sigint is received
-             (setq ccl::*interactive-abort-process* swank)
-             swank))
-          (t
-           (accept-loop server-socket close)))))
+(defmethod local-port (socket)
+  (ccl:local-port socket))
+
+(defmethod close-socket (socket)
+  (close socket))
+
+(defmethod accept-connection (socket)
+  (ccl:accept-connection socket :wait t))
+
+(defmethod spawn (fn &key name)
+  (ccl:process-run-function name fn))
+
+;;;
 
 (let ((ccl::*warn-if-redefine-kernel* nil))
   (defun ccl::force-break-in-listener (p)
@@ -125,7 +121,6 @@
             (eq ccl::*current-process* ccl::*interactive-abort-process*))
        (apply 'break-in-sldb ccl::arglist)
        (:do-it)) :when :around :name sldb-break))
-  
 
 (defun break-in-sldb (&optional string &rest args)
   (let ((c (make-condition 'simple-condition
@@ -146,44 +141,6 @@
       (restart-case (invoke-debugger c)
         (continue () :report (lambda (stream) (write-string "Resume interrupted evaluation" stream)) t))
       )))
-
-(defun accept-loop (server-socket close)
-  (unwind-protect (cond (close (accept-one-client server-socket))
-                        (t (loop (accept-one-client server-socket))))
-    (close server-socket)))
-
-(defun accept-one-client (server-socket)
-  (request-loop (ccl:accept-connection server-socket :wait t)))
-
-(defun request-loop (stream)
-  (let* ((out (if *use-dedicated-output-stream* 
-                  (open-stream-to-emacs stream)
-                  (make-instance 'slime-output-stream)))
-         (in (make-instance 'slime-input-stream))
-         (io (make-two-way-stream in out)))
-    (push out ccl::*auto-flush-streams*)
-    (unwind-protect (do () ((serve-one-request stream out in io)))
-      (setq ccl::*auto-flush-streams* (remove out ccl::*auto-flush-streams*)))))
-
-(defun serve-one-request (*emacs-io* *slime-output* *slime-input* *slime-io*)
-  (catch 'slime-toplevel
-    (with-simple-restart (abort "Return to Slime toplevel.")
-      (handler-case (read-from-emacs)
-	(slime-read-error (e)
-	  (when *swank-debug-p*
-	    (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
-	  (close *emacs-io*)
-          (return-from serve-one-request t)))))
-  nil)
-
-(defun open-stream-to-emacs (*emacs-io*)
-  (let* ((listener (ccl:make-socket :connect :passive :local-port 0
-                                       :reuse-address t))
-         (port (ccl:local-port listener)))
-    (unwind-protect (progn
-                      (eval-in-emacs `(slime-open-stream-to-lisp ,port))
-                      (ccl:accept-connection listener :wait t))
-      (close listener))))
 
 ;;; Evaluation
 

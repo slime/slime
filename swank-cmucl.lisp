@@ -10,30 +10,25 @@
 
 ;;;; TCP server.
 
-(defvar *start-swank-in-background* t)
+(defmethod create-socket (port)
+  (ext:create-inet-listener port :stream
+                            :reuse-address t
+                            :host (resolve-hostname "localhost")))
 
-(defmethod accept-socket/stream (&key (port 0) announce-fn (host "localhost"))
-  (let ((fd (ext:create-inet-listener port :stream
-                                      :reuse-address t
-                                      :host (resolve-hostname host))))
-    (funcall announce-fn (local-tcp-port fd))
-    (let ((client-fd (ext:accept-tcp-connection fd)))
-      (unix:unix-close fd)
-      (make-socket-io-stream client-fd))))
+(defmethod local-port (socket)
+  (nth-value 1 (ext::get-socket-host-and-port (socket-fd socket))))
 
-(defmethod accept-socket/run (&key (port 0) announce-fn init-fn (host "localhost"))
-  "Run in the background if *START-SWANK-IN-BACKGROUND* is true."
-  (let ((fd (ext:create-inet-listener port :stream
-                                      :reuse-address t
-                                      :host (resolve-hostname host))))
-    (funcall announce-fn (local-tcp-port fd))
-    (add-input-handler fd (lambda ()
-                            (setup-client (ext:accept-tcp-connection fd) init-fn)))))
+(defmethod close-socket (socket)
+  (ext:close-socket (socket-fd socket)))
 
-(defun setup-client (fd init-fn)
-  (let* ((socket-io (make-socket-io-stream fd))
-         (handler-fn (funcall init-fn socket-io)))
-    (add-input-handler fd handler-fn)))
+(defmethod accept-connection (socket)
+  (make-socket-io-stream (ext:accept-tcp-connection socket)))
+
+(defmethod add-input-handler (socket fn)
+  (flet ((callback (fd)
+           (declare (ignore fd))
+           (funcall fn)))
+    (system:add-fd-handler (socket-fd socket) :input #'callback)))
 
 (defmethod make-fn-streams (input-fn output-fn)
   (let* ((output (make-slime-output-stream output-fn))
@@ -43,21 +38,17 @@
 ;;;
 ;;;;; Socket helpers.
 
-(defun local-tcp-port (fd)
-  "Return the TCP port of the socket represented by FD."
-  (nth-value 1 (ext::get-socket-host-and-port fd)))
+(defun socket-fd (socket)
+  "Return the filedescriptor for the socket represented by SOCKET."
+  (etypecase socket
+    (fixnum socket)
+    (sys:fd-stream (sys:fd-stream-fd socket))))
 
 (defun resolve-hostname (hostname)
   "Return the IP address of HOSTNAME as an integer."
   (let* ((hostent (ext:lookup-host-entry hostname))
          (address (car (ext:host-entry-addr-list hostent))))
     (ext:htonl address)))
-
-(defun add-input-handler (fd fn)
-  (let ((callback (lambda (fd)
-                    (declare (ignore fd))
-                    (funcall fn))))
-    (system:add-fd-handler fd :input callback)))
 
 (defun make-socket-io-stream (fd)
   "Create a new input/output fd-stream for FD."

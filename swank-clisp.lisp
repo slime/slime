@@ -43,70 +43,30 @@
 (defun without-interrupts* (fun)
   (without-interrupts (funcall fun)))
 
-#+linux (defslimefun getpid () (linux::getpid))
 #+unix (defslimefun getpid () (system::program-id))
 #+win32 (defslimefun getpid () (or (system::getenv "PID") -1))
 ;; the above is likely broken; we need windows NT users!
 
 
-;;; Gray streams
-
-;; From swank-gray.lisp.
-
-(defclass slime-input-stream (fundamental-character-input-stream)
-  ((buffer :initform "") (index :initform 0)))
-
-;; We have to define an additional method for the sake of the C
-;; function listen_char (see src/stream.d), on which SYS::READ-FORM
-;; depends.
-
-;; We could make do with either of the two methods below.
-
-(defmethod stream-read-char-no-hang ((s slime-input-stream))
-  (with-slots (buffer index) s
-    (when (< index (length buffer))
-      (prog1 (aref buffer index) (incf index)))))
-
-;; This CLISP extension is what listen_char actually calls.  The
-;; default method would call STREAM-READ-CHAR-NO-HANG, so it is a bit
-;; more efficient to define it directly.
-
-(defmethod stream-read-char-will-hang-p ((s slime-input-stream))
-  (with-slots (buffer index) s
-    (= index (length buffer))))
-
-
 ;;; TCP Server
 
-(defmethod accept-socket/stream (&key (port 0) announce-fn)
-  (get-socket-stream port announce-fn))
+(defmethod create-socket (port)
+  (socket:socket-server port))
 
-(defmethod accept-socket/run (&key (port 0) announce-fn init-fn)
-  (let* ((slime-stream (get-socket-stream port announce-fn))
-	 (handler-fn (funcall init-fn slime-stream)))
-    (loop while t do (funcall handler-fn))))
+(defmethod local-port (socket)
+  (socket:socket-server-port socket))
 
-(defun get-socket-stream (port announce)
-  (let ((socket (socket:socket-server port)))
-    (unwind-protect
-	(progn
-	  (funcall announce (socket:socket-server-port socket))
-	  (socket:socket-wait socket 0)
-	  (socket:socket-accept socket
-				:buffered nil
-				:element-type 'character
-				:external-format (ext:make-encoding 
-						  :charset 'charset:iso-8859-1
-						  :line-terminator :unix)))
-      (socket:socket-server-close socket))))
+(defmethod close-socket (socket)
+  (socket:socket-server-close socket))
 
-(defmethod make-fn-streams (input-fn output-fn)
-  (let* ((output (make-instance 'slime-output-stream
-                                :output-fn output-fn))
-         (input  (make-instance 'slime-input-stream
-                                :input-fn input-fn
-                                :output-stream output)))
-    (values input output)))
+(defmethod accept-connection (socket)
+  (socket:socket-wait socket)
+  (socket:socket-accept socket
+			:buffered nil ;; XXX should be t
+			:element-type 'character
+			:external-format (ext:make-encoding 
+					  :charset 'charset:iso-8859-1
+					  :line-terminator :unix)))
 
 ;;; Swank functions
 

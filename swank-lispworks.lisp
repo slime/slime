@@ -32,35 +32,37 @@
 
 (defconstant +sigint+ 2)
 
-(defmethod accept-socket/run (&key (port 0) announce-fn init-fn)
-  (flet ((sentinel (socket condition)
-           (when socket
-             (funcall announce-fn (local-tcp-port socket))))
-         (accept (socket)
-           (let ((handler-fn (funcall init-fn (make-socket-stream socket))))
-             (loop while t do (funcall handler-fn)))))
-    (comm:start-up-server :announce #'sentinel
-                          :service port
-                          :process-name "Swank server"
-                          :function #'accept)))
+;;; TCP server
 
-;;; FIXME: Broken. Why?
-(defmethod accept-socket/stream (&key (port 0) announce-fn)
-  (let ((mbox (mp:make-mailbox)))
-    (flet ((init (stream)
-             (mp:mailbox-send mbox stream)
-             (mp:process-kill mp:*current-process*)))
-    (accept-socket/run :port port :announce-fn announce-fn :init-fn #'init)
-    (mp:mailbox-read mbox "Waiting for socket stream"))))
+(defun socket-fd (socket)
+  (etypecase socket
+    (fixnum socket)
+    (comm:socket-stream (comm:socket-stream-socket socket))))
 
-(defun make-socket-stream (socket)
-  (make-instance 'comm:socket-stream
-                 :socket socket
-                 :direction :io
-                 :element-type 'base-char))
+(defmethod create-socket (port)
+  (multiple-value-bind (socket where errno)
+      (comm::create-tcp-socket-for-service port :address "localhost")
+    (cond (socket socket)
+          (t (error 'network-error "asdf ~A") 
+              :format-control "~A failed: ~A (~D)"
+              :format-arguments (list where 
+                                      (list #+unix (lw:get-unix-error errno))
+                                      errno)))))
 
-(defun local-tcp-port (socket)
-  (nth-value 1 (comm:get-socket-address socket)))
+(defmethod local-port (socket)
+  (nth-value 1 (comm:get-socket-address (socket-fd socket))))
+
+(defmethod close-socket (socket)
+  (comm::close-socket (socket-fd socket)))
+
+(defmethod accept-connection (socket)
+  (let ((fd (comm::get-fd-from-socket socket)))
+    (assert (/= fd -1))
+    (make-instance 'comm:socket-stream :socket fd :direction :io 
+                   :element-type 'base-char)))
+
+(defmethod spawn (fn &key name)
+  (mp:process-run-function name () fn))
 
 (defmethod emacs-connected ()
   ;; Set SIGINT handler on Swank request handler thread.
@@ -70,14 +72,7 @@
   (declare (ignore args))
   (invoke-debugger "SIGINT"))
 
-(defmethod make-fn-streams (input-fn output-fn)
-  (let* ((output (make-instance 'slime-output-stream
-                                :output-fn output-fn))
-         (input  (make-instance 'slime-input-stream
-                                :input-fn input-fn
-                                :output-stream output)))
-    (values input output)))
-
+;;;
 
 (defslimefun getpid ()
   "Return the process ID of this superior Lisp."

@@ -36,56 +36,22 @@
 
 ;;; TCP Server
 
-(setq *start-swank-in-background* nil)
+(defmethod create-socket (port)
+  (socket:make-socket :connect :passive :local-port port :reuse-address t))
 
-(defun create-swank-server (port &key (reuse-address t) 
-                            (announce #'simple-announce-function)
-                            (background *start-swank-in-background*)
-                            (close *close-swank-socket-after-setup*))
-  "Create a Swank TCP server on `port'."
-  (let ((server-socket (socket:make-socket :connect :passive :local-port port
-                                           :reuse-address reuse-address)))
-    (funcall announce (socket:local-port server-socket))
-    (cond (background
-           (mp:process-run-function "Swank" #'accept-loop server-socket close))
-          (t
-           (accept-loop server-socket close)))))
+(defmethod local-port (socket)
+  (socket:local-port socket))
 
-(defun accept-loop (server-socket close)
-  (unwind-protect (cond (close (accept-one-client server-socket))
-                        (t (loop (accept-one-client server-socket))))
-    (close server-socket)))
+(defmethod close-socket (socket)
+  (close socket))
 
-(defun accept-one-client (server-socket)
-  (request-loop (socket:accept-connection server-socket :wait t)))
+(defmethod accept-connection (socket)
+  (socket:accept-connection socket :wait t))
 
-(defun request-loop (stream)
-  (let* ((out (if *use-dedicated-output-stream* 
-                  (open-stream-to-emacs stream)
-                  (make-instance 'slime-output-stream)))
-         (in (make-instance 'slime-input-stream))
-         (io (make-two-way-stream in out)))
-    (do () ((serve-one-request stream out in io)))))
+(defmethod spawn (fn &key name)
+  (mp:process-run-function name fn))
 
-(defun serve-one-request (*emacs-io* *slime-output* *slime-input* *slime-io*)
-  (catch 'slime-toplevel
-    (with-simple-restart (abort "Return to Slime toplevel.")
-      (handler-case (read-from-emacs)
-	(slime-read-error (e)
-	  (when *swank-debug-p*
-	    (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
-	  (close *emacs-io*)
-          (return-from serve-one-request t)))))
-  nil)
-
-(defun open-stream-to-emacs (*emacs-io*)
-  (let* ((listener (socket:make-socket :connect :passive :local-port 0
-                                       :reuse-address t))
-         (port (socket:local-port listener)))
-    (unwind-protect (progn
-                      (eval-in-emacs `(slime-open-stream-to-lisp ,port))
-                      (socket:accept-connection listener :wait t))
-      (close listener))))
+;;;
 
 (defmethod arglist-string (fname)
   (declare (type string fname))

@@ -61,43 +61,35 @@
 
 ;;; TCP Server
 
-(defmethod accept-socket/stream (&key (port 0) announce-fn (reuse-address t))
-  (let ((socket (open-listener port reuse-address)))
-    (funcall announce-fn (local-tcp-port socket))
-    (let ((client-socket (accept socket)))
-      (sb-bsd-sockets:socket-close socket)
-      (make-socket-io-stream client-socket))))
-
-(defmethod accept-socket/run (&key (port 0) announce-fn init-fn (reuse-address t))
-  (let ((socket (open-listener port reuse-address)))
-    (funcall announce-fn (local-tcp-port socket))
-    (add-input-handler socket (lambda ()
-                                (setup-client (accept socket) init-fn)))))
-
-(defun setup-client (socket init-fn)
-  (let* ((socket-io (make-socket-io-stream socket))
-         (handler-fn (funcall init-fn socket-io)))
-    (add-input-handler socket handler-fn)))
-  
-(defun add-input-handler (socket handler-fn)
-  (sb-sys:add-fd-handler (sb-bsd-sockets:socket-file-descriptor socket)
-                         :input (lambda (fd)
-                                  (declare (ignore fd))
-                                  (funcall handler-fn))))
-
-(defun open-listener (port reuse-address)
+(defmethod create-socket (port)
   (let ((socket (make-instance 'sb-bsd-sockets:inet-socket
 			       :type :stream
 			       :protocol :tcp)))
-    (when reuse-address
-      (setf (sb-bsd-sockets:sockopt-reuse-address socket) t))
-    ;;(setf (sb-bsd-sockets:non-blocking-mode socket) t)
+    (setf (sb-bsd-sockets:sockopt-reuse-address socket) t)
     (sb-bsd-sockets:socket-bind socket #(127 0 0 1) port)
     (sb-bsd-sockets:socket-listen socket 5)
     socket))
 
-(defun local-tcp-port (socket)
+(defmethod local-port (socket)
   (nth-value 1 (sb-bsd-sockets:socket-name socket)))
+
+(defmethod close-socket (socket)
+  (sb-bsd-sockets:socket-close socket))
+
+(defmethod accept-connection (socket)
+  (make-socket-io-stream (accept socket)))
+
+(defmethod add-input-handler (socket fn)
+  (sb-sys:add-fd-handler (socket-fd  socket)
+                         :input (lambda (fd)
+                                  (declare (ignore fd))
+                                  (funcall fn))))
+
+(defun socket-fd (socket)
+  (etypecase socket
+    (fixnum socket)
+    (sb-bsd-sockets:socket (sb-bsd-sockets:socket-file-descriptor socket))
+    (file-stream (sb-sys:fd-stream-fd socket))))
 
 (defun make-socket-io-stream (socket)
   (sb-bsd-sockets:socket-make-stream socket
@@ -105,20 +97,11 @@
                                      :input t
                                      :element-type 'base-char))
 
-
 (defun accept (socket)
   "Like socket-accept, but retry on EAGAIN."
   (loop (handler-case
             (return (sb-bsd-sockets:socket-accept socket))
           (sb-bsd-sockets:interrupted-error ()))))
-
-(defmethod make-fn-streams (input-fn output-fn)
-  (let* ((output (make-instance 'slime-output-stream
-                                :output-fn output-fn))
-         (input  (make-instance 'slime-input-stream
-                                :input-fn input-fn
-                                :output-stream output)))
-    (values input output)))
 
 ;;; Utilities
 
