@@ -145,9 +145,18 @@ Redirection is done while Lisp is processing a request for Emacs.")
         (apply fn args))
       (apply fn args)))
 
+(defvar *log-events* nil)
+
+(defun log-event (format-string &rest args)
+  "Write a message to *terminal-io* when *log-events* is non-nil.
+Useful for low level debugging."
+  (when *log-events*
+    (apply #'format *terminal-io* format-string args)))
+
 (defun read-from-emacs ()
   "Read and process a request from Emacs."
   (let ((form (read-next-form)))
+    (log-event "READ: ~S~%" form)
     (call-with-slime-streams
      *slime-input* *slime-output* *slime-io*
      #'funcall form)))
@@ -194,6 +203,7 @@ back to the main request handling loop."
   "Send `object' to Emacs."
   (let* ((string (prin1-to-string-for-emacs object))
          (length (1+ (length string))))
+    (log-event "SEND: ~A~%" string)
     (with-I/O-lock
       (without-interrupts*
        (lambda ()
@@ -425,7 +435,7 @@ has changed, ignore the request."
     (swank::send-to-emacs 
      `(:%apply ,(string-downcase (string fn)) ,args))))
 
-(defslimefun eval-string (string buffer-package)
+(defslimefun eval-string (string buffer-package id)
   (let ((*processing-rpc* t)
         (*debugger-hook* #'swank-debugger-hook))
     (let (ok result)
@@ -437,7 +447,7 @@ has changed, ignore the request."
              (setq ok t))
         (sync-state-to-emacs)
         (force-output *slime-io*)
-        (send-to-emacs (if ok `(:ok ,result) '(:aborted))))))
+        (send-to-emacs `(:return ,(if ok `(:ok ,result) '(:abort)) ,id)))))
   (when *debugger-hook-passback*
     (setq *debugger-hook* *debugger-hook-passback*)
     (setq *debugger-hook-passback* nil)))
