@@ -1,5 +1,7 @@
 2003-10-28  James Bielman  <jamesjb@jamesjb.com>
 
+	* null-swank-impl.lisp: New file.
+
 	* swank-openmcl.lisp: Pre-refactoring updates to the OpenMCL backend:
 	(map-backtrace): Renamed from DO-BACKTRACE.
 	(frame-source-location-for-emacs): New function.
