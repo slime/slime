@@ -1,3 +1,41 @@
+2003-09-24  Helmut Eller <e9626484@stud3.tuwien.ac.at>
+
+	* swank.lisp:
+	Support for stream redirection.
+	slime-output-stream: New structure.
+	(slime-out-misc): New function.
+	*slime-output*: New variable.
+	(read-from-emacs): Redirect output to *slime-output*.
+	(read-form): Bind *package* inside the standard-io-syntax macro.
+	(eval-string): Read the string with read-form.
+	(completions): Support for keyword completion.
+
+	* slime.el (slime-process-available-input, slime-eval): Rewritten
+	once again.  Don't use unwind-protect anymore. Didn't work
+	properly when the Lisp side aborted due to too many debug
+	levels. "Continuing" from the Emacs debugger aborts one level on
+	the Lisp side. "Quitting" from the Emacs debugger quits the Lisp
+	side too. Increase stack sizes before entering the recursive edit.
+	(slime-eval-async-state, slime-eval, sldb-state): Support for stream
+	output.
+	slime-last-output-start: New variable.
+	(slime-output-buffer, slime-output-buffer-position,
+	 slime-insert-transcript-delimiter, slime-show-last-output,
+	 slime-output-string): New functions.
+	(slime-show-evaluation-result,
+	slime-show-evaluation-result-continuation): Use them.
+	(slime-use-inf-lisp-p, slime-insert-transcript-delimiter,
+	 slime-inferior-lisp-marker-position,
+	 slime-inferior-lisp-show-last-output): Deleted.
+	(slime-use-tty-debugger, slime-debugger-hook,
+	slime-enter-tty-debugger, slime-tty-debugger-state): Deleted. Removed
+	tty debugger support.
+	(def-sldb-invoke-restart): Renamed.
+	(define-sldb-invoke-restart-key, define-sldb-invoke-restart-keys):
+	Version without eval.
+	(defun-if-undefined): New macro.
+	Many indentation fixes.
+
 2003-09-23  Helmut Eller <e9626484@stud3.tuwien.ac.at>
 
 	* swank.lisp (completions):
