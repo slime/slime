@@ -43,6 +43,31 @@
 	   (return count))))
     (t (lisp::string-out-misc stream operation arg1 arg2))))
 
+(defstruct (slime-input-stream
+	     (:include lisp::lisp-stream
+		       (lisp::n-bin #'slime-input-stream/n-bin)
+		       (lisp::in #'read-char) ; make read-line happy.
+		       (lisp::bin #'read-byte)
+		       (lisp::in-buffer 
+			(make-array lisp::in-buffer-length 
+				    :element-type '(unsigned-byte 8)))
+		       (lisp::in-index lisp::in-buffer-length))))
+
+(defvar *read-input-catch-tag* 0)
+
+(defun slime-input-stream/n-bin (stream buffer start requested eof-errorp)
+  (let ((*read-input-catch-tag* (1+ *read-input-catch-tag*)))
+    (send-to-emacs `(:read-input ,requested ,*read-input-catch-tag*))
+    (let ((input (catch *read-input-catch-tag*
+		   (read-from-emacs))))
+      (loop for c across input
+	    for i from start
+	    do (setf (aref buffer i) (char-code c)))
+      (length input))))
+
+(defslimefun take-input (tag input)
+  (throw tag input))
+
 (defun create-swank-server (port &key reuse-address (address "localhost"))
   "Create a SWANK TCP server."
   (let* ((hostent (ext:lookup-host-entry address))
@@ -60,16 +85,18 @@
 
 (defun setup-request-handler (socket)
   "Setup request handling for SOCKET."
-  (let ((stream (sys:make-fd-stream socket
+  (let* ((stream (sys:make-fd-stream socket
                                     :input t :output t
                                     :element-type 'unsigned-byte))
-	(output (make-slime-output-stream)))
+	 (input (make-slime-input-stream))
+	 (output (make-slime-output-stream))
+	 (io (make-two-way-stream input output)))
     (system:add-fd-handler socket
                            :input (lambda (fd)
                                     (declare (ignore fd))
-                                    (serve-request stream output)))))
+                                    (serve-request stream output input io)))))
 
-(defun serve-request (*emacs-io* *slime-output*)
+(defun serve-request (*emacs-io* *slime-output* *slime-input* *slime-io*)
   "Read and process a request from a SWANK client.
 The request is read from the socket as a sexp and then evaluated."
   (let ((completed nil))
