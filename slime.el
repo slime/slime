@@ -908,7 +908,7 @@ This is more compatible with the CL reader."
            (slime-connected-p)
            (get-buffer "*inferior-lisp*"))
       (slime-maybe-rearrange-inferior-lisp)
-    (slime-maybe-close-old-connections))
+    (slime-disconnect))
   (slime-maybe-start-lisp)
   (slime-read-port-and-connect))
 
@@ -919,31 +919,25 @@ This is more compatible with the CL reader."
             (with-current-buffer "*inferior-lisp*"
               (rename-buffer bufname)))))
 
-(defun slime-maybe-close-old-connections ()
-  "Offer to keep old connections alive, otherwise disconnect."
-  (unless (or (not (slime-connected-p))
-              (y-or-n-p "Keep old connections? "))
-    (slime-disconnect)))
-
 (defun slime-maybe-start-lisp ()
   "Start an inferior lisp unless one is already running."
   (unless (get-buffer-process (get-buffer "*inferior-lisp*"))
     (call-interactively 'inferior-lisp)
-    (comint-proc-query (inferior-lisp-proc)
-                       (format "(load %S)\n"
-                               (concat slime-path slime-backend)))
+    (comint-send-string (inferior-lisp-proc)
+                        (format "(load %S)\n"
+                                (concat slime-path slime-backend)))
     (slime-maybe-start-multiprocessing)))
 
 (defun slime-maybe-start-multiprocessing ()
   (when slime-multiprocessing
     (comint-send-string (inferior-lisp-proc)
-                        "(swank:startup-multiprocessing)")))
+                        "(swank:startup-multiprocessing)\n")))
 
 (defun slime-start-swank-server ()
   "Start a Swank server on the inferior lisp."
-  (comint-proc-query (inferior-lisp-proc)
-                     (format "(swank:start-server %S)\n"
-                             (slime-swank-port-file))))
+  (comint-send-string (inferior-lisp-proc) 
+                      (format "(swank:start-server %S)\n"
+                              (slime-swank-port-file))))
 
 (defun slime-swank-port-file ()
   "Filename where the SWANK server writes its TCP port number."
@@ -1602,11 +1596,18 @@ deal with that."
                             (process-contact (slime-connection)))
                           (slime-pid))))
       ;; Emacs21 has the fancy persistent header-line.
-      (if (boundp 'header-line-format)
-          (progn (setq header-line-format banner)
-                 (slime-repl-insert-prompt ""))
-        (slime-repl-insert-prompt (concat "; " banner))))
-    (pop-to-buffer (current-buffer))))
+      (cond ((boundp 'header-line-format)
+             (setq header-line-format banner)
+             (pop-to-buffer (current-buffer))
+             (when (fboundp 'animate-string)
+               ;; and dancing text
+               (when (zerop (buffer-size))
+                 (animate-string (format "; SLIME %s" (slime-changelog-date))
+                                 0 0)))
+             (slime-repl-insert-prompt ""))
+            (t
+             (slime-repl-insert-prompt (concat "; " banner))
+             (pop-to-buffer (current-buffer)))))))
 
 (defvar slime-show-last-output-function 
   'slime-maybe-display-output-buffer
@@ -2019,13 +2020,15 @@ earlier in the buffer."
 
 (defun slime-repl-clear-output ()
   (interactive)
-  (when (marker-position slime-repl-last-input-start-mark)
-    (delete-region slime-repl-last-input-start-mark
-                   (1- (slime-repl-input-line-beginning-position)))
-    (save-excursion
-      (goto-char slime-repl-last-input-start-mark)
-      (insert ";;; output flushed"))
-    (set-marker slime-repl-last-input-start-mark nil)))
+  (let ((start (save-excursion 
+                 (slime-repl-previous-prompt)
+                 (point)))
+        (end (1- (slime-repl-input-line-beginning-position))))
+    (when (< start end)
+      (delete-region start end)
+      (save-excursion
+        (goto-char start)
+        (insert ";;; output flushed")))))
 
 (defun slime-repl-set-package (package)
   "Set the package of the REPL buffer to PACKAGE."
@@ -2346,10 +2349,9 @@ Each newlines and following indentation is replaced by a single space."
 
 (defun slime-compilation-finished (result buffer show-notes-buffer)
   (let ((notes (slime-compiler-notes)))
-    (with-current-buffer buffer
-      (multiple-value-bind (result secs) result
-        (slime-show-note-counts notes secs)
-        (slime-highlight-notes notes)))
+    (multiple-value-bind (result secs) result
+      (slime-show-note-counts notes secs)
+      (slime-highlight-notes notes))
     (when (and show-notes-buffer (slime-length> notes 1))
       (slime-list-compiler-notes notes))
     ;;(let ((xrefs (slime-xrefs-for-notes notes)))
@@ -4322,7 +4324,12 @@ Called on the `point-entered' text-property hook."
      `(swank:frame-source-location-for-emacs ,number)
      nil
      (lambda (source-location)
-       (slime-show-source-location source-location)))))
+       (destructure-case source-location
+         ((:error message)
+          (message "%s" message)
+          (ding))
+         (t
+          (slime-show-source-location source-location)))))))
 
 (defun slime-show-source-location (source-location)
   (save-selected-window
