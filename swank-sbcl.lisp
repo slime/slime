@@ -462,7 +462,8 @@ This is useful when debugging the definition-finding code.")
                                    form-path emacs-string))
                                 character-offset)))
                    (make-location `(:buffer ,(getf info :emacs-buffer))
-                                  `(:position ,(+ pos emacs-position)))))))
+                                  `(:position ,(+ pos emacs-position))
+                                  `(:snippet ,(getf info :emacs-string)))))))
             (t
              (let* ((filename (namestring (truename pathname)))
                     (pos (if form-path
