@@ -173,6 +173,7 @@ back to the main request handling loop."
 
 (defun slime-read-string ()
   (force-output)
+  (force-output *slime-io*)
   (let ((*read-input-catch-tag* (1+ *read-input-catch-tag*)))
     (send-to-emacs `(:read-string ,*read-input-catch-tag*))
     (let (ok)
@@ -267,6 +268,12 @@ conditions are simply reported."
 
 ;;;; Evaluation
 
+(defun eval-in-emacs (form)
+  "Execute FROM in Emacs."
+  (destructuring-bind (fn &rest args) form
+    (swank::send-to-emacs 
+     `(:%apply ,(string-downcase (string fn)) ,args))))
+
 (defslimefun eval-string (string buffer-package)
   (let ((*debugger-hook* #'swank-debugger-hook))
     (let (ok result)
@@ -277,7 +284,7 @@ conditions are simply reported."
              (force-output)
              (setq ok t))
         (sync-state-to-emacs)
-        (force-output *slime-output*)
+        (force-output *slime-io*)
         (send-to-emacs (if ok `(:ok ,result) '(:aborted)))))))
 
 (defun format-values-for-echo-area (values)
