@@ -1,3 +1,19 @@
+2004-11-10  Marco Baringer  <mb@bese.it>
+
+	* swank-backend.lisp (definterface): Eliminate unused variable
+	received-args.
+	(emacs-connected, make-stream-interactive, condition-references,
+	condition-extras, buffer-first-change): Add (declare (ignore X))
+	for unused arguments in default implementations.
+	(inspect-for-emacs): Remove (declare (ignore)) for inexistent
+	variable inspection-mode. Added T qualifiers in method arguments.
+
+	* swank-openmcl.lisp (inspect-for-emacs): Use definterface so
+	SLIME knows we implement this.
+	(arglist function): Use ccl:arglist, not ccl::arglist-from-map.
+	(inspect-for-emacs): Added support for inspecting the uvector
+	objects under lisp datums.
+	
 2004-11-09  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (features-for-emacs): New function to avoid
