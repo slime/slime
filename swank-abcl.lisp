@@ -356,7 +356,7 @@ Should work (with a patched xref.lisp) but is it any use without find-definition
 (defimplementation make-default-inspector ()
   (make-instance 'abcl-inspector))
 
-(defmethod inspect-for-emacs ((slot sys::slot-definition) (inspector t))
+(defmethod inspect-for-emacs ((slot sys::slot-definition) (inspector abcl-inspector))
   (declare (ignore inspector))
   (values "A slot." 
           `("Name: " (:value ,(sys::slot-definition-name slot))
@@ -371,6 +371,18 @@ Should work (with a patched xref.lisp) but is it any use without find-definition
                              "#<unspecified>") (:newline)
             "  Function: " (:value ,(sys::slot-definition-initfunction slot))
             (:newline))))
+
+(defmethod inspect-for-emacs ((f function) (inspector abcl-inspector))
+  (declare (ignore inspector))
+  (values "A function."
+          `("Name: " (:value ,(function-name f)) (:newline)
+            "Argument list: " ,(princ-to-string (sys::arglist f))
+            (:newline)
+            #+nil,@(when (documentation f t)
+                         `("Documentation:" (:newline) ,(documentation f t) (:newline)))
+            ,@(when (function-lambda-expression f)
+                    `("Lambda expression:" 
+                      (:newline) ,(prin1-to-string (function-lambda-expression f)) (:newline))))))
 
 #|
 
