@@ -1,3 +1,11 @@
+2004-06-17  Luke Gorrie  <luke@bluetail.com>
+
+	* swank-lispworks.lisp (dspec-stream-position): Remove
+	`with-standard-io-syntax' so that we can read files with custom
+	read syntax.
+	Bind *READ-EVAL* to T instead of NIL (at the suggestion of Alain
+	Picard).
+
 2004-06-16  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-set-default-directory): Don't call
