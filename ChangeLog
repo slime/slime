@@ -1,5 +1,19 @@
 2004-03-09  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* swank.lisp (frame-source-location-for-emacs): Export it.
+	Reported by Jouni K Seppanen
+	
+	* swank-source-path-parser.lisp, swank-gray.lisp (in-package): We
+	are in-package :swank-backend.  Thanks to Raymond Wiker.
+
+	* swank-clisp.lisp (find-fspec-location): Handle "No such file"
+	errors.
+
+	Merge package-split branch into main trunk.
+	
+	* swank-clisp.lisp (find-fspec-location): Handle "No such file"
+	errors.
+
 	* swank-openmcl.lisp (preferred-communication-style): Implemented.
 	(call-without-interrupts, getpid): Use defimplementation.
 	(arglist, swank-compile-file, swank-compile-string)
@@ -81,6 +95,7 @@
 
 2004-03-09  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+>>>>>>> 1.286
 	* swank-cmucl.lisp (read-into-simple-string): Use the correct fix.
 	Reported by Håkon Alstadheim.
 
