@@ -3,9 +3,9 @@
 	* slime.el (slime-make-typeout-frame): New command to create a
 	frame where commands can print messages that would otherwise go to
 	the echo area.
-	(slime-incidental-message): Function for printing "background"
+	(slime-background-message): Function for printing "background"
 	messages. Uses the "typeout-frame" if it exists.
-	(slime-arglist): Print arglist with `slime-incidental-message'.
+	(slime-arglist): Print arglist with `slime-background-message'.
 	(slime-message): Use typeout frame if it exists, but only for
 	multi-line messages.
 

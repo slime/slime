@@ -589,7 +589,7 @@ command."
   (defun slime-message (fmt &rest args)
     (apply 'message fmt args)))
 
-(defun slime-incidental-message (format-string &rest format-args)
+(defun slime-background-message (format-string &rest format-args)
   "Display a message in passing.
 This is like `slime-message', but less distracting because it
 will never pop up a buffer.
@@ -2209,7 +2209,7 @@ printing a message."
      (lambda (arglist)
        (if show-fn
            (funcall show-fn arglist)
-         (slime-incidental-message "%s" (slime-format-arglist symbol-name arglist)))))))
+         (slime-background-message "%s" (slime-format-arglist symbol-name arglist)))))))
 
 (defun slime-get-arglist (symbol-name)
   "Return the argument list for SYMBOL-NAME."
