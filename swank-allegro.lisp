@@ -178,6 +178,17 @@
    form
    (debugger:environment-of-frame (nth-frame frame-number))))
 
+(defimplementation return-from-frame (frame-number form)
+  (let ((frame (nth-frame frame-number)))
+    (multiple-value-call #'debugger:frame-return 
+      frame (debugger:eval-form-in-context 
+             (from-string form) (debugger:environment-of-frame frame)))))
+                         
+;;; XXX doens't work for frames with arguments 
+(defimplementation restart-frame (frame-number)
+  (let ((frame (nth-frame frame-number)))
+    (debugger:frame-retry frame (debugger:frame-function frame))))
+                          
 ;;;; Compiler hooks
 
 (defvar *buffer-name* nil)
