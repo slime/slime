@@ -1,3 +1,9 @@
+2004-07-22  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-maybe-start-lisp): Check that *inferior-lisp*
+	exists /and/ has a running process. Fixes a startup problem if
+	your inferior-lisp has died and you want to restart SLIME.
+
 2004-07-21  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-sync-package-and-default-directory): Sync
