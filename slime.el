@@ -260,6 +260,12 @@ See also `slime-translate-to-lisp-filename-function'.")
   :group 'slime
   :type 'hook
   :options '(slime-list-compiler-notes slime-maybe-show-xrefs-for-notes))
+
+(defcustom slime-complete-symbol-function 'slime-complete-symbol*
+  "Function to perform symbol completion."
+  :group 'slime
+  :type 'function
+  :options '(slime-complete-symbol* slime-simple-complete-symbol))
   
 
 ;;; Minor modes
@@ -2425,7 +2431,7 @@ Each newlines and following indentation is replaced by a single space."
       (multiple-value-bind (result secs) result
         (slime-show-note-counts notes secs)
         (slime-highlight-notes notes)))
-    (run-hook-with-args 'slime-compiler-finished-hook notes)))
+    (run-hook-with-args 'slime-compilation-finished-hook notes)))
 
 (defun slime-compilation-finished-continuation ()
   (lexical-let ((buffer (current-buffer)))
@@ -2472,7 +2478,9 @@ more than one file."
     (with-current-buffer (get-buffer-create "*compiler notes*")
       (let ((inhibit-read-only t))
         (erase-buffer)
-        (slime-tree-insert (slime-compiler-notes-to-tree notes) ""))
+        (dolist (tree (slime-compiler-notes-to-tree notes))
+          (slime-tree-insert tree "")
+          (insert "\n")))
       (slime-compiler-notes-mode)
       (setq buffer-read-only t)
       (make-local-variable 'slime-compiler-notes-saved-window-configuration)
@@ -2525,13 +2533,11 @@ from an element and TEST is used to compare keys."
                    :collapsed-p collapsed-p))
 
 (defun slime-compiler-notes-to-tree (notes)
-  (let ((kids (let* ((alist (slime-alistify notes #'slime-note.severity #'eq))
-                     (collapsed-p (slime-length> alist 1)))
-                (loop for (severity . notes) in alist
-                      collect (slime-tree-for-severity severity notes 
-                                                       collapsed-p)))))
-    (make-slime-tree :item (format "All (%d)"  (length notes))
-                     :kids kids :collapsed-p nil)))
+  (let* ((alist (slime-alistify notes #'slime-note.severity #'eq))
+         (collapsed-p (slime-length> alist 1)))
+    (loop for (severity . notes) in alist
+          collect (slime-tree-for-severity severity notes 
+                                           collapsed-p))))
 
 (defvar slime-compiler-notes-mode-map)
 
@@ -2607,7 +2613,8 @@ from an element and TEST is used to compare keys."
   (loop for (elt . rest) on list 
 	do (cond (rest
 		  (insert prefix " |")
-		  (slime-tree-insert elt (concat prefix " |")))
+		  (slime-tree-insert elt (concat prefix " |"))
+                  (insert "\n"))
 		 (t
 		  (insert prefix " `")
 		  (slime-tree-insert elt (concat prefix "  "))))))
@@ -2628,17 +2635,18 @@ This is used for labels spanning multiple lines."
 (defun slime-tree-insert (tree prefix)
   "Insert TREE prefixed with PREFIX at point."
   (with-struct (slime-tree. print-fn kids collapsed-p start-mark end-mark) tree
-    (setf start-mark (point-marker))
-    (slime-tree-insert-decoration tree)
-    (funcall print-fn tree)
-    (slime-tree-indent-item start-mark (point) (concat prefix "   "))
-    (let ((end (point)))
-      (terpri (current-buffer))
-      (add-text-properties start-mark end (list 'slime-tree tree)))
-    (when (and kids (not collapsed-p))
-      (slime-tree-insert-list kids prefix))
-    (setf (slime-tree.prefix tree) prefix)
-    (setf end-mark (point-marker))))
+    (let ((line-start (line-beginning-position)))
+      (setf start-mark (point-marker))
+      (slime-tree-insert-decoration tree)
+      (funcall print-fn tree)
+      (slime-tree-indent-item start-mark (point) (concat prefix "   "))
+      (add-text-properties line-start (point) (list 'slime-tree tree))
+      (set-marker-insertion-type start-mark t)
+      (when (and kids (not collapsed-p))
+        (terpri (current-buffer))
+        (slime-tree-insert-list kids prefix))
+      (setf (slime-tree.prefix tree) prefix)
+      (setf end-mark (point-marker)))))
 
 (defun slime-tree-at-point ()
   (cond ((get-text-property (point) 'slime-tree))
@@ -2654,9 +2662,8 @@ This is used for labels spanning multiple lines."
   (with-struct (slime-tree. collapsed-p start-mark end-mark prefix) tree
     (setf collapsed-p (not collapsed-p))
     (slime-tree-delete tree)
-    (goto-char end-mark)
-    (insert-before-markers " ") ; keep markers separated
-    (backward-char)
+    (insert-before-markers " ") ; move parent's end-mark
+    (backward-char 1)
     (slime-tree-insert tree prefix)
     (delete-char 1)
     (goto-char start-mark)))
@@ -3231,13 +3238,17 @@ terminates a current completion."
      ;; errors propagate.
      (message "Error in slime-complete-forget-window-configuration: %S" err))))
   
-(defun* slime-complete-symbol ()
+(defun slime-complete-symbol ()
   "Complete the symbol at point.
 If the symbol lacks an explicit package prefix, the current buffer's
 package is used."
+  (interactive)
+  (funcall slime-complete-symbol-function))
+
+(defun slime-complete-symbol* ()
+  "Expand abbreviations and complete the symbol at point."
   ;; NB: It is only the name part of the symbol that we actually want
   ;; to complete -- the package prefix, if given, is just context.
-  (interactive)
   (when (save-excursion (re-search-backward "\"[^ \t\n]+\\=" nil t))
     (return-from slime-complete-symbol (comint-dynamic-complete-as-filename)))
   (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
@@ -3268,6 +3279,33 @@ package is used."
                           minimizing (or (mismatch completed-prefix c)
                                          (length completed-prefix)))))
                (goto-char (+ beg unambiguous-completion-length))
+               (slime-complete-maybe-save-window-configuration)
+               (with-output-to-temp-buffer "*Completions*"
+                 (display-completion-list completion-set))
+               (slime-complete-delay-restoration)))))))
+
+(defun* slime-simple-complete-symbol ()
+  "Complete the symbol at point.  
+Perform completion more similar to Emacs' complete-symbol."
+  (when (save-excursion (re-search-backward "\"[^ \t\n]+\\=" nil t))
+    (return-from slime-complete-symbol (comint-dynamic-complete-as-filename)))
+  (let* ((end (point))
+         (beg (slime-symbol-start-pos))
+         (prefix (buffer-substring-no-properties beg end)))
+    (destructuring-bind (completion-set completed-prefix)
+        (slime-simple-completions prefix)
+      (if (null completion-set)
+          (progn (slime-minibuffer-respecting-message
+                  "Can't find completion for \"%s\"" prefix)
+                 (ding)
+                 (slime-complete-restore-window-configuration))
+        (insert-and-inherit (substring completed-prefix (length prefix)))
+        (cond ((= (length completion-set) 1)
+               (slime-minibuffer-respecting-message "Sole completion")
+               (slime-complete-restore-window-configuration))
+              ;; Incomplete
+              (t
+               (slime-minibuffer-respecting-message "Complete but not unique")
                (slime-complete-maybe-save-window-configuration)
                (with-output-to-temp-buffer "*Completions*"
                  (display-completion-list completion-set))
@@ -3335,6 +3373,12 @@ alist but ignores CDRs."
 				    ,(or default-package
 					 (slime-find-buffer-package)
 					 (slime-buffer-package))))))
+
+(defun slime-simple-completions (prefix)
+  (slime-eval `(swank:simple-completions 
+                ,prefix 
+                ,(or (slime-find-buffer-package)
+                     (slime-buffer-package)))))
 
 
 ;;; Interpreting Elisp symbols as CL symbols (package qualifiers)
