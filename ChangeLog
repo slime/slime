@@ -1,5 +1,35 @@
 2004-02-07  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* slime.el (slime-rex): Mention thread argument in docstring.
+	(sldb-break-with-default-debugger): Use slime-rex and don't switch
+	to the output buffer (happens automatically).
+	(slime-list-threads): Renamed from slime-thread-control-panel.
+	(slime-thread-insert): Use slightly different layout.
+	(slime-give-goahead, slime-waiting-threads)
+	(slime-popup-thread-control-panel, slime-register-waiting-thread)
+	(slime-thread-goahead): Deleted.
+
+	* swank.lisp (dispatch-event): :debug, :debug-condition,
+	:debug-activate events were all encoded as :debug events, which
+	means the debugger never worked!  Fix it.  I guess no one uses
+	SLIME with a multithreaded Lisp.
+	(read-user-input-from-emacs): Flush the output before reading.
+	(sldb-loop): Add a sldb-enter-default-debugger tag, so we can
+	enter the default debugger by throwing to this it.
+	(sldb-break-with-default-debugger): Throw to
+	sldb-enter-default-debugger.
+	(*thread-list*): New variable.
+	(list-threads): New function.
+
+	* swank-backend.lisp (thread-name): Take a thread object as
+	argument.
+	(thread-status, all-threads, thread-alive-p): New function.
+	(thread-id): Deleted.
+
+	* swank-allegro.lisp, swank-cmucl.lisp, swank-lispworks.lisp,
+	swank-openmcl.lisp, swank-sbcl.lisp: Update for modified thread
+	interface.
+
 	* swank-sbcl.lisp (enable-sigio-on-fd): New function.  Use
 	fallback if sb-posix:fcntl isn't fbound.
 
