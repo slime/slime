@@ -29,6 +29,7 @@
    excl:stream-unread-char
    excl:stream-clear-input
    excl:stream-line-column
+   excl:stream-read-char-no-hang
    ))
 
 (defun without-interrupts* (body)
@@ -50,6 +51,8 @@
 
 (defmethod spawn (fn &key name)
   (mp:process-run-function name fn))
+
+(defmethod emacs-connected ())
 
 ;;;
 
