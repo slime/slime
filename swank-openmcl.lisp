@@ -46,32 +46,12 @@
 ;;;   run correctly (it hangs upon entering the debugger).
 ;;;
 
-;;; Administrivia
-
 (in-package :swank)
-
-(defconstant server-port 4005
-  "Default port for the Swank TCP server.")
-
-(defvar *swank-debug-p* t
-  "When true, print extra debugging information.")
-
-;;; Setup and Hooks
-
-(defun start-server (&optional (port server-port))
-  "Start the Slime backend on TCP port `port'."
-  (create-swank-server port :reuse-address t))
 
 ;;; TCP Server
 
 ;; In OpenMCL, the Swank backend runs in a separate thread and simply
 ;; blocks on its TCP port while waiting for forms to evaluate.
-
-(defvar *emacs-io* nil
-  "Bound to a TCP stream to Emacs during request processing.")
-
-(defvar *slime-output* nil
-  "Bound to a slime-output-stream during request processing.")
 
 (defun create-swank-server (port &key reuse-address)
   "Create a Swank TCP server on `port'."
@@ -112,53 +92,6 @@ until the remote Emacs goes away."
     (format *terminal-io* "~&;; Swank: Closed connection: ~A~%" *emacs-io*)
     (close *emacs-io*)))
 
-(defun read-from-emacs ()
-  "Read and process a request from Emacs."
-  (let ((form (read-next-form)))
-    (let ((*standard-output* *slime-output*)
-          (*error-output* *slime-output*)
-          (*trace-output* *slime-output*)
-          (*debug-io* *slime-output*)
-          (*query-io* *slime-output*))
-      (apply #'funcall form))))
-
-(defun read-next-form ()
-  "Read the next Slime request from *EMACS-IO* and return an
-S-expression to be evaulated to handle the request.  If an error
-occurs during parsing, it will be noted and control will be tranferred
-back to the main request handling loop."
-  (handler-case
-      (let* ((length (logior (ash (read-byte *emacs-io*) 16)
-                             (ash (read-byte *emacs-io*) 8)
-                             (read-byte *emacs-io*)))
-             (string (make-string length)))
-        (read-sequence string *emacs-io*)
-        (read-form string))
-    (condition (c)
-      (throw 'serve-request-catcher c))))
-
-(defun read-form (string)
-  (with-standard-io-syntax
-    (let ((*package* *swank-io-package*))
-      (read-from-string string))))
-
-(defun send-to-emacs (object)
-  "Send `object' to Emacs."
-  (let* ((string (prin1-to-string-for-emacs object))
-         (length (1+ (length string))))
-    (loop for position from 16 downto 0 by 8
-          do (write-byte (ldb (byte 8 position) length) *emacs-io*))
-    (write-string string *emacs-io*)
-    (terpri *emacs-io*)
-    (force-output *emacs-io*)))
-
-(defun prin1-to-string-for-emacs (object)
-  (let ((*print-case* :downcase)
-        (*print-readably* nil)
-        (*print-pretty* nil)
-        (*package* *swank-io-package*))
-    (prin1-to-string object)))
-
 ;;; Redirecting Output to Emacs
 
 ;; This buffering is done via a Gray stream instead of the CMU-specific
@@ -178,32 +111,6 @@ back to the main request handling loop."
                                   (slime-output-stream-buffer stream))))
   (setf (slime-output-stream-buffer stream) (make-string-output-stream)))
 
-;;; Utilities
-
-(defvar *buffer-package*)
-
-(defun from-string (string)
-  "Read string in the *BUFFER-PACKAGE*"
-  (let ((*package* *buffer-package*))
-    (read-from-string string)))
-
-(defun to-string (string)
-  "Write string in the *BUFFER-PACKAGE*."
-  (let ((*package* *buffer-package*))
-    (prin1-to-string string)))
-
-(defmacro defslimefun (fun &rest rest)
-  `(progn
-    (defun ,fun ,@rest)
-    (export ',fun :swank)))
-
-(defmacro defslimefun-unimplemented (fun args)
-  `(progn
-    (defun ,fun ,args
-      (declare (ignore ,@args))
-      (error "Backend function ~A not implemented." ',fun))
-    (export ',fun :swank)))
-
 ;;; Evaluation
 
 (defvar *swank-debugger-condition*)
@@ -219,28 +126,6 @@ back to the main request handling loop."
   (let ((*swank-debugger-condition* condition)
         (*swank-debugger-hook* hook))
     (sldb-loop)))
-
-(defun guess-package-from-string (name)
-  (or (and name
-           (or (find-package name)
-               (find-package (string-upcase name))))
-      *package*))
-
-(defslimefun eval-string (string buffer-package)
-  (let ((*debugger-hook* #'swank-debugger-hook))
-    (let (ok result)
-      (unwind-protect
-           (let ((*buffer-package* (guess-package-from-string buffer-package)))
-             (assert (packagep *buffer-package*))
-             (setq result (eval (read-form string)))
-             (force-output)
-             (setq ok t))
-        (send-to-emacs (if ok `(:ok ,result) '(:aborted)))))))
-
-(defslimefun interactive-eval (string)
-  (let ((values (multiple-value-list (eval (from-string string)))))
-    (force-output)
-    (format nil "~{~S~^, ~}" values)))
 
 (defslimefun-unimplemented interactive-eval-region (string))
 (defslimefun-unimplemented pprint-eval (string))

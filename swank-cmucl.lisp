@@ -3,19 +3,7 @@
 
 (in-package :swank)
 
-(defconstant server-port 4005
-  "Default port for the swank TCP server.")
-
-(defvar *swank-debug-p* t
-  "When true extra debug printouts are enabled.")
-
 ;;; Setup and hooks.
-
-(defun start-server (&optional (port server-port))
-  (create-swank-server port :reuse-address t)
-  (setf c:*record-xref-info* t)
-  (when *swank-debug-p*
-    (format *debug-io* "~&;; Swank ready.~%")))
 
 (defun set-fd-non-blocking (fd)
   (flet ((fcntl (fd cmd arg)
@@ -28,9 +16,6 @@
 (set-fd-non-blocking (sys:fd-stream-fd sys:*stdin*))
 
 ;;; TCP Server.
-
-(defvar *emacs-io* nil
-  "Bound to a TCP stream to Emacs during request processing.")
 
 (defstruct (slime-output-stream
 	    (:include lisp::string-output-stream
@@ -56,9 +41,6 @@
        (if (char= (schar string index) #\newline)
 	   (return count))))
     (t (lisp::string-out-misc stream operation arg1 arg2))))
-
-(defvar *slime-output* nil
-  "Bound to a slime-output-stream during request processing.")
 
 (defun create-swank-server (port &key reuse-address (address "localhost"))
   "Create a SWANK TCP server."
@@ -100,79 +82,6 @@ The request is read from the socket as a sexp and then evaluated."
 	(sys:invalidate-descriptor (sys:fd-stream-fd *emacs-io*))
  	(close *emacs-io*)))))
 
-(defun read-next-form ()
-  (handler-case 
-      (let* ((length (logior (ash (read-byte *emacs-io*) 16)
-			     (ash (read-byte *emacs-io*) 8)
-			     (read-byte *emacs-io*)))
-	     (string (make-string length)))
-	(sys:read-n-bytes *emacs-io* string 0 length)
-	(read-form string))
-    (condition (c)
-      (throw 'serve-request-catcher c))))
-
-(defun read-form (string) 
-  (with-standard-io-syntax
-    (let ((*package* *swank-io-package*))
-      (read-from-string string))))
-
-(defparameter *redirect-output* t)
-
-(defun read-from-emacs ()
-  "Read and process a request from Emacs."
-  (let ((form (read-next-form)))
-    (if *redirect-output*
-	(let ((*standard-output* *slime-output*)
-	      (*error-output* *slime-output*)
-	      (*trace-output* *slime-output*)
-	      (*debug-io*  *slime-output*)
-	      (*query-io* *slime-output*))
-	  (apply #'funcall form))
-	(apply #'funcall form))))
-
-(defun send-to-emacs (object)
-  "Send OBJECT to Emacs."
-  (let* ((string (prin1-to-string-for-emacs object))
-         (length (1+ (length string))))
-    (loop for position from 16 downto 0 by 8
-          do (write-byte (ldb (byte 8 position) length) *emacs-io*))
-    (write-string string *emacs-io*)
-    (terpri *emacs-io*)
-    (force-output *emacs-io*)))
-
-(defun prin1-to-string-for-emacs (object)
-  (with-standard-io-syntax
-    (let ((*print-case* :downcase)
-	  (*print-readably* t)
-	  (*print-pretty* nil)
-	  (*package* *swank-io-package*))
-      (prin1-to-string object))))
-
-;;; Functions for Emacs to call.
-
-(defmacro defslimefun (fun &rest rest)
-  `(progn
-    (defun ,fun ,@rest)
-    (export ',fun :swank)))
-
-;;; Utilities.
-
-(defvar *buffer-package*)
-(setf (documentation '*buffer-package* 'symbol)
-      "Package corresponding to slime-buffer-package.  
-
-EVAL-STRING binds *buffer-package*.  Strings originating from a slime
-buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
-
-(defun from-string (string)
-  "Read string in the *BUFFER-PACKAGE*"
-  (let ((*package* *buffer-package*))
-    (read-from-string string)))
-
-(defun to-string (string)
-  "Write string in the *BUFFER-PACKAGE*"
-  (let ((*package* *buffer-package*))
-    (prin1-to-string string)))
 
 (defun read-symbol/package (symbol-name package-name)
   (let ((package (find-package package-name)))
@@ -184,12 +93,6 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 
 ;;; Asynchronous eval
 
-(defun guess-package-from-string (name)
-  (or (and name
-	   (or (find-package name) 
-	       (find-package (string-upcase name))))
-      *package*))
-
 (defvar *swank-debugger-condition*)
 (defvar *swank-debugger-hook*)
 
@@ -198,23 +101,6 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 	(*swank-debugger-hook* hook))
     (sldb-loop)))
 
-(defslimefun eval-string (string buffer-package)
-  (let ((*debugger-hook* #'swank-debugger-hook))
-    (let (ok result)
-      (unwind-protect
-	   (let ((*buffer-package* (guess-package-from-string buffer-package)))
-	     (assert (packagep *buffer-package*))
-	     (setq result (eval (read-form string)))
-	     (force-output)
-	     (setq ok t))
-	(send-to-emacs (if ok `(:ok ,result) '(:aborted)))))))
-
-(defslimefun interactive-eval (string)
-  (let ((*package* *buffer-package*))
-    (let ((values (multiple-value-list (eval (read-from-string string)))))
-      (force-output)
-      (format nil "~{~S~^, ~}" values))))
-  
 (defslimefun interactive-eval-region (string)
   (let ((*package* *buffer-package*))
     (with-input-from-string (stream string)
