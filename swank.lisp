@@ -1784,8 +1784,9 @@ FORM is expected, but not required, to be SETF'able."
 (defslimefun commit-edited-value (form value)
   "Set the value of a setf'able FORM to VALUE.
 FORM and VALUE are both strings from Emacs."
-  (eval `(setf ,(read-from-string form) ',(read-from-string value)))
-  t)
+  (with-buffer-syntax ()
+    (eval `(setf ,(read-from-string form) ',(read-from-string value)))
+    t))
 
 
 ;;;; Debugger
@@ -2071,7 +2072,8 @@ The time is measured in microseconds."
   "Compile FILENAME and, when LOAD-P, load the result.
 Record compiler notes signalled as `compiler-condition's."
   (with-buffer-syntax ()
-    (swank-compiler (lambda () (swank-compile-file filename load-p)))))
+    (let ((*compile-print* nil))
+      (swank-compiler (lambda () (swank-compile-file filename load-p))))))
 
 (defslimefun compile-string-for-emacs (string buffer position directory)
   "Compile STRING (exerpted from BUFFER at POSITION).
@@ -2079,8 +2081,9 @@ Record compiler notes signalled as `compiler-condition's."
   (with-buffer-syntax ()
     (swank-compiler
      (lambda () 
-       (swank-compile-string string :buffer buffer :position position 
-                             :directory directory)))))
+       (let ((*compile-print* nil) (*compile-verbose* t))
+         (swank-compile-string string :buffer buffer :position position 
+                               :directory directory))))))
 
 (defslimefun operate-on-system-for-emacs (system-name operation &rest keywords)
   "Compile and load SYSTEM using ASDF.
