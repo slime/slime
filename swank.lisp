@@ -29,6 +29,7 @@
            #:*configure-emacs-indentation*
            #:*readtable-alist*
            #:*globally-redirect-io*
+           #:*global-debugger*
            ;; These are re-exported directly from the backend:
            #:buffer-first-change
            #:frame-source-location-for-emacs
@@ -1263,6 +1264,15 @@ after Emacs causes a restart to be invoked."
           ((default-connection)
            (with-connection ((default-connection))
              (debug-in-emacs condition))))))
+
+(defvar *global-debugger* t
+  "Non-nil means the Swank debugger hook will be installed globally.")
+
+(add-hook *new-connection-hook* 'install-debugger)
+(defun install-debugger (connection)
+  (declare (ignore connection))
+  (when *global-debugger*
+    (setq *debugger-hook* #'swank-debugger-hook)))
 
 ;;;;; Debugger loop
 ;;;

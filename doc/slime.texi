@@ -1283,14 +1283,8 @@ your Swank init file.
 @node Other configurables,  , Communication style, Lisp-side
 @subsection Other configurables
 
-To use the @SLDB{} debugger globally for all debugging in the Lisp
-system you can add this line to your init file:
-
-@example
-(setq *debugger-hook* #'swank:swank-debugger-hook)
-@end example
-
-You can also modify these Swank variables:
+These Lisp variables can be configured via your @file{~/.swank.lisp}
+file:
 
 @table @code
 
@@ -1307,6 +1301,12 @@ to Emacs using dynamic bindings while handling requests. Note that
 @code{*standard-input*} is currently never globally redirected into
 Emacs, because it can interact badly with the Lisp's native @REPL{} by
 having it try to read from the Emacs one.
+
+@item SWANK:*GLOBAL-DEBUGGER*
+When true (the default) this causes @code{*DEBUGGER-HOOK*} to be
+globally set to @code{SWANK:SWANK-DEBUGGER-HOOK} and thus for @SLIME{}
+to handle all debugging in the Lisp image. This is for debugging
+multithreaded and callback-driven applications.
 
 @item SWANK:*SLDB-PPRINT-FRAMES*
 @code{*PRINT-PRETTY*} is bound to this value while formatting
