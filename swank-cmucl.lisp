@@ -1297,7 +1297,7 @@ Signal an error if no constructor can be found."
 ;;;;; Argument lists
 
 (defimplementation arglist ((name symbol))
-  (arglist (or (symbol-macro name)
+  (arglist (or (macro-function name)
                (symbol-function name))))
 
 (defimplementation arglist ((fun function))
