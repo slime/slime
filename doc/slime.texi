@@ -45,8 +45,8 @@ o@c this comment prevents a newline!
 @code{\command\}@*
 @end macro
 
-@set EDITION DRAFT
-@set UPDATED @code{$Id$}
+@set EDITION 1.0 (alpha1)
+@set UPDATED @code{$Date$}
 
 @titlepage
 @title SLIME User Manual
@@ -92,7 +92,12 @@ Getting started
 * Installation::                
 * Running::                     
 
-Downloading @SLIME{} (from @CVS{})
+Downloading SLIME
+
+* CVS::                         
+* CVS Incantations::            
+
+Downloading from CVS
 
 * CVS Incantations::            
 
@@ -105,6 +110,7 @@ Downloading @SLIME{} (from @CVS{})
 User-interface conventions
 
 * Temporary buffers::           
+* Key bindings::                
 * inferior-lisp::               
 
 Commands
@@ -119,13 +125,13 @@ Commands
 * Inspector::                   
 * Profiling::                   
 
-@REPL{}: the ``top level''
+REPL: the ``top level''
 
 * REPL commands::               
 * Input Navigation::            
 * Shortcuts::                   
 
-@SLDB{}: the @SLIME{} debugger
+SLDB: the SLIME debugger
 
 * Examining frames::            
 * restarts::                    
@@ -182,28 +188,6 @@ required implementation-specific functionality is specified by a
 well-defined interface and implemented separately for each Lisp
 implementation. This makes @SLIME{} readily portable.
 
-@c @node Status,  , Introduction, Introduction
-@section Status: under development
-
-@SLIME{} is a program under development and has not yet been
-``released.'' Unlike many other free software projects, we are not
-making ``0.x'' releases, but instead evolving directly towards a
-``1.0'' release. We find this continuous style of development very
-comfortable, so rather than setting short-term milestones we've taken
-to merrily hacking away as @SLIME{} progresses towards a ``final''
-shape at its own pace.
-
-We warmly invite Lisp hackerdom to join in the development in any way
-you like. As frugal hospitality we offer access to the @CVS{} tree and
-a cosy mailing list, but not yet such luxuries as supported tarballs,
-a snazzy website, or guarantees of backward-compatibility.
-
-We hope that nowadays @SLIME{} is suitable for doing ``real work''
-with. To make support easy we do expect @SLIME{} users to keep fairly
-up-to-date with the current code-base, so an adventurous nature is an
-advantage. For people looking for something to just install and not
-have to upgrade or muck about with, we ain't yet it.
-
 @node Getting started, slime-mode, Introduction, Top
 @chapter Getting started
 
@@ -224,7 +208,8 @@ implementations. @SLIME{} runs on Unix systems, Mac OSX, and Microsoft
 Windows. GNU Emacs versions 20 and 21 and XEmacs version 21 are
 supported.
 
-The supported Lisp implementations are:
+The supported Lisp implementations, roughly ordered from the
+best-supported, are:
 
 @itemize @bullet
 @item
@@ -234,11 +219,11 @@ Steel Bank Common Lisp (@acronym{SBCL})
 @item
 OpenMCL
 @item
-@acronym{CLISP}
-@item
 LispWorks
 @item
 Allegro Common Lisp (@acronym{ACL})
+@item
+@acronym{CLISP}
 @item
 Armed Bear Common Lisp (@acronym{ABCL})
 @end itemize
@@ -249,7 +234,24 @@ compiler-note annotations, @acronym{XREF} support, and fancy debugger
 commands (like ``restart frame'').
 
 @node Downloading, Installation, Platforms, Getting started
-@section Downloading SLIME (from CVS)
+@section Downloading SLIME
+
+You can choose between using a released version of @SLIME{} or
+accessing our @CVS{} repository directly. You can download the latest
+released version from our website:
+
+@url{http://www.common-lisp.net/project/slime/}
+
+We recommend that users who participate in the @code{slime-devel}
+mailing list use the @CVS{} version of the code.
+
+@menu
+* CVS::                         
+* CVS Incantations::            
+@end menu
+
+@node CVS, CVS Incantations, Downloading, Downloading
+@subsection Downloading from CVS
 
 @SLIME{} is available from the @CVS{} repository on
 @file{common-lisp.net}. You have the option to use either the very
@@ -261,19 +263,19 @@ major surgery. As a rule-of-thumb recommendation we suggest that if
 you follow the @code{slime-devel} mailing list then you're better off
 with the latest version (we'll send a note when it's undergoing major
 hacking). If you don't follow the mailing list you won't know the
-status of the latest code, so tracking @code{FAIRLY-STABLE} is the
-safe option.
+status of the latest code, so tracking @code{FAIRLY-STABLE} or using a
+released version is the safe option.
 
-In either case remember to @code{cvs update} occasionally.
-Improvements are continually being committed, and the
+If you checkout from @CVS{} then remember to @code{cvs update}
+occasionally.  Improvements are continually being committed, and the
 @code{FAIRLY-STABLE} tag is moved forward from time to time (about
-once or twice per month).
+once per month).
 
 @menu
 * CVS Incantations::            
 @end menu
 
-@node CVS Incantations,  , Downloading, Downloading
+@node CVS Incantations,  , CVS, Downloading
 @subsection CVS incantations
 
 To download @SLIME{} you first configure your @code{CVSROOT} and login
@@ -357,10 +359,11 @@ principles are described in this section.
 
 @menu
 * Temporary buffers::           
+* Key bindings::                
 * inferior-lisp::               
 @end menu
 
-@node Temporary buffers, inferior-lisp, User-interface conventions, User-interface conventions
+@node Temporary buffers, Key bindings, User-interface conventions, User-interface conventions
 @subsection Temporary buffers
 
 Some @SLIME{} commands create temporary buffers to display their
@@ -385,7 +388,20 @@ addition to any special mode of their own. This makes the usual
 @SLIME{} commands available for describing symbols, looking up
 function definitions, and so on.
 
-@node inferior-lisp,  , Temporary buffers, User-interface conventions
+@node Key bindings, inferior-lisp, Temporary buffers, User-interface conventions
+@subsection Key bindings
+
+In general we try to make our key bindings fit with the overall Emacs
+style. We also have the following somewhat unusual convention of our
+own: when entering a three-key sequence, the final key can be pressed
+either with control or unmodified. For example, the
+@code{slime-describe-symbol} command is bound to @kbd{C-c C-d d}, but
+it also works to type @kbd{C-c C-d C-d}. We're simply binding both key
+sequences because some people like to hold control for all three keys
+and others don't, and with the two-key prefix we're not afraid of
+running out of keys.
+
+@node inferior-lisp,  , Key bindings, User-interface conventions
 @subsection @code{*inferior-lisp*} buffer
 
 @SLIME{} internally uses the @code{inferior-lisp} package to start
@@ -516,30 +532,37 @@ buffer you can enter Lisp expressions and evaluate them with
 @subsection Documentation
 
 @SLIME{}'s online documentation commands follow the example of Emacs
-Lisp.
+Lisp. The commands all share the common prefix @kbd{C-c C-d} and allow
+the final key to be modified or unmodified (@xref{Key bindings}.)
 
 @table @kbd
 
-@kbditem{C-c C-d, slime-describe-symbol}
+@kbditem{C-c C-d d, slime-describe-symbol}
 Describe the symbol at point.
 
-@kbditem{C-c C-a, slime-apropos}
+@kbditem{C-c C-d a, slime-apropos}
 Apropos search. Search Lisp symbol names for a substring match and
 present their documentation strings. By default the external symbols
 of all packages are searched. With a prefix argument you can choose a
 specific package and whether to include unexported symbols.
 
-@kbditem{C-c P, slime-apropos-package}
+@kbditem{C-c C-d z, slime-apropos-all}
+Like @code{slime-apropos} but also includes internal symbols by default.
+
+@kbditem{C-c C-d p, slime-apropos-package}
 Show apropos results of all symbols in a package. This command is for
 browsing a package at a high-level. With package-name completion it
 also serves as a rudimentary Smalltalk-ish image-browser.
 
-@kbditem{C-c C-h, slime-hyperspec-lookup}
+@kbditem{C-c C-d h, slime-hyperspec-lookup}
 Lookup the symbol at point in the @cite{Common Lisp Hyperspec}. This
 uses the familiar @file{hyperspec.el} to show the appropriate section
 in a web browser. The Hyperspec is found either on the Web or in
 @code{common-lisp-hyperspec-root}, and the browser is selected by
 @code{browse-url-browser-function}.
+
+@kbditem{C-c C-d ~, common-lisp-hyperspec-format}
+Lookup a format character in the @cite{Common Lisp Hyperspec}.
 @end table
 
 @node Programming Helpers, Recovery, Documentation, Commands
@@ -612,7 +635,9 @@ with no builtin @acronym{XREF} support @SLIME{} queries a portable
 Repository} and bundled with @SLIME{}.
 
 Each command operates on the symbol at point, or prompts if there is
-none. With a prefix argument they always prompt.
+none. With a prefix argument they always prompt. You can either enter
+the key bindings as shown here or with the control modified on the
+last key, @xref{Key bindings}.
 
 @table @kbd
 
@@ -742,6 +767,13 @@ of every symbol each time a new Lisp package is created between commands
 
 You can use @kbd{M-x slime-update-indentation} to force all symbols to
 be scanned for indentation information.
+
+@node Reader conditionals
+@section Reader conditional fontification
+
+@SLIME{} automatically evaluates reader-conditional expressions in
+source buffers and ``grays out'' code that will be skipped for the
+current Lisp connection.
 
 @node REPL, Debugger, slime-mode, Top
 @chapter REPL: the ``top level''
@@ -1099,14 +1131,10 @@ the @code{slime-connected-hook}:
 @node Emacs-side customization, Lisp-side, Customization, Customization
 @section Emacs-side
 
-The Emacs part of @SLIME{} can be configured both with the Emacs
-@code{customize} system and with Lisp snippets. To customize
-interactively, use @kbd{M-x customize-group slime RET}. The
-@code{customize} interface is especially convenient for changing
-colour schemes. The remainder of this section focuses on customizing
-variables using Lisp code.
-
-Some variables affecting @SLIME{}'s operation are:
+The Emacs part of @SLIME{} can be configured with the Emacs
+@code{customize} system, just use @kbd{M-x customize-group slime
+RET}. Because the customize system is self-describing, we only cover a
+few important or obscure configuration options here in the manual.
 
 @table @code
 
@@ -1115,6 +1143,11 @@ The value to use for @code{truncate-lines} in line-by-line summary
 buffers popped up by @SLIME{}. This is @code{t} by default, which
 ensures that lines do not wrap in backtraces, apropos listings, and so
 on. It can however cause information to spill off the screen.
+
+@item slime-multiprocessing
+This should be set to @code{t} if you want to use multiprocessing
+(threads) in your Lisp system. It causes any necessary initialization
+to be performed during Lisp server startup.
 
 @item slime-complete-symbol-function
 The function to use for completion of Lisp symbols. Three completion
@@ -1145,11 +1178,6 @@ completes in the usual Emacs way.  Finally, there is
 of the above and tries to find best matches to an abbreviated symbol.
 It also has its own keybinding, defaulting to @kbd{C-c M-i}.
 @xref{slime-fuzzy-complete-symbol}, for more information.
-
-@item slime-multiprocessing
-This should be set to @code{t} if you want to use multiprocessing
-(threads) in your Lisp system. It causes any necessary initialization
-to be performed during Lisp server startup.
 
 @item slime-translate-to-lisp-filename-function
 @itemx slime-translate-from-lisp-filename-function
@@ -1264,13 +1292,23 @@ You can also modify these Swank variables:
 
 @table @code
 
-@item SWANK:*LOG-EVENTS*
-Setting this variable to @code{t} causes all protocol messages
-exchanged with Emacs to be printed to @code{*TERMINAL-IO*}. This is
-useful for low-level debugging and for observing how @SLIME{} works
-``on the wire.'' The output of @code{*TERMINAL-IO*} can be found in
-your Lisp system's own listener, usually in the buffer
-@code{*inferior-lisp*}.
+@item SWANK:*CONFIGURE-EMACS-INDENTATION*
+This variable controls whether indentation styles for
+@code{&body}-arguments in macros are discovered and sent to Emacs. It
+is enabled by default.
+
+@item SWANK:*GLOBALLY-REDIRECT-IO*
+When true this causes the standard streams (@code{*standard-output*},
+etc) to be globally redirected to the @REPL{} in Emacs. When
+@code{NIL} (the default) these streams are only temporarily redirected
+to Emacs using dynamic bindings while handling requests. Note that
+@code{*standard-input*} is currently never globally redirected into
+Emacs, because it can interact badly with the Lisp's native @REPL{} by
+having it try to read from the Emacs one.
+
+@item SWANK:*SLDB-PPRINT-FRAMES*
+@code{*PRINT-PRETTY*} is bound to this value while formatting
+backtraces in @SLDB{}. The default value is @code{NIL}.
 
 @item SWANK:*USE-DEDICATED-OUTPUT-STREAM*
 This variable controls an optimization for sending printed output from
@@ -1279,6 +1317,14 @@ established solely for Lisp to send printed output to Emacs
 through. Without the optimization it is necessary to send output in
 protocol-messages to Emacs which must then be decoded, and this
 doesn't always keep up if Lisp starts ``spewing'' copious output.
+
+@item SWANK:*LOG-EVENTS*
+Setting this variable to @code{t} causes all protocol messages
+exchanged with Emacs to be printed to @code{*TERMINAL-IO*}. This is
+useful for low-level debugging and for observing how @SLIME{} works
+``on the wire.'' The output of @code{*TERMINAL-IO*} can be found in
+your Lisp system's own listener, usually in the buffer
+@code{*inferior-lisp*}.
 
 @end table
 
@@ -1311,11 +1357,9 @@ help. Thanks to the @acronym{CMUCL} maintainers on the
 @code{cmucl-imp} list, Dan Barlow@footnote{Dan is one of ``us'', so
 naturally these thanks apply to the @acronym{SBCL}-hacker side of his
 personality.} and Christophe Rhodes of @acronym{SBCL}, Gary Byers of
-OpenMCL, Peter Graves of @acronym{ABCL} and Martin Simmons of
-LispWorks (generously sponsored by Alain Picard of Memetrics).
-
-And thanks in advance to the Lisp maintainers who we haven't
-approached yet.. @code{:-)}
+OpenMCL, Martin Simmons of LispWorks (generously sponsored by Alain
+Picard of Memetrics), Peter Graves of @acronym{ABCL}, and to Craig
+Norvell and Kevin Layer of Franz.
 
 @bye
 
