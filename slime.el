@@ -4651,10 +4651,15 @@ function name is prompted."
 
 (defun slime-first-change-hook ()
   "Notify Lisp that a source file's buffer has been modified."
-  (when (and (buffer-file-name)
-             (slime-connected-p))
-    (let ((filename (slime-to-lisp-filename (buffer-file-name))))
-    (slime-eval-async `(swank:buffer-first-change ,filename)))))
+  ;; Be careful not to disturb anything!
+  ;; In particular if we muck up the match-data then query-replace
+  ;; breaks. -luke (26/Jul/2004)
+  (save-excursion
+    (save-match-data
+      (when (and (buffer-file-name)
+                 (slime-connected-p))
+        (let ((filename (slime-to-lisp-filename (buffer-file-name))))
+          (slime-eval-async `(swank:buffer-first-change ,filename)))))))
 
 (defun slime-setup-first-change-hook ()
   (add-hook (make-local-variable 'first-change-hook)
