@@ -1652,7 +1652,10 @@ belonging to the buffer package."
   "Return a form describing the indentation of SYMBOL.
 The form is to be used as the `common-lisp-indent-function' property
 in Emacs."
-  (if (macro-function symbol)
+  (if (and (macro-function symbol)
+           (let ((s (symbol-name 'defmethod)))
+             (not (or (search "DEF" s :end2 (min (length s) 3))
+                      (search "WITH-" s :end2 (min (length s) 5))))))
       (let ((arglist (arglist symbol)))
         (etypecase arglist
           ((member :not-available)
