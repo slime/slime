@@ -244,7 +244,7 @@ This is used to resolve filenames without directory component."
   (funcall fn))
 
 (definterface default-readtable-alist ()
-    "Return a suitable initial value for SWANK:*READTABLE-ALIST*."
+  "Return a suitable initial value for SWANK:*READTABLE-ALIST*."
   '())
 
 (definterface quit-lisp ()
@@ -437,12 +437,6 @@ the stack.")
 
 (definterface print-frame (frame stream)
   "Print frame to stream.")
-
-(definterface frame-package (frame)
-  "Return the preferred package to use when printing local variables.
-NIL can be used if no particular package is known."
-  (declare (ignore frame))
-  nil)
 
 (definterface frame-source-location-for-emacs (frame-number)
   "Return the source location for FRAME-NUMBER.")
