@@ -1087,9 +1087,9 @@ Errors are trapped and invoke our debugger."
 (defslimefun oneway-eval-string (string buffer-package)
   "Evaluate STRING in BUFFER-PACKAGE, without sending a reply.
 The debugger hook is inhibited during the evaluation."
-  (let ((*buffer-package* (guess-package-from-string buffer-package))
-        (*package* *buffer-package*)
-        (*debugger-hook* nil))
+  (let* ((*buffer-package* (guess-package-from-string buffer-package))
+         (*package* *buffer-package*)
+         (*debugger-hook* nil))
     (eval (read-form string))))
 
 (defun format-values-for-echo-area (values)
