@@ -123,6 +123,18 @@ Return NIL if the symbol is unbound."
       (if result
           (list* :designator (to-string symbol) result)))))
 
+(defslimefun describe-function (symbol-name)
+  (with-output-to-string (*standard-output*)
+    (let ((sym (from-string symbol-name)))
+      (cond ((fboundp sym)
+             (format t "~%(~A~{ ~A~})~%~%~:[(not documented)~;~:*~A~]~%"
+                     (string-downcase sym)
+                     (mapcar #'string-upcase 
+                             (lispworks:function-lambda-list sym))
+                     (documentation sym 'function))
+             (describe (symbol-function sym)))
+            (t (format t "~S is not fbound" sym))))))
+
 #+(or)
 (defmethod describe-object ((sym symbol) *standard-output*)
   (format t "~A is a symbol in package ~A." sym (symbol-package sym))
@@ -231,21 +243,25 @@ Return NIL if the symbol is unbound."
 	      (dspec-source-location func))))))
 
 (defun dspec-source-location (dspec)
-  (let ((locations (dspec:dspec-definition-locations dspec)))
+  (destructuring-bind (first) (dspec-source-locations dspec)
+    first))
+
+(defun dspec-source-locations (dspec)
+  (let ((locations (dspec:find-dspec-locations dspec)))
     (cond ((not locations) 
 	   (list :error (format nil "Cannot find source for ~S" dspec)))
 	  (t
-	   (destructuring-bind ((dspec file) . others) locations
-	     (declare (ignore others))
-	     (if (eq file :unknown)
-		 (list :error (format nil "Cannot find source for ~S" dspec))
-		 (make-dspec-location dspec file)))))))
+           (loop for (dspec location) in locations
+                 collect (make-dspec-location dspec location))))))
 
 (defmethod function-source-location-for-emacs (fname)
   "Return a source position of the definition of FNAME.  The
 precise location of the definition is not available, but we are
 able to return the file name in which the definition occurs."
   (dspec-source-location (from-string fname)))
+
+(defslimefun find-function-locations (fname)
+  (dspec-source-locations (from-string fname)))
 
 ;;; callers
 
@@ -296,17 +312,32 @@ able to return the file name in which the definition occurs."
     (delete-file filename)))
 
 (defun make-dspec-location (dspec location &optional tmpfile buffer position)
-  (flet ((from-buffer-p () (and (pathnamep location) tmpfile 
-                                (pathname-match-p location tmpfile))))
-    (make-location
-     (etypecase location
-       (pathname (cond ((from-buffer-p) `(:buffer ,buffer))
-                       (t `(:file ,(namestring (truename location)))))))
-     (cond ((from-buffer-p) `(:position ,position))
-           (t `(:dspec , (etypecase dspec
-                           (symbol (symbol-name dspec))
-                           (cons (symbol-name
-                                  (dspec:dspec-primary-name dspec))))))))))
+  (flet ((from-buffer-p () 
+           (and (pathnamep location) tmpfile 
+                (pathname-match-p location tmpfile)))
+         (filename (pathname)
+           (multiple-value-bind (truename condition)
+               (ignore-errors (truename pathname))
+             (cond (condition 
+                    (return-from make-dspec-location
+                      (list :error (format nil "~A" condition))))
+                   (t (namestring truename)))))
+         (function-name (dspec)
+           (etypecase dspec
+             (symbol (symbol-name dspec))
+             (cons (symbol-name (dspec:dspec-primary-name dspec))))))
+    (cond ((from-buffer-p)
+           (make-location `(:buffer ,buffer) `(:position ,position)))
+          (t
+           (etypecase location
+             (pathname 
+              (make-location `(:file ,(filename location))
+                             `(:function-name ,(function-name dspec))))
+             ((member :listener)
+              `(:error ,(format nil "Function defined in listener: ~S" dspec)))
+             ((member :unknown)
+              `(:error ,(format nil "Function location unkown: ~S" dspec))))
+           )))) 
 
 (defun signal-error-data-base (database &optional tmpfile buffer position)
   (map-error-database 
@@ -343,17 +374,20 @@ able to return the file name in which the definition occurs."
 
 ;;; xref
 
+(defun lookup-xrefs (finder name)
+  (xref-results-for-emacs (funcall finder (from-string name))))
+
 (defslimefun who-calls (function-name)
-  (xref-results-for-emacs (hcl:who-calls function-name)))
+  (lookup-xrefs #'hcl:who-calls function-name))
 
 (defslimefun who-references (variable)
-  (xref-results-for-emacs (hcl:who-references variable)))
+  (lookup-xrefs #'hcl:who-references variable))
 
 (defslimefun who-binds (variable)
-  (xref-results-for-emacs (hcl:who-binds variable)))
+  (lookup-xrefs #'hcl:who-binds variable))
 
 (defslimefun who-sets (variable)
-  (xref-results-for-emacs (hcl:who-sets variable)))
+  (lookup-xrefs #'hcl:who-sets variable))
 
 (defun xref-results-for-emacs (dspecs)
   (let ((xrefs '()))
@@ -363,6 +397,12 @@ able to return the file name in which the definition occurs."
                            (make-dspec-location dspec location))
                      xrefs)))
     (group-xrefs xrefs)))
+
+(defslimefun list-callers (symbol-name)
+  (lookup-xrefs #'hcl:who-calls symbol-name))
+
+(defslimefun list-callees (symbol-name)
+  (lookup-xrefs #'hcl:calls-who symbol-name))
 
 ;; (dspec:at-location 
 ;;  ('(:inside (:buffer "foo" 34)))
