@@ -1,3 +1,11 @@
+2004-01-16  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank.lisp (changelog-date): Use *compile-file-truename* instead
+	of *compile-file-pathname*.
+	(with-I/O-lock, with-a-connection): The usual CLISP fixes.
+
+	* slime.el: Numerous REPL related fixes.
+
 2004-01-16  Luke Gorrie  <luke@bluetail.com>
 
 	* swank-openmcl.lisp: Multiprocessing support.
