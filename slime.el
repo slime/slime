@@ -5457,7 +5457,7 @@ Only add clickability to properties we actually know how to lookup."
           (and (eq where :ansi-cl)
                (symbolp type)
                (member (slime-cl-symbol-name type)
-                       '("function" "special-operator" "macro" "section"))))
+                       '("function" "special-operator" "macro" "section" "glossary" "issue"))))
       `(sldb-default-action sldb-lookup-reference
                             sldb-reference ,ref
                             face sldb-reference-face
@@ -5485,6 +5485,10 @@ Only add clickability to properties we actually know how to lookup."
        (case type
          (:section
           (browse-url (funcall common-lisp-hyperspec-section-fun what)))
+         (:glossary
+          (browse-url (funcall common-lisp-glossary-fun what)))
+         (:issue
+          (browse-url (funcall 'common-lisp-issuex what)))
          (t
           (hyperspec-lookup (if (symbolp what)
                                 (slime-cl-symbol-name what)
