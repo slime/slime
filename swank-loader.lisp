@@ -41,7 +41,8 @@
            )))
 
 (defparameter *lisp-name*
-  #+cmu       (format nil "cmu-~A" (lisp-implementation-version))
+  #+cmu       (format nil "cmu-~A" 
+                      (substitute #\- #\/ (lisp-implementation-version)))
   #+sbcl      (format nil "sbcl-~A" (lisp-implementation-version))
   #+openmcl   "openmcl"
   #+lispworks (format nil "lispworks-~A" (lisp-implementation-version))
@@ -61,8 +62,7 @@
   "Return the pathname where SOURCE-PATHNAME's binary should be compiled."
   (let ((cfp (compile-file-pathname source-pathname)))
     (merge-pathnames (make-pathname
-                      :directory `(:relative
-                                   ".slime" "fasl" ,*lisp-name*)
+                      :directory `(:relative ".slime" "fasl" ,*lisp-name*)
                       :name (pathname-name cfp)
                       :type (pathname-type cfp))
                      (user-homedir-pathname))))
