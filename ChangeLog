@@ -1,3 +1,42 @@
+2004-09-19  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-gray.lisp (stream-read-char): Treat empty strings as
+	end-of-file.
+
+	* swank-cmucl.lisp (sis/in): Treat empty strings as end-of-file.
+	(map-allocated-code-components): Inhibit efficiency notes.
+	(arglist)[symbol] Delete unreachable code.
+	(sldb-break-on-return, sldb-break-at-start): Implement it
+	(sldb-step): Some cleanups.
+
+	* swank.lisp (thread-for-evaluation): Restart the listener thread
+	if it was dead for some reason.
+	(debugger-condition-for-emacs): Include "extra" stuff. Currenlty
+	only used to pop up the source buffer at breakpoints.
+	(sldb-break): New function.
+	(interrupt-worker-thread): Interrupt the repl thread if there is
+	no other active thread.
+
+	* swank-backend.lisp (import-swank-mop-symbols): New
+	function. Useful if the implementation has most of the mop symbols
+	in the same package.
+	(sldb-break-on-return, sldb-break-at-start, condition-extras): New
+	functions.
+
+	* slime.el (sldb-break-on-return, sldb-break): New commands.
+	(slime-repl-return-string): Allow empty strings.  That's our way
+	to send end-of-file.
+	(sldb-insert-condition): Add "extra" slot for random thing that
+	don't fit nicely somewhere else.
+	(sldb-dispatch-extras): New function.
+	(sldb-show-frame-source): New non-interactive version of
+	sldb-show-source.
+	(sldb-show-source): Use it.
+	(slime-beginning-of-symbol, slime-end-of-symbol): New functions
+	which don't include the character after a hash '#'.
+	(slime-symbol-name-at-point): Use them.
+	(slime-symbol-start-pos, slime-symbol-end-pos): Ditto.
+
 2004-09-17  Marco Baringer  <mb@bese.it>
 
 	* swank.lisp: Don't print "Documentation:" if none is available;
