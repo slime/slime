@@ -1,6 +1,7 @@
 2003-12-15  Luke Gorrie  <luke@bluetail.com>
 
 	* swank.lisp (*processing-rpc*, *multiprocessing-enabled*,
+	*debugger-hook-passback*): New variables.
 	(with-conversation-lock, with-I/O-lock): New macros.
 	(read-next-form): Use with-I/O-lock.
 	(send-to-emacs): Use with-I/O-lock instead of
@@ -14,8 +15,9 @@
 	(eval-string): Dynamically set the *PROCESSING-RPC* flag.
 	(eval-string): Nasty hack with *DEBUGGER-HOOK-PASSBACK* to
 	install debugger hook. Temporary, I swear!
-
-	*debugger-hook-passback*): New variables.
+	(eval-region, shortest-package-nickname): Report the shortest
+	package nickname to Emacs (for the REPL prompt). Patch from Marco
+	Baringer.
 
 	* swank-backend.lisp: Defined multiprocessing interface.
 
