@@ -1297,10 +1297,9 @@ state interacts with it until it is coaxed into returning."
      (when (or (not sldb-buffer)
                (/= sldb-level level)
                (with-current-buffer sldb-buffer 
-                 (/= sldb-level sldb-level-in-buffer)))
+                 (/= level sldb-level-in-buffer)))
        (setq sldb-level level)
-       (sldb-setup condition restarts frames)))
-   (setq sldb-level level))
+       (sldb-setup condition restarts frames))))
   ((:debug-return level)
    (assert (= level sldb-level))
    (sldb-cleanup)
@@ -2788,7 +2787,7 @@ Use `slime-re-evaluate-defvar' the current defun starts with '(defvar'"
     (cond ((string-match "^(defvar " form)
            (slime-re-evaluate-defvar form))
           (t
-           (slime-interactive-eval from))(slime-defun-at-point))))
+           (slime-interactive-eval form)))))
 
 (defun slime-eval-region (start end)
   "Evalute region."
@@ -3010,13 +3009,12 @@ First make the variable unbound, then evaluate the entire form."
 
 ;;;; XREF results buffer and window management
 
-(defun slime-xref-buffer (&optional create)
+(defun slime-xref-buffer ()
   "Return the XREF results buffer.
 If CREATE is non-nil, create it if necessary."
-  (if create
-      (get-buffer-create "*CMUCL xref*")
-    (or (get-buffer "*CMUCL xref*")
-        (error "No XREF buffer"))))
+  (or (find-if (lambda (b) (string-match "*XREF\\[" (buffer-name b)))
+               (buffer-list))
+      (error "No XREF buffer")))
 
 (defun slime-init-xref-buffer (package ref-type symbol)
   "Initialize the current buffer for displaying XREF information."
@@ -3145,18 +3143,21 @@ GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
   (interactive)
   (let ((location (slime-xref-location-at-point)))
     (slime-show-source-location location)))
-        
+      
 (defun slime-goto-next-xref ()
   "Goto the next cross-reference location."
-  (save-selected-window
-    (slime-display-xref-buffer)
-    (loop do (goto-char (next-single-char-property-change (point) 'slime-xref))
-          until (or (get-text-property (point) 'slime-xref-complete)
-                    (eobp)))
-    (if (not (eobp))
-        (slime-goto-xref)
-      (forward-line -1)
-      (message "No more xrefs."))))
+  (let ((location (with-current-buffer (slime-xref-buffer)
+                    (display-buffer (current-buffer) t)
+                    (goto-char (next-single-char-property-change 
+                                (point) 'slime-location))
+                    (cond ((eobp)
+                           (message "No more xrefs.")
+                           nil)
+                          (t 
+                           (slime-xref-location-at-point))))))
+    (when location
+      (slime-goto-source-location location)
+      (switch-to-buffer (current-buffer)))))
 
 (defvar slime-next-location-function nil
   "Function to call for going to the next location.")
@@ -3488,7 +3489,8 @@ CL:MACROEXPAND."
 
 (defun sldb-inspect-in-frame (string)
   (interactive (list (slime-read-from-minibuffer 
-                      "Inspect in frame (evaluated): ")))
+                      "Inspect in frame (evaluated): " 
+                      (slime-sexp-at-point))))
   (let ((number (sldb-frame-number-at-point)))
     (slime-eval-async `(swank:inspect-in-frame ,string ,number)
                       (slime-buffer-package)
@@ -3588,6 +3590,11 @@ CL:MACROEXPAND."
 
 (defun sldb-restart-at-point ()
   (get-text-property (point) 'restart-number))
+
+(defun sldb-step ()
+  (interactive)
+  (let ((frame (sldb-frame-number-at-point)))
+    (slime-eval-async `(swank:sldb-step ,frame) nil (lambda ()))))
             
 (slime-define-keys sldb-mode-map 
   ("v"    'sldb-show-source)
@@ -3604,6 +3611,7 @@ CL:MACROEXPAND."
   ("l"    'sldb-list-locals)
   ("t"    'sldb-toggle-details)
   ("c"    'sldb-continue)
+  ("s"    'sldb-step)
   ("a"    'sldb-abort)
   ("q"    'sldb-quit)
   (":"    'slime-interactive-eval))
