@@ -1,5 +1,19 @@
 2003-10-16  Luke Gorrie  <luke@bluetail.com>
 
+	* slime.el (slime-forward-source-path): Improved somewhat. Seems
+	to work for all common cases except backquote. Backquote is
+	tricky, because the source-paths are based on the reader's
+	expansion, e.g.:
+	* (let ((*print-pretty* nil))
+	    (print (read-from-string "`(a ,@(b c) d)")))
+	  -->
+	  (COMMON-LISP::BACKQ-CONS (QUOTE A)
+	                           (COMMON-LISP::BACKQ-APPEND (B C)
+			                                      (QUOTE (D))))
+	Must investigate whether we need to write a hairy
+	backquote-traversing state machine or whether this is something
+	that could be fixed in CMUCL.
+
 	* swank*.lisp (with-trapping-compiler-notes): This macro is now
 	defined here, and expands to a call to the backend-defined
 	`call-trapping-compiler-notes' with the body wrapped in a
