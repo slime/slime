@@ -299,6 +299,10 @@ determined at compile time."
 (defvar *active-threads* '())
 (defvar *thread-counter* 0)
 
+(defun remove-dead-threads ()
+  (setq *active-threads* 
+        (remove-if-not #'thread-alive-p *active-threads*)))
+
 (defun add-thread (thread)
   (let ((id (mod (1+ *thread-counter*) most-positive-fixnum)))
     (setq *active-threads* (acons id thread *active-threads*)
@@ -324,7 +328,13 @@ element."
     (assert pair)
     (car pair)))
 
+(defvar *lookup-counter* nil
+  "A simple counter used to remove dead threads from *active-threads*.")
+
 (defun lookup-thread (thread)
+  (when (zerop (decf *lookup-counter*))
+    (setf *lookup-counter* 50)
+    (remove-dead-threads))
   (let ((probe (rassoc thread *active-threads*)))
     (cond (probe (car probe))
           (t (add-thread thread)))))
@@ -338,7 +348,8 @@ element."
 (defun dispatch-loop (socket-io connection)
   (let ((*emacs-connection* connection)
         (*active-threads* '())
-        (*thread-counter* 0))
+        (*thread-counter* 0)
+        (*lookup-counter* 50))
     (loop (with-simple-restart (abort "Retstart dispatch loop.")
             (loop (dispatch-event (receive) socket-io))))))
 
@@ -718,12 +729,38 @@ Call LAMBDA-LIST-FN with the symbol corresponding to FUNCTION-NAME."
         (let ((symbol (find-symbol-or-lose function-name)))
           (values (funcall lambda-list-fn symbol))))
     (cond (condition (format nil "(-- ~A)" condition))
-          (t (if (null arglist)
+          (t (if (null arglist) 
                  "()"
-                 (let ((*print-case* :downcase)
-                       (*print-level* nil)
-                       (*print-length* nil))
-                   (princ-to-string arglist)))))))
+                 (print-arglist-to-string arglist))))))
+
+(defun print-arglist-to-string (arglist)
+  (with-output-to-string (*standard-output*)
+    (print-arglist arglist)))
+
+(defun print-arglist (arglist)
+  (let ((*print-case* :downcase)
+        (*print-pretty* t))
+    (pprint-logical-block (*standard-output* arglist :prefix "(" :suffix ")")
+      (loop
+       (let ((arg (pprint-pop)))
+         (etypecase arg
+           (symbol (princ arg))
+           (cons (pprint-logical-block (*standard-output* arg :prefix "("
+                                                          :suffix ")")
+                   (princ (car arg))
+                   (write-char #\space)
+                   (pprint-fill *standard-output* (cdr arg) nil))))
+         (pprint-exit-if-list-exhausted)
+         (write-char #\space)
+         (pprint-newline :fill))))))
+
+(defun test-print-arglist (list string)
+  (string= (print-arglist-to-string list) string))
+
+(assert (test-print-arglist '(function cons) "(function cons)"))
+(assert (test-print-arglist '(quote cons) "(quote cons)"))
+;; (assert (test-print-arglist '(&key (function #'f)) "(&key (function #'f))"))
+;; (assert (test-print-arglist '(&key ((function f))) "(&key ((function f)))"))
 
 
 ;;;; Debugger
@@ -1518,6 +1555,22 @@ nil if there's no second element."
 	     (t
 	      (push (cons (string 'rest) in-list) reversed-elements)
 	      (done "The object is an improper list of length ~S.~%")))))))
+
+(defmethod inspected-parts ((o hash-table))
+  (values (format nil "~A~%   is a ~A" o (class-of o))
+          (list*
+           (cons "Test" (hash-table-test o))
+           (cons "Count" (hash-table-count o))
+           (cons "Size" (hash-table-size o))
+           (cons "Rehash-Threshold" (hash-table-rehash-threshold o))
+           (cons "Rehash-Size" (hash-table-rehash-size o))
+           (cons "---" :---)
+           (let ((pairs '()))
+             (maphash (lambda (key value)
+                        (push (cons (to-string key) value)
+                              pairs))
+                      o)
+             pairs))))
 
 (defslimefun inspect-in-frame (string index)
   (reset-inspector)
