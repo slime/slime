@@ -1739,11 +1739,11 @@ This is automatically synchronized from Lisp.")
 (slime-def-connection-var slime-connection-name nil
   "The short name for connection.")
 
-(slime-def-connection-var slime-use-sigint-for-interrupt nil
-  "Non-nil means use SIGINT for interrupting.")
-
 (slime-def-connection-var slime-inferior-process nil
   "The inferior process for the connection if any.")
+
+(slime-def-connection-var slime-communication-style nil
+  "The communication style.")
 
 ;;;;; Connection setup
 
@@ -1776,12 +1776,13 @@ This is automatically synchronized from Lisp.")
 
 (defun slime-set-connection-info (connection info)
   "Initialize CONNECTION with INFO received from Lisp."
-  (destructuring-bind (pid type name features) info
+  (destructuring-bind (pid type name features style) info
     (setf (slime-pid) pid
           (slime-lisp-implementation-type) type
           (slime-lisp-implementation-type-name) name
           (slime-connection-name) (slime-generate-connection-name name)
-          (slime-lisp-features) features))
+          (slime-lisp-features) features
+          (slime-communication-style) style))
   (setq slime-state-name "")            ; FIXME
   (slime-hide-inferior-lisp-buffer)
   (slime-init-output-buffer connection)
@@ -1854,6 +1855,20 @@ Can return nil if there's no process object for the connection."
 ;; Non-macro version to keep the file byte-compilable. 
 (defun slime-set-inferior-process (connection process)
   (setf (slime-inferior-process connection) process))
+
+(defun slime-use-sigint-for-interrupt (&optional connection)
+  (let ((c (or connection (slime-connection))))
+    (ecase (slime-communication-style c)
+      ((:fd-handler nil) t)
+      ((:spawn :sigio) nil))))
+
+(defvar slime-inhibit-pipelining t
+  "*If true, don't send background requests if Lisp already busy.")
+
+(defun slime-background-activities-enabled-p ()
+  (and (slime-connected-p)
+       (or (not (slime-busy-p))
+           (not slime-inhibit-pipelining))))
 
 
 ;;;; Communication protocol
@@ -2048,7 +2063,7 @@ side.")
   "Check that communication works."
   (interactive)
   (message "%s" (slime-eval "PONG")))
-
+ 
 ;;;;; Protocol event handler (the guts)
 ;;;
 ;;; This is the protocol in all its glory. The input to this function
@@ -2118,8 +2133,6 @@ side.")
        (slime-handle-indentation-update info))
       ((:open-dedicated-output-stream port)
        (slime-open-stream-to-lisp port))
-      ((:use-sigint-for-interrupt)
-       (setf (slime-use-sigint-for-interrupt) t))
       ((:%apply fn args)
        (apply (intern fn) args))
       ((:ed what)
@@ -2629,19 +2642,19 @@ after the last prompt to the end of buffer."
   (slime-repl-find-prompt
    (slime-search-property-change-fn 'slime-repl-prompt)))
 
-(defun slime-repl-return ()
+(defun slime-repl-return (&optional end-of-input)
   "Evaluate the current input string, or insert a newline.  
 Send the current input ony if a whole expression has been entered,
 i.e. the parenthesis are matched. 
 
 With prefix argument send the input even if the parenthesis are not
 balanced."
-  (interactive)
+  (interactive "P")
   (slime-check-connected)
   (assert (<= (point) slime-repl-input-end-mark))
   (cond ((get-text-property (point) 'slime-repl-old-input)
          (slime-repl-grab-old-input))
-        (current-prefix-arg
+        (end-of-input
          (slime-repl-send-input))
         (slime-repl-read-mode ; bad style?
          (slime-repl-send-input t))
@@ -2982,7 +2995,7 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
               (interactive)
               (let ((dir (slime-eval `(swank:default-directory))))
                 (message "Directory %s" dir))))
-  (:one-liner "Change the current directory."))
+  (:one-liner "Show the current directory."))
 
 (defslime-repl-shortcut slime-repl-push-directory ("push-directory" "+d" 
                                                    "pushd")
@@ -3030,13 +3043,17 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
               (slime-repl-send-input)))
   (:one-liner "Resend the last form."))
 
-(defslime-repl-shortcut slime-repl-sayoonara ("sayoonara" "quit")
+(defslime-repl-shortcut slime-repl-sayoonara ("sayoonara")
   (:handler (lambda ()
               (interactive)
               (when (slime-connected-p)
                 (slime-eval-async '(swank:quit-lisp)))
               (slime-kill-all-buffers)))
-  (:one-liner "Quit the lisp and close all SLIME buffers."))
+  (:one-liner "Quit all Lisps and close all SLIME buffers."))
+
+(defslime-repl-shortcut slime-repl-quit ("quit")
+  (:handler 'slime-quit-lisp)
+  (:one-liner "Quit the current Lisp."))
 
 (defslime-repl-shortcut slime-repl-defparameter ("defparameter" "!")
   (:handler (lambda (name value)
@@ -3094,7 +3111,8 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
                   (sit-for 0 20))
                 (let* ((args (mapconcat #'identity (process-command proc) " "))
                        (buffer (buffer-name (process-buffer proc)))
-                       (new-proc (slime-start-lisp args buffer (slime-init-command))))
+                       (new-proc (slime-start-lisp args buffer 
+                                                   (slime-init-command))))
                 (slime-inferior-connect new-proc)))))
   (:one-liner "Restart *inferior-lisp* and reconnect SLIME."))
 
@@ -3818,6 +3836,19 @@ first element of the source-path redundant."
      (slime-isearch text)
      (forward-char delta))))
 
+(defun slime-search-call-site (fname)
+  "Move to the place where FNAME called.
+Don't move if there are multiple or no calls in the current defun."
+  (save-restriction 
+    (narrow-to-defun)
+    (let ((start (point))
+          (regexp (concat "(" fname "[\n \t]")))
+      (cond ((and (re-search-forward regexp nil t)
+                  (not (re-search-forward regexp nil t)))
+             (goto-char (match-beginning 0)))
+            (t (goto-char start))))))
+
+
 (defun slime-goto-source-location (location &optional noerror)
   "Move to the source location LOCATION.  Several kinds of locations
 are supported:
@@ -3840,7 +3871,9 @@ are supported:
      (slime-goto-location-buffer buffer)
      (slime-goto-location-position position)
      (when-let (snippet (getf hints :snippet))
-       (slime-isearch snippet)))
+       (slime-isearch snippet))
+     (when-let (fname (getf hints :call-site))
+       (slime-search-call-site fname)))
     ((:error message)
      (if noerror
          (slime-message "%s" message)
@@ -4049,11 +4082,7 @@ more than one space."
   (interactive "p")
   (unwind-protect 
       (when (and slime-space-information-p
-                 (slime-connected-p)
-                 (or (not (slime-busy-p))
-                     ;; XXX should we enable this?
-                     ;; (not slime-use-sigint-for-interrupt))
-                     ))
+                 (slime-background-activities-enabled-p))
         (let ((names (slime-enclosing-operator-names)))
           (when names
             (slime-eval-async 
@@ -4211,8 +4240,7 @@ annoy the user)."
        (not (and (boundp 'edebug-active) (symbol-value 'edebug-active)))
        (not cursor-in-echo-area)
        (not (eq (selected-window) (minibuffer-window)))
-       (slime-connected-p)
-       (not (slime-busy-p))))
+       (slime-background-activities-enabled-p)))
 
 
 ;;;; Typeout frame
@@ -5555,10 +5583,19 @@ CL:MACROEXPAND."
   (slime-dispatch-event `(:emacs-interrupt ,slime-current-thread)))
 
 (defun slime-quit ()
+  (error "Not implemented properly.  Use `slime-interrupt' instead."))
+
+(defun slime-quit-lisp ()
+  "Quit lisp, kill the inferior process and associated buffers."
   (interactive)
-  (if (slime-busy-p)
-      (slime-dispatch-event '(:emacs-quit))
-    (error "Not evaluating - nothing to quit.")))
+  (let* ((connection (slime-connection))
+         (output (slime-output-buffer))
+         (inferior (slime-inferior-process))
+         (inferior-buffer (if inferior (process-buffer inferior))))
+    (slime-eval-async '(swank:quit-lisp))
+    (kill-buffer output)
+    (when inferior (delete-process inferior))
+    (when inferior-buffer (kill-buffer inferior-buffer))))
 
 (defun slime-set-package (package)
   (interactive (list (slime-read-package-name "Package: " 
@@ -6498,7 +6535,8 @@ This way you can still see what the error was after exiting SLDB."
 (slime-define-keys slime-connection-list-mode-map
   ((kbd "RET") 'slime-goto-connection)
   ("d"         'slime-connection-list-make-default)
-  ("g"         'slime-update-connection-list))
+  ("g"         'slime-update-connection-list)
+  ((kbd "C-k") 'slime-quit-connection-at-point))
 
 (defun slime-connection-at-point ()
   (or (get-text-property (point) 'slime-connection)
@@ -6510,6 +6548,14 @@ This way you can still see what the error was after exiting SLDB."
   (let ((slime-dispatching-connection (slime-connection-at-point)))
     (switch-to-buffer (slime-output-buffer))))
 
+(defun slime-quit-connection-at-point (connection)
+  (interactive (list (slime-connection-at-point)))
+  (let ((slime-dispatching-connection connection))
+    (slime-quit-lisp)
+    (while (memq connection slime-net-processes)
+      (sit-for 0 100)))
+  (slime-update-connection-list))
+  
 (defun slime-connection-list-make-default ()
   "Make the connection at point the default connection."
   (interactive)
@@ -6540,7 +6586,7 @@ This way you can still see what the error was after exiting SLDB."
 (defun slime-draw-connection-list ()
   (let ((default-pos nil)
         (default slime-default-connection)
-        (fstring "%s%2s  %-7s  %-17s  %-7s %-s\n"))
+        (fstring "%s%2s  %-10s  %-17s  %-7s %-s\n"))
     (insert (format fstring " " "Nr" "Name" "Port" "Pid" "Type")
             (format fstring " " "--" "----" "----" "---" "----"))
     (dolist (p (reverse slime-net-processes))
@@ -6571,17 +6617,22 @@ This way you can still see what the error was after exiting SLDB."
   :group 'slime-inspector)
 
 (defface slime-inspector-label-face
-    '((t (:inherit font-lock-constant-face)))
+  '((t (:inherit font-lock-constant-face)))
   "Face for labels in the inspector."
   :group 'slime-inspector)
 
 (defface slime-inspector-value-face
-    '((t (:inherit font-lock-builtin-face)))
+  (if (slime-face-inheritance-possible-p)
+      '((t (:inherit font-lock-builtin-face)))
+    '((((background light)) (:foreground "MediumBlue" :bold t))
+      (((background dark)) (:foreground "LightGray" :bold t))))
   "Face for things which can themselves be inspected."
   :group 'slime-inspector)
 
 (defface slime-inspector-action-face
-    '((t (:inherit font-lock-warning-face)))
+  (if (slime-face-inheritance-possible-p)
+      '((t (:inherit font-lock-warning-face)))
+    '((t (:foreground "OrangeRed"))))
   "Face for labels of inspector actions."
   :group 'slime-inspector)
 
@@ -7026,11 +7077,9 @@ is exceeded."
 
 (defface slime-reader-conditional-face
   (if (slime-face-inheritance-possible-p)
-      '((t (:inherit font-lock-comment-face)))
-    '((((class grayscale) (background light))
-       (:foreground "DimGray" :weight bold))
-      (((class grayscale) (background dark))
-       (:foreground "LightGray" :weight bold))))
+    '((t (:inherit font-lock-comment-face)))
+  '((((background light)) (:foreground "DimGray" :bold t))
+    (((background dark)) (:foreground "LightGray" :bold t))))
   "Face for compiler notes while selected."
   :group 'slime-mode-faces)
 
