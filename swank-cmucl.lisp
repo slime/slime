@@ -1857,30 +1857,31 @@ The `symbol-value' of each element is a type tag.")
                        (loop for value in parts  for i from 0 
                              append (label-value-line i value))))))))
 
-(defmethod inspect-for-emacs ((o function) (inspector cmucl-inspector))
+(defmethod inspect-for-emacs :around ((o function) (inspector cmucl-inspector))
   (declare (ignore inspector))
-  (let ((header (kernel:get-type o)))
-    (cond ((= header vm:function-header-type)
-	   (values (format nil "~A is a function." o)
-                   (append (label-value-line*
-                            ("self" (kernel:%function-self o))
-                            ("next" (kernel:%function-next o))
-                            ("name" (kernel:%function-name o))
-                            ("arglist" (kernel:%function-arglist o))
-                            ("type" (kernel:%function-type o))
-                            ("code" (kernel:function-code-header o)))
-                           (list 
-                            (with-output-to-string (s)
-                              (disassem:disassemble-function o :stream s))))))
-	  ((= header vm:closure-header-type)
-	   (values (format nil "~A is a closure" o)
-                   (append 
-                    (label-value-line "function" (kernel:%closure-function o))
-                    `("Environment:" (:newline))
-                    (loop for i from 0 below (1- (kernel:get-closure-length o))
-                          append (label-value-line
-                                  i (kernel:%closure-index-ref o i))))))
-	  (t (call-next-method o)))))
+  (multiple-value-bind (title contents)
+      (call-next-method)
+    (let ((header (kernel:get-type o)))
+      (cond ((= header vm:function-header-type)
+             (values (format nil "~A is a function." o)
+                     (append contents
+                             (label-value-line*
+                              ("Self" (kernel:%function-self o))
+                              ("Next" (kernel:%function-next o))
+                              ("Type" (kernel:%function-type o))
+                              ("Code" (kernel:function-code-header o)))
+                             (list 
+                              (with-output-to-string (s)
+                                (disassem:disassemble-function o :stream s))))))
+            ((= header vm:closure-header-type)
+             (values (format nil "~A is a closure" o)
+                     (append 
+                      (label-value-line "Function Object" (kernel:%closure-function o))
+                      `("Environment:" (:newline))
+                      (loop
+                         for i from 0 below (1- (kernel:get-closure-length o))
+                         append (label-value-line i (kernel:%closure-index-ref o i))))))
+	  (t (values title contents))))))
 
 (defmethod inspect-for-emacs ((o kernel:code-component) (_ cmucl-inspector))
   (declare (ignore _))
