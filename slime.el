@@ -228,13 +228,17 @@ Lisp, not just those occuring during RPCs.")
 	  (const :tag "Don't show" nil))
   :group 'sldb)
 
-(def-sldb-face topline "top line describing error")
-(def-sldb-face condition "condition class")
+(def-sldb-face topline "top line describing error"
+  (:bold t))
+(def-sldb-face condition "condition class"
+  (:bold t))
 (def-sldb-face section "labels for major sections of backtrace")
 (def-sldb-face frame-label "Backtrace frame number")
-(def-sldb-face restart-type "restart types")
+(def-sldb-face restart-type "restart types"
+  (:bold t))
 (def-sldb-face restart "restart descriptions")
-(def-sldb-face restart-number "restart numbers (correspond to keystrokes to invoke)")
+(def-sldb-face restart-number "restart numbers (correspond to keystrokes to invoke)"
+  (:bold t))
 (def-sldb-face frame-line "function names and arguments in backtrace")
 (def-sldb-face detailed-frame-line "function names and arguments in backtrace for detailed frame")
 (def-sldb-face local-name "label for local variable")
