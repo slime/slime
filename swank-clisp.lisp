@@ -24,21 +24,31 @@
   (use-package "SOCKET")
   (use-package "GRAY"))
 
-(setq *use-dedicated-output-stream* nil)
-;(setq *redirect-output* nil)
+(eval-when (:compile-toplevel :execute)
+  (when (find-package "LINUX")
+    (pushnew :linux *features*)))
 
 #+linux
+(defmacro with-blocked-signals ((&rest signals) &body body)
+  (ext:with-gensyms ("SIGPROCMASK" ret mask)
+    `(multiple-value-bind (,ret ,mask)
+	 (linux:sigprocmask-set-n-save
+	  ,linux:SIG_BLOCK
+	  ,(do ((sigset (linux:sigset-empty)
+			(linux:sigset-add sigset (the fixnum (pop signals)))))
+	       ((null signals) sigset)))
+       (linux:check-res ,ret 'linux:sigprocmask-set-n-save)
+       (unwind-protect
+	    (progn ,@body)
+	 (linux:sigprocmask-set ,linux:SIG_SETMASK ,mask nil)))))
+	
+#+linux
 (defmacro without-interrupts (&body body)
-  `(let ((sigact (linux:signal-action-retrieve linux:SIGINT)))
-     (unwind-protect
-	  (progn
-	    (linux:set-sigprocmask linux:SIG_BLOCK (linux:sa-mask sigact))
-	    ,@body)
-       (linux:set-sigprocmask linux:SIG_UNBLOCK (linux:sa-mask sigact)))))
+  `(with-blocked-signals (,linux:SIGINT) ,@body))
 
 #-linux
-(defmacro without-interrupts (body)
-  body)
+(defmacro without-interrupts (&body body)
+  `(progn ,@body))
 
 (defun without-interrupts* (fun)
   (without-interrupts (funcall fun)))
