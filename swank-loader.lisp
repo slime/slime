@@ -58,9 +58,15 @@
   (> (file-write-date new-file) (file-write-date old-file)))
 
 (defun binary-pathname (source-pathname)
-  (merge-pathnames
-   (make-pathname :directory `(:relative "fasl" ,*lisp-name*))
-   (merge-pathnames (compile-file-pathname source-pathname))))
+  "Return the pathname where SOURCE-PATHNAME's binary should be compiled."
+  (let ((cfp (compile-file-pathname source-pathname)))
+    (merge-pathnames (make-pathname
+                      :directory `(:relative #-mswindows ".slime"
+                                   #+mswindows "_slime"
+                                   "fasl" ,*lisp-name*)
+                      :name (pathname-name cfp)
+                      :type (pathname-type cfp))
+                     (user-homedir-pathname))))
 
 (defun compile-files-if-needed-serially (files)
   "Compile each file in FILES if the source is newer than
