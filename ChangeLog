@@ -1,3 +1,23 @@
+2004-04-06  Marco Baringer  <mb@bese.it>
+
+	* slime.el (slime-repl-command-input-complete-p): New function.
+	(slime-repl-send-string): New optional arg specifying what string
+	to put on slime-repl-input-history, usefull when this string
+	differs from what we actually want to eval.
+	(slime-repl-return): Check for repl commands and pass then to
+	slime-repl-send-repl-command.
+	(slime-repl-send-repl-command): New function.
+	(slime-kill-all-buffers): New function.
+	
+	* swank.lisp: Define the various repl command handlers: sayoonara,
+	cd, pwd, pack and cload.
+	
+	* swank-backend.lisp (quit-lisp): Define as part of the backend
+	interface and export.
+	
+	* swank-sbcl.lisp, swank-openmcl.lisp, swank-cmucl.lisp,
+	swank-clisp.lisp, swank-allegro.lisp (quit-lisp): implement.
+
 2004-04-06  Luke Gorrie  <luke@bluetail.com>
 
 	* swank.lisp (macro-indentation): Check that the arglist is

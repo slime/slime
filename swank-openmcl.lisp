@@ -562,3 +562,6 @@ out IDs for.")
     (ccl:wait-on-semaphore (mailbox.semaphore mbox))
     (ccl:with-lock-grabbed (mutex)
       (pop (mailbox.queue mbox)))))
+
+(defimplementation quit-lisp ()
+  (ccl::quit))

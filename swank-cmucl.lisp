@@ -1466,3 +1466,6 @@ LRA  =  ~X~%" (mapcar #'fixnum
         (pop (mailbox.queue mbox)))))
 
   )
+
+(defimplementation quit-lisp ()
+  (ext::quit))

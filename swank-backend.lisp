@@ -24,6 +24,7 @@
            #:position-p
            #:position-pos
            #:print-output-to-string
+           #:quit-lisp
            ))
 
 (in-package :swank-backend)
@@ -524,3 +525,6 @@ Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time."
 
 (definterface receive ()
   "Return the next message from current thread's mailbox.")
+
+(definterface quit-lisp ()
+  "Exit the current lisp image.")

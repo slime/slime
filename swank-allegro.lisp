@@ -322,3 +322,6 @@
     (mp:process-wait "receive" #'mailbox.queue mbox)
     (mp:with-process-lock (mutex)
       (pop (mailbox.queue mbox)))))
+
+(defimplementation quit-lisp ()
+  (excl:exit 0 :quiet t))

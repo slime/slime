@@ -713,3 +713,6 @@ stack."
                                               mutex))))))))
 
   )
+
+(defimplementation quit-lisp ()
+  (sb-ext::quit))

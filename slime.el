@@ -401,6 +401,25 @@ A prefix argument disables this behaviour."
                t)))
           (t t))))
 
+(defun slime-repl-command-input-complete-p (start end)
+  "Return t if the region from START to END contains a complete SLIME repl command.
+
+  So, what's a SLIME repl command? A #\, followed by the name of
+  a repl command followed by n complete lisp forms."
+  (interactive (list (point-min) (point-max)))
+  (save-excursion
+    (goto-char start)
+    (and (looking-at " *, *")
+         (save-restriction
+           (narrow-to-region (search-forward-regexp "\\s *,") end)
+           (loop 
+              do (skip-chars-forward " \t\r\n")
+              until (eobp)
+              do (condition-case nil
+                     (forward-sexp)
+                   (scan-error (return nil)))
+              finally (return t))))))
+
 (defun inferior-slime-input-complete-p ()
   "Return true if the input is complete in the inferior lisp buffer."
   (slime-input-complete-p (process-mark (get-buffer-process (current-buffer)))
@@ -2019,8 +2038,8 @@ after the last prompt to the end of buffer."
                     (slime-repl-insert-prompt result)))
     ((:abort) (slime-repl-show-abort))))
 
-(defun slime-repl-send-string (string)
-  (slime-repl-add-to-input-history string)
+(defun slime-repl-send-string (string &optional command-string)
+  (slime-repl-add-to-input-history (or command-string string))
   (cond (slime-repl-read-mode
          (slime-repl-return-string string))
         (t (slime-repl-eval-string string))))
@@ -2130,6 +2149,10 @@ balanced."
   (cond (current-prefix-arg
          (slime-repl-send-input)
          (insert "\n"))
+        ((slime-repl-command-input-complete-p slime-repl-input-start-mark slime-repl-input-end-mark)
+         (goto-char slime-repl-input-end-mark)
+         (insert "\n")
+         (slime-repl-send-repl-command))
         ((slime-input-complete-p slime-repl-input-start-mark 
                                  slime-repl-input-end-mark)
          (goto-char slime-repl-input-end-mark)
@@ -2148,6 +2171,28 @@ balanced."
     (slime-mark-output-start)
     (slime-mark-input-start)
     (slime-repl-send-string (concat input "\n"))))
+
+(defun slime-repl-send-repl-command ()
+  "Goto the end of the input and send the current input (which
+  we're assuming is a repl command."
+  (let ((input (buffer-substring-no-properties (save-excursion
+                                                 (goto-char slime-repl-input-start-mark)
+                                                 (search-forward-regexp " *,"))
+                                               (save-excursion
+                                                 (goto-char slime-repl-input-end-mark)
+                                                 (when (and (eq (char-before) ?\n)
+                                                            (not (slime-reading-p)))
+                                                   (backward-char 1))
+                                                 (point)))))
+    (goto-char slime-repl-input-end-mark)
+    (add-text-properties slime-repl-input-start-mark (point)
+                         '(face slime-repl-input-face rear-nonsticky (face)))
+    (slime-mark-output-start)
+    (slime-mark-input-start)
+    (if (string-match "^ *\\+ *$" input)
+        ;; majik ,+ command
+        (slime-repl-send-string (pop slime-repl-input-history))
+        (slime-repl-send-string (concat "(swank::repl-command " input ")\n") (concat "," input)))))
 
 (defun slime-repl-closing-return ()
   "Evaluate the current input string after closing all open lists."
@@ -5667,6 +5712,16 @@ BODY returns true if the check succeeds."
 
 (put 'def-slime-test 'lisp-indent-function 4)
 (put 'slime-check 'lisp-indent-function 1)
+
+;;;; Cleanup after a quit
+
+(defun slime-kill-all-buffers ()
+  "Kill all the slime related buffers. This is only used by the
+  repl command sayoonara."
+  (dolist (buf (buffer-list))
+    (when (or (member (buffer-name buf) (list "*inferior-lisp*" "*slime-events*"))
+              (string-match "\*slime-repl\[\d+\]\*" (buffer-name buf)))
+      (kill-buffer buf))))
 
 
 ;;;;; Test case definitions

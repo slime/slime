@@ -435,6 +435,9 @@ Execute BODY with NAME's funtion slot set to FUNCTION."
 			  pairs)))
 		(nreverse pairs))))))
 
+(defimplementation quit-lisp ()
+  (#+lisp=cl ext:quit #-lisp=cl lisp:quit code))
+
 ;;; Local Variables:
 ;;; eval: (put 'compile-file-frobbing-notes 'lisp-indent-function 1)
 ;;; eval: (put 'dynamic-flet 'common-lisp-indent-function 1)
