@@ -538,7 +538,8 @@ Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time."
 
 (definterface call-with-lock-held (lock function)
    "Call FUNCTION with LOCK held, queueing if necessary."
-   (declare (ignore lock))
+   (declare (ignore lock)
+            (type function function))
    (funcall function))
 
 

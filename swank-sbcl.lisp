@@ -79,6 +79,7 @@
   (make-socket-io-stream (accept socket)))
 
 (defimplementation add-input-handler (socket fn)
+  (declare (type function fn))
   (sb-sys:add-fd-handler (socket-fd  socket)
                          :input (lambda (fd)
                                   (declare (ignore fd))
@@ -107,6 +108,7 @@
           (sb-bsd-sockets:interrupted-error ()))))
 
 (defmethod call-without-interrupts (fn)
+  (declare (type function fn))
   (sb-sys:without-interrupts (funcall fn)))
 
 (defmethod getpid ()
@@ -226,6 +228,7 @@ compiler state."
           (sb-c::compiler-error-context-original-source-path context)))))
 
 (defimplementation call-with-compilation-hooks (function)
+  (declare (type function function))
   (handler-bind ((sb-c:compiler-error  #'handle-notification-condition)
                  (sb-ext:compiler-note #'handle-notification-condition)
                  (style-warning        #'handle-notification-condition)
@@ -235,6 +238,7 @@ compiler state."
 (defimplementation compile-file-for-emacs (filename load-p)
   (with-compilation-hooks ()
     (multiple-value-bind (fasl-file w-p f-p) (compile-file filename)
+      (declare (ignore w-p))
       (cond ((and fasl-file (not f-p) load-p)
              (load fasl-file))
             (t fasl-file)))))
@@ -371,9 +375,11 @@ Return NIL if the symbol is unbound."
 ;;; Debugging
 
 (defvar *sldb-stack-top*)
-(defvar *sldb-restarts*)
+(defvar *sldb-restarts* nil)
+(declaim (type list *sldb-restarts*))
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
+  (declare (type function debugger-loop-fn))
   (let* ((*sldb-stack-top* (or sb-debug:*stack-top-hint* (sb-di:top-frame)))
 	 (*sldb-restarts* (compute-restarts *swank-debugger-condition*))
 	 (sb-debug:*stack-top-hint* nil)
@@ -497,6 +503,7 @@ stack."
 	 (location (sb-di:frame-code-location frame))
 	 (debug-function (sb-di:frame-debug-fun frame))
 	 (debug-variables (sb-di::debug-fun-debug-vars debug-function)))
+    (declare (type (or null simple-vector) debug-variables))
     (loop for v across debug-variables
           collect (list
                    :name (to-string (sb-di:debug-var-symbol v))
@@ -519,8 +526,9 @@ stack."
 
 (defimplementation eval-in-frame (form index)
   (let ((frame (nth-frame index)))
-    (funcall (sb-di:preprocess-for-eval form 
-                                        (sb-di:frame-code-location frame))
+    (funcall (the function
+               (sb-di:preprocess-for-eval form 
+                                          (sb-di:frame-code-location frame)))
              frame)))
 
 (defun sb-debug-catch-tag-p (tag)
@@ -581,6 +589,7 @@ stack."
     (sb-thread:make-mutex :name name))
 
   (defimplementation call-with-lock-held (lock function)
+    (declare (type function function))
     (sb-thread:with-mutex (lock) (funcall function)))
 )
 

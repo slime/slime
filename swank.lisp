@@ -188,6 +188,7 @@ If *REDIRECT-IO* is true, all standard I/O streams are redirected."
   (setup-server port announce-fn background))
 
 (defun setup-server (port announce-fn background)
+  (declare (type function announce-fn))
   (setq *write-lock* (make-lock :name "Swank write lock"))
   (let* ((socket (create-socket port))
          (port (local-port socket)))
@@ -305,6 +306,7 @@ determined at compile time."
 
 (defun call-with-redirected-io (connection function)
   "Call FUNCTION with I/O streams redirected via CONNECTION."
+  (declare (type function function))
   (let* ((io  (connection.user-io connection))
          (in  (connection.user-input connection))
          (out (connection.user-output connection))
@@ -346,6 +348,7 @@ Thus the BODY forms can call READ-FROM-EMACS and SEND-TO-EMACS."
        (call-with-aux-connection (lambda () ,@body))))
 
 (defun call-with-aux-connection (fn)
+  (declare (type function fn))
   (let* ((c (open-aux-connection))
          (*dispatching-connection* c))
     (unwind-protect (funcall fn)
@@ -524,13 +527,14 @@ exists."
 (defun format-arglist (function-name lambda-list-fn)
   "Use LAMBDA-LIST-FN to format the arglist for FUNCTION-NAME.
 Call LAMBDA-LIST-FN with the symbol corresponding to FUNCTION-NAME."
-    (multiple-value-bind (arglist condition)
-        (ignore-errors 
-          (let ((symbol (find-symbol-or-lose function-name)))
-            (values (funcall lambda-list-fn symbol))))
-      (cond (condition  (format nil "(-- ~A)" condition))
-            (t (let ((*print-case* :downcase))
-                 (format nil "(~{~A~^ ~})" arglist))))))
+  (declare (type function lambda-list-fn))
+  (multiple-value-bind (arglist condition)
+      (ignore-errors 
+        (let ((symbol (find-symbol-or-lose function-name)))
+          (values (funcall lambda-list-fn symbol))))
+    (cond (condition  (format nil "(-- ~A)" condition))
+          (t (let ((*print-case* :downcase))
+               (format nil "(~{~A~^ ~})" arglist))))))
 
 
 ;;;; Debugger
@@ -627,6 +631,7 @@ printing."
   "Bind some printer variables to properly indent the frame and call
 FN with a string-stream for printing a frame of a bracktrace.  Return
 the string."
+  (declare (type function fn))
   (let* ((label (format nil "  ~D: " n))
          (string (with-output-to-string (stream) 
                    (let ((*print-pretty* *sldb-pprint-frames*))
@@ -800,6 +805,7 @@ WHAT can be a filename (pathname or string) or function name (symbol)."
 (defun measure-time-interval (fn)
   "Call FN and return the first return value and the elapsed time.
 The time is measured in microseconds."
+  (declare (type function fn))
   (let ((before (get-internal-real-time)))
     (values
      (funcall fn)
@@ -846,6 +852,7 @@ Record compiler notes signalled as `compiler-condition's."
 ;;;; Macroexpansion
 
 (defun apply-macro-expander (expander string)
+  (declare (type function expander))
   (let ((*print-pretty* t)
 	(*print-length* 20)
 	(*print-level* 20))
@@ -904,6 +911,7 @@ format. The cases are as follows:
   FOO      - Symbols with matching prefix and accessible in the buffer package.
   PKG:FOO  - Symbols with matching prefix and external in package PKG.
   PKG::FOO - Symbols with matching prefix and accessible in package PKG."
+  (declare (type simple-base-string string))
   (multiple-value-bind (name package-name internal-p)
       (tokenize-symbol-designator string)
     (let ((package (carefully-find-package package-name default-package-name))
@@ -939,6 +947,7 @@ Return three values:
  SYMBOL-NAME
  PACKAGE-NAME, or nil if the designator does not include an explicit package.
  INTERNAL-P, if the symbol is qualified with `::'."
+  (declare (type simple-base-string string))
   (values (let ((pos (position #\: string :from-end t)))
             (if pos (subseq string (1+ pos)) string))
           (let ((pos (position #\: string)))
@@ -967,6 +976,7 @@ Examples:
 \(compound-prefix-match \"foo\" \"foobar\") => t
 \(compound-prefix-match \"m--b\" \"multiple-value-bind\") => t
 \(compound-prefix-match \"m-v-c\" \"multiple-value-bind\") => NIL"
+  (declare (type simple-base-string prefix target))
   (loop for ch across prefix
         with tpos = 0
         always (and (< tpos (length target))
@@ -986,6 +996,7 @@ Examples:
 
 (defun tokenize-completion (string)
   "Return all substrings of STRING delimited by #\-."
+  (declare (type simple-base-string string))
   (loop with end
         for start = 0 then (1+ end)
         until (> start (length string))
@@ -1033,6 +1044,7 @@ The result is a list of property lists."
   "Return a property list describing SYMBOL.
 Like `describe-symbol-for-emacs' but with at most one line per item."
   (flet ((first-line (string) 
+           (declare (type simple-base-string string))
            (let ((pos (position #\newline string)))
              (if (null pos) string (subseq string 0 pos)))))
     (let ((desc (map-if #'stringp #'first-line 
@@ -1044,6 +1056,7 @@ Like `describe-symbol-for-emacs' but with at most one line per item."
   "Like (mapcar FN . LISTS) but only call FN on objects satisfying TEST.
 Example:
 \(map-if #'oddp #'- '(1 2 3 4 5)) => (-1 2 -3 4 -5)"
+  (declare (type function test fn))
   (apply #'mapcar
          (lambda (x) (if (funcall test x) (funcall fn x) x))
          lists))
@@ -1051,6 +1064,7 @@ Example:
 (defun listify (f)
   "Return a function like F, but which returns any non-null value
 wrapped in a list."
+  (declare (type function f))
   (lambda (x)
     (let ((y (funcall f x)))
       (and y (list y)))))
@@ -1078,6 +1092,7 @@ that symbols accessible in the current package go first."
              (apropos-list string package)))
 
 (defun print-output-to-string (fn)
+  (declare (type function fn))
   (with-output-to-string (*standard-output*)
     (let ((*debug-io* *standard-output*))
       (funcall fn))))
@@ -1165,6 +1180,7 @@ that symbols accessible in the current package go first."
 (defun alistify (list key test)
   "Partition the elements of LIST into an alist.  KEY extracts the key
 from an element and TEST is used to compare keys."
+  (declare (type function key))
   (let ((alist '()))
     (dolist (e list)
       (let* ((k (funcall key e))
@@ -1181,6 +1197,7 @@ from an element and TEST is used to compare keys."
         (t nil)))
 
 (defun partition (list predicate)
+  (declare (type function predicate))
   (loop for e in list 
 	if (funcall predicate e) collect e into yes
 	else collect e into no
@@ -1207,6 +1224,7 @@ from an element and TEST is used to compare keys."
 (defvar *inspectee-parts*)
 (defvar *inspector-stack* '())
 (defvar *inspector-history* (make-array 10 :adjustable t :fill-pointer 0))
+(declaim (type vector *inspector-history*))
 (defvar *inspect-length* 30)
 
 (defun reset-inspector ()
