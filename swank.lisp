@@ -16,12 +16,15 @@
 
 (in-package :swank)
 
+(declaim (optimize (debug 3)))
+
 (defvar *swank-io-package*
   (let ((package (make-package "SWANK-IO-PACKAGE" :use '())))
     (import '(nil t quote) package)
     package))
 
-(declaim (optimize (debug 3)))
+(defvar *dispatching-connection* nil
+  "Connection currently being served.")
 
 (defconstant server-port 4005
   "Default port for the Swank TCP server.")
@@ -63,13 +66,62 @@ run.")
     (export ',fun :swank)))
 
 
-;;;; Setup and Hooks
+;;;; Helper macros
+
+(defmacro with-conversation-lock (&body body)
+  `(call-with-conversation-lock (lambda () ,@body)))
+
+(defmacro with-I/O-lock (&body body)
+  `(call-with-I/O-lock (lambda () ,@body)))
+
+(defmacro with-io-redirection ((&optional (connection '*dispatching-connection*))
+                               &body body)
+  "Execute BODY with I/O redirection to CONNECTION.
+If *REDIRECT-IO* is true, all standard I/O streams are redirected."
+  `(if *redirect-io*
+       (call-with-redirected-io ,connection (lambda () ,@body))
+       (progn ,@body)))
+
+;;;
+;;;; Connection datatype
+
+(defstruct (connection
+             (:conc-name connection.)
+             (:print-function %print-connection)
+             (:constructor make-connection (socket-io user-input user-output user-io)))
+  ;; Raw I/O stream of socket connection.
+  (socket-io   nil :type stream)
+  ;; Streams that can be used for user interaction, with requests
+  ;; redirected to Emacs. These streams must be initialized but,
+  ;; depending on configuration, may not be used.
+  (user-input  nil :type (or stream null))
+  (user-output nil :type (or stream null))
+  (user-io     nil :type (or stream null)))
+
+(defun %print-connection (connection stream depth)
+  (declare (ignore depth))
+  (print-unreadable-object (connection stream :type t :identity t)))
+
+;; Condition for SLIME protocol errors.
+(define-condition slime-read-error (error) 
+  ((condition :initarg :condition :reader slime-read-error.condition))
+  (:report (lambda (condition stream)
+             (format stream "~A" (slime-read-error.condition condition)))))
+
+
+;;;; TCP Server
 
 (defvar *start-swank-in-background* t)
 (defvar *close-swank-socket-after-setup* nil)
 (defvar *use-dedicated-output-stream* t)
 
-(defun announce-server-port (file)
+(defun start-server (port-file)
+  (create-socket-server #'init-connection
+                        :announce-fn (announce-server-port-fn port-file)
+                        :port 0
+                        :loop nil))
+
+(defun announce-server-port-fn (file)
   (lambda (port)
     (with-open-file (s file
                        :direction :output
@@ -78,25 +130,68 @@ run.")
       (format s "~S~%" port))
     (simple-announce-function port)))
 
+(defun init-connection (socket-io)
+  (emacs-connected)
+  (let ((connection (create-connection socket-io)))
+    (lambda ()
+      (handle-request connection))))
+
+(defun create-connection (socket-io)
+  (let ((output-fn (make-output-function socket-io))
+        (input-fn  (lambda () (read-user-input-from-emacs socket-io))))
+    (multiple-value-bind (user-in user-out) (make-fn-streams input-fn output-fn)
+      (let ((user-io (make-two-way-stream user-in user-out)))
+        (make-connection socket-io user-in user-out user-io)))))
+
+(defun make-output-function (socket-io)
+  (if *use-dedicated-output-stream*
+      (let ((stream (open-dedicated-output-stream socket-io)))
+        (lambda (string)
+          (princ string stream)
+          (force-output stream)))
+      (lambda (string)
+        (send-output-to-emacs string socket-io))))
+
+(defun open-dedicated-output-stream (socket-io)
+  "Open a dedicated output connection to the Emacs on SOCKET-IO.
+Return an output stream suitable for writing program output.
+
+This is an optimized way for Lisp to deliver output to Emacs."
+  ;; We start a server process, ask Emacs to connect to it, and then
+  ;; return the socket's stream.
+  (let (stream)
+    (labels ((announce (port)
+               (send-to-emacs `(:open-dedicated-output-stream ,port) socket-io))
+             (init (client-stream)
+               (setf stream client-stream)
+               #'handle)
+             (handle ()
+               (error "Protocol error: received input on dedicated output socket.")))
+      (create-socket-server #'init
+                            :announce-fn #'announce
+                            :loop nil
+                            :accept-background nil
+                            :handle-background t)
+      (assert (streamp stream))
+      stream)))
+
+(defun handle-request (connection)
+  "Read and respond to one request from CONNECTION."
+  (catch 'slime-toplevel
+    (with-simple-restart (abort "Return to SLIME toplevel.")
+      (let ((*dispatching-connection* connection))
+        (with-io-redirection ()
+          (handler-case (read-from-emacs)
+            (slime-read-error (e)
+              (when *swank-debug-p*
+                (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
+              (close (connection.socket-io connection))
+              (return-from handle-request t)))))))
+  nil)
+
 (defun simple-announce-function (port)
   (when *swank-debug-p*
     (format *debug-io* "~&;; Swank started at port: ~D.~%" port)))
-
-(defun start-server (port-file-namestring)
-  "Create a SWANK server and write its port number to the file
-PORT-FILE-NAMESTRING in ascii text."
-  (create-swank-server 
-   0 :reuse-address t
-   :announce (announce-server-port port-file-namestring)))
-
-
-;;;; Helper macros
-
-(defmacro with-conversation-lock (&body body)
-  `(call-with-conversation-lock (lambda () ,@body)))
-
-(defmacro with-I/O-lock (&body body)
-  `(call-with-I/O-lock (lambda () ,@body)))
 
 
 ;;;; IO to Emacs
@@ -114,36 +209,26 @@ PORT-FILE-NAMESTRING in ascii text."
 ;;; These stream variables are all dynamically-bound during request
 ;;; processing.
 
-(defvar *emacs-io* nil
-  "The raw TCP stream connected to Emacs.")
-
-(defvar *slime-output* nil
-  "Output stream for writing Lisp output text to Emacs.")
-
-(defvar *slime-input* nil
-  "Input stream to read user input from Emacs.")
-
-(defvar *slime-io* nil
-  "Two-way-stream built from *slime-input* and *slime-output*.")
-
-(defparameter *redirect-output* t
+(defparameter *redirect-io* t
   "When non-nil redirect Lisp standard I/O to Emacs.
 Redirection is done while Lisp is processing a request for Emacs.")
 
-(defun call-with-slime-streams (in out io fn args)
-  (if *redirect-output*
-      (let ((*standard-output* out)
-            (*slime-input* in)
-            (*slime-output* out)
-            (*slime-io* io)
-            (*error-output* out)
-            (*trace-output* out)
-            (*debug-io* io)
-            (*query-io* io)
-            (*standard-input* in)
-            (*terminal-io* io))
-        (apply fn args))
-      (apply fn args)))
+(defun call-with-redirected-io (connection function)
+  "Call FUNCTION with I/O streams redirected via CONNECTION."
+  (let* ((io  (connection.user-io connection))
+         (in  (connection.user-input connection))
+         (out (connection.user-output connection))
+         (*standard-output* out)
+         (*error-output* out)
+         (*trace-output* out)
+         (*debug-io* io)
+         (*query-io* io)
+         (*standard-input* in)
+         (*terminal-io* io))
+    (funcall function)))
+
+(defun current-socket-io ()
+  (connection.socket-io *dispatching-connection*))
 
 (defvar *log-events* nil)
 
@@ -153,36 +238,27 @@ Useful for low level debugging."
   (when *log-events*
     (apply #'format *terminal-io* format-string args)))
 
-(defun read-from-emacs ()
+(defun read-from-emacs (&optional (stream (current-socket-io)))
   "Read and process a request from Emacs."
-  (let ((form (read-next-form)))
+  (let ((form (read-next-form stream)))
     (log-event "READ: ~S~%" form)
-    (call-with-slime-streams
-     *slime-input* *slime-output* *slime-io*
-     #'funcall form)))
+    (apply #'funcall form)))
 
-(define-condition slime-read-error (error) 
-  ((condition :initarg :condition :reader slime-read-error.condition))
-  (:report (lambda (condition stream)
-             (format stream "~A" (slime-read-error.condition condition)))))
-
-(defun read-next-form ()
-  "Read the next Slime request from *EMACS-IO* and return an
-S-expression to be evaluated to handle the request.  If an error
-occurs during parsing, it will be noted and control will be tranferred
-back to the main request handling loop."
-  (flet ((next-byte () (char-code (read-char *emacs-io*))))
+(defun read-next-form (stream)
+  "Read an S-expression from STREAM using the SLIME protocol.
+If a protocol error occurs then a SLIME-READ-ERROR is signalled."
+  (flet ((next-byte () (char-code (read-char stream))))
     (handler-case
         (with-I/O-lock
           (let* ((length (logior (ash (next-byte) 16)
                                  (ash (next-byte) 8)
                                  (next-byte)))
                  (string (make-string length))
-                 (pos (read-sequence string *emacs-io*)))
-            (assert (= pos length) nil
+                 (pos (read-sequence string stream)))
+            (assert (= pos length) ()
                     "Short read: length=~D  pos=~D" length pos)
             (read-form string)))
-      (serious-condition (c) 
+      (serious-condition (c)
         (error (make-condition 'slime-read-error :condition c))))))
 
 (defun read-form (string)
@@ -199,8 +275,8 @@ back to the main request handling loop."
     (setq *slime-features* *features*)
     (send-to-emacs (list :new-features (mapcar #'symbol-name *features*)))))
 
-(defun send-to-emacs (object)
-  "Send `object' to Emacs."
+(defun send-to-emacs (object &optional (output (current-socket-io)))
+  "Send OBJECT to over CONNECTION to Emacs."
   (let* ((string (prin1-to-string-for-emacs object))
          (length (1+ (length string))))
     (log-event "SEND: ~A~%" string)
@@ -209,10 +285,10 @@ back to the main request handling loop."
        (lambda ()
          (loop for position from 16 downto 0 by 8
             do (write-char (code-char (ldb (byte 8 position) length))
-                           *emacs-io*))
-         (write-string string *emacs-io*)
-         (terpri *emacs-io*)
-         (force-output *emacs-io*))))))
+                           output))
+         (write-string string output)
+         (terpri output)
+         (force-output output))))))
 
 (defun prin1-to-string-for-emacs (object)
   (with-standard-io-syntax
@@ -222,24 +298,34 @@ back to the main request handling loop."
           (*package* *swank-io-package*))
       (prin1-to-string object))))
 
+(defun force-user-output (&optional (connection *dispatching-connection*))
+  (assert (connection-p connection))
+  (force-output (connection.user-io connection))
+  (force-output (connection.user-output connection)))
+
+(defun clear-user-input  (&optional (connection *dispatching-connection*))
+  (assert (connection-p connection))
+  (clear-input (connection.user-input connection)))
+
+(defun send-output-to-emacs (string socket-io)
+  (send-to-emacs `(:read-output ,string) socket-io))
+
+(defun read-user-input-from-emacs (socket-io)
+  (let ((*read-input-catch-tag* (1+ *read-input-catch-tag*)))
+    (send-to-emacs `(:read-string ,*read-input-catch-tag*) socket-io)
+    (let ((ok nil))
+      (unwind-protect
+           (prog1 (catch *read-input-catch-tag* 
+                    (loop (read-from-emacs socket-io)))
+             (setq ok t))
+        (unless ok 
+          (send-to-emacs `(:read-aborted)))))))
+
 
 ;;;;; Input from Emacs
 
 (defvar *read-input-catch-tag* 0)
 
-(defun slime-read-string ()
-  (force-output)
-  (force-output *slime-io*)
-  (let ((*read-input-catch-tag* (1+ *read-input-catch-tag*)))
-    (send-to-emacs `(:read-string ,*read-input-catch-tag*))
-    (let (ok)
-      (unwind-protect
-           (prog1 (catch *read-input-catch-tag* 
-                    (loop (read-from-emacs)))
-             (setq ok t))
-        (unless ok 
-          (send-to-emacs `(:read-aborted)))))))
-      
 (defslimefun take-input (tag input)
   (throw tag input))
 
@@ -325,19 +411,15 @@ or SB-DEBUG::*INVOKE-DEBUGGER-HOOK*, to install the SLIME debugger
 globally.  Must be run from the *slime-repl* buffer or somewhere else
 that the slime streams are visible so that it can capture them."
   (let ((package *buffer-package*)
-        (in *slime-input*)
-        (out *slime-output*)
-	(io *slime-io*)
-        (eio *emacs-io*))
+        (connection *dispatching-connection*))
     (labels ((slime-debug (c &optional next)
                (let ((*buffer-package* package)
-		     (*emacs-io* eio))
+                     (*dispatching-connection* connection))
                  ;; check emacs is still there: don't want to end up
                  ;; in recursive debugger loops if it's disconnected
-                 (when (open-stream-p *emacs-io*)
-                   (call-with-slime-streams 
-                    in out io 
-                    #'swank-debugger-hook (list c next))))))
+                 (when (open-stream-p (connection.socket-io connection))
+                   (with-io-redirection ()
+                     (swank-debugger-hook c next))))))
       #'slime-debug)))
 
 (defslimefun install-global-debugger-hook ()
@@ -446,7 +528,7 @@ has changed, ignore the request."
              (force-output)
              (setq ok t))
         (sync-state-to-emacs)
-        (force-output *slime-io*)
+        (force-user-output)
         (send-to-emacs `(:return ,(if ok `(:ok ,result) '(:abort)) ,id)))))
   (when *debugger-hook-passback*
     (setq *debugger-hook* *debugger-hook-passback*)
@@ -486,7 +568,7 @@ change, then send Emacs an update."
 	     (read-from-string string nil nil :start pos)))
       (when (and package-update-p (not (eq *package* *buffer-package*)))
 	(send-to-emacs (list :new-package 
-			     (shortest-package-nickname *package*)))))))
+                             (shortest-package-nickname *package*)))))))
 
 (defun shortest-package-nickname (package)
   "Return the shortest nickname (or canonical name) of PACKAGE."
@@ -531,7 +613,7 @@ change, then send Emacs an update."
   (package-name *package*))
 
 (defslimefun listener-eval (string)
-  (clear-input *slime-input*)
+  (clear-user-input)
   (multiple-value-bind (values last-form) (eval-region string t)
     (setq +++ ++  ++ +  + last-form
 	  *** **  ** *  * (car values)
@@ -837,7 +919,7 @@ that symbols accessible in the current package go first."
   (multiple-value-bind (symbol foundp)
       (find-symbol-designator symbol-name)
     (cond (foundp (print-description-to-string symbol))
-	  (t (format nil "Unkown symbol: ~S [in ~A]" 
+	  (t (format nil "Unknown symbol: ~S [in ~A]" 
 		     symbol-name *buffer-package*)))))
 
 (defslimefun describe-function (symbol-name)
