@@ -135,6 +135,9 @@ If you want to fallback on TAGS you can set this to `find-tag'.")
 (defvar slime-kill-without-query-p t
   "If non-nil, kill Slime processes without query when quitting Emacs.")
 
+(defvar slime-sbcl-manual-root "http://www.sbcl.org/manual/"
+  "*The base URL of the SBCL manual, for documentation lookup.")
+
 
 ;;; Customize group
 
@@ -295,6 +298,8 @@ If you want to fallback on TAGS you can set this to `find-tag'.")
 (def-sldb-face local-name "label for local variable")
 (def-sldb-face local-value "local variable values")
 (def-sldb-face catch-tag "catch tags")
+(def-sldb-face reference "documentation reference"
+  (:underline t))
 
 (defcustom slime-compilation-finished-hook 'slime-maybe-list-compiler-notes
   "Hook called with a list of compiler notes after a compilation."
@@ -1027,6 +1032,16 @@ This is more compatible with the CL reader."
   "Kills buffer BUFFER-NAME if it exists."
   (when (buffer-live-p (get-buffer buffer-name))
     (kill-buffer buffer-name)))
+
+(defmacro slime-with-rigid-indentation (level &rest body)
+  "Execute BODY and then rigidly indent its text insertions.
+Assumes all insertions are made at point."
+  (let ((start (gensym)))
+    `(let ((,start (point)))
+       (prog1 (progn ,@body)
+         (indent-rigidly ,start (point) ,level)))))
+
+(put 'slime-with-rigid-indentation 'lisp-indent-function 1)
 
 
 ;;; Inferior CL Setup: compiling and connecting to Swank
@@ -4765,13 +4780,6 @@ Full list of commands:
     (funcall (if create #'get-buffer-create #'get-buffer)
              buffer-name)))
 
-(defun sldb-insert-condition (condition)
-  (destructuring-bind (message type) condition
-    (insert (in-sldb-face topline message)
-            "\n" 
-            (in-sldb-face condition type)
-            "\n\n")))
-
 (defun sldb-setup (thread level condition restarts frames)
   "Setup a new SLDB buffer.
 CONDITION is a string describing the condition to debug.
@@ -4820,6 +4828,66 @@ portion of the backtrace. Frames are numbered from 0."
       (setq sldb-level nil))
     (when (= level 1)
       (kill-buffer sldb))))
+
+(defun sldb-insert-condition (condition)
+  (destructuring-bind (message type references) condition
+    (insert (in-sldb-face topline message)
+            "\n" 
+            (in-sldb-face condition type)
+            "\n\n")
+    (when references
+      (insert "See also:\n")
+      (slime-with-rigid-indentation 2
+        (sldb-insert-references references))
+      (insert "\n"))))
+
+(defun sldb-insert-references (references)
+  "Insert documentation references from a condition.
+See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
+  (loop for ref in references
+        do
+        (destructuring-bind (where type what) ref
+          (insert (sldb-format-reference-source where) ", ")
+          (slime-insert-propertized (sldb-reference-properties where type what)
+                                    (sldb-format-reference-node what))
+          (insert (format " [%s]" (slime-cl-symbol-name type)) "\n"))))
+
+(defun sldb-reference-properties (where type what)
+  "Return the properties for a reference.
+Only add clickability to properties we actually know how to lookup."
+  (if (or (and (eq where :sbcl) (eq type :node))
+          (and (eq where :ansi-cl)
+               (symbolp type)
+               (member (slime-cl-symbol-name type)
+                       '("function" "special-operator" "macro"))))
+      `(sldb-default-action sldb-lookup-reference
+                            sldb-reference ,ref
+                            face sldb-reference-face
+                            mouse-face highlight)))
+
+(defun sldb-format-reference-source (where)
+  (case where
+    (:ansi-cl "Common Lisp Hyperspec")
+    (:sbcl    "SBCL Manual")
+    (t        (format "%S" where))))
+
+(defun sldb-format-reference-node (what)
+  (if (symbolp what)
+      (upcase (slime-cl-symbol-name what))
+    what))
+
+(defun sldb-lookup-reference ()
+  "Browse the documentation reference at point."
+  (destructuring-bind (where type what)
+      (get-text-property (point) 'sldb-reference)
+    (case where
+      (:ansi-cl
+       (hyperspec-lookup (if (symbolp what)
+                             (slime-cl-symbol-name what)
+                           what)))
+      (t
+       (let ((url (format "%s%s.html" slime-sbcl-manual-root (downcase what))))
+         (browse-url url))))))
 
 (defun sldb-insert-restarts (restarts)
   (loop for (name string) in restarts
