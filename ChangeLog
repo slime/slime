@@ -20,7 +20,8 @@
 	xref:*who-is-called* and xref:*who-macroexpands* with
 	#+CMU19. This makes SLIME compatible with CMUCL 18e, but also
 	disables the `who-macroexpands' command in any CMUCL version that
-	doesn't have the "19A" feature.
+	doesn't have the "19A" feature (which does break the command in
+	some snapshot builds that can actually support it).
 
 2003-10-20  Daniel Barlow  <dan@telent.net>
 
