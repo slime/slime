@@ -67,14 +67,19 @@ subexpressions of the object to stream positions."
 						       *source-map*)))
     (values (read stream) *source-map*)))
 
+(defun read-source-form (n stream)
+  "Read the Nth toplevel form number with source location recording.
+Return the form and the source-map."
+  (let ((*read-suppress* t)) 
+    (dotimes (i n)
+      (read stream)))
+  (let ((*read-suppress* nil)) 
+    (read-and-record-source-map stream)))
+  
 (defun source-path-stream-position (path stream)
   "Search the source-path PATH in STREAM and return its position."
   (destructuring-bind (tlf-number . path) path
-    (let ((*read-suppress* t))
-      (dotimes (i tlf-number) (read stream)))
-    (multiple-value-bind (form source-map) 
-	(let ((*read-suppress* nil))
-	  (read-and-record-source-map stream))
+    (multiple-value-bind (form source-map) (read-source-form tlf-number stream)
       (source-path-source-position (cons 0 path) form source-map))))
 
 (defun source-path-string-position (path string)
@@ -88,7 +93,7 @@ subexpressions of the object to stream positions."
 (defun source-path-source-position (path form source-map)
   "Return the start position of PATH from FORM and SOURCE-MAP.  All
 subforms along the path are considered and the start and end position
-of deepest (i.e. smallest) possible form is returned."
+of the deepest (i.e. smallest) possible form is returned."
   ;; compute all subforms along path
   (let ((forms (loop for n in path
 		     for f = form then (nth n f)
