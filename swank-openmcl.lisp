@@ -77,18 +77,22 @@
 ;; blocks on its TCP port while waiting for forms to evaluate.
 
 (defun create-swank-server (port &key (reuse-address t) 
-                            (announce #'simple-announce-function))
+                            (announce #'simple-announce-function)
+                            (background *start-swank-in-background*)
+                            (close *close-swank-socket-after-setup*))
   "Create a Swank TCP server on `port'."
   (let ((server-socket (ccl:make-socket :connect :passive :local-port port
-                                        :reuse-address reuse-address)))
+                                           :reuse-address reuse-address)))
     (funcall announce (ccl:local-port server-socket))
-    (let ((swank (ccl:process-run-function "Swank Request Processor"
-                                           #'swank-accept-connection
-                                           server-socket)))
-      ;; tell openmcl which process you want to be interrupted when
-      ;; sigint is received
-      ;;(setq ccl::*interactive-abort-process* swank)
-      )))
+    (cond (background
+           (let ((swank (ccl:process-run-function 
+                         "Swank" #'accept-loop server-socket close)))
+             ;; tell openmcl which process you want to be interrupted when
+             ;; sigint is received
+             ;; (setq ccl::*interactive-abort-process* swank))
+             swank))
+          (t
+           (accept-loop server-socket close)))))
 
 #+(or)
 (defun ccl::force-break-in-listener (p)
@@ -110,27 +114,41 @@
           (invoke-debugger)
           (clear-input *terminal-io*))))))
 
-(defun swank-accept-connection (server-socket)
-  (loop (request-loop (ccl:accept-connection server-socket :wait t))))
+(defun accept-loop (server-socket close)
+  (unwind-protect (cond (close (accept-one-client server-socket))
+                        (t (loop (accept-one-client server-socket))))
+    (close server-socket)))
 
-(defun request-loop (*emacs-io*)
-  "Thread function for a single Swank connection.  Processes requests
-until the remote Emacs goes away."
-  (unwind-protect
-       (let* ((*slime-output* (make-instance 'slime-output-stream))
-              (*slime-input* (make-instance 'slime-input-stream))
-              (*slime-io* (make-two-way-stream *slime-input* *slime-output*)))
-         (loop
-            (catch 'slime-toplevel
-              (with-simple-restart (abort "Return to Slime event loop.")
-                (handler-case (read-from-emacs)
-                  (slime-read-error (e)
-                    (when *swank-debug-p*
-                      (format *debug-io*
-                              "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
-                    (return)))))))
-    (format *terminal-io* "~&;; Swank: Closed connection: ~A~%" *emacs-io*)
-    (close *emacs-io*)))
+(defun accept-one-client (server-socket)
+  (request-loop (ccl:accept-connection server-socket :wait t)))
+
+(defun request-loop (stream)
+  (let* ((out (if *use-dedicated-output-stream* 
+                  (open-stream-to-emacs stream)
+                  (make-instance 'slime-output-stream)))
+         (in (make-instance 'slime-input-stream))
+         (io (make-two-way-stream in out)))
+    (do () ((serve-one-request stream out in io)))))
+
+(defun serve-one-request (*emacs-io* *slime-output* *slime-input* *slime-io*)
+  (catch 'slime-toplevel
+    (with-simple-restart (abort "Return to Slime toplevel.")
+      (handler-case (read-from-emacs)
+	(slime-read-error (e)
+	  (when *swank-debug-p*
+	    (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
+	  (close *emacs-io*)
+          (return-from serve-one-request t)))))
+  nil)
+
+(defun open-stream-to-emacs (*emacs-io*)
+  (let* ((listener (ccl:make-socket :connect :passive :local-port 0
+                                       :reuse-address t))
+         (port (ccl:local-port listener)))
+    (unwind-protect (progn
+                      (eval-in-emacs `(slime-open-stream-to-lisp ,port))
+                      (ccl:accept-connection listener :wait t))
+      (close listener))))
 
 ;;; Evaluation
 
@@ -443,20 +461,6 @@ at least the filename containing it."
                (when (fboundp setf-function-name)
                  (doc 'function setf-function-name))))
       result)))
-
-;;; Tracing and Disassembly
-
-(defun tracedp (fname)
-   (ccl::%traced-p fname))
-
-(defslimefun toggle-trace-fdefinition (fname-string)
-   (let ((fname (from-string fname-string)))
-     (cond ((tracedp fname)
-	   (ccl::%untrace-1 fname)
-	   (format nil "~S is now untraced." fname))
-	  (t
-	   (ccl::%trace-0 (list fname))
-	   (format nil "~S is now traced." fname)))))
 
 ;;; XREF
 
