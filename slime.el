@@ -2933,6 +2933,7 @@ Return nil of no item matches"
   ("\C-\M-m" 'slime-repl-closing-return)
   ([(control return)] 'slime-repl-closing-return)
   ("\C-a" 'slime-repl-bol)
+  ([home] 'slime-repl-bol)
   ("\C-e" 'slime-repl-eol)
   ("\M-p" 'slime-repl-previous-input)
   ((kbd "C-<up>") 'slime-repl-previous-input)
