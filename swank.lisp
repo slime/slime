@@ -15,6 +15,11 @@
            #:ed-in-emacs
            
            #:frame-source-location-for-emacs
+           #:profiled-functions
+           #:profile-report
+           #:profile-reset
+           #:unprofile-all
+           #:profile-package
            ))
 
 (in-package :swank)
@@ -911,6 +916,9 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
 (defslimefun sldb-continue ()
   (continue))
 
+(defslimefun throw-to-toplevel ()
+  (throw 'slime-toplevel nil))
+
 (defslimefun invoke-nth-restart-for-emacs (sldb-level n)
   "Invoke the Nth available restart.
 SLDB-LEVEL is the debug level when the request was made. If this
@@ -1473,9 +1481,6 @@ that symbols accessible in the current package go first."
 
 (defslimefun load-file (filename)
   (to-string (load filename)))
-
-(defslimefun throw-to-toplevel ()
-  (throw 'slime-toplevel nil))
 
 
 ;;;; Profiling
