@@ -1627,7 +1627,6 @@ format. The cases are as follows:
 
 (defun completion-set (string default-package-name matchp)
   "Return the set of completion-candidates as strings."
-  (declare (type simple-base-string string))
   (multiple-value-bind (name package-name package internal-p)
       (parse-completion-arguments string default-package-name)
     (let* ((symbols (and package
@@ -1690,7 +1689,6 @@ Return these values:
       (values name package-name package internal-p))))
 
 (defun tokenize-symbol-designator (string)
-  (declare (type simple-base-string string))
   (values (let ((pos (position #\: string :from-end t)))
             (if pos (subseq string (1+ pos)) string))
           (let ((pos (position #\: string)))
@@ -1785,7 +1783,6 @@ COMPLETIONS is a list of strings."
 
 (defun tokenize-completion (string)
   "Return all substrings of STRING delimited by #\-."
-  (declare (type simple-base-string string))
   (loop with end
         for start = 0 then (1+ end)
         until (> start (length string))
@@ -1867,7 +1864,6 @@ designator's format. The cases are as follows:
   "Prepares list of completion objects, sorted by SCORE, of fuzzy
 completions of STRING in DEFAULT-PACKAGE-NAME.  If LIMIT is set,
 only the top LIMIT results will be returned."
-  (declare (type simple-base-string string))
   (multiple-value-bind (name package-name package internal-p)
       (parse-completion-arguments string default-package-name)
     (let* ((symbols (and package
@@ -2202,8 +2198,7 @@ Uses READ to case-convert STRING."
 (defun briefly-describe-symbol-for-emacs (symbol)
   "Return a property list describing SYMBOL.
 Like `describe-symbol-for-emacs' but with at most one line per item."
-  (flet ((first-line (string) 
-           (declare (type simple-base-string string))
+  (flet ((first-line (string)
            (let ((pos (position #\newline string)))
              (if (null pos) string (subseq string 0 pos)))))
     (let ((desc (map-if #'stringp #'first-line 
