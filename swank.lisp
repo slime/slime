@@ -1,6 +1,6 @@
-;;;; -*- Mode: lisp; indent-tabs-mode: nil -*-
-;;;
-;;; swank.lisp --- the portable bits
+;;;; -*- mode: lisp; mode: outline-minor; outline-regexp: ";;;;;*"; indent-tabs-mode: nil -*-
+
+;;;; swank.lisp --- the portable bits
 ;;;
 ;;; Created 2003, Daniel Barlow <dan@metacircles.com>
 ;;;
@@ -11,10 +11,64 @@
   (defpackage :swank
     (:use :common-lisp)
     (:nicknames "SWANK-IMPL")
-    (:export #:start-server)))
+    (:export
+
+     ;;-- Emacs entry-points
+     #:start-server
+     #:eval-string #:oneway-eval-string
+     #:interactive-eval #:interactive-eval-region
+     #:re-evaluate-defvar
+     #:pprint-eval
+     #:set-package
+     #:features
+     #:compiler-notes-for-file
+     #:compiler-notes-for-emacs
+     #:list-all-package-names
+     #:take-input
+
+     ;;-- Callbacks for the backend to implement.
+     #:create-swank-server
+     #:call-trapping-compilation-notes
+     #:call-with-debugging-environment
+     #:swank-compile-file #:swank-compile-string
+     #:arglist-string
+     #:who-calls #:who-references #:who-binds
+     #:who-sets #:who-macroexpands
+     #:list-callers #:list-callees
+     #:function-source-location-for-emacs
+     #:frame-source-location-for-emacs
+     #:eval-string-in-frame
+     #:frame-locals #:frame-catch-tags
+     #:invoke-nth-restart #:sldb-continue #:sldb-abort
+     #:throw-to-toplevel
+     #:describe-setf-function #:describe-type #:describe-class
+     #:swank-macroexpand-all
+     #:toggle-trace-fdefinition
+     #:getpid
+     #:backtrace-for-emacs #:debugger-info-for-emacs
+     #:set-default-directory
+     #:init-inspector
+     #:inspect-nth-part
+     #:inspector-pop
+     #:inspector-next
+     #:quit-inspector
+     #:describe-inspectee
+
+     ;;-- Library for backend to call
+     #:read-from-emacs #:send-to-emacs
+     #:*swank-debugger-condition* #:*sldb-level* #:*swank-debugger-hook*
+     #:*swank-debug-p*
+
+     #:*buffer-package* #:*compiler-notes* #:*notes-database* #:*previous-compiler-condition* #:*previous-context* #:*sldb-level* #:*swank-debugger-condition* 
+     #:apply-macro-expander #:backtrace-for-emacs #:call-with-compilation-hooks #:clear-note-database #:from-string #:print-description-to-string #:to-string 
+
+     #:*emacs-io* #:*slime-output* #:*slime-input* #:*slime-io*
+     )))
 
 (in-package :swank)
 
+
+;;;; Global variables
 (defvar *swank-io-package*
   (let ((package (make-package "SWANK-IO-PACKAGE")))
     (import '(nil t quote) package)
@@ -28,12 +82,73 @@
 (defvar *swank-debug-p* t
   "When true, print extra debugging information.")
 
+(defparameter callbacks '()
+  "List of callback functions to be implemented by backends.")
+
+(defmacro defcallback (name arglist docstring)
+  `(defun ,name (&rest args)
+     ,docstring
+     (declare (ignore args))
+     (format t "BAD CALLBACK: ~S" ',name)))
+
+
+;;;; Callback functions for the backend.
+
+(defcallback create-swank-server (port &key reuse-address address)
+  "Create a Swank TCP server to accept a single connection.
+Returns the port number the connection is actually listening on.")
+(defcallback swank-compile-file (filename loadp)
+  "Compile FILENAME. If LOADP is non-nil, load it afterwards.")
+(defcallback swank-compile-string (string buffer start)
+  "Compile STRING.
+BUFFER and START indicate the position in Emacs that STRING comes from.")
+(defcallback call-trapping-compilation-notes (function)
+  "Call FUNCTION, and record any resulting compilation notes.")
+(defcallback arglist-string (function-name)
+  "Return a string describing FUNCTION-NAME's argument list.")
+(defcallback who-calls (symbol) "")
+(defcallback who-references (symbol) "")
+(defcallback who-binds (symbol) "")
+(defcallback who-sets (symbol) "")
+(defcallback who-macroexpands (symbol) "")
+(defcallback list-callers (symbol-name) "") ; FIXME: s/symbol-name/symbol/
+(defcallback list-callees (symbol-name) "")
+(defcallback function-source-location-for-emacs (&rest _) "")
+(defcallback frame-source-location-for-emacs (&rest _) "")
+(defcallback eval-string-in-frame (&rest _) "")
+(defcallback frame-locals (&rest _) "")
+(defcallback frame-catch-tags (&rest _) "")
+(defcallback invoke-nth-restart (&rest _) "")
+(defcallback sldb-continue (&rest _) "")
+(defcallback sldb-abort (&rest _) "")
+(defcallback throw-to-toplevel (&rest _) "")
+(defcallback describe-setf-function (&rest _) "")
+(defcallback describe-type (&rest _) "")
+(defcallback describe-class (&rest _) "")
+(defcallback swank-macroexpand-all (&rest _) "")
+(defcallback toggle-trace-fdefinition (&rest _) "")
+(defcallback getpid (&rest _) "")
+(defcallback backtrace-for-emacs (&rest _) "")
+(defcallback debugger-info-for-emacs (&rest _) "")
+(defcallback set-default-directory (&rest _) "")
+(defcallback init-inspector (&rest _) "")
+(defcallback inspector-pop (&rest _) "")
+(defcallback inspector-next (&rest _) "")
+(defcallback quit-inspector (&rest _) "")
+(defcallback describe-inspectee (&rest _) "")
+
+;;; These variables are always bound when debugger callbacks are made.
+
+(defvar *swank-debugger-condition*)
+(defvar *swank-debugger-hook*)
+(defvar *sldb-level* 0)
+
 ;;; Setup and Hooks
 
-(defun start-server (port-file-namestring)
+(defun start-server (port-file-namestring &optional (port 0))
   "Create a SWANK server and write its port number to the file
 PORT-FILE-NAMESTRING in ascii text."
-  (let ((port (create-swank-server 0 :reuse-address t)))
+  (let ((port (create-swank-server port :reuse-address t)))
     (with-open-file (s port-file-namestring
                        :direction :output
                        :if-exists :overwrite
@@ -41,6 +156,37 @@ PORT-FILE-NAMESTRING in ascii text."
       (format s "~S~%" port)))
   (when *swank-debug-p*
     (format *debug-io* "~&;; Swank ready.~%")))
+
+(defcallback call-with-debugging-environment (function)
+  "Execute FUNCTION in an environment setup for debugging.
+Calls to backend debugger callbacks will be made from the dynamic
+environment created by this function.")
+
+(define-condition swank-debug-condition (serious-condition)
+  ((wrapped-condition :initarg :wrapped-condition
+                      :reader wrapped-condition)))
+
+(defun swank-debugger-hook (condition hook)
+  (let ((*swank-debugger-condition* condition)
+	(*swank-debugger-hook* hook)
+        (*sldb-level* (1+ *sldb-level*)))
+    (call-with-debugging-environment #'sldb-loop)))
+
+(defun sldb-loop ()
+  (let ((level *sldb-level*))
+    (send-to-emacs (list* :debug *sldb-level* (debugger-info-for-emacs 0 1)))
+    (handler-bind ((swank-debug-condition
+                    (lambda (condition)
+                      (let ((real-condition (wrapped-condition condition)))
+                        (send-to-emacs `(:debug-condition
+                                         ,(princ-to-string real-condition))))
+                      (throw 'sldb-loop-catcher nil))))
+      (unwind-protect
+           (loop (catch 'sldb-loop-catcher
+                   (with-simple-restart
+                       (abort "Return to sldb level ~D." level)
+                     (read-from-emacs))))
+        (send-to-emacs `(:debug-return ,level))))))
 
 ;;; IO to emacs
 
@@ -60,7 +206,9 @@ PORT-FILE-NAMESTRING in ascii text."
 
 (defun read-from-emacs ()
   "Read and process a request from Emacs."
+  (format t "~&Reading request.~%")
   (let ((form (read-next-form)))
+    (format t "~&Form = ~S~%" form)
     (if *redirect-output*
 	(let ((*standard-output* *slime-output*)
 	      (*error-output* *slime-output*)
@@ -76,15 +224,17 @@ PORT-FILE-NAMESTRING in ascii text."
 S-expression to be evaluated to handle the request.  If an error
 occurs during parsing, it will be noted and control will be tranferred
 back to the main request handling loop."
+  (format t "~&READ-NEXT-FORM 1~%")
   (flet ((next-byte () (char-code (read-char *emacs-io*))))
     (handler-case
         (let* ((length (logior (ash (next-byte) 16)
                                (ash (next-byte) 8)
                                (next-byte)))
                (string (make-string length)))
+          (format t "~&READ-NEXT-FORM 2~%")
           (read-sequence string *emacs-io*)
           (read-form string))
-      (condition (c)
+      (serious-condition (c)
         (throw 'serve-request-catcher c)))))
 
 (defun read-form (string)
@@ -151,14 +301,6 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
       (error "Backend function ~A not implemented." ',fun))
     (export ',fun :swank)))
 
-(defvar *swank-debugger-condition*)
-(defvar *swank-debugger-hook*)
-
-(defun swank-debugger-hook (condition hook)
-  (let ((*swank-debugger-condition* condition)
-	(*swank-debugger-hook* hook))
-    (sldb-loop)))
-
 (defslimefun eval-string (string buffer-package)
   (let ((*debugger-hook* #'swank-debugger-hook))
     (let (ok result)
@@ -169,6 +311,10 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
              (force-output)
              (setq ok t))
         (send-to-emacs (if ok `(:ok ,result) '(:aborted)))))))
+
+(defslimefun oneway-eval-string (string buffer-package)
+  (let ((*buffer-package* (guess-package-from-string buffer-package)))
+    (eval (read-form string))))
 
 (defslimefun interactive-eval (string)
   (let ((values (multiple-value-list (eval (from-string string)))))

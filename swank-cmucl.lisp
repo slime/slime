@@ -1,7 +1,22 @@
 
 (declaim (optimize debug))
 
-(in-package :swank)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defpackage :swank-cmucl
+    (:use :common-lisp)
+    (:nicknames "SWANK-BACKEND")))
+
+(in-package :swank-cmucl)
+
+(import '(swank:*swank-debugger-condition* swank:*sldb-level*
+swank:*buffer-package* swank:*compiler-notes* swank:*notes-database*
+swank:*previous-compiler-condition* swank:*previous-context*
+swank:*sldb-level* swank:*swank-debugger-condition*
+swank:apply-macro-expander swank:backtrace-for-emacs
+swank:call-with-compilation-hooks swank:clear-note-database
+swank:from-string swank:print-description-to-string swank:to-string
+swank:*emacs-io* swank:*slime-output* swank:*slime-input* swank:*slime-io*))
+
 
 ;;; Setup and hooks.
 
@@ -29,7 +44,7 @@
      (unless (zerop (lisp::string-output-stream-index stream))
        (setf (slime-output-stream-last-charpos stream)
 	     (slime-out-misc stream :charpos))
-       (send-to-emacs `(:read-output ,(get-output-stream-string stream)))))
+       (swank:send-to-emacs `(:read-output ,(get-output-stream-string stream)))))
     (:file-position nil)
     (:charpos 
      (do ((index (1- (the fixnum (lisp::string-output-stream-index stream)))
@@ -57,19 +72,20 @@
 
 (defun slime-input-stream/n-bin (stream buffer start requested eof-errorp)
   (let ((*read-input-catch-tag* (1+ *read-input-catch-tag*)))
-    (send-to-emacs `(:read-input ,requested ,*read-input-catch-tag*))
+    (swank:send-to-emacs `(:read-input ,requested ,*read-input-catch-tag*))
     (let ((input (catch *read-input-catch-tag*
-		   (read-from-emacs))))
+		   (swank:read-from-emacs))))
       (loop for c across input
 	    for i from start
 	    do (setf (aref buffer i) (char-code c)))
       (length input))))
 
-(defslimefun take-input (tag input)
+(defun swank:take-input (tag input)
   (throw tag input))
 
-(defun create-swank-server (port &key reuse-address (address "localhost"))
+(defun swank:create-swank-server (port &key reuse-address (address "localhost"))
   "Create a SWANK TCP server."
+  (dribble "/tmp/swank.log")
   (let* ((hostent (ext:lookup-host-entry address))
          (address (car (ext:host-entry-addr-list hostent)))
          (ip (ext:htonl address)))
@@ -103,10 +119,10 @@
 The request is read from the socket as a sexp and then evaluated."
   (let ((completed nil))
     (let ((condition (catch 'serve-request-catcher
-		       (read-from-emacs)
+		       (swank:read-from-emacs)
 		       (setq completed t))))
       (unless completed
-	(when *swank-debug-p*
+	(when swank:*swank-debug-p*
 	  (format *debug-io* 
 		  "~&;; Connection to Emacs lost.~%;; [~A]~%" condition))
 	(sys:invalidate-descriptor (sys:fd-stream-fd *emacs-io*))
@@ -114,7 +130,7 @@ The request is read from the socket as a sexp and then evaluated."
 
 ;;;
 
-(defslimefun set-default-directory (directory)
+(defun swank:set-default-directory (directory)
   (setf (ext:default-directory) (namestring directory))
   ;; Setting *default-pathname-defaults* to an absolute directory
   ;; makes the behavior of MERGE-PATHNAMES a bit more intuitive.
@@ -198,13 +214,13 @@ compiler state."
 	 (reverse
 	  (c::compiler-error-context-original-source-path context)))))
 
-(defun call-trapping-compilation-notes (fn)
+(defun swank:call-trapping-compilation-notes (fn)
   (handler-bind ((c::compiler-error #'handle-notification-condition)
                  (c::style-warning #'handle-notification-condition)
                  (c::warning #'handle-notification-condition))
     (funcall fn)))
 
-(defslimefun swank-compile-file (filename load)
+(defun swank:swank-compile-file (filename load)
   (call-with-compilation-hooks
    (lambda ()
      (clear-note-database filename)
@@ -213,7 +229,7 @@ compiler state."
 	   (*buffer-offset* nil))
        (compile-file filename :load load)))))
 
-(defslimefun swank-compile-string (string buffer start)
+(defun swank:swank-compile-string (string buffer start)
   (call-with-compilation-hooks
    (lambda ()
      (let ((*package* *buffer-package*)
@@ -254,14 +270,14 @@ This is a workaround for a CMUCL bug: XREF records are cumulative."
 (defun unix-truename (pathname)
   (ext:unix-namestring (truename pathname)))
 
-(defslimefun arglist-string (fname)
+(defun swank:arglist-string (fname)
   "Return a string describing the argument list for FNAME.
 The result has the format \"(...)\"."
   (declare (type string fname))
   (multiple-value-bind (function condition)
       (ignore-errors (values (from-string fname)))
     (when condition
-      (return-from arglist-string (format nil "(-- ~A)" condition)))
+      (return-from swank:arglist-string (format nil "(-- ~A)" condition)))
     (let ((arglist
 	   (if (not (or (fboundp function)
 			(functionp function)))
@@ -287,24 +303,24 @@ The result has the format \"(...)\"."
 	  arglist
 	  (to-string arglist)))))
 
-(defslimefun who-calls (function-name)
+(defun swank:who-calls (function-name)
   "Return the places where FUNCTION-NAME is called."
   (xref-results-for-emacs (xref:who-calls function-name)))
 
-(defslimefun who-references (variable)
+(defun swank:who-references (variable)
   "Return the places where the global variable VARIABLE is referenced."
   (xref-results-for-emacs (xref:who-references variable)))
 
-(defslimefun who-binds (variable)
+(defun swank:who-binds (variable)
   "Return the places where the global variable VARIABLE is bound."
   (xref-results-for-emacs (xref:who-binds variable)))
 
-(defslimefun who-sets (variable)
+(defun swank:who-sets (variable)
   "Return the places where the global variable VARIABLE is set."
   (xref-results-for-emacs (xref:who-sets variable)))
 
 #+cmu19
-(defslimefun who-macroexpands (macro)
+(defun swank:who-macroexpands (macro)
   "Return the places where MACRO is expanded."
   (xref-results-for-emacs (xref:who-macroexpands macro)))
 
@@ -421,10 +437,10 @@ constant pool."
   (let ((*print-pretty* nil))
     (mapcar #'to-string (remove-if-not #'ext:valid-function-name-p list))))
 
-(defslimefun list-callers (symbol-name)
+(defun swank:list-callers (symbol-name)
   (stringify-function-name-list (function-callers (from-string symbol-name))))
 
-(defslimefun list-callees (symbol-name)
+(defun swank:list-callees (symbol-name)
   (stringify-function-name-list (function-callees (from-string symbol-name))))
 
 ;;;; Definitions
@@ -492,7 +508,7 @@ This is useful when debugging the definition-finding code.")
            (when location
              (source-location-for-emacs location))))))
 
-(defslimefun function-source-location-for-emacs (fname)
+(defun swank:function-source-location-for-emacs (fname)
   "Return the source-location of FNAME's definition."
   (let* ((fname (from-string fname))
          (finder
@@ -545,21 +561,21 @@ Return NIL if the symbol is unbound."
       (if result
 	  (list* :designator (to-string symbol) result)))))
 
-(defslimefun describe-setf-function (symbol-name)
+(defun swank:describe-setf-function (symbol-name)
   (print-description-to-string
    (or (ext:info setf inverse (from-string symbol-name))
        (ext:info setf expander (from-string symbol-name)))))
 
-(defslimefun describe-type (symbol-name)
+(defun swank:describe-type (symbol-name)
   (print-description-to-string
    (kernel:values-specifier-type (from-string symbol-name))))
 
-(defslimefun describe-class (symbol-name)
+(defun swank:describe-class (symbol-name)
   (print-description-to-string (find-class (from-string symbol-name) nil)))
 
 ;;; Macroexpansion
 
-(defslimefun swank-macroexpand-all (string)
+(defun swank:swank-macroexpand-all (string)
   (apply-macro-expander #'walker:macroexpand-all string))
 
 
@@ -569,7 +585,7 @@ Return NIL if the symbol is unbound."
   (gethash (debug::trace-fdefinition fname)
 	   debug::*traced-functions*))
 
-(defslimefun toggle-trace-fdefinition (fname-string)
+(defun swank:toggle-trace-fdefinition (fname-string)
   (let ((fname (from-string fname-string)))
     (cond ((tracedp fname)
 	   (debug::untrace-1 fname)
@@ -581,14 +597,28 @@ Return NIL if the symbol is unbound."
 
 ;;; Debugging
 
-(defvar *sldb-level* 0)
 (defvar *sldb-stack-top*)
 (defvar *sldb-restarts*)
 
-(defslimefun getpid ()
+(defun swank:getpid ()
   (unix:unix-getpid))
 
-(defslimefun sldb-loop ()
+(defun swank:call-with-debugging-environment (function)
+  (unix:unix-sigsetmask 0)
+  (let ((*sldb-stack-top* (or debug:*stack-top-hint* (di:top-frame)))
+        (*sldb-restarts* (compute-restarts swank:*swank-debugger-condition*))
+        (debug:*stack-top-hint* nil)
+        (*readtable* (or debug:*debug-readtable* *readtable*))
+        (*print-level* debug:*debug-print-level*)
+        (*print-length* debug:*debug-print-length*))
+    (handler-bind ((di:debug-condition
+                    (lambda (condition)
+                      (signal 'swank-debug-condition
+                              :wrapped-condition condition))))
+      (funcall function))))
+
+#+nil
+(defun swank:sldb-loop ()
   (unix:unix-sigsetmask 0)
   (let* ((*sldb-level* (1+ *sldb-level*))
 	 (*sldb-stack-top* (or debug:*stack-top-hint* (di:top-frame)))
@@ -600,18 +630,19 @@ Return NIL if the symbol is unbound."
 	 (*readtable* (or debug:*debug-readtable* *readtable*))
 	 (*print-level* debug:*debug-print-level*)
 	 (*print-length* debug:*debug-print-length*))
-    (send-to-emacs (list* :debug *sldb-level* (debugger-info-for-emacs 0 1)))
+    (swank:send-to-emacs
+     (list* :debug *sldb-level* (debugger-info-for-emacs 0 1)))
     (handler-bind ((di:debug-condition 
 		    (lambda (condition)
-		      (send-to-emacs `(:debug-condition
+		      (swank:send-to-emacs `(:debug-condition
 				       ,(princ-to-string condition)))
 		      (throw 'sldb-loop-catcher nil))))
       (unwind-protect
 	   (loop
 	    (catch 'sldb-loop-catcher
  	      (with-simple-restart (abort "Return to sldb level ~D." level)
-		(read-from-emacs))))
-	(send-to-emacs `(:debug-return ,level))))))
+		(swank:read-from-emacs))))
+	(swank:send-to-emacs `(:debug-return ,level))))))
 
 (defun format-restarts-for-emacs ()
   "Return a list of restarts for *swank-debugger-condition* in a
@@ -631,7 +662,12 @@ format suitable for Emacs."
       ((zerop i) frame)))
 
 (defun nth-restart (index)
-  (nth index *sldb-restarts*))
+  (or (nth index *sldb-restarts*)
+      (signal 'swank-debug-condition
+              :wrapped-condition
+              (make-condition 'simple-condition
+                              :format-control "Restart out of bounds: ~S"
+                              :format-arguments (list index)))))
 
 (defun format-frame-for-emacs (frame)
   (list (di:frame-number frame)
@@ -655,10 +691,10 @@ stack."
 	  while f
 	  collect f)))
 
-(defslimefun backtrace-for-emacs (start end)
+(defun swank:backtrace-for-emacs (start end)
   (mapcar #'format-frame-for-emacs (compute-backtrace start end)))
 
-(defslimefun debugger-info-for-emacs (start end)
+(defun swank:debugger-info-for-emacs (start end)
   (list (format-condition-for-emacs)
 	(format-restarts-for-emacs)
 	(backtrace-length)
@@ -716,13 +752,13 @@ stack."
   (handler-case (source-location-for-emacs code-location)
     (t (c) (list :error (debug::safe-condition-message c)))))
 
-(defslimefun frame-source-location-for-emacs (index)
+(defun swank:frame-source-location-for-emacs (index)
   (safe-source-location-for-emacs (di:frame-code-location (nth-frame index))))
 
-(defslimefun eval-string-in-frame (string index)
+(defun swank:eval-string-in-frame (string index)
   (to-string (di:eval-in-frame (nth-frame index) (from-string string))))
 
-(defslimefun frame-locals (index)
+(defun swank:frame-locals (index)
   (let* ((frame (nth-frame index))
 	 (location (di:frame-code-location frame))
 	 (debug-function (di:frame-debug-function frame))
@@ -738,20 +774,21 @@ stack."
 		       (to-string (di:debug-variable-value v frame))
 		       "<not-available>")))))
 
-(defslimefun frame-catch-tags (index)
+(defun swank:frame-catch-tags (index)
   (loop for (tag . code-location) in (di:frame-catches (nth-frame index))
 	collect `(,tag . ,(safe-source-location-for-emacs code-location))))
 
-(defslimefun invoke-nth-restart (index)
-  (invoke-restart (nth-restart index)))
+(defun swank:invoke-nth-restart (sldb-level index)
+  (when (eql sldb-level *sldb-level*)
+    (invoke-restart (nth-restart index))))
 
-(defslimefun sldb-continue ()
+(defun swank:sldb-continue ()
   (continue *swank-debugger-condition*))
 
-(defslimefun sldb-abort ()
+(defun swank:sldb-abort ()
   (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
 
-(defslimefun throw-to-toplevel ()
+(defun swank:throw-to-toplevel ()
   (throw 'lisp::top-level-catcher nil))
 
 
@@ -769,7 +806,7 @@ stack."
   (setq *inspector-stack* nil)
   (setf (fill-pointer *inspector-history*) 0))
 
-(defslimefun init-inspector (string)
+(defun swank:init-inspector (string)
   (reset-inspector)
   (inspect-object (eval (from-string string))))
 
@@ -836,10 +873,10 @@ stack."
 (defun nth-part (index)
   (cdr (nth index *inspectee-parts*)))
 
-(defslimefun inspect-nth-part (index)
+(defun swank:inspect-nth-part (index)
   (inspect-object (nth-part index)))
 
-(defslimefun inspector-pop ()
+(defun swank:inspector-pop ()
   "Drop the inspector stack and inspect the second element.  Return
 nil if there's no second element."
   (cond ((cdr *inspector-stack*)
@@ -847,18 +884,18 @@ nil if there's no second element."
 	 (inspect-object (pop *inspector-stack*)))
 	(t nil)))
 
-(defslimefun inspector-next ()
+(defun swank:inspector-next ()
   "Inspect the next element in the *inspector-history*."
   (let ((position (position *inspectee* *inspector-history*)))
     (cond ((= (1+ position) (length *inspector-history*))
 	   nil)
 	  (t (inspect-object (aref *inspector-history* (1+ position)))))))
 
-(defslimefun quit-inspector ()
+(defun swank:quit-inspector ()
   (reset-inspector)
   nil)
 
-(defslimefun describe-inspectee ()
+(defun swank:describe-inspectee ()
   "Describe the currently inspected object."
   (print-description-to-string *inspectee*))
 

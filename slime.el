@@ -992,7 +992,9 @@ their actions. The pattern syntax is the same as `destructure-case'."
    (assert (= sldb-level 0)))
   ((:emacs-evaluate form-string package-name continuation)
    (slime-output-evaluate-request form-string package-name)
-   (slime-push-state (slime-evaluating-state continuation))))
+   (slime-push-state (slime-evaluating-state continuation)))
+  ((:emacs-evaluate-oneway form-string package-name)
+   (slime-output-oneway-evaluate-request form-string package-name)))
 
 (defvar slime-evaluating-state-activation-hook nil
   "Hook called when the evaluating state is actived.")
@@ -1056,10 +1058,14 @@ state interacts with it until it is coaxed into returning."
          (delete-windows-on sldb-buffer)
          (kill-buffer sldb-buffer))))
    (slime-pop-state))
+  ((:debug-condition reason)
+   (message reason))
   ((:emacs-evaluate form-string package-name continuation)
    ;; recursive evaluation request
    (slime-output-evaluate-request form-string package-name)
-   (slime-push-state (slime-evaluating-state continuation))))
+   (slime-push-state (slime-evaluating-state continuation)))
+  ((:emacs-evaluate-oneway form-string package-name)
+   (slime-output-oneway-evaluate-request form-string package-name)))
 
 (slime-defstate slime-read-input-state (request tag)
   "Reading state.
@@ -1079,6 +1085,10 @@ Lisp waits for input from Emacs."
 (defun slime-output-evaluate-request (form-string package-name)
   "Send a request for LISP to read and evaluate FORM-STRING in PACKAGE-NAME."
   (slime-net-send `(swank:eval-string ,form-string ,package-name)))
+
+(defun slime-output-oneway-evaluate-request (form-string package-name)
+  "Send a request for LISP to read and evaluate FORM-STRING in PACKAGE-NAME."
+  (slime-net-send `(swank:oneway-eval-string ,form-string ,package-name)))
 
 (defun slime-check-connected ()
   (unless (slime-connected-p)
@@ -1136,6 +1146,14 @@ Loops until the result is thrown to our caller, or the user aborts."
   "Block until any asynchronous command has completed."
   (while (slime-busy-p)
     (accept-process-output slime-net-process)))
+
+(defun slime-oneway-eval (sexp &optional package)
+  "Evaluate SEXP \"one-way\" - without receiving a return value."
+  (slime-check-connected)
+  (when (slime-busy-p)
+    (error "Busy evaluating"))
+  (slime-dispatch-event
+   `(:emacs-evaluate-oneway ,(prin1-to-string sexp) ,package)))
 
 (defun slime-busy-p ()
   "Return true if Lisp is busy processing a request."
@@ -2700,7 +2718,7 @@ the current index when the selection is completed."
   (let ((restart (or number
                      (sldb-restart-at-point)
                      (error "No restart at point"))))
-    (slime-eval-async `(swank:invoke-nth-restart ,restart) nil (lambda ()))))
+    (slime-oneway-eval `(swank:invoke-nth-restart ,sldb-level ,restart) nil)))
 
 (defun sldb-restart-at-point ()
   (get-text-property (point) 'restart-number))
