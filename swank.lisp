@@ -682,6 +682,31 @@ exists."
     (cond (package (values symbol package))
           (t (error "Unknown symbol: ~S [in ~A]" string default-package)))))
 
+;;; We use a special pprint-dispatch table for printing the arglist.
+;;; An argument is either a symbol or a list.  The name of the
+;;; argument is PRINCed but the other components of an argument
+;;; --default value or type-- are PPRINTed.  We do this to nicely
+;;; cover cases like (&key (function #'cons) (quote 'quote)).  Too
+;;; much code for such a minor feature?
+
+(defvar *initial-pprint-dispatch-table* (copy-pprint-dispatch nil))
+
+(defun print-cons-argument (stream object)
+  (pprint-logical-block (stream object :prefix "(" :suffix ")")
+    (princ (car object) stream)
+    (let ((*print-pprint-dispatch* *initial-pprint-dispatch-table*))
+      (pprint-fill stream (cdr object) nil))))
+
+(defun print-symbol-argument (stream object)
+  (let ((*print-pprint-dispatch* *initial-pprint-dispatch-table*))
+    (princ object stream)))
+
+(defvar *arglist-pprint-dispatch-table* 
+  (let ((table (copy-pprint-dispatch nil)))
+    (set-pprint-dispatch 'cons #'print-cons-argument 0 table)
+    (set-pprint-dispatch 'symbol #'print-symbol-argument 0 table)
+    table))
+
 (defun format-arglist (function-name lambda-list-fn)
   "Use LAMBDA-LIST-FN to format the arglist for FUNCTION-NAME.
 Call LAMBDA-LIST-FN with the symbol corresponding to FUNCTION-NAME."
@@ -690,10 +715,13 @@ Call LAMBDA-LIST-FN with the symbol corresponding to FUNCTION-NAME."
       (ignore-errors 
         (let ((symbol (find-symbol-or-lose function-name)))
           (values (funcall lambda-list-fn symbol))))
-    (cond (condition  (format nil "(-- ~A)" condition))
+    (cond (condition (format nil "(-- ~A)" condition))
           (t (let ((*print-case* :downcase)
-                   (*print-pretty* nil))
-               (format nil "(~{~A~^ ~})" arglist))))))
+                   (*print-pprint-dispatch* *arglist-pprint-dispatch-table*)
+                   (*print-level* nil)
+                   (*print-length* nil))
+               (with-output-to-string (stream)
+                 (pprint-fill stream arglist)))))))
 
 
 ;;;; Debugger
@@ -1481,7 +1509,6 @@ a time.")
 
 (defslimefun quit-thread-browser ()
   (setq *thread-list* nil))
-
 
 ;;; Local Variables:
 ;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
