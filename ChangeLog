@@ -1,3 +1,12 @@
+2004-03-26  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-merge-notes-for-display): New function to merge
+	together compiler notes that refer to the same location. This is
+	an optimization for when there are a lot of compiler notes:
+	`slime-merge-note-into-overlay' concat'd messages together one by
+	one in O(n^2) time/space, and became noticably slow in practice
+	with ~100 notes or more.
+
 2004-03-25  Bjørn Nordbø <bn@telenor.net>
 
 	* swank-lispworks.lisp: (create-socket, set-sigint-handler)
@@ -6,6 +15,11 @@
 	(dspec-buffer-position): Fix inappropriate use of etypecase.
 
 2004-03-24  Luke Gorrie  <luke@bluetail.com>
+
+	* swank-sbcl.lisp (getpid): Use sb-posix:getpid.
+
+	* slime.el (slime-inspector-mode-map): Added SPC as extra binding
+	for slime-inspector-next (like info-mode).
 
 	* doc/slime.texi: Added completion style and configuration.
 
