@@ -1,3 +1,15 @@
+2004-06-29  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (sldb-prune-initial-frames): Tweaked regexp for
+	matching SWANK's own stack frames for effectiveness in SBCL.
+	(slime-keys): Shadow remaining inf-lisp keys (C-c C-a, C-c C-v)
+	with a null `slime-nop' command until we put them to a real use.
+
+	* swank.lisp (open-streams): Renamed the restart around reads from
+	the user-input stream from ABORT to ABORT-READ. Invoking this
+	restart seems kinda dangerous, so better for 'a' in SLDB not to do
+	so.
+
 2004-06-28  Thomas F. Burdick  <tfb@OCF.Berkeley.EDU>
 
 	* swank.lisp (inspector-nth-part):
