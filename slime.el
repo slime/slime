@@ -362,6 +362,7 @@ A prefix argument disables this behaviour."
     ;; Documentation
     (" " slime-space :inferior t)
     ("\C-d" slime-describe-symbol :prefixed t :inferior t :sldb t)
+    ("\C-f" slime-describe-function :prefixed t :inferior t :sldb t)
     ("\M-d" slime-disassemble-symbol :prefixed t :inferior t :sldb t)
     ("\C-t" slime-toggle-trace-fdefinition :prefixed t :sldb t)
     ("\C-a" slime-apropos :prefixed t :inferior t :sldb t)
@@ -635,12 +636,14 @@ function call starts on the same line at the point itself."
                             (point)))
        (slime-function-called-at-point)))
 
-(defun slime-read-symbol-name (prompt)
+(defun slime-read-symbol-name (prompt &optional query)
   "Either read a symbol name or choose the one at point.
-The user is prompted if a prefix argument is in effect or there is no
-symbol at point."
-  (or (and (not current-prefix-arg) (slime-symbol-name-at-point))
-      (slime-completing-read-symbol-name prompt)))
+The user is prompted if a prefix argument is in effect, if there is no
+symbol at point, or if QUERY is non-nil."
+  (cond ((or current-prefix-arg query (not (slime-symbol-name-at-point)))
+         (slime-completing-read-symbol-name 
+          prompt (slime-symbol-name-at-point)))
+        (t (slime-symbol-name-at-point))))
 
 (defun slime-read-symbol (prompt)
   "Either read a symbol or choose the one at point.
@@ -689,23 +692,22 @@ Buffer local in temp-buffers.")
 (defmacro slime-with-output-to-temp-buffer (name &rest body)
   "Like `with-output-to-temp-buffer', but saves the window configuration."
   (let ((config (gensym)))
-  `(progn 
-     (let ((,config (current-window-configuration))
-           (standard-output (with-current-buffer (get-buffer-create ,name)
-                              (setq buffer-read-only nil)
-                              (erase-buffer)
-                              (current-buffer))))
-       (prog1 (progn ,@body)
-         (with-current-buffer standard-output
-           (make-local-variable 'slime-temp-buffer-saved-window-configuration)
-           (setq slime-temp-buffer-saved-window-configuration ,config)
-           (goto-char (point-min))
-           (slime-mode 1)
-           (set-syntax-table lisp-mode-syntax-table)
-           (slime-temp-buffer-mode 1)
-           (setq buffer-read-only t)
-           (unless (get-buffer-window (current-buffer) t)
-             (switch-to-buffer-other-window (current-buffer)))))))))
+  `(let ((,config (current-window-configuration))
+         (standard-output (with-current-buffer (get-buffer-create ,name)
+                            (setq buffer-read-only nil)
+                            (erase-buffer)
+                            (current-buffer))))
+     (prog1 (progn ,@body)
+       (with-current-buffer standard-output
+         (make-local-variable 'slime-temp-buffer-saved-window-configuration)
+         (setq slime-temp-buffer-saved-window-configuration ,config)
+         (goto-char (point-min))
+         (slime-mode 1)
+         (set-syntax-table lisp-mode-syntax-table)
+         (slime-temp-buffer-mode 1)
+         (setq buffer-read-only t)
+         (unless (get-buffer-window (current-buffer) t)
+           (switch-to-buffer-other-window (current-buffer))))))))
 
 (put 'slime-with-output-to-temp-buffer 'lisp-indent-function 1)
 
@@ -2038,8 +2040,12 @@ Severity is ordered as :NOTE < :STYLE-WARNING < :WARNING < :ERROR."
   "Move forward through a sourcepath from a fixed position.
 The point is assumed to already be at the outermost sexp, making the
 first element of the source-path redundant."
-  (ignore-errors (down-list 1))
-  (slime-forward-source-path (cdr source-path)))
+  (ignore-errors 
+    (slime-forward-sexp)
+    (beginning-of-defun))
+  (when-let (source-path (cdr source-path))
+    (down-list 1)
+    (slime-forward-source-path source-path)))
 
 (defun slime-forward-source-path (source-path)
   (let ((origin (point)))
@@ -2054,21 +2060,20 @@ first element of the source-path redundant."
           (beginning-of-sexp))
       (error (goto-char origin)))))
 
-(defun slime-goto-source-location (location)
-  "Move to the source location LOCATION.
+(defun slime-goto-source-location (location &optional noerror)
+  "Move to the source location LOCATION.  Several kinds of locations
+are supported:
 
-LOCATION is a plist and defines a position in a buffer.  Several kinds
-of locations are supported:
+<location> ::= (:location <buffer> <position>)
+             | (:error <message>) 
 
- (:file ,filename ,position[ ,align-p])
-   A position in a file. 
- (:emacs-buffer ,buffername ,position[ ,align-p])
-   A position in a buffer.
- (:sexp ,string)
-   A sexp where no file is available.
+<buffer>   ::= (:file <filename>)
+             | (:buffer <buffername>)
+             | (:source-form <string>)
 
-align-p means the location is not character-accurate, and should be
-aligned to the start of the sexp in front."
+<position> ::= (:position <fixnum> [<align>]) ; 1 based
+             | (:function-name <string>)
+             | (:source-path <list> <start-position>) "
   (destructure-case location
     ((:location buffer position)
      (destructure-case buffer
@@ -2077,71 +2082,32 @@ aligned to the start of the sexp in front."
         (goto-char (point-min)))
        ((:buffer buffer)
         (set-buffer buffer)
+        (goto-char (point-min)))
+       ((:source-form string)
+        (set-buffer (get-buffer-create "*SLIME Source Form*"))
+        (erase-buffer)
+        (insert string)
         (goto-char (point-min))))
      (destructure-case position
-       ((:position pos)
-        (goto-char pos))
-       ((:dspec name)
+       ((:position pos &optional align-p)
+        (goto-char pos)
+        (when align-p
+          (slime-forward-sexp)
+          (beginning-of-sexp)))
+       ((:function-name name)
         (let ((case-fold-search t))
-          (re-search-forward (format "^(def.*[ \n\t(]%s[ \t)]" name)))
-        (goto-char (match-beginning 0)))))
-    ((:file filename position &optional align-p)
-     (set-buffer (find-file-noselect filename t))
-     (goto-char position)
-     (when align-p
-       (slime-forward-sexp)
-       (beginning-of-sexp)))
-    ((:emacs-buffer buffer position &optional align-p)
-     (set-buffer buffer)
-     (goto-char position)
-     (when align-p
-       (slime-forward-sexp)
-       (beginning-of-sexp)))
-    ((:sexp string)
-     (with-output-to-temp-buffer "*SLIME SEXP*"
-       (princ string)))
-    ((:dspec origin dspec)
-     (destructure-case origin
-       ((:file filename) 
-        (set-buffer (find-file-noselect filename t))
-        (goto-char 1))
-       ((:buffer buffer position)
-        (set-buffer buffer) 
-        (goto-char position)))
-     (when dspec
-       (let ((case-fold-search t))
-         (re-search-forward (format "^(def.*[ \n\t(]%s[ \t)]" dspec)))
-       (goto-char (match-beginning 0))))
-    ((:openmcl filename function-name)
-     (set-buffer (find-file-noselect filename t))
-     (goto-char (point-min))
-     (re-search-forward (format "^(def.*[ \n\t(]%s[ \t)]" function-name))
-     (beginning-of-line))
-    ((:sbcl 
-      &key from buffername buffer-offset 
-      filename position info source-path path source-form function-name)
-     (cond (function-name
-            (ignore-errors
-              (when filename
-                (set-buffer (find-file-noselect filename)))
-              (goto-char (point-min))
-              (re-search-forward (format "^(def\\S-+\\s +%s\\s +"
-                                         function-name))
-              (beginning-of-line)))
-           ((and (eq filename :lisp) (not buffername))
-            (beginning-of-defun))
-           (t
-            (cond (buffername
-                   (set-buffer buffername) (goto-char buffer-offset))
-                  (filename
-                   (set-buffer (find-file-noselect filename))
-                   (when position (goto-char position))))
-            (cond (path 
-                   (slime-forward-source-path (cdr path)))
-                  (source-path
-                   (slime-forward-positioned-source-path source-path))
-                  (t
-                   (forward-sexp) (backward-sexp))))))))
+          (re-search-forward (format "^(\\(def.*[ \n\t(]\\)?%s[ \t)]" name)))
+        (goto-char (match-beginning 0)))
+       ((:source-path source-path start-position)
+        (cond (start-position
+               (goto-char start-position)
+               (slime-forward-positioned-source-path source-path))
+              (t
+               (slime-forward-source-path source-path))))))
+    ((:error message)
+     (if noerror
+         (slime-message "%s" message)
+       (error "%s" message)))))
 
 (defmacro slime-point-moves-p (&rest body)
   "Execute BODY and return true if the current buffer's point moved."
@@ -2509,13 +2475,14 @@ package is used."
       (delete-region beg end)
       (insert-and-inherit completed-prefix)
       (goto-char (+ beg (length completed-prefix)))
-      (cond ((member completed-prefix completion-set)
-             (if (= (length completion-set) 1)
-                 (slime-minibuffer-respecting-message "Sole completion")
-               (slime-minibuffer-respecting-message "Complete but not unique"))
+      (cond ((and (member completed-prefix completion-set)
+                  (= (length completion-set) 1))
+             (slime-minibuffer-respecting-message "Sole completion")
              (slime-complete-restore-window-configuration))
             ;; Incomplete
             (t
+             (when (member completed-prefix completion-set)
+               (slime-minibuffer-respecting-message "Complete but not unique"))
              (let ((unambiguous-completion-length
                     (loop for c in completion-set
                           minimizing (or (mismatch completed-prefix c)
@@ -2682,41 +2649,22 @@ If there's no symbol at point, or a prefix argument is given, then the
 function name is prompted."
   (interactive (list (slime-read-symbol-name "Function name: ")))
   (let ((origin (point-marker))
-	(source-location
-	 (slime-eval `(swank:function-source-location-for-emacs ,name)
-		     (slime-buffer-package))))
-    (cond ((or (null source-location) (equal source-location '(:null)))
-           (message "No definition found: %s" name))
-          ((equal (car source-location) :error)
-           (slime-message "%s" (cadr source-location)))
-          (t
-           (slime-goto-source-location source-location)
+        (locations (slime-eval `(swank:find-function-locations ,name)
+                               (slime-buffer-package))))
+    (assert locations)
+    (ring-insert-at-beginning slime-find-definition-history-ring origin)
+    (cond ((null (cdr locations))
+           (slime-goto-source-location (car locations))
            (cond ((not other-window)
                   (switch-to-buffer (current-buffer)))
                  (t
-                  (switch-to-buffer-other-window (current-buffer))))
-           (ring-insert-at-beginning 
-	    slime-find-definition-history-ring origin)))))
+                  (switch-to-buffer-other-window (current-buffer)))))
+          (t (slime-show-definitions name locations)))))
 
 (defun slime-edit-fdefinition-other-window (name)
   "Like `slime-edit-fdefinition' but switch to the other window."
   (interactive (list (slime-read-symbol-name "Function name: ")))
   (slime-edit-fdefinition name t))
-
-(defun slime-find-fdefinitions (name)
-  "Like `slime-edit-fdefinition' but with support for generic functions." 
-  (interactive (list (slime-read-symbol-name "Function name: ")))
-  (let ((origin (point-marker))
-	(locations (slime-eval `(swank:find-fdefinitions ,name)
-                               (slime-buffer-package))))
-    (assert locations)
-    (cond ((null (cdr locations))
-           (slime-goto-source-location (car locations))
-           (switch-to-buffer (current-buffer))
-           (ring-insert-at-beginning slime-find-definition-history-ring 
-                                     origin))
-          (t
-           (slime-show-definitions name locations)))))
 
 (defun slime-show-definitions (name locations)
   (slime-show-xrefs `((,name . ,(loop for l in locations
@@ -2724,7 +2672,6 @@ function name is prompted."
                     'definition
                     name
                      (slime-buffer-package)))
-  
 
 
 ;;; Interactive evaluation.
@@ -2870,6 +2817,12 @@ First make the variable unbound, then evaluate the entire form."
     (error "No symbol given"))
   (slime-eval-describe `(swank:describe-symbol ,symbol-name)))
 
+(defun slime-describe-function (symbol-name)
+  (interactive (list (slime-read-symbol-name "Describe symbol: ")))
+  (when (not symbol-name)
+    (error "No symbol given"))
+  (slime-eval-describe `(swank:describe-function ,symbol-name)))
+
 (defun slime-apropos (string &optional only-external-p package)
   (interactive
    (if current-prefix-arg
@@ -2957,44 +2910,52 @@ First make the variable unbound, then evaluate the entire form."
 
 ;;; XREF: cross-referencing
 
-(defvar slime-xref-summary nil
-  "Summary of a cross reference list, for the mode line.")
+(defvar slime-xref-mode-map)
 
-(define-minor-mode slime-xref-mode
-  "\\<slime-xref-mode-map>"
-  nil
-  nil
-  '(("RET"  . slime-goto-xref)
-    ("\C-m" . slime-goto-xref)
-    ))
+(define-derived-mode slime-xref-mode lisp-mode "xref"
+  "\\<slime-xref-mode-map>
+\\{slime-xref-mode-map}"
+  (setq font-lock-defaults nil)
+  (slime-mode -1))
 
-;; Setup the mode-line to say when we're in slime-mode, and which CL
-;; package we think the current buffer belongs to.
-(add-to-list 'minor-mode-alist '(slime-xref-mode slime-xref-summary))
+(slime-define-keys slime-xref-mode-map 
+  ((kbd "RET") 'slime-show-xref)
+  ("\C-m" 'slime-show-xref)
+  (" " 'slime-goto-xref)
+  ("q" 'slime-xref-quit)
+  ;;("n" 'slime-xref-next)
+  ;;("p" 'slime-xref-previous)
+  )
+
+(dolist (spec slime-keys)
+  (destructuring-bind (key command &key sldb prefixed &allow-other-keys) spec
+    (when sldb
+      (let ((key (if prefixed (concat slime-prefix-key key) key)))
+        (define-key slime-xref-mode-map key command)))))
 
 (defun slime-who-calls (symbol)
   "Show all known callers of the function SYMBOL."
-  (interactive (list (slime-read-symbol "Who calls: ")))
+  (interactive (list (slime-read-symbol-name "Who calls: " t)))
   (slime-xref 'calls symbol))
 
 (defun slime-who-references (symbol)
   "Show all known referrers of the global variable SYMBOL."
-  (interactive (list (slime-read-symbol "Who references: ")))
+  (interactive (list (slime-read-symbol-name "Who references: " t)))
   (slime-xref 'references symbol))
 
 (defun slime-who-binds (symbol)
   "Show all known binders of the global variable SYMBOL."
-  (interactive (list (slime-read-symbol "Who binds: ")))
+  (interactive (list (slime-read-symbol-name "Who binds: " t)))
   (slime-xref 'binds symbol))
 
 (defun slime-who-sets (symbol)
   "Show all known setters of the global variable SYMBOL."
-  (interactive (list (slime-read-symbol "Who sets: ")))
+  (interactive (list (slime-read-symbol-name "Who sets: " t)))
   (slime-xref 'sets symbol))
 
 (defun slime-who-macroexpands (symbol)
   "Show all known expanders of the macro SYMBOL."
-  (interactive (list (slime-read-symbol "Who macroexpands: ")))
+  (interactive (list (slime-read-symbol-name "Who macroexpands: " t)))
   (slime-xref 'macroexpands symbol))
 
 (defun slime-xref (type symbol)
@@ -3013,17 +2974,14 @@ First make the variable unbound, then evaluate the entire form."
   (if (null xrefs)
       (message "No references found for %s." symbol)
     (setq slime-next-location-function 'slime-goto-next-xref)
-    (with-current-buffer (slime-xref-buffer t)
-      (slime-init-xref-buffer package type symbol)
+    (slime-with-xref-buffer (package type symbol)
       (slime-insert-xrefs xrefs)
-      (setq buffer-read-only t)
       (goto-char (point-min))
-      (save-selected-window
-        (delete-windows-on (slime-xref-buffer))
-        (slime-display-xref-buffer)))))
+      (forward-line)
+      (skip-chars-forward " \t"))))
 
 (defun slime-insert-xrefs (xrefs)
-  "Insert the cross-references for a file.
+  "Insert XREFS in the current-buffer.
 XREFS is a list of the form ((GROUP . ((LABEL . LOCATION) ...)) ...)
 GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
   (unless (bobp) (insert "\n"))
@@ -3049,15 +3007,34 @@ If CREATE is non-nil, create it if necessary."
 
 (defun slime-init-xref-buffer (package ref-type symbol)
   "Initialize the current buffer for displaying XREF information."
-  (slime-xref-mode t)
+  (slime-xref-mode)
   (setq buffer-read-only nil)
   (erase-buffer)
-  (set-syntax-table lisp-mode-syntax-table)
-  (slime-mode t)
   (setq slime-buffer-package package)
-  (slime-set-truncate-lines)
-  (setq slime-xref-summary
-        (format " XREF[%s: %s]" ref-type symbol)))
+  (slime-set-truncate-lines))
+
+(defmacro* slime-with-xref-buffer ((package ref-type symbol) &body body)
+  "(slime-with-xref-buffer (package ref-type symbol) &body body)
+
+Execute BODY in a xref buffer, then show that buffer."
+  (let ((type (gensym))
+        (sym (gensym)))
+    `(let ((,type ,ref-type)
+           (,sym ,symbol))
+       (with-current-buffer (get-buffer-create 
+                             (format "*XREF[%s: %s]*" ,type ,sym))
+         (prog2 (progn
+                  (slime-init-xref-buffer ,package ,type ,sym)
+                  (make-local-variable 'slime-xref-saved-window-configuration)
+                  (setq slime-xref-saved-window-configuration
+                        ,(current-window-configuration)))
+             (progn ,@body)
+           (setq buffer-read-only t)
+           (select-window (or (get-buffer-window (current-buffer) t)
+                              (display-buffer (current-buffer) t)))
+           (shrink-window-if-larger-than-buffer))))))
+
+(put 'slime-with-xref-buffer 'lisp-indent-function 1)
 
 (defun slime-display-xref-buffer ()
   "Display the XREF results buffer in a window and select it."
@@ -3072,15 +3049,25 @@ If CREATE is non-nil, create it if necessary."
 
 
 ;;;; XREF navigation
+
+(defun slime-xref-location-at-point ()
+  (or (get-text-property (point) 'slime-location)
+      (error "No reference at point.")))
+
 (defun slime-goto-xref ()
   "Goto the cross-referenced location at point."
   (interactive)
-  (let ((location (get-text-property (point) 'slime-location)))
-    (unless location
-      (error "No reference at point."))
+  (let ((location (slime-xref-location-at-point)))
+    (slime-xref-cleanup)
+    (slime-goto-source-location location)
+    (switch-to-buffer (current-buffer))))
+
+(defun slime-show-xref ()
+  "Display the xref at point in the other window."
+  (interactive)
+  (let ((location (slime-xref-location-at-point)))
     (slime-show-source-location location)))
-
-
+        
 (defun slime-goto-next-xref ()
   "Goto the next cross-reference location."
   (save-selected-window
@@ -3104,138 +3091,44 @@ When displaying XREF information, this goes to the next reference."
     (error "No context for finding locations."))
   (funcall slime-next-location-function))
 
-
-;;; List callers/callees
-
-(defvar slime-select-mode-map)
-(defvar slime-previous-selected-line)
-(defvar slime-select-finish)
-(defvar slime-select-follow)
-(defvar slime-select-saved-window-configuration)
-
-(defun slime-list-callers (symbol-name)
-  (interactive (list (slime-read-symbol-name "List callers: ")))
-  (slime-eval-select-function-list `(swank:list-callers ,symbol-name)))
-
-(defun slime-list-callees (symbol-name)
-  (interactive (list (slime-read-symbol-name "List callees: ")))
-  (slime-eval-select-function-list `(swank:list-callees ,symbol-name)))
-
-(defun slime-eval-select-function-list (sexp)
-  (lexical-let ((package (slime-buffer-package)))
-    (slime-eval-async sexp package
-		      (lambda (names) 
-			(slime-select-function names package)))
-    (slime-save-window-configuration)))
-
-(defun slime-select-function (function-names package)
-  (if (null function-names)
-      (message "No callers")
-    (with-lexical-bindings (function-names package)
-      (slime-select 
-       function-names
-       (lambda (index)
-         (slime-eval-async `(swank:function-source-location-for-emacs 
-                             ,(nth index function-names))
-                           package
-                           (lambda (loc)
-                             (let ((pop-up-windows nil))
-                               (slime-carefully-show-source-location loc)))))
-       (lambda (index))))))
-
-(defun slime-carefully-show-source-location (location)
-  (condition-case e
-      (slime-show-source-location location)
-    (error (message "%s" (error-message-string e))
-	   (ding))))
-
-(defvar slime-select-split-window-vectically nil)
-
-(defun slime-get-select-window (labels)
-  (cond (slime-select-split-window-vectically
-         (split-window (selected-window)
-                       (- (frame-width) 
-                          (min (1+ (max 
-                                    (loop for l in labels maximize (length l))
-                                    window-min-width))
-                               25))
-                       t))
-        (t
-         (cond ((one-window-p)
-                (split-window (selected-window)))
-               (t (next-window))))))
-
-(defun slime-select-pop-to-window (buffer labels)
-  (let ((window (slime-get-select-window labels)))
-    (set-window-buffer window (current-buffer))
-    (select-window window)
-    (shrink-window-if-larger-than-buffer window)))
-
-(defun slime-select (labels follow finish)
-  "Select an item form the list LABELS.
-
-The list is displayed in a new buffer. FOLLOW is called with the
-current index whenever a new line is selected.  FINISH is called with
-the current index when the selection is completed."
-    (set-buffer (get-buffer-create "*SLIME Select*"))
-    (setq buffer-read-only nil)
-    (erase-buffer)
-    (loop for (label . r) on labels
-	  do (progn (insert label)
-		    (when r (insert "\n"))))
-    (goto-char (point-min))
-    (slime-select-mode)
-    (setq slime-select-follow follow)
-    (setq slime-select-finish finish)
-    (setq buffer-read-only t)
-    (setq slime-select-saved-window-configuration 
-	  (current-window-configuration))
-    (slime-select-pop-to-window (current-buffer) labels)
-    (slime-select-post-command-hook))
-
-(defun slime-selected-line ()
-  (count-lines (point-min) (save-excursion (beginning-of-line) (point))))
-
-(define-derived-mode slime-select-mode fundamental-mode "SLIME-Select"
-  "Mode to select an item from a list."
-  (mapc #'make-variable-buffer-local
-	'(slime-previous-selected-line
-	  slime-select-follow
-	  slime-select-finish
-	  slime-select-saved-window-configuration))
-  (setq slime-previous-selected-line -1)
-  (make-local-hook 'post-command-hook)
-  (add-hook 'post-command-hook 'slime-select-post-command-hook nil t)
-  (add-hook (make-local-variable 'kill-buffer-hook) 'sldb-delete-overlays)
-  (slime-mode t))
-
-(defun slime-select-post-command-hook ()
-  (unless (eq slime-previous-selected-line (slime-selected-line))
-    (let ((line (slime-selected-line)))
-      (setq slime-previous-selected-line line)
-      (ignore-errors (funcall slime-select-follow line)))))
-
-(defun slime-select-done ()
+(defun slime-xref-quit ()
+  "Kill the current xref buffer and restore the window configuration."
   (interactive)
-  (save-current-buffer
-    (funcall slime-select-finish (slime-selected-line)))
-  (slime-select-cleanup))
+  (let ((config slime-xref-saved-window-configuration))
+    (slime-xref-cleanup)
+    (set-window-configuration config)))
 
-(defun slime-select-cleanup ()
+(defun slime-xref-cleanup ()
+  "Delete overlays created by xref mode and kill the xref buffer."
+  (sldb-delete-overlays)
   (let ((buffer (current-buffer)))
     (delete-windows-on buffer)
     (kill-buffer buffer)))
   
-(defun slime-select-quit ()
-  (interactive)
-  (set-window-configuration slime-select-saved-window-configuration)
-  (slime-select-cleanup))
+
+;;; List callers/callees
 
-(slime-define-keys slime-select-mode-map
-  ([return] 'slime-select-done)
-  ("q" 'slime-select-quit))
+(defun slime-eval-show-function-list (form type name)
+  "Eval FROM in Lisp and display the result in a xref window."
+  (ring-insert-at-beginning slime-find-definition-history-ring (point-marker))
+  (lexical-let ((package (slime-buffer-package))
+                (name name)
+                (type type))
+    (slime-eval-async form package
+                      (lambda (result)
+                        (slime-show-xrefs result type name package)))))
 
-;;; 
+(defun slime-list-callers (symbol-name)
+  "List the callers of SYMBOL-NAME in a xref window."
+  (interactive (list (slime-read-symbol-name "List callers: ")))
+  (slime-eval-show-function-list `(swank:list-callers ,symbol-name)
+                                 'callers symbol-name))
+
+(defun slime-list-callees (symbol-name)
+  "List the callees of SYMBOL-NAME in a xref window."
+  (interactive (list (slime-read-symbol-name "List callees: ")))
+  (slime-eval-show-function-list `(swank:list-callees ,symbol-name)
+                                 'callees symbol-name))
 
 
 ;;; Macroexpansion
@@ -3245,11 +3138,15 @@ the current index when the selection is completed."
     (slime-eval-describe `(,expander ,string))))
 
 (defun slime-macroexpand-1 (&optional repeatedly)
+  "Display the macro expansion of the form at point.  The form is
+expanded with CL:MACROEXPAND-1 or, if a prefix argument is given, with
+CL:MACROEXPAND."
   (interactive "P")
   (slime-eval-macroexpand
    (if repeatedly 'swank:swank-macroexpand 'swank:swank-macroexpand-1)))
 
 (defun slime-macroexpand-all ()
+  "Display the recursively macro expanded sexp at point."
   (interactive)
   (slime-eval-macroexpand 'swank:swank-macroexpand-all))
 
