@@ -1101,7 +1101,9 @@ the ChangeLog file at runtime."
                      `(quote ,date))))
     (date)))
 
-(defvar slime-changelog-date (slime-changelog-date))
+(defvar slime-changelog-date nil
+  "Holds the latest datestring from the ChangeLog as seen at loadtime.")
+(setq slime-changelog-date (slime-changelog-date))
 
 (defun slime-check-protocol-version (lisp-version)
   "Signal an error LISP-VERSION equal to `slime-changelog-date'"
