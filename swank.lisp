@@ -39,7 +39,7 @@
 
 (defun start-server (&optional (port server-port))
   "Start the Slime backend on TCP port `port'."
-  (swank-impl:create-swank-server port :reuse-address t)
+  (create-swank-server port :reuse-address t)
   #+xref (setf c:*record-xref-info* t)
   (when *swank-debug-p*
     (format *debug-io* "~&;; Swank ready.~%")))
