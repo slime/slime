@@ -339,43 +339,20 @@ Should work (with a patched xref.lisp) but is it any use without find-definition
 
 (defvar *mailbox-lock* (ext:make-thread-lock))
 
-(defstruct (mailbox (:conc-name mailbox.)) 
-  (mutex (ext:make-thread-lock))
-  (queue '() :type list))
-
 (defvar *thread-mailbox* (make-hash-table))
-
 
 (defun mailbox (thread)
   "Return THREAD's mailbox."
   (ext:with-thread-lock (*mailbox-lock*)
     (or (gethash thread *thread-mailbox*)
         (setf (gethash thread *thread-mailbox*)
-              (make-mailbox)))))
+              (ext:make-mailbox)))))
 
-(defimplementation send (thread message)
-  (let* ((mbox (mailbox thread))
-         (mutex (mailbox.mutex mbox)))
-    #+nil
-    (mp:process-wait-with-timeout 
-     "yielding before sending" 0.1
-     (lambda ()
-       (mp:with-process-lock (mutex)
-         (< (length (mailbox.queue mbox)) 10))))
-    ;(sleep 0.1)
-    (ext:with-thread-lock (mutex)
-      (setf (mailbox.queue mbox)
-            (nconc (mailbox.queue mbox) (list message))))))
+(defimplementation send (thread object)
+  (ext:mailbox-send (mailbox thread) object))
 
 (defimplementation receive ()
-  (let* ((mbox (mailbox (ext:current-thread)))
-         (mutex (mailbox.mutex mbox)))
-    #+nil(mp:process-wait "receive" #'mailbox.queue mbox)
-    (loop until (mailbox.queue mbox) do (sleep 0.1)) ;;FIXME
-    (ext:with-thread-lock (mutex)
-      (pop (mailbox.queue mbox)))))
-
-
+  (ext:mailbox-read (mailbox (ext:current-thread))))
 
 (defimplementation quit-lisp ()
   (ext:exit))
