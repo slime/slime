@@ -2190,6 +2190,9 @@ Debugged requests are ignored."
       ((:read-string thread tag)
        (assert thread)
        (slime-repl-read-string thread tag))
+      ((:evaluate-in-emacs string thread tag)
+       (assert thread)
+       (evaluate-in-emacs (car (read-from-string string)) thread tag))
       ((:read-aborted thread tag)
        (assert thread)
        (slime-repl-abort-read thread tag))
@@ -3024,6 +3027,11 @@ Return nil of no item matches"
   (slime-mark-output-end)
   (slime-mark-input-start)
   (slime-repl-read-mode 1))
+
+(defun evaluate-in-emacs (expr thread tag)
+  (push thread slime-read-string-threads)
+  (push tag slime-read-string-tags)
+  (slime-repl-return-string (eval expr)))
 
 (defun slime-repl-return-string (string)
   (slime-dispatch-event `(:emacs-return-string 
@@ -5284,11 +5292,149 @@ compilation."
     ;; prefix is not `-', compile defun
     (otherwise (slime-compile-defun))))
 
-(defun slime-toggle-trace-fdefinition (fname-string)
-  "Toggle trace for FNAME-STRING."
-  (interactive (list (slime-read-from-minibuffer
-		      "(Un)trace: " (slime-symbol-name-at-point))))
-  (message "%s" (slime-eval `(swank:toggle-trace-fdefinition ,fname-string))))
+;;This is an extension for the trace command.
+;;Several interesting cases (the . shows the point position):
+
+;; (defun n.ame (...) ...)                                   -> (:defun name)
+;; (defun (setf n.ame) (...) ...)                            -> (:defun (setf name))
+;; (defmethod n.ame (...) ...)                               -> (:defmethod name (...))
+;; (defun ... (...) (labels ((n.ame (...) ...) ...) ...)...) -> (:labels (:defun ...) name)
+;; (defun ... (...) (flet ((n.ame (...) ...) ...) ...)...)   -> (:flet (:defun ...) name)
+;; (defun ... (...) ... (n.ame ...) ...)                     -> (:call (:defun ...) name)
+;; (defun ... (...) ... (setf (n.ame ...) ...))              -> (:call (:defun ...) (setf name))
+
+;; All other context should be identified as normal, traditional,
+;; function calls.
+
+(defun complete-name-context-at-point ()
+  "Return the name of the function at point, otherwise nil.  This
+tries to be clever to understand a bit of the context."
+  (let ((name (thing-at-point 'symbol)))
+    (and name
+	 (or (ignore-errors
+	       (save-excursion
+		 (name-context-at-point (intern name))))
+	     (intern name)))))
+
+(defun name-context-at-point (name)
+  (out-first 1)
+  (cond ((looking-at "defun") ;;a function definition
+	 `(:defun ,name))
+	((looking-at "defmacro") ;;a macro definition
+	 `(:defmacro ,name))
+	((looking-at "defgeneric") ;;a defgeneric form, maybe trace all methods
+	 `(:defgeneric ,name))
+	((looking-at "defmethod") ;;a defmethod, maybe trace just this method
+	 (forward-sexp 3) ;;jump defmethod, name, and possibly, arglist 
+	 (let ((qualifier
+		(if (= (or (char-before) -1) ?\)) ;;ok, after arglist
+		  (progn
+		    (forward-sexp -1)
+		    (list))
+		  (list (read (current-buffer))))) ;;it was a qualifier
+	       (arglist (read (current-buffer))))
+	   `(:defmethod ,name ,@qualifier ,(parameter-specializers arglist))))
+	((looking-at "setf ") ;;looks like a setf-definition, but which?
+	 (up-list -1)
+	 (name-context-at-point `(setf ,name)))
+	((and (symbolp name) (looking-at (symbol-name name))) ;;the name itself, we need further investigation
+	 (out-first 2)
+	 (cond ((looking-at "setf ") ;;a setf-call
+		(let ((def (ignore-errors (definition-name))))
+		  (if def
+		    `(:call ,def (setf ,name))
+		    `(setf ,name))))
+	       ((ignore-errors
+		  (save-excursion
+		    (out-first 2)
+		    (cond ((or (looking-at "labels") (looking-at "flet"))
+			   (let ((fdef (definition-name)))
+			     (if (looking-at "labels")
+			       `(:labels ,fdef ,name)
+			       `(:flet ,fdef ,name))))
+			  (t `(:call ,(definition-name) ,name))))))
+	       (t `(:call ,(definition-name) ,name))))
+	(t 
+	 name)))
+
+(defun out-first (n)
+  (up-list (- n))
+  (forward-char 1)
+  (skip-syntax-forward " "))
+
+(defun definition-name ()
+  (save-excursion
+    (beginning-of-defun)
+    (forward-char 1)
+    (forward-sexp 1)
+    (name-context-at-point (read (current-buffer)))))
+		 
+(defun parameter-specializers (arglist)
+  (cond ((or (null arglist)
+	     (member (first arglist) '(&optional &key &rest &aux)))
+	 (list))
+	((consp (first arglist))
+	 (cons (second (first arglist))
+	       (parameter-specializers (rest arglist))))
+	(t
+	 (cons 't 
+	       (parameter-specializers (rest arglist))))))
+
+
+;;Now, we need to present the options for the user to choose
+
+(defun slime-toggle-trace-fdefinition ()
+  "Toggle trace."
+  (interactive)
+  (let ((spec (complete-name-context-at-point)))
+    (cond ((symbolp spec) ;;trivial case
+	   (slime-toggle-trace-function spec))
+	  (t
+	   (ecase (first spec)
+	     ((setf)
+	      (slime-toggle-trace-function spec))
+	     ((:defun :defmacro) 
+	      (slime-toggle-trace-function (second spec)))
+	     (:defgeneric
+	      (slime-toggle-trace-defgeneric (second spec)))
+	     (:defmethod
+	      (slime-toggle-trace-defmethod spec))
+	     (:call 
+	      (slime-toggle-trace-maybe-wherein (third spec) (second spec)))
+	     ((:labels :flet)
+	      (slime-toggle-trace-within spec)))))))
+
+(defun slime-toggle-trace-function (name)
+  (let ((real-name (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string name))))
+    (message "%s" (slime-eval `(swank:toggle-trace-function (swank::from-string ,real-name))))))
+
+(defun slime-toggle-trace-defgeneric (name)
+  (let ((name (prin1-to-string name)))
+    (let ((real-name (slime-read-from-minibuffer "(Un)trace: " name)))
+      (if (and (string= name real-name)
+	       (y-or-n-p (format "(Un)trace also all methods implementing %s " real-name)))
+	(message "%s" (slime-eval `(swank:toggle-trace-generic-function-methods 
+				    (swank::from-string ,real-name))))
+	(message "%s" (slime-eval `(swank:toggle-trace-function (swank::from-string ,real-name))))))))
+
+(defun slime-toggle-trace-defmethod (spec)
+  (let ((real-name (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string spec))))
+    (message "%s" (slime-eval `(swank:toggle-trace-method (swank::from-string ,real-name))))))
+
+(defun slime-toggle-trace-maybe-wherein (name wherein)
+  (let ((real-name (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string name)))
+	(wherein (prin1-to-string wherein)))
+    (if (and (string= name real-name)
+	     (y-or-n-p (format "(Un)trace only when %s call is made from %s " real-name wherein)))
+      (message "%s" (slime-eval `(swank:toggle-trace-fdefinition-wherein
+				  (swank::from-string ,real-name)
+				  (swank::from-string ,wherein))))
+      (message "%s" (slime-eval `(swank:toggle-trace-fdefinition ,real-name))))))
+
+(defun slime-toggle-trace-within (spec)
+  (let ((real-name (slime-read-from-minibuffer "(Un)trace local function: " (prin1-to-string spec))))
+    (message "%s" (slime-eval `(swank:toggle-trace-fdefinition-within
+				(swank::from-string ,real-name))))))
 
 (defun slime-untrace-all ()
   "Untrace all functions."
