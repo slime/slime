@@ -115,6 +115,12 @@
    openmcl-mop:slot-definition-readers
    openmcl-mop:slot-definition-writers))
 
+(defun specializer-name (spec)
+  (etypecase spec
+    (cons spec)
+    ((or swank-mop:standard-class built-in-class) (swank-mop:class-name spec))
+    (swank-mop:eql-specializer `(eql ,(swank-mop:eql-specializer-object spec)))))
+
 ;;; TCP Server
 
 (defimplementation preferred-communication-style ()
@@ -314,7 +320,9 @@ condition."
                      (let ((location (function-source-location (ccl::method-function m))))
                        (if (eq (car location) :error)
                            (setq location nil ))
-                       `((method ,(ccl::method-name m) ,(mapcar 'class-name (ccl::method-specializers m)) ,@(ccl::method-qualifiers m))
+                       `((method ,(ccl::method-name m)
+                                 ,(mapcar #'specializer-name (ccl::method-specializers m))
+                                 ,@(ccl::method-qualifiers m))
                          ,location)))
                    (ccl::%class.direct-methods class))
            (mapcan 'who-specializes (ccl::%class-direct-subclasses class)))
@@ -519,7 +527,9 @@ condition."
 
 (defun maybe-method-location (type)
   (when (typep type 'ccl::method)
-    `((method ,(ccl::method-name type) ,(mapcar 'class-name (ccl::method-specializers type)) ,@(ccl::method-qualifiers type))
+    `((method ,(ccl::method-name type)
+              ,(mapcar #'specializer-name (ccl::method-specializers type))
+              ,@(ccl::method-qualifiers type))
       ,(function-source-location (ccl::method-function type)))))
 
 (defimplementation find-definitions (symbol)
@@ -538,7 +548,9 @@ condition."
            `(:location 
              (:file ,(remove-filename-quoting (namestring (translate-logical-pathname (cdr (car info))) )))
              (:method  ,(princ-to-string (ccl::method-name (caar info)))
-               ,(mapcar 'princ-to-string (mapcar 'class-name (ccl::method-specializers (caar info))))
+               ,(mapcar 'princ-to-string
+                        (mapcar #'specializer-name
+                                (ccl::method-specializers (caar info))))
                ,@(mapcar 'princ-to-string (ccl::method-qualifiers (caar info))))
              nil))
           (t (canonicalize-location (cdr (first info)) name)))))
