@@ -1,7 +1,7 @@
 2004-09-15  Alan Caulkins <fatman@maxint.net>
 
 	* swank.lisp (cleanp-connection-threads): Kill all Swank threads
-	for a connction when it terminates.
+	for a connection when it terminates.
 
 2004-09-14  Thomas Schilling <tjs_ng@yahoo.de>
 
