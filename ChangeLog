@@ -1,3 +1,10 @@
+2004-07-20  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-repl-update-banner): Restore old behaviour of
+	using an asynchronous evaluation to setup the REPL. This works
+	around a problem I'd reintroduced where the first REPL command
+	uses the wrong keymap.
+
 2004-07-20  Andreas Fuchs  <asf@boinkor.net>
 
 	* swank-sbcl.lisp (call-with-compilation-hooks): Trap and report
