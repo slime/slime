@@ -966,9 +966,34 @@ Polling %S.. (Abort with `M-x slime-connection-abort'.)"
   (when-let (buffer (get-buffer "*inferior-lisp*"))
     (delete-windows-on buffer)
     (bury-buffer buffer))
-  (pop-to-buffer (slime-output-buffer))
+  (slime-init-output-buffer)
   (message "Connected to Swank server on port %S. %s"
            port (slime-random-words-of-encouragement)))
+
+(defun slime-changelog-date ()
+  "Return the datestring of the latest entry in the ChangeLog file.
+If the function is compiled (with the file-compiler) return the date
+of the newest at compile time.  If the function is interpreted read
+the ChangeLog file at runtime."
+  (macrolet ((date ()
+                   (let* ((dir (or (and byte-compile-current-file
+                                        (file-name-directory
+                                         byte-compile-current-file))
+                                   slime-path))
+                          (file (concat dir "ChangeLog"))
+                          (date (with-temp-buffer 
+                                  (insert-file-contents file nil 0 100)
+                                  (goto-char (point-min))
+                                  (symbol-name (read (current-buffer))))))
+                     `(quote ,date))))
+    (date)))
+
+(defun slime-check-protocol-version (lisp-version)
+  "Signal an error LISP-VERSION equal to `slime-changelog-date'"
+  (unless (and lisp-version (equal lisp-version (slime-changelog-date)))
+    (slime-disconnect)
+    (error "Protocol mismatch: Lisp: %s  ELisp: %s"
+           lisp-version (slime-changelog-date))))
 
 (defun slime-aux-connect (host port)
   "Open an auxiliary connection to HOST:PORT.
@@ -1335,7 +1360,7 @@ This may be called by a state machine to finish its current state."
     (when slime-global-debugger-hook
       (slime-eval '(swank:install-global-debugger-hook) "COMMON-LISP-USER")))
   (setf (sldb-level) 0))
-  
+
 (defun slime-activate-state ()
   "Activate the current state.
 This delivers an (activate) event to the state function, and updates
@@ -1397,7 +1422,11 @@ Return true if the event is recognised and handled."
      (slime-open-stream-to-lisp port)
      t)
     ((:open-aux-connection port)
-     (slime-aux-connect "localhost" port))
+     (slime-aux-connect "localhost" port)
+     t)
+    ((:check-protocol-version version)
+     (slime-check-protocol-version version)
+     t)
     ((:%apply fn args)
      (apply (intern fn) args)
      t)
@@ -1781,21 +1810,37 @@ deal with that."
           (set-marker-insertion-type slime-repl-input-end-mark t)
           (set-marker-insertion-type slime-output-end t)
           (set-marker-insertion-type slime-repl-prompt-start-mark t)
-          (slime-repl-insert-prompt)
           (current-buffer)))))
 
-(defun slime-insert-transcript-delimiter (string)
+(defun slime-init-output-buffer ()
   (with-current-buffer (slime-output-buffer)
-    (save-excursion 
-      (goto-char slime-repl-prompt-start-mark)
-      (slime-insert-propertized
-       '(slime-transcript-delimiter t)
-       (if (bolp) "" "\n")
-       ";;;; " (subst-char-in-string ?\n ?\ 
-                                      (substring string 0 
-                                                 (min 60 (length string))))
-       " ...\n")
-      (slime-mark-output-start))))
+    (goto-char (point-max))
+    (slime-repl-insert-prompt 
+     (format "; %s  Port: %s  Pid: %s"
+             (slime-eval '(cl:lisp-implementation-type))
+             (process-contact (slime-connection))
+             (slime-pid)))
+    (pop-to-buffer (current-buffer))))
+
+(defun slime-note-transcript-start (string)
+  (with-current-buffer (slime-output-buffer)
+    (goto-char (point-max))
+    (slime-mark-input-end)
+    (slime-insert-propertized
+     '(slime-transcript-delimiter t)
+     (if (bolp) "" "\n")
+     ";;;; " (subst-char-in-string ?\n ?\ 
+                                   (substring string 0 
+                                              (min 60 (length string))))
+     " ...\n")
+    (slime-mark-output-start)))
+
+(defun slime-note-transcript-end ()
+  (with-current-buffer (slime-output-buffer)
+    (goto-char (point-max))
+    (slime-flush-output)
+    (slime-with-output-end-mark 
+     (slime-repl-insert-prompt ""))))
 
 (defvar slime-show-last-output-function 
   'slime-maybe-display-output-buffer
@@ -1805,7 +1850,7 @@ output as arguments.")
 
 (defun slime-show-last-output-region (start end)
   (when (< start end)
-    (slime-display-buffer-region (current-buffer) start 
+    (slime-display-buffer-region (current-buffer) (1- start)
                                  slime-repl-input-start-mark)))
 
 (defun slime-maybe-display-output-buffer (start end)
@@ -1814,8 +1859,7 @@ output as arguments.")
     (display-buffer (current-buffer))))
 
 (defun slime-flush-output ()
-  (when-let (stream (get-process "*lisp-output-stream*"))
-    (while (accept-process-output stream 0 20))))
+  (while (accept-process-output nil 0 20)))
 
 (defun slime-show-last-output ()
   "Show the output from the last Lisp evaluation."
@@ -1843,18 +1887,16 @@ update window-point afterwards.  If point is initially not at
               ,@body
               (when-let (w (get-buffer-window (current-buffer) t))
                 (set-window-point w (point)))
-              (when (= start slime-repl-input-start-mark)
+              (when (= start slime-repl-input-start-mark) 
                 (set-marker slime-repl-input-start-mark (point)))))
            (t 
             (save-excursion 
               (goto-char slime-output-end)
-              ,@body
-              (unless (eolp)
-                (insert "\n")
-                (set-marker slime-output-end (1- slime-output-end))))))))
+              ,@body)))))
 
 (defun slime-output-filter (process string)
-  (slime-output-string string))
+  (when (slime-connected-p)
+    (slime-output-string string)))
 
 (defun slime-open-stream-to-lisp (port)
   (let ((stream (open-network-stream "*lisp-output-stream*" 
@@ -1878,11 +1920,6 @@ update window-point afterwards.  If point is initially not at
   (unless (eq (current-buffer) (window-buffer))
     (pop-to-buffer (current-buffer) t))
   (goto-char (point-max)))
-
-(defun slime-show-output-buffer ()
-  (slime-show-last-output)
-  (with-current-buffer (slime-output-buffer)
-    (display-buffer (slime-output-buffer) t t)))
 
 
 ;;; REPL
@@ -1927,22 +1964,25 @@ update window-point afterwards.  If point is initially not at
   (slime-setup-command-hooks)
   (run-hooks 'slime-repl-mode-hook))
 
-(defun slime-repl-insert-prompt ()
+(defun slime-repl-insert-prompt (result)
   (let ((start (point)))
     (unless (bolp) (insert "\n"))
-    (slime-propertize-region
-        '(face font-lock-keyword-face 
-               read-only t
-               intangible t
-               slime-repl-prompt t
-               ;; emacs stuff
-               rear-nonsticky (slime-repl-prompt read-only face intangible)
-               ;; xemacs stuff
-               start-open t end-open t)
-      (insert (slime-lisp-package) "> "))
-    (set-marker slime-output-end start)
-    (set-marker slime-repl-prompt-start-mark (1+ start) (current-buffer))
-    (slime-mark-input-start)))
+    (insert result)
+    (unless (bolp) (insert "\n"))
+    (let ((prompt-start (point)))
+      (slime-propertize-region
+          '(face font-lock-keyword-face 
+                 read-only t
+                 intangible t
+                 slime-repl-prompt t
+                 ;; emacs stuff
+                 rear-nonsticky (slime-repl-prompt read-only face intangible)
+                 ;; xemacs stuff
+                 start-open t end-open t)
+        (insert (slime-lisp-package) "> "))
+      (set-marker slime-output-end start)
+      (set-marker slime-repl-prompt-start-mark prompt-start (current-buffer))
+      (slime-mark-input-start))))
 
 (defun slime-repl-current-input ()
   "Return the current input as string.  The input is the region from
@@ -1977,11 +2017,9 @@ after the last prompt to the end of buffer."
 
 (defun slime-repl-show-result (result)
   (with-current-buffer (slime-output-buffer)
+    (slime-flush-output)
     (goto-char (point-max))
-    (let ((start (point)))
-      (insert result "\n")
-      (slime-repl-insert-prompt)
-      (set-marker slime-output-end start))))
+    (slime-repl-insert-prompt result)))
 
 (defun slime-repl-show-abort ()
   (with-current-buffer (slime-output-buffer)
@@ -1991,8 +2029,9 @@ after the last prompt to the end of buffer."
     (slime-rex ()
         ((list 'swank:listener-eval "") nil)
       ((:ok result) (with-current-buffer (slime-output-buffer)
+                      (slime-flush-output)
                       (slime-with-output-end-mark 
-                       (slime-repl-insert-prompt))
+                       (slime-repl-insert-prompt ""))
                       (goto-char (point-max)))))))
   
 (defun slime-mark-input-start ()
@@ -2327,7 +2366,7 @@ See `slime-compile-and-load-file' for further details."
   (unless (eq major-mode 'lisp-mode)
     (error "Only valid in lisp-mode"))
   (save-some-buffers)
-  (slime-insert-transcript-delimiter 
+  (slime-note-transcript-start
    (format "Compile file %s" (buffer-file-name)))
   (slime-display-output-buffer)
   (slime-eval-async
@@ -2442,6 +2481,7 @@ Each newlines and following indentation is replaced by a single space."
 (defun slime-compilation-finished-continuation ()
   (lexical-let ((buffer (current-buffer)))
     (lambda (result) 
+      (slime-note-transcript-end)
       (slime-compilation-finished result buffer))))
 
 (defun slime-highlight-notes (notes)
@@ -3234,7 +3274,7 @@ function name is prompted."
 (defun slime-interactive-eval (string)
   "Read and evaluate STRING and print value in minibuffer. "
   (interactive (list (slime-read-from-minibuffer "Slime Eval: ")))
-  (slime-insert-transcript-delimiter string)
+  (slime-note-transcript-start string)
   (slime-eval-async 
    `(swank:interactive-eval ,string)
    (slime-buffer-package t)
@@ -3260,6 +3300,8 @@ function name is prompted."
             window))))))
 
 (defun slime-show-evaluation-result (value)
+  (with-current-buffer (slime-output-buffer)
+    (slime-note-transcript-end))
   (slime-show-last-output)
   (message "=> %s" value))
 
@@ -5045,7 +5087,104 @@ Confirm that SUBFORM is correctly located."
         (equal (format "\"%s\"" package-name) p))
       (slime-check ("slime-lisp-package is in %S." nicknames)
         (member (slime-lisp-package) nicknames)))))
-  
+
+(def-slime-test repl-test
+    (input result-contents)
+    "Test simple commands in the minibuffer."
+    '(("(+ 1 2)" "(+ 1 2)
+3
+SWANK> ")
+      ("(princ 10)" "(princ 10)
+10
+10
+SWANK> "
+      )
+      ("(princ 10)(princ 20)" "(princ 10)(princ 20)
+1020
+20
+SWANK> "
+      )
+      ("(dotimes (i 10 77) (princ i) (terpri))" 
+       "(dotimes (i 10 77) (princ i) (terpri))
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+77
+SWANK> "
+      )
+      )
+  (with-current-buffer (slime-output-buffer)
+    (setf (slime-lisp-package) "SWANK"))
+  (kill-buffer (slime-output-buffer))
+  (with-current-buffer (slime-output-buffer)
+    (insert input)
+    (slime-check ("Buffer contains input: %S" input)
+      (equal input (buffer-string)))
+    (call-interactively 'slime-repl-return)
+    (slime-sync-state-stack '(slime-idle-state) 5)
+    (slime-check ("Buffer contains result: %S" result-contents)
+      (equal result-contents (buffer-string)))))
+
+(def-slime-test repl-read
+    (prompt input result-contents)
+    "Test simple commands in the minibuffer."
+    '(("(read-line)" "foo" "(values (read-line))
+foo
+\"foo\"
+SWANK> ")
+      ("(read-char)" "1" "(values (read-char))
+1
+#\\1
+SWANK> ")
+      ("(read)" "(+ 2 3
+4)" "(values (read))
+(+ 2 3
+4)
+(+ 2 3 4)
+SWANK> ")
+      )
+  (with-current-buffer (slime-output-buffer)
+    (setf (slime-lisp-package) "SWANK"))
+  (kill-buffer (slime-output-buffer))
+  (with-current-buffer (slime-output-buffer)
+    (insert (format "(values %s)" prompt))
+    (call-interactively 'slime-repl-return)
+    (slime-sync-state-stack '(slime-read-string-state 
+                              slime-evaluating-state
+                              slime-idle-state) 
+                            5)
+    (insert input)
+    (call-interactively 'slime-repl-return)
+    (slime-sync-state-stack '(slime-idle-state) 5)
+    (slime-check ("Buffer contains result: %S" result-contents)
+      (equal result-contents (buffer-string)))))
+
+(def-slime-test interactive-eval-output
+    (input result-contents visiblep)
+    "Test simple commands in the minibuffer."
+    '(("(+ 1 2)" ";;;; (+ 1 2) ...
+SWANK> " nil)
+      ("(princ 10)" ";;;; (princ 10) ...
+10
+SWANK> " t))
+  (with-current-buffer (slime-output-buffer)
+    (setf (slime-lisp-package) "SWANK"))
+  (kill-buffer (slime-output-buffer))
+  (with-current-buffer (slime-output-buffer)
+    (slime-interactive-eval input) 
+    (slime-sync-state-stack '(slime-idle-state) 5)
+    (slime-check ("Buffer contains result: %S" result-contents)
+      (equal result-contents (buffer-string)))
+    (slime-check ("Buffer visible?")
+      (eq visiblep (not (not  (get-buffer-window (current-buffer))))))))
+
 
 ;;; Portability library
 
