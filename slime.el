@@ -801,7 +801,7 @@ Also saves the window configuration, and inherts the current
 `slime-connection' in a buffer-local variable."
   (let ((config (gensym)))
   `(let ((,config (current-window-configuration))
-         (connection slime-connection)
+         (connection (slime-connection))
          (standard-output (with-current-buffer (get-buffer-create ,name)
                             (setq buffer-read-only nil)
                             (erase-buffer)
@@ -871,8 +871,15 @@ If that doesn't give a function, return nil."
 (defun slime ()
   "Start an inferior^_superior Lisp and connect to its Swank server."
   (interactive)
-  (when (slime-connected-p)
-    (slime-disconnect))
+  (if (and current-prefix-arg
+           (slime-connected-p)
+           (get-buffer-create "*inferior-lisp*"))
+      (if (y-or-n-p "Start additional *inferior-lisp* for connection? ")
+          ;; Rename old inferior-lisp buffer out of the way
+          (let ((bufname (generate-new-buffer-name "*inferior-lisp*")))
+            (with-current-buffer "*inferior-lisp*"
+              (rename-buffer bufname)))
+        (slime-disconnect)))
   (slime-maybe-start-lisp)
   (slime-maybe-start-multiprocessing)
   (slime-read-port-and-connect))
@@ -1037,7 +1044,7 @@ EVAL'd by Lisp."
 (defun slime-net-sentinel (process message)
   (when (ignore-errors (eq (process-status (inferior-lisp-proc)) 'open))
     (message "Lisp connection closed unexpectedly: %s" message))
-  (when (eq process slime-primary-connection)
+  (when (eq process slime-default-connection)
     (setq slime-state-name "[not connected]"))
   (force-mode-line-update)
   (slime-net-close process))
@@ -1107,11 +1114,13 @@ This connection is used to make requests when the user invokes
 commands.
 
 Can be bound dynamically to use a particular connection temporarily.
-
 Can be bound buffer-locally to make a particular connection
-\"sticky\" for commands in a particular buffer.")
+\"sticky\" for commands in a particular buffer.
 
-(defvar slime-primary-connection nil
+You should not read this variable directly. Use the function of
+the same name instead.")
+
+(defvar slime-default-connection nil
   "Network process selected for top-level use.
 This variable is only used to test whether some process is the
 primary process.")
@@ -1124,33 +1133,43 @@ primary process.")
    "Serial number of a connection.
 Bound in the connection's process-buffer."))
 
+(defun slime-connection ()
+  "Return the current connection."
+  (when (and slime-connection
+             (not (eq (process-status slime-connection) 'open)))
+    (if (and slime-default-connection
+             (y-or-n-p "Buffer's connection closed; switch to default? "))
+        (setq slime-connection nil)
+      (error "Buffer's connection closed.")))
+  (or slime-connection
+      slime-default-connection
+      (error "No connection.")))
+
 (defun slime-connection-number (&optional connection)
   (slime-with-connection-buffer (connection)
     slime-connection-number))
 
 (defvar slime-state-name "[??]"
-  "Name of the current state of `slime-primary-connection'.
+  "Name of the current state of `slime-default-connection'.
 For display in the mode-line.")
 
 (defmacro* slime-with-connection-buffer ((&optional process) &rest body)
   "Execute BODY in the process-buffer of PROCESS.
 If PROCESS is not specified, `slime-connection' is used."
   `(with-current-buffer
-       (process-buffer (or ,process slime-connection (error "No connection")))
+       (process-buffer (or ,process (slime-connection) (error "No connection")))
      ,@body))
 
 (defun slime-select-connection (process)
-  (setq slime-connection process)
-  (setq slime-primary-connection process)
-  (let ((message (format "Selected connection: %S" (slime-connection-number))))
-    (unless (get-buffer-window (slime-output-buffer) t)
-      (message message))))
+  (setq slime-default-connection process)
+  (unless (get-buffer-window (slime-output-buffer) t)
+    (message (format "Selected connection: %S" (slime-connection-number)))))
 
 (defun slime-connection-close-hook (process)
   (when (eq process slime-connection)
     (setq slime-connection nil))
-  (when (eq process slime-primary-connection)
-    (setq slime-primary-connection nil)))
+  (when (eq process slime-default-connection)
+    (setq slime-default-connection nil)))
 
 (add-hook 'slime-net-process-close-hooks 'slime-connection-close-hook)
 
@@ -1160,7 +1179,7 @@ This command is mostly intended for debugging the multi-session code."
   (interactive)
   (when (null slime-net-processes)
     (error "Not connected."))
-  (let ((conn (nth (mod (1+ (or (position slime-connection slime-net-processes) 0))
+  (let ((conn (nth (mod (1+ (or (position (slime-connection) slime-net-processes) 0))
                         (length slime-net-processes))
                    slime-net-processes)))
     (slime-select-connection conn)))
@@ -1290,14 +1309,23 @@ This may be called by a state machine to finish its current state."
   "Initialize the stack machine."
   (let ((slime-connection proc))
     (slime-init-connection-state)
-    (sldb-cleanup))
-  (when (or select (null slime-connection))
-    (slime-select-connection proc)))
+    (when (or select (null slime-default-connection))
+      (slime-select-connection proc))
+    (sldb-cleanup)))
 
 (defun slime-init-connection-state ()
+  ;; To make life simpler for the user: if this is the only open
+  ;; connection then reset the connection counter.
+  (when (equal slime-net-processes (list slime-connection))
+    (setq slime-connection-counter 0))
   (slime-with-connection-buffer ()
     (setq slime-state-stack (list (slime-idle-state)))
     (setq slime-connection-number (incf slime-connection-counter)))
+  (when-let (repl-buffer (slime-repl-buffer))
+    ;; REPL buffer already exists - update its local
+    ;; `slime-connection' binding.
+    (with-current-buffer repl-buffer
+      (setq slime-connection proc)))
   (setf (slime-pid) (slime-eval '(swank:getpid)))
   (when slime-global-debugger-hook
     (slime-eval '(swank:install-global-debugger-hook) "COMMON-LISP-USER"))
@@ -1312,7 +1340,7 @@ the state name for the modeline."
     (slime-dispatch-event '(activate))))
 
 (defun slime-update-state-name ()
-  (slime-with-connection-buffer (slime-primary-connection)
+  (slime-with-connection-buffer (slime-default-connection)
     (setq slime-state-name
           (ecase (slime-state-name state)
             (slime-idle-state "")
@@ -1341,7 +1369,7 @@ the state name for the modeline."
   "Dispatch an event to the current state.
 Certain \"out of band\" events are handled specially instead of going
 into the state machine."
-  (let ((slime-connection (or process slime-connection)))
+  (let ((slime-connection (or process (slime-connection))))
     (slime-log-event event)
     (unless (slime-handle-oob event)
       (funcall (slime-state-function (slime-current-state)) event))))
@@ -1475,7 +1503,7 @@ The state's variables are moved into lexical bindings."
 	     (t
               ;; Illegal event for current state. This is a BUG!
               (slime-state/event-panic ,event-var
-                                       slime-connection))))))))
+                                       (slime-connection)))))))))
 
 (defmacro slime-defstate (name variables doc &rest events)
   "Define a state called NAME and comprised of VARIABLES.
@@ -1561,7 +1589,7 @@ Lisp waits for input from Emacs."
   ((activate)
    (slime-repl-read-string))
   ((:emacs-return-string code)
-   (slime-net-send `(swank:take-input ,tag ,code) slime-connection)
+   (slime-net-send `(swank:take-input ,tag ,code) (slime-connection))
    (slime-pop-state))
   ((:emacs-rex form-string package-name continuation)
    (slime-push-evaluating-state form-string package-name continuation))
@@ -1682,12 +1710,12 @@ deal with that."
    `(:emacs-evaluate-oneway ,(prin1-to-string sexp) ,package)))
 
 (defun slime-send (sexp)
-  (slime-net-send sexp slime-connection))
+  (slime-net-send sexp (slime-connection)))
 
 (defun slime-sync ()
   "Block until any asynchronous command has completed."
   (while (slime-busy-p)
-    (accept-process-output slime-connection)))
+    (accept-process-output (slime-connection))))
 
 (defun slime-busy-p ()
   "Return true if Lisp is busy processing a request."
@@ -1717,28 +1745,33 @@ deal with that."
 
 ;;; Stream output
 
-(defvar slime-output-start (make-marker)
-  "Marker for the start of the output for the evaluation.")
+(make-variable-buffer-local
+ (defvar slime-output-start nil
+   "Marker for the start of the output for the evaluation."))
 
-(defvar slime-output-end (let ((m (make-marker)))
-                           (set-marker-insertion-type m t)
-                           m)
-  "Marker for end of output. New output is inserted at this mark.")
+(make-variable-buffer-local
+ (defvar slime-output-end nil
+   "Marker for end of output. New output is inserted at this mark."))
 
 (defun slime-output-buffer ()
   "Return the output buffer, create it if necessary."
-  (or (get-buffer "*slime-repl*")
-      (with-current-buffer (get-buffer-create "*slime-repl*")
-        (dolist (mark (list slime-output-start
-                            slime-output-end
-                            slime-repl-prompt-start-mark
-                            slime-repl-input-start-mark
-                            slime-repl-input-end-mark
-                            slime-repl-last-input-start-mark))
-          (set-marker mark (point)))
-	(slime-repl-mode)
-        (slime-repl-insert-prompt)
-	(current-buffer))))
+  (or (slime-repl-buffer)
+      (let ((connection (slime-connection)))
+        (with-current-buffer (slime-repl-buffer t)
+          (slime-repl-mode)
+          (set (make-local-variable 'slime-connection) connection)
+          (dolist (markname (list 'slime-output-start
+                                  'slime-output-end
+                                  'slime-repl-prompt-start-mark
+                                  'slime-repl-input-start-mark
+                                  'slime-repl-input-end-mark
+                                  'slime-repl-last-input-start-mark))
+            (set markname (make-marker))
+            (set-marker (symbol-value markname) (point)))
+          (set-marker-insertion-type slime-repl-input-end-mark t)
+          (set-marker-insertion-type slime-output-end t)
+          (slime-repl-insert-prompt)
+          (current-buffer)))))
 
 (defun slime-insert-transcript-delimiter (string)
   (with-current-buffer (slime-output-buffer)
@@ -1845,18 +1878,28 @@ update window-point afterwards.  If point is initially not at
 
 ;;; REPL
 
-(defvar slime-repl-input-history '()
-  "History list of strings read from the REPL buffer.")
+;; Small helper.
+(defun slime-make-variables-buffer-local (&rest variables)
+  (mapcar #'make-variable-buffer-local variables))
 
-(defvar slime-repl-input-history-position 0)
+(slime-make-variables-buffer-local
+ ;; Local variables in the REPL buffer.
+ (defvar slime-repl-input-history '()
+   "History list of strings read from the REPL buffer.")
+ 
+ (defvar slime-repl-input-history-position 0)
+
+ (defvar slime-repl-prompt-start-mark)
+ (defvar slime-repl-input-start-mark)
+ (defvar slime-repl-input-end-mark)
+ (defvar slime-repl-last-input-start-mark))
+
 (defvar slime-repl-mode-map)
 
-(defvar slime-repl-prompt-start-mark (make-marker))
-(defvar slime-repl-input-start-mark (make-marker))
-(defvar slime-repl-input-end-mark (let ((m (make-marker)))
-                                    (set-marker-insertion-type m t)
-                                    m))
-(defvar slime-repl-last-input-start-mark (make-marker))
+(defun slime-repl-buffer (&optional create)
+  "Get the REPL buffer for the current connection; optionally create."
+  (funcall (if create #'get-buffer-create #'get-buffer)
+           (format "*slime-repl[%S]*" (slime-connection-number))))
 
 (defun slime-repl-mode () 
   "Major mode for interacting with a superior Lisp.
@@ -3832,7 +3875,7 @@ If `sldb-enable-styled-backtrace' is nil, just return STRING."
   (setq mode-name (format "sldb[%d]" (sldb-level)))
   (slime-set-truncate-lines)
   ;; Make original `slime-connection' "sticky" for SLDB commands in this buffer
-  (make-local-variable 'slime-connection)
+  (set (make-local-variable 'slime-connection) (slime-connection))
   (make-local-hook 'kill-buffer-hook)
   (add-hook 'kill-buffer-hook 'sldb-delete-overlays))
 
