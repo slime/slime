@@ -10,6 +10,12 @@
 	(location-for-warning, handle-undefined-functions-warning): New
 	functions.
 
+	* swank-cmucl.lisp (*install-gc-hooks*): New user variable.
+	(sending-safe-p): New predicate.
+	(pre-gc-hook, post-gc-hook): Use it.
+
+	* swank.lisp (eval-region): Use a simple loop.
+
 2004-12-02  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp: (inspect-for-emacs (symbol)): Handle non-interned
