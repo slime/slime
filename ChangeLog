@@ -1,3 +1,9 @@
+2004-01-31  Jouni K Seppanen <jks@iki.fi>
+
+	* slime.el (slime-path): Placed inside an eval-and-compile.  Works
+	around some problems when byte-compiling slime-changelog-date.
+	(slime-swank-connection-retries): 
+
 2004-01-31  Marco Baringer  <mb@bese.it>
 
 	* swank-openmcl.lisp: remove defslimefun-unimplemented forms.
