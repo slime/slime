@@ -42,6 +42,7 @@
    clos:class-precedence-list
    clos:class-prototype
    clos:class-slots
+   clos:specializer-direct-methods
    ;; generic function readers
    clos:generic-function-argument-precedence-order
    clos:generic-function-declarations
@@ -68,6 +69,13 @@
 
 (defun swank-mop:slot-definition-documentation (slot)
   (documentation slot t))
+
+;;;; lispworks doesn't have the eql-specializer class, it represents
+;;;; them as a list of `(EQL ,OBJECT)
+(deftype swank-mop:eql-specializer () 'cons)
+
+(defun swank-mop:eql-specializer-object (eql-spec)
+  (second eql-spec))
 
 (when (fboundp 'dspec::define-dspec-alias)
   (dspec::define-dspec-alias defimplementation (name args &rest body)
