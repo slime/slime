@@ -1,3 +1,9 @@
+2004-07-07  Thomas Schilling  <tjs_ng@yahoo.de>
+
+	* swank.lisp (arglist-for-insertion): Changed formatting to use
+	arglist-to-string. That results in proper cases for
+	slime-insert-arglist.
+
 2004-07-07  Luke Gorrie  <luke@bluetail.com>
 
 	* swank-loader.lisp (*lisp-name*): Include the version number in
