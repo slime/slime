@@ -121,10 +121,15 @@ This is done with a text-search that runs on an idle timer."
   :type 'boolean
   :group 'slime-ui)
 
-(defcustom slime-kill-without-query-p t
+(defcustom slime-kill-without-query-p nil
   "If non-nil, kill SLIME processes without query when quitting Emacs.
 This applies to the *inferior-lisp* buffer and the network connections."
   :type 'boolean
+  :group 'slime-ui)
+
+(defcustom slime-startup-animation t
+  "Enable the startup animation."
+  :type '(choice (const :tag "Enable" t) (const :tag "Disable" nil))
   :group 'slime-ui)
 
 ;;;;; slime-lisp
@@ -2324,9 +2329,18 @@ Debugged requests are ignored."
                          (slime-pid)))
          ;; Emacs21 has the fancy persistent header-line.
          (use-header-p (and slime-header-line-p
-                            (boundp 'header-line-format))))
+                            (boundp 'header-line-format)))
+         ;; and dancing text
+         (animantep (and (fboundp 'animate-string)
+                         slime-startup-animation
+                         (zerop (buffer-size)))))
     (when use-header-p
       (setq header-line-format banner))
+    (when animantep
+      (pop-to-buffer (current-buffer))
+      (animate-string (format "; SLIME %s" (or (slime-changelog-date) 
+                                               "- ChangeLog file not found"))
+                      0 0))
     (slime-repl-insert-prompt (if use-header-p "" (concat "; " banner)))))
 
 (defun slime-changelog-date ()
@@ -5184,7 +5198,7 @@ Show the output buffer if the evaluation causes any output."
                           (slime-show-last-output))))))
 
 (defun slime-eval-describe (form)
-  "Evalute FORM in Lisp and display the result in a new buffer."
+  "Evaluate FORM in Lisp and display the result in a new buffer."
   (lexical-let ((package (slime-current-package)))
     (slime-eval-with-transcript
      form (lambda (string) (slime-show-description string package)))))
@@ -5243,14 +5257,14 @@ Use `slime-re-evaluate-defvar' if the from starts with '(defvar'"
            (slime-interactive-eval form)))))
 
 (defun slime-eval-region (start end)
-  "Evalute region."
+  "Evaluate region."
   (interactive "r")
   (slime-eval-with-transcript
    `(swank:interactive-eval-region 
      ,(buffer-substring-no-properties start end))))
 
 (defun slime-eval-buffer ()
-  "Evalute the current buffer.
+  "Evaluate the current buffer.
 The value is printed in the echo area."
   (interactive)
   (slime-eval-region (point-min) (point-max)))
@@ -5263,48 +5277,26 @@ First make the variable unbound, then evaluate the entire form."
   (slime-eval-with-transcript `(swank:re-evaluate-defvar ,form)))
 
 (defun slime-pprint-eval-last-expression ()
-  "Evalute the form before point; pprint the value in a buffer."
+  "Evaluate the form before point; pprint the value in a buffer."
   (interactive)
   (slime-eval-describe `(swank:pprint-eval ,(slime-last-expression))))
 
 (defun slime-eval-print-last-expression (string)
-  "Evalute sexp before point; print value into the current buffer"
+  "Evaluate sexp before point; print value into the current buffer"
   (interactive (list (slime-last-expression)))
   (insert "\n")
   (slime-eval-print string))
 
-(defun slime-eval/compile-defun-dwim (&optional arg)
-  "Call the computation command you want (Do What I Mean).
-Look at defun and determine whether to call `slime-eval-defun' or
-`slime-compile-defun'.
-
-A prefix of `-' forces evaluation, any other prefix forces
-compilation."
-  (interactive "P")
-  (case arg
-    ;; prefix is `-', evaluate defun
-    ((-) (slime-eval-defun))
-    ;; no prefix, automatically determine action
-    ((nil) (let ((form (slime-defun-at-point)))
-             (cond ((string-match "^(defvar " form)
-                    (slime-re-evaluate-defvar form))
-                   ((string-match "^(def" form)
-                    (slime-compile-defun))
-                   (t
-                    (slime-eval-defun)))))
-    ;; prefix is not `-', compile defun
-    (otherwise (slime-compile-defun))))
-
 ;;This is an extension for the trace command.
 ;;Several interesting cases (the . shows the point position):
 
-;; (defun n.ame (...) ...)                                   -> (:defun name)
-;; (defun (setf n.ame) (...) ...)                            -> (:defun (setf name))
-;; (defmethod n.ame (...) ...)                               -> (:defmethod name (...))
-;; (defun ... (...) (labels ((n.ame (...) ...) ...) ...)...) -> (:labels (:defun ...) name)
-;; (defun ... (...) (flet ((n.ame (...) ...) ...) ...)...)   -> (:flet (:defun ...) name)
-;; (defun ... (...) ... (n.ame ...) ...)                     -> (:call (:defun ...) name)
-;; (defun ... (...) ... (setf (n.ame ...) ...))              -> (:call (:defun ...) (setf name))
+;; (defun n.ame (...) ...)                 -> (:defun name)
+;; (defun (setf n.ame) (...) ...)          -> (:defun (setf name))
+;; (defmethod n.ame (...) ...)             -> (:defmethod name (...))
+;; (defun ... (...) (labels ((n.ame (...)  -> (:labels (:defun ...) name)
+;; (defun ... (...) (flet ((n.ame (...)    -> (:flet (:defun ...) name)
+;; (defun ... (...) ... (n.ame ...) ...)   -> (:call (:defun ...) name)
+;; (defun ... (...) ... (setf (n.ame ...)  -> (:call (:defun ...) (setf name))
 
 ;; All other context should be identified as normal, traditional,
 ;; function calls.
@@ -5321,28 +5313,31 @@ tries to be clever to understand a bit of the context."
 
 (defun name-context-at-point (name)
   (out-first 1)
-  (cond ((looking-at "defun") ;;a function definition
+  (cond ((looking-at "defun") ;a function definition
 	 `(:defun ,name))
-	((looking-at "defmacro") ;;a macro definition
+	((looking-at "defmacro") ;a macro definition
 	 `(:defmacro ,name))
-	((looking-at "defgeneric") ;;a defgeneric form, maybe trace all methods
+	((looking-at "defgeneric") ;a defgeneric form, maybe trace all methods
 	 `(:defgeneric ,name))
-	((looking-at "defmethod") ;;a defmethod, maybe trace just this method
-	 (forward-sexp 3) ;;jump defmethod, name, and possibly, arglist 
+	((looking-at "defmethod") ;a defmethod, maybe trace just this method
+	 (forward-sexp 3) ;jump defmethod, name, and possibly, arglist 
 	 (let ((qualifier
-		(if (= (or (char-before) -1) ?\)) ;;ok, after arglist
+		(if (= (or (char-before) -1) ?\)) ;ok, after arglist
 		  (progn
 		    (forward-sexp -1)
 		    (list))
-		  (list (read (current-buffer))))) ;;it was a qualifier
+		  (list (read (current-buffer))))) ;it was a qualifier
 	       (arglist (read (current-buffer))))
 	   `(:defmethod ,name ,@qualifier ,(parameter-specializers arglist))))
-	((looking-at "setf ") ;;looks like a setf-definition, but which?
+	((looking-at "setf ") ;looks like a setf-definition, but which?
 	 (up-list -1)
 	 (name-context-at-point `(setf ,name)))
-	((and (symbolp name) (looking-at (symbol-name name))) ;;the name itself, we need further investigation
+	((and (symbolp name) 
+              (looking-at (symbol-name name))) ;the name itself, we
+					       ;need further
+					       ;investigation
 	 (out-first 2)
-	 (cond ((looking-at "setf ") ;;a setf-call
+	 (cond ((looking-at "setf ") ;a setf-call
 		(let ((def (ignore-errors (definition-name))))
 		  (if def
 		    `(:call ,def (setf ,name))
@@ -5408,34 +5403,42 @@ tries to be clever to understand a bit of the context."
 	      (slime-toggle-trace-within spec)))))))
 
 (defun slime-toggle-trace-function (name)
-  (let ((real-name (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string name))))
-    (message "%s" (slime-eval `(swank:toggle-trace-function (swank::from-string ,real-name))))))
+  (let ((real-name (slime-read-from-minibuffer "(Un)trace: " 
+                                               (prin1-to-string name))))
+    (message "%s" (slime-eval `(swank:toggle-trace-function 
+                                (swank::from-string ,real-name))))))
 
 (defun slime-toggle-trace-defgeneric (name)
   (let ((name (prin1-to-string name)))
     (let ((real-name (slime-read-from-minibuffer "(Un)trace: " name)))
       (if (and (string= name real-name)
-	       (y-or-n-p (format "(Un)trace also all methods implementing %s " real-name)))
-	(message "%s" (slime-eval `(swank:toggle-trace-generic-function-methods 
-				    (swank::from-string ,real-name))))
+	       (y-or-n-p (format "(Un)trace also all methods implementing %s "
+                                 real-name)))
+          (message "%s" (slime-eval `(swank:toggle-trace-generic-function-methods 
+                                      (swank::from-string ,real-name))))
 	(message "%s" (slime-eval `(swank:toggle-trace-function (swank::from-string ,real-name))))))))
 
 (defun slime-toggle-trace-defmethod (spec)
-  (let ((real-name (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string spec))))
-    (message "%s" (slime-eval `(swank:toggle-trace-method (swank::from-string ,real-name))))))
+  (let ((real-name (slime-read-from-minibuffer "(Un)trace: " 
+                                               (prin1-to-string spec))))
+    (message "%s" (slime-eval `(swank:toggle-trace-method 
+                                (swank::from-string ,real-name))))))
 
 (defun slime-toggle-trace-maybe-wherein (name wherein)
-  (let ((real-name (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string name)))
+  (let ((real-name (slime-read-from-minibuffer "(Un)trace: " 
+                                               (prin1-to-string name)))
 	(wherein (prin1-to-string wherein)))
     (if (and (string= name real-name)
-	     (y-or-n-p (format "(Un)trace only when %s call is made from %s " real-name wherein)))
+	     (y-or-n-p (format "(Un)trace only when %s call is made from %s " 
+                               real-name wherein)))
       (message "%s" (slime-eval `(swank:toggle-trace-fdefinition-wherein
 				  (swank::from-string ,real-name)
 				  (swank::from-string ,wherein))))
       (message "%s" (slime-eval `(swank:toggle-trace-fdefinition ,real-name))))))
 
 (defun slime-toggle-trace-within (spec)
-  (let ((real-name (slime-read-from-minibuffer "(Un)trace local function: " (prin1-to-string spec))))
+  (let ((real-name (slime-read-from-minibuffer "(Un)trace local function: "
+                                               (prin1-to-string spec))))
     (message "%s" (slime-eval `(swank:toggle-trace-fdefinition-within
 				(swank::from-string ,real-name))))))
 
