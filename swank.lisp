@@ -7,11 +7,10 @@
 ;;; This code has been placed in the Public Domain.  All warranties are 
 ;;; disclaimed.
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defpackage :swank
-    (:use :common-lisp)
-    (:nicknames "SWANK-IMPL")
-    (:export #:start-server)))
+(defpackage :swank
+  (:use :common-lisp)
+  (:nicknames "SWANK-IMPL")
+  (:export #:start-server))
 
 (in-package :swank)
 
@@ -126,14 +125,16 @@ back to the main request handling loop."
 
 (defun send-to-emacs (object)
   "Send `object' to Emacs."
-  (let* ((string (prin1-to-string-for-emacs object))
-         (length (1+ (length string))))
-    (loop for position from 16 downto 0 by 8
-          do (write-char (code-char (ldb (byte 8 position) length))
-                         *emacs-io*))
-    (write-string string *emacs-io*)
-    (terpri *emacs-io*)
-    (force-output *emacs-io*)))
+   (let* ((string (prin1-to-string-for-emacs object))
+          (length (1+ (length string))))
+     (without-interrupts*
+      (lambda ()
+        (loop for position from 16 downto 0 by 8
+              do (write-char (code-char (ldb (byte 8 position) length))
+                             *emacs-io*))
+        (write-string string *emacs-io*)
+        (terpri *emacs-io*)
+        (force-output *emacs-io*)))))
 
 (defun prin1-to-string-for-emacs (object)
   (with-standard-io-syntax
