@@ -75,6 +75,7 @@
   (index 0 :type kernel:index))
 
 (defun sis/in (stream eof-errorp eof-value)
+  (declare (ignore eof-errorp eof-value))
   (let ((index (sis.index stream))
 	(buffer (sis.buffer stream)))
     (when (= index (length buffer))
@@ -407,6 +408,7 @@ It is assumed that all contexts belong to the same file."
 receives the object and it's size as arguments.  SPACES should be a
 list of the symbols :dynamic, :static, or :read-only."
   (dolist (space spaces)
+    (declare (inline vm::map-allocated-objects))
     (vm::map-allocated-objects
      (lambda (obj header size)
        (when (= vm:code-header-type header)
@@ -455,6 +457,7 @@ constant pool."
 (defslimefun list-callers (symbol-name)
   (stringify-function-name-list (function-callers (from-string symbol-name))))
 
+
 (defslimefun list-callees (symbol-name)
   (stringify-function-name-list (function-callees (from-string symbol-name))))
 
@@ -487,12 +490,11 @@ This is useful when debugging the definition-finding code.")
   (flet ((find-layout (function)
 	   (sys:find-if-in-closure 
 	    (lambda (x) 
-	      (cond ((kernel::layout-p x)
-		     (return-from find-layout x))
-		    ((di::indirect-value-cell-p x)
-		     (let ((value (c:value-cell-ref x)))
-		       (when (kernel::layout-p value)
-			 (return-from find-layout value))))))
+	      (let ((value (if (di::indirect-value-cell-p x)
+			       (c:value-cell-ref x) 
+			       x)))
+		(when (kernel::layout-p value)
+		  (return-from find-layout value))))
 	    function)))
     (kernel:layout-info (find-layout function))))
 	    
@@ -573,6 +575,18 @@ Return NIL if the symbol is unbound."
       (maybe-push
        :class (if (find-class symbol nil) 
 		  (doc 'class)))
+      (maybe-push
+       :alien-type (if (not (eq (ext:info alien-type kind symbol) :unknown))
+		       (doc 'alien-type)))
+      (maybe-push
+       :alien-struct (if (ext:info alien-type struct symbol)
+			 (doc nil)))
+      (maybe-push
+       :alien-union (if (ext:info alien-type union symbol)
+			 (doc nil)))
+      (maybe-push
+       :alien-enum (if (ext:info alien-type enum symbol)
+		       (doc nil)))
       (if result
 	  (list* :designator (to-string symbol) result)))))
 
@@ -587,6 +601,31 @@ Return NIL if the symbol is unbound."
 
 (defslimefun describe-class (symbol-name)
   (print-description-to-string (find-class (from-string symbol-name) nil)))
+
+(defslimefun describe-alien-type (symbol-name)
+  (let ((name (from-string symbol-name)))
+    (ecase (ext:info :alien-type :kind name)
+      (:primitive
+       (print-description-to-string
+	(let ((alien::*values-type-okay* t))
+	  (funcall (ext:info :alien-type :translator name) (list name)))))
+      ((:defined)
+       (print-description-to-string (ext:info :alien-type :definition name)))
+      (:unknown
+       (format nil "Unkown alien type: ~A" symbol-name)))))
+
+(defmacro %describe-alien (symbol-name namespace)
+  `(print-description-to-string
+    (ext:info :alien-type ,namespace (from-string ,symbol-name))))
+
+(defslimefun describe-alien-struct (symbol-name)
+  (%describe-alien symbol-name :struct))
+
+(defslimefun describe-alien-union (symbol-name)
+  (%describe-alien symbol-name :union))
+
+(defslimefun describe-alien-enum (symbol-name)
+  (%describe-alien symbol-name :enum))
 
 ;;; Macroexpansion
 
@@ -703,13 +742,80 @@ stack."
     (source-path-file-position path filename)))
 
 (defun source-path-file-position (path filename)
-  (let ((*read-suppress* t))
-    (with-open-file (file filename)
-      (dolist (n path)
-	(dotimes (i n)
-	  (read file))
-	(read-delimited-list #\( file))
-      (file-position file))))
+  (with-open-file (file filename)
+    (source-path-stream-position path file)))
+
+(defun make-source-recorder (fn source-map)
+  "Return a macro character function that does the same as FN, but
+additionally stores the result together with the stream positions
+before and after of calling FN in the hashtable SOURCE-MAP."
+  (lambda (stream char)
+    (let ((start (file-position stream))
+	  (values (multiple-value-list (funcall fn stream char)))
+	  (end (file-position stream)))
+      #+(or) (format t "~&[~D ~{~A~^, ~} ~D]~%" start values end)
+      (unless (null values) 
+	(push (cons start end) (gethash (car values) source-map)))
+      (values-list values))))
+
+(defun make-source-recording-readtable (readtable source-map) 
+  "Return a source position recording copy of READTABLE.
+The source locations are stored in SOURCE-MAP."
+  (let* ((tab (copy-readtable readtable))
+	 (*readtable* tab))
+    (dotimes (code char-code-limit)
+      (let ((char (code-char code)))
+	(multiple-value-bind (fn term) (get-macro-character char tab)
+	  (when fn
+	    (set-macro-character char (make-source-recorder fn source-map) 
+				 term tab)))))
+    tab))
+
+(defun make-source-map ()
+  (make-hash-table :test #'eq))
+
+(defvar *source-map* (make-source-map)
+  "The hashtable table used for source position recording.")
+
+(defvar *recording-readtable-cache* '()
+  "An alist of (READTABLE . RECORDING-READTABLE) pairs.")
+
+(defun lookup-recording-readtable (readtable)
+  "Find a cached or create a new recording readtable for READTABLE."
+  (or (cdr (assoc readtable *recording-readtable-cache*))
+      (let ((table (make-source-recording-readtable readtable *source-map*)))
+	(push (cons readtable table) *recording-readtable-cache*)
+	table)))
+			
+(defun read-and-record-source-map (stream)
+  "Read the next object from STREAM.
+Return the object together with a hashtable that maps
+subexpressions of the object to stream positions."
+  (let ((*readtable* (lookup-recording-readtable *readtable*))
+	(*read-suppress* t))
+    (clrhash *source-map*)
+    (values (read stream) *source-map*)))
+  
+(defun source-path-stream-position (path stream)
+  "Search the source-path PATH in STREAM and return its position."
+  (destructuring-bind (toplevel-number . path) path
+    (dotimes (i toplevel-number)
+      (let ((*read-suppress* t)) (read stream)))
+    (multiple-value-bind (form source-map) (read-and-record-source-map stream)
+      (find-form-in-source-map (find-path-in-form (cons 0 path) (list form))
+			       source-map))))
+
+(defun find-path-in-form (path form)
+  "Return the subform of FORM corresponding to the source-path PATH."
+  (loop for f = form then (nth n f)
+	for n in path
+	finally (return f)))
+
+(defun find-form-in-source-map (form source-map)
+  "Return FORM's start position in SOURCE-MAP."
+  (let ((positions (gethash form source-map)))
+    (assert (= (length positions) 1))
+    (car (first positions))))
 
 (defun debug-source-info-from-emacs-buffer-p (debug-source)
   (let ((info (c::debug-source-info debug-source)))
