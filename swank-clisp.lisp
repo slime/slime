@@ -32,6 +32,51 @@
   (when (find-package "LINUX")
     (pushnew :linux *features*)))
 
+(import-to-swank-mop
+ '(;; classes
+   cl:standard-generic-function
+   clos:standard-slot-definition
+   cl:method
+   cl:standard-class
+   ;; standard-class readers
+   clos:class-default-initargs
+   clos:class-direct-default-initargs
+   clos:class-direct-slots
+   clos:class-direct-subclasses
+   clos:class-direct-superclasses
+   clos:class-finalized-p
+   cl:class-name
+   clos:class-precedence-list
+   clos:class-prototype
+   clos:class-slots
+   ;; generic function readers
+   clos:generic-function-argument-precedence-order
+   clos:generic-function-declarations
+   clos:generic-function-lambda-list
+   clos:generic-function-methods
+   clos:generic-function-method-class
+   clos:generic-function-method-combination
+   clos:generic-function-name
+   ;; method readers
+   clos:method-generic-function
+   clos:method-function
+   clos:method-lambda-list
+   clos:method-specializers
+   clos:method-qualifiers
+   ;; slot readers
+   clos:slot-definition-allocation
+   clos:slot-definition-initargs
+   clos:slot-definition-initform
+   clos:slot-definition-initfunction
+   clos:slot-definition-name
+   clos:slot-definition-type
+   clos:slot-definition-readers
+   clos:slot-definition-writers
+   ))
+
+(defun swank-mop:slot-definition-documentation (slot)
+  (clos::slot-definition-documentation slot))
+
 #+linux
 (defmacro with-blocked-signals ((&rest signals) &body body)
   (ext:with-gensyms ("SIGPROCMASK" ret mask)
@@ -419,7 +464,14 @@ Execute BODY with NAME's funtion slot set to FUNCTION."
 
 ;;; Inspecting
 
-(defmethod inspected-parts (o)
+(defclass clisp-inspector (inspector)
+  ())
+
+(defimplementation make-default-inspector ()
+  (make-instance 'clisp-inspector))
+
+(defmethod inspect-for-emacs ((o t) (inspector clisp-inspector))
+  (declare (ignore inspector))
   (let* ((*print-array* nil) (*print-pretty* t)
 	 (*print-circle* t) (*print-escape* t)
 	 (*print-lines* custom:*inspect-print-lines*)
@@ -433,14 +485,17 @@ Execute BODY with NAME's funtion slot set to FUNCTION."
       (values (format nil "~S~% ~A~{~%~A~}" o 
 		      (sys::insp-title inspection)
 		      (sys::insp-blurb inspection))
-	      (let ((count (sys::insp-num-slots inspection))
-		    (pairs '()))
-		(dotimes (i count)
-		  (multiple-value-bind (value name)
-		      (funcall (sys::insp-nth-slot inspection) i)
-		    (push (cons (princ-to-string (or name i)) value)
-			  pairs)))
-		(nreverse pairs))))))
+              (loop with count = (sys::insp-num-slots inspection)
+                    for i upto count
+                   for (value name) = (multiple-value-list (funcall (sys::insp-nth-slot inspection) i))
+                   collect `(:value ,name)
+                   collect " = "
+                   collect `(:value ,value)
+                   collect '(:newline))))))
+
+(defmethod inspect-for-emacs :around ((n number) (inspector clisp-inspector))
+  (let ((custom:*warn-on-floating-point-rational-contagion* nil))
+    (call-next-method)))
 
 (defimplementation quit-lisp ()
   (#+lisp=cl ext:quit #-lisp=cl lisp:quit code))
