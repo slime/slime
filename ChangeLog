@@ -1,3 +1,19 @@
+2004-01-13  Luke Gorrie  <luke@bluetail.com>
+
+	* swank-clisp.lisp: Updated for new network interface but not
+	tested! Probably slightly broken.
+
+	* swank-lispworks.lisp: Updated for new network interface.
+	(accept-socket/stream): This function is currently broken, so
+	LispWorks can't use the dedicated output channel at the moment.
+
+	* swank.lisp, swank-cmucl.lisp, swank-sbcl.lisp: Updated for new
+	network interface.
+
+	* swank-backend.lisp (accept-socket/stream, accept-socket/run):
+	New functions replacing the ancient (over 24 hours!)
+	`create-socket-server'. This interface is much simpler.
+
 2004-01-12  Luke Gorrie  <luke@bluetail.com>
 
 	* swank-lispworks.lisp: Partially updated for new backend
