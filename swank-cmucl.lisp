@@ -789,9 +789,10 @@ The result has the format \"(...)\"."
 		       ;; interpreted-debug-function
 		       (df (di::debug-function-lambda-list df))
 		       (t "(<arglist-unavailable>)"))))))
-      (if (stringp arglist)
-	  arglist
-	  (to-string arglist)))))
+      (etypecase arglist
+        (string arglist)
+        (cons (to-string arglist))
+        (null "()")))))
 
 
 ;;;; Miscellaneous.
