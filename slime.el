@@ -389,7 +389,7 @@ PROPERTIES specifies any default face properties."
 ;;;;; slime-mode
 
 (define-minor-mode slime-mode
-  "\\<slime-mode-map>
+  "\\<slime-mode-map>\
 SLIME: The Superior Lisp Interaction Mode for Emacs (minor-mode).
 
 Commands to compile the current buffer's source file and visually
@@ -453,7 +453,7 @@ This is automatically updated based on the buffer/point."))
 
 ;;;;; inferior-slime-mode
 (define-minor-mode inferior-slime-mode
-  "\\<slime-mode-map>
+  "\\<slime-mode-map>\
 Inferior SLIME mode: The Inferior Superior Lisp Mode for Emacs.
 
 This mode is intended for use with `inferior-lisp-mode'. It provides a
@@ -565,6 +565,7 @@ A prefix argument disables this behaviour."
     ("\C-\M-x" slime-eval-defun)
     (":"    slime-interactive-eval :prefixed t :sldb t)
     ("\C-e" slime-interactive-eval :prefixed t :sldb t :inferior t)
+    ("E"    slime-edit-value :prefixed t :sldb t :inferior t)
     ("\C-z" slime-switch-to-output-buffer :prefixed t :sldb t)
     ("\C-b" slime-interrupt :prefixed t :inferior t :sldb t)
     ("\M-g" slime-quit :prefixed t :inferior t :sldb t)
@@ -698,8 +699,9 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
        [ "Eval Last Expression"    slime-eval-last-expression ,C ]
        [ "Eval And Pretty-Print"   slime-pprint-eval-last-expression ,C ]
        [ "Eval Region"             slime-eval-region ,C ]
-       [ "Interactive Eval"        slime-interactive-eval ,C ]
-       [ "Scratch Buffer"          slime-scratch ,C ])
+       [ "Scratch Buffer"          slime-scratch ,C ]
+       [ "Interactive Eval..."     slime-interactive-eval ,C ]
+       [ "Edit Lisp Value..."      slime-edit-value ,C ])
       ("Debugging"
        [ "Macroexpand Once..."     slime-macroexpand-1 ,C ]
        [ "Macroexpand All..."      slime-macroexpand-all ,C ]
@@ -781,6 +783,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
       [ "Eval in Frame..." sldb-eval-in-frame ,C ]
       [ "Eval in Frame (pretty print)..." sldb-pprint-eval-in-frame ,C ]
       [ "Inspect In Frame..." sldb-inspect-in-frame ,C ]
+      [ "Inspect Condition Object" sldb-inspect-condition ,C ]
       [ "Print Condition to REPL" sldb-print-condition t ]
       "--"
       [ "Restart Frame" sldb-restart-frame ,C ]
@@ -3015,6 +3018,7 @@ Return nil of no item matches"
   ("\C-c\C-b" 'slime-interrupt)
   ("\C-c:"    'slime-interactive-eval)
   ("\C-c\C-e" 'slime-interactive-eval)
+  ("\C-cE"     'slime-edit-value)
   ;("\t"   'slime-complete-symbol)
   ("\t"   'slime-indent-and-complete-symbol)
   (" "    'slime-space)
@@ -3681,7 +3685,7 @@ from an element and TEST is used to compare keys."
 
 (define-derived-mode slime-compiler-notes-mode fundamental-mode 
   "Compiler Notes"
-  "\\<slime-compiler-notes-mode-map>
+  "\\<slime-compiler-notes-mode-map>\
 \\{slime-compiler-notes-mode-map}"
   (slime-set-truncate-lines))
 
@@ -4769,7 +4773,7 @@ replaced in the target for efficiency.")
   fundamental-mode "Fuzzy Completions"
   "Major mode for presenting fuzzy completion results.
 
-\\<slime-fuzzy-completions-map>
+\\<slime-fuzzy-completions-map>\
 \\{slime-fuzzy-completions-map}"
   (use-local-map slime-fuzzy-completions-map))
 
@@ -5380,6 +5384,57 @@ First make the variable unbound, then evaluate the entire form."
   (insert "\n")
   (slime-eval-print string))
 
+;;;; Edit Lisp value
+;;;
+(defun slime-edit-value (form-string)
+  "\\<slime-edit-value-mode-map>\
+Edit the value of a setf'able form in a new buffer.
+The value is inserted into a temporary buffer for editing and then set
+in Lisp when committed with \\[slime-edit-value-commit]."
+  (interactive 
+   (list (slime-read-from-minibuffer "Edit value (evaluated): "
+				     (slime-sexp-at-point))))
+  (slime-eval-async `(swank:value-for-editing ,form-string)
+                    (lexical-let ((form-string form-string)
+                                  (package (slime-current-package)))
+                      (lambda (result)
+                        (slime-edit-value-callback form-string result package)))))
+
+(make-variable-buffer-local
+ (defvar slime-edit-form-string nil
+   "The form being edited by `slime-edit-value'."))
+
+(define-minor-mode slime-edit-value-mode
+  "Mode for editing a Lisp value."
+  nil
+  " edit"
+  '(("\C-c\C-c" . slime-edit-value-commit)))
+
+(defun slime-edit-value-callback (form-string current-value package)
+  (let ((name (generate-new-buffer-name (format "*Edit %s*" form-string))))
+    (with-current-buffer (slime-get-temp-buffer-create name :mode 'lisp-mode)
+    (slime-mode 1)
+    (slime-edit-value-mode 1)
+    (setq slime-edit-form-string form-string)
+    (setq slime-buffer-connection (slime-connection))
+    (setq slime-buffer-package package)
+    (insert current-value)
+    (pop-to-buffer (current-buffer)))))
+
+(defun slime-edit-value-commit ()
+  "Commit the edited value to the Lisp image.
+\\(See `slime-edit-value'.)"
+  (interactive)
+  (if (null slime-edit-form-string)
+      (error "Not editing a value.")
+    (let ((value (buffer-substring-no-properties (point-min) (point-max))))
+      (lexical-let ((buffer (current-buffer)))
+        (slime-eval-async `(swank:commit-edited-value ,slime-edit-form-string
+                                                      ,value)
+                          (lambda (_)
+                            (with-current-buffer buffer
+                              (slime-dismiss-temp-buffer)
+                              (kill-buffer buffer))))))))
 
 ;;;; Tracing
 
@@ -5772,7 +5827,7 @@ With prefix argument include internal symbols."
   "Buffer local variable in xref windows.")
 
 (define-derived-mode slime-xref-mode lisp-mode "xref"
-  "\\<slime-xref-mode-map>
+  "\\<slime-xref-mode-map>\
 \\{slime-xref-mode-map}"
   (setq font-lock-defaults nil)
   (setq delayed-mode-hooks nil)
