@@ -224,19 +224,19 @@ See also `slime-translate-to-lisp-filename-function'.")
     `(defface ,facename
       '((t ,default))
       ,(format "Face for %s." description)
-      :group 'sldb)))
+      :group 'slime-debugger)))
 
 (defcustom sldb-enable-styled-backtrace t "Enable faces in slime backtrace" 
   :type '(choice 
 	  (const :tag "Enable" t)
 	  (const :tag "Disable" nil))
-  :group 'sldb)
+  :group 'slime-debugger)
 
 (defcustom sldb-show-catch-tags t "Show catch tags in frames" 
   :type '(choice 
 	  (const :tag "Show" t)
 	  (const :tag "Don't show" nil))
-  :group 'sldb)
+  :group 'slime-debugger)
 
 (def-sldb-face topline "top line describing error"
   (:bold t))
