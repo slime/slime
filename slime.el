@@ -2,6 +2,7 @@
 ;; slime.el -- Superior Lisp Interaction Mode for Emacs
 ;;; License
 ;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
+;;     Copyright (C) 2004  Luke Gorrie, Helmut Eller
 ;;
 ;;     This program is free software; you can redistribute it and/or
 ;;     modify it under the terms of the GNU General Public License as
@@ -21,33 +22,29 @@
 
 ;;; Commentary
 
-;; This minor mode extends Lisp-Mode with CMUCL-specific features.
-;; The features can be summarised thusly:
+;; This file contains extensions for programming in Common Lisp. The
+;; main features are:
 ;;
-;;   Separate control channel for communication with CMUCL, similar to
-;;   Hemlock. This is used to implement other features, rather than
-;;   talking to the Lisp listener "in-band".
+;;   A socket-based communication/RPC interface between Emacs and
+;;   Lisp.
 ;;
-;;   Compiler notes and warnings are visually annotated in the source
-;;   buffer. Commands are provided for inspecting and navigating
-;;   between notes.
+;;   The `slime-mode' minor-mode complementing `lisp-mode'. This new
+;;   mode includes many commands for interacting with the Common Lisp
+;;   process.
 ;;
-;;   Comforts familiar from ILISP and Emacs Lisp: completion of
-;;   symbols, automatic display of arglists in function calls,
-;;   TAGS-like definition finding, Lisp evaluation, online
-;;   documentation, etc.
+;;   Common Lisp REPL (Read-Eval-Print Loop) written in Emacs Lisp,
+;;   similar to `ielm'.
 ;;
-;;   Common Lisp debugger interface.
+;;   Common Lisp debugger written in Emacs Lisp. The debugger pops up
+;;   an Emacs buffer similar to the Emacs/Elisp debugger.
 ;;
-;; The goal is to make Emacs support CMU Common Lisp as well as it
-;; supports Emacs Lisp. The strategy is to take maximum advantage of
-;; all CMUCL features and hooks, portability be damned to hades.
+;;   Trapping compiler messages and creating annotations in the source
+;;   file on the appropriate forms.
 ;;
-;; Compatibility with other Common Lisps is not an immediate
-;; goal. SBCL support would be highly desirable in the future.
-;;
-;; SLIME is compatible with GNU Emacs 20 and 21, and XEmacs 21.
-;; Development copies may have temporary have portability bugs.
+;; SLIME is compatible with GNU Emacs 20 and 21 and XEmacs 21. In
+;; order to run SLIME requires a supporting Lisp server called
+;; Swank. Swank is distributed with slime.el and will automatically be
+;; started in a normal installation.
 
 
 ;;; Dependencies, major global variables and constants
@@ -131,11 +128,14 @@ See also `slime-translate-to-lisp-filename-function'.")
   :prefix "slime-"
   :group 'applications)
 
-;; XEmacs wants underline to be a boolean.
-(defun slime-underline-color (underline)
-  (cond ((featurep 'xemacs) (if underline t nil))
-        (t underline)))
-    
+(defun slime-underline-color (color)
+  "Return a legal value for the :underline face attribute based on COLOR."
+  ;; In XEmacs the :underline attribute can only be a boolean.
+  ;; In GNU it can be the name of a colour.
+  (if (featurep 'xemacs)
+      (if color t nil)
+    color))
+
 (defface slime-error-face
   `((((class color) (background light))
      (:underline ,(slime-underline-color "red")))
@@ -173,27 +173,35 @@ See also `slime-translate-to-lisp-filename-function'.")
   :group 'slime)
 
 (defun slime-face-inheritance-possible-p ()
+  "Return true if the :inherit face attribute is supported." 
   (assq :inherit custom-face-attributes))
 
 (defface slime-highlight-face
-  (cond ((slime-face-inheritance-possible-p)
-         '((t (:inherit highlight :underline nil))))
-        (t 
-         '((((class color) (background light))
-            (:background "darkseagreen2"))
-           (((class color) (background dark))
-            (:background "darkolivegreen"))
-           (t (:inverse-video t)))))
+  (if (slime-face-inheritance-possible-p)
+      '((t (:inherit highlight :underline nil)))
+    '((((class color) (background light))
+       (:background "darkseagreen2"))
+      (((class color) (background dark))
+       (:background "darkolivegreen"))
+      (t (:inverse-video t))))
   "Face for compiler notes while selected."
   :group 'slime)
 
 (defface slime-repl-prompt-face
-  '((t (:inherit font-lock-keyword-face)))
+  (if (slime-face-inheritance-possible-p)
+      '((t (:inherit font-lock-keyword-face)))
+    '((((class color) (background light)) (:foreground "Purple"))
+      (((class color) (background dark)) (:foreground "Cyan"))
+      (t (:weight bold))))
   "Face for the prompt in the SLIME REPL."
   :group 'slime)
 
 (defface slime-repl-output-face
-  '((t (:inherit font-lock-string-face)))
+  (if (slime-face-inheritance-possible-p)
+      '((t (:inherit font-lock-string-face)))
+    '((((class color) (background light)) (:foreground "RosyBrown"))
+      (((class color) (background dark)) (:foreground "LightSalmon"))
+      (t (:slant italic))))
   "Face for Lisp output in the SLIME REPL."
   :group 'slime)
 
@@ -1137,7 +1145,8 @@ Polling %S.. (Abort with `M-x slime-connection-abort'.)"
                        (y-or-n-p "Close old connections first? "))))
   (when kill-old-p (slime-disconnect))
   (message "Connecting to Swank on port %S.." port)
-  (let ((process (slime-net-connect host port)))
+  (let* ((process (slime-net-connect host port))
+         (slime-dispatching-connection process))
     (slime-init-connection process)
     (when-let (buffer (get-buffer "*inferior-lisp*"))
       (delete-windows-on buffer)
@@ -1837,7 +1846,7 @@ deal with that."
 
 (defun slime-init-output-buffer (connection)
   (with-current-buffer (slime-output-buffer t)
-    (set (make-local-variable 'slime-buffer-connection) connection)
+    (setq slime-buffer-connection connection)
     ;; set the directory stack
     (setq slime-repl-directory-stack 
           (list (expand-file-name default-directory)))
