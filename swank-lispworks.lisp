@@ -380,7 +380,7 @@ Return NIL if the symbol is unbound."
               (*readtable* ,readtable))
           ,@body)))))
 
-#-(or lispworks-4.1 lispworks-4.2)      ; no dspec:parse-form-dspec prior to 4.3
+#-(or lispworks4.1 lispworks4.2)      ; no dspec:parse-form-dspec prior to 4.3
 (defun dspec-stream-position (stream dspec)
   (with-fairly-standard-io-syntax
     (loop (let* ((pos (file-position stream))
@@ -427,9 +427,9 @@ Return NIL if the symbol is unbound."
       ((or pathname string)
        (let ((checked-filename (filename location)))
          (make-location `(:file ,checked-filename)
-                        #+(or lispworks-4.1 lispworks-4.2)
+                        #+(or lispworks4.1 lispworks4.2)
                         (dspec-buffer-position dspec 1)
-                        #-(or lispworks-4.1 lispworks-4.2)
+                        #-(or lispworks4.1 lispworks4.2)
                         (with-open-file (stream checked-filename)
                           (let ((position (dspec-stream-position stream dspec)))
                             (if position
