@@ -1016,17 +1016,19 @@ positions before and after executing BODY."
   (slime-propertize-region props (apply #'insert args)))
 
 (defun slime-indent-and-complete-symbol ()
-  "Indent the current line and perform symbol completion.
-First indent the line; if indenting doesn't move point, complete the
-symbol."
+  "Indent the current line and perform symbol completion.  First
+indent the line. If indenting doesn't move point, complete the
+symbol. If there's no symbol at the point, show the arglist for the
+most recently enclosed macro or function."
   (interactive)
   (let ((pos (point)))
     (unless (get-text-property (line-beginning-position) 'slime-repl-prompt)
       (lisp-indent-line))
-    (when (and (= pos (point))
-               (save-excursion 
-                 (re-search-backward "[^ \n\t\r]+\\=" nil t)))
-      (slime-complete-symbol))))
+    (when (= pos (point))
+      (cond ((save-excursion (re-search-backward "[^() \n\t\r]+\\=" nil t))
+             (slime-complete-symbol))
+            ((memq (char-before) '(?\t ?\ ))
+             (slime-echo-arglist))))))
 
 (defmacro slime-with-rigid-indentation (level &rest body)
   "Execute BODY and then rigidly indent its text insertions.
@@ -1156,6 +1158,9 @@ See `slime-translate-from-lisp-filename-function'."
 ;;; starting the server, initiating a network connection.
 
 ;;;;; Entry points
+
+(defvar slime-inferior-lisp-program-history '()
+  "History list of command strings.  Used by `slime'.")
 
 (defun slime (&optional command buffer coding-system)
   "Start an inferior^_superior Lisp and connect to its Swank server."
@@ -1462,15 +1467,15 @@ The functions are called with the process as their argument.")
 
 (defvar slime-net-coding-system
   (find-if (if (featurep 'xemacs) #'find-coding-system #'coding-system-p)
-           '(iso-8859-1-unix iso-8859-1 raw-text-unix))
+           '(iso-latin-1-unix iso-8859-1-unix binary))
   "*Coding system used for network connections.")
 
 (defvar slime-net-valid-coding-systems
-  '((iso-8859-1-unix nil :iso-latin-1-unix)
-    (iso-8859-1      nil :iso-latin-1-unix)   ; for oldish Emacsen
-    (raw-text-unix   nil :iso-latin-1-unix)   ; ditto
-    (utf-8-unix      t   :utf-8-unix)
-    (emacs-mule-unix t   :emacs-mule-unix))
+  '((iso-latin-1-unix nil :iso-latin-1-unix)
+    (iso-8859-1-unix  nil :iso-latin-1-unix)
+    (binary           nil :iso-latin-1-unix)
+    (utf-8-unix       t   :utf-8-unix)
+    (emacs-mule-unix  t   :emacs-mule-unix))
   "A list of valid coding systems. 
 Each element is of the form: (NAME MULTIBYTEP CL-NAME)")
 
@@ -1527,9 +1532,25 @@ Each element is of the form: (NAME MULTIBYTEP CL-NAME)")
 This is the lowest level of communication. The sexp will be READ and
 EVAL'd by Lisp."
   (let* ((msg (concat (slime-prin1-to-string sexp) "\n"))
-         (string (concat (slime-net-encode-length (length msg)) msg)))
+         (string (concat (slime-net-encode-length (length msg)) msg))
+         (coding-system (cdr (process-coding-system proc))))
     (slime-log-event sexp)
-    (process-send-string proc string)))
+    (cond ((slime-safe-encoding-p coding-system string)
+           (process-send-string proc string))
+          (t (error "Coding system %s not suitable for %S"
+                    coding-system string)))))
+
+(defun slime-safe-encoding-p (coding-system string)
+  "Return true iff CODING-SYSTEM can safely encode STRING."
+  (if (featurep 'xemacs)
+      ;; FIXME: XEmacs encodes non-encodeable chars as ?~ automatically
+      t
+    (or (let ((candidates (find-coding-systems-string string))
+              (base (coding-system-base coding-system)))
+          (or (equal candidates '(undecided))
+              (memq base candidates)))
+        (and (not (multibyte-string-p string))
+             (not (slime-coding-system-mulibyte-p coding-system))))))
 
 (defun slime-net-close (process)
   (setq slime-net-processes (remove process slime-net-processes))
@@ -2483,7 +2504,8 @@ update window-point afterwards.  If point is initially not at
  (defvar slime-repl-input-history '()
    "History list of strings read from the REPL buffer.")
  
- (defvar slime-repl-input-history-position 0)
+ (defvar slime-repl-input-history-position 0
+   "Newer items have smaller indices.")
 
  (defvar slime-repl-prompt-start-mark)
  (defvar slime-repl-input-start-mark)
@@ -2822,25 +2844,43 @@ earlier in the buffer."
 (defvar slime-repl-history-pattern nil
   "The regexp most recently used for finding input history.")
 
-(defun slime-repl-history-replace (direction regexp)
+(defun slime-repl-history-replace (direction regexp &optional delete-at-end-p)
   "Replace the current input with the next line in DIRECTION matching REGEXP.
-DIRECTION is 'forward' or 'backward' (in the history list)."
+DIRECTION is 'forward' or 'backward' (in the history list).
+If DELETE-AT-END-P is non-nil then remove the string if the end of the
+history is reached."
+  (setq slime-repl-history-pattern regexp)
+  (let ((pos (slime-repl-position-in-history direction regexp))
+        (forward (eq direction 'forward)))
+    (cond (pos
+           (slime-repl-replace-input (nth pos slime-repl-input-history))
+           (setq slime-repl-input-history-position pos)
+           (message "History item: %d" pos))
+          (delete-at-end-p 
+           (cond (forward
+                  (slime-repl-replace-input "")
+                  (setq slime-repl-input-history-position -1)
+                  (message "End of history; no default available"))
+                 (t
+                  (message "Beginning of history; no preceeding item"))))
+          (t
+           (message "End of history; no matching item")))))
+
+(defun slime-repl-position-in-history (direction regexp)
+  "Return the position of the history item matching regexp.
+Return nil of no item matches"
+  ;; Loop through the history list looking for a matching line
   (let* ((step (ecase direction
                  (forward -1)
                  (backward 1)))
          (history-pos0 slime-repl-input-history-position))
-    (setq slime-repl-history-pattern regexp)
-    ;; Loop through the history list looking for a matching line
     (loop for pos = (+ history-pos0 step) then (+ pos step)
           while (and (<= 0 pos)
                      (< pos (length slime-repl-input-history)))
           do (let ((string (nth pos slime-repl-input-history)))
                (when (and (string-match regexp string)
                           (not (string= string (slime-repl-current-input))))
-                 (slime-repl-replace-input string)
-                 (setq slime-repl-input-history-position pos)
-                 (return)))
-          finally (message "End of history; no matching item"))))
+                 (return pos))))))
 
 (defun slime-repl-matching-input-regexp ()
   (if (memq last-command
@@ -2850,11 +2890,11 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
 
 (defun slime-repl-previous-input ()
   (interactive)
-  (slime-repl-history-replace 'backward (slime-repl-matching-input-regexp)))
+  (slime-repl-history-replace 'backward (slime-repl-matching-input-regexp) t))
 
 (defun slime-repl-next-input ()
   (interactive)
-  (slime-repl-history-replace 'forward (slime-repl-matching-input-regexp)))
+  (slime-repl-history-replace 'forward (slime-repl-matching-input-regexp) t))
 
 (defun slime-repl-previous-matching-input (regexp)
   (interactive "sPrevious element matching (regexp): ")
@@ -4128,19 +4168,23 @@ NEXT-CANDIDATE-FN is called to find each new position for consideration."
 Designed to be bound to the SPC key.  Prefix argument can be used to insert
 more than one space."
   (interactive "p")
-  (unwind-protect 
+  (unwind-protect
       (when (and slime-space-information-p
                  (slime-background-activities-enabled-p))
-        (let ((names (slime-enclosing-operator-names)))
-          (when names
-            (slime-eval-async 
-             `(swank:arglist-for-echo-area (quote ,names))
-             (lexical-let ((buffer (current-buffer)))
-               (lambda (message)
-                 (if message
-                     (with-current-buffer buffer
-                       (slime-message "%s" message)))))))))
-    (self-insert-command n)))
+        (slime-echo-arglist))
+  (self-insert-command n)))
+
+(defun slime-echo-arglist ()
+  "Display the arglist of the current form in the echo area."
+  (let ((names (slime-enclosing-operator-names)))
+    (when names
+      (slime-eval-async 
+       `(swank:arglist-for-echo-area (quote ,names))
+       (lexical-let ((buffer (current-buffer)))
+         (lambda (message)
+           (if message
+               (with-current-buffer buffer
+                 (slime-message "%s" message)))))))))
 
 (defun slime-arglist (name)
   "Show the argument list for NAME."
@@ -5380,6 +5424,7 @@ With prefix argument include internal symbols."
   "\\<slime-xref-mode-map>
 \\{slime-xref-mode-map}"
   (setq font-lock-defaults nil)
+  (setq delayed-mode-hooks nil)
   (slime-mode -1))
 
 (slime-define-keys slime-xref-mode-map 
@@ -5388,8 +5433,7 @@ With prefix argument include internal symbols."
   (" " 'slime-goto-xref)
   ("q" 'slime-xref-quit)
   ("n" 'slime-next-line/not-add-newlines)
-  ("p" 'previous-line)
-  )
+  ("p" 'previous-line))
 
 (defun slime-next-line/not-add-newlines ()
   (interactive)
