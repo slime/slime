@@ -60,9 +60,10 @@
 (require 'font-lock)
 (when (featurep 'xemacs)
   (require 'overlay))
-(unless (fboundp 'define-minor-mode)
-  (require 'easy-mmode)
-  (defalias 'define-minor-mode 'easy-mmode-define-minor-mode))
+(eval-when (compile load eval)
+  (unless (fboundp 'define-minor-mode)
+    (require 'easy-mmode)
+    (defalias 'define-minor-mode 'easy-mmode-define-minor-mode)))
 
 (defvar slime-path
   (let ((path (locate-library "slime")))
