@@ -94,9 +94,8 @@ recompiled."
 
 (defun user-init-file ()
   "Return the name of the user init file or nil."
-  (probe-file
-   (merge-pathnames (user-homedir-pathname)
-                    (make-pathname :name ".swank" :type "lisp"))))
+  (probe-file (merge-pathnames (user-homedir-pathname)
+                               (make-pathname :name ".swank" :type "lisp"))))
 
        
 (compile-files-if-needed-serially
