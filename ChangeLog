@@ -1,3 +1,8 @@
+2004-08-21  Luke Gorrie  <luke@bluetail.com>
+
+	* swank.lisp (*global-debugger*): New configurable to globally
+	install swank-debugger-hook as *debugger-hook*. True by default.
+
 2004-08-19  Luke Gorrie  <luke@bluetail.com>
 
 	* doc/slime.texi: C-c C-c C-a, C-c C-u C-e.
