@@ -25,6 +25,7 @@
            #:position-pos
            #:print-output-to-string
            #:quit-lisp
+           #:references
            #:unbound-slot-filler))
 
 (in-package :swank-backend)
@@ -238,6 +239,10 @@ If LOAD-P is true, load the file after compilation.")
    (short-message :initarg :short-message
                   :initform nil
                   :accessor short-message)
+
+   (references :initarg :references
+               :initform nil
+               :accessor references)
 
    (location :initarg :location
              :accessor location)))

@@ -178,10 +178,22 @@ information."
                        (style-warning        :style-warning)
                        (warning              :warning))
            :short-message (brief-compiler-message-for-emacs condition)
+           :references
+           ;; FIXME: delete the reader conditionaloid after sbcl
+           ;; 0.8.13 is released.
+           #+#.(cl:if (cl:find-symbol "ENCAPSULATED-CONDITION" "SB-INT")
+                      '(and) '(or))
+           (let ((c (if (typep condition 'sb-int:encapsulated-condition)
+                        (sb-int:encapsulated-condition condition)
+                        condition)))
+             (when (typep c 'sb-int:reference-condition)
+               (sb-int:reference-condition-references c)))
+           #-#.(cl:if (cl:find-symbol "ENCAPSULATED-CONDITION" "SB-INT")
+                      '(and) '(or))
+           (when (typep condition 'sb-int:reference-condition)
+             (sb-int:reference-condition-references condition))
            :message (long-compiler-message-for-emacs condition context)
            :location (compiler-note-location context))))
-
-
 
 (defun compiler-note-location (context)
   (cond (context
@@ -238,7 +250,8 @@ information."
 When Emacs presents the message it already has the source popped up
 and the source form highlighted. This makes much of the information in
 the error-context redundant."
-  (princ-to-string condition))
+  (let ((sb-int:*print-condition-references* nil))
+    (princ-to-string condition)))
 
 (defun long-compiler-message-for-emacs (condition error-context)
   "Describe a compiler error for Emacs including context information."
@@ -247,8 +260,9 @@ the error-context redundant."
       (if error-context
           (values (sb-c::compiler-error-context-enclosing-source error-context)
                   (sb-c::compiler-error-context-source error-context)))
-    (format nil "~@[--> ~{~<~%--> ~1:;~A~> ~}~%~]~@[~{==>~%~A~%~}~]~A"
-            enclosing source condition)))
+    (let ((sb-int:*print-condition-references* nil))
+      (format nil "~@[--> ~{~<~%--> ~1:;~A~> ~}~%~]~@[~{==>~%~A~%~}~]~A"
+              enclosing source condition))))
 
 (defun current-compiler-error-source-path (context)
   "Return the source-path for the current compiler error.

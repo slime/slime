@@ -3066,10 +3066,12 @@ This operation is \"lossy\" in the broad sense but not for display purposes."
   "Merge NOTES together. Keep the highest severity, concatenate the messages."
   (let* ((new-severity (reduce #'slime-most-severe notes
                                :key #'slime-note.severity))
-         (new-message (mapconcat #'slime-note.message notes "\n")))
+         (new-message (mapconcat #'slime-note.message notes "\n"))
+         (new-references (reduce #'append notes :key #'slime-note.references)))
     (let ((new-note (copy-list (car notes))))
       (setf (getf new-note :message) new-message)
       (setf (getf new-note :severity) new-severity)
+      (setf (getf new-note :references) new-references)
       new-note)))
 
 (defun slime-intersperse (element list)
@@ -3166,6 +3168,9 @@ from an element and TEST is used to compare keys."
   (or (plist-get note :short-message)
       (plist-get note :message)))
 
+(defun slime-note.references (note)
+  (plist-get note :references))
+
 (defun slime-note.location (note)
   (plist-get note :location))
 
@@ -3203,9 +3208,26 @@ from an element and TEST is used to compare keys."
   (slime-set-truncate-lines))
 
 (slime-define-keys slime-compiler-notes-mode-map
-  ((kbd "RET") 'slime-compiler-notes-show-details)
-  ([mouse-2] 'slime-compiler-notes-show-details/mouse)
+  ((kbd "RET") 'slime-compiler-notes-default-action-or-show-details)
+  ([mouse-2] 'slime-compiler-notes-default-action-or-show-details/mouse)
   ("q" 'slime-compiler-notes-quit))
+
+(defun slime-compiler-notes-default-action-or-show-details/mouse (event)
+  "Invoke the action pointed at by the mouse, or show details."
+  (interactive "e")
+  (destructuring-bind (mouse-2 (w pos &rest _) &rest __) event
+    (save-excursion
+      (goto-char pos)
+      (let ((fn (get-text-property (point) 
+                                   'slime-compiler-notes-default-action)))
+	(if fn (funcall fn) (slime-compiler-notes-show-details))))))
+
+(defun slime-compiler-notes-default-action-or-show-details ()
+  "Invoke the action at point, or show details."
+  (interactive)
+  (let ((fn (get-text-property (point) 
+                               'slime-compiler-notes-default-action)))
+    (if fn (funcall fn) (slime-compiler-notes-show-details))))
 
 (defun slime-compiler-notes-quit ()
   (interactive)
@@ -3222,13 +3244,6 @@ from an element and TEST is used to compare keys."
            (slime-tree-toggle tree))
           (t
            (slime-show-source-location (slime-note.location note))))))
-
-(defun slime-compiler-notes-show-details/mouse (event)
-  (interactive "e")
-  (destructuring-bind (mouse-2 (w pos &rest _) &rest __) event
-    (goto-char pos)
-    (slime-compiler-notes-show-details)))
-          
 
 ;;;;;;; Tree Widget
 
@@ -3265,7 +3280,36 @@ from an element and TEST is used to compare keys."
   (not (slime-tree.kids tree)))
 
 (defun slime-tree-default-printer (tree)
-  (princ (slime-tree.item tree) (current-buffer)))
+  (princ (slime-tree.item tree) (current-buffer))
+  ;; FIXME: slime-tree above is pretty general.  This stuff (below) is
+  ;; tree-of-conditions specific.  At the moment we only use
+  ;; slime-trees for trees-of-conditions, so that's OK, if potentially
+  ;; confusing.
+  (when-let (note (plist-get (slime-tree.plist tree) 'note))
+    (when-let (references (slime-note.references note))
+      (terpri (current-buffer))
+      (princ "See also:" (current-buffer))
+      (terpri (current-buffer))
+      (slime-tree-insert-references references))))
+
+(defun slime-tree-insert-references (references)
+  "Insert documentation references from a condition.
+See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
+  (loop for refs on references
+        for ref = (car refs)
+        do
+        (destructuring-bind (where type what) ref
+          ;; FIXME: this is poorly factored, and shares some code and
+          ;; data with sldb that it shouldn't: notably
+          ;; sldb-reference-face.  Probably the names of
+          ;; sldb-reference-foo should be altered to be not sldb
+          ;; specific.
+          (insert "  " (sldb-format-reference-source where) ", ")
+          (slime-insert-propertized (sldb-reference-properties where type what)
+                                    (sldb-format-reference-node what))
+          (insert (format " [%s]" (slime-cl-symbol-name type)))
+          (when (cdr refs)
+            (terpri (current-buffer))))))
 
 (defun slime-tree-decoration (tree)
   (cond ((slime-tree-leaf-p tree) "-- ")
@@ -5562,12 +5606,16 @@ Only add clickability to properties we actually know how to lookup."
                (member (slime-cl-symbol-name type)
                        '("function" "special-operator" "macro" "section" "glossary" "issue"))))
       `(sldb-default-action sldb-lookup-reference
+        ;; FIXME: this is a hack!  slime-compiler-notes and sldb are a
+        ;; little too intimately entwined.
+        slime-compiler-notes-default-action sldb-lookup-reference
                             sldb-reference ,ref
                             face sldb-reference-face
                             mouse-face highlight)))
 
 (defun sldb-format-reference-source (where)
   (case where
+    (:amop    "The Art of the Metaobject Protocol")
     (:ansi-cl "Common Lisp Hyperspec")
     (:sbcl    "SBCL Manual")
     (t        (format "%S" where))))

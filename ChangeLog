@@ -1,3 +1,23 @@
+2004-07-13  Christophe Rhodes  <csr21@cam.ac.uk>
+
+	* slime.el: add support for actionable references in the
+	*slime-compiler-notes* buffer.
+	(slime-merge-notes): merge references if applicable.
+	(slime-compiler-notes-mode-map): use new functions defaulting to
+	show-details, but overrideable by text properties.
+	(slime-tree-default-printer): destroy generality by assuming a
+	tree of conditions, and insert references if applicable.
+	(sldb-format-reference-source): add :amop
+	
+	* swank-sbcl.lisp (signal-compiler-condition,
+	brief-compiler-message-for-emacs,
+	long-compiler-message-for-emacs): handle references in compiler
+	conditions.
+
+	* swank.lisp (make-compiler-note): propagate references.
+
+	* swank-backend.lisp (compiler-condition): add references slot.
+	
 2004-07-12  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-easy-menu): Added "Apropos all" menu item.

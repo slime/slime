@@ -1469,6 +1469,7 @@ The time is measured in microseconds."
   (list* :message (message condition)
          :severity (severity condition)
          :location (location condition)
+         :references (references condition)
          (let ((s (short-message condition)))
            (if s (list :short-message s)))))
 
