@@ -28,6 +28,21 @@
 (defvar *swank-debug-p* t
   "When true, print extra debugging information.")
 
+;;; public interface.  slimefuns are the things that emacs is allowed
+;;; to call
+
+(defmacro defslimefun (fun &rest rest)
+  `(progn
+    (defun ,fun ,@rest)
+    (export ',fun :swank)))
+
+(defmacro defslimefun-unimplemented (fun args)
+  `(progn
+    (defun ,fun ,args
+      (declare (ignore ,@args))
+      (error "Backend function ~A not implemented." ',fun))
+    (export ',fun :swank)))
+
 ;;; Setup and Hooks
 
 (defun start-server (port-file-namestring)
@@ -88,7 +103,7 @@ back to the main request handling loop."
                                (next-byte)))
                (string (make-string length))
                (pos (read-sequence string *emacs-io*)))
-          (assert (= pos length) nil 
+          (assert (= pos length) nil
                   "Short read: length=~D  pos=~D" length pos)
           (read-form string))
       (serious-condition (c) 
@@ -143,20 +158,20 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
                (find-package (string-upcase name))))
       *package*))
 
-;;; public interface.  slimefuns are the things that emacs is allowed
-;;; to call
+;;; Input from Emacs
 
-(defmacro defslimefun (fun &rest rest)
-  `(progn
-    (defun ,fun ,@rest)
-    (export ',fun :swank)))
+(defvar *read-input-catch-tag* 0)
 
-(defmacro defslimefun-unimplemented (fun args)
-  `(progn
-    (defun ,fun ,args
-      (declare (ignore ,@args))
-      (error "Backend function ~A not implemented." ',fun))
-    (export ',fun :swank)))
+(defun slime-read-char ()
+  (let ((*read-input-catch-tag* (1+ *read-input-catch-tag*)))
+    (send-to-emacs `(:read-char ,*read-input-catch-tag*))
+    (code-char (catch *read-input-catch-tag* 
+                 (loop (read-from-emacs))))))
+
+(defslimefun take-input (tag input)
+  (throw tag input))
+
+;;; Evaluation
 
 (defvar *swank-debugger-condition*)
 (defvar *swank-debugger-hook*)
