@@ -34,31 +34,31 @@
 
 ;;;; TCP Server
 
-(defmethod create-socket (port)
+(defimplementation create-socket (port)
   (socket:make-socket :connect :passive :local-port port :reuse-address t))
 
-(defmethod local-port (socket)
+(defimplementation local-port (socket)
   (socket:local-port socket))
 
-(defmethod close-socket (socket)
+(defimplementation close-socket (socket)
   (close socket))
 
-(defmethod accept-connection (socket)
+(defimplementation accept-connection (socket)
   (socket:accept-connection socket :wait t))
 
-(defmethod emacs-connected ())
+(defimplementation emacs-connected ())
 
 ;;;; Unix signals
 
-(defmethod call-without-interrupts (fn)
+(defimplementation call-without-interrupts (fn)
   (excl:without-interrupts (funcall fn)))
 
-(defmethod getpid ()
+(defimplementation getpid ()
   (excl::getpid))
 
 ;;;; Misc
 
-(defmethod arglist-string (fname)
+(defimplementation arglist-string (fname)
   (format-arglist fname #'excl:arglist))
 
 (defun apropos-symbols (string &optional external-only package)
@@ -69,7 +69,7 @@
                         (not (symbol-external-p sym)))))
              (apropos-list string package external-only t)))
 
-(defmethod describe-symbol-for-emacs (symbol)
+(defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))
     (flet ((doc (kind &optional (sym symbol))
              (or (documentation sym kind) :not-documented))
@@ -87,8 +87,17 @@
                   (doc 'class)))
       result)))
 
-(defmethod macroexpand-all (form)
+(defimplementation macroexpand-all (form)
   (excl::walk form))
+
+(defimplementation describe-definition (symbol-name type)
+  (let ((symbol (from-string symbol-name)))
+    (ecase type
+      (:variable (print-description-to-string symbol))
+      ((:function :generic-function)
+       (print-description-to-string (symbol-function symbol)))
+      (:class
+       (print-description-to-string (find-class symbol))))))
 
 ;;;; Debugger
 
@@ -96,7 +105,7 @@
 (defvar *sldb-source*)
 (defvar *sldb-restarts*)
 
-(defmethod call-with-debugging-environment (debugger-loop-fn)
+(defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let ((*sldb-topframe* (excl::int-newest-frame))
         (*debugger-hook* nil)
         (excl::*break-hook* nil)
@@ -126,7 +135,7 @@
 	  while f
 	  collect f)))
 
-(defmethod backtrace (start-frame-number end-frame-number)
+(defimplementation backtrace (start-frame-number end-frame-number)
   (flet ((format-frame (f i)
            (print-with-frame-label 
             i (lambda (s) (debugger:output-frame s f :moderate)))))
@@ -134,7 +143,7 @@
 	  for f in (compute-backtrace start-frame-number end-frame-number)
 	  collect (list i (format-frame f i)))))
 
-(defmethod debugger-info-for-emacs (start end)
+(defimplementation debugger-info-for-emacs (start end)
   (list (debugger-condition-for-emacs)
         (format-restarts-for-emacs)
         (backtrace start end)))
@@ -148,7 +157,7 @@
 (defslimefun sldb-abort ()
   (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
 
-(defmethod frame-locals (index)
+(defimplementation frame-locals (index)
   (let ((frame (nth-frame index)))
     (loop for i from 0 below (debugger:frame-number-vars frame)
 	  collect (list :name (to-string (debugger:frame-var-name frame i))
@@ -156,13 +165,18 @@
 			:value-string 
 			(to-string (debugger:frame-var-value frame i))))))
 
-(defmethod frame-catch-tags (index)
+(defimplementation frame-catch-tags (index)
   (declare (ignore index))
   nil)
 
-(defmethod frame-source-location-for-emacs (index)
+(defimplementation frame-source-location-for-emacs (index)
   (list :error (format nil "Cannot find source for frame: ~A"
                        (nth-frame index))))
+
+(defimplementation eval-in-frame (form frame-number)
+  (debugger:eval-form-in-context 
+   form
+   (debugger:environment-of-frame (nth-frame frame-number))))
 
 ;;;; Compiler hooks
 
@@ -192,12 +206,12 @@
                                (list :file *compile-filename*)
                                (list :position 1))))))))
 
-(defmethod compile-file-for-emacs (*compile-filename* load-p)
+(defimplementation compile-file-for-emacs (*compile-filename* load-p)
   (handler-bind ((warning #'handle-compiler-warning))
     (let ((*buffer-name* nil))
       (compile-file *compile-filename* :load-after-compile load-p))))
 
-(defmethod compile-string-for-emacs (string &key buffer position)
+(defimplementation compile-string-for-emacs (string &key buffer position)
   (handler-bind ((warning #'handle-compiler-warning))
     (let ((*package* *buffer-package*)
           (*buffer-name* buffer)
@@ -234,7 +248,7 @@
                 )))
       locations)))
 
-(defmethod find-function-locations (symbol-name)
+(defimplementation find-function-locations (symbol-name)
   (multiple-value-bind (symbol foundp) (find-symbol-designator symbol-name)
     (cond ((not foundp)
            (list (list :error (format nil "Unkown symbol: ~A" symbol-name))))
@@ -253,27 +267,31 @@
 (defun lookup-xrefs (finder name)
   (xref-results-for-emacs (funcall finder (from-string name))))
 
-(defslimefun who-calls (function-name)
+(defimplementation who-calls (function-name)
   (lookup-xrefs (lambda (x) (xref:get-relation :calls :wild x))
                 function-name))
 
-(defslimefun who-references (variable)
+(defimplementation who-references (variable)
   (lookup-xrefs (lambda (x) (xref:get-relation :uses :wild x))
                 variable))
 
-(defslimefun who-binds (variable)
+(defimplementation who-binds (variable)
   (lookup-xrefs (lambda (x) (xref:get-relation :binds :wild x))
                 variable))
 
-(defslimefun who-sets (variable)
+(defimplementation who-macroexpands (variable)
+  (lookup-xrefs (lambda (x) (xref:get-relation :macro-calls :wild x))
+                variable))
+
+(defimplementation who-sets (variable)
   (lookup-xrefs (lambda (x) (xref:get-relation :sets :wild x))
                 variable))
 
-(defslimefun list-callers (name)
+(defimplementation list-callers (name)
   (lookup-xrefs (lambda (x) (xref:get-relation :calls :wild x))
                 name))
 
-(defslimefun list-callees (name)
+(defimplementation list-callees (name)
   (lookup-xrefs (lambda (x) (xref:get-relation :calls x :wild))
                 name))
 
@@ -286,21 +304,21 @@
 
 ;;;; Multiprocessing 
 
-(defmethod startup-multiprocessing ()
+(defimplementation startup-multiprocessing ()
   (mp:start-scheduler))
 
-(defmethod spawn (fn &key name)
+(defimplementation spawn (fn &key name)
   (mp:process-run-function name fn))
 
 ;; XXX: shurtcut
-(defmethod thread-id ()
+(defimplementation thread-id ()
   (mp:process-name mp:*current-process*))
 
-(defmethod thread-name (thread-id)
+(defimplementation thread-name (thread-id)
   thread-id)
 
-(defmethod make-lock (&key name)
+(defimplementation make-lock (&key name)
   (mp:make-process-lock :name name))
 
-(defmethod call-with-lock-held (lock function)
+(defimplementation call-with-lock-held (lock function)
   (mp:with-process-lock (lock) (funcall function)))
