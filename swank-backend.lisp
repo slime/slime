@@ -498,6 +498,19 @@ Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time."
    (declare (ignore lock))
    (funcall function))
 
+(definterface current-thread ()
+  "Return the currently executing thread."
+  0)
+
+(definterface interrupt-thread (thread fn)
+  "Cause THREAD to execute FN.")
+
+(definterface send (thread object)
+  "Send OBJECT to thread THREAD.")
+
+(definterface receive ()
+  "Return the next message from current thread's mailbox.")
+
 
 ;;;; XREF
 

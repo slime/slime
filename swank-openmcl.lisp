@@ -83,9 +83,6 @@
 (defimplementation accept-connection (socket)
   (ccl:accept-connection socket :wait t))
 
-(defimplementation spawn (fn &key name)
-  (ccl:process-run-function name fn))
-
 (defimplementation emacs-connected ()
   (setq ccl::*interactive-abort-process* ccl::*current-process*))
 
@@ -588,7 +585,14 @@ at least the filename containing it."
 ;;; Multiprocessing
 
 (defvar *known-processes* '()         ; FIXME: leakage. -luke
-  "Alist (ID . PROCESS) list of processes that we have handed out IDs for.")
+  "Alist (ID . PROCESS MAILBOX) list of processes that we have handed
+out IDs for.")
+
+(defvar *known-processes-lock* (ccl:make-lock "*known-processes-lock*"))
+
+(defstruct (mailbox (:conc-name mailbox.)) 
+  (mutex (ccl:make-lock "thread mailbox"))
+  (queue '() :type list))
 
 (defimplementation spawn (fn &key name)
   (ccl:process-run-function (or name "Anonymous (Swank)") fn))
@@ -597,13 +601,17 @@ at least the filename containing it."
   (setq *swank-in-background* :spawn))
 
 (defimplementation thread-id ()
-  (let ((id (ccl::process-serial-number ccl:*current-process*)))
-    ;; Possibly not thread-safe.
-    (pushnew (cons id ccl:*current-process*) *known-processes* :key #'car)
+  (let* ((thread ccl:*current-process*)
+         (id (ccl::process-serial-number thread)))
+    (ccl:with-lock-grabbed (*known-processes-lock*)
+      (unless (rassoc thread *known-processes* :key #'car)
+        (setq *known-processes*
+              (acons id (list thread (make-mailbox)) *known-processes*))))
     id))
 
 (defimplementation thread-name (thread-id)
-  (ccl::process-name (cdr (assoc thread-id *known-processes*))))
+  (ccl:with-lock-grabbed (*known-processes-lock*)
+    (ccl::process-name (cdr (assoc thread-id *known-processes*)))))
 
 (defimplementation make-lock (&key name)
   (ccl:make-lock name))
@@ -612,3 +620,33 @@ at least the filename containing it."
   (ccl:with-lock-grabbed (lock)
     (funcall function)))
 
+(defimplementation current-thread ()
+  ccl:*current-process*)
+
+(defimplementation interrupt-thread (thread fn)
+  (ccl:process-interrupt thread fn))
+
+(defun mailbox (thread)
+  (ccl:with-lock-grabbed (*known-processes-lock*)
+    (let ((probe (rassoc thread *known-processes* :key #'car)))
+      (cond (probe (second (cdr probe)))
+            (t (let ((mailbox (make-mailbox)))
+                 (setq *known-processes*
+                       (acons (ccl::process-serial-number thread) 
+                              (list thread mailbox)
+                              *known-processes*))
+                 mailbox))))))
+          
+(defimplementation send (thread message)
+  (let* ((mbox (mailbox thread))
+         (mutex (mailbox.mutex mbox)))
+    (ccl:with-lock-grabbed (mutex)
+      (setf (mailbox.queue mbox)
+            (nconc (mailbox.queue mbox) (list message))))))
+
+(defimplementation receive ()
+  (let* ((mbox (mailbox ccl:*current-process*))
+         (mutex (mailbox.mutex mbox)))
+    (ccl:process-wait "receive" #'mailbox.queue mbox)
+    (ccl:with-lock-grabbed (mutex)
+      (pop (mailbox.queue mbox)))))

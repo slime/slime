@@ -1,21 +1,20 @@
 ;;;; -*- indent-tabs-mode: nil; outline-regexp: ";;;;+" -*-
 
-(declaim (optimize debug))
+(declaim (optimize (debug 2)))
 
 (in-package :swank)
 
 
 ;;;; TCP server.
 
-(setq *swank-in-background* :fd-handler)
+(setq *swank-in-background* :sigio)
 
 (defimplementation create-socket (port)
   (let ((fd (ext:create-inet-listener port :stream
                                       :reuse-address t
                                       :host (resolve-hostname "localhost"))))
     #+MP
-    (when *multiprocessing-enabled*
-      (set-fd-non-blocking fd))
+    ;;  (when *multiprocessing-enabled* (set-fd-non-blocking fd))
     fd))
 
 (defimplementation local-port (socket)
@@ -25,18 +24,39 @@
   (ext:close-socket (socket-fd socket)))
 
 (defimplementation accept-connection (socket)
-  #+MP (when *multiprocessing-enabled*
-         (mp:process-wait-until-fd-usable socket :input))
+  #+MP (mp:process-wait-until-fd-usable socket :input)
   (make-socket-io-stream (ext:accept-tcp-connection socket)))
 
+(defvar *sigio-handlers* '()
+  "List of (key . (fn . args)) pairs to be called on SIGIO.")
+
+(defun add-sigio-handler (key fn)
+  (push (cons key fn) *sigio-handlers*))
+
+(defun remove-sigio-handler (key)
+  (setf *sigio-handlers* (delete key *sigio-handlers* :key #'car)))
+
+(defun sigio-handler (signal code scp)
+  (mapc (lambda (handler) (funcall (cdr handler))) *sigio-handlers*)
+  )
+
+(defun set-sigio-handler ()
+  (sys:enable-interrupt unix:SIGIO (lambda (signal code scp)
+				     (sigio-handler signal code scp))))
+(set-sigio-handler)
+
 (defimplementation add-input-handler (socket fn)
-  (flet ((callback (fd)
-           (declare (ignore fd))
-           (funcall fn)))
-    (system:add-fd-handler (socket-fd socket) :input #'callback)))
+  (let ((fd (socket-fd socket)))
+    (format *debug-io* "Adding input handler: ~S ~%" fd)
+    ;; XXX error checking
+    (unix:unix-fcntl fd unix:f-setown (unix:unix-getpid))
+    (unix:unix-fcntl fd unix:f-setfl unix:FASYNC)
+    (add-sigio-handler fd fn)))
 
 (defimplementation remove-input-handlers (socket)
-  (sys:invalidate-descriptor (socket-fd socket))
+  (let ((fd (socket-fd socket)))
+    (remove-sigio-handler fd)
+    (sys:invalidate-descriptor fd)) 
   (close socket))
 
 (defimplementation make-fn-streams (input-fn output-fn)
@@ -74,7 +94,9 @@
 ;;;; Unix signals
 
 (defmethod call-without-interrupts (fn)
-  (sys:without-interrupts (funcall fn)))
+  (sys:without-interrupts (funcall fn))
+  ;;(funcall fn)
+  )
 
 (defmethod getpid ()
   (unix:unix-getpid))
@@ -1176,10 +1198,10 @@ stack."
     ;; available again.
     (mp::startup-idle-and-top-level-loops))
 
-  (defmethod spawn (fn &key (name "Anonymous"))
+  (defimplementation spawn (fn &key (name "Anonymous"))
     (mp:make-process fn :name name))
 
-  (defmethod thread-id ()
+  (defimplementation thread-id ()
     (mp:without-scheduling
      (or (find-thread-id)
          (prog1 (length *known-processes*)
@@ -1202,7 +1224,8 @@ stack."
   (defimplementation call-with-lock-held (lock function)
     (mp:with-lock-held (lock)
       (funcall function)))
-)
+
+  )
 
 
 ;;;; Epilogue

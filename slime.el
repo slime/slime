@@ -1301,6 +1301,9 @@ This is automatically synchronized from Lisp.")
 (slime-def-connection-var slime-lisp-implementation-type nil
   "The implementation type of the Lisp process.")
 
+(slime-def-connection-var slime-use-sigint-for-interrupt nil
+  "If non-nil use a SIGINT for interrupting.")
+
 (put 'slime-def-connection-var 'lisp-indent-function 2)
 
 
@@ -1312,38 +1315,63 @@ This is automatically synchronized from Lisp.")
 
 (defvar slime-continuation-counter 0)
 
-(defvar slime-read-string-tag nil)      ; FIXME: move into repl
+(make-variable-buffer-local
+ (defvar slime-current-thread t
+   "The id of the current thread on the Lisp side.  t don't care."))
 
 (defun slime-dispatch-event (event &optional process)
   (let ((slime-dispatching-connection (or process (slime-connection))))
     (slime-log-event event)
-    (unless (slime-handle-oob event)
-      (destructure-case event
-        ((:emacs-rex form-string package continuation)
-         (let ((id (incf slime-continuation-counter)))
-           (push (cons id continuation) slime-rex-continuations)
-           ;; (slime-send `(:rex ,form-string ,package)))
-           (slime-send `(swank:eval-string ,form-string ,package ,id))))
-        ((:return value id)
-         (when-let (rec (find id slime-rex-continuations :key #'car))
-           (setq slime-rex-continuations (remove rec slime-rex-continuations))
-           (let ((continuation (cdr rec)))
-             (funcall continuation value))))
-        ((:emacs-interrupt)
-         (slime-send-sigint))
-        ((:read-string tag)
-         (setq slime-read-string-tag tag))
-        ((:read-aborted)
-         (setq slime-read-string-tag nil))
-        ((:emacs-return-string string)
-         (slime-send `(swank:take-input ,slime-read-string-tag ,string))
-         (setq slime-read-string-tag nil))
-        ((:debug level condition restarts frames)
-         (sldb-setup level condition restarts frames))
-        ((:debug-return level)
-         (sldb-exit level))))))
+    (destructure-case event
+      ((:read-output output)
+       (slime-output-string output))
+      ;;
+      ((:emacs-rex form-string package thread continuation)
+       (when (and slime-rex-continuations (slime-use-sigint-for-interrupt))
+         (message "; pipelined request... %s" form-string))
+       (let ((id (incf slime-continuation-counter)))
+         (push (cons id continuation) slime-rex-continuations)
+         (slime-send `(:emacs-rex ,form-string ,package ,thread ,id))))
+      ((:return value id)
+       (let ((rec (assq id slime-rex-continuations)))
+         (cond (rec (setq slime-rex-continuations 
+                          (remove rec slime-rex-continuations))
+                    (funcall (cdr rec) value))
+               (t
+                (error "Unexpected reply: %S %S" id value)))))
+      ((:emacs-interrupt thread)
+       (cond ((slime-use-sigint-for-interrupt) (slime-send-sigint))
+             (t (slime-send `(:emacs-interrupt ,thread)))))
+      ((:read-string thread tag)
+       (slime-repl-read-string thread tag))
+      ((:read-aborted thread tag)
+       (slime-repl-abort-read thread tag))
+      ((:emacs-return-string thread tag string)
+       (slime-send `(:emacs-return-string ,thread ,tag ,string)))
+      ((:debug thread level condition restarts frames)
+       (sldb-setup thread level condition restarts frames))
+      ((:debug-return thread level)
+       (sldb-exit thread level))
+      ;;
+      ((:new-package package)
+       (setf (slime-lisp-package) package))
+      ((:new-features features)
+       (setf (slime-lisp-features) features))
+      ((:open-dedicated-output-stream port)
+       (slime-open-stream-to-lisp port))
+      ((:check-protocol-version version)
+       (slime-check-protocol-version version))
+      ((:use-sigint-for-interrupt)
+       (setf (slime-use-sigint-for-interrupt) t))
+      ((:%apply fn args)
+       (apply (intern fn) args))
+      ((:ed what)
+       (run-with-idle-timer 0 nil 'slime-call/error->message 'slime-ed what))
+      ((:debug-condition thread message)
+       (message "%s" message)))))
 
-(defun sldb-exit (level)
+;;; XXX thread is ignored
+(defun sldb-exit (thread level)
   (when-let (sldb (get-sldb-buffer))
     (with-current-buffer sldb
       (set-window-configuration sldb-saved-window-configuration)
@@ -1353,37 +1381,10 @@ This is automatically synchronized from Lisp.")
     (when (= level 1)
       (kill-buffer sldb))))
 
-(defun slime-handle-oob (event)
-  "Handle out-of-band events.
-Return true if the event is recognised and handled."
-  (destructure-case event
-    ((:read-output output)
-     (slime-output-string output)
-     t)
-    ((:new-package package)
-     (setf (slime-lisp-package) package)
-     t)
-    ((:new-features features)
-     (setf (slime-lisp-features) features)
-     t)
-    ((:open-dedicated-output-stream port)
-     (slime-open-stream-to-lisp port)
-     t)
-    ((:check-protocol-version version)
-     (slime-check-protocol-version version)
-     t)
-    ((:%apply fn args)
-     (apply (intern fn) args)
-     t)
-    ((:awaiting-goahead thread-id thread-name reason)
-     (slime-register-waiting-thread thread-id thread-name reason)
-     t)
-    ((:ed what)
-     (run-with-idle-timer 0 nil 'slime-call/error->message 'slime-ed what)
-     t)
-    ((:debug-condition message)
-     (message "%s" message))
-    (t nil)))
+(defun slime-reset ()
+  "Clear all pending continuations."
+  (interactive)
+  (setq slime-rex-continuations '()))
 
 (defun slime-nyi ()
   (error "Not yet implemented!"))
@@ -1417,13 +1418,11 @@ Return true if the event is recognised and handled."
     (slime-eval '(swank:install-global-debugger-hook) "COMMON-LISP-USER")))
 
 (defun slime-busy-p ()
-  nil)
-
-(defun slime-idle-p ()
-  t)
+  slime-rex-continuations)
 
 (defun slime-reading-p ()
-  nil)
+  (with-current-buffer (slime-output-buffer)
+    slime-repl-read-mode))
 
 
 (defvar slime-log-events t
@@ -1472,13 +1471,16 @@ Return true if the event is recognised and handled."
 (defconst +slime-sigint+ 2)
 
 (defun slime-send-sigint ()
+  (interactive)
   (signal-process (slime-pid) +slime-sigint+))
 
 
 ;;;;; Emacs Lisp programming interface
 
 (defmacro* slime-rex ((&rest saved-vars)
-                      (sexp &optional (package 'slime-buffer-package))
+                      (sexp &optional 
+                            (package 'slime-buffer-package)
+                            (thread 'slime-current-thread))
                       &rest continuations)
   "(slime-rex (VAR ...) (SEXP [PACKAGE]) CLAUSES ...)
 
@@ -1504,12 +1506,11 @@ deal with that."
                          collect (etypecase var
                                    (symbol (list var var))
                                    (cons var)))
-       (when (slime-busy-p)
-         (error "Lisp is already busy evaluating a request."))
-       (slime-dispatch-event (list :emacs-rex (slime-prin1-to-string ,sexp) ,package 
-                                   (lambda (,result)
-                                     (destructure-case ,result
-                                       ,@continuations)))))))
+       (slime-dispatch-event 
+        (list :emacs-rex (slime-prin1-to-string ,sexp) ,package ,thread
+              (lambda (,result)
+                (destructure-case ,result
+                  ,@continuations)))))))
 
 (put 'slime-rex 'lisp-indent-function 2)
 
@@ -1553,8 +1554,6 @@ deal with that."
 (defun slime-oneway-eval (sexp &optional package)
   "Evaluate SEXP \"one-way\" - without receiving a return value."
   (slime-check-connected)
-  (when (slime-busy-p)
-    (error "Busy evaluating"))
   (slime-dispatch-event
    `(:emacs-evaluate-oneway ,(slime-prin1-to-string sexp) ,package)))
 
@@ -1862,9 +1861,9 @@ after the last prompt to the end of buffer."
 
 (defun slime-repl-send-string (string)
   (slime-repl-add-to-input-history string)
-  (if (null slime-read-string-tag)
-      (slime-repl-eval-string string)
-    (slime-repl-return-string string)))
+  (cond (slime-repl-read-mode
+         (slime-repl-return-string string))
+        (t (slime-repl-eval-string string))))
 
 (defun slime-repl-show-abort ()
   (with-current-buffer (slime-output-buffer)
@@ -1967,9 +1966,6 @@ With prefix argument send the input even if the parenthesis are not
 balanced."
   (interactive)
   (slime-check-connected)
-  (unless (or (slime-idle-p)
-              (slime-reading-p))
-    (error "Lisp is not ready for requests from the REPL."))
   (assert (<= (point) slime-repl-input-end-mark))
   (cond (current-prefix-arg
          (slime-repl-send-input)
@@ -2178,8 +2174,16 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
     ("\C-c\C-c" . slime-repl-read-break)
     ("\C-c\C-g" . slime-repl-read-break)))
 
-(defun slime-repl-read-string ()
+(make-variable-buffer-local
+ (defvar slime-read-string-threads nil))
+
+(make-variable-buffer-local
+ (defvar slime-read-string-tags nil))
+
+(defun slime-repl-read-string (thread tag)
   (slime-switch-to-output-buffer)
+  (push thread slime-read-string-threads)
+  (push tag slime-read-string-tags)
   (goto-char (point-max))
   (slime-mark-output-end)
   (slime-mark-input-start)
@@ -2187,15 +2191,20 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
 
 (defun slime-repl-return-string (string)
   (assert (plusp (length string)))
-  (slime-dispatch-event `(:emacs-return-string ,string))
+  (slime-dispatch-event `(:emacs-return-string 
+                          ,(pop slime-read-string-threads)
+                          ,(pop slime-read-string-tags)
+                          ,string))
   (slime-repl-read-mode -1))
 
 (defun slime-repl-read-break ()
   (interactive)
   (slime-eval-async `(cl:break) nil (lambda (_))))
 
-(defun slime-repl-abort-read ()
+(defun slime-repl-abort-read (thread tag)
   (with-current-buffer (slime-output-buffer)
+    (pop slime-read-string-threads)
+    (pop slime-read-string-tags)
     (slime-repl-read-mode -1)
     (message "Read aborted")))
 
@@ -2341,8 +2350,8 @@ Each newlines and following indentation is replaced by a single space."
   (let ((notes (slime-compiler-notes)))
     (with-current-buffer buffer
       (multiple-value-bind (result secs) result
-	(slime-show-note-counts notes secs)
-	(slime-highlight-notes notes)))
+        (slime-show-note-counts notes secs)
+        (slime-highlight-notes notes)))
     (let ((xrefs (slime-xrefs-for-notes notes)))
       (when (> (length xrefs) 1) ; >1 file
         (slime-show-xrefs
@@ -2702,7 +2711,7 @@ more than one space."
   (interactive "p")
   (self-insert-command n)
   (when (and (slime-connected-p)
-	     (or (slime-idle-p) (slime-debugging-p))
+	     (not (slime-busy-p))
 	     (slime-function-called-at-point/line))
     (slime-arglist (symbol-name (slime-function-called-at-point/line)))))
 
@@ -3741,7 +3750,7 @@ CL:MACROEXPAND."
 
 (defun slime-interrupt ()
   (interactive)
-  (slime-dispatch-event '(:emacs-interrupt)))
+  (slime-dispatch-event `(:emacs-interrupt ,slime-current-thread)))
 
 (defun slime-quit ()
   (interactive)
@@ -3856,6 +3865,8 @@ If `sldb-enable-styled-backtrace' is nil, just return STRING."
   ("\M-p" 'sldb-details-up)
   ("l"    'sldb-list-locals)
   ("t"    'sldb-toggle-details)
+  ("r"    'sldb-restart-frame)
+  ("R"    'sldb-return-from-frame)
   ("c"    'sldb-continue)
   ("s"    'sldb-step)
   ("a"    'sldb-abort)
@@ -3906,7 +3917,7 @@ If `sldb-enable-styled-backtrace' is nil, just return STRING."
             (in-sldb-face condition type)
             "\n\n")))
 
-(defun sldb-setup (level condition restarts frames)
+(defun sldb-setup (thread level condition restarts frames)
   "Setup a new SLDB buffer.
 CONDITION is a string describing the condition to debug.
 RESTARTS is a list of strings (NAME DESCRIPTION) for each available restart.
@@ -3918,6 +3929,7 @@ portion of the backtrace. Frames are numbered from 0."
       (sldb-mode)
       (unless sldb-saved-window-configuration
         (setq sldb-saved-window-configuration (current-window-configuration)))
+      (setq slime-current-thread thread)
       (setq sldb-level level)
       (setq mode-name (format "sldb[%d]" sldb-level))
       (setq sldb-condition condition)
@@ -4731,7 +4743,7 @@ Exits Emacs when finished. The exit code is the number of failed tests."
     ;; Block until we are up and running.
     (while (not (slime-connected-p))
       (accept-process-output nil 2))
-    (slime-sync-state-stack '(slime-idle-state) 120)
+    (slime-sync-to-top-level 5)
     (switch-to-buffer "*scratch*")
     (let ((failed-tests (slime-run-tests)))
       (with-current-buffer slime-test-buffer-name
@@ -4844,10 +4856,6 @@ BODY returns true if the check succeeds."
 ;; Clear out old tests.
 (setq slime-tests nil)
 
-(defun slime-test-state-stack (states)
-  "True if STATES describes the current stack of states."
-  (equal states (mapcar #'slime-state-name (slime-state-stack))))
-
 (defun slime-sync-state-stack (state-stack timeout)
   "Wait until the machine's stack is STATE-STACK or the timeout \
 expires.\nThe timeout is given in seconds (a floating point number)."
@@ -4887,6 +4895,11 @@ expires.\nThe timeout is given in seconds (a floating point number)."
   (when (stringp actual)   (setq actual (substring-no-properties actual)))
   (slime-check ("%s:\nexpected: [%S]\n  actual: [%S]" name expected actual)
     (funcall (or test #'equal) expected actual)))
+
+(defun sldb-level ()
+  (when-let (sldb (get-sldb-buffer))
+    (with-current-buffer sldb
+      sldb-level)))
 
 (def-slime-test find-definition
     (name buffer-package)
@@ -4942,8 +4955,8 @@ Confirm that EXPECTED-ARGLIST is displayed."
        "(swank::emacs-connected)")
       ("swank::compile-string-for-emacs"
        "(swank::compile-string-for-emacs string &key buffer position)")
-      ("swank::connection.owner-id"
-       "(swank::connection.owner-id structure)")
+      ("swank::connection.socket-io"
+       "(swank::connection.socket-io structure)")
       )
 ;;    Different arglists found in the wild.
 ;;      ("cl:class-name"
@@ -5025,45 +5038,40 @@ Confirm that SUBFORM is correctly located."
     (slime-interrupt)
     (slime-sync-to-top-level 5)
     (slime-check-top-level)))
- 
-(defun sldb-level ()
+
+(defun slime-sldb-level= (level)
   (when-let (sldb (get-sldb-buffer))
     (with-current-buffer sldb
-      sldb-level)))
+      (equal sldb-level level))))
 
 (def-slime-test loop-interrupt-continue-interrupt-quit
     ()
     "Test interrupting a previously interrupted but continued loop."
     '(())
-  (error "NYI")
   (slime-check-top-level)
   (slime-eval-async '(cl:loop) "CL-USER" (lambda (_) ))
-  (let ((done nil)
-        (sldb-hook
-         (lambda ()
-           (slime-check-sldb-level 1)
-           (setq sldb-hook
-                 (lambda ()
-                   (slime-check-sldb-level 1)
-                   (setq done t)
-                   (sldb-quit))))))
-    (slime-interrupt)
-    (debug nil 'interrupted)
-    (slime-wait-condition "debugging" (lambda () (integerp (sldb-level))) 5)
-    (debug nil 'debugging)
-    (sldb-continue)
-    (debug nil 'continued)
-    (slime-wait-condition "running"   (lambda () (null (sldb-level))) 5)
-    (debug nil 'running)
-    (slime-interrupt)
-    (slime-sync-to-top-level 5)
-    (slime-check-top-level)
-    (slime-check "Debug hooks ran" done)))
+  (slime-wait-condition "running" #'slime-busy-p 5)
+  (slime-interrupt)
+  (slime-wait-condition "First interrupt" (lambda () (slime-sldb-level= 1))
+                        5)
+  (with-current-buffer (get-sldb-buffer)
+    (sldb-continue))
+  (slime-wait-condition "running" (lambda () (and (slime-busy-p)
+                                                   (not (get-sldb-buffer))))
+                        5)
+  (slime-interrupt)
+  (slime-wait-condition "Second interrupt" (lambda () (slime-sldb-level= 1))
+                        5)
+  (with-current-buffer (get-sldb-buffer)
+    (sldb-quit))
+  (slime-sync-to-top-level 5)
+  (slime-check-top-level))
  
 (def-slime-test interactive-eval 
     ()
     "Test interactive eval and continuing from the debugger."
     '(())
+  (slime-check-top-level)
   (lexical-let ((done nil))
     (let ((sldb-hook (lambda () (sldb-continue) (setq done t))))
       (slime-interactive-eval 
@@ -5079,26 +5087,21 @@ Confirm that SUBFORM is correctly located."
     ()
     "Test interrupting a loop that sends a lot of output to Emacs."
     '(())
-  (error "NYI")
-  (slime-check-idle-state "Automaton initially in idle state.")
+  (slime-check-top-level)
   (slime-eval-async '(cl:loop :for i :from 0 :do (cl:progn (cl:print i) 
                                                            (cl:force-output)))
                     "CL-USER" (lambda (_) ))
-  (let ((sldb-hook
-         (lambda ()
-           (slime-check "First interrupt."
-             (and (slime-test-state-stack '(slime-debugging-state
-                                            slime-evaluating-state
-                                            slime-idle-state))
-                  (get-sldb-buffer)))
-           (sldb-quit))))
-    (accept-process-output nil 1)
-    (slime-check "In eval state."
-      (slime-test-state-stack '(slime-evaluating-state slime-idle-state)))
-    (slime-interrupt)
-    (slime-sync-state-stack '(slime-idle-state) 5)
-    (slime-check "Automaton is back in idle state."
-      (slime-test-state-stack '(slime-idle-state)))))
+  (accept-process-output nil 1)
+  (slime-wait-condition "running" #'slime-busy-p 5)
+  (slime-interrupt)
+  (slime-wait-condition "Debugger visible" 
+                        (lambda () 
+                          (and (slime-sldb-level= 1)
+                               (get-buffer-window (get-sldb-buffer))))
+                        5)
+  (with-current-buffer (get-sldb-buffer)
+    (sldb-quit))
+  (slime-sync-to-top-level 5))
 
 (def-slime-test package-updating
     (package-name nicknames)
@@ -5187,7 +5190,7 @@ SWANK> ")
   (with-current-buffer (slime-output-buffer)
     (insert (format "(values %s)" prompt))
     (call-interactively 'slime-repl-return)
-    (slime-wait-condition "reading" (lambda () slime-read-string-tag) 5)
+    (slime-wait-condition "reading" #'slime-reading-p 5)
     (insert input)
     (call-interactively 'slime-repl-return)
     (slime-sync-to-top-level 5)
@@ -5412,7 +5415,7 @@ Unless optional argument INPLACE is non-nil, return a new string."
         slime-output-filter
         slime-with-output-end-mark
         ;; Compilation warns due to runtime call to a `cl' function. Annoying.
-;;        slime-process-available-input 
+        slime-process-available-input 
         slime-dispatch-event 
         slime-net-filter 
         slime-net-have-input-p
