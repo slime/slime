@@ -2843,7 +2843,8 @@ printing a message."
      (lambda (arglist)
        (if show-fn
            (funcall show-fn arglist)
-         (slime-background-message "%s" (slime-format-arglist symbol-name arglist)))))))
+         (slime-background-message 
+          "%s" (slime-format-arglist symbol-name arglist)))))))
 
 (defun slime-get-arglist (symbol-name)
   "Return the argument list for SYMBOL-NAME."
@@ -2851,6 +2852,8 @@ printing a message."
                         (slime-eval `(swank:arglist-string ,symbol-name))))
 
 (defun slime-format-arglist (symbol-name arglist)
+  (assert (eq ?\( (aref arglist 0)))
+  (assert (eq ?\) (aref arglist (1- (length arglist)))))
   (format "(%s %s)" symbol-name (substring arglist 1 -1)))
 
 
@@ -4824,9 +4827,9 @@ expires.\nThe timeout is given in seconds (a floating point number)."
   (slime-check ((or test-name "Automaton in idle state."))
     (slime-test-state-stack '(slime-idle-state))))
 
-(defun slime-test-expect (name expected actual)
+(defun slime-test-expect (name expected actual &optional test)
   (slime-check ("%s:\nexpected: [%S]\n  actual: [%S]" name expected actual)
-    (equal expected actual)))
+    (funcall (or test equal) expected actual)))
 
 (def-slime-test find-definition
     (name buffer-package)
@@ -4875,10 +4878,14 @@ Confirm that EXPECTED-ARGLIST is displayed."
     '(("swank:start-server"
        "(swank:start-server port-file)")
       ("swank::compound-prefix-match"
-       "(swank::compound-prefix-match prefix target)"))
+       "(swank::compound-prefix-match prefix target)")
+      ("swank::create-socket"
+       "(swank::create-socket swank::port)")
+      ("swank::compile-string-for-emacs"
+       "(swank::compile-string-for-emacs string &key swank::buffer position)"))
   (let ((arglist (slime-get-arglist function-name))) ;
-    (slime-check ("Argument list %S is as expected." arglist)
-      (string= expected-arglist arglist))))
+    (slime-test-expect "Argument list is as expected"
+                       expected-arglist arglist)))
 
 (def-slime-test compile-defun 
     (program subform)
