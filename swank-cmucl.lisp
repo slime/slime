@@ -988,14 +988,45 @@ Signal an error if no constructor can be found."
 (defun genericp (fn)
   (typep fn 'generic-function))
 
+;;;;;; Types and classes
+
+(defun type-definitions (name)
+  "Return `deftype' locations for type NAME."
+  (maybe-make-definition (ext:info :type :expander name) 'deftype name))
+
 (defun maybe-make-definition (function kind name)
+  "If FUNCTION is non-nil then return its definition location."
   (if function
       (list (list `(,kind ,name) (function-location function)))))
 
-(defun type-definitions (name)
-  (maybe-make-definition (ext:info :type :expander name) 'deftype name))
+(defun class-definitions (name)
+  "Return the definition locations for the class called NAME."
+  (if (symbolp name)
+      (let ((class (kernel::find-class name nil)))
+        (etypecase class
+          (null '())
+          (kernel::structure-class 
+           (list (list `(defstruct ,name) (dd-location (find-dd name)))))
+          #+(or)
+          (conditions::condition-class
+           (list (list `(define-condition ,name) 
+                       (condition-class-location class))))
+          (kernel::standard-class
+           (list (list `(defclass ,name) 
+                       (class-location (find-class name)))))
+          ((or kernel::built-in-class 
+               conditions::condition-class
+               kernel:funcallable-structure-class)
+           (list (list `(kernel::define-type-class ,name)
+                       `(:error 
+                         ,(format nil "No source info for ~A" name)))))))))
+
+(defun class-location (class)
+  "Return the `defclass' location for CLASS."
+  (definition-source-location class (pcl:class-name class)))
 
 (defun find-dd (name)
+  "Find the defstruct-definition by the name of its structure-class."
   (let ((layout (ext:info :type :compiler-layout name)))
     (if layout 
         (kernel:layout-info layout))))
@@ -1006,6 +1037,7 @@ Signal an error if no constructor can be found."
     (cond ((null slots)
            `(:error ,(format nil "No location info for condition: ~A" name)))
           (t
+           ;; Find the class via one of its slot-reader methods.
            (let* ((slot (first slots))
                   (gf (fdefinition 
                        (first (conditions::condition-slot-readers slot)))))
@@ -1013,9 +1045,6 @@ Signal an error if no constructor can be found."
               (first 
                (pcl:compute-applicable-methods-using-classes 
                 gf (list (find-class name))))))))))
-
-(defun class-location (class)
-  (definition-source-location class (pcl:class-name class)))
 
 (defun make-name-in-file-location (file string)
   (multiple-value-bind (filename c)
@@ -1093,27 +1122,6 @@ Signal an error if no constructor can be found."
          (etypecase pathname
            (pathname (make-name-in-file-location pathname (string name)))
            (null `(:error ,(format nil "Cannot resolve: ~S" source)))))))))
-   
-(defun class-definitions (name)
-  (if (symbolp name)
-      (let ((class (kernel::find-class name nil)))
-        (etypecase class
-          (null '())
-          (kernel::structure-class 
-           (list (list `(defstruct ,name) (dd-location (find-dd name)))))
-          #+(or)
-          (conditions::condition-class
-           (list (list `(define-condition ,name) 
-                       (condition-class-location class))))
-          (kernel::standard-class
-           (list (list `(defclass ,name) 
-                       (class-location (find-class name)))))
-          ((or kernel::built-in-class 
-               conditions::condition-class
-               kernel:funcallable-structure-class)
-           (list (list `(kernel::define-type-class ,name)
-                       `(:error 
-                         ,(format nil "No source info for ~A" name)))))))))
 
 (defun setf-definitions (name)
   (let ((function (or (ext:info :setf :inverse name)
@@ -1682,14 +1690,14 @@ The `symbol-value' of each element is a type tag.")
   (eval `(profile:unprofile ,fname)))
 
 (defimplementation unprofile-all ()
-  (eval '(profile:unprofile))
+  (profile:unprofile)
   "All functions unprofiled.")
 
 (defimplementation profile-report ()
-  (eval '(profile:report-time)))
+  (profile:report-time))
 
 (defimplementation profile-reset ()
-  (eval '(profile:reset-time))
+  (profile:reset-time)
   "Reset profiling counters.")
 
 (defimplementation profiled-functions ()
@@ -1698,7 +1706,7 @@ The `symbol-value' of each element is a type tag.")
 (defimplementation profile-package (package callers methods)
   (profile:profile-all :package package
                        :callers-p callers
-                       :methods methods))
+                       #-cmu18e :methods #-cmu18e methods))
 
 
 ;;;; Multiprocessing
