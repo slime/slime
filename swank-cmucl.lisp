@@ -62,7 +62,7 @@
   (ext:close-socket (socket-fd socket)))
 
 (defimplementation accept-connection (socket)
-  #+MP (mp:process-wait-until-fd-usable socket :input)
+  #+mp (mp:process-wait-until-fd-usable socket :input)
   (make-socket-io-stream (ext:accept-tcp-connection socket)))
 
 (defvar *sigio-handlers* '()
@@ -840,6 +840,21 @@ NAME can any valid function name (e.g, (setf car))."
     (:alien-enum
      (describe (ext:info :alien-type :enum symbol)))))
 
+(defun debug-function-arglist (dfun)
+  (let ((args (di::debug-function-lambda-list dfun))
+        (result '())
+        (key nil))
+    (dolist (arg args)
+      (etypecase arg
+        (di::debug-variable 
+         (push (di::debug-variable-name arg) result))
+        (cons
+         (ecase (car arg)
+           ((:keyword (push (second arg) result))
+           (:optional (push (di::debug-variable-name (second arg)) result))
+           ))))
+    (nreverse result))))
+
 (defimplementation arglist (symbol)
   (let* ((fun (or (macro-function symbol)
                   (symbol-function symbol)))
@@ -854,7 +869,7 @@ NAME can any valid function name (e.g, (setf car))."
                 ;; interpreted-debug-function
                 (t (let ((df (di::function-debug-function fun)))
                      (if df 
-                         (di::debug-function-lambda-list df)
+                         (debug-function-arglist df)
                          "(<arglist-unavailable>)"))))))
     (check-type arglist (or list string))
     arglist))
@@ -1301,7 +1316,7 @@ LRA  =  ~X~%" (mapcar #'fixnum
 
 ;;;; Multiprocessing
 
-#+MP
+#+mp
 (progn
   (defimplementation startup-multiprocessing ()
     ;; Threads magic: this never returns! But top-level becomes
