@@ -13,6 +13,8 @@
 	with ~100 notes or more.
 	(slime-tree-insert): This function is now automatically
 	byte-compiled (good speed gain).
+	Wrap byte-compilation in `save-window-excursion' to avoid showing
+	an unwanted warnings buffer (in XEmacs).
 
 2004-03-25  Bjørn Nordbø <bn@telenor.net>
 
