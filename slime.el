@@ -102,7 +102,7 @@
 	    limit 
 	    (length object))
       (with-current-buffer (or object (current-buffer))
-	(let ((initial-value (get-char-property position prop object))
+	(let ((initial-value (get-char-property (1- position) prop object))
 	      (limit (or limit (point-min))))
 	  (if (<= position limit)
 	      limit
@@ -110,8 +110,12 @@
 		  (previous-char-property-change pos limit)
 		  if (<= pos limit) return limit
 		  if (not (eq initial-value 
-			      (get-char-property pos prop object))) 
+			      (get-char-property (1- pos) prop object))) 
 		  return pos))))))))
+
+(defun emacs-20-p ()
+  (and (not (featurep 'xemacs))
+       (= emacs-major-version 20)))
 
 (defconst slime-swank-port 4005
   "TCP port number for the Lisp Swank server.")
@@ -399,9 +403,10 @@ EVAL'd by Lisp."
 (defun slime-process-available-input ()
   (with-current-buffer (process-buffer slime-net-process)
     (when (slime-net-have-input-p)
-      (unwind-protect
-	  (slime-take-input (slime-net-read))
-	(slime-process-available-input)))))
+      (let ((input (slime-net-read)))
+	(unwind-protect
+	    (slime-take-input input)
+	  (slime-process-available-input))))))
 
 (defun slime-net-have-input-p ()
   "Return true if a complete message is available."
@@ -481,7 +486,7 @@ EVAL'd by Lisp."
   (destructure-case message
     ((send-eval-string string package next-state)
      (slime-move-to-state next-state)
-     (slime-net-output-funcall 'SWANK::EVAL-STRING string package))))
+     (slime-net-send `(swank:eval-string ,string ,package)))))
 
 (defun slime-eval-string-async (string package next-state)
   (slime-take-input `(send-eval-string ,string ,package ,next-state)))
@@ -511,7 +516,7 @@ EVAL'd by Lisp."
 	 (destructure-case message
 	   ((:debugger-hook)
 	    (slime-move-to-state state)
-	    (slime-net-output-funcall 'SWANK::QUIT-FROM-DEBUGGER)
+	    (slime-net-send '(swank:throw-to-toplevel))
 	    (pop-to-buffer inferior-lisp-buffer))))
        (slime-current-state))))))
 
@@ -621,21 +626,12 @@ See `slime-compile-and-load-file' for further details."
   (unless (eq major-mode 'lisp-mode)
     (error "Only valid in lisp-mode"))
   (save-some-buffers)
-  (slime-eval-async 
-   `(CL:PROGN 
-     (SWANK::CLEAR-NOTES ,(buffer-file-name))
-     (CL:LIST
-      (CL:PRIN1-TO-STRING
-       (CL:LET ((EXT:*ERROR-PRINT-LENGTH* 8)
-		(EXT:*ERROR-PRINT-LEVEL* 6))
-	       (CL:COMPILE-FILE
-		,(buffer-file-name) :load ,(if load 'CL:T 'CL:NIL))))
-      (SWANK::LOOKUP-NOTES ,(buffer-file-name))))
-   (slime-buffer-package)
+  (slime-eval-async
+   `(swank:swank-compile-file ,(buffer-file-name) ,(if load t nil))
+   nil
    (lexical-let ((buffer (current-buffer)))
-     (lambda (reply) 
-       (with-current-buffer buffer
-	 (slime-compilation-finished reply)))))
+     (lambda (result) 
+       (slime-compilation-finished result buffer))))
   (message "Compiling %s.." (buffer-file-name)))
 
 (defun slime-defun-at-point ()
@@ -647,29 +643,33 @@ See `slime-compile-and-load-file' for further details."
 
 (defun slime-compile-defun ()
   (interactive)
-  (slime-interactive-eval
-   (prin1-to-string
-   `(CL:LET ((EXT:*ERROR-PRINT-LENGTH* 8)
-	     (EXT:*ERROR-PRINT-LEVEL* 6))
-	    (SWANK::SWANK-COMPILE-STRING ,(slime-defun-at-point)
-					,(buffer-file-name)
-					,(save-excursion
-					   (beginning-of-defun)
-					   (point)))))))
+  (slime-eval-async 
+   `(swank:swank-compile-string ,(slime-defun-at-point) 
+				,(buffer-name)
+				,(save-excursion
+				   (beginning-of-defun)
+				   (point)))
+   (slime-buffer-package)
+   (lexical-let ((buffer (current-buffer)))
+     (lambda (result)
+e       (slime-compilation-finished result buffer)))))
 
-(defun slime-compilation-finished (result)
-  (destructuring-bind (filename notes) result
-      (loop for (location severity message context) in notes 
-	    count (eq :error severity) into errors
-	    count (eq :warning severity) into warnings
-	    count (eq :note severity) into notes
-	    finally 
-	    (message 
-	     "Compilation finished: %s errors  %s warnings  %s notes"
-	     errors warnings notes) ; filename)
-	    )
-      (slime-highlight-notes notes)))
+(defun slime-show-note-counts (notes)
+  (loop for note in notes 
+	for severity = (plist-get note :severity)
+	count (eq :error severity) into errors
+	count (eq :warning severity) into warnings
+	count (eq :note severity) into notes
+	finally 
+	(message 
+	 "Compilation finished: %s errors  %s warnings  %s notes"
+	 errors warnings notes)))
 
+(defun slime-compilation-finished (result buffer)
+  (with-current-buffer buffer
+    (let ((notes (slime-compiler-notes)))
+      (slime-show-note-counts notes)
+      (slime-highlight-notes notes))))
 
 (defun slime-display-buffer-other-window (buffer &optional not-this-window)
   "Display BUFFER in some other window.
@@ -679,15 +679,14 @@ Like `display-buffer', but ignores `same-window-buffer-names'."
 
 (defun slime-highlight-notes (notes)
   "Highlight compiler notes, warnings, and errors in the buffer."
-  (interactive (list (slime-compiler-notes)))
+  (interactive (list (slime-compiler-notes-for-file (buffer-file-name))))
   (save-excursion
     (slime-remove-old-overlays)
-    (dolist (w notes)
-      (apply 'slime-overlay-note w))))
+    (mapc #'slime-overlay-note notes)))
 
 (defun slime-compiler-notes ()
   "Return all compiler notes, warnings, and errors."
-  (slime-eval `(SWANK::LOOKUP-NOTES ,(buffer-file-name))))
+  (slime-eval `(swank:compiler-notes-for-emacs)))
 
 (defun slime-remove-old-overlays ()
   "Delete the existing Slime overlays in the current buffer."
@@ -702,19 +701,21 @@ Like `display-buffer', but ignores `same-window-buffer-names'."
 
 ;;;;; Adding a single compiler note.
 
-(defun slime-overlay-note (location severity message context)
+(defun slime-overlay-note (note)
   "Add a compiler note to the buffer as an overlay.
 If an appropriate overlay for a compiler note in the same location
 already exists then the new information is merged into it. Otherwise a
 new overlay is created."
-  (multiple-value-bind (start end) (slime-choose-overlay-region location)
+  (multiple-value-bind (start end) (slime-choose-overlay-region note)
     (goto-char start)
-    (let ((appropriate-overlay (slime-note-at-point)))
+    (let ((severity (plist-get note :severity))
+	  (message (plist-get note :message))
+	  (appropriate-overlay (slime-note-at-point)))
       (if appropriate-overlay
 	  (slime-merge-note-into-overlay appropriate-overlay severity message)
-	  (slime-create-note-overlay location start end severity message)))))
+	(slime-create-note-overlay note start end severity message)))))
 
-(defun slime-create-note-overlay (location start end severity message)
+(defun slime-create-note-overlay (note start end severity message)
   "Create an overlay representing a compiler note.
 The overlay has several properties:
   FACE       - to underline the relevant text.
@@ -725,11 +726,12 @@ The overlay has several properties:
                property name)."
   (let ((overlay (make-overlay start end)))
     (flet ((putp (name value) (overlay-put overlay name value)))
-      (putp 'slime location)
+      (putp 'slime note)
       (putp 'priority (slime-sexp-depth start))
       (putp 'face (slime-severity-face severity))
       (putp 'severity severity)
-      (putp 'mouse-face 'highlight)
+      (unless (emacs-20-p)
+	(putp 'mouse-face 'highlight))
       (putp 'help-echo message)
       overlay)))
 
@@ -754,11 +756,11 @@ is kept."
     (putp 'face (slime-severity-face (getp 'severity)))
     (putp 'help-echo (concat (getp 'help-echo) "\n;;\n" message))))
 
-(defun slime-choose-overlay-region (location)
-  "Choose the start and end points for an overlay over LOCATION.
+(defun slime-choose-overlay-region (note)
+  "Choose the start and end points for an overlay over NOTE.
 If the location's sexp is a list spanning multiple lines, then the
 region around the first element is used."
-  (slime-goto-location location)
+  (slime-goto-location note)
   (let ((start (point)))
     (ignore-errors (backward-up-list 1))
     (slime-forward-sexp)
@@ -791,8 +793,20 @@ Severity is ordered as :NOTE < :WARNING < :ERROR."
       sev1
       sev2))
 
-(defun slime-goto-location (location)
-  "Goto the source location by position or source path.
+(defun slime-forward-source-path (source-path)
+  (dolist (count source-path)
+    (down-list 1)
+    (forward-sexp count))
+  (forward-sexp)
+  (backward-sexp))
+
+(defun slime-goto-location (note)
+  "Move to the location fiven with the note NOTE.
+
+NOTE's :position property contains the byte offset of the toplevel
+form we are searching.  NOTE's :source-path property the path to the
+subexpression.
+
 A source-path is a list of the form (1 2 3 4), which indicates a
 position in a file in terms of sexp positions. The first number
 identifies the top-level form that contains the position that we wish
@@ -800,20 +814,27 @@ to move to: the first top-level form has number 0. The second number
 in the source-path identifies the containing sexp within that
 top-level form, etc."
   (interactive)
-  (cond ((integerp location)            ; it's a character position
-         (goto-char location)
-         (backward-sexp)
-         (forward-char))
-        ((listp location)               ; it's a source-form
-         (goto-char (point-min))
-         (dolist (sexps location)
-           (slime-forward-sexp sexps)
-           (ignore-errors (slime-forward-sexp))
-           (backward-sexp)
-           (when (looking-at "(")
-             (forward-char))))
-        (t
-         (error "Unknown location type %s" location))))
+  (cond ((not (plist-get note :context))
+	 ;; no context available. hmm... move the the first sexp
+	 (cond ((plist-get note :buffername)
+		(goto-char (plist-get note :buffer-offset)))
+	       (t
+		(goto-char (point-min))))
+	 (forward-sexp)
+	 (backward-sexp))
+	((stringp (plist-get note :filename))
+	 ;; Jump to the offset given with the :position property (and avoid
+	 ;; most of the reader issues)
+	 (goto-char (plist-get note ':position))
+	 ;; Drop the the toplevel form from the source-path and go the
+	 ;; expression.
+	 (slime-forward-source-path (cdr (plist-get note ':source-path))))
+	((stringp (plist-get note :buffername))
+	 (assert (string= (buffer-name) (plist-get note :buffername)))
+	 (goto-char (plist-get note :buffer-offset))
+	 (slime-forward-source-path (cdr (plist-get note ':source-path))))
+	(t
+	 (error "Unsupported location type %s" note))))
 
 (defun slime-forward-sexp (&optional count)
   "Like `forward-sexp', but steps over reader-conditionals (#- and #+)."
@@ -821,8 +842,8 @@ top-level form, etc."
     (forward-sexp)
     (backward-sexp)
     (when (or (looking-at "#+")
-              (looking-at "#-"))
-      (forward-sexp))
+		 (looking-at "#-"))
+	 (forward-sexp))
     (forward-sexp)))
 
 
@@ -858,7 +879,7 @@ top-level form, etc."
 (defun slime-show-note (overlay)
   "Present the details of a compiler note to the user."
   (slime-temporarily-highlight-note overlay)
-  (slime-message (get-char-property (point) 'help-echo)))
+  (slime-message "%s" (get-char-property (point) 'help-echo)))
 
 (if (or (featurep 'xemacs)
 	(= emacs-major-version 20))
@@ -964,7 +985,7 @@ Designed to be bound to the SPC key."
                                   (let ((sym (symbol-at-point)))
                                     (and sym (symbol-name sym))))))
   (slime-eval-async 
-   `(SWANK::ARGLIST-STRING ',(intern symbol-name))
+   `(swank:arglist-string ',(intern symbol-name))
    (slime-buffer-package)
    (lexical-let ((symbol-name symbol-name))
      (lambda (arglist)
@@ -1151,10 +1172,8 @@ the function name is prompted."
     (insert "\n--------------------------------------------------------\n")
     (set-marker (process-mark (get-buffer-process (current-buffer))) (point)))
   (delete-windows-on inferior-lisp-buffer)
-  (slime-eval-async
-   `(CL:FORMAT CL:NIL "~{~S~^, ~}"
-	       (CL:MULTIPLE-VALUE-LIST
-		(CL:EVAL (SWANK::READ-STRING ,string))))
+  (slime-eval-async 
+   `(swank:interactive-eval ,string)
    (slime-buffer-package t)
    (lexical-let ((output-start (slime-inferior-lisp-marker-position)))
      (lambda (reply)
@@ -1206,16 +1225,7 @@ the function name is prompted."
 (defun slime-pprint-eval-last-expression ()
   (interactive)
   (slime-eval-async 
-   `(CL:LET ((CL:*PRINT-PRETTY* CL:T)
-	     (CL:*PRINT-CIRCLE* CL:T)
-	     (CL:*PRINT-LEVEL* CL:NIL)
-	     (CL:*PRINT-LENGTH* CL:NIL)
-	     (EXT:*GC-VERBOSE* CL:NIL))
-	    (CL:LET ((SWANK::value 
-		      (CL:EVAL (SWANK::READ-STRING ,(slime-last-expression)))))
-		    (CL:WITH-OUTPUT-TO-STRING 
-		     (CL:*STANDARD-OUTPUT*)
-		     (CL:PPRINT SWANK::value))))
+   `(swank:pprint-eval ,(slime-last-expression))
    (slime-buffer-package t)
    'slime-show-description))
 
@@ -1238,15 +1248,10 @@ the function name is prompted."
 	(set-text-properties start end nil string)
 	string))))
 
-(defun slime-eval-describe (form package)
-  (slime-eval-async
-   `(CL:WITH-OUTPUT-TO-STRING 
-     (CL:STREAM) 
-     (CL:DESCRIBE ,form CL:STREAM))
-   (or package (slime-buffer-package t))
-   'slime-show-description))
+(defun slime-eval-describe (form)
+  (slime-eval-async form (slime-buffer-package) 'slime-show-description))
 
-(defun slime-describe-symbol (symbol-name &optional package)
+(defun slime-describe-symbol (symbol-name)
   (interactive
    (list (cond (current-prefix-arg 
 		(car (lisp-symprompt "Describe" 
@@ -1255,25 +1260,12 @@ the function name is prompted."
 	       ((car (lisp-symprompt "Describe" nil))))))
   (when (not symbol-name)
     (error "No symbol given"))
-  (slime-eval-describe `(SWANK::READ-STRING
-			 ,(slime-substring-no-properties symbol-name))
-		       (or package (slime-buffer-package t))))
+  (slime-eval-describe `(swank:describe-symbol
+			 ,(slime-substring-no-properties symbol-name))))
 
 (defun slime-disassemble-symbol (symbol-name)
   (interactive (list (slime-substring-no-properties (thing-at-point 'symbol))))
-  (slime-eval-async 
-   `(CL:WITH-OUTPUT-TO-STRING 
-     (CL:*STANDARD-OUTPUT*)
-     (CL:DISASSEMBLE (SWANK::READ-STRING ,symbol-name)))
-   (slime-buffer-package t)
-   'slime-show-description))
-
-;;(defun slime-apropos (string)
-;;  (interactive "sSlime apropos: ")
-;;  (slime-eval-async
-;;   `(CL:WITH-OUTPUT-TO-STRING (CL:*STANDARD-OUTPUT*) (CL:APROPOS ,string))
-;;   (slime-buffer-package t)
-;;   'slime-show-description))
+  (slime-eval-describe `(swank:disassemble-symbol ,symbol-name)))
 
 (defun slime-apropos (string &optional only-external-p package)
   (interactive
@@ -1284,7 +1276,7 @@ the function name is prompted."
                (if (string= pkg "") nil pkg)))
      (list (read-string "SLIME Apropos: ") t nil)))
   (slime-eval-async
-   `(SWANK::APROPOS-LIST-FOR-EMACS ,string ,only-external-p ,package)
+   `(swank:apropos-list-for-emacs ,string ,only-external-p ,package)
    (slime-buffer-package t)
    (lexical-let ((string string)
                  (package package))
@@ -1303,8 +1295,8 @@ the function name is prompted."
         (apropos-mode)
         (set-syntax-table lisp-mode-syntax-table)
         (slime-mode t)
-        (make-local-variable 'slime-apropos-package)
-        (setq slime-apropos-package package)
+        (make-local-variable 'slime-buffer-package)
+        (setq slime-buffer-package package)
         (set (make-local-variable 'truncate-lines) t)
         (slime-print-apropos plists)))))
 
@@ -1323,7 +1315,7 @@ the function name is prompted."
       (slime-princ-propertized designator 
 			       (list 'face apropos-symbol-face
 				     'item designator
-				     'action 'slime-apropos-describe-symbol)))
+				     'action 'slime-describe-symbol)))
     (terpri)
     (let ((apropos-label-properties 
 	   (cond ((and (boundp 'apropos-label-properties) 
@@ -1334,11 +1326,11 @@ the function name is prompted."
 				   mouse-face highlight))
 		    (list apropos-label-face))))))
       (loop for (prop namespace action) 
-	    in '((:variable "Variable" slime-describe-symbol)
-		 (:function "Function" slime-describe-function)
-		 (:setf "Setf" slime-describe-setf-function)
-		 (:type "Type" slime-describe-type)
-		 (:class "Class" slime-describe-class))
+	    in '((:variable "Variable" swank:describe-symbol)
+		 (:function "Function" swank:describe-function)
+		 (:setf "Setf" swank:describe-setf-function)
+		 (:type "Type" swank:describe-type)
+		 (:class "Class" swank:describe-class))
 	    do
 	    (let ((value (plist-get plist prop))
 		  (start (point)))
@@ -1349,59 +1341,28 @@ the function name is prompted."
 		(princ (etypecase value
 			 (string value)
 			 ((member :not-documented) "(not documented)")))
-		(put-text-property start (point) 'real-action action)
-		(put-text-property start (point) 'action 
-				   'slime-apropos-call-action-with-package)
+		(put-text-property start (point) 'describer action)
+		(put-text-property start (point) 'action 'slime-call-describer)
 		(terpri)))))))
 
-(defun slime-apropos-describe-symbol (item)
-  (slime-describe-symbol item slime-apropos-package))
-
-(defun slime-apropos-call-action-with-package (item)
-  (funcall (get-text-property (point) 'real-action) 
-	   item slime-apropos-package))
-
-(defun slime-describe-function (name &optional package)
-  (slime-eval-describe `(CL:SYMBOL-FUNCTION (SWANK::READ-STRING ,name))
-		       package))
-
-(defun slime-describe-setf-function (name &optional package)
-  (slime-eval-describe 
-   `(CL:OR (EXT:INFO SETF INVERSE (SWANK::READ-STRING ,name))
-	   (EXT:INFO SETF EXPANDER (SWANK::READ-STRING ,name)))
-   package))
-
-(defun slime-describe-type (name &optional package)
-  (slime-eval-describe
-   `(KERNEL:VALUES-SPECIFIER-TYPE (SWANK::READ-STRING ,name))
-   package))
-
-(defun slime-describe-class (name &optional package)
-  (slime-eval-describe 
-   `(CL:FIND-CLASS (SWANK::READ-STRING ,name))
-   package))
+(defun slime-call-describer (item)
+  (slime-eval-describe `(,(get-text-property (point) 'describer) ,item)))
 
 
 ;;; Macroexpansion
 
 (defun slime-eval-macroexpand (expander)
   (let ((string (slime-substring-no-properties (thing-at-point 'sexp))))
-    (slime-eval-async
-     `(CL:LET ((CL:*PRINT-PRETTY* CL:T)
-	       (CL:*PRINT-LENGTH* 20)
-	       (CL:*PRINT-LEVEL* 20))
-	      (CL:PRIN1-TO-STRING (,expander (SWANK::READ-STRING ,string))))
-     (slime-buffer-package t)
-     'slime-show-description)))
+    (slime-eval-describe `(,expander ,string))))
 
 (defun slime-macroexpand-1 (&optional repeatedly)
   (interactive "P")
   (slime-eval-macroexpand
-   (if repeatedly 'CL:MACROEXPAND 'CL:MACROEXPAND-1)))
+   (if repeatedly 'swank:swank-macroexpand 'swank:swank-macroexpand-1)))
 
 (defun slime-macroexpand-all ()
   (interactive)
-  (slime-eval-macroexpand 'WALKER:MACROEXPAND-ALL))
+  (slime-eval-macroexpand 'swank:swank-macroexpand-all))
 
 
 ;;; Subprocess control
@@ -1434,7 +1395,7 @@ the function name is prompted."
   (enlarge-window (- (/ (frame-height) 2) (window-height)))
   (goto-char (point-max))
   (slime-net-send
-   `(swank::eval-string
+   `(swank:eval-string
      ,(prin1-to-string '(let ((*debugger-hook* nil))
 			  (invoke-debugger swank::*swank-debugger-condition*)))
      nil)))
@@ -1458,7 +1419,7 @@ the function name is prompted."
 (defun slime-enter-sldb ()
   (slime-move-to-state (slime-state sldb-state (slime-current-state)))
   (incf sldb-level)
-  (slime-net-output-funcall 'SWANK::SLDB-LOOP))
+  (slime-net-send `(swank:sldb-loop)))
 
 (defun sldb-state (message previous-state)
   (destructure-case message
@@ -1518,7 +1479,7 @@ the function name is prompted."
   (setq sldb-level-in-buffer sldb-level)
   (setq mode-name (format "sldb[%d]" sldb-level))
   (destructuring-bind (condition restarts length frames)
-      (slime-eval `(SWANK::DEBUGGER-INFO-FOR-EMACS 0 1))
+      (slime-eval `(swank:debugger-info-for-emacs 0 1))
     (setq sldb-condition condition)
     (setq sldb-restarts restarts)
     (setq sldb-backtrace-length length)
@@ -1558,7 +1519,7 @@ the function name is prompted."
 	  (end-of-buffer)
 	  (delete-region start (point)))
 	(sldb-insert-frames 
-	 (slime-eval `(SWANK::BACKTRACE-FOR-EMACS 
+	 (slime-eval `(swank:backtrace-for-emacs 
 		       ,(1+ previous)
 		       ,(+ previous 40))))))))
 
@@ -1598,7 +1559,7 @@ the function name is prompted."
   (sldb-delete-overlays)
   (let* ((number (sldb-frame-number-at-point))
 	 (source-location (slime-eval
-			   `(SWANK::FRAME-CODE-LOCATION-FOR-EMACS ,number)))
+			   `(swank:frame-code-location-for-emacs ,number)))
 	 (error (plist-get source-location :error)))
     (when error
       (error "Cannot locate source: %s" error))
@@ -1692,7 +1653,7 @@ the function name is prompted."
 		      "Eval in frame: " 
 		      nil nil nil 'sldb-eval-expression-history)))
   (let* ((number (sldb-frame-number-at-point)))
-    (slime-eval-async `(SWANK::EVAL-STRING-IN-FRAME ,string ,number)
+    (slime-eval-async `(swank:eval-string-in-frame ,string ,number)
 		      nil
 		      (lambda (reply) (slime-message "==> %s" reply)))))
 
@@ -1706,10 +1667,7 @@ the function name is prompted."
 
 (defun sldb-down ()
   (interactive)
-  (sldb-forward-frame)
-  (let ((action (get-text-property (point) 'sldb-default-action)))
-    (if (eq action 'sldb-fetch-more-frames)
-	(funcall action))))
+  (sldb-forward-frame))
 
 (defun sldb-up ()
   (interactive)
@@ -1718,7 +1676,7 @@ the function name is prompted."
     (recenter (1+ (count-lines (point-min) (point))))))
 
 (defun sldb-frame-locals (frame)
-  (slime-eval `(SWANK::FRAME-LOCALS ,frame)))
+  (slime-eval `(swank:frame-locals ,frame)))
 
 (defun sldb-princ-locals (frame prefix)
   (dolist (l (sldb-frame-locals frame))
@@ -1740,7 +1698,7 @@ the function name is prompted."
     (slime-message "%s" string)))
 
 (defun sldb-catch-tags (frame)
-  (slime-eval `(SWANK::FRAME-CATCH-TAGS ,frame)))
+  (slime-eval `(swank:frame-catch-tags ,frame)))
 
 (defun sldb-list-catch-tags ()
   (interactive)
@@ -1752,11 +1710,11 @@ the function name is prompted."
 
 (defun sldb-quit ()
   (interactive)
-  (slime-eval-async '(swank::throw-to-toplevel) nil (lambda ())))
+  (slime-eval-async '(swank:throw-to-toplevel) nil (lambda ())))
 
 (defun sldb-continue ()
   (interactive)
-  (slime-eval-async '(cl:continue swank::*swank-debugger-condition*)
+  (slime-eval-async '(swank:sldb-continue)
 		    nil
 		    (lambda (foo)
 		      (message "No restart named continue") 
@@ -1764,14 +1722,14 @@ the function name is prompted."
 
 (defun sldb-abort ()
   (interactive)
-  (slime-eval-async '(swank::sldb-abort) nil (lambda ())))
+  (slime-eval-async '(swank:sldb-abort) nil (lambda ())))
 
 (defun sldb-invoke-restart ()
   (interactive)
   (let ((restart (get-text-property (point) 'restart-number)))
     (unless restart
       (error "No restart at point"))
-    (slime-eval-async `(SWANK::INVOKE-NTH-RESTART ,restart) nil (lambda ()))))
+    (slime-eval-async `(swank:invoke-nth-restart ,restart) nil (lambda ()))))
 
 (define-key sldb-mode-map "v" 'sldb-show-source)
 (define-key sldb-mode-map (kbd "RET") 'sldb-default-action)
