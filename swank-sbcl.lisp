@@ -215,13 +215,6 @@ information."
    `(:file ,(namestring (truename f)))
    `(:position ,(1+ (source-path-file-position path f)))))
 
-#+(or)
-(defmethod resolve-note-location ((b string) (f (eql :stream)) pos path source)
-  (make-location
-   `(:buffer ,b)
-   `(:position ,(+ *buffer-offset*
-                   (source-path-string-position path *buffer-substring*)))))
-
 ;; SBCL doesn't have compile-from-stream, so C-c C-c ends up here
 (defmethod resolve-note-location ((b string) (f (eql :lisp)) pos path source)
   ;; Remove the surrounding lambda from the path (was added by
