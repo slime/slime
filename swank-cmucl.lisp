@@ -46,7 +46,7 @@
 (defstruct (slime-input-stream
 	     (:include sys:lisp-stream
 		       (lisp::in #'slime-input-stream-read-char)
-		       (lisp::misc #'slime-input-stream-misc)))
+		       (lisp::misc #'slime-input-stream-misc-ops)))
   (buffered-char nil :type (or null character)))
 
 (defun slime-input-stream-read-char (stream &optional eoferr eofval)
@@ -55,14 +55,17 @@
     (cond (c (setf (slime-input-stream-buffered-char stream) nil) c)
 	  (t (slime-read-char)))))
 
-(defun slime-input-stream-misc (stream operation &optional arg1 arg2)
+(defun slime-input-stream-misc-ops (stream operation &optional arg1 arg2)
   (declare (ignore arg2))
-  (case operation
+  (ecase operation
     (:unread 
      (assert (not (slime-input-stream-buffered-char stream)))
      (setf (slime-input-stream-buffered-char stream) arg1)
      nil)
-    (:listen t)))
+    (:listen nil)
+    (:clear-input (setf (slime-input-stream-buffered-char stream) nil))
+    (:file-position nil)
+    (:charpos nil)))
 
 (defun create-swank-server (port &key reuse-address (address "localhost"))
   "Create a SWANK TCP server."
@@ -584,7 +587,6 @@ Return NIL if the symbol is unbound."
 
 (defslimefun sldb-loop ()
   (unix:unix-sigsetmask 0)
-  (ignore-errors (force-output))
   (let* ((*sldb-level* (1+ *sldb-level*))
 	 (*sldb-stack-top* (or debug:*stack-top-hint* (di:top-frame)))
 	 (*sldb-restarts* (compute-restarts *swank-debugger-condition*))
