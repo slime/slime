@@ -114,6 +114,15 @@ back to the main request handling loop."
     (let ((*package* *swank-io-package*))
       (read-from-string string))))
 
+(defvar *slime-features* nil
+  "The feature list that has been sent to Emacs.")
+
+(defun sync-state-to-emacs ()
+  "Update Emacs if any relevant Lisp state has changed."
+  (unless (eq *slime-features* *features*)
+    (setq *slime-features* *features*)
+    (send-to-emacs (list :new-features (mapcar #'symbol-name *features*)))))
+
 (defun send-to-emacs (object)
   "Send `object' to Emacs."
   (let* ((string (prin1-to-string-for-emacs object))
@@ -191,6 +200,7 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
              (setq result (eval (read-form string)))
              (force-output)
              (setq ok t))
+        (sync-state-to-emacs)
         (send-to-emacs (if ok `(:ok ,result) '(:aborted)))))))
 
 (defslimefun interactive-eval (string)
@@ -200,14 +210,21 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
     (force-output)
     (format nil "~{~S~^, ~}" values)))
 
-(defun eval-region (string)
-  (with-input-from-string (stream string)
-    (loop for form = (read stream nil stream)
-	  until (eq form stream)
-	  for - = form
-	  for values = (multiple-value-list (eval form))
-	  do (force-output)
-	  finally (return (values values -)))))
+(defun eval-region (string &optional package-update-p)
+  "Evaluate STRING and return the result.
+If PACKAGE-UPDATE-P is non-nil, and evaluation causes a package
+change, then send Emacs an update."
+  (let ((*package* *buffer-package*))
+    (unwind-protect
+         (with-input-from-string (stream string)
+           (loop for form = (read stream nil stream)
+                 until (eq form stream)
+                 for - = form
+                 for values = (multiple-value-list (eval form))
+                 do (force-output)
+                 finally (return (values values -))))
+      (when (and package-update-p (not (eq *package* *buffer-package*)))
+        (send-to-emacs (list :new-package (package-name *package*)))))))
 
 (defslimefun interactive-eval-region (string)
   (let ((*package* *buffer-package*))
@@ -237,7 +254,7 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
   (package-name *package*))
 
 (defslimefun listener-eval (string)
-  (multiple-value-bind (values last-form) (eval-region string)
+  (multiple-value-bind (values last-form) (eval-region string t)
     (setq +++ ++  ++ +  + last-form
 	  *** **  ** *  * (car values)
 	  /// //  // /  / values)
