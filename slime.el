@@ -485,7 +485,9 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
        [ "Eval Defun"              slime-eval-defun ,C ]
        [ "Eval Last Expression"    slime-eval-last-expression ,C ]
        [ "Eval And Pretty-Print"   slime-pprint-eval-last-expression ,C ]
-       [ "Interactive Eval"        slime-interactive-eval ,C ])
+       [ "Eval Region"             slime-eval-region ,C ]
+       [ "Interactive Eval"        slime-interactive-eval ,C ]
+       [ "Scratch Buffer"          slime-scratch-buffer ,C ])
       ("Debugging"
        [ "Macroexpand Once..."     slime-macroexpand-1 ,C ]
        [ "Macroexpand All..."      slime-macroexpand-all ,C ]
@@ -513,6 +515,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
       ("Documentation"
        [ "Describe Symbol..."      slime-describe-symbol ,C ]
        [ "Apropos..."              slime-apropos ,C ]
+       [ "Apropos Package..."      slime-apropos-package ,C ]
        [ "Hyperspec..."            slime-hyperspec-lookup t ])
       "--"
       [ "Interrupt Command"        slime-interrupt ,C ]
