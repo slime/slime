@@ -62,9 +62,7 @@
 
 ;;; TCP Server
 
-
-(defun create-swank-server (port &key reuse-address)
-  "Create a SWANK TCP server."
+(defun open-listener (port reuse-address)
   (let ((socket (make-instance 'sb-bsd-sockets:inet-socket
 			       :type :stream
 			       :protocol :tcp)))
@@ -73,6 +71,17 @@
     (setf (sb-bsd-sockets:non-blocking-mode socket) t)
     (sb-bsd-sockets:socket-bind socket #(127 0 0 1) port)
     (sb-bsd-sockets:socket-listen socket 5)
+    socket))
+
+(defun accept (socket)
+  "Like socket-accept, but retry on EAGAIN."
+  (loop (handler-case
+            (return (sb-bsd-sockets:socket-accept socket))
+          (sb-bsd-sockets:interrupted-error ()))))
+
+(defun create-swank-server (port &key reuse-address)
+  "Create a SWANK TCP server."
+  (let ((socket (open-listener port reuse-address)))
     (sb-sys:add-fd-handler 
      (sb-bsd-sockets:socket-file-descriptor socket)
      :input (lambda (fd) 
@@ -80,12 +89,27 @@
 	      (accept-connection socket)))
     (nth-value 1 (sb-bsd-sockets:socket-name socket))))
 
+(defun open-stream-to-emacs ()
+  (let* ((server-socket (open-listener 0 t))
+         (port (nth-value 1 (sb-bsd-sockets:socket-name server-socket))))
+    (unwind-protect
+         (progn
+           (eval-in-emacs `(slime-open-stream-to-lisp ,port))
+           (let ((socket (accept server-socket)))
+             (sb-bsd-sockets:socket-make-stream 
+              socket :output t :element-type 'base-char)))
+      (sb-bsd-sockets:socket-close server-socket))))
+
+(defvar *use-dedicated-output-stream* t)
+
 (defun accept-connection (server-socket)
   "Accept one Swank TCP connection on SOCKET and then close it."
-  (let* ((socket (sb-bsd-sockets:socket-accept server-socket))
+  (let* ((socket (accept server-socket))
 	 (stream (sb-bsd-sockets:socket-make-stream 
 		  socket :input t :output t :element-type 'base-char))
-         (out (make-instance 'slime-output-stream))
+         (out (if *use-dedicated-output-stream*
+                  (let ((*emacs-io* stream)) (open-stream-to-emacs))
+                  (make-instance 'slime-output-stream)))
          (in (make-instance 'slime-input-stream))
          (io (make-two-way-stream in out)))
     (sb-sys:invalidate-descriptor (sb-bsd-sockets:socket-file-descriptor
@@ -96,6 +120,7 @@
      :input (lambda (fd) 
 	      (declare (ignore fd))
 	      (serve-request stream out in io)))))
+
 
 (defun serve-request (*emacs-io* *slime-output* *slime-input* *slime-io*)
   "Read and process a request from a SWANK client.

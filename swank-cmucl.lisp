@@ -21,16 +21,19 @@
 
 ;;;; TCP server.
 
+(defun resolve-hostname (name)
+  (let* ((hostent (ext:lookup-host-entry name))
+         (address (car (ext:host-entry-addr-list hostent))))
+    (ext:htonl address)))
+
 (defun create-swank-server (port &key reuse-address (address "localhost"))
   "Create a SWANK TCP server."
-  (let* ((hostent (ext:lookup-host-entry address))
-         (address (car (ext:host-entry-addr-list hostent)))
-         (ip (ext:htonl address)))
-    (let ((fd (ext:create-inet-listener port :stream
-                                        :reuse-address reuse-address
-                                        :host ip)))
-      (system:add-fd-handler fd :input #'accept-connection)
-      (nth-value 1 (ext::get-socket-host-and-port fd)))))
+  (let* ((ip (resolve-hostname address))
+         (fd (ext:create-inet-listener port :stream
+                                       :reuse-address reuse-address
+                                       :host ip)))
+    (system:add-fd-handler fd :input #'accept-connection)
+    (nth-value 1 (ext::get-socket-host-and-port fd))))
 
 (defun accept-connection (socket)
   "Accept one Swank TCP connection on SOCKET and then close it."
@@ -38,13 +41,29 @@
   (sys:invalidate-descriptor socket)
   (unix:unix-close socket))
 
+(defun open-stream-to-emacs ()
+  "Return an output-stream to Emacs' output buffer."
+  (let* ((ip (resolve-hostname "localhost"))
+         (listener (ext:create-inet-listener 0 :stream :host ip))
+         (port (nth-value 1 (ext::get-socket-host-and-port listener))))
+    (unwind-protect
+         (progn
+           (eval-in-emacs `(slime-open-stream-to-lisp ,port))
+           (let ((fd (ext:accept-tcp-connection listener)))
+             (sys:make-fd-stream fd :output t)))
+      (ext:close-socket listener))))
+
+(defvar *use-dedicated-output-stream* t)
+
 (defun setup-request-handler (socket)
   "Setup request handling for SOCKET."
   (let* ((stream (sys:make-fd-stream socket
                                      :input t :output t
                                      :element-type 'base-char))
          (input (make-slime-input-stream))
-         (output (make-slime-output-stream))
+         (output (if *use-dedicated-output-stream*
+                     (let ((*emacs-io* stream)) (open-stream-to-emacs))
+                     (make-slime-output-stream)))
          (io (make-two-way-stream input output)))
     (system:add-fd-handler socket
                            :input (lambda (fd)
