@@ -327,18 +327,10 @@ condition."
                               ((symbolp tag)
                                tag)
                               ((and (listp tag)
-<<<<<<< swank-openmcl.lisp
                                     (typep (car tag) 'restart))
                                `(:restart ,(restart-name (car tag))))))))))))
 
 (defimplementation disassemble-frame (the-frame-number)
-=======
-                                    (typep (car tag) 'restart))
-                               `(:restart ,(restart-name (car tag))))))))))))
-
-(defimplementation sldb-disassemble (the-frame-number)
-  "Return a string with the disassembly of frames code."
->>>>>>> 1.69
   (let ((function-to-disassemble nil))
     (block find-frame
       (map-backtrace
