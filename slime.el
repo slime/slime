@@ -102,12 +102,6 @@ This is used for batch-mode testing.")
 This applies to buffers that present lines as rows of data, such as
 debugger backtraces and apropos listings.")
 
-(defvar slime-global-debugger-hook nil
-  "* When true, install the SLIME debugger hook globally in Lisp.
-
-This means the SLIME debugger will be used for all errors occuring in
-Lisp, not just those occuring during RPCs.")
-
 (defvar slime-multiprocessing nil
   "* When true, enable multiprocessing in Lisp.")
 
@@ -1564,8 +1558,6 @@ This is automatically synchronized from Lisp.")
        (slime-handle-indentation-update info))
       ((:open-dedicated-output-stream port)
        (slime-open-stream-to-lisp port))
-      ((:check-protocol-version version)
-       (slime-check-protocol-version version))
       ((:use-sigint-for-interrupt)
        (setf (slime-use-sigint-for-interrupt) t))
       ((:%apply fn args)
@@ -1626,15 +1618,13 @@ This is automatically synchronized from Lisp.")
 (defun slime-set-connection-info (connection info)
   "Initialize CONNECTION with INFO received from Lisp."
   (destructuring-bind (version pid type name features) info
-    (slime-check-protocol-version version)
+;;    (slime-check-protocol-version version)
     (setf (slime-pid) pid
           (slime-lisp-implementation-type) type
           (slime-lisp-implementation-type-name) name
           (slime-connection-name) (slime-generate-connection-name name)
           (slime-lisp-features) features))
   (setq slime-state-name "")
-  (when slime-global-debugger-hook
-    (slime-eval '(swank:install-global-debugger-hook)))
   (when-let (buffer (get-buffer "*inferior-lisp*"))
     (delete-windows-on buffer)
     (bury-buffer buffer))
@@ -1688,10 +1678,6 @@ This is automatically synchronized from Lisp.")
 
 
 ;;;;; Utilities
-
-(defun slime-output-oneway-evaluate-request (form-string package-name)
-  "Like `slime-output-oneway-evaluate-request' but without expecting a result."
-  (slime-send `(swank:oneway-eval-string ,form-string ,package-name)))
 
 (defun slime-check-connected ()
   (unless (slime-connected-p)
@@ -1779,12 +1765,6 @@ deal with that."
      (funcall cont result))
     ((:abort) 
      (message "Evaluation aborted."))))
-
-(defun slime-oneway-eval (sexp &optional package)
-  "Evaluate SEXP \"one-way\" - without receiving a return value."
-  (slime-check-connected)
-  (slime-dispatch-event
-   `(:emacs-evaluate-oneway ,(slime-prin1-to-string sexp) ,package)))
 
 (defun slime-send (sexp)
   (slime-net-send sexp (slime-connection)))
