@@ -657,7 +657,8 @@ return value is the condition or nil."
 
 (defun gf-location (gf)
   (let ((def-source (pcl::definition-source gf))
-        (name (string (pcl:generic-function-name gf))))
+        (name (string (nth-value 1 (ext:valid-function-name-p
+                                    (pcl:generic-function-name gf))))))
     (etypecase def-source
       (pathname (make-name-in-file-location def-source name))
       (cons
@@ -688,10 +689,12 @@ regular functions, generic functions, methods and macros."
                  (t (list (list `(function ,symbol)
                                 (function-location function)))))))))
 
+(defun maybe-make-definition (function kind symbol)
+  (if function
+      (list (list `(,kind ,symbol) (function-location function)))))
+
 (defun type-definitions (symbol)
-  (let ((expander (ext:info :type :expander symbol)))
-    (if expander
-        (list (list `(type ,symbol) (function-location expander))))))
+  (maybe-make-definition (ext:info :type :expander symbol) 'deftype symbol))
 
 (defun find-dd (name)
   (let ((layout (ext:info :type :compiler-layout name)))
@@ -703,11 +706,62 @@ regular functions, generic functions, methods and macros."
     (if dd
         (list (list `(defstruct ,symbol) (dd-location dd))))))
 
+(defun setf-definitions (symbol)
+  (let ((function (or (let ((name `(setf ,symbol)))
+                        (if (lisp::fdefinition-object name nil)
+                            name))
+                      (ext:info :setf :inverse symbol)
+                      (ext:info :setf :expander symbol))))
+    (if function
+        (list (list `(setf ,symbol) 
+                    (function-location (coerce function 'function)))))))
+
+(defun compiler-macro-definitions (symbol)
+  (maybe-make-definition (compiler-macro-function symbol)
+                         'define-compiler-macro
+                         symbol))
+
+(defun source-transform-definitions (symbol)
+  (maybe-make-definition (ext:info :function :source-transform symbol)
+                         'c:def-source-transform
+                         symbol))
+
+(defun function-info-definitions (symbol)
+  (let ((info (ext:info :function :info symbol)))
+    (if info
+        (append (loop for transform in (c::function-info-transforms info)
+                      collect (list `(c:deftransform ,symbol 
+                                      ,(c::type-specifier 
+                                        (c::transform-type transform)))
+                                    (function-location (c::transform-function 
+                                                        transform))))
+                (maybe-make-definition (c::function-info-derive-type info)
+                                       'c::derive-type symbol)
+                (maybe-make-definition (c::function-info-optimizer info)
+                                       'c::optimizer symbol)
+                (maybe-make-definition (c::function-info-ltn-annotate info)
+                                       'c::ltn-annotate symbol)
+                (maybe-make-definition (c::function-info-ir2-convert info)
+                                       'c::ir2-convert symbol)
+                (loop for template in (c::function-info-templates info)
+                      collect (list `(c::vop ,(c::template-name template))
+                                    (function-location 
+                                     (c::vop-info-generator-function 
+                                      template))))))))
+
+(defun ir1-translator-definitions (symbol)
+  (maybe-make-definition (ext:info :function :ir1-convert symbol)
+                         'c:def-ir1-translator symbol))
+
 (defimplementation find-definitions (symbol)
   (append (function-definitions symbol)
+          (setf-definitions symbol)
+          (struct-definitions symbol)
           (type-definitions symbol)
-          (struct-definitions symbol)))
-
+          (compiler-macro-definitions symbol)
+          (source-transform-definitions symbol)
+          (function-info-definitions symbol)
+          (ir1-translator-definitions symbol)))
 
 ;;;; Documentation.
 
@@ -1148,7 +1202,6 @@ LRA  =  ~X~%" (mapcar #'fixnum
 		      (typep (symbol-value x) 'fixnum)))
      (append (apropos-list "-TYPE" "VM" t)
 	     (apropos-list "-TYPE" "BIGNUM" t)))))
-
 
 (defimplementation describe-primitive-type (object)
   (with-output-to-string (*standard-output*)
