@@ -3,13 +3,12 @@ Overview.
 
   SLIME is the Superior Lisp Interaction Mode for Emacs. It is
   implemented in two main parts: the Emacs Lisp side (slime.el), and
-  the support library for the Common Lisp (swank.lisp for CMUCL,
-  swank-sbcl.lisp, swank-openmcl.lisp for the others)
+  the support library for the Common Lisp (swank.lisp and swank-*.lisp)
 
   For a real description, see the commentary in slime.el.
 
-Quick setup instructions for CMUCL
-----------------------------------------
+Quick setup instructions
+------------------------
 
   In Emacs Lisp:
 
@@ -20,8 +19,8 @@ Quick setup instructions for CMUCL
 
   Make sure your `inferior-lisp-program' is set to a compatible
   version of Lisp. For CMUCL we currently require version 18e or
-  later. For SBCL we require the "sb-introspect" contrib, which exist
-  in the current CVS version.
+  later. For SBCL we require the "sb-introspect" contrib, for which
+  you need 0.8.5 or later.
 
   Use `M-x' slime to fire up and connect to an inferior Lisp.
 
@@ -53,7 +52,6 @@ Contact.
   Questions and comments are best directed to the mailing list:
     http://common-lisp.net/mailman/listinfo/slime-devel
 
-  The mailing list archive was once on Gmane, and soon will be again,
-  when they catch up with our change of project hosting provider
+  The mailing list archive is also avalable on Gmane:
     http://news.gmane.org/gmane.lisp.slime.devel
 

@@ -1,3 +1,13 @@
+2003-11-25  Daniel Barlow  <dan@telent.net>
+
+	* swank-sbcl.lisp: delete big chunk of leftover commented-out
+	code
+
+	* slime.el: arglist command to use slime-read-symbol-name,
+	not slime-read-symbol
+
+	* README: Minor updates for currency
+
 2003-11-24  Luke Gorrie  <luke@bluetail.com>
 
 	* swank-backend.lisp (compiler-condition): Removed use of
