@@ -81,7 +81,13 @@
   "lispworks")
 
 (defimplementation arglist-string (fname)
-  (format-arglist fname #'lw:function-lambda-list))
+  (format-arglist fname 
+                  (lambda (symbol)
+                    (let ((arglist (lw:function-lambda-list symbol)))
+                      (etypecase arglist
+                        ((member :dont-know)
+                         (error "<arglist-unavailable>"))
+                        (cons arglist))))))
 
 (defimplementation macroexpand-all (form)
   (walker:walk-form form))
@@ -296,14 +302,11 @@ Return NIL if the symbol is unbound."
              (delete-file binary-filename))))
     (delete-file filename)))
 
-
-;; (dspec:dspec-primary-name '(:top-level-form 19))
-
-(defun dspec-buffer-buffer-position (dspec)
+(defun dspec-buffer-position (dspec)
   (etypecase dspec
     (cons (ecase (car dspec)
-            (defun `(:function-name ,(symbol-name (cadr dspec))))
-            (method `(:function-name ,(symbol-name (cadr dspec))))
+            ((defun method defmacro)
+             `(:function-name ,(symbol-name (cadr dspec))))
             ;; XXX this isn't quite right
             (lw:top-level-form `(:source-path ,(cdr dspec) nil))))
     (symbol `(:function-name ,(symbol-name dspec)))))
@@ -329,7 +332,7 @@ Return NIL if the symbol is unbound."
            (etypecase location
              ((or pathname string) 
               (make-location `(:file ,(filename location))
-                             (dspec-buffer-buffer-position dspec)))
+                             (dspec-buffer-position dspec)))
              ((member :listener)
               `(:error ,(format nil "Function defined in listener: ~S" dspec)))
              ((member :unknown)
