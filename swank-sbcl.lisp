@@ -40,9 +40,7 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require 'sb-bsd-sockets)
   (use-package "SB-BSD-SOCKETS")
-  #+nil (require 'sb-introspect)
-  (load
-   "/home/dan/src/sourceforge/sbcl/contrib/sb-introspect/sb-introspect"))
+  (require 'sb-introspect))
 
 (declaim (optimize (debug 3)))
 (in-package :swank)
@@ -254,7 +252,8 @@ information."
                :source-path (current-compiler-error-source-path context)
                :severity (etypecase condition
                            (sb-c:compiler-error :error)
-                           (style-warning :note)
+                           (sb-ext:compiler-note :note)
+                           (style-warning :style-warning)
                            (warning :warning))
                :message (brief-compiler-message-for-emacs condition context)
                :buffername (if (boundp '*buffername*) *buffername*)
@@ -290,6 +289,7 @@ compiler state."
 
 (defun call-trapping-compilation-notes (fn)
   (handler-bind ((sb-c:compiler-error #'handle-notification-condition)
+                 (sb-ext:compiler-note #'handle-notification-condition)
                  (style-warning #'handle-notification-condition)
                  (warning #'handle-notification-condition))
     (funcall fn)))
