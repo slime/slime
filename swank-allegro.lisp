@@ -53,11 +53,18 @@
 
 (defimplementation accept-connection (socket &key external-format)
   (let ((s (socket:accept-connection socket :wait t)))
-    (ecase external-format
-      (:iso-latin-1-unix (setf (stream-external-format s) :latin1))
-      (:emacs-mule-unix (setf (stream-external-format s) :emacs-mule))
-      (:utf-8-unix (setf (stream-external-format s) :utf8)))
+    (set-external-format s external-format)
     s))
+
+(defun set-external-format (stream external-format)
+  #-allegro-v5.0
+  (let* ((name (ecase external-format
+                 (:iso-latin-1-unix :latin1)
+                 (:utf-8-unix :utf-8-unix)
+                 (:emacs-mule-unix :emacs-mule)))
+         (ef (excl:crlf-base-ef
+              (excl:find-external-format name :try-variant t))))
+    (setf (stream-external-format stream) ef)))
 
 (defimplementation format-sldb-condition (c)
   (princ-to-string c))
@@ -205,31 +212,41 @@
 (defvar *buffer-string*)
 (defvar *compile-filename* nil)
 
+(defun compiler-note-p (x)
+  (member (type-of x) '(excl::compiler-note compiler::compiler-note)))
+
+(deftype compiler-note ()
+  `(satisfies compiler-note-p))
+
 (defun handle-compiler-warning (condition)
   (let ((loc (getf (slot-value condition 'excl::plist) :loc)))
-    (signal (make-condition
-             'compiler-condition
-             :original-condition condition
-             :severity :warning
-             :message (format nil "~A" condition)
-             :location (cond (*buffer-name*
-                              (make-location 
-                               (list :buffer *buffer-name*)
-                               (list :position *buffer-start-position*)))
-                             (loc
-                              (destructuring-bind (file . pos) loc
-                                (make-location
-                                 (list :file (namestring (truename file)))
-                                 (list :position (1+ pos)))))
-                             (*compile-filename*
-                              (make-location
-                               (list :file *compile-filename*)
-                               (list :position 1)))
-                             (t
-                              (list :error "No error location available.")))))))
+    (signal 
+     (make-condition
+      'compiler-condition
+      :original-condition condition
+      :severity (etypecase condition
+                  (warning :warning)
+                  (compiler-note :note))
+      :message (format nil "~A" condition)
+      :location (cond (*buffer-name*
+                       (make-location 
+                        (list :buffer *buffer-name*)
+                        (list :position *buffer-start-position*)))
+                      (loc
+                       (destructuring-bind (file . pos) loc
+                         (make-location
+                          (list :file (namestring (truename file)))
+                          (list :position (1+ pos)))))
+                      (*compile-filename*
+                       (make-location
+                        (list :file *compile-filename*)
+                        (list :position 1)))
+                      (t
+                       (list :error "No error location available.")))))))
 
 (defimplementation call-with-compilation-hooks (function)
-  (handler-bind ((warning #'handle-compiler-warning))
+  (handler-bind ((warning #'handle-compiler-warning)
+                 (compiler-note #'handle-compiler-warning))
     (funcall function)))
 
 (defimplementation swank-compile-file (*compile-filename* load-p)
@@ -388,11 +405,12 @@
             (t
              (funcall fn c))))))
 
-(defun in-constants-p (fn symbol)
-  (map-function-constants 
-   fn 
-   (lambda (c) (if (eq c symbol) (return-from in-constants-p t)))
-   3))
+(defun in-constants-p (fun symbol)
+  (map-function-constants fun 
+                          (lambda (c) 
+                            (when (eq c symbol) 
+                              (return-from in-constants-p t)))
+                          3))
   
 (defun function-callers (name)
   (let ((callers '()))
