@@ -79,6 +79,24 @@ The portable code calls this function at startup."
         (sort (copy-list *unimplemented-interfaces*) #'string<)))
 
 
+;;;; Utilities
+
+(defmacro with-struct ((conc-name &rest names) obj &body body)
+  "Like with-slots but works only for structs."
+  (flet ((reader (slot) (intern (concatenate 'string
+					     (symbol-name conc-name)
+					     (symbol-name slot))
+				(symbol-package conc-name))))
+    (let ((tmp (gensym "OO-")))
+    ` (let ((,tmp ,obj))
+        (symbol-macrolet
+            ,(loop for name in names collect 
+                   (typecase name
+                     (symbol `(,name (,(reader name) ,tmp)))
+                     (cons `(,(first name) (,(reader (second name)) ,tmp)))
+                     (t (error "Malformed syntax in WITH-STRUCT: ~A" name))))
+          ,@body)))))
+  
 ;;;; TCP server
 
 (definterface create-socket (host port)
