@@ -23,6 +23,7 @@
      pcl:standard-slot-definition
      cl:method
      cl:standard-class
+     pcl:eql-specializer
      ;; standard-class readers
      pcl:class-default-initargs
      pcl:class-direct-default-initargs
@@ -34,6 +35,9 @@
      pcl:class-precedence-list
      pcl:class-prototype
      pcl:class-slots
+     pcl:specializer-direct-methods
+     ;; eql-specializer accessors
+     pcl:eql-specializer-object
      ;; generic function readers
      pcl:generic-function-argument-precedence-order
      pcl:generic-function-declarations
@@ -1768,11 +1772,12 @@ The `symbol-value' of each element is a type tag.")
                       (:newline)
                       ,@(when (documentation o t)
                           `("Documentation: " (:newline) ,(documentation o t) (:newline)))
-                      (loop for i from 0 below (- (kernel:get-closure-length o) 
-                                                  (1- vm:closure-info-offset))
-                         collect (princ-to-string i)
-                         collect " = "
-                         collect (:value ,(kernel:%closure-index-ref o i)))))))
+                      ,@(loop
+                           for i from 0 below (- (kernel:get-closure-length o) 
+                                                 (1- vm:closure-info-offset))
+                           collect (princ-to-string i)
+                           collect " = "
+                           collect `(:value ,(kernel:%closure-index-ref o i)))))))
 	  (t (call-next-method o)))))
 
 (defmethod inspect-for-emacs ((o kernel:code-component) (inspector cmucl-inspector))
