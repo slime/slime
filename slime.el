@@ -194,6 +194,32 @@ Lisp, not just those occuring during RPCs.")
   "Face for previous input in the SLIME REPL."
   :group 'slime)
 
+;; inspector
+;; Try  '(slime-inspector-label-face ((t (:weight bold))))
+;;      '(slime-inspector-topline-face ((t (:foreground "brown" :weight bold :height 1.2))))
+;;      '(slime-inspector-type-face ((t (:foreground "DarkRed" :weight bold))))
+
+(defface slime-inspector-topline-face
+  '((t ()))
+  "Face for top line describing object."
+  :group 'slime)
+
+(defface slime-inspector-label-face
+  '((t ()))
+  "Face for labels in the inspector."
+  :group 'slime)
+
+(defface slime-inspector-value-face
+  '((t ()))
+  "Face for things which can themselves be inspected."
+  :group 'slime)
+
+(defface slime-inspector-type-face
+  '((t ()))
+  "Face for type description in inspector."
+  :group 'slime)
+
+
 
 ;;; Minor modes
 
@@ -4036,24 +4062,33 @@ The buffer will be popped up any time it is modified.")
 	(slime-inspector-mode)
 	(current-buffer))))
 
+(defun inspector-fontify (string font)
+  (add-text-properties 0 (length string) (list 'face font) string)
+  string)
+
 (defun slime-open-inspector (inspected-parts &optional point)
   (with-current-buffer (slime-inspector-buffer)
     (let ((inhibit-read-only t))
       (erase-buffer)
-      (insert (getf inspected-parts :text))
+      (insert (inspector-fontify (getf inspected-parts :text) 'slime-inspector-topline-face))
       (while (eq (char-before) ?\n) (backward-delete-char 1))
       (insert "\n"
-	      "   [type: " (getf inspected-parts :type) "]\n"
-	      "   " (getf inspected-parts :primitive-type) "\n"
+	      "   [" (inspector-fontify "type: " 'slime-inspector-label-face)
+	      (inspector-fontify (getf inspected-parts :type) 'slime-inspector-type-face) "]\n"
+	      "   " (inspector-fontify (getf inspected-parts :primitive-type) 'slime-inspector-type-face) "\n"
 	      "\n"
-	      "Slots:\n")
+	      (inspector-fontify "Slots" 'slime-inspector-label-face) ":\n")
       (save-excursion
 	(loop for (label . value) in (getf inspected-parts :parts)
 	      for i from 0
-	      do (slime-propertize-region `(slime-part-number ,i)
-		   (insert label ": " value "\n"))))
+	      do 
+	      (inspector-fontify label 'slime-inspector-label-face)
+	      (slime-propertize-region `(slime-part-number ,i)
+		   (insert label ": " (inspector-fontify value 'slime-inspector-value-face) "\n"))))
       (pop-to-buffer (current-buffer))
-      (when point (goto-char point)))))
+      (when point (goto-char point))))
+  t)
+
 
 (defun slime-inspector-object-at-point ()
   (or (get-text-property (point) 'slime-part-number)
