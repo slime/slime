@@ -3,11 +3,13 @@
 	* slime.el (slime-merge-notes, slime-tree-for-note): Use the short
 	note message for annotation in the source buffer and the long
 	message in the tree widget.  Used to be the other way around.
-
 	(sldb-insert-frames): Set the `start-open' property for XEmacs.
 	Without `start-open', the `point-entered' property is inherited
-	when we insert something before the "--more--" marker.  
-	Reported by Sundar Narasimhan.
+	when we insert something before the "--more--" marker.  Reported
+	by Sundar Narasimhan.
+
+	* swank.lisp (variable-desc-for-echo-area): Bind some printer
+	variables to limit the length of the output.
 
 2004-08-05  Luke Gorrie  <luke@bluetail.com>
 
