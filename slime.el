@@ -255,11 +255,13 @@ See also `slime-translate-to-lisp-filename-function'.")
 (def-sldb-face local-value "local variable values")
 (def-sldb-face catch-tag "catch tags")
 
-(defcustom slime-compilation-finished-hook '() 
+(defcustom slime-compilation-finished-hook 'slime-maybe-list-compiler-notes
   "Hook called with a list of compiler notes after a compilation."
   :group 'slime
   :type 'hook
-  :options '(slime-list-compiler-notes slime-maybe-show-xrefs-for-notes))
+  :options '(slime-maybe-list-compiler-notes
+             slime-list-compiler-notes 
+             slime-maybe-show-xrefs-for-notes))
 
 (defcustom slime-complete-symbol-function 'slime-complete-symbol*
   "Function to perform symbol completion."
@@ -2471,6 +2473,13 @@ more than one file."
       (slime-show-xrefs
        xrefs 'definition "Compiler notes" (slime-buffer-package)))))
 
+(defun slime-maybe-list-compiler-notes (notes)
+  "Show the compiler notes if appropriate.
+Useful value for `slime-compilation-finished-hook'"
+  (unless (or (null notes)
+	      (eq last-command 'slime-compile-defun))
+    (slime-list-compiler-notes notes)))
+
 (defun slime-list-compiler-notes (&optional notes)
   "Show the compiler notes NOTES in tree view."
   (interactive)
@@ -2478,6 +2487,8 @@ more than one file."
     (with-current-buffer (get-buffer-create "*compiler notes*")
       (let ((inhibit-read-only t))
         (erase-buffer)
+        (when (null notes)
+          (insert "[no notes]"))
         (dolist (tree (slime-compiler-notes-to-tree notes))
           (slime-tree-insert tree "")
           (insert "\n")))
@@ -2486,7 +2497,7 @@ more than one file."
       (make-local-variable 'slime-compiler-notes-saved-window-configuration)
       (setq slime-compiler-notes-saved-window-configuration
             (current-window-configuration))
-      (display-buffer (current-buffer)))))
+      (pop-to-buffer (current-buffer)))))
 
 (defun slime-alistify (list key test)
   "Partition the elements of LIST into an alist.  KEY extracts the key
@@ -3281,6 +3292,7 @@ package is used."
                (goto-char (+ beg unambiguous-completion-length))
                (slime-complete-maybe-save-window-configuration)
                (with-output-to-temp-buffer "*Completions*"
+                 (set-syntax-table lisp-mode-syntax-table)
                  (display-completion-list completion-set))
                (slime-complete-delay-restoration)))))))
 
@@ -3308,6 +3320,7 @@ Perform completion more similar to Emacs' complete-symbol."
                (slime-minibuffer-respecting-message "Complete but not unique")
                (slime-complete-maybe-save-window-configuration)
                (with-output-to-temp-buffer "*Completions*"
+                 (set-syntax-table lisp-mode-syntax-table)
                  (display-completion-list completion-set))
                (slime-complete-delay-restoration)))))))
         
@@ -5803,6 +5816,39 @@ Unless optional argument INPLACE is non-nil, return a new string."
     (forward-line n)
     (beginning-of-line)
     (point)))
+
+(defun-if-undefined check-parens ()
+    "Verify that parentheses in the current buffer are balanced.
+If they are not, position point at the first syntax error found."
+    (interactive)
+    (let ((saved-point (point))
+	  (state (parse-partial-sexp (point-min) (point-max) -1)))
+      (destructuring-bind (depth innermost-start last-terminated-start
+				 in-string in-comment after-quote 
+				 minimum-depth comment-style 
+				 comment-or-string-start &rest _) state
+	(cond ((and (zerop depth) 
+		    (not in-string) 
+		    (or (not in-comment) 
+			(and (eq comment-style nil) 
+			     (eobp)))
+		    (not after-quote))
+	       (goto-char saved-point)
+	       (message "All parentheses appear to be balanced."))
+	      ((plusp depth)
+	       (goto-char innermost-start)
+	       (error "Missing )"))
+	      ((minusp depth)
+	       (error "Extra )"))
+	      (in-string
+	       (goto-char comment-or-string-start)
+	       (error "String not terminated"))
+	      (in-comment
+	       (goto-char comment-or-string-start)
+	       (error "Comment not terminated"))
+	      (after-quote
+	       (error "After quote"))
+	      (t (error "Shouldn't happen: parsing state: %S" state))))))
 
 (unless (boundp 'temporary-file-directory)
   (defvar temporary-file-directory
