@@ -653,7 +653,7 @@ Rooted calling trees:
 ;;; List Callers ***************************************************
 ;;; ****************************************************************
 
-(defpackage :xref
+(defpackage :pxref
   (:use :common-lisp)
   (:export #:list-callers 
 	   #:list-users 
@@ -690,7 +690,7 @@ Rooted calling trees:
 	   #:psgraph-xref
 	   ))
 
-(in-package "XREF")
+(in-package "PXREF")
 
 ;;; Warn user if they're loading the source instead of compiling it first.
 ;(eval-when (compile load eval)

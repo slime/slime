@@ -359,18 +359,18 @@ Execute BODY with NAME's funtion slot set to FUNCTION."
 
 ;;; Portable XREF from the CMU AI repository.
 
-(setq xref::*handle-package-forms* '(cl:in-package))
+(setq pxref::*handle-package-forms* '(cl:in-package))
 
 (defmacro defxref (name function)
   `(defimplementation ,name (name)
     (xref-results (,function name))))
 
-(defxref who-calls      xref:list-callers)
-(defxref who-references xref:list-readers)
-(defxref who-binds      xref:list-setters)
-(defxref who-sets       xref:list-setters)
-(defxref list-callers   xref:list-callers)
-(defxref list-callees   xref:list-callees)
+(defxref who-calls      pxref:list-callers)
+(defxref who-references pxref:list-readers)
+(defxref who-binds      pxref:list-setters)
+(defxref who-sets       pxref:list-setters)
+(defxref list-callers   pxref:list-callers)
+(defxref list-callees   pxref:list-callees)
 
 (defun xref-results (symbols)
   (let ((xrefs '()))
