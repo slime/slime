@@ -95,27 +95,26 @@
 
 ;;;; TCP server
 
-(defgeneric create-socket-server (init-fn &key announce-fn port
-                                          accept-background handle-background loop)
+(defgeneric accept-socket/stream (&key port announce-fn)
   (:documentation
-   "Create a callback-driven TCP server.
-Initially a TCP listen socket is opened, and then ANNOUNCE-FN is
-called with its port number for its argument.
+   "Accept a single TCP connection and return an io stream for it.
+PORT is the TCP port to use; if unspecified, any can be used.
+If ANNOUNCE-FN is supplied then it is called as soon as the
+server is listening, with the TCP port as its argument."))
 
-When a client connects, first a two-way stream is created for I/O
-on the socket, and then INIT-FN is called with the stream for its
-argument. INIT-FN returns another function, HANDLER-FN, to be
-called with no arguments each time the stream becomes readable.
+(defgeneric accept-socket/run (&key port announce-fn init-fn)
+  (:documentation
+   "Accept a single TCP connection and serve requests in a loop.
+PORT and ANNOUNCE-FN are as for ACCEPT-SOCKET/STREAM.
 
-If LOOP is true (the default), the server continues accepting
-clients until CLOSE-SOCKET-SERVER is called. Otherwise the server
-is closed after a single client has connected.
+INIT-FN is called when the first client is connected. Its
+argument is the io stream connected to the socket. INIT-FN in
+turn returns a function HANDLER-FN, which is then called each
+time the socket becomes readable.
 
-If BACKGROUND-ACCEPT is true (the default), this function
-immediately after creating the socket, and accepts connections
-asynchronously.
-
-If BACKGROUND-HANDLE is true (the default), the... FIXME."))
+When this function returns is unspecified. It could loop to serve
+the connection before returning, or it could return immediately
+and handle the connection asynchronously."))
 
 ;;; Base condition for networking errors.
 (define-condition network-error (error) ())
