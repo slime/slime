@@ -16,6 +16,7 @@ Quick setup instructions for CMUCL
     (add-to-list 'load-path "/the/path/to/this/directory")
     (require 'slime)
     (add-hook 'lisp-mode-hook (lambda () (slime-mode t)))
+    (add-hook 'inferior-lisp-mode-hook (lambda () (inferior-slime-mode t)))
 
   Make sure your `inferior-lisp-program' is set to a compatible
   version of Lisp. For CMUCL we currently require version 18e or

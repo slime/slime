@@ -1,5 +1,10 @@
 2003-10-21  Luke Gorrie  <luke@bluetail.com>
 
+	* slime.el (inferior-slime-mode): New minor mode for use with
+	`inferior-lisp-mode'. Defines a subset of the `slime-mode' keys
+	which don't clash with comint (e.g. doesn't bind M-{p,n}).
+	(slime-keys): List of keybinding specifications.
+
 	* swank.lisp (completions): Fixed semantics: should now consider
 	only/all completions that would not cause a read-error due to
 	symbol visibility. Also avoiding duplicates and sorting on
