@@ -1460,8 +1460,9 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
   "List of functions called when a slime network connection closes.
 The functions are called with the process as their argument.")
 
-(defvar slime-net-coding-system 
-  (find-if #'coding-system-p '(iso-8859-1-unix iso-8859-1 raw-text-unix))
+(defvar slime-net-coding-system
+  (find-if (if (featurep 'xemacs) #'find-coding-system #'coding-system-p)
+           '(iso-8859-1-unix iso-8859-1 raw-text-unix))
   "*Coding system used for network connections.")
 
 (defvar slime-net-valid-coding-systems
@@ -2885,9 +2886,9 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   ("\C-a" 'slime-repl-bol)
   ("\C-e" 'slime-repl-eol)
   ("\M-p" 'slime-repl-previous-input)
-  ([C-up] 'slime-repl-previous-input)
+  ((kbd "C-<up>") 'slime-repl-previous-input)
   ("\M-n" 'slime-repl-next-input)
-  ([C-down] 'slime-repl-next-input)
+  ((kbd "C-<down>") 'slime-repl-next-input)
   ("\M-r" 'slime-repl-previous-matching-input)
   ("\M-s" 'slime-repl-next-matching-input)
   ("\C-c\C-c" 'slime-interrupt)
