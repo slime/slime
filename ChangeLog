@@ -1,3 +1,23 @@
+2004-12-15  Matthias Koeppe  <mkoeppe+slime@merkur.math.uni-magdeburg.de>
+
+	* slime.el (slime-lisp-modes): New variable to make C-c C-k
+	customizable and usable in scheme-mode.
+	(slime-compile-file): Use it.
+
+2004-12-15  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-cmucl.lisp, swank-backend.lisp (frame-package): Delete it.
+	Include the package name for local variables because it is utterly
+	confusing if `eval-in-frame' doesn't work due to missing package
+	prefixes.
+	
+	* swank-source-path-parser.lisp (source-path-stream-position):
+	Bind *read-suppress* to nil before calling
+	read-and-record-source-map.
+
+	* swank-clisp.lisp (*buffer-name*, *buffer-offset*): Move
+	definitions upward before the first use.
+
 2004-12-15  Bryan O'Connor <bryan-slime@lunch.org>
 
 	* slime.el (slime-edit-definition): Switch to the other frame if
