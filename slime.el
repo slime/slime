@@ -435,7 +435,7 @@ A prefix argument disables this behaviour."
     ("\C-m" slime-macroexpand-1 :prefixed t :inferior t)
     ("\M-m" slime-macroexpand-all :prefixed t :inferior t)
     ("\M-0" slime-restore-window-configuration :prefixed t :inferior t)
-    ("\C-h" hyperspec-lookup :prefixed t :inferior t :sldb t)
+    ("\C-h" slime-hyperspec-lookup :prefixed t :inferior t :sldb t)
     ([(control meta ?\.)] slime-next-location :inferior t)
     ;; Emacs20 on LinuxPPC signals a 
     ;; "Invalid character: 400000040, 2147479172, 0xffffffd8"
@@ -3181,6 +3181,20 @@ compilation."
 
 ;;; Documentation
 
+(defun slime-hyperspec-lookup (symbol-name)
+  "A wrapper for `hyperspec-lookup'"
+  (interactive (list (let ((symbol-at-point (slime-symbol-name-at-point)))
+                       (if (and symbol-at-point
+                                (intern-soft (downcase symbol-at-point)
+                                             common-lisp-hyperspec-symbols))
+                           symbol-at-point
+                         (completing-read
+                          "Look up symbol in Common Lisp HyperSpec: "
+                          common-lisp-hyperspec-symbols #'boundp
+                          t symbol-at-point
+                          'common-lisp-hyperspec-history)))))
+  (hyperspec-lookup symbol-name))
+  
 (defun slime-show-description (string package)
   (slime-with-output-to-temp-buffer "*SLIME Description*"
     (princ string)))
