@@ -1,3 +1,9 @@
+2004-08-04  Luke Gorrie  <luke@bluetail.com>
+
+	* swank-allegro.lisp (find-fspec-location): Fixed to work for more
+	types of definition than just functions. So M-. now works for e.g.
+	classes in Allegro. Patch from Matthew Danish.
+
 2004-08-04  Martin Simmons <martin@xanalys.com>
 
 	* swank-lispworks.lisp (frame-actual-args): Correct syntax for
