@@ -256,7 +256,7 @@
 	   ;;
 	   ;; If this is the last character of the expression then
 	   ;; anchor the end of the expression, otherwise let it slide
-u	   ;; as a standard character (even though it should be quoted).
+	   ;; as a standard character (even though it should be quoted).
 	   ;;
 	   (if (= eindex (1- (length source)))
 	       (add-exp '((if (not (= index length))
