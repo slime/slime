@@ -516,6 +516,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
       [ "Edit Definition..."       slime-edit-definition ,C ]
       [ "Return From Definition"   slime-pop-find-definition-stack ,C ]
       [ "Complete Symbol"          slime-complete-symbol ,C ]
+      [ "Show REPL"                slime-switch-to-output-buffer ,C ]
       "--"
       ("Evaluation"
        [ "Eval Defun"              slime-eval-defun ,C ]
@@ -581,6 +582,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
   (easy-menu-add slime-easy-menu 'slime-mode-map))
 
 (add-hook 'slime-mode-hook 'slime-add-easy-menu)
+(add-hook 'slime-repl-mode-hook 'slime-add-easy-menu)
 
 
 ;;; Setup initial `slime-mode' hooks
@@ -793,11 +795,21 @@ It should be used for \"background\" messages such as argument lists."
 
 (defun slime-symbol-name-at-point ()
   "Return the name of the symbol at point, otherwise nil."
-  (save-excursion
-    (skip-syntax-forward "w_")
-    (skip-syntax-backward "-") 
-    (let ((string (thing-at-point 'symbol)))
-      (and string (substring-no-properties string)))))
+  (save-restriction
+    ;; Don't be tricked into grabbing the REPL prompt.
+    (when (and (eq major-mode 'slime-repl-mode)
+               (>= (point) slime-repl-input-start-mark))
+      (narrow-to-region slime-repl-input-start-mark (point-max)))
+    (save-excursion
+      (skip-syntax-forward "w_")
+      (skip-syntax-backward "-") 
+      (let ((string (thing-at-point 'symbol)))
+        (and string
+             ;; In Emacs20 (thing-at-point 'symbol) returns "" instead
+             ;; of nil when called from an empty (or
+             ;; narrowed-to-empty) buffer.
+             (not (equal string ""))
+             (substring-no-properties string))))))
 
 (defun slime-symbol-at-point ()
   "Return the symbol at point, otherwise nil."
@@ -820,7 +832,9 @@ function call starts on the same line at the point itself."
 (defun slime-read-symbol-name (prompt &optional query)
   "Either read a symbol name or choose the one at point.
 The user is prompted if a prefix argument is in effect, if there is no
-symbol at point, or if QUERY is non-nil."
+symbol at point, or if QUERY is non-nil.
+
+Avoids thinking the REPL prompt is a symbol."
   (cond ((or current-prefix-arg query (not (slime-symbol-name-at-point)))
          (slime-read-from-minibuffer prompt (slime-symbol-name-at-point)))
         (t (slime-symbol-name-at-point))))
@@ -1078,7 +1092,7 @@ Polling %S.. (Abort with `M-x slime-connection-abort'.)"
       (bury-buffer buffer))
     (slime-init-output-buffer process)
     (run-hooks 'slime-connected-hook)
-    (message "Connected to Swank server on port %S. %s"
+    (message "Connected on port %S. %s"
              port (slime-random-words-of-encouragement))))
 
 (defun slime-changelog-date ()
@@ -1130,18 +1144,30 @@ the ChangeLog file at runtime."
     (message "Cancelled connection attempt.")))
 ;; FIXME: used to delete *lisp-output-stream*
 
+(defun slime-user-first-name ()
+  (let ((name (if (string= (user-full-name) "")
+                  (user-login-name)
+                (user-full-name))))
+    (string-match "^[^ ]*" name)
+    (capitalize (match-string 0 name))))
+
+
 (defvar slime-words-of-encouragement
-  '("Let the hacking commence!"
+  `("Let the hacking commence!"
     "Hacks and glory await!"
     "Hack and be merry!"
     "Your hacking starts... NOW!"
-    "May the source be with you!")
+    "May the source be with you!"
+    "Take this REPL, brother, and may it serve you well."
+    "Lemonodor-fame is but a hack away!"
+    ,(format "%s, this could be the start of a beautiful program."
+             (slime-user-first-name)))
   "Scientifically-proven optimal words of hackerish encouragement.")
 
 (defun slime-random-words-of-encouragement ()
   "Return a string of hackerish encouragement."
-  (nth (random (length slime-words-of-encouragement))
-       slime-words-of-encouragement))
+  (eval (nth (random (length slime-words-of-encouragement))
+             slime-words-of-encouragement)))
 
 
 ;;; Networking
@@ -4012,9 +4038,14 @@ With prefix argument include internal symbols."
   ("\C-m" 'slime-show-xref)
   (" " 'slime-goto-xref)
   ("q" 'slime-xref-quit)
-  ;;("n" 'slime-xref-next)
-  ;;("p" 'slime-xref-previous)
+  ("n" 'slime-next-line/not-add-newlines)
+  ("p" 'previous-line)
   )
+
+(defun slime-next-line/not-add-newlines ()
+  (interactive)
+  (let ((next-line-add-newlines nil))
+    (next-line 1)))
 
 ;; FIXME: binding SLDB keys in xref buffer? -luke
 (dolist (spec slime-keys)
@@ -4083,7 +4114,10 @@ GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
                 (slime-insert-propertized 
                  (list 'slime-location location
                        'face 'font-lock-keyword-face)
-                 "  " label "\n")))))
+                 "  " label "\n"))))
+  ;; Remove the final newline to prevent accidental window-scrolling
+  (backward-char 1)
+  (delete-char 1))
 
 (defun slime-show-xrefs (xrefs type symbol package)
   "Show the results of an XREF query."
@@ -4154,8 +4188,12 @@ GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
 ;;;;; XREF navigation
 
 (defun slime-xref-location-at-point ()
-  (or (get-text-property (point) 'slime-location)
-      (error "No reference at point.")))
+  (save-excursion
+    ;; When the end of the last line is at (point-max) we can't find
+    ;; the text property there. Going to bol avoids this problem.
+    (beginning-of-line 1)
+    (or (get-text-property (point) 'slime-location)
+        (error "No reference at point."))))
 
 (defun slime-goto-xref ()
   "Goto the cross-referenced location at point."
@@ -5063,13 +5101,13 @@ This way you can still see what the error was after exiting SLDB."
 (define-derived-mode slime-inspector-mode fundamental-mode "Slime-Inspector"
   (set-syntax-table lisp-mode-syntax-table)
   (slime-set-truncate-lines)
-  (slime-mode t)
   (setq buffer-read-only t))
 
 (defun slime-inspector-buffer ()
   (or (get-buffer "*Slime Inspector*")
       (with-current-buffer (get-buffer-create "*Slime Inspector*")
 	(setq slime-inspector-mark-stack '())
+        (slime-mode t)
 	(slime-inspector-mode)
 	(current-buffer))))
 
