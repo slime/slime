@@ -10,11 +10,13 @@
 (defpackage :swank
   (:use :common-lisp :swank-backend)
   (:export #:*sldb-pprint-frames*
+           #:startup-multiprocessing
            #:start-server 
            #:create-swank-server
            #:ed-in-emacs
-           
            #:frame-source-location-for-emacs
+           #:restart-frame
+           #:return-from-frame
            #:profiled-functions
            #:profile-report
            #:profile-reset
