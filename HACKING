@@ -1,0 +1,93 @@
+* The SLIME Hacker's Handbook                                    -*- outline -*-
+
+* ChangeLog
+
+For each change we make an entry in the ChangeLog file. This is
+typically done using the command `add-change-log-entry-other-window'
+(C-x 4 a). The message can be automatically extracted from the
+ChangeLog to use in a CVS commit message by pressing C-c C-a in a
+vc-mode or pcl-cvs commit buffer.
+
+ChangeLog diffs are automatically sent to the slime-devel mailing list
+each day as a digest summary of the slime-cvs list.
+
+For good tips on writing ChangeLog entries see the GNU Coding Standards:
+  http://www.gnu.org/prep/standards_40.html#SEC40
+
+For information about Emacs's ChangeLog support see the `Change Log'
+and `Change Logs and VC' nodes of the Emacs manual:
+  http://www.gnu.org/software/emacs/manual/html_node/emacs_333.html#SEC333
+  http://www.gnu.org/software/emacs/manual/html_node/emacs_156.html#SEC156
+
+* Adding a backend function
+
+To add a new "backend" function that must be implemented separately
+for each Lisp, we add a generic function in swank-backend.lisp and
+export the function name. We then provide a method for the function in
+the specific backend file for each Lisp that supports it. If a
+reasonable default implementation can be provided, we do so in
+swank-backend.lisp by specializing NO-APPLICABLE-METHOD [or is that a
+bad idea? -luke].
+
+Because these generic functions define our interface for people
+porting to new Lisps, it is especially helpful to clearly document
+them.
+
+Currently not all backend functions are defined in this way. We are
+ongoingly refactoring the code so that swank.lisp will only call
+backend functions via the generic functions defined in
+swank-backend.lisp. When this refactoring is complete we intend to
+make the separation stronger by putting the portable and non-portable
+code in separate Lisp packages.
+
+Refactoring code to avoid direct calls from swank.lisp to functions
+defined in swank-<impl>.lisp is good for karma.
+
+* Calling Lisp from Emacs
+
+By convention our Elisp code only calls functions in the SWANK package
+that are defined with DEFSLIMEFUN, and calls them with constants for
+arguments. The idea is to keep all of the Common Lisp code in separate
+source files so that it's easy to see what Lisp code runs, without
+needing to look for snippets of CL in the Elisp sources.
+
+Our current Elisp code sometimes calls SWANK-exported functions that
+are not defined by DEFSLIMEFUN, but by DEFGENERIC in
+swank-backend.lisp. [Is it just me that does this, and should I stop
+it? -luke]
+
+* Test Suite
+
+The Elisp code includes a command `slime-run-tests' to run a test
+suite. This can give a pretty good sanity-check for your changes.
+
+Some backends do not pass the full test suite because of missing
+features. In these cases the test suite is still useful to ensure that
+changes don't introduce new errors. CMUCL has historically passed the
+full test suite, and so it makes a good sanity check for fundamental
+changes (e.g. to the protocol).
+
+Running the test suite, adding new cases, and increasing the number of
+cases that backends support are all very good for karma.
+
+* outline-minor-mode
+
+The SLIME source files have special comments that outline-minor-mode
+can use to "fold" source buffers down to a section-by-section
+outline. See the `Outline Mode' node of the Emacs manual for details:
+  http://www.gnu.org/software/emacs/manual/html_node/emacs_246.html#SEC246
+
+* Coding style
+
+We like the fact that each function in SLIME will fit on a single
+screen, and would like to preserve this property! Beyond that we're
+not dogmatic :-)
+
+In early discussions we all made happy noises about the advice in
+Norvig and Pitman's _Tutorial on Good Lisp Programming Style_:
+  http://www.norvig.com/luv-slides.ps
+
+Remember that to rewrite a program better is the sincerest form of
+code appreciation. If you can see a way to rewrite a part of SLIME
+better, please do so!
+
