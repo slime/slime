@@ -71,22 +71,22 @@
 
 (setq *swank-in-background* :spawn)
 
-(defmethod create-socket (port)
+(defimplementation create-socket (port)
   (ccl:make-socket :connect :passive :local-port port :reuse-address t))
 
-(defmethod local-port (socket)
+(defimplementation local-port (socket)
   (ccl:local-port socket))
 
-(defmethod close-socket (socket)
+(defimplementation close-socket (socket)
   (close socket))
 
-(defmethod accept-connection (socket)
+(defimplementation accept-connection (socket)
   (ccl:accept-connection socket :wait t))
 
-(defmethod spawn (fn &key name)
+(defimplementation spawn (fn &key name)
   (ccl:process-run-function name fn))
 
-(defmethod emacs-connected ()
+(defimplementation emacs-connected ()
   (setq ccl::*interactive-abort-process* ccl::*current-process*))
 
 ;;; Unix signals
@@ -153,7 +153,7 @@
   (declare (ignore application condition))
   (setq *swank-debugger-stack-frame* error-pointer))
 
-(defmethod arglist-string (fname)
+(defimplementation arglist-string (fname)
   (format-arglist fname #'ccl:arglist))
 
 ;;; Compilation
@@ -189,13 +189,13 @@ condition."
   "Return a temporary file name to compile strings into."
   (ccl:%get-cstring (#_tmpnam (ccl:%null-ptr))))
 
-(defmethod compile-file-for-emacs (filename load-p)
+(defimplementation compile-file-for-emacs (filename load-p)
   (handler-bind ((ccl::compiler-warning #'handle-compiler-warning))
     (let ((*buffer-name* nil)
           (*buffer-offset* nil))
       (compile-file filename :load load-p))))
 
-(defmethod compile-string-for-emacs (string &key buffer position)
+(defimplementation compile-string-for-emacs (string &key buffer position)
   (handler-bind ((ccl::compiler-warning #'handle-compiler-warning))
     (let ((*buffer-name* buffer)
           (*buffer-offset* position)
@@ -213,7 +213,7 @@ condition."
 (defvar *sldb-stack-top*)
 (defvar *sldb-restarts*)
 
-(defmethod call-with-debugging-environment (debugger-loop-fn)
+(defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let* ((*sldb-stack-top* nil)
          ;; This is a complete hack --- since we're not running at top level we
          ;; don't want to publish the last restart to Emacs which would allow
@@ -270,7 +270,7 @@ condition."
                            result))))))
         (format nil "~{ ~A~}" (nreverse result)))))
 
-(defmethod backtrace (start-frame-number end-frame-number)
+(defimplementation backtrace (start-frame-number end-frame-number)
   "Return a list containing a stack backtrace of the condition
 currently being debugged.  The return value of this function is
 unspecified unless called in the dynamic contour of a function
@@ -306,12 +306,12 @@ If the backtrace cannot be calculated, this function returns NIL."
                    start-frame-number end-frame-number)
     (nreverse result)))
 
-(defmethod debugger-info-for-emacs (start end)
+(defimplementation debugger-info-for-emacs (start end)
   (list (debugger-condition-for-emacs)
         (format-restarts-for-emacs)
         (backtrace start end)))
 
-(defmethod frame-locals (index)
+(defimplementation frame-locals (index)
   (map-backtrace 
    (lambda (frame-number p tcr lfun pc)
      (when (= frame-number index)
@@ -330,7 +330,7 @@ If the backtrace cannot be calculated, this function returns NIL."
                        result))))
            (return-from frame-locals (nreverse result))))))))
 
-(defmethod frame-catch-tags (index &aux my-frame)
+(defimplementation frame-catch-tags (index &aux my-frame)
    (map-backtrace 
    (lambda (frame-number p tcr lfun pc)
       (declare (ignore pc lfun))
@@ -402,7 +402,7 @@ If the backtrace cannot be calculated, this function returns NIL."
              (t (list :error "Cannot resolve source info: ~A" info)))))))
       locations))
 
-(defmethod find-function-locations (fname)
+(defimplementation find-function-locations (fname)
   (let ((symbol (from-string fname)))
     (find-source-locations symbol (symbol-name symbol))))
 
@@ -411,7 +411,7 @@ If the backtrace cannot be calculated, this function returns NIL."
 named SYMBOL."
   (car (find-source-locations symbol (string symbol))))
 
-(defmethod frame-source-location-for-emacs (index)
+(defimplementation frame-source-location-for-emacs (index)
   "Return to Emacs the location of the source code for the
 function in a debugger frame.  In OpenMCL, we are not able to
 find the precise position of the frame, but we do attempt to give
@@ -488,7 +488,7 @@ at least the filename containing it."
 (defslimefun describe-class (symbol-name)
   (print-description-to-string (find-class (from-string symbol-name) nil)))
 
-(defmethod describe-symbol-for-emacs (symbol)
+(defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))
     (flet ((doc (kind &optional (sym symbol))
              (or (documentation sym kind) :not-documented))
@@ -507,6 +507,13 @@ at least the filename containing it."
                (when (fboundp setf-function-name)
                  (doc 'function setf-function-name))))
       result)))
+
+(defimplementation describe-definition (symbol-name type)
+  (case type
+    ;; FIXME: This should cover all types returned by
+    ;; DESCRIBE-SYMBOL-FOR-EMACS.
+    (:class
+     (print-description-to-string (find-class (from-string symbol-name) nil)))))
 
 ;;; XREF
 
@@ -580,25 +587,25 @@ at least the filename containing it."
 (defvar *known-processes* '()         ; FIXME: leakage. -luke
   "Alist (ID . PROCESS) list of processes that we have handed out IDs for.")
 
-(defmethod spawn (fn &key name)
+(defimplementation spawn (fn &key name)
   (ccl:process-run-function (or name "Anonymous (Swank)") fn))
 
-(defmethod startup-multiprocessing ()
+(defimplementation startup-multiprocessing ()
   (setq *swank-in-background* :spawn))
 
-(defmethod thread-id ()
+(defimplementation thread-id ()
   (let ((id (ccl::process-serial-number ccl:*current-process*)))
     ;; Possibly not thread-safe.
     (pushnew (cons id ccl:*current-process*) *known-processes*)
     id))
 
-(defmethod thread-name (thread-id)
+(defimplementation thread-name (thread-id)
   (ccl::process-name (cdr (assq thread-id *known-processes*))))
 
-(defmethod make-lock (&key name)
+(defimplementation make-lock (&key name)
   (ccl:make-lock name))
 
-(defmethod call-with-lock-held (lock function)
+(defimplementation call-with-lock-held (lock function)
   (ccl:with-lock-grabbed (lock)
     (funcall function)))
 

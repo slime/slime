@@ -9,7 +9,7 @@
 
 (setq *swank-in-background* :fd-handler)
 
-(defmethod create-socket (port)
+(defimplementation create-socket (port)
   (let ((fd (ext:create-inet-listener port :stream
                                       :reuse-address t
                                       :host (resolve-hostname "localhost"))))
@@ -18,28 +18,28 @@
       (set-fd-non-blocking fd))
     fd))
 
-(defmethod local-port (socket)
+(defimplementation local-port (socket)
   (nth-value 1 (ext::get-socket-host-and-port (socket-fd socket))))
 
-(defmethod close-socket (socket)
+(defimplementation close-socket (socket)
   (ext:close-socket (socket-fd socket)))
 
-(defmethod accept-connection (socket)
+(defimplementation accept-connection (socket)
   #+MP (when *multiprocessing-enabled*
          (mp:process-wait-until-fd-usable socket :input))
   (make-socket-io-stream (ext:accept-tcp-connection socket)))
 
-(defmethod add-input-handler (socket fn)
+(defimplementation add-input-handler (socket fn)
   (flet ((callback (fd)
            (declare (ignore fd))
            (funcall fn)))
     (system:add-fd-handler (socket-fd socket) :input #'callback)))
 
-(defmethod remove-input-handlers (socket)
+(defimplementation remove-input-handlers (socket)
   (sys:invalidate-descriptor (socket-fd socket))
   (close socket))
 
-(defmethod make-fn-streams (input-fn output-fn)
+(defimplementation make-fn-streams (input-fn output-fn)
   (let* ((output (make-slime-output-stream output-fn))
          (input  (make-slime-input-stream input-fn output)))
     (values input output)))
@@ -286,7 +286,7 @@ the error-context redundant."
         (t 
          (list :error "No error location available"))))
 
-(defmethod call-with-compilation-hooks (function)
+(defimplementation call-with-compilation-hooks (function)
   (let ((*previous-compiler-condition* nil)
         (*previous-context* nil)
         (*print-readably* nil))
@@ -295,7 +295,7 @@ the error-context redundant."
                    (c::warning        #'handle-notification-condition))
       (funcall function))))
 
-(defmethod compile-file-for-emacs (filename load-p)
+(defimplementation compile-file-for-emacs (filename load-p)
   (clear-xref-info filename)
   (with-compilation-hooks ()
     (let ((*buffer-name* nil)
@@ -306,7 +306,7 @@ the error-context redundant."
         (when (and load-p (not failure-p))
           (load fasl-file))))))
 
-(defmethod compile-string-for-emacs (string &key buffer position)
+(defimplementation compile-string-for-emacs (string &key buffer position)
   (with-compilation-hooks ()
     (let ((*package* *buffer-package*)
           (*compile-filename* nil)
@@ -320,7 +320,7 @@ the error-context redundant."
                         :emacs-buffer-offset ,position
                         :emacs-buffer-string ,string))))))
 
-(defmethod compile-system-for-emacs (system-name)
+(defimplementation compile-system-for-emacs (system-name)
   (with-compilation-hooks ()
     (cond ((ext:featurep :asdf)
            (let ((operate (find-symbol (string :operate) :asdf))
@@ -664,7 +664,7 @@ return value is the condition or nil."
   (destructuring-bind (first) (function-source-locations function)
     first))
 
-(defmethod find-function-locations (symbol-name)
+(defimplementation find-function-locations (symbol-name)
   "Return a list of source-locations for SYMBOL-NAME's functions."
   (multiple-value-bind (symbol foundp) (find-symbol-designator symbol-name)
     (cond ((not foundp)
@@ -682,7 +682,7 @@ return value is the condition or nil."
 
 ;;;; Documentation.
 
-(defmethod describe-symbol-for-emacs (symbol)
+(defimplementation describe-symbol-for-emacs (symbol)
   (let ((result '()))
     (flet ((doc (kind)
              (or (documentation symbol kind) :not-documented))
@@ -728,44 +728,45 @@ return value is the condition or nil."
 		       (doc nil)))
       result)))
 
-(defslimefun describe-setf-function (symbol-name)
-  (print-description-to-string
-   (or (ext:info setf inverse (from-string symbol-name))
-       (ext:info setf expander (from-string symbol-name)))))
-
-(defslimefun describe-type (symbol-name)
-  (print-description-to-string
-   (kernel:values-specifier-type (from-string symbol-name))))
-
-(defslimefun describe-class (symbol-name)
-  (print-description-to-string (find-class (from-string symbol-name) nil)))
-
-(defslimefun describe-alien-type (symbol-name)
-  (let ((name (from-string symbol-name)))
-    (ecase (ext:info :alien-type :kind name)
-      (:primitive
-       (print-description-to-string
-	(let ((alien::*values-type-okay* t))
-	  (funcall (ext:info :alien-type :translator name) (list name)))))
-      ((:defined)
-       (print-description-to-string (ext:info :alien-type :definition name)))
-      (:unknown
-       (format nil "Unkown alien type: ~A" symbol-name)))))
-
 (defmacro %describe-alien (symbol-name namespace)
   `(print-description-to-string
     (ext:info :alien-type ,namespace (from-string ,symbol-name))))
 
-(defslimefun describe-alien-struct (symbol-name)
-  (%describe-alien symbol-name :struct))
+(defimplementation describe-definition (symbol-name type)
+  (case type
+    (:variable
+     (describe-symbol symbol-name))
+    ((:function :generic-function)
+     (describe-function symbol-name))
+    (:setf
+     (print-description-to-string
+      (or (ext:info setf inverse (from-string symbol-name))
+          (ext:info setf expander (from-string symbol-name)))))
+    (:type
+     (print-description-to-string
+      (kernel:values-specifier-type (from-string symbol-name))))
+    (:class
+     (print-description-to-string (find-class (from-string symbol-name) nil)))
+    (:alien-type
+     (let ((name (from-string symbol-name)))
+       (ecase (ext:info :alien-type :kind name)
+         (:primitive
+          (print-description-to-string
+           (let ((alien::*values-type-okay* t))
+             (funcall (ext:info :alien-type :translator name) (list name)))))
+         ((:defined)
+          (print-description-to-string (ext:info :alien-type
+                                                 :definition name)))
+         (:unknown
+          (format nil "Unkown alien type: ~A" symbol-name)))))
+    (:alien-struct
+     (%describe-alien symbol-name :struct))
+    (:alien-union
+     (%describe-alien symbol-name :union))
+    (:alien-enum
+     (%describe-alien symbol-name :enum))))
 
-(defslimefun describe-alien-union (symbol-name)
-  (%describe-alien symbol-name :union))
-
-(defslimefun describe-alien-enum (symbol-name)
-  (%describe-alien symbol-name :enum))
-
-(defmethod arglist-string (fname)
+(defimplementation arglist-string (fname)
   "Return a string describing the argument list for FNAME.
 The result has the format \"(...)\"."
   (declare (type string fname))
@@ -799,7 +800,7 @@ The result has the format \"(...)\"."
 
 ;;;; Miscellaneous.
 
-(defmethod macroexpand-all (form)
+(defimplementation macroexpand-all (form)
   (walker:macroexpand-all form))
 
 (in-package :c)
@@ -906,7 +907,7 @@ to find the position of the corresponding form."
 (defvar *sldb-stack-top*)
 (defvar *sldb-restarts*)
 
-(defmethod call-with-debugging-environment (debugger-loop-fn)
+(defimplementation call-with-debugging-environment (debugger-loop-fn)
   (unix:unix-sigsetmask 0)
   (let* ((*sldb-stack-top* (or debug:*stack-top-hint* (di:top-frame)))
 	 (*sldb-restarts* (compute-restarts *swank-debugger-condition*))
@@ -953,19 +954,19 @@ stack."
 	  while f
 	  collect (cons i f))))
 
-(defmethod backtrace (start end)
+(defimplementation backtrace (start end)
   (loop for (n . frame) in (compute-backtrace start end)
         collect (list n (format-frame-for-emacs n frame))))
 
-(defmethod debugger-info-for-emacs (start end)
+(defimplementation debugger-info-for-emacs (start end)
   (list (debugger-condition-for-emacs)
 	(format-restarts-for-emacs)
 	(backtrace start end)))
 
-(defmethod frame-source-location-for-emacs (index)
+(defimplementation frame-source-location-for-emacs (index)
   (code-location-source-location (di:frame-code-location (nth-frame index))))
 
-(defmethod eval-in-frame (form index)
+(defimplementation eval-in-frame (form index)
   (di:eval-in-frame (nth-frame index) form))
 
 (defslimefun pprint-eval-string-in-frame (string index)
@@ -977,7 +978,7 @@ stack."
   (reset-inspector)
   (inspect-object (di:eval-in-frame (nth-frame index) (from-string string))))
 
-(defmethod frame-locals (index)
+(defimplementation frame-locals (index)
   (let* ((frame (nth-frame index))
 	 (location (di:frame-code-location frame))
 	 (debug-function (di:frame-debug-function frame))
@@ -991,7 +992,7 @@ stack."
                                 ((:invalid :unknown) 
                                  "<not-available>"))))))
 
-(defmethod frame-catch-tags (index)
+(defimplementation frame-catch-tags (index)
   (loop for (tag . code-location) in (di:frame-catches (nth-frame index))
 	collect `(,tag . ,(code-location-source-location code-location))))
 
@@ -1176,7 +1177,7 @@ stack."
     "List of processes that have been assigned IDs.
      The ID is the position in the list.")
 
-  (defmethod startup-multiprocessing ()
+  (defimplementation startup-multiprocessing ()
     (setq *swank-in-background* :spawn)
     ;; Threads magic: this never returns! But top-level becomes
     ;; available again.
@@ -1199,13 +1200,13 @@ stack."
     (or (nth thread-id *known-processes*)
         (error "Unknown Thread-ID: ~S" thread-id)))
 
-  (defmethod thread-name (thread-id)
+  (defimplementation thread-name (thread-id)
     (mp:process-name (lookup-thread thread-id)))
 
-  (defmethod make-lock (&key name)
+  (defimplementation make-lock (&key name)
     (mp:make-lock name))
 
-  (defmethod call-with-lock-held (lock function)
+  (defimplementation call-with-lock-held (lock function)
     (mp:with-lock-held (lock)
       (funcall function)))
 )

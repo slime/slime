@@ -1,4 +1,4 @@
-;;;; -*- Mode: lisp; indent-tabs-mode: nil -*-
+;;; -*- Mode: lisp; indent-tabs-mode: nil -*-
 ;;;
 ;;; swank-lispworks.lisp --- LispWorks specific code for SLIME. 
 ;;;
@@ -34,7 +34,7 @@
     (fixnum socket)
     (comm:socket-stream (comm:socket-stream-socket socket))))
 
-(defmethod create-socket (port)
+(defimplementation create-socket (port)
   (multiple-value-bind (socket where errno)
       (comm::create-tcp-socket-for-service port :address "localhost")
     (cond (socket socket)
@@ -44,22 +44,22 @@
                                       (list #+unix (lw:get-unix-error errno))
                                       errno))))))
 
-(defmethod local-port (socket)
+(defimplementation local-port (socket)
   (nth-value 1 (comm:get-socket-address (socket-fd socket))))
 
-(defmethod close-socket (socket)
+(defimplementation close-socket (socket)
   (comm::close-socket (socket-fd socket)))
 
-(defmethod accept-connection (socket)
+(defimplementation accept-connection (socket)
   (let ((fd (comm::get-fd-from-socket socket)))
     (assert (/= fd -1))
     (make-instance 'comm:socket-stream :socket fd :direction :io 
                    :element-type 'base-char)))
 
-(defmethod spawn (fn &key name)
+(defimplementation spawn (fn &key name)
   (mp:process-run-function name () fn))
 
-(defmethod emacs-connected ()
+(defimplementation emacs-connected ()
   ;; Set SIGINT handler on Swank request handler thread.
   (sys:set-signal-handler +sigint+ #'sigint-handler))
 
@@ -76,15 +76,14 @@
 (defmethod getpid ()
   (system::getpid))
 
-;;;
 
-(defmethod arglist-string (fname)
+(defimplementation arglist-string (fname)
   (format-arglist fname #'lw:function-lambda-list))
 
-(defmethod macroexpand-all (form)
+(defimplementation macroexpand-all (form)
   (walker:walk-form form))
 
-(defmethod describe-symbol-for-emacs (symbol)
+(defimplementation describe-symbol-for-emacs (symbol)
   "Return a plist describing SYMBOL.
 Return NIL if the symbol is unbound."
   (let ((result '()))
@@ -111,7 +110,13 @@ Return NIL if the symbol is unbound."
       (if result
           (list* :designator (to-string symbol) result)))))
 
-(defslimefun describe-function (symbol-name)
+(defimplementation describe-definition (symbol-name type)
+  (case type
+    ;; FIXME: This should cover all types returned by
+    ;; DESCRIBE-SYMBOL-FOR-EMACS.
+    (:function (describe-function symbol-name))))
+
+(defun describe-function (symbol-name)
   (with-output-to-string (*standard-output*)
     (let ((sym (from-string symbol-name)))
       (cond ((fboundp sym)
@@ -124,7 +129,7 @@ Return NIL if the symbol is unbound."
             (t (format t "~S is not fbound" sym))))))
 
 #+(or)
-(defmethod describe-object ((sym symbol) *standard-output*)
+(defimplementation describe-object ((sym symbol) *standard-output*)
   (format t "~A is a symbol in package ~A." sym (symbol-package sym))
   (when (boundp sym)
     (format t "~%~%Value: ~A" (symbol-value sym)))
@@ -146,7 +151,7 @@ Return NIL if the symbol is unbound."
 (defslimefun sldb-abort ()
   (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
 
-(defmethod call-with-debugging-environment (fn)
+(defimplementation call-with-debugging-environment (fn)
   (dbg::with-debugger-stack ()
     (let ((*sldb-restarts* (compute-restarts *swank-debugger-condition*)))
       (funcall fn))))
@@ -177,7 +182,7 @@ Return NIL if the symbol is unbound."
 	(incf i)
 	(push frame backtrace)))))
 
-(defmethod backtrace (start end)
+(defimplementation backtrace (start end)
   (flet ((format-frame (f i)
            (print-with-frame-label
             i (lambda (s)
@@ -190,7 +195,7 @@ Return NIL if the symbol is unbound."
 	  for f in (compute-backtrace start end)
 	  collect (list i (format-frame f i)))))
 
-(defmethod debugger-info-for-emacs (start end)
+(defimplementation debugger-info-for-emacs (start end)
   (list (debugger-condition-for-emacs)
         (format-restarts-for-emacs)
         (backtrace start end)))
@@ -201,7 +206,7 @@ Return NIL if the symbol is unbound."
 (defslimefun invoke-nth-restart (index)
   (invoke-restart-interactively (nth-restart index)))
 
-(defmethod frame-locals (n)
+(defimplementation frame-locals (n)
   (let ((frame (nth-frame n)))
     (if (dbg::call-frame-p frame)
 	(destructuring-bind (vars with)
@@ -211,11 +216,11 @@ Return NIL if the symbol is unbound."
 		collect (list :name (to-string symbol) :id 0
 			      :value-string (princ-to-string value)))))))
 
-(defmethod frame-catch-tags (index)
+(defimplementation frame-catch-tags (index)
   (declare (ignore index))
   nil)
 
-(defmethod frame-source-location-for-emacs (frame)
+(defimplementation frame-source-location-for-emacs (frame)
   (let ((frame (nth-frame frame)))
     (if (dbg::call-frame-p frame)
 	(let ((func (dbg::call-frame-function-name frame)))
@@ -234,20 +239,10 @@ Return NIL if the symbol is unbound."
            (loop for (dspec location) in locations
                  collect (make-dspec-location dspec location))))))
 
-(defmethod find-function-locations (fname)
+(defimplementation find-function-locations (fname)
   (dspec-source-locations (from-string fname)))
 
-;;; callers
-
-(defun stringify-function-name-list (list)
-  (let ((*print-pretty* nil)) (mapcar #'to-string list)))
-
-(defslimefun list-callers (symbol-name)
-  (stringify-function-name-list (hcl:who-calls (from-string symbol-name))))
-
-;;; Compilation
-
-(defmethod compile-file-for-emacs (filename load-p)
+(defimplementation compile-file-for-emacs (filename load-p)
   (let ((compiler::*error-database* '()))
     (with-compilation-unit ()
       (compile-file filename :load load-p)
@@ -333,7 +328,7 @@ Return NIL if the symbol is unbound."
 		nil)))
 	   htab))
 
-(defmethod compile-string-for-emacs (string &key buffer position)
+(defimplementation compile-string-for-emacs (string &key buffer position)
   (assert buffer)
   (assert position)
   (let ((*package* *buffer-package*)
@@ -352,16 +347,16 @@ Return NIL if the symbol is unbound."
 (defun lookup-xrefs (finder name)
   (xref-results-for-emacs (funcall finder (from-string name))))
 
-(defslimefun who-calls (function-name)
+(defimplementation who-calls (function-name)
   (lookup-xrefs #'hcl:who-calls function-name))
 
-(defslimefun who-references (variable)
+(defimplementation who-references (variable)
   (lookup-xrefs #'hcl:who-references variable))
 
-(defslimefun who-binds (variable)
+(defimplementation who-binds (variable)
   (lookup-xrefs #'hcl:who-binds variable))
 
-(defslimefun who-sets (variable)
+(defimplementation who-sets (variable)
   (lookup-xrefs #'hcl:who-sets variable))
 
 (defun xref-results-for-emacs (dspecs)
@@ -373,10 +368,10 @@ Return NIL if the symbol is unbound."
                      xrefs)))
     (group-xrefs xrefs)))
 
-(defslimefun list-callers (symbol-name)
+(defimplementation list-callers (symbol-name)
   (lookup-xrefs #'hcl:who-calls symbol-name))
 
-(defslimefun list-callees (symbol-name)
+(defimplementation list-callees (symbol-name)
   (lookup-xrefs #'hcl:calls-who symbol-name))
 
 ;;; Multithreading

@@ -60,7 +60,7 @@
 
 (setq *swank-in-background* :fd-handler)
 
-(defmethod create-socket (port)
+(defimplementation create-socket (port)
   (let ((socket (make-instance 'sb-bsd-sockets:inet-socket
 			       :type :stream
 			       :protocol :tcp)))
@@ -69,22 +69,22 @@
     (sb-bsd-sockets:socket-listen socket 5)
     socket))
 
-(defmethod local-port (socket)
+(defimplementation local-port (socket)
   (nth-value 1 (sb-bsd-sockets:socket-name socket)))
 
-(defmethod close-socket (socket)
+(defimplementation close-socket (socket)
   (sb-bsd-sockets:socket-close socket))
 
-(defmethod accept-connection (socket)
+(defimplementation accept-connection (socket)
   (make-socket-io-stream (accept socket)))
 
-(defmethod add-input-handler (socket fn)
+(defimplementation add-input-handler (socket fn)
   (sb-sys:add-fd-handler (socket-fd  socket)
                          :input (lambda (fd)
                                   (declare (ignore fd))
                                   (funcall fn))))
 
-(defmethod remove-input-handlers (socket)
+(defimplementation remove-input-handlers (socket)
   (sb-sys:invalidate-descriptor (socket-fd socket))
   (close socket))
 
@@ -106,6 +106,14 @@
             (return (sb-bsd-sockets:socket-accept socket))
           (sb-bsd-sockets:interrupted-error ()))))
 
+(defimplementation make-fn-streams (input-fn output-fn)
+  (let* ((output (make-instance 'slime-output-stream
+                                :output-fn output-fn))
+         (input  (make-instance 'slime-input-stream
+                                :input-fn input-fn
+                                :output-stream output)))
+    (values input output)))
+
 (defmethod call-without-interrupts (fn)
   (sb-sys:without-interrupts (funcall fn)))
 
@@ -121,7 +129,7 @@
   (setf *default-pathname-defaults* (merge-pathnames directory))
   (namestring *default-pathname-defaults*))
 
-(defmethod arglist-string (fname)
+(defimplementation arglist-string (fname)
   (format-arglist fname #'sb-introspect:function-arglist))
 
 (defvar *buffer-name* nil)
@@ -225,25 +233,25 @@ compiler state."
          (reverse
           (sb-c::compiler-error-context-original-source-path context)))))
 
-(defmethod call-with-compilation-hooks (function)
+(defimplementation call-with-compilation-hooks (function)
   (handler-bind ((sb-c:compiler-error  #'handle-notification-condition)
                  (sb-ext:compiler-note #'handle-notification-condition)
                  (style-warning        #'handle-notification-condition)
                  (warning              #'handle-notification-condition))
     (funcall function)))
 
-(defmethod compile-file-for-emacs (filename load-p)
+(defimplementation compile-file-for-emacs (filename load-p)
   (with-compilation-hooks ()
     (multiple-value-bind (fasl-file w-p f-p) (compile-file filename)
       (cond ((and fasl-file (not f-p) load-p)
              (load fasl-file))
             (t fasl-file)))))
 
-(defmethod compile-system-for-emacs (system-name)
+(defimplementation compile-system-for-emacs (system-name)
   (with-compilation-hooks ()
     (asdf:operate 'asdf:load-op system-name)))
 
-(defmethod compile-string-for-emacs (string &key buffer position)
+(defimplementation compile-string-for-emacs (string &key buffer position)
   (with-compilation-hooks ()
     (let ((*package* *buffer-package*)
           (*buffer-name* buffer)
@@ -301,7 +309,7 @@ This is useful when debugging the definition-finding code.")
                       (or (and name (string name))
                           (sb-kernel:%fun-name function)))))))))
                                 
-(defmethod find-function-locations (fname-string)
+(defimplementation find-function-locations (fname-string)
   (let* ((symbol (from-string fname-string)))
     (labels ((finder (fun)
                (cond ((and (symbolp fun) (macro-function fun))
@@ -327,7 +335,7 @@ This is useful when debugging the definition-finding code.")
             (error (e) 
               (list (list :error (format nil "Error: ~A" e)))))))))
 
-(defmethod describe-symbol-for-emacs (symbol)
+(defimplementation describe-symbol-for-emacs (symbol)
   "Return a plist describing SYMBOL.
 Return NIL if the symbol is unbound."
   (let ((result '()))
@@ -354,19 +362,21 @@ Return NIL if the symbol is unbound."
 		 (doc 'type)))
       result)))
 
-(defslimefun describe-setf-function (symbol-name)
-  (print-description-to-string `(setf ,(from-string symbol-name))))
-
-(defslimefun describe-type (symbol-name)
-  (print-description-to-string
-   (sb-kernel:values-specifier-type (from-string symbol-name))))
-
-(defslimefun describe-class (symbol-name)
-  (print-description-to-string (find-class (from-string symbol-name) nil)))
+(defimplementation describe-definition (symbol-name type)
+  (case type
+    (:variable
+     (describe-symbol symbol-name))
+    (:setf
+     (print-description-to-string `(setf ,(from-string symbol-name))))
+    (:class
+     (print-description-to-string (find-class (from-string symbol-name) nil)))
+    (:type
+     (print-description-to-string
+      (sb-kernel:values-specifier-type (from-string symbol-name))))))
 
 ;;; macroexpansion
 
-(defmethod macroexpand-all (form)
+(defimplementation macroexpand-all (form)
   (let ((sb-walker:*walk-form-expand-macros-p* t))
     (sb-walker:walk-form form)))
 
@@ -376,7 +386,7 @@ Return NIL if the symbol is unbound."
 (defvar *sldb-stack-top*)
 (defvar *sldb-restarts*)
 
-(defmethod call-with-debugging-environment (debugger-loop-fn)
+(defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let* ((*sldb-stack-top* (or sb-debug:*stack-top-hint* (sb-di:top-frame)))
 	 (*sldb-restarts* (compute-restarts *swank-debugger-condition*))
 	 (sb-debug:*stack-top-hint* nil)
@@ -422,11 +432,11 @@ stack."
 	  while f
 	  collect (cons i f))))
 
-(defmethod backtrace (start end)
+(defimplementation backtrace (start end)
   (loop for (n . frame) in (compute-backtrace start end)
         collect (list n (format-frame-for-emacs n frame))))
 
-(defmethod debugger-info-for-emacs (start end)
+(defimplementation debugger-info-for-emacs (start end)
   (list (debugger-condition-for-emacs)
 	(format-restarts-for-emacs)
 	(backtrace start end)))
@@ -487,15 +497,15 @@ stack."
   (handler-case (source-location-for-emacs code-location)
     (error (c) (list :error (format nil "~A" c)))))
                                                
-(defmethod frame-source-location-for-emacs (index)
+(defimplementation frame-source-location-for-emacs (index)
   (safe-source-location-for-emacs 
    (sb-di:frame-code-location (nth-frame index))))
 
 #+nil
-(defmethod eval-in-frame (form index)
+(defimplementation eval-in-frame (form index)
   (sb-di:eval-in-frame (nth-frame index) string))
 
-(defmethod frame-locals (index)
+(defimplementation frame-locals (index)
   (let* ((frame (nth-frame index))
 	 (location (sb-di:frame-code-location frame))
 	 (debug-function (sb-di:frame-debug-fun frame))
@@ -510,7 +520,7 @@ stack."
                        (to-string (sb-di:debug-var-value v frame))
                        "<not-available>")))))
 
-(defmethod frame-catch-tags (index)
+(defimplementation frame-catch-tags (index)
   (loop for (tag . code-location) in (sb-di:frame-catches (nth-frame index))
 	collect `(,tag . ,(safe-source-location-for-emacs code-location))))
 
@@ -524,23 +534,23 @@ stack."
 
 #+SB-THREAD
 (progn
-  (defmethod spawn (fn &key name)
+  (defimplementation spawn (fn &key name)
     (declare (ignore name))
     (sb-thread:make-thread fn))
 
-  (defmethod startup-multiprocessing ()
+  (defimplementation startup-multiprocessing ()
     (setq *swank-in-background* :spawn))
 
-  (defmethod thread-id ()
+  (defimplementation thread-id ()
     (sb-thread:current-thread-id))
 
-  (defmethod thread-name (thread-id)
+  (defimplementation thread-name (thread-id)
     (format nil "Thread ~S" thread-id))
 
-  (defmethod make-lock (&key name)
+  (defimplementation make-lock (&key name)
     (sb-thread:make-mutex :name name))
 
-  (defmethod call-with-lock-held (lock function)
+  (defimplementation call-with-lock-held (lock function)
     (sb-thread:with-mutex (lock) (funcall function)))
 )
 
