@@ -408,7 +408,7 @@ the error-context redundant."
            (make-location (list :file (unix-truename file))
                           (list :function-name (string name))))
           (t
-           `(:error ,(format nil "Unkown source location: ~S ~S ~S " 
+           `(:error ,(format nil "Unknown source location: ~S ~S ~S " 
                              name file source-path))))))
 
 (defun clear-xref-info (namestring)
@@ -555,6 +555,48 @@ the code omponent CODE."
 (defvar *debug-definition-finding* nil
   "When true don't handle errors while looking for definitions.
 This is useful when debugging the definition-finding code.")
+
+(defvar *source-snippet-size* 256
+  "Maximum number of characters in a snippet of source code.
+Snippets at the beginning of definitions are used to tell Emacs what
+the definitions looks like, so that it can accurately find them by
+text search.")
+
+(defvar *cache-sourcecode* t
+  "When true complete source files are cached.
+The cache is used to keep known good copies of the source text which
+correspond to the loaded code. Finding definitions is much more
+reliable when the exact source is available, so we cache it incase it
+gets edited on disk later.")
+
+(defvar *source-file-cache* (make-hash-table :test 'equal)
+  "Cache of source file contents.
+Maps from truename to source-cache-entry structure.")
+
+(defstruct (source-cache-entry
+             (:conc-name source-cache-entry.)
+             (:constructor make-source-cache-entry (text date)))
+  text date)
+
+(defun source-cache-get (filename date)
+  "Return the source code for FILENAME written on DATE as a string.
+Return NIL if the right version cannot be found."
+  (let ((entry (gethash filename *source-file-cache*)))
+    (cond ((and entry (equal date (source-cache-entry.date entry)))
+           ;; Cache hit.
+           (source-cache-entry.text entry))
+          ((or (null entry)
+               (not (equal date (source-cache-entry.date entry))))
+           ;; Cache miss.
+           (if (equal (file-write-date filename) date)
+               ;; File on disk has the correct version.
+               (with-open-file (s filename :direction :input)
+                 (let ((string (make-string (file-length s))))
+                   (read-sequence string s)
+                   (setf (gethash filename *source-file-cache*)
+                         (make-source-cache-entry string date))
+                   string))
+               nil)))))
 
 (defmacro safe-definition-finding (&body body)
   "Execute BODY ignoring errors.  Return the source location returned
@@ -1043,11 +1085,15 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 (defun code-location-stream-position (code-location stream)
   "Return the byte offset of CODE-LOCATION in STREAM.  Extract the
 toplevel-form-number and form-number from CODE-LOCATION and use that
-to find the position of the corresponding form."
+to find the position of the corresponding form.
+
+Finish with STREAM positioned at the start of the code location."
   (let* ((location (debug::maybe-block-start-location code-location))
 	 (tlf-offset (di:code-location-top-level-form-offset location))
 	 (form-number (di:code-location-form-number location)))
-    (form-number-stream-position tlf-offset form-number stream)))
+    (let ((pos (form-number-stream-position tlf-offset form-number stream)))
+      (file-position stream pos)
+      pos)))
 
 (defun form-number-stream-position (tlf-number form-number stream)
   (let ((*read-suppress* t))
@@ -1058,7 +1104,7 @@ to find the position of the corresponding form."
               (if (<= (length path-table) form-number) ; source out of sync?
                   (list 0)              ; should probably signal a condition
                   (reverse (cdr (aref path-table form-number))))))
-	(source-path-source-position source-path tlf position-map)))))
+        (source-path-source-position source-path tlf position-map)))))
   
 (defun code-location-string-offset (code-location string)
   (with-input-from-string (s string)
@@ -1086,18 +1132,32 @@ to find the position of the corresponding form."
          (name (di:debug-source-name debug-source)))
     (ecase from
       (:file 
-       (make-location (list :file (unix-truename name))
-                      (list :position (1+ (code-location-file-position
-                                           code-location name)))))
+       (let* ((code-date (di:debug-source-created debug-source))
+              (source (source-cache-get name code-date)))
+         (if (null source)
+             ;; We don't have up-to-date sourcecode. Emacs will have
+             ;; to make a regexp search.
+             ;; XXX Leave position blank. Emacs will plug in the function name.
+             (make-location (list :file (unix-truename name)) nil)
+             (with-open-file (s name :direction :input)
+               (make-location (list :file (unix-truename name))
+                              (list :position
+                                    (1+ (code-location-stream-position
+                                         code-location s)))
+                              `(:snippet ,(read-snippet s)))))))
       (:stream 
        (assert (debug-source-info-from-emacs-buffer-p debug-source))
-       (let ((info (c::debug-source-info debug-source)))
+       (let* ((info (c::debug-source-info debug-source))
+              (string (getf info :emacs-buffer-string))
+              (position (code-location-string-offset 
+                         code-location
+                         string)))
          (make-location
           (list :buffer (getf info :emacs-buffer))
-          (list :position (+ (getf info :emacs-buffer-offset) 
-                             (code-location-string-offset 
-                              code-location
-                              (getf info :emacs-buffer-string)))))))
+          (list :position (+ (getf info :emacs-buffer-offset) position))
+          (list :snippet (with-input-from-string (s string)
+                        (file-position s position)
+                        (read-snippet s))))))
       (:lisp
        (make-location
         (list :source-form (with-output-to-string (*standard-output*)
@@ -1109,6 +1169,15 @@ to find the position of the corresponding form."
   "Safe wrapper around `code-location-from-source-location'."
   (safe-definition-finding
    (source-location-from-code-location code-location)))
+
+(defun read-snippet (stream)
+  (read-upto-n-chars stream *source-snippet-size*))
+
+(defun read-upto-n-chars (stream n)
+  "Return a string of upto N chars from STREAM."
+  (let* ((string (make-string n))
+         (chars  (read-sequence string stream)))
+    (subseq string 0 chars)))
 
 
 ;;;; Debugging
