@@ -1191,7 +1191,7 @@ Return true if we have been given permission to continue."
           ()
           (unless (active-minibuffer-window)
             (message "\
-Polling %S.. (Abort with `M-x slime-connection-abort'.)"
+Polling %S.. (Abort with `M-x slime-abort-connection'.)"
                      (slime-swank-port-file)))
           (setq slime-state-name (format "[polling:%S]" (incf attempt)))
           (force-mode-line-update)
@@ -1265,7 +1265,7 @@ the ChangeLog file at runtime."
   (interactive)
   (mapc #'slime-net-close slime-net-processes))
 
-(defun slime-connection-abort ()
+(defun slime-abort-connection ()
   "Abort connection the current connection attempt."
   (interactive)
   (if (null slime-connect-retry-timer)
