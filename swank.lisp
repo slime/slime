@@ -3035,7 +3035,7 @@ See `methods-by-applicability'.")
   (declare (ignore inspector))
   (values "A number."
           (append 
-           `(,(format nil "Value: ~D = #x~X = #o~O = #b~:,,' ,8B = ~E"
+           `(,(format nil "Value: ~D = #x~X = #o~O = #b~,,' ,8:B = ~E"
                       i i i i i) 
               (:newline))
            (if (< -1 i char-code-limit)
