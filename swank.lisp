@@ -201,6 +201,7 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
              (force-output)
              (setq ok t))
         (sync-state-to-emacs)
+        (force-output *slime-output*)
         (send-to-emacs (if ok `(:ok ,result) '(:aborted)))))))
 
 (defslimefun interactive-eval (string)
