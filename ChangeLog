@@ -1,3 +1,26 @@
+2004-03-07  Jouni K Seppanen  <jks@iki.fi>
+
+	* slime.el (sldb-help-summary): New function.
+	(sldb-mode): Add docstring so that describe-mode is useful.
+	(sldb-mode-map): Add bindings for sldb-help-summary and
+	describe-mode.
+	(define-sldb-invoke-restart-key): Generate docstrings.
+	(sldb-default-action/mouse, sldb-default-action)
+	(sldb-eval-in-frame, sldb-pprint-eval-in-frame)
+	(sldb-inspect-in-frame, sldb-down, sldb-up, sldb-details-up)
+	(sldb-details-down, sldb-list-locals, sldb-quit, sldb-continue)
+	(sldb-abort, sldb-invoke-restart, sldb-break-with-default-debugger)
+	(sldb-step): Add rudimentary docstrings.
+
+2004-03-07  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-complete-symbol*, slime-simple-complete-symbol):
+	Use the correct block name when returning.
+	(slime-display-completion-list): Fix typo.
+
+	* swank-cmucl.lisp (frame-locals): Use #:not-available instead of
+	"<not-available>".
+
 2004-03-05  Bill Clementson <Bill_Clementson@peoplesoft.com>
 
 	* swank-lispworks.lisp (getpid, emacs-connected): Conditionalize
