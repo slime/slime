@@ -418,8 +418,9 @@
   (values "A function."
           `("Name: " (:value ,(function-name f)) (:newline)
             "Its argument list is: " ,(princ-to-string (arglist f)) (:newline)
-            "Documentation:" (:newline)
-            ,(documentation f 'function))))
+            ,@ (let ((doc (documentation (excl::external-fn_symdef f) 'function)))
+                 (when doc
+                   `("Documentation:" (:newline) ,doc))))))
 
 (defmethod inspect-for-emacs ((class structure-class) (inspector acl-inspector))
   (values "A structure class."
