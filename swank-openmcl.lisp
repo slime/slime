@@ -222,7 +222,8 @@ condition."
          (*sldb-restarts* (butlast
                            (compute-restarts *swank-debugger-condition*)))
          (*debugger-hook* nil)
-         (*package* *buffer-package*))
+         (*package* *buffer-package*)
+         (ccl::*signal-printing-errors* nil)) ; don't let error while printing error take us down
     (funcall debugger-loop-fn)))
 
 (defun format-restarts-for-emacs ()
