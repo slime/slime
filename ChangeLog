@@ -1,5 +1,10 @@
 2003-09-27  Luke Gorrie  <luke@bluetail.com>
 
+	* slime.el (slime-function-called-at-point): Rewritten to work
+	better. Now considers "((foo ..." _not_ to be a function call to
+	foo because of the double ('s - this will keep it from misfiring
+	in e.g. LET bindings.
+
 	* swank.lisp (handle-notification-condition): Rewrote
 	compiler-note collection. Now it uses lower-level condition
 	handlers instead of c:*compiler-notification-function*. This way
