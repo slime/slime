@@ -25,7 +25,6 @@
   (use-package "GRAY"))
 
 (setq *use-dedicated-output-stream* nil)
-(setq *start-swank-in-background* nil)
 ;(setq *redirect-output* nil)
 
 #+linux
@@ -79,15 +78,13 @@
 
 ;;; TCP Server
 
-(defmethod create-socket-server (init-fn &key announce-fn (port 0)
-					 (accept-background nil)
-					 (handle-background nil)
-					 (loop nil)
-					 (reuse-address nil))
-  (declare (ignore loop reuse-address accept-background handle-background))
+(defmethod accept-socket/stream (&key (port 0) announce-fn)
+  (get-socket-stream port announce-fn))
+
+(defmethod accept-socket/run (&key (port 0) announce-fn init-fn)
   (let* ((slime-stream (get-socket-stream port announce-fn))
 	 (handler-fn (funcall init-fn slime-stream)))
-      (loop (funcall handler-fn))))
+    (loop while t do (funcall handler-fn))))
 
 (defun get-socket-stream (port announce)
   (let ((socket (socket:socket-server port)))
