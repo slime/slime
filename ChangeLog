@@ -1,3 +1,18 @@
+2004-05-17  Luke Gorrie  <luke@bluetail.com>
+
+	* xref.lisp, swank-clisp.lisp: Renamed XREF package to PXREF (P
+	for portable). This makes it possible to load the package in
+	e.g. CMUCL, which is nice because it's a good package.
+
+	* swank-cmucl.lisp: Some refactoring and high-level
+	commenting. Mostly just trying to organise things into fairly
+	self-contained sections (my new hobby, sad I know!)
+
+	* slime.el: Added `C-c C-e' as an alternative binding for
+	`slime-interactive-eval' (usually `C-c :'). This seems slightly
+	more convenient, and has the added bonus of clobbering an unwanted
+	`inf-lisp' binding.
+
 2004-05-14  Marco Baringer <mb@bese.it>
 
 	* slime.el (slime-with-output-to-temp-buffer): Now takes a
