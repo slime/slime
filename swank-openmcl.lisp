@@ -200,7 +200,11 @@ condition."
   (with-compilation-hooks ()
     (let ((*buffer-name* nil)
           (*buffer-offset* nil))
-      (asdf:oos 'asdf:load-op system-name))))
+      (let ((oos (find-symbol (string :oos) :asdf))
+            (load-op (find-symbol (string :load-op) :asdf)))
+        (cond ((and oos load-op)
+               (funcall oos load-op system-name))
+              (t (error "ASDF not loaded")))))))
 
 (defimplementation compile-string-for-emacs (string &key buffer position)
   (with-compilation-hooks ()
