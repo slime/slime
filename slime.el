@@ -637,27 +637,56 @@ The user is prompted if a prefix argument is in effect or there is no
 symbol at point."
   (intern (slime-read-symbol-name prompt)))
 
-(defvar slime-saved-window-configuration nil
-  "Window configuration before the last changes SLIME made.")
+(defvar slime-saved-window-configurations nil
+  "Stack of configurations before the last changes SLIME made.")
 
 (defun slime-save-window-configuration ()
   "Save the current window configuration.
 This should be called before modifying the user's window configuration.
 
 `slime-restore-window-configuration' restores the saved configuration."
-  (setq slime-saved-window-configuration (current-window-configuration)))
+  (push (current-window-configuration) slime-saved-window-configurations))
 
 (defun slime-restore-window-configuration ()
   "Restore the most recently saved window configuration."
   (interactive)
-  (when slime-saved-window-configuration
-    (set-window-configuration slime-saved-window-configuration)
-    (setq slime-saved-window-configuration nil)))
+  (when slime-saved-window-configurations
+    (set-window-configuration (pop slime-saved-window-configurations))))
 
-(defmacro slime-with-output-to-temp-buffer (&rest args)
+(defun slime-temp-buffer-quit ()
+  (interactive)
+  (kill-buffer (current-buffer))
+  (slime-restore-window-configuration))
+
+(defvar slime-temp-buffer-map)
+
+(define-minor-mode slime-temp-buffer-mode 
+  "Mode for displaying read only stuff"
+  nil
+  " temp"
+  '(("q" . undefined)))
+
+(slime-define-keys slime-temp-buffer-mode-map
+  ("q" 'slime-temp-buffer-quit))
+
+(defmacro slime-with-output-to-temp-buffer (name &rest body)
   "Like `with-output-to-temp-buffer', but saves the window configuration."
-  `(progn (slime-save-window-configuration)
-          (with-output-to-temp-buffer ,@args)))
+  `(progn 
+     (slime-save-window-configuration)
+     (let ((standard-output
+            (with-current-buffer (get-buffer-create ,name)
+              (setq buffer-read-only nil)
+              (erase-buffer)
+              (current-buffer))))
+       (prog1 (progn ,@body)
+         (with-current-buffer standard-output
+           (goto-char (point-min))
+           (slime-mode 1)
+           (set-syntax-table lisp-mode-syntax-table)
+           (slime-temp-buffer-mode 1)
+           (setq buffer-read-only t)
+           (unless (get-buffer-window (current-buffer))
+             (switch-to-buffer-other-window (current-buffer))))))))
 
 (put 'slime-with-output-to-temp-buffer 'lisp-indent-function 1)
 
@@ -788,6 +817,8 @@ Polling %S.. (Abort with `M-x slime-disconnect'.)"
   (slime-net-connect "localhost" port)
   (slime-init-connection)
   (pop-to-buffer (slime-output-buffer))
+  (delete-windows-on (get-buffer "*inferior-lisp*"))
+  (bury-buffer (get-buffer "*inferior-lisp*"))
   (message "Connected to Swank server on port %S. %s"
            port (slime-random-words-of-encouragement)))
 
@@ -2254,7 +2285,8 @@ perfermed.")
           (current-window-configuration))))
 
 (defun slime-complete-delay-restoration ()
-  (add-hook (make-local-hook 'pre-command-hook)
+  (make-local-hook 'pre-command-hook)
+  (add-hook 'pre-command-hook
             'slime-complete-maybe-restore-window-confguration))
 
 (defun slime-complete-forget-window-configuration ()
@@ -2321,7 +2353,7 @@ package is used."
            (message "Making completion list...")
            (let ((list (all-completions prefix completions-alist nil)))
              (slime-complete-maybe-save-window-configuration)
-             (slime-with-output-to-temp-buffer "*Completions*"
+             (with-output-to-temp-buffer "*Completions*"
                (display-completion-list list))
              (slime-complete-delay-restoration))
            (message "Making completion list...done")))))
@@ -2511,7 +2543,7 @@ function name is prompted."
 
 (defun slime-show-evaluation-result (value)
   (slime-show-last-output)
-  (slime-message "=> %s" value))
+  (message "=> %s" value))
 
 (defun slime-show-evaluation-result-continuation ()
   (lexical-let ((buffer (current-buffer)))
@@ -2608,14 +2640,8 @@ First make the variable unbound, then evaluate the entire form."
 ;;; Documentation
 
 (defun slime-show-description (string package)
-  (slime-save-window-configuration)
-  (save-current-buffer
-    (slime-with-output-to-temp-buffer "*Help*"
-      (princ string))
-    (with-current-buffer "*Help*"
-      (setq slime-buffer-package package)
-      (set-syntax-table lisp-mode-syntax-table)
-      (slime-mode t))))
+  (slime-with-output-to-temp-buffer "*SLIME Description*"
+    (princ string)))
 
 (defun slime-eval-describe (form)
   (let ((package (slime-buffer-package)))
@@ -2654,15 +2680,14 @@ First make the variable unbound, then evaluate the entire form."
 (defun slime-show-apropos (plists string package)
   (if (null plists)
       (message "No apropos matches for %S" string)
-    (save-current-buffer
-      (slime-with-output-to-temp-buffer "*SLIME Apropos*"
-	(set-buffer standard-output)
-	(apropos-mode)
-	(set-syntax-table lisp-mode-syntax-table)
-	(slime-mode t)
-	(setq slime-buffer-package package)
-        (slime-set-truncate-lines)
-	(slime-print-apropos plists)))))
+    (slime-with-output-to-temp-buffer "*SLIME Apropos*"
+      (set-buffer standard-output)
+      (apropos-mode)
+      (set-syntax-table lisp-mode-syntax-table)
+      (slime-mode t)
+      (setq slime-buffer-package package)
+      (slime-set-truncate-lines)
+      (slime-print-apropos plists))))
 
 (defvar slime-apropos-label-properties
   (progn
@@ -3386,17 +3411,16 @@ the current index when the selection is completed."
   ("\C-m"      'sldb-default-action)
   ([mouse-2]  'sldb-default-action/mouse)
   ("e"    'sldb-eval-in-frame)
-  ("p"    'sldb-pprint-eval-in-frame)
+  ("d"    'sldb-pprint-eval-in-frame)
   ("i"    'sldb-inspect-in-frame)
-  ("d"    'sldb-down)
-  ("u"    'sldb-up)
+  ("n"    'sldb-down)
+  ("p"    'sldb-up)
   ("\M-n" 'sldb-details-down)
   ("\M-p" 'sldb-details-up)
   ("l"    'sldb-list-locals)
   ("t"    'sldb-toggle-details)
   ("c"    'sldb-continue)
   ("a"    'sldb-abort)
-  ("r"    'sldb-invoke-restart)
   ("q"    'sldb-quit)
   (":"    'slime-interactive-eval))
 
