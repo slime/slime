@@ -1,3 +1,18 @@
+2003-10-17  Daniel Barlow  <dan@telent.net>
+
+	* swank-sbcl.lisp: Transplanted Helmut's serve-event server to
+	replace the existing thread-using server.  SLIME now has no 
+	dependency on SB-THREAD
+
+	* slime.el (slime-find-buffer-package): handle errors from (read)
+	for the case where the buffer ends before the in-package form does
+	(slime-set-package): insert missing comma
+	(slime-goto-source-location): sbcl has a disagreement with emacs
+	over the meaning of a character position.  Level up with
+	C-M-f C-M-b
+
+	* assorted typo fixes
+
 2003-10-16  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-forward-source-path): Improved somewhat. Seems
