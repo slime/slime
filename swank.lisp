@@ -177,25 +177,29 @@ If *REDIRECT-IO* is true, all standard I/O streams are redirected."
 (defun start-server (port-file)
   (setq *write-lock* (make-lock :name "Swank write lock"))
   (if (eq *swank-in-background* :spawn)
-      (spawn (lambda ()
-               (let ((*swank-in-background* nil))
-                 (setup-server port-file)))
+      (spawn (lambda () (setup-server port-file nil))
              :name "Swank")
-      (setup-server port-file)))
+      (setup-server port-file *swank-in-background*)))
 
-(defun setup-server (port-file)
+(defun setup-server (port-file background)
   (let ((socket (create-socket 0)))
     (announce-server-port port-file (local-port socket))
     (let ((client (accept-connection socket)))
       (close-socket socket)
       (let ((connection (create-connection client)))
-        (ecase *swank-in-background*
-          (:fd-handler
-           (init-main-connection connection)
-           (add-input-handler client (lambda () (handle-request connection))))
-          ((nil) 
-           (init-main-connection connection)
-           (loop until (handle-request connection))))))))
+        (init-main-connection connection)
+        (serve-requests client connection background)))))
+
+(defun serve-requests (client connection background)
+  (ecase background
+    (:fd-handler (add-input-handler 
+                  client (lambda () 
+                           (loop (cond ((handle-request connection)
+                                        (remove-input-handlers client)
+                                        (return))
+                                       ((listen client))
+                                       (t (return)))))))
+    ((nil) (loop until (handle-request connection)))))
 
 (defun init-main-connection (connection)
   (setq *main-connection* connection)
@@ -211,11 +215,14 @@ If *REDIRECT-IO* is true, all standard I/O streams are redirected."
   (simple-announce-function port))
 
 (defun create-connection (socket-io)
-  (multiple-value-bind (output-fn dedicated-output) (make-output-function socket-io)
+  (send-to-emacs `(:check-protocol-version ,(changelog-date)) socket-io)
+  (multiple-value-bind (output-fn dedicated-output) 
+      (make-output-function socket-io)
     (let ((input-fn  (lambda () (read-user-input-from-emacs socket-io))))
       (multiple-value-bind (in out) (make-fn-streams input-fn output-fn)
         (let ((io (make-two-way-stream in out)))
-          (make-connection (thread-id) socket-io dedicated-output in out io))))))
+          (make-connection (thread-id) socket-io dedicated-output 
+                           in out io))))))
 
 (defun make-output-function (socket-io)
   "Create function to send user output to Emacs.
@@ -225,12 +232,12 @@ stream (or NIL if none was created)."
   (if *use-dedicated-output-stream*
       (let ((stream (open-dedicated-output-stream socket-io)))
         (values (lambda (string)
-                  (princ string stream)
+                  (write-string string stream)
                   (force-output stream))
                 stream))
       (values (lambda (string) (send-output-to-emacs string socket-io))
               nil)))
-  
+
 (defun open-dedicated-output-stream (socket-io)
   "Open a dedicated output connection to the Emacs on SOCKET-IO.
 Return an output stream suitable for writing program output.
@@ -258,6 +265,18 @@ This is an optimized way for Lisp to deliver output to Emacs."
 (defun simple-announce-function (port)
   (when *swank-debug-p*
     (format *debug-io* "~&;; Swank started at port: ~D.~%" port)))
+
+(defun changelog-date ()
+  "Return the datestring of the latest ChangeLog entry.  The date is
+determined at compile time."
+  (macrolet ((date ()
+	       (let* ((dir (pathname-directory *compile-file-pathname*))
+		      (changelog (make-pathname :name "ChangeLog" 
+						:directory dir))
+		      (date (with-open-file (file changelog :direction :input)
+			      (string (read file)))))
+		 `(quote ,date))))
+    (date)))
 
 
 ;;;; IO to Emacs
