@@ -683,7 +683,7 @@ stack."
     (sb-thread:make-thread fn))
 
   (defimplementation startup-multiprocessing ()
-    (setq *swank-in-background* :spawn))
+    (setq *communication-style* :spawn))
 
   (defimplementation thread-name (thread)
     (format nil "Thread ~D" thread))
