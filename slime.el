@@ -1710,6 +1710,13 @@ fixnum a specific thread."))
 
 ;;;;;;; Event logging to *slime-events*
 
+(defun slime-pprint-event (object buffer)
+  "Pretty print OBJECT in BUFFER with limited depth and width."
+  (let ((print-length 20)
+	(print-level 6)
+	(pp-escape-newlines t))
+    (pp event buffer)))
+
 (defun slime-log-event (event)
   (when slime-log-events
     (with-current-buffer (slime-events-buffer)
@@ -1720,9 +1727,7 @@ fixnum a specific thread."))
         (delete-region (point-min) (point)))
       (goto-char (point-max))
       (save-excursion
-        (let ((print-level 5)
-              (print-length 20))
-          (pp event (current-buffer))))
+        (slime-pprint-event event (current-buffer)))
       (when (and (boundp 'outline-minor-mode)
                  outline-minor-mode)
         (hide-entry))
@@ -5723,7 +5728,10 @@ be treated as a paragraph.  This is useful for filling docstrings."
   (save-excursion
     (if (or force-text-fill (slime-beginning-of-comment))
         (fill-paragraph nil)
-      (let ((start (progn (beginning-of-defun) (point)))
+      (let ((start (progn (unless (and (zerop (current-column))
+                                       (eq ?\( (char-after)))
+                            (beginning-of-defun))
+                          (point)))
             (end (ignore-errors (end-of-defun) (point))))
         (unless end
           (forward-paragraph)
