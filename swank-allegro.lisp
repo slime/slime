@@ -125,17 +125,23 @@
         (excl::*break-hook* nil))
     (funcall debugger-loop-fn)))
 
+(defun next-frame (frame)
+  (let ((next (excl::int-next-older-frame frame)))
+    (cond ((not next) nil)
+          ((debugger:frame-visible-p next) next)
+          (t (next-frame next)))))
+
 (defun nth-frame (index)
-  (do ((frame *sldb-topframe* (excl::int-next-older-frame frame))
+  (do ((frame *sldb-topframe* (next-frame frame))
        (i index (1- i)))
       ((zerop i) frame)))
 
 (defimplementation compute-backtrace (start end)
   (let ((end (or end most-positive-fixnum)))
-    (loop for f = (nth-frame start) then (excl::int-next-older-frame f)
+    (loop for f = (nth-frame start) then (next-frame f)
 	  for i from start below end
 	  while f
-	  when (debugger:frame-visible-p f) collect f)))
+	  collect f)))
 
 (defimplementation print-frame (frame stream)
   (debugger:output-frame stream frame :moderate))
