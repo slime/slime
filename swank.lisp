@@ -447,6 +447,11 @@ of the toplevel restart."
 
 ;;;;;; Thread based communication
 
+(defvar *default-worker-thread-bindings* '()
+  "An alist to initialize dynamic variables in worker threads.  
+The list has the form ((VAR . VALUE) ...).  Each variable VAR will be
+bound to the corresponding VALUE.")
+
 (defvar *active-threads* '())
 
 (defun read-loop (control-thread input-stream connection)
@@ -487,11 +492,24 @@ of the toplevel restart."
   (let ((c *emacs-connection*))
     (etypecase id
       ((member t)
-       (spawn (lambda () (handle-request c)) :name "worker"))
+       (spawn-worker-thread c))
       ((member :repl-thread)
        (repl-thread c))
       (fixnum
        (find-thread id)))))
+
+(defun spawn-worker-thread (connection)
+  (spawn (lambda () 
+           (call-with-bindings *default-worker-thread-bindings*
+                               (lambda () 
+                                 (handle-request connection))))
+         :name "worker"))
+
+(defun call-with-bindings (alist fn)
+  (let ((vars (mapcar #'car alist))
+        (vals (mapcar #'cdr alist)))
+    (progv vars vals
+      (funcall fn))))
   
 (defun dispatch-event (event socket-io)
   "Handle an event triggered either by Emacs or within Lisp."
