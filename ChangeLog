@@ -1,5 +1,23 @@
 2004-03-09  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* swank-openmcl.lisp (preferred-communication-style): Implemented.
+	(call-without-interrupts, getpid): Use defimplementation.
+	(arglist, swank-compile-file, swank-compile-string)
+	(swank-compile-system, backtrace): Renamed.
+	(print-frame): New function.
+	(frame-catch-tags): Don't exclude nil source location.
+	(format-restarts-for-emacs, debugger-info-for-emacs,
+	inspect-in-frame). deleted
+	(frame-arguments): Don't use to-string.
+	(find-source-locations, find-function-locations
+	(method-source-location): Deleted.
+	(canonicalize-location, find-definitions,
+	function-source-location, list-callers): Use
+	ccl::edit-definition-p and
+	ccl::get-source-files-with-types&classes.  Makes things easier.
+	(return-from-frame): Take a sexp not a string.
+	(describe-definition): Describe more types.
+
 	* swank-loader.lisp: Change load order. swank.lisp is now the last
 	file.
 
