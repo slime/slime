@@ -21,7 +21,7 @@ Sparc). It generally works very well on x86 so it remains the default.
 
 ** SBCL
 
-We require SBCL 0.8.12 or higher.
+We require SBCL 0.8.13 or higher.
 
 The (v)iew-source command in the debugger can only locate exact source
 forms for code compiled at (debug 2) or higher. The default level is
