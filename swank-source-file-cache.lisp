@@ -85,8 +85,11 @@ Snippets at the beginning of definitions are used to tell Emacs what
 the definitions looks like, so that it can accurately find them by
 text search.")
 
-(defun read-snippet (stream)
-  "Read a string of upto *SOURCE-SNIPPET-SIZE* characters from STREAM."
+(defun read-snippet (stream &optional position)
+  "Read a string of upto *SOURCE-SNIPPET-SIZE* characters from STREAM.
+If POSITION is given, set the STREAM's file position first."
+  (when position
+    (file-position stream position))
   #+SBCL (skip-comments-and-whitespace stream)
   (read-upto-n-chars stream *source-snippet-size*))
 
