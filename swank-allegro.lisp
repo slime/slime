@@ -34,7 +34,7 @@
 (import-swank-mop-symbols :clos '(:slot-definition-documentation))
 
 (defun swank-mop:slot-definition-documentation (slot)
-  (documentation slot))
+  (documentation slot t))
 
 ;;;; TCP Server
 
@@ -271,16 +271,33 @@
 
 (defun fspec-primary-name (fspec)
   (etypecase fspec
-    (symbol (string fspec))
-    (list (string (second fspec)))))
+    (symbol fspec)
+    (list (fspec-primary-name (second fspec)))))
 
+;; If Emacs uses DOS-style eol conventions, \n\r are considered as a
+;; single character, but file-position counts them as two.  Here we do
+;; our own conversion.
+(defun count-cr (file pos)
+  (let* ((bufsize 256)
+         (buf (make-array bufsize :element-type '(unsigned-byte 8)))
+         (cr-count 0))
+    (with-open-file (stream file :direction :input)
+      (loop for bytes-read = (read-sequence buf stream) do
+           (incf cr-count (count (char-code #\return) buf 
+                                 :end (min pos bytes-read)))
+           (decf pos bytes-read)
+           (when (<= pos 0)
+             (return cr-count))))))
+              
 (defun find-definition-in-file (fspec type file)
-  (let* ((start (scm:find-definition-in-file fspec type file))
+  (let* ((start (or (scm:find-definition-in-file fspec type file)
+                    (scm:find-definition-in-file (fspec-primary-name fspec)
+                                                 type file)))
          (pos (if start
-                  (list :position (1+ start))
-                  (list :function-name (fspec-primary-name fspec)))))
-         (make-location (list :file (namestring (truename file)))
-                        pos)))
+                  (list :position (1+ (- start (count-cr file start))))
+                  (list :function-name (string (fspec-primary-name fspec))))))
+    (make-location (list :file (namestring (truename file)))
+                   pos)))
   
 (defun find-definition-in-buffer (filename)
   (let ((pos (position #\; filename :from-end t)))
@@ -391,21 +408,6 @@
 (defimplementation make-default-inspector ()
   (make-instance 'acl-inspector))
 
-(defimplementation inspect-for-emacs ((o t) (inspector acl-inspector))
-  (declare (ignore inspector))
-  (values "A value."
-          `("Type: " (:value ,(class-of o))
-            (:newline)
-            "Slots:" (:newline)
-            ,@(loop
-                 for slot in (clos:class-slots class)
-                 for name = (clos:slot-definition-name slot)
-                 collect `(:value ,name)
-                 collect " = "
-                 collect (if (slot-boundp o name)
-                             `(:value ,(slot-value o name))
-                             "#<unbound>")))))
-
 ;; duplicated from swank.lisp in order to avoid package dependencies
 (defun common-seperated-spec (list &optional (callback (lambda (v) `(:value ,v))))
   (butlast
@@ -414,13 +416,17 @@
       collect (funcall callback i)
       collect ", ")))
 
-(defmethod inspect-for-emacs ((f function) (inspector acl-inspector))
+#-allegro-v5.0
+(defmethod inspect-for-emacs ((f function) inspector)
+  inspector
   (values "A function."
-          `("Name: " (:value ,(function-name f)) (:newline)
-            "Its argument list is: " ,(princ-to-string (arglist f)) (:newline)
-            ,@ (let ((doc (documentation (excl::external-fn_symdef f) 'function)))
-                 (when doc
-                   `("Documentation:" (:newline) ,doc))))))
+          (append
+           (label-value-line "Name" (function-name f))
+           `("Formals" ,(princ-to-string (arglist f)) (:newline))
+           (let ((doc (documentation (excl::external-fn_symdef f) 'function)))
+             (when doc
+               `("Documentation:" (:newline) ,doc))))))
+
 
 (defmethod inspect-for-emacs ((class structure-class) (inspector acl-inspector))
   (values "A structure class."
@@ -457,15 +463,15 @@
                                `(:value ,(swank-mop:class-prototype class))
                                '"N/A (class not finalized)"))))
 
-#-:allegro-v5.0
+#-allegro-v5.0
 (defmethod inspect-for-emacs ((slot excl::structure-slot-definition) 
                               (inspector acl-inspector))
   (values "A structure slot." 
           `("Name: " (:value ,(swank-mop:slot-definition-name slot))
             (:newline)
             "Documentation:" (:newline)
-            ,@(when (documentation slot)
-                `((:value ,(documentation slot)) (:newline)))
+            ,@(when (documentation slot t)
+                `((:value ,(documentation slot t)) (:newline)))
             "Initform: " ,(if (swank-mop:slot-definition-initform slot)
                              `(:value ,(swank-mop:slot-definition-initform slot))
                              "#<unspecified>") (:newline)
@@ -497,6 +503,37 @@
                  else
                    collect "#<unbound>"
                  collect '(:newline)))))
+
+(defmethod inspect-for-emacs ((o t) (inspector acl-inspector))
+  inspector
+  (values "A value." (allegro-inspect o)))
+
+(defmethod inspect-for-emacs ((o function) (inspector acl-inspector))
+  inspector
+  (values "A function." (allegro-inspect o)))
+
+(defun allegro-inspect (o)
+  (loop for (d dd) on (inspect::inspect-ctl o)
+        until (eq d dd)
+        for i from 0
+        append (frob-allegro-field-def o d i)))
+
+(defun frob-allegro-field-def (object def idx)
+  (with-struct (inspect::field-def- name type access) def
+    (label-value-line name
+                      (ecase type
+                        ((:unsigned-word :unsigned-byte :unsigned-natural 
+                                         :unsigned-half-long)
+                         (inspect::component-ref-v object access type))
+                        (:lisp       
+                         (inspect::component-ref object access))
+                        (:indirect 
+                         (apply #'inspect::indirect-ref object idx access))))))
+
+#|
+(defun test (foo)
+  (inspect::show-object-structure foo (inspect::inspect-ctl foo) 1))
+|#
 
 ;;;; Multithreading
 
