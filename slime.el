@@ -6082,7 +6082,7 @@ BODY returns true if the check succeeds."
               (slime-repl-send-input)))
   (:one-liner "Resend the last form."))
 
-(defslime-repl-shortcut slime-repl-sayoonara ("sayoonara")
+(defslime-repl-shortcut slime-repl-sayoonara ("sayoonara" "quit")
   (:handler (lambda ()
               (interactive)
               (when (slime-connected-p)
