@@ -860,15 +860,14 @@ has changed, ignore the request."
   (to-string (eval-in-frame (from-string string) index)))
 
 (defun frame-locals-for-emacs (frame-index)
-  (mapcar (lambda (frame-locals)
-            (loop
-               for (key value) on frame-locals by #'cddr
-               collect key
-               if (member key (list :name :value))
-                 collect (to-string value)
-               else
-                 collect value))
-          (frame-locals frame-index)))
+  (let ((*print-readably* nil)
+        (*print-pretty* t)
+        (*print-circle* t))
+    (mapcar (lambda (frame-locals)
+              (destructuring-bind (&key name id value) frame-locals
+                (list :name (princ-to-string name) :id id
+                      :value (to-string value))))
+            (frame-locals frame-index))))
 
 
 ;;;; Evaluation
