@@ -78,9 +78,15 @@ Return the form and the source-map."
   
 (defun source-path-stream-position (path stream)
   "Search the source-path PATH in STREAM and return its position."
+  (check-source-path path)
   (destructuring-bind (tlf-number . path) path
     (multiple-value-bind (form source-map) (read-source-form tlf-number stream)
       (source-path-source-position (cons 0 path) form source-map))))
+
+(defun check-source-path (path)
+  (unless (and (consp path)
+               (every #'integerp path))
+    (error "The source-path ~S is not valid." path)))
 
 (defun source-path-string-position (path string)
   (with-input-from-string (s string)
