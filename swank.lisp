@@ -16,12 +16,6 @@
 
 (in-package :swank)
 
-;; Directly exported backend functions.
-(export '(arglist-string backtrace function-source-location-for-emacs
-          frame-locals frame-catch-tags frame-source-position
-          frame-source-location-for-emacs
-          eval-in-frame eval-string-in-frame))
-
 (defvar *swank-io-package*
   (let ((package (make-package "SWANK-IO-PACKAGE")))
     (import '(nil t quote) package)
@@ -239,6 +233,7 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 Sends a message to Emacs declaring that the debugger has been entered,
 then waits to handle further requests from Emacs. Eventually returns
 after Emacs causes a restart to be invoked."
+  (declare (ignore hook))
   (let ((*swank-debugger-condition* condition)
         (*package* *buffer-package*))
     (let ((*sldb-level* (1+ *sldb-level*)))
@@ -586,8 +581,10 @@ Like `describe-symbol-for-emacs' but with at most one line per item."
   (flet ((first-line (string) 
            (let ((pos (position #\newline string)))
              (if (null pos) string (subseq string 0 pos)))))
-    (list* :designator (to-string symbol)
-           (map-if #'stringp #'first-line (describe-symbol-for-emacs symbol)))))
+    (let ((desc (map-if #'stringp #'first-line 
+                        (describe-symbol-for-emacs symbol))))
+      (if desc 
+          (list* :designator (to-string symbol) desc)))))
 
 (defun map-if (test fn &rest lists)
   "Like (mapcar FN . LISTS) but only call FN on objects satisfying TEST.
@@ -635,11 +632,11 @@ that symbols accessible in the current package go first."
   (print-output-to-string (lambda () (describe object))))
 
 (defslimefun describe-symbol (symbol-name)
-  (print-description-to-string (symbol-from-string symbol-name)))
+  (print-description-to-string (find-symbol-designator symbol-name)))
 
 (defslimefun describe-function (symbol-name)
   (print-description-to-string
-   (symbol-function (symbol-from-string symbol-name))))
+   (symbol-function (find-symbol-designator symbol-name))))
 
 (defslimefun documentation-symbol (symbol-name)
   (let ((*package* *buffer-package*))
@@ -661,7 +658,7 @@ that symbols accessible in the current package go first."
   (untrace))
 
 (defslimefun load-file (filename)
-  (load filename))
+  (to-string (load filename)))
 
 (defslimefun throw-to-toplevel ()
   (throw 'slime-toplevel nil))
