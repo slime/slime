@@ -48,7 +48,8 @@
 ;; The following defitinions are workarounds for the buggy
 ;; no-applicable-method function in Allegro 5.  We have to provide an
 ;; implementation.
-(defimplementation emacs-connected ())
+(defimplementation emacs-connected (stream)
+  (declare (ignore stream)))
 
 (defimplementation format-sldb-condition (c)
   (princ-to-string c))

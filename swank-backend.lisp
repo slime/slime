@@ -133,14 +133,17 @@ a stream for the new connection.")
 ;;; Base condition for networking errors.
 (define-condition network-error (simple-error) ())
 
-(definterface emacs-connected ()
+(definterface emacs-connected (stream)
    "Hook called when the first connection from Emacs is established.
 Called from the INIT-FN of the socket server that accepts the
 connection.
 
 This is intended for setting up extra context, e.g. to discover
-that the calling thread is the one that interacts with Emacs."
-   nil)
+that the calling thread is the one that interacts with Emacs.
+
+STREAM is the redirected user output stream to Emacs.  This is passed
+so that the backend can apply buffer flushing magic."  
+  nil)
 
 
 ;;;; Unix signals

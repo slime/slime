@@ -270,8 +270,7 @@ Redirection is done while Lisp is processing a request for Emacs.")
   (funcall (connection.serve-requests connection) connection))
 
 (defun init-emacs-connection (connection)
-  (declare (ignore connection))
-  (emacs-connected))
+  (emacs-connected (connection.user-io connection)))
 
 (defun announce-server-port (file port)
   (with-open-file (s file

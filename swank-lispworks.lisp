@@ -64,7 +64,8 @@
   (sys::set-signal-handler +sigint+ 
                            (make-sigint-handler mp:*current-process*)))
 
-(defimplementation emacs-connected ()
+(defimplementation emacs-connected (stream)
+  (declare (ignore stream))
   (set-sigint-handler)
   (let ((lw:*handle-warn-on-redefinition* :warn))
     (defmethod stream:stream-soft-force-output  ((o comm:socket-stream))
@@ -226,10 +227,10 @@ Return NIL if the symbol is unbound."
 	(push frame backtrace)))))
 
 (defun frame-actual-args (frame)
-    (mapcar (lambda (arg)
-              (handler-case (dbg::dbg-eval arg frame)
-                (error (format nil "<~A>" arg))))
-            (dbg::call-frame-arglist frame)))
+  (mapcar (lambda (arg)
+            (handler-case (dbg::dbg-eval arg frame)
+              (error (format nil "<~A>" arg))))
+          (dbg::call-frame-arglist frame)))
 
 (defimplementation print-frame (frame stream)
   (cond ((dbg::call-frame-p frame)
@@ -475,7 +476,7 @@ Return NIL if the symbol is unbound."
     (loop for object across callers
           collect (if (symbolp object)
 		      (list 'function object)
-		    (dspec:object-dspec object)))))
+                      (dspec:object-dspec object)))))
 
 ;; only for lispworks 4.2 and above
 #-lispworks4.1

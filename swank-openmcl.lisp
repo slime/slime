@@ -85,8 +85,9 @@
 (defimplementation accept-connection (socket)
   (ccl:accept-connection socket :wait t))
 
-(defimplementation emacs-connected ()
-  (setq ccl::*interactive-abort-process* ccl::*current-process*))
+(defimplementation emacs-connected (stream)
+  (setq ccl::*interactive-abort-process* ccl::*current-process*)
+  (push stream ccl::*auto-flush-streams*))
 
 ;;; Unix signals
 
