@@ -30,7 +30,7 @@
            #+lispworks '("swank-lispworks" "swank-gray")
            #+allegro '("swank-allegro" "swank-gray")
            #+clisp '("xref" "metering" "swank-clisp" "swank-gray")
-           #+armedbear '("swank-abcl" "swank-gray")
+           #+armedbear '("swank-abcl")
            )))
 
 (defparameter *lisp-name*
