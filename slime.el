@@ -1212,7 +1212,7 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
           (cond ((file-exists-p (slime-swank-port-file))
                  (let ((port (slime-read-swank-port)))
                    (delete-file (slime-swank-port-file))
-                   (slime-connect "localhost" port)))
+                   (slime-connect "127.0.0.1" port)))
                 ((and retries (zerop retries))
                  (message "Failed to connect to Swank."))
                 (t
@@ -1223,7 +1223,7 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
 
 (defun slime-connect (host port &optional kill-old-p)
   "Connect to a running Swank server"
-  (interactive (list (read-from-minibuffer "Host: " "localhost")
+  (interactive (list (read-from-minibuffer "Host: " "127.0.0.1")
                      (read-from-minibuffer "Port: " "4005" nil t)
                      (if (null slime-net-processes)
                          t
@@ -2001,7 +2001,7 @@ update window-point afterwards.  If point is initially not at
   (let ((stream (open-network-stream "*lisp-output-stream*" 
                                      (slime-with-connection-buffer ()
                                        (current-buffer))
-				     "localhost" port)))
+				     "127.0.0.1" port)))
     (when slime-kill-without-query-p
       (process-kill-without-query stream))
     (set-process-filter stream 'slime-output-filter)
@@ -2168,7 +2168,13 @@ end end."
     (slime-insert-propertized '(face slime-repl-result-face) result)
     (unless (bolp) (insert "\n"))
     (let ((prompt-start (point))
-          (prompt (format "%s> "  (slime-lisp-package))))
+          (prompt (if (sldb-find-buffer)
+                      ;; Debugger is active: add debug level to prompt
+                      (format "%s[%S]> "
+                              (slime-lisp-package)
+                              (with-current-buffer (sldb-find-buffer)
+                                sldb-level))
+                    (format "%s> "  (slime-lisp-package)))))
       (slime-propertize-region
           '(face slime-repl-prompt-face
                  read-only t
@@ -2333,19 +2339,22 @@ With prefix argument send the input even if the parenthesis are not
 balanced."
   (interactive)
   (slime-check-connected)
-  (assert (<= (point) slime-repl-input-end-mark))
-  (cond ((get-text-property (point) 'slime-repl-old-input)
-         (slime-repl-grab-old-input))
-        (current-prefix-arg
-         (slime-repl-send-input))
-        (slime-repl-read-mode ; bad style?
-         (slime-repl-send-input t))
-        ((slime-input-complete-p slime-repl-input-start-mark 
-                                 slime-repl-input-end-mark)
-         (slime-repl-send-input t))
-        (t 
-         (slime-repl-newline-and-indent)
-         (message "[input not complete]"))))
+  ;; If the REPL is in the debugger then pop up SLDB instead.
+  (if (sldb-find-buffer slime-current-thread)
+      (pop-to-buffer (sldb-find-buffer slime-current-thread))
+    (assert (<= (point) slime-repl-input-end-mark))
+    (cond ((get-text-property (point) 'slime-repl-old-input)
+           (slime-repl-grab-old-input))
+          (current-prefix-arg
+           (slime-repl-send-input))
+          (slime-repl-read-mode ; bad style?
+           (slime-repl-send-input t))
+          ((slime-input-complete-p slime-repl-input-start-mark 
+                                   slime-repl-input-end-mark)
+           (slime-repl-send-input t))
+          (t 
+           (slime-repl-newline-and-indent)
+           (message "[input not complete]")))))
 
 (defun slime-repl-send-input (&optional newline)
   "Goto to the end of the input and send the current input.
@@ -5407,8 +5416,8 @@ Full list of commands:
 (defvar sldb-buffers '()
   "List of sldb-buffers.")
 
-(defun sldb-find-buffer (thread)
-  (cdr (assoc* (cons (slime-connection) thread) 
+(defun sldb-find-buffer (&optional thread)
+  (cdr (assoc* (cons (slime-connection) (or thread slime-current-thread) )
                sldb-buffers 
                :test #'equal)))
 
@@ -7404,13 +7413,12 @@ Unless optional argument INPLACE is non-nil, return a new string."
 
 (slime-defun-if-undefined line-beginning-position (&optional n)
   (save-excursion
-    (forward-line n)
+    (beginning-of-line n)
     (point)))
 
 (slime-defun-if-undefined line-end-position (&optional n)
   (save-excursion
-    (forward-line n)
-    (end-of-line)
+    (end-of-line n)
     (point)))
 
 (slime-defun-if-undefined check-parens ()
