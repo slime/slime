@@ -1,3 +1,9 @@
+2004-06-18  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-repl-return): If the user presses return on old
+	REPL input then take it and insert it as the current input.
+	Signal an error if the point is not on any input.
+
 2004-06-17  Luke Gorrie  <luke@bluetail.com>
 
 	* swank-loader.lisp (binary-pathname): Place fasl files under
