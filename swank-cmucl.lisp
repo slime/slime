@@ -339,15 +339,17 @@ the error-context redundant."
                                   (pos (eql nil)) 
                                   (path (eql nil))
                                   (source (eql nil)))
+  (list :error "No error location available")
+  #+(or)
   (cond (buffer
          (make-location (list :buffer buffer) 
                         (list :position *buffer-start-position*)))
         (*compile-file-truename*
          (make-location (list :file (namestring *compile-file-truename*))
-                        (list :position 0)))
+                        (list :source-path '(0) 1)))
         (*compile-filename*
          (make-location (list :file *compile-filename*)
-                        (list :position 0)))
+                        (list :source-path '(0) 1)))
         (t 
          (list :error "No error location available"))))
 
@@ -365,9 +367,7 @@ the error-context redundant."
   (with-compilation-hooks ()
     (let ((*buffer-name* nil)
           (*compile-filename* filename))
-      (let ((fasl-file (compile-file filename)))
-        (when (and load-p fasl-file)
-          (load fasl-file))))))
+      (compile-file filename :load load-p))))
 
 (defimplementation compile-string-for-emacs (string &key buffer position)
   (with-compilation-hooks ()
@@ -1026,10 +1026,6 @@ stack."
   (swank-pprint 
    (multiple-value-list
     (di:eval-in-frame (nth-frame index) (from-string string)))))
-
-(defslimefun inspect-in-frame (string index)
-  (reset-inspector)
-  (inspect-object (di:eval-in-frame (nth-frame index) (from-string string))))
 
 (defimplementation frame-locals (index)
   (let* ((frame (nth-frame index))
