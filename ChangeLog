@@ -1,3 +1,14 @@
+2004-06-22  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-output-filter): Choose connection based on
+	process-buffer, not current buffer. This fixes a bug where output
+	from multiple Lisp sessions could get mixed up.
+	(slime-kill-all-buffers): Include all *inferior-lisp*[<n>] buffers.
+	Split the customize settings into more subgroups.
+
+	* swank.lisp (prefixed-var): Intern *REAL-STANDARD-INPUT* etc in
+	the SWANK package instead of the COMMON-LISP package.
+
 2004-06-21  Luke Gorrie  <luke@bluetail.com>
 
 	* swank-loader.lisp (*lisp-name*): Add version number to
