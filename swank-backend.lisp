@@ -83,7 +83,8 @@
    #:slot-definition-readers
    #:slot-definition-writers
    ;; generic function protocol
-   #:compute-applicable-methods-using-classes))
+   #:compute-applicable-methods-using-classes
+   #:finalize-inheritance))
 
 (in-package :swank-backend)
 
