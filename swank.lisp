@@ -101,7 +101,7 @@ include some arbitrary initial value like NIL."
 ;;; Lisp one.
 
 (defmacro add-hook (place function)
-  "Add FUNCTION to the list of values on HOOK-VARIABLE."
+  "Add FUNCTION to the list of values on PLACE."
   `(pushnew ,function ,place))
 
 (defun run-hook (functions &rest arguments)
@@ -1056,8 +1056,9 @@ pretty printing of (function foo) as #'foo is suppressed."
   (with-buffer-syntax ()
     (let ((sym (parse-symbol variable-name)))
       (if (and sym (boundp sym))
-          (let ((*print-pretty* nil))
-            (format nil "~A => ~A" sym (symbol-value sym)))))))
+          (let ((*print-pretty* nil) (*print-level* 4)
+                (*print-length* 10) (*print-circle* t))
+             (format nil "~A => ~A" sym (symbol-value sym)))))))
 
 (defslimefun arglist-for-insertion (name)
   (with-buffer-syntax ()
