@@ -1,7 +1,11 @@
+;;; -*- indent-tabs-mode: nil -*-
 
 (declaim (optimize debug))
 
 (in-package :swank)
+
+(defun without-interrupts* (body)
+  (sys:without-interrupts (funcall body)))
 
 ;;; Setup and hooks.
 
@@ -63,6 +67,7 @@
     (:file-position nil)
     (:element-type 'base-char)
     (:get-command nil)
+    (:close nil)
     (t (format *terminal-io* "~&~Astream: ~S~%" stream operation))))
 
 (defstruct (slime-input-stream
@@ -99,7 +104,8 @@
     (:charpos nil)
     (:line-length nil)
     (:get-command nil)
-    (:element-type 'base-char)))
+    (:element-type 'base-char)
+    (:close nil)))
 
 (defun create-swank-server (port &key reuse-address (address "localhost"))
   "Create a SWANK TCP server."
@@ -121,11 +127,11 @@
 (defun setup-request-handler (socket)
   "Setup request handling for SOCKET."
   (let* ((stream (sys:make-fd-stream socket
-                                    :input t :output t
-                                    :element-type 'base-char))
-	 (input (make-slime-input-stream))
-	 (output (make-slime-output-stream))
-	 (io (make-two-way-stream input output)))
+                                     :input t :output t
+                                     :element-type 'base-char))
+         (input (make-slime-input-stream))
+         (output (make-slime-output-stream))
+         (io (make-two-way-stream input output)))
     (system:add-fd-handler socket
                            :input (lambda (fd)
                                     (declare (ignore fd))
