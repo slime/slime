@@ -1183,8 +1183,7 @@ See `slime-translate-from-lisp-filename-function'."
   (let* ((process (slime-net-connect host port))
          (slime-dispatching-connection process))
     (message "Initial handshake...")
-    (slime-setup-connection process)
-    (message "Connected. %s" (slime-random-words-of-encouragement))))
+    (slime-setup-connection process)))
 
 (defun slime-start-and-load (filename &optional package)
   "Start Slime, if needed, load the current file and set the package."
@@ -1769,7 +1768,8 @@ This is automatically synchronized from Lisp.")
   (setq slime-state-name "")            ; FIXME
   (slime-hide-inferior-lisp-buffer)
   (slime-init-output-buffer connection)
-  (run-hooks 'slime-connected-hook))
+  (run-hooks 'slime-connected-hook)
+  (message "Connected. %s" (slime-random-words-of-encouragement)))
 
 (defun slime-generate-connection-name (lisp-name)
   (loop for i from 1
