@@ -1477,7 +1477,10 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 
 (defimplementation print-frame (frame stream)
   (let ((*standard-output* stream))
-    (debug::print-frame-call frame :verbosity 1 :number nil)))
+    (handler-case 
+        (debug::print-frame-call frame :verbosity 1 :number nil)
+      (error (e)
+        (ignore-errors (princ e stream))))))
 
 (defimplementation frame-source-location-for-emacs (index)
   (code-location-source-location (di:frame-code-location (nth-frame index))))
