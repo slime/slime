@@ -1,3 +1,8 @@
+2003-11-27  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-swank-port-file): Use `temporary-file-directory'
+	instead of hardcoding "/tmp/".
+
 2003-11-27  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-lispworks.lisp: New backend.
@@ -25,11 +30,16 @@
 
 2003-11-27  Luke Gorrie  <luke@bluetail.com>
 
+	* slime.el (slime-complete-symbol): Make a bogus alist out of the
+	completion set, for compatibility with XEmacs.
+
 	* completer.el: Stolen^Wimported from ILISP version 1.4. This is
 	one revision prior to their latest, where they added a (require)
 	for some other ILISP code. I backed down a revision to make it
 	stand-alone, but this may mean that putting SLIME in the load-path
 	before ILISP will break ILISP. So, beware.
+	(completer-message): Cut dependency on undefined ilisp constant
+	testing for xemacs.
 
 2003-11-27  Zach  <xach@xach.com>
 
