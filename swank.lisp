@@ -343,8 +343,8 @@ format. The cases are as follows:
                         (t (format nil "~A" s))))
                 ;; DO-SYMBOLS can consider the same symbol more than
                 ;; once, so remove duplicates.
-                (remove-duplicates (sort completions
-                                         #'present-symbol-before-p)))))))
+                (remove-duplicates (sort completions #'string<
+                                         :key #'symbol-name)))))))
 
 (defun parse-symbol-designator (string)
   "Parse STRING as a symbol designator.
