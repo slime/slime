@@ -429,6 +429,7 @@ A prefix argument disables this behaviour."
     ("\C-f" slime-describe-function :prefixed t :inferior t :sldb t)
     ("\M-d" slime-disassemble-symbol :prefixed t :inferior t :sldb t)
     ("\C-t" slime-toggle-trace-fdefinition :prefixed t :sldb t)
+    ("\C-u" slime-undefine-function :prefixed t)
     ("\C-a" slime-apropos :prefixed t :inferior t :sldb t)
     ("\M-a" slime-apropos-all :prefixed t :inferior t :sldb t)
     ;; Kinda crappy binding. Maybe we should introduce some extra
@@ -3324,6 +3325,13 @@ compilation."
   (interactive (list (slime-read-symbol-name "Disassemble: ")))
   (slime-eval-describe `(swank:disassemble-symbol ,symbol-name)))
 
+(defun slime-undefine-function (symbol-name)
+  "Unbind the function slot of SYMBOL-NAME."
+  (interactive (list (slime-read-symbol-name "fmakunbound: ")))
+  (slime-eval-async `(swank:undefine-function ,symbol-name)
+                    (slime-buffer-package t)
+                    (lambda (result) (message "%s" result))))
+
 (defun slime-load-file (filename)
   "Load the Lisp file FILENAME."
   (interactive (list 
@@ -5070,23 +5078,14 @@ Confirm that SUBFORM is correctly located."
     '(())
   (slime-check-top-level)
   (slime-eval-async '(cl:loop) "CL-USER" (lambda (_) ))
-  (let ((sldb-hook
-         (lambda ()
-           (slime-check "First interrupt."
-             (when-let (sldb (get-sldb-buffer))
-               (with-current-buffer sldb
-                 (equal sldb-level 1))))
-           (sldb-quit))))
-    (accept-process-output nil 1)
-    (slime-check "In eval state."
-      (not (null slime-rex-continuations)))
-    (slime-interrupt)
-    (slime-wait-condition "First interrupt" (lambda () (slime-sldb-level= 1))
-                          5)
-    (with-current-buffer (get-sldb-buffer)
-      (sldb-quit))
-    (slime-sync-to-top-level 5)
-    (slime-check-top-level)))
+  (accept-process-output nil 1)
+  (slime-check "In eval state." (not (null slime-rex-continuations)))
+  (slime-interrupt)
+  (slime-wait-condition "First interrupt" (lambda () (slime-sldb-level= 1)) 5)
+  (with-current-buffer (get-sldb-buffer) 
+    (sldb-quit))
+  (slime-sync-to-top-level 5)
+  (slime-check-top-level))
 
 (def-slime-test loop-interrupt-continue-interrupt-quit
     ()
@@ -5096,16 +5095,14 @@ Confirm that SUBFORM is correctly located."
   (slime-eval-async '(cl:loop) "CL-USER" (lambda (_) ))
   (slime-wait-condition "running" #'slime-busy-p 5)
   (slime-interrupt)
-  (slime-wait-condition "First interrupt" (lambda () (slime-sldb-level= 1))
-                        5)
+  (slime-wait-condition "First interrupt" (lambda () (slime-sldb-level= 1)) 5)
   (with-current-buffer (get-sldb-buffer)
     (sldb-continue))
   (slime-wait-condition "running" (lambda () (and (slime-busy-p)
                                                    (not (get-sldb-buffer))))
                         5)
   (slime-interrupt)
-  (slime-wait-condition "Second interrupt" (lambda () (slime-sldb-level= 1))
-                        5)
+  (slime-wait-condition "Second interrupt" (lambda () (slime-sldb-level= 1)) 5)
   (with-current-buffer (get-sldb-buffer)
     (sldb-quit))
   (slime-sync-to-top-level 5)
