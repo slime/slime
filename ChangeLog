@@ -1,3 +1,8 @@
+2004-01-29  Michael Weber <michaelw+slime@foldr.org>
+
+	* slime.el, swank-backend.lisp, swank-cmucl.lisp, swank-sbcl.lisp,
+	swank.lisp: Profiler support.
+
 2004-01-23  Alan Ruttenberg <alanralanr@comcast.net>
 
 	* swank-openmcl.lisp: Bind ccl::*signal-printing-errors* to nil
