@@ -37,37 +37,53 @@
 ;;; TCP Server
 
 (defun create-swank-server (port &key (reuse-address t) 
-                            (announce #'simple-announce-function))
+                            (announce #'simple-announce-function)
+                            (background *start-swank-in-background*)
+                            (close *close-swank-socket-after-setup*))
   "Create a Swank TCP server on `port'."
   (let ((server-socket (socket:make-socket :connect :passive :local-port port
                                            :reuse-address reuse-address)))
     (funcall announce (socket:local-port server-socket))
-    (swank-accept-connection server-socket)))
+    (cond (background
+           (mp:process-run-function "Swank" #'accept-loop server-socket close))
+          (t
+           (accept-loop server-socket close)))))
 
-(defun swank-accept-connection (server-socket)
-  "Accept one Swank TCP connection on SOCKET.
-Run the connection handler in a new thread."
-  (loop
-   (request-loop (socket:accept-connection server-socket :wait t))))
+(defun accept-loop (server-socket close)
+  (unwind-protect (cond (close (accept-one-client server-socket))
+                        (t (loop (accept-one-client server-socket))))
+    (close server-socket)))
 
-(defun request-loop (*emacs-io*)
-  "Thread function for a single Swank connection.  Processes requests
-until the remote Emacs goes away."
-  (unwind-protect
-       (let* ((*slime-output* (make-instance 'slime-output-stream))
-              (*slime-input* (make-instance 'slime-input-stream))
-              (*slime-io* (make-two-way-stream *slime-input* *slime-output*)))
-         (loop
-            (catch 'slime-toplevel
-              (with-simple-restart (abort "Return to Slime event loop.")
-                (handler-case (read-from-emacs)
-                  (slime-read-error (e)
-                    (when *swank-debug-p*
-                      (format *debug-io*
-                              "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
-                    (return)))))))
-    (format *terminal-io* "~&;; Swank: Closed connection: ~A~%" *emacs-io*)
-    (close *emacs-io*)))
+(defun accept-one-client (server-socket)
+  (request-loop (socket:accept-connection server-socket :wait t)))
+
+(defun request-loop (stream)
+  (let* ((out (if *use-dedicated-output-stream* 
+                  (open-stream-to-emacs stream)
+                  (make-instance 'slime-output-stream)))
+         (in (make-instance 'slime-input-stream))
+         (io (make-two-way-stream in out)))
+    (do () ((serve-one-request stream out in io)))))
+
+(defun serve-one-request (*emacs-io* *slime-output* *slime-input* *slime-io*)
+  (catch 'slime-toplevel
+    (with-simple-restart (abort "Return to Slime toplevel.")
+      (handler-case (read-from-emacs)
+	(slime-read-error (e)
+	  (when *swank-debug-p*
+	    (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
+	  (close *emacs-io*)
+          (return-from serve-one-request t)))))
+  nil)
+
+(defun open-stream-to-emacs (*emacs-io*)
+  (let* ((listener (socket:make-socket :connect :passive :local-port 0
+                                       :reuse-address t))
+         (port (socket:local-port listener)))
+    (unwind-protect (progn
+                      (eval-in-emacs `(slime-open-stream-to-lisp ,port))
+                      (socket:accept-connection listener :wait t))
+      (close listener))))
 
 (defmethod arglist-string (fname)
   (declare (type string fname))
@@ -109,23 +125,25 @@ until the remote Emacs goes away."
                   (doc 'class)))
       result)))
 
+(defmethod macroexpand-all (form)
+  (excl::walk form))
+
 (defvar *sldb-topframe*)
 (defvar *sldb-source*)
 (defvar *sldb-restarts*)
-	
+
 (defmethod call-with-debugging-environment (debugger-loop-fn)
-  (flet ((break-hook (frame source continue-format-string args condition)
-	   (let ((*sldb-topframe* frame))
-	     (funcall debugger-loop-fn))))
-    (let* ((*debugger-hook* nil)
-	   (*package* *buffer-package*)
-	   (*sldb-restarts* (compute-restarts *swank-debugger-condition*))
-           (*print-pretty* nil)
-           (*print-readably* nil)
-           (*print-level* 3)
-           (*print-length* 10)
-	   (excl::*break-hook* #'break-hook))
-      (break))))
+  (let ((*sldb-topframe* (excl::int-newest-frame))
+        (*debugger-hook* nil)
+        (excl::*break-hook* nil)
+        (*package* *buffer-package*)
+        (*sldb-restarts*
+         (compute-restarts *swank-debugger-condition*))
+        (*print-pretty* nil)
+        (*print-readably* nil)
+        (*print-level* 3)
+        (*print-length* 10))
+    (funcall debugger-loop-fn)))
 
 (defun format-condition-for-emacs ()
   (format nil "~A~%   [Condition of type ~S]"
@@ -169,6 +187,9 @@ until the remote Emacs goes away."
 (defslimefun invoke-nth-restart (index)
   (invoke-restart-interactively (nth-restart index)))
 
+(defslimefun sldb-abort ()
+  (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
+
 (defmethod frame-locals (index)
   (let ((frame (nth-frame index)))
     (loop for i from 0 below (debugger:frame-number-vars frame)
@@ -180,6 +201,10 @@ until the remote Emacs goes away."
 (defmethod frame-catch-tags (index)
   (declare (ignore index))
   nil)
+
+(defmethod frame-source-location-for-emacs (index)
+  (list :error (format nil "Cannot find source for frame: ~A"
+                       (nth-frame index))))
 
 (defvar *buffer-name* nil)
 (defvar *buffer-start-position*)
@@ -210,7 +235,7 @@ until the remote Emacs goes away."
 (defmethod compile-file-for-emacs (*compile-filename* load-p)
   (handler-bind ((warning #'handle-compiler-warning))
     (let ((*buffer-name* nil))
-      (compile-file *compile-filename* :load load-p))))
+      (compile-file *compile-filename* :load-after-compile load-p))))
 
 (defmethod compile-string-for-emacs (string &key buffer position)
   (handler-bind ((warning #'handle-compiler-warning))
@@ -291,7 +316,7 @@ until the remote Emacs goes away."
 (defun xref-results-for-emacs (fspecs)
   (let ((xrefs '()))
     (dolist (fspec fspecs)
-      (loop for location in (fspec-source-locations fspec) 
-            do (push (cons (to-string fspec) location)
-                     xrefs)))
+      (dolist (location (fspec-source-locations fspec))
+        (push (cons (to-string fspec) location) xrefs)))
     (group-xrefs xrefs)))
+
