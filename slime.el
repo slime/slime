@@ -4693,28 +4693,71 @@ was called originally."
 
 ;;;;; Connection listing
 
+(define-derived-mode slime-connection-list-mode fundamental-mode
+  "connection-list"
+  "SLIME Connection List Mode.
+
+\\{slime-connection-list-mode-map}"
+  (when slime-truncate-lines
+    (set (make-local-variable 'truncate-lines) t)))
+
+(slime-define-keys slime-connection-list-mode-map
+  ((kbd "RET") 'slime-goto-connection)
+  ("d"         'slime-connection-list-make-default)
+  ("q"         'slime-temp-buffer-quit))
+
+(defun slime-goto-connection ()
+  (interactive)
+  (let ((slime-dispatching-connection 
+         (slime-find-connection-by-type-name
+          (slime-extract-type-name-from-line))))
+    (slime-switch-to-output-buffer)))
+
+(defun slime-connection-list-make-default ()
+  (interactive)
+  (let ((slime-dispatching-connection 
+         (slime-find-connection-by-type-name
+          (slime-extract-type-name-from-line))))
+    (slime-make-default-connection)
+    (slime-draw-connection-list)))
+
+(defun slime-extract-type-name-from-line ()
+  (save-excursion
+    (beginning-of-line)
+    (search-forward-regexp "[0-9]\\s *\\([0-9a-zA-Z]+\\)")
+    (match-string 1)))
+
 (defun slime-list-connections ()
   "Display a list of all connections."
   (interactive)
   (when (get-buffer "*SLIME connections*")
     (kill-buffer  "*SLIME connections*"))
-  (slime-with-output-to-temp-buffer "*SLIME connections*"
-    (let ((default (slime-connection)))
-      (insert
-       (format "%s%2s  %-7s  %-17s  %-7s %-s\n" " " "Nr" "Name" "Port" "Pid" "Type"))
-      (insert
-       (format "%s%2s  %-7s  %-17s  %-7s %-s\n" " " "--" "----" "----" "---" "----"))
-      (dolist (p slime-net-processes)
-        (let ((slime-dispatching-connection p))
-          (insert
-           (slime-with-connection-buffer (p)
-             (format "%s%2d  %-7s  %-17s  %-7s %-s\n"
-                     (if (eq default p) "*" " ")
-                     (slime-connection-number)
-                     (slime-lisp-implementation-type-name)
-                     (or (process-id p) (process-contact p))
-                     (slime-pid)
-                     (slime-lisp-implementation-type)))))))))
+  (slime-draw-connection-list))
+
+(defun slime-draw-connection-list ()
+  (let ((default-pos nil))
+    (slime-with-output-to-temp-buffer "*SLIME connections*"
+      (slime-connection-list-mode)
+      (let ((default (slime-connection)))
+        (insert
+         (format "%s%2s  %-7s  %-17s  %-7s %-s\n" " " "Nr" "Name" "Port" "Pid" "Type"))
+        (insert
+         (format "%s%2s  %-7s  %-17s  %-7s %-s\n" " " "--" "----" "----" "---" "----"))
+        (dolist (p (reverse slime-net-processes))
+          (let ((slime-dispatching-connection p))
+            (if (eq default p) (setf default-pos (point)))
+            (insert
+             (slime-with-connection-buffer (p)
+               (format "%s%2d  %-7s  %-17s  %-7s %-s\n"
+                       (if (eq default p) "*" " ")
+                       (slime-connection-number)
+                       (slime-lisp-implementation-type-name)
+                       (or (process-id p) (process-contact p))
+                       (slime-pid)
+                       (slime-lisp-implementation-type))))))))
+    (with-current-buffer (get-buffer "*SLIME connections*")
+      (goto-char default-pos))))
+
 
 
 ;;; Inspector

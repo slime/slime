@@ -1,3 +1,9 @@
+2004-02-26  Peter Seibel  <peter@javamonkey.com>
+
+	* slime.el (slime-list-connections): Make the buffer created by
+	this function do a bit more: Can use it to switch to different
+	connections and change the default.
+
 2004-02-26  Marco Baringer  <mb@bese.it>
 
 	* swank-openmcl.lisp (ccl::force-break-in-listener): Pass a
