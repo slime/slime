@@ -87,10 +87,7 @@
                               server-socket)))
 
 (defun swank-accept-connection (server-socket)
-  "Accept one Swank TCP connection on SOCKET and then close it.
-Run the connection handler in a new thread."
-  (let ((socket (ccl:accept-connection server-socket :wait t)))
-    (request-loop socket)))
+  (request-loop (ccl:accept-connection server-socket :wait t)))
 
 (defun request-loop (*emacs-io*)
   "Thread function for a single Swank connection.  Processes requests
@@ -315,26 +312,48 @@ If the backtrace cannot be calculated, this function returns NIL."
   (declare (ignore index))
   nil)
 
-(defun source-info-first-file-name (info)
-  (etypecase info
-    ((or pathname string) (namestring (truename info)))
-    (cons 
-     (etypecase (car info)
-       (cons (source-info-first-file-name (car info)))
-       (standard-method (source-info-first-file-name (cdr info)))
-       ((member function) (source-info-first-file-name (cdr info)))
-       ((member method) (source-info-first-file-name (cdr info)))
-       ((or pathname string) (namestring (truename (car info))))))))
+(defun find-source-locations (symbol name)
+  (let* ((info (ccl::source-file-or-files symbol nil nil nil))
+         (locations '()))
+    (labels ((frob (pathname position)
+               (multiple-value-bind (truename c) 
+                   (ignore-errors (truename pathname))
+                 (cond (c 
+                        (push (list :error (princ-to-string c)) locations))
+                       (t 
+                        (push (make-location (list :file (namestring truename))
+                                             position)
+                              locations)))))
+             (frob* (list position)
+               (etypecase list
+                 (cons (dolist (file list) (frob file position)))
+                 ((or string pathname) (frob list position)))))
+      (etypecase info
+        (null (return-from find-source-locations
+                (list
+                 (list :error 
+                       (format nil "No source info available for ~A" 
+                               symbol)))))
+        ((or string pathname) (frob info (list :function-name name)))
+        (cons
+         (dolist (i info)
+           (typecase (car i)
+             ((member method)
+              (loop for (m . files) in (cdr i) 
+                    do (frob* files (list :function-name name))))
+             ((member function variable method-combination)
+              (frob* (cdr i) (list :function-name name)))
+             (t (list :error "Cannot resolve source info: ~A" info)))))))
+      locations))
+
+(defmethod find-function-locations (fname)
+  (let ((symbol (from-string fname)))
+    (find-source-locations symbol (symbol-name symbol))))
 
 (defun function-source-location (symbol)
   "Return a plist containing a source location for the function
 named SYMBOL."
-  (let ((source-info (ccl::source-file-or-files symbol nil nil nil)))
-    (if source-info
-        (make-location
-         (list :file (source-info-first-file-name source-info))
-         (list :function-name (symbol-name symbol)))
-        (list :error (format nil "No source infor for ~S"  symbol)))))
+  (car (find-source-locations symbol (string symbol))))
 
 (defmethod frame-source-location-for-emacs (index)
   "Return to Emacs the location of the source code for the
@@ -387,65 +406,40 @@ at least the filename containing it."
 
 ;;; Tracing and Disassembly
 
-(defslimefun who-calls (symbol-name)
-  (let ((callers (ccl::callers symbol-name))
-        (result (make-hash-table :test 'equalp))
-        (list nil))
-    (dolist (caller callers)
-      (let ((source-info (ccl::%source-files caller)))
-        (when (and source-info (atom source-info))
-          (let ((filename (namestring (truename source-info)))
-                ;; This is clearly not the real source path but it will
-                ;; get us into the file at least...
-                (source-path '(0)))
-            (push (list (string caller) source-path)
-                        (gethash filename result))))))
-    (maphash #'(lambda (k v)
-                 (push (cons k (list v)) list))
-             result)
-    list))
+(defun tracedp (fname)
+   (ccl::%traced-p fname))
 
+(defslimefun toggle-trace-fdefinition (fname-string)
+   (let ((fname (from-string fname-string)))
+     (cond ((tracedp fname)
+	   (ccl::%untrace-1 fname)
+	   (format nil "~S is now untraced." fname))
+	  (t
+	   (ccl::%trace-0 (list fname))
+	   (format nil "~S is now traced." fname)))))
+
+;;; XREF
+
+(defslimefun list-callers (symbol-name)
+  (let ((callers (ccl::callers (from-string symbol-name))))
+    (group-xrefs 
+     (mapcan (lambda (caller)
+               (mapcar (lambda (loc) (cons (to-string caller) loc))
+                       (typecase caller
+                         (symbol
+                          (find-source-locations caller (symbol-name caller)))
+                         (method 
+                          (let ((n (ccl:method-name  caller)))
+                            (find-source-locations n (symbol-name n))))
+                         (t 
+                          (find-source-locations caller (to-string caller))))))
+             callers))))
+
+(defslimefun-unimplemented who-calls (symbol-name))
 (defslimefun-unimplemented who-references (symbol-name package-name))
 (defslimefun-unimplemented who-binds (symbol-name package-name))
 (defslimefun-unimplemented who-sets (symbol-name package-name))
 (defslimefun-unimplemented who-macroexpands (symbol-name package-name))
-
-(defslimefun-unimplemented find-fdefinition (symbol-name package-name))
-
-(defmethod find-function-locations (fname)
-  (let* ((symbol (from-string fname))
-         (symbol-name (string symbol))
-         (info (ccl::source-file-or-files symbol nil nil nil))
-         (locations '()))
-    (labels ((frob (pathname position)
-               (multiple-value-bind (truename c) (truename pathname)
-                 (cond (c 
-                        (push (list :error (princ-to-string c)) locations))
-                       (t 
-                        (push (make-location (list :file (namestring truename))
-                                             position)
-                              locations)))))
-             (frob* (list position)
-               (etypecase list
-                 (cons (dolist (file list) (frob file position)))
-                 ((or string pathname) (frob list position)))))
-      (etypecase info
-        (null (return-from find-function-locations
-                (list
-                 (list :error 
-                       (format nil "No source info available for ~A" fname)))))
-        ((or string pathname) (frob info (list :function-name fname)))
-        (cons
-         (dolist (i info)
-           (etypecase (car i)
-             ((member method)
-              (loop for (m . files) in (cdr i) 
-                    do (frob* files 
-                              (list :function-name symbol-name))))
-             ((member function) 
-              (frob* (cdr i) 
-                     (list :function-name fname))))))))
-      locations))
 
 ;;; Macroexpansion
 (defslimefun-unimplemented swank-macroexpand-all (string))
