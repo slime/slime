@@ -262,20 +262,6 @@ Return NIL if the symbol is unbound."
 (defmethod find-function-locations (fname)
   (dspec-source-locations (from-string fname)))
 
-;;; Tracing
-
-(defun tracedp (symbol)
-  (member symbol (trace) :test #'eq))
-
-(defslimefun toggle-trace-fdefinition (fname-string)
-  (let ((fname (from-string fname-string)))
-    (cond ((tracedp fname)
-           (compiler::ensure-untrace-1 (list fname))
-	   (format nil "~S is now untraced." fname))
-	  (t
-           (compiler::ensure-trace-1 (list fname))
-	   (format nil "~S is now traced." fname)))))
-
 ;;; callers
 
 (defun stringify-function-name-list (list)
