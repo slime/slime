@@ -1,3 +1,17 @@
+2003-11-23  Luke Gorrie  <luke@bluetail.com>
+
+	* swank-sbcl.lisp (describe-symbol-for-emacs): Don't ask for
+	(documentation SYM 'class), CLHS says there isn't any 'class
+	documentation (and SBCL warns).
+
+	* swank.lisp, swank-cmucl.lisp, swank-sbcl.lisp: Refactored
+	interface through swank-backend.lisp for: swank-compile-file,
+	swank-compile-string, describe-symbol-for-emacs (apropos),
+	macroexpand-all, arglist-string.
+
+	* swank-backend.lisp: New file defining the interface between
+	swank.lisp and the swank-*.lisp implementation files.
+
 2003-11-22  Brian Mastenbrook  <bmastenb@cs.indiana.edu>
 
 	* swank.asd: ASDF definition to load "swank-loader.lisp". This is
