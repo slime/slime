@@ -114,19 +114,21 @@ Backends implement these functions using DEFIMPLEMENTATION."
                                                &rest ,received-args)
                (destructuring-bind ,args ,received-args
                  ,@default-body)))))
-    `(prog1 (defgeneric ,name ,args (:documentation ,documentation))
+    `(progn (defgeneric ,name ,args (:documentation ,documentation))
             (pushnew ',name *interface-functions*)
             ,(if (null default-body)
                  `(pushnew ',name *unimplemented-interfaces*)
-                 (gen-default-impl)))))
+                 (gen-default-impl))
+            ',name)))
 
 (defmacro defimplementation (name args &body body)
   ;; Is this a macro no-no -- should it be pushed out of macroexpansion?
-  `(prog1 (defmethod ,name ,args ,@body)
-    (if (member ',name *interface-functions*)
-        (setq *unimplemented-interfaces*
-              (remove ',name *unimplemented-interfaces*))
-        (warn "DEFIMPLEMENTATION of undefined interface (~S)" ',name))))
+  `(progn (defmethod ,name ,args ,@body)
+          (if (member ',name *interface-functions*)
+              (setq *unimplemented-interfaces*
+                    (remove ',name *unimplemented-interfaces*))
+              (warn "DEFIMPLEMENTATION of undefined interface (~S)" ',name))
+          ',name))
 
 (defun warn-unimplemented-interfaces ()
   "Warn the user about unimplemented backend features.
