@@ -1954,7 +1954,8 @@ update window-point afterwards.  If point is initially not at
     (unless (= (point-max) slime-repl-input-end-mark)
       (slime-mark-output-end)
       (slime-with-output-end-mark
-       (slime-repl-insert-prompt)))))
+       (slime-repl-insert-prompt))
+      (goto-char (point-max))))) ;;!! is the prompt always the last line??
 
 (defun slime-repl-current-input ()
   "Return the current input as string.  The input is the region from
