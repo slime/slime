@@ -1,4 +1,4 @@
-;;;; -*- Mode: lisp; indent-tabs-mode: nil -*-
+;;;; -*- Mode: lisp; indent-tabs-mode: nil; outline-regexp: ";;;;;*"; -*-
 ;;;
 ;;; swank-allegro.lisp --- Allegro CL specific code for SLIME. 
 ;;;
@@ -35,7 +35,7 @@
 (defun without-interrupts* (body)
   (excl:without-interrupts (funcall body)))
 
-;;; TCP Server
+;;;; TCP Server
 
 (defmethod create-socket (port)
   (socket:make-socket :connect :passive :local-port port :reuse-address t))
@@ -49,12 +49,12 @@
 (defmethod accept-connection (socket)
   (socket:accept-connection socket :wait t))
 
-(defmethod spawn (fn &key name)
-  (mp:process-run-function name fn))
-
 (defmethod emacs-connected ())
 
-;;;
+(defslimefun getpid ()
+  (excl::getpid))
+
+;;;; Misc
 
 (defmethod arglist-string (fname)
   (declare (type string fname))
@@ -66,9 +66,6 @@
         (ignore-errors (values (excl:arglist function)))
       (cond (condition (format  nil "(-- ~A)" condition))
             (t (format nil "(~{~A~^ ~})" arglist))))))
-
-(defslimefun getpid ()
-  (excl::getpid))
 
 (defun apropos-symbols (string &optional external-only package)
   (remove-if (lambda (sym)
@@ -98,6 +95,8 @@
 
 (defmethod macroexpand-all (form)
   (excl::walk form))
+
+;;;; Debugger
 
 (defvar *sldb-topframe*)
 (defvar *sldb-source*)
@@ -171,6 +170,8 @@
   (list :error (format nil "Cannot find source for frame: ~A"
                        (nth-frame index))))
 
+;;;; Compiler hooks
+
 (defvar *buffer-name* nil)
 (defvar *buffer-start-position*)
 (defvar *buffer-string*)
@@ -210,6 +211,8 @@
           (*buffer-string* string))
       (eval (from-string
 	     (format nil "(funcall (compile nil '(lambda () ~A)))" string))))))
+
+;;;; Definition Finding
 
 (defun fspec-source-locations (fspec)
   (let ((defs (excl::find-multiple-definitions fspec)))
@@ -251,6 +254,8 @@
                          (format nil "Symbol not fbound: ~A" symbol-name))))
           )))
 
+;;;; XREF
+
 (defun lookup-xrefs (finder name)
   (xref-results-for-emacs (funcall finder (from-string name))))
 
@@ -285,3 +290,23 @@
         (push (cons (to-string fspec) location) xrefs)))
     (group-xrefs xrefs)))
 
+;;;; Multiprocessing 
+
+(defmethod startup-multiprocessing ()
+  (mp:start-scheduler))
+
+(defmethod spawn (fn &key name)
+  (mp:process-run-function name fn))
+
+;; XXX: shurtcut
+(defmethod thread-id ()
+  (mp:process-name mp:*current-process*))
+
+(defmethod thread-name (thread-id)
+  thread-id)
+
+(defmethod make-lock (&key name)
+  (mp:make-process-lock :name name))
+
+(defmethod call-with-lock-held (lock function)
+  (mp:with-process-lock (lock) (funcall function)))
