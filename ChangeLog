@@ -1,3 +1,12 @@
+2003-10-24  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (inferior-slime-return): Command bound to RET in
+	inferior-slime-mode: only send the current input to Lisp if it is
+	a complete expression (or prefix argument is given). Two reasons:
+	it makes the input history contain complete expressions, and it
+	lets us nicely indent multiple-line inputs. (Thanks Raymond Toy
+	for the suggestions.)
+
 2003-10-23  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-maybe-start-lisp): Restart inferior-lisp if the
