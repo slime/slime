@@ -1629,7 +1629,12 @@ This is automatically synchronized from Lisp.")
   (slime-with-connection-buffer ()
     (setq slime-buffer-connection proc))
   (setf (slime-connection-number proc) (incf slime-connection-counter))
-  (slime-set-connection-info proc (slime-eval '(swank:connection-info))))
+  ;; We do our initialization asynchronously. The current function may
+  ;; be called from a timer, and if we setup the REPL from a timer
+  ;; then it mysteriously uses the wrong keymap for the first command.
+  (slime-eval-async '(swank:connection-info)
+                    (lambda (info)
+                      (slime-set-connection-info proc info))))
 
 (defun slime-set-connection-info (connection info)
   "Initialize CONNECTION with INFO received from Lisp."
