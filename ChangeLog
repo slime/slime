@@ -1,4 +1,19 @@
 2003-12-17 Alan Ruttenberg <alanralanr@comcast.net>
+        * slime.el 1.155
+        Allow font choices for backtrack. Add group for customizing them: sldb.
+	Whole thing is enabled with sldb-enable-styled-backtrace which is off by default, for now.
+	Try
+	 '(sldb-condition-face ((t (:foreground "DarkSlateGray" :weight bold))))
+	 '(sldb-detailed-frame-line-face ((t (:foreground "brown" :weight bold :height 1.2))))
+	 '(sldb-local-name-face ((t (:weight bold))))
+	 '(sldb-restart-face ((t (:foreground "DarkBlue" :weight bold))))
+	 '(sldb-restart-number-face ((t (:underline t :weight bold))))
+	 '(sldb-restart-type-face ((t (:foreground "DarkSlateGrey" :weight bold))))
+	 '(sldb-section-face ((t (:weight bold :height 1.2))))
+	 '(sldb-selected-frame-line-face ((t (:foreground "brown" :weight bold :height 1.2))))
+	 '(sldb-topline-face ((t (:foreground "brown" :weight bold :height 1.2))))
+
+2003-12-17 Alan Ruttenberg <alanralanr@comcast.net>
         * slime.el 1.154
 	Allow some face choices in the inspector. Try
 	 '(slime-inspector-label-face ((t (:weight bold))))
