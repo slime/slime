@@ -1016,13 +1016,16 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
                                     
 (defslimefun connection-info ()
   "Return a list of the form: 
-\(PID IMPLEMENTATION-TYPE IMPLEMENTATION-NAME FEATURES)."
+\(PID IMPLEMENTATION-TYPE IMPLEMENTATION-NAME FEATURES 
+ COMMUNICATION-STYLE IMPLEMENTATION-VERSION MACHINE-INSTANCE)."
   (setq *slime-features* *features*)
   (list (getpid)
         (lisp-implementation-type)
         (lisp-implementation-type-name)
         (features-for-emacs)
-        (connection.communication-style *emacs-connection*)))
+        (connection.communication-style *emacs-connection*)
+        (lisp-implementation-version)
+        (machine-instance)))
 
 
 ;;;; Reading and printing
