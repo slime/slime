@@ -1,3 +1,7 @@
+2004-11-20  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-sbcl.lisp (make-socket-io-stream): Add some #+sb-unicode.
+
 2004-11-20  Travis Cross <travis@crosswirecorp.com>
 
 	* swank-sbcl.lisp (thread-status): Fix unbalanced parenthesis.
