@@ -196,12 +196,14 @@ back to the main request handling loop."
   (let* ((string (prin1-to-string-for-emacs object))
          (length (1+ (length string))))
     (with-I/O-lock
-      (loop for position from 16 downto 0 by 8
+      (without-interrupts*
+       (lambda ()
+         (loop for position from 16 downto 0 by 8
             do (write-char (code-char (ldb (byte 8 position) length))
                            *emacs-io*))
-      (write-string string *emacs-io*)
-      (terpri *emacs-io*)
-      (force-output *emacs-io*))))
+         (write-string string *emacs-io*)
+         (terpri *emacs-io*)
+         (force-output *emacs-io*))))))
 
 (defun prin1-to-string-for-emacs (object)
   (with-standard-io-syntax
