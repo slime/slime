@@ -87,7 +87,7 @@
   "Setup request handling for SOCKET."
   (let* ((stream (sys:make-fd-stream socket
                                     :input t :output t
-                                    :element-type 'unsigned-byte))
+                                    :element-type 'base-char))
 	 (input (make-slime-input-stream))
 	 (output (make-slime-output-stream))
 	 (io (make-two-way-stream input output)))
@@ -109,17 +109,6 @@ The request is read from the socket as a sexp and then evaluated."
 		  "~&;; Connection to Emacs lost.~%;; [~A]~%" condition))
 	(sys:invalidate-descriptor (sys:fd-stream-fd *emacs-io*))
  	(close *emacs-io*)))))
-
-(defun read-next-form ()
-  (handler-case 
-      (let* ((length (logior (ash (read-byte *emacs-io*) 16)
-			     (ash (read-byte *emacs-io*) 8)
-			     (read-byte *emacs-io*)))
-	     (string (make-string length)))
-	(sys:read-n-bytes *emacs-io* string 0 length)
-	(read-form string))
-    (condition (c)
-      (throw 'serve-request-catcher c))))
 
 ;;;
 
