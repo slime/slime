@@ -114,6 +114,15 @@ The function recieves a string as argument and should return string.")
   "Function to use for translating Lisp filenames to Emacs filenames.
 See also `slime-translate-to-lisp-filename-function'.")
 
+(defvar slime-event-buffer-name "*slime-events*"
+  "The name of the Slime event buffer.")
+
+(defvar slime-space-information-p t
+  "Whether the SPC key should offer information or not.")
+
+(defvar slime-reply-update-banner-p t
+  "Whether Slime should keep a repl banner updated or not.")
+
 
 ;;; Customize group
 
@@ -1668,8 +1677,8 @@ fixnum a specific thread."))
       (goto-char (point-max)))))
 
 (defun slime-events-buffer ()
-  (or (get-buffer "*slime-events*")
-      (let ((buffer (get-buffer-create "*slime-events*")))
+  (or (get-buffer slime-event-buffer-name)
+      (let ((buffer (get-buffer-create slime-event-buffer-name)))
         (with-current-buffer buffer
           (set (make-local-variable 'outline-regexp) "^(")
           (set (make-local-variable 'comment-start) ";")
@@ -1824,7 +1833,8 @@ deal with that."
                         (expand-file-name default-directory))))
     ;; Emacs21 has the fancy persistent header-line.
     (cond ((boundp 'header-line-format)
-           (setq header-line-format banner)
+           (when slime-reply-update-banner-p
+             (setq header-line-format banner))
            (pop-to-buffer (current-buffer))
            (when (fboundp 'animate-string)
              ;; and dancing text
@@ -1833,7 +1843,10 @@ deal with that."
                                0 0)))
            (slime-repl-insert-prompt ""))
           (t
-           (slime-repl-insert-prompt (concat "; " banner))
+           (slime-repl-insert-prompt 
+            (if slime-reply-update-banner-p
+                (concat "; " banner)
+              ""))
            (pop-to-buffer (current-buffer))))))
 
 (defun slime-init-output-buffer (connection)
@@ -3251,7 +3264,8 @@ Designed to be bound to the SPC key.  Prefix argument can be used to insert
 more than one space."
   (interactive "p")
   (self-insert-command n)
-  (when (and (slime-connected-p)
+  (when (and slime-space-information-p
+             (slime-connected-p)
 	     (or (not (slime-busy-p))
                  ;; XXX should we enable this?
                  ;; (not slime-use-sigint-for-interrupt))
@@ -5413,7 +5427,7 @@ BODY is a series of forms which must return the buffer to be selected."
 
 (def-slime-selector-method ?v
   "the *slime-events* buffer."
-  "*slime-events*")
+  slime-event-buffer-name)
 
 (def-slime-selector-method ?l
   "the most recently visited lisp-mode buffer."
@@ -6004,7 +6018,8 @@ BODY returns true if the check succeeds."
   "Kill all the slime related buffers. This is only used by the
   repl command sayoonara."
   (dolist (buf (buffer-list))
-    (when (or (member (buffer-name buf) '("*inferior-lisp*" "*slime-events*"))
+    (when (or (member (buffer-name buf) '("*inferior-lisp*" 
+                                          slime-event-buffer-name))
               (string-match "\*slime-repl\[\d+\]\*" (buffer-name buf))
               (string-match "\*sldb .*\*" (buffer-name buf)))
       (kill-buffer buf))))
