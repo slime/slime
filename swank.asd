@@ -17,6 +17,5 @@
 ;; use `M-x slime-connect' to connect Emacs to it.
 
 (asdf:defsystem :swank
-    :depends-on (#+SBCL :sb-bsd-sockets)
     :components ((:file "swank-loader")))
 
