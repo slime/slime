@@ -789,19 +789,22 @@ Emacs buffer."
   "Find the symbol named STRING.
 Return the symbol and a flag indicate if the symbols was found."
   (multiple-value-bind (sym pos) (let ((*package* *keyword-package*))
-                                   (read-from-string string))
-    (if (and (symbolp sym) (= (length string) pos))
+                                   (ignore-errors (read-from-string string)))
+    (if (and (symbolp sym) (eql (length string) pos))
         (find-symbol (string sym))
         (values nil nil))))
 
 (defun parse-package (string)
   "Find the package named STRING.
 Return the package or nil."
-  (multiple-value-bind (sym pos) (let ((*package* *keyword-package*))
-                                   (read-from-string string))
+  (multiple-value-bind (sym pos) 
+      (if (zerop (length string))
+          (values :|| 0)
+          (let ((*package* *keyword-package*))
+            (ignore-errors (read-from-string string))))
     (if (and (keywordp sym) (= (length string) pos))
         (find-package sym))))
-  
+
 (defun to-string (string)
   "Write string in the *BUFFER-PACKAGE*."
   (with-buffer-syntax ()
