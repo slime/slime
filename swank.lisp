@@ -589,6 +589,7 @@ of the toplevel restart."
        (declare (ignore thread))
        (send `(,(car event) 0 ,@args)))
       ((:return thread &rest args)
+       (declare (ignore thread))
        (send `(:return ,@args)))
       (((:read-output :new-package :new-features :debug-condition
                       :indentation-update :ed :%apply)
@@ -1521,7 +1522,8 @@ Record compiler notes signalled as `compiler-condition's."
   (with-buffer-syntax ()
     (swank-compiler
      (lambda () 
-       (swank-compile-string string :buffer buffer :position position :directory directory)))))
+       (swank-compile-string string :buffer buffer :position position 
+                             :directory directory)))))
 
 (defslimefun operate-on-system-for-emacs (system-name operation &rest keywords)
   "Compile and load SYSTEM using ASDF.
