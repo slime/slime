@@ -811,6 +811,16 @@ Return NIL if the right version cannot be found."
                  source)
                nil)))))
 
+(defun source-cached-p (filename)
+  "Is any version of FILENAME in the source cache?"
+  (if (gethash filename *source-file-cache*) t))
+
+(defimplementation buffer-first-change (filename)
+  "Load a file into the cache when the user modifies its buffer.
+This is a win if the user then saves the file and tries to M-. into it."
+  (unless (source-cached-p filename)
+    (ignore-errors (source-cache-get filename (file-write-date filename)))))
+
 
 ;;;; Finding definitions
 
