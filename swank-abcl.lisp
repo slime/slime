@@ -310,7 +310,7 @@ Should work (with a patched xref.lisp) but is it any use without find-definition
   #+nil(mp:start-scheduler))
 
 (defimplementation spawn (fn &key name)
-  (ext:make-thread (lambda () (funcall fn))))
+  (ext:make-thread (lambda () (funcall fn)) :name name))
 
 (defvar *thread-props-lock* (ext:make-thread-lock))
 
@@ -331,7 +331,7 @@ Should work (with a patched xref.lisp) but is it any use without find-definition
                 (getf (gethash thread *thread-props*) 'id))))
 
 (defimplementation thread-name (thread)
-  (princ-to-string thread))
+  (ext:thread-name thread))
 
 (defimplementation thread-status (thread)
   (format nil "Thread is ~:[dead~;alive~]" (ext:thread-alive-p thread)))
