@@ -21,16 +21,9 @@
            #:completions
            #:create-server
            #:create-swank-server
-           #:describe-alien-enum
-           #:describe-alien-struct
-           #:describe-alien-type
-           #:describe-alien-union
-           #:describe-class
-           #:describe-function
-           #:describe-inspectee
-           #:describe-setf-function
+           #:describe-definition
            #:describe-symbol
-           #:describe-type
+           #:describe-symbol-for-emacs
            #:disassemble-symbol
            #:documentation-symbol
            #:eval-in-frame
@@ -83,6 +76,7 @@
            #:toggle-trace-fdefinition
            #:untrace-all
            #:wait-goahead
+           #:warn-unimplemented-interfaces
            #:who-binds
            #:who-calls
            #:who-macroexpands
@@ -93,43 +87,84 @@
 (in-package :swank)
 
 
+;;;; Metacode
+
+(defparameter *interface-functions* '()
+  "The names of all interface functions.")
+
+(defparameter *unimplemented-interfaces* '()
+  "List of interface functions that are not implemented.
+DEFINTERFACE adds to this list and DEFIMPLEMENTATION removes.")
+
+(defmacro definterface (name args documentation &body default-body)
+  "Define an interface function for the backend to implement.
+A generic function is defined with NAME, ARGS, and DOCUMENTATION.
+
+If a DEFAULT-BODY is supplied then NO-APPLICABLE-METHOD is specialized
+to execute the body if the backend doesn't provide a specific
+implementation.
+
+Backends implement these functions using DEFIMPLEMENTATION."
+  (flet ((gen-default-impl ()
+           (let ((received-args (gensym "ARGS-")))
+             `(defmethod no-applicable-method ((#:method
+                                                (eql (function ,name)))
+                                               &rest ,received-args)
+               (destructuring-bind ,args ,received-args
+                 ,@default-body)))))
+    `(prog1 (defgeneric ,name ,args (:documentation ,documentation))
+            (pushnew ',name *interface-functions*)
+            ,(if (null default-body)
+                 `(pushnew ',name *unimplemented-interfaces*)
+                 (gen-default-impl)))))
+
+(defmacro defimplementation (name args &body body)
+  ;; Is this a macro no-no -- should it be pushed out of macroexpansion?
+  `(prog1 (defmethod ,name ,args ,@body)
+    (if (member ',name *interface-functions*)
+        (setq *unimplemented-interfaces*
+              (remove ',name *unimplemented-interfaces*))
+        (warn "DEFIMPLEMENTATION of undefined interface (S)" ',name))))
+
+(defun warn-unimplemented-interfaces ()
+  "Warn the user about unimplemented backend features.
+The portable code calls this function at startup."
+  (warn "These Swank interfaces are unimplemented:~% ~A"
+        (sort (copy-list *unimplemented-interfaces*) #'string<)))
+
+
 ;;;; TCP server
 
-(defgeneric create-socket (port)
-  (:documentation "Create a listening TCP socket on port PORT."))
+(definterface create-socket (port)
+  "Create a listening TCP socket on port PORT.")
 
-(defgeneric local-port (socket)
-  (:documentation "Return the local port number of SOCKET."))
+(definterface local-port (socket)
+  "Return the local port number of SOCKET.")
 
-(defgeneric close-socket (socket)
-  (:documentation "Close the socket SOCKET."))
+(definterface close-socket (socket)
+  "Close the socket SOCKET.")
 
-(defgeneric accept-connection (socket)
-  (:documentation 
+(definterface accept-connection (socket)
    "Accept a client connection on the listening socket SOCKET.  Return
-a stream for the new connection."))
+a stream for the new connection.")
 
-(defgeneric add-input-handler (socket fn)
-  (:documentation "Call FN whenever SOCKET is readable."))
+(definterface add-input-handler (socket fn)
+  "Call FN whenever SOCKET is readable.")
 
-(defgeneric remove-input-handlers (socket)
-  (:documentation "Remove all input handlers for SOCKET."))
+(definterface remove-input-handlers (socket)
+  "Remove all input handlers for SOCKET.")
 
 ;;; Base condition for networking errors.
 (define-condition network-error (error) ())
 
-(defgeneric emacs-connected ()
-  (:documentation
+(definterface emacs-connected ()
    "Hook called when the first connection from Emacs is established.
 Called from the INIT-FN of the socket server that accepts the
 connection.
 
 This is intended for setting up extra context, e.g. to discover
-that the calling thread is the one that interacts with Emacs."))
-
-(defmethod no-applicable-method ((m (eql #'emacs-connected)) &rest _)
-  (declare (ignore _))
-  nil)
+that the calling thread is the one that interacts with Emacs."
+   nil)
 
 
 ;;;; Unix signals
@@ -145,28 +180,25 @@ that the calling thread is the one that interacts with Emacs."))
 
 ;;;; Compilation
 
-(defgeneric call-with-compilation-hooks (func)
-  (:documentation
-   "Call FUNC with hooks to trigger SLDB on compiler errors."))
+(definterface call-with-compilation-hooks (func)
+   "Call FUNC with hooks to trigger SLDB on compiler errors.")
 
 (defmacro with-compilation-hooks ((&rest ignore) &body body)
   (declare (ignore ignore))
   `(call-with-compilation-hooks (lambda () (progn ,@body))))
 
-(defgeneric compile-string-for-emacs (string &key buffer position)
-  (:documentation
+(definterface compile-string-for-emacs (string &key buffer position)
    "Compile source from STRING.  During compilation, compiler
 conditions must be trapped and resignalled as COMPILER-CONDITIONs.
 
 If supplied, BUFFER and POSITION specify the source location in Emacs.
 
 Additionally, if POSITION is supplied, it must be added to source
-positions reported in compiler conditions."))
+positions reported in compiler conditions.")
 
-(defgeneric compile-file-for-emacs (filename load-p)
-  (:documentation
+(definterface compile-file-for-emacs (filename load-p)
    "Compile FILENAME signalling COMPILE-CONDITIONs.
-If LOAD-P is true, load the file after compilation."))
+If LOAD-P is true, load the file after compilation.")
 
 (deftype severity () '(member :error :warning :style-warning :note))
 
@@ -192,8 +224,7 @@ If LOAD-P is true, load the file after compilation."))
 
 ;;;; Streams
 
-(defgeneric make-fn-streams (input-fn output-fn)
-  (:documentation
+(definterface make-fn-streams (input-fn output-fn)
    "Return character input and output streams backended by functions.
 When input is needed, INPUT-FN is called with no arguments to
 return a string.
@@ -202,23 +233,20 @@ argument.
 
 Output should be forced to OUTPUT-FN before calling INPUT-FN.
 
-The streams are returned as two values."))
+The streams are returned as two values.")
 
 
 ;;;; Documentation
 
-(defgeneric arglist-string (function-name)
-  (:documentation
+(definterface arglist-string (function-name)
    "Return the argument for FUNCTION-NAME as a string.
-The result should begin and end with parenthesis."))
+The result should begin and end with parenthesis.")
 
-(defgeneric macroexpand-all (form)
-  (:documentation
+(definterface macroexpand-all (form)
    "Recursively expand all macros in FORM.
-Return the resulting form."))
+Return the resulting form.")
 
-(defgeneric describe-symbol-for-emacs (symbol)
-  (:documentation
+(definterface describe-symbol-for-emacs (symbol)
    "Return a property list describing SYMBOL.
 
 The property list has an entry for each interesting aspect of the
@@ -238,13 +266,18 @@ Example:
 \(describe-symbol-for-emacs 'vector)
   => (:CLASS :NOT-DOCUMENTED
       :TYPE :NOT-DOCUMENTED
-      :FUNCTION \"Constructs a simple-vector from the given objects.\")"))
+      :FUNCTION \"Constructs a simple-vector from the given objects.\")")
+
+(definterface describe-definition (name type)
+  "Describe the definition NAME of TYPE.
+TYPE can be any value returned by DESCRIBE-SYMBOL-FOR-EMACS.
+
+Return a documentation string, or NIL if none is available.")
 
 
 ;;;; Debugging
 
-(defgeneric call-with-debugging-environment (debugger-loop-fn)
-  (:documentation
+(definterface call-with-debugging-environment (debugger-loop-fn)
    "Call DEBUGGER-LOOP-FN in a suitable debugging environment.
 
 This function is called recursively at each debug level to invoke the
@@ -252,7 +285,7 @@ debugger loop. The purpose is to setup any necessary environment for
 other debugger callbacks that will be called within the debugger loop.
 
 For example, this is a reasonable place to compute a backtrace, switch
-to safe reader/printer settings, and so on."))
+to safe reader/printer settings, and so on.")
 
 (define-condition sldb-condition (condition)
   ((original-condition
@@ -267,8 +300,7 @@ debug the debugger! Instead, such conditions can be reported to the
 user without (re)entering the debugger by wrapping them as
 `sldb-condition's."))
 
-(defgeneric debugger-info-for-emacs (start end)
-  (:documentation
+(definterface debugger-info-for-emacs (start end)
    "Return debugger state, with stack frames from START to END.
 The result is a list:
   (condition ({restart}*) ({stack-frame}*)
@@ -293,10 +325,9 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
    \"[Condition of type DIVISION-BY-ZERO]\")
   ((\"ABORT\" \"Return to Slime toplevel.\")
    (\"ABORT\" \"Return to Top-Level.\"))
-  ((0 \"(KERNEL::INTEGER-/-INTEGER 1 0)\")))"))
+  ((0 \"(KERNEL::INTEGER-/-INTEGER 1 0)\")))")
 
-(defgeneric backtrace (start end)
-  (:documentation
+(definterface backtrace (start end)
    "Return a list containing a backtrace of the condition current
 being debugged.  The results are unspecified if this function is
 called outside the dynamic contour of a debugger hook defined by
@@ -316,28 +347,24 @@ An example return value:
 
    ((0 \"(HELLO \"world\")\")
     (1 \"(RUN-EXCITING-LISP-DEMO)\")
-    (2 \"(SYS::%TOPLEVEL #<SYS::ENVIRONMENT #x394834>)\"))"))
+    (2 \"(SYS::%TOPLEVEL #<SYS::ENVIRONMENT #x394834>)\"))")
 
-(defgeneric frame-source-location-for-emacs (frame-number)
-  (:documentation
-  "Return the source location for FRAME-NUMBER."))
+(definterface frame-source-location-for-emacs (frame-number)
+  "Return the source location for FRAME-NUMBER.")
 
-(defgeneric frame-catch-tags (frame-number)
-  (:documentation
+(definterface frame-catch-tags (frame-number)
   "Return a list of XXX list of what? catch tags for a debugger
 stack frame.  The results are undefined unless this is called
 within the dynamic contour of a function defined by
-DEFINE-DEBUGGER-HOOK."))
+DEFINE-DEBUGGER-HOOK.")
 
-(defgeneric frame-locals (frame-number)
-  (:documentation
+(definterface frame-locals (frame-number)
    "Return a list of XXX local variable designators define me
 for a debugger stack frame.  The results are undefined unless
 this is called within the dynamic contour of a function defined
-by DEFINE-DEBUGGER-HOOK."))
+by DEFINE-DEBUGGER-HOOK.")
    
-(defgeneric eval-in-frame (form frame-number)
-  (:documentation
+(definterface eval-in-frame (form frame-number)
    "Evaluate a Lisp form in the lexical context of a stack frame
 in the debugger.  The results are undefined unless called in the
 dynamic contour of a function defined by DEFINE-DEBUGGER-HOOK.
@@ -346,15 +373,14 @@ FRAME-NUMBER must be a positive integer with 0 indicating the
 frame which invoked the debugger.
 
 The return value is the result of evaulating FORM in the
-appropriate context."))
+appropriate context.")
 
 
 ;;;; Queries
 
 #+(or)
 ;;; This is probably a better interface than find-function-locations.
-(defgeneric find-definitions (name)
-  (:documentation
+(definterface find-definitions (name)
    "Return a list of (LABEL . LOCATION) pairs for NAME's definitions.
 
 NAME is string denoting a symbol or \"definition specifier\".
@@ -373,10 +399,9 @@ LOCATION is a source location of the form:
 
 <position> ::= (:position <fixnum> [<align>]) ; 1 based
              | (:function-name <string>)
-"))
+")
 
-(defgeneric find-function-locations (name)
-  (:documentation
+(definterface find-function-locations (name)
    "Return a list (LOCATION LOCATION ...) for NAME's definitions.
 
 LOCATION is a source location of the form:
@@ -392,7 +417,7 @@ LOCATION is a source location of the form:
              | (:line <fixnum> [<fixnum>])
              | (:function-name <string>)
              | (:source-path <list> <start-position>)
-"))
+")
 
 
 ;;;; Inspector
@@ -407,21 +432,23 @@ LOCATION is a source location of the form:
 
 
 ;;;; Multiprocessing
+;;;
+;;; The default implementations are sufficient for non-multiprocessing
+;;; implementations.
 
-(defgeneric startup-multiprocessing ()
-  (:documentation
+(definterface startup-multiprocessing ()
    "Initialize multiprocessing, if necessary.
 
 This function is called directly through the listener, not in an RPC
 from Emacs. This is to support interfaces such as CMUCL's
 MP::STARTUP-IDLE-AND-TOP-LEVEL-LOOPS which does not return like a
-normal function."))
+normal function."
+   nil)
 
-(defgeneric spawn (fn &key name)
-  (:documentation "Create a new thread to call FN."))
+(definterface spawn (fn &key name)
+  "Create a new thread to call FN.")
 
-(defgeneric thread-id ()
-  (:documentation
+(definterface thread-id ()
    "Return a value that uniquely identifies the current thread.
 Thread-IDs allow Emacs to refer to individual threads.
 
@@ -432,43 +459,71 @@ and Common Lisp, and short enough to include in the REPL prompt.
 
 For example, a THREAD-ID could be an integer or a short ASCII string.
 
-Systems that do not support multiprocessing return NIL."))
+Systems that do not support multiprocessing return NIL."
+   nil)
 
-(defgeneric thread-name (thread-id)
-  (:documentation
+(definterface thread-name (thread-id)
    "Return the name of the thread identified by THREAD-ID.
 
 Thread names are be single-line strings and are meaningful to the
-user. They do not have to be unique."))
+user. They do not have to be unique."
+   (declare (ignore thread-id))
+   "The One True Thread")
 
-(defgeneric make-lock (&key name)
-  (:documentation
+(definterface make-lock (&key name)
    "Make a lock for thread synchronization.
-Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time."))
+Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time."
+   :null-lock)
 
-(defgeneric call-with-lock-held (lock function)
-  (:documentation
-   "Call FUNCTION with LOCK held, queueing if necessary."))
+(definterface call-with-lock-held (lock function)
+   "Call FUNCTION with LOCK held, queueing if necessary."
+   (declare (ignore lock))
+   (funcall function))
 
 
-;;;;; Default implementation for non-MP systems
+;;;; XREF
 
-;;; Using NO-APPLICABLE-METHOD to supply a default implementation that
-;;; works in systems that don't have multiprocessing.
-;;; (Good or bad idea? -luke)
+(definterface who-calls (function-name)
+  "Return the call sites of FUNCTION-NAME (a string).
+The results are grouped together by filename:
+  <result>    ::= (<file>*)
+  <file>      ::= (<filename> . (<reference>*))
+  <reference> ::= (<label> . <location>)
+  <label>     ::= string
+  <location>  ::= source-location")
 
-(defmethod no-applicable-method ((m (eql #'startup-multiprocessing)) &rest _)
-  (declare (ignore _))
-  nil)
-(defmethod no-applicable-method ((m (eql #'thread-id)) &rest _)
-  (declare (ignore _))
-  nil)
-(defmethod no-applicable-method ((m (eql #'thread-name)) &rest _)
-  (declare (ignore _))
-  "The One True Thread")
-(defmethod no-applicable-method ((m (eql #'make-lock)) &rest _)
-  (declare (ignore _))
-  :null-lock)
-(defmethod no-applicable-method ((m (eql #'call-with-lock-held)) &rest args)
-  (funcall (second args)))
+(definterface who-references (variable-name)
+  "Return the locations where VARIABLE-NAME (a string) is referenced.
+See WHO-CALLS for a description of the return value.")
+
+(definterface who-binds (variable-name)
+  "Return the locations where VARIABLE-NAME (a string) is bound.
+See WHO-CALLS for a description of the return value.")
+
+(definterface who-sets (variable-name)
+  "Return the locations where VARIABLE-NAME (a string) is set.
+See WHO-CALLS for a description of the return value.")
+
+(definterface who-macroexpands (macro-name)
+  "Return the locations where MACRO-NAME (a string) is expanded.
+See WHO-CALLS for a description of the return value.")
+
+(definterface who-specializes (class-name)
+  "Return the locations where CLASS-NAME (a string) is specialized.
+See WHO-CALLS for a description of the return value.")
+
+;;; Simpler variants.
+
+(definterface list-callers (function-name)
+  "List the callers of FUNCTION-NAME.
+This function is like WHO-CALLS except that it is expected to use
+lower-level means. Whereas WHO-CALLS is usually implemented with
+special compiler support, LIST-CALLERS is usually implemented by
+groveling for constants in function objects throughout the heap.
+
+The return value is as for WHO-CALLS.")
+
+(definterface list-callees (function-name)
+  "List the functions called by FUNCTION-NAME.
+See LIST-CALLERS for a description of the return value.")
 
