@@ -1,3 +1,23 @@
+2004-03-16  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-dispatch-event, slime-rex): Pass a form instead
+	of a string with :emacs-rex.
+	(slime-connection-name): New connection variable.  Use it in
+	various places instead of slime-lisp-implementation-type-name.
+
+	* swank.lisp: Better symbol completion for case-inverting
+	readtables.  (Thanks Thomas F. Burdick for suggestions.)
+	(output-case-converter): New function.
+	(find-matching-symbols): Case convert the symbol-name before
+	comparing.
+	(compound-prefix-match, prefix-match-p): Use char= instead of
+	char-equal.
+	(case-convert-input): Renamed from case-convert.
+	(eval-for-emacs): Renamed from eval-string.  Take a form instead
+	of a string.
+	(dispatch-event, read-from-socket-io): Update callers.
+	(eval-region, interactive-eval): Use fresh-line to reset the column.
+
 2004-03-13  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-space): Send a list of the operator names
