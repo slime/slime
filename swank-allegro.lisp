@@ -311,7 +311,7 @@
      "yielding before sending" 0.1
      (lambda ()
        (mp:with-process-lock (mutex)
-         (< (length (mailbox.queue mbox) 10)))))
+         (< (length (mailbox.queue mbox)) 10))))
     (mp:with-process-lock (mutex)
       (setf (mailbox.queue mbox)
             (nconc (mailbox.queue mbox) (list message))))))
