@@ -1,5 +1,7 @@
 2004-04-14  Luke Gorrie  <luke@bluetail.com>
 
+	* doc/slime.texi (Shortcuts): Described REPL shortcuts.
+
 	* slime.el (slime-oos): Generic ASDF interface.
 	(force-compile-system, compile-system, load-system,
 	force-load-system): New REPL commands.
