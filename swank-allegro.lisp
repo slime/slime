@@ -255,7 +255,7 @@
                `(in-package ,(package-name *package*))
                `(eval-when (:compile-toplevel :load-toplevel)
                  (setq excl::*source-pathname*
-                  (format nil "~A;~D" ',buffer ',position)))
+                  ',(format nil "~A;~D" buffer position)))
                string)))))
 
 ;;;; Definition Finding
@@ -266,7 +266,7 @@
     (list (string (second fspec)))))
 
 (defun find-fspec-location (fspec type)
-  (let ((file (excl:source-file fspec type)))
+  (multiple-value-bind (file err) (ignore-errors (excl:source-file fspec type))
     (etypecase file
       (pathname
        (let* ((start (scm:find-definition-in-file fspec type file))
@@ -276,14 +276,18 @@
          (make-location (list :file (namestring (truename file)))
                         pos)))
       ((member :top-level)
-       (list :error (format nil "Defined at toplevel: ~A" (fspec->string fspec))))
+       (list :error (format nil "Defined at toplevel: ~A"
+                            (fspec->string fspec))))
       (string
        (let ((pos (position #\; file :from-end t)))
          (make-location
           (list :buffer (subseq file 0 pos))
           (list :position (parse-integer (subseq file (1+ pos)))))))
       (null 
-       (list :error (format nil "Unknown source location for ~A" (fspec->string fspec)))))))
+       (list :error (if err
+                        (princ-to-string err)
+                        (format nil "Unknown source location for ~A" 
+                                (fspec->string fspec))))))))
 
 (defun fspec->string (fspec)
   (etypecase fspec
