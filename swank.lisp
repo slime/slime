@@ -194,11 +194,10 @@ recently established one."
   "Return the value of *SWANK-STATE-STACK*."
   *swank-state-stack*)
 
-;; Condition for SLIME protocol errors.
-(define-condition slime-read-error (error) 
-  ((condition :initarg :condition :reader slime-read-error.condition))
+(define-condition slime-protocol-error (error) 
+  ((condition :initarg :condition :reader slime-protocol-error.condition))
   (:report (lambda (condition stream)
-             (format stream "~A" (slime-read-error.condition condition)))))
+             (format stream "~A" (slime-protocol-error.condition condition)))))
 
 (add-hook *new-connection-hook* 'notify-backend-of-connection)
 (defun notify-backend-of-connection (connection)
@@ -270,13 +269,17 @@ Redirection is done while Lisp is processing a request for Emacs.")
 
 (defun start-server (port-file &optional (style *communication-style*)
                      dont-close)
+  "Start the server and write the listen port number to PORT-FILE.
+This is the entry point for Emacs."
   (setup-server 0 (lambda (port) (announce-server-port port-file port))
                 style dont-close))
 
 (defun create-server (&key (port default-server-port)
                       (style *communication-style*)
                       dont-close)
-  "Start a SWANK server on PORT."
+  "Start a SWANK server on PORT running in STYLE.
+If DONT-CLOSE is true then the listen socket will accept multiple
+connections, otherwise it will be closed after the first."
   (setup-server port #'simple-announce-function style dont-close))
 
 (defun create-swank-server (&optional (port default-server-port)
@@ -336,7 +339,7 @@ Redirection is done while Lisp is processing a request for Emacs.")
 
 (defun open-streams (connection)
   "Return the 4 streams for IO redirection:
- DEDICATED-OUTPUT INPUT OUTPUT IO"
+DEDICATED-OUTPUT INPUT OUTPUT IO"
   (multiple-value-bind (output-fn dedicated-output) 
       (make-output-function connection)
     (let ((input-fn
@@ -406,7 +409,7 @@ of the toplevel restart."
 
 (defmacro with-reader-error-handler ((connection) &body body)
   `(handler-case (progn ,@body)
-    (slime-read-error (e) (close-connection ,connection e))))
+    (slime-protocol-error (e) (close-connection ,connection e))))
 
 (defun simple-break ()
   (with-simple-restart  (continue "Continue from interrupt.")
@@ -450,6 +453,7 @@ of the toplevel restart."
        (find-thread id)))))
   
 (defun dispatch-event (event socket-io)
+  "Handle an event triggered either by Emacs or within Lisp."
   (log-event "DISPATCHING: ~S~%" event)
   (destructure-case event
     ((:emacs-rex form package thread-id id)
@@ -578,7 +582,6 @@ of the toplevel restart."
        (declare (ignore thread))
        (send `(,(car event) 0 ,@args)))
       ((:return thread &rest args)
-       (declare (ignore thread))
        (send `(:return ,@args)))
       (((:read-output :new-package :new-features :debug-condition
                       :indentation-update :ed :%apply)
@@ -797,7 +800,7 @@ Useful for low level debugging."
 
 (defun decode-message (stream)
   "Read an S-expression from STREAM using the SLIME protocol.
-If a protocol error occurs then a SLIME-READ-ERROR is signalled."
+If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
   (let ((*swank-state-stack* (cons :read-next-form *swank-state-stack*)))
     (flet ((next-byte () (char-code (read-char stream t))))
       (handler-case
@@ -812,7 +815,7 @@ If a protocol error occurs then a SLIME-READ-ERROR is signalled."
               (log-event "READ: ~A~%" string)
               form))
         (serious-condition (c)
-          (error (make-condition 'slime-read-error :condition c)))))))
+          (error (make-condition 'slime-protocol-error :condition c)))))))
 
 (defun read-form (string)
   (with-standard-io-syntax
@@ -1054,20 +1057,6 @@ pretty printing of (function foo) as #'foo is suppressed."
 
 ;;;; Debugger
 
-;;; These variables are dynamically bound during debugging.
-
-;; The condition being debugged.
-(defvar *swank-debugger-condition* nil)
-
-(defvar *sldb-level* 0
-  "The current level of recursive debugging.")
-
-(defvar *sldb-initial-frames* 20
-  "The initial number of backtrace frames to send to Emacs.")
-
-(defvar *sldb-restarts* nil
-  "The list of currenlty active restarts.")
-
 (defun swank-debugger-hook (condition hook)
   "Debugger function for binding *DEBUGGER-HOOK*.
 Sends a message to Emacs declaring that the debugger has been entered,
@@ -1080,6 +1069,22 @@ after Emacs causes a restart to be invoked."
           ((default-connection)
            (with-connection ((default-connection))
              (debug-in-emacs condition))))))
+
+;;;;; Debugger loop
+;;;
+;;; These variables are dynamically bound during debugging.
+;;;
+(defvar *swank-debugger-condition* nil
+  "The condition being debugged.")
+
+(defvar *sldb-level* 0
+  "The current level of recursive debugging.")
+
+(defvar *sldb-initial-frames* 20
+  "The initial number of backtrace frames to send to Emacs.")
+
+(defvar *sldb-restarts* nil
+  "The list of currenlty active restarts.")
 
 (defun debug-in-emacs (condition)
   (let ((*swank-debugger-condition* condition)
@@ -1107,10 +1112,6 @@ after Emacs causes a restart to be invoked."
                    (handler-bind ((sldb-condition #'handle-sldb-condition))
                      (read-from-emacs))))))
     (send-to-emacs `(:debug-return ,(current-thread) ,level))))
-
-(defslimefun sldb-break-with-default-debugger ()
-  "Invoke the default debugger by returning from our debugger-loop."
-  (throw 'sldb-enter-default-debugger nil))
 
 (defun handle-sldb-condition (condition)
   "Handle an internal debugger condition.
@@ -1154,6 +1155,12 @@ format suitable for Emacs."
                      (princ label stream) 
                      (print-frame frame stream)))))
     (subseq string (length label))))
+
+;;;;; SLDB entry points
+
+(defslimefun sldb-break-with-default-debugger ()
+  "Invoke the default debugger by returning from our debugger-loop."
+  (throw 'sldb-enter-default-debugger nil))
 
 (defslimefun backtrace (start end)
   "Return a list ((I FRAME) ...) of frames from START to END.
@@ -1555,80 +1562,40 @@ Record compiler notes signalled as `compiler-condition's."
       (disassemble (fdefinition (from-string name))))))
 
 
-;;;; Completion
+;;;; Basic completion
 
-(defun determine-case (string)
-  "Return two booleans LOWER and UPPER indicating whether STRING
-contains lower or upper case characters."
-  (values (some #'lower-case-p string)
-          (some #'upper-case-p string)))
+(defslimefun completions (string default-package-name)
+  "Return a list of completions for a symbol designator STRING.  
 
-(defun carefully-find-package (name default-package-name)
-  "Find the package with name NAME, or DEFAULT-PACKAGE-NAME, or the
-*buffer-package*.  NAME and DEFAULT-PACKAGE-NAME can be nil."
-  (let ((string (cond ((equal name "") "KEYWORD")
-                      (t (or name default-package-name)))))
-    (if string
-        (guess-package-from-string string nil)
-        *buffer-package*)))
+The result is the list (COMPLETION-SET
+COMPLETED-PREFIX). COMPLETION-SET is the list of all matching
+completions, and COMPLETED-PREFIX is the best (partial)
+completion of the input string.
 
-(defun parse-completion-arguments (string default-package-name)
-  (multiple-value-bind (name package-name internal-p)
-      (tokenize-symbol-designator string)
-    (let ((package (carefully-find-package package-name default-package-name)))
-      (values name package-name package internal-p))))
+If STRING is package qualified the result list will also be
+qualified.  If string is non-qualified the result strings are
+also not qualified and are considered relative to
+DEFAULT-PACKAGE-NAME.
 
-(defun format-completion-result (string internal-p package-name)
-  (let ((prefix (cond (internal-p (format nil "~A::" package-name))
-                      (package-name (format nil "~A:" package-name))
-                      (t ""))))
-    (values (concatenate 'string prefix string)
-            (length prefix))))
+The way symbols are matched depends on the symbol designator's
+format. The cases are as follows:
+  FOO      - Symbols with matching prefix and accessible in the buffer package.
+  PKG:FOO  - Symbols with matching prefix and external in package PKG.
+  PKG::FOO - Symbols with matching prefix and accessible in package PKG."
+  (let ((completion-set (completion-set string default-package-name 
+                                        #'compound-prefix-match)))
+    (list completion-set (longest-completion completion-set))))
 
-(defun format-completion-set (strings internal-p package-name)
-  (mapcar (lambda (string)
-            (format-completion-result string internal-p package-name))
-          (sort strings #'string<)))
+(defslimefun simple-completions (string default-package-name)
+  "Return a list of completions for a symbol designator STRING."
+  (let ((completion-set (completion-set string default-package-name 
+                                        #'prefix-match-p)))
+    (list completion-set (longest-common-prefix completion-set))))
 
-(defun output-case-converter (input)
-  "Return a function to case convert strings for output.
-INPUT is used to guess the preferred case."
-  (ecase (readtable-case *readtable*)
-    (:upcase (if (some #'lower-case-p input) #'string-downcase #'identity))
-    (:invert (lambda (output)
-               (multiple-value-bind (lower upper) (determine-case output)
-                 (cond ((and lower upper) output)
-                       (lower (string-upcase output))
-                       (upper (string-downcase output))
-                       (t output)))))
-    (:downcase (if (some #'upper-case-p input) #'string-upcase #'identity))
-    (:preserve #'identity)))
-
-(defun find-matching-symbols (string package external test)
-  "Return a list of symbols in PACKAGE matching STRING.
-TEST is called with two strings.  If EXTERNAL is true, only external
-symbols are returned."
-  (let ((completions '())
-        (converter (output-case-converter string)))
-    (flet ((symbol-matches-p (symbol)
-             (and (or (not external)
-                      (symbol-external-p symbol package))
-                  (funcall test string
-                           (funcall converter (symbol-name symbol))))))
-      (do-symbols (symbol package) 
-        (when (symbol-matches-p symbol)
-          (push symbol completions))))
-    (remove-duplicates completions)))
-
-(defun find-matching-packages (name matcher)
-  "Return a list of package names matching NAME."
-  (let ((to-match (string-upcase name)))
-    (remove-if-not (lambda (x) (funcall matcher to-match x))
-                   (mapcar (lambda (pkgname)
-                             (concatenate 'string pkgname ":"))
-                           (mapcar #'package-name (list-all-packages))))))
+;;;;; Find completion set
 
 (defun completion-set (string default-package-name matchp)
+  "Return the set of completion-candidates as strings."
   (declare (type simple-base-string string))
   (multiple-value-bind (name package-name package internal-p)
       (parse-completion-arguments string default-package-name)
@@ -1646,36 +1613,222 @@ symbols are returned."
                     (nconc (mapcar #'symbol-name symbols) packs))))
       (format-completion-set strings internal-p package-name))))
 
-(defun fuzzy-find-matching-symbols (string package external)
-  "Return a list of symbols in PACKAGE matching STRING using the
-fuzzy completion algorithm.  If EXTERNAL is true, only external
+(defun find-matching-symbols (string package external test)
+  "Return a list of symbols in PACKAGE matching STRING.
+TEST is called with two strings.  If EXTERNAL is true, only external
 symbols are returned."
   (let ((completions '())
         (converter (output-case-converter string)))
-    (flet ((symbol-match (symbol)
+    (flet ((symbol-matches-p (symbol)
              (and (or (not external)
                       (symbol-external-p symbol package))
-                  (compute-highest-scoring-completion 
-                   string (funcall converter (symbol-name symbol)) #'char=))))
+                  (funcall test string
+                           (funcall converter (symbol-name symbol))))))
       (do-symbols (symbol package) 
-        (multiple-value-bind (result score) (symbol-match symbol)
-          (when result
-            (push (list symbol score result) completions)))))
-    (remove-duplicates completions :key #'first)))
+        (when (symbol-matches-p symbol)
+          (push symbol completions))))
+    (remove-duplicates completions)))
 
-(defun fuzzy-find-matching-packages (name)
-  "Return a list of package names matching NAME using the fuzzy
-completion algorithm."
-  (let ((converter (output-case-converter name)))
-    (loop for package in (list-all-packages)
-          for package-name = (concatenate 'string 
-                                          (funcall converter
-                                                   (package-name package)) 
-                                          ":")
-          for (result score) = (multiple-value-list
-                                (compute-highest-scoring-completion
-                                 name package-name #'char=))
-          if result collect (list package-name score result))))
+(defun symbol-external-p (symbol &optional (package (symbol-package symbol)))
+  "True if SYMBOL is external in PACKAGE.
+If PACKAGE is not specified, the home package of SYMBOL is used."
+  (multiple-value-bind (_ status)
+      (find-symbol (symbol-name symbol) (or package (symbol-package symbol)))
+    (declare (ignore _))
+    (eq status :external)))
+ 
+(defun find-matching-packages (name matcher)
+  "Return a list of package names matching NAME with MATCHER.
+MATCHER is a two-argument predicate."
+  (let ((to-match (string-upcase name)))
+    (remove-if-not (lambda (x) (funcall matcher to-match x))
+                   (mapcar (lambda (pkgname)
+                             (concatenate 'string pkgname ":"))
+                           (mapcar #'package-name (list-all-packages))))))
+
+(defun parse-completion-arguments (string default-package-name)
+  "Parse STRING as a symbol designator.
+Return these values:
+ SYMBOL-NAME
+ PACKAGE-NAME, or nil if the designator does not include an explicit package.
+ PACKAGE, the package to complete in
+ INTERNAL-P, if the symbol is qualified with `::'."
+  (multiple-value-bind (name package-name internal-p)
+      (tokenize-symbol-designator string)
+    (let ((package (carefully-find-package package-name default-package-name)))
+      (values name package-name package internal-p))))
+
+(defun tokenize-symbol-designator (string)
+  (declare (type simple-base-string string))
+  (values (let ((pos (position #\: string :from-end t)))
+            (if pos (subseq string (1+ pos)) string))
+          (let ((pos (position #\: string)))
+            (if pos (subseq string 0 pos) nil))
+          (search "::" string)))
+
+(defun carefully-find-package (name default-package-name)
+  "Find the package with name NAME, or DEFAULT-PACKAGE-NAME, or the
+*buffer-package*.  NAME and DEFAULT-PACKAGE-NAME can be nil."
+  (let ((string (cond ((equal name "") "KEYWORD")
+                      (t (or name default-package-name)))))
+    (if string (guess-package-from-string string nil))))
+
+;;;;; Format completion results
+;;;
+;;; We try to format results in the case as inputs. If you complete
+;;; `FOO' then your result should include `FOOBAR' rather than
+;;; `foobar'.
+
+(defun format-completion-set (strings internal-p package-name)
+  "Format a set of completion strings.
+Returns a list of completions with package qualifiers if needed."
+  (mapcar (lambda (string)
+            (format-completion-result string internal-p package-name))
+          (sort strings #'string<)))
+
+(defun format-completion-result (string internal-p package-name)
+  (let ((prefix (cond (internal-p (format nil "~A::" package-name))
+                      (package-name (format nil "~A:" package-name))
+                      (t ""))))
+    (values (concatenate 'string prefix string)
+            (length prefix))))
+
+(defun output-case-converter (input)
+  "Return a function to case convert strings for output.
+INPUT is used to guess the preferred case."
+  (ecase (readtable-case *readtable*)
+    (:upcase (if (some #'lower-case-p input) #'string-downcase #'identity))
+    (:invert (lambda (output)
+               (multiple-value-bind (lower upper) (determine-case output)
+                 (cond ((and lower upper) output)
+                       (lower (string-upcase output))
+                       (upper (string-downcase output))
+                       (t output)))))
+    (:downcase (if (some #'upper-case-p input) #'string-upcase #'identity))
+    (:preserve #'identity)))
+
+(defun determine-case (string)
+  "Return two booleans LOWER and UPPER indicating whether STRING
+contains lower or upper case characters."
+  (values (some #'lower-case-p string)
+          (some #'upper-case-p string)))
+
+
+;;;;; Compound-prefix matching
+
+(defun compound-prefix-match (prefix target)
+  "Return true if PREFIX is a compound-prefix of TARGET.
+Viewing each of PREFIX and TARGET as a series of substrings delimited
+by hyphens, if each substring of PREFIX is a prefix of the
+corresponding substring in TARGET then we call PREFIX a
+compound-prefix of TARGET.
+
+Examples:
+\(compound-prefix-match \"foo\" \"foobar\") => t
+\(compound-prefix-match \"m--b\" \"multiple-value-bind\") => t
+\(compound-prefix-match \"m-v-c\" \"multiple-value-bind\") => NIL"
+  (declare (type simple-string prefix target))
+  (loop for ch across prefix
+        with tpos = 0
+        always (and (< tpos (length target))
+                    (if (char= ch #\-)
+                        (setf tpos (position #\- target :start tpos))
+                        (char= ch (aref target tpos))))
+        do (incf tpos)))
+
+(defun prefix-match-p (prefix string)
+  "Return true if PREFIX is a prefix of STRING."
+  (not (mismatch prefix string :end2 (min (length string) (length prefix)))))
+
+
+;;;;; Extending the input string by completion
+
+(defun longest-completion (completions)
+  "Return the longest prefix for all COMPLETIONS.
+COMPLETIONS is a list of strings."
+  (untokenize-completion
+   (mapcar #'longest-common-prefix
+           (transpose-lists (mapcar #'tokenize-completion completions)))))
+
+(defun tokenize-completion (string)
+  "Return all substrings of STRING delimited by #\-."
+  (declare (type simple-base-string string))
+  (loop with end
+        for start = 0 then (1+ end)
+        until (> start (length string))
+        do (setq end (or (position #\- string :start start) (length string)))
+        collect (subseq string start end)))
+
+(defun untokenize-completion (tokens)
+  (format nil "~{~A~^-~}" tokens))
+
+(defun longest-common-prefix (strings)
+  "Return the longest string that is a common prefix of STRINGS."
+  (if (null strings)
+      ""
+      (flet ((common-prefix (s1 s2)
+               (let ((diff-pos (mismatch s1 s2)))
+                 (if diff-pos (subseq s1 0 diff-pos) s1))))
+        (reduce #'common-prefix strings))))
+
+(defun transpose-lists (lists)
+  "Turn a list-of-lists on its side.
+If the rows are of unequal length, truncate uniformly to the shortest.
+
+For example:
+\(transpose-lists '((ONE TWO THREE) (1 2)))
+  => ((ONE 1) (TWO 2))"
+  ;; A cute function from PAIP p.574
+  (if lists (apply #'mapcar #'list lists)))
+
+
+;;;;; Completion Tests
+
+(defpackage :swank-completion-test
+  (:use))
+
+(let ((*readtable* (copy-readtable *readtable*))
+      (p (find-package :swank-completion-test)))
+  (intern "foo" p)
+  (intern "Foo" p)
+  (intern "FOO" p)
+  (setf (readtable-case *readtable*) :invert)
+  (flet ((names (prefix) 
+           (sort (mapcar #'symbol-name
+                         (find-matching-symbols prefix p nil #'prefix-match-p))
+                 #'string<)))
+    (assert (equal '("FOO") (names "f")))
+    (assert (equal '("Foo" "foo") (names "F")))
+    (assert (equal '("Foo") (names "Fo")))
+    (assert (equal '("foo") (names "FO")))))
+           
+;;;; Fuzzy completion
+
+(defslimefun fuzzy-completions (string default-package-name &optional limit)
+  "Return an (optionally limited to LIMIT best results) list of
+fuzzy completions for a symbol designator STRING.  The list will
+be sorted by score, most likely match first.
+
+The result is a list of completion objects, where a completion
+object is:
+    (COMPLETED-STRING SCORE (&rest CHUNKS))
+where a CHUNK is a description of a matched string of characters:
+    (OFFSET STRING)
+For example, the top result for completing \"mvb\" in a package
+that uses COMMON-LISP would be something like:
+    (\"multiple-value-bind\" 42.391666 ((0 \"mul\") (9 \"v\") (15 \"b\")))
+
+If STRING is package qualified the result list will also be
+qualified.  If string is non-qualified the result strings are
+also not qualified and are considered relative to
+DEFAULT-PACKAGE-NAME.
+
+Which symbols are candidates for matching depends on the symbol
+designator's format. The cases are as follows:
+  FOO      - Symbols accessible in the buffer package.
+  PKG:FOO  - Symbols external in package PKG.
+  PKG::FOO - Symbols accessible in package PKG."
+  (fuzzy-completion-set string default-package-name limit))
 
 (defun fuzzy-completion-set (string default-package-name &optional limit)
   "Prepares list of completion objects, sorted by SCORE, of fuzzy
@@ -1720,59 +1873,36 @@ only the top LIMIT results will be returned."
         (setf (cdr (nthcdr (1- limit) results)) nil))
       results)))
 
-(defslimefun completions (string default-package-name)
-  "Return a list of completions for a symbol designator STRING.  
+(defun fuzzy-find-matching-symbols (string package external)
+  "Return a list of symbols in PACKAGE matching STRING using the
+fuzzy completion algorithm.  If EXTERNAL is true, only external
+symbols are returned."
+  (let ((completions '())
+        (converter (output-case-converter string)))
+    (flet ((symbol-match (symbol)
+             (and (or (not external)
+                      (symbol-external-p symbol package))
+                  (compute-highest-scoring-completion 
+                   string (funcall converter (symbol-name symbol)) #'char=))))
+      (do-symbols (symbol package) 
+        (multiple-value-bind (result score) (symbol-match symbol)
+          (when result
+            (push (list symbol score result) completions)))))
+    (remove-duplicates completions :key #'first)))
 
-The result is the list (COMPLETION-SET
-COMPLETED-PREFIX). COMPLETION-SET is the list of all matching
-completions, and COMPLETED-PREFIX is the best (partial)
-completion of the input string.
-
-If STRING is package qualified the result list will also be
-qualified.  If string is non-qualified the result strings are
-also not qualified and are considered relative to
-DEFAULT-PACKAGE-NAME.
-
-The way symbols are matched depends on the symbol designator's
-format. The cases are as follows:
-  FOO      - Symbols with matching prefix and accessible in the buffer package.
-  PKG:FOO  - Symbols with matching prefix and external in package PKG.
-  PKG::FOO - Symbols with matching prefix and accessible in package PKG."
-  (let ((completion-set (completion-set string default-package-name 
-                                        #'compound-prefix-match)))
-    (list completion-set (longest-completion completion-set))))
-
-(defslimefun simple-completions (string default-package-name)
-  "Return a list of completions for a symbol designator STRING."
-  (let ((completion-set (completion-set string default-package-name 
-                                        #'prefix-match-p)))
-    (list completion-set (longest-common-prefix completion-set))))
-
-(defslimefun fuzzy-completions (string default-package-name &optional limit)
-  "Return an (optionally limited to LIMIT best results) list of
-fuzzy completions for a symbol designator STRING.  The list will
-be sorted by score, most likely match first.
-
-The result is a list of completion objects, where a completion
-object is:
-    (COMPLETED-STRING SCORE (&rest CHUNKS))
-where a CHUNK is a description of a matched string of characters:
-    (OFFSET STRING)
-For example, the top result for completing \"mvb\" in a package
-that uses COMMON-LISP would be something like:
-    (\"multiple-value-bind\" 42.391666 ((0 \"mul\") (9 \"v\") (15 \"b\")))
-
-If STRING is package qualified the result list will also be
-qualified.  If string is non-qualified the result strings are
-also not qualified and are considered relative to
-DEFAULT-PACKAGE-NAME.
-
-Which symbols are candidates for matching depends on the symbol
-designator's format. The cases are as follows:
-  FOO      - Symbols accessible in the buffer package.
-  PKG:FOO  - Symbols external in package PKG.
-  PKG::FOO - Symbols accessible in package PKG."
-  (fuzzy-completion-set string default-package-name limit))
+(defun fuzzy-find-matching-packages (name)
+  "Return a list of package names matching NAME using the fuzzy
+completion algorithm."
+  (let ((converter (output-case-converter name)))
+    (loop for package in (list-all-packages)
+          for package-name = (concatenate 'string 
+                                          (funcall converter
+                                                   (package-name package)) 
+                                          ":")
+          for (result score) = (multiple-value-list
+                                (compute-highest-scoring-completion
+                                 name package-name #'char=))
+          if result collect (list package-name score result))))
 
 (defslimefun fuzzy-completion-selected (original-string completion)
   "This function is called by Slime when a fuzzy completion is
@@ -1787,28 +1917,7 @@ user selected."
   (declare (ignore original-string completion))
   nil)
 
-(defun tokenize-symbol-designator (string)
-  "Parse STRING as a symbol designator.
-Return three values:
- SYMBOL-NAME
- PACKAGE-NAME, or nil if the designator does not include an explicit package.
- INTERNAL-P, if the symbol is qualified with `::'."
-  (declare (type simple-base-string string))
-  (values (let ((pos (position #\: string :from-end t)))
-            (if pos (subseq string (1+ pos)) string))
-          (let ((pos (position #\: string)))
-            (if pos (subseq string 0 pos) nil))
-          (search "::" string)))
-
-(defun symbol-external-p (symbol &optional (package (symbol-package symbol)))
-  "True if SYMBOL is external in PACKAGE.
-If PACKAGE is not specified, the home package of SYMBOL is used."
-  (multiple-value-bind (_ status)
-      (find-symbol (symbol-name symbol) (or package (symbol-package symbol)))
-    (declare (ignore _))
-    (eq status :external)))
- 
-;;; Fuzzy completion core
+;;;;; Fuzzy completion core
 
 (defparameter *fuzzy-recursion-soft-limit* 30
   "This is a soft limit for recursion in
@@ -1819,6 +1928,28 @@ find all the ways it can match.
 
 Most natural language searches and symbols do not have this
 problem -- this is only here as a safeguard.")
+
+(defun compute-highest-scoring-completion (short full test)
+  "Finds the highest scoring way to complete the abbreviation
+SHORT onto the string FULL, using TEST as a equality function for
+letters.  Returns two values:  The first being the completion
+chunks of the high scorer, and the second being the score."
+  (let* ((scored-results
+          (mapcar #'(lambda (result)
+                      (cons (score-completion result short full) result))
+                  (compute-most-completions short full test)))
+         (winner (first (sort scored-results #'> :key #'first))))
+    (values (rest winner) (first winner))))
+
+(defun compute-most-completions (short full test)
+  "Finds most possible ways to complete FULL with the letters in SHORT.
+Calls RECURSIVELY-COMPUTE-MOST-COMPLETIONS recursively.  Returns
+a list of (&rest CHUNKS), where each CHUNKS is a description of
+how a completion matches."
+  (let ((*all-chunks* nil))
+    (declare (special *all-chunks*))
+    (recursively-compute-most-completions short full test 0 0 nil nil nil t)
+    *all-chunks*))
 
 (defun recursively-compute-most-completions 
     (short full test 
@@ -1893,16 +2024,7 @@ onto the special variable *ALL-CHUNKS* and the function returns."
           (push rev-chunks *all-chunks*)
           rev-chunks))))
 
-(defun compute-most-completions (short full test)
-  "Finds most possible ways to complete FULL with the letters in SHORT.
-Calls RECURSIVELY-COMPUTE-MOST-COMPLETIONS recursively.  Returns
-a list of (&rest CHUNKS), where each CHUNKS is a description of
-how a completion matches."
-  (let ((*all-chunks* nil))
-    (declare (special *all-chunks*))
-    (recursively-compute-most-completions short full test 0 0 nil nil nil t)
-    *all-chunks*))
-
+;;; XXX Debugging tool? Not called anywhere. -luke (11/Jul/2004)
 (defun compute-completion (short full test)
   "Finds the first way to complete FULL with the letters in SHORT.
 Calls RECURSIVELY-COMPUTE-MOST-COMPLETIONS non-recursively.
@@ -1912,6 +2034,8 @@ description of how the completion matched."
     (declare (special *all-chunks*))
     (recursively-compute-most-completions short full test 0 0 nil nil nil nil)
     *all-chunks*))
+
+;;;;; Fuzzy completion scoring
 
 (defparameter *fuzzy-completion-symbol-prefixes* "*+-%&?<"
   "Letters that are likely to be at the beginning of a symbol.
@@ -1999,18 +2123,6 @@ matches, all other things being equal."
        (+ (apply #'+ chunk-scores) length-score)
        (list (mapcar #'list chunk-scores completion) length-score)))))
 
-(defun compute-highest-scoring-completion (short full test)
-  "Finds the highest scoring way to complete the abbreviation
-SHORT onto the string FULL, using TEST as a equality function for
-letters.  Returns two values:  The first being the completion
-chunks of the high scorer, and the second being the score."
-  (let* ((scored-results
-          (mapcar #'(lambda (result)
-                      (cons (score-completion result short full) result))
-                  (compute-most-completions short full test)))
-         (winner (first (sort scored-results #'> :key #'first))))
-    (values (rest winner) (first winner))))
-
 (defun highlight-completion (completion full)
   "Given a chunk definition COMPLETION and the string FULL,
 HIGHLIGHT-COMPLETION will create a string that demonstrates where
@@ -2033,94 +2145,6 @@ FUZZY-COMPLETIONS, format the list into user-readable output."
           (format t "~&~VA  score ~8,2F  ~A"
                   max-len (highlight-completion result sym) score result))))
 
-
-;;;;; Subword-word matching
-
-(defun compound-prefix-match (prefix target)
-  "Return true if PREFIX is a compound-prefix of TARGET.
-Viewing each of PREFIX and TARGET as a series of substrings delimited
-by hyphens, if each substring of PREFIX is a prefix of the
-corresponding substring in TARGET then we call PREFIX a
-compound-prefix of TARGET.
-
-Examples:
-\(compound-prefix-match \"foo\" \"foobar\") => t
-\(compound-prefix-match \"m--b\" \"multiple-value-bind\") => t
-\(compound-prefix-match \"m-v-c\" \"multiple-value-bind\") => NIL"
-  (declare (type simple-string prefix target))
-  (loop for ch across prefix
-        with tpos = 0
-        always (and (< tpos (length target))
-                    (if (char= ch #\-)
-                        (setf tpos (position #\- target :start tpos))
-                        (char= ch (aref target tpos))))
-        do (incf tpos)))
-
-(defun prefix-match-p (prefix string)
-  "Return true if PREFIX is a prefix of STRING."
-  (not (mismatch prefix string :end2 (min (length string) (length prefix)))))
-
-
-;;;;; Extending the input string by completion
-
-(defun longest-completion (completions)
-  "Return the longest prefix for all COMPLETIONS."
-  (untokenize-completion
-   (mapcar #'longest-common-prefix
-           (transpose-lists (mapcar #'tokenize-completion completions)))))
-
-(defun tokenize-completion (string)
-  "Return all substrings of STRING delimited by #\-."
-  (declare (type simple-base-string string))
-  (loop with end
-        for start = 0 then (1+ end)
-        until (> start (length string))
-        do (setq end (or (position #\- string :start start) (length string)))
-        collect (subseq string start end)))
-
-(defun untokenize-completion (tokens)
-  (format nil "~{~A~^-~}" tokens))
-
-(defun longest-common-prefix (strings)
-  "Return the longest string that is a common prefix of STRINGS."
-  (if (null strings)
-      ""
-      (flet ((common-prefix (s1 s2)
-               (let ((diff-pos (mismatch s1 s2)))
-                 (if diff-pos (subseq s1 0 diff-pos) s1))))
-        (reduce #'common-prefix strings))))
-
-(defun transpose-lists (lists)
-  "Turn a list-of-lists on its side.
-If the rows are of unequal length, truncate uniformly to the shortest.
-
-For example:
-\(transpose-lists '((ONE TWO THREE) (1 2)))
-  => ((ONE 1) (TWO 2))"
-  ;; A cute function from PAIP p.574
-  (if lists (apply #'mapcar #'list lists)))
-
-
-;;;;; Completion Tests
-
-(defpackage :swank-completion-test
-  (:use))
-
-(let ((*readtable* (copy-readtable *readtable*))
-      (p (find-package :swank-completion-test)))
-  (intern "foo" p)
-  (intern "Foo" p)
-  (intern "FOO" p)
-  (setf (readtable-case *readtable*) :invert)
-  (flet ((names (prefix) 
-           (sort (mapcar #'symbol-name
-                         (find-matching-symbols prefix p nil #'prefix-match-p))
-                 #'string<)))
-    (assert (equal '("FOO") (names "f")))
-    (assert (equal '("Foo" "foo") (names "F")))
-    (assert (equal '("Foo") (names "Fo")))
-    (assert (equal '("foo") (names "FO")))))
-           
 
 ;;;; Documentation
 
@@ -2382,7 +2406,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
                                errors))))))))
 
 (defslimefun xref (type symbol-name)
-  (let ((symbol (parse-symbol-or-lose symbol-name)))
+  (let ((symbol (parse-symbol-or-lose symbol-name *buffer-package*)))
     (group-xrefs
      (ecase type
        (:calls (who-calls symbol))
