@@ -1568,11 +1568,13 @@ belonging to the buffer package."
 The form is to be used as the `common-lisp-indent-function' property
 in Emacs."
   (if (macro-function symbol)
-      (macro-indentation (read-arglist (ignore-errors (arglist symbol))))
+      (macro-indentation (ignore-errors (read-arglist (arglist symbol))))
       nil))
 
 (defun macro-indentation (arglist)
-  (position '&body (remove '&whole arglist)))
+  (if (well-formed-list-p arglist)
+      (position '&body (remove '&whole arglist))
+      nil))
 
 (defun read-arglist (args)
   (etypecase args
@@ -1581,6 +1583,13 @@ in Emacs."
     (string
      (with-temp-package *package*
        (read-from-string args)))))
+
+(defun well-formed-list-p (list)
+  "Is LIST a proper list terminated by NIL?"
+  (typecase list
+    (null t)
+    (cons (well-formed-list-p (cdr list)))
+    (t    nil)))
 
 (defun print-indentation-lossage (&optional (stream *standard-output*))
   "Return the list of symbols whose indentation styles collide incompatibly.
