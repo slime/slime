@@ -1,3 +1,21 @@
+2004-11-07  Brian Downing  <bdowning@lavos.net>
+
+	* slime.el (slime-fuzzy-explanation): Added line to describe
+	flags (:boundp, :fboundp, :macro, etc), which are now reported in
+	the fuzzy-completion output.
+	(slime-fuzzy-insert-completion-choice): Added flags.
+	(slime-fuzzy-choices-buffer): Added flags header.
+
+	* swank.lisp (fuzzy-completions): Changed docstring to describe
+	new flags in the completion results.
+	(convert-fuzzy-completion-result): New function to marshall the
+	results from the completion core into something Emacs is
+	expecting.  Added flags.
+	(fuzzy-completion-set): Use the above.
+	(compute-completion): Removed.
+	(score-completion): Cleaned up a little bit.
+	(highlight-completion): Use destructive nstring-upcase.
+
 2004-11-01  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-easy-menu): Add item for

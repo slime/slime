@@ -1939,12 +1939,14 @@ be sorted by score, most likely match first.
 
 The result is a list of completion objects, where a completion
 object is:
-    (COMPLETED-STRING SCORE (&rest CHUNKS))
+    (COMPLETED-STRING SCORE (&rest CHUNKS) FLAGS)
 where a CHUNK is a description of a matched string of characters:
     (OFFSET STRING)
+and FLAGS is a list of keywords describing properties of the symbol.
 For example, the top result for completing \"mvb\" in a package
 that uses COMMON-LISP would be something like:
-    (\"multiple-value-bind\" 42.391666 ((0 \"mul\") (9 \"v\") (15 \"b\")))
+    (\"multiple-value-bind\" 42.391666 ((0 \"mul\") (9 \"v\") (15 \"b\"))
+     (:FBOUNDP :MACRO))
 
 If STRING is package qualified the result list will also be
 qualified.  If string is non-qualified the result strings are
@@ -1958,8 +1960,55 @@ designator's format. The cases are as follows:
   PKG::FOO - Symbols accessible in package PKG."
   (fuzzy-completion-set string default-package-name limit))
 
+(defun convert-fuzzy-completion-result (result converter
+                                        internal-p package-name)
+  "Converts a result from the fuzzy completion core into
+something that emacs is expecting.  Converts symbols to strings,
+fixes case issues, and adds information describing if the symbol
+is :bound, :fbound, a :class, a :macro, a :generic-function,
+a :special-operator, or a :package."
+  (destructuring-bind (symbol-or-name score chunks) result
+    (multiple-value-bind (name added-length)
+        (format-completion-result
+         (funcall converter 
+                  (if (symbolp symbol-or-name)
+                      (symbol-name symbol-or-name)
+                      symbol-or-name))
+         internal-p package-name)
+      (list name score 
+            (mapcar
+             #'(lambda (chunk)
+                 ;; fix up chunk positions to account for possible
+                 ;; added package identifier
+                 (list (+ added-length (first chunk))
+                       (second chunk))) 
+             chunks)
+            (loop for flag in '(:boundp :fboundp :generic-function 
+                                :class :macro :special-operator
+                                :package)
+                  if (if (symbolp symbol-or-name)
+                         (case flag
+                           (:boundp (boundp symbol-or-name))
+                           (:fboundp (fboundp symbol-or-name))
+                           (:class (find-class symbol-or-name nil))
+                           (:macro (macro-function symbol-or-name))
+                           (:special-operator
+                            (special-operator-p symbol-or-name))
+                           (:generic-function
+                            (typep (ignore-errors (fdefinition symbol-or-name))
+                                   'generic-function)))
+                         (case flag
+                           (:package (stringp symbol-or-name)
+                                     ;; KLUDGE: depends on internal
+                                     ;; knowledge that packages are
+                                     ;; brought up from the bowels of
+                                     ;; the completion algorithm as
+                                     ;; strings!
+                                     )))
+                  collect flag)))))
+
 (defun fuzzy-completion-set (string default-package-name &optional limit)
-  "Prepares list of completion objects, sorted by SCORE, of fuzzy
+  "Prepares list of completion obajects, sorted by SCORE, of fuzzy
 completions of STRING in DEFAULT-PACKAGE-NAME.  If LIMIT is set,
 only the top LIMIT results will be returned."
   (multiple-value-bind (name package-name package internal-p)
@@ -1973,26 +2022,10 @@ only the top LIMIT results will be returned."
                        (fuzzy-find-matching-packages name)))
            (converter (output-case-converter name))
            (results
-            (sort (mapcar 
-                   #'(lambda (result)
-                       (destructuring-bind (symbol-or-name score chunks) result
-                         (multiple-value-bind (name added-length)
-                             (format-completion-result
-                              (funcall converter 
-                                       (if (symbolp symbol-or-name)
-                                           (symbol-name symbol-or-name)
-                                           symbol-or-name))
-                              internal-p package-name)
-                           (list name score 
-                                 (mapcar
-                                  #'(lambda (chunk)
-                                      ;; fix up chunk positions to
-                                      ;; account for possible added
-                                      ;; package identifier
-                                      (list (+ added-length (first chunk))
-                                            (second chunk))) 
-                                  chunks)))))
-                   (nconc symbols packs))
+            (sort (mapcar #'(lambda (result)
+                              (convert-fuzzy-completion-result
+                               result converter internal-p package-name))
+                          (nconc symbols packs))
                   #'> :key #'second)))
       (when (and limit 
                  (> limit 0) 
@@ -2151,17 +2184,6 @@ onto the special variable *ALL-CHUNKS* and the function returns."
           (push rev-chunks *all-chunks*)
           rev-chunks))))
 
-;;; XXX Debugging tool? Not called anywhere. -luke (11/Jul/2004)
-(defun compute-completion (short full test)
-  "Finds the first way to complete FULL with the letters in SHORT.
-Calls RECURSIVELY-COMPUTE-MOST-COMPLETIONS non-recursively.
-Returns a list of one (&rest CHUNKS), where CHUNKS is a
-description of how the completion matched."
-  (let ((*all-chunks* nil))
-    (declare (special *all-chunks*))
-    (recursively-compute-most-completions short full test 0 0 nil nil nil nil)
-    *all-chunks*))
-
 ;;;;; Fuzzy completion scoring
 
 (defparameter *fuzzy-completion-symbol-prefixes* "*+-%&?<"
@@ -2201,53 +2223,44 @@ previous letter's value, it will use that percentage instead.
 
 Finally, a small scaling factor is applied to favor shorter
 matches, all other things being equal."
-  (flet ((score-chunk (chunk)
-           (let ((initial-pos (first chunk))
-                 (str (second chunk)))
-             (labels ((at-beginning-p (pos) 
-                        (= pos 0))
-                      (after-prefix-p (pos) 
-                        (and (= pos 1) 
-                             (find (aref full 0)
-                                   *fuzzy-completion-symbol-prefixes*)))
-                      (word-separator-p (pos)
-                        (find (aref full pos) 
-                              *fuzzy-completion-word-separators*))
-                      (after-word-separator-p (pos)
-                        (find (aref full (1- pos))
-                              *fuzzy-completion-word-separators*))
-                      (at-end-p (pos)
-                        (= pos (1- (length full))))
-                      (before-suffix-p (pos)
-                        (and (= pos (- (length full) 2))
-                             (find (aref full (1- (length full)))
-                                   *fuzzy-completion-symbol-suffixes*)))
-                      (score-or-percentage-of-previous 
-                          (base-score pos chunk-pos)
-                        (if (zerop chunk-pos) 
-                            base-score 
-                            (max base-score 
-                                 (* (score-char (1- pos) (1- chunk-pos)) 
-                                    0.85))))
-                      (score-char (pos chunk-pos)
-                        (score-or-percentage-of-previous
-                         (cond ((at-beginning-p pos)         10)
-                               ((after-prefix-p pos)         10)
-                               ((word-separator-p pos)       1)
-                               ((after-word-separator-p pos) 8)
-                               ((at-end-p pos)               6)
-                               ((before-suffix-p pos)        6)
-                               (t                            1))
-                         pos chunk-pos)))
-               (loop for chunk-pos below (length str)
-                     for pos from initial-pos 
-                     summing (score-char pos chunk-pos))))))
+  (labels ((at-beginning-p (pos) 
+             (= pos 0))
+           (after-prefix-p (pos) 
+             (and (= pos 1) 
+                  (find (aref full 0) *fuzzy-completion-symbol-prefixes*)))
+           (word-separator-p (pos)
+             (find (aref full pos) *fuzzy-completion-word-separators*))
+           (after-word-separator-p (pos)
+             (find (aref full (1- pos)) *fuzzy-completion-word-separators*))
+           (at-end-p (pos)
+             (= pos (1- (length full))))
+           (before-suffix-p (pos)
+             (and (= pos (- (length full) 2))
+                  (find (aref full (1- (length full)))
+                        *fuzzy-completion-symbol-suffixes*)))
+           (score-or-percentage-of-previous (base-score pos chunk-pos)
+             (if (zerop chunk-pos) 
+                 base-score 
+                 (max base-score 
+                      (* (score-char (1- pos) (1- chunk-pos)) 0.85))))
+           (score-char (pos chunk-pos)
+             (score-or-percentage-of-previous
+              (cond ((at-beginning-p pos)         10)
+                    ((after-prefix-p pos)         10)
+                    ((word-separator-p pos)       1)
+                    ((after-word-separator-p pos) 8)
+                    ((at-end-p pos)               6)
+                    ((before-suffix-p pos)        6)
+                    (t                            1))
+              pos chunk-pos))
+           (score-chunk (chunk)
+             (loop for chunk-pos below (length (second chunk))
+                   for pos from (first chunk) 
+                   summing (score-char pos chunk-pos))))
     (let* ((chunk-scores (mapcar #'score-chunk completion))
-           (length-score 
-            (/ 10 (coerce (1+ (- (length full) (length short)))
-                          'single-float))))
+           (length-score (/ 10.0 (1+ (- (length full) (length short))))))
       (values
-       (+ (apply #'+ chunk-scores) length-score)
+       (+ (reduce #'+ chunk-scores) length-score)
        (list (mapcar #'list chunk-scores completion) length-score)))))
 
 (defun highlight-completion (completion full)
@@ -2255,12 +2268,12 @@ matches, all other things being equal."
 HIGHLIGHT-COMPLETION will create a string that demonstrates where
 the completion matched in the string.  Matches will be
 capitalized, while the rest of the string will be lower-case."
-  (let ((highlit (string-downcase full)))
+  (let ((highlit (nstring-downcase (copy-seq full))))
     (dolist (chunk completion)
-      (setf highlit (string-upcase highlit 
-                                   :start (first chunk)
-                                   :end (+ (first chunk) 
-                                           (length (second chunk))))))
+      (setf highlit (nstring-upcase highlit 
+                                    :start (first chunk)
+                                    :end (+ (first chunk) 
+                                            (length (second chunk))))))
     highlit))
 
 (defun format-fuzzy-completions (winners)
