@@ -274,19 +274,20 @@ the error-context redundant."
          (make-location (list :file (namestring *compile-file-truename*))
                         (list :position 0)))
         (*compile-filename*
+         ;; XXX is this _ever_ used?  By what?  *compile-file-truename*
+         ;; should be set by the implementation inside any call to compile-file
          (make-location (list :file *compile-filename*) (list :position 0)))
         (t 
          (list :error "No error location available"))))
 
-(defmacro with-compilation-hooks (() &body body)
-  "Execute BODY and record the set of compiler notes."
-  `(let ((*previous-compiler-condition* nil)
-         (*previous-context* nil)
-         (*print-readably* nil))
+(defmethod call-with-compilation-hooks (function)
+  (let ((*previous-compiler-condition* nil)
+        (*previous-context* nil)
+        (*print-readably* nil))
     (handler-bind ((c::compiler-error #'handle-notification-condition)
                    (c::style-warning  #'handle-notification-condition)
                    (c::warning        #'handle-notification-condition))
-      ,@body)))
+      (funcall function))))
 
 (defmethod compile-file-for-emacs (filename load-p)
   (clear-xref-info filename)

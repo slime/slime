@@ -119,6 +119,12 @@
 
 ;;;; Compilation
 
+(defgeneric call-with-compilation-hooks (func)
+  (:documentation
+   "Call FUNC with hooks to trigger SLDB on compiler errors."))
+(defmacro with-compilation-hooks (() &body body)
+  `(call-with-compilation-hooks (lambda () (progn ,@body))))
+
 (defgeneric compile-string-for-emacs (string &key buffer position)
   (:documentation
    "Compile source from STRING.  During compilation, compiler
