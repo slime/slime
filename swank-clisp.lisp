@@ -158,7 +158,8 @@
     (:utf-8-unix (ext:make-encoding :charset 'charset:utf-8
 				    :line-terminator :unix))))
   
-(defimplementation accept-connection (socket &key external-format)
+(defimplementation accept-connection (socket
+				      &key (external-format :iso-latin-1-unix))
   (socket:socket-accept socket
 			:buffered nil ;; XXX should be t
 			:element-type 'character

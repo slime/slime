@@ -51,7 +51,8 @@
 (defimplementation close-socket (socket)
   (close socket))
 
-(defimplementation accept-connection (socket &key external-format)
+(defimplementation accept-connection (socket 
+                                      &key (external-format :iso-latin-1-unix))
   (let ((s (socket:accept-connection socket :wait t)))
     (set-external-format s external-format)
     s))

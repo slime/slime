@@ -69,7 +69,8 @@
   (sb-sys:invalidate-descriptor (socket-fd socket))
   (sb-bsd-sockets:socket-close socket))
 
-(defimplementation accept-connection (socket &key external-format)
+(defimplementation accept-connection (socket 
+                                      &key (external-format :iso-latin-1-unix))
   (make-socket-io-stream (accept socket) external-format))
 
 (defvar *sigio-handlers* '()
