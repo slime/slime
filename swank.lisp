@@ -922,11 +922,11 @@ The time is measured in microseconds."
 (defun make-compiler-note (condition)
   "Make a compiler note data structure from a compiler-condition."
   (declare (type compiler-condition condition))
-  (list :message (message condition)
-        :short-message (or (short-message condition)
-                           (message condition))
-        :severity (severity condition)
-        :location (location condition)))
+  (list* :message (message condition)
+         :severity (severity condition)
+         :location (location condition)
+         (let ((s (short-message condition)))
+           (if s (list :short-message s)))))
 
 (defun swank-compiler (function)
   (clear-compiler-notes)

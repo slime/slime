@@ -2422,7 +2422,8 @@ from an element and TEST is used to compare keys."
   (plist-get note :message))
 
 (defun slime-note.short-message (note)
-  (plist-get note :short-message))
+  (or (plist-get note :short-message)
+      (plist-get note :message)))
 
 (defun slime-note.location (note)
   (plist-get note :location))
