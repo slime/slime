@@ -745,14 +745,16 @@ exists."
 
 (defun print-arglist (arglist)
   (let ((*print-case* :downcase)
-        (*print-pretty* t))
-    (pprint-logical-block (*standard-output* arglist :prefix "(" :suffix ")")
+        (*print-pretty* t)
+        (*print-circle* nil)
+        (*print-level* 10)
+        (*print-length* 20))
+    (pprint-logical-block (nil arglist :prefix "(" :suffix ")")
       (loop
        (let ((arg (pprint-pop)))
          (etypecase arg
            (symbol (princ arg))
-           (cons (pprint-logical-block (*standard-output* arg :prefix "("
-                                                          :suffix ")")
+           (cons (pprint-logical-block (nil nil :prefix "(" :suffix ")")
                    (princ (car arg))
                    (write-char #\space)
                    (pprint-fill *standard-output* (cdr arg) nil))))
@@ -763,9 +765,11 @@ exists."
 (defun test-print-arglist (list string)
   (string= (print-arglist-to-string list) string))
 
-;; (assert (test-print-arglist '(function cons) "(function cons)"))
-;; (assert (test-print-arglist '(quote cons) "(quote cons)"))
-;; (assert (test-print-arglist '(&key (function #'f)) "(&key (function #'f))"))
+;; Should work:
+(assert (test-print-arglist '(function cons) "(function cons)"))
+(assert (test-print-arglist '(quote cons) "(quote cons)"))
+(assert (test-print-arglist '(&key (function #'f)) "(&key (function #'f))"))
+;; Expected failure:
 ;; (assert (test-print-arglist '(&key ((function f))) "(&key ((function f)))"))
 
 
@@ -1491,21 +1495,12 @@ that symbols accessible in the current package go first."
 
 ;;;; Source Locations
 
-(defslimefun find-function-locations (symbol-name)
-  "Return a list of source-locations for SYMBOL-NAME's functions."
+(defslimefun find-definitions-for-emacs (symbol-name)
   (multiple-value-bind (symbol foundp) (find-symbol-designator symbol-name)
-    (cond ((not foundp)
-           (list (list :error (format nil "Unkown symbol: ~A" symbol-name))))
-          ((macro-function symbol)
-           (mapcar #'second (find-definitions symbol)))
-          ((special-operator-p symbol)
-           (list (list :error (format nil "~A is a special-operator" symbol))))
-          ((fboundp symbol)
-           (mapcar #'second (find-definitions symbol)))
-          (t (list (list :error
-                         (format nil "Symbol not fbound: ~A" symbol-name)))))))
-
-
+    (cond ((not foundp) '())
+          (t (loop for (dspec loc) in (find-definitions symbol)
+                   collect (list (to-string dspec) loc))))))
+           
 (defun alistify (list key test)
   "Partition the elements of LIST into an alist.  KEY extracts the key
 from an element and TEST is used to compare keys."
