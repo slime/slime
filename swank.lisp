@@ -28,6 +28,7 @@
            #:*use-dedicated-output-stream*
            #:*configure-emacs-indentation*
            #:*readtable-alist*
+           #:*globally-redirect-io*
            ;; These are re-exported directly from the backend:
            #:frame-source-location-for-emacs
            #:restart-frame
@@ -85,7 +86,34 @@ must always be supplied. This way the :TYPE slot option need not
 include some arbitrary initial value like NIL."
   (error "A required &KEY or &OPTIONAL argument was not supplied."))
 
-
+;;;; Hooks
+;;;
+;;; We use Emacs-like `add-hook' and `run-hook' utilities to support
+;;; simple indirection. The interface is more CLish than the Emacs
+;;; Lisp one.
+
+(defmacro add-hook (place function)
+  "Add FUNCTION to the list of values on HOOK-VARIABLE."
+  `(pushnew ,function ,place))
+
+(defun run-hook (functions &rest arguments)
+  "Call each of FUNCTIONS with ARGUMENTS."
+  (dolist (function functions)
+    (apply function arguments)))
+
+(defvar *new-connection-hook* '()
+  "This hook is run each time a connection is established.
+The connection structure is given as the argument.
+Backend code should treat the connection structure as opaque.")
+
+(defvar *connection-closed-hook* '()
+  "This hook is run when a connection is closed.
+The connection as passed as an argument.
+Backend code should treat the connection structure as opaque.")
+
+(defvar *pre-reply-hook* '()
+  "Hook run (without arguments) immediately before replying to an RPC.")
+
 ;;;; Connections
 ;;;
 ;;; Connection structures represent the network connections between
@@ -163,6 +191,10 @@ recently established one."
   ((condition :initarg :condition :reader slime-read-error.condition))
   (:report (lambda (condition stream)
              (format stream "~A" (slime-read-error.condition condition)))))
+
+(add-hook *new-connection-hook* 'notify-backend-of-connection)
+(defun notify-backend-of-connection (connection)
+  (emacs-connected (connection.socket-io connection)))
 
 ;;;; Helper macros
 
@@ -359,7 +391,8 @@ of the toplevel restart."
   (close (connection.socket-io c))
   (when (connection.dedicated-output c)
     (close (connection.dedicated-output c)))
-  (setf *connections* (remove c *connections*)))
+  (setf *connections* (remove c *connections*))
+  (run-hook *connection-closed-hook* c))
 
 (defmacro with-reader-error-handler ((connection) &body body)
   `(handler-case (progn ,@body)
@@ -615,10 +648,148 @@ of the toplevel restart."
 
 ;;;; IO to Emacs
 ;;;
-;;; The lower layer is a socket connection. Emacs sends us forms to
-;;; evaluate, and we accept these by calling READ-FROM-EMACS. These
-;;; evaluations can send messages back to Emacs as a side-effect by
-;;; calling SEND-TO-EMACS.
+;;; This code handles redirection of the standard I/O streams
+;;; (`*standard-output*', etc) into Emacs. The `connection' structure
+;;; contains the appropriate streams, so all we have to do is make the
+;;; right bindings.
+
+;;;;; Global I/O redirection framework
+;;;
+;;; Optionally, the top-level global bindings of the standard streams
+;;; can be assigned to be redirected to Emacs. When Emacs connects we
+;;; redirect the streams into the connection, and they keep going into
+;;; that connection even if more are established. If the connection
+;;; handling the streams closes then another is chosen, or if there
+;;; are no connections then we revert to the original (real) streams.
+;;;
+;;; It is slightly tricky to assign the global values of standard
+;;; streams because they are often shadowed by dynamic bindings. We
+;;; solve this problem by introducing an extra indirection via synonym
+;;; streams, so that *STANDARD-INPUT* is a synonym stream to
+;;; *CURRENT-STANDARD-INPUT*, etc. We never shadow the "current"
+;;; variables, so they can always be assigned to affect a global
+;;; change.
+
+(defvar *globally-redirect-io* nil
+  "When non-nil globally redirect all standard streams to Emacs.")
+
+(defmacro setup-stream-indirection (stream-var)
+  "Setup redirection scaffolding for a global stream variable.
+Supposing (for example) STREAM-VAR is *STANDARD-INPUT*, this macro:
+
+1. Saves the value of *STANDARD-INPUT* in a variable called
+*REAL-STANDARD-INPUT*.
+
+2. Creates *CURRENT-STANDARD-INPUT*, initially with the same value as
+*STANDARD-INPUT*.
+
+3. Assigns *STANDARD-INPUT* to a synonym stream pointing to
+*CURRENT-STANDARD-INPUT*.
+
+This has the effect of making *CURRENT-STANDARD-INPUT* contain the
+effective global value for *STANDARD-INPUT*. Thus input can be
+redirected via that variable, even if *STANDARD-INPUT* itself is
+shadowed by a dynamic binding."
+  (let ((real-stream-var (prefixed-var "REAL" stream-var))
+        (current-stream-var (prefixed-var "CURRENT" stream-var)))
+    `(progn
+      ;; Save the real stream value for the future.
+      (defvar ,real-stream-var ,stream-var)
+      ;; Define a new variable for the effective stream.
+      ;; This can be reassigned.
+      (defvar ,current-stream-var ,stream-var)
+      ;; Assign the real binding as a synonym for the current one.
+      (setq ,stream-var (make-synonym-stream ',current-stream-var)))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun prefixed-var (prefix variable-symbol)
+    "(PREFIXED-VAR '*FOO* \"BAR\") => *FOO-BAR*"
+    (let ((basename (subseq (symbol-name variable-symbol) 1)))
+      (intern (format nil "*~A-~A" prefix basename)
+              (symbol-package variable-symbol)))))
+        
+;;;;; Global redirection setup
+
+(setup-stream-indirection *standard-output*)
+(setup-stream-indirection *error-output*)
+(setup-stream-indirection *trace-output*)
+(setup-stream-indirection *standard-input*)
+(setup-stream-indirection *debug-io*)
+(setup-stream-indirection *query-io*)
+(setup-stream-indirection *terminal-io*)
+
+(defparameter *standard-output-streams*
+  '(*standard-output* *error-output* *trace-output*)
+  "The symbols naming standard output streams.")
+
+(defparameter *standard-input-streams*
+  '(*standard-input*)
+  "The symbols naming standard input streams.")
+
+(defparameter *standard-io-streams*
+  '(*debug-io* *query-io* *terminal-io*)
+  "The symbols naming standard io streams.")
+
+(defun globally-redirect-io-to-connection (connection)
+  "Set the standard I/O streams to redirect to CONNECTION.
+Assigns *CURRENT-<STREAM>* for all standard streams."
+  (dolist (o *standard-output-streams*)
+    (set (prefixed-var "CURRENT" o)
+         (connection.user-output connection)))
+  ;; FIXME: If we redirect standard input to Emacs then we get the
+  ;; regular Lisp top-level trying to read from our REPL.
+  ;;
+  ;; Perhaps the ideal would be for the real top-level to run in a
+  ;; thread with local bindings for all the standard streams. Failing
+  ;; that we probably would like to inhibit it from reading while
+  ;; Emacs is connected.
+  ;;
+  ;; Meanwhile we just leave *standard-input* alone.
+  #+NIL
+  (dolist (i *standard-input-streams*)
+    (set (prefixed-var "CURRENT" i)
+         (connection.user-input connection)))
+  (dolist (io *standard-io-streams*)
+    (set (prefixed-var "CURRENT" io)
+         (connection.user-io connection))))
+
+(defun revert-global-io-redirection ()
+  "Set *CURRENT-<STREAM>* to *REAL-<STREAM>* for all standard streams."
+  (dolist (stream-var (append *standard-output-streams*
+                              *standard-input-streams*
+                              *standard-io-streams*))
+    (set (prefixed-var "CURRENT" stream-var)
+         (symbol-value (prefixed-var "REAL" stream-var)))))
+
+;;;;; Global redirection hooks
+
+(defvar *global-stdio-connection* nil
+  "The connection to which standard I/O streams are globally redirected.
+NIL if streams are not globally redirected.")
+
+(defun maybe-redirect-global-io (connection)
+  "Consider globally redirecting to a newly-established CONNECTION."
+  (when (and *globally-redirect-io* (null *global-stdio-connection*))
+    (setq *global-stdio-connection* connection)
+    (globally-redirect-io-to-connection connection)))
+
+(defun update-redirection-after-close (closed-connection)
+  "Update redirection after a connection closes."
+  (when (eq *global-stdio-connection* closed-connection)
+    (if (and (default-connection) *globally-redirect-io*)
+        ;; Redirect to another connection.
+        (globally-redirect-io-to-connection (default-connection))
+        ;; No more connections, revert to the real streams.
+        (progn (revert-global-io-redirection)
+               (setq *global-stdio-connection* nil)))))
+
+(add-hook *new-connection-hook*    'maybe-redirect-global-io)
+(add-hook *connection-closed-hook* 'update-redirection-after-close)
+
+;;;;; Redirection during requests
+;;;
+;;; We always redirect the standard streams to Emacs while evaluating
+;;; an RPC. This is done with simple dynamic bindings.
 
 (defun call-with-redirected-io (connection function)
   "Call FUNCTION with I/O streams redirected via CONNECTION."
