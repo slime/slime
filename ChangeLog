@@ -1,7 +1,12 @@
+2004-03-09  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-cmucl.lisp (read-into-simple-string): Use the correct fix.
+	Reported by Håkon Alstadheim.
+
 2004-03-08  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-start-swank-server, slime-maybe-start-lisp):
-	Translate filenames.
+	Translate filenames.  Reported by Dan Muller.
 
 2004-03-08  Bill Clementson <Bill_Clementson@peoplesoft.com>
 
