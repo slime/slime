@@ -42,6 +42,8 @@
    #:standard-slot-definition
    #:standard-method
    #:standard-class
+   #:eql-specializer
+   #:eql-specializer-object
    ;; standard-class readers
    #:class-default-initargs
    #:class-direct-default-initargs
@@ -53,6 +55,7 @@
    #:class-precedence-list
    #:class-prototype
    #:class-slots
+   #:specializer-direct-methods
    ;; generic function readers
    #:generic-function-argument-precedence-order
    #:generic-function-declarations
