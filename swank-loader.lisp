@@ -26,7 +26,7 @@
            '("nregex")
            #+cmu '("swank-source-path-parser" "swank-cmucl")
            #+sbcl '("swank-sbcl" "swank-source-path-parser" "swank-gray")
-           #+openmcl '("swank-openmcl" "swank-gray")
+           #+openmcl '("metering" "swank-openmcl" "swank-gray")
            #+lispworks '("swank-lispworks" "swank-gray")
            #+allegro '("swank-allegro" "swank-gray")
            #+clisp '("xref" "metering" "swank-clisp" "swank-gray")
