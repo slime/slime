@@ -257,7 +257,7 @@ corresponding values in the CDR of VALUE."
         ,@(if (eq (caar (last patterns)) t)
               '()
               `((t (error "destructure-case failed: ~S" ,tmp))))))))
-  
+
 (defmacro with-temp-package (var &body body)
   "Execute BODY with VAR bound to a temporary package.
 The package is deleted before returning."
@@ -395,7 +395,8 @@ This is an optimized way for Lisp to deliver output to Emacs."
   "Read and process one request.  The processing is done in the extend
 of the toplevel restart."
   (assert (null *swank-state-stack*))
-  (let ((*swank-state-stack* '(:handle-request)))
+  (let ((*swank-state-stack* '(:handle-request))
+	(*debugger-hook* nil))
     (with-connection (connection)
       (with-simple-restart (abort "Abort handling SLIME request.")
         (read-from-emacs)))))
@@ -1136,8 +1137,11 @@ Errors are trapped and invoke our debugger."
 (defun format-values-for-echo-area (values)
   (with-buffer-syntax ()
     (let ((*print-readably* nil))
-      (cond (values (format nil "~{~S~^, ~}" values))
-            (t "; No value")))))
+      (cond ((null values) "; No value")
+            ((and (null (cdr values)) (integerp (car values)))
+             (let ((i (car values)))
+               (format nil "~D (#x~X, #o~O, #b~B)" i i i i)))
+            (t (format nil "~{~S~^, ~}" values))))))
 
 (defslimefun interactive-eval (string)
   (with-buffer-syntax ()
@@ -1469,12 +1473,13 @@ has changed, ignore the request."
 (defslimefun frame-locals-for-emacs (index)
   "Return a property list ((&key NAME ID VALUE) ...) describing
 the local variables in the frame INDEX."
-  (let ((*print-readably* nil)
-        (*print-pretty* t)
-        (*print-circle* t))
+  (let* ((*print-readably* nil)
+         (*print-pretty* *sldb-pprint-frames*)
+         (*print-circle* t)
+         (*package* (or (frame-package index) *package*)))
     (mapcar (lambda (frame-locals)
               (destructuring-bind (&key name id value) frame-locals
-                (list :name (to-string name) :id id
+                (list :name (prin1-to-string name) :id id
                       :value (to-string value))))
             (frame-locals index))))
 
@@ -1608,7 +1613,8 @@ Record compiler notes signalled as `compiler-condition's."
 
 (defun apply-macro-expander (expander string)
   (declare (type function expander))
-  (swank-pprint (list (funcall expander (from-string string)))))
+  (with-buffer-syntax ()
+    (swank-pprint (list (funcall expander (from-string string))))))
 
 (defslimefun swank-macroexpand-1 (string)
   (apply-macro-expander #'macroexpand-1 string))
@@ -1620,9 +1626,10 @@ Record compiler notes signalled as `compiler-condition's."
   (apply-macro-expander #'macroexpand-all string))
 
 (defslimefun disassemble-symbol (name)
-  (with-output-to-string (*standard-output*)
-    (let ((*print-readably* nil))
-      (disassemble (fdefinition (from-string name))))))
+  (with-buffer-syntax ()
+    (with-output-to-string (*standard-output*)
+      (let ((*print-readably* nil))
+        (disassemble (fdefinition (from-string name)))))))
 
 
 ;;;; Basic completion
@@ -2888,23 +2895,17 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
   (values (if (wild-pathname-p pathname)
               "A wild pathname."
               "A pathname.")
-          `("Namestring: " (:value ,(namestring pathname))
-            (:newline)
-            "Host: " (:value ,(pathname-host pathname))
-            (:newline)
-            "Device: " (:value ,(pathname-device pathname))
-            (:newline)
-            "Directory: " (:value ,(pathname-directory pathname))
-            (:newline)
-            "Name: " (:value ,(pathname-name pathname))
-            (:newline)
-            "Type: " (:value ,(pathname-type pathname))
-            (:newline)
-            "Version: " (:value ,(pathname-version pathname))
-            ,@(unless (or (wild-pathname-p pathname)
-                          (not (probe-file pathname)))
-                `((:newline)
-                  "Truename: " (:value ,(truename pathname)))))))
+          (append (label-value-line*
+                   ("Namestring" (namestring pathname))
+                   ("Host"       (pathname-host pathname))
+                   ("Device"     (pathname-device pathname))
+                   ("Directory"  (pathname-directory pathname))
+                   ("Name"       (pathname-name pathname))
+                   ("Type"       (pathname-type pathname))
+                   ("Version"    (pathname-version pathname)))
+                  (unless (or (wild-pathname-p pathname)
+                              (not (probe-file pathname)))
+                    (label-value-line "Truename" (truename pathname))))))
 
 (defmethod inspect-for-emacs ((pathname logical-pathname) (inspector t))
   (declare (ignore inspector))
@@ -2935,50 +2936,44 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
 (defmethod inspect-for-emacs ((i integer) (inspector t))
   (declare (ignore inspector))
   (values "A number."
-          `("Value: " ,(princ-to-string i)
-            " == #x" ,(format nil "~X" i)
-            " == #o" ,(format nil "~O" i)
-            " == #b" ,(format nil "~B" i)
-            " == " ,(format nil "~E" i)
-            (:newline)
-            ,@(when (< -1 i char-code-limit)
-                `("Corresponding character: " (:value ,(code-char i)) (:newline)))
-            "Length: " (:value ,(integer-length i))
-            (:newline)
-            "As time: " , (multiple-value-bind (sec min hour date month year daylight-p zone)
-                              (decode-universal-time i)
-                            (declare (ignore daylight-p zone))
-                            (format nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0DZ"
-                                    year month date hour min sec)))))
+          (append 
+           `(,(format nil "Value: ~D = #x~X = #o~O = ~E" i i i i) (:newline))
+           (if (< -1 i char-code-limit)
+               (label-value-line "Corresponding character" (code-char i)))
+           (label-value-line "Length" (integer-length i))
+           (list "As time" 
+                 (multiple-value-bind (sec min hour date month year)
+                     (decode-universal-time i)
+                   (format nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0DZ"
+                           year month date hour min sec))))))
 
 (defmethod inspect-for-emacs ((c complex) (inspector t))
   (declare (ignore inspector))
   (values "A complex number."
-          `("Real part: " (:value ,(realpart c))
-            (:newline)
-            "Imaginary part: " (:value ,(imagpart c)))))
+          (label-value-line* 
+           ("Real part" (realpart c))
+           ("Imaginary part" (imagpart c))))) 
 
 (defmethod inspect-for-emacs ((r ratio) (inspector t))
   (declare (ignore inspector))
   (values "A non-integer ratio."
-          `("Numerator: " (:value ,(numerator r))
-            (:newline)
-            "Denominator: " (:value ,(denominator r))
-            (:newline)
-            "As float: " (:value ,(float r)))))
+          (label-value-line*
+           ("Numerator" (numerator r)
+           ("Denominator" (denominator r))
+           ("As float" (float r))))))
 
 (defmethod inspect-for-emacs ((f float) (inspector t))
   (declare (ignore inspector))
-  (multiple-value-bind (significand exponent sign)
-      (decode-float f)
+  (multiple-value-bind (significand exponent sign) (decode-float f)
     (values "A floating point number."
-            `("Scientific: " ,(format nil "~E" f)
-              (:newline)
-              "Decoded: " (:value ,sign) " * " (:value ,significand) " * " (:value ,(float-radix f)) "^" (:value ,exponent)
-              (:newline)
-              "Digits: " (:value ,(float-digits f))
-              (:newline)
-              "Precision: " (:value ,(float-precision f))))))
+            (append 
+             `("Scientific: " ,(format nil "~E" f) (:newline)
+               "Decoded: " 
+               (:value ,sign) " * " 
+               (:value ,significand) " * " 
+               (:value ,(float-radix f)) "^" (:value ,exponent) (:newline))
+             (label-value-line "Digits" (float-digits f))
+             (label-value-line "Precision" (float-precision f))))))
 
 
 ;;;; Inspecting
@@ -3011,36 +3006,30 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
         string)))
 
 (defun inspector-content-for-emacs (spec)
-  (let ((parse-for-emacs '()))
-    (labels ((collect-part (part)
-               (push part parse-for-emacs))
-             (parse-part (part)
-               (if (stringp part)
-                   (push part parse-for-emacs)
-                   (ecase (car part)
-                     (:newline (collect-part (string #\Newline)))
-                     (:value (destructuring-bind (object &optional format)
-                                 (cdr part)
-                               (unless (position object *inspectee-parts*)
-                                 (vector-push-extend object *inspectee-parts*))
-                               (unless format
-                                 (setf format (block print-object
-                                                (handler-bind
-                                                    ((error (lambda (c)
-                                                              (declare (ignore c))
-                                                              (return-from print-object "#<error while printing>"))))
-                                                  (format nil "~S" object)))))
-                               (collect-part `(:value ,format
-                                                      ,(position object *inspectee-parts*)))))
-                     (:action (destructuring-bind (label lambda)
-                                  (cdr part)
-                                (unless (position lambda *inspectee-actions*)
-                                  (vector-push-extend lambda *inspectee-actions*))
-                                (collect-part `(:action ,label ,(position lambda *inspectee-actions*)))))
-                     ((nil) nil)))))
-      (map 'nil #'parse-part spec))
-    (nreverse parse-for-emacs)))
+  (loop for part in spec collect 
+        (etypecase part
+          (string part)
+          (cons (destructure-case part
+                  ((:newline) 
+                   (string #\newline))
+                  ((:value obj &optional str) 
+                   (value-part-for-emacs obj str))
+                  ((:action label lambda) 
+                   (action-part-for-emacs label lambda)))))))
 
+(defun assign-index (object vector)
+  (or (position object vector)
+      (progn (vector-push-extend object vector)
+             (position object vector))))
+
+(defun value-part-for-emacs (object string)
+  (list :value 
+        (or string (print-part-to-string object))
+        (assign-index object *inspectee-parts*)))
+
+(defun action-part-for-emacs (label lambda)
+  (list :action label (assign-index lambda *inspectee-actions*)))
+  
 (defun inspect-object (object &optional (inspector (make-default-inspector)))
   (push (setq *inspectee* object) *inspector-stack*)
   (unless (find object *inspector-history*)
