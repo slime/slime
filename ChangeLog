@@ -1,3 +1,10 @@
+2003-12-15  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-eval-last-expression-display-output): New
+	command.  Bound to C-x M-e.  Suggested by Nicolas Neuss.
+	(slime-display-output-buffer): New function.
+	(slime-slime-compile-file): Use it.
+
 2003-12-15  Luke Gorrie  <luke@bluetail.com>
 
 	* swank.lisp (*processing-rpc*, *multiprocessing-enabled*,
