@@ -856,7 +856,7 @@ stack."
                   (2 "stopped")
                   (3 "dead")
                   (t (format nil "??? ~A" state)))))
-             (t "??? ???"))))))
+             (t "??? ???")))))
 
   (defimplementation make-lock (&key name)
     (sb-thread:make-mutex :name name))
