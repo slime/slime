@@ -1,3 +1,23 @@
+2003-11-16  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-loader.lisp: Compile and load gray stream stuff for SBCL
+	and OpenMCL.
+
+	* swank-openmcl.lisp, swank-sbcl.lisp: Import gray stream symbols.
+	(without-interrupts*): New function.
+
+	* swank.lisp (send-to-emacs): Protect the write operations by a
+	without-interrupts, so that we don't trash the *cl-connection*
+	buffer with partially written messages.
+
+	* swank-cmucl.lisp (without-interrupts*): New function.
+
+	* swank-gray.lisp (stream-write-char): Don't flush the buffer on
+	newlines.
+
+	* slime.el: Add some docstring.
+	(interrupt-bubbling-idiot): New test.
+
 2003-11-15  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el: Some tweaking for better scrolling in the *slime-repl*
