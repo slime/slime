@@ -1,3 +1,11 @@
+2004-12-02  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp: (inspect-for-emacs (symbol)): Handle non-interned
+	symbols.
+
+	* slime.el (slime-repl-clear-buffer, slime-repl-clear-output): Fix
+	docstrings.
+
 2004-11-29  Lynn Quam <quam@ai.sri.com>
 
 	* slime.el (slime-global-variable-name-p): Allow optional
