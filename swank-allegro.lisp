@@ -663,3 +663,57 @@
 
 (defimplementation quit-lisp ()
   (excl:exit 0 :quiet t))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;Trace implementations
+;;In Allegro 7.0, we have:
+;; (trace <name>)
+;; (trace ((method <name> <qualifier>? (<specializer>+))))
+;; (trace ((labels <name> <label-name>)))
+;; (trace ((labels (method <name> (<specializer>+)) <label-name>)))
+;; <name> can be a normal name or a (setf name)
+
+(defimplementation toggle-trace-generic-function-methods (name)
+  (let ((methods (mop:generic-function-methods (fdefinition name))))
+    (cond ((member name (eval '(trace)) :test #'equal)
+           (eval `(untrace ,name))
+           (dolist (method methods (format nil "~S is now untraced." name))
+             (excl:funtrace (mop:method-function method))))
+          (t
+           (eval `(trace ,name))
+           (dolist (method methods
+                    (format nil "~S is now traced." name))
+             (excl:ftrace (mop:method-function method)))))))
+
+(defun toggle-trace (fspec &rest args)
+  (cond ((member fspec (eval '(trace)) :test #'equal)
+         (eval `(untrace ,fspec))
+         (format nil "~S is now untraced." fspec))
+        (t
+         (eval `(trace (,fspec ,@args)))
+         (format nil "~S is now traced." fspec))))
+
+(defun process-fspec-for-allegro (fspec)
+  (cond ((consp fspec)
+         (ecase (first fspec)
+           ((:defun :defgeneric) (second fspec))
+           ((:defmethod) `(method ,@(rest fspec)))
+           ((:labels) `(labels ,(process-fspec-for-allegro (second fspec)) ,(third fspec)))
+           ((:flet) `(flet ,(process-fspec-for-allegro (second fspec)) ,(third fspec)))))
+        (t
+         fspec)))
+
+(defimplementation toggle-trace-function (spec)
+  (toggle-trace spec))
+
+(defimplementation toggle-trace-method (spec)
+  (toggle-trace (process-fspec-for-allegro spec)))
+
+(defimplementation toggle-trace-fdefinition-wherein (name wherein)
+  (toggle-trace name :inside (if (and (consp wherein)
+                                      (eq (first wherein) :defmethod))
+                               (list (process-fspec-for-allegro wherein))
+                               (process-fspec-for-allegro wherein))))
+
+(defimplementation toggle-trace-fdefinition-within (spec)
+  (toggle-trace (process-fspec-for-allegro spec)))
