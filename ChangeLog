@@ -1,3 +1,27 @@
+2003-11-08  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime/slime.el (slime-buffer-package): Try to find be the
+	package name before resorting to slime-buffer-package.  Return nil
+	and not "CL-USER" if the package cannot be determined.
+	(slime-goto-location): Insert notes with a source path, but
+	without filename or buffername, at point.  This can happen for
+	warnings during macro expansion. (The macro expander is a
+	interpreted function and doesn't have a filename or buffername.)
+	(slime-show-note): Display 2 double quotes "" in the echo area for
+	zero length messages.  SERIES tends to signal warnings with zero
+	length messages.
+	(slime-print-apropos): Add support for alien types.
+
+	* swank-cmucl.lisp (briefly-describe-symbol-for-emacs): Add
+	support for alien types.
+	(source-path-file-position): Read the entire expression with a
+	special readtable.  The readtable records source positions for
+	each sub-expression in a hashtable.  Extract the sub-expression
+	for the source path from the read object and lookup the
+	sub-expression in the hashtable to find its source position.
+
+	* swank-sbcl.lisp (swank-macroexpand-all): Implemented.
+
 2003-11-06  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-autodoc-mode): When non-nil, display the
