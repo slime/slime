@@ -2781,9 +2781,14 @@ function name is prompted."
   (slime-interactive-eval (slime-last-expression)))
   
 (defun slime-eval-defun ()
-  "Evaluate the current toplevel form."
+  "Evaluate the current toplevel form.
+Use `slime-re-evaluate-defvar' the current defun starts with '(defvar'"
   (interactive)
-  (slime-interactive-eval (slime-defun-at-point)))
+  (let ((form (slime-defun-at-point)))
+    (cond ((string-match "^(defvar " form)
+           (slime-re-evaluate-defvar form))
+          (t
+           (slime-interactive-eval from))(slime-defun-at-point))))
 
 (defun slime-eval-region (start end)
   "Evalute region."
@@ -2799,12 +2804,12 @@ The value is printed in the echo area."
   (interactive)
   (slime-eval-region (point-min) (point-max)))
 
-(defun slime-re-evaluate-defvar ()
+(defun slime-re-evaluate-defvar (form)
   "Force the re-evaluaton of the defvar form before point.  
 
 First make the variable unbound, then evaluate the entire form."
-  (interactive)
-  (slime-eval-async `(swank:re-evaluate-defvar ,(slime-last-expression))
+  (interactive (list (slime-last-expression)))
+  (slime-eval-async `(swank:re-evaluate-defvar ,form)
 		    (slime-buffer-package)
 		    (slime-show-evaluation-result-continuation)))
 
