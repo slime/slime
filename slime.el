@@ -2858,7 +2858,10 @@ Useful value for `slime-compilation-finished-hook'"
 (defun slime-list-compiler-notes (&optional notes)
   "Show the compiler notes NOTES in tree view."
   (interactive)
-  (let ((notes (or notes (slime-compiler-notes))))
+  (let ((notes (or notes (slime-compiler-notes)))
+        ;; We have to grab the window configuration before switching
+        ;; buffers in XEmacs.
+        (window-config (current-window-configuration)))
     (with-current-buffer (get-buffer-create "*compiler notes*")
       (let ((inhibit-read-only t))
         (erase-buffer)
@@ -2871,7 +2874,7 @@ Useful value for `slime-compilation-finished-hook'"
       (setq buffer-read-only t)
       (make-local-variable 'slime-compiler-notes-saved-window-configuration)
       (setq slime-compiler-notes-saved-window-configuration
-            (current-window-configuration))
+            window-config)
       (goto-char (point-min))
       (pop-to-buffer (current-buffer)))))
 
