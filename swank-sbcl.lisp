@@ -131,7 +131,7 @@ You aren't running Linux. The values of +o_async+ etc are probably bogus."))
            (sb-alien:alien-funcall fcntl fd +f_setown+
                                    (sb-unix:unix-getpid))))))
 
-(defimplementation add-input-handler (socket fn)
+(defimplementation add-sigio-handler (socket fn)
   (set-sigio-handler)
   (let ((fd (socket-fd socket)))
     (format *debug-io* "Adding sigio handler: ~S ~%" fd)
@@ -139,7 +139,7 @@ You aren't running Linux. The values of +o_async+ etc are probably bogus."))
     (push (cons fd fn) *sigio-handlers*)))
 
 #+(or)
-(defimplementation add-input-handler (socket fn)
+(defimplementation add-sigio-handler (socket fn)
   (set-sigio-handler)
   (let ((fd (socket-fd socket)))
     (format *debug-io* "Adding sigio handler: ~S ~%" fd)
@@ -147,11 +147,22 @@ You aren't running Linux. The values of +o_async+ etc are probably bogus."))
     (sb-posix:fcntl fd sb-posix::f-setown (sb-unix:unix-getpid))
     (push (cons fd fn) *sigio-handlers*)))
 
-(defimplementation remove-input-handlers (socket)
+(defimplementation remove-sigio-handlers (socket)
   (let ((fd (socket-fd socket)))
     (setf *sigio-handlers* (delete fd *sigio-handlers* :key #'car))
     (sb-sys:invalidate-descriptor fd)) 
   (close socket))
+
+(defimplementation add-fd-handler (socket fn)
+  (declare (type function fn))
+  (let ((fd (socket-fd socket)))
+    (format *debug-io* "; Adding fd handler: ~S ~%" fd)
+    (sb-sys:add-fd-handler fd :input (lambda (_) 
+                                       _
+                                       (funcall fn)))))
+
+(defimplementation remove-fd-handlers (socket)
+  (sb-sys:invalidate-descriptor (socket-fd socket)))
 
 (defun socket-fd (socket)
   (etypecase socket
