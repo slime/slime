@@ -1,3 +1,10 @@
+2004-03-25  Bjørn Nordbø <bn@telenor.net>
+
+	* swank-lispworks.lisp: (create-socket, set-sigint-handler)
+	(who-references, who-binds, who-sets): Add backward compatibility
+	for LW 4.1.
+	(dspec-buffer-position): Fix inappropriate use of etypecase.
+
 2004-03-24  Luke Gorrie  <luke@bluetail.com>
 
 	* doc/slime.texi: Added completion style and configuration.
@@ -38,7 +45,7 @@
 	New functions.
 	(with-connection): Fix quoting bug and move upwards before first
 	use.
-	(send-output-to-emacs): Add kludge for SBCL !-package names.
+	(guess-package-from-string): Add kludge for SBCL !-package names.
 	(apropos-list-for-emacs): Lispworks apparently returns duplicates;
 	remove them.
 	(inspect-object): Princ the label to allow strings and symbols.
