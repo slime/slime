@@ -71,8 +71,9 @@
 
 (setq *swank-in-background* :spawn)
 
-(defimplementation create-socket (port)
-  (ccl:make-socket :connect :passive :local-port port :reuse-address t))
+(defimplementation create-socket (host port)
+  (ccl:make-socket :connect :passive :local-port port 
+                   :local-host host :reuse-address t))
 
 (defimplementation local-port (socket)
   (ccl:local-port socket))

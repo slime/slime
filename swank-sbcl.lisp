@@ -62,12 +62,16 @@
 
 (setq *swank-in-background* :sigio)
 
-(defimplementation create-socket (port)
+(defun resolve-hostname (name)
+  (car (sb-bsd-sockets:host-ent-addresses
+        (sb-bsd-sockets:get-host-by-name name))))
+
+(defimplementation create-socket (host port)
   (let ((socket (make-instance 'sb-bsd-sockets:inet-socket
 			       :type :stream
 			       :protocol :tcp)))
     (setf (sb-bsd-sockets:sockopt-reuse-address socket) t)
-    (sb-bsd-sockets:socket-bind socket #(127 0 0 1) port)
+    (sb-bsd-sockets:socket-bind socket (resolve-hostname host) port)
     (sb-bsd-sockets:socket-listen socket 5)
     socket))
 

@@ -67,7 +67,8 @@
 
 (setq *swank-in-background* nil)
 
-(defimplementation create-socket (port)
+(defimplementation create-socket (host port)
+  (declare (ignore host))
   (socket:socket-server port))
 
 (defimplementation local-port (socket)

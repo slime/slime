@@ -5,12 +5,8 @@
 ;;; Created 2003, Helmut Eller
 ;;;
 ;;; This code has been placed in the Public Domain.  All warranties
-;;; are disclaimed.
-;;;
-;;;   $Id$
-;;;
-;;; This code was written for 
-;;;   Allegro CL Trial Edition "5.0 [Linux/X86] (8/29/98 10:57)"
+;;; are disclaimed. This code was written for "Allegro CL Trial
+;;; Edition "5.0 [Linux/X86] (8/29/98 10:57)".
 ;;;  
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -36,8 +32,9 @@
 
 (setq *swank-in-background* :spawn)
 
-(defimplementation create-socket (port)
-  (socket:make-socket :connect :passive :local-port port :reuse-address t))
+(defimplementation create-socket (host port)
+  (socket:make-socket :connect :passive :local-port port 
+                      :local-host host :reuse-address t))
 
 (defimplementation local-port (socket)
   (socket:local-port socket))

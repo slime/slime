@@ -66,7 +66,6 @@
            #:debugger-info-for-emacs
            #:start-server
            #:startup-multiprocessing
-           #:startup-multiprocessing-for-emacs
            #:swank-compile-file
            #:swank-compile-string
            #:swank-macroexpand
@@ -147,8 +146,8 @@ The portable code calls this function at startup."
 
 ;;;; TCP server
 
-(definterface create-socket (port)
-  "Create a listening TCP socket on port PORT.")
+(definterface create-socket (host port)
+  "Create a listening TCP socket on interface HOST and port PORT .")
 
 (definterface local-port (socket)
   "Return the local port number of SOCKET.")
@@ -494,9 +493,8 @@ LOCATION is a source location of the form:
   (:documentation
    "Return a short description and a list of (LABEL . VALUE) pairs."))
 
-(defgeneric describe-primitive-type (object)
-  (:documentation
-   "Return a string describing the primitive type of object."))
+(definterface describe-primitive-type (object)
+  "Return a string describing the primitive type of object.")
 
 
 ;;;; Multiprocessing

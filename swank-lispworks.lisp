@@ -34,9 +34,9 @@
     (fixnum socket)
     (comm:socket-stream (comm:socket-stream-socket socket))))
 
-(defimplementation create-socket (port)
+(defimplementation create-socket (host port)
   (multiple-value-bind (socket where errno)
-      (comm::create-tcp-socket-for-service port :address "localhost")
+      (comm::create-tcp-socket-for-service port :address host)
     (cond (socket socket)
           (t (error 'network-error 
               :format-control "~A failed: ~A (~D)"

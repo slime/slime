@@ -9,13 +9,10 @@
 
 (setq *swank-in-background* :sigio)
 
-(defimplementation create-socket (port)
-  (let ((fd (ext:create-inet-listener port :stream
-                                      :reuse-address t
-                                      :host (resolve-hostname "localhost"))))
-    #+MP
-    ;;  (when *multiprocessing-enabled* (set-fd-non-blocking fd))
-    fd))
+(defimplementation create-socket (host port)
+  (ext:create-inet-listener 0 :stream
+                            :reuse-address t
+                            :host (resolve-hostname host)))
 
 (defimplementation local-port (socket)
   (nth-value 1 (ext::get-socket-host-and-port (socket-fd socket))))
