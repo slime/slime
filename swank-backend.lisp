@@ -327,6 +327,9 @@ to safe reader/printer settings, and so on.")
   ((original-condition
     :initarg :original-condition
     :accessor original-condition))
+  (:report (lambda (condition stream)
+             (format stream "Condition in debugger code~@[: ~A~]" 
+                     (original-condition condition))))
   (:documentation
    "Wrapper for conditions that should not be debugged.
 
