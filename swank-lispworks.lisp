@@ -156,13 +156,16 @@ Return NIL if the symbol is unbound."
 ;;; Debugging
 
 (defvar *sldb-restarts*)
+(defvar *sldb-top-frame*)
 
 (defslimefun sldb-abort ()
   (invoke-restart (find 'abort *sldb-restarts* :key #'restart-name)))
 
 (defimplementation call-with-debugging-environment (fn)
   (dbg::with-debugger-stack ()
-    (let ((*sldb-restarts* (compute-restarts *swank-debugger-condition*)))
+    (let ((*sldb-restarts* (compute-restarts *swank-debugger-condition*))
+          (*sldb-top-frame* (dbg::debugger-stack-current-frame 
+                             dbg::*debugger-stack*)))
       (funcall fn))))
 
 (defun format-restarts-for-emacs ()
@@ -176,8 +179,7 @@ Return NIL if the symbol is unbound."
       ))
 
 (defun nth-frame (index)
-  (do ((frame (dbg::debugger-stack-current-frame dbg::*debugger-stack*)
-	      (dbg::frame-next frame))
+  (do ((frame *sldb-top-frame* (dbg::frame-next frame))
        (i index (if (interesting-frame-p frame) (1- i) i)))
       ((and (interesting-frame-p frame) (zerop i)) frame)
     (assert frame)))
@@ -242,24 +244,38 @@ Return NIL if the symbol is unbound."
     (if (dbg::call-frame-p frame)
 	(let ((func (dbg::call-frame-function-name frame)))
 	  (if func 
-	      (dspec-source-location func))))))
+	      (name-source-location func))))))
+
+(defimplementation eval-in-frame (form frame-number)
+  (let ((frame (nth-frame frame-number)))
+    (dbg::dbg-eval form frame)))
+
+(defimplementation return-from-frame (frame-number form)
+  (let* ((frame (nth-frame frame-number))
+         (return-frame (dbg::find-frame-for-return frame))
+         (form (from-string form)))
+    (dbg::dbg-return-from-call-frame frame form return-frame 
+                                     dbg::*debugger-stack*)))
+
+(defimplementation restart-frame (frame-number)
+  (let ((frame (nth-frame frame-number)))
+    (dbg::restart-frame frame :same-args t)))
 
 ;;; Definition finding
 
-(defun dspec-source-location (dspec)
-  (destructuring-bind (first) (dspec-source-locations dspec)
-    first))
+(defun name-source-location (name)
+  (first (name-source-locations name)))
 
-(defun dspec-source-locations (dspec)
-  (let ((locations (dspec:find-dspec-locations dspec)))
+(defun name-source-locations (name)
+  (let ((locations (dspec:find-name-locations dspec:*dspec-classes* name)))
     (cond ((not locations) 
-	   (list :error (format nil "Cannot find source for ~S" dspec)))
+	   (list :error (format nil "Cannot find source for ~S" name)))
 	  (t
            (loop for (dspec location) in locations
                  collect (make-dspec-location dspec location))))))
 
 (defimplementation find-function-locations (fname)
-  (dspec-source-locations (from-string fname)))
+  (name-source-locations (from-string fname)))
 
 ;;; Compilation 
 
@@ -267,7 +283,7 @@ Return NIL if the symbol is unbound."
   (let ((compiler::*error-database* '()))
     (with-compilation-unit ()
       (compile-file filename :load load-p)
-      (signal-error-data-base compiler::*error-database*)
+      (signal-error-data-base compiler::*error-database* filename)
       (signal-undefined-functions compiler::*unknown-functions* filename))))
 
 (defun map-error-database (database fn)
@@ -306,7 +322,8 @@ Return NIL if the symbol is unbound."
 (defun dspec-buffer-position (dspec)
   (etypecase dspec
     (cons (ecase (car dspec)
-            ((defun method defmacro defgeneric)
+            ((defun defmacro defgeneric defvar defstruct
+                    method structure package)
              `(:function-name ,(symbol-name (cadr dspec))))
             ;; XXX this isn't quite right
             (lw:top-level-form `(:source-path ,(cdr dspec) nil))))
@@ -316,11 +333,8 @@ Return NIL if the symbol is unbound."
   (and (consp location)
        (eq (car location) :emacs-buffer)))
 
-(defun make-dspec-location (dspec location &optional tmpfile buffer position)
-  (flet ((from-buffer-p () 
-           (and (pathnamep location) tmpfile 
-                (pathname-match-p location tmpfile)))
-         (filename (pathname)
+(defun make-dspec-location (dspec location)
+  (flet ((filename (pathname)
            (multiple-value-bind (truename condition)
                (ignore-errors (truename pathname))
              (cond (condition 
@@ -331,76 +345,55 @@ Return NIL if the symbol is unbound."
            (etypecase dspec
              (symbol (symbol-name dspec))
              (cons (string (dspec:dspec-primary-name dspec))))))
-    (cond ((from-buffer-p)
-           (make-location `(:buffer ,buffer) `(:position ,position)))
-          (t
-           (etypecase location
-             ((or pathname string) 
-              (make-location `(:file ,(filename location))
-                             (dspec-buffer-position dspec)))
-             ((member :listener)
-              `(:error ,(format nil "Function defined in listener: ~S" dspec)))
-             ((member :unknown)
-              `(:error ,(format nil "Function location unkown: ~S" dspec)))
-             ((satisfies emacs-buffer-location-p)
-              (destructuring-bind (_ buffer offset) location
-                (declare (ignore _ offset))
-                (make-location `(:buffer ,buffer)
-                               (dspec-buffer-position dspec)))))
-           ))))
+    (etypecase location
+      ((or pathname string) 
+       (make-location `(:file ,(filename location))
+                      (dspec-buffer-position dspec)))
+      ((member :listener)
+       `(:error ,(format nil "Function defined in listener: ~S" dspec)))
+      ((member :unknown)
+       `(:error ,(format nil "Function location unkown: ~S" dspec)))
+      ((satisfies emacs-buffer-location-p)
+       (destructuring-bind (_ buffer offset string) location
+         (declare (ignore _ offset string))
+         (make-location `(:buffer ,buffer)
+                        (dspec-buffer-position dspec)))))))
 
-(defun signal-error-data-base (database &optional tmpfile buffer position)
+(defun signal-error-data-base (database location)
   (map-error-database 
    database
    (lambda (filename dspec condition)
+     (declare (ignore filename))
      (signal-compiler-condition
       (format nil "~A" condition)
-      (make-dspec-location dspec filename tmpfile buffer position)
+      (make-dspec-location dspec location)
       condition))))
 
-(defun signal-undefined-functions (htab filename 
-				   &optional tmpfile buffer position)
+(defun signal-undefined-functions (htab filename)
   (maphash (lambda (unfun dspecs)
 	     (dolist (dspec dspecs)
 	       (signal-compiler-condition 
 		(format nil "Undefined function ~A" unfun)
-		(make-dspec-location dspec filename tmpfile buffer position)
+		(make-dspec-location dspec filename)
 		nil)))
 	   htab))
-
-(defun replace-source-file (info tmpfile buffer position)
-  (dolist (cons info)
-    (destructuring-bind (dspec . location) cons
-      (etypecase dspec
-        (cons (when (and (or (stringp location)
-                             (pathnamep location))
-                         (pathname-match-p location tmpfile))
-                (setf (cdr cons) 
-                      (list :emacs-buffer buffer position))))
-        (symbol 
-         (dolist (info location)
-           (replace-source-file info tmpfile buffer position)))))))
-
-(defun patch-source-locations (tmpname buffer position)
-  (maphash (lambda (name info)
-             (declare (ignore name))
-             (replace-source-file info tmpname buffer position))
-           (dspec::dc-database (dspec::find-dc 'function))))
 
 (defimplementation compile-string-for-emacs (string &key buffer position)
   (assert buffer)
   (assert position)
-  (let ((*package* *buffer-package*)
-	(compiler::*error-database* '())
-	(tmpname (hcl:make-temp-file nil "lisp")))
+  (let* ((*package* *buffer-package*)
+         (location (list :emacs-buffer buffer position string))
+         (compiler::*error-database* '())
+         (tmpname (hcl:make-temp-file nil "lisp")))
     (with-compilation-unit ()
-      (compile-from-temp-file string tmpname)
-      (format t "~A~%" compiler:*messages*)
-      (signal-error-data-base
-       compiler::*error-database* tmpname buffer position)
-      (signal-undefined-functions compiler::*unknown-functions*
-                                  tmpname tmpname buffer position)
-      (patch-source-locations tmpname buffer position))))
+      (compile-from-temp-file 
+       (with-standard-io-syntax 
+         (format nil "~S~%~A" `(eval-when (:compile-toplevel)
+                                (setq dspec::*location* (list ,@location)))
+                 string))
+       tmpname)
+      (signal-error-data-base compiler::*error-database* location)
+      (signal-undefined-functions compiler::*unknown-functions* location))))
 
 ;;; xref
 
