@@ -1,3 +1,8 @@
+2003-10-23  Luke Gorrie  <luke@bluetail.com>
+
+	* swank-sbcl.lisp (accept-connection): Use a character stream to
+	match swank.lisp.
+
 2003-10-22  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-cmucl.lisp (setup-request-handler): Create a character
