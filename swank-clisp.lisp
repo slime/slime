@@ -24,7 +24,7 @@
   (use-package "SOCKET")
   (use-package "GRAY"))
 
-;(setq *use-dedicated-output-stream* nil)
+(setq *use-dedicated-output-stream* nil)
 (setq *start-swank-in-background* nil)
 ;(setq *redirect-output* nil)
 
@@ -79,63 +79,37 @@
 
 ;;; TCP Server
 
- (defun get-socket-stream (port announce close-socket-p)
-   (let ((socket (socket:socket-server port)))
-     (socket:socket-wait socket 0)
-     (funcall announce (socket:socket-server-port socket))
-     (prog1
- 	(socket:socket-accept socket
-			      :buffered nil
-			      :element-type 'character
-			      :external-format (ext:make-encoding 
-						:charset 'charset:iso-8859-1
-						:line-terminator :unix))
- 	(when close-socket-p
- 	  (socket:socket-server-close socket)))))
+(defmethod create-socket-server (init-fn &key announce-fn (port 0)
+					 (accept-background nil)
+					 (handle-background nil)
+					 (loop nil)
+					 (reuse-address nil))
+  (declare (ignore loop reuse-address accept-background handle-background))
+  (let* ((slime-stream (get-socket-stream port announce-fn))
+	 (handler-fn (funcall init-fn slime-stream)))
+      (loop (funcall handler-fn))))
 
-(defun serve-request (*emacs-io* *slime-output* *slime-input* *slime-io*)
-  "Read and process a request from a SWANK client.
- The request is read from the socket as a sexp and then evaluated."
-  (catch 'slime-toplevel
-    (with-simple-restart (abort "Return to Slime toplevel.")
-    (handler-case (read-from-emacs)
- 		  (ext:simple-charset-type-error (err)
-						 (format *debug-io* "Wrong slime stream encoding:~%~A" err))
- 		  (slime-read-error (e)
- 				    (when *swank-debug-p*
- 				      (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
- 				    (close *emacs-io* :abort t)
- 				    (when *use-dedicated-output-stream* 
- 				      (close *slime-output* :abort t))
- 				    (throw 'closed-connection
- 					   (print "Connection to emacs closed" *debug-io*)))))))
-
-(defun open-stream-to-emacs (*emacs-io*)
-  "Return an output-stream to Emacs' output buffer."
-  (let* ((listener (socket:socket-server))
-  	 (port (socket:socket-server-port listener)))
+(defun get-socket-stream (port announce)
+  (let ((socket (socket:socket-server port)))
     (unwind-protect
- 	(prog2
-	    (eval-in-emacs `(slime-open-stream-to-lisp ,port))
-	    (socket:socket-accept listener
-				  :buffered t
-				  :external-format charset:iso-8859-1
-				  :element-type 'character))
-      (socket:socket-server-close listener))))
+	(progn
+	  (funcall announce (socket:socket-server-port socket))
+	  (socket:socket-wait socket 0)
+	  (socket:socket-accept socket
+				:buffered nil
+				:element-type 'character
+				:external-format (ext:make-encoding 
+						  :charset 'charset:iso-8859-1
+						  :line-terminator :unix)))
+      (socket:socket-server-close socket))))
 
-(defun create-swank-server (port &key (announce #'simple-announce-function)
- 				 reuse-address
- 				 background
- 				 (close *close-swank-socket-after-setup*))
-  (declare (ignore reuse-address background))
-  (let* ((emacs (get-socket-stream port announce close))
-	 (slime-out (if *use-dedicated-output-stream*
-			(open-stream-to-emacs emacs)
-		      (make-instance 'slime-output-stream)))
- 	 (slime-in (make-instance 'slime-input-stream))
- 	 (slime-io (make-two-way-stream slime-in slime-out)))
-    (catch 'closed-connection
-      (loop (serve-request emacs slime-out slime-in slime-io)))))
+(defmethod make-fn-streams (input-fn output-fn)
+  (let* ((output (make-instance 'slime-output-stream
+                                :output-fn output-fn))
+         (input  (make-instance 'slime-input-stream
+                                :input-fn input-fn
+                                :output-stream output)))
+    (values input output)))
 
 ;;; Swank functions
 
