@@ -1,3 +1,13 @@
+2004-07-23  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-set-state): Show the message in the modeline in
+	the case where we aren't connected. Otherwise the "not connected"
+	status is ignored.
+	(slime-net-sentinel): Close the connection before changing the
+	status message. The old behaviour of this combined with the old
+	behaviour of `slime-set-state' could generally cause spurious
+	errors after a connection was closed.
+
 2004-07-22  Luke Gorrie  <luke@bluetail.com>
 
 	* swank.lisp (carefully-find-package): Return *BUFFER-PACKAGE* if
