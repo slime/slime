@@ -1,3 +1,18 @@
+2004-05-04  Alan Shutko  <ats@acm.org>
+
+	* slime.el (slime-compiler-notes-show-details/mouse): New command.
+	(slime-compiler-notes-mode-map): Use it.
+
+2004-05-04   Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-cmucl.lisp (arglist): Handle byte-code functions better.
+	We don't know much about the actual argument list, only the number
+	of arguments.  Return at lest something mildly interesting like
+	 (arg0 arg1 &optional arg2 ...)
+	(function-location): Special-case byte-code functions.
+
+	* swank-backend.lisp (with-struct): New macro.
+
 2004-05-04 Thomas F. Burdick  <tfb@OCF.Berkeley.EDU>
 
 	* slime.el (slime-reindent-defun): New command on C-M-q. Reindent
