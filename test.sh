@@ -39,8 +39,11 @@ $emacs --batch --no-site-file --no-init-file \
 
 status=$?
 
-if [ $status != 0 ]; then
+if [ -f $results ]; then
     echo $status "test(s) failed."
+else
+    # Tests crashed
+    echo crashed
 fi
 
 exit $status
