@@ -43,6 +43,7 @@
    sb-mop::standard-slot-definition
    cl:method
    cl:standard-class
+   sb-mop:eql-specializer
    ;; standard-class readers
    sb-mop:class-default-initargs
    sb-mop:class-direct-default-initargs
@@ -54,6 +55,9 @@
    sb-mop:class-precedence-list
    sb-mop:class-prototype
    sb-mop:class-slots
+   sb-mop:specializer-direct-methods
+   ;; eql-specializer accessors
+   sb-mop:eql-specializer-object
    ;; generic function readers
    sb-mop:generic-function-argument-precedence-order
    sb-mop:generic-function-declarations
@@ -739,7 +743,7 @@ stack."
 	    "Instructions: "  (:value ,(sb-kernel:code-instructions o)))))
 
 (defmethod inspect-for-emacs ((o sb-kernel:fdefn) (inspector sbcl-inspector))
-  (declare (ignore sbcl-inspector))
+  (declare (ignore inspector))
   (values "A fdefn object."
 	  `("Name: "  (:value ,(sb-kernel:fdefn-name o))
             (:newline)
