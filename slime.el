@@ -562,8 +562,9 @@ Your Swank binary is older than the source. Recompile now? "))))
           (set-process-buffer slime-net-process buffer)
           (set-process-filter slime-net-process 'slime-net-filter)
           (set-process-sentinel slime-net-process 'slime-net-sentinel)
-	  (set-process-coding-system slime-net-process 
-				     'no-conversion 'no-conversion))
+          (when (fboundp 'set-process-coding-system)
+            (set-process-coding-system slime-net-process 
+                                       'no-conversion 'no-conversion)))
 	slime-net-process)
     (file-error () nil)))
     
