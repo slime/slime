@@ -962,13 +962,22 @@ Polling %S.. (Abort with `M-x slime-connection-abort'.)"
                        (y-or-n-p "Close old connections first? "))))
   (when kill-old-p (slime-disconnect))
   (message "Connecting to Swank on port %S.." port)
-  (slime-init-connection (slime-net-connect "localhost" port) t)
+  (slime-init-connection (slime-net-connect "localhost" port))
   (when-let (buffer (get-buffer "*inferior-lisp*"))
     (delete-windows-on buffer)
     (bury-buffer buffer))
   (pop-to-buffer (slime-output-buffer))
   (message "Connected to Swank server on port %S. %s"
            port (slime-random-words-of-encouragement)))
+
+(defun slime-aux-connect (host port)
+  "Open an auxiliary connection to HOST:PORT.
+
+Auxiliary connections are temporary connections to specific
+threads for the purposes of e.g. debugging."
+  (message "Opening auxiliary connection to %S:%S.." host port)
+  (slime-init-connection (slime-net-connect "localhost" port) t)
+  (message "Opening auxiliary connection to %S:%S.. done" host port))
 
 (defun slime-disconnect ()
   "Disconnect all connections."
@@ -1135,20 +1144,9 @@ Bound in the connection's process-buffer."))
 (defun slime-connection ()
   "Return the connection to use for Lisp interaction."
   (or slime-dispatching-connection
-      (progn (slime-maybe-drop-buffer-connection)
-             slime-buffer-connection)
+      slime-buffer-connection
       slime-default-connection
       (error "No connection.")))
-
-(defun slime-maybe-drop-buffer-connection ()
-  "If the current buffer's connection is closed, offer to switch
-to the default."
-  (when (and slime-buffer-connection
-             (not (eq (process-status slime-buffer-connection) 'open)))
-    (if (and slime-default-connection
-             (y-or-n-p "Buffer's connection closed; switch to default? "))
-        (setq slime-buffer-connection nil)
-      (error "Buffer's connection closed."))))
 
 (defvar slime-state-name "[??]"
   "Name of the current state of `slime-default-connection'.
@@ -1311,16 +1309,15 @@ This may be called by a state machine to finish its current state."
   (slime-with-connection-buffer ()
     slime-state-stack))
 
-(defun slime-init-connection (proc &optional select)
+(defun slime-init-connection (proc &optional auxp)
   "Initialize the stack machine."
   (let ((slime-dispatching-connection proc))
-    (slime-init-connection-state proc)
-    (when (or select (null slime-default-connection))
-      (slime-select-connection proc))
+    (slime-init-connection-state proc auxp)
+    (unless auxp (slime-select-connection proc))
     (sldb-cleanup)
     proc))
 
-(defun slime-init-connection-state (proc)
+(defun slime-init-connection-state (proc auxp)
   ;; To make life simpler for the user: if this is the only open
   ;; connection then reset the connection counter.
   (when (equal slime-net-processes (list proc))
@@ -1328,14 +1325,15 @@ This may be called by a state machine to finish its current state."
   (slime-with-connection-buffer ()
     (setq slime-state-stack (list (slime-idle-state)))
     (setq slime-connection-number (incf slime-connection-counter)))
-  (when-let (repl-buffer (slime-repl-buffer))
-    ;; REPL buffer already exists - update its local
-    ;; `slime-connection' binding.
-    (with-current-buffer repl-buffer
-      (setq slime-buffer-connection proc)))
-  (setf (slime-pid) (slime-eval '(swank:getpid)))
-  (when slime-global-debugger-hook
-    (slime-eval '(swank:install-global-debugger-hook) "COMMON-LISP-USER"))
+  (unless auxp
+    (setf (slime-pid) (slime-eval '(swank:getpid)))
+    (when-let (repl-buffer (slime-repl-buffer))
+      ;; REPL buffer already exists - update its local
+      ;; `slime-connection' binding.
+      (with-current-buffer repl-buffer
+        (setq slime-buffer-connection proc)))
+    (when slime-global-debugger-hook
+      (slime-eval '(swank:install-global-debugger-hook) "COMMON-LISP-USER")))
   (setf (sldb-level) 0))
   
 (defun slime-activate-state ()
@@ -1398,6 +1396,8 @@ Return true if the event is recognised and handled."
     ((:open-dedicated-output-stream port)
      (slime-open-stream-to-lisp port)
      t)
+    ((:open-aux-connection port)
+     (slime-aux-connect "localhost" port))
     ((:%apply fn args)
      (apply (intern fn) args)
      t)
