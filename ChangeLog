@@ -1,3 +1,13 @@
+2005-02-23  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-startup-animation, slime-repl-update-banner):
+	Put the animation back in to keep the kids quiet.
+	(slime-kill-without-query-p): Change default to nil.
+	(slime-eval-describe, slime-eval-region)
+	(slime-pprint-eval-last-expression): Fix typos in docstrings.
+	(slime-eval/compile-defun-dwim): Deleted. We never had a key
+	binding anyway.
+
 2005-02-22  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-complete-form): Emacs 20 compatibility fix.
