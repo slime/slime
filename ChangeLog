@@ -6,6 +6,8 @@
 	variables, and method-combinations.  General cleanups.
 	(source-info-first-file-name): Removed.
 	(list-callers): Fixed.
+	(list-callers): Fixed some more.  method-name is not exported in
+	0.14.  From Marco Baringer.
 
 	* swank-loader.lisp (user-init-file): Use homedir's truename.
 	Reported by Friedrich Dominicus.
