@@ -972,7 +972,7 @@ has changed, ignore the request."
 (defslimefun pprint-eval-string-in-frame (string index)
   (swank-pprint
    (multiple-value-list 
-    (eval-in-frame index (from-string string)))))
+    (eval-in-frame (from-string string) index))))
 
 (defslimefun frame-locals-for-emacs (index)
   "Return a property list ((&key NAME ID VALUE) ...) describing
@@ -1037,9 +1037,7 @@ The debugger hook is inhibited during the evaluation."
           (t "; No value"))))
 
 (defslimefun interactive-eval (string)
-  (let ((values (multiple-value-list
-                 (eval (let ((*package* *buffer-package*))
-                         (from-string string))))))
+  (let ((values (multiple-value-list (eval (from-string string)))))
     (fresh-line)
     (force-output)
     (format-values-for-echo-area values)))
@@ -1135,7 +1133,14 @@ change, then send Emacs an update."
 
 (defslimefun ed-in-emacs (&optional what)
   "Edit WHAT in Emacs.
-WHAT can be a filename (pathname or string) or function name (symbol)."
+
+WHAT can be:
+  A filename (string),
+  A list (FILENAME LINE [COLUMN]),
+  A function name (symbol),
+  nil."
+  (if (and (listp what) (pathnamep (first what)))
+      (setf (car what) (canonicalize-filename (car what))))
   (send-oob-to-emacs `(:ed ,(if (pathnamep what)
                                 (canonicalize-filename what)
                                 what))))
