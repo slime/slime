@@ -61,9 +61,8 @@
   "Return the pathname where SOURCE-PATHNAME's binary should be compiled."
   (let ((cfp (compile-file-pathname source-pathname)))
     (merge-pathnames (make-pathname
-                      :directory `(:relative #-mswindows ".slime"
-                                   #+mswindows "_slime"
-                                   "fasl" ,*lisp-name*)
+                      :directory `(:relative
+                                   ".slime" "fasl" ,*lisp-name*)
                       :name (pathname-name cfp)
                       :type (pathname-type cfp))
                      (user-homedir-pathname))))
@@ -97,8 +96,7 @@ recompiled."
   "Return the name of the user init file or nil."
   (probe-file
    (merge-pathnames (user-homedir-pathname)
-                    #-mswindows (make-pathname :name ".swank" :type "lisp")
-                    #+mswindows (make-pathname :name "_swank" :type "lsp"))))
+                    (make-pathname :name ".swank" :type "lisp"))))
 
        
 (compile-files-if-needed-serially
