@@ -7,9 +7,8 @@
 ;;; This code has been placed in the Public Domain.  All warranties are 
 ;;; disclaimed.
 
-;;; This is a rapidly evolving Slime backend for SBCL.  Requires
-;;; bleeding-edge SBCL with the SB-THREAD feature and SB-INTROSPECT
-;;; contrib
+;;; This is a Slime backend for SBCL.  Requires SBCL 0.8.5 or later
+;;; for the SB-INTROSPECT contrib
 
 ;;; Cursory testing has found that the following appear to work
 ;;;
@@ -112,6 +111,8 @@
                   (make-instance 'slime-output-stream)))
          (in (make-instance 'slime-input-stream))
          (io (make-two-way-stream in out)))
+    ;; we're being called from a serve-event handler: remove it now
+    ;; because socket-close doesn't (in 0.8.6 anyway) do it for us
     (sb-sys:invalidate-descriptor (sb-bsd-sockets:socket-file-descriptor
                                    server-socket))
     (sb-bsd-sockets:socket-close server-socket)
@@ -130,8 +131,7 @@ The request is read from the socket as a sexp and then evaluated."
       (slime-read-error (e)
         (when *swank-debug-p*
           (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
-        (sb-sys:invalidate-descriptor (sb-sys:fd-stream-fd *emacs-io*))
-        (close *emacs-io*)))))
+        (close *emacs-io* :abort t)))))
 
 ;;; Utilities
 
