@@ -206,8 +206,10 @@ If you want to fallback on TAGS you can set this to `find-tags' or
                  (const :tag "Compound" slime-complete-symbol*)
                  (const :tag "Fuzzy" slime-fuzzy-complete-symbol)))
 
-(defcustom slime-complete-symbol*-fancy t
-  "Use information from argument lists for DWIM'ish symbol completion.")
+(defcustom slime-complete-symbol*-fancy nil
+  "Use information from argument lists for DWIM'ish symbol completion."
+  :group 'slime-mode
+  :type 'boolean)
 
 (defcustom slime-space-information-p t
   "Have the SPC key offer arglist information."
