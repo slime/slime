@@ -80,6 +80,7 @@
            #:sldb-abort
            #:sldb-continue
            #:take-input
+           #:slime-debugger-function
            ))
 
 (in-package :swank)
