@@ -1,3 +1,20 @@
+2003-12-17 Alan Ruttenberg <alanralanr@comcast.net>
+
+	* swank-openmcl.lisp 1.40
+	Fix an error with frame-source-location-for-emacs when the
+	function was a method-function.
+	Defined method-source-location that handles this case. You can
+	still end up looking at the wrong definition, as the protocol
+	doesn't allow passing back the qualifiers and specializers to look
+	up the correct one in the file
+
+.	* swank-openmcl.lisp 1.39
+	Allow you to continue after interrupting. 
+	Properly set *swank-debugger-stack-frame* when interrupting.
+
+	* slime.el 1.152
+	sldb-continue now uses slime-oneway-eval
+	
 2003-12-17  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el: Better handling of asynchronous output.
