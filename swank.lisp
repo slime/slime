@@ -749,23 +749,24 @@ exists."
     (print-arglist arglist)))
 
 (defun print-arglist (arglist)
-  (let ((*print-case* :downcase)
-        (*print-pretty* t)
-        (*print-circle* nil)
-        (*print-level* 10)
-        (*print-length* 20))
-    (pprint-logical-block (nil arglist :prefix "(" :suffix ")")
-      (loop
-       (let ((arg (pprint-pop)))
-         (etypecase arg
-           (symbol (princ arg))
-           (cons (pprint-logical-block (nil nil :prefix "(" :suffix ")")
-                   (princ (car arg))
-                   (write-char #\space)
-                   (pprint-fill *standard-output* (cdr arg) nil))))
-         (pprint-exit-if-list-exhausted)
-         (write-char #\space)
-         (pprint-newline :fill))))))
+  (with-standard-io-syntax
+    (let ((*print-case* :downcase)
+          (*print-pretty* t)
+          (*print-circle* nil)
+          (*print-level* 10)
+          (*print-length* 20))
+      (pprint-logical-block (nil arglist :prefix "(" :suffix ")")
+        (loop
+         (let ((arg (pprint-pop)))
+           (etypecase arg
+             (symbol (princ arg))
+             (cons (pprint-logical-block (nil nil :prefix "(" :suffix ")")
+                     (princ (car arg))
+                     (write-char #\space)
+                     (pprint-fill *standard-output* (cdr arg) nil))))
+           (pprint-exit-if-list-exhausted)
+           (write-char #\space)
+           (pprint-newline :fill)))))))
 
 (defun test-print-arglist (list string)
   (string= (print-arglist-to-string list) string))
