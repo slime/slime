@@ -503,8 +503,26 @@ stack."
 	  collect f)))
 
 (defimplementation print-frame (frame stream)
-  (let ((*standard-output* stream))
-    (sb-debug::print-frame-call frame stream :verbosity 1 :number nil)))
+  (macrolet ((printer-form ()
+               ;; MEGAKLUDGE: As SBCL 0.8.20.1 fixed its debug IO style
+               ;; our usage of unexported interfaces came back to haunt
+               ;; us. And since we still use the same interfaces it will
+               ;; haunt us again.
+               (let ((print-sym (find-symbol "PRINT-FRAME-CALL" :sb-debug)))
+                 (if (fboundp print-sym)
+                     (let* ((args (sb-introspect:function-arglist print-sym))
+                          (key-pos (position '&key args)))
+                       (cond ((eql 2 key-pos)
+                              `(,print-sym frame stream))
+                             ((eql 1 key-pos)
+                              `(let ((*standard-output* stream))
+                                 (,print-sym frame)))
+                             (t
+                              (error "*THWAP* SBCL changes internals ~
+                                       again!"))))
+                     (error "You're in a twisty little maze of unsupported
+                              SBCL interfaces, all different.")))))
+    (printer-form)))
 
 (defun code-location-source-path (code-location)
   (let* ((location (sb-debug::maybe-block-start-location code-location))
@@ -527,6 +545,30 @@ stack."
     (and info 
 	 (consp info)
 	 (eq :emacs-buffer (car info)))))
+
+(defun print-code-location-source-form (code-location context)
+  (macrolet ((printer-form ()
+               ;; KLUDGE: These are both unexported interfaces, used
+               ;; by different versions of SBCL. ...sooner or later
+               ;; this will change again: hopefully by then we have
+               ;; figured out the interface we want to drive the
+               ;; debugger with and requested it from the SBCL
+               ;; folks.
+               (let ((print-code-sym
+                      (find-symbol "PRINT-CODE-LOCATION-SOURCE-FORM"
+                                   :sb-debug))
+                     (code-sym
+                      (find-symbol "CODE-LOCATION-SOURCE-FORM"
+                                   :sb-debug)))
+                 (cond ((fboundp print-code-sym)
+                        `(,print-code-sym code-location context))
+                       ((fboundp code-sym)
+                        `(prin1 (,code-sym code-location context)))
+                       (t
+                        (error 
+                         "*THWAP* SBCL changes its debugger interface ~
+                          again!"))))))
+    (printer-form)))
 
 (defun source-location-for-emacs (code-location)
   (let* ((debug-source (sb-di:code-location-debug-source code-location))
@@ -554,8 +596,7 @@ stack."
       (:lisp
        (make-location
         (list :source-form (with-output-to-string (*standard-output*)
-                             (print (sb-debug::code-location-source-form
-                                     code-location 100))))
+                             (print-code-location-source-form code-location 100)))
         (list :position 0))))))
 
 (defun safe-source-location-for-emacs (code-location)
