@@ -2586,7 +2586,11 @@ See `slime-compile-and-load-file' for further details."
   (interactive)
   (unless (eq major-mode 'lisp-mode)
     (error "Only valid in lisp-mode"))
-  (save-some-buffers)
+  (unless buffer-file-name
+    (error "Buffer %s is not associated with a file." (buffer-name)))
+  (when (and (buffer-modified-p)
+             (y-or-n-p (format "Save file %s? " (buffer-file-name))))
+    (save-buffer))
   (let ((lisp-filename (slime-to-lisp-filename (buffer-file-name))))
     (slime-insert-transcript-delimiter
      (format "Compile file %s" lisp-filename))
