@@ -1370,8 +1370,8 @@ EVAL'd by Lisp."
 (defun slime-net-sentinel (process message)
   (when (ignore-errors (eq (process-status (inferior-lisp-proc)) 'open))
     (message "Lisp connection closed unexpectedly: %s" message))
-  (slime-set-state "[not connected]")
-  (slime-net-close process))
+  (slime-net-close process)
+  (slime-set-state "[not connected]"))
 
 ;;; Socket input is handled by `slime-net-filter', which decodes any
 ;;; complete messages and hands them off to the event dispatcher.
@@ -1540,8 +1540,8 @@ Just used for informational display in the mode-line.")
   "Set the current connection's informational state name.
 If this is the default connection then the state will be displayed in
 the modeline."
-  (when (and (slime-connected-p)
-             (eq (slime-connection) slime-default-connection))
+  (when (or (not (slime-connected-p))
+            (eq (slime-connection) slime-default-connection))
     (setq slime-state-name name)
     (force-mode-line-update)))
 
