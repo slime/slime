@@ -9,11 +9,15 @@
 
 (defpackage :swank
   (:use :common-lisp :swank-backend)
-  (:export #:*sldb-pprint-frames*
-           #:startup-multiprocessing
+  (:export #:startup-multiprocessing
            #:start-server 
            #:create-swank-server
            #:ed-in-emacs
+           ;; configurables
+           #:*sldb-pprint-frames*
+           #:*communication-style*
+           #:*log-events*
+           #:*use-dedicated-output-stream*
            ;; re-exported from backend
            #:frame-source-location-for-emacs
            #:restart-frame
@@ -170,16 +174,16 @@ corresponding values in the CDR of VALUE."
 Redirection is done while Lisp is processing a request for Emacs.")
 
 (defvar *use-dedicated-output-stream* t)
-(defvar *swank-in-background* (preferred-communication-style))
+(defvar *communication-style* (preferred-communication-style))
 (defvar *log-events* nil)
 
-(defun start-server (port-file &optional (background *swank-in-background*)
+(defun start-server (port-file &optional (background *communication-style*)
                      dont-close)
   (setup-server 0 (lambda (port) (announce-server-port port-file port))
                 background dont-close))
                      
 (defun create-swank-server (&optional (port +server-port+)
-                            (background *swank-in-background*)
+                            (background *communication-style*)
                             (announce-fn #'simple-announce-function)
                             dont-close)
   (setup-server port announce-fn background dont-close))
