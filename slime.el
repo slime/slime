@@ -1660,22 +1660,18 @@ This is automatically synchronized from Lisp.")
       (goto-char (point-max))
       (save-excursion
         (pp event (current-buffer)))
-      (when hs-minor-mode
-        (hs-hide-block-at-point))
+      (when outline-minor-mode
+        (hide-entry))
       (goto-char (point-max)))))
 
 (defun slime-events-buffer ()
   (or (get-buffer "*slime-events*")
       (let ((buffer (get-buffer-create "*slime-events*")))
-        ;; Using hideshow mode in XEmacs has caused obscure problems
-        ;; for some users. -luke (24/Apr/2004)
-        (unless (featurep 'xemacs)
-          (with-current-buffer buffer
-            (set (make-local-variable 'hs-block-start-regexp) "^(")
-            (set (make-local-variable 'comment-start) ";")
-            (set (make-local-variable 'comment-end) "")
-            (unless (featurep 'xemacs)
-              (hs-minor-mode))))
+        (with-current-buffer buffer
+          (set (make-local-variable 'outline-regexp) "^(")
+          (set (make-local-variable 'comment-start) ";")
+          (set (make-local-variable 'comment-end) "")
+          (outline-minor-mode))
         buffer)))
 
 
