@@ -1,5 +1,20 @@
 2003-11-06  Luke Gorrie  <luke@bluetail.com>
 
+	* slime.el (slime-autodoc-mode): When non-nil, display the
+	argument list for the function-call near point each time the point
+	moves in a slime-mode buffer. This is a first-cut; more useful
+	context-sensitive help to follow (e.g. looking up variable
+	documentation).
+	(slime-autodoc-cache-type): Cache policy "autodoc" documentation:
+	either nil (no caching), 'last (the default - cache most recent
+	only), or 'all (cache everything on symbol plists forever).
+
+	* slime.el: Convenience macros:
+	(when-bind (var exp) &rest body)
+	  => (let ((var exp)) (when var . body))
+	(with-lexical-bindings (var1 ...) . body)
+	  => (lexical-let ((var1 var1) ...) . body)
+
 	* slime.el (slime, slime-lisp-package): Reset `slime-lisp-package'
 	(the REPL package) when reconnecting.
 	(slime-buffer-package): Return `slime-lisp-package' when the
