@@ -18,8 +18,69 @@
   (:use :common-lisp)
   (:nicknames #:swank-backend)
   (:export #:start-server #:create-swank-server
-           #:*sldb-pprint-frames*))
-
+           #:*sldb-pprint-frames*
+           #:eval-string
+           #:interactive-eval-region
+           #:interactive-eval
+           #:pprint-eval
+           #:re-evaluate-defvar
+           #:listener-eval
+           #:swank-compile-file
+           #:swank-compile-string
+           #:compiler-notes-for-emacs
+           #:load-file
+           #:set-default-directory
+           #:set-package
+           #:list-all-package-names
+           #:getpid
+           #:disassemble-symbol
+           #:describe-symbol
+           #:describe-alien-type
+           #:describe-function
+           #:describe-type
+           #:describe-alien-struct
+           #:describe-class
+           #:describe-inspectee
+           #:describe-alien-union
+           #:describe-alien-enum
+           #:describe-setf-function
+           #:documentation-symbol
+           #:arglist-string
+           #:completions
+           #:apropos-list-for-emacs
+           #:inspect-nth-part
+           #:inspect-in-frame
+           #:init-inspector
+           #:quit-inspector
+           #:inspector-next
+           #:swank-macroexpand-all
+           #:swank-macroexpand
+           #:swank-macroexpand-1
+           #:untrace-all
+           #:toggle-trace-fdefinition
+           #:function-source-location-for-emacs
+           #:who-binds
+           #:who-references
+           #:who-calls
+           #:who-sets
+           #:who-macroexpands
+           #:list-callers
+           #:list-callees
+           #:backtrace
+           #:frame-catch-tags
+           #:frame-source-position
+           #:frame-locals
+           #:throw-to-toplevel
+           #:inspector-pop
+           #:invoke-nth-restart
+           #:pprint-eval-string-in-frame
+           #:frame-source-location-for-emacs
+           #:eval-in-frame
+           #:eval-string-in-frame
+           #:sldb-abort
+           #:sldb-continue
+           #:take-input
+           ))
 
 (in-package :swank)
 
@@ -125,7 +186,7 @@ to safe reader/printer settings, and so on."))
 (define-condition sldb-condition (condition)
   ((original-condition
     :initarg :original-condition
-    :accessor :original-condition))
+    :accessor original-condition))
   (:documentation
    "Wrapper for conditions that should not be debugged.
 
