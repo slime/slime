@@ -155,8 +155,10 @@
   (disassemble (debugger:frame-function (nth-frame index))))
 
 (defimplementation frame-source-location-for-emacs (index)
-  (list :error (format nil "Cannot find source for frame: ~A"
-                       (nth-frame index))))
+  (let* ((frame (nth-frame index))
+         (expr (debugger:frame-expression frame))
+         (fspec (first expr)))
+    (second (first (fspec-definition-locations fspec)))))
 
 (defimplementation eval-in-frame (form frame-number)
   (debugger:eval-form-in-context 
@@ -242,7 +244,7 @@
       ((member :top-level)
        (list :error (format nil "Defined at toplevel: ~A" fspec)))
       (null 
-       (list :error (format nil "Unkown source location for ~A" fspec))))))
+       (list :error (format nil "Unknown source location for ~A" fspec))))))
 
 (defun fspec-definition-locations (fspec)
   (let ((defs (excl::find-multiple-definitions fspec)))
