@@ -6679,6 +6679,9 @@ is exceeded."
 
 ;;; Indentation
 
+(defcustom slime-conservative-indentation t
+  "If true then don't discover indentation of \"with-\" or \"def\" symbols.")
+
 (defun slime-update-indentation ()
   "Update indentation for all macros defined in the Lisp system."
   (interactive)
@@ -6691,14 +6694,16 @@ ALIST is a list of (SYMBOL-NAME . INDENT-SPEC) of proposed indentation
 settings for `common-lisp-indent-function'. The appropriate property
 is setup, unless the user already set one explicitly."
   (dolist (info alist)
-    (let* ((symbol-name (car info))
-           (symbol (intern symbol-name))
-           (indent (cdr info)))
-      ;; Does the symbol have an indentation value that we set?
-      (when (equal (get symbol 'common-lisp-indent-function)
-                   (get symbol 'slime-indent))
-        (put symbol 'slime-indent indent)
-        (put symbol 'common-lisp-indent-function indent)))))
+    (let ((symbol-name (car info)))
+      (unless (and slime-conservative-indentation
+                   (string-match "^\\(def\\|\\with-\\)" symbol-name))
+        (let ((symbol (intern symbol-name))
+              (indent (cdr info)))
+          ;; Does the symbol have an indentation value that we set?
+          (when (equal (get symbol 'common-lisp-indent-function)
+                       (get symbol 'slime-indent))
+            (put symbol 'slime-indent indent)
+            (put symbol 'common-lisp-indent-function indent)))))))
 
 (defun slime-reindent-defun (&optional force-text-fill)
   "Reindent the current defun, or refill the current paragraph.
