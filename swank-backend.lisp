@@ -56,13 +56,15 @@ Backends implement these functions using DEFIMPLEMENTATION."
                                                &rest ,received-args)
                (destructuring-bind ,args ,received-args
                  ,@default-body)))))
-     ` (progn (defgeneric ,name ,args (:documentation ,documentation))
-              (pushnew ',name *interface-functions*)
-              ,(if (null default-body)
-                   `(pushnew ',name *unimplemented-interfaces*)
-                   (gen-default-impl))
-              (export ',name :swank-backend)
-              ',name)))
+     `(progn (defgeneric ,name ,args (:documentation ,documentation))
+             (pushnew ',name *interface-functions*)
+             ,(if (null default-body)
+                `(pushnew ',name *unimplemented-interfaces*)
+                (gen-default-impl))
+             ;; see <http://www.franz.com/support/documentation/6.2/doc/pages/variables/compiler/s_cltl1-compile-file-toplevel-compatibility-p_s.htm>
+             (eval-when (:compile-toplevel :load-toplevel :execute)
+               (export ',name :swank-backend))
+             ',name)))
 
 (defmacro defimplementation (name args &body body)
   `(progn (defmethod ,name ,args ,@body)

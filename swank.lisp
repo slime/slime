@@ -56,7 +56,9 @@
 (defmacro defslimefun (name arglist &body rest)
   `(progn
     (defun ,name ,arglist ,@rest)
-    (export ',name :swank)))
+    ;; see <http://www.franz.com/support/documentation/6.2/doc/pages/variables/compiler/s_cltl1-compile-file-toplevel-compatibility-p_s.htm>
+    (eval-when (:compile-toplevel :load-toplevel :execute)
+      (export ',name :swank))))
 
 (declaim (ftype (function () nil) missing-arg))
 (defun missing-arg ()
