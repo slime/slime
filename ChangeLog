@@ -1,3 +1,9 @@
+2003-10-17  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (slime-net-connect): Check that
+	`set-process-coding-system' is fbound before calling it. This is
+	needed in the XEmacs I built from sources.
+
 2003-10-17  Daniel Barlow  <dan@telent.net>
 
 	* swank-sbcl.lisp: Transplanted Helmut's serve-event server to
