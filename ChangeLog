@@ -1,3 +1,10 @@
+2004-04-13  Marco Baringer  <mb@bese.it>
+
+	* slime.el (slime-handle-repl-shortcut,
+	slime-list-all-repl-shortcuts, slime-lookup-shortcut,
+	defslime-repl-shortcut): Refactor repl shortcut code to provide a
+	more leggible help.
+
 2004-04-09  Lawrence Mitchell  <wence@gmx.li>
 
 	* slime.el (slime-same-line-p): Use `line-end-position', rather
