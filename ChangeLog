@@ -1,3 +1,9 @@
+2004-09-15  Eduardo Muñoz  <emufer@terra.es> 
+
+	* .cvsignore: Added *.elc
+
+	* hyperspec.el: Fixed syntax error.
+
 2004-09-15  Alan Caulkins <fatman@maxint.net>
 
 	* swank.lisp (cleanp-connection-threads): Kill all Swank threads
