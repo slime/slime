@@ -1,3 +1,7 @@
+2004-08-23  John Paul Wallington  <jpw@gnu.org>
+
+	* slime.el (slime-pretty-package-name): Fix last cond clause.
+
 2004-08-21  Luke Gorrie  <luke@bluetail.com>
 
 	* swank.lisp (*global-debugger*): New configurable to globally
