@@ -1,3 +1,9 @@
+2004-03-29  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-source-path-parser.lisp (cmucl-style-get-macro-character):
+	New function. Workaround for bug(?) in SBCL.
+	(make-source-recording-readtable): Use it.
+
 2004-03-29  Luke Gorrie  <luke@bluetail.com>
 
 	* HACKING: Some small updates (more needed).
@@ -27,7 +33,7 @@
 
 	* swank-lispworks.lisp (spawn): Remove CL symbols from
 	mp:*process-initial-bindings*, to avoid the irritating behavior
-	for request execute in different threads.  E.g., when someone
+	for requests executed in different threads.  E.g., when someone
 	tries to set *package*.
 
 	* swank.lisp (*log-io*): New variable.  Bind it to *terminal-io*
