@@ -1,3 +1,8 @@
+2004-04-20  Tiago Maduro-Dias <tcmd@rnl.ist.utl.pt>
+
+	* slime.el (slime-close-buffer): New utility function.
+	(slime-space): Use it to kill superfluous *Completions* buffers.
+
 2004-04-17  Raymond Toy <rtoy@earthlink.net>
 
 	* swank-cmucl.lisp (source-location-tlf-number)
