@@ -38,7 +38,7 @@ before and after of calling FN in the hashtable SOURCE-MAP."
 	  (values (multiple-value-list (funcall fn stream char)))
 	  (end (file-position stream)))
       ;;(format t "[~D ~{~A~^, ~} ~D ~D]~%" start values end (char-code char))
-      (unless (null values) 
+      (unless (null values)
 	(push (cons start end) (gethash (car values) source-map)))
       (values-list values))))
 
@@ -72,7 +72,9 @@ subexpressions of the object to stream positions."
   (destructuring-bind (tlf-number . path) path
     (let ((*read-suppress* t))
       (dotimes (i tlf-number) (read stream)))
-    (multiple-value-bind (form source-map) (read-and-record-source-map stream)
+    (multiple-value-bind (form source-map) 
+	(let ((*read-suppress* nil))
+	  (read-and-record-source-map stream))
       (source-path-source-position (cons 0 path) form source-map))))
 
 (defun source-path-string-position (path string)
