@@ -1,3 +1,15 @@
+2004-05-21  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-switch-to-output-buffer): Override the
+	prefix-arg if we are called non-interactively.
+	(slime-repl-current-input): Don't add newlines.
+	(slime-repl-return): Send input if we are in read-mode also if it
+	isn't a complete expression.
+	(repl-read-lines): New test case.
+
+	* swank-allegro.lisp (find-fspec-location): Better handling of
+	methods.  From Bill Clementson.
+
 2004-05-17  Luke Gorrie  <luke@bluetail.com>
 
 	* xref.lisp, swank-clisp.lisp: Renamed XREF package to PXREF (P
