@@ -3204,7 +3204,7 @@ This operation is \"lossy\" in the broad sense but not for display purposes."
   "Merge NOTES together. Keep the highest severity, concatenate the messages."
   (let* ((new-severity (reduce #'slime-most-severe notes
                                :key #'slime-note.severity))
-         (new-message (mapconcat #'slime-note.message notes "\n"))
+         (new-message (mapconcat #'slime-note.short-message notes "\n"))
          (new-references (reduce #'append notes :key #'slime-note.references)))
     (let ((new-note (copy-list (car notes))))
       (setf (getf new-note :message) new-message)
@@ -3312,7 +3312,7 @@ from an element and TEST is used to compare keys."
     (:style-warning "Style Warnings")))
 
 (defun slime-tree-for-note (note)
-  (make-slime-tree :item (slime-note.short-message note)
+  (make-slime-tree :item (slime-note.message note)
                    :plist (list 'note note)))
 
 (defun slime-tree-for-severity (severity notes collapsed-p)
@@ -5784,6 +5784,7 @@ MAXIMUM-LENGTH is the total number of frames in the Lisp stack."
                 `(sldb-default-action 
                   sldb-fetch-more-frames
                   point-entered sldb-fetch-more-frames
+                  start-open t
                   sldb-previous-frame-number ,number)
                 (in-sldb-face section " --more--\n"))))))))
 
