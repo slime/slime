@@ -758,7 +758,10 @@ The REPL buffer is a special case: it's package is `slime-lisp-package'."
                       (setq slime-buffer-package string)
                       (force-mode-line-update)))
                string)
-              (t slime-buffer-package)))))
+              (t
+               (if dont-cache
+                   "COMMON-LISP-USER"
+                 slime-buffer-package))))))
 
 (defun slime-find-buffer-package ()
   "Figure out which Lisp package the current buffer is associated with."
