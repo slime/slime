@@ -180,7 +180,7 @@ See also `slime-translate-to-lisp-filename-function'.")
   :group 'slime)
 
 (defface slime-repl-output-face
-  `((t (:inherit font-lock-string-face)))
+  '((t (:inherit font-lock-string-face)))
   "Face for Lisp output in the SLIME REPL."
   :group 'slime)
 
@@ -819,7 +819,7 @@ It should be used for \"background\" messages such as argument lists."
 
 (defun slime-symbol-at-point ()
   "Return the symbol at point, otherwise nil."
-  (let ((name (slime-symbol-at-point)))
+  (let ((name (slime-symbol-name-at-point)))
     (and name (intern name))))
 
 (defun slime-sexp-at-point ()
@@ -1126,7 +1126,7 @@ the ChangeLog file at runtime."
 (setq slime-changelog-date (slime-changelog-date))
 
 (defun slime-check-protocol-version (lisp-version)
-  "Signal an error LISP-VERSION equal to `slime-changelog-date'"
+  "Signal an error unless LISP-VERSION is equal to `slime-changelog-date'."
   (unless (and lisp-version (equal lisp-version slime-changelog-date))
     (slime-disconnect)
     (let ((message (format "Protocol mismatch: Lisp: %s  ELisp: %s"
