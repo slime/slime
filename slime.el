@@ -965,7 +965,8 @@ This is more compatible with the CL reader."
     (call-interactively 'inferior-lisp)
     (comint-send-string (inferior-lisp-proc)
                         (format "(load %S)\n"
-                                (concat slime-path slime-backend)))
+                                (slime-to-lisp-filename
+                                 (concat slime-path slime-backend))))
     (slime-maybe-start-multiprocessing)))
 
 (defun slime-maybe-start-multiprocessing ()
@@ -977,7 +978,8 @@ This is more compatible with the CL reader."
   "Start a Swank server on the inferior lisp."
   (comint-send-string (inferior-lisp-proc) 
                       (format "(swank:start-server %S)\n"
-                              (slime-swank-port-file))))
+                                (slime-to-lisp-filename
+                                 (slime-swank-port-file)))))
 
 (defun slime-swank-port-file ()
   "Filename where the SWANK server writes its TCP port number."
@@ -5204,6 +5206,47 @@ the top-level sexp before point."
       (skip-chars-forward " \t\n)")
       (skip-chars-backward " \t\n")
       (delete-region point (point)))))
+
+(defun slime-insert-balanced-comments (arg)
+  "Insert a set of balanced comments around the s-expression
+containing the point.  If this command is invoked repeatedly
+(without any other command occurring between invocations), the
+comment progressively moves outward over enclosing expressions.
+If invoked with a positive prefix argument, the s-expression arg
+expressions out is enclosed in a set of balanced comments."
+  (interactive "*p")
+  (save-excursion
+    (when (eq last-command this-command)
+      (when (search-backward "#|" nil t)
+        (save-excursion
+          (delete-char 2)
+          (while (and (< (point) (point-max)) (not (looking-at " *|#")))
+            (forward-sexp))
+          (replace-match ""))))
+    (while (> arg 0)
+      (backward-char 1)
+      (cond ((looking-at ")") (incf arg))
+            ((looking-at "(") (decf arg))))
+    (insert "#|")
+    (forward-sexp)
+    (insert "|#")))
+
+(defun slime-remove-balanced-comments ()
+  "Remove a set of balanced comments enclosing point."
+  (interactive "*")
+  (save-excursion
+    (when (search-backward "#|" nil t)
+      (delete-char 2)
+      (while (and (< (point) (point-max)) (not (looking-at " *|#")))
+      (forward-sexp))
+      (replace-match ""))))
+
+(defun slime-pretty-lambdas ()
+  (font-lock-add-keywords
+   nil `(("(\\(lambda\\>\\)"
+        (0 (progn (compose-region (match-beginning 1) (match-end 1)
+                            ,(make-char 'greek-iso8859-7 107))
+                nil))))))
 
 ;;; Test suite
 
