@@ -162,40 +162,22 @@ This is used for batch-mode testing.")
   "Face for notes from the compiler."
   :group 'slime)
 
-;; XEmacs and Emacs20 don't support the :inherit attribute in defface.
-;; We copy the most important attributes manually.
-
-(defun slime-color-name (color)
-  (cond ((featurep 'xemacs) (color-name color))
-        (t color)))
-
-(defun slime-face-bold-p (face)
-  (cond ((featurep 'xemacs) (custom-face-bold face))
-        (t (face-bold-p face))))
-
-(defun slime-face-font-name (face)
-  (cond ((featurep 'xemacs) (face-font-name face))
-        (t (face-font face))))
-
-(defun slime-face-attributes (face)
-  (list :foreground (slime-color-name (face-foreground face))
-        :background (slime-color-name (face-background face))
-        :underline (face-underline-p face)
-        :bold (slime-face-bold-p face)
-        :font (slime-face-font-name face)))
-
 (defface slime-highlight-face
-  `((t ,(slime-face-attributes 'highlight)))
+  `((((class color) (background light))
+     (:background "darkseagreen2"))
+    (((class color) (background dark))
+     (:background "darkolivegreen"))
+    (t (:inverse-video t)))
   "Face for compiler notes while selected."
   :group 'slime)
 
 (defface slime-repl-output-face
-  `((t ,(slime-face-attributes 'font-lock-string-face)))
+  `((t (:inherit font-lock-string-face)))
   "Face for Lisp output in the SLIME REPL."
   :group 'slime)
 
 (defface slime-repl-input-face
-  `((t ,(slime-face-attributes 'bold)))
+  `((t (:inherit bold :bold t)))
   "Face for previous input in the SLIME REPL."
   :group 'slime)
 
