@@ -1,3 +1,22 @@
+2004-02-17  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank.lisp, slime.el (make-compiler-note): Don't send the
+	short-message across the wire if the slot is nil.
+
+	* swank-cmucl.lisp (clear-xref-info): Compare the truenames with
+	equalp instead of the unix-truenames.  The old version was very
+	inefficient (clearing the tables with about 1000 entries required
+	serveral seconds).
+	(xref-context-derived-from-p, pathname=): Delete unused functions.
+
+	* swank-clisp.lisp (remove-input-handlers):
+	socket:socket-stream-handle is not available on Windows.
+	Reported by Alan Shutko.
+
+	* slime.el (slime-length>): New function.
+	(slime-compiler-notes-to-tree): Don't collapse if there is only
+	one kind of notes.
+
 2004-02-16  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank.lisp (make-compiler-note): Include short-message.
