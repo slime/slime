@@ -1,3 +1,21 @@
+2004-03-29  Luke Gorrie  <luke@bluetail.com>
+
+	* HACKING: Some small updates (more needed).
+
+	* slime.el (slime-inspector-buffer): Enter `slime-inspector-mode'
+	after `slime-mode'. This seems to give priority of keymap to the
+	inspector, so that it can override SPC.
+	(slime-easy-menu): Add slime-switch-to-output-buffer.
+	Enable SLIME menu in the REPL buffer.
+	(slime-symbol-name-at-point): Avoid mistaking the REPL prompt for
+	a symbol.
+	(slime-words-of-encouragement): A few new ones.
+	(slime-insert-xrefs): Removed the final newline from XREF
+	buffers. This helps to avoid unwanted scrolling.
+
+	* doc/slime.texi: Added a section about user-interface
+	conventions and our relationship with inf-lisp.
+
 2004-03-27  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-changelog-date): Reinitialize it at load-time.
@@ -36,6 +54,9 @@
 
 	* slime.el (slime-group-similar): Bugfix: return NIL if the input
 	list is NIL.
+	(slime-inspector-buffer): Enter `slime-inspector-mode' after
+	`slime-mode'. This seems to give priority of keymap to the
+	inspector, so that it can override SPC.
 
 2004-03-26  Bjørn Nordbø <bn@telenor.net>
 
