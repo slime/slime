@@ -995,6 +995,11 @@ This is more compatible with the CL reader."
       (prin1 sexp (current-buffer))
       (buffer-string))))
 
+(defun slime-close-buffer (buffer-name)
+  "Kills buffer BUFFER-NAME if it exists."
+  (when (buffer-live-p (get-buffer buffer-name))
+    (kill-buffer buffer-name)))
+
 
 ;;; Inferior CL Setup: compiling and connecting to Swank
 
@@ -2675,8 +2680,7 @@ The order of the input list is preserved."
 ;;;;; Compiler notes list
 
 (defun slime-maybe-show-xrefs-for-notes (&optional notes)
-  "Show the compiler notes NOTES in a xref buffer if they come from
-more than one file."
+  "Show the compiler notes NOTES if they come from more than one file."
   (let* ((notes (or notes (slime-compiler-notes))) 
          (xrefs (slime-xrefs-for-notes notes)))
     (when (> (length xrefs) 1)          ; >1 file
@@ -3224,6 +3228,7 @@ Designed to be bound to the SPC key.  Prefix argument can be used to insert
 more than one space."
   (interactive "p")
   (self-insert-command n)
+  (slime-close-buffer "*Completions*")
   (when (and (slime-connected-p)
 	     (or (not (slime-busy-p))
                  ;; XXX should we enable this?
