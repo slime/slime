@@ -1,3 +1,9 @@
+2004-09-16  marco  <mb@bese.it>
+
+	* swank-clisp.lisp (swank-mop): Implement the MOP compatability
+	package.
+	(inspectod-for-emacs): Update for new inspection API.
+
 2004-09-15  Alan Ruttenberg <alanr-l@mumble.net>
 	* swank-openmcl: typo in who-references. Fix frame-var-value
 
