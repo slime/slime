@@ -1,3 +1,8 @@
+2003-12-15  Luke Gorrie  <luke@bluetail.com>
+
+	* swank-openmcl.lisp (ccl::*warn-if-redefine-kernel*): Support for
+	interrupting the listener (by Alan Ruttenberg).
+
 2003-12-15  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-eval-last-expression-display-output): New
