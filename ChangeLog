@@ -1,3 +1,8 @@
+2004-01-31  Robert E. Brown <bbrown@speakeasy.net>
+
+	* swank-sbcl.lisp, swank.lisp: Add more type declarations and
+	detect missing initargs for the connection struct.  
+
 2004-01-31  Jouni K Seppanen <jks@iki.fi>
 
 	* slime.el (slime-path): Placed inside an eval-and-compile.  Works
