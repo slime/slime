@@ -230,9 +230,6 @@ until the remote Emacs goes away."
 (defvar *buffername*)
 (defvar *buffer-offset*)
 
-(defvar *previous-compiler-condition* nil
-  "Used to detect duplicates.")
-
 (defun handle-notification-condition (condition)
   "Handle a condition caused by a compiler warning.
 This traps all compiler conditions at a lower-level than using

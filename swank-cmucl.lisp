@@ -130,12 +130,6 @@ The request is read from the socket as a sexp and then evaluated."
 
 ;;;; Compilation Commands
 
-(defvar *previous-compiler-condition* nil
-  "Used to detect duplicates.")
-
-(defvar *previous-context* nil
-  "Used for compiler warnings without context.")
-
 (defvar *buffername*)
 (defvar *buffer-offset*)
 

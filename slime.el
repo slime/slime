@@ -76,10 +76,7 @@ Emacs Lisp package.")
   "Number of times to try connecting to the Swank server before aborting.
 Nil means never give up.")
 
-(defvar slime-lisp-binary-extension ".x86f"
-  "Filename extension for Lisp object files.")
-
-(defvar slime-backend "swank"
+(defvar slime-backend "swank-loader"
   "The name of the Lisp file implementing the Swank server.")
 
 (make-variable-buffer-local
@@ -506,28 +503,11 @@ If that doesn't give a function, return nil."
 
 (defun slime-start-swank-server ()
   "Start a Swank server on the inferior lisp."
-  (slime-maybe-compile-swank)
   (comint-proc-query (inferior-lisp-proc)
                      (format "(load %S)\n"
                              (concat slime-path slime-backend)))
   (comint-proc-query (inferior-lisp-proc)
                      (format "(swank:start-server %S)\n" slime-swank-port)))
-
-(defun slime-maybe-compile-swank ()
-  (let ((source (concat slime-path slime-backend ".lisp"))
-        (binary (concat slime-path slime-backend slime-lisp-binary-extension)))
-    (flet ((compile-swank () (comint-proc-query 
-			      (inferior-lisp-proc)
-			      (format "(compile-file %S)\n" source))))
-      (when (or (and (not (file-exists-p binary))
-                     (or slime-dont-prompt
-                         (y-or-n-p "\
-The CMUCL support library (Swank) is not compiled. Compile now? ")))
-                (and (file-newer-than-file-p source binary)
-                     (or slime-dont-prompt
-                         (y-or-n-p "\
-Your Swank binary is older than the source. Recompile now? "))))
-        (compile-swank)))))
 
 (defun slime-fetch-features-list ()
   "Fetch and remember the *FEATURES* of the inferior lisp."

@@ -13,14 +13,6 @@
     (:nicknames "SWANK-IMPL")
     (:export #:start-server)))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter swank::*sysdep-pathname*
-    (merge-pathnames (or #+cmu "swank-cmucl" 
-			 #+(and sbcl sb-thread) "swank-sbcl" 
-			 #+openmcl "swank-openmcl")
-		     (or *compile-file-pathname* *load-pathname* 
-			 *default-pathname-defaults*))))
-
 (in-package :swank)
 
 (defvar *swank-io-package*
@@ -179,6 +171,12 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 
 ;;;; Compilation Commands.
 
+(defvar *previous-compiler-condition* nil
+  "Used to detect duplicates.")
+
+(defvar *previous-context* nil
+  "Used for compiler warnings without context.")
+
 (defvar *compiler-notes* '()
   "List of compiler notes for the last compilation unit.")
 
@@ -236,10 +234,14 @@ The time is measured in microseconds."
 (defslimefun list-all-package-names ()
   (mapcar #'package-name (list-all-packages)))
 
+
 (defun apropos-symbols (string &optional external-only package)
-  "Return the symbols matching an apropos search."
-  ;; CMUCL used ext:map-apropos here, not sure why
-  (remove-if #'keywordp (apropos-list string package external-only)))
+  (remove-if (lambda (sym)
+               (or (keywordp sym) 
+                   (and external-only
+                        (not (equal (symbol-package sym) *buffer-package*))
+                        (not (symbol-external-p sym)))))
+             (apropos-list string package)))
 
 (defun print-output-to-string (fn)
   (with-output-to-string (*standard-output*)
@@ -271,12 +273,6 @@ The time is measured in microseconds."
 
 (defslimefun disassemble-symbol (symbol-name)
   (print-output-to-string (lambda () (disassemble (from-string symbol-name)))))
-
-
-;;;; now pull the per-backend stuff in
-(eval-when (:compile-toplevel) (compile-file swank::*sysdep-pathname*))
-(eval-when (:load-toplevel :execute) (load swank::*sysdep-pathname*))
-
 
 ;;; Local Variables:
 ;;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))

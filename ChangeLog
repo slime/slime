@@ -1,3 +1,30 @@
+2003-10-17  James Bielman  <jamesjb@jamesjb.com>
+
+	* swank.lisp (apropos-symbols): Change back to using the standard
+	2-argument APROPOS-LIST and check symbols explicitly when
+	EXTERNAL-ONLY is true.
+	Move loading of sys-dependent backend code into 'swank-loader'.
+
+	* swank-sbcl.lisp: Moved declarations of *PREVIOUS-COMPILER-CONDITION*
+	into 'swank.lisp' to kill warnings about undefined variables.
+
+	* swank-openmcl.lisp (handle-compiler-warning): Use source position
+	instead of function name for warning locations.
+	(swank-compile-string): Compile into a temporary file instead of
+	using COMPILE so finding warning positions works when using C-c C-c.
+	(compute-backtrace): Don't display frames without a function.
+	(apropos-list-for-emacs): Implement APROPOS.
+	(who-calls): Implement WHO-CALLS.
+	(completions): Implement COMPLETIONS.
+	Use NIL instead of zero so FRESH-LINE does the right thing.
+
+	* slime.el (slime-maybe-compile-swank): Removed function---compile
+	the backend using 'swank-loader.lisp' instead.
+	(slime-backend): Changed default backend to 'slime-loader'.
+	(slime-lisp-binary-extension): Deleted as this is no longer needed.
+
+	* swank-loader.lisp: New file.
+
 2003-10-17  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-net-connect): Check that
