@@ -321,7 +321,7 @@ Such threads always use Emacs for debugging and user interaction.")
                              (let ((*swank-thread* t))
                                (funcall fn)))))
 
-#+allegro-v6.2
+#+(version>= 6.2)
 (excl:def-fwrapper make-process/inherit (&key &allow-other-keys)
   "Advice for MP:MAKE-PROCESS.
 New threads that have a Swank thread for an ancestor will inherit
@@ -336,7 +336,7 @@ debugging and I/O bindings from their parent."
     process))
 
 (defun install-advice ()
-  #+allegro-v6.2
+  #+(version>= 6.2)
   (excl:fwrap 'mp:make-process 'make-process/inherit 'make-process/inherit))
 
 (defvar *id-lock* (mp:make-process-lock :name "id lock"))
