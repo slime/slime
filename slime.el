@@ -2298,7 +2298,7 @@ the symbol at point if applicable."
 
 ;;; Typeout frame
 
-;; When a "typeout frame" is exists, it is used to display certain
+;; When a "typeout frame" exists it is used to display certain
 ;; messages instead of the echo area or pop-up windows.
 
 (defvar slime-typeout-window nil
