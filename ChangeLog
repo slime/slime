@@ -1,5 +1,9 @@
 2004-07-22  Luke Gorrie  <luke@bluetail.com>
 
+	* swank.lisp (carefully-find-package): Return *BUFFER-PACKAGE* if
+	no other package can be found. This is reverting a previous change
+	that broke completion in buffers with no known package.
+
 	* slime.el (slime-maybe-start-lisp): Check that *inferior-lisp*
 	exists /and/ has a running process. Fixes a startup problem if
 	your inferior-lisp has died and you want to restart SLIME.
