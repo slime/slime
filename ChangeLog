@@ -1,3 +1,21 @@
+2004-02-08  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-allegro.lisp, swank-backend.lisp, swank-clisp.lisp,
+	swank-cmucl.lisp, swank-lispworks.lisp, swank-openmcl.lisp,
+	swank-sbcl.lisp (create-socket): Take interface as argument.
+
+	* slime.el (sldb-show-frame-details): Fix typos.
+	(slime-print-apropos): Don't bind action.
+	(slime-reset): Kill sldb-buffers.
+	(slime-test-find-definition, slime-test-complete-symbol)
+	(slime-test-arglist): Add more slime-check-top-level calls.
+
+	* swank.lisp (setup-server): Pass loopback-interface to
+	create-socket.
+	(*loopback-interface*): New parameter.
+	(sldb-loop): Move send :debug event inside unwind-protect, to
+	avoid losing :debug-return events.
+
 2004-02-08  Marco Baringer  <mb@bese.it>
 
 	* swank-openmcl.lisp (find-source-locations): Eliminate unused
