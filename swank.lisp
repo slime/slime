@@ -46,7 +46,7 @@
            #:quit-lisp
            ))
 
-(in-package #:swank)
+(in-package :swank)
 
 ;;;; Top-level variables, constants, macros
 
@@ -581,9 +581,8 @@ of the toplevel restart."
 ;;;;;; Simple sequential IO
 
 (defun simple-serve-requests (connection)
-  (let ((socket-io (connection.socket-io connection)))
-    (with-reader-error-handler (connection)
-      (loop (handle-request connection)))))
+  (with-reader-error-handler (connection)
+    (loop (handle-request connection))))
 
 (defun read-from-socket-io ()
   (let ((event (decode-message (current-socket-io))))
@@ -957,9 +956,9 @@ Emacs buffer."
        ;; Don't shadow *readtable* unnecessarily because that prevents
        ;; the user from assigning to it.
        (if (eq *readtable* *buffer-readtable*)
-           #1=(call-with-syntax-hooks (lambda () ,@body))
+           (call-with-syntax-hooks (lambda () ,@body))
            (let ((*readtable* *buffer-readtable*))
-             #1#)))))
+             (call-with-syntax-hooks (lambda () ,@body)))))))
 
 (defun from-string (string)
   "Read string in the *BUFFER-PACKAGE*"
@@ -1105,9 +1104,10 @@ pretty printing of (function foo) as #'foo is suppressed."
   (string= (arglist-to-string list (find-package :swank)) string))
 
 ;; Should work:
-(assert (test-print-arglist '(function cons) "(function cons)"))
-(assert (test-print-arglist '(quote cons) "(quote cons)"))
-(assert (test-print-arglist '(&key (function #'+)) "(&key (function #'+))"))
+(progn
+  (assert (test-print-arglist '(function cons) "(function cons)"))
+  (assert (test-print-arglist '(quote cons) "(quote cons)"))
+  (assert (test-print-arglist '(&key (function #'+)) "(&key (function #'+))")))
 ;; Expected failure:
 ;; (assert (test-print-arglist '(&key ((function f))) "(&key ((function f)))"))
 
@@ -2601,13 +2601,18 @@ Do NOT pass circular lists to this function."
 (defun inspect-for-emacs-list (list)
   (let ((maxlen 40))
     (multiple-value-bind (length tail) (safe-length list)
-      (flet ((frob (title list &rest rest)
-               (values title 
-                       (append '("Elements:" (:newline))
-                               (loop for i from 0 
-                                     for e in list 
-                                     append (label-value-line i e))
-                               rest))))
+      (flet ((frob (title list)
+               (let ((lines 
+                      (do ((i 0 (1+ i))
+                           (l list (cdr l))
+                           (a '() (cons (label-value-line i (car l)) a)))
+                          ((not (consp l))
+                           (let ((a (if (null l)
+                                        a
+                                        (cons (label-value-line :tail l) a))))
+                             (apply #'append (reverse a)))))))
+                 (values title (append '("Elements:" (:newline)) lines)))))
+                               
         (cond ((not length)             ; circular
                (frob "A circular list."
                      (cons (car list)
@@ -2615,13 +2620,11 @@ Do NOT pass circular lists to this function."
               ((and (<= length maxlen) (not tail))
                (frob "A proper list." list))
               (tail
-               (frob "An improper list." 
-                     (subseq list 0 length)
-                     (list :value tail "tail")))
+               (frob "An improper list." list))
               (t
-               (frob "A proper list." 
-                     (subseq list 0 maxlen)
-                     (list :value (nthcdr maxlen list) "rest"))))))))
+               (frob "A proper list." list)))))))
+
+;; (inspect-for-emacs-list '#1=(a #1# . #1# ))
 
 (defun safe-length (list)
   "Similar to `list-length', but avoid errors on improper lists.
@@ -3055,7 +3058,7 @@ See `methods-by-applicability'.")
   (values "A number."
           (append 
            `(,(format nil "Value: ~D = #x~X = #o~O = #b~,,' ,8:B = ~E"
-                      i i i i i) 
+                      i i i i i)
               (:newline))
            (if (< -1 i char-code-limit)
                (label-value-line "Corresponding character" (code-char i)))
