@@ -501,7 +501,7 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 If string is not package qualified use DEFAULT-PACKAGE for the
 resolution.  Return nil if no such symbol exists."
   (multiple-value-bind (name package-name internal-p)
-      (parse-symbol-designator (case-convert string))
+      (tokenize-symbol-designator (case-convert string))
     (cond ((and package-name (not (find-package package-name)))
            (values nil nil))
           (t
@@ -876,6 +876,15 @@ Record compiler notes signalled as `compiler-condition's."
                    ((every #'upper-case-p string) (string-downcase string))
                    (t string)))))
 
+(defun carefully-find-package (name default-package-name)
+  "Find the package with name NAME, or DEFAULT-PACKAGE-NAME, or the
+*buffer-package*.  NAME and DEFAULT-PACKAGE-NAME can be nil."
+  (let ((n (cond ((equal name "") "KEYWORD")
+                 (t (or name default-package-name)))))
+    (if n 
+        (find-package (case-convert n))
+        *buffer-package*)))
+
 (defslimefun completions (string default-package-name)
   "Return a list of completions for a symbol designator STRING.  
 
@@ -895,36 +904,35 @@ format. The cases are as follows:
   PKG:FOO  - Symbols with matching prefix and external in package PKG.
   PKG::FOO - Symbols with matching prefix and accessible in package PKG."
   (multiple-value-bind (name package-name internal-p)
-      (parse-symbol-designator string)
-    (let ((completions nil)
-          (package (let ((n (cond ((equal package-name "") "KEYWORD")
-                                  (t (or package-name default-package-name)))))
-                     (if n 
-                         (find-package (case-convert n))
-                         *buffer-package* ))))
+      (tokenize-symbol-designator string)
+    (let ((package (carefully-find-package package-name default-package-name))
+          (completions nil))
       (flet ((symbol-matches-p (symbol)
                (and (compound-prefix-match name (symbol-name symbol))
-                    (or (or internal-p (null package-name))
+                    (or internal-p 
+                        (null package-name)
                         (symbol-external-p symbol package)))))
-        (when package
+        (when package 
           (do-symbols (symbol package)
             (when (symbol-matches-p symbol)
               (push symbol completions)))))
       (let ((*print-case* (if (find-if #'upper-case-p string)
-                              :upcase :downcase))
-            (*package* package))
-        (let* ((completion-set
-                (mapcar (lambda (s)
-                          (cond (internal-p (format nil "~A::~A" package-name s))
-                                (package-name (format nil "~A:~A" package-name s))
-                                (t (format nil "~A" s))))
-                        ;; DO-SYMBOLS can consider the same symbol more than
-                        ;; once, so remove duplicates.
-                        (remove-duplicates (sort completions #'string<
-                                                 :key #'symbol-name)))))
+                              :upcase :downcase)))
+        (let ((completion-set
+               (mapcar (lambda (s)
+                         (cond (internal-p 
+                                (format nil "~A::~A" package-name s))
+                               (package-name 
+                                (format nil "~A:~A" package-name s))
+                               (t
+                                (format nil "~A" s))))
+                       ;; DO-SYMBOLS can consider the same symbol more than
+                       ;; once, so remove duplicates.
+                       (remove-duplicates (sort completions #'string<
+                                                :key #'symbol-name)))))
           (list completion-set (longest-completion completion-set)))))))
 
-(defun parse-symbol-designator (string)
+(defun tokenize-symbol-designator (string)
   "Parse STRING as a symbol designator.
 Return three values:
  SYMBOL-NAME
