@@ -873,6 +873,14 @@ If that doesn't give a function, return nil."
   "Insert all ARGS and then add text-PROPS to the inserted text."
   (slime-propertize-region props (apply #'insert args)))
 
+(defun slime-prin1-to-string (sexp)
+  "Like `prin1-to-string' but don't octal-escape non-ascii characters.
+This is more compatible with the CL reader."
+  (with-temp-buffer
+    (let ((print-escape-nonascii nil))
+      (prin1 sexp (current-buffer))
+      (buffer-string))))
+
 
 ;;; Inferior CL Setup: compiling and connecting to Swank
 
@@ -1087,7 +1095,7 @@ The functions are called with the process as their argument.")
   "Send a SEXP to Lisp over the socket PROC.
 This is the lowest level of communication. The sexp will be READ and
 EVAL'd by Lisp."
-  (let* ((msg (format "%S\n" sexp))
+  (let* ((msg (concat (slime-prin1-to-string sexp) "\n"))
          (string (concat (slime-net-enc3 (length msg)) msg)))
     (process-send-string proc (string-make-unibyte string))))
 
@@ -1734,7 +1742,7 @@ deal with that."
                                    (cons var)))
        (when (slime-busy-p)
          (error "Lisp is already busy evaluating a request."))
-       (slime-dispatch-event (list :emacs-rex (prin1-to-string ,sexp) ,package 
+       (slime-dispatch-event (list :emacs-rex (slime-prin1-to-string ,sexp) ,package 
                                    (lambda (,result)
                                      (destructure-case ,result
                                        ,@continuations)))))))
@@ -1781,7 +1789,7 @@ deal with that."
   (when (slime-busy-p)
     (error "Busy evaluating"))
   (slime-dispatch-event
-   `(:emacs-evaluate-oneway ,(prin1-to-string sexp) ,package)))
+   `(:emacs-evaluate-oneway ,(slime-prin1-to-string sexp) ,package)))
 
 (defun slime-send (sexp)
   (slime-net-send sexp (slime-connection)))
