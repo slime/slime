@@ -1,3 +1,21 @@
+2004-10-01  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-allegro.lisp (find-fspec-location): excl:source-file can
+	return stuff like (:operator ...); try to handle it.
+
+	* swank-cmucl.lisp (code-component-entry-points): Only include
+	entry points with "valid" functions names.  This excludes internal
+	lambdas, which have usually a string as name, like "defun foo".
+
+	* swank.lisp (parse-symbol): Don't use the reader to avoid
+	interning unknown symbols.  The downside is that we no longer
+	handle escaped |symbols| correctly.
+
+	* slime.el (slime-set-connection-info): Hide the *inferior-lisp*
+	buffer after we know Lisp's pid.
+	(slime-find-buffer-package): We need to preserve the case for
+	things like (:in-package "foo"), so return "\"foo\"".
+
 2004-09-27  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-process): New function intended to replace all
