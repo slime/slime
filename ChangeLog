@@ -1,3 +1,16 @@
+2004-05-07  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-clisp.lisp (compiler-note-location): Use make-location to
+	instead of `(:location ...). This initializes the new hint slot
+	automatically.
+
+2004-05-07  Barry Fishman <barry_fishman@att.net>
+
+	* swank.lisp (prin1-to-string-for-emacs, arglist-to-string): CVS
+	CLISP prints NIL as |COMMON-LISP|::|NIL| if *print-readably* is
+	true.  Set *print-readably* to nil for a more Emacs friendly
+	printer syntax.
+
 2004-05-06   Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-maybe-list-compiler-notes): Display the notes
