@@ -5394,16 +5394,15 @@ First make the variable unbound, then evaluate the entire form."
   (let ((spec (if using-context-p
                   (slime-extract-context)
                 (slime-symbol-at-point))))
-    (cond ((not spec)
-           (error "No symbol to trace"))
-	  (t
-           (let ((spec (slime-trace-query spec)))
-             (message "%s" (slime-eval `(swank:swank-toggle-trace ,spec))))))))
+    (let ((spec (slime-trace-query spec)))
+      (message "%s" (slime-eval `(swank:swank-toggle-trace ,spec))))))
 
 (defun slime-trace-query (spec)
   "Ask the user which function to trace; SPEC is the default.
 The result is a string."
-  (cond ((symbolp spec)
+  (cond ((null spec)
+         (slime-read-from-minibuffer "(Un)trace: "))
+        ((symbolp spec)
          (slime-read-from-minibuffer "(Un)trace: " (symbol-name spec)))
         (t
          (destructure-case spec
