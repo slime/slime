@@ -38,7 +38,7 @@
 (require 'thingatpt)
 
 (defvar common-lisp-hyperspec-root
-  "http://www.xanalys.com/software_tools/reference/HyperSpec/"
+  "http://www.lispworks.com/reference/HyperSpec/"
   "The root of the Common Lisp HyperSpec URL.
 If you copy the HyperSpec to your local system, set this variable to
 something like \"file:/usr/local/doc/HyperSpec/\".")
@@ -70,9 +70,9 @@ The Common Lisp HyperSpec is the full ANSI Standard Common Lisp, provided
 by Kent Pitman and Xanalys Inc.  By default, the Xanalys Web site is
 visited to retrieve the information.  Xanalys Inc. allows you to transfer
 the entire Common Lisp HyperSpec to your own site under certain conditions.
-Visit http://www.xanalys.com/software_tools/reference/HyperSpec/ for more
-information.  If you copy the HyperSpec to another location, customize the
-variable `common-lisp-hyperspec-root' to point to that location."
+Visit http://www.lispworks.com/reference/HyperSpec/ for more information.
+If you copy the HyperSpec to another location, customize the variable
+`common-lisp-hyperspec-root' to point to that location."
   (interactive (list (let ((symbol-at-point (thing-at-point 'symbol)))
                        (if (and symbol-at-point
                                 (intern-soft (downcase symbol-at-point)
