@@ -46,8 +46,7 @@
     :accessor severity)
 
    (message
-    ;; The error or warning message, must be a non-NIL string.
-    ;; [RFC: Would it be better to obtain the message using a method?]
+    :documentation "The error or warning message, must be a non-NIL string."
     :initarg :message
     :accessor message)
 
@@ -108,5 +107,60 @@ Example:
   => (:CLASS :NOT-DOCUMENTED
       :TYPE :NOT-DOCUMENTED
       :FUNCTION \"Constructs a simple-vector from the given objects.\")"))
+
+
+;;;; Debugging
+
+(defgeneric call-with-debugging-environment (debugger-loop-fn)
+  (:documentation
+   "Call DEBUGGER-LOOP-FN in a suitable debugging environment.
+
+This function is called recursively at each debug level to invoke the
+debugger loop. The purpose is to setup any necessary environment for
+other debugger callbacks that will be called within the debugger loop.
+
+For example, this is a reasonable place to compute a backtrace, switch
+to safe reader/printer settings, and so on."))
+
+(define-condition sldb-condition (condition)
+  ((original-condition
+    :initarg :original-condition
+    :accessor :original-condition))
+  (:documentation
+   "Wrapper for conditions that should not be debugged.
+
+When a condition arises from the internals of the debugger, it is not
+desirable to debug it -- we'd risk entering an endless loop trying to
+debug the debugger! Instead, such conditions can be reported to the
+user without (re)entering the debugger by wrapping them as
+`sldb-condition's."))
+
+(defgeneric debugger-info-for-emacs (start end)
+  (:documentation
+   "Return debugger state, with stack frames from START to END.
+The result is a list:
+  (condition-description ({restart}*) ({stack-frame}*)
+where
+  restart     ::= (name description)
+  stack-frame ::= (number description)
+
+condition-description---a string describing the condition that
+triggered the debugger.
+
+restart---a pair of strings: restart name, and description.
+
+stack-frame---a number from zero (the top), and a printed
+representation of the frame's call.
+
+Below is an example return value. In this case the condition was a
+division by zero (multi-line description), and only one frame is being
+fetched (start=0, end=1).
+
+ (\"Arithmetic error DIVISION-BY-ZERO signalled.
+Operation was KERNEL::DIVISION, operands (1 0).
+   [Condition of type DIVISION-BY-ZERO]\"
+  ((\"ABORT\" \"Return to Slime toplevel.\")
+   (\"ABORT\" \"Return to Top-Level.\"))
+  ((0 \"0: (KERNEL::INTEGER-/-INTEGER 1 0)\")))"))
 
 
