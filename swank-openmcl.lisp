@@ -114,7 +114,8 @@
                      (setq *swank-debugger-stack-frame* p)
                      (return-from find-frame))
                    (setq previous-f (ccl::lfun-name lfun)))))
-      (restart-case (invoke-debugger)
+      (restart-case (invoke-debugger
+                     (make-condition 'simple-condition :format-control ""))
         (continue () :report (lambda (stream) (write-string "Resume interrupted evaluation" stream)) t))
       ))))))
 

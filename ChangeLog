@@ -1,3 +1,9 @@
+2004-02-26  Marco Baringer  <mb@bese.it>
+
+	* swank-openmcl.lisp (ccl::force-break-in-listener): Pass a
+	condition object to invoke-debugger.
+	Patch by Bryan O'Connor <bryan-slime@lunch.org>
+
 2004-02-26  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-backend.lisp (:swank): export connection-info.
