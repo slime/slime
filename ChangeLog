@@ -1,3 +1,36 @@
+2004-04-21  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el: Suppress byte-compiler warnings by binding
+	byte-compiler-warnings to nil.
+	(slime-repl-shortcut): Use a structure instead of a list for the
+	short cut info.  Update the users accordingly.
+
+	* swank-cmucl.lisp (arglist): Return a list instead of the string.
+
+2004-04-21  Edi Weitz <edi@agharta.de>
+
+	* slime.el (slime-apropos): Add support for regexp-based apropos.
+	We use nregex, so the regexp syntax is different from Emacs'
+	regexps and bit restricted (alternation '|' and optional groups
+	'(xy)?' are not implemented).
+ 	(slime-insert-arglist): New command - stolen from ILISP. I always
+	thought this was quite useful. 
+	(slime-oos): Fix typo.
+
+	* swank.lisp (apropos-symbols): Use regexp and support
+	case-sensitive matching.
+	(arglist-for-echo-area): New argument to control if the operator
+	name should be included.
+
+	* nregex.lisp: New file.
+
+	* swank-loader.lisp (*sysdep-pathnames*): Load it.
+
+2004-04-21  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* doc/slime.texi (Compilation): slime-remove-notes is bound to C-c
+	M-c not M-c.  Noted by Edi Weitz.
+	
 2004-04-21  Edi Weitz <edi@agharta.de>
 
 	* swank.lisp (list-all-package-names): Optionally include
