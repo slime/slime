@@ -2208,6 +2208,9 @@ nil if there's no second element."
                       o)
              pairs))))
 
+(defmethod inspected-parts ((o unbound-slot-filler))
+  (values "This slot is unbound" nil))
+
 (defslimefun inspect-in-frame (string index)
   (with-buffer-syntax ()
     (reset-inspector)

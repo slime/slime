@@ -280,7 +280,9 @@
             (mapcar (lambda (slot)
                       (let ((name (clos:slot-definition-name slot)))
                         (cons (princ-to-string name)
-                              (slot-value o name))))
+                              (if (slot-boundp o name)
+                                  (slot-value o name)
+                                  (make-unbound-slot-filler)))))
                     slots))))
 
 ;;;; Multithreading
