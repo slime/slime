@@ -1406,12 +1406,15 @@ Loops until the result is thrown to our caller, or the user aborts."
     (set-marker slime-last-output-start (point) (current-buffer))))
 
 (defun slime-show-last-output ()
-  (with-current-buffer (slime-output-buffer)
-    (let ((start slime-last-output-start)
-          (end slime-repl-prompt-start-mark))
-      (when (< start end)
-        (slime-display-buffer-region (current-buffer) start 
-                                     slime-repl-input-start-mark)))))
+  "Show the output from the last Lisp evaluation.
+This has no effect if the output buffer is already visible."
+  (unless (get-buffer-window (slime-output-buffer) t)
+    (with-current-buffer (slime-output-buffer)
+      (let ((start slime-last-output-start)
+            (end slime-repl-prompt-start-mark))
+        (when (< start end)
+          (slime-display-buffer-region (current-buffer) start 
+                                       slime-repl-input-start-mark))))))
 
 (defun slime-with-output-at-eob (fn)
   "Call FN at the eob.  In a save-excursion block if we are not at
