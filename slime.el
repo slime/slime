@@ -2124,30 +2124,26 @@ function name is prompted."
 
 (defun slime-display-buffer-region (buffer start end &optional border)
   (let ((border (or border 0)))
-    (with-current-buffer buffer
-      (save-selected-window
-	(save-excursion
-	  (unless (get-buffer-window buffer)
-	    (display-buffer buffer t))
-	  (goto-char start)
-	  (when (eolp) 
-	    (forward-char))
-	  (beginning-of-line)
-	  (let ((win (get-buffer-window buffer)))
-	    ;; set start before select to force update.
-	    ;; (set-window-start sets a "modified" flag, but only if the
-	    ;; window is not selected.)
-	    (set-window-start win (point))
-	    ;; don't resize vertically split windows
-	    (when (and (not (one-window-p))
-                       (= (window-width) (frame-width)))
-	      (let* ((lines (max (count-screen-lines (point) end) 1))
-		     (new-height (1+ (min (/ (frame-height) 2)
-					  (+ border lines))))
-		     (diff (- new-height (window-height win))))
-		(let ((window-min-height 1))
-		  (select-window win)
-		  (enlarge-window diff))))))))))
+    (save-selected-window
+      (select-window (display-buffer buffer t))
+      (goto-char start)
+      (when (eolp) 
+        (forward-char))
+      (beginning-of-line)
+      (let ((win (get-buffer-window buffer)))
+        ;; set start before select to force update.
+        ;; (set-window-start sets a "modified" flag, but only if the
+        ;; window is not selected.)
+        (set-window-start (selected-window) (point))
+        ;; don't resize vertically split windows
+        (when (and (not (one-window-p))
+                   (= (window-width) (frame-width)))
+          (let* ((lines (max (count-screen-lines (point) end) 1))
+                 (new-height (1+ (min (/ (frame-height) 2)
+                                      (+ border lines))))
+                 (diff (- new-height (window-height))))
+            (let ((window-min-height 1))
+              (enlarge-window diff))))))))
 
 (defun slime-show-evaluation-result (value)
   (message "=> %s" value)
