@@ -88,6 +88,8 @@ the same name instead."))
 This is needed to READ Common Lisp expressions adequately.")
 
 (defvar sldb-level 0)
+(defvar slime-pid nil
+  "The process id of the Lisp process.")
 
 
 ;;; Customize group
@@ -197,6 +199,7 @@ Evaluation commands:
     ("\C-c\C-p" . slime-pprint-eval-last-expression)
     ("\M-\C-x"  . slime-eval-defun)
     ("\C-c:"    . slime-interactive-eval)
+    ("\C-c\C-z" . slime-switch-to-output-buffer)
     ("\C-c\C-d" . slime-describe-symbol)
     ("\C-c\M-d" . slime-disassemble-symbol)
     ("\C-c\C-t" . slime-toggle-trace-fdefinition)
@@ -216,6 +219,7 @@ Evaluation commands:
     ;; Not sure which binding is best yet, so both for now.
     ([(control meta ?\.)] . slime-next-location)
     ("\C-c\C- "  . slime-next-location)
+    ("\C-c~"     . slime-sync-package-and-default-directory)
     ))
 
 ;; Setup the mode-line to say when we're in slime-mode, and which CL
@@ -283,6 +287,7 @@ truncate to fit on the screen."
 	    (slime-display-buffer-region (current-buffer) 
 					 (point-min) (point-max))
 	    (when select (select-window win)))))
+    (when (get-buffer-window bufname) (delete-windows-on bufname))
     ;; Print only the part before the newline (if there is
     ;; one). Newlines in messages are displayed as "^J" in emacs20,
     ;; which is ugly
@@ -387,11 +392,12 @@ If that doesn't give a function, return nil."
         (let ((obj (read (current-buffer))))
           (and (symbolp obj) obj))))))
 
-(defun slime-read-package-name (prompt)
+(defun slime-read-package-name (prompt &optional initial-value)
   (let ((completion-ignore-case t))
     (completing-read prompt (mapcar (lambda (x) (cons x x))
 				    (slime-eval 
-				     `(swank:list-all-package-names))))))
+				     `(swank:list-all-package-names)))
+		     nil nil initial-value)))
 
 
 ;;; CMUCL Setup: compiling and connecting to Swank
@@ -595,7 +601,8 @@ EVAL'd by Lisp."
 
 (defun slime-init-dispatcher ()
   (setq sldb-level 0)
-  (slime-move-to-state (slime-state slime-idle-state ())))
+  (slime-move-to-state (slime-state slime-idle-state ()))
+  (setq slime-pid (slime-eval `(swank:getpid))))
 
 (defun slime-take-input (object)
   (slime-check-connected)
@@ -623,7 +630,7 @@ EVAL'd by Lisp."
 (defconst +slime-sigint+ 2)
 
 (defun slime-send-sigint ()
-  (signal-process (process-id (inferior-lisp-proc)) +slime-sigint+))
+  (signal-process slime-pid +slime-sigint+))
 
 (defun slime-eval-async-state (reply cont next-state)
   (destructure-case reply
@@ -684,6 +691,8 @@ EVAL'd by Lisp."
 	   (setq error "slime-eval aborted"))
 	  ((:sldb-prompt l) 
 	   (assert (= sldb-level l)))
+	  ((:debug-condition message)
+	   (slime-message "%s" message))
 	  ((:debugger-hook)
 	   (slime-move-to-state (slime-state
 				 (lambda (m here)
@@ -754,13 +763,15 @@ DONT-CACHE is non-nil."
 
 (defun slime-output-buffer ()
   "Return the output buffer, create it if necessary."
-  (get-buffer-create "*slime-messages*"))
+  (or (get-buffer "*slime-messages*")
+      (with-current-buffer (get-buffer-create "*slime-messages*")
+	(slime-mode t)
+	(current-buffer))))
 
 (defun slime-output-buffer-position ()
   (with-current-buffer (slime-output-buffer) (point-max)))
 
 (defun slime-insert-transcript-delimiter (string)
-  ;;(delete-windows-on (slime-output-buffer))
   (with-current-buffer (slime-output-buffer)
     (goto-char (point-max))
     (insert "\n;;;; " 
@@ -785,6 +796,11 @@ DONT-CACHE is non-nil."
       (goto-char (point-max))
       (insert string))))
 
+(defun slime-switch-to-output-buffer ()
+  "Select the output buffer, preferably in a different window."
+  (interactive)
+  (slime-save-window-configuration)
+  (pop-to-buffer (slime-output-buffer) nil t))
 
 
 ;;; Compilation and the creation of compiler-note annotations
@@ -811,7 +827,11 @@ See `slime-compile-and-load-file' for further details."
    `(swank:swank-compile-file ,(buffer-file-name) ,(if load t nil))
    nil
    (slime-compilation-finished-continuation))
-  (message "Compiling %s.." (buffer-file-name)))
+  (message "Compiling %s.." (buffer-file-name))
+  ;;(with-current-buffer (slime-output-buffer)
+  ;;  (display-buffer (slime-output-buffer) t)
+  ;;  (set-window-start (get-buffer-window (current-buffer)) (point-max)))
+  )
 
 (defun slime-compile-defun ()
   (interactive)
@@ -825,7 +845,7 @@ See `slime-compile-and-load-file' for further details."
    (slime-buffer-package)
    (slime-compilation-finished-continuation)))
 
-(defun slime-show-note-counts (notes)
+(defun slime-show-note-counts (notes &optional secs)
   (loop for note in notes 
 	for severity = (plist-get note :severity)
 	count (eq :error severity) into errors
@@ -833,14 +853,15 @@ See `slime-compile-and-load-file' for further details."
 	count (eq :note severity) into notes
 	finally 
 	(message 
-	 "Compilation finished: %s errors  %s warnings  %s notes"
-	 errors warnings notes)))
+	 "Compilation finished: %s errors  %s warnings  %s notes%s"
+	 errors warnings notes (if secs (format "  [%s secs]" secs) ""))))
 
 (defun slime-compilation-finished (result buffer)
   (with-current-buffer buffer
-    (let ((notes (slime-compiler-notes)))
-      (slime-show-note-counts notes)
-      (slime-highlight-notes notes))))
+    (multiple-value-bind (result secs) result
+      (let ((notes (slime-compiler-notes)))
+	(slime-show-note-counts notes secs)
+	(slime-highlight-notes notes)))))
 
 (defun slime-compilation-finished-continuation ()
   (lexical-let ((buffer (current-buffer)))
@@ -1224,7 +1245,7 @@ reading input.  The result is a string (\"\" if no input was given)."
 		   (setq slime-buffer-package package)))
 	       minibuffer-setup-hook)))
     (read-from-minibuffer prompt initial-value slime-read-expression-map
-			  nil slime-read-expression-history)))
+			  nil 'slime-read-expression-history)))
 
 (defun slime-symbol-start-pos ()
   "Return the starting position of the symbol under point.
@@ -1247,6 +1268,7 @@ alist but ignores CDRs."
 		  (string prefix))))
     (slime-eval `(swank:completions ,prefix 
 				    ,(or default-package
+					 (slime-find-buffer-package)
 					 (slime-buffer-package))))))
 
 
@@ -1339,7 +1361,7 @@ function name is prompted."
 	    ;; (set-window-start sets a "modified" flag, but only if the
 	    ;; window is not selected.)
 	    (set-window-start win (point))
-	    (let* ((lines (max (count-lines (point) end) 1))
+	    (let* ((lines (max (count-screen-lines (point) end) 1))
 		   (new-height (1+ (min (/ (frame-height) 2)
 					(+ border lines))))
 		   (diff (- new-height (window-height win))))
@@ -1397,6 +1419,10 @@ First make the variable unbound, then evaluate the entire form."
 		      "(Un)trace: " (slime-symbol-name-at-point))))
   (message "%s" (slime-eval `(swank:toggle-trace-fdefinition ,fname-string)
 			    (slime-buffer-package t))))
+
+(defun slime-untrace-all ()
+  (interactive)
+  (slime-eval `(swank:untrace-all)))
 
 (defun slime-disassemble-symbol (symbol-name)
   (interactive (list (slime-read-symbol-name "Disassemble: ")))
@@ -1706,6 +1732,25 @@ When displaying XREF information, this goes to the next reference."
   (interactive)
   (slime-take-input '(quit)))
 
+(defun slime-set-package (package)
+  (interactive (list (slime-read-package-name "Package: " 
+					      (slime-find-buffer-package))))
+  (message "*package*: %s" (slime-eval `(swank:set-package package))))
+
+(defun slime-set-default-directory (directory)
+  (interactive (list (read-file-name "Directory: " nil default-directory t)))
+  (message "default-directory: %s" 
+	   (slime-eval `(swank:set-default-directory 
+			 ,(expand-file-name directory)))))
+
+(defun slime-sync-package-and-default-directory ()
+  (interactive)
+  (let ((package (slime-eval `(swank:set-package 
+			       ,(slime-find-buffer-package))))
+	(directory (slime-eval `(swank:set-default-directory 
+				 ,(expand-file-name default-directory)))))
+    (message "package: %s  default-directory: %s" package directory)))
+	
 
 ;;; Debugger
 
@@ -1742,7 +1787,7 @@ When displaying XREF information, this goes to the next reference."
      (decf sldb-level)
      (slime-move-to-state previous-state))
     ((:debug-condition message)
-     (message "%s" message))
+     (slime-message "%s" message))
     ((abort-from-el)
      (sldb-abort))
     ((quit-from-el)
@@ -1940,9 +1985,10 @@ When displaying XREF information, this goes to the next reference."
 		   (loop for (tag . location) in catchers
 			 do (slime-insert-propertized  
 			     '(catch-tag ,tag)
-			     (format "      %S\n" tag)))))
-	    (terpri)
-	    (point)))))))
+			     (format "      %S\n" tag))))))
+	  (terpri)
+	  (point)))))
+  (apply #'sldb-maybe-recenter-region (sldb-frame-region)))
 
 (defun sldb-maybe-recenter-region (start end)
   (sit-for 0 1)
@@ -2015,10 +2061,7 @@ When displaying XREF information, this goes to the next reference."
     (let ((id (plist-get l :id)))
       (unless (zerop id) (princ "#") (princ id)))
     (princ " = ")
-    (cond ((eq :valid (plist-get l :validity))
-	   (princ (plist-get l :value-string)))
-	  (t
-	   (princ "<not-available>")))
+    (princ (plist-get l :value-string))
     (terpri)))
 
 (defun sldb-list-locals ()
@@ -2064,23 +2107,34 @@ When displaying XREF information, this goes to the next reference."
 (defun sldb-restart-at-point ()
   (get-text-property (point) 'restart-number))
 
-(define-key sldb-mode-map "v" 'sldb-show-source)
-(define-key sldb-mode-map (kbd "RET") 'sldb-default-action)
-(define-key sldb-mode-map "e" 'sldb-eval-in-frame)
-(define-key sldb-mode-map "d" 'sldb-down)
-(define-key sldb-mode-map "u" 'sldb-up)
-(define-key sldb-mode-map "\M-n" 'sldb-details-down)
-(define-key sldb-mode-map "\M-p" 'sldb-details-up)
-(define-key sldb-mode-map "l" 'sldb-list-locals)
-(define-key sldb-mode-map "t" 'sldb-toggle-details)
-(define-key sldb-mode-map "c" 'sldb-continue)
-(define-key sldb-mode-map "a" 'sldb-abort)
-(define-key sldb-mode-map "r" 'sldb-invoke-restart)
-(define-key sldb-mode-map "q" 'sldb-quit)
+(defmacro slime-define-keys (keymap &rest key-command)
+  `(progn . ,(mapcar (lambda (k-c) `(define-key ,keymap . ,k-c))
+		     key-command)))
+
+(put 'slime-define-keys 'lisp-indent-function 1)
+
+(slime-define-keys sldb-mode-map 
+  ("v"    'sldb-show-source)
+  ((kbd "RET") 'sldb-default-action)
+  ("e"    'sldb-eval-in-frame)
+  ("d"    'sldb-down)
+  ("u"    'sldb-up)
+  ("\M-n" 'sldb-details-down)
+  ("\M-p" 'sldb-details-up)
+  ("l"    'sldb-list-locals)
+  ("t"    'sldb-toggle-details)
+  ("c"    'sldb-continue)
+  ("a"    'sldb-abort)
+  ("r"    'sldb-invoke-restart)
+  ("q"    'sldb-quit)
+  
+  ("\M-." 'slime-edit-fdefinition)
+  ("\M-," 'slime-pop-find-definition-stack)
+  )
 
 ;; Keys 0-9 are shortcuts to invoke particular restarts.
 (defmacro define-sldb-invoke-restart-key (number key)
-  (let ((fname (intern (format "sldb-invoke-restart-%S" (eval number)))))
+  (let ((fname (intern (format "sldb-invoke-restart-%S" number))))
     `(progn
        (defun ,fname ()
 	 (interactive)
@@ -2283,9 +2337,8 @@ Confirm that SUBFORM is correclty located."
 
 (eval-when (compile eval)
   (defmacro defun-if-undefined (name &rest rest)
-    `(eval-when (compile load eval)
-       (unless (fboundp ',name)
-	 (defun ,name ,@rest)))))
+    `(unless (fboundp ',name)
+       (defun ,name ,@rest))))
 
 (defun-if-undefined next-single-char-property-change
   (position prop &optional object limit)
@@ -2359,6 +2412,25 @@ Unless optional argument INPLACE is non-nil, return a new string."
       (if (eq (aref newstr i) fromchar)
 	  (aset newstr i tochar)))
     newstr))
+
+(defun-if-undefined count-screen-lines 
+  (&optional beg end count-final-newline window)
+  (unless beg
+    (setq beg (point-min)))
+  (unless end
+    (setq end (point-max)))
+  (if (= beg end)
+      0
+    (save-excursion
+      (save-restriction
+        (widen)
+        (narrow-to-region (min beg end)
+                          (if (and (not count-final-newline)
+                                   (= ?\n (char-before (max beg end))))
+                              (1- (max beg end))
+                            (max beg end)))
+        (goto-char (point-min))
+        (1+ (vertical-motion (buffer-size) window))))))
 
 (defun emacs-20-p ()
   (and (not (featurep 'xemacs))
