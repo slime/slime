@@ -759,8 +759,9 @@ change, then send Emacs an update."
     (swank-pprint (multiple-value-list (eval (read-from-string string))))))
 
 (defslimefun set-package (package)
-  (setq *package* (guess-package-from-string package))
-  (package-name *package*))
+  "Set *package* to PACKAGE and return its name and shortest nickname."
+  (let ((p (setq *package* (guess-package-from-string package))))
+    (list (package-name p) (shortest-package-nickname p))))
 
 (defslimefun listener-eval (string)
   (clear-user-input)
