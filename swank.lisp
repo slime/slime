@@ -1,20 +1,16 @@
 (defpackage :swank
-  (:use :common-lisp :wire)
+  (:use :common-lisp)
   (:export #:start-server #:evaluate #:lookup-notes #:clear-notes
            #:swank-compile-file #:swank-compile-string 
 	   #:arglist-string #:completions
-           #:find-fdefinition))
+           #:find-fdefinition
+           #:eval-string-async
+           #:sldb-loop))
 
 (in-package :swank)
 
-(defconstant server-port 4004
+(defconstant server-port 4005
   "Default port for the swank TCP server.")
-
-(defconstant +internal-error+ 56)
-(defconstant +condition+ 57)
-(defconstant +ok+ 42)
-
-(define-condition swank-error (simple-error) ())
 
 (defvar *notes-database* (make-hash-table :test #'equal)
   "Database of recorded compiler notes/warnings/erros (keyed by filename).
@@ -30,7 +26,7 @@ Each value is a list of (LOCATION SEVERITY MESSAGE CONTEXT) lists.
 ;;; Setup and hooks.
 
 (defun start-server (&optional (port server-port))
-  (wire:create-request-server port nil :reuse-address t)
+  (create-swank-server port :reuse-address t)
   (setf c:*record-xref-info* t)
   (ext:without-package-locks
    (setf c:*compiler-notification-function* #'handle-notification))
@@ -76,79 +72,69 @@ compiler state."
            (reverse
             (c::compiler-error-context-original-source-path context))))))
 
-;;; Functions for Emacs to call.
+;;; TCP Server.
 
-;;;; EVALUATE -- interface
+(defvar *emacs-io* nil
+  "Bound to a TCP stream to Emacs during request processing.")
 
-(defun evaluate (string package)
-  "Evaluate an expression for Emacs."
-  (declare (type simple-string string))
-  (when *swank-debug-p*
-    (format *debug-io* "~&;; SWANK:EVALUATE (~S) |~S|~%" package string))
+(defun create-swank-server (port &key reuse-address)
+  "Create a SWANK TCP server."
+  (system:add-fd-handler
+   (ext:create-inet-listener port :stream :reuse-address reuse-address)
+   :input #'accept-connection))
+
+(defun accept-connection (socket)
+  "Accept a SWANK TCP connection on SOCKET."
+  (setup-request-handler (ext:accept-tcp-connection socket)))
+
+(defun setup-request-handler (socket)
+  "Setup request handling for SOCKET."
+  (let ((stream (sys:make-fd-stream socket
+                                    :input t :output t
+                                    :element-type 'unsigned-byte)))
+    (system:add-fd-handler socket
+                           :input (lambda (fd)
+                                    (declare (ignore fd))
+                                    (serve-request stream)))))
+
+(defun serve-request (*emacs-io*)
+  "Read and process a request from a SWANK client.
+The request is read from the socket as a sexp and then evaluated."
   (handler-case
-      (send-value (eval (let ((debug::*debugger-hook* #'debugger-hook)
-                              (*package* (find-package package)))
-                          (read-from-string string))))
-    (swank-error (condition)
-      (send-reply +condition+
-                  (format nil
-                          (simple-condition-format-control condition)
-                          (simple-condition-format-arguments condition))
-                  ""))
-    (error (condition)
-      (send-and-log-internal-error condition))))
+      (let* ((length (logior (ash (read-byte *emacs-io*) 16)
+                             (ash (read-byte *emacs-io*) 8)
+                             (read-byte *emacs-io*)))
+             (string (make-string length)))
+        (sys:read-n-bytes *emacs-io* string 0 length)
+        (eval (read-from-string string)))
+    (stream-error (condition)
+      (when *swank-debug-p*
+        (format *debug-io* "~&;; Connection to Emacs lost.~%"))
+      (sys:invalidate-descriptor (sys:fd-stream-fd *emacs-io*)))))
 
-;;;; SWANK-COMPILE-FILE -- interface
+(defun send-to-emacs (object)
+  "Send OBJECT to Emacs."
+  (let* ((string (prin1-to-string-for-emacs object))
+         (length (length string)))
+    (loop for position from 16 downto 0 by 8
+          do (write-byte (ldb (byte 8 position) length) *emacs-io*))
+    (write-string string *emacs-io*)
+    (force-output *emacs-io*)))
 
-(defun swank-compile-file (filename load-p)
-  (clear-notes filename)
-  (if (not (probe-file filename))
-      (send-reply +condition+ "File does not exist" "")
-      (handler-case
-          (multiple-value-bind (output warnings failure)
-              (compile-file filename :load (read-from-string load-p))
-            (send-value (list (and output (namestring output))
-                              warnings
-                              failure)))
-        (reader-error (condition)
-          (send-condition condition))
-        (end-of-file (condition)
-          (send-condition condition))
-        (package-error (condition)
-          (send-condition condition))
-        (c::compiler-error (condition)
-          (send-condition condition (current-compiler-error-source-path)))
-        (error (condition)
-          (format *debug-io* "~&Condition: ~S / ~S~%" (type-of condition) condition)
-          ;; Oops.
-          (send-and-log-internal-error condition)))))
+(defun read-from-emacs ()
+  "Read and process a request from Emacs."
+  (serve-request *emacs-io*))
+
+(defun prin1-to-string-for-emacs (object)
+  (let ((*print-case* :downcase))
+    (format nil "~S~%" object)))
+
+;;; Functions for Emacs to call.
 
 (defun swank-compile-string (string buffer start)
   (with-input-from-string (stream string)
     (multiple-value-list
      (ext:compile-from-stream stream :source-info (cons buffer start)))))
-
-(defun send-reply (status message result)
-  "Send a result triple over the wire to Emacs."
-  (declare (type integer status))
-  (when *swank-debug-p*
-    (format *debug-io* "~&;; SWANK Reply: ~S, ~S, ~S~%" status message result))
-  (wire-output-object *current-wire* status)
-  (wire-output-object *current-wire* message)
-  (wire-output-object *current-wire* result)
-  (wire-force-output *current-wire*))
-
-(defun send-value (value)
-  (send-reply +ok+ "ok" (prin1-to-string value)))
-
-(defun send-condition (condition &optional result)
-  (send-reply +condition+ (princ-to-string condition) (prin1-to-string result)))
-
-(defun send-and-log-internal-error (condition)
-  (format *debug-io* "~&Internal Swank Error: ~A~%" condition)
-  (send-reply +internal-error+
-              (format nil "~&Internal Swank Error: ~A~%" condition)
-              ""))
 
 ;;;; LOOKUP-NOTES -- interface
 
@@ -190,7 +176,7 @@ The result has the format \"(...)\"."
                      (t "(<arglist-unavailable>)"))))))
     (if (stringp arglist)
         arglist
-        (prin1-to-string arglist))))
+        (prin1-to-string-for-emacs arglist))))
 
 ;;;; COMPLETIONS -- interface
 
@@ -212,7 +198,6 @@ the package are considered."
       (find-symbol (symbol-name s) (symbol-package s))
     (declare (ignore _))
     (eq status :external)))
-
 
 (defun string-prefix-p (s1 s2)
   "Return true iff the string S1 is a prefix of S2.
@@ -284,10 +269,6 @@ the package are considered."
       (t (condition) (setq error (princ-to-string condition))))
     (values form error)))
 
-(defun send-to-emacs (object)  
-  (wire-output-object *current-wire* object)
-  (wire-force-output *current-wire*))
-
 (defvar *swank-debugger-condition*)
 (defvar *swank-debugger-hook*)
 
@@ -298,19 +279,19 @@ the package are considered."
 	(send-to-emacs `(:CALL-CONTINUATION ,id (:READ-FAILED ,error)))
 	(let ((*debugger-hook* 
 	       (lambda (condition hook)
-		 (send-to-emacs `(:DEBUGGER-HOOK 
+		 (send-to-emacs `(:DEBUGGER-HOOK
 				  ,debug::*debug-command-level*))
 		 (let ((*swank-debugger-condition* condition)
 		       (*swank-debugger-hook* hook))
-		   (wire-get-object *current-wire*)))))
+                   (read-from-emacs)))))
 	  (let (ok result)
 	    (unwind-protect
 		 (progn (setq result (eval form))
 			(setq ok t))
-	      (if ok
-		  (send-to-emacs `(:CALL-CONTINUATION ,id 
-				   (:OK ,result)))
-		  (send-to-emacs `(:CALL-CONTINUATION ,id (:ABORTED)))))))))))
+	      (send-to-emacs `(:CALL-CONTINUATION ,id 
+			       ,(if ok 
+				    `(:OK ,result)
+				    `(:ABORTED)))))))))))
 
 (defun briefely-describe-symbol-for-emacs (symbol)
   "Return a plist of describing SYMBOL.  Return NIL if the symbol is
@@ -346,7 +327,7 @@ unbound."
        :class (if (find-class symbol nil) 
 		  (doc 'class)))
       (if result
-	  (list* :designator (prin1-to-string symbol) result)))))
+	  (list* :designator (prin1-to-string-for-emacs symbol) result)))))
 
 (defun apropos-list-for-emacs  (name)
   (list (package-name *package*)
@@ -371,3 +352,134 @@ unbound."
 
 (set-stdin-non-blocking)
 
+
+;;; Debugging stuff
+
+(defvar *sldb-level* 0)
+(defvar *sldb-stack-top*)
+(defvar *sldb-restarts*)
+
+(defun sldb-loop ()
+  (unix:unix-sigsetmask 0)
+  (let* ((*sldb-level* (1+ *sldb-level*))
+	 (*sldb-stack-top* (or debug:*stack-top-hint* (di:top-frame)))
+	 (*sldb-restarts* (compute-restarts *swank-debugger-condition*))
+	 (debug:*stack-top-hint* nil)
+	 (*debugger-hook* nil)
+	 (level *sldb-level*))
+    (unwind-protect
+	 (loop
+	  (with-simple-restart (abort "Return to sldb level ~D." level)
+	    (send-to-emacs `(:sldb-prompt ,level))
+	    (read-from-emacs)))
+      (send-to-emacs `(:sldb-abort ,level)))))
+
+(defun format-restarts-for-emacs ()
+  "Return a list of restarts for *swank-debugger-condition* in a
+format suitable for Emacs."
+  (loop for restart in *sldb-restarts*
+	collect (list (princ-to-string (restart-name restart))
+		      (princ-to-string restart))))
+
+(defun format-condition-for-emacs ()
+  (format nil "~A~%   [Condition of type ~S]"
+	  (debug::safe-condition-message *swank-debugger-condition*)
+          (type-of *swank-debugger-condition*)))
+
+(defun compute-backtrace ()
+  (loop for frame = *sldb-stack-top* then (di:frame-down frame)
+	while frame collect frame))
+
+(defun format-frame-for-emacs (frame)
+  (list (di:frame-number frame)
+	(with-output-to-string (*standard-output*) 
+	  (debug::print-frame-call frame :verbosity 1))))
+
+(defun backtrace-for-emacs (start end)
+  (let ((frames (compute-backtrace)))
+    (list (length frames)
+	  (mapcar #'format-frame-for-emacs (subseq frames start end)))))
+
+(defun debugger-info-for-emacs (start end)
+  (list (format-condition-for-emacs)
+	(format-restarts-for-emacs)
+	(backtrace-for-emacs start end)))
+
+(defun nth-frame (index)
+  (nth index (compute-backtrace)))
+
+(defun nth-restart (index)
+  (nth index *sldb-restarts*))
+
+(defun code-location-source-path (code-location)
+  (let* ((location (debug::maybe-block-start-location code-location))
+	 (form-num (di:code-location-form-number location)))
+    (let ((translations (debug::get-top-level-form location)))
+      (unless (< form-num (length translations))
+	(error "Source path no longer exists."))
+      (reverse (cdr (svref translations form-num))))))
+
+(defun code-location-file-position (code-location)
+  (let* ((debug-source (di:code-location-debug-source code-location))
+	 (filename (di:debug-source-name debug-source))
+	 (path (code-location-source-path code-location)))
+    (source-path-file-position path filename)))
+
+(defun source-path-file-position (path filename)
+  (let ((*read-suppress* t))
+    (with-open-file (file filename)
+      (dolist (n path)
+	(dotimes (i n)
+	  (read file))
+	(read-delimited-list #\( file))
+      (let ((start (file-position file)))
+	(file-position file (1- start))
+	(read file)
+	(list start (file-position file))))))
+
+(defun frame-code-location-for-emacs (index)
+  (let* ((frame (nth-frame index))
+	 (code-location (di:frame-code-location frame))
+	 (debug-source (di:code-location-debug-source code-location))
+	 (from (di:debug-source-from debug-source))
+	 (name (di:debug-source-name debug-source)))
+    (list
+     :from from
+     :filename (if (eq from :file)
+		   (ext:unix-namestring (truename name)))
+     :position (if (eq from :file)
+		   (code-location-file-position code-location))
+     :source-form
+     (with-output-to-string (*standard-output*)
+       (debug::print-code-location-source-form code-location 100 t)))))
+
+(defun safe-frame-code-location-for-emacs (index)
+  (handler-case (frame-code-location-for-emacs index)
+    (t (c) (list :error (debug::safe-condition-message c)))))
+      
+(defun eval-string-in-frame (string index)
+  (prin1-to-string-for-emacs
+   (di:eval-in-frame (nth-frame index) (read-from-string string))))
+
+(defun list-locals (index)
+  (let* ((frame (nth-frame index))
+	 (location (di:frame-code-location frame))
+	 (debug-function (di:frame-debug-function frame))
+	 (debug-variables (di:ambiguous-debug-variables debug-function "")))
+    (with-output-to-string (*standard-output*)
+      (dolist (v debug-variables)
+	(format t "~S~:[#~D~;~*~] ~A~&   ~S~&"
+		(di:debug-variable-symbol v)
+		(zerop (di:debug-variable-id v))
+		(di:debug-variable-id v)
+		(di:debug-variable-validity v location)
+		(di:debug-variable-value v frame))))))
+
+(defun invoke-nth-restart (index)
+  (invoke-restart (nth-restart index)))
+
+(defun quit-from-debugger ()
+  (throw 'lisp::top-level-catcher nil))
+
+;; (+ 1 1)
+;; (/ 1 0)
