@@ -170,11 +170,17 @@ The portable code calls this function at startup."
    "Accept a client connection on the listening socket SOCKET.  Return
 a stream for the new connection.")
 
-(definterface add-input-handler (socket fn)
+(definterface add-sigio-handler (socket fn)
   "Call FN whenever SOCKET is readable.")
 
-(definterface remove-input-handlers (socket)
-  "Remove all input handlers for SOCKET.")
+(definterface remove-sigio-handlers (socket)
+  "Remove all sigio handlers for SOCKET.")
+
+(definterface add-fd-handler (socket fn)
+  "Call FN when Lisp is waiting for input and SOCKET is readable.")
+
+(definterface remove-fd-handlers (socket)
+  "Remove all fd-handlers for SOCKET.")
 
 ;;; Base condition for networking errors.
 (define-condition network-error (error) ())
