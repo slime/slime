@@ -28,7 +28,7 @@
 	(list-callers): Fixed some more.  method-name is not exported in
 	0.14.  From Marco Baringer.
 	(swank-accept-connection): Accept multiple connections.  Patch by
-	Marco Basringer.
+	Marco Baringer.
 
 	* swank-loader.lisp (user-init-file): Use homedir's truename.
 	Reported by Friedrich Dominicus.
