@@ -90,7 +90,9 @@
 ;;; Swank functions
 
 (defimplementation arglist (fname)
-  (ext:arglist fname))
+  (block nil
+    (or (ignore-errors (return (ext:arglist fname)))
+	:not-available)))
 
 (defimplementation macroexpand-all (form)
   (ext:expand-form form))
@@ -148,35 +150,34 @@ Return NIL if the symbol is unbound."
 (defvar *sldb-source*)
 (defvar *sldb-debugmode* 4)
 
+(defun frame-down (frame)
+  (sys::frame-down-1 frame sys::*debug-mode*))
+
+(defun frame-up (frame)
+  (sys::frame-up-1 frame sys::*debug-mode*))
+
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let* ((sys::*break-count* (1+ sys::*break-count*))
 	 (sys::*driver* debugger-loop-fn)
 	 (sys::*fasoutput-stream* nil)
-;;;      (sys::*frame-limit1* (sys::frame-limit1 43))
 	 (sys::*frame-limit1* (sys::frame-limit1 0))
-;;;      (sys::*frame-limit2* (sys::frame-limit2))
+	 (sys::*frame-limit2* (sys::frame-limit2))
 	 (sys::*debug-mode* *sldb-debugmode*)
-	 (*sldb-topframe* 
-	  (sys::frame-down-1
-	   (sys::frame-up-1 sys::*frame-limit1* sys::*debug-mode*)
-	   sys::*debug-mode*))
-	 (*sldb-botframe* (sys::frame-up *sldb-topframe* sys::*debug-mode*)))
+	 (*sldb-topframe* sys::*frame-limit1*))
     (funcall debugger-loop-fn)))
 
 (defun nth-frame (index)
-  (loop for frame = *sldb-topframe* then (sys::frame-up-1 frame 
-							  sys::*debug-mode*)
+  (loop for frame = *sldb-topframe* then (frame-up frame)
 	repeat index
-	never (eq frame *sldb-botframe*)
 	finally (return frame)))
 
 (defimplementation compute-backtrace (start end)
   (let ((end (or end most-positive-fixnum)))
-    (loop for f = (nth-frame start)
-	  then (sys::frame-up-1 f sys::*debug-mode*)
+    (loop for last = nil then frame
+	  for frame = (nth-frame start) then (frame-up frame)
 	  for i from start below end
-	  until (eq f *sldb-botframe*)
-	  collect f)))
+	  until (or (eq frame last) (system::driver-frame-p frame))
+	  collect frame)))
 
 (defimplementation print-frame (frame stream)
   (write-string (string-left-trim '(#\Newline)
