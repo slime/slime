@@ -1,3 +1,35 @@
+2003-09-28  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank.lisp 
+	(getpid, set-package, set-default-directory): New functions.
+	(slime-out-misc): Don't send empty strings.
+	(*redirect-output*, read-from-emacs): A new switch to turn output
+	redirection off. Useful for debugging.
+	(interactive-eval, interactive-eval-region, pprint-eval,
+	re-evaluate-defvar): Bind *package* to *buffer-package*.
+	(with-trapping-compilation-notes): Add a dummy argument for better
+	indentation.
+	(measure-time-intervall, call-with-compilation-hooks): Measure
+	compilation time.
+	(frame-locals): Use di::debug-function-debug-variables instead of
+	di:ambiguous-debug-variables. Don't access non-valid variables.
+
+	* slime.el
+	(slime-display-message-or-view): Delete old multi-line windows.
+	(slime-read-package-name): Added an optional initial-value
+	argument.  slime-pid: New variable.
+	(slime-init-dispatcher): Initialize slime-pid.
+	(slime-send-sigint): Use slime-pid instead of inferior-lisp-proc.
+	(slime-eval): Accept debug-condition messages.
+	(slime-output-buffer): Turn slime-mode on.
+	(slime-switch-to-output-buffer): New command.  Bound to C-c C-z.
+	(slime-show-note-counts): Display compilation time.
+	(slime-untrace-all, slime-set-package, slime-set-default-directory
+	slime-sync-package-and-default-directory): New commands.
+	(slime-princ-locals): Don't access non-valid variables.  This may
+	cause segfaults and severely confuse CMUCL.
+	(slime-define-keys): New macro.
+
 2003-09-28  Luke Gorrie  <luke@bluetail.com>
 
 	* swank.lisp (create-swank-server): Bind the listen-socket on the
