@@ -1,3 +1,20 @@
+2003-12-03  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* slime.el (slime-debugging-state): Initialize the sldb-buffer if
+	(/= sldb-level level).
+	(slime-who-specializes): New command.
+
+	* swank-cmucl.lisp (create-swank-server): Set reuse-address to t
+	by default.
+	(resolve-note-location): Add method for warnings in interpreted
+	code.
+	(who-specializes): New function.
+	(dd-source-location): Handle case without constructors more
+	correctly.
+	(source-path-source-position): Skip ambigous entries in
+	source-map.
+	(source-location-from-code-location): Simplified.
+
 2003-12-03  Luke Gorrie  <luke@bluetail.com>
 
 	* slime.el (slime-completing-read-internal): Fix from Sean
@@ -20,7 +37,7 @@
 	last and entire output in the *slime-repl* buffer
 	(slime-documentation): pop up a buffer with a symbol's
 	documentation instead of its description, if found.
-	(slime-complete-symbol): tweak to completion, taken from ilisp, to
+	(slime-complete-symbol): tweak the completion, taken from ilisp, to
 	complete filenames inside strings.
 	(slime-set-default-directory): also set *slime-repl*'s
 	default-directory, so e.g. find-file makes sense.
