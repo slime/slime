@@ -89,7 +89,8 @@
   (sys:invalidate-descriptor socket)
   (ext:close-socket (socket-fd socket)))
 
-(defimplementation accept-connection (socket)
+(defimplementation accept-connection (socket &key external-format)
+  (assert (eq external-format ':iso-latin-1-unix))
   (make-socket-io-stream (ext:accept-tcp-connection socket)))
 
 ;;;;; Sockets
@@ -1961,6 +1962,30 @@ The `symbol-value' of each element is a type tag.")
                         (sys:int-sap (kernel:get-lisp-obj-address o))
                         (* vm:fdefn-raw-addr-slot vm:word-bytes))))))
 
+(defmethod inspect-for-emacs ((o array) (inspector cmucl-inspector))
+  inspector
+  (values (format nil "~A is an array." o)
+          (label-value-line*
+           (:header (describe-primitive-type o))
+           (:rank (array-rank o))
+           (:fill-pointer (kernel:%array-fill-pointer o))
+           (:fill-pointer-p (kernel:%array-fill-pointer-p o))
+           (:elements (kernel:%array-available-elements o))           
+           (:data (kernel:%array-data-vector o))
+           (:displacement (kernel:%array-displacement o))
+           (:displaced-p (kernel:%array-displaced-p o))
+           (:dimensions (array-dimensions o)))))
+
+(defmethod inspect-for-emacs ((o vector) (inspector cmucl-inspector))
+  inspector
+  (values (format nil "~A is a vector." o)
+          (append 
+           (label-value-line*
+            (:header (describe-primitive-type o))
+            (:length (c::vector-length o)))
+           (loop for i below (length o)
+                 append (label-value-line i (aref o i))))))
+
 
 ;;;; Profiling
 (defimplementation profile (fname)
@@ -2102,6 +2127,10 @@ The `symbol-value' of each element is a type tag.")
   (setq ext:*gc-notify-before* #'pre-gc-hook)
   (setq ext:*gc-notify-after* #'post-gc-hook))
 
+(defun remove-gc-hooks ()
+  (setq ext:*gc-notify-before* nil)
+  (setq ext:*gc-notify-after* nil))
+  
 (defimplementation emacs-connected ()
   (install-gc-hooks))
 
