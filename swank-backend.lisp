@@ -16,6 +16,7 @@
 
 (defpackage :swank
   (:use :common-lisp)
+  (:nicknames #:swank-backend)
   (:export #:start-server #:create-swank-server
            #:*sldb-pprint-frames*))
 
@@ -163,4 +164,65 @@ Operation was KERNEL::DIVISION, operands (1 0).
    (\"ABORT\" \"Return to Top-Level.\"))
   ((0 \"0: (KERNEL::INTEGER-/-INTEGER 1 0)\")))"))
 
+(defgeneric backtrace (start end)
+  (:documentation
+   "Return a list containing a backtrace of the condition current
+being debugged.  The results are unspecified if this function is
+called outside the dynamic contour of a debugger hook defined by
+DEFINE-DEBUGGER-HOOK.
+
+START and END are zero-based indices constraining the number of
+frames returned.  Frame zero is defined as the frame which invoked
+the debugger.
+
+The backtrace is returned as a list of tuples of the form
+\(FRAME-NUMBER FRAME-DESCRIPTION), where FRAME-NUMBER is the
+index of the frame, defined like START/END, and FRAME-DESCRIPTION
+is a string containing text to display in the debugger for this
+frame.
+
+An example return value:
+
+   ((0 \"(HELLO \"world\")\")
+    (1 \"(RUN-EXCITING-LISP-DEMO)\")
+    (2 \"(SYS::%TOPLEVEL #<SYS::ENVIRONMENT #x394834>)\"))"))
+
+(defgeneric frame-source-location-for-emacs (frame-number)
+  (:documentation
+  "Return the source location for FRAME-NUMBER."))
+
+(defgeneric frame-catch-tags (frame-number)
+  (:documentation
+  "Return a list of XXX list of what? catch tags for a debugger
+stack frame.  The results are undefined unless this is called
+within the dynamic contour of a function defined by
+DEFINE-DEBUGGER-HOOK."))
+
+(defgeneric frame-locals (frame-number)
+  (:documentation
+   "Return a list of XXX local variable designators define me
+for a debugger stack frame.  The results are undefined unless
+this is called within the dynamic contour of a function defined
+by DEFINE-DEBUGGER-HOOK."))
+   
+(defgeneric eval-in-frame (form frame-number)
+  (:documentation
+   "Evaluate a Lisp form in the lexical context of a stack frame
+in the debugger.  The results are undefined unless called in the
+dynamic contour of a function defined by DEFINE-DEBUGGER-HOOK.
+
+FRAME-NUMBER must be a positive integer with 0 indicating the
+frame which invoked the debugger.
+
+The return value is the result of evaulating FORM in the
+appropriate context."))
+
+
+;;;; Queries
+
+(defgeneric function-source-location-for-emacs (function-name)
+  (:documentation
+   "Return the canonical source location FUNCTION-NAME.
+
+FIXME: Document the plethora of valid return types."))
 
