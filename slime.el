@@ -519,6 +519,10 @@ If that doesn't give a function, return nil."
         ;; timer-based retries.
         ((attempt-connection
           ()
+          (unless (active-minibuffer-window)
+            (message "\
+Connecting to Swank at %s:%S. (Abort with `M-x slime-disconnect'.)"
+                     host port))
           (setq slime-state-name (format "[connect:%S]" (incf attempt)))
           (force-mode-line-update)
           (setq slime-connect-retry-timer nil) ; remove old timer
@@ -532,9 +536,6 @@ If that doesn't give a function, return nil."
                  (when retries (decf retries))
                  (setq slime-connect-retry-timer
                        (run-with-timer 1 nil #'attempt-connection))))))
-      (message "\
-Connecting to Swank at %s:%S. (Abort with `M-x slime-disconnect'.)"
-               host port)
       (attempt-connection))))
 
 (defun slime-disconnect ()
