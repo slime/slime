@@ -13,6 +13,12 @@
 	* swank.lisp (dispatch-event): Quitting from the debugger was
 	seriously broken.  Fix it.  Move generation of thread ids to the
 	backends.
+	(encode-message, send-to-socket-io): Use WITHOUT-INTERRUPTS in
+	send-to-socket-io.  The multithreaded version of encode-message
+	doesn't need it.
+	(nth-thread): Renamed from lookup-thread-by-id.
+	(debug-nth-thread): Renamed from debug-thread-by-id:
+	(kill-nth-thread): Renamed from kill-thread-by-id.
 
 	* slime.el (sldb-get-buffer): Add support for sldb buffers for
 	multiple threads.
