@@ -808,8 +808,7 @@ Also saves the window configuration, and inherts the current
                             (current-buffer))))
      (prog1 (progn ,@body)
        (with-current-buffer standard-output
-         (set (make-local-variable 'slime-connection)
-              connection)
+         (setq slime-buffer-connection connection)
          (set (make-local-variable 'slime-temp-buffer-saved-window-configuration)
               ,config)
          (goto-char (point-min))
@@ -1108,22 +1107,20 @@ EVAL'd by Lisp."
 ;; High-level network connection management.
 ;; Handles multiple connections and "context-switching" between them.
 
-(defvar slime-connection nil
-  "Network process currently in use.
-This connection is used to make requests when the user invokes
-commands.
+(defvar slime-dispatching-connection nil
+  "Network process currently executing.
+This is dynamically bound while handling messages from Lisp; it
+overrides `slime-buffer-connection' and `slime-default-connection'.")
 
-Can be bound dynamically to use a particular connection temporarily.
-Can be bound buffer-locally to make a particular connection
-\"sticky\" for commands in a particular buffer.
-
-You should not read this variable directly. Use the function of
-the same name instead.")
+(make-variable-buffer-local
+ (defvar slime-buffer-connection nil
+   "Network connection to use in the current buffer.
+This overrides `slime-default-connection'."))
 
 (defvar slime-default-connection nil
-  "Network process selected for top-level use.
-This variable is only used to test whether some process is the
-primary process.")
+  "Network connection to use by default.
+Used for all Lisp communication, except when overridden by
+`slime-dispatching-connection' or `slime-buffer-connection'.")
 
 (defvar slime-connection-counter 0
   "Number of SLIME connections made, for generating serial numbers.")
@@ -1134,16 +1131,22 @@ primary process.")
 Bound in the connection's process-buffer."))
 
 (defun slime-connection ()
-  "Return the current connection."
-  (when (and slime-connection
-             (not (eq (process-status slime-connection) 'open)))
-    (if (and slime-default-connection
-             (y-or-n-p "Buffer's connection closed; switch to default? "))
-        (setq slime-connection nil)
-      (error "Buffer's connection closed.")))
-  (or slime-connection
+  "Return the connection to use for Lisp interaction."
+  (or slime-dispatching-connection
+      (progn (slime-maybe-drop-buffer-connection)
+             slime-buffer-connection)
       slime-default-connection
       (error "No connection.")))
+
+(defun slime-maybe-drop-buffer-connection ()
+  "If the current buffer's connection is closed, offer to switch
+to the default."
+  (when (and slime-buffer-connection
+             (not (eq (process-status slime-buffer-connection) 'open)))
+    (if (and slime-default-connection
+             (y-or-n-p "Buffer's connection closed; switch to default? "))
+        (setq slime-buffer-connection nil)
+      (error "Buffer's connection closed."))))
 
 (defun slime-connection-number (&optional connection)
   (slime-with-connection-buffer (connection)
@@ -1166,10 +1169,9 @@ If PROCESS is not specified, `slime-connection' is used."
     (message (format "Selected connection: %S" (slime-connection-number)))))
 
 (defun slime-connection-close-hook (process)
-  (when (eq process slime-connection)
-    (setq slime-connection nil))
   (when (eq process slime-default-connection)
-    (setq slime-default-connection nil)))
+    (when slime-net-processes
+      (slime-select-connection (car slime-net-processes)))))
 
 (add-hook 'slime-net-process-close-hooks 'slime-connection-close-hook)
 
@@ -1307,16 +1309,17 @@ This may be called by a state machine to finish its current state."
 
 (defun slime-init-connection (proc &optional select)
   "Initialize the stack machine."
-  (let ((slime-connection proc))
-    (slime-init-connection-state)
+  (let ((slime-dispatching-connection proc))
+    (slime-init-connection-state proc)
     (when (or select (null slime-default-connection))
       (slime-select-connection proc))
-    (sldb-cleanup)))
+    (sldb-cleanup)
+    proc))
 
-(defun slime-init-connection-state ()
+(defun slime-init-connection-state (proc)
   ;; To make life simpler for the user: if this is the only open
   ;; connection then reset the connection counter.
-  (when (equal slime-net-processes (list slime-connection))
+  (when (equal slime-net-processes (list proc))
     (setq slime-connection-counter 0))
   (slime-with-connection-buffer ()
     (setq slime-state-stack (list (slime-idle-state)))
@@ -1325,7 +1328,7 @@ This may be called by a state machine to finish its current state."
     ;; REPL buffer already exists - update its local
     ;; `slime-connection' binding.
     (with-current-buffer repl-buffer
-      (setq slime-connection proc)))
+      (setq slime-buffer-connection proc)))
   (setf (slime-pid) (slime-eval '(swank:getpid)))
   (when slime-global-debugger-hook
     (slime-eval '(swank:install-global-debugger-hook) "COMMON-LISP-USER"))
@@ -1369,7 +1372,7 @@ the state name for the modeline."
   "Dispatch an event to the current state.
 Certain \"out of band\" events are handled specially instead of going
 into the state machine."
-  (let ((slime-connection (or process (slime-connection))))
+  (let ((slime-dispatching-connection (or process (slime-connection))))
     (slime-log-event event)
     (unless (slime-handle-oob event)
       (funcall (slime-state-function (slime-current-state)) event))))
@@ -1759,7 +1762,7 @@ deal with that."
       (let ((connection (slime-connection)))
         (with-current-buffer (slime-repl-buffer t)
           (slime-repl-mode)
-          (set (make-local-variable 'slime-connection) connection)
+          (setq slime-buffer-connection connection)
           (dolist (markname (list 'slime-output-start
                                   'slime-output-end
                                   'slime-repl-prompt-start-mark
@@ -3085,10 +3088,10 @@ If INITIAL-VALUE is non-nil, it is inserted into the minibuffer before
 reading input.  The result is a string (\"\" if no input was given)."
   (let ((minibuffer-setup-hook 
          (cons (lexical-let ((package (slime-buffer-package))
-                             (connection slime-connection))
+                             (connection (slime-connection)))
                  (lambda ()
                    (setq slime-buffer-package package)
-                   (set (make-local-variable 'slime-connection) connection)
+                   (setq slime-buffer-connection connection)
                    (set-syntax-table lisp-mode-syntax-table)))
 	       minibuffer-setup-hook)))
     (read-from-minibuffer prompt initial-value slime-read-expression-map
@@ -3874,8 +3877,8 @@ If `sldb-enable-styled-backtrace' is nil, just return STRING."
   (setq sldb-level-in-buffer (sldb-level))
   (setq mode-name (format "sldb[%d]" (sldb-level)))
   (slime-set-truncate-lines)
-  ;; Make original `slime-connection' "sticky" for SLDB commands in this buffer
-  (set (make-local-variable 'slime-connection) (slime-connection))
+  ;; Make original slime-connection "sticky" for SLDB commands in this buffer
+  (setq slime-buffer-connection (slime-connection))
   (make-local-hook 'kill-buffer-hook)
   (add-hook 'kill-buffer-hook 'sldb-delete-overlays))
 
