@@ -457,7 +457,8 @@ A prefix argument disables this behaviour."
     ;; "Other"
     ("\I"  slime-inspect :prefixed t :inferior t :sldb t)
     ("\C-]" slime-close-all-sexp :prefixed t :inferior t :sldb t)
-    ("\C-xt" slime-thread-control-panel :prefixed t :inferior t :sldb t)))
+    ("\C-xt" slime-list-threads :prefixed t :inferior t :sldb t)
+    ("\C-xc" slime-list-connections :prefixed t :inferior t :sldb t)))
 
 ;; Maybe a good idea, maybe not..
 (defvar slime-prefix-key "\C-c"
@@ -904,11 +905,12 @@ This is more compatible with the CL reader."
 (defun slime ()
   "Start an inferior^_superior Lisp and connect to its Swank server."
   (interactive)
-  (if (and current-prefix-arg
-           (slime-connected-p)
-           (get-buffer "*inferior-lisp*"))
-      (slime-maybe-rearrange-inferior-lisp)
-    (slime-disconnect))
+  (cond ((and current-prefix-arg
+              (slime-connected-p)
+              (get-buffer "*inferior-lisp*"))
+         (unless (slime-maybe-rearrange-inferior-lisp)
+           (slime-disconnect)))
+        (t (slime-disconnect)))
   (slime-maybe-start-lisp)
   (slime-read-port-and-connect))
 
@@ -997,7 +999,7 @@ Polling %S.. (Abort with `M-x slime-connection-abort'.)"
                        (y-or-n-p "Close old connections first? "))))
   (when kill-old-p (slime-disconnect))
   (message "Connecting to Swank on port %S.." port)
-  (slime-init-connection (slime-net-connect "localhost" port))
+  (slime-init-connection (slime-net-connect host port))
   (when-let (buffer (get-buffer "*inferior-lisp*"))
     (delete-windows-on buffer)
     (bury-buffer buffer))
@@ -1417,6 +1419,7 @@ This is automatically synchronized from Lisp.")
   "*Log protocol events to the *slime-events* buffer.")
 
 ;;;;;;; Event logging to *slime-events*
+
 (defun slime-log-event (event)
   (when slime-log-events
     (with-current-buffer (slime-events-buffer)
@@ -2349,10 +2352,11 @@ Each newlines and following indentation is replaced by a single space."
 
 (defun slime-compilation-finished (result buffer show-notes-buffer)
   (let ((notes (slime-compiler-notes)))
-    (multiple-value-bind (result secs) result
-      (slime-show-note-counts notes secs)
-      (slime-highlight-notes notes))
-    (when (and show-notes-buffer (slime-length> notes 1))
+    (with-current-buffer buffer
+      (multiple-value-bind (result secs) result
+        (slime-show-note-counts notes secs)
+        (slime-highlight-notes notes)))
+    (when (and show-notes-buffer (slime-length> notes 0))
       (slime-list-compiler-notes notes))
     ;;(let ((xrefs (slime-xrefs-for-notes notes)))
     ;;  (when (> (length xrefs) 1) ; >1 file
@@ -2640,7 +2644,7 @@ region around the first element is used."
     (unless (eql (car location) :error) 
       (slime-goto-source-location location)
       (let ((start (point)))
-        (slime-forward-sexp)
+        (ignore-errors (slime-forward-sexp))
         (if (slime-same-line-p start (point))
             (values start (point))
             (values (1+ start)
