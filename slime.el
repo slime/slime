@@ -125,9 +125,6 @@ See also `slime-translate-to-lisp-filename-function'.")
 (defvar slime-reply-update-banner-p t
   "Whether Slime should keep a repl banner updated or not.")
 
-(defvar slime-enable-startup-animation-p t
-  "*Flag to suppress the animation at the beginning.")
-
 (defvar slime-edit-definition-fallback-function nil
   "Function to call when edit-definition fails to find the source itself.
 The function is called with the definition name, a string, as its argument.
@@ -321,6 +318,11 @@ If you want to fallback on TAGS you can set this to `find-tag'.")
   "List of functions to call when SLIME connects to Lisp."
   :group 'slime
   :type 'hook)
+
+(defcustom slime-startup-animation t
+  "Enable the startup animation."
+  :type '(choice (const :tag "Enable" t) (const :tag "Disable" nil))
+  :group 'slime)
   
 
 ;;; Minor modes
@@ -1124,7 +1126,7 @@ Return true if we have been given permission to continue."
   "Offer to rename *inferior-lisp* so that another can be started."
   (when (y-or-n-p "Create an additional *inferior-lisp*? ")
     (with-current-buffer "*inferior-lisp*"
-      (rename-buffer (buffer-name) t)
+      (rename-buffer (generate-new-buffer-name (buffer-name)))
       t)))
 
 (defun slime-maybe-start-lisp ()
@@ -1925,7 +1927,7 @@ deal with that."
                             slime-reply-update-banner-p))
          ;; and dancing text
          (animantep (and (fboundp 'animate-string)
-                         slime-enable-startup-animation-p
+                         slime-startup-animation
                          (zerop (buffer-size)))))
     (when use-header-p
       (setq header-line-format banner))
@@ -4597,12 +4599,13 @@ CL:MACROEXPAND."
 
 (defun slime-set-default-directory (directory)
   (interactive (list (read-directory-name "Directory: " nil nil t)))
-  (with-current-buffer (slime-output-buffer)
-    (setq default-directory (expand-file-name directory))
-    (slime-repl-update-banner))
   (message "default-directory: %s" 
 	   (slime-eval `(swank:set-default-directory 
-			 ,(expand-file-name directory)))))
+			 ,(expand-file-name directory))))
+  (with-current-buffer (slime-output-buffer)
+    (setq default-directory (expand-file-name directory))
+    (when (boundp 'header-line-format)
+      (slime-repl-update-banner))))
 
 (defun slime-sync-package-and-default-directory ()
   (interactive)
@@ -5025,11 +5028,21 @@ Called on the `point-entered' text-property hook."
   (when sldb-highlight (sldb-highlight-sexp))
   (let ((position (point)))
     (save-selected-window
-      (select-window (or (get-buffer-window (current-buffer) t)
-                         (display-buffer (current-buffer) t)))
-      (goto-char position)
-      (unless (pos-visible-in-window-p)
-        (recenter sldb-show-location-recenter-arg)))))
+      (let ((w (select-window (or (get-buffer-window (current-buffer) t)
+                                  (display-buffer (current-buffer) t)))))
+        (goto-char position)
+        (unless (pos-visible-in-window-p)
+          (slime-recenter-window w sldb-show-location-recenter-arg))))))
+
+(defun slime-recenter-window (window line)
+  "Set window-start in WINDOW LINE lines before point."
+  (let ((line (if (not line)
+                  (/ (window-height window) 2)
+                line)))
+    (let ((start (ignore-errors (loop repeat line do (forward-line -1))
+                                (point))))
+      (when start
+        (set-window-start w (point))))))
 
 (defun sldb-highlight-sexp (&optional start end)
   "Highlight the first sexp after point."
@@ -5173,11 +5186,10 @@ The details include local variable bindings and CATCH-tags."
 
 (defun sldb-sugar-move (move-fn)
   (let ((inhibit-read-only t))
-    (when (sldb-frame-details-visible-p)
-      (sldb-hide-frame-details))
+    (when (sldb-frame-details-visible-p) (sldb-hide-frame-details))
     (funcall move-fn)
-    (sldb-toggle-details t)
-    (sldb-show-source)))
+    (sldb-show-source)
+    (sldb-toggle-details t)))
   
 (defun sldb-details-up ()
   "Select previous frame and show details."
@@ -5203,10 +5215,12 @@ The details include local variable bindings and CATCH-tags."
 (defun sldb-list-locals ()
   "List local variables in selected frame."
   (interactive)
-  (let ((frame (sldb-frame-number-at-point)))
+  (let ((frame (sldb-frame-number-at-point))
+        (thread slime-current-thread))
     (slime-message "%s" (with-temp-buffer
-                          (sldb-insert-locals frame "")
-                          (buffer-string)))))
+                          (let ((slime-current-thread thread))
+                            (sldb-insert-locals frame "")
+                            (buffer-string))))))
 
 (defun sldb-catch-tags (frame)
   (slime-eval `(swank:frame-catch-tags-for-emacs ,frame)))
@@ -5263,8 +5277,6 @@ use the restart at point."
 (defun sldb-step ()
   "Select the \"continue\" restart and set a new break point."
   (interactive)
-  ;; FIXME
-  (error "Not implemented.")
   (let ((frame (sldb-frame-number-at-point)))
     (slime-eval-async `(swank:sldb-step ,frame) nil (lambda ()))))
 
