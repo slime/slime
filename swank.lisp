@@ -26,6 +26,7 @@
            ;; re-exported from backend
            #:frame-source-location-for-emacs
            #:restart-frame
+           #:sldb-step
            #:profiled-functions
            #:profile-report
            #:profile-reset
@@ -817,7 +818,7 @@ Return the package or nil."
                (parse-package (substitute #\- #\! name))))
       default-package))
 
-(defvar *readtable-alist* '()
+(defvar *readtable-alist* (default-readtable-alist)
   "An alist mapping package names to readtables.")
 
 (defun guess-buffer-readtable (package-name &optional (default *readtable*))
@@ -1132,6 +1133,19 @@ the local variables in the frame INDEX."
   (destructuring-bind (fn &rest args) form
     (send-to-emacs `(:%apply ,(string-downcase (string fn)) ,args))))
 
+(defun guess-buffer-package (string)
+  "Return a package for STRING. 
+Print a warning if STRING is not nil but no such package exists."
+  (cond ((guess-package-from-string string nil))
+        (string 
+         (cerror (format nil "Use current package. [~A]" 
+                         (package-name *package*))
+                 "Package ~A not found." 
+                 string (package-name *package*))
+         *package*)
+        (t 
+         *package*)))
+
 (defun eval-for-emacs (form buffer-package id)
   "Bind *BUFFER-PACKAGE* BUFFER-PACKAGE and evaluate FORM.
 Return the result values as a list to strings to the continuation ID.
@@ -1139,7 +1153,7 @@ Errors are trapped and invoke our debugger."
   (let ((*debugger-hook* #'swank-debugger-hook))
     (let (ok result)
       (unwind-protect
-           (let ((*buffer-package* (guess-package-from-string buffer-package))
+           (let ((*buffer-package* (guess-buffer-package buffer-package))
                  (*buffer-readtable* (guess-buffer-readtable buffer-package)))
              (assert (packagep *buffer-package*))
              (assert (readtablep *buffer-readtable*))
