@@ -29,6 +29,12 @@
            #:*readtable-alist*
            #:*globally-redirect-io*
            #:*global-debugger*
+           #:*sldb-print-pretty*
+           #:*sldb-print-circle*
+           #:*sldb-print-length*
+           #:*sldb-print-level*
+           #:*sldb-print-lines*
+           #:*sldb-print-pprint-dispatch*
            ;; These are re-exported directly from the backend:
            #:buffer-first-change
            #:frame-source-location-for-emacs
