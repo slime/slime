@@ -1,3 +1,11 @@
+2004-01-15  Wolfgang Jenkner  <wjenkner@inode.at>
+
+	* swank-clisp.lisp (with-blocked-signals): New macro.
+	(without-interrupts): Use it.
+	(*use-dedicated-output-stream*, *redirect-output*): Don't set them
+	here, use the default settings.
+	Make :linux one of *features* if we find the "LINUX" package.
+
 2004-01-14  Luke Gorrie  <luke@bluetail.com>
 
 	* swank-openmcl.lisp (emacs-connected): Typo fix (missing
