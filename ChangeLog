@@ -1,3 +1,17 @@
+2004-03-01  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-lispworks.lisp (compile-string-for-emacs): Patch the
+	recorded source locations.
+	(replace-source-file, patch-source-locations): New function.
+	(dspec-buffer-position): Handle defgeneric.
+	(make-dspec-location): Handle (patched) emacs-buffer locations.
+	(emacs-buffer-location-p): New function.
+	(describe-primitive-type, inspected-parts): Implemented.
+	(kill-thread): Implemented.
+
+	* swank-sbcl.lisp, swank-cmucl.lisp, swank-allegro.lisp
+	(kill-thread): Implemented.
+
 2004-02-29  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-complete-symbol): Make slime-complete-symbol
