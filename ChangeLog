@@ -1,3 +1,54 @@
+2004-01-19  Michael Weber  <michaelw@foldr.org>
+
+	* slime.el (slime-close-all-sexp): New command to close all
+	unmatched parens in the current defun. Bound to `C-c C-]'. With
+	prefix argument, only operate in the region (for closing
+	subforms).
+
+2004-01-19  Luke Gorrie  <luke@bluetail.com>
+
+	* swank-loader.lisp: Call (swank:warn-unimplemented-interfaces).
+
+	* swank.lisp (ed-in-emacs): New command with the same interface
+	as CL:ED.
+
+	* swank-cmucl.lisp, swank-sbcl.lisp, swank-lispworks.lisp,
+	swank-openmcl.lisp, swank-allegro.lisp, swank-clisp.lisp: Updated
+	to use `defimplementation'.
+
+	* swank-backend.lisp (definterface, defimplementation): New macros
+	as sugar around defgeneric/defmethod. This supports conveniently
+	supplying a default (on NO-APPLICABLE-METHOD).  Because the
+	underly mechanism is still generic functions this doesn't break
+	code that isn't updated.
+	(warn-unimplemented-interfaces): Print a list of backend functions
+	that are not implemented.
+	(xref and list-callers): Defined interfaces for these functions.
+	(describe-definition): New function that takes over from the many
+	other describe-* functions called from apropos listing. Takes the
+	type of definition (as returned by describe-symbol-for-emacs) as
+	an argument.
+
+	* slime.el (sldb-enable-styled-backtrace): This is now true by
+	default.
+	(slime-keys): Bound `slime-inspect' to `C-c I'.
+	(slime): `M-x slime' now offers to keep existing connections
+	alive (else disconnect them). If you disconnect them, the new
+	connection gets to reuse the existing REPL.
+	(slime-connection): Error if the connection is closed.
+	(slime-handle-oob): New message (:ED WHAT) for `slime-ed'.
+	(slime-display-output-buffer): Don't pop up the REPL if it is
+	already visible in any frame.
+	(slime-find-asd): Handle case where (buffer-file-name) is nil.
+	(slime-ed): Elisp backend for (CL:ED WHAT).
+	(slime-apropos): Add a summary line to apropos listings.
+	(slime-print-apropos): Replaced `action' property (name of lisp
+	describe function) with `type' (argument to pass to unified
+	swank:describe-definition function).
+	(slime-apropos-package): New command on `C-c P'. Presents apropos
+	listing for all external (with prefix also internal) symbols in a
+	package.
+
 2004-01-18  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* swank-lispworks.lisp (sigint-handler): Bind a continue restart.
