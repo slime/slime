@@ -1,3 +1,8 @@
+2004-05-21 Bill Clementson <Bill_Clementson@peoplesoft.com>
+
+	* slime.el (slime-switch-to-output-buffer): Use "P" as interactive
+	spec.
+	
 2004-05-21  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-switch-to-output-buffer): Override the
@@ -6,6 +11,10 @@
 	(slime-repl-return): Send input if we are in read-mode also if it
 	isn't a complete expression.
 	(repl-read-lines): New test case.
+	(slime-enable-startup-animation-p): New configurable.
+	(slime-repl-update-banner): Use it.
+	(slime-hide-inferior-lisp-buffer): New function. Reuse the
+	*inferior-lisp* buffer window for the SLIME REPL.
 
 	* swank-allegro.lisp (find-fspec-location): Better handling of
 	methods.  From Bill Clementson.
