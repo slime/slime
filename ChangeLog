@@ -1,3 +1,20 @@
+2004-01-18  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank.lisp (find-symbol-or-lose, format-arglist): New functions.
+	(without-interrupts): New macro.
+	(send-to-emacs): Use it.
+
+	* swank-backend.lisp, swank-clisp.lisp, swank-lispworks.lisp,
+	swank-openmcl.lisp, swank-sbcl.lisp, swank-allegro.lisp:
+	(arglist-string): Refactor common code to swank.lisp.
+	(call-without-interrupts, getpid): Are now generic functions.
+
+	* slime.el (arglist): Test slot readers and closures.
+
+	* swank-cmucl.lisp (arglist-string): Use
+	pcl:generic-function-lambda-list for generic functions.  Handle
+	closures.  Print arglist in lower case.
+
 2004-01-18  Wolfgang Jenkner  <wjenkner@inode.at>
 
 	* swank-clisp.lisp (compile-file-for-emacs,
