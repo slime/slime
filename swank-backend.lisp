@@ -112,6 +112,9 @@ a stream for the new connection."))
 (defgeneric add-input-handler (socket fn)
   (:documentation "Call FN whenever SOCKET is readable."))
 
+(defgeneric remove-input-handlers (socket)
+  (:documentation "Remove all input handlers for SOCKET."))
+
 ;;; Base condition for networking errors.
 (define-condition network-error (error) ())
 
