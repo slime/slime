@@ -1124,7 +1124,10 @@ If you copy the HyperSpec to another location, customize the variable
 (defun common-lisp-hyperspec-section-6.0 (indices)
   (let ((string (format "%sBody/%s_" 
 			common-lisp-hyperspec-root
-			(pop indices))))
+			(let ((base (pop indices)))
+			  (if (< base 10)
+			      (format "0%s" base)
+			    base)))))
     (concat string 
 	    (mapconcat (lambda (n)
 			 (make-string 1 (+ ?a (- n 1))))
