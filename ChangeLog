@@ -1,5 +1,8 @@
 2004-05-22  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
+	* swank-cmucl.lisp (arglist): Catch (reader) errors in
+	READ-ARGLIST.
+
 	* swank-allegro.lisp (fspec-primary-name): New function.
 	(find-fspec-location): Use it, if the start position cannot be
 	found.
