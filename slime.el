@@ -2046,10 +2046,13 @@ using outdated information.")
 The value is (SYMBOL-NAME . DOCUMENTATION).")
 
 (defun slime-autodoc ()
+  "Print some apropos information about the code at point, if applicable."
   (when-bind (sym (slime-function-called-at-point/line))
     (let ((name (symbol-name sym))
           (cache-key (slime-qualify-cl-symbol-name sym)))
-      (or (slime-get-cached-autodoc cache-key)
+      (or (when-bind (documentation (slime-get-cached-autodoc cache-key))
+            (message documentation)
+            t)
           ;; Asynchronously fetch, cache, and display arglist
           (slime-arglist
            name
@@ -2092,8 +2095,7 @@ the symbol at point if applicable."
               (not (slime-connected-p))
               (slime-busy-p))
     (condition-case err
-        (when-bind (documentation (slime-autodoc))
-          (message documentation))
+        (slime-autodoc)
       (error
        (setq slime-autodoc-mode nil)
        (message "Error: %S; slime-autodoc-mode now disabled." err)))))
