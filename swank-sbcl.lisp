@@ -122,12 +122,15 @@
 (defun make-socket-io-stream (socket external-format)
   (let ((encoding (ecase external-format
                     (:iso-latin-1-unix :iso-8859-1)
+                    #+sb-unicode
                     (:utf-8-unix :utf-8))))
     (sb-bsd-sockets:socket-make-stream socket
                                        :output t
                                        :input t
                                        :element-type 'character
-                                       :external-format encoding)))
+                                       #+sb-unicode :external-format 
+                                       #+sb-unicode encoding
+                                       )))
 
 (defun accept (socket)
   "Like socket-accept, but retry on EAGAIN."
