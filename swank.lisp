@@ -485,14 +485,16 @@ format. The cases are as follows:
       (let ((*print-case* (if (find-if #'upper-case-p string)
                               :upcase :downcase))
             (*package* package))
-        (mapcar (lambda (s)
-                  (cond (internal-p (format nil "~A::~A" package-name s))
-                        (package-name (format nil "~A:~A" package-name s))
-                        (t (format nil "~A" s))))
-                ;; DO-SYMBOLS can consider the same symbol more than
-                ;; once, so remove duplicates.
-                (remove-duplicates (sort completions #'string<
-                                         :key #'symbol-name)))))))
+        (let* ((completion-set
+                (mapcar (lambda (s)
+                          (cond (internal-p (format nil "~A::~A" package-name s))
+                                (package-name (format nil "~A:~A" package-name s))
+                                (t (format nil "~A" s))))
+                        ;; DO-SYMBOLS can consider the same symbol more than
+                        ;; once, so remove duplicates.
+                        (remove-duplicates (sort completions #'string<
+                                                 :key #'symbol-name)))))
+          (list completion-set (longest-completion completion-set)))))))
 
 (defun parse-symbol-designator (string)
   "Parse STRING as a symbol designator.
@@ -530,11 +532,8 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
     (declare (ignore _))
     (eq status :external)))
  
-(defun string-prefix-p (s1 s2)
-  "Return true iff the string S1 is a prefix of S2.
-\(This includes the case where S1 is equal to S2.)"
-  (and (<= (length s1) (length s2))
-       (string-equal s1 s2 :end2 (length s1))))
+
+;;;; Subword-word matching
 
 (defun subword-prefix-p (s1 s2 &key (start1 0) end1 (start2 0))
   "Return true if the subsequence in S1 bounded by START1 and END1
@@ -571,6 +570,38 @@ Examples:
                                        :end1 (and end1 (1- end1))
                                        :start2 start2))))))
 
+
+;;;; Extending the input string by completion
+
+(defun longest-completion (completions)
+  "Return the longest prefix for all COMPLETIONS."
+  (untokenize-completion
+   (mapcar #'longest-common-prefix
+           (transpose-matrix (mapcar #'completion-tokens completions)))))
+
+(defun completion-tokens (string)
+  "Return all substrings of STRING delimited by #\-."
+  (loop for start = 0 then (1+ end)
+        until (> start (length string))
+        for end = (or (position #\- string :start start) (length string))
+        collect (subseq string start end)))
+
+(defun untokenize-completion (tokens)
+  (format nil "~{~A~^-~}" tokens))  
+
+(defun longest-common-prefix (strings)
+  "Return the longest string that is a common prefix of STRINGS."
+  (if (null strings)
+      ""
+      (flet ((common-prefix (s1 s2)
+               (let ((diff-pos (mismatch s1 s2)))
+                 (if diff-pos (subseq s1 0 diff-pos) s1))))
+        (reduce #'common-prefix strings))))
+
+(defun transpose-matrix (matrix)
+  "Turn a matrix (of any sequence type) on its side."
+  ;; A cute function from PAIP p.574
+  (if matrix (apply #'mapcar #'list matrix)))
 
 
 ;;;; Documentation
