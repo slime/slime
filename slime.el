@@ -1036,10 +1036,6 @@ Polling %S.. (Abort with `M-x slime-disconnect'.)"
       (buffer-disable-undo))
     buffer))
 
-(defun slime-net-output-funcall (fun &rest args)
-  "Send a request for FUN to be applied to ARGS."
-  (slime-net-send `(,fun ,@args)))
-
 (defun slime-net-send (sexp)
   "Send a SEXP to inferior CL.
 This is the lowest level of communication. The sexp will be READ and
@@ -1714,8 +1710,8 @@ update window-point afterwards.  If point is initially not at
        'common-lisp-indent-function)
   (setq font-lock-defaults nil)
   (setq mode-name "REPL")
-  (set (make-local-variable 'scroll-conservatively) 20)
-  (set (make-local-variable 'scroll-margin) 0)
+  ;;(set (make-local-variable 'scroll-conservatively) 20)
+  ;;(set (make-local-variable 'scroll-margin) 0)
   (slime-setup-command-hooks)
   (run-hooks 'slime-repl-mode-hook))
 
@@ -2142,10 +2138,7 @@ buffer's working directory"
    (list (let ((d (slime-find-asd)))
            (read-string (format "System: [%s] " d) nil nil d))))
   (save-some-buffers)
-  (with-current-buffer (slime-output-buffer)
-    (goto-char (point-max))
-    (set-window-start (display-buffer (current-buffer) t)
-                      (line-beginning-position)))
+  (slime-display-output-buffer)
   (slime-eval-async
    `(swank:swank-load-system ,system-name)
    nil
@@ -2375,6 +2368,46 @@ first element of the source-path redundant."
           (beginning-of-sexp))
       (error (goto-char origin)))))
 
+(defun slime-goto-location-buffer (buffer)
+  (destructure-case buffer
+    ((:file filename)
+     (set-buffer (find-file-noselect filename t))
+     (goto-char (point-min)))
+    ((:buffer buffer)
+     (set-buffer buffer)
+     (goto-char (point-min)))
+    ((:source-form string)
+     (set-buffer (get-buffer-create "*SLIME Source Form*"))
+     (erase-buffer)
+     (insert string)
+     (goto-char (point-min)))))  
+
+(defun slime-goto-location-position (position)
+  (destructure-case position
+    ((:position pos &optional align-p)
+     (goto-char pos)
+     (when align-p
+       (slime-forward-sexp)
+       (beginning-of-sexp)))
+    ((:line start &optional end)
+     (goto-line start))
+    ((:function-name name)
+     (let ((case-fold-search t)
+           (name (regexp-quote name)))
+       (or 
+        (re-search-forward 
+         (format "^(\\(def.*[ \n\t(]\\([-.%%$&a-z0-9]+:?:\\)?\\)?%s[ \t)]" 
+                 name) nil t)
+        (re-search-forward 
+         (format "\\s %s" name) nil t)))
+     (goto-char (match-beginning 0)))
+    ((:source-path source-path start-position)
+     (cond (start-position
+            (goto-char start-position)
+            (slime-forward-positioned-source-path source-path))
+           (t
+            (slime-forward-source-path source-path))))))
+
 (defun slime-goto-source-location (location &optional noerror)
   "Move to the source location LOCATION.  Several kinds of locations
 are supported:
@@ -2387,44 +2420,13 @@ are supported:
              | (:source-form <string>)
 
 <position> ::= (:position <fixnum> [<align>]) ; 1 based
+             | (:line <fixnum> [<fixnum>])
              | (:function-name <string>)
              | (:source-path <list> <start-position>) "
   (destructure-case location
     ((:location buffer position)
-     (destructure-case buffer
-       ((:file filename)
-        (set-buffer (find-file-noselect filename t))
-        (goto-char (point-min)))
-       ((:buffer buffer)
-        (set-buffer buffer)
-        (goto-char (point-min)))
-       ((:source-form string)
-        (set-buffer (get-buffer-create "*SLIME Source Form*"))
-        (erase-buffer)
-        (insert string)
-        (goto-char (point-min))))
-     (destructure-case position
-       ((:position pos &optional align-p)
-        (goto-char pos)
-        (when align-p
-          (slime-forward-sexp)
-          (beginning-of-sexp)))
-       ((:function-name name)
-        (let ((case-fold-search t)
-              (name (regexp-quote name)))
-          (or 
-           (re-search-forward 
-            (format "^(\\(def.*[ \n\t(]\\([-.%%$&a-z0-9]+:?:\\)?\\)?%s[ \t)]" 
-                    name) nil t)
-           (re-search-forward 
-            (format "\\s %s" name) nil t)))
-        (goto-char (match-beginning 0)))
-       ((:source-path source-path start-position)
-        (cond (start-position
-               (goto-char start-position)
-               (slime-forward-positioned-source-path source-path))
-              (t
-               (slime-forward-source-path source-path))))))
+     (slime-goto-location-buffer buffer)
+     (slime-goto-location-position position))
     ((:error message)
      (if noerror
          (slime-message "%s" message)
@@ -3693,9 +3695,10 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
 		(setq label (match-string 1 string)
 		      framestring (match-string 2 string))
 		(setq label "" framestring string))
-	    (slime-insert-propertized `(frame ,frame) "  " 
-				      (in-sldb-face frame-label label) " "
-				      (in-sldb-face frame-line framestring) "\n")))
+	    (slime-insert-propertized 
+             `(frame ,frame) 
+             "  " (in-sldb-face frame-label label) " "
+             (in-sldb-face frame-line framestring) "\n")))
     (let ((number (sldb-previous-frame-number)))
       (cond ((and maximum-length (< (length frames) maximum-length)))
 	    (t
@@ -3813,7 +3816,7 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
 	(slime-propertize-region (plist-put props 'details-visible-p t)
 	  (insert "  " (in-sldb-face detailed-frame-line (second frame)) "\n"
                   indent1 (in-sldb-face section "Locals:") "\n")
-	  (sldb-princ-locals frame-number indent2)
+          (sldb-insert-locals frame-number indent2)
 	  (when sldb-show-catch-tags
 	    (let ((catchers (sldb-catch-tags frame-number)))
 	      (cond ((null catchers)
@@ -3910,23 +3913,26 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
 (defun sldb-frame-locals (frame)
   (slime-eval `(swank:frame-locals ,frame)))
 
-(defun sldb-princ-locals (frame prefix)
+(defun sldb-insert-locals (frame prefix)
   (dolist (l (sldb-frame-locals frame))
     (insert prefix)
     (let ((symbol (plist-get l :symbol)))
-      (when (symbolp symbol) (setq symbol (symbol-name symbol)))
+      (when (symbolp symbol) 
+        (setq symbol (symbol-name symbol)))
       (insert (in-sldb-face local-name symbol)))
     (let ((id (plist-get l :id)))
-      (unless (zerop id) (insert (in-sldb-face local-name "#") (in-sldb-face local-name id))))
-    (insert " = ")
-    (insert (in-sldb-face local-value (plist-get l :value-string)))
-    (insert "\n")))
+      (unless (zerop id) 
+        (insert (in-sldb-face local-name "#") (in-sldb-face local-name id))))
+    (insert " = " 
+            (in-sldb-face local-value (plist-get l :value-string))
+            "\n")))
 
 (defun sldb-list-locals ()
   (interactive)
-  (let ((string (with-output-to-string
-		  (sldb-princ-locals (sldb-frame-number-at-point) ""))))
-    (slime-message "%s" string)))
+  (let ((frame (sldb-frame-number-at-point)))
+    (slime-message "%s" (with-temp-buffer
+                          (sldb-insert-locals frame "")
+                          (buffer-string)))))
 
 (defun sldb-catch-tags (frame)
   (slime-eval `(swank:frame-catch-tags ,frame)))
@@ -3969,14 +3975,18 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
   (let ((restart (or number
                      (sldb-restart-at-point)
                      (error "No restart at point"))))
-    (slime-oneway-eval `(swank:invoke-nth-restart-for-emacs ,sldb-level ,restart) nil)))
+    (slime-eval-async
+     `(swank:invoke-nth-restart-for-emacs ,sldb-level ,restart) nil 
+     (lambda (_)))))
 
 (defun sldb-restart-at-point ()
   (get-text-property (point) 'restart-number))
 
 (defun sldb-break-with-default-debugger ()
   (interactive)
-  (slime-eval-async '(swank:sldb-break-with-default-debugger) nil (lambda (_))))
+  (slime-eval-async 
+   '(swank:sldb-break-with-default-debugger) nil 
+   (lambda (_))))
 
 (defun sldb-step ()
   (interactive)
@@ -4139,24 +4149,32 @@ The buffer will be popped up any time it is modified.")
   (with-current-buffer (slime-inspector-buffer)
     (let ((inhibit-read-only t))
       (erase-buffer)
-      (insert (inspector-fontify (getf inspected-parts :text) 'slime-inspector-topline-face))
-      (while (eq (char-before) ?\n) (backward-delete-char 1))
-      (insert "\n"
-	      "   [" (inspector-fontify "type: " 'slime-inspector-label-face)
-	      (inspector-fontify (getf inspected-parts :type) 'slime-inspector-type-face) "]\n"
-	      "   " (inspector-fontify (getf inspected-parts :primitive-type) 'slime-inspector-type-face) "\n"
-	      "\n"
-	      (inspector-fontify "Slots" 'slime-inspector-label-face) ":\n")
-      (save-excursion
-	(loop for (label . value) in (getf inspected-parts :parts)
-	      for i from 0
-	      do 
-	      (inspector-fontify label 'slime-inspector-label-face)
-	      (slime-propertize-region `(slime-part-number ,i)
-		   (insert label ": " (inspector-fontify value 'slime-inspector-value-face) "\n"))))
-      (pop-to-buffer (current-buffer))
-      (when point (goto-char point))))
-  t)
+      (destructuring-bind (&key text type primitive-type parts) inspected-parts
+        (flet ((fontify (string face)
+                        (add-text-properties 0 (length string) 
+                                             (list 'face font) string)
+                        string))
+          (insert (inspector-fontify text 'slime-inspector-topline-face))
+          (while (eq (char-before) ?\n) (backward-delete-char 1))
+          (insert "\n"
+                  "   [" (fontify "type: " 'slime-inspector-label-face)
+                (fontify type  'slime-inspector-type-face) "]\n"
+                "   " 
+                (fontify primitive-type 'slime-inspector-type-face)
+                "\n" "\n"
+                (fontify "Slots" 'slime-inspector-label-face) ":\n")
+        (save-excursion
+          (loop for (label . value) in parts
+                for i from 0
+                do (slime-propertize-region `(slime-part-number ,i)
+                     (insert 
+                      (fontify label 'slime-inspector-label-face)
+                      ": " 
+                      (fontify value 'slime-inspector-value-face)
+                      "\n"))))
+        (pop-to-buffer (current-buffer))
+        (when point (goto-char point))))
+    t)))
 
 
 (defun slime-inspector-object-at-point ()
