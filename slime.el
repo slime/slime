@@ -497,7 +497,7 @@ A prefix argument disables this behaviour."
 (defun slime-nop ()
   "The null command. Used to shadow currently-unused keybindings."
   (interactive)
-  nil)
+  (call-interactively 'undefined))
 
 (defvar slime-doc-map (make-sparse-keymap)
   "Keymap for documentation commands. Bound to a prefix key.")
@@ -2832,6 +2832,11 @@ See `slime-translate-from-lisp-filename-function'."
 
 ;;; Compilation and the creation of compiler-note annotations
 
+(defcustom slime-display-compilation-output t
+  "If true display the output buffer before compiling files."
+  :type '(choice (const :tag "Enable" t) (const :tag "Disable" nil))
+  :group 'slime)
+
 (defun slime-compile-and-load-file ()
   "Compile and load the buffer's file and highlight compiler notes.
 
@@ -2858,7 +2863,8 @@ See `slime-compile-and-load-file' for further details."
   (let ((lisp-filename (slime-to-lisp-filename (buffer-file-name))))
     (slime-insert-transcript-delimiter
      (format "Compile file %s" lisp-filename))
-    (slime-display-output-buffer)
+    (when slime-display-compilation-output
+      (slime-display-output-buffer))
     (slime-eval-async
      `(swank:compile-file-for-emacs ,lisp-filename ,(if load t nil))
      nil
@@ -6488,9 +6494,9 @@ is exceeded."
 ;;; Font Lock
 
 (defcustom slime-highlight-suppressed-forms t
-  "If enabled highlight reader conditionalized forms if the test is false."
+  "If enabled display reader conditionalized forms as comments."
   :type '(choice (const :tag "Enable" t) (const :tag "Disable" nil))
-  :group 'slime)
+  :group 'slime-mode)
 
 (defun slime-search-suppressed-forms (limit)
   "Find reader conditionalized forms where the test is false."
