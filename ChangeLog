@@ -1,3 +1,37 @@
+2005-03-06  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-easy-menu): Add menu item for
+	slime-complete-form.
+
+	* swank.lisp (format-arglist-for-echo-area): Use extra-keywords to
+	enrich the list of keywords.
+	(arglist-to-string): Remove extraneous whitespace.
+	(keyword-arg, optional-arg): New structures.
+	(decode-keyword-arg, decode-optional-arg): Return structure
+	objects rather than multiple values.
+	(encode-keyword-arg, encode-optional-arg, encode-arglist): New
+	functions.
+	(arglist): New slot key-p.
+	(decode-arglist): Handle &whole, &environment.  Store more
+	information on optional and keyword args, set arglist.key-p.
+	(values-equal?): Removed.
+	(print-decoded-arglist-as-template): If keyword is
+	not a keyword symbol, quote it in the template.
+	(extra-keywords): Return a secondary value (allow-other-keys).
+	For make-instance, try to finalize the class if it is not
+	finalized yet (fix for Allegro CL 6.2).  If class is not
+	finalizable, use direct slots instead of slots and indicate that
+	the keywords are not complete.
+	(enrich-decoded-arglist-with-extra-keywords): New function, use
+	the secondary value of extra-keywords.
+	(arglist-for-insertion, complete-form): Use it here.
+	(remove-keywords-alist): New variable.
+	(remove-actual-args): When the keyword :test is provided, don't
+	suggest :test-not and vice versa.
+
+	* swank-backend.lisp (:swank-mop package): Export
+	finalize-inheritance.
+	
 2005-03-06  Luke Gorrie  <luke@synap.se>
 
 	* swank.lisp: Export *LOG-OUTPUT*.
