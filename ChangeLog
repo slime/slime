@@ -1,3 +1,7 @@
+2004-11-20  Travis Cross <travis@crosswirecorp.com>
+
+	* swank-sbcl.lisp (thread-status): Fix unbalanced parenthesis.
+
 2004-11-20  Marco Baringer  <mb@bese.it>
 
 	* swank-openmcl.lisp (make-stream-interactive): Only add ouptut
