@@ -1,3 +1,17 @@
+2003-09-26  Luke Gorrie  <luke@bluetail.com>
+
+	* slime.el (sldb-setup): Setting `truncate-lines' to t in the
+	debug buffer. I like having the backtrace take strictly one line
+	per frame, since otherwise a few ugly arguments (e.g. streams) can
+	chew up a lot of space. (Can make this a configurable on request
+	if tastes differ :-)
+
+	* swank.lisp: Did a little defensive programming so that asking
+	for the definition of an unbound function will return nil to Emacs
+	instead of entering the debugger.
+	(format-frame-for-emacs): Binding *PRETTY-PRINT* to nil when
+	formatting frames (due to truncate-lines change above).
+
 2003-09-24  Helmut Eller <e9626484@stud3.tuwien.ac.at>
 
 	* swank.lisp:
