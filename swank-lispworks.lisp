@@ -380,7 +380,7 @@ Return NIL if the symbol is unbound."
               (*readtable* ,readtable))
           ,@body)))))
 
-#-(or lispworks4.1 lispworks4.2)      ; no dspec:parse-form-dspec prior to 4.3
+#-(or lispworks4.1 lispworks4.2) ; no dspec:parse-form-dspec prior to 4.3
 (defun dspec-stream-position (stream dspec)
   (with-fairly-standard-io-syntax
     (loop (let* ((pos (file-position stream))
@@ -407,40 +407,35 @@ Return NIL if the symbol is unbound."
                                   (return pos)))))))))
               (check-dspec form))))))
 
+(defun dspec-file-position (file dspec)
+  (with-open-file (stream file)
+    (let ((pos 
+           #-(or lispworks4.1 lispworks4.2)
+           (dspec-stream-position stream dspec)))
+      (if pos
+          (list :position (1+ pos) t)
+          (dspec-buffer-position dspec 1)))))
+
 (defun emacs-buffer-location-p (location)
   (and (consp location)
        (eq (car location) :emacs-buffer)))
 
 (defun make-dspec-location (dspec location)
-  (flet ((filename (pathname)
-           (multiple-value-bind (truename condition)
-               (ignore-errors (truename pathname))
-             (cond (condition 
-                    (return-from make-dspec-location
-                      (list :error (format nil "~A" condition))))
-                   (t (namestring truename)))))
-         (function-name (dspec)
-           (etypecase dspec
-             (symbol (symbol-name dspec))
-             (cons (string (dspec:dspec-primary-name dspec))))))
-    (etypecase location
-      ((or pathname string)
-       (let ((checked-filename (filename location)))
-         (make-location `(:file ,checked-filename)
-                        #+(or lispworks4.1 lispworks4.2)
-                        (dspec-buffer-position dspec 1)
-                        #-(or lispworks4.1 lispworks4.2)
-                        (with-open-file (stream checked-filename)
-                          (let ((position (dspec-stream-position stream dspec)))
-                            (if position
-                                (list :position (1+ position) t)
-                              (dspec-buffer-position dspec 1)))))))
-      (symbol `(:error ,(format nil "Cannot resolve location: ~S" location)))
-      ((satisfies emacs-buffer-location-p)
-       (destructuring-bind (_ buffer offset string) location
-         (declare (ignore _ string))
-         (make-location `(:buffer ,buffer)
-                        (dspec-buffer-position dspec offset)))))))
+  (etypecase location
+    ((or pathname string)
+     (multiple-value-bind (file err) 
+         (ignore-errors (namestring (truename location)))
+       (if err
+           (list :error (princ-to-string err))
+           (make-location `(:file ,file)
+                          (dspec-file-position file dspec)))))
+    (symbol 
+     `(:error ,(format nil "Cannot resolve location: ~S" location)))
+    ((satisfies emacs-buffer-location-p)
+     (destructuring-bind (_ buffer offset string) location
+       (declare (ignore _ string))
+       (make-location `(:buffer ,buffer)
+                      (dspec-buffer-position dspec offset))))))
 
 (defun make-dspec-progenitor-location (dspec location)
   (let ((canon-dspec (dspec:canonicalize-dspec dspec)))
