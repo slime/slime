@@ -327,7 +327,7 @@ Should work (with a patched xref.lisp) but is it any use without find-definition
 
 (defimplementation find-thread (id)
   (find id (all-threads) 
-        :test (lambda (thread)
+        :key (lambda (thread)
                 (getf (gethash thread *thread-props*) 'id))))
 
 (defimplementation thread-name (thread)
