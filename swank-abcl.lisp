@@ -113,9 +113,6 @@
 (defimplementation accept-connection (socket)
   (ext:get-socket-stream (ext:socket-accept socket)))
 
-(defimplementation emacs-connected (stream)
-  (declare (ignore stream)))
-
 ;;;; Unix signals
 
 (defimplementation call-without-interrupts (fn)
