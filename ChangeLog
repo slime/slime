@@ -2,8 +2,8 @@
 
 	* slime.el (slime-goto-location-position): Changed the regexp to
 	require the function-name to be followed by a
-	non-symbol-constituent character \S_.  Previously a function-name
-	of "find" will first match find-if-not if it occurs earlier in the
+	non-symbol-constituent character \S_.  Previously, a function-name
+	of "find" first matched find-if-not if it occured earlier in the
 	file.
 
 2005-01-27  Helmut Eller  <heller@common-lisp.net>
