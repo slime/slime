@@ -61,6 +61,43 @@
 
 ;;; TCP Server
 
+
+(defmethod create-socket-server (init-fn &key announce-fn (port 0)
+                                 (accept-background t)
+                                 (handle-background t)
+                                 (loop t)
+                                 (reuse-address t))
+  (let ((socket (open-listener port reuse-address)))
+    (funcall announce-fn (local-tcp-port socket))
+    (setup-socket-accept socket init-fn accept-background handle-background loop)))
+
+(defun setup-socket-accept (socket init-fn accept-background handle-background loop)
+  (flet ((accept-client (&optional fd)
+           (declare (ignore fd))
+           (accept-one-client socket init-fn handle-background (not loop))))
+    (cond (accept-background (add-input-handler socket #'accept-client))
+          (loop              (loop (accept-client)))
+          (t                 (accept-client)))))
+
+(defun accept-one-client (server-socket init-fn background close)
+  (let* ((client-socket (accept server-socket))
+         (socket-stream (make-socket-io-stream client-socket))
+         (handler-fn (funcall init-fn socket-stream)))
+    (when close
+      (sb-sys:invalidate-descriptor (sb-bsd-sockets:socket-file-descriptor
+                                     server-socket))
+      (sb-bsd-sockets:socket-close server-socket))
+    (if background
+        (add-input-handler client-socket
+                           (lambda (fdes)
+                             (declare (ignore fdes))
+                             (funcall handler-fn)))
+        (loop (funcall handler-fn)))))
+
+(defun add-input-handler (socket handler-fn)
+  (sb-sys:add-fd-handler (sb-bsd-sockets:socket-file-descriptor socket)
+                         :input handler-fn))
+
 (defun open-listener (port reuse-address)
   (let ((socket (make-instance 'sb-bsd-sockets:inet-socket
 			       :type :stream
@@ -72,70 +109,29 @@
     (sb-bsd-sockets:socket-listen socket 5)
     socket))
 
+(defun local-tcp-port (socket)
+  (nth-value 1 (sb-bsd-sockets:socket-name socket)))
+
+(defun make-socket-io-stream (socket)
+  (sb-bsd-sockets:socket-make-stream socket
+                                     :output t
+                                     :input t
+                                     :element-type 'base-char))
+
+
 (defun accept (socket)
   "Like socket-accept, but retry on EAGAIN."
   (loop (handler-case
             (return (sb-bsd-sockets:socket-accept socket))
           (sb-bsd-sockets:interrupted-error ()))))
 
-(defun create-swank-server (port &key (reuse-address t)
-                            (announce #'simple-announce-function))
-  "Create a SWANK TCP server."
-  (let ((socket (open-listener port reuse-address)))
-    (sb-sys:add-fd-handler 
-     (sb-bsd-sockets:socket-file-descriptor socket)
-     :input (lambda (fd) 
-	      (declare (ignore fd))
-	      (accept-connection socket)))
-    (funcall announce (nth-value 1 (sb-bsd-sockets:socket-name socket)))))
-
-(defun open-stream-to-emacs ()
-  (let* ((server-socket (open-listener 0 t))
-         (port (nth-value 1 (sb-bsd-sockets:socket-name server-socket))))
-    (unwind-protect
-         (progn
-           (eval-in-emacs `(slime-open-stream-to-lisp ,port))
-           (let ((socket (accept server-socket)))
-             (sb-bsd-sockets:socket-make-stream 
-              socket :output t :element-type 'base-char)))
-      (sb-bsd-sockets:socket-close server-socket))))
-
-(defvar *use-dedicated-output-stream* t)
-
-(defun accept-connection (server-socket)
-  "Accept one Swank TCP connection on SERVER-SOCKET and then close it."
-  (let* ((socket (accept server-socket))
-	 (stream (sb-bsd-sockets:socket-make-stream 
-		  socket :input t :output t :element-type 'base-char))
-         (out (if *use-dedicated-output-stream*
-                  (let ((*emacs-io* stream)) (open-stream-to-emacs))
-                  (make-instance 'slime-output-stream)))
-         (in (make-instance 'slime-input-stream))
-         (io (make-two-way-stream in out)))
-    ;; we're being called from a serve-event handler: remove it now
-    ;; because socket-close doesn't (in 0.8.6 anyway) do it for us
-    (sb-sys:invalidate-descriptor (sb-bsd-sockets:socket-file-descriptor
-                                   server-socket))
-    (sb-bsd-sockets:socket-close server-socket)
-    (sb-sys:add-fd-handler 
-     (sb-bsd-sockets:socket-file-descriptor socket)
-     :input (lambda (fd) 
-	      (declare (ignore fd))
-	      (serve-request stream out in io)))))
-
-
-(defun serve-request (*emacs-io* *slime-output* *slime-input* *slime-io*)
-  "Read and process a request from a SWANK client.
-The request is read from the socket as a sexp and then evaluated."
-  (catch 'slime-toplevel
-    (handler-case (read-from-emacs)
-      (slime-read-error (e)
-        (when *swank-debug-p*
-          (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" e))
-        (sb-sys:invalidate-descriptor (sb-impl::fd-stream-fd *emacs-io*))
-        (close *emacs-io* :abort t)
-        (when *use-dedicated-output-stream* 
-          (close *slime-output* :abort t))))))
+(defmethod make-fn-streams (input-fn output-fn)
+  (let* ((output (make-instance 'slime-output-stream
+                                :output-fn output-fn))
+         (input  (make-instance 'slime-input-stream
+                                :input-fn input-fn
+                                :output-stream output)))
+    (values input output)))
 
 ;;; Utilities
 
