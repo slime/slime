@@ -1,3 +1,8 @@
+2004-09-09  Martin Simmons <martin@xanalys.com>
+
+	* swank-lispworks.lisp: Set up the swank-mop package.  Implement
+ 	swank-mop:slot-definition-documentation and function-name.
+
 2004-09-13  Marco Baringer  <mb@bese.it>
 
 	* swank.lisp (inspected-parts): Added inspectors for pathnames,
