@@ -1,3 +1,14 @@
+2004-03-31  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-cmucl.lisp (debug-function-arglist): Return symbols if
+	possible.
+	(class-location): Support for experimental source-location
+	recording.
+
+2004-04-01  Bill Clementson <Bill_Clementson@peoplesoft.com>
+
+	* swank-allegro.lisp (send): Fix misplaced parens.
+
 2004-03-30  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
 
 	* slime.el (slime-repl-result-face): New face.
@@ -8,7 +19,7 @@
 	* swank.lisp (ed-in-emacs): New allowed form for argument.
 	(pprint-eval-string-in-frame): Apply arguments in proper order.
 
-	* swank-cmucl.lisp (method-dspec): Include the specializers.
+	* swank-cmucl.lisp (method-dspec): Include method-qualifiers.
 	(class-definitions): Renamed from struct-definitions.  Try to
 	locate condition-classes and PCL classes (in the future).
 	(debug-function-arglist): Insert &optional, &key, &rest in the
