@@ -1,3 +1,7 @@
+2005-03-03  Nikodemus Siivola  <tsiivola@cc.hut.fi>
+
+	* swank-sbcl.lisp: Fixed for (and requires) 0.8.20.
+
 2005-03-02  Marco Baringer  <mb@bese.it>
 	
 	* swank-loader.lisp Look for a file in the same directory as
