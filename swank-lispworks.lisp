@@ -520,9 +520,12 @@ Return NIL if the symbol is unbound."
          (tmpname (hcl:make-temp-file nil "lisp")))
     (with-swank-compilation-unit (location)
       (compile-from-temp-file 
-       (format nil "~S~%~A" `(eval-when (:compile-toplevel)
-                              (setq dspec::*location* (list ,@location)))
-               string)
+       (with-output-to-string (s)
+         (let ((*print-radix* t))
+           (print `(eval-when (:compile-toplevel)
+                     (setq dspec::*location* (list ,@location)))
+                  s))
+         (write-string string s))
        tmpname))))
 
 ;;; xref
@@ -535,7 +538,7 @@ Return NIL if the symbol is unbound."
 (defxref who-macroexpands hcl:who-calls) ; macros are in the calls table too
 (defxref calls-who      hcl:calls-who)
 (defxref list-callers   list-callers-internal)
-(defxref list-callees   list-callees-internal)
+;; (defxref list-callees   list-callees-internal)
 
 (defun list-callers-internal (name)
   (let ((callers (make-array 100
@@ -700,7 +703,16 @@ Return NIL if the symbol is unbound."
 (defimplementation emacs-connected ()
   (when (eq (eval (swank-sym :*communication-style*))
             nil)
-    (set-sigint-handler)))
+    (set-sigint-handler))
+  ;; pop up the slime debugger by default
+  (let ((lw:*handle-warn-on-redefinition* :warn))
+    (defmethod env-internals:environment-display-notifier 
+        (env &key restarts condition)
+      (declare (ignore restarts))
+      (funcall (find-symbol (string :swank-debugger-hook) :swank)
+               condition *debugger-hook*))
+    (defmethod env-internals:environment-display-debugger (env)
+      *debug-io*)))
 
 (defimplementation make-stream-interactive (stream)
   (unless (find-method #'stream:stream-soft-force-output nil `((eql ,stream))
