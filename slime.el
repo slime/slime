@@ -4043,27 +4043,27 @@ alist but ignores CDRs."
 
 ;;; Fuzzy completion
 
-(defvar slime-fuzzy-completion-target-buffer nil
+(defvar slime-fuzzy-target-buffer nil
   "The buffer that is the target of the completion activities.")
-(defvar slime-fuzzy-completion-window-configuration nil
+(defvar slime-fuzzy-window-configuration nil
   "The saved window configuration before the fuzzy completion
 buffer popped up.")
-(defvar slime-fuzzy-completion-start nil
+(defvar slime-fuzzy-start nil
   "The beginning of the completion slot in the target buffer.")
-(defvar slime-fuzzy-completion-end nil
+(defvar slime-fuzzy-end nil
   "The end of the completion slot in the target buffer.")
-(defvar slime-fuzzy-completion-original-text nil
+(defvar slime-fuzzy-original-text nil
   "The original text that was in the completion slot in the
 target buffer.  This is what is put back if completion is
 aborted.")
-(defvar slime-fuzzy-completion-current-text nil
+(defvar slime-fuzzy-current-text nil
   "The text that is currently in the completion slot in the
 target buffer.  If this ever doesn't match, the target buffer has
 been modified and we abort without touching it.")
-(defvar slime-fuzzy-completion-first nil
+(defvar slime-fuzzy-first nil
   "The position of the first completion in the completions buffer.
 The descriptive text and headers are above this.")
-(defvar slime-fuzzy-completion-current-completion nil
+(defvar slime-fuzzy-current-completion nil
   "The current completion object.  If this is the same before and
 after point moves in the completions buffer, the text is not
 replaced in the target for efficiency.")
@@ -4079,19 +4079,19 @@ replaced in the target for efficiency.")
 (defvar slime-fuzzy-map  
   (let* ((map (make-sparse-keymap)))
     
-    (define-key map "q" 'slime-fuzzy-completion-abort)
-    (define-key map "\r" 'slime-fuzzy-completion-select)
+    (define-key map "q" 'slime-fuzzy-abort)
+    (define-key map "\r" 'slime-fuzzy-select)
     
-    (define-key map "n" 'slime-fuzzy-completion-next)
-    (define-key map "\M-n" 'slime-fuzzy-completion-next)
+    (define-key map "n" 'slime-fuzzy-next)
+    (define-key map "\M-n" 'slime-fuzzy-next)
     
-    (define-key map "p" 'slime-fuzzy-completion-prev)
-    (define-key map "\M-p" 'slime-fuzzy-completion-prev)
+    (define-key map "p" 'slime-fuzzy-prev)
+    (define-key map "\M-p" 'slime-fuzzy-prev)
     
     (define-key map "\d" 'scroll-down)
     (define-key map " " 'scroll-up)
     
-    (define-key map [mouse-2] 'slime-fuzzy-completion-click)
+    (define-key map [mouse-2] 'slime-fuzzy-click)
     
     map)
   "Keymap for slime-fuzzy-mode.")
@@ -4107,7 +4107,7 @@ replaced in the target for efficiency.")
                                                (slime-find-buffer-package)
                                                (slime-buffer-package))))))
 
-(defun slime-fuzzy-completion-selected (prefix completion)
+(defun slime-fuzzy-selected (prefix completion)
   "Tell the connected Lisp that the user selected completion
 `completion' as the completion for `prefix'."
   (let ((no-properties (copy-sequence prefix)))
@@ -4139,7 +4139,7 @@ replaced in the target for efficiency.")
             ;; Incomplete
             (t
              (slime-minibuffer-respecting-message "Complete but not unique")
-             (slime-fuzzy-completion-choices-buffer completion-set beg end)))
+             (slime-fuzzy-choices-buffer completion-set beg end)))
       )))
 
 
@@ -4176,9 +4176,9 @@ proper text properties."
       (insert "\n")
       (put-text-property start (point) 'completion completion))))
 
-(defun slime-fuzzy-completion-click (event)
+(defun slime-fuzzy-click (event)
   "Handle a mouse-2 click on a completion choice as if point were
-on the completion choice and the slime-fuzzy-completion-select
+on the completion choice and the slime-fuzzy-select
 command was run."
   (interactive "e")
   (save-excursion
@@ -4186,31 +4186,31 @@ command was run."
       (save-excursion
         (goto-char (posn-point (event-end event)))
         (when (get-text-property (point) 'mouse-face)
-          (slime-fuzzy-completion-insert-from-point)
-          (slime-fuzzy-completion-select))))))
+          (slime-fuzzy-insert-from-point)
+          (slime-fuzzy-select))))))
 
-(defun slime-fuzzy-completion-insert (text)
+(defun slime-fuzzy-insert (text)
   "Inserts `text' into the target buffer in the completion slot.
 If the buffer has been modified in the meantime, abort the
 completion process.  Otherwise, update all completion variables
 so that the new text is present."
-  (with-current-buffer slime-fuzzy-completion-target-buffer
-    (when (not (string-equal slime-fuzzy-completion-current 
-                             (buffer-substring slime-fuzzy-completion-start
-                                               slime-fuzzy-completion-end)))
-      (slime-fuzzy-completion-done)
+  (with-current-buffer slime-fuzzy-target-buffer
+    (when (not (string-equal slime-fuzzy-current 
+                             (buffer-substring slime-fuzzy-start
+                                               slime-fuzzy-end)))
+      (slime-fuzzy-done)
       ;; Not an error, we may be in the post-command-hook.
       (beep)
       (message "Target buffer has been modified!"))
-    (goto-char slime-fuzzy-completion-end)
+    (goto-char slime-fuzzy-end)
     (insert-and-inherit text)
-    (delete-region slime-fuzzy-completion-start slime-fuzzy-completion-end)
-    (setq slime-fuzzy-completion-end (+ slime-fuzzy-completion-start 
+    (delete-region slime-fuzzy-start slime-fuzzy-end)
+    (setq slime-fuzzy-end (+ slime-fuzzy-start 
                                         (length text)))
-    (setq slime-fuzzy-completion-current text)
-    (goto-char slime-fuzzy-completion-end)))
+    (setq slime-fuzzy-current text)
+    (goto-char slime-fuzzy-end)))
 
-(defun slime-fuzzy-completion-choices-buffer (completions start end)
+(defun slime-fuzzy-choices-buffer (completions start end)
   "Creates (if neccessary), populates, and pops up the *Fuzzy
 Completions* buffer with the completions from `completions' and
 the completion slot in the current buffer bounded by `start' and
@@ -4218,12 +4218,12 @@ the completion slot in the current buffer bounded by `start' and
 buffer so that it can possibly be restored when the user is
 done."
   (remove-hook 'window-configuration-change-hook
-               'slime-fuzzy-completion-window-configuration-change)
-  (setq slime-fuzzy-completion-start start)
-  (setq slime-fuzzy-completion-end end)
-  (setq slime-fuzzy-completion-original-text (buffer-substring start end))
-  (setq slime-fuzzy-completion-current slime-fuzzy-completion-original-text)
-  (setq slime-fuzzy-completion-target-buffer (current-buffer))
+               'slime-fuzzy-window-configuration-change)
+  (setq slime-fuzzy-start start)
+  (setq slime-fuzzy-end end)
+  (setq slime-fuzzy-original-text (buffer-substring start end))
+  (setq slime-fuzzy-current slime-fuzzy-original-text)
+  (setq slime-fuzzy-target-buffer (current-buffer))
   (set-buffer (get-slime-fuzzy-buffer))
   (setq buffer-read-only nil)
   (erase-buffer)
@@ -4237,139 +4237,139 @@ done."
     (insert "Score:\n")
     (dotimes (i max-length) (insert "-"))
     (insert " --------\n")
-    (setq slime-fuzzy-completion-first (point))
+    (setq slime-fuzzy-first (point))
     (dolist (completion completions)
       (slime-fuzzy-insert-completion-choice completion max-length))
     (setq buffer-read-only t))
-  (setq slime-fuzzy-completion-current-completion
+  (setq slime-fuzzy-current-completion
         (caar completions))
-  (slime-fuzzy-completion-insert (caar completions))
-  (goto-char slime-fuzzy-completion-first)
-  (slime-fuzzy-completion-save-window-configuration)
+  (slime-fuzzy-insert (caar completions))
+  (goto-char slime-fuzzy-first)
+  (slime-fuzzy-save-window-configuration)
   (pop-to-buffer (current-buffer))
   (make-local-variable 'post-command-hook)
   (add-hook 'post-command-hook
-            'slime-fuzzy-completion-post-command-hook))
+            'slime-fuzzy-post-command-hook))
 
-(defun slime-fuzzy-completion-insert-from-point ()
+(defun slime-fuzzy-insert-from-point ()
   "Inserts the completion that is under point in the completions
 buffer into the target buffer.  If the completion in question had
 already been inserted, it does nothing."
   (with-current-buffer (get-slime-fuzzy-buffer)
     (let ((current-completion (get-text-property (point) 'completion)))
       (when (and current-completion
-                 (not (eq slime-fuzzy-completion-current-completion 
+                 (not (eq slime-fuzzy-current-completion 
                           current-completion)))
-        (slime-fuzzy-completion-insert 
+        (slime-fuzzy-insert 
          (first (get-text-property (point) 'completion)))
-        (setq slime-fuzzy-completion-current-completion
+        (setq slime-fuzzy-current-completion
               current-completion)))))
 
-(defun slime-fuzzy-completion-post-command-hook ()
+(defun slime-fuzzy-post-command-hook ()
   "The post-command-hook for the *Fuzzy Completions* buffer.
 This makes sure the completion slot in the target buffer matches
 the completion that point is on in the completions buffer."
   (condition-case err
-      (when slime-fuzzy-completion-target-buffer
-        (slime-fuzzy-completion-insert-from-point))
+      (when slime-fuzzy-target-buffer
+        (slime-fuzzy-insert-from-point))
     (error
      ;; Because this is called on the post-command-hook, we mustn't let
      ;; errors propagate.
-     (message "Error in slime-fuzzy-completion-post-command-hook: %S" err))))
+     (message "Error in slime-fuzzy-post-command-hook: %S" err))))
 
-(defun slime-fuzzy-completion-next ()
+(defun slime-fuzzy-next ()
   "Moves point directly to the next completion in the completions
 buffer."
   (interactive)
   (goto-char 
    (next-single-char-property-change (point) 'completion)))
 
-(defun slime-fuzzy-completion-prev ()
+(defun slime-fuzzy-prev ()
   "Moves point directly to the previous completion in the
 completions buffer."
   (interactive)
   (goto-char (previous-single-char-property-change 
               (point) 'completion
-              nil slime-fuzzy-completion-first)))
+              nil slime-fuzzy-first)))
 
-(defun slime-fuzzy-completion-abort ()
+(defun slime-fuzzy-abort ()
   "Aborts the completion process, setting the completions slot in
 the target buffer back to its original contents."
   (interactive)
-  (when slime-fuzzy-completion-target-buffer
-    (slime-fuzzy-completion-insert slime-fuzzy-completion-original-text)
-    (slime-fuzzy-completion-done)))
+  (when slime-fuzzy-target-buffer
+    (slime-fuzzy-insert slime-fuzzy-original-text)
+    (slime-fuzzy-done)))
 
-(defun slime-fuzzy-completion-select ()
+(defun slime-fuzzy-select ()
   "Selects the current completion, making sure that it is inserted 
 into the target buffer.  This tells the connected Lisp what completion
 was selected."
   (interactive)
-  (when slime-fuzzy-completion-target-buffer
+  (when slime-fuzzy-target-buffer
     (with-current-buffer (get-slime-fuzzy-buffer)
       (let ((completion (get-text-property (point) 'completion)))
         (when completion
-          (slime-fuzzy-completion-insert (first completion))
-          (slime-fuzzy-completion-selected slime-fuzzy-completion-original-text
+          (slime-fuzzy-insert (first completion))
+          (slime-fuzzy-selected slime-fuzzy-original-text
                                            completion)
-          (slime-fuzzy-completion-done))))))
+          (slime-fuzzy-done))))))
 
-(defun slime-fuzzy-completion-done ()
+(defun slime-fuzzy-done ()
   "Cleans up after the completion process.  This removes all hooks,
 and attempts to restore the window configuration.  If this fails,
 it just burys the completions buffer and leaves the window
 configuration alone."
-  (set-buffer slime-fuzzy-completion-target-buffer)
+  (set-buffer slime-fuzzy-target-buffer)
   (remove-hook 'post-command-hook
-               'slime-fuzzy-completion-post-command-hook)
-  (if (slime-fuzzy-completion-maybe-restore-window-configuration)
+               'slime-fuzzy-post-command-hook)
+  (if (slime-fuzzy-maybe-restore-window-configuration)
       (bury-buffer (get-slime-fuzzy-buffer))
     ;; We couldn't restore the windows, so just bury the
     ;; fuzzy completions buffer and let something else fill
     ;; it in.
     (pop-to-buffer (get-slime-fuzzy-buffer))
     (bury-buffer))
-  (pop-to-buffer slime-fuzzy-completion-target-buffer)
-  (goto-char slime-fuzzy-completion-end)
-  (setq slime-fuzzy-completion-target-buffer nil))
+  (pop-to-buffer slime-fuzzy-target-buffer)
+  (goto-char slime-fuzzy-end)
+  (setq slime-fuzzy-target-buffer nil))
 
-(defun slime-fuzzy-completion-save-window-configuration ()
+(defun slime-fuzzy-save-window-configuration ()
   "Saves the current window configuration, and sets up for the
 saved configuration to be nullified if the user changes the
 window configuration further.  Adding the nullification routine
 to window-configuration-change-hook is delayed so that the
 windows stabalize before we start listening on the hook."
-  (setq slime-fuzzy-completion-window-configuration 
+  (setq slime-fuzzy-window-configuration 
         (current-window-configuration))
-  (setq slime-fuzzy-completion-window-configuration-change-count 0)
+  (setq slime-fuzzy-window-configuration-change-count 0)
   (run-with-timer 
-   0.5 nil 'slime-fuzzy-completion-window-configuration-change-add-hook))
+   0.5 nil 'slime-fuzzy-window-configuration-change-add-hook))
 
-(defun slime-fuzzy-completion-maybe-restore-window-configuration ()
+(defun slime-fuzzy-maybe-restore-window-configuration ()
   "Restores the saved window configuration if it has not been
 nullified."
   (remove-hook 'window-configuration-change-hook
-               'slime-fuzzy-completion-window-configuration-change)
-  (if (not slime-fuzzy-completion-window-configuration)
+               'slime-fuzzy-window-configuration-change)
+  (if (not slime-fuzzy-window-configuration)
       nil
-    (set-window-configuration slime-fuzzy-completion-window-configuration)
-    (setq slime-fuzzy-completion-window-configuration nil)
+    (set-window-configuration slime-fuzzy-window-configuration)
+    (setq slime-fuzzy-window-configuration nil)
     t))
 
-(defun slime-fuzzy-completion-window-configuration-change-add-hook ()
-  "Sets up slime-fuzzy-completion-window-configuration-change on
+(defun slime-fuzzy-window-configuration-change-add-hook ()
+  "Sets up slime-fuzzy-window-configuration-change on
 window-configuration-change-hook."
   (remove-hook 'post-command-hook
-               'slime-fuzzy-completion-window-configuration-change-add-hook)
+               'slime-fuzzy-window-configuration-change-add-hook)
   (add-hook 'window-configuration-change-hook
-            'slime-fuzzy-completion-window-configuration-change))
+            'slime-fuzzy-window-configuration-change))
 
-(defun slime-fuzzy-completion-window-configuration-change ()
+(defun slime-fuzzy-window-configuration-change ()
   "Called on window-configuration-change-hook.  Since the window
 configuration was changed, we nullify our saved configuration."
   (remove-hook 'window-configuration-change-hook
-               'slime-fuzzy-completion-window-configuration-change)
-  (setq slime-fuzzy-completion-window-configuration nil))
+               'slime-fuzzy-window-configuration-change)
+  (setq slime-fuzzy-window-configuration nil))
 
 
 ;;; Interpreting Elisp symbols as CL symbols (package qualifiers)
