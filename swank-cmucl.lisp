@@ -1548,6 +1548,16 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 (defimplementation frame-catch-tags (index)
   (mapcar #'car (di:frame-catches (nth-frame index))))
 
+(defimplementation return-from-frame (index form)
+  (let ((sym (find-symbol (string 'find-debug-tag-for-frame)
+                          :debug-internals)))
+    (if sym
+        (let* ((frame (nth-frame index))
+               (probe (funcall sym frame)))
+          (cond (probe (throw (car probe) (eval-in-frame form index)))
+                (t (format nil "Cannot return from frame: ~S" frame))))
+        "return-from-frame is not implemented in this version of CMUCL.")))
+
 (defimplementation sldb-step (frame)
   (cond ((find-restart 'continue)
          (set-step-breakpoints (nth-frame frame))
@@ -1888,7 +1898,17 @@ The `symbol-value' of each element is a type tag.")
                  append (label-value-line i (kernel:code-header-ref o i)))
            `("Code:" (:newline)
              , (with-output-to-string (s)
-                 (disassem:disassemble-code-component o :stream s))))))
+                 (cond ((kernel:%code-debug-info o)
+                        (disassem:disassemble-code-component o :stream s))
+                       (t
+                        (disassem:disassemble-memory 
+                         (disassem::align 
+                          (+ (logandc2 (kernel:get-lisp-obj-address o)
+                                       vm:lowtag-mask)
+                             (* vm:code-constants-offset vm:word-bytes))
+                          (ash 1 vm:lowtag-bits))
+                         (ash (kernel:%code-code-size o) vm:word-shift)
+                         :stream s))))))))
 
 (defmethod inspect-for-emacs ((o kernel:fdefn) (inspector cmucl-inspector))
   (declare (ignore inspector))
