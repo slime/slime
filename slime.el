@@ -183,9 +183,13 @@ See also `slime-translate-to-lisp-filename-function'."
   "Function to call when edit-definition fails to find the source itself.
 The function is called with the definition name, a string, as its argument.
 
-If you want to fallback on TAGS you can set this to `find-tag'."
+If you want to fallback on TAGS you can set this to `find-tags' or
+`slime-edit-definition-with-etags'."
   :type 'symbol
-  :group 'slime-mode-mode)
+  :group 'slime-mode-mode
+  :options '(nil 
+             slime-edit-definition-with-etags
+             find-tags))
 
 (defcustom slime-compilation-finished-hook 'slime-maybe-list-compiler-notes
   "Hook called with a list of compiler notes after a compilation."
@@ -615,10 +619,12 @@ A prefix argument disables this behaviour."
 
 (defvar slime-who-bindings
   '((?c slime-who-calls)
+    (?w slime-calls-who)
     (?r slime-who-references)
     (?b slime-who-binds)
     (?s slime-who-sets)
-    (?m slime-who-macroexpands)))
+    (?m slime-who-macroexpands)
+    (?a slime-who-specializes)))
 
 ;; Maybe a good idea, maybe not..
 (defvar slime-prefix-key "\C-c"
@@ -4003,7 +4009,7 @@ Don't move if there are multiple or no calls in the current defun."
   "Move to the source location LOCATION.  Several kinds of locations
 are supported:
 
-<location> ::= (:location <buffer> <position>)
+<location> ::= (:location <buffer> <position> <hints>)
              | (:error <message>) 
 
 <buffer>   ::= (:file <filename>)
@@ -5035,10 +5041,11 @@ configuration was changed, we nullify our saved configuration."
 (defvar slime-find-definition-history-ring (make-ring 20)
   "History ring recording the definition-finding \"stack\".")
 
-(defun slime-push-definition-stack ()
+(defun slime-push-definition-stack (&optional mark)
   "Add MARKER to the edit-definition history stack.
 If MARKER is nil, use the point."
-  (ring-insert-at-beginning slime-find-definition-history-ring (point-marker)))
+  (ring-insert-at-beginning slime-find-definition-history-ring 
+                            (or mark (point-marker))))
 
 (defun slime-pop-find-definition-stack ()
   "Pop the edit-definition stack and goto the location."
@@ -5066,18 +5073,21 @@ function name is prompted."
         (if slime-edit-definition-fallback-function
             (funcall slime-edit-definition-fallback-function name)
           (error "No known definition for: %s" name))
-      (slime-push-definition-stack)
-      (cond ((slime-length> definitions 1)
-             (slime-show-definitions name definitions))
-            (t
-             (slime-goto-source-location (slime-definition.location
-                                          (car definitions)))
-             (cond ((equal where 'window)
-                    (switch-to-buffer-other-window (current-buffer)))
-                   ((equal where 'frame)
-                    (switch-to-buffer-other-frame (current-buffer)))
-                   (t
-                    (switch-to-buffer (current-buffer)))))))))
+      (slime-goto-definition name definitions where))))
+
+(defun slime-goto-definition (name definitions &optional where)
+  (slime-push-definition-stack)
+  (cond ((slime-length> definitions 1)
+         (slime-show-definitions name definitions))
+        (t
+         (slime-goto-source-location (slime-definition.location
+                                      (car definitions)))
+         (cond ((equal where 'window)
+                (switch-to-buffer-other-window (current-buffer)))
+               ((equal where 'frame)
+                (switch-to-buffer-other-frame (current-buffer)))
+               (t
+                (switch-to-buffer (current-buffer)))))))
 
 (defun slime-edit-definition-other-window (name)
   "Like `slime-edit-definition' but switch to the other window."
@@ -5088,6 +5098,35 @@ function name is prompted."
   "Like `slime-edit-definition' but switch to the other window."
   (interactive (list (slime-read-symbol-name "Symbol: ")))
   (slime-edit-definition name 'frame))
+
+(defun slime-edit-definition-with-etags (name)
+  (interactive (list (slime-read-symbol-name "Symbol: ")))
+  (let ((tagdefs (slime-etags-definitions name)))
+    (cond (tagdefs 
+           (message "Using tag file...")
+           (slime-goto-definition name tagdefs))
+          (t
+           (error "No known definition for: %s" name)))))
+
+(defun slime-etags-definitions (name)
+  "Search definitions matching NAME in the tags file.
+The result is a (possibly empty) list of definitions."
+  (let ((defs '()))
+    (save-excursion
+      (let ((first-time t))
+        (while (visit-tags-table-buffer (not first-time))
+          (setq first-time nil)
+          (goto-char (point-min))
+          (while (search-forward name nil t)
+            (beginning-of-line)
+            (destructuring-bind (hint line &rest pos) (etags-snarf-tag)
+              (unless (eq hint t)       ; hint==t if we are in a filename line
+                (let ((file (expand-file-name (file-of-tag))))
+                  (let ((loc `(:location (:file ,file)
+                                         (:line ,line)
+                                         (:snippet ,hint))))
+                    (push (list hint loc) defs))))))))
+      (reverse defs))))
 
 (defun slime-show-definitions (name definitions)
   (slime-show-xrefs 
@@ -5304,165 +5343,175 @@ First make the variable unbound, then evaluate the entire form."
   (insert "\n")
   (slime-eval-print string))
 
-;;This is an extension for the trace command.
-;;Several interesting cases (the . shows the point position):
-
-;; (defun n.ame (...) ...)                 -> (:defun name)
-;; (defun (setf n.ame) (...) ...)          -> (:defun (setf name))
-;; (defmethod n.ame (...) ...)             -> (:defmethod name (...))
-;; (defun ... (...) (labels ((n.ame (...)  -> (:labels (:defun ...) name)
-;; (defun ... (...) (flet ((n.ame (...)    -> (:flet (:defun ...) name)
-;; (defun ... (...) ... (n.ame ...) ...)   -> (:call (:defun ...) name)
-;; (defun ... (...) ... (setf (n.ame ...)  -> (:call (:defun ...) (setf name))
-
-;; All other context should be identified as normal, traditional,
-;; function calls.
-
-(defun complete-name-context-at-point ()
-  "Return the name of the function at point, otherwise nil.  This
-tries to be clever to understand a bit of the context."
-  (let ((name (thing-at-point 'symbol)))
-    (and name
-	 (or (ignore-errors
-	       (save-excursion
-		 (name-context-at-point (intern name))))
-	     (intern name)))))
-
-(defun name-context-at-point (name)
-  (out-first 1)
-  (cond ((looking-at "defun") ;a function definition
-	 `(:defun ,name))
-	((looking-at "defmacro") ;a macro definition
-	 `(:defmacro ,name))
-	((looking-at "defgeneric") ;a defgeneric form, maybe trace all methods
-	 `(:defgeneric ,name))
-	((looking-at "defmethod") ;a defmethod, maybe trace just this method
-	 (forward-sexp 3) ;jump defmethod, name, and possibly, arglist 
-	 (let ((qualifier
-		(if (= (or (char-before) -1) ?\)) ;ok, after arglist
-		  (progn
-		    (forward-sexp -1)
-		    (list))
-		  (list (read (current-buffer))))) ;it was a qualifier
-	       (arglist (read (current-buffer))))
-	   `(:defmethod ,name ,@qualifier ,(parameter-specializers arglist))))
-	((looking-at "setf ") ;looks like a setf-definition, but which?
-	 (up-list -1)
-	 (name-context-at-point `(setf ,name)))
-	((and (symbolp name) 
-              (looking-at (symbol-name name))) ;the name itself, we
-					       ;need further
-					       ;investigation
-	 (out-first 2)
-	 (cond ((looking-at "setf ") ;a setf-call
-		(let ((def (ignore-errors (definition-name))))
-		  (if def
-		    `(:call ,def (setf ,name))
-		    `(setf ,name))))
-	       ((ignore-errors
-		  (save-excursion
-		    (out-first 2)
-		    (cond ((or (looking-at "labels") (looking-at "flet"))
-			   (let ((fdef (definition-name)))
-			     (if (looking-at "labels")
-			       `(:labels ,fdef ,name)
-			       `(:flet ,fdef ,name))))
-			  (t `(:call ,(definition-name) ,name))))))
-	       (t `(:call ,(definition-name) ,name))))
-	(t 
-	 name)))
-
-(defun out-first (n)
-  (up-list (- n))
-  (forward-char 1)
-  (skip-syntax-forward " "))
-
-(defun definition-name ()
-  (save-excursion
-    (beginning-of-defun)
-    (forward-char 1)
-    (forward-sexp 1)
-    (name-context-at-point (read (current-buffer)))))
-		 
-(defun parameter-specializers (arglist)
-  (cond ((or (null arglist)
-	     (member (first arglist) '(&optional &key &rest &aux)))
-	 (list))
-	((consp (first arglist))
-	 (cons (second (first arglist))
-	       (parameter-specializers (rest arglist))))
-	(t
-	 (cons 't 
-	       (parameter-specializers (rest arglist))))))
-
-
-;;Now, we need to present the options for the user to choose
-
-(defun slime-toggle-trace-fdefinition ()
-  "Toggle trace."
-  (interactive)
-  (let ((spec (complete-name-context-at-point)))
-    (cond ((symbolp spec) ;;trivial case
-	   (slime-toggle-trace-function spec))
-	  (t
-	   (ecase (first spec)
-	     ((setf)
-	      (slime-toggle-trace-function spec))
-	     ((:defun :defmacro) 
-	      (slime-toggle-trace-function (second spec)))
-	     (:defgeneric
-	      (slime-toggle-trace-defgeneric (second spec)))
-	     (:defmethod
-	      (slime-toggle-trace-defmethod spec))
-	     (:call 
-	      (slime-toggle-trace-maybe-wherein (third spec) (second spec)))
-	     ((:labels :flet)
-	      (slime-toggle-trace-within spec)))))))
-
-(defun slime-toggle-trace-function (name)
-  (let ((real-name (slime-read-from-minibuffer "(Un)trace: " 
-                                               (prin1-to-string name))))
-    (message "%s" (slime-eval `(swank:toggle-trace-function 
-                                (swank::from-string ,real-name))))))
-
-(defun slime-toggle-trace-defgeneric (name)
-  (let ((name (prin1-to-string name)))
-    (let ((real-name (slime-read-from-minibuffer "(Un)trace: " name)))
-      (if (and (string= name real-name)
-	       (y-or-n-p (format "(Un)trace also all methods implementing %s "
-                                 real-name)))
-          (message "%s" (slime-eval `(swank:toggle-trace-generic-function-methods 
-                                      (swank::from-string ,real-name))))
-	(message "%s" (slime-eval `(swank:toggle-trace-function (swank::from-string ,real-name))))))))
-
-(defun slime-toggle-trace-defmethod (spec)
-  (let ((real-name (slime-read-from-minibuffer "(Un)trace: " 
-                                               (prin1-to-string spec))))
-    (message "%s" (slime-eval `(swank:toggle-trace-method 
-                                (swank::from-string ,real-name))))))
-
-(defun slime-toggle-trace-maybe-wherein (name wherein)
-  (let ((real-name (slime-read-from-minibuffer "(Un)trace: " 
-                                               (prin1-to-string name)))
-	(wherein (prin1-to-string wherein)))
-    (if (and (string= name real-name)
-	     (y-or-n-p (format "(Un)trace only when %s call is made from %s " 
-                               real-name wherein)))
-      (message "%s" (slime-eval `(swank:toggle-trace-fdefinition-wherein
-				  (swank::from-string ,real-name)
-				  (swank::from-string ,wherein))))
-      (message "%s" (slime-eval `(swank:toggle-trace-fdefinition ,real-name))))))
-
-(defun slime-toggle-trace-within (spec)
-  (let ((real-name (slime-read-from-minibuffer "(Un)trace local function: "
-                                               (prin1-to-string spec))))
-    (message "%s" (slime-eval `(swank:toggle-trace-fdefinition-within
-				(swank::from-string ,real-name))))))
+
+;;;; Tracing
 
 (defun slime-untrace-all ()
   "Untrace all functions."
   (interactive)
   (slime-eval `(swank:untrace-all)))
+
+(defun slime-toggle-trace-fdefinition (&optional using-context-p)
+  "Toggle trace."
+  (interactive "P")
+  (let ((spec (if using-context-p
+                  (slime-extract-context)
+                (slime-symbol-at-point))))
+    (cond ((not spec)
+           (error "No symbol to trace"))
+	  (t
+           (let ((spec (slime-trace-query spec)))
+             (message "%s" (slime-eval `(swank:swank-toggle-trace ,spec))))))))
+
+(defun slime-trace-query (spec)
+  "Ask the user which function to query; SPEC is the default.
+The result is a string."
+  (cond ((symbolp spec)
+         (slime-read-from-minibuffer "(Un)trace: " (symbol-name spec)))
+        (t
+         (destructure-case spec
+           ((:setf n)
+            (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string spec)))
+           (((:defun :defmacro) n)
+            (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string n)))
+           ((:defgeneric n)
+            (let* ((name (prin1-to-string n))
+                   (answer (slime-read-from-minibuffer "(Un)trace: " name)))
+              (cond ((and (string= name answer)
+                          (y-or-n-p (concat "(Un)trace also all " 
+                                            "methods implementing " 
+                                            name "? ")))
+                     (prin1-to-string `(:defgeneric ,name)))
+                    (t
+                     answer))))
+           ((:defmethod &rest _)
+            (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string spec)))
+           ((:call caller callee)
+            (let* ((callerstr (prin1-to-string caller))
+                   (calleestr (prin1-to-string callee))
+                   (answer (slime-read-from-minibuffer "(Un)trace: " 
+                                                       calleestr)))
+              (cond ((and (string= calleestr answer)
+                          (y-or-n-p (concat "(Un)trace only when " calleestr
+                                            " is called by " callerstr "? ")))
+                     (prin1-to-string `(:call ,caller ,callee)))
+                    (t
+                     answer))))
+           (((:labels :flet) &rest _)
+            (slime-read-from-minibuffer "(Un)trace local function: "
+                                        (prin1-to-string spec)))))))
+
+(defun slime-extract-context ()
+  "Parse the context for the symbol at point.  
+Nil is returned if there's no symbol at point.  Otherwise we detect
+the following cases (the . shows the point position):
+
+ (defun n.ame (...) ...)                 -> (:defun name)
+ (defun (setf n.ame) (...) ...)          -> (:defun (setf name))
+ (defmethod n.ame (...) ...)             -> (:defmethod name (...))
+ (defun ... (...) (labels ((n.ame (...)  -> (:labels (:defun ...) name)
+ (defun ... (...) (flet ((n.ame (...)    -> (:flet (:defun ...) name)
+ (defun ... (...) ... (n.ame ...) ...)   -> (:call (:defun ...) name)
+ (defun ... (...) ... (setf (n.ame ...)  -> (:call (:defun ...) (setf name))
+
+For other contexts we return the symbol at point."
+  (let ((name (slime-symbol-name-at-point)))
+    (if name
+        (let ((symbol (read name)))
+          (or (progn ;;ignore-errors 
+                (slime-parse-context symbol))
+              symbol)))))
+
+(defun slime-parse-context (name)
+  (save-excursion 
+    (cond ((slime-in-expression-p '(defun *))          `(:defun ,name))
+          ((slime-in-expression-p '(defmacro *))       `(:defmacro ,name))
+          ((slime-in-expression-p '(defgeneric *))     `(:defgeneric ,name))
+          ((slime-in-expression-p '(setf *))
+           ;;a setf-definition, but which?
+           (backward-up-list 1)
+           (slime-parse-context `(setf ,name)))
+          ((slime-in-expression-p '(defmethod *))
+           (forward-sexp 1)
+           (let (qualifiers arglist)
+             (loop for e = (read (current-buffer))
+                   until (listp e) do (push e qualifiers)
+                   finally (setq arglist e))
+             `(:defmethod ,name ,@qualifiers
+                          ,(slime-arglist-specializers arglist))))
+          ((and (symbolp name) 
+                (slime-in-expression-p `(,name)))
+           ;; looks like a regular call
+           (let ((toplevel (ignore-errors (slime-parse-toplevel-form))))
+             (cond ((slime-in-expression-p `(setf *))  ;a setf-call
+                    (if toplevel
+                        `(:call ,toplevel (setf ,name))
+                      `(setf ,name)))
+                   ((not toplevel)
+                    name)
+                   ((slime-in-expression-p `(labels ((*))))
+                    `(:labels ,toplevel ,name))
+                   ((slime-in-expression-p `(flet ((*))))
+                    `(:flet ,toplevel ,name))
+                   (t
+                    `(:call ,toplevel ,name)))))
+          (t 
+           name))))
+
+(defun slime-in-expression-p (pattern)
+  "A helper function to determine the current context.
+The pattern can have the form:
+ pattern ::= ()    ;matches always
+           | (*)   ;matches insde a list
+           | (<symbol> <pattern>)   ;matches if the first element in
+				    ; current the list is <symbol> and
+                                    ; if <pattern> matches.
+           | ((<pattern>))          ;matches if are in a nested list."
+  (save-excursion
+    (let ((path (reverse (slime-pattern-path pattern))))
+      (loop for p in path
+            always (ignore-errors 
+                     (etypecase p
+                       (symbol (slime-beginning-of-list) 
+                               (looking-at (symbol-name p)))
+                       (number (backward-up-list p)
+                               t)))))))
+
+(defun slime-pattern-path (pattern)
+  ;; Compute the path to the * in the pattern to make matching
+  ;; easier. The path is a list of symbols and numbers.  A number
+  ;; means "(down-list <n>)" and a symbol "(look-at <sym>)")
+  (if (null pattern)
+      '()
+    (etypecase (car pattern)
+      ((member *) '())
+      (symbol (cons (car pattern) (slime-pattern-path (cdr pattern))))
+      (cons (cons 1 (slime-pattern-path (car pattern)))))))
+
+(defun slime-beginning-of-list (&optional up)
+  "Move backward the the beginning of the current expression.
+Point is placed before the first expression in the list."
+  (backward-up-list (or up 1))
+  (down-list 1)
+  (skip-syntax-forward " "))
+
+(defun slime-parse-toplevel-form ()
+  (save-excursion
+    (beginning-of-defun)
+    (down-list 1)
+    (forward-sexp 1)
+    (slime-parse-context (read (current-buffer)))))
+		 
+(defun slime-arglist-specializers (arglist)
+  (cond ((or (null arglist)
+	     (member (first arglist) '(&optional &key &rest &aux)))
+	 (list))
+	((consp (first arglist))
+	 (cons (second (first arglist))
+	       (slime-arglist-specializers (rest arglist))))
+	(t
+	 (cons 't 
+	       (slime-arglist-specializers (rest arglist))))))
 
 (defun slime-disassemble-symbol (symbol-name)
   "Display the disassembly for SYMBOL-NAME."
@@ -5795,6 +5844,11 @@ GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
   "Show all known callers of the function SYMBOL."
   (interactive (list (slime-read-symbol-name "Who calls: " t)))
   (slime-xref :calls symbol))
+
+(defun slime-calls-who (symbol)
+  "Show all known functions called by the function SYMBOL."
+  (interactive (list (slime-read-symbol-name "Who calls: " t)))
+  (slime-xref :calls-who symbol))
 
 (defun slime-who-references (symbol)
   "Show all known referrers of the global variable SYMBOL."
