@@ -483,11 +483,6 @@ A prefix argument disables this behaviour."
     ("~" slime-sync-package-and-default-directory :prefixed t :inferior t)
     ("\M-p" slime-repl-set-package :prefixed t :inferior t)
     ;; Cross reference
-    ("\C-wc" slime-who-calls :prefixed t :inferior t :sldb t)
-    ("\C-wr" slime-who-references :prefixed t :inferior t :sldb t)
-    ("\C-wb" slime-who-binds :prefixed t :inferior t :sldb t)
-    ("\C-ws" slime-who-sets :prefixed t :inferior t :sldb t)
-    ("\C-wm" slime-who-macroexpands :prefixed t :inferior t :sldb t)
     ("<" slime-list-callers :prefixed t :inferior t :sldb t)
     (">" slime-list-callees :prefixed t :inferior t :sldb t)
     ;; "Other"
@@ -516,6 +511,16 @@ A prefix argument disables this behaviour."
     (?h slime-hyperspec-lookup)
     (?~ common-lisp-hyperspec-format)))
   
+(defvar slime-who-map (make-sparse-keymap)
+  "Keymap for who-xref commands. Bound to a prefix key.")
+
+(defvar slime-who-bindings
+  '((?c slime-who-calls)
+    (?r slime-who-references)
+    (?b slime-who-binds)
+    (?s slime-who-sets)
+    (?m slime-who-macroexpands)))
+
 ;; Maybe a good idea, maybe not..
 (defvar slime-prefix-key "\C-c"
   "The prefix key to use in SLIME keybinding sequences.")
@@ -551,7 +556,17 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
                (let ((modified (slime-control-modified-char key)))
                  (define-key slime-doc-map (string modified) command)))))
   ;; C-c C-d is the prefix for the doc map.
-  (slime-define-key "\C-d" slime-doc-map :prefixed t :inferior t))
+  (slime-define-key "\C-d" slime-doc-map :prefixed t :inferior t)
+  ;; Who-xref
+  (setq slime-who-map (make-sparse-keymap))
+  (loop for (key command) in slime-who-bindings
+        do (progn
+             ;; We bind both unmodified and with control.
+             (define-key slime-who-map (string key) command)
+             (let ((modified (slime-control-modified-char key)))
+                 (define-key slime-who-map (string modified) command))))
+  ;; C-c C-w is the prefix for the who-xref map.
+  (slime-define-key "\C-w" slime-who-map :prefixed t :inferior t))
 
 (defun slime-control-modified-char (char)
   "Return the control-modified version of CHAR."
@@ -2514,6 +2529,7 @@ DIRECTION is 'forward' or 'backward' (in the history list)."
   ("\t"   'slime-indent-and-complete-symbol)
   (" "    'slime-space)
   ("\C-c\C-d" slime-doc-map)
+  ("\C-c\C-w" slime-who-map)
   ("\C-\M-x" 'slime-eval-defun)
   ("\C-c\C-o" 'slime-repl-clear-output)
   ("\C-c\C-t" 'slime-repl-clear-buffer)
