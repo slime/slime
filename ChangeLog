@@ -1,3 +1,38 @@
+2004-03-03  Helmut Eller  <e9626484@stud3.tuwien.ac.at>
+
+	* swank-cmucl.lisp (resolve-note-location): Don't be too clever,
+	if there is no context available.  The compiler notes buffer is
+	probably more adequate in this situation.
+	(compile-file-for-emacs): Use the :load argument to compile-file.
+	(inspect-in-frame): Deleted.
+
+	* slime.el (slime-compilation-finished-hook): Use
+	slime-maybe-list-compiler-notes as default.
+	(slime-maybe-list-compiler-notes): New function.
+	(slime-list-compiler-notes): Insert "[no notes]" if there aren't
+	any. Pop to the buffer.
+	(slime-complete-symbol*, slime-simple-complete-symbol): Set the
+	lisp-mode-syntax-table in the completion buffer.
+	(check-parens): Compatibility function for XEmacs and Emacs 20.
+
+	* swank.lisp (find-completions): Deleted.
+	(simple-completions): Use longest-common-prefix instead of
+	longest-completion.
+	(inspect-in-frame): Moved here from swank-cmucl.lisp.
+
+	* swank-lispworks.lisp (call-with-debugging-environment): Bind
+	*sldb-top-frame*.
+	(nth-frame): Use *sldb-top-frame*.
+	(name-source-location, name-source-locations): Renamed from
+	dspec-source-location, dspec-source-locations.  The result now
+	includes methods for generic functions.
+	(eval-in-frame, return-from-frame, restart-frame): Implemented.
+	(compile-string-for-emacs): Set dspec::*location* to the buffer
+	location.
+	(signal-undefined-functions, signal-error-data-base)
+	(make-dspec-location): Remove temp-file kludges.
+	(patch-source-locations, replace-source-file): Deleted.
+
 2004-03-01  Marco Baringer  <mb@bese.it>
 
 	* swank.lisp (format-arglist): deal with nil arglists.
