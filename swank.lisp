@@ -161,9 +161,115 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
     (force-output)
     (format nil "~{~S~^, ~}" values)))
 
+;;; this was unimplemented in -openmcl, anyone know why?
+;;; ditto interactive-eval-region
+(defslimefun pprint-eval (string)
+  (let ((*package* *buffer-package*))
+    (let ((value (eval (read-from-string string))))
+      (let ((*print-pretty* t)
+	    (*print-circle* t)
+	    (*print-level* nil)
+            #+cmu (ext:*gc-verbose* nil)
+	    (*print-length* nil))
+	(with-output-to-string (stream)
+	  (pprint value stream))))))
+
+(defslimefun set-package (package)
+  (setq *package* (guess-package-from-string package))
+  (package-name *package*))
 
 
+;;;; Compilation Commands.
 
+(defvar *compiler-notes* '()
+  "List of compiler notes for the last compilation unit.")
+
+(defun clear-compiler-notes ()  
+  (setf *compiler-notes* '())
+  (setf *previous-compiler-condition* nil)
+  (setf *previous-context* nil))
+
+(defvar *notes-database* (make-hash-table :test #'equal)
+  "Database of recorded compiler notes/warnings/erros (keyed by filename).
+Each value is a list of (LOCATION SEVERITY MESSAGE CONTEXT) lists.
+  LOCATION is a position in the source code (integer or source path).
+  SEVERITY is one of :ERROR, :WARNING, and :NOTE.
+  MESSAGE is a string describing the note.
+  CONTEXT is a string giving further details of where the error occured.")
+
+(defun clear-note-database (filename)
+  (remhash (canonicalize-filename filename) *notes-database*))
+
+(defslimefun features ()
+  (mapcar #'symbol-name *features*))
+
+(defun canonicalize-filename (filename)
+  (namestring (truename filename)))
+
+(defslimefun compiler-notes-for-file (filename)
+  "Return the compiler notes recorded for FILENAME.
+\(See *NOTES-DATABASE* for a description of the return type.)"
+  (gethash (canonicalize-filename filename) *notes-database*))
+
+(defun measure-time-interval (fn)
+  "Call FN and return the first return value and the elapsed time.
+The time is measured in microseconds."
+  (let ((before (get-internal-real-time)))
+    (values
+     (funcall fn)
+     (* (- (get-internal-real-time) before)
+        (/ 1000000 internal-time-units-per-second)))))
+
+(defun call-with-compilation-hooks (fn)
+  (multiple-value-bind (result usecs)
+      (with-trapping-compilation-notes ()
+	 (clear-compiler-notes)
+	 (measure-time-interval fn))
+    (list (to-string result)
+	  (format nil "~,2F" (/ usecs 1000000.0)))))
+
+(defslimefun list-all-package-names ()
+  (mapcar #'package-name (list-all-packages)))
+
+(defun apropos-symbols (string &optional external-only package)
+  "Return the symbols matching an apropos search."
+  ;; CMUCL used ext:map-apropos here, not sure why
+  (remove-if #'keywordp (apropos-list string package external-only)))
+
+
+(defun print-output-to-string (fn)
+  (with-output-to-string (*standard-output*)
+    (let ((*debug-io* *standard-output*))
+      (funcall fn))))
+
+(defun print-description-to-string (object)
+  (print-output-to-string (lambda () (describe object))))
+
+(defslimefun describe-symbol (symbol-name)
+  (print-description-to-string (from-string symbol-name)))
+
+(defslimefun describe-function (symbol-name)
+  (print-description-to-string (symbol-function (from-string symbol-name))))
+
+;;; Macroexpansion
+
+(defun apply-macro-expander (expander string)
+  (let ((*print-pretty* t)
+	(*print-length* 20)
+	(*print-level* 20))
+    (to-string (funcall expander (from-string string)))))
+
+(defslimefun swank-macroexpand-1 (string)
+  (apply-macro-expander #'macroexpand-1 string))
+
+(defslimefun swank-macroexpand (string)
+  (apply-macro-expander #'macroexpand string))
+
+(defslimefun disassemble-symbol (symbol-name)
+  (print-output-to-string (lambda () (disassemble (from-string symbol-name)))))
+
+
+;;;; now pull the per-backend stuff in
 (eval-when (:compile-toplevel) (compile-file swank::*sysdep-pathname*))
 (eval-when (:load-toplevel :execute) (load swank::*sysdep-pathname*))
 

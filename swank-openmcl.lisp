@@ -128,7 +128,6 @@ until the remote Emacs goes away."
     (sldb-loop)))
 
 (defslimefun-unimplemented interactive-eval-region (string))
-(defslimefun-unimplemented pprint-eval (string))
 (defslimefun-unimplemented re-evaluate-defvar (form))
 
 (defslimefun arglist-string (fname)
@@ -143,11 +142,6 @@ until the remote Emacs goes away."
             "(-- <Unknown-Function>)")))))
 
 ;;; Compilation
-
-(defvar *compiler-notes* '())
-
-(defun clear-compiler-notes ()
-  (setf *compiler-notes* '()))
 
 (defun condition-function-name (condition)
   "Return the function name as a symbol from a compiler condition."
@@ -169,34 +163,9 @@ condition."
               :buffer-offset 0)
         *compiler-notes*))
 
-(defun unix-gettimeofday ()
-  (ccl::rlet ((tv :timeval))
-    (#_gettimeofday tv (ccl::%null-ptr))
-    (values (ccl::pref tv :timeval.tv_sec)
-            (ccl::pref tv :timeval.tv_usec))))
-
-(defun measure-time-interval (fn)
-  "Call FN and return the first return value aand the elapsed time.
-The time is measured in microseconds."
-  (multiple-value-bind (start-secs start-usecs)
-      (unix-gettimeofday)
-    (let ((value (funcall fn)))
-      (multiple-value-bind (end-secs end-usecs)
-          (unix-gettimeofday)
-        (values value (+ (* (- end-secs start-secs) 1000000)
-                         (- end-usecs start-usecs)))))))
-
 (defmacro with-trapping-compilation-notes (() &body body)
   `(handler-bind ((ccl::compiler-warning #'handle-compiler-warning))
     ,@body))
-
-(defun call-with-compilation-hooks (fn)
-  (multiple-value-bind (result usecs)
-      (with-trapping-compilation-notes ()
-        (clear-compiler-notes)
-        (measure-time-interval fn))
-    (list (to-string result)
-          (format nil "~,2F" (/ usecs 1000000.0)))))
 
 (defslimefun swank-compile-string (string buffer start)
   (declare (ignore buffer start))
@@ -212,8 +181,6 @@ The time is measured in microseconds."
    (lambda ()
      (compile-file filename :load load))))
 
-(defslimefun compiler-notes-for-emacs ()
-  (reverse *compiler-notes*))
 
 (defslimefun-unimplemented compiler-notes-for-file (filename))
 
@@ -330,20 +297,6 @@ The time is measured in microseconds."
 
 ;;; Utilities
 
-(defun print-output-to-string (fn)
-  (with-output-to-string (*standard-output*)
-    (let ((*debug-io* *standard-output*))
-      (funcall fn))))
-
-(defun print-description-to-string (object)
-  (print-output-to-string (lambda () (describe object))))
-
-(defslimefun describe-symbol (symbol-name)
-  (print-description-to-string (from-string symbol-name)))
-
-(defslimefun describe-function (symbol-name)
-  (print-description-to-string (from-string symbol-name)))
-
 (defslimefun-unimplemented describe-setf-function (symbol-name))
 (defslimefun-unimplemented describe-type (symbol-name))
 
@@ -359,14 +312,6 @@ The time is measured in microseconds."
 
 ;;; Tracing and Disassembly
 
-(defslimefun disassemble-symbol (symbol-name)
-  (print-output-to-string
-   (lambda () (disassemble (from-string symbol-name)))))
-
-;;; Cross-referencing
-
-;; I think some of these will never work in OpenMCL...
-(defslimefun-unimplemented who-calls (symbol-name package-name))
 (defslimefun-unimplemented who-references (symbol-name package-name))
 (defslimefun-unimplemented who-binds (symbol-name package-name))
 (defslimefun-unimplemented who-sets (symbol-name package-name))
@@ -378,19 +323,7 @@ The time is measured in microseconds."
 ;;; Completion
 
 (defslimefun-unimplemented completions (string default-package-name))
-(defslimefun-unimplemented list-all-package-names ())
 
 ;;; Macroexpansion
-(defun apply-macro-expander (expander string)
-  (let ((*print-pretty* t)
-        (*print-length* 20)
-        (*print-level* 20))
-    (to-string (funcall expander (from-string string)))))
-
-(defslimefun swank-macroexpand-1 (string)
-  (apply-macro-expander #'macroexpand-1 string))
-
-(defslimefun swank-macroexpand (string)
-  (apply-macro-expander #'macroexpand string))
 
 (defslimefun-unimplemented swank-macroexpand-all (string))

@@ -110,17 +110,6 @@ The request is read from the socket as a sexp and then evaluated."
 	    do (force-output)
 	    finally (return (format nil "~{~S~^, ~}" result))))))
 
-(defslimefun pprint-eval (string)
-  (let ((*package* *buffer-package*))
-    (let ((value (eval (read-from-string string))))
-      (let ((*print-pretty* t)
-	    (*print-circle* t)
-	    (*print-level* nil)
-	    (*print-length* nil)
-	    (ext:*gc-verbose* nil))
-	(with-output-to-string (stream)
-	  (pprint value stream))))))
-
 (defslimefun re-evaluate-defvar (form)
   (let ((*package* *buffer-package*))
     (let ((form (read-from-string form)))
@@ -129,10 +118,6 @@ The request is read from the socket as a sexp and then evaluated."
 	(assert (eq dv 'defvar))
 	(makunbound name)
 	(prin1-to-string (eval form))))))
-
-(defslimefun set-package (package)
-  (setq *package* (guess-package-from-string package))
-  (package-name *package*))
 
 (defslimefun set-default-directory (directory)
   (setf (ext:default-directory) (namestring directory))
@@ -143,30 +128,13 @@ The request is read from the socket as a sexp and then evaluated."
 
 ;;;; Compilation Commands
 
-(defvar *compiler-notes* '()
-  "List of compiler notes for the last compilation unit.")
+
 
 (defvar *previous-compiler-condition* nil
   "Used to detect duplicates.")
 
 (defvar *previous-context* nil
   "Used for compiler warnings without context.")
-
-(defvar *notes-database* (make-hash-table :test #'equal)
-  "Database of recorded compiler notes/warnings/erros (keyed by filename).
-Each value is a list of (LOCATION SEVERITY MESSAGE CONTEXT) lists.
-  LOCATION is a position in the source code (integer or source path).
-  SEVERITY is one of :ERROR, :WARNING, and :NOTE.
-  MESSAGE is a string describing the note.
-  CONTEXT is a string giving further details of where the error occured.")
-
-(defun clear-compiler-notes ()  
-  (setf *compiler-notes* '())
-  (setf *previous-compiler-condition* nil)
-  (setf *previous-context* nil))
-
-(defun clear-note-database (filename)
-  (remhash (canonicalize-filename filename) *notes-database*))
 
 (defvar *buffername*)
 (defvar *buffer-offset*)
@@ -243,45 +211,11 @@ compiler state."
 	 (reverse
 	  (c::compiler-error-context-original-source-path context)))))
 
-(defslimefun features ()
-  (mapcar #'symbol-name *features*))
-
-(defun canonicalize-filename (filename)
-  (namestring (unix:unix-resolve-links filename)))
-
-(defslimefun compiler-notes-for-file (filename)
-  "Return the compiler notes recorded for FILENAME.
-\(See *NOTES-DATABASE* for a description of the return type.)"
-  (gethash (canonicalize-filename filename) *notes-database*))
-
-(defslimefun compiler-notes-for-emacs ()
-  "Return the list of compiler notes for the last compilation unit."
-  (reverse *compiler-notes*))
-
-(defun measure-time-intervall (fn)
-  "Call FN and return the first return value and the elapsed time.
-The time is measured in microseconds."
-  (multiple-value-bind (ok start-secs start-usecs) (unix:unix-gettimeofday)
-    (assert ok)
-    (let ((value (funcall fn)))
-      (multiple-value-bind (ok end-secs end-usecs) (unix:unix-gettimeofday)
-	(assert ok)
-	(values value (+ (* (- end-secs start-secs) 1000000)
-			 (- end-usecs start-usecs)))))))
-	
 (defmacro with-trapping-compilation-notes (() &body body)
   `(handler-bind ((c::compiler-error #'handle-notification-condition)
                   (c::style-warning #'handle-notification-condition)
                   (c::warning #'handle-notification-condition))
     ,@body))
-
-(defun call-with-compilation-hooks (fn)
-  (multiple-value-bind (result usecs)
-      (with-trapping-compilation-notes ()
-	(clear-compiler-notes)
-	(measure-time-intervall fn))
-    (list (to-string result)
-	  (format nil "~,2F" (/ usecs 1000000.0)))))
 
 (defslimefun swank-compile-file (filename load)
   (call-with-compilation-hooks
@@ -555,14 +489,6 @@ considered."
   (and (<= (length s1) (length s2))
        (string-equal s1 s2 :end2 (length s1))))
 
-(defslimefun list-all-package-names ()
-  (let ((list '()))
-    (maphash (lambda (name package)
-	       (declare (ignore package))
-	       (pushnew name list))
-	     lisp::*package-names*)
-    list))
-
 ;;;; Definitions
 
 (defvar *debug-definition-finding* nil
@@ -693,15 +619,6 @@ wrapped in a list."
     (let ((y (funcall f x)))
       (and y (list y)))))
 
-(defun apropos-symbols (string &optional external-only package)
-  "Return the symbols matching an apropos search."
-  (let ((symbols '()))
-    (ext:map-apropos (lambda (sym)
-                       (unless (keywordp sym)
-                         (push sym symbols)))
-                     string package external-only)
-    symbols))
-
 (defun present-symbol-before-p (a b)
   "Return true if A belongs before B in a printed summary of symbols.
 Sorted alphabetically by package name and then symbol name, except
@@ -718,44 +635,21 @@ that symbols accessible in the current package go first."
             (t
              (string< (package-name pa) (package-name pb)))))))
 
-(defun print-output-to-string (fn)
-  (with-output-to-string (*standard-output*)
-    (funcall fn)))
 
-(defun print-desciption-to-string (object)
-  (print-output-to-string (lambda () (describe object))))
-
-(defslimefun describe-symbol (symbol-name)
-  (print-desciption-to-string (from-string symbol-name)))
-
-(defslimefun describe-function (symbol-name)
-  (print-desciption-to-string (symbol-function (from-string symbol-name))))
 
 (defslimefun describe-setf-function (symbol-name)
-  (print-desciption-to-string
+  (print-description-to-string
    (or (ext:info setf inverse (from-string symbol-name))
        (ext:info setf expander (from-string symbol-name)))))
 
 (defslimefun describe-type (symbol-name)
-  (print-desciption-to-string
+  (print-description-to-string
    (kernel:values-specifier-type (from-string symbol-name))))
 
 (defslimefun describe-class (symbol-name)
-  (print-desciption-to-string (find-class (from-string symbol-name) nil)))
+  (print-description-to-string (find-class (from-string symbol-name) nil)))
 
 ;;; Macroexpansion
-
-(defun apply-macro-expander (expander string)
-  (let ((*print-pretty* t)
-	(*print-length* 20)
-	(*print-level* 20))
-    (to-string (funcall expander (from-string string)))))
-
-(defslimefun swank-macroexpand-1 (string)
-  (apply-macro-expander #'macroexpand-1 string))
-
-(defslimefun swank-macroexpand (string)
-  (apply-macro-expander #'macroexpand string))
 
 (defslimefun swank-macroexpand-all (string)
   (apply-macro-expander #'walker:macroexpand-all string))
@@ -779,9 +673,6 @@ that symbols accessible in the current package go first."
 (defslimefun untrace-all ()
   (untrace))
 
-(defslimefun disassemble-symbol (symbol-name)
-  (print-output-to-string (lambda () (disassemble (from-string symbol-name)))))
-   
 (defslimefun load-file (filename)
   (load filename))
 

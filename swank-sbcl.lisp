@@ -132,14 +132,15 @@ until the remote Emacs goes away."
 ;;; Utilities
 
 (defvar *swank-debugger-condition*)
-(defvar *swank-debugger-hook*)
 (defvar *swank-debugger-stack-frame*)
+(defvar *swank-debugger-hook*)
 
 (defun swank-debugger-hook (condition hook)
   (let ((*swank-debugger-condition* condition)
         (*swank-debugger-hook* hook))
     (sldb-loop)))
  
+;;; this looks portable, but why no openmcl support?
 (defslimefun interactive-eval-region (string)
   (let ((*package* *buffer-package*))
     (with-input-from-string (stream string)
@@ -148,16 +149,6 @@ until the remote Emacs goes away."
 	    for result = (multiple-value-list (eval form))
 	    do (force-output)
 	    finally (return (format nil "~{~S~^, ~}" result))))))
-
-(defslimefun pprint-eval (string)
-  (let ((*package* *buffer-package*))
-    (let ((value (eval (read-from-string string))))
-      (let ((*print-pretty* t)
-	    (*print-circle* t)
-	    (*print-level* nil)
-	    (*print-length* nil))
-	(with-output-to-string (stream)
-	  (pprint value stream))))))
 
 (defslimefun re-evaluate-defvar (form)
   (let ((*package* *buffer-package*))
@@ -169,9 +160,7 @@ until the remote Emacs goes away."
 	(makunbound name)
 	(prin1-to-string (eval form))))))
 
-(defslimefun set-package (package)
-  (setq *package* (guess-package-from-string package))
-  (package-name *package*))
+
 
 ;;; adapted from cmucl
 (defslimefun set-default-directory (directory)
@@ -189,24 +178,6 @@ until the remote Emacs goes away."
         (if arglist
             (princ-to-string arglist)
             "(-- <Unknown-Function>)")))))
-
-;;;; Compilation Commands.
-
-(defvar *compiler-notes* '()
-  "List of compiler notes for the last compilation unit.")
-
-(defun clear-compiler-notes ()  (setf *compiler-notes* '()))
-
-(defvar *notes-database* (make-hash-table :test #'equal)
-  "Database of recorded compiler notes/warnings/erros (keyed by filename).
-Each value is a list of (LOCATION SEVERITY MESSAGE CONTEXT) lists.
-  LOCATION is a position in the source code (integer or source path).
-  SEVERITY is one of :ERROR, :WARNING, and :NOTE.
-  MESSAGE is a string describing the note.
-  CONTEXT is a string giving further details of where the error occured.")
-
-(defun clear-note-database (filename)
-  (remhash (canonicalize-filename filename) *notes-database*))
 
 (defvar *buffername*)
 (defvar *buffer-offset*)
@@ -272,43 +243,11 @@ compiler state."
          (reverse
           (sb-c::compiler-error-context-original-source-path context)))))
 
-(defslimefun features ()
-  (mapcar #'symbol-name *features*))
-
-(defun canonicalize-filename (filename)
-  (namestring (truename filename)))
-
-(defslimefun compiler-notes-for-file (filename)
-  "Return the compiler notes recorded for FILENAME.
-\(See *NOTES-DATABASE* for a description of the return type.)"
-  (gethash (canonicalize-filename filename) *notes-database*))
-
-(defslimefun compiler-notes-for-emacs ()
-  "Return the list of compiler notes for the last compilation unit."
-  (reverse *compiler-notes*))
-
-(defun measure-time-interval (fn)
-  "Call FN and return the first return value and the elapsed time.
-The time is measured in microseconds."
-  (let ((before (get-internal-real-time)))
-    (values
-     (funcall fn)
-     (* (- (get-internal-real-time) before)
-        (/ 1000000 internal-time-units-per-second)))))
-     
 (defmacro with-trapping-compilation-notes (() &body body)
   `(handler-bind ((sb-c:compiler-error #'handle-notification-condition)
                   (style-warning #'handle-notification-condition)
                   (warning #'handle-notification-condition))
     ,@body))
-
-(defun call-with-compilation-hooks (fn)
-  (multiple-value-bind (result usecs)
-      (with-trapping-compilation-notes ()
-	 (clear-compiler-notes)
-	 (measure-time-interval fn))
-    (list (to-string result)
-	  (format nil "~,2F" (/ usecs 1000000.0)))))
 
 (defslimefun swank-compile-file (filename load)
   (call-with-compilation-hooks
@@ -319,7 +258,6 @@ The time is measured in microseconds."
             (*buffer-offset* nil)
             (ret (compile-file filename)))
        (if load (load ret) ret)))))
-
 
 (defslimefun swank-compile-string (string buffer start)
   (call-with-compilation-hooks
@@ -403,8 +341,7 @@ considered."
   (and (<= (length s1) (length s2))
        (string-equal s1 s2 :end2 (length s1))))
 
-(defslimefun list-all-package-names ()
-  (mapcar #'package-name (list-all-packages)))
+
 
 ;;;; Definitions
 
@@ -508,11 +445,6 @@ wrapped in a list."
     (let ((y (funcall f x)))
       (and y (list y)))))
 
-(defun apropos-symbols (string &optional external-only package)
-  "Return the symbols matching an apropos search."
-  ;; CMUCL used ext:map-apropos here, not sure why
-  (remove-if #'keywordp (apropos-list string package external-only)))
-
 (defun present-symbol-before-p (a b)
   "Return true if A belongs before B in a printed summary of symbols.
 Sorted alphabetically by package name and then symbol name, except
@@ -529,46 +461,18 @@ that symbols accessible in the current package go first."
             (t
              (string< (package-name pa) (package-name pb)))))))
 
-(defun print-output-to-string (fn)
-  (with-output-to-string (*standard-output*)
-    (funcall fn)))
-
-(defun print-desciption-to-string (object)
-  (print-output-to-string (lambda () (describe object))))
-
-(defslimefun describe-symbol (symbol-name)
-  (print-desciption-to-string (from-string symbol-name)))
-
-(defslimefun describe-function (symbol-name)
-  (print-desciption-to-string (symbol-function (from-string symbol-name))))
 
 (defslimefun describe-setf-function (symbol-name)
-  (print-desciption-to-string `(setf ,(from-string symbol-name))))
+  (print-description-to-string `(setf ,(from-string symbol-name))))
 
 (defslimefun describe-type (symbol-name)
-  (print-desciption-to-string
+  (print-description-to-string
    (sb-kernel:values-specifier-type (from-string symbol-name))))
 
 (defslimefun describe-class (symbol-name)
-  (print-desciption-to-string (find-class (from-string symbol-name) nil)))
+  (print-description-to-string (find-class (from-string symbol-name) nil)))
 
-;;; Macroexpansion
-
-(defun apply-macro-expander (expander string)
-  (let ((*print-pretty* t)
-	(*print-length* 20)
-	(*print-level* 20))
-    (to-string (funcall expander (from-string string)))))
-
-(defslimefun swank-macroexpand-1 (string)
-  (apply-macro-expander #'macroexpand-1 string))
-
-(defslimefun swank-macroexpand (string)
-  (apply-macro-expander #'macroexpand string))
-
-#+nil
-(defslimefun swank-macroexpand-all (string)
-  (apply-macro-expander #'sb-walker:macroexpand-all string))
+;;; macroexpansion
 
 (defslimefun-unimplemented swank-macroexpand-all (string))
 
@@ -590,8 +494,7 @@ that symbols accessible in the current package go first."
 (defslimefun untrace-all ()
   (untrace))
 
-(defslimefun disassemble-symbol (symbol-name)
-  (print-output-to-string (lambda () (disassemble (from-string symbol-name)))))
+
    
 (defslimefun load-file (filename)
   (load filename))
