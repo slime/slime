@@ -64,7 +64,10 @@
         (point-max)))
   (defun previous-single-char-property-change (&rest args)
     (or (apply 'previous-single-property-change args)
-        (point-min))))
+        (point-min)))
+  (unless (fboundp 'string-make-unibyte)
+    (defalias 'string-make-unibyte #'identity))
+  )
 
 (unless (fboundp 'define-minor-mode)
   (require 'easy-mmode)
@@ -242,6 +245,7 @@ Evaluation commands:
     ("\C-c\M-d" . slime-disassemble-symbol)
     ("\C-c\C-t" . slime-toggle-trace-fdefinition)
     ("\C-c\C-a" . slime-apropos)
+    ("\C-c\M-a" . slime-apropos-all)
     ([(control c) (control m)] . slime-macroexpand-1)
     ([(control c) (meta m)]    . slime-macroexpand-all)
     ("\C-c\C-g" . slime-interrupt)
@@ -529,11 +533,8 @@ EVAL'd by Lisp."
 
 (defun slime-eval (sexp &optional package)
   "Evaluate EXPR on the superior Lisp and return the result."
-  (lexical-let ((done nil)
-		(error nil)
-		(el-level (recursion-depth))
-		(cl-level sldb-level)
-		value)
+  (lexical-let ((el-level (recursion-depth))
+		(cl-level sldb-level))
     (slime-eval-string-async
      (prin1-to-string sexp)
      package
@@ -542,12 +543,12 @@ EVAL'd by Lisp."
 	(destructure-case message
 	  ((:ok result)
 	   (slime-move-to-state next-state)
-	   (setq done t)
-	   (setq value result))
+	   (throw 'sync-eval-ok result))
 	  ((:aborted)
 	   (slime-move-to-state next-state)
-	   (setq done t)
-	   (setq error 'aborted))
+	   (error "slime-eval aborted"))
+	  ((:sldb-prompt l) 
+	   (assert (= sldb-level l)))
 	  ((:debugger-hook)
 	   (slime-move-to-state (slime-state
 				 (lambda (m here)
@@ -559,19 +560,17 @@ EVAL'd by Lisp."
 				 (slime-current-state)))
 	   (slime-debugger-hook))))
       (slime-current-state)))
-    (let ((debug-on-quit t))
-      (while (not done)
-	(when (> sldb-level cl-level)
-	  (unwind-protect
-	      (catch 'el-quit
-		(save-current-buffer
-		  (debug)))
-	    (when (> sldb-level cl-level)
-	      (slime-take-input '(abort-from-el)))))
-	(accept-process-output)))
-    (when error
-      (error "slime-eval failed: %S" error))
-    value))
+    (catch 'sync-eval-ok
+      (let ((debug-on-quit t))
+	(while t
+	  (when (> sldb-level cl-level)
+	    (unwind-protect
+		(catch 'el-quit
+		  (save-current-buffer
+		    (debug)))
+	      (when (> sldb-level cl-level)
+		(slime-take-input '(abort-from-el)))))
+	  (accept-process-output))))))
 
 (defun slime-sync ()
   "Block until all asynchronous commands are completed."
@@ -643,10 +642,12 @@ See `slime-compile-and-load-file' for further details."
       (buffer-substring-no-properties (point) end))))
 
 (defun slime-symbol-at-point ()
-  (slime-substring-no-properties (thing-at-point 'symbol)))
+  (let ((string (thing-at-point 'symbol)))
+    (if string (slime-substring-no-properties string) nil)))
 
 (defun slime-sexp-at-point ()
-  (slime-substring-no-properties (thing-at-point 'sexp)))
+  (let ((string (thing-at-point 'sexp)))
+    (if string (slime-substring-no-properties string) nil)))
 
 (defun slime-compile-defun ()
   (interactive)
@@ -992,7 +993,7 @@ Designed to be bound to the SPC key."
                                   (let ((sym (symbol-at-point)))
                                     (and sym (symbol-name sym))))))
   (slime-eval-async 
-   `(swank:arglist-string ',(intern symbol-name))
+   `(swank:arglist-string ',symbol-name)
    (slime-buffer-package)
    (lexical-let ((symbol-name symbol-name))
      (lambda (arglist)
@@ -1171,7 +1172,9 @@ the function name is prompted."
 
 (defun slime-edit-symbol-fdefinition (name)
   "Lookup the function definition of the symbol at point."
-  (interactive (list (slime-symbol-at-point)))
+  (interactive (list (cond (current-prefix-arg
+			    (read-string "Edit fdefinition: "))
+			   (t (slime-symbol-at-point)))))
   (let ((origin (point-marker))
 	(source-location
 	 (slime-eval `(swank:function-source-location-for-emacs ,name)
@@ -1239,12 +1242,14 @@ the function name is prompted."
   (interactive)
   (slime-interactive-eval (slime-defun-at-point)))
 
+(defun slime-eval-region (start end)
+  (interactive "r")
+  (slime-interactive-eval 
+   (concat "(CL:PROGN " (buffer-substring-no-properties start end) ")")))
+
 (defun slime-pprint-eval-last-expression ()
   (interactive)
-  (slime-eval-async 
-   `(swank:pprint-eval ,(slime-last-expression))
-   (slime-buffer-package t)
-   'slime-show-description))
+  (slime-eval-describe `(swank:pprint-eval ,(slime-last-expression))))
 
 (defun slime-toggle-trace-fdefinition (fname-string)
   (interactive (lisp-symprompt "(Un)trace" (slime-symbol-at-point)))
@@ -1255,14 +1260,27 @@ the function name is prompted."
   (interactive (list (slime-symbol-at-point)))
   (slime-eval-describe `(swank:disassemble-symbol ,symbol-name)))
 
+(defun slime-load-file (filename)
+  (interactive "fLoad file: ")
+  (slime-eval-async 
+   `(swank:load-file ,(expand-file-name filename)) nil 
+   (lexical-let ((output-start (slime-inferior-lisp-marker-position)))
+     (lambda (result)
+       (slime-show-evaluation-result output-start result)))))
+
 ;;; 
 
-(defun slime-show-description (string)
+(defun slime-show-description (string package)
   (save-current-buffer
-    (with-output-to-temp-buffer "*Help*"
-      (set-syntax-table lisp-mode-syntax-table)
-      (slime-mode t)
-      (princ string))))
+    (let* ((slime-package-for-help-mode package)
+	   (temp-buffer-show-hook 
+	    (cons (lambda ()
+		    (setq slime-buffer-package slime-package-for-help-mode)
+		    (set-syntax-table lisp-mode-syntax-table)
+		    (slime-mode t))
+		  temp-buffer-show-hook)))
+      (with-output-to-temp-buffer "*Help*"
+	(princ string)))))
 
 (eval-and-compile 
   (if (fboundp 'substring-no-properties)
@@ -1275,14 +1293,18 @@ the function name is prompted."
 	string))))
 
 (defun slime-eval-describe (form)
-  (slime-eval-async form (slime-buffer-package) 'slime-show-description))
+  (let ((package (slime-buffer-package)))
+    (slime-eval-async 
+     form package
+     (lexical-let ((package package))
+       (lambda (string) (slime-show-description string package))))))
 
 (defun slime-describe-symbol (symbol-name)
   (interactive
    (list (cond (current-prefix-arg 
-		(car (lisp-symprompt "Describe" (slime-symbol-at-point))))
+		(read-string "Describe symbol: "))
 	       ((slime-symbol-at-point))
-	       ((car (lisp-symprompt "Describe" nil))))))
+	       (t (read-string "Describe symbol: ")))))
   (when (not symbol-name)
     (error "No symbol given"))
   (slime-eval-describe `(swank:describe-symbol ,symbol-name)))
@@ -1306,6 +1328,11 @@ the function name is prompted."
    (lexical-let ((string string)
                  (package package))
      (lambda (r) (slime-show-apropos r string package)))))
+
+(defun slime-apropos-all ()
+  "Shortcut for (slime-apropos <pattern> nil nil)"
+  (interactive)
+  (slime-apropos (read-string "SLIME Apropos: ") nil nil))
 
 (defun slime-show-apropos (plists string package)
   (if (null plists)
@@ -1463,8 +1490,8 @@ the function name is prompted."
      (message "%s" message))
     ((abort-from-el)
      (sldb-abort))
-    ((t &rest _) 
-     (slime-idle-state message))))
+    ((send-eval-string string package next-state)
+     (slime-idle-state `(send-eval-string ,string ,package ,next-state)))))
 
 (defun sldb-setup ()
   (with-current-buffer (get-buffer-create "*sldb*")
@@ -1585,7 +1612,7 @@ the function name is prompted."
 	 (goto-char (plist-get source-location :position)))
       (:stream
        (let ((info (plist-get source-location :info)))
-	 (cond ((eq :emacs-buffer (car info))
+	 (cond ((and (consp info) (eq :emacs-buffer (car info)))
 		(let ((buffer (plist-get info :emacs-buffer))
 		      (offset (plist-get info :emacs-buffer-offset)))
 		  (funcall (if other-window 
