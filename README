@@ -14,7 +14,7 @@ Quick setup instructions
 
     (add-to-list 'load-path "/the/path/to/this/directory")
     (require 'slime)
-    (setup-slime)
+    (slime-setup)
 
   Make sure your `inferior-lisp-program' is set to a compatible
   version of Lisp.
