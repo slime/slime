@@ -337,7 +337,10 @@ Execute BODY with NAME's funtion slot set to FUNCTION."
   `(ext:letf* ,(loop for (name function) in names-functions
 		     collect `((symbol-function ',name) ,function))
     ,@body))
- 
+
+(defvar *buffer-name* nil)
+(defvar *buffer-offset*)
+
 (defun compiler-note-location ()
   "Return the current compiler location."
   (let ((lineno1 sys::*compile-file-lineno1*)
@@ -383,9 +386,6 @@ Execute BODY with NAME's funtion slot set to FUNCTION."
 			  :severity :warning
 			  :message (princ-to-string condition)
 			  :location (compiler-note-location))))
-
-(defvar *buffer-name* nil)
-(defvar *buffer-offset*)
 
 (defimplementation swank-compile-file (filename load-p)
   (with-compilation-hooks ()
