@@ -4326,10 +4326,11 @@ MAXIMUM-LENGTH is the total number of frames in the Lisp stack."
 Called on the `point-entered' text-property hook."
   (let ((inhibit-point-motion-hooks t))
     (let ((inhibit-read-only t))
-      (when-let (previous (get-text-property (point) 'sldb-previous-frame-number))
+      (when-let (previous (get-text-property (point) 
+                                             'sldb-previous-frame-number))
         (beginning-of-line)
         (let ((start (point)))
-          (end-of-buffer)
+          (goto-char (point-max))
           (delete-region start (point)))
         (let ((start (1+ previous))
               (end (+ previous 40)))
@@ -5699,6 +5700,7 @@ Unless optional argument INPLACE is non-nil, return a new string."
 (defun sldb-xemacs-post-command-hook ()
   (when (get-text-property (point) 'point-entered)
     (funcall (get-text-property (point) 'point-entered))))
+
 
 
 ;;; Finishing up
