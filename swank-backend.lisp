@@ -353,11 +353,13 @@ as it was called originally.")
 (definterface find-definitions (name)
    "Return a list ((DSPEC LOCATION) ...) for NAME's definitions.
 
-NAME is string denoting a symbol or \"definition specifier\".
+NAME is a \"definition specifier\".
 
-DSPEC is a symbol or a \"definition specifier\" describing the
+DSPEC is a \"definition specifier\" describing the
 definition, e.g., FOO or (METHOD FOO (STRING NUMBER)) or
-\(DEFVAR BAR).")
+\(DEFVAR FOO).
+
+LOCATION is the source location for the definition.")
 
 
 ;;;; XREF
