@@ -2412,9 +2412,12 @@ are supported:
        ((:function-name name)
         (let ((case-fold-search t)
               (name (regexp-quote name)))
-          (re-search-forward 
-           (format "^(\\(def.*[ \n\t(]\\([-.%%$&a-z0-9]+:?:\\)?\\)?%s[ \t)]" 
-                   name)))
+          (or 
+           (re-search-forward 
+            (format "^(\\(def.*[ \n\t(]\\([-.%%$&a-z0-9]+:?:\\)?\\)?%s[ \t)]" 
+                    name) nil t)
+           (re-search-forward 
+            (format "\\s %s" name) nil t)))
         (goto-char (match-beginning 0)))
        ((:source-path source-path start-position)
         (cond (start-position
