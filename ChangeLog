@@ -1,7 +1,12 @@
+2004-12-13  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-repl-mode-map): Bind <home> to slime-repl-bol.
+	Suggested by Chris Capel.
+
 2004-12-09  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (*sldb-print-pretty*, *sldb-print-circle*)
-	(*sldb-print-length*, (*sldb-print-level*, *sldb-print-lines*)
+	(*sldb-print-length*, *sldb-print-level*, *sldb-print-lines*)
 	(*sldb-print-pprint-dispatch*): Export those symbols.
 
 2004-12-05  Helmut Eller  <heller@common-lisp.net>
