@@ -58,10 +58,12 @@ recompiled."
                   (compile-file source-pathname)
                   (setq needs-recompile t))
                 (load binary-pathname))
+            #+(or)
             (error ()
               ;; If an error occurs compiling, load the source instead
               ;; so we can try to debug it.
-              (load source-pathname))))))))
+              (load source-pathname))
+            ))))))
 
 (defun user-init-file ()
   "Return the name of the user init file or nil."
@@ -71,8 +73,8 @@ recompiled."
                     #+mswindows (make-pathname :name "_swank" :type "lsp"))))
 
 (compile-files-if-needed-serially
- (list* (make-swank-pathname "swank-backend") *swank-pathname*
-        *sysdep-pathnames*))
+  (list* (make-swank-pathname "swank-backend") *swank-pathname*
+         *sysdep-pathnames*))
 
 (when (user-init-file)
   (load (user-init-file)))
