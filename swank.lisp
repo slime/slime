@@ -1215,7 +1215,6 @@ change, then send Emacs an update."
                                    shortest)
               finally (return shortest)))
 
-
 (defslimefun interactive-eval-region (string)
   (with-buffer-syntax ()
     (format-values-for-echo-area (eval-region string))))
@@ -1228,12 +1227,6 @@ change, then send Emacs an update."
 	(assert (eq dv 'defvar))
 	(makunbound name)
 	(prin1-to-string (eval form))))))
-
-(defun foo (&key ((:x a)) ((y b)))
-  (cons a b))
-
-(foo 'y 10)
-
 
 (defmacro define-printer-variables (prefix &body vars)
   "Define a group of printer variables.  
@@ -1248,7 +1241,8 @@ the corresponding printer variable.
 At macroexpansion time the names of the created symbols are stored in
 the 'printer-variables property of PREFIX."
   (let ((valid-names '(level length circle readably pretty 
-                       case escape right-margin)))
+                       case escape right-margin miser-width
+                       base radix gensym array lines pprint-dispatch)))
     (labels ((symconc (prefix suffix)
                (intern (format nil "*~A-~A*" (string prefix) (string suffix))
                        :swank))
@@ -1266,6 +1260,7 @@ the 'printer-variables property of PREFIX."
            ,@(loop for (name init doc) in bindings
                    collect `(defvar ,(symconc prefix name) ,init 
                               ,@(if doc doc))))))))
+
 
 (define-printer-variables swank-pprint
   circle level length case right-margin escape)
@@ -1372,7 +1367,8 @@ after Emacs causes a restart to be invoked."
   (level 4)
   (length 10)
   (circle t)
-  (readably nil))
+  (readably nil)
+  gensym pprint-dispatch base radix array lines)
 
 (defun debug-in-emacs (condition)
   (let ((*swank-debugger-condition* condition)
