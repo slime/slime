@@ -89,36 +89,17 @@
           (funcall (the function (cdr handler))))
         *sigio-handlers*))
 
-
 (defun set-sigio-handler ()
   (sb-sys:enable-interrupt sb-unix:SIGIO (lambda (signal code scp)
                                            (sigio-handler signal code scp))))
 
-(set-sigio-handler)
-
-#+linux
-(progn
-  (defconstant +o_async+ 8192)
-  (defconstant +f_setown+ 8)
-  (defconstant +f_setfl+ 4))
-
 (defimplementation add-input-handler (socket fn)
+  (set-sigio-handler)
   (let ((fd (socket-fd socket)))
     (format *debug-io* "Adding sigio handler: ~S ~%" fd)
-    (let ((fcntl (sb-alien:extern-alien "fcntl" 
-                                        (function sb-alien:int sb-alien:int 
-                                                  sb-alien:int sb-alien:int))))
-      ;; XXX error checking
-      (sb-alien:alien-funcall fcntl fd +f_setfl+ +o_async+)
-      (sb-alien:alien-funcall fcntl fd +f_setown+ (sb-unix:unix-getpid))
-      (push (cons fd fn) *sigio-handlers*))))
-
-;;(defimplementation add-input-handler (socket fn)
-;;  (let ((fd (socket-fd socket)))
-;;    (format *debug-io* "Adding sigio handler: ~S ~%" fd)
-;;    (sb-posix:fcntl fd sb-posix::f-setfl sb-posix::o-async)
-;;    (sb-posix:fcntl fd sb-posix::f-setown (sb-unix:unix-getpid))
-;;    (push (cons fd fn) *sigio-handlers*)))
+    (sb-posix:fcntl fd sb-posix::f-setfl sb-posix::o-async)
+    (sb-posix:fcntl fd sb-posix::f-setown (sb-unix:unix-getpid))
+    (push (cons fd fn) *sigio-handlers*)))
 
 (defimplementation remove-input-handlers (socket)
   (let ((fd (socket-fd socket)))
