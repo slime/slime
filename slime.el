@@ -1557,9 +1557,18 @@ inside a `save-excursion' block."
 
 (defun slime-output-string (string)
   (with-current-buffer (slime-output-buffer)
-    (slime-mark-input-end)
-    (slime-with-output-at-eob
-     (insert string))))
+    (cond ((slime-idle-p) 
+           ;; asynchrounous output
+           (save-excursion
+             (goto-char slime-repl-prompt-start-mark)
+             (slime-insert-propertized
+              (list 'face 'slime-repl-output-face) 
+              string "\n")
+             (set-marker slime-repl-prompt-start-mark (point))))
+          (t
+           (slime-mark-input-end)
+           (slime-with-output-at-eob
+            (insert string))))))
 
 (defun slime-switch-to-output-buffer ()
   "Select the output buffer, preferably in a different window."
@@ -1630,7 +1639,6 @@ inside a `save-excursion' block."
   ;; command.  slime-mark-input-end sets the input-end-mark to some
   ;; position before the end and triggers printing of the prompt.
   (with-current-buffer (slime-output-buffer)
-    (slime-flush-output)
     (unless (= (point-max) slime-repl-input-end-mark)
       (slime-mark-output-end)
       (slime-with-output-at-eob
