@@ -1,3 +1,41 @@
+2003-12-15  Luke Gorrie  <luke@bluetail.com>
+
+	* swank.lisp (*processing-rpc*, *multiprocessing-enabled*,
+	(with-conversation-lock, with-I/O-lock): New macros.
+	(read-next-form): Use with-I/O-lock.
+	(send-to-emacs): Use with-I/O-lock instead of
+	without-interrupts*. (But should we have without-interrupts* too?)
+	(swank-debugger-hook): When called asynchronously (i.e. not
+	during RPC) and multiprocessing is enabled, suspend until
+	acknowleged by Emacs.
+	(install-global-debugger-hook): Install a SLIME-DEBUGGER-FUNCTION
+	globally on *DEBUGGER-HOOK*.
+	(startup-multiprocessing-for-emacs): Called to initialize multiprocessing.
+	(eval-string): Dynamically set the *PROCESSING-RPC* flag.
+	(eval-string): Nasty hack with *DEBUGGER-HOOK-PASSBACK* to
+	install debugger hook. Temporary, I swear!
+
+	*debugger-hook-passback*): New variables.
+
+	* swank-backend.lisp: Defined multiprocessing interface.
+
+	* swank-cmucl.lisp: Implmemented the multiprocessing interface.
+
+	* slime.el (slime-multiprocessing): When true, use
+	multiprocessing in Lisp if available.
+	(slime-global-debugger-hook): When true, globally set
+	*debugger-hook* to use the SLIME debugger. For use with
+	SERVE-EVENT and multiprocessing.
+	(slime-handle-oob): Handle :AWAITING-GOAHEAD message from threads
+	that have suspended to wait for Emacs's attention.
+	(slime-give-goahead): New command to allow a suspended thread to
+	continue (bound to RET in the thread-control-panel).
+	(slime-thread-control-panel): New command to display a buffer
+	showing all threads that are suspending waiting for Emacs's
+	attention. Bound to `C-c C-x t'.
+	(slime-popup-thread-control-panel): When true, automatically
+	popup the thread-control buffer when a new thread suspends.
+
 2003-12-14  Alan Ruttenberg <alanralanr@comcast.net>
 
 	* swank-openmcl.lisp (eval-in-frame, inspect-object and friends):
