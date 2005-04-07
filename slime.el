@@ -1489,9 +1489,11 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
 The functions are called with the process as their argument.")
 
 (defvar slime-net-coding-system
-  (find-if (cond ((fboundp 'coding-system-p) #'coding-system-p)
-                 ((fboundp 'find-coding-system) #'find-coding-system)
-                 (t (lambda (x) (eq x 'binary))))
+  (find-if (cond ((featurep 'xemacs)
+                  (if (fboundp 'find-coding-system) 
+                      #'find-coding-system
+                    (lambda (x) (eq x 'binary))))
+                 (t #'coding-system-p))
            '(iso-latin-1-unix iso-8859-1-unix binary))
   "*Coding system used for network connections.
 See also `slime-net-valid-coding-systems'.")
