@@ -63,7 +63,6 @@
 (when (featurep 'xemacs)
   (require 'overlay))
 (require 'easymenu)
-(require 'tree-widget)
 
 (defvar slime-use-autodoc-mode nil
   "When non-nil always enabled slime-autodoc-mode in slime-mode.")
@@ -1490,7 +1489,9 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
 The functions are called with the process as their argument.")
 
 (defvar slime-net-coding-system
-  (find-if (if (featurep 'xemacs) #'find-coding-system #'coding-system-p)
+  (find-if (cond ((fboundp 'coding-system-p) #'coding-system-p)
+                 ((fboundp 'find-coding-system) #'find-coding-system)
+                 (t (lambda (x) (eq x 'binary))))
            '(iso-latin-1-unix iso-8859-1-unix binary))
   "*Coding system used for network connections.
 See also `slime-net-valid-coding-systems'.")
@@ -7483,6 +7484,7 @@ If ARG is negative, move forwards."
                     :has-echildren t))))
 
 (defun slime-call-with-browser-setup (buffer package title fn)
+  (require 'tree-widget)
   (switch-to-buffer buffer)
   (kill-all-local-variables)
   (setq slime-buffer-package package)
@@ -8893,12 +8895,8 @@ If they are not, position point at the first syntax error found."
           (t 
            (error "Not a directory: %s" file)))))
 
-(slime-defun-if-undefined find-coding-system (coding-system)
-  (if (eq coding-system 'binary)
-      'binary))
-
 (slime-defun-if-undefined check-coding-system (coding-system)
-  (or (find-coding-system coding-system)
+  (or (eq coding-system 'binary)
       (error "No such coding system: %S" coding-system)))
 
 (slime-defun-if-undefined process-coding-system (process)
