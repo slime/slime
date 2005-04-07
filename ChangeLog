@@ -2,7 +2,9 @@
 
 	* slime.el (slime-net-coding-system): More fixes for
 	non-mule-XEmacsen.
-
+	(slime-net-coding-system): Even more fixes to make it for
+	mule-XEmacs.
+	
 2005-04-05  Juergen Gmeiner <gj@gjdv.at>
 
 	* swank-lisworks.lisp (find-top-frame): If we can't find an
