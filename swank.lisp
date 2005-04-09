@@ -78,6 +78,10 @@
 (defvar *swank-debug-p* t
   "When true, print extra debugging information.")
 
+(defvar *redirect-io* t
+  "When non-nil redirect Lisp standard I/O to Emacs.
+Redirection is done while Lisp is processing a request for Emacs.")
+
 (defvar *sldb-printer-bindings*
   `((*print-pretty*           . nil)
     (*print-level*            . 4)
@@ -258,17 +262,23 @@ recently established one."
 (defmacro with-io-redirection ((connection) &body body)
   "Execute BODY I/O redirection to CONNECTION.
 If *REDIRECT-IO* is true then all standard I/O streams are redirected."
-  `(if *redirect-io*
-       (call-with-redirected-io ,connection (lambda () ,@body))
-       (progn ,@body)))
+  `(maybe-call-with-io-redirection ,connection (lambda () ,@body)))
 
+(defun maybe-call-with-io-redirection (connection fun)
+  (if *redirect-io*
+      (call-with-redirected-io connection fun)
+      (funcall fun)))
+      
 (defmacro with-connection ((connection) &body body)
   "Execute BODY in the context of CONNECTION."
-  `(let ((*emacs-connection* ,connection))
-     (catch 'slime-toplevel
-       (with-io-redirection (*emacs-connection*)
-         (let ((*debugger-hook* #'swank-debugger-hook))
-           ,@body)))))
+  `(call-with-connection ,connection (lambda () ,@body)))
+
+(defun call-with-connection (connection fun)
+  (let ((*emacs-connection* connection))
+    (catch 'slime-toplevel
+      (with-io-redirection (*emacs-connection*)
+        (let ((*debugger-hook* #'swank-debugger-hook))
+          (funcall fun))))))
 
 (defmacro without-interrupts (&body body)
   `(call-without-interrupts (lambda () ,@body)))
@@ -316,10 +326,6 @@ Useful for low level debugging."
     (force-output *log-output*)))
 
 ;;;; TCP Server
-
-(defparameter *redirect-io* t
-  "When non-nil redirect Lisp standard I/O to Emacs.
-Redirection is done while Lisp is processing a request for Emacs.")
 
 (defvar *use-dedicated-output-stream* t)
 (defvar *communication-style* (preferred-communication-style))
@@ -1052,13 +1058,16 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 This should be used for code that is conceptionally executed in an
 Emacs buffer."
   (destructuring-bind () _
-    `(let ((*package* *buffer-package*))
-       ;; Don't shadow *readtable* unnecessarily because that prevents
-       ;; the user from assigning to it.
-       (if (eq *readtable* *buffer-readtable*)
-           (call-with-syntax-hooks (lambda () ,@body))
-           (let ((*readtable* *buffer-readtable*))
-             (call-with-syntax-hooks (lambda () ,@body)))))))
+    `(call-with-buffer-syntax (lambda () ,@body))))
+
+(defun call-with-buffer-syntax (fun)
+  (let ((*package* *buffer-package*))
+    ;; Don't shadow *readtable* unnecessarily because that prevents
+    ;; the user from assigning to it.
+    (if (eq *readtable* *buffer-readtable*)
+        (call-with-syntax-hooks fun)
+        (let ((*readtable* *buffer-readtable*))
+          (call-with-syntax-hooks fun)))))
 
 (defun from-string (string)
   "Read string in the *BUFFER-PACKAGE*"
@@ -1629,8 +1638,8 @@ Errors are trapped and invoke our debugger."
             (let ((*buffer-package* (guess-buffer-package buffer-package))
                   (*buffer-readtable* (guess-buffer-readtable buffer-package))
                   (*pending-continuations* (cons id *pending-continuations*)))
-              (assert (packagep *buffer-package*))
-              (assert (readtablep *buffer-readtable*))
+              (check-type *buffer-package* package)
+              (check-type *buffer-readtable* readtable)
               (setq result (eval form))
               (force-output)
               (run-hook *pre-reply-hook*)
@@ -1651,7 +1660,7 @@ Errors are trapped and invoke our debugger."
 
 (defslimefun interactive-eval (string)
   (with-buffer-syntax ()
-    (let ((values (multiple-value-list (eval (read-from-string string)))))
+    (let ((values (multiple-value-list (eval (from-string string)))))
       (fresh-line)
       (force-output)
       (format-values-for-echo-area values))))
@@ -1660,7 +1669,7 @@ Errors are trapped and invoke our debugger."
   (with-buffer-syntax ()
     (let* ((s (make-string-output-stream))
            (*standard-output* s)
-           (values (multiple-value-list (eval (read-from-string string)))))
+           (values (multiple-value-list (eval (from-string string)))))
       (list (get-output-stream-string s) 
             (format nil "~{~S~^~%~}" values)))))
 
