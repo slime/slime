@@ -14,9 +14,7 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require 'sb-bsd-sockets)
   (require 'sb-introspect)
-  (require 'sb-posix)
-  )
-
+  (require 'sb-posix))
 
 (in-package :swank-backend)
 (declaim (optimize (debug 2)))
@@ -151,6 +149,12 @@
 
 
 ;;;; Support for SBCL syntax
+
+;;; SBCL's source code is riddled with #! reader macros.  Also symbols
+;;; containing `!' have special meaning.  We have to work long and
+;;; hard to be able to read the source.  To deal with #! reader
+;;; macros, we use a special readtable.  The special symbols are
+;;; converted by a condition handler.
 
 (defun feature-in-list-p (feature list)
   (etypecase feature
@@ -450,12 +454,15 @@ This is useful when debugging the definition-finding code.")
        (list (list `(define-compiler-macro ,name)
                    (loc (compiler-macro-function name) name)))))))
 
-(defun safe-function-source-location (fun name)
-  (if *debug-definition-finding*
-      (function-source-location fun name)
-      (handler-case (function-source-location fun name)
-        (error (e) 
-          (list :error (format nil "Error: ~A" e))))))
+;;;; function -> soucre location translation
+
+;;; Here we try to find the source locations for function objects.  We
+;;; have to special case functions which were compiled with C-c C-c.
+;;; For the other functions we used the toplevel form number as
+;;; returned by the sb-introspect package to find the offset in the
+;;; source file.  (If the function has debug-blocks, we should search
+;;; the position of the first code-location; for some reason, that
+;;; doesn't seem to work.)
 
 (defun function-source-location (function &optional name)
   "Try to find the canonical source location of FUNCTION."
@@ -463,6 +470,13 @@ This is useful when debugging the definition-finding code.")
   (if (function-from-emacs-buffer-p function)
       (find-temp-function-source-location function)
       (find-function-source-location function)))
+
+(defun safe-function-source-location (fun name)
+  (if *debug-definition-finding*
+      (function-source-location fun name)
+      (handler-case (function-source-location fun name)
+        (error (e) 
+          (list :error (format nil "Error: ~A" e))))))
 
 (defun find-function-source-location (function)
   (cond #+(or) ;; doesn't work for unknown reasons
@@ -516,7 +530,7 @@ This is useful when debugging the definition-finding code.")
 
 (defun find-temp-function-source-location (function)
   (let ((info (function-debug-source-info function)))
-    (with-struct (sb-introspect::definition-source- 
+    (with-struct (sb-introspect::definition-source-
                   form-path character-offset) 
         (sb-introspect:find-definition-source function)
       (destructuring-bind (&key emacs-buffer emacs-position emacs-string) info
@@ -696,6 +710,12 @@ stack."
 
 ;;;; Code-location -> source-location translation
 
+;;; If debug-block info is avaibale, we determine the file position of
+;;; the source-path for a code-location.  If the code was compiled
+;;; with C-c C-c, we have to search the position in the source string.
+;;; If there's no debug-block info, we return the (less precise)
+;;; source-location of the corresponding function.
+
 (defun code-location-source-location (code-location)
   (let ((dsource (sb-di:code-location-debug-source code-location)))
     (ecase (sb-di:debug-source-from dsource)
@@ -782,7 +802,7 @@ stack."
     (multiple-value-bind (tlf pos-map) (read-source-form tlf-number stream)
       (let* ((path-table (sb-di::form-number-translations tlf 0))
              (path (cond ((<= (length path-table) form-number)
-                          (warn "inconsistend form-number-translations")
+                          (warn "inconsistent form-number-translations")
                           (list 0))
                          (t
                           (reverse (cdr (aref path-table form-number)))))))
