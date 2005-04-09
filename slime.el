@@ -2676,10 +2676,6 @@ end end."
           (goto-char (point-max))
           (recenter -1))))))
 
-(defun slime-buffer-visible-p (&optional buffer)
-  (if (get-buffer-window (or buffer (current-buffer)))
-      t))
-
 (defun slime-repl-current-input ()
   "Return the current input as string.  The input is the region from
 after the last prompt to the end of buffer."
@@ -3606,6 +3602,7 @@ This operation is \"lossy\" in the broad sense but not for display purposes."
       (setf (getf new-note :references) new-references)
       new-note)))
 
+;; XXX: unused function
 (defun slime-intersperse (element list)
   "Intersperse ELEMENT between each element of LIST."
   (if (null list) 
@@ -3987,6 +3984,7 @@ Severity is ordered as :NOTE < :STYLE-WARNING < :WARNING < :ERROR."
         sev1
       sev2)))
 
+;; XXX: unused function
 (defun slime-visit-source-path (source-path)
   "Visit a full source path including the top-level form."
   (goto-char (point-min))
@@ -6140,11 +6138,6 @@ CL:MACROEXPAND."
   (interactive)
   (slime-eval-macroexpand 'swank:swank-macroexpand-all))
 
-(defun slime-ir1-expand ()
-  "Display the ir1 form of the sexp at point."
-  (interactive)
-  (slime-eval-macroexpand 'swank:print-ir1-converted-blocks))
-
 
 ;;;; Subprocess control
 
@@ -6414,7 +6407,7 @@ The buffer is chosen more or less randomly."
   (let ((connection (or connection (slime-connection))))
     (or (sldb-find-buffer thread connection)
         (let ((name (format "*sldb %s/%s*" (slime-connection-name) thread)))
-          (with-current-buffer (get-buffer-create name)
+          (with-current-buffer (generate-new-buffer name)
             (setq slime-buffer-connection connection 
                   slime-current-thread thread)
             (current-buffer))))))
@@ -7141,6 +7134,7 @@ This way you can still see what the error was after exiting SLDB."
                   (rassoc name slime-registered-lisp-implementations))))
     (if cons (cdr cons) name)))
 
+;; XXX: unused function
 (defun slime-find-lisp-implementation-name (command)
   (cdr (rassoc command slime-registered-lisp-implementations)))
 
@@ -8117,6 +8111,7 @@ BODY returns true if the check succeeds."
 (defun slime-sync-to-top-level (timeout)
   (slime-wait-condition "top-level" #'slime-at-top-level-p timeout))
 
+;; XXX: unused function
 (defun slime-check-sldb-level (expected)
   (let ((sldb-level (when-let (sldb (sldb-get-default-buffer))
                       (with-current-buffer sldb
@@ -8556,6 +8551,7 @@ SWANK> " t))
 	(match-string 1 n)
       default)))
 
+;; XXX: unused function
 (defun slime-cl-symbol-external-ref-p (symbol)
   "Does SYMBOL refer to an external symbol?
 FOO:BAR is an external reference.
@@ -8564,6 +8560,7 @@ FOO::BAR is not, and nor is BAR."
     (and (string-match ":" name)
          (not (string-match "::" name)))))
 
+;; XXX: unused function
 (defun slime-qualify-cl-symbol (symbol-or-name)
   "Like `slime-qualify-cl-symbol-name', but interns the result."
   (intern (slime-qualify-cl-symbol-name symbol-or-name)))
