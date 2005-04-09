@@ -1,3 +1,25 @@
+2005-04-09  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (sldb-get-buffer): Create a fresh buffer if there's no
+	buffer for the connection (and don't reuse an existing buffer even
+	if it has a matching name).
+	(slime-buffer-visible-p, slime-ir1-expand): Delete unused
+	functions.  Mark some others as unused, but leave them there
+	because they are potentially useful.
+
+	* swank.lisp (with-io-redirection, with-connection)
+	(with-buffer-syntax): Implement macros with a `call-with'
+	functions to avoid some code bloat.
+	(call-with-connection, maybe-call-with-io-redirection)
+	(call-with-buffer-syntax): New functions.
+	(interactive-eval): Use from-string instead of read-from-string to
+	avoid problems whit *read-suppress*.
+
+	* swank-sbcl.lisp: Add a few comments.
+
+	* swank-abcl.lisp (print-frame): Trim whitespace to make the
+	backtrace look a bit terser.
+
 2005-04-07  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-net-coding-system): More fixes for
