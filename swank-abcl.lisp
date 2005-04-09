@@ -15,7 +15,8 @@
   (require :collect) ;just so that it doesn't spoil the flying letters
   (require :pprint))
 
-(defun sys::break (&optional (format-control "BREAK called") &rest format-arguments)
+(defun sys::break (&optional (format-control "BREAK called") 
+                   &rest format-arguments)
   (let ((*saved-backtrace* (sys::backtrace-as-list)))
     (with-simple-restart (continue "Return from BREAK.")
       (invoke-debugger
@@ -201,15 +202,13 @@
     (subseq (ext:backtrace-as-list) start end)))
 
 (defimplementation print-frame (frame stream)
-    (pprint frame stream))
+  (write-string (string-trim '(#\space #\newline)
+                             (prin1-to-string frame))
+                stream))
 
-#+nil
 (defimplementation frame-locals (index)
-  (let ((frame (nth-frame index)))
-    (loop for i from 0 below (debugger:frame-number-vars frame)
-	  collect (list :name (debugger:frame-var-name frame i)
-			:id 0
-			:value (debugger:frame-var-value frame i)))))
+  `((list :name "??" :id 0 :value "??")))
+
 
 (defimplementation frame-catch-tags (index)
   (declare (ignore index))
