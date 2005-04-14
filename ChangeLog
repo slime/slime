@@ -1,3 +1,7 @@
+2005-04-14  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-selector): Discard input after sleeping.
+
 2005-04-09  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (sldb-get-buffer): Create a fresh buffer if there's no
@@ -8,8 +12,8 @@
 	because they are potentially useful.
 
 	* swank.lisp (with-io-redirection, with-connection)
-	(with-buffer-syntax): Implement macros with a `call-with'
-	functions to avoid some code bloat.
+	(with-buffer-syntax): Implement macros with `call-with' functions
+	to avoid some code bloat.
 	(call-with-connection, maybe-call-with-io-redirection)
 	(call-with-buffer-syntax): New functions.
 	(interactive-eval): Use from-string instead of read-from-string to
