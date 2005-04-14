@@ -5936,6 +5936,7 @@ If CREATE is non-nil, create it if necessary."
   (setq slime-buffer-package package)
   (slime-set-truncate-lines))
 
+;; XXX: unused function
 (defun slime-display-xref-buffer ()
   "Display the XREF results buffer in a window and select it."
   (let* ((buffer (slime-xref-buffer))
@@ -7548,6 +7549,7 @@ See `def-slime-selector-method' for defining new methods."
            (message "No method for character: ?\\%c" ch)
            (ding)
            (sleep-for 1)
+           (discard-input)
            (slime-selector))
           (t
            (funcall (third method))))))
