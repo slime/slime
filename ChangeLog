@@ -1,3 +1,13 @@
+2005-04-18  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (inferior-lisp-program): Defvar it here, in case it is
+	not defined in loaddefs and inf-lisp is not loaded. (That's the
+	case in XEmacs.)
+
+	* mkdist.sh: update version number.
+
+	* doc/slime.texi: Update version numbers for SBCL and ACL.
+
 2005-04-17  Peter Seibel  <peter@gigamonkeys.com>
 
 	* swank-loader.lisp (*implementation-features*): Added features
