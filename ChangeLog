@@ -1,3 +1,10 @@
+2005-04-17  Peter Seibel  <peter@gigamonkeys.com>
+
+	* swank-loader.lisp (*implementation-features*): Added features
+	for GCL and ECL ...
+	(lisp-version-string): ... and code to compute version
+	string. (Supplied by someone who's email I've misplaced.)
+
 2005-04-14  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-selector): Discard input after sleeping.
