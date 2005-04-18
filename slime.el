@@ -1180,6 +1180,11 @@ See `slime-translate-from-lisp-filename-function'."
 (defvar slime-inferior-lisp-program-history '()
   "History list of command strings.  Used by `slime'.")
 
+;; XXX: inferior-lisp-program isn't preloaded in XEmacs. maybe we
+;; should use something else.
+(defvar inferior-lisp-program "lisp" 
+  "*Program name for invoking an inferior Lisp with for Inferior Lisp mode.")
+
 (defun slime (&optional command buffer coding-system)
   "Start an inferior^_superior Lisp and connect to its Swank server."
   (interactive (list (if current-prefix-arg
