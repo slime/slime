@@ -36,7 +36,7 @@
            )))
 
 (defparameter *implementation-features*
-  '(:allegro :lispworks :sbcl :openmcl :cmu :clisp :ccl :corman :armedbear))
+  '(:allegro :lispworks :sbcl :openmcl :cmu :clisp :ccl :corman :armedbear :gcl :ecl))
 
 (defparameter *os-features*
   '(:macosx :linux :windows :mswindows :win32 :solaris :darwin :sunos :unix))
@@ -47,6 +47,8 @@
 (defun lisp-version-string ()
   #+cmu       (substitute #\- #\/ (lisp-implementation-version))
   #+sbcl      (lisp-implementation-version)
+  #+ecl       (lisp-implementation-version)
+  #+gcl       (let ((s (lisp-implementation-version))) (subseq s 4))
   #+openmcl   (format nil "~d.~d"
                       ccl::*openmcl-major-version* 
                       ccl::*openmcl-minor-version*)
