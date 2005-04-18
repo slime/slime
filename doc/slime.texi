@@ -214,13 +214,14 @@ best-supported, are:
 @item
 CMU Common Lisp (@acronym{CMUCL}), 18e or newer
 @item
-Steel Bank Common Lisp (@acronym{SBCL}), from version 0.8.15 to 0.8.20
+Steel Bank Common Lisp (@acronym{SBCL}), from version 0.8.15 to 0.8.21
+(newer versions may or may not work)
 @item
 OpenMCL, version 0.14.3
 @item
 LispWorks, version 4.3 or newer
 @item
-Allegro Common Lisp (@acronym{ACL}), version 4.3 or newer
+Allegro Common Lisp (@acronym{ACL}), version 6 or newer
 @item
 @acronym{CLISP}, version 2.33.2 or newer
 @item
