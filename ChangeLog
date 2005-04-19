@@ -1,3 +1,15 @@
+2005-04-19  heller  <heller@xaital>
+
+	* /project/slime/cvsroot/slime/PROBLEMS: Warn about old kernels.
+2005-04-19  Helmut Eller  <heller@common-lisp.net>
+
+	* PROBLEMS: Warn about old kernels.
+	
+	* swank-backend.lisp: Fix some typos.
+
+	* swank-sbcl.lisp (preferred-communication-style): Don't test for
+	sb-futex, it has lost its meaning in 0.8.21.
+
 2005-04-18  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (inferior-lisp-program): Defvar it here, in case it is
