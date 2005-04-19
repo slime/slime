@@ -42,10 +42,7 @@
 ;;; TCP Server
 
 (defimplementation preferred-communication-style ()
-  (if (and (sb-int:featurep :sb-thread)
-           (sb-int:featurep :sb-futex))
-      :spawn
-      :fd-handler))
+  (if (sb-int:featurep :sb-thread) :spawn :fd-handler))
         
 (defun resolve-hostname (name)
   (car (sb-bsd-sockets:host-ent-addresses
