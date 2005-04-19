@@ -471,7 +471,7 @@ VAR is the number of the variable in the frame.")
 (definterface disassemble-frame (frame-number)
   "Disassemble the code for the FRAME-NUMBER.
 The output should be written to standard output.
-FRAME-NUMBER is a non-negative interger.")
+FRAME-NUMBER is a non-negative integer.")
 
 (definterface eval-in-frame (form frame-number)
    "Evaluate a Lisp form in the lexical context of a stack frame
@@ -701,7 +701,7 @@ output of CL:DESCRIBE."
             ,(with-output-to-string (desc)
                (describe object desc)))))
 
-;;; Utilities to for inspector methods.
+;;; Utilities for inspector methods.
 ;;; 
 (defun label-value-line (label value)
   "Create a control list which prints \"LABEL: VALUE\" in the inspector."
@@ -793,8 +793,7 @@ Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time."
   "Send OBJECT to thread THREAD.")
 
 (definterface receive ()
-  "Return the next message from current thread's mailbox."
-  nil)
+  "Return the next message from current thread's mailbox.")
 
 (definterface toggle-trace (spec)
   "Toggle tracing of the function(s) given with SPEC.
