@@ -1,3 +1,9 @@
+2005-04-20  Luke Gorrie  <luke@synap.se>
+
+	* swank-sbcl.lisp (communication-style): Use `linux_no_threads_p'
+	alien variable to decide whether to use :SPAWN. From dan_b for
+	compatibility with new SBCLs.
+
 2005-04-19  heller  <heller@xaital>
 
 	* /project/slime/cvsroot/slime/PROBLEMS: Warn about old kernels.
