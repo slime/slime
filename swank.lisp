@@ -1216,7 +1216,7 @@ pretty printing of (function foo) as #'foo is suppressed."
     (cons 
      (with-output-to-string (*standard-output*)
        (with-standard-io-syntax
-         (let ((*package* package) (*print-case* :downcase)
+         (let ((*package* package) (*print-case* :downcase) (*print-escape* nil)
                (*print-pretty* t) (*print-circle* nil) (*print-readably* nil)
                (*print-level* 10) (*print-length* 20))
            (pprint-logical-block (nil nil :prefix "(" :suffix ")")
