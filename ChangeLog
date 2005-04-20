@@ -1,8 +1,12 @@
 2005-04-20  Luke Gorrie  <luke@synap.se>
 
-	* swank-sbcl.lisp (communication-style): Use `linux_no_threads_p'
-	alien variable to decide whether to use :SPAWN. From dan_b for
-	compatibility with new SBCLs.
+	* swank.lisp (arglist-to-string): Bind *PRINT-ESCAPE* to NIL. This
+	way symbols in arglists are printed as with PRINC, i.e. without
+	package qualifier.
+
+	* swank-sbcl.lisp (preferred-communication-style): Use
+	`linux_no_threads_p' alien variable to decide whether to use
+	:SPAWN. From dan_b for compatibility with new SBCLs.
 
 2005-04-19  heller  <heller@xaital>
 
