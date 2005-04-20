@@ -41,14 +41,11 @@
 
 ;;; TCP Server
 
-(defun communication-style ()
+(defimplementation preferred-communication-style ()
   (if (and (member :sb-thread *features*)
            (not (sb-alien:extern-alien "linux_no_threads_p" sb-alien:boolean)))
       :spawn
       :fd-handler))
-
-(defimplementation preferred-communication-style ()
-  (if (sb-int:featurep :sb-thread) :spawn :fd-handler))
         
 (defun resolve-hostname (name)
   (car (sb-bsd-sockets:host-ent-addresses
