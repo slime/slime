@@ -1,3 +1,8 @@
+2005-04-21  Luke Gorrie  <luke@synap.se>
+
+	* swank.lisp (arglist-to-string): Rolled back the previous change
+	because it interferred with values appearing in parameter lists.
+
 2005-04-20  Luke Gorrie  <luke@synap.se>
 
 	* swank.lisp (arglist-to-string): Bind *PRINT-ESCAPE* to NIL. This
