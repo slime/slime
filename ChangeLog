@@ -15,10 +15,6 @@
 
 2005-04-19  Helmut Eller  <heller@common-lisp.net>
 
-	* /project/slime/cvsroot/slime/PROBLEMS: Warn about old kernels.
-
-2005-04-19  Helmut Eller  <heller@common-lisp.net>
-
 	* PROBLEMS: Warn about old kernels.
 	
 	* swank-backend.lisp: Fix some typos.
