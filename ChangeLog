@@ -13,9 +13,10 @@
 	`linux_no_threads_p' alien variable to decide whether to use
 	:SPAWN. From dan_b for compatibility with new SBCLs.
 
-2005-04-19  heller  <heller@xaital>
+2005-04-19  Helmut Eller  <heller@common-lisp.net>
 
 	* /project/slime/cvsroot/slime/PROBLEMS: Warn about old kernels.
+
 2005-04-19  Helmut Eller  <heller@common-lisp.net>
 
 	* PROBLEMS: Warn about old kernels.
@@ -1422,7 +1423,7 @@
 
 	* swank-cmucl.lisp (return-from-frame): Add it.
 
-2004-10-11  Thomas Burdick  <tfb@OCF.Berkeley.EDU>
+2004-10-11  Thomas F. Burdick  <tfb@OCF.Berkeley.EDU>
 
 	* swank-sbcl.lisp (function-definitions): Find compiler macros, too.
 	(find-defintions, compiler-definitions)
