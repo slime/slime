@@ -1,3 +1,8 @@
+2005-04-27  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-cmucl.lisp (+header-type-symbols+): Drop the third arg to
+	apropos-list; it's no longer supported recent CMUCLs.
+
 2005-04-21  Luke Gorrie  <luke@synap.se>
 
 	* swank.lisp (arglist-to-string): Rolled back the previous change
