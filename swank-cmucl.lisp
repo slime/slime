@@ -1788,18 +1788,18 @@ LRA  =  ~X~%" (mapcar #'fixnum
 The `symbol-value' of each element is a type tag.")
 
 (defconstant +header-type-symbols+
-  (flet ((suffixp (suffix string)
-           (and (>= (length string) (length suffix))
-                (string= string suffix :start1 (- (length string) 
-                                                  (length suffix))))))
-    ;; Is there a convinient place for all those constants?
-    (remove-if-not
-     (lambda (x) (and (suffixp "-TYPE" (symbol-name x))
-                      (not (member x +lowtag-symbols+))
-                      (boundp x)
-                      (typep (symbol-value x) 'fixnum)))
-     (append (apropos-list "-TYPE" "VM" t)
-             (apropos-list "-TYPE" "BIGNUM" t))))
+  (labels ((suffixp (suffix string)
+             (and (>= (length string) (length suffix))
+                  (string= string suffix :start1 (- (length string) 
+                                                    (length suffix)))))
+           (header-type-symbol-p (x)
+             (and (suffixp "-TYPE" (symbol-name x))
+                  (not (member x +lowtag-symbols+))
+                  (boundp x)
+                  (typep (symbol-value x) 'fixnum))))
+    (remove-if-not #'header-type-symbol-p
+                   (append (apropos-list "-TYPE" "VM")
+                           (apropos-list "-TYPE" "BIGNUM"))))
   "A list of names of the type codes in boxed objects.")
 
 (defimplementation describe-primitive-type (object)
