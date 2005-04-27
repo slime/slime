@@ -1,7 +1,7 @@
 2005-04-27  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-cmucl.lisp (+header-type-symbols+): Drop the third arg to
-	apropos-list; it's no longer supported recent CMUCLs.
+	apropos-list; it's no longer supported in recent CMUCLs.
 
 2005-04-21  Luke Gorrie  <luke@synap.se>
 
