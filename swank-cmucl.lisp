@@ -2136,9 +2136,13 @@ The `symbol-value' of each element is a type tag.")
      (let ((name (second spec)))
        (toggle-trace-aux name :methods name)))
     ((:defmethod)
-     (toggle-trace-aux `(method ,(cdr spec)))
-     ;; Man, is this ugly
-     (toggle-trace-aux `(pcl::fast-method ,(cdr spec))))
+     (cond ((fboundp `(method ,@(cdr spec)))
+            (toggle-trace-aux `(method ,(cdr spec))))
+           ;; Man, is this ugly
+           ((fboundp `(pcl::fast-method ,@(cdr spec)))
+            (toggle-trace-aux `(pcl::fast-method ,@(cdr spec))))
+           (t
+            (error 'undefined-function :name (cdr spec)))))
     ((:call)
      (destructuring-bind (caller callee) (cdr spec)
        (toggle-trace-aux (process-fspec callee) 
