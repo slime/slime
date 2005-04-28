@@ -5587,7 +5587,7 @@ For other contexts we return the symbol at point."
            (backward-up-list 1)
            (slime-parse-context `(setf ,name)))
           ((slime-in-expression-p '(defmethod *))
-           (unless (looking-at "\\>\\|\\s ")
+           (unless (looking-at "\\s ")
              (forward-sexp 1)) ; skip over the methodname
            (let (qualifiers arglist)
              (loop for e = (read (current-buffer))
@@ -7485,47 +7485,73 @@ If ARG is negative, move forwards."
                     :dynargs 'slime-expand-class-node 
                     :has-echildren t))))
 
+(defvar slime-browser-map nil
+  "Keymap for tree widget browsers")
+
+(require 'tree-widget)
+(unless slime-browser-map
+  (setq slime-browser-map (make-sparse-keymap))
+  (set-keymap-parent slime-browser-map widget-keymap)
+  (define-key slime-browser-map "q" 'bury-buffer))
+
 (defun slime-call-with-browser-setup (buffer package title fn)
-  (require 'tree-widget)
   (switch-to-buffer buffer)
   (kill-all-local-variables)
   (setq slime-buffer-package package)
   (let ((inhibit-read-only t)) (erase-buffer))
   (widget-insert title "\n\n")
-  (funcall fn)
-  (lisp-mode)
+  (save-excursion
+    (funcall fn))
+  (lisp-mode-variables t)
   (slime-mode t)
-  (use-local-map widget-keymap)
+  (use-local-map slime-browser-map)
   (widget-setup))
-  
+
 
 ;;;; Xref browser
 
+(defun slime-fetch-browsable-xrefs (type name)
+  "Return a list ((LABEL DSPEC)).
+LABEL is just a string for display purposes. 
+DSPEC can be used to expand the node."
+  (let ((xrefs '()))
+    (loop for (_file . specs) in (slime-eval `(swank:xref ,type ,name)) do
+          (loop for (dspec . _location) in specs do
+                (let ((exp (ignore-errors (read (downcase dspec)))))
+                  (cond ((and (consp exp) (eq 'flet (car exp)))
+                         ;; we can't expand FLET references so they're useless
+                         )
+                        ((and (consp exp) (eq 'method (car exp)))
+                         ;; this isn't quite right, but good enough for now
+                         (push (list dspec (string (second exp))) xrefs))
+                        (t
+                         (push (list dspec dspec) xrefs))))))
+    xrefs))
+
 (defun slime-expand-xrefs (widget)
   (or (widget-get widget :args)
-      (let ((name (widget-get widget :tag))
-            (type (widget-get widget :xref-type)))
-        (let ((specs (loop for (file . specs) in (slime-eval 
-                                                  `(swank:xref ,type ,name))
-                           append specs)))
-                     
-          (loop for (dspec . _) in specs
-                collect `(tree-widget :tag ,dspec
-                                      :xref-type ,type
-                                      :dynargs slime-expand-xrefs
-                                      :has-children t))))))
+      (let* ((type (widget-get widget :xref-type))
+             (dspec (widget-get widget :xref-dspec))
+             (xrefs (slime-fetch-browsable-xrefs type dspec)))
+        (loop for (label dspec) in xrefs
+              collect `(tree-widget :tag ,label
+                                    :xref-type ,type
+                                    :xref-dspec ,dspec
+                                    :dynargs slime-expand-xrefs
+                                    :has-children t)))))
 
 (defun slime-browse-xrefs (name type)
   "Show the xref graph of a function in a tree widget."
-  (interactive (list (read-from-minibuffer "Name: ")
-                     (read (completing-read "Type: "
-                                            (slime-bogus-completion-alist
-                                             '(":callees" ":callers" ":calls"))
-                                            nil t ":"))))
+  (interactive 
+   (list (slime-read-from-minibuffer "Name: "
+                                     (slime-symbol-name-at-point))
+         (read (completing-read "Type: " (slime-bogus-completion-alist
+                                          '(":callers" ":callees" ":calls"))
+                                nil t ":"))))
   (slime-call-with-browser-setup 
    "*slime xref browser*" (slime-current-package) "Xref Browser"
    (lambda ()
-     (widget-create 'tree-widget :tag name :xref-type type 
+     (widget-create 'tree-widget :tag name :xref-type type :xref-dspec name 
                     :dynargs 'slime-expand-xrefs :has-echildren t))))
 
 
