@@ -1,3 +1,25 @@
+2005-04-29  Dan Pierson <dlp@itasoftware.com>
+
+	* slime.el (slime-parse-context): Fix method parsing so that
+	pressing, say, C-c C-t when point is on a '-' in a symbol name
+	won't break.
+	(slime-browser-map): New variable. Add support for the common 'q'
+	keystroke to quit out of the xref.
+	(slime-fetch-browsable-xrefs): New function. Remove the (FLET ...)
+	entries which appear on at least CMUCL.  I don't believe you can
+	actually expand them on any current implementation and they just
+	mess up the browse tree.  Use only the method name when looking
+	up (METHOD ...) entries on CMUCL.  This really shouldn't be here,
+	but I can't see how to avoid the error thrown by swank:xref.
+	(slime-expand-xrefs): Use it.
+	(slime-call-with-browser-setup): Initialize slime-buffer-package
+	properly.  Previously, lisp-mode was called after setting it, but
+	lisp-mode clears all local variables, use lisp-mode-variables
+	instead.
+
+	* swank-cmucl.lisp (toggle-trace): Be more carefully when tracing
+	methods: try both (METHOD ...) and (PCL:FAST-METHOD ...).
+
 2005-04-27  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-cmucl.lisp (+header-type-symbols+): Drop the third arg to
