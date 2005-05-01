@@ -7450,6 +7450,10 @@ If ARG is negative, move forwards."
   (interactive)
   (slime-eval-describe `(swank:describe-inspectee)))
 
+(defun slime-inspector-reinspect ()
+  (interactive)
+  (slime-eval-async `(swank::inspect-object swank::*inspectee*) 'slime-open-inspector))
+
 (slime-define-keys slime-inspector-mode-map
   ([return] 'slime-inspector-operate-on-point)
   ([(meta return)] 'slime-inspector-copy-down)
@@ -7460,6 +7464,7 @@ If ARG is negative, move forwards."
   (" " 'slime-inspector-next)
   ("d" 'slime-inspector-describe)
   ("q" 'slime-inspector-quit)
+  ("g" 'slime-inspector-reinspect)
   ("\C-i" 'slime-inspector-next-inspectable-object)
   ([(shift tab)] 'slime-inspector-previous-inspectable-object)
   ("\M-." 'slime-edit-definition))

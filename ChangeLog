@@ -1,3 +1,9 @@
+2005-05-01  Marco Baringer  <mb@bese.it>
+
+	* slime.el (slime-inspector-reinspect): New function which
+	reinspects the current object.
+	(slime-inspector-mode-map): Bind slime-inspector-reinspect to g.
+
 2005-04-29  Dan Pierson <dlp@itasoftware.com>
 
 	* slime.el (slime-parse-context): Fix method parsing so that
