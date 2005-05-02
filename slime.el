@@ -1512,6 +1512,17 @@ See also `slime-net-valid-coding-systems'.")
   "A list of valid coding systems. 
 Each element is of the form: (NAME MULTIBYTEP CL-NAME)")
 
+(defun slime-secret ()
+  "Finds the magic secret from the user's home directory.
+Returns nil if the file doesn't exist or is empty; otherwise the first
+line of the file."
+  (condition-case err
+      (with-temp-buffer
+	(insert-file-contents "~/.slime-secret")
+	(goto-char (point-min))
+	(buffer-substring (point-min) (line-end-position)))
+    (file-error nil)))
+
 ;;; Interface
 (defun slime-net-connect (host port)
   "Establish a connection with a CL."
@@ -1528,6 +1539,8 @@ Each element is of the form: (NAME MULTIBYTEP CL-NAME)")
       (set-process-coding-system proc 
                                  slime-net-coding-system
                                  slime-net-coding-system))
+    (when-let (secret (slime-secret))
+      (slime-net-send secret proc))
     proc))
 
 (defun slime-make-net-buffer (name)
@@ -2499,6 +2512,8 @@ update window-point afterwards.  If point is initially not at
     (set-process-coding-system stream 
                                slime-net-coding-system 
                                slime-net-coding-system)
+    (when-let (secret (slime-secret))
+      (slime-net-send secret stream))
     stream))
 
 (defun slime-output-string (string)
