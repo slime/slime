@@ -1,8 +1,10 @@
-;;;; -*- Mode: lisp; indent-tabs-mode: nil; outline-regexp: ";;;;;*" -*-
+;;; -*- Mode: lisp; indent-tabs-mode: nil; outline-regexp: ";;;;;*" -*-
 ;;;
 ;;; slime-backend.lisp --- SLIME backend interface.
 ;;;
 ;;; Created by James Bielman in 2003. Released into the public domain.
+;;;
+;;;; Frontmatter
 ;;;
 ;;; This file defines the functions that must be implemented
 ;;; separately for each Lisp. Each is declared as a generic function

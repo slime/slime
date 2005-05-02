@@ -15,7 +15,7 @@
 
 ;;;; "Hot fixes"
 ;;;
-;;; Here are necessary bugfixes to the latest released version of
+;;; Here are necessary bugfixes to the oldest supported verison of
 ;;; CMUCL (currently 18e). Any fixes placed here should also be
 ;;; submitted to the `cmucl-imp' mailing list and confirmed as
 ;;; good. When a new release is made that includes the fixes we should

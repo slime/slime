@@ -1,4 +1,4 @@
-;;;; -*- mode: emacs-lisp; mode: outline-minor; outline-regexp: ";;;;+"; indent-tabs-mode: nil -*-
+;;; -*- mode: emacs-lisp; mode: outline-minor; outline-regexp: ";;;;+"; indent-tabs-mode: nil -*-
 ;; slime.el -- Superior Lisp Interaction Mode for Emacs
 ;;;; License
 ;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
@@ -8997,4 +8997,4 @@ If they are not, position point at the first syntax error found."
 
 (provide 'slime)
 
-;;;; slime.el ends here
+;;; slime.el ends here
