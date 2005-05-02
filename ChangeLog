@@ -1,3 +1,13 @@
+2005-05-02  Mark Wooding  <mdw@nsict.org>
+
+	* swank.lisp: If ~/.slime-secret exists then insist that Emacs
+	sends the contents (as a password) during initial handshaking.
+	(announce-server-port): Use :IF-EXISTS :ERROR to prevent bad guys
+	from slipping a symlink into /tmp and reading what port Lisp is
+	listening on.
+
+	* slime.el: If ~/.slime-secret exists then send it, as per above.
+
 2005-05-01  Marco Baringer  <mb@bese.it>
 
 	* slime.el (slime-inspector-reinspect): New function which
