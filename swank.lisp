@@ -373,13 +373,32 @@ connections, otherwise it will be closed after the first."
       port)))
 
 (defun serve-connection (socket style dont-close external-format)
-  (let ((client (accept-connection socket :external-format external-format)))
+  (let ((client (accept-authenticated-connection
+                 socket :external-format external-format)))
     (unless dont-close
       (close-socket socket))
     (let ((connection (create-connection client style external-format)))
       (run-hook *new-connection-hook* connection)
       (push connection *connections*)
       (serve-requests connection))))
+
+(defun accept-authenticated-connection (&rest args)
+  (let ((new (apply #'accept-connection args))
+        (secret (slime-secret)))
+    (when secret
+      (unless (string= (decode-message new) secret)
+        (close new)
+        (error "Incoming connection doesn't know the password.")))
+    new))
+
+(defun slime-secret ()
+  "Finds the magic secret from the user's home directory.  Returns nil
+if the file doesn't exist; otherwise the first line of the file."
+  (with-open-file (in
+                   (merge-pathnames (user-homedir-pathname)
+                                    #+unix #p".slime-secret")
+                   :if-does-not-exist nil)
+    (and in (read-line in nil ""))))
 
 (defun serve-requests (connection)
   "Read and process all requests on connections."
@@ -388,7 +407,7 @@ connections, otherwise it will be closed after the first."
 (defun announce-server-port (file port)
   (with-open-file (s file
                      :direction :output
-                     :if-exists :overwrite
+                     :if-exists :error
                      :if-does-not-exist :create)
     (format s "~S~%" port))
   (simple-announce-function port))
@@ -442,7 +461,8 @@ This is an optimized way for Lisp to deliver output to Emacs."
   (let* ((socket (create-socket *loopback-interface* 0))
          (port (local-port socket)))
     (encode-message `(:open-dedicated-output-stream ,port) socket-io)
-    (accept-connection socket :external-format external-format)))
+    (accept-authenticated-connection
+     socket :external-format external-format)))
 
 (defun handle-request (connection)
   "Read and process one request.  The processing is done in the extend
