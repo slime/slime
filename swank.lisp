@@ -395,8 +395,7 @@ connections, otherwise it will be closed after the first."
   "Finds the magic secret from the user's home directory.  Returns nil
 if the file doesn't exist; otherwise the first line of the file."
   (with-open-file (in
-                   (merge-pathnames (user-homedir-pathname)
-                                    #+unix #p".slime-secret")
+                   (merge-pathnames (user-homedir-pathname) #p".slime-secret")
                    :if-does-not-exist nil)
     (and in (read-line in nil ""))))
 
