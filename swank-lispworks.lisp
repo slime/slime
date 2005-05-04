@@ -528,11 +528,30 @@ Return NIL if the symbol is unbound."
       (make-dspec-progenitor-location dspec (or location filename))
       condition))))
 
+(defun unmangle-unfun (symbol)
+  "Converts symbols like 'SETF::|\"CL-USER\" \"GET\"| to
+function names like \(SETF GET)."
+  (or (and (eq (symbol-package symbol)
+               (load-time-value (find-package :setf)))
+           (let ((nregex::*regex-groupings* 0)
+                 (nregex::*regex-groups* (make-array 10))
+                 (symbol-name (symbol-name symbol)))
+             (and (funcall (load-time-value
+                             (swank::compiled-regex "^\"(.+)\" \"(.+)\"$"))
+                           symbol-name)
+                  (list 'setf
+                        (intern (apply #'subseq symbol-name
+                                       (aref nregex::*regex-groups* 2))
+                                (find-package
+                                 (apply #'subseq symbol-name
+                                        (aref nregex::*regex-groups* 1))))))))
+      symbol))
+
 (defun signal-undefined-functions (htab &optional filename)
   (maphash (lambda (unfun dspecs)
 	     (dolist (dspec dspecs)
 	       (signal-compiler-condition 
-		(format nil "Undefined function ~A" unfun)
+		(format nil "Undefined function ~A" (unmangle-unfun unfun))
 		(make-dspec-progenitor-location dspec
                                                 (or filename
                                                     (gethash (list unfun dspec)

@@ -1,3 +1,9 @@
+2005-05-05  Edi Weitz  <edi@agharta.de>
+
+	* swank-lispworks.lisp (unmangle-unfun): New function to convert
+	strange symbols in SETF package to SETF function names.
+	(signal-undefined-functions): Use it.
+
 2005-05-04  Edi Weitz  <edi@agharta.de>
 
 	* swank-lispworks.lisp (call-with-compilation-hooks): Provide
