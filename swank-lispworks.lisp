@@ -370,9 +370,32 @@ Return NIL if the symbol is unbound."
   (with-swank-compilation-unit (filename)
     (compile-file filename :load load-p)))
 
+(defvar *within-call-with-compilation-hooks* nil
+  "Whether COMPILE-FILE was called from within CALL-WITH-COMPILATION-HOOKS.")
+
+(defvar *undefined-functions-hash* nil
+  "Hash table to map info about undefined functions to pathnames.")
+
+(lw:defadvice (compile-file compile-file-and-collect-notes :around)
+    (pathname &rest rest)
+  (prog1 (apply #'lw:call-next-advice pathname rest)
+    (when *within-call-with-compilation-hooks*
+      (maphash (lambda (unfun dspecs)
+                 (dolist (dspec dspecs)
+                   (let ((unfun-info (list unfun dspec)))
+                     (unless (gethash unfun-info *undefined-functions-hash*)
+                       (setf (gethash unfun-info *undefined-functions-hash*)
+                               pathname)))))
+               compiler::*unknown-functions*))))
+
 (defimplementation call-with-compilation-hooks (function)
-  ;; #'pray instead of #'handler-bind
-  (funcall function))
+  (let ((compiler::*error-database* '())
+        (*undefined-functions-hash* (make-hash-table :test 'equal))
+        (*within-call-with-compilation-hooks* t))
+    (with-compilation-unit ()
+      (prog1 (funcall function)
+        (signal-error-data-base compiler::*error-database*)
+        (signal-undefined-functions compiler::*unknown-functions*)))))
 
 (defun map-error-database (database fn)
   (loop for (filename . defs) in database do
@@ -496,22 +519,24 @@ Return NIL if the symbol is unbound."
        nil)
      location)))
 
-(defun signal-error-data-base (database location)
+(defun signal-error-data-base (database &optional location)
   (map-error-database 
    database
    (lambda (filename dspec condition)
-     (declare (ignore filename))
      (signal-compiler-condition
       (format nil "~A" condition)
-      (make-dspec-progenitor-location dspec location)
+      (make-dspec-progenitor-location dspec (or location filename))
       condition))))
 
-(defun signal-undefined-functions (htab filename)
+(defun signal-undefined-functions (htab &optional filename)
   (maphash (lambda (unfun dspecs)
 	     (dolist (dspec dspecs)
 	       (signal-compiler-condition 
 		(format nil "Undefined function ~A" unfun)
-		(make-dspec-progenitor-location dspec filename)
+		(make-dspec-progenitor-location dspec
+                                                (or filename
+                                                    (gethash (list unfun dspec)
+                                                             *undefined-functions-hash*)))
 		nil)))
 	   htab))
 
