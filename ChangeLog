@@ -289,7 +289,7 @@
 	compiled in Emacs buffers, include the :emacs-string as a :snippet
 	hint for search-based M-. lookup.
 
-2003-05-21  Edi Weitz  <edi@agharta.de>
+2005-03-21  Edi Weitz  <edi@agharta.de>
 
 	* swank-loader-lisp (*implementation-features*, *os-features*,
 	*architecture-features*): LispWorks was completely missing.
