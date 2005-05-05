@@ -537,7 +537,7 @@ function names like \(SETF GET)."
                  (nregex::*regex-groups* (make-array 10))
                  (symbol-name (symbol-name symbol)))
              (and (funcall (load-time-value
-                             (swank::compiled-regex "^\"(.+)\" \"(.+)\"$"))
+                             (compile nil (nregex:regex-compile "^\"(.+)\" \"(.+)\"$")))
                            symbol-name)
                   (list 'setf
                         (intern (apply #'subseq symbol-name
