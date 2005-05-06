@@ -118,8 +118,9 @@
 (defun specializer-name (spec)
   (etypecase spec
     (cons spec)
-    ((or swank-mop:standard-class built-in-class) (swank-mop:class-name spec))
-    (swank-mop:eql-specializer `(eql ,(swank-mop:eql-specializer-object spec)))))
+    ((or structure-class swank-mop:standard-class built-in-class) (swank-mop:class-name spec))
+    (swank-mop:eql-specializer `(eql ,(swank-mop:eql-specializer-object spec)))
+    ))
 
 ;;; TCP Server
 
