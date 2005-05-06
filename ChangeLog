@@ -1,3 +1,8 @@
+2005-05-06  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-cmucl.lisp (post-gc-hook): Include the elapsed time and
+	the size distribution.
+
 2005-05-05  Edi Weitz  <edi@agharta.de>
 
 	* swank-lispworks.lisp (unmangle-unfun): New function to convert
