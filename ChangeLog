@@ -1,3 +1,8 @@
+2005-05-06  Alan Ruttenberg  <alanr-l@mumble.net>
+	* swank-openmcl.lisp specializer-name didn't handle
+	structure-class which caused meta-. of methods specialized on
+	defstruct arguments to fail.
+	
 2005-05-06  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-cmucl.lisp (post-gc-hook): Include the elapsed time and
