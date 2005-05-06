@@ -15,7 +15,7 @@
 
 ;;;; "Hot fixes"
 ;;;
-;;; Here are necessary bugfixes to the oldest supported verison of
+;;; Here are necessary bugfixes to the oldest supported version of
 ;;; CMUCL (currently 18e). Any fixes placed here should also be
 ;;; submitted to the `cmucl-imp' mailing list and confirmed as
 ;;; good. When a new release is made that includes the fixes we should
@@ -2064,8 +2064,8 @@ The `symbol-value' of each element is a type tag.")
 (defun sending-safe-p () (symbol-value (swank-sym :*emacs-connection*)))
 
 ;; this should probably not be here, but where else?
-(defun eval-in-emacs (form)
-  (funcall (swank-sym :eval-in-emacs) form))
+(defun eval-in-emacs (form nowait)
+  (funcall (swank-sym :eval-in-emacs) form nowait))
 
 (defun print-bytes (nbytes &optional stream)
   "Print the number NBYTES to STREAM in KB, MB, or GB units."
@@ -2080,19 +2080,39 @@ The `symbol-value' of each element is a type tag.")
 	    (t
 	     (format stream "~:D bytes" nbytes))))))
 
+(defconstant gc-generations 6)
+
+#+gencgc
+(defun generation-stats ()
+  "Return a string describing the size distribution among the generations."
+  (let* ((alloc (loop for i below gc-generations
+                     collect (lisp::gencgc-stats i)))
+         (sum (coerce (reduce #'+ alloc) 'float)))
+    (format nil "~{~3F~^/~}" 
+            (mapcar (lambda (size) (/ size sum))
+                    alloc))))
+
+(defvar *gc-start-time* 0)
+
 (defun pre-gc-hook (bytes-in-use)
   (let ((msg (format nil "[Commencing GC with ~A in use.]" 
 		     (print-bytes bytes-in-use))))
+    (setq *gc-start-time* (get-internal-real-time))
     (when (sending-safe-p)
-      (eval-in-emacs `(slime-background-message "%s" ,msg)))))
+      (eval-in-emacs `(slime-background-message "%s" ,msg) t))))
 
 (defun post-gc-hook (bytes-retained bytes-freed trigger)
-  (let ((msg (format nil "[GC completed. ~A freed  ~A retained  ~A trigger]"
+  (declare (ignore trigger))
+  (let* ((seconds (/ (- (get-internal-real-time) *gc-start-time*)
+                     internal-time-units-per-second))
+         (msg (format nil "[GC done. ~A freed  ~A retained  ~A  ~4F sec]"
 		     (print-bytes bytes-freed)
 		     (print-bytes bytes-retained)
-		     (print-bytes trigger))))
+                     #+gencgc(generation-stats)
+                     #-gencgc""
+                     seconds)))
     (when (sending-safe-p)
-      (eval-in-emacs `(slime-background-message "%s" ,msg)))))
+      (eval-in-emacs `(slime-background-message "%s" ,msg) t))))
 
 (defun install-gc-hooks ()
   (setq ext:*gc-notify-before* #'pre-gc-hook)
