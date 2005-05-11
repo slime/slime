@@ -3593,13 +3593,24 @@ Each newlines and following indentation is replaced by a single space."
 
 (defun slime-remove-old-overlays ()
   "Delete the existing Slime overlays in the current buffer."
-  (save-excursion
-    (goto-char (point-min))
-    (while (not (eobp))
-      (dolist (o (overlays-at (point)))
-        (when (overlay-get o 'slime)
-          (delete-overlay o)))
-      (goto-char (next-overlay-change (point))))))
+  (dolist (buffer (slime-filter-buffers (lambda () slime-mode)))
+    (with-current-buffer buffer
+      (save-excursion
+        (goto-char (point-min))
+        (while (not (eobp))
+          (dolist (o (overlays-at (point)))
+            (when (overlay-get o 'slime)
+              (delete-overlay o)))
+          (goto-char (next-overlay-change (point))))))))
+
+(defun slime-filter-buffers (predicate)
+  "Return a list of where PREDICATE returns true.
+PREDICATE is executed in the buffer to test."
+  (remove-if-not (lambda (%buffer)
+                   (with-current-buffer %buffer
+                     (funcall predicate)))
+                 (buffer-list)))
+
 
 
 ;;;;; Merging together compiler notes in the same location.
@@ -4648,12 +4659,14 @@ terminates a current completion."
        (equal (buffer-name (window-buffer slime-completions-window))
               slime-completions-buffer-name)))
 
-(defun slime-display-completion-list (completion-list)
+(defun slime-display-completion-list (completions base)
   (let ((savedp (slime-complete-maybe-save-window-configuration)))
     (with-output-to-temp-buffer slime-completions-buffer-name
-      (display-completion-list completion-list)
-      (with-current-buffer standard-output
-        (set-syntax-table lisp-mode-syntax-table)))
+      (display-completion-list completions)
+      (let ((offset (- (point) 1 (length base))))
+        (with-current-buffer standard-output
+          (setq completion-base-size offset)
+          (set-syntax-table lisp-mode-syntax-table))))
     (when savedp
       (setq slime-completions-window
             (get-buffer-window slime-completions-buffer-name)))))
@@ -4665,14 +4678,14 @@ Completion is performed by `slime-complete-symbol-function'."
   (interactive)
   (funcall slime-complete-symbol-function))
 
-(defun* slime-complete-symbol* ()
+(defun slime-complete-symbol* ()
   "Expand abbreviations and complete the symbol at point."
   ;; NB: It is only the name part of the symbol that we actually want
   ;; to complete -- the package prefix, if given, is just context.
-  (when (save-excursion (re-search-backward "\"[^ \t\n]+\\=" nil t))
-    (return-from slime-complete-symbol* 
-      (let ((comint-completion-addsuffix '("/" . "\"")))
-        (comint-dynamic-complete-as-filename))))
+  (or (slime-maybe-complete-as-filename)
+      (slime-expand-abbreviations-and-complete)))
+
+(defun slime-expand-abbreviations-and-complete ()
   (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
          (beg (move-marker (make-marker) (slime-symbol-start-pos)))
          (prefix (buffer-substring-no-properties beg end))
@@ -4697,13 +4710,15 @@ Completion is performed by `slime-complete-symbol-function'."
             ;; Incomplete
             (t
              (when (member completed-prefix completion-set)
-               (slime-minibuffer-respecting-message "Complete but not unique"))
+               (slime-minibuffer-respecting-message 
+                "Complete but not unique"))
              (let ((unambiguous-completion-length
                     (loop for c in completion-set
                           minimizing (or (mismatch completed-prefix c)
                                          (length completed-prefix)))))
                (goto-char (+ beg unambiguous-completion-length))
-               (slime-display-completion-list completion-set)
+               (slime-display-completion-list completion-set
+                                              completed-prefix)
                (slime-complete-delay-restoration)))))))
 
 (defun slime-complete-symbol*-fancy-bit ()
@@ -4728,31 +4743,39 @@ Completion is performed by `slime-complete-symbol-function'."
                        (not (minibuffer-window-active-p (minibuffer-window))))
               (slime-echo-arglist))))))))
 
-(defun* slime-simple-complete-symbol ()
+(defun slime-simple-complete-symbol ()
   "Complete the symbol at point.  
 Perform completion more similar to Emacs' complete-symbol."
-  (when (save-excursion (re-search-backward "\"[^ \t\n]+\\=" nil t))
-    (return-from slime-simple-complete-symbol 
-      (comint-dynamic-complete-as-filename)))
-  (let* ((end (point))
-         (beg (slime-symbol-start-pos))
-         (prefix (buffer-substring-no-properties beg end)))
-    (destructuring-bind (completion-set completed-prefix)
-        (slime-simple-completions prefix)
-      (if (null completion-set)
-          (progn (slime-minibuffer-respecting-message
-                  "Can't find completion for \"%s\"" prefix)
-                 (ding)
-                 (slime-complete-restore-window-configuration))
-        (insert-and-inherit (substring completed-prefix (length prefix)))
-        (cond ((= (length completion-set) 1)
-               (slime-minibuffer-respecting-message "Sole completion")
-               (slime-complete-restore-window-configuration))
-              ;; Incomplete
-              (t
-               (slime-minibuffer-respecting-message "Complete but not unique")
-               (slime-display-completion-list completion-set)
-               (slime-complete-delay-restoration)))))))
+  (or (slime-maybe-complete-as-filename)
+      (let* ((end (point))
+             (beg (slime-symbol-start-pos))
+             (prefix (buffer-substring-no-properties beg end))
+             (result (slime-simple-completions prefix)))
+        (destructuring-bind (completions partial) result
+          (if (null completions)
+              (progn (slime-minibuffer-respecting-message
+                      "Can't find completion for \"%s\"" prefix)
+                     (ding)
+                     (slime-complete-restore-window-configuration))
+            (insert-and-inherit (substring partial (length prefix)))
+            (cond ((= (length completions) 1)
+                   (slime-minibuffer-respecting-message "Sole completion")
+                   (slime-complete-restore-window-configuration))
+                  ;; Incomplete
+                  (t
+                   (slime-minibuffer-respecting-message 
+                    "Complete but not unique")
+                   (slime-display-completion-list completions partial)
+                   (slime-complete-delay-restoration))))))))
+
+(defun slime-maybe-complete-as-filename ()
+  "If point is at a string starting with \", complete it as filename.
+Return nil iff if point is not at filename."
+  (if (save-excursion (re-search-backward "\"[^ \t\n]+\\=" nil t))
+      (let ((comint-completion-addsuffix '("/" . "\"")))
+        (comint-dynamic-complete-as-filename)
+        t)
+    nil))
 
 (defun slime-minibuffer-respecting-message (format &rest format-args)
   "Display TEXT as a message, without hiding any minibuffer contents."
@@ -6405,10 +6428,8 @@ Full list of commands:
   "List of overlays created in source code buffers to highlight expressions.")
 
 (defun sldb-buffers ()
-  (remove-if-not (lambda (buffer) 
-                   (with-current-buffer buffer
-                     (eq major-mode 'sldb-mode)))
-                 (buffer-list)))
+  "Return a list of all sldb buffers."
+  (slime-filter-buffers (lambda () (eq major-mode 'sldb-mode))))
 
 (defun sldb-find-buffer (thread &optional connection)
   (let ((connection (or connection (slime-connection))))
