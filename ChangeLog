@@ -1,3 +1,19 @@
+2005-05-11  Tim Daly Jr.  <tim@tenkan.org>
+
+	* swank-source-path-parser.lisp (read-and-record-source-map):
+	Ensure that at least the toplevel form is in the source-map.
+
+2005-05-11  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-remove-old-overlays): Remove overlays in all
+	slime buffers not only in the current buffer.
+	(slime-filter-buffers): New helper.
+	(slime-display-completion-list): Take the completed prefix as
+	additional argument to initialize completion-base-size.  This is
+	apparently needed to make mouse-selection working.
+	(slime-maybe-complete-as-filename): Factor for common code in
+	slime-complete-symbol* and slime-simple-complete-symbol.
+
 2005-05-06  Alan Ruttenberg  <alanr-l@mumble.net>
 	* swank-openmcl.lisp specializer-name didn't handle
 	structure-class which caused meta-. of methods specialized on
