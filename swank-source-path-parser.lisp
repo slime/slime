@@ -64,8 +64,14 @@ Return the object together with a hashtable that maps
 subexpressions of the object to stream positions."
   (let* ((*source-map* (make-hash-table :test #'eq))
          (*readtable* (make-source-recording-readtable *readtable* 
-						       *source-map*)))
-    (values (read stream) *source-map*)))
+						       *source-map*))
+	 (start (file-position stream))
+	 (form (read stream))
+	 (end (file-position stream)))
+    ;; ensure that at least FORM is in the source-map
+    (unless (gethash form *source-map*)
+      (push (cons start end) (gethash form *source-map*)))
+    (values form *source-map*)))
 
 (defun read-source-form (n stream)
   "Read the Nth toplevel form number with source location recording.
