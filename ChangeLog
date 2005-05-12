@@ -1,3 +1,18 @@
+2005-05-12  Alan Ruttenberg  <alanr-l@mumble.net>
+
+	* swank.lisp Add ability to customize behavior of the repl. To do
+	so, add a function to the list swank::*slime-repl-eval-hooks*.
+	This function is passed the form typed into the repl. The function
+	should decide whether it wants to handle evaluation of the
+	form. If not, call (repl-eval-hook-pass) and the next hook is
+	tried. Otherwise the values the function returns are used instead
+	of calling eval. Inside the body of the function you can also
+	suppress having the repl print the result by calling
+	(repl-suppress-output) and/or suppress the advancement of the
+	history variables (*** ** * /// // /) by calling
+	(repl-suppress-advance-history).
+	
+	
 2005-05-11  Tim Daly Jr.  <tim@tenkan.org>
 
 	* swank-source-path-parser.lisp (read-and-record-source-map):
