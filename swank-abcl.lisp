@@ -52,44 +52,44 @@
    cl:method
    cl:standard-class
    ;; standard-class readers
-   sys::class-default-initargs
-   sys::class-direct-default-initargs
-   sys::class-direct-slots
-   sys::class-direct-subclasses
-   sys::class-direct-superclasses
-   sys::eql-specializer
+   mop::class-default-initargs
+   mop::class-direct-default-initargs
+   mop::class-direct-slots
+   mop::class-direct-subclasses
+   mop::class-direct-superclasses
+   mop::eql-specializer
    class-finalized-p ;;dummy
    cl:class-name
-   sys::class-precedence-list
+   mop::class-precedence-list
    class-prototype ;;dummy
-   sys::class-slots
+   mop::class-slots
    specializer-direct-methods ;;dummy
    ;; eql-specializer accessors
-   sys::eql-specializer-object
+   mop::eql-specializer-object
    ;; generic function readers
-   sys::generic-function-argument-precedence-order
+   mop::generic-function-argument-precedence-order
    generic-function-declarations ;;dummy
-   sys::generic-function-lambda-list
-   sys::generic-function-methods
-   sys::generic-function-method-class
-   sys::generic-function-method-combination
-   sys::generic-function-name
+   mop::generic-function-lambda-list
+   mop::generic-function-methods
+   mop::generic-function-method-class
+   mop::generic-function-method-combination
+   mop::generic-function-name
    ;; method readers
-   sys::method-generic-function
-   sys::method-function
-   sys::method-lambda-list
-   sys::method-specializers
-   sys::method-qualifiers
+   mop::method-generic-function
+   mop::method-function
+   mop::method-lambda-list
+   mop::method-specializers
+   mop::method-qualifiers
    ;; slot readers
-   sys::slot-definition-allocation
+   mop::slot-definition-allocation
    slot-definition-documentation ;;dummy
-   sys::slot-definition-initargs
-   sys::slot-definition-initform
-   sys::slot-definition-initfunction
-   sys::slot-definition-name
+   mop::slot-definition-initargs
+   mop::slot-definition-initform
+   mop::slot-definition-initfunction
+   mop::slot-definition-name
    slot-definition-type ;;dummy
-   sys::slot-definition-readers
-   sys::slot-definition-writers))
+   mop::slot-definition-readers
+   mop::slot-definition-writers))
 
 ;;;; TCP Server
 
@@ -361,20 +361,20 @@ part of *sysdep-pathnames* in swank.loader.lisp.
 (defimplementation make-default-inspector ()
   (make-instance 'abcl-inspector))
 
-(defmethod inspect-for-emacs ((slot sys::slot-definition) (inspector abcl-inspector))
+(defmethod inspect-for-emacs ((slot mop::slot-definition) (inspector abcl-inspector))
   (declare (ignore inspector))
   (values "A slot." 
-          `("Name: " (:value ,(sys::slot-definition-name slot))
+          `("Name: " (:value ,(mop::slot-definition-name slot))
             (:newline)
             "Documentation:" (:newline)
             ,@(when (slot-definition-documentation slot)
                 `((:value ,(slot-definition-documentation slot)) (:newline)))
             "Initialization:" (:newline)
-            "  Args: " (:value ,(sys::slot-definition-initargs slot)) (:newline)
-            "  Form: "  ,(if (sys::slot-definition-initfunction slot)
-                             `(:value ,(sys::slot-definition-initform slot))
+            "  Args: " (:value ,(mop::slot-definition-initargs slot)) (:newline)
+            "  Form: "  ,(if (mop::slot-definition-initfunction slot)
+                             `(:value ,(mop::slot-definition-initform slot))
                              "#<unspecified>") (:newline)
-            "  Function: " (:value ,(sys::slot-definition-initfunction slot))
+            "  Function: " (:value ,(mop::slot-definition-initfunction slot))
             (:newline))))
 
 (defmethod inspect-for-emacs ((f function) (inspector abcl-inspector))
@@ -397,10 +397,10 @@ part of *sysdep-pathnames* in swank.loader.lisp.
 
 (defimplementation inspect-for-emacs ((o t) (inspector abcl-inspector))
   (let* ((class (class-of o))
-         (slots (sys::class-slots class)))
+         (slots (mop::class-slots class)))
     (values (format nil "~A~%   is a ~A" o class)
             (mapcar (lambda (slot)
-                      (let ((name (sys::slot-definition-name slot)))
+                      (let ((name (mop::slot-definition-name slot)))
                         (cons (princ-to-string name)
                               (slot-value o name))))
                     slots))))
