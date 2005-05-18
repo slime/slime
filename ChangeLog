@@ -1,3 +1,40 @@
+2005-05-18  Marco Baringer  <mb@bese.it>
+
+	* slime.el
+
+2005-05-18  Antonio Menezes Leitao <aml@gia.ist.utl.pt>
+
+	* slime.el (slime-repl-inputed-output-face): new face.
+	(slime-current-output-id): New variable.
+	(slime-dispatch-event): Bind slime-current-output-id when
+	neccessary.
+	(slime-repl-insert-prompt): Add the neccessary text properties to
+	the result.
+	(reify-old-output): New function which makes sure swank sees
+	\(swank::get-**** ...) while the user sees the printed
+	representation of the object.
+	(slime-repl-return): When called on a old output (as per the
+	slime-repl-old-output text property, call
+	slime-repl-grab-old-output.
+	(slime-repl-send-input): Added the slime-repl-old-input text
+	property.
+	(slime-repl-grab-old-input): Keep the old input's text
+	properties (unwanted text properties are removed later).
+	(slime-repl-grab-old-output): New function.
+	(slime-repl-clear-buffer): Added call to swank::clear-****
+	(slime-repl-clear-output): Added call to swank::clear-**** and
+	bind inhibit-read-only to nil.
+	(slime-inspect): Call slime-read-object to get the value to
+	inspect.
+	(slime-read-object): New function which either reads an object
+	from the minibuffer or returns the object at point if it has the
+	slime-repl-old-output text property.	
+
+	* swank.lisp (*current-id*, ****): New variables.
+	(add-****, get-****, clear-last-****, clear-****): New functions
+	for manipulating the repl history.
+	(listener-eval): Add * to ****.
+	
 2005-05-12  Alan Ruttenberg  <alanr-l@mumble.net>
 
 	* swank.lisp Add ability to customize behavior of the repl. To do
