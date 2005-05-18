@@ -1,7 +1,3 @@
-2005-05-18  Marco Baringer  <mb@bese.it>
-
-	* slime.el
-
 2005-05-18  Antonio Menezes Leitao <aml@gia.ist.utl.pt>
 
 	* slime.el (slime-repl-inputed-output-face): new face.
