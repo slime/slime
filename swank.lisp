@@ -1645,6 +1645,8 @@ Fall back to the the current if no such package exists."
   (or (guess-package-from-string string nil)
       *package*))
 
+(defvar *current-id* nil)
+
 (defun eval-for-emacs (form buffer-package id)
   "Bind *BUFFER-PACKAGE* BUFFER-PACKAGE and evaluate FORM.
 Return the result to the continuation ID.
@@ -1656,7 +1658,8 @@ Errors are trapped and invoke our debugger."
        (unwind-protect
             (let ((*buffer-package* (guess-buffer-package buffer-package))
                   (*buffer-readtable* (guess-buffer-readtable buffer-package))
-                  (*pending-continuations* (cons id *pending-continuations*)))
+                  (*pending-continuations* (cons id *pending-continuations*))
+                  (*current-id* id))
               (check-type *buffer-package* package)
               (check-type *buffer-readtable* readtable)
               (setq result (eval form))
@@ -1822,6 +1825,27 @@ Return its name and the string to use in the prompt."
   (let ((p (setq *package* (guess-package-from-string package))))
     (list (package-name p) (package-string-for-prompt p))))
 
+;;; *, **, and *** are not enough
+(defparameter **** (list))
+
+(defun add-**** (id val)
+  (setf **** (acons id val ****))
+  t)
+
+(defun get-**** (id)
+  (let ((previous-output (assoc id ****)))
+    (when (null previous-output)
+      (error "Attempt to access no longer existing result (number ~D)." id))
+    (cdr previous-output)))
+
+(defun clear-last-**** ()
+  (setf **** (rest ****))
+  t)
+
+(defun clear-**** ()
+  (setf **** (list))
+  t)
+
 (defslimefun listener-eval (string)
   (clear-user-input)
   (with-buffer-syntax ()
@@ -1831,7 +1855,8 @@ Return its name and the string to use in the prompt."
 	(unless (or (and (eq values nil) (eq last-form nil))
 		    (eq *slime-repl-advance-history* nil))
 	  (setq *** **  ** *  * (car values)
-		/// //  // /  / values))
+		/// //  // /  / values)
+          (add-**** *current-id* *))
 	(setq +++ ++  ++ +  + last-form)
 	(if (eq *slime-repl-suppress-output* t)
 	    ""
