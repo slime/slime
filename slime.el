@@ -385,6 +385,13 @@ PROPERTIES specifies any default face properties."
   "Face for the result of an evaluation in the SLIME REPL."
   :group 'slime-repl)
 
+(defface slime-repl-inputed-output-face
+  '((((class color) (background light)) (:foreground "Red"))
+    (((class color) (background dark)) (:foreground "Red"))
+    (t (:slant italic)))
+  "Face for the result of an evaluation in the SLIME REPL."
+  :group 'slime-repl)
+
 
 ;;;; Minor modes
 ;;;;; slime-mode
@@ -2221,6 +2228,12 @@ Debugged requests are ignored."
 (slime-def-connection-var slime-continuation-counter 0
   "Continuation serial number counter.")
 
+(defvar slime-current-output-id nil
+  "The id of the current repl output.
+
+This variable is rebound by the :RETURN event handler and used by
+slime-repl-insert-prompt.")
+
 (defun slime-dispatch-event (event &optional process)
   (let ((slime-dispatching-connection (or process (slime-connection))))
     (destructure-case event
@@ -2240,7 +2253,9 @@ Debugged requests are ignored."
                           (remove rec (slime-rex-continuations)))
                     (when (null (slime-rex-continuations))
                       (slime-set-state ""))
-                    (funcall (cdr rec) value))
+                    (let ((slime-current-output-id id)) ;; this is not very
+                      ;; elegant but it avoids changing the protocol
+                      (funcall (cdr rec) value)))
                (t
                 (error "Unexpected reply: %S %S" id value)))))
       ((:debug-activate thread level)
@@ -2651,8 +2666,16 @@ end end."
   (goto-char (point-max))
   (let ((start (point)))
     (unless (bolp) (insert "\n"))
-    (slime-insert-propertized '(face slime-repl-result-face) result)
-    (unless (bolp) (insert "\n"))
+    (unless (string= "" result)
+      (slime-propertize-region `(face slime-repl-result-face
+                                 slime-repl-old-output ,slime-current-output-id
+                                 read-only t)
+        (insert result)
+        (unless (bolp) (insert "\n")))
+      (let ((inhibit-read-only t))
+        (put-text-property (- (point) 2) (point)
+                           'rear-nonsticky
+                           '(slime-repl-old-output face read-only))))
     (let ((prompt-start (point))
           (prompt (format "%s> " (slime-lisp-package-prompt-string))))
       (slime-propertize-region
@@ -2699,8 +2722,25 @@ end end."
 (defun slime-repl-current-input ()
   "Return the current input as string.  The input is the region from
 after the last prompt to the end of buffer."
-  (buffer-substring-no-properties slime-repl-input-start-mark
-                                  slime-repl-input-end-mark))
+  (let ((str-props (buffer-substring slime-repl-input-start-mark
+                                     slime-repl-input-end-mark))
+        (str-no-props (buffer-substring-no-properties slime-repl-input-start-mark
+                                                      slime-repl-input-end-mark)))
+    (reify-old-output str-props str-no-props)))
+
+(defun reify-old-output (str-props str-no-props)
+  (let ((pos (if (get-text-property 0 'slime-repl-old-output str-props)
+                 0
+               (next-single-property-change 0 'slime-repl-old-output str-props))))
+    (if pos
+      (let ((end-pos (or (next-single-property-change pos 'slime-repl-old-output str-props)
+                         (length str-props)))
+            (id (get-text-property pos 'slime-repl-old-output str-props)))
+        (concat (substring str-no-props 0 pos)
+                (slime-prin1-to-string `(swank::get-**** ,id))
+                (reify-old-output (substring str-props end-pos)
+                                  (substring str-no-props end-pos))))
+      str-no-props)))
 
 (defun slime-repl-add-to-input-history (string)
   (when (and (plusp (length string))
@@ -2713,8 +2753,9 @@ after the last prompt to the end of buffer."
 (defun slime-repl-eval-string (string)
   (slime-rex ()
       ((list 'swank:listener-eval string) (slime-lisp-package))
-    ((:ok result) (with-current-buffer (slime-output-buffer)
-                    (slime-repl-insert-prompt result)))
+    ((:ok result) 
+     (with-current-buffer (slime-output-buffer)
+       (slime-repl-insert-prompt result)))
     ((:abort) (slime-repl-show-abort))))
 
 (defun slime-repl-send-string (string &optional command-string)
@@ -2840,6 +2881,13 @@ balanced."
            (save-excursion
              (goto-char slime-repl-input-end-mark)
              (recenter -1))))
+        ((and (get-text-property (point) 'slime-repl-old-output)
+              (< (point) slime-repl-input-start-mark))
+         (slime-repl-grab-old-output end-of-input)
+         (unless (pos-visible-in-window-p slime-repl-input-end-mark)
+           (save-excursion
+             (goto-char slime-repl-input-end-mark)
+             (recenter -1))))
         (end-of-input
          (slime-repl-send-input))
         (slime-repl-read-mode ; bad style?
@@ -2860,9 +2908,10 @@ If NEWLINE is true then add a newline at the end of the input."
   (when newline 
     (insert "\n")
     (slime-repl-show-maximum-output))
-  (add-text-properties slime-repl-input-start-mark (point)
-                       `(slime-repl-old-input
-                         ,(incf slime-repl-old-input-counter)))
+  (let ((inhibit-read-only t))
+    (add-text-properties slime-repl-input-start-mark (point)
+                         `(slime-repl-old-input
+                           ,(incf slime-repl-old-input-counter))))
   (let ((overlay (make-overlay slime-repl-input-start-mark (point))))
     ;; These properties are on an overlay so that they won't be taken
     ;; by kill/yank.
@@ -2894,7 +2943,8 @@ text property `slime-repl-old-input'."
                   (goto-char (next-single-char-property-change (point) prop))
                   (skip-chars-backward "\n \t\r" beg)
                   (point)))
-           (old-input (buffer-substring-no-properties beg end))
+           (old-input (buffer-substring beg end)) ;;preserve
+           ;;properties, they will be removed later
            (offset (- (point) beg)))
       ;; Append the old input or replace the current input
       (cond (replace (goto-char slime-repl-input-start-mark))
@@ -2904,6 +2954,37 @@ text property `slime-repl-old-input'."
       (delete-region (point) slime-repl-input-end-mark)
       (save-excursion (insert old-input))
       (forward-char offset))))
+
+(defun slime-repl-grab-old-output (replace)
+  "Resend the old REPL output at point.  
+If replace it non-nil the current input is replaced with the old
+output; otherwise the new input is appended.  The old output has the
+text property `slime-repl-old-output'."
+  (let ((prop 'slime-repl-old-output))
+    (let* ((beg (save-excursion
+                  ;; previous-single-char-property-change searches for
+                  ;; a property change from the previous character,
+                  ;; but we want to look for a change from the
+                  ;; point. We step forward one char to avoid doing
+                  ;; the wrong thing if we're at the beginning of the
+                  ;; old input. -luke (18/Jun/2004)
+                  (ignore-errors (forward-char))
+                  (previous-single-char-property-change (point) prop)))
+           (end (save-excursion
+                  (goto-char (next-single-char-property-change (point) prop))
+                  (skip-chars-backward "\n \t\r" beg)
+                  (point)))
+           (old-output (buffer-substring beg end))) ;;keep properties
+      ;; Append the old input or replace the current input
+      (cond (replace (goto-char slime-repl-input-start-mark))
+            (t (goto-char slime-repl-input-end-mark)
+               (unless (eq (char-before) ?\ )
+                 (insert " "))))
+      (delete-region (point) slime-repl-input-end-mark)
+      (let ((inhibit-read-only t))
+        (slime-propertize-region 
+            '(face slime-repl-inputed-output-face)
+          (insert old-output))))))
 
 (defun slime-repl-closing-return ()
   "Evaluate the current input string after closing all open lists."
@@ -2941,6 +3022,7 @@ earlier in the buffer."
 (defun slime-repl-clear-buffer ()
   "Delete the entire output generated by the Lisp process."
   (interactive)
+  (slime-eval `(swank::clear-****))
   (set-marker slime-repl-last-input-start-mark nil)
   (let ((inhibit-read-only t))
     (delete-region (point-min) (slime-repl-input-line-beginning-position))
@@ -2949,6 +3031,7 @@ earlier in the buffer."
 (defun slime-repl-clear-output ()
   "Delete the output inserted since the last input."
   (interactive)
+  (slime-eval `(swank::clear-last-****))
   (let ((start (save-excursion 
                  (slime-repl-previous-prompt)
                  (ignore-errors (forward-sexp))
@@ -2956,10 +3039,11 @@ earlier in the buffer."
                  (point)))
         (end (1- (slime-repl-input-line-beginning-position))))
     (when (< start end)
-      (delete-region start end)
-      (save-excursion
-        (goto-char start)
-        (insert ";;; output flushed")))))
+      (let ((inhibit-read-only t))
+        (delete-region start end)
+        (save-excursion
+          (goto-char start)
+          (insert ";;; output flushed"))))))
 
 (defun slime-repl-set-package (package)
   "Set the package of the REPL buffer to PACKAGE."
@@ -7306,12 +7390,20 @@ This way you can still see what the error was after exiting SLDB."
 (defvar slime-inspector-mark-stack '())
 (defvar slime-saved-window-config)
 
-(defun slime-inspect (string)
+(defun slime-inspect (form)
   "Eval an expression and inspect the result."
-  (interactive 
-   (list (slime-read-from-minibuffer "Inspect value (evaluated): "
-				     (slime-sexp-at-point))))
-  (slime-eval-async `(swank:init-inspector ,string) 'slime-open-inspector))
+  (interactive (list (slime-read-object "Inspect value (evaluated): ")))
+  (slime-eval-async form 'slime-open-inspector))
+
+(defun slime-read-object (prompt)
+  (let ((id (get-text-property (point) 'slime-repl-old-output)))
+    (if id
+      `(swank::progn 
+         (swank::reset-inspector) 
+         (swank::inspect-object (swank::get-**** ,id)))
+      `(swank:init-inspector
+        ,(slime-read-from-minibuffer "Inspect value (evaluated): "
+				     (slime-sexp-at-point))))))
 
 (define-derived-mode slime-inspector-mode fundamental-mode "Slime-Inspector"
   (set-syntax-table lisp-mode-syntax-table)
