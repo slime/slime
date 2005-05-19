@@ -34,6 +34,7 @@
            #:*swank-pprint-bindings*
            #:*default-worker-thread-bindings*
            #:*macroexpand-printer-bindings*
+           #:*record-repl-results*
            ;; These are re-exported directly from the backend:
            #:buffer-first-change
            #:frame-source-location-for-emacs
@@ -1825,26 +1826,12 @@ Return its name and the string to use in the prompt."
   (let ((p (setq *package* (guess-package-from-string package))))
     (list (package-name p) (package-string-for-prompt p))))
 
-;;; *, **, and *** are not enough
-(defparameter **** (list))
 
-(defun add-**** (id val)
-  (setf **** (acons id val ****))
-  t)
+(defvar *record-repl-results* t
+  "Non-nil means that REPL results are saved in *REPL-RESULTS*.")
 
-(defun get-**** (id)
-  (let ((previous-output (assoc id ****)))
-    (when (null previous-output)
-      (error "Attempt to access no longer existing result (number ~D)." id))
-    (cdr previous-output)))
-
-(defun clear-last-**** ()
-  (setf **** (rest ****))
-  t)
-
-(defun clear-**** ()
-  (setf **** (list))
-  t)
+(defparameter *repl-results* '()
+  "Association list of old repl results.")
 
 (defslimefun listener-eval (string)
   (clear-user-input)
@@ -1856,13 +1843,38 @@ Return its name and the string to use in the prompt."
 		    (eq *slime-repl-advance-history* nil))
 	  (setq *** **  ** *  * (car values)
 		/// //  // /  / values)
-          (add-**** *current-id* *))
+          (when *record-repl-results*
+            (add-repl-result *current-id* *)))
 	(setq +++ ++  ++ +  + last-form)
 	(if (eq *slime-repl-suppress-output* t)
 	    ""
 	    (cond ((null values) "; No value")
 		  (t
 		   (format nil "~{~S~^~%~}" values))))))))
+
+(defun add-repl-result (id val)
+  (push (cons id val) *repl-results*)
+  t)
+
+(defslimefun get-repl-result (id)
+  "Get the result of the previous REPL evaluation with ID."
+  (let ((previous-output (assoc id *repl-results*)))
+    (when (null previous-output)
+      (if *record-repl-results*
+          (error "Attempt to access no longer existing result (number ~D)." id)
+          (error "Attempt to access unrecorded result (number ~D). ~&See ~S."
+                 id '*record-repl-results*)))
+    (cdr previous-output)))
+
+(defslimefun clear-last-repl-result ()
+  "Forget the result of the previous REPL evaluation."
+  (pop *repl-results*)
+  t)
+
+(defslimefun clear-repl-results ()
+  "Forget the results of all previous REPL evaluations."
+  (setf *repl-results* '()))
+  t)
 
 (defslimefun ed-in-emacs (&optional what)
   "Edit WHAT in Emacs.
