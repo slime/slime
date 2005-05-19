@@ -2720,8 +2720,9 @@ end end."
           (recenter -1))))))
 
 (defun slime-repl-current-input ()
-  "Return the current input as string.  The input is the region from
-after the last prompt to the end of buffer."
+  "Return the current input as string.
+The input is the region from after the last prompt to the end of
+buffer. Presentations of old results are expanded into code."
   (let ((str-props (buffer-substring slime-repl-input-start-mark
                                      slime-repl-input-end-mark))
         (str-no-props (buffer-substring-no-properties slime-repl-input-start-mark
@@ -2729,18 +2730,24 @@ after the last prompt to the end of buffer."
     (reify-old-output str-props str-no-props)))
 
 (defun reify-old-output (str-props str-no-props)
-  (let ((pos (if (get-text-property 0 'slime-repl-old-output str-props)
-                 0
-               (next-single-property-change 0 'slime-repl-old-output str-props))))
-    (if pos
+  (let ((pos (slime-property-position 'slime-repl-old-output str-props)))
+    (if (null pos)
+        str-no-props
       (let ((end-pos (or (next-single-property-change pos 'slime-repl-old-output str-props)
                          (length str-props)))
             (id (get-text-property pos 'slime-repl-old-output str-props)))
         (concat (substring str-no-props 0 pos)
-                (slime-prin1-to-string `(swank::get-**** ,id))
+                ;; Eval in the reader so that we play nice with quote.
+                ;; -luke (19/May/2005)
+                "#." (slime-prin1-to-string `(swank:get-repl-result ,id))
                 (reify-old-output (substring str-props end-pos)
-                                  (substring str-no-props end-pos))))
-      str-no-props)))
+                                  (substring str-no-props end-pos)))))))
+
+(defun slime-property-position (text-property &optional object)
+  "Return the first position of TEXT-PROPERTY, or nil."
+  (if (get-text-property 0 text-property object)
+      0
+    (next-single-property-change 0 text-property object)))
 
 (defun slime-repl-add-to-input-history (string)
   (when (and (plusp (length string))
@@ -2929,23 +2936,10 @@ If NEWLINE is true then add a newline at the end of the input."
 If replace it non-nil the current input is replaced with the old
 input; otherwise the new input is appended.  The old input has the
 text property `slime-repl-old-input'."
-  (let ((prop 'slime-repl-old-input))
-    (let* ((beg (save-excursion
-                  ;; previous-single-char-property-change searches for
-                  ;; a property change from the previous character,
-                  ;; but we want to look for a change from the
-                  ;; point. We step forward one char to avoid doing
-                  ;; the wrong thing if we're at the beginning of the
-                  ;; old input. -luke (18/Jun/2004)
-                  (ignore-errors (forward-char))
-                  (previous-single-char-property-change (point) prop)))
-           (end (save-excursion
-                  (goto-char (next-single-char-property-change (point) prop))
-                  (skip-chars-backward "\n \t\r" beg)
-                  (point)))
-           (old-input (buffer-substring beg end)) ;;preserve
-           ;;properties, they will be removed later
-           (offset (- (point) beg)))
+  (multiple-value-bind (beg end) (slime-property-bounds 'slime-repl-old-input)
+    (let ((old-input (buffer-substring beg end)) ;;preserve
+          ;;properties, they will be removed later
+          (offset (- (point) beg)))
       ;; Append the old input or replace the current input
       (cond (replace (goto-char slime-repl-input-start-mark))
             (t (goto-char slime-repl-input-end-mark)
@@ -2960,21 +2954,8 @@ text property `slime-repl-old-input'."
 If replace it non-nil the current input is replaced with the old
 output; otherwise the new input is appended.  The old output has the
 text property `slime-repl-old-output'."
-  (let ((prop 'slime-repl-old-output))
-    (let* ((beg (save-excursion
-                  ;; previous-single-char-property-change searches for
-                  ;; a property change from the previous character,
-                  ;; but we want to look for a change from the
-                  ;; point. We step forward one char to avoid doing
-                  ;; the wrong thing if we're at the beginning of the
-                  ;; old input. -luke (18/Jun/2004)
-                  (ignore-errors (forward-char))
-                  (previous-single-char-property-change (point) prop)))
-           (end (save-excursion
-                  (goto-char (next-single-char-property-change (point) prop))
-                  (skip-chars-backward "\n \t\r" beg)
-                  (point)))
-           (old-output (buffer-substring beg end))) ;;keep properties
+  (multiple-value-bind (beg end) (slime-property-bounds 'slime-repl-old-output)
+    (let ((old-output (buffer-substring beg end))) ;;keep properties
       ;; Append the old input or replace the current input
       (cond (replace (goto-char slime-repl-input-start-mark))
             (t (goto-char slime-repl-input-end-mark)
@@ -2985,6 +2966,24 @@ text property `slime-repl-old-output'."
         (slime-propertize-region 
             '(face slime-repl-inputed-output-face)
           (insert old-output))))))
+
+(defun slime-property-bounds (prop)
+  "Return two the positions of the previous and next changes to PROP.
+PROP is the name of a text property."
+  (let* ((beg (save-excursion
+                ;; previous-single-char-property-change searches for a
+                ;; property change from the previous character, but we
+                ;; want to look for a change from the point. We step
+                ;; forward one char to avoid doing the wrong thing if
+                ;; we're at the beginning of the old input. -luke
+                ;; (18/Jun/2004)
+                (ignore-errors (forward-char))
+                (previous-single-char-property-change (point) prop)))
+         (end (save-excursion
+                (goto-char (next-single-char-property-change (point) prop))
+                (skip-chars-backward "\n \t\r" beg)
+                (point))))
+    (values beg end)))
 
 (defun slime-repl-closing-return ()
   "Evaluate the current input string after closing all open lists."
@@ -3022,7 +3021,7 @@ earlier in the buffer."
 (defun slime-repl-clear-buffer ()
   "Delete the entire output generated by the Lisp process."
   (interactive)
-  (slime-eval `(swank::clear-****))
+  (slime-eval `(swank::clear-repl-results))
   (set-marker slime-repl-last-input-start-mark nil)
   (let ((inhibit-read-only t))
     (delete-region (point-min) (slime-repl-input-line-beginning-position))
@@ -3031,7 +3030,7 @@ earlier in the buffer."
 (defun slime-repl-clear-output ()
   "Delete the output inserted since the last input."
   (interactive)
-  (slime-eval `(swank::clear-last-****))
+  (slime-eval `(swank::clear-last-repl-result))
   (let ((start (save-excursion 
                  (slime-repl-previous-prompt)
                  (ignore-errors (forward-sexp))
@@ -7398,9 +7397,7 @@ This way you can still see what the error was after exiting SLDB."
 (defun slime-read-object (prompt)
   (let ((id (get-text-property (point) 'slime-repl-old-output)))
     (if id
-      `(swank::progn 
-         (swank::reset-inspector) 
-         (swank::inspect-object (swank::get-**** ,id)))
+        `(swank:init-inspector ,(format "(swank:get-repl-result %S)" id))
       `(swank:init-inspector
         ,(slime-read-from-minibuffer "Inspect value (evaluated): "
 				     (slime-sexp-at-point))))))
