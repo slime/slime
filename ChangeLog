@@ -1,3 +1,13 @@
+2005-05-19  Luke Gorrie  <luke@synap.se>
+
+	* swank.lisp (*record-repl-results*): Variable to enable/disable
+	recording of REPL results. True by default.
+	(*repl-results*): Renamed from ****.
+
+	* slime.el (slime-property-bounds): Factored out this common part
+	of slime-repl-grab-old-{input,output}.
+	(slime-read-object): Avoid inline CL code.
+
 2005-05-18  Antonio Menezes Leitao <aml@gia.ist.utl.pt>
 
 	* slime.el (slime-repl-inputed-output-face): new face.
