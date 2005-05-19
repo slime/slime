@@ -1,3 +1,17 @@
+2005-05-19  Alan Ruttenberg  <alanr-l@mumble.net>
+
+	* slime.el (slime-presentation-command-hook) new function for
+          nicer behaviour for presentations. 
+	(slime-pre-command-hook) do slime-presentation-command-hook
+	(slime-post-command-hook) put pre-command-hook back if goes away
+	(slime-copy-presentation-at-point) mouse-2 copies previous output to point
+	slime-repl-output-mouseover-face what the old output looks like when the mouse moves over it
+	  default: box around it like on lispm
+	(slime-repl-insert-prompt) add mouseover face, mouse action. newline after output not propertized.
+	(slime-property-bounds) adjust for lack of propertized newline
+	to fix: presentation region behaviour should be attach to generic property like
+	  (:acts-as-token t ) rather than tying to repl-output property
+	
 2005-05-19  Luke Gorrie  <luke@synap.se>
 
 	* swank.lisp (*record-repl-results*): Variable to enable/disable

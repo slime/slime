@@ -375,6 +375,18 @@ PROPERTIES specifies any default face properties."
   "Face for Lisp output in the SLIME REPL."
   :group 'slime-repl)
 
+
+(defface slime-repl-output-mouseover-face
+  (if (slime-face-inheritance-possible-p)
+      '((t
+         (:box
+          (:line-width 1 :color "black" :style released-button)
+          :inherit
+          (slime-repl-inputed-output-face))))
+    '((t (:box (:line-width 1 :color "black")))))
+  "Face for Lisp output in the SLIME REPL, when the mouse hovers over it"
+  :group 'slime-repl)
+
 (defface slime-repl-input-face
   '((t (:bold t)))
   "Face for previous input in the SLIME REPL."
@@ -837,11 +849,14 @@ This list of flushed between commands."))
   "Execute all functions in `slime-pre-command-actions', then NIL it."
   (dolist (undo-fn slime-pre-command-actions)
     (ignore-errors (funcall undo-fn)))
-  (setq slime-pre-command-actions nil))
+  (setq slime-pre-command-actions nil)
+  (slime-presentation-command-hook))
 
 (defun slime-post-command-hook ()
   (when (and slime-mode (slime-connected-p))
-    (slime-process-available-input)))
+    (slime-process-available-input))
+  (when (null pre-command-hook) ; sometimes this is lost
+    (add-hook 'pre-command-hook 'slime-pre-command-hook))) 
 
 (defun slime-setup-command-hooks ()
   "Setup a buffer-local `pre-command-hook' to call `slime-pre-command-hook'."
@@ -2658,6 +2673,66 @@ joined together."))
   (slime-setup-command-hooks)
   (run-hooks 'slime-repl-mode-hook))
 
+;; alanr
+(defun slime-presentation-command-hook ()
+  (let* ((props-here (text-properties-at (point)))
+         (props-before (and (not (= (point) (point-min))) (text-properties-at (1- (point)))))
+         (inside (and (getf props-here 'slime-repl-old-output)))
+         (at-beginning (and inside (not (getf props-before 'slime-repl-old-output))))
+         (at-end (and (or (= (point) (point-max)) (not (getf props-here 'slime-repl-old-output)))
+                      (getf props-before 'slime-repl-old-output)))
+         (start (cond (at-beginning (point))
+                      (inside (previous-single-property-change (point) 'slime-repl-old-output))
+                      (at-end (previous-single-property-change (1- (point)) 'slime-repl-old-output))))
+         (end (cond (at-beginning (or (next-single-property-change (point) 'slime-repl-old-output) (point-max)))
+                    (inside (or (next-single-property-change (point) 'slime-repl-old-output) (point-max)))
+                    (at-end (point)))))
+                                        ;    (setq message (format "%s %s %s %s %s" at-beginning inside at-end start end))
+    (when (and (or inside at-end) start end (> end start))
+      (let ((kind (get this-command 'action-type)))
+                                        ;        (message (format "%s %s %s %s" at-beginning inside at-end kind))
+        (cond ((and (eq kind 'inserts) inside (not at-beginning))
+               (setq this-command 'ignore-event))
+              ((and (eq kind 'deletes-forward) inside (not at-end))
+               (kill-region start end)
+               (setq this-command 'ignore-event))
+              ((and (eq kind 'deletes-backward) (or inside at-end) (not at-beginning))
+               (kill-region start end)
+               (setq this-command 'ignore-event))))))
+    )
+
+(defun slime-presentation-post-command-hook ()
+  (when (null pre-command-hook) 
+      (message "Lost the pre-command-hook. Putting it back!") ; can't seem to prevent this losing, even when trying to catch error
+      (add-hook 'pre-command-hook 'slime-pre-command-hook)
+      (add-hook 'pre-command-hook 'slime-presentation-command-hook)))
+
+(defun slime-copy-presentation-at-point (event)
+  (interactive "e")
+  (let* ((point (posn-point (event-end event)))
+         (what (get-text-property point 'slime-repl-old-output))
+         (start (previous-single-property-change point 'slime-repl-old-output))
+         (end (or (next-single-property-change point 'slime-repl-old-output) (point-max))))
+    (when (not (string-match "\\s-" (buffer-substring (1- (point)) (point))))
+        (insert " "))
+    (slime-propertize-region '(face slime-repl-inputed-output-face)
+      (insert  (buffer-substring start end)))
+    (when (and (not (eolp)) (not (looking-at "\\s-")))
+        (insert " "))))
+
+(put 'self-insert-command 'action-type 'inserts)
+(put 'self-insert-command-1 'action-type 'inserts)
+(put 'yank 'action-type 'inserts)
+(put 'kill-word 'action-type 'deletes-forward)
+(put 'delete-char 'action-type 'deletes-forward)
+(put 'kill-sexp 'action-type 'deletes-forward)
+(put 'backward-kill-sexp 'action-type 'deletes-backward)
+(put 'backward-delete-char 'action-type 'deletes-backward)
+(put 'backward-kill-word 'action-type 'deletes-backward)
+(put 'backward-delete-char-untabify 'action-type 'deletes-backward)
+(put 'slime-repl-newline-and-indent 'action-type 'inserts)
+
+
 (defun slime-repl-insert-prompt (result &optional time)
   "Goto to point max, insert RESULT and the prompt.  Set
 slime-output-end to start of the inserted text slime-input-start to
@@ -2669,9 +2744,10 @@ end end."
     (unless (string= "" result)
       (slime-propertize-region `(face slime-repl-result-face
                                  slime-repl-old-output ,slime-current-output-id
-                                 read-only t)
-        (insert result)
-        (unless (bolp) (insert "\n")))
+                                 mouse-face slime-repl-output-mouseover-face
+                                 keymap (keymap (mouse-2 . slime-copy-presentation-at-point)))
+        (insert result))
+      (unless (bolp) (insert "\n"))
       (let ((inhibit-read-only t))
         (put-text-property (- (point) 2) (point)
                            'rear-nonsticky
@@ -2888,7 +2964,8 @@ balanced."
            (save-excursion
              (goto-char slime-repl-input-end-mark)
              (recenter -1))))
-        ((and (get-text-property (point) 'slime-repl-old-output)
+        ((and (or (get-text-property (point) 'slime-repl-old-output)
+                  (get-text-property (1- (point)) 'slime-repl-old-output))
               (< (point) slime-repl-input-start-mark))
          (slime-repl-grab-old-output end-of-input)
          (unless (pos-visible-in-window-p slime-repl-input-end-mark)
@@ -2977,12 +3054,16 @@ PROP is the name of a text property."
                 ;; forward one char to avoid doing the wrong thing if
                 ;; we're at the beginning of the old input. -luke
                 ;; (18/Jun/2004)
-                (ignore-errors (forward-char))
+                (unless (not (get-text-property (point) 'slime-repl-old-output)) 
+                                        ;alanr unless we are sitting right after it May 19, 2005
+                  (ignore-errors (forward-char)))
                 (previous-single-char-property-change (point) prop)))
          (end (save-excursion
-                (goto-char (next-single-char-property-change (point) prop))
-                (skip-chars-backward "\n \t\r" beg)
-                (point))))
+                (if (get-text-property (point) 'slime-repl-old-output)
+                    (progn (goto-char (next-single-char-property-change (point) prop))
+                           (skip-chars-backward "\n \t\r" beg)
+                           (point))
+                  (point)))))
     (values beg end)))
 
 (defun slime-repl-closing-return ()
