@@ -366,7 +366,7 @@ PROPERTIES specifies any default face properties."
   "Face for the prompt in the SLIME REPL."
   :group 'slime-repl)
 
-(defcustom slime-repl-enable-presentations nil
+(defcustom slime-repl-enable-presentations t
   "Should we enable presentations"
   :type '(boolean)
   :group 'slime-repl)
