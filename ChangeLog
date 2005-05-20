@@ -1,3 +1,8 @@
+2005-05-20  Luke Gorrie  <luke@synap.se>
+
+	* swank.lisp (clear-repl-results): Fixed unbalanced parens. Thanks
+	Lawrence Mitchell.
+
 2005-05-19  Alan Ruttenberg  <alanr-l@mumble.net>
 
 	* slime.el (slime-presentation-command-hook) new function for
