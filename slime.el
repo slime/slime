@@ -2732,6 +2732,8 @@ joined together."))
 (put 'backward-delete-char-untabify 'action-type 'deletes-backward)
 (put 'slime-repl-newline-and-indent 'action-type 'inserts)
 
+(defvar slime-presentation-map (make-sparse-keymap))
+(define-key  slime-presentation-map [mouse-2] 'slime-copy-presentation-at-point)
 
 (defun slime-repl-insert-prompt (result &optional time)
   "Goto to point max, insert RESULT and the prompt.  Set
@@ -2745,7 +2747,7 @@ end end."
       (slime-propertize-region `(face slime-repl-result-face
                                  slime-repl-old-output ,slime-current-output-id
                                  mouse-face slime-repl-output-mouseover-face
-                                 keymap (keymap (mouse-2 . slime-copy-presentation-at-point)))
+                                 keymap ,slime-presentation-map)
         (insert result))
       (unless (bolp) (insert "\n"))
       (let ((inhibit-read-only t))
