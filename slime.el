@@ -366,7 +366,7 @@ PROPERTIES specifies any default face properties."
   "Face for the prompt in the SLIME REPL."
   :group 'slime-repl)
 
-(defcustom slime-repl-enable-presentations t
+(defcustom slime-repl-enable-presentations (not (featurep 'xemacs))
   "Should we enable presentations"
   :type '(boolean)
   :group 'slime-repl)
@@ -2536,8 +2536,13 @@ update window-point afterwards.  If point is initially not at
     (with-current-buffer (process-buffer process)
       (slime-output-string string))))
 
-(pushnew '(slime-repl-old-output . t) text-property-default-nonsticky :test 'equal)
-(pushnew '(slime-repl-result-face . t) text-property-default-nonsticky :test 'equal)
+;; FIXME: This conditional is not right - just used because the code
+;; here does not work in XEmacs.
+(when slime-repl-enable-presentations
+  (pushnew '(slime-repl-old-output . t) text-property-default-nonsticky
+           :test 'equal)
+  (pushnew '(slime-repl-result-face . t) text-property-default-nonsticky
+           :test 'equal))
 
 (make-variable-buffer-local
  (defvar slime-presentation-start-to-point (make-hash-table)))
@@ -2545,7 +2550,8 @@ update window-point afterwards.  If point is initially not at
 (defun slime-mark-presentation-start (process string)
   (if (and string (string-match "<\\([0-9]+\\)" string))
       (progn 
-        (let ((id (car (read-from-string (substring string (match-beginning 1) (match-end 1))))))
+        (let* ((match (substring string (match-beginning 1) (match-end 1)))
+               (id (car (read-from-string match))))
           (setf (gethash id slime-presentation-start-to-point) 
                 (with-current-buffer (slime-output-buffer)
                   (marker-position (symbol-value 'slime-output-end))))))))
@@ -2553,18 +2559,21 @@ update window-point afterwards.  If point is initially not at
 (defun slime-mark-presentation-end (process string)
   (if (and string (string-match ">\\([0-9]+\\)" string))
       (progn 
-        (let ((id (car (read-from-string (substring string (match-beginning 1) (match-end 1))))))
+        (let* ((match (substring string (match-beginning 1) (match-end 1)))
+               (id (car (read-from-string match))))
           (let ((start (gethash id slime-presentation-start-to-point)))
             (setf (gethash id slime-presentation-start-to-point) nil)
             (when start
               (with-current-buffer (slime-output-buffer)
-                (add-text-properties start (symbol-value 'slime-output-end)
-                                     `(face slime-repl-result-face
-                                            slime-repl-old-output ,id
-                                            mouse-face slime-repl-output-mouseover-face
-                                            keymap (keymap (mouse-2 . slime-copy-presentation-at-point))
-                                            rear-nonsticky (slime-repl-old-output slime-repl-result-face slime-repl-output-mouseover-face )))
-                )))))))
+                (add-text-properties
+                 start (symbol-value 'slime-output-end)
+                 `(face slime-repl-result-face
+                        slime-repl-old-output ,id
+                        mouse-face slime-repl-output-mouseover-face
+                        keymap (keymap (mouse-2 . slime-copy-presentation-at-point))
+                        rear-nonsticky (slime-repl-old-output
+                                        slime-repl-result-face
+                                        slime-repl-output-mouseover-face))))))))))
 
 (defun slime-open-stream-to-lisp (port)
   (let ((stream (open-network-stream "*lisp-output-stream*" 
@@ -2757,9 +2766,11 @@ joined together."))
   (let* ((point (posn-point (event-end event)))
          (what (get-text-property point 'slime-repl-old-output))
          (start (previous-single-property-change point 'slime-repl-old-output))
-         (end (or (next-single-property-change point 'slime-repl-old-output) (point-max))))
+         (end (or (next-single-property-change point 'slime-repl-old-output)
+                  (point-max))))
     (flet ((do-insertion ()
-             (when (not (string-match "\\s-" (buffer-substring (1- (point)) (point))))
+             (when (not (string-match "\\s-"
+                                      (buffer-substring (1- (point)) (point))))
                (insert " "))
           (slime-propertize-region '(face slime-repl-inputed-output-face)
             (insert  (buffer-substring start end)))
@@ -2769,8 +2780,7 @@ joined together."))
         (do-insertion)
       (save-excursion
         (goto-char (point-max))
-        (do-insertion)
-        )))))
+        (do-insertion))))))
 
 (put 'self-insert-command 'action-type 'inserts)
 (put 'self-insert-command-1 'action-type 'inserts)
