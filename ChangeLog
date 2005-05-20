@@ -1,20 +1,32 @@
+2005-05-20  Luke Gorrie  <luke@synap.se>
+
+	* slime.el (slime-repl-enable-presentations): Default is enabled
+	in GNU Emacs but disabled in XEmacs. Feature is not portable yet.
+	Brutally 80-column'ified alanr's latest changes :-)
+
 2005-05-20  Alan Ruttenberg  <alanr-l@mumble.net>
-	* bridge.el new file. from ilisp cvs distribution to collect in-band messages using
-	process filter mechanisms. One edit which calls bridge-insert with process argument 
-	as well as output
+	
+	* bridge.el new file. from ilisp cvs distribution to collect
+	in-band messages using process filter mechanisms. One edit which
+	calls bridge-insert with process argument as well as output
+	
 	* present.lisp new file. Enough code to do the following:
-	(swank::presenting-object object stream (print "This is really object")). This
-	makes the string "This is really object" behave like old repl input for the object.
-	Sample code for openmcl and cmucl that hooks this into the printing of unreadable objects
-	This should be part of swank.lisp (and lisp specific files) but I am too chicken to
-	merge yet. For now you have to load this file manually.
-	* slime.el changes to support above: 
-	slime-repl-enable-presentations: customize to enable this stuff. Default value t. 
-	Set to nil to turn it off.
-	slime-presentation-start-to-point: map object ids to the (point) where they start to print out.
-	slime-mark-presentation-start, slime-mark-presentation-end. handlers for the
-	bridge messages.
-	slime-open-stream-to-lisp: When enabled start the bridge and define the handlers.
+	(swank::presenting-object object stream (print "This is really
+	object")). This makes the string "This is really object" behave
+	like old repl input for the object. Sample code for openmcl and
+	cmucl that hooks this into the printing of unreadable objects This
+	should be part of swank.lisp (and lisp specific files) but I am
+	too chicken to merge yet. For now you have to load this file
+	manually.
+	
+	* slime.el changes to support above:
+	slime-repl-enable-presentations: customize to enable this stuff.
+	Default value t. Set to nil to turn it off.
+	slime-presentation-start-to-point: map object ids to the (point)
+	where they start to print out. slime-mark-presentation-start,
+	slime-mark-presentation-end. handlers for the bridge messages.
+	slime-open-stream-to-lisp: When enabled start the bridge and
+	define the handlers.
 	
 2005-05-19  Alan Ruttenberg  <alanr-l@mumble.net>
 
