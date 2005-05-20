@@ -366,6 +366,11 @@ PROPERTIES specifies any default face properties."
   "Face for the prompt in the SLIME REPL."
   :group 'slime-repl)
 
+(defcustom slime-repl-enable-presentations nil
+  "Should we enable presentations"
+  :type '(boolean)
+  :group 'slime-repl)
+
 (defface slime-repl-output-face
   (if (slime-face-inheritance-possible-p)
       '((t (:inherit font-lock-string-face)))
@@ -2531,6 +2536,36 @@ update window-point afterwards.  If point is initially not at
     (with-current-buffer (process-buffer process)
       (slime-output-string string))))
 
+(pushnew '(slime-repl-old-output . t) text-property-default-nonsticky :test 'equal)
+(pushnew '(slime-repl-result-face . t) text-property-default-nonsticky :test 'equal)
+
+(make-variable-buffer-local
+ (defvar slime-presentation-start-to-point (make-hash-table)))
+
+(defun slime-mark-presentation-start (process string)
+  (if (and string (string-match "<\\([0-9]+\\)" string))
+      (progn 
+        (let ((id (car (read-from-string (substring string (match-beginning 1) (match-end 1))))))
+          (setf (gethash id slime-presentation-start-to-point) 
+                (with-current-buffer (slime-output-buffer)
+                  (marker-position (symbol-value 'slime-output-end))))))))
+
+(defun slime-mark-presentation-end (process string)
+  (if (and string (string-match ">\\([0-9]+\\)" string))
+      (progn 
+        (let ((id (car (read-from-string (substring string (match-beginning 1) (match-end 1))))))
+          (let ((start (gethash id slime-presentation-start-to-point)))
+            (setf (gethash id slime-presentation-start-to-point) nil)
+            (when start
+              (with-current-buffer (slime-output-buffer)
+                (add-text-properties start (symbol-value 'slime-output-end)
+                                     `(face slime-repl-result-face
+                                            slime-repl-old-output ,id
+                                            mouse-face slime-repl-output-mouseover-face
+                                            keymap (keymap (mouse-2 . slime-copy-presentation-at-point))
+                                            rear-nonsticky (slime-repl-old-output slime-repl-result-face slime-repl-output-mouseover-face )))
+                )))))))
+
 (defun slime-open-stream-to-lisp (port)
   (let ((stream (open-network-stream "*lisp-output-stream*" 
                                      (slime-with-connection-buffer ()
@@ -2539,9 +2574,19 @@ update window-point afterwards.  If point is initially not at
     (when slime-kill-without-query-p
       (process-kill-without-query stream))
     (set-process-filter stream 'slime-output-filter)
-    (set-process-coding-system stream 
-                               slime-net-coding-system 
-                               slime-net-coding-system)
+    (when slime-repl-enable-presentations
+      (require 'bridge)
+      (defun bridge-insert (process output)
+        (slime-output-filter process (or output "")))
+      (install-bridge)
+      (setq bridge-destination-insert nil)
+      (setq bridge-source-insert nil)
+      (setq bridge-handlers (list* '("<" . slime-mark-presentation-start) 
+                                   '(">" . slime-mark-presentation-end)
+                                   bridge-handlers))
+      (set-process-coding-system stream 
+                                 slime-net-coding-system 
+                                 slime-net-coding-system))
     (when-let (secret (slime-secret))
       (slime-net-send secret stream))
     stream))
@@ -2713,12 +2758,19 @@ joined together."))
          (what (get-text-property point 'slime-repl-old-output))
          (start (previous-single-property-change point 'slime-repl-old-output))
          (end (or (next-single-property-change point 'slime-repl-old-output) (point-max))))
-    (when (not (string-match "\\s-" (buffer-substring (1- (point)) (point))))
-        (insert " "))
-    (slime-propertize-region '(face slime-repl-inputed-output-face)
-      (insert  (buffer-substring start end)))
-    (when (and (not (eolp)) (not (looking-at "\\s-")))
-        (insert " "))))
+    (flet ((do-insertion ()
+             (when (not (string-match "\\s-" (buffer-substring (1- (point)) (point))))
+               (insert " "))
+          (slime-propertize-region '(face slime-repl-inputed-output-face)
+            (insert  (buffer-substring start end)))
+          (when (and (not (eolp)) (not (looking-at "\\s-")))
+            (insert " "))))
+    (if (>= (point) slime-repl-prompt-start-mark)
+        (do-insertion)
+      (save-excursion
+        (goto-char (point-max))
+        (do-insertion)
+        )))))
 
 (put 'self-insert-command 'action-type 'inserts)
 (put 'self-insert-command-1 'action-type 'inserts)
@@ -2744,11 +2796,14 @@ end end."
   (let ((start (point)))
     (unless (bolp) (insert "\n"))
     (unless (string= "" result)
-      (slime-propertize-region `(face slime-repl-result-face
-                                 slime-repl-old-output ,slime-current-output-id
-                                 mouse-face slime-repl-output-mouseover-face
-                                 keymap ,slime-presentation-map)
-        (insert result))
+      (slime-propertize-region `(face slime-repl-result-face)
+        (slime-propertize-region
+            (and slime-repl-enable-presentations 
+                 `(face slime-repl-result-face
+                        slime-repl-old-output  ,(- slime-current-output-id)
+                        mouse-face slime-repl-output-mouseover-face
+                        keymap ,slime-presentation-map))
+        (insert result)))
       (unless (bolp) (insert "\n"))
       (let ((inhibit-read-only t))
         (put-text-property (- (point) 2) (point)
