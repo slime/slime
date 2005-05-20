@@ -1873,7 +1873,7 @@ Return its name and the string to use in the prompt."
 
 (defslimefun clear-repl-results ()
   "Forget the results of all previous REPL evaluations."
-  (setf *repl-results* '()))
+  (setf *repl-results* '())
   t)
 
 (defslimefun ed-in-emacs (&optional what)
