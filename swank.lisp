@@ -1858,10 +1858,10 @@ Return its name and the string to use in the prompt."
 
 (defslimefun get-repl-result (id)
   "Get the result of the previous REPL evaluation with ID."
-  (let ((previous-output (assoc id *repl-results*)))
+  (let ((previous-output (assoc (- id) *repl-results*)))
     (when (null previous-output)
       (if *record-repl-results*
-          (error "Attempt to access no longer existing result (number ~D)." id)
+          (error "Attempt to access no longer existing result (number ~D)." (- id))
           (error "Attempt to access unrecorded result (number ~D). ~&See ~S."
                  id '*record-repl-results*)))
     (cdr previous-output)))

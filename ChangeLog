@@ -1,3 +1,7 @@
+2005-05-20  Alan Ruttenberg  <alanr-l@mumble.net>
+	* swank.lisp make repl output presentation work even if
+	present.lisp not loaded
+
 2005-05-20  Luke Gorrie  <luke@synap.se>
 
 	* slime.el (slime-repl-enable-presentations): Default is enabled
