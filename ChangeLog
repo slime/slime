@@ -1,4 +1,14 @@
 2005-05-20  Alan Ruttenberg  <alanr-l@mumble.net>
+
+	* present.lisp. mouse-3 now gives a menu for actions on the
+	presentation. See documentation in file for information about how
+	to define menus. Also, disable presentations in inspector. Initial bits
+	of dealing with the possibility of presenting readable objects.
+
+	* slime.el support menu. Xemacs users beware this uses x-popup-menu, 
+	which may be fsf specific.
+	
+2005-05-20  Alan Ruttenberg  <alanr-l@mumble.net>
 	* swank.lisp make repl output presentation work even if
 	present.lisp not loaded
 

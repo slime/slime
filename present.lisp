@@ -9,7 +9,16 @@
 ;; and adds the necessary text properties to the output.
 
 (defvar *can-print-presentation* nil 
-  "set this to t in contexts where it is ok to print presentations")
+  "set this to t in contexts where it is ok to print presentations at all")
+ 
+(defvar *can-present-readable-objects* nil
+  "set this to t in context where it is ok to automatically print presentations 
+for some subset of readable objects, such as pathnames. Generally, this is unsafe
+(since you might not be printing to the listener and expecting to read
+them later) but can be appropriate in specific circumstances, such as
+when you know your output is going to the listener, or where you know
+you wouldn't be later reading the objects printed"
+  )
 
 (defvar *object-to-presentation-id* (make-hash-table :test 'eq #+openmcl :weak #+openmcl :key)
   "Store the mapping of objects to numeric identifiers")
@@ -22,6 +31,7 @@
 (defun clear-presentation-tables ()
   (clrhash *object-to-presentation-id*)
   (clrhash *presentation-id-to-object*)
+  (setq *presentation-counter* 0)
   )
 
 (defun lookup-presented-object (id)
@@ -41,6 +51,19 @@ one. Otherwise return the old one"
   "What you use in your code. Wrap this around some printing and that text will
 be sensitive and remember what object it is in the repl"
   `(presenting-object-1 ,object ,stream #'(lambda () ,@body)))
+
+(defmacro presenting-object-if (predicate object stream &body body)
+  "What you use in your code. Wrap this around some printing and that text will
+be sensitive and remember what object it is in the repl if predicate is true"
+  (let ((continue (gensym)))
+  `(let ((,continue #'(lambda () ,@body)))
+    (if ,predicate
+	(presenting-object-1 ,object ,stream ,continue)
+	(funcall ,continue)))))
+
+(defun can-present-readable-objects (&optional stream)
+  (declare (ignore stream))
+  *can-present-readable-objects*)
 
 (defun presenting-object-1 (object stream continue)
   "Uses the bridge mechanism with two messages >id and <id. The first one
@@ -113,6 +136,97 @@ I is an integer describing and FRAME a string."
 	  for i from start
 	  collect (list i (frame-for-emacs i frame)))))
 
+;; ditto inspector - isn't needed
+(defslimefun init-inspector (string)
+  (let ((*can-print-presentation* nil))
+    (with-buffer-syntax ()
+      (reset-inspector)
+      (inspect-object (eval (read-from-string string))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; menu protocol
+;;
+;; To define a menu for a type of object, define a method
+;; menu-choices-for-presentation on that object type.  This function
+;; should return a list of two element lists where the first element is
+;; The name of the menu action and the second is a function that will be
+;; called if the menu is chosen. The function will be called with 3
+;; arguments:
+;;
+;; choice: The string naming the action from above
+;;
+;; object: The object 
+;;
+;; id: The presentation id of the object
+;;
+;; You might want append (when (next-method-p) (call-next-method)) to
+;; pick up the Menu actions of superclasses.
+;;
+;; The function should return a form which will be evaluated on the emacs side.
+
+(defvar *presentation-active-menu* nil)
+
+(defun menu-choices-for-presentation-id (id)
+  (let ((ob (lookup-presented-object id)))
+    (if (eq ob :not-present)
+	'not-present
+	(let ((menu-and-actions (menu-choices-for-presentation ob)))
+	  (setq *presentation-active-menu* (cons id menu-and-actions))
+	  (mapcar 'car menu-and-actions)))))
+
+(defun swank-ioify (thing)
+  (cond ((keywordp thing) thing)
+	((and (symbolp thing)(not (find #\: (symbol-name thing))))
+	 (intern (symbol-name thing) 'swank-io-package))
+	((consp thing) (cons (swank-ioify (car thing)) (swank-ioify (cdr thing))))
+	(t thing)))
+
+(defun execute-menu-choice-for-presentation-id (id count item)
+  (let ((ob (lookup-presented-object id)))
+    (assert (eql id (car *presentation-active-menu*)) () 
+	    "Bug: Execute menu call for id ~a  but menu has id ~a"
+	    id (car *presentation-active-menu*))
+    (let ((action (second (nth (1- count) (cdr *presentation-active-menu*)))))
+      (swank-ioify (funcall action item ob id)))))
+
+;; Default method
+(defmethod menu-choices-for-presentation (ob)
+  (declare (ignore ob))
+  (list 
+   (list "Inspect" (lambda(choice object id) (declare (ignore choice object)) 
+			  `(slime-inspect-presented-object ,id)))
+   (list "Describe" (lambda(choice object id) (declare (ignore id choice)) 
+			   (describe object) 
+			   nil))
+   (list "Copy to input" (lambda(choice object id) (declare (ignore choice object id)) 
+			  `(slime-copy-presentation-at-point event)))))
+
+;; Pathname
+(defmethod menu-choices-for-presentation ((ob pathname))
+  (let* ((file-exists (ignore-errors (probe-file ob)))
+	 (source-file (and (not (equal (pathname-type ob) "lisp"))
+			   (let ((source (merge-pathnames ".lisp" ob)))
+			     (and (ignore-errors (probe-file source))
+				  source)))))
+    (remove nil 
+	    (list*
+	     (and file-exists
+		  (list "Edit this file" 
+			(lambda(choice object id) 
+			  (declare (ignore choice id)) (ed object) nil)))
+	     (and file-exists
+		  (list "Dired containing directory"
+			(lambda (choice object id)
+			  (declare (ignore choice id))
+			  `(dired ,(namestring (truename (merge-pathnames (make-pathname :name "" :type "") object)))))))
+	     (and source-file 
+		  (list "Edit lisp source file" 
+			(lambda(choice object id) 
+			  (declare (ignore choice id object)) (ed source-file) nil)))
+	     (and (next-method-p) (call-next-method))))))
+  
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ;; Example: Tell openmcl and cmucl to always present unreadable objects. try (describe 'class) 
 #+openmcl
 (in-package :ccl)
@@ -132,7 +246,10 @@ I is an integer describing and FRAME a string."
       (if id
 	  (%write-address object stream #\>)
 	  (pp-end-block stream ">"))
-      nil)))
+      nil))
+  ;(defmethod print-object :around ((pathname pathname) stream)
+  ;  (swank::presenting-object-if (swank::can-present-readable-objects stream) pathname stream (call-next-method)))
+)
 
 #+openmcl
 (ccl::def-load-pointers clear-presentations ()

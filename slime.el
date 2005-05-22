@@ -2570,7 +2570,7 @@ update window-point afterwards.  If point is initially not at
                  `(face slime-repl-result-face
                         slime-repl-old-output ,id
                         mouse-face slime-repl-output-mouseover-face
-                        keymap (keymap (mouse-2 . slime-copy-presentation-at-point))
+                        keymap ,slime-presentation-map
                         rear-nonsticky (slime-repl-old-output
                                         slime-repl-result-face
                                         slime-repl-output-mouseover-face))))))))))
@@ -2752,8 +2752,13 @@ joined together."))
                (setq this-command 'ignore-event))
               ((and (eq kind 'deletes-backward) (or inside at-end) (not at-beginning))
                (kill-region start end)
-               (setq this-command 'ignore-event))))))
-    )
+               (setq this-command 'ignore-event))
+              ((eq kind 'copies) ; need to handle removing properties when only a portion is copied. This doesn't do it.
+               (multiple-value-bind (start end) (slime-property-bounds 'slime-repl-old-input)
+                 (let ((length (abs (- start end))))
+                   ;(message (format "%s %s" length (abs (- (point) (mark))))))))
+              ))))))))
+
 
 (defun slime-presentation-post-command-hook ()
   (when (null pre-command-hook) 
@@ -2793,9 +2798,36 @@ joined together."))
 (put 'backward-kill-word 'action-type 'deletes-backward)
 (put 'backward-delete-char-untabify 'action-type 'deletes-backward)
 (put 'slime-repl-newline-and-indent 'action-type 'inserts)
+(put 'kill-ring-save 'action-type 'copies)
 
 (defvar slime-presentation-map (make-sparse-keymap))
 (define-key  slime-presentation-map [mouse-2] 'slime-copy-presentation-at-point)
+(define-key  slime-presentation-map [mouse-3] 'slime-presentation-menu)
+
+;; protocol for handling up a menu.
+;; 1. Send lisp message asking for menu choices for this object. Get back list of strings.
+;; 2. Let used choose
+;; 3. Call back to execute menu choice, passing nth and string of choice
+;; 4. Call eval on return value
+
+(defun slime-presentation-menu (event)
+  (interactive "e")
+  (let* ((point (posn-point (event-end event)))
+         (what (get-text-property point 'slime-repl-old-output))
+         (choices (slime-eval `(swank::menu-choices-for-presentation-id ,what)))
+         (count 0))
+    (when choices
+      (if (symbolp choices)
+          (x-popup-menu event `("Object no longer recorded" ("sorry" nil)))
+        (let ((choice 
+               (x-popup-menu event 
+                             `("" ("" ,@(mapcar 
+                                         (lambda(choice) 
+                                           (cons choice (incf count)))
+                                         choices))))))
+          (when choice
+            (eval (slime-eval `(swank::execute-menu-choice-for-presentation-id ,what ,choice ,(nth (1- choice) choices))))))))))
+
 
 (defun slime-repl-insert-prompt (result &optional time)
   "Goto to point max, insert RESULT and the prompt.  Set
@@ -7536,6 +7568,9 @@ This way you can still see what the error was after exiting SLDB."
 
 (defvar slime-inspector-mark-stack '())
 (defvar slime-saved-window-config)
+
+(defun slime-inspect-presented-object (id)
+  (slime-inspect `(swank::init-inspector ,(format "(swank::lookup-presented-object %s)" id))))
 
 (defun slime-inspect (form)
   "Eval an expression and inspect the result."
