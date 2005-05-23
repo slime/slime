@@ -8,18 +8,21 @@
 ;; given id and another when we are done. The process filter notices these
 ;; and adds the necessary text properties to the output.
 
+;; We only do this if we know we are printing to a slime stream,
+;; checked with the method slime-stream-p. Initially this checks for
+;; the knows slime streams looking at *connections*. In cmucl and
+;; openmcl it also checks if it is a pretty-printing stream which
+;; ultimately prints to a slime stream.
+
+;; Control
 (defvar *can-print-presentation* nil 
   "set this to t in contexts where it is ok to print presentations at all")
  
-(defvar *can-present-readable-objects* nil
-  "set this to t in context where it is ok to automatically print presentations 
-for some subset of readable objects, such as pathnames. Generally, this is unsafe
-(since you might not be printing to the listener and expecting to read
-them later) but can be appropriate in specific circumstances, such as
-when you know your output is going to the listener, or where you know
-you wouldn't be later reading the objects printed"
-  )
+(defvar *enable-presenting-readable-objects* t
+  "set this to enable automatically printing presentations for some
+subset of readable objects, such as pathnames."  )
 
+;; Saving presentations
 (defvar *object-to-presentation-id* (make-hash-table :test 'eq #+openmcl :weak #+openmcl :key)
   "Store the mapping of objects to numeric identifiers")
 
@@ -31,7 +34,6 @@ you wouldn't be later reading the objects printed"
 (defun clear-presentation-tables ()
   (clrhash *object-to-presentation-id*)
   (clrhash *presentation-id-to-object*)
-  (setq *presentation-counter* 0)
   )
 
 (defun lookup-presented-object (id)
@@ -47,6 +49,8 @@ one. Otherwise return the old one"
 	(setf (gethash object *object-to-presentation-id*) newid)
 	newid)))
 
+;; doing it
+
 (defmacro presenting-object (object stream &body body)
   "What you use in your code. Wrap this around some printing and that text will
 be sensitive and remember what object it is in the repl"
@@ -61,14 +65,31 @@ be sensitive and remember what object it is in the repl if predicate is true"
 	(presenting-object-1 ,object ,stream ,continue)
 	(funcall ,continue)))))
 
+(defmethod slime-stream-p (stream)
+  "Check if stream is one of the slime streams, since if it isnt' we
+don't want to present anything"
+  (or #+openmcl 
+      (and (typep stream 'ccl::xp-stream) 
+	   ;(slime-stream-p (ccl::xp-base-stream (slot-value stream 'ccl::xp-structure)))
+	   (slime-stream-p (ccl::%svref (slot-value stream 'ccl::xp-structure) 1)))
+      #+cmu
+      (and (typep stream 'pretty-print::pretty-stream)
+	   (slime-stream-p (pretty-print::pretty-stream-target  stream)))
+      (loop for connection in *connections*
+	    thereis (or (eq stream (connection.dedicated-output connection))
+			(eq stream (connection.socket-io connection))
+			(eq stream (connection.user-output connection))
+			(eq stream (connection.user-io connection))))))
+
 (defun can-present-readable-objects (&optional stream)
   (declare (ignore stream))
-  *can-present-readable-objects*)
+  *enable-presenting-readable-objects*)
 
 (defun presenting-object-1 (object stream continue)
   "Uses the bridge mechanism with two messages >id and <id. The first one
 says that I am starting to print an object with this id. The second says I am finished"
-  (if (and *record-repl-results* *can-print-presentation*)
+  (if (and *record-repl-results* *can-print-presentation*
+	   (slime-stream-p stream))
       (let ((pid (swank::save-presented-object object)))
 	(write-string "<" stream)
 	(prin1 pid stream)
@@ -79,7 +100,7 @@ says that I am starting to print an object with this id. The second says I am fi
 	(write-string "" stream))
       (funcall continue)))
 
-;; enable presentations inside listener eval only
+;; enable presentations inside listener eval, when compiling, when evaluating
 (defslimefun listener-eval (string)
   (clear-user-input)
   (with-buffer-syntax ()
@@ -100,6 +121,30 @@ says that I am starting to print an object with this id. The second says I am fi
 	    (cond ((null values) "; No value")
 		  (t
 		   (format nil "~{~S~^~%~}" values))))))))
+
+(defslimefun compile-string-for-emacs (string buffer position directory)
+  "Compile STRING (exerpted from BUFFER at POSITION).
+Record compiler notes signalled as `compiler-condition's."
+  (let ((*can-print-presentation* t)) 
+    (with-buffer-syntax ()
+      (swank-compiler
+       (lambda () 
+	 (let ((*compile-print* nil) (*compile-verbose* t))
+	   (swank-compile-string string :buffer buffer :position position 
+				 :directory directory)))))))
+
+(defslimefun interactive-eval (string)
+  (let ((*can-print-presentation* t)) 
+    (with-buffer-syntax ()
+      (let ((values (multiple-value-list (eval (from-string string)))))
+	(fresh-line)
+	(force-output)
+	(format-values-for-echo-area values)))))
+
+(defslimefun load-file (filename)
+  (let ((*can-print-presentation* t)) 
+    (to-string (load filename))))
+
 
 ;; hook up previous implementation. Use negative ids for repl results so as to not conflict with
 ;; the ones for other printout
@@ -204,7 +249,7 @@ I is an integer describing and FRAME a string."
 ;; Pathname
 (defmethod menu-choices-for-presentation ((ob pathname))
   (let* ((file-exists (ignore-errors (probe-file ob)))
-	 (source-file (and (not (equal (pathname-type ob) "lisp"))
+	 (source-file (and (not (member (pathname-type ob) '("lisp" "cl") :test 'equal))
 			   (let ((source (merge-pathnames ".lisp" ob)))
 			     (and (ignore-errors (probe-file source))
 				  source)))))
@@ -213,7 +258,7 @@ I is an integer describing and FRAME a string."
 	     (and file-exists
 		  (list "Edit this file" 
 			(lambda(choice object id) 
-			  (declare (ignore choice id)) (ed object) nil)))
+			  (declare (ignore choice id)) `(find-file ,(namestring (truename object))) )))
 	     (and file-exists
 		  (list "Dired containing directory"
 			(lambda (choice object id)
@@ -247,45 +292,27 @@ I is an integer describing and FRAME a string."
 	  (%write-address object stream #\>)
 	  (pp-end-block stream ">"))
       nil))
-  ;(defmethod print-object :around ((pathname pathname) stream)
-  ;  (swank::presenting-object-if (swank::can-present-readable-objects stream) pathname stream (call-next-method)))
-)
+  (defmethod print-object :around ((pathname pathname) stream)
+    (swank::presenting-object-if
+	(swank::can-present-readable-objects stream)
+	pathname stream (call-next-method))))
 
 #+openmcl
 (ccl::def-load-pointers clear-presentations ()
   (swank::clear-presentation-tables))
 
-#+cmu
-(in-package :lisp)
+(in-package :swank)
 
 #+cmu
-(ext:without-package-locks
- (defun %print-unreadable-object (object stream type identity body)
-  (when *print-readably*
-    (error 'print-not-readable :object object))
-  (flet ((print-description ()
-	   (when type
-	     (write (type-of object) :stream stream :circle nil
-		    :level nil :length nil)
-	     (when (or body identity)
-	       (write-char #\space stream)
-	       (pprint-newline :fill stream)))
-	     (when body
-	       (funcall body))
-	     (when identity
-	       (when body
-		 (write-char #\space stream)
-		 (pprint-newline :fill stream))
-	       (write-char #\{ stream)
-	       (write (get-lisp-obj-address object) :stream stream
-		      :radix nil :base 16)
-	       (write-char #\} stream))))
-   (swank::presenting-object object stream
-    (cond ((and (pp:pretty-stream-p stream) *print-pretty*)
-	   (pprint-logical-block (stream nil :prefix "#<" :suffix ">")
-	     (print-description)))
-	  (t
-	   (write-string "#<" stream)
-	   (print-description)
-	   (write-char #\> stream))))
-  nil)))
+(progn
+  (fwrappers:define-fwrapper presenting-unreadable-wrapper (object stream type identity body)
+    (presenting-object object stream
+      (fwrappers:call-next-function)))
+
+  (fwrappers:define-fwrapper presenting-pathname-wrapper (pathname stream depth)
+    (presenting-object-if (can-present-readable-objects stream) pathname stream
+      (fwrappers:call-next-function)))
+
+  (fwrappers::fwrap 'lisp::%print-pathname  #'presenting-pathname-wrapper)
+  (fwrappers::fwrap 'lisp::%print-unreadable-object  #'presenting-unreadable-wrapper)
+  )

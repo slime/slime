@@ -1,5 +1,22 @@
 2005-05-20  Alan Ruttenberg  <alanr-l@mumble.net>
 
+	* present.lisp. (slime-stream-p) check if a stream is destined for
+	output in a slime listener. (checks *connections* looks into pretty-print
+	streams in openmcl and cmucl)
+	Don't present unless (slime-stream-p stream).
+
+	Variable *enable-presenting-readable-objects* The only readable object
+	which is presented are pathnames (e.g. pathnames printed when loading
+	and *load-verbose* is t). Try the useful menu :)
+	More to come if this doesn't cause problems.  (nil this if it does)
+
+	*can-print-presentation* t around compile-string-for-emacs,
+	load-file, interactive-eval.
+
+	In cmucl, use fwrappers to modify behaviour rather than redefinition.
+
+2005-05-20  Alan Ruttenberg  <alanr-l@mumble.net>
+
 	* present.lisp. mouse-3 now gives a menu for actions on the
 	presentation. See documentation in file for information about how
 	to define menus. Also, disable presentations in inspector. Initial bits
