@@ -366,7 +366,7 @@ PROPERTIES specifies any default face properties."
   "Face for the prompt in the SLIME REPL."
   :group 'slime-repl)
 
-(defcustom slime-repl-enable-presentations (not (featurep 'xemacs))
+(defcustom slime-repl-enable-presentations t; (not (featurep 'xemacs)) - alanr should work now.
   "Should we enable presentations"
   :type '(boolean)
   :group 'slime-repl)
@@ -382,13 +382,15 @@ PROPERTIES specifies any default face properties."
 
 
 (defface slime-repl-output-mouseover-face
-  (if (slime-face-inheritance-possible-p)
-      '((t
-         (:box
-          (:line-width 1 :color "black" :style released-button)
-          :inherit
-          (slime-repl-inputed-output-face))))
-    '((t (:box (:line-width 1 :color "black")))))
+  (if (featurep 'xemacs)
+      '((t (:bold t)))
+    (if (slime-face-inheritance-possible-p)
+        '((t
+           (:box
+            (:line-width 1 :color "black" :style released-button)
+            :inherit
+            (slime-repl-inputed-output-face))))
+      '((t (:box (:line-width 1 :color "black"))))))
   "Face for Lisp output in the SLIME REPL, when the mouse hovers over it"
   :group 'slime-repl)
 
@@ -861,16 +863,19 @@ This list of flushed between commands."))
   (when (and slime-mode (slime-connected-p))
     (slime-process-available-input))
   (when (null pre-command-hook) ; sometimes this is lost
-    (add-hook 'pre-command-hook 'slime-pre-command-hook))) 
+    (add-hook 'pre-command-hook 'slime-pre-command-hook))
+  (slime-presentation-post-command-hook) )
 
 (defun slime-setup-command-hooks ()
-  "Setup a buffer-local `pre-command-hook' to call `slime-pre-command-hook'."
+  "Setup a buffer-local `pre-command-h'ook' to call `slime-pre-command-hook'."
   (make-local-hook 'pre-command-hook)
   (make-local-hook 'post-command-hook)
-  (add-hook 'pre-command-hook 'slime-pre-command-hook)
-  (add-hook 'post-command-hook 'slime-post-command-hook))
+  (add-hook 'pre-command-hook 'slime-pre-command-hook nil t) ; alanr: need local t
+  (add-hook 'post-command-hook 'slime-post-command-hook nil t))
 
-(add-hook 'slime-mode-hook 'slime-setup-command-hooks)
+;(add-hook 'slime-mode-hook 'slime-setup-command-hooks)
+;(setq post-command-hook nil)
+;(setq pre-command-hook '(completion-before-command tooltip-hide))
 
 
 ;;;; Framework'ey bits
@@ -2727,65 +2732,83 @@ joined together."))
   (slime-setup-command-hooks)
   (run-hooks 'slime-repl-mode-hook))
 
+(defvar slime-not-copying-whole-presentation nil)
+
 ;; alanr
 (defun slime-presentation-command-hook ()
   (let* ((props-here (text-properties-at (point)))
-         (props-before (and (not (= (point) (point-min))) (text-properties-at (1- (point)))))
+         (props-before (and (not (= (point) (point-min)))
+                            (text-properties-at (1- (point)))))
          (inside (and (getf props-here 'slime-repl-old-output)))
-         (at-beginning (and inside (not (getf props-before 'slime-repl-old-output))))
-         (at-end (and (or (= (point) (point-max)) (not (getf props-here 'slime-repl-old-output)))
+         (at-beginning (and inside 
+                            (not (getf props-before 'slime-repl-old-output))))
+         (at-end (and (or (= (point) (point-max))
+                          (not (getf props-here 'slime-repl-old-output)))
                       (getf props-before 'slime-repl-old-output)))
          (start (cond (at-beginning (point))
-                      (inside (previous-single-property-change (point) 'slime-repl-old-output))
-                      (at-end (previous-single-property-change (1- (point)) 'slime-repl-old-output))))
-         (end (cond (at-beginning (or (next-single-property-change (point) 'slime-repl-old-output) (point-max)))
-                    (inside (or (next-single-property-change (point) 'slime-repl-old-output) (point-max)))
+                      (inside (previous-single-property-change
+                               (point) 'slime-repl-old-output))
+                      (at-end (previous-single-property-change
+                               (1- (point)) 'slime-repl-old-output))))
+         (end (cond (at-beginning (or (next-single-property-change 
+                                       (point) 'slime-repl-old-output)
+                                      (point-max)))
+                    (inside (or (next-single-property-change (point) 'slime-repl-old-output)
+                                (point-max)))
                     (at-end (point)))))
                                         ;    (setq message (format "%s %s %s %s %s" at-beginning inside at-end start end))
     (when (and (or inside at-end) start end (> end start))
       (let ((kind (get this-command 'action-type)))
                                         ;        (message (format "%s %s %s %s" at-beginning inside at-end kind))
         (cond ((and (eq kind 'inserts) inside (not at-beginning))
-               (setq this-command 'ignore-event))
+               (setq this-command 'ignore))
               ((and (eq kind 'deletes-forward) inside (not at-end))
                (kill-region start end)
-               (setq this-command 'ignore-event))
+               (setq this-command 'ignore))
               ((and (eq kind 'deletes-backward) (or inside at-end) (not at-beginning))
                (kill-region start end)
-               (setq this-command 'ignore-event))
-              ((eq kind 'copies) ; need to handle removing properties when only a portion is copied. This doesn't do it.
+               (setq this-command 'ignore))
+              ((eq kind 'copies) 
                (multiple-value-bind (start end) (slime-property-bounds 'slime-repl-old-input)
-                 (let ((length (abs (- start end))))
+                 (setq slime-not-copying-whole-presentation
+                         (not (or (and at-beginning (>= (mark) end))
+                                  (and at-end (<= (mark) start)))))))
                    ;(message (format "%s %s" length (abs (- (point) (mark))))))))
-              ))))))))
+              )))))
 
+;; if we did not copy the whole presentation, then remove the text properties from the 
+;; top of the kill ring
 
 (defun slime-presentation-post-command-hook ()
-  (when (null pre-command-hook) 
-      (message "Lost the pre-command-hook. Putting it back!") ; can't seem to prevent this losing, even when trying to catch error
-      (add-hook 'pre-command-hook 'slime-pre-command-hook)
-      (add-hook 'pre-command-hook 'slime-presentation-command-hook)))
+  (when (eq (get this-command 'action-type) 'copies)
+    (when slime-not-copying-whole-presentation
+      (remove-text-properties 0 (length (car kill-ring)) 
+                              '(slime-repl-old-output t mouse-face t rear-nonsticky t)
+                              (car kill-ring))))
+  (setq slime-not-copying-whole-presentation nil)
+  )
 
 (defun slime-copy-presentation-at-point (event)
   (interactive "e")
-  (let* ((point (posn-point (event-end event)))
-         (what (get-text-property point 'slime-repl-old-output))
-         (start (previous-single-property-change point 'slime-repl-old-output))
-         (end (or (next-single-property-change point 'slime-repl-old-output)
-                  (point-max))))
-    (flet ((do-insertion ()
-             (when (not (string-match "\\s-"
-                                      (buffer-substring (1- (point)) (point))))
-               (insert " "))
-          (slime-propertize-region '(face slime-repl-inputed-output-face)
-            (insert  (buffer-substring start end)))
-          (when (and (not (eolp)) (not (looking-at "\\s-")))
-            (insert " "))))
-    (if (>= (point) slime-repl-prompt-start-mark)
-        (do-insertion)
-      (save-excursion
-        (goto-char (point-max))
-        (do-insertion))))))
+  (unless (and (featurep 'xemacs) (not (button-press-event-p event)))
+    (let* ((point (if (featurep 'xemacs) (event-point event) (posn-point (event-end event))))
+           (what (get-text-property point 'slime-repl-old-output))
+           (start (previous-single-property-change point 'slime-repl-old-output))
+           (end (or (next-single-property-change point 'slime-repl-old-output)
+                    (point-max))))
+      (flet ((do-insertion ()
+               (when (not (string-match "\\s-"
+                                        (buffer-substring (1- (point)) (point))))
+                 (insert " "))
+               (slime-propertize-region '(face slime-repl-inputed-output-face)
+                 (insert  (buffer-substring start end)))
+               (when (and (not (eolp)) (not (looking-at "\\s-")))
+                 (insert " "))))
+        (if (>= (point) slime-repl-prompt-start-mark)
+            (do-insertion)
+          (save-excursion
+            (goto-char (point-max))
+            (do-insertion)))))))
 
 (put 'self-insert-command 'action-type 'inserts)
 (put 'self-insert-command-1 'action-type 'inserts)
@@ -2795,14 +2818,20 @@ joined together."))
 (put 'kill-sexp 'action-type 'deletes-forward)
 (put 'backward-kill-sexp 'action-type 'deletes-backward)
 (put 'backward-delete-char 'action-type 'deletes-backward)
+(put 'delete-backward-char 'action-type 'deletes-backward)
 (put 'backward-kill-word 'action-type 'deletes-backward)
 (put 'backward-delete-char-untabify 'action-type 'deletes-backward)
 (put 'slime-repl-newline-and-indent 'action-type 'inserts)
 (put 'kill-ring-save 'action-type 'copies)
 
 (defvar slime-presentation-map (make-sparse-keymap))
+
 (define-key  slime-presentation-map [mouse-2] 'slime-copy-presentation-at-point)
 (define-key  slime-presentation-map [mouse-3] 'slime-presentation-menu)
+
+(when (featurep 'xemacs)
+  (define-key  slime-presentation-map [button2] 'slime-copy-presentation-at-point)
+  (define-key  slime-presentation-map [button3] 'slime-presentation-menu))
 
 ;; protocol for handling up a menu.
 ;; 1. Send lisp message asking for menu choices for this object. Get back list of strings.
@@ -2812,25 +2841,27 @@ joined together."))
 
 (defun slime-presentation-menu (event)
   (interactive "e")
-  (let* ((point (posn-point (event-end event)))
-         (window (caadr event)))
+  (let* ((point (if (featurep 'xemacs) (event-point event) (posn-point (event-end event))))
+         (window (if (featurep 'xemacs) (event-window event) (caadr event))))
     (with-current-buffer (window-buffer window)
       (let* ((what (get-text-property point 'slime-repl-old-output))
              (choices (slime-eval `(swank::menu-choices-for-presentation-id ,what)))
              (count 0))
         (when choices
           (if (symbolp choices)
-              (x-popup-menu event `("Object no longer recorded" ("sorry" nil)))
+              (x-popup-menu event `("Object no longer recorded" ("sorry" . ,(if (featurep 'xemacs) nil '(nil)))))
             (let ((choice 
                    (x-popup-menu event 
-                                 `("" ("" ,@(mapcar 
+                                 `(,(if (featurep 'xemacs) " " "")
+                                   ("" ,@(mapcar 
                                              (lambda(choice) 
-                                               (cons choice (incf count)))
+                                               (cons choice (intern choice))) ; use symbol as value to appease xemacs
                                              choices))))))
               (when choice
-                (eval (slime-eval 
-                       `(swank::execute-menu-choice-for-presentation-id
-                         ,what ,choice ,(nth (1- choice) choices))))))))))))
+                (let ((nchoice (1+ (position (symbol-name choice) choices :test 'equal))))
+                  (eval (slime-eval 
+                         `(swank::execute-menu-choice-for-presentation-id
+                           ,what ,nchoice ,(nth (1- nchoice) choices)))))))))))))
 
 
 (defun slime-repl-insert-prompt (result &optional time)

@@ -1,4 +1,10 @@
-2005-05-20  Alan Ruttenberg  <alanr-l@mumble.net>
+2005-05-24  Alan Ruttenberg  <alanr-l@mumble.net>
+
+	* slime.el meta-w now removes properties before insertion if you
+	cut just a portion of the presentation. Added xemacs
+	support. Enabled in xemacs.
+
+2005-05-23  Alan Ruttenberg  <alanr-l@mumble.net>
 
 	* slime.el slime-presentation-menu - use with-current-buffer, so
 	that menus work even if you are not in the buffer with the
@@ -8,7 +14,7 @@
 	slime-stream-p value. *can-print-presentation* t during
 	swank-compiler and during presentation menu action.
 
-2005-05-20  Alan Ruttenberg  <alanr-l@mumble.net>
+2005-05-22  Alan Ruttenberg  <alanr-l@mumble.net>
 
 	* present.lisp. (slime-stream-p) check if a stream is destined for
 	output in a slime listener. (checks *connections* looks into pretty-print
@@ -25,7 +31,7 @@
 
 	In cmucl, use fwrappers to modify behaviour rather than redefinition.
 
-2005-05-20  Alan Ruttenberg  <alanr-l@mumble.net>
+2005-05-22  Alan Ruttenberg  <alanr-l@mumble.net>
 
 	* present.lisp. mouse-3 now gives a menu for actions on the
 	presentation. See documentation in file for information about how
