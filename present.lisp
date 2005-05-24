@@ -65,21 +65,30 @@ be sensitive and remember what object it is in the repl if predicate is true"
 	(presenting-object-1 ,object ,stream ,continue)
 	(funcall ,continue)))))
 
-(defmethod slime-stream-p (stream)
-  "Check if stream is one of the slime streams, since if it isnt' we
+(let ((last-stream nil)
+      (last-answer nil))
+  (defmethod slime-stream-p (stream)
+    "Check if stream is one of the slime streams, since if it isn't we
 don't want to present anything"
-  (or #+openmcl 
-      (and (typep stream 'ccl::xp-stream) 
-	   ;(slime-stream-p (ccl::xp-base-stream (slot-value stream 'ccl::xp-structure)))
-	   (slime-stream-p (ccl::%svref (slot-value stream 'ccl::xp-structure) 1)))
-      #+cmu
-      (and (typep stream 'pretty-print::pretty-stream)
-	   (slime-stream-p (pretty-print::pretty-stream-target  stream)))
-      (loop for connection in *connections*
-	    thereis (or (eq stream (connection.dedicated-output connection))
-			(eq stream (connection.socket-io connection))
-			(eq stream (connection.user-output connection))
-			(eq stream (connection.user-io connection))))))
+    (if (eq last-stream stream)
+	last-answer
+	(progn
+	  (setq last-stream stream)
+	  (if (eq stream t) 
+	      (setq stream *standard-output*))
+	  (setq last-answer 
+		(or #+openmcl 
+		    (and (typep stream 'ccl::xp-stream) 
+					;(slime-stream-p (ccl::xp-base-stream (slot-value stream 'ccl::xp-structure)))
+			 (slime-stream-p (ccl::%svref (slot-value stream 'ccl::xp-structure) 1)))
+		    #+cmu
+		    (and (typep stream 'pretty-print::pretty-stream)
+			 (slime-stream-p (pretty-print::pretty-stream-target  stream)))
+		    (loop for connection in *connections*
+			  thereis (or (eq stream (connection.dedicated-output connection))
+				      (eq stream (connection.socket-io connection))
+				      (eq stream (connection.user-output connection))
+				      (eq stream (connection.user-io connection))))))))))
 
 (defun can-present-readable-objects (&optional stream)
   (declare (ignore stream))
@@ -94,10 +103,11 @@ says that I am starting to print an object with this id. The second says I am fi
 	(write-string "<" stream)
 	(prin1 pid stream)
 	(write-string "" stream)
-	(funcall continue)
-	(write-string ">" stream)
-	(prin1 pid stream)
-	(write-string "" stream))
+	(multiple-value-prog1
+	    (funcall continue)
+	  (write-string ">" stream)
+	  (prin1 pid stream)
+	  (write-string "" stream)))
       (funcall continue)))
 
 ;; enable presentations inside listener eval, when compiling, when evaluating
@@ -188,6 +198,17 @@ I is an integer describing and FRAME a string."
       (reset-inspector)
       (inspect-object (eval (read-from-string string))))))
 
+;; for load system etc
+(defun swank-compiler (function)
+  (let ((*can-print-presentation* t))
+    (clear-compiler-notes)
+    (with-simple-restart (abort "Abort SLIME compilation.")
+      (multiple-value-bind (result usecs)
+	  (handler-bind ((compiler-condition #'record-note-for-condition))
+	    (measure-time-interval function))
+	(list (to-string result)
+	      (format nil "~,2F" (/ usecs 1000000.0)))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; menu protocol
 ;;
@@ -232,7 +253,9 @@ I is an integer describing and FRAME a string."
 	    "Bug: Execute menu call for id ~a  but menu has id ~a"
 	    id (car *presentation-active-menu*))
     (let ((action (second (nth (1- count) (cdr *presentation-active-menu*)))))
-      (swank-ioify (funcall action item ob id)))))
+      (swank-ioify 
+       (let ((*can-print-presentation* t))
+	 (funcall action item ob id))))))
 
 ;; Default method
 (defmethod menu-choices-for-presentation (ob)
@@ -252,22 +275,54 @@ I is an integer describing and FRAME a string."
 	 (source-file (and (not (member (pathname-type ob) '("lisp" "cl") :test 'equal))
 			   (let ((source (merge-pathnames ".lisp" ob)))
 			     (and (ignore-errors (probe-file source))
-				  source)))))
+				  source))))
+	 (fasl-file (and file-exists 
+			 (equal (ignore-errors
+				  (namestring
+				   (truename
+				    (compile-file-pathname
+				     (merge-pathnames ".lisp" ob)))))
+				(namestring (truename ob))))))
     (remove nil 
 	    (list*
-	     (and file-exists
+	     (and (and file-exists (not fasl-file))
 		  (list "Edit this file" 
 			(lambda(choice object id) 
-			  (declare (ignore choice id)) `(find-file ,(namestring (truename object))) )))
+			  (declare (ignore choice id))
+			  `(find-file ,(namestring (truename object))))))
 	     (and file-exists
 		  (list "Dired containing directory"
 			(lambda (choice object id)
 			  (declare (ignore choice id))
-			  `(dired ,(namestring (truename (merge-pathnames (make-pathname :name "" :type "") object)))))))
+			  `(dired ,(namestring 
+				    (truename
+				     (merge-pathnames
+				      (make-pathname :name "" :type "") object)))))))
+	     (and fasl-file
+		  (list "Load this fasl file"
+			(lambda (choice object id)
+			  (declare (ignore choice id object)) 
+			  (load ob)
+			  nil)))
+	     (and fasl-file
+		  (list "Delete this fasl file"
+			(lambda (choice object id)
+			  (declare (ignore choice id object)) 
+			  (let ((nt (namestring (truename ob))))
+			    `(when (y-or-n-p ,(format nil "Delete ~a" nt))
+			      (delete-file ,(namestring (truename ob))))
+			    ))))
 	     (and source-file 
 		  (list "Edit lisp source file" 
 			(lambda(choice object id) 
-			  (declare (ignore choice id object)) (ed source-file) nil)))
+			  (declare (ignore choice id object)) 
+			  `(find-file ,(namestring (truename source-file))))))
+	     (and source-file 
+		  (list "Load lisp source file" 
+			(lambda(choice object id) 
+			  (declare (ignore choice id object)) 
+			  (load source-file)
+			  nil)))
 	     (and (next-method-p) (call-next-method))))))
   
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

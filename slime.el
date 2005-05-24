@@ -2813,20 +2813,24 @@ joined together."))
 (defun slime-presentation-menu (event)
   (interactive "e")
   (let* ((point (posn-point (event-end event)))
-         (what (get-text-property point 'slime-repl-old-output))
-         (choices (slime-eval `(swank::menu-choices-for-presentation-id ,what)))
-         (count 0))
-    (when choices
-      (if (symbolp choices)
-          (x-popup-menu event `("Object no longer recorded" ("sorry" nil)))
-        (let ((choice 
-               (x-popup-menu event 
-                             `("" ("" ,@(mapcar 
-                                         (lambda(choice) 
-                                           (cons choice (incf count)))
-                                         choices))))))
-          (when choice
-            (eval (slime-eval `(swank::execute-menu-choice-for-presentation-id ,what ,choice ,(nth (1- choice) choices))))))))))
+         (window (caadr event)))
+    (with-current-buffer (window-buffer window)
+      (let* ((what (get-text-property point 'slime-repl-old-output))
+             (choices (slime-eval `(swank::menu-choices-for-presentation-id ,what)))
+             (count 0))
+        (when choices
+          (if (symbolp choices)
+              (x-popup-menu event `("Object no longer recorded" ("sorry" nil)))
+            (let ((choice 
+                   (x-popup-menu event 
+                                 `("" ("" ,@(mapcar 
+                                             (lambda(choice) 
+                                               (cons choice (incf count)))
+                                             choices))))))
+              (when choice
+                (eval (slime-eval 
+                       `(swank::execute-menu-choice-for-presentation-id
+                         ,what ,choice ,(nth (1- choice) choices))))))))))))
 
 
 (defun slime-repl-insert-prompt (result &optional time)
