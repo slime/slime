@@ -1,5 +1,10 @@
 2005-05-24  Alan Ruttenberg  <alanr-l@mumble.net>
 
+	* slime.el text-property-default-nonsticky not defined in
+	xemacs. oops.
+
+2005-05-24  Alan Ruttenberg  <alanr-l@mumble.net>
+
 	* slime.el meta-w now removes properties before insertion if you
 	cut just a portion of the presentation. Added xemacs
 	support. Enabled in xemacs.

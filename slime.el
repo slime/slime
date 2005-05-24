@@ -2544,10 +2544,11 @@ update window-point afterwards.  If point is initially not at
 ;; FIXME: This conditional is not right - just used because the code
 ;; here does not work in XEmacs.
 (when slime-repl-enable-presentations
-  (pushnew '(slime-repl-old-output . t) text-property-default-nonsticky
-           :test 'equal)
-  (pushnew '(slime-repl-result-face . t) text-property-default-nonsticky
-           :test 'equal))
+  (when (boundp 'text-property-default-nonsticky)
+    (pushnew '(slime-repl-old-output . t) text-property-default-nonsticky
+             :test 'equal)
+    (pushnew '(slime-repl-result-face . t) text-property-default-nonsticky
+             :test 'equal)))
 
 (make-variable-buffer-local
  (defvar slime-presentation-start-to-point (make-hash-table)))
