@@ -1,3 +1,14 @@
+2005-05-27  Espen Wiborg  <espenhw@grumblesmurf.org>
+
+	* swank-corman.lisp: New file, swank for Corman Lisp.
+
+	* swank.lisp (simple-announce-function): force-output after
+	announcing.
+	(symbol-external-p): Be extra paranoid about the symbol's package;
+	find-symbol barfs on a nil package in Corman Lisp.
+
+	* swank-loader.lisp: Add Corman Lisp support.
+
 2005-05-24  Alan Ruttenberg  <alanr-l@mumble.net>
 
 	* slime.el text-property-default-nonsticky not defined in
@@ -178,6 +189,7 @@
 	slime-complete-symbol* and slime-simple-complete-symbol.
 
 2005-05-06  Alan Ruttenberg  <alanr-l@mumble.net>
+
 	* swank-openmcl.lisp specializer-name didn't handle
 	structure-class which caused meta-. of methods specialized on
 	defstruct arguments to fail.
