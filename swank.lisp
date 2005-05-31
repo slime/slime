@@ -414,7 +414,8 @@ if the file doesn't exist; otherwise the first line of the file."
 
 (defun simple-announce-function (port)
   (when *swank-debug-p*
-    (format *debug-io* "~&;; Swank started at port: ~D.~%" port)))
+    (format *debug-io* "~&;; Swank started at port: ~D.~%" port)
+    (force-output *debug-io*)))
 
 (defun open-streams (connection)
   "Return the 4 streams for IO redirection:
@@ -2359,10 +2360,13 @@ symbols are returned."
 (defun symbol-external-p (symbol &optional (package (symbol-package symbol)))
   "True if SYMBOL is external in PACKAGE.
 If PACKAGE is not specified, the home package of SYMBOL is used."
-  (multiple-value-bind (_ status)
-      (find-symbol (symbol-name symbol) (or package (symbol-package symbol)))
-    (declare (ignore _))
-    (eq status :external)))
+  (unless package
+    (setq package (symbol-package symbol)))
+  (when package
+    (multiple-value-bind (_ status)
+        (find-symbol (symbol-name symbol) package)
+      (declare (ignore _))
+      (eq status :external))))
  
 (defun find-matching-packages (name matcher)
   "Return a list of package names matching NAME with MATCHER.
