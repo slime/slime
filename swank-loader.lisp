@@ -33,10 +33,11 @@
            #+allegro '("swank-allegro" "swank-gray")
            #+clisp '("xref" "metering" "swank-clisp" "swank-gray")
            #+armedbear '("swank-abcl")
+           #+cormanlisp '("swank-corman" "swank-gray")
            )))
 
 (defparameter *implementation-features*
-  '(:allegro :lispworks :sbcl :openmcl :cmu :clisp :ccl :corman :armedbear :gcl :ecl))
+  '(:allegro :lispworks :sbcl :openmcl :cmu :clisp :ccl :corman :cormanlisp :armedbear :gcl :ecl))
 
 (defparameter *os-features*
   '(:macosx :linux :windows :mswindows :win32 :solaris :darwin :sunos :unix))
@@ -56,7 +57,8 @@
   #+allegro   excl::*common-lisp-version-number*
   #+clisp     (let ((s (lisp-implementation-version)))
                 (subseq s 0 (position #\space s)))
-  #+armedbear (lisp-implementation-version))
+  #+armedbear (lisp-implementation-version)
+  #+cormanlisp (lisp-implementation-version))
   
 (defun unique-directory-name ()
   "Return a name that can be used as a directory name that is
