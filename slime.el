@@ -6195,6 +6195,8 @@ With prefix argument include internal symbols."
 	    in '((:variable "Variable")
 		 (:function "Function")
 		 (:generic-function "Generic Function")
+                 (:macro "Macro")
+                 (:special-operator "Special Operator")
 		 (:setf "Setf")
 		 (:type "Type")
 		 (:class "Class")
@@ -6202,6 +6204,7 @@ With prefix argument include internal symbols."
                  (:alien-struct "Alien struct")
                  (:alien-union "Alien type")
                  (:alien-enum "Alien enum"))
+            ;; Properties not listed here will not show up in the buffer
 	    do
 	    (let ((value (plist-get plist prop))
 		  (start (point)))

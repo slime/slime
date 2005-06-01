@@ -1176,15 +1176,13 @@ Signal an error if no constructor can be found."
 		   (declare (ignore kind))
 		   (if (or (boundp symbol) recorded-p)
 		       (doc 'variable))))
-      (maybe-push
-       :generic-function 
-       (if (and (fboundp symbol)
-                (typep (fdefinition symbol) 'generic-function))
-           (doc 'function)))
-      (maybe-push
-       :function (if (and (fboundp symbol)
-                          (not (typep (fdefinition symbol) 'generic-function)))
-                     (doc 'function)))
+      (when (fboundp symbol)
+	(maybe-push
+	 (cond ((macro-function symbol)     :macro)
+	       ((special-operator-p symbol) :special-operator)
+	       ((genericp (fdefinition symbol)) :generic-function)
+	       (t :function))
+	 (doc 'function)))
       (maybe-push
        :setf (if (or (ext:info setf inverse symbol)
 		     (ext:info setf expander symbol))
@@ -2086,7 +2084,7 @@ The `symbol-value' of each element is a type tag.")
 (defun generation-stats ()
   "Return a string describing the size distribution among the generations."
   (let* ((alloc (loop for i below gc-generations
-                     collect (lisp::gencgc-stats i)))
+                      collect (lisp::gencgc-stats i)))
          (sum (coerce (reduce #'+ alloc) 'float)))
     (format nil "~{~3F~^/~}" 
             (mapcar (lambda (size) (/ size sum))
@@ -2095,9 +2093,9 @@ The `symbol-value' of each element is a type tag.")
 (defvar *gc-start-time* 0)
 
 (defun pre-gc-hook (bytes-in-use)
+  (setq *gc-start-time* (get-internal-real-time))
   (let ((msg (format nil "[Commencing GC with ~A in use.]" 
 		     (print-bytes bytes-in-use))))
-    (setq *gc-start-time* (get-internal-real-time))
     (when (sending-safe-p)
       (eval-in-emacs `(slime-background-message "%s" ,msg) t))))
 

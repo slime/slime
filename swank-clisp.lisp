@@ -143,16 +143,23 @@
   "Return a plist describing SYMBOL.
 Return NIL if the symbol is unbound."
   (let ((result ()))
-    (labels ((doc (kind)
-	       (or (documentation symbol kind) :not-documented))
-	     (maybe-push (property value)
-	       (when value
-		 (setf result (list* property value result)))))
-      (when (fboundp symbol)
-	(if (macro-function symbol)
-	    (setf (getf result :macro) (doc 'function))
-	    (setf (getf result :function) (doc 'function))))
+    (flet ((doc (kind)
+	     (or (documentation symbol kind) :not-documented))
+	   (maybe-push (property value)
+	     (when value
+	       (setf result (list* property value result)))))
       (maybe-push :variable (when (boundp symbol) (doc 'variable)))
+      (when (fboundp symbol)
+	(maybe-push
+	 ;; Report WHEN etc. as macros, even though they may be
+	 ;; implemented as special operators.
+	 (if (macro-function symbol) :macro
+	     (typecase (fdefinition symbol)
+	       (generic-function :generic-function)
+	       (function         :function)
+	       ;; (type-of 'progn) -> ext:special-operator
+	       (t                :special-operator)))
+	 (doc 'function)))
       (maybe-push :class (when (find-class symbol nil) 
 			   (doc 'type))) ;this should be fixed
       result)))

@@ -594,20 +594,25 @@ This is useful when debugging the definition-finding code.")
   "Return a plist describing SYMBOL.
 Return NIL if the symbol is unbound."
   (let ((result '()))
-    (labels ((doc (kind)
-	       (or (documentation symbol kind) :not-documented))
-	     (maybe-push (property value)
-	       (when value
-		 (setf result (list* property value result)))))
+    (flet ((doc (kind)
+             (or (documentation symbol kind) :not-documented))
+           (maybe-push (property value)
+             (when value
+               (setf result (list* property value result)))))
       (maybe-push
        :variable (multiple-value-bind (kind recorded-p)
 		     (sb-int:info :variable :kind symbol)
 		   (declare (ignore kind))
 		   (if (or (boundp symbol) recorded-p)
 		       (doc 'variable))))
-      (maybe-push
-       :function (if (fboundp symbol) 
-		     (doc 'function)))
+      (when (fboundp symbol)
+	(maybe-push
+	 (cond ((macro-function symbol)     :macro)
+	       ((special-operator-p symbol) :special-operator)
+	       ((typep (fdefinition symbol) 'generic-function)
+                :generic-function)
+	       (t :function))
+	 (doc 'function)))
       (maybe-push
        :setf (if (or (sb-int:info :setf :inverse symbol)
 		     (sb-int:info :setf :expander symbol))
@@ -1130,8 +1135,10 @@ stack."
 (defimplementation quit-lisp ()
   #+sb-thread
   (dolist (thread (remove (current-thread) (all-threads)))
-    (ignore-errors (sb-thread:terminate-thread thread)))
+    (ignore-errors (sb-thread:interrupt-thread 
+                    thread (lambda () (sb-ext:quit :recklessly-p t)))))
   (sb-ext:quit))
+
 
 
 ;;Trace implementations
