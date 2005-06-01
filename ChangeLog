@@ -1,3 +1,8 @@
+2005-06-01  Joerg Hoehle <hoehle@users.sourceforge.net>
+
+	* swank-clisp (getpid): Updates for current CLISP versions. Use
+	defimplementation. Define always (slime needs it).
+	
 2005-06-01  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-background-activities-enabled-p): Return nil
