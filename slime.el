@@ -1776,11 +1776,17 @@ This overrides `slime-default-connection'."))
 Used for all Lisp communication, except when overridden by
 `slime-dispatching-connection' or `slime-buffer-connection'.")
 
+(defun slime-current-connection ()
+  "Return the connection to use for Lisp interaction.
+Return nil if there's no connection."
+  (or slime-dispatching-connection
+      slime-buffer-connection
+      slime-default-connection))
+  
 (defun slime-connection ()
-  "Return the connection to use for Lisp interaction."
-  (let ((conn (or slime-dispatching-connection
-                  slime-buffer-connection
-                  slime-default-connection)))
+  "Return the connection to use for Lisp interaction.
+Signal an error if there's no connection."
+  (let ((conn (slime-current-connection)))
     (cond ((and (not conn) slime-net-processes)
            (error "No default connection selected."))
           ((not conn)
@@ -2033,7 +2039,8 @@ Can return nil if there's no process object for the connection."
   "*If true, don't send background requests if Lisp is already busy.")
 
 (defun slime-background-activities-enabled-p ()
-  (and (slime-connected-p)
+  (and slime-mode
+       (slime-current-connection)
        (or (not (slime-busy-p))
            (not slime-inhibit-pipelining))))
 
