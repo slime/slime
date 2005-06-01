@@ -32,8 +32,8 @@
   (when (find-package "LINUX")
     (pushnew :linux *features*)))
 
-;;;; if this listp has the complete CLOS then we use it, othewise we
-;;;; build up a "fake" swank-mop and then overide the methods in the
+;;;; if this lisp has the complete CLOS then we use it, otherwise we
+;;;; build up a "fake" swank-mop and then override the methods in the
 ;;;; inspector.
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -42,7 +42,7 @@
          (eql :external
               (nth-value 1 (find-symbol (string ':standard-slot-definition)
 					:clos))))
-    "True in those CLISP imagse which have a complete MOP implementation."))
+    "True in those CLISP images which have a complete MOP implementation."))
 
 #+#.(cl:if swank-backend::*have-mop* '(cl:and) '(cl:or))
 (progn
@@ -80,20 +80,17 @@
 (defimplementation call-without-interrupts (fn)
   (funcall fn))
 
-#+unix 
-(defmethod getpid () 
-  (funcall (or (find-symbol "PROGRAM-ID" :system)
- 	       (find-symbol "PROCESS-ID" :system)
- 	       (error "getpid not implemented"))))
-
-#+win32 
-(defmethod getpid ()
-  (cond ((find-package :win32)
-	 (funcall (find-symbol "GetCurrentProcessId" :win32)))
-	(t
-	 (system::getenv "PID"))))
-
-;; the above is likely broken; we need windows NT users!
+(let ((getpid (or (find-symbol "PROCESS-ID" :system)
+		  ;; old name prior to 2005-03-01, clisp <= 2.33.2
+		  (find-symbol "PROGRAM-ID" :system)
+		  #+win32 ; integrated into the above since 2005-02-24
+		  (and (find-package :win32) ; optional modules/win32
+		       (find-symbol "GetCurrentProcessId" :win32)))))
+  (defimplementation getpid () ; a required interface
+    (cond
+      (getpid (funcall getpid))
+      #+win32 ((ext:getenv "PID")) ; where does that come from?
+      (t -1))))
 
 (defimplementation lisp-implementation-type-name ()
   "clisp")
