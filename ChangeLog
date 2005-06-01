@@ -1,3 +1,8 @@
+2005-06-01  Espen Wiborg  <espenhw@grumblesmurf.org>
+
+	* swank-loader.lisp: Redefine compile-files-if-needed-serially for
+	Corman Lisp to load everything from source.
+
 2005-05-27  Espen Wiborg  <espenhw@grumblesmurf.org>
 
 	* swank-corman.lisp: New file, swank for Corman Lisp.

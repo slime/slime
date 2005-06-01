@@ -125,6 +125,12 @@ recompiled."
               (load source-pathname))
             ))))))
 
+#+cormanlisp
+(defun compile-files-if-needed-serially (files)
+  "Corman Lisp has trouble with compiled files."
+  (dolist (file files)
+    (load file :verbose t)))
+
 (compile-files-if-needed-serially
   (append (list (make-swank-pathname "swank-backend"))
           *sysdep-pathnames* 
