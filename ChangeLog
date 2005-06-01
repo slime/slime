@@ -1,7 +1,12 @@
 2005-06-01  Helmut Eller  <heller@common-lisp.net>
 
-	* slime.el (slime-first-change-hook): Don't do anything if
-	slime-mode is disabled.
+	* slime.el (slime-background-activities-enabled-p): Return nil
+	instead of signalling an error if there is a open but no default
+	connection.
+	(slime-current-connection): New helper function.
+	(slime-connection): Use it.
+	(slime-first-change-hook): Only run when
+	slime-background-activities-enabled-p.
 
 2005-06-01  Joerg Hoehle <hoehle@users.sourceforge.net>
 
