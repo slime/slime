@@ -1,3 +1,10 @@
+2005-06-01  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-load-system, slime-oos): Fix bug related to file
+	locking.  Don't bind the variable system-name.  system-name is a
+	predefined Emacs variable and is used among other things for lock
+	filenames.
+
 2005-06-01  Joerg Hoehle <hoehle@users.sourceforge.net>
 
 	* swank-clisp (getpid): Updates for current CLISP versions. Use

@@ -870,7 +870,8 @@ This list of flushed between commands."))
   "Setup a buffer-local `pre-command-h'ook' to call `slime-pre-command-hook'."
   (make-local-hook 'pre-command-hook)
   (make-local-hook 'post-command-hook)
-  (add-hook 'pre-command-hook 'slime-pre-command-hook nil t) ; alanr: need local t
+  ;; alanr: need local t
+  (add-hook 'pre-command-hook 'slime-pre-command-hook nil t) 
   (add-hook 'post-command-hook 'slime-post-command-hook nil t))
 
 ;(add-hook 'slime-mode-hook 'slime-setup-command-hooks)
@@ -3763,13 +3764,13 @@ See `slime-compile-and-load-file' for further details."
     (and asdf-systems-in-directory
          (file-name-sans-extension (car asdf-systems-in-directory)))))
 
-(defun slime-load-system (&optional system-name)
+(defun slime-load-system (&optional system)
   "Compile and load an ASDF system.  
 
 Default system name is taken from first file matching *.asd in current
 buffer's working directory"
   (interactive (list (slime-read-system-name)))
-  (slime-oos system-name "LOAD-OP"))
+  (slime-oos system "LOAD-OP"))
 
 (defun slime-read-system-name (&optional prompt initial-value)
   "Read a system name from the minibuffer, prompting with PROMPT."
@@ -3782,14 +3783,14 @@ buffer's working directory"
     (completing-read prompt alist nil nil
                      (or initial-value (slime-find-asd) ""))))
 
-(defun slime-oos (system-name operation &rest keyword-args)
+(defun slime-oos (system operation &rest keyword-args)
   (save-some-buffers)
   (slime-display-output-buffer)
   (message "Performing ASDF %S%s on system %S"
            operation (if keyword-args (format " %S" keyword-args) "")
-           system-name)
+           system)
   (slime-eval-async
-   `(swank:operate-on-system-for-emacs ,system-name ,operation ,@keyword-args)
+   `(swank:operate-on-system-for-emacs ,system ,operation ,@keyword-args)
    (slime-compilation-finished-continuation)))
 
 (defun slime-compile-defun ()
