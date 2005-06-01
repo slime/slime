@@ -1,3 +1,18 @@
+2005-06-01  Joerg Hoehle <hoehle@users.sourceforge.net>
+
+	* swank-cmucl.lisp, swank-sbcl.lisp, swank-clisp.lisp
+	(describe-symbol-for-emacs): Distinguish macro and special
+	operators from functions.
+
+	* slime.el (slime-print-apropos): Must keep in sync with above,
+	therefore added :macro and :special-operator properties.
+
+	* swank.lisp (present-symbol-before-p): Make it conform to its
+	specification -- sort first by package and then by symbol name.
+
+	* swank-clisp.lisp (describe-symbol-for-emacs): Report :alien-type
+	when the name is known as foreign type.
+
 2005-06-01  Espen Wiborg  <espenhw@grumblesmurf.org>
 
 	* swank-loader.lisp: Redefine compile-files-if-needed-serially for
