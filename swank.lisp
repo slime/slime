@@ -2930,19 +2930,28 @@ wrapped in a list."
     (let ((y (funcall f x)))
       (and y (list y)))))
 
-(defun present-symbol-before-p (a b)
+(defun present-symbol-before-p (x y)
   "Return true if A belongs before B in a printed summary of symbols.
 Sorted alphabetically by package name and then symbol name, except
 that symbols accessible in the current package go first."
+  (declare (type symbol x y))
   (flet ((accessible (s)
-           (find-symbol (symbol-name s) *buffer-package*)))
-    (cond ((and (accessible a) (accessible b))
-           (string< (symbol-name a) (symbol-name b)))
-          ((accessible a) t)
-          ((accessible b) nil)
-          (t
-           (string< (package-name (symbol-package a))
-                    (package-name (symbol-package b)))))))
+	   (or
+	    (eq (symbol-package s) *buffer-package*) ; a short-cut
+            ;; Test breaks on NIL for package that does not inherit it
+	    (eq (find-symbol (symbol-name s) *buffer-package*) s))))
+    (let ((ax (accessible x)) (ay (accessible y)))
+    (if ax
+	(if ay
+	    (string< (symbol-name x) (symbol-name y))
+	    t)
+	(if ay
+	    nil
+	    (let ((px (symbol-package x))
+		  (py (symbol-package y)))
+	      (if (eq px py)
+		  (string< (symbol-name x) (symbol-name y))
+		  (string< px py))))))))
 
 (let ((regex-hash (make-hash-table :test #'equal)))
   (defun compiled-regex (regex-string)
