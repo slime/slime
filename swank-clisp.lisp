@@ -162,6 +162,18 @@ Return NIL if the symbol is unbound."
 	 (doc 'function)))
       (maybe-push :class (when (find-class symbol nil) 
 			   (doc 'type))) ;this should be fixed
+      ;; Let this code work compiled in images without FFI
+      (let ((types (load-time-value
+		    (and (find-package "FFI")
+			 (symbol-value 
+			  (find-symbol "*C-TYPE-TABLE*" "FFI"))))))
+	;; Use ffi::*c-type-table* so as not to suffer the overhead of
+	;; (ignore-errors (ffi:parse-c-type symbol)) for 99.9% of symbols
+	;; which are not FFI type names.
+	(when (and types (nth-value 1 (gethash symbol types)))
+	  ;; Maybe use (case (head (ffi:deparse-c-type)))
+	  ;; to distinguish struct and union types?
+	  (maybe-push :alien-type :not-documented)))
       result)))
 
 (defimplementation describe-definition (symbol namespace)
