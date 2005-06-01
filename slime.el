@@ -5586,7 +5586,8 @@ The result is a (possibly empty) list of definitions."
   ;; breaks. -luke (26/Jul/2004)
   (save-excursion
     (save-match-data
-      (when (and (buffer-file-name)
+      (when (and slime-mode
+                 (buffer-file-name)
                  (slime-connected-p))
         (let ((filename (slime-to-lisp-filename (buffer-file-name))))
           (slime-eval-async `(swank:buffer-first-change ,filename)))))))
