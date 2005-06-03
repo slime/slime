@@ -1,3 +1,7 @@
+2005-06-03  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-cmucl.lisp (sis/misc): Return t for :interactive-p.
+
 2005-06-01  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-load-system, slime-oos): Fix bug related to file

@@ -271,7 +271,8 @@ specific functions.")
     (:line-length nil)
     (:get-command nil)
     (:element-type 'base-char)
-    (:close nil)))
+    (:close nil)
+    (:interactive-p t)))
 
 
 ;;;; Compilation Commands
