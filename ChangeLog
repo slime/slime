@@ -1,5 +1,8 @@
 2005-06-03  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-background-activities-enabled-p): Allow
+	background stuff in repl-mode buffers too.
+
 	* swank-cmucl.lisp (sis/misc): Return t for :interactive-p.
 
 2005-06-01  Helmut Eller  <heller@common-lisp.net>
