@@ -366,7 +366,11 @@ PROPERTIES specifies any default face properties."
   "Face for the prompt in the SLIME REPL."
   :group 'slime-repl)
 
-(defcustom slime-repl-enable-presentations t; (not (featurep 'xemacs)) - alanr should work now.
+(defcustom slime-repl-enable-presentations
+  (cond ((and (not (featurep 'xemacs)) (= emacs-major-version 20))
+         ;; mouseable text sucks in Emacs 20
+         nil)
+        (t t))
   "Should we enable presentations"
   :type '(boolean)
   :group 'slime-repl)
@@ -2040,7 +2044,8 @@ Can return nil if there's no process object for the connection."
   "*If true, don't send background requests if Lisp is already busy.")
 
 (defun slime-background-activities-enabled-p ()
-  (and slime-mode
+  (and (or slime-mode 
+           (eq major-mode 'slime-repl-mode))
        (slime-current-connection)
        (or (not (slime-busy-p))
            (not slime-inhibit-pipelining))))
