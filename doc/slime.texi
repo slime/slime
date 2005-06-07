@@ -226,6 +226,8 @@ Allegro Common Lisp (@acronym{ACL}), version 6 or newer
 @acronym{CLISP}, version 2.33.2 or newer
 @item
 Armed Bear Common Lisp (@acronym{ABCL})
+@item
+Corman Common Lisp (@acronym{CCL}), version 2.51 or newer with the patches from @url{http://www.grumblesmurf.org/lisp/corman-patches})
 @end itemize
 
 Most features work uniformly across implementations, but some are
@@ -1301,8 +1303,7 @@ buffers. An example use is to enable @code{slime-autodoc-mode}
 
 @item slime-connected-hook
 This hook is run when @SLIME{} establishes a connection to a Lisp
-server. An example use is to create a Typeout frame (@xref{Typeout
-frames}.)
+server. An example use is to create a Typeout frame (@xref{Typeout frames}.)
 
 @item sldb-hook
 This hook is run after @SLDB{} is invoked. The hook functions are

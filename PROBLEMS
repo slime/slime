@@ -70,3 +70,14 @@ directory as the source file.
 
 The ABCL support is still new and experimental.
 
+** Corman Common Lisp
+
+We require version 2.51 or higher, with several patches (available at
+http://www.grumblesmurf.org/lisp/corman-patches).
+
+The only communication style currently supported is NIL.
+
+Interrupting (with C-c C-b) doesn't work.
+
+The tracing, stepping and XREF commands are not implemented along with
+some debugger functionality.
