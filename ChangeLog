@@ -1,3 +1,15 @@
+2005-06-07  Espen Wiborg  <espenhw@grumblesmurf.org>
+
+	* swank-corman.lisp: Convert to Unix line-endings.
+	(create-socket): Pass through the port argument unmodified,
+	gettting a random port if 0.  Requires supporting change in
+	<ccl>/modules/sockets.lisp.
+	(inspect-for-emacs): defimplementation instead of defmethod.
+
+2005-06-06  Espen Wiborg  <espenhw@grumblesmurf.org>
+
+	* doc/slime.texi, PROBLEMS: Added notes about CCL.
+
 2005-06-03  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-background-activities-enabled-p): Allow

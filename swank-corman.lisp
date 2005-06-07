@@ -40,7 +40,9 @@
 ;;; initializing WinSock) - starting CCL externally and using M-x
 ;;; slime-connect always works fine.
 ;;;
-;;; Sometimes CCL gets confused and starts giving you random memory access violation errors on startup; if this happens, 
+;;; Sometimes CCL gets confused and starts giving you random memory
+;;; access violation errors on startup; if this happens, try redumping
+;;; your image.
 ;;;
 ;;; What works
 ;;; ==========
@@ -218,7 +220,7 @@
 
 (defimplementation create-socket (host port)
   (sockets:start-sockets)
-  (sockets:make-server-socket :host host :port (if (zerop port) 4005 port)))
+  (sockets:make-server-socket :host host :port port))
 
 (defimplementation local-port (socket)
   (sockets:socket-port socket))
@@ -383,7 +385,7 @@
               collect (funcall callback e)
               collect ", ")))
 
-(defmethod inspect-for-emacs ((class standard-class)
+(defimplementation inspect-for-emacs ((class standard-class)
                               (inspector corman-inspector))
   (declare (ignore inspector))
   (values "A class."
@@ -422,7 +424,7 @@
                   '("#<N/A (class not finalized)>"))
             (:newline))))
 
-(defmethod inspect-for-emacs ((slot cons) (inspector corman-inspector))
+(defimplementation inspect-for-emacs ((slot cons) (inspector corman-inspector))
   ;; Inspects slot definitions
   (declare (ignore corman-inspector))
   (if (eq (car slot) :name)
@@ -441,7 +443,7 @@
                                              (:newline)))
       (call-next-method)))
   
-(defmethod inspect-for-emacs ((pathname pathnames::pathname-internal)
+(defimplementation inspect-for-emacs ((pathname pathnames::pathname-internal)
                               inspector)
   (declare (ignore inspector))
   (values (if (wild-pathname-p pathname)
