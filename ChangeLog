@@ -1,3 +1,16 @@
+2005-06-10  Helmut Eller  <heller@common-lisp.net>
+
+	* nregex.lisp (slime-nregex): Rename package to avoid name clashes
+	with other version of this file.
+
+	* swank.lisp (compiled-regex): Use the new package name.
+
+	* slime.el (slime-with-xref-buffer): Gensym package too, to avoid
+	problems when switching to buffers with -*- package: ... -*- file
+	variables.  From Antonio Menezes Leitao.
+	(slime-property-bounds): Use the prop argument instead of the
+	hardcoded 'slime-repl-old-output.  From Andras Simon.
+
 2005-06-07  Espen Wiborg  <espenhw@grumblesmurf.org>
 
 	* swank-corman.lisp: Convert to Unix line-endings.
