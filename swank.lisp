@@ -2953,7 +2953,7 @@ that symbols accessible in the current package go first."
         (setf (gethash regex-string regex-hash)
               (if (zerop (length regex-string))
                   (lambda (s) (check-type s string) t)
-                  (compile nil (nregex:regex-compile regex-string)))))))
+                  (compile nil (slime-nregex:regex-compile regex-string)))))))
 
 (defun apropos-matcher (string case-sensitive package external-only)
   (let* ((case-modifier (if case-sensitive #'string #'string-upcase))
