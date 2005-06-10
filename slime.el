@@ -3202,13 +3202,14 @@ PROP is the name of a text property."
                 ;; forward one char to avoid doing the wrong thing if
                 ;; we're at the beginning of the old input. -luke
                 ;; (18/Jun/2004)
-                (unless (not (get-text-property (point) 'slime-repl-old-output)) 
-                                        ;alanr unless we are sitting right after it May 19, 2005
+                (unless (not (get-text-property (point) prop)) 
+                  ;; alanr unless we are sitting right after it May 19, 2005
                   (ignore-errors (forward-char)))
                 (previous-single-char-property-change (point) prop)))
          (end (save-excursion
-                (if (get-text-property (point) 'slime-repl-old-output)
-                    (progn (goto-char (next-single-char-property-change (point) prop))
+                (if (get-text-property (point) prop)
+                    (progn (goto-char (next-single-char-property-change 
+                                       (point) prop))
                            (skip-chars-backward "\n \t\r" beg)
                            (point))
                   (point)))))
@@ -3922,7 +3923,6 @@ PREDICATE is executed in the buffer to test."
                    (with-current-buffer %buffer
                      (funcall predicate)))
                  (buffer-list)))
-
 
 
 ;;;;; Merging together compiler notes in the same location.
@@ -6306,14 +6306,12 @@ If CREATE is non-nil, create it if necessary."
 
 (defmacro* slime-with-xref-buffer ((package ref-type symbol) &body body)
   "Execute BODY in a xref buffer, then show that buffer."
-  (let ((type (gensym))
-        (sym (gensym)))
-    `(let ((,type ,ref-type)
-           (,sym ,symbol))
+  (let ((type (gensym)) (sym (gensym)) (pkg (gensym)))
+    `(let ((,type ,ref-type) (,sym ,symbol) (,pgk ,package))
        (with-current-buffer (get-buffer-create 
                              (format "*XREF[%s: %s]*" ,type ,sym))
          (prog2 (progn
-                  (slime-init-xref-buffer ,package ,type ,sym)
+                  (slime-init-xref-buffer ,pgk ,type ,sym)
                   (make-local-variable 'slime-xref-saved-window-configuration)
                   (setq slime-xref-saved-window-configuration
                         (current-window-configuration)))
