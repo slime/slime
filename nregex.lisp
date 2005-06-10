@@ -26,8 +26,11 @@
 
 (in-package :cl-user)
 
+;; Renamed to slime-nregex avoid name clashes with other versions of
+;; this file. -- he
+
 ;;;; CND - 6/3/2001
-(defpackage nregex
+(defpackage slime-nregex
   (:use #:common-lisp)
   (:export 
    #:regex
@@ -35,7 +38,7 @@
   ))
 
 ;;;; CND - 6/3/2001
-(in-package :nregex)
+(in-package :slime-nregex)
 
 ;;;
 ;;; First we create a copy of macros to help debug the beast
