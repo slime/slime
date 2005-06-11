@@ -1,3 +1,14 @@
+2005-06-11  Nikodemus Siivola <nikodemus@random-state.net>
+
+	* swank-sbcl.lisp: Patched for SBCL HEAD: utilize the new
+	:source-plist functionality; maintain compatibility with 0.9.1
+	till 0.9.2 is out. Removed cruft left over from previous
+	excercises in supporting both HEAD and latest release.
+
+	* doc/slime.texi: Document Slime as supporting the latest official
+	release of SBCL, as opposed to a specific version number which
+	would need to be updated monthly.
+
 2005-06-10  Helmut Eller  <heller@common-lisp.net>
 
 	* nregex.lisp (slime-nregex): Rename package to avoid name clashes

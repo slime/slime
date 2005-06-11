@@ -14,6 +14,11 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require 'sb-bsd-sockets)
   (require 'sb-introspect)
+  ;; KLUDGE: Support for 0.9.1 and older concurrently with 0.9.1.25
+  ;; and newer -- the #-swank-backend::source-plist cases can be
+  ;; deleted after SBCL 0.9.2 has been released.
+  (when (find-symbol "DEFINITION-SOURCE-PLIST" :sb-introspect)
+    (pushnew 'swank-backend::source-plist *features*))
   (require 'sb-posix))
 
 (in-package :swank-backend)
@@ -290,7 +295,9 @@ information."
       (list :error "No error location available")))
 
 (defun locate-compiler-note (file source-path source)
-  (cond ((and (pathnamep file) *buffer-name*)
+  (cond ((and #+swank-backend::source-plist (eq file :lisp) 
+              #-swank-backend::source-plist (pathnamep file) 
+              *buffer-name*)
          ;; Compiling from a buffer
          (let ((position (+ *buffer-offset*
                             (source-path-string-position
@@ -370,59 +377,89 @@ compiler state."
 
 ;;;; compile-string
 
-;;; We patch sb-c::debug-source-for-info so that we can dump our own
-;;; bits of source info.  Our *user-source-info* is stored in the
-;;; debug-source-info slot.
-
-(defvar *real-debug-source-for-info*)
-(defvar *user-source-info*)
+#-swank-backend::source-plist
+(progn
+  ;; We patch sb-c::debug-source-for-info so that we can dump our own
+  ;; bits of source info.  Our *user-source-info* is stored in the
+  ;; debug-source-info slot.  
+  (defvar *real-debug-source-for-info*)
+  (defvar *user-source-info*)
     
-(defun debug-source-for-info-advice (info)
-  (destructuring-bind (source) (funcall *real-debug-source-for-info* info)
-    (when (boundp '*user-source-info*)
-      (setf (sb-c::debug-source-info source) *user-source-info*))
-    (list source)))
+  (defun debug-source-for-info-advice (info)
+    (destructuring-bind (source) (funcall *real-debug-source-for-info* info)
+      (when (boundp '*user-source-info*)
+        (setf (sb-c::debug-source-info source) *user-source-info*))
+      (list source)))
 
-(defun install-debug-source-patch ()
-  (unless (boundp '*real-debug-source-for-info*)
-    (setq *real-debug-source-for-info* #'sb-c::debug-source-for-info))
-  (sb-ext:without-package-locks 
-    (setf (symbol-function 'sb-c::debug-source-for-info)
-	  #'debug-source-for-info-advice)))
+  (defun install-debug-source-patch ()
+    (unless (boundp '*real-debug-source-for-info*)
+      (setq *real-debug-source-for-info* #'sb-c::debug-source-for-info))
+    (sb-ext:without-package-locks 
+      (setf (symbol-function 'sb-c::debug-source-for-info)
+            #'debug-source-for-info-advice)))
 
+  (defimplementation swank-compile-string (string &key buffer position directory)
+    (declare (ignore directory))
+    (install-debug-source-patch)
+    (call/temp-file 
+     string
+     (lambda (filename)
+       (let ((*user-source-info* (list :emacs-buffer buffer :emacs-string string
+                                       :emacs-position position))
+             (*buffer-name* buffer)
+             (*buffer-offset* position)
+             (*buffer-substring* string))
+         (let ((fasl (with-compilation-hooks () 
+                       (compile-file filename))))
+           (load fasl)
+           (delete-file fasl))))))
+  
+  (defun call/temp-file (string fun)
+    (let ((filename (temp-file-name)))
+      (unwind-protect
+           (with-open-file (s filename :direction :output :if-exists :error)
+             (write-string string s)
+             (finish-output s)
+             (funcall fun filename))
+        (when (probe-file filename)
+          (delete-file filename)))))
+
+  (defun temp-file-name ()
+    "Return a temporary file name to compile strings into."
+    (sb-alien:alien-funcall 
+     (sb-alien:extern-alien 
+      "tmpnam" 
+      (function sb-alien:c-string sb-alien:system-area-pointer))
+     (sb-sys:int-sap 0)))
+
+  (defun find-temp-function-source-location (function)
+    (let ((info (function-debug-source-info function)))
+      (with-struct (sb-introspect::definition-source-
+                       form-path character-offset) 
+          (sb-introspect:find-definition-source function)
+        (destructuring-bind (&key emacs-buffer emacs-position emacs-string) info
+          (let ((pos (if form-path 
+                         (with-debootstrapping 
+                           (source-path-string-position
+                            form-path emacs-string))
+                         character-offset)))
+            (make-location `(:buffer ,emacs-buffer)
+                           `(:position ,(+ pos emacs-position))
+                           `(:snippet ,emacs-string))))))))
+
+#+swank-backend::source-plist
 (defimplementation swank-compile-string (string &key buffer position directory)
   (declare (ignore directory))
-  (install-debug-source-patch)
-  (call/temp-file 
-   string
-   (lambda (filename)
-     (let ((*user-source-info* (list :emacs-buffer buffer :emacs-string string
-                                     :emacs-position position))
-           (*buffer-name* buffer)
-           (*buffer-offset* position)
-           (*buffer-substring* string))
-       (let ((fasl (with-compilation-hooks () 
-                     (compile-file filename))))
-         (load fasl)
-         (delete-file fasl))))))
-
-(defun call/temp-file (string fun)
-  (let ((filename (temp-file-name)))
-    (unwind-protect
-         (with-open-file (s filename :direction :output :if-exists :error)
-           (write-string string s)
-           (finish-output s)
-           (funcall fun filename))
-      (when (probe-file filename)
-        (delete-file filename)))))
-
-(defun temp-file-name ()
-  "Return a temporary file name to compile strings into."
-  (sb-alien:alien-funcall 
-   (sb-alien:extern-alien 
-    "tmpnam" 
-    (function sb-alien:c-string sb-alien:system-area-pointer))
-   (sb-sys:int-sap 0)))
+  (let ((*buffer-name* buffer)
+        (*buffer-offset* position)
+        (*buffer-substring* string))
+      (with-compilation-hooks ()
+        (with-compilation-unit (:source-plist
+                                (list :emacs-buffer buffer 
+                                      :emacs-string string
+                                      :emacs-position position))
+          (with-input-from-string (s string)
+            (load s))))))
 
 ;;;; Definitions
 
@@ -464,12 +501,19 @@ This is useful when debugging the definition-finding code.")
 ;;; the position of the first code-location; for some reason, that
 ;;; doesn't seem to work.)
 
+#-swank-backend::source-plist
 (defun function-source-location (function &optional name)
   "Try to find the canonical source location of FUNCTION."
   (declare (type function function))
   (if (function-from-emacs-buffer-p function)
       (find-temp-function-source-location function)
       (find-function-source-location function)))
+
+#+swank-backend::source-plist
+(defun function-source-location (function &optional name)
+  "Try to find the canonical source location of FUNCTION."
+  (declare (type function function))
+  (find-function-source-location function))
 
 (defun safe-function-source-location (fun name)
   (if *debug-definition-finding*
@@ -478,6 +522,7 @@ This is useful when debugging the definition-finding code.")
         (error (e) 
           (list :error (format nil "Error: ~A" e))))))
 
+#-swank-backend::source-plist
 (defun find-function-source-location (function)
   (cond #+(or) ;; doesn't work for unknown reasons
         ((function-has-start-location-p function)
@@ -490,6 +535,33 @@ This is useful when debugging the definition-finding code.")
            (make-location `(:file ,(function-source-filename function))
                           `(:position ,pos)
                           `(:snippet ,snippet))))))
+
+#+swank-backend::source-plist
+(defun find-function-source-location (function)
+  (with-struct (sb-introspect::definition-source- form-path character-offset plist)
+      (sb-introspect:find-definition-source function)
+    (destructuring-bind (&key emacs-buffer emacs-position emacs-string) plist
+      (if emacs-buffer
+          (let ((pos (if form-path 
+                         (with-debootstrapping 
+                           (source-path-string-position
+                            form-path emacs-string))
+                         character-offset)))
+            (make-location `(:buffer ,emacs-buffer)
+                           `(:position ,(+ pos emacs-position))
+                           `(:snippet ,emacs-string)))
+          (cond #+(or) 
+                ;; doesn't work for unknown reasons
+                ((function-has-start-location-p function)
+                 (code-location-source-location (function-start-location function)))
+                ((not (function-source-filename function))
+                 (error "Source filename not recorded for ~A" function))
+                (t
+                 (let* ((pos (function-source-position function))
+                        (snippet (function-hint-snippet function pos)))
+                   (make-location `(:file ,(function-source-filename function))
+                                  `(:position ,pos)
+                                  `(:snippet ,snippet)))))))))
 
 (defun function-source-position (function)
   ;; We only consider the toplevel form number here.
@@ -507,8 +579,8 @@ This is useful when debugging the definition-finding code.")
        (sb-introspect:find-definition-source function))))))
 
 (defun function-source-write-date (function)
-  (definition-source-file-write-date
-   (sb-introspect:find-definition-source function)))
+  (sb-introspect:definition-source-file-write-date
+      (sb-introspect:find-definition-source function)))
 
 (defun function-toplevel-form-number (function)
   (car
@@ -527,27 +599,6 @@ This is useful when debugging the definition-finding code.")
 (defun function-start-location (function)
   (let ((dfun (sb-di:fun-debug-fun function)))
     (and dfun (sb-di:debug-fun-start-location dfun))))
-
-(defun find-temp-function-source-location (function)
-  (let ((info (function-debug-source-info function)))
-    (with-struct (sb-introspect::definition-source-
-                  form-path character-offset) 
-        (sb-introspect:find-definition-source function)
-      (destructuring-bind (&key emacs-buffer emacs-position emacs-string) info
-        (let ((pos (if form-path 
-                       (with-debootstrapping 
-                         (source-path-string-position
-                          form-path emacs-string))
-                       character-offset)))
-          (make-location `(:buffer ,emacs-buffer)
-                         `(:position ,(+ pos emacs-position))
-                         `(:snippet ,emacs-string)))))))
-
-;; FIXME: Symbol doesn't exist in released SBCL (0.8.20) yet.
-(defun definition-source-file-write-date (def)
-  (let ((sym (find-symbol "DEFINITION-SOURCE-FILE-WRITE-DATE"
-                          (find-package "SB-INTROSPECT"))))
-    (when sym (funcall sym def))))
 
 (defun method-definitions (gf)
   (let ((methods (sb-mop:generic-function-methods gf))
@@ -692,26 +743,7 @@ stack."
 	  collect f)))
 
 (defimplementation print-frame (frame stream)
-  (macrolet ((printer-form ()
-               ;; MEGAKLUDGE: As SBCL 0.8.20.1 fixed its debug IO style
-               ;; our usage of unexported interfaces came back to haunt
-               ;; us. And since we still use the same interfaces it will
-               ;; haunt us again.
-               (let ((print-sym (find-symbol "PRINT-FRAME-CALL" :sb-debug)))
-                 (if (fboundp print-sym)
-                     (let* ((args (sb-introspect:function-arglist print-sym))
-                            (key-pos (position '&key args)))
-                       (cond ((eql 2 key-pos)
-                              `(,print-sym frame stream))
-                             ((eql 1 key-pos)
-                              `(let ((*standard-output* stream))
-                                 (,print-sym frame)))
-                             (t
-                              (error "*THWAP* SBCL changes internals ~
-                                       again!"))))
-                     (error "You're in a twisty little maze of unsupported
-                              SBCL interfaces, all different.")))))
-    (printer-form)))
+  (sb-debug::print-frame-call frame stream))
 
 ;;;; Code-location -> source-location translation
 
@@ -721,12 +753,33 @@ stack."
 ;;; If there's no debug-block info, we return the (less precise)
 ;;; source-location of the corresponding function.
 
+#-swank-backend::source-plist
 (defun code-location-source-location (code-location)
   (let ((dsource (sb-di:code-location-debug-source code-location)))
     (ecase (sb-di:debug-source-from dsource)
       (:file (file-source-location code-location))
       (:lisp (lisp-source-location code-location)))))
 
+#+swank-backend::source-plist
+(defun code-location-source-location (code-location)
+  (let* ((dsource (sb-di:code-location-debug-source code-location))
+         (plist (sb-c::debug-source-plist dsource)))
+    (if (getf plist :emacs-buffer)
+        (emacs-buffer-source-location code-location plist)
+        (ecase (sb-di:debug-source-from dsource)
+          (:file (file-source-location code-location))
+          (:lisp (lisp-source-location code-location))))))
+
+;;; FIXME: The naming policy of source-location functions is a bit
+;;; fuzzy: we have FUNCTION-SOURCE-LOCATION which returns the
+;;; source-location for a function, and we also have FILE-SOURCE-LOCATION &co
+;;; which returns the source location for a _code-location_.
+;;; 
+;;; Maybe these should be named code-location-file-source-location,
+;;; etc, turned into generic functions, or something. In the very least the names
+;;; should indicate the main entry point vs. helper status.
+
+#-swank-backend::source-plist
 (defun file-source-location (code-location)
   (cond ((code-location-has-debug-block-info-p code-location)
          (if (code-location-from-emacs-buffer-p code-location)
@@ -738,11 +791,23 @@ stack."
                  (t (error "Cannot find source location for: ~A "
                            code-location)))))))
 
+#+swank-backend::source-plist
+(defun file-source-location (code-location)
+  (if (code-location-has-debug-block-info-p code-location)
+      (source-file-source-location code-location)
+      (fallback-source-location code-location)))
+
+(defun fallback-source-location (code-location)
+  (let ((fun (code-location-debug-fun-fun code-location)))
+    (cond (fun (function-source-location fun))
+          (t (error "Cannot find source location for: ~A " code-location)))))
+
 (defun lisp-source-location (code-location)
-  (let ((source (with-output-to-string (*standard-output*)
-                  (print-code-location-source-form code-location 100))))
+  (let ((source (prin1-to-string 
+                 (sb-debug::code-location-source-form code-location 100))))
     (make-location `(:source-form ,source) '(:position 0))))
 
+#-swank-backend::source-plist
 (defun temp-file-source-location (code-location)
   (let ((info (code-location-debug-source-info code-location)))
     (destructuring-bind (&key emacs-buffer emacs-position emacs-string) info
@@ -752,6 +817,18 @@ stack."
         (make-location `(:buffer ,emacs-buffer) 
                        `(:position ,(+ emacs-position pos)) 
                        `(:snippet ,snipped))))))
+
+#+swank-backend::source-plist
+(defun emacs-buffer-source-location (code-location plist)
+  (if (code-location-has-debug-block-info-p code-location)
+      (destructuring-bind (&key emacs-buffer emacs-position emacs-string) plist
+        (let* ((pos (string-source-position code-location emacs-string))
+               (snipped (with-input-from-string (s emacs-string)
+                          (read-snippet s pos))))
+          (make-location `(:buffer ,emacs-buffer) 
+                         `(:position ,(+ emacs-position pos)) 
+                         `(:snippet ,snipped))))
+      (fallback-source-location code-location)))
 
 (defun source-file-source-location (code-location)
   (let* ((code-date (code-location-debug-source-created code-location))
@@ -764,8 +841,27 @@ stack."
                      `(:position ,(1+ pos))
                      `(:snippet ,snippet))))))
 
-(defun code-location-debug-source-info (code-location)
-  (sb-c::debug-source-info (sb-di::code-location-debug-source code-location)))
+#-swank-backend::source-plist
+(progn
+  (defun code-location-debug-source-info (code-location)
+    (sb-c::debug-source-info (sb-di::code-location-debug-source code-location)))
+
+  (defun code-location-from-emacs-buffer-p (code-location)
+    (info-from-emacs-buffer-p (code-location-debug-source-info code-location)))
+
+  (defun function-from-emacs-buffer-p (function)
+    (info-from-emacs-buffer-p (function-debug-source-info function)))
+  
+  (defun function-debug-source-info (function)
+    (let* ((comp (sb-di::compiled-debug-fun-component
+                  (sb-di::fun-debug-fun function))))
+      (sb-c::debug-source-info (car (sb-c::debug-info-source 
+                                     (sb-kernel:%code-debug-info comp))))))
+  
+  (defun info-from-emacs-buffer-p (info)
+    (and info 
+         (consp info)
+         (eq :emacs-buffer (car info)))))
 
 (defun code-location-debug-source-name (code-location)
   (sb-c::debug-source-name (sb-di::code-location-debug-source code-location)))
@@ -776,23 +872,6 @@ stack."
 
 (defun code-location-debug-fun-fun (code-location)
   (sb-di:debug-fun-fun (sb-di:code-location-debug-fun code-location)))
-
-(defun code-location-from-emacs-buffer-p (code-location)
-  (info-from-emacs-buffer-p (code-location-debug-source-info code-location)))
-
-(defun function-from-emacs-buffer-p (function)
-  (info-from-emacs-buffer-p (function-debug-source-info function)))
-
-(defun function-debug-source-info (function)
-  (let* ((comp (sb-di::compiled-debug-fun-component
-                (sb-di::fun-debug-fun function))))
-    (sb-c::debug-source-info (car (sb-c::debug-info-source 
-                                   (sb-kernel:%code-debug-info comp))))))
-
-(defun info-from-emacs-buffer-p (info)
-  (and info 
-       (consp info)
-       (eq :emacs-buffer (car info))))
 
 (defun code-location-has-debug-block-info-p (code-location)
   (handler-case 
@@ -818,30 +897,6 @@ stack."
     (stream-source-position code-location s)))
 
 ;;; source-path-file-position and friends are in swank-source-path-parser
-
-(defun print-code-location-source-form (code-location context)
-  (macrolet ((printer-form ()
-               ;; KLUDGE: These are both unexported interfaces, used
-               ;; by different versions of SBCL. ...sooner or later
-               ;; this will change again: hopefully by then we have
-               ;; figured out the interface we want to drive the
-               ;; debugger with and requested it from the SBCL
-               ;; folks.
-               (let ((print-code-sym
-                      (find-symbol "PRINT-CODE-LOCATION-SOURCE-FORM"
-                                   :sb-debug))
-                     (code-sym
-                      (find-symbol "CODE-LOCATION-SOURCE-FORM"
-                                   :sb-debug)))
-                 (cond ((fboundp print-code-sym)
-                        `(,print-code-sym code-location context))
-                       ((fboundp code-sym)
-                        `(prin1 (,code-sym code-location context)))
-                       (t
-                        (error 
-                         "*THWAP* SBCL changes its debugger interface ~
-                          again!"))))))
-    (printer-form)))
 
 (defun safe-source-location-for-emacs (code-location)
   (if *debug-definition-finding*
