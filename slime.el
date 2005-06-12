@@ -5651,7 +5651,7 @@ This for use in the implementation of COMMON-LISP:ED."
       (select-frame slime-ed-frame))
     (cond ((stringp what)
            (find-file (slime-from-lisp-filename what)))
-          ((listp what) 
+          ((consp what)
            (find-file (first (slime-from-lisp-filename what)))
            (goto-line (second what))
            ;; Find the correct column, without going past the end of

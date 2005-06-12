@@ -1881,17 +1881,23 @@ Return its name and the string to use in the prompt."
   "Edit WHAT in Emacs.
 
 WHAT can be:
-  A filename (string),
-  A list (FILENAME LINE [COLUMN]),
+  A pathname or a string,
+  A list (PATHNAME-OR-STRING LINE [COLUMN]),
   A function name (symbol),
-  nil."
-  (let ((target
-         (cond ((and (listp what) (pathnamep (first what)))
-                (cons (canonicalize-filename (car what)) (cdr what)))
-               ((pathnamep what)
-                (canonicalize-filename what))
-               (t what))))
-    (send-oob-to-emacs `(:ed ,target))))
+  NIL.
+
+Returns true if it actually called emacs, or NIL if not."
+  (flet ((pathname-or-string-p (thing)
+           (or (pathnamep thing) (typep thing 'string))))
+    (let ((target
+           (cond ((and (listp what) (pathname-or-string-p (first what)))
+                  (cons (canonicalize-filename (car what)) (cdr what)))
+                 ((pathname-or-string-p what)
+                  (canonicalize-filename what))
+                 ((symbolp what) what)
+                 (t (return-from ed-in-emacs nil)))))
+      (send-oob-to-emacs `(:ed ,target))
+      t)))
 
 (defslimefun value-for-editing (form)
   "Return a readable value of FORM for editing in Emacs.
