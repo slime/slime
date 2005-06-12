@@ -6307,11 +6307,11 @@ If CREATE is non-nil, create it if necessary."
 (defmacro* slime-with-xref-buffer ((package ref-type symbol) &body body)
   "Execute BODY in a xref buffer, then show that buffer."
   (let ((type (gensym)) (sym (gensym)) (pkg (gensym)))
-    `(let ((,type ,ref-type) (,sym ,symbol) (,pgk ,package))
+    `(let ((,type ,ref-type) (,sym ,symbol) (,pkg ,package))
        (with-current-buffer (get-buffer-create 
                              (format "*XREF[%s: %s]*" ,type ,sym))
          (prog2 (progn
-                  (slime-init-xref-buffer ,pgk ,type ,sym)
+                  (slime-init-xref-buffer ,pkg ,type ,sym)
                   (make-local-variable 'slime-xref-saved-window-configuration)
                   (setq slime-xref-saved-window-configuration
                         (current-window-configuration)))

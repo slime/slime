@@ -1,3 +1,7 @@
+2005-06-12  Alexey Dejneka  <adejneka@comail.ru>
+
+	* slime.el (slime-with-xref-buffer): fix "pgk" typo.
+
 2005-06-12  Christophe Rhodes  <csr21@cam.ac.uk>
 
 	* swank.lisp (ed-in-emacs): allow strings as well as pathnames;
