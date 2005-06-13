@@ -2227,17 +2227,19 @@ Record compiler notes signalled as `compiler-condition's."
 
 (defslimefun list-all-systems-in-central-registry ()
   "Returns a list of all systems in ASDF's central registry."
-  (loop for dir in (asdf-central-registry)
-        for defaults = (eval dir)
-        when defaults
-        nconc (mapcar #'file-namestring
-                      (directory
-                       (make-pathname :defaults defaults
-                                      :version :newest
-                                      :type "asd"
-                                      :name :wild
-                                      :case :local)))))
-
+  (delete-duplicates
+    (loop for dir in (asdf-central-registry)
+          for defaults = (eval dir)
+          when defaults
+            nconc (mapcar #'file-namestring
+                            (directory
+                              (make-pathname :defaults defaults
+                                             :version :newest
+                                             :type "asd"
+                                             :name :wild
+                                             :case :local))))
+    :test #'string=))
+  
 (defun file-newer-p (new-file old-file)
   "Returns true if NEW-FILE is newer than OLD-FILE."
   (> (file-write-date new-file) (file-write-date old-file)))

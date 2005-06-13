@@ -1,5 +1,8 @@
 2005-06-13  Edi Weitz  <edi@agharta.de>
 
+	* swank.lisp (list-all-systems-in-central-registry): Delete
+	duplicates.
+
 	* swank-lispworks.lisp (unmangle-unfun): If you rename a package
 	you should rename it everywhere...
 
