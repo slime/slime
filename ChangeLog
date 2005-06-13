@@ -1,3 +1,8 @@
+2005-06-13  Edi Weitz  <edi@agharta.de>
+
+	* swank-lispworks.lisp (unmangle-unfun): If you rename a package
+	you should rename it everywhere...
+
 2005-06-12  Alexey Dejneka  <adejneka@comail.ru>
 
 	* slime.el (slime-with-xref-buffer): fix "pgk" typo.

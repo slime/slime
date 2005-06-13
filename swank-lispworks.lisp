@@ -533,18 +533,18 @@ Return NIL if the symbol is unbound."
 function names like \(SETF GET)."
   (or (and (eq (symbol-package symbol)
                (load-time-value (find-package :setf)))
-           (let ((nregex::*regex-groupings* 0)
-                 (nregex::*regex-groups* (make-array 10))
+           (let ((slime-nregex::*regex-groupings* 0)
+                 (slime-nregex::*regex-groups* (make-array 10))
                  (symbol-name (symbol-name symbol)))
              (and (funcall (load-time-value
-                             (compile nil (nregex:regex-compile "^\"(.+)\" \"(.+)\"$")))
+                             (compile nil (slime-nregex:regex-compile "^\"(.+)\" \"(.+)\"$")))
                            symbol-name)
                   (list 'setf
                         (intern (apply #'subseq symbol-name
-                                       (aref nregex::*regex-groups* 2))
+                                       (aref slime-nregex::*regex-groups* 2))
                                 (find-package
                                  (apply #'subseq symbol-name
-                                        (aref nregex::*regex-groups* 1))))))))
+                                        (aref slime-nregex::*regex-groups* 1))))))))
       symbol))
 
 (defun signal-undefined-functions (htab &optional filename)
