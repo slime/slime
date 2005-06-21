@@ -2383,7 +2383,9 @@ MATCHER is a two-argument predicate."
     (remove-if-not (lambda (x) (funcall matcher to-match x))
                    (mapcar (lambda (pkgname)
                              (concatenate 'string pkgname ":"))
-                           (mapcar #'package-name (list-all-packages))))))
+                           (loop for package in (list-all-packages)
+                                 collect (package-name package)
+                                 append (package-nicknames package))))))
 
 (defun parse-completion-arguments (string default-package-name)
   "Parse STRING as a symbol designator.

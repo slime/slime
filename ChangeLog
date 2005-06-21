@@ -1,3 +1,7 @@
+2005-06-21  Edi Weitz  <edi@agharta.de>
+
+	* swank.lisp (find-matching-packages): Also use nicknames.
+
 2005-06-13  Edi Weitz  <edi@agharta.de>
 
 	* swank.lisp (list-all-systems-in-central-registry): Delete
