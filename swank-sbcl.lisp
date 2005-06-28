@@ -1095,14 +1095,15 @@ stack."
   (defimplementation startup-multiprocessing ())
 
   (defimplementation thread-id (thread)
-    thread)
+    (assert (eql (ash (ash thread -5) 5) thread))
+    (ash thread -5))
 
   (defimplementation find-thread (id)
-    (if (member id (all-threads))
-        id))
+    (when (member (ash id 5) (all-threads))
+      (ash id 5)))
   
   (defimplementation thread-name (thread)
-    (format nil "Thread ~D" thread))
+    (format nil "Thread ~D" (thread-id thread)))
 
   (defun %thread-state-slot (thread)
     (sb-sys:without-gcing
@@ -1133,12 +1134,13 @@ stack."
     (sb-thread:current-thread-id))
 
   (defimplementation all-threads ()
-    (let ((pids (sb-sys:without-gcing
+    (let ((tids (sb-sys:without-gcing
                  (sb-thread::mapcar-threads
                   (lambda (sap)
-                    (sb-sys:sap-ref-32 sap (* sb-vm:n-word-bytes
-                                              sb-vm::thread-pid-slot)))))))
-      (remove :dead pids :key #'%thread-state)))
+                    (sb-sys:sap-ref-32 sap
+                                       (* sb-vm:n-word-bytes
+                                          sb-vm::thread-os-thread-slot)))))))
+      (remove :dead tids :key #'%thread-state)))
  
   (defimplementation interrupt-thread (thread fn)
     (sb-thread:interrupt-thread thread fn))

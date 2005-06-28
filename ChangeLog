@@ -1,3 +1,8 @@
+2005-06-28  Gabor Melis <mega@hotpop.com>
+
+	* swank-sbcl.lisp (threaded stuff): horrible hack to make threaded
+	SBCL 0.9.2 work.  (also, Happy Birthday Christophe!)
+
 2005-06-21  Edi Weitz  <edi@agharta.de>
 
 	* swank.lisp (find-matching-packages): Also use nicknames.
