@@ -504,7 +504,8 @@ This is useful when debugging the definition-finding code.")
 #-swank-backend::source-plist
 (defun function-source-location (function &optional name)
   "Try to find the canonical source location of FUNCTION."
-  (declare (type function function))
+  (declare (type function function)
+           (ignore name))
   (if (function-from-emacs-buffer-p function)
       (find-temp-function-source-location function)
       (find-function-source-location function)))
@@ -512,7 +513,8 @@ This is useful when debugging the definition-finding code.")
 #+swank-backend::source-plist
 (defun function-source-location (function &optional name)
   "Try to find the canonical source location of FUNCTION."
-  (declare (type function function))
+  (declare (type function function)
+           (ignore name))
   (find-function-source-location function))
 
 (defun safe-function-source-location (fun name)
@@ -1086,7 +1088,130 @@ stack."
 
 ;;;; Multiprocessing
 
-#+sb-thread
+#+(and sb-thread
+       #.(cl:if (cl:find-symbol "THREAD-NAME" "SB-THREAD") '(and) '(or)))
+(progn
+  (defvar *thread-id-counter* 0)
+  
+  (defvar *thread-id-counter-lock*
+    (sb-thread:make-mutex :name "thread id counter lock"))
+
+  (defun next-thread-id ()
+    (sb-thread:with-mutex (*thread-id-counter-lock*)
+      (incf *thread-id-counter*)))
+  
+  (defparameter *thread-id-map* (make-hash-table))
+
+  ;; This should be a thread -> id map but as weak keys are not
+  ;; supported it is id -> map instead.
+  (defvar *thread-id-map-lock*
+    (sb-thread:make-mutex :name "thread id map lock"))
+  
+  (defimplementation spawn (fn &key name)
+    (sb-thread:make-thread fn :name name))
+
+  (defimplementation startup-multiprocessing ())
+
+  (defimplementation thread-id (thread)
+    (sb-thread:with-mutex (*thread-id-map-lock*)
+      (loop for id being the hash-key in *thread-id-map*
+            using (hash-value thread-pointer)
+            do
+            (let ((maybe-thread (sb-ext:weak-pointer-value thread-pointer)))
+              (cond ((null maybe-thread)
+                     ;; the value is gc'd, remove it manually
+                     (remhash id *thread-id-map*))
+                    ((eq thread maybe-thread)
+                     (return-from thread-id id)))))
+      ;; lazy numbering
+      (let ((id (next-thread-id)))
+        (setf (gethash id *thread-id-map*) (sb-ext:make-weak-pointer thread))
+        id)))
+
+  (defimplementation find-thread (id)
+    (sb-thread:with-mutex (*thread-id-map-lock*)
+      (let ((thread-pointer (gethash id *thread-id-map*)))
+        (if thread-pointer
+            (let ((maybe-thread (sb-ext:weak-pointer-value thread-pointer)))
+              (if maybe-thread
+                  maybe-thread
+                  ;; the value is gc'd, remove it manually
+                  (progn
+                    (remhash id *thread-id-map*)
+                    nil)))
+            nil))))
+  
+  (defimplementation thread-name (thread)
+    ;; sometimes the name is not a string (e.g. NIL)
+    (princ-to-string (sb-thread:thread-name thread)))
+
+  (defimplementation thread-status (thread)
+    (if (sb-thread:thread-alive-p thread)
+        "RUNNING"
+        "STOPPED"))
+
+  (defimplementation make-lock (&key name)
+    (sb-thread:make-mutex :name name))
+
+  (defimplementation call-with-lock-held (lock function)
+    (declare (type function function))
+    (sb-thread:with-mutex (lock) (funcall function)))
+
+  (defimplementation current-thread ()
+    sb-thread:*current-thread*)
+
+  (defimplementation all-threads ()
+    (sb-thread:list-all-threads))
+ 
+  (defimplementation interrupt-thread (thread fn)
+    (sb-thread:interrupt-thread thread fn))
+
+  (defimplementation kill-thread (thread)
+    (sb-thread:terminate-thread thread))
+
+  (defimplementation thread-alive-p (thread)
+    (sb-thread:thread-alive-p thread))
+
+  (defvar *mailbox-lock* (sb-thread:make-mutex :name "mailbox lock"))
+  (defvar *mailboxes* (list))
+  (declaim (type list *mailboxes*))
+
+  (defstruct (mailbox (:conc-name mailbox.)) 
+    thread
+    (mutex (sb-thread:make-mutex))
+    (waitqueue  (sb-thread:make-waitqueue))
+    (queue '() :type list))
+
+  (defun mailbox (thread)
+    "Return THREAD's mailbox."
+    (sb-thread:with-mutex (*mailbox-lock*)
+      (or (find thread *mailboxes* :key #'mailbox.thread)
+          (let ((mb (make-mailbox :thread thread)))
+            (push mb *mailboxes*)
+            mb))))
+
+  (defimplementation send (thread message)
+    (let* ((mbox (mailbox thread))
+           (mutex (mailbox.mutex mbox)))
+      (sb-thread:with-mutex (mutex)
+        (setf (mailbox.queue mbox)
+              (nconc (mailbox.queue mbox) (list message)))
+        (sb-thread:condition-broadcast (mailbox.waitqueue mbox)))))
+
+  (defimplementation receive ()
+    (let* ((mbox (mailbox (current-thread)))
+           (mutex (mailbox.mutex mbox)))
+      (sb-thread:with-mutex (mutex)
+        (loop
+         (let ((q (mailbox.queue mbox)))
+           (cond (q (return (pop (mailbox.queue mbox))))
+                 (t (sb-thread:condition-wait (mailbox.waitqueue mbox)
+                                              mutex))))))))
+
+  )
+
+#+(and sb-thread
+       #.(cl:if (cl:find-symbol "THREAD-NAME" "SB-THREAD") '(or) '(and)))
 (progn
   (defimplementation spawn (fn &key name)
     (declare (ignore name))
