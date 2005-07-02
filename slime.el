@@ -357,15 +357,6 @@ PROPERTIES specifies any default face properties."
   :type '(character)
   :group 'slime-repl)
 
-(defface slime-repl-prompt-face
-  (if (slime-face-inheritance-possible-p)
-      '((t (:inherit font-lock-keyword-face)))
-    '((((class color) (background light)) (:foreground "Purple"))
-      (((class color) (background dark)) (:foreground "Cyan"))
-      (t (:weight bold))))
-  "Face for the prompt in the SLIME REPL."
-  :group 'slime-repl)
-
 (defcustom slime-repl-enable-presentations
   (cond ((and (not (featurep 'xemacs)) (= emacs-major-version 20))
          ;; mouseable text sucks in Emacs 20
@@ -373,6 +364,23 @@ PROPERTIES specifies any default face properties."
         (t t))
   "Should we enable presentations"
   :type '(boolean)
+  :group 'slime-repl)
+
+(defcustom slime-repl-only-save-lisp-buffers t
+  "When T we only attempt to save lisp-mode file buffers. When
+  NIL slime will attempt to save all buffers (as per
+  save-some-buffers). This applies to all ASDF related repl
+  shortcuts."
+  :type '(boolean)
+  :group 'slime-repl)
+
+(defface slime-repl-prompt-face
+  (if (slime-face-inheritance-possible-p)
+      '((t (:inherit font-lock-keyword-face)))
+    '((((class color) (background light)) (:foreground "Purple"))
+      (((class color) (background dark)) (:foreground "Cyan"))
+      (t (:weight bold))))
+  "Face for the prompt in the SLIME REPL."
   :group 'slime-repl)
 
 (defface slime-repl-output-face
@@ -3533,6 +3541,13 @@ Return nil of no item matches"
             (insert (car names) ")"))
         (insert "\n     " (slime-repl-shortcut.one-liner shortcut)
                 "\n"))))))
+
+(defun save-some-lisp-buffers ()
+  (if slime-repl-only-save-lisp-buffers
+      (save-some-buffers nil (lambda ()
+                               (and (eq major-mode 'lisp-mode)
+                                    (not (null buffer-file-name)))))
+      (save-some-buffers)))
   
 (defslime-repl-shortcut slime-repl-shortcut-help ("help" "?")
   (:handler 'slime-list-repl-short-cuts)
@@ -3620,7 +3635,7 @@ Return nil of no item matches"
   (:handler (lambda (filename)
               (interactive (list (expand-file-name
                                   (read-file-name "File: " nil nil nil nil))))
-              (save-some-buffers)
+              (save-some-lisp-buffers)
               (slime-eval-async 
                `(swank:compile-file-if-needed 
                  ,(slime-to-lisp-filename filename) t)
@@ -3790,7 +3805,7 @@ buffer's working directory"
                      (or initial-value (slime-find-asd) ""))))
 
 (defun slime-oos (system operation &rest keyword-args)
-  (save-some-buffers)
+  (save-some-lisp-buffers)
   (slime-display-output-buffer)
   (message "Performing ASDF %S%s on system %S"
            operation (if keyword-args (format " %S" keyword-args) "")

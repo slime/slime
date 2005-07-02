@@ -1,3 +1,10 @@
+2005-07-02  Marco Baringer  <mb@bese.it>
+
+	* slime.el (save-some-lisp-buffers): New Function.
+	(slime-repl-only-save-lisp-buffers): New customizable variable.
+	(slime-repl-compile-and-load): Use save-some-lisp-buffers.
+	(slime-oos): Use save-some-lisp-buffers.
+
 2005-07-01  Gabor Melis  <mega@hotpop.com>
 
 	* swank-sbcl.lisp (threaded stuff): make SBCL 0.9.2.9+ work while
