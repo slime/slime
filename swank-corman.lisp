@@ -182,12 +182,10 @@
   (format stream "~S" frame))
 
 (defun get-frame-debug-info (frame)
-  (let ((info (frame-debug-info frame)))
-    (if info
-        info
-        (setf (frame-debug-info frame)
-              (db::prepare-frame-debug-info (frame-function frame)
-                                            (frame-address frame))))))
+  (or (frame-debug-info frame)
+      (setf (frame-debug-info frame)
+	    (db::prepare-frame-debug-info (frame-function frame)
+					  (frame-address frame)))))
 
 (defimplementation frame-locals (frame-number)
   (let* ((frame (elt *frame-trace* frame-number))
@@ -255,7 +253,7 @@
                               (truename (merge-pathnames directory)))))
 
 (defimplementation default-directory ()
-  (ccl:current-directory))
+  (directory-namestring (ccl:current-directory)))
 
 (defimplementation macroexpand-all (form)
   (ccl:macroexpand-all form))
@@ -273,7 +271,8 @@
                                               ccl:*cormanlisp-directory*))))
               (make-location (list :file (namestring truename))
                              (if (ccl::function-source-line fspec)
-                                 (list :line (ccl::function-source-line fspec))
+                                 (list :line 
+				       (1+ (ccl::function-source-line fspec)))
                                  (list :function-name (princ-to-string
                                                        (function-name fspec))))))
           (error (c) (list :error (princ-to-string c))))
@@ -461,6 +460,92 @@
                               (not (probe-file pathname)))
                     (label-value-line "Truename" (truename pathname))))))
 
+(defimplementation inspect-for-emacs ((o t) (inspector corman-inspector))
+  (cond ((cl::structurep o) (inspect-structure o))
+	(t (call-next-method))))
+
+(defun inspect-structure (o)
+  (values 
+   (format nil "~A is a structure" o)
+   (let* ((template (cl::uref o 1))
+	  (num-slots (cl::struct-template-num-slots template)))
+     (cond ((symbolp template)
+	    (loop for i below num-slots
+		  append (label-value-line i (cl::uref o (+ 2 i)))))
+	   (t
+	    (loop for i below num-slots
+		  append (label-value-line (elt template (+ 6 (* i 5)))
+					   (cl::uref o (+ 2 i)))))))))
+
+
+;;; Threads
+
+(require 'threads)
+
+(defstruct (mailbox (:conc-name mailbox.)) 
+  thread
+  (lock (make-instance 'threads:critical-section))
+  (queue '() :type list))
+
+(defvar *mailbox-lock* (make-instance 'threads:critical-section))
+(defvar *mailboxes* (list))
+
+(defmacro with-lock  (lock &body body)
+  `(threads:with-synchronization (threads:cs ,lock)
+    ,@body))
+
+(defimplementation spawn (fun &key name)
+  (declare (ignore name))
+  (threads:create-thread 
+   (lambda ()
+     (unwind-protect (funcall fun)
+       (with-lock *mailbox-lock*
+	 (setq *mailboxes* (remove cormanlisp:*current-thread-id*
+				   *mailboxes* :key #'mailbox.thread)))))))
+
+(defimplementation thread-id (thread) 
+  thread)
+
+(defimplementation find-thread (thread)
+  (if (thread-alive-p thread)
+      thread))
+
+(defimplementation current-thread ()
+  cormanlisp:*current-thread-id*)
+
+;; XXX implement it
+(defimplementation all-threads ()
+  '())
+
+(defimplementation thread-alive-p (thread)
+  t)
+
+;; XXX something here is broken
+(defimplementation kill-thread (thread)
+  (threads:terminate-thread thread 'killed))
+
+(defun mailbox (thread)
+  (with-lock *mailbox-lock*
+    (or (find thread *mailboxes* :key #'mailbox.thread)
+	(let ((mb (make-mailbox :thread thread)))
+	  (push mb *mailboxes*)
+	  mb))))
+
+(defimplementation send (thread message)
+  (let ((mbox (mailbox thread)))
+    (with-lock (mailbox.lock mbox)
+      (setf (mailbox.queue mbox)
+	    (nconc (mailbox.queue mbox) (list message))))))
+
+(defimplementation receive ()
+  (let ((mbox (mailbox cormanlisp:*current-thread-id*)))
+    (loop 
+     (with-lock (mailbox.lock mbox)
+       (when (mailbox.queue mbox)
+	 (return (pop (mailbox.queue mbox)))))
+     (sleep 0.1))))
+
+
 ;;; This is probably not good, but it WFM
 (in-package :common-lisp)
 
