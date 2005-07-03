@@ -1,3 +1,37 @@
+2005-07-03  Joerg Hoehle <hoehle@users.sourceforge.net>
+
+	* swank-clisp (describe-symbol-for-emacs): Report :setf and :type
+	where appropriate.
+
+2005-07-03  Helmut Eller  <heller@common-lisp.net>
+	
+	* slime.el (next-single-char-property-change)
+	(previous-single-char-property-change) [xemacs]: Only define them
+	if not present.
+	(next-char-property-change, previous-char-property-change): Define
+	if needed.
+
+	* README: Show examples for the filenames instead of the general
+	"/the/path/to/this/directory".  Suggested by Brandon J. Van Every.
+
+	* swank-corman.lisp (default-directory): Return a namestring
+	instead of the pathname.
+	(inspect-for-emacs, inspect-structure): Teach the inspector how to
+	deal with structures.
+	(spawn, send, receive): Implement rudimentary threading support.
+	It's now possible to connect with the :spawn communication style
+	and to bring up a listener.  Unfortunately, debugging the
+	non-primary threads doesn't work at all.  Still no support for
+	interrupt-thread.
+	
+	* slime.el (slime-start-swank-server): Send an extra newline
+	before the "(swank:start-server ...".  I don't know why, but this
+	seems to fix the problem when starting CLISP/Win32.  Interrupting
+	CLISP/W32 is still horribly broken.
+
+	* swank-loader.lisp (compile-files-if-needed-serially) [corman]:
+	force-output after each file.
+
 2005-07-02  Marco Baringer  <mb@bese.it>
 
 	* slime.el (save-some-lisp-buffers): New Function.
