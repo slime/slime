@@ -10,9 +10,10 @@ Overview.
 Quick setup instructions
 ------------------------
 
-  In Emacs Lisp:
+  Add this to your ~/.emacs file and fill in the appropriate filenames:
 
-    (add-to-list 'load-path "/the/path/to/this/directory")
+    (add-to-list 'load-path "~/hacking/lisp/slime/")  ; your SLIME directory
+    (setq inferior-lisp-program "/opt/sbcl/bin/sbcl") ; your Lisp system
     (require 'slime)
     (slime-setup)
 
