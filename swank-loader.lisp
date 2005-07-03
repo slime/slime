@@ -129,7 +129,8 @@ recompiled."
 (defun compile-files-if-needed-serially (files)
   "Corman Lisp has trouble with compiled files."
   (dolist (file files)
-    (load file :verbose t)))
+    (load file :verbose t)
+    (force-output)))
 
 (compile-files-if-needed-serially
   (append (list (make-swank-pathname "swank-backend"))
