@@ -1418,9 +1418,9 @@ Return the created process."
   "Start a Swank server on the inferior lisp."
   (let* ((encoding (slime-coding-system-cl-name slime-net-coding-system))
          (file (slime-to-lisp-filename (slime-swank-port-file))))
-    (comint-send-string process 
-                        (format "(swank:start-server %S :external-format %s)\n"
-                                file encoding))))
+    (comint-send-string 
+     process (format "\n(swank:start-server %S :external-format %s)\n"
+                     file encoding))))
 
 (defun slime-swank-port-file ()
   "Filename where the SWANK server writes its TCP port number."
@@ -9096,16 +9096,7 @@ Return the symbol-name, or nil."
 ;;;;; Portability library
 
 (when (featurep 'xemacs)
-  (require 'overlay)
-  (defun next-single-char-property-change (&rest args)
-    (or (apply 'next-single-property-change args)
-        (point-max)))
-  (defun previous-single-char-property-change (&rest args)
-    (or (apply 'previous-single-property-change args)
-        (point-min)))
-  (unless (fboundp 'string-make-unibyte)
-    (defalias 'string-make-unibyte #'identity))
-  )
+  (require 'overlay))
 
 (eval-when (compile eval)
   (defmacro slime-defun-if-undefined (name &rest rest)
@@ -9156,6 +9147,19 @@ Return the symbol-name, or nil."
                                 (get-char-property (1- pos) prop object))) 
                     return pos))))))))
 
+(slime-defun-if-undefined next-char-property-change (position &optional limit)
+  (let ((tmp (next-overlay-change position)))
+    (when tmp
+      (setq tmp (min tmp limit)))
+    (next-property-change position nil tmp)))
+
+(slime-defun-if-undefined previous-char-property-change 
+    (position &optional limit)
+  (let ((tmp (previous-overlay-change position)))
+    (when tmp
+      (setq tmp (max tmp limit)))
+    (previous-property-change position nil tmp)))
+        
 (slime-defun-if-undefined substring-no-properties (string &optional start end)
   (let* ((start (or start 0))
 	 (end (or end (length string)))
