@@ -80,6 +80,15 @@
 (defimplementation call-without-interrupts (fn)
   (funcall fn))
 
+#+unix
+(ffi:def-call-out getpid (:return-type ffi:int))
+
+#+win32
+(ffi:def-call-out getpid (:name "GetCurrentProcessId")
+  (:library "kernel32.dll")
+  (:return-type ffi:uint32))
+
+#+(or)
 (let ((getpid (or (find-symbol "PROCESS-ID" :system)
 		  ;; old name prior to 2005-03-01, clisp <= 2.33.2
 		  (find-symbol "PROGRAM-ID" :system)
@@ -157,8 +166,15 @@ Return NIL if the symbol is unbound."
 	       ;; (type-of 'progn) -> ext:special-operator
 	       (t                :special-operator)))
 	 (doc 'function)))
-      (maybe-push :class (when (find-class symbol nil) 
-			   (doc 'type))) ;this should be fixed
+      (when (or (get symbol 'system::setf-function) ; e.g. #'(setf elt)
+		(get symbol 'system::setf-expander)); defsetf
+	(maybe-push :setf (doc 'setf)))
+      (when (or (get symbol 'system::type-symbol); cf. clisp/src/describe.lisp
+		(get symbol 'system::defstruct-description)
+		(get symbol 'system::deftype-expander))
+	(maybe-push :type (doc 'type))) ; even for 'structure
+      (when (find-class symbol nil)
+	(maybe-push :class (doc 'type)))
       ;; Let this code work compiled in images without FFI
       (let ((types (load-time-value
 		    (and (find-package "FFI")
