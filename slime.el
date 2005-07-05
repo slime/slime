@@ -3773,7 +3773,10 @@ See `slime-compile-and-load-file' for further details."
     (when slime-display-compilation-output
       (slime-display-output-buffer))
     (slime-eval-async
-     `(swank:compile-file-for-emacs ,lisp-filename ,(if load t nil))
+     `(swank:compile-file-for-emacs 
+       ,lisp-filename ,(if load t nil)
+       ,@(if (local-variable-p 'slime-coding)
+             (list (slime-coding-system-cl-name slime-coding))))
      (slime-compilation-finished-continuation))
     (message "Compiling %s.." lisp-filename)))
 
