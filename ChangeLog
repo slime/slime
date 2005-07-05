@@ -1,3 +1,22 @@
+2005-07-05  Helmut Eller  <heller@common-lisp.net>
+
+	The file variable slime-coding can now be used to specify the
+	coding system to use for C-c C-k.  E.g., if the file contains
+	-*- slime-coding: utf-8-unix -*- Emacs will tell the Lisp side
+	to call COMPILE-FILE with an external-format argument.
+	
+	* slime.el (slime-compile-file): Send the coding system if
+	the buffer local variable `slime-coding' is bound.
+
+	* swank-backend.lisp, swank-sbcl.lisp, swank-clisp.lisp,
+	swank-lispworks.lisp, swank-cmucl, swank-allegro.lisp,
+	swank-abcl.lisp, swank-corman.lisp 
+	(swank-compile-file): New optional argument `external-format'.
+
+	* swank-clisp.lisp (getpid): Undo the last change.
+
+	* swank-corman.lisp (spawn, thread-alive-p): More thread tweaking.
+	
 2005-07-03  Joerg Hoehle <hoehle@users.sourceforge.net>
 
 	* swank-clisp (describe-symbol-for-emacs): Report :setf and :type
