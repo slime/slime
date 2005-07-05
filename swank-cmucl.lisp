@@ -299,7 +299,9 @@ NIL if we aren't compiling from a buffer.")
                    (c::warning        #'handle-notification-condition))
       (funcall function))))
 
-(defimplementation swank-compile-file (filename load-p)
+(defimplementation swank-compile-file (filename load-p 
+                                       &optional external-format)
+  (declare (ignore external-format))
   (clear-xref-info filename)
   (with-compilation-hooks ()
     (let ((*buffer-name* nil)

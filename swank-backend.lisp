@@ -293,7 +293,7 @@ Example:
         (error "Couldn't find ASDF operation ~S" operation-name))
       (apply operate operation system-name keyword-args))))
 
-(definterface swank-compile-file (filename load-p)
+(definterface swank-compile-file (filename load-p &optional external-format)
    "Compile FILENAME signalling COMPILE-CONDITIONs.
 If LOAD-P is true, load the file after compilation.")
 
@@ -379,11 +379,12 @@ Return the resulting form.")
 The property list has an entry for each interesting aspect of the
 symbol. The recognised keys are:
 
-  :VARIABLE :FUNCTION :SETF :TYPE :CLASS :MACRO :COMPILER-MACRO
-  :ALIEN-TYPE :ALIEN-STRUCT :ALIEN-UNION :ALIEN-ENUM
+  :VARIABLE :FUNCTION :SETF :SPECIAL-OPERATOR :MACRO :COMPILER-MACRO
+  :TYPE :CLASS :ALIEN-TYPE :ALIEN-STRUCT :ALIEN-UNION :ALIEN-ENUM
 
 The value of each property is the corresponding documentation string,
-or :NOT-DOCUMENTED. It is legal to include keys not listed here.
+or :NOT-DOCUMENTED. It is legal to include keys not listed here (but
+slime-print-apropos in Emacs must know about them).
 
 Properties should be included if and only if they are applicable to
 the symbol. For example, only (and all) fbound symbols should include
@@ -662,7 +663,7 @@ inspect-for-emacs method."))
   "Return an inspector object suitable for passing to inspect-for-emacs.")
 
 (definterface inspect-for-emacs (object inspector)
-   "Explain to emacs how to inspect OBJECT.
+   "Explain to Emacs how to inspect OBJECT.
 
 The argument INSPECTOR is an object representing how to get at
 the internals of OBJECT, it is usually an implementation specific
@@ -695,13 +696,12 @@ inserted into the buffer as is, or a list of the form:
 Since we don't know how to deal with OBJECT we simply dump the
 output of CL:DESCRIBE."
   (declare (ignore inspector))
-  (values "A value."
-          `("Type: " (:value ,(type-of object))
-            (:newline)
-            "Don't know how to inspect the object, dumping output of CL:DESCIRBE:" 
-            (:newline) (:newline)
-            ,(with-output-to-string (desc)
-               (describe object desc)))))
+  (values 
+   "A value."
+   `("Type: " (:value ,(type-of object)) (:newline)
+     "Don't know how to inspect the object, dumping output of CL:DESCRIBE:"
+     (:newline) (:newline)
+     ,(with-output-to-string (desc) (describe object desc)))))
 
 ;;; Utilities for inspector methods.
 ;;; 

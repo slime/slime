@@ -123,17 +123,20 @@
     (sb-bsd-sockets:socket (sb-bsd-sockets:socket-file-descriptor socket))
     (file-stream (sb-sys:fd-stream-fd socket))))
 
+(defun find-external-format (coding-system)
+  (ecase coding-system
+    (:iso-latin-1-unix :iso-8859-1)
+    #+sb-unicode
+    (:utf-8-unix :utf-8)))
+
 (defun make-socket-io-stream (socket external-format)
-  (let ((encoding (ecase external-format
-                    (:iso-latin-1-unix :iso-8859-1)
-                    #+sb-unicode
-                    (:utf-8-unix :utf-8))))
+  (let ((ef (find-external-format external-format)))
     (sb-bsd-sockets:socket-make-stream socket
                                        :output t
                                        :input t
                                        :element-type 'character
                                        #+sb-unicode :external-format 
-                                       #+sb-unicode encoding
+                                       #+sb-unicode ef
                                        )))
 
 (defun accept (socket)
@@ -364,16 +367,20 @@ compiler state."
 
 (defvar *trap-load-time-warnings* nil)
 
-(defimplementation swank-compile-file (filename load-p)
-  (handler-case
-      (let ((output-file (with-compilation-hooks ()
-                           (compile-file filename))))
-        (when output-file
-          ;; Cache the latest source file for definition-finding.
-          (source-cache-get filename (file-write-date filename))
-          (when load-p
-            (load output-file))))
-    (sb-c:fatal-compiler-error () nil)))
+(defimplementation swank-compile-file (filename load-p 
+                                       &optional external-format)
+  (let ((ef (if external-format 
+                (find-external-format external-format)
+                :default)))
+    (handler-case
+        (let ((output-file (with-compilation-hooks ()
+                             (compile-file filename :external-format ef))))
+          (when output-file
+            ;; Cache the latest source file for definition-finding.
+            (source-cache-get filename (file-write-date filename))
+            (when load-p
+              (load output-file))))
+      (sb-c:fatal-compiler-error () nil))))
 
 ;;;; compile-string
 

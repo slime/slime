@@ -271,12 +271,15 @@
                                (list :file *compile-filename*)
                                (list :position 1))))))))
 
-(defimplementation swank-compile-file (*compile-filename* load-p)
+(defimplementation swank-compile-file (filename load-p
+                                       &optional external-format)
+  (declare (ignore external-format))
   (handler-bind ((warning #'handle-compiler-warning))
-                (let ((*buffer-name* nil))
-                  (multiple-value-bind (fn warn fail) 
-                      (compile-file *compile-filename*)
-                    (when load-p (unless fail (load fn)))))))
+    (let ((*buffer-name* nil)
+          (*compile-filename* filename))
+      (multiple-value-bind (fn warn fail) (compile-file filename)
+        (when (and load-p (not fail))
+          (load fn))))))
 
 (defimplementation swank-compile-string (string &key buffer position directory)
   (declare (ignore directory))

@@ -158,7 +158,7 @@
          (*stack-trace* (cdr (member 'cl:invoke-debugger real-stack-trace
                                      :key #'car)))
          (*frame-trace*
-          (let* ((db::*debug-level*         1)
+          (let* ((db::*debug-level*         (1+ db::*debug-level*))
                  (db::*debug-frame-pointer* (db::stash-ebp
                                              (ct:create-foreign-ptr)))
                  (db::*debug-max-level*     (length real-stack-trace))
@@ -213,6 +213,17 @@
 
 (defimplementation frame-source-location-for-emacs (frame-number)
   (fspec-location (frame-function (elt *frame-trace* frame-number))))
+
+(defun break (&optional (format-control "Break") &rest format-arguments)
+  (with-simple-restart (continue "Return from BREAK.")
+    (let ();(*debugger-hook* nil))
+      (let ((condition 
+	     (make-condition 'simple-condition
+			     :format-control format-control
+			     :format-arguments format-arguments)))
+	;;(format *debug-io* ";;; User break: ~A~%" condition)
+	(invoke-debugger condition))))
+  nil)
 
 ;;; Socket communication
 
@@ -354,7 +365,9 @@
                                           (list :error "No location"))))))))
     (funcall fn)))
 
-(defimplementation swank-compile-file (*compile-filename* load-p)
+(defimplementation swank-compile-file (*compile-filename* load-p
+				       &optional external-format)
+  (declare (ignore external-format))
   (with-compilation-hooks ()
     (let ((*buffer-name* nil))
       (compile-file *compile-filename*)
@@ -496,19 +509,23 @@
 
 (defimplementation spawn (fun &key name)
   (declare (ignore name))
-  (threads:create-thread 
+  (th:create-thread 
    (lambda ()
-     (unwind-protect (funcall fun)
-       (with-lock *mailbox-lock*
-	 (setq *mailboxes* (remove cormanlisp:*current-thread-id*
-				   *mailboxes* :key #'mailbox.thread)))))))
+     (handler-bind ((serious-condition #'invoke-debugger))
+       (unwind-protect (funcall fun)
+	 (with-lock *mailbox-lock*
+	   (setq *mailboxes* (remove cormanlisp:*current-thread-id*
+				     *mailboxes* :key #'mailbox.thread))))))))
 
-(defimplementation thread-id (thread) 
+(defimplementation thread-id (thread)
   thread)
 
 (defimplementation find-thread (thread)
   (if (thread-alive-p thread)
       thread))
+
+(defimplementation thread-alive-p (thread)
+  (if (threads:thread-handle thread) t nil))
 
 (defimplementation current-thread ()
   cormanlisp:*current-thread-id*)
@@ -516,9 +533,6 @@
 ;; XXX implement it
 (defimplementation all-threads ()
   '())
-
-(defimplementation thread-alive-p (thread)
-  t)
 
 ;; XXX something here is broken
 (defimplementation kill-thread (thread)

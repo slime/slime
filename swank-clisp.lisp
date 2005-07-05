@@ -80,15 +80,6 @@
 (defimplementation call-without-interrupts (fn)
   (funcall fn))
 
-#+unix
-(ffi:def-call-out getpid (:return-type ffi:int))
-
-#+win32
-(ffi:def-call-out getpid (:name "GetCurrentProcessId")
-  (:library "kernel32.dll")
-  (:return-type ffi:uint32))
-
-#+(or)
 (let ((getpid (or (find-symbol "PROCESS-ID" :system)
 		  ;; old name prior to 2005-03-01, clisp <= 2.33.2
 		  (find-symbol "PROGRAM-ID" :system)
@@ -422,13 +413,17 @@ Execute BODY with NAME's function slot set to FUNCTION."
 			  :message (princ-to-string condition)
 			  :location (compiler-note-location))))
 
-(defimplementation swank-compile-file (filename load-p)
-  (with-compilation-hooks ()
-    (with-compilation-unit ()
-      (let ((fasl-file (compile-file filename)))
-	(when (and load-p fasl-file)
-	  (load fasl-file))
-	nil))))
+(defimplementation swank-compile-file (filename load-p 
+				       &optional external-format)
+  (let ((ef (if external-format 
+		(find-encoding external-format)
+		:default)))
+    (with-compilation-hooks ()
+      (with-compilation-unit ()
+	(let ((fasl-file (compile-file filename :external-format ef)))
+	  (when (and load-p fasl-file)
+	    (load fasl-file))
+	  nil)))))
 
 (defimplementation swank-compile-string (string &key buffer position directory)
   (declare (ignore directory))

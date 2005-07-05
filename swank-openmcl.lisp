@@ -262,7 +262,9 @@ condition."
   (handler-bind ((ccl::compiler-warning #'handle-compiler-warning))
     (funcall function)))
 
-(defimplementation swank-compile-file (filename load-p)
+(defimplementation swank-compile-file (filename load-p 
+                                       &optional external-format)
+  (declare (ignore external-format))
   (with-compilation-hooks ()
     (let ((*buffer-name* nil)
           (*buffer-offset* nil))

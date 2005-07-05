@@ -1,12 +1,11 @@
-;;;; -*- Mode: lisp; indent-tabs-mode: nil; outline-regexp: ";;;;;*"; -*-
+;;;;                  -*- indent-tabs-mode: nil; outline-regexp: ";;;;;*"; -*-
 ;;;
 ;;; swank-allegro.lisp --- Allegro CL specific code for SLIME. 
 ;;;
 ;;; Created 2003
 ;;;
 ;;; This code has been placed in the Public Domain.  All warranties
-;;; are disclaimed. This code was written for "Allegro CL Trial
-;;; Edition "5.0 [Linux/X86] (8/29/98 10:57)".
+;;; are disclaimed.
 ;;;  
 
 (in-package :swank-backend)
@@ -57,15 +56,18 @@
     (set-external-format s ef)
     s))
 
-(defun set-external-format (stream external-format)
-  #-allegro-v5.0
+(defun find-external-format (coding-system)
+  #-(version>= 6) :default
+  #+(version>= 6)
   (let* ((name (ecase external-format
                  (:iso-latin-1-unix :latin1)
                  (:utf-8-unix :utf-8-unix)
-                 (:emacs-mule-unix :emacs-mule)))
-         (ef (excl:crlf-base-ef
-              (excl:find-external-format name :try-variant t))))
-    (setf (stream-external-format stream) ef)))
+                 (:emacs-mule-unix :emacs-mule))))
+    (excl:crlf-base-ef (excl:find-external-format name :try-variant t))))
+
+(defun set-external-format (stream external-format)
+    (setf (stream-external-format stream)
+          (find-external-format external-format)))
 
 (defimplementation format-sldb-condition (c)
   (princ-to-string c))
@@ -287,10 +289,16 @@
                  )
     (funcall function)))
 
-(defimplementation swank-compile-file (*compile-filename* load-p)
+(defimplementation swank-compile-file (filename load-p 
+                                       &optional external-format)
   (with-compilation-hooks ()
-    (let ((*buffer-name* nil))
-      (compile-file *compile-filename* :load-after-compile load-p))))
+    (let ((*buffer-name* nil)
+          (*compile-filename* filename)
+          (ef (if external-format 
+                  (find-external-format external-format)
+                  :default)))
+      (compile-file *compile-filename* :load-after-compile load-p
+                    :external-format ef))))
 
 (defun call-with-temp-file (fn)
   (let ((tmpname (system:make-temp-file-name)))

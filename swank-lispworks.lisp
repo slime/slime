@@ -1,4 +1,4 @@
-;;; -*- Mode: lisp; indent-tabs-mode: nil -*-
+;;; -*- indent-tabs-mode: nil -*-
 ;;;
 ;;; swank-lispworks.lisp --- LispWorks specific code for SLIME. 
 ;;;
@@ -83,6 +83,12 @@
     (assert (/= fd -1))
     (make-instance 'comm:socket-stream :socket fd :direction :io 
                    :element-type 'base-char)))
+
+(defun find-external-format (coding-system &optional default)
+  (case coding-system
+    (:iso-latin-1-unix '(:latin-1 :eol-style :lf))
+    (:utf-8-unix '(:utf-8 :eol-style :lf))
+    (t default)))
 
 (defun set-sigint-handler ()
   ;; Set SIGINT handler on Swank request handler thread.
@@ -366,9 +372,13 @@ Return NIL if the symbol is unbound."
          (signal-error-data-base compiler::*error-database* ,location)
          (signal-undefined-functions compiler::*unknown-functions* ,location)))))
 
-(defimplementation swank-compile-file (filename load-p)
+(defimplementation swank-compile-file (filename load-p 
+                                       &optional external-format)
   (with-swank-compilation-unit (filename)
-    (compile-file filename :load load-p)))
+    (let ((ef (if external-format 
+                  (find-external-format external-format) 
+                  :default)))
+      (compile-file filename :load load-p :external-format ef))))
 
 (defvar *within-call-with-compilation-hooks* nil
   "Whether COMPILE-FILE was called from within CALL-WITH-COMPILATION-HOOKS.")
@@ -745,7 +755,7 @@ function names like \(SETF GET)."
 
 ;;; Some intergration with the lispworks environment
 
-(defun swank-sym (name) (find-symbol (string name) (string :swank)))
+(defun swank-sym (name) (find-symbol (string name) :swank))
 
 (defimplementation emacs-connected ()
   (when (eq (eval (swank-sym :*communication-style*))
@@ -756,8 +766,7 @@ function names like \(SETF GET)."
     (defmethod env-internals:environment-display-notifier 
         (env &key restarts condition)
       (declare (ignore restarts))
-      (funcall (find-symbol (string :swank-debugger-hook) :swank)
-               condition *debugger-hook*))
+      (funcall (swank-sym :swank-debugger-hook) condition *debugger-hook*))
     (defmethod env-internals:environment-display-debugger (env)
       *debug-io*)))
 
