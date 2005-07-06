@@ -2359,11 +2359,9 @@ slime-repl-insert-prompt.")
   (setf (slime-rex-continuations) '())
   (mapc #'kill-buffer (sldb-buffers)))
 
-(defconst +slime-sigint+ 2)
-
 (defun slime-send-sigint ()
   (interactive)
-  (signal-process (slime-pid) +slime-sigint+))
+  (signal-process (slime-pid) 'SIGINT))
 
 ;;;;; Event logging to *slime-events*
 ;;;
@@ -3775,7 +3773,7 @@ See `slime-compile-and-load-file' for further details."
     (slime-eval-async
      `(swank:compile-file-for-emacs 
        ,lisp-filename ,(if load t nil)
-       ,@(if (local-variable-p 'slime-coding)
+       ,@(if (local-variable-p 'slime-coding (current-buffer))
              (list (slime-coding-system-cl-name slime-coding))))
      (slime-compilation-finished-continuation))
     (message "Compiling %s.." lisp-filename)))
