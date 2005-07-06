@@ -1,3 +1,10 @@
+2005-07-06  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-send-sigint): Use the symbol SIGINT stead of the
+	signal number.  Suggested by Joerg Hoehle.
+	(slime-compile-file): XEmacs needs the buffer as argument to
+	local-variable-p.  Reported by Andy Sloane.
+
 2005-07-05  Helmut Eller  <heller@common-lisp.net>
 
 	The file variable slime-coding can now be used to specify the
