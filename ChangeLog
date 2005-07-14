@@ -1,3 +1,7 @@
+2005-07-14  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-allegro.lisp (find-external-format): Fix typo.
+
 2005-07-06  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-send-sigint): Use the symbol SIGINT stead of the
