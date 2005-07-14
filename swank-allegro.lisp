@@ -59,15 +59,15 @@
 (defun find-external-format (coding-system)
   #-(version>= 6) :default
   #+(version>= 6)
-  (let* ((name (ecase external-format
+  (let* ((name (ecase coding-system
                  (:iso-latin-1-unix :latin1)
                  (:utf-8-unix :utf-8-unix)
                  (:emacs-mule-unix :emacs-mule))))
     (excl:crlf-base-ef (excl:find-external-format name :try-variant t))))
 
 (defun set-external-format (stream external-format)
-    (setf (stream-external-format stream)
-          (find-external-format external-format)))
+  (setf (stream-external-format stream)
+        (find-external-format external-format)))
 
 (defimplementation format-sldb-condition (c)
   (princ-to-string c))
@@ -234,7 +234,7 @@
   (member (type-of object) '(excl::compiler-note compiler::compiler-note)))
 
 (defun compiler-undefined-functions-called-warning-p (object)
-  #-allegro-v5.0
+  #+(version>= 6)
   (typep object 'excl:compiler-undefined-functions-called-warning))
 
 (deftype compiler-note ()
