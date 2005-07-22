@@ -1,3 +1,12 @@
+2005-07-22  Marco Baringer  <mb@bese.it>
+
+	* swank-openmcl.lisp (frame-catch-tags): Remove some debugging
+	forms which were "polluting" the repl buffer when viewing an sldb
+	buffer.
+	(function-source-location): Make :error messages have the proper
+	form (exactly one string argument). This fix also removes the
+	issues with sending unreadble lists (containing #<...> to emacs).
+
 2005-07-14  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-allegro.lisp (find-external-format): Fix typo.
