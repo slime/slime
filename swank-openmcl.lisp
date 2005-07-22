@@ -498,7 +498,6 @@ condition."
                     for csp = (ccl::uvref catch 3) ; ppc32::catch-frame.csp-cell) defined in arch.lisp
                     for tag = (ccl::uvref catch 0) ; ppc32::catch-frame.catch-tag-cell)
                     until (ccl::%stack< p csp context)
-                    do (print "-") (print catch) (terpri) (describe tag)
                     when (ccl::%stack< my-frame csp context)
                     collect (cond 
                               ((symbolp tag)
@@ -553,7 +552,7 @@ condition."
 
 (defun function-source-location (function)
   (multiple-value-bind (info name) (ccl::edit-definition-p function)
-    (cond ((not info) (list :error "No source info available for ~A" function))
+    (cond ((not info) (list :error (format nil "No source info available for ~A" function)))
           ((typep (caar info) 'ccl::method)
            `(:location 
              (:file ,(remove-filename-quoting (namestring (translate-logical-pathname (cdr (car info))) )))
