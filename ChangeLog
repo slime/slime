@@ -1,3 +1,10 @@
+2005-07-24  Tom Pierce <tlpierce@gmail.com>
+
+	* swank.lisp (format-iso8601-time): New functions. Properly
+	formats a universal-time as an iso8601 string.
+	(inspect-for-emacs integer): Use the new
+	format-iso8601 function when printing an integer as a date.
+	
 2005-07-22  Marco Baringer  <mb@bese.it>
 
 	* swank-openmcl.lisp (frame-catch-tags): Remove some debugging
