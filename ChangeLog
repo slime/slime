@@ -1,3 +1,8 @@
+2005-07-26  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (compile-file-for-emacs): Accept optional
+	external-format arg.  I frogot to commit this file on 2005-07-05.
+
 2005-07-26  Zach Beane  <xach@xach.com>
 
 	* swank-sbcl.lisp (swank-compile-string): Revert to old string
