@@ -1,3 +1,9 @@
+2005-07-26  Zach Beane  <xach@xach.com>
+
+	* swank-sbcl.lisp (swank-compile-string): Revert to old string
+	compilation behavior to fix compiler note annotations. Code from
+	Juho Snellman.
+
 2005-07-24  Tom Pierce <tlpierce@gmail.com>
 
 	* swank.lisp (format-iso8601-time): New functions. Properly

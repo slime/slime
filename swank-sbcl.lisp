@@ -304,7 +304,8 @@ information."
          ;; Compiling from a buffer
          (let ((position (+ *buffer-offset*
                             (source-path-string-position
-                             source-path *buffer-substring*))))
+                             (cons 0 (nthcdr 2 source-path))
+                             *buffer-substring*))))
            (make-location (list :buffer *buffer-name*)
                           (list :position position))))
         ((and (pathnamep file) (null *buffer-name*))
@@ -465,8 +466,12 @@ compiler state."
                                 (list :emacs-buffer buffer 
                                       :emacs-string string
                                       :emacs-position position))
-          (with-input-from-string (s string)
-            (load s))))))
+        #+nil
+        (with-input-from-string (stream string)
+          (load stream))
+        (funcall (compile nil
+                          `(lambda ()
+                            ,(read-from-string string))))))))
 
 ;;;; Definitions
 
