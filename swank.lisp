@@ -3343,9 +3343,11 @@ NIL is returned if the list is circular."
                        " to the package: "
                        (:value ,package ,(package-name package))
                        ,@(if (eq :internal status) 
-                             `((:action " [export it]"
+                             `(" "
+                               (:action "[export it]"
                                         ,(lambda () (export symbol package)))))
-                       (:action " [unintern it]"
+                       " "
+                       (:action "[unintern it]"
                                 ,(lambda () (unintern symbol package)))
                        (:newline))
             '("It is a non-interned symbol." (:newline)))
@@ -3357,7 +3359,8 @@ NIL is returned if the list is circular."
 	(if (find-class symbol nil)
 	    `("It names the class " 
 	      (:value ,(find-class symbol) ,(string symbol))
-	      (:action " [remove]"
+              " "
+	      (:action "[remove]"
 		       ,(lambda () (setf (find-class symbol) nil)))
 	      (:newline)))
 	;;
@@ -3478,7 +3481,8 @@ See `methods-by-applicability'.")
 	    `((:value ,method ,(inspector-princ
 			       ;; drop the name of the GF
 			       (cdr (method-for-inspect-value method))))
-	      (:action " [remove method]" 
+              " "
+	      (:action "[remove method]" 
                        ,(let ((m method)) ; LOOP reassigns method
                           (lambda () 
                             (remove-method gf m))))
