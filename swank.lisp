@@ -1,4 +1,4 @@
-;;; -*- Mode: lisp; outline-regexp: ";;;;;*"; indent-tabs-mode: nil -*-;;;
+;;; -*- outline-regexp: ";;;;;*"; indent-tabs-mode: nil -*-
 ;;;
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
@@ -2197,12 +2197,13 @@ The time is measured in microseconds."
       (list (to-string result)
             (format nil "~,2F" (/ usecs 1000000.0))))))
 
-(defslimefun compile-file-for-emacs (filename load-p)
+(defslimefun compile-file-for-emacs (filename load-p &optional external-format)
   "Compile FILENAME and, when LOAD-P, load the result.
 Record compiler notes signalled as `compiler-condition's."
   (with-buffer-syntax ()
     (let ((*compile-print* nil))
-      (swank-compiler (lambda () (swank-compile-file filename load-p))))))
+      (swank-compiler (lambda () (swank-compile-file filename load-p
+                                                     external-format))))))
 
 (defslimefun compile-string-for-emacs (string buffer position directory)
   "Compile STRING (exerpted from BUFFER at POSITION).
