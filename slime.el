@@ -545,7 +545,7 @@ A prefix argument disables this behaviour."
   "Return t if the region from START to END contains a complete sexp."
   (save-excursion
     (goto-char start)
-    (cond ((looking-at "\\s *['`#]?(")
+    (cond ((looking-at "\\s *['`#]?[(\"]")
            (ignore-errors
              (save-restriction
                (narrow-to-region start end)
@@ -3753,6 +3753,9 @@ between compiler notes and to display their full details."
 
 (defvar slime-lisp-modes '(lisp-mode))
 
+(defvar slime-coding nil
+  "*The coding to use for `slime-compile-file'. Only used if buffer local.")
+
 (defun slime-compile-file (&optional load)
   "Compile current buffer's file and highlight resulting compiler notes.
 
@@ -4384,6 +4387,7 @@ first element of the source-path redundant."
     ((:source-form string)
      (set-buffer (get-buffer-create "*SLIME Source Form*"))
      (erase-buffer)
+     (lisp-mode)
      (insert string)
      (goto-char (point-min)))))
 
