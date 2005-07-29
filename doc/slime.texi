@@ -1420,6 +1420,11 @@ through. Without the optimization it is necessary to send output in
 protocol-messages to Emacs which must then be decoded, and this
 doesn't always keep up if Lisp starts ``spewing'' copious output.
 
+@item SWANK:*DEDICATED-OUTPUT-STREAM-PORT*
+When @code{*USE-DEDICATED-OUTPUT-STREAM*} is @code{t} the stream will
+be opened on this port. The default value, @code{0}, means that the
+stream will be opened on some random port.
+
 @item SWANK:*LOG-EVENTS*
 Setting this variable to @code{t} causes all protocol messages
 exchanged with Emacs to be printed to @code{*TERMINAL-IO*}. This is
