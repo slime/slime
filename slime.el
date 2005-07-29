@@ -6549,7 +6549,7 @@ CL:MACROEXPAND."
   (message "*package*: %s" (slime-eval `(swank:set-package ,package))))
 
 (defun slime-set-default-directory (directory)
-  "Make DIRECTION become Lisp's current directory."
+  "Make DIRECTORY become Lisp's current directory."
   (interactive (list (read-directory-name "Directory: " nil nil t)))
   (message "default-directory: %s"
            (slime-from-lisp-filename
