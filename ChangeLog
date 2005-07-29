@@ -1,3 +1,14 @@
+2005-07-29  Marco Baringer  <mb@bese.it>
+
+	* doc/slime.texi (Other configurables): Document
+	*dedicated-output-stream-port*.
+
+	* swank.lisp (*dedicated-output-stream-port*): New variable.
+	(open-dedicated-output-stream): Open the stream on the port
+	*dedicated-output-stream-port*.
+
+	* slime.el (slime-set-default-directory): Fix typo in doc string.
+
 2005-07-26  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* swank.lisp (inspect-for-emacs): Don't make whitespace
