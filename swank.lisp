@@ -26,6 +26,7 @@
            #:*log-events*
            #:*log-output*
            #:*use-dedicated-output-stream*
+           #:*dedicated-output-stream-port*
            #:*configure-emacs-indentation*
            #:*readtable-alist*
            #:*globally-redirect-io*
@@ -328,7 +329,11 @@ Useful for low level debugging."
 
 ;;;; TCP Server
 
-(defvar *use-dedicated-output-stream* t)
+(defvar *use-dedicated-output-stream* t
+  "When T swank will attempt to create a second connection to
+  Emacs which is used just to send output.")
+(defvar *dedicated-output-stream-port* 0
+  "Which port we sholud use for the dedicated output stream.")
 (defvar *communication-style* (preferred-communication-style))
 
 (defun start-server (port-file &key (style *communication-style*)
@@ -459,7 +464,7 @@ stream (or NIL if none was created)."
 Return an output stream suitable for writing program output.
 
 This is an optimized way for Lisp to deliver output to Emacs."
-  (let* ((socket (create-socket *loopback-interface* 0))
+  (let* ((socket (create-socket *loopback-interface* *dedicated-output-stream-port*))
          (port (local-port socket)))
     (encode-message `(:open-dedicated-output-stream ,port) socket-io)
     (accept-authenticated-connection
@@ -3308,10 +3313,10 @@ NIL is returned if the list is circular."
 	;;
 	;; Value 
 	(cond ((boundp symbol)
-	       (label-value-line (if (constantp symbol)
-				     "It is a constant of value"
-				     "It is a global variable bound to")
-				 (symbol-value symbol)))
+               (label-value-line (if (constantp symbol)
+                                     "It is a constant of value"
+                                     "It is a global variable bound to")
+                                 (symbol-value symbol)))
 	      (t '("It is unbound." (:newline))))
 	(docstring-ispec "Documentation" symbol 'variable)
 	(multiple-value-bind (expansion definedp) (macroexpand symbol)
