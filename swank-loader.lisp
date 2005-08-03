@@ -34,6 +34,7 @@
            #+clisp '("xref" "metering" "swank-clisp" "swank-gray")
            #+armedbear '("swank-abcl")
            #+cormanlisp '("swank-corman" "swank-gray")
+           #+ecl '("swank-ecl" "swank-gray")
            )))
 
 (defparameter *implementation-features*
@@ -125,9 +126,9 @@ recompiled."
               (load source-pathname))
             ))))))
 
-#+cormanlisp
+#+(or cormanlisp ecl)
 (defun compile-files-if-needed-serially (files)
-  "Corman Lisp has trouble with compiled files."
+  "Corman Lisp and ECL have trouble with compiled files."
   (dolist (file files)
     (load file :verbose t)
     (force-output)))
