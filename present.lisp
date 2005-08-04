@@ -15,9 +15,6 @@
 ;; ultimately prints to a slime stream.
 
 ;; Control
-(defvar *can-print-presentation* nil 
-  "set this to t in contexts where it is ok to print presentations at all")
- 
 (defvar *enable-presenting-readable-objects* t
   "set this to enable automatically printing presentations for some
 subset of readable objects, such as pathnames."  )
@@ -110,52 +107,6 @@ says that I am starting to print an object with this id. The second says I am fi
 	  (write-string "" stream)))
       (funcall continue)))
 
-;; enable presentations inside listener eval, when compiling, when evaluating
-(defslimefun listener-eval (string)
-  (clear-user-input)
-  (with-buffer-syntax ()
-    (let ((*slime-repl-suppress-output* :unset)
-	  (*slime-repl-advance-history* :unset))
-      (multiple-value-bind (values last-form) 
-	  (let ((*can-print-presentation* t)) 
-	    (eval-region string t))
-	(unless (or (and (eq values nil) (eq last-form nil))
-		    (eq *slime-repl-advance-history* nil))
-	  (setq *** **  ** *  * (car values)
-		/// //  // /  / values)
-          (when *record-repl-results*
-            (add-repl-result *current-id* *)))
-	(setq +++ ++  ++ +  + last-form)
-	(if (eq *slime-repl-suppress-output* t)
-	    ""
-	    (cond ((null values) "; No value")
-		  (t
-		   (format nil "~{~S~^~%~}" values))))))))
-
-(defslimefun compile-string-for-emacs (string buffer position directory)
-  "Compile STRING (exerpted from BUFFER at POSITION).
-Record compiler notes signalled as `compiler-condition's."
-  (let ((*can-print-presentation* t)) 
-    (with-buffer-syntax ()
-      (swank-compiler
-       (lambda () 
-	 (let ((*compile-print* nil) (*compile-verbose* t))
-	   (swank-compile-string string :buffer buffer :position position 
-				 :directory directory)))))))
-
-(defslimefun interactive-eval (string)
-  (let ((*can-print-presentation* t)) 
-    (with-buffer-syntax ()
-      (let ((values (multiple-value-list (eval (from-string string)))))
-	(fresh-line)
-	(force-output)
-	(format-values-for-echo-area values)))))
-
-(defslimefun load-file (filename)
-  (let ((*can-print-presentation* t)) 
-    (to-string (load filename))))
-
-
 ;; hook up previous implementation. Use negative ids for repl results so as to not conflict with
 ;; the ones for other printout
 (defun add-repl-result (id val)
@@ -180,34 +131,6 @@ Record compiler notes signalled as `compiler-condition's."
                  id '*record-repl-results*)))
     previous-output))
 
-;; Disable during backtrack, for now. For one thing, the filter isn't set up for the sldb
-;; buffer. Also there is higher likelyhood of lossage due to dynamic extent objects.
-
-(defslimefun backtrace (start end)
-  "Return a list ((I FRAME) ...) of frames from START to END.
-I is an integer describing and FRAME a string."
-  (let ((*can-print-presentation* nil))
-    (loop for frame in (compute-backtrace start end)
-	  for i from start
-	  collect (list i (frame-for-emacs i frame)))))
-
-;; ditto inspector - isn't needed
-(defslimefun init-inspector (string)
-  (let ((*can-print-presentation* nil))
-    (with-buffer-syntax ()
-      (reset-inspector)
-      (inspect-object (eval (read-from-string string))))))
-
-;; for load system etc
-(defun swank-compiler (function)
-  (let ((*can-print-presentation* t))
-    (clear-compiler-notes)
-    (with-simple-restart (abort "Abort SLIME compilation.")
-      (multiple-value-bind (result usecs)
-	  (handler-bind ((compiler-condition #'record-note-for-condition))
-	    (measure-time-interval function))
-	(list (to-string result)
-	      (format nil "~,2F" (/ usecs 1000000.0)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; menu protocol
