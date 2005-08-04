@@ -329,7 +329,7 @@ Useful for low level debugging."
 
 ;;;; TCP Server
 
-(defvar *use-dedicated-output-stream* t
+(defvar *use-dedicated-output-stream* nil
   "When T swank will attempt to create a second connection to
   Emacs which is used just to send output.")
 (defvar *dedicated-output-stream-port* 0
@@ -917,7 +917,7 @@ NIL if streams are not globally redirected.")
          (out (connection.user-output connection))
          (*standard-output* out)
          (*error-output* out)
-         (*trace-output* out)
+         ;;(*trace-output* out)
          (*debug-io* io)
          (*query-io* io)
          (*standard-input* in)
@@ -1657,6 +1657,9 @@ Fall back to the the current if no such package exists."
 
 (defvar *current-id* nil)
 
+(defvar *can-print-presentation* nil 
+  "set this to t in contexts where it is ok to print presentations at all")
+ 
 (defun eval-for-emacs (form buffer-package id)
   "Bind *BUFFER-PACKAGE* BUFFER-PACKAGE and evaluate FORM.
 Return the result to the continuation ID.
@@ -1843,9 +1846,6 @@ Return its name and the string to use in the prompt."
 (defparameter *repl-results* '()
   "Association list of old repl results.")
 
-(defvar *can-print-presentation* nil 
-  "set this to t in contexts where it is ok to print presentations at all")
- 
 (defslimefun listener-eval (string)
   (clear-user-input)
   (with-buffer-syntax ()
