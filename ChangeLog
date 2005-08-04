@@ -1,3 +1,47 @@
+2005-08-04  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* swank.lisp (encode-message): Don't use the pretty printer for
+	printing the message length.
+
+	* slime.el (slime-dispatch-event): New events :presentation-start,
+	:presentation-end for bridge-less presentation markup.
+	* swank.lisp (dispatch-event, send-to-socket-io): Likewise.
+
+	* swank.lisp (listener-eval): Store the whole values-list with
+	add-repl-result. 
+	* slime.el (slime-repl-insert-prompt): Accept a list of strings,
+	representing individual values of a multiple-value result.  Mark
+	them up as separate presentations.
+	(reify-old-output): Support reifying individual values of a
+	multiple-value result.
+
+	* slime.el (slime-pre-command-hook): Don't call
+	slime-presentation-command-hook.
+	(slime-post-command-hook): Don't call
+	slime-presentation-post-command-hook.
+	(slime-presentation-command-hook): Removed.
+	(slime-presentation-post-command-hook): Removed.
+
+	* slime.el (slime-presentation-whole-p): New.
+	(slime-same-presentation-p): New. 
+	(slime-presentation-start, slime-presentation-end): New.
+	(slime-presentation-around-point): New.
+	(slime-after-change-function): New.
+	(slime-setup-command-hooks): Install slime-after-change-function
+	as an after-change-function.
+	
+	* slime.el (slime-repl-enable-presentations): Make
+	slime-repl-presentation nonsticky.
+	(slime-mark-presentation-start, slime-mark-presentation-end): New
+	functions. 
+	(slime-mark-presentation-start-handler): Renamed from
+	slime-mark-presentation-start. 
+	(slime-mark-presentation-end-handler): Renamed from
+	slime-mark-presentation-end. 
+	(slime-presentation): New structure.
+	(slime-add-presentation-properties): New function.
+	(slime-insert-presentation): New function.
+
 2005-08-03  Zach Beane  <xach@gwi.net>
 
 	* swank-sbcl.lisp (swank-compile-string): Restore honoring of
