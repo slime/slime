@@ -1,5 +1,42 @@
 2005-08-04  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
+	Improvements to the presentations feature.  Parts of presentations
+	can be copied reliably using all available Emacs facilities (not
+	just kill-ring-save), and they are no longer "semi-readonly" (in
+	the sense that keypresses are silently ignored).  Whenever a user
+	attempts to edit a presentation, it now simply turns into plain
+	text (which is indicated by changing the face); this can be
+	undone.  Presentations are now also supported if
+	*use-dedicated-output-stream* is nil.  It is now possible to
+	access the individual values of multiple-value results.  For some
+	systems (Allegro CL and upcoming CMUCL snapshots), presentations
+	can be reliably printed through pretty-printing streams.
+	
+	* present.lisp (slime-stream-p) [allegro]: Allow printing
+	presentations through pretty printing streams.
+	[cmu]: Allow printing presentations through pretty printing
+	streams, if CMUCL has annotations support and we are using the
+	bridge-less protocol.
+	[sbcl]: Allow printing presentations through indenting streams.
+	
+	* present.lisp (write-annotation): New function.
+	(presentation-record): New structure.
+	(presentation-start, presentation-end): New functions, supporting
+	both bridge protocol and bridge-less protocol.
+	(presenting-object-1): Use them here.
+
+	* present.lisp [sbcl, allegro]: Add printer hooks for unreadable
+	objects and pathnames.
+	
+	* swank.lisp (*can-print-presentation*): New variable, moved here
+	from present.lisp.
+	* swank.lisp (interactive-eval, listener-eval, backtrace) 
+	(swank-compiler, compile-file-for-emacs, load-file) 
+	(init-inspector): Bind *can-print-presentation* to an appropriate
+	value.  
+	* present.lisp: Remove code duplication with swank.lisp for the
+	functions above.
+
 	* swank.lisp (encode-message): Don't use the pretty printer for
 	printing the message length.
 
