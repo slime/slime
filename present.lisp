@@ -79,8 +79,21 @@ don't want to present anything"
 					;(slime-stream-p (ccl::xp-base-stream (slot-value stream 'ccl::xp-structure)))
 			 (slime-stream-p (ccl::%svref (slot-value stream 'ccl::xp-structure) 1)))
 		    #+cmu
-		    (and (typep stream 'pretty-print::pretty-stream)
-			 (slime-stream-p (pretty-print::pretty-stream-target  stream)))
+		    (or (and (typep stream 'lisp::indenting-stream)
+			     (slime-stream-p (lisp::indenting-stream-stream stream)))
+			(and (typep stream 'pretty-print::pretty-stream)
+			     (fboundp 'pretty-print::enqueue-annotation)
+			     (not *use-dedicated-output-stream*)
+			     ;; Printing through CMUCL pretty streams
+			     ;; is only cleanly possible if we are
+			     ;; using the bridge-less protocol with
+			     ;; annotations, because the bridge escape
+			     ;; sequences disturb the pretty printer
+			     ;; layout.
+			     (slime-stream-p (pretty-print::pretty-stream-target  stream))))
+		    #+sbcl
+		    (and (typep stream 'sb-impl::indenting-stream)
+			 (slime-stream-p (sb-impl::indenting-stream-stream stream)))
 		    #+allegro
 		    (and (typep stream 'excl:xp-simple-stream)
 			 (slime-stream-p (excl::stream-output-handle stream)))
@@ -102,7 +115,13 @@ don't want to present anything"
   (if (typep stream 'excl:xp-simple-stream)
       (excl::schedule-annotation stream function arg)
       (funcall function arg stream nil)))
-#-allegro
+#+cmu
+(defun write-annotation (stream function arg)
+  (if (and (typep stream 'pp:pretty-stream)
+	   (fboundp 'pp::enqueue-annotation))
+      (pp::enqueue-annotation stream function arg)
+      (funcall function arg stream nil)))
+#-(or allegro cmu)
 (defun write-annotation (stream function arg)
   (funcall function arg stream nil))
 
