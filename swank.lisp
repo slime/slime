@@ -975,7 +975,8 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
   (let* ((string (prin1-to-string-for-emacs message))
          (length (1+ (length string))))
     (log-event "WRITE: ~A~%" string)
-    (format stream "~6,'0x" length)
+    (let ((*print-pretty* nil))
+      (format stream "~6,'0x" length))
     (write-string string stream)
     (terpri stream)
     (force-output stream)))
@@ -1852,13 +1853,13 @@ Return its name and the string to use in the prompt."
 	  (setq *** **  ** *  * (car values)
 		/// //  // /  / values)
           (when *record-repl-results*
-            (add-repl-result *current-id* *)))
+            (add-repl-result *current-id* values)))
 	(setq +++ ++  ++ +  + last-form)
 	(if (eq *slime-repl-suppress-output* t)
 	    ""
 	    (cond ((null values) "; No value")
 		  (t
-		   (format nil "~{~S~^~%~}" values))))))))
+                   (mapcar #'prin1-to-string values))))))))
 
 (defun add-repl-result (id val)
   (push (cons id val) *repl-results*)
