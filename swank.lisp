@@ -1691,11 +1691,12 @@ Errors are trapped and invoke our debugger."
             (t (format nil "~{~S~^, ~}" values))))))
 
 (defslimefun interactive-eval (string)
-  (with-buffer-syntax ()
-    (let ((values (multiple-value-list (eval (from-string string)))))
-      (fresh-line)
-      (force-output)
-      (format-values-for-echo-area values))))
+  (let ((*can-print-presentation* t)) 
+    (with-buffer-syntax ()
+      (let ((values (multiple-value-list (eval (from-string string)))))
+        (fresh-line)
+        (force-output)
+        (format-values-for-echo-area values)))))
 
 (defslimefun eval-and-grab-output (string)
   (with-buffer-syntax ()
@@ -1842,12 +1843,17 @@ Return its name and the string to use in the prompt."
 (defparameter *repl-results* '()
   "Association list of old repl results.")
 
+(defvar *can-print-presentation* nil 
+  "set this to t in contexts where it is ok to print presentations at all")
+ 
 (defslimefun listener-eval (string)
   (clear-user-input)
   (with-buffer-syntax ()
     (let ((*slime-repl-suppress-output* :unset)
 	  (*slime-repl-advance-history* :unset))
-      (multiple-value-bind (values last-form) (eval-region string t)
+      (multiple-value-bind (values last-form) 
+	  (let ((*can-print-presentation* t)) 
+            (eval-region string t))
 	(unless (or (and (eq values nil) (eq last-form nil))
 		    (eq *slime-repl-advance-history* nil))
 	  (setq *** **  ** *  * (car values)
@@ -2044,9 +2050,13 @@ format suitable for Emacs."
 (defslimefun backtrace (start end)
   "Return a list ((I FRAME) ...) of frames from START to END.
 I is an integer describing and FRAME a string."
-  (loop for frame in (compute-backtrace start end)
-        for i from start
-        collect (list i (frame-for-emacs i frame))))
+  (let ((*can-print-presentation* nil))
+    ;; Disable presentations during backtrack, for now. For one thing,
+    ;; the filter isn't set up for the sldb buffer. Also there is
+    ;; higher likelyhood of lossage due to dynamic extent objects.
+    (loop for frame in (compute-backtrace start end)
+          for i from start
+          collect (list i (frame-for-emacs i frame)))))
 
 (defslimefun debugger-info-for-emacs (start end)
   "Return debugger state, with stack frames from START to END.
@@ -2197,21 +2207,23 @@ The time is measured in microseconds."
            (if s (list :short-message s)))))
 
 (defun swank-compiler (function)
-  (clear-compiler-notes)
-  (with-simple-restart (abort "Abort SLIME compilation.")
-    (multiple-value-bind (result usecs)
-        (handler-bind ((compiler-condition #'record-note-for-condition))
-          (measure-time-interval function))
-      (list (to-string result)
-            (format nil "~,2F" (/ usecs 1000000.0))))))
+  (let ((*can-print-presentation* t))
+    (clear-compiler-notes)
+    (with-simple-restart (abort "Abort SLIME compilation.")
+      (multiple-value-bind (result usecs)
+          (handler-bind ((compiler-condition #'record-note-for-condition))
+            (measure-time-interval function))
+        (list (to-string result)
+              (format nil "~,2F" (/ usecs 1000000.0)))))))
 
 (defslimefun compile-file-for-emacs (filename load-p &optional external-format)
   "Compile FILENAME and, when LOAD-P, load the result.
 Record compiler notes signalled as `compiler-condition's."
-  (with-buffer-syntax ()
-    (let ((*compile-print* nil))
-      (swank-compiler (lambda () (swank-compile-file filename load-p
-                                                     external-format))))))
+  (let ((*can-print-presentation* t)) 
+    (with-buffer-syntax ()
+      (let ((*compile-print* nil))
+        (swank-compiler (lambda () (swank-compile-file filename load-p
+                                                       external-format)))))))
 
 (defslimefun compile-string-for-emacs (string buffer position directory)
   "Compile STRING (exerpted from BUFFER at POSITION).
@@ -2269,7 +2281,8 @@ Record compiler notes signalled as `compiler-condition's."
 ;;;; Loading
 
 (defslimefun load-file (filename)
-  (to-string (load filename)))
+  (let ((*can-print-presentation* t)) 
+    (to-string (load filename))))
 
 (defslimefun load-file-set-package (filename &optional package)
   (load-file filename)
@@ -3750,10 +3763,12 @@ See `methods-by-applicability'.")
         *inspector-history* (make-array 10 :adjustable t :fill-pointer 0)))
 
 (defslimefun init-inspector (string)
-  (with-buffer-syntax ()
-    (reset-inspector)
-    (inspect-object (eval (read-from-string string)))))
-
+  (let ((*can-print-presentation* nil))
+    ;; Disable presentations.
+    (with-buffer-syntax ()
+      (reset-inspector)
+      (inspect-object (eval (read-from-string string))))))
+  
 (defun print-part-to-string (value)
   (let ((string (to-string value))
         (pos (position value *inspector-history*)))
