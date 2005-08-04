@@ -294,3 +294,29 @@ says that I am starting to print an object with this id. The second says I am fi
   (fwrappers::fwrap 'lisp::%print-pathname  #'presenting-pathname-wrapper)
   (fwrappers::fwrap 'lisp::%print-unreadable-object  #'presenting-unreadable-wrapper)
   )
+
+#+sbcl
+(progn 
+  (defvar *saved-%print-unreadable-object*
+    (fdefinition 'sb-impl::%print-unreadable-object))
+  (sb-ext:without-package-locks 
+    (setf (fdefinition 'sb-impl::%print-unreadable-object)
+	  (lambda (object stream type identity body)
+	    (presenting-object object stream
+	      (funcall *saved-%print-unreadable-object* 
+		       object stream type identity body))))
+    (defmethod print-object :around ((object pathname) stream)
+      (presenting-object object stream
+	(call-next-method)))))
+
+#+allegro
+(progn
+  (excl:def-fwrapper presenting-unreadable-wrapper (object stream type identity continuation) 
+    (swank::presenting-object object stream (excl:call-next-fwrapper)))
+  (excl:def-fwrapper presenting-pathname-wrapper (pathname stream depth)
+    (presenting-object-if (can-present-readable-objects stream) pathname stream
+      (excl:call-next-fwrapper)))
+  (excl:fwrap 'excl::print-unreadable-object-1 
+	      'print-unreadable-present 'presenting-unreadable-wrapper)
+  (excl:fwrap 'excl::pathname-printer 
+	      'print-pathname-present 'presenting-pathname-wrapper))
