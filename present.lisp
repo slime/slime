@@ -81,6 +81,9 @@ don't want to present anything"
 		    #+cmu
 		    (and (typep stream 'pretty-print::pretty-stream)
 			 (slime-stream-p (pretty-print::pretty-stream-target  stream)))
+		    #+allegro
+		    (and (typep stream 'excl:xp-simple-stream)
+			 (slime-stream-p (excl::stream-output-handle stream)))
 		    (loop for connection in *connections*
 			  thereis (or (eq stream (connection.dedicated-output connection))
 				      (eq stream (connection.socket-io connection))
