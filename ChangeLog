@@ -1,3 +1,15 @@
+2005-08-03  Zach Beane  <xach@gwi.net>
+
+	* swank-sbcl.lisp (swank-compile-string): Restore honoring of
+	*trap-load-time-warnings*.
+
+2005-08-03  Juho Snellman  <jsnell@iki.fi>
+
+	* swank-sbcl.lisp: Remove SBCL 0.9.1 support.
+        (swank-compile-string): Funcall the compiled function outside
+        with-compilation-hooks to prevent runtime warnings from 
+        popping up a *compiler-notes* buffer.
+
 2005-07-29  Marco Baringer  <mb@bese.it>
 
 	* doc/slime.texi (Other configurables): Document
