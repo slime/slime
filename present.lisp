@@ -91,20 +91,60 @@ don't want to present anything"
   (declare (ignore stream))
   *enable-presenting-readable-objects*)
 
+;; If we are printing to an XP (pretty printing) stream, printing the
+;; escape sequences directly would mess up the layout because column
+;; counting is disturbed.  Use "annotations" instead.
+#+allegro
+(defun write-annotation (stream function arg)
+  (if (typep stream 'excl:xp-simple-stream)
+      (excl::schedule-annotation stream function arg)
+      (funcall function arg stream nil)))
+#-allegro
+(defun write-annotation (stream function arg)
+  (funcall function arg stream nil))
+
+(defstruct presentation-record 
+  (id)
+  (printed-p))
+
+(defun presentation-start (record stream truncatep) 
+  (unless truncatep
+    ;; Don't start new presentations when nothing is going to be
+    ;; printed due to *print-lines*.
+    (let ((pid (presentation-record-id record)))
+      (cond (*use-dedicated-output-stream* 
+	     (write-string "<" stream)
+	     (prin1 pid stream)
+	     (write-string "" stream))
+	    (t
+	     (force-output stream)
+	     (send-to-emacs `(:presentation-start ,pid)))))
+    (setf (presentation-record-printed-p record) t)))
+	   
+(defun presentation-end (record stream truncatep)
+  (declare (ignore truncatep))
+  ;; Always end old presentations that were started.
+  (when (presentation-record-printed-p record)
+    (let ((pid (presentation-record-id record)))
+      (cond (*use-dedicated-output-stream* 
+	     (write-string ">" stream)
+	     (prin1 pid stream)
+	     (write-string "" stream))
+	    (t
+	     (force-output stream)
+	     (send-to-emacs `(:presentation-end ,pid)))))))
+
 (defun presenting-object-1 (object stream continue)
   "Uses the bridge mechanism with two messages >id and <id. The first one
 says that I am starting to print an object with this id. The second says I am finished"
   (if (and *record-repl-results* *can-print-presentation*
 	   (slime-stream-p stream))
-      (let ((pid (swank::save-presented-object object)))
-	(write-string "<" stream)
-	(prin1 pid stream)
-	(write-string "" stream)
+      (let* ((pid (swank::save-presented-object object))
+	     (record (make-presentation-record :id pid :printed-p nil)))
+	(write-annotation stream #'presentation-start record)
 	(multiple-value-prog1
 	    (funcall continue)
-	  (write-string ">" stream)
-	  (prin1 pid stream)
-	  (write-string "" stream)))
+	  (write-annotation stream #'presentation-end record)))
       (funcall continue)))
 
 ;; hook up previous implementation. Use negative ids for repl results so as to not conflict with
