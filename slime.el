@@ -2285,6 +2285,10 @@ slime-repl-insert-prompt.")
     (destructure-case event
       ((:read-output output)
        (slime-output-string output))
+      ((:presentation-start id)
+       (slime-mark-presentation-start id))
+      ((:presentation-end id)
+       (slime-mark-presentation-end id))
       ;;
       ((:emacs-rex form package thread continuation)
        (slime-set-state "|eval...")
