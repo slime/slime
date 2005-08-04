@@ -329,7 +329,7 @@ Useful for low level debugging."
 
 ;;;; TCP Server
 
-(defvar *use-dedicated-output-stream* nil
+(defvar *use-dedicated-output-stream* t
   "When T swank will attempt to create a second connection to
   Emacs which is used just to send output.")
 (defvar *dedicated-output-stream-port* 0
@@ -917,7 +917,7 @@ NIL if streams are not globally redirected.")
          (out (connection.user-output connection))
          (*standard-output* out)
          (*error-output* out)
-         ;;(*trace-output* out)
+         (*trace-output* out)
          (*debug-io* io)
          (*query-io* io)
          (*standard-input* in)
