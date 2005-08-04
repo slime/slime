@@ -599,7 +599,8 @@ of the toplevel restart."
      (encode-message `(:eval ,(thread-id thread) ,@args) socket-io))
     ((:emacs-return thread-id tag value)
      (send (find-thread thread-id) `(take-input ,tag ,value)))
-    (((:read-output :new-package :new-features :ed :%apply :indentation-update
+    (((:read-output :presentation-start :presentation-end
+                    :new-package :new-features :ed :%apply :indentation-update
                     :eval-no-wait)
       &rest _)
      (declare (ignore _))
@@ -719,6 +720,7 @@ of the toplevel restart."
        (declare (ignore thread))
        (send `(:return ,@args)))
       (((:read-output :new-package :new-features :debug-condition
+                      :presentation-start :presentation-end
                       :indentation-update :ed :%apply :eval-no-wait)
         &rest _)
        (declare (ignore _))
