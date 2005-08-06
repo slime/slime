@@ -640,9 +640,33 @@ selected as the method of completion used for
 The space key inserts a space and also looks up and displays the
 argument list for the function at point, if there is one.
 
-@kbditem{C-c C-s, slime-insert-arglist}
+@kbditem{C-c C-s, slime-complete-form} 
 Looks up and inserts into the current buffer the argument list for the
-function at point, if there is one.
+function at point, if there is one.  More generally, the command
+completes an incomplete form with a template for the missing arguments.
+There is special code for discovering extra keywords of generic
+functions and for handling @code{make-instance} and
+@code{defmethod}. Examples:
+
+@example
+(subseq "abc" <C-c C-s>
+  --inserts--> start [end])
+(find 17 <C-c C-s>
+  --inserts--> sequence :from-end from-end :test test
+               :test-not test-not :start start :end end 
+               :key key)
+(find 17 '(17 18 19) :test #'= <C-c C-s>
+  --inserts--> :from-end from-end
+               :test-not test-not :start start :end end 
+               :key key)
+(defclass foo () ((bar :initarg :bar)))
+(defmethod print-object <C-c C-s>
+  --inserts-->   (object stream)
+               body...)
+(defmethod initialize-instance :after ((object foo) &key blub))
+(make-instance 'foo <C-c C-s>
+  --inserts--> :bar bar :blub blub initargs...)
+@end example
 
 @kbditem{C-c C-m, slime-macroexpand-1}
 Macroexpand the expression at point once.  If invoked with a prefix
