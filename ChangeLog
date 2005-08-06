@@ -1,3 +1,14 @@
+2005-08-06  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* swank.lisp (form-completion): New generic function, factored out
+	from complete-form.
+	(complete-form): Factor out form-completion.
+	(form-completion): Specialize on defmethod forms to insert arglist
+	of generic function.
+
+	* doc/slime.texi (Programming Helpers): Document C-c C-s,
+	slime-complete-form. 
+
 2005-08-04  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Improvements to the presentations feature.  Parts of presentations
