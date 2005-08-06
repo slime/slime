@@ -1614,6 +1614,46 @@ provided in ACTUAL-ARGLIST."
                          (arglist.keyword-args decoded-arglist)
                          :key #'keyword-arg.keyword))))
 
+(defgeneric form-completion (operator-form &rest argument-forms))
+  
+(defmethod form-completion (operator-form &rest argument-forms)
+  (when (and (symbolp operator-form)
+	     (valid-operator-symbol-p operator-form))
+    (let ((arglist (arglist operator-form)))
+      (etypecase arglist
+	((member :not-available)
+	 :not-available)
+	(list
+	 (let ((decoded-arglist (decode-arglist arglist)))
+	   (enrich-decoded-arglist-with-extra-keywords decoded-arglist 
+						       (cons operator-form 
+							     argument-forms))
+	   ;; get rid of formal args already provided
+	   (remove-actual-args decoded-arglist argument-forms)
+	   (return-from form-completion decoded-arglist))))))
+  :not-available)
+
+(defmethod form-completion ((operator-form (eql 'defmethod))
+			    &rest argument-forms)
+  (when (and (listp argument-forms)
+	     (not (null argument-forms)) ;have generic function name
+	     (notany #'listp (rest argument-forms))) ;don't have arglist yet
+    (let* ((gf-name (first argument-forms))
+	   (gf (and (or (symbolp gf-name)
+			(and (listp gf-name)
+			     (eql (first gf-name) 'setf)))
+		    (fboundp gf-name)
+		    (fdefinition gf-name))))
+      (when (typep gf 'generic-function)
+	(let ((arglist (arglist gf)))
+	  (etypecase arglist
+	    ((member :not-available))
+	    (list
+	     (return-from form-completion
+	       (make-arglist :required-args (list arglist)
+			     :rest "body" :body-p t))))))))
+  (call-next-method))
+
 (defslimefun complete-form (form-string)
   "Read FORM-STRING in the current buffer package, then complete it
 by adding a template for the missing arguments."
@@ -1623,21 +1663,13 @@ by adding a template for the missing arguments."
           (when (consp form)
 	    (let ((operator-form (first form))
 		  (argument-forms (rest form)))
-	      (when (and (symbolp operator-form)
-			 (valid-operator-symbol-p operator-form))
-		(let ((arglist (arglist operator-form)))
-		  (etypecase arglist
-		    ((member :not-available)
-		     :not-available)
-		    (list
-		     (let ((decoded-arglist (decode-arglist arglist)))
-                       (enrich-decoded-arglist-with-extra-keywords decoded-arglist form)
-		       ;; get rid of formal args already provided
-		       (remove-actual-args decoded-arglist argument-forms)
-		       (return-from complete-form
-			 (decoded-arglist-to-template-string decoded-arglist
-							     *buffer-package*
-                                                             :prefix "")))))))))
+	      (let ((form-completion
+		     (apply #'form-completion operator-form argument-forms)))
+		(unless (eql form-completion :not-available)
+		  (return-from complete-form
+		    (decoded-arglist-to-template-string form-completion
+							*buffer-package*
+							:prefix ""))))))
 	  :not-available)
       (reader-error (c)
 	(declare (ignore c))
