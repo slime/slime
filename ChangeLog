@@ -1,3 +1,16 @@
+2005-08-07  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	Fix for the presentations menu.  Reported by Aleksandar Bakic.
+	
+	* present.lisp (lookup-presented-object): Handle ids that are
+	conses. 
+	(execute-menu-choice-for-presentation-id): Use equal for comparing
+	ids, to handle the cons case.
+	(menu-choices-for-presentation): Quote the presentation id, as it
+	can be a cons.
+	* slime.el (slime-presentation-menu, slime-presentation-menu) 
+	(slime-inspect-presented-object): Quote the presentation id.
+
 2005-08-06  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* swank.lisp (form-completion): New generic function, factored out
