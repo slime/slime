@@ -35,7 +35,12 @@ subset of readable objects, such as pathnames."  )
 
 (defun lookup-presented-object (id)
   "Retrieve the object corresponding to id. :not-present returned if it isn't there"
-  (gethash id *presentation-id-to-object* :not-present))
+  (if (consp id)
+      (let ((values (gethash (car id) *presentation-id-to-object* :not-present)))
+	(if (eql values :not-present)
+	    :not-present
+	    (nth (cdr id) values)))
+      (gethash id *presentation-id-to-object* :not-present)))
 
 (defun save-presented-object (object)
   "If the object doesn't already have an id, save it and allocate
@@ -234,7 +239,7 @@ says that I am starting to print an object with this id. The second says I am fi
 
 (defun execute-menu-choice-for-presentation-id (id count item)
   (let ((ob (lookup-presented-object id)))
-    (assert (eql id (car *presentation-active-menu*)) () 
+    (assert (equal id (car *presentation-active-menu*)) () 
 	    "Bug: Execute menu call for id ~a  but menu has id ~a"
 	    id (car *presentation-active-menu*))
     (let ((action (second (nth (1- count) (cdr *presentation-active-menu*)))))
@@ -247,7 +252,7 @@ says that I am starting to print an object with this id. The second says I am fi
   (declare (ignore ob))
   (list 
    (list "Inspect" (lambda(choice object id) (declare (ignore choice object)) 
-			  `(slime-inspect-presented-object ,id)))
+			  `(slime-inspect-presented-object ',id)))
    (list "Describe" (lambda(choice object id) (declare (ignore id choice)) 
 			   (describe object) 
 			   nil))
