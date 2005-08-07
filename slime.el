@@ -2943,7 +2943,7 @@ joined together."))
          (window (if (featurep 'xemacs) (event-window event) (caadr event))))
     (with-current-buffer (window-buffer window)
       (let* ((what (get-text-property point 'slime-repl-old-output))
-             (choices (slime-eval `(swank::menu-choices-for-presentation-id ,what)))
+             (choices (slime-eval `(swank::menu-choices-for-presentation-id ',what)))
              (count 0))
         (when choices
           (if (symbolp choices)
@@ -2959,7 +2959,7 @@ joined together."))
                 (let ((nchoice (1+ (position (symbol-name choice) choices :test 'equal))))
                   (eval (slime-eval 
                          `(swank::execute-menu-choice-for-presentation-id
-                           ,what ,nchoice ,(nth (1- nchoice) choices)))))))))))))
+                           ',what ,nchoice ,(nth (1- nchoice) choices)))))))))))))
 
 
 (defun slime-repl-insert-prompt (result &optional time)
@@ -7731,7 +7731,7 @@ This way you can still see what the error was after exiting SLDB."
 (defvar slime-saved-window-config)
 
 (defun slime-inspect-presented-object (id)
-  (slime-inspect `(swank::init-inspector ,(format "(swank::lookup-presented-object %s)" id))))
+  (slime-inspect `(swank::init-inspector ,(format "(swank::lookup-presented-object '%s)" id))))
 
 (defun slime-inspect (form)
   "Eval an expression and inspect the result."
