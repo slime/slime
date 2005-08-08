@@ -2869,6 +2869,14 @@ joined together."))
               (and good-start good-end
                    (slime-presentation-whole-p start end))))))
 
+;; XEmacs compatibility hack, from message by Stephen J. Turnbull on
+;; xemacs-beta@xemacs.org of 18 Mar 2002
+(unless (boundp 'undo-in-progress)
+  (defvar undo-in-progress nil
+   "Placeholder defvar for XEmacs compatibility from SLIME.")
+  (defadvice undo-more (around slime activate)
+     (let ((undo-in-progress t)) ad-do-it)))
+
 (defun slime-after-change-function (start end old-len)
   "Check all presentations within and adjacent to the change.  When a
   presentation has been altered, change it to plain text."
