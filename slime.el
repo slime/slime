@@ -7749,7 +7749,9 @@ This way you can still see what the error was after exiting SLDB."
 (defun slime-read-object (prompt)
   (let ((id (get-text-property (point) 'slime-repl-old-output)))
     (if id
-        `(swank:init-inspector ,(format "(swank:get-repl-result %S)" id))
+        (if (consp id)
+            `(swank:init-inspector ,(format "(cl:nth #10r%d (swank:get-repl-result #10r%d))" (cdr id) (car id)))
+          `(swank:init-inspector ,(format "(swank:get-repl-result %S)" id)))
       `(swank:init-inspector
         ,(slime-read-from-minibuffer "Inspect value (evaluated): "
 				     (slime-sexp-at-point))))))
