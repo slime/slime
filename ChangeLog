@@ -1,3 +1,8 @@
+2005-08-09  Edi Weitz  <edi@agharta.de>
+
+	* swank.lisp (transpose-lists): Reimplemented without APPLY so we
+	don't have problems with CALL-ARGUMENTS-LIMIT.
+
 2005-08-08  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (undo-in-progress): Define for XEmacs compatibility.
