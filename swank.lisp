@@ -2566,17 +2566,9 @@ If the rows are of unequal length, truncate uniformly to the shortest.
 For example:
 \(transpose-lists '((ONE TWO THREE) (1 2)))
   => ((ONE 1) (TWO 2))"
-  (catch 'done
-    (loop with result
-          with collectors = (loop for list in lists
-                                  collect (let ((list list))
-                                            (lambda ()
-                                              (cond ((null list)
-                                                     (throw 'done result))
-                                                    (t (pop list))))))
-          collect (loop for collector in collectors
-                        collect (funcall collector)) into temp-result
-          do (setq result temp-result))))
+  (cond ((some #'null lists) '())
+        (t (cons (mapcar #'car lists)
+                 (transpose-lists (mapcar #'cdr lists))))))
 
 
 ;;;;; Completion Tests
