@@ -1,3 +1,12 @@
+2005-08-10  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-presentation-around-point): Change interface,
+	return presentation as primary return value.
+	(slime-copy-presentation-at-point): Use
+	slime-presentation-around-point.  Copying now also works when the
+	first character is clicked and when the REPL buffer is not current.
+	(slime-presentation-menu): Use slime-presentation-around-point.
+
 2005-08-10  Martin Simmons <martin@lispworks.com>
 
 	* swank-lispworks.lisp (defadvice compile-file): Return all values
