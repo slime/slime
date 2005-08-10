@@ -388,7 +388,7 @@ Return NIL if the symbol is unbound."
 
 (lw:defadvice (compile-file compile-file-and-collect-notes :around)
     (pathname &rest rest)
-  (prog1 (apply #'lw:call-next-advice pathname rest)
+  (multiple-value-prog1 (apply #'lw:call-next-advice pathname rest)
     (when *within-call-with-compilation-hooks*
       (maphash (lambda (unfun dspecs)
                  (dolist (dspec dspecs)
