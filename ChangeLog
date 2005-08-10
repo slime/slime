@@ -1,3 +1,8 @@
+2005-08-10  Martin Simmons <martin@lispworks.com>
+
+	* swank-lispworks.lisp (defadvice compile-file): Return all values
+	from the real compile-file.
+
 2005-08-10  Edi Weitz  <edi@agharta.de>
 
 	* swank.lisp (transpose-lists): Replaced with much nicer function
