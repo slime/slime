@@ -2859,15 +2859,19 @@ joined together."))
               (values after-end t)))
         (values (point) nil)))))
 
-(defun slime-presentation-around-point ()
-  "Return start index, end index, and whether the presentation is complete."
-  (multiple-value-bind (start good-start)
-      (slime-presentation-start)
-    (multiple-value-bind (end good-end)
+(defun slime-presentation-around-point (&optional point)
+  "Return presentation, start index, end index, and whether the presentation is complete."
+  (save-excursion
+    (when point
+      (goto-char point))
+    (multiple-value-bind (start good-start)
+        (slime-presentation-start)
+      (multiple-value-bind (end good-end)
         (slime-presentation-end)
-      (values start end
-              (and good-start good-end
-                   (slime-presentation-whole-p start end))))))
+        (values (get-text-property (point) 'slime-repl-presentation)
+                start end
+                (and good-start good-end
+                     (slime-presentation-whole-p start end)))))))
 
 ;; XEmacs compatibility hack, from message by Stephen J. Turnbull on
 ;; xemacs-beta@xemacs.org of 18 Mar 2002
@@ -2890,7 +2894,7 @@ joined together."))
         (while (< (point) real-end)
           (let ((presentation (get-text-property (point) 'slime-repl-presentation)))
             (when presentation
-              (multiple-value-bind (from to whole)
+              (multiple-value-bind (presentation from to whole)
                   (slime-presentation-around-point)
                 ;;(message "presentation %s whole-p %s" (buffer-substring from to) whole)
                 (unless whole
@@ -2911,24 +2915,24 @@ joined together."))
 (defun slime-copy-presentation-at-point (event)
   (interactive "e")
   (unless (and (featurep 'xemacs) (not (button-press-event-p event)))
-    (let* ((point (if (featurep 'xemacs) (event-point event) (posn-point (event-end event))))
-           (what (get-text-property point 'slime-repl-old-output))
-           (start (previous-single-property-change point 'slime-repl-old-output))
-           (end (or (next-single-property-change point 'slime-repl-old-output)
-                    (point-max))))
-      (flet ((do-insertion ()
-               (when (not (string-match "\\s-"
-                                        (buffer-substring (1- (point)) (point))))
-                 (insert " "))
-               (slime-propertize-region '(face slime-repl-inputed-output-face)
-                 (insert  (buffer-substring start end)))
-               (when (and (not (eolp)) (not (looking-at "\\s-")))
-                 (insert " "))))
-        (if (>= (point) slime-repl-prompt-start-mark)
-            (do-insertion)
-          (save-excursion
-            (goto-char (point-max))
-            (do-insertion)))))))
+    (let ((point (if (featurep 'xemacs) (event-point event) (posn-point (event-end event))))
+          (window (if (featurep 'xemacs) (event-window event) (caadr event))))
+      (with-current-buffer (window-buffer window)
+        (multiple-value-bind (presentation start end)
+            (slime-presentation-around-point point)
+          (flet ((do-insertion ()
+                   (when (not (string-match "\\s-"
+                                            (buffer-substring (1- (point)) (point))))
+                     (insert " "))
+                   (slime-propertize-region '(face slime-repl-inputed-output-face)
+                     (insert  (buffer-substring start end)))
+                   (when (and (not (eolp)) (not (looking-at "\\s-")))
+                     (insert " "))))
+            (if (>= (point) slime-repl-prompt-start-mark)
+                (do-insertion)
+                (save-excursion
+                  (goto-char (point-max))
+                  (do-insertion)))))))))
 
 (defvar slime-presentation-map (make-sparse-keymap))
 
@@ -2950,24 +2954,28 @@ joined together."))
   (let* ((point (if (featurep 'xemacs) (event-point event) (posn-point (event-end event))))
          (window (if (featurep 'xemacs) (event-window event) (caadr event))))
     (with-current-buffer (window-buffer window)
-      (let* ((what (get-text-property point 'slime-repl-old-output))
-             (choices (slime-eval `(swank::menu-choices-for-presentation-id ',what)))
-             (count 0))
-        (when choices
-          (if (symbolp choices)
-              (x-popup-menu event `("Object no longer recorded" ("sorry" . ,(if (featurep 'xemacs) nil '(nil)))))
-            (let ((choice 
-                   (x-popup-menu event 
-                                 `(,(if (featurep 'xemacs) " " "")
-                                   ("" ,@(mapcar 
-                                             (lambda(choice) 
-                                               (cons choice (intern choice))) ; use symbol as value to appease xemacs
-                                             choices))))))
-              (when choice
-                (let ((nchoice (1+ (position (symbol-name choice) choices :test 'equal))))
-                  (eval (slime-eval 
-                         `(swank::execute-menu-choice-for-presentation-id
-                           ',what ,nchoice ,(nth (1- nchoice) choices)))))))))))))
+      (multiple-value-bind (presentation)
+          (slime-presentation-around-point point)
+        (unless presentation
+          (error "No presentation at event position"))
+        (let* ((what (slime-presentation-id presentation))
+               (choices (slime-eval `(swank::menu-choices-for-presentation-id ',what)))
+               (count 0))
+          (when choices
+            (if (symbolp choices)
+                (x-popup-menu event `("Object no longer recorded" ("sorry" . ,(if (featurep 'xemacs) nil '(nil)))))
+                (let ((choice 
+                       (x-popup-menu event 
+                                     `(,(if (featurep 'xemacs) " " "")
+                                       ("" ,@(mapcar 
+                                              (lambda(choice) 
+                                                (cons choice (intern choice))) ; use symbol as value to appease xemacs
+                                              choices))))))
+                  (when choice
+                    (let ((nchoice (1+ (position (symbol-name choice) choices :test 'equal))))
+                      (eval (slime-eval 
+                             `(swank::execute-menu-choice-for-presentation-id
+                               ',what ,nchoice ,(nth (1- nchoice) choices))))))))))))))
 
 
 (defun slime-repl-insert-prompt (result &optional time)
