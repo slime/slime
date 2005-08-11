@@ -3100,7 +3100,6 @@ buffer. Presentations of old results are expanded into code."
     ((:abort) (slime-repl-show-abort))))
 
 (defun slime-repl-send-string (string &optional command-string)
-  (slime-repl-add-to-input-history (or command-string string))
   (cond (slime-repl-read-mode
          (slime-repl-return-string string))
         (t (slime-repl-eval-string string))))
@@ -3263,6 +3262,11 @@ If NEWLINE is true then add a newline at the end of the input."
     (overlay-put overlay 'read-only t)
     (overlay-put overlay 'face 'slime-repl-input-face)
     (overlay-put overlay 'rear-nonsticky '(face slime-repl-old-input-counter)))
+
+  (slime-repl-add-to-input-history 
+   (buffer-substring slime-repl-input-start-mark
+                     slime-repl-input-end-mark)) 
+
   (let ((input (slime-repl-current-input)))
     (goto-char slime-repl-input-end-mark)
     (slime-mark-input-start)

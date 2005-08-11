@@ -1,3 +1,11 @@
+2005-08-10  Alan Ruttenberg  <alanr-l@mumble.net>
+
+	* slime.el move slime-repl-add-to-input-history to
+	slime-repl-send-input so we can see the presentations we copied to
+	input when we reuse history rather than #.(blah...)
+	[Thanks Matthias! - was very busy and just returned to see your
+	changes merged. Most excellent.]
+
 2005-08-10  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-presentation-around-point): Change interface,
