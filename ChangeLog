@@ -1,3 +1,7 @@
+2005-08-11  Edi Weitz  <edi@agharta.de>
+
+	* swank.lisp (transpose-lists): Fixed it.
+
 2005-08-10  Alan Ruttenberg  <alanr-l@mumble.net>
 
 	* slime.el move slime-repl-add-to-input-history to

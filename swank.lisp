@@ -2566,7 +2566,8 @@ If the rows are of unequal length, truncate uniformly to the shortest.
 For example:
 \(transpose-lists '((ONE TWO THREE) (1 2)))
   => ((ONE 1) (TWO 2))"
-  (cond ((some #'null lists) '())
+  (cond ((null lists) '())
+        ((some #'null lists) '())
         (t (cons (mapcar #'car lists)
                  (transpose-lists (mapcar #'cdr lists))))))
 
