@@ -1,3 +1,8 @@
+2005-08-12  Yaroslav Kavenchuk <kavenchuk@jenty.by>
+
+	* swank-clisp.lisp (fspec-pathname): Use the documentation
+	function instead of accessing clisp internals.
+	
 2005-08-11  Edi Weitz  <edi@agharta.de>
 
 	* swank.lisp (transpose-lists): Fixed it.
