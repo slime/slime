@@ -1,3 +1,32 @@
+2005-08-12  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (substring-no-properties): Fix to handle non-zero start
+	argument correctly. 
+
+	Patch to remove use of the slime-repl-old-output text property in
+	favor of the slime-repl-presentation text property, in order to
+	simplify the code. 
+	
+	* slime.el (slime-presentation-whole-p): Generalize to work with
+	strings too. 
+	(slime-presentation-start, slime-presentation-end): Likewise.
+	(slime-presentation-around-point): Likewise.
+	(slime-presentation-around-or-before-point): New.
+
+	* slime.el (reify-old-output): Use slime-repl-presentation
+	property and slime-presentation-around-point function rather than
+	slime-repl-old-output property.
+	(slime-repl-return): Use slime-repl-presentation rather than
+	slime-repl-old-output.
+	(slime-repl-grab-old-output): Use
+	slime-presentation-around-or-before-point.
+	(slime-read-object): Use slime-presentation-around-point.
+
+	* slime.el (toplevel): Don't handle slime-repl-old-output text
+	property. 
+	(slime-add-presentation-properties): Likewise.
+	(slime-after-change-function): Likewise.
+
 2005-08-12  Yaroslav Kavenchuk <kavenchuk@jenty.by>
 
 	* swank-clisp.lisp (fspec-pathname): Use the documentation
