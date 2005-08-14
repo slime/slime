@@ -1,3 +1,33 @@
+2005-08-14  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-mark-presentation-end): Really remove the
+	presentation-start entry from the hash table.
+
+	Merge some code from present.lisp, removing code duplication.
+	Minor code clean-up.
+	
+	* swank.lisp (*object-to-presentation-id*)
+	(*presentation-id-to-object*, clear-presentation-tables)
+	(*presentation-counter*, lookup-presented-object): Move here from
+	present.lisp.
+	(save-presented-object): Likewise.  Assign negative numbers only,
+	so as not to clash with continuation ids.
+
+	* swank.lisp (*repl-results*): Removed.
+
+	* swank.lisp (get-repl-result, clear-repl-results): Use new
+	implementations from present.lisp. 
+	(add-repl-result): Likewise, don't take the negative of the id.
+	(*last-repl-result-id*): New variable.
+	(clear-last-repl-result): Use it here.
+
+	* slime.el (slime-repl-insert-prompt): Don't take the negative of
+	the id. 
+	(slime-presentation-expression): New, take care to handle
+	arbitrary *read-base* settings.
+	(reify-old-output): Use it here.
+	(slime-read-object): Use it here.
+
 2005-08-12  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (substring-no-properties): Fix to handle non-zero start
