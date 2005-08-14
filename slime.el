@@ -3012,7 +3012,7 @@ result strings, each of which is marked-up as a presentation."
          (loop 
             for res in result
             for index from 0
-            do (insert-result res (cons (- slime-current-output-id) index))))
+            do (insert-result res (cons slime-current-output-id index))))
         (string
          (unless (string= result "")
            (insert-result result nil)))))
@@ -3069,23 +3069,32 @@ buffer. Presentations of old results are expanded into code."
                                                       slime-repl-input-end-mark)))
     (reify-old-output str-props str-no-props)))
 
+(defun slime-presentation-expression (presentation)
+  "Return a string that contains a CL s-expression accessing 
+the presented object."
+  (let ((id (slime-presentation-id presentation)))
+    ;; Make sure it works even if *read-base* is not 10.
+    (cond
+     ((and (consp id) (integerp (car id)) (integerp (cdr id)))
+      (format "(swank:get-repl-result '(#10r%d . #10r%d))" (car id) (cdr id)))
+     ((integerp id)
+      (format "(swank:get-repl-result #10r%d)" id))
+     (t
+      (slime-prin1-to-string 
+       `(swank:get-repl-result ',id))))))
+
 (defun reify-old-output (str-props str-no-props)
   (let ((pos (slime-property-position 'slime-repl-presentation str-props)))
     (if (null pos)
         str-no-props
         (multiple-value-bind (presentation start-pos end-pos whole-p)
             (slime-presentation-around-point pos str-props)
-          (let ((id (slime-presentation-id presentation)))
-            (concat (substring str-no-props 0 pos)
-                    ;; Eval in the reader so that we play nice with quote.
-                    ;; -luke (19/May/2005)
-                    "#." (slime-prin1-to-string 
-                          (if (consp id)
-                              `(cl:nth ,(cdr id) 
-                                (swank:get-repl-result ,(car id)))
-                              `(swank:get-repl-result ,id)))
-                    (reify-old-output (substring str-props end-pos)
-                                      (substring str-no-props end-pos))))))))
+          (concat (substring str-no-props 0 pos)
+                  ;; Eval in the reader so that we play nice with quote.
+                  ;; -luke (19/May/2005)
+                  "#." (slime-presentation-expression presentation)
+                  (reify-old-output (substring str-props end-pos)
+                                    (substring str-no-props end-pos)))))))
 
 (defun slime-property-position (text-property &optional object)
   "Return the first position of TEXT-PROPERTY, or nil."
@@ -7774,14 +7783,11 @@ This way you can still see what the error was after exiting SLDB."
 (defun slime-read-object (prompt)
   (multiple-value-bind (presentation start end)
       (slime-presentation-around-point (point))
-    (let ((id (and presentation (slime-presentation-id presentation))))
-      (if id
-          (if (consp id)
-              `(swank:init-inspector ,(format "(cl:nth #10r%d (swank:get-repl-result #10r%d))" (cdr id) (car id)))
-            `(swank:init-inspector ,(format "(swank:get-repl-result %S)" id)))
-        `(swank:init-inspector
-          ,(slime-read-from-minibuffer "Inspect value (evaluated): "
-                                       (slime-sexp-at-point)))))))
+    `(swank:init-inspector
+      ,(if presentation
+           (slime-presentation-expression presentation)
+         (slime-read-from-minibuffer "Inspect value (evaluated): "
+                                     (slime-sexp-at-point))))))
 
 (define-derived-mode slime-inspector-mode fundamental-mode "Slime-Inspector"
   (set-syntax-table lisp-mode-syntax-table)
