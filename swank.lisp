@@ -1676,6 +1676,78 @@ by adding a template for the missing arguments."
 	:not-available))))
 
 
+;;;; Recording and accessing results of computations
+
+(defvar *record-repl-results* t
+  "Non-nil means that REPL results are saved for later lookup.")
+
+(defvar *object-to-presentation-id* 
+  (make-hash-table :test 'eq 
+                   #+openmcl :weak #+openmcl :key)
+  "Store the mapping of objects to numeric identifiers")
+
+(defvar *presentation-id-to-object* 
+  (make-hash-table :test 'eq 
+                   #+openmcl :weak #+openmcl :value)
+  "Store the mapping of numeric identifiers to objects")
+
+(defun clear-presentation-tables ()
+  (clrhash *object-to-presentation-id*)
+  (clrhash *presentation-id-to-object*))
+
+(defvar *presentation-counter* 0 "identifier counter")
+
+(defun save-presented-object (object &optional id)
+  "If the object doesn't already have an id, save it and allocate
+one. Otherwise return the old one."
+  (cond 
+    ((and (not id)
+          (gethash object *object-to-presentation-id*)))
+    (t
+     (let ((newid (or id (decf *presentation-counter*))))
+       (setf (gethash newid *presentation-id-to-object*) object)
+       (setf (gethash object *object-to-presentation-id*) newid)
+       newid))))
+
+(defvar *not-present* (gensym "NOT-PRESENT"))
+
+(defun lookup-presented-object (id)
+  "Retrieve the object corresponding to id. *not-present* returned if it isn't there"
+  (if (consp id)
+      (let ((values (gethash (car id) *presentation-id-to-object* *not-present*)))
+	(if (eql values *not-present*)
+	    *not-present*
+	    (nth (cdr id) values)))
+      (gethash id *presentation-id-to-object* *not-present*)))
+
+(defvar *last-repl-result-id* nil)
+
+(defun add-repl-result (id val)
+  (save-presented-object val id)
+  (setq *last-repl-result-id* id)
+  t)
+
+(defslimefun get-repl-result (id)
+  "Get the result of the previous REPL evaluation with ID."
+  (let ((previous-output (lookup-presented-object id)))
+    (when (eq previous-output *not-present*)
+      (if swank::*record-repl-results*
+          (error "Attempt to access no longer existing result (number ~D)." id)
+          (error "Attempt to access unrecorded result (number ~D). ~&See ~S."
+                 id '*record-repl-results*)))
+    previous-output))
+
+(defslimefun clear-last-repl-result ()
+  "Forget the result of the previous REPL evaluation."
+  (remhash *last-repl-result-id* *presentation-id-to-object*)
+  t)
+
+(defslimefun clear-repl-results ()
+  "Forget the results of all previous REPL evaluations."
+  (clear-presentation-tables)
+  t)
+
+
 ;;;; Evaluation
 
 (defvar *pending-continuations* '()
@@ -1871,13 +1943,6 @@ Return its name and the string to use in the prompt."
   (let ((p (setq *package* (guess-package-from-string package))))
     (list (package-name p) (package-string-for-prompt p))))
 
-
-(defvar *record-repl-results* t
-  "Non-nil means that REPL results are saved in *REPL-RESULTS*.")
-
-(defparameter *repl-results* '()
-  "Association list of old repl results.")
-
 (defslimefun listener-eval (string)
   (clear-user-input)
   (with-buffer-syntax ()
@@ -1898,30 +1963,6 @@ Return its name and the string to use in the prompt."
 	    (cond ((null values) "; No value")
 		  (t
                    (mapcar #'prin1-to-string values))))))))
-
-(defun add-repl-result (id val)
-  (push (cons id val) *repl-results*)
-  t)
-
-(defslimefun get-repl-result (id)
-  "Get the result of the previous REPL evaluation with ID."
-  (let ((previous-output (assoc (- id) *repl-results*)))
-    (when (null previous-output)
-      (if *record-repl-results*
-          (error "Attempt to access no longer existing result (number ~D)." (- id))
-          (error "Attempt to access unrecorded result (number ~D). ~&See ~S."
-                 id '*record-repl-results*)))
-    (cdr previous-output)))
-
-(defslimefun clear-last-repl-result ()
-  "Forget the result of the previous REPL evaluation."
-  (pop *repl-results*)
-  t)
-
-(defslimefun clear-repl-results ()
-  "Forget the results of all previous REPL evaluations."
-  (setf *repl-results* '())
-  t)
 
 (defslimefun ed-in-emacs (&optional what)
   "Edit WHAT in Emacs.
