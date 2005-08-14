@@ -19,38 +19,6 @@
   "set this to enable automatically printing presentations for some
 subset of readable objects, such as pathnames."  )
 
-;; Saving presentations
-(defvar *object-to-presentation-id* (make-hash-table :test 'eq #+openmcl :weak #+openmcl :key)
-  "Store the mapping of objects to numeric identifiers")
-
-(defvar *presentation-id-to-object* (make-hash-table :test 'eq #+openmcl :weak #+openmcl :value)
-  "Store the mapping of numeric identifiers to objects")
-
-(defvar *presentation-counter* 0 "identifier counter")
-
-(defun clear-presentation-tables ()
-  (clrhash *object-to-presentation-id*)
-  (clrhash *presentation-id-to-object*)
-  )
-
-(defun lookup-presented-object (id)
-  "Retrieve the object corresponding to id. :not-present returned if it isn't there"
-  (if (consp id)
-      (let ((values (gethash (car id) *presentation-id-to-object* :not-present)))
-	(if (eql values :not-present)
-	    :not-present
-	    (nth (cdr id) values)))
-      (gethash id *presentation-id-to-object* :not-present)))
-
-(defun save-presented-object (object)
-  "If the object doesn't already have an id, save it and allocate
-one. Otherwise return the old one"
-  (or (gethash object *presentation-id-to-object*)
-      (let ((newid (incf *presentation-counter*)))
-	(setf (gethash newid *presentation-id-to-object*) object)
-	(setf (gethash object *object-to-presentation-id*) newid)
-	newid)))
-
 ;; doing it
 
 (defmacro presenting-object (object stream &body body)
@@ -173,31 +141,6 @@ says that I am starting to print an object with this id. The second says I am fi
 	    (funcall continue)
 	  (write-annotation stream #'presentation-end record)))
       (funcall continue)))
-
-;; hook up previous implementation. Use negative ids for repl results so as to not conflict with
-;; the ones for other printout
-(defun add-repl-result (id val)
-  (setf (gethash (- id) *presentation-id-to-object*) val)
-  (save-presented-object val)
-  t)
-
-;; hook up previous implementation
-(defslimefun clear-repl-results ()
-  "Forget the results of all previous REPL evaluations."
-  (clear-presentation-tables)
-  t)
-
-;; hook up previous implementation
-(defslimefun get-repl-result (id)
-  "Get the result of the previous REPL evaluation with ID."
-  (let ((previous-output (lookup-presented-object id)))
-    (when (eq previous-output :not-present)
-      (if swank::*record-repl-results*
-          (error "Attempt to access no longer existing result (number ~D)." id)
-          (error "Attempt to access unrecorded result (number ~D). ~&See ~S."
-                 id '*record-repl-results*)))
-    previous-output))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; menu protocol
