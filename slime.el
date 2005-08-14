@@ -2588,7 +2588,7 @@ update window-point afterwards.  If point is initially not at
 
 (defun slime-mark-presentation-end (id)
   (let ((start (gethash id slime-presentation-start-to-point)))
-    (setf (gethash id slime-presentation-start-to-point) nil)
+    (remhash id slime-presentation-start-to-point)
     (when start
       (with-current-buffer (slime-output-buffer)
         (slime-add-presentation-properties start (symbol-value 'slime-output-end)
