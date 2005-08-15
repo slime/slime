@@ -1,3 +1,9 @@
+2005-08-15  Alan Ruttenberg  <alanr-l@mumble.net>
+
+	* slime.el (slime-goto-location-position) fix so the :method locator
+	regexp so that it can find eql specializers, (setf foo) methods, and to
+	allow (a single) newline between arguments in the arglist.
+	
 2005-08-14  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-mark-presentation-end): Really remove the

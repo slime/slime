@@ -4551,9 +4551,15 @@ first element of the source-path redundant."
             (name (regexp-quote name))
             (qualifiers (mapconcat (lambda (el) (concat ".+?\\<" el "\\>"))
                                    qualifiers ""))
-            (specializers (mapconcat (lambda (el) (concat ".+?\\<" el "\\>"))
+            (specializers (mapconcat (lambda (el) 
+                                       (if (eql (aref el 0) 40)
+                                           (let ((spec (read el)))
+                                             (if (eq (car spec) 'EQL)
+                                                 (concat ".*?\\n\\{0,1\\}.*?(EQL.*?'\\{0,1\\}" (format "%s" (second spec)) ")")
+                                               (error "don't understand specializer: %s,%s" el (car spec))))
+                                         (concat ".+?\n\\{0,1\\}.+?\\<" el "\\>")))
                                      (remove "T" specializers) ""))
-            (regexp (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\>%s%s" name
+            (regexp (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\s +%s%s" name
                             qualifiers specializers)))
        (or (and (re-search-forward regexp  nil t)
                 (goto-char (match-beginning 0)))
