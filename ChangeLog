@@ -3,6 +3,10 @@
 	* slime.el (slime-goto-location-position) fix so the :method locator
 	regexp so that it can find eql specializers, (setf foo) methods, and to
 	allow (a single) newline between arguments in the arglist.
+
+	* swank-openmcl.lisp (specializer-name) patch from Gary Byers and
+	Bryan O'Conner to fix complaint about certain classes slipping
+	through the etypecase
 	
 2005-08-14  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
