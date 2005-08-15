@@ -188,7 +188,7 @@ Return NIL if the symbol is unbound."
     (:class (describe (find-class symbol)))))
 
 (defun fspec-pathname (symbol)
-  (let ((path (gethash symbol sys::*documentation*)))
+  (let ((path (documentation symbol 'sys::file)))
     (if (and path
 	     (member (pathname-type path)
 		     custom:*compiled-file-types* :test #'string=))
