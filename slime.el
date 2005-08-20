@@ -2602,42 +2602,60 @@ update window-point afterwards.  If point is initially not at
 
 (defstruct (slime-presentation)
   (text)
-  (id)
-  (start-p)
-  (stop-p))
+  (id))
 
 (defun slime-add-presentation-properties (start end id result-p)
   "Make the text between START and END a presentation with ID.
 RESULT-P decides whether a face for a return value or output text is used."
-  (add-text-properties start end
-                       `(face slime-repl-inputed-output-face
-                              mouse-face slime-repl-output-mouseover-face
-                              keymap ,slime-presentation-map
-                              rear-nonsticky (slime-repl-presentation
-                                              face mouse-face)))
-  (let ((text (buffer-substring-no-properties start end)))
-    (case (- end start)
-      (0)
-      (1
-       (add-text-properties start end
-                            `(slime-repl-presentation
-                              ,(make-slime-presentation :text text :id id
-                                                        :start-p t :stop-p t))))
-      (t
-       (let ((inhibit-modification-hooks t))
+  (let* ((text (buffer-substring-no-properties start end))
+         (presentation (make-slime-presentation :text text :id id)))
+    (let ((inhibit-modification-hooks t))
+      (add-text-properties start end
+                           `(face slime-repl-inputed-output-face
+                                  mouse-face slime-repl-output-mouseover-face
+                                  keymap ,slime-presentation-map
+                                  modification-hooks (slime-after-change-function)
+                                  insert-in-front-hooks (slime-after-change-function)
+                                  insert-behind-hooks (slime-after-change-function)
+                                  rear-nonsticky t))
+      ;; Use the presentation as the key of a text property
+      (case (- end start)
+        (0)
+        (1
+         (add-text-properties start end
+                              `(slime-repl-presentation ,presentation
+                                ,presentation :start-and-end)))
+        (t
          (add-text-properties start (1+ start) 
-                              `(slime-repl-presentation
-                                ,(make-slime-presentation :text text :id id
-                                                          :start-p t :stop-p nil)))
+                              `(slime-repl-presentation ,presentation
+                                ,presentation :start))
          (when (> (- end start) 2)
            (add-text-properties (1+ start) (1- end)
-                                `(slime-repl-presentation
-                                  ,(make-slime-presentation :text text :id id
-                                                            :start-p nil :stop-p nil))))
+                                `(,presentation :interior)))
          (add-text-properties (1- end) end
-                              `(slime-repl-presentation
-                                ,(make-slime-presentation :text text :id id
-                                                          :start-p nil :stop-p t))))))))
+                              `(slime-repl-presentation ,presentation
+                                ,presentation :end))))
+      ;; Also put an overlay for the face and the mouse-face.  This enables
+      ;; highlighting of nested presentations.  However, overlays get lost
+      ;; when we copy a presentation; their removal is also not undoable.
+      ;; In these cases the mouse-face text properties need to take over ---
+      ;; but they do not give nested highlighting.
+      (let ((overlay (make-overlay start end)))
+        (overlay-put overlay 'mouse-face 'slime-repl-output-mouseover-face)
+        (overlay-put overlay 'face 'slime-repl-inputed-output-face)))))
+
+(defun slime-remove-presentation-properties (from to presentation)
+  (remove-text-properties from to
+                          `(,presentation t
+                                          slime-repl-inputed-output-face t
+                                          face t mouse-face t rear-nonsticky t))
+  (when (eq (get-text-property from 'slime-repl-presentation) presentation)
+    (remove-text-properties from (1+ from) `(slime-repl-presentation t)))
+  (when (eq (get-text-property (1- to) 'slime-repl-presentation) presentation)
+    (remove-text-properties (1- to) to `(slime-repl-presentation t)))
+  (dolist (overlay (overlays-at from))
+    (when (eq (overlay-get overlay 'mouse-face) 'slime-repl-output-mouseover-face)
+      (delete-overlay overlay))))
 
 (defun slime-insert-presentation (result output-id)
   (let ((start (point)))
@@ -2796,57 +2814,52 @@ joined together."))
   (slime-setup-command-hooks)
   (run-hooks 'slime-repl-mode-hook))
 
-(defun* slime-presentation-whole-p (start end &optional (object (current-buffer)))
-  (let ((presentation (get-text-property start 'slime-repl-presentation object)))
-    (and presentation
-         (string= (etypecase object
-                    (buffer (with-current-buffer object
-                              (buffer-substring-no-properties start end)))
-                    (string (substring-no-properties object start end)))
-                  (slime-presentation-text presentation)))))
+(defun* slime-presentation-whole-p (presentation start end &optional (object (current-buffer)))
+  (string= (etypecase object
+             (buffer (with-current-buffer object
+                       (buffer-substring-no-properties start end)))
+             (string (substring-no-properties object start end)))
+           (slime-presentation-text presentation)))
 
-(defun slime-same-presentation-p (a b)
-  (and (string= (slime-presentation-text a) (slime-presentation-text b))
-       (equal (slime-presentation-id a) (slime-presentation-id b))))
+(defun* slime-presentations-around-point (point &optional (object (current-buffer)))
+  (loop for (key value . rest) on (text-properties-at point object) by 'cddr
+        when (slime-presentation-p key)
+        collect key))
 
-(defun* slime-presentation-start (point &optional (object (current-buffer)))
-  "Find start of presentation at `point' in `object'.  Return buffer index and
-  whether a start-tag was found.  When there is no presentation at
-  point, return nil and nil."
-  (let* ((presentation (get-text-property point 'slime-repl-presentation object))
-         (this-presentation presentation))
-    (unless presentation
-      (return-from slime-presentation-start 
-        (values nil nil)))
+(defun slime-presentation-start-p (tag)
+  (member tag '(:start :start-and-end)))
+
+(defun slime-presentation-stop-p (tag)
+  (member tag '(:end :start-and-end)))
+
+(defun* slime-presentation-start (point presentation
+                                        &optional (object (current-buffer)))
+  "Find start of `presentation' at `point' in `object'.  Return buffer index and
+  whether a start-tag was found."
+  (let* ((this-presentation (get-text-property point presentation object)))
     (while (not (slime-presentation-start-p this-presentation))
-      (let ((change-point (previous-single-property-change point 'slime-repl-presentation object)))
+      (let ((change-point (previous-single-property-change point presentation object)))
         (unless change-point
           (return-from slime-presentation-start
             (values (etypecase object
-                      (buffer (with-current-buffer object (point-min)))
+                      (buffer (with-current-buffer object 1))
                       (string 0))
                     nil)))
-        (setq this-presentation (get-text-property change-point 'slime-repl-presentation object))
-        (unless (and this-presentation 
-                     (slime-same-presentation-p presentation this-presentation))
+        (setq this-presentation (get-text-property change-point presentation object))
+        (unless this-presentation
           (return-from slime-presentation-start 
             (values point nil)))
         (setq point change-point)))
     (values point t)))
 
-(defun* slime-presentation-end (point &optional (object (current-buffer)))
+(defun* slime-presentation-end (point presentation
+                                      &optional (object (current-buffer)))
   "Find end of presentation at `point' in `object'.  Return buffer
 index (after last character of the presentation) and whether an
 end-tag was found."
-  (let* ((presentation (get-text-property point 'slime-repl-presentation object))
-         (this-presentation presentation))
-    (unless presentation
-      (return-from slime-presentation-end 
-        (values nil nil)))
-    (while (and this-presentation 
-                (slime-same-presentation-p presentation this-presentation)
-                (not (slime-presentation-stop-p this-presentation)))
-      (let ((change-point (next-single-property-change point 'slime-repl-presentation object)))
+  (let* ((this-presentation (get-text-property point presentation object)))
+    (while (not (slime-presentation-stop-p this-presentation))
+      (let ((change-point (next-single-property-change point presentation object)))
         (unless change-point
           (return-from slime-presentation-end
             (values (etypecase object
@@ -2854,10 +2867,9 @@ end-tag was found."
                       (string (length object))) 
                     nil)))
         (setq point change-point)
-        (setq this-presentation (get-text-property point 'slime-repl-presentation object))))
-    (if (and this-presentation 
-             (slime-same-presentation-p presentation this-presentation))
-        (let ((after-end (next-single-property-change point 'slime-repl-presentation object)))
+        (setq this-presentation (get-text-property point presentation object))))
+    (if this-presentation 
+        (let ((after-end (next-single-property-change point presentation object)))
           (if (not after-end)
               (values (etypecase object
                         (buffer (with-current-buffer object (point-max)))
@@ -2866,16 +2878,34 @@ end-tag was found."
               (values after-end t)))
         (values point nil))))
 
-(defun* slime-presentation-around-point (point &optional (object (current-buffer)))
-  "Return presentation, start index, end index, and whether the presentation is complete."
+(defun* slime-presentation-bounds (point presentation
+                                         &optional (object (current-buffer)))
+  "Return start index and end index of `presentation' around `point'
+in `object', and whether the presentation is complete."
   (multiple-value-bind (start good-start)
-      (slime-presentation-start point object)
+      (slime-presentation-start point presentation object)
     (multiple-value-bind (end good-end)
-        (slime-presentation-end point object)
-      (values (get-text-property point 'slime-repl-presentation object)
-              start end
+        (slime-presentation-end point presentation object)
+      (values start end 
               (and good-start good-end
-                   (slime-presentation-whole-p start end object))))))
+                   (slime-presentation-whole-p presentation start end object))))))
+
+(defun* slime-presentation-around-point (point &optional (object (current-buffer)))
+  "Return presentation, start index, end index, and whether the
+presentation is complete."
+  (let ((innermost-presentation nil)
+        (innermost-start 0)
+        (innermost-end most-positive-fixnum))
+    (dolist (presentation (slime-presentations-around-point point object))
+      (multiple-value-bind (start end whole-p)
+          (slime-presentation-bounds point presentation object)
+        (when whole-p 
+          (when (< (- end start) (- innermost-end innermost-start))
+            (setq innermost-start start
+                  innermost-end end
+                  innermost-presentation presentation)))))
+    (values innermost-presentation
+            innermost-start innermost-end)))
 
 (defun* slime-presentation-around-or-before-point (point &optional (object (current-buffer)))
   (multiple-value-bind (presentation start end whole-p)
@@ -2883,6 +2913,26 @@ end-tag was found."
     (if presentation
         (values presentation start end whole-p)
         (slime-presentation-around-point (1- point) object))))
+
+(defun* slime-for-each-presentation-in-region (from to function &optional (object (current-buffer)))
+  "Call `function' with arguments `presentation', `start', `end',
+`whole-p' for every presentation in the region `from'--`to' in the
+string or buffer `object'."
+  (flet ((handle-presentation (presentation point)
+                              (multiple-value-bind (start end whole-p)
+                                  (slime-presentation-bounds point presentation object)
+                                (funcall function presentation start end whole-p))))
+    ;; Handle presentations active at `from'.
+    (dolist (presentation (slime-presentations-around-point from object))
+      (handle-presentation presentation from))
+    ;; Use the `slime-repl-presentation' property to search for new presentations.
+    (let ((point from))
+      (while (< point to)
+        (setq point (next-single-property-change point 'slime-repl-presentation object to))
+        (let* ((presentation (get-text-property point 'slime-repl-presentation object))
+               (status (get-text-property point presentation object)))
+          (when (slime-presentation-start-p status)
+            (handle-presentation presentation point)))))))
 
 ;; XEmacs compatibility hack, from message by Stephen J. Turnbull on
 ;; xemacs-beta@xemacs.org of 18 Mar 2002
@@ -2892,35 +2942,23 @@ end-tag was found."
   (defadvice undo-more (around slime activate)
      (let ((undo-in-progress t)) ad-do-it)))
 
-(defun slime-after-change-function (start end old-len)
+(defun slime-after-change-function (start end &rest ignore)
   "Check all presentations within and adjacent to the change.  When a
   presentation has been altered, change it to plain text."
   (unless undo-in-progress
-    (let ((real-start (max (point-min) (1- start)))
-          (real-end   (min (point-max) (1+ end)))
-          (any-change nil))
-      ;; positions around the change
-      (save-excursion 
-        (goto-char real-start)
-        (while (< (point) real-end)
-          (let ((presentation (get-text-property (point) 'slime-repl-presentation)))
-            (when presentation
-              (multiple-value-bind (presentation from to whole)
-                  (slime-presentation-around-point (point))
-                ;;(message "presentation %s whole-p %s" (buffer-substring from to) whole)
-                (unless whole
-                  (setq any-change t)
-                  (remove-text-properties from to
-                                          '(slime-repl-inputed-output-face t
-                                            face t mouse-face t rear-nonsticky t
-                                            slime-repl-presentation t))))))
-          (let ((next-change 
-                 (next-single-property-change (point) 'slime-repl-presentation nil 
-                                              real-end)))
-            (if next-change
-                (goto-char next-change)
-              (undo-boundary)
-              (return))))))))
+    (let ((inhibit-modification-hooks t))
+      (let ((real-start (max 1 (1- start)))
+            (real-end   (min (1+ (buffer-size)) (1+ end)))
+            (any-change nil))
+        ;; positions around the change
+        (slime-for-each-presentation-in-region real-start real-end
+                                               (lambda (presentation from to whole-p)
+                                                 (unless whole-p
+                                                   (slime-remove-presentation-properties from to 
+                                                                                         presentation)
+                                                   (setq any-change t))))
+        (when any-change
+          (undo-boundary))))))
 
 (defun slime-copy-presentation-at-point (event)
   (interactive "e")
@@ -2930,6 +2968,8 @@ end-tag was found."
       (with-current-buffer (window-buffer window)
         (multiple-value-bind (presentation start end)
             (slime-presentation-around-point point)
+          (unless presentation
+            (error "No presentation at click"))
           (flet ((do-insertion ()
                    (when (not (string-match "\\s-"
                                             (buffer-substring (1- (point)) (point))))
@@ -3002,11 +3042,7 @@ result strings, each of which is marked-up as a presentation."
                  (slime-insert-presentation result id)
                  (slime-propertize-region `(face slime-repl-result-face)
                    (insert result)))
-             (unless (bolp) (insert "\n"))
-             (let ((inhibit-read-only t))
-               (put-text-property (- (point) 2) (point)
-                                  'rear-nonsticky
-                                  '(slime-repl-presentation face mouse-face read-only)))))
+             (unless (bolp) (insert "\n"))))
       (etypecase result
         (list
          (loop 
@@ -3063,11 +3099,8 @@ result strings, each of which is marked-up as a presentation."
   "Return the current input as string.
 The input is the region from after the last prompt to the end of
 buffer. Presentations of old results are expanded into code."
-  (let ((str-props (buffer-substring slime-repl-input-start-mark
-                                     slime-repl-input-end-mark))
-        (str-no-props (buffer-substring-no-properties slime-repl-input-start-mark
-                                                      slime-repl-input-end-mark)))
-    (reify-old-output str-props str-no-props)))
+  (slime-buffer-substring-with-reified-output  slime-repl-input-start-mark
+                                               slime-repl-input-end-mark))
 
 (defun slime-presentation-expression (presentation)
   "Return a string that contains a CL s-expression accessing 
@@ -3083,18 +3116,25 @@ the presented object."
       (slime-prin1-to-string 
        `(swank:get-repl-result ',id))))))
 
-(defun reify-old-output (str-props str-no-props)
+(defun slime-buffer-substring-with-reified-output (start end)
+  (let ((str-props (buffer-substring start end))
+        (str-no-props (buffer-substring-no-properties start end)))
+    (slime-reify-old-output str-props str-no-props)))
+
+(defun slime-reify-old-output (str-props str-no-props)
   (let ((pos (slime-property-position 'slime-repl-presentation str-props)))
     (if (null pos)
         str-no-props
         (multiple-value-bind (presentation start-pos end-pos whole-p)
             (slime-presentation-around-point pos str-props)
-          (concat (substring str-no-props 0 pos)
-                  ;; Eval in the reader so that we play nice with quote.
-                  ;; -luke (19/May/2005)
-                  "#." (slime-presentation-expression presentation)
-                  (reify-old-output (substring str-props end-pos)
-                                    (substring str-no-props end-pos)))))))
+          (if (not presentation)
+              str-no-props
+              (concat (substring str-no-props 0 pos)
+                      ;; Eval in the reader so that we play nice with quote.
+                      ;; -luke (19/May/2005)
+                      "#." (slime-presentation-expression presentation)
+                      (slime-reify-old-output (substring str-props end-pos)
+                                              (substring str-no-props end-pos))))))))
 
 (defun slime-property-position (text-property &optional object)
   "Return the first position of TEXT-PROPERTY, or nil."
@@ -3243,9 +3283,8 @@ balanced."
            (save-excursion
              (goto-char slime-repl-input-end-mark)
              (recenter -1))))
-        ((and (or (get-text-property (point) 'slime-repl-presentation)
-                  (get-text-property (1- (point)) 'slime-repl-presentation))
-              (< (point) slime-repl-input-start-mark))
+        ((and (< (point) slime-repl-input-start-mark)
+              (nth-value 0 (slime-presentation-around-or-before-point (point))))
          (slime-repl-grab-old-output end-of-input)
          (unless (pos-visible-in-window-p slime-repl-input-end-mark)
            (save-excursion
@@ -3313,8 +3352,7 @@ text property `slime-repl-old-input'."
 (defun slime-repl-grab-old-output (replace)
   "Resend the old REPL output at point.  
 If replace it non-nil the current input is replaced with the old
-output; otherwise the new input is appended.  The old output has the
-text property `slime-repl-presentation'."
+output; otherwise the new input is appended."
   (multiple-value-bind (presentation beg end) 
       (slime-presentation-around-or-before-point (point))
     (unless presentation 
@@ -5901,8 +5939,8 @@ Show the output buffer if the evaluation causes any output."
             window))))))
   
 (defun slime-last-expression ()
-  (buffer-substring-no-properties (save-excursion (backward-sexp) (point))
-				  (point)))
+  (slime-buffer-substring-with-reified-output (save-excursion (backward-sexp) (point))
+                                              (point)))
 
 (defun slime-eval-last-expression ()
   "Evaluate the expression preceding point."
