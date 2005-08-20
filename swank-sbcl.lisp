@@ -43,6 +43,7 @@
 
 (defimplementation preferred-communication-style ()
   (if (and (member :sb-thread *features*)
+           #+linux
            (not (sb-alien:extern-alien "linux_no_threads_p" sb-alien:boolean)))
       :spawn
       :fd-handler))

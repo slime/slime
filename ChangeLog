@@ -1,3 +1,9 @@
+2005-08-20  Christophe Rhodes  <csr21@cam.ac.uk>
+
+	* swank-sbcl.lisp (preferred-communication-style): guard against
+	non-Linux non-linkage-table platforms (and assume that they won't
+	have dodgy threads) with #+linux.
+	
 2005-08-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Enable nested presentations.
