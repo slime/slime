@@ -1,3 +1,40 @@
+2005-08-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	Enable nested presentations.
+	
+	* slime.el (slime-presentation): Remove slots start-p, stop-p.
+	(slime-add-presentation-properties): Use a new text property
+	layout.  Also add an overlay to enable nested highlighting.
+	(slime-remove-presentation-properties): New.
+	(slime-presentation-whole-p): Changed interface.
+	(slime-presentations-around-point): New.
+	(slime-same-presentation-p): Removed.
+	(slime-presentation-start-p, slime-presentation-stop-p): New.
+	(slime-presentation-start, slime-presentation-end): Changed to use
+	new text property layout.
+	(slime-presentation-bounds): New.
+	(slime-presentation-around-point): Reimplemented to handle nested
+	presentations. 
+	(slime-for-each-presentation-in-region): New.
+	(slime-after-change-function): Use
+	slime-remove-presentation-properties and
+	slime-for-each-presentation-in-region. 
+	(slime-copy-presentation-at-point): Complain if no presentation.
+	(slime-repl-insert-prompt): Don't put rear-nonsticky text property.
+	(slime-reify-old-output): Handle nested presentations.
+	(slime-repl-return): Use slime-presentation-around-or-before-point.
+
+	Enable reification of presentations in non-REPL buffers.
+	
+	* slime.el (slime-buffer-substring-with-reified-output): New,
+	factored out from slime-repl-current-input.
+	(slime-repl-current-input): Use it here.
+	(slime-last-expression): Use it here.
+
+	(slime-add-presentation-properties): Add text properties
+	modification-hooks et al. to enable self-destruction of incomplete
+	or edited presentations in non-REPL buffers.
+	
 2005-08-15  Alan Ruttenberg  <alanr-l@mumble.net>
 
 	* slime.el (slime-goto-location-position) fix so the :method locator
