@@ -167,7 +167,7 @@ says that I am starting to print an object with this id. The second says I am fi
 
 (defun menu-choices-for-presentation-id (id)
   (let ((ob (lookup-presented-object id)))
-    (if (eq ob :not-present)
+    (if (eq ob *not-present*)
 	'not-present
 	(let ((menu-and-actions (menu-choices-for-presentation ob)))
 	  (setq *presentation-active-menu* (cons id menu-and-actions))
