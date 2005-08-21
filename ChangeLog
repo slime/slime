@@ -1,3 +1,8 @@
+2005-08-21  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* present.lisp (menu-choices-for-presentation-id): Check against
+	the gensym in *not-present* instead of :non-present.
+
 2005-08-20  Christophe Rhodes  <csr21@cam.ac.uk>
 
 	* swank-sbcl.lisp (preferred-communication-style): guard against
