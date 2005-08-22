@@ -1,3 +1,19 @@
+2005-08-22  Wolfgang Jenkner  <wjenkner@inode.at>
+
+	* swank-clisp.lisp (fspec-pathname): Cope with CVS CLISP's
+	(documentation symbol 'sys::file) returning a list.  Return either
+	a list of start and end line positions or nil as second value.
+	(fspec-location): Use it.  Also, if we have to guess the name of a
+	source file make sure that it actually exists.
+
+	(with-blocked-signals, call-without-interrupts): Don't add
+	:linux to *features* since this changes the return value of
+	unique-directory-name in swank-loader.lisp.
+	Comment out with-blocked-signals.
+
+	Update some comments at the top of the file.
+	State the licence in the same terms as slime.el does.
+
 2005-08-21  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* present.lisp (menu-choices-for-presentation-id): Check against
