@@ -2,24 +2,34 @@
 
 ;;;; Copyright (C) 2003, 2004 W. Jenkner, V. Sedach
 
-;;;; swank-clisp.lisp is free software; you can redistribute it and/or
+;;;; This program is free software; you can redistribute it and/or
 ;;;; modify it under the terms of the GNU General Public License as
-;;;; published by the Free Software Foundation; either version 2, or
-;;;; (at your option) any later version.
+;;;; published by the Free Software Foundation; either version 2 of
+;;;; the License, or (at your option) any later version.
+
+;;;; This program is distributed in the hope that it will be useful,
+;;;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+;;;; GNU General Public License for more details.
+
+;;;; You should have received a copy of the GNU General Public
+;;;; License along with this program; if not, write to the Free
+;;;; Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
+;;;; MA 02111-1307, USA.
 
 ;;; This is work in progress, but it's already usable.  Many things
 ;;; are adapted from other swank-*.lisp, in particular from
 ;;; swank-allegro (I don't use allegro at all, but it's the shortest
 ;;; one and I found Helmut Eller's code there enlightening).
 
-;;; This code is developed using the current CVS version of CLISP and
-;;; CLISP 2.32 on Linux. Older versions may not work (2.29 and below
-;;; are confirmed non-working; please upgrade).  You need an image
-;;; containing the "SOCKET", "REGEXP", and "LINUX" packages.  The
-;;; portable xref from the CMU AI repository and metering.lisp from
-;;; CLOCC [1] are also required (alternatively, you have to manually
-;;; comment out some code below). 
-;;;
+;;; This code will work better with recent versions of CLISP (say, the
+;;; last release or CVS HEAD) while it may not work at all with older
+;;; versions.  It is reasonable to expect it to work on platforms with
+;;; a "SOCKET" package, in particular on GNU/Linux or Unix-like
+;;; systems, but also on Win32.  This backend uses the portable xref
+;;; from the CMU AI repository and metering.lisp from CLOCC [1], which
+;;; are conveniently included in SLIME.
+
 ;;; [1] http://cvs.sourceforge.net/viewcvs.py/clocc/clocc/src/tools/metering/
 
 (in-package :swank-backend)
@@ -27,10 +37,6 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   ;;(use-package "SOCKET")
   (use-package "GRAY"))
-
-(eval-when (:compile-toplevel :execute)
-  (when (find-package "LINUX")
-    (pushnew :linux *features*)))
 
 ;;;; if this lisp has the complete CLOS then we use it, otherwise we
 ;;;; build up a "fake" swank-mop and then override the methods in the
@@ -57,26 +63,25 @@
   (:documentation 
    "Dummy class created so that swank.lisp will compile and load."))
 
-#+linux
-(defmacro with-blocked-signals ((&rest signals) &body body)
-  (ext:with-gensyms ("SIGPROCMASK" ret mask)
-    `(multiple-value-bind (,ret ,mask)
-	 (linux:sigprocmask-set-n-save
-	  ,linux:SIG_BLOCK
-	  ,(do ((sigset (linux:sigset-empty)
-			(linux:sigset-add sigset (the fixnum (pop signals)))))
-	       ((null signals) sigset)))
-       (linux:check-res ,ret 'linux:sigprocmask-set-n-save)
-       (unwind-protect
-	    (progn ,@body)
-	 (linux:sigprocmask-set ,linux:SIG_SETMASK ,mask nil)))))
+;; #+#.(cl:if (cl:find-package "LINUX") '(and) '(or))
+;; (progn
+;;   (defmacro with-blocked-signals ((&rest signals) &body body)
+;;     (ext:with-gensyms ("SIGPROCMASK" ret mask)
+;;       `(multiple-value-bind (,ret ,mask)
+;; 	   (linux:sigprocmask-set-n-save
+;; 	    ,linux:SIG_BLOCK
+;; 	    ,(do ((sigset (linux:sigset-empty)
+;; 			  (linux:sigset-add sigset (the fixnum (pop signals)))))
+;; 		 ((null signals) sigset)))
+;; 	 (linux:check-res ,ret 'linux:sigprocmask-set-n-save)
+;; 	 (unwind-protect
+;; 	      (progn ,@body)
+;; 	   (linux:sigprocmask-set ,linux:SIG_SETMASK ,mask nil)))))
 
-;; XXX currently only works in CVS version. 2.32 breaks.
-;; #+linux
-;; (defimplementation call-without-interrupts (fn)
-;;   (with-blocked-signals (#.linux:SIGINT) (funcall fn)))
-;; 
-;; #-linux
+;;   (defimplementation call-without-interrupts (fn)
+;;     (with-blocked-signals (#.linux:SIGINT) (funcall fn))))
+
+;; #+#.(cl:if (cl:find-package "LINUX") '(or) '(and))
 (defimplementation call-without-interrupts (fn)
   (funcall fn))
 
@@ -188,21 +193,30 @@ Return NIL if the symbol is unbound."
     (:class (describe (find-class symbol)))))
 
 (defun fspec-pathname (symbol)
-  (let ((path (documentation symbol 'sys::file)))
-    (if (and path
-	     (member (pathname-type path)
-		     custom:*compiled-file-types* :test #'string=))
-	(loop for suffix in custom:*source-file-types*
-	      thereis (make-pathname :defaults path :type suffix))
-	path)))
+  (let ((path (documentation symbol 'sys::file))
+	lines)
+    (when (consp path)
+      (psetq path (car path)
+	     lines (cdr path)))
+    (when (and path
+	       (member (pathname-type path)
+		       custom:*compiled-file-types* :test #'equal))
+      (setq path
+	    (loop for suffix in custom:*source-file-types*
+	       thereis (probe-file (make-pathname :defaults path
+						  :type suffix)))))
+    (values path lines)))
 
 (defun fspec-location (fspec)
-  (let ((file (fspec-pathname fspec)))
+  (multiple-value-bind (file lines)
+      (fspec-pathname fspec)
     (cond (file
 	   (multiple-value-bind (truename c) (ignore-errors (truename file))
-	     (cond (truename 
+	     (cond (truename
 		    (make-location (list :file (namestring truename))
-				   (list :function-name (string fspec))))
+				   (if (consp lines)
+				       (list* :line lines)
+				       (list :function-name (string fspec)))))
 		   (t (list :error (princ-to-string c))))))
 	  (t (list :error (format nil "No source information available for: ~S"
 				  fspec))))))
