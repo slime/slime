@@ -4578,6 +4578,8 @@ first element of the source-path redundant."
         (re-search-forward 
          (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\S_" name) nil t)
         (re-search-forward 
+         (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +(*?%s\\S_" name) nil t)
+        (re-search-forward 
          ;; FIXME: Isn't this far to general?
          (format "[( \t]%s\\>\\(\\s \\|$\\)" name) nil t)))
      (goto-char (match-beginning 0)))
