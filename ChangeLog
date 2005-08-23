@@ -1,3 +1,10 @@
+2005-08-23  Taylor R. Campbell  <campbell@bloodandcoffee.net>
+
+	* slime.el (slime-goto-location-position): Added a second regexp
+	for the :function-name case which matches "(def... ((function-name
+	..." (with N opening parens preceding the function name). This is
+	to allow scheme48 style function names and definitions.
+
 2005-08-22  Wolfgang Jenkner  <wjenkner@inode.at>
 
 	* swank-clisp.lisp (fspec-pathname): Cope with CVS CLISP's
