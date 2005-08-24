@@ -1,3 +1,13 @@
+2005-08-24  Marco Baringer  <mb@bese.it>
+
+	* swank.lisp (fuzzy-find-matching-symbols): When completing the
+	string "package:" present a list of all the external symbols in
+	package (completing "package::" lists internal symbols as well).
+	(inspect-for-emacs standard-class): List all the slots in the
+	class (as per standard-object). The previous method of hard coding
+	the slots in the inspector's code made inspecting custom
+	meta-classes useless.
+
 2005-08-24  Christophe Rhodes  <csr21@cam.ac.uk>
 
 	* swank-sbcl.lisp (method-definitions): present qualifiers (if
