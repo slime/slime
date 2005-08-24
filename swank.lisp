@@ -2747,10 +2747,14 @@ symbols are returned."
                       (symbol-external-p symbol package))
                   (compute-highest-scoring-completion 
                    string (funcall converter (symbol-name symbol)) #'char=))))
-      (do-symbols (symbol package) 
-        (multiple-value-bind (result score) (symbol-match symbol)
-          (when result
-            (push (list symbol score result) completions)))))
+      (do-symbols (symbol package)
+        (if (string= "" string)
+            (when (or (and external (symbol-external-p symbol package))
+                      (not external))
+              (push (list symbol 0.0 (list (list 0 ""))) completions))
+            (multiple-value-bind (result score) (symbol-match symbol)
+              (when result
+                (push (list symbol score result) completions))))))
     (remove-duplicates completions :key #'first)))
 
 (defun fuzzy-find-matching-packages (name)
@@ -3658,7 +3662,29 @@ See `methods-by-applicability'.")
                       collect '(:newline))))
             "Prototype: " ,(if (swank-mop:class-finalized-p class)
                                `(:value ,(swank-mop:class-prototype class))
-                               '"#<N/A (class not finalized)>"))))
+                               '"#<N/A (class not finalized)>")
+            (:newline)
+            "------------------------------" (:newline)
+            "All Slots:" (:newline)
+            ,@(loop
+                 with direct-slots = (swank-mop:class-direct-slots (class-of class))
+                 for slot in (swank-mop:class-slots (class-of class))
+                 for slot-def = (or (find-if (lambda (a)
+                                               ;; find the direct slot
+                                               ;; with the same name
+                                               ;; as SLOT (an
+                                               ;; effective slot).
+                                               (eql (swank-mop:slot-definition-name a)
+                                                    (swank-mop:slot-definition-name slot)))
+                                             direct-slots)
+                                    slot)
+                 collect `(:value ,slot-def ,(inspector-princ (swank-mop:slot-definition-name slot-def)))
+                 collect " = "
+                 if (slot-boundp class (swank-mop:slot-definition-name slot-def))
+                   collect `(:value ,(slot-value class (swank-mop:slot-definition-name slot-def)))
+                 else
+                   collect "#<unbound>"
+                 collect '(:newline)))))
 
 (defmethod inspect-for-emacs ((slot swank-mop:standard-slot-definition) inspector)
   (declare (ignore inspector))
