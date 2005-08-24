@@ -519,7 +519,8 @@ This is useful when debugging the definition-finding code.")
   (let ((methods (sb-mop:generic-function-methods gf))
         (name (sb-mop:generic-function-name gf)))
     (loop for method in methods 
-          collect (list `(method ,name ,(sb-pcl::unparse-specializers method))
+          collect (list `(method ,name ,@(method-qualifiers method)
+                          ,(sb-pcl::unparse-specializers method))
                         (method-source-location method)))))
 
 (defun method-source-location (method)

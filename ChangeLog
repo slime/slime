@@ -1,3 +1,8 @@
+2005-08-24  Christophe Rhodes  <csr21@cam.ac.uk>
+
+	* swank-sbcl.lisp (method-definitions): present qualifiers (if
+	any).
+
 2005-08-23  Taylor R. Campbell  <campbell@bloodandcoffee.net>
 
 	* slime.el (slime-goto-location-position): Added a second regexp
