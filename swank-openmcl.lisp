@@ -235,7 +235,9 @@
   "Return the position in the source file of a compiler condition."
   (+ 1
      (or *buffer-offset* 0)
-     (ccl::compiler-warning-stream-position condition)))
+     ;; alanr sometimes returned stream position nil.
+     (or (ccl::compiler-warning-stream-position condition) 0))) 
+
 
 (defun handle-compiler-warning (condition)
   "Construct a compiler note for Emacs from a compiler warning

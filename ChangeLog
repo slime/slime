@@ -1,3 +1,11 @@
+2005-08-15  Alan Ruttenberg  <alanr-l@mumble.net>
+
+	* swank-openmcl.lisp (condition-source-position)
+	ccl::compiler-warning-stream-position is sometimes nil, so placate
+	this function by making it (or .. 0). Wrong but I don't have
+	enough time now to figure out what the right thing is.
+	
+
 2005-08-24  Marco Baringer  <mb@bese.it>
 
 	* swank.lisp (fuzzy-find-matching-symbols): When completing the
