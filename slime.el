@@ -3004,28 +3004,32 @@ string or buffer `object'."
   (let* ((point (if (featurep 'xemacs) (event-point event) (posn-point (event-end event))))
          (window (if (featurep 'xemacs) (event-window event) (caadr event))))
     (with-current-buffer (window-buffer window)
-      (multiple-value-bind (presentation)
+      (multiple-value-bind (presentation from to whole-p)
           (slime-presentation-around-point point)
         (unless presentation
           (error "No presentation at event position"))
         (let* ((what (slime-presentation-id presentation))
                (choices (slime-eval `(swank::menu-choices-for-presentation-id ',what)))
                (count 0))
-          (when choices
-            (if (symbolp choices)
-                (x-popup-menu event `("Object no longer recorded" ("sorry" . ,(if (featurep 'xemacs) nil '(nil)))))
-                (let ((choice 
-                       (x-popup-menu event 
-                                     `(,(if (featurep 'xemacs) " " "")
-                                       ("" ,@(mapcar 
-                                              (lambda(choice) 
-                                                (cons choice (intern choice))) ; use symbol as value to appease xemacs
-                                              choices))))))
-                  (when choice
-                    (let ((nchoice (1+ (position (symbol-name choice) choices :test 'equal))))
-                      (eval (slime-eval 
-                             `(swank::execute-menu-choice-for-presentation-id
-                               ',what ,nchoice ,(nth (1- nchoice) choices))))))))))))))
+          (etypecase choices
+            (null)
+            (symbol                     ; not-present
+             (slime-remove-presentation-properties from to presentation)
+             (sit-for 0)                ; allow redisplay
+             (x-popup-menu event `("Object no longer recorded" ("sorry" . ,(if (featurep 'xemacs) nil '(nil))))))
+            (list
+             (let ((choice 
+                    (x-popup-menu event 
+                                  `(,(if (featurep 'xemacs) " " "")
+                                    ("" ,@(mapcar 
+                                           (lambda(choice) 
+                                             (cons choice (intern choice))) ; use symbol as value to appease xemacs
+                                           choices))))))
+               (when choice
+                 (let ((nchoice (1+ (position (symbol-name choice) choices :test 'equal))))
+                   (eval (slime-eval 
+                          `(swank::execute-menu-choice-for-presentation-id
+                            ',what ,nchoice ,(nth (1- nchoice) choices))))))))))))))
 
 
 (defun slime-repl-insert-prompt (result &optional time)
