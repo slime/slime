@@ -1,3 +1,8 @@
+2005-08-27  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-presentation-menu): When an object is no longer
+	recorded, remove text properties from the presentation.
+
 2005-08-15  Alan Ruttenberg  <alanr-l@mumble.net>
 
 	* swank-openmcl.lisp (condition-source-position)
