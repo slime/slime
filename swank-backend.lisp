@@ -806,3 +806,14 @@ SPEC can be:
  (:call CALLER CALLEE)                  ; trace calls from CALLER to CALLEE.
  (:labels TOPLEVEL LOCAL) 
  (:flet TOPLEVEL LOCAL) ")
+
+
+;;;; Weak datastructures
+
+(definterface make-weak-key-hash-table (&rest args)
+  "Like MAKE-HASH-TABLE, but weak w.r.t. the keys."
+  (apply #'make-hash-table args))
+
+(definterface make-weak-value-hash-table (&rest args)
+  "Like MAKE-HASH-TABLE, but weak w.r.t. the values."
+  (apply #'make-hash-table args))
