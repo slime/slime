@@ -849,6 +849,8 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
           (defun slime-repl-add-easy-menu ()
             (easy-menu-define menubar-slime-repl slime-repl-mode-map
               "REPL" slime-repl-easy-menu)
+            (easy-menu-define menubar-slime slime-repl-mode-map
+              "SLIME" slime-easy-menu)
             (easy-menu-add slime-repl-easy-menu 'slime-repl-mode-map)))
 
 (add-hook 'sldb-mode-hook
