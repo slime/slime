@@ -719,6 +719,8 @@ of the toplevel restart."
       ((:return thread &rest args)
        (declare (ignore thread))
        (send `(:return ,@args)))
+      ((:evaluate-in-emacs string thread &rest args)
+       (send `(:evaluate-in-emacs ,string 0 ,@args)))
       (((:read-output :new-package :new-features :debug-condition
                       :presentation-start :presentation-end
                       :indentation-update :ed :%apply :eval-no-wait)
