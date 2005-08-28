@@ -2181,6 +2181,11 @@ The `symbol-value' of each element is a type tag.")
         (t
          fspec)))
 
+;;; Weak datastructures
+
+(defimplementation make-weak-key-hash-table (&rest args)
+  (apply #'make-hash-table :weak-p t args))
+
 ;; Local Variables:
 ;; pbook-heading-regexp:    "^;;;\\(;+\\)"
 ;; pbook-commentary-regexp: "^;;;\\($\\|[^;]\\)"

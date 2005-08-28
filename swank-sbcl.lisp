@@ -1219,3 +1219,9 @@ stack."
     ((:call)
      (destructuring-bind (caller callee) (cdr spec)
        (toggle-trace-aux callee :wherein (list (process-fspec caller)))))))
+
+;;; Weak datastructures
+
+(defimplementation make-weak-key-hash-table (&rest args)
+  (apply #'make-hash-table :weak-p t args))
+
