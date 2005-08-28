@@ -1,5 +1,16 @@
 2005-08-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
+	* swank-backend.lisp (make-weak-key-hash-table)
+	(make-weak-value-hash-table): New interfaces.
+	* swank-cmucl.lisp (make-weak-key-hash-table): Implement it.
+	* swank-sbcl.lisp (make-weak-key-hash-table): Implement it.
+	* swank-openmcl.lisp (make-weak-key-hash-table) 
+	(make-weak-value-hash-table): Implement it.
+
+	* swank.lisp (*object-to-presentation-id*)
+	(*presentation-id-to-object*): Use new functions
+	make-weak-key-hash-table, make-weak-value-hash-table.
+
 	* slime.el (slime-enable-evaluate-in-emacs): New variable.
 	(evaluate-in-emacs): Security improvement: If
 	slime-enable-evaluate-in-emacs is nil (the default), don't
