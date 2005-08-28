@@ -1,5 +1,9 @@
 2005-08-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
+	* slime.el (slime-repl-kill-input): New command.
+	(slime-repl-mode-map): Bind it to C-c C-u, like in comint.
+	(slime-repl-easy-menu): Include it in the REPL menu.
+
 	* swank-backend.lisp (make-weak-key-hash-table)
 	(make-weak-value-hash-table): New interfaces.
 	* swank-cmucl.lisp (make-weak-key-hash-table): Implement it.
