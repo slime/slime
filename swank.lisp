@@ -1684,13 +1684,11 @@ by adding a template for the missing arguments."
   "Non-nil means that REPL results are saved for later lookup.")
 
 (defvar *object-to-presentation-id* 
-  (make-hash-table :test 'eq 
-                   #+openmcl :weak #+openmcl :key)
+  (make-weak-key-hash-table :test 'eq)
   "Store the mapping of objects to numeric identifiers")
 
 (defvar *presentation-id-to-object* 
-  (make-hash-table :test 'eq 
-                   #+openmcl :weak #+openmcl :value)
+  (make-weak-value-hash-table :test 'eq)
   "Store the mapping of numeric identifiers to objects")
 
 (defun clear-presentation-tables ()
