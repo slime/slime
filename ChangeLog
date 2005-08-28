@@ -1,3 +1,12 @@
+2005-08-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-enable-evaluate-in-emacs): New variable.
+	(evaluate-in-emacs): Security improvement: If
+	slime-enable-evaluate-in-emacs is nil (the default), don't
+	evaluate forms sent by the Lisp.
+
+	* swank.lisp (send-to-socket-io): Handle :evaluate-in-emacs.
+
 2005-08-27  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-presentation-menu): When an object is no longer
