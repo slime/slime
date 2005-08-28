@@ -808,7 +808,8 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
       [ "Goto Previous Prompt "  slime-repl-previous-prompt t ]
       [ "Goto Next Prompt "      slime-repl-next-prompt t ]
       [ "Clear Last Output"      slime-repl-clear-output t ]
-      [ "Clear Buffer "          slime-repl-clear-buffer t ])))
+      [ "Clear Buffer "          slime-repl-clear-buffer t ]
+      [ "Kill Current Input"     slime-repl-kill-input t ])))
       
 (defvar slime-sldb-easy-menu
   (let ((C '(slime-connected-p)))
@@ -3420,6 +3421,12 @@ earlier in the buffer."
 (defun slime-repl-delete-current-input ()
   (delete-region slime-repl-input-start-mark slime-repl-input-end-mark))
 
+(defun slime-repl-kill-input ()
+  "Kill all text from last stuff output by the Lisp process to point."
+  (interactive)
+  (when (> (point) (marker-position slime-repl-input-start-mark))
+    (kill-region slime-repl-input-start-mark (point))))
+
 (defun slime-repl-replace-input (string)
   (slime-repl-delete-current-input)
   (insert-and-inherit string))
@@ -3583,6 +3590,7 @@ Return nil of no item matches"
   ("\C-\M-x" 'slime-eval-defun)
   ("\C-c\C-o" 'slime-repl-clear-output)
   ("\C-c\C-t" 'slime-repl-clear-buffer)
+  ("\C-c\C-u" 'slime-repl-kill-input)
   ("\C-c\C-n" 'slime-repl-next-prompt)
   ("\C-c\C-p" 'slime-repl-previous-prompt)
   ("\M-\C-a" 'slime-repl-beginning-of-defun)
