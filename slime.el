@@ -3618,10 +3618,21 @@ Return nil of no item matches"
   (slime-mark-input-start)
   (slime-repl-read-mode 1))
 
+(defcustom slime-enable-evaluate-in-emacs nil
+  "If non-nil, the inferior Lisp can evaluate arbitrary forms in Emacs.
+The default is nil, as this feature can be a security risk."
+  :type '(boolean)
+  :group 'slime-lisp)
+
 (defun evaluate-in-emacs (expr thread tag)
-  (push thread slime-read-string-threads)
-  (push tag slime-read-string-tags)
-  (slime-repl-return-string (eval expr)))
+  (cond 
+   (slime-enable-evaluate-in-emacs
+    (push thread slime-read-string-threads)
+    (push tag slime-read-string-tags)
+    (slime-repl-return-string (eval expr)))
+   (t
+    (slime-eval-async `(cl:error "Cannot evaluate in Emacs because slime-enable-evaluate-in-emacs is nil"))
+    nil)))
 
 (defun slime-repl-return-string (string)
   (slime-dispatch-event `(:emacs-return-string 
