@@ -831,3 +831,12 @@ out IDs for.")
 
 (defimplementation quit-lisp ()
   (ccl::quit))
+
+;;; Weak datastructures
+
+(defimplementation make-weak-key-hash-table (&rest args)
+  (apply #'make-hash-table :weak :key args))
+
+(defimplementation make-weak-value-hash-table (&rest args)
+  (apply #'make-hash-table :weak :value args))
+
