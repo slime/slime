@@ -8,6 +8,7 @@
 	* slime.el (slime-repl-kill-input): New command.
 	(slime-repl-mode-map): Bind it to C-c C-u, like in comint.
 	(slime-repl-easy-menu): Include it in the REPL menu.
+	(slime-repl-mode-hook): Show the SLIME menu in the REPL too.
 
 	* swank-backend.lisp (make-weak-key-hash-table)
 	(make-weak-value-hash-table): New interfaces.
