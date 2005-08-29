@@ -777,5 +777,6 @@ function names like \(SETF GET)."
       (defmethod stream:stream-soft-force-output  ((o (eql stream)))
         (force-output o)))))
 
-(defmethod env-internals:confirm-p ((e slime-env) &rest msg-and-args)
-  (apply (swank-sym :y-or-n-p-in-emacs) msg-and-args))
+(defmethod env-internals:confirm-p ((e slime-env) &optional msg &rest args)
+  (apply (swank-sym :y-or-n-p-in-emacs) msg args))
+      
