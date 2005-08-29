@@ -1,3 +1,7 @@
+2005-08-29  Alan Ruttenberg <alanr-l@mumble.net>
+	* slime.el (sldb-insert-condition) - Add tooltip for long
+	condition string which otherwise falls off the right of the screen
+
 2005-08-29  Juho Snellman  <jsnell@iki.fi>
 
 	* swank-sbcl.lisp (make-weak-key-hash-table): Remove the 

@@ -7055,6 +7055,8 @@ CONTS is a list of pending Emacs continuations."
 
 (defun sldb-insert-condition (condition)
   (destructuring-bind (message type references extras) condition
+    (when (> (length message) 70)
+      (add-text-properties 0 (length message) (list 'help-echo message) message)) 
     (slime-insert-propertized '(sldb-default-action sldb-inspect-condition)
                               (in-sldb-face topline message)
                               "\n" 
