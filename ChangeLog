@@ -1,3 +1,21 @@
+2005-08-29  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* swank-lispworks.lisp (env-internals:confirm-p): Use new function
+	y-or-n-p-in-emacs rather than eval-in-emacs.
+
+	* swank-cmucl.lisp (eval-in-emacs): Removed.
+	(send-to-emacs): New.
+	(pre-gc-hook, post-gc-hook): Use new protocol message
+	:background-message rather than eval-in-emacs.
+
+	* swank.lisp (dispatch-event, send-to-socket-io): Handle new
+	messages :y-or-n-p, :background-message.  
+	(y-or-n-p-in-emacs): New function.
+
+	* slime.el (slime-dispatch-event): Handle new messages :y-or-n-p,
+	:background-message. 
+	(slime-y-or-n-p): New.
+
 2005-08-29  Alan Ruttenberg <alanr-l@mumble.net>
 	* slime.el (sldb-insert-condition) - Add tooltip for long
 	condition string which otherwise falls off the right of the screen
