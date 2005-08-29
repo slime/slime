@@ -588,6 +588,8 @@ of the toplevel restart."
      (encode-message `(,(car event) ,(thread-id thread) ,@args) socket-io))
     ((:read-string thread &rest args)
      (encode-message `(:read-string ,(thread-id thread) ,@args) socket-io))
+    ((:y-or-n-p thread &rest args)
+     (encode-message `(:y-or-n-p ,(thread-id thread) ,@args) socket-io))
     ((:evaluate-in-emacs string thread &rest args)
      (encode-message `(:evaluate-in-emacs ,string ,(thread-id thread) ,@args)
                      socket-io))
@@ -601,7 +603,7 @@ of the toplevel restart."
      (send (find-thread thread-id) `(take-input ,tag ,value)))
     (((:read-output :presentation-start :presentation-end
                     :new-package :new-features :ed :%apply :indentation-update
-                    :eval-no-wait)
+                    :eval-no-wait :background-message)
       &rest _)
      (declare (ignore _))
      (encode-message event socket-io))))
@@ -712,7 +714,7 @@ of the toplevel restart."
              (encode-message o (current-socket-io)))))
     (destructure-case event
       (((:debug-activate :debug :debug-return :read-string :read-aborted 
-                         :eval)
+                         :y-or-n-p :eval)
         thread &rest args)
        (declare (ignore thread))
        (send `(,(car event) 0 ,@args)))
@@ -723,7 +725,8 @@ of the toplevel restart."
        (send `(:evaluate-in-emacs ,string 0 ,@args)))
       (((:read-output :new-package :new-features :debug-condition
                       :presentation-start :presentation-end
-                      :indentation-update :ed :%apply :eval-no-wait)
+                      :indentation-update :ed :%apply :eval-no-wait
+                      :background-message)
         &rest _)
        (declare (ignore _))
        (send event)))))
@@ -1015,6 +1018,18 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
              (setq ok t))
         (unless ok 
           (send-to-emacs `(:read-aborted ,(current-thread) ,tag)))))))
+
+(defun y-or-n-p-in-emacs (&optional format-string &rest arguments)
+  "Like y-or-n-p, but ask in the Emacs minibuffer."
+  (let ((tag (incf *read-input-catch-tag*))
+        (question (if format-string
+                      (apply #'format nil format-string arguments)
+                      "")))
+    (force-output)
+    (send-to-emacs `(:y-or-n-p ,(current-thread) ,tag ,question))
+    (unwind-protect
+         (catch (intern-catch-tag tag)
+           (loop (read-from-emacs))))))
 
 (defslimefun take-input (tag input)
   "Return the string INPUT to the continuation TAG."
