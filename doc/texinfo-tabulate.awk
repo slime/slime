@@ -3,6 +3,9 @@
 # Format input lines into a multi-column texinfo table.
 # Note: does not do texinfo-escaping of the input.
 
+# This code has been placed in the Public Domain.  All warranties
+# are disclaimed.
+
 BEGIN {
   columns = 3;
   printf("@multitable @columnfractions");

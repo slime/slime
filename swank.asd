@@ -15,6 +15,9 @@
 ;; (PORT can be zero to mean "any available port".)
 ;; Then the Swank server is running on localhost:ACTUAL-PORT. You can
 ;; use `M-x slime-connect' to connect Emacs to it.
+;;
+;; This code has been placed in the Public Domain.  All warranties
+;; are disclaimed.
 
 (asdf:defsystem :swank
     :components ((:file "swank-loader")))

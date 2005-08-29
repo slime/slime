@@ -1,4 +1,8 @@
 #!/bin/sh
+
+# This code has been placed in the Public Domain.  All warranties
+# are disclaimed.
+
 version="1.2"
 dist="slime-$version"
 

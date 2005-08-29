@@ -16,6 +16,9 @@
 ;;; whole file inside Lisp. That way we will still have the matching
 ;;; version even if the file is later modified on disk. If the file is
 ;;; later recompiled and reloaded then we replace our cache entry.
+;;;
+;;; This code has been placed in the Public Domain.  All warranties
+;;; are disclaimed.
 
 (in-package :swank-backend)
 

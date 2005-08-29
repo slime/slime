@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# This code has been placed in the Public Domain.  All warranties
+# are disclaimed.
+
 trap EXIT
 
 for emacs in xemacs ; do # emacs-20.7 emacs-21.3.50 xemacs ; do

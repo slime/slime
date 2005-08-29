@@ -9,6 +9,9 @@
 # If something unexpected fails, you might get an exit code like 127
 # or 255 instead. Sorry.
 
+# This code has been placed in the Public Domain.  All warranties
+# are disclaimed.
+
 if [ $# != 4 ]; then
     echo "Usage: $0 <emacs> <lisp> <dribble-file> <results-file>"
     exit 1

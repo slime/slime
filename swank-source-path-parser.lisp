@@ -17,6 +17,9 @@
 ;;; We use a special readtable to get the positions of the subforms.
 ;;; The readtable stores the start and end position for each subform in
 ;;; hashtable for later retrieval.
+;;;
+;;; This code has been placed in the Public Domain.  All warranties
+;;; are disclaimed.
 
 ;;; Taken from swank-cmucl.lisp, by Helmut Eller
 
