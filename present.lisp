@@ -1,5 +1,8 @@
 (in-package :swank)
 
+;;; This code has been placed in the Public Domain.  All warranties
+;;; are disclaimed.
+
 ;; A mechanism for printing to the slime repl so that the printed
 ;; result remembers what object it is associated with. Depends on the
 ;; ilisp bridge code being installed and ready to intercept messages
