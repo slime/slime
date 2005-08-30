@@ -1,3 +1,8 @@
+2005-08-30  Alan Ruttenberg <alanr-l@mumble.net>
+	* slime.el (slime-mark-presentation-start/end-handler) modify
+	regexp to recognize negative presentation ids to make
+	presenting-object work with bridge mode.
+	
 2005-08-30  Luke Gorrie  <luke@synap.se>
 
 	* present.lisp: Added public domain dedication (OK'd by Alanr and
@@ -24,6 +29,8 @@
 2005-08-29  Alan Ruttenberg <alanr-l@mumble.net>
 	* slime.el (sldb-insert-condition) - Add tooltip for long
 	condition string which otherwise falls off the right of the screen
+	* swank.lisp (list-threads) - thread name might be a symbol - pass
+	the symbol name when that happens
 
 2005-08-29  Juho Snellman  <jsnell@iki.fi>
 

@@ -2588,7 +2588,7 @@ update window-point afterwards.  If point is initially not at
           (marker-position (symbol-value 'slime-output-end)))))
 
 (defun slime-mark-presentation-start-handler (process string)
-  (if (and string (string-match "<\\([0-9]+\\)" string))
+  (if (and string (string-match "<\\([-0-9]+\\)" string))
       (let* ((match (substring string (match-beginning 1) (match-end 1)))
              (id (car (read-from-string match))))
         (slime-mark-presentation-start id))))
@@ -2602,7 +2602,7 @@ update window-point afterwards.  If point is initially not at
                                            id nil)))))
 
 (defun slime-mark-presentation-end-handler (process string)
-  (if (and string (string-match ">\\([0-9]+\\)" string))
+  (if (and string (string-match ">\\([-0-9]+\\)" string))
       (let* ((match (substring string (match-beginning 1) (match-end 1)))
              (id (car (read-from-string match))))
         (slime-mark-presentation-end id))))

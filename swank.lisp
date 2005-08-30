@@ -3996,7 +3996,8 @@ a time.")
   "Return a list ((NAME DESCRIPTION) ...) of all threads."
   (setq *thread-list* (all-threads))
   (loop for thread in  *thread-list* 
-        collect (list (thread-name thread)
+       for name = (thread-name thread)
+        collect (list (if (symbolp name) (symbol-name name) name)
                       (thread-status thread)
                       (thread-id thread))))
 
