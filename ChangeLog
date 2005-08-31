@@ -1,3 +1,7 @@
+2005-08-31  Marco Baringer  <mb@bese.it>
+
+	* swank.lisp (to-string): Handle errors during printing of objects.
+
 2005-08-30  Alan Ruttenberg <alanr-l@mumble.net>
 	* slime.el (slime-mark-presentation-start/end-handler) modify
 	regexp to recognize negative presentation ids to make
