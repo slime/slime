@@ -1176,7 +1176,10 @@ Return the package or nil."
 (defun to-string (string)
   "Write string in the *BUFFER-PACKAGE*."
   (with-buffer-syntax ()
-    (prin1-to-string string)))
+    (handler-bind ((error (lambda (c)
+                            (declare (ignore c))
+                            (return-from to-string "#<swank: error printing object>"))))
+      (prin1-to-string string))))
 
 (defun guess-package-from-string (name &optional (default-package *package*))
   (or (and name
