@@ -2618,13 +2618,10 @@ RESULT-P decides whether a face for a return value or output text is used."
          (presentation (make-slime-presentation :text text :id id)))
     (let ((inhibit-modification-hooks t))
       (add-text-properties start end
-                           `(face slime-repl-inputed-output-face
-                                  mouse-face slime-repl-output-mouseover-face
-                                  keymap ,slime-presentation-map
-                                  modification-hooks (slime-after-change-function)
-                                  insert-in-front-hooks (slime-after-change-function)
-                                  insert-behind-hooks (slime-after-change-function)
-                                  rear-nonsticky t))
+                           `(modification-hooks (slime-after-change-function)
+                             insert-in-front-hooks (slime-after-change-function)
+                             insert-behind-hooks (slime-after-change-function)
+                             rear-nonsticky t))
       ;; Use the presentation as the key of a text property
       (case (- end start)
         (0)
@@ -2647,21 +2644,27 @@ RESULT-P decides whether a face for a return value or output text is used."
       ;; when we copy a presentation; their removal is also not undoable.
       ;; In these cases the mouse-face text properties need to take over ---
       ;; but they do not give nested highlighting.
-      (let ((overlay (make-overlay start end)))
-        (overlay-put overlay 'mouse-face 'slime-repl-output-mouseover-face)
-        (overlay-put overlay 'face 'slime-repl-inputed-output-face)))))
+      (slime-ensure-presentation-overlay start end presentation))))
 
+(defun slime-ensure-presentation-overlay (start end presentation)
+  (unless (find presentation (overlays-at start)
+                :key (lambda (overlay) 
+                       (overlay-get overlay 'slime-repl-presentation)))
+    (let ((overlay (make-overlay start end (current-buffer) t nil)))
+      (overlay-put overlay 'slime-repl-presentation presentation)
+      (overlay-put overlay 'mouse-face 'slime-repl-output-mouseover-face)
+      (overlay-put overlay 'face 'slime-repl-inputed-output-face)
+      (overlay-put overlay 'keymap slime-presentation-map))))
+  
 (defun slime-remove-presentation-properties (from to presentation)
   (remove-text-properties from to
-                          `(,presentation t
-                                          slime-repl-inputed-output-face t
-                                          face t mouse-face t rear-nonsticky t))
+                          `(,presentation t rear-nonsticky t))
   (when (eq (get-text-property from 'slime-repl-presentation) presentation)
     (remove-text-properties from (1+ from) `(slime-repl-presentation t)))
   (when (eq (get-text-property (1- to) 'slime-repl-presentation) presentation)
     (remove-text-properties (1- to) to `(slime-repl-presentation t)))
   (dolist (overlay (overlays-at from))
-    (when (eq (overlay-get overlay 'mouse-face) 'slime-repl-output-mouseover-face)
+    (when (eq (overlay-get overlay 'slime-repl-presentation) presentation)
       (delete-overlay overlay))))
 
 (defun slime-insert-presentation (result output-id)
@@ -2952,20 +2955,23 @@ string or buffer `object'."
 (defun slime-after-change-function (start end &rest ignore)
   "Check all presentations within and adjacent to the change.  When a
   presentation has been altered, change it to plain text."
-  (unless undo-in-progress
-    (let ((inhibit-modification-hooks t))
-      (let ((real-start (max 1 (1- start)))
-            (real-end   (min (1+ (buffer-size)) (1+ end)))
-            (any-change nil))
-        ;; positions around the change
-        (slime-for-each-presentation-in-region real-start real-end
-                                               (lambda (presentation from to whole-p)
-                                                 (unless whole-p
-                                                   (slime-remove-presentation-properties from to 
-                                                                                         presentation)
-                                                   (setq any-change t))))
-        (when any-change
-          (undo-boundary))))))
+  (let ((inhibit-modification-hooks t))
+    (let ((real-start (max 1 (1- start)))
+          (real-end   (min (1+ (buffer-size)) (1+ end)))
+          (any-change nil))
+      ;; positions around the change
+      (slime-for-each-presentation-in-region 
+       real-start real-end
+       (lambda (presentation from to whole-p)
+         (cond
+          (whole-p
+           (slime-ensure-presentation-overlay from to presentation))
+          ((not undo-in-progress)
+           (slime-remove-presentation-properties from to 
+                                                 presentation)
+           (setq any-change t)))))
+      (when any-change
+        (undo-boundary)))))
 
 (defun slime-copy-presentation-at-point (event)
   (interactive "e")
@@ -2981,8 +2987,7 @@ string or buffer `object'."
                    (when (not (string-match "\\s-"
                                             (buffer-substring (1- (point)) (point))))
                      (insert " "))
-                   (slime-propertize-region '(face slime-repl-inputed-output-face)
-                     (insert  (buffer-substring start end)))
+                   (insert (buffer-substring start end))
                    (when (and (not (eolp)) (not (looking-at "\\s-")))
                      (insert " "))))
             (if (>= (point) slime-repl-prompt-start-mark)
@@ -3376,9 +3381,7 @@ output; otherwise the new input is appended."
                  (insert " "))))
       (delete-region (point) slime-repl-input-end-mark)
       (let ((inhibit-read-only t))
-        (slime-propertize-region 
-            '(face slime-repl-inputed-output-face)
-          (insert old-output))))))
+        (insert old-output)))))
 
 (defun slime-property-bounds (prop)
   "Return two the positions of the previous and next changes to PROP.
