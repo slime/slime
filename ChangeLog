@@ -1,3 +1,16 @@
+2005-09-04  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-ensure-presentation-overlay): New.
+	(slime-add-presentation-properties): Don't add face, mouse-face,
+	keymap text properties.  Call slime-ensure-presentation-overlay to
+	implement them via overlays.
+	(slime-remove-presentation-properties): Don't remove these text
+	properties.  Delete the right overlay.
+	(slime-after-change-function): Add overlays for presentations if
+	necessary. 
+	(slime-copy-presentation-at-point): Don't add face text property.
+	(slime-repl-grab-old-output): Likewise.
+
 2005-08-31  Marco Baringer  <mb@bese.it>
 
 	* swank.lisp (to-string): Handle errors during printing of objects.
