@@ -333,7 +333,8 @@ Useful for low level debugging."
   "When T swank will attempt to create a second connection to
   Emacs which is used just to send output.")
 (defvar *dedicated-output-stream-port* 0
-  "Which port we sholud use for the dedicated output stream.")
+  "Which port we should use for the dedicated output stream.")
+
 (defvar *communication-style* (preferred-communication-style))
 
 (defun start-server (port-file &key (style *communication-style*)
@@ -590,9 +591,6 @@ of the toplevel restart."
      (encode-message `(:read-string ,(thread-id thread) ,@args) socket-io))
     ((:y-or-n-p thread &rest args)
      (encode-message `(:y-or-n-p ,(thread-id thread) ,@args) socket-io))
-    ((:evaluate-in-emacs string thread &rest args)
-     (encode-message `(:evaluate-in-emacs ,string ,(thread-id thread) ,@args)
-                     socket-io))
     ((:read-aborted thread &rest args)
      (encode-message `(:read-aborted ,(thread-id thread) ,@args) socket-io))
     ((:emacs-return-string thread-id tag string)
@@ -721,8 +719,6 @@ of the toplevel restart."
       ((:return thread &rest args)
        (declare (ignore thread))
        (send `(:return ,@args)))
-      ((:evaluate-in-emacs string thread &rest args)
-       (send `(:evaluate-in-emacs ,string 0 ,@args)))
       (((:read-output :new-package :new-features :debug-condition
                       :presentation-start :presentation-end
                       :indentation-update :ed :%apply :eval-no-wait
@@ -748,19 +744,19 @@ of the toplevel restart."
                                :serve-requests #'spawn-threads-for-connection
                                :cleanup #'cleanup-connection-threads))
              (:sigio
-              (make-connection :socket-io socket-io 
+              (make-connection :socket-io socket-io
                                :read #'read-from-socket-io
                                :send #'send-to-socket-io
                                :serve-requests #'install-sigio-handler
                                :cleanup #'deinstall-sigio-handler))
              (:fd-handler
-              (make-connection :socket-io socket-io 
+              (make-connection :socket-io socket-io
                                :read #'read-from-socket-io
                                :send #'send-to-socket-io
                                :serve-requests #'install-fd-handler
                                :cleanup #'deinstall-fd-handler))
              ((nil)
-              (make-connection :socket-io socket-io 
+              (make-connection :socket-io socket-io
                                :read #'read-from-socket-io
                                :send #'send-to-socket-io
                                :serve-requests #'simple-serve-requests)))))
@@ -978,12 +974,12 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
 
 (defun encode-message (message stream)
   (let* ((string (prin1-to-string-for-emacs message))
-         (length (1+ (length string))))
+         (length (length string)))
     (log-event "WRITE: ~A~%" string)
     (let ((*print-pretty* nil))
       (format stream "~6,'0x" length))
     (write-string string stream)
-    (terpri stream)
+    ;;(terpri stream)
     (force-output stream)))
 
 (defun prin1-to-string-for-emacs (object)
@@ -1019,33 +1015,18 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
         (unless ok 
           (send-to-emacs `(:read-aborted ,(current-thread) ,tag)))))))
 
-(defun y-or-n-p-in-emacs (&optional format-string &rest arguments)
+(defun y-or-n-p-in-emacs (format-string &rest arguments)
   "Like y-or-n-p, but ask in the Emacs minibuffer."
   (let ((tag (incf *read-input-catch-tag*))
-        (question (if format-string
-                      (apply #'format nil format-string arguments)
-                      "")))
+        (question (apply #'format nil format-string arguments)))
     (force-output)
     (send-to-emacs `(:y-or-n-p ,(current-thread) ,tag ,question))
-    (unwind-protect
-         (catch (intern-catch-tag tag)
-           (loop (read-from-emacs))))))
+    (catch (intern-catch-tag tag)
+      (loop (read-from-emacs)))))
 
 (defslimefun take-input (tag input)
   "Return the string INPUT to the continuation TAG."
   (throw (intern-catch-tag tag) input))
-
-(defun evaluate-in-emacs (string)
-  (let ((tag (incf *read-input-catch-tag*)))
-    (force-output)
-    (send-to-emacs `(:evaluate-in-emacs ,string ,(current-thread) ,tag))
-    (let ((ok nil))
-      (unwind-protect
-           (prog1 (catch (intern-catch-tag tag)
-                    (loop (read-from-emacs)))
-             (setq ok t))
-        (unless ok 
-          (send-to-emacs `(:read-aborted ,(current-thread) ,tag)))))))
 
 (defun eval-in-emacs (form &optional nowait)
   "Eval FORM in Emacs."
@@ -1115,6 +1096,13 @@ Emacs buffer."
         (let ((*readtable* *buffer-readtable*))
           (call-with-syntax-hooks fun)))))
 
+(defun to-string (object)
+  "Write OBJECT in the *BUFFER-PACKAGE*.
+The result may not be readable."
+  (with-buffer-syntax ()
+    (let ((*print-readably* nil))
+      (prin1-to-string object))))
+
 (defun from-string (string)
   "Read string in the *BUFFER-PACKAGE*"
   (with-buffer-syntax ()
@@ -1172,14 +1160,6 @@ Return the package or nil."
     (if (and (or (keywordp name) (stringp name))
              (= (length string) pos))
         (find-package name))))
-
-(defun to-string (string)
-  "Write string in the *BUFFER-PACKAGE*."
-  (with-buffer-syntax ()
-    (handler-bind ((error (lambda (c)
-                            (declare (ignore c))
-                            (return-from to-string "#<swank: error printing object>"))))
-      (prin1-to-string string))))
 
 (defun guess-package-from-string (name &optional (default-package *package*))
   (or (and name
@@ -2015,8 +1995,18 @@ FORM is expected, but not required, to be SETF'able."
   "Set the value of a setf'able FORM to VALUE.
 FORM and VALUE are both strings from Emacs."
   (with-buffer-syntax ()
-    (eval `(setf ,(read-from-string form) ,(read-from-string (concatenate 'string "`" value))))
+    (eval `(setf ,(read-from-string form) 
+            ,(read-from-string (concatenate 'string "`" value))))
     t))
+
+(defun background-message  (format-string &rest args)
+  "Display a message in Emacs' echo area.
+
+Use this function for informative messages only.  The message may even
+be dropped, if we are too busy with other things."
+  (when *emacs-connection*
+    (send-to-emacs `(:background-message 
+                     ,(apply #'format nil format-string args)))))
 
 
 ;;;; Debugger
@@ -2481,14 +2471,10 @@ symbols are returned."
 (defun symbol-external-p (symbol &optional (package (symbol-package symbol)))
   "True if SYMBOL is external in PACKAGE.
 If PACKAGE is not specified, the home package of SYMBOL is used."
-  (unless package
-    (setq package (symbol-package symbol)))
-  (when package
-    (multiple-value-bind (_ status)
-        (find-symbol (symbol-name symbol) package)
-      (declare (ignore _))
-      (eq status :external))))
- 
+  (and package
+       (eq (nth-value 1 (find-symbol (symbol-name symbol) package))
+           :external)))
+
 (defun find-matching-packages (name matcher)
   "Return a list of package names matching NAME with MATCHER.
 MATCHER is a two-argument predicate."
