@@ -1,3 +1,35 @@
+2005-09-05  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-cmucl.lisp (background-message): New function. Forward the
+	call to the front end.
+	(pre-gc-hook, post-gc-hook): Use it.
+	(swank-sym, sending-safe-p): Deleted.
+
+	* swank.lisp (y-or-n-p-in-emacs): Simplify arglist.
+	(evaluate-in-emacs, dispatch-event, send-to-socket-io): Remove
+	evaluate-in-emacs stuff.
+	(to-string): Undo last change. to-string is not to supposed to
+	ignore errors.  Bind *print-readably* instead.
+	(background-message): New function.
+	(symbol-external-p): Simplify it a little.
+
+	* slime.el (slime-setup-command-hooks): Add after-change-functions
+	only if presentations are enabled.
+	(slime-dispatch-event, slime-enable-evaluate-in-emacs)
+	(evaluate-in-emacs): Remove evaluate-in-emacs stuff.  It was not
+	used and redundant.
+	(slime-save-some-lisp-buffers): Renamed from
+	save-some-lisp-buffers.
+	(slime-choose-overlay-region): Ignore :source-form locations.
+	(slime-choose-overlay-for-sexp): Ignore errors when stepping over
+	forms.
+	(slime-search-method-location, slime-goto-location-position): Move
+	all this regexpery to it's own function.
+	(slime-recenter-if-needed, slime-repl-return): Factor some
+	duplicated code into its own function.
+	(slime-presentation-bounds, slime-presentation-around-point)
+	(slime-presentation-around-or-before-point): Minor cleanups.
+
 2005-09-04  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-ensure-presentation-overlay): New.
