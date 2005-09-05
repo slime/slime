@@ -886,11 +886,8 @@ This list of flushed between commands."))
   ;; alanr: need local t
   (add-hook 'pre-command-hook 'slime-pre-command-hook nil t) 
   (add-hook 'post-command-hook 'slime-post-command-hook nil t)
-  (add-hook 'after-change-functions 'slime-after-change-function nil t))
-
-;(add-hook 'slime-mode-hook 'slime-setup-command-hooks)
-;(setq post-command-hook nil)
-;(setq pre-command-hook '(completion-before-command tooltip-hide))
+  (when slime-repl-enable-presentations
+    (add-hook 'after-change-functions 'slime-after-change-function nil t)))
 
 
 ;;;; Framework'ey bits
@@ -1709,6 +1706,7 @@ EVAL'd by Lisp."
   (let* ((length (slime-net-decode-length))
          (start (+ 6 (point)))
          (end (+ start length)))
+    (assert (plusp length))
     (let ((string (buffer-substring start end)))
       (prog1 (read string)
         (delete-region (point-min) end)))))
@@ -2301,7 +2299,7 @@ slime-repl-insert-prompt.")
          (slime-send `(:emacs-rex ,form ,package ,thread ,id))))
       ((:return value id)
        (let ((rec (assq id (slime-rex-continuations))))
-         (cond (rec (setf (slime-rex-continuations )
+         (cond (rec (setf (slime-rex-continuations)
                           (remove rec (slime-rex-continuations)))
                     (when (null (slime-rex-continuations))
                       (slime-set-state ""))
@@ -2327,9 +2325,6 @@ slime-repl-insert-prompt.")
        (slime-repl-read-string thread tag))
       ((:y-or-n-p thread tag question)
        (slime-y-or-n-p thread tag question))
-      ((:evaluate-in-emacs string thread tag)
-       (assert thread)
-       (evaluate-in-emacs (car (read-from-string string)) thread tag))
       ((:read-aborted thread tag)
        (assert thread)
        (slime-repl-abort-read thread tag))
@@ -2888,7 +2883,7 @@ end-tag was found."
               (values after-end t)))
         (values point nil))))
 
-(defun* slime-presentation-bounds (point presentation
+(defun* slime-presentation-bounds (point presentation 
                                          &optional (object (current-buffer)))
   "Return start index and end index of `presentation' around `point'
 in `object', and whether the presentation is complete."
@@ -2900,10 +2895,11 @@ in `object', and whether the presentation is complete."
               (and good-start good-end
                    (slime-presentation-whole-p presentation start end object))))))
 
-(defun* slime-presentation-around-point (point &optional (object (current-buffer)))
+(defun slime-presentation-around-point (point &optional object)
   "Return presentation, start index, end index, and whether the
 presentation is complete."
-  (let ((innermost-presentation nil)
+  (let ((object (or object (current-buffer)))
+        (innermost-presentation nil)
         (innermost-start 0)
         (innermost-end most-positive-fixnum))
     (dolist (presentation (slime-presentations-around-point point object))
@@ -2917,12 +2913,13 @@ presentation is complete."
     (values innermost-presentation
             innermost-start innermost-end)))
 
-(defun* slime-presentation-around-or-before-point (point &optional (object (current-buffer)))
-  (multiple-value-bind (presentation start end whole-p)
-      (slime-presentation-around-point point object)
-    (if presentation
-        (values presentation start end whole-p)
-        (slime-presentation-around-point (1- point) object))))
+(defun slime-presentation-around-or-before-point (point &optional object)
+  (let ((object (or object (current-buffer))))
+    (multiple-value-bind (presentation start end whole-p)
+        (slime-presentation-around-point point object)
+      (if presentation
+          (values presentation start end whole-p)
+        (slime-presentation-around-point (1- point) object)))))
 
 (defun* slime-for-each-presentation-in-region (from to function &optional (object (current-buffer)))
   "Call `function' with arguments `presentation', `start', `end',
@@ -3295,17 +3292,11 @@ balanced."
   (cond ((and (get-text-property (point) 'slime-repl-old-input)
               (< (point) slime-repl-input-start-mark))
          (slime-repl-grab-old-input end-of-input)
-         (unless (pos-visible-in-window-p slime-repl-input-end-mark)
-           (save-excursion
-             (goto-char slime-repl-input-end-mark)
-             (recenter -1))))
+         (slime-recenter-if-needed))
         ((and (< (point) slime-repl-input-start-mark)
-              (nth-value 0 (slime-presentation-around-or-before-point (point))))
+              (car (slime-presentation-around-or-before-point (point))))
          (slime-repl-grab-old-output end-of-input)
-         (unless (pos-visible-in-window-p slime-repl-input-end-mark)
-           (save-excursion
-             (goto-char slime-repl-input-end-mark)
-             (recenter -1))))
+         (slime-recenter-if-needed))
         (end-of-input
          (slime-repl-send-input))
         (slime-repl-read-mode ; bad style?
@@ -3316,6 +3307,13 @@ balanced."
         (t 
          (slime-repl-newline-and-indent)
          (message "[input not complete]"))))
+
+(defun slime-repl-recenter-if-needed ()
+  "Make sure that slime-repl-input-end-mark is visible."
+  (unless (pos-visible-in-window-p slime-repl-input-end-mark)
+    (save-excursion
+      (goto-char slime-repl-input-end-mark)
+      (recenter -1))))
 
 (defun slime-repl-send-input (&optional newline)
   "Goto to the end of the input and send the current input.
@@ -3336,7 +3334,6 @@ If NEWLINE is true then add a newline at the end of the input."
     (overlay-put overlay 'read-only t)
     (overlay-put overlay 'face 'slime-repl-input-face)
     (overlay-put overlay 'rear-nonsticky '(face slime-repl-old-input-counter)))
-
   (slime-repl-add-to-input-history 
    (buffer-substring slime-repl-input-start-mark
                      slime-repl-input-end-mark)) 
@@ -3371,8 +3368,6 @@ If replace it non-nil the current input is replaced with the old
 output; otherwise the new input is appended."
   (multiple-value-bind (presentation beg end) 
       (slime-presentation-around-or-before-point (point))
-    (unless presentation 
-      (error "No presentation at point"))
     (let ((old-output (buffer-substring beg end))) ;;keep properties
       ;; Append the old input or replace the current input
       (cond (replace (goto-char slime-repl-input-start-mark))
@@ -3636,25 +3631,7 @@ Return nil of no item matches"
   (slime-repl-read-mode 1))
 
 (defun slime-y-or-n-p (thread tag question)
-  (push thread slime-read-string-threads)
-  (push tag slime-read-string-tags)
-  (slime-repl-return-string (y-or-n-p question)))
-
-(defcustom slime-enable-evaluate-in-emacs nil
-  "If non-nil, the inferior Lisp can evaluate arbitrary forms in Emacs.
-The default is nil, as this feature can be a security risk."
-  :type '(boolean)
-  :group 'slime-lisp)
-
-(defun evaluate-in-emacs (expr thread tag)
-  (cond 
-   (slime-enable-evaluate-in-emacs
-    (push thread slime-read-string-threads)
-    (push tag slime-read-string-tags)
-    (slime-repl-return-string (eval expr)))
-   (t
-    (slime-eval-async `(cl:error "Cannot evaluate in Emacs because slime-enable-evaluate-in-emacs is nil"))
-    nil)))
+  (slime-dispatch-event `(:emacs-return ,thread ,tag ,(y-or-n-p question))))
 
 (defun slime-repl-return-string (string)
   (slime-dispatch-event `(:emacs-return-string 
@@ -3748,7 +3725,7 @@ The default is nil, as this feature can be a security risk."
         (insert "\n     " (slime-repl-shortcut.one-liner shortcut)
                 "\n"))))))
 
-(defun save-some-lisp-buffers ()
+(defun slime-save-some-lisp-buffers ()
   (if slime-repl-only-save-lisp-buffers
       (save-some-buffers nil (lambda ()
                                (and (eq major-mode 'lisp-mode)
@@ -3841,7 +3818,7 @@ The default is nil, as this feature can be a security risk."
   (:handler (lambda (filename)
               (interactive (list (expand-file-name
                                   (read-file-name "File: " nil nil nil nil))))
-              (save-some-lisp-buffers)
+              (slime-save-some-lisp-buffers)
               (slime-eval-async 
                `(swank:compile-file-if-needed 
                  ,(slime-to-lisp-filename filename) t)
@@ -4017,7 +3994,7 @@ buffer's working directory"
                      (or initial-value (slime-find-asd) ""))))
 
 (defun slime-oos (system operation &rest keyword-args)
-  (save-some-lisp-buffers)
+  (slime-save-some-lisp-buffers)
   (slime-display-output-buffer)
   (message "Performing ASDF %S%s on system %S"
            operation (if keyword-args (format " %S" keyword-args) "")
@@ -4505,18 +4482,21 @@ is kept."
 (defun slime-choose-overlay-region (note)
   "Choose the start and end points for an overlay over NOTE.
 If the location's sexp is a list spanning multiple lines, then the
-region around the first element is used."
+region around the first element is used.
+Return nil if there's no useful source location."
   (let ((location (slime-note.location note)))
     (destructure-case location
       ((:error msg) )                       ; do nothing
-      ((:location _file pos _hints)
-       (destructure-case pos
-         ((:position pos &optional alignp)
-          (if (eq (slime-note.severity note) :read-error)
-              (values pos (1+ pos))
-            (slime-choose-overlay-for-sexp location)))
-         (t 
-          (slime-choose-overlay-for-sexp location)))))))
+      ((:location file pos _hints)
+       (cond ((eq (car file) ':source-form) nil)
+             (t
+              (destructure-case pos
+                ((:position pos &optional alignp)
+                 (if (eq (slime-note.severity note) :read-error)
+                     (values pos (1+ pos))
+                   (slime-choose-overlay-for-sexp location)))
+                (t 
+                 (slime-choose-overlay-for-sexp location)))))))))
           
 (defun slime-choose-overlay-for-sexp (location)
   (slime-goto-source-location location)
@@ -4527,13 +4507,13 @@ region around the first element is used."
         (values start (point))
       (values (1+ start)
               (progn (goto-char (1+ start))
-                     (or (forward-sexp 1)
-                         (point)))))))
+                     (ignore-errors (forward-sexp 1))
+                     (point))))))
 
 (defun slime-same-line-p (pos1 pos2)
   "Return t if buffer positions POS1 and POS2 are on the same line."
-    (save-excursion (goto-char (min pos1 pos2))
-                    (<= (max pos1 pos2) (line-end-position))))
+  (save-excursion (goto-char (min pos1 pos2))
+                  (<= (max pos1 pos2) (line-end-position))))
 
 (defun slime-severity-face (severity)
   "Return the name of the font-lock face representing SEVERITY."
@@ -4620,28 +4600,8 @@ first element of the source-path redundant."
          ;; FIXME: Isn't this far to general?
          (format "[( \t]%s\\>\\(\\s \\|$\\)" name) nil t)))
      (goto-char (match-beginning 0)))
-    ;; Looks for a sequence of words (def<something> method name
-    ;; qualifers specializers don't look for "T" since it isn't
-    ;; requires (arg without t) as class is taken as such.
     ((:method name specializers &rest qualifiers)
-     (let* ((case-fold-search t)
-            (name (regexp-quote name))
-            (qualifiers (mapconcat (lambda (el) (concat ".+?\\<" el "\\>"))
-                                   qualifiers ""))
-            (specializers (mapconcat (lambda (el) 
-                                       (if (eql (aref el 0) 40)
-                                           (let ((spec (read el)))
-                                             (if (eq (car spec) 'EQL)
-                                                 (concat ".*?\\n\\{0,1\\}.*?(EQL.*?'\\{0,1\\}" (format "%s" (second spec)) ")")
-                                               (error "don't understand specializer: %s,%s" el (car spec))))
-                                         (concat ".+?\n\\{0,1\\}.+?\\<" el "\\>")))
-                                     (remove "T" specializers) ""))
-            (regexp (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\s +%s%s" name
-                            qualifiers specializers)))
-       (or (and (re-search-forward regexp  nil t)
-                (goto-char (match-beginning 0)))
-           ;;	(slime-goto-location-position `(:function-name ,name))
-           )))
+     (slime-search-method-location name specializers qualifiers))
     ((:source-path source-path start-position)
      (cond (start-position
             (goto-char start-position)
@@ -4655,6 +4615,29 @@ first element of the source-path redundant."
      (slime-isearch text)
      (forward-char delta))))
 
+(defun slime-search-method-location (name specializers qualifiers)
+  ;; Look for a sequence of words (def<something> method name
+  ;; qualifers specializers don't look for "T" since it isn't requires
+  ;; (arg without t) as class is taken as such.
+  (let* ((case-fold-search t)
+         (name (regexp-quote name))
+         (qualifiers (mapconcat (lambda (el) (concat ".+?\\<" el "\\>"))
+                                qualifiers ""))
+         (specializers (mapconcat (lambda (el) 
+                                    (if (eql (aref el 0) ?\()
+                                        (let ((spec (read el)))
+                                          (if (eq (car spec) 'EQL)
+                                              (concat ".*?\\n\\{0,1\\}.*?(EQL.*?'\\{0,1\\}" (format "%s" (second spec)) ")")
+                                            (error "don't understand specializer: %s,%s" el (car spec))))
+                                      (concat ".+?\n\\{0,1\\}.+?\\<" el "\\>")))
+                                  (remove "T" specializers) ""))
+         (regexp (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\s +%s%s" name
+                         qualifiers specializers)))
+    (or (and (re-search-forward regexp  nil t)
+             (goto-char (match-beginning 0)))
+        ;;	(slime-goto-location-position `(:function-name ,name))
+        )))
+
 (defun slime-search-call-site (fname)
   "Move to the place where FNAME called.
 Don't move if there are multiple or no calls in the current defun."
@@ -4666,7 +4649,6 @@ Don't move if there are multiple or no calls in the current defun."
                   (not (re-search-forward regexp nil t)))
              (goto-char (match-beginning 0)))
             (t (goto-char start))))))
-
 
 (defun slime-goto-source-location (location &optional noerror)
   "Move to the source location LOCATION.  Several kinds of locations
@@ -4941,8 +4923,8 @@ currently looking at."
              (insert arglist))))))
 
 (defun slime-complete-form ()
-  "Complete the form at point.  This is a superset of the
-functionality of `slime-insert-arglist'."
+  "Complete the form at point.  
+This is a superset of the functionality of `slime-insert-arglist'."
   (interactive)
   ;; Find the (possibly incomplete) form around point.
   (let* ((start (save-excursion (backward-up-list 1) (point)))
@@ -5857,7 +5839,7 @@ The result is a (possibly empty) list of definitions."
                       (setq value (apply fun args))
                       (setq ok t))
       (let ((result (if ok `(:ok ,value) `(:abort))))
-        (slime-dispatch-event `(:emacs-return ,thread ,tag ,result))))))
+        (slime-dispatch-event `(:emacs-return ,thread ,tag ,result) c)))))
 
 
 ;;;; `ED'
@@ -5978,8 +5960,9 @@ Show the output buffer if the evaluation causes any output."
             window))))))
   
 (defun slime-last-expression ()
-  (slime-buffer-substring-with-reified-output (save-excursion (backward-sexp) (point))
-                                              (point)))
+  (slime-buffer-substring-with-reified-output 
+   (save-excursion (backward-sexp) (point))
+   (point)))
 
 (defun slime-eval-last-expression ()
   "Evaluate the expression preceding point."
@@ -7068,7 +7051,8 @@ CONTS is a list of pending Emacs continuations."
 (defun sldb-insert-condition (condition)
   (destructuring-bind (message type references extras) condition
     (when (> (length message) 70)
-      (add-text-properties 0 (length message) (list 'help-echo message) message)) 
+      (add-text-properties 0 (length message) (list 'help-echo message)
+                           message))
     (slime-insert-propertized '(sldb-default-action sldb-inspect-condition)
                               (in-sldb-face topline message)
                               "\n" 
@@ -7657,7 +7641,7 @@ This way you can still see what the error was after exiting SLDB."
   (slime-propertize-region `(thread-id ,idx)
     (insert (format "%3s: " id))
     (slime-insert-propertized '(face bold) name)
-    (insert-char ?\040 (- 30 (current-column)))
+    (insert-char ?\  (- 30 (current-column)))
     (let ((summary-start (point)))
       (insert " " summary)
       (unless (bolp) (insert "\n"))
