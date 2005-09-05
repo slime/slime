@@ -2061,12 +2061,10 @@ The `symbol-value' of each element is a type tag.")
 ;;; normal output.
 ;;;
 
-(defun swank-sym (name) (find-symbol (string name) :swank))
-(defun sending-safe-p () (symbol-value (swank-sym :*emacs-connection*)))
-
 ;; this should probably not be here, but where else?
-(defun send-to-emacs (message)
-  (funcall (swank-sym :send-to-emacs) message))
+(defun background-message (message)
+  (funcall (find-symbol (string :background-message) :swank)
+           message))
 
 (defun print-bytes (nbytes &optional stream)
   "Print the number NBYTES to STREAM in KB, MB, or GB units."
@@ -2099,8 +2097,7 @@ The `symbol-value' of each element is a type tag.")
   (setq *gc-start-time* (get-internal-real-time))
   (let ((msg (format nil "[Commencing GC with ~A in use.]" 
 		     (print-bytes bytes-in-use))))
-    (when (sending-safe-p)
-      (send-to-emacs `(:background-message ,msg)))))
+    (background-message msg)))
 
 (defun post-gc-hook (bytes-retained bytes-freed trigger)
   (declare (ignore trigger))
@@ -2112,8 +2109,7 @@ The `symbol-value' of each element is a type tag.")
                      #+gencgc(generation-stats)
                      #-gencgc""
                      seconds)))
-    (when (sending-safe-p)
-      (send-to-emacs `(:background-message ,msg)))))
+    (background-message msg)))
 
 (defun install-gc-hooks ()
   (setq ext:*gc-notify-before* #'pre-gc-hook)
