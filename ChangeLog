@@ -1,3 +1,18 @@
+2005-09-07  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* present.lisp (menu-choices-for-presentation): The
+	Inspect/Describe/Copy items are now provided from the Emacs side.
+	Implement all pathname menu items without having Emacs evaluate a
+	form.  Fix for Lisps where ".lisp" is parsed as :name ".lisp". 
+
+	* slime.el (slime-menu-choices-for-presentation): New function,
+	return a menu with Inspect/Describe/Copy plus the items that come
+	from the menu protocol.
+	(slime-presentation-menu): Security improvement for the
+	presentation menu protocol: Don't eval arbitrary forms coming from
+	the Lisp.  Minor cleanup: Use x-popup-menu in the normal Emacs way,
+	associating a command with each menu item.
+
 2005-09-05  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-cmucl.lisp (background-message): New function. Forward the
