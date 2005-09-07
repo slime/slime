@@ -3006,39 +3006,54 @@ string or buffer `object'."
 ;; 1. Send lisp message asking for menu choices for this object. Get back list of strings.
 ;; 2. Let used choose
 ;; 3. Call back to execute menu choice, passing nth and string of choice
-;; 4. Call eval on return value
+
+(defun slime-menu-choices-for-presentation (presentation from to)
+  "Return a menu for `presentation' at `from'--`to' in the current
+buffer, suitable for `x-popup-menu'."
+  (let* ((what (slime-presentation-id presentation))
+         (choices (slime-eval `(swank::menu-choices-for-presentation-id ',what))))
+    (etypecase choices
+      (list
+       `(,(if (featurep 'xemacs) " " "")
+         ("" 
+          ("Inspect" . (lambda ()
+                         (interactive)
+                         (slime-inspect-presented-object ',what)))
+          ("Describe" . (lambda ()
+                          (interactive)
+                          (slime-eval '(cl:describe (swank::lookup-presented-object ',what)))))
+          ("Copy to input" . slime-copy-presentation-at-point)
+          ,@(let ((nchoice 0))
+              (mapcar 
+               (lambda (choice)
+                 (incf nchoice)
+                 (cons choice 
+                       `(lambda ()
+                          (interactive)
+                          (slime-eval 
+                           '(swank::execute-menu-choice-for-presentation-id
+                             ',what ,nchoice ,(nth (1- nchoice) choices))))))
+               choices)))))
+      (symbol                           ; not-present
+       (slime-remove-presentation-properties from to presentation)
+       (sit-for 0)                      ; allow redisplay
+       `("Object no longer recorded" 
+         ("sorry" . ,(if (featurep 'xemacs) nil '(nil))))))))
 
 (defun slime-presentation-menu (event)
   (interactive "e")
   (let* ((point (if (featurep 'xemacs) (event-point event) (posn-point (event-end event))))
          (window (if (featurep 'xemacs) (event-window event) (caadr event))))
     (with-current-buffer (window-buffer window)
-      (multiple-value-bind (presentation from to whole-p)
+      (multiple-value-bind (presentation from to)
           (slime-presentation-around-point point)
         (unless presentation
           (error "No presentation at event position"))
-        (let* ((what (slime-presentation-id presentation))
-               (choices (slime-eval `(swank::menu-choices-for-presentation-id ',what)))
-               (count 0))
-          (etypecase choices
-            (null)
-            (symbol                     ; not-present
-             (slime-remove-presentation-properties from to presentation)
-             (sit-for 0)                ; allow redisplay
-             (x-popup-menu event `("Object no longer recorded" ("sorry" . ,(if (featurep 'xemacs) nil '(nil))))))
-            (list
-             (let ((choice 
-                    (x-popup-menu event 
-                                  `(,(if (featurep 'xemacs) " " "")
-                                    ("" ,@(mapcar 
-                                           (lambda(choice) 
-                                             (cons choice (intern choice))) ; use symbol as value to appease xemacs
-                                           choices))))))
-               (when choice
-                 (let ((nchoice (1+ (position (symbol-name choice) choices :test 'equal))))
-                   (eval (slime-eval 
-                          `(swank::execute-menu-choice-for-presentation-id
-                            ',what ,nchoice ,(nth (1- nchoice) choices))))))))))))))
+        (let ((menu (slime-menu-choices-for-presentation 
+                     presentation from to)))
+          (let ((choice (x-popup-menu event menu)))
+            (when choice
+              (call-interactively choice))))))))
 
 
 (defun slime-repl-insert-prompt (result &optional time)
