@@ -164,7 +164,6 @@ says that I am starting to print an object with this id. The second says I am fi
 ;; You might want append (when (next-method-p) (call-next-method)) to
 ;; pick up the Menu actions of superclasses.
 ;;
-;; The function should return a form which will be evaluated on the emacs side.
 
 (defvar *presentation-active-menu* nil)
 
@@ -196,20 +195,14 @@ says that I am starting to print an object with this id. The second says I am fi
 ;; Default method
 (defmethod menu-choices-for-presentation (ob)
   (declare (ignore ob))
-  (list 
-   (list "Inspect" (lambda(choice object id) (declare (ignore choice object)) 
-			  `(slime-inspect-presented-object ',id)))
-   (list "Describe" (lambda(choice object id) (declare (ignore id choice)) 
-			   (describe object) 
-			   nil))
-   (list "Copy to input" (lambda(choice object id) (declare (ignore choice object id)) 
-			  `(slime-copy-presentation-at-point event)))))
+  nil)
 
 ;; Pathname
 (defmethod menu-choices-for-presentation ((ob pathname))
   (let* ((file-exists (ignore-errors (probe-file ob)))
+	 (lisp-type (make-pathname :type "lisp"))
 	 (source-file (and (not (member (pathname-type ob) '("lisp" "cl") :test 'equal))
-			   (let ((source (merge-pathnames ".lisp" ob)))
+			   (let ((source (merge-pathnames lisp-type ob)))
 			     (and (ignore-errors (probe-file source))
 				  source))))
 	 (fasl-file (and file-exists 
@@ -217,7 +210,7 @@ says that I am starting to print an object with this id. The second says I am fi
 				  (namestring
 				   (truename
 				    (compile-file-pathname
-				     (merge-pathnames ".lisp" ob)))))
+				     (merge-pathnames lisp-type ob)))))
 				(namestring (truename ob))))))
     (remove nil 
 	    (list*
@@ -225,15 +218,17 @@ says that I am starting to print an object with this id. The second says I am fi
 		  (list "Edit this file" 
 			(lambda(choice object id) 
 			  (declare (ignore choice id))
-			  `(find-file ,(namestring (truename object))))))
+			  (ed-in-emacs (namestring (truename object)))
+			  nil)))
 	     (and file-exists
 		  (list "Dired containing directory"
 			(lambda (choice object id)
 			  (declare (ignore choice id))
-			  `(dired ,(namestring 
-				    (truename
-				     (merge-pathnames
-				      (make-pathname :name "" :type "") object)))))))
+			  (ed-in-emacs (namestring 
+					(truename
+					 (merge-pathnames
+					  (make-pathname :name "" :type "") object))))
+			  nil)))
 	     (and fasl-file
 		  (list "Load this fasl file"
 			(lambda (choice object id)
@@ -245,14 +240,15 @@ says that I am starting to print an object with this id. The second says I am fi
 			(lambda (choice object id)
 			  (declare (ignore choice id object)) 
 			  (let ((nt (namestring (truename ob))))
-			    `(when (y-or-n-p ,(format nil "Delete ~a" nt))
-			      (delete-file ,(namestring (truename ob))))
-			    ))))
+			    (when (y-or-n-p-in-emacs "Delete ~a? " nt)
+			      (delete-file nt)))
+			  nil)))
 	     (and source-file 
 		  (list "Edit lisp source file" 
-			(lambda(choice object id) 
+			(lambda (choice object id) 
 			  (declare (ignore choice id object)) 
-			  `(find-file ,(namestring (truename source-file))))))
+			  (ed-in-emacs (namestring (truename source-file)))
+			  nil)))
 	     (and source-file 
 		  (list "Load lisp source file" 
 			(lambda(choice object id) 
