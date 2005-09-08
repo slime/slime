@@ -1,3 +1,14 @@
+2005-09-08  Alan Ruttenberg <alanr-l@mumble.net>
+
+	* bridge.el Fix bug in bridge filter where a bridge message which
+	straddled a packet would be mishandled. Sometimes this would
+	result in spurious bridge message text being inserted with the
+	presentation and the presentation not being sensitive. In other
+	cases there would be an actual error. Introduce bridge-leftovers
+	to save the last, unfinished bit for the next call, and prepend it
+	before processing a chuunk. Also, fix the parentheses so that the
+	unwind protect cleanup forms are actually in the cleanup section.
+
 2005-09-07  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* present.lisp (menu-choices-for-presentation): The
