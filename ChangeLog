@@ -8,6 +8,10 @@
 	to save the last, unfinished bit for the next call, and prepend it
 	before processing a chuunk. Also, fix the parentheses so that the
 	unwind protect cleanup forms are actually in the cleanup section.
+	In openmcl, where apparently communication with slime is done in
+	2k chunks, you can trigger the bug with something like this:
+	(swank::presenting-object 'foo t 
+	  (dotimes (i 2040) (write-char	#\:)))
 
 2005-09-07  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 

@@ -112,6 +112,9 @@ value.")
   "The current handler function, if any, that bridge passes strings on to,
 or nil if none.")
 
+(defvar bridge-leftovers nil
+  "Because of chunking you might get an incomplete bridge signal - start but the end is in the next packet. Save the overhanging text here.")
+
 (defvar bridge-send-to-buffer nil
   "The buffer that the default bridge-handler (bridge-send-handler) is
 currently sending to, or nil if it hasn't started yet.  Your handler
@@ -233,79 +236,93 @@ output up to bridge-end-regexp will be sent to the first handler on
 bridge-handlers that matches the string.  If no handlers match, the
 input will be sent to bridge-send-handler.  If bridge-prompt-regexp is
 encountered before the bridge-end-regexp, the bridge will be cancelled."
-   (let ((inhibit-quit t)
-	 (match-data (match-data))
-	 (buffer (current-buffer))
-	 (process-buffer (process-buffer process))
-	 (case-fold-search t)
-	 (start 0) (end 0)
-	 function
-	 b-start b-start-end b-end)
-     (set-buffer process-buffer) ;; access locals
-     (setq function bridge-in-progress)
+  (let ((inhibit-quit t)
+	(match-data (match-data))
+	(buffer (current-buffer))
+	(process-buffer (process-buffer process))
+	(case-fold-search t)
+	(start 0) (end 0)
+	function
+	b-start b-start-end b-end)
+    (set-buffer process-buffer)	;; access locals
 
-     ;; How it works:
-     ;;
-     ;; start, end delimit the part of string we are interested in;
-     ;; initially both 0; after an iteration we move them to next string.
+    ;; Handle bridge messages that straddle a packet by prepending
+    ;; them to this packet.
 
-     ;; b-start, b-end delimit part of string to bridge (possibly whole string);
-     ;; this will be string between corresponding regexps.
+    (when bridge-leftovers
+      (setq output (concat bridge-leftovers output))
+      (setq bridge-leftovers nil))
 
-     ;; There are two main cases when we come into loop:
+    (setq function bridge-in-progress)
 
-     ;;  bridge in progress
-     ;;0    setq b-start = start
-     ;;1    setq b-end (or end-pattern end)
-     ;;4    process string
-     ;;5    remove handler if end found
+    ;; How it works:
+    ;;
+    ;; start, end delimit the part of string we are interested in;
+    ;; initially both 0; after an iteration we move them to next string.
+
+    ;; b-start, b-end delimit part of string to bridge (possibly whole string);
+    ;; this will be string between corresponding regexps.
+
+    ;; There are two main cases when we come into loop:
+
+    ;;  bridge in progress
+    ;;0    setq b-start = start
+    ;;1    setq b-end (or end-pattern end)
+    ;;4    process string
+    ;;5    remove handler if end found
      
-     ;;  no bridge in progress
-     ;;0    setq b-start if see start-pattern
-     ;;1    setq b-end if bstart to (or end-pattern end)
-     ;;2    send (substring start b-start)  to normal place
-     ;;3    find handler (in b-start, b-end) if not set
-     ;;4    process string
-     ;;5    remove handler if end found
+    ;;  no bridge in progress
+    ;;0    setq b-start if see start-pattern
+    ;;1    setq b-end if bstart to (or end-pattern end)
+    ;;2    send (substring start b-start)  to normal place
+    ;;3    find handler (in b-start, b-end) if not set
+    ;;4    process string
+    ;;5    remove handler if end found
 
-     ;; equivalent sections have the same numbers here;
-     ;; we fold them together in this code.
+    ;; equivalent sections have the same numbers here;
+    ;; we fold them together in this code.
 
-     (unwind-protect
-	(while (< end (length output))
+    (block bridge-filter
+      (unwind-protect
+	  (while (< end (length output))
 
-	  ;;0    setq b-start if find
-	  (setq b-start
-		(cond (bridge-in-progress
-		       (setq b-start-end start)
-		       start)
-		      ((string-match bridge-start-regexp output start)
-		       (setq b-start-end (match-end 0))
-		       (match-beginning 0))
-		      (t nil)))
-	  ;;1    setq b-end
-	  (setq b-end
-		(if b-start
-		    (let ((end-seen (string-match bridge-end-regexp
-						  output b-start-end)))
-		      (if end-seen (setq end (match-end 0)))
-		      end-seen)))
-	  (if (not b-end) (setq end   (length output)
-				b-end (length output)))
+	    ;;0    setq b-start if find
+	    (setq b-start
+		  (cond (bridge-in-progress
+			 (setq b-start-end start)
+			 start)
+			((string-match bridge-start-regexp output start)
+			 (setq b-start-end (match-end 0))
+			 (match-beginning 0))
+			(t nil)))
+	    ;;1    setq b-end
+	    (setq b-end
+		  (if b-start
+		      (let ((end-seen (string-match bridge-end-regexp
+						    output b-start-end)))
+			(if end-seen (setq end (match-end 0)))
 
-	  ;;1.5 - if see prompt before end, remove current
-	  (if b-start
-	      (let ((prompt (string-match bridge-prompt-regexp
-					  output b-start-end)))
-		(if (and prompt (<= (match-end 0) b-end))
-		    (setq b-start nil  ; b-start-end start
-			  b-end   start
-			  end     (match-end 0)
-			  bridge-in-progress nil
-			  ))))
+			end-seen)))
 
-	  ;;2    send (substring start b-start) to old filter, if any
-	  (if (/= start (or b-start end)) ; don't bother on empty string
+	    ;; Detect and save partial bridge messages
+	    (when (and b-start b-start-end (not b-end))
+	      (setq bridge-leftovers (substring output b-start))
+	      )
+	    (if (not b-end) (setq end b-start))
+
+	    ;;1.5 - if see prompt before end, remove current
+	    (if (and b-start b-end)
+		(let ((prompt (string-match bridge-prompt-regexp
+					    output b-start-end)))
+		  (if (and prompt (<= (match-end 0) b-end))
+		      (setq b-start nil	; b-start-end start
+			    b-end   start
+			    end     (match-end 0)
+			    bridge-in-progress nil
+			    ))))
+
+	    ;;2    send (substring start b-start) to old filter, if any
+	    (when (not (equal start (or b-start end))) ; don't bother on empty string
 	      (let ((pass-on (substring output start (or b-start end))))
 		(if bridge-old-filter
 		    (let ((old bridge-old-filter))
@@ -316,50 +333,54 @@ encountered before the bridge-end-regexp, the bridge will be cancelled."
 			(if (not (eq new 'bridge-filter))
 			    (progn (setq bridge-old-filter new)
 				   (set-process-filter process 'bridge-filter)))))
-		    (set-buffer process-buffer)
-		    (bridge-insert pass-on))))
+		  (set-buffer process-buffer)
+		  (bridge-insert pass-on))))
 
-	  ;;3 find handler (in b-start, b-end) if none current
-	  (if (and b-start (not bridge-in-progress))
-	      (let ((handlers bridge-handlers))
-		(while (and handlers (not function))
-		  (let* ((handler (car handlers))
-			 (m (string-match (car handler) output b-start-end)))
-		    (if (and m (< m b-end))
-			(setq function (cdr handler))
-			(setq handlers (cdr handlers)))))
-		;; Set default handler if none
-		(if (null function)
-		    (setq function 'bridge-send-handler))
-		(setq bridge-in-progress function)))
-	  ;;4    process string
-	  (if function
-	      (let ((ok t))
-		(if (/=  b-start-end b-end)
-		    (let ((send (substring output b-start-end b-end)))
-		      ;; also, insert the stuff in buffer between
-		      ;; iff bridge-source-insert.
-		      (if bridge-source-insert (bridge-insert send))
-		      ;; call handler on string
-		      (setq ok (bridge-call-handler function process send))))
-		;;5    remove handler if end found
-		;; if function removed then tell it that's all
-		(if (or (not ok) (/= b-end end));; saw end before end-of-string
-		    (progn
-		      (bridge-call-handler function process nil)
-		      ;; have to remove function too for next time around
-		      (setq function nil
-			    bridge-in-progress nil)
+	    (if (and b-start-end (not b-end)) 
+		(return-from bridge-filter t) ; when last bit has prematurely ending message, exit  early.
+	      (progn
+		;;3 find handler (in b-start, b-end) if none current
+		(if (and b-start (not bridge-in-progress))
+		    (let ((handlers bridge-handlers))
+		      (while (and handlers (not function))
+			(let* ((handler (car handlers))
+			       (m (string-match (car handler) output b-start-end)))
+			  (if (and m (< m b-end))
+			      (setq function (cdr handler))
+			    (setq handlers (cdr handlers)))))
+		      ;; Set default handler if none
+		      (if (null function)
+			  (setq function 'bridge-send-handler))
+		      (setq bridge-in-progress function)))
+		;;4    process strin
+		(if function
+		    (let ((ok t))
+		      (if (/=  b-start-end b-end)
+			  (let ((send (substring output b-start-end b-end)))
+			    ;; also, insert the stuff in buffer between
+			    ;; iff bridge-source-insert.
+			    (if bridge-source-insert (bridge-insert send))
+			    ;; call handler on string
+			    (setq ok (bridge-call-handler function process send))))
+		      ;;5    remove handler if end found
+		      ;; if function removed then tell it that's all
+		      (if (or (not ok) (/= b-end end)) ;; saw end before end-of-string
+			  (progn
+			    (bridge-call-handler function process nil)
+			    ;; have to remove function too for next time around
+			    (setq function nil
+				  bridge-in-progress nil)
+			    ))
 		      ))
-		))
      
-	     ;; continue looping, in case there's more string
-	     (setq start end)
-	     ))
-       ;; protected forms:  restore buffer, match-data
-       (set-buffer buffer)
-       (store-match-data match-data)
-       ))
+		;; continue looping, in case there's more string
+		(setq  start end))
+	      ))
+	;; protected forms:  restore buffer, match-data
+	(set-buffer buffer)
+	(store-match-data match-data)
+	))))
+
 
 ;;;%Interface
 (defun install-bridge ()
@@ -378,6 +399,7 @@ encountered before the bridge-end-regexp, the bridge will be cancelled."
       (make-local-variable 'bridge-string)
       (make-local-variable 'bridge-in-progress)
       (make-local-variable 'bridge-send-to-buffer)
+      (make-local-variable 'bridge-leftovers)
       (setq bridge-string nil bridge-in-progress nil
 	    bridge-send-to-buffer nil)
       (if (boundp 'comint-prompt-regexp)
