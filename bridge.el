@@ -308,7 +308,11 @@ encountered before the bridge-end-regexp, the bridge will be cancelled."
 	    (when (and b-start b-start-end (not b-end))
 	      (setq bridge-leftovers (substring output b-start))
 	      )
-	    (if (not b-end) (setq end b-start))
+
+	    (if (and b-start (not b-end))
+	      (setq end b-start)
+	    (if (not b-end)
+		(setq end (length output))))
 
 	    ;;1.5 - if see prompt before end, remove current
 	    (if (and b-start b-end)
