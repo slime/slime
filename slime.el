@@ -4500,18 +4500,19 @@ If the location's sexp is a list spanning multiple lines, then the
 region around the first element is used.
 Return nil if there's no useful source location."
   (let ((location (slime-note.location note)))
-    (destructure-case location
-      ((:error msg) )                       ; do nothing
-      ((:location file pos _hints)
-       (cond ((eq (car file) ':source-form) nil)
-             (t
-              (destructure-case pos
-                ((:position pos &optional alignp)
-                 (if (eq (slime-note.severity note) :read-error)
-                     (values pos (1+ pos))
-                   (slime-choose-overlay-for-sexp location)))
-                (t 
-                 (slime-choose-overlay-for-sexp location)))))))))
+    (when location 
+      (destructure-case location
+        ((:error msg) )                 ; do nothing
+        ((:location file pos _hints)
+         (cond ((eq (car file) ':source-form) nil)
+               (t
+                (destructure-case pos
+                  ((:position pos &optional alignp)
+                   (if (eq (slime-note.severity note) :read-error)
+                       (values pos (1+ pos))
+                     (slime-choose-overlay-for-sexp location)))
+                  (t 
+                   (slime-choose-overlay-for-sexp location))))))))))
           
 (defun slime-choose-overlay-for-sexp (location)
   (slime-goto-source-location location)

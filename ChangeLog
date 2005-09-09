@@ -1,3 +1,7 @@
+2005-09-09  Alan Ruttenberg <alanr-l@mumble.net>
+	* slime.el (slime-choose-overlay-region). Don't try to overlay a
+	note if location is nil.
+
 2005-09-08  Alan Ruttenberg <alanr-l@mumble.net>
 
 	* bridge.el Fix bug in bridge filter where a bridge message which
