@@ -253,16 +253,17 @@ condition."
                  (make-location
                   (list :buffer *buffer-name*)
                   (list :position position t))
-                 (make-location
-                  (list :file (ccl::compiler-warning-file-name condition))
-                  (list :position position t)))))))
+                 (if (ccl::compiler-warning-file-name condition)
+                     (make-location
+                      (list :file (namestring (truename (ccl::compiler-warning-file-name condition))))
+                      (list :position position t))))))))
 
 (defun temp-file-name ()
   "Return a temporary file name to compile strings into."
   (ccl:%get-cstring (#_tmpnam (ccl:%null-ptr))))
 
 (defimplementation call-with-compilation-hooks (function)
-  (handler-bind ((ccl::compiler-warning #'handle-compiler-warning))
+  (handler-bind ((ccl::compiler-warning 'handle-compiler-warning))
     (funcall function)))
 
 (defimplementation swank-compile-file (filename load-p 

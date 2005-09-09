@@ -13,6 +13,11 @@
 	(swank::presenting-object 'foo t 
 	  (dotimes (i 2040) (write-char	#\:)))
 
+	* swank-openmcl.lisp (handle-compiler-warning). Don't create a
+	location if the condition doesn't have a filename. If it does,
+	make sure you pass a string rather than a pathname object
+	otherwise you get a net-read error
+	
 2005-09-07  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* present.lisp (menu-choices-for-presentation): The
