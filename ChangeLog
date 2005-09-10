@@ -1,3 +1,9 @@
+2005-09-10  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-enable-evaluate-in-emacs): Resurrected.
+	(slime-dispatch-event): Respect slime-enable-evaluate-in-emacs for
+	messages :eval-no-wait and :eval.
+
 2005-09-09  Alan Ruttenberg <alanr-l@mumble.net>
 	* slime.el (slime-choose-overlay-region). Don't try to overlay a
 	note if location is nil.
