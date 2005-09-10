@@ -2280,6 +2280,12 @@ Debugged requests are ignored."
 This variable is rebound by the :RETURN event handler and used by
 slime-repl-insert-prompt.")
 
+(defcustom slime-enable-evaluate-in-emacs nil
+  "If non-nil, the inferior Lisp can evaluate arbitrary forms in Emacs.
+The default is nil, as this feature can be a security risk."
+  :type '(boolean)
+  :group 'slime-lisp)
+
 (defun slime-dispatch-event (event &optional process)
   (let ((slime-dispatching-connection (or process (slime-connection))))
     (destructure-case event
@@ -2341,9 +2347,13 @@ slime-repl-insert-prompt.")
       ((:open-dedicated-output-stream port)
        (slime-open-stream-to-lisp port))
       ((:eval-no-wait fun args)
-       (apply (intern fun) args))
+       (if slime-enable-evaluate-in-emacs
+           (apply (intern fun) args)
+         (error "Cannot evaluate in Emacs because slime-enable-evaluate-in-emacs is nil")))
       ((:eval thread tag fun args)
-       (slime-eval-for-lisp thread tag (intern fun) args))
+       (if slime-enable-evaluate-in-emacs
+           (slime-eval-for-lisp thread tag (intern fun) args)
+         (slime-eval-async `(cl:error "Cannot evaluate in Emacs because slime-enable-evaluate-in-emacs is nil"))))
       ((:emacs-return thread tag value)
        (slime-send `(:emacs-return ,thread ,tag ,value)))
       ((:ed what)
