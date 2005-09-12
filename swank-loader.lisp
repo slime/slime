@@ -9,9 +9,9 @@
 ;;;
 
 (cl:defpackage :swank-loader
-  (:use :common-lisp))
+  (:use :cl))
 
-(in-package :swank-loader)
+(cl:in-package :swank-loader)
 
 (defun make-swank-pathname (name &optional (type "lisp"))
   "Return a pathname with name component NAME in the Slime directory."
@@ -38,7 +38,8 @@
            )))
 
 (defparameter *implementation-features*
-  '(:allegro :lispworks :sbcl :openmcl :cmu :clisp :ccl :corman :cormanlisp :armedbear :gcl :ecl))
+  '(:allegro :lispworks :sbcl :openmcl :cmu :clisp :ccl :corman :cormanlisp 
+    :armedbear :gcl :ecl))
 
 (defparameter *os-features*
   '(:macosx :linux :windows :mswindows :win32 :solaris :darwin :sunos :unix))
@@ -47,10 +48,10 @@
   '(:powerpc :ppc :x86 :x86-64 :i686 :pc386 :iapx386 :sparc))
 
 (defun lisp-version-string ()
-  #+cmu       (substitute #\- #\/ (lisp-implementation-version))
+  #+cmu       (substitute-if #\_ (lambda (x) (find x " /"))
+                             (lisp-implementation-version))
   #+sbcl      (lisp-implementation-version)
   #+ecl       (lisp-implementation-version)
-  #+gcl       (let ((s (lisp-implementation-version))) (subseq s 4))
   #+openmcl   (format nil "~d.~d"
                       ccl::*openmcl-major-version* 
                       ccl::*openmcl-minor-version*)
@@ -133,6 +134,17 @@ recompiled."
     (load file :verbose t)
     (force-output)))
 
+(defun load-user-init-file ()
+  "Load the user init file, return NIL if it does not exist."
+  (load (merge-pathnames (user-homedir-pathname)
+                         (make-pathname :name ".swank" :type "lisp"))
+        :if-does-not-exist nil))
+
+(defun load-site-init-file ()
+  (load (make-pathname :name "site-init" :type "lisp"
+                       :defaults *load-truename*)
+        :if-does-not-exist nil))
+
 (compile-files-if-needed-serially
   (append (list (make-swank-pathname "swank-backend"))
           *sysdep-pathnames* 
@@ -140,18 +152,5 @@ recompiled."
 
 (funcall (intern (string :warn-unimplemented-interfaces) :swank-backend))
 
-(defun load-user-init-file ()
-  "Load the user init file, return NIL if it does not exist."
-  (load (merge-pathnames (user-homedir-pathname)
-                         (make-pathname :name ".swank" :type "lisp"))
-        :if-does-not-exist nil))
-(export 'load-user-init-file)
-
-(defun load-site-init-file ()
-  (load (make-pathname :name "site-init" :type "lisp"
-                       :defaults *load-truename*)
-        :if-does-not-exist nil))
-
-(or (load-site-init-file)
-    (load-user-init-file))
-
+(load-site-init-file)
+(load-user-init-file)
