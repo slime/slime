@@ -135,8 +135,7 @@ don't want to present anything"
 (defun presenting-object-1 (object stream continue)
   "Uses the bridge mechanism with two messages >id and <id. The first one
 says that I am starting to print an object with this id. The second says I am finished"
-  (if (and *record-repl-results* *can-print-presentation*
-	   (slime-stream-p stream))
+  (if (and *record-repl-results* (slime-stream-p stream))
       (let* ((pid (swank::save-presented-object object))
 	     (record (make-presentation-record :id pid :printed-p nil)))
 	(write-annotation stream #'presentation-start record)
@@ -168,12 +167,12 @@ says that I am starting to print an object with this id. The second says I am fi
 (defvar *presentation-active-menu* nil)
 
 (defun menu-choices-for-presentation-id (id)
-  (let ((ob (lookup-presented-object id)))
-    (if (eq ob *not-present*)
-	'not-present
-	(let ((menu-and-actions (menu-choices-for-presentation ob)))
-	  (setq *presentation-active-menu* (cons id menu-and-actions))
-	  (mapcar 'car menu-and-actions)))))
+  (multiple-value-bind (ob presentp) (lookup-presented-object id)
+    (cond ((not presentp) 'not-present)
+	  (t
+	   (let ((menu-and-actions (menu-choices-for-presentation ob)))
+	     (setq *presentation-active-menu* (cons id menu-and-actions))
+	     (mapcar 'car menu-and-actions))))))
 
 (defun swank-ioify (thing)
   (cond ((keywordp thing) thing)
@@ -188,9 +187,7 @@ says that I am starting to print an object with this id. The second says I am fi
 	    "Bug: Execute menu call for id ~a  but menu has id ~a"
 	    id (car *presentation-active-menu*))
     (let ((action (second (nth (1- count) (cdr *presentation-active-menu*)))))
-      (swank-ioify 
-       (let ((*can-print-presentation* t))
-	 (funcall action item ob id))))))
+      (swank-ioify (funcall action item ob id)))))
 
 ;; Default method
 (defmethod menu-choices-for-presentation (ob)
