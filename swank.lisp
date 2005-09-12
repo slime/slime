@@ -1771,7 +1771,7 @@ Errors are trapped and invoke our debugger."
     (let ((values (multiple-value-list (eval (from-string string)))))
       (fresh-line)
       (force-output)
-      (format-values-for-echo-area values)))))
+      (format-values-for-echo-area values))))
 
 (defslimefun eval-and-grab-output (string)
   (with-buffer-syntax ()
@@ -1842,8 +1842,8 @@ change, then send Emacs an update."
                      (multiple-value-list (funcall hook form)))
         until (not (eq res *slime-repl-eval-hook-pass*))
         finally (if (eq res *slime-repl-eval-hook-pass*)
-                    (setq values (multiple-value-list (eval form)))
-                    (setq values res))))
+                    (multiple-value-list (eval form))
+                    res)))
 
 (defun package-string-for-prompt (package)
   "Return the shortest nickname (or canonical name) of PACKAGE."
