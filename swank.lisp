@@ -220,7 +220,8 @@ Backend code should treat the connection structure as opaque.")
   ;; The coding system for network streams.
   (external-format *coding-system* :type (member :iso-latin-1-unix 
                                                  :emacs-mule-unix
-                                                 :utf-8-unix)))
+                                                 :utf-8-unix
+                                                 :euc-jp-unix)))
 
 (defun print-connection (conn stream depth)
   (declare (ignore depth))
@@ -1686,7 +1687,7 @@ by adding a template for the missing arguments."
   "Store the mapping of objects to numeric identifiers")
 
 (defvar *presentation-id-to-object* 
-  (make-weak-value-hash-table :test 'eq)
+  (make-weak-value-hash-table :test 'eql)
   "Store the mapping of numeric identifiers to objects")
 
 (defun clear-presentation-tables ()
@@ -1695,50 +1696,26 @@ by adding a template for the missing arguments."
 
 (defvar *presentation-counter* 0 "identifier counter")
 
-(defun save-presented-object (object &optional id)
-  "If the object doesn't already have an id, save it and allocate
-one. Otherwise return the old one."
-  (cond 
-    ((and (not id)
-          (gethash object *object-to-presentation-id*)))
-    (t
-     (let ((newid (or id (decf *presentation-counter*))))
-       (setf (gethash newid *presentation-id-to-object*) object)
-       (setf (gethash object *object-to-presentation-id*) newid)
-       newid))))
-
-(defvar *not-present* (gensym "NOT-PRESENT"))
+;; XXX thread safety?
+(defun save-presented-object (object)
+  "Save OBJECT and return the assigned id.
+If OBJECT was saved previously return the old id."
+  (or (gethash object *object-to-presentation-id*)
+      (let ((id (decf *presentation-counter*)))
+        (setf (gethash id *presentation-id-to-object*) object)
+        (setf (gethash object *object-to-presentation-id*) id)
+        id)))
 
 (defun lookup-presented-object (id)
-  "Retrieve the object corresponding to id. *not-present* returned if it isn't there"
-  (if (consp id)
-      (let ((values (gethash (car id) *presentation-id-to-object* *not-present*)))
-	(if (eql values *not-present*)
-	    *not-present*
-	    (nth (cdr id) values)))
-      (gethash id *presentation-id-to-object* *not-present*)))
-
-(defvar *last-repl-result-id* nil)
-
-(defun add-repl-result (id val)
-  (save-presented-object val id)
-  (setq *last-repl-result-id* id)
-  t)
+  "Retrieve the object corresponding to ID.
+The secondary value indicates the a absence of an entry."
+  (gethash id *presentation-id-to-object*))
 
 (defslimefun get-repl-result (id)
   "Get the result of the previous REPL evaluation with ID."
-  (let ((previous-output (lookup-presented-object id)))
-    (when (eq previous-output *not-present*)
-      (if swank::*record-repl-results*
-          (error "Attempt to access no longer existing result (number ~D)." id)
-          (error "Attempt to access unrecorded result (number ~D). ~&See ~S."
-                 id '*record-repl-results*)))
-    previous-output))
-
-(defslimefun clear-last-repl-result ()
-  "Forget the result of the previous REPL evaluation."
-  (remhash *last-repl-result-id* *presentation-id-to-object*)
-  t)
+  (multiple-value-bind (object foundp) (lookup-presented-object id)
+    (cond (foundp object)
+          (t (error "Attempt to access unrecorded object (id ~D)." id)))))
 
 (defslimefun clear-repl-results ()
   "Forget the results of all previous REPL evaluations."
@@ -1757,11 +1734,6 @@ Fall back to the the current if no such package exists."
   (or (guess-package-from-string string nil)
       *package*))
 
-(defvar *current-id* nil)
-
-(defvar *can-print-presentation* nil 
-  "set this to t in contexts where it is ok to print presentations at all")
- 
 (defun eval-for-emacs (form buffer-package id)
   "Bind *BUFFER-PACKAGE* BUFFER-PACKAGE and evaluate FORM.
 Return the result to the continuation ID.
@@ -1773,8 +1745,7 @@ Errors are trapped and invoke our debugger."
        (unwind-protect
             (let ((*buffer-package* (guess-buffer-package buffer-package))
                   (*buffer-readtable* (guess-buffer-readtable buffer-package))
-                  (*pending-continuations* (cons id *pending-continuations*))
-                  (*current-id* id))
+                  (*pending-continuations* (cons id *pending-continuations*)))
               (check-type *buffer-package* package)
               (check-type *buffer-readtable* readtable)
               (setq result (eval form))
@@ -1796,12 +1767,11 @@ Errors are trapped and invoke our debugger."
             (t (format nil "~{~S~^, ~}" values))))))
 
 (defslimefun interactive-eval (string)
-  (let ((*can-print-presentation* t)) 
-    (with-buffer-syntax ()
-      (let ((values (multiple-value-list (eval (from-string string)))))
-        (fresh-line)
-        (force-output)
-        (format-values-for-echo-area values)))))
+  (with-buffer-syntax ()
+    (let ((values (multiple-value-list (eval (from-string string)))))
+      (fresh-line)
+      (force-output)
+      (format-values-for-echo-area values)))))
 
 (defslimefun eval-and-grab-output (string)
   (with-buffer-syntax ()
@@ -1811,6 +1781,7 @@ Errors are trapped and invoke our debugger."
       (list (get-output-stream-string s) 
             (format nil "~{~S~^~%~}" values)))))
 
+;;; XXX do we need this stuff?  What is it good for?
 (defvar *slime-repl-advance-history* nil 
   "In the dynamic scope of a single form typed at the repl, is set to nil to 
    prevent the repl from advancing the history - * ** *** etc.")
@@ -1857,19 +1828,22 @@ change, then send Emacs an update."
                 (return (values values -)))
               (setq - form)
 	      (if *slime-repl-eval-hooks* 
-		  (loop for hook in *slime-repl-eval-hooks* 
-			for res =  (catch *slime-repl-eval-hook-pass* (multiple-value-list (funcall hook form)))
-			until (not (eq res *slime-repl-eval-hook-pass*))
-			finally 
-			(if (eq res *slime-repl-eval-hook-pass*)
-			    (setq values (multiple-value-list (eval form)))
-                            (setq values res)))
-		  (setq values (multiple-value-list (eval form))))
+                  (setq values (run-repl-eval-hooks form))
+                  (setq values (multiple-value-list (eval form))))
               (force-output)))))
     (when (and package-update-p (not (eq *package* *buffer-package*)))
       (send-to-emacs 
        (list :new-package (package-name *package*)
              (package-string-for-prompt *package*))))))
+
+(defun run-repl-eval-hooks (form)
+  (loop for hook in *slime-repl-eval-hooks* 
+        for res =  (catch *slime-repl-eval-hook-pass* 
+                     (multiple-value-list (funcall hook form)))
+        until (not (eq res *slime-repl-eval-hook-pass*))
+        finally (if (eq res *slime-repl-eval-hook-pass*)
+                    (setq values (multiple-value-list (eval form)))
+                    (setq values res))))
 
 (defun package-string-for-prompt (package)
   "Return the shortest nickname (or canonical name) of PACKAGE."
@@ -1946,21 +1920,19 @@ Return its name and the string to use in the prompt."
   (with-buffer-syntax ()
     (let ((*slime-repl-suppress-output* :unset)
 	  (*slime-repl-advance-history* :unset))
-      (multiple-value-bind (values last-form) 
-	  (let ((*can-print-presentation* t)) 
-            (eval-region string t))
+      (multiple-value-bind (values last-form) (eval-region string t)
 	(unless (or (and (eq values nil) (eq last-form nil))
 		    (eq *slime-repl-advance-history* nil))
 	  (setq *** **  ** *  * (car values)
-		/// //  // /  / values)
-          (when *record-repl-results*
-            (add-repl-result *current-id* values)))
+		/// //  // /  / values))
 	(setq +++ ++  ++ +  + last-form)
-	(if (eq *slime-repl-suppress-output* t)
-	    ""
-	    (cond ((null values) "; No value")
-		  (t
-                   (mapcar #'prin1-to-string values))))))))
+        (cond ((eq *slime-repl-suppress-output* t) '(:suppress-output))
+              (*record-repl-results*
+               `(:present ,(loop for x in values 
+                                 collect (cons (prin1-to-string x) 
+                                               (save-presented-object x)))))
+              (t 
+               `(:values (mapcar #'prin1-to-string values))))))))
 
 (defslimefun ed-in-emacs (&optional what)
   "Edit WHAT in Emacs.
@@ -2131,13 +2103,9 @@ format suitable for Emacs."
 (defslimefun backtrace (start end)
   "Return a list ((I FRAME) ...) of frames from START to END.
 I is an integer describing and FRAME a string."
-  (let ((*can-print-presentation* nil))
-    ;; Disable presentations during backtrack, for now. For one thing,
-    ;; the filter isn't set up for the sldb buffer. Also there is
-    ;; higher likelyhood of lossage due to dynamic extent objects.
-    (loop for frame in (compute-backtrace start end)
-          for i from start
-          collect (list i (frame-for-emacs i frame)))))
+  (loop for frame in (compute-backtrace start end)
+        for i from start
+        collect (list i (frame-for-emacs i frame))))
 
 (defslimefun debugger-info-for-emacs (start end)
   "Return debugger state, with stack frames from START to END.
@@ -2288,23 +2256,21 @@ The time is measured in microseconds."
            (if s (list :short-message s)))))
 
 (defun swank-compiler (function)
-  (let ((*can-print-presentation* t))
-    (clear-compiler-notes)
-    (with-simple-restart (abort "Abort SLIME compilation.")
-      (multiple-value-bind (result usecs)
-          (handler-bind ((compiler-condition #'record-note-for-condition))
-            (measure-time-interval function))
-        (list (to-string result)
-              (format nil "~,2F" (/ usecs 1000000.0)))))))
+  (clear-compiler-notes)
+  (with-simple-restart (abort "Abort SLIME compilation.")
+    (multiple-value-bind (result usecs)
+        (handler-bind ((compiler-condition #'record-note-for-condition))
+          (measure-time-interval function))
+      (list (to-string result)
+            (format nil "~,2F" (/ usecs 1000000.0))))))
 
 (defslimefun compile-file-for-emacs (filename load-p &optional external-format)
   "Compile FILENAME and, when LOAD-P, load the result.
 Record compiler notes signalled as `compiler-condition's."
-  (let ((*can-print-presentation* t)) 
-    (with-buffer-syntax ()
-      (let ((*compile-print* nil))
-        (swank-compiler (lambda () (swank-compile-file filename load-p
-                                                       external-format)))))))
+  (with-buffer-syntax ()
+    (let ((*compile-print* nil))
+      (swank-compiler (lambda () (swank-compile-file filename load-p
+                                                     external-format))))))
 
 (defslimefun compile-string-for-emacs (string buffer position directory)
   "Compile STRING (exerpted from BUFFER at POSITION).
@@ -2362,8 +2328,7 @@ Record compiler notes signalled as `compiler-condition's."
 ;;;; Loading
 
 (defslimefun load-file (filename)
-  (let ((*can-print-presentation* t)) 
-    (to-string (load filename))))
+  (to-string (load filename)))
 
 (defslimefun load-file-set-package (filename &optional package)
   (load-file filename)
@@ -3868,11 +3833,9 @@ See `methods-by-applicability'.")
         *inspector-history* (make-array 10 :adjustable t :fill-pointer 0)))
 
 (defslimefun init-inspector (string)
-  (let ((*can-print-presentation* nil))
-    ;; Disable presentations.
-    (with-buffer-syntax ()
-      (reset-inspector)
-      (inspect-object (eval (read-from-string string))))))
+  (with-buffer-syntax ()
+    (reset-inspector)
+    (inspect-object (eval (read-from-string string)))))
   
 (defun print-part-to-string (value)
   (let ((string (to-string value))
