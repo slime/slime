@@ -122,6 +122,8 @@
     (:iso-latin-1-unix (ext:make-encoding :charset 'charset:iso-8859-1
 					  :line-terminator :unix))
     (:utf-8-unix (ext:make-encoding :charset 'charset:utf-8
+				    :line-terminator :unix))
+    (:euc-jp-unix (ext:make-encoding :charset 'charset:euc-jp
 				    :line-terminator :unix))))
   
 (defimplementation accept-connection (socket

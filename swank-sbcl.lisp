@@ -122,8 +122,8 @@
 (defun find-external-format (coding-system)
   (ecase coding-system
     (:iso-latin-1-unix :iso-8859-1)
-    #+sb-unicode
-    (:utf-8-unix :utf-8)))
+    (:utf-8-unix :utf-8)
+    (:euc-jp-unix :euc-jp)))
 
 (defun make-socket-io-stream (socket external-format)
   (let ((ef (find-external-format external-format)))
