@@ -1,4 +1,4 @@
-;;; -*- mode: emacs-lisp; mode: outline-minor; outline-regexp: ";;;;+"; indent-tabs-mode: nil -*-
+;;; -*- outline-regexp: ";;;;+"; indent-tabs-mode: nil -*-
 ;; slime.el -- Superior Lisp Interaction Mode for Emacs
 ;;;; License
 ;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
@@ -1552,7 +1552,8 @@ See also `slime-net-valid-coding-systems'.")
     (iso-8859-1-unix  nil :iso-latin-1-unix)
     (binary           nil :iso-latin-1-unix)
     (utf-8-unix       t   :utf-8-unix)
-    (emacs-mule-unix  t   :emacs-mule-unix))
+    (emacs-mule-unix  t   :emacs-mule-unix)
+    (euc-jp-unix      t   :euc-jp-unix))
   "A list of valid coding systems. 
 Each element is of the form: (NAME MULTIBYTEP CL-NAME)")
 
@@ -2274,12 +2275,6 @@ Debugged requests are ignored."
 (slime-def-connection-var slime-continuation-counter 0
   "Continuation serial number counter.")
 
-(defvar slime-current-output-id nil
-  "The id of the current repl output.
-
-This variable is rebound by the :RETURN event handler and used by
-slime-repl-insert-prompt.")
-
 (defcustom slime-enable-evaluate-in-emacs nil
   "If non-nil, the inferior Lisp can evaluate arbitrary forms in Emacs.
 The default is nil, as this feature can be a security risk."
@@ -2309,9 +2304,7 @@ The default is nil, as this feature can be a security risk."
                           (remove rec (slime-rex-continuations)))
                     (when (null (slime-rex-continuations))
                       (slime-set-state ""))
-                    (let ((slime-current-output-id id)) ;; this is not very
-                      ;; elegant but it avoids changing the protocol
-                      (funcall (cdr rec) value)))
+                    (funcall (cdr rec) value))
                (t
                 (error "Unexpected reply: %S %S" id value)))))
       ((:debug-activate thread level)
@@ -2465,7 +2458,8 @@ The default is nil, as this feature can be a security risk."
           (slime-repl-mode)
           (setq slime-buffer-connection connection)
           (slime-reset-repl-markers)
-          (unless noprompt (slime-repl-insert-prompt "" 0))
+          (unless noprompt 
+            (slime-repl-insert-prompt '(:suppress-output) 0))
           (current-buffer)))))
 
 (defun slime-repl-update-banner ()
@@ -2487,7 +2481,8 @@ The default is nil, as this feature can be a security risk."
       (animate-string (format "; SLIME %s" (or (slime-changelog-date) 
                                                "- ChangeLog file not found"))
                       0 0))
-    (slime-repl-insert-prompt (if use-header-p "" (concat "; " banner)))))
+    (slime-repl-insert-prompt 
+     `(:values (,(if use-header-p "" (concat "; " banner)))))))
 
 (defun slime-changelog-date ()
   "Return the datestring of the latest entry in the ChangeLog file.
@@ -2612,9 +2607,7 @@ update window-point afterwards.  If point is initially not at
              (id (car (read-from-string match))))
         (slime-mark-presentation-end id))))
 
-(defstruct (slime-presentation)
-  (text)
-  (id))
+(defstruct slime-presentation text id)
 
 (defun slime-add-presentation-properties (start end id result-p)
   "Make the text between START and END a presentation with ID.
@@ -2829,38 +2822,42 @@ joined together."))
   (slime-setup-command-hooks)
   (run-hooks 'slime-repl-mode-hook))
 
-(defun* slime-presentation-whole-p (presentation start end &optional (object (current-buffer)))
-  (string= (etypecase object
-             (buffer (with-current-buffer object
-                       (buffer-substring-no-properties start end)))
-             (string (substring-no-properties object start end)))
-           (slime-presentation-text presentation)))
+(defun slime-presentation-whole-p (presentation start end &optional object)
+  (let ((object (or object (current-buffer))))
+    (string= (etypecase object
+               (buffer (with-current-buffer object
+                         (buffer-substring-no-properties start end)))
+               (string (substring-no-properties object start end)))
+             (slime-presentation-text presentation))))
 
-(defun* slime-presentations-around-point (point &optional (object (current-buffer)))
-  (loop for (key value . rest) on (text-properties-at point object) by 'cddr
-        when (slime-presentation-p key)
-        collect key))
+(defun slime-presentations-around-point (point &optional object)
+  (let ((object (or object (current-buffer))))
+    (loop for (key value . rest) on (text-properties-at point object) by 'cddr
+          when (slime-presentation-p key)
+          collect key)))
 
 (defun slime-presentation-start-p (tag)
-  (member tag '(:start :start-and-end)))
+  (memq tag '(:start :start-and-end)))
 
 (defun slime-presentation-stop-p (tag)
-  (member tag '(:end :start-and-end)))
+  (memq tag '(:end :start-and-end)))
 
 (defun* slime-presentation-start (point presentation
                                         &optional (object (current-buffer)))
-  "Find start of `presentation' at `point' in `object'.  Return buffer index and
-  whether a start-tag was found."
+  "Find start of `presentation' at `point' in `object'.
+Return buffer index and whether a start-tag was found."
   (let* ((this-presentation (get-text-property point presentation object)))
     (while (not (slime-presentation-start-p this-presentation))
-      (let ((change-point (previous-single-property-change point presentation object)))
+      (let ((change-point (previous-single-property-change 
+                           point presentation object)))
         (unless change-point
           (return-from slime-presentation-start
             (values (etypecase object
                       (buffer (with-current-buffer object 1))
                       (string 0))
                     nil)))
-        (setq this-presentation (get-text-property change-point presentation object))
+        (setq this-presentation (get-text-property change-point 
+                                                   presentation object))
         (unless this-presentation
           (return-from slime-presentation-start 
             (values point nil)))
@@ -2874,7 +2871,8 @@ index (after last character of the presentation) and whether an
 end-tag was found."
   (let* ((this-presentation (get-text-property point presentation object)))
     (while (not (slime-presentation-stop-p this-presentation))
-      (let ((change-point (next-single-property-change point presentation object)))
+      (let ((change-point (next-single-property-change 
+                           point presentation object)))
         (unless change-point
           (return-from slime-presentation-end
             (values (etypecase object
@@ -2882,9 +2880,11 @@ end-tag was found."
                       (string (length object))) 
                     nil)))
         (setq point change-point)
-        (setq this-presentation (get-text-property point presentation object))))
+        (setq this-presentation (get-text-property point 
+                                                   presentation object))))
     (if this-presentation 
-        (let ((after-end (next-single-property-change point presentation object)))
+        (let ((after-end (next-single-property-change point
+                                                      presentation object)))
           (if (not after-end)
               (values (etypecase object
                         (buffer (with-current-buffer object (point-max)))
@@ -2903,7 +2903,8 @@ in `object', and whether the presentation is complete."
         (slime-presentation-end point presentation object)
       (values start end 
               (and good-start good-end
-                   (slime-presentation-whole-p presentation start end object))))))
+                   (slime-presentation-whole-p presentation 
+                                               start end object))))))
 
 (defun slime-presentation-around-point (point &optional object)
   "Return presentation, start index, end index, and whether the
@@ -2960,8 +2961,8 @@ string or buffer `object'."
      (let ((undo-in-progress t)) ad-do-it)))
 
 (defun slime-after-change-function (start end &rest ignore)
-  "Check all presentations within and adjacent to the change.  When a
-  presentation has been altered, change it to plain text."
+  "Check all presentations within and adjacent to the change.
+When a presentation has been altered, change it to plain text."
   (let ((inhibit-modification-hooks t))
     (let ((real-start (max 1 (1- start)))
           (real-end   (min (1+ (buffer-size)) (1+ end)))
@@ -3013,7 +3014,8 @@ string or buffer `object'."
   (define-key  slime-presentation-map [button3] 'slime-presentation-menu))
 
 ;; protocol for handling up a menu.
-;; 1. Send lisp message asking for menu choices for this object. Get back list of strings.
+;; 1. Send lisp message asking for menu choices for this object. 
+;;    Get back list of strings.
 ;; 2. Let used choose
 ;; 3. Call back to execute menu choice, passing nth and string of choice
 
@@ -3021,7 +3023,8 @@ string or buffer `object'."
   "Return a menu for `presentation' at `from'--`to' in the current
 buffer, suitable for `x-popup-menu'."
   (let* ((what (slime-presentation-id presentation))
-         (choices (slime-eval `(swank::menu-choices-for-presentation-id ',what))))
+         (choices (slime-eval 
+                   `(swank::menu-choices-for-presentation-id ',what))))
     (etypecase choices
       (list
        `(,(if (featurep 'xemacs) " " "")
@@ -3029,9 +3032,12 @@ buffer, suitable for `x-popup-menu'."
           ("Inspect" . (lambda ()
                          (interactive)
                          (slime-inspect-presented-object ',what)))
-          ("Describe" . (lambda ()
-                          (interactive)
-                          (slime-eval '(cl:describe (swank::lookup-presented-object ',what)))))
+          ("Describe" . 
+           (lambda ()
+             (interactive)
+             ;; XXX remove call to describe.
+             (slime-eval '(cl:describe 
+                           (swank::lookup-presented-object ',what)))))
           ("Copy to input" . slime-copy-presentation-at-point)
           ,@(let ((nchoice 0))
               (mapcar 
@@ -3065,42 +3071,24 @@ buffer, suitable for `x-popup-menu'."
             (when choice
               (call-interactively choice))))))))
 
-
 (defun slime-repl-insert-prompt (result &optional time)
-  "Goto to point max, insert RESULT and the prompt.  Set
-slime-output-end to start of the inserted text slime-input-start to
-end end.  If RESULT is not a string, it must be a list of
-result strings, each of which is marked-up as a presentation."
+  "Goto to point max, insert RESULT and the prompt.
+Set slime-output-end to start of the inserted text slime-input-start
+to end end."
   (slime-flush-output)
   (goto-char (point-max))
   (let ((start (point)))
     (unless (bolp) (insert "\n"))
-    (flet ((insert-result (result id)
-             (if (and slime-repl-enable-presentations id)
-                 (slime-insert-presentation result id)
-                 (slime-propertize-region `(face slime-repl-result-face)
-                   (insert result)))
-             (unless (bolp) (insert "\n"))))
-      (etypecase result
-        (list
-         (loop 
-            for res in result
-            for index from 0
-            do (insert-result res (cons slime-current-output-id index))))
-        (string
-         (unless (string= result "")
-           (insert-result result nil)))))
+    (slime-repl-insert-result result)
     (let ((prompt-start (point))
           (prompt (format "%s> " (slime-lisp-package-prompt-string))))
       (slime-propertize-region
-          '(face slime-repl-prompt-face
-            read-only t
-            intangible t
-            slime-repl-prompt t
-            ;; emacs stuff
-            rear-nonsticky (slime-repl-prompt read-only face intangible)
-            ;; xemacs stuff
-            start-open t end-open t)
+          '(face slime-repl-prompt-face read-only t intangible t
+                 slime-repl-prompt t
+                 ;; emacs stuff
+                 rear-nonsticky (slime-repl-prompt read-only face intangible)
+                 ;; xemacs stuff
+                 start-open t end-open t)
         (insert prompt))
       ;; FIXME: we could also set beginning-of-defun-function
       (setq defun-prompt-regexp (concat "^" prompt))
@@ -3114,6 +3102,25 @@ result strings, each of which is marked-up as a presentation."
                (run-at-time time nil 'slime-repl-move-output-mark-before-prompt
                             (current-buffer)))))))
   (slime-repl-show-maximum-output))
+
+(defun slime-repl-insert-result (result)
+  "Insert the result of an evaluation.
+RESULT can be one of:
+ (:values (STRING...))
+ (:present ((STRING . ID)...))
+ (:suppress-output)"
+  (destructure-case result
+    ((:values strings)
+     (cond ((null strings) (insert "; No value\n"))
+           (t (dolist (s strings)
+                (insert s "\n")))))
+    ((:present stuff)
+     (cond ((and stuff slime-repl-enable-presentations)
+            (loop for (s . id) in stuff do 
+                  (slime-insert-presentation s id) 
+                  (insert "\n")))
+           (t (slime-repl-insert-result `(:values ,(mapcar #'car stuff))))))
+    ((:suppress-output))))
 
 (defun slime-repl-move-output-mark-before-prompt (buffer)
   (when (buffer-live-p buffer)
@@ -3208,8 +3215,10 @@ the presented object."
      (insert-before-markers "; Evaluation aborted\n"))
     (slime-rex ()
         ((list 'swank:listener-eval "") nil)
-      ((:ok result) (with-current-buffer (slime-output-buffer)
-                      (slime-repl-insert-prompt ""))))))
+      ((:ok result) 
+       ;; A hack to get the prompt
+       (with-current-buffer (slime-output-buffer)
+         (slime-repl-insert-prompt '(:suppress-output)))))))
   
 (defun slime-mark-input-start ()
   (set-marker slime-repl-last-input-start-mark
@@ -3314,18 +3323,17 @@ balanced."
   (interactive "P")
   (slime-check-connected)
   (assert (<= (point) slime-repl-input-end-mark))
-  (cond ((and (get-text-property (point) 'slime-repl-old-input)
-              (< (point) slime-repl-input-start-mark))
-         (slime-repl-grab-old-input end-of-input)
-         (slime-recenter-if-needed))
-        ((and (< (point) slime-repl-input-start-mark)
-              (car (slime-presentation-around-or-before-point (point))))
-         (slime-repl-grab-old-output end-of-input)
-         (slime-recenter-if-needed))
-        (end-of-input
+  (cond (end-of-input
          (slime-repl-send-input))
         (slime-repl-read-mode ; bad style?
          (slime-repl-send-input t))
+        ((and (get-text-property (point) 'slime-repl-old-input)
+              (< (point) slime-repl-input-start-mark))
+         (slime-repl-grab-old-input end-of-input)
+         (slime-repl-recenter-if-needed))
+        ((car (slime-presentation-around-or-before-point (point)))
+         (slime-repl-grab-old-output end-of-input)
+         (slime-repl-recenter-if-needed))
         ((slime-input-complete-p slime-repl-input-start-mark 
                                  slime-repl-input-end-mark)
          (slime-repl-send-input t))
@@ -3477,7 +3485,6 @@ earlier in the buffer."
 (defun slime-repl-clear-output ()
   "Delete the output inserted since the last input."
   (interactive)
-  (slime-eval `(swank::clear-last-repl-result))
   (let ((start (save-excursion 
                  (slime-repl-previous-prompt)
                  (ignore-errors (forward-sexp))
@@ -3501,7 +3508,7 @@ earlier in the buffer."
           (slime-eval `(swank:set-package ,package))
         (setf (slime-lisp-package) name)
         (setf (slime-lisp-package-prompt-string) prompt-string)
-        (slime-repl-insert-prompt "" 0)
+        (slime-repl-insert-prompt '(:suppress-output) 0)
         (insert unfinished-input)))))
 
 
@@ -9003,8 +9010,6 @@ Confirm that SUBFORM is correctly located."
                   "(cl:setq cl:*package* (cl:find-package %S))
                    (cl:package-name cl:*package*)" package-name))
               (slime-lisp-package))))
-      (slime-check ("In %s package." package-name)
-        (equal (format "\"%s\"" package-name) p))
       (slime-check ("slime-lisp-package is %S." package-name)
         (equal (slime-lisp-package) package-name))
       (slime-check ("slime-lisp-package-prompt-string is in %S." nicknames)
