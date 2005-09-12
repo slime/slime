@@ -1,3 +1,53 @@
+2005-09-13  Helmut Eller  <heller@common-lisp.net>
+
+	* present.lisp (menu-choices-for-presentation-id): Use
+	lookup-presented-object secondary return value instead of
+	*not-present*.
+	(execute-menu-choice-for-presentation-id, presenting-object-1):
+	Remove references to *can-print-presentation*.
+
+	* slime.el (slime-current-output-id): Remove this ugly klugde.
+	(slime-repl-insert-result): New function. Handle the presentations
+	and other special cases cleaner.
+	(slime-repl-insert-prompt): Use it. The `result' arg is now a
+	structured list; update callers accordingly.
+	(slime-repl-return): Make the prefix arg work again.
+	(package-updating): The result of swank::listener-eval changed a
+	bit. Update the test.
+	
+	Remove some unnecessary uses of `defun*' and reindent it to 80
+	columns.
+	
+	* swank.lisp: Simplify the object <-> presentation-id mapping.
+	(save-presented-object): Remove the optional `id' arg.
+	(lookup-presented-object): Id's should be fixnums not some cons
+	with fuzzy/non-documented meaning.  Use the secondary return value
+	to test for absence of the id.  Update callers accordingly.
+	(*not-present*): Deleted.
+
+	Remove the repl result special cases, let the general presentation
+	machinery handle it.
+	(*last-repl-result-id*, add-repl-result, *current-id*)
+	(clear-last-repl-result): Deleted.
+	(listener-eval): Don't *current-id* to tag result values.
+	
+	(*can-print-presentation*): Deleted. Nobody quite knows whether
+	it's still needed so let just try without it.  Updated referrers
+	accordingly.
+
+	(eval-region, run-repl-eval-hooks): Move the eval hook stuff to
+	a separate function.
+
+	* swank-loader.lisp (lisp-version-string)[cmu]: Replace spaces
+	with underscores.
+
+2005-09-12  NIIMI Satoshi <sa2c@sa2c.net>
+
+	* swank.lisp, slime.el, swank-clisp.lisp, swank-sbcl.lisp: add
+	EUC-JP as coding system.  This patch eliminates the requirement of
+	Mule-UCS to use Japanese characters.  (Nice for pre-22 Emacs
+	users.)
+
 2005-09-10  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-enable-evaluate-in-emacs): Resurrected.
@@ -69,7 +119,7 @@
 	(slime-choose-overlay-for-sexp): Ignore errors when stepping over
 	forms.
 	(slime-search-method-location, slime-goto-location-position): Move
-	all this regexpery to it's own function.
+	all this regexpery to its own function.
 	(slime-recenter-if-needed, slime-repl-return): Factor some
 	duplicated code into its own function.
 	(slime-presentation-bounds, slime-presentation-around-point)
@@ -121,6 +171,7 @@
 	(slime-y-or-n-p): New.
 
 2005-08-29  Alan Ruttenberg <alanr-l@mumble.net>
+
 	* slime.el (sldb-insert-condition) - Add tooltip for long
 	condition string which otherwise falls off the right of the screen
 	* swank.lisp (list-threads) - thread name might be a symbol - pass
