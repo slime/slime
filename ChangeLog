@@ -1,6 +1,29 @@
 2005-09-13  Alan Ruttenberg <alanr-l@mumble.net>
+
 	* slime.el (defcustom slime-ed-use-dedicated-frame ... vs defvar
-	* swank.lisp (run-repl-eval-hooks .. finally (return  vs no return
+
+	(defcustom slime-when-complete-filename-expand: Use
+	comint-replace-by-expanded-filename instead of
+	comint-dynamic-complete-as-filename to complete file names
+
+	* swank.lisp (run-repl-eval-hooks .. finally (return vs no return
+
+	inspector-call-nth-action Allow second value :replace for inspector actions
+
+	(defvar *slime-inspect-contents-limit* default nil. How many elements of
+        a hash table or array to show by default. If table has more than
+        this then offer actions to view more. Set to nil for no limit. Probably should
+	set default to reasonable value - I like 200. 
+
+	(inspect-for-emacs ((ht hash-table) inspector)) - banner line is hash table object. 
+	Respect *slime-inspect-contents-limit*
+
+	(defmethod inspect-for-emacs ((array array) inspector) 
+	Respect *slime-inspect-contents-limit*
+
+	* swank-openmcl.lisp inspector for closures shows closed-over
+	values. To be fixed: inspector-princ needs to be loaded earlier
+	since swank package not available when compiling
 	
 2005-09-13  Helmut Eller  <heller@common-lisp.net>
 

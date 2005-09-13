@@ -205,6 +205,11 @@ If you want to fallback on TAGS you can set this to `find-tags' or
                  (const :tag "Compound" slime-complete-symbol*)
                  (const :tag "Fuzzy" slime-fuzzy-complete-symbol)))
 
+(defcustom slime-when-complete-filename-expand nil
+  "Use comint-replace-by-expanded-filename instead of comint-dynamic-complete-as-filename to complete file names"
+  :group 'slime-mode
+  :type 'boolean)
+
 (defcustom slime-complete-symbol*-fancy nil
   "Use information from argument lists for DWIM'ish symbol completion."
   :group 'slime-mode
@@ -5337,7 +5342,9 @@ Perform completion more similar to Emacs' complete-symbol."
 Return nil iff if point is not at filename."
   (if (save-excursion (re-search-backward "\"[^ \t\n]+\\=" nil t))
       (let ((comint-completion-addsuffix '("/" . "\"")))
-        (comint-dynamic-complete-as-filename)
+        (if slime-when-complete-filename-expand
+            (comint-replace-by-expanded-filename)
+          (comint-dynamic-complete-as-filename))
         t)
     nil))
 
@@ -5471,7 +5478,9 @@ replaced in the target for efficiency.")
   (interactive)
   (when (save-excursion (re-search-backward "\"[^ \t\n]+\\=" nil t))
     (return-from slime-fuzzy-complete-symbol 
-      (comint-dynamic-complete-as-filename)))
+      (if slime-when-complete-filename-expand
+          (comint-replace-by-expanded-filename)
+        (comint-dynamic-complete-as-filename))))
   (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
          (beg (move-marker (make-marker) (slime-symbol-start-pos)))
          (prefix (buffer-substring-no-properties beg end))
@@ -5884,7 +5893,7 @@ The result is a (possibly empty) list of definitions."
 (defcustom slime-ed-use-dedicated-frame t
   "*When non-nil, `slime-ed' will create and reuse a dedicated frame."
   :type 'boolean
-  :group 'slime)
+  :group 'slime-mode)
 
 (defun slime-ed (what)
   "Edit WHAT.

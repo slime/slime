@@ -1830,7 +1830,6 @@ change, then send Emacs an update."
 	      (if *slime-repl-eval-hooks* 
                   (setq values (run-repl-eval-hooks form))
                   (setq values (multiple-value-list (eval form))))
-              (ccl::print-db values)
               (force-output)))))
     (when (and package-update-p (not (eq *package* *buffer-package*)))
       (send-to-emacs 
@@ -3313,9 +3312,13 @@ NIL is returned if the list is circular."
           ((and (eq fast slow) (> n 0)) (return nil))
           ((not (consp (cdr fast))) (return (values (1+ n) (cdr fast)))))))
 
+(defvar *slime-inspect-contents-limit* nil "How many elements of
+ a hash table or array to show by default. If table has more than
+ this then offer actions to view more. Set to nil for no limit." )
+
 (defmethod inspect-for-emacs ((ht hash-table) inspector)
   (declare (ignore inspector))
-  (values "A hash table."
+  (values (prin1-to-string ht)
           (append
            (label-value-line*
             ("Count" (hash-table-count ht))
@@ -3324,9 +3327,48 @@ NIL is returned if the list is circular."
             ("Rehash size" (hash-table-rehash-size ht))
             ("Rehash threshold" (hash-table-rehash-threshold ht)))
            '("Contents: " (:newline))
+	   (if (and *slime-inspect-contents-limit*
+		    (>= (hash-table-count ht) *slime-inspect-contents-limit*))
+	       (inspect-bigger-piece-actions ht (hash-table-count ht))
+	       nil)
            (loop for key being the hash-keys of ht
-                 for value being the hash-values of ht
-                 append `((:value ,key) " = " (:value ,value) (:newline))))))
+	      for value being the hash-values of ht
+	      repeat (or *slime-inspect-contents-limit* most-positive-fixnum)
+	      append `((:value ,key) " = " (:value ,value) (:newline))
+	      )
+
+	   )))
+
+(defmethod inspect-bigger-piece-actions (thing size)
+  (append 
+   (if (> size *slime-inspect-contents-limit*)
+       (list (inspect-factor-more-action thing)
+	     '(:newline))
+       nil)
+   (list (inspect-whole-thing-action thing  size)
+	 '(:newline))))
+
+(defmethod inspect-whole-thing-action (thing size)
+  `(:action ,(format nil "Inspect all ~a elements." 
+		      size)
+	    ,(lambda() 
+	       (let ((*slime-inspect-contents-limit* nil))
+		 (values
+		  (swank::inspect-object thing)
+		  :replace)
+		 ))))
+
+(defmethod inspect-factor-more-action (thing)
+  `(:action ,(format nil "~a elements shown. Prompt for how many to inspect..." 
+		     *slime-inspect-contents-limit* )
+	    ,(lambda() 
+	       (let ((*slime-inspect-contents-limit* 
+		      (read)))
+		 (values
+		  (swank::inspect-object thing)
+		  :replace)
+		 ))
+	    ))
 
 (defmethod inspect-for-emacs ((array array) inspector)
   (declare (ignore inspector))
@@ -3340,7 +3382,11 @@ NIL is returned if the list is circular."
            (when (array-has-fill-pointer-p array)
              (label-value-line "Fill pointer" (fill-pointer array)))
            '("Contents:" (:newline))
-           (loop for i below (array-total-size array)
+           (if (and *slime-inspect-contents-limit*
+		    (>= (array-total-size array) *slime-inspect-contents-limit*))
+	       (inspect-bigger-piece-actions array  (length array))
+	       nil)
+           (loop for i below (or *slime-inspect-contents-limit* (array-total-size array))
                  append (label-value-line i (row-major-aref array i))))))
 
 (defmethod inspect-for-emacs ((char character) inspector)
@@ -3893,9 +3939,11 @@ See `methods-by-applicability'.")
   (with-buffer-syntax ()
     (inspect-object (inspector-nth-part index))))
 
-(defslimefun inspector-call-nth-action (index)
-  (funcall (aref *inspectee-actions* index))
-  (inspect-object (pop *inspector-stack*)))
+(defslimefun inspector-call-nth-action (index &rest args)
+  (multiple-value-bind (value replace) (apply (aref *inspectee-actions* index) args)
+      (if (eq replace :replace)
+	  value
+	  (inspect-object (pop *inspector-stack*)))))
 
 (defslimefun inspector-pop ()
   "Drop the inspector stack and inspect the second element.  Return
