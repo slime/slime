@@ -2481,8 +2481,8 @@ The default is nil, as this feature can be a security risk."
       (animate-string (format "; SLIME %s" (or (slime-changelog-date) 
                                                "- ChangeLog file not found"))
                       0 0))
-    (slime-repl-insert-prompt 
-     `(:values (,(if use-header-p "" (concat "; " banner)))))))
+    (slime-repl-insert-prompt (cond (use-header-p `(:suppress-output))
+                                    (t `(:values (,(concat "; " banner))))))))
 
 (defun slime-changelog-date ()
   "Return the datestring of the latest entry in the ChangeLog file.
@@ -3113,7 +3113,8 @@ RESULT can be one of:
     ((:values strings)
      (cond ((null strings) (insert "; No value\n"))
            (t (dolist (s strings)
-                (insert s "\n")))))
+                (slime-insert-propertized `(face slime-repl-result-face) s)
+                (insert "\n")))))
     ((:present stuff)
      (cond ((and stuff slime-repl-enable-presentations)
             (loop for (s . id) in stuff do 
