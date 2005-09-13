@@ -1,3 +1,7 @@
+2005-09-13  Alan Ruttenberg <alanr-l@mumble.net>
+	* slime.el (defcustom slime-ed-use-dedicated-frame ... vs defvar
+	* swank.lisp (run-repl-eval-hooks .. finally (return  vs no return
+	
 2005-09-13  Helmut Eller  <heller@common-lisp.net>
 
 	* present.lisp (menu-choices-for-presentation-id): Use

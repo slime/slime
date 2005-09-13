@@ -1830,6 +1830,7 @@ change, then send Emacs an update."
 	      (if *slime-repl-eval-hooks* 
                   (setq values (run-repl-eval-hooks form))
                   (setq values (multiple-value-list (eval form))))
+              (ccl::print-db values)
               (force-output)))))
     (when (and package-update-p (not (eq *package* *buffer-package*)))
       (send-to-emacs 
@@ -1838,12 +1839,13 @@ change, then send Emacs an update."
 
 (defun run-repl-eval-hooks (form)
   (loop for hook in *slime-repl-eval-hooks* 
-        for res =  (catch *slime-repl-eval-hook-pass* 
-                     (multiple-value-list (funcall hook form)))
-        until (not (eq res *slime-repl-eval-hook-pass*))
-        finally (if (eq res *slime-repl-eval-hook-pass*)
-                    (multiple-value-list (eval form))
-                    res)))
+     for res =  (catch *slime-repl-eval-hook-pass* 
+                  (multiple-value-list (funcall hook form)))
+     until (not (eq res *slime-repl-eval-hook-pass*))
+     finally (return 
+               (if (eq res *slime-repl-eval-hook-pass*)
+                   (multiple-value-list (eval form))
+                   res))))
 
 (defun package-string-for-prompt (package)
   "Return the shortest nickname (or canonical name) of PACKAGE."

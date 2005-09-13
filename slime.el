@@ -5881,8 +5881,10 @@ The result is a (possibly empty) list of definitions."
 (defvar slime-ed-frame nil
   "The frame used by `slime-ed'.")
 
-(defvar slime-ed-use-dedicated-frame t
-  "*When non-nil, `slime-ed' will create and reuse a dedicated frame.")
+(defcustom slime-ed-use-dedicated-frame t
+  "*When non-nil, `slime-ed' will create and reuse a dedicated frame."
+  :type 'boolean
+  :group 'slime)
 
 (defun slime-ed (what)
   "Edit WHAT.
