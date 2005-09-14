@@ -3158,14 +3158,7 @@ buffer. Presentations of old results are expanded into code."
 the presented object."
   (let ((id (slime-presentation-id presentation)))
     ;; Make sure it works even if *read-base* is not 10.
-    (cond
-     ((and (consp id) (integerp (car id)) (integerp (cdr id)))
-      (format "(swank:get-repl-result '(#10r%d . #10r%d))" (car id) (cdr id)))
-     ((integerp id)
-      (format "(swank:get-repl-result #10r%d)" id))
-     (t
-      (slime-prin1-to-string 
-       `(swank:get-repl-result ',id))))))
+    (format "(swank:get-repl-result #10r%d)" id)))
 
 (defun slime-buffer-substring-with-reified-output (start end)
   (let ((str-props (buffer-substring start end))
