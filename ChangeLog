@@ -1,3 +1,33 @@
+2005-09-15  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-clisp.lisp (compute-backtrace): Include only "function
+	frames" in the backtrace.  I hope that makes some sense.
+	(sldb-backtrace, function-frame-p): New functions.
+	(*sldb-backtrace*, call-with-debugging-environment, nth-frame):
+	Compute and remember the backtrace when entering the debugger.
+	(arglist): If the function has a function-lambda-expression, fetch
+	the arglist from there.
+	(find-encoding): Use strings instead of 'charset:foo symbols to
+	avoid compile time problems if the charset is not available.
+	Suggested by Vaucher Laurent.
+
+	* swank.lisp (eval-in-emacs): Fix a race condition which occurred
+	with sigio.
+	(*echo-area-prefix*): New variable.
+
+	* slime.el (slime-process-available-input): Simplify it a bit and
+	make it easier to debug read errors.
+	(slime-net-close): Don't kill the buffer if the new optional arg
+	`debug' is true.
+	(slime-run-when-idle): Accept arguments for the function.
+	(slime-init-connection-state): Close over the proc variable. It
+	was lost when the async evaluation returned.
+	(slime-output-buffer, slime-connection-output-buffer): Make
+	slime-output-buffer faster by keeping the buffer in a connection
+	variable.
+	(slime-restart-inferior-lisp-aux, slime-quit-lisp): Disable the
+	process filter to avoid errors in XEmacs.
+
 2005-09-14  Alan Ruttenberg <alanr-l@mumble.net>
 
 	* slime.el (slime-menu-choices-for-presentation), (slime-presentation-menu)
@@ -66,7 +96,7 @@
 	
 	* swank.lisp: Simplify the object <-> presentation-id mapping.
 	(save-presented-object): Remove the optional `id' arg.
-	(lookup-presented-object): Id's should be fixnums not some cons
+	(lookup-presented-object): Id should be a fixnum not some cons
 	with fuzzy/non-documented meaning.  Use the secondary return value
 	to test for absence of the id.  Update callers accordingly.
 	(*not-present*): Deleted.
