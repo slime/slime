@@ -1037,17 +1037,15 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
              (send-to-emacs `(:eval-no-wait ,fun ,args)))
             (t
              (force-output)
-             (let* ((tag (incf *read-input-catch-tag*)))
-               (send-to-emacs `(:eval ,(current-thread) ,tag ,fun ,args))
-               (receive-eval-result tag)))))))
+             (let* ((tag (incf *read-input-catch-tag*))
+                    (value (catch (intern-catch-tag tag)
+                             (send-to-emacs 
+                              `(:eval ,(current-thread) ,tag ,fun ,args))
+                             (loop (read-from-emacs)))))
+               (destructure-case value
+                 ((:ok value) value)
+                 ((:abort) (abort)))))))))
 
-(defun receive-eval-result (tag)
-  (let ((value (catch (intern-catch-tag tag)
-                 (loop (read-from-emacs)))))
-    (destructure-case value
-      ((:ok value) value)
-      ((:abort) (abort)))))
-                                    
 (defslimefun connection-info ()
   "Return a list of the form: 
 \(PID IMPLEMENTATION-TYPE IMPLEMENTATION-NAME FEATURES 
@@ -1060,6 +1058,18 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
         (connection.communication-style *emacs-connection*)
         (lisp-implementation-version)
         (machine-instance)))
+
+(defslimefun io-speed-test (n m)
+  (let ((s *standard-output*)
+        (*trace-output* *log-output*))
+    (time (progn
+            (dotimes (i n)
+              (format s "~D abcdefghijklm~%" i)
+              (when (zerop (mod n m))
+                (finish-output s)))
+            (finish-output s)
+            (eval-in-emacs '(message "done."))))
+    nil))
 
 
 ;;;; Reading and printing
@@ -1708,7 +1718,7 @@ If OBJECT was saved previously return the old id."
 
 (defun lookup-presented-object (id)
   "Retrieve the object corresponding to ID.
-The secondary value indicates the a absence of an entry."
+The secondary value indicates the absence of an entry."
   (gethash id *presentation-id-to-object*))
 
 (defslimefun get-repl-result (id)
@@ -1757,14 +1767,18 @@ Errors are trapped and invoke our debugger."
                                   ,(if ok `(:ok ,result) '(:abort)) 
                                   ,id)))))))
 
+(defvar *echo-area-prefix* "=> "
+  "A prefix that `format-values-for-echo-area' should use.")
+
 (defun format-values-for-echo-area (values)
   (with-buffer-syntax ()
     (let ((*print-readably* nil))
       (cond ((null values) "; No value")
             ((and (null (cdr values)) (integerp (car values)))
              (let ((i (car values)))
-               (format nil "~D (#x~X, #o~O, #b~B)" i i i i)))
-            (t (format nil "~{~S~^, ~}" values))))))
+               (format nil "~A~D (#x~X, #o~O, #b~B)" 
+                       *echo-area-prefix* i i i i)))
+            (t (format nil "~A~{~S~^, ~}" *echo-area-prefix* values))))))
 
 (defslimefun interactive-eval (string)
   (with-buffer-syntax ()
@@ -1933,7 +1947,7 @@ Return its name and the string to use in the prompt."
                                  collect (cons (prin1-to-string x) 
                                                (save-presented-object x)))))
               (t 
-               `(:values (mapcar #'prin1-to-string values))))))))
+               `(:values ,(mapcar #'prin1-to-string values))))))))
 
 (defslimefun ed-in-emacs (&optional what)
   "Edit WHAT in Emacs.
