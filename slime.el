@@ -171,6 +171,12 @@ See also `slime-translate-to-lisp-filename-function'."
   :type 'function
   :group 'slime-lisp)
 
+(defcustom slime-enable-evaluate-in-emacs nil
+  "*If non-nil, the inferior Lisp can evaluate arbitrary forms in Emacs.
+The default is nil, as this feature can be a security risk."
+  :type '(boolean)
+  :group 'slime-lisp)
+
 ;;;;; slime-mode
 
 (defgroup slime-mode nil
@@ -879,8 +885,6 @@ This list of flushed between commands."))
   (setq slime-pre-command-actions nil))
 
 (defun slime-post-command-hook ()
-  (when (and slime-mode (slime-connected-p))
-    (slime-process-available-input))
   (when (null pre-command-hook) ; sometimes this is lost
     (add-hook 'pre-command-hook 'slime-pre-command-hook)))
 
@@ -1648,12 +1652,17 @@ EVAL'd by Lisp."
         (and (not (multibyte-string-p string))
              (not (slime-coding-system-mulibyte-p coding-system))))))
 
-(defun slime-net-close (process)
+(defun slime-net-close (process &optional debug)
   (setq slime-net-processes (remove process slime-net-processes))
   (when (eq process slime-default-connection)
     (setq slime-default-connection nil))
-  (run-hook-with-args 'slime-net-process-close-hooks process)
-  (ignore-errors (kill-buffer (process-buffer process))))
+  (cond (debug         
+         (set-process-sentinel process 'ignore)
+         (delete-process process))
+        (t
+         (run-hook-with-args 'slime-net-process-close-hooks process)
+         ;; killing the buffer also closes the socket
+         (kill-buffer (process-buffer process)))))
 
 (defun slime-net-sentinel (process message)
   (message "Lisp connection closed unexpectedly: %s" message)
@@ -1664,41 +1673,32 @@ EVAL'd by Lisp."
 ;;; complete messages and hands them off to the event dispatcher.
 
 (defun slime-net-filter (process string)
-  "Accept output from the socket and input all complete messages."
+  "Accept output from the socket and process all complete messages."
   (with-current-buffer (process-buffer process)
-    (save-excursion
-      (goto-char (point-max))
-      (insert string))
-    (slime-process-available-input)))
+    (goto-char (point-max))
+    (insert string))
+  (slime-process-available-input process))
 
-(defun slime-run-when-idle (function)
+(defun slime-run-when-idle (function &rest args)
   "Call FUNCTION as soon as Emacs is idle."
-  (cond ((featurep 'xemacs)
-         (run-at-time itimer-short-interval nil
-                      (lambda (f) (funcall f)) function))
-        (t (run-at-time 0 nil function))))
+  (apply #'run-at-time 
+         (if (featurep 'xemacs) itimer-short-interval 0) 
+         nil function args))
 
-(defun slime-process-available-input ()
+(defun slime-process-available-input (process)
   "Process all complete messages that have arrived from Lisp."
-  (unwind-protect
-      (dolist (proc slime-net-processes)
-        (with-current-buffer (process-buffer proc)
-          (while (slime-net-have-input-p)
-            (let ((event (condition-case error
-                             (slime-net-read)
-                           (error 
-                            (message "net-read error: %S" error)
-                            (ding)
-                            (sleep-for 2)
-                            (ignore-errors (slime-net-close proc))
-                            (error "PANIC!")))))
-              (save-current-buffer
-                (slime-log-event event)
-                (slime-dispatch-event event proc))))))
-    (dolist (p slime-net-processes)
-      (with-current-buffer (process-buffer p)
-        (when (slime-net-have-input-p)
-          (slime-run-when-idle 'slime-process-available-input))))))
+  (with-current-buffer (process-buffer process)
+    (while (slime-net-have-input-p)
+      (let ((event (condition-case error
+                       (slime-net-read)
+                     (error
+                      (slime-net-close process t)
+                      (error "net-read error: %S" error)))))
+        (slime-log-event event)
+        (unwind-protect
+            (save-current-buffer (slime-dispatch-event event process))
+          (when (slime-net-have-input-p)
+            (slime-run-when-idle 'slime-process-available-input process)))))))
 
 (defun slime-net-have-input-p ()
   "Return true if a complete message is available."
@@ -1713,13 +1713,13 @@ EVAL'd by Lisp."
          (start (+ 6 (point)))
          (end (+ start length)))
     (assert (plusp length))
-    (let ((string (buffer-substring start end)))
+    (let ((string (buffer-substring-no-properties start end)))
       (prog1 (read string)
         (delete-region (point-min) end)))))
 
 (defun slime-net-decode-length ()
   "Read a 24-bit hex-encoded integer from buffer."
-  (string-to-number (buffer-substring (point) (+ (point) 6)) 16))
+  (string-to-number (buffer-substring-no-properties (point) (+ (point) 6)) 16))
 
 (defun slime-net-encode-length (n)
   "Encode an integer into a 24-bit hex string."
@@ -1952,25 +1952,27 @@ This is automatically synchronized from Lisp.")
   ;; be called from a timer, and if we setup the REPL from a timer
   ;; then it mysteriously uses the wrong keymap for the first command.
   (slime-eval-async '(swank:connection-info)
-                    (lambda (info)
-                      (slime-set-connection-info proc info))))
+                    (lexical-let ((proc proc))
+                      (lambda (info)
+                        (slime-set-connection-info proc info)))))
 
 (defun slime-set-connection-info (connection info)
   "Initialize CONNECTION with INFO received from Lisp."
-  (destructuring-bind (pid type name features style version host) info
-    (setf (slime-pid) pid
-          (slime-lisp-implementation-type) type
-          (slime-lisp-implementation-type-name) name
-          (slime-connection-name) (slime-generate-connection-name name)
-          (slime-lisp-features) features
-          (slime-communication-style) style
-          (slime-lisp-implementation-version) version
-          (slime-machine-instance) host))
-  (setq slime-state-name "")            ; FIXME
-  (slime-hide-inferior-lisp-buffer)
-  (slime-init-output-buffer connection)
-  (run-hooks 'slime-connected-hook)
-  (message "Connected. %s" (slime-random-words-of-encouragement)))
+  (let ((slime-dispatching-connection connection))
+    (destructuring-bind (pid type name features style version host) info
+      (setf (slime-pid) pid
+            (slime-lisp-implementation-type) type
+            (slime-lisp-implementation-type-name) name
+            (slime-connection-name) (slime-generate-connection-name name)
+            (slime-lisp-features) features
+            (slime-communication-style) style
+            (slime-lisp-implementation-version) version
+            (slime-machine-instance) host))
+    (setq slime-state-name "")          ; FIXME
+    (slime-hide-inferior-lisp-buffer)
+    (slime-init-output-buffer connection)
+    (run-hooks 'slime-connected-hook)
+    (message "Connected. %s" (slime-random-words-of-encouragement))))
 
 (defun slime-generate-connection-name (lisp-name)
   (loop for i from 1
@@ -2280,12 +2282,6 @@ Debugged requests are ignored."
 (slime-def-connection-var slime-continuation-counter 0
   "Continuation serial number counter.")
 
-(defcustom slime-enable-evaluate-in-emacs nil
-  "If non-nil, the inferior Lisp can evaluate arbitrary forms in Emacs.
-The default is nil, as this feature can be a security risk."
-  :type '(boolean)
-  :group 'slime-lisp)
-
 (defun slime-dispatch-event (event &optional process)
   (let ((slime-dispatching-connection (or process (slime-connection))))
     (destructure-case event
@@ -2345,13 +2341,10 @@ The default is nil, as this feature can be a security risk."
       ((:open-dedicated-output-stream port)
        (slime-open-stream-to-lisp port))
       ((:eval-no-wait fun args)
-       (if slime-enable-evaluate-in-emacs
-           (apply (intern fun) args)
-         (error "Cannot evaluate in Emacs because slime-enable-evaluate-in-emacs is nil")))
+       (slime-check-eval-in-emacs-enabled)
+       (apply (intern fun) args))
       ((:eval thread tag fun args)
-       (if slime-enable-evaluate-in-emacs
-           (slime-eval-for-lisp thread tag (intern fun) args)
-         (slime-eval-async `(cl:error "Cannot evaluate in Emacs because slime-enable-evaluate-in-emacs is nil"))))
+       (slime-eval-for-lisp thread tag (intern fun) args))
       ((:emacs-return thread tag value)
        (slime-send `(:emacs-return ,thread ,tag ,value)))
       ((:ed what)
@@ -2429,6 +2422,9 @@ The default is nil, as this feature can be a security risk."
 
 ;;;; Stream output
 
+(slime-def-connection-var slime-connection-output-buffer nil
+  "The buffer for the REPL.  May be nil or a dead buffer.")
+
 (defcustom slime-header-line-p t
   "If non-nil, display a header line in Slime buffers."
   :type 'boolean
@@ -2457,15 +2453,17 @@ The default is nil, as this feature can be a security risk."
 
 (defun slime-output-buffer (&optional noprompt)
   "Return the output buffer, create it if necessary."
-  (or (slime-repl-buffer)
-      (let ((connection (slime-connection)))
-        (with-current-buffer (slime-repl-buffer t)
-          (slime-repl-mode)
-          (setq slime-buffer-connection connection)
-          (slime-reset-repl-markers)
-          (unless noprompt 
-            (slime-repl-insert-prompt '(:suppress-output) 0))
-          (current-buffer)))))
+  (let ((buffer (slime-connection-output-buffer)))
+    (or (if (buffer-live-p buffer) buffer)
+        (setf (slime-connection-output-buffer)
+              (let ((connection (slime-connection)))
+                (with-current-buffer (slime-repl-buffer t connection)
+                  (slime-repl-mode)
+                  (setq slime-buffer-connection connection)
+                  (slime-reset-repl-markers)
+                  (unless noprompt 
+                    (slime-repl-insert-prompt '(:suppress-output) 0))
+                  (current-buffer)))))))
 
 (defun slime-repl-update-banner ()
   (let* ((banner (format "%s  Port: %s  Pid: %s"
@@ -2570,9 +2568,9 @@ update window-point afterwards.  If point is initially not at
         (> (- slime-output-end slime-output-start) 1000)))))
 
 (defun slime-output-filter (process string)
-  (when (and (slime-connected-p)
-             (plusp (length string)))
-    (with-current-buffer (process-buffer process)
+  (with-current-buffer (process-buffer process)
+    (when (and (plusp (length string))
+               (eq (process-status slime-buffer-connection) 'open))
       (slime-output-string string))))
 
 ;; FIXME: This conditional is not right - just used because the code
@@ -3086,7 +3084,7 @@ buffer, suitable for `x-popup-menu'."
   "Goto to point max, insert RESULT and the prompt.
 Set slime-output-end to start of the inserted text slime-input-start
 to end end."
-  (slime-flush-output)
+  ;;(slime-flush-output)
   (goto-char (point-max))
   (let ((start (point)))
     (unless (bolp) (insert "\n"))
@@ -3246,10 +3244,10 @@ the presented object."
 (defun slime-repl-bol ()
   "Go to the beginning of line or the prompt."
   (interactive)
-  (if (and (>= (point) slime-repl-input-start-mark)
-           (slime-same-line-p (point) slime-repl-input-start-mark))
-      (goto-char slime-repl-input-start-mark)
-    (beginning-of-line 1))
+  (cond ((and (>= (point) slime-repl-input-start-mark)
+              (slime-same-line-p (point) slime-repl-input-start-mark))
+         (goto-char slime-repl-input-start-mark))
+        (t (beginning-of-line 1)))
   (slime-preserve-zmacs-region))
 
 (defun slime-repl-eol ()
@@ -3894,6 +3892,7 @@ Return nil of no item matches"
 (defun slime-restart-inferior-lisp-aux ()
   (interactive)
   (slime-eval-async '(swank:quit-lisp))
+  (set-process-filter (slime-connection) nil)
   (set-process-sentinel (slime-connection) 'slime-restart-sentinel))
   
 (defun slime-restart-sentinel (process message)
@@ -5877,11 +5876,17 @@ The result is a (possibly empty) list of definitions."
   (let ((ok nil) 
         (value nil)
         (c (slime-connection)))
-    (unwind-protect (progn 
+    (unwind-protect (progn
+                      (slime-check-eval-in-emacs-enabled)
                       (setq value (apply fun args))
                       (setq ok t))
       (let ((result (if ok `(:ok ,value) `(:abort))))
         (slime-dispatch-event `(:emacs-return ,thread ,tag ,result) c)))))
+
+(defun slime-check-eval-in-emacs-enabled ()
+  "Raise an error if `slime-enable-evaluate-in-emacs' isn't true."
+  (unless slime-enable-evaluate-in-emacs
+    (error "eval-in-emacs not enabled")))
 
 
 ;;;; `ED'
@@ -6774,6 +6779,7 @@ CL:MACROEXPAND."
   (interactive)
   (slime-eval-async '(swank:quit-lisp))
   (kill-buffer (slime-output-buffer))
+  (set-process-filter (slime-connection) nil)
   (set-process-sentinel (slime-connection) 'slime-quit-sentinel))
 
 (defun slime-quit-sentinel (process message)
@@ -6783,7 +6789,6 @@ CL:MACROEXPAND."
     (when inferior (delete-process inferior))
     (when inferior-buffer (kill-buffer inferior-buffer))
     (slime-net-close process)
-    (slime-set-state "[not connected]" process)
     (message "Connection closed.")))
 
 (defun slime-set-package (package)
@@ -9607,6 +9612,7 @@ If they are not, position point at the first syntax error found."
           slime-events-buffer
           slime-output-string 
           slime-output-buffer
+          slime-connection-output-buffer
           slime-output-filter
           slime-repl-show-maximum-output
           slime-process-available-input 
