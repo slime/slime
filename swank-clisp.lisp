@@ -118,13 +118,11 @@
   (socket:socket-server-close socket))
 
 (defun find-encoding (external-format)
-  (ecase external-format
-    (:iso-latin-1-unix (ext:make-encoding :charset 'charset:iso-8859-1
-					  :line-terminator :unix))
-    (:utf-8-unix (ext:make-encoding :charset 'charset:utf-8
-				    :line-terminator :unix))
-    (:euc-jp-unix (ext:make-encoding :charset 'charset:euc-jp
-				    :line-terminator :unix))))
+  (let ((charset (ecase external-format
+		   (:iso-latin-1-unix "iso-8859-1")
+		   (:utf-8-unix       "utf-8")
+		   (:euc-jp-unix      "euc-jp"))))
+    (ext:make-encoding :charset charset :line-terminator :unix)))
   
 (defimplementation accept-connection (socket
 				      &key (external-format :iso-latin-1-unix))
@@ -137,7 +135,11 @@
 
 (defimplementation arglist (fname)
   (block nil
-    (or (ignore-errors (return (ext:arglist fname)))
+    (or (ignore-errors
+	  (let ((exp (function-lambda-expression fname)))
+	    (and exp (return (second exp)))))
+	(ignore-errors 
+	  (return (ext:arglist fname)))
 	:not-available)))
 
 (defimplementation macroexpand-all (form)
@@ -226,61 +228,97 @@ Return NIL if the symbol is unbound."
 (defimplementation find-definitions (name)
   (list (list name (fspec-location name))))
 
-(defvar *sldb-topframe*)
-(defvar *sldb-botframe*)
-(defvar *sldb-source*)
-(defvar *sldb-debugmode* 4)
+(defun trim-whitespace (string)
+  (string-trim #(#\newline #\space #\tab) string))
 
-(defun frame-down (frame)
-  (sys::frame-down-1 frame sys::*debug-mode*))
-
-(defun frame-up (frame)
-  (sys::frame-up-1 frame sys::*debug-mode*))
+(defvar *sldb-backtrace*)
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let* ((sys::*break-count* (1+ sys::*break-count*))
 	 (sys::*driver* debugger-loop-fn)
 	 (sys::*fasoutput-stream* nil)
-	 (sys::*frame-limit1* (sys::frame-limit1 0))
-	 (sys::*frame-limit2* (sys::frame-limit2))
-	 (sys::*debug-mode* *sldb-debugmode*)
-	 (*sldb-topframe* sys::*frame-limit1*))
+	 (*sldb-backtrace* (nthcdr 6 (sldb-backtrace))))
     (funcall debugger-loop-fn)))
 
-(defun nth-frame (index)
-  (loop for frame = *sldb-topframe* then (frame-up frame)
-	repeat index
-	finally (return frame)))
+(defun nth-frame (index) 
+  (nth index *sldb-backtrace*))
+
+;; This is the old backtrace implementation.  Not sure yet wheter the
+;; new is much better.
+;;
+;;(defimplementation compute-backtrace (start end)
+;;  (let ((end (or end most-positive-fixnum)))
+;;    (loop for last = nil then frame
+;;	    for frame = (nth-frame start) then (frame-up frame)
+;;	    for i from start below end
+;;	    until (or (eq frame last) (not frame))
+;;	    collect frame)))
+;; 
+;;(defimplementation print-frame (frame stream)
+;;  (write-string (trim-whitespace
+;;		   (with-output-to-string (stream)
+;;		     (sys::describe-frame stream frame)))
+;;		  stream))
+;;
+;;(defimplementation frame-locals (frame-number)
+;;  (let* ((frame (nth-frame frame-number))
+;;	   (frame-env (sys::eval-at frame '(sys::the-environment))))
+;;    (append
+;;     (frame-do-venv frame (svref frame-env 0))
+;;     (frame-do-fenv frame (svref frame-env 1))
+;;     (frame-do-benv frame (svref frame-env 2))
+;;     (frame-do-genv frame (svref frame-env 3))
+;;     (frame-do-denv frame (svref frame-env 4)))))
+;;
+;;(defimplementation frame-var-value (frame var)
+;;  (getf (nth var (frame-locals frame)) :value))
+
+(defun format-frame (frame)
+  (trim-whitespace 
+   (with-output-to-string (s) 
+     (sys::describe-frame s frame))))
+
+(defun function-frame-p (frame)
+  ;; We are interested in frames which like look "<5> foo ...".  
+  ;; Ugly, I know.
+  (char= #\< (aref (format-frame frame) 0)))
+
+(defun sldb-backtrace ()
+  "Return a list ((ADDRESS . DESCRIPTION) ...) of frames."
+  (do ((fframes '())
+       (last nil frame)
+       (frame (sys::the-frame) (sys::frame-up-1 frame 1)))
+      ((eq frame last) (nreverse fframes))
+    (when (function-frame-p frame)
+      (push (cons frame (format-frame frame)) fframes))))
 
 (defimplementation compute-backtrace (start end)
-  (let ((end (or end most-positive-fixnum)))
-    (loop for last = nil then frame
-	  for frame = (nth-frame start) then (frame-up frame)
-	  for i from start below end
-	  until (or (eq frame last) (system::driver-frame-p frame))
-	  collect frame)))
+  (let* ((bt *sldb-backtrace*)
+	 (len (length bt)))
+    (subseq bt start (min (or end len) len))))
 
 (defimplementation print-frame (frame stream)
-  (write-string (string-left-trim '(#\Newline)
-				  (with-output-to-string (stream)
-				    (sys::describe-frame stream frame)))
-		stream))
+  (let ((desc (cdr frame)))
+    (write-string (subseq (cdr frame)
+			  (+ (position #\> desc) 2)
+			  (position #\newline desc))
+		  stream)))
+
+(defimplementation format-sldb-condition (condition)
+  (trim-whitespace (princ-to-string condition)))
 
 (defimplementation eval-in-frame (form frame-number)
-  (sys::eval-at (nth-frame frame-number) form))
+  (sys::eval-at (car (nth-frame frame-number)) form))
 
-(defimplementation frame-locals (frame-number)
-  (let* ((frame (nth-frame frame-number))
-	 (frame-env (sys::eval-at frame '(sys::the-environment))))
-    (append
-     (frame-do-venv frame (svref frame-env 0))
-     (frame-do-fenv frame (svref frame-env 1))
-     (frame-do-benv frame (svref frame-env 2))
-     (frame-do-genv frame (svref frame-env 3))
-     (frame-do-denv frame (svref frame-env 4)))))
+;; Don't know how to access locals.  Return some strings instead.
+;; Maybe we should search some frame nearby with a 'sys::the-environment?
+(defimplementation frame-locals (frame-number) 
+  (let ((desc (cdr (nth-frame frame-number))))
+    (list (list :name :|| :id 0
+		:value (trim-whitespace 
+			(subseq desc (position #\newline desc)))))))
 
-(defimplementation frame-var-value (frame var)
-  (getf (nth var (frame-locals frame)) :value))
+(defimplementation frame-var-value (frame var) nil)
 
 ;; Interpreter-Variablen-Environment has the shape
 ;; NIL or #(v1 val1 ... vn valn NEXT-ENV).
@@ -317,13 +355,13 @@ Return NIL if the symbol is unbound."
   nil)
 
 (defimplementation return-from-frame (index form)
-  (sys::return-from-eval-frame (nth-frame index) form))
+  (sys::return-from-eval-frame (car (nth-frame index)) form))
 
 (defimplementation restart-frame (index)
-  (sys::redo-eval-frame (nth-frame index)))
+  (sys::redo-eval-frame (car (nth-frame index))))
 
 (defimplementation frame-source-location-for-emacs (index)
-  (let ((f (nth-frame index)))
+  (let ((f (car (nth-frame index))))
     (list :error (format nil "Cannot find source for frame: ~A ~A ~A" 
 			 f
 			 (sys::eval-frame-p f)
