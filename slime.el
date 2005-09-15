@@ -3024,57 +3024,63 @@ When a presentation has been altered, change it to plain text."
 ;; 2. Let used choose
 ;; 3. Call back to execute menu choice, passing nth and string of choice
 
-(defun slime-menu-choices-for-presentation (presentation from to)
+(defun slime-menu-choices-for-presentation (presentation from to choice-to-lambda)
   "Return a menu for `presentation' at `from'--`to' in the current
 buffer, suitable for `x-popup-menu'."
   (let* ((what (slime-presentation-id presentation))
          (choices (slime-eval 
                    `(swank::menu-choices-for-presentation-id ',what))))
+    (flet ((savel (f) ;; IMPORTANT - xemacs can't handle lambdas in x-popup-menu. So give them a name
+            (let ((sym (gensym)))
+              (setf (gethash sym choice-to-lambda) f)
+              sym)))
     (etypecase choices
       (list
        `(,(if (featurep 'xemacs) " " "")
          ("" 
-          ("Inspect" . (lambda ()
+          ("Inspect" . ,(savel `(lambda ()
                          (interactive)
-                         (slime-inspect-presented-object ',what)))
+                         (slime-inspect-presented-object ',what))))
           ("Describe" . 
-           (lambda ()
+           ,(savel `(lambda ()
              (interactive)
              ;; XXX remove call to describe.
              (slime-eval '(cl:describe 
-                           (swank::lookup-presented-object ',what)))))
-          ("Copy to input" . slime-copy-presentation-at-point)
+                           (swank::lookup-presented-object ',what))))))
+          ("Copy to input" . ,(savel 'slime-copy-presentation-at-point))
           ,@(let ((nchoice 0))
               (mapcar 
                (lambda (choice)
                  (incf nchoice)
                  (cons choice 
-                       `(lambda ()
+                       (savel `(lambda ()
                           (interactive)
                           (slime-eval 
                            '(swank::execute-menu-choice-for-presentation-id
-                             ',what ,nchoice ,(nth (1- nchoice) choices))))))
+                             ',what ,nchoice ,(nth (1- nchoice) choices)))))))
                choices)))))
       (symbol                           ; not-present
        (slime-remove-presentation-properties from to presentation)
        (sit-for 0)                      ; allow redisplay
        `("Object no longer recorded" 
-         ("sorry" . ,(if (featurep 'xemacs) nil '(nil))))))))
+         ("sorry" . ,(if (featurep 'xemacs) nil '(nil)))))))))
 
 (defun slime-presentation-menu (event)
   (interactive "e")
   (let* ((point (if (featurep 'xemacs) (event-point event) (posn-point (event-end event))))
-         (window (if (featurep 'xemacs) (event-window event) (caadr event))))
+         (window (if (featurep 'xemacs) (event-window event) (caadr event)))
+         (choice-to-lambda (make-hash-table)))
     (with-current-buffer (window-buffer window)
       (multiple-value-bind (presentation from to)
           (slime-presentation-around-point point)
         (unless presentation
           (error "No presentation at event position"))
         (let ((menu (slime-menu-choices-for-presentation 
-                     presentation from to)))
+                     presentation from to choice-to-lambda)))
+          (setq it choice-to-lambda)
           (let ((choice (x-popup-menu event menu)))
             (when choice
-              (call-interactively choice))))))))
+              (call-interactively (gethash choice choice-to-lambda)))))))))
 
 (defun slime-repl-insert-prompt (result &optional time)
   "Goto to point max, insert RESULT and the prompt.

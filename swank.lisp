@@ -3363,7 +3363,7 @@ NIL is returned if the list is circular."
 		     *slime-inspect-contents-limit* )
 	    ,(lambda() 
 	       (let ((*slime-inspect-contents-limit* 
-		      (read)))
+		      (progn (format t "How many elements should be shown? ") (read))))
 		 (values
 		  (swank::inspect-object thing)
 		  :replace)

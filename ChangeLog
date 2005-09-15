@@ -1,3 +1,17 @@
+2005-09-14  Alan Ruttenberg <alanr-l@mumble.net>
+
+	* slime.el (slime-menu-choices-for-presentation), (slime-presentation-menu)
+	Fix loss after refactoring. xemacs can't handle lambda forms in
+	the menu spec given to x-popup-menu, only symbols, so save the
+	actions in a hash table keyed by a gensym, give x-popup-menu the
+	gensym and then call the gensym. Haven't checked that it actually
+	works in xemacs because my xemacs is hosed in os x Tiger. Could
+	someone let me know...
+	
+	* swank.lisp (inspect-factor-more-action)
+	rename (inspect-show-more-action) Prompt before reading how many
+	more. Would be nicer to prompt in the minibuffer...
+	
 2005-09-14  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-presentation-expression): Remove handling of
