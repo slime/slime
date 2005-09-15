@@ -3342,7 +3342,7 @@ NIL is returned if the list is circular."
 (defmethod inspect-bigger-piece-actions (thing size)
   (append 
    (if (> size *slime-inspect-contents-limit*)
-       (list (inspect-factor-more-action thing)
+       (list (inspect-show-more-action thing)
 	     '(:newline))
        nil)
    (list (inspect-whole-thing-action thing  size)
@@ -3358,7 +3358,7 @@ NIL is returned if the list is circular."
 		  :replace)
 		 ))))
 
-(defmethod inspect-factor-more-action (thing)
+(defmethod inspect-show-more-action (thing)
   `(:action ,(format nil "~a elements shown. Prompt for how many to inspect..." 
 		     *slime-inspect-contents-limit* )
 	    ,(lambda() 
