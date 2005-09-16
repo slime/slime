@@ -3334,7 +3334,8 @@ balanced."
               (< (point) slime-repl-input-start-mark))
          (slime-repl-grab-old-input end-of-input)
          (slime-repl-recenter-if-needed))
-        ((car (slime-presentation-around-or-before-point (point)))
+        ((and (car (slime-presentation-around-or-before-point (point)))
+                   (< (point) slime-repl-input-start-mark))
          (slime-repl-grab-old-output end-of-input)
          (slime-repl-recenter-if-needed))
         ((slime-input-complete-p slime-repl-input-start-mark 

@@ -1,3 +1,7 @@
+2005-09-15  Alan Ruttenberg <alanr-l@mumble.net>
+	* slime.el (slime-repl-return) don't copy presentation to input if
+	already in input area.
+	
 2005-09-15  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-clisp.lisp (compute-backtrace): Include only "function
