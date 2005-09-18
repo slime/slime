@@ -65,6 +65,9 @@
 ;;;
 ;;; ls | devgnu *scratch*
 
+(eval-when-compile
+  (require 'cl))
+
 ;;;%Parameters
 (defvar bridge-hook nil
   "Hook called when a bridge is installed by install-hook.")
