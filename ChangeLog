@@ -1,3 +1,11 @@
+2005-09-19  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime48): New command.
+
+2005-09-19 Taylor Campbell <campbell@mumble.net>
+
+	* swank-scheme48/: New backend.
+
 2005-09-18  Wolfgang Jenkner  <wjenkner@inode.at>
 
 	* bridge.el: cl is required at macro expansion time (because of
