@@ -1274,6 +1274,23 @@ See `slime-translate-from-lisp-filename-function'."
          (slime-dispatching-connection process))
     (slime-setup-connection process symbolic-lisp-name)))
 
+(defun slime48 ()
+  "Start a Scheme48 process and connect to its Swank server."
+  (interactive)
+  (setq-default slime-lisp-package:connlocal "(scratch)")
+  (setq-default slime-lisp-package-prompt-string:connlocal "(scratch)")
+  (let ((proc (slime-start-lisp 
+	       scheme-program-name (get-buffer-create "*inferior-lisp*")
+	       (concat ",translate =slime48/ " slime-path "swank-scheme48/\n"
+		       ",exec ,load =slime48/load.scm\n"
+		       ",exec " 
+		       (format "(slime48-start %S)" (slime-swank-port-file))
+		       "\n"))))
+    (switch-to-buffer (process-buffer proc))
+    (goto-char (point-max))
+    (slime-read-port-and-connect proc nil)))
+
+
 (defun slime-start-and-load (filename &optional package)
   "Start Slime, if needed, load the current file and set the package."
   (interactive (list (expand-file-name (buffer-file-name))
