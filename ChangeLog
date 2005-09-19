@@ -1,3 +1,7 @@
+2005-09-19  Luke Gorrie  <luke@synap.se>
+
+	* nregex.lisp: Released into the public domain by Lawrence E. Freil.
+
 2005-09-19  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime48): New command.

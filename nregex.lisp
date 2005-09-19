@@ -1,13 +1,12 @@
 ;;;
 ;;; This code was written by:
 ;;;
-;;;    Lawrence E. Freil <lef@nscf.org>
+;;;    Lawrence E. Freil <lef@freil.com>
 ;;;    National Science Center Foundation
 ;;;    Augusta, Georgia 30909
 ;;;
-;;; If you modify this code, please comment your modifications
-;;; clearly and inform the author of any improvements so they
-;;; can be incorporated in future releases.
+;;; This program was released into the public domain on 2005-08-31.
+;;; (See the slime-devel mailing list archive for details.)
 ;;;
 ;;; nregex.lisp - My 4/8/92 attempt at a Lisp based regular expression
 ;;;               parser. 
