@@ -896,6 +896,7 @@ This list of flushed between commands."))
   (add-hook 'pre-command-hook 'slime-pre-command-hook nil t) 
   (add-hook 'post-command-hook 'slime-post-command-hook nil t)
   (when slime-repl-enable-presentations
+    (make-local-variable 'after-change-functions)
     (add-hook 'after-change-functions 'slime-after-change-function nil t)))
 
 
@@ -2733,7 +2734,7 @@ profiling before running the benchmark."
   ;;(byte-compile-file "slime-net.el" t)
   ;;(setq slime-log-events nil)
   (setq slime-enable-evaluate-in-emacs t)
-  (setq slime-repl-enable-presentations nil)
+  ;;(setq slime-repl-enable-presentations nil)
   (when profile
     (elp-instrument-package "slime-"))
   (kill-buffer (slime-output-buffer))
@@ -8823,6 +8824,8 @@ BODY returns true if the check succeeds."
       (cond ((time-less-p end (current-time))
              (error "Timeout waiting for condition: %S" name))
             (t
+             ;; XXX if a process-filter enters a recursive-edit, we
+             ;; hang forever
              (accept-process-output nil 0 100000))))))
 
 (defun slime-sync-to-top-level (timeout)
@@ -9184,8 +9187,8 @@ SWANK> ")
     (insert input)
     (call-interactively 'slime-repl-return)
     (slime-sync-to-top-level 5)
-    (slime-check "Buffer contains result"
-      (equal result-contents (buffer-string)))))
+    (slime-test-expect "Buffer contains result" 
+                       result-contents (buffer-string))))
 
 (def-slime-test repl-read-lines
     (command inputs final-contents)
@@ -9236,15 +9239,17 @@ SWANK> " t))
     ()
     "Test if BREAK invokes SLDB."
     '(())
+  (slime-check-top-level)
   (slime-compile-string (prin1-to-string '(cl:defun cl-user::foo () 
                                                     (cl:break))) 
                         0)
+  (slime-sync-to-top-level 2)
   (slime-eval-async '(cl-user::foo))
   (slime-wait-condition "Debugger visible" 
                         (lambda () 
                           (and (slime-sldb-level= 1)
                                (get-buffer-window (sldb-get-default-buffer))))
-                        10)
+                        5)
   (with-current-buffer (sldb-get-default-buffer)
     (sldb-quit))
   (slime-sync-to-top-level 5))
