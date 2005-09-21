@@ -1,3 +1,35 @@
+2005-09-21  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-gray.lisp, swank-cmucl.lisp: Improve stream efficiency by
+	buffering more output. stream-force-output simply does nothing, if
+	the output buffer was flushed less than 200 millisecons before.
+	stream-finish-output can still be used to really flush the buffer.
+	(slime-output-stream): New slot last-flush-time.
+	(stream-finish-output): New function. Do what stream-force-output
+	did previously.
+	(stream-force-output): Buffer more output.
+
+	* slime.el (slime-process-available-input): Oops, don't start a
+	timer for every event.
+	(slime-write-string): Renamed from slime-output-string.
+	(slime-dispatch-event): Rename :read-output to :write-string.
+	(slime-io-speed-test): New command.
+	(slime-open-stream-to-lisp): Fix parens. The coding system should
+	also be set if presentations are disabled.
+
+	* swank.lisp (make-output-function): Rename :read-output to
+	:write-string.
+	(eval-for-emacs, interactive-eval, eval-region): Use finish-output
+	not force-output.
+
+	* swank-sbcl.lisp, swank-openmcl.lisp, swank-allegro.lisp,
+	swank-lispworks: Import `stream-finish-output'.
+
+	* swank-scheme48/io.scm (empty-swank-output-buffer): Rename
+	:read-output to :write-string.
+
+	* swank-scheme48/load.scm (slime48-start): Fix '() vs. #f bug.
+
 2005-09-19  Luke Gorrie  <luke@synap.se>
 
 	* nregex.lisp: Released into the public domain by Lawrence E. Freil.
