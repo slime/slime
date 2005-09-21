@@ -24,6 +24,7 @@
    sb-gray:stream-write-char
    sb-gray:stream-line-length
    sb-gray:stream-force-output
+   sb-gray:stream-finish-output
    sb-gray:fundamental-character-input-stream
    sb-gray:stream-read-char
    sb-gray:stream-listen
