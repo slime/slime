@@ -373,7 +373,7 @@ PROPERTIES specifies any default face properties."
          ;; mouseable text sucks in Emacs 20
          nil)
         (t t))
-  "Should we enable presentations"
+  "*Should we enable presentations"
   :type '(boolean)
   :group 'slime-repl)
 
@@ -1712,10 +1712,14 @@ EVAL'd by Lisp."
                       (slime-net-close process t)
                       (error "net-read error: %S" error)))))
         (slime-log-event event)
-        (unwind-protect
-            (save-current-buffer (slime-dispatch-event event process))
-          (when (slime-net-have-input-p)
-            (slime-run-when-idle 'slime-process-available-input process)))))))
+        (let ((ok nil))
+          (unwind-protect
+              (save-current-buffer 
+                (slime-dispatch-event event process)
+                (setq ok t))
+            (unless ok 
+              (slime-run-when-idle 
+               'slime-process-available-input process))))))))
 
 (defun slime-net-have-input-p ()
   "Return true if a complete message is available."
@@ -2302,8 +2306,8 @@ Debugged requests are ignored."
 (defun slime-dispatch-event (event &optional process)
   (let ((slime-dispatching-connection (or process (slime-connection))))
     (destructure-case event
-      ((:read-output output)
-       (slime-output-string output))
+      ((:write-string output)
+       (slime-write-string output))
       ((:presentation-start id)
        (slime-mark-presentation-start id))
       ((:presentation-end id)
@@ -2548,7 +2552,7 @@ output as arguments.")
 (defun slime-show-last-output ()
   "Show the output from the last Lisp evaluation."
   (with-current-buffer (slime-output-buffer)
-    (slime-flush-output)
+    ;;(slime-flush-output)
     (let ((start slime-output-start)
           (end slime-output-end))
       (funcall slime-show-last-output-function start end))))
@@ -2588,7 +2592,7 @@ update window-point afterwards.  If point is initially not at
   (with-current-buffer (process-buffer process)
     (when (and (plusp (length string))
                (eq (process-status slime-buffer-connection) 'open))
-      (slime-output-string string))))
+      (slime-write-string string))))
 
 ;; FIXME: This conditional is not right - just used because the code
 ;; here does not work in XEmacs.
@@ -2705,17 +2709,44 @@ RESULT-P decides whether a face for a return value or output text is used."
       (install-bridge)
       (setq bridge-destination-insert nil)
       (setq bridge-source-insert nil)
-      (setq bridge-handlers (list* '("<" . slime-mark-presentation-start-handler) 
-                                   '(">" . slime-mark-presentation-end-handler)
-                                   bridge-handlers))
-      (set-process-coding-system stream 
-                                 slime-net-coding-system 
-                                 slime-net-coding-system))
+      (setq bridge-handlers 
+            (list* '("<" . slime-mark-presentation-start-handler) 
+                   '(">" . slime-mark-presentation-end-handler)
+                   bridge-handlers)))
+    (set-process-coding-system stream 
+                               slime-net-coding-system 
+                               slime-net-coding-system)
     (when-let (secret (slime-secret))
       (slime-net-send secret stream))
     stream))
 
-(defun slime-output-string (string)
+(defun slime-io-speed-test (&optional profile)
+  "A simple minded benchmark for stream performance.
+If a prefix argument is given, instrument the slime package for
+profiling before running the benchmark."
+  (interactive "P")
+  (eval-and-compile
+    (require 'elp))
+  (elp-reset-all)
+  (elp-restore-all)
+  (load "slime.el")
+  ;;(byte-compile-file "slime-net.el" t)
+  ;;(setq slime-log-events nil)
+  (setq slime-enable-evaluate-in-emacs t)
+  (setq slime-repl-enable-presentations nil)
+  (when profile
+    (elp-instrument-package "slime-"))
+  (kill-buffer (slime-output-buffer))
+  ;;(display-buffer (slime-output-buffer))
+  (delete-other-windows)
+  (sit-for 0)
+  (slime-repl-send-string "(swank:io-speed-test 5000 1)")
+  (let ((proc (slime-inferior-process)))
+    (when proc
+      (switch-to-buffer (process-buffer proc))
+      (goto-char (point-max)))))
+
+(defun slime-write-string (string)
   (with-current-buffer (slime-output-buffer)
     (slime-with-output-end-mark
      (slime-propertize-region '(face slime-repl-output-face)
@@ -4541,7 +4572,7 @@ Return nil if there's no useful source location."
   (let ((location (slime-note.location note)))
     (when location 
       (destructure-case location
-        ((:error msg) )                 ; do nothing
+        ((:error _) _ nil)                 ; do nothing
         ((:location file pos _hints)
          (cond ((eq (car file) ':source-form) nil)
                (t
@@ -7453,7 +7484,7 @@ The details include local variable bindings and CATCH-tags."
   (let* ((number (sldb-frame-number-at-point)))
     (slime-eval-async `(swank:eval-string-in-frame ,string ,number)
                       (if current-prefix-arg
-                          'slime-output-string
+                          'slime-write-string
                         'slime-display-eval-result))))
 
 (defun sldb-pprint-eval-in-frame (string)
@@ -7680,7 +7711,7 @@ This way you can still see what the error was after exiting SLDB."
   (interactive)
   (when (null sldb-condition)
     (error "No condition known (wrong buffer?)"))
-  (slime-output-string (format "%s\n%s\n"
+  (slime-write-string (format "%s\n%s\n"
                                (first sldb-condition)
                                (second sldb-condition))))
 
@@ -9628,7 +9659,7 @@ If they are not, position point at the first syntax error found."
         '(slime-alistify
           slime-log-event
           slime-events-buffer
-          slime-output-string 
+          slime-write-string 
           slime-output-buffer
           slime-connection-output-buffer
           slime-output-filter
