@@ -156,9 +156,7 @@ specific functions.")
 
 (defimplementation add-fd-handler (socket fn)
   (let ((fd (socket-fd socket)))
-    (sys:add-fd-handler fd :input (lambda (_) 
-                                    _
-                                    (funcall fn)))))
+    (sys:add-fd-handler fd :input (lambda (_) _ (funcall fn)))))
 
 (defimplementation remove-fd-handlers (socket)
   (sys:invalidate-descriptor (socket-fd socket)))
@@ -181,9 +179,11 @@ specific functions.")
              (:print-function %print-slime-output-stream)
              (:constructor make-slime-output-stream (output-fn)))
   (output-fn nil :type function)
-  (buffer (make-string 512) :type string)
+  (buffer (make-string 8000) :type string)
   (index 0 :type kernel:index)
-  (column 0 :type kernel:index))
+  (column 0 :type kernel:index)
+  (last-flush-time (get-internal-real-time) :type unsigned-byte)
+  )
 
 (defun %print-slime-output-stream (s stream d)
   (declare (ignore d))
@@ -199,22 +199,44 @@ specific functions.")
       (setf (sos.column stream) 0)
       (force-output stream))
     (when (= index (1- (length buffer)))
-      (force-output stream)))
+      (finish-output stream)))
   char)
 
 (defun sos/sout (stream string start end)
   (loop for i from start below end 
 	do (sos/out stream (aref string i))))
 
+(defun log-stream-op (stream operation)
+  stream operation
+  #+(or)
+  (progn 
+    (format sys:*tty* "~S @ ~D ~A~%" operation 
+            (sos.index stream)
+            (/ (- (get-internal-real-time) (sos.last-flush-time stream))
+             (coerce internal-time-units-per-second 'double-float)))
+    (finish-output sys:*tty*)))
+  
 (defun sos/misc (stream operation &optional arg1 arg2)
   (declare (ignore arg1 arg2))
   (case operation
-    ((:force-output :finish-output)
+    (:finish-output
+     (log-stream-op stream operation)
      (let ((end (sos.index stream)))
        (unless (zerop end)
          (let ((s (subseq (sos.buffer stream) 0 end)))
            (setf (sos.index stream) 0)
-           (funcall (sos.output-fn stream) s)))))
+           (funcall (sos.output-fn stream) s)))
+       (setf (sos.last-flush-time stream) (get-internal-real-time)))
+     nil)
+    (:force-output
+     (log-stream-op stream operation)
+     (let ((last (sos.last-flush-time stream))
+           (now (get-internal-real-time)))
+         (when (> (/ (- now last)
+                     (coerce internal-time-units-per-second 'double-float))
+                  0.2)
+           (finish-output stream)))
+     nil)
     (:charpos (sos.column stream))
     (:line-length 75)
     (:file-position nil)
