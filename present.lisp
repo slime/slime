@@ -115,7 +115,7 @@ don't want to present anything"
 	     (prin1 pid stream)
 	     (write-string "" stream))
 	    (t
-	     (force-output stream)
+	     (finish-output stream)
 	     (send-to-emacs `(:presentation-start ,pid)))))
     (setf (presentation-record-printed-p record) t)))
 	   
@@ -129,7 +129,7 @@ don't want to present anything"
 	     (prin1 pid stream)
 	     (write-string "" stream))
 	    (t
-	     (force-output stream)
+	     (finish-output stream)
 	     (send-to-emacs `(:presentation-end ,pid)))))))
 
 (defun presenting-object-1 (object stream continue)
