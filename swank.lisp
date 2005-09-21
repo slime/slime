@@ -458,7 +458,7 @@ stream (or NIL if none was created)."
                 (with-connection (connection)
                   (with-simple-restart
                       (abort "Abort sending output to Emacs.")
-                    (send-to-emacs `(:read-output ,string)))))
+                    (send-to-emacs `(:write-string ,string)))))
               nil)))
 
 (defun open-dedicated-output-stream (socket-io external-format)
@@ -600,9 +600,9 @@ of the toplevel restart."
      (encode-message `(:eval ,(thread-id thread) ,@args) socket-io))
     ((:emacs-return thread-id tag value)
      (send (find-thread thread-id) `(take-input ,tag ,value)))
-    (((:read-output :presentation-start :presentation-end
-                    :new-package :new-features :ed :%apply :indentation-update
-                    :eval-no-wait :background-message)
+    (((:write-string :presentation-start :presentation-end
+                     :new-package :new-features :ed :%apply :indentation-update
+                     :eval-no-wait :background-message)
       &rest _)
      (declare (ignore _))
      (encode-message event socket-io))))
@@ -720,10 +720,10 @@ of the toplevel restart."
       ((:return thread &rest args)
        (declare (ignore thread))
        (send `(:return ,@args)))
-      (((:read-output :new-package :new-features :debug-condition
-                      :presentation-start :presentation-end
-                      :indentation-update :ed :%apply :eval-no-wait
-                      :background-message)
+      (((:write-string :new-package :new-features :debug-condition
+                       :presentation-start :presentation-end
+                       :indentation-update :ed :%apply :eval-no-wait
+                       :background-message)
         &rest _)
        (declare (ignore _))
        (send event)))))
@@ -1059,16 +1059,19 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
         (lisp-implementation-version)
         (machine-instance)))
 
-(defslimefun io-speed-test (n m)
-  (let ((s *standard-output*)
-        (*trace-output* *log-output*))
+(defslimefun io-speed-test (&optional (n 5000) (m 1))
+  (let* ((s *standard-output*)
+         (*trace-output* (make-broadcast-stream s *log-output*)))
     (time (progn
             (dotimes (i n)
               (format s "~D abcdefghijklm~%" i)
               (when (zerop (mod n m))
-                (finish-output s)))
+                (force-output s)))
             (finish-output s)
-            (eval-in-emacs '(message "done."))))
+            (when *emacs-connection*
+              (eval-in-emacs '(message "done.")))))
+    (terpri *trace-output*)
+    (finish-output *trace-output*)
     nil))
 
 
@@ -1759,7 +1762,7 @@ Errors are trapped and invoke our debugger."
               (check-type *buffer-package* package)
               (check-type *buffer-readtable* readtable)
               (setq result (eval form))
-              (force-output)
+              (finish-output)
               (run-hook *pre-reply-hook*)
               (setq ok t))
          (force-user-output)
@@ -1784,7 +1787,7 @@ Errors are trapped and invoke our debugger."
   (with-buffer-syntax ()
     (let ((values (multiple-value-list (eval (from-string string)))))
       (fresh-line)
-      (force-output)
+      (finish-output)
       (format-values-for-echo-area values))))
 
 (defslimefun eval-and-grab-output (string)
@@ -1838,13 +1841,13 @@ change, then send Emacs an update."
             (let ((form (read stream nil stream)))
               (when (eq form stream)
                 (fresh-line)
-                (force-output)
+                (finish-output)
                 (return (values values -)))
               (setq - form)
 	      (if *slime-repl-eval-hooks* 
                   (setq values (run-repl-eval-hooks form))
                   (setq values (multiple-value-list (eval form))))
-              (force-output)))))
+              (finish-output)))))
     (when (and package-update-p (not (eq *package* *buffer-package*)))
       (send-to-emacs 
        (list :new-package (package-name *package*)
