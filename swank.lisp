@@ -278,10 +278,9 @@ If *REDIRECT-IO* is true then all standard I/O streams are redirected."
 
 (defun call-with-connection (connection fun)
   (let ((*emacs-connection* connection))
-    (catch 'slime-toplevel
-      (with-io-redirection (*emacs-connection*)
-        (let ((*debugger-hook* #'swank-debugger-hook))
-          (funcall fun))))))
+    (with-io-redirection (*emacs-connection*)
+      (let ((*debugger-hook* #'swank-debugger-hook))
+        (funcall fun)))))
 
 (defmacro without-interrupts (&body body)
   `(call-without-interrupts (lambda () ,@body)))
@@ -479,7 +478,7 @@ of the toplevel restart."
   (let ((*swank-state-stack* '(:handle-request))
 	(*debugger-hook* nil))
     (with-connection (connection)
-      (with-simple-restart (abort "Abort handling SLIME request.")
+      (with-simple-restart (abort-request "Abort handling SLIME request.")
         (read-from-emacs)))))
 
 (defun current-socket-io ()
@@ -2174,12 +2173,15 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
   (continue))
 
 (defslimefun throw-to-toplevel ()
-  "Use THROW to abort an RPC from Emacs.
+  "Invoke the ABORT-REQUEST restart abort an RPC from Emacs.
 If we are not evaluating an RPC then ABORT instead."
-  (ignore-errors (throw 'slime-toplevel nil))
-  ;; If we get here then there was no catch. Try aborting as a fallback.
-  ;; That makes the 'q' command in SLDB safer to use with threads.
-  (abort))
+  (let ((restart (find-restart 'abort-request)))
+    (cond (restart (invoke-restart restart))
+          (t
+           ;; If we get here then there was no catch. Try aborting as
+           ;; a fallback.  That makes the 'q' command in SLDB safer to
+           ;; use with threads.
+           (abort)))))
 
 (defslimefun invoke-nth-restart-for-emacs (sldb-level n)
   "Invoke the Nth available restart.
