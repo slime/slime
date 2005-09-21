@@ -12,9 +12,10 @@
 
 (defclass slime-output-stream (fundamental-character-output-stream)
   ((output-fn :initarg :output-fn)
-   (buffer :initform (make-string 512))
+   (buffer :initform (make-string 8000))
    (fill-pointer :initform 0)
-   (column :initform 0)))
+   (column :initform 0)
+   (last-flush-time :initform (get-internal-real-time))))
 
 (defmethod stream-write-char ((stream slime-output-stream) char)
   (with-slots (buffer fill-pointer column) stream
@@ -22,9 +23,10 @@
     (incf fill-pointer)
     (incf column)
     (when (char= #\newline char)
-      (setf column 0))
+      (setf column 0)
+      (force-output stream))
     (when (= fill-pointer (length buffer))
-      (force-output stream)))
+      (finish-output stream)))
   char)
 
 (defmethod stream-line-column ((stream slime-output-stream))
@@ -33,12 +35,22 @@
 (defmethod stream-line-length ((stream slime-output-stream))
   75)
 
-(defmethod stream-force-output ((stream slime-output-stream))
-  (with-slots (buffer fill-pointer output-fn) stream
+(defmethod stream-finish-output ((stream slime-output-stream))
+  (with-slots (buffer fill-pointer output-fn last-flush-time) stream
     (let ((end fill-pointer))
       (unless (zerop end)
         (funcall output-fn (subseq buffer 0 end))
-        (setf fill-pointer 0))))
+        (setf fill-pointer 0)))
+    (setf last-flush-time (get-internal-real-time)))
+  nil)
+
+(defmethod stream-force-output ((stream slime-output-stream))
+  (with-slots (last-flush-time) stream
+    (let ((now (get-internal-real-time)))
+      (when (> (/ (- now last-flush-time)
+                  (coerce internal-time-units-per-second 'double-float))
+               0.2)
+        (finish-output stream))))
   nil)
 
 (defclass slime-input-stream (fundamental-character-input-stream)
@@ -50,7 +62,7 @@
   (with-slots (buffer index output-stream input-fn) s
     (when (= index (length buffer))
       (when output-stream
-        (force-output output-stream))
+        (finish-output output-stream))
       (let ((string (funcall input-fn)))
         (cond ((zerop (length string))
                (return-from stream-read-char :eof))
