@@ -17,6 +17,7 @@
  '(stream:fundamental-character-output-stream
    stream:stream-write-char
    stream:stream-force-output
+   stream:stream-finish-output
    stream:fundamental-character-input-stream
    stream:stream-read-char
    stream:stream-listen

@@ -11,6 +11,7 @@
    ext::stream-write-char
    ext::stream-line-length
    ext::stream-force-output
+   ext::stream-finish-output
    ext::fundamental-character-input-stream
    ext::stream-read-char
    ext::stream-listen

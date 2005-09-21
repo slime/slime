@@ -18,6 +18,7 @@
    '(excl:fundamental-character-output-stream
      excl:stream-write-char
      excl:stream-force-output
+     excl:stream-finish-output
      excl:fundamental-character-input-stream
      excl:stream-read-char
      excl:stream-listen

@@ -57,6 +57,7 @@
    ccl:stream-write-char
    ccl:stream-line-length
    ccl:stream-force-output
+   ccl:stream-finish-output
    ccl:fundamental-character-input-stream
    ccl:stream-read-char
    ccl:stream-listen
