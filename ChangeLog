@@ -1,5 +1,19 @@
 2005-09-21  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-setup-command-hooks): Make
+	after-change-functions a buffer-local variable; it's by default
+	global in XEmacs.
+
+	* swank.lisp (throw-to-toplevel): Invoke the `abort-restart'
+	request instead of throwing to the `slime-toplevel' catch tag.
+	(handle-request): Rename the restart from abort to abort-request.
+	(call-with-connection): Remove the slime-toplevel catch tag
+	because with-connection is used in far to many places which aren't
+	at "toplevel".
+
+	* present.lisp (presentation-start, presentation-end): Use
+	finish-output instead of force-output.
+
 	* swank-gray.lisp, swank-cmucl.lisp: Improve stream efficiency by
 	buffering more output. stream-force-output simply does nothing, if
 	the output buffer was flushed less than 200 millisecons before.
