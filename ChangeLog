@@ -1,3 +1,22 @@
+2005-09-22  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-backend.lisp (*gray-stream-symbols*): Collect the needed
+	symbols here, so that we don't need to mention them in every
+	backend.
+	(import-from). New function.
+
+	* swank-sbcl.lisp, swank-allegro.lisp, swank-lispworks.lisp,
+	swank-openmcl.lisp, swank-ecl.lisp: Use *gray-stream-symbols* when
+	importing the needed symbols.
+	
+	* swank-gray.lisp (stream-fresh-line): Define a method, so that
+	Allegro passes our tests.
+
+2005-09-21  Aleksandar Bakic <a_bakic@yahoo.com>
+	
+	* swank.lisp (accept-authenticated-connection): Minor fix. Ensure
+	that the decoded message is a string before calling string= on it.
+
 2005-09-21  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-setup-command-hooks): Make
