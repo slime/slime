@@ -45,13 +45,18 @@
   nil)
 
 (defmethod stream-force-output ((stream slime-output-stream))
-  (with-slots (last-flush-time) stream
+  (with-slots (last-flush-time fill-pointer) stream
     (let ((now (get-internal-real-time)))
       (when (> (/ (- now last-flush-time)
                   (coerce internal-time-units-per-second 'double-float))
                0.2)
         (finish-output stream))))
   nil)
+
+(defmethod stream-fresh-line ((stream slime-output-stream))
+  (with-slots (column) stream
+    (cond ((zerop column) nil)
+          (t (terpri stream) t))))
 
 (defclass slime-input-stream (fundamental-character-input-stream)
   ((output-stream :initarg :output-stream)
