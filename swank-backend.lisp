@@ -155,6 +155,27 @@ EXCEPT is a list of symbol names which should be ignored."
         (import real-symbol :swank-mop)
         (export real-symbol :swank-mop)))))
 
+(defvar *gray-stream-symbols*
+  '(:fundamental-character-output-stream
+    :stream-write-char
+    :stream-fresh-line
+    :stream-force-output
+    :stream-finish-output
+    :fundamental-character-input-stream
+    :stream-read-char
+    :stream-listen
+    :stream-unread-char
+    :stream-clear-input
+    :stream-line-column
+    :stream-read-char-no-hang))
+
+(defun import-from (package symbol-names &optional (to-package *package*))
+  "Import the list of SYMBOL-NAMES found in the package PACKAGE."
+  (dolist (name symbol-names)
+    (multiple-value-bind (symbol found) (find-symbol (string name) package)
+      (assert found () "Symbol ~A not found in package ~A" name package)
+      (import symbol to-package))))
+
 
 ;;;; Utilities
 
