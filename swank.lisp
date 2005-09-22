@@ -393,9 +393,10 @@ connections, otherwise it will be closed after the first."
   (let ((new (apply #'accept-connection args))
         (secret (slime-secret)))
     (when secret
-      (unless (string= (decode-message new) secret)
-        (close new)
-        (error "Incoming connection doesn't know the password.")))
+      (let ((first-val (decode-message new)))
+        (unless (and (stringp first-val) (string= first-val secret))
+          (close new)
+          (error "Incoming connection doesn't know the password."))))
     new))
 
 (defun slime-secret ()
