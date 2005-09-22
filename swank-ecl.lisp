@@ -6,19 +6,7 @@
 
 (in-package :swank-backend)
 
-(import
- '(ext::fundamental-character-output-stream
-   ext::stream-write-char
-   ext::stream-line-length
-   ext::stream-force-output
-   ext::stream-finish-output
-   ext::fundamental-character-input-stream
-   ext::stream-read-char
-   ext::stream-listen
-   ext::stream-unread-char
-   ext::stream-clear-input
-   ext::stream-line-column
-   ext::stream-line-length))
+(import-from :ext *gray-stream-symbols* :swank-backend)
 
 (swank-backend::import-swank-mop-symbols :clos
  '(:eql-specializer

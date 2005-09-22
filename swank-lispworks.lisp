@@ -11,20 +11,8 @@
 (in-package :swank-backend)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (require "comm"))
-
-(import
- '(stream:fundamental-character-output-stream
-   stream:stream-write-char
-   stream:stream-force-output
-   stream:stream-finish-output
-   stream:fundamental-character-input-stream
-   stream:stream-read-char
-   stream:stream-listen
-   stream:stream-unread-char
-   stream:stream-clear-input
-   stream:stream-line-column
-   ))
+  (require "comm")
+  (import-from :stream *gray-stream-symbols* :swank-backend))
 
 (import-swank-mop-symbols :clos '(:slot-definition-documentation
                                   :eql-specializer

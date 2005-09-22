@@ -14,18 +14,7 @@
   (require :sock)
   (require :process)
 
-  (import
-   '(excl:fundamental-character-output-stream
-     excl:stream-write-char
-     excl:stream-force-output
-     excl:stream-finish-output
-     excl:fundamental-character-input-stream
-     excl:stream-read-char
-     excl:stream-listen
-     excl:stream-unread-char
-     excl:stream-clear-input
-     excl:stream-line-column
-     excl:stream-read-char-no-hang)))
+  (import-from :excl *gray-stream-symbols* :swank-backend))
 
 ;;; swank-mop
 

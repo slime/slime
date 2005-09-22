@@ -52,19 +52,7 @@
 
 (in-package :swank-backend)
 
-(import
- '(ccl:fundamental-character-output-stream
-   ccl:stream-write-char
-   ccl:stream-line-length
-   ccl:stream-force-output
-   ccl:stream-finish-output
-   ccl:fundamental-character-input-stream
-   ccl:stream-read-char
-   ccl:stream-listen
-   ccl:stream-unread-char
-   ccl:stream-clear-input
-   ccl:stream-line-column
-   ccl:stream-line-length))
+(import-from :ccl *gray-stream-symbols* :swank-backend)
 
 (require 'xref)
 

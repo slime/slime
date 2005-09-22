@@ -11,27 +11,16 @@
 
 ;;; Administrivia
 
+(in-package :swank-backend)
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require 'sb-bsd-sockets)
   (require 'sb-introspect)
   (require 'sb-posix))
 
-(in-package :swank-backend)
 (declaim (optimize (debug 2)))
 
-(import
- '(sb-gray:fundamental-character-output-stream
-   sb-gray:stream-write-char
-   sb-gray:stream-line-length
-   sb-gray:stream-force-output
-   sb-gray:stream-finish-output
-   sb-gray:fundamental-character-input-stream
-   sb-gray:stream-read-char
-   sb-gray:stream-listen
-   sb-gray:stream-unread-char
-   sb-gray:stream-clear-input
-   sb-gray:stream-line-column
-   sb-gray:stream-line-length))
+(import-from :sb-gray *gray-stream-symbols* :swank-backend)
 
 ;;; swank-mop
 
