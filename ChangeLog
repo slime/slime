@@ -1,3 +1,33 @@
+2005-09-28  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-multiprocessing): Deleted. No longer needed.
+	(slime-init-command): Updated accordingly.
+	(slime-current-package): Add a special case for Scheme.
+	(slime-simple-completions, slime-apropos): Quote the package,
+	because in can be a plain symbol in Scheme.
+	(slime-inspector-reinspect): Use a proper defslimefun.
+
+	* swank.lisp (inspector-reinspect): New function.
+	(start-server): Call initialize-multiprocessing before starting
+	the server and startup-idle-and-top-level-loops afterwards.
+	Calling startup-idle-and-top-level-loops here shouldn't be a
+	problem because start-server is only invoked at startup via stdin.
+
+	* swank-scheme48/source-location.scm: New file. For M-.
+	* swank-scheme48/module.scm (list-all-package): New function.
+	* swank-scheme48/interfaces.scm (module-control-interface): Export it.
+	* swank-scheme48/inspector.scm: Add methods for records and and
+	hashtables.
+	(swank:arglist-for-echo-area): Implement it.  Only works for
+	functions with enough debug-data (ie. only user-defined functions).
+	* swank-scheme48/completion.scm: New file.
+	(swank:simple-completions, swank:apropos-list-for-emacs): Implemented.
+	* swank-scheme48/load.scm, swank-scheme48/defrectypeX.scm: Renamed 
+	the file from defrectype*.scm
+	* swank-scheme48/packages.scm (swank-general-rpc): Don't use
+	posix-process because it doesn't work on Windows, and we don't need
+	it for a mulithreaded server.
+
 2005-09-22  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-backend.lisp (*gray-stream-symbols*): Collect the needed
