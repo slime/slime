@@ -745,10 +745,12 @@ output of CL:DESCRIBE."
 ;;; The default implementations are sufficient for non-multiprocessing
 ;;; implementations.
 
-(definterface startup-multiprocessing ()
-   "Initialize multiprocessing, if necessary.
+(definterface initialize-multiprocessing ()
+   "Initialize multiprocessing, if necessary."
+   nil)
 
-This function is called directly through the listener, not in an RPC
+(definterface startup-idle-and-top-level-loops ()
+  "This function is called directly through the listener, not in an RPC
 from Emacs. This is to support interfaces such as CMUCL's
 MP::STARTUP-IDLE-AND-TOP-LEVEL-LOOPS which does not return like a
 normal function."

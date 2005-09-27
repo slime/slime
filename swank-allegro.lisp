@@ -518,7 +518,7 @@
 
 ;;;; Multithreading
 
-(defimplementation startup-multiprocessing ()
+(defimplementation initialize-multiprocessing ()
   (mp:start-scheduler))
 
 (defimplementation spawn (fn &key name)

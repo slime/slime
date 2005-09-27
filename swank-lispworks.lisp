@@ -676,7 +676,7 @@ function names like \(SETF GET)."
 
 ;;; Multithreading
 
-(defimplementation startup-multiprocessing ()
+(defimplementation initialize-multiprocessing ()
   (mp:initialize-multiprocessing))
 
 (defimplementation spawn (fn &key name)
