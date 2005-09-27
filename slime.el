@@ -138,14 +138,6 @@ This applies to the *inferior-lisp* buffer and the network connections."
   :prefix "slime-"
   :group 'slime)
 
-;; XXX How can we get rid of this? I think only CMUCL needs it.
-;;     -luke (17/Jul/2004)
-(defcustom slime-multiprocessing nil
-  "Instruct the Lisp system to initialize multiprocessing on startup.
-You may need to enable this in order to use threads with SLIME."
-  :type 'boolean
-  :group 'slime-lisp)
-
 (defcustom slime-backend "swank-loader.lisp"
   "The name of the Lisp file that loads the Swank server.
 This name is interpreted relative to the directory containing
@@ -1281,16 +1273,15 @@ See `slime-translate-from-lisp-filename-function'."
   (setq-default slime-lisp-package:connlocal "(scratch)")
   (setq-default slime-lisp-package-prompt-string:connlocal "(scratch)")
   (let ((proc (slime-start-lisp 
-	       scheme-program-name (get-buffer-create "*inferior-lisp*")
-	       (concat ",translate =slime48/ " slime-path "swank-scheme48/\n"
-		       ",exec ,load =slime48/load.scm\n"
-		       ",exec " 
-		       (format "(slime48-start %S)" (slime-swank-port-file))
-		       "\n"))))
+               scheme-program-name (get-buffer-create "*inferior-lisp*")
+               (concat ",translate =slime48/ " slime-path "swank-scheme48/\n"
+                       ",exec ,load =slime48/load.scm\n"
+                       ",exec " 
+                       (format "(slime48-start %S)" (slime-swank-port-file))
+                       "\n"))))
     (switch-to-buffer (process-buffer proc))
     (goto-char (point-max))
     (slime-read-port-and-connect proc nil)))
-
 
 (defun slime-start-and-load (filename &optional package)
   "Start Slime, if needed, load the current file and set the package."
@@ -1409,9 +1400,8 @@ Return true if we have been given permission to continue."
   "Return a string to initialize Lisp."
   (let ((swank (slime-to-lisp-filename (if (file-name-absolute-p slime-backend)
                                            slime-backend
-                                         (concat slime-path slime-backend))))
-        (mp (if slime-multiprocessing "(swank:startup-multiprocessing)\n" "")))
-    (format "(load %S :verbose t)\n%s" swank mp)))
+                                         (concat slime-path slime-backend)))))
+    (format "(load %S :verbose t)\n" swank)))
 
 (defun slime-start-lisp (command buffername init-string)
   "Start Lisp with COMMAND in BUFFERNAME and send INIT-STRING to it.
@@ -2186,11 +2176,15 @@ If `slime-buffer-package' has a value then return that, otherwise
 search for and read an `in-package' form.
 
 The REPL buffer is a special case: it's package is `slime-lisp-package'."
-  (or (and (eq major-mode 'slime-repl-mode) (slime-lisp-package))
-      slime-buffer-package
-      (save-restriction
-        (widen)
-        (slime-find-buffer-package))))
+  (cond ((eq major-mode 'slime-repl-mode)
+         (slime-lisp-package))
+        (slime-buffer-package)
+        ((and (eq major-mode 'scheme-mode)
+              (boundp 'scheme48-package))
+         (symbol-value 'scheme48-package))
+        (t (save-restriction
+             (widen)
+             (slime-find-buffer-package)))))
 
 (defvar slime-find-buffer-package-function nil
   "Function to use instead of `slime-find-buffer-package'.  
@@ -3941,6 +3935,7 @@ Return nil of no item matches"
 
 (defun slime-restart-inferior-lisp-aux ()
   (interactive)
+  (assert (slime-inferior-process) () "No inferior lisp process")
   (slime-eval-async '(swank:quit-lisp))
   (set-process-filter (slime-connection) nil)
   (set-process-sentinel (slime-connection) 'slime-restart-sentinel))
@@ -5439,10 +5434,10 @@ alist but ignores CDRs."
   (mapcar (lambda (x) (cons x nil)) list))
 
 (defun slime-completions (prefix)
-  (slime-eval `(swank:completions ,prefix ,(slime-current-package))))
+  (slime-eval `(swank:completions ,prefix ',(slime-current-package))))
 
 (defun slime-simple-completions (prefix)
-  (slime-eval `(swank:simple-completions ,prefix ,(slime-current-package))))
+  (slime-eval `(swank:simple-completions ,prefix ',(slime-current-package))))
 
 
 ;;;; Fuzzy completion
@@ -6359,6 +6354,8 @@ Point is placed before the first expression in the list."
   (let ((lisp-filename (slime-to-lisp-filename (expand-file-name filename))))
     (slime-eval-with-transcript `(swank:load-file ,lisp-filename))))
 
+
+
 
 ;;;; Profiling
 
@@ -6468,7 +6465,7 @@ having names in the given package."
   (let ((buffer-package (or package (slime-current-package))))
     (slime-eval-async
      `(swank:apropos-list-for-emacs ,string ,only-external-p
-                                    ,case-sensitive-p ,package)
+                                    ,case-sensitive-p ',package)
      (lexical-let ((string string)
                    (package buffer-package)
                    (summary (slime-apropos-summary string case-sensitive-p
@@ -8132,7 +8129,7 @@ If ARG is negative, move forwards."
 
 (defun slime-inspector-reinspect ()
   (interactive)
-  (slime-eval-async `(swank::inspect-object swank::*inspectee*) 'slime-open-inspector))
+  (slime-eval-async `(swank:inspector-reinspect) 'slime-open-inspector))
 
 (slime-define-keys slime-inspector-mode-map
   ([return] 'slime-inspector-operate-on-point)
@@ -9043,7 +9040,7 @@ Confirm that SUBFORM is correctly located."
       (slime-check-top-level)
       (let ((message (current-message)))
         (slime-check "Minibuffer contains: \"3\""
-          (equal "3 (#x3, #o3, #b11)" message))))))
+          (equal "=> 3 (#x3, #o3, #b11)" message))))))
 
 (def-slime-test interrupt-bubbling-idiot 
     ()
@@ -9051,16 +9048,15 @@ Confirm that SUBFORM is correctly located."
     '(())
   (slime-check-top-level)
   (slime-eval-async '(cl:loop :for i :from 0 :do (cl:progn (cl:print i) 
-                                                           (cl:force-output)))
+                                                           (cl:finish-output)))
                     (lambda (_) ) "CL-USER")
-  (accept-process-output nil 1)
   (slime-wait-condition "running" #'slime-busy-p 5)
   (slime-interrupt)
   (slime-wait-condition "Debugger visible" 
                         (lambda () 
                           (and (slime-sldb-level= 1)
                                (get-buffer-window (sldb-get-default-buffer))))
-                        5)
+                        20)
   (with-current-buffer (sldb-get-default-buffer)
     (sldb-quit))
   (slime-sync-to-top-level 5))
@@ -9177,6 +9173,7 @@ SWANK> ")
 \(+ 2 3 4)
 SWANK> ")
       )
+  (slime-sync-to-top-level 2)
   (with-current-buffer (slime-output-buffer)
     (setf (slime-lisp-package-prompt-string) "SWANK"))
   (kill-buffer (slime-output-buffer))
