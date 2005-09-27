@@ -341,8 +341,12 @@ Useful for low level debugging."
                      dont-close (external-format *coding-system*))
   "Start the server and write the listen port number to PORT-FILE.
 This is the entry point for Emacs."
+  (when (eq style :spawn)
+    (initialize-multiprocessing))
   (setup-server 0 (lambda (port) (announce-server-port port-file port))
-                style dont-close external-format))
+                style dont-close external-format)
+  (when (eq style :spawn)
+    (startup-idle-and-top-level-loops)))
 
 (defun create-server (&key (port default-server-port)
                       (style *communication-style*)
@@ -3981,6 +3985,9 @@ nil if there's no second element."
       (cond ((= (1+ position) (length *inspector-history*))
              nil)
             (t (inspect-object (aref *inspector-history* (1+ position))))))))
+
+(defslimefun inspector-reinspect ()
+  (inspect-object *inspectee*))
 
 (defslimefun quit-inspector ()
   (reset-inspector)
