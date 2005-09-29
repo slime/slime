@@ -1,3 +1,7 @@
+2005-09-29  Luke Gorrie  <luke@synap.se>
+
+	* swank-scheme48: Removed due to excessive whining.
+
 2005-09-28  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-multiprocessing): Deleted. No longer needed.
