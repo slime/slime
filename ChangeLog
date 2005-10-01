@@ -1,3 +1,8 @@
+2005-10-01  Juho Snellman  <jsnell@iki.fi>
+	* swank-backend (*gray-stream-symbols*): Add :STREAM-LINE-LENGTH
+        to *GRAY-STREAM-SYMBOLS* on implementations that support this
+        extension to gray streams. Reported by Matthew D Swank.
+
 2005-09-29  Luke Gorrie  <luke@synap.se>
 
 	* swank-scheme48: Removed due to excessive whining.
