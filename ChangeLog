@@ -1,4 +1,32 @@
+2005-10-09  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime, slime-start): Introduce a separate function for
+	the non-interactive case.  `slime-start' takes lots of keyword
+	arguments and `slime' is reserved for interactive use.  
+	(slime-read-interactive-args): New function.
+	(slime-maybe-start-lisp, slime-inferior-lisp)
+	(slime-start-swank-server): Pass all arguments needed to start
+	the subprocess as a property list.  Also store this list in a
+	buffer-local var in the inferior-lisp buffer, so that we can
+	cleanly restart the process.
+	(slime-registered-lisp-implementations): Change the format and
+	document it.  M-- M-x slime can now be used select a registered
+	implementation.
+	(slime-symbolic-lisp-name): Deleted. And updated all the functions
+	which passed it along.  
+	(slime-set-connection-info): Use the new format.
+	(slime-output-buffer): Don't re-initialize buffer-local variables
+	if the buffer already exists.  This saves the history. From Juho
+	Snellman.
+
+	* swank-cmucl.lisp (sis/in): Use finish-output instead of
+	force-output.
+
+	* swank.lisp (connection-info): Include the initial package and
+	a more self-descriptive format.
+
 2005-10-01  Juho Snellman  <jsnell@iki.fi>
+
 	* swank-backend (*gray-stream-symbols*): Add :STREAM-LINE-LENGTH
         to *GRAY-STREAM-SYMBOLS* on implementations that support this
         extension to gray streams. Reported by Matthew D Swank.
@@ -25,8 +53,7 @@
 	* swank-scheme48/source-location.scm: New file. For M-.
 	* swank-scheme48/module.scm (list-all-package): New function.
 	* swank-scheme48/interfaces.scm (module-control-interface): Export it.
-	* swank-scheme48/inspector.scm: Add methods for records and and
-	hashtables.
+	* swank-scheme48/inspector.scm: Add methods for records and hashtables.
 	(swank:arglist-for-echo-area): Implement it.  Only works for
 	functions with enough debug-data (ie. only user-defined functions).
 	* swank-scheme48/completion.scm: New file.
