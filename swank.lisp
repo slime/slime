@@ -54,6 +54,7 @@
 
 (in-package :swank)
 
+
 ;;;; Top-level variables, constants, macros
 
 (defconstant cl-package (find-package :cl)
@@ -136,6 +137,7 @@ must always be supplied. This way the :TYPE slot option need not
 include some arbitrary initial value like NIL."
   (error "A required &KEY or &OPTIONAL argument was not supplied."))
 
+
 ;;;; Hooks
 ;;;
 ;;; We use Emacs-like `add-hook' and `run-hook' utilities to support
@@ -164,6 +166,7 @@ Backend code should treat the connection structure as opaque.")
 (defvar *pre-reply-hook* '()
   "Hook run (without arguments) immediately before replying to an RPC.")
 
+
 ;;;; Connections
 ;;;
 ;;; Connection structures represent the network connections between
@@ -260,6 +263,7 @@ recently established one."
   (declare (ignore connection))
   (emacs-connected))
 
+
 ;;;; Helper macros
 
 (defmacro with-io-redirection ((connection) &body body)
@@ -327,6 +331,7 @@ Useful for low level debugging."
     (apply #'format *log-output* format-string args)
     (force-output *log-output*)))
 
+
 ;;;; TCP Server
 
 (defvar *use-dedicated-output-stream* t
@@ -507,12 +512,13 @@ of the toplevel restart."
      (slime-protocol-error (e)
        (close-connection ,connection e))))
 
-(defun simple-break ()
+(defslimefun simple-break ()
   (with-simple-restart  (continue "Continue from interrupt.")
     (let ((*debugger-hook* #'swank-debugger-hook))
       (invoke-debugger 
        (make-condition 'simple-error 
-                       :format-control "Interrupt from Emacs")))))
+                       :format-control "Interrupt from Emacs"))))
+  nil)
 
 ;;;;;; Thread based communication
 
@@ -996,8 +1002,8 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
       (prin1-to-string object))))
 
 (defun force-user-output ()
-  (force-output (connection.user-io *emacs-connection*))
-  (force-output (connection.user-output *emacs-connection*)))
+  (finish-output (connection.user-io *emacs-connection*))
+  (finish-output (connection.user-output *emacs-connection*)))
 
 (defun clear-user-input  ()
   (clear-input (connection.user-input *emacs-connection*)))
@@ -1051,17 +1057,24 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
                  ((:abort) (abort)))))))))
 
 (defslimefun connection-info ()
-  "Return a list of the form: 
-\(PID IMPLEMENTATION-TYPE IMPLEMENTATION-NAME FEATURES 
- COMMUNICATION-STYLE IMPLEMENTATION-VERSION MACHINE-INSTANCE)."
+  "Return a key-value list of the form: 
+\(&key PID STYLE LISP-IMPLEMENTATION MACHINE FEATURES PACKAGE)
+PID: is the process-id of Lisp process (or nil, depending on the STYLE)
+STYLE: the communication style
+LISP-IMPLEMENTATION: a list (&key TYPE TYPE-NAME VERSION)
+FEATURES: a list of keywords
+PACKAGE: a list (&key NAME PROMPT)"
   (setq *slime-features* *features*)
-  (list (getpid)
-        (lisp-implementation-type)
-        (lisp-implementation-type-name)
-        (features-for-emacs)
-        (connection.communication-style *emacs-connection*)
-        (lisp-implementation-version)
-        (machine-instance)))
+  `(:pid ,(getpid) :style ,(connection.communication-style *emacs-connection*)
+    :lisp-implementation (:type ,(lisp-implementation-type)
+                          :type-name ,(lisp-implementation-type-name)
+                          :version ,(lisp-implementation-version))
+    :machine (:instance ,(machine-instance)
+              :type ,(machine-type)
+              :version ,(machine-version))
+    :features ,(features-for-emacs)
+    :package (:name ,(package-name *package*)
+              :prompt ,(package-string-for-prompt *package*))))
 
 (defslimefun io-speed-test (&optional (n 5000) (m 1))
   (let* ((s *standard-output*)
