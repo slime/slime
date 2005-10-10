@@ -1,3 +1,22 @@
+2005-10-11  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-read-interactive-args): Split the string
+	inferior-lisp-program to get the values for :program and
+	:program-args.  Also let slime-lisp-implementations take
+	precedence if non-nil.
+	(slime-lisp-implementations): Renamed from
+	slime-registered-lisp-implementations.
+
+	* swank.lisp (force-user-output): There seems to be a bug in
+	Allegro's two-way-streams. As a workaround we use force-output for
+	the user-io stream.  (finish-output *debug-io*) still triggers the
+	bug.
+
+2005-10-10  Svein Ove Aas  <svein.ove@aas.no>
+
+ 	* swank-allegro.lisp (find-external-format): Translate :utf-8-unix
+	to :utf8, which Allegro 7.0 understands.
+
 2005-10-09  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime, slime-start): Introduce a separate function for
