@@ -1,4 +1,4 @@
-;;;;                  -*- indent-tabs-mode: nil; outline-regexp: ";;;;;*"; -*-
+;;;;                  -*- indent-tabs-mode: nil; outline-regexp: ";;;;;* "; -*-
 ;;;
 ;;; swank-allegro.lisp --- Allegro CL specific code for SLIME. 
 ;;;
@@ -12,9 +12,9 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :sock)
-  (require :process)
+  (require :process))
 
-  (import-from :excl *gray-stream-symbols* :swank-backend))
+(import-from :excl *gray-stream-symbols* :swank-backend)
 
 ;;; swank-mop
 
@@ -25,6 +25,7 @@
 (defun swank-mop:slot-definition-documentation (slot)
   (documentation slot t))
 
+
 ;;;; TCP Server
 
 (defimplementation preferred-communication-style ()
@@ -47,13 +48,15 @@
     s))
 
 (defun find-external-format (coding-system)
-  #-(version>= 6) :default
   #+(version>= 6)
   (let* ((name (ecase coding-system
                  (:iso-latin-1-unix :latin1)
-                 (:utf-8-unix :utf-8-unix)
+                 (:utf-8-unix :utf8)
                  (:emacs-mule-unix :emacs-mule))))
-    (excl:crlf-base-ef (excl:find-external-format name :try-variant t))))
+    (excl:crlf-base-ef (excl:find-external-format name :try-variant t)))
+  #-(version>= 6)  
+  (ecase coding-system 
+    (:iso-latin-1-unix :default)))
 
 (defun set-external-format (stream external-format)
   (setf (stream-external-format stream)
@@ -504,8 +507,9 @@
 (defun frob-allegro-field-def (object def)
   (with-struct (inspect::field-def- name type access) def
     (ecase type
-      ((:unsigned-word :unsigned-byte :unsigned-natural 
-                       :unsigned-half-long :unsigned-3byte)
+      ((:unsigned-word :unsigned-byte :unsigned-natural
+                       :unsigned-long :unsigned-half-long 
+                       :unsigned-3byte)
        (label-value-line name (inspect::component-ref-v object access type)))
       ((:lisp :value)
        (label-value-line name (inspect::component-ref object access)))
