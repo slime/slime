@@ -1002,7 +1002,7 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
       (prin1-to-string object))))
 
 (defun force-user-output ()
-  (finish-output (connection.user-io *emacs-connection*))
+  (force-output (connection.user-io *emacs-connection*))
   (finish-output (connection.user-output *emacs-connection*)))
 
 (defun clear-user-input  ()
