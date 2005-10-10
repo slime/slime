@@ -207,7 +207,7 @@ If you want to fallback on TAGS you can set this to `find-tags' or
              slime-maybe-show-xrefs-for-notes))
 
 (defcustom slime-complete-symbol-function 'slime-complete-symbol*
-  "Function to perform symbol completion."
+  "*Function to perform symbol completion."
   :group 'slime-mode
   :type '(choice (const :tag "Simple" slime-simple-complete-symbol)
                  (const :tag "Compound" slime-complete-symbol*)
@@ -1247,29 +1247,54 @@ See `slime-translate-from-lisp-filename-function'."
   (apply #'slime-start (slime-read-interactive-args)))
 
 (defun slime-read-interactive-args ()
-  (cond ((eq current-prefix-arg '-)
-         (let* ((table slime-registered-lisp-implementations)
-                (key (completing-read 
-                     "Lisp name: " 
-                     (mapcar (lambda (x) (list (symbol-name (car x)))) table)
-                     nil t)))
-           (destructuring-bind (name (prog &rest args) &rest keys)
-               (assoc (intern key) table)
-             (list* :program prog :program-args args keys))))
-        (t
-         (destructuring-bind (program &rest program-args)
-             (cond (current-prefix-arg
-                    (split-string 
-                     (read-string "Run lisp: " inferior-lisp-program
-                                  'slime-inferior-lisp-program-history)))
-                   (t (list inferior-lisp-program)))
-           (let ((coding-system 
-                  (if (eq 16 (prefix-numeric-value current-prefix-arg))
-                      (read-coding-system "set slime-coding-system: "
-                                          slime-net-coding-system)
-                    slime-net-coding-system)))
-             (list :program program :program-args program-args
-                   :coding-system coding-system))))))
+  "Return the list of args which should be passed to `slime-start'.
+
+The rules for selecting the arguments are rather complicated:
+
+- In the most common case, i.e. if there's no prefix-arg in
+  effect and if `slime-lisp-implementations' is nil, use
+  `inferior-lisp-program' as fallback.
+
+- If the table `slime-lisp-implementations' is non-nil use the
+  implementation with name `slime-default-lisp' or if that's nil
+  the first entry in the table.
+
+- If the prefix-arg is `-', prompt for one of the registered
+  lisps.
+
+- If the prefix-arg is positive, read the command to start the
+  process."
+  (let ((table slime-lisp-implementations))
+    (cond ((not current-prefix-arg)
+           (cond (table 
+                  (slime-lookup-lisp-implementation 
+                   table (or slime-default-lisp (car (first table)))))
+                 (t
+                  (destructuring-bind (program &rest args) 
+                      (split-string inferior-lisp-program)
+                    (list :program program :program-args args)))))
+          ((eq current-prefix-arg '-)
+           (let ((key (completing-read 
+                       "Lisp name: " (mapcar (lambda (x) 
+                                               (list (symbol-name (car x)))) 
+                                             table)
+                       nil t)))
+             (slime-lookup-lisp-implementation table (intern key))))
+          (t
+           (destructuring-bind (program &rest program-args)
+               (split-string (read-string "Run lisp: " inferior-lisp-program
+                                          'slime-inferior-lisp-program-history))
+             (let ((coding-system 
+                    (if (eq 16 (prefix-numeric-value current-prefix-arg))
+                        (read-coding-system "set slime-coding-system: "
+                                            slime-net-coding-system)
+                      slime-net-coding-system)))
+               (list :program program :program-args program-args
+                     :coding-system coding-system)))))))
+
+(defun slime-lookup-lisp-implementation (table name)
+  (destructuring-bind (name (prog &rest args) &rest keys) (assoc name table)
+    (list* :program prog :program-args args keys)))
 
 (defun* slime-start (&key (program inferior-lisp-program) program-args 
                           (buffer "*inferior-lisp*")
@@ -4680,11 +4705,13 @@ first element of the source-path redundant."
        (or 
         (re-search-forward 
          (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\S_" name) nil t)
-        (re-search-forward 
-         (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +(*?%s\\S_" name) nil t)
-        (re-search-forward 
-         ;; FIXME: Isn't this far to general?
-         (format "[( \t]%s\\>\\(\\s \\|$\\)" name) nil t)))
+        ;; ;; FIXME: this matches the same and a bit more than the last line
+        ;; (re-search-forward 
+        ;;  (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +(*?%s\\S_" name) nil t)
+        ;; (re-search-forward 
+        ;;  ;; FIXME: Isn't this far to general?
+        ;;  (format "[( \t]%s\\>\\(\\s \\|$\\)" name) nil t)
+        ))
      (goto-char (match-beginning 0)))
     ((:method name specializers &rest qualifiers)
      (slime-search-method-location name specializers qualifiers))
@@ -7784,8 +7811,7 @@ This way you can still see what the error was after exiting SLDB."
 
 ;;;;; Connection listing
 
-(defvar slime-registered-lisp-implementations 
-  `((lisp (,inferior-lisp-program)))
+(defvar slime-lisp-implementations nil
   "*A list of known Lisp implementations.
 The list should have the form: 
   ((NAME (PROGRAM PROGRAM-ARGS...) &key INIT CODING-SYSTEM) ...)
@@ -7799,38 +7825,39 @@ CODING-SYSTEM a symbol for the coding system. The default is
   slime-net-coding-system
 
 Here's an example: 
- (cmucl (\"/opt/cmucl/bin/lisp\" \"-quiet\") :init slime-init-command)")
+ ((cmucl (\"/opt/cmucl/bin/lisp\" \"-quiet\") :init slime-init-command)
+  (acl (\"acl7\") :coding-system emacs-mule))")
 
-(defvar slime-default-lisp 'lisp
+(defvar slime-default-lisp nil
   "*The name of the default Lisp implementation.
-See `slime-registered-lisp-implementations'")
+See `slime-lisp-implementations'")
 
 (defun slime-register-lisp-implementation (name command)
   (interactive "sName: \nfCommand: ")
-  (let ((cons (assoc name slime-registered-lisp-implementations)))
+  (let ((cons (assoc name slime-lisp-implementations)))
     (if cons
       (setf (cdr cons) command)
-      (push (cons name command) slime-registered-lisp-implementations)))
+      (push (cons name command) slime-lisp-implementations)))
   (if (string= inferior-lisp-program "lisp")
     (slime-select-lisp-implementation name)))
 
 (defun slime-select-lisp-implementation (name)
   (interactive "sName: ")
   (setq inferior-lisp-program
-        (cdr (assoc name slime-registered-lisp-implementations))))
+        (cdr (assoc name slime-lisp-implementations))))
 
 (defun slime-find-lisp-implementation (name)
-  (let ((cons (or (assoc name slime-registered-lisp-implementations)
-                  (rassoc name slime-registered-lisp-implementations))))
+  (let ((cons (or (assoc name slime-lisp-implementations)
+                  (rassoc name slime-lisp-implementations))))
     (if cons (cdr cons) name)))
 
 ;; XXX: unused function
 (defun slime-find-lisp-implementation-name (command)
-  (cdr (rassoc command slime-registered-lisp-implementations)))
+  (cdr (rassoc command slime-lisp-implementations)))
 
 (defun slime-symbolic-lisp-name-p (name)
-  (let ((cons (or (assoc name slime-registered-lisp-implementations)
-                  (rassoc name slime-registered-lisp-implementations))))
+  (let ((cons (or (assoc name slime-lisp-implementations)
+                  (rassoc name slime-lisp-implementations))))
     (if cons (car cons))))
 
 
