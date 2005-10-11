@@ -1,3 +1,15 @@
+2005-10-11  Stefan Kamphausen <skampi@gmx.net>
+
+	* slime.el: Persistent REPL history.  The history from REPL
+	buffers is now saved to the file ~/.slime-history.eld.  The file
+	is read on startup and saved when a REPL buffer gets killed or
+	when Emacs exits.  There are also commands to save or read the
+	history file.
+	(slime-repl-save-merged-history, slime-repl-merge-histories)
+	(slime-repl-read-history, slime-repl-save-history): New functions.
+	(slime-repl-history-file, slime-repl-history-size): New vars.
+	(slime-repl-mode): Add hooks to load and save the history.
+	
 2005-10-11  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-read-interactive-args): Split the string
@@ -14,7 +26,7 @@
 
 2005-10-10  Svein Ove Aas  <svein.ove@aas.no>
 
- 	* swank-allegro.lisp (find-external-format): Translate :utf-8-unix
+	* swank-allegro.lisp (find-external-format): Translate :utf-8-unix
 	to :utf8, which Allegro 7.0 understands.
 
 2005-10-09  Helmut Eller  <heller@common-lisp.net>
