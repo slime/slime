@@ -2860,7 +2860,7 @@ profiling before running the benchmark."
  (defvar slime-repl-input-history '()
    "History list of strings read from the REPL buffer.")
  
- (defvar slime-repl-input-history-position 0
+ (defvar slime-repl-input-history-position -1
    "Newer items have smaller indices.")
 
  (defvar slime-repl-prompt-start-mark)
@@ -2894,6 +2894,10 @@ joined together."))
   (setq slime-current-thread :repl-thread)
   (set (make-local-variable 'scroll-conservatively) 20)
   (set (make-local-variable 'scroll-margin) 0)
+  (slime-repl-read-history)
+  (make-local-hook 'kill-buffer-hook)
+  (add-hook 'kill-buffer-hook 'slime-repl-save-merged-history nil t)
+  (add-hook 'kill-emacs-hook 'slime-repl-save-all-histories)
   (slime-setup-command-hooks)
   (run-hooks 'slime-repl-mode-hook))
 
@@ -3661,6 +3665,112 @@ Return nil of no item matches"
   (interactive "sNext element matching (regexp): ")
   (slime-repl-history-replace 'forward regexp))
 
+;;;;; Persistent History 
+
+(defvar slime-repl-history-file "~/.slime-history.eld")
+(defvar slime-repl-history-size 100)
+
+(defun slime-repl-merge-histories (old-hist new-hist)
+  "Merge entries from OLD-HIST and NEW-HIST such that the new items in
+  NEW-HIST are appended to the OLD-HIST."
+  (append
+   ;; first the new unique elements...
+   (remove-if #'(lambda (entry)
+                  (member entry old-hist))
+              new-hist)
+   ;; then the old unique elements...
+   (remove-if #'(lambda (entry)
+                  (member entry new-hist))
+              old-hist)
+   ;; and finally elements existing in both lists
+   (remove-if #'(lambda (entry)
+                  (not (member entry old-hist)))
+              new-hist)))
+
+(defun slime-repl-read-history-internal (filename)
+  "Return the list stored in FILENAME.
+The file contents are read using READ and no further error checking is
+done."
+  (when (and file (file-readable-p file))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (read (current-buffer)))))
+
+(defun slime-repl-read-history (&optional filename)
+  "Set the current SLIME REPL history.
+It can be read either from FILENAME or `slime-repl-history-file' or
+from a user defined filename."
+  (interactive)
+  (let ((file (or filename
+                  slime-repl-history-file
+                  (read-file-name "Read SLIME REPL history from file: "))))
+    (setq slime-repl-input-history
+          (slime-repl-read-history-internal file))))
+  
+(defun slime-repl-save-merged-history (&optional filename)
+  "Read the history file, merge the current REPL history and save it.
+This tries to be smart in merging the history from the file and the
+current history in that it tries to detect the unique entries using
+`slime-repl-merge-histories'."
+  (interactive)
+  (message "saving history...")
+  (let ((file (or filename
+                  slime-repl-history-file
+                  (read-file-name "Save SLIME REPL history to file: "))))
+    (cond
+      ((or (null file)
+           (null slime-repl-input-history))
+        nil)
+      ((not (file-writable-p file))
+        (error (format "Can't write SLIME REPL history file %s" file)))
+      (t
+        (let ((hist (slime-repl-read-history-internal file)))
+          (if (not (null hist))
+            (setq hist (slime-repl-merge-histories
+                        hist slime-repl-input-history))
+            (setq hist slime-repl-input-history))
+          (slime-repl-save-history hist file))))))
+
+(defun slime-repl-save-history (&optional history filename)
+  "Simply save the current SLIME REPL history to a file.
+When SLIME is setup to always load the old history and one uses only
+one instance of slime all the time, there is no need to merge the
+files and this function is sufficient.
+
+When the list is longer than `slime-repl-history-size' it will be
+truncated.  That part is untested, though!
+"
+  (interactive)
+  (let ((file (or filename
+                  slime-repl-history-file
+                  (read-file-name "Save SLIME REPL history to file: "))))
+    (cond
+      ((or (null file)
+           (null slime-repl-input-history))
+        nil)
+      ((not (file-writable-p file))
+        (error (format "Can't write SLIME REPL history file %s" file)))
+      (t
+        (let* ((hist (or history slime-repl-input-history))
+               (len (length hist)))
+          (when (> len slime-repl-history-size)
+            (setq hist (subseq hist (- len slime-repl-history-size))))
+          ;;(message "saving %s to %s\n" hist file)
+          (with-temp-buffer
+            (insert ";; History for SLIME REPL.  Automatically written\n")
+            (insert ";; Edit only if you know what you're doing\n")
+            (pp (mapcar 'substring-no-properties hist) (current-buffer))
+            (write-region (point-min) (point-max) file)))))))
+
+(defun slime-repl-save-all-histories ()
+  "Save the history in each repl buffer."
+  (dolist (b (buffer-list))
+    (with-current-buffer b
+      (when (eq major-mode 'slime-repl-mode)
+        (slime-repl-save-merged-history)))))
+
+;;;;; REPL mode setup
+
 (defun slime-repl ()
   (interactive)
   (slime-switch-to-output-buffer))
@@ -3710,6 +3820,8 @@ Return nil of no item matches"
   ("\C-c\C-l" 'slime-load-file)
   ("\C-c\C-k" 'slime-compile-and-load-file)
   ("\C-c\C-z" 'slime-nop))
+
+;;;;;; REPL Read Mode
 
 (define-key slime-repl-mode-map
   (string slime-repl-shortcut-dispatch-char) 'slime-handle-repl-shortcut)
@@ -6997,7 +7109,7 @@ Full list of commands:
   ;; Make original slime-connection "sticky" for SLDB commands in this buffer
   (setq slime-buffer-connection (slime-connection))
   (make-local-variable 'kill-buffer-hook)
-  (add-hook 'kill-buffer-hook 'sldb-delete-overlays))
+  (add-hook 'kill-buffer-hook 'sldb-delete-overlays nil t))
 
 (defun sldb-help-summary ()
   "Show summary of important sldb commands"
