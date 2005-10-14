@@ -227,6 +227,8 @@ Allegro Common Lisp (@acronym{ACL}), version 6 or newer
 Armed Bear Common Lisp (@acronym{ABCL})
 @item
 Corman Common Lisp (@acronym{CCL}), version 2.51 or newer with the patches from @url{http://www.grumblesmurf.org/lisp/corman-patches})
+@item
+Scieneer Common Lisp (@acronym{SCL}), version 1.2.7 or newer
 @end itemize
 
 Most features work uniformly across implementations, but some are
