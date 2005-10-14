@@ -64,7 +64,7 @@
   "The KEYWORD package.")
 
 (defvar *canonical-package-nicknames*
-  '(("COMMON-LISP-USER" . "CL-USER"))
+  '((:common-lisp-user . :cl-user))
   "Canonical package names to use instead of shortest name/nickname.")
 
 (defvar *auto-abbreviate-dotted-packages* t
