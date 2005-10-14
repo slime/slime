@@ -169,8 +169,8 @@ EXCEPT is a list of symbol names which should be ignored."
     :stream-line-column
     :stream-read-char-no-hang
     ;; STREAM-LINE-LENGTH is an extension to gray streams that's apparently
-    ;; supported by CMUCL, OpenMCL and SBCL.
-    #+(or cmu openmcl sbcl)
+    ;; supported by CMUCL, OpenMCL, SBCL and SCL.
+    #+(or cmu openmcl sbcl scl)
     :stream-line-length))
 
 (defun import-from (package symbol-names &optional (to-package *package*))
