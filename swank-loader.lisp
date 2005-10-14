@@ -26,6 +26,8 @@
            '("nregex")
            #+cmu '("swank-source-path-parser" "swank-source-file-cache" 
                    "swank-cmucl")
+           #+scl '("swank-source-path-parser" "swank-source-file-cache" 
+                   "swank-scl")
            #+sbcl '("swank-sbcl" "swank-source-path-parser" 
                     "swank-source-file-cache" "swank-gray")
            #+openmcl '("metering" "swank-openmcl" "swank-gray")
@@ -39,17 +41,20 @@
 
 (defparameter *implementation-features*
   '(:allegro :lispworks :sbcl :openmcl :cmu :clisp :ccl :corman :cormanlisp 
-    :armedbear :gcl :ecl))
+    :armedbear :gcl :ecl :scl))
 
 (defparameter *os-features*
-  '(:macosx :linux :windows :mswindows :win32 :solaris :darwin :sunos :unix))
+  '(:macosx :linux :windows :mswindows :win32 :solaris :darwin :sunos :hpux
+    :unix))
 
 (defparameter *architecture-features*
-  '(:powerpc :ppc :x86 :x86-64 :i686 :pc386 :iapx386 :sparc))
+  '(:powerpc :ppc :x86 :x86-64 :amd64 :i686 :i586 :i486 :pc386 :iapx386
+    :sparc64 :sparc :hppa64 :hppa))
 
 (defun lisp-version-string ()
   #+cmu       (substitute-if #\_ (lambda (x) (find x " /"))
                              (lisp-implementation-version))
+  #+scl       (lisp-implementation-version)
   #+sbcl      (lisp-implementation-version)
   #+ecl       (lisp-implementation-version)
   #+openmcl   (format nil "~d.~d"
