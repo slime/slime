@@ -1,3 +1,22 @@
+2005-10-15  Douglas Crosher <dcrosher@common-lisp.net>
+
+	* swank-scl.lisp: Support for Scieneer Common Lisp.
+
+	* swank-backend.lisp (*gray-stream-symbols*) Scieneer Common Lisp
+	implements stream-line-length.
+
+	* swank-loader.lisp: Support for Scieneer Common Lisp:
+	(*sysdep-pathnames*) use swank-scl.
+	(*impl ementation-features*) add :scl.
+	(*os-features*) add :hpux.
+	(*architecture-features*) add :amd64, :i686, :i486, :sparc64, :sparc,
+	   :hppa64, and :hppa.
+
+	* swank.lisp: (*canonical-package-nicknames*) use lowercase
+	symbols to name the packages.  This supports CL implementations
+	with lowercase default symbol names, such as Scieneer Common Lisp,
+	while still being compatible with ANSI-CL.
+
 2005-10-11  Stefan Kamphausen <skampi@gmx.net>
 
 	* slime.el: Persistent REPL history.  The history from REPL
