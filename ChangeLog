@@ -1,3 +1,9 @@
+2005-10-18  Douglas Crosher <dcrosher@common-lisp.net>
+
+	* swank.lisp (canonical-package-nickname): always return the
+	package name as a STRING if found.  This restores the printing of
+	package names as strings.
+
 2005-10-17  Marco Baringer  <mb@bese.it>
 	
 	* swank.lisp (eval-in-emacs): Instead of taking a string and
