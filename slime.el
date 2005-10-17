@@ -2389,8 +2389,8 @@ Debugged requests are ignored."
       ((:eval-no-wait fun args)
        (slime-check-eval-in-emacs-enabled)
        (apply (intern fun) args))
-      ((:eval thread tag fun args)
-       (slime-eval-for-lisp thread tag (intern fun) args))
+      ((:eval thread tag form-string)
+       (slime-eval-for-lisp thread tag form-string))
       ((:emacs-return thread tag value)
        (slime-send `(:emacs-return ,thread ,tag ,value)))
       ((:ed what)
@@ -6060,13 +6060,13 @@ The result is a (possibly empty) list of definitions."
 
 ;;;; Eval for Lisp
 
-(defun slime-eval-for-lisp (thread tag fun args)
+(defun slime-eval-for-lisp (thread tag form-string)
   (let ((ok nil) 
         (value nil)
         (c (slime-connection)))
     (unwind-protect (progn
                       (slime-check-eval-in-emacs-enabled)
-                      (setq value (apply fun args))
+                      (setq value (eval (read form-string)))
                       (setq ok t))
       (let ((result (if ok `(:ok ,value) `(:abort))))
         (slime-dispatch-event `(:emacs-return ,thread ,tag ,result) c)))))
