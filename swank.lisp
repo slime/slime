@@ -1039,22 +1039,39 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
   "Return the string INPUT to the continuation TAG."
   (throw (intern-catch-tag tag) input))
 
+(defun process-form-for-emacs (form)
+  "Returns a string which emacs will read as equivalent to
+FORM. FORM can contain lists, strings, characters, symbols and
+numbers.
+
+Characters are converted emacs' ?<char> notaion, strings are left
+as they are (except for espacing any nested \" chars, numbers are
+printed in base 10 and symbols are printed as their symbol-nome
+converted to lower case."
+  (etypecase form
+    (string (format nil "~S" form))
+    (cons (format nil "(~A . ~A)"
+                  (process-form-for-emacs (car form))
+                  (process-form-for-emacs (cdr form))))
+    (character (format nil "?~C" form))
+    (symbol (string-downcase (symbol-name form)))
+    (number (let ((*print-base* 10))
+              (princ-to-string form)))))
+
 (defun eval-in-emacs (form &optional nowait)
   "Eval FORM in Emacs."
-  (destructuring-bind (fun &rest args) form
-    (let ((fun (string-downcase (string fun))))
-      (cond (nowait 
-             (send-to-emacs `(:eval-no-wait ,fun ,args)))
-            (t
-             (force-output)
-             (let* ((tag (incf *read-input-catch-tag*))
-                    (value (catch (intern-catch-tag tag)
-                             (send-to-emacs 
-                              `(:eval ,(current-thread) ,tag ,fun ,args))
-                             (loop (read-from-emacs)))))
-               (destructure-case value
-                 ((:ok value) value)
-                 ((:abort) (abort)))))))))
+  (cond (nowait 
+         (send-to-emacs `(:eval-no-wait ,(process-form-for-emacs form))))
+        (t
+         (force-output)
+         (let* ((tag (incf *read-input-catch-tag*))
+                (value (catch (intern-catch-tag tag)
+                         (send-to-emacs 
+                          `(:eval ,(current-thread) ,tag ,(process-form-for-emacs form)))
+                         (loop (read-from-emacs)))))
+           (destructure-case value
+             ((:ok value) value)
+             ((:abort) (abort)))))))
 
 (defslimefun connection-info ()
   "Return a key-value list of the form: 
