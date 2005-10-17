@@ -1,3 +1,21 @@
+2005-10-17  Marco Baringer  <mb@bese.it>
+	
+	* swank.lisp (eval-in-emacs): Instead of taking a string and
+	attempting to parse it emacs side the function now takes a form
+	and converts it to a string internally. This should allow users of
+	the function to not have to worry about quoting issues and emacs'
+	different printed represenation for, among other things,
+	characters.
+	(process-form-for-emacs): New function. Converts a list into a
+	string for passing to emacs.
+
+	* slime.el (slime-eval-for-lisp): New API. This function now takes
+	a single string, representing the form to evaluate, and uses
+	emacs' read function to convert it into a form before eval'ing it.
+	(slime-dispatch-event): The :eval event now passes a single
+	string (instead of a string and something looking kind of like a
+	form).
+
 2005-10-15  Douglas Crosher <dcrosher@common-lisp.net>
 
 	* swank-scl.lisp: Support for Scieneer Common Lisp.
