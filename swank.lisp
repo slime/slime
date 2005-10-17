@@ -1905,8 +1905,9 @@ change, then send Emacs an update."
 
 (defun canonical-package-nickname (package)
   "Return the canonical package nickname, if any, of PACKAGE."
-  (cdr (assoc (package-name package) *canonical-package-nicknames* 
-              :test #'string=)))
+  (let ((name (cdr (assoc (package-name package) *canonical-package-nicknames* 
+                          :test #'string=))))
+    (and name (string name))))
 
 (defun auto-abbreviated-package-name (package)
   "Return an abbreviated 'name' for PACKAGE. 
