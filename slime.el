@@ -1466,8 +1466,9 @@ Return the created process."
       (make-local-variable 'slime-inferior-lisp-args)
       (setq slime-inferior-lisp-args args)
       (let ((str (funcall init (slime-swank-port-file) coding-system)))
-        (goto-char (point-max)) (insert str)
-        (comint-send-input)))))
+        (goto-char (process-mark process)) 
+        (insert-before-markers str)
+        (process-send-string process str)))))
 
 (defun slime-inferior-lisp-args (process)
   (with-current-buffer (process-buffer process)
@@ -3759,7 +3760,7 @@ truncated.  That part is untested, though!
           (with-temp-buffer
             (insert ";; History for SLIME REPL.  Automatically written\n")
             (insert ";; Edit only if you know what you're doing\n")
-            (pp (mapcar 'substring-no-properties hist) (current-buffer))
+            (pp (mapcar #'substring-no-properties hist) (current-buffer))
             (write-region (point-min) (point-max) file)))))))
 
 (defun slime-repl-save-all-histories ()
@@ -7944,35 +7945,6 @@ Here's an example:
   "*The name of the default Lisp implementation.
 See `slime-lisp-implementations'")
 
-(defun slime-register-lisp-implementation (name command)
-  (interactive "sName: \nfCommand: ")
-  (let ((cons (assoc name slime-lisp-implementations)))
-    (if cons
-      (setf (cdr cons) command)
-      (push (cons name command) slime-lisp-implementations)))
-  (if (string= inferior-lisp-program "lisp")
-    (slime-select-lisp-implementation name)))
-
-(defun slime-select-lisp-implementation (name)
-  (interactive "sName: ")
-  (setq inferior-lisp-program
-        (cdr (assoc name slime-lisp-implementations))))
-
-(defun slime-find-lisp-implementation (name)
-  (let ((cons (or (assoc name slime-lisp-implementations)
-                  (rassoc name slime-lisp-implementations))))
-    (if cons (cdr cons) name)))
-
-;; XXX: unused function
-(defun slime-find-lisp-implementation-name (command)
-  (cdr (rassoc command slime-lisp-implementations)))
-
-(defun slime-symbolic-lisp-name-p (name)
-  (let ((cons (or (assoc name slime-lisp-implementations)
-                  (rassoc name slime-lisp-implementations))))
-    (if cons (car cons))))
-
-
 (define-derived-mode slime-connection-list-mode fundamental-mode
   "connection-list"
   "SLIME Connection List Mode.
@@ -9227,7 +9199,8 @@ Confirm that SUBFORM is correctly located."
     (let ((p (slime-eval 
               `(swank:listener-eval 
                 ,(format 
-                  "(cl:setq cl:*package* (cl:find-package %S))
+                  "(cl:setq cl:*print-case* :upcase)
+                   (cl:setq cl:*package* (cl:find-package %S))
                    (cl:package-name cl:*package*)" package-name))
               (slime-lisp-package))))
       (slime-check ("slime-lisp-package is %S." package-name)
