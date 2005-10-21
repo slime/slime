@@ -1,3 +1,8 @@
+2005-10-21  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-start-swank-server): Avoid comint-send-input
+	here as it seems to trigger a bug in ansi-color-for-commit-mode.
+
 2005-10-18  Douglas Crosher <dcrosher@common-lisp.net>
 
 	* swank.lisp (canonical-package-nickname): always return the
