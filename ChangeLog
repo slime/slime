@@ -1,3 +1,9 @@
+2005-10-23  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-sbcl.lisp (make-stream-interactive): Spawn a thread to
+	flush interactive streams in reasonably short intervals.  
+	Remove the old backward-compatible threading implementation.
+
 2005-10-21  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-start-swank-server): Avoid comint-send-input
