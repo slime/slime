@@ -436,6 +436,16 @@ PROPERTIES specifies any default face properties."
   "Face for the result of an evaluation in the SLIME REPL."
   :group 'slime-repl)
 
+(defcustom slime-repl-history-file "~/.slime-history.eld"
+  "File to save the persistent REPL history to."
+  :type 'string
+  :group 'slime-repl)
+
+(defcustom slime-repl-history-size 100
+  "Maximum number of lines for persistent REPL history."
+  :type 'integer
+  :group 'slime-repl)
+
 
 ;;;; Minor modes
 ;;;;; slime-mode
@@ -3667,9 +3677,6 @@ Return nil of no item matches"
   (slime-repl-history-replace 'forward regexp))
 
 ;;;;; Persistent History 
-
-(defvar slime-repl-history-file "~/.slime-history.eld")
-(defvar slime-repl-history-size 100)
 
 (defun slime-repl-merge-histories (old-hist new-hist)
   "Merge entries from OLD-HIST and NEW-HIST such that the new items in
