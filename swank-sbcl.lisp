@@ -1058,109 +1058,30 @@ stack."
                  (t (sb-thread:condition-wait (mailbox.waitqueue mbox)
                                               mutex))))))))
 
-  )
 
-#+(and sb-thread
-       #.(cl:if (cl:find-symbol "THREAD-NAME" "SB-THREAD") '(or) '(and)))
-(progn
-  (defimplementation spawn (fn &key name)
-    (declare (ignore name))
-    (sb-thread:make-thread fn))
+  ;;; Auto-flush streams
 
-  (defimplementation startup-multiprocessing ())
-
-  (defimplementation thread-id (thread)
-    (assert (eql (ash (ash thread -5) 5) thread))
-    (ash thread -5))
-
-  (defimplementation find-thread (id)
-    (when (member (ash id 5) (all-threads))
-      (ash id 5)))
+  ;; XXX race conditions
+  (defvar *auto-flush-streams* '())
   
-  (defimplementation thread-name (thread)
-    (format nil "Thread ~D" (thread-id thread)))
+  (defvar *auto-flush-thread* nil)
 
-  (defun %thread-state-slot (thread)
-    (sb-sys:without-gcing
-     (sb-kernel:make-lisp-obj
-      (sb-sys:sap-int
-       (sb-sys:sap-ref-sap (sb-thread::thread-sap-from-id thread)
-                           (* sb-vm::thread-state-slot
-                              sb-vm::n-word-bytes))))))
-  
-  (defun %thread-state (thread)
-    (ecase (%thread-state-slot thread)
-      (0 :running)
-      (1 :stopping)
-      (2 :stopped)
-      (3 :dead)))
+  (defimplementation make-stream-interactive (stream)
+    (setq *auto-flush-streams* (adjoin stream *auto-flush-streams*))
+    (unless *auto-flush-thread*
+      (setq *auto-flush-thread*
+            (sb-thread:make-thread #'flush-streams 
+                                   :name "auto-flush-thread"))))
 
-  (defimplementation thread-status (thread)
-    (string (%thread-state thread)))
-
-  (defimplementation make-lock (&key name)
-    (sb-thread:make-mutex :name name))
-
-  (defimplementation call-with-lock-held (lock function)
-    (declare (type function function))
-    (sb-thread:with-mutex (lock) (funcall function)))
-
-  (defimplementation current-thread ()
-    (sb-thread:current-thread-id))
-
-  (defimplementation all-threads ()
-    (let ((tids (sb-sys:without-gcing
-                 (sb-thread::mapcar-threads
-                  (lambda (sap)
-                    (sb-sys:sap-ref-32 sap
-                                       (* sb-vm:n-word-bytes
-                                          sb-vm::thread-os-thread-slot)))))))
-      (remove :dead tids :key #'%thread-state)))
- 
-  (defimplementation interrupt-thread (thread fn)
-    (sb-thread:interrupt-thread thread fn))
-
-  (defimplementation kill-thread (thread)
-    (sb-thread:terminate-thread thread))
-
-  (defimplementation thread-alive-p (thread)
-    (ignore-errors (sb-thread:interrupt-thread thread (lambda ())) t))
-
-  (defvar *mailbox-lock* (sb-thread:make-mutex :name "mailbox lock"))
-  (defvar *mailboxes* (list))
-  (declaim (type list *mailboxes*))
-
-  (defstruct (mailbox (:conc-name mailbox.)) 
-    thread
-    (mutex (sb-thread:make-mutex))
-    (waitqueue  (sb-thread:make-waitqueue))
-    (queue '() :type list))
-
-  (defun mailbox (thread)
-    "Return THREAD's mailbox."
-    (sb-thread:with-mutex (*mailbox-lock*)
-      (or (find thread *mailboxes* :key #'mailbox.thread)
-          (let ((mb (make-mailbox :thread thread)))
-            (push mb *mailboxes*)
-            mb))))
-
-  (defimplementation send (thread message)
-    (let* ((mbox (mailbox thread))
-           (mutex (mailbox.mutex mbox)))
-      (sb-thread:with-mutex (mutex)
-        (setf (mailbox.queue mbox)
-              (nconc (mailbox.queue mbox) (list message)))
-        (sb-thread:condition-broadcast (mailbox.waitqueue mbox)))))
-
-  (defimplementation receive ()
-    (let* ((mbox (mailbox (sb-thread:current-thread-id)))
-           (mutex (mailbox.mutex mbox)))
-      (sb-thread:with-mutex (mutex)
-        (loop
-         (let ((q (mailbox.queue mbox)))
-           (cond (q (return (pop (mailbox.queue mbox))))
-                 (t (sb-thread:condition-wait (mailbox.waitqueue mbox)
-                                              mutex))))))))
+  (defun flush-streams ()
+    (loop
+     (setq *auto-flush-streams* 
+           (remove-if (lambda (x) 
+                        (not (and (open-stream-p x)
+                                  (output-stream-p x))))
+                      *auto-flush-streams*))
+     (mapc #'finish-output *auto-flush-streams*)
+     (sleep 0.15)))
 
   )
 
