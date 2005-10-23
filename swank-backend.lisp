@@ -430,6 +430,12 @@ Return a documentation string, or NIL if none is available.")
 
 ;;;; Debugging
 
+(definterface install-debugger-globally (function)
+  "Install FUNCTION as the debugger for all threads/processes. This
+usually involves setting *DEBUGGER-HOOK* and, if the implementation
+permits, hooking into BREAK as well."
+  (setq *debugger-hook* function))
+
 (definterface call-with-debugging-environment (debugger-loop-fn)
    "Call DEBUGGER-LOOP-FN in a suitable debugging environment.
 

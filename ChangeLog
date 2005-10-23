@@ -1,8 +1,20 @@
+2005-10-23  Gabor Melis  <mega@hotpop.com>
+ 
+	* swank-backend.lisp (install-debugger-globally): new interface
+	function
+ 
+	* swank.lisp (install-debugger): call install-debugger-globally
+ 
+	* swank-sbcl.lisp (install-debugger-globally): set
+	sb-ext:*invoke-debugger-hook* too
+	
 2005-10-23  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-sbcl.lisp (make-stream-interactive): Spawn a thread to
 	flush interactive streams in reasonably short intervals.  
 	Remove the old backward-compatible threading implementation.
+
+	* swank.lisp (package-string-for-prompt): Respect *print-case*.
 
 2005-10-21  Helmut Eller  <heller@common-lisp.net>
 

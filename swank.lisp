@@ -64,11 +64,11 @@
   "The KEYWORD package.")
 
 (defvar *canonical-package-nicknames*
-  '((:common-lisp-user . :cl-user))
+  `((:common-lisp-user . :cl-user))
   "Canonical package names to use instead of shortest name/nickname.")
 
 (defvar *auto-abbreviate-dotted-packages* t
-  "Automatically abbreviate dotted package names to their last component when T.")
+  "Abbreviate dotted package names to their last component if T.")
 
 (defvar *swank-io-package*
   (let ((package (make-package :swank-io-package :use '())))
@@ -1067,7 +1067,8 @@ converted to lower case."
          (let* ((tag (incf *read-input-catch-tag*))
                 (value (catch (intern-catch-tag tag)
                          (send-to-emacs 
-                          `(:eval ,(current-thread) ,tag ,(process-form-for-emacs form)))
+                          `(:eval ,(current-thread) ,tag 
+                            ,(process-form-for-emacs form)))
                          (loop (read-from-emacs)))))
            (destructure-case value
              ((:ok value) value)
@@ -1899,9 +1900,11 @@ change, then send Emacs an update."
 
 (defun package-string-for-prompt (package)
   "Return the shortest nickname (or canonical name) of PACKAGE."
-  (or (canonical-package-nickname package)
-      (auto-abbreviated-package-name package)
-      (shortest-package-nickname package)))
+  (princ-to-string 
+   (make-symbol
+    (or (canonical-package-nickname package)
+        (auto-abbreviated-package-name package)
+        (shortest-package-nickname package)))))
 
 (defun canonical-package-nickname (package)
   "Return the canonical package nickname, if any, of PACKAGE."
@@ -2055,7 +2058,7 @@ after Emacs causes a restart to be invoked."
 (defun install-debugger (connection)
   (declare (ignore connection))
   (when *global-debugger*
-    (setq *debugger-hook* #'swank-debugger-hook)))
+    (install-debugger-globally #'swank-debugger-hook)))
 
 ;;;;; Debugger loop
 ;;;

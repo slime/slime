@@ -618,6 +618,10 @@ Return a list of the form (NAME LOCATION)."
 
 (defvar *sldb-stack-top*)
 
+(defimplementation install-debugger-globally (function)
+  (setq sb-ext:*invoke-debugger-hook* function)
+  (setq *debugger-hook* function))
+
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
   (let* ((*sldb-stack-top* (or sb-debug:*stack-top-hint* (sb-di:top-frame)))
