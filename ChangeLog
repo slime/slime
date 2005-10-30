@@ -1,3 +1,17 @@
+2005-10-30  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-eval): Ensure that the connection is open before
+	waiting for input.
+
+	* swank.lisp (simple-serve-requests): Close the connection at the
+	end.
+
+2005-10-23  Harald Hanche-Olsen <hanche@math.ntnu.no>
+
+	* slime.el (slime-init-keymaps): Use vectors when defining keys,
+	because e.g. (define-key (string ?\C-c) ...) doesn't work in the
+	emacs-unicode-2 branch.
+
 2005-10-23  Stefan Kamphausen <skampi@gmx.net>
 
 	* slime.el (slime-repl-history-size, slime-repl-history-file): Use
