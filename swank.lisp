@@ -383,9 +383,7 @@ connections, otherwise it will be closed after the first."
                 :name "Swank"))
         ((:fd-handler :sigio)
          (add-fd-handler socket (lambda () (serve))))
-        ((nil)
-         (unwind-protect (loop do (serve) while dont-close)
-           (close-socket socket))))
+        ((nil) (loop do (serve) while dont-close)))
       port)))
 
 (defun serve-connection (socket style dont-close external-format)
@@ -475,7 +473,8 @@ stream (or NIL if none was created)."
 Return an output stream suitable for writing program output.
 
 This is an optimized way for Lisp to deliver output to Emacs."
-  (let* ((socket (create-socket *loopback-interface* *dedicated-output-stream-port*))
+  (let* ((socket (create-socket *loopback-interface* 
+                                *dedicated-output-stream-port*))
          (port (local-port socket)))
     (encode-message `(:open-dedicated-output-stream ,port) socket-io)
     (accept-authenticated-connection
@@ -697,7 +696,8 @@ of the toplevel restart."
 
 (defun simple-serve-requests (connection)
   (with-reader-error-handler (connection)
-    (loop (handle-request connection))))
+    (unwind-protect (loop (handle-request connection))
+      (close-connection connection))))
 
 (defun read-from-socket-io ()
   (let ((event (decode-message (current-socket-io))))
