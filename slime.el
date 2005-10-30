@@ -724,7 +724,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
              (define-key slime-doc-map (string key) command)
              (unless (equal key ?h)     ; But don't bind C-h
                (let ((modified (slime-control-modified-char key)))
-                 (define-key slime-doc-map (string modified) command)))))
+                 (define-key slime-doc-map (vector modified) command)))))
   ;; C-c C-d is the prefix for the doc map.
   (slime-define-key "\C-d" slime-doc-map :prefixed t :inferior t)
   ;; Who-xref
@@ -734,14 +734,14 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
              ;; We bind both unmodified and with control.
              (define-key slime-who-map (string key) command)
              (let ((modified (slime-control-modified-char key)))
-                 (define-key slime-who-map (string modified) command))))
+                 (define-key slime-who-map (vector modified) command))))
   ;; C-c C-w is the prefix for the who-xref map.
   (slime-define-key "\C-w" slime-who-map :prefixed t :inferior t))
 
 (defun slime-control-modified-char (char)
   "Return the control-modified version of CHAR."
   ;; Maybe better to just bitmask it?
-  (car (read-from-string (format "?\\C-%c" char))))
+  (read (format "?\\C-%c" char)))
 
 (slime-init-keymaps)
 
@@ -2272,8 +2272,12 @@ side.")
          ((:abort)
           (throw tag (list #'error "Synchronous Lisp Evaluation aborted."))))
        (let ((debug-on-quit t)
-             (inhibit-quit nil))
-         (while t (accept-process-output nil 0 10000)))))))
+             (inhibit-quit nil)
+             (conn (slime-connection)))
+         (while t 
+           (unless (eq (process-status conn) 'open)
+             (error "Lisp connection closed unexpectedly"))
+           (accept-process-output nil 0 10000)))))))
 
 (defun slime-eval-async (sexp &optional cont package)
   "Evaluate EXPR on the superior Lisp and call CONT with the result."
