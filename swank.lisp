@@ -696,7 +696,9 @@ of the toplevel restart."
 
 (defun simple-serve-requests (connection)
   (with-reader-error-handler (connection)
-    (unwind-protect (loop (handle-request connection))
+    (unwind-protect (loop (with-simple-restart 
+                              (abort "Return to SLIME top-level.")
+                            (handle-request connection)))
       (close-connection connection))))
 
 (defun read-from-socket-io ()
@@ -1085,7 +1087,7 @@ PACKAGE: a list (&key NAME PROMPT)"
   (setq *slime-features* *features*)
   `(:pid ,(getpid) :style ,(connection.communication-style *emacs-connection*)
     :lisp-implementation (:type ,(lisp-implementation-type)
-                          :type-name ,(lisp-implementation-type-name)
+                          :name ,(lisp-implementation-type-name)
                           :version ,(lisp-implementation-version))
     :machine (:instance ,(machine-instance)
               :type ,(machine-type)
