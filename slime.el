@@ -1304,14 +1304,15 @@ The rules for selecting the arguments are rather complicated:
 
 (defun slime-lookup-lisp-implementation (table name)
   (destructuring-bind (name (prog &rest args) &rest keys) (assoc name table)
-    (list* :program prog :program-args args keys)))
+    (list* :name name :program prog :program-args args keys)))
 
 (defun* slime-start (&key (program inferior-lisp-program) program-args 
                           (buffer "*inferior-lisp*")
                           (coding-system slime-net-coding-system)
-                          (init 'slime-init-command))
+                          (init 'slime-init-command)
+                          name)
   (let ((args (list :program program :program-args program-args :buffer buffer 
-                    :coding-system coding-system :init init)))
+                    :coding-system coding-system :init init :name name)))
     (slime-check-coding-system coding-system)
     (setq slime-net-coding-system coding-system)
     (when (or (not (slime-bytecode-stale-p))
@@ -1968,8 +1969,8 @@ This is automatically synchronized from Lisp.")
 (slime-def-connection-var slime-lisp-implementation-version nil
   "The implementation type of the Lisp process.")
 
-(slime-def-connection-var slime-lisp-implementation-type-name nil
-  "The short name for the implementation type of the Lisp process.")
+(slime-def-connection-var slime-lisp-implementation-name nil
+  "The short name for the Lisp implementation.")
 
 (slime-def-connection-var slime-connection-name nil
   "The short name for connection.")
@@ -2025,15 +2026,18 @@ This is automatically synchronized from Lisp.")
       (destructuring-bind (&key name prompt) package
         (setf (slime-lisp-package) name
               (slime-lisp-package-prompt-string) prompt))
-      (destructuring-bind (&key type type-name version) lisp-implementation
+      (destructuring-bind (&key type name version) lisp-implementation
         (setf (slime-lisp-implementation-type) type
               (slime-lisp-implementation-version) version
-              (slime-lisp-implementation-type-name) type-name
-              (slime-connection-name) (slime-generate-connection-name 
-                                       type-name)))
+              (slime-lisp-implementation-name) name
+              (slime-connection-name) (slime-generate-connection-name name)))
       (destructuring-bind (&key instance type version) machine
         (setf (slime-machine-instance) instance)))
     (setq slime-state-name "")          ; FIXME
+    (when-let (p (slime-inferior-process))
+      (when-let (name (plist-get (slime-inferior-lisp-args p) ':name))
+        (setf (slime-connection-name)
+              (slime-generate-connection-name (symbol-name name)))))
     (slime-hide-inferior-lisp-buffer)
     (slime-init-output-buffer connection)
     (run-hooks 'slime-connected-hook)
@@ -8766,7 +8770,7 @@ that succeeded initially folded away."
         (show-subtree)))))
 
 (defun slime-test-should-fail-p (test)
-  (member (slime-lisp-implementation-type-name)
+  (member (slime-lisp-implementation-name)
           (slime-test.fails-for test)))
 
 (defun slime-execute-tests ()
