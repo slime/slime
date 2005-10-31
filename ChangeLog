@@ -1,6 +1,17 @@
+2005-10-31  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-start, slime-lookup-lisp-implementation)
+	(slime-set-connection-info): Add a :name property for the
+	implementation and use it to derive the connection-name.
+	(slime-lisp-implementation-name): Renamed from
+	slime-lisp-implementation-type-name.
+
+	* swank.lisp (simple-serve-requests): Add an extra abort restart.
+	(connection-info): Rename :type-name to :name.
+	
 2005-10-30  Andras Simon <andras@renyi.hu>
 
-        * swank-abcl.lisp (inspect-for-emacs): Track mop changes in ABCL.
+	* swank-abcl.lisp (inspect-for-emacs): Track mop changes in ABCL.
 
 2005-10-30  Helmut Eller  <heller@common-lisp.net>
 
