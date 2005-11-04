@@ -1081,7 +1081,7 @@ converted to lower case."
 \(&key PID STYLE LISP-IMPLEMENTATION MACHINE FEATURES PACKAGE)
 PID: is the process-id of Lisp process (or nil, depending on the STYLE)
 STYLE: the communication style
-LISP-IMPLEMENTATION: a list (&key TYPE TYPE-NAME VERSION)
+LISP-IMPLEMENTATION: a list (&key TYPE NAME VERSION)
 FEATURES: a list of keywords
 PACKAGE: a list (&key NAME PROMPT)"
   (setq *slime-features* *features*)
