@@ -1,3 +1,11 @@
+2005-11-06  Juho Snellman <jsnell@iki.fi>
+
+	* swank-sbcl.lisp (find-definitions, make-source-location-specification
+          make-definition-source-location, source-hint-snippet): As of
+          SBCL 0.9.6.25 SB-INTROSPECT has better support for finding 
+          source locations. Use as much of it in swank-sbcl as possible.
+          (Original version left reader-conditionalized for older SBCLs).
+
 2005-11-04  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (connection-info): Docfix.

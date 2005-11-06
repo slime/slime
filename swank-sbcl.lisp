@@ -395,6 +395,108 @@ compiler state."
   "When true don't handle errors while looking for definitions.
 This is useful when debugging the definition-finding code.")
 
+;;; As of SBCL 0.9.7 most of the gritty details of source location handling
+;;; are supported reasonably well by SB-INTROSPECT.
+
+;;; SBCL > 0.9.6
+#+#.(cl:if (cl:find-symbol "FIND-DEFINITION-SOURCES-BY-NAME" "SB-INTROSPECT")
+           '(and)
+           '(or))
+(progn
+
+(defparameter *definition-types*
+  '(:variable defvar
+    :constant defconstant
+    :type deftype
+    :symbol-macro define-symbol-macro
+    :macro defmacro
+    :compiler-macro define-compiler-macro
+    :function defun
+    :generic-function defgeneric
+    :method defmethod
+    :setf-expander define-setf-expander
+    :structure defstruct
+    :condition defcondition
+    :class defclass
+    :method-combination define-method-combination
+    :package defpackage
+    :transform :deftransform
+    :optimizer :defoptimizer
+    :vop :define-vop
+    :source-transform :define-source-transform)
+  "Map SB-INTROSPECT definition type names to Slime-friendly forms")
+
+(defimplementation find-definitions (name)
+  (loop for type in *definition-types* by #'cddr
+        for locations = (sb-introspect:find-definition-sources-by-name
+                         name type)
+        append (loop for source-location in locations collect
+                     (make-source-location-specification type name
+                                                         source-location))))
+
+(defun make-source-location-specification (type name source-location)
+  (list (list* (getf *definition-types* type)
+               name
+               (sb-introspect::definition-source-description source-location))
+        (if *debug-definition-finding*
+            (make-definition-source-location source-location type name)
+            (handler-case (make-definition-source-location source-location
+                                                           type name)
+              (error (e)
+                     (list :error (format nil "Error: ~A" e)))))))
+
+(defun make-definition-source-location (definition-source type name)
+  (with-struct (sb-introspect::definition-source-
+                   pathname form-path character-offset plist
+                   file-write-date)
+      definition-source
+    (destructuring-bind (&key emacs-buffer emacs-position
+                              emacs-string &allow-other-keys)
+        plist
+      (cond
+        (emacs-buffer
+         (let ((pos (if form-path
+                        (with-debootstrapping
+                          (source-path-string-position
+                           form-path emacs-string))
+                        character-offset)))
+           (make-location `(:buffer ,emacs-buffer)
+                          `(:position ,(+ pos emacs-position))
+                          `(:snippet ,emacs-string))))
+        ((not pathname)
+         `(:error ,(format nil "Source of ~A ~A not found"
+                           (string-downcase type) name)))
+        (t
+         (let* ((namestring (namestring (translate-logical-pathname pathname)))
+                (*readtable* (guess-readtable-for-filename namestring))
+                (pos (1+ (with-debootstrapping
+                           ;; Some internal functions have no source path
+                           ;; or offset available, just the file (why?).
+                           ;; In these cases we can at least try to open
+                           ;; the right file.
+                           (if form-path
+                               (source-path-file-position form-path
+                                                          pathname)
+                               0))))
+                (snippet (source-hint-snippet namestring
+                                              file-write-date pos)))
+           (make-location `(:file ,namestring)
+                          `(:position ,pos)
+                          `(:snippet ,snippet))))))))
+
+(defun source-hint-snippet (filename write-date position)
+  (let ((source (get-source-code filename write-date)))
+    (with-input-from-string (s source)
+      (read-snippet s position))))
+
+) ;; End >0.9.6
+
+;;; Support for SBCL 0.9.6 and earlier. Feel free to delete this
+;;; after January 2006.
+#-#.(cl:if (cl:find-symbol "FIND-DEFINITION-SOURCES-BY-NAME" "SB-INTROSPECT")
+           '(and)
+           '(or))
+(progn
 (defimplementation find-definitions (name)
   (append (function-definitions name)
           (compiler-definitions name)))
@@ -546,6 +648,7 @@ This is useful when debugging the definition-finding code.")
           for fn = (funcall reader fun-info)
           when fn collect `((sb-c:defoptimizer ,name)
                             ,(safe-function-source-location fn fun-name)))))
+) ;; End SBCL <= 0.9.6 compability
 
 (defimplementation describe-symbol-for-emacs (symbol)
   "Return a plist describing SYMBOL.
