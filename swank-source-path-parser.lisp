@@ -56,25 +56,30 @@ The source locations are stored in SOURCE-MAP."
 	  (when fn
 	    (set-macro-character char (make-source-recorder fn source-map) 
 				 term tab)))))
+    (suppress-sharp-dot tab)
     tab))
 
-(defvar *source-map* nil
-  "The hashtable table used for source position recording.")
+(defun suppress-sharp-dot (readtable)
+  (when (get-macro-character #\# readtable)
+    (let ((sharp-dot (get-dispatch-macro-character #\# #\. readtable)))
+      (set-dispatch-macro-character #\# #\. (lambda (&rest args)
+					      (let ((*read-suppress* t))
+						(apply sharp-dot args)))
+				    readtable))))
 
 (defun read-and-record-source-map (stream)
   "Read the next object from STREAM.
 Return the object together with a hashtable that maps
 subexpressions of the object to stream positions."
-  (let* ((*source-map* (make-hash-table :test #'eq))
-         (*readtable* (make-source-recording-readtable *readtable* 
-						       *source-map*))
+  (let* ((source-map (make-hash-table :test #'eq))
+         (*readtable* (make-source-recording-readtable *readtable* source-map))
 	 (start (file-position stream))
 	 (form (read stream))
 	 (end (file-position stream)))
     ;; ensure that at least FORM is in the source-map
-    (unless (gethash form *source-map*)
-      (push (cons start end) (gethash form *source-map*)))
-    (values form *source-map*)))
+    (unless (gethash form source-map)
+      (push (cons start end) (gethash form source-map)))
+    (values form source-map)))
 
 (defun read-source-form (n stream)
   "Read the Nth toplevel form number with source location recording.
@@ -82,7 +87,8 @@ Return the form and the source-map."
   (let ((*read-suppress* t))
     (dotimes (i n)
       (read stream)))
-  (let ((*read-suppress* nil)) 
+  (let ((*read-suppress* nil)
+	(*read-eval* nil))
     (read-and-record-source-map stream)))
   
 (defun source-path-stream-position (path stream)
