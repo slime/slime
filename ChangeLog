@@ -1,3 +1,12 @@
+2005-11-07  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-eval-macroexpand): Use lisp-mode (and
+	font-lock-mode) when dispaying the expansion.  Suggested by Jan
+	Rychter.
+
+	* swank-source-path-parser.lisp (make-source-recording-readtable):
+	Suppress the #. reader-macro.
+
 2005-11-06  Juho Snellman <jsnell@iki.fi>
 
 	* swank-sbcl.lisp (find-definitions, make-source-location-specification
