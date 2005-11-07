@@ -6580,7 +6580,8 @@ having names in the given package."
   (hyperspec-lookup symbol-name))
   
 (defun slime-show-description (string package)
-  (slime-with-output-to-temp-buffer ("*SLIME Description*") package (princ string)))
+  (slime-with-output-to-temp-buffer ("*SLIME Description*")
+      package (princ string)))
 
 (defun slime-describe-symbol (symbol-name)
   "Describe the symbol at point."
@@ -6954,8 +6955,12 @@ When displaying XREF information, this goes to the next reference."
 ;;;; Macroexpansion
 
 (defun slime-eval-macroexpand (expander)
-  (let ((string (slime-sexp-at-point)))
-    (slime-eval-describe `(,expander ,string))))
+  (lexical-let ((package (slime-current-package)))
+    (slime-eval-async `(,expander ,(slime-sexp-at-point))
+     (lambda (expansion)
+       (slime-with-output-to-temp-buffer 
+           ("*SLIME macroexpansion*" lisp-mode) package
+         (insert expansion))))))
 
 (defun slime-macroexpand-1 (&optional repeatedly)
   "Display the macro expansion of the form at point.  The form is
