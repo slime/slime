@@ -337,10 +337,16 @@ Useful for low level debugging."
 (defvar *use-dedicated-output-stream* t
   "When T swank will attempt to create a second connection to
   Emacs which is used just to send output.")
+
 (defvar *dedicated-output-stream-port* 0
   "Which port we should use for the dedicated output stream.")
 
 (defvar *communication-style* (preferred-communication-style))
+
+(defvar *dedicated-output-stream-buffering* 
+  (if (eq *communication-style* :spawn) :full :none)
+  "The buffering scheme that should be used for the output stream.
+Valid values are :none, :line, and :full.")
 
 (defun start-server (port-file &key (style *communication-style*)
                      dont-close (external-format *coding-system*))
@@ -478,7 +484,8 @@ This is an optimized way for Lisp to deliver output to Emacs."
          (port (local-port socket)))
     (encode-message `(:open-dedicated-output-stream ,port) socket-io)
     (accept-authenticated-connection
-     socket :external-format external-format)))
+     socket :external-format external-format 
+     :buffering *dedicated-output-stream-buffering*)))
 
 (defun handle-request (connection)
   "Read and process one request.  The processing is done in the extend
