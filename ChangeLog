@@ -1,3 +1,25 @@
+2005-11-11  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (*dedicated-output-stream-buffering*): New variable
+	to customize the buffering scheme.  For single-threaded Lisps we
+	disable buffering because lazy programmers forget to call
+	finish-output.
+	(open-dedicated-output-stream): Use it.
+
+	* swank-backend.lisp, swank-allegro.lisp, swank-lispworks.lisp,
+	swank-openmcl.lisp, swank-cmucl.lisp, swank-sbcl.lisp,
+	swank-clisp.lisp, swank-abcl.lisp, swank-corman.lisp,
+	swank-ecl.lisp (accept-connection): New argument: buffering.
+
+	* slime.el (slime-repl-save-history): When the history exceeds
+	slime-repl-history-size remove the old not the new entries.  
+	Some renaming: 
+	slime-repl-read-history -> slime-repl-load-history,
+	slime-repl-read-history-internal -> slime-repl-read-history.
+	(slime-eval-macroexpand): Call font-lock-fontify-buffer
+	explicitly, because with certain Emacs versions the buffer doesn't
+	get fontified immediately.
+
 2005-11-07  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-eval-macroexpand): Use lisp-mode (and
