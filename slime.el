@@ -441,7 +441,7 @@ PROPERTIES specifies any default face properties."
   :type 'string
   :group 'slime-repl)
 
-(defcustom slime-repl-history-size 100
+(defcustom slime-repl-history-size 1000
   "Maximum number of lines for persistent REPL history."
   :type 'integer
   :group 'slime-repl)
@@ -2914,7 +2914,7 @@ joined together."))
   (setq slime-current-thread :repl-thread)
   (set (make-local-variable 'scroll-conservatively) 20)
   (set (make-local-variable 'scroll-margin) 0)
-  (slime-repl-read-history)
+  (slime-repl-load-history)
   (make-local-hook 'kill-buffer-hook)
   (add-hook 'kill-buffer-hook 'slime-repl-save-merged-history nil t)
   (add-hook 'kill-emacs-hook 'slime-repl-save-all-histories)
@@ -3688,8 +3688,8 @@ Return nil of no item matches"
 ;;;;; Persistent History 
 
 (defun slime-repl-merge-histories (old-hist new-hist)
-  "Merge entries from OLD-HIST and NEW-HIST such that the new items in
-  NEW-HIST are appended to the OLD-HIST."
+  "Merge entries from OLD-HIST and NEW-HIST."
+  ;; Newer items in each list are at the beginning.
   (append
    ;; first the new unique elements...
    (remove-if #'(lambda (entry)
@@ -3704,80 +3704,60 @@ Return nil of no item matches"
                   (not (member entry old-hist)))
               new-hist)))
 
-(defun slime-repl-read-history-internal (filename)
-  "Return the list stored in FILENAME.
-The file contents are read using READ and no further error checking is
-done."
-  (when (and file (file-readable-p file))
-    (with-temp-buffer
-      (insert-file-contents file)
-      (read (current-buffer)))))
-
-(defun slime-repl-read-history (&optional filename)
+(defun slime-repl-load-history (&optional filename)
   "Set the current SLIME REPL history.
 It can be read either from FILENAME or `slime-repl-history-file' or
 from a user defined filename."
-  (interactive)
-  (let ((file (or filename
-                  slime-repl-history-file
-                  (read-file-name "Read SLIME REPL history from file: "))))
-    (setq slime-repl-input-history
-          (slime-repl-read-history-internal file))))
-  
+  (interactive (list (slime-repl-read-history-filename)))
+  (let ((file (or filename slime-repl-history-file)))
+    (setq slime-repl-input-history (slime-repl-read-history file t))))
+
+(defun slime-repl-read-history (&optional filename noerrer)
+  "Read and return the history from FILENAME.  
+The default value for FILENAME is `slime-repl-history-file'.
+If NOERROR is true return and the file doesn't exits return nil."
+  (let ((file (or filename slime-repl-history-file)))
+    (cond ((not (file-readable-p file)) '())
+          (t (with-temp-buffer
+               (insert-file-contents-literally file)
+               (read (current-buffer)))))))
+
+(defun slime-repl-read-history-filename ()
+  (read-file-name "Use SLIME REPL history from file: " 
+                  slime-repl-history-file))
+
 (defun slime-repl-save-merged-history (&optional filename)
   "Read the history file, merge the current REPL history and save it.
 This tries to be smart in merging the history from the file and the
 current history in that it tries to detect the unique entries using
 `slime-repl-merge-histories'."
-  (interactive)
-  (message "saving history...")
-  (let ((file (or filename
-                  slime-repl-history-file
-                  (read-file-name "Save SLIME REPL history to file: "))))
-    (cond
-      ((or (null file)
-           (null slime-repl-input-history))
-        nil)
-      ((not (file-writable-p file))
-        (error (format "Can't write SLIME REPL history file %s" file)))
-      (t
-        (let ((hist (slime-repl-read-history-internal file)))
-          (if (not (null hist))
-            (setq hist (slime-repl-merge-histories
-                        hist slime-repl-input-history))
-            (setq hist slime-repl-input-history))
-          (slime-repl-save-history hist file))))))
+  (interactive (list (slime-repl-read-history-filename)))
+  (let ((file (or filename slime-repl-history-file)))
+    (message "saving history...")
+    (let ((hist (slime-repl-merge-histories (slime-repl-read-history file t)
+                                            slime-repl-input-history)))
+      (slime-repl-save-history file hist))))
 
-(defun slime-repl-save-history (&optional history filename)
+(defun slime-repl-save-history (&optional filename history)
   "Simply save the current SLIME REPL history to a file.
 When SLIME is setup to always load the old history and one uses only
 one instance of slime all the time, there is no need to merge the
 files and this function is sufficient.
 
 When the list is longer than `slime-repl-history-size' it will be
-truncated.  That part is untested, though!
-"
-  (interactive)
-  (let ((file (or filename
-                  slime-repl-history-file
-                  (read-file-name "Save SLIME REPL history to file: "))))
-    (cond
-      ((or (null file)
-           (null slime-repl-input-history))
-        nil)
-      ((not (file-writable-p file))
-        (error (format "Can't write SLIME REPL history file %s" file)))
-      (t
-        (let* ((hist (or history slime-repl-input-history))
-               (len (length hist)))
-          (when (> len slime-repl-history-size)
-            (setq hist (subseq hist (- len slime-repl-history-size))))
-          ;;(message "saving %s to %s\n" hist file)
-          (with-temp-buffer
-            (insert ";; History for SLIME REPL.  Automatically written\n")
-            (insert ";; Edit only if you know what you're doing\n")
-            (pp (mapcar #'substring-no-properties hist) (current-buffer))
-            (write-region (point-min) (point-max) file)))))))
+truncated.  That part is untested, though!"
+  (interactive (list (slime-repl-read-history-filename)))
+  (let ((file (or filename slime-repl-history-file))
+        (hist (or history slime-repl-input-history)))
+    (unless (file-writable-p file)
+      (error (format "Can't write SLIME REPL history file %s" file)))
+    (let ((hist (subseq hist 0 (min (length hist) slime-repl-history-size))))
+      ;;(message "saving %s to %s\n" hist file)
+      (with-temp-buffer
+        (insert ";; History for SLIME REPL.  Automatically written\n")
+        (insert ";; Edit only if you know what you're doing\n")
+        (pp (mapcar #'substring-no-properties hist) (current-buffer))
+        (write-region (point-min) (point-max) file)))))
 
 (defun slime-repl-save-all-histories ()
   "Save the history in each repl buffer."
@@ -4834,13 +4814,10 @@ first element of the source-path redundant."
        (or 
         (re-search-forward 
          (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\S_" name) nil t)
-        ;; ;; FIXME: this matches the same and a bit more than the last line
-        ;; (re-search-forward 
-        ;;  (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +(*?%s\\S_" name) nil t)
-        ;; (re-search-forward 
-        ;;  ;; FIXME: Isn't this far to general?
-        ;;  (format "[( \t]%s\\>\\(\\s \\|$\\)" name) nil t)
-        ))
+        (re-search-forward 
+         (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +(*%s\\S_" name) nil t)
+        (re-search-forward 
+         (format "[( \t]%s\\>\\(\\s \\|$\\)" name) nil t)))
      (goto-char (match-beginning 0)))
     ((:method name specializers &rest qualifiers)
      (slime-search-method-location name specializers qualifiers))
@@ -6960,7 +6937,8 @@ When displaying XREF information, this goes to the next reference."
      (lambda (expansion)
        (slime-with-output-to-temp-buffer 
            ("*SLIME macroexpansion*" lisp-mode) package
-         (insert expansion))))))
+         (insert expansion)
+         (font-lock-fontify-buffer))))))
 
 (defun slime-macroexpand-1 (&optional repeatedly)
   "Display the macro expansion of the form at point.  The form is
@@ -7978,7 +7956,8 @@ See `slime-lisp-implementations'")
   ((kbd "RET") 'slime-goto-connection)
   ("d"         'slime-connection-list-make-default)
   ("g"         'slime-update-connection-list)
-  ((kbd "C-k") 'slime-quit-connection-at-point))
+  ((kbd "C-k") 'slime-quit-connection-at-point)
+  ("R"         'slime-restart-connection-at-point))
 
 (defun slime-connection-at-point ()
   (or (get-text-property (point) 'slime-connection)
@@ -7997,6 +7976,11 @@ See `slime-lisp-implementations'")
     (while (memq connection slime-net-processes)
       (sit-for 0 100)))
   (slime-update-connection-list))
+
+(defun slime-restart-connection-at-point (connection)
+  (interactive (list (slime-connection-at-point)))
+  (let ((slime-dispatching-connection connection))
+    (slime-restart-inferior-lisp)))
   
 (defun slime-connection-list-make-default ()
   "Make the connection at point the default connection."
@@ -9099,12 +9083,19 @@ Confirm that SUBFORM is correctly located."
       ("(defun cl-user::foo ()
           \"\\\" bla bla \\\"\"
           (cl-user::bar))"
-       (cl-user::bar)))
+       (cl-user::bar))
+      ("(defun cl-user::foo ()
+          #.*log-events*
+          (cl-user::bar))"
+       (cl-user::bar))
+      )
   (slime-check-top-level)
   (with-temp-buffer 
     (lisp-mode)
     (insert program)
+    (setq slime-buffer-package ":swank")
     (slime-compile-defun)
+    (setq slime-buffer-package ":cl-user")
     (slime-sync)
     (goto-char (point-max))
     (slime-previous-note)
@@ -9825,7 +9816,7 @@ If they are not, position point at the first syntax error found."
           slime-print-apropos
           slime-show-note-counts
           slime-insert-propertized
-          slime-tree-insert)))
+           slime-tree-insert)))
 
 (run-hooks 'slime-load-hook)
 
