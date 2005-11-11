@@ -58,9 +58,10 @@
   (sb-sys:invalidate-descriptor (socket-fd socket))
   (sb-bsd-sockets:socket-close socket))
 
-(defimplementation accept-connection (socket 
-                                      &key (external-format :iso-latin-1-unix))
-  (make-socket-io-stream (accept socket) external-format))
+(defimplementation accept-connection (socket &key 
+                                      (external-format :iso-latin-1-unix)
+                                      (buffering :full))
+  (make-socket-io-stream (accept socket) external-format buffering))
 
 (defvar *sigio-handlers* '()
   "List of (key . fn) pairs to be called on SIGIO.")
@@ -115,12 +116,13 @@
     (:utf-8-unix :utf-8)
     (:euc-jp-unix :euc-jp)))
 
-(defun make-socket-io-stream (socket external-format)
+(defun make-socket-io-stream (socket external-format buffering)
   (let ((ef (find-external-format external-format)))
     (sb-bsd-sockets:socket-make-stream socket
                                        :output t
                                        :input t
                                        :element-type 'character
+                                       :buffering buffering
                                        #+sb-unicode :external-format 
                                        #+sb-unicode ef
                                        )))

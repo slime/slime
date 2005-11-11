@@ -66,7 +66,9 @@
   (comm::close-socket (socket-fd socket)))
 
 (defimplementation accept-connection (socket 
-                                      &key (external-format :iso-latin-1-unix))
+                                      &key (external-format :iso-latin-1-unix)
+                                      buffering)
+  (declare (ignore buffering))
   (assert (eq external-format :iso-latin-1-unix))
   (let* ((fd (comm::get-fd-from-socket socket)))
     (assert (/= fd -1))

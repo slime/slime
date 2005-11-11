@@ -211,9 +211,10 @@ EXCEPT is a list of symbol names which should be ignored."
 (definterface close-socket (socket)
   "Close the socket SOCKET.")
 
-(definterface accept-connection (socket &key external-format)
-   "Accept a client connection on the listening socket SOCKET.  Return
-a stream for the new connection.")
+(definterface accept-connection (socket &key external-format
+                                        buffering)
+   "Accept a client connection on the listening socket SOCKET.  
+Return a stream for the new connection.")
 
 (definterface add-sigio-handler (socket fn)
   "Call FN whenever SOCKET is readable.")

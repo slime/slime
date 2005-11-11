@@ -94,13 +94,15 @@
   (nth-value 1 (ext::get-socket-host-and-port (socket-fd socket))))
 
 (defimplementation close-socket (socket)
-  (sys:invalidate-descriptor socket)
-  (ext:close-socket (socket-fd socket)))
+  (let ((fd (socket-fd socket)))
+    (sys:invalidate-descriptor fd) 
+    (ext:close-socket fd)))
 
-(defimplementation accept-connection (socket &key external-format)
-  (let ((ef (or external-format :iso-latin-1-unix)))
-    (assert (eq ef ':iso-latin-1-unix))
-    (make-socket-io-stream (ext:accept-tcp-connection socket))))
+(defimplementation accept-connection (socket &key 
+                                      (external-format :iso-latin-1-unix)
+                                      (buffering :full))
+  (assert (eq external-format ':iso-latin-1-unix))
+  (make-socket-io-stream (ext:accept-tcp-connection socket) buffering))
 
 ;;;;; Sockets
 
@@ -115,9 +117,10 @@
   (let ((hostent (ext:lookup-host-entry hostname)))
     (car (ext:host-entry-addr-list hostent))))
 
-(defun make-socket-io-stream (fd)
+(defun make-socket-io-stream (fd buffering)
   "Create a new input/output fd-stream for FD."
-  (sys:make-fd-stream fd :input t :output t :element-type 'base-char))
+  (sys:make-fd-stream fd :input t :output t :element-type 'base-char
+                      :buffering buffering))
 
 ;;;;; Signal-driven I/O
 
@@ -189,21 +192,23 @@ specific functions.")
   (print-unreadable-object (s stream :type t :identity t)))
 
 (defun sos/out (stream char)
-  (let ((buffer (sos.buffer stream))
-	(index (sos.index stream)))
-    (setf (schar buffer index) char)
-    (setf (sos.index stream) (1+ index))
-    (incf (sos.column stream))
-    (when (char= #\newline char)
-      (setf (sos.column stream) 0)
-      (force-output stream))
-    (when (= index (1- (length buffer)))
-      (finish-output stream)))
-  char)
+  (system:without-interrupts 
+    (let ((buffer (sos.buffer stream))
+          (index (sos.index stream)))
+      (setf (schar buffer index) char)
+      (setf (sos.index stream) (1+ index))
+      (incf (sos.column stream))
+      (when (char= #\newline char)
+        (setf (sos.column stream) 0)
+        (force-output stream))
+      (when (= index (1- (length buffer)))
+        (finish-output stream)))
+    char))
 
 (defun sos/sout (stream string start end)
-  (loop for i from start below end 
-	do (sos/out stream (aref string i))))
+  (system:without-interrupts 
+    (loop for i from start below end 
+          do (sos/out stream (aref string i)))))
 
 (defun log-stream-op (stream operation)
   stream operation
@@ -220,12 +225,13 @@ specific functions.")
   (case operation
     (:finish-output
      (log-stream-op stream operation)
-     (let ((end (sos.index stream)))
-       (unless (zerop end)
-         (let ((s (subseq (sos.buffer stream) 0 end)))
-           (setf (sos.index stream) 0)
-           (funcall (sos.output-fn stream) s))
-         (setf (sos.last-flush-time stream) (get-internal-real-time))))
+     (system:without-interrupts 
+       (let ((end (sos.index stream)))
+         (unless (zerop end)
+           (let ((s (subseq (sos.buffer stream) 0 end)))
+             (setf (sos.index stream) 0)
+             (funcall (sos.output-fn stream) s))
+           (setf (sos.last-flush-time stream) (get-internal-real-time)))))
      nil)
     (:force-output
      (log-stream-op stream operation)
@@ -240,16 +246,17 @@ specific functions.")
     (t (format *terminal-io* "~&~Astream: ~S~%" stream operation))))
 
 (defun sos/misc-force-output (stream)
-  (unless (or (zerop (sos.index stream))
-              (loop with buffer = (sos.buffer stream)
-                    for i from 0 below (sos.index stream)
-                    always (char= (aref buffer i) #\newline)))
-    (let ((last (sos.last-flush-time stream))
-          (now (get-internal-real-time)))
-      (when (> (/ (- now last)
-                  (coerce internal-time-units-per-second 'double-float))
-               0.1)
-        (finish-output stream)))))
+  (system:without-interrupts 
+    (unless (or (zerop (sos.index stream))
+                (loop with buffer = (sos.buffer stream)
+                      for i from 0 below (sos.index stream)
+                      always (char= (aref buffer i) #\newline)))
+      (let ((last (sos.last-flush-time stream))
+            (now (get-internal-real-time)))
+        (when (> (/ (- now last)
+                    (coerce internal-time-units-per-second 'double-float))
+                 0.1)
+          (finish-output stream))))))
 
 (defstruct (slime-input-stream
              (:include string-stream
@@ -1864,7 +1871,7 @@ The `symbol-value' of each element is a type tag.")
                 (loop for value in parts  for i from 0 
                       append (label-value-line i value))))))
 
-(defmethod inspect-for-emacs :around ((o function) (inspector cmucl-inspector))
+(defmethod inspect-for-emacs ((o function) (inspector cmucl-inspector))
   (declare (ignore inspector))
   (let ((header (kernel:get-type o)))
     (cond ((= header vm:function-header-type)
@@ -1945,7 +1952,7 @@ The `symbol-value' of each element is a type tag.")
            (:displaced-p (kernel:%array-displaced-p o))
            (:dimensions (array-dimensions o)))))
 
-(defmethod inspect-for-emacs ((o vector) (inspector cmucl-inspector))
+(defmethod inspect-for-emacs ((o simple-vector) (inspector cmucl-inspector))
   inspector
   (values (format nil "~A is a vector." o)
           (append 

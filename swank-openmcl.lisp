@@ -128,7 +128,9 @@
   (close socket))
 
 (defimplementation accept-connection (socket 
-                                      &key (external-format :iso-latin-1-unix))
+                                      &key (external-format :iso-latin-1-unix)
+                                      buffering)
+  (declare (ignore buffering))
   (assert (eq external-format :iso-latin-1-unix))
   (ccl:accept-connection socket :wait t))
 
@@ -771,8 +773,6 @@ out IDs for.")
 
 (defimplementation spawn (fn &key name)
   (ccl:process-run-function (or name "Anonymous (Swank)") fn))
-
-(defimplementation startup-multiprocessing ())
 
 (defimplementation thread-id (thread)
   (ccl::process-serial-number thread))

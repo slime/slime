@@ -125,7 +125,9 @@
     (ext:make-encoding :charset charset :line-terminator :unix)))
   
 (defimplementation accept-connection (socket
-				      &key (external-format :iso-latin-1-unix))
+				      &key (external-format :iso-latin-1-unix)
+				      buffering)
+  (declare (ignore buffering))
   (socket:socket-accept socket
 			:buffered nil ;; XXX should be t
 			:element-type 'character
@@ -234,9 +236,9 @@ Return NIL if the symbol is unbound."
 (defvar *sldb-backtrace*)
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
-  (let* ((sys::*break-count* (1+ sys::*break-count*))
-	 (sys::*driver* debugger-loop-fn)
-	 (sys::*fasoutput-stream* nil)
+  (let* (;;(sys::*break-count* (1+ sys::*break-count*))
+	 ;;(sys::*driver* debugger-loop-fn)
+	 ;;(sys::*fasoutput-stream* nil)
 	 (*sldb-backtrace* (nthcdr 6 (sldb-backtrace))))
     (funcall debugger-loop-fn)))
 

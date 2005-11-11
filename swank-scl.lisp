@@ -52,7 +52,8 @@
 (defimplementation close-socket (socket)
   (ext:close-socket (socket-fd socket)))
 
-(defimplementation accept-connection (socket &key external-format)
+(defimplementation accept-connection (socket &key external-format buffering)
+  (declare (ignore buffering))
   (let ((external-format (or external-format :iso-latin-1-unix)))
     (make-socket-io-stream (ext:accept-tcp-connection socket)
                            external-format)))

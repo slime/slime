@@ -238,7 +238,9 @@
   (close socket))
 
 (defimplementation accept-connection (socket
-                                      &key (external-format :iso-latin-1-unix))
+                                      &key (external-format :iso-latin-1-unix)
+				      buffering)
+  (declare (ignore buffering))
   (ecase external-format
     (:iso-latin-1-unix 
      (sockets:make-socket-stream (sockets:accept-socket socket)))))
