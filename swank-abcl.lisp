@@ -472,6 +472,30 @@ part of *sysdep-pathnames* in swank.loader.lisp.
 (defimplementation receive ()
   (ext:mailbox-read (mailbox (ext:current-thread))))
 
+;;; Auto-flush streams
+
+;; XXX race conditions
+(defvar *auto-flush-streams* '())
+  
+(defvar *auto-flush-thread* nil)
+
+(defimplementation make-stream-interactive (stream)
+  (setq *auto-flush-streams* (adjoin stream *auto-flush-streams*))
+  (unless *auto-flush-thread*
+    (setq *auto-flush-thread*
+          (ext:make-thread #'flush-streams 
+                           :name "auto-flush-thread"))))
+
+(defun flush-streams ()
+  (loop
+   (setq *auto-flush-streams* 
+         (remove-if (lambda (x) 
+                      (not (and (open-stream-p x)
+                                (output-stream-p x))))
+                    *auto-flush-streams*))
+   (mapc #'finish-output *auto-flush-streams*)
+   (sleep 0.15)))
+
 (defimplementation quit-lisp ()
   (ext:exit))
 
