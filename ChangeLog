@@ -1,3 +1,7 @@
+2005-11-13  Andras Simon <andras@renyi.hu>
+
+	* swank-abcl.lisp: Steal auto-flush stuff from swank-sbcl.lisp
+
 2005-11-11  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (*dedicated-output-stream-buffering*): New variable
