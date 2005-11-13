@@ -52,11 +52,12 @@
 (defimplementation close-socket (socket)
   (ext:close-socket (socket-fd socket)))
 
-(defimplementation accept-connection (socket &key external-format buffering)
-  (declare (ignore buffering))
+(defimplementation accept-connection (socket &key 
+                                      (external-format :iso-latin-1-unix)
+                                      (buffering :full))
   (let ((external-format (or external-format :iso-latin-1-unix)))
     (make-socket-io-stream (ext:accept-tcp-connection socket)
-                           external-format)))
+                           external-format buffering)))
 
 ;;;;; Sockets
 
@@ -75,12 +76,14 @@
   (case coding-system
     (:iso-latin-1-unix :iso-8859-1)
     (:utf-8-unix :utf-8)
+    (:euc-jp-unix :euc-jp)
     (t coding-system)))
 
-(defun make-socket-io-stream (fd external-format)
+(defun make-socket-io-stream (fd external-format buffering)
   "Create a new input/output fd-stream for 'fd."
   (let ((external-format (find-external-format external-format)))
     (sys:make-fd-stream fd :input t :output t :element-type 'base-char
+                        :buffering buffering
                         :external-format external-format)))
 
 
@@ -1752,7 +1755,7 @@ The `symbol-value' of each element is a type tag.")
                 (loop for value in parts  for i from 0 
                       append (label-value-line i value))))))
 
-(defmethod inspect-for-emacs :around ((o function) (inspector scl-inspector))
+(defmethod inspect-for-emacs ((o function) (inspector scl-inspector))
   (declare (ignore inspector))
   (let ((header (kernel:get-type o)))
     (cond ((= header vm:function-header-type)
@@ -1833,7 +1836,7 @@ The `symbol-value' of each element is a type tag.")
            (:displaced-p (kernel:%array-displaced-p o))
            (:dimensions (array-dimensions o)))))
 
-(defmethod inspect-for-emacs ((o vector) (inspector scl-inspector))
+(defmethod inspect-for-emacs ((o simple-vector) (inspector scl-inspector))
   inspector
   (values (format nil "~A is a vector." o)
           (append 

@@ -1,3 +1,7 @@
+2005-11-14  Douglas Crosher <dcrosher@common-lisp.net>
+
+	* swank-scl.lisp (accept-connection): handle the :buffering argument.
+
 2005-11-13  Andras Simon <andras@renyi.hu>
 
 	* swank-abcl.lisp: (accept-connection): New argument: buffering.
