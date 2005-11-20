@@ -1805,6 +1805,8 @@ Errors are trapped and invoke our debugger."
                   (*pending-continuations* (cons id *pending-continuations*)))
               (check-type *buffer-package* package)
               (check-type *buffer-readtable* readtable)
+              ;; APPLY would be cleaner than EVAL. 
+              ;;(setq result (apply (car form) (cdr form)))
               (setq result (eval form))
               (finish-output)
               (run-hook *pre-reply-hook*)
@@ -2427,6 +2429,12 @@ Record compiler notes signalled as `compiler-condition's."
 
 (defslimefun swank-macroexpand-all (string)
   (apply-macro-expander #'macroexpand-all string))
+
+(defslimefun swank-compiler-macroexpand-1 (string)
+  (apply-macro-expander #'compiler-macroexpand-1 string))
+
+(defslimefun swank-compiler-macroexpand (string)
+  (apply-macro-expander #'compiler-macroexpand string))
 
 (defslimefun disassemble-symbol (name)
   (with-buffer-syntax ()
@@ -3590,28 +3598,27 @@ NIL is returned if the list is circular."
 (defmethod inspect-for-emacs ((o standard-object) inspector)
   (declare (ignore inspector))
   (values "An object."
-          `("Class: " (:value ,(class-of o))
-            (:newline)
+          `("Class: " (:value ,(class-of o)) (:newline)
             "Slots:" (:newline)
             ,@(loop
-                 with direct-slots = (swank-mop:class-direct-slots (class-of o))
                  for slot in (swank-mop:class-slots (class-of o))
-                 for slot-def = (or (find-if (lambda (a)
-                                               ;; find the direct slot
-                                               ;; with the same name
-                                               ;; as SLOT (an
-                                               ;; effective slot).
-                                               (eql (swank-mop:slot-definition-name a)
-                                                    (swank-mop:slot-definition-name slot)))
-                                             direct-slots)
-                                    slot)
-                 collect `(:value ,slot-def ,(inspector-princ (swank-mop:slot-definition-name slot-def)))
+                 for slot-def = (find-effective-slot o slot)
+                 for slot-name = (swank-mop:slot-definition-name slot-def)
+                 collect `(:value ,slot-def ,(string slot-name))
                  collect " = "
-                 if (slot-boundp o (swank-mop:slot-definition-name slot-def))
-                   collect `(:value ,(slot-value o (swank-mop:slot-definition-name slot-def)))
-                 else
-                   collect "#<unbound>"
+                 collect (if (slot-boundp o slot-name)
+                             `(:value ,(slot-value o slot-name))
+                              "#<unbound>")
                  collect '(:newline)))))
+
+(defun find-effective-slot (o slot)
+  ;; find the direct slot with the same name as SLOT (an effective
+  ;; slot).
+  (or (find-if (lambda (a)
+                 (eql (swank-mop:slot-definition-name a)
+                      (swank-mop:slot-definition-name slot)))
+               (swank-mop:class-direct-slots (class-of o)))
+      slot))
 
 (defvar *gf-method-getter* 'methods-by-applicability
   "This function is called to get the methods of a generic function.
@@ -4040,6 +4047,11 @@ nil if there's no second element."
   "Describe the currently inspected object."
   (with-buffer-syntax ()
     (describe-to-string *inspectee*)))
+
+(defslimefun pprint-inspector-part (index)
+  "Pretty-print the currently inspected object."
+  (with-buffer-syntax ()
+    (swank-pprint (list (inspector-nth-part index)))))
 
 (defslimefun inspect-in-frame (string index)
   (with-buffer-syntax ()
