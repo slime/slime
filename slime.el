@@ -2,7 +2,7 @@
 ;; slime.el -- Superior Lisp Interaction Mode for Emacs
 ;;;; License
 ;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
-;;     Copyright (C) 2004  Luke Gorrie, Helmut Eller
+;;     Copyright (C) 2004,2005  Luke Gorrie, Helmut Eller
 ;;
 ;;     This program is free software; you can redistribute it and/or
 ;;     modify it under the terms of the GNU General Public License as
@@ -442,8 +442,18 @@ PROPERTIES specifies any default face properties."
   :group 'slime-repl)
 
 (defcustom slime-repl-history-size 1000
-  "Maximum number of lines for persistent REPL history."
+  "*Maximum number of lines for persistent REPL history."
   :type 'integer
+  :group 'slime-repl)
+
+(defcustom slime-repl-history-file-coding-system 
+  (cond ((featurep 'xemacs)
+         (cond ((find-coding-system 'utf-8-unix) 'utf-8-unix)
+               (t (coding-system-name default-buffer-file-coding-system))))
+        ((coding-system-p 'utf-8-unix) 'utf-8-unix)
+        (t 'emacs-mule-unix))
+  "*The coding system for the history file."
+  :type 'symbol
   :group 'slime-repl)
 
 
@@ -1307,31 +1317,29 @@ The rules for selecting the arguments are rather complicated:
     (list* :name name :program prog :program-args args keys)))
 
 (defun* slime-start (&key (program inferior-lisp-program) program-args 
-                          (buffer "*inferior-lisp*")
                           (coding-system slime-net-coding-system)
                           (init 'slime-init-command)
-                          name)
+                          name
+                          (buffer "*inferior-lisp*"))
   (let ((args (list :program program :program-args program-args :buffer buffer 
                     :coding-system coding-system :init init :name name)))
     (slime-check-coding-system coding-system)
-    (setq slime-net-coding-system coding-system)
     (when (or (not (slime-bytecode-stale-p))
               (slime-urge-bytecode-recompile))
       (let ((proc (slime-maybe-start-lisp program program-args buffer)))
         (slime-inferior-connect proc args)
         (pop-to-buffer (process-buffer proc))))))
 
-(defun slime-connect (host port &optional kill-old-p)
+(defun slime-connect (host port &optional coding-system)
   "Connect to a running Swank server."
   (interactive (list (read-from-minibuffer "Host: " "127.0.0.1")
-                     (read-from-minibuffer "Port: " "4005" nil t)
-                     (if (null slime-net-processes)
-                         t
-                       (y-or-n-p "Close old connections first? "))))
-  (slime-check-coding-system)
-  (when kill-old-p (slime-disconnect))
+                     (read-from-minibuffer "Port: " "4005" nil t)))
+  (when (and (interactive-p) slime-net-processes
+             (y-or-n-p "Close old connections first? "))
+    (slime-disconnect))
+  (slime-check-coding-system coding-system)
   (message "Connecting to Swank on port %S.." port)
-  (let* ((process (slime-net-connect host port))
+  (let* ((process (slime-net-connect host port coding-system))
          (slime-dispatching-connection process))
     (slime-setup-connection process)))
 
@@ -1524,9 +1532,11 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
             (cancel-timer slime-connect-retry-timer))
           (setq slime-connect-retry-timer nil) ; remove old timer
           (cond ((file-exists-p (slime-swank-port-file))
-                 (let ((port (slime-read-swank-port)))
+                 (let ((port (slime-read-swank-port))
+                       (args (slime-inferior-lisp-args process)))
                    (delete-file (slime-swank-port-file))
-                   (let ((c (slime-connect "127.0.0.1" port)))
+                   (let ((c (slime-connect "127.0.0.1" port
+                                           (plist-get args :coding-system))))
                      (slime-set-inferior-process c process))))
                 ((and retries (zerop retries))
                  (message "Failed to connect to Swank."))
@@ -1634,7 +1644,7 @@ line of the file."
     (file-error nil)))
 
 ;;; Interface
-(defun slime-net-connect (host port)
+(defun slime-net-connect (host port &optional coding-system)
   "Establish a connection with a CL."
   (let* ((inhibit-quit nil)
          (proc (open-network-stream "SLIME Lisp" nil host port))
@@ -1646,9 +1656,8 @@ line of the file."
     (when slime-kill-without-query-p
       (process-kill-without-query proc))
     (when (fboundp 'set-process-coding-system)
-      (set-process-coding-system proc 
-                                 slime-net-coding-system
-                                 slime-net-coding-system))
+      (let ((coding-system (car (slime-check-coding-system coding-system))))
+        (set-process-coding-system proc coding-system coding-system)))
     (when-let (secret (slime-secret))
       (slime-net-send secret proc))
     proc))
@@ -1657,9 +1666,6 @@ line of the file."
   "Make a buffer suitable for a network process."
   (let ((buffer (generate-new-buffer name)))
     (with-current-buffer buffer
-      (when (fboundp 'set-buffer-multibyte)
-        (set-buffer-multibyte 
-         (slime-coding-system-mulibyte-p slime-net-coding-system)))
       (buffer-disable-undo))
     buffer))
 
@@ -2262,7 +2268,8 @@ side.")
 (defun slime-eval (sexp &optional package)
   "Evaluate EXPR on the superior Lisp and return the result."
   (when (null package) (setq package (slime-current-package)))
-  (let* ((tag (gensym "slime-result-"))
+  (let* ((tag (gensym (format "slime-result-%d-" 
+                              (1+ (slime-continuation-counter)))))
 	 (slime-stack-eval-tags (cons tag slime-stack-eval-tags)))
     (apply
      #'funcall 
@@ -2914,9 +2921,9 @@ joined together."))
   (setq slime-current-thread :repl-thread)
   (set (make-local-variable 'scroll-conservatively) 20)
   (set (make-local-variable 'scroll-margin) 0)
-  (slime-repl-load-history)
+  (slime-repl-safe-load-history)
   (make-local-hook 'kill-buffer-hook)
-  (add-hook 'kill-buffer-hook 'slime-repl-save-merged-history nil t)
+  (add-hook 'kill-buffer-hook 'slime-repl-safe-save-merged-history nil t)
   (add-hook 'kill-emacs-hook 'slime-repl-save-all-histories)
   (slime-setup-command-hooks)
   (run-hooks 'slime-repl-mode-hook))
@@ -3719,7 +3726,7 @@ If NOERROR is true return and the file doesn't exits return nil."
   (let ((file (or filename slime-repl-history-file)))
     (cond ((not (file-readable-p file)) '())
           (t (with-temp-buffer
-               (insert-file-contents-literally file)
+               (insert-file-contents file)
                (read (current-buffer)))))))
 
 (defun slime-repl-read-history-filename ()
@@ -3750,21 +3757,43 @@ truncated.  That part is untested, though!"
   (let ((file (or filename slime-repl-history-file))
         (hist (or history slime-repl-input-history)))
     (unless (file-writable-p file)
-      (error (format "Can't write SLIME REPL history file %s" file)))
+      (error (format "History file not writable: %s" file)))
     (let ((hist (subseq hist 0 (min (length hist) slime-repl-history-size))))
       ;;(message "saving %s to %s\n" hist file)
-      (with-temp-buffer
-        (insert ";; History for SLIME REPL.  Automatically written\n")
-        (insert ";; Edit only if you know what you're doing\n")
-        (pp (mapcar #'substring-no-properties hist) (current-buffer))
-        (write-region (point-min) (point-max) file)))))
+      (with-temp-file file
+        (let ((cs slime-repl-history-file-coding-system))
+          (setq buffer-file-coding-system cs)
+          (insert (format ";; -*- coding: %s -*-\n" cs)))
+        (insert ";; History for SLIME REPL. Automatically written.\n"
+                ";; Edit only if you know what you're doing\n")
+        (pp (mapcar #'substring-no-properties hist) (current-buffer))))))
 
 (defun slime-repl-save-all-histories ()
   "Save the history in each repl buffer."
   (dolist (b (buffer-list))
     (with-current-buffer b
       (when (eq major-mode 'slime-repl-mode)
-        (slime-repl-save-merged-history)))))
+        (slime-repl-safe-save-merged-history)))))
+
+(defun slime-repl-safe-save-merged-history ()
+  (slime-repl-call-with-handler 
+   #'slime-repl-save-merged-history
+   "%S while saving the history. Continue? "))
+
+(defun slime-repl-safe-load-history ()
+  (slime-repl-call-with-handler 
+   #'slime-repl-load-history
+   "%S while loading the history. Continue? "))
+
+(defun slime-repl-call-with-handler (fun query)
+  "Call FUN in the context of an error handler.
+The handler will use qeuery to ask the use if the error should be ingored."
+  (condition-case err
+      (funcall fun)
+    (error 
+     (if (y-or-n-p (format query (error-message-string err)))
+         nil
+       (signal (car err) (cdr err))))))
 
 ;;;;; REPL mode setup
 
@@ -3981,7 +4010,7 @@ truncated.  That part is untested, though!"
               (slime-set-default-directory (car slime-repl-directory-stack))))
   (:one-liner "Pop the current directory."))
 
-(defslime-repl-shortcut nil ("change-package" "!p")
+(defslime-repl-shortcut nil ("change-package" "!p" "in-package" "in")
   (:handler 'slime-repl-set-package)
   (:one-liner "Change the current package."))
 
@@ -6309,7 +6338,7 @@ in Lisp when committed with \\[slime-edit-value-commit]."
 
 (defun slime-toggle-trace-fdefinition (&optional using-context-p)
   "Toggle trace."
-  (interactive "P")
+  (interactive "p")
   (let ((spec (if using-context-p
                   (slime-extract-context)
                 (slime-symbol-at-point))))
@@ -6932,13 +6961,17 @@ When displaying XREF information, this goes to the next reference."
 ;;;; Macroexpansion
 
 (defun slime-eval-macroexpand (expander)
-  (lexical-let ((package (slime-current-package)))
-    (slime-eval-async `(,expander ,(slime-sexp-at-point))
-     (lambda (expansion)
-       (slime-with-output-to-temp-buffer 
-           ("*SLIME macroexpansion*" lisp-mode) package
-         (insert expansion)
-         (font-lock-fontify-buffer))))))
+  (let ((string (slime-sexp-at-point)))
+    (when (not string)
+      (error "No expression at point."))
+    (lexical-let ((package (slime-current-package)))
+      (slime-eval-async 
+       `(,expander ,string)
+       (lambda (expansion)
+         (slime-with-output-to-temp-buffer
+             ("*SLIME macroexpansion*" lisp-mode) package
+           (insert expansion)
+           (font-lock-fontify-buffer)))))))
 
 (defun slime-macroexpand-1 (&optional repeatedly)
   "Display the macro expansion of the form at point.  The form is
@@ -6952,6 +6985,16 @@ CL:MACROEXPAND."
   "Display the recursively macro expanded sexp at point."
   (interactive)
   (slime-eval-macroexpand 'swank:swank-macroexpand-all))
+
+(defun slime-compiler-macroexpand ()
+  "Display the compiler-macro expansion of sexp at point."
+  (interactive)
+  (slime-eval-macroexpand 'swank:swank-compiler-macroexpand))
+
+(defun slime-compiler-macroexpand-1 ()
+  "Display the compiler-macro expansion of sexp at point."
+  (interactive)
+  (slime-eval-macroexpand 'swank:swank-compiler-macroexpand-1))
 
 
 ;;;; Subprocess control
@@ -8109,6 +8152,7 @@ See `slime-lisp-implementations'")
   "Display INSPECTED-PARTS in a new inspector window.
 Optionally set point to POINT."
   (with-current-buffer (slime-inspector-buffer)
+    (setq slime-buffer-connection (slime-current-connection))
     (let ((inhibit-read-only t))
       (erase-buffer)
       (destructuring-bind (&key title type content) inspected-parts
@@ -8260,6 +8304,11 @@ If ARG is negative, move forwards."
   (interactive)
   (slime-eval-describe `(swank:describe-inspectee)))
 
+(defun slime-inspector-pprint (part)
+  (interactive (list (or (get-text-property (point) 'slime-part-number)
+                         (error "No part at point"))))
+  (slime-eval-describe `(swank:pprint-inspector-part ,part)))
+
 (defun slime-inspector-reinspect ()
   (interactive)
   (slime-eval-async `(swank:inspector-reinspect) 'slime-open-inspector))
@@ -8273,6 +8322,7 @@ If ARG is negative, move forwards."
   ("n" 'slime-inspector-next)
   (" " 'slime-inspector-next)
   ("d" 'slime-inspector-describe)
+  ("p" 'slime-inspector-pprint)
   ("q" 'slime-inspector-quit)
   ("g" 'slime-inspector-reinspect)
   ("\C-i" 'slime-inspector-next-inspectable-object)
