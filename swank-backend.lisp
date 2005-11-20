@@ -399,6 +399,28 @@ The result is either a symbol, a list, or NIL if no function name is available."
    "Recursively expand all macros in FORM.
 Return the resulting form.")
 
+(definterface compiler-macroexpand-1 (form &optional env)
+  "Call the compiler-macro for form.
+If FORM is a function call for which a compiler-macro has been
+defined, invoke the expander function using *macroexpand-hook* and
+return the results and T.  Otherwise, return the original form and
+NIL."
+  (let ((fun (and (consp form) (compiler-macro-function (car form)))))
+    (if fun
+	(let ((result (funcall *macroexpand-hook* fun form env)))
+          (values result (not (eq result form))))
+	(values form nil))))
+
+(definterface compiler-macroexpand (form &optional env)
+  "Repetitively call `compiler-macroexpand-1'."
+  (labels ((frob (form expanded)
+	     (multiple-value-bind (new-form newly-expanded)
+		 (compiler-macroexpand-1 form env)
+	       (if newly-expanded
+		   (frob new-form t)
+		   (values new-form expanded)))))
+    (frob form env)))
+
 (definterface describe-symbol-for-emacs (symbol)
    "Return a property list describing SYMBOL.
 
