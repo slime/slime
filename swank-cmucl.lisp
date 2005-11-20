@@ -1428,6 +1428,12 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 (defimplementation macroexpand-all (form)
   (walker:macroexpand-all form))
 
+(defimplementation compiler-macroexpand-1 (form &optional env)
+  (ext:compiler-macroexpand-1 form env))
+
+(defimplementation compiler-macroexpand (form &optional env)
+  (ext:compiler-macroexpand form env))
+
 (defimplementation set-default-directory (directory)
   (setf (ext:default-directory) (namestring directory))
   ;; Setting *default-pathname-defaults* to an absolute directory
@@ -1899,6 +1905,16 @@ The `symbol-value' of each element is a type tag.")
           (t
            (call-next-method)))))
 
+(defmethod inspect-for-emacs ((o kernel:funcallable-instance)
+                              (i cmucl-inspector))
+  (declare (ignore i))
+  (values 
+   (format nil "~A is a funcallable-instance." o)
+   (append (label-value-line* 
+            (:function (kernel:%funcallable-instance-function o))
+            (:lexenv  (kernel:%funcallable-instance-lexenv o))
+            (:layout  (kernel:%funcallable-instance-layout o)))
+           (nth-value 1 (cmucl-inspect o)))))
 
 (defmethod inspect-for-emacs ((o kernel:code-component) (_ cmucl-inspector))
   (declare (ignore _))
