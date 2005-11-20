@@ -1,3 +1,27 @@
+2005-11-21  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-start): Don't set slime-net-coding-system ..
+	(slime-read-port-and-connect): .. read it from the inferior lisp args.
+	(slime-connect): Take the coding-system as third argument.
+	(slime-repl-history-file-coding-system): New user option.
+	(slime-repl-safe-save-merged-history): New function.  Use it in
+	hooks so that bad coding systems don't stop us from exiting.
+	(slime-repl-save-history): Include the coding-system which was
+	used to save the buffer.
+	(repl-shoctut change-package): Add alias ,in and ,in-package.
+	(slime-eval-macroexpand): Error out early if there's no sexp at
+	point.
+	(slime-compiler-macroexpand): New command.
+	(slime-inspector-pprint): New command.
+
+	* swank-cmucl.lisp (inspect-for-emacs): Add support for
+	funcallable instances.
+
+	* swank.lisp (pprint-inspector-part, swank-compiler-macroexpand): New. 
+
+	* swank-backend.lisp (compiler-macroexpand)
+	(compiler-macroexpand-1): New functions.
+
 2005-11-14  Douglas Crosher <dcrosher@common-lisp.net>
 
 	* swank-scl.lisp (accept-connection): handle the :buffering argument.
