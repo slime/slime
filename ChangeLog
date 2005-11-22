@@ -1,3 +1,8 @@
+2005-11-22  Marco Monteiro <masmxx@gmail.com>
+
+	* slime.el (slime-connect): Use slime-net-coding system if the
+	optional arg coding-system was not supplied.
+	
 2005-11-22  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-compile-file): Call 'check-parens before
@@ -7,7 +12,7 @@
 	isn'tvalid instead of singalling an error.
 	(slime-repl-history-file-coding-system): Use
 	slime-find-coding-system to find the default.
-	
+
 	* swank-cmucl.lisp (accept-connection): Remove fd-handlers if the 
 	encoding isn't iso-latin-1.
 	
