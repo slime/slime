@@ -169,16 +169,6 @@ The default is nil, as this feature can be a security risk."
   :type '(boolean)
   :group 'slime-lisp)
 
-(defvar slime-net-coding-system
-  (find-if (cond ((featurep 'xemacs)
-                  (if (fboundp 'find-coding-system) 
-                      #'find-coding-system
-                    (lambda (x) (eq x 'binary))))
-                 (t #'coding-system-p))
-           '(iso-latin-1-unix iso-8859-1-unix binary))
-  "*Coding system used for network connections.
-See also `slime-net-valid-coding-systems'.")
-
 ;;;;; slime-mode
 
 (defgroup slime-mode nil
@@ -444,16 +434,6 @@ PROPERTIES specifies any default face properties."
 (defcustom slime-repl-history-size 1000
   "*Maximum number of lines for persistent REPL history."
   :type 'integer
-  :group 'slime-repl)
-
-(defcustom slime-repl-history-file-coding-system 
-  (cond ((featurep 'xemacs)
-         (cond ((find-coding-system 'utf-8-unix) 'utf-8-unix)
-               (t (coding-system-name default-buffer-file-coding-system))))
-        ((coding-system-p 'utf-8-unix) 'utf-8-unix)
-        (t 'emacs-mule-unix))
-  "*The coding system for the history file."
-  :type 'symbol
   :group 'slime-repl)
 
 
@@ -1446,15 +1426,19 @@ Return true if we have been given permission to continue."
   "Return a new or existing inferior lisp process."
   (cond ((not (comint-check-proc buffer))
          (slime-start-lisp program program-args buffer))
-        ((y-or-n-p "Create an additional *inferior-lisp*? ")
-         (slime-start-lisp program program-args
-                           (generate-new-buffer-name buffer)))
-        (t 
-         (when-let (conn (find (get-buffer-process buffer)
-                               slime-net-processes 
+        ((slime-reinitialize-inferior-lisp-p program program-args buffer)
+         (when-let (conn (find (get-buffer-process buffer) slime-net-processes 
                                :key #'slime-inferior-process))
            (slime-net-close conn))
-         (get-buffer-process buffer))))
+         (get-buffer-process buffer))
+        (t (slime-start-lisp program program-args 
+                             (generate-new-buffer-name buffer)))))
+
+(defun slime-reinitialize-inferior-lisp-p (program program-args buffer)
+  (let ((args (slime-inferior-lisp-args (get-buffer-process buffer))))
+    (and (equal (plist-get args :program) program)
+         (equal (plist-get args :program-args) program-args)
+         (not (y-or-n-p "Create an additional *inferior-lisp*? ")))))
 
 (defun slime-start-lisp (program program-args buffer)
   "Does the same as `inferior-lisp' but less ugly.
@@ -1492,6 +1476,7 @@ Return the created process."
 (defun slime-inferior-lisp-args (process)
   (with-current-buffer (process-buffer process)
     slime-inferior-lisp-args))
+
 
 ;;; XXX load-server & start-server used to separated. maybe that was  better.
 (defun slime-init-command (port-filename coding-system)
@@ -1622,16 +1607,6 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
   "List of functions called when a slime network connection closes.
 The functions are called with the process as their argument.")
 
-(defvar slime-net-valid-coding-systems
-  '((iso-latin-1-unix nil :iso-latin-1-unix)
-    (iso-8859-1-unix  nil :iso-latin-1-unix)
-    (binary           nil :iso-latin-1-unix)
-    (utf-8-unix       t   :utf-8-unix)
-    (emacs-mule-unix  t   :emacs-mule-unix)
-    (euc-jp-unix      t   :euc-jp-unix))
-  "A list of valid coding systems. 
-Each element is of the form: (NAME MULTIBYTEP CL-NAME)")
-
 (defun slime-secret ()
   "Finds the magic secret from the user's home directory.
 Returns nil if the file doesn't exist or is empty; otherwise the first
@@ -1648,7 +1623,8 @@ line of the file."
   "Establish a connection with a CL."
   (let* ((inhibit-quit nil)
          (proc (open-network-stream "SLIME Lisp" nil host port))
-         (buffer (slime-make-net-buffer " *cl-connection*")))
+         (buffer (slime-make-net-buffer " *cl-connection*"))
+         (coding-system (or coding-system slime-net-coding-system)))
     (push proc slime-net-processes)
     (set-process-buffer proc buffer)
     (set-process-filter proc 'slime-net-filter)
@@ -1656,8 +1632,8 @@ line of the file."
     (when slime-kill-without-query-p
       (process-kill-without-query proc))
     (when (fboundp 'set-process-coding-system)
-      (let ((coding-system (car (slime-check-coding-system coding-system))))
-        (set-process-coding-system proc coding-system coding-system)))
+      (slime-check-coding-system coding-system)
+      (set-process-coding-system proc coding-system coding-system))
     (when-let (secret (slime-secret))
       (slime-net-send secret proc))
     proc))
@@ -1669,20 +1645,49 @@ line of the file."
       (buffer-disable-undo))
     buffer))
 
-(defun slime-find-coding-system (&optional coding-system)
-  (let* ((coding-system (or coding-system slime-net-coding-system))
-         (props (assq coding-system slime-net-valid-coding-systems)))  
-    (check-coding-system coding-system)
+;;;;; Coding system madness
+
+(defvar slime-net-valid-coding-systems
+  '((iso-latin-1-unix nil :iso-latin-1-unix)
+    (iso-8859-1-unix  nil :iso-latin-1-unix)
+    (binary           nil :iso-latin-1-unix)
+    (utf-8-unix       t   :utf-8-unix)
+    (emacs-mule-unix  t   :emacs-mule-unix)
+    (euc-jp-unix      t   :euc-jp-unix))
+  "A list of valid coding systems. 
+Each element is of the form: (NAME MULTIBYTEP CL-NAME)")
+
+(defun slime-find-coding-system (name)
+  "Return the coding system for the symbol NAME.
+The result is either an element in `slime-net-valid-coding-systems'
+of nil."
+  (let* ((probe (assq name slime-net-valid-coding-systems)))
+    (if (and probe (ignore-errors (check-coding-system (car probe))))
+        probe)))
+
+(defvar slime-net-coding-system
+  (find-if 'slime-find-coding-system
+           '(iso-latin-1-unix iso-8859-1-unix binary))
+  "*Coding system used for network connections.
+See also `slime-net-valid-coding-systems'.")
+  
+(defun slime-check-coding-system (coding-system)
+  "Signal an error if CODING-SYSTEM isn't a valid coding system."
+  (interactive)
+  (let ((props (slime-find-coding-system coding-system)))
     (unless props
       (error "Invalid slime-net-coding-system: %s. %s"
              coding-system (mapcar #'car slime-net-valid-coding-systems)))
     (when (and (second props) (boundp 'default-enable-multibyte-characters))
       (assert default-enable-multibyte-characters))
-    props))
-  
-(defun slime-check-coding-system (&optional coding-system)
-  (interactive)
-  (slime-find-coding-system coding-system))
+    t))
+
+(defcustom slime-repl-history-file-coding-system 
+  (cond ((slime-find-coding-system 'utf-8-unix) 'utf-8-unix)
+        (t slime-net-coding-system))
+  "*The coding system for the history file."
+  :type 'symbol
+  :group 'slime-repl)
 
 (defun slime-coding-system-mulibyte-p (coding-system)
   (second (slime-find-coding-system coding-system)))
@@ -3168,7 +3173,8 @@ buffer, suitable for `x-popup-menu'."
 
 (defun slime-presentation-menu (event)
   (interactive "e")
-  (let* ((point (if (featurep 'xemacs) (event-point event) (posn-point (event-end event))))
+  (let* ((point (if (featurep 'xemacs) (event-point event) 
+                  (posn-point (event-end event))))
          (window (if (featurep 'xemacs) (event-window event) (caadr event)))
          (choice-to-lambda (make-hash-table)))
     (with-current-buffer (window-buffer window)
@@ -3178,7 +3184,6 @@ buffer, suitable for `x-popup-menu'."
           (error "No presentation at event position"))
         (let ((menu (slime-menu-choices-for-presentation 
                      presentation from to choice-to-lambda)))
-          (setq it choice-to-lambda)
           (let ((choice (x-popup-menu event menu)))
             (when choice
               (call-interactively (gethash choice choice-to-lambda)))))))))
@@ -4196,6 +4201,7 @@ See `slime-compile-and-load-file' for further details."
   (interactive)
   (unless (memq major-mode slime-lisp-modes)
     (error "Only valid in lisp-mode"))
+  (check-parens)
   (unless buffer-file-name
     (error "Buffer %s is not associated with a file." (buffer-name)))
   (when (and (buffer-modified-p)
