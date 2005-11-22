@@ -1317,11 +1317,12 @@ The rules for selecting the arguments are rather complicated:
   (when (and (interactive-p) slime-net-processes
              (y-or-n-p "Close old connections first? "))
     (slime-disconnect))
-  (slime-check-coding-system coding-system)
-  (message "Connecting to Swank on port %S.." port)
-  (let* ((process (slime-net-connect host port coding-system))
-         (slime-dispatching-connection process))
-    (slime-setup-connection process)))
+  (let ((coding-system (or coding-system slime-net-coding-system)))
+    (slime-check-coding-system coding-system)
+    (message "Connecting to Swank on port %S.." port)
+    (let* ((process (slime-net-connect host port coding-system))
+           (slime-dispatching-connection process))
+      (slime-setup-connection process))))
 
 (defun slime-start-and-load (filename &optional package)
   "Start Slime, if needed, load the current file and set the package."
@@ -1619,12 +1620,11 @@ line of the file."
     (file-error nil)))
 
 ;;; Interface
-(defun slime-net-connect (host port &optional coding-system)
+(defun slime-net-connect (host port coding-system)
   "Establish a connection with a CL."
   (let* ((inhibit-quit nil)
          (proc (open-network-stream "SLIME Lisp" nil host port))
-         (buffer (slime-make-net-buffer " *cl-connection*"))
-         (coding-system (or coding-system slime-net-coding-system)))
+         (buffer (slime-make-net-buffer " *cl-connection*")))
     (push proc slime-net-processes)
     (set-process-buffer proc buffer)
     (set-process-filter proc 'slime-net-filter)
