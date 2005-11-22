@@ -101,7 +101,10 @@
 (defimplementation accept-connection (socket &key 
                                       (external-format :iso-latin-1-unix)
                                       (buffering :full))
-  (assert (eq external-format ':iso-latin-1-unix))
+  (unless (eq external-format ':iso-latin-1-unix)
+    (remove-fd-handlers socket)
+    (remove-sigio-handlers socket)
+    (assert (eq external-format ':iso-latin-1-unix)))
   (make-socket-io-stream (ext:accept-tcp-connection socket) buffering))
 
 ;;;;; Sockets
@@ -152,8 +155,7 @@ specific functions.")
 (defimplementation remove-sigio-handlers (socket)
   (let ((fd (socket-fd socket)))
     (setf *sigio-handlers* (remove fd *sigio-handlers* :key #'car))
-    (sys:invalidate-descriptor fd))
-  (close socket))
+    (sys:invalidate-descriptor fd)))
 
 ;;;;; SERVE-EVENT
 
