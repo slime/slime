@@ -1,3 +1,16 @@
+2005-11-22  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-compile-file): Call 'check-parens before
+	compiling.
+	(slime-compile-file): Call 'check-parens before compiling.
+	(slime-find-coding-system): Return nil if the coding system
+	isn'tvalid instead of singalling an error.
+	(slime-repl-history-file-coding-system): Use
+	slime-find-coding-system to find the default.
+	
+	* swank-cmucl.lisp (accept-connection): Remove fd-handlers if the 
+	encoding isn't iso-latin-1.
+	
 2005-11-21  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-start): Don't set slime-net-coding-system ..
