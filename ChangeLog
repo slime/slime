@@ -1,3 +1,8 @@
+2005-12-05  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-find-coding-system): Use check-coding-system
+	only if it's actually fbound.
+
 2005-11-22  Marco Monteiro <masmxx@gmail.com>
 
 	* slime.el (slime-connect): Use slime-net-coding system if the
