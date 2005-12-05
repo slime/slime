@@ -1,3 +1,9 @@
+2005-12-06  Juho Snellman <jsnell@iki.fi>
+        * swank-sbcl.lisp (function-source-location,
+          safe-function-source-location): Oops, define these functions 
+          also for the >0.9.6 case. Fixes broken sldb-show-source on 
+          SBCL 0.9.7.
+
 2005-12-05  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-find-coding-system): Use check-coding-system

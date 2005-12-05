@@ -400,10 +400,14 @@ This is useful when debugging the definition-finding code.")
 ;;; As of SBCL 0.9.7 most of the gritty details of source location handling
 ;;; are supported reasonably well by SB-INTROSPECT.
 
-;;; SBCL > 0.9.6
-#+#.(cl:if (cl:find-symbol "FIND-DEFINITION-SOURCES-BY-NAME" "SB-INTROSPECT")
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun new-definition-source-p ()
+    (if (find-symbol "FIND-DEFINITION-SOURCES-BY-NAME" "SB-INTROSPECT")
            '(and)
-           '(or))
+        '(or))))
+
+;;; SBCL > 0.9.6
+#+#.(swank-backend::new-definition-source-p)
 (progn
 
 (defparameter *definition-types*
@@ -491,13 +495,22 @@ This is useful when debugging the definition-finding code.")
     (with-input-from-string (s source)
       (read-snippet s position))))
 
+(defun function-source-location (function &optional name)
+  (declare (type function function))
+  (let ((location (sb-introspect:find-definition-source function)))
+    (make-definition-source-location location :function name)))
+
+(defun safe-function-source-location (fun name)
+  (if *debug-definition-finding*
+      (function-source-location fun name)
+      (handler-case (function-source-location fun name)
+        (error (e)
+          (list :error (format nil "Error: ~A" e))))))
 ) ;; End >0.9.6
 
 ;;; Support for SBCL 0.9.6 and earlier. Feel free to delete this
 ;;; after January 2006.
-#-#.(cl:if (cl:find-symbol "FIND-DEFINITION-SOURCES-BY-NAME" "SB-INTROSPECT")
-           '(and)
-           '(or))
+#-#.(swank-backend::new-definition-source-p)
 (progn
 (defimplementation find-definitions (name)
   (append (function-definitions name)
