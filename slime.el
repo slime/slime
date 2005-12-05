@@ -1662,11 +1662,13 @@ Each element is of the form: (NAME MULTIBYTEP CL-NAME)")
 The result is either an element in `slime-net-valid-coding-systems'
 of nil."
   (let* ((probe (assq name slime-net-valid-coding-systems)))
-    (if (and probe (ignore-errors (check-coding-system (car probe))))
+    (if (and probe (if (fboundp 'check-coding-system)
+                       (ignore-errors (check-coding-system (car probe)))
+                     (eq (car probe) 'binary)))
         probe)))
 
 (defvar slime-net-coding-system
-  (find-if 'slime-find-coding-system
+  (find-if 'slime-find-coding-system 
            '(iso-latin-1-unix iso-8859-1-unix binary))
   "*Coding system used for network connections.
 See also `slime-net-valid-coding-systems'.")
@@ -4842,7 +4844,8 @@ first element of the source-path redundant."
        (slime-forward-sexp)
        (beginning-of-sexp)))
     ((:line start &optional end)
-     (goto-line start))
+     (goto-line start)
+     (skip-chars-forward " \t"))
     ((:function-name name)
      (let ((case-fold-search t)
            (name (regexp-quote name)))
