@@ -1,8 +1,17 @@
+2005-12-07  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-load-file): Change the default to be the buffer
+	file name with extension.  This is more convenient for files like
+	.asd files that do not have the default source file extension.
+	(slime-save-some-lisp-buffers, slime-update-modeline-package):
+	Handle all files with major mode in slime-lisp-modes, not just
+	lisp-mode.
+
 2005-12-06  Juho Snellman <jsnell@iki.fi>
-        * swank-sbcl.lisp (function-source-location,
-          safe-function-source-location): Oops, define these functions 
-          also for the >0.9.6 case. Fixes broken sldb-show-source on 
-          SBCL 0.9.7.
+
+	* swank-sbcl.lisp (function-source-location,
+	safe-function-source-location): Oops, define these functions also
+	for the >0.9.6 case. Fixes broken sldb-show-source on SBCL 0.9.7.
 
 2005-12-05  Helmut Eller  <heller@common-lisp.net>
 
