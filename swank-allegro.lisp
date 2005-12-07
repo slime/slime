@@ -352,10 +352,17 @@
           (when (<= pos 0)
             (return cr-count))))))
               
-(defun find-definition-in-file (fspec type file)
-  (let* ((start (or (scm:find-definition-in-file fspec type file)
-                    (scm:find-definition-in-file (fspec-primary-name fspec)
-                                                 type file)))
+(defun find-definition-in-file (fspec type file top-level)
+  (let* ((part
+          (or (scm::find-definition-in-definition-group
+               fspec type (scm:section-file :file file)
+               :top-level top-level)
+              (scm::find-definition-in-definition-group
+               (fspec-primary-name fspec)
+               type (scm:section-file :file file)
+               :top-level top-level)))
+         (start (and part
+                     (scm::source-part-start part)))
          (pos (if start
                   (list :position (1+ (- start (count-cr file start))))
                   (list :function-name (string (fspec-primary-name fspec))))))
@@ -368,29 +375,15 @@
      (list :buffer (subseq filename 0 pos))
      (list :position (parse-integer (subseq filename (1+ pos)))))))
 
-(defun find-fspec-location (fspec type)
-  (multiple-value-bind (file err) (ignore-errors (excl:source-file fspec type))
-    (etypecase file
-      (pathname
-       (find-definition-in-file fspec type file))
-      ((member :top-level)
-       (list :error (format nil "Defined at toplevel: ~A"
-                            (fspec->string fspec))))
-      (string
-       (find-definition-in-buffer file))
-      (null 
-       (list :error (if err
-                        (princ-to-string err)
-                        (format nil "Unknown source location for ~A" 
-                                (fspec->string fspec)))))
-      (cons 
-       (destructuring-bind ((type . filename)) file
-         (assert (member type '(:operator)))
-         (etypecase filename
-           (pathname
-            (find-definition-in-file fspec type filename))
-           (string 
-            (find-definition-in-buffer filename))))))))
+(defun find-fspec-location (fspec type file top-level)
+  (etypecase file
+    (pathname
+     (find-definition-in-file fspec type file top-level))
+    ((member :top-level)
+     (list :error (format nil "Defined at toplevel: ~A"
+                          (fspec->string fspec))))
+    (string
+     (find-definition-in-buffer file))))
 
 (defun fspec->string (fspec)
   (etypecase fspec
@@ -402,10 +395,16 @@
                     (prin1-to-string (second fspec)))))))
 
 (defun fspec-definition-locations (fspec)
-  (let ((defs (excl::find-multiple-definitions fspec)))
-    (loop for (fspec type) in defs 
-          collect (list (list type fspec)
-                        (find-fspec-location fspec type)))))
+  (let ((defs (excl::find-source-file fspec)))
+    (if (null defs)
+        (list
+         (list (list nil fspec)
+               (list :error
+                     (format nil "Unknown source location for ~A" 
+                             (fspec->string fspec)))))
+        (loop for (fspec type file top-level) in defs 
+           collect (list (list type fspec)
+                         (find-fspec-location fspec type file top-level))))))
 
 (defimplementation find-definitions (symbol)
   (fspec-definition-locations symbol))
