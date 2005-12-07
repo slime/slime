@@ -484,7 +484,7 @@ This is automatically updated based on the buffer/point."))
 (defun slime-update-modeline-package ()
   (ignore-errors
     (when (and slime-update-modeline-package
-               (eq major-mode 'lisp-mode)
+               (memq major-mode slime-lisp-modes)
                slime-mode)
       (let ((package (slime-current-package)))
         (when package
@@ -3979,7 +3979,7 @@ The handler will use qeuery to ask the use if the error should be ingored."
 (defun slime-save-some-lisp-buffers ()
   (if slime-repl-only-save-lisp-buffers
       (save-some-buffers nil (lambda ()
-                               (and (eq major-mode 'lisp-mode)
+                               (and (memq major-mode slime-lisp-modes)
                                     (not (null buffer-file-name)))))
       (save-some-buffers)))
   
@@ -6523,9 +6523,8 @@ Point is placed before the first expression in the list."
   (interactive (list 
 		(read-file-name "Load file: " nil nil
 				nil (if (buffer-file-name)
-                                        (file-name-sans-extension
-                                         (file-name-nondirectory 
-                                          (buffer-file-name)))))))
+                                        (file-name-nondirectory 
+                                         (buffer-file-name))))))
   (let ((lisp-filename (slime-to-lisp-filename (expand-file-name filename))))
     (slime-eval-with-transcript `(swank:load-file ,lisp-filename))))
 
