@@ -1,5 +1,12 @@
 2005-12-07  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
+	* swank-allegro.lisp (find-definition-in-file)
+	(find-fspec-location, fspec-definition-locations): Allegro CL
+	properly records all definitions made by arbitrary macros whose
+	names start with "def".  Use excl::find-source-file and
+	scm:find-definition-in-definition-group (rather than
+	scm:find-definition-in-file) to find them.
+
 	* slime.el (slime-load-file): Change the default to be the buffer
 	file name with extension.  This is more convenient for files like
 	.asd files that do not have the default source file extension.
