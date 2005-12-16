@@ -1,3 +1,17 @@
+2005-12-16  William Bland <doctorbill.news@gmail.com>
+
+	Added hilighting of tetx which has been edited but not yet
+	compilied.
+
+	* slime.el (slime-display-edit-hilights): New variable.
+	(slime-display-edit-face): New face.
+	(slime-compile-file, slime-compile-defun, slime-compile-region):
+	Remove edits overlay.
+	(slime-remove-edits): New function.
+	(slime-self-insert-command): New function.
+	(slime-mode-hook): Rebind simple characters to
+	slime-self-insert-command.
+
 2005-12-07  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* swank-allegro.lisp (find-definition-in-file)
