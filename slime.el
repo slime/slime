@@ -228,6 +228,20 @@ If you want to fallback on TAGS you can set this to `find-tags' or
   :type 'string
   :group 'slime-mode)
 
+(defcustom slime-display-edit-hilights t
+  "Hilight code that has been edited but not recompiled."
+  :type '(choice (const :tag "Enable" t) (const :tag "Disable" nil))
+  :group 'slime-mode)
+
+(defface slime-display-edit-face
+    `((((class color) (background light))
+       (:background "yellow"))
+      (((class color) (background dark))
+       (:background "yellow"))
+      (t (:background "yellow")))
+  "Face for displaying edit but not compilide code."
+  :group 'slime-mode-faces)
+
 ;;;;; slime-mode-faces
 
 (defgroup slime-mode-faces nil
@@ -4201,6 +4215,7 @@ between compiler notes and to display their full details."
 
 See `slime-compile-and-load-file' for further details."
   (interactive)
+  (slime-remove-edits 1 (point-max))
   (unless (memq major-mode slime-lisp-modes)
     (error "Only valid in lisp-mode"))
   (check-parens)
@@ -4266,11 +4281,17 @@ buffer's working directory"
                         (save-excursion 
                           (end-of-defun)
                           (beginning-of-defun)
-                          (point))))
+                          (point)))
+  (save-excursion
+    (beginning-of-defun)
+    (let ((start (point)))
+      (end-of-defun)
+      (slime-remove-edits start (point)))))
 
 (defun slime-compile-region (start end)
   "Compile the region."
   (interactive "r")
+  (slime-remove-edits start end)
   (slime-compile-string (buffer-substring-no-properties start end) start))
 
 (defun slime-compile-string (string start-offset)
@@ -4392,6 +4413,16 @@ PREDICATE is executed in the buffer to test."
 This operation is \"lossy\" in the broad sense but not for display purposes."
   (mapcar #'slime-merge-notes
           (slime-group-similar 'slime-notes-in-same-location-p notes)))
+
+(defun slime-remove-edits (start end)
+  "Delete the existing Slime edit hilights in the current buffer."
+  (save-excursion
+    (goto-char start)
+    (while (< (point) end)
+      (dolist (o (overlays-at (point)))
+        (when (overlay-get o 'slime-edit)
+          (delete-overlay o)))
+      (goto-char (next-overlay-change (point))))))
 
 (defun slime-merge-notes (notes)
   "Merge NOTES together. Keep the highest severity, concatenate the messages."
@@ -9850,6 +9881,22 @@ If they are not, position point at the first syntax error found."
 (defun sldb-xemacs-post-command-hook ()
   (when (get-text-property (point) 'point-entered)
     (funcall (get-text-property (point) 'point-entered))))
+
+(defun slime-self-insert-command ()
+  (interactive)
+  (self-insert-command 1)
+  (when (and slime-display-edit-hilights (slime-connected-p))
+    (message "Settingup face.")
+    (let ((overlay (make-overlay (- (point) 1) (point))))
+      (flet ((putp (name value) (overlay-put overlay name value)))
+        (putp 'face 'slime-display-edit-face)
+        (putp 'slime-edit t)))))
+
+(add-hook 'slime-mode-hook
+          (lambda ()
+            (dotimes (i 127)
+              (when (> i 31)
+                (local-set-key (string i) 'slime-self-insert-command)))))
 
 
 ;;;; Finishing up
