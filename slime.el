@@ -8517,7 +8517,10 @@ BODY is a series of forms which must return the buffer to be selected."
 
 (def-slime-selector-method ?r
   "SLIME Read-Eval-Print-Loop."
-  (slime-output-buffer))
+  (cond ((slime-current-connection)      
+         (slime-output-buffer))
+        ((y-or-n-p "No connection: start Slime? ")
+         (slime-start))))
 
 (def-slime-selector-method ?s
   "*slime-scratch* buffer."

@@ -1156,10 +1156,16 @@ Emacs buffer."
 
 (defun to-string (object)
   "Write OBJECT in the *BUFFER-PACKAGE*.
-The result may not be readable."
+The result may not be readable. Handles problems with PRINT-OBJECT methods
+gracefully."
   (with-buffer-syntax ()
     (let ((*print-readably* nil))
-      (prin1-to-string object))))
+      (handler-case
+          (prin1-to-string object)
+        (error ()
+          (with-output-to-string (s)
+            (print-unreadable-object (object s :type t :identity t)
+              (princ "<<error printing object>>" s))))))))
 
 (defun from-string (string)
   "Read string in the *BUFFER-PACKAGE*"

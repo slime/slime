@@ -1,3 +1,12 @@
+2005-12-16  Nikodemus Siivola <nikodemus@random-state.net>
+
+	* slime.el (slime-selector-method: ?r): If no connection offer to
+	start Slime.
+	
+	* swank.lisp (to-string): Handle errors from printing objects.
+	Among other things makes the inspector more robust in the face of
+	objects with unbound slots and print-methods that fail to cope.
+
 2005-12-16  William Bland <doctorbill.news@gmail.com>
 
 	Added hilighting of tetx which has been edited but not yet
