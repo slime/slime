@@ -1,3 +1,12 @@
+2005-12-18  Nikodemus Siivola <nikodemus@random-state.net>
+
+	* slime.el (slime-mode-hook): Bind simple characters to
+	slime-self-insert-command only if there was no previous local
+	binding, and the major mode is _not_ slime-repl-mode. This
+	restores keybindings of slime-xref-mode and prevents us from
+	stomping on user bindings. The hilighting also makes no sense in
+	the REPL.
+
 2005-12-16  Nikodemus Siivola <nikodemus@random-state.net>
 
 	* slime.el (slime-selector-method: ?r): If no connection offer to

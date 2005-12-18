@@ -239,7 +239,7 @@ If you want to fallback on TAGS you can set this to `find-tags' or
       (((class color) (background dark))
        (:background "yellow"))
       (t (:background "yellow")))
-  "Face for displaying edit but not compilide code."
+  "Face for displaying edit but not compiled code."
   :group 'slime-mode-faces)
 
 ;;;;; slime-mode-faces
@@ -9889,7 +9889,7 @@ If they are not, position point at the first syntax error found."
   (interactive)
   (self-insert-command 1)
   (when (and slime-display-edit-hilights (slime-connected-p))
-    (message "Settingup face.")
+    (message "Setting up face.")
     (let ((overlay (make-overlay (- (point) 1) (point))))
       (flet ((putp (name value) (overlay-put overlay name value)))
         (putp 'face 'slime-display-edit-face)
@@ -9897,9 +9897,12 @@ If they are not, position point at the first syntax error found."
 
 (add-hook 'slime-mode-hook
           (lambda ()
-            (dotimes (i 127)
-              (when (> i 31)
-                (local-set-key (string i) 'slime-self-insert-command)))))
+            (unless (eq 'slime-repl-mode major-mode)
+              (dotimes (i 127)
+                (when (> i 31)                
+                  ;; Don't stomp on previous bindings!
+                  (when (null (local-key-binding (string i)))
+                    (local-set-key (string i) 'slime-self-insert-command)))))))
 
 
 ;;;; Finishing up
