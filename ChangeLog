@@ -1,3 +1,12 @@
+2005-12-20  Marco Baringer  <mb@bese.it>
+
+	When inspecting classes, methods and generic functions show all
+	the slots in the case that what we're inspecting is a subclass of
+	the standard class and has extra user defined slots.
+	
+	* swank.lisp (all-slots-for-inspector): New function.
+	(inspect-for-emacs): Use all-slots-for-inspector.
+
 2005-12-19  Peter Seibel  <peter@gigamonkeys.com>
 
 	* slime.el (slime-self-insert-command): Got rid of message about
