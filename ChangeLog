@@ -1,3 +1,8 @@
+2005-12-19  Peter Seibel  <peter@gigamonkeys.com>
+
+	* slime.el (slime-self-insert-command): Got rid of message about
+	setting up face and skipping edit-hilights when in a comment.
+
 2005-12-18  Nikodemus Siivola <nikodemus@random-state.net>
 
 	* slime.el (slime-mode-hook): Bind simple characters to
