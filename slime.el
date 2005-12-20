@@ -9888,12 +9888,16 @@ If they are not, position point at the first syntax error found."
 (defun slime-self-insert-command ()
   (interactive)
   (self-insert-command 1)
-  (when (and slime-display-edit-hilights (slime-connected-p))
-    (message "Setting up face.")
+  (when (and slime-display-edit-hilights
+             (slime-connected-p)
+             (not (in-comment-p)))
     (let ((overlay (make-overlay (- (point) 1) (point))))
       (flet ((putp (name value) (overlay-put overlay name value)))
         (putp 'face 'slime-display-edit-face)
         (putp 'slime-edit t)))))
+
+(defun in-comment-p ()
+  (nth 4 (syntax-ppss (point))))
 
 (add-hook 'slime-mode-hook
           (lambda ()
