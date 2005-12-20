@@ -3661,6 +3661,29 @@ See `methods-by-applicability'.")
 		     maxlen
 		     (length doc))))
 
+(defun all-slots-for-inspector (object)
+  (append (list "------------------------------" '(:newline)
+               "All Slots:" '(:newline))          
+          (loop
+             with direct-slots = (swank-mop:class-direct-slots (class-of object))
+             for slot in (swank-mop:class-slots (class-of object))
+             for slot-def = (or (find-if (lambda (a)
+                                           ;; find the direct slot
+                                           ;; with the same name
+                                           ;; as SLOT (an
+                                           ;; effective slot).
+                                           (eql (swank-mop:slot-definition-name a)
+                                                (swank-mop:slot-definition-name slot)))
+                                         direct-slots)
+                                slot)
+             collect `(:value ,slot-def ,(inspector-princ (swank-mop:slot-definition-name slot-def)))
+             collect " = "
+             if (slot-boundp object (swank-mop:slot-definition-name slot-def))
+             collect `(:value ,(slot-value object (swank-mop:slot-definition-name slot-def)))
+             else
+             collect "#<unbound>"
+             collect '(:newline))))
+
 (defmethod inspect-for-emacs ((gf standard-generic-function) inspector)
   (declare (ignore inspector))
   (flet ((lv (label value) (label-value-line label value)))
@@ -3683,7 +3706,9 @@ See `methods-by-applicability'.")
                        ,(let ((m method)) ; LOOP reassigns method
                           (lambda () 
                             (remove-method gf m))))
-	      (:newline)))))))
+	      (:newline)))
+      `((:newline))
+      (all-slots-for-inspector gf)))))
 
 (defmethod inspect-for-emacs ((method standard-method) inspector)
   (declare (ignore inspector))
@@ -3702,7 +3727,9 @@ See `methods-by-applicability'.")
             (:newline)
             "Qualifiers: " (:value ,(swank-mop:method-qualifiers method))
             (:newline)
-            "Method function: " (:value ,(swank-mop:method-function method)))))
+            "Method function: " (:value ,(swank-mop:method-function method))
+            (:newline)
+            ,@(all-slots-for-inspector method))))
 
 (defmethod inspect-for-emacs ((class standard-class) inspector)
   (declare (ignore inspector))
@@ -3761,27 +3788,7 @@ See `methods-by-applicability'.")
                                `(:value ,(swank-mop:class-prototype class))
                                '"#<N/A (class not finalized)>")
             (:newline)
-            "------------------------------" (:newline)
-            "All Slots:" (:newline)
-            ,@(loop
-                 with direct-slots = (swank-mop:class-direct-slots (class-of class))
-                 for slot in (swank-mop:class-slots (class-of class))
-                 for slot-def = (or (find-if (lambda (a)
-                                               ;; find the direct slot
-                                               ;; with the same name
-                                               ;; as SLOT (an
-                                               ;; effective slot).
-                                               (eql (swank-mop:slot-definition-name a)
-                                                    (swank-mop:slot-definition-name slot)))
-                                             direct-slots)
-                                    slot)
-                 collect `(:value ,slot-def ,(inspector-princ (swank-mop:slot-definition-name slot-def)))
-                 collect " = "
-                 if (slot-boundp class (swank-mop:slot-definition-name slot-def))
-                   collect `(:value ,(slot-value class (swank-mop:slot-definition-name slot-def)))
-                 else
-                   collect "#<unbound>"
-                 collect '(:newline)))))
+            ,@(all-slots-for-inspector class))))
 
 (defmethod inspect-for-emacs ((slot swank-mop:standard-slot-definition) inspector)
   (declare (ignore inspector))
@@ -3796,8 +3803,9 @@ See `methods-by-applicability'.")
             "Init form: "  ,(if (swank-mop:slot-definition-initfunction slot)
                              `(:value ,(swank-mop:slot-definition-initform slot))
                              "#<unspecified>") (:newline)
-            "Init function: " (:value ,(swank-mop:slot-definition-initfunction slot))
-            (:newline))))
+            "Init function: " (:value ,(swank-mop:slot-definition-initfunction slot))            
+            (:newline)
+            ,@(all-slots-for-inspector slot))))
 
 (defmethod inspect-for-emacs ((package package) inspector)
   (declare (ignore inspector))
