@@ -5412,11 +5412,13 @@ annoy the user)."
   (slime-remove-edits (point-min) (point-max)))
 
 (defun slime-highlight-edits (beg end &optional len)
-  (when (and (slime-connected-p)
-             (not (slime-inside-comment-p beg end)))
-    (let ((overlay (make-overlay beg end)))
-      (overlay-put overlay 'face 'slime-highlight-edits-face)
-      (overlay-put overlay 'slime-edit t))))
+  (save-match-data
+    (when (and (slime-connected-p)
+               (not (slime-inside-comment-p beg end))
+               (not (slime-only-whitespace-p beg end)))
+      (let ((overlay (make-overlay beg end)))
+        (overlay-put overlay 'face 'slime-highlight-edits-face)
+        (overlay-put overlay 'slime-edit t)))))
 
 (defun slime-remove-edits (start end)
   "Delete the existing Slime edit hilights in the current buffer."
@@ -5430,15 +5432,30 @@ annoy the user)."
 
 (defun slime-highlight-edits-compile-hook (start end)
   (when slime-highlight-edits-mode
-    (slime-remove-edits start end)))
+    (let ((start (save-excursion (goto-char start) 
+                                 (skip-chars-backward " \t\n\r")
+                                 (point)))
+          (end (save-excursion (goto-char end) 
+                               (skip-chars-forward " \t\n\r")
+                               (point))))
+      (slime-remove-edits start end))))
 
 (defun slime-inside-comment-p (beg end)
   "Is the region from BEG to END in a comment?"
-  (let* ((hs-c-start-regexp ";\\|#|")
-         (comment (hs-inside-comment-p)))
-    (and comment
-         (destructuring-bind (cbeg cend) comment
-           (and (<= cbeg beg) (<= end cend))))))
+  (save-excursion
+    (goto-char beg)
+    (let* ((hs-c-start-regexp ";\\|#|")
+           (comment (hs-inside-comment-p)))
+      (and comment
+           (destructuring-bind (cbeg cend) comment
+             (<= end cend))))))
+
+(defun slime-only-whitespace-p (beg end)
+  "Contains the region from BEG to END only whitespace?"
+  (save-excursion
+    (goto-char beg)
+    (skip-chars-forward " \n\t\r" end)
+    (<= end (point))))
 
 
 ;;;; Completion
