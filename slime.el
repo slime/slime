@@ -67,12 +67,14 @@
 (defvar slime-use-autodoc-mode nil
   "When non-nil always enabled slime-autodoc-mode in slime-mode.")
 
-(defun* slime-setup (&key autodoc typeout-frame)
+(defun* slime-setup (&key autodoc typeout-frame highlight-edits)
   "Setup Emacs so that lisp-mode buffers always use SLIME."
   (add-hook 'lisp-mode-hook 'slime-lisp-mode-hook)
   (when typeout-frame
     (add-hook 'slime-connected-hook 'slime-ensure-typeout-frame))
-  (setq slime-use-autodoc-mode autodoc))
+  (setq slime-use-autodoc-mode autodoc)
+  (when highlight-edits
+    (add-hook 'slime-mode-hook 'slime-highlight-edits-mode)))
 
 (defun slime-lisp-mode-hook ()
   (slime-mode 1)
@@ -227,20 +229,6 @@ If you want to fallback on TAGS you can set this to `find-tags' or
   "*The base URL of the SBCL manual, for documentation lookup."
   :type 'string
   :group 'slime-mode)
-
-(defcustom slime-display-edit-hilights t
-  "Hilight code that has been edited but not recompiled."
-  :type '(choice (const :tag "Enable" t) (const :tag "Disable" nil))
-  :group 'slime-mode)
-
-(defface slime-display-edit-face
-    `((((class color) (background light))
-       (:background "yellow"))
-      (((class color) (background dark))
-       (:background "yellow"))
-      (t (:background "yellow")))
-  "Face for displaying edit but not compiled code."
-  :group 'slime-mode-faces)
 
 ;;;;; slime-mode-faces
 
@@ -4195,6 +4183,11 @@ Also rearrange windows."
 
 ;;;; Compilation and the creation of compiler-note annotations
 
+(defvar slime-before-compile-functions nil
+  "A list of function called before compiling a buffer or region.
+The function receive two arguments: the beginning and the end of the 
+region that will be compiled.")
+
 (defun slime-compile-and-load-file ()
   "Compile and load the buffer's file and highlight compiler notes.
 
@@ -4215,7 +4208,6 @@ between compiler notes and to display their full details."
 
 See `slime-compile-and-load-file' for further details."
   (interactive)
-  (slime-remove-edits 1 (point-max))
   (unless (memq major-mode slime-lisp-modes)
     (error "Only valid in lisp-mode"))
   (check-parens)
@@ -4224,6 +4216,7 @@ See `slime-compile-and-load-file' for further details."
   (when (and (buffer-modified-p)
              (y-or-n-p (format "Save file %s? " (buffer-file-name))))
     (save-buffer))
+  (run-hook-with-args 'slime-before-compile-functions (point-min) (point-max))
   (let ((lisp-filename (slime-to-lisp-filename (buffer-file-name))))
     (slime-insert-transcript-delimiter
      (format "Compile file %s" lisp-filename))
@@ -4277,21 +4270,17 @@ buffer's working directory"
 (defun slime-compile-defun ()
   "Compile the current toplevel form."
   (interactive)
-  (slime-compile-string (slime-defun-at-point)
-                        (save-excursion 
-                          (end-of-defun)
-                          (beginning-of-defun)
-                          (point)))
-  (save-excursion
-    (beginning-of-defun)
-    (let ((start (point)))
-      (end-of-defun)
-      (slime-remove-edits start (point)))))
+  (destructuring-bind (start end)
+      (save-excursion
+        (beginning-of-defun)
+        (list (point)
+              (progn (end-of-defun) (point))))
+    (slime-compile-region start end)))
 
 (defun slime-compile-region (start end)
   "Compile the region."
   (interactive "r")
-  (slime-remove-edits start end)
+  (run-hook-with-args 'slime-before-compile-functions start end)
   (slime-compile-string (buffer-substring-no-properties start end) start))
 
 (defun slime-compile-string (string start-offset)
@@ -4413,16 +4402,6 @@ PREDICATE is executed in the buffer to test."
 This operation is \"lossy\" in the broad sense but not for display purposes."
   (mapcar #'slime-merge-notes
           (slime-group-similar 'slime-notes-in-same-location-p notes)))
-
-(defun slime-remove-edits (start end)
-  "Delete the existing Slime edit hilights in the current buffer."
-  (save-excursion
-    (goto-char start)
-    (while (< (point) end)
-      (dolist (o (overlays-at (point)))
-        (when (overlay-get o 'slime-edit)
-          (delete-overlay o)))
-      (goto-char (next-overlay-change (point))))))
 
 (defun slime-merge-notes (notes)
   "Merge NOTES together. Keep the highest severity, concatenate the messages."
@@ -5173,7 +5152,7 @@ more than one space."
       (when (and slime-space-information-p
                  (slime-background-activities-enabled-p))
         (slime-echo-arglist))
-  (self-insert-command n)))
+    (self-insert-command n)))
 
 (defun slime-echo-arglist ()
   "Display the arglist of the current form in the echo area."
@@ -5398,6 +5377,68 @@ annoy the user)."
   (interactive)
   (unless (slime-typeout-active-p)
     (slime-make-typeout-frame)))
+
+
+;;;; edit highlighting
+
+(defface slime-highlight-edits-face
+    `((((class color) (background light))
+       (:background "lightgray"))
+      (((class color) (background dark))
+       (:background "dimgray"))
+      (t (:background "yellow")))
+  "Face for displaying edit but not compiled code."
+  :group 'slime-mode-faces)
+
+(define-minor-mode slime-highlight-edits-mode 
+  "Minor mode to highlight not-yet-compiled code." nil)
+
+(add-hook 'slime-highlight-edits-mode-on-hook
+          'slime-highlight-edits-init-buffer)
+
+(add-hook 'slime-highlight-edits-mode-off-hook
+          'slime-highlight-edits-reset-buffer)
+
+(defun slime-highlight-edits-init-buffer ()
+  (make-local-variable 'after-change-functions)
+  (add-to-list 'after-change-functions 
+               'slime-highlight-edits)
+  (add-to-list 'slime-before-compile-functions
+               'slime-highlight-edits-compile-hook))
+
+(defun slime-highlight-edits-reset-buffer ()
+  (setq after-change-functions  
+        (remove 'slime-highlight-edits after-change-functions))
+  (slime-remove-edits (point-min) (point-max)))
+
+(defun slime-highlight-edits (beg end &optional len)
+  (when (and (slime-connected-p)
+             (not (slime-inside-comment-p beg end)))
+    (let ((overlay (make-overlay beg end)))
+      (overlay-put overlay 'face 'slime-highlight-edits-face)
+      (overlay-put overlay 'slime-edit t))))
+
+(defun slime-remove-edits (start end)
+  "Delete the existing Slime edit hilights in the current buffer."
+  (save-excursion
+    (goto-char start)
+    (while (< (point) end)
+      (dolist (o (overlays-at (point)))
+        (when (overlay-get o 'slime-edit)
+          (delete-overlay o)))
+      (goto-char (next-overlay-change (point))))))
+
+(defun slime-highlight-edits-compile-hook (start end)
+  (when slime-highlight-edits-mode
+    (slime-remove-edits start end)))
+
+(defun slime-inside-comment-p (beg end)
+  "Is the region from BEG to END in a comment?"
+  (let* ((hs-c-start-regexp ";\\|#|")
+         (comment (hs-inside-comment-p)))
+    (and comment
+         (destructuring-bind (cbeg cend) comment
+           (and (<= cbeg beg) (<= end cend))))))
 
 
 ;;;; Completion
@@ -9884,29 +9925,6 @@ If they are not, position point at the first syntax error found."
 (defun sldb-xemacs-post-command-hook ()
   (when (get-text-property (point) 'point-entered)
     (funcall (get-text-property (point) 'point-entered))))
-
-(defun slime-self-insert-command ()
-  (interactive)
-  (self-insert-command 1)
-  (when (and slime-display-edit-hilights
-             (slime-connected-p)
-             (not (in-comment-p)))
-    (let ((overlay (make-overlay (- (point) 1) (point))))
-      (flet ((putp (name value) (overlay-put overlay name value)))
-        (putp 'face 'slime-display-edit-face)
-        (putp 'slime-edit t)))))
-
-(defun in-comment-p ()
-  (nth 4 (syntax-ppss (point))))
-
-(add-hook 'slime-mode-hook
-          (lambda ()
-            (unless (eq 'slime-repl-mode major-mode)
-              (dotimes (i 127)
-                (when (> i 31)                
-                  ;; Don't stomp on previous bindings!
-                  (when (null (local-key-binding (string i)))
-                    (local-set-key (string i) 'slime-self-insert-command)))))))
 
 
 ;;;; Finishing up
