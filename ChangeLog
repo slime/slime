@@ -1,3 +1,15 @@
+2005-12-22  Helmut Eller  <heller@common-lisp.net>
+
+	Make highlighting of modified text a minor mode. Also use
+	after-change-functions instead of rebinding all self-inserting
+	keys.
+	
+	* slime.el (slime-highlight-edits-mode): New minor mode.
+	(slime-self-insert-command): Deleted.
+	(slime-before-compile-functions): New hook to decouple edit
+	highlighting from compilation.
+	(slime-highlight-edits-face): Renamed from slime-display-edit-face.
+
 2005-12-20  Marco Baringer  <mb@bese.it>
 
 	When inspecting classes, methods and generic functions show all
