@@ -1,3 +1,13 @@
+2005-12-27  Helmut Eller  <heller@common-lisp.net>
+
+	Keep a history of protocol events for better bug reports.
+	
+	* swank.lisp (log-event): Record the event in the history buffer.
+	(*event-history*): Buffer for events.
+	(dump-event-history): New function.
+	(close-connection): Escape non-ascii strings and include the event
+	history in the error message.
+
 2005-12-22  Helmut Eller  <heller@common-lisp.net>
 
 	Make highlighting of modified text a minor mode. Also use
