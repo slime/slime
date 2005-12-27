@@ -323,13 +323,53 @@ The package is deleted before returning."
 
 (defvar *log-events* nil)
 (defvar *log-output* *error-output*)
+(defvar *event-history* (make-array 40 :initial-element nil)
+  "A ring buffer to record events for better error messages.")
+(defvar *event-history-index* 0)
+(defvar *enable-event-history* t)
 
 (defun log-event (format-string &rest args)
   "Write a message to *terminal-io* when *log-events* is non-nil.
 Useful for low level debugging."
+  (when *enable-event-history*
+    (setf (aref *event-history* *event-history-index*) 
+          (apply #'format nil format-string args))
+    (setf *event-history-index* 
+          (mod (1+ *event-history-index*) (length *event-history*))))
   (when *log-events*
     (apply #'format *log-output* format-string args)
     (force-output *log-output*)))
+
+(defun event-history-to-list ()
+  "Return the list of events (older events first)."
+  (let ((arr *event-history*)
+        (idx *event-history-index*))
+    (concatenate 'list (subseq arr idx) (subseq arr 0 idx))))
+
+(defun dump-event-history (stream)
+  (dolist (e (event-history-to-list))
+    (dump-event e stream)))
+
+(defun dump-event (event stream)
+  (cond ((stringp event)
+         (write-string (escape-non-ascii event) stream))
+        ((null event))
+        (t (format stream "Unexpected event: ~A~%" event))))
+
+(defun escape-non-ascii (string)
+  "Return a string like STRING but with non-ascii chars escaped."
+  (cond ((ascii-string-p string) string)
+        (t (with-output-to-string (out)
+             (loop for c across string do
+               (cond ((ascii-char-p c) (write-char c out))
+                     (t (format out "\\x~4,'0X" (char-code c)))))))))
+
+(defun ascii-string-p (o)
+  (and (stringp o)
+       (every #'ascii-char-p o)))
+
+(defun ascii-char-p (c) 
+  (<= (char-code c) 127))
 
 
 ;;;; TCP Server
@@ -510,7 +550,19 @@ of the toplevel restart."
   (setf *connections* (remove c *connections*))
   (run-hook *connection-closed-hook* c)
   (when condition
-    (format *debug-io* "~&;; Connection to Emacs lost.~%;; [~A]~%" condition)
+    (finish-output *debug-io*)
+    (format *debug-io* "~&;; Event history start:~%")
+    (dump-event-history *debug-io*)
+    (format *debug-io* ";; Event history end.~%~
+                        ;; Connection to Emacs lost. [~%~
+                        ;;  condition: ~A~%~
+                        ;;  type: ~S~%~
+                        ;;  encoding: ~S style: ~S dedicated: ~S]~%"
+            (escape-non-ascii (safe-condition-message condition) )
+            (type-of condition)
+            (connection.external-format c) 
+            (connection.communication-style c)
+            *use-dedicated-output-stream*)
     (finish-output *debug-io*)))
 
 (defmacro with-reader-error-handler ((connection) &body body)
@@ -962,9 +1014,8 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
                (pos (read-sequence string stream)))
           (assert (= pos length) ()
                   "Short read: length=~D  pos=~D" length pos)
-          (let ((form (read-form string)))
-            (log-event "READ: ~A~%" string)
-            form))
+          (log-event "READ: ~S~%" string)
+          (read-form string))
       (serious-condition (c)
         (error (make-condition 'slime-protocol-error :condition c))))))
 
