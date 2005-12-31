@@ -1,5 +1,5 @@
-;;; -*- outline-regexp: ";;;;+"; indent-tabs-mode: nil -*-
 ;; slime.el -- Superior Lisp Interaction Mode for Emacs
+;;
 ;;;; License
 ;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
 ;;     Copyright (C) 2004,2005  Luke Gorrie, Helmut Eller
@@ -2607,14 +2607,10 @@ output as arguments.")
     (display-buffer (current-buffer)))
   (when (eobp)
     (slime-repl-show-maximum-output t)))
-      
-(defun slime-flush-output ()
-  (while (accept-process-output nil 0 20)))
 
 (defun slime-show-last-output ()
   "Show the output from the last Lisp evaluation."
   (with-current-buffer (slime-output-buffer)
-    ;;(slime-flush-output)
     (let ((start slime-output-start)
           (end slime-output-end))
       (funcall slime-show-last-output-function start end))))
@@ -2775,9 +2771,8 @@ RESULT-P decides whether a face for a return value or output text is used."
             (list* '("<" . slime-mark-presentation-start-handler) 
                    '(">" . slime-mark-presentation-end-handler)
                    bridge-handlers)))
-    (set-process-coding-system stream 
-                               slime-net-coding-system 
-                               slime-net-coding-system)
+    (let ((pcs (process-coding-system (slime-current-connection))))
+      (set-process-coding-system stream (car pcs) (cdr pcs)))
     (when-let (secret (slime-secret))
       (slime-net-send secret stream))
     stream))
@@ -3196,7 +3191,6 @@ buffer, suitable for `x-popup-menu'."
   "Goto to point max, insert RESULT and the prompt.
 Set slime-output-end to start of the inserted text slime-input-start
 to end end."
-  ;;(slime-flush-output)
   (goto-char (point-max))
   (let ((start (point)))
     (unless (bolp) (insert "\n"))
@@ -6269,19 +6263,20 @@ inserted in the current buffer."
                           (destructuring-bind (output value) result
                             (insert output value)))))))
 
-(defun slime-eval-with-transcript (form &optional fn wait)
+(defun slime-eval-with-transcript (form &optional fn)
   "Send FROM and PACKAGE to Lisp and pass the result to FN.
 Display the result in the message area, if FN is nil.
 Show the output buffer if the evaluation causes any output."
   (with-current-buffer (slime-output-buffer)
-    (slime-with-output-end-mark (slime-mark-output-start)))
+    (slime-with-output-end-mark 
+     (slime-mark-output-start)))
   (with-lexical-bindings (fn)
     (slime-eval-async form
                       (lambda (value)
                         (with-current-buffer (slime-output-buffer)
+                          (slime-show-last-output)
                           (cond (fn (funcall fn value))
-                                (t (message "%s" value)))
-                          (slime-show-last-output))))))
+                                (t (message "%s" value))))))))
 
 (defun slime-eval-describe (form)
   "Evaluate FORM in Lisp and display the result in a new buffer."
@@ -9091,6 +9086,7 @@ BODY returns true if the check succeeds."
 (setq slime-tests nil)
 
 (defun slime-check-top-level (&optional test-name)
+  (accept-process-output nil 0 50)
   (slime-check "At the top level (no debugging or pending RPCs)"
     (slime-at-top-level-p)))
 
@@ -9336,6 +9332,7 @@ Confirm that SUBFORM is correctly located."
     ()
     "Test interrupting a loop that sends a lot of output to Emacs."
     '(())
+  (accept-process-output nil 1)
   (slime-check-top-level)
   (slime-eval-async '(cl:loop :for i :from 0 :do (cl:progn (cl:print i) 
                                                            (cl:finish-output)))
@@ -9346,7 +9343,7 @@ Confirm that SUBFORM is correctly located."
                         (lambda () 
                           (and (slime-sldb-level= 1)
                                (get-buffer-window (sldb-get-default-buffer))))
-                        20)
+                        30)
   (with-current-buffer (sldb-get-default-buffer)
     (sldb-quit))
   (slime-sync-to-top-level 5))
@@ -9510,7 +9507,15 @@ SWANK> "))
 SWANK> " nil)
       ("(princ 10)" ";;;; (princ 10) ...
 10
+SWANK> " t)
+      ("(princ \"ßäëïöüáéíóúàèìòùâêîôûãõøçðåæ\")"
+       ";;;; (princ \"ßäëïöüáéíóúàèìòùâêîôûãõøçðåæ\") ...
+ßäëïöüáéíóúàèìòùâêîôûãõøçðåæ
 SWANK> " t))
+  (when (and (fboundp 'string-to-multibyte)
+             default-enable-multibyte-characters)
+    (setq input (funcall 'string-to-multibyte input))
+    (setq result-contents (funcall 'string-to-multibyte result-contents)))
   (with-current-buffer (slime-output-buffer)
     (setf (slime-lisp-package-prompt-string) "SWANK"))
   (kill-buffer (slime-output-buffer))
@@ -9523,10 +9528,14 @@ SWANK> " t))
                        visiblep
                        (not (not (get-buffer-window (current-buffer)))))))
 
+;; XXX this test should fail with :fd-handler style because
+;; (sldb-quit) doesn't find the abort-request restart, but for some
+;; reason it succeeds.
 (def-slime-test break 
     ()
     "Test if BREAK invokes SLDB."
     '(())
+  (accept-process-output nil 1)
   (slime-check-top-level)
   (slime-compile-string (prin1-to-string '(cl:defun cl-user::foo () 
                                                     (cl:break))) 
@@ -9540,6 +9549,7 @@ SWANK> " t))
                         5)
   (with-current-buffer (sldb-get-default-buffer)
     (sldb-quit))
+  (accept-process-output nil 1)
   (slime-sync-to-top-level 5))
       
 
@@ -9966,10 +9976,16 @@ If they are not, position point at the first syntax error found."
           slime-print-apropos
           slime-show-note-counts
           slime-insert-propertized
-           slime-tree-insert)))
+          slime-tree-insert)))
 
 (run-hooks 'slime-load-hook)
 
 (provide 'slime)
 
+;; Local Variables: 
+;; outline-regexp: ";;;;+"
+;; indent-tabs-mode: nil
+;; coding: latin-1-unix
+;; unibyte: t
+;; End:
 ;;; slime.el ends here
