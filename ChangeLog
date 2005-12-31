@@ -1,3 +1,8 @@
+2005-12-31  Harald Hanche-Olsen <hanche@math.ntnu.no>
+
+	* slime.el (slime-open-stream-to-lisp): Inherit the
+	process-coding-system from the current connection.
+
 2005-12-27  Helmut Eller  <heller@common-lisp.net>
 
 	Keep a history of protocol events for better bug reports.
