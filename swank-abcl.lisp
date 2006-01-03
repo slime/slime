@@ -17,14 +17,13 @@
 
 (defun sys::break (&optional (format-control "BREAK called") 
                    &rest format-arguments)
-  (let ((*saved-backtrace* (sys::backtrace-as-list)))
+  (let ((*saved-backtrace* (backtrace-as-list-ignoring-swank-calls)))
     (with-simple-restart (continue "Return from BREAK.")
       (invoke-debugger
        (sys::%make-condition 'simple-condition
                              (list :format-control format-control
                                    :format-arguments format-arguments))))
     nil))
-
 
 (defimplementation make-fn-streams (input-fn output-fn)
   (let* ((output (ext:make-slime-output-stream output-fn))
@@ -191,16 +190,20 @@
 
 (defvar *sldb-topframe*)
 
+(defun backtrace-as-list-ignoring-swank-calls ()
+  (let ((list (ext:backtrace-as-list)))
+    (subseq list (1+ (or (position 'swank::swank-debugger-hook list :key 'car) -1)))))
+
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
-  (let ((*sldb-topframe* (car (ext:backtrace-as-list)) #+nil (excl::int-newest-frame)))
+  (let ((*sldb-topframe* (car (backtrace-as-list-ignoring-swank-calls)) #+nil (excl::int-newest-frame)))
     (funcall debugger-loop-fn)))
 
 (defun nth-frame (index)
-  (nth index (ext:backtrace-as-list)))
+  (nth index (backtrace-as-list-ignoring-swank-calls)))
 
 (defimplementation compute-backtrace (start end)
   (let ((end (or end most-positive-fixnum)))
-    (subseq (ext:backtrace-as-list) start end)))
+    (subseq (backtrace-as-list-ignoring-swank-calls) start end)))
 
 (defimplementation print-frame (frame stream)
   (write-string (string-trim '(#\space #\newline)
@@ -208,7 +211,7 @@
                 stream))
 
 (defimplementation frame-locals (index)
-  `((list :name "??" :id 0 :value "??")))
+  `(,(list :name "??" :id 0 :value "??")))
 
 
 (defimplementation frame-catch-tags (index)

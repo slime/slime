@@ -1,3 +1,11 @@
+2005-12-27  Alan Ruttenberg <alanr-l@mumble.net>
+
+	* swank-abcl. (backtrace-as-list-ignoring-swank-calls): remove the
+	swank calls from the backtrace to make it easier to use. 
+	(frame-locals): Fix a typo that caused entry into the debugger if you tried to
+	look at frame locals. Now you don't error out, but you still don't see frame locals
+	because I don't know how to get them :(
+
 2005-12-31  Harald Hanche-Olsen <hanche@math.ntnu.no>
 
 	* slime.el (slime-open-stream-to-lisp): Inherit the
