@@ -192,7 +192,7 @@
 
 (defun backtrace-as-list-ignoring-swank-calls ()
   (let ((list (ext:backtrace-as-list)))
-    (subseq list (1+ (or (position '(intern SWANK-DEBUGGER-HOOK 'swank) list :key 'car) -1)))))
+    (subseq list (1+ (or (position (intern "SWANK-DEBUGGER-HOOK" 'swank) list :key 'car) -1)))))
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let ((*sldb-topframe* (car (backtrace-as-list-ignoring-swank-calls)) #+nil (excl::int-newest-frame)))
