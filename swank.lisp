@@ -283,8 +283,7 @@ If *REDIRECT-IO* is true then all standard I/O streams are redirected."
 (defun call-with-connection (connection fun)
   (let ((*emacs-connection* connection))
     (with-io-redirection (*emacs-connection*)
-      (let ((*debugger-hook* #'swank-debugger-hook))
-        (funcall fun)))))
+      (call-with-debugger-hook #'swank-debugger-hook fun))))
 
 (defmacro without-interrupts (&body body)
   `(call-without-interrupts (lambda () ,@body)))
@@ -333,7 +332,7 @@ The package is deleted before returning."
 Useful for low level debugging."
   (when *enable-event-history*
     (setf (aref *event-history* *event-history-index*) 
-          (apply #'format nil format-string args))
+          (format nil "~?" format-string args))
     (setf *event-history-index* 
           (mod (1+ *event-history-index*) (length *event-history*))))
   (when *log-events*
@@ -531,8 +530,7 @@ This is an optimized way for Lisp to deliver output to Emacs."
   "Read and process one request.  The processing is done in the extend
 of the toplevel restart."
   (assert (null *swank-state-stack*))
-  (let ((*swank-state-stack* '(:handle-request))
-	(*debugger-hook* nil))
+  (let ((*swank-state-stack* '(:handle-request)))
     (with-connection (connection)
       (with-simple-restart (abort-request "Abort handling SLIME request.")
         (read-from-emacs)))))
@@ -572,10 +570,12 @@ of the toplevel restart."
 
 (defslimefun simple-break ()
   (with-simple-restart  (continue "Continue from interrupt.")
-    (let ((*debugger-hook* #'swank-debugger-hook))
-      (invoke-debugger 
-       (make-condition 'simple-error 
-                       :format-control "Interrupt from Emacs"))))
+    (call-with-debugger-hook
+     #'swank-debugger-hook
+     (lambda ()
+       (invoke-debugger 
+        (make-condition 'simple-error 
+                        :format-control "Interrupt from Emacs")))))
   nil)
 
 ;;;;;; Thread based communication
@@ -595,11 +595,14 @@ of the toplevel restart."
 
 (defun repl-thread (connection)
   (let ((thread (connection.repl-thread connection)))
-    (if (thread-alive-p thread) 
-        thread
-        (setf (connection.repl-thread connection)
-              (spawn-repl-thread connection "new-repl-thread")))))
-
+    (when (not thread)
+      (log-event "ERROR: repl-thread is nil"))
+    (assert thread)
+    (cond ((thread-alive-p thread)
+           thread)
+          (t
+           (setf (connection.repl-thread connection)
+                 (spawn-repl-thread connection "new-repl-thread"))))))
 
 (defun find-worker-thread (id)
   (etypecase id
@@ -676,28 +679,35 @@ of the toplevel restart."
      (encode-message event socket-io))))
 
 (defun spawn-threads-for-connection (connection)
-  (let* ((socket-io (connection.socket-io connection))
-         (control-thread (spawn (lambda ()
-                                  (let ((*debugger-hook* nil))
-                                    (dispatch-loop socket-io connection)))
-                                :name "control-thread")))
-    (setf (connection.control-thread connection) control-thread)
-    (let ((reader-thread (spawn (lambda () 
-                                  (let ((*debugger-hook* nil))
-                                    (read-loop control-thread socket-io
-                                               connection)))
-                                :name "reader-thread"))
-          (repl-thread (spawn-repl-thread connection "repl-thread")))
-      (setf (connection.reader-thread connection) reader-thread)
-      (setf (connection.repl-thread connection) repl-thread)
-      connection)))
+  (macrolet ((without-debugger-hook (&body body) 
+               `(call-with-debugger-hook nil (lambda () ,@body))))
+    (let* ((socket-io (connection.socket-io connection))
+           (control-thread (spawn (lambda ()
+                                    (without-debugger-hook
+                                     (dispatch-loop socket-io connection)))
+                                  :name "control-thread")))
+      (setf (connection.control-thread connection) control-thread)
+      (let ((reader-thread (spawn (lambda () 
+                                    (let ((go (receive)))
+                                      (assert (eq go 'accept-input)))
+                                    (without-debugger-hook
+                                     (read-loop control-thread socket-io
+                                                connection)))
+                                  :name "reader-thread"))
+            (repl-thread (spawn-repl-thread connection "repl-thread")))
+        (setf (connection.repl-thread connection) repl-thread)
+        (setf (connection.reader-thread connection) reader-thread)
+        (send reader-thread 'accept-input)
+        connection))))
 
 (defun cleanup-connection-threads (connection)
   (let ((threads (list (connection.repl-thread connection)
                        (connection.reader-thread connection)
                        (connection.control-thread connection))))
     (dolist (thread threads)
-      (unless (equal (current-thread) thread)
+      (when (and thread 
+                 (thread-alive-p thread)
+                 (not (equal (current-thread) thread)))
         (kill-thread thread)))))
 
 (defun repl-loop (connection)
@@ -736,15 +746,17 @@ of the toplevel restart."
 		      (process-available-input 
 		       client (lambda () (handle-request connection)))))
 		   ((eq (car *swank-state-stack*) :read-next-form))
-		   (t (process-available-input client #'read-from-emacs)))))
-      (setq *debugger-hook* 
-            (lambda (c h)
-	      (with-reader-error-handler (connection)
-		(block debugger
-		  (with-connection (connection)
-		    (swank-debugger-hook c h)
-		    (return-from debugger))
-		  (abort)))))
+		   (t 
+		    (process-available-input client #'read-from-emacs)))))
+      ;; handle sigint
+      (install-debugger-globally
+       (lambda (c h)
+         (with-reader-error-handler (connection)
+           (block debugger
+             (with-connection (connection)
+               (swank-debugger-hook c h)
+               (return-from debugger))
+             (abort)))))
       (add-fd-handler client #'handler)
       (handler))))
 
@@ -755,10 +767,18 @@ of the toplevel restart."
 
 (defun simple-serve-requests (connection)
   (with-reader-error-handler (connection)
-    (unwind-protect (loop (with-simple-restart 
-                              (abort "Return to SLIME top-level.")
-                            (handle-request connection)))
+    (unwind-protect 
+	 (loop 
+	  (with-connection (connection)
+	    (with-simple-restart (abort-request "")
+	      (do ()
+		  ((wait-until-readable (connection.socket-io connection))))))
+	  (handle-request connection))
       (close-connection connection))))
+
+(defun wait-until-readable (stream)
+  (unread-char (read-char stream) stream)
+  t)
 
 (defun read-from-socket-io ()
   (let ((event (decode-message (current-socket-io))))
@@ -1051,7 +1071,7 @@ If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
       (format stream "~6,'0x" length))
     (write-string string stream)
     ;;(terpri stream)
-    (force-output stream)))
+    (finish-output stream)))
 
 (defun prin1-to-string-for-emacs (object)
   (with-standard-io-syntax
@@ -1815,7 +1835,7 @@ by adding a template for the missing arguments."
   "Save OBJECT and return the assigned id.
 If OBJECT was saved previously return the old id."
   (or (gethash object *object-to-presentation-id*)
-      (let ((id (decf *presentation-counter*)))
+      (let ((id (incf *presentation-counter*)))
         (setf (gethash id *presentation-id-to-object*) object)
         (setf (gethash object *object-to-presentation-id*) id)
         id)))
@@ -2284,11 +2304,7 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
 If we are not evaluating an RPC then ABORT instead."
   (let ((restart (find-restart 'abort-request)))
     (cond (restart (invoke-restart restart))
-          (t
-           ;; If we get here then there was no catch. Try aborting as
-           ;; a fallback.  That makes the 'q' command in SLDB safer to
-           ;; use with threads.
-           (abort)))))
+          (t "Restart not found: ABORT-REQUEST"))))
 
 (defslimefun invoke-nth-restart-for-emacs (sldb-level n)
   "Invoke the Nth available restart.
