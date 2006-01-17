@@ -1,15 +1,35 @@
-2005-12-27  Alan Ruttenberg <alanr-l@mumble.net>
+2006-01-14  Helmut Eller  <heller@common-lisp.net>
 
-	* swank-abcl. (backtrace-as-list-ignoring-swank-calls): remove the
-	swank calls from the backtrace to make it easier to use. 
-	(frame-locals): Fix a typo that caused entry into the debugger if you tried to
-	look at frame locals. Now you don't error out, but you still don't see frame locals
-	because I don't know how to get them :(
+	* slime.el (slime-compile-defun): If point was at the opening
+	paren we wrongly used the preceding toplevel form.  Fix it.
+	Reported by Chisheng Huang and Liam M. Healy.
+
+	* swank.lisp (spawn-threads-for-connection): Fix a race condition:
+	Don't accept input before all threads are ready.
+
+	Make the fasl directory customizable: load-swank must now be
+	called explicitly so that we can supply the fasl dir as argument.
+	
+	* swank-loader.lisp (load-swank): New entry point.
+	
+2006-01-14  Andreas Fuchs <asf@boinkor.net>
+
+	* slime.el (slime-selector ?r): Call slime instead of slime-start
+	to pick up the usual defaults.
 
 2005-12-31  Harald Hanche-Olsen <hanche@math.ntnu.no>
 
 	* slime.el (slime-open-stream-to-lisp): Inherit the
 	process-coding-system from the current connection.
+
+2005-12-27  Alan Ruttenberg <alanr-l@mumble.net>
+
+	* swank-abcl. (backtrace-as-list-ignoring-swank-calls): remove the
+	swank calls from the backtrace to make it easier to use.
+	(frame-locals): Fix a typo that caused entry into the debugger if
+	you tried to look at frame locals. Now you don't error out, but
+	you still don't see frame locals because I don't know how to get
+	them :(
 
 2005-12-27  Helmut Eller  <heller@common-lisp.net>
 
