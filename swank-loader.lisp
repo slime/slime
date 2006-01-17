@@ -9,35 +9,26 @@
 ;;;
 
 (cl:defpackage :swank-loader
-  (:use :cl))
+  (:use :cl)
+  (:export :load-swank))
 
 (cl:in-package :swank-loader)
 
-(defun make-swank-pathname (name &optional (type "lisp"))
-  "Return a pathname with name component NAME in the Slime directory."
-  (merge-pathnames (make-pathname :name name :type type)
-                   (or *compile-file-pathname*
-                       *load-pathname*
-                       *default-pathname-defaults*)))
-
-(defparameter *sysdep-pathnames*
-  (mapcar #'make-swank-pathname 
-          (append 
-           '("nregex")
-           #+cmu '("swank-source-path-parser" "swank-source-file-cache" 
-                   "swank-cmucl")
-           #+scl '("swank-source-path-parser" "swank-source-file-cache" 
-                   "swank-scl")
-           #+sbcl '("swank-sbcl" "swank-source-path-parser" 
-                    "swank-source-file-cache" "swank-gray")
-           #+openmcl '("metering" "swank-openmcl" "swank-gray")
-           #+lispworks '("swank-lispworks" "swank-gray")
-           #+allegro '("swank-allegro" "swank-gray")
-           #+clisp '("xref" "metering" "swank-clisp" "swank-gray")
-           #+armedbear '("swank-abcl")
-           #+cormanlisp '("swank-corman" "swank-gray")
-           #+ecl '("swank-ecl" "swank-gray")
-           )))
+(defparameter *sysdep-files*
+  (append 
+   '("nregex")
+   #+cmu '("swank-source-path-parser" "swank-source-file-cache" "swank-cmucl")
+   #+scl '("swank-source-path-parser" "swank-source-file-cache" "swank-scl")
+   #+sbcl '("swank-sbcl" "swank-source-path-parser"
+            "swank-source-file-cache" "swank-gray")
+   #+openmcl '("metering" "swank-openmcl" "swank-gray")
+   #+lispworks '("swank-lispworks" "swank-gray")
+   #+allegro '("swank-allegro" "swank-gray")
+   #+clisp '("xref" "metering" "swank-clisp" "swank-gray")
+   #+armedbear '("swank-abcl")
+   #+cormanlisp '("swank-corman" "swank-gray")
+   #+ecl '("swank-ecl" "swank-gray")
+   ))
 
 (defparameter *implementation-features*
   '(:allegro :lispworks :sbcl :openmcl :cmu :clisp :ccl :corman :cormanlisp 
@@ -91,30 +82,33 @@ operating system, and hardware architecture."
                                 implementation version.")))
       (format nil "~(~@{~a~^-~}~)" lisp version os arch))))
 
-(defparameter *swank-pathname* (make-swank-pathname "swank"))
-
 (defun file-newer-p (new-file old-file)
   "Returns true if NEW-FILE is newer than OLD-FILE."
   (> (file-write-date new-file) (file-write-date old-file)))
 
-(defun binary-pathname (source-pathname)
+(defun default-fasl-directory ()
+  (merge-pathnames 
+   (make-pathname 
+    :directory `(:relative ".slime" "fasl" ,(unique-directory-name)))
+   (user-homedir-pathname)))
+
+(defun binary-pathname (source-pathname binary-directory)
   "Return the pathname where SOURCE-PATHNAME's binary should be compiled."
   (let ((cfp (compile-file-pathname source-pathname)))
-    (merge-pathnames (make-pathname
-                      :directory
-                      `(:relative ".slime" "fasl" ,(unique-directory-name))
-                      :name (pathname-name cfp)
-                      :type (pathname-type cfp))
-                     (user-homedir-pathname))))
+    (merge-pathnames (make-pathname :name (pathname-name cfp)
+                                    :type (pathname-type cfp))
+                     binary-directory)))
 
-(defun compile-files-if-needed-serially (files)
+
+(defun compile-files-if-needed-serially (files fasl-directory)
   "Compile each file in FILES if the source is newer than
 its corresponding binary, or the file preceding it was 
 recompiled."
   (with-compilation-unit ()
     (let ((needs-recompile nil))
       (dolist (source-pathname files)
-        (let ((binary-pathname (binary-pathname source-pathname)))
+        (let ((binary-pathname (binary-pathname source-pathname
+                                                fasl-directory)))
           (handler-case
               (progn
                 (when (or needs-recompile
@@ -133,8 +127,9 @@ recompiled."
             ))))))
 
 #+(or cormanlisp ecl)
-(defun compile-files-if-needed-serially (files)
+(defun compile-files-if-needed-serially (files fasl-directory)
   "Corman Lisp and ECL have trouble with compiled files."
+  (declare (ignore fasl-directory))
   (dolist (file files)
     (load file :verbose t)
     (force-output)))
@@ -145,17 +140,24 @@ recompiled."
                          (make-pathname :name ".swank" :type "lisp"))
         :if-does-not-exist nil))
 
-(defun load-site-init-file ()
+(defun load-site-init-file (directory)
   (load (make-pathname :name "site-init" :type "lisp"
-                       :defaults *load-truename*)
+                       :defaults directory)
         :if-does-not-exist nil))
 
-(compile-files-if-needed-serially
-  (append (list (make-swank-pathname "swank-backend"))
-          *sysdep-pathnames* 
-          (list *swank-pathname*)))
+(defun swank-source-files (source-directory)
+  (mapcar (lambda (name)
+            (merge-pathnames (make-pathname :name name :type "lisp")
+                             source-directory))
+          `("swank-backend" ,@*sysdep-files* "swank")))
 
-(funcall (intern (string :warn-unimplemented-interfaces) :swank-backend))
-
-(load-site-init-file)
-(load-user-init-file)
+(defun load-swank (&key 
+                   (fasl-directory (default-fasl-directory))
+                   (source-directory #.(or *compile-file-pathname*
+                                           *load-pathname*
+                                           *default-pathname-defaults*)))
+  (compile-files-if-needed-serially (swank-source-files source-directory) 
+                                    fasl-directory)
+  (funcall (intern (string :warn-unimplemented-interfaces) :swank-backend))
+  (load-site-init-file source-directory)
+  (load-user-init-file))
