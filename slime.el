@@ -1,8 +1,8 @@
-;; slime.el -- Superior Lisp Interaction Mode for Emacs
+;;; slime.el -- Superior Lisp Interaction Mode for Emacs
 ;;
 ;;;; License
 ;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
-;;     Copyright (C) 2004,2005  Luke Gorrie, Helmut Eller
+;;     Copyright (C) 2004,2005,2006  Luke Gorrie, Helmut Eller
 ;;
 ;;     This program is free software; you can redistribute it and/or
 ;;     modify it under the terms of the GNU General Public License as
@@ -1238,8 +1238,8 @@ See `slime-translate-from-lisp-filename-function'."
 (defvar slime-inferior-lisp-program-history '()
   "History list of command strings.  Used by `slime'.")
 
-;; XXX: inferior-lisp-program isn't preloaded in XEmacs. maybe we
-;; should use something else.
+;; We no longer load inf-lisp, but we use this variable for backward
+;; compatibility.
 (defvar inferior-lisp-program "lisp" 
   "*Program name for invoking an inferior Lisp with for Inferior Lisp mode.")
 
@@ -1284,8 +1284,9 @@ The rules for selecting the arguments are rather complicated:
              (slime-lookup-lisp-implementation table (intern key))))
           (t
            (destructuring-bind (program &rest program-args)
-               (split-string (read-string "Run lisp: " inferior-lisp-program
-                                          'slime-inferior-lisp-program-history))
+               (split-string (read-string 
+                              "Run lisp: " inferior-lisp-program
+                              'slime-inferior-lisp-program-history))
              (let ((coding-system 
                     (if (eq 16 (prefix-numeric-value current-prefix-arg))
                         (read-coding-system "set slime-coding-system: "
@@ -1480,17 +1481,18 @@ Return the created process."
   (with-current-buffer (process-buffer process)
     slime-inferior-lisp-args))
 
-
-;;; XXX load-server & start-server used to separated. maybe that was  better.
+;; XXX load-server & start-server used to separated. maybe that was  better.
 (defun slime-init-command (port-filename coding-system)
   "Return a string to initialize Lisp."
-  (let ((swank (slime-to-lisp-filename (if (file-name-absolute-p slime-backend)
-                                           slime-backend
-                                         (concat slime-path slime-backend))))
+  (let ((loader 
+         (slime-to-lisp-filename (if (file-name-absolute-p slime-backend)
+                                     slime-backend
+                                   (concat slime-path slime-backend))))
         (encoding (slime-coding-system-cl-name coding-system))
         (filename (slime-to-lisp-filename port-filename)))
-    (format "%S\n%S\n\n" 
-            `(load ,swank :verbose t)
+    (format "%S\n%S\n%S\n\n"
+            `(load ,loader :verbose t)
+            `(swank-loader:load-swank)
             `(swank:start-server ,filename :external-format ,encoding))))
 
 (defun slime-swank-port-file ()
@@ -1531,7 +1533,7 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
                 (t
                  (when retries (decf retries))
                  (setq slime-connect-retry-timer
-                       (run-with-timer 1 nil #'attempt-connection))))))
+                       (run-with-timer 1.0 nil #'attempt-connection))))))
       (attempt-connection))))
 
 (defun slime-read-swank-port ()
@@ -2138,7 +2140,9 @@ Can return nil if there's no process object for the connection."
 (defun slime-background-activities-enabled-p ()
   (and (or slime-mode 
            (eq major-mode 'slime-repl-mode))
-       (slime-current-connection)
+       (let ((con (slime-current-connection)))
+         (and con
+              (eq (process-status con) 'open)))
        (or (not (slime-busy-p))
            (not slime-inhibit-pipelining))))
 
@@ -4264,12 +4268,7 @@ buffer's working directory"
 (defun slime-compile-defun ()
   "Compile the current toplevel form."
   (interactive)
-  (destructuring-bind (start end)
-      (save-excursion
-        (beginning-of-defun)
-        (list (point)
-              (progn (end-of-defun) (point))))
-    (slime-compile-region start end)))
+  (apply #'slime-compile-region (slime-region-for-defun-at-point)))
 
 (defun slime-compile-region (start end)
   "Compile the region."
@@ -8573,7 +8572,7 @@ BODY is a series of forms which must return the buffer to be selected."
   (cond ((slime-current-connection)      
          (slime-output-buffer))
         ((y-or-n-p "No connection: start Slime? ")
-         (slime-start))))
+         (slime))))
 
 (def-slime-selector-method ?s
   "*slime-scratch* buffer."
@@ -9336,8 +9335,9 @@ Confirm that SUBFORM is correctly located."
   (slime-check-top-level)
   (slime-eval-async '(cl:loop :for i :from 0 :do (cl:progn (cl:print i) 
                                                            (cl:finish-output)))
-                    (lambda (_) ) "CL-USER")
-  (slime-wait-condition "running" #'slime-busy-p 5)
+                    (lambda (_) ) 
+                    "CL-USER")
+  (sleep-for 1)
   (slime-interrupt)
   (slime-wait-condition "Debugger visible" 
                         (lambda () 
@@ -9513,7 +9513,8 @@ SWANK> " t)
 ßäëïöüáéíóúàèìòùâêîôûãõøçðåæ
 SWANK> " t))
   (when (and (fboundp 'string-to-multibyte)
-             default-enable-multibyte-characters)
+             (with-current-buffer (process-buffer (slime-connection))
+               enable-multibyte-characters))
     (setq input (funcall 'string-to-multibyte input))
     (setq result-contents (funcall 'string-to-multibyte result-contents)))
   (with-current-buffer (slime-output-buffer)
@@ -9528,9 +9529,6 @@ SWANK> " t))
                        visiblep
                        (not (not (get-buffer-window (current-buffer)))))))
 
-;; XXX this test should fail with :fd-handler style because
-;; (sldb-quit) doesn't find the abort-request restart, but for some
-;; reason it succeeds.
 (def-slime-test break 
     ()
     "Test if BREAK invokes SLDB."
@@ -9550,6 +9548,21 @@ SWANK> " t))
   (with-current-buffer (sldb-get-default-buffer)
     (sldb-quit))
   (accept-process-output nil 1)
+  (slime-sync-to-top-level 5))
+
+(def-slime-test user-interrupt
+    ()
+    "Let's see what happens if we send a user interrupt at toplevel."
+    '(())
+  (slime-check-top-level)
+  (slime-interrupt)
+  (slime-wait-condition "Debugger visible" 
+                        (lambda () 
+                          (and (slime-sldb-level= 1)
+                               (get-buffer-window (sldb-get-default-buffer))))
+                        5)
+  (with-current-buffer (sldb-get-default-buffer)
+    (sldb-quit))
   (slime-sync-to-top-level 5))
       
 
@@ -9601,11 +9614,16 @@ package is used."
 
 (defun slime-defun-at-point ()
   "Return the text of the defun at point."
+  (apply #'buffer-substring-no-properties
+         (slime-region-for-defun-at-point)))
+
+(defun slime-region-for-defun-at-point ()
+  "Return the start and end position of the toplevel form at point."
   (save-excursion
     (end-of-defun)
     (let ((end (point)))
       (beginning-of-defun)
-      (buffer-substring-no-properties (point) end))))
+      (list (point) end))))
 
 (defun slime-beginning-of-symbol ()
   "Move point to the beginning of the current symbol."
