@@ -1490,9 +1490,8 @@ Return the created process."
                                    (concat slime-path slime-backend))))
         (encoding (slime-coding-system-cl-name coding-system))
         (filename (slime-to-lisp-filename port-filename)))
-    (format "%S\n%S\n%S\n\n"
+    (format "%S\n%S\n\n"
             `(load ,loader :verbose t)
-            `(swank-loader:load-swank)
             `(swank:start-server ,filename :external-format ,encoding))))
 
 (defun slime-swank-port-file ()
@@ -2270,7 +2269,7 @@ side.")
         (let ((pkg (ignore-errors (read (current-buffer)))))
           (if pkg (format "%S" pkg)))))))
 
-;;; Synchronous requests is implemented in terms of asynchronous
+;;; Synchronous requests are implemented in terms of asynchronous
 ;;; ones. We make an asynchronous request with a continuation function
 ;;; that `throw's its result up to a `catch' and then enter a loop of
 ;;; handling I/O until that happens.

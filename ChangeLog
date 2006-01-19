@@ -1,3 +1,15 @@
+2006-01-19  Helmut Eller  <heller@common-lisp.net>
+
+	Return to the previous loading strategy: load everything when
+	swank-loader is loaded.  It's just to convenient to give that up.
+	To customize the fasl directories, the new variable
+	swank-loader:*fasl-directory* can be set before loading
+	swank-loader.
+	
+	* swank-loader.lisp (*fasl-directory*, *source-directory*): New
+	variables.
+	(load-swank): Call it during loading.
+
 2006-01-14  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-compile-defun): If point was at the opening

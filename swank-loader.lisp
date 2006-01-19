@@ -8,9 +8,22 @@
 ;;; are disclaimed.
 ;;;
 
+;; If you want customize the source- or fasl-directory you can set
+;; swank-loader:*source-directory* resp. swank-loader:*fasl-directory*
+;; before loading this files. (you also need to create the
+;; swank-loader package.)
+;; E.g.:
+;;
+;;   (make-package :swank-laoder)
+;;   (defparameter swank-loader::*fasl-directory* "/tmp/fasl/")
+;;   (load ".../swank-loader.lisp")
+
+
 (cl:defpackage :swank-loader
   (:use :cl)
-  (:export :load-swank))
+  (:export :load-swank 
+           :*source-directory*
+           :*fasl-directory*))
 
 (cl:in-package :swank-loader)
 
@@ -151,13 +164,20 @@ recompiled."
                              source-directory))
           `("swank-backend" ,@*sysdep-files* "swank")))
 
+(defvar *source-directory* (or *load-pathname*
+                               *default-pathname-defaults*)
+  "The directory where to look for the source.")
+
+(defvar *fasl-directory* (default-fasl-directory)
+  "The directory where fasl files should be placed.")
+
 (defun load-swank (&key 
-                   (fasl-directory (default-fasl-directory))
-                   (source-directory #.(or *compile-file-pathname*
-                                           *load-pathname*
-                                           *default-pathname-defaults*)))
+                   (source-directory *source-directory*)
+                   (fasl-directory *fasl-directory*))
   (compile-files-if-needed-serially (swank-source-files source-directory) 
                                     fasl-directory)
   (funcall (intern (string :warn-unimplemented-interfaces) :swank-backend))
   (load-site-init-file source-directory)
   (load-user-init-file))
+
+(load-swank)
