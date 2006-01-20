@@ -737,8 +737,7 @@ Return a list of the form (NAME LOCATION)."
 (defvar *sldb-stack-top*)
 
 (defimplementation install-debugger-globally (function)
-  (setq sb-ext:*invoke-debugger-hook* function)
-  (setq *debugger-hook* function))
+  (setq sb-ext:*invoke-debugger-hook* function))
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
@@ -926,6 +925,13 @@ stack."
                           (sb-di::frame-catches frame))))
     (cond (probe (throw (car probe) (eval-in-frame form index)))
           (t (format nil "Cannot return from frame: ~S" frame)))))
+
+;; FIXME: this implementation doesn't unwind the stack before
+;; re-invoking the function, but it's better than no implementation at
+;; all.
+(defimplementation restart-frame (index)
+  (let ((frame (nth-frame index)))
+    (return-from-frame index (sb-debug::frame-call-as-list frame))))
     
 ;;;;; reference-conditions
 
