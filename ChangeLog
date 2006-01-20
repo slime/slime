@@ -1,3 +1,8 @@
+2006-01-20  Mészáros Levente <melevy@freemail.hu>
+
+	* swank-sbcl.lisp (restart-frame): Provide an implementation even
+	if it doesn't quite do what it's supposed to do.
+
 2006-01-19  Helmut Eller  <heller@common-lisp.net>
 
 	Return to the previous loading strategy: load everything when
