@@ -84,6 +84,8 @@
    #:slot-definition-type
    #:slot-definition-readers
    #:slot-definition-writers
+   #:slot-boundp-using-class
+   #:slot-value-using-class
    ;; generic function protocol
    #:compute-applicable-methods-using-classes
    #:finalize-inheritance))

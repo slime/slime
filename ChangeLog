@@ -1,8 +1,20 @@
+2006-01-30  Ian Eslick <eslick@csail.mit.edu>
+
+        Show slot values for metaclasses that override the default storage
+	locations for objects slots (i.e. where the default slot-boundp
+	returns nil) in the inspector.
+	
+	* swank.lisp (inspect-for-emacs standard-object): Use
+	slot-value-using-class and slot-boundp-using-class.
+
+	* swank-backend.lisp: Add slot-value-using-class and
+	slot-boundp-using-class to the swank-mop package.
+	
 2006-01-26  Luís Oliveira <loliveira@common-lisp.net>
 
 	* slime.el (slime-enclosing-operator-names): detect make-instance
 	forms and collect the class-name argument if it exists and is a
-	quoted symbol.  
+	quoted symbol.
 
 	* swank.lisp (arglist-for-echo-area): handle pairs of of the form
 	("make-instance" . "<class-name>") by passing them to

@@ -3704,27 +3704,28 @@ NIL is returned if the list is circular."
 
 (defmethod inspect-for-emacs ((o standard-object) inspector)
   (declare (ignore inspector))
-  (values "An object."
-          `("Class: " (:value ,(class-of o)) (:newline)
-            "Slots:" (:newline)
-            ,@(loop
-                 for slot in (swank-mop:class-slots (class-of o))
-                 for slot-def = (find-effective-slot o slot)
-                 for slot-name = (swank-mop:slot-definition-name slot-def)
-                 collect `(:value ,slot-def ,(string slot-name))
-                 collect " = "
-                 collect (if (slot-boundp o slot-name)
-                             `(:value ,(slot-value o slot-name))
-                              "#<unbound>")
-                 collect '(:newline)))))
+  (let ((c (class-of o)))
+    (values "An object."
+            `("Class: " (:value ,c) (:newline)
+              "Slots:" (:newline)
+              ,@(loop for slot in (swank-mop:class-slots c)
+                      for def = (find-effective-slot c slot)
+                      for name = (swank-mop:slot-definition-name def)
+                      collect `(:value ,def ,(string name))
+                      collect " = "
+                      collect (if (swank-mop:slot-boundp-using-class c o slot)
+                                  `(:value ,(swank-mop:slot-value-using-class 
+                                             c o slot))
+                                  "#<unbound>")
+                      collect '(:newline))))))
 
-(defun find-effective-slot (o slot)
+(defun find-effective-slot (class slot)
   ;; find the direct slot with the same name as SLOT (an effective
   ;; slot).
   (or (find-if (lambda (a)
                  (eql (swank-mop:slot-definition-name a)
                       (swank-mop:slot-definition-name slot)))
-               (swank-mop:class-direct-slots (class-of o)))
+               (swank-mop:class-direct-slots class))
       slot))
 
 (defvar *gf-method-getter* 'methods-by-applicability
