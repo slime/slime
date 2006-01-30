@@ -5150,7 +5150,7 @@ more than one space."
   "Display the arglist of the current form in the echo area."
   (let ((names (slime-enclosing-operator-names)))
     (when names
-      (slime-eval-async 
+      (slime-eval-async
        `(swank:arglist-for-echo-area (quote ,names))
        (lexical-let ((buffer (current-buffer)))
          (lambda (message)
@@ -9712,6 +9712,16 @@ Return the symbol-name, or nil."
             (when (looking-at "(")
               (forward-char 1)
               (when-let (name (slime-symbol-name-at-point))
+                ;; Detect MAKE-INSTANCE forms and collect the class-name
+                ;; if exists and is a quoted symbol.
+                (ignore-errors
+                  (when (or (string= (upcase name) "MAKE-INSTANCE")
+                            (string= (upcase name) "CL:MAKE-INSTANCE"))
+                    (forward-char (1+ (length name)))
+                    (slime-forward-blanks)
+                    (let ((str (slime-sexp-at-point)))
+                      (when (= (aref str 0) ?')
+                        (setq name (cons name (substring str 1)))))))
                 (push name result))
               (backward-up-list 1))))))
     (nreverse result)))

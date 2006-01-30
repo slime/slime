@@ -1332,10 +1332,44 @@ Return the package or nil."
   "Return the arglist for the first function, macro, or special-op in NAMES."
   (handler-case
       (with-buffer-syntax ()
-        (let ((name (find-if #'valid-operator-name-p names)))
-          (if name (format-arglist-for-echo-area (parse-symbol name) name))))
+        (let ((name (find-if #'valid-operator-name-p names
+                             :key (lambda (name)
+                                    (if (consp name) (car name) name)))))
+          (when name
+            (if (consp name)
+                ;; For now, this means that NAME is a pair of the form
+                ;; ("make-instance" . "<class-name>"). 
+                (format-initargs-and-initforms-for-echo-area
+                 (parse-symbol (cdr name)) (cdr name))
+                (format-arglist-for-echo-area (parse-symbol name) name)))))
     (error (cond)
       (format nil "ARGLIST: ~A" cond))))
+
+(defun class-initargs-and-initforms (class-symbol)
+  "Iterates through the slot definitions of the class named CLASS-SYMBOL and
+returns a list of initargs, if any, or of (initarg initform) pairs when both
+an initarg and an initform exist."
+  (loop for slot-def in (swank-mop:class-slots (find-class class-symbol))
+        nconc
+        (let ((initargs (car (swank-mop:slot-definition-initargs slot-def))))
+          (when initargs
+            (list (if (swank-mop:slot-definition-initfunction slot-def)
+                      (list initargs
+                            (swank-mop:slot-definition-initform slot-def))
+                      initargs))))))
+
+(defun format-initargs-and-initforms-for-echo-area (class-symbol class-name)
+  "Return CLASS-NAME's initargs and initforms for display in the echo area."
+  (handler-case
+      (arglist-to-string
+       (list* 'make-instance (concatenate 'string "'" class-name) '&key
+              (class-initargs-and-initforms class-symbol))
+       (symbol-package class-symbol))
+    (error (msg) 
+      (declare (ignore msg))
+      ;; The class doesn't exist so we fallback to showing the usual
+      ;; arglist for MAKE-INSTANCE.
+      (arglist-for-echo-area '("make-instance")))))
 
 (defun format-arglist-for-echo-area (symbol name)
   "Return SYMBOL's arglist as string for display in the echo area.

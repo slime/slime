@@ -1,3 +1,15 @@
+2006-01-26  Luís Oliveira <loliveira@common-lisp.net>
+
+	* slime.el (slime-enclosing-operator-names): detect make-instance
+	forms and collect the class-name argument if it exists and is a
+	quoted symbol.  
+
+	* swank.lisp (arglist-for-echo-area): handle pairs of of the form
+	("make-instance" . "<class-name>") by passing them to
+	format-initargs-and-initforms-for-echo-area.
+	(class-initargs-and-iniforms): New function.
+	(format-initargs-and-initforms-for-echo-area): New function.
+
 2006-01-20  Mészáros Levente <melevy@freemail.hu>
 
 	* swank-sbcl.lisp (restart-frame): Provide an implementation even
@@ -9182,3 +9194,6 @@
 
 	* Everything: imported slime-0.2 sources.
 
+;; Local Variables:
+;; coding: latin-1
+;; End:
