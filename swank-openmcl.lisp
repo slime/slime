@@ -65,6 +65,7 @@
    cl:method
    cl:standard-class
    ccl::eql-specializer
+   openmcl-mop:finalize-inheritance
    ;; standard-class readers
    openmcl-mop:class-default-initargs
    openmcl-mop:class-direct-default-initargs
@@ -96,13 +97,15 @@
    ;; slot readers
    openmcl-mop:slot-definition-allocation
    ccl::slot-definition-documentation
+   openmcl-mop:slot-value-using-class
    openmcl-mop:slot-definition-initargs
    openmcl-mop:slot-definition-initform
    openmcl-mop:slot-definition-initfunction
    openmcl-mop:slot-definition-name
    openmcl-mop:slot-definition-type
    openmcl-mop:slot-definition-readers
-   openmcl-mop:slot-definition-writers))
+   openmcl-mop:slot-definition-writers
+   openmcl-mop:slot-boundp-using-class))
 
 (defun specializer-name (spec)
   (etypecase spec

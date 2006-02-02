@@ -1,3 +1,8 @@
+2006-02-02  Marco Baringer  <mb@bese.it>
+
+	* swank-openmcl.lisp: Added imports for slot-boundp-using-class,
+	slot-value-using-class and finalize-inheritance.
+	
 2006-02-01  Alan Ruttenberg <alanr-l@mumble.net>
 
 	* swank-abcl.lisp: define with-compilation-hooks (= funcall for now), so that you can do slime-oos
