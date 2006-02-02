@@ -1,3 +1,7 @@
+2006-02-01  Alan Ruttenberg <alanr-l@mumble.net>
+
+	* swank-abcl.lisp: define with-compilation-hooks (= funcall for now), so that you can do slime-oos
+	
 2006-01-30  Ian Eslick <eslick@csail.mit.edu>
 
         Show slot values for metaclasses that override the default storage

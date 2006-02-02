@@ -30,6 +30,9 @@
          (input  (ext:make-slime-input-stream input-fn output)))
     (values input output)))
 
+(defimplementation call-with-compilation-hooks (function)
+  (funcall function))
+
 ;;; swank-mop
 
 ;;dummies:
