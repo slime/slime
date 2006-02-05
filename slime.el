@@ -5146,6 +5146,17 @@ more than one space."
         (slime-echo-arglist))
     (self-insert-command n)))
 
+(defun slime-fontify-string (string)
+  "Fontify STRING as `font-lock-mode' does in Lisp mode."
+  (with-current-buffer (get-buffer-create " *slime-fontify*")
+    (erase-buffer)
+    (if (not (eq major-mode 'lisp-mode))
+        (lisp-mode))
+    (insert string)
+    (let ((font-lock-verbose nil))
+      (font-lock-fontify-buffer))
+    (buffer-substring (point-min) (point-max))))    
+
 (defun slime-echo-arglist ()
   "Display the arglist of the current form in the echo area."
   (let ((names (slime-enclosing-operator-names)))
@@ -5156,7 +5167,7 @@ more than one space."
          (lambda (message)
            (if message
                (with-current-buffer buffer
-                 (slime-message "%s" message)))))))))
+                 (slime-message "%s" (slime-fontify-string message))))))))))
 
 (defun slime-arglist (name)
   "Show the argument list for NAME."
@@ -5164,7 +5175,9 @@ more than one space."
   (slime-eval-async 
    `(swank:arglist-for-echo-area (quote (,name)))
    (lambda (arglist)
-     (message "%s" arglist))))
+     (if arglist
+         (message "%s" (slime-fontify-string arglist))
+       (error "Arglist not available")))))
 
 (defun slime-insert-arglist (name)
   "Insert the argument list for NAME behind the symbol point is
@@ -5247,8 +5260,9 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
              `(swank:arglist-for-echo-area '(,name)))
            (with-lexical-bindings (cache-key name)
              (lambda (doc)
-               (when (null doc)
-                 (setq doc ""))
+               (if (null doc)
+                   (setq doc "")
+                 (setq doc (slime-fontify-string doc)))
                (slime-update-autodoc-cache cache-key doc)
                (slime-background-message "%s" doc))))))))
 
