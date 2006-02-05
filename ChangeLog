@@ -1,3 +1,9 @@
+2006-02-04  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-fontify-string): New.
+	(slime-echo-arglist, slime-arglist, slime-autodoc): Use it here to
+	fontify echo-area arglists.
+
 2006-02-02  Marco Baringer  <mb@bese.it>
 
 	* swank-openmcl.lisp: Added imports for slot-boundp-using-class,
