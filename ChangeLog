@@ -1,3 +1,30 @@
+2006-02-06  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	Show enriched arglists for DEFMETHOD in the echo area when the
+	user types SPC after the generic function name.
+	
+	* swank.lisp (arglist-to-template-string): Unused, removed.
+	(extra-keywords): Indicate which part of the actual arglist was
+	used to determine the extra keywords.  For MAKE-INSTANCE, don't
+	signal an error if the class does not exist.
+	(enrich-decoded-arglist-with-extra-keywords): Indicate which part
+	of the actual arglist was used to determine the extra keywords,
+	and whether any extra keywords were added.
+	(form-completion): Generalize to handle display of enriched formal
+	arglists.
+	(read-incomplete-form-from-string): New, factored out from
+	complete-form.  Handle end-of-file.
+	(complete-form): Use it here.
+	(format-arglist-for-echo-area): Use form-completion, so as to
+	show enriched formal arglists for MAKE-INSTANCE and DEFMETHOD
+	calls. 
+	(arglist-for-echo-area): Handle MAKE-INSTANCE and DEFMETHOD
+	calls. 
+
+	* slime.el (slime-enclosing-operator-names): Represent
+	MAKE-INSTANCE calls by (:make-instance "CLASS-NAME"), handle
+	DEFMETHOD too.
+
 2006-02-05  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-complete-form): Indent the inserted template.
