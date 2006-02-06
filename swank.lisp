@@ -1332,68 +1332,25 @@ Return the package or nil."
   "Return the arglist for the first function, macro, or special-op in NAMES."
   (handler-case
       (with-buffer-syntax ()
-        (let ((name (find-if #'valid-operator-name-p names
-                             :key (lambda (name)
-                                    (if (consp name) (car name) name)))))
-          (when name
-            (if (consp name)
-                ;; For now, this means that NAME is a pair of the form
-                ;; ("make-instance" . "<class-name>"). 
-                (format-initargs-and-initforms-for-echo-area
-                 (parse-symbol (cdr name)) (cdr name))
-                (format-arglist-for-echo-area (parse-symbol name) name)))))
+        (let ((name (find-if (lambda (name)
+                               (or (consp name)
+                                   (valid-operator-name-p name)))
+                             names)))
+          (etypecase name
+            (cons
+             (destructure-case name
+               ((:make-instance class-name)
+                (format-arglist-for-echo-area 
+                 `(make-instance ',(parse-symbol class-name))))
+               ((:defmethod generic-name)
+                (format-arglist-for-echo-area
+                 `(defmethod ,(parse-symbol generic-name))))))
+            (string
+             (let ((symbol (parse-symbol name)))
+               (format-arglist-for-echo-area `(,symbol) name)))
+            (null))))
     (error (cond)
       (format nil "ARGLIST: ~A" cond))))
-
-(defun class-initargs-and-initforms (class-symbol)
-  "Iterates through the slot definitions of the class named CLASS-SYMBOL and
-returns a list of initargs, if any, or of (initarg initform) pairs when both
-an initarg and an initform exist."
-  (loop for slot-def in (swank-mop:class-slots (find-class class-symbol))
-        nconc
-        (let ((initargs (car (swank-mop:slot-definition-initargs slot-def))))
-          (when initargs
-            (list (if (swank-mop:slot-definition-initfunction slot-def)
-                      (list initargs
-                            (swank-mop:slot-definition-initform slot-def))
-                      initargs))))))
-
-(defun format-initargs-and-initforms-for-echo-area (class-symbol class-name)
-  "Return CLASS-NAME's initargs and initforms for display in the echo area."
-  (handler-case
-      (arglist-to-string
-       (list* 'make-instance (concatenate 'string "'" class-name) '&key
-              (class-initargs-and-initforms class-symbol))
-       (symbol-package class-symbol))
-    (error (msg) 
-      (declare (ignore msg))
-      ;; The class doesn't exist so we fallback to showing the usual
-      ;; arglist for MAKE-INSTANCE.
-      (arglist-for-echo-area '("make-instance")))))
-
-(defun format-arglist-for-echo-area (symbol name)
-  "Return SYMBOL's arglist as string for display in the echo area.
-Use the string NAME as operator name."
-  (let ((arglist (arglist symbol)))
-    (etypecase arglist
-      ((member :not-available)
-       nil)
-      (list
-       (let ((enriched-arglist
-              (if (extra-keywords symbol)
-                  ;; When there are extra keywords, we decode the
-                  ;; arglist, merge in the keywords and encode it
-                  ;; again.
-                  (let ((decoded-arglist (decode-arglist arglist)))
-                    (enrich-decoded-arglist-with-extra-keywords 
-                     decoded-arglist (list symbol))
-                    (encode-arglist decoded-arglist))
-                  ;; Otherwise, just use the original arglist.
-                  ;; This works better for implementation-specific
-                  ;; lambda-list-keywords like CMUCL's &parse-body.
-                  arglist)))
-         (arglist-to-string (cons name enriched-arglist)
-                            (symbol-package symbol)))))))
 
 (defun clean-arglist (arglist)
   "Remove &whole, &enviroment, and &aux elements from ARGLIST."
@@ -1630,11 +1587,6 @@ whether &allow-other-keys appears somewhere."
    (swank-mop:compute-applicable-methods-using-classes 
     generic-function classes)))
 
-(defun arglist-to-template-string (arglist package)
-  "Print the list ARGLIST for insertion as a template for a function call."
-  (decoded-arglist-to-template-string
-   (decode-arglist arglist) package))
-
 (defun decoded-arglist-to-template-string (decoded-arglist package &key (prefix "(") (suffix ")"))
   (with-output-to-string (*standard-output*)
     (with-standard-io-syntax
@@ -1675,8 +1627,10 @@ whether &allow-other-keys appears somewhere."
 
 (defgeneric extra-keywords (operator &rest args)
    (:documentation "Return a list of extra keywords of OPERATOR (a
-symbol) when applied to the (unevaluated) ARGS.  As a secondary value,
-return whether other keys are allowed."))
+symbol) when applied to the (unevaluated) ARGS.  
+As a secondary value, return whether other keys are allowed.  
+As a tertiary value, return the initial sublist of ARGS that was needed 
+to determine the extra keywords."))
 
 (defmethod extra-keywords (operator &rest args)
   ;; default method
@@ -1695,7 +1649,8 @@ return whether other keys are allowed."))
                  (eq (car class-name-form) 'quote))
         (let* ((class-name (cadr class-name-form))
                (class (find-class class-name nil)))
-          (unless (swank-mop:class-finalized-p class)
+          (when (and class
+                     (not (swank-mop:class-finalized-p class)))
             ;; Try to finalize the class, which can fail if
             ;; superclasses are not defined yet
             (handler-case (swank-mop:finalize-inheritance class)
@@ -1722,11 +1677,17 @@ return whether other keys are allowed."))
                 (return-from extra-keywords
                   (values (append slot-init-keywords 
                                   initialize-instance-keywords)
-                          allow-other-keys-p)))))))))
+                          allow-other-keys-p
+                          (list class-name-form))))))))))
   (call-next-method))
 
 (defun enrich-decoded-arglist-with-extra-keywords (decoded-arglist form)
-  (multiple-value-bind (extra-keywords extra-aok)
+  "Determine extra keywords from the function call FORM, and modify
+DECODED-ARGLIST to include them.  As a secondary return value, return
+the initial sublist of ARGS that was needed to determine the extra
+keywords.  As a tertiary return value, return whether any enrichment
+was done."
+  (multiple-value-bind (extra-keywords extra-aok determining-args)
       (apply #'extra-keywords form)
     ;; enrich the list of keywords with the extra keywords
     (when extra-keywords
@@ -1737,8 +1698,10 @@ return whether other keys are allowed."))
                      extra-keywords)
              :key #'keyword-arg.keyword)))
     (setf (arglist.allow-other-keys-p decoded-arglist)
-          (or (arglist.allow-other-keys-p decoded-arglist) extra-aok)))
-  decoded-arglist)
+          (or (arglist.allow-other-keys-p decoded-arglist) extra-aok))
+    (values decoded-arglist
+            determining-args
+            (or extra-keywords extra-aok))))
 
 (defslimefun arglist-for-insertion (name)
   (with-buffer-syntax ()
@@ -1783,9 +1746,9 @@ provided in ACTUAL-ARGLIST."
                          (arglist.keyword-args decoded-arglist)
                          :key #'keyword-arg.keyword))))
 
-(defgeneric form-completion (operator-form &rest argument-forms))
+(defgeneric form-completion (operator-form argument-forms &key remove-args))
   
-(defmethod form-completion (operator-form &rest argument-forms)
+(defmethod form-completion (operator-form argument-forms &key (remove-args t))
   (when (and (symbolp operator-form)
 	     (valid-operator-symbol-p operator-form))
     (let ((arglist (arglist operator-form)))
@@ -1794,16 +1757,26 @@ provided in ACTUAL-ARGLIST."
 	 :not-available)
 	(list
 	 (let ((decoded-arglist (decode-arglist arglist)))
-	   (enrich-decoded-arglist-with-extra-keywords decoded-arglist 
-						       (cons operator-form 
-							     argument-forms))
-	   ;; get rid of formal args already provided
-	   (remove-actual-args decoded-arglist argument-forms)
-	   (return-from form-completion decoded-arglist))))))
+           (multiple-value-bind (decoded-arglist determining-args any-enrichment)
+               (enrich-decoded-arglist-with-extra-keywords decoded-arglist 
+                                                           (cons operator-form 
+                                                                 argument-forms))
+             (cond 
+               (remove-args
+                ;; get rid of formal args already provided
+                (remove-actual-args decoded-arglist argument-forms))
+               (t
+                ;; replace some formal args by determining actual args
+                (remove-actual-args decoded-arglist determining-args)
+                (setf (arglist.required-args decoded-arglist)
+                      (append determining-args
+                              (arglist.required-args decoded-arglist)))))
+             (return-from form-completion 
+               (values decoded-arglist any-enrichment))))))))
   :not-available)
 
 (defmethod form-completion ((operator-form (eql 'defmethod))
-			    &rest argument-forms)
+			    argument-forms &key (remove-args t))
   (when (and (listp argument-forms)
 	     (not (null argument-forms)) ;have generic function name
 	     (notany #'listp (rest argument-forms))) ;don't have arglist yet
@@ -1819,30 +1792,70 @@ provided in ACTUAL-ARGLIST."
 	    ((member :not-available))
 	    (list
 	     (return-from form-completion
-	       (make-arglist :required-args (list arglist)
-			     :rest "body" :body-p t))))))))
+               (values (make-arglist :required-args (if remove-args
+                                                        (list arglist)
+                                                        (list gf-name arglist))
+                                     :rest "body" :body-p t)
+                       t))))))))
   (call-next-method))
+
+(defun read-incomplete-form-from-string (form-string)
+  (with-buffer-syntax ()
+    (handler-case
+        (read-from-string form-string)
+      (reader-error (c)
+	(declare (ignore c))
+	nil)
+      (stream-error (c)
+        (declare (ignore c))
+        nil))))
 
 (defslimefun complete-form (form-string)
   "Read FORM-STRING in the current buffer package, then complete it
 by adding a template for the missing arguments."
-  (with-buffer-syntax ()
-    (handler-case 
-        (let ((form (read-from-string form-string)))
-          (when (consp form)
-	    (let ((operator-form (first form))
-		  (argument-forms (rest form)))
-	      (let ((form-completion
-		     (apply #'form-completion operator-form argument-forms)))
-		(unless (eql form-completion :not-available)
-		  (return-from complete-form
-		    (decoded-arglist-to-template-string form-completion
-							*buffer-package*
-							:prefix ""))))))
-	  :not-available)
-      (reader-error (c)
-	(declare (ignore c))
-	:not-available))))
+  (let ((form (read-incomplete-form-from-string form-string)))
+    (when (consp form)
+      (let ((operator-form (first form))
+            (argument-forms (rest form)))
+        (let ((form-completion
+               (form-completion operator-form argument-forms)))
+          (unless (eql form-completion :not-available)
+            (return-from complete-form
+              (decoded-arglist-to-template-string form-completion
+                                                  *buffer-package*
+                                                  :prefix ""))))))
+    :not-available))
+
+(defun format-arglist-for-echo-area (form &optional (operator-name (first form)))
+  "Return the arglist for FORM as a string."
+  (when (consp form)
+    (let ((operator-form (first form))
+          (argument-forms (rest form)))
+      (multiple-value-bind (form-completion any-enrichment)
+          (form-completion operator-form argument-forms
+                           :remove-args nil)
+        (cond
+          ((eql form-completion :not-available)
+           nil)
+          ((not any-enrichment)
+           ;; Just use the original arglist.
+           ;; This works better for implementation-specific
+           ;; lambda-list-keywords like CMUCL's &parse-body.
+           (let ((arglist (arglist operator-form)))
+             (etypecase arglist
+               ((member :not-available)
+                nil)
+               (list
+                (return-from format-arglist-for-echo-area
+                  (arglist-to-string (cons operator-name arglist)
+                                     *package*))))))
+          (t
+           (return-from format-arglist-for-echo-area
+             (arglist-to-string 
+              (cons operator-name
+                    (encode-arglist form-completion))
+              *package*)))))))
+  nil)
 
 
 ;;;; Recording and accessing results of computations
