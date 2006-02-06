@@ -5209,7 +5209,10 @@ This is a superset of the functionality of `slime-insert-arglist'."
           (progn
             (just-one-space)
             (save-excursion
-              (insert result)))))))
+              (insert result))
+            (save-excursion
+              (backward-up-list 1)
+              (indent-sexp)))))))
 
 (defun slime-get-arglist (symbol-name)
   "Return the argument list for SYMBOL-NAME."
