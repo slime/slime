@@ -9732,13 +9732,20 @@ Return the symbol-name, or nil."
                 ;; Detect MAKE-INSTANCE forms and collect the class-name
                 ;; if exists and is a quoted symbol.
                 (ignore-errors
-                  (when (or (string= (upcase name) "MAKE-INSTANCE")
-                            (string= (upcase name) "CL:MAKE-INSTANCE"))
+                  (cond
+                   ((member (upcase name) '("MAKE-INSTANCE" 
+                                            "CL:MAKE-INSTANCE"))
                     (forward-char (1+ (length name)))
                     (slime-forward-blanks)
                     (let ((str (slime-sexp-at-point)))
                       (when (= (aref str 0) ?')
-                        (setq name (cons name (substring str 1)))))))
+                        (setq name (list :make-instance (substring str 1))))))
+                   ((member (upcase name) '("DEFMETHOD"
+                                            "CL:DEFMETHOD"))
+                    (forward-char (1+ (length name))) 
+                    (slime-forward-blanks)
+                    (let ((str (slime-sexp-at-point)))
+                      (setq name (list :defmethod str))))))
                 (push name result))
               (backward-up-list 1))))))
     (nreverse result)))
