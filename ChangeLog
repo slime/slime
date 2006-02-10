@@ -1,3 +1,17 @@
+2006-02-10  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-allegro.lisp, swank-lispworks.lisp (inspect-for-emacs):
+	Use the backend specific method to inspect standard-objects
+	because {slot-boundp,slot-value}-using-class don't conform to the
+	MOP spec in LW and ACL.
+
+	* swank.lisp (macro-indentation): Don't count '&optional as
+	argument.
+
+	* swank-loader.lisp (default-fasl-directory): Include the SLIME
+	version.
+	(slime-version-string): New.
+
 2006-02-06  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Show enriched arglists for DEFMETHOD in the echo area when the
