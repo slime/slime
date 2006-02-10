@@ -1532,7 +1532,7 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
                 (t
                  (when retries (decf retries))
                  (setq slime-connect-retry-timer
-                       (run-with-timer 1.0 nil #'attempt-connection))))))
+                       (run-with-timer 0.2 nil #'attempt-connection))))))
       (attempt-connection))))
 
 (defun slime-read-swank-port ()
@@ -2591,7 +2591,8 @@ Return nil if the ChangeLog file cannot be found."
     (setq slime-repl-directory-stack 
           (list (expand-file-name default-directory)))
     (setq slime-repl-package-stack (list (slime-lisp-package)))
-    (slime-repl-update-banner)))
+    (slime-repl-update-banner)
+    ))
 
 (defvar slime-show-last-output-function 
   'slime-maybe-display-output-buffer
