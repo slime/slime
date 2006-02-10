@@ -27,6 +27,11 @@
 
 (cl:in-package :swank-loader)
 
+(defvar *source-directory* 
+  (let ((p (or *load-pathname* *default-pathname-defaults*)))
+    (if p (directory-namestring p)))
+  "The directory where to look for the source.")
+
 (defparameter *sysdep-files*
   (append 
    '("nregex")
@@ -99,11 +104,27 @@ operating system, and hardware architecture."
   "Returns true if NEW-FILE is newer than OLD-FILE."
   (> (file-write-date new-file) (file-write-date old-file)))
 
+;; Currently just use the modification time of the ChangeLog.  We
+;; could also try to use one of those CVS keywords.
+(defun slime-version-string ()
+  "Return a string identifying the SLIME version.
+Return nil if nothing appropriate is available."
+  (let* ((changelog (merge-pathnames "ChangeLog" *source-directory*))
+         (date (file-write-date changelog)))
+    (cond (date (multiple-value-bind (_s _m _h date month year)
+                    (decode-universal-time date)
+                  (declare (ignore _s _m _h))
+                  (format nil "~D-~2,'0D-~2,'0D" year month date)))
+          (t nil))))
+
 (defun default-fasl-directory ()
-  (merge-pathnames 
-   (make-pathname 
-    :directory `(:relative ".slime" "fasl" ,(unique-directory-name)))
-   (user-homedir-pathname)))
+  (directory-namestring 
+   (merge-pathnames
+    (make-pathname  
+     :directory `(:relative ".slime" "fasl" 
+                  ,@(if (slime-version-string) (list (slime-version-string)))
+                  ,(unique-directory-name)))
+    (user-homedir-pathname))))
 
 (defun binary-pathname (source-pathname binary-directory)
   "Return the pathname where SOURCE-PATHNAME's binary should be compiled."
@@ -111,7 +132,6 @@ operating system, and hardware architecture."
     (merge-pathnames (make-pathname :name (pathname-name cfp)
                                     :type (pathname-type cfp))
                      binary-directory)))
-
 
 (defun compile-files-if-needed-serially (files fasl-directory)
   "Compile each file in FILES if the source is newer than
@@ -155,20 +175,16 @@ recompiled."
 
 (defun load-site-init-file (directory)
   (load (make-pathname :name "site-init" :type "lisp"
-                       :defaults directory)
+                       :directory (pathname-directory directory))
         :if-does-not-exist nil))
 
 (defun swank-source-files (source-directory)
   (mapcar (lambda (name)
-            (merge-pathnames (make-pathname :name name :type "lisp")
-                             source-directory))
+            (make-pathname :name name :type "lisp"
+                           :directory (pathname-directory source-directory)))
           `("swank-backend" ,@*sysdep-files* "swank")))
 
-(defvar *source-directory* (or *load-pathname*
-                               *default-pathname-defaults*)
-  "The directory where to look for the source.")
-
-(defvar *fasl-directory* (default-fasl-directory)
+(defvar *fasl-directory* (directory-namestring (default-fasl-directory))
   "The directory where fasl files should be placed.")
 
 (defun load-swank (&key 
