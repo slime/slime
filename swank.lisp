@@ -3721,25 +3721,15 @@ NIL is returned if the list is circular."
     (values "An object."
             `("Class: " (:value ,c) (:newline)
               "Slots:" (:newline)
-              ,@(loop for slot in (swank-mop:class-slots c)
-                      for def = (find-effective-slot c slot)
-                      for name = (swank-mop:slot-definition-name def)
-                      collect `(:value ,def ,(string name))
+              ,@(loop for slotd in (swank-mop:class-slots c)
+                      for name = (swank-mop:slot-definition-name slotd)
+                      collect `(:value ,slotd ,(string name))
                       collect " = "
-                      collect (if (swank-mop:slot-boundp-using-class c o slot)
+                      collect (if (swank-mop:slot-boundp-using-class c o slotd)
                                   `(:value ,(swank-mop:slot-value-using-class 
-                                             c o slot))
+                                             c o slotd))
                                   "#<unbound>")
                       collect '(:newline))))))
-
-(defun find-effective-slot (class slot)
-  ;; find the direct slot with the same name as SLOT (an effective
-  ;; slot).
-  (or (find-if (lambda (a)
-                 (eql (swank-mop:slot-definition-name a)
-                      (swank-mop:slot-definition-name slot)))
-               (swank-mop:class-direct-slots class))
-      slot))
 
 (defvar *gf-method-getter* 'methods-by-applicability
   "This function is called to get the methods of a generic function.
@@ -3989,11 +3979,12 @@ See `methods-by-applicability'.")
            (label-value-line*
             ("Namestring" (namestring pathname))
             ("Physical pathname: " (translate-logical-pathname pathname)))
-           `("Host: " (pathname-host pathname)
-                    " (" (:value ,(logical-pathname-translations 
-                                   (pathname-host pathname))) 
-                    "other translations)"
-                    (:newline))
+           `("Host: " 
+             ,(pathname-host pathname)
+             " (" (:value ,(logical-pathname-translations
+                            (pathname-host pathname))) 
+             "other translations)"
+             (:newline))
            (label-value-line*
             ("Directory" (pathname-directory pathname))
             ("Name" (pathname-name pathname))
@@ -4369,7 +4360,7 @@ in Emacs."
 
 (defun macro-indentation (arglist)
   (if (well-formed-list-p arglist)
-      (position '&body (clean-arglist arglist))
+      (position '&body (remove '&optional (clean-arglist arglist)))
       nil))
 
 (defun well-formed-list-p (list)
