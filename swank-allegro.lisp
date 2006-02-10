@@ -480,7 +480,6 @@
 (defimplementation make-default-inspector ()
   (make-instance 'acl-inspector))
 
-#-allegro-v5.0
 (defmethod inspect-for-emacs ((f function) inspector)
   inspector
   (values "A function."
@@ -498,6 +497,10 @@
 (defmethod inspect-for-emacs ((o function) (inspector acl-inspector))
   inspector
   (values "A function." (allegro-inspect o)))
+
+(defmethod inspect-for-emacs ((o standard-object) (inspector acl-inspector))
+  inspector
+  (values (format "~A is a standard-object." o) (allegro-inspect o)))
 
 (defun allegro-inspect (o)
   (loop for (d dd) on (inspect::inspect-ctl o)
@@ -633,7 +636,6 @@
          (eval `(trace (,fspec ,@args)))
          (format nil "~S is now traced." fspec))))
 
-#-allegro-v5.0
 (defun toggle-trace-generic-function-methods (name)
   (let ((methods (mop:generic-function-methods (fdefinition name))))
     (cond ((tracedp name)

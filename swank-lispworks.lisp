@@ -641,6 +641,13 @@ function names like \(SETF GET)."
   (declare (ignore inspector))
   (lispworks-inspect o))
 
+;; FIXME: slot-boundp-using-class in LW works with names so we can't
+;; use our method in swank.lisp.
+(defimplementation inspect-for-emacs ((o standard-object) 
+                                      (inspector lispworks-inspector))
+  (declare (ignore inspector))
+  (lispworks-inspect o))
+
 (defun lispworks-inspect (o)
   (multiple-value-bind (names values _getter _setter type)
       (lw:get-inspector-values o nil)
