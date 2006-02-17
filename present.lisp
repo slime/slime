@@ -38,9 +38,24 @@ be sensitive and remember what object it is in the repl if predicate is true"
 	(presenting-object-1 ,object ,stream ,continue)
 	(funcall ,continue)))))
 
+;;; Get pretty printer patches for SBCL
+#+sbcl
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (handler-bind ((simple-error 
+		  (lambda (c) 
+		    (declare (ignore c))
+		    (let ((clobber-it (find-restart 'sb-kernel::clobber-it)))
+		      (when clobber-it (invoke-restart clobber-it))))))
+    (sb-ext:without-package-locks
+      (swank-backend::with-debootstrapping
+	(load (make-pathname 
+	       :name "sbcl-pprint-patch"
+	       :type "lisp"
+	       :directory (pathname-directory swank-loader:*source-directory*)))))))
+
 (let ((last-stream nil)
       (last-answer nil))
-  (defmethod slime-stream-p (stream)
+  (defun slime-stream-p (stream)
     "Check if stream is one of the slime streams, since if it isn't we
 don't want to present anything"
     (if (eq last-stream stream)
@@ -68,8 +83,12 @@ don't want to present anything"
 			     ;; layout.
 			     (slime-stream-p (pretty-print::pretty-stream-target  stream))))
 		    #+sbcl
-		    (and (typep stream 'sb-impl::indenting-stream)
-			 (slime-stream-p (sb-impl::indenting-stream-stream stream)))
+		    (or (and (typep stream 'sb-impl::indenting-stream)
+			     (slime-stream-p (sb-impl::indenting-stream-stream stream)))
+			(and (typep stream 'sb-pretty::pretty-stream)
+			     (fboundp 'sb-pretty::enqueue-annotation)
+			     (not *use-dedicated-output-stream*)
+			     (slime-stream-p (sb-pretty::pretty-stream-target  stream))))
 		    #+allegro
 		    (and (typep stream 'excl:xp-simple-stream)
 			 (slime-stream-p (excl::stream-output-handle stream)))
@@ -97,7 +116,12 @@ don't want to present anything"
 	   (fboundp 'pp::enqueue-annotation))
       (pp::enqueue-annotation stream function arg)
       (funcall function arg stream nil)))
-#-(or allegro cmu)
+#+sbcl
+(defun write-annotation (stream function arg)
+  (if (typep stream 'sb-pretty::pretty-stream)
+      (sb-pretty::enqueue-annotation stream function arg)
+      (funcall function arg stream nil)))
+#-(or allegro cmu sbcl)
 (defun write-annotation (stream function arg)
   (funcall function arg stream nil))
 
