@@ -1,3 +1,11 @@
+2006-02-16  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* sbcl-pprint-patch.lisp: New file, adds the annotations feature
+	to the SBCL pretty printer.  This is needed for sending
+	presentations through pretty-printing streams.
+	* present.lisp [sbcl]: Load it here.
+	(slime-stream-p, write-annotation) [sbcl]: Handle pretty-streams.
+
 2006-02-10  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-allegro.lisp, swank-lispworks.lisp (inspect-for-emacs):
