@@ -1,3 +1,5 @@
+2006-02-18  mb  <mb@soma.local>
+
 2006-02-18  Marco Baringer  <mb@bese.it>
 
 	* slime.el (slime-macroexpansion-minor-mode): New minor mode for
@@ -13,6 +15,8 @@
 	(slime-sexp-at-point-or-error): New function. Like
 	slime-sexp-at-point but signals an error when slime-sexp-at-point
 	would return nil.
+	* swank-openmcl.lisp (swank-mop:compute-applicable-methods-using-classes): 
+	Implement.
  
 2006-02-16  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
