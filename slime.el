@@ -7068,18 +7068,30 @@ When displaying XREF information, this goes to the next reference."
 
 ;;;; Macroexpansion
 
-(defun slime-eval-macroexpand (expander)
-  (let ((string (slime-sexp-at-point)))
-    (when (not string)
-      (error "No expression at point."))
-    (lexical-let ((package (slime-current-package)))
-      (slime-eval-async 
-       `(,expander ,string)
-       (lambda (expansion)
-         (slime-with-output-to-temp-buffer
-             ("*SLIME macroexpansion*" lisp-mode) package
-           (insert expansion)
-           (font-lock-fontify-buffer)))))))
+(define-minor-mode slime-macroexpansion-minor-mode
+    "SLIME mode for macroexpansion"
+    nil
+  " temp"
+  '(("q" . slime-temp-buffer-quit)
+    ("g" . slime-macroexpand-again)))
+
+(defvar *slime-eval-macroexpand-expression* nil
+  "Specifies the last macroexpansion preformed. This variable
+  specifies both what was expanded and how.")
+
+(defun slime-eval-macroexpand (expander &optional string)
+  (unless string
+    (setf string (slime-sexp-at-point-or-error)))
+  (setf *slime-eval-macroexpand-expression* `(,expander ,string))
+  (lexical-let ((package (slime-current-package)))
+    (slime-eval-async 
+     *slime-eval-macroexpand-expression*
+     (lambda (expansion)
+       (slime-with-output-to-temp-buffer
+           ("*SLIME macroexpansion*" lisp-mode) package
+         (slime-macroexpansion-minor-mode)
+         (insert expansion)
+         (font-lock-fontify-buffer))))))
 
 (defun slime-macroexpand-1 (&optional repeatedly)
   "Display the macro expansion of the form at point.  The form is
@@ -7103,6 +7115,12 @@ CL:MACROEXPAND."
   "Display the compiler-macro expansion of sexp at point."
   (interactive)
   (slime-eval-macroexpand 'swank:swank-compiler-macroexpand-1))
+
+(defun slime-macroexpand-again ()
+  "Reperform the last macroexpansion."
+  (interactive)
+  (slime-eval-macroexpand (first *slime-eval-macroexpand-expression*)
+                          (second *slime-eval-macroexpand-expression*)))
 
 
 ;;;; Subprocess control
@@ -9688,6 +9706,11 @@ The result is unspecified if there isn't a symbol under the point."
   "Return the sexp at point as a string, otherwise nil."
   (let ((string (thing-at-point 'sexp)))
     (if string (substring-no-properties string) nil)))
+
+(defun slime-sexp-at-point-or-error ()
+  "Return the sexp at point as a string, othwise signal an error."
+  (or (slime-sexp-at-point)
+      (error "No expression at point.")))
 
 (defun slime-function-called-at-point/line ()
   "Return the name of the function being called at point, provided the

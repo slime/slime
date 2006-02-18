@@ -1,4 +1,4 @@
-2006-02-18  mb  <mb@soma.local>
+2006-02-18  Marco Baringer  <mb@bese.it>
 
 	* slime.el (slime-macroexpansion-minor-mode): New minor mode for
 	macroexpansion buffer. Exactly like slime-temp-buffer-mode but
