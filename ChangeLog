@@ -1,3 +1,19 @@
+2006-02-18  mb  <mb@soma.local>
+
+	* slime.el (slime-macroexpansion-minor-mode): New minor mode for
+	macroexpansion buffer. Exactly like slime-temp-buffer-mode but
+	with slime-macroexpand-again bound to "g".
+	(*slime-eval-macroexpand-expression*): New variable. introduced
+	for slime-macroexpand-again, used by slime-eval-macroexpand as
+	well.
+	(slime-eval-macroexpand): Added optional string argument which
+	defaults to (slime-sexp-at-point-or-error).
+	(slime-macroexpand-again): New function, redoes the last
+	macroexpansion.
+	(slime-sexp-at-point-or-error): New function. Like
+	slime-sexp-at-point but signals an error when slime-sexp-at-point
+	would return nil.
+ 
 2006-02-16  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* sbcl-pprint-patch.lisp: New file, adds the annotations feature
