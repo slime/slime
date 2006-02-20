@@ -5598,14 +5598,24 @@ Completion is performed by `slime-complete-symbol-function'."
              (when (member completed-prefix completion-set)
                (slime-minibuffer-respecting-message 
                 "Complete but not unique"))
-             (let ((unambiguous-completion-length
-                    (loop for c in completion-set
-                          minimizing (or (mismatch completed-prefix c)
-                                         (length completed-prefix)))))
-               (goto-char (+ beg unambiguous-completion-length))
-               (slime-display-completion-list completion-set
-                                              completed-prefix)
-               (slime-complete-delay-restoration)))))))
+             (if (and (eq last-command this-command)
+                      (slime-completion-window-active-p))
+                 ;; Scroll the completions window only
+                 (let ((window slime-completions-window))
+                   (with-current-buffer (window-buffer window)
+                     (if (pos-visible-in-window-p (point-max) window)
+                         (set-window-start window (point-min) nil)
+                       (let ((other-window-scroll-buffer 
+                              (window-buffer window)))
+                   (scroll-other-window)))))
+               (let ((unambiguous-completion-length
+                      (loop for c in completion-set
+                            minimizing (or (mismatch completed-prefix c)
+                                           (length completed-prefix)))))
+                 (goto-char (+ beg unambiguous-completion-length))
+                 (slime-display-completion-list completion-set
+                                                completed-prefix)
+                 (slime-complete-delay-restoration))))))))
 
 (defun slime-complete-symbol*-fancy-bit ()
   "Do fancy tricks after completing a symbol.
