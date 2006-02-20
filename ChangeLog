@@ -1,4 +1,8 @@
-2006-02-18  mb  <mb@soma.local>
+2006-02-19  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-expand-abbreviations-and-complete): Scroll the
+	completions buffer if the TAB key is pressed another time, like
+	Emacs minibuffer completion does.
 
 2006-02-18  Marco Baringer  <mb@bese.it>
 
