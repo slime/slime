@@ -1336,21 +1336,26 @@ Return the package or nil."
                                (or (consp name)
                                    (valid-operator-name-p name)))
                              names)))
-          (etypecase name
-            (cons
-             (destructure-case name
-               ((:make-instance class-name)
-                (format-arglist-for-echo-area 
-                 `(make-instance ',(parse-symbol class-name))))
-               ((:defmethod generic-name)
-                (format-arglist-for-echo-area
-                 `(defmethod ,(parse-symbol generic-name))))))
-            (string
-             (let ((symbol (parse-symbol name)))
-               (format-arglist-for-echo-area `(,symbol) name)))
-            (null))))
+          (when name
+            (multiple-value-bind (form operator-name)
+                (operator-designator-to-form name)
+              (format-arglist-for-echo-area form operator-name)))))
     (error (cond)
       (format nil "ARGLIST: ~A" cond))))
+
+(defun operator-designator-to-form (name)
+  (etypecase name
+    (cons
+     (destructure-case name
+       ((:make-instance class-name)
+        (values `(make-instance ',(parse-symbol class-name))
+                'make-instance))
+       ((:defmethod generic-name)
+        (values `(defmethod ,(parse-symbol generic-name))
+                'defmethod))))
+    (string
+     (values `(,(parse-symbol name))
+             name))))
 
 (defun clean-arglist (arglist)
   "Remove &whole, &enviroment, and &aux elements from ARGLIST."
@@ -1856,6 +1861,33 @@ by adding a template for the missing arguments."
                     (encode-arglist form-completion))
               *package*)))))))
   nil)
+
+(defslimefun completions-for-keyword (name keyword-string)
+  (with-buffer-syntax ()
+    (let* ((form (operator-designator-to-form name))
+           (operator-form (first form))
+           (argument-forms (rest form))
+           (arglist
+            (form-completion operator-form argument-forms
+                             :remove-args nil)))
+      (unless (eql arglist :not-available)
+        (let* ((keywords 
+                (mapcar #'keyword-arg.keyword
+                        (arglist.keyword-args arglist)))
+               (keyword-name
+                (tokenize-symbol keyword-string))
+               (matching-keywords
+                (find-matching-symbols-in-list keyword-name keywords
+                                               #'compound-prefix-match))
+               (converter (output-case-converter keyword-string))
+               (strings
+                (mapcar converter
+                        (mapcar #'symbol-name matching-keywords)))
+               (completion-set
+                (format-completion-set strings nil "")))
+          (list completion-set
+                (longest-completion completion-set)))))))
+           
 
 
 ;;;; Recording and accessing results of computations
@@ -2625,6 +2657,19 @@ symbols are returned."
                   (funcall test string
                            (funcall converter (symbol-name symbol))))))
       (do-symbols (symbol package) 
+        (when (symbol-matches-p symbol)
+          (push symbol completions))))
+    (remove-duplicates completions)))
+
+(defun find-matching-symbols-in-list (string list test)
+  "Return a list of symbols in LIST matching STRING.
+TEST is called with two strings."
+  (let ((completions '())
+        (converter (output-case-converter string)))
+    (flet ((symbol-matches-p (symbol)
+             (funcall test string
+                      (funcall converter (symbol-name symbol)))))
+      (dolist (symbol list) 
         (when (symbol-matches-p symbol)
           (push symbol completions))))
     (remove-duplicates completions)))
