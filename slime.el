@@ -215,6 +215,12 @@ If you want to fallback on TAGS you can set this to `find-tags' or
   :group 'slime-mode
   :type 'boolean)
 
+(defcustom slime-complete-keywords-contextually t
+  "Use information from the arglist of the surrounding function call
+to complete keywords."
+  :group 'slime-mode
+  :type 'boolean)
+
 (defcustom slime-space-information-p t
   "Have the SPC key offer arglist information."
   :type 'boolean
@@ -5575,7 +5581,7 @@ Completion is performed by `slime-complete-symbol-function'."
   (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
          (beg (move-marker (make-marker) (slime-symbol-start-pos)))
          (prefix (buffer-substring-no-properties beg end))
-         (completion-result (slime-completions prefix))
+         (completion-result (slime-contextual-completions beg end))
          (completion-set (first completion-result))
          (completed-prefix (second completion-result)))
     (if (null completion-set)
@@ -5717,11 +5723,36 @@ apparently very stupid `try-completions' interface, that wants an
 alist but ignores CDRs."
   (mapcar (lambda (x) (cons x nil)) list))
 
+(defun* slime-contextual-completions (beg end) 
+  "Return a list of completions of the token from BEG to END in the
+current buffer."
+  (let ((token (buffer-substring-no-properties beg end)))
+    (when (and (< beg (point-max))
+               (string= (buffer-substring-no-properties beg (1+ beg)) ":"))
+      ;; Contextual keyword completion
+      (let ((operator-names (save-excursion 
+                              (goto-char beg)
+                              (slime-enclosing-operator-names 1))))
+        (when operator-names
+          (let ((completions 
+                 (slime-completions-for-keyword (first operator-names) token)))
+            (when (first completions)
+              (return-from slime-contextual-completions completions))
+            ;; If no matching keyword was found, do regular symbol
+            ;; completion.
+            ))))
+    ;; Regular symbol completion
+    (slime-completions (buffer-substring-no-properties beg end))))
+
 (defun slime-completions (prefix)
   (slime-eval `(swank:completions ,prefix ',(slime-current-package))))
 
 (defun slime-simple-completions (prefix)
   (slime-eval `(swank:simple-completions ,prefix ',(slime-current-package))))
+
+(defun slime-completions-for-keyword (operator-designator prefix)
+  (slime-eval `(swank:completions-for-keyword ',operator-designator
+                                              ,prefix)))
 
 
 ;;;; Fuzzy completion
@@ -9750,17 +9781,21 @@ Return the symbol-name, or nil."
         (forward-char 1)
         (slime-symbol-name-at-point)))))
 
-(defun slime-enclosing-operator-names ()
-  "Return the list of operator names of the forms containing point."
-  (let ((result '()))
+(defun slime-enclosing-operator-names (&optional max-levels)
+  "Return the list of operator names of the forms containing point.
+When MAX-LEVELS is non-nil, go up at most this many levels of parens."
+  (let ((result '())
+        (level 1))
     (ignore-errors
       (save-restriction
         (narrow-to-region (save-excursion (beginning-of-defun) (point))
                           (point))
         (save-excursion
-          (while t
+          (while (or (not max-levels)
+                     (<= level max-levels))
             (backward-up-list 1)
             (when (looking-at "(")
+              (incf level)
               (forward-char 1)
               (when-let (name (slime-symbol-name-at-point))
                 ;; Detect MAKE-INSTANCE forms and collect the class-name
