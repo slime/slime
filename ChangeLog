@@ -1,3 +1,24 @@
+2006-02-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	Use argument list information to complete keywords contextually. 
+	Example:  (find 1 '(1 2 3) :s <M-TAB> --completes--> :start 
+	rather than suggesting all ever-interned keywords starting with ":s".
+	
+	* slime.el (slime-complete-keywords-contextually): New
+	customizable variable.
+	(slime-enclosing-operator-names): New optional argument
+	max-levels. 
+	(slime-completions-for-keyword): New.
+	(slime-contextual-completions): New.
+	(slime-expand-abbreviations-and-complete): Use it instead of
+	slime-completions. 
+
+	* swank.lisp (operator-designator-to-form): New, factored out from
+	arglist-for-echo-area.
+	(arglist-for-echo-area): Use it here.
+	(completions-for-keyword): New.
+	(find-matching-symbols-in-list): New.
+
 2006-02-19  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-expand-abbreviations-and-complete): Scroll the
