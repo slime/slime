@@ -3474,19 +3474,20 @@ If NEWLINE is true then add a newline at the end of the input."
   (when (< (point) slime-repl-input-start-mark)
     (error "No input at point."))
   (goto-char slime-repl-input-end-mark)
-  (when newline 
-    (insert "\n")
-    (slime-repl-show-maximum-output))
-  (let ((inhibit-read-only t))
-    (add-text-properties slime-repl-input-start-mark (point)
-                         `(slime-repl-old-input
-                           ,(incf slime-repl-old-input-counter))))
-  (let ((overlay (make-overlay slime-repl-input-start-mark (point))))
-    ;; These properties are on an overlay so that they won't be taken
-    ;; by kill/yank.
-    (overlay-put overlay 'read-only t)
-    (overlay-put overlay 'face 'slime-repl-input-face)
-    (overlay-put overlay 'rear-nonsticky '(face slime-repl-old-input-counter)))
+  (let ((end (point))) ; end of input, without the newline
+    (when newline 
+      (insert "\n")
+      (slime-repl-show-maximum-output))
+    (let ((inhibit-read-only t))
+      (add-text-properties slime-repl-input-start-mark 
+                           (point)
+                           `(slime-repl-old-input
+                             ,(incf slime-repl-old-input-counter))))
+    (let ((overlay (make-overlay slime-repl-input-start-mark end)))
+      ;; These properties are on an overlay so that they won't be taken
+      ;; by kill/yank.
+      (overlay-put overlay 'read-only t)
+      (overlay-put overlay 'face 'slime-repl-input-face)))
   (slime-repl-add-to-input-history 
    (buffer-substring slime-repl-input-start-mark
                      slime-repl-input-end-mark)) 
