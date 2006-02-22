@@ -1,3 +1,11 @@
+2006-02-22  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-repl-send-input): Don't include the final
+	newline in the slime-repl-input-face overlay, thus avoid showing the
+	"Evaluation aborted" message in boldface.  Don't set non-existent
+	"rear-nonsticky" overlay property; overlay stickiness is
+	controlled by make-overlay arguments. 
+
 2006-02-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Use argument list information to complete keywords contextually. 
