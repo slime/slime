@@ -1,3 +1,7 @@
+2006-02-26  Douglas Crosher <dcrosher@common-lisp.net>
+	* swank-scl.lisp: (ext:stream-read-chars):  Correct the updating of
+	the buffer index.  Fixes slime input stream problems.
+
 2006-02-25  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-loader.lisp (default-fasl-directory): Previously we return

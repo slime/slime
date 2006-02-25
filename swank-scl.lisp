@@ -192,6 +192,7 @@
            (dotimes (i copy)
              (declare (type kernel:index i))
              (setf (aref buffer (+ start i)) (aref input-buffer (+ index i))))
+           (setf (slot-value stream 'index) (+ index copy))
            (incf (slot-value stream 'position) copy)
 	   copy)
 	  (waitp
@@ -206,7 +207,8 @@
                      (t
                       (setf (slot-value stream 'buffer) new-input)
                       (setf (slot-value stream 'index) 0)
-                      (ext:stream-read-chars stream buffer start requested waitp))))))
+                      (ext:stream-read-chars stream buffer
+                                             start requested waitp))))))
           (t
            0))))
 
@@ -1767,9 +1769,6 @@ The `symbol-value' of each element is a type tag.")
 (defun scl-inspect (o)
   (destructuring-bind (text labeledp . parts)
       (inspect::describe-parts o)
-    (loop for value in parts
-          for i from 0 
-          do (format stream " ~S~%" (label-value-line i value)))
     (values (format nil "~A~%" text)
             (if labeledp
                 (loop for (label . value) in parts
