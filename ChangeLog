@@ -1,4 +1,15 @@
+2006-02-25  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-loader.lisp (default-fasl-directory): Previously we return
+	only the directory-namestring which breaks SCL, because it loses
+	the host and device components.  Return the complete pathname
+	instead.  Patch by Douglas Crosher.
+
+	* slime.el (slime-lisp-host): New variable. Replace all references
+	to "127.0.0.1" with the variable.
+
 2006-02-25  Douglas Crosher <dcrosher@common-lisp.net>
+
 	* swank-backend.lisp (operate-on-system): symbol case fix for
 	SCL's lowercase mode.
 
