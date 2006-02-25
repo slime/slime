@@ -1321,7 +1321,7 @@ The rules for selecting the arguments are rather complicated:
 
 (defun slime-connect (host port &optional coding-system)
   "Connect to a running Swank server."
-  (interactive (list (read-from-minibuffer "Host: " "127.0.0.1")
+  (interactive (list (read-from-minibuffer "Host: " slime-lisp-host)
                      (read-from-minibuffer "Port: " "4005" nil t)))
   (when (and (interactive-p) slime-net-processes
              (y-or-n-p "Close old connections first? "))
@@ -1530,7 +1530,7 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
                  (let ((port (slime-read-swank-port))
                        (args (slime-inferior-lisp-args process)))
                    (delete-file (slime-swank-port-file))
-                   (let ((c (slime-connect "127.0.0.1" port
+                   (let ((c (slime-connect slime-lisp-host port
                                            (plist-get args :coding-system))))
                      (slime-set-inferior-process c process))))
                 ((and retries (zerop retries))
@@ -1609,6 +1609,9 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
 ;;; The set of meaningful protocol messages are not specified
 ;;; here. They are defined elsewhere by the event-dispatching
 ;;; functions in this file and in swank.lisp.
+
+(defvar slime-lisp-host "127.0.0.1"
+  "The default hostname (or IP address) to connect to.")
 
 (defvar slime-net-processes nil
   "List of processes (sockets) connected to Lisps.")
@@ -2766,7 +2769,7 @@ RESULT-P decides whether a face for a return value or output text is used."
   (let ((stream (open-network-stream "*lisp-output-stream*" 
                                      (slime-with-connection-buffer ()
                                        (current-buffer))
-				     "127.0.0.1" port)))
+				     slime-lisp-host port)))
     (when slime-kill-without-query-p
       (process-kill-without-query stream))
     (set-process-filter stream 'slime-output-filter)
