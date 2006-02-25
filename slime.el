@@ -7120,17 +7120,17 @@ When displaying XREF information, this goes to the next reference."
   '(("q" . slime-temp-buffer-quit)
     ("g" . slime-macroexpand-again)))
 
-(defvar *slime-eval-macroexpand-expression* nil
+(defvar slime-eval-macroexpand-expression nil
   "Specifies the last macroexpansion preformed. This variable
   specifies both what was expanded and how.")
 
 (defun slime-eval-macroexpand (expander &optional string)
   (unless string
     (setf string (slime-sexp-at-point-or-error)))
-  (setf *slime-eval-macroexpand-expression* `(,expander ,string))
+  (setf slime-eval-macroexpand-expression `(,expander ,string))
   (lexical-let ((package (slime-current-package)))
     (slime-eval-async 
-     *slime-eval-macroexpand-expression*
+     slime-eval-macroexpand-expression
      (lambda (expansion)
        (slime-with-output-to-temp-buffer
            ("*SLIME macroexpansion*" lisp-mode) package
@@ -7164,8 +7164,8 @@ CL:MACROEXPAND."
 (defun slime-macroexpand-again ()
   "Reperform the last macroexpansion."
   (interactive)
-  (slime-eval-macroexpand (first *slime-eval-macroexpand-expression*)
-                          (second *slime-eval-macroexpand-expression*)))
+  (slime-eval-macroexpand (first slime-eval-macroexpand-expression)
+                          (second slime-eval-macroexpand-expression)))
 
 
 ;;;; Subprocess control
@@ -8705,7 +8705,7 @@ Only considers buffers that are not already visible."
 
 ;;;; Editing commands
 
-(defvar *slime-comment-start-regexp*
+(defvar slime-comment-start-regexp
   "\\(\\(^\\|[^\n\\\\]\\)\\([\\\\][\\\\]\\)*\\);+[ \t]*"
   "Regexp to match the start of a comment.")
 
@@ -8715,7 +8715,7 @@ If point is inside a comment move to beginning of comment and return point.
 Otherwise leave point unchanged and return NIL."
   (let ((boundary (point)))
     (beginning-of-line)
-    (cond ((re-search-forward *slime-comment-start-regexp* boundary t)
+    (cond ((re-search-forward slime-comment-start-regexp boundary t)
            (point))
           (t (goto-char boundary) 
              nil))))
