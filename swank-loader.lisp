@@ -14,7 +14,7 @@
 ;; swank-loader package.)
 ;; E.g.:
 ;;
-;;   (make-package :swank-laoder)
+;;   (make-package :swank-loader)
 ;;   (defparameter swank-loader::*fasl-directory* "/tmp/fasl/")
 ;;   (load ".../swank-loader.lisp")
 
@@ -28,8 +28,8 @@
 (cl:in-package :swank-loader)
 
 (defvar *source-directory* 
-  (let ((p (or *load-pathname* *default-pathname-defaults*)))
-    (if p (directory-namestring p)))
+  (make-pathname :name nil :type nil 
+                 :defaults (or *load-pathname* *default-pathname-defaults*))
   "The directory where to look for the source.")
 
 (defparameter *sysdep-files*
@@ -118,13 +118,12 @@ Return nil if nothing appropriate is available."
           (t nil))))
 
 (defun default-fasl-directory ()
-  (directory-namestring 
-   (merge-pathnames
-    (make-pathname  
-     :directory `(:relative ".slime" "fasl" 
-                  ,@(if (slime-version-string) (list (slime-version-string)))
-                  ,(unique-directory-name)))
-    (user-homedir-pathname))))
+  (merge-pathnames
+   (make-pathname  
+    :directory `(:relative ".slime" "fasl" 
+                 ,@(if (slime-version-string) (list (slime-version-string)))
+                 ,(unique-directory-name)))
+   (user-homedir-pathname)))
 
 (defun binary-pathname (source-pathname binary-directory)
   "Return the pathname where SOURCE-PATHNAME's binary should be compiled."
@@ -184,7 +183,7 @@ recompiled."
                            :directory (pathname-directory source-directory)))
           `("swank-backend" ,@*sysdep-files* "swank")))
 
-(defvar *fasl-directory* (directory-namestring (default-fasl-directory))
+(defvar *fasl-directory* (default-fasl-directory)
   "The directory where fasl files should be placed.")
 
 (defun load-swank (&key 
