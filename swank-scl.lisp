@@ -1422,7 +1422,7 @@ Signal an error if no constructor can be found."
   (mapcar #'car (di:frame-catches (nth-frame index))))
 
 (defimplementation return-from-frame (index form)
-  (let ((sym (find-symbol (string 'find-debug-tag-for-frame)
+  (let ((sym (find-symbol (symbol-name '#:find-debug-tag-for-frame)
                           :debug-internals)))
     (if sym
         (let* ((frame (nth-frame index))
@@ -1567,7 +1567,8 @@ Signal an error if no constructor can be found."
                (list (1st sc)))))))))
 
 (defun mv-function-end-breakpoint-values (sigcontext)
-  (let ((sym (find-symbol "FUNCTION-END-BREAKPOINT-VALUES/STANDARD" :di)))
+  (let ((sym (find-symbol (symbol-name '#:function-end-breakpoint-values/standard)
+                          :debug-internals)))
     (cond (sym (funcall sym sigcontext))
           (t (di::get-function-end-breakpoint-values sigcontext)))))
 
@@ -1746,8 +1747,29 @@ The `symbol-value' of each element is a type tag.")
 	(t
          (scl-inspect o))))
 
+(defimplementation inspect-for-emacs ((o standard-object)
+                                      (inspector scl-inspector))
+  (declare (ignore inspector))
+  (let ((c (class-of o)))
+    (values "An object."
+            `("Class: " (:value ,c) (:newline)
+              "Slots:" (:newline)
+              ,@(loop for slotd in (clos:class-slots c)
+                      for name = (clos:slot-definition-name slotd)
+                      collect `(:value ,slotd ,(string name))
+                      collect " = "
+                      collect (if (clos:slot-boundp-using-class c o name)
+                                  `(:value ,(clos:slot-value-using-class 
+                                             c o name))
+                                  "#<unbound>")
+                      collect '(:newline))))))
+
 (defun scl-inspect (o)
-  (destructuring-bind (text labeledp . parts) (inspect::describe-parts o)
+  (destructuring-bind (text labeledp . parts)
+      (inspect::describe-parts o)
+    (loop for value in parts
+          for i from 0 
+          do (format stream " ~S~%" (label-value-line i value)))
     (values (format nil "~A~%" text)
             (if labeledp
                 (loop for (label . value) in parts
@@ -1824,17 +1846,23 @@ The `symbol-value' of each element is a type tag.")
 
 (defmethod inspect-for-emacs ((o array) (inspector scl-inspector))
   inspector
-  (values (format nil "~A is an array." o)
-          (label-value-line*
-           (:header (describe-primitive-type o))
-           (:rank (array-rank o))
-           (:fill-pointer (kernel:%array-fill-pointer o))
-           (:fill-pointer-p (kernel:%array-fill-pointer-p o))
-           (:elements (kernel:%array-available-elements o))           
-           (:data (kernel:%array-data-vector o))
-           (:displacement (kernel:%array-displacement o))
-           (:displaced-p (kernel:%array-displaced-p o))
-           (:dimensions (array-dimensions o)))))
+  (cond ((kernel:array-header-p o)
+         (values (format nil "~A is an array." o)
+                 (label-value-line*
+                  (:header (describe-primitive-type o))
+                  (:rank (array-rank o))
+                  (:fill-pointer (kernel:%array-fill-pointer o))
+                  (:fill-pointer-p (kernel:%array-fill-pointer-p o))
+                  (:elements (kernel:%array-available-elements o))           
+                  (:data (kernel:%array-data-vector o))
+                  (:displacement (kernel:%array-displacement o))
+                  (:displaced-p (kernel:%array-displaced-p o))
+                  (:dimensions (array-dimensions o)))))
+        (t
+         (values (format nil "~A is an simple-array." o)
+                 (label-value-line*
+                  (:header (describe-primitive-type o))
+                  (:length (length o)))))))
 
 (defmethod inspect-for-emacs ((o simple-vector) (inspector scl-inspector))
   inspector

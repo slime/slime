@@ -315,7 +315,7 @@ Example:
   (unless (member :asdf *features*)
     (error "ASDF is not loaded."))
   (with-compilation-hooks ()
-    (let ((operate (find-symbol "OPERATE" :asdf))
+    (let ((operate (find-symbol (symbol-name '#:operate) :asdf))
           (operation (find-symbol operation-name :asdf)))
       (when (null operation)
         (error "Couldn't find ASDF operation ~S" operation-name))

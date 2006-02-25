@@ -902,8 +902,8 @@ This has the effect of making *CURRENT-STANDARD-INPUT* contain the
 effective global value for *STANDARD-INPUT*. This way we can assign
 the effective global value even when *STANDARD-INPUT* is shadowed by a
 dynamic binding."
-  (let ((real-stream-var (prefixed-var "REAL" stream-var))
-        (current-stream-var (prefixed-var "CURRENT" stream-var)))
+  (let ((real-stream-var (prefixed-var '#:real stream-var))
+        (current-stream-var (prefixed-var '#:current stream-var)))
     `(progn
        ;; Save the real stream value for the future.
        (defvar ,real-stream-var ,stream-var)
@@ -945,7 +945,7 @@ dynamic binding."
   "Set the standard I/O streams to redirect to CONNECTION.
 Assigns *CURRENT-<STREAM>* for all standard streams."
   (dolist (o *standard-output-streams*)
-    (set (prefixed-var "CURRENT" o)
+    (set (prefixed-var '#:current o)
          (connection.user-output connection)))
   ;; FIXME: If we redirect standard input to Emacs then we get the
   ;; regular Lisp top-level trying to read from our REPL.
@@ -958,10 +958,10 @@ Assigns *CURRENT-<STREAM>* for all standard streams."
   ;; Meanwhile we just leave *standard-input* alone.
   #+NIL
   (dolist (i *standard-input-streams*)
-    (set (prefixed-var "CURRENT" i)
+    (set (prefixed-var '#:current i)
          (connection.user-input connection)))
   (dolist (io *standard-io-streams*)
-    (set (prefixed-var "CURRENT" io)
+    (set (prefixed-var '#:current io)
          (connection.user-io connection))))
 
 (defun revert-global-io-redirection ()
@@ -969,8 +969,8 @@ Assigns *CURRENT-<STREAM>* for all standard streams."
   (dolist (stream-var (append *standard-output-streams*
                               *standard-input-streams*
                               *standard-io-streams*))
-    (set (prefixed-var "CURRENT" stream-var)
-         (symbol-value (prefixed-var "REAL" stream-var)))))
+    (set (prefixed-var '#:current stream-var)
+         (symbol-value (prefixed-var '#:real stream-var)))))
 
 ;;;;; Global redirection hooks
 
