@@ -123,6 +123,13 @@ Commands
 * Inspector::                   
 * Profiling::                   
 
+Programming Helpers
+
+* Completion::                  
+* Macro Expansion::             
+* Accessing Documentation::     
+* Disassembly::                 
+
 REPL: the ``top level''
 
 * REPL commands::               
@@ -140,6 +147,7 @@ Extras
 
 * slime-selector::              
 * slime-autodoc-mode::          
+* slime-macroexpansion-minor-mode::  
 * Multiple connections::        
 * Typeout frames::              
 
@@ -166,7 +174,7 @@ Lisp-side (Swank)
 @SLIME{} is the ``Superior Lisp Interaction Mode for Emacs.''
 
 @SLIME{} extends Emacs with new support for interactive programming in
-Common Lisp. The features are centred around @code{slime-mode}, an Emacs
+Common Lisp. The features are centered around @code{slime-mode}, an Emacs
 minor-mode that complements the standard @code{lisp-mode}. While
 @code{lisp-mode} supports editing Lisp source files, @code{slime-mode}
 adds support for interacting with a running Common Lisp process for
@@ -620,6 +628,16 @@ Lookup a format character in the @cite{Common Lisp Hyperspec}.
 @node Programming Helpers, Recovery, Documentation, Commands
 @subsection Programming Helpers
 
+@menu
+* Completion::                  
+* Macro Expansion::             
+* Accessing Documentation::     
+* Disassembly::                 
+@end menu
+
+@node Completion, Macro Expansion, Programming Helpers, Programming Helpers
+@subsubsection Completion
+
 @table @kbd
 @kbditem{M-TAB, slime-complete-symbol}
 Complete the symbol at point. Note that three styles of completion are
@@ -637,10 +655,6 @@ find ``@code{multiple-value-bind}'' and ``norm-df'' will find
 ``@code{least-positive-normalized-double-float}''.  This can also be
 selected as the method of completion used for
 @code{slime-complete-symbol}.
-
-@kbditem{SPC, slime-space}
-The space key inserts a space and also looks up and displays the
-argument list for the function at point, if there is one.
 
 @kbditem{C-c C-s, slime-complete-form} 
 Looks up and inserts into the current buffer the argument list for the
@@ -669,7 +683,14 @@ functions and for handling @code{make-instance} and
 (make-instance 'foo <C-c C-s>
   --inserts--> :bar bar :blub blub initargs...)
 @end example
+@end table
 
+@node Macro Expansion, Accessing Documentation, Completion, Programming Helpers
+@subsubsection Macro Expansion
+
+@xref{slime-macroexpansion-minor-mode}.
+
+@table @kbd
 @kbditem{C-c C-m, slime-macroexpand-1}
 Macroexpand the expression at point once.  If invoked with a prefix
 argument, use macroexpand instead of macroexpand-1.
@@ -681,10 +702,23 @@ Fully macroexpand the expression at point.
 Toggle tracing of the function at point.  If invoked with a prefix
 argument, read additional information, like which particular method
 should be traced.
+@end table
 
+@node Accessing Documentation, Disassembly, Macro Expansion, Programming Helpers
+@subsubsection Accessing Documentation
+
+@table @kbd
+@kbditem{SPC, slime-space}
+The space key inserts a space and also looks up and displays the
+argument list for the function at point, if there is one.
+@end table
+
+@node Disassembly,  , Accessing Documentation, Programming Helpers
+@subsubsection Disassembly
+
+@table @kbd
 @kbditem{C-c M-d, slime-disassemble-symbol}
 Disassemble the function definition of the symbol at point.
-
 @end table
 
 @node Recovery, Cross-reference, Programming Helpers, Commands
@@ -1094,6 +1128,7 @@ Evaluate an expression entered in the minibuffer.
 @menu
 * slime-selector::              
 * slime-autodoc-mode::          
+* slime-macroexpansion-minor-mode::  
 * Multiple connections::        
 * Typeout frames::              
 @end menu
@@ -1133,7 +1168,7 @@ r}.
 The macro @code{def-slime-selector-method} can be used to define new
 buffers for @code{slime-selector} to find.
 
-@node slime-autodoc-mode, Multiple connections, slime-selector, Extras
+@node slime-autodoc-mode, slime-macroexpansion-minor-mode, slime-selector, Extras
 @section @code{slime-autodoc-mode}
 
 @code{slime-autodoc-mode} is an additional minor-mode for
@@ -1149,7 +1184,26 @@ The mode can be enabled in the @code{slime-setup} call of your
 (slime-setup :autodoc t)
 @end example
 
-@node Multiple connections, Typeout frames, slime-autodoc-mode, Extras
+@node slime-macroexpansion-minor-mode, Multiple connections, slime-autodoc-mode, Extras
+@section slime-macroexpansion-minor-mode
+
+Within a slime macroexpansion buffer some extra commands are provided
+(these commands are always available but are only bound to keys in a
+macroexpansion buffer).
+
+@table @kbd
+@kbditem{C-c C-m, slime-macroexpand-1-inplace}
+Just like slime-macroexpand-1 but the original form is replaced with the expansion.
+
+@kbditem{g, slime-macroexpand-1-inplace}
+The last macroexpansion is performed again, the current contents of
+the macroexpansion buffer are replaced with the new expansion.
+
+@kbditem{q, slime-temp-buffer-quit}
+Close the expansion buffer.
+@end table
+
+@node Multiple connections, Typeout frames, slime-macroexpansion-minor-mode, Extras
 @section Multiple connections
 
 @SLIME{} is able to connect to multiple Lisp processes at the same
