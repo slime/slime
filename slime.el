@@ -7118,7 +7118,14 @@ When displaying XREF information, this goes to the next reference."
     nil
   " temp"
   '(("q" . slime-temp-buffer-quit)
-    ("g" . slime-macroexpand-again)))
+    ("g" . slime-macroexpand-again))
+  (flet ((remap (from to)
+           (dolist (mapping (where-is-internal from slime-mode-map))
+             (define-key slime-macroexpansion-minor-mode-map
+                 mapping
+               to))))
+    (remap 'slime-macroexpand-1 'slime-macroexpand-1-inplace)
+    (remap 'slime-macroexpand-all 'slime-macroexpand-all-inplace)))
 
 (defvar slime-eval-macroexpand-expression nil
   "Specifies the last macroexpansion preformed. This variable
@@ -7138,6 +7145,26 @@ When displaying XREF information, this goes to the next reference."
          (insert expansion)
          (font-lock-fontify-buffer))))))
 
+(defun slime-eval-macroexpand-inplace (expander)
+  "Substitutes the current sexp at place with its macroexpansion.
+
+NB: Does not affect *slime-eval-macroexpand-expression*"
+  (interactive)
+  (lexical-let* ((string (slime-sexp-at-point-or-error))
+                 (package (slime-current-package))
+                 (start (point))
+                 (end (+ start (length string)))
+                 (buffer (current-buffer)))
+    (slime-eval-async 
+     `(,expander ,string)
+     (lambda (expansion)
+       (with-current-buffer buffer
+         (let ((buffer-read-only nil))
+           (goto-char start)
+           (delete-region start end)
+           (insert expansion)
+           (goto-char start)))))))
+
 (defun slime-macroexpand-1 (&optional repeatedly)
   "Display the macro expansion of the form at point.  The form is
 expanded with CL:MACROEXPAND-1 or, if a prefix argument is given, with
@@ -7146,10 +7173,20 @@ CL:MACROEXPAND."
   (slime-eval-macroexpand
    (if repeatedly 'swank:swank-macroexpand 'swank:swank-macroexpand-1)))
 
+(defun slime-macroexpand-1-inplace (&optional repeatedly)
+  (interactive "P")
+  (slime-eval-macroexpand-inplace
+   (if repeatedly 'swank:swank-macroexpand 'swank:swank-macroexpand-1)))
+
 (defun slime-macroexpand-all ()
   "Display the recursively macro expanded sexp at point."
   (interactive)
   (slime-eval-macroexpand 'swank:swank-macroexpand-all))
+
+(defun slime-macroexpand-all-inplace ()
+  "Display the recursively macro expanded sexp at point."
+  (interactive)
+  (slime-eval-macroexpand-inplace 'swank:swank-macroexpand-all))
 
 (defun slime-compiler-macroexpand ()
   "Display the compiler-macro expansion of sexp at point."
