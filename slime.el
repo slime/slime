@@ -7163,7 +7163,8 @@ NB: Does not affect *slime-eval-macroexpand-expression*"
            (goto-char start)
            (delete-region start end)
            (insert expansion)
-           (goto-char start)))))))
+           (goto-char start)
+           (indent-sexp)))))))
 
 (defun slime-macroexpand-1 (&optional repeatedly)
   "Display the macro expansion of the form at point.  The form is
