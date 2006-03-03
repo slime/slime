@@ -185,10 +185,10 @@ the machine 'soren' and you can connect with the username
 'animaliter':
 
   (push (list \"^soren$\"
-              (lambda (filename)
-                (concat \"/ssh:animaliter@soren:\" filename))
-              (lambda (filename)
-                (subseq (length \"/ssh:animaliter@soren:\") filename)))
+              (lambda (emacs-filename)
+                (subseq (length \"/ssh:animaliter@soren:\") filename))
+              (lambda (lisp-filename)
+                (concat \"/ssh:animaliter@soren:\" filename)))
         slime-filename-translations)
 
 See also `slime-create-filename-translator'."
@@ -1258,7 +1258,7 @@ See `slime-filename-translations'."
       (block slime-to-lisp-filename
         (dolist (translation-spec slime-filename-translations)
           (let ((hostname-regexp (car translation-spec))
-                (to-lisp (first translation-spec)))
+                (to-lisp (second translation-spec)))
             (when (string-match hostname-regexp (slime-machine-instance))
               (return-from slime-to-lisp-filename (funcall to-lisp filename)))))
         (error "No elements in slime-filename-translations (%S) matched the connection's hostname (%S)"
@@ -1273,7 +1273,7 @@ See `slime-filename-translations'."
       (block slime-from-lisp-filename
         (dolist (translation-spec slime-filename-translations)
           (let ((hostname-regexp (car translation-spec))
-                (from-lisp (second translation-spec)))
+                (from-lisp (third translation-spec)))
             (when (string-match hostname-regexp (slime-machine-instance))
               (return-from slime-from-lisp-filename (funcall from-lisp filename)))))
         (error "No elements in slime-filename-translations (%S) matched the connection's hostname (%S)"
@@ -1299,10 +1299,10 @@ sholud login with."
         username (or username (user-login-name)))
   (lexical-let ((tramp-prefix (concat "/ssh:" username "@" remote-host ":")))
     (list (concat "^" machine-instance "$")
-          `(lambda (filename)
-             (concat ,tramp-prefix filename))
-          `(lambda (filename)
-             (subseq filename (length ,tramp-prefix))))))
+          `(lambda (emacs-filename)
+             (subseq filename (length ,tramp-prefix)))
+          `(lambda (lisp-filename)
+             (concat ,tramp-prefix filename)))))
 
 (defun* slime-add-filename-translation (&key machine-instance
                                              remote-host
