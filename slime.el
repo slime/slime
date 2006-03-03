@@ -152,17 +152,47 @@ slime.el, but could also be set to an absolute filename."
   :type 'hook
   :group 'slime-lisp)
 
-(defcustom slime-translate-to-lisp-filename-function 'identity
-  "Function to use for translating Emacs filenames to Lisp filenames.
-The function recieves a string as argument and should return string.
-No suitable functions are ready-made, you have to write one yourself."
-  :type 'function
-  :group 'slime-lisp)
+(defcustom slime-filename-translations '(("" 
+                                          identity
+                                          identity))
+  "Alist of mappings between machine names and filename
+translation functions. Each element is of the
+form (HOSTNAME-REGEXP TO-LISP FROM-LISP).
 
-(defcustom slime-translate-from-lisp-filename-function 'identity
-  "Function to use for translating Lisp filenames to Emacs filenames.
-See also `slime-translate-to-lisp-filename-function'."
-  :type 'function
+HOSTNAME-REGEXP is a regexp which is applied to the connection's
+slime-machine-instance. If HOSTNAME-REGEXP maches then the
+corresponding TO-LISP and FROM-LISP functions will be used to
+translate emacs filenames and lisp filenames.
+
+TO-LISP will be passed the filename of an emacs buffer and must
+return a string which the underlying lisp understandas as a
+pathname. FROM-LISP will be passed a pathname as returned by the
+underlying lisp and must return something that emacs will
+understand as a filename (this string will be passed to
+find-file).
+
+The default value of the variable, ((\"\" identity identity)),
+simply passes the name unchanged and is fine if emacs and the
+lisp share the same file system.
+
+This list will be traversed in order, so multiple matching
+regexps are possible.
+
+Example:
+
+Assuming you run emacs locally and connect to slime running on
+the machine 'soren' and you can connect with the username
+'animaliter':
+
+  (push (list \"^soren$\"
+              (lambda (filename)
+                (concat \"/ssh:animaliter@soren:\" filename))
+              (lambda (filename)
+                (subseq (length \"/ssh:animaliter@soren:\") filename)))
+        slime-filename-translations)
+
+See also `slime-create-filename-translator'."
+  :type 'list
   :group 'slime-lisp)
 
 (defcustom slime-enable-evaluate-in-emacs nil
@@ -1223,15 +1253,64 @@ the point moving and they can't be restored."
 
 (defun slime-to-lisp-filename (filename)
   "Translate the string FILENAME to a Lisp filename.
-See `slime-translate-to-lisp-filename-function'."
-  (funcall slime-translate-to-lisp-filename-function
-           ;; expand-file-name so that Lisp doesn't see ~foo/bar, etc
-           (expand-file-name filename)))
+See `slime-filename-translations'."
+  (if (slime-connected-p)
+      (block slime-to-lisp-filename
+        (dolist (translation-spec slime-filename-translations)
+          (let ((hostname-regexp (car translation-spec))
+                (to-lisp (first translation-spec)))
+            (when (string-match hostname-regexp (slime-machine-instance))
+              (return-from slime-to-lisp-filename (funcall to-lisp filename)))))
+        (error "No elements in slime-filename-translations (%S) matched the connection's hostname (%S)"
+               slime-filename-translations
+               (slime-machine-instance)))
+      filename))
 
 (defun slime-from-lisp-filename (filename)
   "Translate the Lisp filename FILENAME to an Emacs filename.
-See `slime-translate-from-lisp-filename-function'."
-  (funcall slime-translate-from-lisp-filename-function filename))
+See `slime-filename-translations'."
+  (if (slime-connected-p)
+      (block slime-from-lisp-filename
+        (dolist (translation-spec slime-filename-translations)
+          (let ((hostname-regexp (car translation-spec))
+                (from-lisp (second translation-spec)))
+            (when (string-match hostname-regexp (slime-machine-instance))
+              (return-from slime-from-lisp-filename (funcall from-lisp filename)))))
+        (error "No elements in slime-filename-translations (%S) matched the connection's hostname (%S)"
+               slime-filename-translations
+               (slime-machine-instance)))
+      filename))
+
+(defun* slime-create-filename-translator (&key machine-instance
+                                         remote-host
+                                         username)
+  "Creates a three element list suitable for push'ing onto
+slime-filename-translations which uses tramp to load files on
+hostname using username. MACHINE-INSTANCE is a required
+parameter, REMOTE-HOST defaults to MACHINE-INSTANCE and USERNAME
+defaults to (user-login-name).
+
+MACHINE-INSTANCE is the value returned by slime-machine-instance,
+which is just the value returned by cl:machine-instance on the
+remote lisp. REMOTE-HOST is the fully qualified domain name (or
+just the IP) of the remote machine. USERNAME is the username we
+sholud login with."
+  (setf remote-host (or remote-host machine-instance)
+        username (or username (user-login-name)))
+  (lexical-let ((tramp-prefix (concat "/ssh:" username "@" remote-host ":")))
+    (list (concat "^" machine-instance "$")
+          `(lambda (filename)
+             (concat ,tramp-prefix filename))
+          `(lambda (filename)
+             (subseq filename (length ,tramp-prefix))))))
+
+(defun* slime-add-filename-translation (&key machine-instance
+                                             remote-host
+                                             username)
+  (push (slime-create-filename-translator :machine-instance machine-instance
+                                          :remote-host remote-host
+                                          :username username)
+        slime-filename-translations))
 
 
 ;;;; Starting SLIME
