@@ -1342,13 +1342,12 @@ of the above and tries to find best matches to an abbreviated symbol.
 It also has its own keybinding, defaulting to @kbd{C-c M-i}.
 @xref{slime-fuzzy-complete-symbol}, for more information.
 
-@item slime-translate-to-lisp-filename-function
-@itemx slime-translate-from-lisp-filename-function
-These functions can be used to translate filenames between Emacs and
-the Lisp system. They are useful if you run Emacs and Lisp on separate
-machines which share a common file system but use a different directory
-structure (different ``mount points''). This is most common with
-@acronym{SMB}-based file sharing.
+@item slime-filename-translations
+This variable controls filename translation between Emacs and the Lisp
+system. It is useful if you run Emacs and Lisp on separate machines
+which don't share a common file system or if they share the filessytem
+but have different layouts, os is the case with @acronym{SMB}-based
+file sharing.
 
 @item slime-net-coding-system
 If you want to transmit Unicode characters between Emacs and the Lisp

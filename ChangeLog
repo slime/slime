@@ -1,3 +1,17 @@
+2006-03-03  Marco Baringer  <mb@bese.it>
+
+	Allow per-host (per machine-instance actually) filename
+	translation functions.
+	
+	* slime.el (slime-translate-to-lisp-filename-function): removed.
+	(slime-translate-from-lisp-filename-function): removed.
+	(slime-filename-translations): New variable.
+	(slime-to-lisp-filename): Rewrote to search through available
+	transalations.
+	(slime-from-lisp-filename): idem.
+	(slime-create-filename-translator): New function.
+	(slime-add-filename-translation): New function.
+
 2006-02-27  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-eval-macroexpand-inplace): Indent the inserted
