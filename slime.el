@@ -186,9 +186,9 @@ the machine 'soren' and you can connect with the username
 
   (push (list \"^soren$\"
               (lambda (emacs-filename)
-                (subseq (length \"/ssh:animaliter@soren:\") filename))
+                (subseq (length \"/ssh:animaliter@soren:\") emacs-filename))
               (lambda (lisp-filename)
-                (concat \"/ssh:animaliter@soren:\" filename)))
+                (concat \"/ssh:animaliter@soren:\" lisp-filename)))
         slime-filename-translations)
 
 See also `slime-create-filename-translator'."
@@ -1300,9 +1300,9 @@ sholud login with."
   (lexical-let ((tramp-prefix (concat "/ssh:" username "@" remote-host ":")))
     (list (concat "^" machine-instance "$")
           `(lambda (emacs-filename)
-             (subseq filename (length ,tramp-prefix)))
+             (subseq emacs-filename (length ,tramp-prefix)))
           `(lambda (lisp-filename)
-             (concat ,tramp-prefix filename)))))
+             (concat ,tramp-prefix lisp-filename)))))
 
 (defun* slime-add-filename-translation (&key machine-instance
                                              remote-host
