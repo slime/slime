@@ -466,7 +466,15 @@ condition."
       (ccl::frame-supplied-args p lfun pc nil context)
     (declare (ignore count nclosed))
     (let ((result nil))
-      (loop for var in args 
+      (loop named loop
+         for var = (cond
+                     ((null args)
+                      (return-from loop))
+                     ((atom args)
+                      (prog1
+                          args
+                        (setf args nil)))
+                     (t (pop args)))
           for type in types
           for name in names
           do
