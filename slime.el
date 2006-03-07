@@ -1285,7 +1285,7 @@ See `slime-filename-translations'."
                                          remote-host
                                          username)
   "Creates a three element list suitable for push'ing onto
-slime-filename-translations which uses tramp to load files on
+slime-filename-translations which uses Tramp to load files on
 hostname using username. MACHINE-INSTANCE is a required
 parameter, REMOTE-HOST defaults to MACHINE-INSTANCE and USERNAME
 defaults to (user-login-name).
@@ -1294,23 +1294,20 @@ MACHINE-INSTANCE is the value returned by slime-machine-instance,
 which is just the value returned by cl:machine-instance on the
 remote lisp. REMOTE-HOST is the fully qualified domain name (or
 just the IP) of the remote machine. USERNAME is the username we
-sholud login with."
-  (setf remote-host (or remote-host machine-instance)
-        username (or username (user-login-name)))
-  (lexical-let ((tramp-prefix (concat "/ssh:" username "@" remote-host ":")))
+should login with.
+The functions created here expect your tramp-default-method or
+ tramp-default-method-alist to be setup correctly."
+  (lexical-let ((remote-host (or remote-host machine-instance))
+                (username (or username (user-login-name))))
     (list (concat "^" machine-instance "$")
-          `(lambda (emacs-filename)
-             (subseq emacs-filename (length ,tramp-prefix)))
+          (lambda (emacs-filename)
+            (tramp-file-name-localname
+             (tramp-dissect-file-name emacs-filename)))
           `(lambda (lisp-filename)
-             (concat ,tramp-prefix lisp-filename)))))
-
-(defun* slime-add-filename-translation (&key machine-instance
-                                             remote-host
-                                             username)
-  (push (slime-create-filename-translator :machine-instance machine-instance
-                                          :remote-host remote-host
-                                          :username username)
-        slime-filename-translations))
+            (tramp-make-tramp-file-name nil
+             ,username
+             ,remote-host
+             lisp-filename)))))
 
 
 ;;;; Starting SLIME
