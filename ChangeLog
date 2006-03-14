@@ -3,6 +3,10 @@
 	* slime.el (slime-system-history): New variable.
 	(slime-read-system-name): Use a separate history list for ASDF
 	system names.
+	(slime-note-counts-message): New variable.
+	(slime-show-note-counts): Store the note counts message for later use.
+	(slime-highlight-notes, slime-list-compiler-notes): Show a
+	progress message, keeping note counts visible.
 
 	* swank-allegro.lisp (compile-from-temp-file): Suppress Allegro's
 	redefinition warnings; they are pointless when we are compiling
