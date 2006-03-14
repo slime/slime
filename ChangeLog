@@ -7,6 +7,8 @@
 	(slime-show-note-counts): Store the note counts message for later use.
 	(slime-highlight-notes, slime-list-compiler-notes): Show a
 	progress message, keeping note counts visible.
+	(slime-find-buffer-package): Handle IN-PACKAGE forms that appear
+	in SWIG/Allegro CL wrappers.
 
 	* swank-allegro.lisp (compile-from-temp-file): Suppress Allegro's
 	redefinition warnings; they are pointless when we are compiling
