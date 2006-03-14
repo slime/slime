@@ -1,7 +1,18 @@
+2006-03-14  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-system-history): New variable.
+	(slime-read-system-name): Use a separate history list for ASDF
+	system names.
+
+	* swank-allegro.lisp (compile-from-temp-file): Suppress Allegro's
+	redefinition warnings; they are pointless when we are compiling
+	via a temporary file.
+	(profile-report): Implement.
+
 2006-03-06   Nathan Bird <nathan@acceleration.net>
  
- 	* slime.el: (slime-create-filename-translator): use the tramp
- 	methods for dissecting and building filenames.
+	* slime.el (slime-create-filename-translator): use the tramp
+	methods for dissecting and building filenames.
 
 2006-03-04  Wojciech Kaczmarek <wojtekk@kofeina.net>
 
