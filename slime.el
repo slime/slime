@@ -4330,6 +4330,9 @@ buffer's working directory"
   (interactive (list (slime-read-system-name)))
   (slime-oos system "LOAD-OP"))
 
+(defvar slime-system-history nil
+  "History list for ASDF system names.")
+
 (defun slime-read-system-name (&optional prompt initial-value)
   "Read a system name from the minibuffer, prompting with PROMPT."
   (setq prompt (or prompt "System: "))
@@ -4339,7 +4342,8 @@ buffer's working directory"
                         (slime-eval 
                          `(swank:list-all-systems-in-central-registry))))))
     (completing-read prompt alist nil nil
-                     (or initial-value (slime-find-asd) ""))))
+                     (or initial-value (slime-find-asd) "")
+                     'slime-system-history)))
 
 (defun slime-oos (system operation &rest keyword-args)
   (slime-save-some-lisp-buffers)
