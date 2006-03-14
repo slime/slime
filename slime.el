@@ -4382,6 +4382,9 @@ buffer's working directory"
          "")
         (t (format "%2d %s%s " count severity (if (= count 1) "" "s")))))
 
+(defvar slime-note-counts-message ""
+  "A string that contains a summary of the compilation notes.")
+
 (defun slime-show-note-counts (notes &optional secs)
   (let ((nerrors 0) (nwarnings 0) (nstyle-warnings 0) (nnotes 0))
     (dolist (note notes)
@@ -4390,14 +4393,15 @@ buffer's working directory"
         (:warning             (incf nwarnings))
         (:style-warning       (incf nstyle-warnings))
         (:note                (incf nnotes))))
-    (message
-     "Compilation finished:%s%s%s%s%s"
-     (slime-note-count-string "error" nerrors)
-     (slime-note-count-string "warning" nwarnings)
-     (slime-note-count-string "style-warning" nstyle-warnings 
-                              slime-hide-style-warning-count-if-zero)
-     (slime-note-count-string "note" nnotes)
-     (if secs (format "[%s secs]" secs) ""))))
+    (setq slime-note-counts-message
+          (format "Compilation finished:%s%s%s%s%s"
+                  (slime-note-count-string "error" nerrors)
+                  (slime-note-count-string "warning" nwarnings)
+                  (slime-note-count-string "style-warning" nstyle-warnings 
+                                           slime-hide-style-warning-count-if-zero)
+                  (slime-note-count-string "note" nnotes)
+                  (if secs (format "[%s secs]" secs) "")))
+    (message "%s" slime-note-counts-message)))
 
 (defun slime-xrefs-for-notes (notes)
   (let ((xrefs))
@@ -4449,9 +4453,11 @@ Each newlines and following indentation is replaced by a single space."
 (defun slime-highlight-notes (notes)
   "Highlight compiler notes, warnings, and errors in the buffer."
   (interactive (list (slime-compiler-notes)))
+  (message "%s.  Highlighting notes..." slime-note-counts-message)
   (save-excursion
     (slime-remove-old-overlays)
-    (mapc #'slime-overlay-note (slime-merge-notes-for-display notes))))
+    (mapc #'slime-overlay-note (slime-merge-notes-for-display notes)))
+  (message "%s.  Highlighting notes...done." slime-note-counts-message))
 
 (defun slime-compiler-notes ()
   "Return all compiler notes, warnings, and errors."
@@ -4546,6 +4552,8 @@ The order of the input list is preserved."
 (defun slime-list-compiler-notes (&optional notes)
   "Show the compiler notes NOTES in tree view."
   (interactive)
+  (message "%s.  Preparing compiler note tree..." 
+           slime-note-counts-message)
   (let ((notes (or notes (slime-compiler-notes))))
     (with-current-buffer
         (slime-get-temp-buffer-create "*compiler notes*"
@@ -4558,7 +4566,8 @@ The order of the input list is preserved."
           (slime-tree-insert tree "")
           (insert "\n")))
       (setq buffer-read-only t)
-      (goto-char (point-min)))))
+      (goto-char (point-min))))
+  (message "%s" slime-note-counts-message))
 
 (defun slime-alistify (list key test)
   "Partition the elements of LIST into an alist.  KEY extracts the key
