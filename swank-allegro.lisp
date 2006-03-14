@@ -306,7 +306,12 @@
    (lambda (stream filename)
        (write-string string stream)
        (finish-output stream)
-       (let ((binary-filename (compile-file filename :load-after-compile t)))
+       (let ((binary-filename
+              (excl:without-redefinition-warnings
+                ;; Suppress Allegro's redefinition warnings; they are
+                ;; pointless when we are compiling via a temporary
+                ;; file.
+                (compile-file filename :load-after-compile t))))
          (when binary-filename
            (delete-file binary-filename))))))
 
@@ -471,6 +476,11 @@
                                 (push c result)))
                             2)
     (xref-result result)))
+
+;;;; Profiling
+
+(defimplementation profile-report ()
+  (prof:show-call-graph))
 
 ;;;; Inspecting
 
