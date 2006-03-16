@@ -1,3 +1,8 @@
+2006-03-16  Marco Baringer  <mb@bese.it>
+
+	* slime.el (slime-to-lisp-filename): Call expand-file-name before
+	passing the filename to the to-lisp function.
+
 2006-03-14  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-system-history): New variable.
