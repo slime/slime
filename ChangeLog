@@ -1,4 +1,10 @@
-2006-03-16  Marco Baringer  <mb@bese.it>
+2006-03-16  Gary King <gwking@metabang.com>
+
+	* swank-loader.lisp (lisp-version-string): Modified swank-loader
+	so that Allegro's alisp and mlisp programs get different
+	locations. Otherwise mlisp complains about alisp's files.
+
+2006-03-16  Marco Baringer <mb@bese.it>
 
 	* slime.el (slime-to-lisp-filename): Call expand-file-name before
 	passing the filename to the to-lisp function.
