@@ -70,7 +70,8 @@
                       ccl::*openmcl-major-version* 
                       ccl::*openmcl-minor-version*)
   #+lispworks (lisp-implementation-version)
-  #+allegro   excl::*common-lisp-version-number*
+  #+allegro   (concatenate 'string (if (eq 'h 'H) "A" "M")     ; ANSI vs MoDeRn
+                           excl::*common-lisp-version-number*)
   #+clisp     (let ((s (lisp-implementation-version)))
                 (subseq s 0 (position #\space s)))
   #+armedbear (lisp-implementation-version)
