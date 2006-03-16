@@ -510,7 +510,7 @@
 
 (defmethod inspect-for-emacs ((o standard-object) (inspector acl-inspector))
   inspector
-  (values (format "~A is a standard-object." o) (allegro-inspect o)))
+  (values (format nil "~A is a standard-object." o) (allegro-inspect o)))
 
 (defun allegro-inspect (o)
   (loop for (d dd) on (inspect::inspect-ctl o)
