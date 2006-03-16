@@ -1260,7 +1260,7 @@ See `slime-filename-translations'."
           (let ((hostname-regexp (car translation-spec))
                 (to-lisp (second translation-spec)))
             (when (string-match hostname-regexp (slime-machine-instance))
-              (return-from slime-to-lisp-filename (funcall to-lisp filename)))))
+              (return-from slime-to-lisp-filename (funcall to-lisp (expand-file-name filename))))))
         (error "No elements in slime-filename-translations (%S) matched the connection's hostname (%S)"
                slime-filename-translations
                (slime-machine-instance)))
