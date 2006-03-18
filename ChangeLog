@@ -1,3 +1,15 @@
+2006-03-18  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-goto-location-buffer): Avoid calling the
+	expensive function find-file-noselect when we are already in the
+	right buffer.  
+
+	* swank.lisp (arglist-for-echo-area): Add keyword argument
+	print-right-margin. 
+	(arglist-to-string, format-arglist-for-echo-area): Likewise.
+	* slime.el (slime-autodoc): Use it here to make use of the whole
+	width of the echo area for arglist display.
+
 2006-03-16  Gábor Melis <mega@hotpop.com>
 
 	* swank-allegro.lisp (inspect-for-emacs): Fix typo.
