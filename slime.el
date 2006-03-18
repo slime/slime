@@ -2351,8 +2351,14 @@ side.")
                   (re-search-forward regexp nil t)))
         (goto-char (match-end 0))
         (skip-chars-forward " \n\t\f\r#'")
-        (let ((pkg (ignore-errors (read (current-buffer)))))
-          (if pkg (format "%S" pkg)))))))
+        (cond 
+         ((looking-at "\\.\\*swig-module-name\\*") ; # was skipped
+          (if (re-search-backward "(defparameter \\*swig-module-name\\* \\(:?\\sw*\\))"
+                                  nil t)
+              (match-string-no-properties 1)))
+         (t
+          (let ((pkg (ignore-errors (read (current-buffer)))))
+            (if pkg (format "%S" pkg)))))))))
 
 ;;; Synchronous requests are implemented in terms of asynchronous
 ;;; ones. We make an asynchronous request with a continuation function
@@ -4926,7 +4932,10 @@ first element of the source-path redundant."
 (defun slime-goto-location-buffer (buffer)
   (destructure-case buffer
     ((:file filename)
-     (set-buffer (find-file-noselect (slime-from-lisp-filename filename) t))
+     (let ((emacs-filename (slime-from-lisp-filename filename)))
+       (unless (and (buffer-file-name)
+                    (string= (buffer-file-name) emacs-filename))
+         (set-buffer (find-file-noselect emacs-filename t))))
      (goto-char (point-min)))
     ((:buffer buffer)
      (set-buffer buffer)
@@ -5360,7 +5369,10 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
           (slime-eval-async
            (if (slime-global-variable-name-p name)
                `(swank:variable-desc-for-echo-area ,name)
-             `(swank:arglist-for-echo-area '(,name)))
+             `(swank:arglist-for-echo-area '(,name)
+                                           :print-right-margin 
+                                           ,(window-width
+                                             (minibuffer-window))))
            (with-lexical-bindings (cache-key name)
              (lambda (doc)
                (if (null doc)
