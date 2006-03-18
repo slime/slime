@@ -1328,7 +1328,7 @@ Return the package or nil."
 
 ;;;; Arglists
 
-(defslimefun arglist-for-echo-area (names)
+(defslimefun arglist-for-echo-area (names &key print-right-margin)
   "Return the arglist for the first function, macro, or special-op in NAMES."
   (handler-case
       (with-buffer-syntax ()
@@ -1339,7 +1339,10 @@ Return the package or nil."
           (when name
             (multiple-value-bind (form operator-name)
                 (operator-designator-to-form name)
-              (format-arglist-for-echo-area form operator-name)))))
+              (let ((*print-right-margin* print-right-margin))
+                (format-arglist-for-echo-area form operator-name
+                                              :print-right-margin
+                                              print-right-margin))))))
     (error (cond)
       (format nil "ARGLIST: ~A" cond))))
 
@@ -1366,7 +1369,7 @@ Return the package or nil."
          '())
         (t (cons (car arglist) (clean-arglist (cdr arglist))))))
 
-(defun arglist-to-string (arglist package)
+(defun arglist-to-string (arglist package &key print-right-margin)
   "Print the list ARGLIST for display in the echo area.
 The argument name are printed without package qualifiers and 
 pretty printing of (function foo) as #'foo is suppressed."
@@ -1378,7 +1381,8 @@ pretty printing of (function foo) as #'foo is suppressed."
        (with-standard-io-syntax
          (let ((*package* package) (*print-case* :downcase)
                (*print-pretty* t) (*print-circle* nil) (*print-readably* nil)
-               (*print-level* 10) (*print-length* 20))
+               (*print-level* 10) (*print-length* 20)
+               (*print-right-margin* print-right-margin))
            (pprint-logical-block (nil nil :prefix "(" :suffix ")")
              (loop
               (let ((arg (pop arglist)))
@@ -1831,7 +1835,8 @@ by adding a template for the missing arguments."
                                                   :prefix ""))))))
     :not-available))
 
-(defun format-arglist-for-echo-area (form &optional (operator-name (first form)))
+(defun format-arglist-for-echo-area (form operator-name
+                                     &key print-right-margin)
   "Return the arglist for FORM as a string."
   (when (consp form)
     (let ((operator-form (first form))
@@ -1853,13 +1858,15 @@ by adding a template for the missing arguments."
                (list
                 (return-from format-arglist-for-echo-area
                   (arglist-to-string (cons operator-name arglist)
-                                     *package*))))))
+                                     *package*
+                                     :print-right-margin print-right-margin))))))
           (t
            (return-from format-arglist-for-echo-area
              (arglist-to-string 
               (cons operator-name
                     (encode-arglist form-completion))
-              *package*)))))))
+              *package*
+              :print-right-margin print-right-margin)))))))
   nil)
 
 (defslimefun completions-for-keyword (name keyword-string)
