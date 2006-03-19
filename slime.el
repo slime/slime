@@ -5362,8 +5362,41 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
         (arg (setq slime-autodoc-mode t))
         (t (setq slime-autodoc-mode (not slime-autodoc-mode))))
   (if slime-autodoc-mode
-      (slime-autodoc-start-timer)
+      (progn 
+        (slime-autodoc-start-timer)
+        (add-hook 'pre-command-hook 'slime-autodoc-pre-command-refresh-echo-area t))
     (slime-autodoc-stop-timer)))
+
+(defvar slime-autodoc-last-message "")
+
+(defun slime-autodoc ()
+  "Print some apropos information about the code at point, if applicable."
+  (multiple-value-bind (cache-key retrieve-form)
+      (slime-autodoc-thing-at-point)
+    (unless
+        (when-let (documentation (slime-get-cached-autodoc cache-key))
+          (slime-autodoc-message documentation)
+          t)
+      ;; Asynchronously fetch, cache, and display documentation
+      (slime-eval-async 
+       retrieve-form 
+       (with-lexical-bindings (cache-key name)
+         (lambda (doc)
+           (if (null doc)
+               (setq doc "")
+             (setq doc (slime-fontify-string doc)))
+           (slime-update-autodoc-cache cache-key doc)
+           (slime-autodoc-message doc)))))))
+
+(defun slime-autodoc-message (doc)
+  (setq slime-autodoc-last-message doc)
+  (slime-background-message "%s" doc))
+
+(defun slime-autodoc-pre-command-refresh-echo-area ()
+  (unless (string= slime-autodoc-last-message "")
+    (if (slime-autodoc-message-ok-p)
+        (slime-background-message "%s" slime-autodoc-last-message)
+      (setq slime-autodoc-last-message ""))))
 
 (defun slime-autodoc-thing-at-point ()
   "Return a cache key and a swank form."
@@ -5386,25 +5419,6 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
                                               :print-right-margin 
                                               ,(window-width
                                                 (minibuffer-window))))))))
-
-(defun slime-autodoc ()
-  "Print some apropos information about the code at point, if applicable."
-  (multiple-value-bind (cache-key retrieve-form)
-      (slime-autodoc-thing-at-point)
-    (unless
-        (when-let (documentation (slime-get-cached-autodoc cache-key))
-          (slime-background-message "%s [cached]" documentation)
-          t)
-      ;; Asynchronously fetch, cache, and display documentation
-      (slime-eval-async 
-       retrieve-form 
-       (with-lexical-bindings (cache-key name)
-         (lambda (doc)
-           (if (null doc)
-               (setq doc "")
-             (setq doc (slime-fontify-string doc)))
-           (slime-update-autodoc-cache cache-key doc)
-           (slime-background-message "%s" doc)))))))
 
 (defun slime-autodoc-global-at-point ()
   "Return the global variable name at point, if any."
@@ -5479,7 +5493,8 @@ the symbol at point if applicable."
 annoy the user)."
   (and (or slime-mode (eq major-mode 'slime-repl-mode))
        slime-autodoc-mode
-       (null (current-message))
+       (or (null (current-message)) 
+           (string= (current-message) slime-autodoc-last-message))
        (not executing-kbd-macro)
        (not (and (boundp 'edebug-active) (symbol-value 'edebug-active)))
        (not cursor-in-echo-area)
@@ -9063,11 +9078,17 @@ is setup, unless the user already set one explicitly."
                    (string-match "^\\(def\\|\\with-\\)" symbol-name))
         (let ((symbol (intern symbol-name))
               (indent (cdr info)))
-          ;; Does the symbol have an indentation value that we set?
-          (when (equal (get symbol 'common-lisp-indent-function)
-                       (get symbol 'slime-indent))
-            (put symbol 'slime-indent indent)
-            (put symbol 'common-lisp-indent-function indent)))))))
+          (let ((old-slime-indent (get symbol 'slime-indent)))
+            (flet ((update (indent-function)
+                           ;; Does the symbol have an indentation value
+                           ;; that we set?
+                           (when (equal (get symbol indent-function)
+                                        old-slime-indent)
+                             (put symbol 'slime-indent indent)
+                             (put symbol indent-function indent))))
+              (update 'common-lisp-indent-function)
+              (when (member 'scheme-mode slime-lisp-modes)
+                (update 'scheme-indent-function)))))))))
 
 (defun slime-reindent-defun (&optional force-text-fill)
   "Reindent the current defun, or refill the current paragraph.
