@@ -5249,11 +5249,11 @@ NEXT-CANDIDATE-FN is called to find each new position for consideration."
 Designed to be bound to the SPC key.  Prefix argument can be used to insert
 more than one space."
   (interactive "p")
+  (self-insert-command n)
   (unwind-protect
       (when (and slime-space-information-p
                  (slime-background-activities-enabled-p))
-        (slime-echo-arglist))
-    (self-insert-command n)))
+        (slime-echo-arglist))))
 
 (defun slime-fontify-string (string)
   "Fontify STRING as `font-lock-mode' does in Lisp mode."
@@ -5264,14 +5264,22 @@ more than one space."
     (insert string)
     (let ((font-lock-verbose nil))
       (font-lock-fontify-buffer))
+    (goto-char (point-min))
+    (when (re-search-forward "===> \\(.*\\) <===" nil t)
+      (let ((highlight (propertize (match-string 1) 'face 'highlight)))
+        ;; Can't use (replace-match highlight) here -- broken in Emacs 21
+        (delete-region (match-beginning 0) (match-end 0))
+        (insert highlight)))
     (buffer-substring (point-min) (point-max))))    
 
 (defun slime-echo-arglist ()
   "Display the arglist of the current form in the echo area."
-  (let ((names (slime-enclosing-operator-names)))
+  (multiple-value-bind (names arg-indices)
+      (slime-enclosing-operator-names)
     (when names
       (slime-eval-async
-       `(swank:arglist-for-echo-area (quote ,names))
+       `(swank:arglist-for-echo-area (quote ,names)
+                                     :arg-indices (quote ,arg-indices))
        (lexical-let ((buffer (current-buffer)))
          (lambda (message)
            (if message
@@ -5357,29 +5365,46 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
       (slime-autodoc-start-timer)
     (slime-autodoc-stop-timer)))
 
+(defun slime-autodoc-thing-at-point ()
+  "Return a cache key and a swank form."
+  (let ((global (slime-autodoc-global-at-point)))
+    (if global
+        (values (slime-qualify-cl-symbol-name global)
+                `(swank:variable-desc-for-echo-area ,global))
+      (multiple-value-bind (operators arg-indices)
+          (slime-enclosing-operator-names)
+        (values (mapcar* (lambda (designator arg-index)
+                           (cons
+                            (if (symbolp designator)
+                                (slime-qualify-cl-symbol-name designator)
+                              designator)
+                            arg-index))
+                         operators arg-indices)
+                `(swank:arglist-for-echo-area ',operators
+                                              :arg-indices
+                                              ',arg-indices
+                                              :print-right-margin 
+                                              ,(window-width
+                                                (minibuffer-window))))))))
+
 (defun slime-autodoc ()
   "Print some apropos information about the code at point, if applicable."
-  (when-let (name (or (slime-autodoc-global-at-point)
-                      (slime-function-called-at-point/line)))
-    (let ((cache-key (slime-qualify-cl-symbol-name name)))
-      (or (when-let (documentation (slime-get-cached-autodoc cache-key))
-            (slime-background-message "%s" documentation)
-            t)
-          ;; Asynchronously fetch, cache, and display documentation
-          (slime-eval-async
-           (if (slime-global-variable-name-p name)
-               `(swank:variable-desc-for-echo-area ,name)
-             `(swank:arglist-for-echo-area '(,name)
-                                           :print-right-margin 
-                                           ,(window-width
-                                             (minibuffer-window))))
-           (with-lexical-bindings (cache-key name)
-             (lambda (doc)
-               (if (null doc)
-                   (setq doc "")
-                 (setq doc (slime-fontify-string doc)))
-               (slime-update-autodoc-cache cache-key doc)
-               (slime-background-message "%s" doc))))))))
+  (multiple-value-bind (cache-key retrieve-form)
+      (slime-autodoc-thing-at-point)
+    (unless
+        (when-let (documentation (slime-get-cached-autodoc cache-key))
+          (slime-background-message "%s [cached]" documentation)
+          t)
+      ;; Asynchronously fetch, cache, and display documentation
+      (slime-eval-async 
+       retrieve-form 
+       (with-lexical-bindings (cache-key name)
+         (lambda (doc)
+           (if (null doc)
+               (setq doc "")
+             (setq doc (slime-fontify-string doc)))
+           (slime-update-autodoc-cache cache-key doc)
+           (slime-background-message "%s" doc)))))))
 
 (defun slime-autodoc-global-at-point ()
   "Return the global variable name at point, if any."
@@ -5452,7 +5477,7 @@ the symbol at point if applicable."
 (defun slime-autodoc-message-ok-p ()
   "Return true if printing a message is currently okay (shouldn't
 annoy the user)."
-  (and slime-mode
+  (and (or slime-mode (eq major-mode 'slime-repl-mode))
        slime-autodoc-mode
        (null (current-message))
        (not executing-kbd-macro)
@@ -5837,7 +5862,8 @@ current buffer."
       ;; Contextual keyword completion
       (let ((operator-names (save-excursion 
                               (goto-char beg)
-                              (slime-enclosing-operator-names 1))))
+                              (nth-value 0
+                                         (slime-enclosing-operator-names 1)))))
         (when operator-names
           (let ((completions 
                  (slime-completions-for-keyword (first operator-names) token)))
@@ -9896,71 +9922,61 @@ The result is unspecified if there isn't a symbol under the point."
   (or (slime-sexp-at-point)
       (error "No expression at point.")))
 
-(defun slime-function-called-at-point/line ()
-  "Return the name of the function being called at point, provided the
-function call starts on the same line at the point itself."
-  (and (ignore-errors
-         (slime-same-line-p (save-excursion (backward-up-list 1) (point))
-                            (point)))
-       (slime-function-called-at-point)))
-
-(defun slime-function-called-at-point ()
-  "Return a function around point or else called by the list containing point.
-Return the symbol-name, or nil."
-  (ignore-errors
-    (save-excursion
-      (save-restriction
-        (narrow-to-region (max (point-min) (- (point) 1000))
-                          (point-max))
-        ;; Move up to surrounding paren, then after the open.
-        (backward-up-list 1)
-        (when (or (ignore-errors
-                    ;; "((foo" is probably not a function call
-                    (save-excursion (backward-up-list 1)
-                                    (looking-at "(\\s *(")))
-                  ;; nor is "( foo"
-                  (looking-at "([ \t]"))
-          (error "Probably not a Lisp function call"))
-        (forward-char 1)
-        (slime-symbol-name-at-point)))))
-
 (defun slime-enclosing-operator-names (&optional max-levels)
   "Return the list of operator names of the forms containing point.
-When MAX-LEVELS is non-nil, go up at most this many levels of parens."
+As a secondary value, return the indices of the respective argument to
+the operator.  When MAX-LEVELS is non-nil, go up at most this many
+levels of parens."
   (let ((result '())
+        (arg-indices '())
         (level 1))
     (ignore-errors
-      (save-restriction
-        (narrow-to-region (save-excursion (beginning-of-defun) (point))
-                          (point))
-        (save-excursion
+      (save-excursion
+        ;; Make sure we get the whole operator name.
+        (slime-end-of-symbol)
+        (save-restriction
+          (narrow-to-region (save-excursion (beginning-of-defun) (point))
+                            (min (1+ (point)) (point-max)))
           (while (or (not max-levels)
                      (<= level max-levels))
-            (backward-up-list 1)
-            (when (looking-at "(")
-              (incf level)
-              (forward-char 1)
-              (when-let (name (slime-symbol-name-at-point))
-                ;; Detect MAKE-INSTANCE forms and collect the class-name
-                ;; if exists and is a quoted symbol.
-                (ignore-errors
-                  (cond
-                   ((member (upcase name) '("MAKE-INSTANCE" 
-                                            "CL:MAKE-INSTANCE"))
-                    (forward-char (1+ (length name)))
-                    (slime-forward-blanks)
-                    (let ((str (slime-sexp-at-point)))
-                      (when (= (aref str 0) ?')
-                        (setq name (list :make-instance (substring str 1))))))
-                   ((member (upcase name) '("DEFMETHOD"
-                                            "CL:DEFMETHOD"))
-                    (forward-char (1+ (length name))) 
-                    (slime-forward-blanks)
-                    (let ((str (slime-sexp-at-point)))
-                      (setq name (list :defmethod str))))))
-                (push name result))
-              (backward-up-list 1))))))
-    (nreverse result)))
+            (let ((arg-index 0))
+              ;; Move to the beginning of the current sexp if not already there.
+              (if (or (looking-at "[(']") 
+                      (= (char-syntax (char-before)) ?\ ))
+                  (incf arg-index))
+              (ignore-errors
+                (backward-sexp 1))
+              (while (ignore-errors (backward-sexp 1) 
+                                    (> (point) (point-min)))
+                (incf arg-index))
+              (backward-up-list 1)
+              (when (looking-at "(")
+                (incf level)
+                (forward-char 1)
+                (when-let (name (slime-symbol-name-at-point))
+                  ;; Detect MAKE-INSTANCE forms and collect the class-name
+                  ;; if exists and is a quoted symbol.
+                  (ignore-errors
+                    (cond
+                     ((member (upcase name) '("MAKE-INSTANCE" 
+                                              "CL:MAKE-INSTANCE"))
+                      (forward-char (1+ (length name)))
+                      (slime-forward-blanks)
+                      (let ((str (slime-sexp-at-point)))
+                        (when (= (aref str 0) ?')
+                          (setq name (list :make-instance (substring str 1))))))
+                     ((member (upcase name) '("DEFMETHOD"
+                                              "CL:DEFMETHOD"))
+                      (forward-char (1+ (length name))) 
+                      (slime-forward-blanks)
+                      (let ((str (slime-sexp-at-point)))
+                        (setq name (list :defmethod str))))))
+                  (push name result)
+                  (push arg-index arg-indices))
+                (backward-up-list 1)))))))
+    (values 
+     (nreverse result)
+     (nreverse arg-indices))))
 
 
 ;;;;; Portability library
