@@ -1328,21 +1328,27 @@ Return the package or nil."
 
 ;;;; Arglists
 
-(defslimefun arglist-for-echo-area (names &key print-right-margin)
+(defslimefun arglist-for-echo-area (names &key print-right-margin
+                                          arg-indices)
   "Return the arglist for the first function, macro, or special-op in NAMES."
   (handler-case
       (with-buffer-syntax ()
-        (let ((name (find-if (lambda (name)
-                               (or (consp name)
-                                   (valid-operator-name-p name)))
-                             names)))
-          (when name
-            (multiple-value-bind (form operator-name)
-                (operator-designator-to-form name)
-              (let ((*print-right-margin* print-right-margin))
-                (format-arglist-for-echo-area form operator-name
-                                              :print-right-margin
-                                              print-right-margin))))))
+        (let ((which (position-if (lambda (name)
+                                    (or (consp name)
+                                        (valid-operator-name-p name)))
+                                  names)))
+          (when which
+            (let ((name (elt names which))
+                  (arg-index (and arg-indices (elt arg-indices which))))
+              (multiple-value-bind (form operator-name)
+                  (operator-designator-to-form name)
+                (let ((*print-right-margin* print-right-margin))
+                  (format-arglist-for-echo-area
+                   form operator-name
+                   :print-right-margin print-right-margin
+                   :highlight (and (not (zerop arg-index))
+                                   ;; don't highlight the operator
+                                   arg-index))))))))
     (error (cond)
       (format nil "ARGLIST: ~A" cond))))
 
@@ -1369,10 +1375,12 @@ Return the package or nil."
          '())
         (t (cons (car arglist) (clean-arglist (cdr arglist))))))
 
-(defun arglist-to-string (arglist package &key print-right-margin)
+(defun arglist-to-string (arglist package &key print-right-margin highlight)
   "Print the list ARGLIST for display in the echo area.
 The argument name are printed without package qualifiers and 
-pretty printing of (function foo) as #'foo is suppressed."
+pretty printing of (function foo) as #'foo is suppressed.
+If HIGHLIGHT is non-nil, it must be the index of an argument;
+highlight this argument."
   (setq arglist (clean-arglist arglist))
   (etypecase arglist
     (null "()")
@@ -1383,20 +1391,33 @@ pretty printing of (function foo) as #'foo is suppressed."
                (*print-pretty* t) (*print-circle* nil) (*print-readably* nil)
                (*print-level* 10) (*print-length* 20)
                (*print-right-margin* print-right-margin))
-           (pprint-logical-block (nil nil :prefix "(" :suffix ")")
-             (loop
-              (let ((arg (pop arglist)))
-                (etypecase arg
-                  (symbol (princ arg))
-                  (string (princ arg))
-                  (cons (pprint-logical-block (nil nil :prefix "(" :suffix ")")
-                          (princ (car arg))
-                          (unless (null (cdr arg))
-                            (write-char #\space))
-                          (pprint-fill *standard-output* (cdr arg) nil))))
-                (when (null arglist) (return))
-                (write-char #\space)
-                (pprint-newline :fill))))))))))
+           (let ((index 0))
+             (pprint-logical-block (nil nil :prefix "(" :suffix ")")
+               (loop
+                  (let ((arg (pop arglist)))
+                    (when (member arg lambda-list-keywords)
+                      ;; The highlighting code is currently only
+                      ;; prepared for the required arguments.  To
+                      ;; extend it to work with optional and keyword
+                      ;; arguments as well, arglist-to-string should
+                      ;; get a DECODED-ARGLIST instead. --mkoeppe
+                      (setq highlight nil))
+                    (when (and highlight (= index highlight))
+                      (princ "===> "))
+                    (etypecase arg
+                      (symbol (princ arg))
+                      (string (princ arg))
+                      (cons (pprint-logical-block (nil nil :prefix "(" :suffix ")")
+                              (princ (car arg))
+                              (unless (null (cdr arg))
+                                (write-char #\space))
+                              (pprint-fill *standard-output* (cdr arg) nil))))
+                    (when (and highlight (= index highlight))
+                      (princ " <==="))
+                    (incf index)
+                    (when (null arglist) (return))
+                    (write-char #\space)
+                    (pprint-newline :fill)))))))))))
 
 (defun test-print-arglist (list string)
   (string= (arglist-to-string list (find-package :swank)) string))
@@ -1836,7 +1857,7 @@ by adding a template for the missing arguments."
     :not-available))
 
 (defun format-arglist-for-echo-area (form operator-name
-                                     &key print-right-margin)
+                                     &key print-right-margin highlight)
   "Return the arglist for FORM as a string."
   (when (consp form)
     (let ((operator-form (first form))
@@ -1859,14 +1880,16 @@ by adding a template for the missing arguments."
                 (return-from format-arglist-for-echo-area
                   (arglist-to-string (cons operator-name arglist)
                                      *package*
-                                     :print-right-margin print-right-margin))))))
+                                     :print-right-margin print-right-margin
+                                     :highlight highlight))))))
           (t
            (return-from format-arglist-for-echo-area
              (arglist-to-string 
               (cons operator-name
                     (encode-arglist form-completion))
               *package*
-              :print-right-margin print-right-margin)))))))
+              :print-right-margin print-right-margin
+              :highlight highlight)))))))
   nil)
 
 (defslimefun completions-for-keyword (name keyword-string)
