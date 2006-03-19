@@ -1,3 +1,31 @@
+2006-03-19  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	Highlight the formal argument corresponding to the actual
+	argument around point in the echo-area arg-list display.
+	Works most impressively when slime-autodoc-mode is enabled
+	and when one has to deal with extremely long argument lists.
+	
+	* slime.el (slime-space): First insert the space, then obtain
+	information.
+	(slime-fontify-string): Also handle argument highlights.
+	(slime-enclosing-operator-names): As a secondary value, return a
+	list of the indices of the arguments to the nested operator.
+	(slime-contextual-completions): Use changed interface of
+	slime-enclosing-operator-names.
+	(slime-function-called-at-point): Removed.
+	(slime-function-called-at-point/line): Removed.
+	(slime-autodoc-thing-at-point): New.
+	(slime-autodoc): Re-implement with slime-enclosing-operator-names
+	instead of slime-function-called-at-point.
+	(slime-echo-arglist): Pass the argument indices to
+	arglist-for-echo-area.
+	(slime-autodoc-message-ok-p): Autodoc is also OK in REPL buffers.
+
+	* swank.lisp (arglist-for-echo-area): New keyword argument
+	arg-indices. 
+	(arglist-to-string): New keyword argument highlight.
+	(format-arglist-for-echo-area): Likewise.
+
 2006-03-18  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-goto-location-buffer): Avoid calling the
