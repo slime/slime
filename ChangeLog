@@ -1,3 +1,17 @@
+2006-03-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-autodoc-pre-command-refresh-echo-area): 
+	Show the last autodoc message again (movement commands clear it);
+	technique to avoid flickering, taken from eldoc.
+	(slime-autodoc-mode): Install it as a pre-command-hook.
+	(slime-autodoc-last-message): New variable.
+	(slime-autodoc-message): New function.
+	(slime-autodoc): Use them here.
+	(slime-autodoc-message-ok-p): OK to overwrite an autodoc message.
+
+	* slime.el (slime-handle-indentation-update): Also update
+	scheme-indent-function if slime-lisp-modes contains scheme-mode.
+
 2006-03-19  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Highlight the formal argument corresponding to the actual
