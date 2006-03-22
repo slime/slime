@@ -1369,7 +1369,8 @@ Return the package or nil."
                   (format-arglist-for-echo-area
                    form operator-name
                    :print-right-margin print-right-margin
-                   :highlight (and (not (zerop arg-index))
+                   :highlight (and arg-index
+                                   (not (zerop arg-index))
                                    ;; don't highlight the operator
                                    arg-index))))))))
     (error (cond)
