@@ -4134,6 +4134,43 @@ See `methods-by-applicability'.")
              (label-value-line "Digits" (float-digits f))
              (label-value-line "Precision" (float-precision f))))))
 
+(defmethod inspect-for-emacs ((stream file-stream) inspector)
+  (declare (ignore inspector))
+  (multiple-value-bind (title content)
+      (call-next-method)
+    (declare (ignore title))
+    (values "A file stream."
+            (append
+             `("Pathname: "
+               (:value ,(pathname stream))
+               (:newline) "  "
+               (:action "[visit file and show current position]"
+                        ,(let ((pathname (pathname stream))
+                               (position (file-position stream)))
+                           (lambda ()
+                             (ed-in-emacs `(,pathname :charpos ,position)))))
+               (:newline))
+             content))))
+
+(defmethod inspect-for-emacs ((condition stream-error) inspector)
+  (declare (ignore inspector))
+  (multiple-value-bind (title content)
+      (call-next-method)
+    (declare (ignore title))
+    (let ((stream (stream-error-stream condition)))
+      (values "A stream error."
+              (append
+               `("Pathname: "
+                 (:value ,(pathname stream))
+                 (:newline) "  "
+                 (:action "[visit file and show current position]"
+                          ,(let ((pathname (pathname stream))
+                                 (position (file-position stream)))
+                                (lambda ()
+                                  (ed-in-emacs `(,pathname :charpos ,position)))))
+                 (:newline))
+               content)))))
+
 (defvar *inspectee*)
 (defvar *inspectee-parts*) 
 (defvar *inspectee-actions*)
