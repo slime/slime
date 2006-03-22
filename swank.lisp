@@ -4156,20 +4156,21 @@ See `methods-by-applicability'.")
   (declare (ignore inspector))
   (multiple-value-bind (title content)
       (call-next-method)
-    (declare (ignore title))
     (let ((stream (stream-error-stream condition)))
-      (values "A stream error."
-              (append
-               `("Pathname: "
-                 (:value ,(pathname stream))
-                 (:newline) "  "
-                 (:action "[visit file and show current position]"
-                          ,(let ((pathname (pathname stream))
-                                 (position (file-position stream)))
-                                (lambda ()
-                                  (ed-in-emacs `(,pathname :charpos ,position)))))
-                 (:newline))
-               content)))))
+      (if (typep stream 'file-stream)
+          (values "A stream error."
+                  (append
+                   `("Pathname: "
+                     (:value ,(pathname stream))
+                     (:newline) "  "
+                     (:action "[visit file and show current position]"
+                              ,(let ((pathname (pathname stream))
+                                     (position (file-position stream)))
+                                    (lambda ()
+                                      (ed-in-emacs `(,pathname :charpos ,position)))))
+                     (:newline))
+                   content))
+          (values title content)))))
 
 (defvar *inspectee*)
 (defvar *inspectee-parts*) 
