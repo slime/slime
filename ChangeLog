@@ -1,3 +1,11 @@
+2006-03-23  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* swank.lisp (casify): Removed.
+	(casify-char, tokenize-symbol-thoroughly): New functions.
+	(parse-symbol): Use tokenize-symbol-thoroughly, so as to handle
+	|escaped symbols|.  This fixes arglist display for operators with
+	strange symbol names.
+
 2006-03-23  Douglas Crosher <dcrosher@common-lisp.net>
 
 	* swank-backend (accept-connection): add a 'timeout argument to
