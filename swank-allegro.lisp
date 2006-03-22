@@ -41,8 +41,9 @@
 (defimplementation close-socket (socket)
   (close socket))
 
-(defimplementation accept-connection (socket &key external-format buffering)
-  (declare (ignore buffering))
+(defimplementation accept-connection (socket &key external-format buffering
+                                             timeout)
+  (declare (ignore buffering timeout))
   (let ((ef (or external-format :iso-latin-1-unix))
         (s (socket:accept-connection socket :wait t)))
     (set-external-format s ef)

@@ -67,8 +67,8 @@
 
 (defimplementation accept-connection (socket 
                                       &key (external-format :iso-latin-1-unix)
-                                      buffering)
-  (declare (ignore buffering))
+                                      buffering timeout)
+  (declare (ignore buffering timeout))
   (assert (eq external-format :iso-latin-1-unix))
   (let* ((fd (comm::get-fd-from-socket socket)))
     (assert (/= fd -1))

@@ -60,7 +60,8 @@
 
 (defimplementation accept-connection (socket &key 
                                       (external-format :iso-latin-1-unix)
-                                      (buffering :full))
+                                      (buffering :full) timeout)
+  (declare (ignore timeout))
   (make-socket-io-stream (accept socket) external-format buffering))
 
 (defvar *sigio-handlers* '()

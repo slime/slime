@@ -126,8 +126,8 @@
   
 (defimplementation accept-connection (socket
 				      &key (external-format :iso-latin-1-unix)
-				      buffering)
-  (declare (ignore buffering))
+				      buffering timeout)
+  (declare (ignore buffering timeout))
   (socket:socket-accept socket
 			:buffered nil ;; XXX should be t
 			:element-type 'character

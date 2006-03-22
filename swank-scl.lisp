@@ -54,10 +54,23 @@
 
 (defimplementation accept-connection (socket &key 
                                       (external-format :iso-latin-1-unix)
-                                      (buffering :full))
-  (let ((external-format (or external-format :iso-latin-1-unix)))
-    (make-socket-io-stream (ext:accept-tcp-connection socket)
-                           external-format buffering)))
+                                      (buffering :full)
+                                      (timeout nil))
+  (let ((external-format (or external-format :iso-latin-1-unix))
+        (fd (socket-fd socket)))
+      (loop
+       (let ((ready (sys:wait-until-fd-usable fd :input timeout)))
+         (unless ready
+           (error "Timeout accepting connection on socket: ~S~%" socket)))
+       (let ((new-fd (ignore-errors (ext:accept-tcp-connection fd))))
+         (when new-fd
+           (return (make-socket-io-stream new-fd external-format buffering)))))))
+
+(defimplementation set-stream-timeout (stream timeout)
+  (check-type timeout (or null real))
+  (if (fboundp 'ext::stream-timeout)
+      (setf (ext::stream-timeout stream) timeout)
+      (setf (slot-value (slot-value stream 'cl::stream) 'cl::timeout) timeout)))
 
 ;;;;; Sockets
 

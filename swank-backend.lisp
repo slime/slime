@@ -214,7 +214,7 @@ EXCEPT is a list of symbol names which should be ignored."
   "Close the socket SOCKET.")
 
 (definterface accept-connection (socket &key external-format
-                                        buffering)
+                                        buffering timeout)
    "Accept a client connection on the listening socket SOCKET.  
 Return a stream for the new connection.")
 
@@ -232,6 +232,12 @@ Return a stream for the new connection.")
 
 (definterface preferred-communication-style ()
   "Return one of the symbols :spawn, :sigio, :fd-handler, or NIL."
+  nil)
+
+(definterface set-stream-timeout (stream timeout)
+  "Set the 'stream 'timeout.  The timeout is either the real number
+  specifying the timeout in seconds or 'nil for no timeout."
+  (declare (ignore stream timeout))
   nil)
 
 ;;; Base condition for networking errors.

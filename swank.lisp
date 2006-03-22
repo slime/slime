@@ -424,7 +424,7 @@ connections, otherwise it will be closed after the first."
              (serve-connection socket style dont-close external-format)))
       (ecase style
         (:spawn
-         (spawn (lambda () (loop do (serve) while dont-close)) 
+         (spawn (lambda () (loop do (ignore-errors (serve)) while dont-close)) 
                 :name "Swank"))
         ((:fd-handler :sigio)
          (add-fd-handler socket (lambda () (serve))))
@@ -432,23 +432,34 @@ connections, otherwise it will be closed after the first."
       port)))
 
 (defun serve-connection (socket style dont-close external-format)
-  (let ((client (accept-authenticated-connection
-                 socket :external-format external-format)))
-    (unless dont-close
-      (close-socket socket))
-    (let ((connection (create-connection client style external-format)))
-      (run-hook *new-connection-hook* connection)
-      (push connection *connections*)
-      (serve-requests connection))))
+  (let ((closed-socket-p nil))
+    (unwind-protect
+         (let ((client (accept-authenticated-connection
+                        socket :external-format external-format)))
+           (unless dont-close
+             (close-socket socket)
+             (setf closed-socket-p t))
+           (let ((connection (create-connection client style external-format)))
+             (run-hook *new-connection-hook* connection)
+             (push connection *connections*)
+             (serve-requests connection)))
+      (unless (or dont-close closed-socket-p)
+        (close-socket socket)))))
 
 (defun accept-authenticated-connection (&rest args)
   (let ((new (apply #'accept-connection args))
-        (secret (slime-secret)))
-    (when secret
-      (let ((first-val (decode-message new)))
-        (unless (and (stringp first-val) (string= first-val secret))
-          (close new)
-          (error "Incoming connection doesn't know the password."))))
+        (success nil))
+    (unwind-protect
+         (let ((secret (slime-secret)))
+           (when secret
+             (set-stream-timeout new 20)
+             (let ((first-val (decode-message new)))
+               (unless (and (stringp first-val) (string= first-val secret))
+                 (error "Incoming connection doesn't know the password."))))
+           (set-stream-timeout new nil)
+           (setf success t))
+      (unless success
+        (close new :abort t)))
     new))
 
 (defun slime-secret ()
@@ -518,16 +529,23 @@ stream (or NIL if none was created)."
 Return an output stream suitable for writing program output.
 
 This is an optimized way for Lisp to deliver output to Emacs."
-  (let* ((socket (create-socket *loopback-interface* 
-                                *dedicated-output-stream-port*))
-         (port (local-port socket)))
-    (encode-message `(:open-dedicated-output-stream ,port) socket-io)
-    (accept-authenticated-connection
-     socket :external-format external-format 
-     :buffering *dedicated-output-stream-buffering*)))
+  (let ((socket (create-socket *loopback-interface* 
+                               *dedicated-output-stream-port*)))
+    (unwind-protect
+         (let ((port (local-port socket)))
+           (encode-message `(:open-dedicated-output-stream ,port) socket-io)
+           (let ((dedicated (accept-authenticated-connection
+                             socket :external-format external-format 
+                             :buffering *dedicated-output-stream-buffering*
+                             :timeout 30)))
+             (close-socket socket)
+             (setf socket nil)
+             dedicated))
+      (when socket
+        (close-socket socket)))))
 
 (defun handle-request (connection)
-  "Read and process one request.  The processing is done in the extend
+  "Read and process one request.  The processing is done in the extent
 of the toplevel restart."
   (assert (null *swank-state-stack*))
   (let ((*swank-state-stack* '(:handle-request)))
@@ -828,34 +846,39 @@ of the toplevel restart."
     connection))
 
 (defun create-connection (socket-io style external-format)
-  (let ((c (ecase style
-             (:spawn
-              (make-connection :socket-io socket-io
-                               :read #'read-from-control-thread
-                               :send #'send-to-control-thread
-                               :serve-requests #'spawn-threads-for-connection
-                               :cleanup #'cleanup-connection-threads))
-             (:sigio
-              (make-connection :socket-io socket-io
-                               :read #'read-from-socket-io
-                               :send #'send-to-socket-io
-                               :serve-requests #'install-sigio-handler
-                               :cleanup #'deinstall-sigio-handler))
-             (:fd-handler
-              (make-connection :socket-io socket-io
-                               :read #'read-from-socket-io
-                               :send #'send-to-socket-io
-                               :serve-requests #'install-fd-handler
-                               :cleanup #'deinstall-fd-handler))
-             ((nil)
-              (make-connection :socket-io socket-io
-                               :read #'read-from-socket-io
-                               :send #'send-to-socket-io
-                               :serve-requests #'simple-serve-requests)))))
-    (setf (connection.communication-style c) style)
-    (setf (connection.external-format c) external-format)
-    (initialize-streams-for-connection c)
-    c))
+  (let ((success nil))
+    (unwind-protect
+         (let ((c (ecase style
+                    (:spawn
+                     (make-connection :socket-io socket-io
+                                      :read #'read-from-control-thread
+                                      :send #'send-to-control-thread
+                                      :serve-requests #'spawn-threads-for-connection
+                                      :cleanup #'cleanup-connection-threads))
+                    (:sigio
+                     (make-connection :socket-io socket-io
+                                      :read #'read-from-socket-io
+                                      :send #'send-to-socket-io
+                                      :serve-requests #'install-sigio-handler
+                                      :cleanup #'deinstall-sigio-handler))
+                    (:fd-handler
+                     (make-connection :socket-io socket-io
+                                      :read #'read-from-socket-io
+                                      :send #'send-to-socket-io
+                                      :serve-requests #'install-fd-handler
+                                      :cleanup #'deinstall-fd-handler))
+                    ((nil)
+                     (make-connection :socket-io socket-io
+                                      :read #'read-from-socket-io
+                                      :send #'send-to-socket-io
+                                      :serve-requests #'simple-serve-requests)))))
+           (setf (connection.communication-style c) style)
+           (setf (connection.external-format c) external-format)
+           (initialize-streams-for-connection c)
+           (setf success t)
+           c)
+      (unless success
+        (close socket-io :abort t)))))
 
 
 ;;;; IO to Emacs

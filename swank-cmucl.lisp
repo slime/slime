@@ -100,7 +100,9 @@
 
 (defimplementation accept-connection (socket &key 
                                       (external-format :iso-latin-1-unix)
-                                      (buffering :full))
+                                      (buffering :full)
+                                      timeout)
+  (declare (ignore timeout))
   (unless (eq external-format ':iso-latin-1-unix)
     (remove-fd-handlers socket)
     (remove-sigio-handlers socket)
