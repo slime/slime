@@ -1,3 +1,12 @@
+2006-03-22  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-ed): Handle (FILENAME :charpos CHARPOS). 
+
+	* swank.lisp (inspect-for-emacs): Specialize on FILE-STREAM and
+	STREAM-ERROR, offering to visit the file at the current stream
+	position as an inspector action.  Useful for dealing with reader
+	errors. 
+
 2006-03-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-autodoc-pre-command-refresh-echo-area): 
