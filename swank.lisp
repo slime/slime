@@ -1276,28 +1276,55 @@ gracefully."
         (internp (search "::" string)))
     (values symbol package internp)))
 
-;; FIXME: Escape chars are ignored
-(defun casify (string)
-  "Convert string accoring to readtable-case."
+(defun tokenize-symbol-thoroughly (string)
+  "This version of tokenize-symbol handles escape characters."
+  (let ((package nil)
+        (token (make-array (length string) :element-type 'character
+                           :fill-pointer 0))
+        (backslash nil)
+        (vertical nil)
+        (internp nil))
+    (loop for char across string
+       do (cond
+            (backslash
+             (vector-push-extend char token)
+             (setq backslash nil))
+            ((char= char #\\) ; Quotes next character, even within |...|
+             (setq backslash t))
+            ((char= char #\|)
+             (setq vertical t))
+            (vertical
+             (vector-push-extend char token))
+            ((char= char #\:)
+             (if package
+                 (setq internp t)
+                 (setq package token
+                       token (make-array (length string)
+                                         :element-type 'character
+                                         :fill-pointer 0))))
+            (t
+             (vector-push-extend (casify-char char) token))))
+    (values token package internp)))
+
+(defun casify-char (char)
+  "Convert CHAR accoring to readtable-case."
   (ecase (readtable-case *readtable*)
-    (:preserve string)
-    (:upcase   (string-upcase string))
-    (:downcase (string-downcase string))
-    (:invert (multiple-value-bind (lower upper) (determine-case string)
-               (cond ((and lower upper) string)
-                     (lower (string-upcase string))
-                     (upper (string-downcase string))
-                     (t string))))))
+    (:preserve char)
+    (:upcase   (char-upcase char))
+    (:downcase (char-downcase char))
+    (:invert (if (upper-case-p char)
+                 (char-downcase char)
+                 (char-upcase char)))))
 
 (defun parse-symbol (string &optional (package *package*))
   "Find the symbol named STRING.
 Return the symbol and a flag indicating whether the symbols was found."
-  (multiple-value-bind (sname pname) (tokenize-symbol string)
+  (multiple-value-bind (sname pname) (tokenize-symbol-thoroughly string)
     (let ((package (cond ((string= pname "") keyword-package)
-                         (pname              (find-package (casify pname)))
+                         (pname              (find-package pname))
                          (t                  package))))
       (if package
-          (find-symbol (casify sname) package)
+          (find-symbol sname package)
           (values nil nil)))))
 
 (defun parse-symbol-or-lose (string &optional (package *package*))
