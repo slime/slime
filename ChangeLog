@@ -27,6 +27,9 @@
 
 2006-03-22  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
+	* swank.lisp (arglist-for-echo-area): Fix when arg-indices are
+	not given.
+
 	* slime.el (slime-ed): Handle (FILENAME :charpos CHARPOS). 
 
 	* swank.lisp (inspect-for-emacs): Specialize on FILE-STREAM and
