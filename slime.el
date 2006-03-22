@@ -6411,10 +6411,11 @@ The result is a (possibly empty) list of definitions."
 WHAT can be:
   A filename (string),
   A list (FILENAME LINE [COLUMN]),
+  A list (FILENAME :charpos CHARPOS),
   A function name (symbol),
   nil.
 
-This for use in the implementation of COMMON-LISP:ED."
+This is for use in the implementation of COMMON-LISP:ED."
   ;; Without `save-excursion' very strange things happen if you call
   ;; (swank:ed-in-emacs X) from the REPL. -luke (18/Jan/2004)
   (save-excursion
@@ -6426,14 +6427,18 @@ This for use in the implementation of COMMON-LISP:ED."
            (find-file (slime-from-lisp-filename what)))
           ((consp what)
            (find-file (first (slime-from-lisp-filename what)))
-           (goto-line (second what))
-           ;; Find the correct column, without going past the end of
-           ;; the line.
-           (let ((col (third what)))
-             (while (and col
-                         (< (point) (point-at-eol))
-                         (/= (decf col) -1))
-               (forward-char 1))))
+           (cond
+            ((eql (second what) :charpos)
+             (goto-char (third what)))
+            (t
+             (goto-line (second what))
+             ;; Find the correct column, without going past the end of
+             ;; the line.
+             (let ((col (third what)))
+               (while (and col
+                           (< (point) (point-at-eol))
+                           (/= (decf col) -1))
+                 (forward-char 1))))))
           ((and what (symbolp what))
            (slime-edit-definition (symbol-name what)))
           (t nil))))                    ; nothing in particular
