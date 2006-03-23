@@ -2225,6 +2225,7 @@ Can return nil if there's no process object for the connection."
 
 (defun slime-background-activities-enabled-p ()
   (and (or slime-mode 
+           (eq major-mode 'sldb-mode)
            (eq major-mode 'slime-repl-mode))
        (let ((con (slime-current-connection)))
          (and con
@@ -5505,7 +5506,8 @@ the symbol at point if applicable."
 (defun slime-autodoc-message-ok-p ()
   "Return true if printing a message is currently okay (shouldn't
 annoy the user)."
-  (and (or slime-mode (eq major-mode 'slime-repl-mode))
+  (and (or slime-mode (eq major-mode 'slime-repl-mode) 
+           (eq major-mode 'sldb-mode))
        slime-autodoc-mode
        (or (null (current-message)) 
            (string= (current-message) slime-autodoc-last-message))
@@ -7498,6 +7500,19 @@ If `sldb-enable-styled-backtrace' is nil, just return STRING."
 
 ;;;;; sldb-mode
 
+(defvar sldb-mode-syntax-table
+  (let ((table (copy-syntax-table lisp-mode-syntax-table)))
+    ;; We give < and > parenthesis syntax, so that #< ... > is treated
+    ;; as a balanced expression.  This enables autodoc-mode to match
+    ;; #<unreadable> actual arguments in the backtraces with formal
+    ;; arguments of the function.  (For Lisp mode, this is not
+    ;; desirable, since we do not wish to get a mismatched paren
+    ;; highlighted everytime we type < or >.)
+    (modify-syntax-entry ?< "(" table)
+    (modify-syntax-entry ?> ")" table)
+    table)
+  "Syntax table for SLDB mode.")
+
 (define-derived-mode sldb-mode fundamental-mode "sldb" 
   "Superior lisp debugger mode. In addition to ordinary SLIME commands,
 the following are available:\\<sldb-mode-map>
@@ -7534,8 +7549,10 @@ Full list of commands:
 
 \\{sldb-mode-map}"
   (erase-buffer)
-  (set-syntax-table lisp-mode-syntax-table)
+  (set-syntax-table sldb-mode-syntax-table)
   (slime-set-truncate-lines)
+  (when slime-use-autodoc-mode 
+    (slime-autodoc-mode 1))
   ;; Make original slime-connection "sticky" for SLDB commands in this buffer
   (setq slime-buffer-connection (slime-connection))
   (make-local-variable 'kill-buffer-hook)
@@ -9933,13 +9950,22 @@ package is used."
 
 (defun slime-beginning-of-symbol ()
   "Move point to the beginning of the current symbol."
-  (and (minusp (skip-syntax-backward "w_"))
-       (when (eq (char-before) ?#) ; special case for things like "#<foo"
-         (forward-char))))
+  (when (slime-point-moves-p
+          (while (slime-point-moves-p 
+                   (skip-syntax-backward "w_")
+                   (when (char-equal (char-before) ?|)
+                     (backward-sexp)))))
+    (when (eq (char-before) ?#) ; special case for things like "#<foo"
+      (forward-char))))
 
 (defun slime-end-of-symbol ()
   "Move point to the end of the current symbol."
-  (skip-syntax-forward "w_"))
+  (while (slime-point-moves-p 
+           (skip-syntax-forward "w_")
+           ;; | has the syntax as ", so we need to 
+           ;; treat it manually rather than via syntax. 
+           (when (looking-at "|")
+             (forward-sexp)))))
 
 (put 'slime-symbol 'end-op 'slime-end-of-symbol)
 (put 'slime-symbol 'beginning-op 'slime-beginning-of-symbol)
@@ -10002,7 +10028,7 @@ levels of parens."
                      (<= level max-levels))
             (let ((arg-index 0))
               ;; Move to the beginning of the current sexp if not already there.
-              (if (or (looking-at "[(']") 
+              (if (or (member (char-syntax (char-after)) '(?\( ?'))
                       (= (char-syntax (char-before)) ?\ ))
                   (incf arg-index))
               (ignore-errors
@@ -10011,7 +10037,7 @@ levels of parens."
                                     (> (point) (point-min)))
                 (incf arg-index))
               (backward-up-list 1)
-              (when (looking-at "(")
+              (when (member (char-syntax (char-after)) '(?\( ?')) 
                 (incf level)
                 (forward-char 1)
                 (when-let (name (slime-symbol-name-at-point))
