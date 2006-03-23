@@ -6281,10 +6281,10 @@ If MARKER is nil, use the point."
   dspec location)
 
 (defun slime-edit-definition (name &optional where)
-  "Lookup the definition of the symbol at point.  
-If there's no symbol at point, or a prefix argument is given, then the
+  "Lookup the definition of the name at point.  
+If there's no name at point, or a prefix argument is given, then the
 function name is prompted."
-  (interactive (list (slime-read-symbol-name "Symbol: ")))
+  (interactive (list (slime-read-symbol-name "Name: ")))
   (let ((definitions (slime-eval `(swank:find-definitions-for-emacs ,name))))
     (if (null definitions)
         (if slime-edit-definition-fallback-function
@@ -6426,7 +6426,7 @@ WHAT can be:
   A filename (string),
   A list (FILENAME LINE [COLUMN]),
   A list (FILENAME :charpos CHARPOS),
-  A function name (symbol),
+  A function name (symbol or cons),
   nil.
 
 This is for use in the implementation of COMMON-LISP:ED."
@@ -6439,7 +6439,7 @@ This is for use in the implementation of COMMON-LISP:ED."
       (select-frame slime-ed-frame))
     (cond ((stringp what)
            (find-file (slime-from-lisp-filename what)))
-          ((consp what)
+          ((and (consp what) (stringp (first what)))
            (find-file (first (slime-from-lisp-filename what)))
            (cond
             ((eql (second what) :charpos)
@@ -6455,6 +6455,8 @@ This is for use in the implementation of COMMON-LISP:ED."
                  (forward-char 1))))))
           ((and what (symbolp what))
            (slime-edit-definition (symbol-name what)))
+          ((consp what)
+           (slime-edit-definition (prin1-to-string what)))
           (t nil))))                    ; nothing in particular
 
 

@@ -2244,7 +2244,7 @@ Return its name and the string to use in the prompt."
 WHAT can be:
   A pathname or a string,
   A list (PATHNAME-OR-STRING LINE [COLUMN]),
-  A function name (symbol),
+  A function name (symbol or cons),
   NIL.
 
 Returns true if it actually called emacs, or NIL if not."
@@ -2256,9 +2256,14 @@ Returns true if it actually called emacs, or NIL if not."
                  ((pathname-or-string-p what)
                   (canonicalize-filename what))
                  ((symbolp what) what)
+                 ((consp what) what)
                  (t (return-from ed-in-emacs nil)))))
-      (send-oob-to-emacs `(:ed ,target))
-      t)))
+      (cond
+        (*emacs-connection* (send-oob-to-emacs `(:ed ,target)))
+        ((default-connection)
+         (with-connection ((default-connection))
+           (send-oob-to-emacs `(:ed ,target))))
+        (t nil)))))
 
 (defslimefun value-for-editing (form)
   "Return a readable value of FORM for editing in Emacs.

@@ -1,3 +1,13 @@
+2006-03-23  Christophe Rhodes <csr21@cam.ac.uk>
+
+	* swank.lisp (ed-in-emacs): Allow conses as function names.
+	Ensure that there is a connection to emacs before sending the
+	:ed message.
+
+	* slime.el (slime-edit-definition): read names, not symbols.
+	(slime-ed): handle conses whose car is not a string as function
+	names.
+
 2006-03-23  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-qualify-cl-symbol-name): Strip leading colon
