@@ -1,3 +1,19 @@
+2006-03-24  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-background-activities-enabled-p): Allow
+	"background activities" in sldb-mode.
+	(slime-autodoc-message-ok-p): Allow autodoc in sldb-mode.
+	(sldb-mode-syntax-table): New variable.
+	(sldb-mode): Enable autodoc-mode when slime-use-autodoc-mode is
+	true.  Use sldb-mode-syntax-table to make #<...> balance like
+	parentheses.  This enables autodoc-mode to match #<unreadable>
+	actual arguments in the backtraces with formal arguments of the
+	function.
+	(slime-beginning-of-symbol, slime-end-of-symbol): Handle
+	es::|caped| symbols.
+	(slime-enclosing-operator-names): Use syntax table to check
+	whether we are at the beginning of a balanced expression.
+
 2006-03-23  Christophe Rhodes <csr21@cam.ac.uk>
 
 	* swank.lisp (ed-in-emacs): Allow conses as function names.
