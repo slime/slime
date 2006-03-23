@@ -657,6 +657,7 @@ A prefix argument disables this behaviour."
     ("\C-\M-x" slime-eval-defun)
     (":"    slime-interactive-eval :prefixed t :sldb t)
     ("\C-e" slime-interactive-eval :prefixed t :sldb t :inferior t)
+    ("\C-y" slime-call-defun :prefixed t)
     ("E"    slime-edit-value :prefixed t :sldb t :inferior t)
     ("\C-z" slime-switch-to-output-buffer :prefixed t :sldb t)
     ("\C-b" slime-interrupt :prefixed t :inferior t :sldb t)
@@ -793,7 +794,8 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
        [ "Eval Region"             slime-eval-region ,C ]
        [ "Scratch Buffer"          slime-scratch ,C ]
        [ "Interactive Eval..."     slime-interactive-eval ,C ]
-       [ "Edit Lisp Value..."      slime-edit-value ,C ])
+       [ "Edit Lisp Value..."      slime-edit-value ,C ]
+       [ "Call Defun"              slime-call-defun ,C ])
       ("Debugging"
        [ "Macroexpand Once..."     slime-macroexpand-1 ,C ]
        [ "Macroexpand All..."      slime-macroexpand-all ,C ]
@@ -5388,14 +5390,26 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
            (slime-update-autodoc-cache cache-key doc)
            (slime-autodoc-message doc)))))))
 
+(defcustom slime-autodoc-use-multiline-p nil
+  "If non-nil, allow long autodoc messages to resize echo area display."
+  :group 'slime-ui)
+
 (defun slime-autodoc-message (doc)
-  (setq slime-autodoc-last-message doc)
-  (slime-background-message "%s" doc))
+  "Display the autodoc documentation string DOC."
+  (cond
+   ((slime-typeout-active-p)
+    (setq slime-autodoc-last-message "") ; no need for refreshing
+    (slime-typeout-message doc))
+   (t 
+    (unless slime-autodoc-use-multiline-p
+      (setq doc (slime-oneliner doc)))
+    (setq slime-autodoc-last-message doc)
+    (message "%s" doc))))
 
 (defun slime-autodoc-pre-command-refresh-echo-area ()
   (unless (string= slime-autodoc-last-message "")
     (if (slime-autodoc-message-ok-p)
-        (slime-background-message "%s" slime-autodoc-last-message)
+        (message "%s" slime-autodoc-last-message)
       (setq slime-autodoc-last-message ""))))
 
 (defun slime-autodoc-thing-at-point ()
@@ -6576,6 +6590,21 @@ First make the variable unbound, then evaluate the entire form."
   (interactive (list (slime-last-expression)))
   (insert "\n")
   (slime-eval-print string))
+
+(defun slime-call-defun ()
+  (interactive)
+  "Insert a call to the function defined around point into the REPL."
+  (let ((toplevel (slime-parse-toplevel-form)))
+    (unless (and (consp toplevel)
+                 (member (car toplevel) '(:defun :defmethod :defgeneric))
+                 (symbolp (cadr toplevel)))
+      (error "Not in a function definition"))
+    (let* ((symbol (cadr toplevel))
+           (function-call 
+            (format "(%s " (slime-qualify-cl-symbol-name symbol))))
+      (slime-switch-to-output-buffer)
+      (goto-char slime-repl-input-start-mark)
+      (insert function-call))))
 
 ;;;; Edit Lisp value
 ;;;
@@ -9877,7 +9906,11 @@ package is used."
     (if (slime-cl-symbol-package s)
         s
       (format "%s::%s"
-              (slime-current-package)
+              (let* ((package (slime-current-package)))
+                ;; package is a string like ":cl-user" or "CL-USER".
+                (if (and package (string-match "^:" package))
+                    (substring package 1)
+                  package))
               (slime-cl-symbol-name s)))))
 
 
