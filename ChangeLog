@@ -1,5 +1,18 @@
 2006-03-23  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
+	* slime.el (slime-qualify-cl-symbol-name): Strip leading colon
+	from package names for qualifying symbols.
+	(slime-call-defun): New command.
+	(slime-keys): Bind it to C-c C-y.
+	(slime-easy-menu): Show it in the menu.
+
+	* slime.el (slime-autodoc-use-multiline-p): New defcustom.
+	(slime-autodoc-message): Use it here.  Fix bug that autodoc
+	messages exceeding one line could not be overwritten by later
+	autodoc messages.
+	(slime-autodoc-pre-command-refresh-echo-area): Use message
+	rather than slime-background-message.
+	
 	* swank.lisp (casify): Removed.
 	(casify-char, tokenize-symbol-thoroughly): New functions.
 	(parse-symbol): Use tokenize-symbol-thoroughly, so as to handle
