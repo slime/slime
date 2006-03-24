@@ -1,3 +1,8 @@
+2006-03-24  Mikel Bancroft <mutandiz@yahoo.com>
+
+	* swank-allegro.lisp (set-default-directory): Fix for pathnames
+	without a trailing slash.
+
 2006-03-24  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-background-activities-enabled-p): Allow
