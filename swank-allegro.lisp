@@ -86,9 +86,8 @@
   "allegro")
 
 (defimplementation set-default-directory (directory)
-  (let ((dir (namestring (setf *default-pathname-defaults* 
-                               (truename (merge-pathnames directory))))))
-    (excl:chdir dir)
+  (let* ((dir (namestring (truename (merge-pathnames directory)))))
+    (setf *default-pathname-defaults* (pathname (excl:chdir dir)))
     dir))
 
 (defimplementation default-directory ()
