@@ -1379,7 +1379,7 @@ Return the package or nil."
 ;;;; Arglists
 
 (defslimefun arglist-for-echo-area (names &key print-right-margin
-                                          arg-indices)
+                                          print-lines arg-indices)
   "Return the arglist for the first function, macro, or special-op in NAMES."
   (handler-case
       (with-buffer-syntax ()
@@ -1396,6 +1396,7 @@ Return the package or nil."
                   (format-arglist-for-echo-area
                    form operator-name
                    :print-right-margin print-right-margin
+                   :print-lines print-lines
                    :highlight (and arg-index
                                    (not (zerop arg-index))
                                    ;; don't highlight the operator
@@ -1426,49 +1427,82 @@ Return the package or nil."
          '())
         (t (cons (car arglist) (clean-arglist (cdr arglist))))))
 
+(defun decoded-arglist-to-string (arglist package 
+                                  &key operator print-right-margin 
+                                  print-lines highlight)
+  "Print the decoded ARGLIST for display in the echo area.  The
+argument name are printed without package qualifiers and pretty
+printing of (function foo) as #'foo is suppressed.  If HIGHLIGHT is
+non-nil, it must be the index of an argument; highlight this argument.
+If OPERATOR is non-nil, put it in front of the arglist."
+  (with-output-to-string (*standard-output*)
+    (with-standard-io-syntax
+      (let ((*package* package) (*print-case* :downcase)
+            (*print-pretty* t) (*print-circle* nil) (*print-readably* nil)
+            (*print-level* 10) (*print-length* 20)
+            (*print-right-margin* print-right-margin)
+            (*print-lines* print-lines))
+        (let ((index 0)
+              (first-arg t))
+          (labels ((print-arg (arg)
+                     (etypecase arg
+                       (symbol (princ arg))
+                       (string (princ arg))
+                       (cons (pprint-logical-block (nil nil :prefix "(" :suffix ")")
+                               (princ (car arg))
+                               (unless (null (cdr arg))
+                                 (write-char #\space))
+                               (pprint-fill *standard-output* (cdr arg) nil)))))
+                   (print-space ()
+                     (unless first-arg
+                       (write-char #\space)
+                       (pprint-newline :fill))
+                     (setf first-arg nil))
+                   (print-with-space (obj)
+                     (print-space)
+                     (print-arg obj))
+                   (print-with-highlight (arg &optional (index-ok-p #'=))
+                     (print-space)
+                     (cond 
+                       ((and highlight (funcall index-ok-p index highlight))
+                        (princ "===> ")
+                        (print-arg arg)
+                        (princ " <==="))
+                       (t
+                        (print-arg arg)))
+                     (incf index)))
+            (pprint-logical-block (nil nil :prefix "(" :suffix ")")
+              (when operator
+                (print-with-highlight operator))
+              (mapc #'print-with-highlight
+                    (arglist.required-args arglist))
+              (when (arglist.optional-args arglist)
+                (print-with-space '&optional)
+                (mapc #'print-with-highlight 
+                      (mapcar #'encode-optional-arg
+                              (arglist.optional-args arglist))))
+              (when (arglist.key-p arglist)
+                (print-with-space '&key)
+                (mapc #'print-with-space
+                      (mapcar #'encode-keyword-arg 
+                              (arglist.keyword-args arglist))))
+              (when (arglist.allow-other-keys-p arglist)
+                (print-with-space '&allow-other-keys))
+              (cond ((not (arglist.rest arglist)))
+                    ((arglist.body-p arglist)
+                     (print-with-space '&body)
+                     (print-with-highlight (arglist.rest arglist) #'<=))
+                    (t
+                     (print-with-space '&rest)
+                     (print-with-highlight (arglist.rest arglist) #'<=)))
+              (mapc #'print-with-space                 
+                    (arglist.unknown-junk arglist)))))))))
+
 (defun arglist-to-string (arglist package &key print-right-margin highlight)
-  "Print the list ARGLIST for display in the echo area.
-The argument name are printed without package qualifiers and 
-pretty printing of (function foo) as #'foo is suppressed.
-If HIGHLIGHT is non-nil, it must be the index of an argument;
-highlight this argument."
-  (setq arglist (clean-arglist arglist))
-  (etypecase arglist
-    (null "()")
-    (cons 
-     (with-output-to-string (*standard-output*)
-       (with-standard-io-syntax
-         (let ((*package* package) (*print-case* :downcase)
-               (*print-pretty* t) (*print-circle* nil) (*print-readably* nil)
-               (*print-level* 10) (*print-length* 20)
-               (*print-right-margin* print-right-margin))
-           (let ((index 0))
-             (pprint-logical-block (nil nil :prefix "(" :suffix ")")
-               (loop
-                  (let ((arg (pop arglist)))
-                    (when (member arg lambda-list-keywords)
-                      ;; The highlighting code is currently only
-                      ;; prepared for the required arguments.  To
-                      ;; extend it to work with optional and keyword
-                      ;; arguments as well, arglist-to-string should
-                      ;; get a DECODED-ARGLIST instead. --mkoeppe
-                      (setq highlight nil))
-                    (when (and highlight (= index highlight))
-                      (princ "===> "))
-                    (etypecase arg
-                      (symbol (princ arg))
-                      (string (princ arg))
-                      (cons (pprint-logical-block (nil nil :prefix "(" :suffix ")")
-                              (princ (car arg))
-                              (unless (null (cdr arg))
-                                (write-char #\space))
-                              (pprint-fill *standard-output* (cdr arg) nil))))
-                    (when (and highlight (= index highlight))
-                      (princ " <==="))
-                    (incf index)
-                    (when (null arglist) (return))
-                    (write-char #\space)
-                    (pprint-newline :fill)))))))))))
+  (decoded-arglist-to-string (decode-arglist arglist)
+                             package
+                             :print-right-margin print-right-margin
+                             :highlight highlight))
 
 (defun test-print-arglist (list string)
   (string= (arglist-to-string list (find-package :swank)) string))
@@ -1576,7 +1610,12 @@ Return an OPTIONAL-ARG structure."
   keyword-args          ; list of the keywords
   rest                  ; name of the &rest or &body argument (if any)
   body-p                ; whether the rest argument is a &body
-  allow-other-keys-p)   ; whether &allow-other-keys appeared
+  allow-other-keys-p    ; whether &allow-other-keys appeared
+  aux-args              ; list of &aux variables
+  known-junk            ; &whole, &environment
+  unknown-junk)         ; unparsed stuff
+
+(define-modify-macro nreversef () nreverse "Reverse the list in PLACE.")
 
 (defun decode-arglist (arglist)
   "Parse the list ARGLIST and return an ARGLIST structure."
@@ -1584,15 +1623,25 @@ Return an OPTIONAL-ARG structure."
         (result (make-arglist)))
     (dolist (arg arglist)
       (cond
+        ((eql mode '&unknown-junk)      
+         ;; don't leave this mode -- we don't know how the arglist
+         ;; after unknown lambda-list keywords is interpreted
+         (push arg (arglist.unknown-junk result)))
         ((eql arg '&allow-other-keys)
          (setf (arglist.allow-other-keys-p result) t))
         ((eql arg '&key)
          (setf (arglist.key-p result) t
                mode arg))
-        ((member arg lambda-list-keywords)
+        ((member arg '(&optional &rest &body &aux))
          (setq mode arg))
+        ((member arg '(&whole &environment))
+         (setq mode arg)
+         (push arg (arglist.known-junk result)))
+        ((member arg lambda-list-keywords)
+         (setq mode '&unknown-junk)
+         (push arg (arglist.unknown-junk result)))
         (t
-         (case mode
+         (ecase mode
 	   (&key
 	    (push (decode-keyword-arg arg) 
                   (arglist.keyword-args result)))
@@ -1604,16 +1653,20 @@ Return an OPTIONAL-ARG structure."
                   (arglist.rest result) arg))
 	   (&rest
             (setf (arglist.rest result) arg))
+	   (&aux
+            (push (decode-optional-arg arg)
+                  (arglist.aux-args result)))
 	   ((nil)
 	    (push arg (arglist.required-args result)))
            ((&whole &environment)
-            (setf mode nil))))))
-    (setf (arglist.required-args result)
-          (nreverse (arglist.required-args result)))
-    (setf (arglist.optional-args result)
-          (nreverse (arglist.optional-args result)))
-    (setf (arglist.keyword-args result)
-          (nreverse (arglist.keyword-args result)))
+            (setf mode nil)
+            (push arg (arglist.known-junk result)))))))
+    (nreversef (arglist.required-args result))
+    (nreversef (arglist.optional-args result))
+    (nreversef (arglist.keyword-args result))
+    (nreversef (arglist.aux-args result))
+    (nreversef (arglist.known-junk result))
+    (nreversef (arglist.unknown-junk result))
     result))
 
 (defun encode-arglist (decoded-arglist)
@@ -1631,7 +1684,11 @@ Return an OPTIONAL-ARG structure."
                 ((arglist.body-p decoded-arglist)
                  `(&body ,(arglist.rest decoded-arglist)))
                 (t
-                 `(&rest ,(arglist.rest decoded-arglist))))))
+                 `(&rest ,(arglist.rest decoded-arglist))))
+          (when (arglist.aux-args decoded-arglist)
+            `(&aux ,(arglist.aux-args decoded-arglist)))
+          (arglist.known-junk decoded-arglist)
+          (arglist.unknown-junk decoded-arglist)))
 
 (defun arglist-keywords (arglist)
   "Return the list of keywords in ARGLIST.
@@ -1908,39 +1965,24 @@ by adding a template for the missing arguments."
     :not-available))
 
 (defun format-arglist-for-echo-area (form operator-name
-                                     &key print-right-margin highlight)
+                                     &key print-right-margin print-lines
+                                     highlight)
   "Return the arglist for FORM as a string."
   (when (consp form)
     (let ((operator-form (first form))
           (argument-forms (rest form)))
-      (multiple-value-bind (form-completion any-enrichment)
-          (form-completion operator-form argument-forms
-                           :remove-args nil)
-        (cond
-          ((eql form-completion :not-available)
-           nil)
-          ((not any-enrichment)
-           ;; Just use the original arglist.
-           ;; This works better for implementation-specific
-           ;; lambda-list-keywords like CMUCL's &parse-body.
-           (let ((arglist (arglist operator-form)))
-             (etypecase arglist
-               ((member :not-available)
-                nil)
-               (list
-                (return-from format-arglist-for-echo-area
-                  (arglist-to-string (cons operator-name arglist)
-                                     *package*
-                                     :print-right-margin print-right-margin
-                                     :highlight highlight))))))
-          (t
-           (return-from format-arglist-for-echo-area
-             (arglist-to-string 
-              (cons operator-name
-                    (encode-arglist form-completion))
-              *package*
-              :print-right-margin print-right-margin
-              :highlight highlight)))))))
+      (let ((form-completion 
+             (form-completion operator-form argument-forms
+                              :remove-args nil)))
+        (unless (eql form-completion :not-available)
+          (return-from format-arglist-for-echo-area
+            (decoded-arglist-to-string 
+             form-completion
+             *package*
+             :operator operator-name
+             :print-right-margin print-right-margin
+             :print-lines print-lines
+             :highlight highlight))))))
   nil)
 
 (defslimefun completions-for-keyword (name keyword-string)
