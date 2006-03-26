@@ -1,3 +1,26 @@
+2006-03-25  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* swank.lisp (arglist-for-echo-area): New keyword arg,
+	print-lines.
+	(decoded-arglist-to-string): New function, implement argument
+	highlighting also for &optional and &rest/&body arguments.
+	(arglist-to-string): Use decoded-arglist-to-string.
+	(arglist): New slots aux-args, known-junk, unknown-junk.
+	(nreversef): New macro.
+	(decode-arglist, encode-arglist): Refine to handle more structure
+	in argument lists, including implementation-defined stuff like
+	&parse-body.
+	(format-arglist-for-echo-area): New keyword arg, print-lines.
+	Simplify the code as there is no need to fall back to the unparsed
+	arglist any more.
+
+	* slime.el (slime-fontify-string): Fix for arguments spanning
+	multiple lines.
+	(slime-autodoc-message-dimensions): New.
+	(slime-autodoc-thing-at-point): Use it here to either ask for a
+	one-line or a nicely formatted multi-line arglist.
+	(slime-enclosing-operator-names): Handle linebreaks.
+
 2006-03-24  Mikel Bancroft <mutandiz@yahoo.com>
 
 	* swank-allegro.lisp (set-default-directory): Fix for pathnames
