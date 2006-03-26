@@ -1498,26 +1498,6 @@ If OPERATOR is non-nil, put it in front of the arglist."
               (mapc #'print-with-space                 
                     (arglist.unknown-junk arglist)))))))))
 
-(defun arglist-to-string (arglist package &key print-right-margin highlight)
-  (decoded-arglist-to-string (decode-arglist arglist)
-                             package
-                             :print-right-margin print-right-margin
-                             :highlight highlight))
-
-(defun test-print-arglist (list string)
-  (string= (arglist-to-string list (find-package :swank)) string))
-
-;; Should work:
-(progn
-  (assert (test-print-arglist '(function cons) "(function cons)"))
-  (assert (test-print-arglist '(quote cons) "(quote cons)"))
-  (assert (test-print-arglist '(&key (function #'+)) "(&key (function #'+))"))
-  (assert (test-print-arglist '(&whole x y z) "(y z)"))
-  (assert (test-print-arglist '(x &aux y z) "(x)"))
-  (assert (test-print-arglist '(x &environment env y) "(x y)")))
-;; Expected failure:
-;; (assert (test-print-arglist '(&key ((function f))) "(&key ((function f)))"))
-
 (defslimefun variable-desc-for-echo-area (variable-name)
   "Return a short description of VARIABLE-NAME, or NIL."
   (with-buffer-syntax ()
@@ -2011,6 +1991,26 @@ by adding a template for the missing arguments."
           (list completion-set
                 (longest-completion completion-set)))))))
            
+
+(defun arglist-to-string (arglist package &key print-right-margin highlight)
+  (decoded-arglist-to-string (decode-arglist arglist)
+                             package
+                             :print-right-margin print-right-margin
+                             :highlight highlight))
+
+(defun test-print-arglist (list string)
+  (string= (arglist-to-string list (find-package :swank)) string))
+
+;; Should work:
+(progn
+  (assert (test-print-arglist '(function cons) "(function cons)"))
+  (assert (test-print-arglist '(quote cons) "(quote cons)"))
+  (assert (test-print-arglist '(&key (function #'+)) "(&key (function #'+))"))
+  (assert (test-print-arglist '(&whole x y z) "(y z)"))
+  (assert (test-print-arglist '(x &aux y z) "(x)"))
+  (assert (test-print-arglist '(x &environment env y) "(x y)")))
+;; Expected failure:
+;; (assert (test-print-arglist '(&key ((function f))) "(&key ((function f)))"))
 
 
 ;;;; Recording and accessing results of computations
