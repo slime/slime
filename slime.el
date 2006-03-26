@@ -10046,7 +10046,8 @@ levels of parens."
                      (<= level max-levels))
             (let ((arg-index 0))
               ;; Move to the beginning of the current sexp if not already there.
-              (if (or (member (char-syntax (char-after)) '(?\( ?'))
+              (if (or (and (char-after)
+                           (member (char-syntax (char-after)) '(?\( ?')))
                       (member (char-syntax (char-before)) '(?\  ?>)))
                   (incf arg-index))
               (ignore-errors
