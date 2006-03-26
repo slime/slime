@@ -5268,7 +5268,7 @@ more than one space."
     (let ((font-lock-verbose nil))
       (font-lock-fontify-buffer))
     (goto-char (point-min))
-    (when (re-search-forward "===> \\(.*\\) <===" nil t)
+    (when (re-search-forward "===> \\(\\(.\\|\n\\)*\\) <===" nil t)
       (let ((highlight (propertize (match-string 1) 'face 'highlight)))
         ;; Can't use (replace-match highlight) here -- broken in Emacs 21
         (delete-region (match-beginning 0) (match-end 0))
@@ -5407,6 +5407,24 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
     (setq slime-autodoc-last-message doc)
     (message "%s" doc))))
 
+(defun slime-autodoc-message-dimensions ()
+  "Return the available width and height for pretty printing autodoc
+messages."
+  (cond
+   ((slime-typeout-active-p)
+    ;; Use the full width of the typeout window;
+    ;; we don't care about the height, as typeout window can be scrolled
+    (values (window-width slime-typeout-window)
+            nil))
+   (slime-autodoc-use-multiline-p 
+    ;; Use the full width of the minibuffer;
+    ;; minibuffer will grow vertically if necessary
+    (values (window-width (minibuffer-window))
+            nil))
+   (t
+    ;; Try to fit everything in one line; we cut off when displaying
+    (values 1000 1))))
+
 (defun slime-autodoc-pre-command-refresh-echo-area ()
   (unless (string= slime-autodoc-last-message "")
     (if (slime-autodoc-message-ok-p)
@@ -5428,12 +5446,12 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
                               designator)
                             arg-index))
                          operators arg-indices)
-                `(swank:arglist-for-echo-area ',operators
-                                              :arg-indices
-                                              ',arg-indices
-                                              :print-right-margin 
-                                              ,(window-width
-                                                (minibuffer-window))))))))
+                (multiple-value-bind (width height)
+                    (slime-autodoc-message-dimensions)
+                  `(swank:arglist-for-echo-area ',operators
+                                                :arg-indices ',arg-indices
+                                                :print-right-margin ,width
+                                                :print-lines ,height)))))))
 
 (defun slime-autodoc-global-at-point ()
   "Return the global variable name at point, if any."
@@ -10029,7 +10047,7 @@ levels of parens."
             (let ((arg-index 0))
               ;; Move to the beginning of the current sexp if not already there.
               (if (or (member (char-syntax (char-after)) '(?\( ?'))
-                      (= (char-syntax (char-before)) ?\ ))
+                      (member (char-syntax (char-before)) '(?\  ?>)))
                   (incf arg-index))
               (ignore-errors
                 (backward-sexp 1))
