@@ -6924,15 +6924,20 @@ having names in the given package."
 
 (defun slime-hyperspec-lookup (symbol-name)
   "A wrapper for `hyperspec-lookup'"
-  (interactive (list (let ((symbol-at-point (slime-symbol-name-at-point)))
-                       (if (and symbol-at-point
-                                (intern-soft (downcase symbol-at-point)
+  (interactive (list (let* ((symbol-at-point (slime-symbol-name-at-point))
+                            (stripped-symbol 
+                             (and symbol-at-point
+                                  (downcase
+                                   (common-lisp-hyperspec-strip-cl-package 
+                                    symbol-at-point)))))
+                       (if (and stripped-symbol
+                                (intern-soft stripped-symbol
                                              common-lisp-hyperspec-symbols))
-                           symbol-at-point
+                           stripped-symbol
                          (completing-read
                           "Look up symbol in Common Lisp HyperSpec: "
                           common-lisp-hyperspec-symbols #'boundp
-                          t symbol-at-point
+                          t stripped-symbol
                           'common-lisp-hyperspec-history)))))
   (hyperspec-lookup symbol-name))
   
