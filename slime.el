@@ -1283,6 +1283,18 @@ See `slime-filename-translations'."
                (slime-machine-instance)))
       filename))
 
+(defun slime-make-tramp-file-name (username remote-host lisp-filename)
+  "Old (with multi-hops) tramp compatability function"
+  (if (boundp 'tramp-multi-methods)
+      (tramp-make-tramp-file-name nil nil
+                                  username
+                                  remote-host
+                                  lisp-filename)
+      (tramp-make-tramp-file-name nil
+                                  username
+                                  remote-host
+                                  lisp-filename)))
+
 (defun* slime-create-filename-translator (&key machine-instance
                                          remote-host
                                          username)
@@ -1306,7 +1318,7 @@ The functions created here expect your tramp-default-method or
             (tramp-file-name-localname
              (tramp-dissect-file-name emacs-filename)))
           `(lambda (lisp-filename)
-            (tramp-make-tramp-file-name nil
+            (slime-make-tramp-file-name
              ,username
              ,remote-host
              lisp-filename)))))
