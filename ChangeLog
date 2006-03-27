@@ -1,3 +1,13 @@
+2006-03-27  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* hyperspec.el (common-lisp-hyperspec-strip-cl-package): New
+	function.
+	(common-lisp-hyperspec): Don't get confused by a cl: or
+	common-lisp: package prefix.
+
+	* slime.el (slime-hyperspec-lookup): Don't get confused by a cl:
+	or common-lisp: package prefix.
+
 2006-03-26  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-enclosing-operator-names): Fix for situation
