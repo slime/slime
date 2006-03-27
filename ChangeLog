@@ -1,3 +1,11 @@
+2006-03-27  Marco Baringer  <mb@bese.it>
+
+	* slime.el (slime-make-tramp-file-name): If emcas' tramp has
+	tramp-multi-methods then pass the method parameter to
+	tramp-make-tramp-file-name, otherwise don't.
+	(slime-create-filename-translator): Use
+	slime-make-tramp-file-name.
+
 2006-03-27  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* hyperspec.el (common-lisp-hyperspec-strip-cl-package): New
