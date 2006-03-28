@@ -1,5 +1,11 @@
 2006-03-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
+	* swank.lisp (multiple-value-or): New macro.
+
+	* slime.el (slime-recently-visited-buffer): Ignore internal
+	buffers (starting with a space), to avoid selecting the
+	*slime-fontify* buffer.  Reported by Andreas Fuchs.
+
 	* slime.el (slime-enclosing-operator-names): Handle forms similar
 	to make-instance (make-condition, error, etc.), to get extra
 	keywords based on the condition class.
@@ -8,7 +14,7 @@
 	to make-instance (make-condition, error, etc.)
 	(extra-keywords/make-instance): New function.
 	(extra-keywords): Specialize on operators make-condition, error,
-	signal, warn, cerror.
+	signal, warn, cerror.  Use multiple-value-or.
 
 2006-03-27  Marco Baringer  <mb@bese.it>
 
