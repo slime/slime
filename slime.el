@@ -8966,6 +8966,7 @@ BODY is a series of forms which must return the buffer to be selected."
 Only considers buffers that are not already visible."
   (loop for buffer in (buffer-list)
         when (and (with-current-buffer buffer (eq major-mode mode))
+                  (not (string-match "^ " (buffer-name buffer)))
                   (null (get-buffer-window buffer 'visible)))
         return buffer
         finally (error "Can't find unshown buffer in %S" mode)))
