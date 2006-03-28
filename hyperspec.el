@@ -60,6 +60,16 @@ or \"Symbol-Table.text\".")
 
 (defvar common-lisp-hyperspec-symbols (make-vector 67 0))
 
+(defun common-lisp-hyperspec-strip-cl-package (name)
+  (if (string-match "^\\([^:]*\\)::?\\([^:]*\\)$" name)
+      (let ((package-name (match-string 1 name))
+	    (symbol-name (match-string 2 name)))
+	(if (member (downcase package-name) 
+		    '("cl" "common-lisp"))
+	    symbol-name
+	  name))
+    name))
+
 (defun common-lisp-hyperspec (symbol-name)
   "View the documentation on SYMBOL-NAME from the Common Lisp HyperSpec.
 If SYMBOL-NAME has more than one definition, all of them are displayed with
@@ -73,22 +83,29 @@ the entire Common Lisp HyperSpec to your own site under certain conditions.
 Visit http://www.lispworks.com/reference/HyperSpec/ for more information.
 If you copy the HyperSpec to another location, customize the variable
 `common-lisp-hyperspec-root' to point to that location."
-  (interactive (list (let ((symbol-at-point (thing-at-point 'symbol)))
-                       (if (and symbol-at-point
-                                (intern-soft (downcase symbol-at-point)
+  (interactive (list (let* ((symbol-at-point (thing-at-point 'symbol))
+			    (stripped-symbol 
+			     (and symbol-at-point
+				  (downcase
+				   (common-lisp-hyperspec-strip-cl-package 
+				    symbol-at-point)))))
+                       (if (and stripped-symbol
+                                (intern-soft stripped-symbol
                                              common-lisp-hyperspec-symbols))
-                           symbol-at-point
+                           stripped-symbol
                          (completing-read
                           "Look up symbol in Common Lisp HyperSpec: "
                           common-lisp-hyperspec-symbols #'boundp
-                          t symbol-at-point
+                          t stripped-symbol
                           'common-lisp-hyperspec-history)))))
   (maplist (lambda (entry)
              (browse-url (concat common-lisp-hyperspec-root "Body/" (car entry)))
              (if (cdr entry)
                  (sleep-for 1.5)))
-           (let ((symbol (intern-soft (downcase symbol-name)
-                                      common-lisp-hyperspec-symbols)))
+           (let ((symbol (intern-soft 
+			  (common-lisp-hyperspec-strip-cl-package 
+			   (downcase symbol-name))
+			  common-lisp-hyperspec-symbols)))
              (if (and symbol (boundp symbol))
                  (symbol-value symbol)
                (error "The symbol `%s' is not defined in Common Lisp"
