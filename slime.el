@@ -10079,8 +10079,7 @@ levels of parens."
                 (when-let (name (slime-symbol-name-at-point))
                   ;; Detect MAKE-INSTANCE forms and collect the class-name
                   ;; if exists and is a quoted symbol.
-                  (let ((symbol-name (upcase (slime-cl-symbol-name name)))
-                        (package (upcase (slime-cl-symbol-package name))))
+                  (let ((symbol-name (upcase (slime-cl-symbol-name name))))
                     (ignore-errors
                       (cond
                        ((member symbol-name
