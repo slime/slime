@@ -1408,9 +1408,10 @@ Return the package or nil."
   (etypecase name
     (cons
      (destructure-case name
-       ((:make-instance class-name)
-        (values `(make-instance ',(parse-symbol class-name))
-                'make-instance))
+       ((:make-instance class-name operator-name)
+        (let ((parsed-operator-name (parse-symbol operator-name)))
+          (values `(,parsed-operator-name ',(parse-symbol class-name))
+                  operator-name)))
        ((:defmethod generic-name)
         (values `(defmethod ,(parse-symbol generic-name))
                 'defmethod))))
@@ -1758,8 +1759,8 @@ to determine the extra keywords."))
         (generic-function-keywords symbol-function)
         nil)))
 
-(defmethod extra-keywords ((operator (eql 'make-instance))
-                           &rest args)
+(defun extra-keywords/make-instance (operator &rest args)
+  (declare (ignore operator))
   (unless (null args)
     (let ((class-name-form (car args)))
       (when (and (listp class-name-form)
@@ -1792,12 +1793,42 @@ to determine the extra keywords."))
                     (initialize-instance-keywords
                      (applicable-methods-keywords #'initialize-instance 
                                                   (list class))))
-                (return-from extra-keywords
+                (return-from extra-keywords/make-instance
                   (values (append slot-init-keywords 
                                   initialize-instance-keywords)
                           allow-other-keys-p
-                          (list class-name-form))))))))))
-  (call-next-method))
+                          (list class-name-form)))))))))))
+
+(defmethod extra-keywords ((operator (eql 'make-instance))
+                           &rest args)
+  (or (apply #'extra-keywords/make-instance operator args)
+      (call-next-method)))
+
+(defmethod extra-keywords ((operator (eql 'make-condition))
+                           &rest args)
+  (or (apply #'extra-keywords/make-instance operator args)
+      (call-next-method)))
+
+(defmethod extra-keywords ((operator (eql 'error))
+                           &rest args)
+  (or (apply #'extra-keywords/make-instance operator args)
+      (call-next-method)))
+
+(defmethod extra-keywords ((operator (eql 'signal))
+                           &rest args)
+  (or (apply #'extra-keywords/make-instance operator args)
+      (call-next-method)))
+
+(defmethod extra-keywords ((operator (eql 'warn))
+                           &rest args)
+  (or (apply #'extra-keywords/make-instance operator args)
+      (call-next-method)))
+
+(defmethod extra-keywords ((operator (eql 'cerror))
+                           &rest args)
+  (or (apply #'extra-keywords/make-instance operator
+             (cdr args))
+      (call-next-method)))
 
 (defun enrich-decoded-arglist-with-extra-keywords (decoded-arglist form)
   "Determine extra keywords from the function call FORM, and modify
