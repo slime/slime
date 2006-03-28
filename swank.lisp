@@ -1799,36 +1799,47 @@ to determine the extra keywords."))
                           allow-other-keys-p
                           (list class-name-form)))))))))))
 
+(defmacro multiple-value-or (&rest forms)
+  (if (null forms)
+      nil
+      (let ((first (first forms))
+            (rest (rest forms)))
+        `(let* ((values (multiple-value-list ,first))
+                (primary-value (first values)))
+          (if primary-value
+              (values-list values)
+              (multiple-value-or ,@rest))))))
+
 (defmethod extra-keywords ((operator (eql 'make-instance))
                            &rest args)
-  (or (apply #'extra-keywords/make-instance operator args)
-      (call-next-method)))
+  (multiple-value-or (apply #'extra-keywords/make-instance operator args)
+                     (call-next-method)))
 
 (defmethod extra-keywords ((operator (eql 'make-condition))
                            &rest args)
-  (or (apply #'extra-keywords/make-instance operator args)
-      (call-next-method)))
+  (multiple-value-or (apply #'extra-keywords/make-instance operator args)
+                     (call-next-method)))
 
 (defmethod extra-keywords ((operator (eql 'error))
                            &rest args)
-  (or (apply #'extra-keywords/make-instance operator args)
-      (call-next-method)))
+  (multiple-value-or (apply #'extra-keywords/make-instance operator args)
+                     (call-next-method)))
 
 (defmethod extra-keywords ((operator (eql 'signal))
                            &rest args)
-  (or (apply #'extra-keywords/make-instance operator args)
-      (call-next-method)))
+  (multiple-value-or (apply #'extra-keywords/make-instance operator args)
+                     (call-next-method)))
 
 (defmethod extra-keywords ((operator (eql 'warn))
                            &rest args)
-  (or (apply #'extra-keywords/make-instance operator args)
-      (call-next-method)))
+  (multiple-value-or (apply #'extra-keywords/make-instance operator args)
+                     (call-next-method)))
 
 (defmethod extra-keywords ((operator (eql 'cerror))
                            &rest args)
-  (or (apply #'extra-keywords/make-instance operator
-             (cdr args))
-      (call-next-method)))
+  (multiple-value-or (apply #'extra-keywords/make-instance operator
+                            (cdr args))
+                     (call-next-method)))
 
 (defun enrich-decoded-arglist-with-extra-keywords (decoded-arglist form)
   "Determine extra keywords from the function call FORM, and modify
