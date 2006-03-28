@@ -10079,21 +10079,24 @@ levels of parens."
                 (when-let (name (slime-symbol-name-at-point))
                   ;; Detect MAKE-INSTANCE forms and collect the class-name
                   ;; if exists and is a quoted symbol.
-                  (ignore-errors
-                    (cond
-                     ((member (upcase name) '("MAKE-INSTANCE" 
-                                              "CL:MAKE-INSTANCE"))
-                      (forward-char (1+ (length name)))
-                      (slime-forward-blanks)
-                      (let ((str (slime-sexp-at-point)))
-                        (when (= (aref str 0) ?')
-                          (setq name (list :make-instance (substring str 1))))))
-                     ((member (upcase name) '("DEFMETHOD"
-                                              "CL:DEFMETHOD"))
-                      (forward-char (1+ (length name))) 
-                      (slime-forward-blanks)
-                      (let ((str (slime-sexp-at-point)))
-                        (setq name (list :defmethod str))))))
+                  (let ((symbol-name (upcase (slime-cl-symbol-name name)))
+                        (package (upcase (slime-cl-symbol-package name))))
+                    (ignore-errors
+                      (cond
+                       ((member symbol-name
+                                '("MAKE-INSTANCE" "MAKE-CONDITION"
+                                  "ERROR" "SIGNAL" "WARN"))
+                        (forward-char (1+ (length name)))
+                        (slime-forward-blanks)
+                        (let ((str (slime-sexp-at-point)))
+                          (when (= (aref str 0) ?')
+                            (setq name (list :make-instance (substring str 1)
+                                             name)))))
+                       ((member symbol-name '("DEFMETHOD"))
+                        (forward-char (1+ (length name))) 
+                        (slime-forward-blanks)
+                        (let ((str (slime-sexp-at-point)))
+                          (setq name (list :defmethod str)))))))
                   (push name result)
                   (push arg-index arg-indices))
                 (backward-up-list 1)))))))
