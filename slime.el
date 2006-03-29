@@ -3040,6 +3040,8 @@ joined together."))
   (add-hook 'kill-buffer-hook 'slime-repl-safe-save-merged-history nil t)
   (add-hook 'kill-emacs-hook 'slime-repl-save-all-histories)
   (slime-setup-command-hooks)
+  (when slime-use-autodoc-mode 
+    (slime-autodoc-mode 1))
   (run-hooks 'slime-repl-mode-hook))
 
 (defun slime-presentation-whole-p (presentation start end &optional object)
