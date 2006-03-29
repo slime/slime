@@ -1,3 +1,8 @@
+2006-03-29  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-repl-mode): Enable autodoc-mode if
+	slime-use-autodoc-mode is true.
+
 2006-03-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* swank.lisp (multiple-value-or): New macro.
