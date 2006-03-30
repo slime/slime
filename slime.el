@@ -1266,7 +1266,7 @@ See `slime-filename-translations'."
            filename))
 
 (defun slime-find-filename-translators (hostname)
-  (or (assoc-default hostname slime-filename-translations)
+  (or (assoc-default hostname slime-filename-translations #'string-match)
       (error "No filename-translations for hostname: %s" hostname)))
 
 (defun slime-make-tramp-file-name (username remote-host lisp-filename)
