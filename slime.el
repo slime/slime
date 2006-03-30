@@ -1256,32 +1256,18 @@ the point moving and they can't be restored."
 (defun slime-to-lisp-filename (filename)
   "Translate the string FILENAME to a Lisp filename.
 See `slime-filename-translations'."
-  (if (slime-connected-p)
-      (block slime-to-lisp-filename
-        (dolist (translation-spec slime-filename-translations)
-          (let ((hostname-regexp (car translation-spec))
-                (to-lisp (second translation-spec)))
-            (when (string-match hostname-regexp (slime-machine-instance))
-              (return-from slime-to-lisp-filename (funcall to-lisp (expand-file-name filename))))))
-        (error "No elements in slime-filename-translations (%S) matched the connection's hostname (%S)"
-               slime-filename-translations
-               (slime-machine-instance)))
-      filename))
+  (funcall (first (slime-find-filename-translators (slime-machine-instance)))
+           (expand-file-name filename)))
 
 (defun slime-from-lisp-filename (filename)
   "Translate the Lisp filename FILENAME to an Emacs filename.
 See `slime-filename-translations'."
-  (if (slime-connected-p)
-      (block slime-from-lisp-filename
-        (dolist (translation-spec slime-filename-translations)
-          (let ((hostname-regexp (car translation-spec))
-                (from-lisp (third translation-spec)))
-            (when (string-match hostname-regexp (slime-machine-instance))
-              (return-from slime-from-lisp-filename (funcall from-lisp filename)))))
-        (error "No elements in slime-filename-translations (%S) matched the connection's hostname (%S)"
-               slime-filename-translations
-               (slime-machine-instance)))
-      filename))
+  (funcall (second (slime-find-filename-translators (slime-machine-instance)))
+           filename))
+
+(defun slime-find-filename-translators (hostname)
+  (or (assoc-default hostname slime-filename-translations)
+      (error "No filename-translations for hostname: %s" hostname)))
 
 (defun slime-make-tramp-file-name (username remote-host lisp-filename)
   "Old (with multi-hops) tramp compatability function"
@@ -1577,18 +1563,16 @@ Return the created process."
   (with-current-buffer (process-buffer process)
     slime-inferior-lisp-args))
 
-;; XXX load-server & start-server used to separated. maybe that was  better.
+;; XXX load-server & start-server used to be separated. maybe that was  better.
 (defun slime-init-command (port-filename coding-system)
   "Return a string to initialize Lisp."
-  (let ((loader 
-         (slime-to-lisp-filename (if (file-name-absolute-p slime-backend)
-                                     slime-backend
-                                   (concat slime-path slime-backend))))
-        (encoding (slime-coding-system-cl-name coding-system))
-        (filename (slime-to-lisp-filename port-filename)))
+  (let ((loader (if (file-name-absolute-p slime-backend)
+                    slime-backend
+                  (concat slime-path slime-backend)))
+        (encoding (slime-coding-system-cl-name coding-system)))
     (format "%S\n%S\n\n"
             `(load ,loader :verbose t)
-            `(swank:start-server ,filename :external-format ,encoding))))
+            `(swank:start-server ,port-filename :external-format ,encoding))))
 
 (defun slime-swank-port-file ()
   "Filename where the SWANK server writes its TCP port number."
@@ -7335,14 +7319,13 @@ When displaying XREF information, this goes to the next reference."
     nil
   " temp"
   '(("q" . slime-temp-buffer-quit)
-    ("g" . slime-macroexpand-again))
-  (flet ((remap (from to)
-           (dolist (mapping (where-is-internal from slime-mode-map))
-             (define-key slime-macroexpansion-minor-mode-map
-                 mapping
-               to))))
-    (remap 'slime-macroexpand-1 'slime-macroexpand-1-inplace)
-    (remap 'slime-macroexpand-all 'slime-macroexpand-all-inplace)))
+    ("g" . slime-macroexpand-again)))
+
+(flet ((remap (from to)
+              (dolist (mapping (where-is-internal from slime-mode-map))
+                (define-key slime-macroexpansion-minor-mode-map mapping to))))
+  (remap 'slime-macroexpand-1 'slime-macroexpand-1-inplace)
+  (remap 'slime-macroexpand-all 'slime-macroexpand-all-inplace))
 
 (defvar slime-eval-macroexpand-expression nil
   "Specifies the last macroexpansion preformed. This variable
