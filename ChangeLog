@@ -1,3 +1,11 @@
+2006-03-30  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-init-command): Don't translate filenames since
+	the new scheme doesn't work without a connection.
+	(slime-to-lisp-filename,slime-from-lisp-filename): Remove some
+	redundancy.
+	(slime-macroexpansion-minor-mode): Make it Emacs 20 compatible.
+
 2006-03-29  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-repl-mode): Enable autodoc-mode if
