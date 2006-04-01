@@ -5267,7 +5267,9 @@ more than one space."
       (font-lock-fontify-buffer))
     (goto-char (point-min))
     (when (re-search-forward "===> \\(\\(.\\|\n\\)*\\) <===" nil t)
-      (let ((highlight (propertize (match-string 1) 'face 'highlight)))
+      (let ((highlight (copy-sequence (match-string 1))))
+        ;;maintain compatibility with emacs 20.x
+        (set-text-properties 0 (length highlight) '(face highlight) highlight)
         ;; Can't use (replace-match highlight) here -- broken in Emacs 21
         (delete-region (match-beginning 0) (match-end 0))
         (insert highlight)))
