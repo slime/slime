@@ -5267,13 +5267,11 @@ more than one space."
       (font-lock-fontify-buffer))
     (goto-char (point-min))
     (when (re-search-forward "===> \\(\\(.\\|\n\\)*\\) <===" nil t)
-      (let ((highlight (copy-sequence (match-string 1))))
-        ;;maintain compatibility with emacs 20.x
-        (set-text-properties 0 (length highlight) '(face highlight) highlight)
+      (let ((highlight (match-string 1)))
         ;; Can't use (replace-match highlight) here -- broken in Emacs 21
         (delete-region (match-beginning 0) (match-end 0))
-        (insert highlight)))
-    (buffer-substring (point-min) (point-max))))    
+	(slime-insert-propertized '(face highlight) highlight)))
+    (buffer-substring (point-min) (point-max))))
 
 (defun slime-echo-arglist ()
   "Display the arglist of the current form in the echo area."
