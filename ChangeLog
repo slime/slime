@@ -1,3 +1,16 @@
+2006-04-12  Robert Macomber <slime@rojoma.com>
+	* swank-backend.lisp (make-recursive-lock): New interface
+	function.
+	(call-with-recursive-lock-held): New interface function. 
+	
+	* swank-grey.lisp (class slime-output-stream): Added recursive
+	locking to class and generic functions specialized on it.
+	(clss slime-input-stream): Added recursive locking to class and
+	generic functions specialized on it.
+
+	* swank-sbcl.lisp (make-recursive-lock): Implement the new interface.
+	(call-with-recursive-lock): Implement the new interface.
+		
 2006-04-01  Matthew D. Swank <akopa@charter.net>
 
 	* slime.el (slime-fontify-string): Use set-text-properties, not

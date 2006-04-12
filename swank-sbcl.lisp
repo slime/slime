@@ -1136,6 +1136,13 @@ stack."
     (declare (type function function))
     (sb-thread:with-mutex (lock) (funcall function)))
 
+  (defimplementation make-recursive-lock (&key name)
+    (sb-thread:make-mutex :name name))
+
+  (defimplementation call-with-recursive-lock-held (lock function)
+    (declare (type function function))
+    (sb-thread:with-recursive-lock (lock) (funcall function)))
+
   (defimplementation current-thread ()
     sb-thread:*current-thread*)
 
