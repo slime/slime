@@ -175,13 +175,13 @@ recompiled."
 
 (defun load-site-init-file (directory)
   (load (make-pathname :name "site-init" :type "lisp"
-                       :directory (pathname-directory directory))
+                       :defaults directory)
         :if-does-not-exist nil))
 
 (defun swank-source-files (source-directory)
   (mapcar (lambda (name)
             (make-pathname :name name :type "lisp"
-                           :directory (pathname-directory source-directory)))
+                           :defaults source-directory))
           `("swank-backend" ,@*sysdep-files* "swank")))
 
 (defvar *fasl-directory* (default-fasl-directory)
