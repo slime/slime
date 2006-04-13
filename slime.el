@@ -1266,7 +1266,8 @@ See `slime-filename-translations'."
            filename))
 
 (defun slime-find-filename-translators (hostname)
-  (or (assoc-default hostname slime-filename-translations #'string-match)
+  (or (cdr (assoc-if (lambda (regexp) (string-match regexp hostname))
+                     slime-filename-translations))
       (error "No filename-translations for hostname: %s" hostname)))
 
 (defun slime-make-tramp-file-name (username remote-host lisp-filename)
@@ -4382,15 +4383,10 @@ buffer's working directory"
      ,(if (buffer-file-name) (file-name-directory (buffer-file-name))))
    (slime-compilation-finished-continuation)))
 
-(defvar slime-hide-style-warning-count-if-zero t)
-
 (defun slime-note-count-string (severity count &optional suppress-if-zero)
   (cond ((and (zerop count) suppress-if-zero)
          "")
         (t (format "%2d %s%s " count severity (if (= count 1) "" "s")))))
-
-(defvar slime-note-counts-message ""
-  "A string that contains a summary of the compilation notes.")
 
 (defun slime-show-note-counts (notes &optional secs)
   (let ((nerrors 0) (nwarnings 0) (nstyle-warnings 0) (nnotes 0))
@@ -4400,15 +4396,12 @@ buffer's working directory"
         (:warning             (incf nwarnings))
         (:style-warning       (incf nstyle-warnings))
         (:note                (incf nnotes))))
-    (setq slime-note-counts-message
-          (format "Compilation finished:%s%s%s%s%s"
-                  (slime-note-count-string "error" nerrors)
-                  (slime-note-count-string "warning" nwarnings)
-                  (slime-note-count-string "style-warning" nstyle-warnings 
-                                           slime-hide-style-warning-count-if-zero)
-                  (slime-note-count-string "note" nnotes)
-                  (if secs (format "[%s secs]" secs) "")))
-    (message "%s" slime-note-counts-message)))
+    (message "Compilation finished:%s%s%s%s%s"
+             (slime-note-count-string "error" nerrors)
+             (slime-note-count-string "warning" nwarnings)
+             (slime-note-count-string "style-warning" nstyle-warnings t)
+             (slime-note-count-string "note" nnotes)
+             (if secs (format "[%s secs]" secs) ""))))
 
 (defun slime-xrefs-for-notes (notes)
   (let ((xrefs))
@@ -4460,11 +4453,10 @@ Each newlines and following indentation is replaced by a single space."
 (defun slime-highlight-notes (notes)
   "Highlight compiler notes, warnings, and errors in the buffer."
   (interactive (list (slime-compiler-notes)))
-  (message "%s.  Highlighting notes..." slime-note-counts-message)
-  (save-excursion
-    (slime-remove-old-overlays)
-    (mapc #'slime-overlay-note (slime-merge-notes-for-display notes)))
-  (message "%s.  Highlighting notes...done." slime-note-counts-message))
+  (with-temp-message "Highlighting notes..."
+    (save-excursion
+      (slime-remove-old-overlays)
+      (mapc #'slime-overlay-note (slime-merge-notes-for-display notes)))))
 
 (defun slime-compiler-notes ()
   "Return all compiler notes, warnings, and errors."
@@ -4559,22 +4551,20 @@ The order of the input list is preserved."
 (defun slime-list-compiler-notes (&optional notes)
   "Show the compiler notes NOTES in tree view."
   (interactive)
-  (message "%s.  Preparing compiler note tree..." 
-           slime-note-counts-message)
-  (let ((notes (or notes (slime-compiler-notes))))
-    (with-current-buffer
-        (slime-get-temp-buffer-create "*compiler notes*"
-                                      :mode 'slime-compiler-notes-mode)
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (when (null notes)
-          (insert "[no notes]"))
-        (dolist (tree (slime-compiler-notes-to-tree notes))
-          (slime-tree-insert tree "")
-          (insert "\n")))
-      (setq buffer-read-only t)
-      (goto-char (point-min))))
-  (message "%s" slime-note-counts-message))
+  (with-temp-message "Preparing compiler note tree..."
+    (let ((notes (or notes (slime-compiler-notes))))
+      (with-current-buffer
+          (slime-get-temp-buffer-create "*compiler notes*"
+                                        :mode 'slime-compiler-notes-mode)
+        (let ((inhibit-read-only t))
+          (erase-buffer)
+          (when (null notes)
+            (insert "[no notes]"))
+          (dolist (tree (slime-compiler-notes-to-tree notes))
+            (slime-tree-insert tree "")
+            (insert "\n")))
+        (setq buffer-read-only t)
+        (goto-char (point-min))))))
 
 (defun slime-alistify (list key test)
   "Partition the elements of LIST into an alist.  KEY extracts the key
@@ -9974,7 +9964,7 @@ package is used."
   (when (slime-point-moves-p
           (while (slime-point-moves-p 
                    (skip-syntax-backward "w_")
-                   (when (char-equal (char-before) ?|)
+                   (when (eq (char-before) ?|)
                      (backward-sexp)))))
     (when (eq (char-before) ?#) ; special case for things like "#<foo"
       (forward-char))))
@@ -10327,6 +10317,21 @@ If they are not, position point at the first syntax error found."
            (t
             (or (getenv "TMPDIR") (getenv "TMP") (getenv "TEMP") "/tmp"))))
     "The directory for writing temporary files."))
+
+(unless (fboundp 'with-temp-message)
+  (defmacro with-temp-message (message &rest body)
+    (let ((current-message (make-symbol "current-message"))
+          (temp-message (make-symbol "with-temp-message")))
+      `(let ((,temp-message ,message)
+             (,current-message))
+         (unwind-protect
+             (progn
+               (when ,temp-message
+                 (setq ,current-message (current-message))
+                 (message "%s" ,temp-message))
+               ,@body)
+           (and ,temp-message ,current-message
+                (message "%s" ,current-message)))))))
 
 (defun slime-emacs-20-p ()
   (and (not (featurep 'xemacs))
