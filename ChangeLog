@@ -1,3 +1,14 @@
+2006-04-13  Helmut Eller  <helmut@common-lisp.net>
+
+	* slime.el (slime-find-filename-translators): Use assoc-if instead
+	of assoc-default for XEmacs compatibility.
+	(slime-show-note-counts): Don't show the highlighting bit as it
+	spills of the screen.
+	(slime-highlight-notes): Use with-temp-message.
+	(with-temp-message): Define it for XEmacs.
+	(slime-beginning-of-symbol): Use eq instead of char-equal as
+	char-equal signals an error at the beginning of a buffer.
+	
 2006-04-13  Douglas Crosher <dcrosher@common-lisp.net>
 
 	* swank-scl (make-socket-io-stream): set the stream to ignore
@@ -16,6 +27,7 @@
 	error.
 
 2006-04-12  Robert Macomber <slime@rojoma.com>
+
 	* swank-backend.lisp (make-recursive-lock): New interface
 	function.
 	(call-with-recursive-lock-held): New interface function. 
