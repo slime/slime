@@ -12,26 +12,10 @@
 
 ;;; swank-mop
 
-(import-swank-mop-symbols :clos '(:slot-definition-documentation
-                                  :eql-specializer
-                                  :eql-specializer-object))
+(import-swank-mop-symbols :clos '(:slot-definition-documentation))
 
 (defun swank-mop:slot-definition-documentation (slot)
-  (slot-value slot 'documentation))
-
-(defun swank-mop:specializer-direct-methods (obj)
-  (declare (ignore obj))
-  nil)
-
-(deftype swank-mop:eql-specializer ()
-  '(or kernel:member-type kernel:numeric-type))
-
-(defun swank-mop:eql-specializer-object (obj)
-  (etypecase obj
-    (kernel:numeric-type
-     (kernel:type-specifier obj))
-    (kernel:member-type
-     (first (kernel:member-type-members obj)))))
+  (documentation slot t))
 
 
 ;;;; TCP server
@@ -94,10 +78,15 @@
 
 (defun make-socket-io-stream (fd external-format buffering)
   "Create a new input/output fd-stream for 'fd."
-  (let ((external-format (find-external-format external-format)))
-    (sys:make-fd-stream fd :input t :output t :element-type 'base-char
-                        :buffering buffering
-                        :external-format external-format)))
+  (let* ((external-format (find-external-format external-format))
+         (stream (sys:make-fd-stream fd :input t :output t
+                                     :element-type 'base-char
+                                     :buffering buffering
+                                     :external-format external-format)))
+    ;; Ignore character conversion errors.  Without this the communication
+    ;; channel is prone to lockup if a character conversion error occurs.
+    (setf (cl::stream-character-conversion-error-value stream) #\?)
+    stream))
 
 
 ;;;; Stream handling
@@ -1762,23 +1751,6 @@ The `symbol-value' of each element is a type tag.")
 	(t
          (scl-inspect o))))
 
-(defimplementation inspect-for-emacs ((o standard-object)
-                                      (inspector scl-inspector))
-  (declare (ignore inspector))
-  (let ((c (class-of o)))
-    (values "An object."
-            `("Class: " (:value ,c) (:newline)
-              "Slots:" (:newline)
-              ,@(loop for slotd in (clos:class-slots c)
-                      for name = (clos:slot-definition-name slotd)
-                      collect `(:value ,slotd ,(string name))
-                      collect " = "
-                      collect (if (clos:slot-boundp-using-class c o name)
-                                  `(:value ,(clos:slot-value-using-class 
-                                             c o name))
-                                  "#<unbound>")
-                      collect '(:newline))))))
-
 (defun scl-inspect (o)
   (destructuring-bind (text labeledp . parts)
       (inspect::describe-parts o)
@@ -1809,7 +1781,8 @@ The `symbol-value' of each element is a type tag.")
                    (append 
                     (label-value-line "Function" (kernel:%closure-function o))
                     `("Environment:" (:newline))
-                    (loop for i from 0 below (1- (kernel:get-closure-length o))
+                    (loop for i from 0 below (- (kernel:get-closure-length o)
+                                                (1- vm:closure-info-offset))
                           append (label-value-line 
                                   i (kernel:%closure-index-ref o i))))))
           ((eval::interpreted-function-p o)
@@ -1999,9 +1972,9 @@ The `symbol-value' of each element is a type tag.")
 (defvar *mailbox-lock* (thread:make-lock "Mailbox lock"))
   
 (defstruct (mailbox)
-  (lock (thread:make-lock "Thread mailbox" :type :error-check)
+  (lock (thread:make-lock "Thread mailbox" :type :error-check
+                          :interruptible nil)
         :type thread:error-check-lock)
-  (cond-var (thread:make-cond-var "Thread mailbox") :type thread:cond-var)
   (queue '() :type list))
 
 (defun mailbox (thread)
@@ -2012,22 +1985,31 @@ The `symbol-value' of each element is a type tag.")
   
 (defimplementation send (thread message)
   (let* ((mbox (mailbox thread))
-         (lock (mailbox-lock mbox))
-         (cond-var (mailbox-cond-var mbox)))
-    (thread:with-lock-held (lock "Mailbox Send")
-      (setf (mailbox-queue mbox) (nconc (mailbox-queue mbox) (list message)))
-      (thread:cond-var-broadcast cond-var))
+         (lock (mailbox-lock mbox)))
+    (sys:without-interrupts
+      (thread:with-lock-held (lock "Mailbox Send")
+        (setf (mailbox-queue mbox) (nconc (mailbox-queue mbox)
+                                          (list message)))))
+    (mp:process-wakeup thread)
     message))
   
 (defimplementation receive ()
   (let* ((mbox (mailbox thread:*thread*))
-         (lock (mailbox-lock mbox))
-         (cond-var (mailbox-cond-var mbox)))
-    (thread:with-lock-held (lock "Mailbox Receive")
-      (loop
-       (when (mailbox-queue mbox)
-         (return (pop (mailbox-queue mbox))))
-       (thread:cond-var-timedwait cond-var lock 10 "Mailbox receive wait")))))
+         (lock (mailbox-lock mbox)))
+    (loop
+     (mp:process-wait-with-timeout "Mailbox read wait" 1
+                                   #'(lambda () (mailbox-queue mbox)))
+     (multiple-value-bind (message winp)
+	 (sys:without-interrupts
+           (mp:with-lock-held (lock "Mailbox read")
+             (let ((queue (mailbox-queue mbox)))
+               (cond (queue
+                      (setf (mailbox-queue mbox) (cdr queue))
+                      (values (car queue) t))
+                     (t
+                      (values nil nil))))))
+       (when winp
+         (return message))))))
 
 
 

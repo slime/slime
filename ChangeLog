@@ -1,3 +1,20 @@
+2006-04-13  Douglas Crosher <dcrosher@common-lisp.net>
+
+	* swank-scl (make-socket-io-stream): set the stream to ignore
+	character conversion errors, and to substitute the character #\?.
+	Without this the communication channel is prone to lockup when a
+	conversion error occurs.
+
+	* swank-scl (inspect-for-emacs function): correct the index into the
+	closure environment; it was reading off the end of the closure
+	environment and picking up a corrupting value.
+
+	* swank-scl (mailbox): rework the mailbox implementation to better
+	handle interruption.  Use a polling loop rather than condition
+	variables because interrupting a condition variable wait leaves the
+	thread with the condition variable lock held and leads to a deadlock
+	error.
+
 2006-04-12  Robert Macomber <slime@rojoma.com>
 	* swank-backend.lisp (make-recursive-lock): New interface
 	function.
