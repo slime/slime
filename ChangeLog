@@ -1,3 +1,9 @@
+2006-04-13  Martin Simmons <martin@lispworks.com>
+
+	* swank-loader.lisp (load-site-init-file, swank-source-files): Fix
+	pathname construction to take all unspecified components from the
+	directory pathname, in particular the drive letter on Windows.
+
 2006-04-13  Helmut Eller  <helmut@common-lisp.net>
 
 	* slime.el (slime-find-filename-translators): Use assoc-if instead
