@@ -5355,29 +5355,26 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
   (if slime-autodoc-mode
       (progn 
         (slime-autodoc-start-timer)
-        (add-hook 'pre-command-hook 'slime-autodoc-pre-command-refresh-echo-area t))
+        (add-hook 'pre-command-hook 
+                  'slime-autodoc-pre-command-refresh-echo-area t))
     (slime-autodoc-stop-timer)))
 
 (defvar slime-autodoc-last-message "")
 
 (defun slime-autodoc ()
   "Print some apropos information about the code at point, if applicable."
-  (multiple-value-bind (cache-key retrieve-form)
-      (slime-autodoc-thing-at-point)
-    (unless
-        (when-let (documentation (slime-get-cached-autodoc cache-key))
-          (slime-autodoc-message documentation)
-          t)
-      ;; Asynchronously fetch, cache, and display documentation
-      (slime-eval-async 
-       retrieve-form 
-       (with-lexical-bindings (cache-key name)
-         (lambda (doc)
-           (if (null doc)
-               (setq doc "")
-             (setq doc (slime-fontify-string doc)))
-           (slime-update-autodoc-cache cache-key doc)
-           (slime-autodoc-message doc)))))))
+  (destructuring-bind (cache-key retrieve-form) (slime-autodoc-thing-at-point)
+    (let ((cached (slime-get-cached-autodoc cache-key)))
+      (if cached 
+          (slime-autodoc-message cached)
+        ;; Asynchronously fetch, cache, and display documentation
+        (slime-eval-async 
+         retrieve-form
+         (with-lexical-bindings (cache-key)
+           (lambda (doc)
+             (let ((doc (if doc (slime-fontify-string doc) "")))
+               (slime-update-autodoc-cache cache-key doc)
+               (slime-autodoc-message doc)))))))))
 
 (defcustom slime-autodoc-use-multiline-p nil
   "If non-nil, allow long autodoc messages to resize echo area display."
