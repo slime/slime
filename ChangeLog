@@ -1,3 +1,7 @@
+2006-04-14  Gerd Flaig <gefla@pond.sub.org>
+
+	* slime.el (slime-autodoc): Fix reference to unbound variable.
+
 2006-04-13  Martin Simmons <martin@lispworks.com>
 
 	* swank-loader.lisp (load-site-init-file, swank-source-files): Fix
