@@ -1,3 +1,7 @@
+2005-04-17  Andras Simon <andras@renyi.hu>
+
+	* swank-abcl.lisp: (accept-connection): New argument: timeout.
+
 2006-04-14  Gerd Flaig <gefla@pond.sub.org>
 
 	* slime.el (slime-autodoc): Fix reference to unbound variable.
