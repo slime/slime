@@ -113,8 +113,8 @@
   (ext:server-socket-close socket))
 
 (defimplementation accept-connection (socket 
-                                      &key (external-format :iso-latin-1-unix) buffering)
-  (declare (ignore buffering))
+                                      &key (external-format :iso-latin-1-unix) buffering timeout)
+  (declare (ignore buffering timeout))
   (assert (eq external-format :iso-latin-1-unix))
   (ext:get-socket-stream (ext:socket-accept socket)))
 
