@@ -387,6 +387,9 @@
 
 ;;;; Inspecting
 
+;; Hack to make swank.lisp load, at least
+(defclass file-stream ())
+
 (defclass corman-inspector (inspector)
   ())
 
