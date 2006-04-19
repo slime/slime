@@ -1,5 +1,16 @@
 2006-04-19  Christophe Rhodes <csr21@cam.ac.uk>
 
+	* doc/Makefile (contributors.texi): use texinfo macros for
+	accented characters.
+
+	* ChangeLog: canonize Gabor Melis' spelling, otherwise he appears
+	twice in the "Hackers of the good Hack table"
+
+	* doc/slime.texi (nyorsko): delete
+	(EDITION): make it say 2.0
+	
+2006-04-19  Christophe Rhodes <csr21@cam.ac.uk>
+
 	* swank.lisp (decoded-arglist-to-string): if the keyword and the
 	variable are different, print the keyword name with escapes.
 	(encode-keyword-arg): get the keyword and the arg-name the same
@@ -836,7 +847,7 @@
 	* slime.el (slime-repl-history-size, slime-repl-history-file): Use
 	defcustom to declare the variables.
 	
-2005-10-23  Gabor Melis  <mega@hotpop.com>
+2005-10-23  Gábor Melis  <mega@hotpop.com>
  
 	* swank-backend.lisp (install-debugger-globally): new interface
 	function
@@ -1829,12 +1840,12 @@
 	(slime-repl-compile-and-load): Use save-some-lisp-buffers.
 	(slime-oos): Use save-some-lisp-buffers.
 
-2005-07-01  Gabor Melis  <mega@hotpop.com>
+2005-07-01  Gábor Melis  <mega@hotpop.com>
 
 	* swank-sbcl.lisp (threaded stuff): make SBCL 0.9.2.9+ work while
 	retaining support for 0.9.2
 
-2005-06-28  Gabor Melis <mega@hotpop.com>
+2005-06-28  Gábor Melis <mega@hotpop.com>
 
 	* swank-sbcl.lisp (threaded stuff): horrible hack to make threaded
 	SBCL 0.9.2 work.  (also, Happy Birthday Christophe!)

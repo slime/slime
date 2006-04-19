@@ -48,7 +48,11 @@ contributors.texi: ../ChangeLog Makefile texinfo-tabulate.awk
 	sort -nr| \
 	sed -e 's/^[^A-Z]*//' | \
 	awk -f texinfo-tabulate.awk | \
-	sed -e 's/\o370/@norsko{}/g' \
+	sed -e "s/\o341/@'a/g" | \
+        sed -e "s/\o355/@'{@dotless{i}}/g" | \
+	sed -e "s/\o351/@'e/g" | \
+	sed -e "s/\o361/@~n/g" | \
+	sed -e 's/\o370/@o{}/g' \
 	> $@
 
 #.INTERMEDIATE: contributors.texi

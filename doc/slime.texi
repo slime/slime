@@ -28,24 +28,12 @@
 @acronym{CVS}
 @end macro
 
-@c O with a slash through it (norwegian)
-@macro norsko
-@iftex
-@tex
-\\o
-@end tex
-@end iftex
-@ifnottex
-o@c this comment prevents a newline!
-@end ifnottex
-@end macro
-
 @macro kbditem{key, command}
 @item \key\
 @code{\command\}@*
 @end macro
 
-@set EDITION 1.2
+@set EDITION 2.0
 @set UPDATED @code{$Date$}
 
 @titlepage
