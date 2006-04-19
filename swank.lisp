@@ -1462,6 +1462,24 @@ If OPERATOR is non-nil, put it in front of the arglist."
                    (print-with-space (obj)
                      (print-space)
                      (print-arg obj))
+                   (print-keyword-arg-with-space (arg)
+                     (print-space)
+                     (etypecase arg
+                       (symbol (princ arg))
+                       ((cons symbol) 
+                        (pprint-logical-block (nil nil :prefix "(" :suffix ")")
+                          (princ (car arg))
+                          (write-char #\space)
+                          (pprint-fill *standard-output* (cdr arg) nil)))
+                       ((cons cons)
+                        (pprint-logical-block (nil nil :prefix "(" :suffix ")")
+                          (pprint-logical-block (nil nil :prefix "(" :suffix ")")
+                            (prin1 (caar arg))
+                            (write-char #\space)
+                            (princ (cadar arg)))
+                          (unless (null (cdr arg))
+                            (write-char #\space))
+                          (pprint-fill *standard-output* (cdr arg) nil)))))
                    (print-with-highlight (arg &optional (index-ok-p #'=))
                      (print-space)
                      (cond 
@@ -1484,7 +1502,7 @@ If OPERATOR is non-nil, put it in front of the arglist."
                               (arglist.optional-args arglist))))
               (when (arglist.key-p arglist)
                 (print-with-space '&key)
-                (mapc #'print-with-space
+                (mapc #'print-keyword-arg-with-space
                       (mapcar #'encode-keyword-arg 
                               (arglist.keyword-args arglist))))
               (when (arglist.allow-other-keys-p arglist)
@@ -1542,8 +1560,8 @@ Return three values: keyword, argument name, default arg."
           (list (keyword-arg.arg-name arg)
                 (keyword-arg.default-arg arg))
           (keyword-arg.arg-name arg))
-      (let ((keyword/name (list (keyword-arg.arg-name arg)
-                                (keyword-arg.keyword arg))))
+      (let ((keyword/name (list (keyword-arg.keyword arg)
+                                (keyword-arg.arg-name arg))))
         (if (keyword-arg.default-arg arg)
             (list keyword/name
                   (keyword-arg.default-arg arg))
@@ -1698,13 +1716,17 @@ As a secondary value, return whether &allow-other-keys appears somewhere."
   (methods-keywords 
    (swank-mop:generic-function-methods generic-function)))
 
-(defun applicable-methods-keywords (generic-function classes)
+(defun applicable-methods-keywords (generic-function arguments)
   "Collect all keywords in the methods of GENERIC-FUNCTION that are
 applicable for argument of CLASSES.  As a secondary value, return
 whether &allow-other-keys appears somewhere."
-  (methods-keywords 
-   (swank-mop:compute-applicable-methods-using-classes 
-    generic-function classes)))
+  (methods-keywords
+   (multiple-value-bind (amuc okp)
+       (swank-mop:compute-applicable-methods-using-classes
+        generic-function (mapcar #'class-of arguments))
+     (if okp
+         amuc
+         (compute-applicable-methods generic-function arguments)))))
 
 (defun decoded-arglist-to-template-string (decoded-arglist package &key (prefix "(") (suffix ")"))
   (with-output-to-string (*standard-output*)
@@ -1759,45 +1781,81 @@ to determine the extra keywords."))
         (generic-function-keywords symbol-function)
         nil)))
 
+(defun class-from-class-name-form (class-name-form)
+  (when (and (listp class-name-form)
+             (= (length class-name-form) 2)
+             (eq (car class-name-form) 'quote))
+    (let* ((class-name (cadr class-name-form))
+           (class (find-class class-name nil)))
+      (when (and class
+                 (not (swank-mop:class-finalized-p class)))
+        ;; Try to finalize the class, which can fail if
+        ;; superclasses are not defined yet
+        (handler-case (swank-mop:finalize-inheritance class)
+          (program-error (c)
+            (declare (ignore c)))))
+      class)))
+    
+(defun extra-keywords/slots (class)
+  (multiple-value-bind (slots allow-other-keys-p)
+      (if (swank-mop:class-finalized-p class)
+          (values (swank-mop:class-slots class) nil)
+          (values (swank-mop:class-direct-slots class) t))
+    (let ((slot-init-keywords
+           (loop for slot in slots append 
+                 (mapcar (lambda (initarg)
+                           (make-keyword-arg 
+                            initarg
+                            (swank-mop:slot-definition-name slot)
+                            (swank-mop:slot-definition-initform slot)))
+                         (swank-mop:slot-definition-initargs slot)))))
+      (values slot-init-keywords allow-other-keys-p))))
+
 (defun extra-keywords/make-instance (operator &rest args)
   (declare (ignore operator))
   (unless (null args)
-    (let ((class-name-form (car args)))
-      (when (and (listp class-name-form)
-                 (= (length class-name-form) 2)
-                 (eq (car class-name-form) 'quote))
-        (let* ((class-name (cadr class-name-form))
-               (class (find-class class-name nil)))
-          (when (and class
-                     (not (swank-mop:class-finalized-p class)))
-            ;; Try to finalize the class, which can fail if
-            ;; superclasses are not defined yet
-            (handler-case (swank-mop:finalize-inheritance class)
-              (program-error (c)
-                (declare (ignore c)))))
-          (when class
-            ;; We have the case (make-instance 'CLASS ...)
-            ;; with a known CLASS.
-            (multiple-value-bind (slots allow-other-keys-p)
-                (if (swank-mop:class-finalized-p class)
-                    (values (swank-mop:class-slots class) nil)
-                    (values (swank-mop:class-direct-slots class) t))
-              (let ((slot-init-keywords
-                     (loop for slot in slots append 
-                           (mapcar (lambda (initarg)
-                                     (make-keyword-arg 
-                                      initarg
-                                      initarg ; FIXME
-                                      (swank-mop:slot-definition-initform slot)))
-                                   (swank-mop:slot-definition-initargs slot))))
-                    (initialize-instance-keywords
-                     (applicable-methods-keywords #'initialize-instance 
-                                                  (list class))))
-                (return-from extra-keywords/make-instance
-                  (values (append slot-init-keywords 
-                                  initialize-instance-keywords)
-                          allow-other-keys-p
-                          (list class-name-form)))))))))))
+    (let* ((class-name-form (car args))
+           (class (class-from-class-name-form class-name-form)))
+      (when class
+        (multiple-value-bind (slot-init-keywords class-aokp)
+            (extra-keywords/slots class)
+          (multiple-value-bind (allocate-instance-keywords ai-aokp)
+              (applicable-methods-keywords 
+               #'allocate-instance (list class))
+            (multiple-value-bind (initialize-instance-keywords ii-aokp)
+                (applicable-methods-keywords 
+                 #'initialize-instance (list (swank-mop:class-prototype class)))
+              (multiple-value-bind (shared-initialize-keywords si-aokp)
+                  (applicable-methods-keywords 
+                   #'shared-initialize (list (swank-mop:class-prototype class) t))
+                (values (append slot-init-keywords 
+                                allocate-instance-keywords
+                                initialize-instance-keywords
+                                shared-initialize-keywords)
+                        (or class-aokp ai-aokp ii-aokp si-aokp)
+                        (list class-name-form))))))))))
+
+(defun extra-keywords/change-class (operator &rest args)
+  (declare (ignore operator))
+  (unless (null args)
+    (let* ((class-name-form (car args))
+           (class (class-from-class-name-form class-name-form)))
+      (when class
+        (multiple-value-bind (slot-init-keywords class-aokp)
+            (extra-keywords/slots class)
+          (declare (ignore class-aokp))
+          (multiple-value-bind (shared-initialize-keywords si-aokp)
+              (applicable-methods-keywords
+               #'shared-initialize (list (swank-mop:class-prototype class) t))
+            ;; FIXME: much as it would be nice to include the
+            ;; applicable keywords from
+            ;; UPDATE-INSTANCE-FOR-DIFFERENT-CLASS, I don't really see
+            ;; how to do it: so we punt, always declaring
+            ;; &ALLOW-OTHER-KEYS.
+            (declare (ignore si-aokp))
+            (values (append slot-init-keywords shared-initialize-keywords)
+                    t
+                    (list class-name-form))))))))
 
 (defmacro multiple-value-or (&rest forms)
   (if (null forms)
@@ -1835,10 +1893,18 @@ to determine the extra keywords."))
   (multiple-value-or (apply #'extra-keywords/make-instance operator args)
                      (call-next-method)))
 
+;;; FIXME: these two don't work yet: they need extra support from
+;;; slime.el (slime-enclosing-operator-names) and swank.lisp
+;;; (OPERATOR-DESIGNATOR-TO-FORM).
 (defmethod extra-keywords ((operator (eql 'cerror))
                            &rest args)
   (multiple-value-or (apply #'extra-keywords/make-instance operator
                             (cdr args))
+                     (call-next-method)))
+
+(defmethod extra-keywords ((operator (eql 'change-class)) 
+                           &rest args)
+  (multiple-value-or (apply #'extra-keywords/change-class operator (cdr args))
                      (call-next-method)))
 
 (defun enrich-decoded-arglist-with-extra-keywords (decoded-arglist form)

@@ -1,5 +1,23 @@
 2006-04-19  Christophe Rhodes <csr21@cam.ac.uk>
 
+	* swank.lisp (decoded-arglist-to-string): if the keyword and the
+	variable are different, print the keyword name with escapes.
+	(encode-keyword-arg): get the keyword and the arg-name the same
+	way round as in lambda lists.
+	(appliable-methods-keywords): use
+	swank-mop:compute-applicable-methods-using-classes and
+	compute-applicable-methods in the AMOP-friendly way, to get EQL
+	specializers right.
+	(class-from-class-name-form, extra-keywords/slots): new.
+	(extra-keywords/make-instance): use new functions.  Also get
+	keywords from SHARED-INITIALIZE (after Dan Barlow) and
+	ALLOCATE-INSTANCE.
+	(extra-keywords/change-class): new.
+	(extra-keywords (eql 'change-class)): new.  Won't work at present,
+	just as the CERROR case doesn't work.
+	
+2006-04-19  Christophe Rhodes <csr21@cam.ac.uk>
+
 	* swank-sbcl.lisp (preferred-communication-style): Make it nil
 	under win32, for now.
 
