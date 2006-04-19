@@ -32,11 +32,15 @@
 ;;; TCP Server
 
 (defimplementation preferred-communication-style ()
-  (if (and (member :sb-thread *features*)
-           #+linux
-           (not (sb-alien:extern-alien "linux_no_threads_p" sb-alien:boolean)))
-      :spawn
-      :fd-handler))
+  (cond
+    ;; fixme: when SBCL/win32 gains better select() support, remove
+    ;; this.
+    ((member :win32 *features*) nil)
+    ((and (member :sb-thread *features*)
+          #+linux
+          (not (sb-alien:extern-alien "linux_no_threads_p" sb-alien:boolean)))
+      :spawn)
+    (t :fd-handler)))
         
 (defun resolve-hostname (name)
   (car (sb-bsd-sockets:host-ent-addresses

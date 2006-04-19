@@ -1,3 +1,10 @@
+2006-04-19  Christophe Rhodes <csr21@cam.ac.uk>
+
+	* swank-sbcl.lisp (preferred-communication-style): Make it nil
+	under win32, for now.
+
+	* doc/slime.texi: document nil *communication-style*
+
 2006-04-18  Espen Wiborg  <espenhw@grumblesmurf.org>
 
 	* swank-corman.lisp: Define a class file-stream to let swank.lisp

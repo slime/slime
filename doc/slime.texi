@@ -1415,6 +1415,12 @@ global influence on @SLIME{}'s operation.
 The available communication styles are:
 
 @table @code
+@item NIL
+This style simply loops reading input from the communication socket
+and serves @SLIME{} protocol events as they arise. The simplicity
+means that the Lisp cannot do any other processing while under
+@SLIME{}'s control.
+
 @item :FD-HANDLER
 This style uses the classical Unix-style ``@code{select()}-loop.''
 Swank registers the communication socket with an event-dispatching
@@ -1446,11 +1452,11 @@ by Emacs can be executed in parallel.
 
 The default request handling style is chosen according to the
 capabilities your Lisp system. The general order of preference is
-@code{:SPAWN}, then @code{:SIGIO}, then @code{:FD-HANDLER}. You can
-check the default style by calling
-@code{SWANK-BACKEND:PREFERRED-COMMUNICATION-STYLE}. You can also
-override the default by setting @code{SWANK:*COMMUNICATION-STYLE*} in
-your Swank init file.
+@code{:SPAWN}, then @code{:SIGIO}, then @code{:FD-HANDLER}, with
+@code{NIL} as a last resort. You can check the default style by
+calling @code{SWANK-BACKEND:PREFERRED-COMMUNICATION-STYLE}. You can
+also override the default by setting
+@code{SWANK:*COMMUNICATION-STYLE*} in your Swank init file.
 
 @node Other configurables,  , Communication style, Lisp-side
 @subsection Other configurables
