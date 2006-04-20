@@ -373,7 +373,7 @@ Useful for low level debugging."
 
 ;;;; TCP Server
 
-(defvar *use-dedicated-output-stream* t
+(defvar *use-dedicated-output-stream* nil
   "When T swank will attempt to create a second connection to
   Emacs which is used just to send output.")
 

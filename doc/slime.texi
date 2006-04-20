@@ -1487,11 +1487,11 @@ the pretty printer for formatting backtraces in @SLDB{}, you can use:
 
 @item SWANK:*USE-DEDICATED-OUTPUT-STREAM*
 This variable controls an optimization for sending printed output from
-Lisp to Emacs. When @code{t} (the default) a separate socket is
-established solely for Lisp to send printed output to Emacs
-through. Without the optimization it is necessary to send output in
-protocol-messages to Emacs which must then be decoded, and this
-doesn't always keep up if Lisp starts ``spewing'' copious output.
+Lisp to Emacs. When @code{t} a separate socket is established solely for
+Lisp to send printed output to Emacs through. Without the optimization
+it is necessary to send output in protocol-messages to Emacs which must
+then be decoded, and this doesn't always keep up if Lisp starts
+``spewing'' copious output.
 
 @item SWANK:*DEDICATED-OUTPUT-STREAM-PORT*
 When @code{*USE-DEDICATED-OUTPUT-STREAM*} is @code{t} the stream will
