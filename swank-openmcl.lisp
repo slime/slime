@@ -686,6 +686,23 @@ at least the filename containing it."
     (:class
      (describe (find-class symbol)))))
 
+(defimplementation toggle-trace (spec)
+  "We currently ignore just about everything."
+  (ecase (car spec)
+    (setf
+     (ccl::%trace spec))
+    (:defmethod
+     (ccl::%trace (second spec)))
+    (:defgeneric
+     (ccl::%trace (second spec)))
+    (:call
+     (toggle-trace (third spec)))
+    ;; mb: FIXME: shouldn't we warn that we're not doing anything for
+    ;; these two?
+    (:labels nil)
+    (:flet nil))
+  t)
+
 ;;; XREF
 
 (defimplementation list-callers (symbol)
