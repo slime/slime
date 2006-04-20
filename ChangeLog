@@ -1,3 +1,10 @@
+2006-04-20  Marco Baringer  <mb@bese.it>
+
+	* swank-openmcl.lisp (toggle-trace): Implemented. Currently only
+	provides 'best effort' support, :labels and :flet are ignored,
+	:defmethod and :call are treated like a normal trace of the
+	operator.
+
 2006-04-20  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (*use-dedicated-output-stream*): Make it nil by
