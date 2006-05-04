@@ -1,3 +1,8 @@
+2006-05-04  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* swank-allegro.lisp (fspec-definition-locations): Handle
+	:top-level-form entries that appear in backtraces.
+
 2006-04-20  Marco Baringer  <mb@bese.it>
 
 	* swank-openmcl.lisp (toggle-trace): Implemented. Currently only
