@@ -400,16 +400,25 @@
                     (prin1-to-string (second fspec)))))))
 
 (defun fspec-definition-locations (fspec)
-  (let ((defs (excl::find-source-file fspec)))
-    (if (null defs)
-        (list
-         (list (list nil fspec)
-               (list :error
-                     (format nil "Unknown source location for ~A" 
-                             (fspec->string fspec)))))
+  (cond
+   ((and (listp fspec)
+         (eql (car fspec) :top-level-form))
+    (destructuring-bind (top-level-form file position) fspec 
+      (list
+       (list (list nil fspec)
+             (make-location (list :buffer file)
+                            (list :position position))))))
+   (t
+    (let ((defs (excl::find-source-file fspec)))
+      (if (null defs)
+          (list
+           (list (list nil fspec)
+                 (list :error
+                       (format nil "Unknown source location for ~A" 
+                               (fspec->string fspec)))))
         (loop for (fspec type file top-level) in defs 
-           collect (list (list type fspec)
-                         (find-fspec-location fspec type file top-level))))))
+              collect (list (list type fspec)
+                            (find-fspec-location fspec type file top-level))))))))
 
 (defimplementation find-definitions (symbol)
   (fspec-definition-locations symbol))
