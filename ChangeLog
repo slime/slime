@@ -1,3 +1,10 @@
+2006-05-12  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* swank.lisp (update-indentation-information): Fix for problem
+	with Allegro CL 8.0: If I type M-x slime-update-indentation,
+	Allegro CL starts growing until it hits a STORAGE-CONDITION or
+	even segfaults.
+
 2006-05-04  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* swank-allegro.lisp (fspec-definition-locations): Handle
