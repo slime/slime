@@ -4605,7 +4605,8 @@ The server port is written to PORT-FILE-NAME."
 after each command.")
 
 (defslimefun update-indentation-information ()
-  (perform-indentation-update *emacs-connection* t))
+  (perform-indentation-update *emacs-connection* t)
+  nil)
 
 ;; This function is for *PRE-REPLY-HOOK*.
 (defun sync-indentation-to-emacs ()
