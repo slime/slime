@@ -7297,7 +7297,7 @@ When displaying XREF information, this goes to the next reference."
   (let ((buffer (current-buffer)))
     (delete-windows-on buffer)
     (kill-buffer buffer)))
-  
+
 
 ;;;; Macroexpansion
 
@@ -7309,10 +7309,14 @@ When displaying XREF information, this goes to the next reference."
     ("g" . slime-macroexpand-again)))
 
 (flet ((remap (from to)
-              (dolist (mapping (where-is-internal from slime-mode-map))
-                (define-key slime-macroexpansion-minor-mode-map mapping to))))
+         (dolist (mapping (where-is-internal from slime-mode-map))
+           (define-key slime-macroexpansion-minor-mode-map mapping to))))
   (remap 'slime-macroexpand-1 'slime-macroexpand-1-inplace)
-  (remap 'slime-macroexpand-all 'slime-macroexpand-all-inplace))
+  (remap 'slime-macroexpand-all 'slime-macroexpand-all-inplace)
+  (remap 'undo '(lambda (&optional arg)
+                 (interactive)
+                 (let ((buffer-read-only nil))
+                   (undo arg)))))
 
 (defvar slime-eval-macroexpand-expression nil
   "Specifies the last macroexpansion preformed. This variable
