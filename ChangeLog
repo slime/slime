@@ -1,3 +1,8 @@
+2006-05-14  Marco Baringer  <mb@bese.it>
+
+	* slime.el (slime-macroexpansion-minor-mode-map): Rebind 'undo' to
+	set buffer-read-only temporarily to t.
+
 2006-05-12  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* swank.lisp (update-indentation-information): Fix for problem
