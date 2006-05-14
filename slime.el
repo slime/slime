@@ -3541,8 +3541,8 @@ balanced."
                    (< (point) slime-repl-input-start-mark))
          (slime-repl-grab-old-output end-of-input)
          (slime-repl-recenter-if-needed))
-        ((slime-input-complete-p slime-repl-input-start-mark 
-                                 slime-repl-input-end-mark)
+        ((slime-input-complete-p slime-repl-input-start-mark
+                                 (min (point) slime-repl-input-end-mark))
          (slime-repl-send-input t))
         (t 
          (slime-repl-newline-and-indent)
