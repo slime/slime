@@ -2,6 +2,8 @@
 
 	* slime.el (slime-macroexpansion-minor-mode-map): Rebind 'undo' to
 	set buffer-read-only temporarily to t.
+	(slime-repl-return): Only send repl input if point is past a
+	complete form.
 
 2006-05-12  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
