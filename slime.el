@@ -427,11 +427,11 @@ slime-input-complete-p, it is sent to the underlying lisp,
 otherwise a newline is inserted. The current value of (point) has
 no effect.
 
-:send-only-if-after-complete - If the current expression is complete
+:send-if-after-complete - If the current expression is complete
 and point is after the expression it is sent, otherwise a newline
 is inserted."
   :type '(choice (const :send-if-complete)
-                 (const :send-only-if-after-complete))
+                 (const :send-if-after-complete))
   :group 'slime-repl)
   
 
@@ -3562,8 +3562,8 @@ balanced."
          (slime-repl-grab-old-output end-of-input)
          (slime-repl-recenter-if-needed))
         ((slime-input-complete-p slime-repl-input-start-mark
-                                 (ecase slime-repl-return-behaviour
-                                   (:send-only-if-after-complete (min (point) slime-repl-input-end-mark))
+                                 (case slime-repl-return-behaviour
+                                   (:send-if-after-complete (min (point) slime-repl-input-end-mark))
                                    (:send-if-complete slime-repl-input-end-mark)))
          (slime-repl-send-input t))
         (t 
