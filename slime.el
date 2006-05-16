@@ -415,6 +415,26 @@ PROPERTIES specifies any default face properties."
   :type '(boolean)
   :group 'slime-repl)
 
+(defcustom slime-repl-return-behaviour :send-if-complete
+  "Keyword specifying how slime-repl-return behaves when the
+  point is on a lisp expression (as opposed to being on a
+  previous output).
+
+Currently only two values are supported:
+
+:send-if-complete - If the current expression is complete, as per
+slime-input-complete-p, it is sent to the underlying lisp,
+otherwise a newline is inserted. The current value of (point) has
+no effect.
+
+:send-only-if-after-complete - If the current expression is complete
+and point is after the expression it is sent, otherwise a newline
+is inserted."
+  :type '(choice (const :send-if-complete)
+                 (const :send-only-if-after-complete))
+  :group 'slime-repl)
+  
+
 (defface slime-repl-prompt-face
   (if (slime-face-inheritance-possible-p)
       '((t (:inherit font-lock-keyword-face)))
@@ -3542,7 +3562,9 @@ balanced."
          (slime-repl-grab-old-output end-of-input)
          (slime-repl-recenter-if-needed))
         ((slime-input-complete-p slime-repl-input-start-mark
-                                 (min (point) slime-repl-input-end-mark))
+                                 (ecase slime-repl-return-behaviour
+                                   (:send-only-if-after-complete (min (point) slime-repl-input-end-mark))
+                                   (:send-if-complete slime-repl-input-end-mark)))
          (slime-repl-send-input t))
         (t 
          (slime-repl-newline-and-indent)

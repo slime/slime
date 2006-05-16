@@ -1,3 +1,9 @@
+2006-05-16  Marco Baringer  <mb@bese.it>
+
+	* slime.el (slime-repl-return-behaviour): New variable which
+	controls slime-repl-return's heaviour.
+	(slime-repl-return): Respect slime-repl-return-behaviour.
+
 2006-05-14  Marco Baringer  <mb@bese.it>
 
 	* slime.el (slime-macroexpansion-minor-mode-map): Rebind 'undo' to
