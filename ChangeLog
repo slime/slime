@@ -1,3 +1,7 @@
+2006-05-24  Alan Ruttenberg <alanr-l@mumble.net>
+	* swank-abcl: Add some more mop functions to you can inspect classes,
+	generic functions, methods, slots.
+	
 2006-05-16  Marco Baringer  <mb@bese.it>
 
 	* slime.el (slime-repl-return-behaviour): New variable which

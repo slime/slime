@@ -35,17 +35,30 @@
 
 ;;; swank-mop
 
-;;dummies:
+;;dummies and definition
 
 (defclass standard-slot-definition ()())
 
-(defun class-finalized-p (class) t)
+;(defun class-finalized-p (class) t)
 
 (defun slot-definition-documentation (slot) #+nil (documentation slot 't))
 (defun slot-definition-type (slot) t)
 (defun class-prototype (class))
 (defun generic-function-declarations (gf))
-(defun specializer-direct-methods (spec) nil)
+(defun specializer-direct-methods (spec) (mop::class-direct-methods spec))
+
+(defun slot-definition-name (slot)
+  (mop::%slot-definition-name slot))
+
+(defun class-slots (class)
+  (mop::%class-slots class))
+
+(defun method-generic-function (method)
+  (mop::%method-generic-function method))
+
+(defun method-function (method)
+  (mop::%method-function method))
+
 
 (import-to-swank-mop
  '( ;; classes
@@ -60,12 +73,12 @@
    mop::class-direct-subclasses
    mop::class-direct-superclasses
    mop::eql-specializer
-   class-finalized-p ;;dummy
+   mop::class-finalized-p 
    cl:class-name
    mop::class-precedence-list
    class-prototype ;;dummy
-   mop::class-slots
-   specializer-direct-methods ;;dummy
+   class-slots
+   specializer-direct-methods 
    ;; eql-specializer accessors
    mop::eql-specializer-object
    ;; generic function readers
@@ -77,8 +90,8 @@
    mop::generic-function-method-combination
    mop::generic-function-name
    ;; method readers
-   mop::method-generic-function
-   mop::method-function
+   method-generic-function
+   method-function
    mop::method-lambda-list
    mop::method-specializers
    mop::method-qualifiers
@@ -88,7 +101,7 @@
    mop::slot-definition-initargs
    mop::slot-definition-initform
    mop::slot-definition-initfunction
-   mop::slot-definition-name
+   slot-definition-name
    slot-definition-type ;;dummy
    mop::slot-definition-readers
    mop::slot-definition-writers))
@@ -505,4 +518,7 @@ part of *sysdep-pathnames* in swank.loader.lisp.
 
 (defimplementation quit-lisp ()
   (ext:exit))
+
+
+
 
