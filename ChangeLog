@@ -1,3 +1,13 @@
+2006-05-24  Brian Downing  <bdowning@lavos.net>
+
+	* swank.lisp (recursively-compute-most-completions & friends):
+	Micro-optimize the fuzzy completion engine, improving performace
+	by a factor of about 4 on SBCL.  However, it will only work on
+	simple-strings now, and CHAR= is burned in instead of being an
+	option.  I don't think this is too much of a limitation.  At this
+	point rendering the results on the emacs side takes much longer
+	than finding them for long result lists.
+
 2006-05-24  Alan Ruttenberg <alanr-l@mumble.net>
 	* swank-abcl: Add some more mop functions to you can inspect classes,
 	generic functions, methods, slots.

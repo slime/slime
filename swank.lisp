@@ -3192,7 +3192,7 @@ symbols are returned."
              (and (or (not external)
                       (symbol-external-p symbol package))
                   (compute-highest-scoring-completion 
-                   string (funcall converter (symbol-name symbol)) #'char=))))
+                   string (funcall converter (symbol-name symbol))))))
       (do-symbols (symbol package)
         (if (string= "" string)
             (when (or (and external (symbol-external-p symbol package))
@@ -3214,7 +3214,7 @@ completion algorithm."
                                           ":")
           for (result score) = (multiple-value-list
                                 (compute-highest-scoring-completion
-                                 name package-name #'char=))
+                                 name package-name))
           if result collect (list package-name score result))))
 
 (defslimefun fuzzy-completion-selected (original-string completion)
@@ -3241,37 +3241,38 @@ find all the ways it can match.
 
 Most natural language searches and symbols do not have this
 problem -- this is only here as a safeguard.")
+(declaim (fixnum *fuzzy-recursion-soft-limit*))
 
-(defun compute-highest-scoring-completion (short full test)
+(defun compute-highest-scoring-completion (short full)
   "Finds the highest scoring way to complete the abbreviation
-SHORT onto the string FULL, using TEST as a equality function for
+SHORT onto the string FULL, using CHAR= as a equality function for
 letters.  Returns two values:  The first being the completion
 chunks of the high scorer, and the second being the score."
   (let* ((scored-results
           (mapcar #'(lambda (result)
                       (cons (score-completion result short full) result))
-                  (compute-most-completions short full test)))
+                  (compute-most-completions short full)))
          (winner (first (sort scored-results #'> :key #'first))))
     (values (rest winner) (first winner))))
 
-(defun compute-most-completions (short full test)
+(defun compute-most-completions (short full)
   "Finds most possible ways to complete FULL with the letters in SHORT.
 Calls RECURSIVELY-COMPUTE-MOST-COMPLETIONS recursively.  Returns
 a list of (&rest CHUNKS), where each CHUNKS is a description of
 how a completion matches."
   (let ((*all-chunks* nil))
     (declare (special *all-chunks*))
-    (recursively-compute-most-completions short full test 0 0 nil nil nil t)
+    (recursively-compute-most-completions short full 0 0 nil nil nil t)
     *all-chunks*))
 
 (defun recursively-compute-most-completions 
-    (short full test 
+    (short full 
      short-index initial-full-index 
      chunks current-chunk current-chunk-pos 
      recurse-p)
   "Recursively (if RECURSE-P is true) find /most/ possible ways
-to fuzzily map the letters in SHORT onto FULL, with TEST being a
-function to determine if two letters match.
+to fuzzily map the letters in SHORT onto FULL, using CHAR= to
+determine if two letters match.
 
 A chunk is a list of elements that have matched consecutively.
 When consecutive matches stop, it is coerced into a string,
@@ -3287,7 +3288,10 @@ this call will also recurse.
 
 Once a word has been completely matched, the chunks are pushed
 onto the special variable *ALL-CHUNKS* and the function returns."
-  (declare (special *all-chunks*))
+  (declare (optimize speed)
+           (fixnum short-index initial-full-index)
+           (simple-string short full)
+           (special *all-chunks*))
   (flet ((short-cur () 
            "Returns the next letter from the abbreviation, or NIL
             if all have been used."
@@ -3316,13 +3320,13 @@ onto the special variable *ALL-CHUNKS* and the function returns."
         ((= pos (length full)))
       (let ((cur-char (aref full pos)))
         (if (and (short-cur) 
-                 (funcall test cur-char (short-cur)))
+                 (char= cur-char (short-cur)))
             (progn
               (when recurse-p
                 ;; Try other possibilities, limiting insanely deep
                 ;; recursion somewhat.
                 (recursively-compute-most-completions 
-                 short full test short-index (1+ pos) 
+                 short full short-index (1+ pos) 
                  chunks current-chunk current-chunk-pos
                  (not (> (length *all-chunks*) 
                          *fuzzy-recursion-soft-limit*))))
