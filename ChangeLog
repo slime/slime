@@ -1,4 +1,13 @@
-2006-05-24  Brian Downing  <bdowning@lavos.net>
+2006-05-26  Tobias C. Rittweiler <tcr@freebits.de>
+	
+	* slime.el (slime-eval-macroexpand-inplace): Fix out-of-range
+	error on in-place macroexpand when point is placed at a closing
+	parenthesis. In this case the sexp closed by that paren is
+	expanded.  
+	Also make expanding of expressions work that are quoted like, for
+	instance, "'(FOO BAR)" if point is placed at the opening paren.
+
+006-05-24  Brian Downing  <bdowning@lavos.net>
 
 	* swank.lisp (recursively-compute-most-completions & friends):
 	Micro-optimize the fuzzy completion engine, improving performace

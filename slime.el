@@ -427,11 +427,11 @@ slime-input-complete-p, it is sent to the underlying lisp,
 otherwise a newline is inserted. The current value of (point) has
 no effect.
 
-:send-if-after-complete - If the current expression is complete
+:send-only-if-after-complete - If the current expression is complete
 and point is after the expression it is sent, otherwise a newline
 is inserted."
   :type '(choice (const :send-if-complete)
-                 (const :send-if-after-complete))
+                 (const :send-only-if-after-complete))
   :group 'slime-repl)
   
 
@@ -3562,8 +3562,8 @@ balanced."
          (slime-repl-grab-old-output end-of-input)
          (slime-repl-recenter-if-needed))
         ((slime-input-complete-p slime-repl-input-start-mark
-                                 (case slime-repl-return-behaviour
-                                   (:send-if-after-complete (min (point) slime-repl-input-end-mark))
+                                 (ecase slime-repl-return-behaviour
+                                   (:send-only-if-after-complete (min (point) slime-repl-input-end-mark))
                                    (:send-if-complete slime-repl-input-end-mark)))
          (slime-repl-send-input t))
         (t 
@@ -7364,10 +7364,17 @@ When displaying XREF information, this goes to the next reference."
 NB: Does not affect *slime-eval-macroexpand-expression*"
   (interactive)
   (lexical-let* ((string (slime-sexp-at-point-or-error))
+                 (bounds (bounds-of-thing-at-point 'sexp))
+                 (start (car bounds))
+                 (end (cdr bounds))
+                 (point (point))
                  (package (slime-current-package))
-                 (start (point))
-                 (end (+ start (length string)))
                  (buffer (current-buffer)))
+    ;; SLIME-SEXP-AT-POINT returns "'(FOO BAR BAZ)" even when point is
+    ;; placed at the opening parenthesis, which wouldn't get expanded
+    ;; even though FOO was a macro. Hence this workaround:
+    (when (and (eq ?\' (elt string 0)) (eq ?\( (elt string 1)))
+      (setf string (substring string 1)) (incf start))
     (slime-eval-async 
      `(,expander ,string)
      (lambda (expansion)
@@ -7377,7 +7384,8 @@ NB: Does not affect *slime-eval-macroexpand-expression*"
            (delete-region start end)
            (insert expansion)
            (goto-char start)
-           (indent-sexp)))))))
+           (indent-sexp)
+           (goto-char point)))))))
 
 (defun slime-macroexpand-1 (&optional repeatedly)
   "Display the macro expansion of the form at point.  The form is
