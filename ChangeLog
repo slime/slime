@@ -11,7 +11,7 @@
 	Also make expanding of expressions work that are quoted like, for
 	instance, "'(FOO BAR)" if point is placed at the opening paren.
 
-006-05-24  Brian Downing  <bdowning@lavos.net>
+2006-05-24  Brian Downing  <bdowning@lavos.net>
 
 	* swank.lisp (recursively-compute-most-completions & friends):
 	Micro-optimize the fuzzy completion engine, improving performace
