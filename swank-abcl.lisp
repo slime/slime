@@ -59,6 +59,11 @@
 (defun method-function (method)
   (mop::%method-function method))
 
+(defun slot-boundp-using-class (class object slotdef)
+  (system::slot-boundp object (slot-definition-name slotdef)))
+
+(defun slot-value-using-class (class object slotdef)
+  (system::slot-value object (slot-definition-name slotdef)))
 
 (import-to-swank-mop
  '( ;; classes
@@ -104,7 +109,10 @@
    slot-definition-name
    slot-definition-type ;;dummy
    mop::slot-definition-readers
-   mop::slot-definition-writers))
+   mop::slot-definition-writers
+   slot-boundp-using-class
+   slot-value-using-class
+   ))
 
 ;;;; TCP Server
 
