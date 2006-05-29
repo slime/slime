@@ -1,5 +1,20 @@
 2006-05-30  Tobias Rittweiler <tcr@freebits.de>
 
+	* slime.el (slime-get-temp-buffer-create): New keyword REUSEP
+	which indicates whether an already-existing buffer named like the
+	buffer to be created should be reused, i.e. not killed, then
+	freshly created. Update docstring accordingly.
+	(slime-with-output-to-temp-buffer): Make &optional arg MODE an
+	&key keyword arg. Add REUSEP keyword.
+	(slime-macroexpansion-minor-mode-map): Make remapped `undo' update
+	highlighted edits in the macroexpansion buffer.
+	(slime-eval-macroexpand-in-place): Update highlighted edits when
+	macroexpanding in-place.
+	(slime-eval-macroexpand): Reuse macroexpansion buffer if it exists
+	already to preserve `undo' functionality.
+
+2006-05-30  Tobias Rittweiler <tcr@freebits.de>
+
 	* slime.el (slime-use-autodoc-mode): Fix typo in docstring.
 	(slime-use-highlight-edits-mode): New variable, analogous to
 	SLIME-USE-AUTODOC-MODE.
