@@ -1190,16 +1190,19 @@ Buffer local in temp-buffers."))
    "The window config \"fingerprint\" after displaying the buffer."))
 
 ;; Interface
-(defun* slime-get-temp-buffer-create (name &key mode noselectp)
+(defun* slime-get-temp-buffer-create (name &key mode noselectp reusep)
   "Return a fresh temporary buffer called NAME in MODE.
 The buffer also uses the minor-mode `slime-temp-buffer-mode'. Pressing
 `q' in the buffer will restore the window configuration to the way it
 is when the buffer was created, i.e. when this function was called.
 
-If NOSELECTP is true then the buffer is shown by `display-buffer',
-otherwise it is shown and selected by `pop-to-buffer'."
+If NOSELECTP is true, then the buffer is shown by `display-buffer',
+otherwise it is shown and selected by `pop-to-buffer'.
+
+If REUSEP is true and a buffer does already exist with name NAME,
+then the buffer will be reused instead of being killed."
   (let ((window-config (current-window-configuration)))
-    (when (get-buffer name) (kill-buffer name))
+    (when (and (get-buffer name) (not reusep)) (kill-buffer name))
     (with-current-buffer (get-buffer-create name)
       (when mode (funcall mode))
       (slime-temp-buffer-mode 1)
@@ -1212,14 +1215,17 @@ otherwise it is shown and selected by `pop-to-buffer'."
       (current-buffer))))
 
 ;; Interface
-(defmacro* slime-with-output-to-temp-buffer ((name &optional mode)
+(defmacro* slime-with-output-to-temp-buffer ((name &key mode reusep)
                                              package &rest body)
   "Similar to `with-output-to-temp-buffer'.
 Also saves the window configuration, and inherits the current
 `slime-connection' in a buffer-local variable."
   `(let ((connection (slime-connection))
-         (standard-output (slime-get-temp-buffer-create ,name :mode ',mode)))
-     (prog1 (with-current-buffer standard-output ,@body)
+         (standard-output (slime-get-temp-buffer-create ,name :mode ',mode 
+                                                        :reusep ,reusep)))
+     (prog1 (with-current-buffer standard-output
+              ;; set explicitely to NIL in case the buffer got reused. (REUSEP)
+              (let ((buffer-read-only nil)) ,@body))
        (with-current-buffer standard-output
          (setq slime-buffer-connection connection)
          (setq slime-buffer-package ,package)
@@ -7022,7 +7028,7 @@ With prefix argument include internal symbols."
 (defun slime-show-apropos (plists string package summary)
   (if (null plists)
       (message "No apropos matches for %S" string)
-    (slime-with-output-to-temp-buffer ("*SLIME Apropos*" apropos-mode) package
+    (slime-with-output-to-temp-buffer ("*SLIME Apropos*" :mode apropos-mode) package
       (set-syntax-table lisp-mode-syntax-table)
       (slime-mode t)
       (if (boundp 'header-line-format)
@@ -7342,6 +7348,8 @@ When displaying XREF information, this goes to the next reference."
   (remap 'undo '(lambda (&optional arg)
                  (interactive)
                  (let ((buffer-read-only nil))
+                   (when slime-use-highlight-edits-mode
+                     (slime-remove-edits (point-min) (point-max)))
                    (undo arg)))))
 
 (defvar slime-eval-macroexpand-expression nil
@@ -7357,8 +7365,10 @@ When displaying XREF information, this goes to the next reference."
      slime-eval-macroexpand-expression
      (lambda (expansion)
        (slime-with-output-to-temp-buffer
-           ("*SLIME macroexpansion*" lisp-mode) package
+           ;; reusep for preserving `undo' functionality.
+           ("*SLIME macroexpansion*" :mode lisp-mode :reusep t) package
          (slime-macroexpansion-minor-mode)
+         (erase-buffer)
          (insert expansion)
          (font-lock-fontify-buffer))))))
 
@@ -7384,6 +7394,8 @@ NB: Does not affect *slime-eval-macroexpand-expression*"
      (lambda (expansion)
        (with-current-buffer buffer
          (let ((buffer-read-only nil))
+           (when slime-use-highlight-edits-mode
+             (slime-remove-edits (point-min) (point-max)))
            (goto-char start)
            (delete-region start end)
            (insert expansion)
