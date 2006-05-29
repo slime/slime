@@ -1,3 +1,15 @@
+2006-05-30  Tobias Rittweiler <tcr@freebits.de>
+
+	* slime.el (slime-use-autodoc-mode): Fix typo in docstring.
+	(slime-use-highlight-edits-mode): New variable, analogous to
+	SLIME-USE-AUTODOC-MODE.
+	(slime-setup, slime-lisp-mode-hook): Make above variable
+	work. Also, activates the HIGHLIGHT-EDITS-MODE in proper way (thus
+	avoiding the nasty "Toggling ... off; better pass an explicit
+	argument." message.)
+
+	* slime.el: Fix typo in comment about communication protocol.
+
 2006-05-27  Alan Ruttenberg <alanr-l@mumble.net>
 	* swank-abcl: slot-boundp-using-class slot-value-using-class  so you 
 	can inspect instances
