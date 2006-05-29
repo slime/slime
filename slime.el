@@ -65,7 +65,10 @@
 (require 'easymenu)
 
 (defvar slime-use-autodoc-mode nil
-  "When non-nil always enabled slime-autodoc-mode in slime-mode.")
+  "When non-nil always enable slime-autodoc-mode in slime-mode.")
+
+(defvar slime-use-highlight-edits-mode nil
+  "When non-nil always enable slime-highlight-edits-mode in slime-mode")
 
 (defun* slime-setup (&key autodoc typeout-frame highlight-edits)
   "Setup Emacs so that lisp-mode buffers always use SLIME."
@@ -73,15 +76,16 @@
   (when typeout-frame
     (add-hook 'slime-connected-hook 'slime-ensure-typeout-frame))
   (setq slime-use-autodoc-mode autodoc)
-  (when highlight-edits
-    (add-hook 'slime-mode-hook 'slime-highlight-edits-mode)))
+  (setq slime-use-highlight-edits-mode highlight-edits))
 
 (defun slime-lisp-mode-hook ()
   (slime-mode 1)
   (set (make-local-variable 'lisp-indent-function)
        'common-lisp-indent-function)
   (when slime-use-autodoc-mode
-    (slime-autodoc-mode 1)))
+    (slime-autodoc-mode 1))
+  (when slime-use-highlight-edits-mode
+    (slime-highlight-edits-mode 1)))
 
 (eval-and-compile 
   (defvar slime-path
@@ -2301,8 +2305,8 @@ fixnum a specific thread."))
 This is set only in buffers bound to specific packages."))
 
 ;;; `slime-rex' is the RPC primitive which is used to implement both
-;;; `slime-eval' and `slime-eval-async'. You can use it directly you
-;;; need to but the others are usually more convenient.
+;;; `slime-eval' and `slime-eval-async'. You can use it directly if
+;;; you need to, but the others are usually more convenient.
 
 (defmacro* slime-rex ((&rest saved-vars)
                       (sexp &optional 
