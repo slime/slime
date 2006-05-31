@@ -1,3 +1,9 @@
+2006-05-31  Nathan Bird <nathan@acceleration.net>
+
+	* swank.lisp (*sldb-quit-restart*): New variable.
+	(throw-to-toplevel): Use the restart named by *sldb-quit-restart*
+	as opposed to hard coding abort-request.
+
 2006-05-30  Tobias Rittweiler <tcr@freebits.de>
 
 	* slime.el (slime-get-temp-buffer-create): New keyword REUSEP
