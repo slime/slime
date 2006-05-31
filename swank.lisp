@@ -2482,6 +2482,9 @@ after Emacs causes a restart to be invoked."
 (defvar *sldb-stepping-p* nil
   "True when during execution of a stepp command.")
 
+(defvar *sldb-quit-restart* 'abort-request
+  "What restart should swank attempt to invoke when the user sldb-quits.")
+
 (defun debug-in-emacs (condition)
   (let ((*swank-debugger-condition* condition)
         (*sldb-restarts* (compute-restarts condition))
@@ -2617,9 +2620,11 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
 (defslimefun throw-to-toplevel ()
   "Invoke the ABORT-REQUEST restart abort an RPC from Emacs.
 If we are not evaluating an RPC then ABORT instead."
-  (let ((restart (find-restart 'abort-request)))
+  (let ((restart (find-restart *sldb-quit-restart*)))
     (cond (restart (invoke-restart restart))
-          (t "Restart not found: ABORT-REQUEST"))))
+          (t (format nil
+                     "Restart not found: ~a"
+                     *sldb-quit-restart*)))))
 
 (defslimefun invoke-nth-restart-for-emacs (sldb-level n)
   "Invoke the Nth available restart.
