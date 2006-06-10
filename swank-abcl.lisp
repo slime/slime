@@ -277,46 +277,55 @@
 (defvar *buffer-string*)
 (defvar *compile-filename*)
 
+(in-package :swank-backend)
+
 (defun handle-compiler-warning (condition)
-  #+nil
-  (let ((loc (getf (slot-value condition 'excl::plist) :loc)))
-    (signal (make-condition
-             'compiler-condition
-             :original-condition condition
-             :severity :warning
-             :message (format nil "~A" condition)
-             :location (cond (*buffer-name*
-                              (make-location 
-                               (list :buffer *buffer-name*)
-                               (list :position *buffer-start-position*)))
-                             (loc
-                              (destructuring-bind (file . pos) loc
+  (let ((loc nil));(getf (slot-value condition 'excl::plist) :loc)))
+    (unless (member condition *abcl-signaled-conditions*) ; filter condition signaled more than once.
+      (push condition *abcl-signaled-conditions*) 
+      (signal (make-condition
+               'compiler-condition
+               :original-condition condition
+               :severity :warning
+               :message (format nil "~A" condition)
+               :location (cond (*buffer-name*
+                                (make-location 
+                                 (list :buffer *buffer-name*)
+                                 (list :position *buffer-start-position*)))
+                               (loc
+                                (destructuring-bind (file . pos) loc
+                                  (make-location
+                                   (list :file (namestring (truename file)))
+                                   (list :position (1+ pos)))))
+                               (t  
                                 (make-location
-                                 (list :file (namestring (truename file)))
-                                 (list :position (1+ pos)))))
-                             (t  
-                              (make-location
-                               (list :file *compile-filename*)
-                               (list :position 1))))))))
+                                 (list :file *compile-filename*)
+                                 (list :position 1)))))))))
+
+(defvar *abcl-signaled-conditions*)
 
 (defimplementation swank-compile-file (filename load-p
                                        &optional external-format)
   (declare (ignore external-format))
-  (handler-bind ((warning #'handle-compiler-warning))
-    (let ((*buffer-name* nil)
-          (*compile-filename* filename))
-      (multiple-value-bind (fn warn fail) (compile-file filename)
-        (when (and load-p (not fail))
-          (load fn))))))
+  (let ((jvm::*resignal-compiler-warnings* t)
+        (*abcl-signaled-conditions* nil))
+    (handler-bind ((warning #'handle-compiler-warning))
+      (let ((*buffer-name* nil)
+            (*compile-filename* filename))
+        (multiple-value-bind (fn warn fail) (compile-file filename)
+          (when (and load-p (not fail))
+            (load fn)))))))
 
 (defimplementation swank-compile-string (string &key buffer position directory)
   (declare (ignore directory))
-  (handler-bind ((warning #'handle-compiler-warning))
-    (let ((*buffer-name* buffer)
-          (*buffer-start-position* position)
-          (*buffer-string* string))
-      (funcall (compile nil (read-from-string
-                             (format nil "(~S () ~A)" 'lambda string)))))))
+  (let ((jvm::*resignal-compiler-warnings* t)
+        (*abcl-signaled-conditions* nil))
+    (handler-bind ((warning #'handle-compiler-warning))                 
+      (let ((*buffer-name* buffer)
+            (*buffer-start-position* position)
+            (*buffer-string* string))
+        (funcall (compile nil (read-from-string
+                               (format nil "(~S () ~A)" 'lambda string))))))))
 
 #|
 ;;;; Definition Finding

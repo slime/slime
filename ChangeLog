@@ -1,3 +1,9 @@
+2006-06-09  Alan Ruttenberg <alanr-l@mumble.net>
+	* swank-abcl: Update to cvs version of abcl and warnings errors
+	when compiling in a buffer will now be properly caught by slime vs
+	current behavior of always saying 0 errors 0 warnings and printing
+	them in the repl instead
+	
 2006-05-31  Nathan Bird <nathan@acceleration.net>
 
 	* swank.lisp (*sldb-quit-restart*): New variable.
