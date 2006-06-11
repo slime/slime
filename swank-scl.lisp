@@ -305,9 +305,11 @@
 ;;; usage this reduces consing.  As the string grows larger then grow to
 ;;; reduce the cost of copying strings around.
 ;;;
-(defmethod ext:stream-write-chars ((stream slime-output-stream) string start end)
+(defmethod ext:stream-write-chars ((stream slime-output-stream)
+                                   string start end waitp)
   (declare (simple-string string)
-	   (type kernel:index start end))
+	   (type kernel:index start end)
+           (ignore waitp))
   (declare (optimize (speed 3)))
   (unless (ext:stream-open-p stream)
     (error 'kernel:simple-stream-error
@@ -334,7 +336,7 @@
                   (let ((column (slot-value stream 'column)))
                     (declare (type kernel:index column))
                     (+ column (- end start))))))))
-  string)
+  (- end start))
 
 ;;;
 

@@ -1,4 +1,9 @@
+2006-06-11  Douglas Crosher <dcrosher@common-lisp.net>
+
+	* swank-scl (ext:stream-write-chars): update for SCL 1.3.
+
 2006-06-09  Alan Ruttenberg <alanr-l@mumble.net>
+
 	* swank-abcl: Update to cvs version of abcl and warnings errors
 	when compiling in a buffer will now be properly caught by slime vs
 	current behavior of always saying 0 errors 0 warnings and printing
