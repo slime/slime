@@ -6331,23 +6331,31 @@ function name is prompted."
 
 (defun slime-goto-definition (name definitions &optional where)
   (slime-push-definition-stack)
-  (if (slime-length> definitions 1)
-      (slime-show-definitions name definitions)
-    (let ((def (car definitions)))
-      (destructure-case (slime-definition.location def)
-        ;; Take care of errors before switching any windows/buffers.
-        ((:error message)
-         (error "%s" message))
-        (t
-         (cond ((equal where 'window)
-                (slime-goto-definition-other-window (car definitions)))
-               ((equal where 'frame)
-                (let ((pop-up-frames t))
-                  (slime-goto-definition-other-window (car definitions))))
-               (t
-                (slime-goto-source-location (slime-definition.location
-                                             (car definitions)))
-                (switch-to-buffer (current-buffer)))))))))
+  (let ((all-locations-equal
+         (or (null definitions)
+             (let ((first-location (slime-definition.location (first definitions))))
+               (every (lambda (definition)
+                        (equal (slime-definition.location definition)
+                               first-location))
+                      (rest definitions))))))
+    (if (and (slime-length> definitions 1)
+             (not all-locations-equal))
+        (slime-show-definitions name definitions)
+      (let ((def (car definitions)))
+        (destructure-case (slime-definition.location def)
+          ;; Take care of errors before switching any windows/buffers.
+          ((:error message)
+           (error "%s" message))
+          (t
+           (cond ((equal where 'window)
+                  (slime-goto-definition-other-window (car definitions)))
+                 ((equal where 'frame)
+                  (let ((pop-up-frames t))
+                    (slime-goto-definition-other-window (car definitions))))
+                 (t
+                  (slime-goto-source-location (slime-definition.location
+                                               (car definitions)))
+                  (switch-to-buffer (current-buffer))))))))))
 
 (defun slime-goto-definition-other-window (definition)
   (slime-pop-to-other-window)
