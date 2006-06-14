@@ -1,3 +1,9 @@
+2006-06-14  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-goto-definition): If all definitions of a name
+	have the same location, go there directly rather than presenting
+	an xref buffer.
+
 2006-06-11  Douglas Crosher <dcrosher@common-lisp.net>
 
 	* swank-scl (ext:stream-write-chars): update for SCL 1.3.
