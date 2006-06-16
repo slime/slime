@@ -10075,6 +10075,49 @@ The result is unspecified if there isn't a symbol under the point."
   (or (slime-sexp-at-point)
       (error "No expression at point.")))
 
+(defun slime-parse-extended-operator-name (name)
+  "Assume that point is behind the operator call to NAME in the
+current buffer.  If NAME is MAKE-INSTANCE or another operator in
+`slime-extendeded-operator-name-parser-alist', collect additional
+information from the operator call and encode it as an extended
+operator name like (MAKE-INSTANCE CLASS \"make-instance\").  Return
+NAME or the extended operator name."
+  (ignore-errors
+    (let* ((symbol-name (upcase (slime-cl-symbol-name name)))
+           (assoc (assoc symbol-name slime-extended-operator-name-parser-alist)))
+      (when assoc
+        (setq name (funcall (cdr assoc) name)))))
+  name)
+
+(defvar slime-extended-operator-name-parser-alist
+  '(("MAKE-INSTANCE" . slime-parse-extended-operator-name/make-instance)
+    ("MAKE-CONDITION" . slime-parse-extended-operator-name/make-instance)
+    ("ERROR" . slime-parse-extended-operator-name/make-instance)
+    ("SIGNAL" . slime-parse-extended-operator-name/make-instance)
+    ("WARN" . slime-parse-extended-operator-name/make-instance)
+    ("CERROR" . slime-parse-extended-operator-name/cerror)
+    ("DEFMETHOD" . slime-parse-extended-operator-name/defmethod)))
+
+(defun slime-parse-extended-operator-name/make-instance (name)
+  (let ((str (slime-sexp-at-point)))
+    (when (= (aref str 0) ?')
+      (setq name (list :make-instance (substring str 1)
+                       name))))
+  name)
+
+(defun slime-parse-extended-operator-name/cerror (name)
+  (let ((continue-string-sexp (slime-sexp-at-point))
+        (class-sexp  (progn (forward-sexp) (forward-char 1) (slime-sexp-at-point))))
+    (when (= (aref class-sexp 0) ?')
+      (setq name (list :cerror 
+                       continue-string-sexp
+                       (substring class-sexp 1)))))
+  name)
+
+(defun slime-parse-extended-operator-name/defmethod (name)
+  (let ((str (slime-sexp-at-point)))
+    (setq name (list :defmethod str))))
+
 (defun slime-enclosing-operator-names (&optional max-levels)
   "Return the list of operator names of the forms containing point.
 As a secondary value, return the indices of the respective argument to
@@ -10108,26 +10151,9 @@ levels of parens."
                 (incf level)
                 (forward-char 1)
                 (when-let (name (slime-symbol-name-at-point))
-                  ;; Detect MAKE-INSTANCE forms and collect the class-name
-                  ;; if exists and is a quoted symbol.
-                  (let ((symbol-name (upcase (slime-cl-symbol-name name))))
-                    (ignore-errors
-                      (cond
-                       ((member symbol-name
-                                '("MAKE-INSTANCE" "MAKE-CONDITION"
-                                  "ERROR" "SIGNAL" "WARN"))
-                        (forward-char (1+ (length name)))
-                        (slime-forward-blanks)
-                        (let ((str (slime-sexp-at-point)))
-                          (when (= (aref str 0) ?')
-                            (setq name (list :make-instance (substring str 1)
-                                             name)))))
-                       ((member symbol-name '("DEFMETHOD"))
-                        (forward-char (1+ (length name))) 
-                        (slime-forward-blanks)
-                        (let ((str (slime-sexp-at-point)))
-                          (setq name (list :defmethod str)))))))
-                  (push name result)
+                  (forward-char (1+ (length name)))
+                  (slime-forward-blanks)
+                  (push (slime-parse-extended-operator-name name) result)
                   (push arg-index arg-indices))
                 (backward-up-list 1)))))))
     (values 
