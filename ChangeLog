@@ -1,3 +1,16 @@
+2006-06-16  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* swank.lisp (operator-designator-to-form): Handle :cerror.
+	(extra-keywords cerror): Make it work.
+
+	* slime.el (slime-parse-extended-operator-name) 
+	(slime-parse-extended-operator-name/make-instance) 
+	(slime-parse-extended-operator-name/defmethod): New functions,
+	factored out from slime-enclosing-operator-names.
+	(slime-parse-extended-operator-name/cerror): New function.
+	(slime-extended-operator-name-parser-alist): New variable.
+	(slime-enclosing-operator-names): Use them here.
+
 2006-06-14  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-goto-definition): If all definitions of a name
