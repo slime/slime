@@ -1412,6 +1412,9 @@ Return the package or nil."
         (let ((parsed-operator-name (parse-symbol operator-name)))
           (values `(,parsed-operator-name ',(parse-symbol class-name))
                   operator-name)))
+       ((:cerror continue-string class-name)
+        (values `(cerror ,continue-string ',(parse-symbol class-name))
+                'cerror))
        ((:defmethod generic-name)
         (values `(defmethod ,(parse-symbol generic-name))
                 'defmethod))))
@@ -1893,15 +1896,19 @@ to determine the extra keywords."))
   (multiple-value-or (apply #'extra-keywords/make-instance operator args)
                      (call-next-method)))
 
-;;; FIXME: these two don't work yet: they need extra support from
-;;; slime.el (slime-enclosing-operator-names) and swank.lisp
-;;; (OPERATOR-DESIGNATOR-TO-FORM).
 (defmethod extra-keywords ((operator (eql 'cerror))
                            &rest args)
-  (multiple-value-or (apply #'extra-keywords/make-instance operator
-                            (cdr args))
-                     (call-next-method)))
+  (multiple-value-bind (keywords aok determiners)
+      (apply #'extra-keywords/make-instance operator
+             (cdr args))
+    (if keywords
+        (values keywords aok
+                (cons (car args) determiners))
+        (call-next-method))))
 
+;;; FIXME: this one doesn't work yet:  it needs extra support from
+;;; slime.el (slime-extended-operator-name-parser-alist) and swank.lisp
+;;; (OPERATOR-DESIGNATOR-TO-FORM).
 (defmethod extra-keywords ((operator (eql 'change-class)) 
                            &rest args)
   (multiple-value-or (apply #'extra-keywords/change-class operator (cdr args))
