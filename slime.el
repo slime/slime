@@ -10096,6 +10096,7 @@ NAME or the extended operator name."
     ("SIGNAL" . slime-parse-extended-operator-name/make-instance)
     ("WARN" . slime-parse-extended-operator-name/make-instance)
     ("CERROR" . slime-parse-extended-operator-name/cerror)
+    ("CHANGE-CLASS" . slime-parse-extended-operator-name/cerror)
     ("DEFMETHOD" . slime-parse-extended-operator-name/defmethod)))
 
 (defun slime-parse-extended-operator-name/make-instance (name)
@@ -10109,9 +10110,9 @@ NAME or the extended operator name."
   (let ((continue-string-sexp (slime-sexp-at-point))
         (class-sexp  (progn (forward-sexp) (forward-char 1) (slime-sexp-at-point))))
     (when (= (aref class-sexp 0) ?')
-      (setq name (list :cerror 
-                       continue-string-sexp
-                       (substring class-sexp 1)))))
+      (setq name (list :make-instance (substring class-sexp 1)
+                       name
+                       continue-string-sexp))))
   name)
 
 (defun slime-parse-extended-operator-name/defmethod (name)
