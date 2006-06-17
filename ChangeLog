@@ -3,6 +3,9 @@
 	* slime.el (slime-parse-extended-operator-name/cerror): Handle
 	cerror and change-class with :make-instance.
 	(slime-extended-operator-name-parser-alist): Handle change-class.
+	(slime-parse-extended-operator-name)
+	(slime-enclosing-operator-names): Fix the case when point is
+	within the operator.
 
 	* swank.lisp (operator-designator-to-form): Handle cerror and
 	change-class with :make-instance.
