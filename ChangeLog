@@ -1,3 +1,12 @@
+2006-06-17  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-parse-extended-operator-name/cerror): Handle
+	cerror and change-class with :make-instance.
+	(slime-extended-operator-name-parser-alist): Handle change-class.
+
+	* swank.lisp (operator-designator-to-form): Handle cerror and
+	change-class with :make-instance.
+
 2006-06-16  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* swank.lisp (operator-designator-to-form): Handle :cerror.
