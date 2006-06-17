@@ -10076,13 +10076,15 @@ The result is unspecified if there isn't a symbol under the point."
       (error "No expression at point.")))
 
 (defun slime-parse-extended-operator-name (name)
-  "Assume that point is behind the operator call to NAME in the
+  "Assume that point is at the operator NAME in the
 current buffer.  If NAME is MAKE-INSTANCE or another operator in
 `slime-extendeded-operator-name-parser-alist', collect additional
 information from the operator call and encode it as an extended
 operator name like (MAKE-INSTANCE CLASS \"make-instance\").  Return
 NAME or the extended operator name."
   (ignore-errors
+    (forward-char (1+ (length name)))
+    (slime-forward-blanks)
     (let* ((symbol-name (upcase (slime-cl-symbol-name name)))
            (assoc (assoc symbol-name slime-extended-operator-name-parser-alist)))
       (when assoc
@@ -10152,8 +10154,6 @@ levels of parens."
                 (incf level)
                 (forward-char 1)
                 (when-let (name (slime-symbol-name-at-point))
-                  (forward-char (1+ (length name)))
-                  (slime-forward-blanks)
                   (push (slime-parse-extended-operator-name name) result)
                   (push arg-index arg-indices))
                 (backward-up-list 1)))))))
