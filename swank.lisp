@@ -1903,9 +1903,6 @@ to determine the extra keywords."))
                 (cons (car args) determiners))
         (call-next-method))))
 
-;;; FIXME: this one doesn't work yet:  it needs extra support from
-;;; slime.el (slime-extended-operator-name-parser-alist) and swank.lisp
-;;; (OPERATOR-DESIGNATOR-TO-FORM).
 (defmethod extra-keywords ((operator (eql 'change-class)) 
                            &rest args)
   (multiple-value-or (apply #'extra-keywords/change-class operator (cdr args))
