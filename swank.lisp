@@ -1408,13 +1408,10 @@ Return the package or nil."
   (etypecase name
     (cons
      (destructure-case name
-       ((:make-instance class-name operator-name)
+       ((:make-instance class-name operator-name &rest args)
         (let ((parsed-operator-name (parse-symbol operator-name)))
-          (values `(,parsed-operator-name ',(parse-symbol class-name))
+          (values `(,parsed-operator-name ,@args ',(parse-symbol class-name))
                   operator-name)))
-       ((:cerror continue-string class-name)
-        (values `(cerror ,continue-string ',(parse-symbol class-name))
-                'cerror))
        ((:defmethod generic-name)
         (values `(defmethod ,(parse-symbol generic-name))
                 'defmethod))))
