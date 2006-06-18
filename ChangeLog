@@ -1,11 +1,16 @@
 2006-06-18  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
+	* slime.el (slime-echo-arglist): Simplify, just use slime-autodoc.
+
 	* swank.lisp (arglist): Distinguish between provided actual args
 	and required formal args using the new slot provided-args.
 	(form-completion): Likewise.
 	(decoded-arglist-to-string): Use it here to display the argument
 	list (make-instance 'CLASS-NAME ...) rather
 	than (make-instance (quote CLASS-NAME) ...).
+	
+	* swank.lisp (extra-keywords change-class): Don't drop the first
+	argument.
 
 	* slime.el (slime-parse-extended-operator-name): Don't move
 	point; fixes infinite loop.
