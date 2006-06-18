@@ -1910,8 +1910,12 @@ to determine the extra keywords."))
 
 (defmethod extra-keywords ((operator (eql 'change-class)) 
                            &rest args)
-  (multiple-value-or (apply #'extra-keywords/change-class operator (cdr args))
-                     (call-next-method)))
+  (multiple-value-bind (keywords aok determiners)
+      (apply #'extra-keywords/change-class operator (cdr args))
+    (if keywords
+        (values keywords aok
+                (cons (car args) determiners))
+        (call-next-method))))
 
 (defun enrich-decoded-arglist-with-extra-keywords (decoded-arglist form)
   "Determine extra keywords from the function call FORM, and modify
