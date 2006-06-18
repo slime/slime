@@ -1480,19 +1480,23 @@ If OPERATOR is non-nil, put it in front of the arglist."
                           (unless (null (cdr arg))
                             (write-char #\space))
                           (pprint-fill *standard-output* (cdr arg) nil)))))
-                   (print-with-highlight (arg &optional (index-ok-p #'=))
+                   (print-with-highlight (arg &optional (index-ok-p #'=)
+                                              (print-fun #'print-arg))
                      (print-space)
                      (cond 
                        ((and highlight (funcall index-ok-p index highlight))
                         (princ "===> ")
-                        (print-arg arg)
+                        (funcall print-fun arg)
                         (princ " <==="))
                        (t
-                        (print-arg arg)))
+                        (funcall print-fun arg)))
                      (incf index)))
             (pprint-logical-block (nil nil :prefix "(" :suffix ")")
               (when operator
                 (print-with-highlight operator))
+              (mapc (lambda (arg)
+                      (print-with-highlight arg #'= #'princ))
+                    (arglist.provided-args arglist))
               (mapc #'print-with-highlight
                     (arglist.required-args arglist))
               (when (arglist.optional-args arglist)
@@ -1603,6 +1607,7 @@ Return an OPTIONAL-ARG structure."
                   (make-optional-arg 'x t))))
 
 (defstruct (arglist (:conc-name arglist.))
+  provided-args         ; list of the provided actual arguments
   required-args         ; list of the required arguments
   optional-args         ; list of the optional arguments
   key-p                 ; whether &key appeared
@@ -1995,9 +2000,8 @@ provided in ACTUAL-ARGLIST."
                (t
                 ;; replace some formal args by determining actual args
                 (remove-actual-args decoded-arglist determining-args)
-                (setf (arglist.required-args decoded-arglist)
-                      (append determining-args
-                              (arglist.required-args decoded-arglist)))))
+                (setf (arglist.provided-args decoded-arglist)
+                      determining-args)))
              (return-from form-completion 
                (values decoded-arglist any-enrichment))))))))
   :not-available)
@@ -2019,9 +2023,10 @@ provided in ACTUAL-ARGLIST."
 	    ((member :not-available))
 	    (list
 	     (return-from form-completion
-               (values (make-arglist :required-args (if remove-args
-                                                        (list arglist)
-                                                        (list gf-name arglist))
+               (values (make-arglist :provided-args (if remove-args
+                                                        nil
+                                                        (list gf-name))
+                                     :required-args (list arglist)
                                      :rest "body" :body-p t)
                        t))))))))
   (call-next-method))
