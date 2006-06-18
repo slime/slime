@@ -10082,13 +10082,14 @@ current buffer.  If NAME is MAKE-INSTANCE or another operator in
 information from the operator call and encode it as an extended
 operator name like (MAKE-INSTANCE CLASS \"make-instance\").  Return
 NAME or the extended operator name."
-  (ignore-errors
-    (forward-char (1+ (length name)))
-    (slime-forward-blanks)
-    (let* ((symbol-name (upcase (slime-cl-symbol-name name)))
-           (assoc (assoc symbol-name slime-extended-operator-name-parser-alist)))
-      (when assoc
-        (setq name (funcall (cdr assoc) name)))))
+  (save-excursion
+    (ignore-errors
+      (forward-char (1+ (length name)))
+      (slime-forward-blanks)
+      (let* ((symbol-name (upcase (slime-cl-symbol-name name)))
+             (assoc (assoc symbol-name slime-extended-operator-name-parser-alist)))
+        (when assoc
+          (setq name (funcall (cdr assoc) name))))))
   name)
 
 (defvar slime-extended-operator-name-parser-alist
