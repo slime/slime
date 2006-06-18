@@ -5297,17 +5297,7 @@ more than one space."
 
 (defun slime-echo-arglist ()
   "Display the arglist of the current form in the echo area."
-  (multiple-value-bind (names arg-indices)
-      (slime-enclosing-operator-names)
-    (when names
-      (slime-eval-async
-       `(swank:arglist-for-echo-area (quote ,names)
-                                     :arg-indices (quote ,arg-indices))
-       (lexical-let ((buffer (current-buffer)))
-         (lambda (message)
-           (if message
-               (with-current-buffer buffer
-                 (slime-message "%s" (slime-fontify-string message))))))))))
+  (slime-autodoc))
 
 (defun slime-arglist (name)
   "Show the argument list for NAME."
