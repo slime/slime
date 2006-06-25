@@ -64,7 +64,10 @@ The source locations are stored in SOURCE-MAP."
     (let ((sharp-dot (get-dispatch-macro-character #\# #\. readtable)))
       (set-dispatch-macro-character #\# #\. (lambda (&rest args)
 					      (let ((*read-suppress* t))
-						(apply sharp-dot args)))
+						(apply sharp-dot args))
+					      (if *read-suppress*
+						  (values)
+						  (list (gensym "#."))))
 				    readtable))))
 
 (defun read-and-record-source-map (stream)
