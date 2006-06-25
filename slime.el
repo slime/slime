@@ -7771,12 +7771,12 @@ CONTS is a list of pending Emacs continuations."
         (recursive-edit)))))
 
 (defun sldb-activate (thread level)
-  (with-current-buffer (sldb-find-buffer thread)
-    (unless (equal sldb-level level)
-      (with-lexical-bindings (thread level)
-        (slime-eval-async `(swank:debugger-info-for-emacs 0 10)
-                          (lambda (result)
-                            (apply #'sldb-setup thread level result)))))))
+  (unless (let ((b (sldb-find-buffer thread)))
+            (and b (with-current-buffer b (equal sldb-level level))))
+    (with-lexical-bindings (thread level)
+      (slime-eval-async `(swank:debugger-info-for-emacs 0 10)
+                        (lambda (result)
+                          (apply #'sldb-setup thread level result))))))
 
 (defun sldb-exit (thread level &optional stepping)
   (when-let (sldb (sldb-find-buffer thread))
@@ -9278,6 +9278,20 @@ that succeeded initially folded away."
         (goto-char (overlay-start o))
         (show-subtree)))))
 
+(defun slime-run-one-test (name)
+  "Ask for the name of a test and then execute the test."
+  (interactive (list (slime-read-test-name)))
+  (let ((test (find name slime-tests :key #'slime-test.name)))
+    (assert test)
+    (let ((slime-tests (list test)))
+      (slime-run-tests))))
+
+(defun slime-read-test-name ()
+  (let ((alist (mapcar (lambda (test) 
+                         (list (symbol-name (slime-test.name test))))
+                       slime-tests)))
+    (read (completing-read "Test: " alist nil t))))
+
 (defun slime-test-should-fail-p (test)
   (member (slime-lisp-implementation-name)
           (slime-test.fails-for test)))
@@ -9474,9 +9488,11 @@ BODY returns true if the check succeeds."
       (cond ((time-less-p end (current-time))
              (error "Timeout waiting for condition: %S" name))
             (t
-             ;; XXX if a process-filter enters a recursive-edit, we
-             ;; hang forever
-             (accept-process-output nil 0 100000))))))
+             ;; tell the debugger to enter recursive edits
+             (let ((slime-stack-eval-tags (cons 'wait slime-stack-eval-tags)))
+               ;; XXX if a process-filter enters a recursive-edit, we
+               ;; hang forever
+               (accept-process-output nil 0 10000)))))))
 
 (defun slime-sync-to-top-level (timeout)
   (slime-wait-condition "top-level" #'slime-at-top-level-p timeout))
@@ -9608,15 +9624,21 @@ Confirm that SUBFORM is correctly located."
           #.*log-events*
           (cl-user::bar))"
        (cl-user::bar))
+      ("#.'(defun x () (/ 1 0))
+        (defun foo () 
+           (cl-user::bar))
+        
+        "
+       (cl-user::bar))
       )
   (slime-check-top-level)
   (with-temp-buffer 
     (lisp-mode)
     (insert program)
     (setq slime-buffer-package ":swank")
-    (slime-compile-defun)
+    (slime-compile-string (buffer-string) 1)
     (setq slime-buffer-package ":cl-user")
-    (slime-sync)
+    (slime-sync-to-top-level 15)
     (goto-char (point-max))
     (slime-previous-note)
     (slime-check error-location-correct
