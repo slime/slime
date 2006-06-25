@@ -1,3 +1,17 @@
+2006-06-25  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-source-path-parser.lisp (suppress-sharp-dot): Return a
+	unique symbol to avoid multiple entries for nil at toplevel in the
+	source-map.
+
+	* slime.el (test compile-defun): Add a test for #. reader macro at
+	toplevel.
+	(slime-run-one-test): New command.
+	(sldb-activate): Recreate the sldb buffer if it doesn't
+	exist. (Can happen if someone kills the buffer manually.)
+	(slime-wait-condition): Add a dummy to slime-stack-eval-tags while
+	waiting so that the SLDB enters a recursive edit.
+
 2006-06-18  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-echo-arglist): Simplify, just use slime-autodoc.
