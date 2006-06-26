@@ -1,3 +1,15 @@
+2006-06-26  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-sbcl.lisp (find-definitions): Remove backward
+	compatibility code.
+
+2006-06-26  Luís Oliveira <loliveira@common-lisp.net>
+
+	* swank-sbcl.lisp (tmpnam, temp-file-name): New functions.
+	(swank-compile-string): Create temporary file with the string and
+	compile-file it instead of compiling an anonymous lambda, as
+	before, in order to better handle eval-when forms.
+
 2006-06-25  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-source-path-parser.lisp (suppress-sharp-dot): Return a
