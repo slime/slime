@@ -291,7 +291,7 @@ information."
       (list :error "No error location available")))
 
 (defun locate-compiler-note (file source-path source)
-  (cond ((and (eq file :lisp)
+  (cond ((and ;;(eq file :lisp)
               *buffer-name*)
          ;; Compiling from a buffer
          (let ((position (+ *buffer-offset*
@@ -377,24 +377,41 @@ compiler state."
 
 ;;;; compile-string
 
+;;; We copy the string to a temporary file in order to get adequate
+;;; semantics for :COMPILE-TOPLEVEL and :LOAD-TOPLEVEL EVAL-WHEN forms
+;;; which the previous approach using
+;;;     (compile nil `(lambda () ,(read-from-string string)))
+;;; did not provide.
+
+(sb-alien:define-alien-routine "tmpnam" sb-alien:c-string
+  (dest (* sb-alien:c-string)))
+
+(defun temp-file-name ()
+  "Return a temporary file name to compile strings into."
+  (concatenate 'string (tmpnam nil) ".lisp"))
+
 (defimplementation swank-compile-string (string &key buffer position directory)
   (declare (ignore directory))
-  (flet ((compileit (cont)
-           (let ((*buffer-name* buffer)
-                 (*buffer-offset* position)
-                 (*buffer-substring* string))
+  (let ((*buffer-name* buffer)
+        (*buffer-offset* position)
+        (*buffer-substring* string)
+        (filename (temp-file-name)))
+    (flet ((compile-it (fn) 
              (with-compilation-hooks ()
-               (with-compilation-unit (:source-plist
-                                       (list :emacs-buffer buffer 
-                                             :emacs-string string
-                                             :emacs-position position))
-                 (funcall cont (compile nil
-                                        `(lambda ()
-                                          ,(read-from-string string)))))))))
-    (if *trap-load-time-warnings*
-        (compileit #'funcall)
-        (funcall (compileit #'identity)))))
-
+               (with-compilation-unit
+                   (:source-plist (list :emacs-buffer buffer
+                                        :emacs-string string
+                                        :emacs-position position))
+                 (funcall fn (compile-file filename))))))
+      (with-open-file (s filename :direction :output :if-exists :error)
+        (write-string string s))
+      (unwind-protect
+           (if *trap-load-time-warnings*
+               (compile-it #'load)
+               (load (compile-it #'identity)))
+        (ignore-errors
+          (delete-file filename)
+          (delete-file (compile-file-pathname filename)))))))
 
 ;;;; Definitions
 
