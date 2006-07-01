@@ -4,7 +4,7 @@
 ;;;
 ;;; Created 2003, Daniel Barlow <dan@metacircles.com>
 ;;;
-;;; This code has been placed in the Public Domain.  All warranties are 
+;;; This code has been placed in the Public Domain.  All warranties are
 ;;; disclaimed.
 
 ;;; Requires the SB-INTROSPECT contrib.
@@ -27,7 +27,7 @@
 (import-swank-mop-symbols :sb-mop '(:slot-definition-documentation))
 
 (defun swank-mop:slot-definition-documentation (slot)
-  (sb-pcl::documentation slot t))  
+  (sb-pcl::documentation slot t))
 
 ;;; TCP Server
 
@@ -41,7 +41,7 @@
           (not (sb-alien:extern-alien "linux_no_threads_p" sb-alien:boolean)))
       :spawn)
     (t :fd-handler)))
-        
+
 (defun resolve-hostname (name)
   (car (sb-bsd-sockets:host-ent-addresses
         (sb-bsd-sockets:get-host-by-name name))))
@@ -62,7 +62,7 @@
   (sb-sys:invalidate-descriptor (socket-fd socket))
   (sb-bsd-sockets:socket-close socket))
 
-(defimplementation accept-connection (socket &key 
+(defimplementation accept-connection (socket &key
                                       (external-format :iso-latin-1-unix)
                                       (buffering :full) timeout)
   (declare (ignore timeout))
@@ -95,14 +95,14 @@
 (defimplementation remove-sigio-handlers (socket)
   (let ((fd (socket-fd socket)))
     (setf *sigio-handlers* (delete fd *sigio-handlers* :key #'car))
-    (sb-sys:invalidate-descriptor fd)) 
+    (sb-sys:invalidate-descriptor fd))
   (close socket))
 
 (defimplementation add-fd-handler (socket fn)
   (declare (type function fn))
   (let ((fd (socket-fd socket)))
     (format *debug-io* "; Adding fd handler: ~S ~%" fd)
-    (sb-sys:add-fd-handler fd :input (lambda (_) 
+    (sb-sys:add-fd-handler fd :input (lambda (_)
                                        _
                                        (funcall fn)))))
 
@@ -128,13 +128,13 @@
                                        :input t
                                        :element-type 'character
                                        :buffering buffering
-                                       #+sb-unicode :external-format 
+                                       #+sb-unicode :external-format
                                        #+sb-unicode ef
                                        )))
 
 (defun accept (socket)
   "Like socket-accept, but retry on EAGAIN."
-  (loop (handler-case 
+  (loop (handler-case
             (return (sb-bsd-sockets:socket-accept socket))
           (sb-bsd-sockets:interrupted-error ()))))
 
@@ -190,9 +190,9 @@
 	(read stream t nil t))))
  (values))
 
-(defvar *shebang-readtable* 
+(defvar *shebang-readtable*
   (let ((*readtable* (copy-readtable nil)))
-    (set-dispatch-macro-character #\# #\! 
+    (set-dispatch-macro-character #\# #\!
                                   (lambda (s c n) (shebang-reader s c n))
                                   *readtable*)
     *readtable*))
@@ -216,7 +216,7 @@
 (defvar *debootstrap-packages* t)
 
 (defun call-with-debootstrapping (fun)
-  (handler-bind ((sb-int:bootstrap-package-not-found 
+  (handler-bind ((sb-int:bootstrap-package-not-found
                   #'sb-int:debootstrap-package))
     (funcall fun)))
 
@@ -224,7 +224,7 @@
   `(call-with-debootstrapping (lambda () ,@body)))
 
 (defimplementation call-with-syntax-hooks (fn)
-  (cond ((and *debootstrap-packages* 
+  (cond ((and *debootstrap-packages*
               (sbcl-package-p *package*))
          (with-debootstrapping (funcall fn)))
         (t
@@ -291,20 +291,18 @@ information."
       (list :error "No error location available")))
 
 (defun locate-compiler-note (file source-path source)
-  (cond ((and ;;(eq file :lisp)
-              *buffer-name*)
+  (cond ((and (not (eq file :lisp)) *buffer-name*)
          ;; Compiling from a buffer
          (let ((position (+ *buffer-offset*
                             (source-path-string-position
-                             (cons 0 (nthcdr 2 source-path))
-                             *buffer-substring*))))
+                             source-path *buffer-substring*))))
            (make-location (list :buffer *buffer-name*)
                           (list :position position))))
         ((and (pathnamep file) (null *buffer-name*))
          ;; Compiling from a file
          (make-location (list :file (namestring file))
                         (list :position
-                              (1+ (source-path-file-position 
+                              (1+ (source-path-file-position
                                    source-path file)))))
         ((and (eq file :lisp) (stringp source))
          ;; Compiling macro generated code
@@ -360,9 +358,9 @@ compiler state."
 
 (defvar *trap-load-time-warnings* nil)
 
-(defimplementation swank-compile-file (filename load-p 
+(defimplementation swank-compile-file (filename load-p
                                        &optional external-format)
-  (let ((ef (if external-format 
+  (let ((ef (if external-format
                 (find-external-format external-format)
                 :default)))
     (handler-case
@@ -396,7 +394,7 @@ compiler state."
         (*buffer-offset* position)
         (*buffer-substring* string)
         (filename (temp-file-name)))
-    (flet ((compile-it (fn) 
+    (flet ((compile-it (fn)
              (with-compilation-hooks ()
                (with-compilation-unit
                    (:source-plist (list :emacs-buffer buffer
@@ -594,7 +592,7 @@ Return a list of the form (NAME LOCATION)."
   (declare (type function debugger-loop-fn))
   (let* ((*sldb-stack-top* (or sb-debug:*stack-top-hint* (sb-di:top-frame)))
 	 (sb-debug:*stack-top-hint* nil))
-    (handler-bind ((sb-di:debug-condition 
+    (handler-bind ((sb-di:debug-condition
 		    (lambda (condition)
                       (signal (make-condition
                                'sldb-condition
@@ -644,7 +642,7 @@ stack."
 ;;; fuzzy: we have FUNCTION-SOURCE-LOCATION which returns the
 ;;; source-location for a function, and we also have FILE-SOURCE-LOCATION &co
 ;;; which returns the source location for a _code-location_.
-;;; 
+;;;
 ;;; Maybe these should be named code-location-file-source-location,
 ;;; etc, turned into generic functions, or something. In the very
 ;;; least the names should indicate the main entry point vs. helper
@@ -661,7 +659,7 @@ stack."
           (t (error "Cannot find source location for: ~A " code-location)))))
 
 (defun lisp-source-location (code-location)
-  (let ((source (prin1-to-string 
+  (let ((source (prin1-to-string
                  (sb-debug::code-location-source-form code-location 100))))
     (make-location `(:source-form ,source) '(:position 0))))
 
@@ -671,8 +669,8 @@ stack."
         (let* ((pos (string-source-position code-location emacs-string))
                (snipped (with-input-from-string (s emacs-string)
                           (read-snippet s pos))))
-          (make-location `(:buffer ,emacs-buffer) 
-                         `(:position ,(+ emacs-position pos)) 
+          (make-location `(:buffer ,emacs-buffer)
+                         `(:position ,(+ emacs-position pos))
                          `(:snippet ,snipped))))
       (fallback-source-location code-location)))
 
@@ -691,14 +689,14 @@ stack."
   (sb-c::debug-source-name (sb-di::code-location-debug-source code-location)))
 
 (defun code-location-debug-source-created (code-location)
-  (sb-c::debug-source-created 
+  (sb-c::debug-source-created
    (sb-di::code-location-debug-source code-location)))
 
 (defun code-location-debug-fun-fun (code-location)
   (sb-di:debug-fun-fun (sb-di:code-location-debug-fun code-location)))
 
 (defun code-location-has-debug-block-info-p (code-location)
-  (handler-case 
+  (handler-case
       (progn (sb-di:code-location-debug-block code-location)
              t)
     (sb-di:no-debug-blocks  () nil)))
@@ -727,9 +725,9 @@ stack."
       (code-location-source-location code-location)
       (handler-case (code-location-source-location code-location)
         (error (c) (list :error (format nil "~A" c))))))
-                                               
+
 (defimplementation frame-source-location-for-emacs (index)
-  (safe-source-location-for-emacs 
+  (safe-source-location-for-emacs
    (sb-di:frame-code-location (nth-frame index))))
 
 (defun frame-debug-vars (frame)
@@ -761,7 +759,7 @@ stack."
 (defimplementation eval-in-frame (form index)
   (let ((frame (nth-frame index)))
     (funcall (the function
-               (sb-di:preprocess-for-eval form 
+               (sb-di:preprocess-for-eval form
                                           (sb-di:frame-code-location frame)))
              frame)))
 
@@ -783,7 +781,7 @@ stack."
 (defimplementation restart-frame (index)
   (let ((frame (nth-frame index)))
     (return-from-frame index (sb-debug::frame-call-as-list frame))))
-    
+
 ;;;;; reference-conditions
 
 (defimplementation format-sldb-condition (condition)
@@ -858,26 +856,26 @@ stack."
                     (:code (sb-kernel:fun-code-header o)))))
 	  ((= header sb-vm:closure-header-widetag)
 	   (values "A closure."
-                   (append 
+                   (append
                     (label-value-line :function (sb-kernel:%closure-fun o))
                     `("Closed over values:" (:newline))
                     (loop for i below (1- (sb-kernel:get-closure-length o))
-                          append (label-value-line 
+                          append (label-value-line
                                   i (sb-kernel:%closure-index-ref o i))))))
 	  (t (call-next-method o)))))
 
 (defmethod inspect-for-emacs ((o sb-kernel:code-component) (_ sbcl-inspector))
   (declare (ignore _))
   (values (format nil "~A is a code data-block." o)
-          (append 
-           (label-value-line* 
+          (append
+           (label-value-line*
             (:code-size (sb-kernel:%code-code-size o))
             (:entry-points (sb-kernel:%code-entry-points o))
             (:debug-info (sb-kernel:%code-debug-info o))
-            (:trace-table-offset (sb-kernel:code-header-ref 
+            (:trace-table-offset (sb-kernel:code-header-ref
                                   o sb-vm:code-trace-table-offset-slot)))
            `("Constants:" (:newline))
-           (loop for i from sb-vm:code-constants-offset 
+           (loop for i from sb-vm:code-constants-offset
                  below (sb-kernel:get-header-data o)
                  append (label-value-line i (sb-kernel:code-header-ref o i)))
            `("Code:" (:newline)
@@ -885,8 +883,8 @@ stack."
                  (cond ((sb-kernel:%code-debug-info o)
                         (sb-disassem:disassemble-code-component o :stream s))
                        (t
-                        (sb-disassem:disassemble-memory 
-                         (sb-disassem::align 
+                        (sb-disassem:disassemble-memory
+                         (sb-disassem::align
                           (+ (logandc2 (sb-kernel:get-lisp-obj-address o)
                                        sb-vm:lowtag-mask)
                              (* sb-vm:code-constants-offset
@@ -902,12 +900,12 @@ stack."
            (:name (sb-kernel:fdefn-name o))
            (:function (sb-kernel:fdefn-fun o)))))
 
-(defmethod inspect-for-emacs :around ((o generic-function) 
+(defmethod inspect-for-emacs :around ((o generic-function)
                                       (inspector sbcl-inspector))
   (declare (ignore inspector))
   (multiple-value-bind (title contents) (call-next-method)
     (values title
-            (append 
+            (append
              contents
              (label-value-line*
               (:pretty-arglist (sb-pcl::generic-function-pretty-arglist o))
@@ -921,21 +919,21 @@ stack."
        #.(cl:if (cl:find-symbol "THREAD-NAME" "SB-THREAD") '(and) '(or)))
 (progn
   (defvar *thread-id-counter* 0)
-  
+
   (defvar *thread-id-counter-lock*
     (sb-thread:make-mutex :name "thread id counter lock"))
 
   (defun next-thread-id ()
     (sb-thread:with-mutex (*thread-id-counter-lock*)
       (incf *thread-id-counter*)))
-  
+
   (defparameter *thread-id-map* (make-hash-table))
 
   ;; This should be a thread -> id map but as weak keys are not
   ;; supported it is id -> map instead.
   (defvar *thread-id-map-lock*
     (sb-thread:make-mutex :name "thread id map lock"))
-  
+
   (defimplementation spawn (fn &key name)
     (sb-thread:make-thread fn :name name))
 
@@ -969,7 +967,7 @@ stack."
                     (remhash id *thread-id-map*)
                     nil)))
             nil))))
-  
+
   (defimplementation thread-name (thread)
     ;; sometimes the name is not a string (e.g. NIL)
     (princ-to-string (sb-thread:thread-name thread)))
@@ -998,7 +996,7 @@ stack."
 
   (defimplementation all-threads ()
     (sb-thread:list-all-threads))
- 
+
   (defimplementation interrupt-thread (thread fn)
     (sb-thread:interrupt-thread thread fn))
 
@@ -1012,7 +1010,7 @@ stack."
   (defvar *mailboxes* (list))
   (declaim (type list *mailboxes*))
 
-  (defstruct (mailbox (:conc-name mailbox.)) 
+  (defstruct (mailbox (:conc-name mailbox.))
     thread
     (mutex (sb-thread:make-mutex))
     (waitqueue  (sb-thread:make-waitqueue))
@@ -1049,20 +1047,20 @@ stack."
 
   ;; XXX race conditions
   (defvar *auto-flush-streams* '())
-  
+
   (defvar *auto-flush-thread* nil)
 
   (defimplementation make-stream-interactive (stream)
     (setq *auto-flush-streams* (adjoin stream *auto-flush-streams*))
     (unless *auto-flush-thread*
       (setq *auto-flush-thread*
-            (sb-thread:make-thread #'flush-streams 
+            (sb-thread:make-thread #'flush-streams
                                    :name "auto-flush-thread"))))
 
   (defun flush-streams ()
     (loop
-     (setq *auto-flush-streams* 
-           (remove-if (lambda (x) 
+     (setq *auto-flush-streams*
+           (remove-if (lambda (x)
                         (not (and (open-stream-p x)
                                   (output-stream-p x))))
                       *auto-flush-streams*))
@@ -1074,7 +1072,7 @@ stack."
 (defimplementation quit-lisp ()
   #+sb-thread
   (dolist (thread (remove (current-thread) (all-threads)))
-    (ignore-errors (sb-thread:interrupt-thread 
+    (ignore-errors (sb-thread:interrupt-thread
                     thread (lambda () (sb-ext:quit :recklessly-p t)))))
   (sb-ext:quit))
 
@@ -1107,7 +1105,7 @@ stack."
 
 (defimplementation toggle-trace (spec)
   (ecase (car spec)
-    ((setf) 
+    ((setf)
      (toggle-trace-aux spec))
     ((:defmethod)
      (toggle-trace-aux `(sb-pcl::fast-method ,@(rest (process-fspec spec)))))
