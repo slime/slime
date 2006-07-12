@@ -1,9 +1,16 @@
+2006-07-11  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-allegro.lisp (make-weak-key-hash-table): Use ACL's weak
+	hashtables.
+
+	* swank.asd: Set *source-directory* to the asdf component dir.
+
 2006-07-01  Luís Oliveira  <loliveira@common-lisp.net>
  
- 	* swank-sbcl.lisp (locate-compiler-note): Change first branch to
+	* swank-sbcl.lisp (locate-compiler-note): Change first branch to
  	handle the changes introduced by the previous patch to
  	swank-compile-string.
-	
+
 2006-06-26  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-sbcl.lisp (find-definitions): Remove backward
