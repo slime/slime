@@ -22,3 +22,7 @@
 (asdf:defsystem :swank
     :components ((:file "swank-loader")))
 
+(defpackage :swank-loader)
+(defparameter swank-loader::*source-directory*
+  (asdf:component-pathname (asdf:find-system :swank)))
+

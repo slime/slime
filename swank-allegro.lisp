@@ -678,3 +678,12 @@
                        ,(third fspec)))))
         (t
          fspec)))
+
+
+;;;; Weak hashtables
+
+(defimplementation make-weak-key-hash-table (&rest args)
+  (apply #'make-hash-table :weak-keys t args))
+
+(defimplementation make-weak-value-hash-table (&rest args)
+  (apply #'make-hash-table :values :weak args))
