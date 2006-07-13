@@ -2083,6 +2083,18 @@ by adding a template for the missing arguments."
              :highlight highlight))))))
   nil)
 
+(defun keywords-of-operator (operator)
+  "Return a list of KEYWORD-ARGs that OPERATOR accepts.
+This function is useful for writing EXTRA-KEYWORDS methods for
+user-defined functions which are declared &ALLOW-OTHER-KEYS and which
+forward keywords to OPERATOR."
+  (let ((arglist (form-completion operator nil 
+                                  :remove-args nil)))
+    (unless (eql arglist :not-available)
+      (values 
+       (arglist.keyword-args arglist)
+       (arglist.allow-other-keys-p arglist)))))
+
 (defslimefun completions-for-keyword (name keyword-string)
   (with-buffer-syntax ()
     (let* ((form (operator-designator-to-form name))
