@@ -1,3 +1,8 @@
+2006-07-13  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* swank.lisp (keywords-of-operator): New support function for
+	writing user-defined `extra-keywords' methods.
+
 2006-07-11  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-allegro.lisp (make-weak-key-hash-table): Use ACL's weak
