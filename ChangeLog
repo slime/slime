@@ -1,3 +1,13 @@
+2006-07-15  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-shared-lisp-mode-hook): New function, factored
+	out from slime-lisp-mode-hook.
+	(slime-lisp-mode-hook): Use it here.
+	(slime-scheme-mode-hook): New function, use
+	slime-shared-lisp-mode-hook. 
+	(slime-setup): If scheme-mode is one of the slime-lisp-modes,
+	install our hook.
+
 2006-07-13  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* swank.lisp (keywords-of-operator): New support function for
