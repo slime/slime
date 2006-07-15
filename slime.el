@@ -72,20 +72,29 @@
 
 (defun* slime-setup (&key autodoc typeout-frame highlight-edits)
   "Setup Emacs so that lisp-mode buffers always use SLIME."
-  (add-hook 'lisp-mode-hook 'slime-lisp-mode-hook)
+  (when (member 'lisp-mode slime-lisp-modes)
+    (add-hook 'lisp-mode-hook 'slime-lisp-mode-hook))
+  (when (member 'scheme-mode slime-lisp-modes)
+    (add-hook 'scheme-mode-hook 'slime-scheme-mode-hook))
   (when typeout-frame
     (add-hook 'slime-connected-hook 'slime-ensure-typeout-frame))
   (setq slime-use-autodoc-mode autodoc)
   (setq slime-use-highlight-edits-mode highlight-edits))
 
-(defun slime-lisp-mode-hook ()
+(defun slime-shared-lisp-mode-hook ()
   (slime-mode 1)
-  (set (make-local-variable 'lisp-indent-function)
-       'common-lisp-indent-function)
   (when slime-use-autodoc-mode
     (slime-autodoc-mode 1))
   (when slime-use-highlight-edits-mode
     (slime-highlight-edits-mode 1)))
+
+(defun slime-lisp-mode-hook ()
+  (slime-shared-lisp-mode-hook)
+  (set (make-local-variable 'lisp-indent-function)
+       'common-lisp-indent-function))
+
+(defun slime-scheme-mode-hook ()
+  (slime-shared-lisp-mode-hook))
 
 (eval-and-compile 
   (defvar slime-path
