@@ -36,10 +36,7 @@
     ;; fixme: when SBCL/win32 gains better select() support, remove
     ;; this.
     ((member :win32 *features*) nil)
-    ((and (member :sb-thread *features*)
-          #+linux
-          (not (sb-alien:extern-alien "linux_no_threads_p" sb-alien:boolean)))
-      :spawn)
+    ((member :sb-thread *features*) :spawn)
     (t :fd-handler)))
 
 (defun resolve-hostname (name)
@@ -429,7 +426,7 @@ This is useful when debugging the definition-finding code.")
     :method defmethod
     :setf-expander define-setf-expander
     :structure defstruct
-    :condition defcondition
+    :condition define-condition
     :class defclass
     :method-combination define-method-combination
     :package defpackage

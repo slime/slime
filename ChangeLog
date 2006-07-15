@@ -1,3 +1,12 @@
+2006-07-15  Juho Snellman  <jsnell@iki.fi>
+	* swank-sbcl.lisp (preferred-communication-style): Remove use of
+	  linux_no_threads_p alien variable (the value has been hardcoded to
+	  false for about a year), so that we can also remove it from from SBCL
+	  in the future.
+	  (*definition-types*): defcondition -> define-condition,
+	  to make slime-show-definitions display condition FOO as
+	  (DEFINE-CONDITION FOO) instead of (SWANK-BACKEND::DEFCONDITION FOO).
+
 2006-07-15  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-shared-lisp-mode-hook): New function, factored
