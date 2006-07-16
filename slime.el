@@ -225,13 +225,13 @@ The default is nil, as this feature can be a security risk."
   "Function to call when edit-definition fails to find the source itself.
 The function is called with the definition name, a string, as its argument.
 
-If you want to fallback on TAGS you can set this to `find-tags' or
+If you want to fallback on TAGS you can set this to `find-tag' or
 `slime-edit-definition-with-etags'."
   :type 'symbol
   :group 'slime-mode-mode
   :options '(nil 
              slime-edit-definition-with-etags
-             find-tags))
+             find-tag))
 
 (defcustom slime-compilation-finished-hook 'slime-maybe-list-compiler-notes
   "Hook called with a list of compiler notes after a compilation."
@@ -6322,11 +6322,18 @@ If there's no name at point, or a prefix argument is given, then the
 function name is prompted."
   (interactive (list (slime-read-symbol-name "Name: ")))
   (let ((definitions (slime-eval `(swank:find-definitions-for-emacs ,name))))
-    (if (null definitions)
-        (if slime-edit-definition-fallback-function
-            (funcall slime-edit-definition-fallback-function name)
-          (error "No known definition for: %s" name))
-      (slime-goto-definition name definitions where))))
+    (cond 
+     ((null definitions)
+      (if slime-edit-definition-fallback-function
+          (funcall slime-edit-definition-fallback-function name)
+        (error "No known definition for: %s" name)))
+     ((and (consp definitions) (null (cdr definitions))
+           (eql (car (slime-definition.location (car definitions))) :error))
+      (if slime-edit-definition-fallback-function
+          (funcall slime-edit-definition-fallback-function name)
+        (error "%s" (cadr (slime-definition.location (car definitions))))))
+     (t 
+      (slime-goto-definition name definitions where)))))
 
 (defun slime-goto-definition (name definitions &optional where)
   (slime-push-definition-stack)
