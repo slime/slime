@@ -1,3 +1,11 @@
+2006-07-16  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-edit-definition): Invoke the
+	slime-edit-definition-fall-back-function also in the case where
+	find-definitions-for-emacs returns an error message.
+	(slime-edit-definition-fallback-function): Fix typo (find-tag
+	rather than find-tags).
+
 2006-07-15  Juho Snellman  <jsnell@iki.fi>
 	* swank-sbcl.lisp (preferred-communication-style): Remove use of
 	  linux_no_threads_p alien variable (the value has been hardcoded to
