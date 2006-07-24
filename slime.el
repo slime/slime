@@ -5925,13 +5925,14 @@ current buffer."
     (when (and (< beg (point-max))
                (string= (buffer-substring-no-properties beg (1+ beg)) ":"))
       ;; Contextual keyword completion
-      (let ((operator-names (save-excursion 
-                              (goto-char beg)
-                              (nth-value 0
-                                         (slime-enclosing-operator-names 1)))))
+      (multiple-value-bind (operator-names arg-indices)
+          (save-excursion 
+            (goto-char beg)
+            (slime-enclosing-operator-names))
         (when operator-names
           (let ((completions 
-                 (slime-completions-for-keyword (first operator-names) token)))
+                 (slime-completions-for-keyword operator-names token
+                                                arg-indices)))
             (when (first completions)
               (return-from slime-contextual-completions completions))
             ;; If no matching keyword was found, do regular symbol
@@ -5946,9 +5947,11 @@ current buffer."
 (defun slime-simple-completions (prefix)
   (slime-eval `(swank:simple-completions ,prefix ',(slime-current-package))))
 
-(defun slime-completions-for-keyword (operator-designator prefix)
+(defun slime-completions-for-keyword (operator-designator prefix
+                                                          arg-indices)
   (slime-eval `(swank:completions-for-keyword ',operator-designator
-                                              ,prefix)))
+                                              ,prefix
+                                              ',arg-indices)))
 
 
 ;;;; Fuzzy completion
@@ -10182,9 +10185,14 @@ levels of parens."
               (when (member (char-syntax (char-after)) '(?\( ?')) 
                 (incf level)
                 (forward-char 1)
-                (when-let (name (slime-symbol-name-at-point))
-                  (push (slime-parse-extended-operator-name name) result)
-                  (push arg-index arg-indices))
+                (let ((name (slime-symbol-name-at-point)))
+                  (cond
+                   (name
+                    (push (slime-parse-extended-operator-name name) result)
+                    (push arg-index arg-indices))
+                   (t
+                    (push nil result)
+                    (push arg-index arg-indices))))
                 (backward-up-list 1)))))))
     (values 
      (nreverse result)
