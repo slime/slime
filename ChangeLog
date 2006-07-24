@@ -1,3 +1,40 @@
+2006-07-24  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	Add support for destructuring macro arglists in arglist display,
+	form completion, and keyword completion; in particular for
+	with-open-file.
+	
+	* swank.lisp (find-valid-operator-name): New, factored out from
+	arglist-for-echo-area.
+	(arglist-for-echo-area): Use it here.
+	(print-arglist): New, factored out from decoded-arglist-to-string.
+	Handle recursive arglist structures that arise in destructuring
+	macro arglists.
+	(decode-required-arg, encode-required-arg): New, handle
+	destructuring patterns.
+	(decode-keyword-arg, encode-keyword-arg, decode-optional-arg) 
+	(encode-optional-arg, decode-arglist, encode-arglist): Use them
+	here to handle destructuring patterns.
+	(print-decoded-arglist-as-template): Change interface, handle
+	destructuring patterns.
+	(decoded-arglist-to-template-string): Use it here.
+	(enrich-decoded-arglist-with-keywords): New, factored out from
+	enrich-decoded-arglist-with-extra-keywords. 
+	(enrich-decoded-arglist-with-extra-keywords): Use it here.
+	(compute-enriched-decoded-arglist): New generic function, factored
+	out from arglist-for-insertion, form-completion.  Add specialized
+	method for with-open-file.
+	(arglist-for-insertion, form-completion): Use it here.
+	(arglist-ref): New.
+	(completions-for-keyword): Change interface, handle destructuring
+	macro arglists.
+
+	* slime.el (slime-enclosing-operator-names): For nesting levels
+	without operator, record nil.
+	(slime-completions-for-keyword): New argument arg-indices. 
+	(slime-contextual-completions): Pass all enclosing operators and 
+	arg-indices to slime-completions-for-keyword.
+
 2006-07-16  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-edit-definition): Invoke the
@@ -7,6 +44,7 @@
 	rather than find-tags).
 
 2006-07-15  Juho Snellman  <jsnell@iki.fi>
+	
 	* swank-sbcl.lisp (preferred-communication-style): Remove use of
 	  linux_no_threads_p alien variable (the value has been hardcoded to
 	  false for about a year), so that we can also remove it from from SBCL
