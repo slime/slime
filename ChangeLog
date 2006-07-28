@@ -1,3 +1,13 @@
+2006-07-28  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-thread-quit): Call swank:quit-thread-browser.
+	Reported by Taylor R Campbell.
+
+2006-07-28  Willem Broekema <metawilm@gmail.com>
+
+	* swank-allegro.lisp: Profiling functions on Allegro (except for
+	profile-package).
+
 2006-07-24  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Add support for destructuring macro arglists in arglist display,
@@ -68,6 +78,7 @@
 	* swank.lisp (keywords-of-operator): New support function for
 	writing user-defined `extra-keywords' methods.
 
+>>>>>>> 1.922
 2006-07-11  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-allegro.lisp (make-weak-key-hash-table): Use ACL's weak
