@@ -488,8 +488,77 @@
 
 ;;;; Profiling
 
+;; Per-function profiling based on description in
+;;  http://www.franz.com/support/documentation/8.0/doc/runtime-analyzer.htm#data-collection-control-2
+
+(defvar *profiled-functions* ())
+(defvar *profile-depth* 0)
+
+(defmacro with-redirected-y-or-n-p (&body body)
+  ;; If the profiler is restarted when the data from the previous
+  ;; session is not reported yet, the user is warned via Y-OR-N-P.
+  ;; As the CL:Y-OR-N-P question is (for some reason) not directly
+  ;; sent to the Slime user, the function CL:Y-OR-N-P is temporarily
+  ;; overruled.
+  `(let* ((pkg       (find-package "common-lisp"))
+          (saved-pdl (excl::package-definition-lock pkg))
+          (saved-ynp (symbol-function 'cl:y-or-n-p)))
+     
+     (setf (excl::package-definition-lock pkg) nil
+           (symbol-function 'cl:y-or-n-p)   (symbol-function
+                                             (find-symbol "y-or-n-p-in-emacs"
+                                                          "swank")))
+     (unwind-protect
+         (progn ,@body)
+       
+       (setf (symbol-function 'cl:y-or-n-p)      saved-ynp
+             (excl::package-definition-lock pkg) saved-pdl))))
+
+(defun start-acl-profiler ()
+  (with-redirected-y-or-n-p
+      (prof:start-profiler :type :time :count t
+                           :start-sampling-p nil :verbose nil)))
+(defun acl-profiler-active-p ()
+  (not (eq (prof:profiler-status :verbose nil) :inactive)))
+
+(defun stop-acl-profiler ()
+  (prof:stop-profiler :verbose nil))
+
+(excl:def-fwrapper profile-fwrapper (&rest args)
+  ;; Ensures sampling is done during the execution of the function,
+  ;; taking into account recursion.
+  (declare (ignore args))
+  (cond ((zerop *profile-depth*)
+         (let ((*profile-depth* (1+ *profile-depth*)))
+           (prof:start-sampling)
+           (unwind-protect (excl:call-next-fwrapper)
+             (prof:stop-sampling))))
+        (t 
+         (excl:call-next-fwrapper))))
+
+(defimplementation profile (fname)
+  (unless (acl-profiler-active-p)
+    (start-acl-profiler))
+  (excl:fwrap fname 'profile-fwrapper 'profile-fwrapper)
+  (push fname *profiled-functions*))
+
+(defimplementation profiled-functions ()
+  *profiled-functions*)
+
+(defimplementation unprofile (fname)
+  (excl:funwrap fname 'profile-fwrapper)
+  (setq *profiled-functions* (remove fname *profiled-functions*)))
+
 (defimplementation profile-report ()
-  (prof:show-call-graph))
+  (prof:show-flat-profile :verbose nil)
+  (when *profiled-functions*
+    (start-acl-profiler)))
+
+(defimplementation profile-reset ()
+  (when (acl-profiler-active-p)
+    (stop-acl-profiler)
+    (start-acl-profiler))
+  "Reset profiling counters.")
 
 ;;;; Inspecting
 
