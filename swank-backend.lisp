@@ -114,8 +114,8 @@ Backends implement these functions using DEFIMPLEMENTATION."
   (check-type documentation string "a documentation string")
   (flet ((gen-default-impl ()
            `(defmethod no-applicable-method ((_gf (eql #',name)) &rest _rargs)
-              (declare (ignore _))
-              (destructuring-bind ,args rargs
+              (declare (ignore _gf))
+              (destructuring-bind ,args _rargs
                 ,@default-body))))
     `(progn (defgeneric ,name ,args (:documentation ,documentation))
             (pushnew ',name *interface-functions*)
@@ -729,6 +729,7 @@ inspect-for-emacs method."))
   "Return an inspector object suitable for passing to inspect-for-emacs.")
 
 (defgeneric inspect-for-emacs (object inspector)
+  (:documentation
    "Explain to Emacs how to inspect OBJECT.
 
 The argument INSPECTOR is an object representing how to get at
@@ -754,7 +755,7 @@ inserted into the buffer as is, or a list of the form:
  (:action label lambda) - Render LABEL (a text string) which when
  clicked will call LAMBDA.
 
- NIL - do nothing.")
+ NIL - do nothing."))
 
 (defmethod inspect-for-emacs ((object t) (inspector t))
   "Generic method for inspecting any kind of object.
