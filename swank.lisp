@@ -944,13 +944,17 @@ dynamic binding."
 
 ;;;;; Global redirection setup
 
-(setup-stream-indirection *standard-output*)
-(setup-stream-indirection *error-output*)
-(setup-stream-indirection *trace-output*)
-(setup-stream-indirection *standard-input*)
-(setup-stream-indirection *debug-io*)
-(setup-stream-indirection *query-io*)
-(setup-stream-indirection *terminal-io*)
+;; FIXME: This doesn't work with Allegros IDE (MAKE-SYNONYM-STREAM
+;; doesn't work with their GUI-streams). Maybe we should just drop this
+;; global redirection stuff.
+;;
+;; (setup-stream-indirection *standard-output*)
+;; (setup-stream-indirection *error-output*)
+;; (setup-stream-indirection *trace-output*)
+;; (setup-stream-indirection *standard-input*)
+;; (setup-stream-indirection *debug-io*)
+;; (setup-stream-indirection *query-io*)
+;; (setup-stream-indirection *terminal-io*)
 
 (defparameter *standard-output-streams*
   '(*standard-output* *error-output* *trace-output*)
@@ -2227,18 +2231,23 @@ forward keywords to OPERATOR."
                              :print-right-margin print-right-margin
                              :highlight highlight))
 
-(defun test-print-arglist (list string)
-  (string= (arglist-to-string list (find-package :swank)) string))
+(defun test-print-arglist ()
+  (flet ((test (list string)
+           (let* ((p (find-package :swank))
+                  (actual (arglist-to-string list p)))
+             (unless (string= actual string)
+               (format *debug-io* 
+                       "Test failed: ~S => ~S~%  Expected: ~S" 
+                       list actual string)))))
+    (test '(function cons) "(function cons)")
+    (test '(quote cons) "(quote cons)")
+    (test '(&key (function #'+)) "(&key (function #'+))")
+    (test '(&whole x y z) "(y z)")
+    (test '(x &aux y z) "(x)")
+    (test '(x &environment env y) "(x y)")
+    (test '(&key ((function f))) "(&key ((function f)))")))
 
-;; Should work:
-(progn
-  (assert (test-print-arglist '(function cons) "(function cons)"))
-  (assert (test-print-arglist '(quote cons) "(quote cons)"))
-  (assert (test-print-arglist '(&key (function #'+)) "(&key (function #'+))"))
-  (assert (test-print-arglist '(&whole x y z) "(y z)"))
-  (assert (test-print-arglist '(x &aux y z) "(x)"))
-  (assert (test-print-arglist '(x &environment env y) "(x y)"))
-  (assert (test-print-arglist '(&key ((function f))) "(&key ((function f)))")))
+(test-print-arglist)
 
 
 ;;;; Recording and accessing results of computations
