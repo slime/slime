@@ -1,3 +1,21 @@
+2006-08-09  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-find-filename-translators): CL:MACHINE-INSTANCE
+	can return nil.  Silently accept that case for now.
+
+	* swank.lisp (test-print-arglist): Print a message instead of
+	signalling an error. This should avoid startup problems, in
+	particular with CormanLisp.
+	(setup-stream-indirection): Disable it for now.  We should fix it,
+	if there is a need for this functionality or just remove it.
+
+	* swank-backend.lisp (definterface): Bring the old implementation
+	based on NO-APPLICABLE-METHOD back.  It avoids lots of redefintion
+	warnings (but it creates more "noise" in backtraces).
+
+	* swank-*.lisp (inspect-for-emacs): Don't use defimplementation
+	for real generics.
+
 2006-07-28  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-thread-quit): Call swank:quit-thread-browser.
