@@ -741,7 +741,7 @@ at least the filename containing it."
 	(string (gethash typecode *value2tag*))
 	(string (nth typecode '(tag-fixnum tag-list tag-misc tag-imm))))))
 
-(defimplementation inspect-for-emacs ((o t) (inspector openmcl-inspector))
+(defmethod inspect-for-emacs ((o t) (inspector openmcl-inspector))
   (declare (ignore inspector))
   (let* ((i (inspector::make-inspector o))
 	 (count (inspector::compute-line-count i))

@@ -1744,7 +1744,7 @@ The `symbol-value' of each element is a type tag.")
                                   :key #'symbol-value)))
           (format t ", type: ~A" type-symbol))))))
 
-(defimplementation inspect-for-emacs ((o t) (inspector scl-inspector))
+(defmethod inspect-for-emacs ((o t) (inspector scl-inspector))
   (cond ((di::indirect-value-cell-p o)
          (values (format nil "~A is a value cell." o)
                  `("Value: " (:value ,(c:value-cell-ref o)))))

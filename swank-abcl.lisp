@@ -435,7 +435,7 @@ part of *sysdep-pathnames* in swank.loader.lisp.
 
 #|
 
-(defimplementation inspect-for-emacs ((o t) (inspector abcl-inspector))
+(defmethod inspect-for-emacs ((o t) (inspector abcl-inspector))
   (let* ((class (class-of o))
          (slots (mop::class-slots class)))
     (values (format nil "~A~%   is a ~A" o class)
