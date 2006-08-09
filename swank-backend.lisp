@@ -113,7 +113,10 @@ implementation.
 Backends implement these functions using DEFIMPLEMENTATION."
   (check-type documentation string "a documentation string")
   (flet ((gen-default-impl ()
-           `(defmethod ,name ,args ,@default-body)))
+           `(defmethod no-applicable-method ((_gf (eql #',name)) &rest _rargs)
+              (declare (ignore _))
+              (destructuring-bind ,args rargs
+                ,@default-body))))
     `(progn (defgeneric ,name ,args (:documentation ,documentation))
             (pushnew ',name *interface-functions*)
             ,(if (null default-body)
@@ -125,12 +128,13 @@ Backends implement these functions using DEFIMPLEMENTATION."
             ',name)))
 
 (defmacro defimplementation (name args &body body)
-  `(progn (defmethod ,name ,args ,@body)
-          (if (member ',name *interface-functions*)
-              (setq *unimplemented-interfaces*
-                    (remove ',name *unimplemented-interfaces*))
-              (warn "DEFIMPLEMENTATION of undefined interface (~S)" ',name))
-          ',name))
+  `(progn
+     (defmethod ,name ,args ,@body)
+     (if (member ',name *interface-functions*)
+         (setq *unimplemented-interfaces*
+               (remove ',name *unimplemented-interfaces*))
+         (warn "DEFIMPLEMENTATION of undefined interface (~S)" ',name))
+     ',name))
 
 (defun warn-unimplemented-interfaces ()
   "Warn the user about unimplemented backend features.
@@ -724,7 +728,7 @@ inspect-for-emacs method."))
 (definterface make-default-inspector ()
   "Return an inspector object suitable for passing to inspect-for-emacs.")
 
-(definterface inspect-for-emacs (object inspector)
+(defgeneric inspect-for-emacs (object inspector)
    "Explain to Emacs how to inspect OBJECT.
 
 The argument INSPECTOR is an object representing how to get at
