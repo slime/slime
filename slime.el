@@ -165,9 +165,7 @@ slime.el, but could also be set to an absolute filename."
   :type 'hook
   :group 'slime-lisp)
 
-(defcustom slime-filename-translations '(("" 
-                                          identity
-                                          identity))
+(defcustom slime-filename-translations nil
   "Alist of mappings between machine names and filename
 translation functions. Each element is of the
 form (HOSTNAME-REGEXP TO-LISP FROM-LISP).
@@ -183,10 +181,6 @@ pathname. FROM-LISP will be passed a pathname as returned by the
 underlying lisp and must return something that emacs will
 understand as a filename (this string will be passed to
 find-file).
-
-The default value of the variable, ((\"\" identity identity)),
-simply passes the name unchanged and is fine if emacs and the
-lisp share the same file system.
 
 This list will be traversed in order, so multiple matching
 regexps are possible.
@@ -411,7 +405,7 @@ PROPERTIES specifies any default face properties."
   :type '(character)
   :group 'slime-repl)
 
-(defcustom slime-repl-enable-presentations
+(defcustom slime-repl-enable-presentations 
   (cond ((and (not (featurep 'xemacs)) (= emacs-major-version 20))
          ;; mouseable text sucks in Emacs 20
          nil)
@@ -1305,9 +1299,11 @@ See `slime-filename-translations'."
            filename))
 
 (defun slime-find-filename-translators (hostname)
-  (or (cdr (assoc-if (lambda (regexp) (string-match regexp hostname))
-                     slime-filename-translations))
-      (error "No filename-translations for hostname: %s" hostname)))
+  (cond ((and hostname slime-filename-translations)
+         (or (cdr (assoc-if (lambda (regexp) (string-match regexp hostname))
+                            slime-filename-translations))
+             (error "No filename-translations for hostname: %s" hostname)))
+        (t (list #'identity #'identity))))
 
 (defun slime-make-tramp-file-name (username remote-host lisp-filename)
   "Old (with multi-hops) tramp compatability function"
@@ -8421,6 +8417,7 @@ This way you can still see what the error was after exiting SLDB."
 
 (defun slime-thread-quit ()
   (interactive)
+  (slime-eval-async `(swank:quit-thread-browser))
   (kill-buffer (current-buffer)))
 
 (defun slime-thread-kill ()
