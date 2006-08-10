@@ -407,7 +407,10 @@
       (list
        (list (list nil fspec)
              (make-location (list :buffer file)
-                            (list :position position))))))
+                            (list :position position t))))))
+   ((and (listp fspec) (eq (car fspec) :internal))
+    (destructuring-bind (_internal next _n) fspec
+      (fspec-definition-locations next)))
    (t
     (let ((defs (excl::find-source-file fspec)))
       (if (null defs)
