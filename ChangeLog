@@ -1,5 +1,11 @@
 2006-08-10  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-allegro.lisp (fspec-definition-locations): Improve
+	handling of (:internal ... n) like fspecs.
+
+	* slime.el (slime-restart-inferior-lisp-aux): Remove the
+	interactive spec.
+	
 	* swank-backend.lisp (definterface): Drop that incredibly
 	unportable CLOS stuff. Use plists and plain functions instead.
 	Update backends accordingly.
