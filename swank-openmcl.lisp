@@ -166,11 +166,11 @@
 (defimplementation close-socket (socket)
   (close socket))
 
-(defimplementation accept-connection (socket 
-                                      &key (external-format :iso-latin-1-unix)
-                                      buffering timeout)
+(defimplementation accept-connection (socket
+                                      &key external-format buffering timeout)
   (declare (ignore buffering timeout))
-  (assert (eq external-format :iso-latin-1-unix))
+  (let ((ef (or external-format :iso-latin-1-unix)))
+    (assert (eq ef :iso-latin-1-unix)))
   (ccl:accept-connection socket :wait t))
 
 (defimplementation emacs-connected ()
@@ -247,10 +247,13 @@
 
 ;;; Evaluation
 
-(defimplementation arglist ((fname symbol))
-  (ccl:arglist fname))
+(defimplementation arglist (fname)
+  (arglist% fname))
 
-(defmethod arglist ((f function))
+(defmethod arglist% ((f symbol))
+  (ccl:arglist f))
+
+(defmethod arglist% ((f function))
   (ccl:arglist (ccl:function-name f)))
 
 (defimplementation function-name (function)
