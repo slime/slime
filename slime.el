@@ -4237,7 +4237,6 @@ The handler will use qeuery to ask the use if the error should be ingored."
   (:one-liner "Restart *inferior-lisp* and reconnect SLIME."))
 
 (defun slime-restart-inferior-lisp-aux ()
-  (interactive)
   (assert (slime-inferior-process) () "No inferior lisp process")
   (slime-eval-async '(swank:quit-lisp))
   (set-process-filter (slime-connection) nil)
