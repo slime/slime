@@ -98,16 +98,16 @@
     (sys:invalidate-descriptor fd) 
     (ext:close-socket fd)))
 
-(defimplementation accept-connection (socket &key 
-                                      (external-format :iso-latin-1-unix)
-                                      (buffering :full)
-                                      timeout)
+(defimplementation accept-connection (socket &key
+                                      external-format buffering timeout)
   (declare (ignore timeout))
-  (unless (eq external-format ':iso-latin-1-unix)
-    (remove-fd-handlers socket)
-    (remove-sigio-handlers socket)
-    (assert (eq external-format ':iso-latin-1-unix)))
-  (make-socket-io-stream (ext:accept-tcp-connection socket) buffering))
+  (let ((ef (or external-format :iso-latin-1-unix))
+        (buffering (or buffering :full)))
+    (unless (eq ef ':iso-latin-1-unix)
+      (remove-fd-handlers socket)
+      (remove-sigio-handlers socket)
+      (error "External format ~S not supported" ef))
+    (make-socket-io-stream (ext:accept-tcp-connection socket) buffering)))
 
 ;;;;; Sockets
 
@@ -1276,18 +1276,15 @@ Signal an error if no constructor can be found."
                              (list symbol))))
                  ((:defined)
                   (ext:info :alien-type :definition symbol))
-                 (:unknown
-                  (return-from describe-definition
-                    (format nil "Unknown alien type: ~S" symbol))))))))
+                 (:unknown :unkown))))))
 
 ;;;;; Argument lists
 
-(defimplementation arglist ((name symbol))
-  (arglist (or (macro-function name)
-               (symbol-function name))))
-
-(defimplementation arglist ((fun function))
-  (function-arglist fun))
+(defimplementation arglist (fun)
+  (etypecase fun
+    (function (function-arglist fun))
+    (symbol (function-arglist (or (macro-function fun)
+                                  (symbol-function fun))))))
 
 (defun function-arglist (fun)
   (let ((arglist
@@ -1708,9 +1705,12 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
    (values  :initarg :values  :reader breakpoint.values))
   (:report (lambda (c stream) (princ (breakpoint.message c) stream))))
 
-(defimplementation condition-extras ((c breakpoint))
-  ;; simply pop up the source buffer
-  `((:short-frame-source 0)))
+(defimplementation condition-extras (condition)
+  (typecase condition
+    (breakpoint 
+     ;; pop up the source buffer
+     `((:short-frame-source 0))) 
+    (t '())))
 
 (defun signal-breakpoint (breakpoint frame)
   "Signal a breakpoint condition for BREAKPOINT in FRAME.
@@ -2050,8 +2050,8 @@ The `symbol-value' of each element is a type tag.")
     ;; available again.
     (mp::startup-idle-and-top-level-loops))
 
-  (defimplementation spawn (fn &key (name "Anonymous"))
-    (mp:make-process fn :name name))
+  (defimplementation spawn (fn &key name)
+    (mp:make-process fn :name (or name "Anonymous")))
 
   (defvar *thread-id-counter* 0)
 

@@ -15,11 +15,6 @@
    :specializer-direct-methods
    :compute-applicable-methods-using-classes))
 
-#+nil
-(ffi:clines "
-#include <unistd.h>
-#include <sys/types.h>")
-
 
 ;;;; TCP Server
 
@@ -45,7 +40,7 @@
   (sb-bsd-sockets:socket-close socket))
 
 (defimplementation accept-connection (socket
-                                      &key (external-format :iso-latin-1-unix)
+                                      &key external-format
                                       buffering timeout)
   (declare (ignore buffering timeout))
   (assert (eq external-format :iso-latin-1-unix))
@@ -166,7 +161,7 @@
              (t               :not-available)))))
       :not-available))
 
-(defimplementation function-name ((f function))
+(defimplementation function-name (f)
   (si:compiled-function-name f))
 
 (defimplementation macroexpand-all (form)

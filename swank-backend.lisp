@@ -112,24 +112,47 @@ implementation.
 
 Backends implement these functions using DEFIMPLEMENTATION."
   (check-type documentation string "a documentation string")
-  (flet ((gen-default-impl ()
-           `(defmethod no-applicable-method ((_gf (eql #',name)) &rest _rargs)
-              (declare (ignore _gf))
-              (destructuring-bind ,args _rargs
-                ,@default-body))))
-    `(progn (defgeneric ,name ,args (:documentation ,documentation))
-            (pushnew ',name *interface-functions*)
-            ,(if (null default-body)
-                 `(pushnew ',name *unimplemented-interfaces*)
-                 (gen-default-impl))
-            ;; see <http://www.franz.com/support/documentation/6.2/doc/pages/variables/compiler/s_cltl1-compile-file-toplevel-compatibility-p_s.htm>
-            (eval-when (:compile-toplevel :load-toplevel :execute)
-              (export ',name :swank-backend))
-            ',name)))
+  (assert (every #'symbolp args) ()
+          "Complex lambda-list not supported: ~S ~S" name args)
+  (labels ((gen-default-impl ()
+             `(setf (get ',name 'default) (lambda ,args ,@default-body)))
+           (args-as-list (args)
+             (destructuring-bind (req opt key rest) (parse-lambda-list args)
+               `(,@req ,@opt 
+                       ,@(loop for k in key append `(,(kw k) ,k)) 
+                       ,@(or rest '(())))))
+           (parse-lambda-list (args)
+             (parse args '(&optional &key &rest) 
+                    (make-array 4 :initial-element nil)))
+           (parse (args keywords vars)
+             (cond ((null args) 
+                    (reverse (map 'list #'reverse vars)))
+                   ((member (car args) keywords)
+                    (parse (cdr args) (cdr (member (car args) keywords)) vars))
+                   (t (push (car args) (aref vars (length keywords)))
+                      (parse (cdr args) keywords vars))))
+           (kw (s) (intern (string s) :keyword)))
+    `(progn 
+       (defun ,name ,args
+         ,documentation
+         (let ((f (or (get ',name 'implementation)
+                      (get ',name 'default))))
+           (cond (f (apply f ,@(args-as-list args)))
+                 (t (error "~S not implementated" ',name)))))
+       (pushnew ',name *interface-functions*)
+       ,(if (null default-body)
+            `(pushnew ',name *unimplemented-interfaces*)
+            (gen-default-impl))
+       ;; see <http://www.franz.com/support/documentation/6.2/doc/pages/variables/compiler/s_cltl1-compile-file-toplevel-compatibility-p_s.htm>
+       (eval-when (:compile-toplevel :load-toplevel :execute)
+         (export ',name :swank-backend))
+       ',name)))
 
 (defmacro defimplementation (name args &body body)
+  (assert (every #'symbolp args) ()
+          "Complex lambda-list not supported: ~S ~S" name args)
   `(progn
-     (defmethod ,name ,args ,@body)
+     (setf (get ',name 'implementation) (lambda ,args ,@body))
      (if (member ',name *interface-functions*)
          (setq *unimplemented-interfaces*
                (remove ',name *unimplemented-interfaces*))

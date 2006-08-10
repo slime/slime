@@ -1457,7 +1457,7 @@ Return the package or nil."
   (let ((index 0)
         (need-space nil))
     (labels ((print-arg (arg)
-               (etypecase arg
+               (typecase arg
                  (arglist               ; destructuring pattern
                   (print-arglist arg))
                  (optional-arg 
@@ -2236,9 +2236,8 @@ forward keywords to OPERATOR."
            (let* ((p (find-package :swank))
                   (actual (arglist-to-string list p)))
              (unless (string= actual string)
-               (format *debug-io* 
-                       "Test failed: ~S => ~S~%  Expected: ~S" 
-                       list actual string)))))
+               (warn "Test failed: ~S => ~S~%  Expected: ~S" 
+                     list actual string)))))
     (test '(function cons) "(function cons)")
     (test '(quote cons) "(quote cons)")
     (test '(&key (function #'+)) "(&key (function #'+))")
@@ -3422,7 +3421,7 @@ this call will also recurse.
 
 Once a word has been completely matched, the chunks are pushed
 onto the special variable *ALL-CHUNKS* and the function returns."
-  (declare (optimize speed)
+  (declare ;;(optimize speed)
            (fixnum short-index initial-full-index)
            (simple-string short full)
            (special *all-chunks*))

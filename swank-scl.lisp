@@ -36,11 +36,10 @@
 (defimplementation close-socket (socket)
   (ext:close-socket (socket-fd socket)))
 
-(defimplementation accept-connection (socket &key 
-                                      (external-format :iso-latin-1-unix)
-                                      (buffering :full)
-                                      (timeout nil))
+(defimplementation accept-connection (socket 
+                                      &key external-format buffering timeout)
   (let ((external-format (or external-format :iso-latin-1-unix))
+        (buffering (or buffering :full))
         (fd (socket-fd socket)))
       (loop
        (let ((ready (sys:wait-until-fd-usable fd :input timeout)))
@@ -1168,21 +1167,19 @@ Signal an error if no constructor can be found."
                              (list symbol))))
                  ((:defined)
                   (ext:info :alien-type :definition symbol))
-                 (:unknown
-                  (return-from describe-definition
-                    (format nil "Unknown alien type: ~S" symbol))))))))
+                 (:unknown :unknown))))))
 
 ;;;;; Argument lists
 
-(defimplementation arglist ((name symbol))
-  (cond ((and (symbolp name) (macro-function name))
-         (arglist (macro-function name)))
-        ((fboundp name)
-         (arglist (fdefinition name)))
+(defimplementation arglist (fun)
+  (cond ((and (symbolp fun) (macro-function fun))
+         (arglist (macro-function fun)))
+        ((fboundp fun)
+         (function-arglist (fdefinition fun)))
         (t
          :not-available)))
 
-(defimplementation arglist ((fun function))
+(defun function-arglist (fun function)
   (flet ((compiled-function-arglist (x)
            (let ((args (kernel:%function-arglist x)))
              (if args
@@ -1588,6 +1585,7 @@ Signal an error if no constructor can be found."
    (values  :initarg :values  :reader breakpoint.values))
   (:report (lambda (c stream) (princ (breakpoint.message c) stream))))
 
+#+nil
 (defimplementation condition-extras ((c breakpoint))
   ;; simply pop up the source buffer
   `((:short-frame-source 0)))
@@ -1933,10 +1931,11 @@ The `symbol-value' of each element is a type tag.")
               (incf *thread-id-counter*)))))
 
 (defimplementation find-thread (id)
-  (thread:map-over-threads
-   #'(lambda (thread)
-       (when (eql (getf (thread:thread-plist thread) 'id) id)
-         (return-from find-thread thread)))))
+  (block find-thread
+    (thread:map-over-threads
+     #'(lambda (thread)
+         (when (eql (getf (thread:thread-plist thread) 'id) id)
+           (return-from find-thread thread))))))
 
 (defimplementation thread-name (thread)
   (princ-to-string (thread:thread-name thread)))

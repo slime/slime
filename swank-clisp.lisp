@@ -125,9 +125,9 @@
     (ext:make-encoding :charset charset :line-terminator :unix)))
   
 (defimplementation accept-connection (socket
-				      &key (external-format :iso-latin-1-unix)
-				      buffering timeout)
+				      &key external-format buffering timeout)
   (declare (ignore buffering timeout))
+  (setq external-format (or external-format :iso-latin-1-unix))
   (socket:socket-accept socket
 			:buffered nil ;; XXX should be t
 			:element-type 'character
@@ -239,7 +239,7 @@ Return NIL if the symbol is unbound."
   (let* (;;(sys::*break-count* (1+ sys::*break-count*))
 	 ;;(sys::*driver* debugger-loop-fn)
 	 ;;(sys::*fasoutput-stream* nil)
-	 (*sldb-backtrace* (nthcdr 6 (sldb-backtrace))))
+	 (*sldb-backtrace* (nthcdr 5 (sldb-backtrace))))
     (funcall debugger-loop-fn)))
 
 (defun nth-frame (index) 
@@ -363,11 +363,9 @@ Return NIL if the symbol is unbound."
   (sys::redo-eval-frame (car (nth-frame index))))
 
 (defimplementation frame-source-location-for-emacs (index)
-  (let ((f (car (nth-frame index))))
-    (list :error (format nil "Cannot find source for frame: ~A ~A ~A" 
-			 f
-			 (sys::eval-frame-p f)
-			 (sys::the-frame)))))
+  `(:error 
+    ,(format nil "frame-source-location not implemented. (frame: ~A)" 
+	     (car (nth-frame index)))))
 
 ;;; Profiling
 

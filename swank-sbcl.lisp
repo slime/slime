@@ -60,10 +60,12 @@
   (sb-bsd-sockets:socket-close socket))
 
 (defimplementation accept-connection (socket &key
-                                      (external-format :iso-latin-1-unix)
-                                      (buffering :full) timeout)
+                                      external-format
+                                      buffering timeout)
   (declare (ignore timeout))
-  (make-socket-io-stream (accept socket) external-format buffering))
+  (make-socket-io-stream (accept socket)
+                         (or external-format :iso-latin-1-unix)
+                         (or buffering :full)))
 
 (defvar *sigio-handlers* '()
   "List of (key . fn) pairs to be called on SIGIO.")
@@ -135,7 +137,7 @@
             (return (sb-bsd-sockets:socket-accept socket))
           (sb-bsd-sockets:interrupted-error ()))))
 
-(defmethod call-without-interrupts (fn)
+(defimplementation call-without-interrupts (fn)  
   (declare (type function fn))
   (sb-sys:without-interrupts (funcall fn)))
 
@@ -234,10 +236,11 @@
 
 ;;; Utilities
 
-(defimplementation arglist ((fname t))
+(defimplementation arglist (fname)
   (sb-introspect:function-arglist fname))
 
-(defimplementation function-name ((f function))
+(defimplementation function-name (f)
+  (check-type f function)
   (sb-impl::%fun-name f))
 
 (defvar *buffer-name* nil)
@@ -934,23 +937,22 @@ stack."
   (defimplementation spawn (fn &key name)
     (sb-thread:make-thread fn :name name))
 
-  (defimplementation startup-multiprocessing ())
-
   (defimplementation thread-id (thread)
-    (sb-thread:with-mutex (*thread-id-map-lock*)
-      (loop for id being the hash-key in *thread-id-map*
-            using (hash-value thread-pointer)
-            do
-            (let ((maybe-thread (sb-ext:weak-pointer-value thread-pointer)))
-              (cond ((null maybe-thread)
-                     ;; the value is gc'd, remove it manually
-                     (remhash id *thread-id-map*))
-                    ((eq thread maybe-thread)
-                     (return-from thread-id id)))))
-      ;; lazy numbering
-      (let ((id (next-thread-id)))
-        (setf (gethash id *thread-id-map*) (sb-ext:make-weak-pointer thread))
-        id)))
+    (block thread-id
+      (sb-thread:with-mutex (*thread-id-map-lock*)
+        (loop for id being the hash-key in *thread-id-map*
+              using (hash-value thread-pointer)
+              do
+              (let ((maybe-thread (sb-ext:weak-pointer-value thread-pointer)))
+                (cond ((null maybe-thread)
+                       ;; the value is gc'd, remove it manually
+                       (remhash id *thread-id-map*))
+                      ((eq thread maybe-thread)
+                       (return-from thread-id id)))))
+        ;; lazy numbering
+        (let ((id (next-thread-id)))
+          (setf (gethash id *thread-id-map*) (sb-ext:make-weak-pointer thread))
+          id))))
 
   (defimplementation find-thread (id)
     (sb-thread:with-mutex (*thread-id-map-lock*)
@@ -1040,7 +1042,7 @@ stack."
                                               mutex))))))))
 
 
-  ;;; Auto-flush streams
+;;; Auto-flush streams
 
   ;; XXX race conditions
   (defvar *auto-flush-streams* '())

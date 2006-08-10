@@ -134,9 +134,9 @@
   (ext:server-socket-close socket))
 
 (defimplementation accept-connection (socket 
-                                      &key (external-format :iso-latin-1-unix) buffering timeout)
+                                      &key external-format buffering timeout)
   (declare (ignore buffering timeout))
-  (assert (eq external-format :iso-latin-1-unix))
+  (assert (member external-format '(nil :iso-latin-1-unix)))
   (ext:get-socket-stream (ext:socket-accept socket)))
 
 ;;;; Unix signals
@@ -159,12 +159,11 @@
 
 ;;;; Misc
 
-
-(defimplementation arglist ((symbol t))
-  (multiple-value-bind (arglist present)
-      (sys::arglist symbol)
-    (if present arglist :not-available)))
-
+(defimplementation arglist (fun)
+  (cond ((symbolp fun)
+         (multiple-value-bind (arglist present) (sys::arglist fun)
+           (if present arglist :not-available)))
+        (t :not-available)))
 
 (defimplementation function-name (function)
   (nth-value 2 (function-lambda-expression function)))
