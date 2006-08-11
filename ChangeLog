@@ -1,3 +1,15 @@
+2006-08-11  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (close-connection, swank-error): Include backtraces
+	in our own errors.
+	(simple-serve-requests): Don't try to enter the
+	debugger if the connection is closed.
+
+	* slime.el (disconnect): Test disconnecting.
+
+	* swank-cmucl.lisp (startup-idle-and-top-level-loops): Initialize
+	MP only once.
+
 2006-08-10  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-allegro.lisp (fspec-definition-locations): Improve
