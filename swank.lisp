@@ -253,10 +253,18 @@ recently established one."
   "Return the value of *SWANK-STATE-STACK*."
   *swank-state-stack*)
 
-(define-condition slime-protocol-error (error) 
-  ((condition :initarg :condition :reader slime-protocol-error.condition))
+;; A conditions to include backtrace information
+(define-condition swank-error (error) 
+  ((condition :initarg :condition :reader swank-error.condition)
+   (backtrace :initarg :backtrace :reader swank-error.backtrace))
   (:report (lambda (condition stream)
-             (format stream "~A" (slime-protocol-error.condition condition)))))
+             (princ (swank-error.condition condition) stream))))
+
+(defun make-swank-error (condition)
+  (let ((bt (ignore-errors 
+              (call-with-debugging-environment 
+               (lambda ()(backtrace 0 nil))))))
+    (make-condition 'swank-error :condition condition :backtrace bt)))
 
 (add-hook *new-connection-hook* 'notify-backend-of-connection)
 (defun notify-backend-of-connection (connection)
@@ -424,7 +432,7 @@ connections, otherwise it will be closed after the first."
              (serve-connection socket style dont-close external-format)))
       (ecase style
         (:spawn
-         (spawn (lambda () (loop do (ignore-errors (serve)) while dont-close)) 
+         (spawn (lambda () (loop do (ignore-errors (serve)) while dont-close))
                 :name "Swank"))
         ((:fd-handler :sigio)
          (add-fd-handler socket (lambda () (serve))))
@@ -556,7 +564,8 @@ of the toplevel restart."
 (defun current-socket-io ()
   (connection.socket-io *emacs-connection*))
 
-(defun close-connection (c &optional condition)
+(defun close-connection (c &optional condition backtrace)
+  (format *debug-io* "~&;; swank:close-connection: ~A~%" condition)
   (let ((cleanup (connection.cleanup c)))
     (when cleanup
       (funcall cleanup c)))
@@ -565,15 +574,17 @@ of the toplevel restart."
     (close (connection.dedicated-output c)))
   (setf *connections* (remove c *connections*))
   (run-hook *connection-closed-hook* c)
-  (when condition
+  (when (and condition (not (typep condition 'end-of-file)))
     (finish-output *debug-io*)
     (format *debug-io* "~&;; Event history start:~%")
     (dump-event-history *debug-io*)
     (format *debug-io* ";; Event history end.~%~
+                        ;; Backtrace:~%~{~A~%~}~
                         ;; Connection to Emacs lost. [~%~
                         ;;  condition: ~A~%~
                         ;;  type: ~S~%~
                         ;;  encoding: ~S style: ~S dedicated: ~S]~%"
+            backtrace
             (escape-non-ascii (safe-condition-message condition) )
             (type-of condition)
             (connection.external-format c) 
@@ -582,9 +593,14 @@ of the toplevel restart."
     (finish-output *debug-io*)))
 
 (defmacro with-reader-error-handler ((connection) &body body)
-  `(handler-case (progn ,@body)
-     (slime-protocol-error (e)
-       (close-connection ,connection e))))
+  (let ((con (gensym)))
+    `(let ((,con ,connection))
+       (handler-case 
+           (progn ,@body)
+         (swank-error (e)
+           (close-connection ,con 
+                             (swank-error.condition e)
+                             (swank-error.backtrace e)))))))
 
 (defslimefun simple-break ()
   (with-simple-restart  (continue "Continue from interrupt.")
@@ -729,8 +745,7 @@ of the toplevel restart."
         (kill-thread thread)))))
 
 (defun repl-loop (connection)
-  (with-connection (connection)
-    (loop (handle-request connection))))
+  (loop (handle-request connection)))
 
 (defun process-available-input (stream fn)
   (loop while (and (open-stream-p stream) 
@@ -784,19 +799,12 @@ of the toplevel restart."
 ;;;;;; Simple sequential IO
 
 (defun simple-serve-requests (connection)
-  (with-reader-error-handler (connection)
-    (unwind-protect 
-	 (loop 
-	  (with-connection (connection)
-	    (with-simple-restart (abort-request "")
-	      (do ()
-		  ((wait-until-readable (connection.socket-io connection))))))
-	  (handle-request connection))
-      (close-connection connection))))
-
-(defun wait-until-readable (stream)
-  (unread-char (read-char stream) stream)
-  t)
+  (unwind-protect 
+       (with-simple-restart (close-connection "Close SLIME connection")
+         (with-reader-error-handler (connection)
+           (loop
+            (handle-request connection))))
+    (close-connection connection)))
 
 (defun read-from-socket-io ()
   (let ((event (decode-message (current-socket-io))))
@@ -1052,19 +1060,16 @@ NIL if streams are not globally redirected.")
   (receive))
 
 (defun decode-message (stream)
-  "Read an S-expression from STREAM using the SLIME protocol.
-If a protocol error occurs then a SLIME-PROTOCOL-ERROR is signalled."
+  "Read an S-expression from STREAM using the SLIME protocol."
   (let ((*swank-state-stack* (cons :read-next-form *swank-state-stack*)))
-    (handler-case
-        (let* ((length (decode-message-length stream))
-               (string (make-string length))
-               (pos (read-sequence string stream)))
-          (assert (= pos length) ()
-                  "Short read: length=~D  pos=~D" length pos)
-          (log-event "READ: ~S~%" string)
-          (read-form string))
-      (serious-condition (c)
-        (error (make-condition 'slime-protocol-error :condition c))))))
+    (handler-bind ((error (lambda (c) (error (make-swank-error c)))))
+      (let* ((length (decode-message-length stream))
+             (string (make-string length))
+             (pos (read-sequence string stream)))
+        (assert (= pos length) ()
+                "Short read: length=~D  pos=~D" length pos)
+        (log-event "READ: ~S~%" string)
+        (read-form string)))))
 
 (defun decode-message-length (stream)
   (let ((buffer (make-string 6)))
