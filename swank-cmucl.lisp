@@ -2048,7 +2048,8 @@ The `symbol-value' of each element is a type tag.")
   (defimplementation startup-idle-and-top-level-loops ()
     ;; Threads magic: this never returns! But top-level becomes
     ;; available again.
-    (mp::startup-idle-and-top-level-loops))
+    (unless mp::*initial-process*
+      (mp::startup-idle-and-top-level-loops)))
 
   (defimplementation spawn (fn &key name)
     (mp:make-process fn :name (or name "Anonymous")))
