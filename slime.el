@@ -2427,7 +2427,7 @@ side.")
          (while t 
            (unless (eq (process-status conn) 'open)
              (error "Lisp connection closed unexpectedly"))
-           (accept-process-output nil 0 10000)))))))
+           (slime-accept-process-output nil 0.01)))))))
 
 (defun slime-eval-async (sexp &optional cont package)
   "Evaluate EXPR on the superior Lisp and call CONT with the result."
@@ -2469,7 +2469,7 @@ Debugged requests are ignored."
   (when (slime-rex-continuations)
     (let ((tag (caar (slime-rex-continuations))))
       (while (find tag (slime-rex-continuations) :key #'car)
-        (accept-process-output nil 0 100000)))))
+        (slime-accept-process-output nil 0.1)))))
 
 (defun slime-ping ()
   "Check that communication works."
@@ -4232,11 +4232,12 @@ The handler will use qeuery to ask the use if the error should be ingored."
               (slime-oos (slime-read-system-name) "COMPILE-OP" :force t)))
   (:one-liner "Recompile (but not load) an ASDF system."))
 
-(defslime-repl-shortcut slime-restart-inferior-lisp ("restart-inferior-lisp")
-  (:handler 'slime-restart-inferior-lisp-aux)
+(defslime-repl-shortcut nil  ("restart-inferior-lisp")
+  (:handler 'slime-restart-inferior-lisp)
   (:one-liner "Restart *inferior-lisp* and reconnect SLIME."))
 
-(defun slime-restart-inferior-lisp-aux ()
+(defun slime-restart-inferior-lisp ()
+  (interactive)
   (assert (slime-inferior-process) () "No inferior lisp process")
   (slime-eval-async '(swank:quit-lisp))
   (set-process-filter (slime-connection) nil)
@@ -9489,7 +9490,7 @@ BODY returns true if the check succeeds."
 (setq slime-tests nil)
 
 (defun slime-check-top-level (&optional test-name)
-  (accept-process-output nil 0 50)
+  (slime-accept-process-output nil 0.001)
   (slime-check "At the top level (no debugging or pending RPCs)"
     (slime-at-top-level-p)))
 
@@ -9503,11 +9504,10 @@ BODY returns true if the check succeeds."
       (cond ((time-less-p end (current-time))
              (error "Timeout waiting for condition: %S" name))
             (t
-             ;; tell the debugger to enter recursive edits
-             (let ((slime-stack-eval-tags (cons 'wait slime-stack-eval-tags)))
-               ;; XXX if a process-filter enters a recursive-edit, we
-               ;; hang forever
-               (accept-process-output nil 0 10000)))))))
+             ;; XXX if a process-filter enters a recursive-edit, we
+             ;; hang forever
+             (save-excursion
+               (slime-accept-process-output nil 0.1)))))))
 
 (defun slime-sync-to-top-level (timeout)
   (slime-wait-condition "top-level" #'slime-at-top-level-p timeout))
@@ -9590,7 +9590,7 @@ BODY returns true if the check succeeds."
     "Lookup the argument list for FUNCTION-NAME.
 Confirm that EXPECTED-ARGLIST is displayed."
     '(("swank:start-server"
-       "(swank:start-server port-file &key \\((style \\*communication-style\\*)\\|style\\)[ \n]+dont-close[ \n]+(external-format \\*coding-system\\*))")
+       "(swank:start-server port-file &key \\((style swank:\\*communication-style\\*)\\|style\\)[ \n]+dont-close[ \n]+(external-format swank::\\*coding-system\\*))")
       ("swank::compound-prefix-match"
        "(swank::compound-prefix-match prefix target)")
       ("swank::create-socket"
@@ -9646,14 +9646,14 @@ Confirm that SUBFORM is correctly located."
         "
        (cl-user::bar))
       )
-  (slime-check-top-level)
+  (slime-check-top-level)    
   (with-temp-buffer 
     (lisp-mode)
     (insert program)
     (setq slime-buffer-package ":swank")
     (slime-compile-string (buffer-string) 1)
     (setq slime-buffer-package ":cl-user")
-    (slime-sync-to-top-level 15)
+    (slime-sync-to-top-level 5)
     (goto-char (point-max))
     (slime-previous-note)
     (slime-check error-location-correct
@@ -9680,7 +9680,7 @@ Confirm that SUBFORM is correctly located."
                    (slime-eval-async 'no-such-variable)))))))
       (let ((sldb-hook (cons debug-hook sldb-hook)))
         (slime-eval-async 'no-such-variable)
-        (slime-sync-to-top-level 15)
+        (slime-sync-to-top-level 5)
         (slime-check-top-level)
         (slime-check ("Maximum depth reached (%S) is %S."
                       debug-hook-max-depth depth)
@@ -9692,7 +9692,7 @@ Confirm that SUBFORM is correctly located."
     '(())
   (slime-check-top-level)
   (slime-eval-async '(cl:loop) (lambda (_) ) "CL-USER")
-  (accept-process-output nil 1)
+  (slime-accept-process-output nil 1)
   (slime-check "In eval state." (slime-busy-p))
   (slime-interrupt)
   (slime-wait-condition "First interrupt" (lambda () (slime-sldb-level= 1)) 5)
@@ -9732,7 +9732,7 @@ Confirm that SUBFORM is correctly located."
     (let ((sldb-hook (lambda () (sldb-continue) (setq done t))))
       (slime-interactive-eval 
        "(progn(cerror \"foo\" \"restart\")(cerror \"bar\" \"restart\")(+ 1 2))")
-      (while (not done) (accept-process-output))
+      (while (not done) (slime-accept-process-output))
       (slime-sync-to-top-level 5)
       (slime-check-top-level)
       (let ((message (current-message)))
@@ -9743,7 +9743,7 @@ Confirm that SUBFORM is correctly located."
     ()
     "Test interrupting a loop that sends a lot of output to Emacs."
     '(())
-  (accept-process-output nil 1)
+  (slime-accept-process-output nil 1)
   (slime-check-top-level)
   (slime-eval-async '(cl:loop :for i :from 0 :do (cl:progn (cl:print i) 
                                                            (cl:finish-output)))
@@ -9945,7 +9945,7 @@ SWANK> " t))
     ()
     "Test if BREAK invokes SLDB."
     '(())
-  (accept-process-output nil 1)
+  (slime-accept-process-output nil 1)
   (slime-check-top-level)
   (slime-compile-string (prin1-to-string '(cl:defun cl-user::foo () 
                                                     (cl:break))) 
@@ -9959,7 +9959,7 @@ SWANK> " t))
                         5)
   (with-current-buffer (sldb-get-default-buffer)
     (sldb-quit))
-  (accept-process-output nil 1)
+  (slime-accept-process-output nil 1)
   (slime-sync-to-top-level 5))
 
 (def-slime-test user-interrupt
@@ -9976,7 +9976,34 @@ SWANK> " t))
   (with-current-buffer (sldb-get-default-buffer)
     (sldb-quit))
   (slime-sync-to-top-level 5))
-      
+
+(def-slime-test disconnect
+    ()
+    "Close the connetion.
+Confirm that the subprocess continues gracefully.
+Reconnect afterwards."
+    '(())
+  (slime-check-top-level)
+  (let* ((c (slime-connection))
+         (p (slime-inferior-process c)))
+    (with-current-buffer (process-buffer p)
+      (erase-buffer))
+    (delete-process c)
+    (assert (equal (process-status c) 'closed) nil "Connection not closed")
+    (slime-accept-process-output nil 0.1)
+    (assert (equal (process-status p) 'run) nil "Subprocess not running")
+    (with-current-buffer (process-buffer p)
+      (assert (< (buffer-size) 500) t "Unusual output"))
+    (slime-inferior-connect p (slime-inferior-lisp-args p))
+    (lexical-let ((hook nil))
+      (setq hook (lambda ()
+                   (remove-hook 'slime-connected-hook hook)))
+      (add-hook 'slime-connected-hook hook)
+      (while (member hook slime-connected-hook)
+        (sit-for 0.5)
+        (slime-accept-process-output nil 0.1)))
+    (slime-test-expect "We are connected again" p (slime-inferior-process))))
+    
 
 ;;;; Utilities
 
@@ -10204,6 +10231,17 @@ levels of parens."
   (defmacro slime-defun-if-undefined (name &rest rest)
     `(unless (fboundp ',name)
        (defun ,name ,@rest))))
+
+(defun slime-accept-process-output (&optional process timeout)
+  "Like `accept-process-output' but the TIMEOUT argument can be a float."
+  (cond ((or (featurep 'xemacs)
+             (> emacs-major-version 21))
+         (accept-process-output process timeout))
+        (t
+         (accept-process-output process 
+                                (truncate timeout)
+                                ;; Emacs 21 uses microsecs; Emacs 22 millisecs
+                                (truncate (* timeout 1000000))))))
 
 (put 'slime-defun-if-undefined 'lisp-indent-function 2)
 
