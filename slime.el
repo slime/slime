@@ -10232,10 +10232,12 @@ levels of parens."
     `(unless (fboundp ',name)
        (defun ,name ,@rest))))
 
+(defvar slime-accept-process-output-supports-floats 
+  (ignore-errors (accept-process-output nil 0.0) t))
+
 (defun slime-accept-process-output (&optional process timeout)
   "Like `accept-process-output' but the TIMEOUT argument can be a float."
-  (cond ((or (featurep 'xemacs)
-             (> emacs-major-version 21))
+  (cond (slime-accept-process-output-supports-floats
          (accept-process-output process timeout))
         (t
          (accept-process-output process 
