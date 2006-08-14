@@ -177,10 +177,9 @@
   (setq ccl::*interactive-abort-process* ccl::*current-process*))
 
 (defimplementation make-stream-interactive (stream)
-  nil)
-
-(defmethod make-stream-interactive ((stream ccl:fundamental-output-stream))
-  (push stream ccl::*auto-flush-streams*))
+  (typecase stream
+    (ccl:fundamental-output-stream 
+     (push stream ccl::*auto-flush-streams*))))
 
 ;;; Unix signals
 
@@ -743,7 +742,7 @@ at least the filename containing it."
 (defimplementation make-default-inspector ()
   (make-instance 'openmcl-inspector))
 
-(defmethod describe-primitive-type (thing)
+(defimplementation describe-primitive-type (thing)
   (let ((typecode (ccl::typecode thing)))
     (if (gethash typecode *value2tag*)
 	(string (gethash typecode *value2tag*))
