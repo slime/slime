@@ -1,5 +1,9 @@
 2006-08-14  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-accept-process-output): Use brute-force to
+	detect whether accept-process-output can be called with a float as
+	timeout arg.
+
 	* swank-openmcl.lisp: Fix some breakage caused by the new
 	defimplementation.
 
