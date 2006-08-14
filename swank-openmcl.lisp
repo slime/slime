@@ -308,19 +308,20 @@ condition."
       (compile-file filename :load load-p))))
 
 (defimplementation frame-var-value (frame var)
-  (map-backtrace  
-   #'(lambda(frame-number p context lfun pc)
-       (when (= frame frame-number)
-         (return-from frame-var-value 
-           (multiple-value-bind (total vsp parent-vsp)
-               (ccl::count-values-in-frame p context)
-             (loop for count below total
-                   with varcount = -1
-                   for (value nil name) = (multiple-value-list (ccl::nth-value-in-frame p count context lfun pc vsp parent-vsp))
-                   when name do (incf varcount)
-                   until (= varcount var)
-                   finally (return value))
-             ))))))
+  (block frame-var-value
+    (map-backtrace  
+     #'(lambda(frame-number p context lfun pc)
+         (when (= frame frame-number)
+           (return-from frame-var-value 
+             (multiple-value-bind (total vsp parent-vsp)
+                 (ccl::count-values-in-frame p context)
+               (loop for count below total
+                     with varcount = -1
+                     for (value nil name) = (multiple-value-list (ccl::nth-value-in-frame p count context lfun pc vsp parent-vsp))
+                     when name do (incf varcount)
+                     until (= varcount var)
+                     finally (return value))
+               )))))))
 
 (defun xref-locations (relation name &optional (inverse nil))
   (loop for xref in (if inverse 
@@ -512,44 +513,46 @@ condition."
   (princ frame stream))
 
 (defimplementation frame-locals (index)
-  (map-backtrace 
-   (lambda (frame-number p context lfun pc)
-     (when (= frame-number index)
-       (multiple-value-bind (count vsp parent-vsp)
-           (ccl::count-values-in-frame p context)
-         (let (result)
-           (dotimes (i count)
-             (multiple-value-bind (var type name)
-                 (ccl::nth-value-in-frame p i context lfun pc vsp parent-vsp)
-               (declare (ignore type))
-               (when name
-                 (push (list 
-                        :name name
-                        :id 0
-                        :value var)
-                       result))))
-           (return-from frame-locals (nreverse result))))))))
+  (block frame-locals
+    (map-backtrace 
+     (lambda (frame-number p context lfun pc)
+       (when (= frame-number index)
+         (multiple-value-bind (count vsp parent-vsp)
+             (ccl::count-values-in-frame p context)
+           (let (result)
+             (dotimes (i count)
+               (multiple-value-bind (var type name)
+                   (ccl::nth-value-in-frame p i context lfun pc vsp parent-vsp)
+                 (declare (ignore type))
+                 (when name
+                   (push (list 
+                          :name name
+                          :id 0
+                          :value var)
+                         result))))
+             (return-from frame-locals (nreverse result)))))))))
 
 (defimplementation frame-catch-tags (index &aux my-frame)
-  (map-backtrace 
-   (lambda (frame-number p context lfun pc)
-      (declare (ignore pc lfun))
-      (if (= frame-number index) 
-          (setq my-frame p)
-          (when my-frame
-            (return-from frame-catch-tags
-              (loop for catch = (ccl::%catch-top (ccl::%current-tcr)) then (ccl::next-catch catch)
-                    while catch
-                    for csp = (ccl::uvref catch 3) ; ppc32::catch-frame.csp-cell) defined in arch.lisp
-                    for tag = (ccl::uvref catch 0) ; ppc32::catch-frame.catch-tag-cell)
-                    until (ccl::%stack< p csp context)
-                    when (ccl::%stack< my-frame csp context)
-                    collect (cond 
-                              ((symbolp tag)
-                               tag)
-                              ((and (listp tag)
-                                    (typep (car tag) 'restart))
-                               `(:restart ,(restart-name (car tag))))))))))))
+  (block frame-catch-tags
+    (map-backtrace 
+     (lambda (frame-number p context lfun pc)
+       (declare (ignore pc lfun))
+       (if (= frame-number index) 
+           (setq my-frame p)
+           (when my-frame
+             (return-from frame-catch-tags
+               (loop for catch = (ccl::%catch-top (ccl::%current-tcr)) then (ccl::next-catch catch)
+                     while catch
+                     for csp = (ccl::uvref catch 3) ; ppc32::catch-frame.csp-cell) defined in arch.lisp
+                     for tag = (ccl::uvref catch 0) ; ppc32::catch-frame.catch-tag-cell)
+                     until (ccl::%stack< p csp context)
+                     when (ccl::%stack< my-frame csp context)
+                     collect (cond 
+                               ((symbolp tag)
+                                tag)
+                               ((and (listp tag)
+                                     (typep (car tag) 'restart))
+                                `(:restart ,(restart-name (car tag)))))))))))))
 
 (defimplementation disassemble-frame (the-frame-number)
   (let ((function-to-disassemble nil))
@@ -614,32 +617,34 @@ condition."
 function in a debugger frame.  In OpenMCL, we are not able to
 find the precise position of the frame, but we do attempt to give
 at least the filename containing it."
-  (map-backtrace
-   (lambda (frame-number p context lfun pc)
-     (declare (ignore p context pc))
-     (when (and (= frame-number index) lfun)
-       (return-from frame-source-location-for-emacs
-         (function-source-location lfun))))))
+  (block frame-source-location-for-emacs
+    (map-backtrace
+     (lambda (frame-number p context lfun pc)
+       (declare (ignore p context pc))
+       (when (and (= frame-number index) lfun)
+         (return-from frame-source-location-for-emacs
+           (function-source-location lfun)))))))
 
 (defimplementation eval-in-frame (form index)
-  (map-backtrace
-   (lambda (frame-number p context lfun pc)
-     (when (= frame-number index)
-       (multiple-value-bind (count vsp parent-vsp)
-           (ccl::count-values-in-frame p context)
-         (let ((bindings nil))
-           (dotimes (i count)
-             (multiple-value-bind (var type name)
-                 (ccl::nth-value-in-frame p i context lfun pc vsp parent-vsp)
-               (declare (ignore type))
-               (when name
-                 (push (list name `',var) bindings))
-               ))
-           (return-from eval-in-frame
-             (eval `(let ,bindings
-                     (declare (ignorable ,@(mapcar 'car bindings)))
-                     ,form)))
-           ))))))
+  (block eval-in-frame
+    (map-backtrace
+     (lambda (frame-number p context lfun pc)
+       (when (= frame-number index)
+         (multiple-value-bind (count vsp parent-vsp)
+             (ccl::count-values-in-frame p context)
+           (let ((bindings nil))
+             (dotimes (i count)
+               (multiple-value-bind (var type name)
+                   (ccl::nth-value-in-frame p i context lfun pc vsp parent-vsp)
+                 (declare (ignore type))
+                 (when name
+                   (push (list name `',var) bindings))
+                 ))
+             (return-from eval-in-frame
+               (eval `(let ,bindings
+                        (declare (ignorable ,@(mapcar 'car bindings)))
+                        ,form)))
+             )))))))
 
 (defimplementation return-from-frame (index form)
   (let ((values (multiple-value-list (eval-in-frame form index))))
