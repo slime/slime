@@ -10154,12 +10154,20 @@ NAME or the extended operator name."
     ("WARN" . slime-parse-extended-operator-name/make-instance)
     ("CERROR" . slime-parse-extended-operator-name/cerror)
     ("CHANGE-CLASS" . slime-parse-extended-operator-name/cerror)
-    ("DEFMETHOD" . slime-parse-extended-operator-name/defmethod)))
+    ("DEFMETHOD" . slime-parse-extended-operator-name/defmethod)
+    ("APPLY" . slime-parse-extended-operator-name/apply)))
 
 (defun slime-parse-extended-operator-name/make-instance (name)
   (let ((str (slime-sexp-at-point)))
     (when (= (aref str 0) ?')
       (setq name (list :make-instance (substring str 1)
+                       name))))
+  name)
+
+(defun slime-parse-extended-operator-name/apply (name)
+  (let ((str (slime-sexp-at-point)))
+    (when (string-match "^#?'\\(.*\\)" str)
+      (setq name (list :make-instance (match-string 1 str)
                        name))))
   name)
 
