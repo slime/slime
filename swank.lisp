@@ -2305,20 +2305,36 @@ forward keywords to OPERATOR."
 
 (defvar *presentation-counter* 0 "identifier counter")
 
+(defvar *nil-surrogate* (make-symbol "nil-surrogate"))
+
 ;; XXX thread safety?
 (defun save-presented-object (object)
   "Save OBJECT and return the assigned id.
 If OBJECT was saved previously return the old id."
-  (or (gethash object *object-to-presentation-id*)
-      (let ((id (incf *presentation-counter*)))
-        (setf (gethash id *presentation-id-to-object*) object)
-        (setf (gethash object *object-to-presentation-id*) id)
-        id)))
+  (let ((object (if (null object) *nil-surrogate* object)))
+    ;; We store *nil-surrogate* instead of nil, to distinguish it from
+    ;; an object that was garbage collected.
+    (or (gethash object *object-to-presentation-id*)
+        (let ((id (incf *presentation-counter*)))
+          (setf (gethash id *presentation-id-to-object*) object)
+          (setf (gethash object *object-to-presentation-id*) id)
+          id))))
 
 (defun lookup-presented-object (id)
   "Retrieve the object corresponding to ID.
 The secondary value indicates the absence of an entry."
-  (gethash id *presentation-id-to-object*))
+  (multiple-value-bind (object foundp)
+      (gethash id *presentation-id-to-object*)
+    (cond
+      ((eql object *nil-surrogate*)
+       ;; A stored nil object
+       (values nil t))
+      ((null object)
+       ;; Object that was replaced by nil in the weak hash table
+       ;; when the object was garbage collected.
+       (values nil nil))
+      (t 
+       (values object foundp)))))
 
 (defslimefun get-repl-result (id)
   "Get the result of the previous REPL evaluation with ID."
