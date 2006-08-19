@@ -1,3 +1,11 @@
+2006-08-19  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-parse-extended-operator-name/apply): New.
+	(slime-extended-operator-name-parser-alist): Add it to the alist.
+
+	* swank.lisp (compute-enriched-decoded-arglist): Add method for
+	handling APPLY.
+
 2006-08-14  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-accept-process-output): Use brute-force to
