@@ -2033,6 +2033,38 @@ If the arglist is not available, return :NOT-AVAILABLE."))
          nil)))
     (values decoded-arglist determining-args t)))
 
+(defmethod compute-enriched-decoded-arglist ((operator-form (eql 'apply))
+                                             argument-forms)
+  (let ((function-name-form (car argument-forms)))
+    (when (and (listp function-name-form)
+               (= (length function-name-form) 2)
+               (member (car function-name-form) '(quote function)))
+      (let ((function-name (cadr function-name-form)))
+        (when (valid-operator-symbol-p function-name)
+          (let ((function-arglist 
+                 (compute-enriched-decoded-arglist function-name 
+                                                   (cdr argument-forms))))
+            (return-from compute-enriched-decoded-arglist
+              (values (make-arglist :required-args
+                                    (list 'function)
+                                    :optional-args 
+                                    (append 
+                                     (mapcar #'(lambda (arg)
+                                                 (make-optional-arg arg nil))
+                                             (arglist.required-args function-arglist))
+                                     (arglist.optional-args function-arglist))
+                                    :key-p 
+                                    (arglist.key-p function-arglist)
+                                    :keyword-args 
+                                    (arglist.keyword-args function-arglist)
+                                    :rest 
+                                    'args
+                                    :allow-other-keys-p 
+                                    (arglist.allow-other-keys-p function-arglist))
+                      (list function-name-form)
+                      t)))))))
+  (call-next-method))
+
 (defslimefun arglist-for-insertion (name)
   (with-buffer-syntax ()
     (let ((symbol (parse-symbol name)))
