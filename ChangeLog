@@ -1,3 +1,12 @@
+2006-08-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* swank.lisp (*nil-surrogate*): New.
+	(save-presented-object, lookup-presented-object): Distinguish
+	between a saved NIL and a garbage-collected object that was
+	replaced by NIL in the weak hash table.
+	(compute-enriched-decoded-arglist with-open-file): Add an IGNORE
+	declaration. 
+
 2006-08-19  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-parse-extended-operator-name/apply): New.
