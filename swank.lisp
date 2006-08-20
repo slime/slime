@@ -2022,6 +2022,7 @@ If the arglist is not available, return :NOT-AVAILABLE."))
 
 (defmethod compute-enriched-decoded-arglist ((operator-form (eql 'with-open-file))
                                              argument-forms)
+  (declare (ignore argument-forms))
   (multiple-value-bind (decoded-arglist determining-args)
       (call-next-method)
     (let ((first-arg (first (arglist.required-args decoded-arglist)))
