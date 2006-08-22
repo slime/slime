@@ -1,3 +1,32 @@
+2006-08-21  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	Make the values of local variables in debugger frames and values
+	of parts in the inspector accessible as presentations.  In
+	particular, this allows to copy #<unreadable> values to the REPL
+	for further investigation.  It also provides a context menu for
+	the values, offering to inspect, pretty-print, and describe them.
+
+	Note that the presentations are only valid as long as the
+	corresponding Inspector or Debugger buffer is open.
+	
+	* swank.lisp (lookup-presented-object): Handle presentation ids
+	(:frame-var frame index), (:inspected-part part-index).
+	(init-inspector): New optional argument, reset.
+
+	* slime.el (slime-inspector-insert-ispec): Mark up all values of
+	inspected parts as presentations. 
+	(sldb-insert-locals): Mark up the values of local variables as
+	presentations. 
+	(slime-remove-presentation-properties): Fix for read-only buffers.
+	(slime-copy-presentation-at-point): Make it work when the current
+	buffer is not the REPL buffer.
+	(slime-menu-choices-for-presentation): Describe into a separate
+	buffer, not the REPL.  New menu item, pretty-print.
+	(slime-presentation-expression): Handle presentation ids that are
+	not numbers.
+	(slime-inspect-presented-object): Don't reset the inspector if
+	already in the inspector buffer.
+
 2006-08-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* swank.lisp (*nil-surrogate*): New.
@@ -146,7 +175,6 @@
 	* swank.lisp (keywords-of-operator): New support function for
 	writing user-defined `extra-keywords' methods.
 
->>>>>>> 1.922
 2006-07-11  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-allegro.lisp (make-weak-key-hash-table): Use ACL's weak
