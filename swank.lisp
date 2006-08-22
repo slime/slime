@@ -2324,18 +2324,35 @@ If OBJECT was saved previously return the old id."
 (defun lookup-presented-object (id)
   "Retrieve the object corresponding to ID.
 The secondary value indicates the absence of an entry."
-  (multiple-value-bind (object foundp)
-      (gethash id *presentation-id-to-object*)
-    (cond
-      ((eql object *nil-surrogate*)
-       ;; A stored nil object
-       (values nil t))
-      ((null object)
-       ;; Object that was replaced by nil in the weak hash table
-       ;; when the object was garbage collected.
-       (values nil nil))
-      (t 
-       (values object foundp)))))
+  (etypecase id
+    (integer 
+     ;; 
+     (multiple-value-bind (object foundp)
+         (gethash id *presentation-id-to-object*)
+       (cond
+         ((eql object *nil-surrogate*)
+          ;; A stored nil object
+          (values nil t))
+         ((null object)
+          ;; Object that was replaced by nil in the weak hash table
+          ;; when the object was garbage collected.
+          (values nil nil))
+         (t 
+          (values object foundp)))))
+    (cons
+     (destructure-case id
+       ((:frame-var frame index)
+        (handler-case 
+            (frame-var-value frame index)
+          (:no-error (value)
+            (values value t))
+          (t (condition)
+            (declare (ignore condition))
+            (values nil nil))))
+       ((:inspected-part part-index)
+        (if (< part-index (length *inspectee-parts*))
+            (values (inspector-nth-part part-index) t)
+            (values nil nil)))))))
 
 (defslimefun get-repl-result (id)
   "Get the result of the previous REPL evaluation with ID."
@@ -4584,9 +4601,10 @@ See `methods-by-applicability'.")
         *inspectee-actions* (make-array 10 :adjustable t :fill-pointer 0)
         *inspector-history* (make-array 10 :adjustable t :fill-pointer 0)))
 
-(defslimefun init-inspector (string)
+(defslimefun init-inspector (string &optional (reset t))
   (with-buffer-syntax ()
-    (reset-inspector)
+    (when reset
+      (reset-inspector))
     (inspect-object (eval (read-from-string string)))))
   
 (defun print-part-to-string (value)
