@@ -2867,15 +2867,16 @@ RESULT-P decides whether a face for a return value or output text is used."
       (overlay-put overlay 'keymap slime-presentation-map))))
   
 (defun slime-remove-presentation-properties (from to presentation)
-  (remove-text-properties from to
-                          `(,presentation t rear-nonsticky t))
-  (when (eq (get-text-property from 'slime-repl-presentation) presentation)
-    (remove-text-properties from (1+ from) `(slime-repl-presentation t)))
-  (when (eq (get-text-property (1- to) 'slime-repl-presentation) presentation)
-    (remove-text-properties (1- to) to `(slime-repl-presentation t)))
-  (dolist (overlay (overlays-at from))
-    (when (eq (overlay-get overlay 'slime-repl-presentation) presentation)
-      (delete-overlay overlay))))
+  (let ((inhibit-read-only t)) 
+    (remove-text-properties from to
+                            `(,presentation t rear-nonsticky t))
+    (when (eq (get-text-property from 'slime-repl-presentation) presentation)
+      (remove-text-properties from (1+ from) `(slime-repl-presentation t)))
+    (when (eq (get-text-property (1- to) 'slime-repl-presentation) presentation)
+      (remove-text-properties (1- to) to `(slime-repl-presentation t)))
+    (dolist (overlay (overlays-at from))
+      (when (eq (overlay-get overlay 'slime-repl-presentation) presentation)
+        (delete-overlay overlay)))))
 
 (defun slime-insert-presentation (result output-id)
   (let ((start (point)))
@@ -3233,18 +3234,20 @@ When a presentation has been altered, change it to plain text."
             (slime-presentation-around-point point)
           (unless presentation
             (error "No presentation at click"))
-          (flet ((do-insertion ()
-                   (when (not (string-match "\\s-"
-                                            (buffer-substring (1- (point)) (point))))
-                     (insert " "))
-                   (insert (buffer-substring start end))
-                   (when (and (not (eolp)) (not (looking-at "\\s-")))
-                     (insert " "))))
-            (if (>= (point) slime-repl-prompt-start-mark)
-                (do-insertion)
+          (let ((presentation-text (buffer-substring start end)))
+            (slime-switch-to-output-buffer)
+            (flet ((do-insertion ()
+                    (when (not (string-match "\\s-"
+                                             (buffer-substring (1- (point)) (point))))
+                      (insert " "))
+                    (insert presentation-text)
+                    (when (and (not (eolp)) (not (looking-at "\\s-")))
+                      (insert " "))))
+              (if (>= (point) slime-repl-prompt-start-mark)
+                  (do-insertion)
                 (save-excursion
                   (goto-char (point-max))
-                  (do-insertion)))))))))
+                  (do-insertion))))))))))
 
 (defvar slime-presentation-map (make-sparse-keymap))
 
@@ -3282,8 +3285,16 @@ buffer, suitable for `x-popup-menu'."
            ,(savel `(lambda ()
              (interactive)
              ;; XXX remove call to describe.
-             (slime-eval '(cl:describe 
-                           (swank::lookup-presented-object ',what))))))
+             (slime-eval-describe 
+              '(swank::describe-to-string
+                (swank::lookup-presented-object ',what))))))
+          ("Pretty-print" .
+           ,(savel `(lambda ()
+             (interactive)
+             (slime-eval-describe 
+              '(swank::swank-pprint
+                (cl:list
+                 (swank::lookup-presented-object ',what)))))))
           ("Copy to input" . ,(savel 'slime-copy-presentation-at-point))
           ,@(let ((nchoice 0))
               (mapcar 
@@ -3399,8 +3410,13 @@ buffer. Presentations of old results are expanded into code."
   "Return a string that contains a CL s-expression accessing 
 the presented object."
   (let ((id (slime-presentation-id presentation)))
-    ;; Make sure it works even if *read-base* is not 10.
-    (format "(swank:get-repl-result #10r%d)" id)))
+    (etypecase id
+      (number         
+       ;; Make sure it works even if *read-base* is not 10.
+       (format "(swank:get-repl-result #10r%d)" id))
+      (list
+       ;; for frame variables and inspector parts
+       (format "(swank:get-repl-result '%s)" id)))))
 
 (defun slime-buffer-substring-with-reified-output (start end)
   (let ((str-props (buffer-substring start end))
@@ -8216,7 +8232,10 @@ The details include local variable bindings and CATCH-tags."
             (insert prefix (in-sldb-face local-name name))
             (unless (zerop id) 
               (insert (in-sldb-face local-name (format "#%d" id))))
-            (insert " = " (in-sldb-face local-value value)))
+            (insert " = ")
+            (slime-insert-presentation
+             (in-sldb-face local-value value)
+             `(:frame-var ,frame ,i)))
           (insert "\n"))))
 
 (defun sldb-inspect-var ()
@@ -8589,7 +8608,10 @@ See `slime-lisp-implementations'")
 (defvar slime-saved-window-config)
 
 (defun slime-inspect-presented-object (id)
-  (slime-inspect `(swank::init-inspector ,(format "(swank::lookup-presented-object '%s)" id))))
+  (let ((reset-p (not (eq major-mode 'slime-inspector-mode))))
+    (slime-inspect `(swank::init-inspector 
+                     ,(format "(swank::lookup-presented-object '%s)" id) 
+                     ,reset-p))))
 
 (defun slime-inspect (form)
   "Eval an expression and inspect the result."
@@ -8649,10 +8671,11 @@ Optionally set point to POINT."
       (insert ispec)
     (destructure-case ispec
       ((:value string id)
-       (slime-insert-propertized (list 'slime-part-number id 
-                                       'mouse-face 'highlight
-                                       'face 'slime-inspector-value-face)
-                                 string))
+       (slime-propertize-region 
+           (list 'slime-part-number id 
+                 'mouse-face 'highlight
+                 'face 'slime-inspector-value-face)
+         (slime-insert-presentation string `(:inspected-part ,id))))
       ((:action string id)
        (slime-insert-propertized (list 'slime-action-number id
                                        'mouse-face 'highlight
