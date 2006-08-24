@@ -1,3 +1,28 @@
+2006-08-24  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-ensure-presentation-overlay): Provide a
+	help-echo for presentations, showing the mouse bindings.
+	(slime-presentation-around-click): New function.
+	(slime-copy-or-inspect-presentation-at-mouse)
+	(slime-inspect-presentation-at-mouse) 
+	(slime-copy-presentation-at-mouse) 
+	(slime-describe-presentation-at-mouse) 
+	(slime-pretty-print-presentation-at-mouse): New commands.
+	(slime-copy-presentation-at-point): Removed (misnomer).
+	(slime-presentation-map): Bind mouse-2 to
+	slime-copy-or-inspect-presentation-at-mouse, so the right thing is
+	done in REPL buffers and in Inspector and Debugger buffers.
+	(slime-menu-choices-for-presentation): Use the new commands here
+	instead of inline lambdas.
+	(sldb-inspect-in-frame): Use slime-read-object here, so if point
+	is in a presentation in the debugger buffer, inspect it
+	immediately just like slime-inspect does.
+	(slime-inspect-presented-object): Removed.
+	(slime-inspect): Don't expect that "swank:init-inspector" is
+	already part of the form.  Accept an optional arg "no-reset".
+	(slime-read-object): Don't add "swank:init-inspector" to the read
+	form; slime-inspect now adds it.
+
 2006-08-21  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Make the values of local variables in debugger frames and values
