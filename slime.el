@@ -2863,6 +2863,10 @@ RESULT-P decides whether a face for a return value or output text is used."
     (let ((overlay (make-overlay start end (current-buffer) t nil)))
       (overlay-put overlay 'slime-repl-presentation presentation)
       (overlay-put overlay 'mouse-face 'slime-repl-output-mouseover-face)
+      (overlay-put overlay 'help-echo 
+                   (if (eq major-mode 'slime-repl-mode)
+                       "mouse-2: copy to input; mouse-3: menu"
+                     "mouse-2: inspect; mouse-3: menu"))
       (overlay-put overlay 'face 'slime-repl-inputed-output-face)
       (overlay-put overlay 'keymap slime-presentation-map))))
   
@@ -3224,38 +3228,84 @@ When a presentation has been altered, change it to plain text."
       (when any-change
         (undo-boundary)))))
 
-(defun slime-copy-presentation-at-point (event)
+(defun slime-presentation-around-click (event)
+  "Return the presentation around the position of the mouse-click EVENT.
+If there is no presentation, signal an error.
+Also return the start position, end position, and buffer of the presentation."
+  (when (and (featurep 'xemacs) (not (button-press-event-p event)))
+    (error "Command must be bound to a button-press-event"))
+  (let ((point (if (featurep 'xemacs) (event-point event) (posn-point (event-end event))))
+        (window (if (featurep 'xemacs) (event-window event) (caadr event))))
+    (with-current-buffer (window-buffer window)
+      (multiple-value-bind (presentation start end)
+          (slime-presentation-around-point point)
+        (unless presentation
+          (error "No presentation at click"))
+        (values presentation start end (current-buffer))))))
+          
+(defun slime-copy-or-inspect-presentation-at-mouse (event)
+  (interactive "e") ; no "@" -- we don't want to select the clicked-at window
+  (multiple-value-bind (presentation start end buffer)
+      (slime-presentation-around-click event)
+    (if (with-current-buffer buffer
+          (eq major-mode 'slime-repl-mode))
+        (slime-copy-presentation-at-mouse event)
+      (slime-inspect-presentation-at-mouse event))))
+
+(defun slime-inspect-presentation-at-mouse (event)
   (interactive "e")
-  (unless (and (featurep 'xemacs) (not (button-press-event-p event)))
-    (let ((point (if (featurep 'xemacs) (event-point event) (posn-point (event-end event))))
-          (window (if (featurep 'xemacs) (event-window event) (caadr event))))
-      (with-current-buffer (window-buffer window)
-        (multiple-value-bind (presentation start end)
-            (slime-presentation-around-point point)
-          (unless presentation
-            (error "No presentation at click"))
-          (let ((presentation-text (buffer-substring start end)))
-            (slime-switch-to-output-buffer)
-            (flet ((do-insertion ()
-                    (when (not (string-match "\\s-"
-                                             (buffer-substring (1- (point)) (point))))
-                      (insert " "))
-                    (insert presentation-text)
-                    (when (and (not (eolp)) (not (looking-at "\\s-")))
-                      (insert " "))))
-              (if (>= (point) slime-repl-prompt-start-mark)
-                  (do-insertion)
-                (save-excursion
-                  (goto-char (point-max))
-                  (do-insertion))))))))))
+  (multiple-value-bind (presentation start end buffer) 
+      (slime-presentation-around-click event)
+    (let ((reset-p 
+           (with-current-buffer buffer
+             (not (eq major-mode 'slime-inspector-mode)))))
+      (slime-inspect (slime-presentation-expression presentation)
+                     (not reset-p)))))
+
+(defun slime-copy-presentation-at-mouse (event)
+  (interactive "e")
+  (multiple-value-bind (presentation start end buffer) 
+      (slime-presentation-around-click event)
+    (let ((presentation-text 
+           (with-current-buffer buffer
+             (buffer-substring start end))))
+      (unless (eql major-mode 'slime-repl-mode)
+        (slime-switch-to-output-buffer))
+      (flet ((do-insertion ()
+                           (when (not (string-match "\\s-"
+                                                    (buffer-substring (1- (point)) (point))))
+                             (insert " "))
+                           (insert presentation-text)
+                           (when (and (not (eolp)) (not (looking-at "\\s-")))
+                             (insert " "))))
+        (if (>= (point) slime-repl-prompt-start-mark)
+            (do-insertion)
+          (save-excursion
+            (goto-char (point-max))
+            (do-insertion)))))))
+
+(defun slime-describe-presentation-at-mouse (event)
+  (interactive "@e")
+  (multiple-value-bind (presentation) (slime-presentation-around-click event)
+    (slime-eval-describe 
+     `(swank::describe-to-string
+       (swank::lookup-presented-object ',(slime-presentation-id presentation))))))
+
+(defun slime-pretty-print-presentation-at-mouse (event)
+  (interactive "@e")
+  (multiple-value-bind (presentation) (slime-presentation-around-click event)
+    (slime-eval-describe 
+     `(swank::swank-pprint
+       (cl:list
+        (swank::lookup-presented-object ',(slime-presentation-id presentation)))))))
 
 (defvar slime-presentation-map (make-sparse-keymap))
 
-(define-key  slime-presentation-map [mouse-2] 'slime-copy-presentation-at-point)
+(define-key  slime-presentation-map [mouse-2] 'slime-copy-or-inspect-presentation-at-mouse)
 (define-key  slime-presentation-map [mouse-3] 'slime-presentation-menu)
 
 (when (featurep 'xemacs)
-  (define-key  slime-presentation-map [button2] 'slime-copy-presentation-at-point)
+  (define-key  slime-presentation-map [button2] 'slime-copy-or-inspect-presentation-at-mouse)
   (define-key  slime-presentation-map [button3] 'slime-presentation-menu))
 
 ;; protocol for handling up a menu.
@@ -3278,24 +3328,10 @@ buffer, suitable for `x-popup-menu'."
       (list
        `(,(if (featurep 'xemacs) " " "")
          ("" 
-          ("Inspect" . ,(savel `(lambda ()
-                         (interactive)
-                         (slime-inspect-presented-object ',what))))
-          ("Describe" . 
-           ,(savel `(lambda ()
-             (interactive)
-             ;; XXX remove call to describe.
-             (slime-eval-describe 
-              '(swank::describe-to-string
-                (swank::lookup-presented-object ',what))))))
-          ("Pretty-print" .
-           ,(savel `(lambda ()
-             (interactive)
-             (slime-eval-describe 
-              '(swank::swank-pprint
-                (cl:list
-                 (swank::lookup-presented-object ',what)))))))
-          ("Copy to input" . ,(savel 'slime-copy-presentation-at-point))
+          ("Inspect" . ,(savel 'slime-inspect-presentation-at-mouse))
+          ("Describe" . ,(savel 'slime-describe-presentation-at-mouse))
+          ("Pretty-print" . ,(savel 'slime-pretty-print-presentation-at-mouse))
+          ("Copy to input" . ,(savel 'slime-copy-presentation-at-mouse))
           ,@(let ((nchoice 0))
               (mapcar 
                (lambda (choice)
@@ -8165,9 +8201,8 @@ The details include local variable bindings and CATCH-tags."
 
 (defun sldb-inspect-in-frame (string)
   "Prompt for an expression and inspect it in the selected frame."
-  (interactive (list (slime-read-from-minibuffer 
-                      "Inspect in frame (evaluated): " 
-                      (slime-sexp-at-point))))
+  (interactive (list (slime-read-object
+                      "Inspect in frame (evaluated): ")))
   (let ((number (sldb-frame-number-at-point)))
     (slime-eval-async `(swank:inspect-in-frame ,string ,number)
                       'slime-open-inspector)))
@@ -8607,25 +8642,22 @@ See `slime-lisp-implementations'")
 (defvar slime-inspector-mark-stack '())
 (defvar slime-saved-window-config)
 
-(defun slime-inspect-presented-object (id)
-  (let ((reset-p (not (eq major-mode 'slime-inspector-mode))))
-    (slime-inspect `(swank::init-inspector 
-                     ,(format "(swank::lookup-presented-object '%s)" id) 
-                     ,reset-p))))
-
-(defun slime-inspect (form)
+(defun slime-inspect (form &optional no-reset)
   "Eval an expression and inspect the result."
   (interactive (list (slime-read-object "Inspect value (evaluated): ")))
-  (slime-eval-async form 'slime-open-inspector))
+  (slime-eval-async `(swank:init-inspector ,form ,(not no-reset))
+                    'slime-open-inspector))
 
 (defun slime-read-object (prompt)
+  "Read a Common Lisp expression from the minibuffer, providing
+defaults from the s-expression at point.  If point is within a
+presentation, don't prompt, just return the presentation."
   (multiple-value-bind (presentation start end)
       (slime-presentation-around-point (point))
-    `(swank:init-inspector
-      ,(if presentation
-           (slime-presentation-expression presentation)
-         (slime-read-from-minibuffer "Inspect value (evaluated): "
-                                     (slime-sexp-at-point))))))
+    (if presentation
+        (slime-presentation-expression presentation)
+      (slime-read-from-minibuffer prompt
+                                  (slime-sexp-at-point)))))
 
 (define-derived-mode slime-inspector-mode fundamental-mode "Slime-Inspector"
   (set-syntax-table lisp-mode-syntax-table)
