@@ -1,3 +1,9 @@
+2006-08-25  Kai Kaminski <kai.kaminski@gmx.de>
+
+	* swank.lisp (lookup-presented-object): Fix for OpenMCL 1.0
+	[ppc32], which requires that the :NO-ERROR clause is last in
+	HANDLER-CASE.
+
 2006-08-24  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-ensure-presentation-overlay): Provide a
