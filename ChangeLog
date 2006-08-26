@@ -1,3 +1,9 @@
+2006-08-26  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-repl-return-behaviour): Fix the defcustom type,
+	so Emacs 21.3 does not signal an error when creating a
+	customization buffer containing this variable.
+
 2006-08-25  Kai Kaminski <kai.kaminski@gmx.de>
 
 	* swank.lisp (lookup-presented-object): Fix for OpenMCL 1.0
