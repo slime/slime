@@ -437,8 +437,8 @@ no effect.
 :send-only-if-after-complete - If the current expression is complete
 and point is after the expression it is sent, otherwise a newline
 is inserted."
-  :type '(choice (const :send-if-complete)
-                 (const :send-only-if-after-complete))
+  :type '(choice (const :tag "Send if complete" :value :send-if-complete)
+                 (const :tag "Send only if after complete" :value :send-only-if-after-complete))
   :group 'slime-repl)
   
 
