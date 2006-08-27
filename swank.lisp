@@ -748,9 +748,18 @@ of the toplevel restart."
   (loop (handle-request connection)))
 
 (defun process-available-input (stream fn)
-  (loop while (and (open-stream-p stream) 
-                   (listen stream))
+  (loop while (input-available-p stream)
         do (funcall fn)))
+
+(defun input-available-p (stream)
+  ;; return true iff we can read from STREAM without waiting or if we
+  ;; hit EOF
+  (let ((c (read-char-no-hang stream nil :eof)))
+    (cond ((not c) nil)
+          ((eq c :eof) t)
+          (t 
+           (unread-char c stream)
+           t))))
 
 ;;;;;; Signal driven IO
 
@@ -781,15 +790,15 @@ of the toplevel restart."
 		   ((eq (car *swank-state-stack*) :read-next-form))
 		   (t 
 		    (process-available-input client #'read-from-emacs)))))
-      ;; handle sigint
-      (install-debugger-globally
-       (lambda (c h)
-         (with-reader-error-handler (connection)
-           (block debugger
-             (with-connection (connection)
-               (swank-debugger-hook c h)
-               (return-from debugger))
-             (abort)))))
+      ;;;; handle sigint
+      ;;(install-debugger-globally
+      ;; (lambda (c h)
+      ;;   (with-reader-error-handler (connection)
+      ;;     (block debugger
+      ;;       (with-connection (connection)
+      ;;	 (swank-debugger-hook c h)
+      ;;	 (return-from debugger))
+      ;;       (abort)))))
       (add-fd-handler client #'handler)
       (handler))))
 
@@ -5034,8 +5043,5 @@ Collisions are caused because package information is ignored."
 			  (load source-file)
 			  nil)))
 	     (and (next-method-p) (call-next-method))))))
-  
 
-;; Local Variables:
-;; eval: (font-lock-add-keywords 'lisp-mode '(("(\\(defslimefun\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"  (1 font-lock-keyword-face) (2 font-lock-function-name-face))))
-;; End:
+;;; swank.lisp ends here
