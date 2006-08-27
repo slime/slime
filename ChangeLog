@@ -1,3 +1,10 @@
+2006-08-27  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (input-available-p, process-available-input): Use
+	READ-CHAR-NO-HANG instead of LISTEN because LISTEN suddenly
+	returns false in SBCL 0.9.?? even if we are called from a
+	fd-handler and the OPEN-STREAM-P returns true.
+
 2006-08-26  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-repl-return-behaviour): Fix the defcustom type,
