@@ -1,3 +1,13 @@
+2006-09-1  Nikodemus Siivola <nikodemus@random-state.net>
+
+	* slime.el (slime-repl-matching-input-regexp): Use the portion
+	between slime-repl-input-mark and point for history search, not
+	the entire input. Patch by Ivan Shvedunov.
+
+	* swank-sbcl.lisp: Declaim SB-C:INSERT-STEP-CONDITIONS 0 for to
+	hide Swank while stepping and avoid endless mutex-acquisition
+	loops.
+
 2006-08-27  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (input-available-p, process-available-input): Use

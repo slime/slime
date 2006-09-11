@@ -18,7 +18,7 @@
   (require 'sb-introspect)
   (require 'sb-posix))
 
-(declaim (optimize (debug 2)))
+(declaim (optimize (debug 2) (sb-c:insert-step-conditions 0)))
 
 (import-from :sb-gray *gray-stream-symbols* :swank-backend)
 

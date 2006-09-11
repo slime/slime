@@ -3864,7 +3864,11 @@ Return nil of no item matches"
   (if (memq last-command
             '(slime-repl-previous-input slime-repl-next-input))
       slime-repl-history-pattern
-    (concat "^" (regexp-quote (slime-repl-current-input)))))
+    (concat "^" (regexp-quote (slime-buffer-substring-with-reified-output
+                               slime-repl-input-start-mark
+                               (if (> (point) slime-repl-input-start-mark)
+                                   (point)
+                                 slime-repl-input-end-mark))))))
 
 (defun slime-repl-previous-input ()
   (interactive)
