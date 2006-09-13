@@ -2711,11 +2711,9 @@ Return nil if the ChangeLog file cannot be found."
 
 (defun slime-init-output-buffer (connection)
   (with-current-buffer (slime-output-buffer t)
-    (setq slime-buffer-connection connection)
-    ;; set the directory stack
-    (setq slime-repl-directory-stack 
-          (list (expand-file-name default-directory)))
-    (setq slime-repl-package-stack (list (slime-lisp-package)))
+    (setq slime-buffer-connection connection
+          slime-repl-directory-stack '()
+          slime-repl-package-stack '())
     (slime-repl-update-banner)))
 
 (defvar slime-show-last-output-function 
@@ -4183,24 +4181,28 @@ The handler will use qeuery to ask the use if the error should be ingored."
                 (message "Directory %s" dir))))
   (:one-liner "Show the current directory."))
 
-(defslime-repl-shortcut slime-repl-push-directory ("push-directory" "+d" 
-                                                   "pushd")
+(defslime-repl-shortcut slime-repl-push-directory
+    ("push-directory" "+d" "pushd")
   (:handler (lambda (directory)
               (interactive
-               (list (read-directory-name 
+               (list (read-directory-name
                       "Push directory: "
-                      (slime-eval '(swank:default-directory)) nil nil "")))
-              (push directory slime-repl-directory-stack)
+                      (slime-eval '(swank:default-directory))
+                      nil nil "")))
+              (push (slime-eval '(swank:default-directory))
+                    slime-repl-directory-stack)
               (slime-set-default-directory directory)))
-  (:one-liner "Push a new directory onto the directory stack."))
+  (:one-liner "Save the current directory and set it to a new one."))
 
-(defslime-repl-shortcut slime-repl-pop-directory ("pop-directory" "-d")
+(defslime-repl-shortcut slime-repl-pop-directory
+    ("pop-directory" "-d" "popd")
   (:handler (lambda ()
               (interactive)
-              (unless (= 1 (length slime-repl-directory-stack))
-                (pop slime-repl-directory-stack))
-              (slime-set-default-directory (car slime-repl-directory-stack))))
-  (:one-liner "Pop the current directory."))
+              (if (null slime-repl-directory-stack)
+                  (message "Directory stack is empty.")
+                  (slime-set-default-directory
+                   (pop slime-repl-directory-stack)))))
+  (:one-liner "Restore the last saved directory."))
 
 (defslime-repl-shortcut nil ("change-package" "!p" "in-package" "in")
   (:handler 'slime-repl-set-package)
@@ -4209,17 +4211,18 @@ The handler will use qeuery to ask the use if the error should be ingored."
 (defslime-repl-shortcut slime-repl-push-package ("push-package" "+p")
   (:handler (lambda (package)
               (interactive (list (slime-read-package-name "Package: ")))
-              (push package slime-repl-package-stack)
+              (push (slime-lisp-package) slime-repl-package-stack)
               (slime-repl-set-package package)))
-  (:one-liner "Push a package onto the package stack."))
+  (:one-liner "Save the current package and set it to a new one."))
 
 (defslime-repl-shortcut slime-repl-pop-package ("pop-package" "-p")
   (:handler (lambda ()
               (interactive)
-              (unless (= 1 (length slime-repl-package-stack))
-                (pop slime-repl-package-stack))
-              (slime-repl-set-package (car slime-repl-package-stack))))
-  (:one-liner "Pop the top of the package stack."))
+              (if (null slime-repl-package-stack)
+                  (message "Package stack is empty.")
+                  (slime-repl-set-package
+                   (pop slime-repl-package-stack)))))
+  (:one-liner "Restore the last saved package."))
 
 (defslime-repl-shortcut slime-repl-resend ("resend-form")
   (:handler (lambda ()
