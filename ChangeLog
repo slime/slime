@@ -1,3 +1,7 @@
+2006-09-13  Daniel Koning <dkoning@seas.smu.edu>
+
+	* slime.el (slime-repl-disconnect): New repl shortcut.
+
 2006-09-13  Marco Baringer  <mb@bese.it>
 
 	* slime.el (slime-open-inspector): Added a slime-part-number
