@@ -2195,8 +2195,8 @@ by adding a template for the missing arguments."
                                      highlight)
   "Return the arglist for FORM as a string."
   (when (consp form)
-    (let ((operator-form (first form))
-          (argument-forms (rest form)))
+    (destructuring-bind (operator-form &rest argument-forms)
+        form
       (let ((form-completion 
              (form-completion operator-form argument-forms
                               :remove-args nil)))
@@ -2317,7 +2317,8 @@ forward keywords to OPERATOR."
 
 (defvar *nil-surrogate* (make-symbol "nil-surrogate"))
 
-;; XXX thread safety?
+;; XXX thread safety? [2006-09-13] mb: not in the slightest (fwiw the
+;; rest of slime isn't thread safe either), do we really care?
 (defun save-presented-object (object)
   "Save OBJECT and return the assigned id.
 If OBJECT was saved previously return the old id."
@@ -2359,6 +2360,7 @@ The secondary value indicates the absence of an entry."
           (:no-error (value)
             (values value t))))
        ((:inspected-part part-index)
+        (declare (special *inspectee-parts*))
         (if (< part-index (length *inspectee-parts*))
             (values (inspector-nth-part part-index) t)
             (values nil nil)))))))
@@ -4027,10 +4029,7 @@ NIL is returned if the list is circular."
            (loop for key being the hash-keys of ht
 	      for value being the hash-values of ht
 	      repeat (or *slime-inspect-contents-limit* most-positive-fixnum)
-	      append `((:value ,key) " = " (:value ,value) (:newline))
-	      )
-
-	   )))
+	      append `((:value ,key) " = " (:value ,value) (:newline))))))
 
 (defmethod inspect-bigger-piece-actions (thing size)
   (append 
@@ -4048,8 +4047,7 @@ NIL is returned if the list is circular."
 	       (let ((*slime-inspect-contents-limit* nil))
 		 (values
 		  (swank::inspect-object thing)
-		  :replace)
-		 ))))
+		  :replace)))))
 
 (defmethod inspect-show-more-action (thing)
   `(:action ,(format nil "~a elements shown. Prompt for how many to inspect..." 
@@ -4059,9 +4057,7 @@ NIL is returned if the list is circular."
 		      (progn (format t "How many elements should be shown? ") (read))))
 		 (values
 		  (swank::inspect-object thing)
-		  :replace)
-		 ))
-	    ))
+		  :replace)))))
 
 (defmethod inspect-for-emacs ((array array) inspector)
   (declare (ignore inspector))
@@ -4661,7 +4657,8 @@ See `methods-by-applicability'.")
         (inspect-for-emacs object inspector)
       (list :title title
             :type (to-string (type-of object))
-            :content (inspector-content-for-emacs content)))))
+            :content (inspector-content-for-emacs content)
+            :id (assign-index object *inspectee-parts*)))))
 
 (defslimefun inspector-nth-part (index)
   (aref *inspectee-parts* index))
