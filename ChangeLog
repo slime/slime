@@ -1,3 +1,13 @@
+2006-09-13  Taylor R Campbell <campbell@mumble.net>
+
+	* slime.el (slime-init-output-buffer): Initial directory and
+	package stacks should be empty.
+	(slime-repl-push-package): Push the current package, as opposed to
+	the new package, and set the new package to whatever the user
+	specified.
+	(slime-repl-pop-package): Set the current package to the top of
+	the package stack, unless it's empty.
+
 2006-09-13  Daniel Koning <dkoning@seas.smu.edu>
 
 	* slime.el (slime-repl-disconnect): New repl shortcut.
