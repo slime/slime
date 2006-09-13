@@ -1,3 +1,7 @@
+2006-09-13  Brandon Bergren <bdragon@mailsnare.net>
+
+	* slime.el (slime-filename-translations): Fix docstring
+
 2006-09-13  Bob Halley <halley@play-bow.us>
 
 	* swank.lisp (format-iso8601-time): Properly handle non integer
