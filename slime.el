@@ -873,8 +873,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
       [ "Interrupt Command"        slime-interrupt ,C ]
       [ "Abort Async. Command"     slime-quit ,C ]
       [ "Sync Package & Directory" slime-sync-package-and-default-directory ,C]
-      [ "Set Package in REPL"      slime-repl-set-package ,C]
-      )))
+      [ "Set Package in REPL"      slime-repl-set-package ,C])))
 
 (defvar slime-repl-easy-menu
   (let ((C '(slime-connected-p)))
@@ -2717,8 +2716,7 @@ Return nil if the ChangeLog file cannot be found."
     (setq slime-repl-directory-stack 
           (list (expand-file-name default-directory)))
     (setq slime-repl-package-stack (list (slime-lisp-package)))
-    (slime-repl-update-banner)
-    ))
+    (slime-repl-update-banner)))
 
 (defvar slime-show-last-output-function 
   'slime-maybe-display-output-buffer
@@ -8688,10 +8686,13 @@ Optionally set point to POINT."
     (setq slime-buffer-connection (slime-current-connection))
     (let ((inhibit-read-only t))
       (erase-buffer)
-      (destructuring-bind (&key title type content) inspected-parts
+      (destructuring-bind (&key title type content id) inspected-parts
         (macrolet ((fontify (face string) 
-                            `(slime-inspector-fontify ,face ,string)))
-          (insert (fontify topline title))
+                     `(slime-inspector-fontify ,face ,string)))
+          (slime-propertize-region (list 'slime-part-number id
+                                         'mouse-face 'highlight
+                                         'face 'slime-inspector-action-face)
+            (slime-insert-presentation title `(:inspected-part ,id)))
           (while (eq (char-before) ?\n)
             (backward-delete-char 1))
           (insert "\n [" (fontify label "type:") " " (fontify type type) "]\n"
@@ -9703,8 +9704,7 @@ Confirm that SUBFORM is correctly located."
            (cl-user::bar))
         
         "
-       (cl-user::bar))
-      )
+       (cl-user::bar)))
   (slime-check-top-level)    
   (with-temp-buffer 
     (lisp-mode)
@@ -9847,13 +9847,11 @@ SWANK> ")
       ("(princ 10)" "SWANK> (princ 10)
 10
 10
-SWANK> "
-      )
+SWANK> ")
       ("(princ 10)(princ 20)" "SWANK> (princ 10)(princ 20)
 1020
 20
-SWANK> "
-      )
+SWANK> ")
       ("(dotimes (i 10 77) (princ i) (terpri))" 
        "SWANK> (dotimes (i 10 77) (princ i) (terpri))
 0
@@ -9867,9 +9865,7 @@ SWANK> "
 8
 9
 77
-SWANK> "
-      )
-      )
+SWANK> "))
   (with-current-buffer (slime-output-buffer)
     (setf (slime-lisp-package-prompt-string) "SWANK"))
   (kill-buffer (slime-output-buffer))
@@ -9897,9 +9893,7 @@ SWANK> ")
 ("(+ 1\n" "2)" "SWANK> (+ 1
 2)
 3
-SWANK> ")
-
-)
+SWANK> "))
   (with-current-buffer (slime-output-buffer)
     (setf (slime-lisp-package-prompt-string) "SWANK"))
   (kill-buffer (slime-output-buffer))
@@ -9930,8 +9924,7 @@ SWANK> ")
 \(+ 2 3
 4)
 \(+ 2 3 4)
-SWANK> ")
-      )
+SWANK> "))
   (slime-sync-to-top-level 2)
   (with-current-buffer (slime-output-buffer)
     (setf (slime-lisp-package-prompt-string) "SWANK"))
