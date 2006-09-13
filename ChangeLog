@@ -1,4 +1,19 @@
-2006-09-1  Nikodemus Siivola <nikodemus@random-state.net>
+2006-09-13  Marco Baringer  <mb@bese.it>
+
+	* slime.el (slime-open-inspector): Added a slime-part-number
+	property to the topline so that you can slime-inspector-copy-down
+	the object being inspected. There are some cases where we have an
+	object in the inspector and we'd like to dump it to the repl but
+	we can't get at it through other means (like in back-traces).
+
+	* swank.lisp (format-arglist-for-echo-area): Instead of using
+	let+first+rest to destructure a form use destructuring-bind.
+	(lookup-presented-object): Added (declare (special
+	*inspectee-parts*)) to silence openmcl's compiler.
+	(inspect-object): Generate, and send to emacs, an ID for the
+	object being inspected.
+
+2006-09-01  Nikodemus Siivola <nikodemus@random-state.net>
 
 	* slime.el (slime-repl-matching-input-regexp): Use the portion
 	between slime-repl-input-mark and point for history search, not
