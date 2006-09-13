@@ -7260,11 +7260,17 @@ GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
   (loop for (group . refs) in xrefs do 
         (progn
           (slime-insert-propertized '(face bold) group "\n")
-          (loop for (label . location) in refs do
-                (slime-insert-propertized 
+          (loop
+             for (label . location) in refs 
+             do (slime-insert-propertized 
                  (list 'slime-location location
                        'face 'font-lock-keyword-face)
-                 "  " (slime-one-line-ify label) "\n"))))
+                 "  " (slime-one-line-ify label))
+             do (insert " - " (if (and (eql :location (car location))
+                                       (assoc :file (cdr location)))
+                                  (second (assoc :file (cdr location)))
+                                  "file unknown")
+                          "\n"))))
   ;; Remove the final newline to prevent accidental window-scrolling
   (backward-char 1)
   (delete-char 1))
