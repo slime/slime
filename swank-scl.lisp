@@ -1172,14 +1172,12 @@ Signal an error if no constructor can be found."
 ;;;;; Argument lists
 
 (defimplementation arglist (fun)
-  (cond ((and (symbolp fun) (macro-function fun))
-         (arglist (macro-function fun)))
-        ((fboundp fun)
-         (function-arglist (fdefinition fun)))
-        (t
-         :not-available)))
+  (etypecase fun
+    (function (function-arglist fun))
+    (symbol (function-arglist (or (macro-function fun)
+                                  (symbol-function fun))))))
 
-(defun function-arglist (fun function)
+(defun function-arglist (fun)
   (flet ((compiled-function-arglist (x)
            (let ((args (kernel:%function-arglist x)))
              (if args
@@ -1918,8 +1916,8 @@ The `symbol-value' of each element is a type tag.")
 
 ;;;; Multiprocessing
 
-(defimplementation spawn (fn &key (name "Anonymous"))
-  (thread:thread-create fn :name name))
+(defimplementation spawn (fn &key name)
+  (thread:thread-create fn :name (or name "Anonymous")))
 
 (defvar *thread-id-counter* 0)
 (defvar *thread-id-counter-lock* (thread:make-lock "Thread ID counter"))

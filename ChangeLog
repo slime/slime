@@ -1,3 +1,7 @@
+2006-09-14  Douglas Crosher <dcrosher@common-lisp.net>
+
+	* swank-scl (arglist, function-arglist, spawn): update for the SCL.
+
 2006-09-13  Brandon Bergren <bdragon@mailsnare.net>
 
 	* slime.el (slime-filename-translations): Fix docstring
