@@ -4229,6 +4229,10 @@ The handler will use qeuery to ask the use if the error should be ingored."
               (slime-repl-send-input)))
   (:one-liner "Resend the last form."))
 
+(defslime-repl-shortcut slime-repl-disconnect ("disconnect")
+  (:handler 'slime-disconnect)
+  (:one-liner "Disconnect all connections."))
+
 (defslime-repl-shortcut slime-repl-sayoonara ("sayoonara")
   (:handler (lambda ()
               (interactive)
