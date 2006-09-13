@@ -3,11 +3,6 @@
 	* swank.lisp (format-iso8601-time): Properly handle non integer
 	time zones.
 
-2006-09-13  Marco Baringer  <mb@bese.it>
-
-	* slime.el (slime-insert-xrefs): Specify which file the item is
-	in (when that information is available).
-
 2006-09-13  Taylor R Campbell <campbell@mumble.net>
 
 	* slime.el (slime-init-output-buffer): Initial directory and
@@ -29,6 +24,8 @@
 	the object being inspected. There are some cases where we have an
 	object in the inspector and we'd like to dump it to the repl but
 	we can't get at it through other means (like in back-traces).
+	(slime-insert-xrefs): Specify which file the item is in (when that
+	information is available).
 
 	* swank.lisp (format-arglist-for-echo-area): Instead of using
 	let+first+rest to destructure a form use destructuring-bind.
