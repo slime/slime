@@ -4503,7 +4503,7 @@ See `methods-by-applicability'.")
                    ;; Tricky.  Sign of time zone is reversed in ISO 8601
                    ;; relative to Common Lisp convention!
                    (format nil "~:[+~;-~]~2,'0D:~2,'0D"
-                           (> zone 0) h (round m))))))
+                           (> zone 0) h (round (* 60 m)))))))
     (multiple-value-bind (second minute hour day month year dow dst zone)
       (decode-universal-time time-value)
       (declare (ignore dow dst))
