@@ -1,3 +1,25 @@
+2006-09-18  Dan Weinreb <dlw@itasoftware.com>
+
+	For those cases where SLIME can't complete a user request (like
+	loading an asdf system without asdf or describing an inexistent
+	symbol) instead of signaling an error SWANK should politely inform
+	the user and return normally.
+
+	* swank.lisp (eval-for-emacs): Handle request-abort conditions.
+	(decode-keyword-arg, get-repl-result, parse-symbol-or-lose): Use
+	abort-request instead of error.
+	
+	* swank-backend.lisp (request-abort): New condition.
+	(abort-request): Convenience function for signaling request-abort
+	conditions.
+	(operate-on-system): Use abort-request instead of error
+	(:swank-backend): Export the symbols abort-request and
+	request-abort.
+
+	* slime.el (slime-rex): Update docstring.
+	(slime-eval, slime-eval-async): Added new REASON parameter sent
+	along with :abort message.
+
 2006-09-14  Douglas Crosher <dcrosher@common-lisp.net>
 
 	* swank-scl (arglist, function-arglist, spawn): update for the SCL.
