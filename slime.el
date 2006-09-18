@@ -2335,10 +2335,11 @@ SEXP is evaluated and the princed version is sent to Lisp.
 PACKAGE is evaluated and Lisp binds *BUFFER-PACKAGE* to this package.
 The default value is (slime-current-package).
 
-CLAUSES is a list of patterns with same syntax as `destructure-case'.
-The result of the evaluation is dispatched on CLAUSES.  The result is
-either a sexp of the form (:ok VALUE) or (:abort).  CLAUSES is
-executed asynchronously.
+CLAUSES is a list of patterns with same syntax as
+`destructure-case'.  The result of the evaluation of SEXP is
+dispatched on CLAUSES.  The result is either a sexp of the
+form (:ok VALUE) or (:abort REASON).  CLAUSES is executed
+asynchronously.
 
 Note: don't use backquote syntax for SEXP, because Emacs20 cannot
 deal with that."
@@ -2418,8 +2419,8 @@ side.")
             (error "tag = %S eval-tags = %S sexp = %S"
                    tag slime-stack-eval-tags sexp))
           (throw tag (list #'identity value)))
-         ((:abort)
-          (throw tag (list #'error "Synchronous Lisp Evaluation aborted."))))
+         ((:abort &optional reason)
+          (throw tag (list #'error (or reason "Synchronous Lisp Evaluation aborted.")))))
        (let ((debug-on-quit t)
              (inhibit-quit nil)
              (conn (slime-connection)))
@@ -2434,8 +2435,8 @@ side.")
       (sexp (or package (slime-current-package)))
     ((:ok result) 
      (when cont (funcall cont result)))
-    ((:abort) 
-     (message "Evaluation aborted."))))
+    ((:abort &optional reason) 
+     (message (or reason "Evaluation aborted.")))))
 
 ;;; These functions can be handy too:
 
