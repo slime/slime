@@ -1349,7 +1349,7 @@ Return the symbol and a flag indicating whether the symbols was found."
   (multiple-value-bind (symbol status) (parse-symbol string package)
     (if status
         (values symbol status)
-        (error "Unknown symbol: ~A [in ~A]" string package))))
+        (abort-request "Unknown symbol: ~A [in ~A]" string package))))
 
 ;; FIXME: interns the name
 (defun parse-package (string)
@@ -1608,7 +1608,7 @@ Return three values: keyword, argument name, default arg."
                            (car arg)
                            (cadr arg)))
         (t
-         (error "Bad keyword item of formal argument list"))))
+         (abort-request "Bad keyword item of formal argument list"))))
 
 (defun encode-keyword-arg (arg)
   (cond
@@ -2369,7 +2369,7 @@ The secondary value indicates the absence of an entry."
   "Get the result of the previous REPL evaluation with ID."
   (multiple-value-bind (object foundp) (lookup-presented-object id)
     (cond (foundp object)
-          (t (error "Attempt to access unrecorded object (id ~D)." id)))))
+          (t (abort-request "Attempt to access unrecorded object (id ~D)." id)))))
 
 (defslimefun clear-repl-results ()
   "Forget the results of all previous REPL evaluations."
@@ -2395,7 +2395,7 @@ Errors are trapped and invoke our debugger."
   (call-with-debugger-hook
    #'swank-debugger-hook
    (lambda ()
-     (let (ok result)
+     (let (ok result reason)
        (unwind-protect
             (let ((*buffer-package* (guess-buffer-package buffer-package))
                   (*buffer-readtable* (guess-buffer-readtable buffer-package))
@@ -2404,13 +2404,20 @@ Errors are trapped and invoke our debugger."
               (check-type *buffer-readtable* readtable)
               ;; APPLY would be cleaner than EVAL. 
               ;;(setq result (apply (car form) (cdr form)))
-              (setq result (eval form))
-              (finish-output)
-              (run-hook *pre-reply-hook*)
-              (setq ok t))
+              (handler-case
+                  (progn
+                    (setq result (eval form))
+                    (run-hook *pre-reply-hook*)
+                    (finish-output)
+                    (setq ok t))
+                (request-abort (c)
+                  (setf ok nil
+                        reason (list (slot-value c 'swank-backend::reason))))))
          (force-user-output)
          (send-to-emacs `(:return ,(current-thread)
-                                  ,(if ok `(:ok ,result) '(:abort)) 
+                                  ,(if ok
+                                       `(:ok ,result)
+                                       `(:abort ,@reason)) 
                                   ,id)))))))
 
 (defvar *echo-area-prefix* "=> "
@@ -3666,7 +3673,7 @@ FUZZY-COMPLETIONS, format the list into user-readable output."
 The result is a list of property lists."
   (let ((package (if package
                      (or (find-package (string-to-package-designator package))
-                         (error "No such package: ~S" package)))))
+                         (abort-request "No such package: ~S" package)))))
     (mapcan (listify #'briefly-describe-symbol-for-emacs)
             (sort (remove-duplicates
                    (apropos-symbols name external-only case-sensitive package))
