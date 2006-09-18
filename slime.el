@@ -912,7 +912,10 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
       ("Invoke Restart"
        [ "Continue" sldb-continue ,C ]
        [ "Abort"    sldb-abort ,C ]
-       [ "Step"     sldb-step ,C ])
+       [ "Step"      sldb-step ,C ]
+       [ "Step next" sldb-next ,C ]
+       [ "Step out"  sldb-out ,C ]
+       )
       "--"
       [ "Quit (throw)" sldb-quit ,C ]
       [ "Break With Default Debugger" sldb-break-with-default-debugger ,C ])))
@@ -7742,6 +7745,8 @@ Full list of commands:
   ("R"    'sldb-return-from-frame)
   ("c"    'sldb-continue)
   ("s"    'sldb-step)
+  ("x"    'sldb-next)
+  ("o"    'sldb-out)
   ("b"    'sldb-break-on-return)
   ("a"    'sldb-abort)
   ("q"    'sldb-quit)
@@ -8384,6 +8389,18 @@ use the restart at point."
   (interactive)
   (let ((frame (sldb-frame-number-at-point)))
     (slime-eval-async `(swank:sldb-step ,frame))))
+
+(defun sldb-next ()
+  "Select the \"continue\" restart and set a new break point."
+  (interactive)
+  (let ((frame (sldb-frame-number-at-point)))
+    (slime-eval-async `(swank:sldb-next ,frame))))
+
+(defun sldb-out ()
+  "Select the \"continue\" restart and set a new break point."
+  (interactive)
+  (let ((frame (sldb-frame-number-at-point)))
+    (slime-eval-async `(swank:sldb-out ,frame))))
 
 (defun sldb-break-on-return ()
   "Set a breakpoint at the current frame. 

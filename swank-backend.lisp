@@ -636,6 +636,21 @@ The allowed elements are of the form:
 (definterface sldb-break-at-start (symbol)
   "Set a breakpoint on the beginning of the function for SYMBOL.")
   
+(definterface sldb-stepper-condition-p (condition)
+  "Return true if SLDB was invoked due to a single-stepping condition,
+false otherwise. "
+  (declare (ignore condition))
+  nil)
+
+(definterface sldb-step-into ()
+  "Step into the current single-stepper form.")
+
+(definterface sldb-step-next ()
+  "Step to the next form in the current function.")
+
+(definterface sldb-step-out ()
+  "Stop single-stepping temporarily, but resume it once the current function
+returns.")
 
 
 ;;;; Definition finding

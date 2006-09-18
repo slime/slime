@@ -583,10 +583,23 @@ Return a list of the form (NAME LOCATION)."
 
 ;;; Debugging
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  ;; Generate a form suitable for testing for stepper support (0.9.17)
+  ;; with #+.
+  (defun sbcl-with-new-stepper-p ()
+    (if (find-symbol "ENABLE-STEPPING" "SB-IMPL")
+        '(and)
+        '(or))))
+
 (defvar *sldb-stack-top*)
 
 (defimplementation install-debugger-globally (function)
   (setq sb-ext:*invoke-debugger-hook* function))
+
+#+#.(swank-backend::sbcl-with-new-stepper-p)
+(defimplementation condition-extras (condition)
+  (when (typep condition 'sb-impl::step-form-condition)
+    `((:short-frame-source 0))))
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
@@ -599,8 +612,28 @@ Return a list of the form (NAME LOCATION)."
                                :original-condition condition)))))
       (funcall debugger-loop-fn))))
 
+#+#.(swank-backend::sbcl-with-new-stepper-p)
+(progn
+  (defimplementation activate-stepping (frame)
+    (declare (ignore frame))
+    (sb-impl::enable-stepping))
+  (defimplementation sldb-stepper-condition-p (condition)
+    (typep condition 'sb-ext:step-form-condition))
+  (defimplementation sldb-step-into ()
+    (invoke-restart 'sb-ext:step-into))
+  (defimplementation sldb-step-next ()
+    (invoke-restart 'sb-ext:step-next))
+  (defimplementation sldb-step-out ()
+    (invoke-restart 'sb-ext:step-out)))
+
 (defimplementation call-with-debugger-hook (hook fun)
-  (let ((sb-ext:*invoke-debugger-hook* hook))
+  (let ((sb-ext:*invoke-debugger-hook* hook)
+        #+#.(swank-backend::sbcl-with-new-stepper-p)
+        (sb-ext:*stepper-hook*
+         (lambda (condition)
+           (when (typep condition 'sb-ext:step-form-condition)
+             (let ((sb-debug:*stack-top-hint* (sb-di::find-stepped-frame)))
+               (sb-impl::invoke-debugger condition))))))
     (funcall fun)))
 
 (defun nth-frame (index)

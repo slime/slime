@@ -2697,7 +2697,7 @@ after Emacs causes a restart to be invoked."
   "The list of currenlty active restarts.")
 
 (defvar *sldb-stepping-p* nil
-  "True when during execution of a stepp command.")
+  "True during execution of a step command.")
 
 (defvar *sldb-quit-restart* 'abort-request
   "What restart should swank attempt to invoke when the user sldb-quits.")
@@ -2887,13 +2887,21 @@ the local variables in the frame INDEX."
   (with-buffer-syntax ()
     (sldb-break-at-start (read-from-string name))))
 
-(defslimefun sldb-step (frame)
-  (cond ((find-restart 'continue)
+(defmacro define-stepper-function (name backend-function-name)
+  `(defslimefun ,name (frame)
+     (cond ((sldb-stepper-condition-p *swank-debugger-condition*)
+            (setq *sldb-stepping-p* t)
+            (,backend-function-name))
+           ((find-restart 'continue)
          (activate-stepping frame)
          (setq *sldb-stepping-p* t)
          (continue))
         (t
-         (error "No continue restart."))))
+            (error "Not currently single-stepping, and no continue restart available.")))))
+
+(define-stepper-function sldb-step sldb-step-into)
+(define-stepper-function sldb-next sldb-step-next)
+(define-stepper-function sldb-out  sldb-step-out)
 
 
 ;;;; Compilation Commands.

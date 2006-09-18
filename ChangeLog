@@ -1,3 +1,33 @@
+2006-09-19  Juho Snellman  <jsnell@iki.fi>
+
+	Extend the stepper protocol to work nicely with the SBCL stepper.
+
+	If sldb is invoked on a condition that's sldb-stepper-condition-p,
+	the sldb functions sldb-step, sldb-next and sldb-out will invoke
+	the matching backend functions for stepping into the stepped form,
+	to the next form, or out of the current function. Otherwise the
+	functions will behave like sldb-step used to (call active-stepping and
+	select the continue restart).
+
+	* swank-backend.lisp (sldb-stepper-condition-p, sldb-step-into, 
+	sldb-step-next, sldb-step-out): New interface functions
+	
+	* swank-sbcl.lisp (activate-stepper, condition-extras,
+	sldb-stepper-condition-p, sldb-step-into, sldb-step-next,
+	sldb-step-out): Implemented (conditional on CVS SBCL)
+	(call-with-debugger-hook): bind sb-ext:*stepper-hook* to
+	a function that binds *stack-top-hint* and invokes the debugger
+	(conditional on CVS SBCL)
+	
+	* swank.lisp (define-stepper-function): new macro for defining 
+	stepper-related functions, since they all follow the same form
+	(sldb-step): redefine with define-stepper-function
+	(sldb-next, sldb-out): new functions
+	(*sldb-stepping-p*): typo in docstring
+	
+	* slime.el (sldb-next, sldb-out): New commands
+        (sldb-mode-map): bind sldb-next to "x" and sldb-out to "o"
+	
 2006-09-18  Dan Weinreb <dlw@itasoftware.com>
 
 	For those cases where SLIME can't complete a user request (like
