@@ -137,7 +137,7 @@
             (return (sb-bsd-sockets:socket-accept socket))
           (sb-bsd-sockets:interrupted-error ()))))
 
-(defimplementation call-without-interrupts (fn)  
+(defimplementation call-without-interrupts (fn)
   (declare (type function fn))
   (sb-sys:without-interrupts (funcall fn)))
 
@@ -634,7 +634,10 @@ Return a list of the form (NAME LOCATION)."
            (when (typep condition 'sb-ext:step-form-condition)
              (let ((sb-debug:*stack-top-hint* (sb-di::find-stepped-frame)))
                (sb-impl::invoke-debugger condition))))))
-    (funcall fun)))
+    (handler-bind ((sb-ext:step-condition
+                    (lambda (condition)
+                      (funcall sb-ext:*stepper-hook* condition))))
+      (funcall fun))))
 
 (defun nth-frame (index)
   (do ((frame *sldb-stack-top* (sb-di:frame-down frame))

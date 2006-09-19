@@ -1,3 +1,10 @@
+2006-09-19  Juho Snellman  <jsnell@iki.fi>	
+	
+	* swank-backend.lisp (call-with-debugger-hook): make the stepper
+	also work with a threaded SBCL, by binding a handler for
+	sb-ext:stepper-condition instead of relying on the one that SBCL
+	establishes on the toplevel
+	
 2006-09-19  Juho Snellman  <jsnell@iki.fi>
 
 	Extend the stepper protocol to work nicely with the SBCL stepper.
