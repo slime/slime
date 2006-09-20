@@ -1128,7 +1128,7 @@ It should be used for \"background\" messages such as argument lists."
     (completing-read prompt (slime-bogus-completion-alist 
                              (slime-eval 
                               `(swank:list-all-package-names t)))
-		     nil nil initial-value)))
+		     nil t initial-value)))
 
 ;; Interface
 (defun slime-read-symbol-name (prompt &optional query)

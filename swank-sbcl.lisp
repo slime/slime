@@ -309,7 +309,7 @@ information."
          (make-location (list :source-form source)
                         (list :position 1)))
         (t
-         (error "unhandled case"))))
+         (error "unhandled case in compiler note ~S ~S ~S" file source-path source))))
 
 (defun brief-compiler-message-for-emacs (condition)
   "Briefly describe a compiler error for Emacs.
@@ -692,7 +692,7 @@ stack."
 (defun fallback-source-location (code-location)
   (let ((fun (code-location-debug-fun-fun code-location)))
     (cond (fun (function-source-location fun))
-          (t (error "Cannot find source location for: ~A " code-location)))))
+          (t (abort-request "Cannot find source location for: ~A " code-location)))))
 
 (defun lisp-source-location (code-location)
   (let ((source (prin1-to-string
