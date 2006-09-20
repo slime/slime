@@ -1,3 +1,8 @@
+2006-09-20  Marco Baringer  <mb@bese.it>
+
+	* slime.el (slime-read-package-name): Set require to T. It doesn't
+	make any sense to switch to an inexistent package.
+
 2006-09-20  Juho Snellman  <jsnell@iki.fi>	
 	
 	* swank-sbcl.lisp (call-with-debugger-hook): use INVOKE-STEPPER
