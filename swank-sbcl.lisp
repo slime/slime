@@ -631,12 +631,12 @@ Return a list of the form (NAME LOCATION)."
         #+#.(swank-backend::sbcl-with-new-stepper-p)
         (sb-ext:*stepper-hook*
          (lambda (condition)
-           (when (typep condition 'sb-ext:step-form-condition)
-             (let ((sb-debug:*stack-top-hint* (sb-di::find-stepped-frame)))
-               (sb-impl::invoke-debugger condition))))))
-    (handler-bind ((sb-ext:step-condition
-                    (lambda (condition)
-                      (funcall sb-ext:*stepper-hook* condition))))
+           (typecase condition
+             (sb-ext:step-form-condition
+              (let ((sb-debug:*stack-top-hint* (sb-di::find-stepped-frame)))
+                (sb-impl::invoke-debugger condition)))))))
+    (handler-bind (#+#.(swank-backend::sbcl-with-new-stepper-p)
+                   (sb-ext:step-condition #'sb-impl::invoke-stepper))
       (funcall fun))))
 
 (defun nth-frame (index)
