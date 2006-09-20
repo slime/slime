@@ -1,5 +1,8 @@
 2006-09-20  Marco Baringer  <mb@bese.it>
 
+	* doc/slime.texi: Added "Tips and Tricks" chapter (need a better
+	name for this).
+
 	* swank-sbcl.lisp (fallback-source-location): Use abort-request
 	instead of error.
 	(locate-compiler-note): Say, in the error message, what data
