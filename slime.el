@@ -9336,6 +9336,92 @@ be treated as a paragraph.  This is useful for filling docstrings."
         (indent-region start end nil)))))
 
 
+;;;; Cheat Sheet
+
+(defun slime-cheat-sheet ()
+  (interactive)
+  (switch-to-buffer-other-frame (get-buffer-create "*SLIME Cheat Sheet*"))
+  (setq buffer-read-only nil)
+  (delete-region (point-min) (point-max))
+  (goto-char (point-min))
+  (insert "SLIME: The Superior Lisp Interaction Mode for Emacs (minor-mode).\n\n")
+  (dolist (mode slime-cheat-sheet-table)
+    (let ((title (getf mode :title))
+          (mode-map (getf mode :map))
+          (mode-keys (getf mode :bindings)))
+      (insert title)
+      (insert ":\n")
+      (insert (make-string (1+ (length title)) ?-))
+      (insert "\n")
+      (let ((keys '())
+            (descriptions '()))
+        (dolist (func mode-keys)
+          ;; func is eithor the function name or a list (NAME DESCRIPTION)
+          (push (if (symbolp func)
+                    (prin1-to-string func)
+                    (second func))
+                descriptions)
+          (push (key-description (where-is-internal (if (symbolp func)
+                                                        func
+                                                        (first func))
+                                                    (symbol-value mode-map)
+                                                    t))
+
+                keys))
+        (loop
+           with key-length = (apply 'max (mapcar 'length keys))
+           with desc-length = (apply 'max (mapcar 'length descriptions))
+           for key in (nreverse keys)
+           for desc in (nreverse descriptions)
+           do (insert desc)
+           do (insert (make-string (- desc-length (length desc)) ? ))
+           do (insert " => ")
+           do (insert (if (string= "" key)
+                          "<not on any key>"
+                          key))
+           do (insert "\n")
+           finally do (insert "\n")))))
+  (setq buffer-read-only t)
+  (goto-char (point-min)))
+
+(defvar slime-cheat-sheet-table
+  '((:title "Evaluating lisp code"
+     :map slime-mode-map
+     :bindings (slime-eval-defun
+                slime-compile-defun
+                slime-interactive-eval
+                slime-compile-and-load-file))
+    (:title "Finding Definitions"
+     :map slime-mode-map
+     :bindings (slime-edit-definition
+                slime-pop-find-definition-stack))
+    (:title "Completion"
+     :map slime-mode-map
+     :bindings (slime-indent-and-complete-symbol
+                slime-fuzzy-complete-symbol))
+    (:title "At the REPL" 
+     :map slime-repl-mode-map
+     :bindings (slime-repl-clear-buffer
+                slime-describe-symbol))
+    (:title "Within SLDB buffers" 
+     :map sldb-mode-map
+     :bindings ((sldb-toggle-details "Toggle frame details visualization")
+                (sldb-quit "Quit to REPL")
+                (sldb-abort "Invoke ABORT restart")
+                (sldb-continue "Invoke CONTINUE restart (if available)")
+                (sldb-show-source "Jump to frame's source code")
+                (sldb-eval-in-frame "Evaluate in frame at point")
+                (sldb-inspect-in-frame "Evaluate in frame at point and inspect result")))
+    (:title "Within the Inspector" 
+     :map slime-inspector-mode-map
+     :bindings ((slime-inspector-next-inspectable-object "Jump to next inspectable object")
+                (slime-inspector-operate-on-point "Inspect object or execute action at point")
+                (slime-inspector-reinspect "Reinspect current object")
+                (slime-inspector-pop "Return to previous object")
+                (slime-inspector-copy-down "Send object at point to REPL")
+                (slime-inspector-quit "Quit")))))
+
+
 ;;;; Test suite
 
 (defstruct (slime-test (:conc-name slime-test.))
@@ -10630,3 +10716,4 @@ If they are not, position point at the first syntax error found."
 ;; unibyte: t
 ;; End:
 ;;; slime.el ends here
+(

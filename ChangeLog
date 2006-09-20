@@ -1,5 +1,9 @@
 2006-09-20  Marco Baringer  <mb@bese.it>
 
+	* slime.el (slime-cheat-sheet): New function.
+	(slime-cheat-sheet-table): New variable which specifies what the
+	cheat sheet should list.
+
 	* doc/slime.texi: Added "Tips and Tricks" chapter (need a better
 	name for this).
 
