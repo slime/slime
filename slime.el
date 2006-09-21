@@ -235,6 +235,12 @@ If you want to fallback on TAGS you can set this to `find-tag' or
              slime-list-compiler-notes 
              slime-maybe-show-xrefs-for-notes))
 
+(defcustom slime-goto-first-note-after-compilation nil
+  "When T next-note will always goto to the first note in a
+final, no matter where the point is."
+  :group 'slime-mode
+  :type 'boolean)
+
 (defcustom slime-complete-symbol-function 'slime-complete-symbol*
   "*Function to perform symbol completion."
   :group 'slime-mode
@@ -3676,7 +3682,7 @@ If NEWLINE is true then add a newline at the end of the input."
 
 (defun slime-repl-grab-old-input (replace)
   "Resend the old REPL input at point.  
-If replace it non-nil the current input is replaced with the old
+If replace is non-nil the current input is replaced with the old
 input; otherwise the new input is appended.  The old input has the
 text property `slime-repl-old-input'."
   (multiple-value-bind (beg end) (slime-property-bounds 'slime-repl-old-input)
@@ -4542,6 +4548,7 @@ Each newlines and following indentation is replaced by a single space."
 (defun slime-compilation-finished (result buffer)
   (let ((notes (slime-compiler-notes)))
     (with-current-buffer buffer
+      (setf slime-compilation-just-finished t)
       (multiple-value-bind (result secs) result
         (slime-show-note-counts notes secs)
         (slime-highlight-notes notes)))
@@ -5257,21 +5264,40 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
 
 ;;;;; Visiting and navigating the overlays of compiler notes
 
+(defvar slime-compilation-just-finished nil
+  "A buffer local variable which is T when we've just compiled a
+buffer and haven't yet started navigating its notes.")
+(make-variable-buffer-local 'slime-compilation-just-finished)
+
 (defun slime-next-note ()
   "Go to and describe the next compiler note in the buffer."
   (interactive)
-  (slime-find-next-note)
-  (if (slime-note-at-point)
-      (slime-show-note (slime-note-at-point))
-    (message "No next note.")))
+  (let ((here (point)))
+    (when (and slime-goto-first-note-after-compilation
+               slime-compilation-just-finished)
+      (goto-char (point-min))
+      (setf slime-compilation-just-finished nil))
+    (slime-find-next-note)
+    (if (slime-note-at-point)
+        (slime-show-note (slime-note-at-point))
+        (progn
+          (goto-char here)
+          (message "No next note.")))))
 
 (defun slime-previous-note ()
   "Go to and describe the previous compiler note in the buffer."
   (interactive)
-  (slime-find-previous-note)
-  (if (slime-note-at-point)
-      (slime-show-note (slime-note-at-point))
-    (message "No previous note.")))
+  (let ((here (point)))
+    (when (and slime-goto-first-note-after-compilation
+               slime-compilation-just-finished)
+      (goto-char (point-max))
+      (setf slime-compilation-just-finished nil))
+    (slime-find-previous-note)
+    (if (slime-note-at-point)
+        (slime-show-note (slime-note-at-point))
+        (progn
+          (goto-char here)
+          (message "No previous note.")))))
 
 (defun slime-remove-notes ()
   "Remove compiler-note annotations from the current buffer."
@@ -5470,6 +5496,7 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
 
 (defcustom slime-autodoc-use-multiline-p nil
   "If non-nil, allow long autodoc messages to resize echo area display."
+  :type 'boolean
   :group 'slime-ui)
 
 (defun slime-autodoc-message (doc)
