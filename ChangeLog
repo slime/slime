@@ -1,9 +1,31 @@
+2006-09-21  Marco Baringer  <mb@bese.it>
+
+	* swank.lisp (find-definitions-for-emacs): Don't return locations
+	whose CAR is :error.
+	(xref): Process whatever is returned by the various xref functions
+	with the new sanitize-xrefs functions.
+	(sanitize-xrefs): Clean up the list of xrefs to remove duplicates.
+	Patch by Dan Weinreb <dlw@itasoftware.com>
+
+	* slime.el (slime-goto-first-note-after-compilation): New
+	variable. This controls the behaviour of (next|prev)-note
+	immediatly after a slime-compile-and-load-file.
+	(slime-compilation-just-finished): New variable.
+	(slime-compilation-finished): Update slime-compilation-finished.
+	(slime-next-note, slime-previous-note): Respect
+	slime-compilation-just-finished.
+	(slime-autodoc-use-multiline-p): Specify the type.
+	(slime-repl-grab-old-input): Typo in docstring.
+	
 2006-09-20  Marco Baringer  <mb@bese.it>
 
 	* slime.el (slime-cheat-sheet): New function.
 	(slime-cheat-sheet-table): New variable which specifies what the
 	cheat sheet should list.
-
+	(slime-read-package-name): Set require to T in the call to
+	completing read, it doesn't make any sense to switch to an
+	inexistent package.
+	
 	* doc/slime.texi: Added "Tips and Tricks" chapter (need a better
 	name for this).
 
@@ -11,10 +33,6 @@
 	instead of error.
 	(locate-compiler-note): Say, in the error message, what data
 	caused the error.
-
-	* slime.el (slime-read-package-name): Set require to T in the call
-	to completing read, it doesn't make any sense to switch to an
-	inexistent package.
 
 2006-09-20  Juho Snellman  <jsnell@iki.fi>	
 	
