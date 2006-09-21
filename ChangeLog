@@ -16,6 +16,8 @@
 	slime-compilation-just-finished.
 	(slime-autodoc-use-multiline-p): Specify the type.
 	(slime-repl-grab-old-input): Typo in docstring.
+	(slime-cheat-sheet): Deal with multiple-bindings
+	(slime-cheat-sheet-table): Update as per #lisp's suggestions.
 	
 2006-09-20  Marco Baringer  <mb@bese.it>
 

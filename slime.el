@@ -9388,13 +9388,16 @@ be treated as a paragraph.  This is useful for filling docstrings."
                     (prin1-to-string func)
                     (second func))
                 descriptions)
-          (push (key-description (where-is-internal (if (symbolp func)
-                                                        func
-                                                        (first func))
-                                                    (symbol-value mode-map)
-                                                    t))
-
-                keys))
+          (let ((all-bindings (where-is-internal (if (symbolp func)
+                                                     func
+                                                     (first func))
+                                                 (symbol-value mode-map)))
+                (key-bindings '()))
+            (dolist (binding all-bindings)
+              (when (and (vectorp binding)
+                         (integerp (aref binding 0)))
+                (push binding key-bindings)))
+            (push (mapconcat 'key-description key-bindings " or ") keys)))
         (loop
            with key-length = (apply 'max (mapcar 'length keys))
            with desc-length = (apply 'max (mapcar 'length descriptions))
@@ -9412,16 +9415,17 @@ be treated as a paragraph.  This is useful for filling docstrings."
   (goto-char (point-min)))
 
 (defvar slime-cheat-sheet-table
-  '((:title "Evaluating lisp code"
+  '((:title "Editing lisp code"
      :map slime-mode-map
-     :bindings (slime-eval-defun
-                slime-compile-defun
-                slime-interactive-eval
-                slime-compile-and-load-file))
-    (:title "Finding Definitions"
-     :map slime-mode-map
-     :bindings (slime-edit-definition
-                slime-pop-find-definition-stack))
+     :bindings ((slime-eval-defun "Evaluate current top level form")
+                (slime-compile-defun "Compile current top level form")
+                (slime-interactive-eval "Prompt for form and eval it")
+                (slime-compile-and-load-file "Compile and load current file")
+                (slime-sync-package-and-default-directory "Synch default package and directory with current buffer")
+                (slime-next-note "Next compiler note")
+                (slime-previous-note "Previous compiler note")
+                (slime-remove-notes "Remove notes")
+                slime-hyperspec-lookup))
     (:title "Completion"
      :map slime-mode-map
      :bindings (slime-indent-and-complete-symbol
@@ -9432,7 +9436,8 @@ be treated as a paragraph.  This is useful for filling docstrings."
                 slime-describe-symbol))
     (:title "Within SLDB buffers" 
      :map sldb-mode-map
-     :bindings ((sldb-toggle-details "Toggle frame details visualization")
+     :bindings ((sldb-default-action "Do 'whatever' with thing at point")
+                (sldb-toggle-details "Toggle frame details visualization")
                 (sldb-quit "Quit to REPL")
                 (sldb-abort "Invoke ABORT restart")
                 (sldb-continue "Invoke CONTINUE restart (if available)")
@@ -9446,7 +9451,11 @@ be treated as a paragraph.  This is useful for filling docstrings."
                 (slime-inspector-reinspect "Reinspect current object")
                 (slime-inspector-pop "Return to previous object")
                 (slime-inspector-copy-down "Send object at point to REPL")
-                (slime-inspector-quit "Quit")))))
+                (slime-inspector-quit "Quit")))
+    (:title "Finding Definitions"
+     :map slime-mode-map
+     :bindings (slime-edit-definition
+                slime-pop-find-definition-stack))))
 
 
 ;;;; Test suite
