@@ -3874,7 +3874,8 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
       (ignore-errors (values (from-string name)))
     (cond (error '())
           (t (loop for (dspec loc) in (find-definitions sexp)
-                   collect (list (to-string dspec) loc))))))
+                   unless (eql :error (first loc))
+                     collect (list (to-string dspec) loc))))))
 
 (defun alistify (list key test)
   "Partition the elements of LIST into an alist.  KEY extracts the key
@@ -3939,16 +3940,27 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
 (defslimefun xref (type symbol-name)
   (let ((symbol (parse-symbol-or-lose symbol-name *buffer-package*)))
     (group-xrefs
-     (ecase type
-       (:calls (who-calls symbol))
-       (:calls-who (calls-who symbol))
-       (:references (who-references symbol))
-       (:binds (who-binds symbol))
-       (:sets (who-sets symbol))
-       (:macroexpands (who-macroexpands symbol))
-       (:specializes (who-specializes symbol))
-       (:callers (list-callers symbol))
-       (:callees (list-callees symbol))))))
+     (sanitize-xrefs
+      (ecase type
+        (:calls (who-calls symbol))
+        (:calls-who (calls-who symbol))
+        (:references (who-references symbol))
+        (:binds (who-binds symbol))
+        (:sets (who-sets symbol))
+        (:macroexpands (who-macroexpands symbol))
+        (:specializes (who-specializes symbol))
+        (:callers (list-callers symbol))
+        (:callees (list-callees symbol)))))))
+
+(defun sanitize-xrefs (x)
+  (remove-duplicates
+   (remove-if (lambda (f)
+                (member f '(nil #+sbcl sb-c::step-form)))
+              x
+              :key #'car)
+   :test (lambda (a b)
+           (and (eq (first a) (first b))
+                (equal (second a) (second b))))))
 
 
 ;;;; Inspecting
