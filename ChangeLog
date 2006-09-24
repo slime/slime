@@ -1,3 +1,18 @@
+2006-09-25  Juho Snellman  <jsnell@iki.fi>	
+
+	Fix Slime on SBCL 0.9.17.
+	
+	* swank-backend.lisp (ignored-xref-function-names): New interface
+
+	* swank.lisp (sanitize-xrefs): Use ignored-xref-function-names
+	instead of having a #+sbcl special case.
+	
+	* swank-sbcl.lisp (ignored-xref-function-names): Implement.
+	Filter out SB-C::STEP-VALUES, not just SB-C::STEP-FORM, as done by
+	the old sanitize-xrefs.	Don't implement the interface at all if
+	SBCL is sufficiently new (those symbols don't exist any more, and
+	there's nothing in their place to be ignored).
+
 2006-09-21  Marco Baringer  <mb@bese.it>
 
 	* swank.lisp (find-definitions-for-emacs): Don't return locations

@@ -732,6 +732,12 @@ The return value is as for WHO-CALLS.")
   "List the functions called by FUNCTION-NAME.
 See LIST-CALLERS for a description of the return value.")
 
+;;; Utilities
+
+(definterface ignored-xref-function-names ()
+  "List of function names that SANITIZE-XREFS should remove."
+  '(nil))
+
 
 ;;;; Profiling
 

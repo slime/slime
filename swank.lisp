@@ -3955,7 +3955,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
 (defun sanitize-xrefs (x)
   (remove-duplicates
    (remove-if (lambda (f)
-                (member f '(nil #+sbcl sb-c::step-form)))
+                (member f (ignored-xref-function-names)))
               x
               :key #'car)
    :test (lambda (a b)

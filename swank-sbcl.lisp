@@ -22,6 +22,16 @@
 
 (import-from :sb-gray *gray-stream-symbols* :swank-backend)
 
+;;; backwards compability tests
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  ;; Generate a form suitable for testing for stepper support (0.9.17)
+  ;; with #+.
+  (defun sbcl-with-new-stepper-p ()
+    (if (find-symbol "ENABLE-STEPPING" "SB-IMPL")
+        '(and)
+        '(or))))
+
 ;;; swank-mop
 
 (import-swank-mop-symbols :sb-mop '(:slot-definition-documentation))
@@ -568,6 +578,10 @@ Return NIL if the symbol is unbound."
   (let ((fn (fdefinition symbol)))
     (mapcar #'function-dspec (sb-introspect:find-function-callees fn))))
 
+#-#.(swank-backend::sbcl-with-new-stepper-p)
+(defimplementation ignored-xref-function-names ()
+  '(nil sb-c::step-form sb-c::step-values))
+
 (defun function-dspec (fn)
   "Describe where the function FN was defined.
 Return a list of the form (NAME LOCATION)."
@@ -582,14 +596,6 @@ Return a list of the form (NAME LOCATION)."
 
 
 ;;; Debugging
-
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  ;; Generate a form suitable for testing for stepper support (0.9.17)
-  ;; with #+.
-  (defun sbcl-with-new-stepper-p ()
-    (if (find-symbol "ENABLE-STEPPING" "SB-IMPL")
-        '(and)
-        '(or))))
 
 (defvar *sldb-stack-top*)
 
