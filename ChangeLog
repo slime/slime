@@ -1,3 +1,7 @@
+2006-09-27  Marco Baringer  <mb@bese.it>
+
+	* swank.lisp (*globally-redirect-io*): Change default value to T.
+
 2006-09-25  Juho Snellman  <jsnell@iki.fi>	
 
 	Fix Slime on SBCL 0.9.17.
