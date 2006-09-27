@@ -142,22 +142,26 @@ recompiled."
       (dolist (source-pathname files)
         (let ((binary-pathname (binary-pathname source-pathname
                                                 fasl-directory)))
-          (handler-case
-              (progn
-                (when (or needs-recompile
-                          (not (probe-file binary-pathname))
-                          (file-newer-p source-pathname binary-pathname))
-                  (ensure-directories-exist binary-pathname)
-                  (compile-file source-pathname :output-file binary-pathname
-                                :print nil :verbose t)
-                  (setq needs-recompile t))
-                (load binary-pathname :verbose t))
-            #+(or)
-            (error ()
-              ;; If an error occurs compiling, load the source instead
-              ;; so we can try to debug it.
-              (load source-pathname))
-            ))))))
+          (when (or needs-recompile
+                    (not (probe-file binary-pathname))
+                    (file-newer-p source-pathname binary-pathname))
+            ;; need a to recompile source-pathname, so we'll
+            ;; nede to recompile everything after this too.
+            (setq needs-recompile t)
+            (ensure-directories-exist binary-pathname)                  
+            (multiple-value-bind (output-file warningsp failurep)
+                (compile-file source-pathname :output-file binary-pathname
+                              :print nil
+                              :verbose t)
+              (declare (ignore output-file warningsp))
+              (when failurep
+                ;; If an error occurs compiling, load the source
+                ;; instead so we can try to debug it (this next
+                ;; call should, unless things are really broken,
+                ;; signal an error).
+                (format *error-output* ";; ERROR wihle compiling ~S." source-pathname)
+                (load source-pathname))))
+          (load binary-pathname :verbose t))))))
 
 #+(or cormanlisp ecl)
 (defun compile-files-if-needed-serially (files fasl-directory)
