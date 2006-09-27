@@ -922,7 +922,7 @@ of the toplevel restart."
 ;;; variables, so they can always be assigned to affect a global
 ;;; change.
 
-(defvar *globally-redirect-io* nil
+(defvar *globally-redirect-io* t
   "When non-nil globally redirect all standard streams to Emacs.")
 
 (defmacro setup-stream-indirection (stream-var)
