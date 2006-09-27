@@ -1,3 +1,9 @@
+2006-09-28  Marco Baringer  <mb@bese.it>
+
+	* swank-loader.lisp (compile-files-if-needed-serially): Don't
+	ignore compile-time errors but drop into a debugger (it's not a
+	slime debugger but it's certainly better than ignoring the error).
+
 2006-09-27  Marco Baringer  <mb@bese.it>
 
 	* swank.lisp (*globally-redirect-io*): Change default value to T.
