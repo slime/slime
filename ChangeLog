@@ -1,3 +1,9 @@
+2006-10-02  Marco Baringer  <mb@bese.it>
+
+	* slime.el (slime-highlight-compiler-notes): New variable.
+	(slime-compilation-finished): Only highlight notes when
+	slime-highlight-compiler-notes is non-NIL.
+
 2006-09-28  Marco Baringer  <mb@bese.it>
 
 	* swank-loader.lisp (compile-files-if-needed-serially): Don't
