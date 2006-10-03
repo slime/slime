@@ -1,3 +1,11 @@
+2006-10-03  Marco Baringer  <mb@bese.it>
+
+	Change license statement to say that all files without an explicit
+	copyright notice are public domain. This change will allow SLIME
+	to moved out of debian's nonfree tree.
+	
+	* README: Update license statement.
+
 2006-10-02  Marco Baringer  <mb@bese.it>
 
 	* slime.el (slime-highlight-compiler-notes): New variable.
