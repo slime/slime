@@ -27,10 +27,8 @@ Quick setup instructions
 Licence.
 ----------------------------------------
 
-  SLIME is free software. The source files are licensed separately for
-  maximum compatibility with their host environment, for example
-  slime.el is GPL and swank-cmucl.lisp is public domain. See the
-  source files for more details.
+  SLIME is free software. All files, unless explicitly stated
+  otherwise, are public domain.
 
 Contact.
 ----------------------------------------
