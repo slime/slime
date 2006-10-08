@@ -1,3 +1,8 @@
+2006-10-08  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* swank-loader.lisp (lisp-version-string) [allegro]: Distinguish
+	between 32-bit and 64-bit version on the SPARC architecture.
+
 2006-10-03  Marco Baringer  <mb@bese.it>
 
 	Change license statement to say that all files without an explicit
