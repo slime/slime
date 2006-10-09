@@ -2238,38 +2238,39 @@ forward keywords to OPERATOR."
            (apply #'arglist-ref arg nil (rest indices))))))))
 
 (defslimefun completions-for-keyword (names keyword-string arg-indices)
-  (multiple-value-bind (name index)
-      (find-valid-operator-name names)
-    (with-buffer-syntax ()
-      (let* ((form (operator-designator-to-form name))
-             (operator-form (first form))
-             (argument-forms (rest form))
-             (arglist
-              (form-completion operator-form argument-forms
-                               :remove-args nil)))
-        (unless (eql arglist :not-available)
-          (let* ((indices (butlast (reverse (last arg-indices (1+ index)))))
-                 (arglist (apply #'arglist-ref arglist operator-form indices)))
-            (when (and arglist (arglist-p arglist))
-              ;; It would be possible to complete keywords only if we
-              ;; are in a keyword position, but it is not clear if we
-              ;; want that.
-              (let* ((keywords 
-                      (mapcar #'keyword-arg.keyword
-                              (arglist.keyword-args arglist)))
-                     (keyword-name
-                      (tokenize-symbol keyword-string))
-                     (matching-keywords
-                      (find-matching-symbols-in-list keyword-name keywords
-                                                     #'compound-prefix-match))
-                     (converter (output-case-converter keyword-string))
-                     (strings
-                      (mapcar converter
-                              (mapcar #'symbol-name matching-keywords)))
-                     (completion-set
-                      (format-completion-set strings nil "")))
-                (list completion-set
-                      (longest-completion completion-set))))))))))
+  (with-buffer-syntax ()
+    (multiple-value-bind (name index)
+        (find-valid-operator-name names)
+      (when name
+        (let* ((form (operator-designator-to-form name))
+               (operator-form (first form))
+               (argument-forms (rest form))
+               (arglist
+                (form-completion operator-form argument-forms
+                                 :remove-args nil)))
+          (unless (eql arglist :not-available)
+            (let* ((indices (butlast (reverse (last arg-indices (1+ index)))))
+                   (arglist (apply #'arglist-ref arglist operator-form indices)))
+              (when (and arglist (arglist-p arglist))
+                ;; It would be possible to complete keywords only if we
+                ;; are in a keyword position, but it is not clear if we
+                ;; want that.
+                (let* ((keywords 
+                        (mapcar #'keyword-arg.keyword
+                                (arglist.keyword-args arglist)))
+                       (keyword-name
+                        (tokenize-symbol keyword-string))
+                       (matching-keywords
+                        (find-matching-symbols-in-list keyword-name keywords
+                                                       #'compound-prefix-match))
+                       (converter (output-case-converter keyword-string))
+                       (strings
+                        (mapcar converter
+                                (mapcar #'symbol-name matching-keywords)))
+                       (completion-set
+                        (format-completion-set strings nil "")))
+                  (list completion-set
+                        (longest-completion completion-set)))))))))))
            
 
 (defun arglist-to-string (arglist package &key print-right-margin highlight)
