@@ -2830,6 +2830,18 @@ update window-point afterwards.  If point is initially not at
 
 (defstruct slime-presentation text id)
 
+(defvar slime-presentation-syntax-table
+  (let ((table (copy-syntax-table lisp-mode-syntax-table)))
+    ;; We give < and > parenthesis syntax, so that #< ... > is treated
+    ;; as a balanced expression.  This allows to use C-M-k, C-M-SPC,
+    ;; etc. to deal with a whole presentation.  (For Lisp mode, this
+    ;; is not desirable, since we do not wish to get a mismatched
+    ;; paren highlighted everytime we type < or >.)
+    (modify-syntax-entry ?< "(>" table)
+    (modify-syntax-entry ?> ")<" table)
+    table)
+  "Syntax table for presentations.")
+
 (defun slime-add-presentation-properties (start end id result-p)
   "Make the text between START and END a presentation with ID.
 RESULT-P decides whether a face for a return value or output text is used."
@@ -2840,6 +2852,7 @@ RESULT-P decides whether a face for a return value or output text is used."
                            `(modification-hooks (slime-after-change-function)
                              insert-in-front-hooks (slime-after-change-function)
                              insert-behind-hooks (slime-after-change-function)
+                             syntax-table ,slime-presentation-syntax-table
                              rear-nonsticky t))
       ;; Use the presentation as the key of a text property
       (case (- end start)
@@ -2882,7 +2895,7 @@ RESULT-P decides whether a face for a return value or output text is used."
 (defun slime-remove-presentation-properties (from to presentation)
   (let ((inhibit-read-only t)) 
     (remove-text-properties from to
-                            `(,presentation t rear-nonsticky t))
+                            `(,presentation t syntax-table t rear-nonsticky t))
     (when (eq (get-text-property from 'slime-repl-presentation) presentation)
       (remove-text-properties from (1+ from) `(slime-repl-presentation t)))
     (when (eq (get-text-property (1- to) 'slime-repl-presentation) presentation)
@@ -3076,6 +3089,9 @@ joined together."))
   (slime-setup-command-hooks)
   (when slime-use-autodoc-mode 
     (slime-autodoc-mode 1))
+  (when slime-repl-enable-presentations 
+    ;; Respect the syntax text properties of presentations.
+    (set (make-local-variable 'parse-sexp-lookup-properties) t))
   (run-hooks 'slime-repl-mode-hook))
 
 (defun slime-presentation-whole-p (presentation start end &optional object)
