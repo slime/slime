@@ -1,3 +1,12 @@
+2006-10-11  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-presentation-syntax-table): New.
+	(slime-add-presentation-properties): Install it in a syntax-table
+	text property, so that #<...> is balanced in a presentation.
+	(slime-remove-presentation-properties): Remove the text property.
+	(slime-repl-mode): Respect the syntax text properties of
+	presentations in REPL buffers.
+
 2006-10-09  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* swank.lisp (completions-for-keyword): Look up the operator names
