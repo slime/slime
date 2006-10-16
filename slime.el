@@ -2908,10 +2908,13 @@ RESULT-P decides whether a face for a return value or output text is used."
       (when (eq (overlay-get overlay 'slime-repl-presentation) presentation)
         (delete-overlay overlay)))))
 
-(defun slime-insert-presentation (result output-id)
-  (let ((start (point)))
-    (insert result)
-    (slime-add-presentation-properties start (point) output-id t)))
+(defun slime-insert-presentation (string output-id)
+  (cond ((not slime-repl-enable-presentations)
+         (insert string))
+        (t
+         (let ((start (point)))
+           (insert string)
+           (slime-add-presentation-properties start (point) output-id t)))))
                           
 (defun slime-open-stream-to-lisp (port)
   (let ((stream (open-network-stream "*lisp-output-stream*" 
