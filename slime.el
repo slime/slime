@@ -1617,9 +1617,13 @@ Return the created process."
                     slime-backend
                   (concat slime-path slime-backend)))
         (encoding (slime-coding-system-cl-name coding-system)))
-    (format "%S\n%S\n\n"
-            `(load ,loader :verbose t)
-            `(swank:start-server ,port-filename :external-format ,encoding))))
+    ;; Return a single form to avoid problems with buffered input.
+    (format "%S\n\n"
+            `(progn
+               (load ,loader :verbose t)
+               (funcall (read-from-string "swank:start-server")
+                        ,port-filename
+                        :external-format ,encoding)))))
 
 (defun slime-swank-port-file ()
   "Filename where the SWANK server writes its TCP port number."
