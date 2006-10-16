@@ -4,6 +4,9 @@
 	thread. Fixes bug reported by Dan Weinreb <dlw@itasoftware.com>.
 	(unwind-to-previous-sldb-level): New test.
 	(slime-init-command): Send a single form.
+	(slime-insert-presentation): Honor slime-repl-enable-presentations.
+	Presentations kill SLDB and the inspector in Emacs 20 (besides
+	being troublesome GC-wise).
 
 	* swank.lisp: Clean up global IO redirection.
 	(setup-stream-indirection): Turn macro into a
