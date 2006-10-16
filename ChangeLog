@@ -1,3 +1,8 @@
+2006-10-16  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (sldb-activate): Get debug-info from the correct
+	thread. Fixes bug reported by Dan Weinreb <dlw@itasoftware.com>.
+
 2006-10-11  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-presentation-syntax-table): New.
