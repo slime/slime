@@ -9919,6 +9919,40 @@ Confirm that SUBFORM is correctly located."
                       debug-hook-max-depth depth)
           (= debug-hook-max-depth depth))))))
 
+(def-slime-test unwind-to-previous-sldb-level (level2 level1)
+  "Test recursive debugging and returning to lower SLDB levels."
+  '((2 1) (4 2))
+  (slime-check-top-level)
+  (lexical-let ((level2 level2)
+                (level1 level1)
+                (state 'enter)
+                (max-depth 0))
+    (let ((debug-hook
+           (lambda ()
+             (with-current-buffer (sldb-get-default-buffer)
+               (setq max-depth (max sldb-level max-depth))
+               (ecase state
+                 (enter
+                  (cond ((= sldb-level level2)
+                         (setq state 'leave)
+                         (sldb-invoke-restart 0))
+                        (t
+                         (slime-eval-async `(cl:aref cl:nil ,sldb-level)))))
+                 (leave
+                  (cond ((= sldb-level level1)
+                         (setq state 'ok)
+                         (sldb-quit))
+                        (t
+                         (sldb-invoke-restart 0)))))))))
+      (let ((sldb-hook (cons debug-hook sldb-hook)))
+        (slime-eval-async `(cl:aref cl:nil 0))
+        (slime-sync-to-top-level 5)
+        (slime-check-top-level)
+        (slime-check ("Maximum depth reached (%S) is %S." max-depth level2)
+          (= max-depth level2))
+        (slime-check ("Final state reached.")
+          (eq state 'ok))))))
+
 (def-slime-test loop-interrupt-quit
     ()
     "Test interrupting a loop."
