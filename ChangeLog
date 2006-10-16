@@ -25,6 +25,9 @@
 	
 	Run the after-init-hook.
 
+	* swank-cmucl.lisp (inspect-for-emacs): Don't break for
+	simple-strings.
+
 2006-10-11  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-presentation-syntax-table): New.
