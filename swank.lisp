@@ -21,6 +21,7 @@
            #:ed-in-emacs
            #:print-indentation-lossage
            #:swank-debugger-hook
+           #:run-after-init-hook
            ;; These are user-configurable variables:
            #:*communication-style*
            #:*log-events*
@@ -129,7 +130,6 @@ ALIST is a list of the form ((VAR . VAL) ...)."
      (eval-when (:compile-toplevel :load-toplevel :execute)
        (export ',name :swank))))
 
-(declaim (ftype (function () nil) missing-arg))
 (defun missing-arg ()
   "A function that the compiler knows will never to return a value.
 You can use (MISSING-ARG) as the initform for defstruct slots that
@@ -165,6 +165,12 @@ Backend code should treat the connection structure as opaque.")
 
 (defvar *pre-reply-hook* '()
   "Hook run (without arguments) immediately before replying to an RPC.")
+
+(defvar *after-init-hook* '()
+  "Hook run after user init files are loaded.")
+
+(defun run-after-init-hook ()
+  (run-hook *after-init-hook*))
 
 
 ;;;; Connections
@@ -922,15 +928,21 @@ of the toplevel restart."
 ;;; variables, so they can always be assigned to affect a global
 ;;; change.
 
-(defvar *globally-redirect-io* t
+(defvar *globally-redirect-io* nil
   "When non-nil globally redirect all standard streams to Emacs.")
 
-(defmacro setup-stream-indirection (stream-var)
+;;;;; Global redirection setup
+
+(defvar *saved-global-streams* '()
+  "A plist to save and restore redirected stream objects.
+E.g. the value for '*standard-output* holds the stream object
+for *standard-output* before we install our redirection.")
+
+(defun setup-stream-indirection (stream-var &optional stream)
   "Setup redirection scaffolding for a global stream variable.
 Supposing (for example) STREAM-VAR is *STANDARD-INPUT*, this macro:
 
-1. Saves the value of *STANDARD-INPUT* in a variable called
-*REAL-STANDARD-INPUT*.
+1. Saves the value of *STANDARD-INPUT* in `*SAVED-GLOBAL-STREAMS*'.
 
 2. Creates *CURRENT-STANDARD-INPUT*, initially with the same value as
 *STANDARD-INPUT*.
@@ -942,48 +954,42 @@ This has the effect of making *CURRENT-STANDARD-INPUT* contain the
 effective global value for *STANDARD-INPUT*. This way we can assign
 the effective global value even when *STANDARD-INPUT* is shadowed by a
 dynamic binding."
-  (let ((real-stream-var (prefixed-var '#:real stream-var))
-        (current-stream-var (prefixed-var '#:current stream-var)))
-    `(progn
-       ;; Save the real stream value for the future.
-       (defvar ,real-stream-var ,stream-var)
-       ;; Define a new variable for the effective stream.
-       ;; This can be reassigned.
-       (defvar ,current-stream-var ,stream-var)
-       ;; Assign the real binding as a synonym for the current one.
-       (setq ,stream-var (make-synonym-stream ',current-stream-var)))))
+  (let ((current-stream-var (prefixed-var '#:current stream-var))
+        (stream (or stream (symbol-value stream-var))))
+    ;; Save the real stream value for the future.
+    (setf (getf *saved-global-streams* stream-var) stream)
+    ;; Define a new variable for the effective stream.
+    ;; This can be reassigned.
+    (proclaim `(special ,current-stream-var))
+    (set current-stream-var stream)
+    ;; Assign the real binding as a synonym for the current one.
+    (set stream-var (make-synonym-stream current-stream-var))))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun prefixed-var (prefix variable-symbol)
-    "(PREFIXED-VAR \"FOO\" '*BAR*) => SWANK::*FOO-BAR*"
-    (let ((basename (subseq (symbol-name variable-symbol) 1)))
-      (intern (format nil "*~A-~A" prefix basename) :swank))))
+(defun prefixed-var (prefix variable-symbol)
+  "(PREFIXED-VAR \"FOO\" '*BAR*) => SWANK::*FOO-BAR*"
+  (let ((basename (subseq (symbol-name variable-symbol) 1)))
+    (intern (format nil "*~A-~A" (string prefix) basename) :swank)))
 
-;;;;; Global redirection setup
-
-;; FIXME: This doesn't work with Allegros IDE (MAKE-SYNONYM-STREAM
-;; doesn't work with their GUI-streams). Maybe we should just drop this
-;; global redirection stuff.
-;;
-;; (setup-stream-indirection *standard-output*)
-;; (setup-stream-indirection *error-output*)
-;; (setup-stream-indirection *trace-output*)
-;; (setup-stream-indirection *standard-input*)
-;; (setup-stream-indirection *debug-io*)
-;; (setup-stream-indirection *query-io*)
-;; (setup-stream-indirection *terminal-io*)
-
-(defparameter *standard-output-streams*
+(defvar *standard-output-streams*
   '(*standard-output* *error-output* *trace-output*)
   "The symbols naming standard output streams.")
 
-(defparameter *standard-input-streams*
+(defvar *standard-input-streams*
   '(*standard-input*)
   "The symbols naming standard input streams.")
 
-(defparameter *standard-io-streams*
+(defvar *standard-io-streams*
   '(*debug-io* *query-io* *terminal-io*)
   "The symbols naming standard io streams.")
+
+(defun init-global-stream-redirection ()
+  (when *globally-redirect-io*
+    (mapc #'setup-stream-indirection 
+          (append *standard-output-streams*
+                  *standard-input-streams*
+                  *standard-io-streams*))))
+
+(add-hook *after-init-hook* 'init-global-stream-redirection)
 
 (defun globally-redirect-io-to-connection (connection)
   "Set the standard I/O streams to redirect to CONNECTION.
@@ -1014,7 +1020,7 @@ Assigns *CURRENT-<STREAM>* for all standard streams."
                               *standard-input-streams*
                               *standard-io-streams*))
     (set (prefixed-var '#:current stream-var)
-         (symbol-value (prefixed-var '#:real stream-var)))))
+         (getf *saved-global-streams* stream-var))))
 
 ;;;;; Global redirection hooks
 
@@ -1349,7 +1355,7 @@ Return the symbol and a flag indicating whether the symbols was found."
   (multiple-value-bind (symbol status) (parse-symbol string package)
     (if status
         (values symbol status)
-        (abort-request "Unknown symbol: ~A [in ~A]" string package))))
+        (error "Unknown symbol: ~A [in ~A]" string package))))
 
 ;; FIXME: interns the name
 (defun parse-package (string)
@@ -3035,7 +3041,6 @@ Record compiler notes signalled as `compiler-condition's."
     (*print-length* . nil)))
 
 (defun apply-macro-expander (expander string)
-  (declare (type function expander))
   (with-buffer-syntax ()
     (with-bindings *macroexpand-printer-bindings*
       (prin1-to-string (funcall expander (from-string string))))))
@@ -3709,7 +3714,6 @@ Like `describe-symbol-for-emacs' but with at most one line per item."
   "Like (mapcar FN . LISTS) but only call FN on objects satisfying TEST.
 Example:
 \(map-if #'oddp #'- '(1 2 3 4 5)) => (-1 2 -3 4 -5)"
-  (declare (type function test fn))
   (apply #'mapcar
          (lambda (x) (if (funcall test x) (funcall fn x) x))
          lists))
@@ -3717,7 +3721,6 @@ Example:
 (defun listify (f)
   "Return a function like F, but which returns any non-null value
 wrapped in a list."
-  (declare (type function f))
   (lambda (x)
     (let ((y (funcall f x)))
       (and y (list y)))))
