@@ -2,6 +2,7 @@
 
 	* slime.el (sldb-activate): Get debug-info from the correct
 	thread. Fixes bug reported by Dan Weinreb <dlw@itasoftware.com>.
+	(unwind-to-previous-sldb-level): New test.
 
 2006-10-11  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
