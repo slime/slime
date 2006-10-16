@@ -1960,21 +1960,23 @@ The `symbol-value' of each element is a type tag.")
 
 (defmethod inspect-for-emacs ((o array) (inspector cmucl-inspector))
   inspector
-  (values (format nil "~A is an array." o)
-          (label-value-line*
-           (:header (describe-primitive-type o))
-           (:rank (array-rank o))
-           (:fill-pointer (kernel:%array-fill-pointer o))
-           (:fill-pointer-p (kernel:%array-fill-pointer-p o))
-           (:elements (kernel:%array-available-elements o))           
-           (:data (kernel:%array-data-vector o))
-           (:displacement (kernel:%array-displacement o))
-           (:displaced-p (kernel:%array-displaced-p o))
-           (:dimensions (array-dimensions o)))))
+  (if (typep o 'simple-array)
+      (call-next-method)
+      (values (format nil "~A is an array." o)
+              (label-value-line*
+               (:header (describe-primitive-type o))
+               (:rank (array-rank o))
+               (:fill-pointer (kernel:%array-fill-pointer o))
+               (:fill-pointer-p (kernel:%array-fill-pointer-p o))
+               (:elements (kernel:%array-available-elements o))           
+               (:data (kernel:%array-data-vector o))
+               (:displacement (kernel:%array-displacement o))
+               (:displaced-p (kernel:%array-displaced-p o))
+               (:dimensions (array-dimensions o))))))
 
 (defmethod inspect-for-emacs ((o simple-vector) (inspector cmucl-inspector))
   inspector
-  (values (format nil "~A is a vector." o)
+  (values (format nil "~A is a simple-vector." o)
           (append 
            (label-value-line*
             (:header (describe-primitive-type o))
