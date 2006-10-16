@@ -3,6 +3,24 @@
 	* slime.el (sldb-activate): Get debug-info from the correct
 	thread. Fixes bug reported by Dan Weinreb <dlw@itasoftware.com>.
 	(unwind-to-previous-sldb-level): New test.
+	(slime-init-command): Send a single form.
+
+	* swank.lisp: Clean up global IO redirection.
+	(setup-stream-indirection): Turn macro into a
+	function and delay initialization after user init files are
+	loaded, so that we do nothing if *globally-redirect-io* is nil.
+	(*after-init-hook*, run-after-init-hook)
+	(init-global-stream-redirection): New.
+
+	(parse-symbol-or-lose): Lose loudly and early (instead of failing
+	silently).
+	
+	* swank-loader.lisp: Abort on compile-time or load-time errors.
+	Don't try to load the source-file if COMPILE-FILE's 3rd return
+	value is true (it's true even for warnings).
+	(handle-loadtime-error): New function.
+	
+	Run the after-init-hook.
 
 2006-10-11  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
