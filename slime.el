@@ -10516,9 +10516,9 @@ levels of parens."
          (accept-process-output process timeout))
         (t
          (accept-process-output process 
-                                (truncate timeout)
+                                (if timeout (truncate timeout))
                                 ;; Emacs 21 uses microsecs; Emacs 22 millisecs
-                                (truncate (* timeout 1000000))))))
+                                (if timeout (truncate (* timeout 1000000)))))))
 
 (put 'slime-defun-if-undefined 'lisp-indent-function 2)
 
