@@ -2400,16 +2400,24 @@ side.")
                   (regexp "^(\\(cl:\\|common-lisp:\\)?in-package\\>"))
               (or (re-search-backward regexp nil t)
                   (re-search-forward regexp nil t)))
-        (goto-char (match-end 0))
-        (skip-chars-forward " \n\t\f\r#'")
-        (cond 
-         ((looking-at "\\.\\*swig-module-name\\*") ; # was skipped
-          (if (re-search-backward "(defparameter \\*swig-module-name\\* \\(:?\\sw*\\))"
-                                  nil t)
-              (match-string-no-properties 1)))
-         (t
-          (let ((pkg (ignore-errors (read (current-buffer)))))
-            (if pkg (format "%S" pkg)))))))))
+        (let ((evalp nil))
+          (goto-char (match-end 0))
+          (skip-chars-forward " \n\t\f\r'")
+          (if (looking-at "#\\.")
+              (progn
+                (setf evalp t)
+                (goto-char (+ (point) 2)))
+              (skip-chars-forward "#."))
+          (cond
+            ((and evalp
+                  (looking-at "\\*swig-module-name\\*")) ; #. was skipped
+             (if (re-search-backward "(defparameter \\*swig-module-name\\* \\(:?\\sw*\\))"
+                                     nil t)
+                 (match-string-no-properties 1)))
+            (t
+             (let ((pkg (ignore-errors (read (current-buffer)))))
+               (if pkg
+                   (format "%s%S" (if evalp "#." "") pkg))))))))))
 
 ;;; Synchronous requests are implemented in terms of asynchronous
 ;;; ones. We make an asynchronous request with a continuation function
