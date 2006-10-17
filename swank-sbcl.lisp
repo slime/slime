@@ -935,6 +935,12 @@ stack."
                          (ash (sb-kernel:%code-code-size o) sb-vm:word-shift)
                          :stream s))))))))
 
+(defmethod inspect-for-emacs ((o sb-ext:weak-pointer) (inspector sbcl-inspector))
+  (declare (ignore inspector))
+  (values "A weak pointer."
+          (label-value-line*
+           (:value (sb-ext:weak-pointer-value o)))))
+
 (defmethod inspect-for-emacs ((o sb-kernel:fdefn) (inspector sbcl-inspector))
   (declare (ignore inspector))
   (values "A fdefn object."
