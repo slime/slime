@@ -1371,7 +1371,11 @@ Return the package or nil."
         (find-package name))))
 
 (defun guess-package-from-string (name &optional (default-package *package*))
-  (or (and name
+  (or (and (> (length name) 2)
+              (equal "#." (subseq name 0 2))
+              (ignore-errors
+                (find-package (read-from-string name))))
+      (and name
            (or (parse-package name)
                (find-package (string-upcase name))
                (parse-package (substitute #\- #\! name))))
@@ -4384,8 +4388,9 @@ See `methods-by-applicability'.")
                                       (swank-mop:slot-definition-name slot)))))
                   '("#<N/A (class not finalized)>"))
             (:newline)
-            ,@(when (documentation class t)
-                `("Documentation:" (:newline) ,(documentation class t) (:newline)))
+            ,@(let ((doc (documentation class t)))
+                (when doc
+                  `("Documentation:" (:newline) ,(inspector-princ doc) (:newline))))
             "Sub classes: "
             ,@(common-seperated-spec (swank-mop:class-direct-subclasses class)
                                      (lambda (sub)
