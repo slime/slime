@@ -1,3 +1,14 @@
+2006-10-11  Attila Lendvai  <attila.lendvai@gmail.com>
+
+	* slime.el (slime-find-buffer-package): Handle #. forms.
+
+	* swank.lisp (guess-package-from-string): Handle #. forms.
+	(inspect-for-emacs standard-class): Handle non-string
+	:documentation slot contents.
+
+	* swank-sbcl.lisp (inspect-for-emacs weak-pointer ...): Added
+	method.
+	
 2006-10-16  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (sldb-activate): Get debug-info from the correct
