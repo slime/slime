@@ -2401,10 +2401,10 @@ side.")
                 (regexp "^(\\(cl:\\|common-lisp:\\)?in-package\\>[ \n\t\r']*"))
             (or (re-search-backward regexp nil t)
                 (re-search-forward regexp nil t)))
-      (let ((start (match-end 0)))
-        (ignore-errors
+      (goto-char (match-end 0))
+      (let ((start (point)))
           (up-list 1)
-          (buffer-substring-no-properties start (1- (point))))))))
+          (buffer-substring-no-properties start (1- (point)))))))
 
 ;;; Synchronous requests are implemented in terms of asynchronous
 ;;; ones. We make an asynchronous request with a continuation function
