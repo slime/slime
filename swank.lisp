@@ -3868,7 +3868,7 @@ Include the nicknames if INCLUDE-NICKNAMES is true."
 	   (format nil "~S is now unprofiled." fname))
 	  (t
            (profile fname)
-	   (format nil "~S is now profiled." fname)))))  
+	   (format nil "~S is now profiled." fname)))))
 
 
 ;;;; Source Locations
@@ -3880,8 +3880,7 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
       (ignore-errors (values (from-string name)))
     (cond (error '())
           (t (loop for (dspec loc) in (find-definitions sexp)
-                   unless (eql :error (first loc))
-                     collect (list (to-string dspec) loc))))))
+                   collect (list (to-string dspec) loc))))))
 
 (defun alistify (list key test)
   "Partition the elements of LIST into an alist.  KEY extracts the key
@@ -3895,7 +3894,7 @@ from an element and TEST is used to compare keys."
 	    (push e (cdr probe))
             (push (cons k (list e)) alist))))
     alist))
-  
+
 (defun location-position< (pos1 pos2)
   (cond ((and (position-p pos1) (position-p pos2))
          (< (position-pos pos1)
@@ -3904,7 +3903,7 @@ from an element and TEST is used to compare keys."
 
 (defun partition (list test key)
   (declare (type function test key))
-  (loop for e in list 
+  (loop for e in list
 	if (funcall test (funcall key e)) collect e into yes
 	else collect e into no
 	finally (return (values yes no))))
@@ -3925,10 +3924,10 @@ from an element and TEST is used to compare keys."
 (defun group-xrefs (xrefs)
   "Group XREFS, a list of the form ((DSPEC LOCATION) ...) by location.
 The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
-  (multiple-value-bind (resolved errors) 
+  (multiple-value-bind (resolved errors)
       (partition xrefs #'location-valid-p #'xref.location)
     (let ((alist (alistify resolved #'xref-buffer #'equal)))
-      (append 
+      (append
        (loop for (buffer . list) in alist
              collect (cons (second buffer)
                            (mapcar (lambda (xref)
@@ -3936,8 +3935,8 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
                                            (xref.location xref)))
                                    (sort list #'location-position<
                                          :key #'xref-position))))
-       (if errors 
-           (list (cons "Unresolved" 
+       (if errors
+           (list (cons "Unresolved"
                        (mapcar (lambda (xref)
                                  (cons (to-string (xref.dspec xref))
                                        (xref.location xref)))
@@ -3946,27 +3945,16 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
 (defslimefun xref (type symbol-name)
   (let ((symbol (parse-symbol-or-lose symbol-name *buffer-package*)))
     (group-xrefs
-     (sanitize-xrefs
-      (ecase type
-        (:calls (who-calls symbol))
-        (:calls-who (calls-who symbol))
-        (:references (who-references symbol))
-        (:binds (who-binds symbol))
-        (:sets (who-sets symbol))
-        (:macroexpands (who-macroexpands symbol))
-        (:specializes (who-specializes symbol))
-        (:callers (list-callers symbol))
-        (:callees (list-callees symbol)))))))
-
-(defun sanitize-xrefs (x)
-  (remove-duplicates
-   (remove-if (lambda (f)
-                (member f (ignored-xref-function-names)))
-              x
-              :key #'car)
-   :test (lambda (a b)
-           (and (eq (first a) (first b))
-                (equal (second a) (second b))))))
+     (ecase type
+       (:calls (who-calls symbol))
+       (:calls-who (calls-who symbol))
+       (:references (who-references symbol))
+       (:binds (who-binds symbol))
+       (:sets (who-sets symbol))
+       (:macroexpands (who-macroexpands symbol))
+       (:specializes (who-specializes symbol))
+       (:callers (list-callers symbol))
+       (:callees (list-callees symbol))))))
 
 
 ;;;; Inspecting
