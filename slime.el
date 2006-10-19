@@ -2403,8 +2403,9 @@ side.")
                 (re-search-forward regexp nil t)))
       (goto-char (match-end 0))
       (let ((start (point)))
+        (ignore-errors
           (up-list 1)
-          (buffer-substring-no-properties start (1- (point)))))))
+          (buffer-substring-no-properties start (1- (point))))))))
 
 ;;; Synchronous requests are implemented in terms of asynchronous
 ;;; ones. We make an asynchronous request with a continuation function

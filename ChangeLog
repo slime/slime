@@ -1,4 +1,16 @@
-2006-10-11  Attila Lendvai  <attila.lendvai@gmail.com>
+2006-10-19  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (guess-package-from-string): Remove special case for
+	"#.". parse-package will handle that just fine.
+
+	* slime.el (slime-find-buffer-package): Simplify.
+
+2006-10-17  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-accept-process-output): The timeout arg can be
+	nil. Handle that case.
+
+2006-10-17  Attila Lendvai  <attila.lendvai@gmail.com>
 
 	* slime.el (slime-find-buffer-package): Handle #. forms.
 
