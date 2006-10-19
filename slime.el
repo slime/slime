@@ -505,7 +505,7 @@ is inserted."
   :type 'string
   :group 'slime-repl)
 
-(defcustom slime-repl-history-size 1000
+(defcustom slime-repl-history-size 200
   "*Maximum number of lines for persistent REPL history."
   :type 'integer
   :group 'slime-repl)
@@ -2386,38 +2386,25 @@ The REPL buffer is a special case: it's package is `slime-lisp-package'."
              (widen)
              (slime-find-buffer-package)))))
 
-(defvar slime-find-buffer-package-function nil
-  "Function to use instead of `slime-find-buffer-package'.  
+(defvar slime-find-buffer-package-function 'slime-search-buffer-package
+  "*Function to use for `slime-find-buffer-package'.  
 The result should be a string.  The string will be READ at the Lisp
 side.")
 
 (defun slime-find-buffer-package ()
   "Figure out which Lisp package the current buffer is associated with."
-  (if slime-find-buffer-package-function
-      (funcall slime-find-buffer-package-function)
-    (save-excursion
-      (when (let ((case-fold-search t)
-                  (regexp "^(\\(cl:\\|common-lisp:\\)?in-package\\>"))
-              (or (re-search-backward regexp nil t)
-                  (re-search-forward regexp nil t)))
-        (let ((evalp nil))
-          (goto-char (match-end 0))
-          (skip-chars-forward " \n\t\f\r'")
-          (if (looking-at "#\\.")
-              (progn
-                (setf evalp t)
-                (goto-char (+ (point) 2)))
-              (skip-chars-forward "#."))
-          (cond
-            ((and evalp
-                  (looking-at "\\*swig-module-name\\*")) ; #. was skipped
-             (if (re-search-backward "(defparameter \\*swig-module-name\\* \\(:?\\sw*\\))"
-                                     nil t)
-                 (match-string-no-properties 1)))
-            (t
-             (let ((pkg (ignore-errors (read (current-buffer)))))
-               (if pkg
-                   (format "%s%S" (if evalp "#." "") pkg))))))))))
+  (funcall slime-find-buffer-package-function))
+
+(defun slime-search-buffer-package ()
+  (save-excursion
+    (when (let ((case-fold-search t)
+                (regexp "^(\\(cl:\\|common-lisp:\\)?in-package\\>[ \n\t\r']*"))
+            (or (re-search-backward regexp nil t)
+                (re-search-forward regexp nil t)))
+      (let ((start (match-end 0)))
+        (ignore-errors
+          (up-list 1)
+          (buffer-substring-no-properties start (1- (point))))))))
 
 ;;; Synchronous requests are implemented in terms of asynchronous
 ;;; ones. We make an asynchronous request with a continuation function
@@ -9961,7 +9948,7 @@ Confirm that SUBFORM is correctly located."
                          (sldb-invoke-restart 0)))))))))
       (let ((sldb-hook (cons debug-hook sldb-hook)))
         (slime-eval-async `(cl:aref cl:nil 0))
-        (slime-sync-to-top-level 5)
+        (slime-sync-to-top-level 15)
         (slime-check-top-level)
         (slime-check ("Maximum depth reached (%S) is %S." max-depth level2)
           (= max-depth level2))
