@@ -1364,18 +1364,16 @@ Return the package or nil."
   (multiple-value-bind (name pos) 
       (if (zerop (length string))
           (values :|| 0)
-          (let ((*package* keyword-package))
+          (let ((*package* *swank-io-package*))
             (ignore-errors (read-from-string string))))
-    (if (and (or (keywordp name) (stringp name))
-             (= (length string) pos))
-        (find-package name))))
+    (and name
+         (or (symbolp name) 
+             (stringp name))
+         (= (length string) pos)
+         (find-package name))))
 
 (defun guess-package-from-string (name &optional (default-package *package*))
-  (or (and (> (length name) 2)
-              (equal "#." (subseq name 0 2))
-              (ignore-errors
-                (find-package (read-from-string name))))
-      (and name
+  (or (and name
            (or (parse-package name)
                (find-package (string-upcase name))
                (parse-package (substitute #\- #\! name))))
