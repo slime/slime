@@ -1,8 +1,15 @@
 2006-10-19  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-backend.lisp (ignored-xref-function-names): Deleted.
+
 	* swank.lisp (guess-package-from-string): Remove special case for
 	"#.". parse-package will handle that just fine.
+	(find-definitions-for-emacs): Don't filter errors out.
+	(sanitize-xrefs): Moved to swank-sbcl.  The backend is supposed to
+	return sane values. 
 
+	* swank-sbcl.lisp: See above.
+	
 	* slime.el (slime-find-buffer-package): Simplify.
 
 2006-10-17  Helmut Eller  <heller@common-lisp.net>
