@@ -1,3 +1,16 @@
+2006-10-20  Martin Simmons <martin@lispworks.com>
+
+	* swank-backend.lisp (initialize-multiprocessing): New API to
+	support lisps where initialize-multiprocessing may not return (lispworks).
+
+	* swank.lisp (start-server): initialize-multiprocessing's API has changed.
+
+	* swank-lispworks.lisp (initialize-multiprocessing): Update for new API.
+
+	* swank-cmucl.lisp (initialize-multiprocessing): Update for new API.
+	
+	* swank-allegro.lisp (initialize-multiprocessing): Update for new api.
+	
 2006-10-20  Levente Mészáros <levente.meszaros@gmail.com>
 
 	Added "in-place" fuzzy completion GUI. See
