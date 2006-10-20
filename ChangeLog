@@ -1,3 +1,35 @@
+2006-10-20  Levente Mészáros <levente.meszaros@gmail.com>
+
+	Added "in-place" fuzzy completion GUI. See
+	slime-fuzzy-completions-map and
+	slime-target-buffer-fuzzy-completions-map for details.
+
+	* slime.el (slime-space-information-p): New variable.
+	(slime-target-buffer-fuzzy-completions-mode): New keymap for
+	in-place fuzzy completions.
+	(slime-fuzzy-target-buffer-completions-mode): New minor mode for
+	in-place fuzzy completions.
+	(slime-fuzzy-current-completion-overlay): New overlay for
+	highlighting currently selected completion.
+	(slime-fuzzy-completions-map): Added new fuzzy completon keys
+	(slime-fuzzy-indent-and-complete-symbol): New function.
+	(slime-fuzzy-complete-symbol): Use new in-place fuzzy completion.
+	(slime-fuzzy-choices-buffer): Support in-place completion editing.
+	(slime-fuzzy-fill-completions-buffer): Highlight completions,
+	don't automatically jump to completion buffer.
+	(slime-fuzzy-enable-target-buffer-completions-mode,
+	slime-fuzzy-disable-target-buffer-completions-mode): New modes for
+	moving in/out of in-place fuzzy completion mode
+	(slime-fuzzy-next, slime-fuzzy-prev): Don't assume point is in the
+	completion buffer.
+	(slime-fuzzy-dehighlight-current-completion,
+	slime-fuzzy-highlight-current-completion): Manage completion
+	selection highlighting.
+	(slime-fuzzy-select-or-update-completions): New function.
+	(slime-fuzzy-process-event-in-completions-buffer): New function.
+	(slime-fuzzy-select-and-process-event-in-target-buffer): New function.
+	(slime-fuzzy-done): Changed to deal with in-place completion.
+	
 2006-10-19  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-backend.lisp (ignored-xref-function-names): Deleted.
