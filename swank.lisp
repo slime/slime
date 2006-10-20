@@ -406,10 +406,9 @@ Valid values are :none, :line, and :full.")
   "Start the server and write the listen port number to PORT-FILE.
 This is the entry point for Emacs."
   (flet ((start-server-aux ()
-           (setup-server 0 (lambda (port) (announce-server-port port-file port))
-                         style dont-close external-format)
-           (when (eq style :spawn)
-             (startup-idle-and-top-level-loops))))
+           (setup-server 0 (lambda (port) 
+                             (announce-server-port port-file port))
+                         style dont-close external-format)))
     (if (eq style :spawn)
         (initialize-multiprocessing #'start-server-aux)
         (start-server-aux))))
@@ -3691,7 +3690,7 @@ FUZZY-COMPLETIONS, format the list into user-readable output."
 The result is a list of property lists."
   (let ((package (if package
                      (or (find-package (string-to-package-designator package))
-                         (abort-request "No such package: ~S" package)))))
+                         (error "No such package: ~S" package)))))
     (mapcan (listify #'briefly-describe-symbol-for-emacs)
             (sort (remove-duplicates
                    (apropos-symbols name external-only case-sensitive package))

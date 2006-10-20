@@ -846,15 +846,10 @@ output of CL:DESCRIBE."
 ;;; implementations.
 
 (definterface initialize-multiprocessing (continuation)
-   "Initialize multiprocessing, if necessary and then invoke CONTINUATION."
-   (funcall continuation))
+   "Initialize multiprocessing, if necessary and then invoke CONTINUATION.
 
-(definterface startup-idle-and-top-level-loops ()
-  "This function is called directly through the listener, not in an RPC
-from Emacs. This is to support interfaces such as CMUCL's
-MP::STARTUP-IDLE-AND-TOP-LEVEL-LOOPS which does not return like a
-normal function."
-   nil)
+Depending on the impleimentaion, this function may never return."
+   (funcall continuation))
 
 (definterface spawn (fn &key name)
   "Create a new thread to call FN.")

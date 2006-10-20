@@ -1475,7 +1475,12 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
                       (error (make-condition
                               'sldb-condition
                               :original-condition condition)))))
-      (funcall debugger-loop-fn))))
+      (unwind-protect
+           (progn
+             #+(or)(sys:scrub-control-stack)
+             (funcall debugger-loop-fn))
+        #+(or)(sys:scrub-control-stack)
+        ))))
 
 (defun frame-down (frame)
   (handler-case (di:frame-down frame)
@@ -2046,14 +2051,12 @@ The `symbol-value' of each element is a type tag.")
 (progn
   (defimplementation initialize-multiprocessing (continuation) 
     (mp::init-multi-processing)
-    (funcall continuation))
-  
-  (defimplementation startup-idle-and-top-level-loops ()
+    (mp:make-process continuation :name "swank")
     ;; Threads magic: this never returns! But top-level becomes
     ;; available again.
-    (unless mp::*initial-process*
+    (unless mp::*idle-process*
       (mp::startup-idle-and-top-level-loops)))
-
+  
   (defimplementation spawn (fn &key name)
     (mp:make-process fn :name (or name "Anonymous")))
 
