@@ -6324,6 +6324,7 @@ done."
     (slime-fuzzy-fill-completions-buffer completions)
     (when new-completion-buffer
       (pop-to-buffer (slime-get-fuzzy-buffer))
+      (add-hook 'kill-buffer-hook 'slime-fuzzy-abort nil t)
       (when slime-fuzzy-completion-in-place
         ;; switch back to the original buffer
         (switch-to-buffer-other-window slime-fuzzy-target-buffer)))))
