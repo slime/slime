@@ -684,7 +684,8 @@ function names like \(SETF GET)."
 
 ;;; Multithreading
 
-(defimplementation initialize-multiprocessing ()
+(defimplementation initialize-multiprocessing (continuation)
+  (push (list "Initialize SLIME" '() continuation) mp:*initial-processes*)
   (mp:initialize-multiprocessing))
 
 (defimplementation spawn (fn &key name)

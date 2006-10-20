@@ -2044,8 +2044,9 @@ The `symbol-value' of each element is a type tag.")
 
 #+mp
 (progn
-  (defimplementation initialize-multiprocessing () 
-    (mp::init-multi-processing))
+  (defimplementation initialize-multiprocessing (continuation) 
+    (mp::init-multi-processing)
+    (funcall continuation))
   
   (defimplementation startup-idle-and-top-level-loops ()
     ;; Threads magic: this never returns! But top-level becomes
