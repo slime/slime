@@ -1,6 +1,12 @@
+2006-10-20  Attila Lendvai  <attila.lendvai@gmail.com>
+	
+	* slime.el (slime-fuzzy-choices-buffer): Added kill-buffer-hook to
+	the completion buffer to slime-fuzzy-abort, so we get out from the
+	completion mode and key maps when the completion buffer is closed.
+
 2006-10-20  Marco Baringer  <mb@bese.it>
 	
-	* slime.el (slime-target-buffer-fuzzy-completions-map): Fix a dug
+	* slime.el (slime-target-buffer-fuzzy-completions-map): Fix a bug
 	I introduced when applying levente's patch.
 
 2006-10-20  Martin Simmons <martin@lispworks.com>
