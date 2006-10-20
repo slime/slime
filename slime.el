@@ -538,7 +538,9 @@ is inserted."
       (lambda ()
         (interactive)
         (select-window (get-buffer-window (slime-get-fuzzy-buffer)))
-        (call-interactively 'isearch-forward))))
+        (call-interactively 'isearch-forward)))
+    map
+    )
   "Keymap for slime-target-buffer-fuzzy-completions-mode. This will override the key
 bindings in the target buffer temporarily during completion.")
 
