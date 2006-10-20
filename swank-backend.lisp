@@ -845,9 +845,9 @@ output of CL:DESCRIBE."
 ;;; The default implementations are sufficient for non-multiprocessing
 ;;; implementations.
 
-(definterface initialize-multiprocessing ()
-   "Initialize multiprocessing, if necessary."
-   nil)
+(definterface initialize-multiprocessing (continuation)
+   "Initialize multiprocessing, if necessary and then invoke CONTINUATION."
+   (funcall continuation))
 
 (definterface startup-idle-and-top-level-loops ()
   "This function is called directly through the listener, not in an RPC
