@@ -1,3 +1,10 @@
+2006-10-21  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-lispworks.lisp (initialize-multiprocessing): Don't init
+	MP if it is already running.
+
+	* test.sh: Run Emacs in Screen.
+
 2006-10-20  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-backend.lisp, swank-cmucl.lisp:
