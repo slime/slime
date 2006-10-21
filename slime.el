@@ -9704,6 +9704,7 @@ Return the number of failed tests."
           (slime-test-heading 1 "%s" name)
           (dolist (input inputs)
             (incf slime-total-tests)
+            (message "%s: %s" name input)
             (slime-test-heading 2 "input: %s" input)
             (if slime-test-debug-on-error
                 (let ((debug-on-error t)
