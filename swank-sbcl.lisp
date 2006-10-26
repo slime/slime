@@ -1178,11 +1178,8 @@ stack."
 
 ;;; Weak datastructures
 
-
-;; SBCL doesn't actually implement weak hash-tables, the WEAK-P
-;; keyword is just a decoy. Leave this here, but commented out,
-;; so that no-one tries adding it back.
-#+(or)
 (defimplementation make-weak-key-hash-table (&rest args)
-  (apply #'make-hash-table :weak-p t args))
+  (apply #'make-hash-table :weakness :key args))
 
+(defimplementation make-weak-value-hash-table (&rest args)
+  (apply #'make-hash-table :weakness :value args))
