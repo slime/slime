@@ -566,7 +566,7 @@ Set the resulting list of keys in TO-KEYMAP to OPERATION."
                (call-interactively 'isearch-forward)))
 
       ;; some unconditional direct bindings
-      (dolist (key (list (kbd "RET") (kbd "SPC") "(" ")" "[" "]"))
+      (dolist (key (list (kbd "RET") (kbd "<SPC>") "(" ")" "[" "]"))
         (define-key map key 'slime-fuzzy-select-and-process-event-in-target-buffer)))
     map
     )
@@ -6228,7 +6228,7 @@ buffer. This is used to hightlight the text.")
       (define-key map (kbd "<mouse-2>") 'slime-fuzzy-select/mouse))
     
       (define-key map (kbd "RET") 'slime-fuzzy-select)
-      (define-key map (kbd "SPC") 'slime-fuzzy-select)
+      (define-key map (kbd "<SPC>") 'slime-fuzzy-select)
     
     map)
   "Keymap for slime-fuzzy-completions-mode when in the completion buffer.")
@@ -6370,8 +6370,7 @@ buffer so that it can possibly be restored when the user is
 done."
   (let ((new-completion-buffer (not slime-fuzzy-target-buffer)))
     (when new-completion-buffer
-      (slime-fuzzy-save-window-configuration)
-      (add-local-hook 'kill-buffer-hook 'slime-fuzzy-abort))
+      (slime-fuzzy-save-window-configuration))
     (slime-fuzzy-enable-target-buffer-completions-mode)
     (setq slime-fuzzy-target-buffer (current-buffer))
     (setq slime-fuzzy-start (move-marker (make-marker) start))
@@ -6381,6 +6380,8 @@ done."
     (setq slime-fuzzy-text slime-fuzzy-original-text)
     (slime-fuzzy-fill-completions-buffer completions)
     (pop-to-buffer (slime-get-fuzzy-buffer))
+    (when new-completion-buffer
+      (add-local-hook 'kill-buffer-hook 'slime-fuzzy-abort))
     (when slime-fuzzy-completion-in-place
       ;; switch back to the original buffer
       (switch-to-buffer-other-window slime-fuzzy-target-buffer))))
