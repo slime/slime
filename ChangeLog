@@ -1,3 +1,7 @@
+2006-10-26  Utz-Uwe Haus  <haus+slime@mail.math.uni-magdeburg.de>
+
+	* swank-allegro.lisp (sldb-break-at-start): Implement.
+
 2006-10-26  Attila Lendvai  <attila.lendvai@gmail.com>
    
 	* slime.el (slime-setup-command-hooks): Use make-local-hook.
