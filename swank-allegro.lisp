@@ -141,6 +141,15 @@
         (excl::*break-hook* nil))
     (funcall debugger-loop-fn)))
 
+(defimplementation sldb-break-at-start (fname)
+  ;; :print-before is kind of mis-used but we just want to stuff our break form
+  ;; somewhere. This does not work for setf, :before and :after methods, which
+  ;; need special syntax in the trace call, see ACL's doc/debugging.htm chapter 10.
+  (eval `(trace (,fname
+                 :print-before
+                 ((break "Function start breakpoint of ~A" ',fname)))))
+  `(:ok ,(format nil "Set breakpoint at start of ~S" fname)))
+
 (defun find-topframe ()
   (let ((skip-frames 3))
     (do ((f (excl::int-newest-frame) (next-frame f))
