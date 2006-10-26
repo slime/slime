@@ -273,6 +273,17 @@ opposed to moving the point to the completion buffer."
   :group 'slime-mode
   :type 'boolean)
 
+(defcustom slime-fuzzy-completion-limit 300
+  "Only return and present this many symbols from swank."
+  :group 'slime-mode
+  :type 'integer)
+
+(defcustom slime-fuzzy-completion-time-limit-in-msec 1500
+  "Limit the time spent (given in msec) in swank while gathering comletitions.
+(NOTE: currently it's rounded up the nearest second)"
+  :group 'slime-mode
+  :type 'integer)
+
 (defcustom slime-space-information-p t
   "Have the SPC key offer arglist information."
   :type 'boolean
@@ -520,25 +531,43 @@ is inserted."
 ;;;; Minor modes
 ;;;; slime-target-buffer-fuzzy-completions-mode
 ;;;; NOTE: this mode has to be able to override key mappings in slime-mode
+
+(defun mimic-key-bindings (from-keymap to-keymap bindings-or-operation operation)
+  "Iterate on BINDINGS-OR-OPERATION. If an element is a symbol then
+try to look it up (as an operation) in FROM-KEYMAP. Non symbols are taken
+as default key bindings when none to be mimiced was found in FROM-KEYMAP.
+Set the resulting list of keys in TO-KEYMAP to OPERATION."
+  (let ((mimic-keys nil)
+        (direct-keys nil))
+    (dolist (key-or-operation bindings-or-operation)
+      (if (symbolp key-or-operation)
+          (setf mimic-keys (append mimic-keys (where-is-internal key-or-operation from-keymap nil t)))
+          (push key-or-operation direct-keys)))
+    (dolist (key (or mimic-keys direct-keys))
+      (define-key to-keymap key operation))))
+
 (defvar slime-target-buffer-fuzzy-completions-map
   (let* ((map (make-sparse-keymap)))
+    (flet ((remap (keys to)
+             (mimic-key-bindings global-map map keys to)))
+      
+      (remap (list 'keyboard-quit (kbd "C-g")) 'slime-fuzzy-abort)
 
-    (define-key map (kbd "C-g") 'slime-fuzzy-abort)
-    (define-key map (kbd "<ESC>") 'slime-fuzzy-abort)
+      (remap (list 'slime-fuzzy-indent-and-complete-symbol
+                   'slime-indent-and-complete-symbol
+                   (kbd "<tab>"))
+             'slime-fuzzy-select-or-update-completions)
+      (remap (list 'previous-line (kbd "<up>")) 'slime-fuzzy-prev)
+      (remap (list 'next-line (kbd "<down>")) 'slime-fuzzy-next)
+      (remap (list 'isearch-forward (kbd "C-s"))
+             (lambda ()
+               (interactive)
+               (select-window (get-buffer-window (slime-get-fuzzy-buffer)))
+               (call-interactively 'isearch-forward)))
 
-    ;; the completion key
-    (define-key map "\t" 'slime-fuzzy-select-or-update-completions)
-
-    (dolist (key (list (kbd "<RET>") " " "(" ")" "[" "]"))
-      (define-key map key 'slime-fuzzy-select-and-process-event-in-target-buffer))
-
-    (define-key map (kbd "<up>") 'slime-fuzzy-prev)
-    (define-key map (kbd "<down>") 'slime-fuzzy-next)
-    (define-key map (where-is-internal 'isearch-forward global-map t t)
-      (lambda ()
-        (interactive)
-        (select-window (get-buffer-window (slime-get-fuzzy-buffer)))
-        (call-interactively 'isearch-forward)))
+      ;; some unconditional direct bindings
+      (dolist (key (list (kbd "RET") (kbd "SPC") "(" ")" "[" "]"))
+        (define-key map key 'slime-fuzzy-select-and-process-event-in-target-buffer)))
     map
     )
   "Keymap for slime-target-buffer-fuzzy-completions-mode. This will override the key
@@ -995,6 +1024,19 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
             (easy-menu-add slime-sldb-easy-menu 'sldb-mode-map)))
 
 
+;;;; Emacs compatibility
+
+(or (fboundp 'add-local-hook)
+    (defun add-local-hook (hook function &optional append)
+      (make-local-hook hook)
+      (add-hook hook function append t)))
+
+(or (fboundp 'remove-local-hook)
+   (defun remove-local-hook (hook function)
+     (if (local-variable-p hook (current-buffer))
+         (remove-hook hook function t))))
+
+
 ;;;; Setup initial `slime-mode' hooks
 
 (make-variable-buffer-local
@@ -1013,15 +1055,11 @@ This list of flushed between commands."))
     (add-hook 'pre-command-hook 'slime-pre-command-hook)))
 
 (defun slime-setup-command-hooks ()
-  "Setup a buffer-local `pre-command-h'ook' to call `slime-pre-command-hook'."
-  (make-local-hook 'pre-command-hook)
-  (make-local-hook 'post-command-hook)
-  ;; alanr: need local t
-  (add-hook 'pre-command-hook 'slime-pre-command-hook nil t) 
-  (add-hook 'post-command-hook 'slime-post-command-hook nil t)
+  "Setup a buffer-local `pre-command-hook' to call `slime-pre-command-hook'."
+  (add-local-hook 'pre-command-hook 'slime-pre-command-hook) 
+  (add-local-hook 'post-command-hook 'slime-post-command-hook)
   (when slime-repl-enable-presentations
-    (make-local-variable 'after-change-functions)
-    (add-hook 'after-change-functions 'slime-after-change-function nil t)))
+    (add-local-hook 'after-change-functions 'slime-after-change-function)))
 
 
 ;;;; Framework'ey bits
@@ -1302,12 +1340,15 @@ Also saves the window configuration, and inherits the current
 
 ;; Interface
 (defun slime-temp-buffer-quit ()
-  "Kill the current buffer and restore the old window configuration.
-See `slime-temp-buffer-dismiss'."
+  "Kill the current (temp) buffer without asking. To restore the
+window configuration without killing the buffer see
+`slime-dismiss-temp-buffer'."
   (interactive)
-  (let ((buf (current-buffer)))
-    (slime-dismiss-temp-buffer)
-    (kill-buffer buf)))
+  (let* ((buffer (current-buffer))
+         (window (get-buffer-window buffer)))
+    (kill-buffer buffer)
+    (when window
+      (delete-window window))))
 
 ;; Interface
 (defun slime-dismiss-temp-buffer ()
@@ -3130,8 +3171,7 @@ joined together."))
   (set (make-local-variable 'scroll-conservatively) 20)
   (set (make-local-variable 'scroll-margin) 0)
   (slime-repl-safe-load-history)
-  (make-local-hook 'kill-buffer-hook)
-  (add-hook 'kill-buffer-hook 'slime-repl-safe-save-merged-history nil t)
+  (add-local-hook 'kill-buffer-hook 'slime-repl-safe-save-merged-history)
   (add-hook 'kill-emacs-hook 'slime-repl-save-all-histories)
   (slime-setup-command-hooks)
   (when slime-use-autodoc-mode 
@@ -6164,32 +6204,34 @@ buffer. This is used to hightlight the text.")
 
 (defvar slime-fuzzy-completions-map  
   (let* ((map (make-sparse-keymap)))
+    (flet ((remap (keys to)
+             (mimic-key-bindings global-map map keys to)))
+      (remap (list 'keyboard-quit (kbd "C-g")) 'slime-fuzzy-abort)
+      (define-key map "q" 'slime-fuzzy-abort)
     
-    (define-key map "q" 'slime-fuzzy-abort)
-    (define-key map (kbd "C-g") 'slime-fuzzy-abort)
-    (define-key map "\r" 'slime-fuzzy-select)
+      (remap (list 'previous-line (kbd "<up>")) 'slime-fuzzy-prev)
+      (remap (list 'next-line (kbd "<down>")) 'slime-fuzzy-next)
     
-    (define-key map "n" 'slime-fuzzy-next)
-    (define-key map "\M-n" 'slime-fuzzy-next)
-    (define-key map (kbd "<down>") 'slime-fuzzy-next)
+      (define-key map "n" 'slime-fuzzy-next)
+      (define-key map "\M-n" 'slime-fuzzy-next)
     
-    (define-key map "p" 'slime-fuzzy-prev)
-    (define-key map "\M-p" 'slime-fuzzy-prev)
-    (define-key map (kbd "<up>") 'slime-fuzzy-prev)
+      (define-key map "p" 'slime-fuzzy-prev)
+      (define-key map "\M-p" 'slime-fuzzy-prev)
     
-    
-    (define-key map "\d" 'scroll-down)
+      (define-key map "\d" 'scroll-down)
 
-    ;; the completion key
-    (define-key map "\t" 'slime-fuzzy-select)
+      (remap (list 'slime-fuzzy-indent-and-complete-symbol
+                   'slime-indent-and-complete-symbol
+                   (kbd "<tab>"))
+             'slime-fuzzy-select)
 
-    (dolist (key (list (kbd "<RET>") " "))
-      (define-key map key 'slime-fuzzy-select-and-process-event-in-target-buffer))
-
-    (define-key map [mouse-2] 'slime-fuzzy-select/mouse)
+      (define-key map (kbd "<mouse-2>") 'slime-fuzzy-select/mouse))
+    
+      (define-key map (kbd "RET") 'slime-fuzzy-select)
+      (define-key map (kbd "SPC") 'slime-fuzzy-select)
     
     map)
-  "Keymap for slime-fuzzy-completions-mode.")
+  "Keymap for slime-fuzzy-completions-mode when in the completion buffer.")
 
 (defun slime-fuzzy-completions (prefix &optional default-package)
   "Get the list of sorted completion objects from completing
@@ -6200,7 +6242,9 @@ buffer. This is used to hightlight the text.")
     (slime-eval `(swank:fuzzy-completions ,prefix 
                                           ,(or default-package
                                                (slime-find-buffer-package)
-                                               (slime-current-package))))))
+                                               (slime-current-package))
+                  :limit ,slime-fuzzy-completion-limit
+                  :time-limit-in-msec ,slime-fuzzy-completion-time-limit-in-msec))))
 
 (defun slime-fuzzy-selected (prefix completion)
   "Tell the connected Lisp that the user selected completion
@@ -6326,7 +6370,8 @@ buffer so that it can possibly be restored when the user is
 done."
   (let ((new-completion-buffer (not slime-fuzzy-target-buffer)))
     (when new-completion-buffer
-      (slime-fuzzy-save-window-configuration))
+      (slime-fuzzy-save-window-configuration)
+      (add-local-hook 'kill-buffer-hook 'slime-fuzzy-abort))
     (slime-fuzzy-enable-target-buffer-completions-mode)
     (setq slime-fuzzy-target-buffer (current-buffer))
     (setq slime-fuzzy-start (move-marker (make-marker) start))
@@ -6335,12 +6380,10 @@ done."
     (setq slime-fuzzy-original-text (buffer-substring start end))
     (setq slime-fuzzy-text slime-fuzzy-original-text)
     (slime-fuzzy-fill-completions-buffer completions)
-    (when new-completion-buffer
-      (pop-to-buffer (slime-get-fuzzy-buffer))
-      (add-hook 'kill-buffer-hook 'slime-fuzzy-abort nil t)
-      (when slime-fuzzy-completion-in-place
-        ;; switch back to the original buffer
-        (switch-to-buffer-other-window slime-fuzzy-target-buffer)))))
+    (pop-to-buffer (slime-get-fuzzy-buffer))
+    (when slime-fuzzy-completion-in-place
+      ;; switch back to the original buffer
+      (switch-to-buffer-other-window slime-fuzzy-target-buffer))))
 
 (defun slime-fuzzy-fill-completions-buffer (completions)
   "Erases and fills the completion buffer with the given completions."
@@ -6411,6 +6454,8 @@ buffer."
   (with-current-buffer (slime-get-fuzzy-buffer)
     (slime-fuzzy-dehighlight-current-completion)
     (let ((point (next-single-char-property-change (point) 'completion)))
+      (when (= point (point-max))
+        (setf point (previous-single-char-property-change (point-max) 'completion nil slime-fuzzy-first)))
       (set-window-point (get-buffer-window (current-buffer)) point)
       (goto-char point))
     (slime-fuzzy-highlight-current-completion)))
@@ -7900,8 +7945,7 @@ Full list of commands:
     (slime-autodoc-mode 1))
   ;; Make original slime-connection "sticky" for SLDB commands in this buffer
   (setq slime-buffer-connection (slime-connection))
-  (make-local-variable 'kill-buffer-hook)
-  (add-hook 'kill-buffer-hook 'sldb-delete-overlays nil t))
+  (add-local-hook 'kill-buffer-hook 'sldb-delete-overlays))
 
 (defun sldb-help-summary ()
   "Show summary of important sldb commands"
