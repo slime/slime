@@ -384,6 +384,15 @@ Useful for low level debugging."
 (defun ascii-char-p (c) 
   (<= (char-code c) 127))
 
+(defmacro do-symbols* ((var &optional (package '*package*) result-form) &body body)
+  "Just like do-symbols, but makes sure a symbol is visited only once."
+  (let ((seen-ht (gensym "SEEN-HT")))
+    `(let ((,seen-ht (make-hash-table :test #'eq)))
+      (do-symbols (,var ,package ,result-form)
+        (unless (gethash ,var ,seen-ht)
+          (setf (gethash ,var ,seen-ht) t)
+          ,@body)))))
+
 
 ;;;; TCP Server
 
@@ -2272,7 +2281,7 @@ forward keywords to OPERATOR."
                        (matching-keywords
                         (find-matching-symbols-in-list keyword-name keywords
                                                        #'compound-prefix-match))
-                       (converter (output-case-converter keyword-string))
+                       (converter (completion-output-symbol-converter keyword-string))
                        (strings
                         (mapcar converter
                                 (mapcar #'symbol-name matching-keywords)))
@@ -3106,41 +3115,40 @@ format. The cases are as follows:
   "Return the set of completion-candidates as strings."
   (multiple-value-bind (name package-name package internal-p)
       (parse-completion-arguments string default-package-name)
-    (let* ((symbols (and package
-                         (find-matching-symbols name
-                                                package
-                                                (and (not internal-p)
-                                                     package-name)
-                                                matchp)))
-           (packs (and (not package-name)
-                       (find-matching-packages name matchp)))
-           (converter (output-case-converter name))
-           (strings
-            (mapcar converter
-                    (nconc (mapcar #'symbol-name symbols) packs))))
-      (format-completion-set strings internal-p package-name))))
+    (let* ((symbols (mapcar (completion-output-symbol-converter name)
+                            (and package
+                                 (mapcar #'symbol-name
+                                         (find-matching-symbols name
+                                                                package
+                                                                (and (not internal-p)
+                                                                     package-name)
+                                                                matchp)))))
+           (packs (mapcar (completion-output-package-converter name)
+                          (and (not package-name)
+                               (find-matching-packages name matchp)))))
+      (format-completion-set (nconc symbols packs) internal-p package-name))))
 
 (defun find-matching-symbols (string package external test)
   "Return a list of symbols in PACKAGE matching STRING.
 TEST is called with two strings.  If EXTERNAL is true, only external
 symbols are returned."
   (let ((completions '())
-        (converter (output-case-converter string)))
+        (converter (completion-output-symbol-converter string)))
     (flet ((symbol-matches-p (symbol)
              (and (or (not external)
                       (symbol-external-p symbol package))
                   (funcall test string
                            (funcall converter (symbol-name symbol))))))
-      (do-symbols (symbol package) 
+      (do-symbols* (symbol package) 
         (when (symbol-matches-p symbol)
           (push symbol completions))))
-    (remove-duplicates completions)))
+    completions))
 
 (defun find-matching-symbols-in-list (string list test)
   "Return a list of symbols in LIST matching STRING.
 TEST is called with two strings."
   (let ((completions '())
-        (converter (output-case-converter string)))
+        (converter (completion-output-symbol-converter string)))
     (flet ((symbol-matches-p (symbol)
              (funcall test string
                       (funcall converter (symbol-name symbol)))))
@@ -3208,19 +3216,43 @@ Returns a list of completions with package qualifiers if needed."
     (values (concatenate 'string prefix string)
             (length prefix))))
 
-(defun output-case-converter (input)
-  "Return a function to case convert strings for output.
+(defun completion-output-case-converter (input &optional with-escaping-p)
+  "Return a function to convert strings for the completion output.
 INPUT is used to guess the preferred case."
   (ecase (readtable-case *readtable*)
-    (:upcase (if (some #'lower-case-p input) #'string-downcase #'identity))
+    (:upcase (cond ((or with-escaping-p
+                        (every #'upper-case-p input))
+                    #'identity)
+                   (t #'string-downcase)))
     (:invert (lambda (output)
                (multiple-value-bind (lower upper) (determine-case output)
                  (cond ((and lower upper) output)
                        (lower (string-upcase output))
                        (upper (string-downcase output))
                        (t output)))))
-    (:downcase (if (some #'upper-case-p input) #'string-upcase #'identity))
+    (:downcase (cond ((or with-escaping-p
+                          (every #'lower-case-p input))
+                      #'identity)
+                     (t #'string-upcase)))
     (:preserve #'identity)))
+
+(defun completion-output-package-converter (input)
+  "Return a function to convert strings for the completion output.
+INPUT is used to guess the preferred case."
+  (completion-output-case-converter input))
+
+(defun completion-output-symbol-converter (input)
+  "Return a function to convert strings for the completion output.
+INPUT is used to guess the preferred case. Escape symbols when needed."
+  (let ((case-converter (completion-output-case-converter input))
+        (case-converter-with-escaping (completion-output-case-converter input t)))
+    (lambda (str)
+      (if (some (lambda (el)
+                  (member el '(#\: #\. #\  #\Newline #\Tab)))
+                str)
+          (concatenate 'string "|" (funcall case-converter-with-escaping str) "|")
+          (funcall case-converter str)))))
+
 
 (defun determine-case (string)
   "Return two booleans LOWER and UPPER indicating whether STRING
@@ -3320,7 +3352,7 @@ For example:
            
 ;;;; Fuzzy completion
 
-(defslimefun fuzzy-completions (string default-package-name &optional limit)
+(defslimefun fuzzy-completions (string default-package-name &key limit time-limit-in-msec)
   "Return an (optionally limited to LIMIT best results) list of
 fuzzy completions for a symbol designator STRING.  The list will
 be sorted by score, most likely match first.
@@ -3346,7 +3378,13 @@ designator's format. The cases are as follows:
   FOO      - Symbols accessible in the buffer package.
   PKG:FOO  - Symbols external in package PKG.
   PKG::FOO - Symbols accessible in package PKG."
-  (fuzzy-completion-set string default-package-name limit))
+  ;; We may send this as elisp [] arrays to spare a coerce here,
+  ;; but then the network serialization were slower by handling arrays.
+  ;; Instead we limit the number of completions that is transferred
+  ;; (the limit is set from emacs).
+  (coerce (fuzzy-completion-set string default-package-name
+                                :limit limit :time-limit-in-msec time-limit-in-msec)
+          'list))
 
 (defun convert-fuzzy-completion-result (result converter
                                         internal-p package-name)
@@ -3358,10 +3396,12 @@ a :special-operator, or a :package."
   (destructuring-bind (symbol-or-name score chunks) result
     (multiple-value-bind (name added-length)
         (format-completion-result
-         (funcall converter 
-                  (if (symbolp symbol-or-name)
-                      (symbol-name symbol-or-name)
-                      symbol-or-name))
+         (if converter
+             (funcall converter 
+                      (if (symbolp symbol-or-name)
+                          (symbol-name symbol-or-name)
+                          symbol-or-name))
+             symbol-or-name)
          internal-p package-name)
       (list name score 
             (mapcar
@@ -3395,66 +3435,94 @@ a :special-operator, or a :package."
                                      )))
                   collect flag)))))
 
-(defun fuzzy-completion-set (string default-package-name &optional limit)
+(defun fuzzy-completion-set (string default-package-name &key limit time-limit-in-msec)
   "Prepares list of completion obajects, sorted by SCORE, of fuzzy
 completions of STRING in DEFAULT-PACKAGE-NAME.  If LIMIT is set,
 only the top LIMIT results will be returned."
+  (declare (type (or null (integer 0 #.(1- most-positive-fixnum))) limit time-limit-in-msec))
   (multiple-value-bind (name package-name package internal-p)
       (parse-completion-arguments string default-package-name)
-    (let* ((symbols (and package
-                         (fuzzy-find-matching-symbols name
-                                                      package
-                                                      (and (not internal-p)
-                                                           package-name))))
-           (packs (and (not package-name)
-                       (fuzzy-find-matching-packages name)))
-           (converter (output-case-converter name))
-           (results
-            (sort (mapcar #'(lambda (result)
-                              (convert-fuzzy-completion-result
-                               result converter internal-p package-name))
-                          (nconc symbols packs))
-                  #'> :key #'second)))
-      (when (and limit 
-                 (> limit 0) 
-                 (< limit (length results)))
-        (setf (cdr (nthcdr (1- limit) results)) nil))
-      results)))
+    (flet ((convert (vector)
+             (loop for idx :upfrom 0
+                   while (< idx (length vector))
+                   for el = (aref vector idx)
+                   do (setf (aref vector idx) (convert-fuzzy-completion-result
+                                                el nil internal-p package-name)))))
+      (let* ((symbols (and package
+                           (fuzzy-find-matching-symbols name
+                                                        package
+                                                        (and (not internal-p)
+                                                             package-name)
+                                                        :time-limit-in-msec time-limit-in-msec
+                                                        :return-converted-p t)))
+             (packs (and (not package-name)
+                         (fuzzy-find-matching-packages name)))
+             (results))
+        (convert symbols)
+        (convert packs)
+        (setf results (sort (concatenate 'vector symbols packs) #'> :key #'second))
+        (when (and limit
+                   (> limit 0)
+                   (< limit (length results)))
+          (if (array-has-fill-pointer-p results)
+              (setf (fill-pointer results) limit)
+              (setf results (make-array limit :displaced-to results))))
+        results))))
 
-(defun fuzzy-find-matching-symbols (string package external)
+(defun fuzzy-find-matching-symbols (string package external &key time-limit-in-msec return-converted-p)
   "Return a list of symbols in PACKAGE matching STRING using the
 fuzzy completion algorithm.  If EXTERNAL is true, only external
 symbols are returned."
-  (let ((completions '())
-        (converter (output-case-converter string)))
-    (flet ((symbol-match (symbol)
+  (let ((completions (make-array 256 :adjustable t :fill-pointer 0))
+        (time-limit (if time-limit-in-msec
+                        (ceiling (/ time-limit-in-msec 1000))
+                        0))
+        (utime-at-start (get-universal-time))
+        (count 0)
+        (converter (completion-output-symbol-converter string)))
+    (declare (type (integer 0 #.(1- most-positive-fixnum)) count time-limit)
+             (type function converter))
+    (flet ((symbol-match (symbol converted)
              (and (or (not external)
                       (symbol-external-p symbol package))
-                  (compute-highest-scoring-completion 
-                   string (funcall converter (symbol-name symbol))))))
-      (do-symbols (symbol package)
-        (if (string= "" string)
-            (when (or (and external (symbol-external-p symbol package))
-                      (not external))
-              (push (list symbol 0.0 (list (list 0 ""))) completions))
-            (multiple-value-bind (result score) (symbol-match symbol)
-              (when result
-                (push (list symbol score result) completions))))))
-    (remove-duplicates completions :key #'first)))
+                  (compute-highest-scoring-completion
+                   string converted))))
+      (block loop
+        (do-symbols* (symbol package)
+          (incf count)
+          (when (and (not (zerop time-limit))
+                     (zerop (mod count 256))  ; ease up on calling get-universal-time like crazy
+                     (>= (- (get-universal-time) utime-at-start) time-limit))
+            (return-from loop))
+          (let* ((converted (funcall converter (symbol-name symbol)))
+                 (result (if return-converted-p converted symbol)))
+            (if (string= "" string)
+                (when (or (and external (symbol-external-p symbol package))
+                          (not external))
+                  (vector-push-extend (list result 0.0 (list (list 0 ""))) completions))
+                (multiple-value-bind (match-result score) (symbol-match symbol converted)
+                  (when match-result
+                    (vector-push-extend (list result score match-result) completions)))))))
+      completions)))
 
 (defun fuzzy-find-matching-packages (name)
   "Return a list of package names matching NAME using the fuzzy
 completion algorithm."
-  (let ((converter (output-case-converter name)))
+  (let ((converter (completion-output-package-converter name))
+        (completions (make-array 32 :adjustable t :fill-pointer 0)))
+    (declare (optimize (speed 3))
+             (type function converter))  
     (loop for package in (list-all-packages)
           for package-name = (concatenate 'string 
                                           (funcall converter
                                                    (package-name package)) 
                                           ":")
           for (result score) = (multiple-value-list
-                                (compute-highest-scoring-completion
-                                 name package-name))
-          if result collect (list package-name score result))))
+                                   (compute-highest-scoring-completion
+                                    name package-name))
+          when result do
+          (vector-push-extend (list package-name score result) completions))
+    completions))
 
 (defslimefun fuzzy-completion-selected (original-string completion)
   "This function is called by Slime when a fuzzy completion is
