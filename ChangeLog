@@ -1,40 +1,38 @@
 2006-10-26  Attila Lendvai  <attila.lendvai@gmail.com>
    
-    * slime.el (slime-setup-command-hooks): Use make-local-hook.
-    (slime-repl-mode): Ditto.
-    (slime-fuzzy-choices-buffer): Ditto.
-    (sldb-mode): Ditto.
-    (slime-fuzzy-completion-limit): New variable.
-    (slime-fuzzy-completion-time-limit-in-msec): New variable.
-    (slime-fuzzy-next): Fix when at the end of the buffer.
-    (completion-output-symbol-converter): New to handle escaped
-    symbols for those who need to mess around with symbols like
-    layered-function-definers::|CONTEXTL::SLOT-VALUE-USING-LAYER|.
-    When a symbol is escaped then completion is case sensitive.
-    (completion-output-package-converter): New.
-    (mimic-key-bindings): New to easily define bindings by first
-    trying to look up bindings for an operation and only use
-    the provided default bindings if nothing was found in the
-    source keymap. Use it to set up fuzzy bindings. (Hint:
-    if you have keys like previous-line customized,    then only
-    load slime after they have been set, and the fuzzy mode
-    will mimic them.)
-    (slime-temp-buffer-quit): Always close the opened window,
-    updated docstring.
-    Also made the fuzzy maps smarter, they now try to look up
-    keys with 'where-is-internal and map the functions on them.
+	* slime.el (slime-setup-command-hooks): Use make-local-hook.
+	(slime-repl-mode): Ditto.
+	(slime-fuzzy-choices-buffer): Ditto.
+	(sldb-mode): Ditto.
+	(slime-fuzzy-completion-limit): New variable.
+	(slime-fuzzy-completion-time-limit-in-msec): New variable.
+	(slime-fuzzy-next): Fix when at the end of the buffer.
+	(completion-output-symbol-converter): New to handle escaped
+	symbols for those who need to mess around with symbols like
+	layered-function-definers::|CONTEXTL::SLOT-VALUE-USING-LAYER|.
+	When a symbol is escaped then completion is case sensitive.
+	(completion-output-package-converter): New.
+	(mimic-key-bindings): New to easily define bindings by first
+	trying to look up bindings for an operation and only use the
+	provided default bindings if nothing was found in the source
+	keymap. Use it to set up fuzzy bindings. (Hint: if you have keys
+	like previous-line customized, then only load slime after they
+	have been set, and the fuzzy mode will mimic them.)
+	(slime-temp-buffer-quit): Always close the opened window, updated
+	docstring.  Also made the fuzzy maps smarter, they now try to look
+	up keys with 'where-is-internal and map the functions on them.
    
-    * swank-sbcl.lisp
-    (make-weak-value-hash-table): New for sbcl.
-    (make-weak-key-hash-table): New for sbcl.
+	* swank-sbcl.lisp
+	(make-weak-value-hash-table): New for sbcl.
+	(make-weak-key-hash-table): New for sbcl.
    
-    * swank.lisp (fuzzy-completions and friends): Added :limit
-    and :time-limit-in-msec keyword params. Used vectors instead
-    of lists that nearly doubled its speed (at least on sbcl).
-    Also added some declare optimize and type annotations.
-    (do-symbols*): New, uses a hash-table to visit only non-seen
-    symbols. Replaced various uses of do-symbols where it was
-    appropiate.
+	* swank.lisp (fuzzy-completions and friends): Added :limit and
+	:time-limit-in-msec keyword params. Used vectors instead of lists
+	that nearly doubled its speed (at least on sbcl).  Also added some
+	declare optimize and type annotations.
+	(do-symbols*): New, uses a hash-table to visit only non-seen
+	symbols. Replaced various uses of do-symbols where it was
+	appropiate.
 
 2006-10-26  Marco Baringer  <mb@bese.it>
 
