@@ -30,6 +30,11 @@
   (defun sbcl-with-new-stepper-p ()
     (if (find-symbol "ENABLE-STEPPING" "SB-IMPL")
         '(and)
+        '(or)))
+  ;; Ditto for weak hash-tables
+  (defun sbcl-with-weak-hash-tables ()
+    (if (find-symbol "HASH-TABLE-WEAKNESS" "SB-EXT")
+        '(and)
         '(or))))
 
 ;;; swank-mop
@@ -1178,8 +1183,14 @@ stack."
 
 ;;; Weak datastructures
 
-(defimplementation make-weak-key-hash-table (&rest args)
-  (apply #'make-hash-table :weakness :key args))
+(defimplementation make-weak-key-hash-table (&rest args)  
+  #+#.(swank-backend::sbcl-with-weak-hash-tables)
+  (apply #'make-hash-table :weakness :key args)
+  #-#.(swank-backend::sbcl-with-weak-hash-tables)
+  (apply #'make-hash-table args))
 
 (defimplementation make-weak-value-hash-table (&rest args)
-  (apply #'make-hash-table :weakness :value args))
+  #+#.(swank-backend::sbcl-with-weak-hash-tables)
+  (apply #'make-hash-table :weakness :value args)
+  #-#.(swank-backend::sbcl-with-weak-hash-tables)
+  (apply #'make-hash-table args))
