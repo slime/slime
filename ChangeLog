@@ -1,6 +1,10 @@
+2006-10-27 Ivan Toshkov <ivan@toshkov.org>
+
+	* hyperspec.el: Missing Hyperspec links for ~% and ~&
+	
 2006-10-27 Nikodemus Siivola <nikodemus@random-state.net>
 
-	* swank-sbcl (make-weak-key-hash-table): Restore support
+	* swank-sbcl.lisp (make-weak-key-hash-table): Restore support
 	for older SBCLs without weak hash-tables.
 	(make-weak-value-hash-table): Ditto.
 
