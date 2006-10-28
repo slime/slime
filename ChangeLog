@@ -1,3 +1,7 @@
+2006-10-28 Ivan Toshkov <ivan@toshkov.org>
+
+	* hyperspec.el: Missing Hyperspec links for ~| and ~~
+
 2006-10-27 Ivan Toshkov <ivan@toshkov.org>
 
 	* hyperspec.el: Missing Hyperspec links for ~% and ~&
