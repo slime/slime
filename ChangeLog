@@ -1,3 +1,19 @@
+2006-10-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	Add completion for character names. 
+	
+	* slime.el (slime-completions-for-character): New.
+	(slime-contextual-completions): Use it here.
+
+	* swank-backend.lisp (character-completion-set): New interface.
+
+	* swank-allegro.lisp (character-completion-set): Implement it.
+
+	* swank.lisp (completions-for-character): New slimefun.
+	(compound-prefix-match/ci/underscores) 
+	(longest-completion/underscores, tokenize-completion/underscores) 
+	(untokenize-completion/underscores): New functions.
+
 2006-10-28 Ivan Toshkov <ivan@toshkov.org>
 
 	* hyperspec.el: Missing Hyperspec links for ~| and ~~
