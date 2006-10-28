@@ -3750,6 +3750,48 @@ FUZZY-COMPLETIONS, format the list into user-readable output."
                   max-len (highlight-completion result sym) score result))))
 
 
+;;;; Completion for character names
+
+(defslimefun completions-for-character (prefix)
+  (let ((completion-set 
+         (sort 
+          (character-completion-set prefix 
+                                    #'compound-prefix-match/ci/underscores)
+          #'string<)))
+    (list completion-set (longest-completion/underscores completion-set))))
+
+(defun compound-prefix-match/ci/underscores (prefix target)
+  "Like compound-prefix-match, but case-insensitive, and using the underscore, 
+not the hyphen, as a delimiter." 
+  (declare (type simple-string prefix target))
+  (loop for ch across prefix
+        with tpos = 0
+        always (and (< tpos (length target))
+                    (if (char= ch #\_)
+                        (setf tpos (position #\_ target :start tpos))
+                        (char-equal ch (aref target tpos))))
+        do (incf tpos)))
+
+(defun longest-completion/underscores (completions)
+  "Return the longest prefix for all COMPLETIONS.
+COMPLETIONS is a list of strings."
+  (untokenize-completion/underscores
+   (mapcar #'longest-common-prefix
+           (transpose-lists (mapcar #'tokenize-completion/underscores 
+                                    completions)))))
+
+(defun tokenize-completion/underscores (string)
+  "Return all substrings of STRING delimited by #\_."
+  (loop with end
+        for start = 0 then (1+ end)
+        until (> start (length string))
+        do (setq end (or (position #\_ string :start start) (length string)))
+        collect (subseq string start end)))
+
+(defun untokenize-completion/underscores (tokens)
+  (format nil "~{~A~^_~}" tokens))
+
+
 ;;;; Documentation
 
 (defslimefun apropos-list-for-emacs  (name &optional external-only 
