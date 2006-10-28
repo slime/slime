@@ -769,3 +769,11 @@
 
 (defimplementation make-weak-value-hash-table (&rest args)
   (apply #'make-hash-table :values :weak args))
+
+
+;;;; Character names
+
+(defimplementation character-completion-set (prefix matchp)
+  (loop for name being the hash-keys of excl::*name-to-char-table*
+       when (funcall matchp prefix name)
+       collect (string-capitalize name)))
