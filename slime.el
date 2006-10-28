@@ -6130,7 +6130,8 @@ alist but ignores CDRs."
   "Return a list of completions of the token from BEG to END in the
 current buffer."
   (let ((token (buffer-substring-no-properties beg end)))
-    (when (and (< beg (point-max))
+    (cond
+     ((and (< beg (point-max))
                (string= (buffer-substring-no-properties beg (1+ beg)) ":"))
       ;; Contextual keyword completion
       (multiple-value-bind (operator-names arg-indices)
@@ -6146,8 +6147,13 @@ current buffer."
             ;; If no matching keyword was found, do regular symbol
             ;; completion.
             ))))
+     ((and (> beg 2)
+           (string= (buffer-substring-no-properties (- beg 2) beg) "#\\"))
+      ;; Character name completion
+      (return-from slime-contextual-completions
+        (slime-completions-for-character token))))
     ;; Regular symbol completion
-    (slime-completions (buffer-substring-no-properties beg end))))
+    (slime-completions token)))
 
 (defun slime-completions (prefix)
   (slime-eval `(swank:completions ,prefix ',(slime-current-package))))
@@ -6160,6 +6166,9 @@ current buffer."
   (slime-eval `(swank:completions-for-keyword ',operator-designator
                                               ,prefix
                                               ',arg-indices)))
+
+(defun slime-completions-for-character (prefix)
+  (slime-eval `(swank:completions-for-character ,prefix)))
 
 
 ;;;; Fuzzy completion
