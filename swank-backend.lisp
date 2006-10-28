@@ -953,3 +953,15 @@ SPEC can be:
 (definterface make-weak-value-hash-table (&rest args)
   "Like MAKE-HASH-TABLE, but weak w.r.t. the values."
   (apply #'make-hash-table args))
+
+
+;;;; Character names
+
+(definterface character-completion-set (prefix matchp)
+  "Return a list of names of characters that match PREFIX."
+  ;; Handle the standard and semi-standard characters.
+  (loop for name in '("Newline" "Space" "Tab" "Page" "Rubout"
+                      "Linefeed" "Return" "Backspace")
+     when (funcall matchp prefix name)
+     collect name))
+
