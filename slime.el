@@ -5672,20 +5672,7 @@ messages."
 (defun slime-global-variable-name-p (name)
   "Is NAME a global variable?
 Globals are recognised purely by *this-naming-convention*."
-  (when (<= (length name) 2)
-    (return-from slime-global-variable-name-p nil))
-  (when (char-equal ?\: (aref name 0))
-    (return-from slime-global-variable-name-p nil))
-  (let ((package-prefix-end (cond
-                          ((search "::" name)
-                           (+ 2 (search "::" name)))
-                          ((search ":" name)
-                           (+ 1 (search ":" name)))
-                          (t
-                           0))))
-    (let ((first-char-in-name (aref name package-prefix-end)))
-      (and (member first-char-in-name '(?\* ?\+))
-           (char-equal first-char-in-name (aref name (1- (length name))))))))
+  (string-match "^\\(.*:\\)?\\([*+]\\).+\\2$" name))
 
 (defun slime-get-cached-autodoc (symbol-name)
   "Return the cached autodoc documentation for SYMBOL-NAME, or nil."
