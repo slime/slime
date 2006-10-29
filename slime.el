@@ -5669,7 +5669,7 @@ messages."
   (when-let (name (slime-symbol-name-at-point))
     (if (slime-global-variable-name-p name) name)))
 
-(defun slime-global-variable-name-p (name)
+(defun* slime-global-variable-name-p (name)
   "Is NAME a global variable?
 Globals are recognised purely by *this-naming-convention*."
   (string-match "^\\(.*:\\)?\\([*+]\\).+\\2$" name))
