@@ -1,3 +1,7 @@
+2006-10-29  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-global-variable-name-p): Simplified.
+
 2006-10-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Add completion for character names. 
