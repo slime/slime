@@ -64,6 +64,8 @@
   (require 'overlay))
 (require 'easymenu)
 
+(load "swank-version")
+
 (defvar slime-use-autodoc-mode nil
   "When non-nil always enable slime-autodoc-mode in slime-mode.")
 
@@ -2254,7 +2256,12 @@ This is automatically synchronized from Lisp.")
   "Initialize CONNECTION with INFO received from Lisp."
   (let ((slime-dispatching-connection connection))
     (destructuring-bind (&key pid style lisp-implementation machine
-                              features package) info
+                              features package wire-protocol-version)
+        info
+      (assert (eql wire-protocol-version *swank-wire-protocol-version*)
+              nil
+              "Version mismatch. slime.el expects %S but swank.lisp uses %S, please reload."
+              *swank-wire-protocol-version* wire-protocol-version)
       (setf (slime-pid) pid
             (slime-communication-style) style
             (slime-lisp-features) features)
