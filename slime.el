@@ -5669,11 +5669,18 @@ messages."
   (when-let (name (slime-symbol-name-at-point))
     (if (slime-global-variable-name-p name) name)))
 
+(defcustom slime-global-variable-name-regexp "^\\(.*:\\)?\\([*+]\\).+\\2$"
+  "Regexp used to check if a symbol name is a global variable.
+
+Default value assumes +this+ or *that* naming conventions."
+  :type 'regexp
+  :group 'slime)
+
 (defun slime-global-variable-name-p (name)
   "Is NAME a global variable?
 Globals are recognised purely by *this-naming-convention*."
   (and (< (length name) 80) ; avoid overflows in regexp matcher
-       (string-match "^\\(.*:\\)?\\([*+]\\).+\\2$" name)))
+       (string-match slime-global-variable-name-regexp name)))
 
 (defun slime-get-cached-autodoc (symbol-name)
   "Return the cached autodoc documentation for SYMBOL-NAME, or nil."
