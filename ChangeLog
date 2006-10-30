@@ -1,3 +1,8 @@
+2006-10-30  Marco Baringer  <mb@bese.it>
+
+	* slime.el (slime-global-variable-name-regexp): New variable.
+	(slime-global-variable-name-p): Use slime-global-variable-name-regexp.
+
 2006-10-30  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-global-variable-name-p): Oops... need to handle
