@@ -1,7 +1,19 @@
 2006-10-30  Marco Baringer  <mb@bese.it>
 
+	* swank.lisp (*dont-close*): New variable.
+	(defpackage :swank): Export *dont-close*.
+	(start-server, create-server): Use *dont-close* as the default
+	value of the :dont-close parameter.
+	(connection-info): Send the wire-protocol-version (supplied by the
+	swank-version.el file) to slime when connecting.
+	(wire-protocol-version): New function.
+
 	* slime.el (slime-global-variable-name-regexp): New variable.
-	(slime-global-variable-name-p): Use slime-global-variable-name-regexp.
+	(slime-global-variable-name-p): Use
+	slime-global-variable-name-regexp.
+	("swank-version"): Load swank-version.el to get the wire protocol
+	version.
+	(slime-set-connection-info): Check the wire protocol version.
 
 2006-10-30  Helmut Eller  <heller@common-lisp.net>
 
