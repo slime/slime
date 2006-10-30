@@ -1,3 +1,8 @@
+2006-10-30  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-global-variable-name-p): Oops... need to handle
+	very long strings.
+
 2006-10-29  Attila Lendvai  <attila.lendvai@gmail.com>
 
 	* slime.el (slime-global-variable-name-p): Use defun* instead of
