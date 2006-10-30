@@ -24,6 +24,7 @@
            #:run-after-init-hook
            ;; These are user-configurable variables:
            #:*communication-style*
+           #:*dont-close*
            #:*log-events*
            #:*log-output*
            #:*use-dedicated-output-stream*
@@ -405,13 +406,18 @@ Useful for low level debugging."
 
 (defvar *communication-style* (preferred-communication-style))
 
+(defvar *dont-close* nil
+  "Default value of :dont-close argument to start-server and
+  create-server.")
+
 (defvar *dedicated-output-stream-buffering* 
   (if (eq *communication-style* :spawn) :full :none)
   "The buffering scheme that should be used for the output stream.
 Valid values are :none, :line, and :full.")
 
 (defun start-server (port-file &key (style *communication-style*)
-                     dont-close (external-format *coding-system*))
+                                    (dont-close *dont-close*)
+                                    (external-format *coding-system*))
   "Start the server and write the listen port number to PORT-FILE.
 This is the entry point for Emacs."
   (flet ((start-server-aux ()
@@ -424,7 +430,7 @@ This is the entry point for Emacs."
 
 (defun create-server (&key (port default-server-port)
                       (style *communication-style*)
-                      dont-close (external-format *coding-system*))
+                      (dont-close *dont-close*) (external-format *coding-system*))
   "Start a SWANK server on PORT running in STYLE.
 If DONT-CLOSE is true then the listen socket will accept multiple
 connections, otherwise it will be closed after the first."
@@ -1213,12 +1219,13 @@ converted to lower case."
 
 (defslimefun connection-info ()
   "Return a key-value list of the form: 
-\(&key PID STYLE LISP-IMPLEMENTATION MACHINE FEATURES PACKAGE)
+\(&key PID STYLE LISP-IMPLEMENTATION MACHINE FEATURES PACKAGE WIRE-PROTOCOL-VERSION)
 PID: is the process-id of Lisp process (or nil, depending on the STYLE)
 STYLE: the communication style
 LISP-IMPLEMENTATION: a list (&key TYPE NAME VERSION)
 FEATURES: a list of keywords
-PACKAGE: a list (&key NAME PROMPT)"
+PACKAGE: a list (&key NAME PROMPT)
+WIRE-PROTOCOL-VERSION: a number"
   (setq *slime-features* *features*)
   `(:pid ,(getpid) :style ,(connection.communication-style *emacs-connection*)
     :lisp-implementation (:type ,(lisp-implementation-type)
@@ -1229,7 +1236,8 @@ PACKAGE: a list (&key NAME PROMPT)"
               :version ,(machine-version))
     :features ,(features-for-emacs)
     :package (:name ,(package-name *package*)
-              :prompt ,(package-string-for-prompt *package*))))
+              :prompt ,(package-string-for-prompt *package*))
+    :wire-protocol-version ,(wire-protocol-version)))
 
 (defslimefun io-speed-test (&optional (n 5000) (m 1))
   (let* ((s *standard-output*)
@@ -1245,6 +1253,11 @@ PACKAGE: a list (&key NAME PROMPT)"
     (terpri *trace-output*)
     (finish-output *trace-output*)
     nil))
+
+(defun wire-protocol-version ()
+  (let ((*package* (find-package :swank)))
+    (load (merge-pathnames "swank-version.el" swank-loader::*source-directory*))
+    (symbol-value '*swank-wire-protocol-version*)))
 
 
 ;;;; Reading and printing
