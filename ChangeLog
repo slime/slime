@@ -1,3 +1,9 @@
+2006-11-01  Marco Baringer  <mb@bese.it>
+
+	* swank.lisp (*swank-wire-protocol-version*): Use a defvar to
+	declare the existence of tihs variable to the lisp (Reported by:
+	Jonathon McKitrick <jcm@FreeBSD-uk.eu.org>).
+	
 2006-10-30  Marco Baringer  <mb@bese.it>
 
 	* swank.lisp (*dont-close*): New variable.
