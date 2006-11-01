@@ -1217,6 +1217,11 @@ converted to lower case."
              ((:ok value) value)
              ((:abort) (abort)))))))
 
+(defvar *swank-wire-protocol-version* nil
+  "The version of the swank/slime communication protocol.
+
+Set in swank-version.el.")
+
 (defslimefun connection-info ()
   "Return a key-value list of the form: 
 \(&key PID STYLE LISP-IMPLEMENTATION MACHINE FEATURES PACKAGE WIRE-PROTOCOL-VERSION)
