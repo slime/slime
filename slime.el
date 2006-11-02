@@ -386,6 +386,14 @@ opposed to moving the point to the completion buffer."
 	  (const :tag "Don't show" nil))
   :group 'slime-debugger)
 
+(defcustom sldb-sexp-highlight-mode :auto
+  "Defines how sexps are highlighted in sldb. Auto means Entire when paren-mode is 'sexp-surround." 
+  :type '(choice
+          (const :tag "Auto" :value :auto)
+          (const :tag "Entire" :value :entire)
+          (const :tag "Sides" :value :sides))
+  :group 'slime-debugger)
+
 (defmacro def-sldb-faces (&rest faces)
   "Define the set of SLDB faces.
 Each face specifiation is (NAME DESCRIPTION &optional PROPERTIES).
@@ -3603,7 +3611,8 @@ the presented object."
   (when (and (plusp (length string))
              (eq ?\n (aref string (1- (length string)))))
     (setq string (substring string 0 -1)))
-  (unless (equal string (car slime-repl-input-history))
+  (unless (or (= (length string) 0)
+              (equal string (car slime-repl-input-history)))
     (push string slime-repl-input-history))
   (setq slime-repl-input-history-position -1))
   
@@ -3938,14 +3947,31 @@ earlier in the buffer."
 (defvar slime-repl-history-pattern nil
   "The regexp most recently used for finding input history.")
 
-(defun slime-repl-history-replace (direction regexp &optional delete-at-end-p)
+;; initialized later when slime-repl-mode-map is available
+(defvar slime-repl-history-map (make-sparse-keymap)
+  "Map active while in the minibuffer reading repl search regexp.")
+
+(defun* slime-repl-history-replace (direction &optional regexp delete-at-end-p)
   "Replace the current input with the next line in DIRECTION matching REGEXP.
 DIRECTION is 'forward' or 'backward' (in the history list).
 If DELETE-AT-END-P is non-nil then remove the string if the end of the
-history is reached."
-  (setq slime-repl-history-pattern regexp)
-  (let ((pos (slime-repl-position-in-history direction regexp))
-        (forward (eq direction 'forward)))
+history is reached. Returns t if there were any matches."
+  (when regexp
+    (setq slime-repl-history-pattern regexp))
+  (let* ((forward (eq direction 'forward))
+         (history-length (length slime-repl-input-history))
+         (pos (if regexp
+                  (slime-repl-position-in-history direction regexp)
+                  (if (>= slime-repl-input-history-position 0)
+                      (+ slime-repl-input-history-position
+                         (if forward -1 1))
+                      (unless forward
+                        0)))))
+    (when (and pos
+               (or (< pos 0)
+                   (>= pos history-length)))
+
+      (setf pos nil))
     (cond (pos
            (slime-repl-replace-input (nth pos slime-repl-input-history))
            (setq slime-repl-input-history-position pos)
@@ -3955,13 +3981,15 @@ history is reached."
                           (message "End of history"))
                  (t (message "Beginning of history")))
            (setq slime-repl-input-history-position
-                 (if forward -1 (length slime-repl-input-history))))
+                 (if forward -1 history-length)))
           ((and delete-at-end-p slime-repl-wrap-history)
            (slime-repl-replace-input "")
            (setq slime-repl-input-history-position
-                 (if forward (length slime-repl-input-history) -1)))
+                 (if forward history-length -1)))
           (t
-           (message "End of history; no matching item")))))
+           (message "End of history; no matching item")
+           (return-from slime-repl-history-replace nil))))
+  t)
 
 (defun slime-repl-position-in-history (direction regexp)
   "Return the position of the history item matching regexp.
@@ -3970,40 +3998,52 @@ Return nil of no item matches"
   (let* ((step (ecase direction
                  (forward -1)
                  (backward 1)))
-         (history-pos0 slime-repl-input-history-position))
+         (history-pos0 slime-repl-input-history-position)
+         (history-length (length slime-repl-input-history)))
     (loop for pos = (+ history-pos0 step) then (+ pos step)
           while (and (<= 0 pos)
-                     (< pos (length slime-repl-input-history)))
+                     (< pos history-length))
           do (let ((string (nth pos slime-repl-input-history)))
                (when (and (string-match regexp string)
                           (not (string= string (slime-repl-current-input))))
                  (return pos))))))
 
-(defun slime-repl-matching-input-regexp ()
-  (if (memq last-command
-            '(slime-repl-previous-input slime-repl-next-input))
-      slime-repl-history-pattern
-    (concat "^" (regexp-quote (slime-buffer-substring-with-reified-output
-                               slime-repl-input-start-mark
-                               (if (> (point) slime-repl-input-start-mark)
-                                   (point)
-                                 slime-repl-input-end-mark))))))
-
 (defun slime-repl-previous-input ()
   (interactive)
-  (slime-repl-history-replace 'backward (slime-repl-matching-input-regexp) t))
+  (slime-repl-history-replace 'backward nil t))
 
 (defun slime-repl-next-input ()
   (interactive)
-  (slime-repl-history-replace 'forward (slime-repl-matching-input-regexp) t))
+  (slime-repl-history-replace 'forward nil t))
 
-(defun slime-repl-previous-matching-input (regexp)
-  (interactive "sPrevious element matching (regexp): ")
-  (slime-repl-history-replace 'backward regexp))
+(defun slime-repl-continue-search-with-last-pattern ()
+  (interactive)
+  (when slime-repl-history-pattern
+    (throw 'continue slime-repl-history-pattern)))
 
-(defun slime-repl-next-matching-input (regexp)
-  (interactive "sNext element matching (regexp): ")
-  (slime-repl-history-replace 'forward regexp))
+(defun slime-repl-previous-or-next-matching-input (regexp direction prompt)
+  (let ((command this-command))
+    (unless regexp
+      (setf regexp (if (and slime-repl-history-pattern
+                            (memq last-command
+                                  '(slime-repl-previous-matching-input slime-repl-next-matching-input)))
+                       slime-repl-history-pattern
+                       (catch 'continue
+                         (slime-read-from-minibuffer
+                          prompt (slime-symbol-name-at-point) slime-repl-history-map)))))
+    (when (and regexp (> (length regexp) 0))
+      (when (slime-repl-history-replace direction regexp)
+        (setf this-command command)))))
+
+(defun slime-repl-previous-matching-input ()
+  (interactive)
+  (slime-repl-previous-or-next-matching-input
+   nil 'backward "Previous element matching (regexp): "))
+
+(defun slime-repl-next-matching-input ()
+  (interactive)
+  (slime-repl-previous-or-next-matching-input
+   nil 'forward "Next element matching (regexp): "))
 
 ;;;;; Persistent History 
 
@@ -4160,6 +4200,14 @@ The handler will use qeuery to ask the use if the error should be ingored."
   ("\C-c\C-k" 'slime-compile-and-load-file)
   ("\C-c\C-z" 'slime-nop))
 
+;; set up slime-repl-history-map
+(flet ((remap (keys to)
+         (mimic-key-bindings slime-repl-mode-map slime-repl-history-map keys to)))
+  (remap (list 'slime-repl-previous-matching-input (kbd "M-r"))
+         'slime-repl-continue-search-with-last-pattern)
+  (remap (list 'slime-repl-next-matching-input (kbd "M-n"))
+         'slime-repl-continue-search-with-last-pattern))
+
 ;;;;;; REPL Read Mode
 
 (define-key slime-repl-mode-map
@@ -4224,15 +4272,15 @@ The handler will use qeuery to ask the use if the error should be ingored."
 
 (defun slime-handle-repl-shortcut ()
   (interactive)
-  (if (= (point) slime-repl-input-start-mark)
+  (if (> (point) slime-repl-input-start-mark)
+      (insert (string slime-repl-shortcut-dispatch-char))
       (let ((shortcut (slime-lookup-shortcut
                        (completing-read "Command: " 
                                         (slime-bogus-completion-alist
                                          (slime-list-all-repl-shortcuts))
                                         nil t nil
                                         'slime-repl-shortcut-history))))
-        (call-interactively (slime-repl-shortcut.handler shortcut)))
-    (insert (string slime-repl-shortcut-dispatch-char))))
+        (call-interactively (slime-repl-shortcut.handler shortcut)))))
 
 (defun slime-list-all-repl-shortcuts ()
   (loop for shortcut in slime-repl-shortcut-table
@@ -6099,6 +6147,7 @@ Return nil iff if point is not at filename."
   "Minibuffer keymap used for reading CL expressions.")
 
 (set-keymap-parent slime-read-expression-map minibuffer-local-map)
+(set-keymap-parent slime-repl-history-map slime-read-expression-map)
 
 (define-key slime-read-expression-map "\t" 'slime-complete-symbol)
 (define-key slime-read-expression-map "\M-\t" 'slime-complete-symbol)
@@ -6106,7 +6155,7 @@ Return nil iff if point is not at filename."
 (defvar slime-read-expression-history '()
   "History list of expressions read from the minibuffer.")
  
-(defun slime-read-from-minibuffer (prompt &optional initial-value)
+(defun slime-read-from-minibuffer (prompt &optional initial-value keymap)
   "Read a string from the minibuffer, prompting with PROMPT.  
 If INITIAL-VALUE is non-nil, it is inserted into the minibuffer before
 reading input.  The result is a string (\"\" if no input was given)."
@@ -6118,7 +6167,8 @@ reading input.  The result is a string (\"\" if no input was given)."
                    (setq slime-buffer-connection connection)
                    (set-syntax-table lisp-mode-syntax-table)))
 	       minibuffer-setup-hook)))
-    (read-from-minibuffer prompt initial-value slime-read-expression-map
+    (read-from-minibuffer prompt initial-value
+                          (or keymap slime-read-expression-map)
 			  nil 'slime-read-expression-history)))
 
 (defun slime-bogus-completion-alist (list)
@@ -6418,8 +6468,8 @@ done."
       (setq buffer-read-only t))
     (setq slime-fuzzy-current-completion
           (caar completions))
-    (goto-char slime-fuzzy-first)
-    (slime-fuzzy-highlight-current-completion)))
+    (goto-char 0)
+    (slime-fuzzy-next)))
 
 (defun slime-fuzzy-enable-target-buffer-completions-mode ()
   "Store the target buffer's local map, so that we can restore it."
@@ -6485,7 +6535,8 @@ completions buffer."
 
 (defun slime-fuzzy-dehighlight-current-completion ()
   "Restores the original face for the current completion."
-  (overlay-put slime-fuzzy-current-completion-overlay 'face 'nil))
+  (when slime-fuzzy-current-completion-overlay
+    (overlay-put slime-fuzzy-current-completion-overlay 'face 'nil)))
 
 (defun slime-fuzzy-highlight-current-completion ()
   "Highlights the current completion, so that the user can see it on the screen."
@@ -6647,8 +6698,11 @@ If there's no name at point, or a prefix argument is given, then the
 function name is prompted."
   (interactive (list (slime-read-symbol-name "Name: ")))
   (let ((definitions (slime-eval `(swank:find-definitions-for-emacs ,name))))
-    (cond 
-     ((null definitions)
+    (cond
+     ((or (null definitions)
+          (every (lambda (definition)
+                   (eq :error (caadr definition)))
+                 definitions))
       (if slime-edit-definition-fallback-function
           (funcall slime-edit-definition-fallback-function name)
         (error "No known definition for: %s" name)))
@@ -8388,8 +8442,13 @@ Called on the `point-entered' text-property hook."
   (sldb-delete-overlays)
   (let ((start (or start (point)))
 	(end (or end (save-excursion (ignore-errors (forward-sexp)) (point)))))
-    (push (make-overlay start (1+ start)) sldb-overlays)
-    (push (make-overlay (1- end) end) sldb-overlays)
+    (cond ((or (eq sldb-sexp-highlight-mode :entire)
+               (and (eq sldb-sexp-highlight-mode :auto)
+                    (eq paren-mode 'sexp-surround)))
+           (push (make-overlay start end) sldb-overlays))
+          (t
+            (push (make-overlay start (1+ start)) sldb-overlays)
+            (push (make-overlay (1- end) end) sldb-overlays)))
     (dolist (overlay sldb-overlays)
       (overlay-put overlay 'face 'secondary-selection))))
 
