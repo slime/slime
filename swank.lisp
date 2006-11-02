@@ -3421,7 +3421,7 @@ a :special-operator, or a :package."
                           symbol-or-name))
              symbol-or-name)
          internal-p package-name)
-      (list name score 
+      (list name score
             (mapcar
              #'(lambda (chunk)
                  ;; fix up chunk positions to account for possible
@@ -3460,23 +3460,24 @@ only the top LIMIT results will be returned."
   (declare (type (or null (integer 0 #.(1- most-positive-fixnum))) limit time-limit-in-msec))
   (multiple-value-bind (name package-name package internal-p)
       (parse-completion-arguments string default-package-name)
-    (flet ((convert (vector)
-             (loop for idx :upfrom 0
-                   while (< idx (length vector))
-                   for el = (aref vector idx)
-                   do (setf (aref vector idx) (convert-fuzzy-completion-result
-                                                el nil internal-p package-name)))))
+    (flet ((convert (vector &optional converter)
+             (when vector
+               (loop for idx :upfrom 0
+                     while (< idx (length vector))
+                     for el = (aref vector idx)
+                     do (setf (aref vector idx) (convert-fuzzy-completion-result
+                                                 el converter internal-p package-name))))))
       (let* ((symbols (and package
                            (fuzzy-find-matching-symbols name
                                                         package
                                                         (and (not internal-p)
                                                              package-name)
                                                         :time-limit-in-msec time-limit-in-msec
-                                                        :return-converted-p t)))
+                                                        :return-converted-p nil)))
              (packs (and (not package-name)
                          (fuzzy-find-matching-packages name)))
              (results))
-        (convert symbols)
+        (convert symbols (completion-output-symbol-converter string))
         (convert packs)
         (setf results (sort (concatenate 'vector symbols packs) #'> :key #'second))
         (when (and limit
@@ -4369,8 +4370,8 @@ NIL is returned if the list is circular."
                       for name = (swank-mop:slot-definition-name slotd)
                       collect `(:value ,slotd ,(string name))
                       collect " = "
-                      collect (if (swank-mop:slot-boundp-using-class c o slotd)
-                                  `(:value ,(swank-mop:slot-value-using-class 
+                      collect (if (slot-boundp-using-class-for-inspector c o slotd)
+                                  `(:value ,(slot-value-using-class-for-inspector 
                                              c o slotd))
                                   "#<unbound>")
                       collect '(:newline))))))
@@ -4410,31 +4411,41 @@ See `methods-by-applicability'.")
 		     maxlen
 		     (length doc))))
 
-(defun all-slots-for-inspector (object)
-  (append (list "------------------------------" '(:newline)
-               "All Slots:" '(:newline))          
-          (loop
-             with direct-slots = (swank-mop:class-direct-slots (class-of object))
-             for slot in (swank-mop:class-slots (class-of object))
-             for slot-def = (or (find-if (lambda (a)
-                                           ;; find the direct slot
-                                           ;; with the same name
-                                           ;; as SLOT (an
-                                           ;; effective slot).
-                                           (eql (swank-mop:slot-definition-name a)
-                                                (swank-mop:slot-definition-name slot)))
-                                         direct-slots)
-                                slot)
-             collect `(:value ,slot-def ,(inspector-princ (swank-mop:slot-definition-name slot-def)))
-             collect " = "
-             if (slot-boundp object (swank-mop:slot-definition-name slot-def))
-             collect `(:value ,(slot-value object (swank-mop:slot-definition-name slot-def)))
-             else
-             collect "#<unbound>"
-             collect '(:newline))))
+(defgeneric slot-value-using-class-for-inspector (class object slot)
+  (:method (class object slot)
+           (swank-mop:slot-value-using-class class object slot)))
+
+(defgeneric slot-boundp-using-class-for-inspector (class object slot)
+  (:method (class object slot)
+           (swank-mop:slot-boundp-using-class class object slot)))
+
+(defgeneric all-slots-for-inspector (object inspector)
+  (:method ((object standard-object) inspector)
+           (append '("------------------------------" (:newline)
+                     "All Slots:" (:newline))
+                   (loop
+                       with class = (class-of object)
+                       with direct-slots = (swank-mop:class-direct-slots (class-of object))
+                       for slot in (swank-mop:class-slots (class-of object))
+                       for slot-def = (or (find-if (lambda (a)
+                                                     ;; find the direct slot
+                                                     ;; with the same name
+                                                     ;; as SLOT (an
+                                                     ;; effective slot).
+                                                     (eql (swank-mop:slot-definition-name a)
+                                                          (swank-mop:slot-definition-name slot)))
+                                                   direct-slots)
+                                          slot)
+                       collect `(:value ,slot-def ,(inspector-princ (swank-mop:slot-definition-name slot-def)))
+                       collect " = "
+                       if (slot-boundp-using-class-for-inspector class object slot)
+                       collect `(:value ,(slot-value-using-class-for-inspector
+                                          (class-of object) object slot))
+                       else
+                       collect "#<unbound>"
+                       collect '(:newline)))))
 
 (defmethod inspect-for-emacs ((gf standard-generic-function) inspector)
-  (declare (ignore inspector))
   (flet ((lv (label value) (label-value-line label value)))
     (values 
      "A generic function."
@@ -4457,10 +4468,9 @@ See `methods-by-applicability'.")
                             (remove-method gf m))))
 	      (:newline)))
       `((:newline))
-      (all-slots-for-inspector gf)))))
+      (all-slots-for-inspector gf inspector)))))
 
 (defmethod inspect-for-emacs ((method standard-method) inspector)
-  (declare (ignore inspector))
   (values "A method." 
           `("Method defined on the generic function " 
 	    (:value ,(swank-mop:method-generic-function method)
@@ -4478,10 +4488,9 @@ See `methods-by-applicability'.")
             (:newline)
             "Method function: " (:value ,(swank-mop:method-function method))
             (:newline)
-            ,@(all-slots-for-inspector method))))
+            ,@(all-slots-for-inspector method inspector))))
 
 (defmethod inspect-for-emacs ((class standard-class) inspector)
-  (declare (ignore inspector))
   (values "A class."
           `("Name: " (:value ,(class-name class))
             (:newline)
@@ -4538,11 +4547,10 @@ See `methods-by-applicability'.")
                                `(:value ,(swank-mop:class-prototype class))
                                '"#<N/A (class not finalized)>")
             (:newline)
-            ,@(all-slots-for-inspector class))))
+            ,@(all-slots-for-inspector class inspector))))
 
 (defmethod inspect-for-emacs ((slot swank-mop:standard-slot-definition) inspector)
-  (declare (ignore inspector))
-  (values "A slot." 
+  (values "A slot."
           `("Name: " (:value ,(swank-mop:slot-definition-name slot))
             (:newline)
             ,@(when (swank-mop:slot-definition-documentation slot)
@@ -4555,7 +4563,7 @@ See `methods-by-applicability'.")
                              "#<unspecified>") (:newline)
             "Init function: " (:value ,(swank-mop:slot-definition-initfunction slot))            
             (:newline)
-            ,@(all-slots-for-inspector slot))))
+            ,@(all-slots-for-inspector slot inspector))))
 
 (defmethod inspect-for-emacs ((package package) inspector)
   (declare (ignore inspector))
