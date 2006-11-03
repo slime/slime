@@ -1,3 +1,8 @@
+2006-11-03  Marco Baringer  <mb@bese.it>
+
+	* swank.lisp (all-slots-for-inspector): Added declare ignore for
+	unused argument inspector (openmcl warns about this). Reindented.
+
 2006-11-01  Attila Lendvai  <attila.lendvai@gmail.com>
        
         * slime.el (sldb-sexp-highlight-mode): New custom.
