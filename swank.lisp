@@ -4421,29 +4421,30 @@ See `methods-by-applicability'.")
 
 (defgeneric all-slots-for-inspector (object inspector)
   (:method ((object standard-object) inspector)
-           (append '("------------------------------" (:newline)
-                     "All Slots:" (:newline))
-                   (loop
-                       with class = (class-of object)
-                       with direct-slots = (swank-mop:class-direct-slots (class-of object))
-                       for slot in (swank-mop:class-slots (class-of object))
-                       for slot-def = (or (find-if (lambda (a)
-                                                     ;; find the direct slot
-                                                     ;; with the same name
-                                                     ;; as SLOT (an
-                                                     ;; effective slot).
-                                                     (eql (swank-mop:slot-definition-name a)
-                                                          (swank-mop:slot-definition-name slot)))
-                                                   direct-slots)
-                                          slot)
-                       collect `(:value ,slot-def ,(inspector-princ (swank-mop:slot-definition-name slot-def)))
-                       collect " = "
-                       if (slot-boundp-using-class-for-inspector class object slot)
-                       collect `(:value ,(slot-value-using-class-for-inspector
-                                          (class-of object) object slot))
-                       else
-                       collect "#<unbound>"
-                       collect '(:newline)))))
+    (declare (ignore inspector))
+    (append '("------------------------------" (:newline)
+              "All Slots:" (:newline))
+            (loop
+               with class = (class-of object)
+               with direct-slots = (swank-mop:class-direct-slots (class-of object))
+               for slot in (swank-mop:class-slots (class-of object))
+               for slot-def = (or (find-if (lambda (a)
+                                             ;; find the direct slot
+                                             ;; with the same name
+                                             ;; as SLOT (an
+                                             ;; effective slot).
+                                             (eql (swank-mop:slot-definition-name a)
+                                                  (swank-mop:slot-definition-name slot)))
+                                           direct-slots)
+                                  slot)
+               collect `(:value ,slot-def ,(inspector-princ (swank-mop:slot-definition-name slot-def)))
+               collect " = "
+               if (slot-boundp-using-class-for-inspector class object slot)
+               collect `(:value ,(slot-value-using-class-for-inspector
+                                  (class-of object) object slot))
+               else
+               collect "#<unbound>"
+               collect '(:newline)))))
 
 (defmethod inspect-for-emacs ((gf standard-generic-function) inspector)
   (flet ((lv (label value) (label-value-line label value)))
