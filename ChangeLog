@@ -1,3 +1,14 @@
+2006-11-04  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	Support nested presentations in REPL results, when present.lisp is
+	loaded. 
+	
+	* swank.lisp (make-presentations-result): New, factored out from
+	listener-eval. 
+	(listener-eval): Use it here.
+
+	* present.lisp (make-presentations-result): Override it here.
+
 2006-11-03  Marco Baringer  <mb@bese.it>
 
 	* swank.lisp (all-slots-for-inspector): Added declare ignore for
@@ -5,16 +16,16 @@
 
 2006-11-01  Attila Lendvai  <attila.lendvai@gmail.com>
        
-        * slime.el (sldb-sexp-highlight-mode): New custom.
-        (slime-handle-repl-shortcut): Trigger slime-lookup-shortcut when
+	* slime.el (sldb-sexp-highlight-mode): New custom.
+	(slime-handle-repl-shortcut): Trigger slime-lookup-shortcut when
 	the point is anywhere before slime-repl-input-start-mark.  IOW,
 	you can press "," anywhere before the prompt.
-        (slime-edit-definition): Handle the case when there are only such
+	(slime-edit-definition): Handle the case when there are only such
 	entries returned from swank that have errors.
-        (slime-read-from-minibuffer): Allow overriding of the keymap.
-        (slime-repl-previous-matching-input): Similar behaviour like
+	(slime-read-from-minibuffer): Allow overriding of the keymap.
+	(slime-repl-previous-matching-input): Similar behaviour like
 	isearch-forward.
-        (slime-repl-next-matching-input): Ditto. In more details: You can
+	(slime-repl-next-matching-input): Ditto. In more details: You can
 	freely navigate with slime-repl-previous/next-input with M-p and
 	M-n at any time among the history entries.  When M-r is pressed,
 	which invokes slime-repl-previous-matching-input, the the
@@ -25,16 +36,16 @@
 	M-r get the next match, and of course the same applies for M-s,
 	which is slime-repl-previous-matching-input.
 
-        * swank.lisp (fuzzy-completion-set): Fix on clisp.
-        (convert-fuzzy-completion-result): Fix symbol fbound and other
+	* swank.lisp (fuzzy-completion-set): Fix on clisp.
+	(convert-fuzzy-completion-result): Fix symbol fbound and other
 	annotations.
-        (slot-value-using-class-for-inspector): New.
-        (slot-boundp-using-class-for-inspector): New.
-        (inspect-for-emacs): Use the special slot access methods so that
+	(slot-value-using-class-for-inspector): New.
+	(slot-boundp-using-class-for-inspector): New.
+	(inspect-for-emacs): Use the special slot access methods so that
 	it's possible to customize the inspecting of complex
 	slots (e.g. computed-class at
 	http://common-lisp.net/project/computed-class/).
-        (all-slots-for-inspector): Converted to generic method.
+	(all-slots-for-inspector): Converted to generic method.
 
 2006-11-01  Marco Baringer  <mb@bese.it>
 
