@@ -2623,6 +2623,12 @@ Return its name and the string to use in the prompt."
   (let ((p (setq *package* (guess-package-from-string package))))
     (list (package-name p) (package-string-for-prompt p))))
 
+(defun make-presentations-result (values)
+  ;; overridden in present.lisp
+  `(:present ,(loop for x in values 
+                    collect (cons (prin1-to-string x) 
+                                  (save-presented-object x)))))
+
 (defslimefun listener-eval (string)
   (clear-user-input)
   (with-buffer-syntax ()
@@ -2636,9 +2642,7 @@ Return its name and the string to use in the prompt."
 	(setq +++ ++  ++ +  + last-form)
         (cond ((eq *slime-repl-suppress-output* t) '(:suppress-output))
               (*record-repl-results*
-               `(:present ,(loop for x in values 
-                                 collect (cons (prin1-to-string x) 
-                                               (save-presented-object x)))))
+               (make-presentations-result values))
               (t 
                `(:values ,(mapcar #'prin1-to-string values))))))))
 
