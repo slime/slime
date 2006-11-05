@@ -263,12 +263,6 @@ final, no matter where the point is."
   :group 'slime-mode
   :type 'boolean)
 
-(defcustom slime-complete-keywords-contextually t
-  "Use information from the arglist of the surrounding function call
-to complete keywords."
-  :group 'slime-mode
-  :type 'boolean)
-
 (defcustom slime-fuzzy-completion-in-place nil
   "When non-NIL the fuzzy symbol completion is done in place as
 opposed to moving the point to the completion buffer."

@@ -1,3 +1,8 @@
+2006-11-05  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-complete-keywords-contextually): Unused
+	variable, removed.
+
 2006-11-05  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (sldb-sexp-highlight-mode): Remove bloat.
