@@ -386,14 +386,6 @@ opposed to moving the point to the completion buffer."
 	  (const :tag "Don't show" nil))
   :group 'slime-debugger)
 
-(defcustom sldb-sexp-highlight-mode :auto
-  "Defines how sexps are highlighted in sldb. Auto means Entire when paren-mode is 'sexp-surround." 
-  :type '(choice
-          (const :tag "Auto" :value :auto)
-          (const :tag "Entire" :value :entire)
-          (const :tag "Sides" :value :sides))
-  :group 'slime-debugger)
-
 (defmacro def-sldb-faces (&rest faces)
   "Define the set of SLDB faces.
 Each face specifiation is (NAME DESCRIPTION &optional PROPERTIES).
@@ -4587,7 +4579,8 @@ See `slime-compile-and-load-file' for further details."
      `(swank:compile-file-for-emacs 
        ,lisp-filename ,(if load t nil)
        ,@(if (local-variable-p 'slime-coding (current-buffer))
-             (list (slime-coding-system-cl-name slime-coding))))
+             (list (or (slime-coding-system-cl-name slime-coding)
+                       (error "Encoding not supported: %s" slime-coding)))))
      (slime-compilation-finished-continuation))
     (message "Compiling %s.." lisp-filename)))
 
@@ -8442,15 +8435,10 @@ Called on the `point-entered' text-property hook."
   (sldb-delete-overlays)
   (let ((start (or start (point)))
 	(end (or end (save-excursion (ignore-errors (forward-sexp)) (point)))))
-    (cond ((or (eq sldb-sexp-highlight-mode :entire)
-               (and (eq sldb-sexp-highlight-mode :auto)
-                    (eq paren-mode 'sexp-surround)))
-           (push (make-overlay start end) sldb-overlays))
-          (t
-            (push (make-overlay start (1+ start)) sldb-overlays)
-            (push (make-overlay (1- end) end) sldb-overlays)))
-    (dolist (overlay sldb-overlays)
-      (overlay-put overlay 'face 'secondary-selection))))
+    (push (make-overlay start (1+ start)) sldb-overlays)
+    (push (make-overlay (1- end) end) sldb-overlays))
+  (dolist (overlay sldb-overlays)
+    (overlay-put overlay 'face 'secondary-selection)))
 
 
 (defun sldb-toggle-details (&optional on)
