@@ -1399,6 +1399,7 @@ See `slime-filename-translations'."
 
 (defun slime-make-tramp-file-name (username remote-host lisp-filename)
   "Old (with multi-hops) tramp compatability function"
+  (require 'tramp)
   (if (boundp 'tramp-multi-methods)
       (tramp-make-tramp-file-name nil nil
                                   username
