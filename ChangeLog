@@ -1,3 +1,35 @@
+2006-11-19  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-compile-file): Let the Lisp side choose the
+	coding system.
+	(slime-coding): Deleted.
+
+	* swank.lisp (compile-file-for-emacs): Use guess-external-format.
+	
+	* swank-backend.lisp (find-external-format)
+	(guess-external-format): New.
+	(swank-compile-file): The external-format argument is now a
+	backend specific value returned by find-external-format.
+
+	* swank-cmucl.lisp, swank-sbcl.lisp, swank-clisp,
+	swank-lispworks.lisp, swank-allegro.lisp, swank-corman.lisp,
+	swank-ecl.lisp, swank-scl.lisp, swank-abcl.lisp, swank-openmcl:
+	Update implementations accordingly.
+
+	* swank-source-file-cache.lisp (read-file): Use guess-external-format.
+	
+	* swank.lisp (*swank-wire-protocol-version*): Is now initialized
+	by the loader.
+	(wire-protocol-version): Removed, because it contained a reference
+	to swank-loader::*source-directory*.
+
+	* slime.el (slime-set-connection-info): On protocol version
+	mismatch, ask the user how to proceed.
+	(slime-protocol-version): New variable. Initialize it at compile
+	time to detect stale elc files.
+
+	* swank-loader.lisp (load-swank): Set the protocol version.
+	
 2006-11-12  Marco Baringer  <mb@bese.it>
 
 	* slime.el (slime-make-tramp-file-name): Added (require 'tramp)
@@ -10695,3 +10727,5 @@
 ;; Local Variables:
 ;; coding: latin-1
 ;; End:
+
+This file has been placed in the public domain.
