@@ -64,8 +64,6 @@
   (require 'overlay))
 (require 'easymenu)
 
-(load "swank-version")
-
 (defvar slime-use-autodoc-mode nil
   "When non-nil always enable slime-autodoc-mode in slime-mode.")
 
@@ -109,6 +107,22 @@
 This is used to load the supporting Common Lisp library, Swank.
 The default value is automatically computed from the location of the
 Emacs Lisp package."))
+
+(eval-and-compile
+  (defun slime-changelog-date ()
+    "Return the datestring of the latest entry in the ChangeLog file.
+Return nil if the ChangeLog file cannot be found."
+    (let ((changelog (concat slime-path "ChangeLog")))
+      (if (file-exists-p changelog)
+          (with-temp-buffer 
+            (insert-file-contents changelog nil 0 100)
+            (goto-char (point-min))
+            (symbol-name (read (current-buffer))))
+        nil))))
+
+(defvar slime-protocol-version nil)
+(setq slime-protocol-version
+      (eval-when-compile (slime-changelog-date)))
 
 
 ;;;; Customize groups
@@ -1705,7 +1719,7 @@ Return the created process."
                (load ,loader :verbose t)
                (funcall (read-from-string "swank:start-server")
                         ,port-filename
-                        :external-format ,encoding)))))
+                        :coding-system ,encoding)))))
 
 (defun slime-swank-port-file ()
   "Filename where the SWANK server writes its TCP port number."
@@ -1867,12 +1881,12 @@ line of the file."
 ;;;;; Coding system madness
 
 (defvar slime-net-valid-coding-systems
-  '((iso-latin-1-unix nil :iso-latin-1-unix)
-    (iso-8859-1-unix  nil :iso-latin-1-unix)
-    (binary           nil :iso-latin-1-unix)
-    (utf-8-unix       t   :utf-8-unix)
-    (emacs-mule-unix  t   :emacs-mule-unix)
-    (euc-jp-unix      t   :euc-jp-unix))
+  '((iso-latin-1-unix nil "iso-latin-1-unix")
+    (iso-8859-1-unix  nil "iso-latin-1-unix")
+    (binary           nil "iso-latin-1-unix")
+    (utf-8-unix       t   "utf-8-unix")
+    (emacs-mule-unix  t   "emacs-mule-unix")
+    (euc-jp-unix      t   "euc-jp-unix"))
   "A list of valid coding systems. 
 Each element is of the form: (NAME MULTIBYTEP CL-NAME)")
 
@@ -2251,12 +2265,11 @@ This is automatically synchronized from Lisp.")
   "Initialize CONNECTION with INFO received from Lisp."
   (let ((slime-dispatching-connection connection))
     (destructuring-bind (&key pid style lisp-implementation machine
-                              features package wire-protocol-version)
-        info
-      (assert (eql wire-protocol-version *swank-wire-protocol-version*)
-              nil
-              "Version mismatch. slime.el expects %S but swank.lisp uses %S, please reload."
-              *swank-wire-protocol-version* wire-protocol-version)
+                              features package version &allow-other-keys) info
+      (or (equal version slime-protocol-version)
+          (yes-or-no-p "Protocol version mismatch. Continue anyway? ")
+          (slime-net-close connection)
+          (top-level))
       (setf (slime-pid) pid
             (slime-communication-style) style
             (slime-lisp-features) features)
@@ -2797,17 +2810,6 @@ Debugged requests are ignored."
                       0 0))
     (slime-repl-insert-prompt (cond (use-header-p `(:suppress-output))
                                     (t `(:values (,(concat "; " banner))))))))
-
-(defun slime-changelog-date ()
-  "Return the datestring of the latest entry in the ChangeLog file.
-Return nil if the ChangeLog file cannot be found."
-  (let ((changelog (concat slime-path "ChangeLog")))
-    (if (file-exists-p changelog)
-        (with-temp-buffer 
-          (insert-file-contents changelog nil 0 100)
-          (goto-char (point-min))
-          (symbol-name (read (current-buffer))))
-      nil)))
 
 (defun slime-init-output-buffer (connection)
   (with-current-buffer (slime-output-buffer t)
@@ -4548,9 +4550,6 @@ between compiler notes and to display their full details."
 
 (defvar slime-lisp-modes '(lisp-mode))
 
-(defvar slime-coding nil
-  "*The coding to use for `slime-compile-file'. Only used if buffer local.")
-
 (defun slime-compile-file (&optional load)
   "Compile current buffer's file and highlight resulting compiler notes.
 
@@ -4572,10 +4571,7 @@ See `slime-compile-and-load-file' for further details."
       (slime-display-output-buffer))
     (slime-eval-async
      `(swank:compile-file-for-emacs 
-       ,lisp-filename ,(if load t nil)
-       ,@(if (local-variable-p 'slime-coding (current-buffer))
-             (list (or (slime-coding-system-cl-name slime-coding)
-                       (error "Encoding not supported: %s" slime-coding)))))
+       ,lisp-filename ,(if load t nil))
      (slime-compilation-finished-continuation))
     (message "Compiling %s.." lisp-filename)))
 
