@@ -1,4 +1,4 @@
-;;; -*- outline-regexp: ";;;;;*"; indent-tabs-mode: nil -*-
+;;; -*- outline-regexp:";;;;;*" indent-tabs-mode:nil coding:latin-1-unix -*-
 ;;;
 ;;; This code has been placed in the Public Domain.  All warranties
 ;;; are disclaimed.
@@ -228,10 +228,7 @@ Backend code should treat the connection structure as opaque.")
   ;; The communication style used.
   (communication-style nil :type (member nil :spawn :sigio :fd-handler))
   ;; The coding system for network streams.
-  (external-format *coding-system* :type (member :iso-latin-1-unix 
-                                                 :emacs-mule-unix
-                                                 :utf-8-unix
-                                                 :euc-jp-unix)))
+  (coding-system ))
 
 (defun print-connection (conn stream depth)
   (declare (ignore depth))
@@ -417,25 +414,31 @@ Valid values are :none, :line, and :full.")
 
 (defun start-server (port-file &key (style *communication-style*)
                                     (dont-close *dont-close*)
-                                    (external-format *coding-system*))
+                                    (coding-system *coding-system*))
   "Start the server and write the listen port number to PORT-FILE.
 This is the entry point for Emacs."
   (flet ((start-server-aux ()
            (setup-server 0 (lambda (port) 
                              (announce-server-port port-file port))
-                         style dont-close external-format)))
+                         style dont-close 
+                         (find-external-format-or-lose coding-system))))
     (if (eq style :spawn)
         (initialize-multiprocessing #'start-server-aux)
         (start-server-aux))))
 
 (defun create-server (&key (port default-server-port)
                       (style *communication-style*)
-                      (dont-close *dont-close*) (external-format *coding-system*))
+                      (dont-close *dont-close*) 
+                      (coding-system *coding-system*))
   "Start a SWANK server on PORT running in STYLE.
 If DONT-CLOSE is true then the listen socket will accept multiple
 connections, otherwise it will be closed after the first."
   (setup-server port #'simple-announce-function style dont-close 
-                external-format))
+                (find-external-format-or-lose coding-system)))
+
+(defun find-external-format-or-lose (coding-system)
+  (or (find-external-format coding-system)
+      (error "Unsupported coding system: ~s" coding-system)))
 
 (defun create-swank-server (&optional (port default-server-port)
                             (style *communication-style*)
@@ -469,7 +472,7 @@ connections, otherwise it will be closed after the first."
            (unless dont-close
              (close-socket socket)
              (setf closed-socket-p t))
-           (let ((connection (create-connection client style external-format)))
+           (let ((connection (create-connection client style)))
              (run-hook *new-connection-hook* connection)
              (push connection *connections*)
              (serve-requests connection)))
@@ -541,8 +544,7 @@ returns two values: the output function, and the dedicated
 stream (or NIL if none was created)."
   (if *use-dedicated-output-stream*
       (let ((stream (open-dedicated-output-stream 
-                     (connection.socket-io connection)
-                     (connection.external-format connection))))
+                     (connection.socket-io connection))))
         (values (lambda (string)
                   (write-string string stream)
                   (force-output stream))
@@ -554,7 +556,7 @@ stream (or NIL if none was created)."
                     (send-to-emacs `(:write-string ,string)))))
               nil)))
 
-(defun open-dedicated-output-stream (socket-io external-format)
+(defun open-dedicated-output-stream (socket-io)
   "Open a dedicated output connection to the Emacs on SOCKET-IO.
 Return an output stream suitable for writing program output.
 
@@ -564,8 +566,12 @@ This is an optimized way for Lisp to deliver output to Emacs."
     (unwind-protect
          (let ((port (local-port socket)))
            (encode-message `(:open-dedicated-output-stream ,port) socket-io)
-           (let ((dedicated (accept-authenticated-connection
-                             socket :external-format external-format 
+           (let ((dedicated (accept-authenticated-connection 
+                             socket 
+                             :external-format 
+                             (or (ignore-errors
+                                   (stream-external-format socket-io))
+                                 :default)
                              :buffering *dedicated-output-stream-buffering*
                              :timeout 30)))
              (close-socket socket)
@@ -605,11 +611,11 @@ of the toplevel restart."
                         ;; Connection to Emacs lost. [~%~
                         ;;  condition: ~A~%~
                         ;;  type: ~S~%~
-                        ;;  encoding: ~S style: ~S dedicated: ~S]~%"
+                        ;;  encoding: ~A style: ~S dedicated: ~S]~%"
             backtrace
             (escape-non-ascii (safe-condition-message condition) )
             (type-of condition)
-            (connection.external-format c) 
+            (ignore-errors (stream-external-format (connection.socket-io c)))
             (connection.communication-style c)
             *use-dedicated-output-stream*)
     (finish-output *debug-io*)))
@@ -884,7 +890,7 @@ of the toplevel restart."
           (connection.user-input connection)       in)
     connection))
 
-(defun create-connection (socket-io style external-format)
+(defun create-connection (socket-io style)
   (let ((success nil))
     (unwind-protect
          (let ((c (ecase style
@@ -912,7 +918,6 @@ of the toplevel restart."
                                       :send #'send-to-socket-io
                                       :serve-requests #'simple-serve-requests)))))
            (setf (connection.communication-style c) style)
-           (setf (connection.external-format c) external-format)
            (initialize-streams-for-connection c)
            (setf success t)
            c)
@@ -1218,19 +1223,17 @@ converted to lower case."
              ((:abort) (abort)))))))
 
 (defvar *swank-wire-protocol-version* nil
-  "The version of the swank/slime communication protocol.
-
-Set in swank-version.el.")
+  "The version of the swank/slime communication protocol.")
 
 (defslimefun connection-info ()
   "Return a key-value list of the form: 
-\(&key PID STYLE LISP-IMPLEMENTATION MACHINE FEATURES PACKAGE WIRE-PROTOCOL-VERSION)
+\(&key PID STYLE LISP-IMPLEMENTATION MACHINE FEATURES PACKAGE VERSION)
 PID: is the process-id of Lisp process (or nil, depending on the STYLE)
 STYLE: the communication style
 LISP-IMPLEMENTATION: a list (&key TYPE NAME VERSION)
 FEATURES: a list of keywords
 PACKAGE: a list (&key NAME PROMPT)
-WIRE-PROTOCOL-VERSION: a number"
+VERSION: the protocol version"
   (setq *slime-features* *features*)
   `(:pid ,(getpid) :style ,(connection.communication-style *emacs-connection*)
     :lisp-implementation (:type ,(lisp-implementation-type)
@@ -1242,7 +1245,7 @@ WIRE-PROTOCOL-VERSION: a number"
     :features ,(features-for-emacs)
     :package (:name ,(package-name *package*)
               :prompt ,(package-string-for-prompt *package*))
-    :wire-protocol-version ,(wire-protocol-version)))
+    :version ,*swank-wire-protocol-version*))
 
 (defslimefun io-speed-test (&optional (n 5000) (m 1))
   (let* ((s *standard-output*)
@@ -1258,11 +1261,6 @@ WIRE-PROTOCOL-VERSION: a number"
     (terpri *trace-output*)
     (finish-output *trace-output*)
     nil))
-
-(defun wire-protocol-version ()
-  (let ((*package* (find-package :swank)))
-    (load (merge-pathnames "swank-version.el" swank-loader::*source-directory*))
-    (symbol-value '*swank-wire-protocol-version*)))
 
 
 ;;;; Reading and printing
@@ -2993,13 +2991,16 @@ The time is measured in microseconds."
       (list (to-string result)
             (format nil "~,2F" (/ usecs 1000000.0))))))
 
-(defslimefun compile-file-for-emacs (filename load-p &optional external-format)
+(defslimefun compile-file-for-emacs (filename load-p)
   "Compile FILENAME and, when LOAD-P, load the result.
 Record compiler notes signalled as `compiler-condition's."
   (with-buffer-syntax ()
     (let ((*compile-print* nil))
-      (swank-compiler (lambda () (swank-compile-file filename load-p
-                                                     external-format))))))
+      (swank-compiler 
+       (lambda ()
+         (swank-compile-file filename load-p
+                             (or (guess-external-format filename)
+                                 :default)))))))
 
 (defslimefun compile-string-for-emacs (string buffer position directory)
   "Compile STRING (exerpted from BUFFER at POSITION).
