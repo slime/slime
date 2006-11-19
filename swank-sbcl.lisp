@@ -129,22 +129,27 @@
     (sb-bsd-sockets:socket (sb-bsd-sockets:socket-file-descriptor socket))
     (file-stream (sb-sys:fd-stream-fd socket))))
 
-(defun find-external-format (coding-system)
-  (ecase coding-system
-    (:iso-latin-1-unix :iso-8859-1)
-    (:utf-8-unix :utf-8)
-    (:euc-jp-unix :euc-jp)))
+(defvar *external-format-to-coding-system*
+  '((:iso-8859-1 
+     "latin-1" "latin-1-unix" "iso-latin-1-unix" 
+     "iso-8859-1" "iso-8859-1-unix")
+    (:utf-8 "utf-8" "utf-8-unix")
+    (:euc-jp "euc-jp" "euc-jp-unix")
+    (:us-ascii "us-ascii" "us-ascii-unix")))
+
+(defimplementation find-external-format (coding-system)
+  (car (rassoc-if (lambda (x) (member coding-system x :test #'equal))
+                  *external-format-to-coding-system*)))
 
 (defun make-socket-io-stream (socket external-format buffering)
-  (let ((ef (find-external-format external-format)))
-    (sb-bsd-sockets:socket-make-stream socket
-                                       :output t
-                                       :input t
-                                       :element-type 'character
-                                       :buffering buffering
-                                       #+sb-unicode :external-format
-                                       #+sb-unicode ef
-                                       )))
+  (sb-bsd-sockets:socket-make-stream socket
+                                     :output t
+                                     :input t
+                                     :element-type 'character
+                                     :buffering buffering
+                                     #+sb-unicode :external-format
+                                     #+sb-unicode external-format
+                                     ))
 
 (defun accept (socket)
   "Like socket-accept, but retry on EAGAIN."
@@ -373,20 +378,17 @@ compiler state."
 
 (defvar *trap-load-time-warnings* nil)
 
-(defimplementation swank-compile-file (filename load-p
-                                       &optional external-format)
-  (let ((ef (if external-format
-                (find-external-format external-format)
-                :default)))
-    (handler-case
-        (let ((output-file (with-compilation-hooks ()
-                             (compile-file filename :external-format ef))))
-          (when output-file
-            ;; Cache the latest source file for definition-finding.
-            (source-cache-get filename (file-write-date filename))
-            (when load-p
-              (load output-file))))
-      (sb-c:fatal-compiler-error () nil))))
+(defimplementation swank-compile-file (filename load-p external-format)
+  (handler-case
+      (let ((output-file (with-compilation-hooks ()
+                           (compile-file filename 
+                                         :external-format external-format))))
+        (when output-file
+          ;; Cache the latest source file for definition-finding.
+          (source-cache-get filename (file-write-date filename))
+          (when load-p
+            (load output-file))))
+    (sb-c:fatal-compiler-error () nil)))
 
 ;;;; compile-string
 
