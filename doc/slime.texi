@@ -1460,10 +1460,8 @@ execute
 
 inside a running lisp image@footnote{@SLIME{} also provides an
 @acronym{ASDF} system definiton which does the same thing}. Now all we
-need to do is startup our swank server. This example assumes we're
-using the default settings, if you need to do anything particular
-(like be able to reconnect to swank after you're done, look into
-@code{swank:create-server}'s other arguments).
+need to do is startup our swank server. The first example assumes we're
+using the default settings.
 
 @example
 (swank:create-server)
@@ -1479,6 +1477,38 @@ output:
 @example
 (setf swank:*use-dedicated-output-stream* nil)
 @end example
+
+If you need to do anything particular
+(like be able to reconnect to swank after you're done), look into
+@code{swank:create-server}'s other arguments. Some of these arguments
+are
+@table @code
+
+@item :PORT
+Port number for the server to listen on (default: 4005).
+@item :STYLE
+See @xref{Communication style}.
+@item :DONT-CLOSE
+Boolean indicating if the server will continue to accept connections
+after the first one (default: @code{NIL}). For ``long-running'' lisp processes
+to which you want to be able to connect from time to time,
+specify @code{:dont-close t}
+@item :CODING-SYSTEM
+String designating the encoding to be used to communicate between the
+Emacs and Lisp.
+@end table
+
+So the more complete example will be
+@example
+(swank:create-server :port 4005  :dont-close t :coding-system "utf-8-unix")
+@end example
+On the emacs side you will use something like
+@example
+(setq slime-net-coding-system 'utf-8-unix)
+(slime-connect "127.0.0.1" 4005))
+@end example
+to connect to this lisp image from the same machine.
+
 
 @node Setting up Emacs
 @subsection Setting up Emacs
