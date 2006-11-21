@@ -1,3 +1,5 @@
+# This file has been placed in the public domain.
+#
 # Where to put the info file(s). NB: the GNU Coding Standards (GCS)
 # and the Filesystem Hierarchy Standard (FHS) differ on where info
 # files belong. The GCS says /usr/local/info; the FHS says
