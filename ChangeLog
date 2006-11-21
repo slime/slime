@@ -1,3 +1,8 @@
+2006-11-21  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (*coding-system*): "Coding systems" are now strings
+	instead of keywords.
+
 2006-11-19  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-compile-file): Let the Lisp side choose the
