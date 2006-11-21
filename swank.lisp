@@ -182,8 +182,6 @@ Backend code should treat the connection structure as opaque.")
 ;;; used solely to pipe user-output to Emacs (an optimization).
 ;;;
 
-(defvar *coding-system* ':iso-latin-1-unix)
-
 (defstruct (connection
              (:conc-name connection.)
              (:print-function print-connection))
@@ -411,6 +409,8 @@ Useful for low level debugging."
   (if (eq *communication-style* :spawn) :full :none)
   "The buffering scheme that should be used for the output stream.
 Valid values are :none, :line, and :full.")
+
+(defvar *coding-system* "iso-latin-1-unix")
 
 (defun start-server (port-file &key (style *communication-style*)
                                     (dont-close *dont-close*)
