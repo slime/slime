@@ -10,6 +10,8 @@
 	(slime-coding): Deleted.
 
 	* swank.lisp (compile-file-for-emacs): Use guess-external-format.
+	(swank:create-server): no more accepts an  :external-format 'enc ,
+	use  :coding-system "enc"  instead.
 	
 	* swank-backend.lisp (find-external-format)
 	(guess-external-format): New.
