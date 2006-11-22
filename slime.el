@@ -6683,10 +6683,7 @@ function name is prompted."
   (interactive (list (slime-read-symbol-name "Name: ")))
   (let ((definitions (slime-eval `(swank:find-definitions-for-emacs ,name))))
     (cond
-     ((or (null definitions)
-          (every (lambda (definition)
-                   (eq :error (caadr definition)))
-                 definitions))
+     ((null definitions)
       (if slime-edit-definition-fallback-function
           (funcall slime-edit-definition-fallback-function name)
         (error "No known definition for: %s" name)))
