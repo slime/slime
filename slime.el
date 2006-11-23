@@ -2488,24 +2488,31 @@ The REPL buffer is a special case: it's package is `slime-lisp-package'."
 
 (defvar slime-find-buffer-package-function 'slime-search-buffer-package
   "*Function to use for `slime-find-buffer-package'.  
-The result should be a string.  The string will be READ at the Lisp
-side.")
+The result should be the package-name (a string)
+or nil if nothing suitable can be found.")
 
 (defun slime-find-buffer-package ()
   "Figure out which Lisp package the current buffer is associated with."
   (funcall slime-find-buffer-package-function))
 
+;; When modifing this code consider cases like:
+;;  (in-package #.*foo*)
+;;  (in-package #:cl)
+;;  (in-package :cl)
+;;  (in-package "CL")
+;;  (in-package |CL|)
+;;  (in-package #+ansi-cl :cl #-ansi-cl 'lisp)
 (defun slime-search-buffer-package ()
-  (save-excursion
-    (when (let ((case-fold-search t)
-                (regexp "^(\\(cl:\\|common-lisp:\\)?in-package\\>[ \n\t\r']*"))
-            (or (re-search-backward regexp nil t)
-                (re-search-forward regexp nil t)))
-      (goto-char (match-end 0))
-      (let ((start (point)))
-        (ignore-errors
-          (up-list 1)
-          (buffer-substring-no-properties start (1- (point))))))))
+  (let ((case-fold-search t)
+        (regexp (concat "^(\\(cl:\\|common-lisp:\\)?in-package\\>[ \n\t\r']*"
+                        "\\([^)]+\\)[ \n\t]*)")))
+    (save-excursion
+      (when (or (re-search-backward regexp nil t)
+                (re-search-forward regexp nil t))
+        (let ((string (match-string-no-properties 2)))
+          (cond ((string-match "^\"" string) (ignore-errors (read string)))
+                ((string-match "^#?:" string) (substring string (match-end 0)))
+                (t string)))))))
 
 ;;; Synchronous requests are implemented in terms of asynchronous
 ;;; ones. We make an asynchronous request with a continuation function
@@ -7190,18 +7197,18 @@ For other contexts we return the symbol at point."
   "A helper function to determine the current context.
 The pattern can have the form:
  pattern ::= ()    ;matches always
-           | (*)   ;matches insde a list
+           | (*)   ;matches inside a list
            | (<symbol> <pattern>)   ;matches if the first element in
-				    ; current the list is <symbol> and
+				    ; the current list is <symbol> and
                                     ; if <pattern> matches.
-           | ((<pattern>))          ;matches if are in a nested list."
+           | ((<pattern>))          ;matches if we are in a nested list."
   (save-excursion
     (let ((path (reverse (slime-pattern-path pattern))))
       (loop for p in path
             always (ignore-errors 
                      (etypecase p
                        (symbol (slime-beginning-of-list) 
-                               (looking-at (symbol-name p)))
+                               (eq (read (current-buffer)) p))
                        (number (backward-up-list p)
                                t)))))))
 
