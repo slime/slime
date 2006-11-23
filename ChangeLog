@@ -1,3 +1,18 @@
+2006-11-24  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-search-buffer-package): Prettify the package
+	name if it is written as string or keyword.
+
+2006-11-23  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-in-expression-p): Use `read' and `eq' to test
+	the first element of the list.  Previuosly, the pattern (foo)
+	wrongly matched (foobar) because we used (looking-at <symbol>).
+
+	* swank-cmucl.lisp (setf-definitions): Also include defs which
+	were created with (defun (setf NAME) ...).  Previously we only
+	found definitions created with defsetf or define-setf-expander.
+
 2006-11-22  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-edit-definition): Don't hide error messages.
