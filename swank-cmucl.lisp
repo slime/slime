@@ -1137,7 +1137,10 @@ Signal an error if no constructor can be found."
 
 (defun setf-definitions (name)
   (let ((function (or (ext:info :setf :inverse name)
-                      (ext:info :setf :expander name))))
+                      (ext:info :setf :expander name)
+                      (and (symbolp name)
+                           (fboundp `(setf ,name))
+                           (fdefinition `(setf ,name))))))
     (if function
         (list (list `(setf ,name) 
                     (function-location (coerce function 'function)))))))
