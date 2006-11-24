@@ -2648,8 +2648,7 @@ Debugged requests are ignored."
        (assert thread)
        (sldb-exit thread level stepping))
       ((:emacs-interrupt thread)
-       (cond ((slime-use-sigint-for-interrupt) (slime-send-sigint))
-             (t (slime-send `(:emacs-interrupt ,thread)))))
+       (slime-send `(:emacs-interrupt ,thread)))
       ((:read-string thread tag)
        (assert thread)
        (slime-repl-read-string thread tag))
@@ -4245,7 +4244,7 @@ The handler will use qeuery to ask the use if the error should be ingored."
 
 (defun slime-repl-read-break ()
   (interactive)
-  (slime-eval-async `(swank:simple-break)))
+  (slime-dispatch-event `(:emacs-interrupt ,(car slime-read-string-threads))))
 
 (defun slime-repl-abort-read (thread tag)
   (with-current-buffer (slime-output-buffer)
@@ -7835,7 +7834,8 @@ CL:MACROEXPAND."
 (defun slime-interrupt ()
   "Interrupt Lisp."
   (interactive)
-  (slime-dispatch-event `(:emacs-interrupt ,slime-current-thread)))
+  (cond ((slime-use-sigint-for-interrupt) (slime-send-sigint))
+        (t (slime-dispatch-event `(:emacs-interrupt ,slime-current-thread)))))
 
 (defun slime-quit ()
   (error "Not implemented properly.  Use `slime-interrupt' instead."))
