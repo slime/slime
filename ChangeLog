@@ -1,3 +1,9 @@
+2006-11-25  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-repl-read-break): Use a :emacs-interrupt message
+	instead of a RPC to swank:simple-break.  Suggested by Taylor R
+	Campbell.
+
 2006-11-24  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-search-buffer-package): Prettify the package
