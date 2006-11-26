@@ -1,5 +1,10 @@
 2006-11-26  Juho Snellman  <jsnell@iki.fi>
 
+	* swank-source-file-cache.lisp (buffer-first-change): Check
+	whether a file exists before trying load it into the source cache.
+	
+2006-11-26  Juho Snellman  <jsnell@iki.fi>
+
 	Restore the way M-n and M-p used to work in the REPL. (cherry-picked
 	from a patch with other changes, sent by Attila Lendvai).
 

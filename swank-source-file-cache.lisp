@@ -41,8 +41,10 @@ Maps from truename to source-cache-entry structure.")
 (defimplementation buffer-first-change (filename)
   "Load a file into the cache when the user modifies its buffer.
 This is a win if the user then saves the file and tries to M-. into it."
-  (unless (source-cached-p filename)
-    (ignore-errors (source-cache-get filename (file-write-date filename)))))
+  (unless (or (source-cached-p filename)
+              (not (ignore-errors (probe-file filename))))
+    (ignore-errors
+      (source-cache-get filename (file-write-date filename)))))
 
 (defun get-source-code (filename code-date)
   "Return the source code for FILENAME as written on DATE in a string.
