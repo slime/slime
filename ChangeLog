@@ -1,3 +1,16 @@
+2006-11-26  Juho Snellman  <jsnell@iki.fi>
+
+	Restore the way M-n and M-p used to work in the REPL. (cherry-picked
+	from a patch with other changes, sent by Attila Lendvai).
+
+	* slime.el (slime-repl-previous-input-starting-with-current-input)
+	(slime-repl-next-input-starting-with-current-input): New functions,
+	work like the old slime-repl-previous-input / next-input.
+	(slime-repl-matching-input-regexp): Restore old version.	
+	(slime-repl-mode-map): Bind s-r-p-i-s-w-c-i and s-r-n-i-s-w-c-i
+	to M-p and M-n respectively. slime-repl-previous-input and
+	slime-repl-next-input are still accessible with C-up / C-down.
+	
 2006-11-25  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-repl-read-break): Use a :emacs-interrupt message

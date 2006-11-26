@@ -4011,6 +4011,20 @@ Return nil of no item matches"
   (interactive)
   (slime-repl-history-replace 'forward nil t))
 
+(defun slime-repl-matching-input-regexp ()
+  (if (memq last-command
+            '(slime-repl-previous-input-starting-with-current-input slime-repl-next-input-starting-with-current-input))
+      slime-repl-history-pattern
+    (concat "^" (regexp-quote (slime-repl-current-input)))))
+
+(defun slime-repl-previous-input-starting-with-current-input ()
+  (interactive)
+  (slime-repl-history-replace 'backward (slime-repl-matching-input-regexp) t))
+
+(defun slime-repl-next-input-starting-with-current-input ()
+  (interactive)
+  (slime-repl-history-replace 'forward (slime-repl-matching-input-regexp) t))
+
 (defun slime-repl-continue-search-with-last-pattern ()
   (interactive)
   (when slime-repl-history-pattern
@@ -4167,9 +4181,9 @@ The handler will use qeuery to ask the use if the error should be ingored."
   ("\C-a" 'slime-repl-bol)
   ([home] 'slime-repl-bol)
   ("\C-e" 'slime-repl-eol)
-  ("\M-p" 'slime-repl-previous-input)
+  ("\M-p" 'slime-repl-previous-input-starting-with-current-input)
   ((kbd "C-<up>") 'slime-repl-previous-input)
-  ("\M-n" 'slime-repl-next-input)
+  ("\M-n" 'slime-repl-next-input-starting-with-current-input)
   ((kbd "C-<down>") 'slime-repl-next-input)
   ("\M-r" 'slime-repl-previous-matching-input)
   ("\M-s" 'slime-repl-next-matching-input)
@@ -6797,8 +6811,8 @@ The result is a (possibly empty) list of definitions."
     (save-match-data
       (when (and (buffer-file-name)
                  (slime-background-activities-enabled-p))
-        (let ((filename (slime-to-lisp-filename (buffer-file-name))))
-          (slime-eval-async `(swank:buffer-first-change ,filename)))))))
+        (let ((filename (slime-to-lisp-filename (buffer-file-name))))          
+           (slime-eval-async `(swank:buffer-first-change ,filename)))))))
 
 (defun slime-setup-first-change-hook ()
   (add-hook (make-local-variable 'first-change-hook)
