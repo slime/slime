@@ -43,7 +43,8 @@ Maps from truename to source-cache-entry structure.")
 This is a win if the user then saves the file and tries to M-. into it."
   (unless (source-cached-p filename)
     (ignore-errors
-      (source-cache-get filename (file-write-date filename)))))
+      (source-cache-get filename (file-write-date filename))))
+  nil)
 
 (defun get-source-code (filename code-date)
   "Return the source code for FILENAME as written on DATE in a string.
