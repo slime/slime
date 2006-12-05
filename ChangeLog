@@ -5,6 +5,9 @@
 	
 	* slime.el (slime-first-change-hook): Don't do anything if buffers
 	file doesn't exist.
+	(slime-start, slime-set-connection-info): Add support for a
+	:init-function which is called after the usual initialization of the
+	connection is completed.
 
 	* swank-source-file-cache.lisp (buffer-first-change): Always
 	return nil and remove the now redundant test with probe-file.
