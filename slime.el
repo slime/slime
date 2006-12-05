@@ -10848,6 +10848,14 @@ levels of parens."
     (set-text-properties 0 (- end start) nil string)
     string))
 
+(slime-defun-if-undefined match-string-no-properties (num &optional string)
+  (if (match-beginning num)
+      (if string
+	  (substring-no-properties string (match-beginning num)
+				   (match-end num))
+	(substring-no-properties (match-beginning num)
+                                 (match-end num)))))
+
 (slime-defun-if-undefined set-window-text-height (window height)
   (let ((delta (- height (window-text-height window))))
     (unless (zerop delta)
