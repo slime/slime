@@ -421,21 +421,22 @@ Return nil if the file contains no special markers."
   (with-open-file (s filename :if-does-not-exist nil
                      :external-format (or (find-external-format "latin-1-unix")
                                           :default))
-    (or (let* ((line (read-line s nil))
-               (p (search "-*-" line)))
-          (when p
-            (let* ((start (+ p (length "-*-")))
-                   (end (search "-*-" line :start2 start)))
-              (when end
-                (%search-coding line start end)))))
-        (let* ((len (file-length s))
-               (buf (make-string (min len 3000))))
-          (file-position s (- len (length buf)))
-          (read-sequence buf s)
-          (let ((start (search "Local Variables:" buf :from-end t))
-                (end (search "End:" buf :from-end t)))
-            (and start end (< start end)
-                 (%search-coding buf start end)))))))
+    (if s 
+        (or (let* ((line (read-line s nil))
+                   (p (search "-*-" line)))
+              (when p
+                (let* ((start (+ p (length "-*-")))
+                       (end (search "-*-" line :start2 start)))
+                  (when end
+                    (%search-coding line start end)))))
+            (let* ((len (file-length s))
+                   (buf (make-string (min len 3000))))
+              (file-position s (- len (length buf)))
+              (read-sequence buf s)
+              (let ((start (search "Local Variables:" buf :from-end t))
+                    (end (search "End:" buf :from-end t)))
+                (and start end (< start end)
+                     (%search-coding buf start end))))))))
 
 (defun %search-coding (str start end)
   (let ((p (search "coding:" str :start2 start :end2 end)))
