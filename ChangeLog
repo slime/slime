@@ -1,3 +1,28 @@
+2006-12-05  Juho Snellman  <jsnell@iki.fi>
+	Real xref support for SBCL (requires SBCL 1.0.0.18).
+	
+	* swank-sbcl.lisp (who-calls): New function, fetch xref data from
+	sb-introspect.
+	(who-binds): Ditto.
+	(who-sets): Ditto.
+	(who-references): Ditto.
+	(who-macroexpands): Ditto.
+	(defxref): New macro, create the above functions.
+	(source-location-for-xref-data): New, map from sb-introspect xref
+	format to the Swank xref format.
+	(sanitize-xrefs): Map PCL method names to something more readable.
+	(string-path-snippet): New function, finds a more accurate source
+	snippet for definition source locations which have both an 
+	:emacs-string and a full source path available. Otherwise the xref
+	location would point to the toplevel form rather than the exact 
+	form for functions compiled with C-c C-c.
+	(source-file-position): New function, somewhat like
+	source-path-file-position but uses the source-file cache, handles
+	missing form-paths more gracefully.
+	(make-definition-source-location): Use the above two functions.
+	(sbcl-with-xref-p): New function, detect whether SBCL has xref support
+	for backwards compability.
+	
 2006-11-26  Juho Snellman  <jsnell@iki.fi>
 
 	* swank-source-file-cache.lisp (buffer-first-change): Check
