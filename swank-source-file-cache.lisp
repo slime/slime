@@ -41,8 +41,7 @@ Maps from truename to source-cache-entry structure.")
 (defimplementation buffer-first-change (filename)
   "Load a file into the cache when the user modifies its buffer.
 This is a win if the user then saves the file and tries to M-. into it."
-  (unless (or (source-cached-p filename)
-              (not (ignore-errors (probe-file filename))))
+  (unless (source-cached-p filename)
     (ignore-errors
       (source-cache-get filename (file-write-date filename)))))
 
