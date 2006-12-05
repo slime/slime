@@ -6810,6 +6810,7 @@ The result is a (possibly empty) list of definitions."
   (save-excursion
     (save-match-data
       (when (and (buffer-file-name)
+                 (file-exists-p (buffer-file-name))
                  (slime-background-activities-enabled-p))
         (let ((filename (slime-to-lisp-filename (buffer-file-name))))          
            (slime-eval-async `(swank:buffer-first-change ,filename)))))))
