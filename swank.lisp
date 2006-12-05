@@ -16,7 +16,6 @@
   (:use :common-lisp :swank-backend)
   (:export #:startup-multiprocessing
            #:start-server 
-           #:create-swank-server
            #:create-server
            #:ed-in-emacs
            #:print-indentation-lossage
@@ -439,12 +438,6 @@ connections, otherwise it will be closed after the first."
 (defun find-external-format-or-lose (coding-system)
   (or (find-external-format coding-system)
       (error "Unsupported coding system: ~s" coding-system)))
-
-(defun create-swank-server (&optional (port default-server-port)
-                            (style *communication-style*)
-                            (announce-fn #'simple-announce-function)
-                            dont-close (external-format *coding-system*))
-  (setup-server port announce-fn style dont-close external-format))
 
 (defparameter *loopback-interface* "127.0.0.1")
 
