@@ -1528,9 +1528,11 @@ The rules for selecting the arguments are rather complicated:
                           (coding-system slime-net-coding-system)
                           (init 'slime-init-command)
                           name
-                          (buffer "*inferior-lisp*"))
+                          (buffer "*inferior-lisp*")
+                          init-function)
   (let ((args (list :program program :program-args program-args :buffer buffer 
-                    :coding-system coding-system :init init :name name)))
+                    :coding-system coding-system :init init :name name
+                    :init-function init-function)))
     (slime-check-coding-system coding-system)
     (when (or (not (slime-bytecode-stale-p))
               (slime-urge-bytecode-recompile))
@@ -2284,14 +2286,17 @@ This is automatically synchronized from Lisp.")
       (destructuring-bind (&key instance type version) machine
         (setf (slime-machine-instance) instance)))
     (setq slime-state-name "")          ; FIXME
-    (when-let (p (slime-inferior-process))
-      (when-let (name (plist-get (slime-inferior-lisp-args p) ':name))
+    (let ((args (when-let (p (slime-inferior-process))
+                  (slime-inferior-lisp-args p))))
+      (when-let (name (plist-get args ':name))
         (unless (string= (slime-lisp-implementation-name) name)
           (setf (slime-connection-name)
-                (slime-generate-connection-name (symbol-name name))))))
-    (slime-hide-inferior-lisp-buffer)
-    (slime-init-output-buffer connection)
-    (run-hooks 'slime-connected-hook)
+                (slime-generate-connection-name (symbol-name name)))))
+      (slime-hide-inferior-lisp-buffer)
+      (slime-init-output-buffer connection)
+      (run-hooks 'slime-connected-hook)
+      (when-let (fun (plist-get args ':init-function))
+        (funcall fun)))
     (message "Connected. %s" (slime-random-words-of-encouragement))))
 
 (defun slime-generate-connection-name (lisp-name)
@@ -10853,8 +10858,8 @@ levels of parens."
       (if string
 	  (substring-no-properties string (match-beginning num)
 				   (match-end num))
-	(substring-no-properties (match-beginning num)
-                                 (match-end num)))))
+	(buffer-substring-no-properties (match-beginning num)
+                                        (match-end num)))))
 
 (slime-defun-if-undefined set-window-text-height (window height)
   (let ((delta (- height (window-text-height window))))
