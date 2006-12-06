@@ -3460,8 +3460,7 @@ only the top LIMIT results will be returned."
       (parse-completion-arguments string default-package-name)
     (flet ((convert (vector &optional converter)
              (when vector
-               (loop for idx :upfrom 0
-                     while (< idx (length vector))
+               (loop for idx below (length vector)
                      for el = (aref vector idx)
                      do (setf (aref vector idx) (convert-fuzzy-completion-result
                                                  el converter internal-p package-name))))))

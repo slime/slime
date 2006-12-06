@@ -1,3 +1,16 @@
+2006-12-06  Marco Baringer  <mb@bese.it>
+
+	* slime.el (slime-search-buffer-package): Don't call
+	match-string-no-properties if it's not defined (as is on some
+	xemacs')
+	(slime-repl-clear-buffer): Added optional prefix argument
+	specifying how many lines to leave.
+
+2006-12-06  Johan Bockgård  <bojohan+sf@dd.chalmers.se>
+
+	* swank.lisp (fuzzy-completion-set): Don't mix for clauses and
+	body clauses in loop.
+
 2006-12-05  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (create-swank-server): Removed. Use create-server
