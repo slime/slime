@@ -4763,11 +4763,15 @@ See `methods-by-applicability'.")
         *inspectee-actions* (make-array 10 :adjustable t :fill-pointer 0)
         *inspector-history* (make-array 10 :adjustable t :fill-pointer 0)))
 
-(defslimefun init-inspector (string &optional (reset t))
+(defslimefun init-inspector (string &key (reset t) (eval t))
   (with-buffer-syntax ()
     (when reset
       (reset-inspector))
-    (inspect-object (eval (read-from-string string)))))
+    (let* ((form (read-from-string string))
+           (value (if eval
+                      (eval form)
+                      form)))
+      (inspect-object value))))
   
 (defun print-part-to-string (value)
   (let ((string (to-string value))
