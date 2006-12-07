@@ -86,9 +86,10 @@ If you copy the HyperSpec to another location, customize the variable
   (interactive (list (let* ((symbol-at-point (thing-at-point 'symbol))
 			    (stripped-symbol 
 			     (and symbol-at-point
-				  (downcase
-				   (common-lisp-hyperspec-strip-cl-package 
-				    symbol-at-point)))))
+				  (substring-no-properties
+				   (downcase
+				    (common-lisp-hyperspec-strip-cl-package 
+				     symbol-at-point))))))
                        (if (and stripped-symbol
                                 (intern-soft stripped-symbol
                                              common-lisp-hyperspec-symbols))
