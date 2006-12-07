@@ -1,3 +1,12 @@
+2006-12-07  mb  <mb@bese.it>
+
+	* swank.lisp (init-inspector): Added eval parameter. If NIL we
+	don't eval FORM but limit our selves to cl:read'ing it and
+	inspecting that value.
+
+	* slime.el (slime-inspect): If a prefix argument is provided pass
+	:eval nil to swank:init-inspector.
+
 2006-12-07  Paul Collins <paul@briny.ondioline.org>
 
 	* hyperspec.el (common-lisp-hyperspec): Strip all text properties
