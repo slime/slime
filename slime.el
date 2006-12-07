@@ -9020,9 +9020,15 @@ See `slime-lisp-implementations'")
 (defvar slime-saved-window-config)
 
 (defun slime-inspect (form &optional no-reset)
-  "Eval an expression and inspect the result."
-  (interactive (list (slime-read-object "Inspect value (evaluated): ")))
-  (slime-eval-async `(swank:init-inspector ,form ,(not no-reset))
+  "Eval an expression and inspect the result.
+
+If called with a prefix argument the value will not be evaluated."
+  (interactive (list (slime-read-object (if current-prefix-arg
+                                            "Inspect value: "
+                                            "Inspect value (evaluated): "))))
+  (slime-eval-async `(swank:init-inspector ,form 
+                                           :reset ,(not no-reset)
+                                           :eval ,(null current-prefix-arg))
                     'slime-open-inspector))
 
 (defun slime-read-object (prompt)
