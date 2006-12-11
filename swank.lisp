@@ -21,6 +21,8 @@
            #:print-indentation-lossage
            #:swank-debugger-hook
            #:run-after-init-hook
+           #:inspect-for-emacs
+           #:inspect-slot-for-emacs
            ;; These are user-configurable variables:
            #:*communication-style*
            #:*dont-close*
@@ -4358,20 +4360,11 @@ NIL is returned if the list is circular."
 	  (method-specializers-for-inspect method)))
 
 (defmethod inspect-for-emacs ((o standard-object) inspector)
-  (declare (ignore inspector))
   (let ((c (class-of o)))
     (values "An object."
             `("Class: " (:value ,c) (:newline)
               "Slots:" (:newline)
-              ,@(loop for slotd in (swank-mop:class-slots c)
-                      for name = (swank-mop:slot-definition-name slotd)
-                      collect `(:value ,slotd ,(string name))
-                      collect " = "
-                      collect (if (slot-boundp-using-class-for-inspector c o slotd)
-                                  `(:value ,(slot-value-using-class-for-inspector 
-                                             c o slotd))
-                                  "#<unbound>")
-                      collect '(:newline))))))
+              ,@(all-slots-for-inspector o inspector)))))
 
 (defvar *gf-method-getter* 'methods-by-applicability
   "This function is called to get the methods of a generic function.
@@ -4408,13 +4401,13 @@ See `methods-by-applicability'.")
 		     maxlen
 		     (length doc))))
 
-(defgeneric slot-value-using-class-for-inspector (class object slot)
+(defgeneric inspect-slot-for-emacs (class object slot)
   (:method (class object slot)
-           (swank-mop:slot-value-using-class class object slot)))
-
-(defgeneric slot-boundp-using-class-for-inspector (class object slot)
-  (:method (class object slot)
-           (swank-mop:slot-boundp-using-class class object slot)))
+           (if (swank-mop:slot-boundp-using-class class object slot)
+               `((:value ,(swank-mop:slot-value-using-class class object slot))
+                 " " (:action "[make unbound]"
+                      ,(lambda () (swank-mop:slot-makunbound-using-class class object slot))))
+               '("#<unbound>"))))
 
 (defgeneric all-slots-for-inspector (object inspector)
   (:method ((object standard-object) inspector)
@@ -4422,25 +4415,16 @@ See `methods-by-applicability'.")
     (append '("------------------------------" (:newline)
               "All Slots:" (:newline))
             (loop
-               with class = (class-of object)
                with direct-slots = (swank-mop:class-direct-slots (class-of object))
-               for slot in (swank-mop:class-slots (class-of object))
-               for slot-def = (or (find-if (lambda (a)
-                                             ;; find the direct slot
-                                             ;; with the same name
-                                             ;; as SLOT (an
-                                             ;; effective slot).
-                                             (eql (swank-mop:slot-definition-name a)
-                                                  (swank-mop:slot-definition-name slot)))
-                                           direct-slots)
-                                  slot)
-               collect `(:value ,slot-def ,(inspector-princ (swank-mop:slot-definition-name slot-def)))
+               for effective-slot :in (swank-mop:class-slots (class-of object))
+               for direct-slot = (find (swank-mop:slot-definition-name effective-slot)
+                                       direct-slots :key #'swank-mop:slot-definition-name)
+               collect `(:value ,(if direct-slot
+                                     (list direct-slot effective-slot)
+                                     effective-slot)
+                         ,(inspector-princ (swank-mop:slot-definition-name effective-slot)))
                collect " = "
-               if (slot-boundp-using-class-for-inspector class object slot)
-               collect `(:value ,(slot-value-using-class-for-inspector
-                                  (class-of object) object slot))
-               else
-               collect "#<unbound>"
+               append (inspect-slot-for-emacs (class-of object) object effective-slot)
                collect '(:newline)))))
 
 (defmethod inspect-for-emacs ((gf standard-generic-function) inspector)
