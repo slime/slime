@@ -10657,7 +10657,7 @@ package is used."
           (while (slime-point-moves-p 
                    (skip-syntax-backward "w_")
                    (when (eq (char-before) ?|)
-                     (backward-sexp)))))
+                     (backward-char)))))
     (when (eq (char-before) ?#) ; special case for things like "#<foo"
       (forward-char))))
 
@@ -10668,7 +10668,7 @@ package is used."
            ;; | has the syntax as ", so we need to 
            ;; treat it manually rather than via syntax. 
            (when (looking-at "|")
-             (forward-sexp)))))
+             (forward-char)))))
 
 (put 'slime-symbol 'end-op 'slime-end-of-symbol)
 (put 'slime-symbol 'beginning-op 'slime-beginning-of-symbol)
