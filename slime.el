@@ -4085,19 +4085,16 @@ Return nil of no item matches"
 (defun slime-repl-merge-histories (old-hist new-hist)
   "Merge entries from OLD-HIST and NEW-HIST."
   ;; Newer items in each list are at the beginning.
-  (append
-   ;; first the new unique elements...
-   (remove-if #'(lambda (entry)
-                  (member entry old-hist))
-              new-hist)
-   ;; then the old unique elements...
-   (remove-if #'(lambda (entry)
-                  (member entry new-hist))
-              old-hist)
-   ;; and finally elements existing in both lists
-   (remove-if #'(lambda (entry)
-                  (not (member entry old-hist)))
-              new-hist)))
+  (let* ((ht (make-hash-table :test #'equal))
+         (delete-tester #'(lambda (entry)
+                            (if (gethash entry ht)
+                                t
+                                (progn
+                                  (puthash entry t ht)
+                                  nil)))))
+    (append
+     (remove-if delete-tester new-hist)
+     (remove-if delete-tester old-hist))))
 
 (defun slime-repl-load-history (&optional filename)
   "Set the current SLIME REPL history.
