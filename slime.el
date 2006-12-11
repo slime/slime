@@ -1307,17 +1307,30 @@ otherwise it is shown and selected by `pop-to-buffer'.
 
 If REUSEP is true and a buffer does already exist with name NAME,
 then the buffer will be reused instead of being killed."
-  (let ((window-config (current-window-configuration)))
-    (when (and (get-buffer name) (not reusep)) (kill-buffer name))
-    (with-current-buffer (get-buffer-create name)
-      (when mode (funcall mode))
+  (let ((window-config (current-window-configuration))
+        (buffer (get-buffer name)))
+    (when (and buffer (not reusep))
+      (kill-buffer name)
+      (setq buffer nil))
+    (with-current-buffer (or buffer (get-buffer-create name))
+      (when mode
+        (let ((original-configuration slime-temp-buffer-saved-window-configuration)
+              (original-fingerprint slime-temp-buffer-fingerprint))
+          (funcall mode)
+          (setq slime-temp-buffer-saved-window-configuration original-configuration)
+          (setq slime-temp-buffer-fingerprint original-fingerprint)))
       (slime-temp-buffer-mode 1)
-      (setq slime-temp-buffer-saved-window-configuration window-config)
-      (let ((window (if noselectp
-                        (display-buffer (current-buffer) t)
-                      (pop-to-buffer (current-buffer))
-                      (selected-window))))
-        (setq slime-temp-buffer-fingerprint (slime-window-config-fingerprint)))
+      (let ((window (get-buffer-window (current-buffer))))
+        (if window
+            (unless noselectp
+              (select-window window))
+            (progn
+              (if noselectp
+                  (display-buffer (current-buffer) t)
+                  (pop-to-buffer (current-buffer))
+                  (selected-window))
+              (setq slime-temp-buffer-saved-window-configuration window-config)
+              (setq slime-temp-buffer-fingerprint (slime-window-config-fingerprint)))))
       (current-buffer))))
 
 ;; Interface
@@ -1349,25 +1362,20 @@ Also saves the window configuration, and inherits the current
   '(("q" . slime-temp-buffer-quit)))
 
 ;; Interface
-(defun slime-temp-buffer-quit ()
-  "Kill the current (temp) buffer without asking. To restore the
-window configuration without killing the buffer see
-`slime-dismiss-temp-buffer'."
+(defun slime-temp-buffer-quit (&optional kill-buffer-p)
+  "Get rid of the current (temp) buffer without asking. Restore the
+window configuration unless it was changed since we last activated the buffer."
   (interactive)
-  (let* ((buffer (current-buffer))
-         (window (get-buffer-window buffer)))
-    (kill-buffer buffer)
-    (when window
-      (delete-window window))))
-
-;; Interface
-(defun slime-dismiss-temp-buffer ()
-  "Dismiss the current temp buffer and restore previous window config.
-Don't change the window configuration if it has been significantly
-changed since the temp buffer was displayed."
-  (when (equalp (slime-window-config-fingerprint)
-                slime-temp-buffer-fingerprint)
-    (set-window-configuration slime-temp-buffer-saved-window-configuration)))
+  (let ((saved-window-config slime-temp-buffer-saved-window-configuration)
+        (temp-buffer (current-buffer)))
+    (setq slime-temp-buffer-saved-window-configuration nil)
+    (if (and saved-window-config
+             (equalp (slime-window-config-fingerprint)
+                     slime-temp-buffer-fingerprint))
+        (set-window-configuration saved-window-config)
+        (bury-buffer))
+    (when kill-buffer-p
+      (kill-buffer temp-buffer))))
 
 (defun slime-window-config-fingerprint (&optional frame)
   "Return a fingerprint of the current window configuration.
@@ -4958,7 +4966,7 @@ from an element and TEST is used to compare keys."
 (slime-define-keys slime-compiler-notes-mode-map
   ((kbd "RET") 'slime-compiler-notes-default-action-or-show-details)
   ([mouse-2] 'slime-compiler-notes-default-action-or-show-details/mouse)
-  ("q" 'slime-compiler-notes-quit))
+  ("q" 'slime-temp-buffer-quit))
 
 (defun slime-compiler-notes-default-action-or-show-details/mouse (event)
   "Invoke the action pointed at by the mouse, or show details."
@@ -4975,12 +4983,6 @@ from an element and TEST is used to compare keys."
   (interactive)
   (let ((fn (get-text-property (point) 'slime-compiler-notes-default-action)))
     (if fn (funcall fn) (slime-compiler-notes-show-details))))
-
-(defun slime-compiler-notes-quit ()
-  (interactive)
-  (let ((config slime-temp-buffer-saved-window-configuration))
-    (kill-buffer (current-buffer))
-    (set-window-configuration config)))
 
 (defun slime-compiler-notes-show-details ()
   (interactive)
@@ -7115,14 +7117,13 @@ in Lisp when committed with \\[slime-edit-value-commit]."
 (defun slime-edit-value-callback (form-string current-value package)
   (let ((name (generate-new-buffer-name (format "*Edit %s*" form-string))))
     (with-current-buffer (slime-get-temp-buffer-create name :mode 'lisp-mode)
-    (slime-mode 1)
-    (slime-temp-buffer-mode -1)         ; don't want binding of 'q'
-    (slime-edit-value-mode 1)
-    (setq slime-edit-form-string form-string)
-    (setq slime-buffer-connection (slime-connection))
-    (setq slime-buffer-package package)
-    (insert current-value)
-    (pop-to-buffer (current-buffer)))))
+      (slime-mode 1)
+      (slime-temp-buffer-mode -1)       ; don't want binding of 'q'
+      (slime-edit-value-mode 1)
+      (setq slime-edit-form-string form-string)
+      (setq slime-buffer-connection (slime-connection))
+      (setq slime-buffer-package package)
+      (insert current-value))))
 
 (defun slime-edit-value-commit ()
   "Commit the edited value to the Lisp image.
@@ -7136,8 +7137,7 @@ in Lisp when committed with \\[slime-edit-value-commit]."
                                                       ,value)
                           (lambda (_)
                             (with-current-buffer buffer
-                              (slime-dismiss-temp-buffer)
-                              (kill-buffer buffer))))))))
+                              (slime-temp-buffer-quit t))))))))
 
 ;;;; Tracing
 
