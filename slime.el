@@ -3888,10 +3888,15 @@ earlier in the buffer."
   (delete-region slime-repl-input-start-mark slime-repl-input-end-mark))
 
 (defun slime-repl-kill-input ()
-  "Kill all text from last stuff output by the Lisp process to point."
+  "Kill all text from the prompt to point and reset repl history
+navigation state. If point is right after the prompt then delete
+the entire input."
   (interactive)
-  (when (> (point) (marker-position slime-repl-input-start-mark))
-    (kill-region slime-repl-input-start-mark (point))))
+  (cond ((> (point) (marker-position slime-repl-input-start-mark))
+         (kill-region slime-repl-input-start-mark (point)))
+        ((= (point) (marker-position slime-repl-input-start-mark))
+         (slime-repl-delete-current-input)))
+  (setf slime-repl-input-history-position -1))
 
 (defun slime-repl-replace-input (string)
   (slime-repl-delete-current-input)
