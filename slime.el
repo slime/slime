@@ -3620,6 +3620,23 @@ the presented object."
     (push string slime-repl-input-history))
   (setq slime-repl-input-history-position -1))
   
+(defun slime-repl-delete-from-input-history (&optional string)
+  "Delete STRING from the repl input history. When string is not
+provided then clear the current repl input and use it as an input.
+This is useful to get rid of unwanted repl history entries while
+navigating the repl history."
+  (interactive)
+  (unless string
+    (setf string (slime-repl-current-input))
+    (slime-repl-delete-current-input))
+  (let ((file slime-repl-history-file))
+    (message "saving history...")
+    (let ((merged-history (slime-repl-merge-histories slime-repl-input-history
+                                                      (slime-repl-read-history file t))))
+      (setf slime-repl-input-history (delete* string merged-history :test 'string=))
+      (slime-repl-save-history file slime-repl-input-history)))
+  (slime-repl-jump-to-history-item))
+
 (defun slime-repl-eval-string (string)
   (slime-rex ()
       ((list 'swank:listener-eval string) (slime-lisp-package))
@@ -4215,6 +4232,7 @@ The handler will use qeuery to ask the use if the error should be ingored."
   ((kbd "C-<down>") 'slime-repl-next-input)
   ("\M-r" 'slime-repl-previous-matching-input)
   ("\M-s" 'slime-repl-next-matching-input)
+  ("\M-\C-d" 'slime-repl-delete-from-input-history)
   ("\C-c\C-c" 'slime-interrupt)
   ("\C-c\C-b" 'slime-interrupt)
   ("\C-c:"    'slime-interactive-eval)
