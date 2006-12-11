@@ -4403,11 +4403,24 @@ See `methods-by-applicability'.")
 
 (defgeneric inspect-slot-for-emacs (class object slot)
   (:method (class object slot)
-           (if (swank-mop:slot-boundp-using-class class object slot)
-               `((:value ,(swank-mop:slot-value-using-class class object slot))
-                 " " (:action "[make unbound]"
-                      ,(lambda () (swank-mop:slot-makunbound-using-class class object slot))))
-               '("#<unbound>"))))
+           (let ((slot-name (swank-mop:slot-definition-name slot)))
+             `(,@(if (swank-mop:slot-boundp-using-class class object slot)
+                     `((:value ,(swank-mop:slot-value-using-class class object slot))
+                       " " (:action "[make unbound]"
+                            ,(lambda () (swank-mop:slot-makunbound-using-class class object slot))))
+                     '("#<unbound>"))
+               " " (:action "[set value]"
+                    ,(lambda () (with-simple-restart
+                                    (abort "Abort setting slot ~S" slot-name)
+                                  (let ((value-string (eval-in-emacs
+                                                       `(condition-case c
+                                                         (slime-read-object
+                                                          ,(format nil "Set slot ~S to (evaluated) : " slot-name))
+                                                         (quit nil)))))
+                                    (when (and value-string
+                                               (not (string= value-string "")))
+                                      (setf (swank-mop:slot-value-using-class class object slot)
+                                            (eval (read-from-string value-string))))))))))))
 
 (defgeneric all-slots-for-inspector (object inspector)
   (:method ((object standard-object) inspector)
