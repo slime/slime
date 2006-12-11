@@ -3264,7 +3264,7 @@ INPUT is used to guess the preferred case. Escape symbols when needed."
         (case-converter-with-escaping (completion-output-case-converter input t)))
     (lambda (str)
       (if (some (lambda (el)
-                  (member el '(#\: #\. #\  #\Newline #\Tab)))
+                  (member el '(#\: #\, #\  #\Newline #\Tab)))
                 str)
           (concatenate 'string "|" (funcall case-converter-with-escaping str) "|")
           (funcall case-converter str)))))

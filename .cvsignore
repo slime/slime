@@ -2,3 +2,4 @@
 *.fasl
 *.dfsl
 *.elc
+_darcs
