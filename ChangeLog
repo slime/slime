@@ -1,3 +1,20 @@
+2006-12-12  Nikodemus Siivola <nikodemus@random-state.net>
+
+	* swank.lisp (inspect-for-emacs integer): Pad the hex formatted
+	value to eight digits, "Code-char:" instead of "Corresponding
+	character:", "Integer-length:" instead of "Length:",
+	"Universal-time:" instead of "As time".
+	(inspect-object): Use TYPE-FOR-EMACS instead of TYPE-OF.
+	(inspect-in-emacs): New function, analogous to ED-IN-EMACS.
+
+	* swank-backend.lisp (type-for-emacs): New generic function,
+	defaults to TYPE-OF for non-integers, and returns FIXNUM or BIGNUM
+	for integers.
+
+	* slime.el (destructure-case): Indicate in the error message that
+	it was the Elisp destructure-case that failed to avoid confusion.
+	(slime-check-eval-in-emacs-enabled): More verbose error message.
+
 2006-12-07  Marco Baringer  <mb@bese.it>
 
 	* swank.lisp (init-inspector): Added eval parameter. If NIL we

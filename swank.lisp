@@ -18,6 +18,7 @@
            #:start-server 
            #:create-server
            #:ed-in-emacs
+           #:inspect-in-emacs
            #:print-indentation-lossage
            #:swank-debugger-hook
            #:run-after-init-hook
@@ -730,7 +731,7 @@ of the toplevel restart."
      (send (find-thread thread-id) `(take-input ,tag ,value)))
     (((:write-string :presentation-start :presentation-end
                      :new-package :new-features :ed :%apply :indentation-update
-                     :eval-no-wait :background-message)
+                     :eval-no-wait :background-message :inspect)
       &rest _)
      (declare (ignore _))
      (encode-message event socket-io))))
@@ -872,7 +873,7 @@ of the toplevel restart."
       (((:write-string :new-package :new-features :debug-condition
                        :presentation-start :presentation-end
                        :indentation-update :ed :%apply :eval-no-wait
-                       :background-message)
+                       :background-message :inspect)
         &rest _)
        (declare (ignore _))
        (send event)))))
@@ -2665,6 +2666,19 @@ Returns true if it actually called emacs, or NIL if not."
          (with-connection ((default-connection))
            (send-oob-to-emacs `(:ed ,target))))
         (t nil)))))
+
+(defslimefun inspect-in-emacs (what)
+  "Inspect WHAT in Emacs."
+  (flet ((send-it ()
+           (with-buffer-syntax ()
+             (reset-inspector)
+             (send-oob-to-emacs `(:inspect ,(inspect-object what))))))
+    (cond 
+      (*emacs-connection*
+       (send-it))
+      ((default-connection)
+       (with-connection ((default-connection))
+         (send-it))))))
 
 (defslimefun value-for-editing (form)
   "Return a readable value of FORM for editing in Emacs.
@@ -4668,16 +4682,15 @@ See `methods-by-applicability'.")
 (defmethod inspect-for-emacs ((i integer) inspector)
   (declare (ignore inspector))
   (values "A number."
-          (append 
-           `(,(format nil "Value: ~D = #x~X = #o~O = #b~,,' ,8:B = ~E"
+          (append
+           `(,(format nil "Value: ~D = #x~8,'0X = #o~O = #b~,,' ,8:B = ~E"
                       i i i i i)
               (:newline))
-           (if (< -1 i char-code-limit)
-               (label-value-line "Corresponding character" (code-char i)))
-           (label-value-line "Length" (integer-length i))
+           (when (< -1 i char-code-limit)
+             (label-value-line "Code-char" (code-char i)))
+           (label-value-line "Integer-length" (integer-length i))           
            (ignore-errors
-             (list "As time: " 
-                   (format-iso8601-time i t))))))
+             (label-value-line "Universal-time" (format-iso8601-time i t))))))
 
 (defmethod inspect-for-emacs ((c complex) inspector)
   (declare (ignore inspector))
@@ -4814,7 +4827,7 @@ See `methods-by-applicability'.")
     (multiple-value-bind (title content)
         (inspect-for-emacs object inspector)
       (list :title title
-            :type (to-string (type-of object))
+            :type (to-string (type-for-emacs object))
             :content (inspector-content-for-emacs content)
             :id (assign-index object *inspectee-parts*)))))
 

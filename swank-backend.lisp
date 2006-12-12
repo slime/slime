@@ -38,6 +38,7 @@
            #:fancy-inspection
            #:label-value-line
            #:label-value-line*
+           #:type-for-emacs
            ))
 
 (defpackage :swank-mop
@@ -879,6 +880,20 @@ output of CL:DESCRIBE."
 (defmacro label-value-line* (&rest label-values)
   ` (append ,@(loop for (label value) in label-values
                     collect `(label-value-line ,label ,value))))
+
+(defgeneric type-for-emacs (object)
+  (:documentation
+   "Return a type specifier suitable for display in the Emacs inspector.")
+  (:method (object)
+    (type-of object))
+  (:method ((object integer))
+    ;; Some lisps report integer types as (MOD ...), which while nice
+    ;; in a sense doesn't answer the often more immediate question of
+    ;; fixnumness.
+    (if (typep object 'fixnum)
+        'fixnum
+        'bignum)))
+
 
 (definterface describe-primitive-type (object)
   "Return a string describing the primitive type of object."

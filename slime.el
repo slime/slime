@@ -1122,7 +1122,7 @@ corresponding values in the CDR of VALUE."
 		   patterns)
 	 ,@(if (eq (caar (last patterns)) t)
 	       '()
-	     `((t (error "destructure-case failed: %S" ,tmp))))))))
+	     `((t (error "Elisp destructure-case failed: %S" ,tmp))))))))
 
 (put 'destructure-case 'lisp-indent-function 1)
 
@@ -2687,14 +2687,16 @@ Debugged requests are ignored."
       ((:open-dedicated-output-stream port)
        (slime-open-stream-to-lisp port))
       ((:eval-no-wait fun args)
-       (slime-check-eval-in-emacs-enabled)
        (apply (intern fun) args))
       ((:eval thread tag form-string)
+       (slime-check-eval-in-emacs-enabled)
        (slime-eval-for-lisp thread tag form-string))
       ((:emacs-return thread tag value)
        (slime-send `(:emacs-return ,thread ,tag ,value)))
       ((:ed what)
        (slime-ed what))
+      ((:inspect what)
+       (slime-open-inspector what))
       ((:background-message message)
        (slime-background-message "%s" message))
       ((:debug-condition thread message)
@@ -6921,7 +6923,7 @@ The result is a (possibly empty) list of definitions."
 (defun slime-check-eval-in-emacs-enabled ()
   "Raise an error if `slime-enable-evaluate-in-emacs' isn't true."
   (unless slime-enable-evaluate-in-emacs
-    (error "eval-in-emacs not enabled")))
+    (error "slime-eval-in-emacs disabled for security. Set slime-enable-evaluate-in-emacs true to enable it.")))
 
 
 ;;;; `ED'
