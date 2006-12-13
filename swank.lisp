@@ -3253,7 +3253,7 @@ Returns a list of completions with package qualifiers if needed."
 INPUT is used to guess the preferred case."
   (ecase (readtable-case *readtable*)
     (:upcase (cond ((or with-escaping-p
-                        (every #'upper-case-p input))
+                        (not (some #'lower-case-p input)))
                     #'identity)
                    (t #'string-downcase)))
     (:invert (lambda (output)
@@ -3263,7 +3263,7 @@ INPUT is used to guess the preferred case."
                        (upper (string-downcase output))
                        (t output)))))
     (:downcase (cond ((or with-escaping-p
-                          (every #'lower-case-p input))
+                          (not (some #'upper-case-p input)))
                       #'identity)
                      (t #'string-upcase)))
     (:preserve #'identity)))
