@@ -2178,8 +2178,8 @@ The `symbol-value' of each element is a type tag.")
   (setq ext:*gc-notify-after* #'post-gc-hook))
 
 (defun remove-gc-hooks ()
-  (setq ext:*gc-notify-before* nil)
-  (setq ext:*gc-notify-after* nil))
+  (setq ext:*gc-notify-before* #'lisp::default-gc-notify-before)
+  (setq ext:*gc-notify-after* #'lisp::default-gc-notify-after))
 
 (defvar *install-gc-hooks* t
   "If non-nil install GC hooks")
