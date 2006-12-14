@@ -1,3 +1,7 @@
+2006-12-13  Attila Lendvai  <attila.lendvai@gmail.com>
+
+	* swank.lisp: FIX: fuzzy completion for M-V-B. Fix by Madhu.
+
 2006-12-12  Nikodemus Siivola <nikodemus@random-state.net>
 
 	* swank.lisp (inspect-for-emacs integer): Pad the hex formatted
@@ -14,6 +18,52 @@
 	* slime.el (destructure-case): Indicate in the error message that
 	it was the Elisp destructure-case that failed to avoid confusion.
 	(slime-check-eval-in-emacs-enabled): More verbose error message.
+
+2006-12-11  Attila Lendvai  <attila.lendvai@gmail.com>
+
+	* swank.lisp: Added [set value] command for slot inspecting
+
+	* slime.el: Work on repl history navigation, restore old M-p/M-n
+	behaviour due to #lisp demand
+
+	Also print the current regexp in the minibuffer messages.  M-p/M-n
+	takes the repl input up to the point not the entire input as it
+	did before.
+	slime-repl-previous/next-input-starting-with-current-input: new
+	names for the old M-p/M-n commands History navigation commands
+	jump to the end of buffer when point is before the prompt.
+
+	* slime.el: Fix/smarten up temp-buffer-quit
+
+	Now it tries its best to remember the original window config and
+	restore it at slime-temp-buffer-quit unless it was changed
+	meanwhile. IOW, fix "q" after macroexpand in a macroexpand buffer
+	not closing the temp window.
+	Also fix the compiler notes usage of the temp buffer.
+
+	* swank-backend.lisp, swank.lisp:
+	Added inspect-slot-for-emacs to let users customize it.
+
+	Use all-slots-for-inspector everywhere, render link to both the
+	effective and direct slots when both are available.  Dropped
+	slot-value-using-class-for-inspector and friends.  Added
+	slot-makunbound-using-class to the swank-mop package and added
+	a [make-unbound] action to the standard slot presentation.
+
+	* slime.el: FIX: slime-symbol-name-at-point for symbols like
+	foo::|bar::baz|
+
+	* .cvsignore, swank.lisp: FIX: Drop #\. and add #\, to escaped
+	symbol chars
+
+	* slime.el: Added slime-repl-delete-from-input-history that
+	deletes the current history entry when no input is supplied
+
+	* slime.el: slime-repl-kill-input kills the entire input when
+	point is at the prompt and resets the history navigation state
+
+	* slime.el:
+	Use a hashtable to remove duplicates in slime-repl-merge-histories
 
 2006-12-07  Marco Baringer  <mb@bese.it>
 
