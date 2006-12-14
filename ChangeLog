@@ -1,3 +1,33 @@
+2006-12-14  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (*sldb-printer-bindings*): *PRINT-LINES* is in
+	effect only if *PRINT-PRETTY* is non-NIL, so it better to enable
+	the pretty printer.  Suggested by Madhu <enometh@meer.net>.
+
+	* slime.el (slime-expand-abbreviations-and-complete): Emacs
+	`choose-completion' (choosing a completion from the *Completions*
+	buffer) always replaces text upto (point). So the code which
+	figures out an `unambiguous-completion-length' and places the
+	point there in `slime-expand-abbreviations-and-complete' causes
+	problems: the replacement text gets garbled.  Get rid of the bogus
+	`unambiguous-completion-length'.  Patch by Madhu <enometh@meer.net>
+
+	* swank-cmucl.lisp (remove-gc-hooks): The variables
+	EXT:*GC-NOTIFY-AFTER* and EXT:*NOTIFY-BEFORE* should hold
+	functions and should be NIL. This affects the function
+	REMOVE-GC-HOOKS in swank-cmucl.lisp which sets them to
+	NIL, (should one happen to use it).  Set them back to the original
+	parameters.  Patch by Madhu <enometh@meer.net>
+
+	* slime.el (slime-repl-output-mouseover-face): Fix a pair of extra
+	parens.  Patch by Madhu <enometh@meer.net>
+
+2006-12-14  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-search-buffer-package): Remove Xemacs special
+	casing.  There's already a compatibility defun for
+	match-string-no-properties.
+
 2006-12-13  Attila Lendvai  <attila.lendvai@gmail.com>
 
 	* swank.lisp: FIX: fuzzy completion for M-V-B. Fix by Madhu.
