@@ -90,7 +90,7 @@
 Redirection is done while Lisp is processing a request for Emacs.")
 
 (defvar *sldb-printer-bindings*
-  `((*print-pretty*           . nil)
+  `((*print-pretty*           . t)
     (*print-level*            . 4)
     (*print-length*           . 10)
     (*print-circle*           . t)
@@ -100,7 +100,7 @@ Redirection is done while Lisp is processing a request for Emacs.")
     (*print-base*             . 10)
     (*print-radix*            . nil)
     (*print-array*            . t)
-    (*print-lines*            . 200)
+    (*print-lines*            . 10)
     (*print-escape*           . t))
   "A set of printer variables used in the debugger.")
 
