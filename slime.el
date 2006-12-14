@@ -6151,15 +6151,10 @@ Completion is performed by `slime-complete-symbol-function'."
                          (set-window-start window (point-min) nil)
                        (let ((other-window-scroll-buffer 
                               (window-buffer window)))
-                   (scroll-other-window)))))
-               (let ((unambiguous-completion-length
-                      (loop for c in completion-set
-                            minimizing (or (mismatch completed-prefix c)
-                                           (length completed-prefix)))))
-                 (goto-char (+ beg unambiguous-completion-length))
-                 (slime-display-completion-list completion-set
-                                                completed-prefix)
-                 (slime-complete-delay-restoration))))))))
+                   (scroll-other-window))))) ; madhu
+               (slime-display-completion-list completion-set
+                                              completed-prefix)
+               (slime-complete-delay-restoration)))))))
 
 (defun slime-complete-symbol*-fancy-bit ()
   "Do fancy tricks after completing a symbol.
