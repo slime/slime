@@ -505,7 +505,7 @@ is inserted."
            (:box
             (:line-width 1 :color "black" :style released-button)
             :inherit
-            (slime-repl-inputed-output-face))))
+            slime-repl-inputed-output-face)))
       '((t (:box (:line-width 1 :color "black"))))))
   "Face for Lisp output in the SLIME REPL, when the mouse hovers over it"
   :group 'slime-repl)
@@ -2522,11 +2522,7 @@ or nil if nothing suitable can be found.")
     (save-excursion
       (when (or (re-search-backward regexp nil t)
                 (re-search-forward regexp nil t))
-        (let ((string (if (fboundp 'match-string-no-properties)
-                          (match-string-no-properties 2)
-                          (buffer-substring-no-properties
-                           (match-beginning 2)
-                           (match-end 2)))))
+        (let ((string (match-string-no-properties 2)))
           (cond ((string-match "^\"" string) (ignore-errors (read string)))
                 ((string-match "^#?:" string) (substring string (match-end 0)))
                 (t string)))))))
