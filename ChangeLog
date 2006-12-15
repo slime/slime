@@ -1,3 +1,9 @@
+2006-12-15  Edi Weitz  <edi@agharta.de>
+
+	* swank-lispworks.lisp (make-weak-key-hash-table): Weak hash
+	tables for Lispworks.
+	(make-weak-value-hash-table): Ditto.
+
 2006-12-14  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (*sldb-printer-bindings*): *PRINT-LINES* is in
