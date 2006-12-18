@@ -10674,10 +10674,11 @@ package is used."
 (defun slime-region-for-defun-at-point ()
   "Return the start and end position of the toplevel form at point."
   (save-excursion
-    (end-of-defun)
-    (let ((end (point)))
-      (beginning-of-defun)
-      (list (point) end))))
+    (save-match-data
+      (end-of-defun)
+      (let ((end (point)))
+        (beginning-of-defun)
+        (list (point) end)))))
 
 (defun slime-beginning-of-symbol ()
   "Move point to the beginning of the current symbol."
