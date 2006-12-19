@@ -260,7 +260,7 @@ final, no matter where the point is."
   :group 'slime-mode
   :type 'boolean)
 
-(defcustom slime-complete-symbol-function 'slime-complete-symbol*
+(defcustom slime-complete-symbol-function 'slime-fuzzy-complete-symbol
   "*Function to perform symbol completion."
   :group 'slime-mode
   :type '(choice (const :tag "Simple" slime-simple-complete-symbol)
