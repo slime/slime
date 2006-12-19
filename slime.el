@@ -10769,7 +10769,8 @@ The result is unspecified if there isn't a symbol under the point."
 
 (defun slime-sexp-at-point ()
   "Return the sexp at point as a string, otherwise nil."
-  (let ((string (thing-at-point 'sexp)))
+  (let ((string (or (slime-symbol-name-at-point)
+                    (thing-at-point 'sexp))))
     (if string (substring-no-properties string) nil)))
 
 (defun slime-sexp-at-point-or-error ()
