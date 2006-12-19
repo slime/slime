@@ -3627,10 +3627,9 @@ this call will also recurse.
 
 Once a word has been completely matched, the chunks are pushed
 onto the special variable *ALL-CHUNKS* and the function returns."
-  (declare (optimize speed)
+  (declare ;(optimize speed)
            (fixnum short-index initial-full-index)
            (simple-string short full)
-           (type list *all-chunks*)
            (special *all-chunks*))
   (flet ((short-cur () 
            "Returns the next letter from the abbreviation, or NIL
