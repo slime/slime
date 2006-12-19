@@ -9070,20 +9070,24 @@ See `slime-lisp-implementations'")
 (defvar slime-saved-window-config)
 
 (defun* slime-inspect (form &key no-reset (eval (not current-prefix-arg)) thread)
-  "Eval an expression and inspect the result.
+  "Take an expression and inspect it trying to be smart about what was the intention.
 
-If called with a prefix argument the value will not be evaluated."
-  (interactive (list (slime-read-object (if current-prefix-arg
-                                            "Inspect value: "
-                                            "Inspect value (evaluated): "))))
+If called with a prefix argument the value will be evaluated and inspected
+without any magic in behind the stage."
+  (interactive
+   (list (slime-read-object (if current-prefix-arg
+                                "Inspect value (evaluated): "
+                                "Inspect value (dwim mode): ")
+                            :return-names-unconfirmed (not current-prefix-arg))))
   (slime-eval-async `(swank:init-inspector ,form
                                            :reset ,(not no-reset)
-                                           :eval ,eval)
+                                           :eval ,(not (null current-prefix-arg))
+                                           :dwim-mode ,(not current-prefix-arg))
                     (with-lexical-bindings (thread)
                       (lambda (thing)
                         (slime-open-inspector thing :thread thread)))))
 
-(defun slime-read-object (prompt)
+(defun* slime-read-object (prompt &key return-names-unconfirmed)
   "Read a Common Lisp expression from the minibuffer, providing
 defaults from the s-expression at point.  If point is within a
 presentation, don't prompt, just return the presentation."
@@ -9091,8 +9095,14 @@ presentation, don't prompt, just return the presentation."
       (slime-presentation-around-point (point))
     (if presentation
         (slime-presentation-expression presentation)
-      (slime-read-from-minibuffer prompt
-                                  (slime-sexp-at-point)))))
+        (let ((sexp (slime-sexp-at-point)))
+          (if (and sexp
+                   return-names-unconfirmed
+                   ;; an string with alphanumeric chars and hyphens only?
+                   (and (string-match "\\([\-|0-9|a-z|A-Z]*\\)" sexp)
+                        (= (match-end 0) (length sexp))))
+              sexp
+              (slime-read-from-minibuffer prompt sexp))))))
 
 (define-derived-mode slime-inspector-mode fundamental-mode "Slime-Inspector"
   (set-syntax-table lisp-mode-syntax-table)

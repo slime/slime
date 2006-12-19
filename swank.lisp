@@ -4775,14 +4775,30 @@ See `methods-by-applicability'.")
         *inspectee-actions* (make-array 10 :adjustable t :fill-pointer 0)
         *inspector-history* (make-array 10 :adjustable t :fill-pointer 0)))
 
-(defslimefun init-inspector (string &key (reset t) (eval t))
+(defslimefun init-inspector (string &key (reset t) (eval t) (dwim-mode nil))
   (with-buffer-syntax ()
     (when reset
       (reset-inspector))
     (let* ((form (read-from-string string))
-           (value (if eval
-                      (eval form)
-                      form)))
+           (value (cond (dwim-mode
+                         (typecase form
+                           (symbol (or (and (fboundp form)
+                                            (fdefinition form))
+                                       (and (boundp form)
+                                            (symbol-value form))
+                                       (find-class form nil)
+                                       form))
+                           (atom form)
+                           (t (if (fboundp (first form))
+                                  (eval form)
+                                  form))))
+                        (eval (eval form))
+                        (t form))))
+      (when (and dwim-mode
+                 form)
+        ;; push the form to the inspector stack, so you can go back to it
+        ;; with slime-inspector-pop if dwim missed the intention
+        (push form *inspector-stack*))
       (inspect-object value))))
   
 (defun print-part-to-string (value)
