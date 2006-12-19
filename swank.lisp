@@ -3627,9 +3627,10 @@ this call will also recurse.
 
 Once a word has been completely matched, the chunks are pushed
 onto the special variable *ALL-CHUNKS* and the function returns."
-  (declare ;;(optimize speed)
+  (declare (optimize speed)
            (fixnum short-index initial-full-index)
            (simple-string short full)
+           (type list *all-chunks*)
            (special *all-chunks*))
   (flet ((short-cur () 
            "Returns the next letter from the abbreviation, or NIL
@@ -3738,7 +3739,8 @@ matches, all other things being equal."
              (if (zerop chunk-pos) 
                  base-score 
                  (max base-score 
-                      (* (score-char (1- pos) (1- chunk-pos)) 0.85))))
+                      (+ (* (score-char (1- pos) (1- chunk-pos)) 0.85)
+                         (expt 1.2 chunk-pos)))))
            (score-char (pos chunk-pos)
              (score-or-percentage-of-previous
               (cond ((at-beginning-p pos)         10)
