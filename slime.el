@@ -8616,9 +8616,13 @@ The details include local variable bindings and CATCH-tags."
   "Prompt for an expression and inspect it in the selected frame."
   (interactive (list (slime-read-object
                       "Inspect in frame (evaluated): ")))
-  (let ((number (sldb-frame-number-at-point)))
-    (slime-eval-async `(swank:inspect-in-frame ,string ,number)
-                      'slime-open-inspector)))
+  (slime-eval-async `(swank:inspect-in-frame ,string ,(sldb-frame-number-at-point))
+                    (with-lexical-bindings (slime-current-thread
+                                            slime-buffer-package)
+                      (lambda (thing)
+                        (slime-open-inspector thing
+                                              :thread slime-current-thread
+                                              :package slime-buffer-package)))))
 
 (defun sldb-inspect-condition ()
   "Inspect the current debugger condition."
@@ -8690,9 +8694,12 @@ The details include local variable bindings and CATCH-tags."
   (let ((frame (sldb-frame-number-at-point))
         (var (sldb-var-number-at-point)))
     (slime-eval-async `(swank:inspect-frame-var ,frame ,var) 
-                      (with-lexical-bindings (slime-current-thread)
+                      (lexical-let ((thread slime-current-thread)
+                                    (package (slime-current-package)))
                         (lambda (thing)
-                          (slime-open-inspector thing :thread slime-current-thread))))))
+                          (slime-open-inspector thing
+                                                :thread thread
+                                                :package package))))))
 
 (defun sldb-list-locals ()
   "List local variables in selected frame."
@@ -9069,7 +9076,8 @@ See `slime-lisp-implementations'")
 (defvar slime-inspector-mark-stack '())
 (defvar slime-saved-window-config)
 
-(defun* slime-inspect (form &key no-reset (eval (not current-prefix-arg)) thread)
+(defun* slime-inspect (form &key no-reset (eval (not current-prefix-arg)) thread
+                            (package (slime-current-package)))
   "Take an expression and inspect it trying to be smart about what was the intention.
 
 If called with a prefix argument the value will be evaluated and inspected
@@ -9083,9 +9091,11 @@ without any magic in behind the stage."
                                            :reset ,(not no-reset)
                                            :eval ,(not (null current-prefix-arg))
                                            :dwim-mode ,(not current-prefix-arg))
-                    (with-lexical-bindings (thread)
+                    (with-lexical-bindings (thread package)
                       (lambda (thing)
-                        (slime-open-inspector thing :thread thread)))))
+                        (slime-open-inspector thing
+                                              :thread thread
+                                              :package package)))))
 
 (defun* slime-read-object (prompt &key return-names-unconfirmed)
   "Read a Common Lisp expression from the minibuffer, providing
@@ -9122,13 +9132,15 @@ presentation, don't prompt, just return the presentation."
 (defmacro slime-inspector-fontify (face string)
   `(slime-add-face ',(intern (format "slime-inspector-%s-face" face)) ,string))
 
-(defun* slime-open-inspector (inspected-parts &key point thread)
+(defun* slime-open-inspector (inspected-parts &key point thread package)
   "Display INSPECTED-PARTS in a new inspector window.
 Optionally set point to POINT."
   (with-current-buffer (slime-inspector-buffer)
     (setq slime-buffer-connection (slime-current-connection))
     (when thread
       (setq slime-current-thread thread))
+    (when package
+      (setq slime-buffer-package package))
     (let ((inhibit-read-only t))
       (erase-buffer)
       (destructuring-bind (&key title type content id) inspected-parts
@@ -9173,16 +9185,17 @@ Optionally set point to POINT."
   that value. If point is on an action then call that action."
   (interactive)
   (let ((part-number (get-text-property (point) 'slime-part-number))
-        (action-number (get-text-property (point) 'slime-action-number)))
+        (action-number (get-text-property (point) 'slime-action-number))
+        (opener (lexical-let ((point (cons (line-number) (current-column))))
+                  (lambda (parts)
+                    (slime-open-inspector parts :point point)))))
     (cond (part-number
            (slime-eval-async `(swank:inspect-nth-part ,part-number)
-                             'slime-open-inspector)
+                             opener)
            (push (point) slime-inspector-mark-stack))
           (action-number 
            (slime-eval-async `(swank::inspector-call-nth-action ,action-number)
-                             (lexical-let ((point (cons (line-number) (current-column))))
-                               (lambda (parts)
-                                 (slime-open-inspector parts :point point))))))))
+                             opener)))))
 
 (defun slime-inspector-operate-on-click (event)
   "Inspect the value at the clicked-at position or invoke an action."
