@@ -4186,15 +4186,21 @@ NIL is returned if the list is circular."
             ("Test" (hash-table-test ht))
             ("Rehash size" (hash-table-rehash-size ht))
             ("Rehash threshold" (hash-table-rehash-threshold ht)))
-           '("Contents: " (:newline))
+           (unless (zerop (hash-table-count ht))
+             `((:action "[clear hashtable]" ,(lambda () (clrhash ht))) (:newline)
+               "Contents: " (:newline)))
 	   (if (and *slime-inspect-contents-limit*
 		    (>= (hash-table-count ht) *slime-inspect-contents-limit*))
 	       (inspect-bigger-piece-actions ht (hash-table-count ht))
 	       nil)
            (loop for key being the hash-keys of ht
-	      for value being the hash-values of ht
-	      repeat (or *slime-inspect-contents-limit* most-positive-fixnum)
-	      append `((:value ,key) " = " (:value ,value) (:newline))))))
+                 for value being the hash-values of ht
+                 repeat (or *slime-inspect-contents-limit* most-positive-fixnum)
+                 append `((:value ,key) " = " (:value ,value)
+                          " " (:action "[remove entry]"
+                               ,(let ((key key))
+                                  (lambda () (remhash key ht))))
+                          (:newline))))))
 
 (defmethod inspect-bigger-piece-actions (thing size)
   (append 
