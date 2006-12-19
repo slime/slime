@@ -3015,13 +3015,24 @@ RESULT-P decides whether a face for a return value or output text is used."
         (delete-overlay overlay)))))
 
 (defun slime-insert-presentation (string output-id)
-  (cond ((not slime-repl-enable-presentations)
-         (insert string))
-        (t
-         (let ((start (point)))
-           (insert string)
-           (slime-add-presentation-properties start (point) output-id t)))))
-                          
+  (flet ((insert-it ()
+           (let ((lines (split-string string "\n")))
+             (if (cdr lines)
+                 (progn
+                   (save-excursion
+                     (dolist (line lines)
+                       (newline)))
+                   (insert-rectangle lines)
+                   (forward-char)
+                   (delete-backward-char 1))
+                 (insert string)))))
+    (cond ((not slime-repl-enable-presentations)
+           (insert-it))
+          (t
+           (let ((start (point)))
+             (insert-it)
+             (slime-add-presentation-properties start (point) output-id t))))))
+
 (defun slime-open-stream-to-lisp (port)
   (let ((stream (open-network-stream "*lisp-output-stream*" 
                                      (slime-with-connection-buffer ()
@@ -8691,7 +8702,7 @@ The details include local variable bindings and CATCH-tags."
             (slime-insert-presentation
              (in-sldb-face local-value value)
              `(:frame-var ,frame ,i)))
-          (insert "\n"))))
+          (newline))))
 
 (defun sldb-inspect-var ()
   (let ((frame (sldb-frame-number-at-point))
