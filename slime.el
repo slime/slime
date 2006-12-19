@@ -8378,10 +8378,13 @@ Only add clickability to properties we actually know how to lookup."
 (defun sldb-prune-initial-frames (frames)
   "Return the prefix of FRAMES to initially present to the user.
 Regexp heuristics are used to avoid showing SWANK-internal frames."
-  (or (loop for frame in frames
+  (or (loop with winner = -1
+            for frame in frames
+            for idx from 0
             for (number string) = frame
-            until (string-match "^(*\\(SWANK\\|swank\\)\\>" string)
-            collect frame)
+            while (string-match "^\\((\\|LAMBDA \\|lambda \\)*\\(SWANK\\|swank\\)\\>" string)
+              do (setf winner idx)
+            finally (return (subseq frames (1+ winner))))
       frames))
 
 (defun sldb-insert-frame (frame &optional detailedp)
