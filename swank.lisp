@@ -4449,18 +4449,37 @@ See `methods-by-applicability'.")
     (declare (ignore inspector))
     (append '("------------------------------" (:newline)
               "All Slots:" (:newline))
-            (loop
-               with direct-slots = (swank-mop:class-direct-slots (class-of object))
-               for effective-slot :in (swank-mop:class-slots (class-of object))
-               for direct-slot = (find (swank-mop:slot-definition-name effective-slot)
-                                       direct-slots :key #'swank-mop:slot-definition-name)
-               collect `(:value ,(if direct-slot
-                                     (list direct-slot effective-slot)
-                                     effective-slot)
-                         ,(inspector-princ (swank-mop:slot-definition-name effective-slot)))
-               collect " = "
-               append (inspect-slot-for-emacs (class-of object) object effective-slot)
-               collect '(:newline)))))
+            (let* ((class (class-of object))
+                   (direct-slots (swank-mop:class-direct-slots class))
+                   (effective-slots (swank-mop:class-slots class))
+                   (slot-presentations (loop for effective-slot :in effective-slots
+                                             collect (inspect-slot-for-emacs
+                                                      class object effective-slot)))
+                   (longest-slot-name-length
+                    (loop for slot :in effective-slots
+                          maximize (length (symbol-name
+                                            (swank-mop:slot-definition-name slot))))))
+              (loop
+                  for effective-slot :in effective-slots
+                  for slot-presentation :in slot-presentations
+                  for direct-slot = (find (swank-mop:slot-definition-name effective-slot)
+                                          direct-slots :key #'swank-mop:slot-definition-name)
+                  for slot-name = (inspector-princ
+                                   (swank-mop:slot-definition-name effective-slot))
+                  for padding-length = (- longest-slot-name-length
+                                          (length (symbol-name
+                                                   (swank-mop:slot-definition-name
+                                                    effective-slot))))
+                  collect `(:value ,(if direct-slot
+                                        (list direct-slot effective-slot)
+                                        effective-slot)
+                            ,slot-name)
+                  collect (make-array padding-length
+                                      :element-type 'character
+                                      :initial-element #\Space)
+                  collect " = "
+                  append slot-presentation
+                  collect '(:newline))))))
 
 (defmethod inspect-for-emacs ((gf standard-generic-function) inspector)
   (flet ((lv (label value) (label-value-line label value)))
