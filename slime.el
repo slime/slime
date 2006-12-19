@@ -8690,7 +8690,9 @@ The details include local variable bindings and CATCH-tags."
   (let ((frame (sldb-frame-number-at-point))
         (var (sldb-var-number-at-point)))
     (slime-eval-async `(swank:inspect-frame-var ,frame ,var) 
-                      'slime-open-inspector)))
+                      (with-lexical-bindings (slime-current-thread)
+                        (lambda (thing)
+                          (slime-open-inspector thing :thread slime-current-thread))))))
 
 (defun sldb-list-locals ()
   "List local variables in selected frame."
@@ -9076,8 +9078,10 @@ If called with a prefix argument the value will not be evaluated."
                                             "Inspect value (evaluated): "))))
   (slime-eval-async `(swank:init-inspector ,form
                                            :reset ,(not no-reset)
-                                           :eval ,(null current-prefix-arg))
-                    'slime-open-inspector))
+                                           :eval ,eval)
+                    (with-lexical-bindings (thread)
+                      (lambda (thing)
+                        (slime-open-inspector thing :thread thread)))))
 
 (defun slime-read-object (prompt)
   "Read a Common Lisp expression from the minibuffer, providing
@@ -9113,6 +9117,8 @@ presentation, don't prompt, just return the presentation."
 Optionally set point to POINT."
   (with-current-buffer (slime-inspector-buffer)
     (setq slime-buffer-connection (slime-current-connection))
+    (when thread
+      (setq slime-current-thread thread))
     (let ((inhibit-read-only t))
       (erase-buffer)
       (destructuring-bind (&key title type content id) inspected-parts
