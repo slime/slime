@@ -277,7 +277,7 @@ final, no matter where the point is."
   :group 'slime-mode
   :type 'boolean)
 
-(defcustom slime-fuzzy-completion-in-place nil
+(defcustom slime-fuzzy-completion-in-place t
   "When non-NIL the fuzzy symbol completion is done in place as
 opposed to moving the point to the completion buffer."
   :group 'slime-mode
