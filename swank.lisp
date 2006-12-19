@@ -2760,9 +2760,8 @@ after Emacs causes a restart to be invoked."
         (*sldb-stepping-p* nil)
         (*swank-state-stack* (cons :swank-debugger-hook *swank-state-stack*)))
     (force-user-output)
-    (with-bindings *sldb-printer-bindings*
-      (call-with-debugging-environment
-       (lambda () (sldb-loop *sldb-level*))))))
+    (call-with-debugging-environment
+     (lambda () (sldb-loop *sldb-level*)))))
 
 (defun sldb-loop (level)
   (unwind-protect
@@ -2814,12 +2813,6 @@ format suitable for Emacs."
 	collect (list (princ-to-string (restart-name restart))
 		      (princ-to-string restart))))
 
-(defun frame-for-emacs (n frame)
-  (let* ((label (format nil " ~2D: " n))
-         (string (with-output-to-string (stream) 
-                     (princ label stream) 
-                     (print-frame frame stream))))
-    (subseq string (length label))))
 
 ;;;;; SLDB entry points
 
@@ -2830,9 +2823,13 @@ format suitable for Emacs."
 (defslimefun backtrace (start end)
   "Return a list ((I FRAME) ...) of frames from START to END.
 I is an integer describing and FRAME a string."
-  (loop for frame in (compute-backtrace start end)
-        for i from start
-        collect (list i (frame-for-emacs i frame))))
+  (with-bindings *sldb-printer-bindings*
+    ;; we don't want newlines in the backtrace, that makes it unreadable
+    (let ((*print-right-margin* most-positive-fixnum))
+      (loop for frame in (compute-backtrace start end)
+            for i from start
+            collect (list i (with-output-to-string (stream)
+                              (print-frame frame stream)))))))
 
 (defslimefun debugger-info-for-emacs (start end)
   "Return debugger state, with stack frames from START to END.
@@ -2865,10 +2862,11 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
    (\"ABORT\" \"Return to Top-Level.\"))
   ((0 \"(KERNEL::INTEGER-/-INTEGER 1 0)\"))
   (4))"
-  (list (debugger-condition-for-emacs)
-	(format-restarts-for-emacs)
-	(backtrace start end)
-        *pending-continuations*))
+  (with-bindings *sldb-printer-bindings*
+    (list (debugger-condition-for-emacs)
+          (format-restarts-for-emacs)
+          (backtrace start end)
+          *pending-continuations*)))
 
 (defun nth-restart (index)
   (nth index *sldb-restarts*))
