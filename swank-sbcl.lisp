@@ -1245,3 +1245,7 @@ stack."
   (apply #'make-hash-table :weakness :value args)
   #-#.(swank-backend::sbcl-with-weak-hash-tables)
   (apply #'make-hash-table args))
+
+(defimplementation hash-table-weakness (hashtable)
+  #+#.(swank-backend::sbcl-with-weak-hash-tables)
+  (sb-ext:hash-table-weakness hashtable))

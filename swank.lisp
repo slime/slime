@@ -4186,6 +4186,9 @@ NIL is returned if the list is circular."
             ("Test" (hash-table-test ht))
             ("Rehash size" (hash-table-rehash-size ht))
             ("Rehash threshold" (hash-table-rehash-threshold ht)))
+           (let ((weakness (hash-table-weakness ht)))
+             (when weakness
+               `("Weakness: " (:value ,weakness) (:newline))))
            (unless (zerop (hash-table-count ht))
              `((:action "[clear hashtable]" ,(lambda () (clrhash ht))) (:newline)
                "Contents: " (:newline)))

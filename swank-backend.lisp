@@ -1015,6 +1015,11 @@ SPEC can be:
   "Like MAKE-HASH-TABLE, but weak w.r.t. the values."
   (apply #'make-hash-table args))
 
+(definterface hash-table-weakness (hashtable)
+  "Return nil or one of :key :value :key-or-value :key-and-value"
+  (declare (ignore hashtable))
+  nil)
+
 
 ;;;; Character names
 
