@@ -9136,7 +9136,11 @@ Optionally set point to POINT."
             (mapc #'slime-inspector-insert-ispec content))
           (pop-to-buffer (current-buffer))
           (when point 
-            (goto-char (min (point-max) point))))))))
+            (if (consp point)
+                (progn
+                  (goto-line (min (count-lines 1 (point-max)) (car point)))
+                  (move-to-column (cdr point)))
+                (goto-char (min (point-max) point)))))))))
 
 (defun slime-inspector-insert-ispec (ispec)
   (if (stringp ispec)
@@ -9166,7 +9170,7 @@ Optionally set point to POINT."
            (push (point) slime-inspector-mark-stack))
           (action-number 
            (slime-eval-async `(swank::inspector-call-nth-action ,action-number)
-                             (lexical-let ((point (point)))
+                             (lexical-let ((point (cons (line-number) (current-column))))
                                (lambda (parts)
                                  (slime-open-inspector parts :point point))))))))
 
@@ -9281,7 +9285,10 @@ If ARG is negative, move forwards."
 
 (defun slime-inspector-reinspect ()
   (interactive)
-  (slime-eval-async `(swank:inspector-reinspect) 'slime-open-inspector))
+  (slime-eval-async `(swank:inspector-reinspect)
+                    (lexical-let ((point (cons (line-number) (current-column))))
+                      (lambda (parts)
+                        (slime-open-inspector parts :point point)))))
 
 (slime-define-keys slime-inspector-mode-map
   ([return] 'slime-inspector-operate-on-point)
