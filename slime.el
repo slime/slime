@@ -2267,7 +2267,7 @@ This is automatically synchronized from Lisp.")
   ;; from a timer then it mysteriously uses the wrong keymap for the
   ;; first command.
   (slime-eval-async '(swank:connection-info)
-                    (lexical-let ((proc proc))
+                    (with-lexical-bindings (proc)
                       (lambda (info)
                         (slime-set-connection-info proc info)))))
 
@@ -9067,14 +9067,14 @@ See `slime-lisp-implementations'")
 (defvar slime-inspector-mark-stack '())
 (defvar slime-saved-window-config)
 
-(defun slime-inspect (form &optional no-reset)
+(defun* slime-inspect (form &key no-reset (eval (not current-prefix-arg)) thread)
   "Eval an expression and inspect the result.
 
 If called with a prefix argument the value will not be evaluated."
   (interactive (list (slime-read-object (if current-prefix-arg
                                             "Inspect value: "
                                             "Inspect value (evaluated): "))))
-  (slime-eval-async `(swank:init-inspector ,form 
+  (slime-eval-async `(swank:init-inspector ,form
                                            :reset ,(not no-reset)
                                            :eval ,(null current-prefix-arg))
                     'slime-open-inspector))
@@ -9108,7 +9108,7 @@ presentation, don't prompt, just return the presentation."
 (defmacro slime-inspector-fontify (face string)
   `(slime-add-face ',(intern (format "slime-inspector-%s-face" face)) ,string))
 
-(defun slime-open-inspector (inspected-parts &optional point)
+(defun* slime-open-inspector (inspected-parts &key point thread)
   "Display INSPECTED-PARTS in a new inspector window.
 Optionally set point to POINT."
   (with-current-buffer (slime-inspector-buffer)
@@ -9149,7 +9149,7 @@ Optionally set point to POINT."
                                  string)))))
 
 (defun slime-inspector-operate-on-point ()
-  "If point is on a value then recursivly call the inspcetor on
+  "If point is on a value then recursivly call the inspector on
   that value. If point is on an action then call that action."
   (interactive)
   (let ((part-number (get-text-property (point) 'slime-part-number))
@@ -9162,7 +9162,7 @@ Optionally set point to POINT."
            (slime-eval-async `(swank::inspector-call-nth-action ,action-number)
                              (lexical-let ((point (point)))
                                (lambda (parts)
-                                 (slime-open-inspector parts point))))))))
+                                 (slime-open-inspector parts :point point))))))))
 
 (defun slime-inspector-operate-on-click (event)
   "Inspect the value at the clicked-at position or invoke an action."
@@ -9189,7 +9189,7 @@ Optionally set point to POINT."
    `(swank:inspector-pop)
    (lambda (result)
      (cond (result
-	    (slime-open-inspector result (pop slime-inspector-mark-stack)))
+	    (slime-open-inspector result :point (pop slime-inspector-mark-stack)))
 	   (t 
 	    (message "No previous object")
 	    (ding))))))
