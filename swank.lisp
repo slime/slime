@@ -2678,7 +2678,8 @@ Returns true if it actually called emacs, or NIL if not."
        (send-it))
       ((default-connection)
        (with-connection ((default-connection))
-         (send-it))))))
+         (send-it))))
+    what))
 
 (defslimefun value-for-editing (form)
   "Return a readable value of FORM for editing in Emacs.
