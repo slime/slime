@@ -3420,7 +3420,7 @@ Also return the start position, end position, and buffer of the presentation."
            (with-current-buffer buffer
              (not (eq major-mode 'slime-inspector-mode)))))
       (slime-inspect (slime-presentation-expression presentation)
-                     (not reset-p)))))
+                     :no-reset (not reset-p)))))
 
 (defun slime-copy-presentation-at-mouse (event)
   (interactive "e")
