@@ -576,7 +576,7 @@ Set the resulting list of keys in TO-KEYMAP to OPERATION."
                (call-interactively 'isearch-forward)))
 
       ;; some unconditional direct bindings
-      (dolist (key (list (kbd "RET") (kbd "<SPC>") "(" ")" "[" "]"))
+      (dolist (key (list (kbd "<return>") (kbd "RET") (kbd "<SPC>") "(" ")" "[" "]"))
         (define-key map key 'slime-fuzzy-select-and-process-event-in-target-buffer)))
     map
     )
@@ -637,6 +637,14 @@ Full set of commands:
  (defvar slime-modeline-package nil
    "The Lisp package to show in the modeline.
 This is automatically updated based on the buffer/point."))
+
+;; Make sure slime-fuzzy-target-buffer-completions-mode's map is
+;; before everything else.
+(setf minor-mode-map-alist
+      (stable-sort minor-mode-map-alist
+                   (lambda (a b)
+                     (eq a 'slime-fuzzy-target-buffer-completions-mode))
+                   :key #'car))
 
 (defun slime-update-modeline-package ()
   (ignore-errors
