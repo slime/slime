@@ -2809,9 +2809,10 @@ printing."
 (defun format-restarts-for-emacs ()
   "Return a list of restarts for *swank-debugger-condition* in a
 format suitable for Emacs."
-  (loop for restart in *sldb-restarts*
-	collect (list (princ-to-string (restart-name restart))
-		      (princ-to-string restart))))
+  (let ((*print-right-margin* most-positive-fixnum))
+    (loop for restart in *sldb-restarts*
+          collect (list (princ-to-string (restart-name restart))
+                        (princ-to-string restart)))))
 
 
 ;;;;; SLDB entry points
