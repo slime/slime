@@ -1218,6 +1218,27 @@ converted to lower case."
              ((:ok value) value)
              ((:abort) (abort)))))))
 
+(defun present-in-emacs (value-or-values &key (separated-by " "))
+  "Present VALUE in the Emacs repl buffer of the current thread."
+  (unless (consp value-or-values)
+    (setf value-or-values (list value-or-values)))
+  (flet ((present (value)
+           (if (stringp value)
+               (send-to-emacs `(:write-string ,value))
+               (let ((id (save-presented-object value)))
+                 (send-to-emacs `(:presentation-start ,id))
+                 (send-to-emacs `(:write-string ,(prin1-to-string value)))
+                 (send-to-emacs `(:presentation-end ,id))))))
+    (map nil (let ((first-time-p t))
+               (lambda (value)
+                 (when (and (not first-time-p)
+                            separated-by)
+                   (present separated-by))
+                 (present value)
+                 (setf first-time-p nil)))
+         value-or-values))
+  (values))
+
 (defvar *swank-wire-protocol-version* nil
   "The version of the swank/slime communication protocol.")
 
