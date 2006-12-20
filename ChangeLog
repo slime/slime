@@ -1,27 +1,54 @@
+2006-12-20  Attila Lendvai  <attila.lendvai@gmail.com>
+
+	* slime.el:
+	FIX: inspecting presentations from the right click menu broke in
+	the inspect refactor
+
+	* slime.el:
+	FIX: slime-fuzzy-target-buffer-completions-mode's keymap must
+	always precede other keymaps
+
+	* slime.el, swank.lisp: Extend :write-string with and &optional
+	presentation id and use this in present-in-emacs
+
+	* swank.lisp:
+	Added present-in-emacs that prints a presentation of the given
+	object in the repl
+
+	* swank.lisp:
+	Return the inspected object when inspecting from the lisp side.
+
+	* swank.lisp: Turn off right margin for restart printing, too
+
 2006-12-19  Attila Lendvai  <attila.lendvai@gmail.com>
 
 	* HACKING:
 	Added useful init.el piece into HACKING about update-change-log
 
 	* swank.lisp:
-	In all-slots-for-inspector pad slot names to be equal length, so the result is more readable
+	In all-slots-for-inspector pad slot names to be equal length, so
+	the result is more readable
 
 	* slime.el:
-	Fix slime-insert-presentation to handle multi-line presentations better (use insert-rectangle)
+	Fix slime-insert-presentation to handle multi-line presentations
+	better (use insert-rectangle)
 
 	* swank.lisp:
-	Properly bind *sldb-printer-bindings* and turn off right margin while printing stuff in sldb
+	Properly bind *sldb-printer-bindings* and turn off right margin
+	while printing stuff in sldb
 
 	* slime.el: Smarten up the sldb heuristic that drops swank frames
 
-	* swank-allegro.lisp, swank-backend.lisp, swank-openmcl.lisp, swank-sbcl.lisp, swank.lisp:
-	Added hash-table-weakness and use it in hash-table-inspecting
+	* swank-allegro.lisp, swank-backend.lisp, swank-openmcl.lisp,
+	swank-sbcl.lisp, swank.lisp: Added hash-table-weakness and use it
+	in hash-table-inspecting
 
 	* swank.lisp:
-	Hashtable inspecting: added [clear hashtable] and [remove entry] actions
+	Hashtable inspecting: added [clear hashtable] and [remove entry]
+	actions
 
-	* slime.el, swank.lisp:
-	FIX dwim inspecting to handle (setf some-fun) functions, too
+	* slime.el, swank.lisp: FIX dwim inspecting to handle (setf
+	some-fun) functions, too
 
 	* slime.el: FIX: slime-sexp-at-point for foo::|bar::baz|
 
@@ -30,27 +57,98 @@
 
 	* swank.lisp: Small: get rid of notes and warnings
 
-	* slime.el, swank.lisp:
-	Added dwim-mode to slime-inspect that tries to be smart unless prefixed
+	* slime.el, swank.lisp: Added dwim-mode to slime-inspect that
+	tries to be smart unless prefixed
 
 	* slime.el:
-	Make slime-fuzzy-complete-symbol the default in the belife that it's better for new users
+	Make slime-fuzzy-complete-symbol the default in the belife that
+	it's better for new users
 
 	* swank.lisp:
-	Add (expt 1.2 length) higher scores for longer matches in fuzzy completion.
+	Add (expt 1.2 length) higher scores for longer matches in fuzzy
+	completion.
 
-	A good example: puts "make-instance" before "make-string-input-stream" while completing "make-ins"
+	A good example: puts "make-instance" before
+	"make-string-input-stream" while completing "make-ins"
 
 	* slime.el: Set slime-fuzzy-completion-in-place enabled by default
 
 	* slime.el:
-	Added (cons row col) addressing to slime-open-inspector, use in slime-inspector-operate-on-point
+	Added (cons row col) addressing to slime-open-inspector, use in
+	slime-inspector-operate-on-point
 
 	* slime.el:
-	FIX: operate the inspector in the debug thread when started from sldb
+	FIX: operate the inspector in the debug thread when started from
+	sldb
 
 	* slime.el:
-	Convert some inspector defuns to defun* and use keywords. Other minor cleanups.
+	Convert some inspector defuns to defun* and use keywords. Other
+	minor cleanups.
+
+2006-12-19  Attila Lendvai  <attila.lendvai@gmail.com>
+
+	* HACKING:
+	Added useful init.el piece into HACKING about update-change-log
+
+	* swank.lisp:
+	In all-slots-for-inspector pad slot names to be equal length, so
+	the result is more readable
+
+	* slime.el:
+	Fix slime-insert-presentation to handle multi-line presentations
+	better (use insert-rectangle)
+
+	* swank.lisp:
+	Properly bind *sldb-printer-bindings* and turn off right margin
+	while printing stuff in sldb
+
+	* slime.el: Smarten up the sldb heuristic that drops swank frames
+
+	* swank-allegro.lisp, swank-backend.lisp, swank-openmcl.lisp,
+	swank-sbcl.lisp, swank.lisp: Added hash-table-weakness and use it
+	in hash-table-inspecting
+
+	* swank.lisp:
+	Hashtable inspecting: added [clear hashtable] and [remove entry]
+	actions
+
+	* slime.el, swank.lisp: FIX dwim inspecting to handle (setf
+	some-fun) functions, too
+
+	* slime.el: FIX: slime-sexp-at-point for foo::|bar::baz|
+
+	* slime.el:
+	FIX: Properly keep track of slime-buffer-package in the inspector
+
+	* swank.lisp: Small: get rid of notes and warnings
+
+	* slime.el, swank.lisp: Added dwim-mode to slime-inspect that
+	tries to be smart unless prefixed
+
+	* slime.el:
+	Make slime-fuzzy-complete-symbol the default in the belife that
+	it's better for new users
+
+	* swank.lisp:
+	Add (expt 1.2 length) higher scores for longer matches in fuzzy
+	completion.
+
+	A good example: puts "make-instance" before
+	"make-string-input-stream" while completing "make-ins"
+
+	* slime.el: Set slime-fuzzy-completion-in-place enabled by default
+
+	* slime.el:
+	Added (cons row col) addressing to slime-open-inspector, use in
+	slime-inspector-operate-on-point
+
+	* slime.el:
+	FIX: operate the inspector in the debug thread when started from
+	sldb
+
+	* slime.el:
+	Convert some inspector defuns to defun* and use keywords. Other
+	minor cleanups.
 
 2006-12-18  Marco Baringer  <mb@bese.it>
 
