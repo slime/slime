@@ -2628,8 +2628,12 @@ Debugged requests are ignored."
 (defun slime-dispatch-event (event &optional process)
   (let ((slime-dispatching-connection (or process (slime-connection))))
     (destructure-case event
-      ((:write-string output)
-       (slime-write-string output))
+      ((:write-string output &optional id)
+       (if id
+           (with-current-buffer (slime-output-buffer)
+             (slime-with-output-end-mark
+              (slime-insert-presentation output id)))
+           (slime-write-string output)))
       ((:presentation-start id)
        (slime-mark-presentation-start id))
       ((:presentation-end id)
