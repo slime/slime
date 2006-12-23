@@ -9199,8 +9199,8 @@ Optionally set point to POINT."
           (pop-to-buffer (current-buffer))
           (when point 
             (if (consp point)
-                (progn
-                  (goto-line (min (count-lines 1 (point-max)) (car point)))
+                (ignore-errors 
+                  (goto-line (car point))
                   (move-to-column (cdr point)))
                 (goto-char (min (point-max) point)))))))))
 
@@ -9220,13 +9220,25 @@ Optionally set point to POINT."
                                        'face 'slime-inspector-action-face)
                                  string)))))
 
+(defun slime-inspector-position ()
+  "Return a pair (Y-POSITION X-POSITION) representing the
+position of point in the current buffer."
+  ;; We make sure we return absolute coordinates even if the user has
+  ;; narrowed the buffer.
+  (save-restriction
+    (widen)
+    (cons (if (fboundp 'line-number)
+              (line-number)             ; XEmacs
+            (line-number-at-pos))       ; Emacs
+          (current-column))))
+
 (defun slime-inspector-operate-on-point ()
   "If point is on a value then recursivly call the inspector on
   that value. If point is on an action then call that action."
   (interactive)
   (let ((part-number (get-text-property (point) 'slime-part-number))
         (action-number (get-text-property (point) 'slime-action-number))
-        (opener (lexical-let ((point (cons (line-number) (current-column))))
+        (opener (lexical-let ((point (slime-inspector-position)))
                   (lambda (parts)
                     (slime-open-inspector parts :point point)))))
     (cond (part-number
@@ -9349,7 +9361,7 @@ If ARG is negative, move forwards."
 (defun slime-inspector-reinspect ()
   (interactive)
   (slime-eval-async `(swank:inspector-reinspect)
-                    (lexical-let ((point (cons (line-number) (current-column))))
+                    (lexical-let ((point (slime-inspector-position)))
                       (lambda (parts)
                         (slime-open-inspector parts :point point)))))
 
