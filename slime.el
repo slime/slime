@@ -3420,7 +3420,8 @@ Also return the start position, end position, and buffer of the presentation."
            (with-current-buffer buffer
              (not (eq major-mode 'slime-inspector-mode)))))
       (slime-inspect (slime-presentation-expression presentation)
-                     :no-reset (not reset-p)))))
+                     :no-reset (not reset-p)
+                     :eval t :dwim-mode nil))))
 
 (defun slime-copy-presentation-at-mouse (event)
   (interactive "e")
@@ -9102,21 +9103,34 @@ See `slime-lisp-implementations'")
 (defvar slime-inspector-mark-stack '())
 (defvar slime-saved-window-config)
 
-(defun* slime-inspect (form &key no-reset (eval (not current-prefix-arg)) thread
-                            (package (slime-current-package)))
-  "Take an expression and inspect it trying to be smart about what was the intention.
-
-If called with a prefix argument the value will be evaluated and inspected
-without any magic in behind the stage."
+(defun* slime-inspect (form &key no-reset eval dwim-mode
+                            thread (package (slime-current-package)))
+  "Take an expression FORM and inspect it.
+If DWIM-MODE is non-nil (the interactive default), try to be
+smart about what was the intention.  Otherwise, if EVAL is
+non-nil (interactively, if invoked with a prefix argument),
+evaluate FORM and inspect the result.  Otherwise, inspect FORM
+itself."
   (interactive
-   (list (slime-read-object (if current-prefix-arg
-                                "Inspect value (evaluated): "
-                                "Inspect value (dwim mode): ")
-                            :return-names-unconfirmed (not current-prefix-arg))))
+   (multiple-value-bind (presentation start end)
+       (slime-presentation-around-point (point))
+     (if presentation
+         ;; Point is within a presentation, so don't prompt, just 
+         ;; inspect the presented object; don't play DWIM.
+         (cons (slime-presentation-expression presentation)
+               '(:eval t :dwim-mode nil))
+       ;; Not in a presentation, read form from minibuffer.
+       (cons (slime-read-object (if current-prefix-arg
+                                    "Inspect value (evaluated): "
+                                  "Inspect value (dwim mode): ")
+                                :return-names-unconfirmed (not current-prefix-arg))
+             (if current-prefix-arg
+                 '(:eval t :dwim-mode nil)
+               '(:eval nil :dwim-mode t))))))
   (slime-eval-async `(swank:init-inspector ,form
                                            :reset ,(not no-reset)
-                                           :eval ,(not (null current-prefix-arg))
-                                           :dwim-mode ,(not current-prefix-arg))
+                                           :eval ,eval
+                                           :dwim-mode ,dwim-mode)
                     (with-lexical-bindings (thread package)
                       (lambda (thing)
                         (slime-open-inspector thing
