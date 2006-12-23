@@ -588,6 +588,15 @@ Execute BODY with NAME's function slot set to FUNCTION."
   #+lisp=cl (ext:quit)
   #-lisp=cl (lisp:quit))
 
+
+;;;; Weak hashtables
+
+(defimplementation make-weak-key-hash-table (&rest args)
+  (apply #'make-hash-table :weak :key args))
+
+(defimplementation make-weak-value-hash-table (&rest args)
+  (apply #'make-hash-table :weak :value args))
+
 ;;; Local Variables:
 ;;; eval: (put 'compile-file-frobbing-notes 'lisp-indent-function 1)
 ;;; eval: (put 'dynamic-flet 'common-lisp-indent-function 1)
