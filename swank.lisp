@@ -40,6 +40,7 @@
            #:*default-worker-thread-bindings*
            #:*macroexpand-printer-bindings*
            #:*record-repl-results*
+           #:*inspector-dwim-lookup-hooks*
            ;; These are re-exported directly from the backend:
            #:buffer-first-change
            #:frame-source-location-for-emacs
@@ -4835,39 +4836,55 @@ See `methods-by-applicability'.")
            (not (third form))
            (eq (first form) 'setf))))
 
+(defvar *inspector-dwim-lookup-hooks* '(default-dwim-inspector-lookup-hook)
+  "A list of funcallables with one argument. It can be used to register user hooks that look up various things when inspecting in dwim mode.")
+
+(defun default-dwim-inspector-lookup-hook (form)
+  (let ((result '()))
+    (when (and (symbolp form)
+               (boundp form))
+      (push (symbol-value form) result))
+    (when (and (valid-function-name-p form)
+               (fboundp form))
+      (push (fdefinition form) result))
+    (when (and (symbolp form)
+               (find-class form nil))
+      (push (find-class form) result))
+    (when (and (consp form)
+               (valid-function-name-p (first form))
+               (fboundp (first form)))
+      (push (eval form) result))
+    (values result (not (null result)))))
+
 (defslimefun init-inspector (string &key (reset t) (eval t) (dwim-mode nil))
   (with-buffer-syntax ()
     (when reset
       (reset-inspector))
     (let* ((form (read-from-string string))
-           (value (cond (dwim-mode
-                         ;; TODO: here we _may_ want to present the
-                         ;; multiple possibilities when available
-                         ;; instead of this hardcoded order.
-                         (cond ((and (symbolp form)
-                                     (boundp form))
-                                (symbol-value form))
-                               ((and (valid-function-name-p form)
-                                     (fboundp form))
-                                (fdefinition form))
-                               ((and (symbolp form)
-                                     (find-class form nil))
-                                (find-class form))
-                               ((atom form)
-                                form)
-                               (t (if (and (valid-function-name-p (first form))
-                                           (fboundp (first form)))
-                                      (eval form)
-                                      form))))
-                        (eval (eval form))
-                        (t form))))
+           (value (cond
+                    (dwim-mode
+                     (let ((things (loop for hook :in *inspector-dwim-lookup-hooks*
+                                         for (result foundp) = (multiple-value-list
+                                                                 (funcall hook form))
+                                         when foundp
+                                         append (if (consp result)
+                                                    result
+                                                    (list result)))))
+                       (if (rest things)
+                           things
+                           (first things))))
+                    (eval (eval form))
+                    (t form))))
       (when (and dwim-mode
-                 form)
+                 form
+                 value)
         ;; push the form to the inspector stack, so you can go back to it
         ;; with slime-inspector-pop if dwim missed the intention
         (push form *inspector-stack*))
-      (inspect-object value))))
-  
+      (inspect-object (if dwim-mode
+                          (or value form)
+                          value)))))
+
 (defun print-part-to-string (value)
   (let ((string (to-string value))
         (pos (position value *inspector-history*)))

@@ -9149,7 +9149,7 @@ presentation, don't prompt, just return the presentation."
           (if (and sexp
                    return-names-unconfirmed
                    ;; an string with alphanumeric chars and hyphens only?
-                   (and (string-match "\\([-|:0-9a-zA-Z]*\\)" sexp)
+                   (and (string-match "\\([-|.:0-9a-zA-Z]*\\)" sexp)
                         (= (match-end 0) (length sexp))))
               sexp
               (slime-read-from-minibuffer prompt sexp))))))
