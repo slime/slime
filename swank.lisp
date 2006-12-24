@@ -4472,7 +4472,8 @@ See `methods-by-applicability'.")
               "All Slots:" (:newline))
             (let* ((class (class-of object))
                    (direct-slots (swank-mop:class-direct-slots class))
-                   (effective-slots (swank-mop:class-slots class))
+                   (effective-slots (sort (swank-mop:class-slots class)
+                                          #'string< :key #'swank-mop:slot-definition-name))
                    (slot-presentations (loop for effective-slot :in effective-slots
                                              collect (inspect-slot-for-emacs
                                                       class object effective-slot)))
