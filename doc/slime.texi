@@ -381,7 +381,7 @@ function in your @file{~/.emacs} file like this:
 (global-set-key "\C-cs" 'slime-selector)
 @end example
 @noindent
-which binds @kbd{C-c s} to the function @code{global-set-key}.
+which binds @kbd{C-c s} to the function @code{slime-selector}.
 
 @c ----------------------- 
 @node inferior-lisp, Multithreading, About key bindings, User-interface conventions
@@ -1753,7 +1753,6 @@ output:
 @end example
 
 @c ----------------------- 
-=======
 If you need to do anything particular
 (like be able to reconnect to swank after you're done), look into
 @code{swank:create-server}'s other arguments. Some of these arguments
@@ -1786,7 +1785,6 @@ On the emacs side you will use something like
 to connect to this lisp image from the same machine.
 
 
->>>>>>> 1.49
 @node Setting up Emacs
 @subsection Setting up Emacs
 
