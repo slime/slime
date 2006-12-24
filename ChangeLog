@@ -1,3 +1,13 @@
+2006-12-24  Attila Lendvai  <attila.lendvai@gmail.com>
+
+	* slime.el, swank.lisp: Added customizable dwim lookup hook
+	support for inspect
+
+	* doc/slime.texi: Small doc fixes by Alfredo Beaumont
+
+	* swank.lisp: Change the order to [set value] [make unbound]. Sort
+	slot names in the inspector
+
 2006-12-23  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* swank-clisp.lisp (make-weak-key-hash-table)
