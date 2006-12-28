@@ -1,3 +1,17 @@
+2006-12-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	Performance improvement for slime-autodoc-mode, in particular when
+	there are REPL results that are long lists.
+	
+	* slime.el (slime-repl-mode-beginning-of-defun)
+	(slime-repl-mode-end-of-defun): New.
+	(slime-repl-mode): Use them as beginning-of-defun-function and
+	end-of-defun-function.
+	(slime-enclosing-operator-names): Bind
+	parse-sexp-lookup-properties to nil, don't parse more than 20000
+	characters before point, don't determine exact argument positions
+	larger than 64.  Byte-compile this function.
+
 2006-12-24  Attila Lendvai  <attila.lendvai@gmail.com>
 
 	* slime.el, swank.lisp: Added customizable dwim lookup hook
