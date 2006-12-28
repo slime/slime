@@ -3227,7 +3227,20 @@ joined together."))
   (when slime-repl-enable-presentations 
     ;; Respect the syntax text properties of presentations.
     (set (make-local-variable 'parse-sexp-lookup-properties) t))
+  ;; We only want REPL prompts as start of the "defun".
+  (set (make-local-variable 'beginning-of-defun-function) 
+       'slime-repl-mode-beginning-of-defun)
+  (set (make-local-variable 'end-of-defun-function) 
+       'slime-repl-mode-end-of-defun)
   (run-hooks 'slime-repl-mode-hook))
+
+(defun slime-repl-mode-beginning-of-defun ()
+  (slime-repl-previous-prompt)
+  t)
+
+(defun slime-repl-mode-end-of-defun ()
+  (slime-repl-next-prompt)
+  t)
 
 (defun slime-presentation-whole-p (presentation start end &optional object)
   (let ((object (or object (current-buffer))))
@@ -10892,12 +10905,20 @@ the operator.  When MAX-LEVELS is non-nil, go up at most this many
 levels of parens."
   (let ((result '())
         (arg-indices '())
-        (level 1))
+        (level 1)
+        (parse-sexp-lookup-properties nil)) 
+    ;; The expensive lookup of syntax-class text properties is only
+    ;; used for interactive balancing of #<...> in presentations; we
+    ;; do not need them in navigating through the nested lists.
+    ;; This speeds up this function significantly.
     (ignore-errors
       (save-excursion
         ;; Make sure we get the whole operator name.
         (slime-end-of-symbol)
         (save-restriction
+          ;; Don't parse more than 20000 characters before point, so we don't spend
+          ;; too much time.
+          (narrow-to-region (max (point-min) (- (point) 20000)) (point-max))
           (narrow-to-region (save-excursion (beginning-of-defun) (point))
                             (min (1+ (point)) (point-max)))
           (while (or (not max-levels)
@@ -10910,8 +10931,9 @@ levels of parens."
                   (incf arg-index))
               (ignore-errors
                 (backward-sexp 1))
-              (while (ignore-errors (backward-sexp 1) 
-                                    (> (point) (point-min)))
+              (while (and (< arg-index 64)
+                          (ignore-errors (backward-sexp 1) 
+                                         (> (point) (point-min))))
                 (incf arg-index))
               (backward-up-list 1)
               (when (member (char-syntax (char-after)) '(?\( ?')) 
@@ -11243,7 +11265,8 @@ If they are not, position point at the first syntax error found."
           slime-print-apropos
           slime-show-note-counts
           slime-insert-propertized
-          slime-tree-insert)))
+          slime-tree-insert
+          slime-enclosing-operator-names)))
 
 (run-hooks 'slime-load-hook)
 
