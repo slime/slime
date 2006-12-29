@@ -1,3 +1,8 @@
+2006-12-29  Edi Weitz  <edi@agharta.de>
+
+	* slime.el (slime-find-asd, slime-read-system-name): Only offer
+	initial input if system is really in central registry.
+
 2006-12-29  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Simplify the REPL-results protocol.  The results are now printed

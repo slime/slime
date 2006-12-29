@@ -4703,13 +4703,18 @@ See `slime-compile-and-load-file' for further details."
      (slime-compilation-finished-continuation))
     (message "Compiling %s.." lisp-filename)))
 
-(defun slime-find-asd ()
-  (let ((asdf-systems-in-directory 
-         (directory-files (file-name-directory (or default-directory
-                                                   (buffer-file-name)))
-                          nil "\.asd$")))
-    (and asdf-systems-in-directory
-         (file-name-sans-extension (car asdf-systems-in-directory)))))
+(defun slime-find-asd (system-names)
+  "Tries to find an ASDF system definition in the default
+directory or in the directory belonging to the current buffer and
+returns it if it's in `system-names'."
+  (let* ((asdf-systems-in-directory
+           (directory-files (file-name-directory (or default-directory
+                                                     (buffer-file-name)))
+                            nil "\.asd$")))
+    (loop for system in asdf-systems-in-directory
+          for candidate = (file-name-sans-extension system)
+          when (find candidate system-names :test #'string-equal)
+            do (return candidate))))
 
 (defun slime-load-system (&optional system)
   "Compile and load an ASDF system.  
@@ -4725,13 +4730,13 @@ buffer's working directory"
 (defun slime-read-system-name (&optional prompt initial-value)
   "Read a system name from the minibuffer, prompting with PROMPT."
   (setq prompt (or prompt "System: "))
-  (let ((completion-ignore-case nil)
-        (alist (slime-bogus-completion-alist
-                (mapcar #'file-name-sans-extension
-                        (slime-eval 
-                         `(swank:list-all-systems-in-central-registry))))))
+  (let* ((completion-ignore-case nil)
+         (system-names (mapcar #'file-name-sans-extension
+                               (slime-eval 
+                                `(swank:list-all-systems-in-central-registry))))
+         (alist (slime-bogus-completion-alist system-names)))
     (completing-read prompt alist nil nil
-                     (or initial-value (slime-find-asd) "")
+                     (or initial-value (slime-find-asd system-names) "")
                      'slime-system-history)))
 
 (defun slime-oos (system operation &rest keyword-args)
