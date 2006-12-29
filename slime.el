@@ -2636,12 +2636,8 @@ Debugged requests are ignored."
 (defun slime-dispatch-event (event &optional process)
   (let ((slime-dispatching-connection (or process (slime-connection))))
     (destructure-case event
-      ((:write-string output &optional id)
-       (if id
-           (with-current-buffer (slime-output-buffer)
-             (slime-with-output-end-mark
-              (slime-insert-presentation output id)))
-           (slime-write-string output)))
+      ((:write-string output &optional id target)
+       (slime-write-string output id target))
       ((:presentation-start id)
        (slime-mark-presentation-start id))
       ((:presentation-end id)
@@ -2819,7 +2815,7 @@ Debugged requests are ignored."
                   (setq slime-buffer-connection connection)
                   (slime-reset-repl-markers)
                   (unless noprompt 
-                    (slime-repl-insert-prompt '(:suppress-output) 0))
+                    (slime-repl-insert-prompt 0))
                   (current-buffer)))))))
 
 (defun slime-repl-update-banner ()
@@ -2841,8 +2837,7 @@ Debugged requests are ignored."
       (animate-string (format "; SLIME %s" (or (slime-changelog-date) 
                                                "- ChangeLog file not found"))
                       0 0))
-    (slime-repl-insert-prompt (cond (use-header-p `(:suppress-output))
-                                    (t `(:values (,(concat "; " banner))))))))
+    (slime-repl-insert-prompt)))
 
 (defun slime-init-output-buffer (connection)
   (with-current-buffer (slime-output-buffer t)
@@ -3096,15 +3091,31 @@ profiling before running the benchmark."
       (switch-to-buffer (process-buffer proc))
       (goto-char (point-max)))))
 
-(defun slime-write-string (string)
-  (with-current-buffer (slime-output-buffer)
-    (slime-with-output-end-mark
-     (slime-propertize-region '(face slime-repl-output-face)
-       (insert string))
-     (when (and (= (point) slime-repl-prompt-start-mark)
-                (not (bolp)))
-       (insert "\n")
-       (set-marker slime-output-end (1- (point)))))))
+(defun slime-write-string (string &optional id target)
+  "Insert STRING in the REPL buffer.  If ID is non-nil, insert STRING
+as a presentation.  If TARGET is nil, insert STRING as regular process
+output.  If TARGET is :repl-result, insert STRING as the result of the
+evaluation."
+  ;; Other values of TARGET are reserved for future extension, 
+  ;; for instance asynchronous output in scratch buffers. --mkoeppe
+  (ecase target
+    ((nil)                              ; Regular process output
+     (with-current-buffer (slime-output-buffer)
+       (slime-with-output-end-mark
+        (if id
+            (slime-insert-presentation string id)
+          (slime-insert-propertized '(face slime-repl-output-face) string))
+        (when (and (= (point) slime-repl-prompt-start-mark)
+                   (not (bolp)))
+          (insert "\n")
+          (set-marker slime-output-end (1- (point)))))))
+    (:repl-result                       
+     (with-current-buffer (slime-output-buffer)
+       (goto-char (point-max))
+       ;;(unless (bolp) (insert "\n"))
+       (if id             
+           (slime-insert-presentation string id)
+         (slime-insert-propertized `(face slime-repl-result-face) string))))))
 
 (defun slime-switch-to-output-buffer (&optional connection)
   "Select the output buffer, preferably in a different window."
@@ -3540,56 +3551,32 @@ buffer, suitable for `x-popup-menu'."
             (when choice
               (call-interactively (gethash choice choice-to-lambda)))))))))
 
-(defun slime-repl-insert-prompt (result &optional time)
-  "Goto to point max, insert RESULT and the prompt.
+(defun slime-repl-insert-prompt (&optional time)
+  "Goto to point max, and insert the prompt.
 Set slime-output-end to start of the inserted text slime-input-start
 to end end."
   (goto-char (point-max))
-  (let ((start (point)))
-    (unless (bolp) (insert "\n"))
-    (slime-repl-insert-result result)
-    (let ((prompt-start (point))
-          (prompt (format "%s> " (slime-lisp-package-prompt-string))))
-      (slime-propertize-region
-          '(face slime-repl-prompt-face read-only t intangible t
-                 slime-repl-prompt t
-                 ;; emacs stuff
-                 rear-nonsticky (slime-repl-prompt read-only face intangible)
-                 ;; xemacs stuff
-                 start-open t end-open t)
-        (insert prompt))
-      ;; FIXME: we could also set beginning-of-defun-function
-      (setq defun-prompt-regexp (concat "^" prompt))
-      (set-marker slime-output-end start)
-      (set-marker slime-repl-prompt-start-mark prompt-start)
-      (slime-mark-input-start)
-      (let ((time (or time 0.2)))
-        (cond ((zerop time)
-               (slime-repl-move-output-mark-before-prompt (current-buffer)))
-              (t 
-               (run-at-time time nil 'slime-repl-move-output-mark-before-prompt
-                            (current-buffer)))))))
+  (unless (bolp) (insert "\n"))
+  (let ((prompt-start (point))
+        (prompt (format "%s> " (slime-lisp-package-prompt-string))))
+    (slime-propertize-region
+        '(face slime-repl-prompt-face read-only t intangible t
+               slime-repl-prompt t
+               ;; emacs stuff
+               rear-nonsticky (slime-repl-prompt read-only face intangible)
+               ;; xemacs stuff
+               start-open t end-open t)
+      (insert prompt))
+    ;;(set-marker slime-output-end start)
+    (set-marker slime-repl-prompt-start-mark prompt-start)
+    (slime-mark-input-start)
+    (let ((time (or time 0.2)))
+      (cond ((zerop time)
+             (slime-repl-move-output-mark-before-prompt (current-buffer)))
+            (t 
+             (run-at-time time nil 'slime-repl-move-output-mark-before-prompt
+                          (current-buffer))))))
   (slime-repl-show-maximum-output))
-
-(defun slime-repl-insert-result (result)
-  "Insert the result of an evaluation.
-RESULT can be one of:
- (:values (STRING...))
- (:present ((STRING . ID)...))
- (:suppress-output)"
-  (destructure-case result
-    ((:values strings)
-     (cond ((null strings) (insert "; No value\n"))
-           (t (dolist (s strings)
-                (slime-insert-propertized `(face slime-repl-result-face) s)
-                (insert "\n")))))
-    ((:present stuff)
-     (cond ((and stuff slime-repl-enable-presentations)
-            (loop for (s . id) in stuff do 
-                  (slime-insert-presentation s id) 
-                  (insert "\n")))
-           (t (slime-repl-insert-result `(:values ,(mapcar #'car stuff))))))
-    ((:suppress-output))))
 
 (defun slime-repl-move-output-mark-before-prompt (buffer)
   (when (buffer-live-p buffer)
@@ -3686,10 +3673,13 @@ navigating the repl history."
 (defun slime-repl-eval-string (string)
   (slime-rex ()
       ((list 'swank:listener-eval string) (slime-lisp-package))
-    ((:ok result) 
+    ((:ok result)
      (with-current-buffer (slime-output-buffer)
-       (slime-repl-insert-prompt result)))
-    ((:abort) (slime-repl-show-abort))))
+       (slime-repl-insert-prompt)))
+    ((:abort) 
+     (slime-repl-show-abort)
+     (with-current-buffer (slime-output-buffer)
+       (slime-repl-insert-prompt)))))
 
 (defun slime-repl-send-string (string &optional command-string)
   (cond (slime-repl-read-mode
@@ -3700,13 +3690,7 @@ navigating the repl history."
   (with-current-buffer (slime-output-buffer)
     (slime-with-output-end-mark 
      (unless (bolp) (insert-before-markers "\n"))
-     (insert-before-markers "; Evaluation aborted\n"))
-    (slime-rex ()
-        ((list 'swank:listener-eval "") nil)
-      ((:ok result) 
-       ;; A hack to get the prompt
-       (with-current-buffer (slime-output-buffer)
-         (slime-repl-insert-prompt '(:suppress-output)))))))
+     (insert-before-markers "; Evaluation aborted\n"))))
   
 (defun slime-mark-input-start ()
   (set-marker slime-repl-last-input-start-mark
@@ -4022,7 +4006,7 @@ remember the repl results so some memory leaking is possible."
           (slime-eval `(swank:set-package ,package))
         (setf (slime-lisp-package) name)
         (setf (slime-lisp-package-prompt-string) prompt-string)
-        (slime-repl-insert-prompt '(:suppress-output) 0)
+        (slime-repl-insert-prompt 0)
         (insert unfinished-input)))))
 
 
