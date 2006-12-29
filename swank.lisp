@@ -2637,11 +2637,17 @@ Return its name and the string to use in the prompt."
   (let ((p (setq *package* (guess-package-from-string package))))
     (list (package-name p) (package-string-for-prompt p))))
 
-(defun make-presentations-result (values)
-  ;; overridden in present.lisp
-  `(:present ,(loop for x in values 
-                    collect (cons (prin1-to-string x) 
-                                  (save-presented-object x)))))
+(defun send-repl-results-to-emacs (values)
+  (flet ((send (value)
+           (let ((id (and *record-repl-results*
+                          (save-presented-object value))))
+             (send-to-emacs `(:write-string ,(prin1-to-string value)
+                              ,id :repl-result))
+             (send-to-emacs `(:write-string ,(string #\Newline) 
+                              nil :repl-result)))))
+    (if (null values)
+        (send-to-emacs `(:write-string "; No value" nil :repl-result))
+        (mapc #'send values))))
 
 (defslimefun listener-eval (string)
   (clear-user-input)
@@ -2654,11 +2660,9 @@ Return its name and the string to use in the prompt."
 	  (setq *** **  ** *  * (car values)
 		/// //  // /  / values))
 	(setq +++ ++  ++ +  + last-form)
-        (cond ((eq *slime-repl-suppress-output* t) '(:suppress-output))
-              (*record-repl-results*
-               (make-presentations-result values))
-              (t 
-               `(:values ,(mapcar #'prin1-to-string values))))))))
+        (unless (eq *slime-repl-suppress-output* t)
+          (send-repl-results-to-emacs values)))))
+  nil)
 
 (defslimefun ed-in-emacs (&optional what)
   "Edit WHAT in Emacs.
