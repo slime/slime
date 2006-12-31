@@ -1,3 +1,17 @@
+2006-12-31  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	Restore the nested-presentations feature.
+	
+	* present.lisp (slime-stream-p): Allow sending presentations to
+	the repl-results stream.
+	(make-presentations-result): Removed.
+	(send-repl-results-to-emacs): New.
+
+	* swank.lisp (connection): New slot repl-results (a stream).
+	(make-output-function-for-target): New.
+	(open-streams): Use it here to also create a stream for REPL results.
+	(initialize-streams-for-connection): Store the stream.
+
 2006-12-29  Edi Weitz  <edi@agharta.de>
 
 	* slime.el (slime-find-asd, slime-read-system-name): Only offer
