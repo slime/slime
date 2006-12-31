@@ -198,6 +198,8 @@ Backend code should treat the connection structure as opaque.")
   (user-input       nil :type (or stream null))
   (user-output      nil :type (or stream null))
   (user-io          nil :type (or stream null))
+  ;; A stream where we send REPL results.
+  (repl-results     nil :type (or stream null))
   ;; In multithreaded systems we delegate certain tasks to specific
   ;; threads. The `reader-thread' is responsible for reading network
   ;; requests from Emacs and sending them to the `control-thread'; the
@@ -518,8 +520,8 @@ if the file doesn't exist; otherwise the first line of the file."
     (force-output *debug-io*)))
 
 (defun open-streams (connection)
-  "Return the 4 streams for IO redirection:
-DEDICATED-OUTPUT INPUT OUTPUT IO"
+  "Return the 5 streams for IO redirection:
+DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
   (multiple-value-bind (output-fn dedicated-output) 
       (make-output-function connection)
     (let ((input-fn
@@ -532,7 +534,11 @@ DEDICATED-OUTPUT INPUT OUTPUT IO"
         (let ((out (or dedicated-output out)))
           (let ((io (make-two-way-stream in out)))
             (mapc #'make-stream-interactive (list in out io))
-            (values dedicated-output in out io)))))))
+            (let* ((repl-results-fn
+                    (make-output-function-for-target connection :repl-result))
+                   (repl-results
+                    (nth-value 1 (make-fn-streams nil repl-results-fn))))
+              (values dedicated-output in out io repl-results))))))))
 
 (defun make-output-function (connection)
   "Create function to send user output to Emacs.
@@ -552,6 +558,14 @@ stream (or NIL if none was created)."
                       (abort "Abort sending output to Emacs.")
                     (send-to-emacs `(:write-string ,string)))))
               nil)))
+
+(defun make-output-function-for-target (connection target)
+  "Create a function to send user output to a specific TARGET in Emacs."
+  (lambda (string) 
+    (with-connection (connection)
+      (with-simple-restart
+          (abort "Abort sending output to Emacs.")
+        (send-to-emacs `(:write-string ,string nil ,target))))))
 
 (defun open-dedicated-output-stream (socket-io)
   "Open a dedicated output connection to the Emacs on SOCKET-IO.
@@ -880,11 +894,13 @@ of the toplevel restart."
        (send event)))))
 
 (defun initialize-streams-for-connection (connection)
-  (multiple-value-bind (dedicated in out io) (open-streams connection)
+  (multiple-value-bind (dedicated in out io repl-results) 
+      (open-streams connection)
     (setf (connection.dedicated-output connection) dedicated
           (connection.user-io connection)          io
           (connection.user-output connection)      out
-          (connection.user-input connection)       in)
+          (connection.user-input connection)       in
+          (connection.repl-results connection)     repl-results)
     connection))
 
 (defun create-connection (socket-io style)
