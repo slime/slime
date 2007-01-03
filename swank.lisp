@@ -4426,12 +4426,11 @@ NIL is returned if the list is circular."
 	  (swank-mop:method-qualifiers method)
 	  (method-specializers-for-inspect method)))
 
-(defmethod inspect-for-emacs ((o standard-object) inspector)
-  (let ((c (class-of o)))
+(defmethod inspect-for-emacs ((object standard-object) inspector)
+  (let ((class (class-of object)))
     (values "An object."
-            `("Class: " (:value ,c) (:newline)
-              "Slots:" (:newline)
-              ,@(all-slots-for-inspector o inspector)))))
+            `("Class: " (:value ,class) (:newline)
+              ,@(all-slots-for-inspector object inspector)))))
 
 (defvar *gf-method-getter* 'methods-by-applicability
   "This function is called to get the methods of a generic function.
@@ -4496,7 +4495,7 @@ See `methods-by-applicability'.")
 (defgeneric all-slots-for-inspector (object inspector)
   (:method ((object standard-object) inspector)
     (declare (ignore inspector))
-    (append '("------------------------------" (:newline)
+    (append '("--------------------" (:newline)
               "All Slots:" (:newline))
             (let* ((class (class-of object))
                    (direct-slots (swank-mop:class-direct-slots class))
