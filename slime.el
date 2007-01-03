@@ -6249,14 +6249,18 @@ Return nil iff if point is not at filename."
           (minibuffer-message text))
       (message "%s" text))))
 
-(defvar slime-read-expression-map (make-sparse-keymap)
+(defvar slime-read-expression-map
+  (let ((map (make-sparse-keymap)))
+    (if (fboundp 'set-keymap-parents) ; xemacs only at the time of writing
+        (set-keymap-parents map (list minibuffer-local-map slime-mode-map))
+        (progn
+          (set-keymap-parent map minibuffer-local-map)
+          (define-key map (kbd "\t") 'slime-complete-symbol)
+          (define-key map (kbd "\M-\t") 'slime-complete-symbol)))
+    map)
   "Minibuffer keymap used for reading CL expressions.")
 
-(set-keymap-parent slime-read-expression-map minibuffer-local-map)
 (set-keymap-parent slime-repl-history-map slime-read-expression-map)
-
-(define-key slime-read-expression-map "\t" 'slime-complete-symbol)
-(define-key slime-read-expression-map "\M-\t" 'slime-complete-symbol)
 
 (defvar slime-read-expression-history '()
   "History list of expressions read from the minibuffer.")
