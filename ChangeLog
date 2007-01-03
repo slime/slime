@@ -1,3 +1,25 @@
+2007-01-03  Attila Lendvai  <attila.lendvai@gmail.com>
+
+	* swank.lisp: FIX: drop extra "Slots: " from standard-object's
+	inspector presentation
+
+	* swank.lisp: FIX: keyword symbols keep their : when travelling
+	from swank to slime
+
+	* slime.el: FIX: older Emacsen have no line-number-at-pos.
+
+	* slime.el: Convert some minibuffer reading defun's to defun* and
+	use keywords. Support extra arguments.
+
+	* slime.el: Use set-parent-keymaps when available (xemacs only for
+	now) when setting up slime-read-expression-map. The effect of this
+	is that the minibuffer will have all the slime-mode-map keys where
+	minibuffer-local-map is not overriding.
+
+	* slime.el, swank.lisp: Handle better the case when swank can not
+	read anything from the string sent to be inspected. Only bring up
+	the debugger when the inspect command is prefixed.
+
 2006-12-31  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Restore the nested-presentations feature.
