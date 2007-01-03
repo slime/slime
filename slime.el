@@ -1247,7 +1247,7 @@ symbol at point, or if QUERY is non-nil.
 
 This function avoids mistaking the REPL prompt for a symbol."
   (cond ((or current-prefix-arg query (not (slime-symbol-name-at-point)))
-         (slime-read-from-minibuffer prompt (slime-symbol-name-at-point)))
+         (slime-read-from-minibuffer prompt :initial-value (slime-symbol-name-at-point)))
         (t (slime-symbol-name-at-point))))
 
 ;; Interface
@@ -4149,7 +4149,8 @@ Return nil of no item matches"
                        slime-repl-history-pattern
                        (catch 'continue
                          (slime-read-from-minibuffer
-                          prompt (slime-symbol-name-at-point) slime-repl-history-map)))))
+                          prompt :initial-value (slime-symbol-name-at-point)
+                          :keymap slime-repl-history-map)))))
     (when (and regexp (> (length regexp) 0))
       (when (slime-repl-history-replace direction regexp t)
         (setf this-command command)))))
@@ -6265,7 +6266,8 @@ Return nil iff if point is not at filename."
 (defvar slime-read-expression-history '()
   "History list of expressions read from the minibuffer.")
  
-(defun slime-read-from-minibuffer (prompt &optional initial-value keymap)
+(defun* slime-read-from-minibuffer (prompt &key initial-value keymap
+                                           (history 'slime-read-expression-history))
   "Read a string from the minibuffer, prompting with PROMPT.  
 If INITIAL-VALUE is non-nil, it is inserted into the minibuffer before
 reading input.  The result is a string (\"\" if no input was given)."
@@ -6279,7 +6281,7 @@ reading input.  The result is a string (\"\" if no input was given)."
 	       minibuffer-setup-hook)))
     (read-from-minibuffer prompt initial-value
                           (or keymap slime-read-expression-map)
-			  nil 'slime-read-expression-history)))
+			  nil history)))
 
 (defun slime-bogus-completion-alist (list)
   "Make an alist out of list.
@@ -7155,7 +7157,7 @@ The value is inserted into a temporary buffer for editing and then set
 in Lisp when committed with \\[slime-edit-value-commit]."
   (interactive 
    (list (slime-read-from-minibuffer "Edit value (evaluated): "
-				     (slime-sexp-at-point))))
+				     :initial-value (slime-sexp-at-point))))
   (slime-eval-async `(swank:value-for-editing ,form-string)
                     (lexical-let ((form-string form-string)
                                   (package (slime-current-package)))
@@ -7219,16 +7221,16 @@ The result is a string."
   (cond ((null spec)
          (slime-read-from-minibuffer "(Un)trace: "))
         ((symbolp spec)
-         (slime-read-from-minibuffer "(Un)trace: " (symbol-name spec)))
+         (slime-read-from-minibuffer "(Un)trace: " :initial-value (symbol-name spec)))
         (t
          (destructure-case spec
            ((setf n)
-            (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string spec)))
+            (slime-read-from-minibuffer "(Un)trace: " :initial-value (prin1-to-string spec)))
            (((:defun :defmacro) n)
-            (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string n)))
+            (slime-read-from-minibuffer "(Un)trace: " :initial-value (prin1-to-string n)))
            ((:defgeneric n)
             (let* ((name (prin1-to-string n))
-                   (answer (slime-read-from-minibuffer "(Un)trace: " name)))
+                   (answer (slime-read-from-minibuffer "(Un)trace: " :initial-value name)))
               (cond ((and (string= name answer)
                           (y-or-n-p (concat "(Un)trace also all " 
                                             "methods implementing " 
@@ -7237,12 +7239,12 @@ The result is a string."
                     (t
                      answer))))
            ((:defmethod &rest _)
-            (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string spec)))
+            (slime-read-from-minibuffer "(Un)trace: " :initial-value (prin1-to-string spec)))
            ((:call caller callee)
             (let* ((callerstr (prin1-to-string caller))
                    (calleestr (prin1-to-string callee))
                    (answer (slime-read-from-minibuffer "(Un)trace: " 
-                                                       calleestr)))
+                                                       :initial-value calleestr)))
               (cond ((and (string= calleestr answer)
                           (y-or-n-p (concat "(Un)trace only when " calleestr
                                             " is called by " callerstr "? ")))
@@ -7251,7 +7253,7 @@ The result is a string."
                      answer))))
            (((:labels :flet) &rest _)
             (slime-read-from-minibuffer "(Un)trace local function: "
-                                        (prin1-to-string spec)))))))
+                                        :initial-value (prin1-to-string spec)))))))
 
 (defun slime-extract-context ()
   "Parse the context for the symbol at point.  
@@ -7395,7 +7397,8 @@ Point is placed before the first expression in the list."
 (defun slime-toggle-profile-fdefinition (fname-string)
   "Toggle profiling for FNAME-STRING."
   (interactive (list (slime-read-from-minibuffer
-		      "(Un)Profile: " (slime-symbol-name-at-point))))
+		      "(Un)Profile: "
+                      :initial-value (slime-symbol-name-at-point))))
   (slime-eval-async `(swank:toggle-profile-fdefinition ,fname-string)
                     (lambda (r) (message "%s" r))))
 
@@ -9145,7 +9148,8 @@ itself."
                                                   :package package)
                             (message "Couldn't read anything from '%s' (hint: prefix for debugger with details)" form))))))
 
-(defun* slime-read-object (prompt &key return-names-unconfirmed)
+(defun* slime-read-object (prompt &key return-names-unconfirmed
+                                  initial-value (history 'slime-read-expression-history))
   "Read a Common Lisp expression from the minibuffer, providing
 defaults from the s-expression at point.  If point is within a
 presentation, don't prompt, just return the presentation."
@@ -9160,7 +9164,9 @@ presentation, don't prompt, just return the presentation."
                    (and (string-match "\\([-|.:0-9a-zA-Z]*\\)" sexp)
                         (= (match-end 0) (length sexp))))
               sexp
-              (slime-read-from-minibuffer prompt sexp))))))
+              (slime-read-from-minibuffer prompt
+                                          :initial-value (or initial-value sexp)
+                                          :history history))))))
 
 (define-derived-mode slime-inspector-mode fundamental-mode "Slime-Inspector"
   (set-syntax-table lisp-mode-syntax-table)
@@ -9469,7 +9475,7 @@ DSPEC can be used to expand the node."
   "Show the xref graph of a function in a tree widget."
   (interactive 
    (list (slime-read-from-minibuffer "Name: "
-                                     (slime-symbol-name-at-point))
+                                     :initial-value (slime-symbol-name-at-point))
          (read (completing-read "Type: " (slime-bogus-completion-alist
                                           '(":callers" ":callees" ":calls"))
                                 nil t ":"))))
