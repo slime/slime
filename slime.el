@@ -9133,11 +9133,13 @@ itself."
                                            :reset ,(not no-reset)
                                            :eval ,eval
                                            :dwim-mode ,dwim-mode)
-                    (with-lexical-bindings (thread package)
+                    (with-lexical-bindings (thread package form)
                       (lambda (thing)
-                        (slime-open-inspector thing
-                                              :thread thread
-                                              :package package)))))
+                        (if thing
+                            (slime-open-inspector thing
+                                                  :thread thread
+                                                  :package package)
+                            (message "Couldn't read anything from '%s' (hint: prefix for debugger with details)" form))))))
 
 (defun* slime-read-object (prompt &key return-names-unconfirmed)
   "Read a Common Lisp expression from the minibuffer, providing

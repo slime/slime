@@ -4880,30 +4880,38 @@ See `methods-by-applicability'.")
   (with-buffer-syntax ()
     (when reset
       (reset-inspector))
-    (let* ((form (read-from-string string))
-           (value (cond
-                    (dwim-mode
-                     (let ((things (loop for hook :in *inspector-dwim-lookup-hooks*
-                                         for (result foundp) = (multiple-value-list
-                                                                 (funcall hook form))
-                                         when foundp
-                                         append (if (consp result)
-                                                    result
-                                                    (list result)))))
-                       (if (rest things)
-                           things
-                           (first things))))
-                    (eval (eval form))
-                    (t form))))
-      (when (and dwim-mode
-                 form
-                 value)
-        ;; push the form to the inspector stack, so you can go back to it
-        ;; with slime-inspector-pop if dwim missed the intention
-        (push form *inspector-stack*))
-      (inspect-object (if dwim-mode
-                          (or value form)
-                          value)))))
+    (let* ((form (block reading
+                   (handler-bind
+                       ((error (lambda (e)
+                                 (declare (ignore e))
+                                 (when dwim-mode
+                                   (return-from reading 'nothing)))))
+                     (read-from-string string nil 'nothing))))
+           (value))
+      (unless (eq form 'nothing)
+        (setf value (cond
+                      (dwim-mode
+                       (let ((things (loop for hook :in *inspector-dwim-lookup-hooks*
+                                           for (result foundp) = (multiple-value-list
+                                                                     (funcall hook form))
+                                           when foundp
+                                           append (if (consp result)
+                                                      result
+                                                      (list result)))))
+                         (if (rest things)
+                             things
+                             (first things))))
+                      (eval (eval form))
+                      (t form)))
+        (when (and dwim-mode
+                   form
+                   value)
+          ;; push the form to the inspector stack, so you can go back to it
+          ;; with slime-inspector-pop if dwim missed the intention
+          (push form *inspector-stack*))
+        (inspect-object (if dwim-mode
+                            (or value form)
+                            value))))))
 
 (defun print-part-to-string (value)
   (let ((string (to-string value))
