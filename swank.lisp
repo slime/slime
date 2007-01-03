@@ -1207,7 +1207,7 @@ numbers.
 
 Characters are converted emacs' ?<char> notaion, strings are left
 as they are (except for espacing any nested \" chars, numbers are
-printed in base 10 and symbols are printed as their symbol-nome
+printed in base 10 and symbols are printed as their symbol-name
 converted to lower case."
   (etypecase form
     (string (format nil "~S" form))
@@ -1215,7 +1215,10 @@ converted to lower case."
                   (process-form-for-emacs (car form))
                   (process-form-for-emacs (cdr form))))
     (character (format nil "?~C" form))
-    (symbol (string-downcase (symbol-name form)))
+    (symbol (concatenate 'string (when (eq (symbol-package form)
+                                           #.(find-package "KEYWORD"))
+                                   ":")
+                         (string-downcase (symbol-name form))))
     (number (let ((*print-base* 10))
               (princ-to-string form)))))
 
