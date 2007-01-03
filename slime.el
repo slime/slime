@@ -9241,9 +9241,11 @@ position of point in the current buffer."
   ;; narrowed the buffer.
   (save-restriction
     (widen)
-    (cons (if (fboundp 'line-number)
-              (line-number)             ; XEmacs
-            (line-number-at-pos))       ; Emacs
+    (cons (cond ((fboundp 'line-number)
+                 (line-number))         ; XEmacs
+                ((fboundp 'line-number-at-pos)
+                 (line-number-at-pos))  ; Recent GNU Emacs
+                (t (1+ (count-lines 1 (point-at-bol)))))
           (current-column))))
 
 (defun slime-inspector-operate-on-point ()
