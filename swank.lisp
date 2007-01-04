@@ -4454,13 +4454,12 @@ See `methods-by-applicability'.")
 
 `method-specializer<' is used for sorting."
   ;; FIXME: argument-precedence-order and qualifiers are ignored.  
-  (let ((methods (copy-list (swank-mop:generic-function-methods gf))))
-    (labels ((method< (meth1 meth2)
-	       (loop for s1 in (swank-mop:method-specializers meth1)
-		     for s2 in (swank-mop:method-specializers meth2) 
-		     do (cond ((specializer< s2 s1) (return nil))
-			      ((specializer< s1 s2) (return t))))))
-      (stable-sort methods #'method<))))
+  (labels ((method< (meth1 meth2)
+             (loop for s1 in (swank-mop:method-specializers meth1)
+                   for s2 in (swank-mop:method-specializers meth2)
+                   do (cond ((specializer< s2 s1) (return nil))
+                            ((specializer< s1 s2) (return t))))))
+    (stable-sort (copy-seq (swank-mop:generic-function-methods gf)) #'method<)))
 
 (defun abbrev-doc (doc &optional (maxlen 80))
   "Return the first sentence of DOC, but not more than MAXLAN characters."
@@ -4500,7 +4499,7 @@ See `methods-by-applicability'.")
               "All Slots:" (:newline))
             (let* ((class (class-of object))
                    (direct-slots (swank-mop:class-direct-slots class))
-                   (effective-slots (sort (swank-mop:class-slots class)
+                   (effective-slots (sort (copy-seq (swank-mop:class-slots class))
                                           #'string< :key #'swank-mop:slot-definition-name))
                    (slot-presentations (loop for effective-slot :in effective-slots
                                              collect (inspect-slot-for-emacs
@@ -4616,7 +4615,7 @@ See `methods-by-applicability'.")
             ,@(when (swank-mop:specializer-direct-methods class)
                `("It is used as a direct specializer in the following methods:" (:newline)
                  ,@(loop
-                      for method in (sort (copy-list (swank-mop:specializer-direct-methods class))
+                      for method in (sort (copy-seq (swank-mop:specializer-direct-methods class))
                                           #'string< :key (lambda (x)
                                                            (symbol-name
                                                             (let ((name (swank-mop::generic-function-name
@@ -4673,11 +4672,11 @@ See `methods-by-applicability'.")
               ,@(when (documentation package t)
                   `("Documentation:" (:newline)
                     ,(documentation package t) (:newline)))
-              "Use list: " ,@(common-seperated-spec (sort (package-use-list package) #'string-lessp :key #'package-name)
+              "Use list: " ,@(common-seperated-spec (sort (copy-seq (package-use-list package)) #'string-lessp :key #'package-name)
                                                     (lambda (pack)
                                                       `(:value ,pack ,(inspector-princ (package-name pack)))))
               (:newline)
-              "Used by list: " ,@(common-seperated-spec (sort (package-used-by-list package) #'string-lessp :key #'package-name)
+              "Used by list: " ,@(common-seperated-spec (sort (copy-seq (package-used-by-list package)) #'string-lessp :key #'package-name)
                                                         (lambda (pack)
                                                           `(:value ,pack ,(inspector-princ (package-name pack)))))
               (:newline)
