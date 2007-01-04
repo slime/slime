@@ -1265,7 +1265,7 @@ positions before and after executing BODY."
 ;; Interface
 (defsubst slime-insert-propertized (props &rest args)
   "Insert all ARGS and then add text-PROPS to the inserted text."
-  (slime-propertize-region props (apply #'insert args)))
+  (slime-propertize-region props (apply #'slime-insert-possibly-as-rectangle args)))
 
 (defun slime-indent-and-complete-symbol ()
   "Indent the current line and perform symbol completion.  First
@@ -3021,24 +3021,26 @@ RESULT-P decides whether a face for a return value or output text is used."
       (when (eq (overlay-get overlay 'slime-repl-presentation) presentation)
         (delete-overlay overlay)))))
 
+(defun slime-insert-possibly-as-rectangle (&rest strings)
+  (if (zerop (current-column))
+      (apply #'insert strings)
+      (dolist (string strings)
+        (if (string= string "\n")
+            (newline)
+            (let ((lines (split-string string "\n")))
+              (when (rest lines)
+                (save-excursion
+                  (dotimes (i (1- (length lines)))
+                    (newline))))
+              (insert-rectangle lines))))))
+
 (defun slime-insert-presentation (string output-id)
-  (flet ((insert-it ()
-           (let ((lines (split-string string "\n")))
-             (if (cdr lines)
-                 (progn
-                   (save-excursion
-                     (dolist (line lines)
-                       (newline)))
-                   (insert-rectangle lines)
-                   (forward-char)
-                   (delete-backward-char 1))
-                 (insert string)))))
-    (cond ((not slime-repl-enable-presentations)
-           (insert-it))
-          (t
-           (let ((start (point)))
-             (insert-it)
-             (slime-add-presentation-properties start (point) output-id t))))))
+  (cond ((not slime-repl-enable-presentations)
+         (slime-insert-possibly-as-rectangle string))
+        (t
+         (let ((start (point)))
+           (slime-insert-possibly-as-rectangle string)
+           (slime-add-presentation-properties start (point) output-id t)))))
 
 (defun slime-open-stream-to-lisp (port)
   (let ((stream (open-network-stream "*lisp-output-stream*" 
@@ -3104,7 +3106,8 @@ evaluation."
        (slime-with-output-end-mark
         (if id
             (slime-insert-presentation string id)
-          (slime-insert-propertized '(face slime-repl-output-face) string))
+          (slime-propertize-region '(face slime-repl-output-face)
+            (insert string)))
         (when (and (= (point) slime-repl-prompt-start-mark)
                    (not (bolp)))
           (insert "\n")
@@ -3115,7 +3118,8 @@ evaluation."
        ;;(unless (bolp) (insert "\n"))
        (if id             
            (slime-insert-presentation string id)
-         (slime-insert-propertized `(face slime-repl-result-face) string))))))
+         (slime-propertize-region `(face slime-repl-result-face)
+           (insert string)))))))
 
 (defun slime-switch-to-output-buffer (&optional connection)
   "Select the output buffer, preferably in a different window."
@@ -8268,9 +8272,9 @@ CONTS is a list of pending Emacs continuations."
       (setq sldb-restarts restarts)
       (setq sldb-continuations conts)
       (sldb-insert-condition condition)
-      (insert (in-sldb-face section "Restarts:") "\n")
+      (insert "\n\n" (in-sldb-face section "Restarts:") "\n")
       (sldb-insert-restarts restarts)
-      (insert "\n" (in-sldb-face section "Backtrace:") "\n")
+      (insert "\n\n" (in-sldb-face section "Backtrace:") "\n")
       (setq sldb-backtrace-start-marker (point-marker))
       (sldb-insert-frames (sldb-prune-initial-frames frames) nil)
       (run-hooks 'sldb-hook)
@@ -8310,8 +8314,7 @@ CONTS is a list of pending Emacs continuations."
     (slime-insert-propertized '(sldb-default-action sldb-inspect-condition)
                               (in-sldb-face topline message)
                               "\n" 
-                              (in-sldb-face condition type)
-                              "\n\n")
+                              (in-sldb-face condition type))
     (when references
       (insert "See also:\n")
       (slime-with-rigid-indentation 2
@@ -8392,16 +8395,19 @@ Only add clickability to properties we actually know how to lookup."
   
 (defun sldb-insert-restarts (restarts)
   (loop for (name string) in restarts
-        for number from 0 
-        do (progn (slime-insert-propertized
-                   `(restart-number ,number
-                                    sldb-default-action sldb-invoke-restart
-                                    mouse-face highlight)
-                   "  "
-                   (in-sldb-face restart-number (number-to-string number))
-                   ": ["  (in-sldb-face restart-type name) "] " 
-                   (in-sldb-face restart string))
-                  (insert "\n"))))
+        for number from 0
+        for first-time-p = t then nil
+        do (progn
+             (unless first-time-p
+               (newline))
+             (slime-insert-propertized
+              `(restart-number ,number
+                sldb-default-action sldb-invoke-restart
+                mouse-face highlight)
+              "  "
+              (in-sldb-face restart-number (number-to-string number))
+              ": ["  (in-sldb-face restart-type name) "] "
+              (in-sldb-face restart string)))))
   
 (defun sldb-add-face (face string)
   (if sldb-enable-styled-backtrace
@@ -8422,13 +8428,15 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
 
 (defun sldb-insert-frame (frame &optional detailedp)
   (destructuring-bind (number string) frame
-    (slime-insert-propertized
-     `(frame ,frame sldb-default-action sldb-toggle-details)
-     " " (in-sldb-face frame-label (format "%2d" number)) ": "
-     (if detailedp
-         (in-sldb-face detailed-frame-line string)
-       (in-sldb-face frame-line string))
-     "\n")))
+    (let ((props `(frame ,frame sldb-default-action sldb-toggle-details)))
+      (save-excursion
+        (slime-insert-propertized props "\n"))
+      (slime-propertize-region props
+        (insert " " (in-sldb-face frame-label (format "%2d:" number)) " ")
+        (slime-insert-possibly-as-rectangle
+         (if detailedp
+             (in-sldb-face detailed-frame-line string)
+             (in-sldb-face frame-line string)))))))
 
 (defun sldb-insert-frames (frames maximum-length)
   "Insert FRAMES into buffer.
@@ -8437,7 +8445,10 @@ MAXIMUM-LENGTH is the total number of frames in the Lisp stack."
     (when maximum-length
       (assert (<= (length frames) maximum-length)))
     (save-excursion
-      (mapc #'sldb-insert-frame frames)
+      (mapc (lambda (frame)
+              (sldb-insert-frame frame)
+              (newline))
+            frames)
       (let ((number (sldb-previous-frame-number)))
         (cond ((and maximum-length (< (length frames) maximum-length)))
               (t
@@ -8567,41 +8578,45 @@ The details include local variable bindings and CATCH-tags."
   (interactive)
   (sldb-frame-number-at-point)
   (let ((inhibit-read-only t)
-        (column (current-column)))
+        (point (point)))
     (if (or on (not (sldb-frame-details-visible-p)))
 	(sldb-show-frame-details)
       (sldb-hide-frame-details))
-    (move-to-column column)))
+    (goto-char point)))
 
 (defun sldb-frame-details-visible-p ()
   (and (get-text-property (point) 'frame)
        (get-text-property (point) 'details-visible-p)))
 
 (defun sldb-show-frame-details ()
-  (multiple-value-bind (start end) (sldb-frame-region)
-    (save-excursion
-      (goto-char start)
-      (let* ((props (text-properties-at (point)))
-	     (frame (plist-get props 'frame))
-	     (frame-number (car frame))
-	     (standard-output (current-buffer))
-             (indent1 "      ")
-             (indent2 "        "))
-	(delete-region start end)
-	(slime-propertize-region `(frame ,frame details-visible-p t)
-          (sldb-insert-frame frame t)
-          (insert indent1 (in-sldb-face section "Locals:") "\n")
-          (sldb-insert-locals frame-number indent2)
-	  (when sldb-show-catch-tags
-	    (let ((catchers (sldb-catch-tags frame-number)))
-              (when catchers
-                (insert indent1 "Catch-tags:\n")
-                (dolist (tag catchers)
-                  (slime-insert-propertized  
-                   '(catch-tag ,tag)
-                   indent2 
-                   (in-sldb-face catch-tag (format "%s\n" tag)))))))))))
-  (apply #'sldb-maybe-recenter-region (sldb-frame-region)))
+  (let* ((props (text-properties-at (point)))
+         (frame (plist-get props 'frame))
+         (frame-number (car frame))
+         (catch-tags (when sldb-show-catch-tags
+                       (sldb-catch-tags frame-number)))
+         (local-vars (sldb-frame-locals frame-number)))
+    (if (or catch-tags local-vars)
+        (multiple-value-bind (start end) (sldb-frame-region)
+          (save-excursion
+            (goto-char start)
+            (let* ((standard-output (current-buffer))
+                   (indent1 "      ")
+                   (indent2 "        "))
+              (delete-region start end)
+              (slime-propertize-region `(frame ,frame details-visible-p t)
+                (sldb-insert-frame frame t)
+                (when local-vars
+                  (insert "\n" indent1 (in-sldb-face section "Locals:"))
+                  (sldb-insert-locals frame-number indent2 local-vars))
+                (when catch-tags
+                  (insert "\n" indent1 (in-sldb-face section "Catch-tags:"))
+                  (dolist (tag catch-tags)
+                    (slime-insert-propertized '(catch-tag ,tag)
+                      "\n"
+                      indent2
+                      (in-sldb-face catch-tag (format "%s" tag)))))))))
+        (message "Nothing to display")
+        (apply #'sldb-maybe-recenter-region (sldb-frame-region)))))
 
 (defun sldb-frame-region ()
   (save-excursion
@@ -8711,9 +8726,10 @@ The details include local variable bindings and CATCH-tags."
 (defun sldb-frame-locals (frame)
   (slime-eval `(swank:frame-locals-for-emacs ,frame)))
 
-(defun sldb-insert-locals (frame prefix)
-  (loop for i from 0 
-        for var in (sldb-frame-locals frame) do
+(defun* sldb-insert-locals (frame prefix &optional (vars (sldb-frame-locals frame)))
+  (loop for i from 0
+        for var in vars do
+        (newline)
         (destructuring-bind (&key name id value) var
           (slime-propertize-region (list 'sldb-default-action 'sldb-inspect-var
                                          'var i)
@@ -8723,8 +8739,7 @@ The details include local variable bindings and CATCH-tags."
             (insert " = ")
             (slime-insert-presentation
              (in-sldb-face local-value value)
-             `(:frame-var ,frame ,i)))
-          (newline))))
+             `(:frame-var ,frame ,i))))))
 
 (defun sldb-inspect-var ()
   (let ((frame (sldb-frame-number-at-point))
@@ -11268,6 +11283,7 @@ If they are not, position point at the first syntax error found."
           slime-print-apropos
           slime-show-note-counts
           slime-insert-propertized
+          slime-insert-possibly-as-rectangle
           slime-tree-insert
           slime-enclosing-operator-names)))
 
