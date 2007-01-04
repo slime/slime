@@ -1,3 +1,14 @@
+2007-01-04  Attila Lendvai  <attila.lendvai@gmail.com>
+
+	* slime.el: Added slime-insert-possibly-as-rectangle and use it
+	when inserting things here and there. The effect of this is that
+	multi-line strings coming from swank (e.g. stuff in sldb) are
+	inserted with insert-rectangle, so they are properly indented.
+
+	* swank.lisp: FIX: sort is destructive, call copy-seq at a few
+	places. FIX: bind *sldb-printer-bindings* also in
+	frame-locals-for-emacs.
+
 2007-01-03  Attila Lendvai  <attila.lendvai@gmail.com>
 
 	* swank.lisp: FIX: drop extra "Slots: " from standard-object's
