@@ -3030,9 +3030,12 @@ RESULT-P decides whether a face for a return value or output text is used."
             (let ((lines (split-string string "\n")))
               (when (rest lines)
                 (save-excursion
-                  (dotimes (i (1- (length lines)))
+                  (dotimes (i (length lines))
                     (newline))))
-              (insert-rectangle lines))))))
+              (insert-rectangle lines)
+              (when (rest lines)
+                (forward-char 1)
+                (delete-backward-char 1)))))))
 
 (defun slime-insert-presentation (string output-id)
   (cond ((not slime-repl-enable-presentations)
@@ -8428,15 +8431,19 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
 
 (defun sldb-insert-frame (frame &optional detailedp)
   (destructuring-bind (number string) frame
-    (let ((props `(frame ,frame sldb-default-action sldb-toggle-details)))
-      (save-excursion
-        (slime-insert-propertized props "\n"))
+    (let ((props `(frame ,frame sldb-default-action sldb-toggle-details))
+          (frame-end-marker (point-marker)))
+      (set-marker-insertion-type frame-end-marker t)
       (slime-propertize-region props
+        (save-excursion
+          (newline))
         (insert " " (in-sldb-face frame-label (format "%2d:" number)) " ")
         (slime-insert-possibly-as-rectangle
          (if detailedp
              (in-sldb-face detailed-frame-line string)
-             (in-sldb-face frame-line string)))))))
+             (in-sldb-face frame-line string)))
+        (goto-char frame-end-marker))
+      (set-marker frame-end-marker nil))))
 
 (defun sldb-insert-frames (frames maximum-length)
   "Insert FRAMES into buffer.
@@ -8445,10 +8452,7 @@ MAXIMUM-LENGTH is the total number of frames in the Lisp stack."
     (when maximum-length
       (assert (<= (length frames) maximum-length)))
     (save-excursion
-      (mapc (lambda (frame)
-              (sldb-insert-frame frame)
-              (newline))
-            frames)
+      (mapc #'sldb-insert-frame frames)
       (let ((number (sldb-previous-frame-number)))
         (cond ((and maximum-length (< (length frames) maximum-length)))
               (t
@@ -8596,27 +8600,40 @@ The details include local variable bindings and CATCH-tags."
                        (sldb-catch-tags frame-number)))
          (local-vars (sldb-frame-locals frame-number)))
     (if (or catch-tags local-vars)
-        (multiple-value-bind (start end) (sldb-frame-region)
-          (save-excursion
-            (goto-char start)
+        (save-excursion
+          (multiple-value-bind (start end) (sldb-frame-region)
             (let* ((standard-output (current-buffer))
                    (indent1 "      ")
                    (indent2 "        "))
               (delete-region start end)
+              (goto-char start)
               (slime-propertize-region `(frame ,frame details-visible-p t)
                 (sldb-insert-frame frame t)
                 (when local-vars
-                  (insert "\n" indent1 (in-sldb-face section "Locals:"))
+                  (insert indent1 (in-sldb-face section "Locals:"))
                   (sldb-insert-locals frame-number indent2 local-vars))
                 (when catch-tags
-                  (insert "\n" indent1 (in-sldb-face section "Catch-tags:"))
+                  (when local-vars
+                    (insert "\n"))
+                  (insert indent1 (in-sldb-face section "Catch-tags:"))
                   (dolist (tag catch-tags)
                     (slime-insert-propertized '(catch-tag ,tag)
                       "\n"
                       indent2
-                      (in-sldb-face catch-tag (format "%s" tag)))))))))
+                      (in-sldb-face catch-tag (format "%s" tag)))))
+                (newline)))))
         (message "Nothing to display")
         (apply #'sldb-maybe-recenter-region (sldb-frame-region)))))
+
+(defun sldb-hide-frame-details ()
+  (save-excursion
+    (multiple-value-bind (start end) (sldb-frame-region)
+      (goto-char start)
+      (let* ((props (text-properties-at (point)))
+	     (frame (plist-get props 'frame)))
+	(delete-region start end)
+	(slime-propertize-region (plist-put props 'details-visible-p nil)
+          (sldb-insert-frame frame))))))
 
 (defun sldb-frame-region ()
   (save-excursion
@@ -8634,16 +8651,6 @@ The details include local variable bindings and CATCH-tags."
 	   (cond ((< lines (window-height))
 		  (recenter (max (- (window-height) lines 4) 0)))
 		 (t (recenter 1)))))))
-
-(defun sldb-hide-frame-details ()
-  (save-excursion
-    (multiple-value-bind (start end) (sldb-frame-region)
-      (goto-char start)
-      (let* ((props (text-properties-at (point)))
-	     (frame (plist-get props 'frame)))
-	(delete-region start end)
-	(slime-propertize-region (plist-put props 'details-visible-p nil)
-          (sldb-insert-frame frame))))))
 
 
 (defun sldb-eval-in-frame (string)

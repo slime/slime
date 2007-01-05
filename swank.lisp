@@ -4487,7 +4487,6 @@ See `methods-by-applicability'.")
                                            (not (string= value-string "")))
                                   (setf (swank-mop:slot-value-using-class class object slot)
                                         (eval (read-from-string value-string))))))))
-               " "
                ,@(when boundp
                    `(" " (:action "[make unbound]"
                           ,(lambda () (swank-mop:slot-makunbound-using-class class object slot)))))))))
@@ -4667,7 +4666,8 @@ See `methods-by-applicability'.")
     (values "A package."
             `("Name: " (:value ,(package-name package))
               (:newline)
-              "Nick names: " ,@(common-seperated-spec (sort (package-nicknames package) #'string-lessp))
+              "Nick names: " ,@(common-seperated-spec (sort (copy-seq (package-nicknames package))
+                                                            #'string-lessp))
               (:newline)
               ,@(when (documentation package t)
                   `("Documentation:" (:newline)
