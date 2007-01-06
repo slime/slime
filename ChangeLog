@@ -1,3 +1,12 @@
+2007-01-06  Attila Lendvai  <attila.lendvai@gmail.com>
+
+	* slime.el: Added set-keymap-parents when not available (GNU
+	Emacs). Result: slime bindings while reading expressions from the
+	minibuffer.
+
+	* slime.el, swank.lisp: FIX: slime-insert-possibly-as-rectange and
+	sldb stuff on newer emacsen
+
 2007-01-04  Attila Lendvai  <attila.lendvai@gmail.com>
 
 	* slime.el: Added slime-insert-possibly-as-rectangle and use it
