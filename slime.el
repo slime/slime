@@ -1044,16 +1044,27 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
 
 ;;;; Emacs compatibility
 
+;;; Stuff only available in XEmacs
 (or (fboundp 'add-local-hook)
     (defun add-local-hook (hook function &optional append)
       (make-local-hook hook)
       (add-hook hook function append t)))
 
 (or (fboundp 'remove-local-hook)
-   (defun remove-local-hook (hook function)
-     (if (local-variable-p hook (current-buffer))
-         (remove-hook hook function t))))
+    (defun remove-local-hook (hook function)
+      (if (local-variable-p hook (current-buffer))
+          (remove-hook hook function t))))
 
+(or (fboundp 'set-keymap-parents)
+    (defun set-keymap-parents (m parents)
+      (set-keymap-parent
+       m
+       (cond
+         ((not (consp parents)) parents)
+         ((not (cdr parents)) (car parents))
+         (t (let ((m (copy-keymap (pop parents))))
+              (set-keymap-parents m parents)
+              m))))))
 
 ;;;; Setup initial `slime-mode' hooks
 
@@ -4641,9 +4652,10 @@ Also rearrange windows."
 
 ;;;; Scratch
 
-(defvar slime-scratch-mode-map)
-(setq slime-scratch-mode-map (make-sparse-keymap))
-(set-keymap-parent slime-scratch-mode-map lisp-mode-map)
+(defvar slime-scratch-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map slime-mode-map)
+    map))
 
 (defun slime-scratch-buffer ()
   "Return the scratch buffer, create it if necessary."
@@ -6259,12 +6271,7 @@ Return nil iff if point is not at filename."
 
 (defvar slime-read-expression-map
   (let ((map (make-sparse-keymap)))
-    (if (fboundp 'set-keymap-parents) ; xemacs only at the time of writing
-        (set-keymap-parents map (list minibuffer-local-map slime-mode-map))
-        (progn
-          (set-keymap-parent map minibuffer-local-map)
-          (define-key map (kbd "\t") 'slime-complete-symbol)
-          (define-key map (kbd "\M-\t") 'slime-complete-symbol)))
+    (set-keymap-parents map (list minibuffer-local-map slime-mode-map))
     map)
   "Minibuffer keymap used for reading CL expressions.")
 
@@ -8621,9 +8628,9 @@ The details include local variable bindings and CATCH-tags."
                       "\n"
                       indent2
                       (in-sldb-face catch-tag (format "%s" tag)))))
-                (newline)))))
-        (message "Nothing to display")
-        (apply #'sldb-maybe-recenter-region (sldb-frame-region)))))
+                (newline))))
+          (apply #'sldb-maybe-recenter-region (sldb-frame-region)))
+        (message "Nothing to display"))))
 
 (defun sldb-hide-frame-details ()
   (save-excursion
