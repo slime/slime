@@ -1,3 +1,9 @@
+2007-01-07  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (open-streams): Don't pass nil to make-fn-streams;
+	use a dummy function as workaround.  Both arguments must be
+	functions and CMUCL checks the types.
+
 2007-01-06  Attila Lendvai  <attila.lendvai@gmail.com>
 
 	* slime.el: Added set-keymap-parents when not available (GNU
