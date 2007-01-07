@@ -537,7 +537,10 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
             (let* ((repl-results-fn
                     (make-output-function-for-target connection :repl-result))
                    (repl-results
-                    (nth-value 1 (make-fn-streams nil repl-results-fn))))
+                    (nth-value 1 (make-fn-streams 
+                                  (lambda ()
+                                    (error "Should never be called"))
+                                  repl-results-fn))))
               (values dedicated-output in out io repl-results))))))))
 
 (defun make-output-function (connection)
