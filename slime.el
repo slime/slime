@@ -4189,15 +4189,12 @@ Return nil of no item matches"
   "Merge entries from OLD-HIST and NEW-HIST."
   ;; Newer items in each list are at the beginning.
   (let* ((ht (make-hash-table :test #'equal))
-         (delete-tester #'(lambda (entry)
-                            (if (gethash entry ht)
-                                t
-                                (progn
-                                  (puthash entry t ht)
-                                  nil)))))
-    (append
-     (remove-if delete-tester new-hist)
-     (remove-if delete-tester old-hist))))
+         (test (lambda (entry)
+                 (or (gethash entry ht)
+                     (progn (setf (gethash entry ht) t)
+                            nil)))))
+    (append (remove-if test new-hist)
+            (remove-if test old-hist))))
 
 (defun slime-repl-load-history (&optional filename)
   "Set the current SLIME REPL history.
