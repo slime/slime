@@ -1,3 +1,8 @@
+2007-01-010  Attila Lendvai  <attila.lendvai@gmail.com>
+
+	* slime.el: FIX: set-keymap-parents for GNU Emacs was bogus, fixed
+	by Ariel Badichi.
+
 2007-01-07  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (open-streams): Don't pass nil to make-fn-streams;

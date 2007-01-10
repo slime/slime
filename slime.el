@@ -1060,7 +1060,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
       (set-keymap-parent
        m
        (cond
-         ((not (consp parents)) parents)
+         ((or (keymapp parents) (not (consp parents))) parents)
          ((not (cdr parents)) (car parents))
          (t (let ((m (copy-keymap (pop parents))))
               (set-keymap-parents m parents)
