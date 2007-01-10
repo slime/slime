@@ -1,3 +1,38 @@
+2007-01-11  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el: Some cleanups for the debugger code: add some outline
+	sections and docstrings.
+	
+	(sldb-setup): Always display the beginning of the condition
+	text. Previously, we always showed the beginning of the backtrace.
+
+	(sldb-prune-initial-frames): Do what the docstring says. Reverted
+	to Luke's version.
+
+	(sldb-dispatch-extras): Fix typo.
+
+	(sldb-insert-restarts, sldb-insert-frames)
+	(sldb-insert-frame, sldb-fetch-more-frames)
+	(sldb-toggle-details, sldb-show-frame-details)
+	(sldb-insert-locals): Simplified.
+	(sldb-frame-details): New.
+
+	(slime-save-coordinates, slime-coordinates)
+	(slime-restore-coordinate, slime-count-lines): New macro and its
+	helpers.
+	(sldb-recenter-region): Renamed from slime-maybe-recenter-region.
+	
+	(sldb-enable-styled-backtrace, sldb-show-catch-tags)
+	(sldb-highlight): Deleted. Seem to be obsolete.
+	(sldb-add-face): Removed, because it is now the same as
+	slime-add-face.
+
+	(sldb-help-summary): Deleted. The docstring for sldb-mode is
+	already pretty terse.
+	(define-sldb-face): Renamed from def-sldb-face.
+
+	* swank-sbcl.lisp, swank-cmucl.lisp (condition-extras): Fix typo
+	
 2007-01-10  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (*sldb-printer-bindings*): Add *print-right-margin*.
