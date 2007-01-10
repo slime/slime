@@ -1,7 +1,19 @@
-2007-01-010  Attila Lendvai  <attila.lendvai@gmail.com>
+2007-01-10  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (*sldb-printer-bindings*): Add *print-right-margin*.
+	(debug-in-emacs): Bind *sldb-printer-bindings* here ...
+	(backtrace, debugger-info-for-emacs, frame-locals-for-emacs): 
+	... and remove redundant bindings here.
+
+2007-01-10  Attila Lendvai  <attila.lendvai@gmail.com>
 
 	* slime.el: FIX: set-keymap-parents for GNU Emacs was bogus, fixed
 	by Ariel Badichi.
+
+2007-01-09  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-repl-merge-histories): Use (setf (gethash ...)
+	instead of puthash, for Emacs 20.
 
 2007-01-07  Helmut Eller  <heller@common-lisp.net>
 
