@@ -102,7 +102,8 @@ Redirection is done while Lisp is processing a request for Emacs.")
     (*print-radix*            . nil)
     (*print-array*            . t)
     (*print-lines*            . 10)
-    (*print-escape*           . t))
+    (*print-escape*           . t)
+    (*print-right-margin*     . 70))
   "A set of printer variables used in the debugger.")
 
 (defvar *default-worker-thread-bindings* '()
@@ -270,7 +271,7 @@ recently established one."
 (defun make-swank-error (condition)
   (let ((bt (ignore-errors 
               (call-with-debugging-environment 
-               (lambda ()(backtrace 0 nil))))))
+               (lambda () (backtrace 0 nil))))))
     (make-condition 'swank-error :condition condition :backtrace bt)))
 
 (add-hook *new-connection-hook* 'notify-backend-of-connection)
@@ -2808,7 +2809,9 @@ after Emacs causes a restart to be invoked."
         (*swank-state-stack* (cons :swank-debugger-hook *swank-state-stack*)))
     (force-user-output)
     (call-with-debugging-environment
-     (lambda () (sldb-loop *sldb-level*)))))
+     (lambda () 
+       (with-bindings *sldb-printer-bindings*
+         (sldb-loop *sldb-level*))))))
 
 (defun sldb-loop (level)
   (unwind-protect
@@ -2871,13 +2874,10 @@ format suitable for Emacs."
 (defslimefun backtrace (start end)
   "Return a list ((I FRAME) ...) of frames from START to END.
 I is an integer describing and FRAME a string."
-  (with-bindings *sldb-printer-bindings*
-    ;; we don't want newlines in the backtrace, that makes it unreadable
-    (let ((*print-right-margin* most-positive-fixnum))
-      (loop for frame in (compute-backtrace start end)
-            for i from start
-            collect (list i (with-output-to-string (stream)
-                              (print-frame frame stream)))))))
+  (loop for frame in (compute-backtrace start end)
+        for i from start
+        collect (list i (with-output-to-string (stream)
+                          (print-frame frame stream)))))
 
 (defslimefun debugger-info-for-emacs (start end)
   "Return debugger state, with stack frames from START to END.
@@ -2910,11 +2910,10 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
    (\"ABORT\" \"Return to Top-Level.\"))
   ((0 \"(KERNEL::INTEGER-/-INTEGER 1 0)\"))
   (4))"
-  (with-bindings *sldb-printer-bindings*
-    (list (debugger-condition-for-emacs)
-          (format-restarts-for-emacs)
-          (backtrace start end)
-          *pending-continuations*)))
+  (list (debugger-condition-for-emacs)
+        (format-restarts-for-emacs)
+        (backtrace start end)
+        *pending-continuations*))
 
 (defun nth-restart (index)
   (nth index *sldb-restarts*))
@@ -2960,12 +2959,11 @@ has changed, ignore the request."
 (defslimefun frame-locals-for-emacs (index)
   "Return a property list ((&key NAME ID VALUE) ...) describing
 the local variables in the frame INDEX."
-  (with-bindings *sldb-printer-bindings*
-    (mapcar (lambda (frame-locals)
-              (destructuring-bind (&key name id value) frame-locals
-                (list :name (prin1-to-string name) :id id
-                      :value (to-string value))))
-            (frame-locals index))))
+  (mapcar (lambda (frame-locals)
+            (destructuring-bind (&key name id value) frame-locals
+              (list :name (prin1-to-string name) :id id
+                    :value (to-string value))))
+          (frame-locals index)))
 
 (defslimefun frame-catch-tags-for-emacs (frame-index)
   (mapcar #'to-string (frame-catch-tags frame-index)))
