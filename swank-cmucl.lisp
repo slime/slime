@@ -1711,7 +1711,7 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
   (typecase condition
     (breakpoint 
      ;; pop up the source buffer
-     `((:short-frame-source 0))) 
+     `((:show-frame-source 0))) 
     (t '())))
 
 (defun signal-breakpoint (breakpoint frame)

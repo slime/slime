@@ -680,7 +680,7 @@ Return a list of the form (NAME LOCATION)."
 #+#.(swank-backend::sbcl-with-new-stepper-p)
 (defimplementation condition-extras (condition)
   (when (typep condition 'sb-impl::step-form-condition)
-    `((:short-frame-source 0))))
+    `((:show-frame-source 0))))
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
