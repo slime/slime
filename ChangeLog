@@ -1,3 +1,8 @@
+2007-01-11  Juho Snellman  <jsnell@iki.fi>
+
+	* slime.el (slime-read-expression-map): restore tab completion in
+	the minibuffer.
+	
 2007-01-11  Marco Baringer  <mb@bese.it>
 
 	* swank.lisp (inspect-for-emacs integer): Don't die if the integer
@@ -58,6 +63,18 @@
 	* slime.el (slime-repl-merge-histories): Use (setf (gethash ...)
 	instead of puthash, for Emacs 20.
 
+2007-01-09  Juho Snellman  <jsnell@iki.fi>
+
+	SBCL 1.0.1.15 supports restart-frame natively, and uses a different
+	debug catch tag interface than earlier versions.
+	
+	* swank-sbcl (sbcl-with-restart-frame): New function, detects SBCL
+	1.0.1.15 or later.
+	(return-from-frame): Another version for 1.0.1.15, using
+	sb-debug:unwind-to-frame-and-call
+	(restart-frame): Another version for 1.0.1.15, using
+	sb-debug:unwind-to-frame-and-call
+	
 2007-01-07  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (open-streams): Don't pass nil to make-fn-streams;

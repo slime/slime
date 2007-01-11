@@ -6255,6 +6255,8 @@ Return nil iff if point is not at filename."
 (defvar slime-read-expression-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parents map (list minibuffer-local-map slime-mode-map))
+    (define-key map "\t" 'slime-complete-symbol)
+    (define-key map "\M-\t" 'slime-complete-symbol)
     map)
   "Minibuffer keymap used for reading CL expressions.")
 
