@@ -1,3 +1,8 @@
+2007-01-12  Marco Baringer  <mb@bese.it>
+
+	* slime.el (slime-keys): Remove binding of M-*, restore binding of
+	M-,.
+
 2007-01-11  Edi Weitz  <edi@agharta.de>
 
 	* slime.el (slime-repl-test-system, slime-repl-test/force-system):
