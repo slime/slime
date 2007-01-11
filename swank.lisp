@@ -4760,8 +4760,8 @@ See `methods-by-applicability'.")
   (declare (ignore inspector))
   (values "A number."
           (append
-           `(,(format nil "Value: ~D = #x~8,'0X = #o~O = #b~,,' ,8:B = ~E"
-                      i i i i i)
+           `(,(format nil "Value: ~D = #x~8,'0X = #o~O = #b~,,' ,8:B~@[ = ~E~]"
+                      i i i i (ignore-errors (coerce i 'float)))
               (:newline))
            (when (< -1 i char-code-limit)
              (label-value-line "Code-char" (code-char i)))
