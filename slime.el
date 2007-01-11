@@ -760,7 +760,6 @@ A prefix argument disables this behaviour."
     ("\M-." slime-edit-definition :inferior t :sldb t)
     ("\C-x4." slime-edit-definition-other-window :inferior t :sldb t)
     ("\C-x5." slime-edit-definition-other-frame :inferior t :sldb t)
-    ("\M-," slime-pop-find-definition-stack :inferior t :sldb t)
     ("\M-*" slime-pop-find-definition-stack :inferior t :sldb t)
     ("\C-q" slime-close-parens-at-point :prefixed t :inferior t)
     ("\C-c\M-q" slime-reindent-defun :inferior t)
