@@ -1,3 +1,9 @@
+2007-01-11  Edi Weitz  <edi@agharta.de>
+
+	* slime.el (slime-repl-test-system, slime-repl-test/force-system):
+	New REPL shortcuts.  Patch by Kevin Rosenberg
+	<kevin@rosenberg.net>.
+
 2007-01-11  Juho Snellman  <jsnell@iki.fi>
 
 	* slime.el (slime-read-expression-map): restore tab completion in
@@ -8,8 +14,8 @@
 2007-01-11  Marco Baringer  <mb@bese.it>
 
 	* swank.lisp (inspect-for-emacs integer): Don't die if the integer
-	can't be expressed as a float. (Patch by: Ariel Badichi
-	<abadichi@bezeqint.net>)
+	can't be expressed as a float.  Patch by Ariel Badichi
+	<abadichi@bezeqint.net>.
  
 	* slime.el (slime-keys): Removed binding of M-,
 

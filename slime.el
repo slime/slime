@@ -4570,6 +4570,18 @@ The handler will use qeuery to ask the use if the error should be ingored."
               (slime-oos (slime-read-system-name) "LOAD-OP")))
   (:one-liner "Compile (as needed) and load an ASDF system."))
 
+(defslime-repl-shortcut slime-repl-test/force-system ("force-test-system")
+  (:handler (lambda ()
+              (interactive)
+              (slime-oos (slime-read-system-name) "TEST-OP" :force t)))
+  (:one-liner "Compile (as needed) and force test an ASDF system."))
+
+(defslime-repl-shortcut slime-repl-test-system ("test-system")
+  (:handler (lambda ()
+              (interactive)
+              (slime-oos (slime-read-system-name) "TEST-OP")))
+  (:one-liner "Compile (as needed) and test an ASDF system."))
+
 (defslime-repl-shortcut slime-repl-compile-system ("compile-system")
   (:handler (lambda ()
               (interactive)
