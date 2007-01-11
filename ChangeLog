@@ -1,7 +1,9 @@
 2007-01-11  Juho Snellman  <jsnell@iki.fi>
 
 	* slime.el (slime-read-expression-map): restore tab completion in
-	the minibuffer.
+	the minibuffer. Switch the slime-mode-map and minibuffer-local-map
+	around, so that the minibuffer binding for return takes precedence
+	over the slime-mode one.
 	
 2007-01-11  Marco Baringer  <mb@bese.it>
 
