@@ -1,3 +1,12 @@
+2007-01-12  Juho Snellman  <jsnell@iki.fi>
+
+	* slime.el (slime-read-expression-map): Switch the slime-mode-map
+	and minibuffer-local-map back the way they were. The previous change
+	was made due to a misunderstanding, caused by a keybinding for
+	[(return)] apparently being more specific than one for (kbd "RET"),
+	even when the former is in a parent keymap and the latter in the
+	child.
+	
 2007-01-12  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (handle-request): Use 'abort as restart name, but
