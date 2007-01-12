@@ -1,3 +1,10 @@
+2007-01-12  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (handle-request): Use 'abort as restart name, but
+	bind *sldb-quit-restart* to the restart returned by find-restart.
+	Also use a slighly friendlier message, because newbies seem to
+	invoke the ABORT restart instead of pressing q in the debugger.
+	
 2007-01-12  Edi Weitz  <edi@agharta.de>
 
 	* slime.el (slime-find-asd): Remove file extension.
@@ -36,9 +43,9 @@
 	<abadichi@bezeqint.net>.
  
 	* slime.el (slime-keys): Removed binding of M-,
-
+	
 2007-01-11  Helmut Eller  <heller@common-lisp.net>
-
+	
 	* slime.el: Some cleanups for the debugger code: add some outline
 	sections and docstrings.
 	
