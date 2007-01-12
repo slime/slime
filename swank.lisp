@@ -3098,9 +3098,12 @@ Record compiler notes signalled as `compiler-condition's."
 
 (defslimefun list-all-systems-known-to-asdf ()
   "Returns a list of all systems ASDF knows already."
+  (unless (find-package :asdf)
+    (error "ASDF not loaded"))
   ;; ugh, yeah, it's unexported - but do we really expect this to
   ;; change anytime soon?
-  (loop for name being the hash-keys of asdf::*defined-systems*
+  (loop for name being the hash-keys of (read-from-string 
+                                         "#.asdf::*defined-systems*")
         collect name))
 
 (defslimefun list-asdf-systems ()
