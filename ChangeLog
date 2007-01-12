@@ -1,3 +1,18 @@
+2007-01-12  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-clisp.lisp: Better classifacation on frames on the stack.
+	Make variables in eval frames accessible to the debugger.
+	(frame-type, *frame-prefixes*, frame-to-string, is-prefix-p)
+	(frame-string-type, boring-frame-p): New.
+	(%frame-count-vars, %frame-var-name, %frame-var-value)
+	(frame-venv, next-venv, venv-ref, %parse-stack-values): Replaces 
+	old frame-do-venv.
+	(extract-frame-line, extract-function-name, split-frame-string)
+	(string-match): New code to print frames.
+	(frame-locals, frame-var-value): Use the new stuff.
+
+	(inspect-for-emacs): Fix various bugs.
+
 2007-01-12  Juho Snellman  <jsnell@iki.fi>
 
 	* slime.el (slime-read-expression-map): Switch the slime-mode-map
