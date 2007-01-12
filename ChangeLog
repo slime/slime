@@ -1,7 +1,3 @@
-2007-01-12  Helmut Eller  <helmut@localhost>
-
-	
-
 2007-01-12  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-clisp.lisp: Better classification on frames on the stack.
