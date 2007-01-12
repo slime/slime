@@ -3079,18 +3079,33 @@ Record compiler notes signalled as `compiler-condition's."
 
 (defslimefun list-all-systems-in-central-registry ()
   "Returns a list of all systems in ASDF's central registry."
-  (delete-duplicates
-    (loop for dir in (asdf-central-registry)
-          for defaults = (eval dir)
-          when defaults
-            nconc (mapcar #'file-namestring
-                            (directory
-                              (make-pathname :defaults defaults
-                                             :version :newest
-                                             :type "asd"
-                                             :name :wild
-                                             :case :local))))
-    :test #'string=))
+  (mapcar #'pathname-name
+          (delete-duplicates
+           (loop for dir in (asdf-central-registry)
+                 for defaults = (eval dir)
+                 when defaults
+                   nconc (mapcar #'file-namestring
+                                   (directory
+                                     (make-pathname :defaults defaults
+                                          :version :newest
+                                          :type "asd"
+                                          :name :wild
+                                          :case :local))))
+           :test #'string=)))
+
+(defslimefun list-all-systems-known-to-asdf ()
+  "Returns a list of all systems ASDF knows already."
+  ;; ugh, yeah, it's unexported - but do we really expect this to
+  ;; change anytime soon?
+  (loop for name being the hash-keys of asdf::*defined-systems*
+        collect name))
+
+(defslimefun list-asdf-systems ()
+  "Returns the systems in ASDF's central registry and those which ASDF
+already knows."
+  (nunion (list-all-systems-known-to-asdf)
+          (list-all-systems-in-central-registry)
+          :test #'string=))
   
 (defun file-newer-p (new-file old-file)
   "Returns true if NEW-FILE is newer than OLD-FILE."

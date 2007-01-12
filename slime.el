@@ -4723,9 +4723,11 @@ See `slime-compile-and-load-file' for further details."
 directory or in the directory belonging to the current buffer and
 returns it if it's in `system-names'."
   (let* ((asdf-systems-in-directory
-           (directory-files (file-name-directory (or default-directory
-                                                     (buffer-file-name)))
-                            nil "\.asd$")))
+           (mapcar #'file-name-sans-extension
+                   (directory-files
+                    (file-name-directory (or default-directory
+                                             (buffer-file-name)))
+                    nil "\.asd$"))))
     (loop for system in asdf-systems-in-directory
           for candidate = (file-name-sans-extension system)
           when (find candidate system-names :test #'string-equal)
@@ -4746,9 +4748,7 @@ buffer's working directory"
   "Read a system name from the minibuffer, prompting with PROMPT."
   (setq prompt (or prompt "System: "))
   (let* ((completion-ignore-case nil)
-         (system-names (mapcar #'file-name-sans-extension
-                               (slime-eval 
-                                `(swank:list-all-systems-in-central-registry))))
+         (system-names (slime-eval `(swank:list-asdf-systems)))
          (alist (slime-bogus-completion-alist system-names)))
     (completing-read prompt alist nil nil
                      (or initial-value (slime-find-asd system-names) "")

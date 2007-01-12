@@ -1,3 +1,16 @@
+2007-01-12  Edi Weitz  <edi@agharta.de>
+
+	* slime.el (slime-find-asd): Remove file extension.
+
+	(slime-read-system-name): Use SWANK:LIST-ASDF-SYSTEMS.
+
+	* swank.lisp (list-all-systems-in-central-registry): Use only
+	pathname name.
+
+	(list-all-systems-known-to-asdf): New function.
+
+	(list-asdf-systems): New function.
+
 2007-01-12  Marco Baringer  <mb@bese.it>
 
 	* slime.el (slime-keys): Remove binding of M-*, restore binding of
