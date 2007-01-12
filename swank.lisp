@@ -595,14 +595,18 @@ This is an optimized way for Lisp to deliver output to Emacs."
       (when socket
         (close-socket socket)))))
 
+(defvar *sldb-quit-restart* 'abort
+  "What restart should swank attempt to invoke when the user sldb-quits.")
+
 (defun handle-request (connection)
   "Read and process one request.  The processing is done in the extent
 of the toplevel restart."
   (assert (null *swank-state-stack*))
   (let ((*swank-state-stack* '(:handle-request)))
     (with-connection (connection)
-      (with-simple-restart (abort-request "Abort handling SLIME request.")
-        (read-from-emacs)))))
+      (with-simple-restart (abort "Return to SLIME's top level.")
+        (let ((*sldb-quit-restart* (find-restart 'abort)))
+          (read-from-emacs))))))
 
 (defun current-socket-io ()
   (connection.socket-io *emacs-connection*))
@@ -2505,7 +2509,9 @@ Errors are trapped and invoke our debugger."
              (let ((i (car values)))
                (format nil "~A~D (#x~X, #o~O, #b~B)" 
                        *echo-area-prefix* i i i i)))
-            (t (format nil "~A~{~S~^, ~}" *echo-area-prefix* values))))))
+            (t (with-output-to-string (s)
+                 (pprint-logical-block (s values :prefix *echo-area-prefix*)
+                   (format s "~{~S~^, ~}" values))))))))
 
 (defslimefun interactive-eval (string)
   (with-buffer-syntax ()
@@ -2794,9 +2800,6 @@ after Emacs causes a restart to be invoked."
 
 (defvar *sldb-stepping-p* nil
   "True during execution of a step command.")
-
-(defvar *sldb-quit-restart* 'abort-request
-  "What restart should swank attempt to invoke when the user sldb-quits.")
 
 (defun debug-in-emacs (condition)
   (let ((*swank-debugger-condition* condition)
