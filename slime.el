@@ -4324,7 +4324,7 @@ The handler will use qeuery to ask the use if the error should be ingored."
          (mimic-key-bindings slime-repl-mode-map slime-repl-history-map keys to)))
   (remap (list 'slime-repl-previous-matching-input (kbd "M-r"))
          'slime-repl-continue-search-with-last-pattern)
-  (remap (list 'slime-repl-next-matching-input (kbd "M-n"))
+  (remap (list 'slime-repl-next-matching-input (kbd "M-s"))
          'slime-repl-continue-search-with-last-pattern))
 
 ;;;;;; REPL Read Mode
