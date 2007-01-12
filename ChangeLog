@@ -1,3 +1,7 @@
+2007-01-12  Helmut Eller  <helmut@localhost>
+
+	
+
 2007-01-12  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-clisp.lisp: Better classification on frames on the stack.
@@ -12,6 +16,16 @@
 	(frame-locals, frame-var-value): Use the new stuff.
 
 	(inspect-for-emacs): Fix various bugs.
+
+	* swank-loader.lisp (compile-files-if-needed-serially): Don't wrap
+	everything in a compilation unit.  If we abort on load errors and
+	it is confusing to see compiler warnings after the abort message.
+	(handle-loadtime-error): CLISP's format implements ~< differently
+	as everybody else, so use a explicit pprint-logical-block instead.
+
+	* swank.lisp (list-all-systems-in-central-registry): Don't
+	reference asdf directly, that leads to read errors in some
+	systems.
 
 2007-01-12  Juho Snellman  <jsnell@iki.fi>
 
