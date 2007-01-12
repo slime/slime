@@ -1,6 +1,6 @@
 2007-01-12  Helmut Eller  <heller@common-lisp.net>
 
-	* swank-clisp.lisp: Better classifacation on frames on the stack.
+	* swank-clisp.lisp: Better classification on frames on the stack.
 	Make variables in eval frames accessible to the debugger.
 	(frame-type, *frame-prefixes*, frame-to-string, is-prefix-p)
 	(frame-string-type, boring-frame-p): New.
