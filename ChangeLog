@@ -1,3 +1,34 @@
+2007-01-14  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el: Cleanups for the repl history code.
+	(slime-repl-mode-map): Don't shadow M-C-d.
+	(slime-repl-history-replace): Simplified.
+	(slime-repl-history-search-in-progress-p): New.
+	(slime-repl-position-in-history): If there's no match return
+	out-of-bound positions instead of nil.
+	(slime-repl-add-to-input-history): Never modify the argument.
+	(slime-repl-previous-input): Renamed from
+	slime-repl-previous-input-starting-with-current-input.
+	(slime-repl-next-input): Renamed from
+	slime-repl-next-input-starting-with-current-input
+	(slime-repl-forward-input): Renamed from slime-repl-next-input.
+	(slime-repl-backward-input): Renamed from
+	slime-repl-previous-input.
+	(slime-repl-history-pattern): Renamed from
+	slime-repl-matching-input-regexp.
+	(slime-repl-delete-from-input-history): Simplified.
+
+	(slime-repl-history-map)
+	(slime-repl-history-navigation-neutral-commands)
+	(slime-repl-jump-to-history-item)
+	(slime-repl-previous-or-next-input)
+	(slime-repl-starting-with-current-input-regexp)
+	(slime-repl-continue-search-with-last-pattern)
+	(slime-repl-previous-or-next-matching-input): Deleted.
+
+	(sldb-list-locals, sldb-list-catch-tags): Deleted. Aren't of much
+	use anymore.
+
 2007-01-12  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-clisp.lisp: Better classification on frames on the stack.
