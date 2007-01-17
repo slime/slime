@@ -1731,7 +1731,7 @@ Return the created process."
     ;; Return a single form to avoid problems with buffered input.
     (format "%S\n\n"
             `(progn
-               (load ,loader :verbose t)
+               (load ,(expand-file-name loader) :verbose t)
                (funcall (read-from-string "swank:start-server")
                         ,port-filename
                         :coding-system ,encoding)))))
