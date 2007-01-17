@@ -1,3 +1,8 @@
+2007-01-17  Christian Lynbech <christian.lynbech@ericsson.com>
+
+	* slime.el (slime-init-command): Use expanded files when writing
+	the LOAD form for swank.
+
 2007-01-14  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el: Cleanups for the repl history code.
