@@ -1484,7 +1484,9 @@ The functions created here expect your tramp-default-method or
 (defun slime (&optional command coding-system)
   "Start an inferior^_superior Lisp and connect to its Swank server."
   (interactive)
-  (apply #'slime-start (slime-read-interactive-args)))
+  (let ((inferior-lisp-program (or command inferior-lisp-program))
+        (slime-net-coding-system (or coding-system slime-net-coding-system)))
+    (apply #'slime-start (slime-read-interactive-args))))
 
 (defun slime-read-interactive-args ()
   "Return the list of args which should be passed to `slime-start'.
