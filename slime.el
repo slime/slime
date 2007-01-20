@@ -4473,10 +4473,11 @@ The handler will use qeuery to ask the use if the error should be ingored."
 (defslime-repl-shortcut slime-repl-defparameter ("defparameter" "!")
   (:handler (lambda (name value)
               (interactive (list (slime-read-symbol-name "Name (symbol): " t)
-                                 (slime-read-from-minibuffer "Value: " "*")))
+                                 (slime-read-from-minibuffer "Value: "
+                                                             :initial-value "*")))
               (insert "(cl:defparameter " name " " value 
                       " \"REPL generated global variable.\")")
-              (slime-repl-send-input)))
+              (slime-repl-send-input t)))
   (:one-liner "Define a new global, special, variable."))
 
 (defslime-repl-shortcut slime-repl-compile-and-load ("compile-and-load" "cl")
