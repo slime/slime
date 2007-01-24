@@ -1827,7 +1827,7 @@ using the default settings.
 Since we're going to be tunneling our connection via
 ssh@footnote{there is a way to connect without an ssh tunnel, but it
 has the side-effect of giving the entire world access to your lisp
-image, se we're not gonig to talk about it} and we'll only have one
+image, so we're not going to talk about it} and we'll only have one
 port open we want to tell swank to not use an extra connection for
 output:
 
