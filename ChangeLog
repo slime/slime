@@ -3,6 +3,11 @@
 	* slime.el (slime-call-defun): Put the docstring before
 	the (interactive) form so that "C-h f slime-call-defun" will
 	return it.
+
+	* slime.el (slime-scratch-mode-map): Changed parent keymap to
+	lisp-mode-map to prevent unnecessary duplication of slime-mode-map
+	bindings and so that lisp-mode-map key bindings are present in the
+	slime scratch buffer. Change identified by Ariel Badichi.
  
 2007-01-20  Luke Gorrie  <luke@synap.se>
 
