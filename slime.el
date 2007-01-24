@@ -4584,7 +4584,7 @@ Also rearrange windows."
 
 (defvar slime-scratch-mode-map
   (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map slime-mode-map)
+    (set-keymap-parent map lisp-mode-map)
     map))
 
 (defun slime-scratch-buffer ()
