@@ -4032,7 +4032,7 @@ remember the repl results so some memory leaking is possible."
 ;;;;; History
 
 (defcustom slime-repl-wrap-history nil
-  "T to wrap history around when the end is reached."
+  "*T to wrap history around when the end is reached."
   :type 'boolean
   :group 'slime-repl)
 
@@ -8371,7 +8371,6 @@ Called on the `point-entered' text-property hook."
   (interactive)
   (goto-char sldb-backtrace-start-marker))
 
-
 
 ;;;;;; SLDB recenter & redisplay
 
@@ -8405,7 +8404,7 @@ Called on the `point-entered' text-property hook."
 Avoid point motions, if possible.
 Minimize scrolling, if CENTER is nil.
 If CENTER is true, scroll enough to center the region in the window."
-  (let ((pos (point))  (lines (count-lines start end)))
+  (let ((pos (point))  (lines (count-screen-lines start end t)))
     (assert (and (<= start pos) (<= pos end)))
     ;;(sit-for 0)
     (cond ((and (pos-visible-in-window-p start)
@@ -8414,11 +8413,13 @@ If CENTER is true, scroll enough to center the region in the window."
            (cond (center (recenter (+ (/ (- (window-height) 1 lines)
                                          2)
                                       (slime-count-lines start pos))))
-                 (t (recenter (+ (- (window-height) 2 lines)
+                 (t (recenter (+ (- (window-height) 1 lines)
                                  (slime-count-lines start pos))))))
           (t
-           (set-window-start (selected-window) start)
-           (cond ((pos-visible-in-window-p pos))
+           (goto-char start)
+           (recenter 0)
+           (cond ((pos-visible-in-window-p pos)
+                  (goto-char pos))
                  (t
                   (goto-char start)
                   (next-line (- (window-height) 2))))))))
@@ -8567,15 +8568,14 @@ The details include local variable bindings and CATCH-tags."
         (let ((indent1 "      ")
               (indent2 "        "))
           (insert indent1 (in-sldb-face section
-                            (if locals "Locals:" "[No Locals]"))
-                  "\n")
+                            (if locals "Locals:" "[No Locals]")) "\n")
           (sldb-insert-locals locals indent2 frame)
           (when catches
-            (insert indent1 (in-sldb-face section "Catch-tags:\n"))
+            (insert indent1 (in-sldb-face section "Catch-tags:") "\n")
             (dolist (tag catches)
               (slime-propertize-region `(catch-tag ,tag)
-                (insert indent2 (in-sldb-face catch-tag
-                                  (format "%s\n" tag))))))
+                (insert indent2 (in-sldb-face catch-tag (format "%s" tag))
+                        "\n"))))
           (setq end (point)))))
     (sldb-recenter-region start end)))
 
