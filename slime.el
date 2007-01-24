@@ -7077,8 +7077,8 @@ First make the variable unbound, then evaluate the entire form."
   (slime-eval-print string))
 
 (defun slime-call-defun ()
-  (interactive)
   "Insert a call to the function defined around point into the REPL."
+  (interactive)
   (let ((toplevel (slime-parse-toplevel-form)))
     (unless (and (consp toplevel)
                  (member (car toplevel) '(:defun :defmethod :defgeneric))
