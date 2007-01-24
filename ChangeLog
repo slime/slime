@@ -1,3 +1,13 @@
+2007-01-24  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (sldb-recenter-region): Use count-screen-lines instead
+	of count-lines.
+
+	* swank.lisp (unparse-name): New function.
+	(list-all-package-names): Use it.  This fixes a bug related to
+	readtable-case and makes package name completions look prettier.
+	Suggested by Harald Hanche-Olsen <hanche@math.ntnu.no>.
+
 2007-01-24  Bill Clementson <billclem@gmail.com>
 
 	* slime.el (slime-call-defun): Put the docstring before
