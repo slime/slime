@@ -1549,11 +1549,11 @@ The rules for selecting the arguments are rather complicated:
                     :coding-system coding-system :init init :name name
                     :init-function init-function)))
     (slime-check-coding-system coding-system)
-    (when (or (not (slime-bytecode-stale-p))
-              (slime-urge-bytecode-recompile))
-      (let ((proc (slime-maybe-start-lisp program program-args buffer)))
-        (slime-inferior-connect proc args)
-        (pop-to-buffer (process-buffer proc))))))
+    (when (slime-bytecode-stale-p)
+      (slime-urge-bytecode-recompile))
+    (let ((proc (slime-maybe-start-lisp program program-args buffer)))
+      (slime-inferior-connect proc args)
+      (pop-to-buffer (process-buffer proc)))))
 
 (defun slime-connect (host port &optional coding-system)
   "Connect to a running Swank server."
@@ -1642,21 +1642,20 @@ HOOK is function which is run before the process is started."
 Warning: don't use this in XEmacs, it seems to crash it!"
   (interactive)
   (let ((sourcefile (concat (file-name-sans-extension (locate-library "slime"))
-                            ".el"))
-        (byte-compile-warning-types (remove 'cl-functions 
-                                            byte-compile-warning-types)))
+                            ".el")))
     (byte-compile-file sourcefile t)))
 
 (defun slime-urge-bytecode-recompile ()
   "Urge the user to recompile slime.elc.
 Return true if we have been given permission to continue."
-  (if (featurep 'xemacs)
-      ;; My XEmacs crashes and burns if I recompile/reload an elisp
-      ;; file from itself. So they have to do it themself.
-      (y-or-n-p "slime.elc is older than slime.el. Continue? ")
-    (if (y-or-n-p "slime.elc is older than slime.el. Recompile/reload first? ")
-        (progn (slime-recompile-bytecode) t)
-      nil)))
+  (cond ((featurep 'xemacs)
+         ;; My XEmacs crashes and burns if I recompile/reload an elisp
+         ;; file from itself. So they have to do it themself.
+         (or (y-or-n-p "slime.elc is older than source.  Continue? ")
+             (signal 'quit nil)))
+        ((y-or-n-p "slime.elc is older than source.  Recompile first? ")
+         (slime-recompile-bytecode))
+        (t)))
 
 (defun slime-abort-connection ()
   "Abort connection the current connection attempt."
