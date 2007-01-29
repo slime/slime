@@ -1,3 +1,12 @@
+2007-01-29  Sean O'Rourke <sorourke@cs.ucsd.edu>
+
+	* slime.el (slime-start): Continue even if the user, after
+	prompting, didn't recompile the stale .elc file.
+	(slime-urge-bytecode-recompile) [xemacs]: Abort immediately if the
+	user doesn't want to continue.
+	(slime-recompile-bytecode): Don't use byte-compile-warning-types;
+	it may not exist in XEmacs.
+	
 2007-01-24  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (sldb-recenter-region): Use count-screen-lines instead
