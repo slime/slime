@@ -7,6 +7,8 @@
 	(slime-repl-terminate-history-search): New.
 	(slime-repl-next-matching-input): Use it.
 
+	* slime-autoloads.el: New file.
+	
 2007-01-29  Sean O'Rourke <sorourke@cs.ucsd.edu>
 
 	* slime.el (slime-start): Continue even if the user, after
