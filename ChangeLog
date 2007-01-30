@@ -1,3 +1,12 @@
+2007-01-30  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-complete-symbol-function): Restore old default.
+	(set-keymap-parents): Deleted.
+	(slime-startup-animation): Deleted.
+	(slime-read-from-minibuffer): Don't use defun*.
+	(slime-repl-terminate-history-search): New.
+	(slime-repl-next-matching-input): Use it.
+
 2007-01-29  Sean O'Rourke <sorourke@cs.ucsd.edu>
 
 	* slime.el (slime-start): Continue even if the user, after
