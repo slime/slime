@@ -159,6 +159,11 @@ This is done with a text-search that runs on an idle timer."
 This applies to the *inferior-lisp* buffer and the network connections."
   :type 'boolean
   :group 'slime-ui)
+ 
+(defcustom slime-startup-animation t 	 
+   "Enable the startup animation." 	 
+   :type '(choice (const :tag "Enable" t) (const :tag "Disable" nil)) 	 
+   :group 'slime-ui) 	 
 
 ;;;;; slime-lisp
 
@@ -2714,12 +2719,20 @@ Debugged requests are ignored."
                          (slime-pid)))
          ;; Emacs21 has the fancy persistent header-line.
          (use-header-p (and slime-header-line-p
-                            (boundp 'header-line-format))))
+                            (boundp 'header-line-format)))
+         ;; and dancing text 	 
+         (animantep (and (fboundp 'animate-string) 	 
+                         slime-startup-animation 	 
+                         (zerop (buffer-size)))))
     (when use-header-p
       (setq header-line-format banner))
     (pop-to-buffer (current-buffer))
-    (insert "; SLIME " (or (slime-changelog-date) 
-                           "- ChangeLog file not found"))
+    (let ((slime-hello-message (concat "; SLIME " 
+                                       (or (slime-changelog-date) 
+                                           "- ChangeLog file not found"))))
+      (if animantep
+          (animate-string slime-hello-message 0 0)
+          (insert slime-hello-message)))
     (slime-repl-insert-prompt)))
 
 (defun slime-init-output-buffer (connection)
