@@ -1,3 +1,8 @@
+2007-01-31  Marco Baringer  <mb@bese.it>
+
+	* slime.el (slime-repl-update-banner): Restore animation.
+	(slime-startup-animation): restore.
+
 2007-01-30  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-complete-symbol-function): Restore old default.
