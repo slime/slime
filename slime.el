@@ -1595,8 +1595,7 @@ Return the created process."
 
 (defun slime-inferior-connect (process args)
   "Start a Swank server in the inferior Lisp and connect."
-  (when (file-regular-p (slime-swank-port-file))
-    (delete-file (slime-swank-port-file)))
+  (slime-delete-swank-port-file)
   (slime-start-swank-server process args)
   (slime-read-port-and-connect process nil))
 
@@ -1641,6 +1640,15 @@ Return the created process."
                  (t "/tmp/")))
           (format "slime.%S" (emacs-pid))))
 
+(defun slime-delete-swank-port-file ()
+  (when (file-regular-p (slime-swank-port-file))
+    (condition-case nil
+        (delete-file (slime-swank-port-file))
+      (error
+       (display-warning 'slime
+                        (format "Unable to delete wank port file located at %s"
+                                (slime-swank-port-file)))))))
+
 (defun slime-read-port-and-connect (inferior-process retries)
   (lexical-let ((process inferior-process)
                 (retries retries)
@@ -1662,7 +1670,7 @@ Polling %S.. (Abort with `M-x slime-abort-connection'.)"
           (cond ((file-exists-p (slime-swank-port-file))
                  (let ((port (slime-read-swank-port))
                        (args (slime-inferior-lisp-args process)))
-                   (delete-file (slime-swank-port-file))
+		   (slime-delete-swank-port-file)
                    (let ((c (slime-connect slime-lisp-host port
                                            (plist-get args :coding-system))))
                      (slime-set-inferior-process c process))))
