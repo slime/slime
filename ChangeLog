@@ -1,3 +1,9 @@
+2007-02-02  Marco Baringer  <mb@bese.it>
+
+	* slime.el (slime-inferior-connect): Warn, as oposed to bailing
+	out with an error, when deleting the port file fails. Patch by:
+	Samium Gromoff <_deepfire@feelingofgreen.ru>
+ 
 2007-01-31  Marco Baringer  <mb@bese.it>
 
 	* slime.el (slime-repl-update-banner): Restore animation.
