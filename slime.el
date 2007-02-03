@@ -1646,7 +1646,7 @@ Return the created process."
         (delete-file (slime-swank-port-file))
       (error
        (display-warning 'slime
-                        (format "Unable to delete wank port file located at %s"
+                        (format "Unable to delete swank port file located at %s"
                                 (slime-swank-port-file)))))))
 
 (defun slime-read-port-and-connect (inferior-process retries)
