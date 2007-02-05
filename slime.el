@@ -8600,7 +8600,7 @@ VAR should be a plist with the keys :name, :id, and :value."
                     " = ")
             (slime-insert-presentation
              (in-sldb-face local-value value)
-             `(:frame-var ,frame ,i))
+             `(:frame-var ,(car frame) ,i))
             (insert "\n")))))
 
 (defun sldb-hide-frame-details ()
