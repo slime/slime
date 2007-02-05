@@ -1,3 +1,8 @@
+2007-02-05  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (sldb-insert-locals): Repair presentation markup of
+	frame locals.
+
 2007-02-04  Antonio Menezes Leitao <aml@gia.ist.utl.pt>
 
 	* swank-lispworks.lisp (dspec-file-position): Bind
