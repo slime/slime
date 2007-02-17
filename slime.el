@@ -238,12 +238,14 @@ The default is nil, as this feature can be a security risk."
   "Function to call when edit-definition fails to find the source itself.
 The function is called with the definition name, a string, as its argument.
 
-If you want to fallback on TAGS you can set this to `find-tag' or
+If you want to fallback on TAGS you can set this to `find-tag',
+`slime-find-tag-if-tags-table-visited', or
 `slime-edit-definition-with-etags'."
   :type 'symbol
   :group 'slime-mode-mode
   :options '(nil 
              slime-edit-definition-with-etags
+             slime-find-tag-if-tags-table-visited
              find-tag))
 
 (defcustom slime-compilation-finished-hook 'slime-maybe-list-compiler-notes
@@ -6762,6 +6764,14 @@ function name is prompted."
         (error "%s" (cadr (slime-definition.location (car definitions))))))
      (t 
       (slime-goto-definition name definitions where)))))
+
+(defun slime-find-tag-if-tags-table-visited (name)
+  "Find tag (in current tags table) whose name contains NAME.
+If no tags table is visited, don't offer to visit one;
+just signal that no definition is known."
+  (if tags-table-list
+      (find-tag name)
+    (error "No known definition for: %s; use M-x visit-tags-table RET" name)))
 
 (defun slime-goto-definition (name definitions &optional where)
   (slime-push-definition-stack)
