@@ -1437,7 +1437,7 @@ The rules for selecting the arguments are rather complicated:
   (destructuring-bind (name (prog &rest args) &rest keys) (assoc name table)
     (list* :name name :program prog :program-args args keys)))
 
-(defun* slime-start (&key (program inferior-lisp-program) program-args 
+(defun* slime-start (&key (program inferior-lisp-program) program-args directory
                           (coding-system slime-net-coding-system)
                           (init 'slime-init-command)
                           name
@@ -1449,7 +1449,7 @@ The rules for selecting the arguments are rather complicated:
     (slime-check-coding-system coding-system)
     (when (slime-bytecode-stale-p)
       (slime-urge-bytecode-recompile))
-    (let ((proc (slime-maybe-start-lisp program program-args buffer)))
+    (let ((proc (slime-maybe-start-lisp program program-args directory buffer)))
       (slime-inferior-connect proc args)
       (pop-to-buffer (process-buffer proc)))))
 
@@ -1565,10 +1565,10 @@ Return true if we have been given permission to continue."
 
 ;;; Starting the inferior Lisp and loading Swank:
 
-(defun slime-maybe-start-lisp (program program-args buffer)
+(defun slime-maybe-start-lisp (program program-args directory buffer)
   "Return a new or existing inferior lisp process."
   (cond ((not (comint-check-proc buffer))
-         (slime-start-lisp program program-args buffer))
+         (slime-start-lisp program program-args directory buffer))
         ((slime-reinitialize-inferior-lisp-p program program-args buffer)
          (when-let (conn (find (get-buffer-process buffer) slime-net-processes 
                                :key #'slime-inferior-process))
@@ -1583,10 +1583,11 @@ Return true if we have been given permission to continue."
          (equal (plist-get args :program-args) program-args)
          (not (y-or-n-p "Create an additional *inferior-lisp*? ")))))
 
-(defun slime-start-lisp (program program-args buffer)
+(defun slime-start-lisp (program program-args directory buffer)
   "Does the same as `inferior-lisp' but less ugly.
 Return the created process."
   (with-current-buffer (get-buffer-create buffer)
+    (cd (expand-file-name directory))
     (comint-mode)
     (comint-exec (current-buffer) "inferior-lisp" program nil program-args)
     (lisp-mode-variables t)
