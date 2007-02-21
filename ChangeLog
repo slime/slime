@@ -38,7 +38,7 @@
 
 2007-02-02  Marco Baringer  <mb@bese.it>
 
-	Warn, as oposed to bailing out with an error, when deleting the
+	Warn, as opposed to bailing out with an error, when deleting the
 	port file fails. Patch by: Samium Gromoff
 	<_deepfire@feelingofgreen.ru>
 	
