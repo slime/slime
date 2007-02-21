@@ -1,3 +1,12 @@
+2007-02-21  Marco Baringer  <mb@bese.it>
+
+	* slime.el (slime-start): Added :directory argument and pass it to
+	slime-maybe-start-lisp.
+	(slime-maybe-start-lisp): Added directory argument and pass it to
+	slime-start-lisp (but not slime-reinitialize-inferior-lisp-p)
+	(slime-start-lisp): Added directory argument. Used to set buffer's
+	directory before starting the inferior lisp.
+
 2007-02-17  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-find-tag-if-tags-table-visited): New function.
