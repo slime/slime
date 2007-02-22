@@ -1,6 +1,9 @@
 2007-02-22  Juho Snellman  <jsnell@iki.fi>
 
 	* slime.el (slime-start-lisp): Don't cd if no directory was specified.
+	(slime-maybe-start-lisp): Pass directory argument to slime-start-lisp
+	also in other cond branch.
+	(slime-restart-sentinel): Pass a NIL directory to slime-start-lisp.
 
 2007-02-21  Marco Baringer  <mb@bese.it>
 

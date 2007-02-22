@@ -1574,7 +1574,8 @@ Return true if we have been given permission to continue."
                                :key #'slime-inferior-process))
            (slime-net-close conn))
          (get-buffer-process buffer))
-        (t (slime-start-lisp program program-args 
+        (t (slime-start-lisp program program-args
+                             directory
                              (generate-new-buffer-name buffer)))))
 
 (defun slime-reinitialize-inferior-lisp-p (program program-args buffer)
@@ -4470,6 +4471,7 @@ Also rearrange windows."
          (buffer-window (get-buffer-window buffer))
          (new-proc (slime-start-lisp (plist-get args :program)
                                      (plist-get args :program-args)
+                                     nil
                                      buffer))
          (repl-buffer (slime-repl-buffer nil process))
          (repl-window (and repl-buffer (get-buffer-window repl-buffer))))
