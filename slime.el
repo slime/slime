@@ -1587,7 +1587,8 @@ Return true if we have been given permission to continue."
   "Does the same as `inferior-lisp' but less ugly.
 Return the created process."
   (with-current-buffer (get-buffer-create buffer)
-    (cd (expand-file-name directory))
+    (when directory
+      (cd (expand-file-name directory)))
     (comint-mode)
     (comint-exec (current-buffer) "inferior-lisp" program nil program-args)
     (lisp-mode-variables t)

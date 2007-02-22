@@ -1,3 +1,7 @@
+2007-02-22  Juho Snellman  <jsnell@iki.fi>
+
+	* slime.el (slime-start-lisp): Don't cd if no directory was specified.
+
 2007-02-21  Marco Baringer  <mb@bese.it>
 
 	* slime.el (slime-start): Added :directory argument and pass it to
