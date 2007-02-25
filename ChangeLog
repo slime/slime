@@ -4,7 +4,13 @@
 	display-warning; that's not available everywhere.
 	(slime-repl-update-banner): Insert the date only if the buffer is
 	empty.
-
+	(slime-list-compiler-notes): Fetch the notes only if called
+	interactively.
+	(slime-set-query-on-exit-flag): New function, to avoid compiler
+	warnings about obsolete function process-kill-without-query.
+	(slime-defun-if-undefined): Perform the test at runtime not at
+	compile time.  Reported by Lennart Staflin.
+	
 	* swank.lisp (guess-package): Renamed from
 	guess-package-from-string.
 	(set-package): Use it.
