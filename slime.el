@@ -1646,13 +1646,10 @@ Return the created process."
           (format "slime.%S" (emacs-pid))))
 
 (defun slime-delete-swank-port-file ()
-  (when (file-regular-p (slime-swank-port-file))
-    (condition-case nil
-        (delete-file (slime-swank-port-file))
-      (error
-       (display-warning 'slime
-                        (format "Unable to delete swank port file located at %s"
-                                (slime-swank-port-file)))))))
+  (condition-case nil
+      (delete-file (slime-swank-port-file))
+    (error (message "Unable to delete swank port file located at %s"
+                    (slime-swank-port-file)))))
 
 (defun slime-read-port-and-connect (inferior-process retries)
   (lexical-let ((process inferior-process)
@@ -2735,10 +2732,16 @@ Debugged requests are ignored."
                             (boundp 'header-line-format)))
          ;; and dancing text 	 
          (animantep (and (fboundp 'animate-string) 	 
-                         slime-startup-animation 	 
-                         (zerop (buffer-size)))))
+                         slime-startup-animation)))
     (when use-header-p
       (setq header-line-format banner))
+    (when (zerop (buffer-size))
+      (let ((hello-message (concat "; SLIME " 
+                                   (or (slime-changelog-date) 
+                                       "- ChangeLog file not found"))))
+        (if animantep
+            (animate-string hello-message 0 0) 
+          (insert hello-message))))
     (pop-to-buffer (current-buffer))
     (let ((slime-hello-message (concat "; SLIME " 
                                        (or (slime-changelog-date) 
@@ -10281,7 +10284,7 @@ BODY returns true if the check succeeds."
     "Lookup the argument list for FUNCTION-NAME.
 Confirm that EXPECTED-ARGLIST is displayed."
     '(("swank:start-server"
-       "(swank:start-server port-file &key \\((style swank:\\*communication-style\\*)\\|style\\)[ \n]+dont-close[ \n]+(external-format swank::\\*coding-system\\*))")
+       "(swank:start-server port-file &key \\((style swank:\\*communication-style\\*)\\|style\\)[ \n]+dont-close[ \n]+(coding-system swank::\\*coding-system\\*))")
       ("swank::compound-prefix-match"
        "(swank::compound-prefix-match prefix target)")
       ("swank::create-socket"
@@ -10679,7 +10682,7 @@ SWANK> " t))
   (slime-accept-process-output nil 1)
   (slime-sync-to-top-level 5))
 
-(def-slime-test user-interrupt
+(def-slime-test interrupt-at-toplevel
     ()
     "Let's see what happens if we send a user interrupt at toplevel."
     '(())
@@ -10693,6 +10696,37 @@ SWANK> " t))
   (with-current-buffer (sldb-get-default-buffer)
     (sldb-quit))
   (slime-sync-to-top-level 5))
+
+(def-slime-test interrupt-in-blocking-read
+    ()
+    "Let's see what happens if we interrupt a blocking read operation."
+    '(())
+  (slime-check-top-level)
+  (when (slime-output-buffer)
+    (setf (slime-lisp-package-prompt-string) "SWANK")
+    (kill-buffer (slime-output-buffer)))
+  (with-current-buffer (slime-output-buffer)
+    (insert "(read-char)")
+    (call-interactively 'slime-repl-return))
+  (slime-wait-condition "reading" #'slime-reading-p 5)
+  (slime-interrupt)
+  (slime-wait-condition "Debugger visible" 
+                        (lambda () 
+                          (and (slime-sldb-level= 1)
+                               (get-buffer-window (sldb-get-default-buffer))))
+                        5)
+  (with-current-buffer (sldb-get-default-buffer)
+    (sldb-continue))
+  (slime-wait-condition "reading" #'slime-reading-p 5)
+  (with-current-buffer (slime-output-buffer)
+    (insert "X")
+    (call-interactively 'slime-repl-return)
+    (slime-sync-to-top-level 5)
+    (slime-test-expect "Buffer contains result" 
+                       "SWANK> (read-char)
+X
+#\\X
+SWANK> " (buffer-string))))
 
 (def-slime-test disconnect
     ()
