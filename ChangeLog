@@ -1,3 +1,8 @@
+2007-02-25  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank-backend.lisp (inspect-for-emacs): Remove reference to
+	inexistent argument from docstring.
+
 2007-02-25  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-delete-swank-port-file): Don't use
