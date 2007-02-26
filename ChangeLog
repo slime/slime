@@ -1,3 +1,8 @@
+2007-02-26  Nikodemus Siivola <nikodemus@random-state.net>
+
+	* swank.lisp (inspect-for-emacs): Add support for inspecting
+	non-decodable float entities like NaNs and infinities.
+
 2007-02-25  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank-backend.lisp (inspect-for-emacs): Remove reference to

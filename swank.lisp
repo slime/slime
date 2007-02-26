@@ -4807,16 +4807,24 @@ See `methods-by-applicability'.")
 
 (defmethod inspect-for-emacs ((f float) inspector)
   (declare (ignore inspector))
-  (multiple-value-bind (significand exponent sign) (decode-float f)
-    (values "A floating point number."
-            (append 
-             `("Scientific: " ,(format nil "~E" f) (:newline)
-               "Decoded: " 
-               (:value ,sign) " * " 
-               (:value ,significand) " * " 
-               (:value ,(float-radix f)) "^" (:value ,exponent) (:newline))
-             (label-value-line "Digits" (float-digits f))
-             (label-value-line "Precision" (float-precision f))))))
+  (values "A floating point number."
+          (cond
+            ((> f most-positive-long-float)
+             (list "Positive infinity."))
+            ((< f most-negative-long-float)
+             (list "Negative infinity."))
+            ((not (= f f))
+             (list "Not a Number."))
+            (t
+             (multiple-value-bind (significand exponent sign) (decode-float f)
+               (append 
+                `("Scientific: " ,(format nil "~E" f) (:newline)
+                                 "Decoded: " 
+                                 (:value ,sign) " * " 
+                                 (:value ,significand) " * " 
+                                 (:value ,(float-radix f)) "^" (:value ,exponent) (:newline))
+                (label-value-line "Digits" (float-digits f))
+                (label-value-line "Precision" (float-precision f))))))))
 
 (defmethod inspect-for-emacs ((stream file-stream) inspector)
   (declare (ignore inspector))
