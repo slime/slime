@@ -9744,7 +9744,7 @@ is exceeded."
   "Find reader conditionalized forms where the test is false."
   (when (and slime-highlight-suppressed-forms
              (slime-connected-p)
-	     (re-search-forward "^\\([^;\n]*[ \t(]\\)?#[-+]" limit t))
+	     (re-search-forward "^\\([^;\n]*?[ \t(]\\)?#[-+]" limit t))
     (ignore-errors
       (let* ((start (- (point) 2))
              (char (char-before))
@@ -9754,7 +9754,8 @@ is exceeded."
           (if (or (and (eq char ?+) (not val))
                   (and (eq char ?-) val))
               (progn 
-                (forward-sexp)
+                (forward-sexp) (backward-sexp)
+                (slime-forward-sexp)
                 (assert (<= (point) limit))
                 (let ((md (match-data)))
                   (fill md nil)
