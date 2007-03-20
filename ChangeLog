@@ -1,3 +1,12 @@
+2007-03-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-copy-presentation-at-mouse-to-point) 
+	(slime-copy-presentation-at-mouse-to-kill-ring): New commands.
+	(slime-menu-choices-for-presentation): Change interface.  New
+	menu options, Copy to kill-ring, Copy to point.
+	(slime-presentation-menu): Change call to
+	slime-menu-choices-for-presentation. 
+
 2007-03-20  Takehiko Abe  <keke@gol.com>
 
 	* swank-openmcl.lisp (hash-table-weakness): fix typo
