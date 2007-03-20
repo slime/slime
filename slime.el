@@ -3436,6 +3436,29 @@ Also return the start position, end position, and buffer of the presentation."
             (goto-char (point-max))
             (do-insertion)))))))
 
+(defun slime-copy-presentation-at-mouse-to-point (event)
+  (interactive "e")
+  (multiple-value-bind (presentation start end buffer) 
+      (slime-presentation-around-click event)
+    (let ((presentation-text 
+           (with-current-buffer buffer
+             (buffer-substring start end))))
+      (when (not (string-match "\\s-"
+                               (buffer-substring (1- (point)) (point))))
+        (insert " "))
+      (insert presentation-text)
+      (when (and (not (eolp)) (not (looking-at "\\s-")))
+        (insert " ")))))
+
+(defun slime-copy-presentation-at-mouse-to-kill-ring (event)
+  (interactive "e")
+  (multiple-value-bind (presentation start end buffer) 
+      (slime-presentation-around-click event)
+    (let ((presentation-text 
+           (with-current-buffer buffer
+             (buffer-substring start end))))
+      (kill-new presentation-text))))
+  
 (defun slime-describe-presentation-at-mouse (event)
   (interactive "@e")
   (multiple-value-bind (presentation) (slime-presentation-around-click event)
@@ -3466,9 +3489,8 @@ Also return the start position, end position, and buffer of the presentation."
 ;; 2. Let used choose
 ;; 3. Call back to execute menu choice, passing nth and string of choice
 
-(defun slime-menu-choices-for-presentation (presentation from to choice-to-lambda)
-  "Return a menu for `presentation' at `from'--`to' in the current
-buffer, suitable for `x-popup-menu'."
+(defun slime-menu-choices-for-presentation (presentation buffer from to choice-to-lambda)
+  "Return a menu for `presentation' at `from'--`to' in `buffer', suitable for `x-popup-menu'."
   (let* ((what (slime-presentation-id presentation))
          (choices (slime-eval 
                    `(swank::menu-choices-for-presentation-id ',what))))
@@ -3483,7 +3505,10 @@ buffer, suitable for `x-popup-menu'."
           ("Inspect" . ,(savel 'slime-inspect-presentation-at-mouse))
           ("Describe" . ,(savel 'slime-describe-presentation-at-mouse))
           ("Pretty-print" . ,(savel 'slime-pretty-print-presentation-at-mouse))
-          ("Copy to input" . ,(savel 'slime-copy-presentation-at-mouse))
+          ("Copy to REPL" . ,(savel 'slime-copy-presentation-at-mouse))
+          ("Copy to kill ring" . ,(savel 'slime-copy-presentation-at-mouse-to-kill-ring))
+          ,@(unless buffer-read-only 
+              `(("Copy to point" . ,(savel 'slime-copy-presentation-at-mouse-to-point))))
           ,@(let ((nchoice 0))
               (mapcar 
                (lambda (choice)
@@ -3496,7 +3521,8 @@ buffer, suitable for `x-popup-menu'."
                              ',what ,nchoice ,(nth (1- nchoice) choices)))))))
                choices)))))
       (symbol                           ; not-present
-       (slime-remove-presentation-properties from to presentation)
+       (with-current-buffer buffer
+         (slime-remove-presentation-properties from to presentation))
        (sit-for 0)                      ; allow redisplay
        `("Object no longer recorded" 
          ("sorry" . ,(if (featurep 'xemacs) nil '(nil)))))))))
@@ -3506,17 +3532,18 @@ buffer, suitable for `x-popup-menu'."
   (let* ((point (if (featurep 'xemacs) (event-point event) 
                   (posn-point (event-end event))))
          (window (if (featurep 'xemacs) (event-window event) (caadr event)))
+         (buffer (window-buffer window))
          (choice-to-lambda (make-hash-table)))
-    (with-current-buffer (window-buffer window)
-      (multiple-value-bind (presentation from to)
-          (slime-presentation-around-point point)
-        (unless presentation
-          (error "No presentation at event position"))
-        (let ((menu (slime-menu-choices-for-presentation 
-                     presentation from to choice-to-lambda)))
-          (let ((choice (x-popup-menu event menu)))
-            (when choice
-              (call-interactively (gethash choice choice-to-lambda)))))))))
+    (multiple-value-bind (presentation from to)
+        (with-current-buffer buffer
+          (slime-presentation-around-point point))
+      (unless presentation
+        (error "No presentation at event position"))
+      (let ((menu (slime-menu-choices-for-presentation 
+                   presentation buffer from to choice-to-lambda)))
+        (let ((choice (x-popup-menu event menu)))
+          (when choice
+            (call-interactively (gethash choice choice-to-lambda))))))))
 
 (defun slime-repl-insert-prompt (&optional time)
   "Goto to point max, and insert the prompt.
