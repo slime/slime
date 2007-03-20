@@ -3350,9 +3350,21 @@ INPUT is used to guess the preferred case. Escape symbols when needed."
   (let ((case-converter (completion-output-case-converter input))
         (case-converter-with-escaping (completion-output-case-converter input t)))
     (lambda (str)
-      (if (some (lambda (el)
-                  (member el '(#\: #\, #\  #\Newline #\Tab)))
-                str)
+      (if (or (multiple-value-bind (lowercase uppercase)
+                  (determine-case str)
+                ;; In these readtable cases, symbols with letters from
+                ;; the wrong case need escaping
+                (case (readtable-case *readtable*)
+                  (:upcase   lowercase)
+                  (:downcase uppercase)
+                  (t         nil)))
+              (some (lambda (el)
+                      (or (member el '(#\: #\Space #\Newline #\Tab))
+                          (multiple-value-bind (macrofun nonterminating)
+                              (get-macro-character el)
+                            (and macrofun
+                                 (not nonterminating)))))
+                    str))
           (concatenate 'string "|" (funcall case-converter-with-escaping str) "|")
           (funcall case-converter str)))))
 
