@@ -1,5 +1,9 @@
 2007-03-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
+	* swank.lisp (completion-output-symbol-converter): Fix completion
+	for mixed-case symbols that need escaping in readtable-case
+	:upcase or :downcase.
+
 	* slime.el (slime-copy-presentation-at-mouse-to-point) 
 	(slime-copy-presentation-at-mouse-to-kill-ring): New commands.
 	(slime-menu-choices-for-presentation): Change interface.  New
