@@ -1,3 +1,7 @@
+2007-03-20  Takehiko Abe  <keke@gol.com>
+
+	* swank-openmcl.lisp (hash-table-weakness): fix typo
+
 2007-03-14  Christophe Rhodes  <csr21@cantab.net>
 
 	* slime.el (slime-search-suppressed-forms): handle multiple
