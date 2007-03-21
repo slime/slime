@@ -2434,7 +2434,8 @@ The secondary value indicates the absence of an entry."
           (values object foundp)))))
     (cons
      (destructure-case id
-       ((:frame-var frame index)
+       ((:frame-var thread-id frame index)
+        (declare (ignore thread-id)) ; later 
         (handler-case 
             (frame-var-value frame index)
           (t (condition)
