@@ -3447,6 +3447,7 @@ Also return the start position, end position, and buffer of the presentation."
                                (buffer-substring (1- (point)) (point))))
         (insert " "))
       (insert presentation-text)
+      (slime-after-change-function (point) (point))
       (when (and (not (eolp)) (not (looking-at "\\s-")))
         (insert " ")))))
 
@@ -3492,15 +3493,16 @@ Also return the start position, end position, and buffer of the presentation."
 (defun slime-menu-choices-for-presentation (presentation buffer from to choice-to-lambda)
   "Return a menu for `presentation' at `from'--`to' in `buffer', suitable for `x-popup-menu'."
   (let* ((what (slime-presentation-id presentation))
-         (choices (slime-eval 
-                   `(swank::menu-choices-for-presentation-id ',what))))
+         (choices (with-current-buffer buffer
+                    (slime-eval 
+                     `(swank::menu-choices-for-presentation-id ',what)))))
     (flet ((savel (f) ;; IMPORTANT - xemacs can't handle lambdas in x-popup-menu. So give them a name
             (let ((sym (gensym)))
               (setf (gethash sym choice-to-lambda) f)
               sym)))
     (etypecase choices
       (list
-       `(,(if (featurep 'xemacs) " " "")
+       `(,(format "Presentation %s" what)
          ("" 
           ("Inspect" . ,(savel 'slime-inspect-presentation-at-mouse))
           ("Describe" . ,(savel 'slime-describe-presentation-at-mouse))
@@ -8659,7 +8661,7 @@ VAR should be a plist with the keys :name, :id, and :value."
                     " = ")
             (slime-insert-presentation
              (in-sldb-face local-value value)
-             `(:frame-var ,(car frame) ,i))
+             `(:frame-var ,slime-current-thread ,(car frame) ,i))
             (insert "\n")))))
 
 (defun sldb-hide-frame-details ()
