@@ -1,3 +1,9 @@
+2007-03-21  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-repl-eval-string, slime-repl-insert-result):
+	Support the presentation-less old protocol.
+	(slime-goto-location-position): Use column number if available.
+
 2007-03-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* swank.lisp (completion-output-symbol-converter): Fix completion
