@@ -787,7 +787,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
   (loop for (key command) in slime-doc-bindings
         do (progn
              ;; We bind both unmodified and with control.
-             (define-key slime-doc-map (string key) command)
+             (define-key slime-doc-map (vector key) command)
              (unless (equal key ?h)     ; But don't bind C-h
                (let ((modified (slime-control-modified-char key)))
                  (define-key slime-doc-map (vector modified) command)))))
@@ -798,7 +798,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
   (loop for (key command) in slime-who-bindings
         do (progn
              ;; We bind both unmodified and with control.
-             (define-key slime-who-map (string key) command)
+             (define-key slime-who-map (vector key) command)
              (let ((modified (slime-control-modified-char key)))
                  (define-key slime-who-map (vector modified) command))))
   ;; C-c C-w is the prefix for the who-xref map.
@@ -3545,10 +3545,44 @@ Also return the start position, end position, and buffer of the presentation."
           (when choice
             (call-interactively (gethash choice choice-to-lambda))))))))
 
+(defun slime-repl-send-string (string &optional command-string)
+  (cond (slime-repl-read-mode
+         (slime-repl-return-string string))
+        (t (slime-repl-eval-string string))))
+
+(defun slime-repl-eval-string (string)
+  (slime-rex ()
+      ((list 'swank:listener-eval string) (slime-lisp-package))
+    ((:ok result)
+     (slime-repl-insert-result result))
+    ((:abort)
+     (slime-repl-show-abort))))
+
+(defun slime-repl-insert-result (result)
+  (with-current-buffer (slime-output-buffer)
+    (goto-char (point-max))
+    (when result
+      (destructure-case result
+        ((:values &rest strings)
+         (unless (bolp) (insert "\n"))
+         (cond ((null strings)
+                (insert "; No value\n"))
+               (t
+                (dolist (string strings)
+                  (slime-propertize-region `(face slime-repl-result-face)
+                    (insert string))
+                  (insert "\n")))))))
+    (slime-repl-insert-prompt)))
+
+(defun slime-repl-show-abort ()
+  (with-current-buffer (slime-output-buffer)
+    (slime-with-output-end-mark 
+     (unless (bolp) (insert-before-markers "\n"))
+     (insert-before-markers "; Evaluation aborted\n"))
+    (slime-repl-insert-prompt)))
+
 (defun slime-repl-insert-prompt (&optional time)
-  "Goto to point max, and insert the prompt.
-Set slime-output-end to start of the inserted text slime-input-start
-to end end."
+  "Goto to point max, and insert the prompt."
   (goto-char (point-max))
   (unless (bolp) (insert "\n"))
   (let ((prompt-start (point))
@@ -3561,7 +3595,6 @@ to end end."
                ;; xemacs stuff
                start-open t end-open t)
       (insert prompt))
-    ;;(set-marker slime-output-end start)
     (set-marker slime-repl-prompt-start-mark prompt-start)
     (slime-mark-input-start)
     (let ((time (or time 0.2)))
@@ -3637,28 +3670,6 @@ the presented object."
   (if (get-text-property 0 text-property object)
       0
     (next-single-property-change 0 text-property object)))
-
-(defun slime-repl-eval-string (string)
-  (slime-rex ()
-      ((list 'swank:listener-eval string) (slime-lisp-package))
-    ((:ok result)
-     (with-current-buffer (slime-output-buffer)
-       (slime-repl-insert-prompt)))
-    ((:abort) 
-     (slime-repl-show-abort)
-     (with-current-buffer (slime-output-buffer)
-       (slime-repl-insert-prompt)))))
-
-(defun slime-repl-send-string (string &optional command-string)
-  (cond (slime-repl-read-mode
-         (slime-repl-return-string string))
-        (t (slime-repl-eval-string string))))
-  
-(defun slime-repl-show-abort ()
-  (with-current-buffer (slime-output-buffer)
-    (slime-with-output-end-mark 
-     (unless (bolp) (insert-before-markers "\n"))
-     (insert-before-markers "; Evaluation aborted\n"))))
   
 (defun slime-mark-input-start ()
   (set-marker slime-repl-last-input-start-mark
@@ -4587,8 +4598,8 @@ between compiler notes and to display their full details."
 
 See `slime-compile-and-load-file' for further details."
   (interactive)
-  (unless (memq major-mode slime-lisp-modes)
-    (error "Only valid in lisp-mode"))
+  ;;(unless (memq major-mode slime-lisp-modes)
+  ;;  (error "Only valid in lisp-mode"))
   (check-parens)
   (unless buffer-file-name
     (error "Buffer %s is not associated with a file." (buffer-name)))
@@ -5230,9 +5241,10 @@ first element of the source-path redundant."
      (when align-p
        (slime-forward-sexp)
        (beginning-of-sexp)))
-    ((:line start &optional end)
+    ((:line start &optional column)
      (goto-line start)
-     (skip-chars-forward " \t"))
+     (cond (column (move-to-column column))
+           (t (skip-chars-forward " \t"))))
     ((:function-name name)
      (let ((case-fold-search t)
            (name (regexp-quote name)))
@@ -5306,7 +5318,7 @@ are supported:
              | (:source-form <string>)
 
 <position> ::= (:position <fixnum> [<align>]) ; 1 based
-             | (:line <fixnum> [<fixnum>])
+             | (:line <line> [<column>])
              | (:function-name <string>)
              | (:source-path <list> <start-position>) 
              | (:text-anchored <fixnum> <string> <fixnum>) 
