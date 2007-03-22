@@ -4561,6 +4561,9 @@ Also rearrange windows."
 	(lisp-mode)
 	(use-local-map slime-scratch-mode-map)
 	(slime-mode t)
+        (when slime-repl-enable-presentations 
+          ;; Respect the syntax text properties of presentations.
+          (set (make-local-variable 'parse-sexp-lookup-properties) t))
 	(current-buffer))))
 
 (defun slime-switch-to-scratch-buffer ()
