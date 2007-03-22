@@ -1,3 +1,8 @@
+2007-03-22  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-scratch-buffer): Respect the syntax text
+	properties of presentations. 
+
 2007-03-21  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* swank.lisp (lookup-presented-object): The presentation id of
