@@ -5387,4 +5387,10 @@ Collisions are caused because package information is ignored."
 			  nil)))
 	     (and (next-method-p) (call-next-method))))))
 
+(defmethod menu-choices-for-presentation ((ob function))
+  (list (list "Disassemble"
+              (lambda (choice object id) 
+                (declare (ignore choice id)) 
+                (disassemble object)))))
+
 ;;; swank.lisp ends here
