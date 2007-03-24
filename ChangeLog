@@ -1,3 +1,20 @@
+2007-03-24  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-read-port-and-connect): Fix race condition:
+	retry one more time if the port file is empty. Pop up the debugger
+	on other errors.
+	(slime-attempt-connection): Moved to toplevel.
+	(slime-timer-call): New. Used by slime-attempt-connection.
+	(slime-cancel-connect-retry-timer): New.
+	(slime-abort-connection): Use it.
+	(slime-repl-insert-prompt): Use insert-before-markers. This fixes
+	some redisplay problems, but I don't know why.  Also: remove the
+	timer for async output.
+	(slime-repl-move-output-mark-before-prompt): Removed.
+	(slime-repl-save-merged-history): Use with-temp-message.
+	(slime-goto-location-buffer): Support Zip files.
+	(sldb-quit): Don't print "Evaluation aborted".
+
 2007-03-22  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-scratch-buffer): Respect the syntax text
@@ -54,6 +71,12 @@
 
 	* swank-backend.lisp (inspect-for-emacs): Remove reference to
 	inexistent argument from docstring.
+
+2007-02-25  Harald Hanche-Olsen <hanche@math.ntnu.no>
+
+	* slime.el (slime-init-keymaps): Use vectors when defining keys,
+	because e.g. (define-key (string ?\C-c) ...) doesn't work in the
+	emacs-unicode-2 branch.  Some strings are still there.
 
 2007-02-25  Helmut Eller  <heller@common-lisp.net>
 
