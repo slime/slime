@@ -1463,6 +1463,7 @@ The rules for selecting the arguments are rather complicated:
   (when (and (interactive-p) slime-net-processes
              (y-or-n-p "Close old connections first? "))
     (slime-disconnect))
+  (message "Connecting to Swank on port %S.." port)
   (let ((coding-system (or coding-system slime-net-coding-system)))
     (slime-check-coding-system coding-system)
     (message "Connecting to Swank on port %S.." port)
@@ -1561,10 +1562,10 @@ Return true if we have been given permission to continue."
 (defun slime-abort-connection ()
   "Abort connection the current connection attempt."
   (interactive)
-  (if (null slime-connect-retry-timer)
-      (error "Not connected")
-    (cancel-timer slime-connect-retry-timer)
-    (message "Cancelled connection attempt.")))
+  (cond (slime-connect-retry-timer
+         (slime-cancel-connect-retry-timer)
+         (message "Cancelled connection attempt."))
+        (t (error "Not connecting"))))
 
 ;;; Starting the inferior Lisp and loading Swank:
 
@@ -1602,7 +1603,7 @@ Return the created process."
 
 (defun slime-inferior-connect (process args)
   "Start a Swank server in the inferior Lisp and connect."
-  (slime-delete-swank-port-file)
+  (slime-delete-swank-port-file 'quiet)
   (slime-start-swank-server process args)
   (slime-read-port-and-connect process nil))
 
@@ -1647,44 +1648,64 @@ Return the created process."
                  (t "/tmp/")))
           (format "slime.%S" (emacs-pid))))
 
-(defun slime-delete-swank-port-file ()
-  (condition-case nil
+(defun slime-delete-swank-port-file (&optional quiet)
+  (condition-case data
       (delete-file (slime-swank-port-file))
-    (error (message "Unable to delete swank port file located at %s"
-                    (slime-swank-port-file)))))
+    (error
+     (ecase quiet
+       ((nil) (signal (car data) (cdr data)))
+       (quiet)
+       (message (message "Unable to delete swank port file %S"
+                         (slime-swank-port-file)))))))
 
 (defun slime-read-port-and-connect (inferior-process retries)
-  (lexical-let ((process inferior-process)
-                (retries retries)
-                (attempt 0))
-    (labels
-        ;; A small one-state machine to attempt a connection with
-        ;; timer-based retries.
-        ((attempt-connection
-          ()
-          (unless (active-minibuffer-window)
-            (message "\
-Polling %S.. (Abort with `M-x slime-abort-connection'.)"
-                     (slime-swank-port-file)))
-          (unless (slime-connected-p)
-            (slime-set-state (format "[polling:%S]" (incf attempt))))
-          (when slime-connect-retry-timer
-            (cancel-timer slime-connect-retry-timer))
-          (setq slime-connect-retry-timer nil) ; remove old timer
-          (cond ((file-exists-p (slime-swank-port-file))
-                 (let ((port (slime-read-swank-port))
-                       (args (slime-inferior-lisp-args process)))
-		   (slime-delete-swank-port-file)
-                   (let ((c (slime-connect slime-lisp-host port
-                                           (plist-get args :coding-system))))
-                     (slime-set-inferior-process c process))))
-                ((and retries (zerop retries))
-                 (message "Failed to connect to Swank."))
-                (t
-                 (when retries (decf retries))
-                 (setq slime-connect-retry-timer
-                       (run-with-timer 0.2 nil #'attempt-connection))))))
-      (attempt-connection))))
+  (slime-cancel-connect-retry-timer)
+  (slime-attempt-connection inferior-process retries 1))
+
+(defun slime-attempt-connection (process retries attempt)
+  ;; A small one-state machine to attempt a connection with
+  ;; timer-based retries.
+  (let ((file (slime-swank-port-file))) 
+    (unless (active-minibuffer-window)
+      (message "Polling %S.. (Abort with `M-x slime-abort-connection'.)" file))
+    (unless (slime-connected-p)
+      (slime-set-state (format "[polling:%S]" attempt)))
+    (slime-cancel-connect-retry-timer)
+    (cond ((and (file-exists-p file)
+                (> (nth 7 (file-attributes file)) 0)) ; file size
+           (let ((port (slime-read-swank-port))
+                 (args (slime-inferior-lisp-args process)))
+             (slime-delete-swank-port-file 'message)
+             (let ((c (slime-connect slime-lisp-host port
+                                     (plist-get args :coding-system))))
+               (slime-set-inferior-process c process))))
+          ((and retries (zerop retries))
+           (message "Failed to connect to Swank."))
+          (t
+           (when (and (file-exists-p file) 
+                      (zerop (nth 7 (file-attributes file))))
+             (message "(Zero length port file)")
+             ;; the file may be in the filesystem but not yet written
+             (unless retries (setq retries 3)))
+           (setq slime-connect-retry-timer
+                 (run-with-timer 0.3 nil
+                                 #'slime-timer-call #'slime-attempt-connection 
+                                 process (and retries (1- retries)) 
+                                 (1+ attempt)))))))
+    
+(defun slime-timer-call (fun &rest args)
+  "Call function FUN with ARGS, reporting all errors.
+
+The default condition handler for timer functions (see
+`timer-event-handler') ignores errors."
+  (condition-case data
+      (apply fun args)
+    (error (debug nil (list "Error in timer" fun args data)))))
+
+(defun slime-cancel-connect-retry-timer ()
+  (when slime-connect-retry-timer
+    (cancel-timer slime-connect-retry-timer)
+    (setq slime-connect-retry-timer nil)))
 
 (defun slime-read-swank-port ()
   "Read the Swank server port number from the `slime-swank-port-file'."
@@ -2729,7 +2750,7 @@ Debugged requests are ignored."
                   (setq slime-buffer-connection connection)
                   (slime-reset-repl-markers)
                   (unless noprompt 
-                    (slime-repl-insert-prompt 0))
+                    (slime-repl-insert-prompt))
                   (current-buffer)))))))
 
 (defun slime-repl-update-banner ()
@@ -3583,7 +3604,7 @@ Also return the start position, end position, and buffer of the presentation."
      (insert-before-markers "; Evaluation aborted\n"))
     (slime-repl-insert-prompt)))
 
-(defun slime-repl-insert-prompt (&optional time)
+(defun slime-repl-insert-prompt ()
   "Goto to point max, and insert the prompt."
   (goto-char (point-max))
   (unless (bolp) (insert "\n"))
@@ -3596,34 +3617,21 @@ Also return the start position, end position, and buffer of the presentation."
                rear-nonsticky (slime-repl-prompt read-only face intangible)
                ;; xemacs stuff
                start-open t end-open t)
-      (insert prompt))
+      (insert-before-markers prompt))
     (set-marker slime-repl-prompt-start-mark prompt-start)
-    (slime-mark-input-start)
-    (let ((time (or time 0.2)))
-      (cond ((zerop time)
-             (slime-repl-move-output-mark-before-prompt (current-buffer)))
-            (t 
-             (run-at-time time nil 'slime-repl-move-output-mark-before-prompt
-                          (current-buffer))))))
+    (goto-char slime-repl-prompt-start-mark)
+    (slime-mark-output-start)
+    (goto-char (point-max))
+    (slime-mark-input-start))
   (slime-repl-show-maximum-output))
-
-(defun slime-repl-move-output-mark-before-prompt (buffer)
-  (when (buffer-live-p buffer)
-    (with-current-buffer buffer
-      (save-excursion 
-        (goto-char slime-repl-prompt-start-mark)
-        (slime-mark-output-start)))))
 
 (defun slime-repl-show-maximum-output (&optional force)
   "Put the end of the buffer at the bottom of the window."
   (assert (eobp))
   (let ((win (get-buffer-window (current-buffer))))
-    (when (and win (or force (not (pos-visible-in-window-p))))
-      (save-selected-window
-        (save-excursion
-          (select-window win)
-          (goto-char (point-max))
-          (recenter -1))))))
+    (when win
+      (with-selected-window win
+        (recenter -1)))))
 
 (defun slime-repl-current-input (&optional until-point-p)
   "Return the current input as string.
@@ -3985,7 +3993,7 @@ remember the repl results so some memory leaking is possible."
           (slime-eval `(swank:set-package ,package))
         (setf (slime-lisp-package) name)
         (setf (slime-lisp-package-prompt-string) prompt-string)
-        (slime-repl-insert-prompt 0)
+        (slime-repl-insert-prompt)
         (insert unfinished-input)))))
 
 
@@ -4172,10 +4180,10 @@ current history in that it tries to detect the unique entries using
 `slime-repl-merge-histories'."
   (interactive (list (slime-repl-read-history-filename)))
   (let ((file (or filename slime-repl-history-file)))
-    (message "saving history...")
-    (let ((hist (slime-repl-merge-histories (slime-repl-read-history file t)
-                                            slime-repl-input-history)))
-      (slime-repl-save-history file hist))))
+    (with-temp-message "saving history..."
+      (let ((hist (slime-repl-merge-histories (slime-repl-read-history file t)
+                                              slime-repl-input-history)))
+        (slime-repl-save-history file hist)))))
 
 (defun slime-repl-save-history (&optional filename history)
   "Simply save the current SLIME REPL history to a file.
@@ -5237,7 +5245,17 @@ first element of the source-path redundant."
      (erase-buffer)
      (lisp-mode)
      (insert string)
-     (goto-char (point-min)))))
+     (goto-char (point-min)))
+    ((:zip file entry)
+     (require 'arc-mode)
+     (set-buffer (find-file-noselect file t))
+     (goto-char (point-min))
+     (re-search-forward (concat "  " entry "$"))
+     (let ((buffer (save-window-excursion
+                     (archive-extract)
+                     (current-buffer))))
+       (set-buffer buffer)
+       (goto-char (point-min))))))
 
 (defun slime-goto-location-position (position)
   (destructure-case position
@@ -5321,6 +5339,7 @@ are supported:
 <buffer>   ::= (:file <filename>)
              | (:buffer <buffername>)
              | (:source-form <string>)
+             | (:zip <file> <entry>)
 
 <position> ::= (:position <fixnum> [<align>]) ; 1 based
              | (:line <line> [<column>])
@@ -8787,8 +8806,9 @@ This way you can still see what the error was after exiting SLDB."
 (defun sldb-quit ()
   "Quit to toplevel."
   (interactive)
-  (slime-eval-async '(swank:throw-to-toplevel)
-                    (lambda (_) (error "sldb-quit returned"))))
+  (slime-rex () ('(swank:throw-to-toplevel))
+    ((:ok _) (error "sldb-quit returned"))
+    ((:abort))))
 
 (defun sldb-continue ()
   "Invoke the \"continue\" restart."
