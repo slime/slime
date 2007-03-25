@@ -1,3 +1,8 @@
+2007-03-25  Douglas Crosher <dcrosher@common-lisp.net>
+
+	* slime.el (with-selected-window): define for compatibility with
+	Emacs 21.
+
 2007-03-24  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* swank.lisp (menu-choices-for-presentation): Offer a

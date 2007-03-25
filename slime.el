@@ -11351,6 +11351,11 @@ If they are not, position point at the first syntax error found."
   (when (get-text-property (point) 'point-entered)
     (funcall (get-text-property (point) 'point-entered))))
 
+(slime-defun-if-undefined with-selected-window (window &rest body)
+  `(save-selected-window
+     (select-window ,window)
+     ,@body))
+
 ;;; Stuff only available in XEmacs
 (slime-defun-if-undefined add-local-hook (hook function &optional append)
   (make-local-hook hook)
