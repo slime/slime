@@ -3154,6 +3154,7 @@ already knows."
   '((*print-circle* . nil)
     (*print-pretty* . t)
     (*print-escape* . t)
+    (*print-lines* . nil)
     (*print-level* . nil)
     (*print-length* . nil)))
 
@@ -4101,9 +4102,9 @@ Include the nicknames if NICKNAMES is true."
 DSPEC is a string and LOCATION a source location. NAME is a string."
   (multiple-value-bind (sexp error)
       (ignore-errors (values (from-string name)))
-    (cond (error '())
-          (t (loop for (dspec loc) in (find-definitions sexp)
-                   collect (list (to-string dspec) loc))))))
+    (unless error
+      (loop for (dspec loc) in (find-definitions sexp)
+         collect (list (to-string dspec) loc)))))
 
 (defun alistify (list key test)
   "Partition the elements of LIST into an alist.  KEY extracts the key

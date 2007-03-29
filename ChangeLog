@@ -1,3 +1,9 @@
+2007-03-29  Nikodemus Siivola <nikodemus@random-state.net>
+
+	* swank.lisp (*macroexpand-printer-bindings*): add *print-lines*
+	to defaults (NIL).
+	(find-definitions-for-emacs): use unless instead of cond.
+
 2007-03-25  Douglas Crosher <dcrosher@common-lisp.net>
 
 	* slime.el (with-selected-window): define for compatibility with
