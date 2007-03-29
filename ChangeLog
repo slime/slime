@@ -1,5 +1,13 @@
 2007-03-29  Nikodemus Siivola <nikodemus@random-state.net>
 
+	* swank-sbcl.lisp (swank-compile-string): save the original
+	directory into the source plist as :emacs-directory.
+	(make-definition-source-location): use the :emacs-directory from
+	the source plist and guess-readtable-for-filename to determine the
+	correct readtable for string-compiled definitions.
+
+2007-03-29  Nikodemus Siivola <nikodemus@random-state.net>
+
 	* swank.lisp (*macroexpand-printer-bindings*): add *print-lines*
 	to defaults (NIL).
 	(find-definitions-for-emacs): use unless instead of cond.
