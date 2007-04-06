@@ -1,3 +1,8 @@
+2007-04-06 Michael Weber <michaelw+slime@foldr.org>
+
+	* slime.el (slime-call-defun): insert the closing parenthesis for
+	the form.
+	
 2007-04-06  Marco Baringer  <mb@bese.it>
 
 	* swank-openmcl.lisp (package swank-mop): Added
