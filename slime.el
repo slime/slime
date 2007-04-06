@@ -8367,7 +8367,8 @@ If MORE is non-nil, more frames are on the Lisp stack."
                sldb-previous-frame-number ,num
                point-entered sldb-fetch-more-frames
                start-open t
-               face sldb-section-face)
+               face sldb-section-face
+               mouse-face highlight)
        " --more--")
       (insert "\n"))))
 
@@ -8377,10 +8378,11 @@ If FACE is nil use `sldb-frame-line-face'."
   (destructuring-bind (number string) frame
     (let ((props `(frame ,frame sldb-default-action sldb-toggle-details)))
       (slime-propertize-region props
-        (insert " " (in-sldb-face frame-label (format "%2d:" number)) " ")
-        (slime-insert-possibly-as-rectangle
-         (slime-add-face (or face 'sldb-frame-line-face)
-                         string))
+        (slime-propertize-region '(mouse-face highlight)
+          (insert " " (in-sldb-face frame-label (format "%2d:" number)) " ")
+          (slime-insert-possibly-as-rectangle
+           (slime-add-face (or face 'sldb-frame-line-face)
+                           string)))
         (insert "\n")))))
 
 (defun sldb-fetch-more-frames (&rest ignore)

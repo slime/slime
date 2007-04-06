@@ -1,3 +1,10 @@
+2007-04-06  Neil Van Dyke  <neil@neilvandyke.org>
+
+	* slime.el (sldb-insert-frame): Added mouse-face to frame label
+	and expression in Backtrace.
+	(sldb-insert-frames): Added mouse-face to "--more--" label in
+	Backtrace.
+
 2007-04-06 Michael Weber <michaelw+slime@foldr.org>
 
 	* slime.el (slime-call-defun): insert the closing parenthesis for
