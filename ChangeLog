@@ -1,3 +1,8 @@
+2007-04-06  Marco Baringer  <mb@bese.it>
+
+	* swank-openmcl.lisp (package swank-mop): Added
+	slot-makunbound-using-class.
+
 2007-03-29  Nikodemus Siivola <nikodemus@random-state.net>
 
 	* swank-sbcl.lisp (swank-compile-string): save the original

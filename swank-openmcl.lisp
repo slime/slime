@@ -105,7 +105,8 @@
    openmcl-mop:slot-definition-type
    openmcl-mop:slot-definition-readers
    openmcl-mop:slot-definition-writers
-   openmcl-mop:slot-boundp-using-class))
+   openmcl-mop:slot-boundp-using-class
+   openmcl-mop:slot-makunbound-using-class))
 
 (defun specializer-name (spec)
   (etypecase spec

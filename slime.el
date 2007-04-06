@@ -7168,7 +7168,8 @@ First make the variable unbound, then evaluate the entire form."
             (format "(%s " (slime-qualify-cl-symbol-name symbol))))
       (slime-switch-to-output-buffer)
       (goto-char slime-repl-input-start-mark)
-      (insert function-call))))
+      (insert function-call)
+      (save-excursion (insert ")")))))
 
 ;;;; Edit Lisp value
 ;;;
