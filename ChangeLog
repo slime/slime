@@ -1,3 +1,7 @@
+2007-04-08 Takehiko Abe <keke@gol.com>
+
+	* swank-openmcl.lisp (xref-locations):
+	
 2007-04-07 Harald Hanche-Olsen <hanche@math.ntnu.no>
 
 	* slime.el (sldb-mode-map): Added key definition for follow-link.

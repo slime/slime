@@ -321,11 +321,43 @@ condition."
                )))))))
 
 (defun xref-locations (relation name &optional (inverse nil))
-  (loop for xref in (if inverse 
-                        (ccl::get-relation  relation name :wild :exhaustive t)
-                        (ccl::get-relation  relation :wild name :exhaustive t))
-        for function = (ccl::xref-entry-name xref)
-        collect `((function ,function) ,(function-source-location (ccl::xref-entry-name xref)))))
+  (flet ((function-source-location (entry)
+           (multiple-value-bind (info name)
+               (ccl::edit-definition-p
+                (ccl::%db-key-from-xref-entry entry)
+                (if (eql (ccl::xref-entry-type entry)
+                         'macro)
+                    'function
+                    (ccl::xref-entry-type entry)))
+             (cond ((not info)
+                    (list :error
+                          (format nil "No source info available for ~A"
+                                  (ccl::xref-entry-name entry))))
+                   ((typep (caar info) 'ccl::method)
+                    `(:location 
+                      (:file ,(remove-filename-quoting
+                               (namestring (translate-logical-pathname
+                                            (cdr (car info))))))
+                      (:method
+                          ,(princ-to-string (ccl::method-name (caar info)))
+                        ,(mapcar 'princ-to-string
+                                 (mapcar #'specializer-name
+                                         (ccl::method-specializers
+                                          (caar info))))
+                        ,@(mapcar 'princ-to-string
+                                  (ccl::method-qualifiers (caar info))))
+                      nil))
+                   (t
+                    (canonicalize-location (cdr (first info)) name))))))
+    (declare (dynamic-extent #'function-source-location))
+    (loop for xref in (if inverse 
+                          (ccl::get-relation relation name
+                                             :wild :exhaustive t)
+                          (ccl::get-relation relation
+                                             :wild name :exhaustive t))
+       for function = (ccl::xref-entry-name xref)
+       collect `((function ,function)
+                 ,(function-source-location xref)))))
 
 (defimplementation who-binds (name)
   (xref-locations :binds name))
