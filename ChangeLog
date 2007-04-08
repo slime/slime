@@ -1,3 +1,36 @@
+2007-04-08  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank.lisp: Implemented a new special inspector page for
+	displaying internal (external, &c) symbols that display
+	classification flags additionally to each symbol, similiar to the
+	content of a *Fuzzy Completion* buffer.  Furthermore, added the
+	possibility to display all symbols that are /present/ in a
+	package. Combined with cleanup of the code parts in question.
+
+	(symbol-status): New function. Returns the status of a symbol in a
+	given package (:internal, :external &c.)
+
+	(symbol-external-p): Adapted to use new function SYMBOL-STATUS.
+
+	(symbol-classification->string): New function. Converts a list of
+	classification flags into a concise string representation.
+
+	(%package-symbols-container): New struct. We need a unique type to
+	dispatch in INSPECT-FOR-EMACS for the new inspector page, use this
+	as a wrapper structure.
+
+	(inspect-for-emacs package): Reorganized to not cause too much eye
+	cancer; now with a saner maximum column width. Changed to make use
+	of new SYMBOL-STATUS, for code reuse. Also changed to make use of
+	new %PACKAGE-SYMBOLS-CONTAINER to let a new page pop up in Emacs
+	if the user wants to access the list of symbols of the package.
+	Added such a possibility to access all `present' symbols.
+	
+	(inspect-for-emacs %package-symbols-container): New method.
+	Displays all symbols wrapped up in the container structure
+	combined with their classification flags as determined by
+	CLASSIFY-SYMBOL.
+	
 2007-04-08  Luís Oliveira <loliveira@common-lisp.net>
 
 	* swank-backend.lisp (compute-sane-restarts): New interface.

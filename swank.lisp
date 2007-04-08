@@ -3270,13 +3270,6 @@ TEST is called with two strings."
           (push symbol completions))))
     (remove-duplicates completions)))
 
-(defun symbol-external-p (symbol &optional (package (symbol-package symbol)))
-  "True if SYMBOL is external in PACKAGE.
-If PACKAGE is not specified, the home package of SYMBOL is used."
-  (and package
-       (eq (nth-value 1 (find-symbol (symbol-name symbol) package))
-           :external)))
-
 (defun find-matching-packages (name matcher)
   "Return a list of package names matching NAME with MATCHER.
 MATCHER is a two-argument predicate."
@@ -3287,6 +3280,77 @@ MATCHER is a two-argument predicate."
                            (loop for package in (list-all-packages)
                                  collect (package-name package)
                                  append (package-nicknames package))))))
+
+
+(defun symbol-status (symbol &optional (package (symbol-package symbol)))
+  "Returns one of 
+
+  :INTERNAL  if the symbol is _present_ in PACKAGE as an _internal_ symbol,
+
+  :EXTERNAL  if the symbol is _present_ in PACKAGE as an _external_ symbol,
+
+  :INHERITED if the symbol is _inherited_ by PACKAGE through USE-PACKAGE,
+             but is not _present_ in PACKAGE,
+
+  or NIL     if SYMBOL is not _accessible_ in PACKAGE.
+
+
+Be aware not to get confused with :INTERNAL and how \"internal
+symbols\" are defined in the spec; there is a slight mismatch of
+definition with the Spec and what's commonly meant when talking
+about internal symbols most times. As the spec says:
+
+  In a package P, a symbol S is
+  
+     _accessible_  if S is either _present_ in P itself or was
+                   inherited from another package Q (which implies
+                   that S is _external_ in Q.)
+  
+        You can check that with: (AND (SYMBOL-STATUS S P) T)
+  
+  
+     _present_     if either P is the /home package/ of S or S has been
+                   imported into P or exported from P by IMPORT, or
+                   EXPORT respectively.
+  
+                   Or more simply, if S is not _inherited_.
+  
+        You can check that with: (NOT (EQ (SYMBOL-STATUS S P) :INHERITED))
+  
+  
+     _external_    if S is going to be inherited into any package that
+                   /uses/ P by means of USE-PACKAGE, MAKE-PACKAGE, or
+                   DEFPACKAGE.
+  
+                   Note that _external_ implies _present_, since to
+                   make a symbol _external_, you'd have to use EXPORT
+                   which will automatically make the symbol _present_.
+  
+        You can check that with: (EQ (SYMBOL-STATUS S P) :EXTERNAL)
+  
+  
+     _internal_    if S is _accessible_ but not _external_.
+  
+Notice that the definition of _internal_ is the definition of the
+respective glossary entry in the spec; *However*, most times,
+when you speak about \"internal symbols\", you're not talking
+about the symbols inherited from other packages, but only about
+the symbols specific to the package in question.
+
+Thus SYMBOL-STATUS splits this up into two explicit pieces: 
+:INTERNAL, and :INHERITED.  Just as CL:FIND-SYMBOL does.
+"
+  (when package     ; may be NIL when symbol is completely uninterned.
+    (check-type symbol symbol) (check-type package package)
+    (multiple-value-bind (present-symbol status)
+        (find-symbol (symbol-name symbol) package)
+      (and (eq symbol present-symbol) status))))
+
+(defun symbol-external-p (symbol &optional (package (symbol-package symbol)))
+  "True if SYMBOL is external in PACKAGE.
+If PACKAGE is not specified, the home package of SYMBOL is used."
+  (eq (symbol-status symbol package) :external))
+
 
 ;; PARSE-COMPLETION-ARGUMENTS return table:
 ;; 
@@ -3613,6 +3677,16 @@ keywords: :BOUNDP, :FBOUNDP, :GENERIC-FUNCTION, :CLASS, :MACRO,
                  'generic-function)
       (push :generic-function result))
     result))
+
+(defun symbol-classification->string (flags)
+  (format nil "~A~A~A~A~A~A~A"
+          (if (member :boundp flags) "b" "-")
+          (if (member :fboundp flags) "f" "-")
+          (if (member :generic-function flags) "g" "-")
+          (if (member :class flags) "c" "-")
+          (if (member :macro flags) "m" "-")
+          (if (member :special-operator flags) "s" "-")
+          (if (member :package flags) "p" "-")))
 
 
 (defun fuzzy-completion-set (string default-package-name &key limit time-limit-in-msec)
@@ -4856,49 +4930,148 @@ See `methods-by-applicability'.")
             (:newline)
             ,@(all-slots-for-inspector slot inspector))))
 
+
+;; Wrapper structure over the list of symbols of a package that should
+;; be displayed with their respective classification flags. This is
+;; because we need a unique type to dispatch on in INSPECT-FOR-EMACS.
+;; Used by the Inspector for packages.
+(defstruct %package-symbols-container
+  title       ;; A string; the title of the inspector page in Emacs.   
+  description ;; A list of renderable objects; used as description.
+  symbols)    ;; The actual symbol list.
+
+(defmethod inspect-for-emacs ((%container %package-symbols-container) inspector)
+  (declare (ignore inspector))
+  (with-struct (%package-symbols-container- title description symbols) %container
+    (let ((max-length (loop for s in symbols maximizing (length (symbol-name s))))
+          (distance 10)) ; empty distance between name and classification
+      (flet ((string-representations (symbol)
+               (let* ((name (symbol-name symbol))
+                      (length (length name))
+                      (padding (- max-length length))                    
+                      (classification (classify-symbol symbol)))
+                 (values
+                  (concatenate 'string
+                               name
+                               (make-string (+ padding distance) :initial-element #\Space))
+                  (symbol-classification->string classification)))))
+        (values
+         
+         title
+         
+         `(,@description (:newline)
+                                        ; 8 is (length "Symbols:")
+           "Symbols:" ,(make-string (+ -8 max-length distance) :initial-element #\Space) "Flags:"
+           (:newline)
+           ,(concatenate 'string        ; underlining dashes
+                         (make-string (+ max-length distance -1) :initial-element #\-)
+                         " "
+                         (let* ((dummy (classify-symbol (gensym)))
+                                (dummy (symbol-classification->string dummy))
+                                (classification-length (length dummy)))
+                           (make-string classification-length :initial-element #\-)))
+           (:newline)
+           
+           ,@(loop for symbol in symbols appending
+                  (multiple-value-bind (symbol-string classification-string)
+                      (string-representations symbol)
+                    `((:value ,symbol ,symbol-string) ,classification-string (:newline))))))))))
+
+
 (defmethod inspect-for-emacs ((package package) inspector)
   (declare (ignore inspector))
-  (let ((internal-symbols '())
-        (external-symbols '()))
-    (do-symbols (sym package)
-      (when (eq package (symbol-package sym))
-        (push sym internal-symbols)
-        (multiple-value-bind (symbol status)
-            (find-symbol (symbol-name sym) package)
-          (declare (ignore symbol))
-          (when (eql :external status)
-            (push sym external-symbols)))))
-    (setf internal-symbols (sort internal-symbols #'string-lessp)
-          external-symbols (sort external-symbols #'string-lessp))
-    (values "A package."
-            `("Name: " (:value ,(package-name package))
-              (:newline)
-              "Nick names: " ,@(common-seperated-spec (sort (copy-seq (package-nicknames package))
-                                                            #'string-lessp))
-              (:newline)
-              ,@(when (documentation package t)
-                  `("Documentation:" (:newline)
-                    ,(documentation package t) (:newline)))
-              "Use list: " ,@(common-seperated-spec (sort (copy-seq (package-use-list package)) #'string-lessp :key #'package-name)
-                                                    (lambda (pack)
-                                                      `(:value ,pack ,(inspector-princ (package-name pack)))))
-              (:newline)
-              "Used by list: " ,@(common-seperated-spec (sort (copy-seq (package-used-by-list package)) #'string-lessp :key #'package-name)
-                                                        (lambda (pack)
-                                                          `(:value ,pack ,(inspector-princ (package-name pack)))))
-              (:newline)
-              ,(if (null external-symbols)
-                   "0 external symbols."
-                   `(:value ,external-symbols ,(format nil "~D external symbol~:P." (length external-symbols))))
-              (:newline)
-              ,(if (null internal-symbols)
-                   "0 internal symbols."
-                   `(:value ,internal-symbols ,(format nil "~D internal symbol~:P." (length internal-symbols))))
-              (:newline)
-              ,(if (null (package-shadowing-symbols package))
-                   "0 shadowed symbols."
-                   `(:value ,(package-shadowing-symbols package)
-                            ,(format nil "~D shadowed symbol~:P." (length (package-shadowing-symbols package)))))))))
+  (let ((package-name         (package-name package))
+        (package-nicknames    (package-nicknames package))
+        (package-use-list     (mapcar #'package-name (package-use-list package)))
+        (package-used-by-list (mapcar #'package-name (package-used-by-list package)))
+        (shadowed-symbols     (package-shadowing-symbols package))
+        (present-symbols      '()) (present-symbols-length  0)
+        (internal-symbols     '()) (internal-symbols-length 0)
+        (external-symbols     '()) (external-symbols-length 0))
+
+    (do-symbols* (sym package)
+      (let ((status (symbol-status sym package)))
+        (when (not (eq status :inherited))
+          (push sym present-symbols) (incf present-symbols-length)
+          (if (eq status :internal)
+              (progn (push sym internal-symbols) (incf internal-symbols-length))                
+              (progn (push sym external-symbols) (incf external-symbols-length))))))
+    
+    (setf package-nicknames    (sort (copy-list package-nicknames)    #'string<)
+          package-use-list     (sort (copy-list package-use-list)     #'string<)
+          package-used-by-list (sort (copy-list package-used-by-list) #'string<)
+          shadowed-symbols     (sort (copy-list shadowed-symbols)     #'string<))
+    
+    (setf present-symbols      (sort present-symbols  #'string<)  ; SORT + STRING-LESSP
+          internal-symbols     (sort internal-symbols #'string<)  ; conses on at least
+          external-symbols     (sort external-symbols #'string<)) ; SBCL 0.9.18.
+
+    
+    (values
+     "A package."
+     `(""                               ; dummy to preserve indentation.
+       "Name: " (:value ,package-name) (:newline)
+                       
+       "Nick names: " ,@(common-seperated-spec package-nicknames) (:newline)
+              
+       ,@(when (documentation package t)
+               `("Documentation:" (:newline) ,(documentation package t) (:newline)))
+              
+       "Use list: " ,@(common-seperated-spec
+                       package-use-list
+                       (lambda (package)
+                         `(:value ,package ,(package-name package))))
+       (:newline)
+              
+       "Used by list: " ,@(common-seperated-spec
+                           package-used-by-list
+                           (lambda (package)
+                             `(:value ,package ,(package-name package))))
+       (:newline)
+
+       ,@     ; ,@(flet ((...)) ...) would break indentation in Emacs.
+       (flet ((display-link (type symbols length &key title description)
+                (if (null symbols)
+                    (format nil "0 ~A symbols." type)
+                    `(:value ,(make-%package-symbols-container :title title
+                                                               :description description
+                                                               :symbols symbols)
+                             ,(format nil "~D ~A symbol~P." length type length)))))
+         
+         `(,(display-link "present" present-symbols  present-symbols-length
+                          :title (format nil "All present symbols of package \"~A\"" package-name)
+                          :description
+                          '("A symbol is considered present in a package if it's" (:newline)
+                            "\"accessible in that package directly, rather than"  (:newline)
+                            "being inherited from another package.\""             (:newline)
+                            "(CLHS glossary entry for `present')"                 (:newline)))
+            
+            (:newline)
+            ,(display-link "external" external-symbols external-symbols-length
+                           :title (format nil "All external symbols of package \"~A\"" package-name)
+                           :description
+                           '("A symbol is considered external of a package if it's"  (:newline)
+                             "\"part of the `external interface' to the package and" (:newline)
+                             "[is] inherited by any other package that uses the"     (:newline)
+                             "package.\" (CLHS glossary entry of `external')"        (:newline)))
+            (:newline)
+            ,(display-link "internal" internal-symbols internal-symbols-length
+                           :title (format nil "All internal symbols of package \"~A\"" package-name)
+                           :description
+                           '("A symbol is considered internal of a package if it's"   (:newline)
+                             "present and not external---that is if the package is"   (:newline)
+                             "the home package of the symbol, or if the symbol has"   (:newline)
+                             "been explicitly imported into the package."             (:newline)
+                             (:newline)
+                             "Notice that inherited symbols will thus not be listed," (:newline)
+                             "which deliberately deviates from the CLHS glossary"     (:newline)
+                             "entry of `internal' because it's assumed to be more"    (:newline)
+                             "useful this way."                                       (:newline)))
+            (:newline)
+            ,(display-link "shadowed" shadowed-symbols (length shadowed-symbols)
+                           :title (format nil "All shadowed symbols of package \"~A\"" package-name)
+                           :description nil)))))))
+
 
 (defmethod inspect-for-emacs ((pathname pathname) inspector)
   (declare (ignore inspector))
