@@ -1,4 +1,4 @@
-2007-03-31  Luís Oliveira <loliveira@common-lisp.net>
+2007-04-08  Luís Oliveira <loliveira@common-lisp.net>
 
 	* swank-backend.lisp (compute-sane-restarts): New interface.
 	* swank-clisp.lisp: Fix tabs and trailing whitespace.
@@ -7,10 +7,6 @@
 2007-04-08 Takehiko Abe <keke@gol.com>
 
 	* swank-openmcl.lisp (xref-locations):
-	
-2007-04-07 Harald Hanche-Olsen <hanche@math.ntnu.no>
-
-	* slime.el (sldb-mode-map): Added key definition for follow-link.
 
 2007-04-08  Marco Baringer <mb@bese.it>
 
@@ -18,6 +14,10 @@
 	instead of a place like (values limit time-limit-in-msec). While
 	sbcl seems to accept this form openmcl doesn't and it's not clear
 	from the spec that this is allowed.
+	
+2007-04-07 Harald Hanche-Olsen <hanche@math.ntnu.no>
+
+	* slime.el (sldb-mode-map): Added key definition for follow-link.
 
 2007-04-06  Tobias C. Rittweiler <tcr@freebits.de>
 
