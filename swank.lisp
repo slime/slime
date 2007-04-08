@@ -4975,7 +4975,28 @@ See `methods-by-applicability'.")
            ,@(loop for symbol in symbols appending
                   (multiple-value-bind (symbol-string classification-string)
                       (string-representations symbol)
-                    `((:value ,symbol ,symbol-string) ,classification-string (:newline))))))))))
+                    `((:value ,symbol ,symbol-string) ,classification-string
+                      " "
+                      (:action "[jump to source]"
+                               , (let ((symbol symbol))
+                                   (lambda ()
+                                     ;; it would be nice to be a
+                                     ;; little smarter here and not
+                                     ;; convert the symbol to a string
+                                     ;; and have slime-edit-definition
+                                     ;; return to the same symbol
+                                     ;; again. however we already have
+                                     ;; this machinery in place and
+                                     ;; not using it would require
+                                     ;; updating this code whenever
+                                     ;; the find-definitions code
+                                     ;; changes.
+                                     (eval-in-emacs `(progn
+                                                       (slime-edit-definition
+                                                        ,(let ((*package* (find-package :common-lisp))) (format nil "~S" symbol)))
+                                                       t)))))
+                      (:newline)
+                      )))))))))
 
 
 (defmethod inspect-for-emacs ((package package) inspector)
