@@ -1362,15 +1362,22 @@ gracefully."
 
 ;; FIXME: deal with #\| etc.  hard to do portably.
 (defun tokenize-symbol (string)
+  "STRING is interpreted as the string representation of a symbol
+and is tokenized accordingly. The result is returned in three
+values: The package identifier part, the actual symbol identifier
+part, and a flag if the STRING represents a symbol that is
+internal to the package identifier part. (Notice that the flag is
+also true with an empty package identifier part, as the STRING is
+considered to represent a symbol internal to some current package.)"
   (let ((package (let ((pos (position #\: string)))
                    (if pos (subseq string 0 pos) nil)))
         (symbol (let ((pos (position #\: string :from-end t)))
                   (if pos (subseq string (1+ pos)) string)))
-        (internp (search "::" string)))
+        (internp (not (= (count #\: string) 1))))
     (values symbol package internp)))
 
 (defun tokenize-symbol-thoroughly (string)
-  "This version of tokenize-symbol handles escape characters."
+  "This version of TOKENIZE-SYMBOL handles escape characters."
   (let ((package nil)
         (token (make-array (length string) :element-type 'character
                            :fill-pointer 0))
@@ -1397,7 +1404,7 @@ gracefully."
                                          :fill-pointer 0))))
             (t
              (vector-push-extend (casify-char char) token))))
-    (values token package internp)))
+    (values token package (or (not package) internp))))
 
 (defun casify-char (char)
   "Convert CHAR accoring to readtable-case."
@@ -3333,9 +3340,9 @@ Returns a list of completions with package qualifiers if needed."
           (sort strings #'string<)))
 
 (defun format-completion-result (string internal-p package-name)
-  (let ((prefix (cond (internal-p (format nil "~A::" package-name))
-                      (package-name (format nil "~A:" package-name))
-                      (t ""))))
+  (let ((prefix (cond ((not package-name) "")
+                      (internal-p (format nil "~A::" package-name))
+                      (t (format nil "~A:" package-name)))))
     (values (concatenate 'string prefix string)
             (length prefix))))
 

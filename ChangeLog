@@ -1,5 +1,63 @@
 2007-04-06  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank.lisp (tokenize-symbol, tokenize-symbol-thoroughly):
+	Previously these functions said a string representing a symbol is
+	internal exactly if it contained "::" as substring. Now they say
+	additionally so for symbols without any package identifier, as
+	they are internal to am implicit current package. (Otherwise
+	will break fuzzy completion.)
+
+	(tokenize-symbol): Added docstring.
+
+	* swank.lisp (format-completion-result): Fixed formation
+	for the case that PACKAGE-NAME is NIL but INTERNAL-P is T.
+
+2007-04-06  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank.lisp: Making fuzzy completion semantically right from a
+	user perspective. As an example on SBCL, "sb:with- C-c M-i" will
+	display all exported "with"-style macros in all sb-* packages from
+	now on. :)
+
+	(parse-completion-arguments): Replacing with a semantically-sound
+	implementation, as the previous one was a bit confused. Clarifying
+	docstring. Adding commentary table of various constellations of
+	returned values for thorough explanation.
+
+	(carefully-find-package): Removed. Obsolete by above change.
+
+	(defstruct fuzzy-matching): Introduced to make internally-used
+	datastructure explicit. Distinguishing ``completion chunks''
+	between those pertaining to the symbol itself and those to the
+	package identifier.
+
+	(convert-fuzzy-completion-result): Renamed to
+	FUZZY-CONVERT-MATCHING-FOR-EMACS.
+
+	(fuzzy-convert-matching-for-emacs): Accomodating for the new
+	datastructure. Only the chunks pertaining to the symbol itself are
+	fixed up positionally, the package-chunks are untouched.
+	Necessary for letting package identifiers be highlighted within
+	*Fuzzy Completions* in cases like "sb:with- C-c M-i."
+
+	(fuzzy-completion-set): Taking out most code to become new
+	function FUZZY-CREATE-COMPLETION-SET.
+
+	(fuzzy-create-completion-set): Doing all the hard work. Crux of
+	this changeset. so to speak. Largly rewritten to accomodate all
+	different cases of PARSE-COMPLETION-ARGUMENT.
+
+	(fuzzy-find-matching-symbols, fuzzy-find-matching-packages):
+	Accomodating to new datatstructure FUZZY-MATCHING. Adapting
+	docstring accordingly.
+
+	* swank-backend.lisp: Export WITH-STRUCT.
+	
+	* swank.lisp (eval-for-emacs, fuzzy-completions): 
+	Various trivia like fixing spelling and indentation.
+
+2007-04-06  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* slime.el (slime-fuzzy-highlight-current-completion): Fix
 	off-by-one error that causes the currently selected 
 	completion in the *Fuzzy Completion* buffer be highlighted

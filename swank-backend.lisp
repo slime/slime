@@ -39,6 +39,7 @@
            #:label-value-line
            #:label-value-line*
            #:type-for-emacs
+           #:with-struct
            ))
 
 (defpackage :swank-mop

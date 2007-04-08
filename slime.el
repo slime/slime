@@ -6671,7 +6671,9 @@ completions buffer."
 (defun slime-fuzzy-highlight-current-completion ()
   "Highlights the current completion, so that the user can see it on the screen."
   (let ((pos (point)))
-    (setq slime-fuzzy-current-completion-overlay (make-overlay (point) (search-forward " ") (current-buffer) t nil))
+    (setq slime-fuzzy-current-completion-overlay 
+          (make-overlay (point) (1- (search-forward " "))
+                        (current-buffer) t nil))
     (overlay-put slime-fuzzy-current-completion-overlay 'face 'secondary-selection)
     (goto-char pos)))
 
