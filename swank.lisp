@@ -2817,7 +2817,7 @@ after Emacs causes a restart to be invoked."
 
 (defun debug-in-emacs (condition)
   (let ((*swank-debugger-condition* condition)
-        (*sldb-restarts* (compute-restarts condition))
+        (*sldb-restarts* (compute-sane-restarts condition))
         (*package* (or (and (boundp '*buffer-package*)
                             (symbol-value '*buffer-package*))
                        *package*))
@@ -2826,14 +2826,14 @@ after Emacs causes a restart to be invoked."
         (*swank-state-stack* (cons :swank-debugger-hook *swank-state-stack*)))
     (force-user-output)
     (call-with-debugging-environment
-     (lambda () 
+     (lambda ()
        (with-bindings *sldb-printer-bindings*
          (sldb-loop *sldb-level*))))))
 
 (defun sldb-loop (level)
   (unwind-protect
        (catch 'sldb-enter-default-debugger
-         (send-to-emacs 
+         (send-to-emacs
           (list* :debug (current-thread) level
                  (debugger-info-for-emacs 0 *sldb-initial-frames*)))
          (loop (catch 'sldb-loop-catcher

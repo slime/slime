@@ -601,6 +601,13 @@ returned.  Frame zero is defined as the frame which invoked the
 debugger.  If END is nil, return the frames from START to the end of
 the stack.")
 
+(definterface compute-sane-restarts (condition)
+  "This is an opportunity for Lisps such as CLISP to remove
+unwanted restarts from the output of CL:COMPUTE-RESTARTS,
+otherwise it should simply call CL:COMPUTE-RESTARTS, which is
+what the default implementation does."
+  (compute-restarts condition))
+
 (definterface print-frame (frame stream)
   "Print frame to stream.")
 

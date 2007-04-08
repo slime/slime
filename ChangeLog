@@ -1,3 +1,9 @@
+2007-03-31  Luís Oliveira <loliveira@common-lisp.net>
+
+	* swank-backend.lisp (compute-sane-restarts): New interface.
+	* swank-clisp.lisp: Fix tabs and trailing whitespace.
+	(compute-sane-restarts): Implement new interface.
+
 2007-04-08 Takehiko Abe <keke@gol.com>
 
 	* swank-openmcl.lisp (xref-locations):
