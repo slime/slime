@@ -1,3 +1,52 @@
+2007-04-06  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank.lisp: Cleanup of parts of the fuzzy completion code.
+	Additionally a couple of enhancements. As follows:
+	
+	(fuzzy-completions, fuzzy-completion-selected): Minor 
+	stylistic and clarifying modifications of the docstrings.
+
+	(fuzzy-find-matching-symbols): Huge code reorganization.
+	Organizing relevant code into local function TIME-EXHAUSTED-P,
+	renaming local function SYMBOL-MATCH to PERFORM-FUZZY-MATCH,
+	making previously required argument EXTERNAL to new &key
+	argument :EXTERNAL-ONLY, clarifying docstring.
+
+	(fuzzy-find-matching-packages): Making its return value
+	conformant to that of FUZZY-FIND-MATCHING-SYMBOLS, i.e.
+	instead of returning, among others, a package's name as
+	string, it now returns a symbol representing the package.
+	Accomodates the docstring accordingly. 
+
+	(fuzzy-completion-set): Minor typographical fix in docstring.
+	Changing local function CONVERT to use MAP-INTO instead of
+	doing it essentially manually. Accomodating to changes of
+	FUZZY-FIND-MATCHING-SYMBOLS, resp. -PACKAGES.
+
+	(fuzzy-completion-set):	Additional new feature: 
+	The returned completions are sorted alphabetically by the
+	matched completion string before sorted by its score. 
+	Affects especially the list of all possible completions when 
+	the user hits fuzzy-completion on an empty string within Emacs;
+	also makes the potential limitness of the listed completions
+	clearer to the end user of SLIME.
+
+	(classify-symbol): New function. Returns a list with keywords
+	that classifies a given symbol. (E.g. :BOUNDP, :MACRO &c)
+	Supersedes parts of CONVERT-FUZZY-COMPLETION-RESULT, 
+	implementing them in a more straightforward and proper way;
+	removes prior KLUDGE in that part of the original function.
+
+	(convert-fuzzy-completion-result): The above changes made
+	it possible to simplify this function drastically. Now uses
+	the newly introduced function CLASSIFY-SYMBOL.
+
+	* slime.el: Minor stylistic changes. Additionally:
+	(slime-fuzzy-insert-completion-choice): 
+	(slime-fuzzy-fill-completions-buffer) : Adding use of the 
+	:PACKAGE classification flag returned by SWANK:FUZZY-COMPLETIONS.
+	This flag is called "p".
+
 2007-04-06  Neil Van Dyke  <neil@neilvandyke.org>
 
 	* slime.el (sldb-insert-frame): Added mouse-face to frame label
