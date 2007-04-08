@@ -9349,7 +9349,8 @@ position of point in the current buffer."
         (action-number (get-text-property (point) 'slime-action-number))
         (opener (lexical-let ((point (slime-inspector-position)))
                   (lambda (parts)
-                    (slime-open-inspector parts :point point)))))
+                    (when parts
+                      (slime-open-inspector parts :point point))))))
     (cond (part-number
            (slime-eval-async `(swank:inspect-nth-part ,part-number)
                              opener)
