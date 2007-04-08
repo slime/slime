@@ -858,8 +858,10 @@ inserted into the buffer as is, or a list of the form:
 
  (:newline) - Render a \\n
 
- (:action label lambda) - Render LABEL (a text string) which when
- clicked will call LAMBDA.
+ (:action label lambda &key (refresh t)) - Render LABEL (a text
+ string) which when clicked will call LAMBDA. If REFRESH is
+ non-NIL the currently inspected object will be re-inspected
+ after calling the lambda.
 
  NIL - do nothing."))
 
