@@ -6475,7 +6475,7 @@ most recently enclosed macro or function."
                (slime-fuzzy-done))
       (goto-char end)
       (cond ((= (length completion-set) 1)
-             (insert-and-inherit (caar completion-set))
+             (insert-and-inherit (caar completion-set)) ; insert completed string
              (delete-region beg end)
              (goto-char (+ beg (length (caar completion-set))))
              (slime-minibuffer-respecting-message "Sole completion")
@@ -6493,7 +6493,7 @@ most recently enclosed macro or function."
   "Click <mouse-2> on a completion to select it.
 In this buffer, type n and p to navigate between completions.
 Type RET to select the completion near point.  Type q to abort.
-Flags: boundp fboundp generic-function class macro special-operator
+Flags: boundp fboundp generic-function class macro special-operator package
 \n"
   "The explanation that gets inserted at the beginning of the
 *Fuzzy Completions* buffer.")
@@ -6503,11 +6503,11 @@ Flags: boundp fboundp generic-function class macro special-operator
 completion choice into the current buffer, and mark it with the
 proper text properties."
   (let ((start (point))
-        (symbol (first completion))
+        (symbol-name (first completion))
         (score (second completion))
         (chunks (third completion))
         (flags (fourth completion)))
-    (insert symbol)
+    (insert symbol-name)
     (let ((end (point)))
       (dolist (chunk chunks)
         (put-text-property (+ start (first chunk)) 
@@ -6517,13 +6517,14 @@ proper text properties."
       (put-text-property start (point) 'mouse-face 'highlight)
       (dotimes (i (- max-length (- end start)))
         (insert " "))
-      (insert (format " %s%s%s%s%s%s %8.2f"
+      (insert (format " %s%s%s%s%s%s%s %8.2f"
                       (if (member :boundp flags) "b" "-")
                       (if (member :fboundp flags) "f" "-")
                       (if (member :generic-function flags) "g" "-")
                       (if (member :class flags) "c" "-")
                       (if (member :macro flags) "m" "-")
                       (if (member :special-operator flags) "s" "-")
+                      (if (member :package flags) "p" "-")
                       score))
       (insert "\n")
       (put-text-property start (point) 'completion completion))))
@@ -6585,9 +6586,12 @@ done."
         (setf max-length (max max-length (length (first completion)))))
       (insert "Completion:")
       (dotimes (i (- max-length 10)) (insert " "))
-      (insert "Flags: Score:\n")
+      ;;     Flags:  Score:
+      ;; ... ------- --------
+      ;;     bfgcmsp 
+      (insert "Flags:  Score:\n")
       (dotimes (i max-length) (insert "-"))
-      (insert " ------ --------\n")
+      (insert " ------- --------\n")
       (setq slime-fuzzy-first (point))
       (dolist (completion completions)
         (slime-fuzzy-insert-completion-choice completion max-length))

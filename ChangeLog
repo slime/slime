@@ -1,5 +1,12 @@
 2007-04-06  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* slime.el (slime-fuzzy-highlight-current-completion): Fix
+	off-by-one error that causes the currently selected 
+	completion in the *Fuzzy Completion* buffer be highlighted
+	one char too far.
+	
+2007-04-06  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank.lisp: Cleanup of parts of the fuzzy completion code.
 	Additionally a couple of enhancements. As follows:
 	
