@@ -4544,9 +4544,7 @@ NIL is returned if the list is circular."
 		      size)
 	    ,(lambda() 
 	       (let ((*slime-inspect-contents-limit* nil))
-		 (values
-		  (swank::inspect-object thing)
-		  :replace)))))
+		 (swank::inspect-object thing)))))
 
 (defmethod inspect-show-more-action (thing)
   `(:action ,(format nil "~a elements shown. Prompt for how many to inspect..." 
@@ -4554,9 +4552,7 @@ NIL is returned if the list is circular."
 	    ,(lambda() 
 	       (let ((*slime-inspect-contents-limit* 
 		      (progn (format t "How many elements should be shown? ") (read))))
-		 (values
-		  (swank::inspect-object thing)
-		  :replace)))))
+		 (swank::inspect-object thing)))))
 
 (defmethod inspect-for-emacs ((array array) inspector)
   (declare (ignore inspector))
@@ -5219,7 +5215,8 @@ See `methods-by-applicability'.")
                         ,(let ((pathname (pathname stream))
                                (position (file-position stream)))
                            (lambda ()
-                             (ed-in-emacs `(,pathname :charpos ,position)))))
+                             (ed-in-emacs `(,pathname :charpos ,position))))
+                        :refresh nil)
                (:newline))
              content))))
 
@@ -5238,7 +5235,8 @@ See `methods-by-applicability'.")
                               ,(let ((pathname (pathname stream))
                                      (position (file-position stream)))
                                     (lambda ()
-                                      (ed-in-emacs `(,pathname :charpos ,position)))))
+                                      (ed-in-emacs `(,pathname :charpos ,position))))
+                              :refresh nil)
                      (:newline))
                    content))
           (values title content)))))
@@ -5342,8 +5340,8 @@ See `methods-by-applicability'.")
                    (string #\newline))
                   ((:value obj &optional str) 
                    (value-part-for-emacs obj str))
-                  ((:action label lambda) 
-                   (action-part-for-emacs label lambda)))))))
+                  ((:action label lambda &key (refreshp t)) 
+                   (action-part-for-emacs label lambda refreshp)))))))
 
 (defun assign-index (object vector)
   (let ((index (fill-pointer vector)))
@@ -5355,8 +5353,9 @@ See `methods-by-applicability'.")
         (or string (print-part-to-string object))
         (assign-index object *inspectee-parts*)))
 
-(defun action-part-for-emacs (label lambda)
-  (list :action label (assign-index lambda *inspectee-actions*)))
+(defun action-part-for-emacs (label lambda refreshp)
+  (list :action label (assign-index (list lambda refreshp)
+                                    *inspectee-actions*)))
   
 (defun inspect-object (object &optional (inspector (make-default-inspector)))
   (push (setq *inspectee* object) *inspector-stack*)
@@ -5380,10 +5379,13 @@ See `methods-by-applicability'.")
     (inspect-object (inspector-nth-part index))))
 
 (defslimefun inspector-call-nth-action (index &rest args)
-  (multiple-value-bind (value replace) (apply (aref *inspectee-actions* index) args)
-      (if (eq replace :replace)
-	  value
-	  (inspect-object (pop *inspector-stack*)))))
+  (destructuring-bind (action-lambda refreshp)
+      (aref *inspectee-actions* index)
+    (apply action-lambda args)
+    (if refreshp
+        (inspect-object (pop *inspector-stack*))
+        ;; tell emacs that we don't want to refresh the inspector buffer
+        nil)))
 
 (defslimefun inspector-pop ()
   "Drop the inspector stack and inspect the second element.  Return
