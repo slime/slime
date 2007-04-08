@@ -1,3 +1,21 @@
+2007-04-09  Marco Baringer  <mb@bese.it>
+
+	* swank.lisp (inspector-content-for-emacs): Look for refresh
+	keyword argument in :action links.
+	(inspect-whole-thing-action, inspect-show-more-action): Update for
+	new :action argument handling.
+	(inspect-for-emacs stream, inspect-for-emacs stream-error): Pass
+	:refresh nil on :action links.
+	(action-part-for-emacs): Set both lambda and refresh in the
+	*inspectee-actions* array.
+	(inspector-call-nth-action): *inspectee-actions* now holds both
+	the function and the boolean specifying whether to refresh or not.
+
+	* swank-backend.lisp (inspect-for-emacs): Docstring update.
+
+	* slime.el (slime-inspector-operate-on-point): Allow the action
+	calls to return nil.
+
 2007-04-08  Marco Baringer  <mb@bese.it>
 	
 	* .cvsignore: Added *.lx64fsl (openmcl on linux fasls).

@@ -4975,22 +4975,7 @@ See `methods-by-applicability'.")
                       " "
                       (:action "[jump to source]"
                                , (let ((symbol symbol))
-                                   (lambda ()
-                                     ;; it would be nice to be a
-                                     ;; little smarter here and not
-                                     ;; convert the symbol to a string
-                                     ;; and have slime-edit-definition
-                                     ;; return to the same symbol
-                                     ;; again. however we already have
-                                     ;; this machinery in place and
-                                     ;; not using it would require
-                                     ;; updating this code whenever
-                                     ;; the find-definitions code
-                                     ;; changes.
-                                     (eval-in-emacs `(progn
-                                                       (slime-edit-definition
-                                                        ,(let ((*package* (find-package :common-lisp))) (format nil "~S" symbol)))
-                                                       t)))))
+                                   (lambda () (ed-in-emacs symbol))))
                       (:newline)
                       )))))))))
 
