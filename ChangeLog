@@ -1,5 +1,53 @@
 2007-04-06  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank.lisp: Making fuzzy completion regard the time limit
+	correctly. Also make it properly use microseconds as time
+	granularity and inform the Emacs side if the time limit has
+	exhausted. Additionally, over all minor and cosmetic changes:
+
+	(fuzzy-completions, fuzzy-completion-set): Returns now
+	additionally a flag indicating whether the time limit has
+	exhausted under the hood. Accomodated docstring accordingly.
+
+	(fuzzy-create-completion-set): Changed to correctly catch and
+	propagate the remaining time limit to the actual match functions,
+	and return once time limit has exhausted. Some aesthetical code 
+	reorganization.
+
+	(get-real-time-in-msecs): New function. 
+
+	(fuzzy-find-matching-symbols, fuzzy-find-matching-packages):
+	Correctly regard the time limit. Use new function
+	GET-REAL-TIME-IN-MSECS for that purpose. Return the remaining
+	time limit as second value.
+
+	* slime.el (slime-fuzzy-complete-symbol): Accomodated to deal with
+	the additionally returned flag of SWANK:FUZZY-COMPLETIONS. Pass
+	the flag by.
+	(slime-fuzzy-choices-buffer): Pass interruption flag by.
+	(slime-fuzzy-fill-completions-buffer): If time limit has exhausted
+	during completion retrieval, show an informational indication as
+	last entry in *Fuzzy Completion*.
+	(slime-fuzzy-last): New variable. To hold the last real completion
+	choice previous to the (possible) Time Limit Exhausted information.
+	(slime-fuzzy-next): Accomodated to not go beneath SLIME-FUZZY-LAST.
+	
+2007-04-06  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank.lisp (tokenize-symbol, tokenize-symbol-thoroughly):
+	Previously these functions said a string representing a symbol is
+	internal exactly if it contained "::" as substring. Now they say
+	additionally so for symbols without any package identifier, as
+	they are internal to am implicit current package. (Otherwise
+	will break fuzzy completion.)
+
+	(tokenize-symbol): Added docstring.
+
+	* swank.lisp (format-completion-result): Fixed formation
+	for the case that PACKAGE-NAME is NIL but INTERNAL-P is T.
+
+2007-04-06  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank.lisp: Making fuzzy completion semantically right from a
 	user perspective. As an example on SBCL, "sb:with- C-c M-i" will
 	display all exported "with"-style macros in all sb-* packages from

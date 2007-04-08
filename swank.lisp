@@ -3498,11 +3498,17 @@ For example:
 ;;; through the following docstring.
 
 (defslimefun fuzzy-completions (string default-package-name &key limit time-limit-in-msec)
-  "Return an (optionally limited to LIMIT best results) list of
-fuzzy completions for a symbol designator STRING.  The list will
-be sorted by score, most likely match first.
+"Returns a list of two values:
 
-The result is a list of completion objects, where a completion
+  An (optionally limited to LIMIT best results) list of fuzzy
+  completions for a symbol designator STRING. The list will be
+  sorted by score, most likely match first.
+
+  A flag that indicates whether or not TIME-LIMIT-IN-MSEC has
+  been exhausted during computation. If that parameter's value is
+  NIL or 0, no time limit is assumed.
+
+The main result is a list of completion objects, where a completion
 object is:
 
     (COMPLETED-STRING SCORE (&rest CHUNKS) FLAGS)
@@ -3531,13 +3537,21 @@ designator's format. The cases are as follows:
   FOO      - Symbols accessible in the buffer package.
   PKG:FOO  - Symbols external in package PKG.
   PKG::FOO - Symbols accessible in package PKG."
-  ;; We may send this as elisp [] arrays to spare a coerce here,
-  ;; but then the network serialization were slower by handling arrays.
-  ;; Instead we limit the number of completions that is transferred
-  ;; (the limit is set from emacs).
-  (coerce (fuzzy-completion-set string default-package-name :limit limit
-                                :time-limit-in-msec time-limit-in-msec)
-          'list))
+  ;; For Emacs we allow both NIL and 0 as value of TIME-LIMIT-IN-MSEC
+  ;; to denote an infinite time limit. Internally, we only use NIL for
+  ;; that purpose, to be able to distinguish between "no time limit
+  ;; alltogether" and "current time limit already exhausted." So we've
+  ;; got to canonicalize its value at first:
+  (let* ((no-time-limit-p (or (not time-limit-in-msec) (zerop time-limit-in-msec)))
+         (time-limit (if no-time-limit-p nil time-limit-in-msec)))
+    (multiple-value-bind (completion-set interrupted-p)
+        (fuzzy-completion-set string default-package-name :limit limit
+                              :time-limit-in-msec time-limit)
+      ;; We may send this as elisp [] arrays to spare a coerce here,
+      ;; but then the network serialization were slower by handling arrays.
+      ;; Instead we limit the number of completions that is transferred
+      ;; (the limit is set from Emacs.)
+      (list (coerce completion-set 'list) interrupted-p))))
 
 
 ;;; A Fuzzy Matching -- Not to be confused with a fuzzy completion
@@ -3547,11 +3561,12 @@ designator's format. The cases are as follows:
 			   (:predicate   fuzzy-matching-p)
 			   (:constructor %make-fuzzy-matching))
   symbol	    ; The symbol that has been found to match. 
-  score	            ; the higher the better symbol is a match.
+  score	            ; The higher the better symbol is a match.
   package-chunks    ; Chunks pertaining to the package identifier of the symbol.
   symbol-chunks)    ; Chunks pertaining to the symbol's name.
 
 (defun make-fuzzy-matching (symbol score package-chunks symbol-chunks)
+  (declare (inline %make-fuzzy-matching))
   (%make-fuzzy-matching :symbol symbol :score score
 			:package-chunks package-chunks
 			:symbol-chunks symbol-chunks))
@@ -3573,7 +3588,7 @@ a :special-operator, or a :package."
             score
             (append package-chunks
 		    (mapcar #'(lambda (chunk)
-				;; fix up chunk positions to account for possible
+				;; Fix up chunk positions to account for possible
 				;; added package identifier.
 				(let ((offset (first chunk)) (string (second chunk)))
 				  (list (+ added-length offset) string))) 
@@ -3601,24 +3616,29 @@ keywords: :BOUNDP, :FBOUNDP, :GENERIC-FUNCTION, :CLASS, :MACRO,
 
 
 (defun fuzzy-completion-set (string default-package-name &key limit time-limit-in-msec)
-  "Prepares list of completion objects, sorted by SCORE, of fuzzy
-completions of STRING in DEFAULT-PACKAGE-NAME.  If LIMIT is set,
-only the top LIMIT results will be returned."
+  "Returns two values: an array of completion objects, sorted by
+their score, that is how well they are a match for STRING
+according to the fuzzy completion algorithm.  If LIMIT is set,
+only the top LIMIT results will be returned. Additionally, a flag
+is returned that indicates whether or not TIME-LIMIT-IN-MSEC was
+exhausted."
   (check-type (values limit time-limit-in-msec) 
               (or null (integer 0 #.(1- most-positive-fixnum))))
-  (let* ((completion-set (fuzzy-create-completion-set string default-package-name
-						      time-limit-in-msec)))
-        (when (and limit
-                   (> limit 0)
-                   (< limit (length completion-set)))
-          (if (array-has-fill-pointer-p completion-set)
-              (setf (fill-pointer completion-set) limit)
-              (setf completion-set (make-array limit :displaced-to completion-set))))
-    completion-set))
+  (multiple-value-bind (completion-set interrupted-p)
+      (fuzzy-create-completion-set string default-package-name
+                                   time-limit-in-msec)
+    (when (and limit
+               (> limit 0)
+               (< limit (length completion-set)))
+      (if (array-has-fill-pointer-p completion-set)
+          (setf (fill-pointer completion-set) limit)
+          (setf completion-set (make-array limit :displaced-to completion-set))))
+    (values completion-set interrupted-p)))
 
 
 (defun fuzzy-create-completion-set (string default-package-name time-limit-in-msec)
-  "Does all the hard work for FUZZY-COMPLETION-SET."
+  "Does all the hard work for FUZZY-COMPLETION-SET. If
+TIME-LIMIT-IN-MSEC is NIL, an infinite time limit is assumed."
   (multiple-value-bind (parsed-name parsed-package-name package internal-p)
       (parse-completion-arguments string default-package-name)
     (flet ((convert (matchings package-name &optional converter)
@@ -3633,7 +3653,7 @@ only the top LIMIT results will be returned."
 		       matchings))
 	   (fix-up (matchings parent-package-matching)
 	     ;; The components of each matching in MATCHINGS have been computed
-	     ;; relative to PARENT-PACKAGE-MATCHING. Make them absolute.
+	     ;; relatively to PARENT-PACKAGE-MATCHING. Make them absolute.
 	     (let* ((p parent-package-matching)
 		    (p.score  (fuzzy-matching.score p))
 		    (p.chunks (fuzzy-matching.package-chunks p)))
@@ -3643,114 +3663,151 @@ only the top LIMIT results will be returned."
 			       (setf (fuzzy-matching.package-chunks m) p.chunks)
 			       (setf (fuzzy-matching.score m)
 				     (if (string= parsed-name "")
-					 ;; (make packages be sorted before their symbol
-					 ;; matchings while preserving over all orderness
-					 ;; among different symbols in different packages)
+					 ;; (Make package matchings be sorted before all the
+                                         ;; relative symbol matchings while preserving over
+					 ;; all orderness.)
 					 (/ p.score 100)        
 					 (+ p.score m.score)))
 			       m))
 			 matchings)))
-	   (find-matchings (designator package)
+	   (find-symbols (designator package time-limit)
 	     (fuzzy-find-matching-symbols designator package
-					  :time-limit-in-msec time-limit-in-msec
-					  :external-only (not internal-p))))
+					  :time-limit-in-msec time-limit
+					  :external-only (not internal-p)))
+           (find-packages (designator time-limit)
+             (fuzzy-find-matching-packages designator :time-limit-in-msec time-limit)))
       (let ((symbol-normalizer  (completion-output-symbol-converter string))
 	    (package-normalizer #'(lambda (package-name)
 				    (let ((converter (completion-output-package-converter string)))
 				      ;; Present packages with a trailing colon for maximum convenience!
 				      (concatenate 'string (funcall converter package-name) ":"))))
-	    (symbols) (packages) (results))
-	(cond ((not parsed-package-name)        ; STRING = "asd"
+            (time-limit time-limit-in-msec) (symbols) (packages) (results))
+	(cond ((not parsed-package-name)        ; E.g. STRING = "asd"
 	       ;; We don't know if user is searching for a package or a symbol
 	       ;; within his current package. So we try to find either.
-	       (setf symbols  (find-matchings parsed-name package)
-		     symbols  (convert symbols nil symbol-normalizer)
-		     packages (fuzzy-find-matching-packages parsed-name)
-		     packages (convert packages nil package-normalizer)))
-	      ((string= parsed-package-name "") ; STRING = ":" or ":foo"
-	       (setf symbols (find-matchings parsed-name package)
-		     symbols (convert symbols "" symbol-normalizer)))
-	      (t	                        ; STRING= "asdf:" or "asdf:foo"
+	       (setf (values packages time-limit) (find-packages parsed-name time-limit))
+               (setf (values symbols  time-limit) (find-symbols parsed-name package time-limit))
+               (setf symbols  (convert symbols nil symbol-normalizer))
+               (setf packages (convert packages nil package-normalizer)))
+	      ((string= parsed-package-name "") ; E.g. STRING = ":" or ":foo"
+	       (setf (values symbols time-limit) (find-symbols parsed-name package time-limit))
+               (setf symbols (convert symbols "" symbol-normalizer)))
+	      (t	                        ; E.g. STRING = "asdf:" or "asdf:foo"
 	       ;; Find fuzzy matchings of the denoted package identifier part.
-	       ;; After that find matchings for the denoted symbol identifier
-	       ;; relative to all those packages found.
-	       (loop
-		  with found-packages = (fuzzy-find-matching-packages parsed-package-name)
-		  for package-matching across found-packages
-		  do
-		  (let* ((pkgsym       (fuzzy-matching.symbol package-matching))
-			 (package-name (symbol-name pkgsym))
-			 (package-name (funcall symbol-normalizer package-name))
-			 (matchings (find-matchings parsed-name (find-package pkgsym))))
-		    (setf matchings (fix-up matchings package-matching))
-		    (setf matchings (convert matchings package-name symbol-normalizer))
-		    (setf symbols   (concatenate 'vector symbols matchings)))
-		  finally ; CONVERT is destructive. So we have to do this at last.
-		  (when (string= parsed-name "")
-		    (setf packages (convert found-packages nil package-normalizer))))))
+	       ;; After that, find matchings for the denoted symbol identifier
+	       ;; relative to all the packages found.
+               (multiple-value-bind (found-packages rest-time-limit)
+                   (find-packages parsed-package-name time-limit-in-msec)
+                 (loop
+                    for package-matching across found-packages
+                    for package-sym  = (fuzzy-matching.symbol package-matching)
+                    for package-name = (funcall symbol-normalizer (symbol-name package-sym))
+                    for package      = (find-package package-sym)
+                    while (or (not time-limit) (> rest-time-limit 0)) do
+                      (multiple-value-bind (matchings remaining-time)
+                          (find-symbols parsed-name package rest-time-limit)
+                        (setf matchings (fix-up matchings package-matching))
+                        (setf matchings (convert matchings package-name symbol-normalizer))
+                        (setf symbols   (concatenate 'vector symbols matchings))
+                        (setf rest-time-limit remaining-time))
+                    finally ; CONVERT is destructive. So we have to do this at last.
+                      (setf time-limit rest-time-limit)
+                      (setf packages (when (string= parsed-name "")
+                                       (convert found-packages nil package-normalizer)))))))
 	;; Sort alphabetically before sorting by score. (Especially useful when
 	;; PARSED-NAME is empty, and all possible completions are to be returned.)
 	(setf results (concatenate 'vector symbols packages))
-	(setf results (sort results #'string-lessp :key #'first))
-	(setf results (stable-sort results #'> :key #'second))
-	results))))
+	(setf results (sort results #'string< :key #'first))  ; SORT + #'STRING-LESSP
+	(setf results (stable-sort results #'> :key #'second));  conses on at least SBCL.
+	(values results (and time-limit (<= time-limit 0)))))))
+
+
+(defun get-real-time-in-msecs ()
+  (let ((units-per-msec (max 1 (floor internal-time-units-per-second 1000))))
+    (values (floor (get-internal-real-time) units-per-msec)))) ; return just one value!
 
 
 (defun fuzzy-find-matching-symbols (string package &key external-only time-limit-in-msec)
-  "Returns a vector of fuzzy matchings for matching symbols in PACKAGE, 
-using the fuzzy completion algorithm. If EXTERNAL-ONLY is true, only 
-external symbols are considered."
-  (let ((completions (make-array 256 :adjustable t :fill-pointer 0))
-        (converter (completion-output-symbol-converter string))
-        (time-limit (if time-limit-in-msec
-                        (ceiling (/ time-limit-in-msec 1000))
-                        0))
-        (utime-at-start (get-universal-time))
+  "Returns two values: a vector of fuzzy matchings for matching
+symbols in PACKAGE, using the fuzzy completion algorithm; the
+remaining time limit. 
+
+If EXTERNAL-ONLY is true, only external symbols are considered. A
+TIME-LIMIT-IN-MSEC of NIL is considered no limit; if it's zero or
+negative, perform a NOP."
+  (let ((time-limit-p (and time-limit-in-msec t))
+        (time-limit (or time-limit-in-msec 0))
+        (rtime-at-start (get-real-time-in-msecs))
         (count 0))
-    (declare (type (integer 0 #.(1- most-positive-fixnum)) count time-limit))
-    (declare (type function converter))
-    (flet ((time-exhausted-p ()
-             (and (not (zerop time-limit))
-                  (zerop (mod count 256)) ; ease up on calling get-universal-time like crazy
-                  (incf count)
-                  (>= (- (get-universal-time) utime-at-start) time-limit)))
+    (declare (type boolean time-limit-p))
+    (declare (type integer time-limit rtime-at-start))
+    (declare (type (integer 0 #.(1- most-positive-fixnum)) count))
+
+    (flet ((recompute-remaining-time (old-remaining-time)
+             (cond ((not time-limit-p)
+                    (values nil nil)) ; propagate NIL back as infinite time limit.
+                   ((> count 0)       ; ease up on getting internal time like crazy.
+                    (setf count (mod (1+ count) 128))
+                    (values nil old-remaining-time))
+                   (t (let* ((elapsed-time (- (get-real-time-in-msecs) rtime-at-start))
+                             (remaining (- time-limit elapsed-time)))
+                        (values (<= remaining 0) remaining)))))
            (perform-fuzzy-match (string symbol-name)
-             (let ((converted-symbol-name (funcall converter symbol-name)))
+             (let* ((converter (completion-output-symbol-converter string))
+                    (converted-symbol-name (funcall converter symbol-name)))
                (compute-highest-scoring-completion string converted-symbol-name))))
-      (prog1 completions
+      (let ((completions (make-array 256 :adjustable t :fill-pointer 0))
+            (rest-time-limit time-limit))
         (block loop
           (do-symbols* (symbol package)
-            (when (time-exhausted-p) (return-from loop))
-            (when (or (not external-only) (symbol-external-p symbol package))
-	      (if (string= "" string)
-                  (vector-push-extend (make-fuzzy-matching symbol 0.0 '() '())
-				      completions) ; create vanilla matching.
-                  (multiple-value-bind (match-result score)
-                      (perform-fuzzy-match string (symbol-name symbol))
-                    (when match-result
-                      (vector-push-extend (make-fuzzy-matching symbol score '() match-result)
-					  completions)))))))))))
+            (multiple-value-bind (exhausted? remaining-time)
+                (recompute-remaining-time rest-time-limit)
+              (setf rest-time-limit remaining-time)
+              (cond (exhausted? (return-from loop))
+                    ((or (not external-only) (symbol-external-p symbol package))
+                     (if (string= "" string) ; "" matchs always
+                         (vector-push-extend (make-fuzzy-matching symbol 0.0 '() '())
+                                             completions)
+                         (multiple-value-bind (match-result score)
+                             (perform-fuzzy-match string (symbol-name symbol))
+                           (when match-result
+                             (vector-push-extend
+                              (make-fuzzy-matching symbol score '() match-result)
+                              completions)))))))))
+        (values completions rest-time-limit)))))
 
 
-(defun fuzzy-find-matching-packages (name)
-  "Returns a vector of fuzzy matchings for each package that
-is similiar to NAME."
-  (let ((converter (completion-output-package-converter name))
+(defun fuzzy-find-matching-packages (name &key time-limit-in-msec)
+  "Returns a vector of fuzzy matchings for each package that is
+similiar to NAME, and the remaining time limit. 
+Cf. FUZZY-FIND-MATCHING-SYMBOLS."
+  (let ((time-limit-p (and time-limit-in-msec t))
+        (time-limit (or time-limit-in-msec 0))
+        (rtime-at-start (get-real-time-in-msecs))
+        (converter (completion-output-package-converter name))
         (completions (make-array 32 :adjustable t :fill-pointer 0)))
-    (declare ;;(optimize (speed 3))
-             (type function converter))  
-    (loop for package in (list-all-packages)
-          for package-name   = (package-name package)
-          for converted-name = (funcall converter package-name)
-          for package-symbol = (or (find-symbol package-name)
-                                   (make-symbol package-name)) ; INTERN'd be
-          for (result score) = (multiple-value-list            ;  too invasive.
-                                   (compute-highest-scoring-completion
-                                    name converted-name))
-          when result do (vector-push-extend
-			   (make-fuzzy-matching package-symbol score result '())
-			   completions))
-    completions))
+    (declare (type boolean time-limit-p))
+    (declare (type integer time-limit rtime-at-start))
+    (declare (type function converter))
+    (if (and time-limit (<= time-limit 0))
+        (values #() time-limit)
+        (loop for package in (list-all-packages)
+              for package-name   = (package-name package)
+              for converted-name = (funcall converter package-name)
+              for package-symbol = (or (find-symbol package-name)
+                                       (make-symbol package-name)) ; INTERN'd be
+              for (result score) = (multiple-value-list            ;  too invasive.
+                                     (compute-highest-scoring-completion
+                                       name converted-name))
+              when result do (vector-push-extend
+                               (make-fuzzy-matching package-symbol score result '())
+                               completions)
+              finally
+                (return
+                  (values completions
+                          (and time-limit-p
+                               (let ((elapsed-time (- (get-real-time-in-msecs) rtime-at-start)))
+                                 (- time-limit elapsed-time)))))))))
 
 
 (defslimefun fuzzy-completion-selected (original-string completion)
