@@ -1,3 +1,8 @@
+2007-04-08  Marco Baringer  <mb@bese.it>
+
+	* swank.lisp (inspect-for-emacs): Added 'jump to source' action
+	for symbols in the new package-symbol browser.
+
 2007-04-08  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank.lisp: Implemented a new special inspector page for
