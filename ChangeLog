@@ -1,4 +1,8 @@
 2007-04-08  Marco Baringer  <mb@bese.it>
+	
+	* .cvsignore: Added *.lx64fsl (openmcl on linux fasls).
+
+2007-04-08  Marco Baringer  <mb@bese.it>
 
 	* swank.lisp (inspect-for-emacs): Added 'jump to source' action
 	for symbols in the new package-symbol browser.
