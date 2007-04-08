@@ -1,19 +1,5 @@
 2007-04-06  Tobias C. Rittweiler <tcr@freebits.de>
 
-	* swank.lisp (tokenize-symbol, tokenize-symbol-thoroughly):
-	Previously these functions said a string representing a symbol is
-	internal exactly if it contained "::" as substring. Now they say
-	additionally so for symbols without any package identifier, as
-	they are internal to am implicit current package. (Otherwise
-	will break fuzzy completion.)
-
-	(tokenize-symbol): Added docstring.
-
-	* swank.lisp (format-completion-result): Fixed formation
-	for the case that PACKAGE-NAME is NIL but INTERNAL-P is T.
-
-2007-04-06  Tobias C. Rittweiler <tcr@freebits.de>
-
 	* swank.lisp: Making fuzzy completion semantically right from a
 	user perspective. As an example on SBCL, "sb:with- C-c M-i" will
 	display all exported "with"-style macros in all sb-* packages from
