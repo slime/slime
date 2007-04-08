@@ -1,3 +1,10 @@
+2007-04-08  Marco Baringer <mb@bese.it>
+
+	* swank.lisp (fuzzy-completion-set): Use two check-type forms
+	instead of a place like (values limit time-limit-in-msec). While
+	sbcl seems to accept this form openmcl doesn't and it's not clear
+	from the spec that this is allowed.
+
 2007-04-06  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank.lisp: Making fuzzy completion regard the time limit

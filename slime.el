@@ -6306,6 +6306,10 @@ been modified and we abort without touching it.")
 (defvar slime-fuzzy-first nil
   "The position of the first completion in the completions buffer.
 The descriptive text and headers are above this.")
+(defvar slime-fuzzy-last nil
+    "The position of the last completion in the completions buffer.
+If the time limit has exhausted during generation possible completion
+choices inside SWANK, an indication is printed below this.")
 (defvar slime-fuzzy-current-completion nil
   "The current completion object.  If this is the same before and
 after point moves in the completions buffer, the text is not
@@ -6466,24 +6470,25 @@ most recently enclosed macro or function."
         (comint-dynamic-complete-as-filename))))
   (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
          (beg (move-marker (make-marker) (slime-symbol-start-pos)))
-         (prefix (buffer-substring-no-properties beg end))
-         (completion-set (slime-fuzzy-completions prefix)))
-    (if (null completion-set)
-        (progn (slime-minibuffer-respecting-message
-                "Can't find completion for \"%s\"" prefix)
-               (ding)
-               (slime-fuzzy-done))
-      (goto-char end)
-      (cond ((= (length completion-set) 1)
-             (insert-and-inherit (caar completion-set)) ; insert completed string
-             (delete-region beg end)
-             (goto-char (+ beg (length (caar completion-set))))
-             (slime-minibuffer-respecting-message "Sole completion")
-             (slime-fuzzy-done))
-            ;; Incomplete
-            (t
-             (slime-minibuffer-respecting-message "Complete but not unique")
-             (slime-fuzzy-choices-buffer completion-set beg end))))))
+         (prefix (buffer-substring-no-properties beg end)))
+    (destructuring-bind (completion-set interrupted-p)
+        (slime-fuzzy-completions prefix)
+      (if (null completion-set)
+          (progn (slime-minibuffer-respecting-message
+                  "Can't find completion for \"%s\"" prefix)
+                 (ding)
+                 (slime-fuzzy-done))
+          (goto-char end)
+          (cond ((null (cdr completion-set)) ; (= (length completion-set) 1)
+                 (insert-and-inherit (caar completion-set)) ; insert completed string
+                 (delete-region beg end)
+                 (goto-char (+ beg (length (caar completion-set))))
+                 (slime-minibuffer-respecting-message "Sole completion")
+                 (slime-fuzzy-done))
+                ;; Incomplete
+                (t
+                 (slime-minibuffer-respecting-message "Complete but not unique")
+                 (slime-fuzzy-choices-buffer completion-set interrupted-p beg end)))))))
 
 
 (defun slime-get-fuzzy-buffer ()
@@ -6549,7 +6554,7 @@ so that the new text is present."
       (setq slime-fuzzy-text text)
       (goto-char slime-fuzzy-end)))))
 
-(defun slime-fuzzy-choices-buffer (completions start end)
+(defun slime-fuzzy-choices-buffer (completions interrupted-p start end)
   "Creates (if neccessary), populates, and pops up the *Fuzzy
 Completions* buffer with the completions from `completions' and
 the completion slot in the current buffer bounded by `start' and
@@ -6566,7 +6571,7 @@ done."
     (set-marker-insertion-type slime-fuzzy-end t)
     (setq slime-fuzzy-original-text (buffer-substring start end))
     (setq slime-fuzzy-text slime-fuzzy-original-text)
-    (slime-fuzzy-fill-completions-buffer completions)
+    (slime-fuzzy-fill-completions-buffer completions interrupted-p)
     (pop-to-buffer (slime-get-fuzzy-buffer))
     (when new-completion-buffer
       (add-local-hook 'kill-buffer-hook 'slime-fuzzy-abort))
@@ -6574,7 +6579,7 @@ done."
       ;; switch back to the original buffer
       (switch-to-buffer-other-window slime-fuzzy-target-buffer))))
 
-(defun slime-fuzzy-fill-completions-buffer (completions)
+(defun slime-fuzzy-fill-completions-buffer (completions interrupted-p)
   "Erases and fills the completion buffer with the given completions."
   (with-current-buffer (slime-get-fuzzy-buffer)
     (setq buffer-read-only nil)
@@ -6584,6 +6589,7 @@ done."
     (let ((max-length 12))
       (dolist (completion completions)
         (setf max-length (max max-length (length (first completion)))))
+
       (insert "Completion:")
       (dotimes (i (- max-length 10)) (insert " "))
       ;;     Flags:  Score:
@@ -6593,8 +6599,15 @@ done."
       (dotimes (i max-length) (insert "-"))
       (insert " ------- --------\n")
       (setq slime-fuzzy-first (point))
+
       (dolist (completion completions)
+        (setq slime-fuzzy-last (point)) ; will eventually become the last entry
         (slime-fuzzy-insert-completion-choice completion max-length))
+
+      (when interrupted-p
+        (insert "...\n")
+        (insert "[Interrupted: time limit exhausted]"))
+
       (setq buffer-read-only t))
     (setq slime-fuzzy-current-completion
           (caar completions))
@@ -6645,9 +6658,7 @@ buffer."
   (interactive)
   (with-current-buffer (slime-get-fuzzy-buffer)
     (slime-fuzzy-dehighlight-current-completion)
-    (let ((point (next-single-char-property-change (point) 'completion)))
-      (when (= point (point-max))
-        (setf point (previous-single-char-property-change (point-max) 'completion nil slime-fuzzy-first)))
+    (let ((point (next-single-char-property-change (point) 'completion nil slime-fuzzy-last)))
       (set-window-point (get-buffer-window (current-buffer)) point)
       (goto-char point))
     (slime-fuzzy-highlight-current-completion)))

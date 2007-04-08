@@ -3622,8 +3622,8 @@ according to the fuzzy completion algorithm.  If LIMIT is set,
 only the top LIMIT results will be returned. Additionally, a flag
 is returned that indicates whether or not TIME-LIMIT-IN-MSEC was
 exhausted."
-  (check-type (values limit time-limit-in-msec) 
-              (or null (integer 0 #.(1- most-positive-fixnum))))
+  (check-type limit (or null (integer 0 #.(1- most-positive-fixnum))))
+  (check-type time-limit-in-msec (or null (integer 0 #.(1- most-positive-fixnum))))
   (multiple-value-bind (completion-set interrupted-p)
       (fuzzy-create-completion-set string default-package-name
                                    time-limit-in-msec)
