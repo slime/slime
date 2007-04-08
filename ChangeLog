@@ -1,3 +1,7 @@
+2007-04-07 Harald Hanche-Olsen <hanche@math.ntnu.no>
+
+	* slime.el (sldb-mode-map): Added key definition for follow-link.
+
 2007-04-08  Marco Baringer <mb@bese.it>
 
 	* swank.lisp (fuzzy-completion-set): Use two check-type forms

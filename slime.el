@@ -8170,6 +8170,7 @@ Full list of commands:
   ((kbd "RET") 'sldb-default-action)
   ("\C-m"      'sldb-default-action)
   ([mouse-2]  'sldb-default-action/mouse)
+  ([follow-link] 'mouse-face)
   ("e"    'sldb-eval-in-frame)
   ("d"    'sldb-pprint-eval-in-frame)
   ("D"    'sldb-disassemble)
