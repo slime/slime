@@ -1,3 +1,9 @@
+2007-04-12  Nikodemus Siivola <nikodemus@random-state.net>
+
+	* swank-sbcl.lisp (emacs-buffer-source-location): Add &allow-other-keys
+	to the descructuring of the source location plist in order to accept
+	:emacs-directory.
+
 2007-04-09  Marco Baringer  <mb@bese.it>
 
 	* swank.lisp (inspector-content-for-emacs): Look for refresh
