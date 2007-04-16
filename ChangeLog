@@ -1,3 +1,7 @@
+2007-04-16  Marco Baringer <mb@bese.it>
+
+	* slime.el (slime-with-xref-buffer): Added missing ,
+
 2007-04-16  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el: Pressing `q' in *compiler notes* after a `C-c C-k' or
