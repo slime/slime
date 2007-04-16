@@ -7764,7 +7764,7 @@ If CREATE is non-nil, create it if necessary."
                   (slime-init-xref-buffer ,pkg ,type ,sym)
                   (make-local-variable 'slime-xref-saved-window-configuration)
                   (setq slime-xref-saved-window-configuration
-                        (or window-configuration (current-window-configuration))))
+                        (or ,window-configuration (current-window-configuration))))
              (progn ,@body)
            (setq buffer-read-only t)
            (select-window (or (get-buffer-window (current-buffer) t)
