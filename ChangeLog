@@ -1,3 +1,30 @@
+2007-04-11  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank.lisp (fuzzy-find-matching-packages): Fix a small typo that
+	prevented interpreting NIL as the argument TIME-LIMIT-IN-MEC to
+	mean an infinite time limit. This bug propagated up to explicit
+	calls to FUZZY-COMPLETIONS, like 
+	   (swank:fuzzy-completions "mvb" "COMMON-LISP") => (NIL, T)
+
+	(format-fuzzy-completions): Renamed to FORMAT-FUZZY-COMPLETION-SET
+	
+	(format-fuzzy-completion-set): Accomodated to recent changes of
+	the return value of FUZZY-COMPLETIONS; changed the docstring to
+	make it explicit that this function is supposed to take the return
+	value of FUZZY-COMPLETION-SET.
+
+	* slime.el (slime-compilation-finished): Don't use
+	MULTIPLE-VALUE-BIND for list destructuring, only because multiple
+	values happen to be implemented via lists in elisp!
+	(slime-fuzzy-completions-mode): Added an detailed explanation to
+	the docstring of how Fuzzy Completion works and how it'ss supposed
+	to be worked with.
+	(slime-fuzzy-explanation): Shortened to reference to
+	SLIME-FUZZY-COMPLETIONS-MODE for help on fuzzy completion.
+	(slime-fuzzy-choices-buffer): Set BUFFER-QUIT-FUNCTION to
+	SLIME-FUZZY-ABORT to make it correctly exit fuzzy completion when
+	pressing `Esc Esc Esc' (`M-Esc Esc').
+
 2007-04-12  Nikodemus Siivola <nikodemus@random-state.net>
 
 	* swank-sbcl.lisp (emacs-buffer-source-location): Add &allow-other-keys
