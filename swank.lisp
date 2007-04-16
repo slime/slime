@@ -3863,7 +3863,7 @@ Cf. FUZZY-FIND-MATCHING-SYMBOLS."
     (declare (type boolean time-limit-p))
     (declare (type integer time-limit rtime-at-start))
     (declare (type function converter))
-    (if (and time-limit (<= time-limit 0))
+    (if (and time-limit-p (<= time-limit 0))
         (values #() time-limit)
         (loop for package in (list-all-packages)
               for package-name   = (package-name package)
@@ -4103,9 +4103,10 @@ capitalized, while the rest of the string will be lower-case."
                                             (length (second chunk))))))
     highlit))
 
-(defun format-fuzzy-completions (winners)
+(defun format-fuzzy-completion-set (winners)
   "Given a list of completion objects such as on returned by
-FUZZY-COMPLETIONS, format the list into user-readable output."
+FUZZY-COMPLETION-SET, format the list into user-readable output
+for interactive debugging purpose."
   (let ((max-len 
          (loop for winner in winners maximizing (length (first winner)))))
     (loop for (sym score result) in winners do
