@@ -4755,7 +4755,7 @@ Each newlines and following indentation is replaced by a single space."
   (let ((notes (slime-compiler-notes)))
     (with-current-buffer buffer
       (setf slime-compilation-just-finished t)
-      (multiple-value-bind (result secs) result
+      (destructuring-bind (result secs) result
         (slime-show-note-counts notes secs)
         (when slime-highlight-compiler-notes
           (slime-highlight-notes notes))))
@@ -4763,7 +4763,7 @@ Each newlines and following indentation is replaced by a single space."
 
 (defun slime-compilation-finished-continuation ()
   (lexical-let ((buffer (current-buffer)))
-    (lambda (result) 
+    (lambda (result)
       (slime-compilation-finished result buffer))))
 
 (defun slime-highlight-notes (notes)
@@ -6389,6 +6389,43 @@ in the completion window and let the keypress be processed in the target buffer.
   fundamental-mode "Fuzzy Completions"
   "Major mode for presenting fuzzy completion results.
 
+When you run `slime-fuzzy-complete-symbol', the symbol token at
+point is completed using the Fuzzy Completion algorithm; this
+means that the token is taken as a sequence of characters and all
+the various possibilities that this sequence could meaningfully
+represent are offered as selectable choices, sorted by how well
+they deem to be a match for the token. (For instance, the first
+choice of completing on \"mvb\" would be \"multiple-value-bind\".)
+
+Therefore, a new buffer (*Fuzzy Completions*) will pop up that
+contains the different completion choices. Simultaneously, a
+special minor-mode will be temporarily enabled in the original
+buffer where you initiated fuzzy completion (also called the
+``target buffer'') in order to navigate through the *Fuzzy
+Completions* buffer without leaving.
+
+With focus in *Fuzzy Completions*:
+  Type `n' and `p' (`UP', `DOWN') to navigate between completions.
+  Type `RET' or `TAB' to select the completion near point. 
+  Type `q' to abort.
+
+With focus in the target buffer:
+  Type `UP' and `DOWN' to navigate between completions.
+  Type a character that does not constitute a symbol name
+  to insert the current choice and then that character (`(', `)',
+  `SPACE', `RET'.) Use `TAB' to simply insert the current choice.
+  Use C-g to abort.
+
+Alternatively, you can click <mouse-2> on a completion to select it.
+
+
+Complete listing of keybindings within the target buffer:
+
+\\<slime-target-buffer-fuzzy-completions-map>\
+\\{slime-target-buffer-fuzzy-completions-map}
+
+Complete listing of keybindings with *Fuzzy Completions*:
+
 \\<slime-fuzzy-completions-map>\
 \\{slime-fuzzy-completions-map}"
   (use-local-map slime-fuzzy-completions-map))
@@ -6495,9 +6532,8 @@ most recently enclosed macro or function."
   (get-buffer-create "*Fuzzy Completions*"))
 
 (defvar slime-fuzzy-explanation
-  "Click <mouse-2> on a completion to select it.
-In this buffer, type n and p to navigate between completions.
-Type RET to select the completion near point.  Type q to abort.
+  "For help on how the use this buffer, see `slime-fuzzy-completions-mode'.
+
 Flags: boundp fboundp generic-function class macro special-operator package
 \n"
   "The explanation that gets inserted at the beginning of the
@@ -6574,7 +6610,8 @@ done."
     (slime-fuzzy-fill-completions-buffer completions interrupted-p)
     (pop-to-buffer (slime-get-fuzzy-buffer))
     (when new-completion-buffer
-      (add-local-hook 'kill-buffer-hook 'slime-fuzzy-abort))
+      (add-local-hook 'kill-buffer-hook 'slime-fuzzy-abort)
+      (setq buffer-quit-function 'slime-fuzzy-abort)) ; M-Esc Esc
     (when slime-fuzzy-completion-in-place
       ;; switch back to the original buffer
       (switch-to-buffer-other-window slime-fuzzy-target-buffer))))
