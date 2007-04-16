@@ -1,4 +1,8 @@
-2007-04-11  Tobias C. Rittweiler <tcr@freebits.de>
+2007-04-16  Tobias C. Rittweiler <INSERT-EMAIL-HERE>
+
+	* slime.el (slime-easy-menu): Add entry for SLIME-UNTRACE-ALL.
+
+2007-04-16  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank.lisp (fuzzy-find-matching-packages): Fix a small typo that
 	prevented interpreting NIL as the argument TIME-LIMIT-IN-MEC to
