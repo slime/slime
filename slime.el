@@ -254,7 +254,7 @@ If you want to fallback on TAGS you can set this to `find-tag',
   :group 'slime-mode
   :type 'hook
   :options '(slime-maybe-list-compiler-notes
-             slime-list-compiler-notes 
+             slime-list-compiler-notes
              slime-maybe-show-xrefs-for-notes))
 
 (defcustom slime-goto-first-note-after-compilation nil
@@ -1201,7 +1201,8 @@ Buffer local in temp-buffers."))
    "The window config \"fingerprint\" after displaying the buffer."))
 
 ;; Interface
-(defun* slime-get-temp-buffer-create (name &key mode noselectp reusep)
+(defun* slime-get-temp-buffer-create (name &key mode noselectp reusep 
+                                           window-configuration)
   "Return a fresh temporary buffer called NAME in MODE.
 The buffer also uses the minor-mode `slime-temp-buffer-mode'. Pressing
 `q' in the buffer will restore the window configuration to the way it
@@ -1211,8 +1212,14 @@ If NOSELECTP is true, then the buffer is shown by `display-buffer',
 otherwise it is shown and selected by `pop-to-buffer'.
 
 If REUSEP is true and a buffer does already exist with name NAME,
-then the buffer will be reused instead of being killed."
-  (let ((window-config (current-window-configuration))
+then the buffer will be reused instead of being killed.
+
+If WINDOW-CONFIGURATION is non-NIL, it's used to restore the
+original window configuration after closing the temporary
+buffer. Otherwise, the current configuration will be saved and
+that one used for restoration then.
+"
+  (let ((window-config (or window-configuration (current-window-configuration)))
         (buffer (get-buffer name)))
     (when (and buffer (not reusep))
       (kill-buffer name)
@@ -4465,7 +4472,7 @@ The handler will use qeuery to ask the use if the error should be ingored."
               (slime-eval-async 
                `(swank:compile-file-if-needed 
                  ,(slime-to-lisp-filename filename) t)
-               (slime-compilation-finished-continuation))))
+               (slime-make-compilation-finished-continuation (current-buffer)))))
   (:one-liner "Compile (if neccessary) and load a lisp file."))
 
 (defslime-repl-shortcut slime-repl-load/force-system ("force-load-system")
@@ -4621,15 +4628,18 @@ See `slime-compile-and-load-file' for further details."
              (y-or-n-p (format "Save file %s? " (buffer-file-name))))
     (save-buffer))
   (run-hook-with-args 'slime-before-compile-functions (point-min) (point-max))
-  (let ((lisp-filename (slime-to-lisp-filename (buffer-file-name))))
+  (let ((lisp-filename (slime-to-lisp-filename (buffer-file-name)))
+        (window-config (current-window-configuration)))
     (slime-insert-transcript-delimiter
      (format "Compile file %s" lisp-filename))
+    ;; The following may alter the current window-config, so we saved
+    ;; it, to pass it on for it to be restored!
     (when slime-display-compilation-output
       (slime-display-output-buffer))
     (slime-eval-async
      `(swank:compile-file-for-emacs 
        ,lisp-filename ,(if load t nil))
-     (slime-compilation-finished-continuation))
+     (slime-make-compilation-finished-continuation (current-buffer) window-config))
     (message "Compiling %s.." lisp-filename)))
 
 (defun slime-find-asd (system-names)
@@ -4676,7 +4686,7 @@ buffer's working directory"
            system)
   (slime-eval-async
    `(swank:operate-on-system-for-emacs ,system ,operation ,@keyword-args)
-   (slime-compilation-finished-continuation)))
+   (slime-make-compilation-finished-continuation (current-buffer))))
 
 (defun slime-compile-defun ()
   "Compile the current toplevel form."
@@ -4696,7 +4706,7 @@ buffer's working directory"
      ,(buffer-name)
      ,start-offset
      ,(if (buffer-file-name) (file-name-directory (buffer-file-name))))
-   (slime-compilation-finished-continuation)))
+   (slime-make-compilation-finished-continuation (current-buffer))))
 
 (defun slime-note-count-string (severity count &optional suppress-if-zero)
   (cond ((and (zerop count) suppress-if-zero)
@@ -4752,7 +4762,7 @@ Each newlines and following indentation is replaced by a single space."
     (decf n))
   list)
 
-(defun slime-compilation-finished (result buffer)
+(defun slime-compilation-finished (result buffer &optional window-config)
   (let ((notes (slime-compiler-notes)))
     (with-current-buffer buffer
       (setf slime-compilation-just-finished t)
@@ -4760,12 +4770,12 @@ Each newlines and following indentation is replaced by a single space."
         (slime-show-note-counts notes secs)
         (when slime-highlight-compiler-notes
           (slime-highlight-notes notes))))
-    (run-hook-with-args 'slime-compilation-finished-hook notes)))
+    (run-hook-with-args 'slime-compilation-finished-hook notes window-config)))
 
-(defun slime-compilation-finished-continuation ()
-  (lexical-let ((buffer (current-buffer)))
+(defun slime-make-compilation-finished-continuation (current-buffer &optional window-config)
+  (lexical-let ((buffer current-buffer) (config window-config))
     (lambda (result)
-      (slime-compilation-finished result buffer))))
+      (slime-compilation-finished result buffer config))))
 
 (defun slime-highlight-notes (notes)
   "Highlight compiler notes, warnings, and errors in the buffer."
@@ -4847,31 +4857,33 @@ The order of the input list is preserved."
 
 ;;;;; Compiler notes list
 
-(defun slime-maybe-show-xrefs-for-notes (&optional notes)
+(defun slime-maybe-show-xrefs-for-notes (&optional notes window-config)
   "Show the compiler notes NOTES if they come from more than one file."
   (let* ((notes (or notes (slime-compiler-notes))) 
          (xrefs (slime-xrefs-for-notes notes)))
     (when (> (length xrefs) 1)          ; >1 file
       (slime-show-xrefs
-       xrefs 'definition "Compiler notes" (slime-current-package)))))
+       xrefs 'definition "Compiler notes" (slime-current-package)
+       window-config))))
 
 (defun slime-note-has-location-p (note)
   (not (eq ':error (car (slime-note.location note)))))
 
-(defun slime-maybe-list-compiler-notes (notes)
+(defun slime-maybe-list-compiler-notes (notes &optional window-config)
   "Show the compiler notes if appropriate."
   ;; don't pop up a buffer if all notes will are already annotated in
   ;; the buffer itself
   (unless (every #'slime-note-has-location-p notes)
-    (slime-list-compiler-notes notes)))
+    (slime-list-compiler-notes notes window-config)))
 
-(defun slime-list-compiler-notes (notes)
+(defun slime-list-compiler-notes (notes &optional window-config)
   "Show the compiler notes NOTES in tree view."
   (interactive (list (slime-compiler-notes)))
   (with-temp-message "Preparing compiler note tree..."
     (with-current-buffer
         (slime-get-temp-buffer-create "*compiler notes*"
-                                      :mode 'slime-compiler-notes-mode)
+                                      :mode 'slime-compiler-notes-mode
+                                      :window-configuration window-config)
       (let ((inhibit-read-only t))
         (erase-buffer)
         (when (null notes)
@@ -7741,7 +7753,8 @@ If CREATE is non-nil, create it if necessary."
       (select-window (display-buffer buffer t))
       (shrink-window-if-larger-than-buffer))))
 
-(defmacro* slime-with-xref-buffer ((package ref-type symbol) &body body)
+(defmacro* slime-with-xref-buffer ((package ref-type symbol &key window-configuration) 
+                                   &body body)
   "Execute BODY in a xref buffer, then show that buffer."
   (let ((type (gensym)) (sym (gensym)) (pkg (gensym)))
     `(let ((,type ,ref-type) (,sym ,symbol) (,pkg ,package))
@@ -7751,7 +7764,7 @@ If CREATE is non-nil, create it if necessary."
                   (slime-init-xref-buffer ,pkg ,type ,sym)
                   (make-local-variable 'slime-xref-saved-window-configuration)
                   (setq slime-xref-saved-window-configuration
-                        (current-window-configuration)))
+                        (or window-configuration (current-window-configuration))))
              (progn ,@body)
            (setq buffer-read-only t)
            (select-window (or (get-buffer-window (current-buffer) t)
@@ -7783,12 +7796,12 @@ GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
   (backward-char 1)
   (delete-char 1))
 
-(defun slime-show-xrefs (xrefs type symbol package)
+(defun slime-show-xrefs (xrefs type symbol package &optional window-config)
   "Show the results of an XREF query."
   (if (null xrefs)
       (message "No references found for %s." symbol)
     (setq slime-next-location-function 'slime-goto-next-xref)
-    (slime-with-xref-buffer (package type symbol)
+    (slime-with-xref-buffer (package type symbol :window-configuration window-config)
       (slime-insert-xrefs xrefs)
       (goto-char (point-min))
       (forward-line)
