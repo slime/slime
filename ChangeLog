@@ -1,6 +1,28 @@
-2007-04-16  Tobias C. Rittweiler <INSERT-EMAIL-HERE>
+2007-04-16  Tobias C. Rittweiler <tcr@freebits.de>
 
-	* slime.el (slime-easy-menu): Add entry for SLIME-UNTRACE-ALL.
+	* slime.el: Pressing `q' in *compiler notes* after a `C-c C-k' or
+	`C-c M-k' would not probably restore the original window
+	configuration. Fix that.
+
+	(slime-get-temp-buffer-create): New &key arg WINDOW-CONFIGURATION.
+	(slime-with-xref-buffer): Likewise.
+	
+	(slime-compilation-finished): New &optional arg WINDOW-CONFIG.
+	(slime-maybe-show-xrefs-for-notes): Likewise.
+	(slime-show-xrefs) Likewise.
+	(slime-maybe-list-compiler-notes): Likewise.
+	(slime-list-compiler-notes): Likewise.
+
+	(slime-compilation-finished-continuation): Renamed to
+	SLIME-MAKE-COMPILATION-FINISHED-CONTINUATION.
+
+	(slime-make-compilation-finished-continuation): Now takes two
+	args, the current buffer and optionally the current window config
+	to be restored.
+	
+	(slime-compile-file): Save current window configuration before
+	popping up the REPL for compilation output, pass it down.
+	(slime-easy-menu): Add entry for SLIME-UNTRACE-ALL.
 
 2007-04-16  Tobias C. Rittweiler <tcr@freebits.de>
 
