@@ -837,6 +837,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
        [ "Macroexpand Once..."     slime-macroexpand-1 ,C ]
        [ "Macroexpand All..."      slime-macroexpand-all ,C ]
        [ "Toggle Trace..."         slime-toggle-trace-fdefinition ,C ]
+       [ "Untrace All"             slime-untrace-all ,C]
        [ "Disassemble..."          slime-disassemble-symbol ,C ]
        [ "Inspect..."              slime-inspect ,C ])
       ("Compilation"
