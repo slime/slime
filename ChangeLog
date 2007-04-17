@@ -1,3 +1,18 @@
+2007-04-17  Takehiko Abe <keke@gol.com>
+
+	* swank.lisp (swank-compiler): Fix the return value to always be a
+	list of two elements even if the abort restart is invoked which
+	originally just returned NIL. (Which wouldn't play with the recent
+	change to use DESTRUCTURING-BIND in SLIME-COMPILATION-FINISHED.)
+
+2007-04-17  Takehiko Abe <keke@gol.com>
+
+ 	* swank.lisp (inspect-for-emacs %package-symbols-container):
+	Revert Marco's change from 2007-04-08; he had the good idea of
+	adding a facility to jump to the relevant source line of a symbol,
+	but `M-.' is already bound to SLIME-FIND-DEFINITION in the
+	inspector, which is a nicer way of doing this alltogether.
+	
 2007-04-16  Takehiko Abe <keke@gol.com>
 
 	* swank-openmcl.lisp (accept-connection, find-external-format):
