@@ -4937,49 +4937,107 @@ See `methods-by-applicability'.")
 ;; be displayed with their respective classification flags. This is
 ;; because we need a unique type to dispatch on in INSPECT-FOR-EMACS.
 ;; Used by the Inspector for packages.
-(defstruct %package-symbols-container
-  title       ;; A string; the title of the inspector page in Emacs.   
-  description ;; A list of renderable objects; used as description.
-  symbols)    ;; The actual symbol list.
+(defstruct (%package-symbols-container (:conc-name   %container.)
+                                       (:constructor %%make-package-symbols-container))
+  title          ;; A string; the title of the inspector page in Emacs.   
+  description    ;; A list of renderable objects; used as description.
+  symbols        ;; A list of symbols. Supposed to be sorted alphabetically.
+  grouping-kind  ;; Either :SYMBOL or :CLASSIFICATION. Cf. MAKE-SYMBOLS-LISTING.
+  )
+
+(defun %make-package-symbols-container (&key title description symbols)
+  (%%make-package-symbols-container :title title :description description
+                                    :symbols symbols :grouping-kind :symbol))
+
+
+(defmethod make-symbols-listing ((grouping-kind (eql :symbol)) symbols)
+  "Returns an object renderable by Emacs' inspector side that
+alphabetically lists all the symbols in SYMBOLS together with a
+concise string representation of what each symbol
+represents (cf. CLASSIFY-SYMBOL & Fuzzy Completion.)"
+  (let ((max-length (loop for s in symbols maximizing (length (symbol-name s))))
+        (distance 10)) ; empty distance between name and classification
+    (flet ((string-representations (symbol)
+             (let* ((name (symbol-name symbol))
+                    (length (length name))
+                    (padding (- max-length length))                    
+                    (classification (classify-symbol symbol)))
+               (values
+                (concatenate 'string
+                             name
+                             (make-string (+ padding distance) :initial-element #\Space))
+                (symbol-classification->string classification)))))
+      `(""                           ; 8 is (length "Symbols:")
+        "Symbols:" ,(make-string (+ -8 max-length distance) :initial-element #\Space) "Flags:"
+        (:newline)
+        ,(concatenate 'string        ; underlining dashes
+                      (make-string (+ max-length distance -1) :initial-element #\-)
+                      " "
+                      (let* ((dummy (classify-symbol (gensym)))
+                             (dummy (symbol-classification->string dummy))
+                             (classification-length (length dummy)))
+                        (make-string classification-length :initial-element #\-)))
+        (:newline)          
+        ,@(loop for symbol in symbols appending
+               (multiple-value-bind (symbol-string classification-string)
+                   (string-representations symbol)
+                 `((:value ,symbol ,symbol-string) ,classification-string
+                   (:newline)
+                   )))))))
+
+(defmethod make-symbols-listing ((grouping-kind (eql :classification)) symbols)
+  "For each possible classification (cf. CLASSIFY-SYMBOL), group
+all the symbols in SYMBOLS to all of their respective
+classifications. (If a symbol is, for instance, boundp and a
+generic-function, it'll appear both below the BOUNDP group and
+the GENERIC-FUNCTION group.) As macros and special-operators are
+specified to be FBOUNDP, there is no general FBOUNDP group,
+instead there are the three explicit FUNCTION, MACRO and
+SPECIAL-OPERATOR groups."
+  (let ((table (make-hash-table :test #'eq)))
+    (flet ((maybe-convert-fboundps (classifications)
+             ;; Convert an :FBOUNDP in CLASSIFICATION to :FUNCTION if possible.
+             (if (and (member :fboundp classifications)
+                      (not (member :macro classifications))
+                      (not (member :special-operator classifications)))
+                 (substitute :function :fboundp classifications)
+                 (remove :fboundp classifications))))
+      (loop for symbol in symbols do
+            (loop for classification in (maybe-convert-fboundps (classify-symbol symbol))
+                  ;; SYMBOLS are supposed to be sorted alphabetically;
+                  ;; this property is preserved here expect for reversing.
+                  do (push symbol (gethash classification table)))))
+    (let* ((classifications (loop for k being the hash-key in table collect k))
+           (classifications (sort classifications #'string<)))
+      (loop for classification in classifications
+            for symbols = (gethash classification table)
+            appending`(,(symbol-name classification)
+                        (:newline)
+                        ,(make-string 64 :initial-element #\-)
+                        (:newline)
+                        ,@(mapcan #'(lambda (symbol)
+                                      (list `(:value ,symbol ,(symbol-name symbol)) '(:newline)))
+                                  (nreverse symbols)) ; restore alphabetic orderness.
+                        (:newline)
+                        )))))
 
 (defmethod inspect-for-emacs ((%container %package-symbols-container) inspector)
   (declare (ignore inspector))
-  (with-struct (%package-symbols-container- title description symbols) %container
-    (let ((max-length (loop for s in symbols maximizing (length (symbol-name s))))
-          (distance 10)) ; empty distance between name and classification
-      (flet ((string-representations (symbol)
-               (let* ((name (symbol-name symbol))
-                      (length (length name))
-                      (padding (- max-length length))                    
-                      (classification (classify-symbol symbol)))
-                 (values
-                  (concatenate 'string
-                               name
-                               (make-string (+ padding distance) :initial-element #\Space))
-                  (symbol-classification->string classification)))))
-        (values
-         
-         title
-         
-         `(,@description (:newline)
-                                        ; 8 is (length "Symbols:")
-           "Symbols:" ,(make-string (+ -8 max-length distance) :initial-element #\Space) "Flags:"
-           (:newline)
-           ,(concatenate 'string        ; underlining dashes
-                         (make-string (+ max-length distance -1) :initial-element #\-)
-                         " "
-                         (let* ((dummy (classify-symbol (gensym)))
-                                (dummy (symbol-classification->string dummy))
-                                (classification-length (length dummy)))
-                           (make-string classification-length :initial-element #\-)))
-           (:newline)
-           
-           ,@(loop for symbol in symbols appending
-                  (multiple-value-bind (symbol-string classification-string)
-                      (string-representations symbol)
-                    `((:value ,symbol ,symbol-string) ,classification-string
-                      (:newline)
-                      )))))))))
+  (with-struct (%container. title description symbols grouping-kind) %container
+    (values title
+            `(,@description
+              (:newline)
+              "  " ,(ecase grouping-kind
+                           (:symbol
+                            `(:action "[Group by classification]"
+                                      ,(lambda () (setf grouping-kind :classification))
+                                      :refreshp t))
+                           (:classification
+                            `(:action "[Group by symbol]"
+                                      ,(lambda () (setf grouping-kind :symbol))
+                                      :refreshp t)))
+              (:newline) (:newline)
+              ,@(make-symbols-listing grouping-kind symbols)))))
 
 
 (defmethod inspect-for-emacs ((package package) inspector)
@@ -5037,7 +5095,7 @@ See `methods-by-applicability'.")
        (flet ((display-link (type symbols length &key title description)
                 (if (null symbols)
                     (format nil "0 ~A symbols." type)
-                    `(:value ,(make-%package-symbols-container :title title
+                    `(:value ,(%make-package-symbols-container :title title
                                                                :description description
                                                                :symbols symbols)
                              ,(format nil "~D ~A symbol~P." length type length)))))
