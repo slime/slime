@@ -1,5 +1,27 @@
 2007-04-17  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank.lisp: Instead of just having all the symbols of a package
+	listed alphabetically in the inspector page recently introduced
+	for that purpose, add a button to that page to group them by their
+	classification.
+
+	(%package-symbols-container): New slot GROUPING-KIND.
+	(%make-package-symbols-container): New function; wraps around
+	%%MAKE-PACKAGE-SYMBOLS-CONTAINER, which will actually create the
+	structure. We need this, to make GROUPING-KIND an entirely
+	internal affair.
+
+	(make-symbols-listing): New generic function to dispatch on
+	GROUPING-KIND.
+	(make-symbols-listing :symbol): Just the stuff that was priorly
+	wired into INSPECT-FOR-EMACS (%PACKAGE-SYMBOLS-CONTAINER).
+	(make-symbols-listing :classification): New; returns the passed
+	symbols grouped by their classification.
+	(inspect-for-emacs %package-symbols-container): Most code split
+	off into MAKE-SYMBOLS-LISTING.
+
+2007-04-17  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank.lisp (swank-compiler): Fix the return value to always be a
 	list of two elements even if the abort restart is invoked which
 	originally just returned NIL. (Which wouldn't play with the recent
