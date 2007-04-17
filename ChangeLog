@@ -1,11 +1,11 @@
-2007-04-17  Takehiko Abe <keke@gol.com>
+2007-04-17  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank.lisp (swank-compiler): Fix the return value to always be a
 	list of two elements even if the abort restart is invoked which
 	originally just returned NIL. (Which wouldn't play with the recent
 	change to use DESTRUCTURING-BIND in SLIME-COMPILATION-FINISHED.)
 
-2007-04-17  Takehiko Abe <keke@gol.com>
+2007-04-17  Tobias C. Rittweiler <tcr@freebits.de>
 
  	* swank.lisp (inspect-for-emacs %package-symbols-container):
 	Revert Marco's change from 2007-04-08; he had the good idea of
