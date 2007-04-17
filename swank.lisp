@@ -3055,12 +3055,17 @@ The time is measured in microseconds."
 
 (defun swank-compiler (function)
   (clear-compiler-notes)
-  (with-simple-restart (abort "Abort SLIME compilation.")
-    (multiple-value-bind (result usecs)
+  (multiple-value-bind (result usecs)
+      (with-simple-restart (abort "Abort SLIME compilation.")
         (handler-bind ((compiler-condition #'record-note-for-condition))
-          (measure-time-interval function))
-      (list (to-string result)
-            (format nil "~,2F" (/ usecs 1000000.0))))))
+          (measure-time-interval function)))
+    ;; WITH-SIMPLE-RESTART returns (values nil t) if its restart is invoked;
+    ;; unfortunately the SWANK protocol doesn't support returning multiple
+    ;; values, so we gotta convert it explicitely to a list in either case.
+    (if (and (not result) (eq usecs 't))
+        (list nil nil)
+        (list (to-string result)
+              (format nil "~,2F" (/ usecs 1000000.0))))))
 
 (defslimefun compile-file-for-emacs (filename load-p)
   "Compile FILENAME and, when LOAD-P, load the result.
@@ -4973,10 +4978,6 @@ See `methods-by-applicability'.")
                   (multiple-value-bind (symbol-string classification-string)
                       (string-representations symbol)
                     `((:value ,symbol ,symbol-string) ,classification-string
-                      " "
-                      (:action "[jump to source]"
-                               , (let ((symbol symbol))
-                                   (lambda () (ed-in-emacs symbol))))
                       (:newline)
                       )))))))))
 
