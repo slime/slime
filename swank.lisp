@@ -41,6 +41,7 @@
            #:*macroexpand-printer-bindings*
            #:*record-repl-results*
            #:*inspector-dwim-lookup-hooks*
+           #:*debug-on-swank-error*
            ;; These are re-exported directly from the backend:
            #:buffer-first-change
            #:frame-source-location-for-emacs
@@ -346,14 +347,18 @@ The package is deleted before returning."
 (defun log-event (format-string &rest args)
   "Write a message to *terminal-io* when *log-events* is non-nil.
 Useful for low level debugging."
-  (when *enable-event-history*
-    (setf (aref *event-history* *event-history-index*) 
-          (format nil "~?" format-string args))
-    (setf *event-history-index* 
-          (mod (1+ *event-history-index*) (length *event-history*))))
-  (when *log-events*
-    (apply #'format *log-output* format-string args)
-    (force-output *log-output*)))
+  (with-standard-io-syntax
+    (let ((*print-readably* nil)
+          (*print-pretty* nil)
+          (*package* *swank-io-package*))
+      (when *enable-event-history*
+        (setf (aref *event-history* *event-history-index*) 
+              (format nil "~?" format-string args))
+        (setf *event-history-index* 
+              (mod (1+ *event-history-index*) (length *event-history*))))
+      (when *log-events*
+        (apply #'format *log-output* format-string args)
+        (force-output *log-output*)))))
 
 (defun event-history-to-list ()
   "Return the list of events (older events first)."
@@ -639,15 +644,25 @@ of the toplevel restart."
             *use-dedicated-output-stream*)
     (finish-output *debug-io*)))
 
+(defvar *debug-on-swank-error* nil
+  "When non-nil internal swank errors will drop to a
+  debugger (not an sldb buffer). Do not set this to T unless you
+  want to debug swank internals.")
+
 (defmacro with-reader-error-handler ((connection) &body body)
-  (let ((con (gensym)))
+  (let ((con (gensym))
+        (block (gensym)))
     `(let ((,con ,connection))
-       (handler-case 
-           (progn ,@body)
-         (swank-error (e)
-           (close-connection ,con 
-                             (swank-error.condition e)
-                             (swank-error.backtrace e)))))))
+       (block ,block
+         (handler-bind ((swank-error
+                         (lambda (e)
+                           (if *debug-on-swank-error*
+                               (invoke-debugger e)
+                               (return-from ,block
+                                 (close-connection ,con 
+                                                   (swank-error.condition e)
+                                                   (swank-error.backtrace e)))))))
+           (progn ,@body))))))
 
 (defslimefun simple-break ()
   (with-simple-restart  (continue "Continue from interrupt.")
@@ -669,10 +684,12 @@ of the toplevel restart."
 
 (defun dispatch-loop (socket-io connection)
   (let ((*emacs-connection* connection))
-    (handler-case
-        (loop (dispatch-event (receive) socket-io))
-      (error (e)
-        (close-connection connection e)))))
+    (handler-bind ((error (lambda (e)
+                            (if *debug-on-swank-error*
+                                (invoke-debugger e)
+                                (return-from dispatch-loop
+                                  (close-connection connection e))))))
+      (loop (dispatch-event (receive) socket-io)))))
 
 (defun repl-thread (connection)
   (let ((thread (connection.repl-thread connection)))
