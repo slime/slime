@@ -1,3 +1,14 @@
+2007-04-18  Marco Baringer  <mb@bese.it>
+
+	* swank.lisp (log-event): Setup the printer so that, no matter
+	what the global values of the *print-XYZ* variables, this function
+	works as expected.
+	(*debug-on-swank-error*): New variable.
+	(defpackage :swank): Export *debug-on-swank-error*.
+	(with-reader-error-handler): When *debug-on-swank-error* is
+	non-nil drop into a debugger.
+	(dispatch-loop): Idem.
+
 2007-04-17  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank.lisp: Instead of just having all the symbols of a package
