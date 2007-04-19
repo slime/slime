@@ -1,3 +1,11 @@
+2007-04-19  Tobias C. Rittweiler <INSERT-EMAIL-HERE>
+
+	* swank-backend.lisp (label-value-line): Add :newline as &key
+	argument; if true (the default) inserts a newline.
+
+	* swank.lisp (inspect-for-emacs-list): Don't add a newline after
+	the last value of the list.
+	
 2007-04-18  Marco Baringer  <mb@bese.it>
 
 	* swank.lisp (log-event): Setup the printer so that, no matter
