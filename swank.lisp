@@ -4482,15 +4482,18 @@ Do NOT pass circular lists to this function."
   (let ((maxlen 40))
     (multiple-value-bind (length tail) (safe-length list)
       (flet ((frob (title list)
-               (let ((lines 
-                      (do ((i 0 (1+ i))
-                           (l list (cdr l))
-                           (a '() (cons (label-value-line i (car l)) a)))
-                          ((not (consp l))
-                           (let ((a (if (null l)
-                                        a
-                                        (cons (label-value-line :tail l) a))))
-                             (reduce #'append (reverse a) :from-end t))))))
+               (let (lines)
+                 (loop for i from 0 for rest on list do
+                       (if (consp (cdr rest))     ; e.g. (A . (B . ...))
+                           (push (label-value-line i (car rest)) lines)
+                           (progn                 ; e.g. (A . NIL) or (A . B)
+                             (push (label-value-line i (car rest) :newline nil) lines)
+                             (when (cdr rest)
+                               (push '((:newline)) lines)
+                               (push (label-value-line ':tail () :newline nil) lines))
+                             (loop-finish)))
+                       finally
+                       (setf lines (reduce #'append (nreverse lines) :from-end t)))
                  (values title (append '("Elements:" (:newline)) lines)))))
                                
         (cond ((not length)             ; circular
