@@ -1,4 +1,4 @@
-2007-04-19  Tobias C. Rittweiler <INSERT-EMAIL-HERE>
+2007-04-19  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank-backend.lisp (label-value-line): Add :newline as &key
 	argument; if true (the default) inserts a newline.
