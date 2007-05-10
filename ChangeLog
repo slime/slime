@@ -1,3 +1,19 @@
+2007-04-21  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el: Within the Slime Inspector, `S-Tab' will now also work
+	 on X.  Furthermore `Tab' and `S-Tab' will now correctly wrap
+	 around the beginning and end of the buffer; priorly it'd hang on
+	 the beginning with a message "Beginning of buffer", and would
+	 require an additional `S-Tab'.
+
+	(slime-inspector-mode-map): Attached `[backtab]' to
+	SLIME-INSPECTOR-PREVIOUS-INSPECTABLE-OBJECT, as Emacs translates
+	`S-Tab' to `Backtab' on X.
+	(slime-find-inspectable-object): New function; finds next or
+	previous inspectable object.
+	(slime-inspector-next-inspectable-object): Mostly rewritten. Use
+	SLIME-FIND-INSPECTABLE-OBJECT to make the code clearer.
+
 2007-04-19  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank-backend.lisp (label-value-line): Add :newline as &key

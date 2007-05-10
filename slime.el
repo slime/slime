@@ -9455,53 +9455,57 @@ position of point in the current buffer."
   (set-window-configuration slime-saved-window-config)
   (kill-buffer (current-buffer)))
 
+(defun slime-find-inspectable-object (direction limit)
+  "Finds the next or previous inspectable object within the
+current buffer, depending on whether DIRECTION is 'NEXT or
+'PREV. LIMIT is the maximum or minimum position in the current
+buffer.
+
+Returns a list of two values: If an object could be found, the
+starting position of the found object and T is returned;
+otherwise LIMIT and NIL is returned.
+"
+  (let ((finder (ecase direction
+                  (next 'next-single-property-change)
+                  (prev 'previous-single-property-change))))
+    (let ((prop nil) (curpos (point)))
+      (while (and (not prop) (not (= curpos limit)))
+        (let ((newpos (funcall finder curpos 'slime-part-number nil limit)))
+          (setq prop (get-text-property newpos 'slime-part-number))
+          (setq curpos newpos)))
+      (list curpos (and prop t)))))
+
 (defun slime-inspector-next-inspectable-object (arg)
   "Move point to the next inspectable object.
 With optional ARG, move across that many objects.
 If ARG is negative, move backwards."
   (interactive "p")
-  (or (bobp) (> arg 0) (backward-char))
-  (let ((wrapped 0)
-	(number arg)
-	(old (get-text-property (point) 'slime-part-number))
-	new)
+  (let ((maxpos (point-max)) (minpos (point-min))
+        (previously-wrapped-p nil))
     ;; Forward.
     (while (> arg 0)
-      (cond ((eobp)
-	     (goto-char (point-min))
-	     (setq wrapped (1+ wrapped)))
-	    (t
-	     (goto-char (or (next-single-property-change (point) 
-                                                         'slime-part-number)
-                            (point-max)))))
-      (and (= wrapped 2)
-	   (eq arg number)
-	   (error "No inspectable objects"))
-      (let ((new (get-text-property (point) 'slime-part-number)))
-	(when new
-	  (unless (eq new old)
-	    (setq arg (1- arg))
-	    (setq old new)))))
+      (destructuring-bind (pos foundp)
+          (slime-find-inspectable-object 'next maxpos)
+        (if foundp
+            (progn (goto-char pos) (setq arg (1- arg))
+                   (setq previously-wrapped-p nil))
+            (if (not previously-wrapped-p) ; cycle detection
+                (progn (goto-char minpos) (setq previously-wrapped-p t))
+                (error "No inspectable objects")))))
     ;; Backward.
     (while (< arg 0)
-      (cond ((bobp)
-	     (goto-char (point-max))
-	     (setq wrapped (1+ wrapped)))
-	    (t
-	     (goto-char (or (previous-single-property-change 
-                             (point) 'slime-part-number)
-                            (point-min)))))
-      (and (= wrapped 2)
-	   (eq arg number)
-	   (error "No inspectable objects"))
-      (let ((new (get-text-property (point) 'slime-part-number)))
-	(when new
-	  (unless (eq new old)
-	    (setq arg (1+ arg))))))
-    (let ((new (get-text-property (point) 'slime-part-number)))
-      (while (eq (get-text-property (point) 'slime-part-number) new)
-	(backward-char)))
-    (forward-char)))
+      (destructuring-bind (pos foundp)
+          (slime-find-inspectable-object 'prev minpos)
+        ;; SLIME-OPEN-INSPECTOR inserts the title of an inspector page
+        ;; as a presentation at the beginning of the buffer; skip
+        ;; that.  (Notice how this problem can not arise in ``Forward.'')
+        (if (and foundp (/= pos minpos))
+            (progn (goto-char pos) (setq arg (1+ arg))
+                   (setq previously-wrapped-p nil))
+            (if (not previously-wrapped-p) ; cycle detection
+                (progn (goto-char maxpos) (setq previously-wrapped-p t))
+                (error "No inspectable objects")))))))
+
 
 (defun slime-inspector-previous-inspectable-object (arg)
   "Move point to the previous inspectable object.
@@ -9539,7 +9543,8 @@ If ARG is negative, move forwards."
   ("q" 'slime-inspector-quit)
   ("g" 'slime-inspector-reinspect)
   ("\C-i" 'slime-inspector-next-inspectable-object)
-  ([(shift tab)] 'slime-inspector-previous-inspectable-object)
+  ([(shift tab)] 'slime-inspector-previous-inspectable-object) ; Emacs translates S-TAB
+  ([backtab]     'slime-inspector-previous-inspectable-object) ; to BACKTAB on X.
   ("\M-." 'slime-edit-definition))
 
 
