@@ -7953,13 +7953,33 @@ When displaying XREF information, this goes to the next reference."
                      (slime-remove-edits (point-min) (point-max)))
                    (undo arg)))))
 
+(defun slime-sexp-at-point-for-macroexpansion ()
+  "Essentially like SLIME-SEXP-AT-POINT-OR-ERROR, but behaves a
+bit more sanely in situations like ,(loop ...) where you want to
+expand the LOOP form. See comment in the source of this function."
+  (let ((string (slime-sexp-at-point-or-error))
+        (bounds (bounds-of-thing-at-point 'sexp))
+        (char-at-point (substring-no-properties (thing-at-point 'char))))
+    ;; SLIME-SEXP-AT-POINT(-OR-ERROR) uses (THING-AT-POINT 'SEXP)
+    ;; which is quite a bit botched: it returns "'(FOO BAR BAZ)" even
+    ;; when point is placed _at the opening parenthesis_, and hence
+    ;; "(FOO BAR BAZ)" wouldn't get expanded. Likewise for ",(...)",
+    ;; ",@(...)" (would return "@(...)"!!), and "\"(...)".
+    ;; So we better fix this up here:
+    (when (string= char-at-point "(")
+      (let ((char0 (elt string 0)))
+        (when (member char0 '(?\' ?\, ?\" ?\@))
+          (setf string (substring string 1))
+          (incf (car bounds)))))
+    (list string bounds)))
+
 (defvar slime-eval-macroexpand-expression nil
   "Specifies the last macroexpansion preformed. This variable
   specifies both what was expanded and how.")
 
 (defun slime-eval-macroexpand (expander &optional string)
   (unless string
-    (setf string (slime-sexp-at-point-or-error)))
+    (setf string (first (slime-sexp-at-point-for-macroexpansion))))
   (setf slime-eval-macroexpand-expression `(,expander ,string))
   (lexical-let ((package (slime-current-package)))
     (slime-eval-async 
@@ -7978,31 +7998,26 @@ When displaying XREF information, this goes to the next reference."
 
 NB: Does not affect *slime-eval-macroexpand-expression*"
   (interactive)
-  (lexical-let* ((string (slime-sexp-at-point-or-error))
-                 (bounds (bounds-of-thing-at-point 'sexp))
-                 (start (car bounds))
-                 (end (cdr bounds))
-                 (point (point))
-                 (package (slime-current-package))
-                 (buffer (current-buffer)))
-    ;; SLIME-SEXP-AT-POINT returns "'(FOO BAR BAZ)" even when point is
-    ;; placed at the opening parenthesis, which wouldn't get expanded
-    ;; even though FOO was a macro. Hence this workaround:
-    (when (and (eq ?\' (elt string 0)) (eq ?\( (elt string 1)))
-      (setf string (substring string 1)) (incf start))
-    (slime-eval-async 
-     `(,expander ,string)
-     (lambda (expansion)
-       (with-current-buffer buffer
-         (let ((buffer-read-only nil))
-           (when slime-use-highlight-edits-mode
-             (slime-remove-edits (point-min) (point-max)))
-           (goto-char start)
-           (delete-region start end)
-           (insert expansion)
-           (goto-char start)
-           (indent-sexp)
-           (goto-char point)))))))
+  (destructuring-bind (string bounds)
+      (slime-sexp-at-point-for-macroexpansion)
+    (lexical-let* ((start (car bounds))
+                   (end (cdr bounds))
+                   (point (point))
+                   (package (slime-current-package))
+                   (buffer (current-buffer)))
+      (slime-eval-async 
+       `(,expander ,string)
+       (lambda (expansion)
+         (with-current-buffer buffer
+           (let ((buffer-read-only nil))
+             (when slime-use-highlight-edits-mode
+               (slime-remove-edits (point-min) (point-max)))
+             (goto-char start)
+             (delete-region start end)
+             (insert expansion)
+             (goto-char start)
+             (indent-sexp)
+             (goto-char point))))))))
 
 (defun slime-macroexpand-1 (&optional repeatedly)
   "Display the macro expansion of the form at point.  The form is

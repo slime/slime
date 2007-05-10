@@ -1,4 +1,14 @@
-2007-04-21  Tobias C. Rittweiler <tcr@freebits.de>
+2007-05-10  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el: Fix macroexpanding on things like ",(loop ...)".
+
+	(slime-sexp-at-point-for-macroexpansion): New function; like
+	SLIME-SEXP-AT-POINT-OR-ERROR, but fixes up some misbehaviour with
+	respect to macroexpansion.
+	(slime-eval-macroexpand, slime-eval-macroexpand-inplace): Use the
+	new function.
+
+2007-05-10  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el: Within the Slime Inspector, `S-Tab' will now also work
 	 on X.  Furthermore `Tab' and `S-Tab' will now correctly wrap
