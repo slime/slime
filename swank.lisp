@@ -4187,6 +4187,8 @@ The result is a list of property lists."
   (let ((package (if package
                      (or (parse-package package)
                          (error "No such package: ~S" package)))))
+    ;; The MAPCAN will filter all uninteresting symbols, i.e. those
+    ;; who cannot be meaningfully described.
     (mapcan (listify #'briefly-describe-symbol-for-emacs)
             (sort (remove-duplicates
                    (apropos-symbols name external-only case-sensitive package))
@@ -4243,26 +4245,23 @@ that symbols accessible in the current package go first."
                   (lambda (s) (check-type s string) t)
                   (compile nil (slime-nregex:regex-compile regex-string)))))))
 
-(defun apropos-matcher (string case-sensitive package external-only)
+(defun make-regexp-matcher (string case-sensitive)
   (let* ((case-modifier (if case-sensitive #'string #'string-upcase))
          (regex (compiled-regex (funcall case-modifier string))))
     (lambda (symbol)
-      (and (not (keywordp symbol))
-           (if package (eq (symbol-package symbol) package) t)
-           (if external-only (symbol-external-p symbol) t)
-           (funcall regex (funcall case-modifier symbol))))))
+      (funcall regex (funcall case-modifier symbol)))))
 
 (defun apropos-symbols (string external-only case-sensitive package)
-  (let ((result '())
-        (matchp (apropos-matcher string case-sensitive package external-only)))
-    (with-package-iterator (next (or package (list-all-packages))
-                                 :external :internal)
-      (loop
-       (multiple-value-bind (morep symbol) (next)
-         (cond ((not morep)
-                (return))
-               ((funcall matchp symbol)
-                (push symbol result))))))
+  (let ((packages (or package (remove (find-package :keyword)
+                                      (list-all-packages))))
+        (matcher  (make-apropos-matcher string case-sensitive))
+        (result))
+    (with-package-iterator (next packages :external :internal)
+      (loop (multiple-value-bind (morep symbol) (next)
+              (cond ((not morep) (return))
+                    ((and (if external-only (symbol-external-p symbol) t)
+                          (funcall matcher symbol))
+                     (push symbol result))))))
     result))
 
 (defun call-with-describe-settings (fn)

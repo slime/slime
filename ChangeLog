@@ -1,5 +1,18 @@
 2007-05-10  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank.lisp: Previously when using SLIME-APROPOS-PACKAGE, only
+	those symbols were considered whose home package matched the
+	given package; this would, however, prevent all those symbols from
+	being listed that are imported from another package, and then
+	exported again in the package they got imported into. (As an
+	example, SWANK:RESTART-FRAME is actually from SWANK-BACKEND.)
+
+	(apropos-matcher): Renamed to MAKE-REGEXP-MATCHER.
+	(make-regexp-matcher): Changed to only match for a given regexp.
+	(apropos-symbols): Use MAKE-REGEXP-MATCHER.
+
+2007-05-10  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* slime.el: Fix macroexpanding on things like ",(loop ...)".
 
 	(slime-sexp-at-point-for-macroexpansion): New function; like
