@@ -4254,7 +4254,7 @@ that symbols accessible in the current package go first."
 (defun apropos-symbols (string external-only case-sensitive package)
   (let ((packages (or package (remove (find-package :keyword)
                                       (list-all-packages))))
-        (matcher  (make-apropos-matcher string case-sensitive))
+        (matcher  (make-regexp-matcher string case-sensitive))
         (result))
     (with-package-iterator (next packages :external :internal)
       (loop (multiple-value-bind (morep symbol) (next)

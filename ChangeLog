@@ -1,3 +1,7 @@
+2007-05-11  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank.lisp (apropos-symbols): Really use MAKE-REGEXP-MATCHER.
+
 2007-05-10  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank.lisp: Previously when using SLIME-APROPOS-PACKAGE, only
