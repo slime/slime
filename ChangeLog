@@ -1,5 +1,49 @@
 2007-05-11  Tobias C. Rittweiler <tcr@freebits.de>
 
+	Removed support for completing to the longest compound pre- and
+	suffix with the default completion method (C-c TAB, or just TAB on
+	the REPL), because it has been causing trouble all the time, but
+	didn't offer any real advantage besides niftiness. E.g.:
+
+	    previous behaviour: 
+
+	      asdf:*com TAB => asdf:*compile-file--behaviour*
+
+	    now simply:
+
+	      asdf:*com TAB => asdf:*compile-file-
+
+	For discussing on this subject, please see the mail with
+	message-id <87y7l53lch.fsf@freebits.de> that was posted to
+	slime-devel 2007-04-06, or alternatively:
+
+	http://common-lisp.net/pipermail/slime-devel/2007-April/006087.html
+
+	* swank.lisp (make-compound-prefix-matcher): New function.
+	Abstracted from COMPOUND-PREFIX-MATCH.
+	(compound-prefix-match): Use MAKE-COMPOUND-PREFIX-MATCHER.
+	(compound-prefix-match/ci/underscores): Removed.
+
+	(longest-completion): Renamed to LONGEST-COMPOUND-PREFIX. Changed
+	to only return a compound prefix, instead of a concatenation of a
+	compound prefix and a compound suffix. Added an &optional
+	parameter to specify what delimeter the passed string is
+	compounded with.
+	(tokenize-completion): Takes additional parameter to specify the
+	delimeter for tokenization.
+	(longest-completion/underscores): Removed; not needed anymore.
+	(tokenize-completion/underscores): Likewise.
+	(untokenize-completion/underscores): Likewise.
+
+	(completions): Slight docstring modification, also added an
+	examplary use case; use LONGEST-COMPOUND-PREFIX instead of
+	LONGEST-COMPLETION.
+	(completions-for-character): Use LONGEST-COMPOUND-PREFIX, and
+	MAKE-COMPOUND-PREFIX-MATCHER.
+	(completions-for-keyword): Use LONGEST-COMPOUND-PREFIX.
+	
+2007-05-11  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank.lisp (apropos-symbols): Really use MAKE-REGEXP-MATCHER.
 
 2007-05-10  Tobias C. Rittweiler <tcr@freebits.de>

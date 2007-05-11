@@ -2376,7 +2376,7 @@ forward keywords to OPERATOR."
                        (completion-set
                         (format-completion-set strings nil "")))
                   (list completion-set
-                        (longest-completion completion-set)))))))))))
+                        (longest-compound-prefix completion-set)))))))))))
            
 
 (defun arglist-to-string (arglist package &key print-right-margin highlight)
@@ -3219,10 +3219,20 @@ already knows."
 (defslimefun completions (string default-package-name)
   "Return a list of completions for a symbol designator STRING.  
 
-The result is the list (COMPLETION-SET
-COMPLETED-PREFIX). COMPLETION-SET is the list of all matching
-completions, and COMPLETED-PREFIX is the best (partial)
-completion of the input string.
+The result is the list (COMPLETION-SET COMPLETED-PREFIX), where
+COMPLETION-SET is the list of all matching completions, and
+COMPLETED-PREFIX is the best (partial) completion of the input
+string.
+
+Simple compound matching is supported on a per-hyphen basis:
+
+  (completions \"m-v-\" \"COMMON-LISP\")
+    ==> ((\"multiple-value-bind\" \"multiple-value-call\" 
+          \"multiple-value-list\" \"multiple-value-prog1\" 
+          \"multiple-value-setq\" \"multiple-values-limit\")
+         \"multiple-value\")
+
+\(For more advanced compound matching, see FUZZY-COMPLETIONS.)
 
 If STRING is package qualified the result list will also be
 qualified.  If string is non-qualified the result strings are
@@ -3233,10 +3243,12 @@ The way symbols are matched depends on the symbol designator's
 format. The cases are as follows:
   FOO      - Symbols with matching prefix and accessible in the buffer package.
   PKG:FOO  - Symbols with matching prefix and external in package PKG.
-  PKG::FOO - Symbols with matching prefix and accessible in package PKG."
-  (let ((completion-set (completion-set string default-package-name 
+  PKG::FOO - Symbols with matching prefix and accessible in package PKG.
+"
+  (let ((completion-set (completion-set string default-package-name
                                         #'compound-prefix-match)))
-    (list completion-set (longest-completion completion-set))))
+    (list completion-set (longest-compound-prefix completion-set))))
+
 
 (defslimefun simple-completions (string default-package-name)
   "Return a list of completions for a symbol designator STRING."
@@ -3491,25 +3503,32 @@ contains lower or upper case characters."
 
 ;;;;; Compound-prefix matching
 
-(defun compound-prefix-match (prefix target)
-  "Return true if PREFIX is a compound-prefix of TARGET.
-Viewing each of PREFIX and TARGET as a series of substrings delimited
-by hyphens, if each substring of PREFIX is a prefix of the
-corresponding substring in TARGET then we call PREFIX a
-compound-prefix of TARGET.
+(defun make-compound-prefix-matcher (delimeter &key (test #'char=))
+  "Returns a matching function that takes a `prefix' and a
+`target' string and which returns T if `prefix' is a
+compound-prefix of `target', and otherwise NIL.
 
-Examples:
+Viewing each of `prefix' and `target' as a series of substrings
+delimited by DELIMETER, if each substring of `prefix' is a prefix
+of the corresponding substring in `target' then we call `prefix'
+a compound-prefix of `target'."
+  (lambda (prefix target)
+    (declare (type simple-string prefix target))
+    (loop for ch across prefix
+          with tpos = 0
+          always (and (< tpos (length target))
+                      (if (char= ch delimeter)
+                          (setf tpos (position #\- target :start tpos))
+                          (funcall test ch (aref target tpos))))
+          do (incf tpos))))
+
+(defun compound-prefix-match (prefix target)
+  "Examples:
 \(compound-prefix-match \"foo\" \"foobar\") => t
 \(compound-prefix-match \"m--b\" \"multiple-value-bind\") => t
-\(compound-prefix-match \"m-v-c\" \"multiple-value-bind\") => NIL"
-  (declare (type simple-string prefix target))
-  (loop for ch across prefix
-        with tpos = 0
-        always (and (< tpos (length target))
-                    (if (char= ch #\-)
-                        (setf tpos (position #\- target :start tpos))
-                        (char= ch (aref target tpos))))
-        do (incf tpos)))
+\(compound-prefix-match \"m-v-c\" \"multiple-value-bind\") => NIL
+"
+  (funcall (make-compound-prefix-matcher #\-) prefix target))
 
 (defun prefix-match-p (prefix string)
   "Return true if PREFIX is a prefix of STRING."
@@ -3518,32 +3537,26 @@ Examples:
 
 ;;;;; Extending the input string by completion
 
-(defun longest-completion (completions)
-  "Return the longest prefix for all COMPLETIONS.
-COMPLETIONS is a list of strings."
-  (untokenize-completion
-   (mapcar #'longest-common-prefix
-           (transpose-lists (mapcar #'tokenize-completion completions)))))
-
-(defun tokenize-completion (string)
-  "Return all substrings of STRING delimited by #\-."
+(defun longest-compound-prefix (completions &optional (delimeter #\-))
+  "Return the longest compound _prefix_ for all COMPLETIONS."
+  (flet ((tokenizer (string) (tokenize-completion string delimeter)))
+    (untokenize-completion
+     (loop for sub-prefix in (mapcar #'longest-common-prefix
+                                 (transpose-lists (mapcar #'tokenizer completions)))
+           if (string= sub-prefix "")
+             collect sub-prefix and do (loop-finish) ; Collect the "" so that
+           else collect sub-prefix))))               ;  UNTOKENIZE-COMPLETION 
+                                                     ;  appends a hyphen.
+(defun tokenize-completion (string delimeter)
+  "Return all substrings of STRING delimited by DELIMETER."
   (loop with end
         for start = 0 then (1+ end)
         until (> start (length string))
-        do (setq end (or (position #\- string :start start) (length string)))
+        do (setq end (or (position delimeter string :start start) (length string)))
         collect (subseq string start end)))
 
 (defun untokenize-completion (tokens)
   (format nil "~{~A~^-~}" tokens))
-
-(defun longest-common-prefix (strings)
-  "Return the longest string that is a common prefix of STRINGS."
-  (if (null strings)
-      ""
-      (flet ((common-prefix (s1 s2)
-               (let ((diff-pos (mismatch s1 s2)))
-                 (if diff-pos (subseq s1 0 diff-pos) s1))))
-        (reduce #'common-prefix strings))))
 
 (defun transpose-lists (lists)
   "Turn a list-of-lists on its side.
@@ -3556,6 +3569,25 @@ For example:
         ((some #'null lists) '())
         (t (cons (mapcar #'car lists)
                  (transpose-lists (mapcar #'cdr lists))))))
+
+(defun longest-common-prefix (strings)
+  "Return the longest string that is a common prefix of STRINGS."
+  (if (null strings)
+      ""
+      (flet ((common-prefix (s1 s2)
+               (let ((diff-pos (mismatch s1 s2)))
+                 (if diff-pos (subseq s1 0 diff-pos) s1))))
+        (reduce #'common-prefix strings))))
+
+
+;;;; Completion for character names
+
+(defslimefun completions-for-character (prefix)
+  (let* ((matcher (make-compound-prefix-matcher #\_ :test #'char-equal))
+         (completion-set (character-completion-set prefix matcher))
+         (completions (sort completion-set #'string<)))
+    (list completions (longest-compound-prefix completions #\_))))
+
 
 
 ;;;;; Completion Tests
@@ -3577,7 +3609,8 @@ For example:
     (assert (equal '("Foo" "foo") (names "F")))
     (assert (equal '("Foo") (names "Fo")))
     (assert (equal '("foo") (names "FO")))))
-           
+
+
 ;;;; Fuzzy completion
 
 ;;; For nomenclature of the fuzzy completion section, please read
@@ -4134,48 +4167,6 @@ for interactive debugging purpose."
     (loop for (sym score result) in winners do
           (format t "~&~VA  score ~8,2F  ~A"
                   max-len (highlight-completion result sym) score result))))
-
-
-;;;; Completion for character names
-
-(defslimefun completions-for-character (prefix)
-  (let ((completion-set 
-         (sort 
-          (character-completion-set prefix 
-                                    #'compound-prefix-match/ci/underscores)
-          #'string<)))
-    (list completion-set (longest-completion/underscores completion-set))))
-
-(defun compound-prefix-match/ci/underscores (prefix target)
-  "Like compound-prefix-match, but case-insensitive, and using the underscore, 
-not the hyphen, as a delimiter." 
-  (declare (type simple-string prefix target))
-  (loop for ch across prefix
-        with tpos = 0
-        always (and (< tpos (length target))
-                    (if (char= ch #\_)
-                        (setf tpos (position #\_ target :start tpos))
-                        (char-equal ch (aref target tpos))))
-        do (incf tpos)))
-
-(defun longest-completion/underscores (completions)
-  "Return the longest prefix for all COMPLETIONS.
-COMPLETIONS is a list of strings."
-  (untokenize-completion/underscores
-   (mapcar #'longest-common-prefix
-           (transpose-lists (mapcar #'tokenize-completion/underscores 
-                                    completions)))))
-
-(defun tokenize-completion/underscores (string)
-  "Return all substrings of STRING delimited by #\_."
-  (loop with end
-        for start = 0 then (1+ end)
-        until (> start (length string))
-        do (setq end (or (position #\_ string :start start) (length string)))
-        collect (subseq string start end)))
-
-(defun untokenize-completion/underscores (tokens)
-  (format nil "~{~A~^_~}" tokens))
 
 
 ;;;; Documentation
