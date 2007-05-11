@@ -1,4 +1,11 @@
 2007-05-11  Tobias C. Rittweiler <tcr@freebits.de>
+	
+	* swank.lisp (fuzzy-find-matching-symbols): Modified to take
+	package nicknames into account. Previously, fuzzy completing on
+	nicknames did (except for some incidental cases) not work. Thanks
+	to Luís Oliveira and Attila Lendvai for pointing that out.
+
+2007-05-11  Tobias C. Rittweiler <tcr@freebits.de>
 
 	Removed support for completing to the longest compound pre- and
 	suffix with the default completion method (C-c TAB, or just TAB on

@@ -3821,7 +3821,7 @@ TIME-LIMIT-IN-MSEC is NIL, an infinite time limit is assumed."
 	      ((string= parsed-package-name "") ; E.g. STRING = ":" or ":foo"
 	       (setf (values symbols time-limit) (find-symbols parsed-name package time-limit))
                (setf symbols (convert symbols "" symbol-normalizer)))
-	      (t	                        ; E.g. STRING = "asdf:" or "asdf:foo"
+	      (t	                        ; E.g. STRING = "asd:" or "asd:foo"
 	       ;; Find fuzzy matchings of the denoted package identifier part.
 	       ;; After that, find matchings for the denoted symbol identifier
 	       ;; relative to all the packages found.
@@ -3847,7 +3847,7 @@ TIME-LIMIT-IN-MSEC is NIL, an infinite time limit is assumed."
 	;; PARSED-NAME is empty, and all possible completions are to be returned.)
 	(setf results (concatenate 'vector symbols packages))
 	(setf results (sort results #'string< :key #'first))  ; SORT + #'STRING-LESSP
-	(setf results (stable-sort results #'> :key #'second));  conses on at least SBCL.
+	(setf results (stable-sort results #'> :key #'second));  conses on at least SBCL 0.9.18.
 	(values results (and time-limit (<= time-limit 0)))))))
 
 
@@ -3920,17 +3920,19 @@ Cf. FUZZY-FIND-MATCHING-SYMBOLS."
     (declare (type function converter))
     (if (and time-limit-p (<= time-limit 0))
         (values #() time-limit)
-        (loop for package in (list-all-packages)
-              for package-name   = (package-name package)
+        (loop with all-package-names = (mapcan #'(lambda (package)
+                                              (cons (package-name package)
+                                                    (copy-list (package-nicknames package))))
+                                          (list-all-packages)) 
+              for package-name in all-package-names 
               for converted-name = (funcall converter package-name)
               for package-symbol = (or (find-symbol package-name)
-                                       (make-symbol package-name)) ; INTERN'd be
-              for (result score) = (multiple-value-list            ;  too invasive.
-                                     (compute-highest-scoring-completion
-                                       name converted-name))
-              when result do (vector-push-extend
-                               (make-fuzzy-matching package-symbol score result '())
-                               completions)
+                                        (make-symbol package-name)) ; no INTERN
+              do (multiple-value-bind (result score)
+                     (compute-highest-scoring-completion name converted-name)
+                   (when result
+                     (vector-push-extend (make-fuzzy-matching package-symbol score result '())
+                                         completions)))
               finally
                 (return
                   (values completions
