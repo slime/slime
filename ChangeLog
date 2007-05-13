@@ -1,3 +1,12 @@
+2007-05-13  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el (slime-pretty-lambdas): Removed. If you really want
+	this, please use one of the external ressources that provide this;
+	for instance, `pretty-lambda.el', `pretty-greek.el', or even
+	`pretty-symbols.el'. For more information, please see
+
+	   http://www.emacswiki.org/cgi-bin/wiki/PrettyLambda
+	
 2007-05-11  Tobias C. Rittweiler <tcr@freebits.de>
 	
 	* swank.lisp (fuzzy-find-matching-symbols): Modified to take

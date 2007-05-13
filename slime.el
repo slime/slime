@@ -9853,19 +9853,6 @@ expressions out is enclosed in a set of balanced comments."
       (forward-sexp))
       (replace-match ""))))
 
-(defun slime-pretty-lambdas ()
-  "Show `lambda' as a lambda character, via font-lock.
-This can be called from slime-mode-hook.
-
-Warning: Some people have had this insert funny characters in their
-source files, for reasons unknown."
-  (interactive)
-  (font-lock-add-keywords
-   nil `(("(\\(lambda\\>\\)"
-        (0 (progn (compose-region (match-beginning 1) (match-end 1)
-                            ,(make-char 'greek-iso8859-7 107))
-                nil))))))
-
 (defvar slime-close-parens-limit 16
   "Maxmimum parens for `slime-close-parens-at-point' to insert.")
 
