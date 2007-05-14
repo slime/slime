@@ -2519,13 +2519,13 @@ Errors are trapped and invoke our debugger."
                     (finish-output)
                     (setq ok t))
                 (request-abort (c)
-                  (setf ok nil
-                        reason (list (swank-backend::reason c))))))
+                  (setf ok nil)
+                  (setf reason (swank-backend::reason c)))))
          (force-user-output)
          (send-to-emacs `(:return ,(current-thread)
                                   ,(if ok
                                        `(:ok ,result)
-                                       `(:abort ,@reason)) 
+                                       `(:abort ,reason)) 
                                   ,id)))))))
 
 (defvar *echo-area-prefix* "=> "
