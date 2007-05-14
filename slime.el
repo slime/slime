@@ -3586,8 +3586,8 @@ Also return the start position, end position, and buffer of the presentation."
       ((list 'swank:listener-eval string) (slime-lisp-package))
     ((:ok result)
      (slime-repl-insert-result result))
-    ((:abort)
-     (slime-repl-show-abort))))
+    ((:abort &optional reason)
+     (slime-repl-show-abort reason))))
 
 (defun slime-repl-insert-result (result)
   (with-current-buffer (slime-output-buffer)
@@ -3605,11 +3605,13 @@ Also return the start position, end position, and buffer of the presentation."
                   (insert "\n")))))))
     (slime-repl-insert-prompt)))
 
-(defun slime-repl-show-abort ()
+(defun slime-repl-show-abort (reason)
   (with-current-buffer (slime-output-buffer)
     (slime-with-output-end-mark 
      (unless (bolp) (insert-before-markers "\n"))
-     (insert-before-markers "; Evaluation aborted\n"))
+     (insert-before-markers (if reason
+                                (concat "; Evaluation aborted: " reason "\n")
+                                "; Evaluation aborted.\n")))
     (slime-repl-insert-prompt)))
 
 (defun slime-repl-insert-prompt ()
@@ -8895,7 +8897,7 @@ This way you can still see what the error was after exiting SLDB."
   (interactive)
   (slime-rex () ('(swank:throw-to-toplevel))
     ((:ok _) (error "sldb-quit returned"))
-    ((:abort))))
+    ((:abort &optional _))))
 
 (defun sldb-continue ()
   "Invoke the \"continue\" restart."
@@ -8905,7 +8907,7 @@ This way you can still see what the error was after exiting SLDB."
     ((:ok _)
      (message "No restart named continue")
      (ding))
-    ((:abort) )))
+    ((:abort &optional _))))
 
 (defun sldb-abort ()
   "Invoke the \"abort\" restart."
@@ -8922,14 +8924,14 @@ use the restart at point."
     (slime-rex ()
         ((list 'swank:invoke-nth-restart-for-emacs sldb-level restart))
       ((:ok value) (message "Restart returned: %s" value))
-      ((:abort)))))
+      ((:abort &optional _)))))
 
 (defun sldb-break-with-default-debugger ()
   "Enter default debugger."
   (interactive)
   (slime-rex ()
       ('(swank:sldb-break-with-default-debugger) nil slime-current-thread)
-    ((:abort))))
+    ((:abort &optional _))))
 
 (defun sldb-step ()
   "Select the \"continue\" restart and set a new break point."
@@ -8971,7 +8973,7 @@ return that value, evaluated in the context of the frame."
     (slime-rex ()
         ((list 'swank:sldb-return-from-frame number string))
       ((:ok value) (message "%s" value))
-      ((:abort)))))
+      ((:abort &optional _)))))
 
 (defun sldb-restart-frame ()
   "Causes the frame to restart execution with the same arguments as it
@@ -8981,7 +8983,7 @@ was called originally."
     (slime-rex ()
         ((list 'swank:restart-frame number))
       ((:ok value) (message "%s" value))
-      ((:abort)))))
+      ((:abort &optional _)))))
 
 
 ;;;;; SLDB references (rather SBCL specific)
