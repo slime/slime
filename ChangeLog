@@ -1,5 +1,20 @@
 2007-05-14  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank.lisp: Liberated from unnecessary style-warnings!
+
+	(eval-for-emacs): Don't use SLOT-VALUE on condition objects!
+	(inspect-bigger-piece-actions): Changed from DEFMETHOD to DEFUN.
+	(inspect-whole-thing-action): Likewise.
+	(inspect-show-more-action): Likewise.
+	(make-symbols-listing): Adds an explicit DEFGENERIC.
+	(menu-choices-for-presentation): Likewise.
+
+	(make-symbols-listing (eql :classification)): Use `(loop for k
+	being EACH hash-key ...)' rather than `(loop for k being THE
+	hash-key)', to omit the justified style-warning from CLISP.
+	
+2007-05-14  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank.lisp (package-names): Make sure to return a fresh list.
 	(fuzzy-find-matching-packages): Use PACKAGE-NAMES.
 	(list-all-package-names): Use PACKAGE-NAMES.

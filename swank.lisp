@@ -2520,7 +2520,7 @@ Errors are trapped and invoke our debugger."
                     (setq ok t))
                 (request-abort (c)
                   (setf ok nil
-                        reason (list (slot-value c 'swank-backend::reason))))))
+                        reason (list (swank-backend::reason c))))))
          (force-user-output)
          (send-to-emacs `(:return ,(current-thread)
                                   ,(if ok
@@ -4544,7 +4544,7 @@ NIL is returned if the list is circular."
                                   (lambda () (remhash key ht))))
                           (:newline))))))
 
-(defmethod inspect-bigger-piece-actions (thing size)
+(defun inspect-bigger-piece-actions (thing size)
   (append 
    (if (> size *slime-inspect-contents-limit*)
        (list (inspect-show-more-action thing)
@@ -4553,14 +4553,14 @@ NIL is returned if the list is circular."
    (list (inspect-whole-thing-action thing  size)
 	 '(:newline))))
 
-(defmethod inspect-whole-thing-action (thing size)
+(defun inspect-whole-thing-action (thing size)
   `(:action ,(format nil "Inspect all ~a elements." 
 		      size)
 	    ,(lambda() 
 	       (let ((*slime-inspect-contents-limit* nil))
 		 (swank::inspect-object thing)))))
 
-(defmethod inspect-show-more-action (thing)
+(defun inspect-show-more-action (thing)
   `(:action ,(format nil "~a elements shown. Prompt for how many to inspect..." 
 		     *slime-inspect-contents-limit* )
 	    ,(lambda() 
@@ -4957,6 +4957,7 @@ See `methods-by-applicability'.")
   (%%make-package-symbols-container :title title :description description
                                     :symbols symbols :grouping-kind :symbol))
 
+(defgeneric make-symbols-listing (grouping-kind symbols))
 
 (defmethod make-symbols-listing ((grouping-kind (eql :symbol)) symbols)
   "Returns an object renderable by Emacs' inspector side that
@@ -5004,7 +5005,7 @@ instead there are the three explicit FUNCTION, MACRO and
 SPECIAL-OPERATOR groups."
   (let ((table (make-hash-table :test #'eq)))
     (flet ((maybe-convert-fboundps (classifications)
-             ;; Convert an :FBOUNDP in CLASSIFICATION to :FUNCTION if possible.
+             ;; Convert an :FBOUNDP in CLASSIFICATIONS to :FUNCTION if possible.
              (if (and (member :fboundp classifications)
                       (not (member :macro classifications))
                       (not (member :special-operator classifications)))
@@ -5013,9 +5014,9 @@ SPECIAL-OPERATOR groups."
       (loop for symbol in symbols do
             (loop for classification in (maybe-convert-fboundps (classify-symbol symbol))
                   ;; SYMBOLS are supposed to be sorted alphabetically;
-                  ;; this property is preserved here expect for reversing.
+                  ;; this property is preserved here except for reversing.
                   do (push symbol (gethash classification table)))))
-    (let* ((classifications (loop for k being the hash-key in table collect k))
+    (let* ((classifications (loop for k being each hash-key in table collect k))
            (classifications (sort classifications #'string<)))
       (loop for classification in classifications
             for symbols = (gethash classification table)
@@ -5743,10 +5744,9 @@ Collisions are caused because package information is ignored."
     (let ((action (second (nth (1- count) (cdr *presentation-active-menu*)))))
       (swank-ioify (funcall action item ob id)))))
 
-;; Default method
-(defmethod menu-choices-for-presentation (ob)
-  (declare (ignore ob))
-  nil)
+
+(defgeneric menu-choices-for-presentation (object)
+  (:method (ob) (declare (ignore ob)) nil)) ; default method
 
 ;; Pathname
 (defmethod menu-choices-for-presentation ((ob pathname))
