@@ -1,5 +1,26 @@
 2007-05-14  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* slime.el: Fixed proper handling of the abortion of a
+	request. (For instance, when calling (SWANK::ABORT-REQUEST "FOO")
+	from the REPL.)
+
+	(sldb-quit): Updated the DESTRUCTURE-CASE clause for (:abort) to
+	take an argument.
+	(sldb-continue): Likewise.
+	(sldb-invoke-restart): Likewise.
+	(sldb-break-with-default-debugger): Likewise.
+	(sldb-return-from-frame): Likewise.
+	(sldb-restart-frame): Likewise.
+	(slime-repl-eval-string) Likewise.
+	(slime-repl-show-abort): Now also inserts the reason for the abort
+	into the REPL buffer.
+	
+	* swank.lisp (eval-for-emacs): Remove code that would suggest that
+	it's possible to use the rex `(:abort ...)' with more than one
+	argument.
+
+2007-05-14  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank.lisp: Liberated from unnecessary style-warnings!
 
 	(eval-for-emacs): Don't use SLOT-VALUE on condition objects!
