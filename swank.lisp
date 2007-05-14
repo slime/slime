@@ -3920,11 +3920,7 @@ Cf. FUZZY-FIND-MATCHING-SYMBOLS."
     (declare (type function converter))
     (if (and time-limit-p (<= time-limit 0))
         (values #() time-limit)
-        (loop with all-package-names = (mapcan #'(lambda (package)
-                                              (cons (package-name package)
-                                                    (copy-list (package-nicknames package))))
-                                          (list-all-packages)) 
-              for package-name in all-package-names 
+        (loop for package-name in (mapcan #'package-names (list-all-packages))
               for converted-name = (funcall converter package-name)
               for package-symbol = (or (find-symbol package-name)
                                         (make-symbol package-name)) ; no INTERN
@@ -4307,9 +4303,9 @@ that symbols accessible in the current package go first."
   "Return a list of all package names.
 Include the nicknames if NICKNAMES is true."
   (mapcar #'unparse-name
-          (loop for package in (list-all-packages)
-                collect (package-name package)
-                when nicknames append (package-nicknames package))))
+          (if nicknames
+              (mapcan #'package-names (list-all-packages))
+              (mapcar #'package-name  (list-all-packages)))))
 
 
 ;;;; Tracing
@@ -5639,8 +5635,8 @@ belonging to the buffer package."
     alist))
 
 (defun package-names (package)
-  "Return the name and all nicknames of PACKAGE in a list."
-  (cons (package-name package) (package-nicknames package)))
+  "Return the name and all nicknames of PACKAGE in a fresh list."
+  (cons (package-name package) (copy-list (package-nicknames package))))
 
 (defun cl-symbol-p (symbol)
   "Is SYMBOL a symbol in the COMMON-LISP package?"
