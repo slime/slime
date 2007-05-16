@@ -5270,7 +5270,7 @@ SPECIAL-OPERATOR groups."
                                (position (file-position stream)))
                            (lambda ()
                              (ed-in-emacs `(,pathname :charpos ,position))))
-                        :refresh nil)
+                        :refreshp nil)
                (:newline))
              content))))
 
@@ -5290,7 +5290,7 @@ SPECIAL-OPERATOR groups."
                                      (position (file-position stream)))
                                     (lambda ()
                                       (ed-in-emacs `(,pathname :charpos ,position))))
-                              :refresh nil)
+                              :refreshp nil)
                      (:newline))
                    content))
           (values title content)))))

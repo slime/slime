@@ -1,3 +1,8 @@
+2007-05-16  Takehiko Abe <keke@gol.com>
+
+	* swank.lisp (inspect-for-emacs file-stream, stream-error): Fixed
+	typo in keyword arg; it's `:refreshp', not `:refresh'.
+
 2007-05-14  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el: Fixed proper handling of the abortion of a
