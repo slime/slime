@@ -1423,6 +1423,18 @@ considered to represent a symbol internal to some current package.)"
              (vector-push-extend (casify-char char) token))))
     (values token package (or (not package) internp))))
 
+(defun untokenize-symbol (package-name internal-p symbol-name)
+  "The inverse of TOKENIZE-SYMBOL.
+
+  (untokenize-symbol \"quux\" nil \"foo\") ==> \"quux:foo\"
+  (untokenize-symbol \"quux\" t \"foo\")   ==> \"quux::foo\"
+  (untokenize-symbol nil nil \"foo\")    ==> \"foo\"
+"
+  (let ((prefix (cond ((not package-name) "")
+                      (internal-p (format nil "~A::" package-name))
+                      (t (format nil "~A:" package-name)))))
+    (concatenate 'string prefix symbol-name)))
+
 (defun casify-char (char)
   "Convert CHAR accoring to readtable-case."
   (ecase (readtable-case *readtable*)
@@ -3247,7 +3259,19 @@ format. The cases are as follows:
 "
   (let ((completion-set (completion-set string default-package-name
                                         #'compound-prefix-match)))
-    (list completion-set (longest-compound-prefix completion-set))))
+    (when completion-set
+      (list completion-set
+            ;; We strip off the package identifier, and compute the
+            ;; longest compound prefix of the symbol identifiers only,
+            ;; because the package identifier is fixed anyway, so that
+            ;; LONGEST-COMPOUND-PREFIX will not think it found a prefix,
+            ;; even though all it found was the common package identifier.
+            (multiple-value-bind (_ package-identifier internalp)
+                (tokenize-symbol (first completion-set))
+              (declare (ignore _))
+              (untokenize-symbol package-identifier internalp
+                                 (longest-compound-prefix
+                                  (mapcar #'tokenize-symbol completion-set))))))))
 
 
 (defslimefun simple-completions (string default-package-name)
@@ -3438,11 +3462,10 @@ Returns a list of completions with package qualifiers if needed."
           (sort strings #'string<)))
 
 (defun format-completion-result (string internal-p package-name)
-  (let ((prefix (cond ((not package-name) "")
-                      (internal-p (format nil "~A::" package-name))
-                      (t (format nil "~A:" package-name)))))
-    (values (concatenate 'string prefix string)
-            (length prefix))))
+  (let ((result (untokenize-symbol package-name internal-p string)))
+    ;; We return the length of the possibly added prefix as second value.
+    (values result (search string result))))
+
 
 (defun completion-output-case-converter (input &optional with-escaping-p)
   "Return a function to convert strings for the completion output.

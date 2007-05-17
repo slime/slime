@@ -1,3 +1,16 @@
+2007-05-17  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank.lisp: Fixed bug in completion as previously "swank:[tab]"
+	would correctly list all the symbols in SWANK, but would
+	simultaneously append a spooky dash to the original
+	string ("swank:-").
+
+	(completions): Strip off the package identifier part, and only
+	compute the longest compound prefix for the actual symbol
+	identifiers.
+	(untokenize-symbol): New function. Inverse of TOKENIZE-SYMBOL.
+	(format-completion-result): Use UNTOKENIZE-SYMBOL.
+	
 2007-05-17  Dustin Long <dlong@stevens.edu>
 
 	* swank-ecl.lisp (compile-from-stream): Fixed typo that prevented
