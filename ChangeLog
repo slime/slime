@@ -1,3 +1,9 @@
+2007-05-17  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank-loader.lisp (*sysdep-files*): Load the auxiliary files
+	swank-source-*.lisp before swank-sbcl.lisp to avoid
+	undefined-function style warnings.
+	
 2007-05-16  Takehiko Abe <keke@gol.com>
 
 	* swank.lisp (inspect-for-emacs file-stream, stream-error): Fixed
