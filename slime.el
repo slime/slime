@@ -5652,7 +5652,7 @@ This is a superset of the functionality of `slime-insert-arglist'."
   (interactive)
   ;; Find the (possibly incomplete) form around point.
   (let* ((start (save-excursion (backward-up-list 1) (point)))
-         (end (point)) ; or try to find end (tricky)?
+         (end (point))
          (form-string
           (concat (buffer-substring-no-properties start end) ")")))
     (let ((result (slime-eval `(swank:complete-form ,form-string))))
@@ -5661,7 +5661,12 @@ This is a superset of the functionality of `slime-insert-arglist'."
           (progn
             (just-one-space)
             (save-excursion
-              (insert result))
+              ;; SWANK:COMPLETE-FORM always returns a closing
+              ;; parenthesis; but we only want to insert one if it's
+              ;; really necessary (thinking especially of paredit.el.)
+              (insert (substring result 0 -1))
+              (let ((slime-close-parens-limit 1))
+                (slime-close-parens-at-point)))
             (save-excursion
               (backward-up-list 1)
               (indent-sexp)))))))

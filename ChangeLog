@@ -1,5 +1,11 @@
 2007-05-17  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* slime.el (slime-complete-form): Only insert a closing
+	parenthesis if the form is not already closed. Reported by and
+	adapted from Mac Chan.
+	
+2007-05-17  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank.lisp: Fixed bug in completion as previously "swank:[tab]"
 	would correctly list all the symbols in SWANK, but would
 	simultaneously append a spooky dash to the original
