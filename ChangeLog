@@ -1,3 +1,8 @@
+2007-05-17  Dustin Long <dlong@stevens.edu>
+
+	* swank-ecl.lisp (compile-from-stream): Fixed typo that prevented
+	`slime-compile-defun' from actually compiling a function.
+
 2007-05-17  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank-loader.lisp (*sysdep-files*): Load the auxiliary files
