@@ -1,3 +1,15 @@
+2007-05-23  Marco Baringer  <mb@bese.it>
+
+	Fix handing of auto-flushing on sbcl.
+	
+	* swank-sbcl.lisp (*auto-flush-interval*): New variable
+	controlling how often streams are flushed.
+	(*auto-flush-lock*): New lock guarding access to the shared
+	variable *auto-flush-streams*.
+	(make-stream-interactive): Wrapped access to *auto-flush-streams*
+	in a call-with-recursive-lock-held.
+	(flush-streams): Wrapped in call-with-recursive-lock-held.
+	
 2007-05-17  Martin Simmons <martin@lispworks.com>
 
 	* swank-lispworks.lisp (lispworks-inspect): Fix hanging caused by
