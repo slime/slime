@@ -1,6 +1,12 @@
 2007-05-23  Marco Baringer  <mb@bese.it>
 
-	Fix handing of auto-flushing on sbcl.
+	* slime.el (def-slime-selector-method): Allow the selector body to
+	not return a buffer. This means that, instead of being to forced
+	to signal an error when a choosen buffer can't be found (like
+	choosing d when there are no debugger buffers) can simply display
+	a message.
+ 
+	Fix handing of auto-flushing on sbcl:
 	
 	* swank-sbcl.lisp (*auto-flush-interval*): New variable
 	controlling how often streams are flushed.
