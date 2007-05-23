@@ -9692,16 +9692,23 @@ See `def-slime-selector-method' for defining new methods."
 
 (defmacro def-slime-selector-method (key description &rest body)
   "Define a new `slime-select' buffer selection method.
+
 KEY is the key the user will enter to choose this method.
-DESCRIPTION is a one-line sentence describing how the method selects a
-buffer.
-BODY is a series of forms which must return the buffer to be selected."
+
+DESCRIPTION is a one-line sentence describing how the method
+selects a buffer.
+
+BODY is a series of forms which are evaluated when the selector
+is chosen. If they return a buffer that buffer is selected with
+switch-to-buffer."
   `(setq slime-selector-methods
          (sort* (cons (list ,key ,description
-                            (lambda () (switch-to-buffer (progn ,@body))))
+                            (lambda () 
+                              (let ((new-buffer (progn ,@body)))
+                                (when (bufferp new-buffer)
+                                  (switch-to-buffer new-buffer)))))
                       (remove* ,key slime-selector-methods :key #'car))
                 #'< :key #'car)))
-
 
 (def-slime-selector-method ?? "Selector help buffer."
   (ignore-errors (kill-buffer "*Select Help*"))
@@ -9744,9 +9751,8 @@ BODY is a series of forms which must return the buffer to be selected."
 
 (def-slime-selector-method ?d
   "*sldb* buffer for the current connection."
-  (unless (sldb-get-default-buffer)
-    (error "No debugger buffer"))
-  (sldb-get-default-buffer))
+  (or (sldb-get-default-buffer)
+      (message "No debugger buffer")))
 
 (def-slime-selector-method ?e
   "most recently visited emacs-lisp-mode buffer."
