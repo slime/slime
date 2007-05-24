@@ -3260,18 +3260,7 @@ format. The cases are as follows:
   (let ((completion-set (completion-set string default-package-name
                                         #'compound-prefix-match)))
     (when completion-set
-      (list completion-set
-            ;; We strip off the package identifier, and compute the
-            ;; longest compound prefix of the symbol identifiers only,
-            ;; because the package identifier is fixed anyway, so that
-            ;; LONGEST-COMPOUND-PREFIX will not think it found a prefix,
-            ;; even though all it found was the common package identifier.
-            (multiple-value-bind (_ package-identifier internalp)
-                (tokenize-symbol (first completion-set))
-              (declare (ignore _))
-              (untokenize-symbol package-identifier internalp
-                                 (longest-compound-prefix
-                                  (mapcar #'tokenize-symbol completion-set))))))))
+      (list completion-set (longest-compound-prefix completion-set)))))
 
 
 (defslimefun simple-completions (string default-package-name)
@@ -3564,12 +3553,12 @@ a compound-prefix of `target'."
   "Return the longest compound _prefix_ for all COMPLETIONS."
   (flet ((tokenizer (string) (tokenize-completion string delimeter)))
     (untokenize-completion
-     (loop for sub-prefix in (mapcar #'longest-common-prefix
-                                 (transpose-lists (mapcar #'tokenizer completions)))
-           if (string= sub-prefix "")
-             collect sub-prefix and do (loop-finish) ; Collect the "" so that
-           else collect sub-prefix))))               ;  UNTOKENIZE-COMPLETION 
-                                                     ;  appends a hyphen.
+     (loop for token-list in (transpose-lists (mapcar #'tokenizer completions))
+           if (notevery #'string= token-list (rest token-list))
+             collect (longest-common-prefix token-list) ; Note that we possibly collect
+             and do (loop-finish)                       ;  the "" here as well, so that
+           else collect (first token-list)))))          ;  UNTOKENIZE-COMPLETION will
+                                                        ;  append a hyphen for us.
 (defun tokenize-completion (string delimeter)
   "Return all substrings of STRING delimited by DELIMETER."
   (loop with end

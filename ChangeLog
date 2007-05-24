@@ -1,3 +1,18 @@
+2007-05-24  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank.lisp: Fixed regression in completion: "swank[TAB]" would
+	previously be completed to "swank-backend:"; "get-internal[TAB]"
+	would be completed to "get-internal-r-time" (instead of simply
+	"get-internal-r"); and "custom:*comp[TAB]" would be completed to
+	"custom:*compiled-" on CLISP, even though there's a
+	"custom:*complile-". 
+
+	Thanks to Ken Causey for helping me find the first two.
+
+	(completions): Revert changes from 2007-05-11.
+	(longest-compound-prefix): Fixed to properly generate a compound
+	_prefix_.
+	
 2007-05-23  Marco Baringer  <mb@bese.it>
 
 	* slime.el (def-slime-selector-method): Allow the selector body to
@@ -6,7 +21,7 @@
 	choosing d when there are no debugger buffers) can simply display
 	a message.
  
-	Fix handing of auto-flushing on sbcl:
+	Fix handling of auto-flushing on sbcl:
 	
 	* swank-sbcl.lisp (*auto-flush-interval*): New variable
 	controlling how often streams are flushed.
