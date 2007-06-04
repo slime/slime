@@ -2320,7 +2320,7 @@ by adding a template for the missing arguments."
                               :remove-args nil)))
         (unless (eql form-completion :not-available)
           (return-from format-arglist-for-echo-area
-            (decoded-arglist-to-string 
+            (decoded-arglist-to-string
              form-completion
              *package*
              :operator operator-name
@@ -3362,7 +3362,9 @@ about internal symbols most times. As the spec says:
   
                    Or more simply, if S is not _inherited_.
   
-        You can check that with: (NOT (EQ (SYMBOL-STATUS S P) :INHERITED))
+        You can check that with: (LET ((STATUS (SYMBOL-STATUS S P)))
+                                   (AND STATUS 
+                                        (NOT (EQ STATUS :INHERITED))))
   
   
      _external_    if S is going to be inherited into any package that
@@ -3377,15 +3379,22 @@ about internal symbols most times. As the spec says:
   
   
      _internal_    if S is _accessible_ but not _external_.
-  
-Notice that the definition of _internal_ is the definition of the
-respective glossary entry in the spec; *However*, most times,
-when you speak about \"internal symbols\", you're not talking
-about the symbols inherited from other packages, but only about
-the symbols specific to the package in question.
 
-Thus SYMBOL-STATUS splits this up into two explicit pieces: 
-:INTERNAL, and :INHERITED.  Just as CL:FIND-SYMBOL does.
+        You can check that with: (LET ((STATUS (SYMBOL-STATUS S P)))
+                                   (AND STATUS 
+                                        (NOT (EQ STATUS :EXTERNAL))))
+  
+
+        Notice that this is *different* to
+                                 (EQ (SYMBOL-STATUS S P) :INTERNAL)
+        because what the spec considers _internal_ is split up into two
+        explicit pieces: :INTERNAL, and :INHERITED; just as, for instance,
+        CL:FIND-SYMBOL does. 
+
+        The rationale is that most times when you speak about \"internal\"
+        symbols, you're actually not including the symbols inherited 
+        from other packages, but only about the symbols directly specific
+        to the package in question.
 "
   (when package     ; may be NIL when symbol is completely uninterned.
     (check-type symbol symbol) (check-type package package)
@@ -5643,6 +5652,8 @@ belonging to the buffer package."
           (do-all-symbols (symbol)
             (consider symbol))
           (do-symbols (symbol *buffer-package*)
+            ;; We're really just interested in the symbols of *BUFFER-PACKAGE*,
+            ;; and *not* all symbols that are _present_ (cf. SYMBOL-STATUS.)
             (when (eq (symbol-package symbol) *buffer-package*)
               (consider symbol)))))
     alist))
