@@ -677,6 +677,8 @@ A prefix argument disables this behaviour."
     ("\C-c" slime-compile-defun :prefixed t)
     ("\C-l" slime-load-file :prefixed t)
     ;; Editing/navigating
+    ("\M-\C-a" slime-beginning-of-defun :inferior t)
+    ("\M-\C-e" slime-end-of-defun :inferior t)
     ("\M-\C-i" slime-complete-symbol :inferior t)
     ("\C-i" slime-complete-symbol :prefixed t :inferior t)
     ("\M-i" slime-fuzzy-complete-symbol :prefixed t :inferior t)
@@ -684,7 +686,8 @@ A prefix argument disables this behaviour."
     ("\C-x4." slime-edit-definition-other-window :inferior t :sldb t)
     ("\C-x5." slime-edit-definition-other-frame :inferior t :sldb t)
     ("\M-," slime-pop-find-definition-stack :inferior t :sldb t)
-    ("\C-q" slime-close-parens-at-point :prefixed t :inferior t)
+    ; Obsolete; see comment at SLIME-CLOSE-PARENS-AT-POINT.
+    ;("\C-q" slime-close-parens-at-point :prefixed t :inferior t)
     ("\C-c\M-q" slime-reindent-defun :inferior t)
     ;; Evaluating
     ("\C-x\C-e" slime-eval-last-expression :inferior t)
@@ -721,7 +724,7 @@ A prefix argument disables this behaviour."
     (">" slime-list-callees :prefixed t :inferior t :sldb t)
     ;; "Other"
     ("\I"  slime-inspect :prefixed t :inferior t :sldb t)
-    ("\C-]" slime-close-all-sexp :prefixed t :inferior t :sldb t)
+    ("\C-]" slime-close-all-parens-in-sexp :prefixed t :inferior t :sldb t)
     ("\C-xt" slime-list-threads :prefixed t :inferior t :sldb t)
     ("\C-xc" slime-list-connections :prefixed t :inferior t :sldb t)
     ;; Shadow unwanted bindings from inf-lisp
@@ -3195,8 +3198,6 @@ joined together."))
   ("\C-c\C-u" 'slime-repl-kill-input)
   ("\C-c\C-n" 'slime-repl-next-prompt)
   ("\C-c\C-p" 'slime-repl-previous-prompt)
-  ("\M-\C-a" 'slime-repl-beginning-of-defun)
-  ("\M-\C-e" 'slime-repl-end-of-defun)
   ("\C-c\C-l" 'slime-load-file)
   ("\C-c\C-k" 'slime-compile-and-load-file)
   ("\C-c\C-z" 'slime-nop))
@@ -3225,7 +3226,9 @@ joined together."))
   (when slime-repl-enable-presentations 
     ;; Respect the syntax text properties of presentations.
     (set (make-local-variable 'parse-sexp-lookup-properties) t))
-  ;; We only want REPL prompts as start of the "defun".
+  ;; At the REPL, we define beginning-of-defun and end-of-defun to be
+  ;; the start of the previous prompt or next prompt respectively.
+  ;; Notice the interplay with SLIME-REPL-BEGINNING-OF-DEFUN.
   (set (make-local-variable 'beginning-of-defun-function) 
        'slime-repl-mode-beginning-of-defun)
   (set (make-local-variable 'end-of-defun-function) 
@@ -3739,16 +3742,25 @@ the presented object."
 (defun slime-repl-beginning-of-defun ()
   "Move to beginning of defun."
   (interactive)
-  (if (slime-repl-in-input-area-p)
+  ;; We call BEGINNING-OF-DEFUN if we're at the start of a prompt
+  ;; already, to trigger SLIME-REPL-MODE-BEGINNING-OF-DEFUN by means
+  ;; of the locally bound BEGINNING-OF-DEFUN-FUNCTION, in order to
+  ;; jump to the start of the previous prompt.
+  (if (and (not (= (point) slime-repl-input-start-mark))
+           (slime-repl-in-input-area-p))
       (goto-char slime-repl-input-start-mark)
-    (beginning-of-defun)))
+    (beginning-of-defun))
+  t)
 
 (defun slime-repl-end-of-defun ()
   "Move to next of defun."
   (interactive)
-  (if (slime-repl-in-input-area-p)
+  ;; C.f. SLIME-REPL-BEGINNING-OF-DEFUN.
+  (if (and (not (= (point) slime-repl-input-end-mark)) 
+           (slime-repl-in-input-area-p))
       (goto-char slime-repl-input-end-mark)
-    (end-of-defun)))
+    (end-of-defun))
+  t)
 
 (defun slime-repl-at-prompt-end-p ()
   (and (get-char-property (max 1 (1- (point))) 'slime-repl-prompt)
@@ -5666,7 +5678,7 @@ This is a superset of the functionality of `slime-insert-arglist'."
               ;; really necessary (thinking especially of paredit.el.)
               (insert (substring result 0 -1))
               (let ((slime-close-parens-limit 1))
-                (slime-close-parens-at-point)))
+                (slime-close-all-parens-in-sexp)))
             (save-excursion
               (backward-up-list 1)
               (indent-sexp)))))))
@@ -9781,6 +9793,21 @@ Only considers buffers that are not already visible."
 
 ;;;; Editing commands
 
+(defun slime-beginning-of-defun ()
+  (interactive)
+  (if (and (boundp 'slime-repl-input-start-mark)
+           slime-repl-input-start-mark)
+      (slime-repl-beginning-of-defun)
+      (beginning-of-defun)))
+
+(defun slime-end-of-defun ()
+  (interactive)
+  (if (and (boundp 'slime-repl-input-end-mark)
+           slime-repl-input-end-mark)
+      (slime-repl-end-of-defun)
+      (end-of-defun)))
+
+
 (defvar slime-comment-start-regexp
   "\\(\\(^\\|[^\n\\\\]\\)\\([\\\\][\\\\]\\)*\\);+[ \t]*"
   "Regexp to match the start of a comment.")
@@ -9796,7 +9823,7 @@ Otherwise leave point unchanged and return NIL."
           (t (goto-char boundary) 
              nil))))
 
-(defun slime-close-all-sexp (&optional region)
+(defun slime-close-all-parens-in-sexp (&optional region)
   "Balance parentheses of open s-expressions at point.
 Insert enough right parentheses to balance unmatched left parentheses.
 Delete extra left parentheses.  Reformat trailing parentheses 
@@ -9830,7 +9857,20 @@ the top-level sexp before point."
       (setq point (point))
       (skip-chars-forward " \t\n)")
       (skip-chars-backward " \t\n")
-      (delete-region point (point)))))
+      (delete-region point (point))
+      ;; We always insert as many parentheses as necessary, and only
+      ;; afterwards delete the superfluously-added parens because of
+      ;; "extra right parens" above (which is done this way, since the
+      ;; code works with regexps and it's hard to keep track of those
+      ;; extra right parentheses this way.)
+      (when slime-close-parens-limit 
+        (dotimes (i (max 0 (- sexp-level slime-close-parens-limit)))
+          (delete-char -1))))))
+
+(defvar slime-close-parens-limit nil
+  "Maxmimum parens for `slime-close-all-sexp' to insert. NIL
+means to insert as many parentheses as necessary to correctly
+close the form.")
 
 (defun slime-insert-balanced-comments (arg)
   "Insert a set of balanced comments around the s-expression
@@ -9866,20 +9906,29 @@ expressions out is enclosed in a set of balanced comments."
       (forward-sexp))
       (replace-match ""))))
 
-(defvar slime-close-parens-limit 16
-  "Maxmimum parens for `slime-close-parens-at-point' to insert.")
 
-(defun slime-close-parens-at-point ()
-  "Close parenthesis at point to complete the top-level-form.  Simply
-inserts ')' characters at point until `beginning-of-defun' and
-`end-of-defun' execute without errors, or `slime-close-parens-limit'
-is exceeded."
-  (interactive)
-  (loop for i from 1 to slime-close-parens-limit
-        until (save-excursion
-                (beginning-of-defun)
-                (ignore-errors (end-of-defun) t))
-        do (insert ")")))
+;; SLIME-CLOSE-PARENS-AT-POINT is obsolete:
+
+;; It doesn't work correctly on the REPL, because there
+;; BEGINNING-OF-DEFUN-FUNCTION and END-OF-DEFUN-FUNCTION is bound to
+;; SLIME-REPL-MODE-BEGINNING-OF-DEFUN (and
+;; SLIME-REPL-MODE-END-OF-DEFUN respectively) which compromises the
+;; way how they're expect to work (i.e. END-OF-DEFUN does not signal
+;; an UNBOUND-PARENTHESES error.)
+
+;; Use SLIME-CLOSE-ALL-PARENS-IN-SEXP instead.
+
+;; (defun slime-close-parens-at-point ()
+;;   "Close parenthesis at point to complete the top-level-form.  Simply
+;; inserts ')' characters at point until `beginning-of-defun' and
+;; `end-of-defun' execute without errors, or `slime-close-parens-limit'
+;; is exceeded."
+;;   (interactive)
+;;   (loop for i from 1 to slime-close-parens-limit
+;;         until (save-excursion
+;;                 (slime-beginning-of-defun)
+;;                 (ignore-errors (slime-end-of-defun) t))
+;;         do (insert ")")))
 
 
 ;;;; Font Lock

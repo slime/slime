@@ -1,3 +1,32 @@
+2007-06-16  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el: Pressing `C-M-a' (beginning-of-defun) in midst of the
+	last REPL prompt directs the cursor to the beginning of the
+	prompt. Pressing it again, would do nothing; now it moves the
+	cursor to the start of the previous prompt (as it's consistent
+	with the behaviour when the cursor was placed midst one of the old
+	prompts.)
+
+	Likewise for `C-M-e' (end-of-defun)
+
+	Additionally fixing `C-c C-s' (slime-complete-form) at the REPL.
+
+	(slime-keys): New bindings for `C-M-a' and `C-M-e' to
+	SLIME-BEGINNING-OF-DEFUN and SLIME-END-OF-DEFUN respectively.
+	(slime-keys): Making `C-c C-q' (slime-close-parens-at-point)
+	obsolete, as it didn't work correctly on the REPL.
+	(slime-repl-mode-map): Removed bindings for `C-M-a' and `C-M-e',
+	as they're now inherited from SLIME-KEYS.
+	(slime-repl-beginning-of-defun, slime-repl-end-of-defun): Jump to
+	the previous (next) prompt if called twice in a row.
+
+	(slime-close-parens-at-point): Commented out.
+	(slime-close-all-sexp): Renamed to SLIME-CLOSE-ALL-PARENS-IN-SEXP.
+	(slime-close-all-parens-in-sexp): Modified to take
+	SLIME-CLOSE-PARENS-LIMIT into account.
+	(slime-complete-form): Use SLIME-CLOSE-ALL-PARENS-IN-SEXP.
+	
+
 2007-05-24  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank.lisp: Fixed regression in completion: "swank[TAB]" would
