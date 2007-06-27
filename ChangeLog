@@ -1,3 +1,12 @@
+2007-06-27  Tobias C. Rittweiler <tcr@freebits.de>
+
+	Fixing `C-c M-q' at the REPL. Thanks to André Thieme for pointing
+	out that it has been broken since several months.
+	
+	* slime.el (slime-reindent-defun): Use functions
+	`slime-beginning-of-defun' and `slime-end-of-defun' that were
+	introduced in the last changeset. 
+	
 2007-06-16  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el: Pressing `C-M-a' (beginning-of-defun) in midst of the
