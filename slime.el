@@ -3738,7 +3738,11 @@ the presented object."
 (defun slime-repl-in-input-area-p ()
    (and (<= slime-repl-input-start-mark (point))
         (<= (point) slime-repl-input-end-mark)))
-  
+
+(defun slime-repl-at-prompt-start-p ()
+  ;; This will not work on non-current prompts.
+  (= (point) slime-repl-input-start-mark))
+
 (defun slime-repl-beginning-of-defun ()
   "Move to beginning of defun."
   (interactive)
@@ -3746,7 +3750,7 @@ the presented object."
   ;; already, to trigger SLIME-REPL-MODE-BEGINNING-OF-DEFUN by means
   ;; of the locally bound BEGINNING-OF-DEFUN-FUNCTION, in order to
   ;; jump to the start of the previous prompt.
-  (if (and (not (= (point) slime-repl-input-start-mark))
+  (if (and (not (slime-repl-at-prompt-start-p))
            (slime-repl-in-input-area-p))
       (goto-char slime-repl-input-start-mark)
     (beginning-of-defun))
@@ -3762,6 +3766,7 @@ the presented object."
     (end-of-defun))
   t)
 
+;; FIXME: Shouldn't this be (= (point) slime-repl-input-end-mark)?
 (defun slime-repl-at-prompt-end-p ()
   (and (get-char-property (max 1 (1- (point))) 'slime-repl-prompt)
        (not (get-char-property (point) 'slime-repl-prompt))))
@@ -10037,8 +10042,9 @@ be treated as a paragraph.  This is useful for filling docstrings."
   (save-excursion
     (if (or force-text-fill (slime-beginning-of-comment))
         (fill-paragraph nil)
-      (let ((start (progn (unless (and (zerop (current-column))
-                                       (eq ?\( (char-after)))
+      (let ((start (progn (unless (or (and (zerop (current-column))
+                                           (eq ?\( (char-after)))
+                                      (slime-repl-at-prompt-start-p))
                             (slime-beginning-of-defun))
                           (point)))
             (end (ignore-errors (slime-end-of-defun) (point))))
