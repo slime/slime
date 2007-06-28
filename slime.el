@@ -9716,14 +9716,17 @@ DESCRIPTION is a one-line sentence describing how the method
 selects a buffer.
 
 BODY is a series of forms which are evaluated when the selector
-is chosen. If they return a buffer that buffer is selected with
+is chosen. The returned buffer is selected with
 switch-to-buffer."
   `(setq slime-selector-methods
          (sort* (cons (list ,key ,description
                             (lambda () 
-                              (let ((new-buffer (progn ,@body)))
-                                (when (bufferp new-buffer)
-                                  (switch-to-buffer new-buffer)))))
+                              (let ((buffer (progn ,@body)))
+                                (cond ((get-buffer buffer)
+                                       (switch-to-buffer buffer))
+                                      (t
+                                       (message "No such buffer: %S" buffer)
+                                       (ding))))))
                       (remove* ,key slime-selector-methods :key #'car))
                 #'< :key #'car)))
 
@@ -9769,7 +9772,7 @@ switch-to-buffer."
 (def-slime-selector-method ?d
   "*sldb* buffer for the current connection."
   (or (sldb-get-default-buffer)
-      (message "No debugger buffer")))
+      (error "No debugger buffer")))
 
 (def-slime-selector-method ?e
   "most recently visited emacs-lisp-mode buffer."

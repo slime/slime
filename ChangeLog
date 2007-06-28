@@ -1,3 +1,11 @@
+2007-06-28  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (def-slime-selector-method): Revert Marco's change from
+	2007-05-23.  BODY can return a buffer name, like "*slime-events*".
+	Handle that and never ignore invalid return values.  Force BODY to
+	abort if there's no suitable buffer.  Why would you want to switch
+	buffers if the desired buffer doesn't exist?
+
 2007-06-27  Tobias C. Rittweiler <tcr@freebits.de>
 
 	Fixing `C-c M-q' at the REPL. Thanks to André Thieme for pointing
