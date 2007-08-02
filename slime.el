@@ -4578,7 +4578,8 @@ Also rearrange windows."
     (when (or (string= (buffer-name buf) slime-event-buffer-name)
               (string-match "^\\*inferior-lisp*" (buffer-name buf))
               (string-match "^\\*slime-repl .*\\*$" (buffer-name buf))
-              (string-match "^\\*sldb .*\\*$" (buffer-name buf)))
+              (string-match "^\\*sldb .*\\*$" (buffer-name buf))
+              (string-match "^\\*SLIME.*\\*$" (buffer-name buf)))
       (kill-buffer buf))))
 
 
