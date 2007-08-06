@@ -2923,7 +2923,10 @@ I is an integer describing and FRAME a string."
   (loop for frame in (compute-backtrace start end)
         for i from start
         collect (list i (with-output-to-string (stream)
-                          (print-frame frame stream)))))
+                          (handler-case 
+                              (print-frame frame stream)
+                            (t ()
+                              (format stream "[error printing frame]")))))))
 
 (defslimefun debugger-info-for-emacs (start end)
   "Return debugger state, with stack frames from START to END.
