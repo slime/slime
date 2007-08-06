@@ -1,3 +1,9 @@
+2007-08-05  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* swank.lisp (backtrace): Handle printer errors while printing a
+	frame.  This makes debugging print-object methods with SLIME
+	easier.  Reported by Utz-Uwe Haus.
+
 2007-08-02  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-kill-all-buffers): Now also kills all buffers
