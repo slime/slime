@@ -2006,22 +2006,23 @@ EVAL'd by Lisp."
 
 (defun slime-process-available-input (process)
   "Process all complete messages that have arrived from Lisp."
-  (with-current-buffer (process-buffer process)
-    (while (slime-net-have-input-p)
-      (let ((event (condition-case error
-                       (slime-net-read)
-                     (error
-                      (slime-net-close process t)
-                      (error "net-read error: %S" error)))))
-        (slime-log-event event)
-        (let ((ok nil))
-          (unwind-protect
-              (save-current-buffer 
-                (slime-dispatch-event event process)
-                (setq ok t))
-            (unless ok 
-              (slime-run-when-idle 
-               'slime-process-available-input process))))))))
+  (let ((original-buffer (current-buffer)))
+    (with-current-buffer (process-buffer process)
+      (while (slime-net-have-input-p)
+        (let ((event (condition-case error
+                         (slime-net-read)
+                       (error
+                        (slime-net-close process t)
+                        (error "net-read error: %S" error)))))
+          (slime-log-event event)
+          (let ((ok nil))
+            (unwind-protect
+                 (with-current-buffer original-buffer
+                   (slime-dispatch-event event process)
+                   (setq ok t))
+              (unless ok 
+                (slime-run-when-idle 
+                 'slime-process-available-input process)))))))))
 
 (defun slime-net-have-input-p ()
   "Return true if a complete message is available."

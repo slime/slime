@@ -1,5 +1,14 @@
 2007-08-15  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* slime.el (slime-process-available-input): Make sure that the
+	event received from SWANK is processed in the context of the
+	original buffer the request of the response was performed in.
+	Previously, the clauses of `slime-rex' were processed in the
+	internal *cl-connection* buffer. And as a result the continuations
+	passed to `slime-eval' and `slime-eval-async' ditto.
+	
+2007-08-15  Tobias C. Rittweiler <tcr@freebits.de>
+
 	Make `M-.' work on definitions outside the current restriction.
 	`M-,' will also properly restore the narrowing as of before the
 	jump. Similiarly for quiting from the compilation notes buffer and
