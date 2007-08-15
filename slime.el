@@ -1192,20 +1192,87 @@ Assumes all insertions are made at point."
 
 (put 'slime-with-rigid-indentation 'lisp-indent-function 1)
 
+;;;;; Snapshots of current Emacs state
+
+;;; Window configurations do not save (and hence not restore)
+;;; any narrowing that could be applied to a buffer.
+;;;
+;;; For this purpose, we introduce a superset of a window
+;;; configuration that does include the necessary information to
+;;; properly restore narrowing.
+;;;
+;;; We call this superset an Emacs Snapshot.
+
+(defstruct (slime-narrowing-configuration
+             (:conc-name slime-narrowing-configuration.))
+  narrowedp beg end)
+
+(defstruct (slime-emacs-snapshot (:conc-name slime-emacs-snapshot.))
+  window-configuration narrowing-configuration)
+
+(defun current-slime-narrowing-configuration (&optional buffer)
+  (with-current-buffer (or buffer (current-buffer))
+    (make-slime-narrowing-configuration :narrowedp (slime-buffer-narrowed-p)
+                                        :beg (point-min-marker)
+                                        :end (point-max-marker))))
+
+(defun set-slime-narrowing-configuration (narrowing-cfg)
+  (when (slime-narrowing-configuration.narrowedp narrowing-cfg)
+    (narrow-to-region (slime-narrowing-configuration.beg narrowing-cfg)
+                      (slime-narrowing-configuration.end narrowing-cfg))))
+
+(defun current-slime-emacs-snapshot (&optional frame)
+  "Returns a snapshot of the current state of FRAME, or the
+currently active frame if FRAME is not given respectively."
+  (with-current-buffer
+      (if frame
+          (window-buffer (frame-selected-window (selected-frame)))
+          (current-buffer))
+    (make-slime-emacs-snapshot
+     :window-configuration    (current-window-configuration frame)
+     :narrowing-configuration (current-slime-narrowing-configuration))))
+
+(defun set-slime-emacs-snapshot (snapshot)
+  "Restores the state of Emacs according to the information saved
+in SNAPSHOT."
+  (let ((window-cfg    (slime-emacs-snapshot.window-configuration snapshot))
+        (narrowing-cfg (slime-emacs-snapshot.narrowing-configuration snapshot)))
+    (set-window-configuration window-cfg) ; restores previously current buffer.
+    (set-slime-narrowing-configuration narrowing-cfg)))
+
+(defun current-slime-emacs-snapshot-fingerprint (&optional frame)
+  "Return a fingerprint of the current emacs snapshot.
+Fingerprints are `equalp' if and only if they represent window
+configurations that are very similar (same windows and buffers.)
+
+Unlike real window-configuration objects, fingerprints are not
+sensitive to the point moving and they can't be restored."
+  (mapcar (lambda (window) (list window (window-buffer window)))
+          (slime-frame-windows frame)))
+
+(defun slime-frame-windows (&optional frame)
+  "Return the list of windows in FRAME."
+  (loop with last-window = (previous-window (frame-first-window frame))
+        for window = (frame-first-window frame) then (next-window window)
+        collect window
+        until (eq window last-window)))
+
+
 ;;;;; Temporary popup buffers
 
 (make-variable-buffer-local
- (defvar slime-temp-buffer-saved-window-configuration nil
-   "The window configuration before the temp-buffer was displayed.
+ (defvar slime-temp-buffer-saved-emacs-snapshot nil
+   "The snapshot of the current state in Emacs before the temp-buffer
+was displayed, so that this state can be restored later on.
 Buffer local in temp-buffers."))
 
 (make-variable-buffer-local
- (defvar slime-temp-buffer-fingerprint nil
-   "The window config \"fingerprint\" after displaying the buffer."))
+ (defvar slime-temp-buffer-saved-fingerprint nil
+   "The emacs snapshot \"fingerprint\" after displaying the buffer."))
 
 ;; Interface
 (defun* slime-get-temp-buffer-create (name &key mode noselectp reusep 
-                                           window-configuration)
+                                           emacs-snapshot)
   "Return a fresh temporary buffer called NAME in MODE.
 The buffer also uses the minor-mode `slime-temp-buffer-mode'. Pressing
 `q' in the buffer will restore the window configuration to the way it
@@ -1217,23 +1284,22 @@ otherwise it is shown and selected by `pop-to-buffer'.
 If REUSEP is true and a buffer does already exist with name NAME,
 then the buffer will be reused instead of being killed.
 
-If WINDOW-CONFIGURATION is non-NIL, it's used to restore the
-original window configuration after closing the temporary
-buffer. Otherwise, the current configuration will be saved and
-that one used for restoration then.
+If EMACS-SNAPSHOT is non-NIL, it's used to restore the previous
+state of Emacs after closing the temporary buffer. Otherwise, the
+current state will be saved and later restored.
 "
-  (let ((window-config (or window-configuration (current-window-configuration)))
+  (let ((snapshot (or emacs-snapshot (current-slime-emacs-snapshot)))
         (buffer (get-buffer name)))
     (when (and buffer (not reusep))
       (kill-buffer name)
       (setq buffer nil))
     (with-current-buffer (or buffer (get-buffer-create name))
       (when mode
-        (let ((original-configuration slime-temp-buffer-saved-window-configuration)
-              (original-fingerprint slime-temp-buffer-fingerprint))
+        (let ((original-configuration slime-temp-buffer-saved-emacs-snapshot)
+              (original-fingerprint slime-temp-buffer-saved-fingerprint))
           (funcall mode)
-          (setq slime-temp-buffer-saved-window-configuration original-configuration)
-          (setq slime-temp-buffer-fingerprint original-fingerprint)))
+          (setq slime-temp-buffer-saved-emacs-snapshot original-configuration)
+          (setq slime-temp-buffer-saved-fingerprint original-fingerprint)))
       (slime-temp-buffer-mode 1)
       (let ((window (get-buffer-window (current-buffer))))
         (if window
@@ -1244,16 +1310,18 @@ that one used for restoration then.
                   (display-buffer (current-buffer) t)
                   (pop-to-buffer (current-buffer))
                   (selected-window))
-              (setq slime-temp-buffer-saved-window-configuration window-config)
-              (setq slime-temp-buffer-fingerprint (slime-window-config-fingerprint)))))
+              (setq slime-temp-buffer-saved-emacs-snapshot snapshot)
+              (setq slime-temp-buffer-saved-fingerprint
+                    (current-slime-emacs-snapshot-fingerprint)))))
       (current-buffer))))
 
 ;; Interface
 (defmacro* slime-with-output-to-temp-buffer ((name &key mode reusep)
                                              package &rest body)
   "Similar to `with-output-to-temp-buffer'.
-Also saves the window configuration, and inherits the current
-`slime-connection' in a buffer-local variable."
+Also saves the current state of Emacs (window configuration &c),
+and inherits the current `slime-connection' in a buffer-local
+variable. Cf. `slime-get-temp-buffer-create'"
   `(let ((connection (slime-connection))
          (standard-output (slime-get-temp-buffer-create ,name :mode ',mode 
                                                         :reusep ,reusep)))
@@ -1281,33 +1349,15 @@ Also saves the window configuration, and inherits the current
   "Get rid of the current (temp) buffer without asking. Restore the
 window configuration unless it was changed since we last activated the buffer."
   (interactive)
-  (let ((saved-window-config slime-temp-buffer-saved-window-configuration)
+  (let ((snapshot slime-temp-buffer-saved-emacs-snapshot)
         (temp-buffer (current-buffer)))
-    (setq slime-temp-buffer-saved-window-configuration nil)
-    (if (and saved-window-config
-             (equalp (slime-window-config-fingerprint)
-                     slime-temp-buffer-fingerprint))
-        (set-window-configuration saved-window-config)
+    (setq slime-temp-buffer-saved-emacs-snapshot nil)
+    (if (and snapshot (equalp (current-slime-emacs-snapshot-fingerprint)
+                              slime-temp-buffer-saved-fingerprint))
+        (set-slime-emacs-snapshot snapshot)
         (bury-buffer))
     (when kill-buffer-p
       (kill-buffer temp-buffer))))
-
-(defun slime-window-config-fingerprint (&optional frame)
-  "Return a fingerprint of the current window configuration.
-Fingerprints are `equalp' if and only if they represent window
-configurations that are very similar (same windows and buffers.)
-
-Unlike window-configuration objects fingerprints are not sensitive to
-the point moving and they can't be restored."
-  (mapcar (lambda (window) (list window (window-buffer window)))
-          (slime-frame-windows frame)))
-
-(defun slime-frame-windows (&optional frame)
-  "Return the list of windows in FRAME."
-  (loop with last-window = (previous-window (frame-first-window frame))
-        for window = (frame-first-window frame) then (next-window window)
-        collect window
-        until (eq window last-window)))
 
 ;;;;; Filename translation
 ;;;
@@ -2519,7 +2569,7 @@ or nil if nothing suitable can be found.")
   "Evaluate EXPR on the superior Lisp and call CONT with the result."
   (slime-rex (cont)
       (sexp (or package (slime-current-package)))
-    ((:ok result) 
+    ((:ok result)
      (when cont (funcall cont result)))
     ((:abort &optional reason) 
      (message (or reason "Evaluation aborted.")))))
@@ -4649,17 +4699,17 @@ See `slime-compile-and-load-file' for further details."
     (save-buffer))
   (run-hook-with-args 'slime-before-compile-functions (point-min) (point-max))
   (let ((lisp-filename (slime-to-lisp-filename (buffer-file-name)))
-        (window-config (current-window-configuration)))
+        (snapshot (current-slime-emacs-snapshot)))
     (slime-insert-transcript-delimiter
      (format "Compile file %s" lisp-filename))
-    ;; The following may alter the current window-config, so we saved
-    ;; it, to pass it on for it to be restored!
+    ;; The following may alter the current window configuration, so we saved
+    ;; it above to pass it on for it to be properly restored!
     (when slime-display-compilation-output
       (slime-display-output-buffer))
     (slime-eval-async
      `(swank:compile-file-for-emacs 
        ,lisp-filename ,(if load t nil))
-     (slime-make-compilation-finished-continuation (current-buffer) window-config))
+     (slime-make-compilation-finished-continuation (current-buffer) snapshot))
     (message "Compiling %s.." lisp-filename)))
 
 (defun slime-find-asd (system-names)
@@ -4775,14 +4825,7 @@ Each newlines and following indentation is replaced by a single space."
       (replace-match " "))
     (buffer-string)))
 
-(defun slime-length> (list n)
-  "Test if (length LIST) is greater than N."
-  (while (and (> n 0) list)
-    (setq list (cdr list))
-    (decf n))
-  list)
-
-(defun slime-compilation-finished (result buffer &optional window-config)
+(defun slime-compilation-finished (result buffer &optional emacs-snapshot)
   (let ((notes (slime-compiler-notes)))
     (with-current-buffer buffer
       (setf slime-compilation-just-finished t)
@@ -4790,20 +4833,22 @@ Each newlines and following indentation is replaced by a single space."
         (slime-show-note-counts notes secs)
         (when slime-highlight-compiler-notes
           (slime-highlight-notes notes))))
-    (run-hook-with-args 'slime-compilation-finished-hook notes window-config)))
+    (run-hook-with-args 'slime-compilation-finished-hook notes emacs-snapshot)))
 
-(defun slime-make-compilation-finished-continuation (current-buffer &optional window-config)
-  (lexical-let ((buffer current-buffer) (config window-config))
+(defun slime-make-compilation-finished-continuation (current-buffer &optional emacs-snapshot)
+  (lexical-let ((buffer current-buffer) (snapshot emacs-snapshot))
     (lambda (result)
-      (slime-compilation-finished result buffer config))))
+      (slime-compilation-finished result buffer snapshot))))
 
 (defun slime-highlight-notes (notes)
   "Highlight compiler notes, warnings, and errors in the buffer."
   (interactive (list (slime-compiler-notes)))
   (with-temp-message "Highlighting notes..."
     (save-excursion
-      (slime-remove-old-overlays)
-      (mapc #'slime-overlay-note (slime-merge-notes-for-display notes)))))
+      (save-restriction
+        (widen)                  ; highlight notes on the whole buffer
+        (slime-remove-old-overlays)
+        (mapc #'slime-overlay-note (slime-merge-notes-for-display notes))))))
 
 (defun slime-compiler-notes ()
   "Return all compiler notes, warnings, and errors."
@@ -4814,12 +4859,14 @@ Each newlines and following indentation is replaced by a single space."
   (dolist (buffer (slime-filter-buffers (lambda () slime-mode)))
     (with-current-buffer buffer
       (save-excursion
-        (goto-char (point-min))
-        (while (not (eobp))
-          (dolist (o (overlays-at (point)))
-            (when (overlay-get o 'slime)
-              (delete-overlay o)))
-          (goto-char (next-overlay-change (point))))))))
+        (save-restriction
+          (widen)                ; remove overlays within the whole buffer.
+          (goto-char (point-min))
+          (while (not (eobp))
+            (dolist (o (overlays-at (point)))
+              (when (overlay-get o 'slime)
+                (delete-overlay o)))
+            (goto-char (next-overlay-change (point)))))))))
 
 (defun slime-filter-buffers (predicate)
   "Return a list of where PREDICATE returns true.
@@ -4877,33 +4924,33 @@ The order of the input list is preserved."
 
 ;;;;; Compiler notes list
 
-(defun slime-maybe-show-xrefs-for-notes (&optional notes window-config)
+(defun slime-maybe-show-xrefs-for-notes (&optional notes emacs-snapshot)
   "Show the compiler notes NOTES if they come from more than one file."
   (let* ((notes (or notes (slime-compiler-notes))) 
          (xrefs (slime-xrefs-for-notes notes)))
-    (when (> (length xrefs) 1)          ; >1 file
+    (when (slime-length> xrefs 1)          ; >1 file
       (slime-show-xrefs
        xrefs 'definition "Compiler notes" (slime-current-package)
-       window-config))))
+       emacs-snapshot))))
 
 (defun slime-note-has-location-p (note)
   (not (eq ':error (car (slime-note.location note)))))
 
-(defun slime-maybe-list-compiler-notes (notes &optional window-config)
+(defun slime-maybe-list-compiler-notes (notes &optional emacs-snapshot)
   "Show the compiler notes if appropriate."
   ;; don't pop up a buffer if all notes will are already annotated in
   ;; the buffer itself
   (unless (every #'slime-note-has-location-p notes)
-    (slime-list-compiler-notes notes window-config)))
+    (slime-list-compiler-notes notes emacs-snapshot)))
 
-(defun slime-list-compiler-notes (notes &optional window-config)
+(defun slime-list-compiler-notes (notes &optional emacs-snapshot)
   "Show the compiler notes NOTES in tree view."
   (interactive (list (slime-compiler-notes)))
   (with-temp-message "Preparing compiler note tree..."
     (with-current-buffer
         (slime-get-temp-buffer-create "*compiler notes*"
                                       :mode 'slime-compiler-notes-mode
-                                      :window-configuration window-config)
+                                      :emacs-snapshot emacs-snapshot)
       (let ((inhibit-read-only t))
         (erase-buffer)
         (when (null notes)
@@ -5011,7 +5058,7 @@ from an element and TEST is used to compare keys."
     (cond ((not (slime-tree-leaf-p tree))
            (slime-tree-toggle tree))
           (t
-           (slime-show-source-location (slime-note.location note))))))
+           (slime-show-source-location (slime-note.location note) t)))))
 
 
 ;;;;;; Tree Widget
@@ -5291,41 +5338,43 @@ first element of the source-path redundant."
        (goto-char (point-min))))))
 
 (defun slime-goto-location-position (position)
-  (destructure-case position
-    ((:position pos &optional align-p)
-     (goto-char pos)
-     (when align-p
-       (slime-forward-sexp)
-       (beginning-of-sexp)))
-    ((:line start &optional column)
-     (goto-line start)
-     (cond (column (move-to-column column))
-           (t (skip-chars-forward " \t"))))
-    ((:function-name name)
-     (let ((case-fold-search t)
-           (name (regexp-quote name)))
-       (or 
-        (re-search-forward 
-         (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\S_" name) nil t)
-        (re-search-forward 
-         (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +(*%s\\S_" name) nil t)
-        (re-search-forward 
-         (format "[( \t]%s\\>\\(\\s \\|$\\)" name) nil t)))
-     (goto-char (match-beginning 0)))
-    ((:method name specializers &rest qualifiers)
-     (slime-search-method-location name specializers qualifiers))
-    ((:source-path source-path start-position)
-     (cond (start-position
-            (goto-char start-position)
-            (slime-forward-positioned-source-path source-path))
-           (t
-            (slime-forward-source-path source-path))))
-    ;; Goes to "start" then looks for the anchor text, then moves
-    ;; delta from that position.
-    ((:text-anchored start text delta)
-     (goto-char start)
-     (slime-isearch text)
-     (forward-char delta))))
+  (save-restriction-if-possible         ; try to keep restriction if possible.
+    (widen)
+    (destructure-case position
+      ((:position pos &optional align-p)
+       (goto-char pos)
+       (when align-p
+         (slime-forward-sexp)
+         (beginning-of-sexp)))
+      ((:line start &optional column)
+       (goto-line start)
+       (cond (column (move-to-column column))
+             (t (skip-chars-forward " \t"))))
+      ((:function-name name)
+       (let ((case-fold-search t)
+             (name (regexp-quote name)))
+         (or 
+          (re-search-forward 
+           (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\S_" name) nil t)
+          (re-search-forward 
+           (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +(*%s\\S_" name) nil t)
+          (re-search-forward 
+           (format "[( \t]%s\\>\\(\\s \\|$\\)" name) nil t)))
+       (goto-char (match-beginning 0)))
+      ((:method name specializers &rest qualifiers)
+       (slime-search-method-location name specializers qualifiers))
+      ((:source-path source-path start-position)
+       (cond (start-position
+              (goto-char start-position)
+              (slime-forward-positioned-source-path source-path))
+             (t
+              (slime-forward-source-path source-path))))
+      ;; Goes to "start" then looks for the anchor text, then moves
+      ;; delta from that position.
+      ((:text-anchored start text delta)
+       (goto-char start)
+       (slime-isearch text)
+       (forward-char delta)))))
 
 (defun slime-search-method-location (name specializers qualifiers)
   ;; Look for a sequence of words (def<something> method name
@@ -6134,7 +6183,7 @@ Completion is performed by `slime-complete-symbol-function'."
       (delete-region beg end)
       (goto-char (+ beg (length completed-prefix)))
       (cond ((and (member completed-prefix completion-set)
-                  (= (length completion-set) 1))
+                  (slime-length= completion-set 1))
              (slime-minibuffer-respecting-message "Sole completion")
              (when slime-complete-symbol*-fancy
                (slime-complete-symbol*-fancy-bit))
@@ -6195,7 +6244,7 @@ Perform completion more similar to Emacs' complete-symbol."
                      (ding)
                      (slime-complete-restore-window-configuration))
             (insert-and-inherit (substring partial (length prefix)))
-            (cond ((= (length completions) 1)
+            (cond ((slime-length= completions 1)
                    (slime-minibuffer-respecting-message "Sole completion")
                    (slime-complete-restore-window-configuration))
                   ;; Incomplete
@@ -6554,7 +6603,7 @@ most recently enclosed macro or function."
                  (ding)
                  (slime-fuzzy-done))
           (goto-char end)
-          (cond ((null (cdr completion-set)) ; (= (length completion-set) 1)
+          (cond ((slime-length= completion-set 1)
                  (insert-and-inherit (caar completion-set)) ; insert completed string
                  (delete-region beg end)
                  (goto-char (+ beg (length (caar completion-set))))
@@ -6888,23 +6937,32 @@ configuration was changed, we nullify our saved configuration."
 (defvar slime-find-definition-history-ring (make-ring 20)
   "History ring recording the definition-finding \"stack\".")
 
-(defun slime-push-definition-stack (&optional mark)
-  "Add MARKER to the edit-definition history stack.
-If MARKER is nil, use the point."
+(defun slime-push-definition-stack (&optional marker narrowing-configuration)
+  "Add MARKER and NARROWING-CONFIGURATION to the edit-definition history stack.
+If MARKER is nil, use the current point. If NARROWING-CONFIGURATION is nil, 
+look if the current buffer is narrowed, and if so use the relevant values."
   (ring-insert-at-beginning slime-find-definition-history-ring 
-                            (or mark (point-marker))))
+    (list (or marker (point-marker))
+          (or narrowing-configuration
+              (current-slime-narrowing-configuration)))))
 
 (defun slime-pop-find-definition-stack ()
   "Pop the edit-definition stack and goto the location."
   (interactive)
   (unless (ring-empty-p slime-find-definition-history-ring)
-    (let* ((marker (ring-remove slime-find-definition-history-ring))
-	   (buffer (marker-buffer marker)))
-      (if (buffer-live-p buffer)
-	  (progn (switch-to-buffer buffer)
-		 (goto-char (marker-position marker)))
-        ;; If this buffer was deleted, recurse to try the next one
-        (slime-pop-find-definition-stack)))))
+    (destructuring-bind (marker narrowing-cfg)
+        (ring-remove slime-find-definition-history-ring)
+      (let ((buffer (marker-buffer marker))
+            (narrowedp  (slime-narrowing-configuration.narrowedp narrowing-cfg))
+            (narrow-beg (slime-narrowing-configuration.beg narrowing-cfg))
+            (narrow-end (slime-narrowing-configuration.end narrowing-cfg)))
+        (if (buffer-live-p buffer)
+            (progn (switch-to-buffer buffer)
+                   (goto-char (marker-position marker))
+                   (when narrowedp
+                     (narrow-to-region narrow-beg narrow-end)))
+            ;; If this buffer was deleted, recurse to try the next one
+            (slime-pop-find-definition-stack))))))
 
 (defstruct (slime-definition (:conc-name slime-definition.)
                              (:type list))
@@ -6921,7 +6979,7 @@ function name is prompted."
       (if slime-edit-definition-fallback-function
           (funcall slime-edit-definition-fallback-function name)
         (error "No known definition for: %s" name)))
-     ((and (consp definitions) (null (cdr definitions))
+     ((and (slime-length= definitions 1)
            (eql (car (slime-definition.location (car definitions))) :error))
       (if slime-edit-definition-fallback-function
           (funcall slime-edit-definition-fallback-function name)
@@ -7714,7 +7772,7 @@ With prefix argument include internal symbols."
 ;;;; XREF: cross-referencing
 
 (defvar slime-xref-mode-map)
-(defvar slime-xref-saved-window-configuration nil
+(defvar slime-xref-saved-emacs-snapshot nil
   "Buffer local variable in xref windows.")
 
 (define-derived-mode slime-xref-mode lisp-mode "xref"
@@ -7778,23 +7836,26 @@ If CREATE is non-nil, create it if necessary."
       (select-window (display-buffer buffer t))
       (shrink-window-if-larger-than-buffer))))
 
-(defmacro* slime-with-xref-buffer ((package ref-type symbol &key window-configuration) 
+(defmacro* slime-with-xref-buffer ((package ref-type symbol &key emacs-snapshot) 
                                    &body body)
   "Execute BODY in a xref buffer, then show that buffer."
-  (let ((type (gensym)) (sym (gensym)) (pkg (gensym)))
+  (let ((type (gensym "TYPE+")) (sym      (gensym "SYM+"))
+        (pkg  (gensym "PKG+"))  (snapshot (gensym "SNAPSHOT+")))
     `(let ((,type ,ref-type) (,sym ,symbol) (,pkg ,package))
-       (with-current-buffer (get-buffer-create 
-                             (format "*XREF[%s: %s]*" ,type ,sym))
-         (prog2 (progn
-                  (slime-init-xref-buffer ,pkg ,type ,sym)
-                  (make-local-variable 'slime-xref-saved-window-configuration)
-                  (setq slime-xref-saved-window-configuration
-                        (or ,window-configuration (current-window-configuration))))
-             (progn ,@body)
-           (setq buffer-read-only t)
-           (select-window (or (get-buffer-window (current-buffer) t)
-                              (display-buffer (current-buffer) t)))
-           (shrink-window-if-larger-than-buffer))))))
+       ;; We don't want the the xref buffer to be the current buffer
+       ;; in the snapshot, so we gotta take the snapshot here.
+       (let ((,snapshot (or ,emacs-snapshot (current-slime-emacs-snapshot))))
+         (with-current-buffer (get-buffer-create 
+                               (format "*XREF[%s: %s]*" ,type ,sym))
+           (prog2 (progn
+                    (slime-init-xref-buffer ,pkg ,type ,sym)
+                    (make-local-variable 'slime-xref-saved-emacs-snapshot)
+                    (setq slime-xref-saved-emacs-snapshot ,snapshot))
+               (progn ,@body)
+             (setq buffer-read-only t)
+             (select-window (or (get-buffer-window (current-buffer) t)
+                                (display-buffer (current-buffer) t)))
+             (shrink-window-if-larger-than-buffer)))))))
 
 (put 'slime-with-xref-buffer 'lisp-indent-function 1)
 
@@ -7821,12 +7882,12 @@ GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
   (backward-char 1)
   (delete-char 1))
 
-(defun slime-show-xrefs (xrefs type symbol package &optional window-config)
+(defun slime-show-xrefs (xrefs type symbol package &optional emacs-snapshot)
   "Show the results of an XREF query."
   (if (null xrefs)
       (message "No references found for %s." symbol)
     (setq slime-next-location-function 'slime-goto-next-xref)
-    (slime-with-xref-buffer (package type symbol :window-configuration window-config)
+    (slime-with-xref-buffer (package type symbol :emacs-snapshot emacs-snapshot)
       (slime-insert-xrefs xrefs)
       (goto-char (point-min))
       (forward-line)
@@ -7886,9 +7947,13 @@ GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
    `(swank:xref ',type ',symbol)
    (lexical-let ((type type)
                  (symbol symbol)
-                 (package (slime-current-package)))
+                 (package (slime-current-package))
+                 ;; We have to take the snapshot here, because SLIME-EVAL-ASYNC
+                 ;; is invoking its continuation within the extent of a different
+                 ;; buffer. (2007-08-14)
+                 (snapshot (current-slime-emacs-snapshot)))
      (lambda (result)
-       (slime-show-xrefs result type symbol package)))))
+       (slime-show-xrefs result type symbol package snapshot)))))
 
 
 ;;;;; XREF navigation
@@ -7945,9 +8010,9 @@ When displaying XREF information, this goes to the next reference."
 (defun slime-xref-quit ()
   "Kill the current xref buffer and restore the window configuration."
   (interactive)
-  (let ((config slime-xref-saved-window-configuration))
+  (let ((snapshot slime-xref-saved-emacs-snapshot))
     (slime-xref-cleanup)
-    (set-window-configuration config)))
+    (set-slime-emacs-snapshot snapshot)))
 
 (defun slime-xref-cleanup ()
   "Delete overlays created by xref mode and kill the xref buffer."
@@ -8506,7 +8571,7 @@ Called on the `point-entered' text-property hook."
              (from (1+ prev))
              (to (+ from count))
              (frames (slime-eval `(swank:backtrace ,from ,to)))
-             (more (= (length frames) count))
+             (more (slime-length= frames count))
              (pos (point)))
         (delete-region (line-beginning-position) (point-max))
         (sldb-insert-frames frames more)
@@ -8719,9 +8784,9 @@ This is 0 if START and END at the same line."
        (t
         (slime-show-source-location source-location))))))
 
-(defun slime-show-source-location (source-location)
+(defun slime-show-source-location (source-location &optional no-highlight-p)
   (slime-goto-source-location source-location)
-  (sldb-highlight-sexp)
+  (unless no-highlight-p (sldb-highlight-sexp))
   (slime-show-buffer-position (point)))
 
 (defun sldb-highlight-sexp (&optional start end)
@@ -10447,6 +10512,57 @@ BODY returns true if the check succeeds."
     (with-current-buffer sldb
       (equal sldb-level level))))
 
+(def-slime-test narrowing
+    ()
+    "Check that narrowing is properly sustained."
+    '(())
+  (slime-check-top-level)
+  (let ((random-buffer-name (symbol-name (gensym)))
+        (defun-pos) (tmpbuffer))
+    (with-temp-buffer
+      (dotimes (i 100) (insert (format ";;; %d. line\n" i)))
+      (setq tmpbuffer (current-buffer))
+      (setq defun-pos (point))
+      (insert (concat "(defun __foo__ (x y)" "\n"
+                      "  'nothing)"          "\n"))
+      (dotimes (i 100) (insert (format ";;; %d. line\n" (+ 100 i))))
+      (slime-check "Checking that newly created buffer is not narrowed."
+        (not (slime-buffer-narrowed-p)))
+
+      (goto-char defun-pos)
+      (narrow-to-defun)
+      (slime-check "Checking that narrowing succeeded."
+       (slime-buffer-narrowed-p))
+
+      (slime-with-output-to-temp-buffer (random-buffer-name) nil
+        (slime-check ("Checking that we're in Slime's temp buffer `%s'" random-buffer-name)
+          (equal (buffer-name (current-buffer)) random-buffer-name))
+        (slime-temp-buffer-quit))
+      (kill-buffer random-buffer-name)
+      (slime-check ("Checking that we've got back from `%s'" random-buffer-name)
+        (and (eq (current-buffer) tmpbuffer)
+             (= (point) defun-pos)))
+      
+      (slime-check "Checking that narrowing sustained after quitting Slime's temp buffer."
+        (slime-buffer-narrowed-p))
+
+      (let ((slime-buffer-package "SWANK")
+            (symbol '*buffer-package*))
+        (slime-edit-definition (symbol-name symbol))
+        (slime-check ("Checking that we've got M-. into swank.lisp." symbol)
+          (string= (file-name-nondirectory (buffer-file-name))
+                   "swank.lisp"))
+        (slime-pop-find-definition-stack)
+        (slime-check ("Checking that we've got back.")
+          (and (eq (current-buffer) tmpbuffer)
+               (= (point) defun-pos)))
+
+        (slime-check "Checking that narrowing sustained after M-,"
+        (slime-buffer-narrowed-p)))
+      )) 
+  (slime-check-top-level))
+
+
 (def-slime-test find-definition
     (name buffer-package)
     "Find the definition of a function or macro in swank.lisp."
@@ -10974,6 +11090,72 @@ Reconnect afterwards."
     
 
 ;;;; Utilities
+
+;;;;; Misc.
+
+(defun slime-length= (seq n)
+  "Test for whether SEQ contains N number of elements. I.e. it's equivalent
+ to (= (LENGTH SEQ) N), but besides being more concise, it may also be more
+ efficiently implemented."
+  (etypecase seq 
+    (list (do ((i n (1- i))
+               (list seq (cdr list)))
+              ((or (<= i 0) (null list))
+               (and (zerop i) (null list)))))
+    (sequence (= (length seq) n))))
+
+(defun slime-length> (seq n)
+  "Test if (length SEQ) is greater than N."
+  (etypecase seq
+    (list (while (and (> n 0) seq)
+            (setq seq (cdr seq))
+            (decf n))
+          (or (< n 0) (and seq t)))
+    (sequence (> (length seq) n))))
+
+
+;;;;; Buffer related
+
+(defun slime-buffer-narrowed-p (&optional buffer)
+  "Returns T if BUFFER (or the current buffer respectively) is narrowed."
+  (with-current-buffer (or buffer (current-buffer))
+    (let ((beg (point-min))
+          (end (point-max))
+          (total (buffer-size)))
+      (or (/= beg 1) (/= end (1+ total))))))
+
+(defmacro save-restriction-if-possible (&rest body)
+  "Very similiarly to `save-restriction'. The only difference is
+that it's not enforcing the restriction as strictly: It's only
+enforced if `point' was not moved outside of the restriction
+after executing BODY.
+
+Example: 
+
+  (progn (goto-line 1000)
+         (narrow-to-page) 
+         (save-restriction-if-possible (widen) (goto-line 999)))
+
+  In this case, the buffer is narrowed to the current page, and
+  point is on line 999.
+
+  (progn (goto-char 1000)
+         (narrow-to-page) 
+         (save-restriction-if-possible (widen) (goto-line 1)))
+
+  Whereas in this case, the buffer is widened and point is on
+  line 1."
+  (let ((gcfg (gensym "NARROWING-CFG+"))
+        (gbeg (gensym "OLDBEG+"))
+        (gend (gensym "OLDEND+")))
+    `(let ((,gcfg (current-slime-narrowing-configuration)))
+       (unwind-protect (progn ,@body)
+         (let ((,gbeg (slime-narrowing-configuration.beg ,gcfg))
+               (,gbeg (slime-narrowing-configuration.end ,gcfg)))
+           (when (and (>= (point) ,gbeg) (<= (point) ,gend))
+             (set-slime-current-narrowing-configuration ,gcfg)))))))
+
+(put 'save-restriction-if-possible 'lisp-indent-function 0)
 
 ;;;;; Common Lisp-style package-qualified symbols
 

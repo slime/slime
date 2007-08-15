@@ -1,3 +1,48 @@
+2007-08-15  Tobias C. Rittweiler <tcr@freebits.de>
+
+	Make `M-.' work on definitions outside the current restriction.
+	`M-,' will also properly restore the narrowing as of before the
+	jump. Similiarly for quiting from the compilation notes buffer and
+	the Xref buffers.
+
+	* slime.el (slime-narrowing-configuration, slime-emacs-snapshot),
+        (current-slime-narrowing-configuration),
+        (set-slime-narrowing-configuration),
+	(current-slime-emacs-snapshot),
+	(set-slime-emacs-snapshot),
+	(current-slime-emacs-snapshot-fingerprint): New. Emacs' window
+	configurations do not restore narrowing, so introduce a
+	snapshot facility that contains the necessary information.
+
+	* slime.el: Various renaming and adaptions in the Slime temp
+	buffer, xref, goto-definition and compilation notes section to use
+	the newly introduced snapshots instead of mere window
+	configurations.
+
+	* slime.el: (slime-highlight-notes, slime-remove-old-overlays):
+	Still operate on whole buffer, but restore previous restriction if
+	there was any.
+        (slime-goto-location-position): Now widens the buffer to properly
+	jump to definitions outside of the current restriction.
+
+	* slime.el (slime-push-definition-stack),
+	(slime-pop-find-definition-stack): Now also stores information
+	about narrowing on the definition stack, in order to properly
+	restore narrowing on `M-,'.
+
+	* slime.el (def-slime-test narrowing): Test case for properly
+	dealing with narrowing.
+
+	* slime.el (slime-buffer-narrowed-p): New function, tests whether
+	the current buffer is narrowed or not.
+	(save-restriction-if-possibly): Like `save-restriction', but not
+	as strict---see doc string.
+	
+	* slime.el (slime-length=): New function; semantically the same
+	as (= (length seq) n), but more efficiently implemented for lists.
+	Changed the above pattern into a call to SLIME-LENGTH= where
+	appropriate.
+	
 2007-08-05  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* swank.lisp (backtrace): Handle printer errors while printing a
