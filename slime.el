@@ -2017,7 +2017,10 @@ EVAL'd by Lisp."
           (slime-log-event event)
           (let ((ok nil))
             (unwind-protect
-                 (with-current-buffer original-buffer
+                 (with-current-buffer 
+                     (if (buffer-live-p original-buffer)
+                         original-buffer
+                         (current-buffer))
                    (slime-dispatch-event event process)
                    (setq ok t))
               (unless ok 

@@ -1,3 +1,15 @@
+2007-08-16  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el (slime-process-available-input): Correct yesterday's
+	change: the buffer a request was originally performed in doesn't
+	necessarily exist at this time anymore, so we check for buffer
+	liveness now.
+
+	 The problem arised when quitting in SLDB which would cause Swank
+	 to send a `:debug-return' message before the acknowledgement
+	 message for `sldb-quit' is sent. So the acknowledgement is
+	 received in a context where the sldb-buffer is closed already.
+	
 2007-08-15  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el (slime-process-available-input): Make sure that the
