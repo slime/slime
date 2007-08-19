@@ -1,3 +1,16 @@
+2007-08-19  Helmut Eller  <heller@common-lisp.net>
+
+	* contrib: New directory.  Move fuzzy completion code to that
+	directory.
+	
+	* swank.lisp (swank-require): New function to load contrib code.
+	(*find-module*, module-filename, *load-path*, merged-directory)
+	(find-module, module-canditates): New. Pathname acrobatics for
+	swank-require.
+
+	* swank-loader.lisp: Compile (but don't load) contribs.
+	(*contribs*, contrib-source-files): New.
+	
 2007-08-16  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el (slime-process-available-input): Correct yesterday's

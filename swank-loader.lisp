@@ -140,7 +140,7 @@ Return nil if nothing appropriate is available."
     (ignore-errors (delete-file binary-pathname)))
   (abort))
 
-(defun compile-files-if-needed-serially (files fasl-directory)
+(defun compile-files-if-needed-serially (files fasl-directory load)
   "Compile each file in FILES if the source is newer than
 its corresponding binary, or the file preceding it was
 recompiled."
@@ -160,7 +160,8 @@ recompiled."
                 (compile-file source-pathname :output-file binary-pathname
                               :print nil
                               :verbose t))
-              (load binary-pathname :verbose t))
+              (when load
+                (load binary-pathname :verbose t)))
           ;; Fail as early as possible
           (serious-condition (c)
             (handle-loadtime-error c binary-pathname)))))))
@@ -184,20 +185,39 @@ recompiled."
                        :defaults directory)
         :if-does-not-exist nil))
 
-(defun swank-source-files (source-directory)
+(defun source-files (names src-dir)
   (mapcar (lambda (name)
-            (make-pathname :name name :type "lisp"
-                           :defaults source-directory))
-          `("swank-backend" ,@*sysdep-files* "swank")))
+            (make-pathname :name (string-downcase name) :type "lisp"
+                           :defaults src-dir))
+          names))
+
+(defun swank-source-files (src-dir)
+  (source-files `("swank-backend" ,@*sysdep-files* "swank") 
+                src-dir))
 
 (defvar *fasl-directory* (default-fasl-directory)
   "The directory where fasl files should be placed.")
 
+(defvar *contribs* '(swank-fuzzy)
+  "List of names for contrib modules.")
+
+(defun append-dir (absolute name)
+  (merge-pathnames 
+   (make-pathname :directory `(:relative ,name) :defaults absolute)
+   absolute))
+
+(defun contrib-source-files (src-dir)
+  (source-files *contribs* (append-dir src-dir "contrib")))
+
 (defun load-swank (&key
                    (source-directory *source-directory*)
-                   (fasl-directory *fasl-directory*))
+                   (fasl-directory *fasl-directory*)
+                   (contrib-fasl-directory 
+                    (append-dir fasl-directory "contrib")))
   (compile-files-if-needed-serially (swank-source-files source-directory)
-                                    fasl-directory)
+                                    fasl-directory t)
+  (compile-files-if-needed-serially (contrib-source-files source-directory)
+                                    contrib-fasl-directory nil)
   (set (read-from-string "swank::*swank-wire-protocol-version*")
        (slime-version-string))
   (funcall (intern (string :warn-unimplemented-interfaces) :swank-backend))

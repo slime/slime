@@ -1,0 +1,9 @@
+2007-08-19  Helmut Eller  <heller@common-lisp.net>
+
+	Moved fuzzy completion code to contrib directory.
+
+	* slime-fuzzy.el: New file.
+	(slime-fuzzy-init): New function.  Load CL code on startup.
+
+	* swank-fuzzy.lisp: New file. Common Lisp code for fuzzy
+	completion.
