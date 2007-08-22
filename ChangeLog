@@ -1,3 +1,9 @@
+2007-08-22  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el (slime-close-all-parens-in-sexp): Fix interplay with
+	`slime-close-parens-limit'. This should also affect
+	`slime-complete-form' (C-c C-s) in a positive way.
+
 2007-08-16  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el (slime-process-available-input): Correct yesterday's

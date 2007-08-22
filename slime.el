@@ -865,7 +865,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
        [ "List Callees..."         slime-list-callees ,C ]
        [ "Next Location"           slime-next-location t ])
       ("Editing"
-       [ "Close All Parens"        slime-close-all-sexp t]
+       [ "Close All Parens"        slime-close-all-parens-in-sexp t]
        [ "Check Parens"            check-parens t]
        [ "Update Indentation"      slime-update-indentation ,C]
        [ "Select Buffer"           slime-selector t])
@@ -9935,15 +9935,16 @@ the top-level sexp before point."
       (setq point (point))
       (skip-chars-forward " \t\n)")
       (skip-chars-backward " \t\n")
-      (delete-region point (point))
-      ;; We always insert as many parentheses as necessary, and only
-      ;; afterwards delete the superfluously-added parens because of
-      ;; "extra right parens" above (which is done this way, since the
-      ;; code works with regexps and it's hard to keep track of those
-      ;; extra right parentheses this way.)
-      (when slime-close-parens-limit 
-        (dotimes (i (max 0 (- sexp-level slime-close-parens-limit)))
-          (delete-char -1))))))
+      (let* ((deleted-region     (delete-and-extract-region point (point)))
+             (deleted-text       (substring-no-properties deleted-region))
+             (prior-parens-count (count ?\) deleted-text))) 
+        ;; Remember: we always insert as many parentheses as necessary
+        ;; and only afterwards delete the superfluously-added parens.
+        (when slime-close-parens-limit
+          (let ((missing-parens (- sexp-level prior-parens-count
+                                   slime-close-parens-limit)))
+            (dotimes (i (max 0 missing-parens))
+              (delete-char -1))))))))
 
 (defvar slime-close-parens-limit nil
   "Maxmimum parens for `slime-close-all-sexp' to insert. NIL
