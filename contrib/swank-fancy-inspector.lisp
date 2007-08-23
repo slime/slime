@@ -6,7 +6,9 @@
 
 (in-package :swank)
 
-(defclass fancy-inspector (inspector) ())
+;; Subclass `backend-inspector' so that backend specific methods are
+;; also considered.
+(defclass fancy-inspector (backend-inspector) ())
 
 (defmethod inspect-for-emacs ((symbol symbol) (inspector fancy-inspector))
   (declare (ignore inspector))
