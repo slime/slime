@@ -35,6 +35,7 @@
            #:type-specifier-arglist
            ;; inspector related symbols
            #:inspector
+           #:backend-inspector
            #:inspect-for-emacs
            #:raw-inspection
            #:fancy-inspection
