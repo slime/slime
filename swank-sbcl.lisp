@@ -981,13 +981,12 @@ stack."
 
 ;;;; Inspector
 
-(defclass sbcl-inspector (inspector)
-  ())
+(defclass sbcl-inspector (make-inspector) ())
 
 (defimplementation make-default-inspector ()
   (make-instance 'sbcl-inspector))
 
-(defmethod inspect-for-emacs ((o t) (inspector sbcl-inspector))
+(defmethod inspect-for-emacs ((o t) (inspector backend-inspector))
   (declare (ignore inspector))
   (cond ((sb-di::indirect-value-cell-p o)
          (values "A value cell." (label-value-line*
@@ -1000,7 +999,7 @@ stack."
                (values text (loop for value in parts  for i from 0
                                   append (label-value-line i value))))))))
 
-(defmethod inspect-for-emacs ((o function) (inspector sbcl-inspector))
+(defmethod inspect-for-emacs ((o function) (inspector backend-inspector))
   (declare (ignore inspector))
   (let ((header (sb-kernel:widetag-of o)))
     (cond ((= header sb-vm:simple-fun-header-widetag)
@@ -1022,7 +1021,7 @@ stack."
                                   i (sb-kernel:%closure-index-ref o i))))))
 	  (t (call-next-method o)))))
 
-(defmethod inspect-for-emacs ((o sb-kernel:code-component) (_ sbcl-inspector))
+(defmethod inspect-for-emacs ((o sb-kernel:code-component) (_ backend-inspector))
   (declare (ignore _))
   (values (format nil "~A is a code data-block." o)
           (append
@@ -1051,13 +1050,13 @@ stack."
                          (ash (sb-kernel:%code-code-size o) sb-vm:word-shift)
                          :stream s))))))))
 
-(defmethod inspect-for-emacs ((o sb-ext:weak-pointer) (inspector sbcl-inspector))
+(defmethod inspect-for-emacs ((o sb-ext:weak-pointer) (inspector backend-inspector))
   (declare (ignore inspector))
   (values "A weak pointer."
           (label-value-line*
            (:value (sb-ext:weak-pointer-value o)))))
 
-(defmethod inspect-for-emacs ((o sb-kernel:fdefn) (inspector sbcl-inspector))
+(defmethod inspect-for-emacs ((o sb-kernel:fdefn) (inspector backend-inspector))
   (declare (ignore inspector))
   (values "A fdefn object."
           (label-value-line*
@@ -1065,7 +1064,7 @@ stack."
            (:function (sb-kernel:fdefn-fun o)))))
 
 (defmethod inspect-for-emacs :around ((o generic-function)
-                                      (inspector sbcl-inspector))
+                                      (inspector backend-inspector))
   (declare (ignore inspector))
   (multiple-value-bind (title contents) (call-next-method)
     (values title

@@ -879,6 +879,8 @@ themselves, that is, their dispatch functions, are left alone.")
 Implementations should sub class in order to dispatch off of the
 inspect-for-emacs method."))
 
+(defclass backend-inspector (inspector) ())
+
 (definterface make-default-inspector ()
   "Return an inspector object suitable for passing to inspect-for-emacs.")
 

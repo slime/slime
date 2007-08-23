@@ -8,6 +8,19 @@
 
 	* swank-loader.lisp (*contribs*): Add 'swank-fancy-inspector.
 
+	* swank-backend.lisp (backend-inspector): New class.  Introduce a
+	named class to give as another way to dispatch to backend methods.
+
+	* swank-cmucl.lisp: Use backend-inspector class.
+	* swank-sbcl.lisp: Use backend-inspector class.
+	* swank-clisp.lisp: Use backend-inspector class.
+	* swank-lispworks.lisp: Use backend-inspector class.
+	* swank-allegro.lisp: Use backend-inspector class.
+	* swank-openmcl.lisp: Use backend-inspector class.
+	* swank-abcl.lisp: Use backend-inspector class.
+	* swank-corman.lisp: Use backend-inspector class.
+	* swank-scl.lisp: Use backend-inspector class.
+
 2007-08-23  Tobias C. Rittweiler <tcr@freebits.de>
 
 	Added arglist display for declaration specifiers and type
