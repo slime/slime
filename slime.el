@@ -8338,28 +8338,22 @@ This way you can still see what the error was after exiting SLDB."
 		      (lambda (result)
 			(slime-show-description result nil)))))
 
+
+
 (defun sldb-inspect-in-frame (string)
   "Prompt for an expression and inspect it in the selected frame."
-  (interactive (list (slime-read-object
-                      "Inspect in frame (evaluated): ")))
-  (slime-eval-async `(swank:inspect-in-frame ,string ,(sldb-frame-number-at-point))
-                    (with-lexical-bindings (slime-current-thread
-                                            slime-buffer-package)
-                      (lambda (thing)
-                        (slime-open-inspector thing
-                                              :thread slime-current-thread
-                                              :package slime-buffer-package)))))
+  (interactive (list (slime-read-from-minibuffer 
+                      "Inspect in frame (evaluated): " 
+                      (slime-sexp-at-point))))
+  (let ((number (sldb-frame-number-at-point)))
+    (slime-eval-async `(swank:inspect-in-frame ,string ,number)
+                      'slime-open-inspector)))
 
 (defun sldb-inspect-var ()
   (let ((frame (sldb-frame-number-at-point))
         (var (sldb-var-number-at-point)))
     (slime-eval-async `(swank:inspect-frame-var ,frame ,var) 
-                      (lexical-let ((thread slime-current-thread)
-                                    (package (slime-current-package)))
-                        (lambda (thing)
-                          (slime-open-inspector thing
-                                                :thread thread
-                                                :package package))))))
+                      'slime-open-inspector)))
 
 (defun sldb-inspect-condition ()
   "Inspect the current debugger condition."
@@ -8784,60 +8778,12 @@ See `slime-lisp-implementations'")
 (defvar slime-inspector-mark-stack '())
 (defvar slime-saved-window-config)
 
-(defun* slime-inspect (form &key no-reset eval dwim-mode
-                            thread (package (slime-current-package)))
-  "Take an expression FORM and inspect it.
-If DWIM-MODE is non-nil (the interactive default), try to be
-smart about what was the intention.  Otherwise, if EVAL is
-non-nil (interactively, if invoked with a prefix argument),
-evaluate FORM and inspect the result.  Otherwise, inspect FORM
-itself."
-  (interactive
-   (multiple-value-bind (presentation start end)
-       (slime-presentation-around-point (point))
-     (if presentation
-         ;; Point is within a presentation, so don't prompt, just 
-         ;; inspect the presented object; don't play DWIM.
-         (cons (slime-presentation-expression presentation)
-               '(:eval t :dwim-mode nil))
-       ;; Not in a presentation, read form from minibuffer.
-       (cons (slime-read-object (if current-prefix-arg
-                                    "Inspect value (evaluated): "
-                                  "Inspect value (dwim mode): ")
-                                :return-names-unconfirmed (not current-prefix-arg))
-             (if current-prefix-arg
-                 '(:eval t :dwim-mode nil)
-               '(:eval nil :dwim-mode t))))))
-  (slime-eval-async `(swank:init-inspector ,form
-                                           :reset ,(not no-reset)
-                                           :eval ,eval
-                                           :dwim-mode ,dwim-mode)
-                    (with-lexical-bindings (thread package form)
-                      (lambda (thing)
-                        (if thing
-                            (slime-open-inspector thing
-                                                  :thread thread
-                                                  :package package)
-                            (message "Couldn't read anything from '%s' (hint: prefix for debugger with details)" form))))))
-
-(defun* slime-read-object (prompt &key return-names-unconfirmed
-                                  initial-value (history 'slime-read-expression-history))
-  "Read a Common Lisp expression from the minibuffer, providing
-defaults from the s-expression at point.  If point is within a
-presentation, don't prompt, just return the presentation."
-  (multiple-value-bind (presentation start end)
-      (slime-presentation-around-point (point))
-    (if presentation
-        (slime-presentation-expression presentation)
-        (let ((sexp (slime-sexp-at-point)))
-          (if (and sexp
-                   return-names-unconfirmed
-                   ;; an string with alphanumeric chars and hyphens only?
-                   (and (string-match "\\([-|.:0-9a-zA-Z]*\\)" sexp)
-                        (= (match-end 0) (length sexp))))
-              sexp
-            (slime-read-from-minibuffer prompt
-                                         (or initial-value sexp)))))))
+(defun slime-inspect (string)
+  "Eval an expression and inspect the result."
+  (interactive 
+   (list (slime-read-from-minibuffer "Inspect value (evaluated): "
+				     (slime-sexp-at-point))))
+  (slime-eval-async `(swank:init-inspector ,string) 'slime-open-inspector))
 
 (define-derived-mode slime-inspector-mode fundamental-mode "Slime-Inspector"
   (set-syntax-table lisp-mode-syntax-table)
@@ -8857,24 +8803,17 @@ presentation, don't prompt, just return the presentation."
 (defmacro slime-inspector-fontify (face string)
   `(slime-add-face ',(intern (format "slime-inspector-%s-face" face)) ,string))
 
-(defun* slime-open-inspector (inspected-parts &key point thread package)
+(defun slime-open-inspector (inspected-parts &optional point)
   "Display INSPECTED-PARTS in a new inspector window.
 Optionally set point to POINT."
   (with-current-buffer (slime-inspector-buffer)
     (setq slime-buffer-connection (slime-current-connection))
-    (when thread
-      (setq slime-current-thread thread))
-    (when package
-      (setq slime-buffer-package package))
     (let ((inhibit-read-only t))
       (erase-buffer)
-      (destructuring-bind (&key title type content id) inspected-parts
+      (destructuring-bind (&key title type content) inspected-parts
         (macrolet ((fontify (face string) 
-                     `(slime-inspector-fontify ,face ,string)))
-          (slime-propertize-region (list 'slime-part-number id
-                                         'mouse-face 'highlight
-                                         'face 'slime-inspector-action-face)
-            (slime-insert-presentation title `(:inspected-part ,id)))
+                            `(slime-inspector-fontify ,face ,string)))
+          (insert (fontify topline title))
           (while (eq (char-before) ?\n)
             (backward-delete-char 1))
           (insert "\n [" (fontify label "type:") " " (fontify type type) "]\n"
@@ -8882,12 +8821,11 @@ Optionally set point to POINT."
           (save-excursion 
             (mapc #'slime-inspector-insert-ispec content))
           (pop-to-buffer (current-buffer))
-          (when point 
-            (if (consp point)
-                (ignore-errors 
-                  (goto-line (car point))
-                  (move-to-column (cdr point)))
-                (goto-char (min (point-max) point)))))))))
+          (when point
+            (check-type point cons)
+            (ignore-errors 
+              (goto-line (car point))
+              (move-to-column (cdr point)))))))))
 
 (defun slime-inspector-insert-ispec (ispec)
   (if (stringp ispec)
@@ -8928,11 +8866,11 @@ position of point in the current buffer."
         (opener (lexical-let ((point (slime-inspector-position)))
                   (lambda (parts)
                     (when parts
-                      (slime-open-inspector parts :point point))))))
+                      (slime-open-inspector parts point))))))
     (cond (part-number
            (slime-eval-async `(swank:inspect-nth-part ,part-number)
                              opener)
-           (push (point) slime-inspector-mark-stack))
+           (push (slime-inspector-position) slime-inspector-mark-stack))
           (action-number 
            (slime-eval-async `(swank::inspector-call-nth-action ,action-number)
                              opener)))))
@@ -8962,7 +8900,7 @@ position of point in the current buffer."
    `(swank:inspector-pop)
    (lambda (result)
      (cond (result
-	    (slime-open-inspector result :point (pop slime-inspector-mark-stack)))
+	    (slime-open-inspector result (pop slime-inspector-mark-stack)))
 	   (t 
 	    (message "No previous object")
 	    (ding))))))
@@ -8971,7 +8909,7 @@ position of point in the current buffer."
   (interactive)
   (let ((result (slime-eval `(swank:inspector-next))))
     (cond (result 
-	   (push (point) slime-inspector-mark-stack)
+	   (push (slime-inspector-position) slime-inspector-mark-stack)
 	   (slime-open-inspector result))
 	  (t (message "No next object")
 	     (ding)))))
@@ -9055,7 +8993,7 @@ If ARG is negative, move forwards."
   (slime-eval-async `(swank:inspector-reinspect)
                     (lexical-let ((point (slime-inspector-position)))
                       (lambda (parts)
-                        (slime-open-inspector parts :point point)))))
+                        (slime-open-inspector parts point)))))
 
 (slime-define-keys slime-inspector-mode-map
   ([return] 'slime-inspector-operate-on-point)

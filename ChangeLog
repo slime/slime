@@ -1,5 +1,24 @@
 2007-08-23  Helmut Eller  <heller@common-lisp.net>
 
+	Some inspector cleanups.
+
+	* slime.el (slime-inspect): Remove dwim stuff and drop keyword
+	args.
+	(slime-read-object): Killed.
+	(slime-open-inspector): Drop keyword args.  Update callers
+	accodordingly, expect presentation related code. Presentations no
+	longer work in the inspector.
+
+	* swank.lisp (*inspector-dwim-lookup-hooks*)
+	(default-dwim-inspector-lookup-hook): Deleted.
+	(init-inspector): Sanitize arglist.
+	(inspect-object): Don't return an :id for *inspectee-parts*.
+
+	* swank-backend (type-for-emacs): Removed. No backend implemented
+	it.
+
+2007-08-23  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-fuzzy-upgrade-notice): New function.  Bound to
 	the key where slime-fuzzy-complete-symbol used to be.
 

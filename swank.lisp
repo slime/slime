@@ -40,7 +40,6 @@
            #:*default-worker-thread-bindings*
            #:*macroexpand-printer-bindings*
            #:*record-repl-results*
-           #:*inspector-dwim-lookup-hooks*
            #:*debug-on-swank-error*
            ;; These are re-exported directly from the backend:
            #:buffer-first-change
@@ -4828,62 +4827,10 @@ SPECIAL-OPERATOR groups."
            (not (third form))
            (eq (first form) 'setf))))
 
-(defvar *inspector-dwim-lookup-hooks* '(default-dwim-inspector-lookup-hook)
-  "A list of funcallables with one argument. It can be used to register user hooks that look up various things when inspecting in dwim mode.")
-
-(defun default-dwim-inspector-lookup-hook (form)
-  (let ((result '()))
-    (when (and (symbolp form)
-               (boundp form))
-      (push (symbol-value form) result))
-    (when (and (valid-function-name-p form)
-               (fboundp form))
-      (push (fdefinition form) result))
-    (when (and (symbolp form)
-               (find-class form nil))
-      (push (find-class form) result))
-    (when (and (consp form)
-               (valid-function-name-p (first form))
-               (fboundp (first form)))
-      (push (eval form) result))
-    (values result (not (null result)))))
-
-(defslimefun init-inspector (string &key (reset t) (eval t) (dwim-mode nil))
+(defslimefun init-inspector (string)
   (with-buffer-syntax ()
-    (when reset
-      (reset-inspector))
-    (let* ((form (block reading
-                   (handler-bind
-                       ((error (lambda (e)
-                                 (declare (ignore e))
-                                 (when dwim-mode
-                                   (return-from reading 'nothing)))))
-                     (read-from-string string nil 'nothing))))
-           (value))
-      (unless (eq form 'nothing)
-        (setf value (cond
-                      (dwim-mode
-                       (let ((things (loop for hook :in *inspector-dwim-lookup-hooks*
-                                           for (result foundp) = (multiple-value-list
-                                                                     (funcall hook form))
-                                           when foundp
-                                           append (if (consp result)
-                                                      result
-                                                      (list result)))))
-                         (if (rest things)
-                             things
-                             (first things))))
-                      (eval (eval form))
-                      (t form)))
-        (when (and dwim-mode
-                   form
-                   value)
-          ;; push the form to the inspector stack, so you can go back to it
-          ;; with slime-inspector-pop if dwim missed the intention
-          (push form *inspector-stack*))
-        (inspect-object (if dwim-mode
-                            (or value form)
-                            value))))))
+    (reset-inspector)
+    (inspect-object (eval (read-from-string string)))))
 
 (defun print-part-to-string (value)
   (let ((string (to-string value))
@@ -4919,7 +4866,7 @@ SPECIAL-OPERATOR groups."
 (defun action-part-for-emacs (label lambda refreshp)
   (list :action label (assign-index (list lambda refreshp)
                                     *inspectee-actions*)))
-  
+
 (defun inspect-object (object &optional (inspector (make-default-inspector)))
   (push (setq *inspectee* object) *inspector-stack*)
   (unless (find object *inspector-history*)
@@ -4927,12 +4874,10 @@ SPECIAL-OPERATOR groups."
   (let ((*print-pretty* nil)            ; print everything in the same line
         (*print-circle* t)
         (*print-readably* nil))
-    (multiple-value-bind (title content)
-        (inspect-for-emacs object inspector)
+    (multiple-value-bind (title content) (inspect-for-emacs object inspector)
       (list :title title
-            :type (to-string (type-for-emacs object))
-            :content (inspector-content-for-emacs content)
-            :id (assign-index object *inspectee-parts*)))))
+            :type (to-string (type-of object))
+            :content (inspector-content-for-emacs content)))))
 
 (defslimefun inspector-nth-part (index)
   (aref *inspectee-parts* index))
