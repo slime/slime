@@ -4780,4 +4780,10 @@ Collisions are caused because package information is ignored."
                 (declare (ignore choice id)) 
                 (disassemble object)))))
 
+(defslimefun inspect-presentation (id reset-p)
+  (let ((what (lookup-presented-object id)))
+    (when reset-p
+      (reset-inspector))
+    (inspect-object what)))
+
 ;;; swank.lisp ends here
