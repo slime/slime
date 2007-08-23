@@ -6,6 +6,8 @@
 	variable dispatch to different inspectors.
 	(inspect-object): Use it.
 
+	* swank-loader.lisp (*contribs*): Add 'swank-fancy-inspector.
+
 2007-08-23  Tobias C. Rittweiler <tcr@freebits.de>
 
 	Added arglist display for declaration specifiers and type

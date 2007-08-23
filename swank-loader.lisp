@@ -198,7 +198,7 @@ recompiled."
 (defvar *fasl-directory* (default-fasl-directory)
   "The directory where fasl files should be placed.")
 
-(defvar *contribs* '(swank-fuzzy)
+(defvar *contribs* '(swank-fuzzy swank-fancy-inspector)
   "List of names for contrib modules.")
 
 (defun append-dir (absolute name)
