@@ -3494,9 +3494,8 @@ Also return the start position, end position, and buffer of the presentation."
     (let ((reset-p 
            (with-current-buffer buffer
              (not (eq major-mode 'slime-inspector-mode)))))
-      (slime-inspect (slime-presentation-expression presentation)
-                     :no-reset (not reset-p)
-                     :eval t :dwim-mode nil))))
+      (slime-eval-async `(swank:inspect-presentation ',(slime-presentation-id presentation) ,reset-p)
+                        'slime-open-inspector))))
 
 (defun slime-copy-presentation-at-mouse (event)
   (interactive "e")
