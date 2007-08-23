@@ -11119,6 +11119,48 @@ If they are not, position point at the first syntax error found."
   (if (local-variable-p hook (current-buffer))
       (remove-hook hook function t)))
 
+;;; Some "nice" backward compatiblity bindings for lusers.
+
+(unless (lookup-key slime-mode-map "\C-c\M-i")
+  (define-key slime-mode-map "\C-c\M-i" 'slime-fuzzy-upgrade-notice)
+  (define-key slime-repl-mode-map "\C-c\M-i" 'slime-fuzzy-upgrade-notice))
+
+(defun slime-fuzzy-upgrade-notice ()
+  (interactive)
+  (slime-timebomb "slime-fuzzy-complete-symbol is not loaded.
+
+Fuzzy completion has been moved to contrib.
+Please consult the README file in the contrib directory for details.
+
+To fetch the contrib directoy use:  cvs update -d contrib"
+                  15))
+
+;;;; ... with gratuitous bloat
+
+(defun slime-timebomb (message timeout)
+  (with-current-buffer (generate-new-buffer "*warning*")
+    (insert message "\n\n")
+    (slime-timebomb-progress (point-marker) timeout)
+    (goto-char (point-min))
+    (pop-to-buffer (current-buffer))))
+
+(defun slime-timebomb-progress (mark timeout)
+  (let ((buffer (marker-buffer mark)))
+    (cond ((not (buffer-live-p buffer)))
+	  ((zerop timeout) (kill-buffer buffer))
+	  (t (with-current-buffer buffer
+               (save-excursion
+                 (delete-region mark (point-max))
+                 (goto-char mark)
+                 (slime-timebomb-message timeout))
+	       (run-with-timer 1 nil 
+                               'slime-timebomb-progress mark (1- timeout)))))))
+
+(defun slime-timebomb-message (timeout)
+  (slime-insert-propertized
+   (list 'face (if (zerop (mod timeout 2)) 'highlight 'default))
+   (format "This message will destroy itself in %d seconds." timeout)))
+
 
 ;;;; Finishing up
 
