@@ -16,7 +16,8 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require 'sb-bsd-sockets)
   (require 'sb-introspect)
-  (require 'sb-posix))
+  (require 'sb-posix)
+  (require 'sb-cltl2))
 
 (declaim (optimize (debug 2) (sb-c:insert-step-conditions 0)))
 
@@ -272,6 +273,18 @@
 (defimplementation function-name (f)
   (check-type f function)
   (sb-impl::%fun-name f))
+
+(defmethod declaration-arglist ((decl-identifier (eql 'optimize)))
+  (flet ((ensure-list (thing) (if (listp thing) thing (list thing))))
+    (let* ((flags (sb-cltl2:declaration-information decl-identifier)))
+      (if flags
+          ;; Symbols aren't printed with package qualifiers, but the FLAGS would
+          ;; have to be fully qualified when used inside a declaration. So we
+          ;; strip those as long as there's no better way. (FIXME)
+          `(&any ,@(remove-if-not #'(lambda (qualifier)
+                                      (find-symbol (symbol-name (first qualifier)) :cl))
+                                  flags :key #'ensure-list))
+          (call-next-method)))))
 
 (defvar *buffer-name* nil)
 (defvar *buffer-offset*)

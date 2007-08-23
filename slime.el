@@ -5492,17 +5492,21 @@ are supported:
         ;; skip this sexp
         (slime-forward-sexp)))))
 
-(defun slime-to-feature-keyword (symbol)
-  (let ((name (downcase (symbol-name symbol))))
+(defun slime-keywordify (symbol-designator)
+  "Makes a keyword out of SYMBOL-DESIGNATOR, which may either be
+a symbol or a string."
+  (let ((name (downcase (etypecase symbol-designator
+                          (symbol (symbol-name symbol-designator))
+                          (string symbol-designator)))))
     (intern (if (eq ?: (aref name 0))
                 name
-              (concat ":" name)))))
+                (concat ":" name)))))
 
 (defun slime-eval-feature-conditional (e)
   "Interpret a reader conditional expression."
   (if (symbolp e)
-      (memq (slime-to-feature-keyword e) (slime-lisp-features))
-    (funcall (ecase (slime-to-feature-keyword (car e))
+      (memq (slime-keywordify rd e) (slime-lisp-features))
+    (funcall (ecase (slime-keywordify (car e))
                (:and #'every)
                (:or #'some)
                (:not (lambda (f l) (not (apply f l)))))
@@ -5715,16 +5719,31 @@ currently looking at."
            (save-excursion
              (insert arglist))))))
 
+
+(defun slime-incomplete-form-at-point ()
+  "Looks for a ``raw form spec'' around point to be processed by
+SWANK::PARSE-FORM-SPEC. It is similiar to
+SLIME-INCOMPLETE-SEXP-AT-POINT but looks further back than just
+one sexp to find out the context."
+  (multiple-value-bind (operators arg-indices points)
+      (slime-enclosing-form-specs)
+    (if (null operators)
+        ""
+        (let ((op (first operators)))
+          (destructure-case (slime-ensure-list op)
+            ((:declaration declspec) op)
+            ((:type-specifier typespec) op)
+            (t (format "(%s)" (buffer-substring-no-properties
+                                (save-excursion (goto-char (first points)) (point))
+                                (point)))))))))
+
 (defun slime-complete-form ()
   "Complete the form at point.  
 This is a superset of the functionality of `slime-insert-arglist'."
   (interactive)
   ;; Find the (possibly incomplete) form around point.
-  (let* ((start (save-excursion (backward-up-list 1) (point)))
-         (end (point))
-         (form-string
-          (concat (buffer-substring-no-properties start end) ")")))
-    (let ((result (slime-eval `(swank:complete-form ,form-string))))
+  (let ((form-string (slime-incomplete-form-at-point)))
+    (let ((result (slime-eval `(swank:complete-form ',form-string))))
       (if (eq result :not-available)
           (error "Arglist not available")
           (progn
@@ -5739,6 +5758,7 @@ This is a superset of the functionality of `slime-insert-arglist'."
             (save-excursion
               (backward-up-list 1)
               (indent-sexp)))))))
+
 
 (defun slime-get-arglist (symbol-name)
   "Return the argument list for SYMBOL-NAME."
@@ -5841,8 +5861,8 @@ messages."
     (if global
         (values (slime-qualify-cl-symbol-name global)
                 `(swank:variable-desc-for-echo-area ,global))
-      (multiple-value-bind (operators arg-indices)
-          (slime-enclosing-operator-names)
+      (multiple-value-bind (operators arg-indices points)
+          (slime-enclosing-form-specs)
         (values (mapcar* (lambda (designator arg-index)
                            (cons
                             (if (symbolp designator)
@@ -6317,10 +6337,10 @@ current buffer."
      ((and (< beg (point-max))
                (string= (buffer-substring-no-properties beg (1+ beg)) ":"))
       ;; Contextual keyword completion
-      (multiple-value-bind (operator-names arg-indices)
+      (multiple-value-bind (operator-names arg-indices points)
           (save-excursion 
             (goto-char beg)
-            (slime-enclosing-operator-names))
+            (slime-enclosing-form-specs))
         (when operator-names
           (let ((completions 
                  (slime-completions-for-keyword operator-names token
@@ -9293,7 +9313,7 @@ the top-level sexp before point."
       (skip-chars-backward " \t\n")
       (let* ((deleted-region     (delete-and-extract-region point (point)))
              (deleted-text       (substring-no-properties deleted-region))
-             (prior-parens-count (count ?\) deleted-text))) 
+             (prior-parens-count (count ?\) deleted-text)))
         ;; Remember: we always insert as many parentheses as necessary
         ;; and only afterwards delete the superfluously-added parens.
         (when slime-close-parens-limit
@@ -10474,6 +10494,8 @@ Reconnect afterwards."
           (or (< n 0) (and seq t)))
     (sequence (> (length seq) n))))
 
+(defun slime-ensure-list (thing)
+  (if (listp thing) thing (list thing)))
 
 ;;;;; Buffer related
 
@@ -10631,127 +10653,222 @@ The result is unspecified if there isn't a symbol under the point."
   (let ((name (slime-symbol-name-at-point)))
     (and name (intern name))))
 
-(defun slime-sexp-at-point ()
+(defun slime-sexp-at-point (&optional n)
   "Return the sexp at point as a string, otherwise nil."
-  (let ((string (or (slime-symbol-name-at-point)
-                    (thing-at-point 'sexp))))
-    (if string (substring-no-properties string) nil)))
+  (interactive "p") (or n (setq n 1))
+  (flet ((sexp-at-point ()
+           (let ((string (or (slime-symbol-name-at-point)
+                             (thing-at-point 'sexp))))
+             (if string (substring-no-properties string) nil))))
+    (save-excursion
+      (let ((result ""))
+        (callf concat result (format "%s" (sexp-at-point)))
+        (dotimes (i (1- n))
+          (forward-sexp) (forward-char 1)
+          (callf concat result (format " %s" (sexp-at-point))))
+        result))))
 
 (defun slime-sexp-at-point-or-error ()
   "Return the sexp at point as a string, othwise signal an error."
   (or (slime-sexp-at-point)
       (error "No expression at point.")))
 
-(defun slime-parse-extended-operator-name (name)
-  "Assume that point is at the operator NAME in the
-current buffer.  If NAME is MAKE-INSTANCE or another operator in
-`slime-extendeded-operator-name-parser-alist', collect additional
-information from the operator call and encode it as an extended
-operator name like (MAKE-INSTANCE CLASS \"make-instance\").  Return
-NAME or the extended operator name."
+(defun slime-incomplete-sexp-at-point (&optional n)
+  (interactive "p") (or n (setq n 1))
+  (buffer-substring-no-properties (save-excursion (backward-up-list n) (point))
+                                  (point)))
+
+
+(defun slime-parse-extended-operator-name (user-point ops indices points)
+  "Assume that point is directly at the operator that should be parsed.
+USER-POINT is the value of `point' where the user was looking at.
+OPS, INDICES and POINTS are updated to reflect the new values after
+parsing, and are then returned back as multiple values."
+  ;; OPS, INDICES and POINTS are like the finally returned values of
+  ;; SLIME-ENCLOSING-FORM-SPECS except that they're in reversed order,
+  ;; i.e. the leftmost operator (that is the latest) operator comes
+  ;; first.
   (save-excursion
     (ignore-errors
       (forward-char (1+ (length name)))
       (slime-forward-blanks)
-      (let* ((symbol-name (upcase (slime-cl-symbol-name name)))
-             (assoc (assoc symbol-name slime-extended-operator-name-parser-alist)))
+      (let* ((current-op (first ops))
+             (op-name (upcase (slime-cl-symbol-name current-op)))
+             (assoc (assoc op-name slime-extended-operator-name-parser-alist)))
         (when assoc
-          (setq name (funcall (cdr assoc) name))))))
-  name)
+          (let* ((entry (cdr assoc))
+                 (parser (if (listp entry) 
+                             (apply (first entry) (rest entry))
+                             entry)))
+            (multiple-value-setq (ops indices points)
+              (funcall parser op-name user-point ops indices points)))))))
+  (values ops indices points))
+
 
 (defvar slime-extended-operator-name-parser-alist
-  '(("MAKE-INSTANCE" . slime-parse-extended-operator-name/make-instance)
-    ("MAKE-CONDITION" . slime-parse-extended-operator-name/make-instance)
-    ("ERROR" . slime-parse-extended-operator-name/make-instance)
-    ("SIGNAL" . slime-parse-extended-operator-name/make-instance)
-    ("WARN" . slime-parse-extended-operator-name/make-instance)
-    ("CERROR" . slime-parse-extended-operator-name/cerror)
-    ("CHANGE-CLASS" . slime-parse-extended-operator-name/cerror)
-    ("DEFMETHOD" . slime-parse-extended-operator-name/defmethod)
-    ("APPLY" . slime-parse-extended-operator-name/apply)))
+  '(("MAKE-INSTANCE"  . (slime-make-extended-operator-parser/look-ahead 1))
+    ("MAKE-CONDITION" . (slime-make-extended-operator-parser/look-ahead 1))
+    ("ERROR"          . (slime-make-extended-operator-parser/look-ahead 1))
+    ("SIGNAL"         . (slime-make-extended-operator-parser/look-ahead 1))
+    ("WARN"           . (slime-make-extended-operator-parser/look-ahead 1))
+    ("CERROR"         . (slime-make-extended-operator-parser/look-ahead 2))
+    ("CHANGE-CLASS"   . (slime-make-extended-operator-parser/look-ahead 2))
+    ("DEFMETHOD"      . (slime-make-extended-operator-parser/look-ahead 1))
+    ("APPLY"          . (slime-make-extended-operator-parser/look-ahead 1))
+    ("DECLARE"        . slime-parse-extended-operator/declare)))
 
-(defun slime-parse-extended-operator-name/make-instance (name)
-  (let ((str (slime-sexp-at-point)))
-    (when (= (aref str 0) ?')
-      (setq name (list :make-instance (substring str 1)
-                       name))))
-  name)
 
-(defun slime-parse-extended-operator-name/apply (name)
-  (let ((str (slime-sexp-at-point)))
-    (when (string-match "^#?'\\(.*\\)" str)
-      (setq name (list :make-instance (match-string 1 str)
-                       name))))
-  name)
+(defun slime-make-extended-operator-parser/look-ahead (steps)
+  "Returns a parser that parses the current operator at point
+plus STEPS-many additional sexps on the right side of the
+operator."
+  (lexical-let ((n steps))
+    #'(lambda (name user-point current-ops current-indices current-points)
+        (let ((old-ops (rest current-ops)))
+          (let ((str (slime-sexp-at-point n)))
+            (setq current-ops
+                  (cons (format "(%s %s)" name str) old-ops)))
+          (values current-ops current-indices current-points)))))
 
-(defun slime-parse-extended-operator-name/cerror (name)
-  (let ((continue-string-sexp (slime-sexp-at-point))
-        (class-sexp  (progn (forward-sexp) (forward-char 1) (slime-sexp-at-point))))
-    (when (= (aref class-sexp 0) ?')
-      (setq name (list :make-instance (substring class-sexp 1)
-                       name
-                       continue-string-sexp))))
-  name)
 
-(defun slime-parse-extended-operator-name/defmethod (name)
-  (let ((str (slime-sexp-at-point)))
-    (setq name (list :defmethod str))))
+(defun slime-parse-extended-operator/declare
+    (name user-point current-ops current-indices current-points)
+  (when (string= (thing-at-point 'char) "(")
+    (let ((orig-point (point)))
+      (save-excursion
+        (goto-char user-point)
+        (slime-end-of-symbol)
+        ;; Head of CURRENT-OPS is "declare" at this point, but we're
+        ;; interested in what comes next.
+        (let ((decl-ops (rest current-ops)) (new-indices (rest current-indices)))
+          (if (%slime-in-mid-of-typespec-p decl-ops)
+              ;; Parse type-specifier:
+              (let ((rightmost-operator (first (last decl-ops)))
+                    (rightmost-index    (first (last new-indices))) ; arg# in the typespec.
+                    (rightmost-op-pos   (first (last points))))
+                (goto-char rightmost-op-pos)
+                (let ((typespec (format "(%s)" (slime-sexp-at-point rightmost-index))))
+                  (setq current-ops      (list `(:type-specifier ,typespec)))
+                  (setq current-indicies (list rightmost-index))
+                  (setq current-points   (list rightmost-op-pos))))
+              ;; Parse declaration specifier:
+              (let ((nesting 0))
+                (while (> (point) orig-point)
+                  (backward-up-list)
+                  (incf nesting))
+                (when (= (point) orig-point)
+                  (goto-char user-point)
+                  (let ((declspec (concat (slime-incomplete-sexp-at-point nesting)
+                                          (make-string nesting ?\)))))
+                    (setq current-ops (list `(:declaration ,declspec)))
+                    (setq current-indices new-indices)))))))))
+  (values current-ops current-indices current-points))
 
-(defun slime-enclosing-operator-names (&optional max-levels)
-  "Return the list of operator names of the forms containing point.
-As a secondary value, return the indices of the respective argument to
-the operator.  When MAX-LEVELS is non-nil, go up at most this many
-levels of parens."
-  (let ((result '())
-        (arg-indices '())
-        (level 1)
-        (parse-sexp-lookup-properties nil)) 
+(defun %slime-in-mid-of-typespec-p (decl-ops)
+  (let ((rightmost-operator (first (last decl-ops)))
+        (leftmost-operator  (first decl-ops)))
+    (or (and (equalp leftmost-operator "type")      ; `(declare (type'   ?
+             (not (slime-length= decl-ops 1)))      ; `(declare (type (' ?
+        (and (null leftmost-operator)               ; `(declare ('       ?
+             (not (null rightmost-operator))))))    ; `(declare (('      ?
+
+
+(defun slime-enclosing-form-specs (&optional max-levels)
+  "Return the list of ``raw form specs'' of all the forms 
+containing point from right to left.
+
+As a secondary value, return a list of indices: Each index tells
+for each corresponding form spec in what argument position the
+user's point is.
+
+As tertiary value, return the positions of the operators that are
+contained in the returned form specs. 
+
+ When MAX-LEVELS is non-nil, go up at most this many levels of
+parens.
+
+\(See SWANK::PARSE-FORM-SPEC for more information about what
+exactly constitutes a ``raw form specs'')
+
+Example:
+
+  A return value like the following
+
+    (values  (\"quux\" \"bar\" \"foo\") (3 2 1) (p1 p2 p3))
+
+  can be interpreted as follows:
+
+    The user point is located in the 3rd argument position of a
+    form with the operator name \"quux\" (which starts at P1.)
+   
+    This form is located in the 2nd argument position of a form
+    with the operator name \"bar\" (which starts at P2.)
+
+    This form again is in the 1st argument position of a form
+    with the operator name \"foo\" (which itself begins at P3.)
+
+  For instance, the corresponding buffer content could have looked
+  like `(foo (bar arg1 (quux 1 2 |' where `|' denotes point.
+"
+  (let ((level 1)
+        (parse-sexp-lookup-properties nil)
+        (initial-point (point))
+        (result '()) (arg-indices '()) (points '())) 
     ;; The expensive lookup of syntax-class text properties is only
     ;; used for interactive balancing of #<...> in presentations; we
     ;; do not need them in navigating through the nested lists.
     ;; This speeds up this function significantly.
     (ignore-errors
-      (save-excursion
-        ;; Make sure we get the whole operator name.
-        (slime-end-of-symbol)
-        (save-restriction
-          ;; Don't parse more than 20000 characters before point, so we don't spend
-          ;; too much time.
-          (narrow-to-region (max (point-min) (- (point) 20000)) (point-max))
-          (narrow-to-region (save-excursion (beginning-of-defun) (point))
-                            (min (1+ (point)) (point-max)))
-          (while (or (not max-levels)
-                     (<= level max-levels))
-            (let ((arg-index 0))
-              ;; Move to the beginning of the current sexp if not already there.
-              (if (or (and (char-after)
-                           (member (char-syntax (char-after)) '(?\( ?')))
-                      (member (char-syntax (char-before)) '(?\  ?>)))
+        (save-excursion
+          ;; Make sure we get the whole operator name.
+          (slime-end-of-symbol)
+          (save-restriction
+            ;; Don't parse more than 20000 characters before point, so we don't spend
+            ;; too much time.
+            (narrow-to-region (max (point-min) (- (point) 20000)) (point-max))
+            (narrow-to-region (save-excursion (beginning-of-defun) (point))
+                              (min (1+ (point)) (point-max)))
+            (while (or (not max-levels)
+                       (<= level max-levels))
+              (let ((arg-index 0))
+                ;; Move to the beginning of the current sexp if not already there.
+                (if (or (and (char-after)
+                             (member (char-syntax (char-after)) '(?\( ?')))
+                        (member (char-syntax (char-before)) '(?\  ?>)))
+                    (incf arg-index))
+                (ignore-errors (backward-sexp 1))
+                (while (and (< arg-index 64)
+                            (ignore-errors (backward-sexp 1) 
+                                           (> (point) (point-min))))
                   (incf arg-index))
-              (ignore-errors
-                (backward-sexp 1))
-              (while (and (< arg-index 64)
-                          (ignore-errors (backward-sexp 1) 
-                                         (> (point) (point-min))))
-                (incf arg-index))
-              (backward-up-list 1)
-              (when (member (char-syntax (char-after)) '(?\( ?')) 
-                (incf level)
-                (forward-char 1)
-                (let ((name (slime-symbol-name-at-point)))
-                  (cond
-                   (name
-                    (push (slime-parse-extended-operator-name name) result)
-                    (push arg-index arg-indices))
-                   (t
-                    (push nil result)
-                    (push arg-index arg-indices))))
-                (backward-up-list 1)))))))
-    (values 
-     (nreverse result)
-     (nreverse arg-indices))))
+                (backward-up-list 1)
+                (when (member (char-syntax (char-after)) '(?\( ?')) 
+                  (incf level)
+                  (forward-char 1)
+                  (let ((name (slime-symbol-name-at-point)))
+                    (cond
+                      (name
+                       (save-restriction
+                         (widen) ; to allow looking-ahead/back in extended parsing.
+                         (multiple-value-bind (new-result new-indices new-points)
+                             (slime-parse-extended-operator-name initial-point
+                                                                 (cons name result)
+                                                                 (cons arg-index arg-indices)
+                                                                 (cons (point) points))
+                           (setq result new-result)
+                           (setq arg-indices new-indices)
+                           (setq points new-points))))
+                      (t
+                       (push nil result)
+                       (push arg-index arg-indices)
+                       (push (point) points))))
+                  (backward-up-list 1)))))))
+      (values 
+       (nreverse result)
+       (nreverse arg-indices)
+       (nreverse points))))
 
-
+
 ;;;; Portability library
 
 (when (featurep 'xemacs)
@@ -11124,7 +11241,7 @@ To fetch the contrib directoy use:  cvs update -d contrib"
           slime-insert-propertized
           slime-insert-possibly-as-rectangle
           slime-tree-insert
-          slime-enclosing-operator-names)))
+          slime-enclosing-form-specs)))
 
 (run-hooks 'slime-load-hook)
 

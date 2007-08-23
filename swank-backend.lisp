@@ -31,6 +31,8 @@
            #:quit-lisp
            #:references
            #:unbound-slot-filler
+           #:declaration-arglist
+           #:type-specifier-arglist
            ;; inspector related symbols
            #:inspector
            #:inspect-for-emacs
@@ -481,10 +483,54 @@ like."
    "Return the lambda list for the symbol NAME. NAME can also be
 a lisp function object, on lisps which support this.
 
-The result can be a list or the :not-available if the arglist
-cannot be determined."
+The result can be a list or the :not-available keyword if the
+arglist cannot be determined."
    (declare (ignore name))
    :not-available)
+
+(defgeneric declaration-arglist (decl-identifier)
+  (:documentation
+   "Return the argument list of the declaration specifier belonging to the
+declaration identifier DECL-IDENTIFIER. If the arglist cannot be determined,
+the keyword :NOT-AVAILABLE is returned.
+
+The different SWANK backends can specialize this generic function to
+include implementation-dependend declaration specifiers, or to provide
+additional information on the specifiers defined in ANSI Common Lisp.")
+  (:method (decl-identifier)
+    (case decl-identifier
+      (dynamic-extent '(&rest vars))
+      (ignore         '(&rest vars))
+      (ignorable      '(&rest vars))
+      (special        '(&rest vars))
+      (inline         '(&rest function-names))
+      (notinline      '(&rest function-name))
+      (optimize       '(&any compilation-speed debug safety space speed))  
+      (type           '(type-specifier &rest args))
+      (ftype          '(type-specifier &rest function-names))
+      (otherwise
+       (flet ((typespec-p (symbol) (member :type (describe-symbol-for-emacs symbol))))
+         (cond ((and (symbolp decl-identifier) (typespec-p decl-identifier))
+                '(&rest vars))
+               ((and (listp decl-identifier) (typespec-p (first decl-identifier)))
+                '(&rest vars))
+               (t :not-available)))))))
+
+(defgeneric type-specifier-arglist (typespec-operator)
+  (:documentation
+   "Return the argument list of the type specifier belonging to
+TYPESPEC-OPERATOR.. If the arglist cannot be determined, the keyword
+:NOT-AVAILABLE is returned.
+
+The different SWANK backends can specialize this generic function to
+include implementation-dependend declaration specifiers, or to provide
+additional information on the specifiers defined in ANSI Common Lisp.")
+  (:method (typespec-operator)
+    (declare (special *type-specifier-arglists*)) ; defined at end of file.
+    (typecase typespec-operator
+      (symbol (or (cdr (assoc typespec-operator *type-specifier-arglists*))
+                  :not-available))
+      (t :not-available))))
 
 (definterface function-name (function)
   "Return the name of the function object FUNCTION.
@@ -1025,3 +1071,37 @@ SPEC can be:
      when (funcall matchp prefix name)
      collect name))
 
+
+(defparameter *type-specifier-arglists*
+  '((and                . (&rest type-specifiers))
+    (array              . (&optional element-type dimension-spec))
+    (base-string        . (&optional size))
+    (bit-vector         . (&optional size))
+    (complex            . (&optional type-specifier))
+    (cons               . (&optional car-typespec cdr-typespec))
+    (double-float       . (&optional lower-limit upper-limit))
+    (eql                . (object))
+    (float              . (&optional lower-limit upper-limit))
+    (function           . (&optional arg-typespec value-typespec))
+    (integer            . (&optional lower-limit upper-limit))
+    (long-float         . (&optional lower-limit upper-limit))
+    (member             . (&rest eql-objects))
+    (mod                . (n))
+    (not                . (type-specifier))
+    (or                 . (&rest type-specifiers))
+    (rational           . (&optional lower-limit upper-limit))
+    (real               . (&optional lower-limit upper-limit))
+    (satisfies          . (predicate-symbol))
+    (short-float        . (&optional lower-limit upper-limit))
+    (signed-byte        . (&optional size))
+    (simple-array       . (&optional element-type dimension-spec))
+    (simple-base-string . (&optional size))
+    (simple-bit-vector  . (&optional size))
+    (simple-string      . (&optional size))
+    (single-float       . (&optional lower-limit upper-limit))
+    (simple-vector      . (&optional size))
+    (string             . (&optional size))
+    (unsigned-byte      . (&optional size))
+    (values             . (&rest typespecs))
+    (vector             . (&optional element-type size))
+    ))

@@ -1,3 +1,106 @@
+2007-08-23  Tobias C. Rittweiler <tcr@freebits.de>
+
+	Added arglist display for declaration specifiers and type
+	specifiers.
+
+	Examples:
+
+	`(declare (type' will display
+
+	   (declare (type type-specifier &rest vars))
+
+	`(declare (type (float' will display
+
+	   [Typespec] (float &optional lower-limit upper-limit)
+
+	`(declare (optimize' will display
+
+	   (declare (optimize &any (safety 1) (space 1) (speed 1) ...))
+
+	&ANY is a new lambda keyword that is introduced for arglist
+	description purpose, and is very similiar to &KEY, but isn't based
+	upon plists; they're more based upon *FEATURES* lists. (See the
+	comment near the ARGLIST defstruct in `swank.lisp'.)
+
+	* slime.el:
+	(slime-to-feature-keyword): Renamed to `slime-keywordify'.
+	(slime-eval-feature-conditional): Adapted to use `slime-keywordify'.
+	(slime-ensure-list): New utility.
+	(slime-sexp-at-point): Now takes an argument that specify how many
+	sexps at point should be returned.
+	(slime-enclosing-operator-names): Renamed to
+	`slime-enclosing-form-specs'.
+	(slime-enclosing-form-specs): Returns a list of ``raw form specs''
+	instead of what was called ``extended operator names'' before, see
+	`swank::parse-form-spec' for more information. This is a
+	simplified superset. Additionally as tertiary return value return
+	a list of points to let the caller see where each form spec is
+	located. Adapted callers accordingly. Extended docstring.
+	(slime-parse-extended-operator-name): Adapted to changes in
+	`slime-enclosing-form-specs'. Now gets more context, and is such
+	more powerful. This was needed to allow parsing DECLARE forms.
+	(slime-make-extended-operator-parser/look-ahead): Because the
+	protocol for arglist display was simplified, it was possible to
+	replace the plethora of parsing function just by this one.
+	(slime-extended-operator-name-parser-alist): Use it. Also add
+	parser for DECLARE forms.
+	(slime-parse-extended-operator/declare): Responsible for parsing
+	DECLARE forms.
+	(%slime-in-mid-of-typespec-p): Helper function for
+	`slime-parse-extended-operator/declare'.
+	(slime-incomplete-form-at-point): New. Return the ``raw form
+	spec'' near point.
+	(slime-complete-form): Use `slime-incomplete-form-at-point'.
+
+	* swank.lisp: New Helper functions.
+	(length=, ensure-list, recursively-empty-p): New.
+	(maybecall, exactly-one-p): New.
+
+	* swank.lisp (arglist-for-echo-area): Adapted to take ``raw form
+	specs'' from Slime.
+	(parse-form-spec): New. Takes a ``raw form spec'' and returns a
+	``form spec'' for further processing in Swank. Docstring documents
+	these two terms.
+	(split-form-spec): New. Return relevant information from a form	spec.
+	(parse-first-valid-form-spec): Replaces `find-valid-operator-name'.
+	(find-valid-operator-name): Removed.
+	(operator-designator-to-form): Removed. Obsoleted by `parse-form-spec'.
+
+	(defstruct arglist): Add `any-p' and `any-args' slots to contain
+	arguments belonging to the &ANY lambda keyword.
+	(print-arglist): Adapted to also print &ANY args.
+	(print-decoded-arglist-as-template): Likewise.
+	(decode-arglist): Adapted to also decode &ANY args.
+	(remove-actual-args): Adapted to also remove &ANY args.
+	(remove-&key-args): Split out from `remove-actual-args'.
+	(remove-&any-args): New. Removes already provided &ANY args.
+	(arglist-from-form-spec): New. Added detailed docstring.
+	(arglist-dispatch): Dispatching generic function for
+	`arglist-from-form-spec' that does all the work. Renamed from
+	prior `form-completion'.
+	(arglist-dispatch) Added methods for dealing with declaration and
+	type-specifiers.
+	(complete-form): Adapted to take ``raw form specs'' from Slime.
+	(completions-for-keyword): Likewise.
+	(format-arglist-for-echo-area): Removed. Not needed anymore.
+
+	* swank-backend.lisp (declaration-arglist): New generic
+	function. Returns the arglist for a given declaration
+	identifier. (Backends are supposed to specialize it if they can
+	provide additional information.)
+	(type-specifier-arglist): New generic function. Returns the
+	arglist for a given type-specifier operator. (Backends are
+	supposed to specialize it if they can provide additional
+	information.)
+	(*type-specifier-arglists*): New variable. Contains the arglists
+	for the type specifiers in Common Lisp.
+
+	* swank-sbcl.lisp: Now depends upon sb-cltl2.
+	(declaration-arglist 'optimize): Specialize the `optimize'
+	declaration identifier to pass it to
+	sb-cltl2:declaration-information.
+	
+	
 2007-08-23  Helmut Eller  <heller@common-lisp.net>
 
 	Some inspector cleanups.
