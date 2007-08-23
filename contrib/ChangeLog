@@ -1,3 +1,14 @@
+2007-08-23  Helmut Eller  <heller@common-lisp.net>
+
+	Move Marco Baringer's inspector to contrib.
+
+	* swank-fancy-inspector.lisp: New file. The only difference to the
+	code is that inspect-for-emacs methods in this file are
+	specialized to the new class `fancy-inspector'.
+	(fancy-inspector): New class.
+
+	* slime-fancy-inspector.el: New file.
+
 2007-08-19  Helmut Eller  <heller@common-lisp.net>
 
 	Moved fuzzy completion code to contrib directory.
