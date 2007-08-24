@@ -1,3 +1,10 @@
+2007-08-24  Helmut Eller  <heller@common-lisp.net>
+
+	Move xref and class browser to contrib.
+
+	* slime.el (slime-browse-classes, slime-browse-xrefs): Gone. The
+	Common Lisp part is still there.
+
 2007-08-24  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el (slime-forward-blanks): Wrapped w/ `ignore-errors.'

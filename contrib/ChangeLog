@@ -1,9 +1,7 @@
 2007-08-24  Helmut Eller  <heller@common-lisp.net>
 
+	* slime-xref-browser.el: New file.
 	* slime-highlight-edits.el: New file.
-
-2007-08-24  Helmut Eller  <heller@common-lisp.net>
-
 	* slime-scratch.el: New file.
 
 2007-08-23  Helmut Eller  <heller@common-lisp.net>
