@@ -1,18 +1,24 @@
 2007-08-24  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-with-rigid-indentation): Fix evaluation order.
+	(slime-indent-rigidly): New.
+	(slime-insert-possibly-as-rectange): Don't set mark.
+
+2007-08-24  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-sbcl.lisp (sbcl-inspector): Fix typo.
 
 2007-08-23  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Repair inspection of presentations.
-	
+
 	* swank.lisp (inspect-presentation): New slimefun.
 	* slime.el (slime-inspect-presentation-at-mouse): Use it here.
 
 2007-08-23  Helmut Eller  <heller@common-lisp.net>
 
 	Move Marco Baringer's inspector to contrib.
-	
+
 	* swank.lisp (*default-inspector*): New variable. Set this
 	variable dispatch to different inspectors.
 	(inspect-object): Use it.

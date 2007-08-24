@@ -1183,12 +1183,22 @@ most recently enclosed macro or function."
 (defmacro slime-with-rigid-indentation (level &rest body)
   "Execute BODY and then rigidly indent its text insertions.
 Assumes all insertions are made at point."
-  (let ((start (gensym)))
-    `(let ((,start (point)))
+  (let ((start (gensym)) (l (gensym)))
+    `(let ((,start (point)) (,l ,(or level '(current-column))))
        (prog1 (progn ,@body)
-         (indent-rigidly ,start (point) ,level)))))
+         (slime-indent-rigidly ,start (point) ,l)))))
 
 (put 'slime-with-rigid-indentation 'lisp-indent-function 1)
+
+(defun slime-indent-rigidly (start end column)
+  "Similar to `indent-rigidly' but doesn't inherit text props."
+  (save-excursion
+    (goto-char end)
+    (beginning-of-line)
+    (while (and (<= start (point))
+                (progn
+                  (save-excursion (insert-char ?\  column))
+                  (zerop (forward-line -1)))))))
 
 ;;;;; Snapshots of current Emacs state
 
@@ -3020,20 +3030,8 @@ RESULT-P decides whether a face for a return value or output text is used."
         (delete-overlay overlay)))))
 
 (defun slime-insert-possibly-as-rectangle (&rest strings)
-  (if (zerop (current-column))
-      (apply #'insert strings)
-      (dolist (string strings)
-        (if (string= string "\n")
-            (newline)
-            (let ((lines (split-string string "\n")))
-              (when (rest lines)
-                (save-excursion
-                  (dotimes (i (length lines))
-                    (newline))))
-              (insert-rectangle lines)
-              (when (rest lines)
-                (forward-char 1)
-                (delete-backward-char 1)))))))
+  (slime-with-rigid-indentation nil
+    (apply #'insert strings)))
 
 (defun slime-insert-presentation (string output-id)
   (cond ((not slime-repl-enable-presentations)
