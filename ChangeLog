@@ -1,5 +1,15 @@
 2007-08-24  Helmut Eller  <heller@common-lisp.net>
 
+	Move typeout frame to contrib.
+
+	* slime.el (slime-message-function, slime-background-message-function)
+	(slime-autodoc-message-function): New variables.
+	(slime-message, slime-background-message)
+	(slime-autodoc-message): Call the function in the respective
+	variable, so that the typeout window can be plugged in.
+
+2007-08-24  Helmut Eller  <heller@common-lisp.net>
+
 	Move xref and class browser to contrib.
 
 	* slime.el (slime-browse-classes, slime-browse-xrefs): Gone. The

@@ -1053,18 +1053,22 @@ corresponding values in the CDR of VALUE."
 
 ;;;;; Very-commonly-used functions
 
+(defvar slime-message-function 'message)
+
 ;; Interface
 (defun slime-message (format &rest args)
   "Like `message' but with special support for multi-line messages.
 Single-line messages use the echo area."
-  (if (slime-typeout-active-p)
-      (apply #'slime-typeout-message format args)
-    (if (or (featurep 'xemacs)
-            (= emacs-major-version 20))
-        (slime-display-message (apply #'format format args) "*SLIME Note*")
-      (apply 'message format args))))
+  (apply slime-message-function format args))
 
-(defun slime-display-message (message buffer-name) 
+(when (or (featurep 'xemacs)
+          (= emacs-major-version 20))
+  (setq slime-message-function 'slime-format-display-message))
+
+(defun slime-format-display-message (format &rest args)
+  (slime-display-message (apply #'format format args)))
+
+(defun slime-display-message (message) 
   "Display MESSAGE in the echo area or in BUFFER-NAME.
 Use the echo area if MESSAGE needs only a single line.  If the MESSAGE
 requires more than one line display it in BUFFER-NAME and add a hook
@@ -1073,19 +1077,17 @@ command."
   (when (get-buffer-window buffer-name) (delete-windows-on buffer-name))
   (cond ((or (string-match "\n" message)
              (> (length message) (1- (frame-width))))
-         (if (slime-typeout-active-p)
-             (slime-typeout-message "%s" message)
-           (lexical-let ((buffer (get-buffer-create buffer-name)))
-             (with-current-buffer buffer
-               (erase-buffer)
-               (insert message)
-               (goto-char (point-min))
-               (let ((win (slime-create-message-window)))
-                 (set-window-buffer win (current-buffer))
-                 (shrink-window-if-larger-than-buffer
-                  (display-buffer (current-buffer)))))
-             (push (lambda () (delete-windows-on buffer) (bury-buffer buffer))
-                   slime-pre-command-actions))))
+         (lexical-let ((buffer (get-buffer-create buffer-name)))
+           (with-current-buffer buffer
+             (erase-buffer)
+             (insert message)
+             (goto-char (point-min))
+             (let ((win (slime-create-message-window)))
+               (set-window-buffer win (current-buffer))
+               (shrink-window-if-larger-than-buffer
+                (display-buffer (current-buffer)))))
+           (push (lambda () (delete-windows-on buffer) (bury-buffer buffer))
+                 slime-pre-command-actions)))
         (t (message "%s" message))))
 
 (defun slime-create-message-window ()
@@ -1098,17 +1100,20 @@ command."
                            (window-height previous)))))
     (split-window previous)))
 
+(defvar slime-background-message-function 'slime-display-oneliner)
+
 ;; Interface
 (defun slime-background-message (format-string &rest format-args)
   "Display a message in passing.
 This is like `slime-message', but less distracting because it
 will never pop up a buffer or display multi-line messages.
 It should be used for \"background\" messages such as argument lists."
-  (if (slime-typeout-active-p)
-      (slime-typeout-message (apply #'format format-string format-args))
-    (let* ((msg (apply #'format format-string format-args)))
-      (unless (minibuffer-window-active-p (minibuffer-window))
-        (message  "%s" (slime-oneliner msg))))))
+  (apply slime-background-message-function format-string format-args))
+
+(defun slime-display-oneliner (format-string &rest format-args)
+  (let* ((msg (apply #'format format-string format-args)))
+    (unless (minibuffer-window-active-p (minibuffer-window))
+      (message  "%s" (slime-oneliner msg)))))
 
 (defun slime-oneliner (string)
   "Return STRING truncated to fit in a single echo-area line."
@@ -5779,27 +5784,22 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
   :type 'boolean
   :group 'slime-ui)
 
+(defvar slime-autodoc-message-function 'slime-autodoc-show-message)
+
 (defun slime-autodoc-message (doc)
   "Display the autodoc documentation string DOC."
-  (cond
-   ((slime-typeout-active-p)
-    (setq slime-autodoc-last-message "") ; no need for refreshing
-    (slime-typeout-message doc))
-   (t 
-    (unless slime-autodoc-use-multiline-p
-      (setq doc (slime-oneliner doc)))
-    (setq slime-autodoc-last-message doc)
-    (message "%s" doc))))
+  (funcall slime-autodoc-message-function doc))
+
+(defun slime-autodoc-show-message (doc)
+  (unless slime-autodoc-use-multiline-p
+    (setq doc (slime-oneliner doc)))
+  (setq slime-autodoc-last-message doc)
+  (message "%s" doc))
 
 (defun slime-autodoc-message-dimensions ()
   "Return the available width and height for pretty printing autodoc
 messages."
   (cond
-   ((slime-typeout-active-p)
-    ;; Use the full width of the typeout window;
-    ;; we don't care about the height, as typeout window can be scrolled
-    (values (window-width slime-typeout-window)
-            nil))
    (slime-autodoc-use-multiline-p 
     ;; Use the full width of the minibuffer;
     ;; minibuffer will grow vertically if necessary
@@ -5926,44 +5926,6 @@ annoy the user)."
        (not cursor-in-echo-area)
        (not (eq (selected-window) (minibuffer-window)))
        (slime-background-activities-enabled-p)))
-
-
-;;;; Typeout frame
-
-;; When a "typeout frame" exists it is used to display certain
-;; messages instead of the echo area or pop-up windows.
-
-(defvar slime-typeout-window nil
-  "The current typeout window.")
-
-(defvar slime-typeout-frame-properties
-  '((height . 10) (minibuffer . nil))
-  "The typeout frame properties (passed to `make-frame').")
-
-(defun slime-typeout-active-p ()
-  (and slime-typeout-window
-       (window-live-p slime-typeout-window)))
-
-(defun slime-typeout-message (format-string &rest format-args)
-  (assert (slime-typeout-active-p))
-  (with-current-buffer (window-buffer slime-typeout-window)
-    (erase-buffer)
-    (insert (apply #'format format-string format-args))))
-
-(defun slime-make-typeout-frame ()
-  "Create a frame for displaying messages (e.g. arglists)."
-  (interactive)
-  (let ((frame (make-frame slime-typeout-frame-properties)))
-    (save-selected-window
-      (select-window (frame-selected-window frame))
-      (switch-to-buffer "*SLIME-Typeout*")
-      (setq slime-typeout-window (selected-window)))))
-
-(defun slime-ensure-typeout-frame ()
-  "Create the typeout frame unless it already exists."
-  (interactive)
-  (unless (slime-typeout-active-p)
-    (slime-make-typeout-frame)))
 
 
 ;;;; Completion
