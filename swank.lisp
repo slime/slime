@@ -1590,20 +1590,24 @@ if RAW-SPEC could not be parsed.
 
 A ``raw form spec'' can be either: 
 
-  i)   a string representing a Common Lisp symbol,
+  i)   a list of strings representing a Common Lisp form
 
-  ii)  a string representing a Common Lisp form,
+  ii)  one of:
 
-  iii) a list:
+     a)  (:declaration decl-identifier declspec) 
 
-     a)  (:declaration declspec) 
+           where DECL-IDENTIFIER is the string representation of a /decl identifier/,
+                 DECLSPEC is the string representation of a /declaration specifier/.
 
-           where DECLSPEC is the string representation of a /declaration specifier/,
-
-     b)  (:type-specifier typespec) 
+     b)  (:type-specifier typespec-operator typespec) 
        
-           where TYPESPEC is the string representation of a /type specifier/.
+           where TYPESPEC-OPERATOR is the string representation of the CAR of a /type specifier/,
+                 TYPESPEC is the string representation of a /type specifier/.
 
+     (DECL-IDENTIFIER, and TYPESPEC-OPERATOR are actually redundant (as they're both
+     already provided in DECLSPEC, or TYPESPEC respectively, but this separation
+     allows to check if these raw form specs are valid before the whole spec is READ,
+     and thus all contained symbols interned.)
 
 A ``form spec'' is either
 
@@ -1619,29 +1623,35 @@ A ``form spec'' is either
 
 Examples:
 
-  \"defmethod\"                       =>  (defmethod)
-  \"cl:defmethod\"                    =>  (cl:defmethod)
-  \"(defmethod print-object)\"        =>  (defmethod print-object)
-  (:declaration \"(optimize)\")       =>  ((:declaration optimize))
-  (:declaration \"(type string)\")    =>  ((:declaration type) string)
-  (:type-specifier \"(float)\")       =>  ((:type-specifier float))
-  (:type-specifier \"(float 0 100)\") =>  ((:type-specifier float) 0 100)
+  (\"defmethod\")                     =>  (defmethod)
+  (\"cl:defmethod\")                  =>  (cl:defmethod)
+  (\"defmethod\" \"print-object\")    =>  (defmethod print-object)
+
+  (:declaration \"optimize\" \"(optimize)\")    =>  ((:declaration optimize))
+  (:declaration \"type\"     \"(type string)\") =>  ((:declaration type) string)
+  (:type-specifier \"float\" \"(float)\")       =>  ((:type-specifier float))
+  (:type-specifier \"float\" \"(float 0 100)\") =>  ((:type-specifier float) 0 100)
 "
-  (typecase raw-spec
-    (string (ensure-list (read-incomplete-form-from-string raw-spec)))
-    (cons                               ; compound form spec
-     (destructure-case raw-spec
-       ((:declaration raw-declspec)
-        (let ((declspec (from-string raw-declspec)))
-          (unless (recursively-empty-p declspec) ; (:DECLARATION "(())") &c.
-            (destructuring-bind (decl-identifier &rest decl-args) declspec
-              `((:declaration ,decl-identifier) ,@decl-args)))))
-       ((:type-specifier raw-typespec)
-        (let ((typespec (from-string raw-typespec)))
-          (unless (recursively-empty-p typespec)
-            (destructuring-bind (typespec-op &rest typespec-args) typespec
-              `((:type-specifier ,typespec-op) ,@typespec-args)))))))
-    (otherwise nil)))
+  (flet ((parse-extended-spec (raw-extension-op raw-extension extension-flag)
+           (when (nth-value 1 (parse-symbol raw-extension-op))
+             (let ((extension (read-incomplete-form-from-string raw-extension)))
+               (unless (recursively-empty-p extension) ; (:DECLARATION "(())") &c.
+                 (destructuring-bind (identifier &rest args) extension
+                   `((,extension-flag ,identifier) ,@args)))))))
+    (when (consp raw-spec)
+      (destructure-case raw-spec
+        ((:declaration raw-decl-identifier raw-declspec)
+         (parse-extended-spec raw-decl-identifier raw-declspec :declaration))
+        ((:type-specifier raw-typespec-op raw-typespec)
+         (parse-extended-spec raw-typespec-op raw-typespec :type-specifier))
+        (t
+         (when (every #'stringp raw-spec)
+           (destructuring-bind (raw-operator &rest raw-args) raw-spec
+             (multiple-value-bind (operator found?) (parse-symbol raw-operator)
+               (when (and found? (valid-operator-symbol-p operator))
+                 `(,operator ,@(read-incomplete-form-from-string
+                                (format nil "(~A)"
+                                        (apply #'concatenate 'string raw-args)))))))))))))
 
 (defun split-form-spec (spec)
   "Returns all three relevant information a ``form spec''
@@ -2432,9 +2442,9 @@ Examples:
 
   (arglist-from-form-spec '(defun foo)) 
 
-      ~=> (args &body body))
+      ~=> (args &body body)
 
-  (arglist-from-form-spec '(defun foo) :remove-args nil) 
+  (arglist-from-form-spec '(defun foo) :remove-args nil)) 
 
       ~=>  (name args &body body))
 

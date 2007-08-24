@@ -1,3 +1,27 @@
+2007-08-24  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el (slime-forward-blanks): Wrapped w/ `ignore-errors.'
+	(slime-sexp-at-point): Return results as a list of strings, rather
+	than just one big string if called with arg > 1.
+	(slime-parse-extended-operator-name): Wrapping some movement code
+	in `ignore-errors'. Adapted to new return value of
+	`slime-enclosing-form-specs'. Minor cosmetic changes.
+	(slime-make-extended-operator-parser/look-ahead): Adapted to
+	changes of the ``raw form spec'' format; returns a form of
+	strings, instead of a string of a form.
+	(slime-parse-extended-operator/declare): Simplified. Adapted to
+	changes of the ``raw form spec'' format; passes decl-identifiers,
+	or typespec-operators respectively, along the decl/type-spec.
+	(%slime-in-mid-of-typespec-p): Removed. Replaced by an regexp
+	based approach.
+	(%slime-nesting-until-point): New helper for
+	`slime-parse-extended-operator/declare'.
+
+	* swank.lisp (parse-form-spec): Adapted to new ``raw form spec''
+	format. Updated format description in docstring accordingly.  The
+	new format allows less interning of wrong symbols names comming
+	from Slime. Thanks to Matthias Koeppe for spotting this.
+
 2007-08-24  Helmut Eller  <heller@common-lisp.net>
 
 	Move slime-highlight-edits-mode to contrib.
