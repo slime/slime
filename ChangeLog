@@ -1,5 +1,11 @@
 2007-08-24  Helmut Eller  <heller@common-lisp.net>
 
+	Move slime-scratch to contrib.
+
+	* slime.el (slime-scratch): Gone.
+
+2007-08-24  Helmut Eller  <heller@common-lisp.net>
+
 	Various cleanups related to slime-insert-propertized.
 
 	* slime.el (slime-with-rigid-indentation): Fix evaluation order.

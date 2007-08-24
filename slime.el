@@ -830,7 +830,6 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
        [ "Eval Last Expression"    slime-eval-last-expression ,C ]
        [ "Eval And Pretty-Print"   slime-pprint-eval-last-expression ,C ]
        [ "Eval Region"             slime-eval-region ,C ]
-       [ "Scratch Buffer"          slime-scratch ,C ]
        [ "Interactive Eval..."     slime-interactive-eval ,C ]
        [ "Edit Lisp Value..."      slime-edit-value ,C ]
        [ "Call Defun"              slime-call-defun ,C ])
@@ -4630,38 +4629,6 @@ Also rearrange windows."
               (string-match "^\\*sldb .*\\*$" (buffer-name buf))
               (string-match "^\\*SLIME.*\\*$" (buffer-name buf)))
       (kill-buffer buf))))
-
-
-;;;; Scratch
-
-(defvar slime-scratch-mode-map
-  (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map lisp-mode-map)
-    map))
-
-(defun slime-scratch-buffer ()
-  "Return the scratch buffer, create it if necessary."
-  (or (get-buffer "*slime-scratch*")
-      (with-current-buffer (get-buffer-create "*slime-scratch*")
-	(lisp-mode)
-	(use-local-map slime-scratch-mode-map)
-	(slime-mode t)
-        (when slime-repl-enable-presentations 
-          ;; Respect the syntax text properties of presentations.
-          (set (make-local-variable 'parse-sexp-lookup-properties) t))
-	(current-buffer))))
-
-(defun slime-switch-to-scratch-buffer ()
-  (set-buffer (slime-scratch-buffer))
-  (unless (eq (current-buffer) (window-buffer))
-    (pop-to-buffer (current-buffer) t)))
-
-(defun slime-scratch ()
-  (interactive)
-  (slime-switch-to-scratch-buffer))
-
-(slime-define-keys slime-scratch-mode-map
-  ("\C-j" 'slime-eval-print-last-expression))
 
 
 ;;;; Compilation and the creation of compiler-note annotations
@@ -9192,10 +9159,6 @@ switch-to-buffer."
          (slime-output-buffer))
         ((y-or-n-p "No connection: start Slime? ")
          (slime))))
-
-(def-slime-selector-method ?s
-  "*slime-scratch* buffer."
-  (slime-scratch-buffer))
 
 (def-slime-selector-method ?i
   "*inferior-lisp* buffer."
