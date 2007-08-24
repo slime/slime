@@ -1,8 +1,12 @@
 2007-08-24  Helmut Eller  <heller@common-lisp.net>
 
+	Various cleanups related to slime-insert-propertized.
+
 	* slime.el (slime-with-rigid-indentation): Fix evaluation order.
 	(slime-indent-rigidly): New.
 	(slime-insert-possibly-as-rectange): Don't set mark.
+	(slime-insert-propertized): Use plain insert instead of
+	slime-insert-possibly-as-rectange.
 
 2007-08-24  Helmut Eller  <heller@common-lisp.net>
 

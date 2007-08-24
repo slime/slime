@@ -1163,7 +1163,7 @@ positions before and after executing BODY."
 ;; Interface
 (defsubst slime-insert-propertized (props &rest args)
   "Insert all ARGS and then add text-PROPS to the inserted text."
-  (slime-propertize-region props (apply #'slime-insert-possibly-as-rectangle args)))
+  (slime-propertize-region props (apply #'insert args)))
 
 (defun slime-indent-and-complete-symbol ()
   "Indent the current line and perform symbol completion.  First
