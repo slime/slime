@@ -981,7 +981,7 @@ stack."
 
 ;;;; Inspector
 
-(defclass sbcl-inspector (make-inspector) ())
+(defclass sbcl-inspector (backend-inspector) ())
 
 (defimplementation make-default-inspector ()
   (make-instance 'sbcl-inspector))
