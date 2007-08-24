@@ -1,5 +1,9 @@
 2007-08-24  Helmut Eller  <heller@common-lisp.net>
 
+	Move slime-highlight-edits-mode to contrib.
+
+2007-08-24  Helmut Eller  <heller@common-lisp.net>
+
 	Move slime-scratch to contrib.
 
 	* slime.el (slime-scratch): Gone.
