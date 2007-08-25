@@ -199,6 +199,8 @@ Backend code should treat the connection structure as opaque.")
   (user-input       nil :type (or stream null))
   (user-output      nil :type (or stream null))
   (user-io          nil :type (or stream null))
+  ;; A stream that we use for *trace-output*; if nil, we user user-output.
+  (trace-output     nil :type (or stream null))
   ;; A stream where we send REPL results.
   (repl-results     nil :type (or stream null))
   ;; In multithreaded systems we delegate certain tasks to specific
@@ -573,13 +575,8 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
         (let ((out (or dedicated-output out)))
           (let ((io (make-two-way-stream in out)))
             (mapc #'make-stream-interactive (list in out io))
-            (let* ((repl-results-fn
-                    (make-output-function-for-target connection :repl-result))
-                   (repl-results
-                    (nth-value 1 (make-fn-streams 
-                                  (lambda ()
-                                    (error "Should never be called"))
-                                  repl-results-fn))))
+            (let ((repl-results
+                   (make-output-stream-for-target connection :repl-result)))
               (values dedicated-output in out io repl-results))))))))
 
 (defun make-output-function (connection)
@@ -608,6 +605,13 @@ stream (or NIL if none was created)."
       (with-simple-restart
           (abort "Abort sending output to Emacs.")
         (send-to-emacs `(:write-string ,string nil ,target))))))
+
+(defun make-output-stream-for-target (connection target)
+  "Create a stream that sends output to a specific TARGET in Emacs."
+  (nth-value 1 (make-fn-streams 
+                (lambda ()
+                  (error "Should never be called"))
+                (make-output-function-for-target connection target))))
 
 (defun open-dedicated-output-stream (socket-io)
   "Open a dedicated output connection to the Emacs on SOCKET-IO.
@@ -1150,9 +1154,10 @@ NIL if streams are not globally redirected.")
   (let* ((io  (connection.user-io connection))
          (in  (connection.user-input connection))
          (out (connection.user-output connection))
+         (trace (or (connection.trace-output connection) out))
          (*standard-output* out)
          (*error-output* out)
-         (*trace-output* out)
+         (*trace-output* trace)
          (*debug-io* io)
          (*query-io* io)
          (*standard-input* in)
@@ -4034,6 +4039,11 @@ Include the nicknames if NICKNAMES is true."
 
 (defslimefun untrace-all ()
   (untrace))
+
+(defslimefun redirect-trace-output (target)
+  (setf (connection.trace-output *emacs-connection*)
+        (make-output-stream-for-target *emacs-connection* target))
+  nil)
 
 
 ;;;; Undefing
