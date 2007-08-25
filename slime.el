@@ -5679,22 +5679,6 @@ more than one space."
          (message "%s" (slime-fontify-string arglist))
        (error "Arglist not available")))))
 
-(defun slime-insert-arglist (name)
-  "Insert the argument list for NAME behind the symbol point is
-currently looking at."
-  (interactive (list (slime-read-symbol-name "Arglist of: ")))
-  (let ((arglist (slime-eval `(swank:arglist-for-insertion ',name))))
-    (cond ((eq arglist :not-available)
-           (error "Arglist not available"))
-          ((string-match "^(" arglist)
-           (insert " ")
-           (save-excursion 
-             (insert (substring arglist 1))))
-          (t
-           (save-excursion
-             (insert arglist))))))
-
-
 (defun slime-incomplete-form-at-point ()
   "Looks for a ``raw form spec'' around point to be processed by
 SWANK::PARSE-FORM-SPEC. It is similiar to
