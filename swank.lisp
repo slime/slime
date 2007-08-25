@@ -2373,21 +2373,6 @@ If the arglist is not available, return :NOT-AVAILABLE."))
                       t)))))))
   (call-next-method))
 
-(defslimefun arglist-for-insertion (name)
-  (with-buffer-syntax ()
-    (let ((symbol (parse-symbol name)))
-      (cond 
-        ((and symbol 
-              (valid-operator-name-p name))
-         (let ((decoded-arglist
-                (compute-enriched-decoded-arglist symbol nil)))
-           (if (eql decoded-arglist :not-available)
-               :not-available
-               (decoded-arglist-to-template-string decoded-arglist 
-                                                   *buffer-package*))))
-        (t
-         :not-available)))))
-
 (defvar *remove-keywords-alist*
   '((:test :test-not)
     (:test-not :test)))
