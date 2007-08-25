@@ -10277,7 +10277,7 @@ Example:
     `(let ((,gcfg (current-slime-narrowing-configuration)))
        (unwind-protect (progn ,@body)
          (let ((,gbeg (slime-narrowing-configuration.beg ,gcfg))
-               (,gbeg (slime-narrowing-configuration.end ,gcfg)))
+               (,gend (slime-narrowing-configuration.end ,gcfg)))
            (when (and (>= (point) ,gbeg) (<= (point) ,gend))
              (set-slime-current-narrowing-configuration ,gcfg)))))))
 

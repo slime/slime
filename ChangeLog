@@ -1,3 +1,8 @@
+2007-08-25  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el (save-restriction-if-possible): Fixed typo in
+	macroexpansion. Thanks to Matthias Koeppe for reporting.
+
 2007-08-24  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-insert-arglist): Removed, superseded by
