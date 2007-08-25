@@ -831,6 +831,7 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
       ("Debugging"
        [ "Macroexpand Once..."     slime-macroexpand-1 ,C ]
        [ "Macroexpand All..."      slime-macroexpand-all ,C ]
+       [ "Create Trace Buffer"     slime-redirect-trace-output ,C ]
        [ "Toggle Trace..."         slime-toggle-trace-fdefinition ,C ]
        [ "Untrace All"             slime-untrace-all ,C]
        [ "Disassemble..."          slime-disassemble-symbol ,C ]
@@ -2927,7 +2928,7 @@ update window-point afterwards.  If point is initially not at
 (make-variable-buffer-local
  (defvar slime-presentation-start-to-point (make-hash-table)))
 
-(defun slime-mark-presentation-start (id target)
+(defun slime-mark-presentation-start (id &optional target)
   "Mark the beginning of a presentation with the given ID.
 TARGET can be nil (regular process output) or :repl-result."
   (setf (gethash id slime-presentation-start-to-point) 
@@ -2942,7 +2943,7 @@ TARGET can be nil (regular process output) or :repl-result."
              (id (car (read-from-string match))))
         (slime-mark-presentation-start id))))
 
-(defun slime-mark-presentation-end (id target)
+(defun slime-mark-presentation-end (id &optional target)
   "Mark the end of a presentation with the given ID.
 TARGET can be nil (regular process output) or :repl-result."
   (let ((start (gethash id slime-presentation-start-to-point)))
@@ -3100,13 +3101,20 @@ profiling before running the benchmark."
       (switch-to-buffer (process-buffer proc))
       (goto-char (point-max)))))
 
+(defvar slime-last-output-target-id 0
+  "The last integer we used as a TARGET id.")
+
+(defvar slime-output-target-to-marker
+  (make-hash-table)
+  "Map from TARGET ids to Emacs markers that indicate where
+output should be inserted.")
+
 (defun slime-write-string (string &optional id target)
   "Insert STRING in the REPL buffer.  If ID is non-nil, insert STRING
 as a presentation.  If TARGET is nil, insert STRING as regular process
 output.  If TARGET is :repl-result, insert STRING as the result of the
-evaluation."
-  ;; Other values of TARGET are reserved for future extension, 
-  ;; for instance asynchronous output in scratch buffers. --mkoeppe
+evaluation.  Other values of TARGET map to an Emacs marker via the 
+hashtable `slime-output-target-to-marker'; output is inserted at this marker."
   (ecase target
     ((nil)                              ; Regular process output
      (with-current-buffer (slime-output-buffer)
@@ -3130,7 +3138,18 @@ evaluation."
          (if (>= (marker-position slime-output-end) (point))
              ;; If the output-end marker was moved by our insertion,
              ;; set it back to the beginning of the REPL result.
-             (set-marker slime-output-end result-start)))))))
+             (set-marker slime-output-end result-start)))))
+    (t
+     (let* ((marker (gethash target slime-output-target-to-marker))
+            (buffer (and marker (marker-buffer marker))))
+       (when buffer
+         (with-current-buffer buffer
+           (save-excursion 
+             ;; Insert STRING at MARKER, then move MARKER behind
+             ;; the insertion.
+             (goto-char marker)
+             (insert-before-markers string)
+             (set-marker marker (point)))))))))
 
 (defun slime-switch-to-output-buffer (&optional connection)
   "Select the output buffer, preferably in a different window."
@@ -6653,6 +6672,17 @@ in Lisp when committed with \\[slime-edit-value-commit]."
                               (slime-temp-buffer-quit t))))))))
 
 ;;;; Tracing
+
+(defun slime-redirect-trace-output ()
+  "Redirect the trace output to a separate Emacs buffer."
+  (interactive)
+  (let ((buffer (get-buffer-create "*SLIME Trace Output*")))
+    (with-current-buffer buffer
+      (let ((marker (copy-marker (buffer-size)))
+            (target (incf slime-last-output-target-id)))
+        (puthash target marker slime-output-target-to-marker)
+        (slime-eval `(swank:redirect-trace-output ,target))))
+    (pop-to-buffer buffer)))
 
 (defun slime-untrace-all ()
   "Untrace all functions."
