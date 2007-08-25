@@ -10,19 +10,35 @@
 
 (in-package :swank)
 
-;; A mechanism for printing to the slime repl so that the printed
-;; result remembers what object it is associated with. Depends on the
-;; ilisp bridge code being installed and ready to intercept messages
-;; in the printed stream. We encode the information with a message
-;; saying that we are starting to print an object corresponding to a
-;; given id and another when we are done. The process filter notices these
-;; and adds the necessary text properties to the output.
-
+;; This file contains a mechanism for printing to the slime repl so
+;; that the printed result remembers what object it is associated
+;; with.  This extends the recording of REPL results.
+;;
+;; There are two methods:
+;;
+;; 1. Depends on the ilisp bridge code being installed and ready to
+;;    intercept messages in the printed stream. We encode the
+;;    information with a message saying that we are starting to print
+;;    an object corresponding to a given id and another when we are
+;;    done. The process filter notices these and adds the necessary
+;;    text properties to the output.
+;;
+;; 2. Use separate protocol messages :presentation-start and
+;;    :presentation-end for sending presentations.
+;;
 ;; We only do this if we know we are printing to a slime stream,
 ;; checked with the method slime-stream-p. Initially this checks for
-;; the knows slime streams looking at *connections*. In cmucl and
+;; the knows slime streams looking at *connections*. In cmucl, sbcl, and
 ;; openmcl it also checks if it is a pretty-printing stream which
 ;; ultimately prints to a slime stream.
+;;
+;; Method 1 seems to be faster, but the printed escape sequences can 
+;; disturb the column counting, and thus the layout in pretty-printing.
+;; We use method 1 when a dedicated output stream is used.  
+;;
+;; Method 2 is cleaner and works with pretty printing if the pretty
+;; printers support "annotations".  We use method 2 when no dedicated
+;; output stream is used.
 
 ;; Control
 (defvar *enable-presenting-readable-objects* t
