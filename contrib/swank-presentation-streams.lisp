@@ -85,14 +85,21 @@ Two special return values:
 			     (slime-stream-p (lisp::indenting-stream-stream stream)))
 			(and (typep stream 'pretty-print::pretty-stream)
 			     (fboundp 'pretty-print::enqueue-annotation)
-			     (not *use-dedicated-output-stream*)
-			     ;; Printing through CMUCL pretty streams
-			     ;; is only cleanly possible if we are
-			     ;; using the bridge-less protocol with
-			     ;; annotations, because the bridge escape
-			     ;; sequences disturb the pretty printer
-			     ;; layout.
-			     (slime-stream-p (pretty-print::pretty-stream-target  stream))))
+			     (let ((slime-stream-p
+				    (slime-stream-p (pretty-print::pretty-stream-target stream))))
+			       (and ;; Printing through CMUCL pretty
+				    ;; streams is only cleanly
+				    ;; possible if we are using the
+				    ;; bridge-less protocol with
+				    ;; annotations, because the bridge
+				    ;; escape sequences disturb the
+				    ;; pretty printer layout.
+				    (not (eql slime-stream-p :dedicated-output))
+				    ;; If OK, return the return value
+				    ;; we got from slime-stream-p on
+				    ;; the target stream (could be
+				    ;; :repl-result):
+				    slime-stream-p))))
 		    #+sbcl
 		    (let ()
 		      (declare (notinline sb-pretty::pretty-stream-target))
