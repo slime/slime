@@ -18,6 +18,11 @@
 	(presenting-object-1): Use the new return values of
 	slime-stream-p.
 	
+	* swank-presentation-streams.lisp (slime-stream-p) [cmu]: Use the
+	return value of slime-stream-p rather than the global variable
+	*use-dedicated-output-stream* to decide whether printing through
+	pretty streams is safe for the layout.
+
 2007-08-24  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Make the fancy "presentation streams" feature a contrib.
