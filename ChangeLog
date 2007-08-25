@@ -1,5 +1,12 @@
 2007-08-24  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
+	* slime.el (slime-insert-arglist): Removed, superseded by
+	slime-complete-form since 2005-02-20.
+
+	* swank.lisp (arglist-for-insertion): Now unused, removed.
+
+2007-08-24  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
 	Some fixes to the presentation-streams contrib.
 	
 	* slime.el (slime-dispatch-event): Handle new optionals args of
