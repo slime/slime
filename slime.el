@@ -2645,10 +2645,10 @@ Debugged requests are ignored."
     (destructure-case event
       ((:write-string output &optional id target)
        (slime-write-string output id target))
-      ((:presentation-start id)
-       (slime-mark-presentation-start id))
-      ((:presentation-end id)
-       (slime-mark-presentation-end id))
+      ((:presentation-start id &optional target)
+       (slime-mark-presentation-start id target))
+      ((:presentation-end id &optional target)
+       (slime-mark-presentation-end id target))
       ;;
       ((:emacs-rex form package thread continuation)
        (slime-set-state "|eval...")
@@ -2927,10 +2927,14 @@ update window-point afterwards.  If point is initially not at
 (make-variable-buffer-local
  (defvar slime-presentation-start-to-point (make-hash-table)))
 
-(defun slime-mark-presentation-start (id)
+(defun slime-mark-presentation-start (id target)
+  "Mark the beginning of a presentation with the given ID.
+TARGET can be nil (regular process output) or :repl-result."
   (setf (gethash id slime-presentation-start-to-point) 
         (with-current-buffer (slime-output-buffer)
-          (marker-position (symbol-value 'slime-output-end)))))
+          (if (eq target :repl-result)
+              (point-max)
+            (marker-position (symbol-value 'slime-output-end))))))
 
 (defun slime-mark-presentation-start-handler (process string)
   (if (and string (string-match "<\\([-0-9]+\\)" string))
@@ -2938,13 +2942,19 @@ update window-point afterwards.  If point is initially not at
              (id (car (read-from-string match))))
         (slime-mark-presentation-start id))))
 
-(defun slime-mark-presentation-end (id)
+(defun slime-mark-presentation-end (id target)
+  "Mark the end of a presentation with the given ID.
+TARGET can be nil (regular process output) or :repl-result."
   (let ((start (gethash id slime-presentation-start-to-point)))
     (remhash id slime-presentation-start-to-point)
     (when start
       (with-current-buffer (slime-output-buffer)
-        (slime-add-presentation-properties start (symbol-value 'slime-output-end)
-                                           id nil)))))
+        (let ((end 
+               (if (eq target :repl-result)
+                   (point-max)
+                 (symbol-value 'slime-output-end))))
+        (slime-add-presentation-properties start end
+                                           id nil))))))
 
 (defun slime-mark-presentation-end-handler (process string)
   (if (and string (string-match ">\\([-0-9]+\\)" string))
