@@ -1,3 +1,32 @@
+2007-08-24  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	Some fixes to the presentation-streams contrib.
+	
+	* slime.el (slime-dispatch-event): Handle new optionals args of
+	messages :presentation-start and :presentation-end.
+
+	* slime.el (slime-mark-presentation-start)
+	(slime-mark-presentation-end): New arg "target"; record
+	presentation boundaries separately for REPL results and regular
+	process output.  This fixes the presentation markup of REPL
+	results when the presentation-streams contrib is loaded.
+	
+2007-08-24  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	Make the fancy presentation-streams feature a contrib.
+	Previously, it was only available if "present.lisp" was loaded
+	manually.  Now it can be loaded automatically using:
+
+	   (add-hook 'slime-load-hook 
+	             (lambda () (require 'slime-presentation-streams)))
+
+	Note that the normal presentations that are created by REPL
+	results, the inspector, and the debugger are NOT dependent on this
+	code.
+	
+	* present.lisp: Moved to contrib/swank-presentation-streams.lisp.
+	* swank-loader.lisp (*contribs*): Add swank-presentation-streams.
+
 2007-08-24  Helmut Eller  <heller@common-lisp.net>
 
 	Move typeout frame to contrib.

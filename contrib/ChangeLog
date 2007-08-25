@@ -1,3 +1,33 @@
+2007-08-24  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	Some fixes to the presentation-streams contrib.
+	
+	* swank-presentation-streams.lisp [sbcl]: Load the pretty-printer
+	patch only at load time.  Add some trickery so that SBCL does not
+	complain about the changed layout of the pretty-stream class.
+	
+	* swank-presentation-streams.lisp (slime-stream-p): Using special
+	return values, indicate whether we are printing to the
+	REPL-results stream, or a dedicated stream.
+	(presentation-record): New slot "target".
+	(presentation-start, presentation-end): Use it (rather than the
+	global variable *use-dedicated-output-stream*) to decide whether
+	to use the bridge protocol or the :presentation-start/-end
+	protocol.  Also use it as the TARGET argument of
+	:presentation-start/-end messages. 
+	(presenting-object-1): Use the new return values of
+	slime-stream-p.
+	
+2007-08-24  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	Make the fancy "presentation streams" feature a contrib.
+	Previously, it was only available if "present.lisp" was loaded
+	manually. 
+	
+	* slime-presentation-streams.el: New file.
+	* swank-presentation-streams.lisp: New file, moved here from
+	../present.lisp 
+
 2007-08-24  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-typeout-frame.el: New file.
