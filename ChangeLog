@@ -1,5 +1,35 @@
 2007-08-26  Tobias C. Rittweiler <tcr@freebits.de>
 
+	Reduces needless interning of symbols that was introduced by my
+	recent work on autodoc to a minimum. Also fixes this issue for
+	`slime-complete-form' which always interned symbols even before my
+	changes.
+	
+	* slime.el (slime-sexp-at-point): If N is given, but there aren't
+	N sexps available at point, make it return a list of just as many
+	as there are.
+	(slime-make-form-spec-from-string): New. Creates a ``raw form
+	spec'' from a string that's suited for determining newly interned
+	symbols later in Swank.
+	(slime-parse-extended-operator/declare): Uses it.
+
+	* swank.lisp (parse-symbol): Returns internal knowledge, to
+	provide a means for callers to perform a sanity check.
+	(call-with-ignored-reader-errors): New. Abstracted out from
+	`read-incomplete-form-from-string.'
+
+	* swank.lisp (read-form-spec): New. Only READs elements of a form
+	spec if necessary. And if it does have to READ, it keeps track
+	of newly interned symbols which are returned as secondary
+	return value.
+	(parse-form-spec): Use it. Propagate newly interned symbols.
+	(parse-first-valid-form-spec): Likewise.
+	(arglist-for-echo-area, complete-form, completions-for-keyword):
+	Adapted to unintern the newly interned symbols.
+	
+
+2007-08-26  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* slime.el (current-slime-narrowing-configuration):
 	Renamed to `slime-current-narrowing-configuration'.
 	(set-slime-narrowing-configuration):

@@ -1491,8 +1491,9 @@ Return the symbol and a flag indicating whether the symbols was found."
                          (pname              (find-package pname))
                          (t                  package))))
       (if package
-          (find-symbol sname package)
-          (values nil nil)))))
+          (multiple-value-bind (symbol flag) (find-symbol sname package)
+            (values symbol flag sname package))
+          (values nil nil nil nil)))))
 
 (defun parse-symbol-or-lose (string &optional (package *package*))
   (multiple-value-bind (symbol status) (parse-symbol string package)
@@ -1562,28 +1563,30 @@ For more information about the format of ``raw form specs'' and
 ``form specs'', please see PARSE-FORM-SPEC."
   (handler-case 
       (with-buffer-syntax ()
-        (multiple-value-bind (form-spec arg-index)
+        (multiple-value-bind (form-spec arg-index newly-interned-symbols)
             (parse-first-valid-form-spec raw-specs arg-indices)
-          (when form-spec
-            (let ((arglist (arglist-from-form-spec form-spec :remove-args nil)))
-              (unless (eql arglist :not-available)
-                (multiple-value-bind (type operator arguments)
-                    (split-form-spec form-spec)
-                  (declare (ignore arguments))
-                  (multiple-value-bind (stringified-arglist)
-                      (decoded-arglist-to-string
-                       arglist
-                       :operator operator
-                       :print-right-margin print-right-margin
-                       :print-lines print-lines
-                       :highlight (and arg-index
-                                       (not (zerop arg-index))
-                                       ;; don't highlight the operator
-                                       arg-index))
-                    (case type
-                      (:declaration    (format nil "(declare ~A)" stringified-arglist))
-                      (:type-specifier (format nil "[Typespec] ~A" stringified-arglist))
-                      (t stringified-arglist)))))))))
+          (unwind-protect
+               (when form-spec
+                 (let ((arglist (arglist-from-form-spec form-spec :remove-args nil)))
+                   (unless (eql arglist :not-available)
+                     (multiple-value-bind (type operator arguments)
+                         (split-form-spec form-spec)
+                       (declare (ignore arguments))
+                       (multiple-value-bind (stringified-arglist)
+                           (decoded-arglist-to-string
+                            arglist
+                            :operator operator
+                            :print-right-margin print-right-margin
+                            :print-lines print-lines
+                            :highlight (and arg-index
+                                            (not (zerop arg-index))
+                                            ;; don't highlight the operator
+                                            arg-index))
+                         (case type
+                           (:declaration    (format nil "(declare ~A)" stringified-arglist))
+                           (:type-specifier (format nil "[Typespec] ~A" stringified-arglist))
+                           (t stringified-arglist)))))))
+            (mapc #'unintern newly-interned-symbols))))
     (error (cond)
       (format nil "ARGLIST (error): ~A" cond))
     ))
@@ -1591,28 +1594,26 @@ For more information about the format of ``raw form specs'' and
 (defun parse-form-spec (raw-spec)
   "Takes a raw (i.e. unparsed) form spec from SLIME and returns a
 proper form spec for further processing within SWANK. Returns NIL
-if RAW-SPEC could not be parsed.
+if RAW-SPEC could not be parsed. Symbols that had to be interned
+in course of the conversion, are returned as secondary return value.
 
 A ``raw form spec'' can be either: 
 
   i)   a list of strings representing a Common Lisp form
 
-  ii)  one of:
+  ii)  a list of strings as of i), but which additionally 
+       contains other raw form specs
 
-     a)  (:declaration decl-identifier declspec) 
+  iii) one of:
 
-           where DECL-IDENTIFIER is the string representation of a /decl identifier/,
-                 DECLSPEC is the string representation of a /declaration specifier/.
+     a)  (:declaration declspec) 
 
-     b)  (:type-specifier typespec-operator typespec) 
+           where DECLSPEC is a raw form spec.
+
+     b)  (:type-specifier typespec) 
        
-           where TYPESPEC-OPERATOR is the string representation of the CAR of a /type specifier/,
-                 TYPESPEC is the string representation of a /type specifier/.
+           where TYPESPEC is a raw form spec.
 
-     (DECL-IDENTIFIER, and TYPESPEC-OPERATOR are actually redundant (as they're both
-     already provided in DECLSPEC, or TYPESPEC respectively, but this separation
-     allows to check if these raw form specs are valid before the whole spec is READ,
-     and thus all contained symbols interned.)
 
 A ``form spec'' is either
 
@@ -1628,35 +1629,40 @@ A ``form spec'' is either
 
 Examples:
 
-  (\"defmethod\")                     =>  (defmethod)
-  (\"cl:defmethod\")                  =>  (cl:defmethod)
-  (\"defmethod\" \"print-object\")    =>  (defmethod print-object)
+  (\"defmethod\")                               =>  (defmethod)
+  (\"cl:defmethod\")                            =>  (cl:defmethod)
+  (\"defmethod\" \"print-object\")              =>  (defmethod print-object)
+
+  (\"foo\" (\"bar\" (\"quux\")) \"baz\"         =>  (foo (bar (quux)) baz)
 
   (:declaration \"optimize\" \"(optimize)\")    =>  ((:declaration optimize))
   (:declaration \"type\"     \"(type string)\") =>  ((:declaration type) string)
   (:type-specifier \"float\" \"(float)\")       =>  ((:type-specifier float))
   (:type-specifier \"float\" \"(float 0 100)\") =>  ((:type-specifier float) 0 100)
 "
-  (flet ((parse-extended-spec (raw-extension-op raw-extension extension-flag)
-           (when (nth-value 1 (parse-symbol raw-extension-op))
-             (let ((extension (read-incomplete-form-from-string raw-extension)))
-               (unless (recursively-empty-p extension) ; (:DECLARATION "(())") &c.
+  (flet ((parse-extended-spec (raw-extension extension-flag)
+           (when (and (stringp (first raw-extension)) ; (:DECLARATION (("a" "b" ("c")) "d"))
+                      (nth-value 1 (parse-symbol (first raw-extension))))
+              (multiple-value-bind (extension introduced-symbols)
+                 (read-form-spec raw-extension)
+                (unless (recursively-empty-p extension) ; (:DECLARATION (())) &c.
                  (destructuring-bind (identifier &rest args) extension
-                   `((,extension-flag ,identifier) ,@args)))))))
+                   (values `((,extension-flag ,identifier) ,@args)
+                           introduced-symbols)))))))
     (when (consp raw-spec)
       (destructure-case raw-spec
-        ((:declaration raw-decl-identifier raw-declspec)
-         (parse-extended-spec raw-decl-identifier raw-declspec :declaration))
-        ((:type-specifier raw-typespec-op raw-typespec)
-         (parse-extended-spec raw-typespec-op raw-typespec :type-specifier))
+        ((:declaration raw-declspec)
+         (parse-extended-spec raw-declspec :declaration))
+        ((:type-specifier raw-typespec)
+         (parse-extended-spec raw-typespec :type-specifier))
         (t
          (when (every #'stringp raw-spec)
            (destructuring-bind (raw-operator &rest raw-args) raw-spec
              (multiple-value-bind (operator found?) (parse-symbol raw-operator)
                (when (and found? (valid-operator-symbol-p operator))
-                 `(,operator ,@(read-incomplete-form-from-string
-                                (format nil "(~A)"
-                                        (apply #'concatenate 'string raw-args)))))))))))))
+                 (multiple-value-bind (parsed-args introduced-symbols)
+                     (read-form-spec raw-args)
+                   (values `(,operator ,@parsed-args) introduced-symbols)))))))))))
 
 (defun split-form-spec (spec)
   "Returns all three relevant information a ``form spec''
@@ -1671,14 +1677,51 @@ contains: the operator type, the operator, and the operands."
 (defun parse-first-valid-form-spec (raw-specs &optional arg-indices)
   "Returns the first parsed form spec in RAW-SPECS that can
 successfully be parsed. Additionally returns its respective index
-in ARG-INDICES (or NIL.)"
+in ARG-INDICES (or NIL.), and all newly interned symbols as tertiary
+return value."
   (block traversal
     (mapc #'(lambda (raw-spec index)
-              (let ((spec (parse-form-spec raw-spec)))
+              (multiple-value-bind (spec symbols) (parse-form-spec raw-spec)
                 (when spec (return-from traversal
-                             (values spec index)))))
+                             (values spec index symbols)))))
           raw-specs
-          (append arg-indices '#1=(nil . #1#)))))
+          (append arg-indices '#1=(nil . #1#)))
+    nil)) ; found nothing
+
+(defun read-form-spec (spec)
+  "Turns the ``raw form spec'' SPEC into a proper Common Lisp form.
+
+It returns symbols that had to interned for the conversion as
+secondary return value."
+  (when spec
+    (with-buffer-syntax ()
+      (call-with-ignored-reader-errors
+       #'(lambda ()
+           (let ((result) (newly-interned-symbols))
+             (dolist (element spec)
+               (etypecase element
+                 (string
+                  (multiple-value-bind (symbol found? symbol-name package)
+                      (parse-symbol element)
+                    (if found?
+                        (push symbol result)
+                        (let ((sexp (read-from-string element)))
+                          (when (symbolp sexp)
+                            (push sexp newly-interned-symbols)
+                            ;; assert that PARSE-SYMBOL didn't parse incorrectly.
+                            (assert (and (equal symbol-name (symbol-name sexp))
+                                         (eq package (symbol-package sexp)))))
+                          (push sexp result)))))
+                 (cons
+                  (multiple-value-bind (read-spec interned-symbols)
+                      (read-form-spec element)
+                    (push read-spec result)
+                    (setf newly-interned-symbols
+                          (append interned-symbols
+                                  newly-interned-symbols))))))
+             (values (nreverse result)
+                     (nreverse newly-interned-symbols))))))))
+
 
 
 (defun clean-arglist (arglist)
@@ -2523,27 +2566,35 @@ Examples:
 
 (defun read-incomplete-form-from-string (form-string)
   (with-buffer-syntax ()
-    (handler-case
-        (read-from-string form-string)
-      (reader-error (c)
-	(declare (ignore c))
-	nil)
-      (stream-error (c)
-        (declare (ignore c))
-        nil))))
+    (call-with-ignored-reader-errors
+      #'(lambda ()
+          (read-from-string form-string)))))
 
+(defun call-with-ignored-reader-errors (thunk)
+  (declare (type (function () (values &rest t)) thunk))
+  (declare (optimize (speed 3) (safety 1)))
+  (handler-case (funcall thunk)
+    (reader-error (c)
+      (declare (ignore c))
+      nil)
+    (stream-error (c)
+      (declare (ignore c))
+      nil)))
 
 (defslimefun complete-form (form-string)
   "Read FORM-STRING in the current buffer package, then complete it
 by adding a template for the missing arguments."
-  (let ((form (parse-form-spec form-string)))
-    (when (consp form)
-      (let ((form-completion (arglist-from-form-spec form)))
-        (unless (eql form-completion :not-available)
-          (return-from complete-form
-            (decoded-arglist-to-template-string form-completion
-                                                *buffer-package*
-                                                :prefix "")))))
+  (multiple-value-bind (form newly-interned-symbols)
+      (parse-form-spec form-string)
+    (unwind-protect
+         (when (consp form)
+           (let ((form-completion (arglist-from-form-spec form)))
+             (unless (eql form-completion :not-available)
+               (return-from complete-form
+                 (decoded-arglist-to-template-string form-completion
+                                                     *buffer-package*
+                                                     :prefix "")))))
+      (mapc #'unintern newly-interned-symbols))
     :not-available))
 
 
@@ -2563,35 +2614,37 @@ by adding a template for the missing arguments."
 
 (defslimefun completions-for-keyword (raw-specs keyword-string arg-indices)
   (with-buffer-syntax ()
-    (multiple-value-bind (form-spec index)
+    (multiple-value-bind (form-spec index newly-interned-symbols)
         (parse-first-valid-form-spec raw-specs arg-indices)
-      (when form-spec
-        (let ((arglist   (arglist-from-form-spec form-spec  :remove-args nil)))
-          (unless (eql arglist :not-available)
-            (multiple-value-bind (type operator arguments) (split-form-spec form-spec)
-              (declare (ignore type arguments))
-              (let* ((indices (butlast (reverse (last arg-indices (1+ index)))))
-                     (arglist (apply #'arglist-ref arglist operator indices)))
-                (when (and arglist (arglist-p arglist))
-                  ;; It would be possible to complete keywords only if we
-                  ;; are in a keyword position, but it is not clear if we
-                  ;; want that.
-                  (let* ((keywords 
-                          (mapcar #'keyword-arg.keyword
-                                  (arglist.keyword-args arglist)))
-                         (keyword-name
-                          (tokenize-symbol keyword-string))
-                         (matching-keywords
-                          (find-matching-symbols-in-list keyword-name keywords
-                                                         #'compound-prefix-match))
-                         (converter (completion-output-symbol-converter keyword-string))
-                         (strings
-                          (mapcar converter
-                                  (mapcar #'symbol-name matching-keywords)))
-                         (completion-set
-                          (format-completion-set strings nil "")))
-                    (list completion-set
-                          (longest-compound-prefix completion-set))))))))))))
+      (unwind-protect
+           (when form-spec
+             (let ((arglist   (arglist-from-form-spec form-spec  :remove-args nil)))
+               (unless (eql arglist :not-available)
+                 (multiple-value-bind (type operator arguments) (split-form-spec form-spec)
+                   (declare (ignore type arguments))
+                   (let* ((indices (butlast (reverse (last arg-indices (1+ index)))))
+                          (arglist (apply #'arglist-ref arglist operator indices)))
+                     (when (and arglist (arglist-p arglist))
+                       ;; It would be possible to complete keywords only if we
+                       ;; are in a keyword position, but it is not clear if we
+                       ;; want that.
+                       (let* ((keywords 
+                               (mapcar #'keyword-arg.keyword
+                                       (arglist.keyword-args arglist)))
+                              (keyword-name
+                               (tokenize-symbol keyword-string))
+                              (matching-keywords
+                               (find-matching-symbols-in-list keyword-name keywords
+                                                              #'compound-prefix-match))
+                              (converter (completion-output-symbol-converter keyword-string))
+                              (strings
+                               (mapcar converter
+                                       (mapcar #'symbol-name matching-keywords)))
+                              (completion-set
+                               (format-completion-set strings nil "")))
+                         (list completion-set
+                               (longest-compound-prefix completion-set)))))))))
+        (mapc #'unintern newly-interned-symbols)))))
            
 
 (defun arglist-to-string (arglist package &key print-right-margin highlight)

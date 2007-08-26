@@ -1,3 +1,4 @@
+
 ;;; slime.el -- Superior Lisp Interaction Mode for Emacs
 ;;
 ;;;; License
@@ -5743,11 +5744,11 @@ one sexp to find out the context."
         ""
         (let ((op (first operators)))
           (destructure-case (slime-ensure-list op)
-            ((:declaration decl-identifier declspec) op)
-            ((:type-specifier typespec-op typespec) op)
+            ((:declaration declspec) op)
+            ((:type-specifier typespec) op)
             (t (slime-ensure-list
                 (save-excursion (goto-char (first points))
-                                (slime-sexp-at-point (first arg-indices))))))))))
+                                (slime-sexp-at-point (1+ (first arg-indices)))))))))))
 
 (defun slime-complete-form ()
   "Complete the form at point.  
@@ -10464,7 +10465,10 @@ The result is unspecified if there isn't a symbol under the point."
     (and name (intern name))))
 
 (defun slime-sexp-at-point (&optional n)
-  "Return the sexp at point as a string, otherwise nil."
+  "Return the sexp at point as a string, otherwise nil.
+If N is given and greater than 1, a list of all such sexps
+following the sexp at point is returned. (If there are not
+as many sexps as N, a list with < N sexps is returned.)"
   (interactive "p") (or n (setq n 1))
   (flet ((sexp-at-point ()
            (let ((string (or (slime-symbol-name-at-point)
@@ -10472,10 +10476,12 @@ The result is unspecified if there isn't a symbol under the point."
              (if string (substring-no-properties string) nil))))
     (save-excursion
       (let ((result nil))
-        (push (format "%s" (sexp-at-point)) result)
-        (dotimes (i (1- n))
-          (forward-sexp) (forward-char 1)
-          (push (format " %s" (sexp-at-point)) result))
+        (dotimes (i n)
+          (push (sexp-at-point) result)
+          (ignore-errors (forward-sexp) (forward-char 1))
+          (save-excursion
+            (unless (slime-point-moves-p (ignore-errors (forward-sexp)))
+              (return))))
         (if (slime-length= result 1)
             (first result)
             (nreverse result))))))
@@ -10558,18 +10564,18 @@ operator."
                (decl-points  (rest current-points))
                (decl-pos     (1- (first decl-points)))
                (nesting      (slime-nesting-until-point decl-pos))
-               (declspec     (concat (slime-incomplete-sexp-at-point nesting)
+               (declspec-str (concat (slime-incomplete-sexp-at-point nesting)
                                      (make-string nesting ?\)))))
           ;; `(declare ((foo ...))' or `(declare (type (foo ...)))' ?
-          (if (or (eql 0 (string-match "\\s-*(\\((\\(\\sw\\|\\s_\\|\\s-\\)*)\\))$" declspec))
-                  (eql 0 (string-match "\\s-*(type\\s-*\\((\\(\\sw\\|\\s_\\|\\s-\\)*)\\))$" declspec)))
-              (let ((typespec-op (first (second decl-ops)))
-                    (typespec    (match-string 1 declspec)))
-                (setq current-forms   (list `(:type-specifier ,typespec-op ,typespec)))
+          (if (or (eql 0 (string-match "\\s-*(\\((\\(\\sw\\|\\s_\\|\\s-\\)*)\\))$" declspec-str))
+                  (eql 0 (string-match "\\s-*(type\\s-*\\((\\(\\sw\\|\\s_\\|\\s-\\)*)\\))$" declspec-str)))
+              (let* ((typespec-str (match-string 1 declspec-str))
+                     (typespec (slime-make-form-spec-from-string typespec-str)))
+                (setq current-forms   (list `(:type-specifier ,typespec)))
                 (setq current-indices (list (second decl-indices)))
                 (setq current-points  (list (second decl-points))))
-              (let ((decl-identifier (first (first decl-ops))))
-                (setq current-forms   (list `(:declaration ,decl-identifier ,declspec)))
+              (let ((declspec (slime-make-form-spec-from-string declspec-str)))
+                (setq current-forms   (list `(:declaration ,declspec)))
                 (setq current-indices (list (first decl-indices)))
                 (setq current-points  (list (first decl-points)))))))))
   (values current-forms current-indices current-points))
@@ -10584,7 +10590,26 @@ operator."
           nesting
           0))))
 
-
+(defun slime-make-form-spec-from-string (string &optional temp-buffer)
+  (let ((tmpbuf (or temp-buffer (generate-new-buffer "TMP"))))
+    (if (slime-length= string 0)
+        ""
+        (unwind-protect
+             (with-current-buffer tmpbuf
+               (erase-buffer)
+               (insert string) (backward-char 1)
+               (multiple-value-bind (forms indices points)
+                   (slime-enclosing-form-specs 1)
+                 (if (null forms)
+                     string
+                     (progn
+                       (beginning-of-line) (forward-char 1)
+                       (mapcar #'(lambda (string)
+                                   (slime-make-form-spec-from-string string tmpbuf))
+                               (slime-ensure-list
+                                (slime-sexp-at-point (1+ (first (last indices))))))))))
+          (when (not temp-buffer)
+            (kill-buffer tmpbuf))))))
 
 
 (defun slime-enclosing-form-specs (&optional max-levels)
@@ -10602,13 +10627,13 @@ contained in the returned form specs.
 parens.
 
 \(See SWANK::PARSE-FORM-SPEC for more information about what
-exactly constitutes a ``raw form specs'')
+exactly constitutes a ``raw form specs''
 
-Example:
+Example:)
 
   A return value like the following
 
-    (values  (\"quux\" \"bar\" \"foo\") (3 2 1) (p1 p2 p3))
+    (values  ((\"quux\") (\"bar\") (\"foo\")) (3 2 1) (p1 p2 p3))
 
   can be interpreted as follows:
 
@@ -11055,7 +11080,10 @@ To fetch the contrib directoy use:  cvs update -d contrib"
           slime-insert-propertized
           slime-insert-possibly-as-rectangle
           slime-tree-insert
-          slime-enclosing-form-specs)))
+          slime-enclosing-form-specs
+          slime-make-form-spec-from-string
+          slime-parse-extended-operator/declare
+)))
 
 (run-hooks 'slime-load-hook)
 
