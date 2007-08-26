@@ -1,3 +1,8 @@
+2007-08-26  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el (slime-cl-symbol-name): Handle vertical bars (|)
+	(%slime-nesting-until-point): Renamed to `slime-nesting-until-point'.
+	
 2007-08-25  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Fix a bug where REPL results would sometimes be indented by a

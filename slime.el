@@ -10352,7 +10352,10 @@ Example:
 (defun slime-cl-symbol-name (symbol)
   (let ((n (if (stringp symbol) symbol (symbol-name symbol))))
     (if (string-match ":\\([^:]*\\)$" n)
-	(match-string 1 n)
+	(let ((symbol-part (match-string 1 n)))
+          (if (string-match "^|\\(.*\\)|$" symbol-part)
+              (match-string 1 symbol-part)
+              symbol-part))
       n)))
 
 (defun slime-cl-symbol-package (symbol &optional default)
@@ -10554,7 +10557,7 @@ operator."
                (decl-indices (rest current-indices))
                (decl-points  (rest current-points))
                (decl-pos     (1- (first decl-points)))
-               (nesting      (%slime-nesting-until-point decl-pos))
+               (nesting      (slime-nesting-until-point decl-pos))
                (declspec     (concat (slime-incomplete-sexp-at-point nesting)
                                      (make-string nesting ?\)))))
           ;; `(declare ((foo ...))' or `(declare (type (foo ...)))' ?
@@ -10571,7 +10574,7 @@ operator."
                 (setq current-points  (list (first decl-points)))))))))
   (values current-forms current-indices current-points))
 
-(defun %slime-nesting-until-point (target-point)
+(defun slime-nesting-until-point (target-point)
   (save-excursion
     (let ((nesting 0))
       (while (> (point) target-point)
