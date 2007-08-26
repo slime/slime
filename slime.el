@@ -2932,10 +2932,9 @@ update window-point afterwards.  If point is initially not at
   "Mark the beginning of a presentation with the given ID.
 TARGET can be nil (regular process output) or :repl-result."
   (setf (gethash id slime-presentation-start-to-point) 
-        (with-current-buffer (slime-output-buffer)
-          (if (eq target :repl-result)
-              (point-max)
-            (marker-position (symbol-value 'slime-output-end))))))
+        ;; We use markers because text can also be inserted before this presentation.
+        ;; (Output arrives while we are writing presentations within REPL results.)
+        (copy-marker (slime-output-target-marker target) nil)))
 
 (defun slime-mark-presentation-start-handler (process string)
   (if (and string (string-match "<\\([-0-9]+\\)" string))
@@ -2949,13 +2948,12 @@ TARGET can be nil (regular process output) or :repl-result."
   (let ((start (gethash id slime-presentation-start-to-point)))
     (remhash id slime-presentation-start-to-point)
     (when start
-      (with-current-buffer (slime-output-buffer)
-        (let ((end 
-               (if (eq target :repl-result)
-                   (point-max)
-                 (symbol-value 'slime-output-end))))
-        (slime-add-presentation-properties start end
-                                           id nil))))))
+      (let* ((marker (slime-output-target-marker target))
+             (buffer (and marker (marker-buffer marker))))
+        (with-current-buffer buffer
+          (let ((end (marker-position marker)))
+            (slime-add-presentation-properties start end
+                                               id nil)))))))
 
 (defun slime-mark-presentation-end-handler (process string)
   (if (and string (string-match ">\\([-0-9]+\\)" string))
@@ -3108,6 +3106,25 @@ profiling before running the benchmark."
   (make-hash-table)
   "Map from TARGET ids to Emacs markers that indicate where
 output should be inserted.")
+;; Note:  We would like the entries to disappear when the buffers are
+;; killed.  We cannot just make the hash-table ":weakness 'value" --
+;; there is no reference from the buffers to the markers in the
+;; buffer, so entries would disappear even though the buffers are
+;; alive.  Best solution might be to make buffer-local variables that
+;; keep the markers. --mkoeppe
+
+(defun slime-output-target-marker (target)
+  "Return a marker that indicates where output for TARGET should
+be inserted."
+  (case target
+    ((nil)
+     (with-current-buffer (slime-output-buffer)
+       slime-output-end))
+    (:repl-result
+     (with-current-buffer (slime-output-buffer)
+       slime-repl-input-start-mark))
+    (t
+     (gethash target slime-output-target-to-marker))))
 
 (defun slime-write-string (string &optional id target)
   "Insert STRING in the REPL buffer.  If ID is non-nil, insert STRING
@@ -3140,7 +3157,7 @@ hashtable `slime-output-target-to-marker'; output is inserted at this marker."
              ;; set it back to the beginning of the REPL result.
              (set-marker slime-output-end result-start)))))
     (t
-     (let* ((marker (gethash target slime-output-target-to-marker))
+     (let* ((marker (slime-output-target-marker target))
             (buffer (and marker (marker-buffer marker))))
        (when buffer
          (with-current-buffer buffer
