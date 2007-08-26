@@ -2808,7 +2808,11 @@ Debugged requests are ignored."
     (set markname (make-marker))
     (set-marker (symbol-value markname) (point)))
   (set-marker-insertion-type slime-repl-input-end-mark t)
-  (set-marker-insertion-type slime-output-end t)
+  ;;; We manage the movement of the slime-output-end marker ourselves
+  ;;; when output arrives; we do not wish it moves behind typed-ahead
+  ;;; user input.  Therefore, don't make the marker advance
+  ;;; automatically. --mkoeppe
+  ;;(set-marker-insertion-type slime-output-end t)
   (set-marker-insertion-type slime-repl-prompt-start-mark t))
 
 (defun slime-output-buffer (&optional noprompt)
@@ -2845,7 +2849,7 @@ Debugged requests are ignored."
                                        "- ChangeLog file not found"))))
         (if animantep
             (animate-string hello-message 0 0) 
-          (insert hello-message))))
+          (insert-before-markers hello-message))))
     (pop-to-buffer (current-buffer))
     (slime-repl-insert-prompt)))
 
@@ -2900,6 +2904,7 @@ update window-point afterwards.  If point is initially not at
      (cond ((= (point) slime-output-end)
             (let ((start.. (point)))
               (funcall body..)
+              (set-marker slime-output-end (point))
               (when (= start.. slime-repl-input-start-mark) 
                 (set-marker slime-repl-input-start-mark (point)))))
            (t 
@@ -3138,24 +3143,29 @@ hashtable `slime-output-target-to-marker'; output is inserted at this marker."
        (slime-with-output-end-mark
         (if id
             (slime-insert-presentation string id)
-          (slime-propertize-region '(face slime-repl-output-face)
+          (slime-propertize-region '(face slime-repl-output-face
+                                          rear-nonsticky (face))
             (insert string)))
+        (set-marker slime-output-end (point))
         (when (and (= (point) slime-repl-prompt-start-mark)
                    (not (bolp)))
           (insert "\n")
-          (set-marker slime-output-end (1- (point)))))))
+          (set-marker slime-output-end (1- (point))))
+        (if (< slime-repl-input-start-mark (point))
+            (set-marker slime-repl-input-start-mark
+                        (point))))))
     (:repl-result                       
      (with-current-buffer (slime-output-buffer)
-       (goto-char (point-max))
-       (let ((result-start (point)))
-         (if id             
-             (slime-insert-presentation string id)
-           (slime-propertize-region `(face slime-repl-result-face)
-             (insert string)))
-         (if (>= (marker-position slime-output-end) (point))
-             ;; If the output-end marker was moved by our insertion,
-             ;; set it back to the beginning of the REPL result.
-             (set-marker slime-output-end result-start)))))
+       (let ((marker (slime-output-target-marker target)))
+         (goto-char marker)
+         (let ((result-start (point)))
+           (if id             
+               (slime-insert-presentation string id)
+             (slime-propertize-region `(face slime-repl-result-face
+                                             rear-nonsticky (face))
+               (insert string)))
+           ;; Move the input-start marker after the REPL result.
+           (set-marker marker (point))))))
     (t
      (let* ((marker (slime-output-target-marker target))
             (buffer (and marker (marker-buffer marker))))
@@ -3713,7 +3723,7 @@ Also return the start position, end position, and buffer of the presentation."
 
 (defun slime-repl-insert-prompt ()
   "Goto to point max, and insert the prompt."
-  (goto-char (point-max))
+  (goto-char (if slime-repl-input-start-mark slime-repl-input-start-mark (point-max)))
   (unless (bolp) (insert "\n"))
   (let ((prompt-start (point))
         (prompt (format "%s> " (slime-lisp-package-prompt-string))))
@@ -3725,11 +3735,11 @@ Also return the start position, end position, and buffer of the presentation."
                ;; xemacs stuff
                start-open t end-open t)
       (insert-before-markers prompt))
+    (slime-mark-input-start)
     (set-marker slime-repl-prompt-start-mark prompt-start)
     (goto-char slime-repl-prompt-start-mark)
     (slime-mark-output-start)
-    (goto-char (point-max))
-    (slime-mark-input-start))
+    (goto-char (point-max)))
   (slime-repl-show-maximum-output))
 
 (defun slime-repl-show-maximum-output (&optional force)
