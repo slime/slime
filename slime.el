@@ -3046,13 +3046,20 @@ RESULT-P decides whether a face for a return value or output text is used."
   (slime-with-rigid-indentation nil
     (apply #'insert strings)))
 
-(defun slime-insert-presentation (string output-id)
-  (cond ((not slime-repl-enable-presentations)
-         (slime-insert-possibly-as-rectangle string))
-        (t
-         (let ((start (point)))
-           (slime-insert-possibly-as-rectangle string)
-           (slime-add-presentation-properties start (point) output-id t)))))
+(defun slime-insert-presentation (string output-id &optional rectangle)
+  "Insert STRING in current buffer and mark it as a presentation 
+corresponding to OUTPUT-ID.  If RECTANGLE is true, indent multi-line
+strings to line up below the current point."
+  (flet ((insert-it ()
+                    (if rectangle 
+                        (slime-insert-possibly-as-rectangle string)
+                      (insert string))))
+    (cond ((not slime-repl-enable-presentations)
+           (insert-it))
+          (t
+           (let ((start (point)))
+             (insert-it)
+             (slime-add-presentation-properties start (point) output-id t))))))
 
 (defun slime-open-stream-to-lisp (port)
   (let ((stream (open-network-stream "*lisp-output-stream*" 
@@ -3142,7 +3149,7 @@ hashtable `slime-output-target-to-marker'; output is inserted at this marker."
      (with-current-buffer (slime-output-buffer)
        (slime-with-output-end-mark
         (if id
-            (slime-insert-presentation string id)
+            (slime-insert-presentation string id t)
           (slime-propertize-region '(face slime-repl-output-face
                                           rear-nonsticky (face))
             (insert string)))
@@ -8196,7 +8203,7 @@ VAR should be a plist with the keys :name, :id, and :value."
                     " = ")
             (slime-insert-presentation
              (in-sldb-face local-value value)
-             `(:frame-var ,slime-current-thread ,(car frame) ,i))
+             `(:frame-var ,slime-current-thread ,(car frame) ,i) t)
             (insert "\n")))))
 
 (defun sldb-hide-frame-details ()
@@ -8750,7 +8757,7 @@ Optionally set point to POINT."
            (list 'slime-part-number id 
                  'mouse-face 'highlight
                  'face 'slime-inspector-value-face)
-         (slime-insert-presentation string `(:inspected-part ,id))))
+         (slime-insert-presentation string `(:inspected-part ,id) t)))
       ((:action string id)
        (slime-insert-propertized (list 'slime-action-number id
                                        'mouse-face 'highlight
