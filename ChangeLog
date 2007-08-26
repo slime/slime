@@ -1,5 +1,18 @@
 2007-08-26  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* slime.el (current-slime-narrowing-configuration):
+	Renamed to `slime-current-narrowing-configuration'.
+	(set-slime-narrowing-configuration):
+	Renamed to `slime-set-narrowing-configuration'.
+	(current-slime-emacs-snapshot):
+	Renamed to `slime-current-emacs-snapshot'.
+	(current-slime-emacs-snapshot-fingerprint):
+	Renamed to `slime-current-emacs-snapshot-fingerprint'.
+	(set-slime-emacs-snapshot):
+	Renamed to `slime-set-emacs-snapshot'.
+
+2007-08-26  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* slime.el (save-restriction-if-possible): Fixed another typo,
 	duh! Thanks again to Matthias Koeppe.
 	

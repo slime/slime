@@ -1218,18 +1218,18 @@ Assumes all insertions are made at point."
 (defstruct (slime-emacs-snapshot (:conc-name slime-emacs-snapshot.))
   window-configuration narrowing-configuration)
 
-(defun current-slime-narrowing-configuration (&optional buffer)
+(defun slime-current-narrowing-configuration (&optional buffer)
   (with-current-buffer (or buffer (current-buffer))
     (make-slime-narrowing-configuration :narrowedp (slime-buffer-narrowed-p)
                                         :beg (point-min-marker)
                                         :end (point-max-marker))))
 
-(defun set-slime-narrowing-configuration (narrowing-cfg)
+(defun slime-set-narrowing-configuration (narrowing-cfg)
   (when (slime-narrowing-configuration.narrowedp narrowing-cfg)
     (narrow-to-region (slime-narrowing-configuration.beg narrowing-cfg)
                       (slime-narrowing-configuration.end narrowing-cfg))))
 
-(defun current-slime-emacs-snapshot (&optional frame)
+(defun slime-current-emacs-snapshot (&optional frame)
   "Returns a snapshot of the current state of FRAME, or the
 currently active frame if FRAME is not given respectively."
   (with-current-buffer
@@ -1238,17 +1238,17 @@ currently active frame if FRAME is not given respectively."
           (current-buffer))
     (make-slime-emacs-snapshot
      :window-configuration    (current-window-configuration frame)
-     :narrowing-configuration (current-slime-narrowing-configuration))))
+     :narrowing-configuration (slime-current-narrowing-configuration))))
 
-(defun set-slime-emacs-snapshot (snapshot)
+(defun slime-set-emacs-snapshot (snapshot)
   "Restores the state of Emacs according to the information saved
 in SNAPSHOT."
   (let ((window-cfg    (slime-emacs-snapshot.window-configuration snapshot))
         (narrowing-cfg (slime-emacs-snapshot.narrowing-configuration snapshot)))
     (set-window-configuration window-cfg) ; restores previously current buffer.
-    (set-slime-narrowing-configuration narrowing-cfg)))
+    (slime-set-narrowing-configuration narrowing-cfg)))
 
-(defun current-slime-emacs-snapshot-fingerprint (&optional frame)
+(defun slime-current-emacs-snapshot-fingerprint (&optional frame)
   "Return a fingerprint of the current emacs snapshot.
 Fingerprints are `equalp' if and only if they represent window
 configurations that are very similar (same windows and buffers.)
@@ -1296,7 +1296,7 @@ If EMACS-SNAPSHOT is non-NIL, it's used to restore the previous
 state of Emacs after closing the temporary buffer. Otherwise, the
 current state will be saved and later restored.
 "
-  (let ((snapshot (or emacs-snapshot (current-slime-emacs-snapshot)))
+  (let ((snapshot (or emacs-snapshot (slime-current-emacs-snapshot)))
         (buffer (get-buffer name)))
     (when (and buffer (not reusep))
       (kill-buffer name)
@@ -1320,7 +1320,7 @@ current state will be saved and later restored.
                   (selected-window))
               (setq slime-temp-buffer-saved-emacs-snapshot snapshot)
               (setq slime-temp-buffer-saved-fingerprint
-                    (current-slime-emacs-snapshot-fingerprint)))))
+                    (slime-current-emacs-snapshot-fingerprint)))))
       (current-buffer))))
 
 ;; Interface
@@ -1360,9 +1360,9 @@ window configuration unless it was changed since we last activated the buffer."
   (let ((snapshot slime-temp-buffer-saved-emacs-snapshot)
         (temp-buffer (current-buffer)))
     (setq slime-temp-buffer-saved-emacs-snapshot nil)
-    (if (and snapshot (equalp (current-slime-emacs-snapshot-fingerprint)
+    (if (and snapshot (equalp (slime-current-emacs-snapshot-fingerprint)
                               slime-temp-buffer-saved-fingerprint))
-        (set-slime-emacs-snapshot snapshot)
+        (slime-set-emacs-snapshot snapshot)
         (bury-buffer))
     (when kill-buffer-p
       (kill-buffer temp-buffer))))
@@ -4728,7 +4728,7 @@ See `slime-compile-and-load-file' for further details."
     (save-buffer))
   (run-hook-with-args 'slime-before-compile-functions (point-min) (point-max))
   (let ((lisp-filename (slime-to-lisp-filename (buffer-file-name)))
-        (snapshot (current-slime-emacs-snapshot)))
+        (snapshot (slime-current-emacs-snapshot)))
     (slime-insert-transcript-delimiter
      (format "Compile file %s" lisp-filename))
     ;; The following may alter the current window configuration, so we saved
@@ -6276,7 +6276,7 @@ look if the current buffer is narrowed, and if so use the relevant values."
   (ring-insert-at-beginning slime-find-definition-history-ring 
     (list (or marker (point-marker))
           (or narrowing-configuration
-              (current-slime-narrowing-configuration)))))
+              (slime-current-narrowing-configuration)))))
 
 (defun slime-pop-find-definition-stack ()
   "Pop the edit-definition stack and goto the location."
@@ -7187,7 +7187,7 @@ If CREATE is non-nil, create it if necessary."
     `(let ((,type ,ref-type) (,sym ,symbol) (,pkg ,package))
        ;; We don't want the the xref buffer to be the current buffer
        ;; in the snapshot, so we gotta take the snapshot here.
-       (let ((,snapshot (or ,emacs-snapshot (current-slime-emacs-snapshot))))
+       (let ((,snapshot (or ,emacs-snapshot (slime-current-emacs-snapshot))))
          (with-current-buffer (get-buffer-create 
                                (format "*XREF[%s: %s]*" ,type ,sym))
            (prog2 (progn
@@ -7294,7 +7294,7 @@ GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
                  ;; We have to take the snapshot here, because SLIME-EVAL-ASYNC
                  ;; is invoking its continuation within the extent of a different
                  ;; buffer. (2007-08-14)
-                 (snapshot (current-slime-emacs-snapshot)))
+                 (snapshot (slime-current-emacs-snapshot)))
      (lambda (result)
        (slime-show-xrefs result type symbol package snapshot)))))
 
@@ -7355,7 +7355,7 @@ When displaying XREF information, this goes to the next reference."
   (interactive)
   (let ((snapshot slime-xref-saved-emacs-snapshot))
     (slime-xref-cleanup)
-    (set-slime-emacs-snapshot snapshot)))
+    (slime-set-emacs-snapshot snapshot)))
 
 (defun slime-xref-cleanup ()
   "Delete overlays created by xref mode and kill the xref buffer."
@@ -10338,12 +10338,12 @@ Example:
   (let ((gcfg (gensym "NARROWING-CFG+"))
         (gbeg (gensym "OLDBEG+"))
         (gend (gensym "OLDEND+")))
-    `(let ((,gcfg (current-slime-narrowing-configuration)))
+    `(let ((,gcfg (slime-current-narrowing-configuration)))
        (unwind-protect (progn ,@body)
          (let ((,gbeg (slime-narrowing-configuration.beg ,gcfg))
                (,gend (slime-narrowing-configuration.end ,gcfg)))
            (when (and (>= (point) ,gbeg) (<= (point) ,gend))
-             (set-slime-narrowing-configuration ,gcfg)))))))
+             (slime-set-narrowing-configuration ,gcfg)))))))
 
 (put 'save-restriction-if-possible 'lisp-indent-function 0)
 
