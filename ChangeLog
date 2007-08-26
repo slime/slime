@@ -1,18 +1,34 @@
 2007-08-25  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
+	Fix handling of user-input type-ahead in the REPL.
+	Reported by Madhu <enometh@meer.net> on 2007-04-24.
+	
+	* slime.el (slime-write-string): Make sure text properties are
+	rear-nonsticky, so typed-ahead user input does not pick up the
+	text properties.  Fix up some markers.
+	(slime-reset-repl-markers): Make the marker slime-output-end of
+	insertion type nil (no automatic advances on insertions).
+	(slime-with-output-end-mark): Update the location of
+	slime-output-end here manually.
+	(slime-repl-update-banner): Use insert-before-markers.
+
+2007-08-25  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
 	New command slime-redirect-trace-output creates a separate Emacs
 	buffer, where all subsequent trace output is sent.
 	
 	* slime.el (slime-last-output-target-id): New variable.
 	(slime-output-target-to-marker): New variable.
+	(slime-output-target-marker): New function.
 	(slime-write-string): Handle general "target" arguments using
-	slime-output-target-to-marker. 
+	slime-output-target-marker. 
 	(slime-redirect-trace-output): New command.
 	(slime-easy-menu): Add a menu item for it.
 
 	* slime.el (slime-mark-presentation-start)
 	(slime-mark-presentation-end): Make "target" argument optional.
-
+	Use slime-output-target-to-marker.
+	
 	* swank.lisp (make-output-stream-for-target): New function, 
 	factored out from open-streams.
 	(open-streams): Use it here.
