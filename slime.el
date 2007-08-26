@@ -10343,7 +10343,7 @@ Example:
          (let ((,gbeg (slime-narrowing-configuration.beg ,gcfg))
                (,gend (slime-narrowing-configuration.end ,gcfg)))
            (when (and (>= (point) ,gbeg) (<= (point) ,gend))
-             (set-slime-current-narrowing-configuration ,gcfg)))))))
+             (set-slime-narrowing-configuration ,gcfg)))))))
 
 (put 'save-restriction-if-possible 'lisp-indent-function 0)
 

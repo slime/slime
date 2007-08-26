@@ -1,5 +1,10 @@
 2007-08-26  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* slime.el (save-restriction-if-possible): Fixed another typo,
+	duh! Thanks again to Matthias Koeppe.
+	
+2007-08-26  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* slime.el (slime-cl-symbol-name): Handle vertical bars (|)
 	(%slime-nesting-until-point): Renamed to `slime-nesting-until-point'.
 	
