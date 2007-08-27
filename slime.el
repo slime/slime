@@ -9958,6 +9958,7 @@ operator."
      #'(lambda (name user-point current-forms current-indices current-points)
          (let ((old-forms (rest current-forms)))
            (goto-char user-point)
+           (slime-end-of-symbol)
            (let* ((nesting  (slime-nesting-until-point (1- (first current-points))))
                   (args-str (concat (slime-incomplete-sexp-at-point nesting)
                                     (make-string nesting ?\))))
@@ -10021,20 +10022,20 @@ recursion between this function, `slime-enclosing-form-specs' and
       ""
       (with-current-buffer (or temp-buffer slime-internal-scratch-buffer)
         (erase-buffer)
-        (insert string) (backward-char 1)
+        (insert string)
         (when strip-operator-p
-          (save-excursion
-            (beginning-of-line)
-            (when (string= (thing-at-point 'char) "(")
-              (ignore-errors (forward-char 1)
-                             (forward-sexp)
-                             (slime-forward-blanks))
-              (delete-region (point-min) (point))
-              (insert "("))))
+          (beginning-of-line)
+          (when (string= (thing-at-point 'char) "(")
+            (ignore-errors (forward-char 1)
+                           (forward-sexp)
+                           (slime-forward-blanks))
+            (delete-region (point-min) (point))
+            (insert "(")))
+        (end-of-line) (backward-char 1)
         (multiple-value-bind (forms indices points)
             (slime-enclosing-form-specs 1)
           (if (null forms)
-              string
+              (progn (message "QUUX") string)
               (progn
                 (beginning-of-line) (forward-char 1)
                 (mapcar #'(lambda (s)
