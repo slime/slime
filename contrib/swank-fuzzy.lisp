@@ -108,35 +108,6 @@ a :special-operator, or a :package."
 			    symbol-chunks))
             (classify-symbol symbol)))))
 
-(defun classify-symbol (symbol)
-  "Returns a list of classifiers that classify SYMBOL according
-to its underneath objects (e.g. :BOUNDP if SYMBOL constitutes a
-special variable.) The list may contain the following classification
-keywords: :BOUNDP, :FBOUNDP, :GENERIC-FUNCTION, :CLASS, :MACRO, 
-:SPECIAL-OPERATOR, and/or :PACKAGE"
-  (check-type symbol symbol)
-  (let (result)
-    (when (boundp symbol)             (push :boundp result))
-    (when (fboundp symbol)            (push :fboundp result))
-    (when (find-class symbol nil)     (push :class result))
-    (when (macro-function symbol)     (push :macro result))
-    (when (special-operator-p symbol) (push :special-operator result))
-    (when (find-package symbol)       (push :package result))
-    (when (typep (ignore-errors (fdefinition symbol))
-                 'generic-function)
-      (push :generic-function result))
-    result))
-
-(defun symbol-classification->string (flags)
-  (format nil "~A~A~A~A~A~A~A"
-          (if (member :boundp flags) "b" "-")
-          (if (member :fboundp flags) "f" "-")
-          (if (member :generic-function flags) "g" "-")
-          (if (member :class flags) "c" "-")
-          (if (member :macro flags) "m" "-")
-          (if (member :special-operator flags) "s" "-")
-          (if (member :package flags) "p" "-")))
-
 
 (defun fuzzy-completion-set (string default-package-name &key limit time-limit-in-msec)
   "Returns two values: an array of completion objects, sorted by

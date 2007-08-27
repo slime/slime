@@ -1656,7 +1656,7 @@ Examples:
         ((:type-specifier raw-typespec)
          (parse-extended-spec raw-typespec :type-specifier))
         (t
-         (when (every #'stringp raw-spec)
+         (when (every #'(lambda (x) (or (stringp x) (consp x))) raw-spec)
            (destructuring-bind (raw-operator &rest raw-args) raw-spec
              (multiple-value-bind (operator found?) (parse-symbol raw-operator)
                (when (and found? (valid-operator-symbol-p operator))

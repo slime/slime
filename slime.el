@@ -9860,21 +9860,33 @@ The result is unspecified if there isn't a symbol under the point."
   (let ((name (slime-symbol-name-at-point)))
     (and name (intern name))))
 
-(defun slime-sexp-at-point (&optional n)
+(defun slime-sexp-at-point (&optional n skip-blanks-p)
   "Return the sexp at point as a string, otherwise nil.
 If N is given and greater than 1, a list of all such sexps
 following the sexp at point is returned. (If there are not
-as many sexps as N, a list with < N sexps is returned.)"
+as many sexps as N, a list with < N sexps is returned.)
+
+If SKIP-BLANKS-P is true, leading whitespaces &c are skipped.
+"
   (interactive "p") (or n (setq n 1))
-  (flet ((sexp-at-point ()
-           (let ((string (or (slime-symbol-name-at-point)
-                             (thing-at-point 'sexp))))
+  (flet ((sexp-at-point (first-choice)
+           (let ((string (if (eq first-choice :symbol-first)
+                             (or (slime-symbol-name-at-point)
+                                 (thing-at-point 'sexp))
+                             (or (thing-at-point 'sexp)
+                                 (slime-symbol-name-at-point)))))
              (if string (substring-no-properties string) nil))))
     (save-excursion
+      (when skip-blanks-p      ; e.g. `( foo bat)' where point is after ?\(.
+        (slime-forward-blanks))
       (let ((result nil))
         (dotimes (i n)
-          (push (sexp-at-point) result)
-          (ignore-errors (forward-sexp) (forward-char 1))
+          ;; `foo(bar baz)' where point is at ?\(.
+          (let ((sexp (sexp-at-point :symbol-first)))
+            (if (equal sexp (first result))
+                (push (sexp-at-point :sexp-first) result)
+                (push sexp result)))
+          (ignore-errors (forward-sexp) (slime-forward-blanks))
           (save-excursion
             (unless (slime-point-moves-p (ignore-errors (forward-sexp)))
               (return))))
@@ -9932,51 +9944,64 @@ parsing, and are then returned back as multiple values."
     ("APPLY"          . (slime-make-extended-operator-parser/look-ahead 1))
     ("DECLARE"        . slime-parse-extended-operator/declare)))
 
+;; FIXME: How can this buffer best be hidden from the user? I think there
+;; are some ignoration variables; gotta check that.
+(defvar slime-internal-scratch-buffer (generate-new-buffer "SLIME-INTERNAL")
+  "")
 
 (defun slime-make-extended-operator-parser/look-ahead (steps)
   "Returns a parser that parses the current operator at point
 plus STEPS-many additional sexps on the right side of the
 operator."
   (lexical-let ((n steps))
-    #'(lambda (name user-point current-forms current-indices current-points)
-        (let ((old-forms (rest current-forms)))
-          (let ((args (slime-ensure-list (slime-sexp-at-point n))))
-            (setq current-forms
-                  (cons `(,name ,@args) old-forms)))
-          (values current-forms current-indices current-points)))))
+    (byte-compile
+     #'(lambda (name user-point current-forms current-indices current-points)
+         (let ((old-forms (rest current-forms)))
+           (goto-char user-point)
+           (let* ((nesting  (slime-nesting-until-point (1- (first current-points))))
+                  (args-str (concat (slime-incomplete-sexp-at-point nesting)
+                                    (make-string nesting ?\))))
+                  (args     (slime-make-form-spec-from-string args-str t)))
+             (setq current-forms (cons `(,name ,@args) old-forms))))
+         (values current-forms current-indices current-points)
+         ))))
 
 
 (defun slime-parse-extended-operator/declare
     (name user-point current-forms current-indices current-points)
   (when (string= (thing-at-point 'char) "(")
     (let ((orig-point (point)))
-      (save-excursion
-        (goto-char user-point)
-        (slime-end-of-symbol)
-        ;; Head of CURRENT-FORMS is "declare" at this point, but we're
-        ;; interested in what comes next.
-        (let* ((decl-ops     (rest current-forms))
-               (decl-indices (rest current-indices))
-               (decl-points  (rest current-points))
-               (decl-pos     (1- (first decl-points)))
-               (nesting      (slime-nesting-until-point decl-pos))
-               (declspec-str (concat (slime-incomplete-sexp-at-point nesting)
-                                     (make-string nesting ?\)))))
-          ;; `(declare ((foo ...))' or `(declare (type (foo ...)))' ?
-          (if (or (eql 0 (string-match "\\s-*(\\((\\(\\sw\\|\\s_\\|\\s-\\)*)\\))$" declspec-str))
-                  (eql 0 (string-match "\\s-*(type\\s-*\\((\\(\\sw\\|\\s_\\|\\s-\\)*)\\))$" declspec-str)))
-              (let* ((typespec-str (match-string 1 declspec-str))
-                     (typespec (slime-make-form-spec-from-string typespec-str)))
-                (setq current-forms   (list `(:type-specifier ,typespec)))
-                (setq current-indices (list (second decl-indices)))
-                (setq current-points  (list (second decl-points))))
-              (let ((declspec (slime-make-form-spec-from-string declspec-str)))
-                (setq current-forms   (list `(:declaration ,declspec)))
-                (setq current-indices (list (first decl-indices)))
-                (setq current-points  (list (first decl-points)))))))))
+      (goto-char user-point)
+      (slime-end-of-symbol)
+      ;; Head of CURRENT-FORMS is "declare" at this point, but we're
+      ;; interested in what comes next.
+      (let* ((decl-ops     (rest current-forms))
+             (decl-indices (rest current-indices))
+             (decl-points  (rest current-points))
+             (decl-pos     (1- (first decl-points)))
+             (nesting      (slime-nesting-until-point decl-pos))
+             (declspec-str (concat (slime-incomplete-sexp-at-point nesting)
+                                   (make-string nesting ?\)))))
+        ;; `(declare ((foo ...))' or `(declare (type (foo ...)))' ?
+        (if (or (eql 0 (string-match "\\s-*(\\((\\(\\sw\\|\\s_\\|\\s-\\)*)\\))$"
+                                     declspec-str))
+                (eql 0 (string-match "\\s-*(type\\s-*\\((\\(\\sw\\|\\s_\\|\\s-\\)*)\\))$"
+                                     declspec-str)))
+            (let* ((typespec-str (match-string 1 declspec-str))
+                   (typespec (slime-make-form-spec-from-string typespec-str)))
+              (setq current-forms   (list `(:type-specifier ,typespec)))
+              (setq current-indices (list (second decl-indices)))
+              (setq current-points  (list (second decl-points))))
+            (let ((declspec (slime-make-form-spec-from-string declspec-str)))
+              (setq current-forms   (list `(:declaration ,declspec)))
+              (setq current-indices (list (first decl-indices)))
+              (setq current-points  (list (first decl-points))))))))
   (values current-forms current-indices current-points))
 
 (defun slime-nesting-until-point (target-point)
+  "Returns the nesting level between current point and TARGET-POINT.
+If TARGET-POINT could not be reached, 0 is returned. (As a result
+TARGET-POINT should always be placed just before a `?\('.)"
   (save-excursion
     (let ((nesting 0))
       (while (> (point) target-point)
@@ -9986,26 +10011,37 @@ operator."
           nesting
           0))))
 
-(defun slime-make-form-spec-from-string (string &optional temp-buffer)
-  (let ((tmpbuf (or temp-buffer (generate-new-buffer "TMP"))))
-    (if (slime-length= string 0)
-        ""
-        (unwind-protect
-             (with-current-buffer tmpbuf
-               (erase-buffer)
-               (insert string) (backward-char 1)
-               (multiple-value-bind (forms indices points)
-                   (slime-enclosing-form-specs 1)
-                 (if (null forms)
-                     string
-                     (progn
-                       (beginning-of-line) (forward-char 1)
-                       (mapcar #'(lambda (string)
-                                   (slime-make-form-spec-from-string string tmpbuf))
-                               (slime-ensure-list
-                                (slime-sexp-at-point (1+ (first (last indices))))))))))
-          (when (not temp-buffer)
-            (kill-buffer tmpbuf))))))
+(defun slime-make-form-spec-from-string (string &optional strip-operator-p temp-buffer)
+  "If STRIP-OPERATOR-P is T and STRING is the string
+representation of a form, the string representation of this form
+is stripped from the form. This can be important to avoid mutual
+recursion between this function, `slime-enclosing-form-specs' and
+`slime-parse-extended-operator-name'."
+  (if (slime-length= string 0)
+      ""
+      (with-current-buffer (or temp-buffer slime-internal-scratch-buffer)
+        (erase-buffer)
+        (insert string) (backward-char 1)
+        (when strip-operator-p
+          (save-excursion
+            (beginning-of-line)
+            (when (string= (thing-at-point 'char) "(")
+              (ignore-errors (forward-char 1)
+                             (forward-sexp)
+                             (slime-forward-blanks))
+              (delete-region (point-min) (point))
+              (insert "("))))
+        (multiple-value-bind (forms indices points)
+            (slime-enclosing-form-specs 1)
+          (if (null forms)
+              string
+              (progn
+                (beginning-of-line) (forward-char 1)
+                (mapcar #'(lambda (s)
+                            (assert (not (equal s string)))
+                            (slime-make-form-spec-from-string s temp-buffer))
+                        (slime-ensure-list
+                         (slime-sexp-at-point (1+ (first (last indices))) t)))))))))
 
 
 (defun slime-enclosing-form-specs (&optional max-levels)
@@ -10479,6 +10515,8 @@ To fetch the contrib directoy use:  cvs update -d contrib"
           slime-enclosing-form-specs
           slime-make-form-spec-from-string
           slime-parse-extended-operator/declare
+          slime-incomplete-form-at-point
+          slime-sexp-at-point
 )))
 
 (run-hooks 'slime-load-hook)

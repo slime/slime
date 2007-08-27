@@ -1,3 +1,23 @@
+2007-08-27  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el (slime-sexp-at-point): Fixes a few edge cases were
+	Emacs' `(thing-at-point 'sexp)' behaves suboptimally. For example,
+	`foo(bar baz)' where point is at the ?\(.
+	(slime-internal-scratch-buffer): New. This variable holds an
+	internal scratch buffer that can be reused instead of having to
+	create a new temporary buffer again and again.
+	(slime-make-extended-operator-parser/look-ahead): Uses
+	`slime-make-form-spec-from-string' to parse nested expressions
+	properly.
+	(slime-nesting-until-point): Added docstring.
+	(slime-make-form-spec-from-string): Added new optional parameter
+	for stripping the operator off the passed string representation of
+	a form. Necessary to work in the context of
+	`slime-make-extended-operator-parser/look-ahead'. Added safety check
+	against a possible endless recursion.
+
+	* swank.lisp (parse-form-spec): Looses restriction for nesting.
+	
 2007-08-27  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-eval-feature-conditional): Fix typo.
