@@ -4934,20 +4934,17 @@ are supported:
         ;; skip this sexp
         (slime-forward-sexp)))))
 
-(defun slime-keywordify (symbol-designator)
-  "Makes a keyword out of SYMBOL-DESIGNATOR, which may either be
-a symbol or a string."
-  (let ((name (downcase (etypecase symbol-designator
-                          (symbol (symbol-name symbol-designator))
-                          (string symbol-designator)))))
-    (intern (if (eq ?: (aref name 0))
-                name
-                (concat ":" name)))))
+(defun slime-keywordify (symbol)
+  "Make a keyword out of the symbol SYMBOL."
+  (let ((name (downcase (symbol-name symbol))))
+    (intern (if (eq ?: (aref name 0)) 
+                name 
+              (concat ":" name)))))
 
 (defun slime-eval-feature-conditional (e)
   "Interpret a reader conditional expression."
   (if (symbolp e)
-      (memq (slime-keywordify rd e) (slime-lisp-features))
+      (memq (slime-keywordify e) (slime-lisp-features))
     (funcall (ecase (slime-keywordify (car e))
                (:and #'every)
                (:or #'some)

@@ -1,5 +1,10 @@
 2007-08-27  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-eval-feature-conditional): Fix typo.
+	(slime-keywordify): Simplify.
+
+2007-08-27  Helmut Eller  <heller@common-lisp.net>
+
 	Move presentations to contrib.  Part I.
 
 	* slime.el (slime-event-hooks, slime-dispatch-event): New hook.
