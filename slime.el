@@ -9957,13 +9957,9 @@ operator."
     (byte-compile
      #'(lambda (name user-point current-forms current-indices current-points)
          (let ((old-forms (rest current-forms)))
-           (goto-char user-point)
-           (slime-end-of-symbol)
-           (let* ((nesting  (slime-nesting-until-point (1- (first current-points))))
-                  (args-str (concat (slime-incomplete-sexp-at-point nesting)
-                                    (make-string nesting ?\))))
-                  (args     (slime-make-form-spec-from-string args-str t)))
-             (setq current-forms (cons `(,name ,@args) old-forms))))
+           (let* ((args (slime-ensure-list (slime-sexp-at-point n)))
+                  (arg-specs (mapcar #'slime-make-form-spec-from-string args)))
+             (setq current-forms (cons `(,name ,@arg-specs) old-forms))))
          (values current-forms current-indices current-points)
          ))))
 
@@ -10021,23 +10017,24 @@ recursion between this function, `slime-enclosing-form-specs' and
   (if (slime-length= string 0)
       ""
       (with-current-buffer (or temp-buffer slime-internal-scratch-buffer)
+        (common-lisp-mode) ; important for `slime-sexp-at-point'.
         (erase-buffer)
         (insert string)
         (when strip-operator-p
-          (beginning-of-line)
+          (beginning-of-buffer)
           (when (string= (thing-at-point 'char) "(")
             (ignore-errors (forward-char 1)
                            (forward-sexp)
                            (slime-forward-blanks))
             (delete-region (point-min) (point))
             (insert "(")))
-        (end-of-line) (backward-char 1)
+        (end-of-buffer) (backward-char 1) ; for `slime-enclosing-form-specs'
         (multiple-value-bind (forms indices points)
             (slime-enclosing-form-specs 1)
           (if (null forms)
               string
               (progn
-                (beginning-of-line) (forward-char 1)
+                (beginning-of-buffer) (forward-char 1)
                 (mapcar #'(lambda (s)
                             (assert (not (equal s string)))
                             (slime-make-form-spec-from-string s temp-buffer))
