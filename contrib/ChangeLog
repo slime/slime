@@ -1,5 +1,9 @@
 2007-08-27  Helmut Eller  <heller@common-lisp.net>
 
+	* slime-scratch.el (slime-scratch-buffer): Ignore presentations. 
+
+2007-08-27  Helmut Eller  <heller@common-lisp.net>
+
 	Move presentations to contrib. (ELisp part)
 
 	* slime-presentations.el: New file.

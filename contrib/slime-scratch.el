@@ -12,6 +12,7 @@
 ;;
 
 
+;;; Code
 
 (defvar slime-scratch-mode-map
   (let ((map (make-sparse-keymap)))
@@ -34,9 +35,6 @@
 	(lisp-mode)
 	(use-local-map slime-scratch-mode-map)
 	(slime-mode t)
-        (when slime-repl-enable-presentations 
-          ;; Respect the syntax text properties of presentations.
-          (set (make-local-variable 'parse-sexp-lookup-properties) t))
 	(current-buffer))))
 
 (slime-define-keys slime-scratch-mode-map
