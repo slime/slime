@@ -5995,7 +5995,7 @@ Show the output buffer if the evaluation causes any output."
             window))))))
   
 (defun slime-last-expression ()
-  (slime-buffer-substring-with-reified-output 
+  (buffer-substring-no-properties
    (save-excursion (backward-sexp) (point))
    (point)))
 
