@@ -10035,7 +10035,7 @@ recursion between this function, `slime-enclosing-form-specs' and
         (multiple-value-bind (forms indices points)
             (slime-enclosing-form-specs 1)
           (if (null forms)
-              (progn (message "QUUX") string)
+              string
               (progn
                 (beginning-of-line) (forward-char 1)
                 (mapcar #'(lambda (s)

@@ -1,5 +1,12 @@
 2007-08-27  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* slime.el (slime-make-extended-operator-parser/look-ahead): Move
+	to end of symbol at point.
+	(slime-make-form-spec-from-string): Fixes unexpected behaviour of
+	`save-excursion'.
+	
+2007-08-27  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* slime.el (slime-sexp-at-point): Fixes a few edge cases were
 	Emacs' `(thing-at-point 'sexp)' behaves suboptimally. For example,
 	`foo(bar baz)' where point is at the ?\(.
