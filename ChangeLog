@@ -7,8 +7,8 @@
 	(slime-repl-return-hooks, slime-repl-return): New hook.
 	(slime-repl-current-input-hooks, slime-repl-current-input): New hook.
 	(slime-open-stream-hooks, slime-open-stream-to-lisp): New hook.
-	(sldb-insert-locals, slime-inspector-insert-ispec): Don't use
-	presentations.
+	(sldb-insert-locals, slime-inspector-insert-ispec)
+	(slime-last-expression): Don't use presentations.
 
 2007-08-26  Tobias C. Rittweiler <tcr@freebits.de>
 
