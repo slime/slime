@@ -2905,7 +2905,7 @@ update window-point afterwards.  If point is initially not at
       (set-process-coding-system stream (car pcs) (cdr pcs)))
     (when-let (secret (slime-secret))
       (slime-net-send secret stream))
-    (run-hook-with-args slime-open-stream-hooks stream)
+    (run-hook-with-args 'slime-open-stream-hooks stream)
     stream))
 
 (defun slime-io-speed-test (&optional profile)
