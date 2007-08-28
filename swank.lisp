@@ -2652,88 +2652,6 @@ by adding a template for the missing arguments."
 (test-print-arglist)
 
 
-;;;; Recording and accessing results of computations
-
-(defvar *record-repl-results* t
-  "Non-nil means that REPL results are saved for later lookup.")
-
-(defvar *object-to-presentation-id* 
-  (make-weak-key-hash-table :test 'eq)
-  "Store the mapping of objects to numeric identifiers")
-
-(defvar *presentation-id-to-object* 
-  (make-weak-value-hash-table :test 'eql)
-  "Store the mapping of numeric identifiers to objects")
-
-(defun clear-presentation-tables ()
-  (clrhash *object-to-presentation-id*)
-  (clrhash *presentation-id-to-object*))
-
-(defvar *presentation-counter* 0 "identifier counter")
-
-(defvar *nil-surrogate* (make-symbol "nil-surrogate"))
-
-;; XXX thread safety? [2006-09-13] mb: not in the slightest (fwiw the
-;; rest of slime isn't thread safe either), do we really care?
-(defun save-presented-object (object)
-  "Save OBJECT and return the assigned id.
-If OBJECT was saved previously return the old id."
-  (let ((object (if (null object) *nil-surrogate* object)))
-    ;; We store *nil-surrogate* instead of nil, to distinguish it from
-    ;; an object that was garbage collected.
-    (or (gethash object *object-to-presentation-id*)
-        (let ((id (incf *presentation-counter*)))
-          (setf (gethash id *presentation-id-to-object*) object)
-          (setf (gethash object *object-to-presentation-id*) id)
-          id))))
-
-(defun lookup-presented-object (id)
-  "Retrieve the object corresponding to ID.
-The secondary value indicates the absence of an entry."
-  (etypecase id
-    (integer 
-     ;; 
-     (multiple-value-bind (object foundp)
-         (gethash id *presentation-id-to-object*)
-       (cond
-         ((eql object *nil-surrogate*)
-          ;; A stored nil object
-          (values nil t))
-         ((null object)
-          ;; Object that was replaced by nil in the weak hash table
-          ;; when the object was garbage collected.
-          (values nil nil))
-         (t 
-          (values object foundp)))))
-    (cons
-     (destructure-case id
-       ((:frame-var thread-id frame index)
-        (declare (ignore thread-id)) ; later 
-        (handler-case 
-            (frame-var-value frame index)
-          (t (condition)
-            (declare (ignore condition))
-            (values nil nil))
-          (:no-error (value)
-            (values value t))))
-       ((:inspected-part part-index)
-        (declare (special *inspectee-parts*))
-        (if (< part-index (length *inspectee-parts*))
-            (values (inspector-nth-part part-index) t)
-            (values nil nil)))))))
-
-(defslimefun get-repl-result (id)
-  "Get the result of the previous REPL evaluation with ID."
-  (multiple-value-bind (object foundp) (lookup-presented-object id)
-    (cond (foundp object)
-          (t (abort-request "Attempt to access unrecorded object (id ~D)." id)))))
-
-(defslimefun clear-repl-results ()
-  "Forget the results of all previous REPL evaluations."
-  (clear-presentation-tables)
-  t)
-
-
 ;;;; Evaluation
 
 (defvar *pending-continuations* '()
@@ -2807,99 +2725,19 @@ Errors are trapped and invoke our debugger."
       (list (get-output-stream-string s) 
             (format nil "~{~S~^~%~}" values)))))
 
-;;; XXX do we need this stuff?  What is it good for?
-(defvar *slime-repl-advance-history* nil 
-  "In the dynamic scope of a single form typed at the repl, is set to nil to 
-   prevent the repl from advancing the history - * ** *** etc.")
-
-(defvar *slime-repl-suppress-output* nil
-  "In the dynamic scope of a single form typed at the repl, is set to nil to
-   prevent the repl from printing the result of the evalation.")
-  
-(defvar *slime-repl-eval-hook-pass* (gensym "PASS")
-  "Token to indicate that a repl hook declines to evaluate the form")
-
-(defvar *slime-repl-eval-hooks* nil
-  "A list of functions. When the repl is about to eval a form, first try running each of
-   these hooks. The first hook which returns a value which is not *slime-repl-eval-hook-pass*
-   is considered a replacement for calling eval. If there are no hooks, or all
-   pass, then eval is used.")
-
-(defslimefun repl-eval-hook-pass ()
-  "call when repl hook declines to evaluate the form"
-  (throw *slime-repl-eval-hook-pass* *slime-repl-eval-hook-pass*))
-
-(defslimefun repl-suppress-output ()
-  "In the dynamic scope of a single form typed at the repl, call to
-   prevent the repl from printing the result of the evalation."
-  (setq *slime-repl-suppress-output* t))
-
-(defslimefun repl-suppress-advance-history ()
-  "In the dynamic scope of a single form typed at the repl, call to 
-   prevent the repl from advancing the history - * ** *** etc."
-  (setq *slime-repl-advance-history* nil))
-
-(defun eval-region (string &optional package-update-p)
-  "Evaluate STRING and return the result.
-If PACKAGE-UPDATE-P is non-nil, and evaluation causes a package
-change, then send Emacs an update."
-  (unwind-protect
-       (with-input-from-string (stream string)
-         (let (- values)
-           (loop
-            (let ((form (read stream nil stream)))
-              (when (eq form stream)
-                (fresh-line)
-                (finish-output)
-                (return (values values -)))
-              (setq - form)
-	      (if *slime-repl-eval-hooks* 
-                  (setq values (run-repl-eval-hooks form))
-                  (setq values (multiple-value-list (eval form))))
-              (finish-output)))))
-    (when (and package-update-p (not (eq *package* *buffer-package*)))
-      (send-to-emacs 
-       (list :new-package (package-name *package*)
-             (package-string-for-prompt *package*))))))
-
-(defun run-repl-eval-hooks (form)
-  (loop for hook in *slime-repl-eval-hooks* 
-     for res =  (catch *slime-repl-eval-hook-pass* 
-                  (multiple-value-list (funcall hook form)))
-     until (not (eq res *slime-repl-eval-hook-pass*))
-     finally (return 
-               (if (eq res *slime-repl-eval-hook-pass*)
-                   (multiple-value-list (eval form))
-                   res))))
-
-(defun package-string-for-prompt (package)
-  "Return the shortest nickname (or canonical name) of PACKAGE."
-  (unparse-name
-   (or (canonical-package-nickname package)
-       (auto-abbreviated-package-name package)
-       (shortest-package-nickname package))))
-
-(defun canonical-package-nickname (package)
-  "Return the canonical package nickname, if any, of PACKAGE."
-  (let ((name (cdr (assoc (package-name package) *canonical-package-nicknames* 
-                          :test #'string=))))
-    (and name (string name))))
-
-(defun auto-abbreviated-package-name (package)
-  "Return an abbreviated 'name' for PACKAGE. 
-
-N.B. this is not an actual package name or nickname."
-  (when *auto-abbreviate-dotted-packages*
-    (let ((last-dot (position #\. (package-name package) :from-end t)))
-      (when last-dot (subseq (package-name package) (1+ last-dot))))))
-
-(defun shortest-package-nickname (package)
-  "Return the shortest nickname (or canonical name) of PACKAGE."
-  (loop for name in (cons (package-name package) (package-nicknames package))
-        for shortest = name then (if (< (length name) (length shortest))
-                                   name
-                                   shortest)
-              finally (return shortest)))
+(defun eval-region (string)
+  "Evaluate STRING.
+Return the results of the last form as a list and as secondary value the 
+last form."
+  (with-input-from-string (stream string)
+    (let (- values)
+      (loop
+       (let ((form (read stream nil stream)))
+         (when (eq form stream)
+           (return (values values -)))
+         (setq - form)
+         (setq values (multiple-value-list (eval form)))
+         (finish-output))))))
 
 (defslimefun interactive-eval-region (string)
   (with-buffer-syntax ()
@@ -2946,30 +2784,77 @@ Return the full package-name and the string to use in the prompt."
     (setq *package* p)
     (list (package-name p) (package-string-for-prompt p))))
 
-(defun send-repl-results-to-emacs (values)
-  (flet ((send (value)
-           (send-to-emacs `(:write-string ,(prin1-to-string value)
-                                          :repl-result))
-           (send-to-emacs `(:write-string ,(string #\Newline) 
-                                          :repl-result))))
-    (if (null values)
-        (send-to-emacs `(:write-string "; No value" nil :repl-result))
-        (mapc #'send values))))
+;;;;; Listener eval
+
+(defvar *listener-eval-function* 'repl-eval)
 
 (defslimefun listener-eval (string)
+  (funcall *listener-eval-function* string))
+
+(defvar *send-repl-results-function* 'send-repl-results-to-emacs)
+
+(defun repl-eval (string)
   (clear-user-input)
   (with-buffer-syntax ()
-    (let ((*slime-repl-suppress-output* :unset)
-	  (*slime-repl-advance-history* :unset))
-      (multiple-value-bind (values last-form) (eval-region string t)
-	(unless (or (and (eq values nil) (eq last-form nil))
-		    (eq *slime-repl-advance-history* nil))
-	  (setq *** **  ** *  * (car values)
-		/// //  // /  / values))
-	(setq +++ ++  ++ +  + last-form)
-        (unless (eq *slime-repl-suppress-output* t)
-          (send-repl-results-to-emacs values)))))
+    (track-package 
+     (lambda ()
+       (multiple-value-bind (values last-form) (eval-region string)
+         (setq *** **  ** *  * (car values)
+               /// //  // /  / values
+               +++ ++  ++ +  + last-form)
+         (funcall *send-repl-results-function* values)))))
   nil)
+
+(defun track-package (fun)
+  (let ((p *package*))
+    (unwind-protect (funcall fun)
+      (unless (eq *package* p)
+        (send-to-emacs (list :new-package (package-name *package*)
+                             (package-string-for-prompt *package*)))))))
+
+(defun send-repl-results-to-emacs (values)    
+  (if (null values)
+      (send-to-emacs `(:write-string "; No value" :repl-result))
+      (dolist (v values)
+        (send-to-emacs `(:write-string ,(cat (prin1-to-string v) #\newline)
+                                       :repl-result)))))
+
+(defun cat (&rest strings)
+  "Concatenate all arguments and make the result a string."
+  (with-output-to-string (out)
+    (dolist (s strings)
+      (etypecase s
+        (string (write-string s out))
+        (character (write-char s out))))))
+
+(defun package-string-for-prompt (package)
+  "Return the shortest nickname (or canonical name) of PACKAGE."
+  (unparse-name
+   (or (canonical-package-nickname package)
+       (auto-abbreviated-package-name package)
+       (shortest-package-nickname package))))
+
+(defun canonical-package-nickname (package)
+  "Return the canonical package nickname, if any, of PACKAGE."
+  (let ((name (cdr (assoc (package-name package) *canonical-package-nicknames* 
+                          :test #'string=))))
+    (and name (string name))))
+
+(defun auto-abbreviated-package-name (package)
+  "Return an abbreviated 'name' for PACKAGE. 
+
+N.B. this is not an actual package name or nickname."
+  (when *auto-abbreviate-dotted-packages*
+    (let ((last-dot (position #\. (package-name package) :from-end t)))
+      (when last-dot (subseq (package-name package) (1+ last-dot))))))
+
+(defun shortest-package-nickname (package)
+  "Return the shortest nickname (or canonical name) of PACKAGE."
+  (loop for name in (cons (package-name package) (package-nicknames package))
+        for shortest = name then (if (< (length name) (length shortest))
+                                   name
+                                   shortest)
+              finally (return shortest)))
 
 (defslimefun ed-in-emacs (&optional what)
   "Edit WHAT in Emacs.
@@ -4701,126 +4586,5 @@ Collisions are caused because package information is ignored."
                     collisions))))))
 
 (add-hook *pre-reply-hook* 'sync-indentation-to-emacs)
-
-
-;;;; Presentation menu protocol
-;;
-;; To define a menu for a type of object, define a method
-;; menu-choices-for-presentation on that object type.  This function
-;; should return a list of two element lists where the first element is
-;; the name of the menu action and the second is a function that will be
-;; called if the menu is chosen. The function will be called with 3
-;; arguments:
-;;
-;; choice: The string naming the action from above
-;;
-;; object: The object 
-;;
-;; id: The presentation id of the object
-;;
-;; You might want append (when (next-method-p) (call-next-method)) to
-;; pick up the Menu actions of superclasses.
-;;
-
-(defvar *presentation-active-menu* nil)
-
-(defun menu-choices-for-presentation-id (id)
-  (multiple-value-bind (ob presentp) (lookup-presented-object id)
-    (cond ((not presentp) 'not-present)
-	  (t
-	   (let ((menu-and-actions (menu-choices-for-presentation ob)))
-	     (setq *presentation-active-menu* (cons id menu-and-actions))
-	     (mapcar 'car menu-and-actions))))))
-
-(defun swank-ioify (thing)
-  (cond ((keywordp thing) thing)
-	((and (symbolp thing)(not (find #\: (symbol-name thing))))
-	 (intern (symbol-name thing) 'swank-io-package))
-	((consp thing) (cons (swank-ioify (car thing)) (swank-ioify (cdr thing))))
-	(t thing)))
-
-(defun execute-menu-choice-for-presentation-id (id count item)
-  (let ((ob (lookup-presented-object id)))
-    (assert (equal id (car *presentation-active-menu*)) () 
-	    "Bug: Execute menu call for id ~a  but menu has id ~a"
-	    id (car *presentation-active-menu*))
-    (let ((action (second (nth (1- count) (cdr *presentation-active-menu*)))))
-      (swank-ioify (funcall action item ob id)))))
-
-
-(defgeneric menu-choices-for-presentation (object)
-  (:method (ob) (declare (ignore ob)) nil)) ; default method
-
-;; Pathname
-(defmethod menu-choices-for-presentation ((ob pathname))
-  (let* ((file-exists (ignore-errors (probe-file ob)))
-	 (lisp-type (make-pathname :type "lisp"))
-	 (source-file (and (not (member (pathname-type ob) '("lisp" "cl") :test 'equal))
-			   (let ((source (merge-pathnames lisp-type ob)))
-			     (and (ignore-errors (probe-file source))
-				  source))))
-	 (fasl-file (and file-exists 
-			 (equal (ignore-errors
-				  (namestring
-				   (truename
-				    (compile-file-pathname
-				     (merge-pathnames lisp-type ob)))))
-				(namestring (truename ob))))))
-    (remove nil 
-	    (list*
-	     (and (and file-exists (not fasl-file))
-		  (list "Edit this file" 
-			(lambda(choice object id) 
-			  (declare (ignore choice id))
-			  (ed-in-emacs (namestring (truename object)))
-			  nil)))
-	     (and file-exists
-		  (list "Dired containing directory"
-			(lambda (choice object id)
-			  (declare (ignore choice id))
-			  (ed-in-emacs (namestring 
-					(truename
-					 (merge-pathnames
-					  (make-pathname :name "" :type "") object))))
-			  nil)))
-	     (and fasl-file
-		  (list "Load this fasl file"
-			(lambda (choice object id)
-			  (declare (ignore choice id object)) 
-			  (load ob)
-			  nil)))
-	     (and fasl-file
-		  (list "Delete this fasl file"
-			(lambda (choice object id)
-			  (declare (ignore choice id object)) 
-			  (let ((nt (namestring (truename ob))))
-			    (when (y-or-n-p-in-emacs "Delete ~a? " nt)
-			      (delete-file nt)))
-			  nil)))
-	     (and source-file 
-		  (list "Edit lisp source file" 
-			(lambda (choice object id) 
-			  (declare (ignore choice id object)) 
-			  (ed-in-emacs (namestring (truename source-file)))
-			  nil)))
-	     (and source-file 
-		  (list "Load lisp source file" 
-			(lambda(choice object id) 
-			  (declare (ignore choice id object)) 
-			  (load source-file)
-			  nil)))
-	     (and (next-method-p) (call-next-method))))))
-
-(defmethod menu-choices-for-presentation ((ob function))
-  (list (list "Disassemble"
-              (lambda (choice object id) 
-                (declare (ignore choice id)) 
-                (disassemble object)))))
-
-(defslimefun inspect-presentation (id reset-p)
-  (let ((what (lookup-presented-object id)))
-    (when reset-p
-      (reset-inspector))
-    (inspect-object what)))
 
 ;;; swank.lisp ends here
