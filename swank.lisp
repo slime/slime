@@ -604,7 +604,7 @@ stream (or NIL if none was created)."
     (with-connection (connection)
       (with-simple-restart
           (abort "Abort sending output to Emacs.")
-        (send-to-emacs `(:write-string ,string nil ,target))))))
+        (send-to-emacs `(:write-string ,string ,target))))))
 
 (defun make-output-stream-for-target (connection target)
   "Create a stream that sends output to a specific TARGET in Emacs."
@@ -1300,25 +1300,6 @@ converted to lower case."
            (destructure-case value
              ((:ok value) value)
              ((:abort) (abort)))))))
-
-(defun present-in-emacs (value-or-values &key (separated-by " "))
-  "Present VALUE in the Emacs repl buffer of the current thread."
-  (unless (consp value-or-values)
-    (setf value-or-values (list value-or-values)))
-  (flet ((present (value)
-           (if (stringp value)
-               (send-to-emacs `(:write-string ,value))
-               (let ((id (save-presented-object value)))
-                 (send-to-emacs `(:write-string ,(prin1-to-string value) ,id))))))
-    (map nil (let ((first-time-p t))
-               (lambda (value)
-                 (when (and (not first-time-p)
-                            separated-by)
-                   (present separated-by))
-                 (present value)
-                 (setf first-time-p nil)))
-         value-or-values))
-  (values))
 
 (defvar *swank-wire-protocol-version* nil
   "The version of the swank/slime communication protocol.")
@@ -2967,12 +2948,10 @@ Return the full package-name and the string to use in the prompt."
 
 (defun send-repl-results-to-emacs (values)
   (flet ((send (value)
-           (let ((id (and *record-repl-results*
-                          (save-presented-object value))))
-             (send-to-emacs `(:write-string ,(prin1-to-string value)
-                              ,id :repl-result))
-             (send-to-emacs `(:write-string ,(string #\Newline) 
-                              nil :repl-result)))))
+           (send-to-emacs `(:write-string ,(prin1-to-string value)
+                                          :repl-result))
+           (send-to-emacs `(:write-string ,(string #\Newline) 
+                                          :repl-result))))
     (if (null values)
         (send-to-emacs `(:write-string "; No value" nil :repl-result))
         (mapc #'send values))))
