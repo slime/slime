@@ -1,3 +1,10 @@
+2007-08-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* swank-presentation-streams.lisp: Require swank-presentations.
+	(present-repl-results-via-presentation-streams): New.
+	(*send-repl-results-function*): Set this variable rather than
+	overriding send-repl-results-to-emacs.
+
 2007-08-28  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-presentations.el (slime-clear-presentations): New
