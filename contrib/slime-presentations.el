@@ -591,16 +591,14 @@ output; otherwise the new input is appended."
      (slime-mark-presentation-end id target))
     (t nil)))
 
-(defun slime-presentation-write (string &optional id target)
+(defun slime-presentation-write (string &optional target)
   (ecase target
     ((nil)                              ; Regular process output
      (with-current-buffer (slime-output-buffer)
        (slime-with-output-end-mark
-        (if id
-            (slime-insert-presentation string id t)
-          (slime-propertize-region '(face slime-repl-output-face
-                                          rear-nonsticky (face))
-            (insert string)))
+	(slime-propertize-region '(face slime-repl-output-face
+					rear-nonsticky (face))
+	  (insert string))
         (set-marker slime-output-end (point))
         (when (and (= (point) slime-repl-prompt-start-mark)
                    (not (bolp)))
@@ -614,11 +612,9 @@ output; otherwise the new input is appended."
        (let ((marker (slime-output-target-marker target)))
          (goto-char marker)
          (let ((result-start (point)))
-           (if id             
-               (slime-insert-presentation string id)
-             (slime-propertize-region `(face slime-repl-result-face
-                                             rear-nonsticky (face))
-               (insert string)))
+	   (slime-propertize-region `(face slime-repl-result-face
+					   rear-nonsticky (face))
+	     (insert string))
            ;; Move the input-start marker after the REPL result.
            (set-marker marker (point))))))
     (t
@@ -678,5 +674,10 @@ buffer. Presentations of old results are expanded into code."
   (add-hook 'slime-open-stream-hooks 'slime-presentation-on-stream-open))
 
 (slime-presentation-init)
+
+(add-hook 'slime-connected-hook 'slime-install-presentations)
+
+(defun slime-install-presentations ()
+  (slime-eval-async '(swank:swank-require :swank-presentations)))
 
 (provide 'slime-presentations)
