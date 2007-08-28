@@ -165,45 +165,6 @@ strings to line up below the current point."
       (insert-it)
       (slime-add-presentation-properties start (point) output-id t))))
 
-(defvar slime-last-output-target-id 0
-  "The last integer we used as a TARGET id.")
-
-(defvar slime-output-target-to-marker
-  (make-hash-table)
-  "Map from TARGET ids to Emacs markers that indicate where
-output should be inserted.")
-;; Note:  We would like the entries to disappear when the buffers are
-;; killed.  We cannot just make the hash-table ":weakness 'value" --
-;; there is no reference from the buffers to the markers in the
-;; buffer, so entries would disappear even though the buffers are
-;; alive.  Best solution might be to make buffer-local variables that
-;; keep the markers. --mkoeppe
-
-(defun slime-output-target-marker (target)
-  "Return a marker that indicates where output for TARGET should
-be inserted."
-  (case target
-    ((nil)
-     (with-current-buffer (slime-output-buffer)
-       slime-output-end))
-    (:repl-result
-     (with-current-buffer (slime-output-buffer)
-       slime-repl-input-start-mark))
-    (t
-     (gethash target slime-output-target-to-marker))))
-
-(defun slime-redirect-trace-output ()
-  "Redirect the trace output to a separate Emacs buffer."
-  (interactive)
-  (let ((buffer (get-buffer-create "*SLIME Trace Output*")))
-    (with-current-buffer buffer
-      (let ((marker (copy-marker (buffer-size)))
-            (target (incf slime-last-output-target-id)))
-        (puthash target marker slime-output-target-to-marker)
-        (slime-eval `(swank:redirect-trace-output ,target))))
-    (pop-to-buffer buffer)))
-
-
 (defun slime-presentation-whole-p (presentation start end &optional object)
   (let ((object (or object (current-buffer))))
     (string= (etypecase object
