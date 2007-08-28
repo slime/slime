@@ -1,3 +1,16 @@
+2007-08-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* swank-presentations.lisp (send-repl-results-to-emacs): 
+	Override core defun to mark up REPL results as presentations.
+	
+	* swank-presentations.lisp: New file.
+	* slime-presentations.el: Load it.
+
+	* slime-presentations.el (slime-presentation-write): Remove id
+	argument.
+
+	* slime-presentation-streams.el: Require slime-presentations contrib.
+
 2007-08-27  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-scratch.el (slime-scratch-buffer): Ignore presentations. 

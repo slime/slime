@@ -1,3 +1,24 @@
+2007-08-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	Remove the ID argument from :write-string protocol messages.
+	Everything, except for rigid-indentation tricks, can be achieved
+	by using :write-string in conjunction with :presentation-start and
+	:presentation-end. 
+	
+	* swank.lisp (present-in-emacs): Unused, removed.
+	
+	* swank.lisp (make-output-function-for-target): Remove id argument
+	from :write-string.
+	(send-repl-results-to-emacs): Don't call
+	save-presented-object. Remove id argument from :write-string.
+
+	* slime.el (slime-dispatch-event): Change it here.
+	(slime-write-string, slime-repl-write-string): And here.
+
+2007-08-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* swank-loader.lisp (*contribs*): Add swank-presentations.
+
 2007-08-27  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el (slime-make-extended-operator-parser/look-ahead): Move
