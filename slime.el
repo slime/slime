@@ -2620,8 +2620,8 @@ Debugged requests are ignored."
   (let ((slime-dispatching-connection (or process (slime-connection))))
     (or (run-hook-with-args-until-success 'slime-event-hooks event)
         (destructure-case event
-          ((:write-string output &optional id target)
-           (slime-write-string output id target))
+          ((:write-string output &optional target)
+           (slime-write-string output target))
           ((:emacs-rex form package thread continuation)
            (slime-set-state "|eval...")
            (when (and (slime-use-sigint-for-interrupt) (slime-busy-p))
@@ -2936,16 +2936,15 @@ profiling before running the benchmark."
 
 (defvar slime-write-string-function 'slime-repl-write-string)
 
-(defun slime-write-string (string &optional id target)
-  "Insert STRING in the REPL buffer.
-If ID is non-nil, insert STRING
-as a presentation.  If TARGET is nil, insert STRING as regular process
+(defun slime-write-string (string &optional target)
+  "Insert STRING in the REPL buffer or some other TARGET.
+If TARGET is nil, insert STRING as regular process
 output.  If TARGET is :repl-result, insert STRING as the result of the
 evaluation.  Other values of TARGET map to an Emacs marker via the 
 hashtable `slime-output-target-to-marker'; output is inserted at this marker."
-  (funcall slime-write-string-function string id target))
+  (funcall slime-write-string-function string target))
 
-(defun slime-repl-write-string (string &optional id target)
+(defun slime-repl-write-string (string &optional target)
   (ecase target
     ((nil)                              ; Regular process output
      (with-current-buffer (slime-output-buffer)
