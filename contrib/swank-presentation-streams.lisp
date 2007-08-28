@@ -10,6 +10,8 @@
 
 (in-package :swank)
 
+(swank-require :swank-presentations)
+
 ;; This file contains a mechanism for printing to the slime repl so
 ;; that the printed result remembers what object it is associated
 ;; with.  This extends the recording of REPL results.
@@ -222,7 +224,7 @@ says that I am starting to print an object with this id. The second says I am fi
 	    (write-annotation stream #'presentation-end record)))
 	(funcall continue))))
 
-(defun send-repl-results-to-emacs (values)
+(defun present-repl-results-via-presentation-streams (values)
   ;; Override a function in swank.lisp, so that 
   ;; nested presentations work in the REPL result.
   (let ((repl-results (connection.repl-results *emacs-connection*)))
@@ -309,5 +311,9 @@ says that I am starting to print an object with this id. The second says I am fi
 	      'print-unreadable-present 'presenting-unreadable-wrapper)
   (excl:fwrap 'excl::pathname-printer 
 	      'print-pathname-present 'presenting-pathname-wrapper))
+
+;; Hook into SWANK.
+
+(setq *send-repl-results-function* 'present-repl-results-via-presentation-streams)
 
 (provide :swank-presentation-streams)
