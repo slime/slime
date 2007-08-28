@@ -2970,7 +2970,39 @@ hashtable `slime-output-target-to-marker'; output is inserted at this marker."
          (if (>= (marker-position slime-output-end) (point))
              ;; If the output-end marker was moved by our insertion,
              ;; set it back to the beginning of the REPL result.
-             (set-marker slime-output-end result-start)))))))
+             (set-marker slime-output-end result-start)))))
+    (t
+     (let* ((marker (slime-output-target-marker target))
+            (buffer (and marker (marker-buffer marker))))
+       (when buffer
+         (with-current-buffer buffer
+           (save-excursion 
+             ;; Insert STRING at MARKER, then move MARKER behind
+             ;; the insertion.
+             (goto-char marker)
+             (insert-before-markers string)
+             (set-marker marker (point)))))))))
+
+(defvar slime-last-output-target-id 0
+  "The last integer we used as a TARGET id.")
+
+(defvar slime-output-target-to-marker
+  (make-hash-table)
+  "Map from TARGET ids to Emacs markers that indicate where
+output should be inserted.")
+
+(defun slime-output-target-marker (target)
+  "Return a marker that indicates where output for TARGET should
+be inserted."
+  (case target
+    ((nil)
+     (with-current-buffer (slime-output-buffer)
+       slime-output-end))
+    (:repl-result
+     (with-current-buffer (slime-output-buffer)
+       slime-repl-input-start-mark))
+    (t
+     (gethash target slime-output-target-to-marker))))
 
 (defun slime-switch-to-output-buffer (&optional connection)
   "Select the output buffer, preferably in a different window."
@@ -6101,6 +6133,24 @@ in Lisp when committed with \\[slime-edit-value-commit]."
                               (slime-temp-buffer-quit t))))))))
 
 ;;;; Tracing
+
+(defun slime-redirect-trace-output ()
+  "Redirect the trace output to a separate Emacs buffer."
+  (interactive)
+  (let ((buffer (get-buffer-create "*SLIME Trace Output*")))
+    (with-current-buffer buffer
+      (let ((marker (copy-marker (buffer-size)))
+            (target (incf slime-last-output-target-id)))
+        (puthash target marker slime-output-target-to-marker)
+        (slime-eval `(swank:redirect-trace-output ,target))))
+    ;; Note: We would like the entries in
+    ;; slime-output-target-to-marker to disappear when the buffers are
+    ;; killed.  We cannot just make the hash-table ":weakness 'value"
+    ;; -- there is no reference from the buffers to the markers in the
+    ;; buffer, so entries would disappear even though the buffers are
+    ;; alive.  Best solution might be to make buffer-local variables
+    ;; that keep the markers. --mkoeppe
+    (pop-to-buffer buffer)))
 
 (defun slime-untrace-all ()
   "Untrace all functions."
