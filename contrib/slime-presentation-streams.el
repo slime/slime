@@ -18,6 +18,8 @@
 
 ;;; Initialization
 
+(require 'slime-presentations)
+
 (add-hook 'slime-connected-hook 'slime-install-presentation-streams)
 
 (defun slime-install-presentation-streams ()
