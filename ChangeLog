@@ -8,6 +8,8 @@
 	(*send-repl-results-function*): New variable.
 	(eval-region): Simplify.
 	(track-package, cat): New functions.
+	(slime-repl-clear-buffer-hook): New hook.
+	(slime-repl-clear-buffer): Use it.
 
 2007-08-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 

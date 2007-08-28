@@ -657,7 +657,10 @@ buffer. Presentations of old results are expanded into code."
 	(list* '("<" . slime-mark-presentation-start-handler) 
 	       '(">" . slime-mark-presentation-end-handler)
 	       bridge-handlers)))
-  
+
+(defun slime-clear-presentations ()
+  (slime-eval-async `(swank:clear-repl-results)))
+
 ;;; Initialization
 
 (defun slime-presentation-init ()
@@ -671,7 +674,8 @@ buffer. Presentations of old results are expanded into code."
   (setq slime-write-string-function 'slime-presentation-write)
   (add-hook 'slime-repl-return-hooks 'slime-presentation-on-return-pressed)
   (add-hook 'slime-repl-current-input-hooks 'slime-presentation-current-input)
-  (add-hook 'slime-open-stream-hooks 'slime-presentation-on-stream-open))
+  (add-hook 'slime-open-stream-hooks 'slime-presentation-on-stream-open)
+  (add-hook 'slime-repl-clear-buffer-hook 'slime-clear-presentations))
 
 (slime-presentation-init)
 

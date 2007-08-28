@@ -1,3 +1,19 @@
+2007-08-28  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-presentations.el (slime-clear-presentations): New
+	function. Add it to slime-repl-clear-buffer-hook.
+
+2007-08-28  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-listener-hooks.lisp: New file
+
+2007-08-28  Helmut Eller  <heller@common-lisp.net>
+
+	Move the rest of the presentation related code.
+
+	* swank-presentations.lisp (present-repl-results): Renamed from
+	send-repl-results-to-emacs.
+
 2007-08-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* swank-presentations.lisp (send-repl-results-to-emacs): 
@@ -13,13 +29,10 @@
 
 2007-08-27  Helmut Eller  <heller@common-lisp.net>
 
-	* slime-scratch.el (slime-scratch-buffer): Ignore presentations. 
-
-2007-08-27  Helmut Eller  <heller@common-lisp.net>
-
 	Move presentations to contrib. (ELisp part)
 
 	* slime-presentations.el: New file.
+	* slime-scratch.el (slime-scratch-buffer): Ignore presentations.
 
 2007-08-24  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
