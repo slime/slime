@@ -1,3 +1,12 @@
+2007-08-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-repl-insert-prompt): Don't go to point-max but
+	to slime-repl-input-start-mark if there is one.  This fixes user
+	input type-ahead again (this change from 2007-08-25 got lost).
+	Testcase: Type (dotimes (i 5) (format t "Number ~A~%" i) (sleep
+	1)) and then type ahead while the command is executing and output
+	arrives.
+
 2007-08-29  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-cmucl.lisp (safe-definition-finding): Remove whitespace
