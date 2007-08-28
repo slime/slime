@@ -1678,28 +1678,32 @@ secondary return value."
     (with-buffer-syntax ()
       (call-with-ignored-reader-errors
        #'(lambda ()
-           (let ((result) (newly-interned-symbols))
-             (dolist (element spec)
-               (etypecase element
-                 (string
-                  (multiple-value-bind (symbol found? symbol-name package)
-                      (parse-symbol element)
-                    (if found?
-                        (push symbol result)
-                        (let ((sexp (read-from-string element)))
-                          (when (symbolp sexp)
-                            (push sexp newly-interned-symbols)
-                            ;; assert that PARSE-SYMBOL didn't parse incorrectly.
-                            (assert (and (equal symbol-name (symbol-name sexp))
-                                         (eq package (symbol-package sexp)))))
-                          (push sexp result)))))
-                 (cons
-                  (multiple-value-bind (read-spec interned-symbols)
-                      (read-form-spec element)
-                    (push read-spec result)
-                    (setf newly-interned-symbols
-                          (append interned-symbols
-                                  newly-interned-symbols))))))
+           (let ((result) (newly-interned-symbols) (ok))
+             (unwind-protect
+                  (progn
+                    (dolist (element spec)
+                      (etypecase element
+                        (string
+                         (multiple-value-bind (symbol found? symbol-name package)
+                             (parse-symbol element)
+                           (if found?
+                               (push symbol result)
+                               (let ((sexp (read-from-string element)))
+                                 (when (symbolp sexp)
+                                   (push sexp newly-interned-symbols)
+                                   ;; assert that PARSE-SYMBOL didn't parse incorrectly.
+                                   (assert (and (equal symbol-name (symbol-name sexp))
+                                                (eq package (symbol-package sexp)))))
+                                 (push sexp result)))))
+                        (cons
+                         (multiple-value-bind (read-spec interned-symbols)
+                             (read-form-spec element)
+                           (push read-spec result)
+                           (setf newly-interned-symbols
+                                 (append interned-symbols
+                                         newly-interned-symbols))))))
+                    (setq ok t))
+               (mapc #'unintern newly-interned-symbols))
              (values (nreverse result)
                      (nreverse newly-interned-symbols))))))))
 

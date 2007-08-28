@@ -9896,7 +9896,7 @@ OPS, INDICES and POINTS are updated to reflect the new values after
 parsing, and are then returned back as multiple values."
   ;; OPS, INDICES and POINTS are like the finally returned values of
   ;; SLIME-ENCLOSING-FORM-SPECS except that they're in reversed order,
-  ;; i.e. the leftmost operator (that is the latest) operator comes
+  ;; i.e. the leftmost (that is the latest) operator comes
   ;; first.
   (save-excursion
     (ignore-errors
@@ -10005,20 +10005,20 @@ recursion between this function, `slime-enclosing-form-specs' and
         (erase-buffer)
         (insert string)
         (when strip-operator-p
-          (beginning-of-buffer)
+          (goto-char (point-min))
           (when (string= (thing-at-point 'char) "(")
             (ignore-errors (forward-char 1)
                            (forward-sexp)
                            (slime-forward-blanks))
             (delete-region (point-min) (point))
             (insert "(")))
-        (end-of-buffer) (backward-char 1) ; for `slime-enclosing-form-specs'
+        (goto-char (1- (point-max))) ; for `slime-enclosing-form-specs'
         (multiple-value-bind (forms indices points)
             (slime-enclosing-form-specs 1)
           (if (null forms)
               string
               (progn
-                (beginning-of-buffer) (forward-char 1)
+                (goto-char (1+ (point-min)))
                 (mapcar #'(lambda (s)
                             (assert (not (equal s string)))
                             (slime-make-form-spec-from-string s temp-buffer))
@@ -10072,54 +10072,54 @@ Example:)
     ;; do not need them in navigating through the nested lists.
     ;; This speeds up this function significantly.
     (ignore-errors
-        (save-excursion
-          ;; Make sure we get the whole operator name.
-          (slime-end-of-symbol)
-          (save-restriction
-            ;; Don't parse more than 20000 characters before point, so we don't spend
-            ;; too much time.
-            (narrow-to-region (max (point-min) (- (point) 20000)) (point-max))
-            (narrow-to-region (save-excursion (beginning-of-defun) (point))
-                              (min (1+ (point)) (point-max)))
-            (while (or (not max-levels)
-                       (<= level max-levels))
-              (let ((arg-index 0))
-                ;; Move to the beginning of the current sexp if not already there.
-                (if (or (and (char-after)
-                             (member (char-syntax (char-after)) '(?\( ?')))
-                        (member (char-syntax (char-before)) '(?\  ?>)))
-                    (incf arg-index))
-                (ignore-errors (backward-sexp 1))
-                (while (and (< arg-index 64)
-                            (ignore-errors (backward-sexp 1) 
-                                           (> (point) (point-min))))
+      (save-excursion
+        ;; Make sure we get the whole operator name.
+        (slime-end-of-symbol)
+        (save-restriction
+          ;; Don't parse more than 20000 characters before point, so we don't spend
+          ;; too much time.
+          (narrow-to-region (max (point-min) (- (point) 20000)) (point-max))
+          (narrow-to-region (save-excursion (beginning-of-defun) (point))
+                            (min (1+ (point)) (point-max)))
+          (while (or (not max-levels)
+                     (<= level max-levels))
+            (let ((arg-index 0))
+              ;; Move to the beginning of the current sexp if not already there.
+              (if (or (and (char-after)
+                           (member (char-syntax (char-after)) '(?\( ?')))
+                      (member (char-syntax (char-before)) '(?\  ?>)))
                   (incf arg-index))
-                (backward-up-list 1)
-                (when (member (char-syntax (char-after)) '(?\( ?')) 
-                  (incf level)
-                  (forward-char 1)
-                  (let ((name (slime-symbol-name-at-point)))
-                    (cond
-                      (name
-                       (save-restriction
-                         (widen) ; to allow looking-ahead/back in extended parsing.
-                         (multiple-value-bind (new-result new-indices new-points)
-                             (slime-parse-extended-operator-name initial-point
-                                                                 (cons `(,name) result) ; minimal form spec
-                                                                 (cons arg-index arg-indices)
-                                                                 (cons (point) points))
-                           (setq result new-result)
-                           (setq arg-indices new-indices)
-                           (setq points new-points))))
-                      (t
-                       (push nil result)
-                       (push arg-index arg-indices)
-                       (push (point) points))))
-                  (backward-up-list 1)))))))
-      (values 
-       (nreverse result)
-       (nreverse arg-indices)
-       (nreverse points))))
+              (ignore-errors (backward-sexp 1))
+              (while (and (< arg-index 64)
+                          (ignore-errors (backward-sexp 1) 
+                                         (> (point) (point-min))))
+                (incf arg-index))
+              (backward-up-list 1)
+              (when (member (char-syntax (char-after)) '(?\( ?')) 
+                (incf level)
+                (forward-char 1)
+                (let ((name (slime-symbol-name-at-point)))
+                  (cond
+                    (name
+                     (save-restriction
+                       (widen) ; to allow looking-ahead/back in extended parsing.
+                       (multiple-value-bind (new-result new-indices new-points)
+                           (slime-parse-extended-operator-name initial-point
+                                                               (cons `(,name) result) ; minimal form spec
+                                                               (cons arg-index arg-indices)
+                                                               (cons (point) points))
+                         (setq result new-result)
+                         (setq arg-indices new-indices)
+                         (setq points new-points))))
+                    (t
+                     (push nil result)
+                     (push arg-index arg-indices)
+                     (push (point) points))))
+                (backward-up-list 1)))))))
+    (values 
+     (nreverse result)
+     (nreverse arg-indices)
+     (nreverse points))))
 
 
 ;;;; Portability library

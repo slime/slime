@@ -1,3 +1,11 @@
+2007-08-28  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el (slime-make-form-spec-from-string): Elisp Hacking 101:
+	Don't use `beginning-of-buffer' and `end-of-buffer' in Elisp code.
+
+	* swank.lisp (read-form-spec): Unintern just newly interned
+	symbols when an reader error occurs.
+	
 2007-08-28  Helmut Eller  <heller@common-lisp.net>
 
 	Move presentations to contrib.  Part II.
