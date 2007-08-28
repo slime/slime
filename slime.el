@@ -3220,7 +3220,7 @@ joined together."))
 
 (defun slime-repl-insert-prompt ()
   "Goto to point max, and insert the prompt."
-  (goto-char (point-max))
+  (goto-char (if slime-repl-input-start-mark slime-repl-input-start-mark (point-max)))
   (unless (bolp) (insert "\n"))
   (let ((prompt-start (point))
         (prompt (format "%s> " (slime-lisp-package-prompt-string))))
