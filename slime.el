@@ -5491,6 +5491,23 @@ terminates a current completion."
       (setq slime-completions-window
             (get-buffer-window slime-completions-buffer-name)))))
   
+(defun slime-display-or-scroll-completions (completions base)
+  (cond ((and (eq last-command this-command)
+              (slime-completion-window-active-p))
+         (slime-scroll-completions))
+        (t
+         (slime-display-completion-list completions base)))
+  (slime-complete-delay-restoration))
+
+(defun slime-scroll-completions ()
+  (let ((window slime-completions-window))
+    (with-current-buffer (window-buffer window)
+      (if (pos-visible-in-window-p (point-max) window)
+          (set-window-start window (point-min))
+        (save-selected-window
+          (select-window window)
+          (scroll-up))))))
+
 (defun slime-complete-symbol ()
   "Complete the symbol at point.
 
@@ -5532,19 +5549,8 @@ Completion is performed by `slime-complete-symbol-function'."
              (when (member completed-prefix completion-set)
                (slime-minibuffer-respecting-message 
                 "Complete but not unique"))
-             (if (and (eq last-command this-command)
-                      (slime-completion-window-active-p))
-                 ;; Scroll the completions window only
-                 (let ((window slime-completions-window))
-                   (with-current-buffer (window-buffer window)
-                     (if (pos-visible-in-window-p (point-max) window)
-                         (set-window-start window (point-min) nil)
-                       (let ((other-window-scroll-buffer 
-                              (window-buffer window)))
-                   (scroll-other-window))))) ; madhu
-               (slime-display-completion-list completion-set
-                                              completed-prefix)
-               (slime-complete-delay-restoration)))))))
+             (slime-display-or-scroll-completions completion-set 
+                                                  completed-prefix))))))
 
 (defun slime-complete-symbol*-fancy-bit ()
   "Do fancy tricks after completing a symbol.
@@ -5588,10 +5594,10 @@ Perform completion more similar to Emacs' complete-symbol."
                    (slime-complete-restore-window-configuration))
                   ;; Incomplete
                   (t
-                   (slime-minibuffer-respecting-message 
+                   (slime-minibuffer-respecting-message
                     "Complete but not unique")
-                   (slime-display-completion-list completions partial)
-                   (slime-complete-delay-restoration))))))))
+                   (slime-display-or-scroll-completions completions
+                                                        partial))))))))
 
 (defun slime-maybe-complete-as-filename ()
   "If point is at a string starting with \", complete it as filename.
@@ -5982,13 +5988,13 @@ Show the output buffer if the evaluation causes any output."
 (defun slime-insert-transcript-delimiter (string)
   (with-current-buffer (slime-output-buffer)
     (slime-with-output-end-mark
-     (unless (bolp) (insert "\n"))
-     (slime-insert-propertized
-      '(slime-transcript-delimiter t)
-      ";;;; " (subst-char-in-string ?\n ?\ 
-                                    (substring string 0 
-                                               (min 60 (length string))))
-      " ...\n"))))
+     (unless (bolp) (insert-before-markers "\n"))
+     (slime-propertize-region '(slime-transcript-delimiter t)
+       (insert-before-markers
+        ";;;; " (subst-char-in-string ?\n ?\ 
+                                      (substring string 0 
+                                                 (min 60 (length string))))
+        " ...\n")))))
 
 (defun slime-display-buffer-region (buffer start end &optional other-window)
   "Like `display-buffer', but only display the specified region."

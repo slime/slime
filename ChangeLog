@@ -1,3 +1,19 @@
+2007-08-28  Helmut Eller  <heller@common-lisp.net>
+
+	Fix some output related bugs.
+
+	* swank.lisp (send-repl-results-to-emacs): Emit a fresh line.
+
+	* slime.el (slime-insert-transcript-delimiter): Use
+	insert-before-markers since slime-output-end is no longer left
+	inserting.  Reported by Austin Haas <austin@pettomato.com>.
+
+2007-08-28  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-display-or-scroll-completions,
+	slime-scroll-completions): New functions.  Factored out of
+	slime-expand-abbreviations-and-complete.
+
 2007-08-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-repl-write-string): Handle arbitrary targets
@@ -11,7 +27,7 @@
 	* swank.lisp (classify-symbol, symbol-classification->string):
 	Resurrected in swank.lisp. (I was bitten by cvs-pcl which
 	committed (2007-08-27) my locally changed `contribs/swank-fuzzy.lisp'
-	where I already removed these functions from.)  
+	where I already removed these functions from.)
 
 2007-08-28  Tobias C. Rittweiler <tcr@freebits.de>
 
@@ -20,7 +36,7 @@
 
 	* swank.lisp (read-form-spec): Unintern just newly interned
 	symbols when an reader error occurs.
-	
+
 2007-08-28  Helmut Eller  <heller@common-lisp.net>
 
 	Move presentations to contrib.  Part II.

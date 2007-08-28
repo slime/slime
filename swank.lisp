@@ -2936,6 +2936,8 @@ Return the full package-name and the string to use in the prompt."
                              (package-string-for-prompt *package*)))))))
 
 (defun send-repl-results-to-emacs (values)    
+  (fresh-line)
+  (finish-output)
   (if (null values)
       (send-to-emacs `(:write-string "; No value" :repl-result))
       (dolist (v values)
