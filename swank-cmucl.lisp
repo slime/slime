@@ -697,7 +697,11 @@ condition object."
     (if *debug-definition-finding*
         (body)
         (handler-case (values (progn ,@body) nil)
-          (error (c) (values (list :error (princ-to-string c)) c))))))
+          (error (c) (values `(:error ,(trim-whitespace (princ-to-string c)))
+                             c))))))
+
+(defun trim-whitespace (string)
+  (string-trim #(#\newline #\space #\tab) string))
 
 (defun code-location-source-location (code-location)
   "Safe wrapper around `code-location-from-source-location'."

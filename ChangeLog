@@ -1,3 +1,9 @@
+2007-08-29  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-cmucl.lisp (safe-definition-finding): Remove whitespace
+	around error messages.
+	(trim-whitespace): New function.
+
 2007-08-28  Helmut Eller  <heller@common-lisp.net>
 
 	Fix some output related bugs.
