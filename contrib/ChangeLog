@@ -1,5 +1,9 @@
 2007-08-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
+	* slime-presentations.el (slime-last-output-target-id)
+	(slime-output-target-to-marker, slime-output-target-marker)
+	(slime-redirect-trace-output): Moved back into SLIME core.
+
 	* swank-presentation-streams.lisp: Require swank-presentations.
 	(present-repl-results-via-presentation-streams): New.
 	(*send-repl-results-function*): Set this variable rather than
