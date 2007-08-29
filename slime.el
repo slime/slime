@@ -2962,15 +2962,14 @@ hashtable `slime-output-target-to-marker'; output is inserted at this marker."
                         (point))))))
     (:repl-result                       
      (with-current-buffer (slime-output-buffer)
-       (goto-char (point-max))
-       (let ((result-start (point)))
-         (slime-insert-propertized `(face slime-repl-result-face
+       (let ((marker (slime-output-target-marker target)))
+         (goto-char marker)
+         (let ((result-start (point)))
+	   (slime-insert-propertized `(face slime-repl-result-face
                                           rear-nonsticky (face)) 
                                    string)
-         (if (>= (marker-position slime-output-end) (point))
-             ;; If the output-end marker was moved by our insertion,
-             ;; set it back to the beginning of the REPL result.
-             (set-marker slime-output-end result-start)))))
+           ;; Move the input-start marker after the REPL result.
+           (set-marker marker (point))))))
     (t
      (let* ((marker (slime-output-target-marker target))
             (buffer (and marker (marker-buffer marker))))
