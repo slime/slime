@@ -1,14 +1,15 @@
 ;;; swank-presentations.lisp --- imitate LispM's presentations
 ;;
-;; Authors: FIXME -- find all guilty parties
+;; Authors: Alan Ruttenberg  <alanr-l@mumble.net>
+;;          Luke Gorrie  <luke@synap.se>
+;;          Helmut Eller  <heller@common-lisp.net>
+;;          Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 ;;
 ;; License: This code has been placed in the Public Domain.  All warranties
 ;;          are disclaimed.
 ;;
 
 (in-package :swank)
-
-;;; More presentation-related code from swank.lisp can go here. --mkoeppe
 
 ;;;; Recording and accessing results of computations
 
