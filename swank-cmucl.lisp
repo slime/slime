@@ -76,7 +76,7 @@
 (defimplementation preferred-communication-style ()
   :sigio)
 
-#-(or ppc mips)
+#-(or darwin mips)
 (defimplementation create-socket (host port)
   (let* ((addr (resolve-hostname host))
          (addr (if (not (find-symbol "SOCKET-ERROR" :ext))
@@ -85,7 +85,7 @@
     (ext:create-inet-listener port :stream :reuse-address t :host addr)))
 
 ;; There seems to be a bug in create-inet-listener on Mac/OSX and Irix.
-#+(or ppc mips)
+#+(or darwin mips)
 (defimplementation create-socket (host port)
   (declare (ignore host))
   (ext:create-inet-listener port :stream :reuse-address t))

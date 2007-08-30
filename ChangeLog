@@ -1,13 +1,20 @@
+2007-08-31  Jon Allen Boone <ipmonger@delamancha.org>
+
+	* swank-cmucl.lisp: CMUCL now has an x86-Darwin port as well as
+	  the PPC-Darwin version. Changed to conditionalize on the
+	  presence of darwin instead of ppc so that slime works with both
+	  Darwin versions of CMUCL.
+	
 2007-08-31  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el (slime-sexp-at-point): Explicitely set current syntax
 	table to operate in `lisp-mode-syntax-table' because
-	`thing-at-point' is used which depends on the syntax table. (E.h.
+	`thing-at-point' is used which depends on the syntax table. (E.g.
 	 keywords like `:foo' aren't recognized as sexp otherwise.)
 
 	* slime.el (slime-parse-extended-operator/declare): Wrap regexp
 	stuff in `save-match-data'
-	(slime-internal-scratch-buffer): Removed again. (Was only
+	(slime-internal-scratch-buffer): Removed again. Was only
 	introduced as a performance hack; but it turned out that the bad
 	performance was because of unneccessary recursive calls of
 	`slime-make-form-spec-from-string'. (Which was fixed on 2007-08-27
