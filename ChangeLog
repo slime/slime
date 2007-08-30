@@ -2,12 +2,12 @@
 
 	* slime.el (slime-sexp-at-point): Explicitely set current syntax
 	table to operate in `lisp-mode-syntax-table' because
-	`thing-at-point' is used which depends on the syntax table. (E.g.
+	`thing-at-point' is used which depends on the syntax table. (E.h.
 	 keywords like `:foo' aren't recognized as sexp otherwise.)
 
 	* slime.el (slime-parse-extended-operator/declare): Wrap regexp
 	stuff in `save-match-data'
-	(slime-internal-scratch-buffer): Removed again. Was only
+	(slime-internal-scratch-buffer): Removed again. (Was only
 	introduced as a performance hack; but it turned out that the bad
 	performance was because of unneccessary recursive calls of
 	`slime-make-form-spec-from-string'. (Which was fixed on 2007-08-27
