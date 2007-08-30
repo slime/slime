@@ -8737,13 +8737,14 @@ be treated as a paragraph.  This is useful for filling docstrings."
         (fill-paragraph nil)
       (let ((start (progn (unless (or (and (zerop (current-column))
                                            (eq ?\( (char-after)))
-                                      (slime-repl-at-prompt-start-p))
+                                      (and slime-repl-input-start-mark
+                                           (slime-repl-at-prompt-start-p)))
                             (slime-beginning-of-defun))
                           (point)))
             (end (ignore-errors (slime-end-of-defun) (point))))
         (unless end
           (forward-paragraph)
-          (slime-close-all-sexp)
+          (slime-close-all-parens-in-sexp)
           (slime-end-of-defun)
           (setf end (point)))
         (indent-region start end nil)))))
