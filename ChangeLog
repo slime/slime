@@ -1,3 +1,28 @@
+2007-08-31  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el (slime-sexp-at-point): Explicitely set current syntax
+	table to operate in `lisp-mode-syntax-table' because
+	`thing-at-point' is used which depends on the syntax table. (E.g.
+	 keywords like `:foo' aren't recognized as sexp otherwise.)
+
+	* slime.el (slime-parse-extended-operator/declare): Wrap regexp
+	stuff in `save-match-data'
+	(slime-internal-scratch-buffer): Removed again. Was only
+	introduced as a performance hack; but it turned out that the bad
+	performance was because of unneccessary recursive calls of
+	`slime-make-form-spec-from-string'. (Which was fixed on 2007-08-27
+	already.)
+	(slime-make-form-spec-from-string): Use `with-temp-buffer' instead
+	of `slime-internal-scratch-buffer'. Removed activation of
+	`lisp-mode' in the temporary buffer, because this made
+	`lisp-mode-hooks' run. This activated autodoc in the temp buffer,
+	although the temp buffer is used to compute an autodoc
+	itself (which resulted in some very mutual recursion which caused
+	the current arglist to be displayed again and again---as could
+	have been witnessed in `*Messages*'.) `Lisp-mode' was activated to
+	get the right syntax-table for `slime-sexp-at-point', but this one
+	sets the correct syntax-table itself now.
+	
 2007-08-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Fix user input type-ahead again (this change from 2007-08-25 got
