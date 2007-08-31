@@ -2,9 +2,11 @@
 
 	Added extended arglist display for EVAL-WHEN, viz:
 
-	  (eval-when (:compile-toplevel :load-toplevel :execute) &body body)
+	  (eval-when (&any :compile-toplevel :load-toplevel :execute) &body body)
 
 	Notice that completion works as expected on these keywords.
+
+	Die, EVAL-ALWAYS, die!
 
 	* swank-arglist (arglist-dispatch): New method for EVAL-WHEN.
 	(print-arglist): Print keywords with PRIN1 rather than PRINC,
