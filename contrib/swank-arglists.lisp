@@ -23,7 +23,6 @@
   (let ((symbol (parse-symbol string)))
     (valid-operator-symbol-p symbol)))
 
-
 (defslimefun arglist-for-echo-area (raw-specs &key arg-indices
                                                    print-right-margin print-lines)
   "Return the arglist for the first valid ``form spec'' in
@@ -35,7 +34,8 @@ For more information about the format of ``raw form specs'' and
   (handler-case 
       (with-buffer-syntax ()
         (multiple-value-bind (form-spec arg-index newly-interned-symbols)
-            (parse-first-valid-form-spec raw-specs arg-indices)
+            (parse-first-valid-form-spec raw-specs arg-indices
+                                         #'read-conversatively-for-autodoc)
           (unwind-protect
                (when form-spec
                  (let ((arglist (arglist-from-form-spec form-spec :remove-args nil)))
@@ -57,12 +57,30 @@ For more information about the format of ``raw form specs'' and
                            (:declaration    (format nil "(declare ~A)" stringified-arglist))
                            (:type-specifier (format nil "[Typespec] ~A" stringified-arglist))
                            (t stringified-arglist)))))))
-            (mapc #'unintern newly-interned-symbols))))
+            (mapc #'unintern-in-home-package newly-interned-symbols))))
     (error (cond)
       (format nil "ARGLIST (error): ~A" cond))
     ))
 
-(defun parse-form-spec (raw-spec)
+(defvar *arglist-dummy* (cons :dummy nil))
+
+(defun read-conversatively-for-autodoc (string)
+  "Tries to find the symbol that's represented by STRING. 
+
+If it can't, this either means that STRING does not represent a
+symbol, or that the symbol behind STRING would have to be freshly
+interned. Because this function is supposed to be called from the
+automatic arglist display stuff from Slime, interning freshly
+symbols is a big no-no.
+
+In such a case (that no symbol could be found), the object
+*ARGLIST-DUMMY* is returned instead, which works as a placeholder
+datum for subsequent logics to rely on."
+  (multiple-value-bind (symbol found?) (parse-symbol string)
+    (if found? symbol *arglist-dummy*)))
+
+
+(defun parse-form-spec (raw-spec &optional reader)
   "Takes a raw (i.e. unparsed) form spec from SLIME and returns a
 proper form spec for further processing within SWANK. Returns NIL
 if RAW-SPEC could not be parsed. Symbols that had to be interned
@@ -115,7 +133,7 @@ Examples:
            (when (and (stringp (first raw-extension)) ; (:DECLARATION (("a" "b" ("c")) "d"))
                       (nth-value 1 (parse-symbol (first raw-extension))))
               (multiple-value-bind (extension introduced-symbols)
-                 (read-form-spec raw-extension)
+                 (read-form-spec raw-extension reader)
                 (unless (recursively-empty-p extension) ; (:DECLARATION (())) &c.
                  (destructuring-bind (identifier &rest args) extension
                    (values `((,extension-flag ,identifier) ,@args)
@@ -132,8 +150,9 @@ Examples:
              (multiple-value-bind (operator found?) (parse-symbol raw-operator)
                (when (and found? (valid-operator-symbol-p operator))
                  (multiple-value-bind (parsed-args introduced-symbols)
-                     (read-form-spec raw-args)
+                     (read-form-spec raw-args reader)
                    (values `(,operator ,@parsed-args) introduced-symbols)))))))))))
+
 
 (defun split-form-spec (spec)
   "Returns all three relevant information a ``form spec''
@@ -145,57 +164,82 @@ contains: the operator type, the operator, and the operands."
             (values :function operator-designator)) ; functions, macros, special ops
       (values type operator arguments))))           ;  are all fbound.
 
-(defun parse-first-valid-form-spec (raw-specs &optional arg-indices)
+
+(defun parse-first-valid-form-spec (raw-specs &optional arg-indices reader)
   "Returns the first parsed form spec in RAW-SPECS that can
 successfully be parsed. Additionally returns its respective index
 in ARG-INDICES (or NIL.), and all newly interned symbols as tertiary
 return value."
   (block traversal
     (mapc #'(lambda (raw-spec index)
-              (multiple-value-bind (spec symbols) (parse-form-spec raw-spec)
+              (multiple-value-bind (spec symbols) (parse-form-spec raw-spec reader)
                 (when spec (return-from traversal
                              (values spec index symbols)))))
           raw-specs
           (append arg-indices '#1=(nil . #1#)))
     nil)) ; found nothing
 
-(defun read-form-spec (spec)
-  "Turns the ``raw form spec'' SPEC into a proper Common Lisp form.
 
-It returns symbols that had to interned for the conversion as
-secondary return value."
+(defun read-form-spec (spec &optional reader)
+  "Turns the ``raw form spec'' SPEC into a proper Common Lisp
+form. As secondary return value, it returns all the symbols that
+had to be newly interned during the conversion.
+
+READER is a function that takes a string, and returns two values:
+the Common Lisp datum that the string represents, a flag whether
+the returned datum is a symbol and has been newly interned in
+some package.
+
+If READER is not explicitly given, the function READ-SOFTLY is
+used instead."
   (when spec
     (with-buffer-syntax ()
       (call-with-ignored-reader-errors
        #'(lambda ()
            (let ((result) (newly-interned-symbols) (ok))
              (unwind-protect
-                  (progn
-                    (dolist (element spec)
-                      (etypecase element
-                        (string
-                         (multiple-value-bind (symbol found? symbol-name package)
-                             (parse-symbol element)
-                           (if found?
-                               (push symbol result)
-                               (let ((sexp (read-from-string element)))
-                                 (when (symbolp sexp)
-                                   (push sexp newly-interned-symbols)
-                                   ;; assert that PARSE-SYMBOL didn't parse incorrectly.
-                                   (assert (and (equal symbol-name (symbol-name sexp))
-                                                (eq package (symbol-package sexp)))))
-                                 (push sexp result)))))
-                        (cons
-                         (multiple-value-bind (read-spec interned-symbols)
-                             (read-form-spec element)
-                           (push read-spec result)
-                           (setf newly-interned-symbols
-                                 (append interned-symbols
-                                         newly-interned-symbols))))))
-                    (setq ok t))
-               (mapc #'unintern newly-interned-symbols))
+                  (dolist (element spec (setq ok t))
+                    (etypecase element
+                      (string
+                       (multiple-value-bind (sexp newly-interned?)
+                           (funcall (or reader 'read-softly) element)
+                         (push sexp result)
+                         (when newly-interned?
+                           (push sexp newly-interned-symbols))))
+                      (cons
+                       (multiple-value-bind (read-spec interned-symbols)
+                           (read-form-spec element)
+                         (push read-spec result)
+                         (setf newly-interned-symbols
+                               (append interned-symbols
+                                       newly-interned-symbols))))))
+               (unless ok
+                 (mapc #'unintern-in-home-package newly-interned-symbols)))
              (values (nreverse result)
                      (nreverse newly-interned-symbols))))))))
+
+(defun unintern-in-home-package (symbol)
+  (unintern symbol (symbol-package symbol)))
+
+(defun read-softly (string)
+  "Returns two values:
+
+     1. the object resulting from READing STRING.
+
+     2. T if the object is a symbol that had to be newly interned
+        in some package. (This does not work for symbols in
+        compound forms like lists or vectors.)"
+  (multiple-value-bind (symbol found? symbol-name package) (parse-symbol string)
+    (if found?
+        (values symbol nil)
+        (let ((sexp (read-from-string string)))
+          (values sexp
+                  (when (symbolp sexp)
+                    (prog1 t
+                      ;; assert that PARSE-SYMBOL didn't parse incorrectly.
+                      (assert (and (equal symbol-name (symbol-name sexp))
+                                   (eq package (symbol-package sexp)))))))))))
+
 
 (defstruct (arglist (:conc-name arglist.) (:predicate arglist-p))
   provided-args         ; list of the provided actual arguments
@@ -1057,7 +1101,7 @@ by adding a template for the missing arguments."
                  (decoded-arglist-to-template-string form-completion
                                                      *buffer-package*
                                                      :prefix "")))))
-      (mapc #'unintern newly-interned-symbols))
+      (mapc #'unintern-in-home-package newly-interned-symbols))
     :not-available))
 
 
@@ -1107,7 +1151,7 @@ by adding a template for the missing arguments."
                                (format-completion-set strings nil "")))
                          (list completion-set
                                (longest-compound-prefix completion-set)))))))))
-        (mapc #'unintern newly-interned-symbols)))))
+        (mapc #'unintern-in-home-package newly-interned-symbols)))))
            
 
 (defun arglist-to-string (arglist package &key print-right-margin highlight)

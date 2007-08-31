@@ -1,3 +1,29 @@
+2007-08-31  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-arglist.lisp: Do not fall back to READ when interpreting
+	the ``raw form specs'' comming from Slime's autodoc stuff. But
+	still do so for those comming from `slime-complete-form'.
+
+	(unintern-in-home-package): New.
+
+	(*arglist-dummy*): New.
+	(read-conversatively-for-autodoc): New function. Doesn't READ
+	anything that comes from Slime's autodoc. Just tries to parse
+	symbols. If that's not successfull, returns the dummy placeholder
+	datum stored in `*arglist-dummy*'.
+	(arglist-for-echo-area): Parse form-specs using
+	`read-conversatively-for-autodoc'. Use `unintern-in-home-package'.
+
+	(read-softly): New. Splitted out from `read-form-spec'. This
+	function tries to keep track of newly interned functions before
+	READing.
+	(read-form-spec): Parametrized to take a function to read the
+	elements of the passed ``raw form spec''. Uses `read-softly' as
+	default reader.
+
+	(complete-form, completions-for-keywords): 
+	Use `unintern-in-home-package'.
+
 2007-08-31  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-autodoc.el: Add installation notes.
