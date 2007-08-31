@@ -9,6 +9,11 @@
 	completion the default.
 	(slime-echo-arglist-function, slime-echo-arglist): New hook.
 
+	Remove corresponding key bindigs.
+
+	* slime.el (slime-obsolete-commands): New table. Use it to bind
+	a command with an upgrade notice.
+
 2007-08-31  Andreas Fuchs <asf@boinkor.net>
 
 	* slime.el (slime-reindent-defun): Fixed when used in lisp file
