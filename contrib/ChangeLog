@@ -1,3 +1,16 @@
+2007-08-31  Helmut Eller  <heller@common-lisp.net>
+
+	Move compound prefix completion and autodoc to contrib.
+	Interdependencies made it almost necessary to move parsing code
+	and editing commands in the same patch.
+
+	* slime-c-p-c.el: New file.
+	* swank-c-p-c.el: New file.
+	* slime-parse.el: New file.
+	* swank-arglists.el: New file.
+	* slime-editing-commands.el: New file.
+	* slime-autodoc.el: New file.
+
 2007-08-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime-presentations.el (slime-last-output-target-id)

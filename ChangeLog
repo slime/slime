@@ -1,3 +1,14 @@
+2007-08-31  Helmut Eller  <heller@common-lisp.net>
+
+	Move compound prefix completion and autodoc to contrib.
+
+	* swank.lisp (simple-completions): Rewritten for simplicity.
+	(operator-arglist): Rewritten for simplicity.
+
+	* slime.el (slime-complete-symbol-function): Make simple
+	completion the default.
+	(slime-echo-arglist-function, slime-echo-arglist): New hook.
+
 2007-08-31  Andreas Fuchs <asf@boinkor.net>
 
 	* slime.el (slime-reindent-defun): Fixed when used in lisp file
@@ -35,7 +46,7 @@
 	have been witnessed in `*Messages*'.) `Lisp-mode' was activated to
 	get the right syntax-table for `slime-sexp-at-point', but this one
 	sets the correct syntax-table itself now.
-	
+
 2007-08-28  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Fix user input type-ahead again (this change from 2007-08-25 got
@@ -48,7 +59,7 @@
 	(slime-repl-write-string): Insert a :repl-result before the
 	prompt, not at point-max.  Update markers properly.
 
-2007-08-29  Helmut Eller  <heller@common-lisp.net>
+2007-08-28  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-cmucl.lisp (safe-definition-finding): Remove whitespace
 	around error messages.

@@ -7,6 +7,9 @@
 
 (in-package :swank)
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (swank-require :swank-c-p-c))
+
 ;;; For nomenclature of the fuzzy completion section, please read
 ;;; through the following docstring.
 
@@ -108,6 +111,10 @@ a :special-operator, or a :package."
 			    symbol-chunks))
             (classify-symbol symbol)))))
 
+(defun format-completion-result (string internal-p package-name)
+  (let ((result (untokenize-symbol package-name internal-p string)))
+    ;; We return the length of the possibly added prefix as second value.
+    (values result (search string result))))
 
 (defun fuzzy-completion-set (string default-package-name &key limit time-limit-in-msec)
   "Returns two values: an array of completion objects, sorted by

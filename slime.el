@@ -65,9 +65,6 @@
   (require 'overlay))
 (require 'easymenu)
 
-(defvar slime-use-autodoc-mode nil
-  "When non-nil always enable slime-autodoc-mode in slime-mode.")
-
 (defvar slime-highlight-compiler-notes t
   "When non-nil highlight buffers with compilation notes, warnings and errors."
   )
@@ -84,9 +81,7 @@
   (setq slime-use-highlight-edits-mode highlight-edits))
 
 (defun slime-shared-lisp-mode-hook ()
-  (slime-mode 1)
-  (when slime-use-autodoc-mode
-    (slime-autodoc-mode 1)))
+  (slime-mode 1))
 
 (defun slime-lisp-mode-hook ()
   (slime-shared-lisp-mode-hook)
@@ -259,7 +254,7 @@ final, no matter where the point is."
   :group 'slime-mode
   :type 'boolean)
 
-(defcustom slime-complete-symbol-function 'slime-complete-symbol*
+(defcustom slime-complete-symbol-function 'slime-simple-complete-symbol
   "*Function to perform symbol completion."
   :group 'slime-mode
   :type '(choice (const :tag "Simple" slime-simple-complete-symbol)
@@ -3151,8 +3146,6 @@ joined together."))
   (add-local-hook 'kill-buffer-hook 'slime-repl-safe-save-merged-history)
   (add-hook 'kill-emacs-hook 'slime-repl-save-all-histories)
   (slime-setup-command-hooks)
-  (when slime-use-autodoc-mode 
-    (slime-autodoc-mode 1))
   ;; At the REPL, we define beginning-of-defun and end-of-defun to be
   ;; the start of the previous prompt or next prompt respectively.
   ;; Notice the interplay with SLIME-REPL-BEGINNING-OF-DEFUN.
@@ -5127,278 +5120,26 @@ more than one space."
              (slime-background-activities-enabled-p))
     (slime-echo-arglist)))
 
-(defun slime-fontify-string (string)
-  "Fontify STRING as `font-lock-mode' does in Lisp mode."
-  (with-current-buffer (get-buffer-create " *slime-fontify*")
-    (erase-buffer)
-    (if (not (eq major-mode 'lisp-mode))
-        (lisp-mode))
-    (insert string)
-    (let ((font-lock-verbose nil))
-      (font-lock-fontify-buffer))
-    (goto-char (point-min))
-    (when (re-search-forward "===> \\(\\(.\\|\n\\)*\\) <===" nil t)
-      (let ((highlight (match-string 1)))
-        ;; Can't use (replace-match highlight) here -- broken in Emacs 21
-        (delete-region (match-beginning 0) (match-end 0))
-	(slime-insert-propertized '(face highlight) highlight)))
-    (buffer-substring (point-min) (point-max))))
+(defvar slime-echo-arglist-function 'slime-show-arglist)
 
 (defun slime-echo-arglist ()
   "Display the arglist of the current form in the echo area."
-  (slime-autodoc))
+  (funcall slime-echo-arglist-function))
 
-(defun slime-arglist (name)
-  "Show the argument list for NAME."
-  (interactive (list (slime-read-symbol-name "Arglist of: ")))
-  (slime-eval-async 
-   `(swank:arglist-for-echo-area (quote (,name)))
-   (lambda (arglist)
-     (if arglist
-         (message "%s" (slime-fontify-string arglist))
-       (error "Arglist not available")))))
+(defun slime-show-arglist ()
+  (let ((op (slime-operator-before-point)))
+    (when op 
+      (slime-eval-async `(swank:operator-arglist ,op ,(slime-current-package))
+			(lambda (arglist)
+			  (when arglist
+			    (slime-message "%s" arglist)))))))
 
-(defun slime-incomplete-form-at-point ()
-  "Looks for a ``raw form spec'' around point to be processed by
-SWANK::PARSE-FORM-SPEC. It is similiar to
-SLIME-INCOMPLETE-SEXP-AT-POINT but looks further back than just
-one sexp to find out the context."
-  (multiple-value-bind (operators arg-indices points)
-      (slime-enclosing-form-specs)
-    (if (null operators)
-        ""
-        (let ((op (first operators)))
-          (destructure-case (slime-ensure-list op)
-            ((:declaration declspec) op)
-            ((:type-specifier typespec) op)
-            (t (slime-ensure-list
-                (save-excursion (goto-char (first points))
-                                (slime-sexp-at-point (1+ (first arg-indices)))))))))))
-
-(defun slime-complete-form ()
-  "Complete the form at point.  
-This is a superset of the functionality of `slime-insert-arglist'."
-  (interactive)
-  ;; Find the (possibly incomplete) form around point.
-  (let ((form-string (slime-incomplete-form-at-point)))
-    (let ((result (slime-eval `(swank:complete-form ',form-string))))
-      (if (eq result :not-available)
-          (error "Could not generate completion for the form `%s'" form-string)
-          (progn
-            (just-one-space)
-            (save-excursion
-              ;; SWANK:COMPLETE-FORM always returns a closing
-              ;; parenthesis; but we only want to insert one if it's
-              ;; really necessary (thinking especially of paredit.el.)
-              (insert (substring result 0 -1))
-              (let ((slime-close-parens-limit 1))
-                (slime-close-all-parens-in-sexp)))
-            (save-excursion
-              (backward-up-list 1)
-              (indent-sexp)))))))
-
-
-(defun slime-get-arglist (symbol-name)
-  "Return the argument list for SYMBOL-NAME."
-  (slime-eval `(swank:arglist-for-echo-area (quote (,symbol-name)))))
-
-
-;;;; Autodocs (automatic context-sensitive help)
-
-(defvar slime-autodoc-mode nil
-  "*When non-nil, print documentation about symbols as the point moves.")
-
-(defvar slime-autodoc-cache-type 'last
-  "*Cache policy for automatically fetched documentation.
-Possible values are:
- nil  - none.
- last - cache only the most recently-looked-at symbol's documentation.
-        The values are stored in the variable `slime-autodoc-cache'.
-
-More caching means fewer calls to the Lisp process, but at the risk of
-using outdated information.")
-
-(defvar slime-autodoc-cache nil
-  "Cache variable for when `slime-autodoc-cache-type' is 'last'.
-The value is (SYMBOL-NAME . DOCUMENTATION).")
-
-(defun slime-autodoc-mode (&optional arg)
-  "Enable `slime-autodoc'."
-  (interactive "P")
-  (cond ((< (prefix-numeric-value arg) 0) (setq slime-autodoc-mode nil))
-        (arg (setq slime-autodoc-mode t))
-        (t (setq slime-autodoc-mode (not slime-autodoc-mode))))
-  (if slime-autodoc-mode
-      (progn 
-        (slime-autodoc-start-timer)
-        (add-hook 'pre-command-hook 
-                  'slime-autodoc-pre-command-refresh-echo-area t))
-    (slime-autodoc-stop-timer)))
-
-(defvar slime-autodoc-last-message "")
-
-(defun slime-autodoc ()
-  "Print some apropos information about the code at point, if applicable."
-  (destructuring-bind (cache-key retrieve-form) (slime-autodoc-thing-at-point)
-    (let ((cached (slime-get-cached-autodoc cache-key)))
-      (if cached 
-          (slime-autodoc-message cached)
-        ;; Asynchronously fetch, cache, and display documentation
-        (slime-eval-async 
-         retrieve-form
-         (with-lexical-bindings (cache-key)
-           (lambda (doc)
-             (let ((doc (if doc (slime-fontify-string doc) "")))
-               (slime-update-autodoc-cache cache-key doc)
-               (slime-autodoc-message doc)))))))))
-
-(defcustom slime-autodoc-use-multiline-p nil
-  "If non-nil, allow long autodoc messages to resize echo area display."
-  :type 'boolean
-  :group 'slime-ui)
-
-(defvar slime-autodoc-message-function 'slime-autodoc-show-message)
-
-(defun slime-autodoc-message (doc)
-  "Display the autodoc documentation string DOC."
-  (funcall slime-autodoc-message-function doc))
-
-(defun slime-autodoc-show-message (doc)
-  (unless slime-autodoc-use-multiline-p
-    (setq doc (slime-oneliner doc)))
-  (setq slime-autodoc-last-message doc)
-  (message "%s" doc))
-
-(defun slime-autodoc-message-dimensions ()
-  "Return the available width and height for pretty printing autodoc
-messages."
-  (cond
-   (slime-autodoc-use-multiline-p 
-    ;; Use the full width of the minibuffer;
-    ;; minibuffer will grow vertically if necessary
-    (values (window-width (minibuffer-window))
-            nil))
-   (t
-    ;; Try to fit everything in one line; we cut off when displaying
-    (values 1000 1))))
-
-(defun slime-autodoc-pre-command-refresh-echo-area ()
-  (unless (string= slime-autodoc-last-message "")
-    (if (slime-autodoc-message-ok-p)
-        (message "%s" slime-autodoc-last-message)
-      (setq slime-autodoc-last-message ""))))
-
-(defun slime-autodoc-thing-at-point ()
-  "Return a cache key and a swank form."
-  (let ((global (slime-autodoc-global-at-point)))
-    (if global
-        (values (slime-qualify-cl-symbol-name global)
-                `(swank:variable-desc-for-echo-area ,global))
-      (multiple-value-bind (operators arg-indices points)
-          (slime-enclosing-form-specs)
-        (values (mapcar* (lambda (designator arg-index)
-                           (cons
-                            (if (symbolp designator)
-                                (slime-qualify-cl-symbol-name designator)
-                              designator)
-                            arg-index))
-                         operators arg-indices)
-                (multiple-value-bind (width height)
-                    (slime-autodoc-message-dimensions)
-                  `(swank:arglist-for-echo-area ',operators
-                                                :arg-indices ',arg-indices
-                                                :print-right-margin ,width
-                                                :print-lines ,height)))))))
-
-(defun slime-autodoc-global-at-point ()
-  "Return the global variable name at point, if any."
-  (when-let (name (slime-symbol-name-at-point))
-    (if (slime-global-variable-name-p name) name)))
-
-(defcustom slime-global-variable-name-regexp "^\\(.*:\\)?\\([*+]\\).+\\2$"
-  "Regexp used to check if a symbol name is a global variable.
-
-Default value assumes +this+ or *that* naming conventions."
-  :type 'regexp
-  :group 'slime)
-
-(defun slime-global-variable-name-p (name)
-  "Is NAME a global variable?
-Globals are recognised purely by *this-naming-convention*."
-  (and (< (length name) 80) ; avoid overflows in regexp matcher
-       (string-match slime-global-variable-name-regexp name)))
-
-(defun slime-get-cached-autodoc (symbol-name)
-  "Return the cached autodoc documentation for SYMBOL-NAME, or nil."
-  (ecase slime-autodoc-cache-type
-    ((nil) nil)
-    ((last)
-     (when (equal (car slime-autodoc-cache) symbol-name)
-       (cdr slime-autodoc-cache)))
-    ((all)
-     (when-let (symbol (intern-soft symbol-name))
-       (get symbol 'slime-autodoc-cache)))))
-
-(defun slime-update-autodoc-cache (symbol-name documentation)
-  "Update the autodoc cache for SYMBOL with DOCUMENTATION.
-Return DOCUMENTATION."
-  (ecase slime-autodoc-cache-type
-    ((nil) nil)
-    ((last)
-     (setq slime-autodoc-cache (cons symbol-name documentation)))
-    ((all)
-     (put (intern symbol-name) 'slime-autodoc-cache documentation)))
-  documentation)
-
-
-;;;;; Asynchronous message idle timer
-
-(defvar slime-autodoc-idle-timer nil
-  "Idle timer for the next autodoc message.")
-
-(defvar slime-autodoc-delay 0.2
-  "*Delay before autodoc messages are fetched and displayed, in seconds.")
-
-(defun slime-autodoc-start-timer ()
-  "(Re)start the timer that prints autodocs every `slime-autodoc-delay' seconds."
-  (interactive)
-  (when slime-autodoc-idle-timer
-    (cancel-timer slime-autodoc-idle-timer))
-  (setq slime-autodoc-idle-timer
-        (run-with-idle-timer slime-autodoc-delay slime-autodoc-delay
-                             'slime-autodoc-timer-hook)))
-
-(defun slime-autodoc-stop-timer ()
-  "Stop the timer that prints autodocs.
-See also `slime-autodoc-start-timer'."
-  (when slime-autodoc-idle-timer
-    (cancel-timer slime-autodoc-idle-timer)
-    (setq slime-autodoc-idle-timer nil)))
-
-(defun slime-autodoc-timer-hook ()
-  "Function to be called after each Emacs becomes idle.
-When `slime-autodoc-mode' is non-nil, print apropos information about
-the symbol at point if applicable."
-  (when (slime-autodoc-message-ok-p)
-    (condition-case err
-        (slime-autodoc)
-      (error
-       (setq slime-autodoc-mode nil)
-       (message "Error: %S; slime-autodoc-mode now disabled." err)))))
-
-(defun slime-autodoc-message-ok-p ()
-  "Return true if printing a message is currently okay (shouldn't
-annoy the user)."
-  (and (or slime-mode (eq major-mode 'slime-repl-mode) 
-           (eq major-mode 'sldb-mode))
-       slime-autodoc-mode
-       (or (null (current-message)) 
-           (string= (current-message) slime-autodoc-last-message))
-       (not executing-kbd-macro)
-       (not (and (boundp 'edebug-active) (symbol-value 'edebug-active)))
-       (not cursor-in-echo-area)
-       (not (eq (selected-window) (minibuffer-window)))
-       (slime-background-activities-enabled-p)))
+(defun slime-operator-before-point ()
+  (ignore-errors 
+    (save-excursion
+      (backward-up-list 1)
+      (down-list 1)
+      (slime-symbol-name-at-point))))
 
 
 ;;;; Completion
@@ -5514,65 +5255,6 @@ Completion is performed by `slime-complete-symbol-function'."
   (interactive)
   (funcall slime-complete-symbol-function))
 
-(defun slime-complete-symbol* ()
-  "Expand abbreviations and complete the symbol at point."
-  ;; NB: It is only the name part of the symbol that we actually want
-  ;; to complete -- the package prefix, if given, is just context.
-  (or (slime-maybe-complete-as-filename)
-      (slime-expand-abbreviations-and-complete)))
-
-(defun slime-expand-abbreviations-and-complete ()
-  (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
-         (beg (move-marker (make-marker) (slime-symbol-start-pos)))
-         (prefix (buffer-substring-no-properties beg end))
-         (completion-result (slime-contextual-completions beg end))
-         (completion-set (first completion-result))
-         (completed-prefix (second completion-result)))
-    (if (null completion-set)
-        (progn (slime-minibuffer-respecting-message
-                "Can't find completion for \"%s\"" prefix)
-               (ding)
-               (slime-complete-restore-window-configuration))
-      (goto-char end)
-      (insert-and-inherit completed-prefix)
-      (delete-region beg end)
-      (goto-char (+ beg (length completed-prefix)))
-      (cond ((and (member completed-prefix completion-set)
-                  (slime-length= completion-set 1))
-             (slime-minibuffer-respecting-message "Sole completion")
-             (when slime-complete-symbol*-fancy
-               (slime-complete-symbol*-fancy-bit))
-             (slime-complete-restore-window-configuration))
-            ;; Incomplete
-            (t
-             (when (member completed-prefix completion-set)
-               (slime-minibuffer-respecting-message 
-                "Complete but not unique"))
-             (slime-display-or-scroll-completions completion-set 
-                                                  completed-prefix))))))
-
-(defun slime-complete-symbol*-fancy-bit ()
-  "Do fancy tricks after completing a symbol.
-\(Insert a space or close-paren based on arglist information.)"
-  (let ((arglist (slime-get-arglist (slime-symbol-name-at-point))))
-    (when arglist
-      (let ((args
-             ;; Don't intern these symbols
-             (let ((obarray (make-vector 10 0)))
-               (cdr (read arglist))))
-            (function-call-position-p
-             (save-excursion
-                (backward-sexp)
-                (equal (char-before) ?\())))
-        (when function-call-position-p
-          (if (null args)
-              (insert-and-inherit ")")
-            (insert-and-inherit " ")
-            (when (and slime-space-information-p
-                       (slime-background-activities-enabled-p)
-                       (not (minibuffer-window-active-p (minibuffer-window))))
-              (slime-echo-arglist))))))))
-
 (defun slime-simple-complete-symbol ()
   "Complete the symbol at point.  
 Perform completion more similar to Emacs' complete-symbol."
@@ -5651,49 +5333,8 @@ apparently very stupid `try-completions' interface, that wants an
 alist but ignores CDRs."
   (mapcar (lambda (x) (cons x nil)) list))
 
-(defun* slime-contextual-completions (beg end) 
-  "Return a list of completions of the token from BEG to END in the
-current buffer."
-  (let ((token (buffer-substring-no-properties beg end)))
-    (cond
-     ((and (< beg (point-max))
-               (string= (buffer-substring-no-properties beg (1+ beg)) ":"))
-      ;; Contextual keyword completion
-      (multiple-value-bind (operator-names arg-indices points)
-          (save-excursion 
-            (goto-char beg)
-            (slime-enclosing-form-specs))
-        (when operator-names
-          (let ((completions 
-                 (slime-completions-for-keyword operator-names token
-                                                arg-indices)))
-            (when (first completions)
-              (return-from slime-contextual-completions completions))
-            ;; If no matching keyword was found, do regular symbol
-            ;; completion.
-            ))))
-     ((and (> beg 2)
-           (string= (buffer-substring-no-properties (- beg 2) beg) "#\\"))
-      ;; Character name completion
-      (return-from slime-contextual-completions
-        (slime-completions-for-character token))))
-    ;; Regular symbol completion
-    (slime-completions token)))
-
-(defun slime-completions (prefix)
-  (slime-eval `(swank:completions ,prefix ',(slime-current-package))))
-
 (defun slime-simple-completions (prefix)
   (slime-eval `(swank:simple-completions ,prefix ',(slime-current-package))))
-
-(defun slime-completions-for-keyword (operator-designator prefix
-                                                          arg-indices)
-  (slime-eval `(swank:completions-for-keyword ',operator-designator
-                                              ,prefix
-                                              ',arg-indices)))
-
-(defun slime-completions-for-character (prefix)
-  (slime-eval `(swank:completions-for-character ,prefix)))
 
 
 ;;;; Edit definition
@@ -7096,8 +6737,6 @@ Full list of commands:
   (erase-buffer)
   (set-syntax-table sldb-mode-syntax-table)
   (slime-set-truncate-lines)
-  (when slime-use-autodoc-mode
-    (slime-autodoc-mode 1))
   ;; Make original slime-connection "sticky" for SLDB commands in this buffer
   (setq slime-buffer-connection (slime-connection))
   (add-local-hook 'kill-buffer-hook 'sldb-delete-overlays))
@@ -8490,143 +8129,6 @@ Only considers buffers that are not already visible."
 
 ;;;; Editing commands
 
-(defun slime-beginning-of-defun ()
-  (interactive)
-  (if (and (boundp 'slime-repl-input-start-mark)
-           slime-repl-input-start-mark)
-      (slime-repl-beginning-of-defun)
-      (beginning-of-defun)))
-
-(defun slime-end-of-defun ()
-  (interactive)
-  (if (and (boundp 'slime-repl-input-end-mark)
-           slime-repl-input-end-mark)
-      (slime-repl-end-of-defun)
-      (end-of-defun)))
-
-
-(defvar slime-comment-start-regexp
-  "\\(\\(^\\|[^\n\\\\]\\)\\([\\\\][\\\\]\\)*\\);+[ \t]*"
-  "Regexp to match the start of a comment.")
-
-(defun slime-beginning-of-comment ()
-  "Move point to beginning of comment.
-If point is inside a comment move to beginning of comment and return point.
-Otherwise leave point unchanged and return NIL."
-  (let ((boundary (point)))
-    (beginning-of-line)
-    (cond ((re-search-forward slime-comment-start-regexp boundary t)
-           (point))
-          (t (goto-char boundary) 
-             nil))))
-
-(defun slime-close-all-parens-in-sexp (&optional region)
-  "Balance parentheses of open s-expressions at point.
-Insert enough right parentheses to balance unmatched left parentheses.
-Delete extra left parentheses.  Reformat trailing parentheses 
-Lisp-stylishly.
-
-If REGION is true, operate on the region. Otherwise operate on
-the top-level sexp before point."
-  (interactive "P")
-  (let ((sexp-level 0)
-        point)
-    (save-excursion
-      (save-restriction
-        (when region
-          (narrow-to-region (region-beginning) (region-end))
-          (goto-char (point-max)))
-        ;; skip over closing parens, but not into comment
-        (skip-chars-backward ") \t\n")
-        (when (slime-beginning-of-comment)
-          (forward-line)
-          (skip-chars-forward " \t"))
-        (setq point (point))
-        ;; count sexps until either '(' or comment is found at first column
-        (while (and (not (looking-at "^[(;]"))
-                  (ignore-errors (backward-up-list 1) t))
-          (incf sexp-level))))
-    (when (> sexp-level 0)
-      ;; insert correct number of right parens
-      (goto-char point)
-      (dotimes (i sexp-level) (insert ")"))
-      ;; delete extra right parens
-      (setq point (point))
-      (skip-chars-forward " \t\n)")
-      (skip-chars-backward " \t\n")
-      (let* ((deleted-region     (delete-and-extract-region point (point)))
-             (deleted-text       (substring-no-properties deleted-region))
-             (prior-parens-count (count ?\) deleted-text)))
-        ;; Remember: we always insert as many parentheses as necessary
-        ;; and only afterwards delete the superfluously-added parens.
-        (when slime-close-parens-limit
-          (let ((missing-parens (- sexp-level prior-parens-count
-                                   slime-close-parens-limit)))
-            (dotimes (i (max 0 missing-parens))
-              (delete-char -1))))))))
-
-(defvar slime-close-parens-limit nil
-  "Maxmimum parens for `slime-close-all-sexp' to insert. NIL
-means to insert as many parentheses as necessary to correctly
-close the form.")
-
-(defun slime-insert-balanced-comments (arg)
-  "Insert a set of balanced comments around the s-expression
-containing the point.  If this command is invoked repeatedly
-\(without any other command occurring between invocations), the
-comment progressively moves outward over enclosing expressions.
-If invoked with a positive prefix argument, the s-expression arg
-expressions out is enclosed in a set of balanced comments."
-  (interactive "*p")
-  (save-excursion
-    (when (eq last-command this-command)
-      (when (search-backward "#|" nil t)
-        (save-excursion
-          (delete-char 2)
-          (while (and (< (point) (point-max)) (not (looking-at " *|#")))
-            (forward-sexp))
-          (replace-match ""))))
-    (while (> arg 0)
-      (backward-char 1)
-      (cond ((looking-at ")") (incf arg))
-            ((looking-at "(") (decf arg))))
-    (insert "#|")
-    (forward-sexp)
-    (insert "|#")))
-
-(defun slime-remove-balanced-comments ()
-  "Remove a set of balanced comments enclosing point."
-  (interactive "*")
-  (save-excursion
-    (when (search-backward "#|" nil t)
-      (delete-char 2)
-      (while (and (< (point) (point-max)) (not (looking-at " *|#")))
-      (forward-sexp))
-      (replace-match ""))))
-
-
-;; SLIME-CLOSE-PARENS-AT-POINT is obsolete:
-
-;; It doesn't work correctly on the REPL, because there
-;; BEGINNING-OF-DEFUN-FUNCTION and END-OF-DEFUN-FUNCTION is bound to
-;; SLIME-REPL-MODE-BEGINNING-OF-DEFUN (and
-;; SLIME-REPL-MODE-END-OF-DEFUN respectively) which compromises the
-;; way how they're expect to work (i.e. END-OF-DEFUN does not signal
-;; an UNBOUND-PARENTHESES error.)
-
-;; Use SLIME-CLOSE-ALL-PARENS-IN-SEXP instead.
-
-;; (defun slime-close-parens-at-point ()
-;;   "Close parenthesis at point to complete the top-level-form.  Simply
-;; inserts ')' characters at point until `beginning-of-defun' and
-;; `end-of-defun' execute without errors, or `slime-close-parens-limit'
-;; is exceeded."
-;;   (interactive)
-;;   (loop for i from 1 to slime-close-parens-limit
-;;         until (save-excursion
-;;                 (slime-beginning-of-defun)
-;;                 (ignore-errors (slime-end-of-defun) t))
-;;         do (insert ")")))
 
 
 ;;;; Font Lock
@@ -8720,34 +8222,6 @@ is setup, unless the user already set one explicitly."
               (update 'common-lisp-indent-function)
               (when (member 'scheme-mode slime-lisp-modes)
                 (update 'scheme-indent-function)))))))))
-
-(defun slime-reindent-defun (&optional force-text-fill)
-  "Reindent the current defun, or refill the current paragraph.
-If point is inside a comment block, the text around point will be
-treated as a paragraph and will be filled with `fill-paragraph'.
-Otherwise, it will be treated as Lisp code, and the current defun
-will be reindented.  If the current defun has unbalanced parens,
-an attempt will be made to fix it before reindenting.
-
-When given a prefix argument, the text around point will always
-be treated as a paragraph.  This is useful for filling docstrings."
-  (interactive "P")
-  (save-excursion
-    (if (or force-text-fill (slime-beginning-of-comment))
-        (fill-paragraph nil)
-      (let ((start (progn (unless (or (and (zerop (current-column))
-                                           (eq ?\( (char-after)))
-                                      (and slime-repl-input-start-mark
-                                           (slime-repl-at-prompt-start-p)))
-                            (slime-beginning-of-defun))
-                          (point)))
-            (end (ignore-errors (slime-end-of-defun) (point))))
-        (unless end
-          (forward-paragraph)
-          (slime-close-all-parens-in-sexp)
-          (slime-end-of-defun)
-          (setf end (point)))
-        (indent-region start end nil)))))
 
 
 ;;;; Cheat Sheet
@@ -9738,9 +9212,6 @@ Reconnect afterwards."
           (or (< n 0) (and seq t)))
     (sequence (> (length seq) n))))
 
-(defun slime-ensure-list (thing)
-  (if (listp thing) thing (list thing)))
-
 ;;;;; Buffer related
 
 (defun slime-buffer-narrowed-p (&optional buffer)
@@ -9783,54 +9254,6 @@ Example:
              (slime-set-narrowing-configuration ,gcfg)))))))
 
 (put 'save-restriction-if-possible 'lisp-indent-function 0)
-
-;;;;; Common Lisp-style package-qualified symbols
-
-(defun slime-cl-symbol-name (symbol)
-  (let ((n (if (stringp symbol) symbol (symbol-name symbol))))
-    (if (string-match ":\\([^:]*\\)$" n)
-	(let ((symbol-part (match-string 1 n)))
-          (if (string-match "^|\\(.*\\)|$" symbol-part)
-              (match-string 1 symbol-part)
-              symbol-part))
-      n)))
-
-(defun slime-cl-symbol-package (symbol &optional default)
-  (let ((n (if (stringp symbol) symbol (symbol-name symbol))))
-    (if (string-match "^\\([^:]*\\):" n)
-	(match-string 1 n)
-      default)))
-
-;; XXX: unused function
-(defun slime-cl-symbol-external-ref-p (symbol)
-  "Does SYMBOL refer to an external symbol?
-FOO:BAR is an external reference.
-FOO::BAR is not, and nor is BAR."
-  (let ((name (if (stringp symbol) symbol (symbol-name symbol))))
-    (and (string-match ":" name)
-         (not (string-match "::" name)))))
-
-;; XXX: unused function
-(defun slime-qualify-cl-symbol (symbol-or-name)
-  "Like `slime-qualify-cl-symbol-name', but interns the result."
-  (intern (slime-qualify-cl-symbol-name symbol-or-name)))
-
-(defun slime-qualify-cl-symbol-name (symbol-or-name)
-  "Return a package-qualified symbol-name that indicates the CL symbol
-SYMBOL. If SYMBOL doesn't already have a package prefix the current
-package is used."
-  (let ((s (if (stringp symbol-or-name)
-               symbol-or-name
-             (symbol-name symbol-or-name))))
-    (if (slime-cl-symbol-package s)
-        s
-      (format "%s::%s"
-              (let* ((package (slime-current-package)))
-                ;; package is a string like ":cl-user" or "CL-USER".
-                (if (and package (string-match "^:" package))
-                    (substring package 1)
-                  package))
-              (slime-cl-symbol-name s)))))
 
 
 ;;;;; Extracting Lisp forms from the buffer or user
@@ -9900,282 +9323,15 @@ The result is unspecified if there isn't a symbol under the point."
   (let ((name (slime-symbol-name-at-point)))
     (and name (intern name))))
 
-(defun slime-sexp-at-point (&optional n skip-blanks-p)
-  "Return the sexp at point as a string, otherwise nil.
-If N is given and greater than 1, a list of all such sexps
-following the sexp at point is returned. (If there are not
-as many sexps as N, a list with < N sexps is returned.)
-
-If SKIP-BLANKS-P is true, leading whitespaces &c are skipped.
-"
-  (interactive "p") (or n (setq n 1))
-  (flet ((sexp-at-point (first-choice)
-           (let ((string (if (eq first-choice :symbol-first)
-                             (or (slime-symbol-name-at-point)
-                                 (thing-at-point 'sexp))
-                             (or (thing-at-point 'sexp)
-                                 (slime-symbol-name-at-point)))))
-             (if string (substring-no-properties string) nil))))
-    ;; `thing-at-point' depends upon the current syntax table; otherwise
-    ;; keywords like `:foo' are not recognized as sexps. (This function
-    ;; may be called from temporary buffers etc.)
-    (with-syntax-table lisp-mode-syntax-table
-      (save-excursion
-        (when skip-blanks-p ; e.g. `( foo bat)' where point is after ?\(.
-          (slime-forward-blanks))
-        (let ((result nil))
-          (dotimes (i n)
-            ;; `foo(bar baz)' where point is at ?\( or ?\).
-            (if (member (char-syntax (char-after)) '(?\( ?\) ?\'))
-                (push (sexp-at-point :sexp-first) result)
-                (push (sexp-at-point :symbol-first) result))
-            (ignore-errors (forward-sexp) (slime-forward-blanks))
-            (save-excursion
-              (unless (slime-point-moves-p (ignore-errors (forward-sexp)))
-                (return))))
-          (if (slime-length= result 1)
-              (first result)
-              (nreverse result)))))))
+(defun slime-sexp-at-point ()
+  "Return the sexp at point as a string, otherwise nil."
+  (let ((string (thing-at-point 'sexp)))
+    (if string (substring-no-properties string) nil)))
 
 (defun slime-sexp-at-point-or-error ()
   "Return the sexp at point as a string, othwise signal an error."
   (or (slime-sexp-at-point)
       (error "No expression at point.")))
-
-(defun slime-incomplete-sexp-at-point (&optional n)
-  (interactive "p") (or n (setq n 1))
-  (buffer-substring-no-properties (save-excursion (backward-up-list n) (point))
-                                  (point)))
-
-
-(defun slime-parse-extended-operator-name (user-point forms indices points)
-  "Assume that point is directly at the operator that should be parsed.
-USER-POINT is the value of `point' where the user was looking at.
-OPS, INDICES and POINTS are updated to reflect the new values after
-parsing, and are then returned back as multiple values."
-  ;; OPS, INDICES and POINTS are like the finally returned values of
-  ;; SLIME-ENCLOSING-FORM-SPECS except that they're in reversed order,
-  ;; i.e. the leftmost (that is the latest) operator comes
-  ;; first.
-  (save-excursion
-    (ignore-errors
-      (let* ((current-op (first (first forms)))
-             (op-name (upcase (slime-cl-symbol-name current-op)))
-             (assoc (assoc op-name slime-extended-operator-name-parser-alist))
-             (entry (cdr assoc))
-             (parser (if (and entry (listp entry)) 
-                         (apply (first entry) (rest entry))
-                         entry)))
-        (ignore-errors
-          (forward-char (1+ (length current-op)))
-          (slime-forward-blanks))
-        (when parser
-          (multiple-value-setq (forms indices points)
-            (funcall parser op-name user-point forms indices points))))))
-  (values forms indices points))
-
-(defvar slime-extended-operator-name-parser-alist
-  '(("MAKE-INSTANCE"  . (slime-make-extended-operator-parser/look-ahead 1))
-    ("MAKE-CONDITION" . (slime-make-extended-operator-parser/look-ahead 1))
-    ("ERROR"          . (slime-make-extended-operator-parser/look-ahead 1))
-    ("SIGNAL"         . (slime-make-extended-operator-parser/look-ahead 1))
-    ("WARN"           . (slime-make-extended-operator-parser/look-ahead 1))
-    ("CERROR"         . (slime-make-extended-operator-parser/look-ahead 2))
-    ("CHANGE-CLASS"   . (slime-make-extended-operator-parser/look-ahead 2))
-    ("DEFMETHOD"      . (slime-make-extended-operator-parser/look-ahead 1))
-    ("APPLY"          . (slime-make-extended-operator-parser/look-ahead 1))
-    ("DECLARE"        . slime-parse-extended-operator/declare)))
-
-
-(defun slime-make-extended-operator-parser/look-ahead (steps)
-  "Returns a parser that parses the current operator at point
-plus STEPS-many additional sexps on the right side of the
-operator."
-  (lexical-let ((n steps))
-    #'(lambda (name user-point current-forms current-indices current-points)
-        (let ((old-forms (rest current-forms)))
-          (let* ((args (slime-ensure-list (slime-sexp-at-point n)))
-                 (arg-specs (mapcar #'slime-make-form-spec-from-string args)))
-            (setq current-forms (cons `(,name ,@arg-specs) old-forms))))
-        (values current-forms current-indices current-points)
-        )))
-
-(defun slime-parse-extended-operator/declare
-    (name user-point current-forms current-indices current-points)
-  (when (string= (thing-at-point 'char) "(")
-    (let ((orig-point (point)))
-      (goto-char user-point)
-      (slime-end-of-symbol)
-      ;; Head of CURRENT-FORMS is "declare" at this point, but we're
-      ;; interested in what comes next.
-      (let* ((decl-ops     (rest current-forms))
-             (decl-indices (rest current-indices))
-             (decl-points  (rest current-points))
-             (decl-pos     (1- (first decl-points)))
-             (nesting      (slime-nesting-until-point decl-pos))
-             (declspec-str (concat (slime-incomplete-sexp-at-point nesting)
-                                   (make-string nesting ?\)))))
-        (save-match-data ; `(declare ((foo ...))' or `(declare (type (foo ...)))' ?
-          (if (or (eql 0 (string-match "\\s-*(\\((\\(\\sw\\|\\s_\\|\\s-\\)*)\\))$"
-                                       declspec-str))
-                  (eql 0 (string-match "\\s-*(type\\s-*\\((\\(\\sw\\|\\s_\\|\\s-\\)*)\\))$"
-                                       declspec-str)))
-              (let* ((typespec-str (match-string 1 declspec-str))
-                     (typespec (slime-make-form-spec-from-string typespec-str)))
-                (setq current-forms   (list `(:type-specifier ,typespec)))
-                (setq current-indices (list (second decl-indices)))
-                (setq current-points  (list (second decl-points))))
-              (let ((declspec (slime-make-form-spec-from-string declspec-str)))
-                (setq current-forms   (list `(:declaration ,declspec)))
-                (setq current-indices (list (first decl-indices)))
-                (setq current-points  (list (first decl-points)))))))))
-  (values current-forms current-indices current-points))
-
-(defun slime-nesting-until-point (target-point)
-  "Returns the nesting level between current point and TARGET-POINT.
-If TARGET-POINT could not be reached, 0 is returned. (As a result
-TARGET-POINT should always be placed just before a `?\('.)"
-  (save-excursion
-    (let ((nesting 0))
-      (while (> (point) target-point)
-        (backward-up-list)
-        (incf nesting))
-      (if (= (point) target-point)
-          nesting
-          0))))
-
-
-(defun slime-make-form-spec-from-string (string &optional strip-operator-p)
-  "If STRIP-OPERATOR-P is T and STRING is the string
-representation of a form, the string representation of this form
-is stripped from the form. This can be important to avoid mutual
-recursion between this function, `slime-enclosing-form-specs' and
-`slime-parse-extended-operator-name'."
-  (if (slime-length= string 0)
-      ""
-      (with-temp-buffer
-        ;; Do NEVER ever try to activate `lisp-mode' here with
-        ;; `slime-use-autodoc-mode' enabled, as this function is used
-        ;; to compute the current autodoc itself.
-        (erase-buffer)
-        (insert string)
-        (when strip-operator-p ; `(OP arg1 arg2 ...)' ==> `(arg1 arg2 ...)'
-          (goto-char (point-min))
-          (when (string= (thing-at-point 'char) "(")
-            (ignore-errors (forward-char 1)
-                           (forward-sexp)
-                           (slime-forward-blanks))
-            (delete-region (point-min) (point))
-            (insert "(")))
-        (goto-char (1- (point-max))) ; `(OP arg1 ... argN|)'
-        (multiple-value-bind (forms indices points)
-            (slime-enclosing-form-specs 1)
-          (if (null forms)
-              string
-              (let ((n (first (last indices))))
-                (goto-char (1+ (point-min))) ; `(|OP arg1 ... argN)'
-                (mapcar #'(lambda (s)
-                            (assert (not (equal s string)))       ; trap against
-                            (slime-make-form-spec-from-string s)) ;  endless recursion.
-                        (slime-ensure-list
-                         (slime-sexp-at-point (1+ n) t)))))))))
-
-
-(defun slime-enclosing-form-specs (&optional max-levels)
-  "Return the list of ``raw form specs'' of all the forms 
-containing point from right to left.
-
-As a secondary value, return a list of indices: Each index tells
-for each corresponding form spec in what argument position the
-user's point is.
-
-As tertiary value, return the positions of the operators that are
-contained in the returned form specs. 
-
- When MAX-LEVELS is non-nil, go up at most this many levels of
-parens.
-
-\(See SWANK::PARSE-FORM-SPEC for more information about what
-exactly constitutes a ``raw form specs''
-
-Example:)
-
-  A return value like the following
-
-    (values  ((\"quux\") (\"bar\") (\"foo\")) (3 2 1) (p1 p2 p3))
-
-  can be interpreted as follows:
-
-    The user point is located in the 3rd argument position of a
-    form with the operator name \"quux\" (which starts at P1.)
-   
-    This form is located in the 2nd argument position of a form
-    with the operator name \"bar\" (which starts at P2.)
-
-    This form again is in the 1st argument position of a form
-    with the operator name \"foo\" (which itself begins at P3.)
-
-  For instance, the corresponding buffer content could have looked
-  like `(foo (bar arg1 (quux 1 2 |' where `|' denotes point.
-"
-  (let ((level 1)
-        (parse-sexp-lookup-properties nil)
-        (initial-point (point))
-        (result '()) (arg-indices '()) (points '())) 
-    ;; The expensive lookup of syntax-class text properties is only
-    ;; used for interactive balancing of #<...> in presentations; we
-    ;; do not need them in navigating through the nested lists.
-    ;; This speeds up this function significantly.
-    (ignore-errors
-      (save-excursion
-        ;; Make sure we get the whole operator name.
-        (slime-end-of-symbol)
-        (save-restriction
-          ;; Don't parse more than 20000 characters before point, so we don't spend
-          ;; too much time.
-          (narrow-to-region (max (point-min) (- (point) 20000)) (point-max))
-          (narrow-to-region (save-excursion (beginning-of-defun) (point))
-                            (min (1+ (point)) (point-max)))
-          (while (or (not max-levels)
-                     (<= level max-levels))
-            (let ((arg-index 0))
-              ;; Move to the beginning of the current sexp if not already there.
-              (if (or (and (char-after)
-                           (member (char-syntax (char-after)) '(?\( ?')))
-                      (member (char-syntax (char-before)) '(?\  ?>)))
-                  (incf arg-index))
-              (ignore-errors (backward-sexp 1))
-              (while (and (< arg-index 64)
-                          (ignore-errors (backward-sexp 1) 
-                                         (> (point) (point-min))))
-                (incf arg-index))
-              (backward-up-list 1)
-              (when (member (char-syntax (char-after)) '(?\( ?')) 
-                (incf level)
-                (forward-char 1)
-                (let ((name (slime-symbol-name-at-point)))
-                  (cond
-                    (name
-                     (save-restriction
-                       (widen) ; to allow looking-ahead/back in extended parsing.
-                       (multiple-value-bind (new-result new-indices new-points)
-                           (slime-parse-extended-operator-name initial-point
-                                                               (cons `(,name) result) ; minimal form spec
-                                                               (cons arg-index arg-indices)
-                                                               (cons (point) points))
-                         (setq result new-result)
-                         (setq arg-indices new-indices)
-                         (setq points new-points))))
-                    (t
-                     (push nil result)
-                     (push arg-index arg-indices)
-                     (push (point) points))))
-                (backward-up-list 1)))))))
-    (values 
-     (nreverse result)
-     (nreverse arg-indices)
-     (nreverse points))))
-
 
 ;;;; Portability library
 
@@ -10548,13 +9704,7 @@ To fetch the contrib directoy use:  cvs update -d contrib"
           slime-show-note-counts
           slime-insert-propertized
           slime-insert-possibly-as-rectangle
-          slime-tree-insert
-          slime-enclosing-form-specs
-          slime-make-form-spec-from-string
-          slime-parse-extended-operator/declare
-          slime-incomplete-form-at-point
-          slime-sexp-at-point
-)))
+          slime-tree-insert)))
 
 (run-hooks 'slime-load-hook)
 
