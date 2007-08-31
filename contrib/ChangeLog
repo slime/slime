@@ -1,5 +1,9 @@
 2007-08-31  Helmut Eller  <heller@common-lisp.net>
 
+	* slime-c-p-c.el (slime-c-p-c-init): Fix typos.
+
+2007-08-31  Helmut Eller  <heller@common-lisp.net>
+
 	Move compound prefix completion and autodoc to contrib.
 	Interdependencies made it almost necessary to move parsing code
 	and editing commands in the same patch.
