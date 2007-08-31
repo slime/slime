@@ -1,5 +1,18 @@
 2007-08-31  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	Added extended arglist display for EVAL-WHEN, viz:
+
+	  (eval-when (:compile-toplevel :load-toplevel :execute) &body body)
+
+	Notice that completion works as expected on these keywords.
+
+	* swank-arglist (arglist-dispatch): New method for EVAL-WHEN.
+	(print-arglist): Print keywords with PRIN1 rather than PRINC,
+	to get a result as shown above for the EVAL-WHEN case.
+	(completions-for-keyword): Add support for &ANY args.	 
+	
+2007-08-31  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank-arglist.lisp: Do not fall back to READ when interpreting
 	the ``raw form specs'' comming from Slime's autodoc stuff. But
 	still do so for those comming from `slime-complete-form'.

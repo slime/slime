@@ -122,8 +122,8 @@ current buffer."
 (defun slime-completions-for-keyword (operator-designator prefix
                                                           arg-indices)
   (slime-eval `(swank:completions-for-keyword ',operator-designator
-                                              ,prefix
-                                              ',arg-indices)))
+					      ,prefix
+					      ',arg-indices)))
 
 (defun slime-completions-for-character (prefix)
   (slime-eval `(swank:completions-for-character ,prefix)))

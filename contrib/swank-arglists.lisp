@@ -316,7 +316,9 @@ used instead."
                            (write-char #\space))
                          (pprint-fill *standard-output* (cdr enc-arg) nil))))))
                  (t           ; required formal or provided actual arg
-                  (princ arg))))
+                  (if (keywordp arg)
+		      (prin1 arg)	; for &ANY args.
+		      (princ arg)))))
              (print-space ()
                (ecase need-space
                  ((nil))
@@ -1051,6 +1053,13 @@ Examples:
                     t))))))
   (call-next-method))
 
+(defmethod arglist-dispatch ((operator-type (eql :function)) (operator (eql 'eval-when))
+                             arguments &key (remove-args t))
+  (let ((eval-when-args '(:compile-toplevel :load-toplevel :execute)))
+    (maybecall remove-args #'remove-actual-args
+	       (make-arglist :required-args (list (make-arglist :any-args eval-when-args))
+			     :rest '#:body :body-p t))))
+
 (defmethod arglist-dispatch ((operator-type (eql :declaration))
                              decl-identifier decl-args &key (remove-args t))
   (with-availability (arglist)
@@ -1124,33 +1133,34 @@ by adding a template for the missing arguments."
     (multiple-value-bind (form-spec index newly-interned-symbols)
         (parse-first-valid-form-spec raw-specs arg-indices)
       (unwind-protect
-           (when form-spec
-             (let ((arglist   (arglist-from-form-spec form-spec  :remove-args nil)))
-               (unless (eql arglist :not-available)
-                 (multiple-value-bind (type operator arguments) (split-form-spec form-spec)
-                   (declare (ignore type arguments))
-                   (let* ((indices (butlast (reverse (last arg-indices (1+ index)))))
-                          (arglist (apply #'arglist-ref arglist operator indices)))
-                     (when (and arglist (arglist-p arglist))
-                       ;; It would be possible to complete keywords only if we
-                       ;; are in a keyword position, but it is not clear if we
-                       ;; want that.
-                       (let* ((keywords 
-                               (mapcar #'keyword-arg.keyword
-                                       (arglist.keyword-args arglist)))
-                              (keyword-name
-                               (tokenize-symbol keyword-string))
-                              (matching-keywords
-                               (find-matching-symbols-in-list keyword-name keywords
-                                                              #'compound-prefix-match))
-                              (converter (completion-output-symbol-converter keyword-string))
-                              (strings
-                               (mapcar converter
-                                       (mapcar #'symbol-name matching-keywords)))
-                              (completion-set
-                               (format-completion-set strings nil "")))
-                         (list completion-set
-                               (longest-compound-prefix completion-set)))))))))
+	   (when form-spec
+	     (let ((arglist   (arglist-from-form-spec form-spec  :remove-args nil)))
+	       (unless (eql arglist :not-available)
+		 (multiple-value-bind (type operator arguments) (split-form-spec form-spec)
+		   (declare (ignore type arguments))
+		   (let* ((indices (butlast (reverse (last arg-indices (1+ index)))))
+			  (arglist (apply #'arglist-ref arglist operator indices)))
+		     (when (and arglist (arglist-p arglist))
+		       ;; It would be possible to complete keywords only if we
+		       ;; are in a keyword position, but it is not clear if we
+		       ;; want that.
+		       (let* ((keywords 
+			       (append (mapcar #'keyword-arg.keyword
+					       (arglist.keyword-args arglist))
+				       (remove-if-not #'keywordp (arglist.any-args arglist))))
+			      (keyword-name
+			       (tokenize-symbol keyword-string))
+			      (matching-keywords
+			       (find-matching-symbols-in-list keyword-name keywords
+							      #'compound-prefix-match))
+			      (converter (completion-output-symbol-converter keyword-string))
+			      (strings
+			       (mapcar converter
+				       (mapcar #'symbol-name matching-keywords)))
+			      (completion-set
+			       (format-completion-set strings nil "")))
+			 (list completion-set
+			       (longest-compound-prefix completion-set)))))))))
         (mapc #'unintern-in-home-package newly-interned-symbols)))))
            
 
@@ -1173,7 +1183,12 @@ by adding a template for the missing arguments."
     (test '(&whole x y z) "(y z)")
     (test '(x &aux y z) "(x)")
     (test '(x &environment env y) "(x y)")
-    (test '(&key ((function f))) "(&key ((function f)))")))
+    (test '(&key ((function f))) "(&key ((function f)))")
+    (test '(eval-when (&any :compile-toplevel :load-toplevel :execute) &body body)
+	  "(eval-when (&any :compile-toplevel :load-toplevel :execute) &body body)")
+    (test '(declare (optimize &any (speed 1) (safety 1)))
+	  "(declare (optimize &any (speed 1) (safety 1)))")
+    ))
 
 (test-print-arglist)
 
