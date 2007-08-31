@@ -8,9 +8,14 @@
 ;;
 ;; License: GNU GPL (same license as Emacs)
 ;;
-;;; 
+;;; Installation
 ;;
+;; Add this to your .emacs: 
 ;;
+;;   (add-to-list 'load-path "<directory-of-this-file>")
+;;   (add-hook 'slime-load-hook (lambda () (require 'slime-c-p-c)))
+;;
+
 
 
 (require 'slime-parse)
@@ -151,10 +156,12 @@ This is a superset of the functionality of `slime-insert-arglist'."
 ;;; Initialization
 
 (defun slime-c-p-c-init ()
-  (setq 'slime-complete-symbol-function 'slime-complete-symbol*)
+  (setq slime-complete-symbol-function 'slime-complete-symbol*)
   (add-hook 'slime-connected-hook 'slime-c-p-c-on-connect))
 
 (defun slime-c-p-c-on-connect ()
-  (slime-eval-async '(swank:swank-require :arglists)))
+  (slime-eval-async '(swank:swank-require :swank-arglists)))
+
+(slime-c-p-c-init)
 
 (provide 'slime-c-p-c)
