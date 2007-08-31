@@ -1,4 +1,3 @@
-
 ;;; slime.el -- Superior Lisp Interaction Mode for Emacs
 ;;
 ;;;; License
@@ -638,17 +637,12 @@ A prefix argument disables this behaviour."
     ("\C-c" slime-compile-defun :prefixed t)
     ("\C-l" slime-load-file :prefixed t)
     ;; Editing/navigating
-    ("\M-\C-a" slime-beginning-of-defun :inferior t)
-    ("\M-\C-e" slime-end-of-defun :inferior t)
     ("\M-\C-i" slime-complete-symbol :inferior t)
     ("\C-i" slime-complete-symbol :prefixed t :inferior t)
     ("\M-." slime-edit-definition :inferior t :sldb t)
     ("\C-x4." slime-edit-definition-other-window :inferior t :sldb t)
     ("\C-x5." slime-edit-definition-other-frame :inferior t :sldb t)
     ("\M-," slime-pop-find-definition-stack :inferior t :sldb t)
-    ; Obsolete; see comment at SLIME-CLOSE-PARENS-AT-POINT.
-    ;("\C-q" slime-close-parens-at-point :prefixed t :inferior t)
-    ("\C-c\M-q" slime-reindent-defun :inferior t)
     ;; Evaluating
     ("\C-x\C-e" slime-eval-last-expression :inferior t)
     ("\C-x\M-e" slime-eval-last-expression-display-output :inferior t)
@@ -664,7 +658,6 @@ A prefix argument disables this behaviour."
     ("\M-g" slime-quit :prefixed t :inferior t :sldb t)
     ;; Documentation
     (" " slime-space :inferior t)
-    ("\C-s" slime-complete-form :prefixed t :inferior t)
     ("\C-f" slime-describe-function :prefixed t :inferior t :sldb t)
     ("\M-d" slime-disassemble-symbol :prefixed t :inferior t :sldb t)
     ("\C-t" slime-toggle-trace-fdefinition :prefixed t :sldb t)
@@ -783,7 +776,6 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
       [ "Edit Definition..."       slime-edit-definition ,C ]
       [ "Return From Definition"   slime-pop-find-definition-stack ,C ]
       [ "Complete Symbol"          slime-complete-symbol ,C ]
-      [ "Complete Form"            slime-complete-form ,C ]
       [ "Show REPL"                slime-switch-to-output-buffer ,C ]
       "--"
       ("Evaluation"
@@ -824,7 +816,6 @@ If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
        [ "List Callees..."         slime-list-callees ,C ]
        [ "Next Location"           slime-next-location t ])
       ("Editing"
-       [ "Close All Parens"        slime-close-all-parens-in-sexp t]
        [ "Check Parens"            check-parens t]
        [ "Update Indentation"      slime-update-indentation ,C]
        [ "Select Buffer"           slime-selector t])
@@ -9640,18 +9631,36 @@ If they are not, position point at the first syntax error found."
 
 ;;; Some "nice" backward compatiblity bindings for lusers.
 
-(unless (lookup-key slime-mode-map "\C-c\M-i")
-  (define-key slime-mode-map "\C-c\M-i" 'slime-fuzzy-upgrade-notice)
-  (define-key slime-repl-mode-map "\C-c\M-i" 'slime-fuzzy-upgrade-notice))
+(defvar slime-obsolete-commands 
+  '(("\C-c\M-i" (slime repl) slime-fuzzy-complete-symbol)
+    ("\M-\C-a" (slime) slime-beginning-of-defun)
+    ("\M-\C-e" (slime) slime-end-of-defun)
+    ("\C-c\M-q" (slime) slime-reindent-defun)
+    ("\C-c\C-s" (slime) slime-complete-form)
+    ;; (nil nil slime-close-all-parens-in-sexp)
+    ))
 
-(defun slime-fuzzy-upgrade-notice ()
-  (interactive)
-  (slime-timebomb "slime-fuzzy-complete-symbol is not loaded.
+(defun slime-bind-obsolete-commands ()
+  (loop for (key maps command) in slime-obsolete-commands do
+        (dolist (m maps) (slime-bind-obsolete-command m key command))))
 
-Fuzzy completion has been moved to contrib.
+(defun slime-bind-obsolete-command (map key command)
+  (let ((map (ecase map
+               (slime slime-mode-map)
+               (repl slime-repl-mode-map))))
+    (unless (lookup-key map key)
+      (define-key map key `(lambda (&rest _)
+                             (interactive)
+                             (slime-upgrade-notice ',command))))))
+
+(slime-bind-obsolete-commands)
+
+(defun slime-upgrade-notice (command)
+  (slime-timebomb (format "The command `%s' has been moved to contrib.
 Please consult the README file in the contrib directory for details.
 
-To fetch the contrib directoy use:  cvs update -d contrib"
+To fetch the contrib directoy use:  cvs update -d"
+                          command)
                   15))
 
 ;;;; ... with gratuitous bloat
