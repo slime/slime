@@ -8,8 +8,13 @@
 ;; 
 ;; License: GNU GPL (same license as Emacs)
 ;;
-;;; 
+;;; Installation
 ;;
+;; Add something like this to your .emacs: 
+;;
+;;   (add-to-list 'load-path "<directory-of-this-file>")
+;;   (add-hook 'slime-load-hook (lambda () (require 'slime-editing-commands)))
+;;   (add-hook 'slime-mode-hook 'slime-bind-editing-commands)
 ;;
 
 (defun slime-beginning-of-defun ()
@@ -176,5 +181,10 @@ be treated as a paragraph.  This is useful for filling docstrings."
           (slime-end-of-defun)
           (setf end (point)))
         (indent-region start end nil)))))
+
+(defun slime-bind-editing-commands ()
+  (define-key slime-mode-map "\M-\C-a"  'slime-beginning-of-defun)
+  (define-key slime-mode-map "\M-\C-e"  'slime-end-of-defun)
+  (define-key slime-mode-map "\C-c\M-q" 'slime-reindent-defun))
 
 (provide 'slime-editing-commands)

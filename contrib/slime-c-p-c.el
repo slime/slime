@@ -157,7 +157,9 @@ This is a superset of the functionality of `slime-insert-arglist'."
 
 (defun slime-c-p-c-init ()
   (setq slime-complete-symbol-function 'slime-complete-symbol*)
-  (add-hook 'slime-connected-hook 'slime-c-p-c-on-connect))
+  (add-hook 'slime-connected-hook 'slime-c-p-c-on-connect)
+  (define-key slime-mode-map "\C-c\C-s" 'slime-complete-form)
+  )
 
 (defun slime-c-p-c-on-connect ()
   (slime-eval-async '(swank:swank-require :swank-arglists)))

@@ -1,5 +1,7 @@
 2007-08-31  Helmut Eller  <heller@common-lisp.net>
 
+	* slime-autodoc.el: Add installation notes.
+	* slime-editing-commands.el: Add installation notes.
 	* slime-c-p-c.el (slime-c-p-c-init): Fix typos.
 
 2007-08-31  Helmut Eller  <heller@common-lisp.net>
