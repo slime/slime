@@ -1,3 +1,8 @@
+2007-09-01  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime-typeout-frame.el (slime-typeout-autodoc-message): Fix for
+	messages that contain "%".  Reported by Martin Simmons.
+
 2007-09-01  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	Makes `slime-complete-form' work on `(eval-when |'; doesn't work
