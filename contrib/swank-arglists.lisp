@@ -1058,7 +1058,8 @@ Examples:
   (let ((eval-when-args '(:compile-toplevel :load-toplevel :execute)))
     (maybecall remove-args #'remove-actual-args
 	       (make-arglist :required-args (list (make-arglist :any-args eval-when-args))
-			     :rest '#:body :body-p t))))
+			     :rest '#:body :body-p t)
+	       arguments)))
 
 (defmethod arglist-dispatch ((operator-type (eql :declaration))
                              decl-identifier decl-args &key (remove-args t))

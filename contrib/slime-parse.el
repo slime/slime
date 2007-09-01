@@ -100,7 +100,7 @@ If SKIP-BLANKS-P is true, leading whitespaces &c are skipped.
         (let ((result nil))
           (dotimes (i n)
             ;; `foo(bar baz)' where point is at ?\( or ?\).
-            (if (member (char-syntax (char-after)) '(?\( ?\) ?\'))
+            (if (and (char-after) (member (char-syntax (char-after)) '(?\( ?\) ?\')))
                 (push (sexp-at-point :sexp-first) result)
                 (push (sexp-at-point :symbol-first) result))
             (ignore-errors (forward-sexp) (slime-forward-blanks))
