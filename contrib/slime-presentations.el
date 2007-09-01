@@ -547,9 +547,11 @@ output; otherwise the new input is appended."
 (defun slime-dispatch-presentation-event (event)
   (destructure-case event
     ((:presentation-start id &optional target)
-     (slime-mark-presentation-start id target))
+     (slime-mark-presentation-start id target)
+     t)
     ((:presentation-end id &optional target)
-     (slime-mark-presentation-end id target))
+     (slime-mark-presentation-end id target)
+     t)
     (t nil)))
 
 (defun slime-presentation-write (string &optional target)
