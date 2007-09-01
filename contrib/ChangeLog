@@ -1,3 +1,9 @@
+2007-08-31  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime-presentations.el (slime-dispatch-presentation-event):
+	Explicitly return t to indicate the events have been handled,
+	rather than relying on the return values of the called functions.
+
 2007-09-01  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime-typeout-frame.el (slime-typeout-autodoc-message): Fix for
