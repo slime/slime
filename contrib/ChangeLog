@@ -13,6 +13,7 @@
 	for use on the REPL.)
 
 	* swank-arglist.lisp (arglist-dispatch 'eval-when): Fix typo.
+	(print-decoded-arglist-as-template): Print keywords with PRIN1.
 	
 2007-08-31  Tobias C. Rittweiler  <tcr@freebits.de>
 

@@ -649,7 +649,7 @@ whether &allow-other-keys appears somewhere."
                (setq first-p nil))
              (print-arg-or-pattern (arg)
                (etypecase arg
-                 (symbol (princ arg))
+                 (symbol (if (keywordp arg) (prin1 arg) (princ arg)))
                  (string (princ arg))
                  (list   (princ arg))
                  (arglist (print-decoded-arglist-as-template arg)))))
