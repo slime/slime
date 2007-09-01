@@ -51,7 +51,7 @@
 
 (defun slime-typeout-autodoc-message (doc)
   (setq slime-autodoc-last-message "") ; no need for refreshing
-  (slime-typeout-message doc))
+  (slime-typeout-message "%s" doc))
 
 
 ;;; Initialization
