@@ -1,3 +1,9 @@
+2007-09-04  Helmut Eller  <heller@common-lisp.net>
+
+	Rename slime-insert-possibly-as-rectangle to slime-insert-indented.
+
+	* slime.el (slime-insert-indented): Renamed. Update callers.
+
 2007-08-31  Helmut Eller  <heller@common-lisp.net>
 
 	Move compound prefix completion and autodoc to contrib.

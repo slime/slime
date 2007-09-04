@@ -1146,7 +1146,7 @@ Assumes all insertions are made at point."
 (put 'slime-with-rigid-indentation 'lisp-indent-function 1)
 
 (defun slime-indent-rigidly (start end column)
-  "Similar to `indent-rigidly' but doesn't inherit text props."
+  ;; Similar to `indent-rigidly' but doesn't inherit text props.
   (save-excursion
     (goto-char end)
     (beginning-of-line)
@@ -1155,7 +1155,8 @@ Assumes all insertions are made at point."
                   (save-excursion (insert-char ?\  column))
                   (zerop (forward-line -1)))))))
 
-(defun slime-insert-possibly-as-rectangle (&rest strings)
+(defun slime-insert-indented (&rest strings)
+  "Insert all arguments rigidly indented."
   (slime-with-rigid-indentation nil
     (apply #'insert strings)))
 
@@ -6966,7 +6967,7 @@ If FACE is nil use `sldb-frame-line-face'."
       (slime-propertize-region props
         (slime-propertize-region '(mouse-face highlight)
           (insert " " (in-sldb-face frame-label (format "%2d:" number)) " ")
-          (slime-insert-possibly-as-rectangle
+          (slime-insert-indented
            (slime-add-face (or face 'sldb-frame-line-face)
                            string)))
         (insert "\n")))))
@@ -9712,7 +9713,6 @@ To fetch the contrib directoy use:  cvs update -d"
           slime-print-apropos
           slime-show-note-counts
           slime-insert-propertized
-          slime-insert-possibly-as-rectangle
           slime-tree-insert)))
 
 (run-hooks 'slime-load-hook)

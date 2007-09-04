@@ -159,7 +159,7 @@ corresponding to OUTPUT-ID.  If RECTANGLE is true, indent multi-line
 strings to line up below the current point."
   (flet ((insert-it ()
                     (if rectangle 
-                        (slime-insert-possibly-as-rectangle string)
+                        (slime-insert-indented string)
                       (insert string))))
     (let ((start (point)))
       (insert-it)
