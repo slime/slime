@@ -1,3 +1,7 @@
+2007-09-04  Helmut Eller  <heller@common-lisp.net>
+
+	* inferior-slime.el: New file.
+
 2007-09-01  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime-fancy.el: New meta-contrib.

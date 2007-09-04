@@ -539,19 +539,6 @@ This is automatically updated based on the buffer/point."))
 (when slime-update-modeline-package
   (run-with-idle-timer 0.2 0.2 'slime-update-modeline-package))
 
-;;;;; inferior-slime-mode
-(define-minor-mode inferior-slime-mode
-  "\\<slime-mode-map>\
-Inferior SLIME mode: The Inferior Superior Lisp Mode for Emacs.
-
-This mode is intended for use with `inferior-lisp-mode'. It provides a
-subset of the bindings from `slime-mode'.
-
-\\{inferior-slime-mode-map}"
-  nil
-  nil
-  ;; Fake binding to coax `define-minor-mode' to create the keymap
-  '((" " 'undefined)))
 
 ;; Setup the mode-line to say when we're in slime-mode, and which CL
 ;; package we think the current buffer belongs to.
@@ -560,35 +547,6 @@ subset of the bindings from `slime-mode'.
                (" Slime"
 		((slime-modeline-package (":" slime-modeline-package) "")
 		 slime-state-name))))
-
-(add-to-list 'minor-mode-alist
-             '(inferior-slime-mode
-               (" Inf-Slime" slime-state-name)))
-
-(defun inferior-slime-return ()
-  "Handle the return key in the inferior-lisp buffer.
-The current input should only be sent if a whole expression has been
-entered, i.e. the parenthesis are matched.
-
-A prefix argument disables this behaviour."
-  (interactive)
-  (if (or current-prefix-arg (inferior-slime-input-complete-p))
-      (comint-send-input)
-    (insert "\n")
-    (inferior-slime-indent-line)))
-
-(defun inferior-slime-indent-line ()
-  "Indent the current line, ignoring everything before the prompt."
-  (interactive)
-  (save-restriction
-    (let ((indent-start
-           (save-excursion
-             (goto-char (process-mark (get-buffer-process (current-buffer))))
-             (let ((inhibit-field-text-motion t))
-               (beginning-of-line 1))
-             (point))))
-      (narrow-to-region indent-start (point-max)))
-    (lisp-indent-line)))
 
 (defun slime-input-complete-p (start end)
   "Return t if the region from START to END contains a complete sexp."
@@ -606,22 +564,6 @@ A prefix argument disables this behaviour."
                      do (forward-sexp))
                t)))
           (t t))))
-
-(defun inferior-slime-input-complete-p ()
-  "Return true if the input is complete in the inferior lisp buffer."
-  (slime-input-complete-p (process-mark (get-buffer-process (current-buffer)))
-                          (point-max)))
-
-(defun inferior-slime-closing-return ()
-  "Send the current expression to Lisp after closing any open lists."
-  (interactive)
-  (goto-char (point-max))
-  (save-restriction
-    (narrow-to-region (process-mark (get-buffer-process (current-buffer)))
-                      (point-max))
-    (while (ignore-errors (save-excursion (backward-up-list 1) t))
-      (insert ")")))
-  (comint-send-input))
 
 
 ;;;;; Key bindings
@@ -719,25 +661,16 @@ A prefix argument disables this behaviour."
 
 (defun* slime-define-key (key command &key prefixed inferior)
   "Define a keybinding of KEY for COMMAND.
-If PREFIXED is non-nil, `slime-prefix-key' is prepended to KEY.
-If INFERIOR is non-nil, the key is also bound for `inferior-slime-mode'."
+If PREFIXED is non-nil, `slime-prefix-key' is prepended to KEY."
   (when prefixed
     (setq key (concat slime-prefix-key key)))
-  (define-key slime-mode-map key command)
-  (when inferior
-    (define-key inferior-slime-mode-map key command)))
+  (define-key slime-mode-map key command))
 
 (defun slime-init-keymaps ()
-  "(Re)initialize the keymaps for `slime-mode' and `inferior-slime-mode'."
+  "(Re)initialize the keymaps for `slime-mode'."
   (interactive)
   (loop for (key command . keys) in slime-keys
         do (apply #'slime-define-key key command :allow-other-keys t keys))
-  ;; Extras..
-  (define-key inferior-slime-mode-map [return] 'inferior-slime-return)
-  (define-key inferior-slime-mode-map
-    [(control return)] 'inferior-slime-closing-return)
-  (define-key inferior-slime-mode-map
-    [(meta control ?m)] 'inferior-slime-closing-return)
   ;; Documentation
   (setq slime-doc-map (make-sparse-keymap))
   (loop for (key command) in slime-doc-bindings
