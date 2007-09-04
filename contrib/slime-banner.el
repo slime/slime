@@ -6,7 +6,7 @@
 ;;
 ;;; Installation:
 ;;
-;; Add something like this your .emacs: 
+;; Add something like this to your .emacs: 
 ;;
 ;;   (add-to-list 'load-path ".../slime/contrib")
 ;;   (add-hook 'slime-load-hook (lambda () (require 'slime-banner)))
