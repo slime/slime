@@ -1,3 +1,8 @@
+2007-09-04  Mark Evenson <mark.evenson@gmx.at>
+
+	* swank-abcl.lisp: Call accessors of compiler-condition at load
+	time to work around some ABCL problems.
+
 2007-09-04  Helmut Eller  <heller@common-lisp.net>
 
 	Move asdf support to contrib.

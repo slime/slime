@@ -1,5 +1,10 @@
 2007-09-04  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-arglists.lisp (parse-first-valid-form-spec): Rewrite it for
+	ABCL.
+
+2007-09-04  Helmut Eller  <heller@common-lisp.net>
+
 	Some bug fixes for slime-complete-symbol*.
 	Patches by Mr. Madhu <enometh@meer.net>
 

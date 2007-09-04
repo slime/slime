@@ -164,21 +164,17 @@ contains: the operator type, the operator, and the operands."
             (values :function operator-designator)) ; functions, macros, special ops
       (values type operator arguments))))           ;  are all fbound.
 
-
 (defun parse-first-valid-form-spec (raw-specs &optional arg-indices reader)
   "Returns the first parsed form spec in RAW-SPECS that can
 successfully be parsed. Additionally returns its respective index
 in ARG-INDICES (or NIL.), and all newly interned symbols as tertiary
 return value."
-  (block traversal
-    (mapc #'(lambda (raw-spec index)
-              (multiple-value-bind (spec symbols) (parse-form-spec raw-spec reader)
-                (when spec (return-from traversal
-                             (values spec index symbols)))))
-          raw-specs
-          (append arg-indices '#1=(nil . #1#)))
-    nil)) ; found nothing
-
+  (do ((raw raw-specs (cdr raw))
+       (arg arg-indices (cdr arg)))
+      ((null raw) nil)
+    (let ((raw-spec (car raw)) (index (car arg)))
+      (multiple-value-bind (spec symbols) (parse-form-spec raw-spec reader) 
+	(when spec (return (values spec index symbols)))))))
 
 (defun read-form-spec (spec &optional reader)
   "Turns the ``raw form spec'' SPEC into a proper Common Lisp
