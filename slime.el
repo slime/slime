@@ -8654,25 +8654,22 @@ BODY returns true if the check succeeds."
 
 
 (def-slime-test find-definition
-    (name buffer-package)
+    (name buffer-package snippet)
     "Find the definition of a function or macro in swank.lisp."
-    '((read-from-emacs "SWANK")
-      (swank::read-from-emacs "CL-USER")
-      (swank:start-server "CL-USER"))
+    '(("read-from-emacs" "SWANK" "(defun read-from-emacs ")
+      ("swank::read-from-emacs" "CL-USER" "(defun read-from-emacs ")
+      ("swank:start-server" "CL-USER" "(defun start-server "))
   (switch-to-buffer "*scratch*")        ; not buffer of definition
   (slime-check-top-level)
   (let ((orig-buffer (current-buffer))
         (orig-pos (point))
         (enable-local-variables nil)    ; don't get stuck on -*- eval: -*-
         (slime-buffer-package buffer-package))
-    (slime-edit-definition (symbol-name name))
+    (slime-edit-definition name)
     ;; Postconditions
     (slime-check ("Definition of `%S' is in swank.lisp." name)
-      (string= (file-name-nondirectory (buffer-file-name))
-               "swank.lisp"))
-    (slime-check "Definition now at point."
-      (looking-at (format "(\\(defun\\|defmacro\\)\\s *%s\\s "
-                          (slime-cl-symbol-name name))))
+      (string= (file-name-nondirectory (buffer-file-name)) "swank.lisp"))
+    (slime-check "Definition now at point." (looking-at snippet))
     (slime-pop-find-definition-stack)
     (slime-check "Returning from definition restores original buffer/position."
       (and (eq orig-buffer (current-buffer))
@@ -8692,9 +8689,8 @@ BODY returns true if the check succeeds."
                                "swank::compile-file-if-needed"
                                "swank::compile-file-pathname")
                               "swank::compile-file"))
-      ("cl:m-v-l" (("cl:multiple-value-list" "cl:multiple-values-limit")
-                   "cl:multiple-value-li")))
-  (let ((completions (slime-completions prefix)))
+      ("cl:m-v-l" (nil "")))
+  (let ((completions (slime-simple-completions prefix)))
     (slime-test-expect "Completion set" expected-completions completions)))
 
 (def-slime-test arglist
@@ -8706,26 +8702,21 @@ BODY returns true if the check succeeds."
     (function-name expected-arglist)
     "Lookup the argument list for FUNCTION-NAME.
 Confirm that EXPECTED-ARGLIST is displayed."
-    '(("swank:start-server"
-       "(swank:start-server port-file &key \\((style swank:\\*communication-style\\*)\\|style\\)[ \n]+dont-close[ \n]+(coding-system swank::\\*coding-system\\*))")
-      ("swank::compound-prefix-match"
-       "(swank::compound-prefix-match prefix target)")
-      ("swank::create-socket"
-       "(swank::create-socket host port)")
-      ("swank::emacs-connected"
-       "(swank::emacs-connected)")
+    '(("swank::operator-arglist" "(swank::operator-arglist name package)")
+      ("swank::create-socket" "(swank::create-socket host port)")
+      ("swank::emacs-connected" "(swank::emacs-connected )")
       ("swank::compile-string-for-emacs"
        "(swank::compile-string-for-emacs string buffer position directory)")
       ("swank::connection.socket-io"
        "(swank::connection.socket-io \\(struct\\(ure\\)?\\|object\\|instance\\))")
-      ("cl:lisp-implementation-type"
-       "(cl:lisp-implementation-type)")
+      ("cl:lisp-implementation-type" "(cl:lisp-implementation-type )")
       ("cl:class-name" 
        "(cl:class-name \\(class\\|object\\|instance\\|structure\\))"))
   (slime-check-top-level)
-  (let ((arglist (slime-get-arglist function-name))) ;
+  (let ((arglist (slime-eval `(swank:operator-arglist ,function-name 
+                                                      "swank"))))
     (slime-test-expect "Argument list is as expected"
-                       expected-arglist arglist
+                       expected-arglist (downcase arglist)
                        #'string-match))
   (slime-check-top-level))
 
@@ -8818,7 +8809,7 @@ Confirm that SUBFORM is correctly located."
                  (enter
                   (cond ((= sldb-level level2)
                          (setq state 'leave)
-                         (sldb-invoke-restart 0))
+                         (sldb-invoke-restart (sldb-first-abort-restart)))
                         (t
                          (slime-eval-async `(cl:aref cl:nil ,sldb-level)))))
                  (leave
@@ -8826,7 +8817,8 @@ Confirm that SUBFORM is correctly located."
                          (setq state 'ok)
                          (sldb-quit))
                         (t
-                         (sldb-invoke-restart 0)))))))))
+                         (sldb-invoke-restart (sldb-first-abort-restart))
+                         ))))))))
       (let ((sldb-hook (cons debug-hook sldb-hook)))
         (slime-eval-async `(cl:aref cl:nil 0))
         (slime-sync-to-top-level 15)
@@ -8835,6 +8827,10 @@ Confirm that SUBFORM is correctly located."
           (= max-depth level2))
         (slime-check ("Final state reached.")
           (eq state 'ok))))))
+
+(defun sldb-first-abort-restart ()
+  (let ((case-fold-search t))
+    (position-if (lambda (x) (string-match "abort" (car x))) sldb-restarts)))
 
 (def-slime-test loop-interrupt-quit
     ()

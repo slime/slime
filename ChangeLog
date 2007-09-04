@@ -1,5 +1,9 @@
 2007-09-04  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el: Fix the test suite (except for SBCL).
+
+2007-09-04  Helmut Eller  <heller@common-lisp.net>
+
 	Simplify slime-process-available-input.
 
 	* slime.el (slime-process-available-input): We are called in a
