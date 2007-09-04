@@ -1,5 +1,6 @@
 2007-09-04  Helmut Eller  <heller@common-lisp.net>
 
+	* slime-tramp.el: New file.
 	* slime-banner.el: New file.
 	* inferior-slime.el: New file.
 

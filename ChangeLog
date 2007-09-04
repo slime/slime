@@ -1,5 +1,9 @@
 2007-09-04  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el: Move tramp support to contrib.
+
+2007-09-04  Helmut Eller  <heller@common-lisp.net>
+
 	Move startup animation to contrib.
 
 	* slime.el (slime-repl-banner-function): New hook.
