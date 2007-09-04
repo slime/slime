@@ -15,8 +15,6 @@
   (:export #:sldb-condition
            #:original-condition
            #:compiler-condition
-           #:abort-request
-           #:request-abort
            #:message
            #:short-message
            #:condition
@@ -165,20 +163,6 @@ Backends implement these functions using DEFIMPLEMENTATION."
                (remove ',name *unimplemented-interfaces*))
          (warn "DEFIMPLEMENTATION of undefined interface (~S)" ',name))
      ',name))
-
-(define-condition request-abort (error)
-  ((reason  :initarg :reason :reader reason))
-  (:report (lambda (condition stream)
-             (princ (reason condition) stream)))
-  (:documentation "Condition signalled when SLIME wasn't able to
-complete a user request due to bad data. This condition is not
-for real errors but for situations where SLIME has to give up and
-return control back to the user."))
-
-(defun abort-request (reason-control &rest reason-args)
-  "Abort whatever swank is currently do and send a message to the
-user."
-  (error 'request-abort :reason (apply #'format nil reason-control reason-args)))
 
 (defun warn-unimplemented-interfaces ()
   "Warn the user about unimplemented backend features.
@@ -367,12 +351,12 @@ The KEYWORD-ARGS are passed on to the operation.
 Example:
 \(operate-on-system \"SWANK\" \"COMPILE-OP\" :force t)"
   (unless (member :asdf *features*)
-    (abort-request "ASDF is not loaded."))
+    (error "ASDF is not loaded."))
   (with-compilation-hooks ()
     (let ((operate (find-symbol (symbol-name '#:operate) :asdf))
           (operation (find-symbol operation-name :asdf)))
       (when (null operation)
-        (abort-request "Couldn't find ASDF operation ~S" operation-name))
+        (error "Couldn't find ASDF operation ~S" operation-name))
       (apply operate operation system-name keyword-args))))
 
 (definterface swank-compile-file (filename load-p external-format)

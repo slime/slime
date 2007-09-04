@@ -436,7 +436,7 @@ Return three values: keyword, argument name, default arg."
                            (car arg)
                            (cadr arg)))
         (t
-         (abort-request "Bad keyword item of formal argument list"))))
+         (error "Bad keyword item of formal argument list"))))
 
 (defun encode-keyword-arg (arg)
   (cond

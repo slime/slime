@@ -85,7 +85,7 @@ The secondary value indicates the absence of an entry."
   "Get the result of the previous REPL evaluation with ID."
   (multiple-value-bind (object foundp) (lookup-presented-object id)
     (cond (foundp object)
-          (t (abort-request "Attempt to access unrecorded object (id ~D)." id)))))
+          (t (error "Attempt to access unrecorded object (id ~D)." id)))))
 
 (defslimefun clear-repl-results ()
   "Forget the results of all previous REPL evaluations."

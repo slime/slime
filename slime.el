@@ -2443,7 +2443,7 @@ The default value is (slime-current-package).
 CLAUSES is a list of patterns with same syntax as
 `destructure-case'.  The result of the evaluation of SEXP is
 dispatched on CLAUSES.  The result is either a sexp of the
-form (:ok VALUE) or (:abort REASON).  CLAUSES is executed
+form (:ok VALUE) or (:abort).  CLAUSES is executed
 asynchronously.
 
 Note: don't use backquote syntax for SEXP, because Emacs20 cannot
@@ -2527,8 +2527,8 @@ or nil if nothing suitable can be found.")
             (error "tag = %S eval-tags = %S sexp = %S"
                    tag slime-stack-eval-tags sexp))
           (throw tag (list #'identity value)))
-         ((:abort &optional reason)
-          (throw tag (list #'error (or reason "Synchronous Lisp Evaluation aborted.")))))
+         ((:abort)
+          (throw tag (list #'error "Synchronous Lisp Evaluation aborted."))))
        (let ((debug-on-quit t)
              (inhibit-quit nil)
              (conn (slime-connection)))
@@ -2543,8 +2543,8 @@ or nil if nothing suitable can be found.")
       (sexp (or package (slime-current-package)))
     ((:ok result)
      (when cont (funcall cont result)))
-    ((:abort &optional reason) 
-     (message (or reason "Evaluation aborted.")))))
+    ((:abort)
+     (message "Evaluation aborted."))))
 
 ;;; These functions can be handy too:
 
@@ -3174,8 +3174,8 @@ joined together."))
       ((list 'swank:listener-eval string) (slime-lisp-package))
     ((:ok result)
      (slime-repl-insert-result result))
-    ((:abort &optional reason)
-     (slime-repl-show-abort reason))))
+    ((:abort)
+     (slime-repl-show-abort))))
 
 (defun slime-repl-insert-result (result)
   (with-current-buffer (slime-output-buffer)
@@ -3193,13 +3193,11 @@ joined together."))
                   (insert "\n")))))))
     (slime-repl-insert-prompt)))
 
-(defun slime-repl-show-abort (reason)
+(defun slime-repl-show-abort ()
   (with-current-buffer (slime-output-buffer)
     (slime-with-output-end-mark 
      (unless (bolp) (insert-before-markers "\n"))
-     (insert-before-markers (if reason
-                                (concat "; Evaluation aborted: " reason "\n")
-                                "; Evaluation aborted.\n")))
+     (insert-before-markers "; Evaluation aborted.\n"))
     (slime-repl-insert-prompt)))
 
 (defun slime-repl-insert-prompt ()
@@ -7389,7 +7387,7 @@ This way you can still see what the error was after exiting SLDB."
   (interactive)
   (slime-rex () ('(swank:throw-to-toplevel))
     ((:ok _) (error "sldb-quit returned"))
-    ((:abort &optional _))))
+    ((:abort))))
 
 (defun sldb-continue ()
   "Invoke the \"continue\" restart."
@@ -7399,7 +7397,7 @@ This way you can still see what the error was after exiting SLDB."
     ((:ok _)
      (message "No restart named continue")
      (ding))
-    ((:abort &optional _))))
+    ((:abort))))
 
 (defun sldb-abort ()
   "Invoke the \"abort\" restart."
@@ -7416,14 +7414,14 @@ use the restart at point."
     (slime-rex ()
         ((list 'swank:invoke-nth-restart-for-emacs sldb-level restart))
       ((:ok value) (message "Restart returned: %s" value))
-      ((:abort &optional _)))))
+      ((:abort)))))
 
 (defun sldb-break-with-default-debugger ()
   "Enter default debugger."
   (interactive)
   (slime-rex ()
       ('(swank:sldb-break-with-default-debugger) nil slime-current-thread)
-    ((:abort &optional _))))
+    ((:abort))))
 
 (defun sldb-step ()
   "Select the \"continue\" restart and set a new break point."
@@ -7465,7 +7463,7 @@ return that value, evaluated in the context of the frame."
     (slime-rex ()
         ((list 'swank:sldb-return-from-frame number string))
       ((:ok value) (message "%s" value))
-      ((:abort &optional _)))))
+      ((:abort)))))
 
 (defun sldb-restart-frame ()
   "Causes the frame to restart execution with the same arguments as it
@@ -7475,7 +7473,7 @@ was called originally."
     (slime-rex ()
         ((list 'swank:restart-frame number))
       ((:ok value) (message "%s" value))
-      ((:abort &optional _)))))
+      ((:abort)))))
 
 
 ;;;;; SLDB references (rather SBCL specific)

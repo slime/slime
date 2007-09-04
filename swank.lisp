@@ -1657,7 +1657,7 @@ Errors are trapped and invoke our debugger."
   (call-with-debugger-hook
    #'swank-debugger-hook
    (lambda ()
-     (let (ok result reason)
+     (let (ok result)
        (unwind-protect
             (let ((*buffer-package* (guess-buffer-package buffer-package))
                   (*buffer-readtable* (guess-buffer-readtable buffer-package))
@@ -1666,20 +1666,15 @@ Errors are trapped and invoke our debugger."
               (check-type *buffer-readtable* readtable)
               ;; APPLY would be cleaner than EVAL. 
               ;;(setq result (apply (car form) (cdr form)))
-              (handler-case
-                  (progn
-                    (setq result (eval form))
-                    (run-hook *pre-reply-hook*)
-                    (finish-output)
-                    (setq ok t))
-                (request-abort (c)
-                  (setf ok nil)
-                  (setf reason (swank-backend::reason c)))))
+              (setq result (eval form))
+              (run-hook *pre-reply-hook*)
+              (finish-output)
+              (setq ok t))
          (force-user-output)
          (send-to-emacs `(:return ,(current-thread)
                                   ,(if ok
                                        `(:ok ,result)
-                                       `(:abort ,reason)) 
+                                       `(:abort))
                                   ,id)))))))
 
 (defvar *echo-area-prefix* "=> "

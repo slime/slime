@@ -787,7 +787,7 @@ stack."
 (defun fallback-source-location (code-location)
   (let ((fun (code-location-debug-fun-fun code-location)))
     (cond (fun (function-source-location fun))
-          (t (abort-request "Cannot find source location for: ~A " code-location)))))
+          (t (error "Cannot find source location for: ~A " code-location)))))
 
 (defun lisp-source-location (code-location)
   (let ((source (prin1-to-string
