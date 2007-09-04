@@ -19,6 +19,7 @@
            #:short-message
            #:condition
            #:severity
+           #:with-compilation-hooks
            #:location
            #:location-p
            #:location-buffer
@@ -344,20 +345,6 @@ positions reported in compiler conditions.
 If DIRECTORY is specified it may be used by certain implementations to
 rebind *DEFAULT-PATHNAME-DEFAULTS* which may improve the recording of
 source information.")
-
-(definterface operate-on-system (system-name operation-name &rest keyword-args)
-  "Perform OPERATION-NAME on SYSTEM-NAME using ASDF.
-The KEYWORD-ARGS are passed on to the operation.
-Example:
-\(operate-on-system \"SWANK\" \"COMPILE-OP\" :force t)"
-  (unless (member :asdf *features*)
-    (error "ASDF is not loaded."))
-  (with-compilation-hooks ()
-    (let ((operate (find-symbol (symbol-name '#:operate) :asdf))
-          (operation (find-symbol operation-name :asdf)))
-      (when (null operation)
-        (error "Couldn't find ASDF operation ~S" operation-name))
-      (apply operate operation system-name keyword-args))))
 
 (definterface swank-compile-file (filename load-p external-format)
    "Compile FILENAME signalling COMPILE-CONDITIONs.

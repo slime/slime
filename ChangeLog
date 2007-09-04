@@ -1,5 +1,22 @@
 2007-09-04  Helmut Eller  <heller@common-lisp.net>
 
+	Move asdf support to contrib.
+
+	* swank-backend.lisp (operate-on-system): Moved to
+	swank-asdf.lisp. It wasn't specialized in any backend.
+
+	* swank.lisp (operate-on-system-for-emacs)
+	(list-all-systems-known-to-asdf, list-asdf-systems): Moved to
+	swank-asdf.lisp.
+
+	* slime.el: Move asdf commands to contrib slime-adsf.el.
+
+	* swank-loader.lisp: Load swank-asdf if ASDF is in
+	*FEATURES*. Also add the contrib source directory to
+	swank::*load-path*.
+
+2007-09-04  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el: Move tramp support to contrib.
 
 2007-09-04  Helmut Eller  <heller@common-lisp.net>

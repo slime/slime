@@ -200,7 +200,9 @@ recompiled."
 
 (defvar *contribs* '(swank-c-p-c swank-arglists swank-fuzzy
                      swank-fancy-inspector
-                     swank-presentations swank-presentation-streams)
+                     swank-presentations swank-presentation-streams
+                     #+asdf swank-asdf
+                     )
   "List of names for contrib modules.")
 
 (defun append-dir (absolute name)
@@ -208,8 +210,11 @@ recompiled."
    (make-pathname :directory `(:relative ,name) :defaults absolute)
    absolute))
 
+(defun contrib-src-dir (src-dir)
+  (append-dir src-dir "contrib"))
+
 (defun contrib-source-files (src-dir)
-  (source-files *contribs* (append-dir src-dir "contrib")))
+  (source-files *contribs* (contrib-src-dir src-dir)))
 
 (defun load-swank (&key
                    (source-directory *source-directory*)
@@ -219,12 +224,14 @@ recompiled."
   (compile-files-if-needed-serially (swank-source-files source-directory)
                                     fasl-directory t)
   (compile-files-if-needed-serially (contrib-source-files source-directory)
-                                    contrib-fasl-directory nil)
-  (set (read-from-string "swank::*swank-wire-protocol-version*")
-       (slime-version-string))
-  (funcall (intern (string :warn-unimplemented-interfaces) :swank-backend))
-  (load-site-init-file source-directory)
-  (load-user-init-file)
-  (funcall (intern (string :run-after-init-hook) :swank)))
+                                    contrib-fasl-directory nil))
 
 (load-swank)
+
+(setq swank::*swank-wire-protocol-version* (slime-version-string))
+(setq swank::*load-path* 
+      (append swank::*load-path* (list (contrib-src-dir *source-directory*))))
+(swank-backend::warn-unimplemented-interfaces)
+(load-site-init-file *source-directory*)
+(load-user-init-file)
+(swank:run-after-init-hook)

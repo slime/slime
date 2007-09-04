@@ -1,5 +1,17 @@
 2007-09-04  Helmut Eller  <heller@common-lisp.net>
 
+	Move asdf support to contrib:
+
+	* slime-asdf.el: New file.
+
+	* swank-asdf.lisp: New file
+	(operate-on-system, asdf-central-registry)
+	(list-all-systems-known-to-asdf): Use the asdf package in the
+	source code, i.e. write asdf:operate instead of
+	 (find-symbol "OPERATE" "ASDF").
+
+2007-09-04  Helmut Eller  <heller@common-lisp.net>
+
 	* slime-tramp.el: New file.
 	* slime-banner.el: New file.
 	* inferior-slime.el: New file.
