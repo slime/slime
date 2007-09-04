@@ -1,5 +1,14 @@
 2007-09-04  Helmut Eller  <heller@common-lisp.net>
 
+	Some bug fixes for slime-complete-symbol*.
+	Patches by Mr. Madhu <enometh@meer.net>
+
+	* slime-c-p-c.el (slime-c-p-c-unambiguous-prefix-p): New variable.
+	(slime-expand-abbreviations-and-complete): Use it. Also add a
+	workaround for XEmacs issues.
+
+2007-09-04  Helmut Eller  <heller@common-lisp.net>
+
 	Move asdf support to contrib:
 
 	* slime-asdf.el: New file.

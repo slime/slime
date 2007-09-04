@@ -21,6 +21,12 @@
 (require 'slime-parse)
 (require 'slime-editing-commands)
 
+(defcustom slime-c-p-c-unambiguous-prefix-p t
+  "If true, set point after the unambigous prefix.
+If false, move point to the end of the inserted text."
+  :type 'boolean
+  :group 'slime-ui)
+
 (defun slime-complete-symbol* ()
   "Expand abbreviations and complete the symbol at point."
   ;; NB: It is only the name part of the symbol that we actually want
@@ -28,9 +34,7 @@
   (or (slime-maybe-complete-as-filename)
       (slime-expand-abbreviations-and-complete)))
 
-;; FIXME: there is no consesus where point should end up after
-;; completion.  Some want it after the first non-completed prefix,
-;; others at the end of the inserted text.
+;; FIXME: factorize
 (defun slime-expand-abbreviations-and-complete ()
   (let* ((end (move-marker (make-marker) (slime-symbol-end-pos)))
          (beg (move-marker (make-marker) (slime-symbol-start-pos)))
@@ -43,10 +47,13 @@
                 "Can't find completion for \"%s\"" prefix)
                (ding)
                (slime-complete-restore-window-configuration))
-      (goto-char end)
-      (insert-and-inherit completed-prefix)
-      (delete-region beg end)
-      (goto-char (+ beg (length completed-prefix)))
+      ;; some XEmacs issue makes this distinction necessary
+      (cond ((> (length completed-prefix) (- end beg))
+	     (goto-char end)
+	     (insert-and-inherit completed-prefix)
+	     (delete-region beg end)
+	     (goto-char (+ beg (length completed-prefix))))
+	    (t nil))
       (cond ((and (member completed-prefix completion-set)
                   (slime-length= completion-set 1))
              (slime-minibuffer-respecting-message "Sole completion")
@@ -58,6 +65,12 @@
              (when (member completed-prefix completion-set)
                (slime-minibuffer-respecting-message 
                 "Complete but not unique"))
+	     (when slime-c-p-c-unambiguous-prefix-p
+	       (let ((unambiguous-completion-length
+		      (loop for c in completion-set
+			    minimizing (or (mismatch completed-prefix c)
+					   (length completed-prefix)))))
+		 (goto-char (+ beg unambiguous-completion-length))))
              (slime-display-or-scroll-completions completion-set 
                                                   completed-prefix))))))
 
