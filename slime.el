@@ -1974,32 +1974,31 @@ EVAL'd by Lisp."
 
 (defun slime-process-available-input (process)
   "Process all complete messages that have arrived from Lisp."
-  (let ((original-buffer (current-buffer)))
-    (with-current-buffer (process-buffer process)
-      (while (slime-net-have-input-p)
-        (let ((event (condition-case error
-                         (slime-net-read)
-                       (error
-                        (slime-net-close process t)
-                        (error "net-read error: %S" error)))))
-          (slime-log-event event)
-          (let ((ok nil))
-            (unwind-protect
-                 (with-current-buffer 
-                     (if (buffer-live-p original-buffer)
-                         original-buffer
-                         (current-buffer))
-                   (slime-dispatch-event event process)
-                   (setq ok t))
-              (unless ok 
-                (slime-run-when-idle 
-                 'slime-process-available-input process)))))))))
+  (with-current-buffer (process-buffer process)
+    (while (slime-net-have-input-p)
+      (let ((event (slime-net-read-or-lose process))
+            (ok nil))
+        (slime-log-event event)
+        (unwind-protect
+            (save-current-buffer
+              (slime-dispatch-event event process)
+              (setq ok t))
+          (unless ok
+            (slime-run-when-idle 'slime-process-available-input process)))))))
 
 (defun slime-net-have-input-p ()
   "Return true if a complete message is available."
   (goto-char (point-min))
   (and (>= (buffer-size) 6)
        (>= (- (buffer-size) 6) (slime-net-decode-length))))
+
+(defun slime-net-read-or-lose (process)
+  (condition-case error
+      (slime-net-read)
+    (error
+     (debug)
+     (slime-net-close process t)
+     (error "net-read error: %S" error))))
 
 (defun slime-net-read ()
   "Read a message from the network buffer."
@@ -2539,10 +2538,12 @@ or nil if nothing suitable can be found.")
 
 (defun slime-eval-async (sexp &optional cont package)
   "Evaluate EXPR on the superior Lisp and call CONT with the result."
-  (slime-rex (cont)
+  (slime-rex (cont (buffer (current-buffer)))
       (sexp (or package (slime-current-package)))
     ((:ok result)
-     (when cont (funcall cont result)))
+     (when cont
+       (set-buffer buffer)
+       (funcall cont result)))
     ((:abort)
      (message "Evaluation aborted."))))
 

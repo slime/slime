@@ -1,5 +1,16 @@
 2007-09-04  Helmut Eller  <heller@common-lisp.net>
 
+	Simplify slime-process-available-input.
+
+	* slime.el (slime-process-available-input): We are called in a
+	process filter, i.e. at arbitrary times and in an aribtrary
+	buffer.  So it doesn't make sense to save-and-restore the current
+	buffer here
+	(slime-eval-async): Instead, save and restore the buffer here.
+	(slime-net-read-or-lose): New.
+
+2007-09-04  Helmut Eller  <heller@common-lisp.net>
+
 	Remove request-abort condition.
 
 	* swank-backend.lisp (request-abort): Removed
