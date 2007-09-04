@@ -1,5 +1,17 @@
 2007-09-04  Helmut Eller  <heller@common-lisp.net>
 
+	Move startup animation to contrib.
+
+	* slime.el (slime-repl-banner-function): New hook.
+	(slime-repl-update-banner): Use it and reset markers after calling
+	it.
+	(slime-set-default-directory): Don't call slime-repl-update-banner
+	here.
+	(slime-repl-insert-prompt): Set slime-repl-input-end-mark to
+	point-max.
+
+2007-09-04  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el: Move inferior-slime-mode to contrib.
 
 2007-09-04  Helmut Eller  <heller@common-lisp.net>

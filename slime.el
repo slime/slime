@@ -8,12 +8,12 @@
 ;;     modify it under the terms of the GNU General Public License as
 ;;     published by the Free Software Foundation; either version 2 of
 ;;     the License, or (at your option) any later version.
-;;     
+;;
 ;;     This program is distributed in the hope that it will be useful,
 ;;     but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;;     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 ;;     GNU General Public License for more details.
-;;     
+;;
 ;;     You should have received a copy of the GNU General Public
 ;;     License along with this program; if not, write to the Free
 ;;     Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
@@ -150,11 +150,6 @@ This is done with a text-search that runs on an idle timer."
 This applies to the *inferior-lisp* buffer and the network connections."
   :type 'boolean
   :group 'slime-ui)
- 
-(defcustom slime-startup-animation t 	 
-   "Enable the startup animation." 	 
-   :type '(choice (const :tag "Enable" t) (const :tag "Disable" nil)) 	 
-   :group 'slime-ui) 	 
 
 ;;;;; slime-lisp
 
@@ -2677,11 +2672,6 @@ Debugged requests are ignored."
 (slime-def-connection-var slime-connection-output-buffer nil
   "The buffer for the REPL.  May be nil or a dead buffer.")
 
-(defcustom slime-header-line-p t
-  "If non-nil, display a header line in Slime buffers."
-  :type 'boolean
-  :group 'slime-repl)
-
 (make-variable-buffer-local
  (defvar slime-output-start nil
    "Marker for the start of the output for the evaluation."))
@@ -2699,12 +2689,8 @@ Debugged requests are ignored."
                       slime-repl-last-input-start-mark))
     (set markname (make-marker))
     (set-marker (symbol-value markname) (point)))
+  ;; (set-marker-insertion-type slime-output-end t)
   (set-marker-insertion-type slime-repl-input-end-mark t)
-  ;;; We manage the movement of the slime-output-end marker ourselves
-  ;;; when output arrives; we do not wish it moves behind typed-ahead
-  ;;; user input.  Therefore, don't make the marker advance
-  ;;; automatically. --mkoeppe
-  ;;(set-marker-insertion-type slime-output-end t)
   (set-marker-insertion-type slime-repl-prompt-start-mark t))
 
 (defun slime-output-buffer (&optional noprompt)
@@ -2722,28 +2708,21 @@ Debugged requests are ignored."
                     (slime-repl-insert-prompt))
                   (current-buffer)))))))
 
+(defvar slime-repl-banner-function 'slime-repl-insert-banner)
+
 (defun slime-repl-update-banner ()
-  (let* ((banner (format "%s  Port: %s  Pid: %s"
-                         (slime-lisp-implementation-type)
-                         (slime-connection-port (slime-connection))
-                         (slime-pid)))
-         ;; Emacs21 has the fancy persistent header-line.
-         (use-header-p (and slime-header-line-p
-                            (boundp 'header-line-format)))
-         ;; and dancing text 	 
-         (animantep (and (fboundp 'animate-string) 	 
-                         slime-startup-animation)))
-    (when use-header-p
-      (setq header-line-format banner))
-    (when (zerop (buffer-size))
-      (let ((hello-message (concat "; SLIME " 
-                                   (or (slime-changelog-date) 
-                                       "- ChangeLog file not found"))))
-        (if animantep
-            (animate-string hello-message 0 0) 
-          (insert-before-markers hello-message))))
-    (pop-to-buffer (current-buffer))
-    (slime-repl-insert-prompt)))
+  (funcall slime-repl-banner-function)
+  (goto-char (point-max))
+  (slime-mark-output-start)
+  (slime-mark-input-start)
+  (slime-repl-insert-prompt)
+  (pop-to-buffer (current-buffer)))
+
+(defun slime-repl-insert-banner ()
+  (when (zerop (buffer-size))
+    (let ((welcome (concat "; SLIME " (or (slime-changelog-date)
+                                          "- ChangeLog file not found"))))
+      (insert welcome))))
 
 (defun slime-init-output-buffer (connection)
   (with-current-buffer (slime-output-buffer t)
@@ -3136,7 +3115,8 @@ joined together."))
 
 (defun slime-repl-insert-prompt ()
   "Goto to point max, and insert the prompt."
-  (goto-char (if slime-repl-input-start-mark slime-repl-input-start-mark (point-max)))
+  (goto-char slime-repl-input-start-mark)
+  (assert (= slime-repl-input-end-mark (point-max)))
   (unless (bolp) (insert "\n"))
   (let ((prompt-start (point))
         (prompt (format "%s> " (slime-lisp-package-prompt-string))))
@@ -3149,6 +3129,7 @@ joined together."))
                start-open t end-open t)
       (insert-before-markers prompt))
     (slime-mark-input-start)
+    (set-marker slime-repl-input-end-mark (point-max))
     (set-marker slime-repl-prompt-start-mark prompt-start)
     (goto-char slime-repl-prompt-start-mark)
     (slime-mark-output-start)
@@ -6537,9 +6518,7 @@ CL:MACROEXPAND."
             (slime-eval `(swank:set-default-directory
                           ,(slime-to-lisp-filename directory)))))
   (with-current-buffer (slime-output-buffer)
-    (setq default-directory (expand-file-name directory))
-    (when (boundp 'header-line-format)
-      (slime-repl-update-banner))))
+    (setq default-directory (expand-file-name directory))))
 
 (defun slime-sync-package-and-default-directory ()
   "Set Lisp's package and directory to the values in current buffer."

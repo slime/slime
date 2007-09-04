@@ -1,5 +1,6 @@
 2007-09-04  Helmut Eller  <heller@common-lisp.net>
 
+	* slime-banner.el: New file.
 	* inferior-slime.el: New file.
 
 2007-09-01  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
