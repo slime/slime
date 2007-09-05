@@ -2228,7 +2228,10 @@ The `symbol-value' of each element is a type tag.")
     ((:call)
      (destructuring-bind (caller callee) (cdr spec)
        (toggle-trace-aux (process-fspec callee) 
-                         :wherein (list (process-fspec caller)))))))
+                         :wherein (list (process-fspec caller)))))
+    ;; doesn't work properly
+    ;; ((:labels :flet) (toggle-trace-aux (process-fspec spec)))
+    ))
 
 (defun process-fspec (fspec)
   (cond ((consp fspec)
@@ -2236,9 +2239,8 @@ The `symbol-value' of each element is a type tag.")
            ((:defun :defgeneric) (second fspec))
            ((:defmethod) 
             `(method ,(second fspec) ,@(third fspec) ,(fourth fspec)))
-           ;; this isn't actually supported
-           ((:labels) `(labels ,(process-fspec (second fspec)) ,(third fspec)))
-           ((:flet) `(flet ,(process-fspec (second fspec)) ,(third fspec)))))
+           ((:labels) `(labels ,(third fspec) ,(process-fspec (second fspec))))
+           ((:flet) `(flet ,(third fspec) ,(process-fspec (second fspec))))))
         (t
          fspec)))
 
