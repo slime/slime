@@ -276,4 +276,4 @@ For example:
          (completions (sort completion-set #'string<)))
     (list completions (longest-compound-prefix completions #\_))))
 
-(provide :swank-compound-prefix)
+(provide :swank-c-p-c)

@@ -1,5 +1,17 @@
 2007-09-05  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank-c-p-c.el: This file incorrectly provided the module
+	`:swank-compound-prefix'; changed that to `:swank-c-p-c'. 
+
+	This gets rid off the nasty redefinition warnings that were
+	previously signalled when loading SWANK with SBCL.
+
+	* swank-arglist.lisp (arglist-for-echo-area): Locally declare
+	`*arglist-pprint-bindings*' to be special, as the variable is
+	defined later in the file. (Gets rid of warnings during loading.)
+
+2007-09-05  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* slime-c-p-c.el (slime-c-p-c-init): Bind `slime-complete-form' to
 	`C-c C-s' in `slime-repl-mode-map'.
 	

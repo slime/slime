@@ -56,11 +56,12 @@ For more information about the format of ``raw form specs'' and
                          (case type
                            (:type-specifier (format nil "[Typespec] ~A" stringified-arglist))
                            (:declaration
-			    (with-bindings *arglist-pprint-bindings*
-			      (let ((op (%find-declaration-operator raw-specs position)))
-				(if op
-				    (format nil "(~A ~A)" op stringified-arglist)
-				    (format nil "[Declaration] ~A" stringified-arglist)))))
+			    (locally (declare (special *arglist-pprint-bindings*))
+			      (with-bindings *arglist-pprint-bindings*
+				(let ((op (%find-declaration-operator raw-specs position)))
+				  (if op
+				      (format nil "(~A ~A)" op stringified-arglist)
+				      (format nil "[Declaration] ~A" stringified-arglist))))))
                            (t stringified-arglist)))))))
             (mapc #'unintern-in-home-package newly-interned-symbols))))
     (error (cond)
