@@ -172,6 +172,7 @@ This is a superset of the functionality of `slime-insert-arglist'."
   (setq slime-complete-symbol-function 'slime-complete-symbol*)
   (add-hook 'slime-connected-hook 'slime-c-p-c-on-connect)
   (define-key slime-mode-map "\C-c\C-s" 'slime-complete-form)
+  (define-key slime-repl-mode-map "\C-c\C-s" 'slime-complete-form)
   )
 
 (defun slime-c-p-c-on-connect ()

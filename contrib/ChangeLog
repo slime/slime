@@ -1,8 +1,13 @@
 2007-09-05  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* slime-c-p-c.el (slime-c-p-c-init): Bind `slime-complete-form' to
+	`C-c C-s' in `slime-repl-mode-map'.
+	
+2007-09-05  Tobias C. Rittweiler <tcr@freebits.de>
+
 	Added extended arglist display for DECLAIM and PROCLAIM.
 	
-	* slime.el (slime-extended-operator-name-parser-alist): Added
+	* slime-parse.el (slime-extended-operator-name-parser-alist): Added
 	entries for "DECLAIM", and "PROCLAIM".
 	(slime-parse-extended-operator/declare): Provide information about
 	the operator the arglist is requested for.
