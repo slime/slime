@@ -16,7 +16,8 @@
   "Is SYMBOL the name of a function, a macro, or a special-operator?"
   (or (fboundp symbol)
       (macro-function symbol)
-      (special-operator-p symbol)))
+      (special-operator-p symbol)
+      (eq symbol 'declare)))
   
 (defun valid-operator-name-p (string)
   "Is STRING the name of a function, macro, or special-operator?"
@@ -33,9 +34,8 @@ For more information about the format of ``raw form specs'' and
 ``form specs'', please see PARSE-FORM-SPEC."
   (handler-case 
       (with-buffer-syntax ()
-        (multiple-value-bind (form-spec arg-index newly-interned-symbols)
-            (parse-first-valid-form-spec raw-specs arg-indices
-                                         #'read-conversatively-for-autodoc)
+        (multiple-value-bind (form-spec position newly-interned-symbols)
+            (parse-first-valid-form-spec raw-specs #'read-conversatively-for-autodoc)
           (unwind-protect
                (when form-spec
                  (let ((arglist (arglist-from-form-spec form-spec :remove-args nil)))
@@ -49,18 +49,27 @@ For more information about the format of ``raw form specs'' and
                             :operator operator
                             :print-right-margin print-right-margin
                             :print-lines print-lines
-                            :highlight (and arg-index
-                                            (not (zerop arg-index))
-                                            ;; don't highlight the operator
-                                            arg-index))
+                            :highlight (let ((index (nth position arg-indices)))
+					 ;; don't highlight the operator
+					 (and index (not (zerop index)) index)))
+			 ;; Post formatting:
                          (case type
-                           (:declaration    (format nil "(declare ~A)" stringified-arglist))
                            (:type-specifier (format nil "[Typespec] ~A" stringified-arglist))
+                           (:declaration
+			    (with-bindings *arglist-pprint-bindings*
+			      (let ((op (%find-declaration-operator raw-specs position)))
+				(if op
+				    (format nil "(~A ~A)" op stringified-arglist)
+				    (format nil "[Declaration] ~A" stringified-arglist)))))
                            (t stringified-arglist)))))))
             (mapc #'unintern-in-home-package newly-interned-symbols))))
     (error (cond)
       (format nil "ARGLIST (error): ~A" cond))
     ))
+
+(defun %find-declaration-operator (raw-specs position)
+  (let ((op-rawspec (nth (1+ position) raw-specs)))
+    (first (parse-form-spec op-rawspec #'read-conversatively-for-autodoc))))
 
 (defvar *arglist-dummy* (cons :dummy nil))
 
@@ -132,9 +141,9 @@ Examples:
   (flet ((parse-extended-spec (raw-extension extension-flag)
            (when (and (stringp (first raw-extension)) ; (:DECLARATION (("a" "b" ("c")) "d"))
                       (nth-value 1 (parse-symbol (first raw-extension))))
-              (multiple-value-bind (extension introduced-symbols)
+	     (multiple-value-bind (extension introduced-symbols)
                  (read-form-spec raw-extension reader)
-                (unless (recursively-empty-p extension) ; (:DECLARATION (())) &c.
+	       (unless (recursively-empty-p extension) ; (:DECLARATION (())) &c.
                  (destructuring-bind (identifier &rest args) extension
                    (values `((,extension-flag ,identifier) ,@args)
                            introduced-symbols)))))))
@@ -164,17 +173,15 @@ contains: the operator type, the operator, and the operands."
             (values :function operator-designator)) ; functions, macros, special ops
       (values type operator arguments))))           ;  are all fbound.
 
-(defun parse-first-valid-form-spec (raw-specs &optional arg-indices reader)
+(defun parse-first-valid-form-spec (raw-specs &optional reader)
   "Returns the first parsed form spec in RAW-SPECS that can
-successfully be parsed. Additionally returns its respective index
-in ARG-INDICES (or NIL.), and all newly interned symbols as tertiary
-return value."
-  (do ((raw raw-specs (cdr raw))
-       (arg arg-indices (cdr arg)))
-      ((null raw) nil)
-    (let ((raw-spec (car raw)) (index (car arg)))
-      (multiple-value-bind (spec symbols) (parse-form-spec raw-spec reader) 
-	(when spec (return (values spec index symbols)))))))
+successfully be parsed. Additionally returns that spec's position
+as secondary, and all newly interned symbols as tertiary return
+value."
+  (loop for raw-spec in raw-specs
+	for pos upfrom 0
+	do (multiple-value-bind (spec symbols) (parse-form-spec raw-spec reader)
+	     (when spec (return (values spec pos symbols))))))
 
 (defun read-form-spec (spec &optional reader)
   "Turns the ``raw form spec'' SPEC into a proper Common Lisp
@@ -370,6 +377,15 @@ used instead."
         (mapc #'print-with-space                 
               (arglist.unknown-junk arglist))))))  
 
+(defvar *arglist-pprint-bindings*
+  '((*print-case*     . :downcase)
+    (*print-pretty*   . t)
+    (*print-circle*   . nil)
+    (*print-readably* . nil)
+    (*print-level*    . 10)
+    (*print-length*   . 20)
+    (*print-escape*   . nil))) ; no package qualifiers.
+
 (defun decoded-arglist-to-string (arglist
                                   &key operator highlight (package *package*)
                                   print-right-margin print-lines)
@@ -380,13 +396,11 @@ non-nil, it must be the index of an argument; highlight this argument.
 If OPERATOR is non-nil, put it in front of the arglist."
   (with-output-to-string (*standard-output*)
     (with-standard-io-syntax
-      (let ((*package* package) (*print-case* :downcase)
-            (*print-pretty* t) (*print-circle* nil) (*print-readably* nil)
-            (*print-level* 10) (*print-length* 20)
-            (*print-right-margin* print-right-margin)
-            (*print-lines* print-lines)
-            (*print-escape* nil))       ; no package qualifies.
-        (print-arglist arglist :operator operator :highlight highlight)))))
+      (with-bindings *arglist-pprint-bindings*
+	(let ((*package* package)
+	      (*print-right-margin* print-right-margin)
+	      (*print-lines* print-lines))       
+	  (print-arglist arglist :operator operator :highlight highlight))))))
 
 (defslimefun variable-desc-for-echo-area (variable-name)
   "Return a short description of VARIABLE-NAME, or NIL."
@@ -1052,10 +1066,16 @@ Examples:
 (defmethod arglist-dispatch ((operator-type (eql :function)) (operator (eql 'eval-when))
                              arguments &key (remove-args t))
   (let ((eval-when-args '(:compile-toplevel :load-toplevel :execute)))
-    (maybecall remove-args #'remove-actual-args
-	       (make-arglist :required-args (list (make-arglist :any-args eval-when-args))
-			     :rest '#:body :body-p t)
-	       arguments)))
+    (make-arglist :required-args (list (maybecall remove-args #'remove-actual-args
+						  (make-arglist :any-args eval-when-args)
+						  arguments))
+		  :rest '#:body :body-p t)))
+
+(defmethod arglist-dispatch ((operator-type (eql :function)) (operator (eql 'declare))
+                             arguments &key (remove-args t))
+  ;; Catching 'DECLARE before SWANK-BACKEND:ARGLIST can barf.
+  (declare (ignore remove-args))
+  (make-arglist :rest '#:decl-specifiers))
 
 (defmethod arglist-dispatch ((operator-type (eql :declaration))
                              decl-identifier decl-args &key (remove-args t))
@@ -1125,39 +1145,38 @@ by adding a template for the missing arguments."
          (let ((arg (elt args index)))
            (apply #'arglist-ref arg nil (rest indices))))))))
 
-(defslimefun completions-for-keyword (raw-specs keyword-string arg-indices)
+(defslimefun completions-for-keyword (raw-specs keyword-string arg-index-specs)
   (with-buffer-syntax ()
-    (multiple-value-bind (form-spec index newly-interned-symbols)
-        (parse-first-valid-form-spec raw-specs arg-indices)
+    (multiple-value-bind (form-spec position newly-interned-symbols)
+        (parse-first-valid-form-spec raw-specs)
       (unwind-protect
 	   (when form-spec
-	     (let ((arglist   (arglist-from-form-spec form-spec  :remove-args nil)))
+	     (let ((arglist (arglist-from-form-spec form-spec  :remove-args nil)))
 	       (unless (eql arglist :not-available)
-		 (multiple-value-bind (type operator arguments) (split-form-spec form-spec)
-		   (declare (ignore type arguments))
-		   (let* ((indices (butlast (reverse (last arg-indices (1+ index)))))
-			  (arglist (apply #'arglist-ref arglist operator indices)))
-		     (when (and arglist (arglist-p arglist))
-		       ;; It would be possible to complete keywords only if we
-		       ;; are in a keyword position, but it is not clear if we
-		       ;; want that.
-		       (let* ((keywords 
-			       (append (mapcar #'keyword-arg.keyword
-					       (arglist.keyword-args arglist))
-				       (remove-if-not #'keywordp (arglist.any-args arglist))))
-			      (keyword-name
-			       (tokenize-symbol keyword-string))
-			      (matching-keywords
-			       (find-matching-symbols-in-list keyword-name keywords
-							      #'compound-prefix-match))
-			      (converter (completion-output-symbol-converter keyword-string))
-			      (strings
-			       (mapcar converter
-				       (mapcar #'symbol-name matching-keywords)))
-			      (completion-set
-			       (format-completion-set strings nil "")))
-			 (list completion-set
-			       (longest-compound-prefix completion-set)))))))))
+		 (let* ((operator (nth-value 1 (split-form-spec form-spec)))
+			(indices  (reverse (rest (subseq arg-index-specs 0 (1+ position)))))
+			(arglist  (apply #'arglist-ref arglist operator indices)))
+		   (when (and arglist (arglist-p arglist))
+		     ;; It would be possible to complete keywords only if we
+		     ;; are in a keyword position, but it is not clear if we
+		     ;; want that.
+		     (let* ((keywords 
+			     (append (mapcar #'keyword-arg.keyword
+					     (arglist.keyword-args arglist))
+				     (remove-if-not #'keywordp (arglist.any-args arglist))))
+			    (keyword-name
+			     (tokenize-symbol keyword-string))
+			    (matching-keywords
+			     (find-matching-symbols-in-list keyword-name keywords
+							    #'compound-prefix-match))
+			    (converter (completion-output-symbol-converter keyword-string))
+			    (strings
+			     (mapcar converter
+				     (mapcar #'symbol-name matching-keywords)))
+			    (completion-set
+			     (format-completion-set strings nil "")))
+		       (list completion-set
+			     (longest-compound-prefix completion-set))))))))
         (mapc #'unintern-in-home-package newly-interned-symbols)))))
            
 

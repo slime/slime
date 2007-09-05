@@ -1,3 +1,40 @@
+2007-09-05  Tobias C. Rittweiler <tcr@freebits.de>
+
+	Added extended arglist display for DECLAIM and PROCLAIM.
+	
+	* slime.el (slime-extended-operator-name-parser-alist): Added
+	entries for "DECLAIM", and "PROCLAIM".
+	(slime-parse-extended-operator/declare): Provide information about
+	the operator the arglist is requested for.
+	(slime-make-form-spec-from-string): Fixed for "()" as input.
+	
+	* swank-arglists.lisp (valid-operator-symbol-p): Explicitly allow
+	the symbol 'DECLARE.
+	(arglist-dispatch): New method for `DECLARE'. We have to catch
+	this explicitly, as DECLARE doesn't have an arglist (in the
+	`swank-backend:arglist' sense.)
+	(*arglist-pprint-bindings*): New variable. Splitted out from
+	`decoded-arglist-to-string'.
+	(decoded-arglist-to-string): Use `*arglist-pprint-bindings*'.
+
+	(parse-first-valid-form-spec): Rewritten, because function
+	signature had to be changed: doesn't take arg-indices anymore;
+	returns position of first valid spec as second value to remedy.
+	(arglist-for-echo-area): Accomodated to new signature of
+	`parse-first-valid-form-spec'; now searchs for contextual
+	declaration operator name, to prefix a declaration arglist by
+	"declare", "declaim", or "proclaim" depending on what was used at
+	user's point in Slime. Use `*arglist-pprint-bindings*' for
+	printing the found declaration operator name.
+	(%find-declaration-operator): New helper to do this search.
+	(completions-for-keyword): Accomodated to new signature of
+	`parse-first-valid-form-spec'. Also fixed to correctly provide
+	keyword completions in nested expressions like:
+
+	   `(defun foo (x)
+	      (let ((bar 'quux))
+	        (with-open-file (s f :|'    [`|' being point]
+	
 2007-09-04  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-arglists.lisp (parse-first-valid-form-spec): Rewrite it for

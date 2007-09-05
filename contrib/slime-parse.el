@@ -154,7 +154,9 @@ parsing, and are then returned back as multiple values."
     ("CHANGE-CLASS"   . (slime-make-extended-operator-parser/look-ahead 2))
     ("DEFMETHOD"      . (slime-make-extended-operator-parser/look-ahead 1))
     ("APPLY"          . (slime-make-extended-operator-parser/look-ahead 1))
-    ("DECLARE"        . slime-parse-extended-operator/declare)))
+    ("DECLARE"        . slime-parse-extended-operator/declare)
+    ("DECLAIM"        . slime-parse-extended-operator/declare)
+    ("PROCLAIM"       . slime-parse-extended-operator/declare)))
 
 (defun slime-make-extended-operator-parser/look-ahead (steps)
   "Returns a parser that parses the current operator at point
@@ -195,9 +197,11 @@ operator."
                 (setq current-indices (list (second decl-indices)))
                 (setq current-points  (list (second decl-points))))
               (let ((declspec (slime-make-form-spec-from-string declspec-str)))
-                (setq current-forms   (list `(:declaration ,declspec)))
-                (setq current-indices (list (first decl-indices)))
-                (setq current-points  (list (first decl-points)))))))))
+                (setq current-forms   (list `(,name) `(:declaration ,declspec)))
+                (setq current-indices (list (first current-indices)
+					    (first decl-indices)))
+                (setq current-points  (list (first current-points)
+					    (first decl-points)))))))))
   (values current-forms current-indices current-points))
 
 (defun slime-nesting-until-point (target-point)
@@ -219,34 +223,35 @@ representation of a form, the string representation of this form
 is stripped from the form. This can be important to avoid mutual
 recursion between this function, `slime-enclosing-form-specs' and
 `slime-parse-extended-operator-name'."
-  (if (slime-length= string 0)
-      ""
-      (with-temp-buffer
-        ;; Do NEVER ever try to activate `lisp-mode' here with
-        ;; `slime-use-autodoc-mode' enabled, as this function is used
-        ;; to compute the current autodoc itself.
-        (erase-buffer)
-        (insert string)
-        (when strip-operator-p ; `(OP arg1 arg2 ...)' ==> `(arg1 arg2 ...)'
-          (goto-char (point-min))
-          (when (string= (thing-at-point 'char) "(")
-            (ignore-errors (forward-char 1)
-                           (forward-sexp)
-                           (slime-forward-blanks))
-            (delete-region (point-min) (point))
-            (insert "(")))
-        (goto-char (1- (point-max))) ; `(OP arg1 ... argN|)'
-        (multiple-value-bind (forms indices points)
-            (slime-enclosing-form-specs 1)
-          (if (null forms)
-              string
-              (let ((n (first (last indices))))
-                (goto-char (1+ (point-min))) ; `(|OP arg1 ... argN)'
-                (mapcar #'(lambda (s)
-                            (assert (not (equal s string)))       ; trap against
-                            (slime-make-form-spec-from-string s)) ;  endless recursion.
-                        (slime-ensure-list
-                         (slime-parse-sexp-at-point (1+ n) t)))))))))
+  (cond ((slime-length= string 0) "")
+	((equal string "()") '())
+	(t
+	 (with-temp-buffer
+	   ;; Do NEVER ever try to activate `lisp-mode' here with
+	   ;; `slime-use-autodoc-mode' enabled, as this function is used
+	   ;; to compute the current autodoc itself.
+	   (erase-buffer)
+	   (insert string)
+	   (when strip-operator-p ; `(OP arg1 arg2 ...)' ==> `(arg1 arg2 ...)'
+	     (goto-char (point-min))
+	     (when (string= (thing-at-point 'char) "(")
+	       (ignore-errors (forward-char 1)
+			      (forward-sexp)
+			      (slime-forward-blanks))
+	       (delete-region (point-min) (point))
+	       (insert "(")))
+	   (goto-char (1- (point-max))) ; `(OP arg1 ... argN|)'
+	   (multiple-value-bind (forms indices points)
+	       (slime-enclosing-form-specs 1)
+	     (if (null forms)
+		 string
+                (let ((n (first (last indices))))
+		   (goto-char (1+ (point-min))) ; `(|OP arg1 ... argN)'
+		   (mapcar #'(lambda (s)
+			       (assert (not (equal s string)))       ; trap against
+			       (slime-make-form-spec-from-string s)) ;  endless recursion.
+			   (slime-ensure-list
+			    (slime-parse-sexp-at-point (1+ n) t))))))))))
 
 
 (defun slime-enclosing-form-specs (&optional max-levels)
@@ -260,7 +265,7 @@ user's point is.
 As tertiary value, return the positions of the operators that are
 contained in the returned form specs. 
 
- When MAX-LEVELS is non-nil, go up at most this many levels of
+When MAX-LEVELS is non-nil, go up at most this many levels of
 parens.
 
 \(See SWANK::PARSE-FORM-SPEC for more information about what
