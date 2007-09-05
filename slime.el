@@ -171,9 +171,8 @@ slime.el, but could also be set to an absolute filename."
   :group 'slime-lisp)
 
 (defcustom slime-filename-translations nil
-  "Alist of mappings between machine names and filename
-translation functions. Each element is of the
-form (HOSTNAME-REGEXP TO-LISP FROM-LISP).
+  "Assoc list of hostnames and filename translation functions.  
+Each element is of the form (HOSTNAME-REGEXP TO-LISP FROM-LISP).
 
 HOSTNAME-REGEXP is a regexp which is applied to the connection's
 slime-machine-instance. If HOSTNAME-REGEXP maches then the
@@ -204,7 +203,10 @@ the machine 'soren' and you can connect with the username
         slime-filename-translations)
 
 See also `slime-create-filename-translator'."
-  :type 'list
+  :type '(repeat (list :tag "Host description"
+                       (regexp :tag "Hostname regexp")
+                       (function :tag "To   lisp function")
+                       (function :tag "From lisp function")))
   :group 'slime-lisp)
 
 (defcustom slime-enable-evaluate-in-emacs nil
@@ -5585,20 +5587,20 @@ in Lisp when committed with \\[slime-edit-value-commit]."
 
 (defun slime-toggle-trace-fdefinition (&optional using-context-p)
   "Toggle trace."
-  (interactive "p")
-  (let ((spec (if using-context-p
+  (interactive "P")
+  (let* ((spec (if using-context-p
                   (slime-extract-context)
-                (slime-symbol-at-point))))
-    (let ((spec (slime-trace-query spec)))
-      (message "%s" (slime-eval `(swank:swank-toggle-trace ,spec))))))
+                 (slime-symbol-name-at-point)))
+         (spec (slime-trace-query spec)))
+    (message "%s" (slime-eval `(swank:swank-toggle-trace ,spec)))))
 
 (defun slime-trace-query (spec)
   "Ask the user which function to trace; SPEC is the default.
 The result is a string."
   (cond ((null spec)
          (slime-read-from-minibuffer "(Un)trace: "))
-        ((symbolp spec)
-         (slime-read-from-minibuffer "(Un)trace: " (symbol-name spec)))
+        ((stringp spec)
+         (slime-read-from-minibuffer "(Un)trace: " spec))
         (t
          (destructure-case spec
            ((setf n)

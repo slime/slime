@@ -1,3 +1,12 @@
+2007-09-05  Didier Verna  <didier@xemacs.org>
+
+	* slime.el (slime-filename-translations): Fix custom type.
+
+2007-09-05  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-toggle-trace-fdefinition):  Fix typo.  The
+	 argument for interactive should be "P" not "p".
+
 2007-09-04  Mark Evenson <mark.evenson@gmx.at>
 
 	* swank-abcl.lisp: Call accessors of compiler-condition at load
