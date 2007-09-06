@@ -555,7 +555,7 @@ output; otherwise the new input is appended."
     (t nil)))
 
 (defun slime-presentation-write (string &optional target)
-  (ecase target
+  (case target
     ((nil)                              ; Regular process output
      (with-current-buffer (slime-output-buffer)
        (slime-with-output-end-mark

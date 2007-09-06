@@ -2805,7 +2805,7 @@ hashtable `slime-output-target-to-marker'; output is inserted at this marker."
   (funcall slime-write-string-function string target))
 
 (defun slime-repl-write-string (string &optional target)
-  (ecase target
+  (case target
     ((nil)                              ; Regular process output
      (with-current-buffer (slime-output-buffer)
        (slime-with-output-end-mark
