@@ -1,3 +1,9 @@
+2007-09-06  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime.el (slime-repl-write-string): Use case, not ecase, for
+	dispatching targets.Should fix XEmacs compatibility.
+	Reported by Steven E. Harris.
+
 2007-09-05  Didier Verna  <didier@xemacs.org>
 
 	* slime.el (slime-filename-translations): Fix custom type.
