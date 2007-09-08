@@ -1155,6 +1155,39 @@ sensitive to the point moving and they can't be restored."
         until (eq window last-window)))
 
 
+(defmacro save-restriction-if-possible (&rest body)
+  "Very similiarly to `save-restriction'. The only difference is
+that it's not enforcing the restriction as strictly: It's only
+enforced if `point' was not moved outside of the restriction
+after executing BODY.
+
+Example: 
+
+  (progn (goto-line 1000)
+         (narrow-to-page) 
+         (save-restriction-if-possible (widen) (goto-line 999)))
+
+  In this case, the buffer is narrowed to the current page, and
+  point is on line 999.
+
+  (progn (goto-char 1000)
+         (narrow-to-page) 
+         (save-restriction-if-possible (widen) (goto-line 1)))
+
+  Whereas in this case, the buffer is widened and point is on
+  line 1."
+  (let ((gcfg (gensym "NARROWING-CFG+"))
+        (gbeg (gensym "OLDBEG+"))
+        (gend (gensym "OLDEND+")))
+    `(let ((,gcfg (slime-current-narrowing-configuration)))
+       (unwind-protect (progn ,@body)
+         (let ((,gbeg (slime-narrowing-configuration.beg ,gcfg))
+               (,gend (slime-narrowing-configuration.end ,gcfg)))
+           (when (and (>= (point) ,gbeg) (<= (point) ,gend))
+             (slime-set-narrowing-configuration ,gcfg)))))))
+
+(put 'save-restriction-if-possible 'lisp-indent-function 0)
+
 ;;;;; Temporary popup buffers
 
 (make-variable-buffer-local
@@ -8997,39 +9030,6 @@ Reconnect afterwards."
           (end (point-max))
           (total (buffer-size)))
       (or (/= beg 1) (/= end (1+ total))))))
-
-(defmacro save-restriction-if-possible (&rest body)
-  "Very similiarly to `save-restriction'. The only difference is
-that it's not enforcing the restriction as strictly: It's only
-enforced if `point' was not moved outside of the restriction
-after executing BODY.
-
-Example: 
-
-  (progn (goto-line 1000)
-         (narrow-to-page) 
-         (save-restriction-if-possible (widen) (goto-line 999)))
-
-  In this case, the buffer is narrowed to the current page, and
-  point is on line 999.
-
-  (progn (goto-char 1000)
-         (narrow-to-page) 
-         (save-restriction-if-possible (widen) (goto-line 1)))
-
-  Whereas in this case, the buffer is widened and point is on
-  line 1."
-  (let ((gcfg (gensym "NARROWING-CFG+"))
-        (gbeg (gensym "OLDBEG+"))
-        (gend (gensym "OLDEND+")))
-    `(let ((,gcfg (slime-current-narrowing-configuration)))
-       (unwind-protect (progn ,@body)
-         (let ((,gbeg (slime-narrowing-configuration.beg ,gcfg))
-               (,gend (slime-narrowing-configuration.end ,gcfg)))
-           (when (and (>= (point) ,gbeg) (<= (point) ,gend))
-             (slime-set-narrowing-configuration ,gcfg)))))))
-
-(put 'save-restriction-if-possible 'lisp-indent-function 0)
 
 
 ;;;;; Extracting Lisp forms from the buffer or user

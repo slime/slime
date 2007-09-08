@@ -1,3 +1,8 @@
+2007-09-08  Stelian Ionescu  <sionescu@common-lisp.net>
+
+	* slime.el (save-restriction-if-possible): Place macro definition
+	above use of the macro, to regain ability to byte-compile-file.
+
 2007-09-08  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	Fix message displaying on XEmacs. Reported by Steven E. Harris,
