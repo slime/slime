@@ -1,3 +1,7 @@
+2007-09-08  Matt Pillsbury <mtbp@rci.rutgers.edu>
+
+	* swank-backend.lisp (definterface): Updated docstring.
+	
 2007-09-06  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-repl-write-string): Use case, not ecase, for

@@ -110,11 +110,15 @@ DEFINTERFACE adds to this list and DEFIMPLEMENTATION removes.")
 
 (defmacro definterface (name args documentation &rest default-body)
   "Define an interface function for the backend to implement.
-A generic function is defined with NAME, ARGS, and DOCUMENTATION.
+A function is defined with NAME, ARGS, and DOCUMENTATION.  This
+function first looks for a function to call in NAME's property list
+that is indicated by 'IMPLEMENTATION; failing that, it looks for a
+function indicated by 'DEFAULT. If neither is present, an error is
+signaled.
 
-If a DEFAULT-BODY is supplied then NO-APPLICABLE-METHOD is specialized
-to execute the body if the backend doesn't provide a specific
-implementation.
+If a DEFAULT-BODY is supplied, then a function with the same body and
+ARGS will be added to NAME's property list as the property indicated
+by 'DEFAULT.
 
 Backends implement these functions using DEFIMPLEMENTATION."
   (check-type documentation string "a documentation string")
