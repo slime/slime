@@ -1,4 +1,14 @@
-2007-09-08  Matt Pillsbury <mtbp@rci.rutgers.edu>
+2007-09-08  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Fix message displaying on XEmacs. Reported by Steven E. Harris,
+	and Ken Causey.
+	
+	* slime.el (slime-display-message): Resurrect secondary
+	`buffer-name' argument which got lost in 2007-08-24.
+	(slime-format-display-message): Resurrect passing "*SLIME Note*"
+	as default buffer-name to `slime-display-message'.
+
+2007-09-08  Matt Pillsbury  <mtbp@rci.rutgers.edu>
 
 	* swank-backend.lisp (definterface): Updated docstring.
 	
@@ -17,7 +27,7 @@
 	* slime.el (slime-toggle-trace-fdefinition):  Fix typo.  The
 	 argument for interactive should be "P" not "p".
 
-2007-09-04  Mark Evenson <mark.evenson@gmx.at>
+2007-09-04  Mark Evenson  <mark.evenson@gmx.at>
 
 	* swank-abcl.lisp: Call accessors of compiler-condition at load
 	time to work around some ABCL problems.

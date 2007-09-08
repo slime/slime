@@ -951,9 +951,9 @@ Single-line messages use the echo area."
   (setq slime-message-function 'slime-format-display-message))
 
 (defun slime-format-display-message (format &rest args)
-  (slime-display-message (apply #'format format args)))
+  (slime-display-message (apply #'format format args) "*SLIME Note*"))
 
-(defun slime-display-message (message) 
+(defun slime-display-message (message buffer-name) 
   "Display MESSAGE in the echo area or in BUFFER-NAME.
 Use the echo area if MESSAGE needs only a single line.  If the MESSAGE
 requires more than one line display it in BUFFER-NAME and add a hook
