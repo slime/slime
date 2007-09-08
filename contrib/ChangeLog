@@ -1,3 +1,8 @@
+2007-09-08  Stelian Ionescu  <sionescu@common-lisp.net>
+
+	* slime-banner.el: Fixed typo to provide `slime-banner', not
+	`slime-startup-animation'.
+
 2007-09-06  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime-presentations.el (slime-presentation-write): Use case, not

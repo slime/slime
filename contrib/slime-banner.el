@@ -37,4 +37,4 @@
 
 (setq slime-repl-banner-function 'slime-startup-message)
 
-(provide 'slime-startup-animation)
+(provide 'slime-banner)
