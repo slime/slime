@@ -1,3 +1,34 @@
+2007-09-10  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	When working on multiple source trees simultaneously, the way
+	`slime-edit-definition' (M-.) works can sometimes be confusing:
+
+	`M-.' visits locations that are present in the current Lisp image,
+	which works perfectly well as long as the image reflects the
+	source tree that one is currently looking at.
+
+	In the other case, however, one can easily end up visiting a file
+	in a different source root directory (the one corresponding to the
+	Lisp image), and is thus easily tricked to modify the wrong source
+	files---which can lead to quite some stressfull cursing.
+
+	If the variable `slime-warn-when-possibly-tricked-by-M-.' is
+	T (the default), a warning message is issued to raise the user's
+	attention whenever `M-.' is about opening a file in a different
+	source root that also exists in the source root directory of the
+	user's _current buffer_.
+
+	There's no guarantee that all possible cases are covered, but if
+	you encounter such a warning, it's a strong indication that you
+	should check twice before modifying.
+	
+	* slime.el (slime-file-name-merge-source-root): New function.
+	(slime-highlight-differences-in-dirname): New function.
+	(slime-maybe-warn-for-different-source-root): New function.
+	(slime-warn-when-possibly-tricked-by-M-.): New variable (T by default.)
+	(slime-goto-location-buffer): Where appropriate, call
+	`slime-maybe-warn-for-different-source-root'
+	
 2007-09-08  Stelian Ionescu  <sionescu@common-lisp.net>
 
 	* slime.el (save-restriction-if-possible): Place macro definition

@@ -4575,33 +4575,130 @@ first element of the source-path redundant."
           (beginning-of-sexp))
       (error (goto-char origin)))))
 
+
+(defun slime-file-name-merge-source-root (target-filename buffer-filename)
+  "Returns a filename where the source root directory of TARGET-FILENAME
+is replaced with the source root directory of BUFFER-FILENAME.
+
+E.g. (slime-file-name-merge-source-root
+       \"/usr/local/src/joe/upstream/sbcl/code/late-extensions.lisp\"
+       \"/usr/local/src/joe/hacked/sbcl/compiler/deftype.lisp\")
+ 
+        ==> \"/usr/local/src/joe/hacked/sbcl/code/late-extensions.lisp\"
+"
+  (let ((target-dirs (split-string (file-name-directory target-filename) "/" t))
+        (buffer-dirs (split-string (file-name-directory buffer-filename) "/" t)))
+    ;; Starting from the end, we look if one of the TARGET-DIRS exists
+    ;; in BUFFER-FILENAME---if so, it and everything left from that dirname
+    ;; is considered to be the source root directory of BUFFER-FILENAME.
+    (loop with target-suffix-dirs = nil
+          with buffer-dirs* = (reverse buffer-dirs)
+          with target-dirs* = (reverse target-dirs)
+          for target-dir in target-dirs*
+          do (flet ((concat-dirs (dirs)
+                      (apply #'concat (mapcar #'file-name-as-directory dirs))))
+               (let ((pos (position target-dir buffer-dirs* :test #'equal)))
+                 (if (not pos)    ; TARGET-DIR not in BUFFER-FILENAME?
+                     (push target-dir target-suffix-dirs)
+                     (let* ((target-suffix (concat-dirs target-suffix-dirs)) ; PUSH reversed for us!
+                            (buffer-root   (concat-dirs (reverse (nthcdr pos buffer-dirs*)))))
+                       (return (concat (file-name-as-directory "/")
+                                       buffer-root
+                                       target-suffix
+                                       (file-name-nondirectory target-filename))))))))))
+
+(defun slime-highlight-differences-in-dirname (base-dirname contrast-dirname)
+  "Returns a copy of BASE-DIRNAME where all differences between
+BASE-DIRNAME and CONTRAST-DIRNAME are propertized with a
+highlighting face."
+  (flet ((insert-dir (dirname)
+           (insert (file-name-as-directory dirname)))
+         (insert-dir/propzd (dirname)
+           (slime-insert-propertized '(face highlight) dirname)
+           (insert "/")))  ; Not exactly portable (to VMS...)
+    (let ((base-dirs (split-string (file-name-as-directory base-dirname) "/" t))
+          (contrast-dirs (split-string (file-name-as-directory contrast-dirname) "/" t)))
+      (with-temp-buffer
+        (loop initially (insert (file-name-as-directory "/"))
+              for base-dir in base-dirs do
+              (let ((pos (position base-dir contrast-dirs :test #'equal)))
+                (if (not pos)
+                    (insert-dir/propzd base-dir)
+                    (progn (insert-dir base-dir)
+                           (setq contrast-dirs (nthcdr (1+ pos) contrast-dirs))))))
+        (buffer-substring (point-min) (point-max))))))
+
+(defvar slime-warn-when-possibly-tricked-by-M-. t
+  "When working on multiple source trees simultaneously, the way
+`slime-edit-definition' (M-.) works can sometimes be confusing:
+
+`M-.' visits locations that are present in the current Lisp image,
+which works perfectly well as long as the image reflects the source
+tree that one is currently looking at.
+
+In the other case, however, one can easily end up visiting a file
+in a different source root directory (the one corresponding to
+the Lisp image), and is thus easily tricked to modify the wrong
+source files---which can lead to quite some stressfull cursing.
+
+If this variable is T, a warning message is issued to raise the
+user's attention whenever `M-.' is about opening a file in a
+different source root that also exists in the source root
+directory of the user's current buffer.
+
+There's no guarantee that all possible cases are covered, but
+if you encounter such a warning, it's a strong indication that
+you should check twice before modifying.")
+
+(defun slime-maybe-warn-for-different-source-root (target-filename buffer-filename)
+  (when slime-warn-when-possibly-tricked-by-M-.
+    (let ((guessed-target (slime-file-name-merge-source-root target-filename
+                                                             buffer-filename)))
+      (when (and (not (equal guessed-target target-filename))
+                 (or t (file-exists-p guessed-target)))
+        (slime-message "Attention: This is `%s'."
+                       (concat (slime-highlight-differences-in-dirname
+                                 (file-name-directory target-filename)
+                                 (file-name-directory guessed-target))
+                               (file-name-nondirectory target-filename)))))))
+
+
 (defun slime-goto-location-buffer (buffer)
-  (destructure-case buffer
-    ((:file filename)
-     (let ((emacs-filename (slime-from-lisp-filename filename)))
-       (unless (and (buffer-file-name)
-                    (string= (buffer-file-name) emacs-filename))
-         (set-buffer (find-file-noselect emacs-filename t))))
-     (goto-char (point-min)))
-    ((:buffer buffer)
-     (set-buffer buffer)
-     (goto-char (point-min)))
-    ((:source-form string)
-     (set-buffer (get-buffer-create "*SLIME Source Form*"))
-     (erase-buffer)
-     (lisp-mode)
-     (insert string)
-     (goto-char (point-min)))
-    ((:zip file entry)
-     (require 'arc-mode)
-     (set-buffer (find-file-noselect file t))
-     (goto-char (point-min))
-     (re-search-forward (concat "  " entry "$"))
-     (let ((buffer (save-window-excursion
-                     (archive-extract)
-                     (current-buffer))))
-       (set-buffer buffer)
-       (goto-char (point-min))))))
+  (flet ((file-truename-safe (filename) (and filename (file-truename filename))))
+    (destructure-case buffer
+      ((:file filename)
+       (let ((target-filename (file-truename-safe (slime-from-lisp-filename filename)))
+             (buffer-filename (file-truename-safe (buffer-file-name))))
+         (when buffer-filename
+           (slime-maybe-warn-for-different-source-root target-filename buffer-filename))
+         (unless (and buffer-filename (string= buffer-filename target-filename))
+           (set-buffer (find-file-noselect target-filename t))))
+       (goto-char (point-min)))
+      ((:buffer buffer-name)
+       (let ((old-buffer-filename (file-truename-safe (buffer-file-name)))
+             (target-buffer-filename (file-truename-safe
+                                      (buffer-file-name (get-buffer buffer-name)))))
+         (when (and target-buffer-filename old-buffer-filename)
+           (slime-maybe-warn-for-different-source-root target-buffer-filename
+                                                       old-buffer-filename)))
+       (set-buffer buffer-name)
+       (goto-char (point-min)))
+      ((:source-form string)
+       (set-buffer (get-buffer-create "*SLIME Source Form*"))
+       (erase-buffer)
+       (lisp-mode)
+       (insert string)
+       (goto-char (point-min)))
+      ((:zip file entry)
+       (require 'arc-mode)
+       (set-buffer (find-file-noselect file t))
+       (goto-char (point-min))
+       (re-search-forward (concat "  " entry "$"))
+       (let ((buffer (save-window-excursion
+                       (archive-extract)
+                       (current-buffer))))
+         (set-buffer buffer)
+         (goto-char (point-min)))))))
 
 (defun slime-goto-location-position (position)
   (save-restriction-if-possible         ; try to keep restriction if possible.
