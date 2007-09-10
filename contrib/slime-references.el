@@ -7,6 +7,11 @@
 ;;
 ;;;
 
+(defcustom slime-sbcl-manual-root "http://www.sbcl.org/manual/"
+  "*The base URL of the SBCL manual, for documentation lookup."
+  :type 'string
+  :group 'slime-mode)
+
 (defface sldb-reference-face 
   (list (list t '(:underline t)))
   "Face for references."
@@ -44,19 +49,18 @@ See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
           (when (cdr refs)
             (terpri (current-buffer))))))
 
-
 
 ;;;;; SLDB references (rather SBCL specific)
 
 (defun sldb-insert-references (references)
   "Insert documentation references from a condition.
 See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
-  (loop for ref in references do
-        (destructuring-bind (where type what) ref
-          (insert (sldb-format-reference-source where) ", ")
-          (slime-insert-propertized (sldb-reference-properties ref)
-                                    (sldb-format-reference-node what))
-          (insert (format " [%s]" type) "\n"))))
+  (dolist (ref references)
+    (destructuring-bind (where type what) ref
+      (insert "\n" (sldb-format-reference-source where) ", ")
+      (slime-insert-propertized (sldb-reference-properties ref)
+				(sldb-format-reference-node what))
+      (insert (format " [%s]" type)))))
 
 (defun sldb-reference-properties (reference)
   "Return the properties for a reference.
@@ -84,7 +88,7 @@ Only add clickability to properties we actually know how to lookup."
 
 (defun sldb-format-reference-node (what)
   (if (listp what)
-      (mapconcat (lambda (x) (format "%s" x)) what ".")
+      (mapconcat #'prin1-to-string what ".")
     what))
 
 (defun sldb-lookup-reference ()
@@ -111,10 +115,9 @@ Only add clickability to properties we actually know how to lookup."
   (destructure-case extra
     ((:references references)
      (when references
-       (insert "See also:\n")
+       (insert "\nSee also:")
        (slime-with-rigid-indentation 2
-	 (sldb-insert-references references))
-       (insert "\n"))
+	 (sldb-insert-references references)))
      t)
     (t nil)))
 

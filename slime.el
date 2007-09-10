@@ -277,11 +277,6 @@ final, no matter where the point is."
   :type '(choice (const :tag "Enable" t) (const :tag "Disable" nil))
   :group 'slime-mode)
 
-(defcustom slime-sbcl-manual-root "http://www.sbcl.org/manual/"
-  "*The base URL of the SBCL manual, for documentation lookup."
-  :type 'string
-  :group 'slime-mode)
-
 ;;;;; slime-mode-faces
 
 (defgroup slime-mode-faces nil

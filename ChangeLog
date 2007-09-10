@@ -1,8 +1,12 @@
 2007-09-10  Helmut Eller  <helmut@localhost>
 
+	Fix some bugs introduced while moving doc refs to contrib.
+	
 	* swank-sbcl.lisp (condition-references): It's still needed.
 
 	* slime.el (sldb-dispatch-extras): Add missing quote.
+	(slime-sbcl-manual-root): Move definition to
+	contrib/slime-references.el.
 
 2007-09-10  Helmut Eller  <heller@common-lisp.net>
 
