@@ -325,6 +325,11 @@ information."
     (sb-int:encapsulated-condition (sb-int:encapsulated-condition condition))
     (t condition)))
 
+(defun condition-references (condition)
+  (if (typep condition 'sb-int:reference-condition)
+      (externalize-reference
+       (sb-int:reference-condition-references condition))))
+
 (defun compiler-note-location (context)
   (if context
       (locate-compiler-note

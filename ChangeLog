@@ -1,4 +1,6 @@
-2007-09-10  Helmut Eller  <heller@common-lisp.net>
+2007-09-10  Helmut Eller  <helmut@localhost>
+
+	* swank-sbcl.lisp (condition-references): It's still needed.
 
 	* slime.el (sldb-dispatch-extras): Add missing quote.
 
