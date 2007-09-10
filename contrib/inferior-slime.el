@@ -8,7 +8,7 @@
 ;; Add something like this to your .emacs: 
 ;;
 ;;   (add-to-list 'load-path "<directory-of-this-file>")
-;;   (add-hook 'slime-load-hook (lambda () (require 'slime-typeout-frame)))
+;;   (add-hook 'slime-load-hook (lambda () (require 'inferior-slime)))
 ;;   (add-hook 'inferior-lisp-mode-hook (lambda () (inferior-slime-mode 1)))
 
 (define-minor-mode inferior-slime-mode

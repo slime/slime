@@ -1,5 +1,14 @@
 2007-09-10  Helmut Eller  <heller@common-lisp.net>
 
+	* slime-parse.el (slime-cl-symbol-name, slime-cl-symbol-package):
+	Move from slime.el to contrib/slime-parse.el.
+
+2007-09-10  Helmut Eller  <heller@common-lisp.net>
+
+	* inferior-slime.el: Fix installation comment.
+
+2007-09-10  Helmut Eller  <heller@common-lisp.net>
+
 	Fix some of the bugs introduced with the last change.
 	
 	* slime-references.el (sldb-reference-face): Add missing quote.
