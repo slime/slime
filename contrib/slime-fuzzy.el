@@ -1,6 +1,10 @@
 ;;; slime-fuzzy.el --- fuzzy symbol completion
 ;;
-;; Author: Brian Downing <bdowning@lavos.net> and others
+;; Authors: Brian Downing <bdowning@lavos.net>
+;;          Tobias C. Rittweiler <tcr@freebits.de>
+;;          Attila Lendvai <attila.lendvai@gmail.com>
+;;          and others
+;;
 ;; License: GNU GPL (same license as Emacs)
 ;;
 ;;; Installation
@@ -346,7 +350,8 @@ buffer so that it can possibly be restored when the user is
 done."
   (let ((new-completion-buffer (not slime-fuzzy-target-buffer)))
     (when new-completion-buffer
-      (slime-fuzzy-save-window-configuration))
+      (setq slime-fuzzy-saved-window-configuration
+            (current-window-configuration)))
     (slime-fuzzy-enable-target-buffer-completions-mode)
     (setq slime-fuzzy-target-buffer (current-buffer))
     (setq slime-fuzzy-start (move-marker (make-marker) start))
@@ -357,6 +362,11 @@ done."
     (slime-fuzzy-fill-completions-buffer completions interrupted-p)
     (pop-to-buffer (slime-get-fuzzy-buffer))
     (when new-completion-buffer
+      ;; Hook to nullify window-config restoration if the user changes
+      ;; the window configuration himself.
+      (when (boundp 'window-configuration-change-hook)
+        (add-hook 'window-configuration-change-hook
+                  'slime-fuzzy-window-configuration-change))
       (add-local-hook 'kill-buffer-hook 'slime-fuzzy-abort)
       (setq buffer-quit-function 'slime-fuzzy-abort)) ; M-Esc Esc
     (when slime-fuzzy-completion-in-place
@@ -551,20 +561,9 @@ configuration alone."
         (bury-buffer))
     (pop-to-buffer slime-fuzzy-target-buffer)
     (goto-char slime-fuzzy-end)
-    (setq slime-fuzzy-target-buffer nil)))
-
-(defun slime-fuzzy-save-window-configuration ()
-  "Saves the current window configuration, and (if the
-window-configuration-change-hook variable exists) sets up for the
-saved configuration to be nullified if the user changes the
-window configuration further.  Adding the nullification routine
-to window-configuration-change-hook is delayed so that the
-windows stabalize before we start listening on the hook."
-  (setq slime-fuzzy-saved-window-configuration 
-        (current-window-configuration))
-  (when (boundp 'window-configuration-change-hook)
-    (run-with-timer 
-     0.5 nil 'slime-fuzzy-window-configuration-change-add-hook)))
+    (setq slime-fuzzy-target-buffer nil)
+    (remove-hook 'window-configuration-change-hook
+		 'slime-fuzzy-window-configuration-change)))
 
 (defun slime-fuzzy-maybe-restore-window-configuration ()
   "Restores the saved window configuration if it has not been
@@ -578,17 +577,9 @@ nullified."
     (setq slime-fuzzy-saved-window-configuration nil)
     t))
 
-(defun slime-fuzzy-window-configuration-change-add-hook ()
-  "Sets up slime-fuzzy-window-configuration-change on
-window-configuration-change-hook."
-  (add-hook 'window-configuration-change-hook
-            'slime-fuzzy-window-configuration-change))
-
 (defun slime-fuzzy-window-configuration-change ()
   "Called on window-configuration-change-hook.  Since the window
 configuration was changed, we nullify our saved configuration."
-  (remove-hook 'window-configuration-change-hook
-               'slime-fuzzy-window-configuration-change)
   (setq slime-fuzzy-saved-window-configuration nil))
 
 ;;; Initialization 

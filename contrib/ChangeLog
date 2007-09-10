@@ -1,3 +1,18 @@
+2007-09-10  Attila Lendvai  <attila.lendvai@gmail.com>
+
+	* slime-fuzzy.el: Fixed some race condition that prevented a
+	proper closing of the *Fuzzy Completions* buffer in some
+	circumstances.
+	
+	(slime-fuzzy-save-window-configuration): Removed. Hooking up
+	`window-configuration-change-hook' via `run-with-timer' was racy
+	and lead to this bug; we now set the hook explicitely at the
+	necessary place instead.
+	(slime-fuzzy-window-configuration-change-add-hook): Removed.
+	(slime-fuzzy-choices-buffer): Explicitly save the
+	window-configuration, and explicitly set the hook.
+	(slime-fuzzy-done): Explicitely remove the hook.
+
 2007-09-10  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime-parse.el (slime-cl-symbol-name, slime-cl-symbol-package):
