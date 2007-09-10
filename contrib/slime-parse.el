@@ -25,23 +25,6 @@ one sexp to find out the context."
                                 (slime-parse-sexp-at-point 
 				 (1+ (first arg-indices)))))))))))
 
-;;;;; Common Lisp-style package-qualified symbols
-
-(defun slime-cl-symbol-name (symbol)
-  (let ((n (if (stringp symbol) symbol (symbol-name symbol))))
-    (if (string-match ":\\([^:]*\\)$" n)
-	(let ((symbol-part (match-string 1 n)))
-          (if (string-match "^|\\(.*\\)|$" symbol-part)
-              (match-string 1 symbol-part)
-              symbol-part))
-      n)))
-
-(defun slime-cl-symbol-package (symbol &optional default)
-  (let ((n (if (stringp symbol) symbol (symbol-name symbol))))
-    (if (string-match "^\\([^:]*\\):" n)
-	(match-string 1 n)
-      default)))
-
 ;; XXX: unused function
 (defun slime-cl-symbol-external-ref-p (symbol)
   "Does SYMBOL refer to an external symbol?

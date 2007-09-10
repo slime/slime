@@ -1,3 +1,8 @@
+2007-09-10  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime-parse.el (slime-cl-symbol-name, slime-cl-symbol-package):
+	Moved back into slime.el.
+
 2007-09-08  Stelian Ionescu  <sionescu@common-lisp.net>
 
 	* slime-banner.el: Fixed typo to provide `slime-banner', not
