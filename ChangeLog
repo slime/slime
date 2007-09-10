@@ -1,5 +1,11 @@
 2007-09-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-cl-symbol-name, slime-cl-symbol-package):
+	Ressurected, as they're still used in this file. 
+	Reported by Edward Cant.
+
+2007-09-10  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	When working on multiple source trees simultaneously, the way
 	`slime-edit-definition' (M-.) works can sometimes be confusing:
 
