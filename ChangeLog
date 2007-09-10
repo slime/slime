@@ -1,4 +1,4 @@
-2007-09-10  Helmut Eller  <helmut@localhost>
+2007-09-10  Helmut Eller  <heller@common-lisp.net>
 
 	Fix some bugs introduced while moving doc refs to contrib.
 	
@@ -7,7 +7,9 @@
 	* slime.el (sldb-dispatch-extras): Add missing quote.
 	(slime-sbcl-manual-root): Move definition to
 	contrib/slime-references.el.
-
+	(slime-cl-symbol-name, slime-cl-symbol-package): Move to
+	contrib/slime-parse.el.
+	
 2007-09-10  Helmut Eller  <heller@common-lisp.net>
 
 	Move SBCL doc references to contrib.

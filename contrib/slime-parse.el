@@ -34,6 +34,21 @@ FOO::BAR is not, and nor is BAR."
     (and (string-match ":" name)
          (not (string-match "::" name)))))
 
+(defun slime-cl-symbol-name (symbol)
+  (let ((n (if (stringp symbol) symbol (symbol-name symbol))))
+    (if (string-match ":\\([^:]*\\)$" n)
+	(let ((symbol-part (match-string 1 n)))
+          (if (string-match "^|\\(.*\\)|$" symbol-part)
+              (match-string 1 symbol-part)
+              symbol-part))
+      n)))
+
+(defun slime-cl-symbol-package (symbol &optional default)
+  (let ((n (if (stringp symbol) symbol (symbol-name symbol))))
+    (if (string-match "^\\([^:]*\\):" n)
+	(match-string 1 n)
+      default)))
+
 ;; XXX: unused function
 (defun slime-qualify-cl-symbol (symbol-or-name)
   "Like `slime-qualify-cl-symbol-name', but interns the result."

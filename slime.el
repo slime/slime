@@ -9098,24 +9098,6 @@ The result is unspecified if there isn't a symbol under the point."
   (or (slime-sexp-at-point)
       (error "No expression at point.")))
 
-;;;;; Common Lisp-style package-qualified symbols
-
-(defun slime-cl-symbol-name (symbol)
-  (let ((n (if (stringp symbol) symbol (symbol-name symbol))))
-    (if (string-match ":\\([^:]*\\)$" n)
-	(let ((symbol-part (match-string 1 n)))
-          (if (string-match "^|\\(.*\\)|$" symbol-part)
-              (match-string 1 symbol-part)
-              symbol-part))
-      n)))
-
-(defun slime-cl-symbol-package (symbol &optional default)
-  (let ((n (if (stringp symbol) symbol (symbol-name symbol))))
-    (if (string-match "^\\([^:]*\\):" n)
-	(match-string 1 n)
-      default)))
-
-
 ;;;; Portability library
 
 (when (featurep 'xemacs)
