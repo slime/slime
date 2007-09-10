@@ -6796,7 +6796,7 @@ EXTRAS is currently used for the stepper."
       ((:show-frame-source n)
        (sldb-show-frame-source n))
       (t
-       (or (run-hook-with-args-until-success sldb-extras-hooks extra)
+       (or (run-hook-with-args-until-success 'sldb-extras-hooks extra)
            ;;(error "Unhandled extra element:" extra)
            )))))
 

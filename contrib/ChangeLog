@@ -1,5 +1,13 @@
 2007-09-10  Helmut Eller  <heller@common-lisp.net>
 
+	Fix some of the bugs introduced with the last change.
+	
+	* slime-references.el (sldb-reference-face): Add missing quote.
+	(sldb-reference-properties): We are lucky and can use keywords
+	instead of strings.
+
+2007-09-10  Helmut Eller  <heller@common-lisp.net>
+
 	Move SBCL doc references to contrib.
 
 	* slime-references.el: New file.

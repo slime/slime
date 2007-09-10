@@ -1,5 +1,9 @@
 2007-09-10  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (sldb-dispatch-extras): Add missing quote.
+
+2007-09-10  Helmut Eller  <heller@common-lisp.net>
+
 	Move SBCL doc references to contrib.
 
 	* slime.el (sldb-insert-condition): Merge REFERENCES and EXTRAS.

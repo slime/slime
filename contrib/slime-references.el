@@ -8,7 +8,7 @@
 ;;;
 
 (defface sldb-reference-face 
-  (list (list t (:underline t)))
+  (list (list t '(:underline t)))
   "Face for references."
   :group 'slime-debugger)
 
@@ -64,8 +64,8 @@ Only add clickability to properties we actually know how to lookup."
   (destructuring-bind (where type what) reference
     (if (or (and (eq where :sbcl) (eq type :node))
             (and (eq where :ansi-cl)
-                 (member type '("FUNCTION" "SPECIAL-OPERATOR" "MACRO"
-				"SECTION" "GLOSSARY" "ISSUE"))))
+                 (memq type '(:function :special-operator :macro
+			      :section :glossary :issue))))
         `(sldb-default-action
           sldb-lookup-reference
           ;; FIXME: this is a hack!  slime-compiler-notes and sldb are a
@@ -123,6 +123,6 @@ Only add clickability to properties we actually know how to lookup."
 
 (setq slime-tree-printer 'slime-tree-print-with-references)
 
-(add-hook sldb-extras-hooks 'sldb-maybe-insert-references)
+(add-hook 'sldb-extras-hooks 'sldb-maybe-insert-references)
 
 (provide 'slime-references)
