@@ -691,10 +691,25 @@ Return a list of the form (NAME LOCATION)."
 (defimplementation install-debugger-globally (function)
   (setq sb-ext:*invoke-debugger-hook* function))
 
-#+#.(swank-backend::sbcl-with-new-stepper-p)
 (defimplementation condition-extras (condition)
-  (when (typep condition 'sb-impl::step-form-condition)
-    `((:show-frame-source 0))))
+  (cond #+#.(swank-backend::sbcl-with-new-stepper-p)
+        ((typep condition 'sb-impl::step-form-condition)
+         `((:show-frame-source 0)))
+        ((typep condition 'sb-int:reference-condition)
+         (let ((refs (sb-int:reference-condition-references condition)))
+           (if refs
+               `((:references ,(externalize-reference refs))))))))
+
+(defun externalize-reference (ref)
+  (etypecase ref
+    (null nil)
+    (cons (cons (externalize-reference (car ref))
+                (externalize-reference (cdr ref))))
+    ((or string number) ref)
+    (symbol 
+     (cond ((eq (symbol-package ref) (symbol-package :test))
+            ref)
+           (t (symbol-name ref))))))
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
@@ -945,11 +960,6 @@ stack."
 (defimplementation format-sldb-condition (condition)
   (let ((sb-int:*print-condition-references* nil))
     (princ-to-string condition)))
-
-(defimplementation condition-references (condition)
-  (if (typep condition 'sb-int:reference-condition)
-      (sb-int:reference-condition-references condition)
-      '()))
 
 
 ;;;; Profiling

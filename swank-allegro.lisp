@@ -66,10 +66,6 @@
 (defimplementation format-sldb-condition (c)
   (princ-to-string c))
 
-(defimplementation condition-references (c)
-  (declare (ignore c))
-  '())
-
 (defimplementation call-with-syntax-hooks (fn)
   (funcall fn))
 

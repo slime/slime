@@ -2003,7 +2003,6 @@ printing."
   (list (safe-condition-message *swank-debugger-condition*)
         (format nil "   [Condition of type ~S]"
                 (type-of *swank-debugger-condition*))
-        (condition-references *swank-debugger-condition*)
         (condition-extras *swank-debugger-condition*)))
 
 (defun format-restarts-for-emacs ()

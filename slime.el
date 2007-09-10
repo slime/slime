@@ -387,8 +387,7 @@ PROPERTIES specifies any default face properties."
    "function names and arguments in a detailed (expanded) frame")
   (local-name     "local variable names")
   (local-value    "local variable values")
-  (catch-tag      "catch tags")
-  (reference      "documentation references" '(:underline t)))
+  (catch-tag      "catch tags"))
 
 ;;;;; slime-repl
 
@@ -4155,12 +4154,10 @@ This operation is \"lossy\" in the broad sense but not for display purposes."
   "Merge NOTES together. Keep the highest severity, concatenate the messages."
   (let* ((new-severity (reduce #'slime-most-severe notes
                                :key #'slime-note.severity))
-         (new-message (mapconcat #'slime-note.short-message notes "\n"))
-         (new-references (reduce #'append notes :key #'slime-note.references)))
+         (new-message (mapconcat #'slime-note.short-message notes "\n")))
     (let ((new-note (copy-list (car notes))))
       (setf (getf new-note :message) new-message)
       (setf (getf new-note :severity) new-severity)
-      (setf (getf new-note :references) new-references)
       new-note)))
 
 ;; XXX: unused function
@@ -4204,8 +4201,8 @@ The order of the input list is preserved."
 
 (defun slime-maybe-list-compiler-notes (notes &optional emacs-snapshot)
   "Show the compiler notes if appropriate."
-  ;; don't pop up a buffer if all notes will are already annotated in
-  ;; the buffer itself
+  ;; don't pop up a buffer if all notes are already annotated in the
+  ;; buffer itself
   (unless (every #'slime-note-has-location-p notes)
     (slime-list-compiler-notes notes emacs-snapshot)))
 
@@ -4228,8 +4225,8 @@ The order of the input list is preserved."
       (goto-char (point-min)))))
 
 (defun slime-alistify (list key test)
-  "Partition the elements of LIST into an alist.  KEY extracts the key
-from an element and TEST is used to compare keys."
+  "Partition the elements of LIST into an alist.  
+KEY extracts the key from an element and TEST is used to compare keys."
   (declare (type function key))
   (let ((alist '()))
     (dolist (e list)
@@ -4252,9 +4249,6 @@ from an element and TEST is used to compare keys."
   (or (plist-get note :short-message)
       (plist-get note :message)))
 
-(defun slime-note.references (note)
-  (plist-get note :references))
-
 (defun slime-note.location (note)
   (plist-get note :location))
 
@@ -4266,12 +4260,12 @@ from an element and TEST is used to compare keys."
     (:read-error "Read Errors")
     (:style-warning "Style Warnings")))
 
+(defvar slime-tree-printer 'slime-tree-default-printer)
+
 (defun slime-tree-for-note (note)
   (make-slime-tree :item (slime-note.message note)
                    :plist (list 'note note)
-                   :print-fn (if (slime-note.references note)
-                                 'slime-tree-print-with-references
-                               'slime-tree-default-printer)))
+                   :print-fn slime-tree-printer))
 
 (defun slime-tree-for-severity (severity notes collapsed-p)
   (make-slime-tree :item (format "%s (%d)" 
@@ -4344,35 +4338,6 @@ from an element and TEST is used to compare keys."
 
 (defun slime-tree-default-printer (tree)
   (princ (slime-tree.item tree) (current-buffer)))
-
-(defun slime-tree-print-with-references (tree)
-  ;; for SBCL-style references
-  (slime-tree-default-printer tree)
-  (when-let (note (plist-get (slime-tree.plist tree) 'note))
-    (when-let (references (slime-note.references note))
-      (terpri (current-buffer))
-      (princ "See also:" (current-buffer))
-      (terpri (current-buffer))
-      (slime-tree-insert-references references))))
-
-(defun slime-tree-insert-references (references)
-  "Insert documentation references from a condition.
-See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
-  (loop for refs on references
-        for ref = (car refs)
-        do
-        (destructuring-bind (where type what) ref
-          ;; FIXME: this is poorly factored, and shares some code and
-          ;; data with sldb that it shouldn't: notably
-          ;; sldb-reference-face.  Probably the names of
-          ;; sldb-reference-foo should be altered to be not sldb
-          ;; specific.
-          (insert "  " (sldb-format-reference-source where) ", ")
-          (slime-insert-propertized (sldb-reference-properties ref)
-                                    (sldb-format-reference-node what))
-          (insert (format " [%s]" (slime-cl-symbol-name type)))
-          (when (cdr refs)
-            (terpri (current-buffer))))))
 
 (defun slime-tree-decoration (tree)
   (cond ((slime-tree-leaf-p tree) "-- ")
@@ -4452,9 +4417,9 @@ new overlay is created."
       (goto-char start)
       (let ((severity (plist-get note :severity))
             (message (plist-get note :message))
-            (appropriate-overlay (slime-note-at-point)))
-        (if appropriate-overlay
-            (slime-merge-note-into-overlay appropriate-overlay severity message)
+            (overlay (slime-note-at-point)))
+        (if overlay
+            (slime-merge-note-into-overlay overlay severity message)
             (slime-create-note-overlay note start end severity message))))))
 
 (defun slime-create-note-overlay (note start end severity message)
@@ -6810,10 +6775,9 @@ If LEVEL isn't the same as in the buffer, reinitialize the buffer."
 
 (defun sldb-insert-condition (condition)
   "Insert the text for CONDITION.
-CONDITION should be a list (MESSAGE TYPE REFERENCES EXTRAS).
-REFERENCES a references to additional documentation.
+CONDITION should be a list (MESSAGE TYPE EXTRAS).
 EXTRAS is currently used for the stepper."
-  (destructuring-bind (message type references extras) condition
+  (destructuring-bind (message type extras) condition
     (when (> (length message) 70)
       (add-text-properties 0 (length message) (list 'help-echo message)
                            message))
@@ -6821,19 +6785,20 @@ EXTRAS is currently used for the stepper."
                               (in-sldb-face topline message)
                               "\n"
                               (in-sldb-face condition type))
-    (when references
-      (insert "See also:\n")
-      (slime-with-rigid-indentation 2
-        (sldb-insert-references references))
-      (insert "\n"))
     (sldb-dispatch-extras extras)))
+
+(defvar sldb-extras-hooks)
 
 (defun sldb-dispatch-extras (extras)
   ;; this is (mis-)used for the stepper
   (dolist (extra extras)
     (destructure-case extra
       ((:show-frame-source n)
-       (sldb-show-frame-source n)))))
+       (sldb-show-frame-source n))
+      (t
+       (or (run-hook-with-args-until-success sldb-extras-hooks extra)
+           ;;(error "Unhandled extra element:" extra)
+           )))))
 
 (defun sldb-insert-restarts (restarts)
   "Insert RESTARTS and add the needed text props
@@ -7394,74 +7359,6 @@ was called originally."
         ((list 'swank:restart-frame number))
       ((:ok value) (message "%s" value))
       ((:abort)))))
-
-
-;;;;; SLDB references (rather SBCL specific)
-
-(defun sldb-insert-references (references)
-  "Insert documentation references from a condition.
-See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
-  (loop for ref in references do
-        (destructuring-bind (where type what) ref
-          (insert (sldb-format-reference-source where) ", ")
-          (slime-insert-propertized (sldb-reference-properties ref)
-                                    (sldb-format-reference-node what))
-          (insert (format " [%s]" (slime-cl-symbol-name type)) "\n"))))
-
-(defun sldb-reference-properties (reference)
-  "Return the properties for a reference.
-Only add clickability to properties we actually know how to lookup."
-  (destructuring-bind (where type what) reference
-    (if (or (and (eq where :sbcl) (eq type :node))
-            (and (eq where :ansi-cl)
-                 (symbolp type)
-                 (member (slime-cl-symbol-name type)
-                         '("function" "special-operator" "macro"
-                           "section" "glossary" "issue"))))
-        `(sldb-default-action
-          sldb-lookup-reference
-          ;; FIXME: this is a hack!  slime-compiler-notes and sldb are a
-          ;; little too intimately entwined.
-          slime-compiler-notes-default-action sldb-lookup-reference
-          sldb-reference ,reference
-          face sldb-reference-face
-          mouse-face highlight))))
-
-(defun sldb-format-reference-source (where)
-  (case where
-    (:amop    "The Art of the Metaobject Protocol")
-    (:ansi-cl "Common Lisp Hyperspec")
-    (:sbcl    "SBCL Manual")
-    (t        (format "%S" where))))
-
-(defun sldb-format-reference-node (what)
-  (if (symbolp what)
-      (upcase (slime-cl-symbol-name what))
-    (if (listp what)
-        (mapconcat (lambda (x) (format "%S" x)) what ".")
-      what)))
-
-(defun sldb-lookup-reference ()
-  "Browse the documentation reference at point."
-  (destructuring-bind (where type what)
-      (get-text-property (point) 'sldb-reference)
-    (case where
-      (:ansi-cl
-       (case type
-         (:section
-          (browse-url (funcall common-lisp-hyperspec-section-fun what)))
-         (:glossary
-          (browse-url (funcall common-lisp-glossary-fun what)))
-         (:issue
-          (browse-url (funcall 'common-lisp-issuex what)))
-         (t
-          (hyperspec-lookup (if (symbolp what)
-                                (slime-cl-symbol-name what)
-                              what)))))
-      (t
-       (let ((url (format "%s%s.html" slime-sbcl-manual-root
-                          (subst-char-in-string ?\  ?\- what))))
-         (browse-url url))))))
 
 
 ;;;; Thread control panel

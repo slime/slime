@@ -1,3 +1,9 @@
+2007-09-10  Helmut Eller  <heller@common-lisp.net>
+
+	Move SBCL doc references to contrib.
+
+	* slime-references.el: New file.
+
 2007-09-10  Attila Lendvai  <attila.lendvai@gmail.com>
 
 	* slime-fuzzy.el: Fixed some race condition that prevented a

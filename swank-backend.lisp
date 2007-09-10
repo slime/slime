@@ -686,20 +686,12 @@ as it was called originally.")
   "Format a condition for display in SLDB."
   (princ-to-string condition))
 
-(definterface condition-references (condition)
-  "Return a list of documentation references for a condition.
-Each reference is one of:
-  (:ANSI-CL
-   {:FUNCTION | :SPECIAL-OPERATOR | :MACRO | :SECTION | :GLOSSARY }
-   symbol-or-name)
-  (:SBCL :NODE node-name)"
-  (declare (ignore condition))
-  '())
-
 (definterface condition-extras (condition)
   "Return a list of extra for the debugger.
 The allowed elements are of the form:
-  (:SHOW-FRAME-SOURCE frame-number)"
+  (:SHOW-FRAME-SOURCE frame-number)
+  (:REFERENCES &rest refs)
+"
   (declare (ignore condition))
   '())
 

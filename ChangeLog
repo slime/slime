@@ -1,3 +1,20 @@
+2007-09-10  Helmut Eller  <heller@common-lisp.net>
+
+	Move SBCL doc references to contrib.
+
+	* slime.el (sldb-insert-condition): Merge REFERENCES and EXTRAS.
+	(sldb-extras-hooks, sldb-dispatch-extras): New hook.
+
+	* swank-backend.lisp (condition-references): Removed. Merged with
+	condition-extras.
+
+	* swank-sbcl.lisp (condition-references): Removed.
+	(condition-extras): Include references.
+	(externalize-reference): New function.  Don't return plain
+	symbols.
+
+	* swank-allegro.lisp (condition-references): Removed.
+
 2007-09-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-cl-symbol-name, slime-cl-symbol-package):
@@ -44,7 +61,7 @@
 
 	Fix message displaying on XEmacs. Reported by Steven E. Harris,
 	and Ken Causey.
-	
+
 	* slime.el (slime-display-message): Resurrect secondary
 	`buffer-name' argument which got lost in 2007-08-24.
 	(slime-format-display-message): Resurrect passing "*SLIME Note*"
@@ -53,7 +70,7 @@
 2007-09-08  Matt Pillsbury  <mtbp@rci.rutgers.edu>
 
 	* swank-backend.lisp (definterface): Updated docstring.
-	
+
 2007-09-06  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-repl-write-string): Use case, not ecase, for
