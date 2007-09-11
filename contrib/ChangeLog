@@ -1,3 +1,7 @@
+2007-09-11  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-fancy.el: Require `slime-references'.
+	
 2007-09-10  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-parse.el (slime-cl-symbol-name, slime-cl-symbol-package):
@@ -37,7 +41,7 @@
 	window-configuration, and explicitly set the hook.
 	(slime-fuzzy-done): Explicitely remove the hook.
 
-2007-09-10  Tobias C. Rittweiler <tcr@freebits.de>
+2007-09-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-parse.el (slime-cl-symbol-name, slime-cl-symbol-package):
 	Moved back into slime.el.
@@ -53,7 +57,7 @@
 	ecase, for dispatching targets.  Should fix XEmacs compatibility.
 	Reported by Steven E. Harris.
 
-2007-09-05  Tobias C. Rittweiler <tcr@freebits.de>
+2007-09-05  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-c-p-c.el: This file incorrectly provided the module
 	`:swank-compound-prefix'; changed that to `:swank-c-p-c'. 
@@ -65,12 +69,12 @@
 	`*arglist-pprint-bindings*' to be special, as the variable is
 	defined later in the file. (Gets rid of warnings during loading.)
 
-2007-09-05  Tobias C. Rittweiler <tcr@freebits.de>
+2007-09-05  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-c-p-c.el (slime-c-p-c-init): Bind `slime-complete-form' to
 	`C-c C-s' in `slime-repl-mode-map'.
 	
-2007-09-05  Tobias C. Rittweiler <tcr@freebits.de>
+2007-09-05  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	Added extended arglist display for DECLAIM and PROCLAIM.
 	

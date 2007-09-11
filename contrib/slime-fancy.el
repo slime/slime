@@ -55,5 +55,8 @@
 ;; Just adds commands.
 (require 'slime-xref-browser)
 
+;; Puts clickable references to documentation into SBCL errors.
+(require 'slime-references)
+
 (provide 'slime-fancy)
 
