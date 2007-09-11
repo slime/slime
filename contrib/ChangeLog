@@ -1,5 +1,15 @@
 2007-09-11  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-editing-commands.el: Automatically bind the editing
+	commands when this module is required. (Previously, one had to
+	enable them explicitly, but this is inconsistent to, for instance,
+	the `slime-c-p-c' module which also sets up its bindings
+	automatically.)
+	(slime-bind-editing-commands): Renamed to `slime-editing-commands-init'.
+	(slime-editing-commands-init): Evaluated at toplevel.
+
+2007-09-11  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-parse.el (slime-enclosing-form-specs): Now also works even
 	when point is inside a string.
 	(slime-inside-string-p): New function.
