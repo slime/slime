@@ -201,7 +201,7 @@ recompiled."
 (defvar *contribs* '(swank-c-p-c swank-arglists swank-fuzzy
                      swank-fancy-inspector
                      swank-presentations swank-presentation-streams
-                     #+asdf swank-asdf
+                     #+(or asdf sbcl) swank-asdf
                      )
   "List of names for contrib modules.")
 

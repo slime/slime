@@ -1,3 +1,13 @@
+2007-09-11  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-loader.lisp: Aways compile-file `contrib/swank-asdf.lisp'
+	on SBCL. This fixes "Undefined function" style-warnings when using
+	`slime-asdf' in combination with SBCL. Reported by Cyrus Harmon.
+
+	* swank-sbcl.lisp: Explicitly require ASDF. (While this is not
+	strictly necessary, as it's implicitly loaded on requiring the
+	other modules, I think it's better to be explicit about it.)
+	
 2007-09-10  Helmut Eller  <heller@common-lisp.net>
 
 	Fix some bugs introduced while moving doc refs to contrib.

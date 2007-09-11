@@ -14,6 +14,7 @@
 (in-package :swank-backend)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
+  (require 'asdf)
   (require 'sb-bsd-sockets)
   (require 'sb-introspect)
   (require 'sb-posix)
