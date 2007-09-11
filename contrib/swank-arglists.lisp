@@ -86,8 +86,13 @@ symbols is a big no-no.
 In such a case (that no symbol could be found), the object
 *ARGLIST-DUMMY* is returned instead, which works as a placeholder
 datum for subsequent logics to rely on."
-  (multiple-value-bind (symbol found?) (parse-symbol string)
-    (if found? symbol *arglist-dummy*)))
+  (let* ((string  (string-left-trim '(#\Space #\Tab #\Newline) string))
+	 (quoted? (eql (aref string 0) #\')))
+    (multiple-value-bind (symbol found?)
+	(parse-symbol (if quoted? (subseq string 1) string))
+      (if found?
+	  (if quoted? `(quote ,symbol) symbol)
+	  *arglist-dummy*))))
 
 
 (defun parse-form-spec (raw-spec &optional reader)
