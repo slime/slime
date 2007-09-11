@@ -1,5 +1,12 @@
 2007-09-11  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-parse.el (slime-enclosing-form-specs): Now also works even
+	when point is inside a string.
+	(slime-inside-string-p): New function.
+	(slime-beginning-of-string): New function.
+
+2007-09-11  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank-arglist.lisp (read-conversatively-for-autodoc): Also parse
 	quoted symbols explicitly. This fixed extended arglist display for
 	`(make-instance 'foo'. Reported by: Johannes Groedem.

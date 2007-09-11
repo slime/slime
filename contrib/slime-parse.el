@@ -299,8 +299,11 @@ Example:)
     ;; This speeds up this function significantly.
     (ignore-errors
       (save-excursion
-        ;; Make sure we get the whole operator name.
-        (slime-end-of-symbol)
+        ;; Make sure we get the whole thing at point.
+        (if (not (slime-inside-string-p))
+	    (slime-end-of-symbol)
+	  (slime-beginning-of-string)
+	  (forward-sexp))
         (save-restriction
           ;; Don't parse more than 20000 characters before point, so we don't spend
           ;; too much time.
@@ -347,7 +350,22 @@ Example:)
      (nreverse arg-indices)
      (nreverse points))))
 
+
 (defun slime-ensure-list (thing)
   (if (listp thing) thing (list thing)))
 
+(defun slime-inside-string-p ()
+  (let* ((toplevel-begin (first (slime-region-for-defun-at-point)))
+	 (parse-result (parse-partial-sexp toplevel-begin (point)))
+	 (inside-string-p  (nth 3 parse-result))
+	 (string-start-pos (nth 8 parse-result)))
+    (and inside-string-p string-start-pos)))
+
+(defun slime-beginning-of-string ()
+  (let ((string-start-pos (slime-inside-string-p)))
+    (if string-start-pos
+	(goto-char string-start-pos)
+	(error "We're not within a string"))))
+
 (provide 'slime-parse)
+
