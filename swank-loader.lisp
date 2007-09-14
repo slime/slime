@@ -18,7 +18,6 @@
 ;;   (defparameter swank-loader::*fasl-directory* "/tmp/fasl/")
 ;;   (load ".../swank-loader.lisp")
 
-
 (cl:defpackage :swank-loader
   (:use :cl)
   (:export :load-swank

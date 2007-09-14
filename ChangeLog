@@ -1,3 +1,10 @@
+2007-09-12  Christophe Rhodes  <csr21@cantab.net>
+
+	Make ASDF:LOAD-OP (and SBCL REQUIRE) happy with swank.asd
+
+	* swank.asd: Define and use a CL-SCRIPT-FILE class for loading as
+	source, even with ASDF:LOAD-OP.
+
 2007-09-11  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-loader.lisp: Aways compile-file `contrib/swank-asdf.lisp'
