@@ -1,3 +1,16 @@
+2007-09-14  Helmut Eller  <heller@common-lisp.net>
+
+	Some cleanups for the REPL.
+
+	* slime.el (slime-repl-write-string): Split it up into smaller
+	functions.
+	(slime-repl-emit, slime-repl-emit-result)
+	(slime-emit-string): New functions.
+
+	(slime-repl-save-history): Use prin1 instead of pp.
+
+	(repl-type-ahead): New test case.
+
 2007-09-12  Christophe Rhodes  <csr21@cantab.net>
 
 	Make ASDF:LOAD-OP (and SBCL REQUIRE) happy with swank.asd
@@ -14,11 +27,11 @@
 	* swank-sbcl.lisp: Explicitly require ASDF. (While this is not
 	strictly necessary, as it's implicitly loaded on requiring the
 	other modules, I think it's better to be explicit about it.)
-	
+
 2007-09-10  Helmut Eller  <heller@common-lisp.net>
 
 	Fix some bugs introduced while moving doc refs to contrib.
-	
+
 	* swank-sbcl.lisp (condition-references): It's still needed.
 
 	* slime.el (sldb-dispatch-extras): Add missing quote.
@@ -26,7 +39,7 @@
 	contrib/slime-references.el.
 	(slime-cl-symbol-name, slime-cl-symbol-package): Move to
 	contrib/slime-parse.el.
-	
+
 2007-09-10  Helmut Eller  <heller@common-lisp.net>
 
 	Move SBCL doc references to contrib.

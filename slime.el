@@ -2833,53 +2833,44 @@ hashtable `slime-output-target-to-marker'; output is inserted at this marker."
 
 (defun slime-repl-write-string (string &optional target)
   (case target
-    ((nil)                              ; Regular process output
-     (with-current-buffer (slime-output-buffer)
-       (slime-with-output-end-mark
-        (slime-insert-propertized '(face slime-repl-output-face 
-                                         rear-nonsticky (face))
-                                  string)
-        (set-marker slime-output-end (point))
-        (when (and (= (point) slime-repl-prompt-start-mark)
-                   (not (bolp)))
-          (insert "\n")
-          (set-marker slime-output-end (1- (point))))
-        (if (< slime-repl-input-start-mark (point))
-            (set-marker slime-repl-input-start-mark
-                        (point))))))
-    (:repl-result                       
-     (with-current-buffer (slime-output-buffer)
-       (let ((marker (slime-output-target-marker target)))
-         (goto-char marker)
-         (let ((result-start (point)))
-	   (slime-insert-propertized `(face slime-repl-result-face
-                                          rear-nonsticky (face)) 
-                                   string)
-           ;; Move the input-start marker after the REPL result.
-           (set-marker marker (point))))))
-    (t
-     (let* ((marker (slime-output-target-marker target))
-            (buffer (and marker (marker-buffer marker))))
-       (when buffer
-         (with-current-buffer buffer
-           (save-excursion 
-             ;; Insert STRING at MARKER, then move MARKER behind
-             ;; the insertion.
-             (goto-char marker)
-             (insert-before-markers string)
-             (set-marker marker (point)))))))))
+    ((nil) (slime-repl-emit string))
+    (:repl-result (slime-repl-emit-result string))
+    (t (slime-emit-string string target))))
+
+(defun slime-repl-emit (string)
+  ;; insert the string STRING in the output buffer
+  (with-current-buffer (slime-output-buffer)
+    (slime-with-output-end-mark 
+     (slime-insert-propertized '(face slime-repl-output-face
+                                      rear-nonsticky (face))
+                               string)
+     (set-marker slime-output-end (point))
+     (when (and (= (point) slime-repl-prompt-start-mark)
+                (not (bolp)))
+       (insert "\n")
+       (set-marker slime-output-end (1- (point))))
+     (when (< slime-repl-input-start-mark (point))
+       (set-marker slime-repl-input-start-mark (point))))))
+
+(defun slime-repl-emit-result (string)
+  ;; insert STRING and mark it as evaluation result
+  (with-current-buffer (slime-output-buffer)
+    (goto-char slime-repl-input-start-mark)
+    (slime-insert-propertized `(face slime-repl-result-face
+                                     rear-nonsticky (face)) 
+                              string)
+    (set-marker slime-repl-input-start-mark (point))))
 
 (defvar slime-last-output-target-id 0
   "The last integer we used as a TARGET id.")
 
 (defvar slime-output-target-to-marker
   (make-hash-table)
-  "Map from TARGET ids to Emacs markers that indicate where
-output should be inserted.")
+  "Map from TARGET ids to Emacs markers.
+The markers indicate where output should be inserted.")
 
 (defun slime-output-target-marker (target)
-  "Return a marker that indicates where output for TARGET should
-be inserted."
+  "Return the marker where output for TARGET should be inserted."
   (case target
     ((nil)
      (with-current-buffer (slime-output-buffer)
@@ -2889,6 +2880,20 @@ be inserted."
        slime-repl-input-start-mark))
     (t
      (gethash target slime-output-target-to-marker))))
+
+(defun slime-emit-string (string target)
+  "Insert STRING at target TARGET.
+See `slime-output-target-to-marker'."
+  (let* ((marker (slime-output-target-marker target))
+         (buffer (and marker (marker-buffer marker))))
+    (when buffer
+      (with-current-buffer buffer
+        (save-excursion 
+          ;; Insert STRING at MARKER, then move MARKER behind
+          ;; the insertion.
+          (goto-char marker)
+          (insert-before-markers string)
+          (set-marker marker (point)))))))
 
 (defun slime-switch-to-output-buffer (&optional connection)
   "Select the output buffer, preferably in a different window."
@@ -3653,12 +3658,13 @@ truncated.  That part is untested, though!"
     (let ((hist (subseq hist 0 (min (length hist) slime-repl-history-size))))
       ;;(message "saving %s to %s\n" hist file)
       (with-temp-file file
-        (let ((cs slime-repl-history-file-coding-system))
+        (let ((cs slime-repl-history-file-coding-system)
+              (print-length nil) (print-level nil))
           (setq buffer-file-coding-system cs)
-          (insert (format ";; -*- coding: %s -*-\n" cs)))
-        (insert ";; History for SLIME REPL. Automatically written.\n"
-                ";; Edit only if you know what you're doing\n")
-        (pp (mapcar #'substring-no-properties hist) (current-buffer))))))
+          (insert (format ";; -*- coding: %s -*-\n" cs))
+          (insert ";; History for SLIME REPL. Automatically written.\n"
+                  ";; Edit only if you know what you're doing\n")
+          (prin1 (mapcar #'substring-no-properties hist) (current-buffer)))))))
 
 (defun slime-repl-save-all-histories ()
   "Save the history in each repl buffer."
@@ -8862,6 +8868,24 @@ SWANK> "))
     (slime-check "Buffer contains result"
       (equal final-contents (buffer-string)))))
 
+(def-slime-test repl-type-ahead
+    (command input final-contents)
+    "Ensure that user input is preserved correctly.
+In particular, input inserted while waiting for a result."
+    '(("(sleep 1)" "foo" "SWANK> (sleep 1)
+NIL
+SWANK> foo"))
+  (when (slime-output-buffer)
+    (kill-buffer (slime-output-buffer)))
+  (setf (slime-lisp-package-prompt-string) "SWANK")
+  (with-current-buffer (slime-output-buffer)
+    (insert command)
+    (call-interactively 'slime-repl-return)
+    (insert input)
+    (slime-sync-to-top-level 5)
+    (slime-check "Buffer contains result"
+      (equal final-contents (buffer-string)))))
+
 (def-slime-test interactive-eval-output
     (input result-contents visiblep)
     "Test simple commands in the minibuffer."
@@ -9407,8 +9431,9 @@ If they are not, position point at the first syntax error found."
 
 (defvar slime-obsolete-commands 
   '(("\C-c\M-i" (slime repl) slime-fuzzy-complete-symbol)
-    ("\M-\C-a" (slime) slime-beginning-of-defun)
-    ("\M-\C-e" (slime) slime-end-of-defun)
+    ;; Don't shadow bindings in lisp-mode-map
+    ;;("\M-\C-a" (slime) slime-beginning-of-defun)
+    ;;("\M-\C-e" (slime) slime-end-of-defun)
     ("\C-c\M-q" (slime) slime-reindent-defun)
     ("\C-c\C-s" (slime) slime-complete-form)
     ;; (nil nil slime-close-all-parens-in-sexp)
