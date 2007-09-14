@@ -1,3 +1,40 @@
+2007-09-15  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-fuzzy.lisp: Code reorganization and cleanup; making it
+	compute less and couple of other minor issues fixed on the
+	way. Thanks to Stelian Ionescu for testing and providing feedback!
+
+	(defstruct fuzzy-matching): New `package-name' slot.
+	(make-fuzzy-matching): Updated for new slot.
+	(format-completion-result): Renamed to `fuzzy-format-matching'.
+	(%fuzzy-extract-matching-info): Helper for `fuzzy-format-matching'.
+
+	(fuzzy-completion-set): Convert the matchings after they got
+	truncated to the passed completion-set limit from Emacs.
+	I.e. `slime-fuzzy-completion-limit' This means a huge
+	computational reduction.
+
+	(fuzzy-create-completion-set): Renamed to `fuzzy-generate-matchings'.
+	(fuzzy-generate-matchings): Returns the fuzzy matchings
+	themselves, do not yet convert them for Emacs. Do not perform two
+	sorts on the generated matchings (first alphabetically, then per
+	score), but just one with an appropriate predicate that sorts per
+	score, unless matchings are equal, then sort alphabetically. Prune
+	matchings with symbols which are found in a differenta package
+	than their home package when the home package is among the matched
+	packages. Try to take the time needed to sort the generated
+	matchings into account for the time-limit.
+	(%guess-sort-duration): Helper. 
+	Tries to guess how long the sort will take.
+	(%make-duplicate-symbols-filter): Helper. 
+	Used for pruning of matchings.
+	(fuzzy-matching-greaterp): New testing predicate for sorting.
+
+	(fuzzy-find-matching-symbols): Now takes a :filter keyarg; only
+	considers symbols that pass through the filter.
+	(fuzzy-find-matching-packages): Do not return matchings for all
+	nicknames of package, but just the one that matches best.	
+	
 2007-09-11  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-editing-commands.el: Automatically bind the editing

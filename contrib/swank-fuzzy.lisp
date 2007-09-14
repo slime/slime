@@ -1,6 +1,9 @@
 ;;; swank-fuzzy.lisp --- fuzzy symbol completion
 ;;
-;; Author: Brian Downing <bdowning@lavos.net> and others
+;; Authors: Brian Downing <bdowning@lavos.net>
+;;          Tobias C. Rittweiler <tcr@freebits.de>
+;;          and others
+;;
 ;; License: Public Domain
 ;;
 
@@ -76,20 +79,58 @@ designator's format. The cases are as follows:
 (defstruct (fuzzy-matching (:conc-name   fuzzy-matching.)
 			   (:predicate   fuzzy-matching-p)
 			   (:constructor %make-fuzzy-matching))
-  symbol	    ; The symbol that has been found to match. 
-  score	            ; The higher the better symbol is a match.
-  package-chunks    ; Chunks pertaining to the package identifier of the symbol.
-  symbol-chunks)    ; Chunks pertaining to the symbol's name.
+  symbol	    ; The symbol that has been found to match.
+  package-name	    ; The name of the package where SYMBOL was found in.
+                    ;  (This is not necessarily the same as the home-package
+                    ;   of SYMBOL, because the SYMBOL can be internal to
+                    ;   lots of packages; also think of package nicknames.)
+  score	            ; The higher the better SYMBOL is a match.
+  package-chunks    ; Chunks pertaining to the package identifier of SYMBOL.
+  symbol-chunks)    ; Chunks pertaining to SYMBOL's name.
 
-(defun make-fuzzy-matching (symbol score package-chunks symbol-chunks)
+(defun make-fuzzy-matching (symbol package-name score package-chunks symbol-chunks)
   (declare (inline %make-fuzzy-matching))
-  (%make-fuzzy-matching :symbol symbol :score score
+  (%make-fuzzy-matching :symbol symbol :package-name package-name :score score
 			:package-chunks package-chunks
 			:symbol-chunks symbol-chunks))
 
+(defun %fuzzy-extract-matching-info (fuzzy-matching user-input-string)
+  (multiple-value-bind (_ user-package-name __ input-internal-p)
+      (parse-completion-arguments user-input-string nil)
+    (declare (ignore _ __))
+    (with-struct (fuzzy-matching. score symbol package-name package-chunks symbol-chunks)
+	fuzzy-matching
+      (let (symbol-name real-package-name internal-p)
+	(cond (symbol ; symbol fuzzy matching?
+	       (setf symbol-name (symbol-name symbol))
+	       (setf internal-p input-internal-p)
+	       (setf real-package-name (cond ((keywordp symbol)     "")
+					     ((not user-package-name) nil)
+					     (t package-name))))
+	      (t      ; package fuzzy matching?
+	       (setf symbol-name "")
+	       (setf real-package-name package-name)
+	       ;; If no explicit package name was given by the user
+	       ;; (e.g. input was "asdf"), we want to append only
+	       ;; one colon ":" to the package names.
+	       (setf internal-p (if user-package-name input-internal-p nil))))
+	(values symbol-name
+		real-package-name
+		(if user-package-name internal-p nil)
+		(completion-output-symbol-converter user-input-string)
+		(completion-output-package-converter user-input-string))))))
 
-(defun fuzzy-convert-matching-for-emacs (fuzzy-matching converter
-					 internal-p package-name)
+(defun fuzzy-format-matching (fuzzy-matching user-input-string)
+  "Returns the completion (\"foo:bar\") that's represented by FUZZY-MATCHING."
+  (multiple-value-bind (symbol-name package-name internal-p symbol-converter package-converter)
+      (%fuzzy-extract-matching-info fuzzy-matching user-input-string)
+    (setq symbol-name  (and symbol-name  (funcall symbol-converter symbol-name)))
+    (setq package-name (and package-name (funcall package-converter package-name)))
+    (let ((result (untokenize-symbol package-name internal-p symbol-name)))
+      ;; We return the length of the possibly added prefix as second value.
+      (values result (search symbol-name result)))))
+
+(defun fuzzy-convert-matching-for-emacs (fuzzy-matching user-input-string)
   "Converts a result from the fuzzy completion core into
 something that emacs is expecting.  Converts symbols to strings,
 fixes case issues, and adds information describing if the symbol
@@ -97,24 +138,17 @@ is :bound, :fbound, a :class, a :macro, a :generic-function,
 a :special-operator, or a :package."
   (with-struct (fuzzy-matching. symbol score package-chunks symbol-chunks) fuzzy-matching
     (multiple-value-bind (name added-length)
-        (format-completion-result
-          (funcall (or converter #'identity) (symbol-name symbol))
-          internal-p package-name)
+	(fuzzy-format-matching fuzzy-matching user-input-string)
       (list name
-            score
-            (append package-chunks
+	    score
+	    (append package-chunks
 		    (mapcar #'(lambda (chunk)
 				;; Fix up chunk positions to account for possible
 				;; added package identifier.
 				(let ((offset (first chunk)) (string (second chunk)))
 				  (list (+ added-length offset) string))) 
 			    symbol-chunks))
-            (classify-symbol symbol)))))
-
-(defun format-completion-result (string internal-p package-name)
-  (let ((result (untokenize-symbol package-name internal-p string)))
-    ;; We return the length of the possibly added prefix as second value.
-    (values result (search string result))))
+	    (classify-symbol symbol)))))
 
 (defun fuzzy-completion-set (string default-package-name &key limit time-limit-in-msec)
   "Returns two values: an array of completion objects, sorted by
@@ -125,113 +159,140 @@ is returned that indicates whether or not TIME-LIMIT-IN-MSEC was
 exhausted."
   (check-type limit (or null (integer 0 #.(1- most-positive-fixnum))))
   (check-type time-limit-in-msec (or null (integer 0 #.(1- most-positive-fixnum))))
-  (multiple-value-bind (completion-set interrupted-p)
-      (fuzzy-create-completion-set string default-package-name
-                                   time-limit-in-msec)
+  (multiple-value-bind (matchings interrupted-p)
+      (fuzzy-generate-matchings string default-package-name time-limit-in-msec)
     (when (and limit
                (> limit 0)
-               (< limit (length completion-set)))
-      (if (array-has-fill-pointer-p completion-set)
-          (setf (fill-pointer completion-set) limit)
-          (setf completion-set (make-array limit :displaced-to completion-set))))
-    (values completion-set interrupted-p)))
+               (< limit (length matchings)))
+      (if (array-has-fill-pointer-p matchings)
+          (setf (fill-pointer matchings) limit)
+          (setf matchings (make-array limit :displaced-to matchings))))
+    (map-into matchings #'(lambda (m)
+			    (fuzzy-convert-matching-for-emacs m string))
+	      matchings)
+    (values matchings interrupted-p)))
 
 
-(defun fuzzy-create-completion-set (string default-package-name time-limit-in-msec)
+(defun fuzzy-generate-matchings (string default-package-name time-limit-in-msec)
   "Does all the hard work for FUZZY-COMPLETION-SET. If
 TIME-LIMIT-IN-MSEC is NIL, an infinite time limit is assumed."
-  (multiple-value-bind (parsed-name parsed-package-name package internal-p)
+  (multiple-value-bind (parsed-symbol-name parsed-package-name package internal-p)
       (parse-completion-arguments string default-package-name)
-    (flet ((convert (matchings package-name &optional converter)
-	     ;; Converts MATCHINGS to completion objects for Emacs.
-	     ;; PACKAGE-NAME is the package identifier that's used as prefix
-	     ;; during formatting. If NIL, the identifier is omitted.
-	     (map-into matchings
-		       #'(lambda (m)
-			   (fuzzy-convert-matching-for-emacs m converter
-							     internal-p
-							     package-name))
-		       matchings))
-	   (fix-up (matchings parent-package-matching)
+    (flet ((fix-up (matchings parent-package-matching)
 	     ;; The components of each matching in MATCHINGS have been computed
 	     ;; relatively to PARENT-PACKAGE-MATCHING. Make them absolute.
 	     (let* ((p parent-package-matching)
+		    (p.name   (fuzzy-matching.package-name p))
 		    (p.score  (fuzzy-matching.score p))
 		    (p.chunks (fuzzy-matching.package-chunks p)))
 	       (map-into matchings
 			 #'(lambda (m)
 			     (let ((m.score (fuzzy-matching.score m)))
+			       (setf (fuzzy-matching.package-name m) p.name)
 			       (setf (fuzzy-matching.package-chunks m) p.chunks)
 			       (setf (fuzzy-matching.score m)
-				     (if (string= parsed-name "")
+				     (if (equal parsed-symbol-name "")
 					 ;; (Make package matchings be sorted before all the
-                                         ;; relative symbol matchings while preserving over
+					 ;; relative symbol matchings while preserving over
 					 ;; all orderness.)
 					 (/ p.score 100)        
 					 (+ p.score m.score)))
 			       m))
 			 matchings)))
-	   (find-symbols (designator package time-limit)
+	   (find-symbols (designator package time-limit &optional filter)
 	     (fuzzy-find-matching-symbols designator package
 					  :time-limit-in-msec time-limit
-					  :external-only (not internal-p)))
-           (find-packages (designator time-limit)
-             (fuzzy-find-matching-packages designator :time-limit-in-msec time-limit)))
-      (let ((symbol-normalizer  (completion-output-symbol-converter string))
-	    (package-normalizer #'(lambda (package-name)
-				    (let ((converter (completion-output-package-converter string)))
-				      ;; Present packages with a trailing colon for maximum convenience!
-				      (concatenate 'string (funcall converter package-name) ":"))))
-            (time-limit time-limit-in-msec) (symbols) (packages) (results))
-	(cond ((not parsed-package-name)        ; E.g. STRING = "asd"
+					  :external-only (not internal-p)
+					  :filter (or filter #'identity)))
+	   (find-packages (designator time-limit)
+	     (fuzzy-find-matching-packages designator :time-limit-in-msec time-limit)))
+      (let ((time-limit time-limit-in-msec) (symbols) (packages) (results))
+	(cond ((not parsed-package-name) ; E.g. STRING = "asd"
 	       ;; We don't know if user is searching for a package or a symbol
 	       ;; within his current package. So we try to find either.
-	       (setf (values packages time-limit) (find-packages parsed-name time-limit))
-               (setf (values symbols  time-limit) (find-symbols parsed-name package time-limit))
-               (setf symbols  (convert symbols nil symbol-normalizer))
-               (setf packages (convert packages nil package-normalizer)))
+	       (setf (values packages time-limit) (find-packages parsed-symbol-name time-limit))
+	       (setf (values symbols  time-limit) (find-symbols parsed-symbol-name package time-limit)))
 	      ((string= parsed-package-name "") ; E.g. STRING = ":" or ":foo"
-	       (setf (values symbols time-limit) (find-symbols parsed-name package time-limit))
-               (setf symbols (convert symbols "" symbol-normalizer)))
-	      (t	                        ; E.g. STRING = "asd:" or "asd:foo"
+	       (setf (values symbols time-limit) (find-symbols parsed-symbol-name package time-limit)))
+	      (t		   ; E.g. STRING = "asd:" or "asd:foo"
 	       ;; Find fuzzy matchings of the denoted package identifier part.
 	       ;; After that, find matchings for the denoted symbol identifier
 	       ;; relative to all the packages found.
-               (multiple-value-bind (found-packages rest-time-limit)
-                   (find-packages parsed-package-name time-limit-in-msec)
-                 (loop
-                    for package-matching across found-packages
-                    for package-sym  = (fuzzy-matching.symbol package-matching)
-                    for package-name = (funcall symbol-normalizer (symbol-name package-sym))
-                    for package      = (find-package package-sym)
-                    while (or (not time-limit) (> rest-time-limit 0)) do
-                      (multiple-value-bind (matchings remaining-time)
-                          (find-symbols parsed-name package rest-time-limit)
-                        (setf matchings (fix-up matchings package-matching))
-                        (setf matchings (convert matchings package-name symbol-normalizer))
-                        (setf symbols   (concatenate 'vector symbols matchings))
-                        (setf rest-time-limit remaining-time))
-                    finally ; CONVERT is destructive. So we have to do this at last.
-                      (setf time-limit rest-time-limit)
-                      (setf packages (when (string= parsed-name "")
-                                       (convert found-packages nil package-normalizer)))))))
-	;; Sort alphabetically before sorting by score. (Especially useful when
-	;; PARSED-NAME is empty, and all possible completions are to be returned.)
+	       (multiple-value-bind (found-packages rest-time-limit)
+		   (find-packages parsed-package-name time-limit-in-msec)
+		 (loop
+		       for package-matching across found-packages
+		       for package = (find-package (fuzzy-matching.package-name package-matching))
+		       while (or (not time-limit) (> rest-time-limit 0)) do
+		         (multiple-value-bind (matchings remaining-time)
+			     (find-symbols parsed-symbol-name package rest-time-limit
+					   (%make-duplicate-symbols-filter
+					    (remove package-matching found-packages)))
+			   (setf matchings (fix-up matchings package-matching))
+			   (setf symbols   (concatenate 'vector symbols matchings))
+			   (setf rest-time-limit remaining-time)
+			   (let ((guessed-sort-duration (%guess-sort-duration (length symbols))))
+			     (when (<= rest-time-limit guessed-sort-duration)
+			       (decf rest-time-limit guessed-sort-duration)
+			       (loop-finish))))
+		       finally
+		         (setf time-limit rest-time-limit)
+		         (when (equal parsed-symbol-name "") ; E.g. STRING = "asd:"
+			   (setf packages found-packages))))))
+	;; Sort by score; thing with equal score, sort alphabetically.
+	;; (Especially useful when PARSED-SYMBOL-NAME is empty, and all possible
+	;; completions are to be returned.)
 	(setf results (concatenate 'vector symbols packages))
-	(setf results (sort results #'string< :key #'first))  ; SORT + #'STRING-LESSP
-	(setf results (stable-sort results #'> :key #'second));  conses on at least SBCL 0.9.18.
+	(setf results (sort results #'fuzzy-matching-greaterp))
 	(values results (and time-limit (<= time-limit 0)))))))
+
+(defun %guess-sort-duration (length)
+  ;; These numbers are pretty much arbitrary, except that they're
+  ;; vaguely correct on my machine with SBCL. Yes, this is an ugly
+  ;; kludge, but it's better than before (where this didn't exist at
+  ;; all, which essentially meant, that this was taken to be 0.)
+  (if (zerop length)
+      0
+      (let ((comparasions (* 3.8 (* length (log length 2)))))
+	(* 1000 (* comparasions (expt 10 -7)))))) ; msecs
+
+(defun %make-duplicate-symbols-filter (fuzzy-package-matchings)
+  ;; Returns a filter function that takes a symbol and which returns T
+  ;; if one of FUZZY-PACKAGE-MATCHINGS represents the home-package of
+  ;; the symbol.
+  (let ((packages (mapcar #'(lambda (m)
+			      (find-package (fuzzy-matching.package-name m)))
+			  (coerce fuzzy-package-matchings 'list))))
+    #'(lambda (symbol)
+	(member (symbol-package symbol) packages))))
+
+(defun fuzzy-matching-greaterp (m1 m2)
+  "Returns T if fuzzy-matching M1 should be sorted before M2.
+Basically just the scores of the two matchings are compared, and
+the match with higher score wins. For the case that the score is
+equal, the one which comes alphabetically first wins."
+  (declare (type fuzzy-matching m1 m2))
+  (let ((score1 (fuzzy-matching.score m1))
+	(score2 (fuzzy-matching.score m2)))
+    (cond ((> score1 score2) t)
+	  ((< score1 score2) nil)	; total order
+	  (t
+	   (let ((name1 (symbol-name (fuzzy-matching.symbol m1)))
+		 (name2 (symbol-name (fuzzy-matching.symbol m2))))
+	     (string< name1 name2))))))
 
 
 (defun get-real-time-in-msecs ()
   (let ((units-per-msec (max 1 (floor internal-time-units-per-second 1000))))
     (values (floor (get-internal-real-time) units-per-msec)))) ; return just one value!
 
-
-(defun fuzzy-find-matching-symbols (string package &key external-only time-limit-in-msec)
+(defun fuzzy-find-matching-symbols
+    (string package &key (filter #'identity) external-only time-limit-in-msec)
   "Returns two values: a vector of fuzzy matchings for matching
-symbols in PACKAGE, using the fuzzy completion algorithm; the
-remaining time limit. 
+symbols in PACKAGE, using the fuzzy completion algorithm, and the
+remaining time limit.
+
+Only those symbols are considered of which FILTER does not return T.
 
 If EXTERNAL-ONLY is true, only external symbols are considered. A
 TIME-LIMIT-IN-MSEC of NIL is considered no limit; if it's zero or
@@ -239,6 +300,7 @@ negative, perform a NOP."
   (let ((time-limit-p (and time-limit-in-msec t))
         (time-limit (or time-limit-in-msec 0))
         (rtime-at-start (get-real-time-in-msecs))
+	(package-name (package-name package))
         (count 0))
     (declare (type boolean time-limit-p))
     (declare (type integer time-limit rtime-at-start))
@@ -265,16 +327,19 @@ negative, perform a NOP."
                 (recompute-remaining-time rest-time-limit)
               (setf rest-time-limit remaining-time)
               (cond (exhausted? (return-from loop))
+		    ((funcall filter symbol) :continue)
                     ((or (not external-only) (symbol-external-p symbol package))
-                     (if (string= "" string) ; "" matchs always
-                         (vector-push-extend (make-fuzzy-matching symbol 0.0 '() '())
-                                             completions)
+                     (if (string= "" string) ; "" matches always
+                         (vector-push-extend (make-fuzzy-matching symbol package-name
+								  0.0 '() '())
+					     completions)
                          (multiple-value-bind (match-result score)
                              (perform-fuzzy-match string (symbol-name symbol))
                            (when match-result
-                             (vector-push-extend
-                              (make-fuzzy-matching symbol score '() match-result)
-                              completions)))))))))
+			     (vector-push-extend
+			      (make-fuzzy-matching symbol package-name score
+						   '() match-result)
+			      completions)))))))))
         (values completions rest-time-limit)))))
 
 
@@ -292,15 +357,25 @@ Cf. FUZZY-FIND-MATCHING-SYMBOLS."
     (declare (type function converter))
     (if (and time-limit-p (<= time-limit 0))
         (values #() time-limit)
-        (loop for package-name in (mapcan #'package-names (list-all-packages))
-              for converted-name = (funcall converter package-name)
-              for package-symbol = (or (find-symbol package-name)
-                                        (make-symbol package-name)) ; no INTERN
-              do (multiple-value-bind (result score)
-                     (compute-highest-scoring-completion name converted-name)
-                   (when result
-                     (vector-push-extend (make-fuzzy-matching package-symbol score result '())
-                                         completions)))
+        (loop for package in (list-all-packages) do
+	      ;; Find best-matching package-nickname:
+              (loop with max-pkg-name = ""
+		    with max-result   = nil
+		    with max-score    = 0
+		    for package-name in (package-names package)
+		    for converted-name = (funcall converter package-name)
+		    do
+		    (multiple-value-bind (result score)
+			(compute-highest-scoring-completion name converted-name)
+		      (when (and result (> score max-score))
+			(setf max-pkg-name package-name)
+			(setf max-result   result)
+			(setf max-score    score)))
+		    finally
+		    (when max-result
+		      (vector-push-extend (make-fuzzy-matching nil max-pkg-name
+							       max-score max-result '())
+					  completions)))
               finally
                 (return
                   (values completions
