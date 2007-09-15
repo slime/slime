@@ -4626,7 +4626,7 @@ you should check twice before modifying.")
                                                              buffer-filename)))
       (when (and guessed-target
                  (not (equal guessed-target target-filename))
-                 (or t (file-exists-p guessed-target)))
+                 (file-exists-p guessed-target))
         (slime-message "Attention: This is `%s'."
                        (concat (slime-highlight-differences-in-dirname
                                  (file-name-directory target-filename)

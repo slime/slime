@@ -1,5 +1,12 @@
 2007-09-15  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-maybe-warn-for-different-source-root): Catch
+	returned NIL from `slime-file-name-merge-source-root' if the two
+	filenames don't share a common source root. 
+	Reported by Frank Goenninger.
+	
+2007-09-15  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (slime-split-string): New semi-portability function.
 	The behaviour of `split-string' changed between Emacs21 and
 	Emacs22. Thanks to Christophe Rhodes for reporting this.
