@@ -25,7 +25,7 @@
         list lead to inspecting package names, rather than the packages
         themselves. Fix that.
 
-
+2007-09-15  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-parse.el: Fix extended arglist display on misbalanced
 	expressions like `(defun foo | ... (defun bar () 'bar)'
