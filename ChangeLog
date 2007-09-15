@@ -1,3 +1,14 @@
+2007-09-15  Helmut Eller  <heller@common-lisp.net>
+
+	Let slime-setup load contribs.
+
+	* slime.el (slime-setup): Take a list of contribs to load as
+	argument.
+
+	* slime-autoloads.el (slime-setup): Ditto, but delay the actual
+	loading until slime is loaded.
+	(slime-setup-contribs): New function.
+
 2007-09-15  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-maybe-warn-for-different-source-root): Catch

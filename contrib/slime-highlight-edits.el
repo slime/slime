@@ -1,4 +1,4 @@
-;;; slme-higlight-edits --- highlight edited, i.e. not yet compiled, code 
+;;; slime-higlight-edits --- highlight edited, i.e. not yet compiled, code 
 ;;
 ;; Author: William Bland <doctorbill.news@gmail.com> and others
 ;; License: GNU GPL (same license as Emacs)
@@ -87,5 +87,9 @@
     (goto-char beg)
     (skip-chars-forward " \n\t\r" end)
     (<= end (point))))
+
+(defun slime-highlight-edits-mode-on () (slime-highlight-edits-mode 1))
+
+(add-hook 'slime-mode-hook 'slime-highlight-edits-mode-on)
 
 (provide 'slime-highlight-edits)

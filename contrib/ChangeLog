@@ -1,5 +1,15 @@
+2007-09-15  Helmut Eller  <heller@common-lisp.net>
+
+	Add the necessary hooks when loading some contribs, so that those
+	contribs can be easily loaded with slime-setup.
+
+	* slime-highlight-edits.el (slime-highlight-edits-mode-on): New
+	function.  Add this to slime-mode-hook by default.
+
+	* slime-autodoc.el (slime-use-autodoc-mode): Change default to t.
+
 2007-09-15  Ariel Badichi <abadichi@bezeqint.net>
-	
+
 	* swank-fancy-inspector.lisp (inspect-for-emacs package): When
         inspecting a package, the links in the use list and the used-by
         list lead to inspecting package names, rather than the packages

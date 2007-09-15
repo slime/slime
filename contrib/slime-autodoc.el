@@ -18,9 +18,8 @@
 
 (require 'slime-parse)
 
-(defvar slime-use-autodoc-mode nil
+(defvar slime-use-autodoc-mode t
   "When non-nil always enable slime-autodoc-mode in slime-mode.")
-
 
 (defun slime-fontify-string (string)
   "Fontify STRING as `font-lock-mode' does in Lisp mode."

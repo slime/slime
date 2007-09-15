@@ -68,16 +68,14 @@
   "When non-nil highlight buffers with compilation notes, warnings and errors."
   )
 
-(defun* slime-setup (&key autodoc typeout-frame highlight-edits)
-  "Setup Emacs so that lisp-mode buffers always use SLIME."
+(defun slime-setup (&optional contribs)
+  "Setup Emacs so that lisp-mode buffers always use SLIME.
+CONTRIBS is a list of contrib packages to load."
   (when (member 'lisp-mode slime-lisp-modes)
     (add-hook 'lisp-mode-hook 'slime-lisp-mode-hook))
   (when (member 'scheme-mode slime-lisp-modes)
     (add-hook 'scheme-mode-hook 'slime-scheme-mode-hook))
-  (when typeout-frame
-    (add-hook 'slime-connected-hook 'slime-ensure-typeout-frame))
-  (setq slime-use-autodoc-mode autodoc)
-  (setq slime-use-highlight-edits-mode highlight-edits))
+  (mapc #'require contribs))
 
 (defun slime-shared-lisp-mode-hook ()
   (slime-mode 1))
@@ -6345,7 +6343,7 @@ When displaying XREF information, this goes to the next reference."
   (remap 'undo '(lambda (&optional arg)
                  (interactive)
                  (let ((buffer-read-only nil))
-                   (when slime-use-highlight-edits-mode
+                   (when (fboundp 'slime-remove-edits)
                      (slime-remove-edits (point-min) (point-max)))
                    (undo arg)))))
 
@@ -6406,7 +6404,7 @@ NB: Does not affect *slime-eval-macroexpand-expression*"
        (lambda (expansion)
          (with-current-buffer buffer
            (let ((buffer-read-only nil))
-             (when slime-use-highlight-edits-mode
+             (when (fboundp 'slime-remove-edits)
                (slime-remove-edits (point-min) (point-max)))
              (goto-char start)
              (delete-region start end)
