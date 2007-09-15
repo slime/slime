@@ -4546,6 +4546,8 @@ first element of the source-path redundant."
   "Returns a filename where the source root directory of TARGET-FILENAME
 is replaced with the source root directory of BUFFER-FILENAME.
 
+If no common source root could be determined, return NIL.
+
 E.g. (slime-file-name-merge-source-root
        \"/usr/local/src/joe/upstream/sbcl/code/late-extensions.lisp\"
        \"/usr/local/src/joe/hacked/sbcl/compiler/deftype.lisp\")
@@ -4622,7 +4624,8 @@ you should check twice before modifying.")
   (when slime-warn-when-possibly-tricked-by-M-.
     (let ((guessed-target (slime-file-name-merge-source-root target-filename
                                                              buffer-filename)))
-      (when (and (not (equal guessed-target target-filename))
+      (when (and guessed-target
+                 (not (equal guessed-target target-filename))
                  (or t (file-exists-p guessed-target)))
         (slime-message "Attention: This is `%s'."
                        (concat (slime-highlight-differences-in-dirname
