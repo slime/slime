@@ -470,8 +470,8 @@ SPECIAL-OPERATOR groups."
   (declare (ignore inspector))
   (let ((package-name         (package-name package))
         (package-nicknames    (package-nicknames package))
-        (package-use-list     (mapcar #'package-name (package-use-list package)))
-        (package-used-by-list (mapcar #'package-name (package-used-by-list package)))
+        (package-use-list     (package-use-list package))
+        (package-used-by-list (package-used-by-list package))
         (shadowed-symbols     (package-shadowing-symbols package))
         (present-symbols      '()) (present-symbols-length  0)
         (internal-symbols     '()) (internal-symbols-length 0)
@@ -486,8 +486,8 @@ SPECIAL-OPERATOR groups."
               (progn (push sym external-symbols) (incf external-symbols-length))))))
     
     (setf package-nicknames    (sort (copy-list package-nicknames)    #'string<)
-          package-use-list     (sort (copy-list package-use-list)     #'string<)
-          package-used-by-list (sort (copy-list package-used-by-list) #'string<)
+          package-use-list     (sort (copy-list package-use-list)     #'string< :key #'package-name)
+          package-used-by-list (sort (copy-list package-used-by-list) #'string< :key #'package-name)
           shadowed-symbols     (sort (copy-list shadowed-symbols)     #'string<))
     
     (setf present-symbols      (sort present-symbols  #'string<)  ; SORT + STRING-LESSP

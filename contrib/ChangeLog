@@ -1,3 +1,10 @@
+2007-09-15  Ariel Badichi <abadichi@bezeqint.net>
+	
+	* swank-fancy-inspector.lisp (inspect-for-emacs package): When
+        inspecting a package, the links in the use list and the used-by
+        list lead to inspecting package names, rather than the packages
+        themselves. Fix that.
+
 2007-09-15  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-parse.el: Fix extended arglist display on misbalanced
@@ -7,7 +14,6 @@
 	(slime-inside-string-p): Use `beginning-of-defun' directly than
 	relying on `slime-region-for-defun-at-point' (as this one uses
 	`end-of-defun' which signals an error on misbalanced expressions.)
-	
 
 2007-09-15  Tobias C. Rittweiler  <tcr@freebits.de>
 
