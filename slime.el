@@ -4552,8 +4552,8 @@ E.g. (slime-file-name-merge-source-root
  
         ==> \"/usr/local/src/joe/hacked/sbcl/code/late-extensions.lisp\"
 "
-  (let ((target-dirs (split-string (file-name-directory target-filename) "/" t))
-        (buffer-dirs (split-string (file-name-directory buffer-filename) "/" t)))
+  (let ((target-dirs (slime-split-string (file-name-directory target-filename) "/" t))
+        (buffer-dirs (slime-split-string (file-name-directory buffer-filename) "/" t)))
     ;; Starting from the end, we look if one of the TARGET-DIRS exists
     ;; in BUFFER-FILENAME---if so, it and everything left from that dirname
     ;; is considered to be the source root directory of BUFFER-FILENAME.
@@ -4577,13 +4577,15 @@ E.g. (slime-file-name-merge-source-root
   "Returns a copy of BASE-DIRNAME where all differences between
 BASE-DIRNAME and CONTRAST-DIRNAME are propertized with a
 highlighting face."
+  (setq base-dirname (file-name-as-directory base-dirname))
+  (setq contrast-dirname (file-name-as-directory contrast-dirname))
   (flet ((insert-dir (dirname)
            (insert (file-name-as-directory dirname)))
          (insert-dir/propzd (dirname)
            (slime-insert-propertized '(face highlight) dirname)
            (insert "/")))  ; Not exactly portable (to VMS...)
-    (let ((base-dirs (split-string (file-name-as-directory base-dirname) "/" t))
-          (contrast-dirs (split-string (file-name-as-directory contrast-dirname) "/" t)))
+    (let ((base-dirs (slime-split-string base-dirname "/" t))
+          (contrast-dirs (slime-split-string contrast-dirname "/" t)))
       (with-temp-buffer
         (loop initially (insert (file-name-as-directory "/"))
               for base-dir in base-dirs do
@@ -9034,6 +9036,21 @@ Reconnect afterwards."
           (or (< n 0) (and seq t)))
     (sequence (> (length seq) n))))
 
+(defun slime-split-string (string &optional separators omit-nulls)
+  "This is like `split-string' in Emacs22, but also works in
+Emacs20 and 21."
+  (let ((splits (split-string string separators)))
+    (if omit-nulls
+        (setq splits (remove "" splits))
+      ;; SPLIT-STRING in Emacs before 22.x automatically removed nulls
+      ;; at beginning and end, so we gotta add them here again.
+      (when (or (slime-emacs-20-p) (slime-emacs-21-p))
+        (when (find (elt string 0) separators)
+          (push "" splits))
+        (when (find (elt string (1- (length string))) separators)
+          (setq splits (append splits (list ""))))))
+    splits))
+
 ;;;;; Buffer related
 
 (defun slime-buffer-narrowed-p (&optional buffer)
@@ -9058,7 +9075,7 @@ Reconnect afterwards."
     (save-match-data
       (end-of-defun)
       (let ((end (point)))
-        (beginning-of-defun)
+        (beginning-of-sexp)
         (list (point) end)))))
 
 (defun slime-beginning-of-symbol ()
@@ -9401,6 +9418,10 @@ If they are not, position point at the first syntax error found."
 (defun slime-emacs-20-p ()
   (and (not (featurep 'xemacs))
        (= emacs-major-version 20)))
+
+(defun slime-emacs-21-p ()
+  (and (not (featurep 'xemacs))
+       (= emacs-major-version 21)))
 
 (when (featurep 'xemacs)
   (add-hook 'sldb-hook 'sldb-xemacs-emulate-point-entered-hook))
