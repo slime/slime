@@ -225,6 +225,10 @@ TIME-LIMIT-IN-MSEC is NIL, an infinite time limit is assumed."
 		       for package = (find-package (fuzzy-matching.package-name package-matching))
 		       while (or (not time-limit) (> rest-time-limit 0)) do
 		         (multiple-value-bind (matchings remaining-time)
+			     ;; The filter removes all those symbols which are also present
+			     ;; in one of the other packages, specifically if such a package
+			     ;; represents the home package of the symbol, because that one
+			     ;; is deemed to be the best match.
 			     (find-symbols parsed-symbol-name package rest-time-limit
 					   (%make-duplicate-symbols-filter
 					    (remove package-matching found-packages)))
@@ -258,13 +262,13 @@ TIME-LIMIT-IN-MSEC is NIL, an infinite time limit is assumed."
 
 (defun %make-duplicate-symbols-filter (fuzzy-package-matchings)
   ;; Returns a filter function that takes a symbol and which returns T
-  ;; if one of FUZZY-PACKAGE-MATCHINGS represents the home-package of
-  ;; the symbol.
+  ;; only if no matching in FUZZY-PACKAGE-MATCHINGS represents the
+  ;; home-package of the.
   (let ((packages (mapcar #'(lambda (m)
 			      (find-package (fuzzy-matching.package-name m)))
 			  (coerce fuzzy-package-matchings 'list))))
     #'(lambda (symbol)
-	(member (symbol-package symbol) packages))))
+	(not (member (symbol-package symbol) packages)))))
 
 (defun fuzzy-matching-greaterp (m1 m2)
   "Returns T if fuzzy-matching M1 should be sorted before M2.
@@ -292,7 +296,7 @@ equal, the one which comes alphabetically first wins."
 symbols in PACKAGE, using the fuzzy completion algorithm, and the
 remaining time limit.
 
-Only those symbols are considered of which FILTER does not return T.
+Only those symbols are considered of which FILTER does return T.
 
 If EXTERNAL-ONLY is true, only external symbols are considered. A
 TIME-LIMIT-IN-MSEC of NIL is considered no limit; if it's zero or
@@ -327,19 +331,19 @@ negative, perform a NOP."
                 (recompute-remaining-time rest-time-limit)
               (setf rest-time-limit remaining-time)
               (cond (exhausted? (return-from loop))
-		    ((funcall filter symbol) :continue)
                     ((or (not external-only) (symbol-external-p symbol package))
-                     (if (string= "" string) ; "" matches always
-                         (vector-push-extend (make-fuzzy-matching symbol package-name
-								  0.0 '() '())
-					     completions)
-                         (multiple-value-bind (match-result score)
-                             (perform-fuzzy-match string (symbol-name symbol))
-                           (when match-result
-			     (vector-push-extend
-			      (make-fuzzy-matching symbol package-name score
-						   '() match-result)
-			      completions)))))))))
+		     (when (funcall filter symbol)
+		       (if (string= "" string) ; "" matches always
+			   (vector-push-extend (make-fuzzy-matching symbol package-name
+								    0.0 '() '())
+					       completions)
+			   (multiple-value-bind (match-result score)
+			       (perform-fuzzy-match string (symbol-name symbol))
+			     (when match-result
+			       (vector-push-extend
+				(make-fuzzy-matching symbol package-name score
+						     '() match-result)
+				completions))))))))))
         (values completions rest-time-limit)))))
 
 

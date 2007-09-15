@@ -1,3 +1,13 @@
+2007-09-16  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-fuzzy.lisp: Fix regression that would not allow to fuzzy
+	complete on inputs without package qualifier like "app".
+	Reported by David J. Neu.
+	
+	(%make-duplicate-symbols-filter): Return complement.
+	(fuzzy-find-matching-symbols): Treat passed filter as an acceptor
+	predicate, not as a rejector.
+	
 2007-09-15  Helmut Eller  <heller@common-lisp.net>
 
 	Add the necessary hooks when loading some contribs, so that those
@@ -15,7 +25,7 @@
         list lead to inspecting package names, rather than the packages
         themselves. Fix that.
 
-2007-09-15  Tobias C. Rittweiler  <tcr@freebits.de>
+
 
 	* slime-parse.el: Fix extended arglist display on misbalanced
 	expressions like `(defun foo | ... (defun bar () 'bar)'
