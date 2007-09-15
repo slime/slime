@@ -220,7 +220,14 @@ TARGET-POINT should always be placed just before a `?\('.)"
 representation of a form, the string representation of this form
 is stripped from the form. This can be important to avoid mutual
 recursion between this function, `slime-enclosing-form-specs' and
-`slime-parse-extended-operator-name'."
+`slime-parse-extended-operator-name'.
+
+Examples:
+
+  \"(foo (bar 1 (baz :quux)) 'toto)\" 
+
+      => (\"foo\" (\"bar\" \"1\" (\"baz\" \":quux\")) \"'toto\")
+"
   (cond ((slime-length= string 0) "")
 	((equal string "()") '())
 	(t
@@ -267,9 +274,9 @@ When MAX-LEVELS is non-nil, go up at most this many levels of
 parens.
 
 \(See SWANK::PARSE-FORM-SPEC for more information about what
-exactly constitutes a ``raw form specs''
+exactly constitutes a ``raw form specs'')
 
-Example:)
+Examples:
 
   A return value like the following
 
@@ -355,7 +362,7 @@ Example:)
   (if (listp thing) thing (list thing)))
 
 (defun slime-inside-string-p ()
-  (let* ((toplevel-begin (first (slime-region-for-defun-at-point)))
+  (let* ((toplevel-begin (save-excursion (beginning-of-defun) (point)))
 	 (parse-result (parse-partial-sexp toplevel-begin (point)))
 	 (inside-string-p  (nth 3 parse-result))
 	 (string-start-pos (nth 8 parse-result)))

@@ -1,5 +1,16 @@
 2007-09-15  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-parse.el: Fix extended arglist display on misbalanced
+	expressions like `(defun foo | ... (defun bar () 'bar)'
+	Reported by Ariel Badichi.
+	
+	(slime-inside-string-p): Use `beginning-of-defun' directly than
+	relying on `slime-region-for-defun-at-point' (as this one uses
+	`end-of-defun' which signals an error on misbalanced expressions.)
+	
+
+2007-09-15  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank-fuzzy.lisp: Code reorganization and cleanup; making it
 	compute less and couple of other minor issues fixed on the
 	way. Thanks to Stelian Ionescu for testing and providing feedback!
