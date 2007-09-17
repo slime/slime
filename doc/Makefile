@@ -92,6 +92,6 @@ uninstall-info:
 
 clean:
 	rm -f contributors.texi
-	rm -f slime.{aux,cp,cps,dvi,fn,fns,ilg,ind,ky,kys,log,pg,tmp,toc,tp,vr}
+	rm -f slime.{aux,cp,cps,dvi,fn,fns,ky,kys,log,pg,tmp,toc,tp,vr,vrs}
 	rm -f slime.{info,pdf,ps,html}
 	rm -rf html
