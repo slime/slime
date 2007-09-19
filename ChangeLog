@@ -1,5 +1,8 @@
 2007-09-19  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el: Reorder some devfars and menus code so that the
+	compiler doesn't complain about free variables.
+
 	Fix apropos in Emacs 22.
 
 	* slime.el (slime-print-apropos): Add button props for Emacs 22.

@@ -1,4 +1,4 @@
-;;; slime.el -- Superior Lisp Interaction Mode for Emacs
+;;; slime.el --- Superior Lisp Interaction Mode for Emacs
 ;;
 ;;;; License
 ;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
@@ -63,10 +63,6 @@
 (when (featurep 'xemacs)
   (require 'overlay))
 (require 'easymenu)
-
-(defvar slime-highlight-compiler-notes t
-  "When non-nil highlight buffers with compilation notes, warnings and errors."
-  )
 
 (defvar slime-lisp-modes '(lisp-mode))
 
@@ -227,20 +223,6 @@ If you want to fallback on TAGS you can set this to `find-tag',
              slime-edit-definition-with-etags
              slime-find-tag-if-tags-table-visited
              find-tag))
-
-(defcustom slime-compilation-finished-hook 'slime-maybe-list-compiler-notes
-  "Hook called with a list of compiler notes after a compilation."
-  :group 'slime-mode
-  :type 'hook
-  :options '(slime-maybe-list-compiler-notes
-             slime-list-compiler-notes
-             slime-maybe-show-xrefs-for-notes))
-
-(defcustom slime-goto-first-note-after-compilation nil
-  "When T next-note will always goto to the first note in a
-final, no matter where the point is."
-  :group 'slime-mode
-  :type 'boolean)
 
 (defcustom slime-complete-symbol-function 'slime-simple-complete-symbol
   "*Function to perform symbol completion."
@@ -511,7 +493,7 @@ This is automatically updated based on the buffer/point."))
                 (slime-pretty-package-name package)))))))
 
 (defun slime-pretty-package-name (name)
-  "Return a pretty version of a package name designator (as a string)."
+  "Return a pretty version of a package name NAME."
   (let ((name (cond ((string-match "^:\\(.*\\)$" name)    
                      (match-string 1 name))
                     ((string-match "^\"\\(.*\\)\"$" name) 
@@ -521,7 +503,6 @@ This is automatically updated based on the buffer/point."))
 
 (when slime-update-modeline-package
   (run-with-idle-timer 0.2 0.2 'slime-update-modeline-package))
-
 
 ;; Setup the mode-line to say when we're in slime-mode, and which CL
 ;; package we think the current buffer belongs to.
@@ -591,10 +572,6 @@ This is automatically updated based on the buffer/point."))
     ("\M-m" slime-macroexpand-all :prefixed t :inferior t)
     ("\M-0" slime-restore-window-configuration :prefixed t :inferior t)
     ([(control meta ?\.)] slime-next-location :inferior t)
-    ;; Emacs20 on LinuxPPC signals a 
-    ;; "Invalid character: 400000040, 2147479172, 0xffffffd8"
-    ;; for "\C- ".
-    ;; ("\C- " slime-next-location :prefixed t :inferior t)
     ("~" slime-sync-package-and-default-directory :prefixed t :inferior t)
     ("\M-p" slime-repl-set-package :prefixed t :inferior t)
     ;; Cross reference
@@ -605,9 +582,10 @@ This is automatically updated based on the buffer/point."))
     ("\C-]" slime-close-all-parens-in-sexp :prefixed t :inferior t :sldb t)
     ("\C-xt" slime-list-threads :prefixed t :inferior t :sldb t)
     ("\C-xc" slime-list-connections :prefixed t :inferior t :sldb t)
-    ;; Shadow unwanted bindings from inf-lisp
-    ("\C-a" slime-nop :prefixed t :inferior t :sldb t)
-    ("\C-v" slime-nop :prefixed t :inferior t :sldb t)))
+    ;; ;; Shadow unwanted bindings from inf-lisp
+    ;; ("\C-a" slime-nop :prefixed t :inferior t :sldb t)
+    ;; ("\C-v" slime-nop :prefixed t :inferior t :sldb t)
+    ))
 
 (defun slime-nop ()
   "The null command. Used to shadow currently-unused keybindings."
@@ -682,142 +660,6 @@ If PREFIXED is non-nil, `slime-prefix-key' is prepended to KEY."
   (read (format "?\\C-%c" char)))
 
 (slime-init-keymaps)
-
-
-;;;;; Pull-down menu
-
-(defvar slime-easy-menu
-  (let ((C '(slime-connected-p)))
-    `("SLIME"
-      [ "Edit Definition..."       slime-edit-definition ,C ]
-      [ "Return From Definition"   slime-pop-find-definition-stack ,C ]
-      [ "Complete Symbol"          slime-complete-symbol ,C ]
-      [ "Show REPL"                slime-switch-to-output-buffer ,C ]
-      "--"
-      ("Evaluation"
-       [ "Eval Defun"              slime-eval-defun ,C ]
-       [ "Eval Last Expression"    slime-eval-last-expression ,C ]
-       [ "Eval And Pretty-Print"   slime-pprint-eval-last-expression ,C ]
-       [ "Eval Region"             slime-eval-region ,C ]
-       [ "Interactive Eval..."     slime-interactive-eval ,C ]
-       [ "Edit Lisp Value..."      slime-edit-value ,C ]
-       [ "Call Defun"              slime-call-defun ,C ])
-      ("Debugging"
-       [ "Macroexpand Once..."     slime-macroexpand-1 ,C ]
-       [ "Macroexpand All..."      slime-macroexpand-all ,C ]
-       [ "Create Trace Buffer"     slime-redirect-trace-output ,C ]
-       [ "Toggle Trace..."         slime-toggle-trace-fdefinition ,C ]
-       [ "Untrace All"             slime-untrace-all ,C]
-       [ "Disassemble..."          slime-disassemble-symbol ,C ]
-       [ "Inspect..."              slime-inspect ,C ])
-      ("Compilation"
-       [ "Compile Defun"           slime-compile-defun ,C ]
-       [ "Compile/Load File"       slime-compile-and-load-file ,C ]
-       [ "Compile File"            slime-compile-file ,C ]
-       [ "Compile Region"          slime-compile-region ,C ]
-       "--"
-       [ "Next Note"               slime-next-note t ]
-       [ "Previous Note"           slime-previous-note t ]
-       [ "Remove Notes"            slime-remove-notes t ]
-       [ "List Notes"              slime-list-compiler-notes ,C ])
-      ("Cross Reference"
-       [ "Who Calls..."            slime-who-calls ,C ]
-       [ "Who References... "      slime-who-references ,C ]
-       [ "Who Sets..."             slime-who-sets ,C ]
-       [ "Who Binds..."            slime-who-binds ,C ]
-       [ "Who Macroexpands..."     slime-who-macroexpands ,C ]
-       [ "Who Specializes..."      slime-who-specializes ,C ]
-       [ "List Callers..."         slime-list-callers ,C ]
-       [ "List Callees..."         slime-list-callees ,C ]
-       [ "Next Location"           slime-next-location t ])
-      ("Editing"
-       [ "Check Parens"            check-parens t]
-       [ "Update Indentation"      slime-update-indentation ,C]
-       [ "Select Buffer"           slime-selector t])
-      ("Profiling"
-       [ "Toggle Profiling..."     slime-toggle-profile-fdefinition ,C ]
-       [ "Profile Package"         slime-profile-package ,C]
-       [ "Unprofile All"           slime-unprofile-all ,C ]
-       [ "Show Profiled"           slime-profiled-functions ,C ]
-       "--"
-       [ "Report"                  slime-profile-report ,C ]
-       [ "Reset Counters"          slime-profile-reset ,C ])
-      ("Documentation"
-       [ "Describe Symbol..."      slime-describe-symbol ,C ]
-       [ "Apropos..."              slime-apropos ,C ]
-       [ "Apropos all..."          slime-apropos-all ,C ]
-       [ "Apropos Package..."      slime-apropos-package ,C ]
-       [ "Hyperspec..."            slime-hyperspec-lookup t ])
-      "--"
-      [ "Interrupt Command"        slime-interrupt ,C ]
-      [ "Abort Async. Command"     slime-quit ,C ]
-      [ "Sync Package & Directory" slime-sync-package-and-default-directory ,C]
-      [ "Set Package in REPL"      slime-repl-set-package ,C])))
-
-(defvar slime-repl-easy-menu
-  (let ((C '(slime-connected-p)))
-    `("REPL"
-      [ "Send Input"             slime-repl-return ,C ]
-      [ "Close and Send Input "  slime-repl-closing-return ,C ]
-      [ "Interrupt Lisp process" slime-interrupt ,C ]
-      "--"
-      [ "Previous Input"         slime-repl-previous-input t ]
-      [ "Next Input"             slime-repl-next-input t ]
-      [ "Goto Previous Prompt "  slime-repl-previous-prompt t ]
-      [ "Goto Next Prompt "      slime-repl-next-prompt t ]
-      [ "Clear Last Output"      slime-repl-clear-output t ]
-      [ "Clear Buffer "          slime-repl-clear-buffer t ]
-      [ "Kill Current Input"     slime-repl-kill-input t ])))
-      
-(defvar slime-sldb-easy-menu
-  (let ((C '(slime-connected-p)))
-    `("SLDB"
-      [ "Next Frame" sldb-down t ]
-      [ "Previous Frame" sldb-up t ]
-      [ "Toggle Frame Details" sldb-toggle-details t ]
-      [ "Next Frame (Details)" sldb-details-down t ]
-      [ "Previous Frame (Details)" sldb-details-up t ]
-      "--"
-      [ "Eval Expression..." slime-interactive-eval ,C ]
-      [ "Eval in Frame..." sldb-eval-in-frame ,C ]
-      [ "Eval in Frame (pretty print)..." sldb-pprint-eval-in-frame ,C ]
-      [ "Inspect In Frame..." sldb-inspect-in-frame ,C ]
-      [ "Inspect Condition Object" sldb-inspect-condition ,C ]
-      [ "Print Condition to REPL" sldb-print-condition t ]
-      "--"
-      [ "Restart Frame" sldb-restart-frame ,C ]
-      [ "Return from Frame..." sldb-return-from-frame ,C ]
-      ("Invoke Restart"
-       [ "Continue" sldb-continue ,C ]
-       [ "Abort"    sldb-abort ,C ]
-       [ "Step"      sldb-step ,C ]
-       [ "Step next" sldb-next ,C ]
-       [ "Step out"  sldb-out ,C ]
-       )
-      "--"
-      [ "Quit (throw)" sldb-quit ,C ]
-      [ "Break With Default Debugger" sldb-break-with-default-debugger ,C ])))
-
-
-(easy-menu-define menubar-slime slime-mode-map "SLIME" slime-easy-menu)
-
-(add-hook 'slime-mode-hook
-          (defun slime-add-easy-menu ()
-            (easy-menu-add slime-easy-menu 'slime-mode-map)))
-
-(add-hook 'slime-repl-mode-hook
-          (defun slime-repl-add-easy-menu ()
-            (easy-menu-define menubar-slime-repl slime-repl-mode-map
-              "REPL" slime-repl-easy-menu)
-            (easy-menu-define menubar-slime slime-repl-mode-map
-              "SLIME" slime-easy-menu)
-            (easy-menu-add slime-repl-easy-menu 'slime-repl-mode-map)))
-
-(add-hook 'sldb-mode-hook
-          (defun slime-sldb-add-easy-menu ()
-            (easy-menu-define menubar-slime-sldb sldb-mode-map
-              "SLDB" slime-sldb-easy-menu)
-            (easy-menu-add slime-sldb-easy-menu 'sldb-mode-map)))
 
 
 ;;;; Setup initial `slime-mode' hooks
@@ -1034,21 +876,6 @@ positions before and after executing BODY."
 (defsubst slime-insert-propertized (props &rest args)
   "Insert all ARGS and then add text-PROPS to the inserted text."
   (slime-propertize-region props (apply #'insert args)))
-
-(defun slime-indent-and-complete-symbol ()
-  "Indent the current line and perform symbol completion.  First
-indent the line. If indenting doesn't move point, complete the
-symbol. If there's no symbol at the point, show the arglist for the
-most recently enclosed macro or function."
-  (interactive)
-  (let ((pos (point)))
-    (unless (get-text-property (line-beginning-position) 'slime-repl-prompt)
-      (lisp-indent-line))
-    (when (= pos (point))
-      (cond ((save-excursion (re-search-backward "[^() \n\t\r]+\\=" nil t))
-             (slime-complete-symbol))
-            ((memq (char-before) '(?\t ?\ ))
-             (slime-echo-arglist))))))
 
 (defmacro slime-with-rigid-indentation (level &rest body)
   "Execute BODY and then rigidly indent its text insertions.
@@ -1308,13 +1135,39 @@ See `slime-filename-translations'."
 
 ;;;;; Entry points
 
-(defvar slime-inferior-lisp-program-history '()
-  "History list of command strings.  Used by `slime'.")
-
 ;; We no longer load inf-lisp, but we use this variable for backward
 ;; compatibility.
 (defvar inferior-lisp-program "lisp" 
   "*Program name for invoking an inferior Lisp with for Inferior Lisp mode.")
+
+(defvar slime-lisp-implementations nil
+  "*A list of known Lisp implementations.
+The list should have the form: 
+  ((NAME (PROGRAM PROGRAM-ARGS...) &key INIT CODING-SYSTEM) ...)
+
+NAME is a symbol for the implementation.
+PROGRAM and PROGRAM-ARGS are strings used to start the Lisp process.
+INIT is a function that should return a string to load and start
+  Swank. The function will be called with the PORT-FILENAME and ENCODING as
+  arguments.  INIT defaults to `slime-init-command'. 
+CODING-SYSTEM a symbol for the coding system. The default is 
+  slime-net-coding-system
+
+Here's an example: 
+ ((cmucl (\"/opt/cmucl/bin/lisp\" \"-quiet\") :init slime-init-command)
+  (acl (\"acl7\") :coding-system emacs-mule))")
+
+(defvar slime-default-lisp nil
+  "*The name of the default Lisp implementation.
+See `slime-lisp-implementations'")
+
+(defvar slime-lisp-host "127.0.0.1"
+  "The default hostname (or IP address) to connect to.")
+
+;; dummy definitions for the compiler
+(defvar slime-net-coding-system)
+(defvar slime-net-processes)
+(defvar slime-default-connection)
 
 (defun slime (&optional command coding-system)
   "Start an inferior^_superior Lisp and connect to its Swank server."
@@ -1322,6 +1175,9 @@ See `slime-filename-translations'."
   (let ((inferior-lisp-program (or command inferior-lisp-program))
         (slime-net-coding-system (or coding-system slime-net-coding-system)))
     (slime-start* (slime-read-interactive-args))))
+
+(defvar slime-inferior-lisp-program-history '()
+  "History list of command strings.  Used by `slime'.")
                                                   
 (defun slime-read-interactive-args ()
   "Return the list of args which should be passed to `slime-start'.
@@ -1703,9 +1559,6 @@ The default condition handler for timer functions (see
 ;;; The set of meaningful protocol messages are not specified
 ;;; here. They are defined elsewhere by the event-dispatching
 ;;; functions in this file and in swank.lisp.
-
-(defvar slime-lisp-host "127.0.0.1"
-  "The default hostname (or IP address) to connect to.")
 
 (defvar slime-net-processes nil
   "List of processes (sockets) connected to Lisps.")
@@ -2467,6 +2320,9 @@ Debugged requests are ignored."
                (slime-rex-continuations)
                :key #'car)))
 
+;; dummy defvar for compiler
+(defvar slime-repl-read-mode)
+
 (defun slime-reading-p ()
   "True if Lisp is currently reading input from the REPL."
   (with-current-buffer (slime-output-buffer)
@@ -2651,18 +2507,12 @@ Debugged requests are ignored."
  (defvar slime-output-end nil
    "Marker for end of output. New output is inserted at this mark."))
 
-(defun slime-reset-repl-markers ()
-  (dolist (markname '(slime-output-start
-                      slime-output-end
-                      slime-repl-prompt-start-mark
-                      slime-repl-input-start-mark
-                      slime-repl-input-end-mark
-                      slime-repl-last-input-start-mark))
-    (set markname (make-marker))
-    (set-marker (symbol-value markname) (point)))
-  ;; (set-marker-insertion-type slime-output-end t)
-  (set-marker-insertion-type slime-repl-input-end-mark t)
-  (set-marker-insertion-type slime-repl-prompt-start-mark t))
+;; dummy definitions for the compiler
+(defvar slime-repl-package-stack)
+(defvar slime-repl-directory-stack)
+(defvar slime-repl-input-start-mark)
+(defvar slime-repl-prompt-start-mark)
+
 
 (defun slime-output-buffer (&optional noprompt)
   "Return the output buffer, create it if necessary."
@@ -2959,6 +2809,19 @@ See `slime-output-target-to-marker'."
    "Counter used to generate unique `slime-repl-old-input' properties.
 This property value must be unique to avoid having adjacent inputs be
 joined together."))
+
+(defun slime-reset-repl-markers ()
+  (dolist (markname '(slime-output-start
+                      slime-output-end
+                      slime-repl-prompt-start-mark
+                      slime-repl-input-start-mark
+                      slime-repl-input-end-mark
+                      slime-repl-last-input-start-mark))
+    (set markname (make-marker))
+    (set-marker (symbol-value markname) (point)))
+  ;; (set-marker-insertion-type slime-output-end t)
+  (set-marker-insertion-type slime-repl-input-end-mark t)
+  (set-marker-insertion-type slime-repl-prompt-start-mark t))
 
 ;;;;; REPL mode setup
 
@@ -3378,15 +3241,12 @@ earlier in the buffer."
   (delete-region slime-repl-input-start-mark slime-repl-input-end-mark))
 
 (defun slime-repl-kill-input ()
-  "Kill all text from the prompt to point and reset repl history
-navigation state. If point is right after the prompt then delete
-the entire input."
+  "Kill all text from the prompt to point."
   (interactive)
-  (cond ((> (point) (marker-position slime-repl-input-start-mark))
+  (cond ((< (marker-position slime-repl-input-start-mark) (point))
          (kill-region slime-repl-input-start-mark (point)))
         ((= (point) (marker-position slime-repl-input-start-mark))
-         (slime-repl-delete-current-input)))
-  (setf slime-repl-input-history-position -1))
+         (slime-repl-delete-current-input))))
 
 (defun slime-repl-replace-input (string)
   (slime-repl-delete-current-input)
@@ -3423,6 +3283,21 @@ the entire input."
         (save-excursion
           (goto-char start)
           (insert ";;; output flushed"))))))
+
+(defun slime-indent-and-complete-symbol ()
+  "Indent the current line and perform symbol completion.
+First indent the line. If indenting doesn't move point, complete
+the symbol. If there's no symbol at the point, show the arglist
+for the most recently enclosed macro or function."
+  (interactive)
+  (let ((pos (point)))
+    (unless (get-text-property (line-beginning-position) 'slime-repl-prompt)
+      (lisp-indent-line))
+    (when (= pos (point))
+      (cond ((save-excursion (re-search-backward "[^() \n\t\r]+\\=" nil t))
+             (slime-complete-symbol))
+            ((memq (char-before) '(?\t ?\ ))
+             (slime-echo-arglist))))))
 
 (defun slime-repl-set-package (package)
   "Set the package of the REPL buffer to PACKAGE."
@@ -3678,7 +3553,7 @@ The handler will use qeuery to ask the use if the error should be ingored."
        (signal (car err) (cdr err))))))
 
 
-;;;;;; REPL Read Mode
+;;;;; REPL Read Mode
 
 (define-key slime-repl-mode-map
   (string slime-repl-shortcut-dispatch-char) 'slime-handle-repl-shortcut)
@@ -3963,10 +3838,27 @@ Also rearrange windows."
 
 ;;;; Compilation and the creation of compiler-note annotations
 
+(defvar slime-highlight-compiler-notes t
+  "*When non-nil annotate buffers with compilation notes etc.")
+
 (defvar slime-before-compile-functions nil
   "A list of function called before compiling a buffer or region.
 The function receive two arguments: the beginning and the end of the 
 region that will be compiled.")
+
+(defcustom slime-compilation-finished-hook 'slime-maybe-list-compiler-notes
+  "Hook called with a list of compiler notes after a compilation."
+  :group 'slime-mode
+  :type 'hook
+  :options '(slime-maybe-list-compiler-notes
+             slime-list-compiler-notes
+             slime-maybe-show-xrefs-for-notes))
+
+(defcustom slime-goto-first-note-after-compilation nil
+  "When T next-note will always goto to the first note in a
+final, no matter where the point is."
+  :group 'slime-mode
+  :type 'boolean)
 
 (defun slime-compile-and-load-file ()
   "Compile and load the buffer's file and highlight compiler notes.
@@ -6014,6 +5906,8 @@ With prefix argument include internal symbols."
                             mouse-face highlight))
              (list (symbol-value 'apropos-label-face)))))))
 
+(eval-when-compile (require 'apropos))
+
 (defun slime-print-apropos (plists)
   (dolist (plist plists)
     (let ((designator (plist-get plist :designator)))
@@ -6175,6 +6069,9 @@ GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
   (backward-char 1)
   (delete-char 1))
 
+(defvar slime-next-location-function nil
+  "Function to call for going to the next location.")
+
 (defun slime-show-xrefs (xrefs type symbol package &optional emacs-snapshot)
   "Show the results of an XREF query."
   (if (null xrefs)
@@ -6288,9 +6185,6 @@ GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
     (when location
       (slime-goto-source-location location)
       (switch-to-buffer (current-buffer)))))
-
-(defvar slime-next-location-function nil
-  "Function to call for going to the next location.")
 
 (defun slime-next-location ()
   "Go to the next location, depending on context.
@@ -7427,27 +7321,6 @@ was called originally."
 
 ;;;;; Connection listing
 
-(defvar slime-lisp-implementations nil
-  "*A list of known Lisp implementations.
-The list should have the form: 
-  ((NAME (PROGRAM PROGRAM-ARGS...) &key INIT CODING-SYSTEM) ...)
-
-NAME is a symbol for the implementation.
-PROGRAM and PROGRAM-ARGS are strings used to start the Lisp process.
-INIT is a function that should return a string to load and start
-  Swank. The function will be called with the PORT-FILENAME and ENCODING as
-  arguments.  INIT defaults to `slime-init-command'. 
-CODING-SYSTEM a symbol for the coding system. The default is 
-  slime-net-coding-system
-
-Here's an example: 
- ((cmucl (\"/opt/cmucl/bin/lisp\" \"-quiet\") :init slime-init-command)
-  (acl (\"acl7\") :coding-system emacs-mule))")
-
-(defvar slime-default-lisp nil
-  "*The name of the default Lisp implementation.
-See `slime-lisp-implementations'")
-
 (define-derived-mode slime-connection-list-mode fundamental-mode
   "connection-list"
   "SLIME Connection List Mode.
@@ -7990,11 +7863,6 @@ Only considers buffers that are not already visible."
 
 ;;;; Indentation
 
-(defcustom slime-conservative-indentation nil
-  "If true then don't discover indentation of \"with-\" or \"def\" symbols."
-  :type 'boolean
-  :group 'slime-mode)
-
 (defun slime-update-indentation ()
   "Update indentation for all macros defined in the Lisp system."
   (interactive)
@@ -8019,7 +7887,188 @@ is setup, unless the user already set one explicitly."
       (run-hook-with-args 'slime-indentation-update-hooks symbol indent))))
 
 
+;;;;; Pull-down menu
+
+(defvar slime-easy-menu
+  (let ((C '(slime-connected-p)))
+    `("SLIME"
+      [ "Edit Definition..."       slime-edit-definition ,C ]
+      [ "Return From Definition"   slime-pop-find-definition-stack ,C ]
+      [ "Complete Symbol"          slime-complete-symbol ,C ]
+      [ "Show REPL"                slime-switch-to-output-buffer ,C ]
+      "--"
+      ("Evaluation"
+       [ "Eval Defun"              slime-eval-defun ,C ]
+       [ "Eval Last Expression"    slime-eval-last-expression ,C ]
+       [ "Eval And Pretty-Print"   slime-pprint-eval-last-expression ,C ]
+       [ "Eval Region"             slime-eval-region ,C ]
+       [ "Interactive Eval..."     slime-interactive-eval ,C ]
+       [ "Edit Lisp Value..."      slime-edit-value ,C ]
+       [ "Call Defun"              slime-call-defun ,C ])
+      ("Debugging"
+       [ "Macroexpand Once..."     slime-macroexpand-1 ,C ]
+       [ "Macroexpand All..."      slime-macroexpand-all ,C ]
+       [ "Create Trace Buffer"     slime-redirect-trace-output ,C ]
+       [ "Toggle Trace..."         slime-toggle-trace-fdefinition ,C ]
+       [ "Untrace All"             slime-untrace-all ,C]
+       [ "Disassemble..."          slime-disassemble-symbol ,C ]
+       [ "Inspect..."              slime-inspect ,C ])
+      ("Compilation"
+       [ "Compile Defun"           slime-compile-defun ,C ]
+       [ "Compile/Load File"       slime-compile-and-load-file ,C ]
+       [ "Compile File"            slime-compile-file ,C ]
+       [ "Compile Region"          slime-compile-region ,C ]
+       "--"
+       [ "Next Note"               slime-next-note t ]
+       [ "Previous Note"           slime-previous-note t ]
+       [ "Remove Notes"            slime-remove-notes t ]
+       [ "List Notes"              slime-list-compiler-notes ,C ])
+      ("Cross Reference"
+       [ "Who Calls..."            slime-who-calls ,C ]
+       [ "Who References... "      slime-who-references ,C ]
+       [ "Who Sets..."             slime-who-sets ,C ]
+       [ "Who Binds..."            slime-who-binds ,C ]
+       [ "Who Macroexpands..."     slime-who-macroexpands ,C ]
+       [ "Who Specializes..."      slime-who-specializes ,C ]
+       [ "List Callers..."         slime-list-callers ,C ]
+       [ "List Callees..."         slime-list-callees ,C ]
+       [ "Next Location"           slime-next-location t ])
+      ("Editing"
+       [ "Check Parens"            check-parens t]
+       [ "Update Indentation"      slime-update-indentation ,C]
+       [ "Select Buffer"           slime-selector t])
+      ("Profiling"
+       [ "Toggle Profiling..."     slime-toggle-profile-fdefinition ,C ]
+       [ "Profile Package"         slime-profile-package ,C]
+       [ "Unprofile All"           slime-unprofile-all ,C ]
+       [ "Show Profiled"           slime-profiled-functions ,C ]
+       "--"
+       [ "Report"                  slime-profile-report ,C ]
+       [ "Reset Counters"          slime-profile-reset ,C ])
+      ("Documentation"
+       [ "Describe Symbol..."      slime-describe-symbol ,C ]
+       [ "Apropos..."              slime-apropos ,C ]
+       [ "Apropos all..."          slime-apropos-all ,C ]
+       [ "Apropos Package..."      slime-apropos-package ,C ]
+       [ "Hyperspec..."            slime-hyperspec-lookup t ])
+      "--"
+      [ "Interrupt Command"        slime-interrupt ,C ]
+      [ "Abort Async. Command"     slime-quit ,C ]
+      [ "Sync Package & Directory" slime-sync-package-and-default-directory ,C]
+      [ "Set Package in REPL"      slime-repl-set-package ,C])))
+
+(defvar slime-repl-easy-menu
+  (let ((C '(slime-connected-p)))
+    `("REPL"
+      [ "Send Input"             slime-repl-return ,C ]
+      [ "Close and Send Input "  slime-repl-closing-return ,C ]
+      [ "Interrupt Lisp process" slime-interrupt ,C ]
+      "--"
+      [ "Previous Input"         slime-repl-previous-input t ]
+      [ "Next Input"             slime-repl-next-input t ]
+      [ "Goto Previous Prompt "  slime-repl-previous-prompt t ]
+      [ "Goto Next Prompt "      slime-repl-next-prompt t ]
+      [ "Clear Last Output"      slime-repl-clear-output t ]
+      [ "Clear Buffer "          slime-repl-clear-buffer t ]
+      [ "Kill Current Input"     slime-repl-kill-input t ])))
+      
+(defvar slime-sldb-easy-menu
+  (let ((C '(slime-connected-p)))
+    `("SLDB"
+      [ "Next Frame" sldb-down t ]
+      [ "Previous Frame" sldb-up t ]
+      [ "Toggle Frame Details" sldb-toggle-details t ]
+      [ "Next Frame (Details)" sldb-details-down t ]
+      [ "Previous Frame (Details)" sldb-details-up t ]
+      "--"
+      [ "Eval Expression..." slime-interactive-eval ,C ]
+      [ "Eval in Frame..." sldb-eval-in-frame ,C ]
+      [ "Eval in Frame (pretty print)..." sldb-pprint-eval-in-frame ,C ]
+      [ "Inspect In Frame..." sldb-inspect-in-frame ,C ]
+      [ "Inspect Condition Object" sldb-inspect-condition ,C ]
+      [ "Print Condition to REPL" sldb-print-condition t ]
+      "--"
+      [ "Restart Frame" sldb-restart-frame ,C ]
+      [ "Return from Frame..." sldb-return-from-frame ,C ]
+      ("Invoke Restart"
+       [ "Continue" sldb-continue ,C ]
+       [ "Abort"    sldb-abort ,C ]
+       [ "Step"      sldb-step ,C ]
+       [ "Step next" sldb-next ,C ]
+       [ "Step out"  sldb-out ,C ]
+       )
+      "--"
+      [ "Quit (throw)" sldb-quit ,C ]
+      [ "Break With Default Debugger" sldb-break-with-default-debugger ,C ])))
+
+(easy-menu-define menubar-slime slime-mode-map "SLIME" slime-easy-menu)
+
+(defun slime-add-easy-menu ()
+  (easy-menu-add slime-easy-menu 'slime-mode-map))
+
+(add-hook 'slime-mode-hook 'slime-add-easy-menu)
+
+(defun slime-repl-add-easy-menu ()
+  (easy-menu-define menubar-slime-repl slime-repl-mode-map
+    "REPL" slime-repl-easy-menu)
+  (easy-menu-define menubar-slime slime-repl-mode-map 
+    "SLIME" slime-easy-menu)
+  (easy-menu-add slime-repl-easy-menu 'slime-repl-mode-map))
+
+(add-hook 'slime-repl-mode-hook 'slime-repl-add-easy-menu)
+
+(defun slime-sldb-add-easy-menu ()
+  (easy-menu-define menubar-slime-sldb 
+    sldb-mode-map "SLDB" slime-sldb-easy-menu)
+  (easy-menu-add slime-sldb-easy-menu 'sldb-mode-map))
+
+(add-hook 'sldb-mode-hook 'slime-sldb-add-easy-menu)
+
+
 ;;;; Cheat Sheet
+
+(defvar slime-cheat-sheet-table
+  '((:title "Editing lisp code"
+     :map slime-mode-map
+     :bindings ((slime-eval-defun "Evaluate current top level form")
+                (slime-compile-defun "Compile current top level form")
+                (slime-interactive-eval "Prompt for form and eval it")
+                (slime-compile-and-load-file "Compile and load current file")
+                (slime-sync-package-and-default-directory "Synch default package and directory with current buffer")
+                (slime-next-note "Next compiler note")
+                (slime-previous-note "Previous compiler note")
+                (slime-remove-notes "Remove notes")
+                slime-hyperspec-lookup))
+    (:title "Completion"
+     :map slime-mode-map
+     :bindings (slime-indent-and-complete-symbol
+                slime-fuzzy-complete-symbol))
+    (:title "At the REPL" 
+     :map slime-repl-mode-map
+     :bindings (slime-repl-clear-buffer
+                slime-describe-symbol))
+    (:title "Within SLDB buffers" 
+     :map sldb-mode-map
+     :bindings ((sldb-default-action "Do 'whatever' with thing at point")
+                (sldb-toggle-details "Toggle frame details visualization")
+                (sldb-quit "Quit to REPL")
+                (sldb-abort "Invoke ABORT restart")
+                (sldb-continue "Invoke CONTINUE restart (if available)")
+                (sldb-show-source "Jump to frame's source code")
+                (sldb-eval-in-frame "Evaluate in frame at point")
+                (sldb-inspect-in-frame "Evaluate in frame at point and inspect result")))
+    (:title "Within the Inspector" 
+     :map slime-inspector-mode-map
+     :bindings ((slime-inspector-next-inspectable-object "Jump to next inspectable object")
+                (slime-inspector-operate-on-point "Inspect object or execute action at point")
+                (slime-inspector-reinspect "Reinspect current object")
+                (slime-inspector-pop "Return to previous object")
+                (slime-inspector-copy-down "Send object at point to REPL")
+                (slime-inspector-quit "Quit")))
+    (:title "Finding Definitions"
+     :map slime-mode-map
+     :bindings (slime-edit-definition
+                slime-pop-find-definition-stack))))
 
 (defun slime-cheat-sheet ()
   (interactive)
@@ -8069,49 +8118,6 @@ is setup, unless the user already set one explicitly."
            finally do (insert "\n")))))
   (setq buffer-read-only t)
   (goto-char (point-min)))
-
-(defvar slime-cheat-sheet-table
-  '((:title "Editing lisp code"
-     :map slime-mode-map
-     :bindings ((slime-eval-defun "Evaluate current top level form")
-                (slime-compile-defun "Compile current top level form")
-                (slime-interactive-eval "Prompt for form and eval it")
-                (slime-compile-and-load-file "Compile and load current file")
-                (slime-sync-package-and-default-directory "Synch default package and directory with current buffer")
-                (slime-next-note "Next compiler note")
-                (slime-previous-note "Previous compiler note")
-                (slime-remove-notes "Remove notes")
-                slime-hyperspec-lookup))
-    (:title "Completion"
-     :map slime-mode-map
-     :bindings (slime-indent-and-complete-symbol
-                slime-fuzzy-complete-symbol))
-    (:title "At the REPL" 
-     :map slime-repl-mode-map
-     :bindings (slime-repl-clear-buffer
-                slime-describe-symbol))
-    (:title "Within SLDB buffers" 
-     :map sldb-mode-map
-     :bindings ((sldb-default-action "Do 'whatever' with thing at point")
-                (sldb-toggle-details "Toggle frame details visualization")
-                (sldb-quit "Quit to REPL")
-                (sldb-abort "Invoke ABORT restart")
-                (sldb-continue "Invoke CONTINUE restart (if available)")
-                (sldb-show-source "Jump to frame's source code")
-                (sldb-eval-in-frame "Evaluate in frame at point")
-                (sldb-inspect-in-frame "Evaluate in frame at point and inspect result")))
-    (:title "Within the Inspector" 
-     :map slime-inspector-mode-map
-     :bindings ((slime-inspector-next-inspectable-object "Jump to next inspectable object")
-                (slime-inspector-operate-on-point "Inspect object or execute action at point")
-                (slime-inspector-reinspect "Reinspect current object")
-                (slime-inspector-pop "Return to previous object")
-                (slime-inspector-copy-down "Send object at point to REPL")
-                (slime-inspector-quit "Quit")))
-    (:title "Finding Definitions"
-     :map slime-mode-map
-     :bindings (slime-edit-definition
-                slime-pop-find-definition-stack))))
 
 
 ;;;; Test suite
@@ -9422,7 +9428,7 @@ If they are not, position point at the first syntax error found."
   (if (local-variable-p hook (current-buffer))
       (remove-hook hook function t)))
 
-;;; Some "nice" backward compatiblity bindings for lusers.
+;;;; Some "nice" backward compatiblity bindings for lusers.
 
 (defvar slime-obsolete-commands 
   '(("\C-c\M-i" (slime repl) slime-fuzzy-complete-symbol)
@@ -9457,7 +9463,7 @@ To fetch the contrib directoy use:  cvs update -d"
                           command)
                   15))
 
-;;;; ... with gratuitous bloat
+;;;;; ... with gratuitous bloat
 
 (defun slime-timebomb (message timeout)
   (with-current-buffer (generate-new-buffer "*warning*")
@@ -9515,7 +9521,8 @@ To fetch the contrib directoy use:  cvs update -d"
 ;; Local Variables: 
 ;; outline-regexp: ";;;;+"
 ;; indent-tabs-mode: nil
-;; coding: latin-1-unix
+;; coding: latin-1-unix!
 ;; unibyte: t
+;; compile-command: "emacs -batch -L . -eval '(byte-compile-file \"slime.el\")' ; rm -v slime.elc"
 ;; End:
 ;;; slime.el ends here
