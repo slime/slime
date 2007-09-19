@@ -1321,8 +1321,8 @@ See `slime-filename-translations'."
   (interactive)
   (let ((inferior-lisp-program (or command inferior-lisp-program))
         (slime-net-coding-system (or coding-system slime-net-coding-system)))
-    (apply #'slime-start (slime-read-interactive-args))))
-
+    (slime-start* (slime-read-interactive-args))))
+                                                  
 (defun slime-read-interactive-args ()
   "Return the list of args which should be passed to `slime-start'.
 
@@ -1342,14 +1342,7 @@ The rules for selecting the arguments are rather complicated:
 - If the prefix-arg is positive, read the command to start the
   process."
   (let ((table slime-lisp-implementations))
-    (cond ((not current-prefix-arg)
-           (cond (table 
-                  (slime-lookup-lisp-implementation 
-                   table (or slime-default-lisp (car (first table)))))
-                 (t
-                  (destructuring-bind (program &rest args) 
-                      (split-string inferior-lisp-program)
-                    (list :program program :program-args args)))))
+    (cond ((not current-prefix-arg) (slime-lisp-options))
           ((eq current-prefix-arg '-)
            (let ((key (completing-read 
                        "Lisp name: " (mapcar (lambda (x) 
@@ -1369,6 +1362,16 @@ The rules for selecting the arguments are rather complicated:
                       slime-net-coding-system)))
                (list :program program :program-args program-args
                      :coding-system coding-system)))))))
+
+(defun slime-lisp-options (&optional name)
+  (let ((table slime-lisp-implementations))
+    (assert (or (not name) table))
+    (cond (table (slime-lookup-lisp-implementation slime-lisp-implementations 
+                                                   (or name slime-default-lisp
+                                                       (car (car table)))))
+          (t (destructuring-bind (program &rest args)
+                 (split-string inferior-lisp-program)
+               (list :program program :program-args args))))))
 
 (defun slime-lookup-lisp-implementation (table name)
   (destructuring-bind (name (prog &rest args) &rest keys) (assoc name table)
@@ -1392,6 +1395,9 @@ The rules for selecting the arguments are rather complicated:
       (slime-inferior-connect proc args)
       (pop-to-buffer (process-buffer proc)))))
 
+(defun slime-start* (options)
+  (apply #'slime-start options))
+
 (defun slime-connect (host port &optional coding-system)
   "Connect to a running Swank server."
   (interactive (list (read-from-minibuffer "Host: " slime-lisp-host)
@@ -1414,12 +1420,15 @@ The rules for selecting the arguments are rather complicated:
   (cond ((slime-connected-p)
          (slime-load-file-set-package filename package))
         (t
-         (lexical-let ((hook nil) (package package) (filename filename))
-           (setq hook (lambda ()
-                        (remove-hook 'slime-connected-hook hook)
-                        (slime-load-file-set-package filename package)))
-           (add-hook 'slime-connected-hook hook)
-           (slime)))))
+         (slime-start-and-init (slime-lisp-options)
+                               #'slime-start-and-load filename package))))
+
+(defun slime-start-and-init (options fun &rest args)
+  (lexical-let* ((fun fun) (args args)
+                 (rest (plist-get options :init-function))
+                 (init (cond (rest (lambda () (funcall rest) (apply fun args)))
+                             (t (lambda () (apply fun args))))))
+    (slime-start* (plist-put (copy-list options) :init-function init))))
 
 (defun slime-load-file-set-package (filename package)
   (let ((filename (slime-to-lisp-filename filename)))
