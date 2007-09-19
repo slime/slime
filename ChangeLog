@@ -1,6 +1,8 @@
 2007-09-19  Helmut Eller  <heller@common-lisp.net>
 
-	* bridge.el: moved to contrib.
+	* swank-version.el: Delete file. No longer used.
+
+	* bridge.el: Moved to contrib.
 
 	* tree-widget.el: File deleted. Only needed by contribs and is
 	distributed with Emacs 21.
