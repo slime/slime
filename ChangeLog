@@ -1,5 +1,13 @@
 2007-09-19  Helmut Eller  <heller@common-lisp.net>
 
+	Fix apropos in Emacs 22.
+
+	* slime.el (slime-print-apropos): Add button props for Emacs 22.
+	(slime-call-describer): ARG is a marker in Emacs 22.
+
+	(def-slime-selector-method ?c): Wait until slime-list-threads
+	returns.
+
 	Remove define-slime-dialect.
 
 	* slime.el (define-slime-dialect): Deleted. Use

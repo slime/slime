@@ -6048,12 +6048,17 @@ With prefix argument include internal symbols."
 		(princ (etypecase value
 			 (string value)
 			 ((member :not-documented) "(not documented)")))
-		(put-text-property start (point) 'type prop)
-		(put-text-property start (point) 'action 'slime-call-describer)
+                (add-text-properties 
+                 start (point)
+                 (list 'type prop 'action 'slime-call-describer
+                       'button t 'apropos-label namespace 
+                       'item (plist-get plist :designator)))
 		(terpri)))))))
 
-(defun slime-call-describer (item)
-  (let ((type (get-text-property (point) 'type)))
+(defun slime-call-describer (arg)
+  (let* ((pos (if (markerp arg) arg (point)))
+         (type (get-text-property pos 'type))
+         (item (get-text-property pos 'item)))
     (slime-eval-describe `(swank:describe-definition-for-emacs ,item ,type))))
 
 
@@ -7909,6 +7914,7 @@ switch-to-buffer."
 (def-slime-selector-method ?t
   "SLIME threads buffer."
   (slime-list-threads)
+  (slime-eval `(cl:quote nil))          ;wait until slime-list-threads returns
   "*slime-threads*")
 
 (defun slime-recently-visited-buffer (mode)
