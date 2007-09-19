@@ -1,5 +1,14 @@
 2007-09-19  Helmut Eller  <heller@common-lisp.net>
 
+	Remove explicit support for Scheme mode.
+
+	* slime.el (slime-scheme-mode-hook, slime-shared-lisp-mode-hook)
+	Deleted.
+	(slime-indentation-update-hooks): New hook.
+	(slime-handle-indentation-update): Use it.
+
+	Fix close-connection.
+
 	* swank.lisp (close-connection): Use *log-output* instead of
 	*debug-io* (which could be redirected to the to-be-closed
 	connection).

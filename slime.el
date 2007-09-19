@@ -68,25 +68,19 @@
   "When non-nil highlight buffers with compilation notes, warnings and errors."
   )
 
+(defvar slime-lisp-modes '(lisp-mode))
+
 (defun slime-setup (&optional contribs)
   "Setup Emacs so that lisp-mode buffers always use SLIME.
 CONTRIBS is a list of contrib packages to load."
   (when (member 'lisp-mode slime-lisp-modes)
     (add-hook 'lisp-mode-hook 'slime-lisp-mode-hook))
-  (when (member 'scheme-mode slime-lisp-modes)
-    (add-hook 'scheme-mode-hook 'slime-scheme-mode-hook))
   (mapc #'require contribs))
 
-(defun slime-shared-lisp-mode-hook ()
-  (slime-mode 1))
-
 (defun slime-lisp-mode-hook ()
-  (slime-shared-lisp-mode-hook)
+  (slime-mode 1)
   (set (make-local-variable 'lisp-indent-function)
        'common-lisp-indent-function))
-
-(defun slime-scheme-mode-hook ()
-  (slime-shared-lisp-mode-hook))
 
 (eval-and-compile 
   (defvar slime-path
@@ -3991,8 +3985,6 @@ underlined and annotated with the relevant information. The commands
 between compiler notes and to display their full details."
   (interactive)
   (slime-compile-file t))
-
-(defvar slime-lisp-modes '(lisp-mode))
 
 (defun slime-compile-file (&optional load)
   "Compile current buffer's file and highlight resulting compiler notes.
@@ -8010,6 +8002,8 @@ Only considers buffers that are not already visible."
   (interactive)
   (slime-eval-async '(swank:update-indentation-information)))
 
+(defvar slime-indentation-update-hooks)
+
 (defun slime-handle-indentation-update (alist)
   "Update Lisp indent information.
 
@@ -8017,22 +8011,14 @@ ALIST is a list of (SYMBOL-NAME . INDENT-SPEC) of proposed indentation
 settings for `common-lisp-indent-function'. The appropriate property
 is setup, unless the user already set one explicitly."
   (dolist (info alist)
-    (let ((symbol-name (car info)))
-      (unless (and slime-conservative-indentation
-                   (string-match "^\\(def\\|\\with-\\)" symbol-name))
-        (let ((symbol (intern symbol-name))
-              (indent (cdr info)))
-          (let ((old-slime-indent (get symbol 'slime-indent)))
-            (flet ((update (indent-function)
-                           ;; Does the symbol have an indentation value
-                           ;; that we set?
-                           (when (equal (get symbol indent-function)
-                                        old-slime-indent)
-                             (put symbol 'slime-indent indent)
-                             (put symbol indent-function indent))))
-              (update 'common-lisp-indent-function)
-              (when (member 'scheme-mode slime-lisp-modes)
-                (update 'scheme-indent-function)))))))))
+    (let ((symbol (intern (car info)))
+          (indent (cdr info)))
+      ;; Does the symbol have an indentation value that we set?
+      (when (equal (get symbol 'common-lisp-indent-function)
+                   (get symbol 'slime-indent))
+        (put symbol 'slime-indent indent)
+        (put symbol 'common-lisp-indent-function indent))
+      (run-hook-with-args 'slime-indentation-update-hooks symbol indent))))
 
 
 ;;;; Cheat Sheet
