@@ -1,3 +1,8 @@
+2007-09-19  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-c-p-c.el (slime-complete-symbol*-fancy): Move defcustom
+	from slime.el to contrib/slime-c-p-c.el.
+
 2007-09-16  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-fuzzy.lisp: Fix regression that would not allow to fuzzy

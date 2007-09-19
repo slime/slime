@@ -27,6 +27,11 @@ If false, move point to the end of the inserted text."
   :type 'boolean
   :group 'slime-ui)
 
+(defcustom slime-complete-symbol*-fancy nil
+  "Use information from argument lists for DWIM'ish symbol completion."
+  :group 'slime-mode
+  :type 'boolean)
+
 (defun slime-complete-symbol* ()
   "Expand abbreviations and complete the symbol at point."
   ;; NB: It is only the name part of the symbol that we actually want

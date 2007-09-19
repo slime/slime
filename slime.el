@@ -236,19 +236,9 @@ If you want to fallback on TAGS you can set this to `find-tag',
   :group 'slime-mode
   :type 'boolean)
 
-(defcustom slime-complete-symbol*-fancy nil
-  "Use information from argument lists for DWIM'ish symbol completion."
-  :group 'slime-mode
-  :type 'boolean)
-
 (defcustom slime-space-information-p t
   "Have the SPC key offer arglist information."
   :type 'boolean
-  :group 'slime-mode)
-
-(defcustom slime-display-compilation-output t
-  "Display the REPL buffer before compiling files."
-  :type '(choice (const :tag "Enable" t) (const :tag "Disable" nil))
   :group 'slime-mode)
 
 ;;;;; slime-mode-faces
@@ -3840,6 +3830,11 @@ Also rearrange windows."
 
 (defvar slime-highlight-compiler-notes t
   "*When non-nil annotate buffers with compilation notes etc.")
+
+(defcustom slime-display-compilation-output t
+  "Display the REPL buffer before compiling files."
+  :type '(choice (const :tag "Enable" t) (const :tag "Disable" nil))
+  :group 'slime-mode)
 
 (defvar slime-before-compile-functions nil
   "A list of function called before compiling a buffer or region.
