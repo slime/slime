@@ -1,5 +1,11 @@
 2007-09-19  Helmut Eller  <heller@common-lisp.net>
 
+	Introduce a slime-start-and-init function.
+
+	* slime.el (slime-start-and-init, slime-lisp-options): New
+	functions.
+	(slime-start-and-load): Use it.
+
 	Simplify slime-length=.
 
 	* slime.el (slime-length=, slime-length>): No need for vectors.
