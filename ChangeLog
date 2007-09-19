@@ -1,5 +1,9 @@
 2007-09-19  Helmut Eller  <heller@common-lisp.net>
 
+	Simplify slime-length=.
+
+	* slime.el (slime-length=, slime-length>): No need for vectors.
+
 	Remove explicit support for Scheme mode.
 
 	* slime.el (slime-scheme-mode-hook, slime-shared-lisp-mode-hook)

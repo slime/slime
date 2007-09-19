@@ -9003,25 +9003,14 @@ Reconnect afterwards."
 
 ;;;;; Misc.
 
-(defun slime-length= (seq n)
-  "Test for whether SEQ contains N number of elements. I.e. it's equivalent
- to (= (LENGTH SEQ) N), but besides being more concise, it may also be more
- efficiently implemented."
-  (etypecase seq 
-    (list (do ((i n (1- i))
-               (list seq (cdr list)))
-              ((or (<= i 0) (null list))
-               (and (zerop i) (null list)))))
-    (sequence (= (length seq) n))))
+(defun slime-length= (list n)
+  "Return t if (= (length LIST) N)."
+  (setq list (nthcdr (1- n) list))
+  (and list (null (cdr list))))
 
-(defun slime-length> (seq n)
-  "Test if (length SEQ) is greater than N."
-  (etypecase seq
-    (list (while (and (> n 0) seq)
-            (setq seq (cdr seq))
-            (decf n))
-          (or (< n 0) (and seq t)))
-    (sequence (> (length seq) n))))
+(defun slime-length> (list n)
+  "Return non-nil if (> (length LIST) N)."
+  (nthcdr n list))
 
 (defun slime-split-string (string &optional separators omit-nulls)
   "This is like `split-string' in Emacs22, but also works in
