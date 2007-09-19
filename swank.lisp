@@ -676,8 +676,8 @@ if the file doesn't exist; otherwise the first line of the file."
 
 (defun simple-announce-function (port)
   (when *swank-debug-p*
-    (format *debug-io* "~&;; Swank started at port: ~D.~%" port)
-    (force-output *debug-io*)))
+    (format *log-output* "~&;; Swank started at port: ~D.~%" port)
+    (force-output *log-output*)))
 
 (defun open-streams (connection)
   "Return the 5 streams for IO redirection:
@@ -773,7 +773,7 @@ of the toplevel restart."
   (connection.socket-io *emacs-connection*))
 
 (defun close-connection (c &optional condition backtrace)
-  (format *debug-io* "~&;; swank:close-connection: ~A~%" condition)
+  (format *log-output* "~&;; swank:close-connection: ~A~%" condition)
   (let ((cleanup (connection.cleanup c)))
     (when cleanup
       (funcall cleanup c)))
@@ -783,10 +783,10 @@ of the toplevel restart."
   (setf *connections* (remove c *connections*))
   (run-hook *connection-closed-hook* c)
   (when (and condition (not (typep condition 'end-of-file)))
-    (finish-output *debug-io*)
-    (format *debug-io* "~&;; Event history start:~%")
-    (dump-event-history *debug-io*)
-    (format *debug-io* ";; Event history end.~%~
+    (finish-output *log-output*)
+    (format *log-output* "~&;; Event history start:~%")
+    (dump-event-history *log-output*)
+    (format *log-output* ";; Event history end.~%~
                         ;; Backtrace:~%~{~A~%~}~
                         ;; Connection to Emacs lost. [~%~
                         ;;  condition: ~A~%~
@@ -798,7 +798,7 @@ of the toplevel restart."
             (ignore-errors (stream-external-format (connection.socket-io c)))
             (connection.communication-style c)
             *use-dedicated-output-stream*)
-    (finish-output *debug-io*)))
+    (finish-output *log-output*)))
 
 (defvar *debug-on-swank-error* nil
   "When non-nil internal swank errors will drop to a
@@ -807,17 +807,18 @@ of the toplevel restart."
 
 (defmacro with-reader-error-handler ((connection) &body body)
   (let ((con (gensym))
-        (block (gensym)))
+        (blck (gensym)))
     `(let ((,con ,connection))
-       (block ,block
+       (block ,blck
          (handler-bind ((swank-error
                          (lambda (e)
                            (if *debug-on-swank-error*
                                (invoke-debugger e)
-                               (return-from ,block
-                                 (close-connection ,con 
-                                                   (swank-error.condition e)
-                                                   (swank-error.backtrace e)))))))
+                               (return-from ,blck
+                                 (close-connection 
+                                  ,con 
+                                  (swank-error.condition e)
+                                  (swank-error.backtrace e)))))))
            (progn ,@body))))))
 
 (defslimefun simple-break ()
@@ -1251,6 +1252,7 @@ NIL if streams are not globally redirected.")
 
 (defun update-redirection-after-close (closed-connection)
   "Update redirection after a connection closes."
+  (check-type closed-connection connection)
   (when (eq *global-stdio-connection* closed-connection)
     (if (and (default-connection) *globally-redirect-io*)
         ;; Redirect to another connection.
@@ -1688,9 +1690,7 @@ Errors are trapped and invoke our debugger."
              (let ((i (car values)))
                (format nil "~A~D (#x~X, #o~O, #b~B)" 
                        *echo-area-prefix* i i i i)))
-            (t (with-output-to-string (s)
-                 (pprint-logical-block (s () :prefix *echo-area-prefix*)
-                   (format s "~{~S~^, ~}" values))))))))
+            (t (format nil "~a~{~S~^, ~}" *echo-area-prefix* values))))))
 
 (defslimefun interactive-eval (string)
   (with-buffer-syntax ()

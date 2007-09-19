@@ -1,3 +1,9 @@
+2007-09-19  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (close-connection): Use *log-output* instead of
+	*debug-io* (which could be redirected to the to-be-closed
+	connection).
+
 2007-09-15  Helmut Eller  <heller@common-lisp.net>
 
 	Let slime-setup load contribs.
