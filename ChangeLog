@@ -1,5 +1,10 @@
 2007-09-19  Helmut Eller  <heller@common-lisp.net>
 
+	* bridge.el: moved to contrib.
+
+	* tree-widget.el: File deleted. Only needed by contribs and is
+	distributed with Emacs 21.
+
 	* slime.el: Reorder some devfars and menus code so that the
 	compiler doesn't complain about free variables.
 
