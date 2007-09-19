@@ -1437,23 +1437,6 @@ The rules for selecting the arguments are rather complicated:
                         (when package
                           (slime-repl-set-package (second package)))))))
 
-(defmacro define-slime-dialect (name &optional program hook)
-  "Define a command slime-dialect-NAME to start a specific Lisp.
-PROGRAM is the command to start the inferior process.
-HOOK is function which is run before the process is started."
-  (let ((funsym (intern (format "slime-dialect-%s" name)))
-        (hooksym (intern (format "slime-dialect-%s-hook" name)))
-        (progsym (intern (format "slime-dialect-%s-program" name))))
-    `(progn
-       (defvar ,progsym ,program)
-       (defvar ,hooksym ,hook)
-       (defun ,funsym ()
-         ,(format "Start up slime according to `%s'." progsym)
-         (interactive)
-         (let ((inferior-lisp-program ,progsym))
-           (run-hooks ',hooksym)
-           (call-interactively 'slime))))))
-
 ;;;;; Start inferior lisp
 ;;;
 ;;; Here is the protocol for starting SLIME:
