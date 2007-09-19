@@ -892,6 +892,12 @@ Assumes all insertions are made at point."
   (slime-with-rigid-indentation nil
     (apply #'insert strings)))
 
+(defun slime-curry (fun &rest args)
+  `(lambda (&rest more) (apply ',fun (append ',args more))))
+
+(defun slime-rcurry (fun &rest args)
+  `(lambda (&rest more) (apply ',fun (append more ',args))))
+
 ;;;;; Snapshots of current Emacs state
 
 ;;; Window configurations do not save (and hence not restore)
@@ -1267,13 +1273,13 @@ The rules for selecting the arguments are rather complicated:
          (slime-load-file-set-package filename package))
         (t
          (slime-start-and-init (slime-lisp-options)
-                               #'slime-start-and-load filename package))))
+                               (slime-curry #'slime-start-and-load 
+                                            filename package)))))
 
-(defun slime-start-and-init (options fun &rest args)
-  (lexical-let* ((fun fun) (args args)
-                 (rest (plist-get options :init-function))
-                 (init (cond (rest (lambda () (funcall rest) (apply fun args)))
-                             (t (lambda () (apply fun args))))))
+(defun slime-start-and-init (options fun)
+  (let* ((rest (plist-get options :init-function))
+         (init (cond (rest `(lambda () (funcall ',rest) (funcall ',fun)))
+                     (t fun))))
     (slime-start* (plist-put (copy-list options) :init-function init))))
 
 (defun slime-load-file-set-package (filename package)
@@ -3879,19 +3885,14 @@ See `slime-compile-and-load-file' for further details."
              (y-or-n-p (format "Save file %s? " (buffer-file-name))))
     (save-buffer))
   (run-hook-with-args 'slime-before-compile-functions (point-min) (point-max))
-  (let ((lisp-filename (slime-to-lisp-filename (buffer-file-name)))
-        (snapshot (slime-current-emacs-snapshot)))
-    (slime-insert-transcript-delimiter
-     (format "Compile file %s" lisp-filename))
-    ;; The following may alter the current window configuration, so we saved
-    ;; it above to pass it on for it to be properly restored!
+  (let ((file (slime-to-lisp-filename (buffer-file-name))))
+    (slime-insert-transcript-delimiter (format "Compile file %s" file))
     (when slime-display-compilation-output
       (slime-display-output-buffer))
-    (slime-eval-async
-     `(swank:compile-file-for-emacs 
-       ,lisp-filename ,(if load t nil))
-     (slime-make-compilation-finished-continuation (current-buffer) snapshot))
-    (message "Compiling %s.." lisp-filename)))
+    (slime-eval-async 
+     `(swank:compile-file-for-emacs ,file ,(if load t nil))
+     (slime-rcurry #'slime-compilation-finished (current-buffer)))
+    (message "Compiling %s..." file)))
 
 (defun slime-compile-defun ()
   "Compile the current toplevel form."

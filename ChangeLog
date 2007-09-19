@@ -1,5 +1,10 @@
 2007-09-19  Helmut Eller  <heller@common-lisp.net>
 
+	Simplify slime-compile-file.
+
+	* slime.el (slime-compile-file): Don't save window config.
+	(slime-curry, slime-rcurry): New functions.
+
 	* slime.el (slime-complete-symbol*-fancy): Move defcustom to
 	contrib/slime-c-p-c.el
 
