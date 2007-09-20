@@ -626,7 +626,7 @@ buffer. Presentations of old results are expanded into code."
 
 ;;; Initialization
 
-(defun slime-presentation-init ()
+(defun slime-presentations-init ()
   (add-hook 'slime-repl-mode-hook
 	    (lambda ()
 	      ;; Respect the syntax text properties of presentation.
@@ -638,13 +638,12 @@ buffer. Presentations of old results are expanded into code."
   (add-hook 'slime-repl-return-hooks 'slime-presentation-on-return-pressed)
   (add-hook 'slime-repl-current-input-hooks 'slime-presentation-current-input)
   (add-hook 'slime-open-stream-hooks 'slime-presentation-on-stream-open)
-  (add-hook 'slime-repl-clear-buffer-hook 'slime-clear-presentations))
-
-(slime-presentation-init)
-
-(add-hook 'slime-connected-hook 'slime-install-presentations)
+  (add-hook 'slime-repl-clear-buffer-hook 'slime-clear-presentations)
+  (add-hook 'slime-connected-hook 'slime-install-presentations))
 
 (defun slime-install-presentations ()
   (slime-eval-async '(swank:swank-require :swank-presentations)))
+
+(slime-presentations-init)
 
 (provide 'slime-presentations)

@@ -721,6 +721,17 @@ SPECIAL-OPERATOR groups."
                    content))
           (values title content)))))
 
-(setq *default-inspector* (make-instance 'fancy-inspector))
+(defvar *fancy-inpector-undo-list* nil)
+
+(defslimefun fancy-inspector-init ()
+  (let ((i *default-inspector*))
+    (push (lambda () (setq *default-inspector* i))
+	  *fancy-inpector-undo-list*))
+  (setq *default-inspector* (make-instance 'fancy-inspector))
+  t)
+
+(defslimefun fancy-inspector-unload ()
+  (loop while *fancy-inpector-undo-list* do
+	(funcall (pop *fancy-inpector-undo-list*))))
 
 (provide :swank-fancy-inspector)

@@ -56,12 +56,25 @@
 
 ;;; Initialization
 
-(defun slime-install-typeout-frame ()
+(defvar slime-typeout-frame-unbind-stack ())
+
+(defun slime-typeout-frame-init ()
   (add-hook 'slime-connected-hook 'slime-ensure-typeout-frame)
-  (setq slime-message-function #'slime-typeout-message)
-  (setq slime-background-message-function #'slime-typeout-message)
-  (setq slime-autodoc-message-function #'slime-typeout-autodoc-message))
+  (loop for (var value) in 
+	'((slime-message-function #'slime-typeout-message)
+	  (slime-background-message-function #'slime-typeout-message)
+	  (slime-autodoc-message-function #'slime-typeout-autodoc-message))
+	do (slime-typeout-frame-init-var var value)))
 
-(slime-install-typeout-frame)
+(defun slime-typeout-frame-init-var (var value)
+  (push (list var (if (boundp var) (symbol-value var) 'slime-unbound))
+	slime-typeout-frame-unbind-stack)
+  (set var value))
 
+(defun slime-typeout-frame-unload ()
+  (remove-hook 'slime-connected-hook 'slime-ensure-typeout-frame)
+  (loop for (var value) in slime-typeout-frame-unbind-stack 
+	do (cond ((eq var 'slime-unbound) (makunbound var))
+		 (t (set var value)))))
+  
 (provide 'slime-typeout-frame)

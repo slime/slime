@@ -124,8 +124,12 @@ Only add clickability to properties we actually know how to lookup."
 
 ;;; Initialization
 
-(setq slime-tree-printer 'slime-tree-print-with-references)
+(defun slime-references-init ()
+  (setq slime-tree-printer 'slime-tree-print-with-references)
+  (add-hook 'sldb-extras-hooks 'sldb-maybe-insert-references))
 
-(add-hook 'sldb-extras-hooks 'sldb-maybe-insert-references)
-
+(defun slime-references-unload ()
+  (setq slime-tree-printer 'slime-tree-default-printer)
+  (remove-hook 'sldb-extras-hooks 'sldb-maybe-insert-references))
+  
 (provide 'slime-references)

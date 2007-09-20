@@ -1,3 +1,24 @@
+2007-09-20  Helmut Eller  <heller@common-lisp.net>
+
+	Separate loading from initialization for many contribs.
+
+	* slime-asdf.el
+	* slime-autodoc.el
+	* slime-banner.el
+	* slime-c-p-c.el
+	* slime-editing-commands.el
+	* slime-fancy-inspector.el
+	* slime-fuzzy.el
+	* slime-highlight-edits.el
+	* slime-presentations.el
+	* slime-references.el
+	* slime-scratch.el
+	* slime-typeout-frame.el
+	* swank-fancy-inspector.lisp
+
+	* slime-fancy.el: As an exception, call the respective init
+	function when loading.
+
 2007-09-19  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-c-p-c.el (slime-complete-symbol*-fancy): Move defcustom

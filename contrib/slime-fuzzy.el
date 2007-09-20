@@ -595,6 +595,4 @@ configuration was changed, we nullify our saved configuration."
 (defun slime-fuzzy-on-connect ()
   (slime-eval-async '(swank:swank-require :swank-fuzzy)))
 
-(slime-fuzzy-init)
-
 (provide 'slime-fuzzy)

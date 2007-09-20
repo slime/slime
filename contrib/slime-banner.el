@@ -35,6 +35,10 @@
           (animate-string welcome 0 0) 
         (insert welcome)))))
 
-(setq slime-repl-banner-function 'slime-startup-message)
+(defun slime-banner-init ()
+  (setq slime-repl-banner-function 'slime-startup-message))
+
+(defun slime-banner-unload ()
+  (setq slime-repl-banner-function 'slime-repl-insert-banner))
 
 (provide 'slime-banner)

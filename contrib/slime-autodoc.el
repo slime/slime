@@ -263,6 +263,10 @@ annoy the user)."
   (when slime-use-autodoc-mode 
     (slime-autodoc-mode 1)))
 
-(slime-autodoc-init)
+(defun slime-autodoc-unload ()
+  (setq slime-echo-arglist-function 'slime-show-arglist)
+  (remove-hook 'slime-connected-hook 'slime-autodoc-on-connect)
+  (dolist (h '(slime-mode-hook slime-repl-mode-hook sldb-mode-hook))
+    (remove-hook h 'slime-autodoc-maybe-enable)))
 
 (provide 'slime-autodoc)

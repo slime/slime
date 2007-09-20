@@ -1,4 +1,4 @@
-;;; slime-fancy.el --- Load all stable fancy SLIME contribs
+;;; slime-fancy.el --- Load and init some fancy SLIME contribs
 ;;
 ;; Authors: Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 ;; 
@@ -19,28 +19,35 @@
 
 ;; Better arglist display, can be turned off by customization.
 (require 'slime-autodoc)
+(slime-autodoc-init)
 
 ;; Adds new commands and installs compound-prefix-completion as
 ;; default completion command.  Behaves similar to standard Emacs
 ;; completion, unless dashes are present. --mkoeppe
 (require 'slime-c-p-c)
+(slime-c-p-c-init)
 
-;; Just adds commands.
+;; Just adds commands.  (Well, shadows commands in lisp-mode-map)
 (require 'slime-editing-commands)
+(slime-editing-commands-init)
 
 ;; Makes the inspector fancier.
 (require 'slime-fancy-inspector)
+(slime-fancy-inspector-init)
 
 ;; Just adds the command C-c M-i.  We do not make fuzzy completion the
 ;; default completion invoked by TAB. --mkoeppe
 (require 'slime-fuzzy)
+(slime-fuzzy-init)
 
 (require 'slime-highlight-edits)
+(slime-highlight-edits-init)
 
 ;; Load slime-presentations even though they seem to be a
 ;; controversial feature, as they can be easily turned off by
 ;; customizing swank:*record-repl-results*. --mkoeppe
 (require 'slime-presentations)
+(slime-presentations-init)
 
 ;;; Do not load slime-presentation-streams, as this is an experimental
 ;;; feature that installs patches into some Lisps. --mkoeppe
@@ -53,10 +60,11 @@
 ;;(require 'slime-typeout-frame)
 
 ;; Just adds commands.
-(require 'slime-xref-browser)
+(when (locate-library "tree-widget")
+  (require 'slime-xref-browser))
 
 ;; Puts clickable references to documentation into SBCL errors.
 (require 'slime-references)
+(slime-references-init)
 
 (provide 'slime-fancy)
-

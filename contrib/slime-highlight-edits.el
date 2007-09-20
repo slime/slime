@@ -90,6 +90,10 @@
 
 (defun slime-highlight-edits-mode-on () (slime-highlight-edits-mode 1))
 
-(add-hook 'slime-mode-hook 'slime-highlight-edits-mode-on)
+(defun slime-highlight-edits-init ()
+  (add-hook 'slime-mode-hook 'slime-highlight-edits-mode-on))
+
+(defun slime-highlight-edits-unload ()
+  (remove-hook 'slime-mode-hook 'slime-highlight-edits-mode-on))
 
 (provide 'slime-highlight-edits)

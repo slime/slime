@@ -40,8 +40,9 @@
 (slime-define-keys slime-scratch-mode-map
   ("\C-j" 'slime-eval-print-last-expression))
 
-(def-slime-selector-method ?s
-  "*slime-scratch* buffer."
-  (slime-scratch-buffer))
+(defun slime-scratch-init ()
+  (def-slime-selector-method ?s
+    "*slime-scratch* buffer."
+    (slime-scratch-buffer)))
 
 (provide 'slime-scratch)
