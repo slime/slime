@@ -1,3 +1,9 @@
+2007-09-21  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-length=, slime-length>): Restore support for
+	vectors, as `slime-length=' was already used with strings in
+	`slime-parse.el'. This broke extended arglist display.
+
 2007-09-20  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-setup): Call the respective init functions of
