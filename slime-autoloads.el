@@ -33,13 +33,17 @@
 CONTRIBS is a list of contrib packages to load."
   (when (member 'lisp-mode slime-lisp-modes)
     (add-hook 'lisp-mode-hook 'slime-lisp-mode-hook))
-  (when (member 'scheme-mode slime-lisp-modes)
-    (add-hook 'scheme-mode-hook 'slime-scheme-mode-hook))
   (setq slime-setup-contribs contribs)
   (add-hook 'slime-load-hook 'slime-setup-contribs))
 
 (defvar slime-setup-contribs nil)
-(defun slime-setup-contribs () (mapc #'require slime-setup-contribs))
+
+(defun slime-setup-contribs () 
+  (dolist (c slime-setup-contribs)
+    (require c)
+    (let ((init (intern (format "%s-init" c))))
+      (when (fboundp init)
+        (funcall init)))))
 
 (provide 'slime-autoloads)
 

@@ -71,7 +71,11 @@
 CONTRIBS is a list of contrib packages to load."
   (when (member 'lisp-mode slime-lisp-modes)
     (add-hook 'lisp-mode-hook 'slime-lisp-mode-hook))
-  (mapc #'require contribs))
+  (dolist (c contribs)
+    (require c)
+    (let ((init (intern (format "%s-init" c))))
+      (when (fboundp init)
+        (funcall init)))))
 
 (defun slime-lisp-mode-hook ()
   (slime-mode 1)
@@ -9510,9 +9514,8 @@ To fetch the contrib directoy use:  cvs update -d"
           slime-insert-propertized
           slime-tree-insert)))
 
-(run-hooks 'slime-load-hook)
-
 (provide 'slime)
+(run-hooks 'slime-load-hook)
 
 ;; Local Variables: 
 ;; outline-regexp: ";;;;+"

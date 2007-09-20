@@ -1,3 +1,10 @@
+2007-09-20  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-setup): Call the respective init functions of
+	contribs.
+
+	* slime-autoloads.el (slime-setup-contribs): Ditto.
+
 2007-09-19  Helmut Eller  <heller@common-lisp.net>
 
 	Simplify slime-compile-file.
