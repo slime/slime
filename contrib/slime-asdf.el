@@ -104,10 +104,10 @@ returns it if it's in `system-names'."
 (defun slime-asdf-on-connect ()
   (slime-eval-async '(swank:swank-require :swank-asdf)))
 
-(defun slime-adsf-init ()
+(defun slime-asdf-init ()
   (add-hook 'slime-connected-hook 'slime-asdf-on-connect))
 
-(defun slime-adsf-unload ()
+(defun slime-asdf-unload ()
   (remove-hook 'slime-connected-hook 'slime-asdf-on-connect))
 
 (provide 'slime-asdf)
