@@ -1,7 +1,7 @@
 2007-09-21  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-asdf.el (slime-asdf-init, slime-asdf-unload): Fix typos.
-	Reported
+	Reported by Ariel Badichi.
 
 2007-09-20  Helmut Eller  <heller@common-lisp.net>
 
