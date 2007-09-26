@@ -1,3 +1,9 @@
+2007-09-26  Utz-Uwe Haus  <haus+slime@mail.math.uni-magdeburg.de>
+
+	* swank-allegro.lisp (fspec-definition-locations): Allow the
+	POSITION datum of :top-level-form fspecs to be missing.  This
+	apparently helpful for Allegro CL 8.1.
+
 2007-09-21  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-length=, slime-length>): Restore support for
