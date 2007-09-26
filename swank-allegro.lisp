@@ -402,7 +402,7 @@
   (cond
    ((and (listp fspec)
          (eql (car fspec) :top-level-form))
-    (destructuring-bind (top-level-form file position) fspec 
+    (destructuring-bind (top-level-form file &optional position) fspec 
       (list
        (list (list nil fspec)
              (make-location (list :buffer file)
