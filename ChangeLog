@@ -1,3 +1,11 @@
+2007-09-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-filesystem-toplevel-directory): New function.
+	Windows doesn't have a filesystem that is as hierarchical as the
+	Unix' one. Reported by Carsten Blaauw and Stefan Kluehspies.
+	(slime-file-name-merge-source-root): Use it.
+	(slime-highlight-differences-in-dirname): Use it.
+
 2007-09-26  Utz-Uwe Haus  <haus+slime@mail.math.uni-magdeburg.de>
 
 	* swank-allegro.lisp (fspec-definition-locations): Allow the

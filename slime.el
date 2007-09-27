@@ -4415,6 +4415,13 @@ first element of the source-path redundant."
           (beginning-of-sexp))
       (error (goto-char origin)))))
 
+(defun slime-filesystem-toplevel-directory ()
+  ;; Windows doesn't have a true toplevel root directory, and all
+  ;; filenames look like "c:/foo/bar/quux.baz" from an Emacs
+  ;; perspective anyway.
+  (if (memq system-type '(ms-dos windows-nt))
+      ""
+      (file-name-as-directory "/")))
 
 (defun slime-file-name-merge-source-root (target-filename buffer-filename)
   "Returns a filename where the source root directory of TARGET-FILENAME
@@ -4444,7 +4451,7 @@ E.g. (slime-file-name-merge-source-root
                      (push target-dir target-suffix-dirs)
                      (let* ((target-suffix (concat-dirs target-suffix-dirs)) ; PUSH reversed for us!
                             (buffer-root   (concat-dirs (reverse (nthcdr pos buffer-dirs*)))))
-                       (return (concat (file-name-as-directory "/")
+                       (return (concat (slime-filesystem-toplevel-directory)
                                        buffer-root
                                        target-suffix
                                        (file-name-nondirectory target-filename))))))))))
@@ -4463,7 +4470,7 @@ highlighting face."
     (let ((base-dirs (slime-split-string base-dirname "/" t))
           (contrast-dirs (slime-split-string contrast-dirname "/" t)))
       (with-temp-buffer
-        (loop initially (insert (file-name-as-directory "/"))
+        (loop initially (insert (slime-filesystem-toplevel-directory))
               for base-dir in base-dirs do
               (let ((pos (position base-dir contrast-dirs :test #'equal)))
                 (if (not pos)
