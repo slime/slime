@@ -1,3 +1,14 @@
+2007-09-28  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* README: Updated.
+
+	* slime-fancy.el: `slime-highlighting-edits' is not enabled by
+	default anymore, as its functionality is controversial, and it's
+	easier to explicitly enable it than it's disable it once it got
+	globally activated. Better to be conservative.
+
+	* slime-fancy.el: Not only load, but also enable `slime-scratch'.
+
 2007-09-21  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-asdf.el (slime-asdf-init, slime-asdf-unload): Fix typos.
