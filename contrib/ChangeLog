@@ -4,7 +4,7 @@
 
 	* slime-fancy.el: `slime-highlighting-edits' is not enabled by
 	default anymore, as its functionality is controversial, and it's
-	easier to explicitly enable it than it's disable it once it got
+	easier to explicitly enable it than to disable it once it got
 	globally activated. Better to be conservative.
 
 	* slime-fancy.el: Not only load, but also enable `slime-scratch'.
