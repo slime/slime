@@ -61,9 +61,9 @@
 (defun slime-typeout-frame-init ()
   (add-hook 'slime-connected-hook 'slime-ensure-typeout-frame)
   (loop for (var value) in 
-	'((slime-message-function #'slime-typeout-message)
-	  (slime-background-message-function #'slime-typeout-message)
-	  (slime-autodoc-message-function #'slime-typeout-autodoc-message))
+	'((slime-message-function slime-typeout-message)
+	  (slime-background-message-function slime-typeout-message)
+	  (slime-autodoc-message-function slime-typeout-autodoc-message))
 	do (slime-typeout-frame-init-var var value)))
 
 (defun slime-typeout-frame-init-var (var value)
