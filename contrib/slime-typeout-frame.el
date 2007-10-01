@@ -28,11 +28,21 @@
   (and slime-typeout-window
        (window-live-p slime-typeout-window)))
 
-(defun slime-typeout-message (format-string &rest format-args)
+(defun slime-typeout-message-aux (format-string &rest format-args)
   (slime-ensure-typeout-frame)
   (with-current-buffer (window-buffer slime-typeout-window)
-    (erase-buffer)
-    (insert (apply #'format format-string format-args))))
+    (let ((msg (apply #'format format-string format-args)))
+      (unless (string= msg "")
+	(erase-buffer)
+	(insert msg)))))
+
+(defun slime-typeout-message (format-string &rest format-args)
+  (apply #'slime-typeout-message-aux format-string format-args)
+  ;; Disable the timer for autodoc temporarily, as it would overwrite
+  ;; the current typeout message otherwise.
+  (when (and (featurep 'slime-autodoc) slime-autodoc-mode)
+    (slime-autodoc-stop-timer)
+    (add-hook 'pre-command-hook #'slime-autodoc-start-timer)))
 
 (defun slime-make-typeout-frame ()
   "Create a frame for displaying messages (e.g. arglists)."
@@ -50,8 +60,9 @@
     (slime-make-typeout-frame)))
 
 (defun slime-typeout-autodoc-message (doc)
-  (setq slime-autodoc-last-message "") ; no need for refreshing
-  (slime-typeout-message "%s" doc))
+  ;; No need for refreshing per `slime-autodoc-pre-command-refresh-echo-area'.
+  (setq slime-autodoc-last-message "")
+  (slime-typeout-message-aux "%s" doc))
 
 
 ;;; Initialization
