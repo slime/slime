@@ -1,5 +1,10 @@
 2007-10-01  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-autdoc.el (slime-autodoc-message-ok-p): Don't display an
+	arglist when the minibuffer is active.
+
+2007-10-01  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-typeout-frame.el: Messages in the typeout frame were too
 	easily overwritten by `slime-autodoc'. Fix that.
 	Reported by Geoff Wozniak.

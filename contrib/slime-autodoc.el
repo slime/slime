@@ -244,6 +244,7 @@ annoy the user)."
        (not executing-kbd-macro)
        (not (and (boundp 'edebug-active) (symbol-value 'edebug-active)))
        (not cursor-in-echo-area)
+       (not (active-minibuffer-window))
        (not (eq (selected-window) (minibuffer-window)))
        (slime-background-activities-enabled-p)))
 
