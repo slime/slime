@@ -199,8 +199,8 @@ the Common Lisp datum that the string represents, a flag whether
 the returned datum is a symbol and has been newly interned in
 some package.
 
-If READER is not explicitly given, the function READ-SOFTLY is
-used instead."
+If READER is not explicitly given, the function 
+READ-SOFTLY-FROM-STRING* is used instead."
   (when spec
     (with-buffer-syntax ()
       (call-with-ignored-reader-errors
@@ -211,13 +211,13 @@ used instead."
                     (etypecase element
                       (string
                        (multiple-value-bind (sexp newly-interned?)
-                           (funcall (or reader 'read-softly) element)
+                           (funcall (or reader 'read-softly-from-string*) element)
                          (push sexp result)
                          (when newly-interned?
                            (push sexp newly-interned-symbols))))
                       (cons
                        (multiple-value-bind (read-spec interned-symbols)
-                           (read-form-spec element)
+                           (read-form-spec element reader)
                          (push read-spec result)
                          (setf newly-interned-symbols
                                (append interned-symbols
@@ -227,27 +227,13 @@ used instead."
              (values (nreverse result)
                      (nreverse newly-interned-symbols))))))))
 
-(defun unintern-in-home-package (symbol)
-  (unintern symbol (symbol-package symbol)))
-
-(defun read-softly (string)
-  "Returns two values:
-
-     1. the object resulting from READing STRING.
-
-     2. T if the object is a symbol that had to be newly interned
-        in some package. (This does not work for symbols in
-        compound forms like lists or vectors.)"
-  (multiple-value-bind (symbol found? symbol-name package) (parse-symbol string)
-    (if found?
-        (values symbol nil)
-        (let ((sexp (read-from-string string)))
-          (values sexp
-                  (when (symbolp sexp)
-                    (prog1 t
-                      ;; assert that PARSE-SYMBOL didn't parse incorrectly.
-                      (assert (and (equal symbol-name (symbol-name sexp))
-                                   (eq package (symbol-package sexp)))))))))))
+(defun read-softly-from-string* (string)
+  "Like READ-SOFTLY-FROM-STRING, but only returns the sexp and
+the flag if a symbol had to be interned."
+  (multiple-value-bind (sexp pos interned?)
+      (read-softly-from-string string)
+    (declare (ignore pos))
+    (values sexp interned?)))
 
 
 (defstruct (arglist (:conc-name arglist.) (:predicate arglist-p))
