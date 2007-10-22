@@ -166,12 +166,13 @@ recompiled."
             (handle-loadtime-error c binary-pathname)))))))
 
 #+(or cormanlisp ecl)
-(defun compile-files-if-needed-serially (files fasl-directory)
+(defun compile-files-if-needed-serially (files fasl-directory load)
   "Corman Lisp and ECL have trouble with compiled files."
   (declare (ignore fasl-directory))
-  (dolist (file files)
-    (load file :verbose t)
-    (force-output)))
+  (when load
+    (dolist (file files)
+      (load file :verbose t)
+      (force-output))))
 
 (defun load-user-init-file ()
   "Load the user init file, return NIL if it does not exist."

@@ -1,3 +1,9 @@
+2007-10-22  Steve Smith  <tarkasteve@gmail.com>
+
+	* swank-loader.lisp (compile-files-if-needed-serially): Added
+	missing `load' argument to function definition on Corman Lisp /
+	ECL.
+
 2007-10-22  Mark Evenson  <mark.evenson@gmx.at>
 
 	* swank-abcl.lisp (getpid): Implemented.
