@@ -1,3 +1,10 @@
+2007-09-27  R. Matthew Emerson  <rme@thoughtstuff.com>
+
+	* swank-openmcl.lisp (closure-closed-over-values): Use
+	CCL::NTH-IMMEDIATE instead of CCL::%SVREF.  This makes it work on
+	x86-64 OpenMCL. (The %SVREF worked on PPC, but this will work on
+	both.)
+
 2007-09-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-filesystem-toplevel-directory): New function.

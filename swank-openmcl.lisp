@@ -849,7 +849,7 @@ at least the filename containing it."
   (let ((howmany (nth-value 8 (ccl::function-args (ccl::closure-function closure)))))
     (loop for n below howmany
 	 collect
-	 (let* ((value (ccl::%svref closure (+ 1 (- howmany n))))
+	 (let* ((value (ccl::nth-immediate closure (+ 1 (- howmany n))))
 		(map (car (ccl::function-symbol-map (ccl::closure-function closure))))
 		(label (or (and map (svref map n)) n))
 		(cellp (ccl::closed-over-value-p value)))
