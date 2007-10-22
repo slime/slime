@@ -1,3 +1,11 @@
+2007-10-22  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank.lisp (read-softly-from-string, unintern-in-home-package):
+	Moved from `contrib/swank-arglist.lisp'.
+	(parse-package): Use them. (Removes FIXME about interning
+	symbols.)  Also changed the logic somewhat to avoid passing :|| to
+	FIND-PACKAGE as ECL chokes on that.
+
 2007-10-22  Steve Smith  <tarkasteve@gmail.com>
 
 	* swank-loader.lisp (compile-files-if-needed-serially): Added

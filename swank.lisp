@@ -1517,6 +1517,30 @@ gracefully."
     (let ((*read-suppress* nil))
       (read-from-string string))))
 
+(defun read-softly-from-string (string)
+  "Returns three values:
+
+     1. the object resulting from READing STRING.
+
+     2. The index of the first character in STRING that was not read.
+
+     3. T if the object is a symbol that had to be newly interned
+        in some package. (This does not work for symbols in
+        compound forms like lists or vectors.)"
+  (multiple-value-bind (symbol found? symbol-name package) (parse-symbol string)
+    (if found?
+        (values symbol nil)
+        (multiple-value-bind (sexp pos) (read-from-string string)
+          (values sexp pos
+                  (when (symbolp sexp)
+                    (prog1 t
+                      ;; assert that PARSE-SYMBOL didn't parse incorrectly.
+                      (assert (and (equal symbol-name (symbol-name sexp))
+                                   (eq package (symbol-package sexp)))))))))))
+
+(defun unintern-in-home-package (symbol)
+  (unintern symbol (symbol-package symbol)))
+
 ;; FIXME: deal with #\| etc.  hard to do portably.
 (defun tokenize-symbol (string)
   "STRING is interpreted as the string representation of a symbol
@@ -1602,20 +1626,23 @@ Return the symbol and a flag indicating whether the symbols was found."
         (values symbol status)
         (error "Unknown symbol: ~A [in ~A]" string package))))
 
-;; FIXME: interns the name
 (defun parse-package (string)
   "Find the package named STRING.
 Return the package or nil."
-  (multiple-value-bind (name pos) 
-      (if (zerop (length string))
-          (values :|| 0)
+  (check-type string (or string null))
+  (if (zerop (length string))
+      nil
+      (multiple-value-bind (name pos interned?) 
           (let ((*package* *swank-io-package*))
-            (ignore-errors (read-from-string string))))
-    (and name
-         (or (symbolp name) 
-             (stringp name))
-         (= (length string) pos)
-         (find-package name))))
+            (ignore-errors (read-softly-from-string string)))
+        (unwind-protect
+             (and name
+                  (or (symbolp name) 
+                      (stringp name))
+                  (= (length string) pos)
+                  (find-package name))
+          (when interned?
+            (unintern-in-home-package name))))))
 
 (defun unparse-name (string)
   "Print the name STRING according to the current printer settings."
