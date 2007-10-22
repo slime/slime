@@ -1,3 +1,7 @@
+2007-10-22  Mark Evenson  <mark.evenson@gmx.at>
+
+	* swank-abcl.lisp (getpid): Implemented.
+	
 2007-10-22  R. Matthew Emerson  <rme@thoughtstuff.com>
 
 	* swank-openmcl.lisp (closure-closed-over-values): Use

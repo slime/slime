@@ -142,9 +142,39 @@
 (defimplementation call-without-interrupts (fn)
   (funcall fn))
 
-;;there are too many to count
 (defimplementation getpid ()
-  0)
+  (if (not (find :unix *features*))
+      0
+      (let* ((runtime 
+              (java:jstatic "getRuntime" "java.lang.Runtime"))
+             (command
+              (java:jnew-array-from-array 
+               "java.lang.String" #("sh" "-c" "echo $PPID")))
+             (runtime-exec-jmethod 		
+              ;; Complicated because java.lang.Runtime.exec() is
+              ;; overloaded on a non-primitive type (array of
+              ;; java.lang.String), so we have to use the actual parameter
+              ;; instance to get java.lang.Class
+              (java:jmethod "java.lang.Runtime" "exec" 
+                            (java:jcall 
+                             (java:jmethod "java.lang.Object" "getClass")
+                             command)))
+             (process 
+              (java:jcall runtime-exec-jmethod runtime command))
+             (output 
+              (java:jcall (java:jmethod "java.lang.Process" "getInputStream") 
+                          process)))
+        (java:jcall (java:jmethod "java.lang.Process" "waitFor") process)
+        (loop 
+         :with b
+         :do (setq b 
+                   (java:jcall (java:jmethod "java.io.InputStream" "read")
+                               output))
+         :until (member b '(-1 #x0a))	; Either EOF or LF
+         :collecting (code-char b) :into result
+         :finally (return 
+                    (values 
+                     (parse-integer (coerce result 'string))))))))
 
 (defimplementation lisp-implementation-type-name ()
   "armedbear")
