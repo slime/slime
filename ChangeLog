@@ -1,4 +1,4 @@
-2007-09-27  R. Matthew Emerson  <rme@thoughtstuff.com>
+2007-10-22  R. Matthew Emerson  <rme@thoughtstuff.com>
 
 	* swank-openmcl.lisp (closure-closed-over-values): Use
 	CCL::NTH-IMMEDIATE instead of CCL::%SVREF.  This makes it work on
