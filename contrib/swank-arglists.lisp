@@ -527,7 +527,7 @@ Return an OPTIONAL-ARG structure."
          (setq mode arg)
          (push arg (arglist.known-junk result)))
         ((and (symbolp arg)
-              (string= (symbol-name arg) (string '#:&ANY))) ; may be interned
+              (string= (symbol-name arg) (string '#:&any))) ; may be interned
          (setf (arglist.any-p result) t)                    ;  in any *package*.
          (setq mode '&any))
         ((member arg lambda-list-keywords)

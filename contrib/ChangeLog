@@ -1,3 +1,9 @@
+2007-10-24  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-arglist.lisp (decode-arglist): Fix incompatibility with
+	ACL's modern reader mode. Thanks to Andreas Fuchs for stumbling
+	over this.
+
 2007-10-22  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-arglist.lisp (read-softly): Renamed to
