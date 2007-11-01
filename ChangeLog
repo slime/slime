@@ -1,3 +1,37 @@
+2007-11-01  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	The inspector page layout has changed slightly. Before the header
+	looked like
+
+	  A proper list.
+            [type: CONS]
+	  -------------------
+
+	It now looks like
+
+	  #<CONS {B3DBD39}>:
+	     A proper list.
+	  --------------------
+
+	Rationale is to have a "presentation link" to the currently
+	inspected object itself, to copy it down to the REPL via `M-RET'.
+	This is mostly useful when trying to get a value from the Slime
+	Debugger to the REPL, which you can do by inspecting the value
+	first by `i', and then using `M-RET' on the object representation
+	in the new header layout.
+
+	Such a "presentation link" existed already but was removed in
+	2007-08-23. The old behaviour was to have the title ("A proper
+	list" in the above example) to contain the link. I decided to make
+	the link more explicit.
+
+	* swank.lisp (inspect-object): Now additionally returns a
+	string-representation of the object itself, and an inspector id
+	for it. Removed returning its type as this is implicit in the new
+	string representation.
+
+	* slime.el (slime-open-inspector): Adapted for new header layout.
+	
 2007-10-22  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank.lisp (read-softly-from-string, unintern-in-home-package):

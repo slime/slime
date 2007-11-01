@@ -2934,7 +2934,10 @@ NIL is returned if the list is circular."
         (*print-readably* nil))
     (multiple-value-bind (title content) (inspect-for-emacs object inspector)
       (list :title title
-            :type (to-string (type-of object))
+            :string-representation
+            (with-output-to-string (stream)
+              (print-unreadable-object (object stream :type t :identity t)))
+            :id (assign-index object *inspectee-parts*)
             :content (inspector-content-for-emacs content)))))
 
 (defslimefun inspector-nth-part (index)
