@@ -1,3 +1,8 @@
+2007-11-06  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-events-buffer, slime-inspector-buffer): Disable
+	undo.
+
 2007-11-01  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	The inspector page layout has changed slightly. Before the header

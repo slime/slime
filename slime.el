@@ -2486,6 +2486,7 @@ Debugged requests are ignored."
   (or (get-buffer slime-event-buffer-name)
       (let ((buffer (get-buffer-create slime-event-buffer-name)))
         (with-current-buffer buffer
+          (buffer-disable-undo)
           (set (make-local-variable 'outline-regexp) "^(")
           (set (make-local-variable 'comment-start) ";")
           (set (make-local-variable 'comment-end) "")
@@ -7470,6 +7471,7 @@ was called originally."
   (or (get-buffer "*Slime Inspector*")
       (with-current-buffer (get-buffer-create "*Slime Inspector*")
 	(setq slime-inspector-mark-stack '())
+        (buffer-disable-undo)
         (slime-mode t)
 	(slime-inspector-mode)
         (make-local-variable 'slime-saved-window-config)
