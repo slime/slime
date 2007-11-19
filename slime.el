@@ -2840,6 +2840,7 @@ joined together."))
 
 (slime-define-keys slime-repl-mode-map
   ("\C-m" 'slime-repl-return)
+  ([return] 'slime-repl-return)
   ("\C-j" 'slime-repl-newline-and-indent)
   ("\C-\M-m" 'slime-repl-closing-return)
   ([(control return)] 'slime-repl-closing-return)
@@ -3565,6 +3566,7 @@ The handler will use qeuery to ask the use if the error should be ingored."
   nil
   "[read]"
   '(("\C-m" . slime-repl-return)
+    ([return] . slime-repl-return)
     ("\C-c\C-b" . slime-repl-read-break)
     ("\C-c\C-c" . slime-repl-read-break)))
 
@@ -4167,6 +4169,7 @@ KEY extracts the key from an element and TEST is used to compare keys."
 
 (slime-define-keys slime-compiler-notes-mode-map
   ((kbd "RET") 'slime-compiler-notes-default-action-or-show-details)
+  ([return] 'slime-compiler-notes-default-action-or-show-details)
   ([mouse-2] 'slime-compiler-notes-default-action-or-show-details/mouse)
   ("q" 'slime-temp-buffer-quit))
 
@@ -5985,6 +5988,7 @@ The most important commands:
 
 (slime-define-keys slime-xref-mode-map 
   ((kbd "RET") 'slime-show-xref)
+  ([return] 'slime-show-xref)
   ("\C-m" 'slime-show-xref)
   (" " 'slime-goto-xref)
   ("q" 'slime-xref-quit)
@@ -6516,6 +6520,7 @@ Full list of commands:
   ("v"    'sldb-show-source)
   ((kbd "RET") 'sldb-default-action)
   ("\C-m"      'sldb-default-action)
+  ([return] 'sldb-default-action)
   ([mouse-2]  'sldb-default-action/mouse)
   ([follow-link] 'mouse-face)
   ("e"    'sldb-eval-in-frame)
@@ -7339,6 +7344,7 @@ was called originally."
 
 (slime-define-keys slime-connection-list-mode-map
   ((kbd "RET") 'slime-goto-connection)
+  ([return] 'slime-goto-connection)
   ("d"         'slime-connection-list-make-default)
   ("g"         'slime-update-connection-list)
   ((kbd "C-k") 'slime-quit-connection-at-point)

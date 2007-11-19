@@ -1,3 +1,17 @@
+2007-11-19  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-repl-mode-map, slime-repl-read-mode),
+	(slime-compiler-notes-mode-map, slime-xref-mode-map),
+	(sldb-mode-map, slime-connection-list-mode-map),
+	(slime-inspector-mode-map): Added bindings for [return] in
+	addition to (kbd "RET"). The reason is that pressing enter in X is
+	translated to (kbd "RET") only if no binding for [return] is
+	active; if [return] is bound to something, pressing enter is
+	translated to this key binding henceforth, as was explained to me
+	by Pierre Gaston, thanks! This can cause quite confusing behaviour
+	as Andreas Davour faced in his post <cs9k5ofqbt7.fsf@Psilocybe.Update.UU.SE> 
+	to comp.lang.lisp.
+	
 2007-11-06  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-events-buffer, slime-inspector-buffer): Disable
