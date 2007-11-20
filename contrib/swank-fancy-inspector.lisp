@@ -94,7 +94,7 @@
 	  (t 
 	   (list label ": " '(:newline) "  " docstring '(:newline))))))
 
-(defmethod inspect-for-emacs ((f function) (inspector fancy-inspector))
+(defmethod inspect-for-emacs ((f function) inspector)
   (declare (ignore inspector))
   (values "A function."
 	  (append 
