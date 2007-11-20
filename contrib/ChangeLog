@@ -1,3 +1,9 @@
+2007-11-20  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-fancy-inspector.lisp (inspect-for-emacs function t): Don't
+	specialize the second argument, so that backend methods take
+	precedence.  Reported by Maciej Katafiasz.
+
 2007-10-24  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-arglist.lisp (decode-arglist): Fix incompatibility with
