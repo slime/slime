@@ -1,3 +1,10 @@
+2007-11-22  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (swank-require): Don't search the file if the
+	module-name is present in *modules*. That should avoid problems if
+	swank is included in a core file and moved to a different
+	location.  Reported by John Wiegley.
+
 2007-11-19  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-repl-mode-map, slime-repl-read-mode),
