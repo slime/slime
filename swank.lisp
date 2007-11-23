@@ -2282,7 +2282,7 @@ Record compiler notes signalled as `compiler-condition's."
 
 (defslimefun swank-require (module &optional filename)
   "Load the module MODULE."
-  (unless (member (string module) *modules* :key #'string=)
+  (unless (member (string module) *modules* :test #'string=)
     (require module (or filename (module-filename module))))
   nil)
 

@@ -1,3 +1,8 @@
+2007-11-23  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank.lisp (swank-require): Fix typo (:key was used instead of
+	:test.)  Reported by Stelian Ionescu.
+	
 2007-11-22  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (swank-require): Don't search the file if the
