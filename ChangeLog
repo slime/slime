@@ -1,4 +1,4 @@
-2007-11-24  Helmut Eller  <helmut@localhost>
+2007-11-24  Helmut Eller  <heller@common-lisp.net>
 
 	Drop remaining dependencies on nregex.
 
