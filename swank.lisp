@@ -103,7 +103,7 @@ Redirection is done while Lisp is processing a request for Emacs.")
     (*print-array*            . t)
     (*print-lines*            . 10)
     (*print-escape*           . t)
-    (*print-right-margin*     . 70))
+    (*print-right-margin*     . ,most-positive-fixnum))
   "A set of printer variables used in the debugger.")
 
 (defvar *default-worker-thread-bindings* '()
@@ -582,14 +582,10 @@ Valid values are :none, :line, and :full.")
                                     (coding-system *coding-system*))
   "Start the server and write the listen port number to PORT-FILE.
 This is the entry point for Emacs."
-  (flet ((start-server-aux ()
-           (setup-server 0 (lambda (port) 
-                             (announce-server-port port-file port))
-                         style dont-close 
-                         (find-external-format-or-lose coding-system))))
-    (if (eq style :spawn)
-        (initialize-multiprocessing #'start-server-aux)
-        (start-server-aux))))
+  (setup-server 0 (lambda (port) 
+                    (announce-server-port port-file port))
+                style dont-close 
+                (find-external-format-or-lose coding-system)))
 
 (defun create-server (&key (port default-server-port)
                       (style *communication-style*)
@@ -616,8 +612,11 @@ connections, otherwise it will be closed after the first."
              (serve-connection socket style dont-close external-format)))
       (ecase style
         (:spawn
-         (spawn (lambda () (loop do (ignore-errors (serve)) while dont-close))
-                :name "Swank"))
+         (initialize-multiprocessing
+          (lambda ()
+            (spawn (lambda () 
+                     (loop do (ignore-errors (serve)) while dont-close))
+                   :name "Swank"))))
         ((:fd-handler :sigio)
          (add-fd-handler socket (lambda () (serve))))
         ((nil) (loop do (serve) while dont-close)))
@@ -2017,7 +2016,7 @@ conditions are simply reported."
 (defun safe-condition-message (condition)
   "Safely print condition to a string, handling any errors during
 printing."
-  (let ((*print-pretty* t))
+  (let ((*print-pretty* t) (*print-right-margin* 65))
     (handler-case
         (format-sldb-condition condition)
       (error (cond)
@@ -2481,24 +2480,15 @@ that symbols accessible in the current package go first."
                      (string< (symbol-name x) (symbol-name y))
                      (string< (package-name px) (package-name py)))))))))
 
-(let ((regex-hash (make-hash-table :test #'equal)))
-  (defun compiled-regex (regex-string)
-    (or (gethash regex-string regex-hash)
-        (setf (gethash regex-string regex-hash)
-              (if (zerop (length regex-string))
-                  (lambda (s) (check-type s string) t)
-                  (compile nil (slime-nregex:regex-compile regex-string)))))))
-
-(defun make-regexp-matcher (string case-sensitive)
-  (let* ((case-modifier (if case-sensitive #'string #'string-upcase))
-         (regex (compiled-regex (funcall case-modifier string))))
+(defun make-apropos-matcher (pattern case-sensitive)
+  (let ((chr= (if case-sensitive #'char= #'char-equal)))
     (lambda (symbol)
-      (funcall regex (funcall case-modifier symbol)))))
+      (search pattern (string symbol) :test chr=))))
 
 (defun apropos-symbols (string external-only case-sensitive package)
   (let ((packages (or package (remove (find-package :keyword)
                                       (list-all-packages))))
-        (matcher  (make-regexp-matcher string case-sensitive))
+        (matcher  (make-apropos-matcher string case-sensitive))
         (result))
     (with-package-iterator (next packages :external :internal)
       (loop (multiple-value-bind (morep symbol) (next)

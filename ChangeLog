@@ -1,7 +1,21 @@
+2007-11-24  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (apropos-symbols):  Use simple search instead of
+	regexps.
+	(make-apropos-matcher): Used to be make-regexp-matcher.
+
+	(*sldb-printer-bindings*): Set *print-right-margin* to
+	most-positive-fixnum. This prints each frame in the backtrace in a
+	single long line.  But is suboptimal for other purposes, like
+	eval-in-frame.
+	
+	(setup-server): Initialize multiprocessing here, so that is also
+	done for create-server.
+
 2007-11-23  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank.lisp (swank-require): Fix typo (:key was used instead of
-	:test.) Reported by Stelian Ionescu.
+	:test.)  Reported by Stelian Ionescu.
 	
 2007-11-22  Helmut Eller  <heller@common-lisp.net>
 
