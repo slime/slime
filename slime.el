@@ -488,7 +488,7 @@ This is automatically updated based on the buffer/point."))
 
 (defun slime-pretty-package-name (name)
   "Return a pretty version of a package name NAME."
-  (let ((name (cond ((string-match "^:\\(.*\\)$" name)    
+  (let ((name (cond ((string-match "^#?:\\(.*\\)$" name)    
                      (match-string 1 name))
                     ((string-match "^\"\\(.*\\)\"$" name) 
                      (match-string 1 name))
@@ -2244,15 +2244,12 @@ or nil if nothing suitable can be found.")
 ;;  (in-package #+ansi-cl :cl #-ansi-cl 'lisp)
 (defun slime-search-buffer-package ()
   (let ((case-fold-search t)
-        (regexp (concat "^(\\(cl:\\|common-lisp:\\)?in-package\\>[ \n\t\r']*"
-                        "\\([^)]+\\)[ \n\t]*)")))
+        (regexp (concat "^(\\(cl:\\|common-lisp:\\)?in-package\\>[ \t']*"
+                        "\\([^)]+\\)[ \t]*)")))
     (save-excursion
       (when (or (re-search-backward regexp nil t)
                 (re-search-forward regexp nil t))
-        (let ((string (match-string-no-properties 2)))
-          (cond ((string-match "^\"" string) (ignore-errors (read string)))
-                ((string-match "^#?:" string) (substring string (match-end 0)))
-                (t string)))))))
+        (match-string-no-properties 2)))))
 
 ;;; Synchronous requests are implemented in terms of asynchronous
 ;;; ones. We make an asynchronous request with a continuation function

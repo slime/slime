@@ -1,5 +1,14 @@
 2007-11-24  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (parse-package): The old version didn't pass the
+	test-suite.  Now use the reader directly instead of emulating it
+	half-heartedly.
+
+	* slime.el (slime-search-buffer-package): Don't remove double
+	quotes or "#:", swank:parse-package takes care of that.
+
+2007-11-24  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (apropos-symbols):  Use simple search instead of
 	regexps.
 	(make-apropos-matcher): Used to be make-regexp-matcher.
