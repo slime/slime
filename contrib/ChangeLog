@@ -1,3 +1,7 @@
+2007-11-24  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-fuzzy.el: Use slime-require instead of a connected-hook.
+
 2007-11-20  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-fancy-inspector.lisp (inspect-for-emacs function t): Don't
