@@ -542,22 +542,10 @@ Return NIL if the symbol is unbound."
 (defun unmangle-unfun (symbol)
   "Converts symbols like 'SETF::|\"CL-USER\" \"GET\"| to
 function names like \(SETF GET)."
-  (or (and (eq (symbol-package symbol)
-               (load-time-value (find-package :setf)))
-           (let ((slime-nregex::*regex-groupings* 0)
-                 (slime-nregex::*regex-groups* (make-array 10))
-                 (symbol-name (symbol-name symbol)))
-             (and (funcall (load-time-value
-                             (compile nil (slime-nregex:regex-compile "^\"(.+)\" \"(.+)\"$")))
-                           symbol-name)
-                  (list 'setf
-                        (intern (apply #'subseq symbol-name
-                                       (aref slime-nregex::*regex-groups* 2))
-                                (find-package
-                                 (apply #'subseq symbol-name
-                                        (aref slime-nregex::*regex-groups* 1))))))))
-      symbol))
-
+  (cond ((sys::setf-symbol-p symbol)
+         (sys::setf-pair-from-underlying-name symbol))
+        (t symbol)))
+                    
 (defun signal-undefined-functions (htab &optional filename)
   (maphash (lambda (unfun dspecs)
 	     (dolist (dspec dspecs)

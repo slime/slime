@@ -1,3 +1,12 @@
+2007-11-24  Helmut Eller  <helmut@localhost>
+
+	Drop remaining dependencies on nregex.
+
+	* swank-lispworks.lisp (unmangle-unfun): Use sys::setf-symbol-p
+	instead of regexp matching.
+
+	* swank-loader.lisp (*sysdep-files*): Don't include nregex.
+
 2007-11-24  Helmut Eller  <heller@common-lisp.net>
 
 	Mirror *modules* in Emacs.
