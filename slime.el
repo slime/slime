@@ -1933,6 +1933,9 @@ Bound in the connection's process-buffer.")
   "The symbol-names of Lisp's *FEATURES*.
 This is automatically synchronized from Lisp.")
 
+(slime-def-connection-var slime-lisp-modules '()
+  "The strings of Lisp's *MODULES*.")
+
 (slime-def-connection-var slime-lisp-package
     "COMMON-LISP-USER"
   "The current package name of the Superior lisp.
@@ -2002,14 +2005,16 @@ This is automatically synchronized from Lisp.")
   "Initialize CONNECTION with INFO received from Lisp."
   (let ((slime-dispatching-connection connection))
     (destructuring-bind (&key pid style lisp-implementation machine
-                              features package version &allow-other-keys) info
+                              features package version modules
+                              &allow-other-keys) info
       (or (equal version slime-protocol-version)
           (yes-or-no-p "Protocol version mismatch. Continue anyway? ")
           (slime-net-close connection)
           (top-level))
       (setf (slime-pid) pid
             (slime-communication-style) style
-            (slime-lisp-features) features)
+            (slime-lisp-features) features
+            (slime-lisp-modules) modules)
       (destructuring-bind (&key name prompt) package
         (setf (slime-lisp-package) name
               (slime-lisp-package-prompt-string) prompt))
@@ -2029,6 +2034,7 @@ This is automatically synchronized from Lisp.")
                 (slime-generate-connection-name (symbol-name name)))))
       (slime-hide-inferior-lisp-buffer)
       (slime-init-output-buffer connection)
+      (slime-load-contribs)
       (run-hooks 'slime-connected-hook)
       (when-let (fun (plist-get args ':init-function))
         (funcall fun)))
@@ -7902,6 +7908,27 @@ is setup, unless the user already set one explicitly."
         (put symbol 'slime-indent indent)
         (put symbol 'common-lisp-indent-function indent))
       (run-hook-with-args 'slime-indentation-update-hooks symbol indent))))
+
+
+;;;; Contrib modules
+
+(defvar slime-required-modules '())
+
+(defun slime-require (module)
+  (assert (keywordp module))
+  (pushnew module slime-required-modules)
+  (when (slime-connected-p)
+    (slime-load-contribs)))
+
+(defun slime-load-contribs ()
+  (let ((needed (remove-if (lambda (s) 
+                             (member (subseq (symbol-name s) 1)
+                                     (mapcar #'downcase (slime-lisp-modules))))
+                           slime-required-modules)))
+    (when needed
+      (slime-eval-async `(swank:swank-require ',needed)
+                        (lambda (new-modules)
+                          (setf (slime-lisp-modules) new-modules))))))
 
 
 ;;;;; Pull-down menu

@@ -1442,6 +1442,7 @@ VERSION: the protocol version"
               :type ,(machine-type)
               :version ,(machine-version))
     :features ,(features-for-emacs)
+    :modules ,*modules*
     :package (:name ,(package-name *package*)
               :prompt ,(package-string-for-prompt *package*))
     :version ,*swank-wire-protocol-version*))
@@ -2269,11 +2270,12 @@ Record compiler notes signalled as `compiler-condition's."
 
 ;;;;; swank-require
 
-(defslimefun swank-require (module &optional filename)
+(defslimefun swank-require (modules &optional filename)
   "Load the module MODULE."
-  (unless (member (string module) *modules* :test #'string=)
-    (require module (or filename (module-filename module))))
-  nil)
+  (dolist (module (if (listp modules) modules (list modules)))
+    (unless (member (string module) *modules* :test #'string=)
+      (require module (or filename (module-filename module)))))
+  *modules*)
 
 (defvar *find-module* 'find-module
   "Pluggable function to locate modules.

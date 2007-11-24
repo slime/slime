@@ -1,5 +1,17 @@
 2007-11-24  Helmut Eller  <heller@common-lisp.net>
 
+	Mirror *modules* in Emacs.
+	
+	* slime.el (slime-lisp-modules): New connction variable.
+	(slime-set-connection-info): Load requested modules.
+	(slime-required-modules): New variable.
+	(slime-require, slime-load-contribs): New functions.
+
+	* swank.lisp (connection-info): Include *modules*.
+	(swank-require): Accept a list of modules as argument.
+	
+2007-11-24  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (parse-package): The old version didn't pass the
 	test-suite.  Now use the reader directly instead of emulating it
 	half-heartedly.
