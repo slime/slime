@@ -90,6 +90,9 @@ This file has been placed in the public domain.
 @xref{\name\}.
 @end macro
 
+@synindex cp vr
+
+
 @c @setchapternewpage off
 @c @shortcontents
 @contents
@@ -190,6 +193,7 @@ SLDB: the SLIME debugger
 * Examining frames::            
 * Restarts::                    
 * Frame Navigation::            
+* Stepping::                    
 * Miscellaneous::               
 
 Misc
@@ -197,7 +201,6 @@ Misc
 * slime-selector::              
 * slime-macroexpansion-minor-mode::  
 * Multiple connections::        
-* Typeout frames::              
 
 Customization
 
@@ -236,6 +239,9 @@ Contributed Packages
 * Editing Commands::            
 * Fancy Inspector::             
 * Presentations::               
+* Typeout frames::              
+* TRAMP::                       
+* Highlight Edits::             
 * inferior-slime-mode::         
 * Scratch Buffer::              
 
@@ -787,6 +793,9 @@ separate sections below.
 @node Completion
 @subsubsection Completion commands
 
+@cindex Completion
+@cindex Symbol Completion
+
 Completion commands are used to complete a symbol or form based on
 what is already present at point. Classical completion assumes an
 exact prefix and gives choices only where branches may occur. Fuzzy
@@ -868,6 +877,9 @@ Lookup a @emph{format character} in the @cite{Common Lisp Hyperspec}.
 @node Cross-reference
 @subsubsection Cross-reference commands
 
+@cindex xref
+@cindex Cross-referencing
+
 @SLIME{}'s cross-reference commands are based on the support provided
 by the Lisp system, which varies widely between Lisps. For systems
 with no built-in @acronym{XREF} support @SLIME{} queries a portable
@@ -924,6 +936,9 @@ List callees of a function.
 @node Finding definitions
 @subsubsection Finding definitions (``Meta-Point'' commands).
 
+@cindex Meta-dot
+@cindex TAGS
+
 The familiar @kbd{M-.} command is provided. For generic functions this
 command finds all methods, and with some systems it does other fancy
 things (like tracing structure accessors to their @code{DEFSTRUCT}
@@ -958,6 +973,8 @@ Use an ETAGS table to find definition at point.
 @c ----------------------- 
 @node Macro-expansion
 @subsubsection Macro-expansion commands
+
+@cindex Macros
 
 @table @kbd
 @kbditem{C-c C-m, slime-macroexpand-1}
@@ -1001,6 +1018,8 @@ Untrace all functions.
 @c ----------------------- 
 @node Compilation
 @subsection Compilation commands
+
+@cindex Compilation
 
 @SLIME{} has fancy commands for compiling functions, files, and
 packages. The fancy part is that notes and warnings offered by the
@@ -1261,6 +1280,8 @@ skipped for the current Lisp connection.
 @node REPL
 @chapter REPL: the ``top level''
 
+@cindex Listener
+
 @SLIME{} uses a custom Read-Eval-Print Loop (@REPL{}, also known as a
 ``top level'', or listener). The @REPL{} user-interface is written in
 Emacs Lisp, which gives more Emacs-integration than the traditional
@@ -1325,6 +1346,8 @@ buffer.
 @node Input Navigation
 @section Input navigation
 
+@cindex Input History
+
 The input navigation (a.k.a. history) commands are modelled after
 @code{coming}-mode.  Be careful if you are used to Bash-like
 keybindings: @kbd{M-p} and @kbd{M-n} use the current input as search
@@ -1368,6 +1391,8 @@ history if the end is reached.
 @comment  node-name,  next,  previous,  up
 @node Shortcuts
 @section Shortcuts
+
+@cindex Shortcuts
 
 ``Shortcuts'' are a special set of @REPL{} commands that are invoked
 by name. To invoke a shortcut you first press @kbd{,} (comma) at the
@@ -1430,6 +1455,8 @@ Quit all Lisps and close all SLIME buffers.
 @node Debugger
 @chapter SLDB: the SLIME debugger
 
+@cindex Debugger
+
 @SLIME{} has a custom Emacs-based debugger called @SLDB{}. Conditions
 signalled in the Lisp system invoke @SLDB{} in Emacs by way of the
 Lisp @code{*DEBUGGER-HOOK*}.
@@ -1443,6 +1470,7 @@ backtrace, and poking around in stack frames.
 * Examining frames::            
 * Restarts::                    
 * Frame Navigation::            
+* Stepping::                    
 * Miscellaneous::               
 @end menu
 
@@ -1513,7 +1541,29 @@ motion makes you see the details and source code for the current frame
 only.
 @end table
 
-@c ----------------------- 
+@node Stepping
+@section Stepping
+
+@cindex Stepping
+
+Stepping is not available in all implementations and works very
+differently in those in which it is available.
+
+@table @kbd
+@kbditem{s, sldb-step}
+Step to the next expression in the frame.  For CMUCL that means, set a
+breakpoint at all those code locations in the current code block which
+are reachable from the current code location.
+
+@kbditem{x, sldb-next}
+[Step to the next form in the current function.]
+
+@kbditem{o, sldb-next}
+[Stop single-stepping temporarily, but resume it once the current
+function returns.]
+
+@end table
+
 @node Miscellaneous
 @section Miscellaneous Commands
 
@@ -1527,15 +1577,12 @@ implementations.)
 Return from the frame with a value entered in the minibuffer. (This
 command is not available in all implementations.)
 
-@kbditem{s, sldb-step}
-Step to the next expression in the frame. (This command is not
-available in all implementations.)
 
 @kbditem{B, sldb-break-with-default-debugger}
 Exit @SLDB{} and debug the condition using the Lisp system's default
 debugger.
 
-@kbditem{C-c :, slime-interactive-eval}
+@kbditem{:, slime-interactive-eval}
 Evaluate an expression entered in the minibuffer.
 @end table
 
@@ -1548,7 +1595,6 @@ Evaluate an expression entered in the minibuffer.
 * slime-selector::              
 * slime-macroexpansion-minor-mode::  
 * Multiple connections::        
-* Typeout frames::              
 @end menu
 
 @c ----------------------- 
@@ -1681,32 +1727,6 @@ Abort the current attempt to connect.
 
 @end table
 
-@c ----------------------- 
-@node Typeout frames
-@section Typeout frames
-
-A ``typeout frame'' is a special Emacs frame which is used instead of
-the echo area (minibuffer) to display messages from @SLIME{} commands.
-This is an optional feature. The advantage of a typeout frame over the
-echo area is that it can hold more text, it can be scrolled, and its
-contents don't disappear when you press a key. All potentially long
-messages are sent to the typeout frame, such as argument lists, macro
-expansions, and so on.
-
-@table @kbd
-@cmditem{slime-ensure-typeout-frame}
-Ensure that a typeout frame exists, creating one if necessary.
-@end table
-
-If the typeout frame is closed then the echo area will be used again
-as usual.
-
-To have a typeout frame created automatically at startup you can add
-the @code{slime-connected-hook} to your @file{~/.emacs} file:
-
-@example
-(add-hook 'slime-connected-hook 'slime-ensure-typeout-frame)
-@end example
 
 @c ----------------------- 
 @node Customization
@@ -1739,15 +1759,11 @@ on. It can however cause information to spill off the screen.
 @item slime-complete-symbol-function
 The function to use for completion of Lisp symbols. Three completion
 styles are available: @code{slime-simple-complete-symbol},
-@code{slime-complete-symbol*},and @code{slime-fuzzy-complete-symbol}.
+@code{slime-complete-symbol*} (@pxref{Compound Completion}), 
+and @code{slime-fuzzy-complete-symbol} (@pxref{Fuzzy Completion}).
 
-
-An alternative is @code{slime-simple-complete-symbol}, which
-completes in the usual Emacs way.  Finally, there is
-@code{slime-fuzzy-complete-symbol}, which is quite different from both
-of the above and tries to find best matches to an abbreviated symbol.
-It also has its own key binding, defaulting to @kbd{C-c M-i}.
-@xref{slime-fuzzy-complete-symbol}, for more information.
+The default is @code{slime-simple-complete-symbol}, which completes in
+the usual Emacs way.
 
 @vindex slime-filename-translations
 @item slime-filename-translations
@@ -1758,6 +1774,11 @@ but have different layouts, as is the case with @acronym{SMB}-based
 file sharing.
 
 @vindex slime-net-coding-system
+@cindex Unicode
+@cindex utf8
+@cindex utf-8
+@cindex ascii
+@cindex latin
 @item slime-net-coding-system
 If you want to transmit Unicode characters between Emacs and the Lisp
 system, you should customize this variable.  E.g., if you use SBCL, you
@@ -2091,7 +2112,8 @@ file system in such a fashion that a filename like
 @file{/opt/project/source.lisp} refers to the same file on both
 machines. Unfortunetly NFS is usually slow, often buggy, and not
 always feasable, fortunetely we have an ssh connection and Emacs'
-@code{tramp-mode} can do the rest.
+@code{tramp-mode} can do the rest. 
+(See @inforef{Top, TRAMP User Manual,tramp}.)
 
 What we do is teach Emacs how to take a filename on the remote machine
 and translate it into something that tramp can understand and access
@@ -2163,12 +2185,19 @@ particular packages do.
 * Editing Commands::            
 * Fancy Inspector::             
 * Presentations::               
+* Typeout frames::              
+* TRAMP::                       
+* Highlight Edits::             
 * inferior-slime-mode::         
 * Scratch Buffer::              
 @end menu
 
 @node Loading Contribs
 @section Loading Contrib Packages
+
+@cindex Contribs
+@cindex Contributions
+@cindex Plugins
 
 Contrib packages aren't loaded by default.  You have to modify your
 setup a bit so that Emacs knows where to find them and which of them
@@ -2190,6 +2219,7 @@ available.
 @node Compound Completion
 @section Compund Completion 
 
+@anchor{slime-complete-symbol*}
 The package @code{slime-c-p-c} provides a different symbol completion
 algorithm, which performs completion ``in parallel'' over the
 hyphen-delimited sub-words of a symbol name.
@@ -2397,6 +2427,8 @@ set of balanced comments.
 @node Fancy Inspector
 @section Fancy Inspector 
 
+@cindex Methods
+
 An alternative to default inspector is provided by the package
 `slime-fancy-inspector'.  This inspector knows a lot about CLOS
 objects and methods.  It provides many ``actions'' that can be
@@ -2409,6 +2441,8 @@ inspector (@pxref{Inspector}).
 
 @node Presentations
 @section Presentations
+
+@cindex Presentations
 
 A ``presentation''@footnote{Presentations are a feature originating
 from the Lisp machines.  It was possible to define @code{present}
@@ -2439,6 +2473,56 @@ stream will create presentions in the Emacs buffer.
 @cmditem{slime-clear-presentations}
 @end table
 
+@node Typeout frames
+@section Typeout frames
+
+@cindex Typeout Frame
+
+A ``typeout frame'' is a special Emacs frame which is used instead of
+the echo area (minibuffer) to display messages from @SLIME{} commands.
+This is an optional feature. The advantage of a typeout frame over the
+echo area is that it can hold more text, it can be scrolled, and its
+contents don't disappear when you press a key. All potentially long
+messages are sent to the typeout frame, such as argument lists, macro
+expansions, and so on.
+
+@table @kbd
+@cmditem{slime-ensure-typeout-frame}
+Ensure that a typeout frame exists, creating one if necessary.
+@end table
+
+If the typeout frame is closed then the echo area will be used again
+as usual.
+
+To have a typeout frame created automatically at startup you should
+load the @code{slime-typeout-frame} package. (@pxref{Loading Contribs}.)
+
+The variable @code{slime-typeout-frame-properties} specifies the
+height and possibly other properties of the frame.  Its value is
+passed to @code{make-frame}. (@inforef{Creating Frames, ,elisp}.)
+
+@node TRAMP
+@section TRAMP  
+
+@cindex TRAMP
+
+The package @code{slime-tramp} provides some functions to set up
+filename translations for TRAMP. (@pxref{Setting up pathname
+translations})
+
+@node Highlight Edits
+@section Highlight Edits
+
+@code{slime-highlight-edits} is a minor mode to highlight those
+regions in a Lisp source file which are modified.  This is useful to
+quickly find those functions which need to be recompiled (whith
+@kbd{C-c C-c})
+
+@table @kbd
+@cmditem{slime-highlight-edits-mode}
+Turns @code{slime-highlight-edits-mode} on or off.
+@end table
+
 @node inferior-slime-mode
 @section @code{inferior-slime-mode}
 
@@ -2465,10 +2549,10 @@ keybindings.
 @section Scratch Buffer
 
 @anchor{slime-scratch}
-The @SLIME{} scratch buffer works, contrib package
-@code{slime-scratch}, imitates Emacs' own @code{*scratch*} buffer.
-It's just like any other Lisp buffer, except the key binding for
-@kbd{C-j}.
+
+The @SLIME{} scratch buffer, in contrib package @code{slime-scratch},
+imitates Emacs' usual @code{*scratch*} buffer.  It's just like any
+other Lisp buffer, except for the command bound to @kbd{C-j}.
 
 @table @kbd
 
@@ -2817,7 +2901,7 @@ keybinding (if there is one) refer to the function description.
 @printindex fn
 
 @node Variable Index
-@unnumbered Variable Index
+@unnumbered Variable and Concept Index
 @printindex vr
 
 @bye
