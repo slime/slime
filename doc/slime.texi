@@ -243,9 +243,12 @@ Contributed Packages
 * Presentations::               
 * Typeout frames::              
 * TRAMP::                       
+* Documentation Links::         
+* Xref and Class Browser::      
 * Highlight Edits::             
 * inferior-slime-mode::         
 * Scratch Buffer::              
+* slime-fancy::                 
 
 @end detailmenu
 @end menu
@@ -2201,9 +2204,12 @@ particular packages do.
 * Presentations::               
 * Typeout frames::              
 * TRAMP::                       
+* Documentation Links::         
+* Xref and Class Browser::      
 * Highlight Edits::             
 * inferior-slime-mode::         
 * Scratch Buffer::              
+* slime-fancy::                 
 @end menu
 
 @node Loading Contribs
@@ -2524,6 +2530,33 @@ The package @code{slime-tramp} provides some functions to set up
 filename translations for TRAMP. (@pxref{Setting up pathname
 translations})
 
+@node Documentation Links
+@section Documentation Links
+
+For certain error messages, SBCL includes references to the ANSI
+Standard or the SBCL User Manual.  The @code{slime-references} package
+turns those references into clickable links.  This makes finding the
+referenced section of the HyperSpec much easier.
+
+@node Xref and Class Browser
+@section Xref and Class Browser
+
+A rudimentary class browser is provied by
+the @code{slime-xref-browser} package.
+
+@table @kbd
+@cmditem{slime-browse-classes}
+This command asks for a class name and displays inheritance tree of
+for the class.
+
+@cmditem{slime-browse-xrefs}
+This command prompts for a symbol and the kind of cross reference,
+e.g. callers.  The cross reference tree rooted at the symbol is then
+then displayed.
+
+@end table
+
+
 @node Highlight Edits
 @section Highlight Edits
 
@@ -2579,6 +2612,12 @@ buffer you can enter Lisp expressions and evaluate them with
 @kbd{C-j}, like in Emacs's @file{*scratch*} buffer.
 
 @end table
+
+@node slime-fancy
+@section Meta package: @code{slime-fancy}
+
+@code{slime-fancy} is a meta package which loads a combination of the
+most popular packages.
 
 @c ----------------------- 
 @node Credits
