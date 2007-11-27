@@ -37,6 +37,7 @@ This file has been placed in the public domain.
 
 @end titlepage
 
+@c Macros 
 
 @macro SLIME
 @acronym{SLIME}
@@ -90,6 +91,7 @@ This file has been placed in the public domain.
 @xref{\name\}.
 @end macro
 
+@c Merge the variable and concept indices because both are rather short
 @synindex cp vr
 
 
@@ -518,10 +520,18 @@ spaces.
 @item PROGRAM-ARGS
 is a list of command line arguments.  
 @item CODING-SYSTEM
-the coding system for the connection.  
+the coding system for the connection.  (@pxref{slime-net-coding-system})
 @item INIT
-@itemx INIT-FUNCTION 
- ... to be written ...
+should be a function which takes two arguments: a filename and a
+character encoding.  The function should return a Lisp expression as a
+string which instructs Lisp to start the Swank server and to write the
+port number to the file.  At startup, @SLIME{} starts the Lisp process
+and sends the result of this function to Lisp's standard input.  As
+default, @code{slime-init-command} is used.  An example is shown in
+@ref{init-example,,Loading Swank faster}.
+@itemx INIT-FUNCTION
+should be a function which takes no arguments.  It is called after 
+the connection is established. (See also @ref{slime-connected-hook}.)
 @end table
 
 @node Loading Swank faster
@@ -559,6 +569,7 @@ shell$ sbcl
 @noindent
 Then add this to your @file{.emacs}:
 
+@anchor{init-example}
 @lisp
 (setq slime-lisp-implementations 
       '((sbcl ("sbcl" "--core" "sbcl.core-with-swank")
@@ -1028,9 +1039,9 @@ corresponding expressions in the Lisp source buffer. (Give it a try to
 see what this means.)
 
 @table @kbd
+@cindex Compiling Functions
 @kbditem{C-c C-c, slime-compile-defun}
 Compile the top-level form at point.
-@cindex compiling functions
 
 @kbditem{C-c C-y, slime-call-defun}
 Insert a call to the function defined around point into the REPL.
@@ -1773,12 +1784,13 @@ which don't share a common file system or if they share the filessytem
 but have different layouts, as is the case with @acronym{SMB}-based
 file sharing.
 
+@anchor{slime-net-coding-system}
 @vindex slime-net-coding-system
 @cindex Unicode
-@cindex utf8
-@cindex utf-8
-@cindex ascii
-@cindex latin
+@cindex UTF-8
+@cindex ASCII
+@cindex LATIN-1
+@cindex Character Encoding
 @item slime-net-coding-system
 If you want to transmit Unicode characters between Emacs and the Lisp
 system, you should customize this variable.  E.g., if you use SBCL, you
@@ -1786,11 +1798,12 @@ can set:
 @example
 (setq slime-net-coding-system 'utf-8-unix)
 @end example
-To actually display Unicode characters you also need appropriate fonts,
-otherwise the characters will be rendered as hollow boxes.  If you are
-using Allegro CL and GNU Emacs, you can also use @code{emacs-mule-unix}
-as coding system.  GNU Emacs has often nicer fonts for the latter
-encoding.
+To actually display Unicode characters you also need appropriate
+fonts, otherwise the characters will be rendered as hollow boxes.  If
+you are using Allegro CL and GNU Emacs, you can also
+use @code{emacs-mule-unix} as coding system.  GNU Emacs has often
+nicer fonts for the latter encoding.  (Different encodings can be used 
+for different Lisps, see @ref{Multiple Lisps}.)
 
 @end table
 
@@ -1811,6 +1824,7 @@ most useful for setting buffer-local configuration in your Lisp source
 buffers. An example use is to enable @code{slime-autodoc-mode}
 (@pxref{slime-autodoc-mode}).
 
+@anchor{slime-connected-hook}
 @vindex slime-connected-hook
 @item slime-connected-hook
 This hook is run when @SLIME{} establishes a connection to a Lisp
@@ -2351,7 +2365,7 @@ pressing SPC.
 @section ASDF
 
 @acronym{ASDF} is a popular ``system construction tool''.  The package
-@code{slime-asdf} provides some commands for to load and compile such
+@code{slime-asdf} provides some commands to load and compile such
 systems from Emacs.  @acronym{ASDF} itself is not included with
 @SLIME{}; you have to load that yourself into your Lisp.  In
 particular, you must load @acronym{ASDF} before you connect, otherwise
@@ -2360,7 +2374,7 @@ you will get errors about missing symbols.
 @table @kbd
 @cmditem{slime-load-system NAME}
 Compile and load an ASDF system.  The default system name is taken
-from the first file matching *.asd in the working directory
+from the first file matching *.asd in the current directory.
 @end table
 
 The package also installs some new REPL shortcuts (@pxref{Shortcuts}):
@@ -2549,7 +2563,6 @@ keybindings.
 @section Scratch Buffer
 
 @anchor{slime-scratch}
-
 The @SLIME{} scratch buffer, in contrib package @code{slime-scratch},
 imitates Emacs' usual @code{*scratch*} buffer.  It's just like any
 other Lisp buffer, except for the command bound to @kbd{C-j}.
