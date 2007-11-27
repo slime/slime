@@ -1,3 +1,9 @@
+2007-11-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-arglists (print-arglist): Print initforms in &optional and
+	&key lambda list specifiers as if by PRIN1 instead of PRINC.
+	Reported by Michael Weber.
+	
 2007-11-24  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-fuzzy.el: Use slime-require instead of a connected-hook.

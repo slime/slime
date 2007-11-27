@@ -283,6 +283,7 @@ the flag if a symbol had to be interned."
 ;;;       (DECLARE (OPTIMIZE &ANY (compilation-speed 1) (safety 1) ...))
 ;;;
 
+;; FIXME: This really ought to be rewritten.
 (defun print-arglist (arglist &key operator highlight)
   (let ((index 0)
         (need-space nil))
@@ -290,26 +291,27 @@ the flag if a symbol had to be interned."
                (typecase arg
                  (arglist               ; destructuring pattern
                   (print-arglist arg))
-                 (optional-arg 
-                  (princ (encode-optional-arg arg)))
+                 (optional-arg
+		  (destructuring-bind (var &optional (initform nil initform-p))
+		      (encode-optional-arg arg)
+		    (pprint-logical-block (nil nil :prefix "(" :suffix ")")
+		      (format t "~A~:[~; ~S~]" var initform-p initform))))
                  (keyword-arg
                   (let ((enc-arg (encode-keyword-arg arg)))
                     (etypecase enc-arg
                       (symbol (princ enc-arg))
-                      ((cons symbol) 
-                       (pprint-logical-block (nil nil :prefix "(" :suffix ")")
-                         (princ (car enc-arg))
-                         (write-char #\space)
-                         (pprint-fill *standard-output* (cdr enc-arg) nil)))
+                      ((cons symbol)
+		       (destructuring-bind (keyarg initform) enc-arg
+			 (pprint-logical-block (nil nil :prefix "(" :suffix ")")
+			   (format t "~A ~S" keyarg initform))))
                       ((cons cons)
-                       (pprint-logical-block (nil nil :prefix "(" :suffix ")")
-                         (pprint-logical-block (nil nil :prefix "(" :suffix ")")
-                           (prin1 (caar enc-arg))
-                           (write-char #\space)
-                           (print-arg (keyword-arg.arg-name arg)))
-                         (unless (null (cdr enc-arg))
-                           (write-char #\space))
-                         (pprint-fill *standard-output* (cdr enc-arg) nil))))))
+		       (destructuring-bind ((keyword-name var) &optional (initform nil initform-p))
+			   enc-arg
+			 (pprint-logical-block (nil nil :prefix "(" :suffix ")")
+			   (pprint-logical-block (nil nil :prefix "(" :suffix ")")
+			     (format t "~S ~A" keyword-name var))
+			   (when initform-p
+			     (format t " ~S" initform))))))))
                  (t           ; required formal or provided actual arg
                   (if (keywordp arg)
 		      (prin1 arg)	; for &ANY args.
