@@ -292,10 +292,12 @@ the flag if a symbol had to be interned."
                  (arglist               ; destructuring pattern
                   (print-arglist arg))
                  (optional-arg
-		  (destructuring-bind (var &optional (initform nil initform-p))
-		      (encode-optional-arg arg)
-		    (pprint-logical-block (nil nil :prefix "(" :suffix ")")
-		      (format t "~A~:[~; ~S~]" var initform-p initform))))
+		  (let ((enc-arg (encode-optional-arg arg)))
+		    (if (symbolp enc-arg)
+			(princ enc-arg)
+			(destructuring-bind (var &optional (initform nil initform-p)) enc-arg
+			    (pprint-logical-block (nil nil :prefix "(" :suffix ")")
+			      (format t "~A~:[~; ~S~]" var initform-p initform))))))
                  (keyword-arg
                   (let ((enc-arg (encode-keyword-arg arg)))
                     (etypecase enc-arg
