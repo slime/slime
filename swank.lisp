@@ -2858,15 +2858,13 @@ NIL is returned if the list is circular."
         *inspectee-actions* (make-array 10 :adjustable t :fill-pointer 0)
         *inspector-history* (make-array 10 :adjustable t :fill-pointer 0)))
 
-;; FIXME: Unused?
 (defun valid-function-name-p (form)
-  (or (and (not (null form))
-           (not (eq form t))
-           (symbolp form))
+  (or (symbolp form)
       (and (consp form)
            (second form)
            (not (third form))
-           (eq (first form) 'setf))))
+           (eq (first form) 'setf)
+           (symbolp (second form)))))
 
 (defslimefun init-inspector (string)
   (with-buffer-syntax ()

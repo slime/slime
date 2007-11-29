@@ -1,3 +1,7 @@
+2007-11-29  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank.lisp (valid-function-name-p): Fixed wrt. setf functions.
+	
 2007-11-29  Helmut Eller  <heller@common-lisp.net>
 
 	Prettify package names for slime-repl-set-package.
