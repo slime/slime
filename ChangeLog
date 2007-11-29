@@ -1,3 +1,13 @@
+2007-11-29  Helmut Eller  <heller@common-lisp.net>
+
+	Prettify package names for slime-repl-set-package.
+
+	* slime.el (slime-repl-set-package): slime-current-package may
+	have leading colons.  Use slime-pretty-package-name to remove
+	them.  Reported by Constantine Vetoshev.
+	(slime-pretty-current-package): New function.
+	(slime-set-package): Use it.
+
 2007-11-24  Helmut Eller  <heller@common-lisp.net>
 
 	Drop remaining dependencies on nregex.
@@ -10,7 +20,7 @@
 2007-11-24  Helmut Eller  <heller@common-lisp.net>
 
 	Mirror *modules* in Emacs.
-	
+
 	* slime.el (slime-lisp-modules): New connction variable.
 	(slime-set-connection-info): Load requested modules.
 	(slime-required-modules): New variable.
@@ -18,7 +28,7 @@
 
 	* swank.lisp (connection-info): Include *modules*.
 	(swank-require): Accept a list of modules as argument.
-	
+
 2007-11-24  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (parse-package): The old version didn't pass the
@@ -38,7 +48,7 @@
 	most-positive-fixnum. This prints each frame in the backtrace in a
 	single long line.  But is suboptimal for other purposes, like
 	eval-in-frame.
-	
+
 	(setup-server): Initialize multiprocessing here, so that is also
 	done for create-server.
 
@@ -46,7 +56,7 @@
 
 	* swank.lisp (swank-require): Fix typo (:key was used instead of
 	:test.)  Reported by Stelian Ionescu.
-	
+
 2007-11-22  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (swank-require): Don't search the file if the

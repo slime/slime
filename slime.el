@@ -495,6 +495,11 @@ This is automatically updated based on the buffer/point."))
                     (t name))))
     (format "%s" (read name))))
 
+(defun slime-pretty-current-package ()
+  "Retrun a prettied version of `slime-current-package'."
+  (let ((p (slime-current-package)))
+    (and p (slime-pretty-package-name p))))
+
 (when slime-update-modeline-package
   (run-with-idle-timer 0.2 0.2 'slime-update-modeline-package))
 
@@ -3306,8 +3311,8 @@ for the most recently enclosed macro or function."
 
 (defun slime-repl-set-package (package)
   "Set the package of the REPL buffer to PACKAGE."
-  (interactive (list (slime-read-package-name "Package: " 
-					      (slime-find-buffer-package))))
+  (interactive (list (slime-read-package-name
+                      "Package: " (slime-pretty-current-package))))
   (with-current-buffer (slime-output-buffer)
     (let ((unfinished-input (slime-repl-current-input)))
       (destructuring-bind (name prompt-string)
@@ -6381,7 +6386,7 @@ CL:MACROEXPAND."
 
 (defun slime-set-package (package)
   (interactive (list (slime-read-package-name "Package: " 
-					      (slime-find-buffer-package))))
+					      (slime-pretty-current-package))))
   (message "*package*: %s" (slime-eval `(swank:set-package ,package))))
 
 (defun slime-set-default-directory (directory)
