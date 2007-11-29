@@ -1006,7 +1006,6 @@ Examples:
           (split-form-spec form-spec)
         (arglist-dispatch type operator arguments :remove-args remove-args))))
 
-
 (defmacro with-availability ((var) form &body body)
   `(let ((,var ,form))
      (if (eql ,var :not-available)
@@ -1043,9 +1042,7 @@ Examples:
 	     (not (null arguments)) ;have generic function name
 	     (notany #'listp (rest arguments))) ;don't have arglist yet 
     (let* ((gf-name (first arguments))
-	   (gf (and (or (symbolp gf-name)
-			(and (listp gf-name)
-			     (eql (first gf-name) 'setf)))
+	   (gf (and (valid-function-name-p gf-name)
 		    (fboundp gf-name)
 		    (fdefinition gf-name))))
       (when (typep gf 'generic-function)
