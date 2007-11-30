@@ -911,16 +911,17 @@ NAME can any valid function name (e.g, (setf car))."
 	   (vm::find-code-object function))
        (not (eq closure function))))
 
-
-(defun byte-function-location (fn)
-  "Return the location of the byte-compiled function FN."
-  (etypecase fn
+(defun byte-function-location (fun)
+  "Return the location of the byte-compiled function FUN."
+  (etypecase fun
     ((or c::hairy-byte-function c::simple-byte-function)
-     (let* ((component (c::byte-function-component fn))
-            (debug-info (kernel:%code-debug-info component)))
-       (debug-info-function-name-location debug-info)))
+     (let* ((di (kernel:%code-debug-info (c::byte-function-component fun))))
+       (if di 
+           (debug-info-function-name-location di)
+           `(:error 
+             ,(format nil "Byte-function without debug-info: ~a" fun)))))
     (c::byte-closure
-     (byte-function-location (c::byte-closure-function fn)))))
+     (byte-function-location (c::byte-closure-function fun)))))
 
 ;;; Here we deal with structure accessors. Note that `dd' is a
 ;;; "defstruct descriptor" structure in CMUCL. A `dd' describes a

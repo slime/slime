@@ -1,7 +1,22 @@
+2007-11-30  Helmut Eller  <heller@common-lisp.net>
+
+	Handle byte-functions without debug-info.
+
+	* swank-cmucl.lisp (byte-function-location): Return an error
+	if the component has no debug-info.
+
+2007-11-30  Helmut Eller  <heller@common-lisp.net>
+
+	Disable the pretty-printer for backtraces.
+	Would be nice if we could print newlines in strings as \n.
+
+	* swank.lisp (*backtrace-printer-bindings*):  New varaible.
+	(backtrace, frame-locals-for-emacs): Use it.
+
 2007-11-29  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank.lisp (valid-function-name-p): Fixed wrt. setf functions.
-	
+
 2007-11-29  Helmut Eller  <heller@common-lisp.net>
 
 	Prettify package names for slime-repl-set-package.
