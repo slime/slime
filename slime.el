@@ -7694,7 +7694,7 @@ If ARG is negative, move forwards."
 
 (slime-define-keys slime-inspector-mode-map
   ([return] 'slime-inspector-operate-on-point)
-  ([(meta return)] 'slime-inspector-copy-down)
+  ((kbd "M-RET") 'slime-inspector-copy-down)
   ("\C-m"   'slime-inspector-operate-on-point)
   ([mouse-2] 'slime-inspector-operate-on-click)
   ("l" 'slime-inspector-pop)
@@ -9107,14 +9107,18 @@ Emacs20 and 21."
   (apply #'buffer-substring-no-properties
          (slime-region-for-defun-at-point)))
 
+(defvar slime-region-for-defun-function nil)
+
 (defun slime-region-for-defun-at-point ()
   "Return the start and end position of the toplevel form at point."
-  (save-excursion
-    (save-match-data
-      (end-of-defun)
-      (let ((end (point)))
-        (beginning-of-sexp)
-        (list (point) end)))))
+  (or (and slime-region-for-defun-function
+           (funcall slime-region-for-defun-function))
+      (save-excursion
+        (save-match-data
+          (end-of-defun)
+          (let ((end (point)))
+            (beginning-of-sexp)
+            (list (point) end))))))
 
 (defun slime-beginning-of-symbol ()
   "Move point to the beginning of the current symbol."
