@@ -17,6 +17,8 @@
   (:export #:startup-multiprocessing
            #:start-server 
            #:create-server
+           #:stop-server
+           #:restart-server
            #:ed-in-emacs
            #:inspect-in-emacs
            #:print-indentation-lossage
@@ -583,6 +585,11 @@ Valid values are :none, :line, and :full.")
 
 (defvar *coding-system* "iso-latin-1-unix")
 
+(defvar *listener-sockets* nil
+  "A property list of lists containing style, socket pairs used 
+   by swank server listeners, keyed on socket port number. They 
+   are used to close sockets on server shutdown or restart.")
+
 (defun start-server (port-file &key (style *communication-style*)
                                     (dont-close *dont-close*)
                                     (coding-system *coding-system*))
@@ -612,8 +619,8 @@ connections, otherwise it will be closed after the first."
 (defun setup-server (port announce-fn style dont-close external-format)
   (declare (type function announce-fn))
   (let* ((socket (create-socket *loopback-interface* port))
-         (port (local-port socket)))
-    (funcall announce-fn port)
+         (local-port (local-port socket)))
+    (funcall announce-fn local-port)
     (flet ((serve ()
              (serve-connection socket style dont-close external-format)))
       (ecase style
@@ -622,11 +629,50 @@ connections, otherwise it will be closed after the first."
           (lambda ()
             (spawn (lambda () 
                      (loop do (ignore-errors (serve)) while dont-close))
-                   :name "Swank"))))
+                   :name (concatenate 'string "Swank " 
+                                      (princ-to-string port))))))
         ((:fd-handler :sigio)
          (add-fd-handler socket (lambda () (serve))))
         ((nil) (loop do (serve) while dont-close)))
-      port)))
+      (setf (getf *listener-sockets* port) (list style socket))
+      local-port)))
+
+(defun stop-server (port)
+  "Stop server running on PORT."
+  (let* ((socket-description (getf *listener-sockets* port))
+         (style (first socket-description))
+         (socket (second socket-description)))
+    (ecase style
+      (:spawn
+       (let ((thread-position
+              (position-if 
+               (lambda (x) 
+                 (string-equal (first x)
+                               (concatenate 'string "Swank "
+                                            (princ-to-string port))))
+               (list-threads))))
+         (when thread-position
+           (kill-nth-thread thread-position)
+           (close-socket socket)
+           (remf *listener-sockets* port))))
+      ((:fd-handler :sigio)
+       (remove-fd-handlers socket)
+       (close-socket socket)
+       (remf *listener-sockets* port)))))
+
+(defun restart-server (&key (port default-server-port)
+                       (style *communication-style*)
+                       (dont-close *dont-close*) 
+                       (coding-system *coding-system*))
+  "Stop the server listening on PORT, then start a new SWANK server 
+on PORT running in STYLE. If DONT-CLOSE is true then the listen socket 
+will accept multiple connections, otherwise it will be closed after the 
+first."
+  (stop-server port)
+  (sleep 5)
+  (create-server :port port :style style :dont-close dont-close
+                 :coding-system coding-system))
+
 
 (defun serve-connection (socket style dont-close external-format)
   (let ((closed-socket-p nil))
@@ -2358,16 +2404,16 @@ the filename of the module (or nil if the file doesn't exist).")
 
 ;;;; Simple completion
 
-(defslimefun simple-completions (string buffer-package)
+(defslimefun simple-completions (string package)
   "Return a list of completions for the string STRING."
-  (let ((strings (all-completions string buffer-package #'prefix-match-p)))
+  (let ((strings (all-completions string package #'prefix-match-p)))
     (list strings (longest-common-prefix strings))))
 
-(defun all-completions (string buffer-package test)
+(defun all-completions (string package test)
   (multiple-value-bind (name pname intern) (tokenize-symbol string)
     (let* ((extern (and pname (not intern)))
 	   (pack (cond ((equal pname "") keyword-package)
-		       ((not pname) (guess-buffer-package buffer-package))
+		       ((not pname) (guess-buffer-package package))
 		       (t (guess-package pname))))
 	   (test (lambda (sym) (funcall test name (unparse-symbol sym))))
 	   (syms (and pack (matching-symbols pack extern test))))

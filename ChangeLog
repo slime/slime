@@ -1,3 +1,19 @@
+2007-12-02  Alan Caulkins <fatman@maxint.net>
+
+	Make it possible to close listening sockets.
+
+	* swank.lisp (stop-server, restart-server): New functions.
+	(*listener-sockets*): New variable.
+	(setup-server): Store open sockets in *listener-sockets*.
+
+2007-12-02  Helmut Eller  <heller@common-lisp.net>
+	
+	Add hook to customize the region used by C-c C-c.
+	Useful to recognize block declarations in CMUCL sources.
+
+	* slime.el (slime-region-for-defun-function): New variable.
+	(slime-region-for-defun-at-point): Use it.
+
 2007-11-30  Helmut Eller  <heller@common-lisp.net>
 
 	Handle byte-functions without debug-info.
