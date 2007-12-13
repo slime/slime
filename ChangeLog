@@ -1,3 +1,9 @@
+2007-12-04  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-repl-insert-result): Use slime-repl-emit-result
+	since handling of markers has changed.
+	(slime-repl-emit-result): New argument: bol.
+
 2007-12-02  Alan Caulkins <fatman@maxint.net>
 
 	Make it possible to close listening sockets.
@@ -7,7 +13,7 @@
 	(setup-server): Store open sockets in *listener-sockets*.
 
 2007-12-02  Helmut Eller  <heller@common-lisp.net>
-	
+
 	Add hook to customize the region used by C-c C-c.
 	Useful to recognize block declarations in CMUCL sources.
 

@@ -2695,10 +2695,11 @@ hashtable `slime-output-target-to-marker'; output is inserted at this marker."
      (when (< slime-repl-input-start-mark (point))
        (set-marker slime-repl-input-start-mark (point))))))
 
-(defun slime-repl-emit-result (string)
+(defun slime-repl-emit-result (string &optional bol)
   ;; insert STRING and mark it as evaluation result
   (with-current-buffer (slime-output-buffer)
     (goto-char slime-repl-input-start-mark)
+    (when (and bol (not (bolp))) (insert "\n"))
     (slime-insert-propertized `(face slime-repl-result-face
                                      rear-nonsticky (face)) 
                               string)
@@ -2945,14 +2946,11 @@ joined together."))
     (when result
       (destructure-case result
         ((:values &rest strings)
-         (unless (bolp) (insert "\n"))
          (cond ((null strings)
-                (insert "; No value\n"))
+                (slime-repl-emit-result "; No value\n" t))
                (t
-                (dolist (string strings)
-                  (slime-propertize-region `(face slime-repl-result-face)
-                    (insert string))
-                  (insert "\n")))))))
+                (dolist (s strings) 
+                  (slime-repl-emit-result s t)))))))
     (slime-repl-insert-prompt)))
 
 (defun slime-repl-show-abort ()
