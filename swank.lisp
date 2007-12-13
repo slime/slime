@@ -2967,11 +2967,10 @@ NIL is returned if the list is circular."
   (let ((*print-pretty* nil)            ; print everything in the same line
         (*print-circle* t)
         (*print-readably* nil))
-    (multiple-value-bind (title content) (inspect-for-emacs object inspector)
-      (list :title title
-            :string-representation
-            (with-output-to-string (stream)
-              (print-unreadable-object (object stream :type t :identity t)))
+    (multiple-value-bind (_ content) (inspect-for-emacs object inspector)
+      (declare (ignore _))
+      (list :title (with-output-to-string (s)
+                     (print-unreadable-object (object s :type t :identity t)))
             :id (assign-index object *inspectee-parts*)
             :content (inspector-content-for-emacs content)))))
 

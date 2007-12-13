@@ -1,7 +1,16 @@
 2007-12-04  Helmut Eller  <heller@common-lisp.net>
 
+	Simplify the inspector.
+
+	* swank.lisp (inspect-object): Ignore the title value returned
+	from backends.
+
+	* slime.el (slime-open-inspector): Updated accordingly.
+
+2007-12-04  Helmut Eller  <heller@common-lisp.net>
+
 	Fix slime-list-thread selector.
-	
+
 	* slime.el (slime-list-threads): Wait for the result before
 	continuing.
 
@@ -20,7 +29,7 @@
 	(setup-server): Store open sockets in *listener-sockets*.
 
 2007-12-02  Helmut Eller  <heller@common-lisp.net>
-	
+
 	Add hook to customize the region used by C-c C-c.
 	Useful to recognize block declarations in CMUCL sources.
 

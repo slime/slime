@@ -7498,16 +7498,14 @@ Optionally set point to POINT."
     (setq slime-buffer-connection (slime-current-connection))
     (let ((inhibit-read-only t))
       (erase-buffer)
-      (destructuring-bind (&key string-representation id title content) inspected-parts
+      (destructuring-bind (&key id title content) inspected-parts
         (macrolet ((fontify (face string) 
                             `(slime-inspector-fontify ,face ,string)))
           (slime-propertize-region
               (list 'slime-part-number id 
                  'mouse-face 'highlight
                  'face 'slime-inspector-value-face)
-            (insert string-representation))
-          (insert ":\n   ")
-          (insert (fontify topline title))
+            (insert title))
           (while (eq (char-before) ?\n)
             (backward-delete-char 1))
           (insert "\n" (fontify label "--------------------") "\n")
