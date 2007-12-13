@@ -7272,19 +7272,17 @@ was called originally."
 (defun slime-list-threads ()
   "Display a list of threads."
   (interactive)
-  (slime-eval-async 
-   '(swank:list-threads)
-   (lambda (threads)
-      (with-current-buffer (get-buffer-create "*slime-threads*")
-       (slime-thread-control-mode)
-       (let ((inhibit-read-only t))
-         (erase-buffer)
-         (loop for idx from 0 
-               for (name status id) in threads
-               do (slime-thread-insert idx name status id))
-         (goto-char (point-min))
-         (setq buffer-read-only t)
-         (pop-to-buffer (current-buffer)))))))
+  (let ((threads (slime-eval '(swank:list-threads))))
+    (with-current-buffer (get-buffer-create "*slime-threads*")
+      (slime-thread-control-mode)
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (loop for idx from 0 
+              for (name status id) in threads
+              do (slime-thread-insert idx name status id))
+        (goto-char (point-min))
+        (setq buffer-read-only t)
+        (pop-to-buffer (current-buffer))))))
 
 (defun slime-thread-insert (idx name summary id)
   (slime-propertize-region `(thread-id ,idx)
@@ -7813,7 +7811,6 @@ switch-to-buffer."
 (def-slime-selector-method ?t
   "SLIME threads buffer."
   (slime-list-threads)
-  (slime-eval `(cl:quote nil))          ;wait until slime-list-threads returns
   "*slime-threads*")
 
 (defun slime-recently-visited-buffer (mode)
