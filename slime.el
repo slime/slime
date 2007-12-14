@@ -6078,14 +6078,22 @@ GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
                  (list 'slime-location location
                        'face 'font-lock-keyword-face)
                  "  " (slime-one-line-ify label))
-             do (insert " - " (if (and (eql :location (car location))
-                                       (assoc :file (cdr location)))
-                                  (second (assoc :file (cdr location)))
-                                  "file unknown")
-                          "\n"))))
+             do (insert " - " (slime-insert-xref-location location) "\n"))))
   ;; Remove the final newline to prevent accidental window-scrolling
   (backward-char 1)
   (delete-char 1))
+
+(defun slime-insert-xref-location (location)
+  (if (eql :location (car location))
+      (cond ((assoc :file (cdr location)) 
+             (second (assoc :file (cdr location))))
+            ((assoc :buffer (cdr location))
+             (let* ((name (second (assoc :buffer (cdr location))))
+                    (buffer (get-buffer name)))
+               (if buffer 
+                   (format "%S" buffer)
+                   (format "%s (previously existing buffer)" name)))))
+      "file unknown"))
 
 (defvar slime-next-location-function nil
   "Function to call for going to the next location.")
