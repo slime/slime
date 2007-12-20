@@ -1581,7 +1581,7 @@ gracefully."
         compound forms like lists or vectors.)"
   (multiple-value-bind (symbol found? symbol-name package) (parse-symbol string)
     (if found?
-        (values symbol nil)
+        (values symbol (length string) nil)
         (multiple-value-bind (sexp pos) (read-from-string string)
           (values sexp pos
                   (when (symbolp sexp)
