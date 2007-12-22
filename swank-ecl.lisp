@@ -157,6 +157,19 @@
       (typecase name 
         (generic-function
          (clos::generic-function-lambda-list name))
+        (compiled-function
+         ; most of the compiled functions have an Args: line in their docs
+         (with-input-from-string (s (or
+                                     (si::get-documentation
+                                      (si:compiled-function-name name) 'function)
+                                     ""))
+           (do ((line (read-line s nil) (read-line s nil)))
+               ((not line) :not-available)
+             (ignore-errors
+               (if (string= (subseq line 0 6) "Args: ")
+                   (return-from nil
+                     (read-from-string (subseq line 6))))))))
+         ;
         (function
          (let ((fle (function-lambda-expression name)))
            (case (car fle)
