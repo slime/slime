@@ -53,7 +53,8 @@
   (check-type timeout (or null real))
   (if (fboundp 'ext::stream-timeout)
       (setf (ext::stream-timeout stream) timeout)
-      (setf (slot-value (slot-value stream 'cl::stream) 'cl::timeout) timeout)))
+      (setf (slot-value (slot-value stream 'lisp::stream) 'lisp::timeout)
+            timeout)))
 
 ;;;;; Sockets
 
@@ -87,7 +88,8 @@
                                      :external-format external-format)))
     ;; Ignore character conversion errors.  Without this the communication
     ;; channel is prone to lockup if a character conversion error occurs.
-    (setf (cl::stream-character-conversion-error-value stream) #\?)
+    (setf (lisp::character-conversion-stream-input-error-value stream) #\?)
+    (setf (lisp::character-conversion-stream-output-error-value stream) #\?)
     stream))
 
 
