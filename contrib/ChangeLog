@@ -1,3 +1,14 @@
+2007-12-30  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-arglists.lisp: Fix for `(cerror "FOO" 'type-error ...)'
+
+	(*arglist-dummy*): Removed.
+	(arglist-dummy): New structure. Wrapper around whatever could not
+	be reliably read. The clue is that its printing function does only
+	print the object this structure contains.
+	(read-conversatively-for-autodoc): Return such a structure if
+	conversative reading fails.
+
 2007-11-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-arglists.lisp (arglist-dispatch 'defmethod): Use

@@ -72,7 +72,14 @@ For more information about the format of ``raw form specs'' and
   (let ((op-rawspec (nth (1+ position) raw-specs)))
     (first (parse-form-spec op-rawspec #'read-conversatively-for-autodoc))))
 
-(defvar *arglist-dummy* (cons :dummy nil))
+;; This is a wrapper object around anything that came from Slime and
+;; could not reliably be read. 
+(defstruct (arglist-dummy
+	     (:conc-name #:arglist-dummy.)
+	     (:print-object (lambda (struct stream)
+			      (with-struct (arglist-dummy. string-representation) struct
+				(write-string string-representation stream)))))
+  string-representation)
 
 (defun read-conversatively-for-autodoc (string)
   "Tries to find the symbol that's represented by STRING. 
@@ -83,8 +90,8 @@ interned. Because this function is supposed to be called from the
 automatic arglist display stuff from Slime, interning freshly
 symbols is a big no-no.
 
-In such a case (that no symbol could be found), the object
-*ARGLIST-DUMMY* is returned instead, which works as a placeholder
+In such a case (that no symbol could be found), an object of type
+ARGLIST-DUMMY is returned instead, which works as a placeholder
 datum for subsequent logics to rely on."
   (let* ((string  (string-left-trim '(#\Space #\Tab #\Newline) string))
 	 (quoted? (eql (aref string 0) #\')))
@@ -92,7 +99,7 @@ datum for subsequent logics to rely on."
 	(parse-symbol (if quoted? (subseq string 1) string))
       (if found?
 	  (if quoted? `(quote ,symbol) symbol)
-	  *arglist-dummy*))))
+	  (make-arglist-dummy :string-representation string)))))
 
 
 (defun parse-form-spec (raw-spec &optional reader)
