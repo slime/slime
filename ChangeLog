@@ -1,3 +1,17 @@
+2008-01-02  Luís Oliveira  <loliveira@common-lisp.net>
+
+	Use sane default values for slime-repl-set-package.
+
+	Previously, when typing `,!p' at the REPL, the current package
+	would have been inserted as a default (although the whole intent
+	was to /change/ the current package in the first place), now
+	nothing is inserted anymore.
+	
+	* slime.el (slime-pretty-current-package): rename it to
+	slime-pretty-find-buffer-package and make it use
+	slime-find-buffer-package instead of slime-current-package.
+	(slime-repl-set-package, slime-set-package): use new function.
+	
 2008-01-02  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-print-apropos): Simplified: Don't insert action
