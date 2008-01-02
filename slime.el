@@ -5930,10 +5930,7 @@ With prefix argument include internal symbols."
   (dolist (plist plists)
     (let ((designator (plist-get plist :designator)))
       (assert designator)
-      (slime-insert-propertized (list 'face apropos-symbol-face
-                                      'item designator
-                                      'action 'slime-describe-symbol)
-                                designator))
+      (slime-insert-propertized `(face ,apropos-symbol-face) designator))
     (terpri)
     (let ((apropos-label-properties slime-apropos-label-properties))
       (loop for (prop namespace) 

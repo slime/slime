@@ -1,5 +1,12 @@
 2008-01-02  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-print-apropos): Simplified: Don't insert action
+	properties anymore for the symbol; they were ignored anyway,
+	because `apropos-follow' (bound to RET in the resulting 
+	*SLIME Apropos* buffer) looks for buttons only.
+
+2008-01-02  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (slime-apropos): Update docstring: Apropos doesn't
 	match on regular expressions anymore since 2007-11-24.
 	
