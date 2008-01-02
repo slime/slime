@@ -1,3 +1,8 @@
+2008-01-02  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-apropos): Update docstring: Apropos doesn't
+	match on regular expressions anymore since 2007-11-24.
+	
 2007-12-22  Douglas Crosher <dcrosher@common-lisp.net>
 
 	* swank-scl.lisp (set-stream-timeout, make-socket-io-stream): update

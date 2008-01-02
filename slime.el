@@ -5866,7 +5866,8 @@ having names in the given package."
 
 (defun slime-apropos (string &optional only-external-p package 
                              case-sensitive-p)
-  "Show all bound symbols whose names match STRING, a regular expression."
+  "Show all bound symbols whose names match STRING. With prefix
+arg, you're interactively asked for parameters of the search."
   (interactive
    (if current-prefix-arg
        (list (read-string "SLIME Apropos: ")
@@ -5886,7 +5887,7 @@ having names in the given package."
        (lambda (r) (slime-show-apropos r string package summary))))))
 
 (defun slime-apropos-all ()
-  "Shortcut for (slime-apropos <pattern> nil nil)"
+  "Shortcut for (slime-apropos <string> nil nil)"
   (interactive)
   (slime-apropos (read-string "SLIME Apropos: ") nil nil))
 
