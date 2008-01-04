@@ -831,16 +831,19 @@ stack."
 (defun source-file-source-location (code-location)
   (let* ((code-date (code-location-debug-source-created code-location))
          (filename (code-location-debug-source-name code-location))
+         (*readtable* (guess-readtable-for-filename filename))
          (source-code (get-source-code filename code-date)))
-    (with-input-from-string (s source-code)
-      (let* ((pos (stream-source-position code-location s))
-             (snippet (read-snippet s pos)))
-      (make-location `(:file ,filename)
-                     `(:position ,(1+ pos))
-                     `(:snippet ,snippet))))))
+    (with-debootstrapping
+      (with-input-from-string (s source-code)
+        (let* ((pos (stream-source-position code-location s))
+               (snippet (read-snippet s pos)))
+          (make-location `(:file ,filename)
+                         `(:position ,(1+ pos))
+                         `(:snippet ,snippet)))))))
 
 (defun code-location-debug-source-name (code-location)
-  (sb-c::debug-source-name (sb-di::code-location-debug-source code-location)))
+  (namestring (truename (sb-c::debug-source-name
+                         (sb-di::code-location-debug-source code-location)))))
 
 (defun code-location-debug-source-created (code-location)
   (sb-c::debug-source-created

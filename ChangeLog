@@ -1,3 +1,13 @@
+2008-01-04  Juho Snellman  <jsnell@iki.fi>
+
+	* swank-sbcl.lisp (source-file-source-location): Use the
+	debootstrap readtable when appropriate (fixes occasional reader
+	errors when using "v" on debugger frames that point to functions
+	defined in SBCL). Likewise for the debootstrapping packages.
+	(code-location-debug-source-name): Ensure that we always return a
+	physical namestring, Emacs won't like a pathname or a logical
+	namestring.
+	
 2008-01-02  Luís Oliveira  <loliveira@common-lisp.net>
 
 	Use sane default values for slime-repl-set-package.
