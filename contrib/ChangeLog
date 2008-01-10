@@ -1,3 +1,48 @@
+2008-01-10  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	Add keyboard commands (starting with C-c C-v) and a top-level menu
+	for presentation-related commands.  Add a command (C-c C-v M-o) to
+	forget all objects associated with presentations, without
+	clearing the REPL buffer.
+	
+	* slime-presentations.el
+	(slime-presentation-around-or-before-point-or-error): New
+	function.
+	(slime-inspect-presentation): New function, factored out from
+	slime-inspect-presentation-at-mouse. 
+	(slime-inspect-presentation-at-mouse): Use it here.
+	(slime-inspect-presentation-at-point): New command.
+	(slime-copy-presentation-to-repl): New function, factored out
+	from slime-copy-presentation-at-mouse.
+	(slime-copy-presentation-at-mouse-to-repl): Renamed from
+	slime-copy-presentation-at-mouse; use the new function
+	slime-copy-presentation-to-repl. 
+	(slime-copy-presentation-at-point-to-repl): New command.
+	(slime-copy-presentation-to-kill-ring): New function, factored
+	out from slime-copy-presentation-at-mouse-to-kill-ring.
+	(slime-copy-presentation-at-point-to-kill-ring): New command.
+	(slime-describe-presentation): New function, factored out from
+	slime-describe-presentation-at-mouse. 
+	(slime-describe-presentation-at-mouse): Use it here.
+	(slime-describe-presentation-at-point): New command.
+	(slime-pretty-print-presentation): New function, factored out
+	from slime-pretty-print-presentation-at-mouse.
+	(slime-pretty-print-presentation-at-mouse): Use it here.
+	(slime-pretty-print-presentation-at-point): New command.
+	(slime-mark-presentation): New command.
+	(slime-previous-presentation, slime-next-presentation): New
+	commands. 
+	(slime-presentation-command-map, slime-presentation-bindings):
+	New variables.
+	(slime-presentation-init-keymaps): New function.
+	(slime-presentation-around-or-before-point-p): New function.
+	(slime-presentation-easy-menu): New variable.
+	(slime-presentation-add-easy-menu): New function.
+	(slime-clear-presentations): Make interactive, remove
+	presentation markup from all presentations in the REPL buffer.
+	(slime-presentations-init): Call slime-presentation-init-keymaps
+	and slime-presentation-add-easy-menu.
+
 2008-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-parse.lisp (slime-incomplete-form-at-point): Take the
