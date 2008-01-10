@@ -16,14 +16,28 @@ one sexp to find out the context."
       (slime-enclosing-form-specs)
     (if (null operators)
         ""
-        (let ((op (first operators)))
+        (let ((op        (first operators))
+	      (op-start  (first points))
+	      (arg-index (first arg-indices)))
           (destructure-case (slime-ensure-list op)
             ((:declaration declspec) op)
             ((:type-specifier typespec) op)
-            (t (slime-ensure-list
-                (save-excursion (goto-char (first points))
-                                (slime-parse-sexp-at-point 
-				 (1+ (first arg-indices)))))))))))
+            (t 
+	     (let ((user-point (point)))
+	       (save-excursion
+		 (goto-char op-start)
+		 ;; `arg-index' represents to the number of full sexps that
+		 ;; come to the left of the sexp user's point is at.
+		 (let ((full-sexps (slime-ensure-list
+				    (slime-parse-sexp-at-point arg-index))))
+		   (forward-sexp arg-index)
+		   (slime-forward-blanks)
+		   (assert (<= (point) user-point))
+		   (let ((incomplete-sexp
+			  (buffer-substring-no-properties (point) user-point)))
+		     (if (string= incomplete-sexp "")
+			 full-sexps
+		       (append full-sexps (list incomplete-sexp)))))))))))))
 
 ;; XXX: unused function
 (defun slime-cl-symbol-external-ref-p (symbol)

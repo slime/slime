@@ -1,5 +1,12 @@
 2008-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-parse.lisp (slime-incomplete-form-at-point): Take the
+	arglist index there user's point is located at correctly into
+	account. Previously `C-c C-s' on `(defun |foo' would have inserted
+        `args body...)', now it inserts `name args body...)'
+	
+2008-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank-arglists.lisp (read-form-spec): Changed "cons" clause to
 	"list" clause in etypecase. Fix for error on arglist display on
 	`(declare (ftype (|)))', | being point.
