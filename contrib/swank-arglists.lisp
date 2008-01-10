@@ -239,7 +239,8 @@ READ-SOFTLY-FROM-STRING* is used instead."
 the flag if a symbol had to be interned."
   (multiple-value-bind (sexp pos interned?)
       (read-softly-from-string string)
-    (declare (ignore pos))
+    ;; To make sure that we haven't got any junk from Emacs.
+    (assert (= pos (length string)))
     (values sexp interned?)))
 
 
