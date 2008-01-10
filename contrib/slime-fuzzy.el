@@ -30,8 +30,8 @@ opposed to moving the point to the completion buffer."
   :type 'integer)
 
 (defcustom slime-fuzzy-completion-time-limit-in-msec 1500
-  "Limit the time spent (given in msec) in swank while gathering comletitions.
-\(NOTE: currently it's rounded up the nearest second)"
+  "Limit the time spent (given in msec) in swank while gathering
+comletitions."
   :group 'slime-mode
   :type 'integer)
 
