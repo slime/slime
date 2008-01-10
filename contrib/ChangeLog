@@ -1,5 +1,10 @@
 2008-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-editing-commands.el (slime-close-all-parens-in-sexp): Use
+	new portability function `slime-delete-and-extract-region'.
+	
+2008-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank-parse.lisp (slime-incomplete-form-at-point): Hopefully
 	better fix than before.
 	
