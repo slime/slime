@@ -1,3 +1,8 @@
+2008-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-parse.lisp (slime-incomplete-form-at-point): Hopefully
+	better fix than before.
+	
 2008-01-10  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Add keyboard commands (starting with C-c C-v) and a top-level menu

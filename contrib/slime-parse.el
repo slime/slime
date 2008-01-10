@@ -23,21 +23,8 @@ one sexp to find out the context."
             ((:declaration declspec) op)
             ((:type-specifier typespec) op)
             (t 
-	     (let ((user-point (point)))
-	       (save-excursion
-		 (goto-char op-start)
-		 ;; `arg-index' represents to the number of full sexps that
-		 ;; come to the left of the sexp user's point is at.
-		 (let ((full-sexps (slime-ensure-list
-				    (slime-parse-sexp-at-point arg-index))))
-		   (forward-sexp arg-index)
-		   (slime-forward-blanks)
-		   (assert (<= (point) user-point))
-		   (let ((incomplete-sexp
-			  (buffer-substring-no-properties (point) user-point)))
-		     (if (string= incomplete-sexp "")
-			 full-sexps
-		       (append full-sexps (list incomplete-sexp)))))))))))))
+	     (slime-make-form-spec-from-string 
+	      (concat (slime-incomplete-sexp-at-point) ")"))))))))
 
 ;; XXX: unused function
 (defun slime-cl-symbol-external-ref-p (symbol)
