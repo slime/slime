@@ -1,3 +1,20 @@
+2008-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-arglists.lisp (read-form-spec): Changed "cons" clause to
+	"list" clause in etypecase. Fix for error on arglist display on
+	`(declare (ftype (|)))', | being point.
+	
+2008-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-fuzzy.el (slime-fuzzy-completion-time-limit-in-msec):
+	Update docstring: Its value isn't rounded to nearest second, but
+	is really interpreted as msecs.
+
+	* swank-fuzzy.el: Updated some comments.
+	(fuzzy-generate-matchings): Sort package matchings before
+	traversal, such that they're traversed in the order of their
+	score. (Important with time limit exhausts during traversal.)
+	
 2008-01-09  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Restore support for Scheme programs that was removed from core

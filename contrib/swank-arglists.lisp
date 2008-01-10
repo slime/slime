@@ -222,7 +222,7 @@ READ-SOFTLY-FROM-STRING* is used instead."
                          (push sexp result)
                          (when newly-interned?
                            (push sexp newly-interned-symbols))))
-                      (cons
+                      (list
                        (multiple-value-bind (read-spec interned-symbols)
                            (read-form-spec element reader)
                          (push read-spec result)
