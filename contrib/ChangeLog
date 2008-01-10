@@ -1,5 +1,13 @@
 2008-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-parse.el (slime-make-form-spec-from-string): Correctly
+	handle quoted things and other non-proper "(...)" forms.
+
+	* swank-arglist.lisp (read-form-spec): Added assertion against
+	receiving junk form specs from Emacs.
+	
+2008-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-editing-commands.el (slime-close-all-parens-in-sexp): Use
 	new portability function `slime-delete-and-extract-region'.
 	
