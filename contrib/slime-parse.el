@@ -229,9 +229,11 @@ Examples:
 
       => (\"foo\" (\"bar\" \"1\" (\"baz\" \":quux\")) \"'toto\")
 "
-  (cond ((slime-length= string 0) "")
-	((equal string "()") '())
-	(t
+  (cond ((slime-length= string 0) "")                    ; ""
+	((equal string "()") '())                        ; "()"
+	((eql (char-syntax (aref string 0)) ?\') string) ; "'(foo)", "#(foo)" &c
+	((not (eql (aref string 0) ?\()) string)         ; "foo"
+	(t                                               ; "(op arg1 arg2 ...)"
 	 (with-temp-buffer
 	   ;; Do NEVER ever try to activate `lisp-mode' here with
 	   ;; `slime-use-autodoc-mode' enabled, as this function is used
@@ -247,17 +249,18 @@ Examples:
 	       (delete-region (point-min) (point))
 	       (insert "(")))
 	   (goto-char (1- (point-max))) ; `(OP arg1 ... argN|)'
+	   (assert (eql (char-after) ?\)))
 	   (multiple-value-bind (forms indices points)
 	       (slime-enclosing-form-specs 1)
 	     (if (null forms)
 		 string
                 (let ((n (first (last indices))))
-		   (goto-char (1+ (point-min))) ; `(|OP arg1 ... argN)'
-		   (mapcar #'(lambda (s)
-			       (assert (not (equal s string)))       ; trap against
-			       (slime-make-form-spec-from-string s)) ;  endless recursion.
-			   (slime-ensure-list
-			    (slime-parse-sexp-at-point (1+ n) t))))))))))
+		  (goto-char (1+ (point-min))) ; `(|OP arg1 ... argN)'
+		  (mapcar #'(lambda (s)
+			      (assert (not (equal s string))) ; trap against
+			      (slime-make-form-spec-from-string s)) ;  endless recursion.
+			  (slime-ensure-list
+			   (slime-parse-sexp-at-point (1+ n) t))))))))))
 
 
 (defun slime-enclosing-form-specs (&optional max-levels)
