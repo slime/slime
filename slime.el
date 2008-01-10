@@ -6321,6 +6321,7 @@ NB: Does not affect *slime-eval-macroexpand-expression*"
              (indent-sexp)
              (goto-char point))))))))
 
+       
 (defun slime-macroexpand-1 (&optional repeatedly)
   "Display the macro expansion of the form at point.  The form is
 expanded with CL:MACROEXPAND-1 or, if a prefix argument is given, with
@@ -9074,21 +9075,6 @@ Reconnect afterwards."
     (list (nthcdr n seq))
     (seq  (> (length seq) n))))
 
-(defun slime-split-string (string &optional separators omit-nulls)
-  "This is like `split-string' in Emacs22, but also works in
-Emacs20 and 21."
-  (let ((splits (split-string string separators)))
-    (if omit-nulls
-        (setq splits (remove "" splits))
-      ;; SPLIT-STRING in Emacs before 22.x automatically removed nulls
-      ;; at beginning and end, so we gotta add them here again.
-      (when (or (slime-emacs-20-p) (slime-emacs-21-p))
-        (when (find (elt string 0) separators)
-          (push "" splits))
-        (when (find (elt string (1- (length string))) separators)
-          (setq splits (append splits (list ""))))))
-    splits))
-
 ;;;;; Buffer related
 
 (defun slime-buffer-narrowed-p (&optional buffer)
@@ -9185,6 +9171,32 @@ The result is unspecified if there isn't a symbol under the point."
 
 (when (featurep 'xemacs)
   (require 'overlay))
+
+(defun slime-split-string (string &optional separators omit-nulls)
+  "This is like `split-string' in Emacs22, but also works in
+Emacs20 and 21."
+  (let ((splits (split-string string separators)))
+    (if omit-nulls
+        (setq splits (remove "" splits))
+      ;; SPLIT-STRING in Emacs before 22.x automatically removed nulls
+      ;; at beginning and end, so we gotta add them here again.
+      (when (or (slime-emacs-20-p) (slime-emacs-21-p))
+        (when (find (elt string 0) separators)
+          (push "" splits))
+        (when (find (elt string (1- (length string))) separators)
+          (setq splits (append splits (list ""))))))
+    splits))
+
+(defun slime-delete-and-extract-region (start end)
+  "Like `delete-and-extract-region' except that it is guaranteed
+to return a string. At least Emacs 21.3.50 returned `nil' on
+\(delete-and-extract-region (point) (point)), this function
+will return \"\"."
+  (let ((result (delete-and-extract-region start end)))
+    (if (null result)
+        ""
+      (assert (stringp result))
+      result)))
 
 (defmacro slime-defun-if-undefined (name &rest rest)
   ;; We can't decide at compile time whether NAME is properly

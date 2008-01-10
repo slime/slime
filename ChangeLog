@@ -1,3 +1,9 @@
+2008-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-delete-and-extract-region): New
+	function. Portable version of `delete-and-extract-region' which
+	returned NIL instead of "", as experienced by Matthias Koeppe.
+	
 2008-01-09  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	* slime.el (slime-repl-mode-map): Bind C-c C-t to
