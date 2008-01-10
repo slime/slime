@@ -64,7 +64,7 @@
 2008-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-parse.lisp (slime-incomplete-form-at-point): Take the
-	arglist index there user's point is located at correctly into
+	arglist index the user's point is located at correctly into
 	account. Previously `C-c C-s' on `(defun |foo' would have inserted
         `args body...)', now it inserts `name args body...)'
 	
@@ -83,7 +83,7 @@
 	* swank-fuzzy.el: Updated some comments.
 	(fuzzy-generate-matchings): Sort package matchings before
 	traversal, such that they're traversed in the order of their
-	score. (Important with time limit exhausts during traversal.)
+	score. (Important when time limit exhausts during traversal.)
 	
 2008-01-09  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
