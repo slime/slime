@@ -352,7 +352,7 @@ Also return the start position, end position, and buffer of the presentation."
       (slime-presentation-around-click event)
     (if (with-current-buffer buffer
           (eq major-mode 'slime-repl-mode))
-        (slime-copy-presentation-at-mouse event)
+        (slime-copy-presentation-at-mouse-to-repl event)
       (slime-inspect-presentation-at-mouse event))))
 
 (defun slime-inspect-presentation (presentation start end buffer)
