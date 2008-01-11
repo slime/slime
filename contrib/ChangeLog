@@ -1,3 +1,10 @@
+2008-01-11  Stelian Ionescu <sionescu@common-lisp.net>
+
+	* slime-presentations.el
+	(slime-copy-or-inspect-presentation-at-mouse): Call
+	slime-copy-presentation-at-mouse-to-repl rather than
+	slime-copy-presentation-at-mouse. 
+
 2008-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-parse.el (slime-make-form-spec-from-string): Correctly
