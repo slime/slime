@@ -6527,7 +6527,8 @@ Full list of commands:
   (slime-set-truncate-lines)
   ;; Make original slime-connection "sticky" for SLDB commands in this buffer
   (setq slime-buffer-connection (slime-connection))
-  (add-local-hook 'kill-buffer-hook 'sldb-delete-overlays))
+  (add-local-hook 'kill-buffer-hook 'sldb-delete-overlays)
+  (add-local-hook 'kill-buffer-hook 'sldb-quit))
 
 (slime-define-keys sldb-mode-map
   ("h"    'describe-mode)

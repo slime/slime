@@ -1,3 +1,10 @@
+2008-01-14  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (sldb-mode): Add `sldb-quit' to `kill-buffer-hook' to
+	close the debugging machinery on swank side when the SLDB buffer
+	is killed. (Notice that killing the SLDB buffer manually will not
+	restore window configuration in contrast to typing `q'.)
+	
 2008-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-delete-and-extract-region): New
