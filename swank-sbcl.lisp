@@ -236,8 +236,9 @@
     (eql (mismatch "SB-" name) 3)))
 
 (defun sbcl-source-file-p (filename)
-  (loop for (_ pattern) in (logical-pathname-translations "SYS")
-        thereis (pathname-match-p filename pattern)))
+  (when filename
+    (loop for (_ pattern) in (logical-pathname-translations "SYS")
+          thereis (pathname-match-p filename pattern))))
 
 (defun guess-readtable-for-filename (filename)
   (if (sbcl-source-file-p filename)
