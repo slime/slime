@@ -1,3 +1,8 @@
+2008-01-19  Geo Carncross  <geocar@gmail.com>
+
+	* swank-ecl.lisp (inspect-for-emacs): Make ECL inspection better;
+	should be able to handle all builtin types and CLOS objects now.
+
 2008-01-17 Nikodemus Siivola <nikodemus@random-state.net>
 
 	* swank-sbcl.lisp (sbcl-source-file-p): When a buffer is not

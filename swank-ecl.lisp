@@ -254,6 +254,53 @@
 (defimplementation make-default-inspector ()
   (make-instance 'ecl-inspector))
 
+(defmethod inspect-for-emacs ((o t) (inspector backend-inspector))
+  ; ecl clos support leaves some to be desired
+  (cond
+    ((streamp o)
+     (values
+      (format nil "~S is an ordinary stream" o)
+      (append
+       (list
+        "Open for "
+        (cond
+          ((ignore-errors (interactive-stream-p o)) "Interactive")
+          ((and (input-stream-p o) (output-stream-p o)) "Input and output")
+          ((input-stream-p o) "Input")
+          ((output-stream-p o) "Output"))
+        `(:newline) `(:newline))
+       (label-value-line*
+        ("Element type" (stream-element-type o))
+        ("External format" (stream-external-format o)))
+       (ignore-errors (label-value-line*
+                       ("Broadcast streams" (broadcast-stream-streams o))))
+       (ignore-errors (label-value-line*
+                       ("Concatenated streams" (concatenated-stream-streams o))))
+       (ignore-errors (label-value-line*
+                       ("Echo input stream" (echo-stream-input-stream o))))
+       (ignore-errors (label-value-line*
+                       ("Echo output stream" (echo-stream-output-stream o))))
+       (ignore-errors (label-value-line*
+                       ("Output String" (get-output-stream-string o))))
+       (ignore-errors (label-value-line*
+                       ("Synonym symbol" (synonym-stream-symbol o))))
+       (ignore-errors (label-value-line*
+                       ("Input stream" (two-way-stream-input-stream o))))
+       (ignore-errors (label-value-line*
+                       ("Output stream" (two-way-stream-output-stream o)))))))
+    (t
+     (let* ((cl (si:instance-class o))
+            (slots (clos:class-slots cl)))
+       (values (format nil "~S is an instance of class ~A"
+                       o (clos::class-name cl))
+               (loop for x in slots append
+                    (let* ((name (clos:slot-definition-name x))
+                           (value (clos::slot-value o name)))
+                      (list
+                       (format nil "~S: " name)
+                       `(:value ,value)
+                       `(:newline)))))))))
+
 ;;;; Definitions
 
 (defimplementation find-definitions (name) nil)
