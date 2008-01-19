@@ -1,3 +1,8 @@
+2008-01-19  Helmut Eller   <heller@common-lisp.net>
+
+	* swank-goo.goo: New file.
+	* swank-kawa.scm: New file.
+
 2008-01-11  Stelian Ionescu <sionescu@common-lisp.net>
 
 	* slime-presentations.el
