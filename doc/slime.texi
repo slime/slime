@@ -1347,7 +1347,7 @@ Interrupt the Lisp process with @code{SIGINT}.
 @c @kbditem{C-c M-g, slime-quit}
 @c Quit slime. 
 
-@kbditem{C-c C-t, slime-repl-clear-buffer}
+@kbditem{C-c M-o, slime-repl-clear-buffer}
 Clear the entire buffer, leaving only a prompt.
 
 @kbditem{C-c C-o, slime-repl-clear-output}
@@ -2188,7 +2188,7 @@ just add this to your @file{.emacs}:
 @node Contributed Packages
 @chapter Contributed Packages
 
-In version 3.0 we moved some functionility to separate packages.  This
+In version 3.0 we moved some functionality to separate packages.  This
 chapter tells you how to load contrib modules and describes what the
 particular packages do.
 
@@ -2237,7 +2237,7 @@ After starting SLIME, the commands of both packages should be
 available.
 
 @node Compound Completion
-@section Compund Completion 
+@section Compound Completion 
 
 @anchor{slime-complete-symbol*}
 The package @code{slime-c-p-c} provides a different symbol completion
@@ -2472,26 +2472,127 @@ bitmapped screen or to write some text to a character stream.} in
 Right-clicking on the text brings up a menu with operations for the
 particular object.  Some operations, like inspecting, are available
 for all objects, but the object may also have specialized operations.
-E.g. pathnames have a dired operation.
+For instance, pathnames have a dired operation.
+
+More importantly, it is possible to cut and paste presentations (i.e.,
+Lisp objects, not just their printed presentation), using all standard
+Emacs commands.  This way it is possible to cut and paste the results of
+previous computations in the REPL.  This is of particular importance for
+unreadable objects.
 
 The package @code{slime-presentations} installs presentations in the
-REPL, i.e. the results of evaluation commands become presentations.
+REPL, i.e. the results of evaluation commands become presentations.  In
+this way, presentations generalize the use of the standard Common Lisp
+REPL history variables @code{*}, @code{**}, @code{***}.  Example:
 
-For some implementations you can also install
-@code{slime-presentation-streams} which enables presentations on the
-Lisp @code{*standard-output*} stream.  E.g. printing a list to such a
-stream will create presentions in the Emacs buffer.
+@example
+CL-USER> (find-class 'standard-class)
+@emph{#<STANDARD-CLASS STANDARD-CLASS>}
+CL-USER>
+@end example
+
+Presentations appear in red color in the buffer.  
+(In this manual, we indicate the presentations @emph{like this}.)
+Using standard Emacs
+commands, the presentation can be copied to a new input in the REPL:
+
+@example
+CL-USER> (eql '@emph{#<STANDARD-CLASS STANDARD-CLASS>} '@emph{#<STANDARD-CLASS STANDARD-CLASS>})
+@emph{T}
+@end example
+
+When you copy an incomplete presentation or edit the text within a
+presentation, the presentation changes to plain text, losing the
+association with a Lisp object.  In the buffer, this is indicated by
+changing the color of the text from red to black.  This can be undone.
+
+For some implementations you can also install the package
+@code{slime-presentation-streams}, which enables presentations on the
+Lisp @code{*standard-output*} stream.  This means that not only results
+of computations, but also some objects that are printed to the standard
+output (as a side-effect of the computation) are associated with
+presentations.  Currently, all unreadable objects
+and pathnames get printed as presentations.
+
+@example
+CL-USER> (describe (find-class 'standard-object))
+@emph{#<STANDARD-CLASS STANDARD-OBJECT>} is an instance of
+    @emph{#<STANDARD-CLASS STANDARD-CLASS>}:
+ The following slots have :INSTANCE allocation:
+  PLIST                   NIL
+  FLAGS                   1
+  DIRECT-METHODS          ((@emph{#<STANDARD-METHOD
+                              SWANK::ALL-SLOTS-FOR-INSPECTOR
+                              (STANDARD-OBJECT T)>}
+  ...
+@end example
+
+Again, this makes it possible to inspect and copy-paste these objects.
+
+In addition to the standard Emacs commands, there are several keyboard
+commands, a menu-bar menu, and a context menu to operate on
+presentations.  We describe the keyboard commands below; they are also
+shown in the menu-bar menu.
 
 @table @kbd
-@cmditem{slime-copy-or-inspect-presentation-at-mouse}
-@cmditem{slime-inspect-presentation-at-mouse}
-@cmditem{slime-copy-presentation-at-mouse}
-@cmditem{slime-copy-presentation-at-mouse-to-point}
-@cmditem{slime-copy-presentation-at-mouse-to-kill-ring}
-@cmditem{slime-describe-presentation-at-mouse}
-@cmditem{slime-pretty-print-presentation-at-mouse}
-@cmditem{slime-clear-presentations}
+@kbditem{C-c C-v SPC, slime-mark-presentation}
+If point is within a presentation, move point to the beginning of the
+presentation and mark to the end of the presentation.
+This makes it possible to copy the presentation.
+
+@kbditem{C-c C-v w, slime-copy-presentation-at-point-to-kill-ring}
+If point is within a presentation, copy the surrounding presentation
+to the kill ring.
+
+@kbditem{C-c C-v r, slime-copy-presentation-at-point-to-repl}
+If point is within a presentation, copy the surrounding presentation
+to the REPL.
+
+@kbditem{C-c C-v d, slime-describe-presentation-at-point}
+If point is within a presentation, describe the associated object.
+
+@kbditem{C-c C-v i, slime-inspect-presentation-at-point}
+If point is within a presentation, inspect the associated object with
+the SLIME inspector.
+
+@kbditem{C-c C-v n, slime-next-presentation}
+Move point to the next presentation in the buffer.
+
+@kbditem{C-c C-v p, slime-previous-presentation}
+Move point to the previous presentation in the buffer.
+
 @end table
+Similar operations are also possible from the context menu of every
+presentation.  Using @kbd{mouse-3} on a presentation, the context menu
+opens and offers various commands.  For some objects, specialized
+commands are also offered.  Users can define additional specialized
+commands by defining a method for
+@code{swank::menu-choices-for-presentation}. 
+
+
+@strong{Warning:} On Lisp implementations without weak hash tables,
+all objects associated with presentations are protected from garbage
+collection.  If your Lisp image grows too large because of that,
+use @kbd{C-c C-v M-o} (@code{slime-clear-presentations}) to remove these
+associations.  You can also use the command @kbd{C-c M-o}
+(@code{slime-repl-clear-buffer}), which both clears the REPL buffer and
+removes all associations of objects with presentations.
+
+@strong{Warning:} Presentations can confuse new users.
+
+@example
+CL-USER> (cons 1 2)
+@emph{(1 . 2)}
+CL-USER> (eq '@emph{(1 . 2)} '@emph{(1 . 2)})
+@emph{T}
+@end example
+
+One could have expected @code{NIL} here, because it looks like two
+fresh cons cells are compared regarding object identity.
+However, in the example the presentation @code{@emph{(1 . 2)}} was copied twice
+to the REPL.  Thus @code{EQ} is really invoked with the same object,
+namely the cons cell that was returned by the first form entered in the
+REPL. 
 
 @node Typeout frames
 @section Typeout frames
