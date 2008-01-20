@@ -1,3 +1,8 @@
+2008-01-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* doc/slime.texi (Presentations): Improve documentation of
+	presentations. 
+
 2008-01-19  Geo Carncross  <geocar@gmail.com>
 
 	* swank-ecl.lisp (inspect-for-emacs): Make ECL inspection better;
