@@ -1,3 +1,16 @@
+2008-01-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	Hook presentations into debugger and inspector, restoring 
+	features that were removed on 2007-08-27.
+	
+	* slime-presentations.el (slime-presentation-add-easy-menu):
+	Install presentation menu also in the debugger and inspector.
+	(slime-presentation-inspector-insert-ispec): New.
+	(slime-presentation-sldb-insert-frame-variable-value): New.
+	(slime-presentations-init): Install these functions as
+	slime-inspector-insert-ispec-function and
+	sldb-insert-frame-variable-value-function. 
+
 2008-01-19  Helmut Eller   <heller@common-lisp.net>
 
 	* swank-goo.goo: New file.

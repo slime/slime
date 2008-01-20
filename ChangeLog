@@ -1,5 +1,19 @@
 2008-01-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
+	New hooks that allow the slime-presentations contrib to hook
+	into the debugger and inspector.
+	
+	* slime.el (sldb-insert-frame-variable-value-function): New
+	variable.
+	(sldb-insert-frame-variable-value): New function, default value
+	for sldb-insert-frame-variable-value-function.
+	(sldb-insert-locals): Use it here.
+
+	* slime.el (slime-inspector-insert-ispec-function): New variable.
+	(slime-open-inspector): Use it here.
+
+2008-01-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
 	* doc/slime.texi (Presentations): Improve documentation of
 	presentations. 
 
