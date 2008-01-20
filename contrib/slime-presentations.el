@@ -684,9 +684,11 @@ output; otherwise the new input is appended."
   (easy-menu-define menubar-slime-presentation slime-mode-map "Presentations" slime-presentation-easy-menu)
   (easy-menu-define menubar-slime-presentation slime-repl-mode-map "Presentations" slime-presentation-easy-menu)
   (easy-menu-define menubar-slime-presentation sldb-mode-map "Presentations" slime-presentation-easy-menu)
+  (easy-menu-define menubar-slime-presentation slime-inspector-mode-map "Presentations" slime-presentation-easy-menu)
   (easy-menu-add slime-presentation-easy-menu 'slime-mode-map)
   (easy-menu-add slime-presentation-easy-menu 'slime-repl-mode-map)
-  (easy-menu-add slime-presentation-easy-menu 'sldb-mode-map))
+  (easy-menu-add slime-presentation-easy-menu 'sldb-mode-map)
+  (easy-menu-add slime-presentation-easy-menu 'slime-inspector-mode-map))
 
 ;;; hook functions (hard to isolate stuff)
 
@@ -780,6 +782,27 @@ even on Common Lisp implementations without weak hash tables."
 					   (slime-remove-presentation-properties from to 
 										 presentation))))
 
+(defun slime-presentation-inspector-insert-ispec (ispec)
+  (if (stringp ispec)
+      (insert ispec)
+    (destructure-case ispec
+      ((:value string id)
+       (slime-propertize-region 
+           (list 'slime-part-number id 
+                 'mouse-face 'highlight
+                 'face 'slime-inspector-value-face)
+         (slime-insert-presentation string `(:inspected-part ,id) t)))
+      ((:action string id)
+       (slime-insert-propertized (list 'slime-action-number id
+                                       'mouse-face 'highlight
+                                       'face 'slime-inspector-action-face)
+                                 string)))))
+
+(defun slime-presentation-sldb-insert-frame-variable-value (value frame index)
+  (slime-insert-presentation
+   (in-sldb-face local-value value)
+   `(:frame-var ,slime-current-thread ,(car frame) ,i) t))
+
 ;;; Initialization
 
 (defun slime-presentations-init ()
@@ -796,6 +819,9 @@ even on Common Lisp implementations without weak hash tables."
   (add-hook 'slime-open-stream-hooks 'slime-presentation-on-stream-open)
   (add-hook 'slime-repl-clear-buffer-hook 'slime-clear-presentations)
   (add-hook 'slime-connected-hook 'slime-install-presentations)
+  (setq slime-inspector-insert-ispec-function 'slime-presentation-inspector-insert-ispec)
+  (setq sldb-insert-frame-variable-value-function 
+	'slime-presentation-sldb-insert-frame-variable-value)
   (slime-presentation-init-keymaps)
   (slime-presentation-add-easy-menu))
 
