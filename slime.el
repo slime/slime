@@ -7057,6 +7057,8 @@ The details include local variable bindings and CATCH-tags."
     (destructuring-bind (start end) (sldb-frame-region)
       (list start end frame locals catches))))
 
+(defvar sldb-insert-frame-variable-value-function 'sldb-insert-frame-variable-value)
+
 (defun sldb-insert-locals (vars prefix frame)
   "Insert VARS and add PREFIX at the beginning of each inserted line.
 VAR should be a plist with the keys :name, :id, and :value."
@@ -7069,7 +7071,11 @@ VAR should be a plist with the keys :name, :id, and :value."
                     (in-sldb-face local-name
                       (concat name (if (zerop id) "" (format "#%d" id))))
                     " = ")
-            (insert (in-sldb-face local-value value) "\n")))))
+            (funcall sldb-insert-frame-variable-value-function value frame i)
+            (insert "\n")))))
+
+(defun sldb-insert-frame-variable-value (value frame index)
+  (insert (in-sldb-face local-value value)))  
 
 (defun sldb-hide-frame-details ()
   ;; delete locals and catch tags, but keep the function name and args.
@@ -7500,6 +7506,8 @@ was called originally."
 (defmacro slime-inspector-fontify (face string)
   `(slime-add-face ',(intern (format "slime-inspector-%s-face" face)) ,string))
 
+(defvar slime-inspector-insert-ispec-function 'slime-inspector-insert-ispec)
+
 (defun slime-open-inspector (inspected-parts &optional point)
   "Display INSPECTED-PARTS in a new inspector window.
 Optionally set point to POINT."
@@ -7519,7 +7527,7 @@ Optionally set point to POINT."
             (backward-delete-char 1))
           (insert "\n" (fontify label "--------------------") "\n")
           (save-excursion 
-            (mapc #'slime-inspector-insert-ispec content))
+            (mapc slime-inspector-insert-ispec-function content))
           (pop-to-buffer (current-buffer))
           (when point
             (check-type point cons)
