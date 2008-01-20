@@ -2270,14 +2270,40 @@ completions for @code{f-o} are @code{finish-output} and
 @code{slime-c-p-c-unambiguous-prefix-p} is nil, point moves to
 the end of the inserted text, after the @code{o} in this case.
 
+In addition, @code{slime-c-p-c} provides completion for character names
+(mostly useful for Unicode-aware implementations):
+
+@example
+CL-USER> #\Sp<TAB>
+@end example
+
+Here SLIME will usually complete the character to @code{#\Space}, but
+in a Unicode-aware implementation, this might provide the following completions:
+@example
+Space                              Space
+Sparkle                            Spherical_Angle
+Spherical_Angle_Opening_Left       Spherical_Angle_Opening_Up
+@end example
+
+The package @code{slime-c-p-c} also provides context-sensitive completion for keywords.
+Example:  
+
+@example
+CL-USER> (find 1 '(1 2 3) :s<TAB>
+@end example
+
+Here SLIME will complete @code{:start}, rather than suggesting all
+ever-interned keywords starting with @code{:s}. 
+
+
 @table @kbd
 @kbditem{C-c C-s, slime-complete-form} 
 Looks up and inserts into the current buffer the argument list for the
 function at point, if there is one.  More generally, the command
 completes an incomplete form with a template for the missing arguments.
 There is special code for discovering extra keywords of generic
-functions and for handling @code{make-instance} and
-@code{defmethod}. Examples:
+functions and for handling @code{make-instance},
+@code{defmethod}, and many other functions. Examples:
 
 @example
 (subseq "abc" <C-c C-s>
