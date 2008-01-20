@@ -2506,9 +2506,20 @@ presentation, the presentation changes to plain text, losing the
 association with a Lisp object.  In the buffer, this is indicated by
 changing the color of the text from red to black.  This can be undone.
 
-For some implementations you can also install the package
+Presentations are also available in the inspector (all inspectable parts
+are presentations) and the debugger (all local variables are
+presentations).  This makes it possible to evaluate expressions in the
+REPL using objects that appear in local variables of some active
+debugger frame; this can be more convenient than using @code{M-x
+sldb-eval-in-frame}.  @strong{Warning:} The presentations that stem from
+the inspector and debugger are only valid as long as the corresponding
+buffers are open.  Using them later can cause errors or confusing
+behavior.
+
+For some Lisp implementations you can also install the package
 @code{slime-presentation-streams}, which enables presentations on the
-Lisp @code{*standard-output*} stream.  This means that not only results
+Lisp @code{*standard-output*} stream and similar streams.  This means
+that not only results 
 of computations, but also some objects that are printed to the standard
 output (as a side-effect of the computation) are associated with
 presentations.  Currently, all unreadable objects
