@@ -6527,8 +6527,7 @@ Full list of commands:
   (slime-set-truncate-lines)
   ;; Make original slime-connection "sticky" for SLDB commands in this buffer
   (setq slime-buffer-connection (slime-connection))
-  (add-local-hook 'kill-buffer-hook 'sldb-delete-overlays)
-  (add-local-hook 'kill-buffer-hook 'sldb-quit))
+  (add-local-hook 'kill-buffer-hook 'sldb-delete-overlays))
 
 (slime-define-keys sldb-mode-map
   ("h"    'describe-mode)
@@ -8436,6 +8435,9 @@ BODY returns true if the check succeeds."
 (defun slime-wait-condition (name predicate timeout)
   (let ((end (time-add (current-time) (seconds-to-time timeout))))
     (while (not (funcall predicate))
+      (let ((now (current-time)))
+        (message "waiting for condition: %s [%s.%06d]" name
+                 (format-time-string "%H:%M:%S" now) (third now)))
       (cond ((time-less-p end (current-time))
              (error "Timeout waiting for condition: %S" name))
             (t
@@ -8653,9 +8655,9 @@ Confirm that SUBFORM is correctly located."
                      (sldb-quit)
                    ;; Going down - enter another recursive debug
                    ;; Recursively debug.
-                   (slime-eval-async 'no-such-variable)))))))
+                   (slime-eval-async '(error))))))))
       (let ((sldb-hook (cons debug-hook sldb-hook)))
-        (slime-eval-async 'no-such-variable)
+        (slime-eval-async '(error))
         (slime-sync-to-top-level 5)
         (slime-check-top-level)
         (slime-check ("Maximum depth reached (%S) is %S."
@@ -8968,24 +8970,31 @@ SWANK> " t))
                        (not (not (get-buffer-window (current-buffer)))))))
 
 (def-slime-test break 
-    ()
+    (times)
     "Test if BREAK invokes SLDB."
-    '(())
+    '((1) (2) (3))
   (slime-accept-process-output nil 1)
   (slime-check-top-level)
-  (slime-compile-string (prin1-to-string '(cl:defun cl-user::foo () 
-                                                    (cl:break))) 
-                        0)
+  (slime-compile-string 
+   (prin1-to-string `(defun cl-user::foo () 
+                       (dotimes (i ,times) 
+                         (break)
+                         (sleep 0.2))))
+   0)
   (slime-sync-to-top-level 2)
   (slime-eval-async '(cl-user::foo))
-  (slime-wait-condition "Debugger visible" 
-                        (lambda () 
-                          (and (slime-sldb-level= 1)
-                               (get-buffer-window (sldb-get-default-buffer))))
-                        5)
-  (with-current-buffer (sldb-get-default-buffer)
-    (sldb-quit))
-  (slime-accept-process-output nil 1)
+  (dotimes (i times)
+    (slime-wait-condition "Debugger visible" 
+                          (lambda () 
+                            (and (slime-sldb-level= 1)
+                                 (get-buffer-window 
+                                  (sldb-get-default-buffer))))
+                          5)
+    (with-current-buffer (sldb-get-default-buffer)
+      (sldb-continue))
+    (slime-wait-condition "sldb closed" 
+                          (lambda () (not (sldb-get-default-buffer)))
+                          0.2))
   (slime-sync-to-top-level 5))
 
 (def-slime-test interrupt-at-toplevel

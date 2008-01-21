@@ -1,3 +1,11 @@
+2008-01-21  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (sldb-mode): Don't throw to toplevel in the
+	kill-buffer-hook, since the buffer can be killed for other reasons
+	too.
+	(test break): Test BREAK and CONTINUE in a loop.
+	(slime-wait-condition): Display the current time.
+
 2008-01-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	New hooks that allow the slime-presentations contrib to hook
@@ -94,7 +102,7 @@
 
 	* swank.lisp (read-softly-from-string): Now actually returns all
 	three values as explained in its docstring.
-	
+
 2007-12-14  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-insert-xref-location): New function. Tries to
