@@ -1,5 +1,17 @@
 2008-01-27  Helmut Eller  <heller@common-lisp.net>
 
+	Make autodoc use the correct width of the typeout-window.
+	
+	* slime-autodoc.el (slime-autodoc-dimensions-function): New
+	variable.
+	(slime-autodoc-message-dimensions): Use it.
+
+	* slime-typeout-frame.el (slime-typeout-autodoc-dimensions): New
+	function.
+	(slime-typeout-frame-init): Use it.
+
+2008-01-27  Helmut Eller  <heller@common-lisp.net>
+
 	Use slime-require instead of a connected-hook.
 	
 	* slime-autodoc.el (slime-autodoc-on-connect): Deleted.

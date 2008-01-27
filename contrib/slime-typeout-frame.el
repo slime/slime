@@ -64,6 +64,12 @@
   (setq slime-autodoc-last-message "")
   (slime-typeout-message-aux "%s" doc))
 
+(defun slime-typeout-autodoc-dimensions ()
+  (cond ((slime-typeout-active-p)
+	 (list (window-width slime-typeout-window) nil))
+	(t
+	 (list 75 nil))))
+
 
 ;;; Initialization
 
@@ -74,7 +80,8 @@
   (loop for (var value) in 
 	'((slime-message-function slime-typeout-message)
 	  (slime-background-message-function slime-typeout-message)
-	  (slime-autodoc-message-function slime-typeout-autodoc-message))
+	  (slime-autodoc-message-function slime-typeout-autodoc-message)
+	  (slime-autodoc-dimensions-function slime-typeout-autodoc-dimensions))
 	do (slime-typeout-frame-init-var var value)))
 
 (defun slime-typeout-frame-init-var (var value)
@@ -86,6 +93,7 @@
   (remove-hook 'slime-connected-hook 'slime-ensure-typeout-frame)
   (loop for (var value) in slime-typeout-frame-unbind-stack 
 	do (cond ((eq var 'slime-unbound) (makunbound var))
-		 (t (set var value)))))
+		 (t (set var value))))
+  (setq slime-typeout-frame-unbind-stack nil))
   
 (provide 'slime-typeout-frame)

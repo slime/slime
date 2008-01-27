@@ -116,10 +116,14 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
   (setq slime-autodoc-last-message doc)
   (message "%s" doc))
 
+(defvar slime-autodoc-dimensions-function nil)
+
 (defun slime-autodoc-message-dimensions ()
   "Return the available width and height for pretty printing autodoc
 messages."
   (cond
+   (slime-autodoc-dimensions-function
+    (funcall slime-autodoc-dimensions-function))
    (slime-autodoc-use-multiline-p 
     ;; Use the full width of the minibuffer;
     ;; minibuffer will grow vertically if necessary
