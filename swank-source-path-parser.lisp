@@ -56,19 +56,7 @@ The source locations are stored in SOURCE-MAP."
 	  (when fn
 	    (set-macro-character char (make-source-recorder fn source-map) 
 				 term tab)))))
-    (suppress-sharp-dot tab)
     tab))
-
-(defun suppress-sharp-dot (readtable)
-  (when (get-macro-character #\# readtable)
-    (let ((sharp-dot (get-dispatch-macro-character #\# #\. readtable)))
-      (set-dispatch-macro-character #\# #\. (lambda (&rest args)
-					      (let ((*read-suppress* t))
-						(apply sharp-dot args))
-					      (if *read-suppress*
-						  (values)
-						  (list (gensym "#."))))
-				    readtable))))
 
 (defun read-and-record-source-map (stream)
   "Read the next object from STREAM.
@@ -90,8 +78,7 @@ Return the form and the source-map."
   (let ((*read-suppress* t))
     (dotimes (i n)
       (read stream)))
-  (let ((*read-suppress* nil)
-	(*read-eval* nil))
+  (let ((*read-suppress* nil))
     (read-and-record-source-map stream)))
   
 (defun source-path-stream-position (path stream)

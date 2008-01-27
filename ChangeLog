@@ -1,3 +1,12 @@
+2008-01-22  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* swank-source-path-parser.lisp (make-source-recording-readtable):
+	don't suppress the #. reader macro.
+	(read-and-record-source-map): don't bind *read-eval* to nil.
+	(suppress-sharp-dot): unused, delete it.
+
+	* slime.el (test compile-defun): test with #+#.'(:and).
+	
 2008-01-21  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (sldb-mode): Don't throw to toplevel in the

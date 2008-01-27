@@ -8623,7 +8623,10 @@ Confirm that SUBFORM is correctly located."
            (cl-user::bar))
         
         "
-       (cl-user::bar)))
+       (cl-user::bar))
+      ("(defun foo ()
+          #+#.'(:and) (/ 1 0))"
+       (/ 1 0)))
   (slime-check-top-level)    
   (with-temp-buffer 
     (lisp-mode)
