@@ -1,3 +1,12 @@
+2008-01-27  Helmut Eller  <heller@common-lisp.net>
+
+	Make it easier to start a non-default Lisp from ELisp code.
+	
+	* slime.el (slime): If the argument is a symbol start the
+	corresponding entry in slime-lisp-implementations.
+	Typical use is something like:
+	  (defun cmucl () (interactive) (slime 'cmucl))
+
 2008-01-22  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* swank-source-path-parser.lisp (make-source-recording-readtable):
