@@ -1,3 +1,9 @@
+2008-01-27  Helmut Eller  <heller@common-lisp.net>
+
+	Use slime-require instead of a connected-hook.
+	
+	* slime-autodoc.el (slime-autodoc-on-connect): Deleted.
+
 2008-01-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
 
 	Hook presentations into debugger and inspector, restoring 

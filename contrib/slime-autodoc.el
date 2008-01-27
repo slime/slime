@@ -253,12 +253,8 @@ annoy the user)."
 
 (defun slime-autodoc-init ()
   (setq slime-echo-arglist-function 'slime-autodoc)
-  (add-hook 'slime-connected-hook 'slime-autodoc-on-connect)
   (dolist (h '(slime-mode-hook slime-repl-mode-hook sldb-mode-hook))
     (add-hook h 'slime-autodoc-maybe-enable)))
-
-(defun slime-autodoc-on-connect ()
-  (slime-eval-async '(swank:swank-require :swank-arglists)))
 
 (defun slime-autodoc-maybe-enable ()
   (when slime-use-autodoc-mode 
@@ -266,8 +262,9 @@ annoy the user)."
 
 (defun slime-autodoc-unload ()
   (setq slime-echo-arglist-function 'slime-show-arglist)
-  (remove-hook 'slime-connected-hook 'slime-autodoc-on-connect)
   (dolist (h '(slime-mode-hook slime-repl-mode-hook sldb-mode-hook))
     (remove-hook h 'slime-autodoc-maybe-enable)))
+
+(slime-require :swank-arglists)
 
 (provide 'slime-autodoc)
