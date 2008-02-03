@@ -18,6 +18,13 @@
 ;;   (defparameter swank-loader::*fasl-directory* "/tmp/fasl/")
 ;;   (load ".../swank-loader.lisp")
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (when (find-package :swank)
+    (delete-package :swank)
+    (delete-package :swank-io-package)
+    (delete-package :swank-loader)
+    (delete-package :swank-backend)))
+
 (cl:defpackage :swank-loader
   (:use :cl)
   (:export :load-swank
@@ -60,14 +67,9 @@
     :sparc64 :sparc :hppa64 :hppa))
 
 (defun lisp-version-string ()
-  #+cmu       (substitute-if #\_ (lambda (x) (find x " /"))
+  #+(or openmcl cmu)       (substitute-if #\_ (lambda (x) (find x " /"))
                              (lisp-implementation-version))
-  #+scl       (lisp-implementation-version)
-  #+sbcl      (lisp-implementation-version)
-  #+ecl       (lisp-implementation-version)
-  #+openmcl   (format nil "~d.~d"
-                      ccl::*openmcl-major-version*
-                      ccl::*openmcl-minor-version*)
+  #+(or cormanlisp scl sbcl ecl)       (lisp-implementation-version)
   #+lispworks (lisp-implementation-version)
   #+allegro   (format nil
                       "~A~A~A"
@@ -76,8 +78,7 @@
                       (if (member :64bit *features*) "-64bit" ""))
   #+clisp     (let ((s (lisp-implementation-version)))
                 (subseq s 0 (position #\space s)))
-  #+armedbear (lisp-implementation-version)
-  #+cormanlisp (lisp-implementation-version))
+  #+armedbear (lisp-implementation-version))
 
 (defun unique-directory-name ()
   "Return a name that can be used as a directory name that is

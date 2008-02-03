@@ -1,3 +1,12 @@
+2008-02-03  Marco Baringer  <mb@bese.it>
+
+	* swank-loader.lisp: When loading swank delete all swank packages
+	first. This protects the lisp from broken reloads of swank.
+	(lisp-version-string): On openmcl use the full
+	cl:lisp-implementation-version, ccl::*openmcl-major-version* and
+	ccl::*openmcl-minor-version* aren't sufficently precise to notice
+	changes in openmcl's cvs.
+
 2008-01-27  Helmut Eller  <heller@common-lisp.net>
 
 	Make it easier to start a non-default Lisp from ELisp code.
