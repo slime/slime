@@ -6551,6 +6551,7 @@ Full list of commands:
   (">"    'sldb-end-of-backtrace)
   ("t"    'sldb-toggle-details)
   ("r"    'sldb-restart-frame)
+  ("I"    'sldb-invoke-restart-by-name)
   ("R"    'sldb-return-from-frame)
   ("c"    'sldb-continue)
   ("s"    'sldb-step)
@@ -6590,6 +6591,13 @@ Full list of commands:
 			,(number-to-string n)))))
 
 (define-sldb-invoke-restart-keys 0 9)
+
+(defun sldb-invoke-restart-by-name (restart-name)
+  (interactive (list (completing-read "Restart: "
+                                      sldb-restarts nil t
+                                      ""
+                                      'sldb-invoke-restart-by-name)))
+  (sldb-invoke-restart (position restart-name sldb-restarts :test 'string= :key 'first)))
 
 
 ;;;;; SLDB buffer creation & update

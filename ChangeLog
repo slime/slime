@@ -1,5 +1,10 @@
 2008-02-03  Marco Baringer  <mb@bese.it>
 
+	* slime.el (sldb-invoke-restart-by-name): New function. Invokes a
+	restart by name, uses completion to read restart's name.
+	(slime-define-keys sldb-mode-map): Bind
+	sldb-invoke-restart-by-name to I in sldb buffers.
+
 	* swank-loader.lisp: When loading swank delete all swank packages
 	first. This protects the lisp from broken reloads of swank.
 	(lisp-version-string): On openmcl use the full
