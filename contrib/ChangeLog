@@ -3,10 +3,16 @@
 	* swank-motd.lisp, slime-motd.el: Message Of The Day printing for
 	slime.
 
+	* slime-indentation.el: Integrate cl-indent.el into slime's
+	contrib infrastructure. Fix bug in &rest.
+
+	* swank-indentation.lisp: Allow an application runnig under slime
+	to update emacs' indentation notes.
+
 2008-01-27  Helmut Eller  <heller@common-lisp.net>
 
 	Make autodoc use the correct width of the typeout-window.
-	
+
 	* slime-autodoc.el (slime-autodoc-dimensions-function): New
 	variable.
 	(slime-autodoc-message-dimensions): Use it.
@@ -18,7 +24,7 @@
 2008-01-27  Helmut Eller  <heller@common-lisp.net>
 
 	Use slime-require instead of a connected-hook.
-	
+
 	* slime-autodoc.el (slime-autodoc-on-connect): Deleted.
 
 2008-01-20  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
