@@ -1,3 +1,8 @@
+2008-02-03  Marco Baringer  <mb@bese.it>
+
+	* swank-motd.lisp, slime-motd.el: Message Of The Day printing for
+	slime.
+
 2008-01-27  Helmut Eller  <heller@common-lisp.net>
 
 	Make autodoc use the correct width of the typeout-window.
