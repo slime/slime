@@ -415,43 +415,6 @@ Useful for low level debugging."
   (<= (char-code c) 127))
 
 
-;;;;; Misc
-
-(defun length= (seq n)
-  "Test for whether SEQ contains N number of elements. I.e. it's equivalent
- to (= (LENGTH SEQ) N), but besides being more concise, it may also be more
- efficiently implemented."
-  (etypecase seq 
-    (list (do ((i n (1- i))
-               (list seq (cdr list)))
-              ((or (<= i 0) (null list))
-               (and (zerop i) (null list)))))
-    (sequence (= (length seq) n))))
-
-(defun ensure-list (thing)
-  (if (listp thing) thing (list thing)))
-
-(defun recursively-empty-p (list)
-  "Returns whether LIST consists only of arbitrarily nested empty lists."
-  (cond ((not (listp list)) nil)
-	((null list) t)
-	(t (every #'recursively-empty-p list))))
-
-(defun maybecall (bool fn &rest args)
-  "Call FN with ARGS if BOOL is T. Otherwise return ARGS as multiple values."
-  (if bool (apply fn args) (values-list args)))
-
-(defun exactly-one-p (&rest values)
-  "If exactly one value in VALUES is non-NIL, this value is returned.
-Otherwise NIL is returned."
-  (let ((found nil))
-    (dolist (v values)
-      (when v (if found
-                  (return-from exactly-one-p nil)
-                  (setq found v))))
-    found))
-
-
 ;;;;; Symbols
 
 (defun symbol-status (symbol &optional (package (symbol-package symbol)))
@@ -1569,30 +1532,6 @@ gracefully."
     (let ((*read-suppress* nil))
       (read-from-string string))))
 
-(defun read-softly-from-string (string)
-  "Returns three values:
-
-     1. the object resulting from READing STRING.
-
-     2. The index of the first character in STRING that was not read.
-
-     3. T if the object is a symbol that had to be newly interned
-        in some package. (This does not work for symbols in
-        compound forms like lists or vectors.)"
-  (multiple-value-bind (symbol found? symbol-name package) (parse-symbol string)
-    (if found?
-        (values symbol (length string) nil)
-        (multiple-value-bind (sexp pos) (read-from-string string)
-          (values sexp pos
-                  (when (symbolp sexp)
-                    (prog1 t
-                      ;; assert that PARSE-SYMBOL didn't parse incorrectly.
-                      (assert (and (equal symbol-name (symbol-name sexp))
-                                   (eq package (symbol-package sexp)))))))))))
-
-(defun unintern-in-home-package (symbol)
-  (unintern symbol (symbol-package symbol)))
-
 ;; FIXME: deal with #\| etc.  hard to do portably.
 (defun tokenize-symbol (string)
   "STRING is interpreted as the string representation of a symbol
@@ -1755,7 +1694,7 @@ Errors are trapped and invoke our debugger."
   (with-buffer-syntax ()
     (let ((*print-readably* nil))
       (cond ((null values) "; No value")
-            ((and (length= values 1)  (integerp (car values)))
+            ((and (integerp (car values)) (null (cdr values)))
              (let ((i (car values)))
                (format nil "~A~D (#x~X, #o~O, #b~B)" 
                        *echo-area-prefix* i i i i)))
@@ -2914,14 +2853,6 @@ NIL is returned if the list is circular."
         *inspectee-parts* (make-array 10 :adjustable t :fill-pointer 0)
         *inspectee-actions* (make-array 10 :adjustable t :fill-pointer 0)
         *inspector-history* (make-array 10 :adjustable t :fill-pointer 0)))
-
-(defun valid-function-name-p (form)
-  (or (symbolp form)
-      (and (consp form)
-           (second form)
-           (not (third form))
-           (eq (first form) 'setf)
-           (symbolp (second form)))))
 
 (defslimefun init-inspector (string)
   (with-buffer-syntax ()
