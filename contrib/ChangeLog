@@ -1,3 +1,12 @@
+2008-02-04  Helmut Eller  <heller@common-lisp.net>
+
+	Move some functions to swank-arglist.lisp.
+
+	* swank-arglist.lisp (length=, ensure-list, recursively-empty-p)
+	(maybecall, exactly-one-p, read-softly-from-string)
+	(unintern-in-home-package, valid-function-name-p): Moved from
+	swank.lisp. to contrib/swank-arglist.lisp.
+
 2008-02-03  Marco Baringer  <mb@bese.it>
 
 	* swank-motd.lisp, slime-motd.el: Message Of The Day printing for

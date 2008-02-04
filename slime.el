@@ -6574,30 +6574,14 @@ Full list of commands:
         (define-key sldb-mode-map key command)))))
 
 ;; Keys 0-9 are shortcuts to invoke particular restarts.
-(defmacro define-sldb-invoke-restart-key (number key)
+(dotimes (number 10)
   (let ((fname (intern (format "sldb-invoke-restart-%S" number)))
         (docstring (format "Invoke restart numbered %S." number)))
-    `(progn
-       (defun ,fname ()
-         ,docstring
-	 (interactive)
-	 (sldb-invoke-restart ,number))
-       (define-key sldb-mode-map ,key ',fname))))
-
-(defmacro define-sldb-invoke-restart-keys (from to)
-  `(progn
-     ,@(loop for n from from to to
-	     collect `(define-sldb-invoke-restart-key ,n
-			,(number-to-string n)))))
-
-(define-sldb-invoke-restart-keys 0 9)
-
-(defun sldb-invoke-restart-by-name (restart-name)
-  (interactive (list (completing-read "Restart: "
-                                      sldb-restarts nil t
-                                      ""
-                                      'sldb-invoke-restart-by-name)))
-  (sldb-invoke-restart (position restart-name sldb-restarts :test 'string= :key 'first)))
+    (eval `(defun ,fname ()
+             ,docstring
+             (interactive)
+             (sldb-invoke-restart ,number)))
+    (define-key sldb-mode-map (number-to-string number) fname)))
 
 
 ;;;;; SLDB buffer creation & update
@@ -7230,6 +7214,14 @@ use the restart at point."
         ((list 'swank:invoke-nth-restart-for-emacs sldb-level restart))
       ((:ok value) (message "Restart returned: %s" value))
       ((:abort)))))
+
+(defun sldb-invoke-restart-by-name (restart-name)
+  (interactive (list (completing-read "Restart: "
+                                      sldb-restarts nil t
+                                      ""
+                                      'sldb-invoke-restart-by-name)))
+  (sldb-invoke-restart (position restart-name sldb-restarts 
+                                 :test 'string= :key 'first)))
 
 (defun sldb-break-with-default-debugger ()
   "Enter default debugger."

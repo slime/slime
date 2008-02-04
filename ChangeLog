@@ -1,3 +1,19 @@
+2008-02-04  Helmut Eller  <heller@common-lisp.net>
+
+	Simpler code to bind 0-9 in the debugger.
+
+	* slime.el (sldb-mode-map): When binding the keys 0-9, use eval
+	instead of two macros.
+
+2008-02-04  Helmut Eller  <heller@common-lisp.net>
+
+	Move some functions to swank-arglist.lisp.
+
+	* swank.lisp (length=, ensure-list, recursively-empty-p)
+	(maybecall, exactly-one-p, read-softly-from-string)
+	(unintern-in-home-package, valid-function-name-p): Moved to
+	contrib/swank-arglist.lisp.
+
 2008-02-03  Marco Baringer  <mb@bese.it>
 
 	* swank.lisp (*sldb-condition-printer*): New variable.
@@ -21,7 +37,7 @@
 2008-01-27  Helmut Eller  <heller@common-lisp.net>
 
 	Make it easier to start a non-default Lisp from ELisp code.
-	
+
 	* slime.el (slime): If the argument is a symbol start the
 	corresponding entry in slime-lisp-implementations.
 	Typical use is something like:
@@ -35,7 +51,7 @@
 	(suppress-sharp-dot): unused, delete it.
 
 	* slime.el (test compile-defun): test with #+#.'(:and).
-	
+
 2008-01-21  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (sldb-mode): Don't throw to toplevel in the
