@@ -2056,12 +2056,15 @@ conditions are simply reported."
                                       ,(princ-to-string real-condition))))
   (throw 'sldb-loop-catcher nil))
 
+(defvar *sldb-condition-printer* #'format-sldb-condition
+  "Function called to print a condition to an SLDB buffer.")
+
 (defun safe-condition-message (condition)
   "Safely print condition to a string, handling any errors during
 printing."
   (let ((*print-pretty* t) (*print-right-margin* 65))
     (handler-case
-        (format-sldb-condition condition)
+        (funcall *sldb-condition-printer* condition)
       (error (cond)
         ;; Beware of recursive errors in printing, so only use the condition
         ;; if it is printable itself:
