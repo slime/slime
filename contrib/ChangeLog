@@ -1,5 +1,9 @@
 2008-02-04  Marco Baringer  <mb@bese.it>
 
+	* swank-presentation-streams.lisp (presenting-object-1): Add
+	declare special *record-repl-results* to silence compiler
+	warnings.
+
 	* swank-arglists.lisp (arglist-dispatch): Specialize operator-type
 	so openmcl doesn't warn about unused arguments.
 	(arglist-dispatch): add declare ignore form.
