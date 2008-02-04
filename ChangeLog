@@ -6,7 +6,9 @@
 	sldb-invoke-restart-by-name to I in sldb buffers.
 
 	* swank-loader.lisp: When loading swank delete all swank packages
-	first. This protects the lisp from broken reloads of swank.
+	first. This protects the lisp from broken reloads of swank. Leave
+	the swank-loader package so that users can set *fasl-directory*
+	and *source-directory* as per the documentation.
 	(lisp-version-string): On openmcl use the full
 	cl:lisp-implementation-version, ccl::*openmcl-major-version* and
 	ccl::*openmcl-minor-version* aren't sufficently precise to notice

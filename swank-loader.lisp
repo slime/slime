@@ -22,7 +22,6 @@
   (when (find-package :swank)
     (delete-package :swank)
     (delete-package :swank-io-package)
-    (delete-package :swank-loader)
     (delete-package :swank-backend)))
 
 (cl:defpackage :swank-loader
