@@ -126,7 +126,7 @@
   (let ((class (class-of object)))
     (values "An object."
             `("Class: " (:value ,class) (:newline)
-              ,@(all-slots-for-inspector object inspector)))))
+              ,@(all-slots-for-inspector object)))))
 
 (defvar *gf-method-getter* 'methods-by-applicability
   "This function is called to get the methods of a generic function.
@@ -186,8 +186,8 @@ See `methods-by-applicability'.")
                    `(" " (:action "[make unbound]"
                           ,(lambda () (swank-mop:slot-makunbound-using-class class object slot)))))))))
 
-(defgeneric all-slots-for-inspector (object inspector)
-  (:method ((object standard-object) inspector)
+(defgeneric all-slots-for-inspector (object)
+  (:method ((object standard-object))
     (declare (ignore inspector))
     (append '("--------------------" (:newline)
               "All Slots:" (:newline))
@@ -247,7 +247,7 @@ See `methods-by-applicability'.")
                             (remove-method gf m))))
 	      (:newline)))
       `((:newline))
-      (all-slots-for-inspector gf inspector)))))
+      (all-slots-for-inspector gf)))))
 
 (defmethod inspect-for-emacs ((method standard-method))
   (values "A method." 
@@ -267,7 +267,7 @@ See `methods-by-applicability'.")
             (:newline)
             "Method function: " (:value ,(swank-mop:method-function method))
             (:newline)
-            ,@(all-slots-for-inspector method inspector))))
+            ,@(all-slots-for-inspector method))))
 
 (defmethod inspect-for-emacs ((class standard-class))
   (values "A class."
@@ -326,7 +326,7 @@ See `methods-by-applicability'.")
                                `(:value ,(swank-mop:class-prototype class))
                                '"#<N/A (class not finalized)>")
             (:newline)
-            ,@(all-slots-for-inspector class inspector))))
+            ,@(all-slots-for-inspector class))))
 
 (defmethod inspect-for-emacs ((slot swank-mop:standard-slot-definition))
   (values "A slot."
@@ -342,7 +342,7 @@ See `methods-by-applicability'.")
                              "#<unspecified>") (:newline)
             "Init function: " (:value ,(swank-mop:slot-definition-initfunction slot))            
             (:newline)
-            ,@(all-slots-for-inspector slot inspector))))
+            ,@(all-slots-for-inspector slot))))
 
 
 ;; Wrapper structure over the list of symbols of a package that should
@@ -450,7 +450,6 @@ SPECIAL-OPERATOR groups."
                                       :refreshp t)))
               (:newline) (:newline)
               ,@(make-symbols-listing grouping-kind symbols)))))
-
 
 (defmethod inspect-for-emacs ((package package))
   (let ((package-name         (package-name package))
@@ -691,10 +690,6 @@ SPECIAL-OPERATOR groups."
 (defvar *fancy-inpector-undo-list* nil)
 
 (defslimefun fancy-inspector-init ()
-  (let ((i *default-inspector*))
-    (push (lambda () (setq *default-inspector* i))
-	  *fancy-inpector-undo-list*))
-  (setq *default-inspector* (make-instance 'fancy-inspector))
   t)
 
 (defslimefun fancy-inspector-unload ()
