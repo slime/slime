@@ -387,12 +387,6 @@
 ;; Hack to make swank.lisp load, at least
 (defclass file-stream ())
 
-(defclass corman-inspector (backend-inspector)
-  ())
-
-(defimplementation make-default-inspector ()
-  (make-instance 'corman-inspector))
-
 (defun comma-separated (list &optional (callback (lambda (v)
                                                    `(:value ,v))))
   (butlast (loop for e in list
