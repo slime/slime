@@ -39,11 +39,16 @@ CONTRIBS is a list of contrib packages to load."
 (defvar slime-setup-contribs nil)
 
 (defun slime-setup-contribs () 
-  (dolist (c slime-setup-contribs)
-    (require c)
-    (let ((init (intern (format "%s-init" c))))
-      (when (fboundp init)
-        (funcall init)))))
+  (when slime-setup-contribs
+    (pushnew (file-name-as-directory
+              (expand-file-name (concat slime-path "contribs")))
+             load-path
+             :test 'string=)    
+    (dolist (c slime-setup-contribs)
+      (require c)
+      (let ((init (intern (format "%s-init" c))))
+        (when (fboundp init)
+          (funcall init))))))
 
 (provide 'slime-autoloads)
 

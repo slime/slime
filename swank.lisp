@@ -2841,7 +2841,6 @@ NIL is returned if the list is circular."
 (defvar *inspector-history* (make-array 10 :adjustable t :fill-pointer 0))
 (declaim (type vector *inspector-history*))
 (defvar *inspect-length* 30)
-(defvar *default-inspector* (make-default-inspector))
 
 (defun reset-inspector ()
   (setq *inspectee* nil

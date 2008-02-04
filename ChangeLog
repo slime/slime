@@ -1,5 +1,15 @@
 2008-02-04  Marco Baringer  <mb@bese.it>
 
+	* swank-openmcl.lisp (ccl::advise ccl::break): advise the
+	lower-level ccl::cbreak-loop instead of cl:break.
+	(frame-locals): If the value is a value-cell (a closed over value)
+	show the closed over value and not the value cell.
+	(disassemble-frame): add in x86-64 code.
+
+	* slime-autoloads.el (slime-setup-contribs): Add contribs
+	directory to load-path.
+
+	* slime.el (slime-setup): Add contribs directory to load-path.
 
 	* swank-abcl.lisp, swank-allegro.lisp, swank-backend.lisp,
 	swank-clisp.lisp, swank-cmucl.lisp, swank-corman.lisp,

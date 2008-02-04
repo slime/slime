@@ -71,11 +71,16 @@
 CONTRIBS is a list of contrib packages to load."
   (when (member 'lisp-mode slime-lisp-modes)
     (add-hook 'lisp-mode-hook 'slime-lisp-mode-hook))
-  (dolist (c contribs)
-    (require c)
-    (let ((init (intern (format "%s-init" c))))
-      (when (fboundp init)
-        (funcall init)))))
+  (when contribs
+    (pushnew (file-name-as-directory
+              (expand-file-name (concat slime-path "contribs")))
+             load-path
+             :test 'string=)
+    (dolist (c contribs)
+      (require c)
+      (let ((init (intern (format "%s-init" c))))
+        (when (fboundp init)
+          (funcall init))))))
 
 (defun slime-lisp-mode-hook ()
   (slime-mode 1)
