@@ -1,3 +1,9 @@
+2008-02-04  Marco Baringer  <mb@bese.it>
+
+	* swank-arglists.lisp (arglist-dispatch): Specialize operator-type
+	so openmcl doesn't warn about unused arguments.
+	(arglist-dispatch): add declare ignore form.
+
 2008-02-04  Helmut Eller  <heller@common-lisp.net>
 
 	Move some functions to swank-arglist.lisp.

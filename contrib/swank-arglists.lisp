@@ -1087,7 +1087,7 @@ Examples:
 
 (defgeneric arglist-dispatch (operator-type operator arguments &key remove-args))
   
-(defmethod arglist-dispatch (operator-type operator arguments &key (remove-args t))
+(defmethod arglist-dispatch ((operator-type t) operator arguments &key (remove-args t))
   (when (and (symbolp operator)
              (valid-operator-symbol-p operator))
     (multiple-value-bind (decoded-arglist determining-args any-enrichment)
@@ -1140,7 +1140,7 @@ Examples:
 (defmethod arglist-dispatch ((operator-type (eql :function)) (operator (eql 'declare))
                              arguments &key (remove-args t))
   ;; Catching 'DECLARE before SWANK-BACKEND:ARGLIST can barf.
-  (declare (ignore remove-args))
+  (declare (ignore remove-args arguments))
   (make-arglist :rest '#:decl-specifiers))
 
 (defmethod arglist-dispatch ((operator-type (eql :declaration))
