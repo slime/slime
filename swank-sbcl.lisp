@@ -1006,7 +1006,7 @@ stack."
 (defimplementation make-default-inspector ()
   (make-instance 'sbcl-inspector))
 
-(defmethod inspect-for-emacs ((o t) (inspector backend-inspector))
+(defmethod inspect-for-emacs ((o t))
   (declare (ignore inspector))
   (cond ((sb-di::indirect-value-cell-p o)
          (values "A value cell." (label-value-line*
@@ -1019,8 +1019,7 @@ stack."
                (values text (loop for value in parts  for i from 0
                                   append (label-value-line i value))))))))
 
-(defmethod inspect-for-emacs ((o function) (inspector backend-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((o function))
   (let ((header (sb-kernel:widetag-of o)))
     (cond ((= header sb-vm:simple-fun-header-widetag)
 	   (values "A simple-fun."
@@ -1041,8 +1040,7 @@ stack."
                                   i (sb-kernel:%closure-index-ref o i))))))
 	  (t (call-next-method o)))))
 
-(defmethod inspect-for-emacs ((o sb-kernel:code-component) (_ backend-inspector))
-  (declare (ignore _))
+(defmethod inspect-for-emacs ((o sb-kernel:code-component))
   (values (format nil "~A is a code data-block." o)
           (append
            (label-value-line*
@@ -1070,22 +1068,18 @@ stack."
                          (ash (sb-kernel:%code-code-size o) sb-vm:word-shift)
                          :stream s))))))))
 
-(defmethod inspect-for-emacs ((o sb-ext:weak-pointer) (inspector backend-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((o sb-ext:weak-pointer))
   (values "A weak pointer."
           (label-value-line*
            (:value (sb-ext:weak-pointer-value o)))))
 
-(defmethod inspect-for-emacs ((o sb-kernel:fdefn) (inspector backend-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((o sb-kernel:fdefn))
   (values "A fdefn object."
           (label-value-line*
            (:name (sb-kernel:fdefn-name o))
            (:function (sb-kernel:fdefn-fun o)))))
 
-(defmethod inspect-for-emacs :around ((o generic-function)
-                                      (inspector backend-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs :around ((o generic-function))
   (multiple-value-bind (title contents) (call-next-method)
     (values title
             (append

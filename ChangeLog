@@ -1,3 +1,15 @@
+2008-02-04  Marco Baringer  <mb@bese.it>
+
+
+	* swank-abcl.lisp, swank-allegro.lisp, swank-backend.lisp,
+	swank-clisp.lisp, swank-cmucl.lisp, swank-corman.lisp,
+	swank-ecl.lisp, swank-lispworks.lisp, swank-openmcl.lisp,
+	swank-sbcl.lisp, swank-scl.lisp, swank.lisp,
+	contrib/swank-fancy-inspector.lisp: Remove second argument from
+	swank:inspect-for-emacs. This functionality, choosing an inspector
+	at runtime, was never actually used and is, now, needless
+	complexity.
+
 2008-02-04  Helmut Eller  <heller@common-lisp.net>
 
 	Simpler code to bind 0-9 in the debugger.

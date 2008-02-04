@@ -564,13 +564,7 @@
 
 ;;;; Inspecting
 
-(defclass acl-inspector (backend-inspector) ())
-
-(defimplementation make-default-inspector ()
-  (make-instance 'acl-inspector))
-
-(defmethod inspect-for-emacs ((f function) inspector)
-  inspector
+(defmethod inspect-for-emacs ((f function))
   (values "A function."
           (append
            (label-value-line "Name" (function-name f))
@@ -579,17 +573,13 @@
              (when doc
                `("Documentation:" (:newline) ,doc))))))
 
-(defmethod inspect-for-emacs ((o t) (inspector backend-inspector))
-  inspector
+(defmethod inspect-for-emacs ((o t))
   (values "A value." (allegro-inspect o)))
 
-(defmethod inspect-for-emacs ((o function) (inspector backend-inspector))
-  inspector
+(defmethod inspect-for-emacs ((o function))
   (values "A function." (allegro-inspect o)))
 
-(defmethod inspect-for-emacs ((o standard-object) 
-                              (inspector backend-inspector))
-  inspector
+(defmethod inspect-for-emacs ((o standard-object))
   (values (format nil "~A is a standard-object." o) (allegro-inspect o)))
 
 (defun allegro-inspect (o)

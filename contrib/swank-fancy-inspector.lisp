@@ -6,12 +6,7 @@
 
 (in-package :swank)
 
-;; Subclass `backend-inspector' so that backend specific methods are
-;; also considered.
-(defclass fancy-inspector (backend-inspector) ())
-
-(defmethod inspect-for-emacs ((symbol symbol) (inspector fancy-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((symbol symbol))
   (let ((package (symbol-package symbol)))
     (multiple-value-bind (_symbol status) 
 	(and package (find-symbol (string symbol) package))
@@ -94,8 +89,7 @@
 	  (t 
 	   (list label ": " '(:newline) "  " docstring '(:newline))))))
 
-(defmethod inspect-for-emacs ((f function) inspector)
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((f function))
   (values "A function."
 	  (append 
 	   (label-value-line "Name" (function-name f))
@@ -128,8 +122,7 @@
 	  (swank-mop:method-qualifiers method)
 	  (method-specializers-for-inspect method)))
 
-(defmethod inspect-for-emacs ((object standard-object) 
-			      (inspector fancy-inspector))
+(defmethod inspect-for-emacs ((object standard-object))
   (let ((class (class-of object)))
     (values "An object."
             `("Class: " (:value ,class) (:newline)
@@ -231,8 +224,7 @@ See `methods-by-applicability'.")
                   append slot-presentation
                   collect '(:newline))))))
 
-(defmethod inspect-for-emacs ((gf standard-generic-function) 
-                              (inspector fancy-inspector)) 
+(defmethod inspect-for-emacs ((gf standard-generic-function)) 
   (flet ((lv (label value) (label-value-line label value)))
     (values 
      "A generic function."
@@ -257,8 +249,7 @@ See `methods-by-applicability'.")
       `((:newline))
       (all-slots-for-inspector gf inspector)))))
 
-(defmethod inspect-for-emacs ((method standard-method) 
-                              (inspector fancy-inspector))
+(defmethod inspect-for-emacs ((method standard-method))
   (values "A method." 
           `("Method defined on the generic function " 
 	    (:value ,(swank-mop:method-generic-function method)
@@ -278,8 +269,7 @@ See `methods-by-applicability'.")
             (:newline)
             ,@(all-slots-for-inspector method inspector))))
 
-(defmethod inspect-for-emacs ((class standard-class) 
-                              (inspector fancy-inspector))
+(defmethod inspect-for-emacs ((class standard-class))
   (values "A class."
           `("Name: " (:value ,(class-name class))
             (:newline)
@@ -338,8 +328,7 @@ See `methods-by-applicability'.")
             (:newline)
             ,@(all-slots-for-inspector class inspector))))
 
-(defmethod inspect-for-emacs ((slot swank-mop:standard-slot-definition) 
-                              (inspector fancy-inspector))
+(defmethod inspect-for-emacs ((slot swank-mop:standard-slot-definition))
   (values "A slot."
           `("Name: " (:value ,(swank-mop:slot-definition-name slot))
             (:newline)
@@ -445,9 +434,7 @@ SPECIAL-OPERATOR groups."
                         (:newline)
                         )))))
 
-(defmethod inspect-for-emacs ((%container %package-symbols-container) 
-                              (inspector fancy-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((%container %package-symbols-container))
   (with-struct (%container. title description symbols grouping-kind) %container
     (values title
             `(,@description
@@ -465,9 +452,7 @@ SPECIAL-OPERATOR groups."
               ,@(make-symbols-listing grouping-kind symbols)))))
 
 
-(defmethod inspect-for-emacs ((package package) 
-                              (inspector fancy-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((package package))
   (let ((package-name         (package-name package))
         (package-nicknames    (package-nicknames package))
         (package-use-list     (package-use-list package))
@@ -561,9 +546,7 @@ SPECIAL-OPERATOR groups."
                            :description nil)))))))
 
 
-(defmethod inspect-for-emacs ((pathname pathname) 
-                              (inspector fancy-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((pathname pathname))
   (values (if (wild-pathname-p pathname)
               "A wild pathname."
               "A pathname.")
@@ -579,9 +562,7 @@ SPECIAL-OPERATOR groups."
                               (not (probe-file pathname)))
                     (label-value-line "Truename" (truename pathname))))))
 
-(defmethod inspect-for-emacs ((pathname logical-pathname) 
-                              (inspector fancy-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((pathname logical-pathname))
   (values "A logical pathname."
           (append 
            (label-value-line*
@@ -601,9 +582,7 @@ SPECIAL-OPERATOR groups."
             ("Truename" (if (not (wild-pathname-p pathname))
                             (probe-file pathname)))))))
 
-(defmethod inspect-for-emacs ((n number) 
-                              (inspector fancy-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((n number))
   (values "A number." `("Value: " ,(princ-to-string n))))
 
 (defun format-iso8601-time (time-value &optional include-timezone-p)
@@ -626,9 +605,7 @@ SPECIAL-OPERATOR groups."
               year month day hour minute second
               include-timezone-p (format-iso8601-timezone zone)))))
 
-(defmethod inspect-for-emacs ((i integer) 
-                              (inspector fancy-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((i integer))
   (values "A number."
           (append
            `(,(format nil "Value: ~D = #x~8,'0X = #o~O = #b~,,' ,8:B~@[ = ~E~]"
@@ -640,26 +617,20 @@ SPECIAL-OPERATOR groups."
            (ignore-errors
              (label-value-line "Universal-time" (format-iso8601-time i t))))))
 
-(defmethod inspect-for-emacs ((c complex) 
-                              (inspector fancy-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((c complex))
   (values "A complex number."
           (label-value-line* 
            ("Real part" (realpart c))
            ("Imaginary part" (imagpart c)))))
 
-(defmethod inspect-for-emacs ((r ratio) 
-                              (inspector fancy-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((r ratio))
   (values "A non-integer ratio."
           (label-value-line*
            ("Numerator" (numerator r))
            ("Denominator" (denominator r))
            ("As float" (float r)))))
 
-(defmethod inspect-for-emacs ((f float) 
-                              (inspector fancy-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((f float))
   (values "A floating point number."
           (cond
             ((> f most-positive-long-float)
@@ -679,9 +650,7 @@ SPECIAL-OPERATOR groups."
                 (label-value-line "Digits" (float-digits f))
                 (label-value-line "Precision" (float-precision f))))))))
 
-(defmethod inspect-for-emacs ((stream file-stream) 
-                              (inspector fancy-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((stream file-stream))
   (multiple-value-bind (title content)
       (call-next-method)
     (declare (ignore title))
@@ -699,9 +668,7 @@ SPECIAL-OPERATOR groups."
                (:newline))
              content))))
 
-(defmethod inspect-for-emacs ((condition stream-error) 
-                              (inspector fancy-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((condition stream-error))
   (multiple-value-bind (title content)
       (call-next-method)
     (let ((stream (stream-error-stream condition)))

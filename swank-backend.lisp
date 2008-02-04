@@ -840,25 +840,9 @@ themselves, that is, their dispatch functions, are left alone.")
 
 ;;;; Inspector
 
-(defclass inspector ()
-  ()
-  (:documentation "Super class of inspector objects.
-
-Implementations should sub class in order to dispatch off of the
-inspect-for-emacs method."))
-
-(defclass backend-inspector (inspector) ())
-
-(definterface make-default-inspector ()
-  "Return an inspector object suitable for passing to inspect-for-emacs.")
-
-(defgeneric inspect-for-emacs (object inspector)
+(defgeneric inspect-for-emacs (object)
   (:documentation
    "Explain to Emacs how to inspect OBJECT.
-
-The argument INSPECTOR is an object representing how to get at
-the internals of OBJECT, it is usually an implementation specific
-class used simply for dispatching to the proper method.
 
 Returns two values: a string which will be used as the title of
 the inspector buffer and a list specifying how to render the
@@ -880,12 +864,11 @@ inserted into the buffer as is, or a list of the form:
 
  NIL - do nothing."))
 
-(defmethod inspect-for-emacs ((object t) (inspector t))
+(defmethod inspect-for-emacs ((object t))
   "Generic method for inspecting any kind of object.
 
 Since we don't know how to deal with OBJECT we simply dump the
 output of CL:DESCRIBE."
-  (declare (ignore inspector))
   (values 
    "A value."
    `("Type: " (:value ,(type-of object)) (:newline)

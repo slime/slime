@@ -421,14 +421,7 @@ part of *sysdep-pathnames* in swank.loader.lisp.
 
 ;;;; Inspecting
 
-(defclass abcl-inspector (backend-inspector) ())
-
-(defimplementation make-default-inspector ()
-  (make-instance 'abcl-inspector))
-
-(defmethod inspect-for-emacs ((slot mop::slot-definition) 
-                              (inspector backend-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((slot mop::slot-definition))
   (values "A slot." 
           `("Name: " (:value ,(mop::%slot-definition-name slot))
             (:newline)
@@ -443,8 +436,7 @@ part of *sysdep-pathnames* in swank.loader.lisp.
             "  Function: " (:value ,(mop::%slot-definition-initfunction slot))
             (:newline))))
 
-(defmethod inspect-for-emacs ((f function) (inspector backend-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((f function))
   (values "A function."
           `(,@(when (function-name f)
                     `("Name: " 
@@ -461,7 +453,7 @@ part of *sysdep-pathnames* in swank.loader.lisp.
 
 #|
 
-(defmethod inspect-for-emacs ((o t) (inspector backend-inspector))
+(defmethod inspect-for-emacs ((o t))
   (let* ((class (class-of o))
          (slots (mop::class-slots class)))
     (values (format nil "~A~%   is a ~A" o class)

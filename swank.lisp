@@ -2692,8 +2692,7 @@ Do NOT pass circular lists to this function."
     (set-pprint-dispatch '(cons (member function)) nil)
     (princ-to-string list)))
 
-(defmethod inspect-for-emacs ((object cons) inspector)
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((object cons))
   (if (consp (cdr object))
       (inspect-for-emacs-list object)
       (inspect-for-emacs-simple-cons object)))
@@ -2753,8 +2752,7 @@ NIL is returned if the list is circular."
  a hash table or array to show by default. If table has more than
  this then offer actions to view more. Set to nil for no limit." )
 
-(defmethod inspect-for-emacs ((ht hash-table) inspector)
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((ht hash-table))
   (values (prin1-to-string ht)
           (append
            (label-value-line*
@@ -2806,8 +2804,7 @@ NIL is returned if the list is circular."
 		      (progn (format t "How many elements should be shown? ") (read))))
 		 (swank::inspect-object thing)))))
 
-(defmethod inspect-for-emacs ((array array) inspector)
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((array array))
   (values "An array."
           (append
            (label-value-line*
@@ -2825,8 +2822,7 @@ NIL is returned if the list is circular."
            (loop for i below (or *slime-inspect-contents-limit* (array-total-size array))
                  append (label-value-line i (row-major-aref array i))))))
 
-(defmethod inspect-for-emacs ((char character) inspector)
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((char character))
   (values "A character."
           (append 
            (label-value-line*
@@ -2894,14 +2890,14 @@ NIL is returned if the list is circular."
   (list :action label (assign-index (list lambda refreshp)
                                     *inspectee-actions*)))
 
-(defun inspect-object (object &optional (inspector *default-inspector*))
+(defun inspect-object (object)
   (push (setq *inspectee* object) *inspector-stack*)
   (unless (find object *inspector-history*)
     (vector-push-extend object *inspector-history*))
   (let ((*print-pretty* nil)            ; print everything in the same line
         (*print-circle* t)
         (*print-readably* nil))
-    (multiple-value-bind (_ content) (inspect-for-emacs object inspector)
+    (multiple-value-bind (_ content) (inspect-for-emacs object)
       (declare (ignore _))
       (list :title (with-output-to-string (s)
                      (print-unreadable-object (object s :type t :identity t)))

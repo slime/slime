@@ -795,8 +795,7 @@ at least the filename containing it."
 	(string (gethash typecode *value2tag*))
 	(string (nth typecode '(tag-fixnum tag-list tag-misc tag-imm))))))
 
-(defmethod inspect-for-emacs ((o t) (inspector backend-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((o t))
   (let* ((i (inspector::make-inspector o))
 	 (count (inspector::compute-line-count i))
 	 (lines 
@@ -814,7 +813,7 @@ at least the filename containing it."
                 (pprint o s)))
             lines)))
 
-(defmethod inspect-for-emacs :around ((o t) (inspector backend-inspector))
+(defmethod inspect-for-emacs :around ((o t))
   (if (or (uvector-inspector-p o)
           (not (ccl:uvectorp o)))
       (call-next-method)
@@ -834,8 +833,7 @@ at least the filename containing it."
   (:method ((object t)) nil)
   (:method ((object uvector-inspector)) t))
 
-(defmethod inspect-for-emacs ((uv uvector-inspector) 
-                              (inspector backend-inspector))
+(defmethod inspect-for-emacs ((uv uvector-inspector) )
   (with-slots (object)
       uv
     (values (format nil "The UVECTOR for ~S." object)
@@ -855,7 +853,7 @@ at least the filename containing it."
 		(cellp (ccl::closed-over-value-p value)))
 	   (list label (if cellp (ccl::closed-over-value value) value))))))
 
-(defmethod inspect-for-emacs ((c ccl::compiled-lexical-closure) (inspector t))
+(defmethod inspect-for-emacs ((c ccl::compiled-lexical-closure))
   (declare (ignore inspector))
   (values
    (format nil "A closure: ~a" c)

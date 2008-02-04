@@ -248,13 +248,7 @@
 
 ;;;; Inspector
 
-(defclass ecl-inspector (inspector)
-  ())
-
-(defimplementation make-default-inspector ()
-  (make-instance 'ecl-inspector))
-
-(defmethod inspect-for-emacs ((o t) (inspector backend-inspector))
+(defmethod inspect-for-emacs ((o t))
   ; ecl clos support leaves some to be desired
   (cond
     ((streamp o)

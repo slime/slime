@@ -1740,7 +1740,7 @@ The `symbol-value' of each element is a type tag.")
                                   :key #'symbol-value)))
           (format t ", type: ~A" type-symbol))))))
 
-(defmethod inspect-for-emacs ((o t) (inspector backend-inspector))
+(defmethod inspect-for-emacs ((o t))
   (cond ((di::indirect-value-cell-p o)
          (values (format nil "~A is a value cell." o)
                  `("Value: " (:value ,(c:value-cell-ref o)))))
@@ -1759,8 +1759,7 @@ The `symbol-value' of each element is a type tag.")
                 (loop for value in parts  for i from 0 
                       append (label-value-line i value))))))
 
-(defmethod inspect-for-emacs ((o function) (inspector backend-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((o function))
   (let ((header (kernel:get-type o)))
     (cond ((= header vm:function-header-type)
            (values (format nil "~A is a function." o)
@@ -1789,8 +1788,7 @@ The `symbol-value' of each element is a type tag.")
            (call-next-method)))))
 
 
-(defmethod inspect-for-emacs ((o kernel:code-component) (_ backend-inspector))
-  (declare (ignore _))
+(defmethod inspect-for-emacs ((o kernel:code-component))
   (values (format nil "~A is a code data-block." o)
           (append 
            (label-value-line* 
@@ -1817,8 +1815,7 @@ The `symbol-value' of each element is a type tag.")
                          (ash (kernel:%code-code-size o) vm:word-shift)
                          :stream s))))))))
 
-(defmethod inspect-for-emacs ((o kernel:fdefn) (inspector backend-inspector))
-  (declare (ignore inspector))
+(defmethod inspect-for-emacs ((o kernel:fdefn))
   (values (format nil "~A is a fdenf object." o)
           (label-value-line*
            ("name" (kernel:fdefn-name o))
@@ -1827,8 +1824,7 @@ The `symbol-value' of each element is a type tag.")
                         (sys:int-sap (kernel:get-lisp-obj-address o))
                         (* vm:fdefn-raw-addr-slot vm:word-bytes))))))
 
-(defmethod inspect-for-emacs ((o array) (inspector backend-inspector))
-  inspector
+(defmethod inspect-for-emacs ((o array))
   (cond ((kernel:array-header-p o)
          (values (format nil "~A is an array." o)
                  (label-value-line*
@@ -1847,8 +1843,7 @@ The `symbol-value' of each element is a type tag.")
                   (:header (describe-primitive-type o))
                   (:length (length o)))))))
 
-(defmethod inspect-for-emacs ((o simple-vector) (inspector backend-inspector))
-  inspector
+(defmethod inspect-for-emacs ((o simple-vector))
   (values (format nil "~A is a vector." o)
           (append 
            (label-value-line*
