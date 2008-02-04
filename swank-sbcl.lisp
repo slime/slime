@@ -1001,13 +1001,7 @@ stack."
 
 ;;;; Inspector
 
-(defclass sbcl-inspector (backend-inspector) ())
-
-(defimplementation make-default-inspector ()
-  (make-instance 'sbcl-inspector))
-
 (defmethod inspect-for-emacs ((o t))
-  (declare (ignore inspector))
   (cond ((sb-di::indirect-value-cell-p o)
          (values "A value cell." (label-value-line*
                                   (:value (sb-kernel:value-cell-ref o)))))
