@@ -2268,8 +2268,10 @@ or nil if nothing suitable can be found.")
       (when (or (re-search-backward regexp nil t)
                 (re-search-forward regexp nil t))
         ;; package name can be a string designator, convert it to a string.
-        (slime-eval `(cl:string (cl:second (cl:read-from-string ,(match-string-no-properties 0))))
-                    "COMMON-LISP-USER")))))
+        ;;(slime-eval `(cl:string (cl:second (cl:read-from-string ,(match-string-no-properties 0))))
+        ;;            "COMMON-LISP-USER")
+        (match-string-no-properties 2)
+        ))))
 
 ;;; Synchronous requests are implemented in terms of asynchronous
 ;;; ones. We make an asynchronous request with a continuation function
