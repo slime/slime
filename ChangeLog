@@ -1,3 +1,11 @@
+2008-02-05  Marco Baringer  <mb@bese.it>
+
+	* slime.el (slime-search-buffer-package): Ask the lisp to read the
+	in-package form so that we properly deal with #+foo and |WHATEVER|
+	package names.
+	(slime-repl-set-package): Only prompt with a default package if
+	the repl's package is different from the current package.
+
 2008-02-04  Marco Baringer  <mb@bese.it>
 
 	* swank-openmcl.lisp (ccl::advise ccl::break): advise the

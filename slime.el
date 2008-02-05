@@ -2267,7 +2267,9 @@ or nil if nothing suitable can be found.")
     (save-excursion
       (when (or (re-search-backward regexp nil t)
                 (re-search-forward regexp nil t))
-        (match-string-no-properties 2)))))
+        ;; package name can be a string designator, convert it to a string.
+        (slime-eval `(cl:string (cl:second (cl:read-from-string ,(match-string-no-properties 0))))
+                    "COMMON-LISP-USER")))))
 
 ;;; Synchronous requests are implemented in terms of asynchronous
 ;;; ones. We make an asynchronous request with a continuation function
@@ -3317,8 +3319,12 @@ for the most recently enclosed macro or function."
 
 (defun slime-repl-set-package (package)
   "Set the package of the REPL buffer to PACKAGE."
-  (interactive (list (slime-read-package-name
-                      "Package: " (slime-pretty-find-buffer-package))))
+  (interactive (list (slime-read-package-name "Package: "
+                                              (if (string= (slime-current-package)
+                                                           (with-current-buffer (slime-repl-buffer)
+                                                             (slime-current-package)))
+                                                nil
+                                                (slime-pretty-find-buffer-package)))))
   (with-current-buffer (slime-output-buffer)
     (let ((unfinished-input (slime-repl-current-input)))
       (destructuring-bind (name prompt-string)
