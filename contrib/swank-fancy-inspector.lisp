@@ -11,9 +11,7 @@
     (multiple-value-bind (_symbol status) 
 	(and package (find-symbol (string symbol) package))
       (declare (ignore _symbol))
-      (values 
-       "A symbol."
-       (append
+      (append
 	(label-value-line "Its name is" (symbol-name symbol))
 	;;
 	;; Value 
@@ -77,7 +75,7 @@
 	;; More package
 	(if (find-package symbol)
 	    (label-value-line "It names the package" (find-package symbol)))
-	)))))
+	))))
 
 (defun docstring-ispec (label object kind)
   "Return a inspector spec if OBJECT has a docstring of of kind KIND."
@@ -90,15 +88,14 @@
 	   (list label ": " '(:newline) "  " docstring '(:newline))))))
 
 (defmethod emacs-inspect ((f function))
-  (values "A function."
-	  (append 
+  (append 
 	   (label-value-line "Name" (function-name f))
 	   `("Its argument list is: " 
 	     ,(inspector-princ (arglist f)) (:newline))
 	   (docstring-ispec "Documentation" f t)
 	   (if (function-lambda-expression f)
 	       (label-value-line "Lambda Expression"
-				 (function-lambda-expression f))))))
+				 (function-lambda-expression f)))))
 
 (defun method-specializers-for-inspect (method)
   "Return a \"pretty\" list of the method's specializers. Normal
@@ -124,9 +121,8 @@
 
 (defmethod emacs-inspect ((object standard-object))
   (let ((class (class-of object)))
-    (values "An object."
             `("Class: " (:value ,class) (:newline)
-              ,@(all-slots-for-inspector object)))))
+              ,@(all-slots-for-inspector object))))
 
 (defvar *gf-method-getter* 'methods-by-applicability
   "This function is called to get the methods of a generic function.
@@ -226,9 +222,7 @@ See `methods-by-applicability'.")
 
 (defmethod emacs-inspect ((gf standard-generic-function)) 
   (flet ((lv (label value) (label-value-line label value)))
-    (values 
-     "A generic function."
-     (append 
+    (append 
       (lv "Name" (swank-mop:generic-function-name gf))
       (lv "Arguments" (swank-mop:generic-function-lambda-list gf))
       (docstring-ispec "Documentation" gf t)
@@ -247,10 +241,9 @@ See `methods-by-applicability'.")
                             (remove-method gf m))))
 	      (:newline)))
       `((:newline))
-      (all-slots-for-inspector gf)))))
+      (all-slots-for-inspector gf))))
 
 (defmethod emacs-inspect ((method standard-method))
-  (values "A method." 
           `("Method defined on the generic function " 
 	    (:value ,(swank-mop:method-generic-function method)
 		    ,(inspector-princ
@@ -267,10 +260,9 @@ See `methods-by-applicability'.")
             (:newline)
             "Method function: " (:value ,(swank-mop:method-function method))
             (:newline)
-            ,@(all-slots-for-inspector method))))
+            ,@(all-slots-for-inspector method)))
 
 (defmethod emacs-inspect ((class standard-class))
-  (values "A class."
           `("Name: " (:value ,(class-name class))
             (:newline)
             "Super classes: "
@@ -326,10 +318,9 @@ See `methods-by-applicability'.")
                                `(:value ,(swank-mop:class-prototype class))
                                '"#<N/A (class not finalized)>")
             (:newline)
-            ,@(all-slots-for-inspector class))))
+            ,@(all-slots-for-inspector class)))
 
 (defmethod emacs-inspect ((slot swank-mop:standard-slot-definition))
-  (values "A slot."
           `("Name: " (:value ,(swank-mop:slot-definition-name slot))
             (:newline)
             ,@(when (swank-mop:slot-definition-documentation slot)
@@ -342,7 +333,7 @@ See `methods-by-applicability'.")
                              "#<unspecified>") (:newline)
             "Init function: " (:value ,(swank-mop:slot-definition-initfunction slot))            
             (:newline)
-            ,@(all-slots-for-inspector slot))))
+            ,@(all-slots-for-inspector slot)))
 
 
 ;; Wrapper structure over the list of symbols of a package that should
@@ -436,8 +427,8 @@ SPECIAL-OPERATOR groups."
 
 (defmethod emacs-inspect ((%container %package-symbols-container))
   (with-struct (%container. title description symbols grouping-kind) %container
-    (values title
-            `(,@description
+            `(,title (:newline) 
+	      ,@description
               (:newline)
               "  " ,(ecase grouping-kind
                            (:symbol
@@ -449,7 +440,7 @@ SPECIAL-OPERATOR groups."
                                       ,(lambda () (setf grouping-kind :symbol))
                                       :refreshp t)))
               (:newline) (:newline)
-              ,@(make-symbols-listing grouping-kind symbols)))))
+              ,@(make-symbols-listing grouping-kind symbols))))
 
 (defmethod emacs-inspect ((package package))
   (let ((package-name         (package-name package))
@@ -479,8 +470,6 @@ SPECIAL-OPERATOR groups."
           external-symbols     (sort external-symbols #'string<)) ; SBCL 0.9.18.
 
     
-    (values
-     "A package."
      `(""                               ; dummy to preserve indentation.
        "Name: " (:value ,package-name) (:newline)
                        
@@ -542,14 +531,15 @@ SPECIAL-OPERATOR groups."
             (:newline)
             ,(display-link "shadowed" shadowed-symbols (length shadowed-symbols)
                            :title (format nil "All shadowed symbols of package \"~A\"" package-name)
-                           :description nil)))))))
+                           :description nil))))))
 
 
 (defmethod emacs-inspect ((pathname pathname))
-  (values (if (wild-pathname-p pathname)
-              "A wild pathname."
-              "A pathname.")
-          (append (label-value-line*
+          (append (if (wild-pathname-p pathname)
+		      "A wild pathname."
+		      "A pathname.")
+		  '((:newline))
+		  (label-value-line*
                    ("Namestring" (namestring pathname))
                    ("Host"       (pathname-host pathname))
                    ("Device"     (pathname-device pathname))
@@ -559,10 +549,9 @@ SPECIAL-OPERATOR groups."
                    ("Version"    (pathname-version pathname)))
                   (unless (or (wild-pathname-p pathname)
                               (not (probe-file pathname)))
-                    (label-value-line "Truename" (truename pathname))))))
+                    (label-value-line "Truename" (truename pathname)))))
 
 (defmethod emacs-inspect ((pathname logical-pathname))
-  (values "A logical pathname."
           (append 
            (label-value-line*
             ("Namestring" (namestring pathname))
@@ -579,10 +568,10 @@ SPECIAL-OPERATOR groups."
             ("Type" (pathname-type pathname))
             ("Version" (pathname-version pathname))
             ("Truename" (if (not (wild-pathname-p pathname))
-                            (probe-file pathname)))))))
+                            (probe-file pathname))))))
 
 (defmethod emacs-inspect ((n number))
-  (values "A number." `("Value: " ,(princ-to-string n))))
+  `("Value: " ,(princ-to-string n)))
 
 (defun format-iso8601-time (time-value &optional include-timezone-p)
     "Formats a universal time TIME-VALUE in ISO 8601 format, with
@@ -605,7 +594,6 @@ SPECIAL-OPERATOR groups."
               include-timezone-p (format-iso8601-timezone zone)))))
 
 (defmethod emacs-inspect ((i integer))
-  (values "A number."
           (append
            `(,(format nil "Value: ~D = #x~8,'0X = #o~O = #b~,,' ,8:B~@[ = ~E~]"
                       i i i i (ignore-errors (coerce i 'float)))
@@ -614,23 +602,20 @@ SPECIAL-OPERATOR groups."
              (label-value-line "Code-char" (code-char i)))
            (label-value-line "Integer-length" (integer-length i))           
            (ignore-errors
-             (label-value-line "Universal-time" (format-iso8601-time i t))))))
+             (label-value-line "Universal-time" (format-iso8601-time i t)))))
 
 (defmethod emacs-inspect ((c complex))
-  (values "A complex number."
           (label-value-line* 
            ("Real part" (realpart c))
-           ("Imaginary part" (imagpart c)))))
+           ("Imaginary part" (imagpart c))))
 
 (defmethod emacs-inspect ((r ratio))
-  (values "A non-integer ratio."
           (label-value-line*
            ("Numerator" (numerator r))
            ("Denominator" (denominator r))
-           ("As float" (float r)))))
+           ("As float" (float r))))
 
 (defmethod emacs-inspect ((f float))
-  (values "A floating point number."
           (cond
             ((> f most-positive-long-float)
              (list "Positive infinity."))
@@ -647,13 +632,11 @@ SPECIAL-OPERATOR groups."
                                  (:value ,significand) " * " 
                                  (:value ,(float-radix f)) "^" (:value ,exponent) (:newline))
                 (label-value-line "Digits" (float-digits f))
-                (label-value-line "Precision" (float-precision f))))))))
+                (label-value-line "Precision" (float-precision f)))))))
 
 (defmethod emacs-inspect ((stream file-stream))
-  (multiple-value-bind (title content)
+  (multiple-value-bind (content)
       (call-next-method)
-    (declare (ignore title))
-    (values "A file stream."
             (append
              `("Pathname: "
                (:value ,(pathname stream))
@@ -665,14 +648,13 @@ SPECIAL-OPERATOR groups."
                              (ed-in-emacs `(,pathname :charpos ,position))))
                         :refreshp nil)
                (:newline))
-             content))))
+             content)))
 
 (defmethod emacs-inspect ((condition stream-error))
   (multiple-value-bind (title content)
       (call-next-method)
     (let ((stream (stream-error-stream condition)))
       (if (typep stream 'file-stream)
-          (values "A stream error."
                   (append
                    `("Pathname: "
                      (:value ,(pathname stream))
@@ -684,8 +666,8 @@ SPECIAL-OPERATOR groups."
                                       (ed-in-emacs `(,pathname :charpos ,position))))
                               :refreshp nil)
                      (:newline))
-                   content))
-          (values title content)))))
+                   content)
+          content))))
 
 (defun common-seperated-spec (list &optional (callback (lambda (v) 
 							 `(:value ,v))))

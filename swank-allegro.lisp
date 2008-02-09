@@ -565,22 +565,21 @@
 ;;;; Inspecting
 
 (defmethod emacs-inspect ((f function))
-  (values "A function."
           (append
            (label-value-line "Name" (function-name f))
            `("Formals" ,(princ-to-string (arglist f)) (:newline))
            (let ((doc (documentation (excl::external-fn_symdef f) 'function)))
              (when doc
-               `("Documentation:" (:newline) ,doc))))))
+               `("Documentation:" (:newline) ,doc)))))
 
 (defmethod emacs-inspect ((o t))
-  (values "A value." (allegro-inspect o)))
+  (allegro-inspect o))
 
 (defmethod emacs-inspect ((o function))
-  (values "A function." (allegro-inspect o)))
+  (allegro-inspect o))
 
 (defmethod emacs-inspect ((o standard-object))
-  (values (format nil "~A is a standard-object." o) (allegro-inspect o)))
+  (allegro-inspect o))
 
 (defun allegro-inspect (o)
   (loop for (d dd) on (inspect::inspect-ctl o)

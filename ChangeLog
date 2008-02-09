@@ -1,5 +1,12 @@
 2008-02-09  Helmut Eller  <heller@common-lisp.net>
 
+	Drop the first return value of emacs-inspect.
+
+	* swank.lisp (emacs-inspect): Drop the first return value. It
+	wasn't used anymore.  Update all methods and callers.
+
+2008-02-09  Helmut Eller  <heller@common-lisp.net>
+
 	Remove obsolete *slime-inspect-contents-limit*.
 
 	* swank.lisp (*slime-inspect-contents-limit*): Deleted and all its
@@ -37,7 +44,7 @@
 	Inspector cleanups.
 
 	* swank.lisp (emacs-inspect): Renamed from inspect-for-emacs.
-	Changed all method-defs acordingly.
+	Changed all method-defs accordingly.
 	(common-seperated-spec, inspector-princ): Moved to
 	swank-fancy-inspector.lisp.
 	(inspector-content): Renamed from inspector-content-for-emacs.

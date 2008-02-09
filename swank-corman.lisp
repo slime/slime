@@ -394,7 +394,6 @@
               collect ", ")))
 
 (defmethod emacs-inspect ((class standard-class))
-  (values "A class."
           `("Name: " (:value ,(class-name class))
             (:newline)
             "Super classes: "
@@ -428,12 +427,11 @@
                                          (lambda (class)
                                            `(:value ,class ,(princ-to-string (class-name class)))))
                   '("#<N/A (class not finalized)>"))
-            (:newline))))
+            (:newline)))
 
 (defmethod emacs-inspect ((slot cons))
   ;; Inspects slot definitions
   (if (eq (car slot) :name)
-      (values "A slot." 
               `("Name: " (:value ,(swank-mop:slot-definition-name slot))
                          (:newline)
                          ,@(when (swank-mop:slot-definition-documentation slot)
@@ -445,13 +443,14 @@
                                              `(:value ,(swank-mop:slot-definition-initform slot))
                                              "#<unspecified>") (:newline)
                                              "Init function: " (:value ,(swank-mop:slot-definition-initfunction slot))
-                                             (:newline)))
+                                             (:newline))
       (call-next-method)))
   
 (defmethod emacs-inspect ((pathname pathnames::pathname-internal))
-  (values (if (wild-pathname-p pathname)
+  (list*  (if (wild-pathname-p pathname)
               "A wild pathname."
               "A pathname.")
+	  '(:newline)
           (append (label-value-line*
                    ("Namestring" (namestring pathname))
                    ("Host"       (pathname-host pathname))
@@ -469,8 +468,6 @@
 	(t (call-next-method))))
 
 (defun inspect-structure (o)
-  (values 
-   (format nil "~A is a structure" o)
    (let* ((template (cl::uref o 1))
 	  (num-slots (cl::struct-template-num-slots template)))
      (cond ((symbolp template)
@@ -479,7 +476,7 @@
 	   (t
 	    (loop for i below num-slots
 		  append (label-value-line (elt template (+ 6 (* i 5)))
-					   (cl::uref o (+ 2 i)))))))))
+					   (cl::uref o (+ 2 i))))))))
 
 
 ;;; Threads

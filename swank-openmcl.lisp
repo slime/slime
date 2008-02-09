@@ -814,24 +814,16 @@ at least the filename containing it."
              collect " = "
              collect `(:value ,value)
              collect '(:newline))))
-    (values (with-output-to-string (s)
-              (let ((*print-lines* 1)
-                    (*print-right-margin* 80))
-                (pprint o s)))
-            lines)))
+    lines))
 
 (defmethod emacs-inspect :around ((o t))
   (if (or (uvector-inspector-p o)
           (not (ccl:uvectorp o)))
       (call-next-method)
-      (multiple-value-bind (title content)
-          (call-next-method)
-        (values
-         title
-         (append content
+      (append (call-next-method)
                  `((:newline)
                    (:value ,(make-instance 'uvector-inspector :object o)
-                           "Underlying UVECTOR")))))))
+                           "Underlying UVECTOR")))))
 
 (defclass uvector-inspector ()
   ((object :initarg :object)))
@@ -843,12 +835,11 @@ at least the filename containing it."
 (defmethod emacs-inspect ((uv uvector-inspector))
   (with-slots (object)
       uv
-    (values (format nil "The UVECTOR for ~S." object)
             (loop
                for index below (ccl::uvsize object)
                collect (format nil "~D: " index)
                collect `(:value ,(ccl::uvref object index))
-               collect `(:newline)))))
+               collect `(:newline))))
 
 (defun closure-closed-over-values (closure)
   (let ((howmany (nth-value 8 (ccl::function-args (ccl::closure-function closure)))))
@@ -861,8 +852,8 @@ at least the filename containing it."
 	   (list label (if cellp (ccl::closed-over-value value) value))))))
 
 (defmethod emacs-inspect ((c ccl::compiled-lexical-closure))
-  (values
-   (format nil "A closure: ~a" c)
+  (list*
+   (format nil "A closure: ~a~%" c)
    `(,@(if (arglist c)
 	   (list "Its argument list is: " 
 		 (funcall (intern "INSPECTOR-PRINC" 'swank) (arglist c))) 

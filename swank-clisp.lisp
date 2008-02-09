@@ -638,9 +638,10 @@ Execute BODY with NAME's function slot set to FUNCTION."
          (*package* tmp-pack)
          (sys::*inspect-unbound-value* (intern "#<unbound>" tmp-pack)))
     (let ((inspection (sys::inspect-backend o)))
-      (values (format nil "~S~% ~A~{~%~A~}" o
+      (append (list
+               (format nil "~S~% ~A~{~%~A~}~%" o
                       (sys::insp-title inspection)
-                      (sys::insp-blurb inspection))
+                      (sys::insp-blurb inspection)))
               (loop with count = (sys::insp-num-slots inspection)
                     for i below count
                     append (multiple-value-bind (value name)

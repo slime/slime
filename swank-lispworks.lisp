@@ -644,12 +644,11 @@ function names like \(SETF GET)."
   (multiple-value-bind (names values _getter _setter type)
       (lw:get-inspector-values o nil)
     (declare (ignore _getter _setter))
-    (values "A value."
             (append 
              (label-value-line "Type" type)
              (loop for name in names
                    for value in values
-                   append (label-value-line name value))))))
+                   append (label-value-line name value)))))
 
 ;;; Miscellaneous
 

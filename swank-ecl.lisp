@@ -252,8 +252,8 @@
   ; ecl clos support leaves some to be desired
   (cond
     ((streamp o)
-     (values
-      (format nil "~S is an ordinary stream" o)
+     (list*
+      (format nil "~S is an ordinary stream~%" o)
       (append
        (list
         "Open for "
@@ -285,7 +285,7 @@
     (t
      (let* ((cl (si:instance-class o))
             (slots (clos:class-slots cl)))
-       (values (format nil "~S is an instance of class ~A"
+       (list* (format nil "~S is an instance of class ~A~%"
                        o (clos::class-name cl))
                (loop for x in slots append
                     (let* ((name (clos:slot-definition-name x))

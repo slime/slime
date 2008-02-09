@@ -422,7 +422,6 @@ part of *sysdep-pathnames* in swank.loader.lisp.
 ;;;; Inspecting
 
 (defmethod emacs-inspect ((slot mop::slot-definition))
-  (values "A slot." 
           `("Name: " (:value ,(mop::%slot-definition-name slot))
             (:newline)
             "Documentation:" (:newline)
@@ -434,10 +433,9 @@ part of *sysdep-pathnames* in swank.loader.lisp.
                              `(:value ,(mop::%slot-definition-initform slot))
                              "#<unspecified>") (:newline)
             "  Function: " (:value ,(mop::%slot-definition-initfunction slot))
-            (:newline))))
+            (:newline)))
 
 (defmethod emacs-inspect ((f function))
-  (values "A function."
           `(,@(when (function-name f)
                     `("Name: " 
                       ,(princ-to-string (function-name f)) (:newline)))
@@ -449,19 +447,18 @@ part of *sysdep-pathnames* in swank.loader.lisp.
                          `("Documentation:" (:newline) ,(documentation f t) (:newline)))
             ,@(when (function-lambda-expression f)
                     `("Lambda expression:" 
-                      (:newline) ,(princ-to-string (function-lambda-expression f)) (:newline))))))
+                      (:newline) ,(princ-to-string (function-lambda-expression f)) (:newline)))))
 
 #|
 
 (defmethod emacs-inspect ((o t))
   (let* ((class (class-of o))
          (slots (mop::class-slots class)))
-    (values (format nil "~A~%   is a ~A" o class)
             (mapcar (lambda (slot)
                       (let ((name (mop::slot-definition-name slot)))
                         (cons (princ-to-string name)
                               (slot-value o name))))
-                    slots))))
+                    slots)))
 |#
 
 ;;;; Multithreading

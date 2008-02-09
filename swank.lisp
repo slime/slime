@@ -2704,8 +2704,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
   (let ((*print-pretty* nil) ; print everything in the same line
         (*print-circle* t)
         (*print-readably* nil))
-    (setq *inspectee-content*
-          (inspector-content (nth-value 1 (emacs-inspect o)))))
+    (setq *inspectee-content* (inspector-content (emacs-inspect o))))
   (list :title (with-output-to-string (s)
                  (print-unreadable-object (o s :type t :identity t)))
         :id (assign-index o *inspectee-parts*)
@@ -2780,10 +2779,10 @@ Return nil if there's no second element."
 (defslimefun inspector-next ()
   "Inspect the next element in the *inspector-history*."
   (with-buffer-syntax ()
-    (let ((position (position *inspectee* *inspector-history*)))
-      (cond ((= (1+ position) (length *inspector-history*))
+    (let ((pos (position *inspectee* *inspector-history*)))
+      (cond ((= (1+ pos) (length *inspector-history*))
              nil)
-            (t (inspect-object (aref *inspector-history* (1+ position))))))))
+            (t (inspect-object (aref *inspector-history* (1+ pos))))))))
 
 (defslimefun inspector-reinspect ()
   (inspect-object *inspectee*))
@@ -2825,10 +2824,9 @@ Return nil if there's no second element."
       (inspect-cons o)))
 
 (defun inspect-cons (cons)
-  (values "A cons cell."
-          (label-value-line* 
-           ('car (car cons))
-           ('cdr (cdr cons)))))
+  (label-value-line* 
+   ('car (car cons))
+   ('cdr (cdr cons))))
 
 ;; (inspect-list '#1=(a #1# . #1# ))
 ;; (inspect-list (list* 'a 'b 'c))
@@ -2837,8 +2835,7 @@ Return nil if there's no second element."
 (defun inspect-list (list)
   (multiple-value-bind (length tail) (safe-length list)
     (flet ((frob (title list)
-             (values nil (append `(,title (:newline))
-                                 (inspect-list-aux list)))))
+             (list* title '(:newline) (inspect-list-aux list))))
       (cond ((not length)
              (frob "A circular list:"
                    (cons (car list)
@@ -2875,58 +2872,55 @@ Return NIL if LIST is circular."
 ;;;;; Hashtables
 
 (defmethod emacs-inspect ((ht hash-table))
-  (values (prin1-to-string ht)
-          (append
-           (label-value-line*
-            ("Count" (hash-table-count ht))
-            ("Size" (hash-table-size ht))
-            ("Test" (hash-table-test ht))
-            ("Rehash size" (hash-table-rehash-size ht))
-            ("Rehash threshold" (hash-table-rehash-threshold ht)))
-           (let ((weakness (hash-table-weakness ht)))
-             (when weakness
-               `("Weakness: " (:value ,weakness) (:newline))))
-           (unless (zerop (hash-table-count ht))
-             `((:action "[clear hashtable]" 
-                        ,(lambda () (clrhash ht))) (:newline)
-               "Contents: " (:newline)))
-           (loop for key being the hash-keys of ht
-                 for value being the hash-values of ht
-                 append `((:value ,key) " = " (:value ,value)
-                          " " (:action "[remove entry]"
+  (append
+   (label-value-line*
+    ("Count" (hash-table-count ht))
+    ("Size" (hash-table-size ht))
+    ("Test" (hash-table-test ht))
+    ("Rehash size" (hash-table-rehash-size ht))
+    ("Rehash threshold" (hash-table-rehash-threshold ht)))
+   (let ((weakness (hash-table-weakness ht)))
+     (when weakness
+       (label-value-line "Weakness:" weakness)))
+   (unless (zerop (hash-table-count ht))
+     `((:action "[clear hashtable]" 
+                ,(lambda () (clrhash ht))) (:newline)
+       "Contents: " (:newline)))
+   (loop for key being the hash-keys of ht
+         for value being the hash-values of ht
+         append `((:value ,key) " = " (:value ,value)
+                  " " (:action "[remove entry]"
                                ,(let ((key key))
-                                  (lambda () (remhash key ht))))
-                          (:newline))))))
+                                     (lambda () (remhash key ht))))
+                  (:newline)))))
 
 ;;;;; Arrays
 
 (defmethod emacs-inspect ((array array))
-  (values "An array."
-          (append
-           (label-value-line*
-            ("Dimensions" (array-dimensions array))
-            ("Element type" (array-element-type array))
-            ("Total size" (array-total-size array))
-            ("Adjustable" (adjustable-array-p array)))
-           (when (array-has-fill-pointer-p array)
-             (label-value-line "Fill pointer" (fill-pointer array)))
-           '("Contents:" (:newline))
-           (loop for i below (array-total-size array)
-                 append (label-value-line i (row-major-aref array i))))))
+  (append
+   (label-value-line*
+    ("Dimensions" (array-dimensions array))
+    ("Element type" (array-element-type array))
+    ("Total size" (array-total-size array))
+    ("Adjustable" (adjustable-array-p array)))
+   (when (array-has-fill-pointer-p array)
+     (label-value-line "Fill pointer" (fill-pointer array)))
+   '("Contents:" (:newline))
+   (loop for i below (array-total-size array)
+         append (label-value-line i (row-major-aref array i)))))
 
 ;;;;; Chars
 
 (defmethod emacs-inspect ((char character))
-  (values "A character."
-          (append 
-           (label-value-line*
-            ("Char code" (char-code char))
-            ("Lower cased" (char-downcase char))
-            ("Upper cased" (char-upcase char)))
-           (if (get-macro-character char)
-               `("In the current readtable (" 
-                 (:value ,*readtable*) ") it is a macro character: "
-                 (:value ,(get-macro-character char)))))))
+  (append 
+   (label-value-line*
+    ("Char code" (char-code char))
+    ("Lower cased" (char-downcase char))
+    ("Upper cased" (char-upcase char)))
+   (if (get-macro-character char)
+       `("In the current readtable (" 
+         (:value ,*readtable*) ") it is a macro character: "
+         (:value ,(get-macro-character char))))))
 
 ;;;; Thread listing
 

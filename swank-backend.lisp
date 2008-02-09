@@ -840,9 +840,7 @@ themselves, that is, their dispatch functions, are left alone.")
   (:documentation
    "Explain to Emacs how to inspect OBJECT.
 
-Returns two values: a string which will be used as the title of
-the inspector buffer and a list specifying how to render the
-object for inspection.
+Returns a list specifying how to render the object for inspection.
 
 Every element of the list must be either a string, which will be
 inserted into the buffer as is, or a list of the form:
@@ -857,20 +855,17 @@ inserted into the buffer as is, or a list of the form:
  string) which when clicked will call LAMBDA. If REFRESH is
  non-NIL the currently inspected object will be re-inspected
  after calling the lambda.
-
- NIL - do nothing."))
+"))
 
 (defmethod emacs-inspect ((object t))
   "Generic method for inspecting any kind of object.
 
 Since we don't know how to deal with OBJECT we simply dump the
 output of CL:DESCRIBE."
-  (values 
-   "A value."
    `("Type: " (:value ,(type-of object)) (:newline)
      "Don't know how to inspect the object, dumping output of CL:DESCRIBE:"
      (:newline) (:newline)
-     ,(with-output-to-string (desc) (describe object desc)))))
+     ,(with-output-to-string (desc) (describe object desc))))
 
 ;;; Utilities for inspector methods.
 ;;; 

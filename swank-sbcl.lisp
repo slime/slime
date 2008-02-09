@@ -1003,39 +1003,36 @@ stack."
 
 (defmethod emacs-inspect ((o t))
   (cond ((sb-di::indirect-value-cell-p o)
-         (values "A value cell." (label-value-line*
-                                  (:value (sb-kernel:value-cell-ref o)))))
+         (label-value-line* (:value (sb-kernel:value-cell-ref o))))
 	(t
 	 (multiple-value-bind (text label parts) (sb-impl::inspected-parts o)
-           (if label
-               (values text (loop for (l . v) in parts
-                                  append (label-value-line l v)))
-               (values text (loop for value in parts  for i from 0
-                                  append (label-value-line i value))))))))
+           (list* (format nil "~a~%" text)
+                  (if label
+                      (loop for (l . v) in parts
+                            append (label-value-line l v))
+                      (loop for value in parts  for i from 0
+                            append (label-value-line i value))))))))
 
 (defmethod emacs-inspect ((o function))
   (let ((header (sb-kernel:widetag-of o)))
     (cond ((= header sb-vm:simple-fun-header-widetag)
-	   (values "A simple-fun."
                    (label-value-line*
                     (:name (sb-kernel:%simple-fun-name o))
                     (:arglist (sb-kernel:%simple-fun-arglist o))
                     (:self (sb-kernel:%simple-fun-self o))
                     (:next (sb-kernel:%simple-fun-next o))
                     (:type (sb-kernel:%simple-fun-type o))
-                    (:code (sb-kernel:fun-code-header o)))))
+                    (:code (sb-kernel:fun-code-header o))))
 	  ((= header sb-vm:closure-header-widetag)
-	   (values "A closure."
                    (append
                     (label-value-line :function (sb-kernel:%closure-fun o))
                     `("Closed over values:" (:newline))
                     (loop for i below (1- (sb-kernel:get-closure-length o))
                           append (label-value-line
-                                  i (sb-kernel:%closure-index-ref o i))))))
+                                  i (sb-kernel:%closure-index-ref o i)))))
 	  (t (call-next-method o)))))
 
 (defmethod emacs-inspect ((o sb-kernel:code-component))
-  (values (format nil "~A is a code data-block." o)
           (append
            (label-value-line*
             (:code-size (sb-kernel:%code-code-size o))
@@ -1060,28 +1057,24 @@ stack."
                                 sb-vm:n-word-bytes))
                           (ash 1 sb-vm:n-lowtag-bits))
                          (ash (sb-kernel:%code-code-size o) sb-vm:word-shift)
-                         :stream s))))))))
+                         :stream s)))))))
 
 (defmethod emacs-inspect ((o sb-ext:weak-pointer))
-  (values "A weak pointer."
           (label-value-line*
-           (:value (sb-ext:weak-pointer-value o)))))
+           (:value (sb-ext:weak-pointer-value o))))
 
 (defmethod emacs-inspect ((o sb-kernel:fdefn))
-  (values "A fdefn object."
           (label-value-line*
            (:name (sb-kernel:fdefn-name o))
-           (:function (sb-kernel:fdefn-fun o)))))
+           (:function (sb-kernel:fdefn-fun o))))
 
 (defmethod emacs-inspect :around ((o generic-function))
-  (multiple-value-bind (title contents) (call-next-method)
-    (values title
             (append
-             contents
+             (call-next-method)
              (label-value-line*
               (:pretty-arglist (sb-pcl::generic-function-pretty-arglist o))
               (:initial-methods (sb-pcl::generic-function-initial-methods o))
-              )))))
+              )))
 
 
 ;;;; Multiprocessing
