@@ -2872,10 +2872,6 @@ Return NIL if LIST is circular."
           ((and (eq fast slow) (> n 0)) (return nil))
           ((not (consp (cdr fast))) (return (values (1+ n) (cdr fast)))))))
 
-(defvar *slime-inspect-contents-limit* nil "How many elements of
- a hash table or array to show by default. If table has more than
- this then offer actions to view more. Set to nil for no limit." )
-
 ;;;;; Hashtables
 
 (defmethod emacs-inspect ((ht hash-table))
@@ -2891,44 +2887,16 @@ Return NIL if LIST is circular."
              (when weakness
                `("Weakness: " (:value ,weakness) (:newline))))
            (unless (zerop (hash-table-count ht))
-             `((:action "[clear hashtable]" ,(lambda () (clrhash ht))) (:newline)
+             `((:action "[clear hashtable]" 
+                        ,(lambda () (clrhash ht))) (:newline)
                "Contents: " (:newline)))
-	   (if (and *slime-inspect-contents-limit*
-		    (>= (hash-table-count ht) *slime-inspect-contents-limit*))
-	       (inspect-bigger-piece-actions ht (hash-table-count ht))
-	       nil)
            (loop for key being the hash-keys of ht
                  for value being the hash-values of ht
-                 repeat (or *slime-inspect-contents-limit* most-positive-fixnum)
                  append `((:value ,key) " = " (:value ,value)
                           " " (:action "[remove entry]"
                                ,(let ((key key))
                                   (lambda () (remhash key ht))))
                           (:newline))))))
-
-(defun inspect-bigger-piece-actions (thing size)
-  (append 
-   (if (> size *slime-inspect-contents-limit*)
-       (list (inspect-show-more-action thing)
-	     '(:newline))
-       nil)
-   (list (inspect-whole-thing-action thing  size)
-	 '(:newline))))
-
-(defun inspect-whole-thing-action (thing size)
-  `(:action ,(format nil "Inspect all ~a elements." 
-		      size)
-	    ,(lambda() 
-	       (let ((*slime-inspect-contents-limit* nil))
-		 (swank::inspect-object thing)))))
-
-(defun inspect-show-more-action (thing)
-  `(:action ,(format nil "~a elements shown. Prompt for how many to inspect..." 
-		     *slime-inspect-contents-limit* )
-	    ,(lambda() 
-	       (let ((*slime-inspect-contents-limit* 
-		      (progn (format t "How many elements should be shown? ") (read))))
-		 (swank::inspect-object thing)))))
 
 ;;;;; Arrays
 
@@ -2943,11 +2911,7 @@ Return NIL if LIST is circular."
            (when (array-has-fill-pointer-p array)
              (label-value-line "Fill pointer" (fill-pointer array)))
            '("Contents:" (:newline))
-           (if (and *slime-inspect-contents-limit*
-		    (>= (array-total-size array) *slime-inspect-contents-limit*))
-	       (inspect-bigger-piece-actions array  (length array))
-	       nil)
-           (loop for i below (or *slime-inspect-contents-limit* (array-total-size array))
+           (loop for i below (array-total-size array)
                  append (label-value-line i (row-major-aref array i))))))
 
 ;;;;; Chars

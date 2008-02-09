@@ -1,5 +1,13 @@
 2008-02-09  Helmut Eller  <heller@common-lisp.net>
 
+	Remove obsolete *slime-inspect-contents-limit*.
+
+	* swank.lisp (*slime-inspect-contents-limit*): Deleted and all its
+	uses.  The new implementation isn't specific to hash-tables or
+	arrays.
+
+2008-02-09  Helmut Eller  <heller@common-lisp.net>
+
 	Limit the length of the inspector content.
 	That's similar to the limitation of the length of backtraces in
 	the debugger.
