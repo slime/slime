@@ -535,10 +535,10 @@ SPECIAL-OPERATOR groups."
 
 
 (defmethod emacs-inspect ((pathname pathname))
-          (append (if (wild-pathname-p pathname)
+          (list* (if (wild-pathname-p pathname)
 		      "A wild pathname."
 		      "A pathname.")
-		  '((:newline))
+		  '(:newline)
 		  (label-value-line*
                    ("Namestring" (namestring pathname))
                    ("Host"       (pathname-host pathname))
