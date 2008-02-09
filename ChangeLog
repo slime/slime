@@ -1,3 +1,9 @@
+2008-02-07  Helmut Eller  <heller@common-lisp.net>
+
+	Cleanup slime-repl-set-package.
+
+	* slime.el (slime-repl-set-package): Make it fit within 80 columns.
+
 2008-02-05  Marco Baringer  <mb@bese.it>
 
 	* slime.el (slime-search-buffer-package): Ask the lisp to read the

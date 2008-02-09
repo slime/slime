@@ -2267,11 +2267,7 @@ or nil if nothing suitable can be found.")
     (save-excursion
       (when (or (re-search-backward regexp nil t)
                 (re-search-forward regexp nil t))
-        ;; package name can be a string designator, convert it to a string.
-        ;;(slime-eval `(cl:string (cl:second (cl:read-from-string ,(match-string-no-properties 0))))
-        ;;            "COMMON-LISP-USER")
-        (match-string-no-properties 2)
-        ))))
+        (match-string-no-properties 2)))))
 
 ;;; Synchronous requests are implemented in terms of asynchronous
 ;;; ones. We make an asynchronous request with a continuation function
@@ -3321,12 +3317,11 @@ for the most recently enclosed macro or function."
 
 (defun slime-repl-set-package (package)
   "Set the package of the REPL buffer to PACKAGE."
-  (interactive (list (slime-read-package-name "Package: "
-                                              (if (string= (slime-current-package)
-                                                           (with-current-buffer (slime-repl-buffer)
-                                                             (slime-current-package)))
-                                                nil
-                                                (slime-pretty-find-buffer-package)))))
+  (interactive (list (slime-read-package-name 
+                      "Package: "
+                      (if (equal (slime-current-package) (slime-lisp-package))
+                          nil
+                        (slime-pretty-find-buffer-package)))))
   (with-current-buffer (slime-output-buffer)
     (let ((unfinished-input (slime-repl-current-input)))
       (destructuring-bind (name prompt-string)
@@ -9630,7 +9625,7 @@ To fetch the contrib directoy use:  cvs update -d"
 ;; Local Variables: 
 ;; outline-regexp: ";;;;+"
 ;; indent-tabs-mode: nil
-;; coding: latin-1-unix!
+;; coding: latin-1-unix
 ;; unibyte: t
 ;; compile-command: "emacs -batch -L . -eval '(byte-compile-file \"slime.el\")' ; rm -v slime.elc"
 ;; End:
