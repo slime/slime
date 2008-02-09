@@ -6,7 +6,7 @@
 
 (in-package :swank)
 
-(defmethod inspect-for-emacs ((symbol symbol))
+(defmethod emacs-inspect ((symbol symbol))
   (let ((package (symbol-package symbol)))
     (multiple-value-bind (_symbol status) 
 	(and package (find-symbol (string symbol) package))
@@ -89,7 +89,7 @@
 	  (t 
 	   (list label ": " '(:newline) "  " docstring '(:newline))))))
 
-(defmethod inspect-for-emacs ((f function))
+(defmethod emacs-inspect ((f function))
   (values "A function."
 	  (append 
 	   (label-value-line "Name" (function-name f))
@@ -122,7 +122,7 @@
 	  (swank-mop:method-qualifiers method)
 	  (method-specializers-for-inspect method)))
 
-(defmethod inspect-for-emacs ((object standard-object))
+(defmethod emacs-inspect ((object standard-object))
   (let ((class (class-of object)))
     (values "An object."
             `("Class: " (:value ,class) (:newline)
@@ -224,7 +224,7 @@ See `methods-by-applicability'.")
                   append slot-presentation
                   collect '(:newline))))))
 
-(defmethod inspect-for-emacs ((gf standard-generic-function)) 
+(defmethod emacs-inspect ((gf standard-generic-function)) 
   (flet ((lv (label value) (label-value-line label value)))
     (values 
      "A generic function."
@@ -249,7 +249,7 @@ See `methods-by-applicability'.")
       `((:newline))
       (all-slots-for-inspector gf)))))
 
-(defmethod inspect-for-emacs ((method standard-method))
+(defmethod emacs-inspect ((method standard-method))
   (values "A method." 
           `("Method defined on the generic function " 
 	    (:value ,(swank-mop:method-generic-function method)
@@ -269,7 +269,7 @@ See `methods-by-applicability'.")
             (:newline)
             ,@(all-slots-for-inspector method))))
 
-(defmethod inspect-for-emacs ((class standard-class))
+(defmethod emacs-inspect ((class standard-class))
   (values "A class."
           `("Name: " (:value ,(class-name class))
             (:newline)
@@ -328,7 +328,7 @@ See `methods-by-applicability'.")
             (:newline)
             ,@(all-slots-for-inspector class))))
 
-(defmethod inspect-for-emacs ((slot swank-mop:standard-slot-definition))
+(defmethod emacs-inspect ((slot swank-mop:standard-slot-definition))
   (values "A slot."
           `("Name: " (:value ,(swank-mop:slot-definition-name slot))
             (:newline)
@@ -434,7 +434,7 @@ SPECIAL-OPERATOR groups."
                         (:newline)
                         )))))
 
-(defmethod inspect-for-emacs ((%container %package-symbols-container))
+(defmethod emacs-inspect ((%container %package-symbols-container))
   (with-struct (%container. title description symbols grouping-kind) %container
     (values title
             `(,@description
@@ -451,7 +451,7 @@ SPECIAL-OPERATOR groups."
               (:newline) (:newline)
               ,@(make-symbols-listing grouping-kind symbols)))))
 
-(defmethod inspect-for-emacs ((package package))
+(defmethod emacs-inspect ((package package))
   (let ((package-name         (package-name package))
         (package-nicknames    (package-nicknames package))
         (package-use-list     (package-use-list package))
@@ -545,7 +545,7 @@ SPECIAL-OPERATOR groups."
                            :description nil)))))))
 
 
-(defmethod inspect-for-emacs ((pathname pathname))
+(defmethod emacs-inspect ((pathname pathname))
   (values (if (wild-pathname-p pathname)
               "A wild pathname."
               "A pathname.")
@@ -561,7 +561,7 @@ SPECIAL-OPERATOR groups."
                               (not (probe-file pathname)))
                     (label-value-line "Truename" (truename pathname))))))
 
-(defmethod inspect-for-emacs ((pathname logical-pathname))
+(defmethod emacs-inspect ((pathname logical-pathname))
   (values "A logical pathname."
           (append 
            (label-value-line*
@@ -581,7 +581,7 @@ SPECIAL-OPERATOR groups."
             ("Truename" (if (not (wild-pathname-p pathname))
                             (probe-file pathname)))))))
 
-(defmethod inspect-for-emacs ((n number))
+(defmethod emacs-inspect ((n number))
   (values "A number." `("Value: " ,(princ-to-string n))))
 
 (defun format-iso8601-time (time-value &optional include-timezone-p)
@@ -604,7 +604,7 @@ SPECIAL-OPERATOR groups."
               year month day hour minute second
               include-timezone-p (format-iso8601-timezone zone)))))
 
-(defmethod inspect-for-emacs ((i integer))
+(defmethod emacs-inspect ((i integer))
   (values "A number."
           (append
            `(,(format nil "Value: ~D = #x~8,'0X = #o~O = #b~,,' ,8:B~@[ = ~E~]"
@@ -616,20 +616,20 @@ SPECIAL-OPERATOR groups."
            (ignore-errors
              (label-value-line "Universal-time" (format-iso8601-time i t))))))
 
-(defmethod inspect-for-emacs ((c complex))
+(defmethod emacs-inspect ((c complex))
   (values "A complex number."
           (label-value-line* 
            ("Real part" (realpart c))
            ("Imaginary part" (imagpart c)))))
 
-(defmethod inspect-for-emacs ((r ratio))
+(defmethod emacs-inspect ((r ratio))
   (values "A non-integer ratio."
           (label-value-line*
            ("Numerator" (numerator r))
            ("Denominator" (denominator r))
            ("As float" (float r)))))
 
-(defmethod inspect-for-emacs ((f float))
+(defmethod emacs-inspect ((f float))
   (values "A floating point number."
           (cond
             ((> f most-positive-long-float)
@@ -649,7 +649,7 @@ SPECIAL-OPERATOR groups."
                 (label-value-line "Digits" (float-digits f))
                 (label-value-line "Precision" (float-precision f))))))))
 
-(defmethod inspect-for-emacs ((stream file-stream))
+(defmethod emacs-inspect ((stream file-stream))
   (multiple-value-bind (title content)
       (call-next-method)
     (declare (ignore title))
@@ -667,7 +667,7 @@ SPECIAL-OPERATOR groups."
                (:newline))
              content))))
 
-(defmethod inspect-for-emacs ((condition stream-error))
+(defmethod emacs-inspect ((condition stream-error))
   (multiple-value-bind (title content)
       (call-next-method)
     (let ((stream (stream-error-stream condition)))
@@ -686,6 +686,21 @@ SPECIAL-OPERATOR groups."
                      (:newline))
                    content))
           (values title content)))))
+
+(defun common-seperated-spec (list &optional (callback (lambda (v) 
+							 `(:value ,v))))
+  (butlast
+   (loop
+      for i in list
+      collect (funcall callback i)
+      collect ", ")))
+
+(defun inspector-princ (list)
+  "Like princ-to-string, but don't rewrite (function foo) as #'foo. 
+Do NOT pass circular lists to this function."
+  (let ((*print-pprint-dispatch* (copy-pprint-dispatch)))
+    (set-pprint-dispatch '(cons (member function)) nil)
+    (princ-to-string list)))
 
 (defvar *fancy-inpector-undo-list* nil)
 

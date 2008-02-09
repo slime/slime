@@ -421,7 +421,7 @@ part of *sysdep-pathnames* in swank.loader.lisp.
 
 ;;;; Inspecting
 
-(defmethod inspect-for-emacs ((slot mop::slot-definition))
+(defmethod emacs-inspect ((slot mop::slot-definition))
   (values "A slot." 
           `("Name: " (:value ,(mop::%slot-definition-name slot))
             (:newline)
@@ -436,7 +436,7 @@ part of *sysdep-pathnames* in swank.loader.lisp.
             "  Function: " (:value ,(mop::%slot-definition-initfunction slot))
             (:newline))))
 
-(defmethod inspect-for-emacs ((f function))
+(defmethod emacs-inspect ((f function))
   (values "A function."
           `(,@(when (function-name f)
                     `("Name: " 
@@ -453,7 +453,7 @@ part of *sysdep-pathnames* in swank.loader.lisp.
 
 #|
 
-(defmethod inspect-for-emacs ((o t))
+(defmethod emacs-inspect ((o t))
   (let* ((class (class-of o))
          (slots (mop::class-slots class)))
     (values (format nil "~A~%   is a ~A" o class)

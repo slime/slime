@@ -627,7 +627,7 @@ Execute BODY with NAME's function slot set to FUNCTION."
 
 ;;;; Inspecting
 
-(defmethod inspect-for-emacs ((o t))
+(defmethod emacs-inspect ((o t))
   (let* ((*print-array* nil) (*print-pretty* t)
          (*print-circle* t) (*print-escape* t)
          (*print-lines* custom:*inspect-print-lines*)

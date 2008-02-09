@@ -33,11 +33,7 @@
            #:declaration-arglist
            #:type-specifier-arglist
            ;; inspector related symbols
-           #:inspector
-           #:backend-inspector
-           #:inspect-for-emacs
-           #:raw-inspection
-           #:fancy-inspection
+           #:emacs-inspect
            #:label-value-line
            #:label-value-line*
            #:with-struct
@@ -840,7 +836,7 @@ themselves, that is, their dispatch functions, are left alone.")
 
 ;;;; Inspector
 
-(defgeneric inspect-for-emacs (object)
+(defgeneric emacs-inspect (object)
   (:documentation
    "Explain to Emacs how to inspect OBJECT.
 
@@ -864,7 +860,7 @@ inserted into the buffer as is, or a list of the form:
 
  NIL - do nothing."))
 
-(defmethod inspect-for-emacs ((object t))
+(defmethod emacs-inspect ((object t))
   "Generic method for inspecting any kind of object.
 
 Since we don't know how to deal with OBJECT we simply dump the

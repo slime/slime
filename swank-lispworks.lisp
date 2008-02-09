@@ -629,15 +629,15 @@ function names like \(SETF GET)."
 (defimplementation make-default-inspector ()
   (make-instance 'lispworks-inspector))
 
-(defmethod inspect-for-emacs ((o t))
+(defmethod emacs-inspect ((o t))
   (lispworks-inspect o))
 
-(defmethod inspect-for-emacs ((o function))
+(defmethod emacs-inspect ((o function))
   (lispworks-inspect o))
 
 ;; FIXME: slot-boundp-using-class in LW works with names so we can't
 ;; use our method in swank.lisp.
-(defmethod inspect-for-emacs ((o standard-object))
+(defmethod emacs-inspect ((o standard-object))
   (lispworks-inspect o))
 
 (defun lispworks-inspect (o)

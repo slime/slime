@@ -248,7 +248,7 @@
 
 ;;;; Inspector
 
-(defmethod inspect-for-emacs ((o t))
+(defmethod emacs-inspect ((o t))
   ; ecl clos support leaves some to be desired
   (cond
     ((streamp o)

@@ -13,7 +13,7 @@
 ;;; available to us here via the `SWANK-BACKEND' package.
 
 (defpackage :swank
-  (:use :common-lisp :swank-backend)
+  (:use :cl :swank-backend)
   (:export #:startup-multiprocessing
            #:start-server 
            #:create-server
@@ -24,8 +24,8 @@
            #:print-indentation-lossage
            #:swank-debugger-hook
            #:run-after-init-hook
-           #:inspect-for-emacs
-           #:inspect-slot-for-emacs
+           #:emacs-inspect
+           ;;#:inspect-slot-for-emacs
            ;; These are user-configurable variables:
            #:*communication-style*
            #:*dont-close*
@@ -2677,67 +2677,182 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
 
 ;;;; Inspecting
 
-(defun common-seperated-spec (list &optional (callback (lambda (v) 
-							 `(:value ,v))))
-  (butlast
-   (loop
-      for i in list
-      collect (funcall callback i)
-      collect ", ")))
+(defvar *inspectee*)
+(defvar *inspectee-parts*) 
+(defvar *inspectee-actions*)
+(defvar *inspector-stack*)
+(defvar *inspector-history*)
 
-(defun inspector-princ (list)
-  "Like princ-to-string, but don't rewrite (function foo) as #'foo. 
-Do NOT pass circular lists to this function."
-  (let ((*print-pprint-dispatch* (copy-pprint-dispatch)))
-    (set-pprint-dispatch '(cons (member function)) nil)
-    (princ-to-string list)))
+(defun reset-inspector ()
+  (setq *inspectee* nil
+        *inspector-stack* '()
+        *inspectee-parts* (make-array 10 :adjustable t :fill-pointer 0)
+        *inspectee-actions* (make-array 10 :adjustable t :fill-pointer 0)
+        *inspector-history* (make-array 10 :adjustable t :fill-pointer 0)))
 
-(defmethod inspect-for-emacs ((object cons))
-  (if (consp (cdr object))
-      (inspect-for-emacs-list object)
-      (inspect-for-emacs-simple-cons object)))
+(defslimefun init-inspector (string)
+  (with-buffer-syntax ()
+    (reset-inspector)
+    (inspect-object (eval (read-from-string string)))))
 
-(defun inspect-for-emacs-simple-cons (cons)
+(defun inspect-object (object)
+  (push (setq *inspectee* object) *inspector-stack*)
+  (unless (find object *inspector-history*)
+    (vector-push-extend object *inspector-history*))
+  (let ((*print-pretty* nil)            ; print everything in the same line
+        (*print-circle* t)
+        (*print-readably* nil))
+    (multiple-value-bind (_ content) (emacs-inspect object)
+      (declare (ignore _))
+      (list :title (with-output-to-string (s)
+                     (print-unreadable-object (object s :type t :identity t)))
+            :id (assign-index object *inspectee-parts*)
+            :content (inspector-content content)))))
+
+(defun inspector-content (specs)
+  (loop for part in specs collect 
+        (etypecase part
+          ;;(null ; XXX encourages sloppy programming
+          ;; nil)
+          (string part)
+          (cons (destructure-case part
+                  ((:newline) 
+                   '#.(string #\newline))
+                  ((:value obj &optional str) 
+                   (value-part obj str))
+                  ((:action label lambda &key (refreshp t)) 
+                   (action-part label lambda refreshp)))))))
+
+(defun assign-index (object vector)
+  (let ((index (fill-pointer vector)))
+    (vector-push-extend object vector)
+    index))
+
+(defun value-part (object string)
+  (list :value 
+        (or string (print-part-to-string object))
+        (assign-index object *inspectee-parts*)))
+
+(defun action-part (label lambda refreshp)
+  (list :action label (assign-index (list lambda refreshp)
+                                    *inspectee-actions*)))
+
+(defun print-part-to-string (value)
+  (let ((string (to-string value))
+        (pos (position value *inspector-history*)))
+    (if pos
+        (format nil "#~D=~A" pos string)
+        string)))
+
+(defslimefun inspector-nth-part (index)
+  (aref *inspectee-parts* index))
+
+(defslimefun inspect-nth-part (index)
+  (with-buffer-syntax ()
+    (inspect-object (inspector-nth-part index))))
+
+(defslimefun inspector-call-nth-action (index &rest args)
+  (destructuring-bind (fun refreshp) (aref *inspectee-actions* index)
+    (apply fun args)
+    (if refreshp
+        (inspect-object (pop *inspector-stack*))
+        ;; tell emacs that we don't want to refresh the inspector buffer
+        nil)))
+
+(defslimefun inspector-pop ()
+  "Drop the inspector stack and inspect the second element.
+Return nil if there's no second element."
+  (with-buffer-syntax ()
+    (cond ((cdr *inspector-stack*)
+           (pop *inspector-stack*)
+           (inspect-object (pop *inspector-stack*)))
+          (t nil))))
+
+(defslimefun inspector-next ()
+  "Inspect the next element in the *inspector-history*."
+  (with-buffer-syntax ()
+    (let ((position (position *inspectee* *inspector-history*)))
+      (cond ((= (1+ position) (length *inspector-history*))
+             nil)
+            (t (inspect-object (aref *inspector-history* (1+ position))))))))
+
+(defslimefun inspector-reinspect ()
+  (inspect-object *inspectee*))
+
+(defslimefun quit-inspector ()
+  (reset-inspector)
+  nil)
+
+(defslimefun describe-inspectee ()
+  "Describe the currently inspected object."
+  (with-buffer-syntax ()
+    (describe-to-string *inspectee*)))
+
+(defslimefun pprint-inspector-part (index)
+  "Pretty-print the currently inspected object."
+  (with-buffer-syntax ()
+    (swank-pprint (list (inspector-nth-part index)))))
+
+(defslimefun inspect-in-frame (string index)
+  (with-buffer-syntax ()
+    (reset-inspector)
+    (inspect-object (eval-in-frame (from-string string) index))))
+
+(defslimefun inspect-current-condition ()
+  (with-buffer-syntax ()
+    (reset-inspector)
+    (inspect-object *swank-debugger-condition*)))
+
+(defslimefun inspect-frame-var (frame var)
+  (with-buffer-syntax ()
+    (reset-inspector)
+    (inspect-object (frame-var-value frame var))))
+
+;;;;; Lists
+
+(defmethod emacs-inspect ((o cons))
+  (if (consp (cdr o))
+      (inspect-list o)
+      (inspect-cons o)))
+
+(defun inspect-cons (cons)
   (values "A cons cell."
           (label-value-line* 
            ('car (car cons))
            ('cdr (cdr cons)))))
 
-(defun inspect-for-emacs-list (list)
-  (let ((maxlen 40))
-    (multiple-value-bind (length tail) (safe-length list)
-      (flet ((frob (title list)
-               (let (lines)
-                 (loop for i from 0 for rest on list do
-                       (if (consp (cdr rest))     ; e.g. (A . (B . ...))
-                           (push (label-value-line i (car rest)) lines)
-                           (progn                 ; e.g. (A . NIL) or (A . B)
-                             (push (label-value-line i (car rest) :newline nil) lines)
-                             (when (cdr rest)
-                               (push '((:newline)) lines)
-                               (push (label-value-line ':tail () :newline nil) lines))
-                             (loop-finish)))
-                       finally
-                       (setf lines (reduce #'append (nreverse lines) :from-end t)))
-                 (values title (append '("Elements:" (:newline)) lines)))))
-                               
-        (cond ((not length)             ; circular
-               (frob "A circular list."
-                     (cons (car list)
-                           (ldiff (cdr list) list))))
-              ((and (<= length maxlen) (not tail))
-               (frob "A proper list." list))
-              (tail
-               (frob "An improper list." list))
-              (t
-               (frob "A proper list." list)))))))
+;; (inspect-list '#1=(a #1# . #1# ))
+;; (inspect-list (list* 'a 'b 'c))
+;; (inspect-list (make-list 10000))
 
-;; (inspect-for-emacs-list '#1=(a #1# . #1# ))
+(defun inspect-list (list)
+  (multiple-value-bind (length tail) (safe-length list)
+    (flet ((frob (title list)
+             (values nil (append `(,title (:newline))
+                                 (inspect-list-aux list)))))
+      (cond ((not length)
+             (frob "A circular list:"
+                   (cons (car list)
+                         (ldiff (cdr list) list))))
+            ((not tail)
+             (frob "A proper list:" list))
+            (t
+             (frob "An improper list:" list))))))
+
+(defun inspect-list-aux (list)
+  (loop for i from 0  for rest on list  while (consp rest)  append 
+        (cond ((consp (cdr rest))
+               (label-value-line i (car rest)))
+              ((cdr rest)
+               (label-value-line* (i (car rest))
+                                  (:tail (cdr rest))))
+              (t 
+               (label-value-line i (car rest))))))
 
 (defun safe-length (list)
   "Similar to `list-length', but avoid errors on improper lists.
 Return two values: the length of the list and the last cdr.
-NIL is returned if the list is circular."
+Return NIL if LIST is circular."
   (do ((n 0 (+ n 2))                    ;Counter.
        (fast list (cddr fast))          ;Fast pointer: leaps by 2.
        (slow list (cdr slow)))          ;Slow pointer: leaps by 1.
@@ -2752,7 +2867,9 @@ NIL is returned if the list is circular."
  a hash table or array to show by default. If table has more than
  this then offer actions to view more. Set to nil for no limit." )
 
-(defmethod inspect-for-emacs ((ht hash-table))
+;;;;; Hashtables
+
+(defmethod emacs-inspect ((ht hash-table))
   (values (prin1-to-string ht)
           (append
            (label-value-line*
@@ -2804,12 +2921,14 @@ NIL is returned if the list is circular."
 		      (progn (format t "How many elements should be shown? ") (read))))
 		 (swank::inspect-object thing)))))
 
-(defmethod inspect-for-emacs ((array array))
+;;;;; Arrays
+
+(defmethod emacs-inspect ((array array))
   (values "An array."
           (append
            (label-value-line*
             ("Dimensions" (array-dimensions array))
-            ("Its element type is" (array-element-type array))
+            ("Element type" (array-element-type array))
             ("Total size" (array-total-size array))
             ("Adjustable" (adjustable-array-p array)))
            (when (array-has-fill-pointer-p array)
@@ -2822,7 +2941,9 @@ NIL is returned if the list is circular."
            (loop for i below (or *slime-inspect-contents-limit* (array-total-size array))
                  append (label-value-line i (row-major-aref array i))))))
 
-(defmethod inspect-for-emacs ((char character))
+;;;;; Chars
+
+(defmethod emacs-inspect ((char character))
   (values "A character."
           (append 
            (label-value-line*
@@ -2833,141 +2954,6 @@ NIL is returned if the list is circular."
                `("In the current readtable (" 
                  (:value ,*readtable*) ") it is a macro character: "
                  (:value ,(get-macro-character char)))))))
-
-(defvar *inspectee*)
-(defvar *inspectee-parts*) 
-(defvar *inspectee-actions*)
-(defvar *inspector-stack* '())
-(defvar *inspector-history* (make-array 10 :adjustable t :fill-pointer 0))
-(declaim (type vector *inspector-history*))
-(defvar *inspect-length* 30)
-
-(defun reset-inspector ()
-  (setq *inspectee* nil
-        *inspector-stack* nil
-        *inspectee-parts* (make-array 10 :adjustable t :fill-pointer 0)
-        *inspectee-actions* (make-array 10 :adjustable t :fill-pointer 0)
-        *inspector-history* (make-array 10 :adjustable t :fill-pointer 0)))
-
-(defslimefun init-inspector (string)
-  (with-buffer-syntax ()
-    (reset-inspector)
-    (inspect-object (eval (read-from-string string)))))
-
-(defun print-part-to-string (value)
-  (let ((string (to-string value))
-        (pos (position value *inspector-history*)))
-    (if pos
-        (format nil "#~D=~A" pos string)
-        string)))
-
-(defun inspector-content-for-emacs (specs)
-  (loop for part in specs collect 
-        (etypecase part
-          (null ; XXX encourages sloppy programming
-           nil)
-          (string part)
-          (cons (destructure-case part
-                  ((:newline) 
-                   (string #\newline))
-                  ((:value obj &optional str) 
-                   (value-part-for-emacs obj str))
-                  ((:action label lambda &key (refreshp t)) 
-                   (action-part-for-emacs label lambda refreshp)))))))
-
-(defun assign-index (object vector)
-  (let ((index (fill-pointer vector)))
-    (vector-push-extend object vector)
-    index))
-
-(defun value-part-for-emacs (object string)
-  (list :value 
-        (or string (print-part-to-string object))
-        (assign-index object *inspectee-parts*)))
-
-(defun action-part-for-emacs (label lambda refreshp)
-  (list :action label (assign-index (list lambda refreshp)
-                                    *inspectee-actions*)))
-
-(defun inspect-object (object)
-  (push (setq *inspectee* object) *inspector-stack*)
-  (unless (find object *inspector-history*)
-    (vector-push-extend object *inspector-history*))
-  (let ((*print-pretty* nil)            ; print everything in the same line
-        (*print-circle* t)
-        (*print-readably* nil))
-    (multiple-value-bind (_ content) (inspect-for-emacs object)
-      (declare (ignore _))
-      (list :title (with-output-to-string (s)
-                     (print-unreadable-object (object s :type t :identity t)))
-            :id (assign-index object *inspectee-parts*)
-            :content (inspector-content-for-emacs content)))))
-
-(defslimefun inspector-nth-part (index)
-  (aref *inspectee-parts* index))
-
-(defslimefun inspect-nth-part (index)
-  (with-buffer-syntax ()
-    (inspect-object (inspector-nth-part index))))
-
-(defslimefun inspector-call-nth-action (index &rest args)
-  (destructuring-bind (action-lambda refreshp)
-      (aref *inspectee-actions* index)
-    (apply action-lambda args)
-    (if refreshp
-        (inspect-object (pop *inspector-stack*))
-        ;; tell emacs that we don't want to refresh the inspector buffer
-        nil)))
-
-(defslimefun inspector-pop ()
-  "Drop the inspector stack and inspect the second element.  Return
-nil if there's no second element."
-  (with-buffer-syntax ()
-    (cond ((cdr *inspector-stack*)
-           (pop *inspector-stack*)
-           (inspect-object (pop *inspector-stack*)))
-          (t nil))))
-
-(defslimefun inspector-next ()
-  "Inspect the next element in the *inspector-history*."
-  (with-buffer-syntax ()
-    (let ((position (position *inspectee* *inspector-history*)))
-      (cond ((= (1+ position) (length *inspector-history*))
-             nil)
-            (t (inspect-object (aref *inspector-history* (1+ position))))))))
-
-(defslimefun inspector-reinspect ()
-  (inspect-object *inspectee*))
-
-(defslimefun quit-inspector ()
-  (reset-inspector)
-  nil)
-
-(defslimefun describe-inspectee ()
-  "Describe the currently inspected object."
-  (with-buffer-syntax ()
-    (describe-to-string *inspectee*)))
-
-(defslimefun pprint-inspector-part (index)
-  "Pretty-print the currently inspected object."
-  (with-buffer-syntax ()
-    (swank-pprint (list (inspector-nth-part index)))))
-
-(defslimefun inspect-in-frame (string index)
-  (with-buffer-syntax ()
-    (reset-inspector)
-    (inspect-object (eval-in-frame (from-string string) index))))
-
-(defslimefun inspect-current-condition ()
-  (with-buffer-syntax ()
-    (reset-inspector)
-    (inspect-object *swank-debugger-condition*)))
-
-(defslimefun inspect-frame-var (frame var)
-  (with-buffer-syntax ()
-    (reset-inspector)
-    (inspect-object (frame-var-value frame var))))
-
 
 ;;;; Thread listing
 

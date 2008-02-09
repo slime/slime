@@ -393,7 +393,7 @@
               collect (funcall callback e)
               collect ", ")))
 
-(defmethod inspect-for-emacs ((class standard-class))
+(defmethod emacs-inspect ((class standard-class))
   (values "A class."
           `("Name: " (:value ,(class-name class))
             (:newline)
@@ -430,7 +430,7 @@
                   '("#<N/A (class not finalized)>"))
             (:newline))))
 
-(defmethod inspect-for-emacs ((slot cons))
+(defmethod emacs-inspect ((slot cons))
   ;; Inspects slot definitions
   (if (eq (car slot) :name)
       (values "A slot." 
@@ -448,7 +448,7 @@
                                              (:newline)))
       (call-next-method)))
   
-(defmethod inspect-for-emacs ((pathname pathnames::pathname-internal))
+(defmethod emacs-inspect ((pathname pathnames::pathname-internal))
   (values (if (wild-pathname-p pathname)
               "A wild pathname."
               "A pathname.")
@@ -464,7 +464,7 @@
                               (not (probe-file pathname)))
                     (label-value-line "Truename" (truename pathname))))))
 
-(defmethod inspect-for-emacs ((o t))
+(defmethod emacs-inspect ((o t))
   (cond ((cl::structurep o) (inspect-structure o))
 	(t (call-next-method))))
 

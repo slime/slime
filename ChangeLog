@@ -1,4 +1,24 @@
-2008-02-07  Helmut Eller  <heller@common-lisp.net>
+2008-02-09  Helmut Eller  <heller@common-lisp.net>
+
+	Inspector cleanups.
+
+	* swank.lisp (emacs-inspect): Renamed from inspect-for-emacs.
+	Changed all method-defs acordingly.
+	(common-seperated-spec, inspector-princ): Moved to
+	swank-fancy-inspector.lisp.
+	(inspector-content): Renamed from inspector-content-for-emacs.
+	(value-part): Renamed from value-part-for-emacs.
+	(action-part): Renamed from action-part-for-emacs.
+	(inspect-list): Renamed from inspect-for-emacs-list.
+	(inspect-list-aux): New.
+	(inspect-cons): Renamed from inspect-for-emacs-simple-cons.
+	(*inspect-length*): Deleted.
+	(inspect-list): Ignore max-length stuff.
+	(inspector-content): Don't allow nil elements.
+	(emacs-inspect array): Make the label of element type more
+	consistent with the others.
+
+2008-02-09  Helmut Eller  <heller@common-lisp.net>
 
 	Cleanup slime-repl-set-package.
 
