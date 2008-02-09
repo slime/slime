@@ -7515,14 +7515,30 @@ Optionally set point to POINT."
           (while (eq (char-before) ?\n)
             (backward-delete-char 1))
           (insert "\n" (fontify label "--------------------") "\n")
-          (save-excursion 
-            (mapc slime-inspector-insert-ispec-function content))
+          (save-excursion
+            (slime-inspector-insert-content content))
           (pop-to-buffer (current-buffer))
           (when point
             (check-type point cons)
             (ignore-errors 
               (goto-line (car point))
               (move-to-column (cdr point)))))))))
+
+(defun slime-inspector-insert-content (content)
+  (destructuring-bind (ispecs len start end) content
+    (slime-inspector-insert-range ispecs len start end t t)))
+
+(defun slime-inspector-insert-range (ispecs len start end prev next)
+  "Insert ISPECS at point.
+LEN is the length of the entire content on the Lisp side.
+START and END are the positions of the subsequnce that ISPECS represents.
+If PREV resp. NEXT are true insert range-buttons as needed."
+  (let ((limit 2000))
+    (when (and prev (> start 0))
+      (slime-inspector-insert-range-button (max 0 (- start limit)) start t))
+    (mapc #'slime-inspector-insert-ispec ispecs)
+    (when (and next (< end len))
+      (slime-inspector-insert-range-button end (min len (+ end limit)) nil))))
 
 (defun slime-inspector-insert-ispec (ispec)
   (if (stringp ispec)
@@ -7555,10 +7571,14 @@ position of point in the current buffer."
           (current-column))))
 
 (defun slime-inspector-operate-on-point ()
-  "If point is on a value then recursivly call the inspector on
-  that value. If point is on an action then call that action."
+  "Invoke the command for the text at point.
+1. If point is on a value then recursivly call the inspector on
+that value.  
+2. If point is on an action then call that action.
+3. If point is on a range-button fetch and insert the range."
   (interactive)
   (let ((part-number (get-text-property (point) 'slime-part-number))
+        (range-button (get-text-property (point) 'slime-range-button))
         (action-number (get-text-property (point) 'slime-action-number))
         (opener (lexical-let ((point (slime-inspector-position)))
                   (lambda (parts)
@@ -7568,6 +7588,8 @@ position of point in the current buffer."
            (slime-eval-async `(swank:inspect-nth-part ,part-number)
                              opener)
            (push (slime-inspector-position) slime-inspector-mark-stack))
+          (range-button
+           (slime-inspector-fetch-range range-button))
           (action-number 
            (slime-eval-async `(swank::inspector-call-nth-action ,action-number)
                              opener)))))
@@ -7668,7 +7690,6 @@ If ARG is negative, move backwards."
                 (progn (goto-char maxpos) (setq previously-wrapped-p t))
                 (error "No inspectable objects")))))))
 
-
 (defun slime-inspector-previous-inspectable-object (arg)
   "Move point to the previous inspectable object.
 With optional ARG, move across that many objects.
@@ -7691,6 +7712,25 @@ If ARG is negative, move forwards."
                     (lexical-let ((point (slime-inspector-position)))
                       (lambda (parts)
                         (slime-open-inspector parts point)))))
+
+(defun slime-inspector-insert-range-button (start end previous)
+  (slime-insert-propertized 
+   (list 'slime-range-button (list start end previous)
+         'mouse-face 'highlight
+         'face 'slime-inspector-action-face)
+   (if previous " [--more--]\n" " [--more--]")))
+
+(defun slime-inspector-fetch-range (button)
+  (destructuring-bind (start end previous) button
+    (slime-eval-async 
+     `(swank:inspector-range ,start ,end)
+     (slime-rcurry
+      (lambda (content prev)
+        (let ((inhibit-read-only t))
+          (apply #'delete-region (slime-property-bounds 'slime-range-button))
+          (destructuring-bind (i l s e) content
+            (slime-inspector-insert-range i l s e prev (not prev)))))
+      previous))))
 
 (slime-define-keys slime-inspector-mode-map
   ([return] 'slime-inspector-operate-on-point)

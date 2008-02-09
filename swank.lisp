@@ -2678,6 +2678,7 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
 ;;;; Inspecting
 
 (defvar *inspectee*)
+(defvar *inspectee-content*)
 (defvar *inspectee-parts*) 
 (defvar *inspectee-actions*)
 (defvar *inspector-stack*)
@@ -2685,9 +2686,10 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
 
 (defun reset-inspector ()
   (setq *inspectee* nil
-        *inspector-stack* '()
+        *inspectee-content* nil
         *inspectee-parts* (make-array 10 :adjustable t :fill-pointer 0)
         *inspectee-actions* (make-array 10 :adjustable t :fill-pointer 0)
+        *inspector-stack* '()
         *inspector-history* (make-array 10 :adjustable t :fill-pointer 0)))
 
 (defslimefun init-inspector (string)
@@ -2695,19 +2697,19 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
     (reset-inspector)
     (inspect-object (eval (read-from-string string)))))
 
-(defun inspect-object (object)
-  (push (setq *inspectee* object) *inspector-stack*)
-  (unless (find object *inspector-history*)
-    (vector-push-extend object *inspector-history*))
-  (let ((*print-pretty* nil)            ; print everything in the same line
+(defun inspect-object (o)
+  (push (setq *inspectee* o) *inspector-stack*)
+  (unless (find o *inspector-history*)
+    (vector-push-extend o *inspector-history*))
+  (let ((*print-pretty* nil) ; print everything in the same line
         (*print-circle* t)
         (*print-readably* nil))
-    (multiple-value-bind (_ content) (emacs-inspect object)
-      (declare (ignore _))
-      (list :title (with-output-to-string (s)
-                     (print-unreadable-object (object s :type t :identity t)))
-            :id (assign-index object *inspectee-parts*)
-            :content (inspector-content content)))))
+    (setq *inspectee-content*
+          (inspector-content (nth-value 1 (emacs-inspect o)))))
+  (list :title (with-output-to-string (s)
+                 (print-unreadable-object (o s :type t :identity t)))
+        :id (assign-index o *inspectee-parts*)
+        :content (content-range *inspectee-content* 0 500)))
 
 (defun inspector-content (specs)
   (loop for part in specs collect 
@@ -2744,12 +2746,19 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
         (format nil "#~D=~A" pos string)
         string)))
 
+(defun content-range (list start end)
+  (let* ((len (length list)) (end (min len end)))
+    (list (subseq list start end) len start end)))
+
 (defslimefun inspector-nth-part (index)
   (aref *inspectee-parts* index))
 
 (defslimefun inspect-nth-part (index)
   (with-buffer-syntax ()
     (inspect-object (inspector-nth-part index))))
+
+(defslimefun inspector-range (from to)
+  (content-range *inspectee-content* from to))
 
 (defslimefun inspector-call-nth-action (index &rest args)
   (destructuring-bind (fun refreshp) (aref *inspectee-actions* index)

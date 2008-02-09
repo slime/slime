@@ -1,5 +1,21 @@
 2008-02-09  Helmut Eller  <heller@common-lisp.net>
 
+	Limit the length of the inspector content.
+	That's similar to the limitation of the length of backtraces in
+	the debugger.
+
+	* swank.lisp (*inspectee-content*): New variable.
+	(content-range): New function.
+	(inspect-object): Use it with a length of 1000.
+	(inspector-range): New function. Called from Emacs.
+
+	* slime.el (slime-inspector-insert-content)
+	(slime-inspector-insert-range, slime-inspector-insert-range-button)
+	(slime-inspector-fetch-range): New functions.
+	(slime-inspector-operate-on-point): Handle range-buttons.
+
+2008-02-09  Helmut Eller  <heller@common-lisp.net>
+
 	Make slime-property-bounds more useful.
 
 	* slime.el (slime-property-bounds): Remove special casing for
