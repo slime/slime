@@ -1,5 +1,15 @@
 2008-02-09  Helmut Eller  <heller@common-lisp.net>
 
+	Make slime-property-bounds more useful.
+
+	* slime.el (slime-property-bounds): Remove special casing for
+	whitespace at the end.
+	(slime-repl-send-input): Don't mark the newline with the
+	slime-repl-old-input property.
+	(sldb-frame-region): Use slime-property-bounds.
+
+2008-02-09  Helmut Eller  <heller@common-lisp.net>
+
 	Inspector cleanups.
 
 	* swank.lisp (emacs-inspect): Renamed from inspect-for-emacs.

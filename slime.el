@@ -3172,14 +3172,14 @@ If NEWLINE is true then add a newline at the end of the input."
   (let ((end (point))) ; end of input, without the newline
     (slime-repl-add-to-input-history 
      (buffer-substring slime-repl-input-start-mark end))
-    (when newline 
-      (insert "\n")
-      (slime-repl-show-maximum-output))
     (let ((inhibit-read-only t))
       (add-text-properties slime-repl-input-start-mark 
                            (point)
                            `(slime-repl-old-input
                              ,(incf slime-repl-old-input-counter))))
+    (when newline 
+      (insert "\n")
+      (slime-repl-show-maximum-output))
     (let ((overlay (make-overlay slime-repl-input-start-mark end)))
       ;; These properties are on an overlay so that they won't be taken
       ;; by kill/yank.
@@ -3212,25 +3212,9 @@ text property `slime-repl-old-input'."
 (defun slime-property-bounds (prop)
   "Return two the positions of the previous and next changes to PROP.
 PROP is the name of a text property."
-  (let* ((beg (save-excursion
-                ;; previous-single-char-property-change searches for a
-                ;; property change from the previous character, but we
-                ;; want to look for a change from the point. We step
-                ;; forward one char to avoid doing the wrong thing if
-                ;; we're at the beginning of the old input. -luke
-                ;; (18/Jun/2004)
-                (unless (not (get-text-property (point) prop)) 
-                  ;; alanr unless we are sitting right after it May 19, 2005
-                  (ignore-errors (forward-char)))
-                (previous-single-char-property-change (point) prop)))
-         (end (save-excursion
-                (if (get-text-property (point) prop)
-                    (progn (goto-char (next-single-char-property-change 
-                                       (point) prop))
-                           (skip-chars-backward "\n \t\r" beg)
-                           (point))
-                  (point)))))
-    (values beg end)))
+  (assert (get-text-property (point) prop))
+  (let ((end (next-single-char-property-change (point) prop)))
+    (list (previous-single-char-property-change end prop) end)))
 
 (defun slime-repl-closing-return ()
   "Evaluate the current input string after closing all open lists."
@@ -6816,11 +6800,7 @@ Called on the `point-entered' text-property hook."
        (get-text-property (point) 'details-visible-p)))
 
 (defun sldb-frame-region ()
-  (save-excursion
-    (goto-char (next-single-property-change (point) 'frame nil (point-max)))
-    (backward-char)
-    (values (previous-single-property-change (point) 'frame)
-	    (next-single-property-change (point) 'frame nil (point-max)))))
+  (slime-property-bounds 'frame))
 
 (defun sldb-forward-frame ()
   (goto-char (next-single-char-property-change (point) 'frame)))
