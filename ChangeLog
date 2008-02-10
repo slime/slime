@@ -1,3 +1,11 @@
+2008-02-10  Helmut Eller  <heller@common-lisp.net>
+
+	Remove remaining traces of make-default-inspector.
+
+	* swank-scl.lisp (make-default-inspector, scl-inspector): Deleted.
+	* swank-lispworks.lisp (make-default-inspector)
+	(lispworks-inspector): Deleted.
+
 2008-02-09  Helmut Eller  <heller@common-lisp.net>
 
 	Drop the first return value of emacs-inspect.

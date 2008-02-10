@@ -1693,11 +1693,6 @@ LRA  =  ~X~%" (mapcar #'fixnum
 
 ;;;; Inspecting
 
-(defclass scl-inspector (backend-inspector) ())
-
-(defimplementation make-default-inspector ()
-  (make-instance 'scl-inspector))
-
 (defconstant +lowtag-symbols+ 
   '(vm:even-fixnum-type
     vm:instance-pointer-type

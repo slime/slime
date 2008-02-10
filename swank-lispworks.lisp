@@ -624,10 +624,6 @@ function names like \(SETF GET)."
           append (frob-locs dspec (dspec:dspec-definition-locations dspec)))))
 
 ;;; Inspector
-(defclass lispworks-inspector (backend-inspector) ())
-
-(defimplementation make-default-inspector ()
-  (make-instance 'lispworks-inspector))
 
 (defmethod emacs-inspect ((o t))
   (lispworks-inspect o))
