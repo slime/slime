@@ -31,9 +31,8 @@
 (require 'slime-editing-commands)
 (slime-editing-commands-init)
 
-;; Makes the inspector fancier.
+;; Makes the inspector fancier.  (Once loaded, can't be turned off.)
 (require 'slime-fancy-inspector)
-(slime-fancy-inspector-init)
 
 ;; Just adds the command C-c M-i.  We do not make fuzzy completion the
 ;; default completion invoked by TAB. --mkoeppe

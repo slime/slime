@@ -7,6 +7,10 @@
 
 	* slime-fancy-inspector.el: Use slime-require.
 
+	* slime-fancy.el: slime-fancy-inspector-init no longer exists, so
+	don't call it.  Once loaded, it's also no longer possible to turn
+	the fancy inspector off.
+	
 2008-02-04  Marco Baringer  <mb@bese.it>
 
 	* swank-presentation-streams.lisp (presenting-object-1): Add
