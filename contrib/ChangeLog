@@ -1,3 +1,12 @@
+2008-02-10  Helmut Eller  <heller@common-lisp.net>
+
+	Fix some bugs introduced by the recent reorganization.
+
+	* swank-fancy-inspector.lisp (emacs-inspect pathname): Fix it
+	again.
+
+	* slime-fancy-inspector.el: Use slime-require.
+
 2008-02-04  Marco Baringer  <mb@bese.it>
 
 	* swank-presentation-streams.lisp (presenting-object-1): Add

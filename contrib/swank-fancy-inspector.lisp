@@ -535,21 +535,21 @@ SPECIAL-OPERATOR groups."
 
 
 (defmethod emacs-inspect ((pathname pathname))
-          (list* (if (wild-pathname-p pathname)
-		      "A wild pathname."
-		      "A pathname.")
-		  '(:newline)
-		  (label-value-line*
-                   ("Namestring" (namestring pathname))
-                   ("Host"       (pathname-host pathname))
-                   ("Device"     (pathname-device pathname))
-                   ("Directory"  (pathname-directory pathname))
-                   ("Name"       (pathname-name pathname))
-                   ("Type"       (pathname-type pathname))
-                   ("Version"    (pathname-version pathname)))
-                  (unless (or (wild-pathname-p pathname)
-                              (not (probe-file pathname)))
-                    (label-value-line "Truename" (truename pathname)))))
+  `(,(if (wild-pathname-p pathname)
+	 "A wild pathname."
+	 "A pathname.")
+     (:newline)
+     ,@(label-value-line*
+	("Namestring" (namestring pathname))
+	("Host"       (pathname-host pathname))
+	("Device"     (pathname-device pathname))
+	("Directory"  (pathname-directory pathname))
+	("Name"       (pathname-name pathname))
+	("Type"       (pathname-type pathname))
+	("Version"    (pathname-version pathname)))
+     ,@ (unless (or (wild-pathname-p pathname)
+		    (not (probe-file pathname)))
+	  (label-value-line "Truename" (truename pathname)))))
 
 (defmethod emacs-inspect ((pathname logical-pathname))
           (append 
@@ -651,7 +651,7 @@ SPECIAL-OPERATOR groups."
              content)))
 
 (defmethod emacs-inspect ((condition stream-error))
-  (multiple-value-bind (title content)
+  (multiple-value-bind (content)
       (call-next-method)
     (let ((stream (stream-error-stream condition)))
       (if (typep stream 'file-stream)
@@ -683,14 +683,5 @@ Do NOT pass circular lists to this function."
   (let ((*print-pprint-dispatch* (copy-pprint-dispatch)))
     (set-pprint-dispatch '(cons (member function)) nil)
     (princ-to-string list)))
-
-(defvar *fancy-inpector-undo-list* nil)
-
-(defslimefun fancy-inspector-init ()
-  t)
-
-(defslimefun fancy-inspector-unload ()
-  (loop while *fancy-inpector-undo-list* do
-	(funcall (pop *fancy-inpector-undo-list*))))
 
 (provide :swank-fancy-inspector)
