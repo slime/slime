@@ -1,5 +1,10 @@
 2008-02-13  Helmut Eller  <heller@common-lisp.net>
 
+	* slime-c-p-c.el (slime-c-p-c-init): Use slime-require instead of
+	a connected-hook.
+
+2008-02-13  Helmut Eller  <heller@common-lisp.net>
+
 	Track tree-widget change: :dynarg is now called :expander.
 
 	* slime-xref-browser.el (slime-expand-class-node)
