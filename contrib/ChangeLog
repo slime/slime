@@ -1,3 +1,11 @@
+2008-02-13  Helmut Eller  <heller@common-lisp.net>
+
+	Track tree-widget change: :dynarg is now called :expander.
+
+	* slime-xref-browser.el (slime-expand-class-node)
+	(slime-browse-classes, slime-expand-xrefs, slime-browse-xrefs):
+	:dynargs is obsolete, it is now called :expander.
+
 2008-02-10  Helmut Eller  <heller@common-lisp.net>
 
 	Fix some bugs introduced by the recent reorganization.
@@ -10,7 +18,7 @@
 	* slime-fancy.el: slime-fancy-inspector-init no longer exists, so
 	don't call it.  Once loaded, it's also no longer possible to turn
 	the fancy inspector off.
-	
+
 2008-02-04  Marco Baringer  <mb@bese.it>
 
 	* swank-presentation-streams.lisp (presenting-object-1): Add
