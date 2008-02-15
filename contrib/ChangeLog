@@ -1,3 +1,8 @@
+2008-02-15  Matthias Koeppe  <mkoeppe@mail.math.uni-magdeburg.de>
+
+	* slime-presentations.el (slime-previous-presentation)
+	(slime-next-presentation): Accept a standard prefix argument.
+
 2008-02-13  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-c-p-c.el (slime-c-p-c-init): Use slime-require instead of
