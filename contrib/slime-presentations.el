@@ -479,35 +479,47 @@ Also return the start position, end position, and buffer of the presentation."
     (goto-char start)
     (push-mark end nil t)))
 
-(defun slime-previous-presentation ()
-  "Move point to the beginning of the first presentation before point."
-  (interactive)
-  ;; First skip outside the current surrounding presentation (if any)
-  (multiple-value-bind (presentation start end) 
-      (slime-presentation-around-point (point))
-    (when presentation
-      (goto-char start)))
-  (let ((p (previous-single-property-change (point) 'slime-repl-presentation)))
-    (unless p 
-      (error "No previous presentation"))
-    (multiple-value-bind (presentation start end) 
-	(slime-presentation-around-or-before-point-or-error p)
-      (goto-char start))))
+(defun slime-previous-presentation (&optional arg)
+  "Move point to the beginning of the first presentation before point.
+With ARG, do this that many times.
+A negative argument means move forward instead."
+  (interactive "p")
+  (unless arg (setq arg 1))
+  (slime-next-presentation (- arg)))
 
-(defun slime-next-presentation ()
-  "Move point to the beginning of the next presentation after point."
-  (interactive)
-  ;; First skip outside the current surrounding presentation (if any)
-  (multiple-value-bind (presentation start end) 
-      (slime-presentation-around-point (point))
-    (when presentation
-      (goto-char end)))
-  (let ((p (next-single-property-change (point) 'slime-repl-presentation)))
-    (unless p 
-      (error "No next presentation"))
-    (multiple-value-bind (presentation start end) 
-	(slime-presentation-around-or-before-point-or-error p)
-      (goto-char start))))
+(defun slime-next-presentation (&optional arg)
+  "Move point to the beginning of the next presentation after point.
+With ARG, do this that many times.
+A negative argument means move backward instead."
+  (interactive "p")
+  (unless arg (setq arg 1))
+  (cond
+   ((plusp arg)
+    (dotimes (i arg)
+      ;; First skip outside the current surrounding presentation (if any)
+      (multiple-value-bind (presentation start end) 
+	  (slime-presentation-around-point (point))
+	(when presentation
+	  (goto-char end)))
+      (let ((p (next-single-property-change (point) 'slime-repl-presentation)))
+	(unless p 
+	  (error "No next presentation"))
+	(multiple-value-bind (presentation start end) 
+	    (slime-presentation-around-or-before-point-or-error p)
+	  (goto-char start)))))
+   ((minusp arg)
+    (dotimes (i (- arg))
+      ;; First skip outside the current surrounding presentation (if any)
+      (multiple-value-bind (presentation start end)
+	  (slime-presentation-around-point (point))
+	(when presentation
+	  (goto-char start)))
+      (let ((p (previous-single-property-change (point) 'slime-repl-presentation)))
+	(unless p 
+	  (error "No previous presentation"))
+	(multiple-value-bind (presentation start end) 
+	    (slime-presentation-around-or-before-point-or-error p)
+	  (goto-char start)))))))
 
 (defvar slime-presentation-map (make-sparse-keymap))
 
