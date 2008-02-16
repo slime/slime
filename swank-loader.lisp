@@ -18,15 +18,10 @@
 ;;   (defparameter swank-loader::*fasl-directory* "/tmp/fasl/")
 ;;   (load ".../swank-loader.lisp")
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (when (find-package :swank)
-    (delete-package :swank)
-    (delete-package :swank-io-package)
-    (delete-package :swank-backend)))
-
 (cl:defpackage :swank-loader
   (:use :cl)
   (:export :load-swank
+           :init
            :*source-directory*
            :*fasl-directory*))
 
@@ -79,7 +74,7 @@
                 (subseq s 0 (position #\space s)))
   #+armedbear (lisp-implementation-version))
 
-(defun unique-directory-name ()
+(defun unique-dir-name ()
   "Return a name that can be used as a directory name that is
 unique to a Lisp implementation, Lisp implementation version,
 operating system, and hardware architecture."
@@ -114,20 +109,20 @@ Return nil if nothing appropriate is available."
                      :if-does-not-exist nil)
     (and s (symbol-name (read s)))))
 
-(defun default-fasl-directory ()
+(defun default-fasl-dir ()
   (merge-pathnames
    (make-pathname
     :directory `(:relative ".slime" "fasl"
                  ,@(if (slime-version-string) (list (slime-version-string)))
-                 ,(unique-directory-name)))
+                 ,(unique-dir-name)))
    (user-homedir-pathname)))
 
-(defun binary-pathname (source-pathname binary-directory)
-  "Return the pathname where SOURCE-PATHNAME's binary should be compiled."
-  (let ((cfp (compile-file-pathname source-pathname)))
+(defun binary-pathname (src-pathname binary-dir)
+  "Return the pathname where SRC-PATHNAME's binary should be compiled."
+  (let ((cfp (compile-file-pathname src-pathname)))
     (merge-pathnames (make-pathname :name (pathname-name cfp)
                                     :type (pathname-type cfp))
-                     binary-directory)))
+                     binary-dir)))
 
 (defun handle-loadtime-error (condition binary-pathname)
   (pprint-logical-block (*error-output* () :per-line-prefix ";; ")
@@ -135,40 +130,37 @@ Return nil if nothing appropriate is available."
             "~%Error while loading: ~A~%Condition: ~A~%Aborting.~%"
             binary-pathname condition))
   (when (equal (directory-namestring binary-pathname)
-               (directory-namestring (default-fasl-directory)))
+               (directory-namestring (default-fasl-dir)))
     (ignore-errors (delete-file binary-pathname)))
   (abort))
 
-(defun compile-files-if-needed-serially (files fasl-directory load)
+(defun compile-files (files fasl-dir load)
   "Compile each file in FILES if the source is newer than
 its corresponding binary, or the file preceding it was
 recompiled."
   (let ((needs-recompile nil))
-    (dolist (source-pathname files)
-      (let ((binary-pathname (binary-pathname source-pathname
-                                              fasl-directory)))
+    (dolist (src files)
+      (let ((dest (binary-pathname src fasl-dir)))
         (handler-case
             (progn
               (when (or needs-recompile
-                        (not (probe-file binary-pathname))
-                        (file-newer-p source-pathname binary-pathname))
-                ;; need a to recompile source-pathname, so we'll
+                        (not (probe-file dest))
+                        (file-newer-p src dest))
+                ;; need a to recompile src-pathname, so we'll
                 ;; need to recompile everything after this too.
                 (setq needs-recompile t)
-                (ensure-directories-exist binary-pathname)
-                (compile-file source-pathname :output-file binary-pathname
-                              :print nil
-                              :verbose t))
+                (ensure-directories-exist dest)
+                (compile-file src :output-file dest :print nil :verbose t))
               (when load
-                (load binary-pathname :verbose t)))
+                (load dest :verbose t)))
           ;; Fail as early as possible
           (serious-condition (c)
-            (handle-loadtime-error c binary-pathname)))))))
+            (handle-loadtime-error c dest)))))))
 
 #+(or cormanlisp ecl)
-(defun compile-files-if-needed-serially (files fasl-directory load)
+(defun compile-files (files fasl-dir load)
   "Corman Lisp and ECL have trouble with compiled files."
-  (declare (ignore fasl-directory))
+  (declare (ignore fasl-dir))
   (when load
     (dolist (file files)
       (load file :verbose t)
@@ -180,22 +172,22 @@ recompiled."
                          (make-pathname :name ".swank" :type "lisp"))
         :if-does-not-exist nil))
 
-(defun load-site-init-file (directory)
+(defun load-site-init-file (dir)
   (load (make-pathname :name "site-init" :type "lisp"
-                       :defaults directory)
+                       :defaults dir)
         :if-does-not-exist nil))
 
-(defun source-files (names src-dir)
+(defun src-files (names src-dir)
   (mapcar (lambda (name)
             (make-pathname :name (string-downcase name) :type "lisp"
                            :defaults src-dir))
           names))
 
-(defun swank-source-files (src-dir)
-  (source-files `("swank-backend" ,@*sysdep-files* "swank") 
-                src-dir))
+(defun swank-src-files (src-dir)
+  (src-files `("swank-backend" ,@*sysdep-files* "swank") 
+             src-dir))
 
-(defvar *fasl-directory* (default-fasl-directory)
+(defvar *fasl-directory* (default-fasl-dir)
   "The directory where fasl files should be placed.")
 
 (defvar *contribs* '(swank-c-p-c swank-arglists swank-fuzzy
@@ -210,28 +202,30 @@ recompiled."
    (make-pathname :directory `(:relative ,name) :defaults absolute)
    absolute))
 
-(defun contrib-src-dir (src-dir)
-  (append-dir src-dir "contrib"))
+(defun contrib-dir (base-dir)
+  (append-dir base-dir "contrib"))
 
-(defun contrib-source-files (src-dir)
-  (source-files *contribs* (contrib-src-dir src-dir)))
+(defun load-swank (&key (src-dir *source-directory*)
+                   (fasl-dir *fasl-directory*))
+  (compile-files (swank-src-files src-dir) fasl-dir t))
 
-(defun load-swank (&key
-                   (source-directory *source-directory*)
-                   (fasl-directory *fasl-directory*)
-                   (contrib-fasl-directory 
-                    (append-dir fasl-directory "contrib")))
-  (compile-files-if-needed-serially (swank-source-files source-directory)
-                                    fasl-directory t)
-  (compile-files-if-needed-serially (contrib-source-files source-directory)
-                                    contrib-fasl-directory nil))
+(defun compile-contribs (&key (src-dir (contrib-dir *source-directory*))
+                         (fasl-dir (contrib-dir *fasl-directory*)))
+  (compile-files (src-files *contribs* src-dir) fasl-dir nil))
 
-(load-swank)
+(defun setup ()
+  (flet ((q (s) (read-from-string s)))
+    (load-site-init-file *source-directory*)
+    (load-user-init-file)
+    (eval `(pushnew 'compile-contribs ,(q "swank::*after-init-hook*")))
+    (funcall (q "swank::setup") 
+             (slime-version-string)
+             (list (contrib-dir *fasl-directory*)    
+                   (contrib-dir *source-directory*)))))
 
-(setq swank::*swank-wire-protocol-version* (slime-version-string))
-(setq swank::*load-path* 
-      (append swank::*load-path* (list (contrib-src-dir *source-directory*))))
-(swank-backend::warn-unimplemented-interfaces)
-(load-site-init-file *source-directory*)
-(load-user-init-file)
-(swank:run-after-init-hook)
+(defun init (&key delete reload)
+  (when (and delete (find-package :swank))
+    (mapc #'delete-package '(:swank :swank-io-package :swank-backend)))
+  (when (or (not (find-package :swank)) reload)
+    (load-swank))
+  (setup))

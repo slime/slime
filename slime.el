@@ -1432,6 +1432,7 @@ Return the created process."
     (format "%S\n\n"
             `(progn
                (load ,(expand-file-name loader) :verbose t)
+               (funcall (read-from-string "swank-loader:init"))
                (funcall (read-from-string "swank:start-server")
                         ,port-filename
                         :coding-system ,encoding)))))
@@ -3172,14 +3173,13 @@ If NEWLINE is true then add a newline at the end of the input."
   (let ((end (point))) ; end of input, without the newline
     (slime-repl-add-to-input-history 
      (buffer-substring slime-repl-input-start-mark end))
-    (let ((inhibit-read-only t))
-      (add-text-properties slime-repl-input-start-mark 
-                           (point)
-                           `(slime-repl-old-input
-                             ,(incf slime-repl-old-input-counter))))
     (when newline 
       (insert "\n")
       (slime-repl-show-maximum-output))
+    (add-text-properties slime-repl-input-start-mark 
+                         (point)
+                         `(slime-repl-old-input
+                           ,(incf slime-repl-old-input-counter)))
     (let ((overlay (make-overlay slime-repl-input-start-mark end)))
       ;; These properties are on an overlay so that they won't be taken
       ;; by kill/yank.
@@ -3206,7 +3206,10 @@ text property `slime-repl-old-input'."
                (unless (eq (char-before) ?\ )
                  (insert " "))))
       (delete-region (point) slime-repl-input-end-mark)
-      (save-excursion (insert old-input))
+      (save-excursion 
+        (insert old-input)
+        (when (equal (char-before) ?\n) 
+          (delete-char -1)))
       (forward-char offset))))
 
 (defun slime-property-bounds (prop)

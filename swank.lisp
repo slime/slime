@@ -23,7 +23,6 @@
            #:inspect-in-emacs
            #:print-indentation-lossage
            #:swank-debugger-hook
-           #:run-after-init-hook
            #:emacs-inspect
            ;;#:inspect-slot-for-emacs
            ;; These are user-configurable variables:
@@ -181,9 +180,6 @@ Backend code should treat the connection structure as opaque.")
 
 (defvar *after-init-hook* '()
   "Hook run after user init files are loaded.")
-
-(defun run-after-init-hook ()
-  (run-hook *after-init-hook*))
 
 
 ;;;; Connections
@@ -2291,10 +2287,7 @@ the filename of the module (or nil if the file doesn't exist).")
     (make-pathname :directory `(:relative ,dirname) :defaults defaults)
     defaults)))
 
-(defvar *load-path*
-  (list (make-pathname :directory (merged-directory "contrib" *load-truename*)
-                       :name nil :type nil :version nil
-                       :defaults *load-truename*))
+(defvar *load-path* '()
   "A list of directories to search for modules.")
 
 (defun module-canditates (name dir)
@@ -3140,5 +3133,11 @@ Collisions are caused because package information is ignored."
                     collisions))))))
 
 (add-hook *pre-reply-hook* 'sync-indentation-to-emacs)
+
+(defun setup (version load-path)
+  (setq *swank-wire-protocol-version* version)
+  (setq *load-path* load-path)
+  (swank-backend::warn-unimplemented-interfaces)
+  (run-hook *after-init-hook*))
 
 ;;; swank.lisp ends here

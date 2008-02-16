@@ -1,3 +1,25 @@
+2008-02-16  Helmut Eller  <heller@common-lisp.net>
+
+	In the REPL, mark the trailing newline also as input.
+
+	* slime.el (slime-repl-send-input): Mark the newline with
+	the 'slime-repl-old-input property.
+	(slime-repl-grab-old-input): Strip the newline.
+
+2008-02-16  Helmut Eller  <heller@common-lisp.net>
+
+	Split loading and initialization (again).
+
+	* swank-loader.lisp (init): New.  Delete old packages only if
+	explicitly requested.  Also, if the swank package already exists
+	don't load swank again.
+	(setup): New function.
+
+	* swank.lisp (setup): New function.  Moved over here from
+	swank-loader.lisp.
+
+	* slime.el (slime-init-command): Call swank-loader:init.
+
 2008-02-10  Helmut Eller  <heller@common-lisp.net>
 
 	Remove remaining traces of make-default-inspector.
@@ -2875,15 +2897,15 @@
 	* slime.el (slime-repl-previous-input-starting-with-current-input)
 	(slime-repl-next-input-starting-with-current-input): New functions,
 	work like the old slime-repl-previous-input / next-input.
-	(slime-repl-matching-input-regexp): Restore old version.	
+	(slime-repl-matching-input-regexp): Restore old version.
 	(slime-repl-mode-map): Bind s-r-p-i-s-w-c-i and s-r-n-i-s-w-c-i
 	to M-p and M-n respectively. slime-repl-previous-input and
 	slime-repl-next-input are still accessible with C-up / C-down.
-	
+
 2006-11-25  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-repl-read-break): Use a :emacs-interrupt message
-	instead of a RPC to swank:simple-break.  Suggested by Taylor R
+	instead of a RPC to swank:simple-break.  Suggested by Taylor R.
 	Campbell.
 
 2006-11-24  Helmut Eller  <heller@common-lisp.net>
@@ -3428,7 +3450,7 @@
 	* swank.lisp (format-iso8601-time): Properly handle non integer
 	time zones.
 
-2006-09-13  Taylor R Campbell <campbell@mumble.net>
+2006-09-13  Taylor R. Campbell <campbell@mumble.net>
 
 	* slime.el (slime-init-output-buffer): Initial directory and
 	package stacks should be empty.
@@ -3613,7 +3635,7 @@
 2006-07-28  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-thread-quit): Call swank:quit-thread-browser.
-	Reported by Taylor R Campbell.
+	Reported by Taylor R. Campbell.
 
 2006-07-28  Willem Broekema <metawilm@gmail.com>
 
@@ -4970,7 +4992,7 @@
 
 	* slime.el (slime48): New command.
 
-2005-09-19 Taylor Campbell <campbell@mumble.net>
+2005-09-19 Taylor R. Campbell <campbell@mumble.net>
 
 	* swank-scheme48/: New backend.
 
