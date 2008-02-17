@@ -1,3 +1,8 @@
+2008-02-17  Marco Baringer  <mb@bese.it>
+
+	* swank.asd: Update for recent changes to swank-loader.lisp, we
+	need to call swank-loader::init after loading.
+
 2008-02-16  Helmut Eller  <heller@common-lisp.net>
 
 	In the REPL, mark the trailing newline also as input.
