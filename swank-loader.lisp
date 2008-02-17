@@ -135,9 +135,8 @@ Return nil if nothing appropriate is available."
   (abort))
 
 (defun compile-files (files fasl-dir load)
-  "Compile each file in FILES if the source is newer than
-its corresponding binary, or the file preceding it was
-recompiled."
+  "Compile each file in FILES if the source is newer than its
+corresponding binary, or the file preceding it was recompiled."
   (let ((needs-recompile nil))
     (dolist (src files)
       (let ((dest (binary-pathname src fasl-dir)))
