@@ -916,7 +916,8 @@
 (define-simple-class <inspector-state> () 
   (object :init #!null) 
   (parts :: <java.util.ArrayList> :init (<java.util.ArrayList>) )
-  (stack :: <list> :init '()))
+  (stack :: <list> :init '())
+  (content :: <list> :init '()))
 
 (df make-inspector (env (vm <vm>) => <chan>)
   (car (spawn/chan (fun (c) (inspector c env vm)))))
@@ -950,14 +951,16 @@
   (set (@ object state) obj)
   (set (@ parts state) (<java.util.ArrayList>))
   (pushf obj (@ stack state))
+  (set (@ content state) (inspector-content 
+                          `("class: " (:value ,(! getClass obj)) "\n" 
+                            ,@(inspect obj vm))
+                          state))
   (cond ((nul? obj) (list :title "#!null" :id 0 :content `()))
         (#t
          (list :title (pprint-to-string obj) 
                :id (assign-index obj state)
-               :content (inspector-content
-                         `("class: " (:value ,(! getClass obj)) "\n" 
-                           ,@(inspect obj vm))
-                         state)))))
+               :content (let ((c (@ content state)))
+                          (content-range  c 0 (len c)))))))
 
 (df inspect (obj vm)
   (let* ((obj (as <obj-ref> (vm-mirror vm obj))))
@@ -995,6 +998,10 @@
 (df assign-index (obj (state <inspector-state>) => <int>)
   (! add (@ parts state) obj)
   (1- (! size  (@ parts state))))
+
+(df content-range (l start end)
+  (let* ((len (length l)) (end (min len end)))
+    (list (subseq l start end) len start end)))
 
 (df inspector-pop ((state <inspector-state>) vm)
   (cond ((<= 2 (len (@ stack state)))
@@ -1839,6 +1846,12 @@
 
 (df mappend (f list)
   (apply append (map f list)))
+
+(df subseq (s from to)
+  (typecase s
+    (<list> (apply list (! sub-list s from to)))
+    (<vector> (apply vector (! sub-list s from to)))
+    (<str> (! substring s from to))))
 
 (df to-string (obj => <string>)
   (cond ((instance? obj <str>) (<gnu.lists.FString> (as <str> obj)))
