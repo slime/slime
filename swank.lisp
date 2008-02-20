@@ -2706,8 +2706,6 @@ The result is a list of the form ((LOCATION . ((DSPEC . LOCATION) ...)) ...)."
 (defun inspector-content (specs)
   (loop for part in specs collect 
         (etypecase part
-          ;;(null ; XXX encourages sloppy programming
-          ;; nil)
           (string part)
           (cons (destructure-case part
                   ((:newline) 
@@ -2840,13 +2838,9 @@ Return nil if there's no second element."
 
 (defun inspect-list-aux (list)
   (loop for i from 0  for rest on list  while (consp rest)  append 
-        (cond ((consp (cdr rest))
-               (label-value-line i (car rest)))
-              ((cdr rest)
-               (label-value-line* (i (car rest))
-                                  (:tail (cdr rest))))
-              (t 
-               (label-value-line i (car rest))))))
+        (if (listp (cdr rest))
+            (label-value-line i (car rest))
+            (label-value-line* (i (car rest)) (:tail (cdr rest))))))
 
 (defun safe-length (list)
   "Similar to `list-length', but avoid errors on improper lists.
