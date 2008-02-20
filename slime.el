@@ -4107,8 +4107,9 @@ The order of the input list is preserved."
       (goto-char (point-min)))))
 
 (defun slime-alistify (list key test)
-  "Partition the elements of LIST into an alist.  
-KEY extracts the key from an element and TEST is used to compare keys."
+  "Partition the elements of LIST into an alist.
+KEY extracts the key from an element and TEST is used to compare
+keys."
   (declare (type function key))
   (let ((alist '()))
     (dolist (e list)
@@ -4118,7 +4119,7 @@ KEY extracts the key from an element and TEST is used to compare keys."
 	    (push e (cdr probe))
             (push (cons k (list e)) alist))))
     ;; Put them back in order.
-    (loop for (key . value) in alist
+    (loop for (key . value) in (reverse alist)
           collect (cons key (reverse value)))))
 
 (defun slime-note.severity (note)
@@ -5141,28 +5142,79 @@ look if the current buffer is narrowed, and if so use the relevant values."
             ;; If this buffer was deleted, recurse to try the next one
             (slime-pop-find-definition-stack))))))
 
-(defstruct (slime-definition (:conc-name slime-definition.)
-                             (:type list))
+(defstruct (slime-xref (:conc-name slime-xref.) (:type list))
   dspec location)
+
+(defstruct (slime-location (:conc-name slime-location.) (:type list)
+                           (:constructor nil) (:copier nil))
+  tag buffer position hints)
+(defun slime-location-p (o) (and (consp o) (eq (car o) :location)))
+
+(defun slime-xref-has-location-p (xref)
+  (slime-location-p (slime-xref.location xref)))
 
 (defun slime-edit-definition (name &optional where)
   "Lookup the definition of the name at point.  
 If there's no name at point, or a prefix argument is given, then the
 function name is prompted."
   (interactive (list (slime-read-symbol-name "Name: ")))
-  (let ((definitions (slime-eval `(swank:find-definitions-for-emacs ,name))))
-    (cond
-     ((null definitions)
-      (if slime-edit-definition-fallback-function
-          (funcall slime-edit-definition-fallback-function name)
-        (error "No known definition for: %s" name)))
-     ((and (slime-length= definitions 1)
-           (eql (car (slime-definition.location (car definitions))) :error))
-      (if slime-edit-definition-fallback-function
-          (funcall slime-edit-definition-fallback-function name)
-        (error "%s" (cadr (slime-definition.location (car definitions))))))
-     (t 
-      (slime-goto-definition name definitions where)))))
+  (slime-find-definitions name
+                          (slime-rcurry
+                           #'slime-edit-definition-cont name where)))
+
+(defun slime-edit-definition-cont (xrefs name where)
+  (destructuring-bind (1loc file-alist) (slime-analyze-xrefs xrefs)
+    (cond ((null xrefs) 
+           (error "No known definition for: %s" name))
+          (1loc
+           (slime-push-definition-stack)
+           (slime-pop-to-location (slime-xref.location (car xrefs)) where))
+          ((= (length xrefs) 1)
+           (error "%s" (cadr (slime-xref.location (car xrefs)))))
+          (t
+           (slime-push-definition-stack)
+           (slime-show-xrefs file-alist 'definition name
+                             (slime-current-package))))))
+
+(defun slime-analyze-xrefs (xrefs)
+  "Find common filenames in XREFS.
+Return a list (SINGLE-LOCATION FILE-ALIST).
+SINGLE-LOCATION is true if all xrefs point to the same location.
+FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
+  (list (and xrefs
+             (let ((loc (slime-xref.location (car xrefs))))
+               (and (slime-location-p loc)
+                    (every (lambda (x) (equal (slime-xref.location x) loc))
+                           (cdr xrefs)))))
+        (slime-alistify xrefs
+                        (lambda (x)
+                          (if (slime-xref-has-location-p x)
+                              (cadr
+                               (slime-location.buffer (slime-xref.location x)))
+                            "Error"))
+                        #'equal)))
+
+(defun slime-pop-to-location (location &optional where)
+  (ecase where
+    ((nil)
+     (slime-goto-source-location location)
+     (switch-to-buffer (current-buffer)))
+    (window
+     (pop-to-buffer (current-buffer) t)
+     (slime-goto-source-location location)
+     (switch-to-buffer (current-buffer)))
+    (frame
+     (let ((pop-up-frames t))
+       (pop-to-buffer (current-buffer) t)
+       (slime-goto-source-location location)
+       (switch-to-buffer (current-buffer))))))
+
+(defun slime-find-definitions (name cont)
+  "Find definitions for NAME and pass them to CONT."
+  ;; FIXME: append SWANK xrefs and etags xrefs
+  (funcall cont
+           (or (slime-eval `(swank:find-definitions-for-emacs ,name))
+               (funcall slime-edit-definition-fallback-function name))))
 
 (defun slime-find-tag-if-tags-table-visited (name)
   "Find tag (in current tags table) whose name contains NAME.
@@ -5171,44 +5223,7 @@ just signal that no definition is known."
   (if tags-table-list
       (find-tag name)
     (error "No known definition for: %s; use M-x visit-tags-table RET" name)))
-
-(defun slime-goto-definition (name definitions &optional where)
-  (slime-push-definition-stack)
-  (let ((all-locations-equal
-         (or (null definitions)
-             (let ((first-location (slime-definition.location (first definitions))))
-               (every (lambda (definition)
-                        (equal (slime-definition.location definition)
-                               first-location))
-                      (rest definitions))))))
-    (if (and (slime-length> definitions 1)
-             (not all-locations-equal))
-        (slime-show-definitions name definitions)
-      (let ((def (car definitions)))
-        (destructure-case (slime-definition.location def)
-          ;; Take care of errors before switching any windows/buffers.
-          ((:error message)
-           (error "%s" message))
-          (t
-           (cond ((equal where 'window)
-                  (slime-goto-definition-other-window (car definitions)))
-                 ((equal where 'frame)
-                  (let ((pop-up-frames t))
-                    (slime-goto-definition-other-window (car definitions))))
-                 (t
-                  (slime-goto-source-location (slime-definition.location
-                                               (car definitions)))
-                  (switch-to-buffer (current-buffer))))))))))
-
-(defun slime-goto-definition-other-window (definition)
-  (slime-pop-to-other-window)
-  (slime-goto-source-location (slime-definition.location definition))
-  (switch-to-buffer (current-buffer)))
-
-(defun slime-pop-to-other-window ()
-  "Pop to the other window, but not to any particular buffer."
-  (pop-to-buffer (current-buffer) t))
-
+ 
 (defun slime-edit-definition-other-window (name)
   "Like `slime-edit-definition' but switch to the other window."
   (interactive (list (slime-read-symbol-name "Symbol: ")))
@@ -5221,10 +5236,10 @@ just signal that no definition is known."
 
 (defun slime-edit-definition-with-etags (name)
   (interactive (list (slime-read-symbol-name "Symbol: ")))
-  (let ((tagdefs (slime-etags-definitions name)))
-    (cond (tagdefs 
+  (let ((xrefs (slime-etags-definitions name)))
+    (cond (xrefs 
            (message "Using tag file...")
-           (slime-goto-definition name tagdefs))
+           (slime-edit-definition-cont xrefs name nil))
           (t
            (error "No known definition for: %s" name)))))
 
@@ -5248,14 +5263,6 @@ The result is a (possibly empty) list of definitions."
                                          (:snippet ,hint))))
                     (push (list hint loc) defs))))))))
       (reverse defs))))
-
-(defun slime-show-definitions (name definitions)
-  (slime-show-xrefs 
-   `((,name . ,(loop for (dspec location) in definitions
-                     collect (cons dspec location))))
-   'definition
-   name
-   (slime-current-package)))
 
 ;;;;; first-change-hook
 
@@ -6060,36 +6067,19 @@ If CREATE is non-nil, create it if necessary."
 
 (put 'slime-with-xref-buffer 'lisp-indent-function 1)
 
-(defun slime-insert-xrefs (xrefs)
-  "Insert XREFS in the current-buffer.
-XREFS is a list of the form ((GROUP . ((LABEL . LOCATION) ...)) ...)
-GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
-  (unless (bobp) (insert "\n"))
+(defun slime-insert-xrefs (xref-alist)
+  "Insert XREF-ALIST in the current-buffer.
+XREF-ALIST is of the form ((GROUP . ((LABEL LOCATION) ...)) ...).
+GROUP and LABEL are for decoration purposes.  LOCATION is a
+source-location."
   (loop for (group . refs) in xrefs do 
-        (progn
-          (slime-insert-propertized '(face bold) group "\n")
-          (loop
-             for (label . location) in refs 
-             do (slime-insert-propertized 
-                 (list 'slime-location location
-                       'face 'font-lock-keyword-face)
-                 "  " (slime-one-line-ify label))
-             do (insert " - " (slime-insert-xref-location location) "\n"))))
+        (slime-insert-propertized '(face bold) group "\n")
+        (loop for (label location) in refs do
+              (slime-insert-propertized (list 'slime-location location
+                                              'face 'font-lock-keyword-face)
+                                        "  " (slime-one-line-ify label) "\n")))
   ;; Remove the final newline to prevent accidental window-scrolling
-  (backward-char 1)
-  (delete-char 1))
-
-(defun slime-insert-xref-location (location)
-  (if (eql :location (car location))
-      (cond ((assoc :file (cdr location)) 
-             (second (assoc :file (cdr location))))
-            ((assoc :buffer (cdr location))
-             (let* ((name (second (assoc :buffer (cdr location))))
-                    (buffer (get-buffer name)))
-               (if buffer 
-                   (format "%S" buffer)
-                   (format "%s (previously existing buffer)" name)))))
-      "file unknown"))
+  (backward-delete-char 1))
 
 (defvar slime-next-location-function nil
   "Function to call for going to the next location.")
@@ -6165,7 +6155,8 @@ GROUP and LABEL are for decoration purposes.  LOCATION is a source-location."
                  ;; buffer. (2007-08-14)
                  (snapshot (slime-current-emacs-snapshot)))
      (lambda (result)
-       (slime-show-xrefs result type symbol package snapshot)))))
+       (let ((file-alist (cadr (slime-analyze-xrefs result))))
+         (slime-show-xrefs file-alist type symbol package snapshot))))))
 
 
 ;;;;; XREF navigation

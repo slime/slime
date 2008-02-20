@@ -1,5 +1,29 @@
 2008-02-20  Helmut Eller  <heller@common-lisp.net>
 
+	Better factorization for M-. and xref commands.
+
+	* slime.el (slime-xref): Renamed from slime-definition.
+	(slime-location, slime-location-p): New ADT def.
+	(slime-xref-has-location-p, slime-analyze-xrefs): New functions.
+	This work used to be done on the Lisp side.
+	(slime-pop-to-location): New function.
+	(slime-edit-definition, slime-edit-definition-cont): Simplified.
+	(slime-find-definitions): New function.
+	(slime-goto-definition, slime-goto-definition-other-window)
+	(slime-pop-to-other-window, slime-show-definitions): Deleted.
+	(slime-insert-xrefs): Simplified.
+	(slime-insert-xref-location): Deleted. No need to show the filename
+	twice.
+
+	* swank.lisp (find-definitions-for-emacs, xref): Use common
+	representation for "definitions" and "xrefs".
+	(xref>elisp): New helper.
+	(group-xrefs, alistify, parition, location-position<, xref-position)
+	(xref-buffer, location-valid-p): Deleted. This work is now done on
+	the Emacs side.
+
+2008-02-20  Helmut Eller  <heller@common-lisp.net>
+
 	Emit a warning if the SWANK package already exists.
 
 	* swank-loader.lisp (init): Issue a warning when SWANK will not be
