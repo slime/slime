@@ -1,3 +1,17 @@
+2008-02-20  Helmut Eller  <heller@common-lisp.net>
+
+	Emit a warning if the SWANK package already exists.
+
+	* swank-loader.lisp (init): Issue a warning when SWANK will not be
+	reloaded.
+
+2008-02-18  Helmut Eller  <heller@common-lisp.net>
+
+	Minor cleanups for inspector code.
+
+	* swank.lisp (inspector-content, inspect-list-aux): Slight
+	cleanups.
+
 2008-02-17  Marco Baringer  <mb@bese.it>
 
 	* swank.asd: Update for recent changes to swank-loader.lisp, we

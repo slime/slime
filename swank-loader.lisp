@@ -1,4 +1,4 @@
-;;;; -*- Mode: lisp; indent-tabs-mode: nil -*-
+;;;; -*- indent-tabs-mode: nil -*-
 ;;;
 ;;; swank-loader.lisp --- Compile and load the Slime backend.
 ;;;
@@ -226,6 +226,8 @@ If LOAD is true, load the fasl file."
 (defun init (&key delete reload)
   (when (and delete (find-package :swank))
     (mapc #'delete-package '(:swank :swank-io-package :swank-backend)))
-  (when (or (not (find-package :swank)) reload)
-    (load-swank))
+  (cond ((or (not (find-package :swank)) reload)
+         (load-swank))
+        (t 
+         (warn "Not reloading SWANK.  Package already exists.")))
   (setup))
