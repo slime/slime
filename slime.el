@@ -5189,10 +5189,18 @@ FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
         (slime-alistify xrefs
                         (lambda (x)
                           (if (slime-xref-has-location-p x)
-                              (cadr
-                               (slime-location.buffer (slime-xref.location x)))
+                              (slime-location-to-string (slime-xref.location x))
                             "Error"))
                         #'equal)))
+
+(defun slime-location-to-string (location)
+  (destructure-case (slime-location.buffer location)
+    ((:file filename) filename)
+    ((:buffer bufname)
+     (let ((buffer (get-buffer bufname)))
+       (if buffer 
+           (format "%S" buffer) ; "#<buffer foo.lisp>"
+           (format "%s (previously existing buffer)" bufname))))))
 
 (defun slime-pop-to-location (location &optional where)
   (ecase where

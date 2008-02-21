@@ -1,3 +1,24 @@
+2008-02-21  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Fix regressions in the `find-definition' test case on SBCL:
+
+	M-. on e.g. SWANK::READ-FROM-EMACS would bring the user to
+
+	  (|defun read-from-emacs ...)
+
+	and not
+
+	  |(defun read-from-emacs ...)
+	
+	* swank-sbcl.lisp (source-file-position): Don't 1+ the returned
+	position; i.e. return a position usable as a CL /file position/
+	which start from 0, and not a position usable in Emacs where
+	buffer points start from 1. This is important because the return
+	value is passed to SWANK-BACKEND::READ-SNIPPET which invokes
+	CL:FILE-POSITION on it.
+	(make-definition-source-location): Adapted to 1+ the position
+	passed to Emacs, to reflect above change.
+	
 2008-02-20  Helmut Eller  <heller@common-lisp.net>
 
 	Better factorization for M-. and xref commands.
