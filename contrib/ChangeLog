@@ -1,3 +1,12 @@
+2008-02-21  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Having the `slime-presentations' contrib enabled, (princ 10)
+	resulted in "1010" rather than "10\n10". (This also caused a
+	regression in the `repl-test' test case.)
+	
+	* swank-presentations.lisp (present-repl-results): Emit fresh-line
+	as the original SEND-REPL-RESULTS-TO-EMACS does.
+
 2008-02-18  Helmut Eller  <heller@common-lisp.net>
 
 	Update Kawa backend to the changed inspector protocol.
