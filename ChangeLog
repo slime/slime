@@ -1,8 +1,15 @@
+2008-02-22  Mark Evenson <mark.evenson@gmx.at>
+
+	* swank-abcl.lisp (getpid): Return '0' in case of error.
+	Apparently needed bacause $PPID isn't not a standard feature.
+	"[T]his is not a disentanglement from, but a progressive knotting
+	into."
+
 2008-02-22  Mark Harig <idirectscm@aim.com>
 
 	Fix typos: "contribs" -> "contrib".
 
-	* slime-autoloads.el (slime-setup-contribs): 
+	* slime-autoloads.el (slime-setup-contribs):
 	* slime.el (slime-setup):
 
 2008-02-22  Mark Harig <idirectscm@aim.com>
