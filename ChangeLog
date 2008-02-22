@@ -1,3 +1,12 @@
+2008-02-22  Helmut Eller  <heller@common-lisp.net>
+
+	Remove save-restriction-if-possible.
+
+	* slime.el (save-restriction-if-possible): Deleted.  It was only
+	used in one place.
+	(slime-goto-source-location): Obey widen-automatically.
+	(slime-location-offset): New function.
+
 2008-02-21  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	Fix regressions in the `find-definition' test case on SBCL:

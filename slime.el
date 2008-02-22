@@ -977,40 +977,6 @@ sensitive to the point moving and they can't be restored."
         collect window
         until (eq window last-window)))
 
-
-(defmacro save-restriction-if-possible (&rest body)
-  "Very similiarly to `save-restriction'. The only difference is
-that it's not enforcing the restriction as strictly: It's only
-enforced if `point' was not moved outside of the restriction
-after executing BODY.
-
-Example: 
-
-  (progn (goto-line 1000)
-         (narrow-to-page) 
-         (save-restriction-if-possible (widen) (goto-line 999)))
-
-  In this case, the buffer is narrowed to the current page, and
-  point is on line 999.
-
-  (progn (goto-char 1000)
-         (narrow-to-page) 
-         (save-restriction-if-possible (widen) (goto-line 1)))
-
-  Whereas in this case, the buffer is widened and point is on
-  line 1."
-  (let ((gcfg (gensym "NARROWING-CFG+"))
-        (gbeg (gensym "OLDBEG+"))
-        (gend (gensym "OLDEND+")))
-    `(let ((,gcfg (slime-current-narrowing-configuration)))
-       (unwind-protect (progn ,@body)
-         (let ((,gbeg (slime-narrowing-configuration.beg ,gcfg))
-               (,gend (slime-narrowing-configuration.end ,gcfg)))
-           (when (and (>= (point) ,gbeg) (<= (point) ,gend))
-             (slime-set-narrowing-configuration ,gcfg)))))))
-
-(put 'save-restriction-if-possible 'lisp-indent-function 0)
-
 ;;;;; Temporary popup buffers
 
 (make-variable-buffer-local
@@ -4562,43 +4528,41 @@ you should check twice before modifying.")
          (goto-char (point-min)))))))
 
 (defun slime-goto-location-position (position)
-  (save-restriction-if-possible         ; try to keep restriction if possible.
-    (widen)
-    (destructure-case position
-      ((:position pos &optional align-p)
-       (goto-char pos)
-       (when align-p
-         (slime-forward-sexp)
-         (beginning-of-sexp)))
-      ((:line start &optional column)
-       (goto-line start)
-       (cond (column (move-to-column column))
-             (t (skip-chars-forward " \t"))))
-      ((:function-name name)
-       (let ((case-fold-search t)
-             (name (regexp-quote name)))
-         (or 
-          (re-search-forward 
-           (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\S_" name) nil t)
-          (re-search-forward 
-           (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +(*%s\\S_" name) nil t)
-          (re-search-forward 
-           (format "[( \t]%s\\>\\(\\s \\|$\\)" name) nil t)))
-       (goto-char (match-beginning 0)))
-      ((:method name specializers &rest qualifiers)
-       (slime-search-method-location name specializers qualifiers))
-      ((:source-path source-path start-position)
-       (cond (start-position
-              (goto-char start-position)
-              (slime-forward-positioned-source-path source-path))
-             (t
-              (slime-forward-source-path source-path))))
-      ;; Goes to "start" then looks for the anchor text, then moves
-      ;; delta from that position.
-      ((:text-anchored start text delta)
-       (goto-char start)
-       (slime-isearch text)
-       (forward-char delta)))))
+  (destructure-case position
+    ((:position pos &optional align-p)
+     (goto-char pos)
+     (when align-p
+       (slime-forward-sexp)
+       (beginning-of-sexp)))
+    ((:line start &optional column)
+     (goto-line start)
+     (cond (column (move-to-column column))
+           (t (skip-chars-forward " \t"))))
+    ((:function-name name)
+     (let ((case-fold-search t)
+           (name (regexp-quote name)))
+       (or 
+        (re-search-forward 
+         (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\S_" name) nil t)
+        (re-search-forward 
+         (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +(*%s\\S_" name) nil t)
+        (re-search-forward 
+         (format "[( \t]%s\\>\\(\\s \\|$\\)" name) nil t)))
+     (goto-char (match-beginning 0)))
+    ((:method name specializers &rest qualifiers)
+     (slime-search-method-location name specializers qualifiers))
+    ((:source-path source-path start-position)
+     (cond (start-position
+            (goto-char start-position)
+            (slime-forward-positioned-source-path source-path))
+           (t
+            (slime-forward-source-path source-path))))
+    ;; Goes to "start" then looks for the anchor text, then moves
+    ;; delta from that position.
+    ((:text-anchored start text delta)
+     (goto-char start)
+     (slime-isearch text)
+     (forward-char delta))))
 
 (defun slime-search-method-location (name specializers qualifiers)
   ;; Look for a sequence of words (def<something> method name
@@ -4656,15 +4620,27 @@ are supported:
   (destructure-case location
     ((:location buffer position hints)
      (slime-goto-location-buffer buffer)
-     (slime-goto-location-position position)
-     (when-let (snippet (getf hints :snippet))
-       (slime-isearch snippet))
-     (when-let (fname (getf hints :call-site))
-       (slime-search-call-site fname)))
+     (let ((pos (slime-location-offset location)))
+       (cond ((and (<= (point-min) pos) (<= pos (point-max))))
+             (widen-automatically (widen))
+             (t (error "Location is outside accessible part of buffer")))
+       (goto-char pos)))
     ((:error message)
      (if noerror
          (slime-message "%s" message)
        (error "%s" message)))))
+
+(defun slime-location-offset (location)
+  "Return the position, as character number, of LOCATION."
+  (save-restriction
+    (widen)
+    (slime-goto-location-position (slime-location.position location))
+    (let ((hints (slime-location.hints location)))
+      (when-let (snippet (getf hints :snippet))
+        (slime-isearch snippet))
+      (when-let (fname (getf hints :call-site))
+        (slime-search-call-site fname)))
+    (point)))
 
 (defmacro slime-point-moves-p (&rest body)
   "Execute BODY and return true if the current buffer's point moved."
@@ -5208,14 +5184,12 @@ FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
      (slime-goto-source-location location)
      (switch-to-buffer (current-buffer)))
     (window
-     (pop-to-buffer (current-buffer) t)
      (slime-goto-source-location location)
-     (switch-to-buffer (current-buffer)))
+     (pop-to-buffer (current-buffer) t))
     (frame
      (let ((pop-up-frames t))
-       (pop-to-buffer (current-buffer) t)
        (slime-goto-source-location location)
-       (switch-to-buffer (current-buffer))))))
+       (pop-to-buffer (current-buffer) t)))))
 
 (defun slime-find-definitions (name cont)
   "Find definitions for NAME and pass them to CONT."
