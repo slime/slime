@@ -1,5 +1,12 @@
 2008-02-22  Mark Harig <idirectscm@aim.com>
 
+	Fix typos: "contribs" -> "contrib".
+
+	* slime-autoloads.el (slime-setup-contribs): 
+	* slime.el (slime-setup):
+
+2008-02-22  Mark Harig <idirectscm@aim.com>
+
 	Fixes for CLISP 2.44.
 
 	* swank-clisp.lisp (sldb-backtrace, %parse-stack-values):

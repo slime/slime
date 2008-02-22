@@ -40,10 +40,7 @@ CONTRIBS is a list of contrib packages to load."
 
 (defun slime-setup-contribs () 
   (when slime-setup-contribs
-    (pushnew (file-name-as-directory
-              (expand-file-name (concat slime-path "contribs")))
-             load-path
-             :test 'string=)    
+    (add-to-list 'load-path (expand-file-name "contrib" slime-path))
     (dolist (c slime-setup-contribs)
       (require c)
       (let ((init (intern (format "%s-init" c))))
