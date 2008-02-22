@@ -1,3 +1,10 @@
+2008-02-22  Mark Harig <idirectscm@aim.com>
+
+	Fixes for CLISP 2.44.
+
+	* swank-clisp.lisp (sldb-backtrace, %parse-stack-values):
+	sys::frame-up-1 no longer exists; use sys::frame-up instead.
+
 2008-02-22  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-pop-to-location): Slight cleanups.

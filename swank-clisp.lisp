@@ -1,4 +1,4 @@
-;;;; -*- Mode: Lisp; indent-tabs-mode: nil -*-
+;;;; -*- indent-tabs-mode: nil -*-
 
 ;;;; SWANK support for CLISP.
 
@@ -249,6 +249,21 @@ Return NIL if the symbol is unbound."
 
 (defvar *sldb-backtrace*)
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (when (string< "2.44" (lisp-implementation-version))
+    (pushnew :clisp-2.44+ *features*)))
+
+(defun sldb-backtrace ()
+  "Return a list ((ADDRESS . DESCRIPTION) ...) of frames."
+  (do ((frames '())
+       (last nil frame)
+       (frame (sys::the-frame)
+              #+clisp-2.44+ (sys::frame-up 1 frame 1)
+              #-clisp-2.44+ (sys::frame-up-1 frame 1))) ; 1 = "all frames"
+      ((eq frame last) (nreverse frames))
+    (unless (boring-frame-p frame)
+      (push frame frames))))
+
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let* (;;(sys::*break-count* (1+ sys::*break-count*))
          ;;(sys::*driver* debugger-loop-fn)
@@ -260,15 +275,6 @@ Return NIL if the symbol is unbound."
 (defun nth-frame (index)
   (nth index *sldb-backtrace*))
 
-(defun sldb-backtrace ()
-  "Return a list ((ADDRESS . DESCRIPTION) ...) of frames."
-  (do ((frames '())
-       (last nil frame)
-       (frame (sys::the-frame) (sys::frame-up-1 frame 1))) ; 1 = "all frames"
-      ((eq frame last) (nreverse frames))
-    (unless (boring-frame-p frame)
-      (push frame frames))))
-
 (defun boring-frame-p (frame)
   (member (frame-type frame) '(stack-value bind-var bind-env)))
 
@@ -276,6 +282,8 @@ Return NIL if the symbol is unbound."
   (with-output-to-string (s)
     (sys::describe-frame s frame)))
 
+;; FIXME: they changed the layout in 2.44 so the frame-to-string &
+;; string-matching silliness no longer works.
 (defun frame-type (frame)
   ;; FIXME: should bind *print-length* etc. to small values.
   (frame-string-type (frame-to-string frame)))
@@ -418,7 +426,9 @@ Return two values: NAME and VALUE"
         (venv-ref (next-venv env) (- i (/ (1- (length env)) 2))))))
 
 (defun %parse-stack-values (frame)
-  (labels ((next (fp) (sys::frame-down-1 fp 1))
+  (labels ((next (fp)
+             #+clisp-2.44+ (sys::frame-down 1 fp 1)
+             #-clisp-2.44+ (sys::frame-down-1 fp 1))
            (parse (fp accu)
              (let ((str (frame-to-string fp)))
                (cond ((is-prefix-p "- " str)
@@ -432,6 +442,8 @@ Return two values: NAME and VALUE"
                       (nreverse accu))
                      (t (parse (next fp) accu))))))
     (parse (next frame) '())))
+
+(setq *features* (remove :clisp-2.44+ *features*))
 
 (defun is-prefix-p (pattern string)
   (not (mismatch pattern string :end2 (min (length pattern)
