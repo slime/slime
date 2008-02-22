@@ -35,6 +35,13 @@
 
 2008-02-21  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-location-to-string): New function.
+	(slime-analyze-xrefs): Use it; display definitions defined
+	interactively via C-c C-c as comming from #<buffer foo.lisp>
+	instead of foo.lisp.
+	
+2008-02-21  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	Fix regressions in the `find-definition' test case on SBCL:
 
 	M-. on e.g. SWANK::READ-FROM-EMACS would bring the user to
