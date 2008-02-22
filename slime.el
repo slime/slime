@@ -5179,17 +5179,11 @@ FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
            (format "%s (previously existing buffer)" bufname))))))
 
 (defun slime-pop-to-location (location &optional where)
+  (slime-goto-source-location location)
   (ecase where
-    ((nil)
-     (slime-goto-source-location location)
-     (switch-to-buffer (current-buffer)))
-    (window
-     (slime-goto-source-location location)
-     (pop-to-buffer (current-buffer) t))
-    (frame
-     (let ((pop-up-frames t))
-       (slime-goto-source-location location)
-       (pop-to-buffer (current-buffer) t)))))
+    ((nil) (switch-to-buffer (current-buffer)))
+    (window (pop-to-buffer (current-buffer) t))
+    (frame (let ((pop-up-frames t)) (pop-to-buffer (current-buffer) t)))))
 
 (defun slime-find-definitions (name cont)
   "Find definitions for NAME and pass them to CONT."
@@ -6156,8 +6150,7 @@ source-location."
   (interactive)
   (let ((location (slime-xref-location-at-point)))
     (slime-xref-cleanup)
-    (slime-goto-source-location location)
-    (switch-to-buffer (current-buffer))))
+    (slime-pop-to-location location)))
 
 (defun slime-show-xref ()
   "Display the xref at point in the other window."
@@ -6178,8 +6171,7 @@ source-location."
                           (t 
                            (slime-xref-location-at-point))))))
     (when location
-      (slime-goto-source-location location)
-      (switch-to-buffer (current-buffer)))))
+      (slime-pop-to-location location))))
 
 (defun slime-next-location ()
   "Go to the next location, depending on context.

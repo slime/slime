@@ -1,5 +1,10 @@
 2008-02-22  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-pop-to-location): Slight cleanups.
+	(slime-goto-xref, slime-goto-next-xref): Use it.
+
+2008-02-22  Helmut Eller  <heller@common-lisp.net>
+
 	Remove save-restriction-if-possible.
 
 	* slime.el (save-restriction-if-possible): Deleted.  It was only
