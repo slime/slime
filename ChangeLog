@@ -1,3 +1,10 @@
+2008-02-23  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	If there is no connection, offer the option to start SLIME.
+
+	* slime.el (slime-connection): Ask and maybe start SLIME.
+	(slime-selector-method: ?r): No need to ask here any more.
+
 2008-02-23  Helmut Eller  <heller@common-lisp.net>
 
 	In the inspector, show one-element lists as list not as pair.

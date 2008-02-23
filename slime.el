@@ -1839,7 +1839,13 @@ Signal an error if there's no connection."
     (cond ((and (not conn) slime-net-processes)
            (error "No default connection selected."))
           ((not conn)
-           (error "Not connected."))
+           (cond ((y-or-n-p "No connection.  Start Slime? ")
+                  (save-window-excursion
+                    (slime)
+                    (while (not (slime-current-connection))
+                      (sleep-for 1))
+                    (slime-connection)))
+                 (t (error "Not connected."))))
           ((not (eq (process-status conn) 'open))
            (error "Connection closed."))
           (t conn))))
@@ -7791,10 +7797,7 @@ switch-to-buffer."
 
 (def-slime-selector-method ?r
   "SLIME Read-Eval-Print-Loop."
-  (cond ((slime-current-connection)      
-         (slime-output-buffer))
-        ((y-or-n-p "No connection: start Slime? ")
-         (slime))))
+  (slime-output-buffer))
 
 (def-slime-selector-method ?i
   "*inferior-lisp* buffer."
