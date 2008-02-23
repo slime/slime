@@ -1,3 +1,9 @@
+2008-02-23  Helmut Eller  <heller@common-lisp.net>
+
+	In the inspector, show one-element lists as list not as pair.
+
+	* swank.lisp (emacs-inspect cons)
+
 2008-02-23  Zach Beane  <xach@xach.com>
 
 	Add customization variable for the `slime-connect' port.

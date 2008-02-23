@@ -2752,7 +2752,7 @@ Return nil if there's no second element."
 ;;;;; Lists
 
 (defmethod emacs-inspect ((o cons))
-  (if (consp (cdr o))
+  (if (listp (cdr o))
       (inspect-list o)
       (inspect-cons o)))
 
