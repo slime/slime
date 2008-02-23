@@ -209,6 +209,16 @@ The default is nil, as this feature can be a security risk."
   :type '(boolean)
   :group 'slime-lisp)
 
+(defcustom slime-lisp-host "127.0.0.1"
+  "The default hostname (or IP address) to connect to."
+  :type 'string
+  :group 'slime-lisp)
+
+(defcustom slime-port 4005
+  "Port to use as the default for `slime-connect'."
+  :type 'integer
+  :group 'slime-lisp)
+
 ;;;;; slime-mode
 
 (defgroup slime-mode nil
@@ -1134,9 +1144,6 @@ Here's an example:
   "*The name of the default Lisp implementation.
 See `slime-lisp-implementations'")
 
-(defvar slime-lisp-host "127.0.0.1"
-  "The default hostname (or IP address) to connect to.")
-
 ;; dummy definitions for the compiler
 (defvar slime-net-coding-system)
 (defvar slime-net-processes)
@@ -1232,7 +1239,8 @@ The rules for selecting the arguments are rather complicated:
 (defun slime-connect (host port &optional coding-system)
   "Connect to a running Swank server."
   (interactive (list (read-from-minibuffer "Host: " slime-lisp-host)
-                     (read-from-minibuffer "Port: " "4005" nil t)))
+                     (read-from-minibuffer "Port: " (format "%d" slime-port)
+                                           nil t)))
   (when (and (interactive-p) slime-net-processes
              (y-or-n-p "Close old connections first? "))
     (slime-disconnect))
