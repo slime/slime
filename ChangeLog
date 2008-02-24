@@ -1,3 +1,11 @@
+2008-02-23  Ariel Badichi <abadichi@bezeqint.net>
+
+	Allow ED-IN-EMACS to edit new files.
+
+	* swank.lisp (ed-in-emacs): Make it possible to canonicalize
+	filenames of non-existing files.
+	(canonicalize-filename): Merged into ed-in-emacs.
+
 2008-02-23  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	If there is no connection, offer the option to start SLIME.

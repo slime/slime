@@ -1855,7 +1855,9 @@ WHAT can be:
 
 Returns true if it actually called emacs, or NIL if not."
   (flet ((pathname-or-string-p (thing)
-           (or (pathnamep thing) (typep thing 'string))))
+           (or (pathnamep thing) (typep thing 'string)))
+         (canonicalize-filename (filename)
+           (namestring (or (probe-file filename) filename))))
     (let ((target
            (cond ((and (listp what) (pathname-or-string-p (first what)))
                   (cons (canonicalize-filename (car what)) (cdr what)))
@@ -2165,9 +2167,6 @@ the local variables in the frame INDEX."
 
 (defun clear-compiler-notes ()  
   (setf *compiler-notes* '()))
-
-(defun canonicalize-filename (filename)
-  (namestring (truename filename)))
 
 (defslimefun compiler-notes-for-emacs ()
   "Return the list of compiler notes for the last compilation unit."
