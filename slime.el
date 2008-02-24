@@ -3281,11 +3281,10 @@ for the most recently enclosed macro or function."
 
 (defun slime-repl-set-package (package)
   "Set the package of the REPL buffer to PACKAGE."
-  (interactive (list (slime-read-package-name 
-                      "Package: "
-                      (if (equal (slime-current-package) (slime-lisp-package))
-                          nil
-                        (slime-pretty-find-buffer-package)))))
+  (interactive (list (let* ((p (slime-current-package))
+                            (p (and p (slime-pretty-package-name p)))
+                            (p (and (not (equal p (slime-lisp-package))) p)))
+                       (slime-read-package-name "Package: " p))))
   (with-current-buffer (slime-output-buffer)
     (let ((unfinished-input (slime-repl-current-input)))
       (destructuring-bind (name prompt-string)
@@ -5201,7 +5200,8 @@ FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
   ;; FIXME: append SWANK xrefs and etags xrefs
   (funcall cont
            (or (slime-eval `(swank:find-definitions-for-emacs ,name))
-               (funcall slime-edit-definition-fallback-function name))))
+               (and slime-edit-definition-fallback-function
+                    (funcall slime-edit-definition-fallback-function name)))))
 
 (defun slime-find-tag-if-tags-table-visited (name)
   "Find tag (in current tags table) whose name contains NAME.

@@ -1,9 +1,17 @@
+2008-02-24  Helmut Eller  <heller@common-lisp.net>
+
+	Work harder to avoid wrong guesses for slime-repl-set-package.
+
+	* slime.el (slime-repl-set-package): Use slime-pretty-package-name
+	to strip double quotes from slime-current-package before comparing
+	it with slime-lisp-package.  Still doesn't deal with nicknames and
+	other reader tricks.
+
 2008-02-23  Ariel Badichi <abadichi@bezeqint.net>
 
 	Allow ED-IN-EMACS to edit new files.
 
-	* swank.lisp (ed-in-emacs): Make it possible to canonicalize
-	filenames of non-existing files.
+	* swank.lisp (ed-in-emacs): Accept non-existing files.
 	(canonicalize-filename): Merged into ed-in-emacs.
 
 2008-02-23  Nikodemus Siivola  <nikodemus@random-state.net>
