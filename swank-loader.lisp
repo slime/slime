@@ -31,7 +31,7 @@
                  :defaults (or *load-pathname* *default-pathname-defaults*))
   "The directory where to look for the source.")
 
-(defparameter *sysdeps*
+(defparameter *sysdep-files*
   #+cmu '(swank-source-path-parser swank-source-file-cache swank-cmucl)
   #+scl '(swank-source-path-parser swank-source-file-cache swank-scl)
   #+sbcl '(swank-source-path-parser swank-source-file-cache
