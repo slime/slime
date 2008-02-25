@@ -587,9 +587,9 @@ connections, otherwise it will be closed after the first."
          (initialize-multiprocessing
           (lambda ()
             (spawn (lambda () 
-                     (loop do (ignore-errors (serve)) while dont-close))
-                   :name (concatenate 'string "Swank " 
-                                      (princ-to-string port))))))
+                     (cond ((not dont-close) (serve))
+                           (t (loop (ignore-errors (serve))))))
+                   :name (cat "Swank " (princ-to-string port))))))
         ((:fd-handler :sigio)
          (add-fd-handler socket (lambda () (serve))))
         ((nil) (loop do (serve) while dont-close)))
@@ -1210,7 +1210,8 @@ dynamic binding."
 
 (defun init-global-stream-redirection ()
   (when *globally-redirect-io*
-    (mapc #'setup-stream-indirection 
+    (assert (not *saved-global-streams*) () "Streams already redirected.")
+    (mapc #'setup-stream-indirection
           (append *standard-output-streams*
                   *standard-input-streams*
                   *standard-io-streams*))))

@@ -20,8 +20,7 @@
 
 (cl:defpackage :swank-loader
   (:use :cl)
-  (:export :load-swank
-           :init
+  (:export :init
            :*source-directory*
            :*fasl-directory*))
 
@@ -32,21 +31,18 @@
                  :defaults (or *load-pathname* *default-pathname-defaults*))
   "The directory where to look for the source.")
 
-(defparameter *sysdep-files*
-  (append
-   '()
-   #+cmu '("swank-source-path-parser" "swank-source-file-cache" "swank-cmucl")
-   #+scl '("swank-source-path-parser" "swank-source-file-cache" "swank-scl")
-   #+sbcl '("swank-source-path-parser" "swank-source-file-cache"
-            "swank-sbcl" "swank-gray")
-   #+openmcl '("metering" "swank-openmcl" "swank-gray")
-   #+lispworks '("swank-lispworks" "swank-gray")
-   #+allegro '("swank-allegro" "swank-gray")
-   #+clisp '("xref" "metering" "swank-clisp" "swank-gray")
-   #+armedbear '("swank-abcl")
-   #+cormanlisp '("swank-corman" "swank-gray")
-   #+ecl '("swank-ecl" "swank-gray")
-   ))
+(defparameter *sysdeps*
+  #+cmu '(swank-source-path-parser swank-source-file-cache swank-cmucl)
+  #+scl '(swank-source-path-parser swank-source-file-cache swank-scl)
+  #+sbcl '(swank-source-path-parser swank-source-file-cache
+           swank-sbcl swank-gray)
+  #+openmcl '(metering swank-openmcl swank-gray)
+  #+lispworks '(swank-lispworks swank-gray)
+  #+allegro '(swank-allegro swank-gray)
+  #+clisp '(xref metering swank-clisp swank-gray)
+  #+armedbear '(swank-abcl)
+  #+cormanlisp '(swank-corman swank-gray)
+  #+ecl '(swank-ecl swank-gray))
 
 (defparameter *implementation-features*
   '(:allegro :lispworks :sbcl :openmcl :cmu :clisp :ccl :corman :cormanlisp
@@ -183,12 +179,7 @@ If LOAD is true, load the fasl file."
                            :defaults src-dir))
           names))
 
-(defun swank-src-files (src-dir)
-  (src-files `("swank-backend" ,@*sysdep-files* "swank") 
-             src-dir))
-
-(defvar *fasl-directory* (default-fasl-dir)
-  "The directory where fasl files should be placed.")
+(defvar *swank-files* `(swank-backend ,@*sysdep-files* swank))
 
 (defvar *contribs* '(swank-c-p-c swank-arglists swank-fuzzy
                      swank-fancy-inspector
@@ -196,6 +187,9 @@ If LOAD is true, load the fasl file."
                      #+(or asdf sbcl) swank-asdf
                      )
   "List of names for contrib modules.")
+
+(defvar *fasl-directory* (default-fasl-dir)
+  "The directory where fasl files should be placed.")
 
 (defun append-dir (absolute name)
   (merge-pathnames 
@@ -207,11 +201,16 @@ If LOAD is true, load the fasl file."
 
 (defun load-swank (&key (src-dir *source-directory*)
                    (fasl-dir *fasl-directory*))
-  (compile-files (swank-src-files src-dir) fasl-dir t))
+  (compile-files (src-files *swank-files* src-dir) fasl-dir t))
 
 (defun compile-contribs (&key (src-dir (contrib-dir *source-directory*))
-                         (fasl-dir (contrib-dir *fasl-directory*)))
-  (compile-files (src-files *contribs* src-dir) fasl-dir nil))
+                         (fasl-dir (contrib-dir *fasl-directory*))
+                         load)
+  (compile-files (src-files *contribs* src-dir) fasl-dir load))
+
+(defun loadup ()
+  (load-swank)
+  (compile-contribs :load t))
 
 (defun setup ()
   (flet ((q (s) (read-from-string s)))
@@ -223,11 +222,14 @@ If LOAD is true, load the fasl file."
              (list (contrib-dir *fasl-directory*)    
                    (contrib-dir *source-directory*)))))
 
-(defun init (&key delete reload)
+(defun init (&key delete reload load-contribs (setup t))
   (when (and delete (find-package :swank))
     (mapc #'delete-package '(:swank :swank-io-package :swank-backend)))
   (cond ((or (not (find-package :swank)) reload)
          (load-swank))
         (t 
          (warn "Not reloading SWANK.  Package already exists.")))
-  (setup))
+  (when load-contribs
+    (compile-contribs :load t))
+  (when setup
+    (setup)))

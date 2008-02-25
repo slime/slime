@@ -1,3 +1,16 @@
+2008-02-25  Helmut Eller  <heller@common-lisp.net>
+
+	Make it easier to prepare core-files.
+
+	* swank-loader.lisp (init): Two new keyword args: :SETUP and
+	:LOAD-CONTRIBS.  :SETUP=nil can be used to suppress init hooks and
+	loading user init files.
+
+	* swank.asd: Call swank-loader:init with :SETUP=nil.
+
+	* swank.lisp (init-global-stream-redirection): Guard against
+	redirecting already redirected streams.
+
 2008-02-24  Helmut Eller  <heller@common-lisp.net>
 
 	Work harder to avoid wrong guesses for slime-repl-set-package.

@@ -37,7 +37,8 @@
   (load (asdf::component-pathname f))
   (funcall (read-from-string "swank-loader::init")
            :reload (asdf::operation-forced o)
-           :delete (asdf::operation-forced o)))
+           :delete (asdf::operation-forced o)
+	   :setup nil))
 
 (asdf:defsystem :swank
   :default-component-class swank-loader-file
