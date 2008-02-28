@@ -494,6 +494,32 @@ This is useful when debugging the definition-finding code.")
                      (make-source-location-specification type name
                                                          source-location))))
 
+(defimplementation find-source-location (obj)
+  (flet ((general-type-of (obj)
+           (typecase obj
+             (method             :method)
+             (generic-function   :generic-function)
+             (function           :function)
+             (structure-class    :structure-class)
+             (class              :class)
+             (method-combination :method-combination)
+             (structure-object   :structure-object)
+             (standard-object    :standard-object)
+             (condition          :condition)
+             (t                  :thing)))
+         (to-string (obj)
+           (typecase obj
+             ((or structure-object standard-object condition)
+              (with-output-to-string (s)
+                (print-unreadable-object (obj s :type t :identity t))))
+             (t (format nil "~A" obj)))))
+    (handler-case
+        (make-definition-source-location
+         (sb-introspect:find-definition-source obj) (general-type-of obj) (to-string obj))
+      (error (e)
+        (list :error (format nil "Error: ~A" e))))))
+
+
 (defun make-source-location-specification (type name source-location)
   (list (list* (getf *definition-types* type)
                name

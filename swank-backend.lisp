@@ -745,10 +745,24 @@ definition, e.g., FOO or (METHOD FOO (STRING NUMBER)) or
 
 LOCATION is the source location for the definition.")
 
+(definterface find-source-location (object)
+  "Returns the source location of OBJECT, or NIL.
+
+That is the source location of the underlying datastructure of
+OBJECT. E.g. on a STANDARD-OBJECT, the source location of the
+respective DEFCLASS definition is returned, on a STRUCTURE-CLASS the
+respective DEFSTRUCT definition, and so on."
+  ;; This returns _ source location and not a list of locations. It's
+  ;; supposed to return the location of the DEFGENERIC definition on
+  ;; #'SOME-GENERIC-FUNCTION.
+  )
+
+
 (definterface buffer-first-change (filename)
   "Called for effect the first time FILENAME's buffer is modified."
   (declare (ignore filename))
   nil)
+
 
 
 ;;;; XREF

@@ -2584,6 +2584,9 @@ Include the nicknames if NICKNAMES is true."
 
 ;;;; Source Locations
 
+(defslimefun find-definition-for-thing (thing)
+  (find-source-location thing))
+
 (defslimefun find-definitions-for-emacs (name)
   "Return a list ((DSPEC LOCATION) ...) of definitions for NAME.
 DSPEC is a string and LOCATION a source location. NAME is a string."

@@ -1,3 +1,13 @@
+2008-02-28  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank.lisp (find-definition-for-thing): New DEFSLIMEFUN.
+
+	* swank-backend (find-source-location): New DEFINTERFACE.
+
+	* swank-sbcl (find-source-location): Implement it.
+
+	* slime.el (slime-edit-definition-cont): Use `slime-length='.
+
 2008-02-28  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	Fix regressions in the `find-definition' test case on SBCL:

@@ -2935,7 +2935,7 @@ joined together."))
          (cond ((null strings)
                 (slime-repl-emit-result "; No value\n" t))
                (t
-                (dolist (s strings) 
+                (dolist (s strings)
                   (slime-repl-emit-result s t)))))))
     (slime-repl-insert-prompt)))
 
@@ -5155,7 +5155,7 @@ function name is prompted."
           (1loc
            (slime-push-definition-stack)
            (slime-pop-to-location (slime-xref.location (car xrefs)) where))
-          ((= (length xrefs) 1)
+          ((slime-length= xrefs 1)      ; ((:error "..."))
            (error "%s" (cadr (slime-xref.location (car xrefs)))))
           (t
            (slime-push-definition-stack)
