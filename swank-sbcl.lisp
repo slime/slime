@@ -525,7 +525,7 @@ This is useful when debugging the definition-finding code.")
                           `(:position ,(+ pos emacs-position))
                           `(:snippet ,snippet))))
         ((not pathname)
-         `(:error ,(format nil "Source of ~A ~A not found"
+         `(:error ,(format nil "Source definition of ~A ~A not found"
                            (string-downcase type) name)))
         (t
          (let* ((namestring (namestring (translate-logical-pathname pathname)))
@@ -533,7 +533,9 @@ This is useful when debugging the definition-finding code.")
                                            character-offset))
                 (snippet (source-hint-snippet namestring file-write-date pos)))
            (make-location `(:file ,namestring)
-                          `(:position ,pos)
+                          ;; /file positions/ in Common Lisp start
+                          ;; from 0, in Emacs they start from 1.
+                          `(:position ,(1+ pos))
                           `(:snippet ,snippet))))))))
 
 (defun string-path-snippet (string form-path position)
@@ -551,10 +553,10 @@ This is useful when debugging the definition-finding code.")
 (defun source-file-position (filename write-date form-path character-offset)
   (let ((source (get-source-code filename write-date))
         (*readtable* (guess-readtable-for-filename filename)))
-    (1+ (with-debootstrapping
-          (if form-path
-              (source-path-string-position form-path source)
-              (or character-offset 0))))))
+    (with-debootstrapping
+      (if form-path
+          (source-path-string-position form-path source)
+          (or character-offset 0)))))
 
 (defun source-hint-snippet (filename write-date position)
   (let ((source (get-source-code filename write-date)))
