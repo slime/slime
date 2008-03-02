@@ -1,3 +1,18 @@
+2008-03-02  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	M-. now works on presentations. 
+
+	Additionally, a Find Definition entry is presented in the menu
+	appearing on right clicking on a presentation.
+	
+	* slime-presentations.lisp (slime-M-.-presentation): New function.
+	(slime-M-.-presentation-at-mouse): New function.
+	(slime-M-.-presentation-at-point): New function.
+	(slime-maybe-M-.-presentation-at-point): New function.
+	(slime-menu-choices-for-presentation): New entry "Find Definition".
+	(slime-presentation-easy-menu): New entry "Find Definition".
+	(slime-presentations-init): Hook into `slime-edit-definition-hooks'.
+
 2008-02-21  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	Having the `slime-presentations' contrib enabled, (princ 10)

@@ -374,6 +374,39 @@ Also return the start position, end position, and buffer of the presentation."
       (slime-presentation-around-or-before-point-or-error point)
     (slime-inspect-presentation presentation start end (current-buffer))))
 
+
+(defun slime-M-.-presentation (presentation start end buffer)
+  (let* ((id (slime-presentation-id presentation))
+	 (presentation-string (format "Presentation %s" id))
+	 (location (slime-eval `(swank:find-definition-for-thing
+				 (swank::lookup-presented-object
+				  ',(slime-presentation-id presentation))))))
+    (slime-edit-definition-cont
+     (and location (list (make-slime-xref :dspec `(,presentation-string)
+					  :location location)))
+     presentation-string
+     nil)))
+
+(defun slime-M-.-presentation-at-mouse (event)
+  (interactive "e")
+  (multiple-value-bind (presentation start end buffer) 
+      (slime-presentation-around-click event)
+    (slime-M-.-presentation presentation start end buffer)))
+
+(defun slime-M-.-presentation-at-point (point)
+  (interactive "d")
+  (multiple-value-bind (presentation start end) 
+      (slime-presentation-around-or-before-point-or-error point)
+    (slime-M-.-presentation presentation start end (current-buffer))))
+
+(defun slime-maybe-M-.-presentation-at-point (point)
+  (interactive "d")
+  (multiple-value-bind (presentation start end whole-p)
+      (slime-presentation-around-or-before-point point)
+    (when presentation
+      (slime-M-.-presentation presentation start end (current-buffer)))))
+
+
 (defun slime-copy-presentation-to-repl (presentation start end buffer)
   (let ((presentation-text 
 	 (with-current-buffer buffer
@@ -550,6 +583,7 @@ A negative argument means move backward instead."
       (list
        `(,(format "Presentation %s" what)
          ("" 
+	  ("Find Definition" . ,(savel 'slime-M-.-presentation-at-mouse))
           ("Inspect" . ,(savel 'slime-inspect-presentation-at-mouse))
           ("Describe" . ,(savel 'slime-describe-presentation-at-mouse))
           ("Pretty-print" . ,(savel 'slime-pretty-print-presentation-at-mouse))
@@ -680,6 +714,7 @@ output; otherwise the new input is appended."
 (defvar slime-presentation-easy-menu
   (let ((P '(slime-presentation-around-or-before-point-p)))
     `("Presentations"
+      [ "Find Definition" slime-M-.-presentation-at-point ,P ]
       [ "Inspect" slime-inspect-presentation-at-point ,P ]
       [ "Describe" slime-describe-presentation-at-point ,P ]
       [ "Pretty-print" slime-pretty-print-presentation-at-point ,P ]
@@ -831,6 +866,7 @@ even on Common Lisp implementations without weak hash tables."
   (add-hook 'slime-open-stream-hooks 'slime-presentation-on-stream-open)
   (add-hook 'slime-repl-clear-buffer-hook 'slime-clear-presentations)
   (add-hook 'slime-connected-hook 'slime-install-presentations)
+  (add-hook 'slime-edit-definition-hooks 'slime-maybe-M-.-presentation-at-point)
   (setq slime-inspector-insert-ispec-function 'slime-presentation-inspector-insert-ispec)
   (setq sldb-insert-frame-variable-value-function 
 	'slime-presentation-sldb-insert-frame-variable-value)
