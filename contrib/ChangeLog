@@ -13,6 +13,10 @@
 	(slime-presentation-easy-menu): New entry "Find Definition".
 	(slime-presentations-init): Hook into `slime-edit-definition-hooks'.
 
+2008-03-02  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-mit-scheme.scm: New file.
+
 2008-02-21  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	Having the `slime-presentations' contrib enabled, (princ 10)
