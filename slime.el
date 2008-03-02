@@ -5139,14 +5139,17 @@ look if the current buffer is narrowed, and if so use the relevant values."
 (defun slime-xref-has-location-p (xref)
   (slime-location-p (slime-xref.location xref)))
 
+(defvar slime-edit-definition-hooks)
+
 (defun slime-edit-definition (name &optional where)
   "Lookup the definition of the name at point.  
 If there's no name at point, or a prefix argument is given, then the
 function name is prompted."
   (interactive (list (slime-read-symbol-name "Name: ")))
-  (slime-find-definitions name
-                          (slime-rcurry
-                           #'slime-edit-definition-cont name where)))
+  (or (run-hook-with-args-until-success 'slime-edit-definition-hooks (point))
+      (slime-find-definitions name
+                              (slime-rcurry
+                               #'slime-edit-definition-cont name where))))
 
 (defun slime-edit-definition-cont (xrefs name where)
   (destructuring-bind (1loc file-alist) (slime-analyze-xrefs xrefs)
