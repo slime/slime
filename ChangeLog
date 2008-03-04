@@ -1,3 +1,7 @@
+2008-03-04  Helmut Eller  <heller@common-lisp.net>
+
+	* test.sh: Updated for Emacs 23.
+
 2008-03-04  Andreas Fuchs <asf@boinkor.net>
 
 	* swank.asd (asdf:output-files, asdf:perform): Make compile-op on
