@@ -15,7 +15,7 @@
    to access the locat port number of a server socket.  We shell out
    to netcat to get us started.
 
-3. The Emacs side needs a bit configuration.  I have the following in
+3. The Emacs side needs some fiddling.  I have the following in
    my .emacs:
 
 (setq slime-lisp-implementations
@@ -361,6 +361,17 @@
 	(compiler:disassemble
 	 (eval (read-from-string string) 
 	       (user-env *buffer-package*))))))
+
+
+;;;; Macroexpansion
+
+(define (swank:swank-macroexpand-all _ string) 
+  (with-output-to-string
+      (lambda ()
+	(pp (syntax (read-from-string string)
+		    (user-env *buffer-package*))))))
+(define swank:swank-macroexpand-1 swank:swank-macroexpand-all)
+(define swank:swank-macroexpand swank:swank-macroexpand-all)
 
 
 ;;; Arglist
