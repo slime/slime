@@ -1,3 +1,8 @@
+2008-03-04  Andreas Fuchs <asf@boinkor.net>
+
+	* swank.asd (asdf:output-files, asdf:perform): Make compile-op on
+	swank-loader-file a noop.
+
 2008-03-02  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el (slime-edit-definition-hooks): This variable can be
