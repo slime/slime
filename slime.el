@@ -1743,9 +1743,10 @@ EVAL'd by Lisp."
          (start (+ 6 (point)))
          (end (+ start length)))
     (assert (plusp length))
-    (let ((string (buffer-substring-no-properties start end)))
-      (prog1 (read string)
-        (delete-region (point-min) end)))))
+    (prog1 (save-restriction
+             (narrow-to-region start end)
+             (read (current-buffer)))
+      (delete-region (point-min) end))))
 
 (defun slime-net-decode-length ()
   "Read a 24-bit hex-encoded integer from buffer."

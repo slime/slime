@@ -1,3 +1,10 @@
+2008-03-07  Helmut Eller  <heller@common-lisp.net>
+
+	Be GC friendlier when parsing net packets.
+
+	* slime.el (slime-net-read): Instead of consing a fresh string,
+	use narrow-to-region and read the packet out of the buffer.
+
 2008-03-04  Helmut Eller  <heller@common-lisp.net>
 
 	* test.sh: Updated for Emacs 23.
