@@ -1,3 +1,11 @@
+2008-03-08  Helmut Eller  <heller@common-lisp.net>
+
+	Don't blindly override the inspect method for functions.
+
+	* swank-fancy-inspector.lisp (emacs-inspect function): Define this
+	method only if the backend hasn't defined one.
+	(inspect-function): New function.
+
 2008-03-02  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	M-. now works on presentations. 

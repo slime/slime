@@ -87,15 +87,19 @@
 	  (t 
 	   (list label ": " '(:newline) "  " docstring '(:newline))))))
 
-(defmethod emacs-inspect ((f function))
-  (append 
-	   (label-value-line "Name" (function-name f))
-	   `("Its argument list is: " 
-	     ,(inspector-princ (arglist f)) (:newline))
-	   (docstring-ispec "Documentation" f t)
-	   (if (function-lambda-expression f)
-	       (label-value-line "Lambda Expression"
-				 (function-lambda-expression f)))))
+(unless (find-method #'emacs-inspect '() (list (find-class 'function)) nil)
+  (defmethod emacs-inspect ((f function))
+    (inspect-function f)))
+
+(defun inspect-function (f)
+  (append
+   (label-value-line "Name" (function-name f))
+   `("Its argument list is: " 
+     ,(inspector-princ (arglist f)) (:newline))
+   (docstring-ispec "Documentation" f t)
+   (if (function-lambda-expression f)
+       (label-value-line "Lambda Expression"
+			 (function-lambda-expression f)))))
 
 (defun method-specializers-for-inspect (method)
   "Return a \"pretty\" list of the method's specializers. Normal
