@@ -3890,8 +3890,14 @@ See `slime-compile-and-load-file' for further details."
 (defun slime-compile-region (start end)
   "Compile the region."
   (interactive "r")
+  (slime-flash-region start end)
   (run-hook-with-args 'slime-before-compile-functions start end)
   (slime-compile-string (buffer-substring-no-properties start end) start))
+
+(defun slime-flash-region (start end &optional timeout)
+  (let ((overlay (make-overlay start end))) 
+    (overlay-put overlay 'face 'secondary-selection)
+    (run-with-timer (or timeout 0.2) nil 'delete-overlay overlay)))
 
 (defun slime-compile-string (string start-offset)
   (slime-eval-async 
@@ -9116,18 +9122,14 @@ Reconnect afterwards."
   (apply #'buffer-substring-no-properties
          (slime-region-for-defun-at-point)))
 
-(defvar slime-region-for-defun-function nil)
-
 (defun slime-region-for-defun-at-point ()
   "Return the start and end position of the toplevel form at point."
-  (or (and slime-region-for-defun-function
-           (funcall slime-region-for-defun-function))
-      (save-excursion
-        (save-match-data
-          (end-of-defun)
-          (let ((end (point)))
-            (beginning-of-sexp)
-            (list (point) end))))))
+  (save-excursion
+    (save-match-data
+      (end-of-defun)
+      (let ((end (point)))
+        (beginning-of-defun)
+        (list (point) end)))))
 
 (defun slime-beginning-of-symbol ()
   "Move point to the beginning of the current symbol."

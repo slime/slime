@@ -1,5 +1,13 @@
 2008-03-13  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-region-for-defun-function): Deleted.
+	(slime-region-for-defun-at-point): Use beginning-of-defun
+	and not beginning-of-sexp.
+	(slime-flash-region): New function.
+	(slime-compile-region): Use it.
+
+2008-03-13  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-xref-group): Renamed from slime-location-to-string.
 	Handle source-form locations.
 
