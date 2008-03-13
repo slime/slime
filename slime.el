@@ -6267,6 +6267,8 @@ expand the LOOP form. See comment in the source of this function."
          (slime-macroexpansion-minor-mode)
          (erase-buffer)
          (insert expansion)
+         (goto-char (point-min))
+         (indent-sexp)
          (font-lock-fontify-buffer))))))
 
 (defun slime-eval-macroexpand-inplace (expander)

@@ -1,5 +1,9 @@
 2008-03-13  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-eval-macroexpand): Indent expansion.
+	
+2008-03-13  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (slime-edit-definition-cont): If no definition could
 	be found, print also the package name in the error message where
 	the definition was tried to be found in.
