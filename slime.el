@@ -7576,7 +7576,8 @@ that value.
            (slime-inspector-fetch-range range-button))
           (action-number 
            (slime-eval-async `(swank::inspector-call-nth-action ,action-number)
-                             opener)))))
+                             opener))
+          (t (error "No object at point")))))
 
 (defun slime-inspector-operate-on-click (event)
   "Inspect the value at the clicked-at position or invoke an action."
