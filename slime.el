@@ -2216,7 +2216,7 @@ deal with that."
 If `slime-buffer-package' has a value then return that, otherwise
 search for and read an `in-package' form.
 
-The REPL buffer is a special case: it's package is `slime-lisp-package'."
+The REPL buffer is a special case: its package is `slime-lisp-package'."
   (cond ((eq major-mode 'slime-repl-mode)
          (slime-lisp-package))
         (slime-buffer-package)
@@ -5160,7 +5160,8 @@ function name is prompted."
 (defun slime-edit-definition-cont (xrefs name where)
   (destructuring-bind (1loc file-alist) (slime-analyze-xrefs xrefs)
     (cond ((null xrefs) 
-           (error "No known definition for: %s" name))
+           (error "No known definition for: %s (in %s)" 
+                  name (or (slime-current-package) (slime-lisp-package))))
           (1loc
            (slime-push-definition-stack)
            (slime-pop-to-location (slime-xref.location (car xrefs)) where))
