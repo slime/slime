@@ -226,19 +226,20 @@ The default is nil, as this feature can be a security risk."
   :prefix "slime-"
   :group 'slime)
 
-(defcustom slime-edit-definition-fallback-function nil
-  "Function to call when edit-definition fails to find the source itself.
-The function is called with the definition name, a string, as its argument.
-
-If you want to fallback on TAGS you can set this to `find-tag',
-`slime-find-tag-if-tags-table-visited', or
-`slime-edit-definition-with-etags'."
-  :type 'symbol
-  :group 'slime-mode-mode
-  :options '(nil 
-             slime-edit-definition-with-etags
-             slime-find-tag-if-tags-table-visited
-             find-tag))
+(defcustom slime-find-definitions-function 'slime-find-definitions-rpc
+  "Function to find definitions for a name.
+The function is called with the definition name, a string, as its argument."
+  :type 'function
+  :group 'slime-mode
+  :options '(slime-find-definitions-rpc
+             slime-etags-definitions
+             (lambda (name)
+               (append (slime-find-definitions-rpc name)
+                       (slime-etags-definitions name)))
+             (lambda (name)
+               (or (slime-find-definitions-rpc name)
+                   (and tags-table-list
+                        (slime-etags-definitions name))))))
 
 (defcustom slime-complete-symbol-function 'slime-simple-complete-symbol
   "*Function to perform symbol completion."
@@ -5148,9 +5149,8 @@ If there's no name at point, or a prefix argument is given, then the
 function name is prompted."
   (interactive (list (slime-read-symbol-name "Name: ")))
   (or (run-hook-with-args-until-success 'slime-edit-definition-hooks (point))
-      (slime-find-definitions name
-                              (slime-rcurry
-                               #'slime-edit-definition-cont name where))))
+      (slime-edit-definition-cont (slime-find-definitions name)
+                                  name where)))
 
 (defun slime-edit-definition-cont (xrefs name where)
   (destructuring-bind (1loc file-alist) (slime-analyze-xrefs xrefs)
@@ -5199,21 +5199,12 @@ FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
     (window (pop-to-buffer (current-buffer) t))
     (frame (let ((pop-up-frames t)) (pop-to-buffer (current-buffer) t)))))
 
-(defun slime-find-definitions (name cont)
+(defun slime-find-definitions (name)
   "Find definitions for NAME and pass them to CONT."
-  ;; FIXME: append SWANK xrefs and etags xrefs
-  (funcall cont
-           (or (slime-eval `(swank:find-definitions-for-emacs ,name))
-               (and slime-edit-definition-fallback-function
-                    (funcall slime-edit-definition-fallback-function name)))))
+  (funcall slime-find-definitions-function name))
 
-(defun slime-find-tag-if-tags-table-visited (name)
-  "Find tag (in current tags table) whose name contains NAME.
-If no tags table is visited, don't offer to visit one;
-just signal that no definition is known."
-  (if tags-table-list
-      (find-tag name)
-    (error "No known definition for: %s; use M-x visit-tags-table RET" name)))
+(defun slime-find-definitions-rpc (name)
+  (slime-eval `(swank:find-definitions-for-emacs ,name)))
  
 (defun slime-edit-definition-other-window (name)
   "Like `slime-edit-definition' but switch to the other window."

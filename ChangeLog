@@ -1,5 +1,12 @@
 2008-03-12  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-find-definitions-function): Renamed from
+	slime-edit-definition-fallback-function.
+	(slime-find-definitions): Use it.
+	(slime-find-tag-if-tags-table-visited): Deleted.
+
+2008-03-12  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-inspector-operate-on-point): Signal an error if
 	there is no object to operate on.
 
