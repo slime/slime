@@ -1,3 +1,8 @@
+2008-03-08  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (sldb-toggle-details): Inhibit point-motion-hooks.
+	This is a workaround for problems with the --more-- field.
+
 2008-03-07  Helmut Eller  <heller@common-lisp.net>
 
 	Be GC friendlier when parsing net packets.

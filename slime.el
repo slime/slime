@@ -6744,7 +6744,7 @@ Called on the `point-entered' text-property hook."
   (let ((inhibit-point-motion-hooks t)
         (inhibit-read-only t)
         (prev (get-text-property (point) 'sldb-previous-frame-number)))
-    ;; for unkown reasons, PREV is sometimes nil
+    ;; we may be called twice, PREV is nil the second time
     (when prev
       (let* ((count 40)
              (from (1+ prev))
@@ -6986,7 +6986,8 @@ This is 0 if START and END at the same line."
 The details include local variable bindings and CATCH-tags."
   (interactive)
   (assert (sldb-frame-number-at-point))
-  (let ((inhibit-read-only t))
+  (let ((inhibit-read-only t)
+        (inhibit-point-motion-hooks t))
     (if (or on (not (sldb-frame-details-visible-p)))
 	(sldb-show-frame-details)
       (sldb-hide-frame-details))))
