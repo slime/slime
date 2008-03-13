@@ -100,7 +100,7 @@ Return nil if the ChangeLog file cannot be found."
     (let ((changelog (concat slime-path "ChangeLog")))
       (if (file-exists-p changelog)
           (with-temp-buffer 
-            (insert-file-contents changelog nil 0 100)
+            (insert-file-contents-literally changelog nil 0 100)
             (goto-char (point-min))
             (symbol-name (read (current-buffer))))
         nil))))
@@ -2509,7 +2509,6 @@ Debugged requests are ignored."
 (defvar slime-repl-input-start-mark)
 (defvar slime-repl-prompt-start-mark)
 
-
 (defun slime-output-buffer (&optional noprompt)
   "Return the output buffer, create it if necessary."
   (let ((buffer (slime-connection-output-buffer)))
@@ -3810,8 +3809,8 @@ Also rearrange windows."
 ;;;;; Cleanup after a quit
 
 (defun slime-kill-all-buffers ()
-  "Kill all the slime related buffers. This is only used by the
-  repl command sayoonara."
+  "Kill all the slime related buffers.
+This is only used by the repl command sayoonara."
   (dolist (buf (buffer-list))
     (when (or (string= (buffer-name buf) slime-event-buffer-name)
               (string-match "^\\*inferior-lisp*" (buffer-name buf))
@@ -5176,21 +5175,21 @@ FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
                (and (slime-location-p loc)
                     (every (lambda (x) (equal (slime-xref.location x) loc))
                            (cdr xrefs)))))
-        (slime-alistify xrefs
-                        (lambda (x)
-                          (if (slime-xref-has-location-p x)
-                              (slime-location-to-string (slime-xref.location x))
-                            "Error"))
-                        #'equal)))
+        (slime-alistify xrefs #'slime-xref-group #'equal)))
 
-(defun slime-location-to-string (location)
-  (destructure-case (slime-location.buffer location)
-    ((:file filename) filename)
-    ((:buffer bufname)
-     (let ((buffer (get-buffer bufname)))
-       (if buffer 
-           (format "%S" buffer) ; "#<buffer foo.lisp>"
-           (format "%s (previously existing buffer)" bufname))))))
+(defun slime-xref-group (xref)
+  (cond ((slime-xref-has-location-p xref)
+         (destructure-case (slime-location.buffer (slime-xref.location xref))
+           ((:file filename) filename)
+           ((:buffer bufname)
+            (let ((buffer (get-buffer bufname)))
+              (if buffer 
+                  (format "%S" buffer) ; "#<buffer foo.lisp>"
+                (format "%s (previously existing buffer)" bufname))))
+           ((:source-form _)
+            "(S-Exp)")))
+        (t
+         "(No location)")))
 
 (defun slime-pop-to-location (location &optional where)
   (slime-goto-source-location location)

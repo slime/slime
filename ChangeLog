@@ -1,3 +1,8 @@
+2008-03-13  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-xref-group): Renamed from slime-location-to-string.
+	Handle source-form locations.
+
 2008-03-12  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-find-definitions-function): Renamed from
