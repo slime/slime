@@ -1,3 +1,10 @@
+2008-03-08  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-fancy-inspector.lisp (make-symbols-listing :classification):
+	Add support for typespec and constant classification; don't
+	silently ignore symbols that can't be usefully classified, but
+	group them under "MISC".
+
 2008-03-08  Helmut Eller  <heller@common-lisp.net>
 
 	Don't blindly override the inspect method for functions.

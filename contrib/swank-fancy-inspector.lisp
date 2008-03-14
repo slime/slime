@@ -342,7 +342,7 @@ See `methods-by-applicability'.")
 
 ;; Wrapper structure over the list of symbols of a package that should
 ;; be displayed with their respective classification flags. This is
-;; because we need a unique type to dispatch on in INSPECT-FOR-EMACS.
+;; because we need a unique type to dispatch on in EMACS-INSPECT.
 ;; Used by the Inspector for packages.
 (defstruct (%package-symbols-container (:conc-name   %container.)
                                        (:constructor %%make-package-symbols-container))
@@ -381,7 +381,7 @@ represents (cf. CLASSIFY-SYMBOL & Fuzzy Completion.)"
         ,(concatenate 'string        ; underlining dashes
                       (make-string (+ max-length distance -1) :initial-element #\-)
                       " "
-                      (let* ((dummy (classify-symbol (gensym)))
+                      (let* ((dummy (classify-symbol :foo))
                              (dummy (symbol-classification->string dummy))
                              (classification-length (length dummy)))
                         (make-string classification-length :initial-element #\-)))
@@ -402,21 +402,29 @@ the GENERIC-FUNCTION group.) As macros and special-operators are
 specified to be FBOUNDP, there is no general FBOUNDP group,
 instead there are the three explicit FUNCTION, MACRO and
 SPECIAL-OPERATOR groups."
-  (let ((table (make-hash-table :test #'eq)))
-    (flet ((maybe-convert-fboundps (classifications)
-             ;; Convert an :FBOUNDP in CLASSIFICATIONS to :FUNCTION if possible.
-             (if (and (member :fboundp classifications)
-                      (not (member :macro classifications))
-                      (not (member :special-operator classifications)))
-                 (substitute :function :fboundp classifications)
-                 (remove :fboundp classifications))))
+  (let ((table (make-hash-table :test #'eq))
+	(+default-classification+ :misc))
+    (flet ((normalize-classifications (classifications)
+             (cond ((null classifications) `(,+default-classification+))
+		   ;; Convert an :FBOUNDP in CLASSIFICATIONS to :FUNCTION if possible.
+		   ((and (member :fboundp classifications)
+			 (not (member :macro classifications))
+			 (not (member :special-operator classifications)))
+		      (substitute :function :fboundp classifications))
+		   (t (remove :fboundp classifications)))))
       (loop for symbol in symbols do
-            (loop for classification in (maybe-convert-fboundps (classify-symbol symbol))
+            (loop for classification in (normalize-classifications (classify-symbol symbol))
                   ;; SYMBOLS are supposed to be sorted alphabetically;
                   ;; this property is preserved here except for reversing.
                   do (push symbol (gethash classification table)))))
     (let* ((classifications (loop for k being each hash-key in table collect k))
-           (classifications (sort classifications #'string<)))
+           (classifications (sort classifications
+				  ;; Sort alphabetically, except +DEFAULT-CLASSIFICATION+
+				  ;; which sort to the end.
+				  #'(lambda (a b)
+				      (cond ((eql a +default-classification+) nil)
+					    ((eql b +default-classification+) t)
+					    (t (string< a b)))))))
       (loop for classification in classifications
             for symbols = (gethash classification table)
             appending`(,(symbol-name classification)
