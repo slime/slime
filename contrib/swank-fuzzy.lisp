@@ -30,14 +30,14 @@
 The main result is a list of completion objects, where a completion
 object is:
 
-    (COMPLETED-STRING SCORE (&rest CHUNKS) FLAGS)
+    (COMPLETED-STRING SCORE (&rest CHUNKS) CLASSIFICATION-STRING)
 
 where a CHUNK is a description of a matched substring:
 
     (OFFSET SUBSTRING)
 
-and FLAGS is a list of keywords describing properties of the 
-symbol (see CLASSIFY-SYMBOL).
+and FLAGS is short string describing properties of the symbol (see
+CLASSIFY-SYMBOL and STRING-CLASSIFICATION->STRING).
 
 E.g., completing \"mvb\" in a package that uses COMMON-LISP would
 return something like:
@@ -131,11 +131,11 @@ designator's format. The cases are as follows:
       (values result (search symbol-name result)))))
 
 (defun fuzzy-convert-matching-for-emacs (fuzzy-matching user-input-string)
-  "Converts a result from the fuzzy completion core into
-something that emacs is expecting.  Converts symbols to strings,
-fixes case issues, and adds information describing if the symbol
-is :bound, :fbound, a :class, a :macro, a :generic-function,
-a :special-operator, or a :package."
+  "Converts a result from the fuzzy completion core into something
+that emacs is expecting.  Converts symbols to strings, fixes case
+issues, and adds information (as a string) describing if the symbol is
+bound, fbound, a class, a macro, a generic-function, a
+special-operator, or a package."
   (with-struct (fuzzy-matching. symbol score package-chunks symbol-chunks) fuzzy-matching
     (multiple-value-bind (name added-length)
 	(fuzzy-format-matching fuzzy-matching user-input-string)
@@ -148,7 +148,7 @@ a :special-operator, or a :package."
 				(let ((offset (first chunk)) (string (second chunk)))
 				  (list (+ added-length offset) string))) 
 			    symbol-chunks))
-	    (classify-symbol symbol)))))
+	    (symbol-classification->string (classify-symbol symbol))))))
 
 (defun fuzzy-completion-set (string default-package-name &key limit time-limit-in-msec)
   "Returns two values: an array of completion objects, sorted by
