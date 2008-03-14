@@ -493,30 +493,38 @@ If PACKAGE is not specified, the home package of SYMBOL is used."
 
 
 (defun classify-symbol (symbol)
-  "Returns a list of classifiers that classify SYMBOL according
-to its underneath objects (e.g. :BOUNDP if SYMBOL constitutes a
-special variable.) The list may contain the following classification
-keywords: :BOUNDP, :FBOUNDP, :GENERIC-FUNCTION, :CLASS, :MACRO, 
-:SPECIAL-OPERATOR, and/or :PACKAGE"
+  "Returns a list of classifiers that classify SYMBOL according to its
+underneath objects (e.g. :BOUNDP if SYMBOL constitutes a special
+variable.) The list may contain the following classification
+keywords: :BOUNDP, :FBOUNDP, :CONSTANT, :GENERIC-FUNCTION,
+:TYPESPEC, :CLASS, :MACRO, :SPECIAL-OPERATOR, and/or :PACKAGE"
   (check-type symbol symbol)
-  (let (result)
-    (when (boundp symbol)             (push :boundp result))
-    (when (fboundp symbol)            (push :fboundp result))
-    (when (find-class symbol nil)     (push :class result))
-    (when (macro-function symbol)     (push :macro result))
-    (when (special-operator-p symbol) (push :special-operator result))
-    (when (find-package symbol)       (push :package result))
-    (when (typep (ignore-errors (fdefinition symbol))
-                 'generic-function)
-      (push :generic-function result))
-    result))
+  (flet ((type-specifier-p (s)
+           (or (documentation s 'type)
+               (not (eq (type-specifier-arglist s) :not-available)))))
+    (let (result)
+      (when (boundp symbol)             (push (if (constantp symbol)
+                                                  :constant :boundp) result))
+      (when (fboundp symbol)            (push :fboundp result))
+      (when (type-specifier-p symbol)   (push :typespec result))
+      (when (find-class symbol nil)     (push :class result))
+      (when (macro-function symbol)     (push :macro result))
+      (when (special-operator-p symbol) (push :special-operator result))
+      (when (find-package symbol)       (push :package result))
+      (when (typep (ignore-errors (fdefinition symbol))
+                   'generic-function)
+        (push :generic-function result))
+
+      result)))
 
 (defun symbol-classification->string (flags)
-  (format nil "~A~A~A~A~A~A~A"
-          (if (member :boundp flags) "b" "-")
+  (format nil "~A~A~A~A~A~A~A~A"
+          (if (or (member :boundp flags)
+                  (member :constant flags)) "b" "-")
           (if (member :fboundp flags) "f" "-")
           (if (member :generic-function flags) "g" "-")
           (if (member :class flags) "c" "-")
+          (if (member :typespec flags) "t" "-")
           (if (member :macro flags) "m" "-")
           (if (member :special-operator flags) "s" "-")
           (if (member :package flags) "p" "-")))
