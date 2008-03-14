@@ -1,5 +1,10 @@
 2008-03-14  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-fancy-inspector.lisp (add-slots-for-inspector): Remove
+	IGNORE declaration of non-existing argument.
+
+2008-03-14  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank-fuzzy.lisp (fuzzy-convert-matching-for-emacs): Return a
 	string representation of the classifications rather than the
 	classifications themselves. (Notice this propagates up to (and

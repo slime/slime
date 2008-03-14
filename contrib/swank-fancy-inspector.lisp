@@ -188,7 +188,6 @@ See `methods-by-applicability'.")
 
 (defgeneric all-slots-for-inspector (object)
   (:method ((object standard-object))
-    (declare (ignore inspector))
     (append '("--------------------" (:newline)
               "All Slots:" (:newline))
             (let* ((class (class-of object))
