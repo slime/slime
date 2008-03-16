@@ -508,11 +508,6 @@ This is automatically updated based on the buffer/point."))
                     (t name))))
     (format "%s" (read name))))
 
-(defun slime-pretty-find-buffer-package ()
-  "Return a prettied version of `slime-find-buffer-package'."
-  (let ((p (slime-find-buffer-package)))
-    (and p (slime-pretty-package-name p))))
-
 (when slime-update-modeline-package
   (run-with-idle-timer 0.2 0.2 'slime-update-modeline-package))
 
@@ -1272,10 +1267,10 @@ The rules for selecting the arguments are rather complicated:
 
 (defun slime-load-file-set-package (filename package)
   (let ((filename (slime-to-lisp-filename filename)))
-    (slime-eval-async `(swank:load-file-set-package ,filename ,package)
-                      (lambda (package)
-                        (when package
-                          (slime-repl-set-package (second package)))))))
+    (slime-eval-async `(swank:load-file ,filename)
+                      (lexical-let ((package package))
+                        (lambda (ignored)
+                          (slime-repl-set-package package))))))
 
 ;;;;; Start inferior lisp
 ;;;
@@ -3279,6 +3274,7 @@ for the most recently enclosed macro or function."
              (slime-complete-symbol))
             ((memq (char-before) '(?\t ?\ ))
              (slime-echo-arglist))))))
+
 
 (defun slime-repl-set-package (package)
   "Set the package of the REPL buffer to PACKAGE."
@@ -6365,11 +6361,6 @@ CL:MACROEXPAND."
     (when inferior-buffer (kill-buffer inferior-buffer))
     (slime-net-close process)
     (message "Connection closed.")))
-
-(defun slime-set-package (package)
-  (interactive (list (slime-read-package-name
-                      "Package: " (slime-pretty-find-buffer-package))))
-  (message "*package*: %s" (slime-eval `(swank:set-package ,package))))
 
 (defun slime-set-default-directory (directory)
   "Make DIRECTORY become Lisp's current directory."

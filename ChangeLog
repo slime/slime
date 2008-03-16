@@ -1,3 +1,16 @@
+2008-03-16  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank.lisp (load-file-set-package): Removed; the function was
+	only used in `slime-load-file-set-package' which invokes
+	`slime-repl-set-package' which set the package for a second time.
+
+	* slime.lisp (slime-load-file-set-package): Don't call
+	SWANK:LOAD-FILE-SET-PACKAGE, but merely call SWANK:LOAD-FILE,
+	then invoke `slime-repl-set-package' which will set the package.
+
+	(slime-pretty-find-buffer-package): Removed. (Nowhere used.)
+	(slime-set-package): Ditto.
+	
 2008-03-14  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank.lisp (classify-symbol, symbol-classification->string): Add

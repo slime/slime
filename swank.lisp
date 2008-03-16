@@ -2262,11 +2262,6 @@ Record compiler notes signalled as `compiler-condition's."
 (defslimefun load-file (filename)
   (to-string (load filename)))
 
-(defslimefun load-file-set-package (filename &optional package)
-  (load-file filename)
-  (if package
-      (set-package package)))
-
 
 ;;;;; swank-require
 
