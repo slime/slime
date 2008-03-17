@@ -1,3 +1,16 @@
+2008-03-17  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-source-path-parser.lisp:
+
+	Multibyte characters in files could screw up compiler-notes
+	highlighting on SBCL. Fix that.
+
+	(skip-toplevel-forms): Abstracted out from READ-SOURCE-FORM.
+	(source-path-file-position): Don't operate on the file stream
+	directly, since CL:FILE-POSITION may not return character but
+	binary offsets on such streams; instead slurp file content into a
+	buffer string, and operate on that.
+	
 2008-03-16  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank.lisp (load-file-set-package): Removed; the function was

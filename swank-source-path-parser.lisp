@@ -40,7 +40,7 @@ before and after of calling FN in the hashtable SOURCE-MAP."
     (let ((start (file-position stream))
 	  (values (multiple-value-list (funcall fn stream char)))
 	  (end (file-position stream)))
-      ;;(format t "[~D ~{~A~^, ~} ~D ~D]~%" start values end (char-code char))
+      ;(format t "[~D ~{~A~^, ~} ~D ~D ~S]~%" start values end (char-code char) char)
       (unless (null values)
 	(push (cons start end) (gethash (car values) source-map)))
       (values-list values))))
@@ -72,12 +72,15 @@ subexpressions of the object to stream positions."
       (push (cons start end) (gethash form source-map)))
     (values form source-map)))
 
+(defun skip-toplevel-forms (n stream)
+  (let ((*read-suppress* t))
+    (dotimes (i n)
+      (read stream))))
+
 (defun read-source-form (n stream)
   "Read the Nth toplevel form number with source location recording.
 Return the form and the source-map."
-  (let ((*read-suppress* t))
-    (dotimes (i n)
-      (read stream)))
+  (skip-toplevel-forms n stream)
   (let ((*read-suppress* nil))
     (read-and-record-source-map stream)))
   
@@ -98,8 +101,20 @@ Return the form and the source-map."
     (source-path-stream-position path s)))
 
 (defun source-path-file-position (path filename)
-  (with-open-file (file filename)
-    (source-path-stream-position path file)))
+  ;; We go this long way round, and don't directly operate on the file
+  ;; stream because FILE-POSITION is not totally savy even on file
+  ;; character streams; on SBCL, FILE-POSITION returns the binary
+  ;; offset, and not the character offset---screwing up on Unicode.
+  (let ((toplevel-number (first path))
+	(buffer))
+    (with-open-file (file filename)
+      (skip-toplevel-forms (1+ toplevel-number) file)
+      (let ((endpos (file-position file)))
+	(setq buffer (make-array (list endpos) :element-type 'character
+				 :initial-element #\Space))
+	(assert (file-position file 0))
+	(read-sequence buffer file :end endpos)))
+    (source-path-string-position path buffer)))
 
 (defun source-path-source-position (path form source-map)
   "Return the start position of PATH from FORM and SOURCE-MAP.  All
