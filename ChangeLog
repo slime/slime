@@ -36,6 +36,15 @@
 	
 2008-03-14  Helmut Eller  <heller@common-lisp.net>
 
+	Move filename translation code to contrib.
+
+	* slime.el (slime-find-filename-translators)
+	(slime-filename-translations): Move to contrib/slime-tramp.el.
+	(slime-to-lisp-filename-function)
+	(slime-from-lisp-filename-function): New variables.
+
+2008-03-14  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-repl-return-behaviour): Deleted.  Rebind
 	the key if you don't like what the command does.
 

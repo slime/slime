@@ -164,45 +164,6 @@ slime.el, but could also be set to an absolute filename."
   :type 'hook
   :group 'slime-lisp)
 
-(defcustom slime-filename-translations nil
-  "Assoc list of hostnames and filename translation functions.  
-Each element is of the form (HOSTNAME-REGEXP TO-LISP FROM-LISP).
-
-HOSTNAME-REGEXP is a regexp which is applied to the connection's
-slime-machine-instance. If HOSTNAME-REGEXP maches then the
-corresponding TO-LISP and FROM-LISP functions will be used to
-translate emacs filenames and lisp filenames.
-
-TO-LISP will be passed the filename of an emacs buffer and must
-return a string which the underlying lisp understandas as a
-pathname. FROM-LISP will be passed a pathname as returned by the
-underlying lisp and must return something that emacs will
-understand as a filename (this string will be passed to
-find-file).
-
-This list will be traversed in order, so multiple matching
-regexps are possible.
-
-Example:
-
-Assuming you run emacs locally and connect to slime running on
-the machine 'soren' and you can connect with the username
-'animaliter':
-
-  (push (list \"^soren$\"
-              (lambda (emacs-filename)
-                (subseq emacs-filename (length \"/ssh:animaliter@soren:\")))
-              (lambda (lisp-filename)
-                (concat \"/ssh:animaliter@soren:\" lisp-filename)))
-        slime-filename-translations)
-
-See also `slime-create-filename-translator'."
-  :type '(repeat (list :tag "Host description"
-                       (regexp :tag "Hostname regexp")
-                       (function :tag "To   lisp function")
-                       (function :tag "From lisp function")))
-  :group 'slime-lisp)
-
 (defcustom slime-enable-evaluate-in-emacs nil
   "*If non-nil, the inferior Lisp can evaluate arbitrary forms in Emacs.
 The default is nil, as this feature can be a security risk."
@@ -1050,24 +1011,16 @@ window configuration unless it was changed since we last activated the buffer."
 ;;; these functions. This way users who run Emacs and Lisp on separate
 ;;; machines have a chance to integrate file operations somehow.
 
+(defvar slime-to-lisp-filename-function #'identity)
+(defvar slime-from-lisp-filename-function #'identity)
+
 (defun slime-to-lisp-filename (filename)
-  "Translate the string FILENAME to a Lisp filename.
-See `slime-filename-translations'."
-  (funcall (first (slime-find-filename-translators (slime-machine-instance)))
-           (expand-file-name filename)))
+  "Translate the string FILENAME to a Lisp filename."
+  (funcall slime-to-lisp-filename-function filename))
 
 (defun slime-from-lisp-filename (filename)
-  "Translate the Lisp filename FILENAME to an Emacs filename.
-See `slime-filename-translations'."
-  (funcall (second (slime-find-filename-translators (slime-machine-instance)))
-           filename))
-
-(defun slime-find-filename-translators (hostname)
-  (cond ((and hostname slime-filename-translations)
-         (or (cdr (assoc-if (lambda (regexp) (string-match regexp hostname))
-                            slime-filename-translations))
-             (error "No filename-translations for hostname: %s" hostname)))
-        (t (list #'identity #'identity))))
+  "Translate the Lisp filename FILENAME to an Emacs filename."
+  (funcall slime-from-lisp-filename-function filename))
 
 
 ;;;; Starting SLIME
@@ -1661,12 +1614,6 @@ EVAL'd by Lisp."
     (insert string))
   (slime-process-available-input process))
 
-(defun slime-run-when-idle (function &rest args)
-  "Call FUNCTION as soon as Emacs is idle."
-  (apply #'run-at-time 
-         (if (featurep 'xemacs) itimer-short-interval 0) 
-         nil function args))
-
 (defun slime-process-available-input (process)
   "Process all complete messages that have arrived from Lisp."
   (with-current-buffer (process-buffer process)
@@ -1686,6 +1633,12 @@ EVAL'd by Lisp."
   (goto-char (point-min))
   (and (>= (buffer-size) 6)
        (>= (- (buffer-size) 6) (slime-net-decode-length))))
+
+(defun slime-run-when-idle (function &rest args)
+  "Call FUNCTION as soon as Emacs is idle."
+  (apply #'run-at-time 
+         (if (featurep 'xemacs) itimer-short-interval 0) 
+         nil function args))
 
 (defun slime-net-read-or-lose (process)
   (condition-case error
@@ -1947,9 +1900,7 @@ This is automatically synchronized from Lisp.")
   ;; from a timer then it mysteriously uses the wrong keymap for the
   ;; first command.
   (slime-eval-async '(swank:connection-info)
-                    (with-lexical-bindings (proc)
-                      (lambda (info)
-                        (slime-set-connection-info proc info)))))
+                    (slime-curry #'slime-set-connection-info proc)))
 
 (defun slime-set-connection-info (connection info)
   "Initialize CONNECTION with INFO received from Lisp."

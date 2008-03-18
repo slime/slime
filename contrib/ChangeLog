@@ -24,6 +24,15 @@
 	silently ignore symbols that can't be usefully classified, but
 	group them under "MISC".
 
+2008-03-14  Helmut Eller  <heller@common-lisp.net>
+
+	Move filename translation code to contrib.
+
+	* slime-tramp.el (slime-find-filename-translators)
+	(slime-filename-translations): Move from slime.el.
+	(slime-tramp-from-lisp-filename, slime-tramp-to-lisp-filename):
+	New functions.
+
 2008-03-08  Helmut Eller  <heller@common-lisp.net>
 
 	Don't blindly override the inspect method for functions.
