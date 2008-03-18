@@ -573,21 +573,21 @@
 	  (longest-common-prefix strings))))
 
 (define (all-completions pattern env match?)
-  (let ((ss (map symbol->string (environment-names env))))
+  (let ((ss (map %symbol->string (environment-names env))))
     (keep-matching-items ss (lambda (s) (match? pattern s)))))
 
+;; symbol->string is too slow
+(define %symbol->string symbol-name)
+
 (define (environment-names env)
-  (append (map car (environment-bindings env))
+  (append (environment-bound-names env)
 	  (if (environment-has-parent? env)
 	      (environment-names (environment-parent env))
 	      '())))
 
 (define (longest-common-prefix strings)
-  (define(common-prefix s1 s2)
-    (let ((len (min (string-length s1) (string-length s2))))
-      (do ((i 0 (1+ i)))
-	  ((or (= i len) (not (char=? (string-ref s1 i) (string-ref s2 i))))
-	   (substring s1 0 i)))))
+  (define (common-prefix s1 s2)
+    (substring s1 0 (string-match-forward s1 s2)))
   (reduce common-prefix "" strings))
 
 
