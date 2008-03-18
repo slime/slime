@@ -93,11 +93,12 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
         ;; Asynchronously fetch, cache, and display documentation
         (slime-eval-async 
          retrieve-form
-         (with-lexical-bindings (cache-key)
-           (lambda (doc)
-             (let ((doc (if doc (slime-fontify-string doc) "")))
-               (slime-update-autodoc-cache cache-key doc)
-               (slime-autodoc-message doc)))))))))
+         (slime-rcurry 
+	  (lambda (doc cache-key)
+	    (let ((doc (if doc (slime-fontify-string doc) "")))
+	      (slime-update-autodoc-cache cache-key doc)
+	      (slime-autodoc-message doc)))
+	  cache-key))))))
 
 (defcustom slime-autodoc-use-multiline-p nil
   "If non-nil, allow long autodoc messages to resize echo area display."

@@ -634,14 +634,6 @@ evaluate BODY.
 
 (put 'when-let 'lisp-indent-function 1)
 
-(defmacro with-lexical-bindings (variables &rest body)
-  "Execute BODY with VARIABLES in lexical scope."
-  `(lexical-let ,(mapcar (lambda (variable) (list variable variable))
-                         variables)
-     ,@body))
-
-(put 'with-lexical-bindings 'lisp-indent-function 1)
-
 (defmacro destructure-case (value &rest patterns)
   "Dispatch VALUE to one of PATTERNS.
 A cross between `case' and `destructuring-bind'.
@@ -2979,40 +2971,34 @@ buffer."
     (end-of-defun))
   t)
 
-;; FIXME: Shouldn't this be (= (point) slime-repl-input-end-mark)?
-(defun slime-repl-at-prompt-end-p ()
-  (and (get-char-property (max 1 (1- (point))) 'slime-repl-prompt)
-       (not (get-char-property (point) 'slime-repl-prompt))))
- 
-(defun slime-repl-find-prompt (move)
-  (let ((origin (point)))
-    (loop (funcall move)
-          (when (or (slime-repl-at-prompt-end-p) (bobp) (eobp))
-            (return)))
-    (unless (slime-repl-at-prompt-end-p)
-      (goto-char origin))))
-
-(defun slime-search-property-change-fn (prop &optional backward)
-  (with-lexical-bindings (prop)
-    (if backward 
-        (lambda () 
-          (goto-char
-           (previous-single-char-property-change (point) prop)))
-        (lambda () 
-          (goto-char
-           (next-single-char-property-change (point) prop))))))
-
 (defun slime-repl-previous-prompt ()
   "Move backward to the previous prompt."
   (interactive)
-  (slime-repl-find-prompt 
-   (slime-search-property-change-fn 'slime-repl-prompt t)))
+  (slime-repl-find-prompt t))
 
 (defun slime-repl-next-prompt ()
   "Move forward to the next prompt."
   (interactive)
-  (slime-repl-find-prompt
-   (slime-search-property-change-fn 'slime-repl-prompt)))
+  (slime-repl-find-prompt))
+ 
+(defun slime-repl-find-prompt (&optional backward)
+  (let ((origin (point))
+        (prop 'slime-repl-prompt))
+    (while (progn 
+             (slime-search-property-change prop backward)
+             (not (or (slime-end-of-proprange-p prop) (bobp) (eobp)))))
+    (unless (slime-end-of-proprange-p prop)
+      (goto-char origin))))
+
+(defun slime-search-property-change (prop &optional backward)
+  (cond (backward 
+         (goto-char (previous-single-char-property-change (point) prop)))
+        (t 
+         (goto-char (next-single-char-property-change (point) prop)))))
+
+(defun slime-end-of-proprange-p (property)
+  (and (get-char-property (max 1 (1- (point))) property)
+       (not (get-char-property (point) property))))
 
 (defvar slime-repl-return-hooks)
 
@@ -5303,13 +5289,14 @@ Show the output buffer if the evaluation causes any output."
   (with-current-buffer (slime-output-buffer)
     (slime-with-output-end-mark 
      (slime-mark-output-start)))
-  (with-lexical-bindings (fn)
-    (slime-eval-async form
-                      (lambda (value)
-                        (with-current-buffer (slime-output-buffer)
-                          (slime-show-last-output)
-                          (cond (fn (funcall fn value))
-                                (t (message "%s" value))))))))
+  (slime-eval-async form
+                    (slime-rcurry 
+                     (lambda (value fn)
+                       (with-current-buffer (slime-output-buffer)
+                         (slime-show-last-output)
+                         (cond (fn (funcall fn value))
+                               (t (message "%s" value)))))
+                     fn)))
 
 (defun slime-eval-describe (form)
   "Evaluate FORM in Lisp and display the result in a new buffer."

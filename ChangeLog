@@ -36,6 +36,11 @@
 	
 2008-03-14  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (with-lexical-bindings): Removed.  Updated callers
+	accordingly.
+
+2008-03-14  Helmut Eller  <heller@common-lisp.net>
+
 	Move filename translation code to contrib.
 
 	* slime.el (slime-find-filename-translators)
