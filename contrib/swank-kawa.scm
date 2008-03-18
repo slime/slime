@@ -380,7 +380,10 @@
            (send dbg `(frame-locals ,thread ,frame ,id)))
           ((_ (':emacs-rex ('|swank:frame-catch-tags-for-emacs| frame)
                            pkg thread id))
-           (send out `(:return (:ok ()) ,id)))
+           (send dbg `(frame-catchers ,thread ,frame ,id)))
+          ((_ (':emacs-rex ('|swank:sldb-disassemble| frame)
+                           pkg thread id))
+           (send dbg `(disassemble-frame ,thread ,frame ,id)))
           ((_ (':emacs-rex ('|swank:backtrace| from to) pkg thread id))
            (send dbg `(thread-frames ,thread ,from ,to ,id)))
           ((_ (':emacs-rex ('|swank:list-threads|) pkg thread id))
@@ -847,51 +850,63 @@
 (defslimefun disassemble-symbol (env name)
   (let ((f (eval (read-from-string name) env)))
     (typecase f
-      (<gnu.expr.ModuleMethod>
-       (let ((mr (module-method>meth-ref f)))
-         (call-with-output-string
-          (fun (s)
-            (parameterize ((current-output-port s))
-                          (disassemble-meth-ref mr)))))))))
+      (<gnu.expr.ModuleMethod> 
+       (disassemble (module-method>meth-ref f))))))
 
-(df disassemble-meth-ref ((mr <meth-ref>))
+(df disassemble ((mr <meth-ref>) => <str>)
+  (with-sink #f (fun (out) (disassemble-meth-ref mr out))))
+
+(df disassemble-meth-ref ((mr <meth-ref>) (out <java.io.PrintWriter>))
   (let* ((t (! declaring-type mr)))
-    (format #t "~:[~;static ~]~:[~; final~]~
-~:[~;private ~]~:[~;protected ~]~:[~;public ~]~a ~a\n"
-            (! is-static mr) (! is-final mr)
-            (! is-private mr) (! is-protected mr) (! is-public mr)
-            (! name mr) (! signature mr))
-    (disassemble (! constant-pool t)
-                 (! constant-pool-count t)
-                 (! bytecodes mr))))
+;;    (format out "~:[~;static ~]~:[~; final~]~
+;;~:[~;private ~]~:[~;protected ~]~:[~;public ~]~a ~a\n"
+;;            (! is-static mr) (! is-final mr)
+;;            (! is-private mr) (! is-protected mr) (! is-public mr)
+;;            (! name mr) (! signature mr))
+    (disas-code (! constant-pool t)
+                (! constant-pool-count t)
+                (! bytecodes mr)
+                out)))
 
-(df disassemble ((cpool <byte[]>) (cpoolcount <int>) (bytecode <byte[]>))
-  (let* ((buffer (<java.io.StringWriter>))
-         (out (<java.io.PrintWriter> buffer))
-	 (ct (<gnu.bytecode.ClassType> "foo"))
+(df disas-code ((cpool <byte[]>) (cpoolcount <int>) (bytecode <byte[]>) 
+                (out <java.io.PrintWriter>))
+  (let* ((ct (<gnu.bytecode.ClassType> "foo"))
 	 (met (! addMethod ct "bar" 0))
 	 (ca (<gnu.bytecode.CodeAttr> met))
-	 (w (<gnu.bytecode.ClassTypeWriter> ct out 0))
-         (constants (let ((s (<java.io.ByteArrayOutputStream>)))
-                      (! write s (ash cpoolcount -8))
-                      (! write s (logand cpoolcount 255))
+         (constants (let* ((bs (<java.io.ByteArrayOutputStream>))
+                           (s (<java.io.DataOutputStream> bs)))
+                      (! write-short s cpoolcount)
                       (! write s cpool)
-                      (! toByteArray s))))
+                      (! flush s)
+                      (! toByteArray bs))))
     (vm-set-slot the-vm ct 'constants 
                  (<gnu.bytecode.ConstantPool>
                   (<java.io.DataInputStream>
                    (<java.io.ByteArrayInputStream>
                     constants))))
     (! setCode ca bytecode)
-    (! disAssemble ca w 0 bytecode:length)
-    (! flush out)
-    (display (! toString buffer))))
+    (let ((w (<gnu.bytecode.ClassTypeWriter> ct out 0)))
+      (! print ca w)
+      (! flush w))))
+
+(df with-sink (sink (f <function>))
+  (cond ((instance? sink <java.io.PrintWriter>) (f sink))
+        ((== sink #t) (f (as <java.io.PrintWriter> (current-output-port))))
+        ((== sink #f)
+         (let* ((buffer (<java.io.StringWriter>))
+                (out (<java.io.PrintWriter> buffer)))
+           (f out)
+           (! flush out)
+           (! toString buffer)))
+        (#t (ferror "Invalid sink designator: ~s" sink))))
 
 (df test-disas ((c <str>) (m <str>))
   (let* ((vm (as <vm> the-vm))
          (c (as <ref-type> (1st (! classes-by-name vm c))))
          (m (as <meth-ref> (1st (! methods-by-name c m)))))
-    (disassemble-meth-ref m)))
+    (with-sink #f (fun (out) (disassemble-meth-ref m out)))))
+
+;; (test-disas "java.lang.Class" "toString")
 
 
 ;;;; Macroexpansion
@@ -1085,6 +1100,10 @@
            (reply c (frame-src-loc thread frame state) id))
           ((,c . ('frame-locals thread frame id))
            (reply c (frame-locals thread frame state) id))
+          ((,c . ('frame-catchers thread frame id))
+           (reply c (frame-catchers thread frame state) id))
+          ((,c . ('disassemble-frame thread frame id))
+           (reply c (disassemble-frame thread frame state) id))
           ((,c . ('thread-frames thread from to id))
            (reply c (thread-frames thread from to state) id))
           ((,c . ('list-threads id))
@@ -1288,6 +1307,15 @@
                    (let ((var (as <local-var> (! getKey e)))
                          (val (as <value> (! getValue e))))
                      (pack (list (! name var) (p val))))))))))))
+
+(df frame-catchers ((tid <int>) (frame <int>) state)
+  '())
+
+(df disassemble-frame ((tid <int>) (frame <int>) state)
+  (mlet ((frame _) (nth-frame tid frame state))
+    (typecase frame
+      (<java.lang.StackTraceElement> "<??>")
+      (<frame> (disassemble (!! method location frame))))))
 
 ;;;;; Restarts
 
@@ -1769,7 +1797,7 @@
     (cond (method
            (dolist ((m <sun.tools.javap.MethodData>)
                     (array-to-list (! getMethods cdata)))
-             (when (equal method (! getName m))
+             (when (equal (to-str method) (! getName m))
                (! printMethodSignature p m (! getAccess m))
                (! printExceptions p m)
                (newline)
@@ -1851,7 +1879,11 @@
   (typecase s
     (<list> (apply list (! sub-list s from to)))
     (<vector> (apply vector (! sub-list s from to)))
-    (<str> (! substring s from to))))
+    (<str> (! substring s from to))
+    (<byte[]> (let* ((len (as <int> (- to from)))
+                     (t (<byte[]> :length len)))
+                (java.lang.System:arraycopy s from t 0 len)
+                t))))
 
 (df to-string (obj => <string>)
   (cond ((instance? obj <str>) (<gnu.lists.FString> (as <str> obj)))
