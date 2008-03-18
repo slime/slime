@@ -9408,67 +9408,6 @@ If they are not, position point at the first syntax error found."
   (if (local-variable-p hook (current-buffer))
       (remove-hook hook function t)))
 
-;;;; Some "nice" backward compatiblity bindings for lusers.
-
-(defvar slime-obsolete-commands 
-  '(("\C-c\M-i" (slime repl) slime-fuzzy-complete-symbol)
-    ;; Don't shadow bindings in lisp-mode-map
-    ;;("\M-\C-a" (slime) slime-beginning-of-defun)
-    ;;("\M-\C-e" (slime) slime-end-of-defun)
-    ("\C-c\M-q" (slime) slime-reindent-defun)
-    ("\C-c\C-s" (slime) slime-complete-form)
-    ;; (nil nil slime-close-all-parens-in-sexp)
-    ))
-
-(defun slime-bind-obsolete-commands ()
-  (loop for (key maps command) in slime-obsolete-commands do
-        (dolist (m maps) (slime-bind-obsolete-command m key command))))
-
-(defun slime-bind-obsolete-command (map key command)
-  (let ((map (ecase map
-               (slime slime-mode-map)
-               (repl slime-repl-mode-map))))
-    (unless (lookup-key map key)
-      (define-key map key `(lambda (&rest _)
-                             (interactive)
-                             (slime-upgrade-notice ',command))))))
-
-(slime-bind-obsolete-commands)
-
-(defun slime-upgrade-notice (command)
-  (slime-timebomb (format "The command `%s' has been moved to contrib.
-Please consult the README file in the contrib directory for details.
-
-To fetch the contrib directoy use:  cvs update -d"
-                          command)
-                  15))
-
-;;;;; ... with gratuitous bloat
-
-(defun slime-timebomb (message timeout)
-  (with-current-buffer (generate-new-buffer "*warning*")
-    (insert message "\n\n")
-    (slime-timebomb-progress (point-marker) timeout)
-    (goto-char (point-min))
-    (pop-to-buffer (current-buffer))))
-
-(defun slime-timebomb-progress (mark timeout)
-  (let ((buffer (marker-buffer mark)))
-    (cond ((not (buffer-live-p buffer)))
-	  ((zerop timeout) (kill-buffer buffer))
-	  (t (with-current-buffer buffer
-               (save-excursion
-                 (delete-region mark (point-max))
-                 (goto-char mark)
-                 (slime-timebomb-message timeout))
-	       (run-with-timer 1 nil 
-                               'slime-timebomb-progress mark (1- timeout)))))))
-
-(defun slime-timebomb-message (timeout)
-  (slime-insert-propertized
-   (list 'face (if (zerop (mod timeout 2)) 'highlight 'default))
-   (format "This message will destroy itself in %d seconds." timeout)))
-
 
 ;;;; Finishing up
 

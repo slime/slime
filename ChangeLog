@@ -41,8 +41,12 @@
 	* slime.el (with-lexical-bindings): Removed.  Updated callers
 	accordingly.
 	(slime-make-default-connection, slime-choose-connection)
-	(slime-find-connection-by-name, slime-symbol-at-point):
-	Remove. Unused code.
+	(slime-find-connection-by-name, slime-symbol-at-point): Remove.
+	Unused code.
+	(slime-obsolete-commands, slime-bind-obsolete-commands)
+	(slime-bind-obsolete-command, slime-upgrade-notice)
+	(slime-timebomb, slime-timebomb-progress, slime-timebomb-message):
+	Remove.  Obsolete.
 
 2008-03-14  Helmut Eller  <heller@common-lisp.net>
 
