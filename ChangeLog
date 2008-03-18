@@ -34,6 +34,10 @@
 
 	* slime.el (slime-eval-macroexpand): Indent expansion.
 	
+2008-03-18  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-xref-group): Hanlde :zip files.
+
 2008-03-14  Helmut Eller  <heller@common-lisp.net>
 
 	Remove some rarely used code.

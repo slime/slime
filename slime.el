@@ -5079,8 +5079,8 @@ FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
               (if buffer 
                   (format "%S" buffer) ; "#<buffer foo.lisp>"
                 (format "%s (previously existing buffer)" bufname))))
-           ((:source-form _)
-            "(S-Exp)")))
+           ((:source-form _) "(S-Exp)")
+           ((:zip zip entry) entry)))
         (t
          "(No location)")))
 
