@@ -1957,31 +1957,6 @@ This is automatically synchronized from Lisp.")
   (interactive)
   (mapc #'slime-net-close slime-net-processes))
 
-(defun slime-make-default-connection ()
-  "Make the current connection the default connection."
-  (interactive)
-  (slime-select-connection (slime-connection))
-  (message "Connection #%S (%s) now default SLIME connection."
-           (slime-connection-number)
-           (slime-connection-name)))
-
-(defun slime-choose-connection ()
-  "Return an established connection chosen by the user."
-  (let ((default (slime-connection-name)))
-    (slime-find-connection-by-name
-     (completing-read (format "Connection name (default %s): " default)
-                      (slime-bogus-completion-alist
-                       (mapcar #'slime-connection-name slime-net-processes))
-                      nil
-                      t
-                      nil
-                      nil
-                      default))))
-
-(defun slime-find-connection-by-name (name)
-  (find name slime-net-processes 
-        :test #'string= :key #'slime-connection-name))
-
 (defun slime-connection-port (connection)
   "Return the remote port number of CONNECTION."
   (if (featurep 'xemacs)
@@ -2628,7 +2603,7 @@ See `slime-output-target-to-marker'."
 
 (defun slime-switch-to-output-buffer (&optional connection)
   "Select the output buffer, preferably in a different window."
-  (interactive (list (if prefix-arg (slime-choose-connection))))
+  (interactive)
   (let ((slime-dispatching-connection (or connection 
                                           slime-dispatching-connection)))
     (set-buffer (slime-output-buffer))
@@ -9071,6 +9046,7 @@ The result is unspecified if there isn't a symbol under the point."
 (defun slime-symbol-end-pos ()
   (save-excursion (slime-end-of-symbol) (point)))
 
+;; FIXME: rename this as slime-symbol-at-point.
 (defun slime-symbol-name-at-point ()
   "Return the name of the symbol at point, otherwise nil."
   (save-restriction
@@ -9086,11 +9062,6 @@ The result is unspecified if there isn't a symbol under the point."
              ;; narrowed-to-empty) buffer.
              (not (equal string ""))
              (substring-no-properties string))))))
-
-(defun slime-symbol-at-point ()
-  "Return the symbol at point, otherwise nil."
-  (let ((name (slime-symbol-name-at-point)))
-    (and name (intern name))))
 
 (defun slime-sexp-at-point ()
   "Return the sexp at point as a string, otherwise nil."

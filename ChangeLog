@@ -36,8 +36,13 @@
 	
 2008-03-14  Helmut Eller  <heller@common-lisp.net>
 
+	Remove some rarely used code.
+
 	* slime.el (with-lexical-bindings): Removed.  Updated callers
 	accordingly.
+	(slime-make-default-connection, slime-choose-connection)
+	(slime-find-connection-by-name, slime-symbol-at-point):
+	Remove. Unused code.
 
 2008-03-14  Helmut Eller  <heller@common-lisp.net>
 
