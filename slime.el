@@ -385,26 +385,6 @@ PROPERTIES specifies any default face properties."
   :type '(boolean)
   :group 'slime-repl)
 
-(defcustom slime-repl-return-behaviour :send-if-complete
-  "Keyword specifying how slime-repl-return behaves when the
-  point is on a lisp expression (as opposed to being on a
-  previous output).
-
-Currently only two values are supported:
-
-:send-if-complete - If the current expression is complete, as per
-slime-input-complete-p, it is sent to the underlying lisp,
-otherwise a newline is inserted. The current value of (point) has
-no effect.
-
-:send-only-if-after-complete - If the current expression is complete
-and point is after the expression it is sent, otherwise a newline
-is inserted."
-  :type '(choice (const :tag "Send if complete" :value :send-if-complete)
-                 (const :tag "Send only if after complete" :value :send-only-if-after-complete))
-  :group 'slime-repl)
-  
-
 (defface slime-repl-prompt-face
   (if (slime-face-inheritance-possible-p)
       '((t (:inherit font-lock-keyword-face)))
@@ -518,23 +498,6 @@ This is automatically updated based on the buffer/point."))
                (" Slime"
 		((slime-modeline-package (":" slime-modeline-package) "")
 		 slime-state-name))))
-
-(defun slime-input-complete-p (start end)
-  "Return t if the region from START to END contains a complete sexp."
-  (save-excursion
-    (goto-char start)
-    (cond ((looking-at "\\s *['`#]?[(\"]")
-           (ignore-errors
-             (save-restriction
-               (narrow-to-region start end)
-               ;; Keep stepping over blanks and sexps until the end of
-               ;; buffer is reached or an error occurs. Tolerate extra
-               ;; close parens.
-               (loop do (skip-chars-forward " \t\r\n)")
-                     until (eobp)
-                     do (forward-sexp))
-               t)))
-          (t t))))
 
 
 ;;;;; Key bindings
@@ -3122,9 +3085,7 @@ balanced."
          (slime-repl-recenter-if-needed))
         ((run-hook-with-args-until-success 'slime-repl-return-hooks))
         ((slime-input-complete-p slime-repl-input-start-mark
-                                 (ecase slime-repl-return-behaviour
-                                   (:send-only-if-after-complete (min (point) slime-repl-input-end-mark))
-                                   (:send-if-complete slime-repl-input-end-mark)))
+                                 slime-repl-input-end-mark)
          (slime-repl-send-input t))
         (t 
          (slime-repl-newline-and-indent)
@@ -3212,6 +3173,23 @@ earlier in the buffer."
     (narrow-to-region slime-repl-prompt-start-mark (point-max))
     (insert "\n")
     (lisp-indent-line)))
+
+(defun slime-input-complete-p (start end)
+  "Return t if the region from START to END contains a complete sexp."
+  (save-excursion
+    (goto-char start)
+    (cond ((looking-at "\\s *['`#]?[(\"]")
+           (ignore-errors
+             (save-restriction
+               (narrow-to-region start end)
+               ;; Keep stepping over blanks and sexps until the end of
+               ;; buffer is reached or an error occurs. Tolerate extra
+               ;; close parens.
+               (loop do (skip-chars-forward " \t\r\n)")
+                     until (eobp)
+                     do (forward-sexp))
+               t)))
+          (t t))))
 
 (defun slime-repl-delete-current-input ()
   (delete-region slime-repl-input-start-mark slime-repl-input-end-mark))
