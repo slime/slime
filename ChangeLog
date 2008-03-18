@@ -1,3 +1,7 @@
+2008-03-18  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-xref-group): Hanlde :zip files.
+
 2008-03-17  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-source-path-parser.lisp:
@@ -23,20 +27,6 @@
 
 	(slime-pretty-find-buffer-package): Removed. (Nowhere used.)
 	(slime-set-package): Ditto.
-	
-2008-03-14  Tobias C. Rittweiler  <tcr@freebits.de>
-
-	* swank.lisp (classify-symbol, symbol-classification->string): Add
-	classification of symbols denoting type specifier, and denoting
-	constants.
-	
-2008-03-13  Tobias C. Rittweiler  <tcr@freebits.de>
-
-	* slime.el (slime-eval-macroexpand): Indent expansion.
-	
-2008-03-18  Helmut Eller  <heller@common-lisp.net>
-
-	* slime.el (slime-xref-group): Hanlde :zip files.
 
 2008-03-14  Helmut Eller  <heller@common-lisp.net>
 
@@ -65,6 +55,16 @@
 
 	* slime.el (slime-repl-return-behaviour): Deleted.  Rebind
 	the key if you don't like what the command does.
+	
+2008-03-14  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank.lisp (classify-symbol, symbol-classification->string): Add
+	classification of symbols denoting type specifier, and denoting
+	constants.
+	
+2008-03-13  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-eval-macroexpand): Indent expansion.
 
 2008-03-13  Tobias C. Rittweiler  <tcr@freebits.de>
 
