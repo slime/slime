@@ -1,3 +1,7 @@
+2008-03-18  Geo Carncross <geocar@gmail.com>
+
+	* swank-ecl.lisp: ECL moved gray streams into GRAY package.
+
 2008-03-18  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-xref-group): Hanlde :zip files.

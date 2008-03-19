@@ -10,7 +10,9 @@
 
 (in-package :swank-backend)
 
-(import-from :ext *gray-stream-symbols* :swank-backend)
+(if (find-package :gray)
+  (import-from :gray *gray-stream-symbols* :swank-backend)
+  (import-from :ext *gray-stream-symbols* :swank-backend))
 
 (swank-backend::import-swank-mop-symbols :clos
  '(:eql-specializer
