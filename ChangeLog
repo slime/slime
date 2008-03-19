@@ -574,6 +574,11 @@
 	* swank-scl.lisp (set-stream-timeout, make-socket-io-stream): update
 	for Scieneer CL 1.3.7.
 
+2007-12-21  Geo Carncross  <geocar@gmail.com>
+
+	* swank-ecl.lisp: try to parse the Args: line in most ecl functions to
+	make modeline/autodoc more interesting
+
 2007-12-20  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank.lisp (read-softly-from-string): Now actually returns all
@@ -586,6 +591,10 @@
 	information about the buffer a function was interactively 
 	`C-c C-c'd from. Idea from Knut Olav Bøhmer.
 	(slime-insert-xrefs): Use it.
+
+2007-12-14  Geo Carncross  <geocar@gmail.com>
+
+	* Add ECL threads implementation to swank
 
 2007-12-04  Helmut Eller  <heller@common-lisp.net>
 
