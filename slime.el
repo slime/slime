@@ -8440,6 +8440,36 @@ BODY returns true if the check succeeds."
            (= orig-pos (point)))))
     (slime-check-top-level))
 
+(def-slime-test find-definition.2
+    (buffer-content buffer-package snippet)
+    "Check that we're able to find definitions even when
+confronted with nasty #.-fu."
+    '(("#.(prog1 nil (defvar *foobar* 42))
+
+       (defun .foo. (x)
+         (+ x #.*foobar*))
+
+       #.(prog1 nil (makunbound '*foobar*))
+       "
+       "SWANK"
+       "(defun .foo. "
+       ))
+  (let ((slime-buffer-package buffer-package))
+    (with-temp-buffer
+      (insert buffer-content)
+      (slime-eval 
+       `(swank:compile-string-for-emacs
+         ,buffer-content
+         ,(buffer-name)
+         ,0
+         ,nil))
+      (let ((bufname (buffer-name)))
+        (slime-edit-definition ".foo.")
+        (slime-check ("Definition of `.foo.' is in buffer `%s'." bufname)
+          (string= (buffer-name) bufname))
+        (slime-check "Definition now at point." (looking-at snippet)))
+      )))
+
 (def-slime-test complete-symbol
     (prefix expected-completions)
     "Find the completions of a symbol-name prefix."

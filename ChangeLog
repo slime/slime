@@ -1,3 +1,18 @@
+2008-03-24  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-source-path-parser.lisp 
+
+	The source parser READs in files, and if such a file contains some
+	nasty #. hackery that results in an error being signalled, M-. would
+	fail on anything that's defined in those files. Fix that by using
+	a special #. reader function that invokes the original #. reader 
+	with an IGNORE-ERRORS wrapped around.
+
+	(make-sharpdot-reader): New function.
+	(make-source-recording-readtable): Use it and install it on #.
+
+	* slime.el (find-definition.2): New test case to guard against it.
+
 2008-03-18  Geo Carncross <geocar@gmail.com>
 
 	* swank-ecl.lisp: ECL moved gray streams into GRAY package.

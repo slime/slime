@@ -31,6 +31,14 @@
 	      (nth-value 1 (get-macro-character #\space rt))))
   (assert (not (get-macro-character #\\ rt))))
 
+(defun make-sharpdot-reader (orig-sharpdot-reader)
+  #'(lambda (s c n)
+      ;; We want things like M-. to work regardless of any #.-fu in
+      ;; the source file that is to be visited. (For instance, when a
+      ;; file contains #. forms referencing constants that do not
+      ;; currently exist in the image.)
+      (ignore-errors (funcall orig-sharpdot-reader s c n))))
+
 (defun make-source-recorder (fn source-map)
   "Return a macro character function that does the same as FN, but
 additionally stores the result together with the stream positions
@@ -40,7 +48,7 @@ before and after of calling FN in the hashtable SOURCE-MAP."
     (let ((start (file-position stream))
 	  (values (multiple-value-list (funcall fn stream char)))
 	  (end (file-position stream)))
-      ;(format t "[~D ~{~A~^, ~} ~D ~D ~S]~%" start values end (char-code char) char)
+      ;(format t "[~D \"~{~A~^, ~}\" ~D ~D ~S]~%" start values end (char-code char) char)
       (unless (null values)
 	(push (cons start end) (gethash (car values) source-map)))
       (values-list values))))
@@ -48,15 +56,22 @@ before and after of calling FN in the hashtable SOURCE-MAP."
 (defun make-source-recording-readtable (readtable source-map) 
   "Return a source position recording copy of READTABLE.
 The source locations are stored in SOURCE-MAP."
-  (let* ((tab (copy-readtable readtable))
-	 (*readtable* tab))
-    (dotimes (code 128)
-      (let ((char (code-char code)))
-	(multiple-value-bind (fn term) (get-macro-character char tab)
-	  (when fn
-	    (set-macro-character char (make-source-recorder fn source-map) 
-				 term tab)))))
-    tab))
+  (flet ((install-special-sharpdot-reader (*readtable*)
+	   (let ((old-reader (ignore-errors
+			       (get-dispatch-macro-character #\# #\.))))
+	     (when old-reader
+	       (set-dispatch-macro-character #\# #\.
+		 (make-sharpdot-reader old-reader))))))
+    (let* ((tab (copy-readtable readtable))
+	   (*readtable* tab))
+      (dotimes (code 128)
+	(let ((char (code-char code)))
+	  (multiple-value-bind (fn term) (get-macro-character char tab)
+	    (when fn
+	      (set-macro-character char (make-source-recorder fn source-map) 
+				   term tab)))))
+      (install-special-sharpdot-reader tab)
+      tab)))
 
 (defun read-and-record-source-map (stream)
   "Read the next object from STREAM.
@@ -102,8 +117,8 @@ Return the form and the source-map."
 
 (defun source-path-file-position (path filename)
   ;; We go this long way round, and don't directly operate on the file
-  ;; stream because FILE-POSITION is not totally savy even on file
-  ;; character streams; on SBCL, FILE-POSITION returns the binary
+  ;; stream because FILE-POSITION (used above) is not totally savy even
+  ;; on file character streams; on SBCL, FILE-POSITION returns the binary
   ;; offset, and not the character offset---screwing up on Unicode.
   (let ((toplevel-number (first path))
 	(buffer))
