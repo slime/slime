@@ -25,7 +25,7 @@
 
 2008-03-18  Helmut Eller  <heller@common-lisp.net>
 
-	* slime.el (slime-xref-group): Hanlde :zip files.
+	* slime.el (slime-xref-group): Handle :zip files.
 
 2008-03-17  Tobias C. Rittweiler  <tcr@freebits.de>
 
