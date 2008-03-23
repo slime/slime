@@ -1,5 +1,11 @@
 2008-03-24  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-set-connection-info): Display SLIME and SWANK
+	versions explicitly in Protocol Mismatch message.  Adapted from
+	idea and patch by Jeronimo Pellegrini.
+	
+2008-03-24  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank-source-path-parser.lisp 
 
 	The source parser READs in files, and if such a file contains some

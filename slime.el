@@ -1901,7 +1901,10 @@ This is automatically synchronized from Lisp.")
                               features package version modules
                               &allow-other-keys) info
       (or (equal version slime-protocol-version)
-          (yes-or-no-p "Protocol version mismatch. Continue anyway? ")
+          (yes-or-no-p
+	    (format "Protocol version mismatch: SLIME `%s' vs. SWANK `%s'. Continue anyway? "
+		    slime-protocol-version
+		    version))
           (slime-net-close connection)
           (top-level))
       (setf (slime-pid) pid
