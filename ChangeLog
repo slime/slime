@@ -85,13 +85,13 @@
 
 	* slime.el (slime-repl-return-behaviour): Deleted.  Rebind
 	the key if you don't like what the command does.
-	
+
 2008-03-14  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank.lisp (classify-symbol, symbol-classification->string): Add
 	classification of symbols denoting type specifier, and denoting
 	constants.
-	
+
 2008-03-13  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-eval-macroexpand): Indent expansion.
@@ -101,7 +101,7 @@
 	* slime.el (slime-edit-definition-cont): If no definition could
 	be found, print also the package name in the error message where
 	the definition was tried to be found in.
-	
+
 2008-03-13  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-region-for-defun-function): Deleted.

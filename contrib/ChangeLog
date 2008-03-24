@@ -1,3 +1,8 @@
+2008-03-24  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-kawa.scm: Save stacktraces with locals on throw events.
+	This is quite costly but makes debugging easier.
+
 2008-03-14  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-fancy-inspector.lisp (add-slots-for-inspector): Remove
@@ -16,7 +21,7 @@
 
 	* slime-fuzzy.lisp (slime-fuzzy-insert-completion-choice):
 	(slime-fuzzy-fill-completions-buffer): Adapted to API change.
-	
+
 2008-03-14  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-fancy-inspector.lisp (make-symbols-listing :classification):
