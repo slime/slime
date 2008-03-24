@@ -1,5 +1,10 @@
 2008-03-24  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* HACKING: Updated due to broken links. 
+	Reported by Mirko Vukovic.
+
+2008-03-24  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (slime-set-connection-info): Display SLIME and SWANK
 	versions explicitly in Protocol Mismatch message.  Adapted from
 	idea and patch by Jeronimo Pellegrini.
