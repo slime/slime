@@ -1,3 +1,30 @@
+2008-03-26 Tobias C. Rittweiler  <tcr@freebits.de>
+
+	On SBCL, 
+
+	  (block outta
+	    (let ((*debugger-hook* #'(lambda (c hook)
+				       (declare (ignore hook))
+				       (return-from outta 42))))
+	      (error "FOO")))
+
+	would just silently skip over the *DEBUGGER-HOOK*, and pop right
+	into SLDB to handle the error. Fix that.
+	
+	* swank-sbcl (make-invoke-debugger-hook): New function; returns a
+	hook for SB-EXT:*INVOKE-DEBUGGER-HOOK* that checks for the
+	presence of *DEBUGGER-HOOK*, and calls that if available.
+	(install-debugger-globally): Use it.
+	(call-with-debugger-hook): Ditto.
+
+	(getpid): Declaim return type explicitly, to make SBCL shut up about
+	being unable to optimize %SAP-ALIEN in ENABLE-SIGIO-ON-FD.
+
+	* slime.el (def-slime-test break): Test additionally that BREAK
+	turns into SLDB even when *DEBUGGER-HOOK* is locally bound.
+	(def-slime-test locally-bound-debugger-hook): New test case; tests
+	that a locally-bound *DEBUGGER-HOOK* is adhered, and not skipped.
+	
 2008-03-24  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* HACKING: Updated due to broken links. 

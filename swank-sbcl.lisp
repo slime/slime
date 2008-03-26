@@ -56,6 +56,17 @@
 (defun swank-mop:slot-definition-documentation (slot)
   (sb-pcl::documentation slot t))
 
+;;; Connection info
+
+(defimplementation lisp-implementation-type-name ()
+  "sbcl")
+
+;; Declare return type explicitly to shut up STYLE-WARNINGS about
+;; %SAP-ALIEN in ENABLE-SIGIO-ON-FD below.
+(declaim (ftype (function () (values (signed-byte 32) &optional)) getpid))
+(defimplementation getpid ()
+  (sb-posix:getpid))
+
 ;;; TCP Server
 
 (defimplementation preferred-communication-style ()
@@ -109,7 +120,8 @@
 
 (defun enable-sigio-on-fd (fd)
   (sb-posix::fcntl fd sb-posix::f-setfl sb-posix::o-async)
-  (sb-posix::fcntl fd sb-posix::f-setown (getpid)))
+  (sb-posix::fcntl fd sb-posix::f-setown (getpid))
+  (values))
 
 (defimplementation add-sigio-handler (socket fn)
   (set-sigio-handler)
@@ -173,11 +185,6 @@
   (declare (type function fn))
   (sb-sys:without-interrupts (funcall fn)))
 
-(defimplementation getpid ()
-  (sb-posix:getpid))
-
-(defimplementation lisp-implementation-type-name ()
-  "sbcl")
 
 
 ;;;; Support for SBCL syntax
@@ -723,8 +730,18 @@ Return a list of the form (NAME LOCATION)."
 
 (defvar *sldb-stack-top*)
 
+(defun make-invoke-debugger-hook (hook)
+  #'(lambda (condition old-hook)
+      ;; Notice that *INVOKE-DEBUGGER-HOOK* is tried before
+      ;; *DEBUGGER-HOOK*, so we have to make sure that the latter gets
+      ;; run when it was established locally by a user.
+      (if *debugger-hook*
+          (funcall *debugger-hook* condition old-hook)
+          (funcall hook condition old-hook))))
+
 (defimplementation install-debugger-globally (function)
-  (setq sb-ext:*invoke-debugger-hook* function))
+  (setq *debugger-hook* function)
+  (setq sb-ext:*invoke-debugger-hook* (make-invoke-debugger-hook function)))
 
 (defimplementation condition-extras (condition)
   (cond #+#.(swank-backend::sbcl-with-new-stepper-p)
@@ -772,7 +789,8 @@ Return a list of the form (NAME LOCATION)."
     (invoke-restart 'sb-ext:step-out)))
 
 (defimplementation call-with-debugger-hook (hook fun)
-  (let ((sb-ext:*invoke-debugger-hook* hook)
+  (let ((*debugger-hook* hook)
+        (sb-ext:*invoke-debugger-hook* (make-invoke-debugger-hook hook))
         #+#.(swank-backend::sbcl-with-new-stepper-p)
         (sb-ext:*stepper-hook*
          (lambda (condition)

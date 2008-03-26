@@ -8445,8 +8445,7 @@ BODY returns true if the check succeeds."
 
 (def-slime-test find-definition.2
     (buffer-content buffer-package snippet)
-    "Check that we're able to find definitions even when
-confronted with nasty #.-fu."
+    "Check that we're able to find definitions even when confronted with nasty #.-fu."
     '(("#.(prog1 nil (defvar *foobar* 42))
 
        (defun .foo. (x)
@@ -8460,6 +8459,7 @@ confronted with nasty #.-fu."
   (let ((slime-buffer-package buffer-package))
     (with-temp-buffer
       (insert buffer-content)
+      (slime-check-top-level)
       (slime-eval 
        `(swank:compile-string-for-emacs
          ,buffer-content
@@ -8904,27 +8904,65 @@ SWANK> " t))
     '((1) (2) (3))
   (slime-accept-process-output nil 1)
   (slime-check-top-level)
-  (slime-compile-string 
-   (prin1-to-string `(defun cl-user::foo () 
-                       (dotimes (i ,times) 
-                         (break)
-                         (sleep 0.2))))
+  (let ((tests
+         `((cl-user::foo . (defun cl-user::foo () 
+                             (dotimes (i ,times) 
+                               (break)
+                               (sleep 0.2))))
+           ;; Backends should arguably make sure that BREAK does not
+           ;; depend on *DEBUGGER-HOOK*.
+           (cl-user::bar . (defun cl-user::bar ()
+                             (block outta
+                               (let ((*debugger-hook*
+                                      #'(lambda (c hook)
+                                          (declare (ignore c hook))
+                                          (return-from outta 42))))
+                                 (dotimes (i ,times) 
+                                   (break)
+                                   (sleep 0.2)))))))))
+    (dolist (test tests)
+      (let ((name       (car test))
+            (definition (cdr test)))
+        (slime-compile-string (prin1-to-string definition)  0)
+        (slime-sync-to-top-level 2)
+        (slime-eval-async `(,name))
+        (dotimes (i times)
+          (slime-wait-condition "Debugger visible" 
+                                (lambda () 
+                                  (and (slime-sldb-level= 1)
+                                       (get-buffer-window 
+                                        (sldb-get-default-buffer))))
+                                5)
+          (with-current-buffer (sldb-get-default-buffer)
+            (sldb-continue))
+          (slime-wait-condition "sldb closed" 
+                                (lambda () (not (sldb-get-default-buffer)))
+                                0.2)))
+      (slime-sync-to-top-level 5))))
+
+(def-slime-test locally-bound-debugger-hook
+    ()
+    "Test that binding *DEBUGGER-HOOK* locally works properly."
+    '(())
+  (slime-accept-process-output nil 1)
+  (slime-check-top-level)
+  (slime-compile-string
+   (prin1-to-string `(defun cl-user::quux ()
+                       (block outta
+                         (let ((*debugger-hook*
+                                #'(lambda (c hook)
+                                    (declare (ignore c hook))
+                                    (return-from outta 42))))
+                           (error "FOO")))))
    0)
   (slime-sync-to-top-level 2)
-  (slime-eval-async '(cl-user::foo))
-  (dotimes (i times)
-    (slime-wait-condition "Debugger visible" 
-                          (lambda () 
-                            (and (slime-sldb-level= 1)
-                                 (get-buffer-window 
-                                  (sldb-get-default-buffer))))
-                          5)
-    (with-current-buffer (sldb-get-default-buffer)
-      (sldb-continue))
-    (slime-wait-condition "sldb closed" 
-                          (lambda () (not (sldb-get-default-buffer)))
-                          0.2))
+  (slime-eval-async '(cl-user::quux))
+  (slime-wait-condition "Checking that Debugger does not popup" 
+                        (lambda () 
+                          (not (sldb-get-default-buffer)))
+                        3)
   (slime-sync-to-top-level 5))
+
 
 (def-slime-test interrupt-at-toplevel
     ()
