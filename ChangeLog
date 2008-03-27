@@ -30,6 +30,11 @@
 	* slime.el (slime-check-version): New function.  Make the
 	prompt fit in a single line.
 
+	* swank-loader.lisp (load-swank): Call swank::before-init.
+
+	* swank.lisp (before-init): New function.
+	(init): Renamed from setup.
+
 2008-03-24  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* HACKING: Updated due to broken links. 

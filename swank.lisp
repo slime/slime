@@ -3076,10 +3076,12 @@ Collisions are caused because package information is ignored."
 
 (add-hook *pre-reply-hook* 'sync-indentation-to-emacs)
 
-(defun setup (version load-path)
+(defun before-init (version init)
   (setq *swank-wire-protocol-version* version)
   (setq *load-path* load-path)
-  (swank-backend::warn-unimplemented-interfaces)
+  (swank-backend::warn-unimplemented-interfaces))
+
+(defun init ()
   (run-hook *after-init-hook*))
 
 ;;; swank.lisp ends here

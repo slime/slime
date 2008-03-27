@@ -199,28 +199,30 @@ If LOAD is true, load the fasl file."
 (defun contrib-dir (base-dir)
   (append-dir base-dir "contrib"))
 
+(defun q (s) (read-from-string s))
+
 (defun load-swank (&key (src-dir *source-directory*)
                    (fasl-dir *fasl-directory*))
-  (compile-files (src-files *swank-files* src-dir) fasl-dir t))
+  (compile-files (src-files *swank-files* src-dir) fasl-dir t)
+  (funcall (q "swank::before-init")
+           (slime-version-string)
+           (list (contrib-dir fasl-dir)
+                 (contrib-dir src-dir))))
 
 (defun compile-contribs (&key (src-dir (contrib-dir *source-directory*))
                          (fasl-dir (contrib-dir *fasl-directory*))
                          load)
   (compile-files (src-files *contribs* src-dir) fasl-dir load))
-
+  
 (defun loadup ()
   (load-swank)
   (compile-contribs :load t))
 
 (defun setup ()
-  (flet ((q (s) (read-from-string s)))
-    (load-site-init-file *source-directory*)
-    (load-user-init-file)
-    (eval `(pushnew 'compile-contribs ,(q "swank::*after-init-hook*")))
-    (funcall (q "swank::setup") 
-             (slime-version-string)
-             (list (contrib-dir *fasl-directory*)    
-                   (contrib-dir *source-directory*)))))
+  (load-site-init-file *source-directory*)
+  (load-user-init-file)
+  (eval `(pushnew 'compile-contribs ,(q "swank::*after-init-hook*")))
+  (funcall (q "swank::init")))
 
 (defun init (&key delete reload load-contribs (setup t))
   (when (and delete (find-package :swank))
