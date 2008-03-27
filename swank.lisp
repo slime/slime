@@ -3076,7 +3076,7 @@ Collisions are caused because package information is ignored."
 
 (add-hook *pre-reply-hook* 'sync-indentation-to-emacs)
 
-(defun before-init (version init)
+(defun before-init (version load-path)
   (setq *swank-wire-protocol-version* version)
   (setq *load-path* load-path)
   (swank-backend::warn-unimplemented-interfaces))

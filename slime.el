@@ -1736,7 +1736,7 @@ Return nil if there's no connection."
   (or slime-dispatching-connection
       slime-buffer-connection
       slime-default-connection))
-  
+
 (defun slime-connection ()
   "Return the connection to use for Lisp interaction.
 Signal an error if there's no connection."
@@ -1744,16 +1744,24 @@ Signal an error if there's no connection."
     (cond ((and (not conn) slime-net-processes)
            (error "No default connection selected."))
           ((not conn)
-           (cond ((y-or-n-p "No connection.  Start Slime? ")
-                  (save-window-excursion
-                    (slime)
-                    (while (not (slime-current-connection))
-                      (sleep-for 1))
-                    (slime-connection)))
-                 (t (error "Not connected."))))
+           (or (slime-auto-connect)
+               (error "Not connected.")))
           ((not (eq (process-status conn) 'open))
            (error "Connection closed."))
           (t conn))))
+
+(defvar slime-auto-connect 'never)
+
+(defun slime-auto-connect ()
+  (cond ((or (eq slime-auto-connect 'always)
+             (and (eq slime-auto-connect 'ask)
+                  (y-or-n-p "No connection.  Start Slime? ")))
+         (save-window-excursion
+           (slime)
+           (while (not (slime-current-connection))
+             (sleep-for 1))
+           (slime-connection)))
+        (t nil)))
 
 (defun slime-select-connection (process)
   "Make PROCESS the default connection."

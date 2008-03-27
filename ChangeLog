@@ -25,6 +25,14 @@
 	(def-slime-test locally-bound-debugger-hook): New test case; tests
 	that a locally-bound *DEBUGGER-HOOK* is adhered, and not skipped.
 	
+2008-03-26  Helmut Eller  <heller@common-lisp.net>
+
+	By default, don't ask if SLIME should be started.
+
+	* slime.el (slime-auto-connect): New variable.
+	(slime-auto-connect): New function.
+	(slime-connection): Use it.
+
 2008-03-24  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-check-version): New function.  Make the
