@@ -736,11 +736,11 @@
              (! substring s1 0 i))
             (#t (loop (1+ i)))))))
 
-(df fold+ (fn list)
+(df fold+ (f list)
   (let loop ((s (car list))
              (l (cdr list)))
     (cond ((null? l) s)
-          (#t (loop (fn s (car l)) (cdr l))))))
+          (#t (loop (f s (car l)) (cdr l))))))
 
 ;;; Quit
 
@@ -855,7 +855,9 @@
 (df src-loc>str ((l <location>))
   (cond ((nul? l) "<null-location>")
         (#t (format "~a ~a ~a" 
-                    (ignore-errors (! source-path l))
+                    (or (ignore-errors (! source-path l))
+                        (ignore-errors (! source-name l))
+                        (ignore-errors (!! name declaring-type l)))
                     (ignore-errors (!! name method l))
                     (ignore-errors (! lineNumber l))))))
 
@@ -1254,9 +1256,10 @@
    (set (@ names (this)) names)
    (set (@ values (this)) values))
   ((toString) :: <str>
-   (to-str (format "#<ff ~a>" 
-                   (or (ignore-errors (src-loc>str loc))
-                       (ignore-errors (!! name method loc)))))))
+   (format "#<ff ~a (~{~a~^ ~})>" 
+           (src-loc>str loc)
+           (mapi args (fun (a) 
+                        (ignore-errors (vm-demirror *the-vm* a)))))))
 
 (df copy-stack ((t <thread-ref>))
   (packing (pack)
@@ -1453,22 +1456,29 @@
 (df throw-to-toplevel ((tid <int>) (id <int>) (c <chan>) state)
   (mlet ((tref level exc) (get state tid #f))
     (let* ((t (as <thread-ref> tref))
-           (ex (<listener-abort>))
-           (vm (! virtualMachine t))
-           (ex (vm-mirror vm ex))
-           (ev (car exc)))
+           (ev (car exc))) 
       (typecase ev
-        (<exception-event> 
-         (log "exc.src-loc: ~s ~s\n" (! location ev) (! catchLocation ev)))
-        (<object> (! stop t ex)) ; XXX race condition?
-        )
-      (! resume t)
-      (reply-abort c id)
-      (do ((level level (1- level))
-           (exc exc (cdr exc)))
-          ((null? exc))
-        (send c `(forward (:debug-return ,tid ,level nil))))
-      (del state tid))))
+        (<exception-event>
+         (! resume t)
+         (reply-abort c id)
+         (do ((level level (1- level))
+              (exc exc (cdr exc)))
+             ((null? exc))
+           (send c `(forward (:debug-return ,tid ,level nil))))
+         (del state tid))
+        (<break-event>
+         ;; XXX race condition? 
+         (let ((vm (! virtualMachine t)))
+           (reply-abort c id)
+           (! stop t (vm-mirror vm (<listener-abort>)))
+           (! interrupt t)
+           (! resume t)
+           (! interrupt t)
+           (do ((level level (1- level))
+                (exc exc (cdr exc)))
+               ((null? exc))
+             (send c `(forward (:debug-return ,tid ,level nil))))
+           (del state tid)))))))
 
 (df thread-continue ((tid <int>) (id <int>) (c <chan>) state)
   (mlet ((tref level exc) (get state tid #f))
@@ -1490,6 +1500,17 @@
     (! addCountFilter req 1)
     (! put-property req 'continuation k)
     (! enable req)))
+
+(df eval-in-thread ((t <thread-ref>) sexp 
+		    #!optional (env :: <env> (<env>:current)))
+  (let* ((vm (! virtualMachine t))
+	 (sc :: <class-ref>
+	     (1st (! classes-by-name vm "kawa.standard.Scheme")))
+	 (ev :: <meth-ref>
+	     (1st (! methods-by-name sc "eval" 
+		     (cat "(Ljava/lang/Object;Lgnu/mapping/Environment;)"
+			  "Ljava/lang/Object;")))))
+    (! invokeMethod sc t ev (list sexp env) sc:INVOKE_SINGLE_THREADED)))
 
 ;;;;; Threads 
 
@@ -1628,12 +1649,12 @@
 
 (define-simple-class <ucex-handler>
     (<java.lang.Thread$UncaughtExceptionHandler>)
-  (fn :: <gnu.mapping.Procedure>)
-  ((*init* (fn :: <gnu.mapping.Procedure>)) (set (@ fn (this)) fn))
+  (f :: <gnu.mapping.Procedure>)
+  ((*init* (f :: <gnu.mapping.Procedure>)) (set (@ f (this)) f))
   ((uncaughtException (t <thread>) (e <throwable>))
    :: <void>
    ;;(! println (java.lang.System:.err) (to-str "uhexc:::"))
-   (! apply2 fn t e)
+   (! apply2 f t e)
     #!void))
 
 ;;;; Channels
@@ -1880,7 +1901,7 @@
               (! getColumnNumber decl)
               ))))
 
-(df %time (fn)
+(df %time (f)
   (define-alias <mf> <java.lang.management.ManagementFactory>)
   (define-alias <gc> <java.lang.management.GarbageCollectorMXBean>)
   (let* ((gcs (<mf>:getGarbageCollectorMXBeans))
@@ -1895,7 +1916,7 @@
          (heap (!! getUsed getHeapMemoryUsage mem))
          (nonheap (!! getUsed getNonHeapMemoryUsage mem))
          (start (java.lang.System:nanoTime))
-         (values (fn))
+         (values (f))
          (end (java.lang.System:nanoTime))
          (newheap (!! getUsed getHeapMemoryUsage mem))
          (newnonheap (!! getUsed getNonHeapMemoryUsage mem)))
