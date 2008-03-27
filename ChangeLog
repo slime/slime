@@ -25,6 +25,11 @@
 	(def-slime-test locally-bound-debugger-hook): New test case; tests
 	that a locally-bound *DEBUGGER-HOOK* is adhered, and not skipped.
 	
+2008-03-24  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-check-version): New function.  Make the
+	prompt fit in a single line.
+
 2008-03-24  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* HACKING: Updated due to broken links. 

@@ -1900,13 +1900,7 @@ This is automatically synchronized from Lisp.")
     (destructuring-bind (&key pid style lisp-implementation machine
                               features package version modules
                               &allow-other-keys) info
-      (or (equal version slime-protocol-version)
-          (yes-or-no-p
-	    (format "Protocol version mismatch: SLIME `%s' vs. SWANK `%s'. Continue anyway? "
-		    slime-protocol-version
-		    version))
-          (slime-net-close connection)
-          (top-level))
+      (slime-check-version version connection)
       (setf (slime-pid) pid
             (slime-communication-style) style
             (slime-lisp-features) features
@@ -1935,6 +1929,14 @@ This is automatically synchronized from Lisp.")
       (when-let (fun (plist-get args ':init-function))
         (funcall fun)))
     (message "Connected. %s" (slime-random-words-of-encouragement))))
+
+(defun slime-check-version (version conn)
+  (or (equal version slime-protocol-version)
+      (equal slime-protocol-version 'ignore)
+      (yes-or-no-p (format "Version mismatch: %S vs. %S.  Continue? "
+                           slime-protocol-version version))
+      (slime-net-close conn)
+      (top-level)))
 
 (defun slime-generate-connection-name (lisp-name)
   (loop for i from 1
