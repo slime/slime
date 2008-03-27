@@ -408,7 +408,7 @@ Return NIL if the symbol is unbound."
   (loop for (filename . defs) in database do
 	(loop for (dspec . conditions) in defs do
 	      (dolist (c conditions) 
-		(funcall fn filename dspec c)))))
+		(funcall fn filename dspec (if (consp c) (car c) c))))))
 
 (defun lispworks-severity (condition)
   (cond ((not condition) :warning)
