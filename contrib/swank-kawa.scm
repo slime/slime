@@ -23,7 +23,7 @@
               :init kawa-slime-init)))
 
 (defun kawa-slime-init (file _)
-  (setq slime-protocol-version nil)
+  (setq slime-protocol-version 'ignore)
   (let ((zip ".../slime/contrib/swank-kawa.zip")) ; <-- insert the right path
     (format "%S\n"
             `(begin (load ,(expand-file-name zip)) (start-swank ,file)))))
@@ -390,6 +390,8 @@
            (send dbg `(list-threads ,id)))
           ((_ (':emacs-rex ('|swank:debug-nth-thread| n) _  _ _))
            (send dbg `(debug-nth-thread ,n)))
+          ((_ (':emacs-rex ('|swank:quit-thread-browser|) _  _ id))
+           (send dbg `(quit-thread-browser ,id)))
           ((_ (':emacs-rex ('|swank:init-inspector| str . _) pkg _ id))
            (set inspector (make-inspector user-env (vm)))
            (send inspector `(init ,str ,id)))
@@ -450,7 +452,7 @@
 ;;;; Reader thread
 
 (df reader ((in <in>) (c <chan>))
-  (! set-name (current-thread) "swank-reader")
+  (! set-name (current-thread) "swank-net-reader")
   (let ((rt (gnu.kawa.lispexpr.ReadTable:createInitial))) ; ':' not special
     (while #t
       (send c (decode-message in rt)))))
@@ -482,7 +484,7 @@
 ;;;; Writer thread
 
 (df writer ((out <out>) (c <chan>))
-  (! set-name (current-thread) "swank-writer")
+  (! set-name (current-thread) "swank-net-writer")
   (while #t
     (encode-message out (recv c))))
 
@@ -554,22 +556,23 @@
 ;;;; Listener
 
 (df listener ((c <chan>) (env <env>))
-  (! set-name (current-thread) "listener")
+  (! set-name (current-thread) "swank-listener")
   (log "listener: ~s ~s ~s ~s\n" 
        (current-thread) ((current-thread):hashCode) c env)
-  (let ((out (rpc c `(get-channel))))
-    (set (current-output-port) (make-swank-outport out)))
-  (let ((vm (as <vm> (rpc c `(get-vm)))))
-    (send c `(set-listener ,(vm-mirror vm (current-thread))))
-    (enable-uncaught-exception-events vm))
-  (rpc c `(get-vm))
-  (listener-loop c env))
+  (let ((out (make-swank-outport (rpc c `(get-channel)))))
+    (set (current-output-port) out)
+    (let ((vm (as <vm> (rpc c `(get-vm)))))
+      (send c `(set-listener ,(vm-mirror vm (current-thread))))
+      (enable-uncaught-exception-events vm))
+    (rpc c `(get-vm))
+    (listener-loop c env out)))
 
-(df listener-loop ((c <chan>) (env <env>))
+(df listener-loop ((c <chan>) (env <env>) port)
   (while (not (nul? c))
     ;;(log "listener-loop: ~s ~s\n" (current-thread) c)
     (mlet ((form id) (recv c))
       (let ((restart (fun ()
+                       (close-output-port port)
                        (reply-abort c id)
                        (send (car (spawn/chan
                                    (fun (cc) 
@@ -1101,16 +1104,22 @@
   (q :: <queue> :init (<queue> (as <int> 100)))
   ((*init*) (invoke-special <java.io.Writer> (this) '*init*))
   ((write (buffer <char[]>) (from <int>) (to <int>)) :: <void>
-   (! put q `(write ,(<str> buffer from to))))
+   (synchronized (this)
+     (assert (not (== q #!null)))
+     (! put q `(write ,(<str> buffer from to)))))
   ((close) :: <void>
-   (! put q 'close))
+   (synchronized (this)
+     (! put q 'close)
+     (set! q #!null)))
   ((flush) :: <void>
-   (let ((ex (<exchanger>)))
-     (! put q `(flush ,ex))
-     (! exchange ex #!null))))
+   (synchronized (this)
+     (assert (not (== q #!null)))
+     (let ((ex (<exchanger>)))
+       (! put q `(flush ,ex))
+       (! exchange ex #!null)))))
 
 (df swank-writer ((in <chan>) (q <queue>))
-  (! set-name (current-thread) "redirect thread")
+  (! set-name (current-thread) "swank-redirect-thread")
   (let* ((out (as <chan> (recv in)))
          (builder (<builder>))
          (flush (fun ()
@@ -1128,7 +1137,9 @@
         (('flush ex)
          (flush)
          (! exchange (as <exchanger> ex) #!null))
-        ('close (set closed #t))))))
+        ('close        
+         (set closed #t)
+         (flush))))))
 
 (df make-swank-outport ((out <chan>))
   (let ((w (<swank-writer>)))
@@ -1140,7 +1151,7 @@
 ;;;; Monitor
 
 (df vm-monitor ((c <chan>))
-  (! set-name (current-thread) "vm-monitor")
+  (! set-name (current-thread) "swank-vm-monitor")
   (let ((vm (vm-attach)))
     ;;(enable-uncaught-exception-events vm)
     (mlet* (((ev . _) (spawn/chan/catch 
@@ -1179,6 +1190,9 @@
            (let ((t (nth (get state 'all-threads #f) n)))
              ;;(log "thread ~d : ~a\n" n t)
              (set state (debug-thread t state c))))
+          ((,c . ('quit-thread-browser id))
+           (reply c 't id)
+           (set state (del state 'all-threads)))
           ((,ev . ('vm-event es))
            ;;(log "vm-events: len=~a\n" (len es))
            (for (((e <event>) (as <list> es)))
