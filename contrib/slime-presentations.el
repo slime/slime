@@ -375,7 +375,7 @@ Also return the start position, end position, and buffer of the presentation."
     (slime-inspect-presentation presentation start end (current-buffer))))
 
 
-(defun slime-M-.-presentation (presentation start end buffer)
+(defun slime-M-.-presentation (presentation start end buffer &optional where)
   (let* ((id (slime-presentation-id presentation))
 	 (presentation-string (format "Presentation %s" id))
 	 (location (slime-eval `(swank:find-definition-for-thing
@@ -385,7 +385,7 @@ Also return the start position, end position, and buffer of the presentation."
      (and location (list (make-slime-xref :dspec `(,presentation-string)
 					  :location location)))
      presentation-string
-     nil)))
+     where)))
 
 (defun slime-M-.-presentation-at-mouse (event)
   (interactive "e")
@@ -399,12 +399,13 @@ Also return the start position, end position, and buffer of the presentation."
       (slime-presentation-around-or-before-point-or-error point)
     (slime-M-.-presentation presentation start end (current-buffer))))
 
-(defun slime-maybe-M-.-presentation-at-point (point)
-  (interactive "d")
-  (multiple-value-bind (presentation start end whole-p)
-      (slime-presentation-around-or-before-point point)
-    (when presentation
-      (slime-M-.-presentation presentation start end (current-buffer)))))
+(defun slime-edit-presentation (name &optional where)
+  (if (or current-prefix-arg (not (equal (slime-symbol-name-at-point) name)))
+      nil ; NAME came from user explicitly, so decline.
+      (multiple-value-bind (presentation start end whole-p)
+	  (slime-presentation-around-or-before-point (point))
+	(when presentation
+	  (slime-M-.-presentation presentation start end (current-buffer) where)))))
 
 
 (defun slime-copy-presentation-to-repl (presentation start end buffer)
@@ -866,7 +867,7 @@ even on Common Lisp implementations without weak hash tables."
   (add-hook 'slime-open-stream-hooks 'slime-presentation-on-stream-open)
   (add-hook 'slime-repl-clear-buffer-hook 'slime-clear-presentations)
   (add-hook 'slime-connected-hook 'slime-install-presentations)
-  (add-hook 'slime-edit-definition-hooks 'slime-maybe-M-.-presentation-at-point)
+  (add-hook 'slime-edit-definition-hooks 'slime-edit-presentation)
   (setq slime-inspector-insert-ispec-function 'slime-presentation-inspector-insert-ispec)
   (setq sldb-insert-frame-variable-value-function 
 	'slime-presentation-sldb-insert-frame-variable-value)
