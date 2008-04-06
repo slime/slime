@@ -5045,6 +5045,11 @@ look if the current buffer is narrowed, and if so use the relevant values."
 (defun slime-xref-has-location-p (xref)
   (slime-location-p (slime-xref.location xref)))
 
+
+;;; The hooks are tried in order until one succeeds, otherwise the
+;;; default implementation involving `slime-find-definitions-function'
+;;; is used. The hooks are called with the same arguments as
+;;; `slime-edit-definition'.
 (defvar slime-edit-definition-hooks)
 
 (defun slime-edit-definition (name &optional where)
@@ -5052,7 +5057,7 @@ look if the current buffer is narrowed, and if so use the relevant values."
 If there's no name at point, or a prefix argument is given, then the
 function name is prompted."
   (interactive (list (slime-read-symbol-name "Name: ")))
-  (or (run-hook-with-args-until-success 'slime-edit-definition-hooks (point))
+  (or (run-hook-with-args-until-success 'slime-edit-definition-hooks name where)
       (slime-edit-definition-cont (slime-find-definitions name)
                                   name where)))
 

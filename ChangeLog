@@ -1,9 +1,14 @@
+2008-04-06  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-edit-definition): The `slime-edit-definition-hooks'
+	are now invoked with the same args as `slime-edit-definition'.
+
 2008-03-27  Martin Simmons <martin@lispworks.com>
 
 	* swank-lispworks.lisp (map-error-database): Make mapping work for
 	LispWorks 5.1 too.
 
-2008-03-26 Tobias C. Rittweiler  <tcr@freebits.de>
+2008-03-26  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	On SBCL, 
 
