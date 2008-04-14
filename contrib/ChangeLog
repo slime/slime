@@ -1,3 +1,8 @@
+2008-04-14  Marco Baringer  <mb@bese.it>
+
+	* swank-arglists.lisp (decode-arglist): Arglists can be dotted
+	lists.
+
 2008-04-06  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-presentations.lisp: 
