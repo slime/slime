@@ -333,7 +333,7 @@ This is used to resolve filenames without directory component."
   (declare (ignore ignore))
   `(call-with-compilation-hooks (lambda () (progn ,@body))))
 
-(definterface swank-compile-string (string &key buffer position directory)
+(definterface swank-compile-string (string &key buffer position directory debug)
   "Compile source from STRING.  During compilation, compiler
 conditions must be trapped and resignalled as COMPILER-CONDITIONs.
 
@@ -344,7 +344,11 @@ positions reported in compiler conditions.
 
 If DIRECTORY is specified it may be used by certain implementations to
 rebind *DEFAULT-PATHNAME-DEFAULTS* which may improve the recording of
-source information.")
+source information.
+
+If DEBUG is supplied, it may be used by certain implementations to
+compile with maximum debugging information.
+")
 
 (definterface swank-compile-file (filename load-p external-format)
    "Compile FILENAME signalling COMPILE-CONDITIONs.

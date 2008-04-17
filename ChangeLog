@@ -1,3 +1,14 @@
+2008-04-17  Zach Beane <xach@xach.com>
+
+	C-c C-c with prefix args now uses the maximal debug level.
+	Only implemented for SBCL.
+	
+	* slime.el (slime-compile-with-maximum-debug): New variable.
+	(slime-compile-defun, slime-compile-region): Use it.
+
+	* swank.lisp (compile-string-for-emacs): Accept new debug
+	argument. Update backend accordingly.
+
 2008-04-17  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-set-default-directory): Send absolute filenames.
