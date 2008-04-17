@@ -1,3 +1,9 @@
+2008-04-17  Gábor Melis <mega@retes.hu>
+
+	* swank-fancy-inspector.lisp (inspect-slot-for-emacs):
+	slime-read-object has been gone for a long time, replaced with
+	slime-read-from-minibuffer.
+
 2008-04-15  Marco Baringer  <mb@bese.it>
 
 	* slime-indentation.el (cl-indent::line-number): new function.
