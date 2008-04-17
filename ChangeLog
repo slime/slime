@@ -1,3 +1,9 @@
+2008-04-17  Travis Cross <travis@travislists.com>
+	
+	* swank.asd: Don't make a compile-op a no-op so that a
+	swank-loader.fasl file gets generated and (require 'swank) can be
+	called multiple times.
+
 2008-04-17  Zach Beane <xach@xach.com>
 
 	C-c C-c with prefix args now uses the maximal debug level.
