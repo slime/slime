@@ -6274,12 +6274,13 @@ CL:MACROEXPAND."
 (defun slime-set-default-directory (directory)
   "Make DIRECTORY become Lisp's current directory."
   (interactive (list (read-directory-name "Directory: " nil nil t)))
-  (message "default-directory: %s"
-           (slime-from-lisp-filename
-            (slime-eval `(swank:set-default-directory
-                          ,(slime-to-lisp-filename directory)))))
-  (with-current-buffer (slime-output-buffer)
-    (setq default-directory (expand-file-name directory))))
+  (let ((dir (expand-file-name directory)))
+    (message "default-directory: %s"
+             (slime-from-lisp-filename
+              (slime-eval `(swank:set-default-directory
+                            ,(slime-to-lisp-filename dir)))))
+    (with-current-buffer (slime-output-buffer)
+      (setq default-directory dir))))
 
 (defun slime-sync-package-and-default-directory ()
   "Set Lisp's package and directory to the values in current buffer."
