@@ -302,6 +302,22 @@
 
 (defimplementation find-definitions (name) nil)
 
+(defimplementation find-source-location (obj)
+  (or
+   (typecase obj
+     (function
+      (multiple-value-bind (file pos) (ignore-errors (si:bc-file obj))
+        (if (and file pos) 
+            `(:location
+              (:file ,file)
+              (:position ,pos)
+              (:snippet
+               ,(with-open-file (s file)
+                                (skip-toplevel-forms pos s)
+                                (skip-comments-and-whitespace s)
+                                (read-snippet s))))))))
+   `(:error (format nil "Source definition of ~S not found" obj))))
+
 ;;;; Threads
 
 #+threads
