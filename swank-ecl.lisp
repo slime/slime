@@ -308,14 +308,14 @@
      (function
       (multiple-value-bind (file pos) (ignore-errors (si:bc-file obj))
         (if (and file pos) 
-            `(:location
-              (:file ,file)
-              (:position ,pos)
-              (:snippet
-               ,(with-open-file (s file)
-                                (skip-toplevel-forms pos s)
-                                (skip-comments-and-whitespace s)
-                                (read-snippet s))))))))
+            (make-location
+              `(:file ,file)
+              `(:position ,pos)
+              `(:snippet
+                ,(with-open-file (s file)
+                                 (skip-toplevel-forms pos s)
+                                 (skip-comments-and-whitespace s)
+                                 (read-snippet s))))))))
    `(:error (format nil "Source definition of ~S not found" obj))))
 
 ;;;; Threads
@@ -469,7 +469,9 @@
                            (not (and (open-stream-p x)
                                      (output-stream-p x))))
                          *auto-flush-streams*))
-        (mapc #'stream-finish-output *auto-flush-streams*)))
+        (dolist (i *auto-flush-streams*)
+          (ignore-errors (stream-finish-output i))
+          (ignore-errors (finish-output i)))))
      (sleep *auto-flush-interval*)))
 
   )
