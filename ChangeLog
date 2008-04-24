@@ -5,9 +5,11 @@
 
 	* swank-ecl.lisp (find-source-location): Initial support for
 	find-source-location with functions
+	(flush-streams): Workaround differences in different ECL versions
 
 	* swank-loader.lisp (*sysdep-files*): Include swank-source-path-parser
 	and swank-source-file-cache for ECL
+
 
 2008-04-17  Travis Cross <travis@travislists.com>
 	
