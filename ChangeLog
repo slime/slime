@@ -1,3 +1,14 @@
+2008-04-23  Geo Carncross  <geocar@gmail.com>
+
+	* swank-source-file-cache.lisp (skip-comments-and-whitespace):
+	Include #\Page as whitespace
+
+	* swank-ecl.lisp (find-source-location): Initial support for
+	find-source-location with functions
+
+	* swank-loader.lisp (*sysdep-files*): Include swank-source-path-parser
+	and swank-source-file-cache for ECL
+
 2008-04-17  Travis Cross <travis@travislists.com>
 	
 	* swank.asd: Don't make a compile-op a no-op so that a
