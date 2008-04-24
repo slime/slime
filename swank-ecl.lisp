@@ -10,6 +10,8 @@
 
 (in-package :swank-backend)
 
+(defvar *tmp*)
+
 (if (find-package :gray)
   (import-from :gray *gray-stream-symbols* :swank-backend)
   (import-from :ext *gray-stream-symbols* :swank-backend))
@@ -300,16 +302,20 @@
 
 ;;;; Definitions
 
-(defimplementation find-definitions (name) nil)
+(defimplementation find-definitions (name)
+  (if (fboundp name)
+      (let ((tmp (find-source-location (symbol-function name))))
+        `(((defun ,name) ,tmp)))))
 
 (defimplementation find-source-location (obj)
+  (setf *tmp* obj)
   (or
    (typecase obj
      (function
       (multiple-value-bind (file pos) (ignore-errors (si:bc-file obj))
         (if (and file pos) 
             (make-location
-              `(:file ,file)
+              `(:file ,(namestring file))
               `(:position ,pos)
               `(:snippet
                 ,(with-open-file (s file)
