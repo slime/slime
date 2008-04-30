@@ -1,3 +1,7 @@
+2008-04-29  Geo Carncross  <geocar@gmail.com>
+
+	* swank-ecl.lisp: Backtrace and frame/eval improvements
+
 2008-04-24  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-backend.lisp: Clarified docstrings of interface functions
