@@ -1,3 +1,10 @@
+2008-04-30  Geo Carncross  <geocar@geocar-laptop>
+
+	* swank-ecl.lisp (call-with-debugging-environment)
+	(in-swank-package-p): Remove frames from the backtrace that are
+	in a swank package as those are misleading. Fixup locals
+	display.
+
 2008-04-29  Geo Carncross  <geocar@gmail.com>
 
 	* swank-ecl.lisp: Backtrace and frame/eval improvements

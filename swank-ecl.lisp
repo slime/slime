@@ -226,6 +226,17 @@
 
 (defvar *backtrace* '())
 
+(defun in-swank-package-p (x)
+  (if (consp x) (setf x (frame-name x)))
+  (when (symbolp x)
+    (and
+     (member (symbol-package x)
+             (list #.(find-package :swank)
+                   #.(find-package :swank-backend)
+                   #.(ignore-errors (find-package :swank-mop))
+                   #.(ignore-errors (find-package :swank-loader))))
+     t)))
+
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
   (let* ((*tpl-commands* si::tpl-commands)
@@ -236,7 +247,7 @@
 	 (*read-suppress* nil)
 	 (*tpl-level* (1+ *tpl-level*))
          (*backtrace* (loop for ihs from *ihs-base* below *ihs-top*
-                            collect (list (si::ihs-fun (1+ ihs))
+                            collect (list (si::ihs-fun ihs)
                                           (si::ihs-env ihs)
                                           nil))))
     (loop for f from *frs-base* until *frs-top*
@@ -246,7 +257,7 @@
                         (name (si::frs-tag f)))
                    (unless (fixnump name)
                      (push name (third x)))))))
-    (setf *backtrace* (nreverse *backtrace*))
+    (setf *backtrace* (remove-if #'in-swank-package-p (nreverse *backtrace*)))
     (set-break-env)
     (set-current-ihs)
     (let ((*ihs-base* *ihs-top*))
