@@ -1,4 +1,10 @@
-2008-04-30  Geo Carncross  <geocar@geocar-laptop>
+2008-05-01  Geo Carncross  <geocar@gmail.com>
+
+	* swank-ecl.lisp (call-with-debugging-environment)
+	(is-ignorable-fun-p, is-swank-source-p, in-swank-package-p):
+	Trim swank sources from the ECL backtrace.
+
+2008-04-30  Geo Carncross  <geocar@gmail.com>
 
 	* swank-ecl.lisp (call-with-debugging-environment)
 	(in-swank-package-p): Remove frames from the backtrace that are
