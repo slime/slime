@@ -1,3 +1,8 @@
+2008-05-08  Geo Carncross  <geocar@gmail.com>
+
+	* swank-ecl.lisp (call-with-debugging-environment)
+	(frame-decode-env): Bugfix: qualify fixnump
+
 2008-05-01  Geo Carncross  <geocar@gmail.com>
 
 	* swank-ecl.lisp (call-with-debugging-environment)
