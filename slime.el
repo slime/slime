@@ -1664,8 +1664,10 @@ EVAL'd by Lisp."
   "Like `prin1-to-string' but don't octal-escape non-ascii characters.
 This is more compatible with the CL reader."
   (with-temp-buffer
-    (let ((print-escape-nonascii nil)
-          (print-escape-newlines nil))
+    (let (print-escape-nonascii
+          print-escape-newlines
+          print-length 
+          print-level)
       (prin1 sexp (current-buffer))
       (buffer-string))))
 
@@ -7413,21 +7415,24 @@ Optionally set point to POINT."
               (goto-line (car point))
               (move-to-column (cdr point)))))))))
 
-(defun slime-inspector-insert-content (content)
-  (destructuring-bind (ispecs len start end) content
-    (slime-inspector-insert-range ispecs len start end t t)))
+(defvar slime-inspector-limit 500)
 
-(defun slime-inspector-insert-range (ispecs len start end prev next)
-  "Insert ISPECS at point.
-LEN is the length of the entire content on the Lisp side.
-START and END are the positions of the subsequnce that ISPECS represents.
-If PREV resp. NEXT are true insert range-buttons as needed."
-  (let ((limit 2000))
+(defun slime-inspector-insert-content (content)
+  (slime-inspector-fetch-chunk
+   content nil 
+   (lambda (chunk)
+     (let ((inhibit-read-only t))
+       (slime-inspector-insert-chunk chunk t t)))))
+
+(defun slime-inspector-insert-chunk (chunk prev next)
+  "Insert CHUNK at point.
+If PREV resp. NEXT are true insert more-buttons as needed."
+  (destructuring-bind (ispecs len start end) chunk
     (when (and prev (> start 0))
-      (slime-inspector-insert-range-button (max 0 (- start limit)) start t))
+      (slime-inspector-insert-more-button start t))
     (mapc #'slime-inspector-insert-ispec ispecs)
     (when (and next (< end len))
-      (slime-inspector-insert-range-button end (min len (+ end limit)) nil))))
+      (slime-inspector-insert-more-button end nil))))
 
 (defun slime-inspector-insert-ispec (ispec)
   (if (stringp ispec)
@@ -7478,7 +7483,7 @@ that value.
                              opener)
            (push (slime-inspector-position) slime-inspector-mark-stack))
           (range-button
-           (slime-inspector-fetch-range range-button))
+           (slime-inspector-fetch-more range-button))
           (action-number 
            (slime-eval-async `(swank::inspector-call-nth-action ,action-number)
                              opener))
@@ -7603,24 +7608,56 @@ If ARG is negative, move forwards."
                       (lambda (parts)
                         (slime-open-inspector parts point)))))
 
-(defun slime-inspector-insert-range-button (start end previous)
+(defun slime-inspector-insert-more-button (index previous)
   (slime-insert-propertized 
-   (list 'slime-range-button (list start end previous)
+   (list 'slime-range-button (list index previous)
          'mouse-face 'highlight
          'face 'slime-inspector-action-face)
    (if previous " [--more--]\n" " [--more--]")))
 
-(defun slime-inspector-fetch-range (button)
-  (destructuring-bind (start end previous) button
-    (slime-eval-async 
-     `(swank:inspector-range ,start ,end)
-     (slime-rcurry
-      (lambda (content prev)
+(defun slime-inspector-fetch-more (button)
+  (destructuring-bind (index prev) button
+    (slime-inspector-fetch-chunk 
+     (list '() (1+ index) index index) prev
+     (slime-rcurry 
+      (lambda (chunk prev)
         (let ((inhibit-read-only t))
           (apply #'delete-region (slime-property-bounds 'slime-range-button))
-          (destructuring-bind (i l s e) content
-            (slime-inspector-insert-range i l s e prev (not prev)))))
-      previous))))
+          (slime-inspector-insert-chunk chunk prev (not prev))))
+      prev))))
+
+(defun slime-inspector-fetch-chunk (chunk prev cont)
+  (slime-inspector-fetch chunk slime-inspector-limit prev cont))
+
+(defun slime-inspector-fetch (chunk limit prev cont)
+  (destructuring-bind (from to) (slime-inspector-next-range chunk limit prev)
+    (cond ((and from to)
+           (slime-eval-async 
+            `(swank:inspector-range ,from ,to)
+            (slime-rcurry (lambda (chunk2 chunk1 limit prev cont)
+                            (slime-inspector-fetch 
+                             (slime-inspector-join-chunks chunk1 chunk2)
+                             limit prev cont))
+                          chunk limit prev cont)))
+          (t (funcall cont chunk)))))
+
+(defun slime-inspector-next-range (chunk limit prev)
+  (destructuring-bind (_ len start end) chunk
+    (let ((count (- end start)))
+      (cond ((and prev (< 0 start) (or (not limit) (< count limit)))
+             (list (if limit (max (- end limit) 0) 0) start))
+            ((and (not prev) (< end len) (or (not limit) (< count limit)))
+             (list end (if limit (+ start limit) most-positive-fixnum)))
+            (t '(nil nil))))))
+
+(defun slime-inspector-join-chunks (chunk1 chunk2)
+  (destructuring-bind (i1 l1 s1 e1) chunk1
+    (destructuring-bind (i2 l2 s2 e2) chunk2
+      (cond ((= e1 s2)
+             (list (append i1 i2) l2 s1 e2))
+            ((= e2 s1)
+             (list (append i2 i1) l2 s2 e1))
+            (t (error "Invalid chunks"))))))
 
 (slime-define-keys slime-inspector-mode-map
   ([return] 'slime-inspector-operate-on-point)

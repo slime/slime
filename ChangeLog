@@ -1,3 +1,15 @@
+2008-05-17  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-prin1-to-string): Bind print-length and
+	print-level.
+
+2008-05-17  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-inspector-limit): New variable.
+	(slime-inspector-insert-content): Use it.
+	(slime-inspector-fetch-chunk, slime-inspector-fetch)
+	(slime-inspector-next-range, slime-inspector-join-chunks): New.
+
 2008-05-08  Geo Carncross  <geocar@gmail.com>
 
 	* swank-ecl.lisp (call-with-debugging-environment)
