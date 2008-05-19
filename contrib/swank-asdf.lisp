@@ -9,6 +9,8 @@
 
 (in-package :swank)
 
+(require :asdf)
+
 (defslimefun operate-on-system-for-emacs (system-name operation &rest keywords)
   "Compile and load SYSTEM using ASDF.
 Record compiler notes signalled as `compiler-condition's."
