@@ -1,3 +1,12 @@
+2008-05-19  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-sbcl.lisp: Don't require asdf.
+
+2008-05-19  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-sbcl.lisp (swank-compile-string): Add reader-conditionals
+	for sb-ext::restrict-compiler-policy.
+
 2008-05-19  Geo Carncross  <geocar@gmail.com>
 
 	* contrib/swank-asdf.lisp: Require asdf.

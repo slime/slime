@@ -14,13 +14,15 @@
 (in-package :swank-backend)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (require 'asdf)
   (require 'sb-bsd-sockets)
   (require 'sb-introspect)
   (require 'sb-posix)
   (require 'sb-cltl2))
 
-(declaim (optimize (debug 2) (sb-c:insert-step-conditions 0)))
+(declaim (optimize (debug 2) 
+                   (sb-c::insert-step-conditions 0)
+                   (sb-c::insert-debug-catch 0)
+                   (sb-c::merge-tail-calls 2)))
 
 (import-from :sb-gray *gray-stream-symbols* :swank-backend)
 
@@ -47,7 +49,12 @@
   (defun sbcl-with-restart-frame ()
     (if (find-symbol "FRAME-HAS-DEBUG-TAG-P" "SB-DEBUG")
         '(:and)
-        '(:or))))
+        '(:or)))
+  (defun sbcl-with-symbol (name package)
+    (if (find-symbol (string name) (string package))
+        '(:and)
+        '(:or)))
+  )
 
 ;;; swank-mop
 
@@ -448,7 +455,10 @@ compiler state."
         (*buffer-offset* position)
         (*buffer-substring* string)
         (filename (temp-file-name))
-        (old-min-debug (assoc 'debug (sb-ext:restrict-compiler-policy))))
+        #+#.(swank-backend::sbcl-with-symbol 'restrict-compiler-policy 'sb-ext)
+        (old-min-debug (assoc 'debug (sb-ext:restrict-compiler-policy)))
+        )
+    #+#.(swank-backend::sbcl-with-symbol 'restrict-compiler-policy 'sb-ext)
     (when debug
       (sb-ext:restrict-compiler-policy 'debug 3))
     (flet ((compile-it (fn)
@@ -466,6 +476,8 @@ compiler state."
                (compile-it #'load)
                (load (compile-it #'identity)))
         (ignore-errors
+          #+#.(swank-backend::sbcl-with-symbol
+               'restrict-compiler-policy 'sb-ext)
           (sb-ext:restrict-compiler-policy 'debug (or old-min-debug 0))
           (delete-file filename)
           (delete-file (compile-file-pathname filename)))))))

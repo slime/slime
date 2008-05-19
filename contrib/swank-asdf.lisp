@@ -9,7 +9,8 @@
 
 (in-package :swank)
 
-(require :asdf)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (require :asdf))
 
 (defslimefun operate-on-system-for-emacs (system-name operation &rest keywords)
   "Compile and load SYSTEM using ASDF.
