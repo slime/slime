@@ -103,7 +103,7 @@
   (declare (ignore timeout))
   (make-socket-io-stream (ext:accept-tcp-connection socket) 
                          (or buffering :full)
-                         (or external-format :iso-latin-1-unix)))
+                         (or external-format :iso-8859-1)))
 
 ;;;;; Sockets
 
