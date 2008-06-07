@@ -1,3 +1,10 @@
+2008-06-07  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-parse.el (slime-cl-symbol-name),
+	(slime-cl-symbol-package),
+	(slime-qualify-cl-symbol-name): Moved back to `slime.el' as
+	they're still used there.
+
 2008-04-17  Gábor Melis <mega@retes.hu>
 
 	* swank-fancy-inspector.lisp (inspect-slot-for-emacs):

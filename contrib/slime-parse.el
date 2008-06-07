@@ -26,53 +26,6 @@ one sexp to find out the context."
 	     (slime-make-form-spec-from-string 
 	      (concat (slime-incomplete-sexp-at-point) ")"))))))))
 
-;; XXX: unused function
-(defun slime-cl-symbol-external-ref-p (symbol)
-  "Does SYMBOL refer to an external symbol?
-FOO:BAR is an external reference.
-FOO::BAR is not, and nor is BAR."
-  (let ((name (if (stringp symbol) symbol (symbol-name symbol))))
-    (and (string-match ":" name)
-         (not (string-match "::" name)))))
-
-(defun slime-cl-symbol-name (symbol)
-  (let ((n (if (stringp symbol) symbol (symbol-name symbol))))
-    (if (string-match ":\\([^:]*\\)$" n)
-	(let ((symbol-part (match-string 1 n)))
-          (if (string-match "^|\\(.*\\)|$" symbol-part)
-              (match-string 1 symbol-part)
-              symbol-part))
-      n)))
-
-(defun slime-cl-symbol-package (symbol &optional default)
-  (let ((n (if (stringp symbol) symbol (symbol-name symbol))))
-    (if (string-match "^\\([^:]*\\):" n)
-	(match-string 1 n)
-      default)))
-
-;; XXX: unused function
-(defun slime-qualify-cl-symbol (symbol-or-name)
-  "Like `slime-qualify-cl-symbol-name', but interns the result."
-  (intern (slime-qualify-cl-symbol-name symbol-or-name)))
-
-(defun slime-qualify-cl-symbol-name (symbol-or-name)
-  "Return a package-qualified symbol-name that indicates the CL symbol
-SYMBOL. If SYMBOL doesn't already have a package prefix the current
-package is used."
-  (let ((s (if (stringp symbol-or-name)
-               symbol-or-name
-             (symbol-name symbol-or-name))))
-    (if (slime-cl-symbol-package s)
-        s
-      (format "%s::%s"
-              (let* ((package (slime-current-package)))
-                ;; package is a string like ":cl-user" or "CL-USER".
-                (if (and package (string-match "^:" package))
-                    (substring package 1)
-                  package))
-              (slime-cl-symbol-name s)))))
-
-
 (defun slime-parse-sexp-at-point (&optional n skip-blanks-p)
   "Return the sexp at point as a string, otherwise nil.
 If N is given and greater than 1, a list of all such sexps
