@@ -1,5 +1,11 @@
 2008-06-07  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (def-slime-test find-definition.2, arglist):
+	SWANK:COMPILE-STRING-FOR-EMACS since recently takes 5 instead of 4
+	parameters. Fix that.
+
+2008-06-07  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (slime-extract-context, slime-parse-context): Recognize
 	more toplevel forms, e.g. DEFINE-COMPILER-MACRO &c. Such that
 	`slime-parse-toplevel-form' will also recognize these.
