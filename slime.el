@@ -4499,7 +4499,8 @@ you should check twice before modifying.")
                                     (if (eql (aref el 0) ?\()
                                         (let ((spec (read el)))
                                           (if (eq (car spec) 'EQL)
-                                              (concat ".*?\\n\\{0,1\\}.*?(EQL.*?'\\{0,1\\}" (format "%s" (second spec)) ")")
+                                              (concat ".*?\\n\\{0,1\\}.*?(EQL.*?'\\{0,1\\}"
+                                                      (format "%s" (second spec)) ")")
                                             (error "don't understand specializer: %s,%s" el (car spec))))
                                       (concat ".+?\n\\{0,1\\}.+?\\<" el "\\>")))
                                   (remove "T" specializers) ""))
@@ -4564,73 +4565,6 @@ are supported:
       (when-let (fname (getf hints :call-site))
         (slime-search-call-site fname)))
     (point)))
-
-(defmacro slime-point-moves-p (&rest body)
-  "Execute BODY and return true if the current buffer's point moved."
-  (let ((pointvar (gensym "point-")))
-    `(let ((,pointvar (point)))
-       (save-current-buffer ,@body)
-       (/= ,pointvar (point)))))
-
-(put 'slime-point-moves-p 'lisp-indent-function 0)
-
-(defun slime-forward-sexp (&optional count)
-  "Like `forward-sexp', but understands reader-conditionals (#- and #+)."
-  (dotimes (i (or count 1))
-    (while (slime-point-moves-p (slime-forward-blanks)
-                                (slime-forward-reader-comment)
-                                (slime-forward-reader-conditional)))
-    (forward-sexp)))
-
-(defun slime-forward-blanks ()
-  "Move forward over all whitespace and newlines at point."
-  (ignore-errors
-    (while (slime-point-moves-p
-             (skip-syntax-forward " ")
-             ;; newlines aren't in lisp-mode's whitespace syntax class
-             (when (eolp) (forward-char))))))
-
-;; Emacs 21's forward-sexp understands #| |# comments in lisp-mode
-;; buffers, but (at least) Emacs 20's doesn't, so here it is.
-(defun slime-forward-reader-comment ()
-  "Move forward over #|...|# reader comments. The comments may be nested."
-  (when (looking-at "#|")
-    (goto-char (match-end 0))
-    (while (not (looking-at "|#"))
-      (re-search-forward (regexp-opt '("|#" "#|")))
-      (goto-char (match-beginning 0))
-      (when (looking-at "#|")           ; nested comment
-        (slime-forward-reader-comment)))
-    (goto-char (match-end 0))))
-
-(defun slime-forward-reader-conditional ()
-  "Move past any reader conditional (#+ or #-) at point."
-  (when (or (looking-at "#\\+")
-            (looking-at "#-"))
-    (goto-char (match-end 0))
-    (let* ((plus-conditional-p (eq (char-before) ?+))
-           (result (slime-eval-feature-conditional (read (current-buffer)))))
-      (unless (if plus-conditional-p result (not result))
-        ;; skip this sexp
-        (slime-forward-sexp)))))
-
-(defun slime-keywordify (symbol)
-  "Make a keyword out of the symbol SYMBOL."
-  (let ((name (downcase (symbol-name symbol))))
-    (intern (if (eq ?: (aref name 0)) 
-                name 
-              (concat ":" name)))))
-
-(defun slime-eval-feature-conditional (e)
-  "Interpret a reader conditional expression."
-  (if (symbolp e)
-      (memq (slime-keywordify e) (slime-lisp-features))
-    (funcall (ecase (slime-keywordify (car e))
-               (:and #'every)
-               (:or #'some)
-               (:not (lambda (f l) (not (apply f l)))))
-             #'slime-eval-feature-conditional
-             (cdr e))))
 
 
 ;;;;; Incremental search
@@ -5390,20 +5324,19 @@ First make the variable unbound, then evaluate the entire form."
   (slime-eval-print string))
 
 (defun slime-call-defun ()
-  "Insert a call to the function defined around point into the REPL."
+  "Insert a call to the toplevel form defined around point into the REPL."
   (interactive)
   (let ((toplevel (slime-parse-toplevel-form)))
-    (unless (and (consp toplevel)
-                 (member (car toplevel) '(:defun :defmethod :defgeneric))
-                 (symbolp (cadr toplevel)))
-      (error "Not in a function definition"))
-    (let* ((symbol (cadr toplevel))
-           (function-call 
-            (format "(%s " (slime-qualify-cl-symbol-name symbol))))
-      (slime-switch-to-output-buffer)
-      (goto-char slime-repl-input-start-mark)
-      (insert function-call)
-      (save-excursion (insert ")")))))
+    (destructure-case toplevel
+      (((:defun :defmethod :defgeneric :defmacro :define-compiler-macro) symbol)
+       (let ((function-call 
+              (format "(%s " (slime-qualify-cl-symbol-name symbol))))
+         (slime-switch-to-output-buffer)
+         (goto-char slime-repl-input-start-mark)
+         (insert function-call)
+         (save-excursion (insert ")"))))
+      (t
+       (error "Not in a function definition")))))
 
 ;;;; Edit Lisp value
 ;;;
@@ -5502,7 +5435,7 @@ The result is a string."
          (destructure-case spec
            ((setf n)
             (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string spec)))
-           (((:defun :defmacro) n)
+           ((:defun n)
             (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string n)))
            ((:defgeneric n)
             (let* ((name (prin1-to-string n))
@@ -5529,7 +5462,8 @@ The result is a string."
                      answer))))
            (((:labels :flet) &rest _)
             (slime-read-from-minibuffer "(Un)trace local function: "
-                                        (prin1-to-string spec)))))))
+                                        (prin1-to-string spec)))
+           (t (error "Don't know how to trace the spec ~S" spec))))))
 
 (defun slime-extract-context ()
   "Parse the context for the symbol at point.  
@@ -5543,6 +5477,12 @@ the following cases (the . shows the point position):
  (defun ... (...) (flet ((n.ame (...)    -> (:flet (:defun ...) name)
  (defun ... (...) ... (n.ame ...) ...)   -> (:call (:defun ...) name)
  (defun ... (...) ... (setf (n.ame ...)  -> (:call (:defun ...) (setf name))
+
+ (defmacro n.ame (...) ...)              -> (:defmacro name)
+ (defsetf n.ame (...) ...)               -> (:defsetf name)
+ (define-setf-expander n.ame (...) ...)  -> (:define-setf-expander name)
+ (define-modify-macro n.ame (...) ...)   -> (:define-modify-macro name)
+ (define-compiler-macro n.ame (...) ...) -> (:define-compiler-macro name)
 
 For other contexts we return the symbol at point."
   (let ((name (slime-symbol-name-at-point)))
@@ -5586,6 +5526,14 @@ For other contexts we return the symbol at point."
                     `(:flet ,toplevel ,name))
                    (t
                     `(:call ,toplevel ,name)))))
+          ((slime-in-expression-p '(define-compiler-macro *))
+           `(:define-compiler-macro ,name))
+          ((slime-in-expression-p '(define-modify-macro *))
+           `(:define-modify-macro ,name))
+          ((slime-in-expression-p '(define-setf-expander *))
+           `(:define-setf-expander ,name))
+          ((slime-in-expression-p '(defsetf *))
+           `(:defsetf ,name))
           (t 
            name))))
 
@@ -9128,7 +9076,109 @@ Reconnect afterwards."
           (total (buffer-size)))
       (or (/= beg 1) (/= end (1+ total))))))
 
-
+;;;;; CL symbols vs. Elisp symbols.
+
+(defun slime-cl-symbol-name (symbol)
+  (let ((n (if (stringp symbol) symbol (symbol-name symbol))))
+    (if (string-match ":\\([^:]*\\)$" n)
+	(let ((symbol-part (match-string 1 n)))
+          (if (string-match "^|\\(.*\\)|$" symbol-part)
+              (match-string 1 symbol-part)
+              symbol-part))
+      n)))
+
+(defun slime-cl-symbol-package (symbol &optional default)
+  (let ((n (if (stringp symbol) symbol (symbol-name symbol))))
+    (if (string-match "^\\([^:]*\\):" n)
+	(match-string 1 n)
+      default)))
+
+(defun slime-qualify-cl-symbol-name (symbol-or-name)
+  "Return a package-qualified symbol-name that indicates the CL symbol
+SYMBOL. If SYMBOL doesn't already have a package prefix the current
+package is used."
+  (let ((s (if (stringp symbol-or-name)
+               symbol-or-name
+             (symbol-name symbol-or-name))))
+    (if (slime-cl-symbol-package s)
+        s
+      (format "%s::%s"
+              (let* ((package (slime-current-package)))
+                ;; package is a string like ":cl-user" or "CL-USER".
+                (if (and package (string-match "^:" package))
+                    (substring package 1)
+                  package))
+              (slime-cl-symbol-name s)))))
+
+;;;;; Moving, CL idiosyncracies aware (reader conditionals &c.)
+
+(defmacro slime-point-moves-p (&rest body)
+  "Execute BODY and return true if the current buffer's point moved."
+  (let ((pointvar (gensym "point-")))
+    `(let ((,pointvar (point)))
+       (save-current-buffer ,@body)
+       (/= ,pointvar (point)))))
+
+(put 'slime-point-moves-p 'lisp-indent-function 0)
+
+(defun slime-forward-sexp (&optional count)
+  "Like `forward-sexp', but understands reader-conditionals (#- and #+)."
+  (dotimes (i (or count 1))
+    (while (slime-point-moves-p (slime-forward-blanks)
+                                (slime-forward-reader-comment)
+                                (slime-forward-reader-conditional)))
+    (forward-sexp)))
+
+(defun slime-forward-blanks ()
+  "Move forward over all whitespace and newlines at point."
+  (ignore-errors
+    (while (slime-point-moves-p
+             (skip-syntax-forward " ")
+             ;; newlines aren't in lisp-mode's whitespace syntax class
+             (when (eolp) (forward-char))))))
+
+;; Emacs 21's forward-sexp understands #| |# comments in lisp-mode
+;; buffers, but (at least) Emacs 20's doesn't, so here it is.
+(defun slime-forward-reader-comment ()
+  "Move forward over #|...|# reader comments. The comments may be nested."
+  (when (looking-at "#|")
+    (goto-char (match-end 0))
+    (while (not (looking-at "|#"))
+      (re-search-forward (regexp-opt '("|#" "#|")))
+      (goto-char (match-beginning 0))
+      (when (looking-at "#|")           ; nested comment
+        (slime-forward-reader-comment)))
+    (goto-char (match-end 0))))
+
+(defun slime-forward-reader-conditional ()
+  "Move past any reader conditional (#+ or #-) at point."
+  (when (or (looking-at "#\\+")
+            (looking-at "#-"))
+    (goto-char (match-end 0))
+    (let* ((plus-conditional-p (eq (char-before) ?+))
+           (result (slime-eval-feature-conditional (read (current-buffer)))))
+      (unless (if plus-conditional-p result (not result))
+        ;; skip this sexp
+        (slime-forward-sexp)))))
+
+(defun slime-keywordify (symbol)
+  "Make a keyword out of the symbol SYMBOL."
+  (let ((name (downcase (symbol-name symbol))))
+    (intern (if (eq ?: (aref name 0)) 
+                name 
+              (concat ":" name)))))
+
+(defun slime-eval-feature-conditional (e)
+  "Interpret a reader conditional expression."
+  (if (symbolp e)
+      (memq (slime-keywordify e) (slime-lisp-features))
+    (funcall (ecase (slime-keywordify (car e))
+               (:and #'every)
+               (:or #'some)
+               (:not (lambda (f l) (not (apply f l)))))
+             #'slime-eval-feature-conditional
+             (cdr e))))
+
 ;;;;; Extracting Lisp forms from the buffer or user
 
 (defun slime-defun-at-point ()
@@ -9202,6 +9252,7 @@ The result is unspecified if there isn't a symbol under the point."
   (or (slime-sexp-at-point)
       (error "No expression at point.")))
 
+
 ;;;; Portability library
 
 (when (featurep 'xemacs)

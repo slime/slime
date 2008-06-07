@@ -1,3 +1,17 @@
+2008-06-07  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-extract-context, slime-parse-context): Recognize
+	more toplevel forms, e.g. DEFINE-COMPILER-MACRO &c. Such that
+	`slime-parse-toplevel-form' will also recognize these.
+	(slime-trace-query): Adapted to above changes. Errors if spec is
+	untraceable.
+	(slime-call-defun): Adapted to also support the new toplevel forms.
+
+	(slime-cl-symbol-name),
+	(slime-cl-symbol-package),
+	(slime-qualify-cl-symbol-name): Resurrected from the `slime-parse'
+	contrib, as they've been used by `slime-call-defun'.
+	
 2008-06-02  Raymond Toy <toy.raymond@gmail.com>
 
 	Unicode support for CMUCL.
