@@ -1,3 +1,7 @@
+2008-07-02  Martin Simmons <martin@lispworks.com>
+	* swank-lispworks.lisp (install-debugger-globally): hook into the
+	environment globally to catch BREAK.
+
 2008-06-07  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (def-slime-test find-definition.2, arglist):
