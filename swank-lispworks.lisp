@@ -225,6 +225,10 @@ Return NIL if the symbol is unbound."
     (env:with-environment ((slime-env hook '()))
       (funcall fun))))
 
+(defimplementation install-debugger-globally (function)
+  (setq *debugger-hook* function)
+  (setf (env:environment) (slime-env function '())))
+
 (defvar *sldb-top-frame*)
 
 (defun interesting-frame-p (frame)
