@@ -414,6 +414,13 @@
       (fspec-definition-locations next)))
    (t
     (let ((defs (excl::find-source-file fspec)))
+      (when (and (null defs)
+                 (listp fspec)
+                 (string= (car fspec) '#:method))
+        ;; If methods are defined in a defgeneric form, the source location is
+        ;; recorded for the gf but not for the methods. Therefore fall back to
+        ;; the gf as the likely place of definition.
+        (setq defs (excl::find-source-file (second fspec))))
       (if (null defs)
           (list
            (list (list nil fspec)
