@@ -1,3 +1,9 @@
+2008-07-04  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-call-defun): Broken on DEFMETHOD forms. Fix
+	that. Also, don't insert package qualifier anymore if the inserted
+	qualifier is the same as the current REPL package.
+
 2008-07-02  Martin Simmons <martin@lispworks.com>
 	* swank-lispworks.lisp (install-debugger-globally): hook into the
 	environment globally to catch BREAK.

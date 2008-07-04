@@ -5326,17 +5326,27 @@ First make the variable unbound, then evaluate the entire form."
 (defun slime-call-defun ()
   "Insert a call to the toplevel form defined around point into the REPL."
   (interactive)
-  (let ((toplevel (slime-parse-toplevel-form)))
-    (destructure-case toplevel
-      (((:defun :defmethod :defgeneric :defmacro :define-compiler-macro) symbol)
-       (let ((function-call 
-              (format "(%s " (slime-qualify-cl-symbol-name symbol))))
-         (slime-switch-to-output-buffer)
-         (goto-char slime-repl-input-start-mark)
-         (insert function-call)
-         (save-excursion (insert ")"))))
-      (t
-       (error "Not in a function definition")))))
+  (flet ((insert-call (symbol)
+           (let* ((qualified-symbol-name (slime-qualify-cl-symbol-name symbol))
+                  (symbol-name (slime-cl-symbol-name qualified-symbol-name))
+                  (symbol-package (slime-cl-symbol-package qualified-symbol-name))
+                  (function-call 
+                   (format "(%s " (if (equalp (slime-lisp-package) symbol-package)
+                                      symbol-name
+                                      qualified-symbol-name))))
+             (slime-switch-to-output-buffer)
+             (goto-char slime-repl-input-start-mark)
+             (insert function-call)
+             (save-excursion (insert ")")))))           
+    (let ((toplevel (slime-parse-toplevel-form)))
+      (destructure-case toplevel
+        (((:defun :defgeneric :defmacro :define-compiler-macro) symbol)
+         (insert-call symbol))
+        ((:defmethod symbol &rest args)
+         (declare (ignore args))
+         (insert-call symbol))
+        (t
+         (error "Not in a function definition"))))))
 
 ;;;; Edit Lisp value
 ;;;
@@ -6157,7 +6167,6 @@ NB: Does not affect *slime-eval-macroexpand-expression*"
              (indent-sexp)
              (goto-char point))))))))
 
-       
 (defun slime-macroexpand-1 (&optional repeatedly)
   "Display the macro expansion of the form at point.  The form is
 expanded with CL:MACROEXPAND-1 or, if a prefix argument is given, with
@@ -9104,7 +9113,7 @@ package is used."
     (if (slime-cl-symbol-package s)
         s
       (format "%s::%s"
-              (let* ((package (slime-current-package)))
+              (let* ((package (or (slime-current-package) (slime-lisp-package))))
                 ;; package is a string like ":cl-user" or "CL-USER".
                 (if (and package (string-match "^:" package))
                     (substring package 1)
