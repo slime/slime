@@ -1,3 +1,9 @@
+2008-07-04  Richard M Kreuter <kreuter@progn.net>
+
+	* swank-sbcl.lisp (code-location-source-location),
+	(code-location-debug-source-name): Patched for incompatible
+	structure change in SBCL 1.0.18.10.
+
 2008-07-04  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-call-defun): Broken on DEFMETHOD forms. Fix
@@ -27,7 +33,7 @@
 	(slime-cl-symbol-package),
 	(slime-qualify-cl-symbol-name): Resurrected from the `slime-parse'
 	contrib, as they've been used by `slime-call-defun'.
-	
+
 2008-06-02  Raymond Toy <toy.raymond@gmail.com>
 
 	Unicode support for CMUCL.

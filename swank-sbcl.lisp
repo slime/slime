@@ -850,9 +850,14 @@ stack."
          (plist (sb-c::debug-source-plist dsource)))
     (if (getf plist :emacs-buffer)
         (emacs-buffer-source-location code-location plist)
+        #+#.(swank-backend::sbcl-with-symbol 'debug-source-from 'sb-di)
         (ecase (sb-di:debug-source-from dsource)
           (:file (file-source-location code-location))
-          (:lisp (lisp-source-location code-location))))))
+          (:lisp (lisp-source-location code-location)))
+        #-#.(swank-backend::sbcl-with-symbol 'debug-source-from 'sb-di)
+        (if (sb-di:debug-source-namestring dsource)
+            (file-source-location code-location)
+            (lisp-source-location code-location)))))
 
 ;;; FIXME: The naming policy of source-location functions is a bit
 ;;; fuzzy: we have FUNCTION-SOURCE-LOCATION which returns the
@@ -906,7 +911,12 @@ stack."
                          `(:snippet ,snippet)))))))
 
 (defun code-location-debug-source-name (code-location)
-  (namestring (truename (sb-c::debug-source-name
+  (namestring (truename (#+#.(swank-backend::sbcl-with-symbol
+                              'debug-source-name 'sb-di)
+                             sb-c::debug-source-name
+                             #-#.(swank-backend::sbcl-with-symbol
+                                  'debug-source-name 'sb-di)
+                             sb-c::debug-source-namestring
                          (sb-di::code-location-debug-source code-location)))))
 
 (defun code-location-debug-source-created (code-location)
