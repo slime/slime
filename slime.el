@@ -5339,14 +5339,16 @@ First make the variable unbound, then evaluate the entire form."
              (insert function-call)
              (save-excursion (insert ")")))))           
     (let ((toplevel (slime-parse-toplevel-form)))
-      (destructure-case toplevel
-        (((:defun :defgeneric :defmacro :define-compiler-macro) symbol)
-         (insert-call symbol))
-        ((:defmethod symbol &rest args)
-         (declare (ignore args))
-         (insert-call symbol))
-        (t
-         (error "Not in a function definition"))))))
+      (if (symbolp toplevel)
+          (error "Not in a function definition")
+          (destructure-case toplevel
+            (((:defun :defgeneric :defmacro :define-compiler-macro) symbol)
+             (insert-call symbol))
+            ((:defmethod symbol &rest args)
+             (declare (ignore args))
+             (insert-call symbol))
+            (t
+             (error "Not in a function definition")))))))
 
 ;;;; Edit Lisp value
 ;;;
@@ -5585,11 +5587,12 @@ Point is placed before the first expression in the list."
   (skip-syntax-forward " "))
 
 (defun slime-parse-toplevel-form ()
-  (save-excursion
-    (beginning-of-defun)
-    (down-list 1)
-    (forward-sexp 1)
-    (slime-parse-context (read (current-buffer)))))
+  (ignore-errors                        ; (foo)
+    (save-excursion
+      (beginning-of-defun)
+      (down-list 1)
+      (forward-sexp 1)
+      (slime-parse-context (read (current-buffer))))))
 		 
 (defun slime-arglist-specializers (arglist)
   (cond ((or (null arglist)

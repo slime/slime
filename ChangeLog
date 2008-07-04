@@ -1,3 +1,8 @@
+2008-07-04  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-call-defun): Properly signal error message when
+	used in a context that is not a function definition.
+
 2008-07-04  Richard M Kreuter <kreuter@progn.net>
 
 	* swank-sbcl.lisp (code-location-source-location),
