@@ -1,3 +1,9 @@
+2008-07-04  Gábor Melis  <mega@retes.hu>
+
+	* swank.lisp (call-with-redirected-io): Rebind only standard
+	streams if *GLOBALLY-REDIRECT-IO*. Fixes lost output after
+	disconnect, reconnect.
+
 2008-07-04  Willem Broekema  <metawilm@gmail.com>
 
 	* slime-allegro.lisp (fspec-definition-locations): Workaround for
