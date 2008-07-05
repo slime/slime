@@ -1212,7 +1212,22 @@ stack."
     (if (sb-thread:thread-alive-p thread)
         "RUNNING"
         "STOPPED"))
+  #+#.(swank-backend::sbcl-with-weak-hash-tables)
+  (progn
+    (defparameter *thread-description-map*
+      (make-weak-key-hash-table))
 
+    (defvar *thread-descr-map-lock*
+      (sb-thread:make-mutex :name "thread description map lock"))
+    
+    (defimplementation thread-description (thread)
+      (sb-thread:with-mutex (*thread-descr-map-lock*)
+        (or (gethash thread *thread-description-map*) "")))
+
+    (defimplementation set-thread-description (thread description)
+      (sb-thread:with-mutex (*thread-descr-map-lock*)
+        (setf (gethash thread *thread-description-map*) description))))
+  
   (defimplementation make-lock (&key name)
     (sb-thread:make-mutex :name name))
 

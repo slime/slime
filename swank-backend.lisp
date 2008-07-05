@@ -950,6 +950,16 @@ user. They do not have to be unique."
    (declare (ignore thread))
    "")
 
+(definterface thread-description (thread)
+  "Return a string describing THREAD."
+  (declare (ignore thread))
+  "")
+
+(definterface set-thread-description (thread description)
+  "Set THREAD's description to DESCRIPTION."
+  (declare (ignore thread description))
+  "")
+
 (definterface make-lock (&key name)
    "Make a lock for thread synchronization.
 Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time."

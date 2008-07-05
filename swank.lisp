@@ -1316,9 +1316,33 @@ NIL if streams are not globally redirected.")
              (*terminal-io* io))
         (funcall function))))
 
+(defun call-with-thread-description (description thunk)
+  (let* ((thread (current-thread))
+         (old-description (thread-description thread)))
+    (set-thread-description thread description)
+    (unwind-protect (funcall thunk)
+      (set-thread-description thread old-description))))
+
+(defmacro with-thread-description (description &body body)
+  `(call-with-thread-description ,description #'(lambda () ,@body)))
+
 (defun read-from-emacs ()
   "Read and process a request from Emacs."
-  (apply #'funcall (funcall (connection.read *emacs-connection*))))
+  (flet ((request-to-string (req)
+           (remove #\Newline
+                   (string-trim '(#\Space #\Tab)
+                                (prin1-to-string req))))
+         (truncate-string (str n)
+           (if (> (length str) n)
+               (format nil "~A..." (subseq str 0 n))
+               str)))
+    (let ((request (funcall (connection.read *emacs-connection*))))
+      (if (eq *communication-style* :spawn)
+          ;; For `M-x slime-list-threads': Display what threads
+          ;; created by swank are currently doing.
+          (with-thread-description (truncate-string (request-to-string request) 55)
+            (apply #'funcall request))
+          (apply #'funcall request)))))
 
 (defun read-from-control-thread ()
   (receive))
@@ -2878,13 +2902,15 @@ synchronization issues (yet).  There can only be one thread listing at
 a time.")
 
 (defslimefun list-threads ()
-  "Return a list ((NAME DESCRIPTION) ...) of all threads."
+  "Return a list ((ID NAME STATUS DESCRIPTION) ...) of all threads."
   (setq *thread-list* (all-threads))
   (loop for thread in  *thread-list* 
        for name = (thread-name thread)
-        collect (list (if (symbolp name) (symbol-name name) name)
+        collect (list (thread-id thread)
+                      (if (symbolp name) (symbol-name name) name)
                       (thread-status thread)
-                      (thread-id thread))))
+                      (thread-description thread)
+                      )))
 
 (defslimefun quit-thread-browser ()
   (setq *thread-list* nil))

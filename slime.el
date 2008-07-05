@@ -7133,18 +7133,19 @@ was called originally."
       (let ((inhibit-read-only t))
         (erase-buffer)
         (loop for idx from 0 
-              for (name status id) in threads
-              do (slime-thread-insert idx name status id))
+              for (id name status desc) in threads
+              do (slime-thread-insert idx name status desc id))
         (goto-char (point-min))
         (setq buffer-read-only t)
         (pop-to-buffer (current-buffer))))))
 
-(defun slime-thread-insert (idx name summary id)
+(defun slime-thread-insert (idx name status summary id)
   (slime-propertize-region `(thread-id ,idx)
     (insert (format "%3s: " id))
     (slime-insert-propertized '(face bold) name)
     (insert-char ?\  (- 30 (current-column)))
     (let ((summary-start (point)))
+      (insert " " status)
       (insert " " summary)
       (unless (bolp) (insert "\n"))
       (indent-rigidly summary-start (point) 2))))
