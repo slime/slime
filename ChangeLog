@@ -1,5 +1,12 @@
 2008-07-05  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank.lisp: Revert Melis' change from 2008-07-04; Global IO
+	redirection seems currently to be broken, and while it's not due
+	to that commit (it seems that it's been broken since longer), I
+	want to be on a safe bet.
+
+2008-07-05  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	`M-x slime-lisp-threads' will now contain a summary of what's
 	currently executed in a thread that was created by Swank.
 
