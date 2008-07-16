@@ -1,5 +1,11 @@
 2008-07-16  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-xref-dspec-at-point): Make more robust.
+	(slime-xref-insert-recompilation-flags): Ditto.
+	(slime-column-max): New.
+
+2008-07-16  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	Recompilation support added to xref buffers. You can now use
 	`C-c C-c' in an xref buffer to recompile the defun represented by
 	the xref at point. Similiarly, you can use `C-c C-k' to recompile

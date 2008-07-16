@@ -6088,7 +6088,10 @@ source-location."
 (defun slime-xref-dspec-at-point ()
   (save-excursion
     (beginning-of-line 1)
-    (slime-trim-whitespace (substring-no-properties (thing-at-point 'line)))))
+    (with-syntax-table lisp-mode-syntax-table
+      (forward-sexp)
+      (backward-sexp)
+      (slime-sexp-at-point))))
 
 (defun slime-all-xrefs ()
   (let ((xrefs nil))
@@ -6180,13 +6183,15 @@ When displaying XREF information, this goes to the next reference."
 
 (defun slime-xref-insert-recompilation-flags (dspecs compilation-results)
   (let* ((buffer-read-only nil)
-         (max-dspec-length (reduce #'max dspecs :key #'length :initial-value 0))
-         (max-column (+ max-dspec-length 2))) ; 2 initial spaces
+         (max-column (slime-column-max)))
     (beginning-of-buffer)
     (loop for dspec in dspecs
           for result in compilation-results
           do (save-excursion
-               (search-forward dspec)
+               (loop for dspec-at-point = (progn (search-forward dspec)
+                                                 (slime-xref-dspec-at-point))
+                     until (equal dspec-at-point dspec))
+               (end-of-line) ; skip old status information.
                (dotimes (i (- max-column (current-column)))
                  (insert " "))
                (insert " ")
@@ -9217,6 +9222,13 @@ Reconnect afterwards."
           (end (point-max))
           (total (buffer-size)))
       (or (/= beg 1) (/= end (1+ total))))))
+
+(defun slime-column-max ()
+  (save-excursion
+    (beginning-of-buffer)
+    (loop for column = (prog2 (end-of-line) (current-column) (forward-line))
+          until (= (point) (point-max))
+          maximizing column)))
 
 ;;;;; CL symbols vs. Elisp symbols.
 
