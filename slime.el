@@ -3753,6 +3753,25 @@ final, no matter where the point is."
   :group 'slime-mode
   :type 'boolean)
 
+(defstruct (slime-compilation-unit
+             (:type list)
+             (:conc-name slime-compilation-unit.)
+             (:constructor nil)
+             (:copier nil))
+  tag notes results durations)
+
+(defvar slime-last-compilation-unit nil
+  "The result of the most recently issued compilation.")
+
+(defun slime-compiler-notes ()
+  "Return all compiler notes, warnings, and errors."
+  (slime-compilation-unit.notes slime-last-compilation-unit))
+
+(defun slime-compiler-results ()
+  "Return the results of the most recently issued compilations."
+  (slime-compilation-unit.results slime-last-compilation-unit))
+
+
 (defun slime-compile-and-load-file ()
   "Compile and load the buffer's file and highlight compiler notes.
 
@@ -3806,13 +3825,31 @@ See `slime-compile-and-load-file' for further details."
 
 (defun slime-compile-string (string start-offset)
   (slime-eval-async 
-   `(swank:compile-string-for-emacs
-     ,string
-     ,(buffer-name)
-     ,start-offset
-     ,(if (buffer-file-name) (file-name-directory (buffer-file-name)))
-     ',slime-compile-with-maximum-debug)
+   (slime-make-compile-expression-for-swank string start-offset)
    (slime-make-compilation-finished-continuation (current-buffer))))
+
+(defun slime-make-compile-expression-for-swank (string start-offset) 
+  `(swank:compile-string-for-emacs
+    ,string
+    ,(buffer-name)
+    ,start-offset
+    ,(if (buffer-file-name) (file-name-directory (buffer-file-name)))
+    ',slime-compile-with-maximum-debug))
+
+(defun slime-make-compilation-finished-continuation (current-buffer &optional emacs-snapshot)
+  (lexical-let ((buffer current-buffer) (snapshot emacs-snapshot))
+    (lambda (result)
+      (slime-compilation-finished result buffer snapshot))))
+
+(defun slime-compilation-finished (compilation-unit buffer &optional emacs-snapshot)
+  (with-struct (slime-compilation-unit. notes durations) compilation-unit
+    (with-current-buffer buffer
+      (setf slime-compilation-just-finished t)
+      (setf slime-last-compilation-unit compilation-unit)
+      (slime-show-note-counts notes (reduce #'+ durations))
+      (when slime-highlight-compiler-notes
+        (slime-highlight-notes notes)))
+    (run-hook-with-args 'slime-compilation-finished-hook notes emacs-snapshot)))
 
 (defun slime-note-count-string (severity count &optional suppress-if-zero)
   (cond ((and (zerop count) suppress-if-zero)
@@ -3832,49 +3869,8 @@ See `slime-compile-and-load-file' for further details."
              (slime-note-count-string "warning" nwarnings)
              (slime-note-count-string "style-warning" nstyle-warnings t)
              (slime-note-count-string "note" nnotes)
-             (if secs (format "[%s secs]" secs) ""))))
+             (if secs (format "[%.2f secs]" secs) ""))))
 
-(defun slime-xrefs-for-notes (notes)
-  (let ((xrefs))
-    (dolist (note notes)
-      (let* ((location (getf note :location))
-             (fn (cadr (assq :file (cdr location))))
-             (file (assoc fn xrefs))
-             (node
-              (cons (format "%s: %s" 
-                            (getf note :severity)
-                            (slime-one-line-ify (getf note :message)))
-                    location)))
-        (when fn
-          (if file
-              (push node (cdr file))
-              (setf xrefs (acons fn (list node) xrefs))))))
-    xrefs))
-
-(defun slime-one-line-ify (string)
-  "Return a single-line version of STRING.
-Each newlines and following indentation is replaced by a single space."
-  (with-temp-buffer
-    (insert string)
-    (goto-char (point-min))
-    (while (re-search-forward "\n[\n \t]*" nil t)
-      (replace-match " "))
-    (buffer-string)))
-
-(defun slime-compilation-finished (result buffer &optional emacs-snapshot)
-  (let ((notes (slime-compiler-notes)))
-    (with-current-buffer buffer
-      (setf slime-compilation-just-finished t)
-      (destructuring-bind (result secs) result
-        (slime-show-note-counts notes secs)
-        (when slime-highlight-compiler-notes
-          (slime-highlight-notes notes))))
-    (run-hook-with-args 'slime-compilation-finished-hook notes emacs-snapshot)))
-
-(defun slime-make-compilation-finished-continuation (current-buffer &optional emacs-snapshot)
-  (lexical-let ((buffer current-buffer) (snapshot emacs-snapshot))
-    (lambda (result)
-      (slime-compilation-finished result buffer snapshot))))
 
 (defun slime-highlight-notes (notes)
   "Highlight compiler notes, warnings, and errors in the buffer."
@@ -3886,9 +3882,6 @@ Each newlines and following indentation is replaced by a single space."
         (slime-remove-old-overlays)
         (mapc #'slime-overlay-note (slime-merge-notes-for-display notes))))))
 
-(defun slime-compiler-notes ()
-  "Return all compiler notes, warnings, and errors."
-  (slime-eval `(swank:compiler-notes-for-emacs)))
 
 (defun slime-remove-old-overlays ()
   "Delete the existing Slime overlays in the current buffer."
@@ -3911,6 +3904,38 @@ PREDICATE is executed in the buffer to test."
                    (with-current-buffer %buffer
                      (funcall predicate)))
                  (buffer-list)))
+
+;;;;; Recompilation.
+
+;;; FIXME: Add maximum-debug-p.
+
+(defun slime-recompile-location (location)
+  (save-excursion
+    (slime-pop-to-location location 'excursion)
+    (slime-compile-defun)))
+
+(defun slime-recompile-locations (locations)
+  (flet ((make-compile-expr (loc)
+           (save-excursion
+             (slime-pop-to-location loc 'excursion)
+             (multiple-value-bind (start end) (slime-region-for-defun-at-point)
+               (slime-make-compile-expression-for-swank
+                (buffer-substring-no-properties start end)
+                start)))))
+    (slime-eval-async 
+     `(swank:with-swank-compilation-unit (:override t) 
+        ;; We have to compile each location seperately because of
+        ;; buffer and offset tracking during notes generation.
+        ,@(loop for loc in locations 
+                collect (make-compile-expr loc)))
+     (slime-make-compilation-finished-continuation (current-buffer)))))
+
+;;; FIXME: implement:
+
+;; (defun slime-recompile-symbol-at-point (name)
+;;   (interactive (list (slime-read-symbol-name "Name: ")))
+;; )
+
 
 
 ;;;;; Merging together compiler notes in the same location.
@@ -3957,6 +3982,33 @@ The order of the input list is preserved."
 
 
 ;;;;; Compiler notes list
+
+(defun slime-one-line-ify (string)
+  "Return a single-line version of STRING.
+Each newlines and following indentation is replaced by a single space."
+  (with-temp-buffer
+    (insert string)
+    (goto-char (point-min))
+    (while (re-search-forward "\n[\n \t]*" nil t)
+      (replace-match " "))
+    (buffer-string)))
+
+(defun slime-xrefs-for-notes (notes)
+  (let ((xrefs))
+    (dolist (note notes)
+      (let* ((location (getf note :location))
+             (fn (cadr (assq :file (cdr location))))
+             (file (assoc fn xrefs))
+             (node
+              (cons (format "%s: %s" 
+                            (getf note :severity)
+                            (slime-one-line-ify (getf note :message)))
+                    location)))
+        (when fn
+          (if file
+              (push node (cdr file))
+              (setf xrefs (acons fn (list node) xrefs))))))
+    xrefs))
 
 (defun slime-maybe-show-xrefs-for-notes (&optional notes emacs-snapshot)
   "Show the compiler notes NOTES if they come from more than one file."
@@ -5046,12 +5098,13 @@ FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
 (defun slime-pop-to-location (location &optional where)
   (slime-goto-source-location location)
   (ecase where
-    ((nil) (switch-to-buffer (current-buffer)))
-    (window (pop-to-buffer (current-buffer) t))
-    (frame (let ((pop-up-frames t)) (pop-to-buffer (current-buffer) t)))))
+    ((nil)     (switch-to-buffer (current-buffer)))
+    (window    (pop-to-buffer (current-buffer) t))
+    (frame     (let ((pop-up-frames t)) (pop-to-buffer (current-buffer) t)))
+    (excursion nil))) ; NOP, slime-goto-source-location did set-buffer.
 
 (defun slime-find-definitions (name)
-  "Find definitions for NAME and pass them to CONT."
+  "Find definitions for NAME."
   (funcall slime-find-definitions-function name))
 
 (defun slime-find-definitions-rpc (name)
@@ -5863,7 +5916,9 @@ The most important commands:
   (" " 'slime-goto-xref)
   ("q" 'slime-xref-quit)
   ("n" 'slime-next-line/not-add-newlines)
-  ("p" 'previous-line))
+  ("p" 'previous-line)
+  ("\C-c\C-c" 'slime-recompile-xref)
+  ("\C-c\C-k" 'slime-recompile-all-xrefs))
 
 (defun slime-next-line/not-add-newlines ()
   (interactive)
@@ -6030,6 +6085,22 @@ source-location."
     (or (get-text-property (point) 'slime-location)
         (error "No reference at point."))))
 
+(defun slime-xref-dspec-at-point ()
+  (save-excursion
+    (beginning-of-line 1)
+    (slime-trim-whitespace (substring-no-properties (thing-at-point 'line)))))
+
+(defun slime-all-xrefs ()
+  (let ((xrefs nil))
+    (save-excursion
+      (beginning-of-buffer)
+      (while (ignore-errors (slime-next-line/not-add-newlines) t)
+        (when-let (loc (get-text-property (point) 'slime-location))
+          (let* ((dspec (slime-xref-dspec-at-point))
+                 (xref  (make-slime-xref :dspec dspec :location loc)))
+            (push xref xrefs)))))
+    (nreverse xrefs)))
+
 (defun slime-goto-xref ()
   "Goto the cross-referenced location at point."
   (interactive)
@@ -6072,6 +6143,58 @@ When displaying XREF information, this goes to the next reference."
   (let ((snapshot slime-xref-saved-emacs-snapshot))
     (slime-xref-cleanup)
     (slime-set-emacs-snapshot snapshot)))
+
+(defun slime-recompile-xref ()
+  (interactive)
+  (let ((location (slime-xref-location-at-point))
+        (dspec    (slime-xref-dspec-at-point)))
+    (add-hook 'slime-compilation-finished-hook 
+              (slime-make-xref-recompilation-cont (list dspec))
+              nil)
+    (slime-recompile-location location)))
+
+(defun slime-recompile-all-xrefs ()
+  (interactive)
+  (let ((dspecs) (locations))
+    (dolist (xref (slime-all-xrefs))
+      (when (slime-xref-has-location-p xref)
+        (push (slime-xref.dspec xref) dspecs)
+        (push (slime-xref.location xref) locations)))
+    (add-hook 'slime-compilation-finished-hook 
+              (slime-make-xref-recompilation-cont dspecs)
+              nil)
+    (slime-recompile-locations locations)))
+
+(defun slime-make-xref-recompilation-cont (dspecs)
+  ;; Extreme long-windedness to insert status of recompilation;
+  ;; sometimes Elisp resembles more of an Ewwlisp.
+  (lexical-let ((dspecs dspecs) (buffer (current-buffer)))
+    (labels ((recompilation-cont (&rest args)
+               (with-current-buffer buffer
+                 (remove-hook 'slime-compilation-finished-hook
+                              #'recompilation-cont)
+                 (save-excursion
+                   (slime-xref-insert-recompilation-flags 
+                    dspecs (slime-compiler-results))))))
+      #'recompilation-cont)))
+
+(defun slime-xref-insert-recompilation-flags (dspecs compilation-results)
+  (let* ((buffer-read-only nil)
+         (max-dspec-length (reduce #'max dspecs :key #'length :initial-value 0))
+         (max-column (+ max-dspec-length 2))) ; 2 initial spaces
+    (beginning-of-buffer)
+    (loop for dspec in dspecs
+          for result in compilation-results
+          do (save-excursion
+               (search-forward dspec)
+               (dotimes (i (- max-column (current-column)))
+                 (insert " "))
+               (insert " ")
+               (insert (format "[%s]"
+                               (case result
+                                 ((t)   :success)
+                                 ((nil) :failure)
+                                 (t     result))))))))
 
 (defun slime-xref-cleanup ()
   "Delete overlays created by xref mode and kill the xref buffer."
@@ -9079,6 +9202,11 @@ Reconnect afterwards."
   (etypecase seq
     (list (nthcdr n seq))
     (seq  (> (length seq) n))))
+
+(defun slime-trim-whitespace (str)
+  (save-match-data
+    (string-match "^\\s-*\\(.*?\\)\\s-*$" str)
+    (match-string 1 str)))
 
 ;;;;; Buffer related
 

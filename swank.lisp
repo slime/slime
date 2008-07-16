@@ -56,7 +56,8 @@
            #:profile-package
            #:default-directory
            #:set-default-directory
-           #:quit-lisp))
+           #:quit-lisp
+           #:with-swank-compilation-unit))
 
 (in-package :swank)
 
@@ -2195,15 +2196,16 @@ the local variables in the frame INDEX."
 
 ;;;; Compilation Commands.
 
-(defvar *compiler-notes* '()
-  "List of compiler notes for the last compilation unit.")
+(defstruct (:swank-compilation-unit
+             (:type list) :named
+             (:conc-name swank-compilation-unit.)
+             (:constructor make-swank-compilation-unit ()))
+  notes      ; 
+  results    ; a result is of type (MEMBER T NIL :COMPLAINED)
+  durations  ;
+  )
 
-(defun clear-compiler-notes ()  
-  (setf *compiler-notes* '()))
-
-(defslimefun compiler-notes-for-emacs ()
-  "Return the list of compiler notes for the last compilation unit."
-  (reverse *compiler-notes*))
+(defvar *swank-compilation-unit* nil)
 
 (defun measure-time-interval (fn)
   "Call FN and return the first return value and the elapsed time.
@@ -2216,8 +2218,10 @@ The time is measured in microseconds."
         (/ 1000000 internal-time-units-per-second)))))
 
 (defun record-note-for-condition (condition)
-  "Record a note for a compiler-condition."
-  (push (make-compiler-note condition) *compiler-notes*))
+  "Record a note for a compiler-condition into the currently active
+Swank-Compilation-Unit."
+  (push (make-compiler-note condition)
+        (swank-compilation-unit.notes *swank-compilation-unit*)))
 
 (defun make-compiler-note (condition)
   "Make a compiler note data structure from a compiler-condition."
@@ -2229,41 +2233,65 @@ The time is measured in microseconds."
          (let ((s (short-message condition)))
            (if s (list :short-message s)))))
 
+(defmacro with-swank-compilation-unit ((&key override) &body body)
+  "Similiar to CL:WITH-COMPILATION-UNIT. Within a
+Swank-Compilation-Unit all notes, results etc. produced by
+COMPILE-FILE-FOR-EMACS and COMPILE-STRING-FOR-EMACS (possibly called
+more than once) will be collected into this unit."
+  (if override
+      `(let ((*swank-compilation-unit* (make-swank-compilation-unit)))
+         ,@body)
+      `(let ((*swank-compilation-unit* (or *swank-compilation-unit*
+                                           (make-swank-compilation-unit))))
+         ,@body)))
+
+(defun swank-compilation-unit-for-emacs (unit)
+  "Make a Swank-Compilation-Unit suitable for Emacs."
+  (let ((new (make-swank-compilation-unit)))
+    (with-struct (swank-compilation-unit. notes results durations) unit
+      (setf (swank-compilation-unit.notes new)   (reverse notes))
+      (setf (swank-compilation-unit.results new) (reverse results))
+      (setf (swank-compilation-unit.durations new)
+            (reverse (mapcar #'(lambda (usecs) (/ usecs 1000000.0)) durations))))
+    new))
+
 (defun swank-compiler (function)
-  (clear-compiler-notes)
-  (multiple-value-bind (result usecs)
-      (with-simple-restart (abort "Abort SLIME compilation.")
-        (handler-bind ((compiler-condition #'record-note-for-condition))
-          (measure-time-interval function)))
-    ;; WITH-SIMPLE-RESTART returns (values nil t) if its restart is invoked;
-    ;; unfortunately the SWANK protocol doesn't support returning multiple
-    ;; values, so we gotta convert it explicitely to a list in either case.
-    (if (and (not result) (eq usecs 't))
-        (list nil nil)
-        (list (to-string result)
-              (format nil "~,2F" (/ usecs 1000000.0))))))
+  (let ((notes-p))
+    (multiple-value-bind (result usecs)
+        (with-simple-restart (abort "Abort SLIME compilation.")
+          (handler-bind ((compiler-condition #'(lambda (c)
+                                                 (setf notes-p t)
+                                                 (record-note-for-condition c))))
+            (measure-time-interval function)))
+      (when result (setf result (if notes-p :complained t)))
+      (push result (swank-compilation-unit.results *swank-compilation-unit*))
+      (push usecs  (swank-compilation-unit.durations *swank-compilation-unit*))
+      (swank-compilation-unit-for-emacs *swank-compilation-unit*))))
 
 (defslimefun compile-file-for-emacs (filename load-p)
   "Compile FILENAME and, when LOAD-P, load the result.
 Record compiler notes signalled as `compiler-condition's."
-  (with-buffer-syntax ()
-    (let ((*compile-print* nil))
-      (swank-compiler 
-       (lambda ()
-         (swank-compile-file filename load-p
-                             (or (guess-external-format filename)
-                                 :default)))))))
+  (with-swank-compilation-unit (:override nil)
+    (with-buffer-syntax ()    
+      (let ((*compile-print* nil))
+        (swank-compiler 
+         (lambda ()
+           (swank-compile-file filename load-p
+                               (or (guess-external-format filename)
+                                   :default))))))))
 
 (defslimefun compile-string-for-emacs (string buffer position directory debug)
   "Compile STRING (exerpted from BUFFER at POSITION).
 Record compiler notes signalled as `compiler-condition's."
-  (with-buffer-syntax ()
-    (swank-compiler
-     (lambda () 
-       (let ((*compile-print* nil) (*compile-verbose* t))
-         (swank-compile-string string :buffer buffer :position position 
-                               :directory directory
-                               :debug debug))))))
+  (with-swank-compilation-unit (:override nil)
+    (with-buffer-syntax ()
+      (swank-compiler
+       (lambda () 
+         (let ((*compile-print* nil) (*compile-verbose* t))
+           (swank-compile-string string :buffer buffer :position position 
+                                 :directory directory
+                                 :debug debug)))))))
+
   
 (defun file-newer-p (new-file old-file)
   "Returns true if NEW-FILE is newer than OLD-FILE."

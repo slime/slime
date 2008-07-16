@@ -1,3 +1,58 @@
+2008-07-16  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Recompilation support added to xref buffers. You can now use
+	`C-c C-c' in an xref buffer to recompile the defun represented by
+	the xref at point. Similiarly, you can use `C-c C-k' to recompile
+	all xrefs displayed.
+
+	For example, if you've changed a macro, and want to recompile all
+	the functions in the image which use that macro, you first call
+	`slime-who-macroexpands' (C-c C-w RET), and then issues `C-c C-k'
+	in the xref buffer that just popped up.
+
+	[There's no guarantee that this will actually recompile all
+	functions that depend on the changed macro, as this obviously
+	depends on the quality of the backend's WHO-MACROEXPANDS
+	implementation.]
+
+	* swank.lisp: Introduced the notion of a SWANK-COMPILATION-UNIT,
+	so we're able to compile different stuff comming from Slime one
+	after the other, and have compiler notes &c. collected in a
+	contiguous manner.
+
+	(defstruct :swank-compilation-unit): New. Contains compilation
+	notes, compilation results, etc.
+	(*swank-compilation-unit*): New. Current Swank Compilation Unit.
+	(with-swank-compilation-unit): New. Like WITH-COMPILATION-UNIT.
+	(swank-compilation-unit-for-emacs): New.
+	(swank-compiler): Adapted; collect compilation stuff into the
+	current swank-compilation-unit.
+	(compile-string-for-emacs): Use WITH-SWANK-COMPILATION-UNIT.
+	(compile-file-for-emacs): Ditto.
+
+	(*compiler-notes*, clear-compiler-notes): Removed.
+	(compiler-notes-for-emacs): Removed.
+
+	* slime.el (slime-compilation-unit, slime-last-compilation-unit),
+	(slime-compiler-notes, slime-compiler-results): New/Adapted.
+
+	(slime-make-compile-expression-for-swank): Factored out from
+	`slime-compile-string'.
+	(slime-recompile-location): New.
+	(slime-recompile-locations): New.
+	(slime-pop-to-location): &optional `where' arg can now also be
+	'excursion to only reset the current-buffer, but not switch.
+
+	(slime-xref-mode-map): Add `C-c C-c' and `C-c C-k'.
+	(slime-xref-dspec-at-point): New.
+	(slime-all-xrefs): New.
+	(slime-recompile-xref): New.
+	(slime-recompile-all-xrefs): New.
+	(slime-make-xref-recompilation-cont): New.
+	(slime-xref-inert-recompilation-flags): New.
+
+	(slime-trim-whitespace): New utility.
+
 2008-07-05  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank.lisp: Revert Melis' change from 2008-07-04; Global IO
