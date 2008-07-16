@@ -1,3 +1,8 @@
+2008-07-16  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-asdf.lisp (operate-on-system-for-emacs): Wrapped in
+	WITH-SWANK-COMPILATION-UNIT.
+
 2008-06-07  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-parse.el (slime-cl-symbol-name),
