@@ -3919,8 +3919,6 @@ PREDICATE is executed in the buffer to test."
 
 ;;;;; Recompilation.
 
-;;; FIXME: Add maximum-debug-p.
-
 (defun slime-recompile-location (location &optional debug-level)
   (save-excursion
     (slime-pop-to-location location 'excursion)
@@ -3931,13 +3929,17 @@ PREDICATE is executed in the buffer to test."
            (save-excursion
              (slime-pop-to-location loc 'excursion)
              (multiple-value-bind (start end) (slime-region-for-defun-at-point)
-               (slime-make-compile-expression-for-swank
-                (buffer-substring-no-properties start end)
-                start)))))
+               ;; FIXME: Kludge. The slime-eval-async may send a buffer-package
+               ;; that is not necessarily the same as the one the LOC points to.
+               `(cl:let ((swank::*buffer-package* (swank::guess-buffer-package 
+                                                   ,(slime-current-package))))
+                  ,(slime-make-compile-expression-for-swank
+                    (buffer-substring-no-properties start end)
+                    start))))))
     (let ((slime-compilation-debug-level debug-level))
       (slime-eval-async 
        `(swank:with-swank-compilation-unit (:override t) 
-          ;; We have to compile each location seperately because of
+          ;; We have to compile each location separately because of
           ;; buffer and offset tracking during notes generation.
           ,@(loop for loc in locations 
                   collect (make-compile-expr loc)))
