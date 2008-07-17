@@ -460,7 +460,7 @@ compiler state."
         )
     #+#.(swank-backend::sbcl-with-symbol 'restrict-compiler-policy 'sb-ext)
     (when debug
-      (sb-ext:restrict-compiler-policy 'debug 3))
+      (sb-ext:restrict-compiler-policy 'debug debug))
     (flet ((compile-it (fn)
              (with-compilation-hooks ()
                (with-compilation-unit
@@ -783,7 +783,7 @@ Return a list of the form (NAME LOCATION)."
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
   (let* ((*sldb-stack-top* (or sb-debug:*stack-top-hint* (sb-di:top-frame)))
-	 (sb-debug:*stack-top-hint* nil))
+         (sb-debug:*stack-top-hint* nil))
     (handler-bind ((sb-di:debug-condition
 		    (lambda (condition)
                       (signal (make-condition

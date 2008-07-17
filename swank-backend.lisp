@@ -346,8 +346,9 @@ If DIRECTORY is specified it may be used by certain implementations to
 rebind *DEFAULT-PATHNAME-DEFAULTS* which may improve the recording of
 source information.
 
-If DEBUG is supplied, it may be used by certain implementations to
-compile with maximum debugging information.
+If DEBUG is supplied, and non-NIL, it may be used by certain
+implementations to compile with a debug optimization quality of its
+value..
 ")
 
 (definterface swank-compile-file (filename load-p external-format)

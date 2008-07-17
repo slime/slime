@@ -3723,9 +3723,6 @@ This is only used by the repl command sayoonara."
 
 ;;;; Compilation and the creation of compiler-note annotations
 
-(defvar slime-compile-with-maximum-debug nil
-  "When non-nil compile defuns with maximum debug optimization.")
-
 (defvar slime-highlight-compiler-notes t
   "*When non-nil annotate buffers with compilation notes etc.")
 
@@ -3752,6 +3749,15 @@ region that will be compiled.")
 final, no matter where the point is."
   :group 'slime-mode
   :type 'boolean)
+
+(defvar slime-compilation-debug-level nil
+  "When non-nil compile defuns with this debug optimization level.")
+
+(defun slime-normalize-optimization-level (n)
+  (cond ((not n) nil)
+        ((> n 3) 3)
+        ((< n 0) 0)
+        (t n)))
 
 (defstruct (slime-compilation-unit
              (:type list)
@@ -3805,10 +3811,16 @@ See `slime-compile-and-load-file' for further details."
      (slime-rcurry #'slime-compilation-finished (current-buffer)))
     (message "Compiling %s..." file)))
 
-(defun slime-compile-defun (&optional maximum-debug-p)
-  "Compile the current toplevel form."
+(defun slime-compile-defun (&optional raw-prefix-arg)
+  "Compile the current toplevel form. 
+
+If invoked with a simple prefix-arg (`C-u'), compile the defun
+with maximum debug setting. If invoked with a numeric prefix arg,
+compile with a debug setting of that number."
   (interactive "P")
-  (let ((slime-compile-with-maximum-debug maximum-debug-p))
+  (let* ((prefix-arg (and raw-prefix-arg (prefix-numeric-value raw-prefix-arg)))
+         (debug-level (slime-normalize-optimization-level prefix-arg)) 
+         (slime-compilation-debug-level debug-level))
     (apply #'slime-compile-region (slime-region-for-defun-at-point))))
 
 (defun slime-compile-region (start end)
@@ -3834,7 +3846,7 @@ See `slime-compile-and-load-file' for further details."
     ,(buffer-name)
     ,start-offset
     ,(if (buffer-file-name) (file-name-directory (buffer-file-name)))
-    ',slime-compile-with-maximum-debug))
+    ',slime-compilation-debug-level))
 
 (defun slime-make-compilation-finished-continuation (current-buffer &optional emacs-snapshot)
   (lexical-let ((buffer current-buffer) (snapshot emacs-snapshot))
@@ -3909,12 +3921,12 @@ PREDICATE is executed in the buffer to test."
 
 ;;; FIXME: Add maximum-debug-p.
 
-(defun slime-recompile-location (location)
+(defun slime-recompile-location (location &optional debug-level)
   (save-excursion
     (slime-pop-to-location location 'excursion)
-    (slime-compile-defun)))
+    (slime-compile-defun debug-level)))
 
-(defun slime-recompile-locations (locations)
+(defun slime-recompile-locations (locations &optional debug-level)
   (flet ((make-compile-expr (loc)
            (save-excursion
              (slime-pop-to-location loc 'excursion)
@@ -3922,13 +3934,14 @@ PREDICATE is executed in the buffer to test."
                (slime-make-compile-expression-for-swank
                 (buffer-substring-no-properties start end)
                 start)))))
-    (slime-eval-async 
-     `(swank:with-swank-compilation-unit (:override t) 
-        ;; We have to compile each location seperately because of
-        ;; buffer and offset tracking during notes generation.
-        ,@(loop for loc in locations 
-                collect (make-compile-expr loc)))
-     (slime-make-compilation-finished-continuation (current-buffer)))))
+    (let ((slime-compilation-debug-level debug-level))
+      (slime-eval-async 
+       `(swank:with-swank-compilation-unit (:override t) 
+          ;; We have to compile each location seperately because of
+          ;; buffer and offset tracking during notes generation.
+          ,@(loop for loc in locations 
+                  collect (make-compile-expr loc)))
+       (slime-make-compilation-finished-continuation (current-buffer))))))
 
 ;;; FIXME: implement:
 
@@ -6147,26 +6160,34 @@ When displaying XREF information, this goes to the next reference."
     (slime-xref-cleanup)
     (slime-set-emacs-snapshot snapshot)))
 
-(defun slime-recompile-xref ()
-  (interactive)
-  (let ((location (slime-xref-location-at-point))
-        (dspec    (slime-xref-dspec-at-point)))
-    (add-hook 'slime-compilation-finished-hook 
-              (slime-make-xref-recompilation-cont (list dspec))
-              nil)
-    (slime-recompile-location location)))
+(defun foo (&optional p)
+  (interactive "p")
+  (message "%S" p))
 
-(defun slime-recompile-all-xrefs ()
-  (interactive)
-  (let ((dspecs) (locations))
-    (dolist (xref (slime-all-xrefs))
-      (when (slime-xref-has-location-p xref)
-        (push (slime-xref.dspec xref) dspecs)
-        (push (slime-xref.location xref) locations)))
-    (add-hook 'slime-compilation-finished-hook 
-              (slime-make-xref-recompilation-cont dspecs)
-              nil)
-    (slime-recompile-locations locations)))
+(defun slime-recompile-xref (&optional raw-prefix-arg)
+  (interactive "P")
+  (let* ((prefix-arg (and raw-prefix-arg (prefix-numeric-value raw-prefix-arg)))
+         (debug-level (slime-normalize-optimization-level prefix-arg)))
+    (let ((location (slime-xref-location-at-point))
+          (dspec    (slime-xref-dspec-at-point)))
+      (add-hook 'slime-compilation-finished-hook 
+                (slime-make-xref-recompilation-cont (list dspec))
+                nil)
+      (slime-recompile-location location debug-level))))
+
+(defun slime-recompile-all-xrefs (&optional raw-prefix-arg)
+  (interactive "P")
+  (let* ((prefix-arg (and raw-prefix-arg (prefix-numeric-value raw-prefix-arg)))
+         (debug-level (slime-normalize-optimization-level prefix-arg)))
+    (let ((dspecs) (locations))
+      (dolist (xref (slime-all-xrefs))
+        (when (slime-xref-has-location-p xref)
+          (push (slime-xref.dspec xref) dspecs)
+          (push (slime-xref.location xref) locations)))
+      (add-hook 'slime-compilation-finished-hook 
+                (slime-make-xref-recompilation-cont dspecs)
+                nil)
+      (slime-recompile-locations locations debug-level))))
 
 (defun slime-make-xref-recompilation-cont (dspecs)
   ;; Extreme long-windedness to insert status of recompilation;

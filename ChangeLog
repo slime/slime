@@ -1,3 +1,23 @@
+2008-07-18  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	An explicit numeric value as prefix-arg given to `C-c C-c' will
+	now represent the debug level the defun is compiled with;
+	`C-u C-c C-c' defaults to maximum debug like before. (Now also
+	works for recompilation commands in xref buffers.)
+
+	* slime.el (slime-compilation-debug-level): Renamed from
+	`slime-compile-with-maximum-debug'.
+	(slime-normalize-optimization-level): New.
+	(slime-compile-defun): Adapted accordingly.
+	(slime-compile-region): Ditto.
+	(slime-recompile-location): Added setting of debug-level.
+	(slime-recompile-locations): Ditto.
+	(slime-recompile-xref): Now takes debug-level prefix-arg.
+	(slime-recompile-all-xrefs): Ditto.
+
+	* swank-sbcl.lisp (defimplementation swank-compile-string):
+	Adapted accordingly.
+
 2008-07-16  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-xref-dspec-at-point): Make more robust.
