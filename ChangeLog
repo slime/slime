@@ -1,3 +1,21 @@
+2008-07-19  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	REPL shortcuts now leave an appropriate Common Lisp form in the
+	REPL history.
+
+	* slime.el (slime-within-repl-shortcut-handler-p): New global. T
+	if truly inside a repl shortcut handler invoked by ,foo on the
+	REPL.
+	(slime-handle-repl-shortcut): Bind above global appropriatly.
+	(slime-repl-shortcut-eval): New; should be used in repl shortcut
+	handlers instead of `slime-eval'.
+	(slime-repl-shortcut-eval-async): New; should be used in repl
+	shortcut handlers instead of `slime-eval-async'.
+	(defslime-repl-shortcut): Update docstring.
+	(slime-repl-set-package): Use slime-repl-shortcut-eval.
+	(slime-set-default-directory): Ditto.
+	(slime-sync-package-and-default-directory): Ditto.
+
 2008-07-18  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-recompile-locations): Locations were potentially

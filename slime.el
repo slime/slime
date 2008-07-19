@@ -3190,7 +3190,7 @@ for the most recently enclosed macro or function."
   (with-current-buffer (slime-output-buffer)
     (let ((unfinished-input (slime-repl-current-input)))
       (destructuring-bind (name prompt-string)
-          (slime-eval `(swank:set-package ,package))
+          (slime-repl-shortcut-eval `(swank:set-package ,package))
         (setf (slime-lisp-package) name)
         (setf (slime-lisp-package-prompt-string) prompt-string)
         (slime-repl-insert-prompt)
@@ -3500,6 +3500,9 @@ The handler will use qeuery to ask the use if the error should be ingored."
 (defvar slime-repl-shortcut-history '()
   "History list of shortcut command names.")
 
+(defvar slime-within-repl-shortcut-handler-p nil
+  "Bound to T if we're in a REPL shortcut handler invoked from the REPL.")
+
 (defun slime-handle-repl-shortcut ()
   (interactive)
   (if (> (point) slime-repl-input-start-mark)
@@ -3510,7 +3513,9 @@ The handler will use qeuery to ask the use if the error should be ingored."
                                          (slime-list-all-repl-shortcuts))
                                         nil t nil
                                         'slime-repl-shortcut-history))))
-        (call-interactively (slime-repl-shortcut.handler shortcut)))))
+        (with-struct (slime-repl-shortcut. handler) shortcut
+          (let ((slime-within-repl-shortcut-handler-p t))
+            (call-interactively handler))))))
 
 (defun slime-list-all-repl-shortcuts ()
   (loop for shortcut in slime-repl-shortcut-table
@@ -3522,10 +3527,13 @@ The handler will use qeuery to ask the use if the error should be ingored."
 
 (defmacro defslime-repl-shortcut (elisp-name names &rest options)
   "Define a new repl shortcut. ELISP-NAME is a symbol specifying
-  the name of the interactive function to create, or NIL if no
-  function should be created. NAMES is a list of (full-name .
-  aliases). OPTIONS is an olist specifying the handler and the
-  help text."
+the name of the interactive function to create, or NIL if no
+function should be created. 
+
+NAMES is a list of \(full-name . aliases\). 
+
+OPTIONS is an plist specifying the handler doing the actual work
+of the shortcut \(`:handler'\), and a help text \(`:one-liner'\)."
   `(progn
      ,(when elisp-name
         `(defun ,elisp-name ()
@@ -3541,6 +3549,23 @@ The handler will use qeuery to ask the use if the error should be ingored."
                         slime-repl-shortcut-table))
        (push new-shortcut slime-repl-shortcut-table)
        ',elisp-name)))
+
+(defun slime-repl-shortcut-eval (sexp &optional package)
+  "This function should be used by REPL shortcut handlers instead
+of `slime-eval' to evaluate their final expansion. (This
+expansion will be added to the REPL's history.)"
+  (when slime-within-repl-shortcut-handler-p ; were we invoked via ,foo?
+    (slime-repl-add-to-input-history (prin1-to-string sexp)))
+  (slime-eval sexp package))
+
+(defun slime-repl-shortcut-eval-async (sexp &optional cont package)
+  "This function should be used by REPL shortcut handlers instead
+of `slime-eval-async' to evaluate their final expansion. (This
+expansion will be added to the REPL's history.)"
+  (when slime-within-repl-shortcut-handler-p ; were we invoked via ,foo?
+    (slime-repl-add-to-input-history (prin1-to-string sexp)))
+  (slime-eval-async sexp cont package))
+
 
 (defun slime-list-repl-short-cuts ()
   (interactive)
@@ -3567,6 +3592,7 @@ The handler will use qeuery to ask the use if the error should be ingored."
                                     (not (null buffer-file-name)))))
       (save-some-buffers)))
   
+
 (defslime-repl-shortcut slime-repl-shortcut-help ("help" "?")
   (:handler 'slime-list-repl-short-cuts)
   (:one-liner "Display the help."))
@@ -3663,7 +3689,7 @@ The handler will use qeuery to ask the use if the error should be ingored."
               (interactive (list (expand-file-name
                                   (read-file-name "File: " nil nil nil nil))))
               (slime-save-some-lisp-buffers)
-              (slime-eval-async 
+              (slime-repl-shortcut-eval-async
                `(swank:compile-file-if-needed 
                  ,(slime-to-lisp-filename filename) t)
                (slime-make-compilation-finished-continuation (current-buffer)))))
@@ -5300,6 +5326,10 @@ Show the output buffer if the evaluation causes any output."
                                (t (message "%s" value)))))
                      fn)))
 
+(defun slime-show-description (string package)
+  (slime-with-output-to-temp-buffer ("*SLIME Description*")
+      package (princ string)))
+
 (defun slime-eval-describe (form)
   "Evaluate FORM in Lisp and display the result in a new buffer."
   (lexical-let ((package (slime-current-package)))
@@ -5765,10 +5795,6 @@ having names in the given package."
                           'common-lisp-hyperspec-history)))))
   (hyperspec-lookup symbol-name))
   
-(defun slime-show-description (string package)
-  (slime-with-output-to-temp-buffer ("*SLIME Description*")
-      package (princ string)))
-
 (defun slime-describe-symbol (symbol-name)
   "Describe the symbol at point."
   (interactive (list (slime-read-symbol-name "Describe symbol: ")))
@@ -6081,9 +6107,6 @@ source-location."
    (lexical-let ((type type)
                  (symbol symbol)
                  (package (slime-current-package))
-                 ;; We have to take the snapshot here, because SLIME-EVAL-ASYNC
-                 ;; is invoking its continuation within the extent of a different
-                 ;; buffer. (2007-08-14)
                  (snapshot (slime-current-emacs-snapshot)))
      (lambda (result)
        (let ((file-alist (cadr (slime-analyze-xrefs result))))
@@ -6104,7 +6127,7 @@ source-location."
   (save-excursion
     (beginning-of-line 1)
     (with-syntax-table lisp-mode-syntax-table
-      (forward-sexp)
+      (forward-sexp)                    ; skip initial whitespaces
       (backward-sexp)
       (slime-sexp-at-point))))
 
@@ -6395,20 +6418,20 @@ CL:MACROEXPAND."
   (let ((dir (expand-file-name directory)))
     (message "default-directory: %s"
              (slime-from-lisp-filename
-              (slime-eval `(swank:set-default-directory
-                            ,(slime-to-lisp-filename dir)))))
+              (slime-repl-shortcut-eval `(swank:set-default-directory
+                                          ,(slime-to-lisp-filename dir)))))
     (with-current-buffer (slime-output-buffer)
       (setq default-directory dir))))
 
 (defun slime-sync-package-and-default-directory ()
   "Set Lisp's package and directory to the values in current buffer."
   (interactive)
-  (let ((package (slime-eval `(swank:set-package 
-			       ,(slime-find-buffer-package))))
+  (let ((package (slime-repl-shortcut-eval `(swank:set-package 
+                                             ,(slime-find-buffer-package))))
 	(directory (slime-from-lisp-filename
-                    (slime-eval `(swank:set-default-directory 
-                                  ,(slime-to-lisp-filename
-                                    default-directory))))))
+                    (slime-repl-shortcut-eval `(swank:set-default-directory 
+                                                ,(slime-to-lisp-filename
+                                                  default-directory))))))
     (let ((dir default-directory))
       ;; Sync REPL dir
       (with-current-buffer (slime-output-buffer)
