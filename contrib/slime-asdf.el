@@ -60,7 +60,7 @@ returns it if it's in `system-names'."
   (message "Performing ASDF %S%s on system %S"
            operation (if keyword-args (format " %S" keyword-args) "")
            system)
-  (slime-eval-async
+  (slime-repl-shortcut-eval-async
    `(swank:operate-on-system-for-emacs ,system ,operation ,@keyword-args)
    (slime-make-compilation-finished-continuation (current-buffer))))
 

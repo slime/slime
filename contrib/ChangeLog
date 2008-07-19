@@ -1,3 +1,7 @@
+2008-07-19  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-asdf.el (slime-oos): Use `slime-repl-shortcut-async'.
+
 2008-07-16  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-asdf.lisp (operate-on-system-for-emacs): Wrapped in
