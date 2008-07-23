@@ -5072,8 +5072,10 @@ look if the current buffer is narrowed, and if so use the relevant values."
   dspec location)
 
 (defstruct (slime-location (:conc-name slime-location.) (:type list)
-                           (:constructor nil) (:copier nil))
+                           (:constructor nil)
+                           (:copier nil))
   tag buffer position hints)
+
 (defun slime-location-p (o) (and (consp o) (eq (car o) :location)))
 
 (defun slime-xref-has-location-p (xref)
@@ -5647,6 +5649,19 @@ For other contexts we return the symbol at point."
           (t 
            name))))
 
+(defun slime-at-list-p (&optional skip-blanks)
+  (save-excursion
+    (when skip-blanks 
+      (slime-forward-blanks))
+    (ignore-errors 
+      (= (point) (progn (down-list 1) (backward-up-list 1) (point))))))
+
+(defun slime-at-expression-p (pattern &optional skip-blanks)
+  (when (slime-at-list-p skip-blanks)
+    (save-excursion
+      (down-list 1)
+      (slime-in-expression-p pattern))))
+
 (defun slime-in-expression-p (pattern)
   "A helper function to determine the current context.
 The pattern can have the form:
@@ -5678,11 +5693,16 @@ The pattern can have the form:
       (cons (cons 1 (slime-pattern-path (car pattern)))))))
 
 (defun slime-beginning-of-list (&optional up)
-  "Move backward the the beginning of the current expression.
+  "Move backward to the beginning of the current expression.
 Point is placed before the first expression in the list."
   (backward-up-list (or up 1))
   (down-list 1)
   (skip-syntax-forward " "))
+
+(defun slime-end-of-list (&optional up)
+  (backward-up-list (or up 1))
+  (forward-list 1)
+  (backward-down-list 1))
 
 (defun slime-parse-toplevel-form ()
   (ignore-errors                        ; (foo)
@@ -6134,7 +6154,7 @@ source-location."
 (defun slime-all-xrefs ()
   (let ((xrefs nil))
     (save-excursion
-      (beginning-of-buffer)
+      (goto-char (point-min))
       (while (ignore-errors (slime-next-line/not-add-newlines) t)
         (when-let (loc (get-text-property (point) 'slime-location))
           (let* ((dspec (slime-xref-dspec-at-point))
@@ -6230,7 +6250,7 @@ When displaying XREF information, this goes to the next reference."
 (defun slime-xref-insert-recompilation-flags (dspecs compilation-results)
   (let* ((buffer-read-only nil)
          (max-column (slime-column-max)))
-    (beginning-of-buffer)
+    (goto-char (point-min))
     (loop for dspec in dspecs
           for result in compilation-results
           do (save-excursion
@@ -9271,7 +9291,7 @@ Reconnect afterwards."
 
 (defun slime-column-max ()
   (save-excursion
-    (beginning-of-buffer)
+    (goto-char (point-min))
     (loop for column = (prog2 (end-of-line) (current-column) (forward-line))
           until (= (point) (point-max))
           maximizing column)))
