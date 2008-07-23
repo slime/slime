@@ -1,5 +1,12 @@
 2008-07-19  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-package-fu.el, swank-package-fu.lisp: New contrib to
+	aumatically add symbols to the relevant DEFPACKAGE forms.
+	You can use `C-c x' to export the symbol at point, and
+	`C-u C-c x' to unexport it.
+
+2008-07-19  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-asdf.el (slime-oos): Use `slime-repl-shortcut-async'.
 
 2008-07-16  Tobias C. Rittweiler  <tcr@freebits.de>
