@@ -1,5 +1,9 @@
 2008-07-23  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-loader.lisp (*contribs*): Added `swank-package-fu'.
+
+2008-07-23  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (slime-at-list-p): New. Returns t if point is at a list.
 	(slime-at-expression-p): New. Similiar to `slime-in-expression-p'.
 	(slime-end-of-list): New. Pendant to `slime-beginning-of-list'.
