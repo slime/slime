@@ -461,20 +461,22 @@ compiler state."
     #+#.(swank-backend::sbcl-with-symbol 'restrict-compiler-policy 'sb-ext)
     (when debug
       (sb-ext:restrict-compiler-policy 'debug debug))
-    (flet ((compile-it (fn)
+    (flet ((load-it (filename)
+             (when filename (load filename)))
+           (compile-it (cont)
              (with-compilation-hooks ()
                (with-compilation-unit
                    (:source-plist (list :emacs-buffer buffer
                                         :emacs-directory directory
                                         :emacs-string string
                                         :emacs-position position))
-                 (funcall fn (compile-file filename))))))
+                 (funcall cont (compile-file filename))))))
       (with-open-file (s filename :direction :output :if-exists :error)
         (write-string string s))
       (unwind-protect
            (if *trap-load-time-warnings*
-               (compile-it #'load)
-               (load (compile-it #'identity)))
+               (compile-it #'load-it)
+               (load-it (compile-it #'identity)))
         (ignore-errors
           #+#.(swank-backend::sbcl-with-symbol
                'restrict-compiler-policy 'sb-ext)
@@ -527,16 +529,18 @@ This is useful when debugging the definition-finding code.")
              (structure-class    :structure-class)
              (class              :class)
              (method-combination :method-combination)
+             (package            :package)
+             (condition          :condition)             
              (structure-object   :structure-object)
              (standard-object    :standard-object)
-             (condition          :condition)
              (t                  :thing)))
          (to-string (obj)
            (typecase obj
+             (package (princ-to-string obj)) ; Packages are possibly named entities.
              ((or structure-object standard-object condition)
               (with-output-to-string (s)
                 (print-unreadable-object (obj s :type t :identity t))))
-             (t (format nil "~A" obj)))))
+             (t (princ-to-string obj)))))
     (handler-case
         (make-definition-source-location
          (sb-introspect:find-definition-source obj) (general-type-of obj) (to-string obj))
@@ -751,7 +755,7 @@ Return a list of the form (NAME LOCATION)."
   #'(lambda (condition old-hook)
       ;; Notice that *INVOKE-DEBUGGER-HOOK* is tried before
       ;; *DEBUGGER-HOOK*, so we have to make sure that the latter gets
-      ;; run when it was established locally by a user.
+      ;; run when it was established locally by a user (i.e. changed meanwhile.)
       (if *debugger-hook*
           (funcall *debugger-hook* condition old-hook)
           (funcall hook condition old-hook))))

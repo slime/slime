@@ -46,7 +46,7 @@
            #:buffer-first-change
            #:frame-source-location-for-emacs
            #:restart-frame
-           #:sldb-step
+           #:sldb-step 
            #:sldb-break
            #:sldb-break-on-return
            #:profiled-functions
@@ -1025,7 +1025,7 @@ of the toplevel restart."
     (flet ((handler ()   
 	     (cond ((null *swank-state-stack*)
 		    (with-reader-error-handler (connection)
-		      (process-available-input 
+		      (process-available-input
 		       client (lambda () (handle-request connection)))))
 		   ((eq (car *swank-state-stack*) :read-next-form))
 		   (t 
@@ -2263,7 +2263,8 @@ more than once) will be collected into this unit."
                                                  (setf notes-p t)
                                                  (record-note-for-condition c))))
             (measure-time-interval function)))
-      (when result (setf result (if notes-p :complained t)))
+      (when result        (setf result (if notes-p :complained t)))
+      (when (eql usecs t) (setf usecs 0)) ; compilation aborted.
       (push result (swank-compilation-unit.results *swank-compilation-unit*))
       (push usecs  (swank-compilation-unit.durations *swank-compilation-unit*))
       (swank-compilation-unit-for-emacs *swank-compilation-unit*))))

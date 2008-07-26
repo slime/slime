@@ -348,14 +348,18 @@ source information.
 
 If DEBUG is supplied, and non-NIL, it may be used by certain
 implementations to compile with a debug optimization quality of its
-value..
+value.
+
+Should return T on successfull compilation, NIL otherwise.
 ")
 
 (definterface swank-compile-file (filename load-p external-format)
    "Compile FILENAME signalling COMPILE-CONDITIONs.
 If LOAD-P is true, load the file after compilation.
 EXTERNAL-FORMAT is a value returned by find-external-format or
-:default.")
+:default.
+
+Should return T on successfull compilation, NIL otherwise.")
 
 (deftype severity () 
   '(member :error :read-error :warning :style-warning :note))
@@ -766,7 +770,7 @@ That is the source location of the underlying datastructure of
 OBJECT. E.g. on a STANDARD-OBJECT, the source location of the
 respective DEFCLASS definition is returned, on a STRUCTURE-CLASS the
 respective DEFSTRUCT definition, and so on."
-  ;; This returns _ source location and not a list of locations. It's
+  ;; This returns one source location and not a list of locations. It's
   ;; supposed to return the location of the DEFGENERIC definition on
   ;; #'SOME-GENERIC-FUNCTION.
   )

@@ -1,3 +1,14 @@
+2008-07-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank.lisp (swank-compiler): Fix bug when invoking an abort
+	restart on a failed compilation attempt.
+
+	* swank-sbcl.lisp (swank-compile-string): If a compilation attempt
+	fails, COMPILE-FILE returns NIL which we tried to LOAD. Fix that.
+
+	* swank-backend.lisp (swank-compile-string, swank-compile-file):
+	Document return value.
+
 2008-07-23  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-loader.lisp (*contribs*): Added `swank-package-fu'.
