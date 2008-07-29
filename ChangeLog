@@ -1,5 +1,10 @@
 2008-07-29  Richard M Kreuter <kreuter@progn.net>
 
+	* swank-sbcl.lisp (add-sigio-handler, add-fd-handler): Be quiet
+	as a workaround for non-properly initialized *debug-io*.
+
+2008-07-29  Richard M Kreuter <kreuter@progn.net>
+
 	Fix slime-quit-lisp in non-default REPL buffer.
 
 	* slime.el (slime-quit-lisp): Killing the REPL buffer also removes

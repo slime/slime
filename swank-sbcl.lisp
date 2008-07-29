@@ -133,7 +133,6 @@
 (defimplementation add-sigio-handler (socket fn)
   (set-sigio-handler)
   (let ((fd (socket-fd socket)))
-    (format *debug-io* "Adding sigio handler: ~S ~%" fd)
     (enable-sigio-on-fd fd)
     (push (cons fd fn) *sigio-handlers*)))
 
@@ -146,7 +145,6 @@
 (defimplementation add-fd-handler (socket fn)
   (declare (type function fn))
   (let ((fd (socket-fd socket)))
-    (format *debug-io* "; Adding fd handler: ~S ~%" fd)
     (sb-sys:add-fd-handler fd :input (lambda (_)
                                        _
                                        (funcall fn)))))
