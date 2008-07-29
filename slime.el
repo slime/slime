@@ -6419,9 +6419,10 @@ CL:MACROEXPAND."
   "Quit lisp, kill the inferior process and associated buffers."
   (interactive)
   (slime-eval-async '(swank:quit-lisp))
-  (kill-buffer (slime-output-buffer))
-  (set-process-filter (slime-connection) nil)
-  (set-process-sentinel (slime-connection) 'slime-quit-sentinel))
+  (let ((connection (slime-connection)))
+    (kill-buffer (slime-output-buffer))
+    (set-process-filter connection  nil)
+    (set-process-sentinel connection 'slime-quit-sentinel)))
 
 (defun slime-quit-sentinel (process message)
   (assert (process-status process) 'closed)

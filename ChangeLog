@@ -1,3 +1,11 @@
+2008-07-29  Richard M Kreuter <kreuter@progn.net>
+
+	Fix slime-quit-lisp in non-default REPL buffer.
+
+	* slime.el (slime-quit-lisp): Killing the REPL buffer also removes
+	the buffer local binding of slime-buffer-connection.  Remember the
+	connection before killing the buffer.
+
 2008-07-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank.lisp (swank-compiler): Fix bug when invoking an abort
