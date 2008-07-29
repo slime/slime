@@ -2,6 +2,15 @@
 
 * 3.0 (not released yet)
 
+** Environment variables for Lisp process
+slime-lisp-implementations can be used to specify a list of strings to
+augment the process environment of the Lisp process.  E.g.:
+
+    (sbcl-cvs
+     ("/home/me/sbcl-cvs/src/runtime/sbcl"
+      "--core" "/home/me/sbcl-cvs/output/sbcl.core")
+     :env ("SBCL_HOME=/home/me/sbcl-cvs/contrib/"))
+
 ** Removed Features
 Some of the more esoteric features, like presentations or fuzzy
 completion, are no longer enabled by default.  A new directory

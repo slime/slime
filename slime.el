@@ -1125,14 +1125,15 @@ The rules for selecting the arguments are rather complicated:
                           (init 'slime-init-command)
                           name
                           (buffer "*inferior-lisp*")
-                          init-function)
+                          init-function
+                          env)
   (let ((args (list :program program :program-args program-args :buffer buffer 
                     :coding-system coding-system :init init :name name
-                    :init-function init-function)))
+                    :init-function init-function :env env)))
     (slime-check-coding-system coding-system)
     (when (slime-bytecode-stale-p)
       (slime-urge-bytecode-recompile))
-    (let ((proc (slime-maybe-start-lisp program program-args 
+    (let ((proc (slime-maybe-start-lisp program program-args env
                                         directory buffer)))
       (slime-inferior-connect proc args)
       (pop-to-buffer (process-buffer proc)))))
@@ -1240,33 +1241,34 @@ Return true if we have been given permission to continue."
 
 ;;; Starting the inferior Lisp and loading Swank:
 
-(defun slime-maybe-start-lisp (program program-args directory buffer)
+(defun slime-maybe-start-lisp (program program-args env directory buffer)
   "Return a new or existing inferior lisp process."
   (cond ((not (comint-check-proc buffer))
-         (slime-start-lisp program program-args directory buffer))
-        ((slime-reinitialize-inferior-lisp-p program program-args buffer)
+         (slime-start-lisp program program-args env directory buffer))
+        ((slime-reinitialize-inferior-lisp-p program program-args env buffer)
          (when-let (conn (find (get-buffer-process buffer) slime-net-processes 
                                :key #'slime-inferior-process))
            (slime-net-close conn))
          (get-buffer-process buffer))
-        (t (slime-start-lisp program program-args
-                             directory
+        (t (slime-start-lisp program program-args env directory
                              (generate-new-buffer-name buffer)))))
 
-(defun slime-reinitialize-inferior-lisp-p (program program-args buffer)
+(defun slime-reinitialize-inferior-lisp-p (program program-args env buffer)
   (let ((args (slime-inferior-lisp-args (get-buffer-process buffer))))
     (and (equal (plist-get args :program) program)
          (equal (plist-get args :program-args) program-args)
+         (equal (plist-get args :env) env)
          (not (y-or-n-p "Create an additional *inferior-lisp*? ")))))
 
-(defun slime-start-lisp (program program-args directory buffer)
+(defun slime-start-lisp (program program-args env directory buffer)
   "Does the same as `inferior-lisp' but less ugly.
 Return the created process."
   (with-current-buffer (get-buffer-create buffer)
     (when directory
       (cd (expand-file-name directory)))
     (comint-mode)
-    (comint-exec (current-buffer) "inferior-lisp" program nil program-args)
+    (let ((process-environment (append env process-environment)))
+      (comint-exec (current-buffer) "inferior-lisp" program nil program-args))
     (lisp-mode-variables t)
     (let ((proc (get-buffer-process (current-buffer))))
       (slime-set-query-on-exit-flag proc)
@@ -3705,7 +3707,7 @@ expansion will be added to the REPL's history.)"
   (slime-eval-async '(swank:quit-lisp))
   (set-process-filter (slime-connection) nil)
   (set-process-sentinel (slime-connection) 'slime-restart-sentinel))
-  
+
 (defun slime-restart-sentinel (process message)
   "Restart the inferior lisp process.
 Also rearrange windows."
@@ -3716,6 +3718,7 @@ Also rearrange windows."
          (buffer-window (get-buffer-window buffer))
          (new-proc (slime-start-lisp (plist-get args :program)
                                      (plist-get args :program-args)
+                                     (plist-get args :env)
                                      nil
                                      buffer))
          (repl-buffer (slime-repl-buffer nil process))
@@ -5575,7 +5578,7 @@ The result is a string."
            (((:labels :flet) &rest _)
             (slime-read-from-minibuffer "(Un)trace local function: "
                                         (prin1-to-string spec)))
-           (t (error "Don't know how to trace the spec ~S" spec))))))
+           (t (error "Don't know how to trace the spec %S" spec))))))
 
 (defun slime-extract-context ()
   "Parse the context for the symbol at point.  
@@ -6049,7 +6052,7 @@ If CREATE is non-nil, create it if necessary."
 XREF-ALIST is of the form ((GROUP . ((LABEL LOCATION) ...)) ...).
 GROUP and LABEL are for decoration purposes.  LOCATION is a
 source-location."
-  (loop for (group . refs) in xrefs do 
+  (loop for (group . refs) in xref-alist do 
         (slime-insert-propertized '(face bold) group "\n")
         (loop for (label location) in refs do
               (slime-insert-propertized (list 'slime-location location
@@ -8620,7 +8623,7 @@ BODY returns true if the check succeeds."
       (let ((slime-buffer-package "SWANK")
             (symbol '*buffer-package*))
         (slime-edit-definition (symbol-name symbol))
-        (slime-check ("Checking that we've got M-. into swank.lisp." symbol)
+        (slime-check ("Checking that we've got M-. into swank.lisp. %S" symbol)
           (string= (file-name-nondirectory (buffer-file-name))
                    "swank.lisp"))
         (slime-pop-find-definition-stack)

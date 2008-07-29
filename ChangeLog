@@ -1,5 +1,13 @@
 2008-07-29  Richard M Kreuter <kreuter@progn.net>
 
+	Environment variables for Lisp process.
+
+	* slime.el (slime-start, slime-maybe-start-lisp)
+	(slime-reinitialize-inferior-lisp-p, slime-start-lisp)
+	(slime-restart-sentinel): Pass new parameter "env" through.
+
+2008-07-29  Richard M Kreuter <kreuter@progn.net>
+
 	* swank-sbcl.lisp (add-sigio-handler, add-fd-handler): Be quiet
 	as a workaround for non-properly initialized *debug-io*.
 
