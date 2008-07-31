@@ -1,5 +1,9 @@
 2008-07-31  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-mdot-fu.el: New contrib. Makes M-. work on local definitions.
+
+2008-07-31  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-package-fu.el (slime-find-package-definition-regexp): Use
 	new constructor `make-slime-file-location'.
 	(slime-frob-defpackage-form, slime-export-symbol-at-point): Now
