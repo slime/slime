@@ -1,3 +1,8 @@
+2008-07-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (make-slime-buffer-location): New.
+	(make-slime-file-location): New.
+
 2008-07-29  Richard M Kreuter <kreuter@progn.net>
 
 	Environment variables for Lisp process.

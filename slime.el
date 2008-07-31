@@ -5084,6 +5084,13 @@ look if the current buffer is narrowed, and if so use the relevant values."
 (defun slime-xref-has-location-p (xref)
   (slime-location-p (slime-xref.location xref)))
 
+(defun make-slime-buffer-location (buffer-name position &optional hints)
+  `(:location (:buffer ,buffer-name) (:position ,position)
+              ,(if hints `(:hints ,hints) `(:hints))))
+
+(defun make-slime-file-location (file-name position &optional hints)
+  `(:location (:file ,file-name) (:position ,position)
+              ,(if hints `(:hints ,hints) `(:hints))))
 
 ;;; The hooks are tried in order until one succeeds, otherwise the
 ;;; default implementation involving `slime-find-definitions-function'
