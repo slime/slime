@@ -1,9 +1,17 @@
+2008-07-31  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-package-fu.el (slime-find-package-definition-regexp): Use
+	new constructor `make-slime-file-location'.
+	(slime-frob-defpackage-form, slime-export-symbol-at-point): Now
+	always display a message regarding success of the operation.
+	(slime-package-fu-init-undo-stack, slime-package-fu-unload): New.
+
 2008-07-19  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-package-fu.el, swank-package-fu.lisp: New contrib to
-	aumatically add symbols to the relevant DEFPACKAGE forms.
-	You can use `C-c x' to export the symbol at point, and
-	`C-u C-c x' to unexport it.
+	automatically add symbols to the relevant DEFPACKAGE forms.  You
+	can use `C-c x' to export the symbol at point, and `C-u C-c x' to
+	unexport it.
 
 2008-07-19  Tobias C. Rittweiler  <tcr@freebits.de>
 
