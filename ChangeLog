@@ -1,5 +1,31 @@
 2008-07-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el: Make code related to temp buffers more consistent.
+
+	(slime-with-output-to-temp-buffer): Docstring update. New keyarg
+	:connection to specify whether the current connection should be
+	stored buffer-locally. New key arg :emacs-snapshot to explicitly
+	pass the snapshot to be stored. The created buffer is not
+	automatically set to slime-mode anymore.
+	(slime-temp-buffer-mode): Add `C-c C-z', and `M-.' bindings to all
+	temp buffers.
+
+	(slime-list-compiler-notes): Use `slime-with-output-to-...',
+	rename the buffer from "*compiler notes*" to "*SLIME
+	Compiler-Notes*".
+	(slime-compiler-notes-mode-map): Remove explicit binding of "q",
+	as it's inherited from the temp buffer.
+	(slime-edit-value-callback): Use `slime-with-output-to-...'.
+	(slime-show-apropos): Adapted to above changes.
+	(slime-macroexpansion-minor-mode): Removed "q" binding, as it's
+	inherited.
+	(slime-eval-macroexpand): Adapted. Rename buffer from "*SLIME
+	macroexpansion*" to "*SLIME Macroexpansion*".
+	(slime-list-connections): Use `slime-with-output-to-...', rename
+	buffer from "*SLIME connections*" to "*SLIME Connections*".
+
+2008-07-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (make-slime-buffer-location): New.
 	(make-slime-file-location): New.
 

@@ -954,24 +954,44 @@ current state will be saved and later restored.
       (current-buffer))))
 
 ;; Interface
-(defmacro* slime-with-output-to-temp-buffer ((name &key mode reusep)
+(defmacro* slime-with-output-to-temp-buffer ((name &key mode emacs-snapshot 
+                                                        connection reusep)
                                              package &rest body)
-  "Similar to `with-output-to-temp-buffer'.
-Also saves the current state of Emacs (window configuration &c),
-and inherits the current `slime-connection' in a buffer-local
-variable. Cf. `slime-get-temp-buffer-create'"
-  `(let ((connection (slime-connection))
-         (standard-output (slime-get-temp-buffer-create ,name :mode ',mode 
-                                                        :reusep ,reusep)))
-     (prog1 (with-current-buffer standard-output
-              ;; set explicitely to NIL in case the buffer got reused. (REUSEP)
-              (let ((buffer-read-only nil)) ,@body))
+  "Similar to `with-output-to-temp-buffer', but also remembers
+Slime-related stuff. Used to implement Slime's Description,
+Apropos, Macroexpand &c buffers.
+
+`name' is the name of the buffer to be created.
+
+`package' is the package that's associated with the buffer.
+
+`mode' is the major the temporary buffer should be set to. If
+desired, you can enable additional minor-modes explicitly in the
+body.
+
+`emacs-snapshot' is the Emacs state (window configuration &c.)
+that should be restored when the user quits the temporary buffer.
+If not explictly passed, a snapshot of the current state is taken
+and saved.
+
+`connection' is the Slime connection that should be stored
+buffer-locally. If nil, no explicit connection is associated with
+the buffer. If t, the current connection is taken.
+
+If `reusep' is t, an already existing buffer won't be killed, and
+recreated."
+  `(let ((standard-output 
+          (slime-get-temp-buffer-create ,name :mode ',mode
+                                        :emacs-snapshot ,emacs-snapshot
+                                        :reusep ,reusep)))
+     (prog1 (with-current-buffer standard-output 
+              (let ((buffer-read-only nil)) ; in case the buffer is reused.
+                ,@body))
        (with-current-buffer standard-output
-         (setq slime-buffer-connection connection)
          (setq slime-buffer-package ,package)
+         (setq slime-buffer-connection 
+               ,(if (eq connection 't) `(slime-connection) connection))
          (goto-char (point-min))
-         (slime-mode 1)
-         (set-syntax-table lisp-mode-syntax-table)
          (setq buffer-read-only t)))))
 
 (put 'slime-with-output-to-temp-buffer 'lisp-indent-function 2)
@@ -979,8 +999,10 @@ variable. Cf. `slime-get-temp-buffer-create'"
 (define-minor-mode slime-temp-buffer-mode 
   "Mode for displaying read only stuff"
   nil
-  " temp"
-  '(("q" . slime-temp-buffer-quit)))
+  " Tmp"
+  '(("q" . slime-temp-buffer-quit)
+    ("\C-c\C-z" . slime-switch-to-output-buffer)
+    ("\M-." . slime-edit-definition)))
 
 ;; Interface
 (defun slime-temp-buffer-quit (&optional kill-buffer-p)
@@ -4077,18 +4099,16 @@ Each newlines and following indentation is replaced by a single space."
   "Show the compiler notes NOTES in tree view."
   (interactive (list (slime-compiler-notes)))
   (with-temp-message "Preparing compiler note tree..."
-    (with-current-buffer
-        (slime-get-temp-buffer-create "*compiler notes*"
-                                      :mode 'slime-compiler-notes-mode
-                                      :emacs-snapshot emacs-snapshot)
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (when (null notes)
-          (insert "[no notes]"))
-        (dolist (tree (slime-compiler-notes-to-tree notes))
-          (slime-tree-insert tree "")
-          (insert "\n")))
-      (setq buffer-read-only t)
+    (slime-with-output-to-temp-buffer ("*SLIME Compiler-Notes*"
+                                       :mode slime-compiler-notes-mode
+                                       :emacs-snapshot emacs-snapshot)
+        nil
+      (erase-buffer)
+      (when (null notes)
+        (insert "[no notes]"))
+      (dolist (tree (slime-compiler-notes-to-tree notes))
+        (slime-tree-insert tree "")
+        (insert "\n"))
       (goto-char (point-min)))))
 
 (defun slime-alistify (list key test)
@@ -4152,7 +4172,7 @@ keys."
 (defvar slime-compiler-notes-mode-map)
 
 (define-derived-mode slime-compiler-notes-mode fundamental-mode 
-  "Compiler Notes"
+  "Compiler-Notes"
   "\\<slime-compiler-notes-mode-map>\
 \\{slime-compiler-notes-mode-map}"
   (slime-set-truncate-lines))
@@ -4160,8 +4180,7 @@ keys."
 (slime-define-keys slime-compiler-notes-mode-map
   ((kbd "RET") 'slime-compiler-notes-default-action-or-show-details)
   ([return] 'slime-compiler-notes-default-action-or-show-details)
-  ([mouse-2] 'slime-compiler-notes-default-action-or-show-details/mouse)
-  ("q" 'slime-temp-buffer-quit))
+  ([mouse-2] 'slime-compiler-notes-default-action-or-show-details/mouse))
 
 (defun slime-compiler-notes-default-action-or-show-details/mouse (event)
   "Invoke the action pointed at by the mouse, or show details."
@@ -5339,8 +5358,8 @@ Show the output buffer if the evaluation causes any output."
                      fn)))
 
 (defun slime-show-description (string package)
-  (slime-with-output-to-temp-buffer ("*SLIME Description*")
-      package (princ string)))
+  (slime-with-output-to-temp-buffer ("*SLIME Description*") package 
+    (princ string)))
 
 (defun slime-eval-describe (form)
   "Evaluate FORM in Lisp and display the result in a new buffer."
@@ -5484,18 +5503,16 @@ in Lisp when committed with \\[slime-edit-value-commit]."
 (define-minor-mode slime-edit-value-mode
   "Mode for editing a Lisp value."
   nil
-  " edit"
+  " Edit-Value"
   '(("\C-c\C-c" . slime-edit-value-commit)))
 
 (defun slime-edit-value-callback (form-string current-value package)
   (let ((name (generate-new-buffer-name (format "*Edit %s*" form-string))))
-    (with-current-buffer (slime-get-temp-buffer-create name :mode 'lisp-mode)
+    (slime-with-output-to-temp-buffer (name :mode lisp-mode :connection t) package
       (slime-mode 1)
       (slime-temp-buffer-mode -1)       ; don't want binding of 'q'
       (slime-edit-value-mode 1)
       (setq slime-edit-form-string form-string)
-      (setq slime-buffer-connection (slime-connection))
-      (setq slime-buffer-package package)
       (insert current-value))))
 
 (defun slime-edit-value-commit ()
@@ -5892,15 +5909,16 @@ With prefix argument include internal symbols."
 (defun slime-show-apropos (plists string package summary)
   (if (null plists)
       (message "No apropos matches for %S" string)
-    (slime-with-output-to-temp-buffer ("*SLIME Apropos*" :mode apropos-mode)
+    (slime-with-output-to-temp-buffer ("*SLIME Apropos*" :mode apropos-mode
+                                                         :connection t)
         package
-      (set-syntax-table lisp-mode-syntax-table)
-      (slime-mode t)
       (if (boundp 'header-line-format)
           (setq header-line-format summary)
         (insert summary "\n\n"))
       (slime-set-truncate-lines)
       (slime-print-apropos plists))))
+
+(eval-when-compile (require 'apropos))
 
 (defvar slime-apropos-label-properties
   (progn
@@ -5913,8 +5931,6 @@ With prefix argument include internal symbols."
                                  'italic)
                             mouse-face highlight))
              (list (symbol-value 'apropos-label-face)))))))
-
-(eval-when-compile (require 'apropos))
 
 (defun slime-print-apropos (plists)
   (dolist (plist plists)
@@ -6290,9 +6306,8 @@ When displaying XREF information, this goes to the next reference."
 (define-minor-mode slime-macroexpansion-minor-mode
     "SLIME mode for macroexpansion"
     nil
-  " temp"
-  '(("q" . slime-temp-buffer-quit)
-    ("g" . slime-macroexpand-again)))
+  " Macroexpand"
+  '(("g" . slime-macroexpand-again)))
 
 (flet ((remap (from to)
          (dolist (mapping (where-is-internal from slime-mode-map))
@@ -6340,8 +6355,9 @@ expand the LOOP form. See comment in the source of this function."
      (lambda (expansion)
        (slime-with-output-to-temp-buffer
            ;; reusep for preserving `undo' functionality.
-           ("*SLIME macroexpansion*" :mode lisp-mode :reusep t) package
-         (slime-macroexpansion-minor-mode)
+           ("*SLIME Macroexpansion*" :mode lisp-mode :reusep t :connection t) package
+         (slime-mode 1)
+         (slime-macroexpansion-minor-mode 1)
          (erase-buffer)
          (insert expansion)
          (goto-char (point-min))
@@ -7359,7 +7375,7 @@ was called originally."
 ;;;;; Major mode
 
 (define-derived-mode slime-thread-control-mode fundamental-mode
-  "thread-control"
+  "Slime-Threads"
   "SLIME Thread Control Panel Mode.
 
 \\{slime-thread-control-mode-map}"
@@ -7400,7 +7416,7 @@ was called originally."
 ;;;;; Connection listing
 
 (define-derived-mode slime-connection-list-mode fundamental-mode
-  "connection-list"
+  "Slime-Connections"
   "SLIME Connection List Mode.
 
 \\{slime-connection-list-mode-map}"
@@ -7447,14 +7463,11 @@ was called originally."
 (defun slime-list-connections ()
   "Display a list of all connections."
   (interactive)
-  (when (get-buffer "*SLIME connections*")
-    (kill-buffer "*SLIME connections*"))
-  (with-current-buffer
-      (slime-get-temp-buffer-create "*SLIME connections*"
-                                    :mode 'slime-connection-list-mode)
-    (slime-draw-connection-list)
-    (setq buffer-read-only t)
-    (pop-to-buffer (current-buffer))))
+  (when (get-buffer "*SLIME Connections*")
+    (kill-buffer "*SLIME Connections*"))
+  (slime-with-output-to-temp-buffer ("*SLIME Connections*" 
+                                     :mode slime-connection-list-mode) nil
+    (slime-draw-connection-list)))
 
 (defun slime-update-connection-list ()
  "Display a list of all connections."
