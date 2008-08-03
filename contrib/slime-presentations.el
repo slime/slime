@@ -271,7 +271,7 @@ presentation is complete."
   (let ((object (or object (current-buffer))))
     (multiple-value-bind (presentation start end whole-p)
         (slime-presentation-around-point point object)
-      (if presentation
+      (if (or presentation (= point (point-min)))
           (values presentation start end whole-p)
         (slime-presentation-around-point (1- point) object)))))
 
