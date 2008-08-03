@@ -674,11 +674,6 @@
 (defimplementation send (thread message)
   (let* ((mbox (mailbox thread))
          (mutex (mailbox.mutex mbox)))
-    (mp:process-wait-with-timeout 
-     "yielding before sending" 0.1
-     (lambda ()
-       (mp:with-process-lock (mutex)
-         (< (length (mailbox.queue mbox)) 10))))
     (mp:with-process-lock (mutex)
       (setf (mailbox.queue mbox)
             (nconc (mailbox.queue mbox) (list message))))))
@@ -689,6 +684,17 @@
     (mp:process-wait "receive" #'mailbox.queue mbox)
     (mp:with-process-lock (mutex)
       (pop (mailbox.queue mbox)))))
+
+(defimplementation receive-if (test)
+  (let ((mbox (mailbox mp:*current-process*)))
+    (mp:process-wait "receive-if" 
+                     (lambda () (some test (mailbox.queue mbox))))
+    (mp:with-process-lock ((mailbox.mutex mbox))
+      (let* ((q (mailbox.queue mbox))
+             (tail (member-if test q)))
+        (assert tail)
+        (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
+        (car tail)))))
 
 (defimplementation quit-lisp ()
   (excl:exit 0 :quiet t))

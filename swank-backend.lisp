@@ -36,6 +36,7 @@
            #:emacs-inspect
            #:label-value-line
            #:label-value-line*
+           
            #:with-struct
            ))
 
@@ -1019,6 +1020,9 @@ at a time, but that thread may hold it more than once."
 
 (definterface receive ()
   "Return the next message from current thread's mailbox.")
+
+(definterface receive-if (predicate)
+  "Return the first message satisfiying PREDICATE.")
 
 (definterface toggle-trace (spec)
   "Toggle tracing of the function(s) given with SPEC.

@@ -2337,7 +2337,9 @@ Debugged requests are ignored."
            (slime-background-message "%s" message))
           ((:debug-condition thread message)
            (assert thread)
-           (message "%s" message))))))
+           (message "%s" message))
+          ((:ping thread tag)
+           (slime-send `(:emacs-pong ,thread ,tag)))))))
 
 (defun slime-send (sexp)
   "Send SEXP directly over the wire on the current connection."

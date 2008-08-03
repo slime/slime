@@ -1295,6 +1295,18 @@ stack."
                  (t (sb-thread:condition-wait (mailbox.waitqueue mbox)
                                               mutex))))))))
 
+  (defimplementation receive-if (test)
+    (let* ((mbox (mailbox (current-thread)))
+           (mutex (mailbox.mutex mbox)))
+      (sb-thread:with-mutex (mutex)
+        (loop
+         (let* ((q (mailbox.queue mbox))
+                (tail (member-if test q)))
+           (cond (tail 
+                  (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
+                  (return (car tail)))
+                 (t (sb-thread:condition-wait (mailbox.waitqueue mbox)
+                                              mutex))))))))
 
   ;; Auto-flush streams
 

@@ -1,3 +1,26 @@
+2008-08-03  Helmut Eller  <heller@common-lisp.net>
+
+	Add some flow-control.
+
+	* swank.lisp (make-output-function): Synchronize with Emacs on
+	every 100th chunk of output.
+	(wait-for-event,wait-for-event/event-loop,event-match-p): New
+	functions.  Used to selectively wait for some events and to queue
+	the other events.
+	(dispatch-event, read-from-socket-io): Tag non-queueable events
+	with :call.
+	(read-from-control-thread, read-from-emacs): Process
+	:call events only; enqueue the others.
+
+	(*log-output*): Don't use synonym-streams here.  Dereference the
+	symbol until we get at the real stream.
+	(log-event): Escape non-ascii characters more carefully.
+
+	* swank-backend.lisp (receive-if): New function.
+	Update backends accordingly. (not yet for ABCL and SCL)
+
+	* slime.el (slime-dispatch-event): Handle ping event.
+
 2008-08-03  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el: Make code related to temp buffers more consistent.

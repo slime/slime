@@ -744,7 +744,20 @@ function names like \(SETF GET)."
               (mp:make-mailbox)))))
 
 (defimplementation receive ()
-  (mp:mailbox-read (mailbox mp:*current-process*)))
+  (receive-if (constantly t)))
+
+(defimplementation receive-if (test)
+  (loop
+   (let* ((self mp:*current-process*)
+          (q (getf (mp:process-plist self) 'queue))
+          (tail (member-if test q)))
+     (cond (tail
+            (setf (getf (mp:process-plist self) 'queue)
+                  (nconc (ldiff q tail) (cdr tail)))
+            (return (car tail)))
+           (t 
+            (setf (getf (mp:process-plist self) 'queue)
+                  (nconc q (list (mp:mailbox-read (mailbox self))))))))))
 
 (defimplementation send (thread object)
   (mp:mailbox-send (mailbox thread) object))

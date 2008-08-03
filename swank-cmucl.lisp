@@ -2110,6 +2110,19 @@ The `symbol-value' of each element is a type tag.")
       (mp:with-lock-held (mutex)
         (pop (mailbox.queue mbox)))))
 
+  (defimplementation receive-if (test)
+    (let ((mbox (mailbox mp:*current-process*)))
+      (mp:process-wait "receive-if" 
+                       (lambda (mbox test)
+                         (some test (mailbox.queue mbox)))
+                       mbox test)
+      (mp:with-lock-held ((mailbox.mutex mbox))
+        (let* ((q (mailbox.queue mbox))
+               (tail (member-if test q)))
+          (assert tail)
+          (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
+          (car tail)))))
+
   ) ;; #+mp
 
 

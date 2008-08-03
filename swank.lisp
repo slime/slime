@@ -358,7 +358,12 @@ The package is deleted before returning."
 ;;;;; Logging
 
 (defvar *log-events* nil)
-(defvar *log-output* *error-output*)
+(defvar *log-output* 
+  (labels ((ref (x)
+             (cond ((typep x 'synonym-stream)
+                    (ref (symbol-value (synonym-stream-symbol x))))
+                   (t x))))
+    (ref *error-output*)))
 (defvar *event-history* (make-array 40 :initial-element nil)
   "A ring buffer to record events for better error messages.")
 (defvar *event-history-index* 0)
@@ -377,7 +382,8 @@ Useful for low level debugging."
         (setf *event-history-index* 
               (mod (1+ *event-history-index*) (length *event-history*))))
       (when *log-events*
-        (apply #'format *log-output* format-string args)
+        (write-string (escape-non-ascii (format nil "~?" format-string args))
+                      *log-output*)
         (force-output *log-output*)))))
 
 (defun event-history-to-list ()
@@ -394,7 +400,10 @@ Useful for low level debugging."
   (cond ((stringp event)
          (write-string (escape-non-ascii event) stream))
         ((null event))
-        (t (format stream "Unexpected event: ~A~%" event))))
+        (t 
+         (write-string
+          (escape-non-ascii (format nil "Unexpected event: ~A~%" event))
+          stream))))
 
 (defun escape-non-ascii (string)
   "Return a string like STRING but with non-ascii chars escaped."
@@ -701,40 +710,38 @@ if the file doesn't exist; otherwise the first line of the file."
 (defun open-streams (connection)
   "Return the 5 streams for IO redirection:
 DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
-  (multiple-value-bind (output-fn dedicated-output) 
-      (make-output-function connection)
-    (let ((input-fn
-           (lambda () 
-             (with-connection (connection)
-               (with-simple-restart (abort-read
-                                     "Abort reading input from Emacs.")
-                 (read-user-input-from-emacs))))))
-      (multiple-value-bind (in out) (make-fn-streams input-fn output-fn)
-        (let ((out (or dedicated-output out)))
-          (let ((io (make-two-way-stream in out)))
-            (mapc #'make-stream-interactive (list in out io))
-            (let ((repl-results
-                   (make-output-stream-for-target connection :repl-result)))
-              (values dedicated-output in out io repl-results))))))))
+  (let ((output-fn (make-output-function connection))
+        (input-fn
+         (lambda () 
+           (with-connection (connection)
+             (with-simple-restart (abort-read
+                                   "Abort reading input from Emacs.")
+               (read-user-input-from-emacs))))))
+    (multiple-value-bind (in out) (make-fn-streams input-fn output-fn)
+      (let* ((dedicated-output (if *use-dedicated-output-stream*
+                                   (open-dedicated-output-stream
+                                    (connection.socket-io connection))))
+             (out (or dedicated-output out))
+             (io (make-two-way-stream in out))
+             (repl-results (make-output-stream-for-target connection
+                                                          :repl-result)))
+        (mapc #'make-stream-interactive (list in out io))
+        (values dedicated-output in out io repl-results)))))
 
+;; FIXME: if wait-for-event aborts the event will stay in the queue forever.
 (defun make-output-function (connection)
-  "Create function to send user output to Emacs.
-This function may open a dedicated socket to send output. It
-returns two values: the output function, and the dedicated
-stream (or NIL if none was created)."
-  (if *use-dedicated-output-stream*
-      (let ((stream (open-dedicated-output-stream 
-                     (connection.socket-io connection))))
-        (values (lambda (string)
-                  (write-string string stream)
-                  (force-output stream))
-                stream))
-      (values (lambda (string) 
-                (with-connection (connection)
-                  (with-simple-restart
-                      (abort "Abort sending output to Emacs.")
-                    (send-to-emacs `(:write-string ,string)))))
-              nil)))
+  "Create function to send user output to Emacs."
+  (let ((max 100) (i 0) (tag 0))
+    (lambda (string)
+      (with-connection (connection)
+        (with-simple-restart (abort "Abort sending output to Emacs.")
+          (when (= i max)
+            (setf tag (mod (1+ tag) 1000))
+            (send-to-emacs `(:ping ,(thread-id (current-thread)) ,tag))
+            (wait-for-event `(:emacs-pong ,tag))
+            (setf i 0))
+          (incf i)
+          (send-to-emacs `(:write-string ,string)))))))
 
 (defun make-output-function-for-target (connection target)
   "Create a function to send user output to a specific TARGET in Emacs."
@@ -922,7 +929,7 @@ of the toplevel restart."
     ((:emacs-rex form package thread-id id)
      (let ((thread (thread-for-evaluation thread-id)))
        (push thread *active-threads*)
-       (send thread `(eval-for-emacs ,form ,package ,id))))
+       (send thread `(:call eval-for-emacs ,form ,package ,id))))
     ((:return thread &rest args)
      (let ((tail (member thread *active-threads*)))
        (setq *active-threads* (nconc (ldiff *active-threads* tail)
@@ -940,14 +947,16 @@ of the toplevel restart."
     ((:read-aborted thread &rest args)
      (encode-message `(:read-aborted ,(thread-id thread) ,@args) socket-io))
     ((:emacs-return-string thread-id tag string)
-     (send (find-thread thread-id) `(take-input ,tag ,string)))
+     (send (find-thread thread-id) `(:call take-input ,tag ,string)))
     ((:eval thread &rest args)
      (encode-message `(:eval ,(thread-id thread) ,@args) socket-io))
     ((:emacs-return thread-id tag value)
-     (send (find-thread thread-id) `(take-input ,tag ,value)))
+     (send (find-thread thread-id) `(:call take-input ,tag ,value)))
+    ((:emacs-pong thread-id tag)
+     (send (find-thread thread-id) `(:emacs-pong ,tag)))
     (((:write-string :presentation-start :presentation-end
                      :new-package :new-features :ed :%apply :indentation-update
-                     :eval-no-wait :background-message :inspect)
+                     :eval-no-wait :background-message :inspect :ping)
       &rest _)
      (declare (ignore _))
      (encode-message event socket-io))))
@@ -1061,16 +1070,19 @@ of the toplevel restart."
     (destructure-case event
       ((:emacs-rex form package thread id)
        (declare (ignore thread))
-       `(eval-for-emacs ,form ,package ,id))
+       `(:call eval-for-emacs ,form ,package ,id))
       ((:emacs-interrupt thread)
        (declare (ignore thread))
-       '(simple-break))
+       '(:call simple-break))
       ((:emacs-return-string thread tag string)
        (declare (ignore thread))
-       `(take-input ,tag ,string))
+       `(:call take-input ,tag ,string))
       ((:emacs-return thread tag value)
        (declare (ignore thread))
-       `(take-input ,tag ,value)))))
+       `(:call take-input ,tag ,value))
+      ((:emacs-pong thread tag)
+       (declare (ignore thread))
+       `(:emacs-pong ,tag)))))
 
 (defun send-to-socket-io (event) 
   (log-event "DISPATCHING: ~S~%" event)
@@ -1089,7 +1101,7 @@ of the toplevel restart."
       (((:write-string :new-package :new-features :debug-condition
                        :presentation-start :presentation-end
                        :indentation-update :ed :%apply :eval-no-wait
-                       :background-message :inspect)
+                       :background-message :inspect :ping)
         &rest _)
        (declare (ignore _))
        (send event)))))
@@ -1130,7 +1142,8 @@ of the toplevel restart."
                      (make-connection :socket-io socket-io
                                       :read #'read-from-socket-io
                                       :send #'send-to-socket-io
-                                      :serve-requests #'simple-serve-requests)))))
+                                      :serve-requests #'simple-serve-requests))
+                    )))
            (setf (connection.communication-style c) style)
            (initialize-streams-for-connection c)
            (setf success t)
@@ -1315,6 +1328,8 @@ NIL if streams are not globally redirected.")
 (defmacro with-thread-description (description &body body)
   `(call-with-thread-description ,description #'(lambda () ,@body)))
 
+(defvar *event-queue* '())
+
 (defun read-from-emacs ()
   "Read and process a request from Emacs."
   (flet ((request-to-string (req)
@@ -1331,10 +1346,47 @@ NIL if streams are not globally redirected.")
           ;; created by swank are currently doing.
           (with-thread-description (truncate-string (request-to-string request) 55)
             (apply #'funcall request))
-          (apply #'funcall request)))))
+          (destructure-case request
+            ((:call . args) (apply #'funcall args))
+            (t (setf *event-queue* 
+                     (nconc *event-queue* (list request)))))))))
+
+(defun wait-for-event (pattern)
+  (log-event "wait-for-event: %S~%" pattern)
+  (case (connection.communication-style *emacs-connection*)
+    (:spawn (receive-if (lambda (e) (event-match-p e pattern))))
+    (t (wait-for-event/event-loop pattern))))
+
+(defun wait-for-event/event-loop (pattern)
+  (loop 
+   (let ((tail (member-if (lambda (e) (event-match-p e pattern)) 
+                          *event-queue*)))
+     (cond (tail 
+            (setq *event-queue* 
+                  (nconc (ldiff *event-queue* tail) (cdr tail)))
+            (return (car tail)))
+           (t
+            (let ((event (read-from-socket-io)))
+              (cond ((event-match-p event pattern) (return event))
+                    ((eq (car event) :call)
+                     (apply #'funcall (cdr event)))
+                    (t 
+                     (setf *event-queue* 
+                           (nconc *event-queue* (list event)))))))))))
+
+(defun event-match-p (event pattern)
+  (cond ((or (keywordp pattern) (numberp pattern) (stringp pattern)
+	     (member pattern '(nil t)))
+	 (equal event pattern))
+	((symbolp pattern) t)
+	((consp pattern)
+         (and (consp event)
+              (and (event-match-p (car event) (car pattern))
+                   (event-match-p (cdr event) (cdr pattern)))))
+	(t (error "Invalid pattern: ~S" pattern))))
 
 (defun read-from-control-thread ()
-  (receive))
+  (cdr (receive-if (lambda (e) (event-match-p e '(:call . _))))))
 
 (defun decode-message (stream)
   "Read an S-expression from STREAM using the SLIME protocol."

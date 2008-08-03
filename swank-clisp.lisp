@@ -667,6 +667,10 @@ Execute BODY with NAME's function slot set to FUNCTION."
   #+lisp=cl (ext:quit)
   #-lisp=cl (lisp:quit))
 
+(defimplementation thread-id (thread)
+  (declare (ignore thread))
+  0)
+
 ;;;; Weak hashtables
 
 (defimplementation make-weak-key-hash-table (&rest args)
