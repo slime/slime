@@ -1,4 +1,4 @@
-2008-07-27  Tobias C. Rittweiler  <tcr@freebits.de>
+2008-08-03  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el: Make code related to temp buffers more consistent.
 
