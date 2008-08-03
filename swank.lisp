@@ -1347,7 +1347,7 @@ NIL if streams are not globally redirected.")
           (with-thread-description (truncate-string (request-to-string request) 55)
             (apply #'funcall request))
           (destructure-case request
-            ((:call . args) (apply #'funcall args))
+            ((:call &rest args) (apply #'funcall args))
             (t (setf *event-queue* 
                      (nconc *event-queue* (list request)))))))))
 
