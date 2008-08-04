@@ -194,9 +194,9 @@
   (setq ccl::*interactive-abort-process* ccl::*current-process*))
 
 (defimplementation make-stream-interactive (stream)
-  (typecase stream
-    (ccl:fundamental-output-stream 
-     (push stream ccl::*auto-flush-streams*))))
+  (when (typep stream 'slime-output-stream)
+    (push stream ccl::*auto-flush-streams*)
+    (setf (slot-value stream 'interactive-p) t)))
 
 ;;; Unix signals
 

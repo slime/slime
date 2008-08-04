@@ -2,7 +2,8 @@
 
 	* swank-gray.lisp (slime-output-stream): Add a slot
 	"interactive-p" which should be true for streams which are flushed
-	periodically by the Lisp system.  Update the relevant accordingly.
+	periodically by the Lisp system.  Update the relevant backends
+	accordingly.
 
 	* swank-scl.lisp (receive-if): Implemented.
 
