@@ -800,7 +800,9 @@ function names like \(SETF GET)."
                        nil)
     (let ((lw:*handle-warn-on-redefinition* :warn))
       (defmethod stream:stream-soft-force-output  ((o (eql stream)))
-        (force-output o)))))
+        (force-output o))
+      (when (typep stream 'slime-output-stream)
+        (setf (slot-value stream 'interactive-p) t)))))
 
 (defmethod env-internals:confirm-p ((e slime-env) &optional msg &rest args)
   (apply (swank-sym :y-or-n-p-in-emacs) msg args))

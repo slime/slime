@@ -1328,7 +1328,9 @@ stack."
        (unless *auto-flush-thread*
          (setq *auto-flush-thread*
                (sb-thread:make-thread #'flush-streams
-                                      :name "auto-flush-thread"))))))
+                                      :name "auto-flush-thread")))))
+    (when (typep stream 'slime-output-stream)
+      (setf (slot-value stream 'interactive-p) t)))
 
   (defun flush-streams ()
     (loop

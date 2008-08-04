@@ -15,7 +15,8 @@
    (buffer :initform (make-string 8000))
    (fill-pointer :initform 0)
    (column :initform 0)
-   (last-flush-time :initform (get-internal-real-time))
+   ;; true if the Lisp system flushes this stream periodically
+   (interactive-p :initform nil) 
    (lock :initform (make-recursive-lock :name "buffer write lock"))))
 
 (defmethod stream-write-char ((stream slime-output-stream) char)
@@ -43,27 +44,19 @@
   75)
 
 (defmethod stream-finish-output ((stream slime-output-stream))
-  (call-with-recursive-lock-held
-   (slot-value stream 'lock)
-   (lambda ()
-     (with-slots (buffer fill-pointer output-fn last-flush-time) stream
-       (let ((end fill-pointer))
-         (unless (zerop end)
-           (funcall output-fn (subseq buffer 0 end))
-           (setf fill-pointer 0)))
-       (setf last-flush-time (get-internal-real-time)))))
+  (with-slots (buffer lock fill-pointer output-fn) stream
+    (call-with-recursive-lock-held
+     lock
+     (lambda ()
+       (unless (zerop fill-pointer)
+         (funcall output-fn (subseq buffer 0 fill-pointer))
+         (setf fill-pointer 0)))))
   nil)
 
 (defmethod stream-force-output ((stream slime-output-stream))
-  (call-with-recursive-lock-held
-   (slot-value stream 'lock)
-   (lambda ()
-     (with-slots (last-flush-time fill-pointer) stream
-       (let ((now (get-internal-real-time)))
-         (when (> (/ (- now last-flush-time)
-                     (coerce internal-time-units-per-second 'double-float))
-                  0.2)
-           (finish-output stream))))))
+  (with-slots (interactive-p) stream
+    (unless interactive-p
+      (stream-finish-output stream)))
   nil)
 
 (defmethod stream-fresh-line ((stream slime-output-stream))
