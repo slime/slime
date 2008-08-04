@@ -1,4 +1,14 @@
+2008-08-04  Masayuki Onjo <masayuki.onjo@gmail.com>
+
+	Updates for CLISP-2.46.
+
+	* swank-clisp.lisp (fspec-pathname, fspec-location): The structure
+	of (documentation symbol 'sys::file) used to be (path . lines)
+	but is now ((type path . lines) ...).
+
 2008-08-04  Helmut Eller  <heller@common-lisp.net>
+
+
 
 	* swank-gray.lisp (slime-output-stream): Add a slot
 	"interactive-p" which should be true for streams which are flushed
