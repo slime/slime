@@ -1,5 +1,8 @@
 2008-08-04  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (eval-for-emacs): Don't flush streams here as that
+	may now block.
+
 	* swank-lispworks.lisp (receive-if): Handle interrupts.
 
 	* slime.el (slime-repl-clear-buffer): Delete stuff after the

@@ -731,16 +731,18 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
 ;; FIXME: if wait-for-event aborts the event will stay in the queue forever.
 (defun make-output-function (connection)
   "Create function to send user output to Emacs."
-  (let ((max 100) (i 0) (tag 0))
+  (let ((max 100) (i 0) (tag 0) (l 0))
     (lambda (string)
       (with-connection (connection)
         (with-simple-restart (abort "Abort sending output to Emacs.")
-          (when (= i max)
+          (when (or (= i max) (> l (* 80 20 5)))
             (setf tag (mod (1+ tag) 1000))
             (send-to-emacs `(:ping ,(thread-id (current-thread)) ,tag))
             (wait-for-event `(:emacs-pong ,tag))
-            (setf i 0))
+            (setf i 0) 
+            (setf l 0))
           (incf i)
+          (incf l (length string))
           (send-to-emacs `(:write-string ,string)))))))
 
 (defun make-output-function-for-target (connection target)
@@ -1443,8 +1445,7 @@ NIL if streams are not globally redirected.")
       (prin1-to-string object))))
 
 (defun force-user-output ()
-  (force-output (connection.user-io *emacs-connection*))
-  (finish-output (connection.user-output *emacs-connection*)))
+  (force-output (connection.user-io *emacs-connection*)))
 
 (defun clear-user-input  ()
   (clear-input (connection.user-input *emacs-connection*)))
@@ -1544,14 +1545,14 @@ VERSION: the protocol version"
               :prompt ,(package-string-for-prompt *package*))
     :version ,*swank-wire-protocol-version*))
 
-(defslimefun io-speed-test (&optional (n 5000) (m 1))
+(defslimefun io-speed-test (&optional (n 1000) (m 1))
   (let* ((s *standard-output*)
          (*trace-output* (make-broadcast-stream s *log-output*)))
     (time (progn
             (dotimes (i n)
               (format s "~D abcdefghijklm~%" i)
               (when (zerop (mod n m))
-                (force-output s)))
+                (finish-output s)))
             (finish-output s)
             (when *emacs-connection*
               (eval-in-emacs '(message "done.")))))
@@ -1760,9 +1761,7 @@ Errors are trapped and invoke our debugger."
               ;;(setq result (apply (car form) (cdr form)))
               (setq result (eval form))
               (run-hook *pre-reply-hook*)
-              (finish-output)
               (setq ok t))
-         (force-user-output)
          (send-to-emacs `(:return ,(current-thread)
                                   ,(if ok
                                        `(:ok ,result)
