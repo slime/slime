@@ -735,32 +735,48 @@ function names like \(SETF GET)."
 (defimplementation thread-alive-p (thread)
   (mp:process-alive-p thread))
 
+(defstruct (mailbox (:conc-name mailbox.)) 
+  (mutex (mp:make-lock :name "thread mailbox"))
+  (queue '() :type list))
+
 (defvar *mailbox-lock* (mp:make-lock))
 
 (defun mailbox (thread)
   (mp:with-lock (*mailbox-lock*)
     (or (getf (mp:process-plist thread) 'mailbox)
         (setf (getf (mp:process-plist thread) 'mailbox)
-              (mp:make-mailbox)))))
+              (make-mailbox)))))
 
 (defimplementation receive ()
-  (receive-if (constantly t)))
+  (let* ((mbox (mailbox mp:*current-process*))
+         (lock (mailbox.mutex mbox)))
+    (loop
+     (mp:process-wait "receive" #'mailbox.queue mbox)
+     (mp:without-interrupts
+       (mp:with-lock (lock "receive/try" 0.1)
+         (when (mailbox.queue mbox)
+           (return (pop (mailbox.queue mbox)))))))))
 
 (defimplementation receive-if (test)
-  (loop
-   (let* ((self mp:*current-process*)
-          (q (getf (mp:process-plist self) 'queue))
-          (tail (member-if test q)))
-     (cond (tail
-            (setf (getf (mp:process-plist self) 'queue)
-                  (nconc (ldiff q tail) (cdr tail)))
-            (return (car tail)))
-           (t 
-            (setf (getf (mp:process-plist self) 'queue)
-                  (nconc q (list (mp:mailbox-read (mailbox self))))))))))
+  (let* ((mbox (mailbox mp:*current-process*))
+         (lock (mailbox.mutex mbox)))
+    (loop
+     (mp:process-wait "receive-if"
+                      (lambda () (some test (mailbox.queue mbox))))
+     (mp:without-interrupts
+       (mp:with-lock (lock "receive-if/try" 0.1)
+         (let* ((q (mailbox.queue mbox))
+                (tail (member-if test q)))
+           (when tail
+             (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
+             (return (car tail)))))))))
 
-(defimplementation send (thread object)
-  (mp:mailbox-send (mailbox thread) object))
+(defimplementation send (thread message)
+  (let ((mbox (mailbox thread)))
+    (mp:without-interrupts
+      (mp:with-lock ((mailbox.mutex mbox))
+        (setf (mailbox.queue mbox)
+              (nconc (mailbox.queue mbox) (list message)))))))
 
 ;;; Some intergration with the lispworks environment
 

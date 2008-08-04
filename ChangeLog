@@ -1,3 +1,13 @@
+2008-08-04  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-lispworks.lisp (receive-if): Handle interrupts.
+
+	* slime.el (slime-repl-clear-buffer): Delete stuff after the
+	prompt too.
+	(slime-with-output-to-temp-buffer): Add read-only argument.
+	(slime-temp-buffer): Renamed from slime-get-temp-buffer-create.
+	Drop noselect argument.
+
 2008-08-03  Helmut Eller  <heller@common-lisp.net>
 
 	Add some flow-control.
