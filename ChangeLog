@@ -1,5 +1,7 @@
 2008-08-04  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-scl.lisp (receive-if): Implemented.
+
 	* swank-cmucl.lisp (receive,receive-if): Test for new messages in
 	a loop.
 

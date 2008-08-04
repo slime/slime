@@ -1994,6 +1994,20 @@ The `symbol-value' of each element is a type tag.")
        (when winp
          (return message))))))
 
+(defimplementation receive-if (test)
+  (let ((mbox (mailbox thread:*thread*)))
+    (loop
+     (mp:process-wait "receive-if" 
+                      (lambda () (some test (mailbox-queue mbox))))
+     (sys:without-interrupts
+       (mp:with-lock-held ((mailbox-lock mbox))
+         (let* ((q (mailbox-queue mbox))
+                (tail (member-if test q)))
+           (when tail
+             (setf (mailbox-queue mbox) 
+                   (nconc (ldiff q tail) (cdr tail)))
+             (return (car tail)))))))))
+
 
 
 (defimplementation emacs-connected ())
