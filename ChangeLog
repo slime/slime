@@ -1,3 +1,8 @@
+2008-08-04  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-gray.lisp (slime-output-stream): Undo last change.
+	Make force-output and finish-output do the same.
+
 2008-08-04  Masayuki Onjo <masayuki.onjo@gmail.com>
 
 	Updates for CLISP-2.46.

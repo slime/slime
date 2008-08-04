@@ -1311,7 +1311,7 @@ stack."
   ;; Auto-flush streams
 
   (defvar *auto-flush-interval* 0.15
-    "How often to flush interactive streams. This valu is passed
+    "How often to flush interactive streams. This value is passed
     directly to cl:sleep.")
 
   (defvar *auto-flush-lock* (make-recursive-lock :name "auto flush"))
@@ -1328,9 +1328,7 @@ stack."
        (unless *auto-flush-thread*
          (setq *auto-flush-thread*
                (sb-thread:make-thread #'flush-streams
-                                      :name "auto-flush-thread")))))
-    (when (typep stream 'slime-output-stream)
-      (setf (slot-value stream 'interactive-p) t)))
+                                      :name "auto-flush-thread"))))))
 
   (defun flush-streams ()
     (loop

@@ -125,9 +125,7 @@
      (describe (find-class symbol)))))
 
 (defimplementation make-stream-interactive (stream)
-  (setf (interactive-stream-p stream) t)
-  (when (typep stream 'slime-output-stream)
-    (setf (slot-value stream 'interactive-p) t)))
+  (setf (interactive-stream-p stream) t))
 
 ;;;; Debugger
 

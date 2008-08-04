@@ -15,57 +15,43 @@
    (buffer :initform (make-string 8000))
    (fill-pointer :initform 0)
    (column :initform 0)
-   ;; true if the Lisp system flushes this stream periodically
-   (interactive-p :initform nil) 
    (lock :initform (make-recursive-lock :name "buffer write lock"))))
 
+(defmacro with-slime-output-stream (stream &body body)
+  `(with-slots (lock output-fn buffer fill-pointer column) ,stream
+     (call-with-recursive-lock-held lock (lambda () ,@body))))
+
 (defmethod stream-write-char ((stream slime-output-stream) char)
-  (call-with-recursive-lock-held
-   (slot-value stream 'lock)
-   (lambda ()
-     (with-slots (buffer fill-pointer column) stream
-       (setf (schar buffer fill-pointer) char)
-       (incf fill-pointer)
-       (incf column)
-       (when (char= #\newline char)
-         (setf column 0)
-         (force-output stream))
-       (when (= fill-pointer (length buffer))
-         (finish-output stream)))))
+  (with-slime-output-stream stream
+    (setf (schar buffer fill-pointer) char)
+    (incf fill-pointer)
+    (incf column)
+    (when (char= #\newline char)
+      (setf column 0))
+    (when (= fill-pointer (length buffer))
+      (finish-output stream)))
   char)
 
 (defmethod stream-line-column ((stream slime-output-stream))
-  (call-with-recursive-lock-held
-   (slot-value stream 'lock)
-   (lambda ()
-     (slot-value stream 'column))))
+  (with-slime-output-stream stream column))
 
 (defmethod stream-line-length ((stream slime-output-stream))
   75)
 
 (defmethod stream-finish-output ((stream slime-output-stream))
-  (with-slots (buffer lock fill-pointer output-fn) stream
-    (call-with-recursive-lock-held
-     lock
-     (lambda ()
-       (unless (zerop fill-pointer)
-         (funcall output-fn (subseq buffer 0 fill-pointer))
-         (setf fill-pointer 0)))))
+  (with-slime-output-stream stream 
+    (unless (zerop fill-pointer)
+      (funcall output-fn (subseq buffer 0 fill-pointer))
+      (setf fill-pointer 0)))
   nil)
 
 (defmethod stream-force-output ((stream slime-output-stream))
-  (with-slots (interactive-p) stream
-    (unless interactive-p
-      (stream-finish-output stream)))
-  nil)
+  (stream-finish-output stream))
 
 (defmethod stream-fresh-line ((stream slime-output-stream))
-  (call-with-recursive-lock-held
-   (slot-value stream 'lock)
-   (lambda ()
-     (with-slots (column) stream
-       (cond ((zerop column) nil)
-             (t (terpri stream) t))))))
+  (with-slime-output-stream stream
+    (cond ((zerop column) nil)
+          (t (terpri stream) t))))
 
 (defclass slime-input-stream (fundamental-character-input-stream)
   ((output-stream :initarg :output-stream)
