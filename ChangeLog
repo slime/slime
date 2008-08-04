@@ -8,8 +8,6 @@
 
 2008-08-04  Helmut Eller  <heller@common-lisp.net>
 
-
-
 	* swank-gray.lisp (slime-output-stream): Add a slot
 	"interactive-p" which should be true for streams which are flushed
 	periodically by the Lisp system.  Update the relevant backends
