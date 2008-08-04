@@ -3171,7 +3171,8 @@ earlier in the buffer."
   (interactive)
   (set-marker slime-repl-last-input-start-mark nil)
   (let ((inhibit-read-only t))
-    (delete-region (point-min) (slime-repl-input-line-beginning-position))
+    (delete-region (point-min) slime-repl-prompt-start-mark)
+    (delete-region slime-output-start slime-output-end)
     (goto-char slime-repl-input-start-mark))
   (run-hooks 'slime-repl-clear-buffer-hook))
 
