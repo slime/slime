@@ -909,15 +909,42 @@ Buffer local in temp-buffers."))
    "The emacs snapshot \"fingerprint\" after displaying the buffer."))
 
 ;; Interface
-(defun* slime-get-temp-buffer-create (name &key mode noselectp reusep 
-                                           emacs-snapshot)
-  "Return a fresh temporary buffer called NAME in MODE.
+(defmacro* slime-with-output-to-temp-buffer ((name &key mode connection
+						   (read-only t)
+						   reusep emacs-snapshot)
+					     package &rest body)
+  "Similar to `with-output-to-temp-buffer'.
+Bind standard-output and initialize some buffer-local variables.
+
+NAME is the name of the buffer to be created.
+PACKAGE is the value `slime-buffer-package'.
+CONNECTION is the value for `slime-buffer-connection'.
+If nil, no explicit connection is associated with
+the buffer.  If t, the current connection is taken.
+
+MODE is the major mode the buffer should be set to.
+READ-ONLY makes the buffer read-only.
+
+If REUSEP is t, an already existing buffer won't be killed."
+  `(let ((standard-output
+	  (slime-temp-buffer ,name #',mode ,reusep ,emacs-snapshot))
+	 (connection% ,(if (eq connection t)
+				'(slime-connection)
+			      connection))
+	 (package% ,package))
+     (with-current-buffer standard-output
+       (setq slime-buffer-package package%)
+       ,@(if connection '((setq slime-buffer-connection connection%)))
+       ,@body
+       ,@(if read-only '((setq buffer-read-only t))))))
+
+(put 'slime-with-output-to-temp-buffer 'lisp-indent-function 2)
+
+(defun slime-temp-buffer (name mode reusep emacs-snapshot)
+  "Return a temporary buffer called NAME in MODE.
 The buffer also uses the minor-mode `slime-temp-buffer-mode'. Pressing
 `q' in the buffer will restore the window configuration to the way it
 is when the buffer was created, i.e. when this function was called.
-
-If NOSELECTP is true, then the buffer is shown by `display-buffer',
-otherwise it is shown and selected by `pop-to-buffer'.
 
 If REUSEP is true and a buffer does already exist with name NAME,
 then the buffer will be reused instead of being killed.
@@ -926,12 +953,10 @@ If EMACS-SNAPSHOT is non-NIL, it's used to restore the previous
 state of Emacs after closing the temporary buffer. Otherwise, the
 current state will be saved and later restored.
 "
-  (let ((snapshot (or emacs-snapshot (slime-current-emacs-snapshot)))
-        (buffer (get-buffer name)))
-    (when (and buffer (not reusep))
-      (kill-buffer name)
-      (setq buffer nil))
-    (with-current-buffer (or buffer (get-buffer-create name))
+  (let ((snapshot (or emacs-snapshot (slime-current-emacs-snapshot))))
+    (when (and (not reusep) (get-buffer name))
+      (kill-buffer (get-buffer name)))
+    (with-current-buffer (get-buffer-create name)
       (when mode
         (let ((original-configuration slime-temp-buffer-saved-emacs-snapshot)
               (original-fingerprint slime-temp-buffer-saved-fingerprint))
@@ -939,62 +964,11 @@ current state will be saved and later restored.
           (setq slime-temp-buffer-saved-emacs-snapshot original-configuration)
           (setq slime-temp-buffer-saved-fingerprint original-fingerprint)))
       (slime-temp-buffer-mode 1)
-      (let ((window (get-buffer-window (current-buffer))))
-        (if window
-            (unless noselectp
-              (select-window window))
-            (progn
-              (if noselectp
-                  (display-buffer (current-buffer) t)
-                  (pop-to-buffer (current-buffer))
-                  (selected-window))
-              (setq slime-temp-buffer-saved-emacs-snapshot snapshot)
-              (setq slime-temp-buffer-saved-fingerprint
-                    (slime-current-emacs-snapshot-fingerprint)))))
+      (setq slime-temp-buffer-saved-emacs-snapshot snapshot)
+      (setq slime-temp-buffer-saved-fingerprint
+            (slime-current-emacs-snapshot-fingerprint))
+      (pop-to-buffer (current-buffer))
       (current-buffer))))
-
-;; Interface
-(defmacro* slime-with-output-to-temp-buffer ((name &key mode emacs-snapshot 
-                                                        connection reusep)
-                                             package &rest body)
-  "Similar to `with-output-to-temp-buffer', but also remembers
-Slime-related stuff. Used to implement Slime's Description,
-Apropos, Macroexpand &c buffers.
-
-`name' is the name of the buffer to be created.
-
-`package' is the package that's associated with the buffer.
-
-`mode' is the major the temporary buffer should be set to. If
-desired, you can enable additional minor-modes explicitly in the
-body.
-
-`emacs-snapshot' is the Emacs state (window configuration &c.)
-that should be restored when the user quits the temporary buffer.
-If not explictly passed, a snapshot of the current state is taken
-and saved.
-
-`connection' is the Slime connection that should be stored
-buffer-locally. If nil, no explicit connection is associated with
-the buffer. If t, the current connection is taken.
-
-If `reusep' is t, an already existing buffer won't be killed, and
-recreated."
-  `(let ((standard-output 
-          (slime-get-temp-buffer-create ,name :mode ',mode
-                                        :emacs-snapshot ,emacs-snapshot
-                                        :reusep ,reusep)))
-     (prog1 (with-current-buffer standard-output 
-              (let ((buffer-read-only nil)) ; in case the buffer is reused.
-                ,@body))
-       (with-current-buffer standard-output
-         (setq slime-buffer-package ,package)
-         (setq slime-buffer-connection 
-               ,(if (eq connection 't) `(slime-connection) connection))
-         (goto-char (point-min))
-         (setq buffer-read-only t)))))
-
-(put 'slime-with-output-to-temp-buffer 'lisp-indent-function 2)
 
 (define-minor-mode slime-temp-buffer-mode 
   "Mode for displaying read only stuff"
@@ -5511,7 +5485,8 @@ in Lisp when committed with \\[slime-edit-value-commit]."
 
 (defun slime-edit-value-callback (form-string current-value package)
   (let ((name (generate-new-buffer-name (format "*Edit %s*" form-string))))
-    (slime-with-output-to-temp-buffer (name :mode lisp-mode :connection t) package
+    (slime-with-output-to-temp-buffer (name :mode lisp-mode :connection t
+                                            :read-only nil) package
       (slime-mode 1)
       (slime-temp-buffer-mode -1)       ; don't want binding of 'q'
       (slime-edit-value-mode 1)
@@ -7466,8 +7441,6 @@ was called originally."
 (defun slime-list-connections ()
   "Display a list of all connections."
   (interactive)
-  (when (get-buffer "*SLIME Connections*")
-    (kill-buffer "*SLIME Connections*"))
   (slime-with-output-to-temp-buffer ("*SLIME Connections*" 
                                      :mode slime-connection-list-mode) nil
     (slime-draw-connection-list)))
@@ -7956,7 +7929,7 @@ switch-to-buffer."
 (def-slime-selector-method ?c
   "SLIME connections buffer."
   (slime-list-connections)
-  "*SLIME connections*")
+  "*SLIME Connections*")
 
 (def-slime-selector-method ?t
   "SLIME threads buffer."
