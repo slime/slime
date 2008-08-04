@@ -2532,13 +2532,13 @@ profiling before running the benchmark."
   (when profile
     (elp-instrument-package "slime-"))
   (kill-buffer (slime-output-buffer))
-  ;;(display-buffer (slime-output-buffer))
+  (switch-to-buffer (slime-output-buffer))
   (delete-other-windows)
   (sit-for 0)
-  (slime-repl-send-string "(swank:io-speed-test 5000 1)")
+  (slime-repl-send-string "(swank:io-speed-test 4000 1)")
   (let ((proc (slime-inferior-process)))
     (when proc
-      (switch-to-buffer (process-buffer proc))
+      (display-buffer (process-buffer proc) t)
       (goto-char (point-max)))))
 
 (defvar slime-write-string-function 'slime-repl-write-string)
@@ -9818,6 +9818,7 @@ If they are not, position point at the first syntax error found."
           slime-log-event
           slime-events-buffer
           slime-write-string 
+          slime-repl-emit
           slime-output-buffer
           slime-connection-output-buffer
           slime-output-filter
