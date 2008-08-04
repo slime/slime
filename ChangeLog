@@ -1,5 +1,8 @@
 2008-08-04  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-cmucl.lisp (receive,receive-if): Test for new messages in
+	a loop.
+
 	* swank.lisp (eval-for-emacs): Don't flush streams here as that
 	may now block.
 

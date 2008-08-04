@@ -2097,31 +2097,35 @@ The `symbol-value' of each element is a type tag.")
                 (make-mailbox)))))
   
   (defimplementation send (thread message)
-    (let* ((mbox (mailbox thread))
-           (mutex (mailbox.mutex mbox)))
-      (mp:with-lock-held (mutex)
-        (setf (mailbox.queue mbox)
-              (nconc (mailbox.queue mbox) (list message))))))
+    (let* ((mbox (mailbox thread)))
+      (sys:without-interrupts
+        (mp:with-lock-held ((mailbox.mutex mbox))
+          (setf (mailbox.queue mbox)
+                (nconc (mailbox.queue mbox) (list message)))))))
   
   (defimplementation receive ()
-    (let* ((mbox (mailbox mp:*current-process*))
-           (mutex (mailbox.mutex mbox)))
-      (mp:process-wait "receive" #'mailbox.queue mbox)
-      (mp:with-lock-held (mutex)
-        (pop (mailbox.queue mbox)))))
+    (let* ((mbox (mailbox mp:*current-process*)))
+      (loop
+       (mp:process-wait "receive" #'mailbox.queue mbox)
+       (sys:without-interrupts
+         (mp:with-lock-held ((mailbox.mutex mbox))
+           (when (mailbox.queue mbox)
+             (return (pop (mailbox.queue mbox)))))))))
 
   (defimplementation receive-if (test)
     (let ((mbox (mailbox mp:*current-process*)))
-      (mp:process-wait "receive-if" 
-                       (lambda (mbox test)
-                         (some test (mailbox.queue mbox)))
-                       mbox test)
-      (mp:with-lock-held ((mailbox.mutex mbox))
-        (let* ((q (mailbox.queue mbox))
-               (tail (member-if test q)))
-          (assert tail)
-          (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
-          (car tail)))))
+      (loop
+       (mp:process-wait "receive-if" 
+                        (lambda () (some test (mailbox.queue mbox))))
+       (sys:without-interrupts
+         (mp:with-lock-held ((mailbox.mutex mbox))
+           (let* ((q (mailbox.queue mbox))
+                  (tail (member-if test q)))
+             (when tail
+               (setf (mailbox.queue mbox) 
+                     (nconc (ldiff q tail) (cdr tail)))
+               (return (car tail)))))))))
+                   
 
   ) ;; #+mp
 
