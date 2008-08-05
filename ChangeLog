@@ -1,5 +1,9 @@
 2008-08-05  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-lispworks.lisp (make-stream-interactive): Run our own
+	thread to periodically flush streams instead of relying on
+	soft-force-output.
+
 	* swank.lisp (encode-message): Inhibit interrupts
 	while writing the length and the body.
 
