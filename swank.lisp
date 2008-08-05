@@ -1430,9 +1430,10 @@ NIL if streams are not globally redirected.")
   (let* ((string (prin1-to-string-for-emacs message))
          (length (length string)))
     (log-event "WRITE: ~A~%" string)
-    (let ((*print-pretty* nil))
-      (format stream "~6,'0x" length))
-    (write-string string stream)
+    (without-interrupts
+      (let ((*print-pretty* nil))
+        (format stream "~6,'0x" length))
+      (write-string string stream))
     ;;(terpri stream)
     (finish-output stream)))
 
