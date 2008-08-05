@@ -487,13 +487,6 @@
     (declare (type function function))
     (mp:with-lock (lock) (funcall function)))
 
-  (defimplementation make-recursive-lock (&key name)
-    (mp:make-lock :name name))
-
-  (defimplementation call-with-recursive-lock-held (lock function)
-    (declare (type function function))
-    (mp:with-lock (lock) (funcall function)))
-
   (defimplementation current-thread ()
     mp:*current-process*)
 
@@ -549,38 +542,34 @@
     "How often to flush interactive streams. This valu is passed
     directly to cl:sleep.")
 
-  (defvar *auto-flush-lock* (make-recursive-lock :name "auto flush"))
+  (defvar *auto-flush-lock* (make-lock :name "auto flush"))
 
   (defvar *auto-flush-thread* nil)
 
   (defvar *auto-flush-streams* '())
 
   (defimplementation make-stream-interactive (stream)
-    (call-with-recursive-lock-held
-     *auto-flush-lock*
-     (lambda ()
-       (pushnew stream *auto-flush-streams*)
-       (unless *auto-flush-thread*
-         (setq *auto-flush-thread*
-               (spawn #'flush-streams
-		      :name "auto-flush-thread"))))))
+    (mp:with-lock (*auto-flush-lock*)
+      (pushnew stream *auto-flush-streams*)
+      (unless *auto-flush-thread*
+        (setq *auto-flush-thread*
+              (spawn #'flush-streams
+                     :name "auto-flush-thread")))))
 
   (defmethod stream-finish-output ((stream stream))
     (finish-output stream))
 
   (defun flush-streams ()
     (loop
-     (call-with-recursive-lock-held
-      *auto-flush-lock*
-      (lambda ()
-        (setq *auto-flush-streams*
-              (remove-if (lambda (x)
-                           (not (and (open-stream-p x)
-                                     (output-stream-p x))))
-                         *auto-flush-streams*))
-        (dolist (i *auto-flush-streams*)
-          (ignore-errors (stream-finish-output i))
-          (ignore-errors (finish-output i)))))
+     (mp:with-lock (*auto-flush-lock*)
+       (setq *auto-flush-streams*
+             (remove-if (lambda (x)
+                          (not (and (open-stream-p x)
+                                    (output-stream-p x))))
+                        *auto-flush-streams*))
+       (dolist (i *auto-flush-streams*)
+         (ignore-errors (stream-finish-output i))
+         (ignore-errors (finish-output i))))
      (sleep *auto-flush-interval*)))
 
   )

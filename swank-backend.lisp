@@ -969,7 +969,8 @@ user. They do not have to be unique."
 
 (definterface make-lock (&key name)
    "Make a lock for thread synchronization.
-Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time."
+Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time
+but that thread may hold it more than once."
    (declare (ignore name))
    :null-lock)
 
@@ -978,24 +979,6 @@ Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time."
    (declare (ignore lock)
             (type function function))
    (funcall function))
-
-(definterface make-recursive-lock (&key name)
-  "Make a lock for thread synchronization.
-Only one thread may hold the lock (via CALL-WITH-RECURSIVE-LOCK-HELD)
-at a time, but that thread may hold it more than once."
-  (cons nil (make-lock :name name)))
-
-(definterface call-with-recursive-lock-held (lock function)
-  "Call FUNCTION with LOCK held, queueing if necessary."
-  (if (eql (car lock) (current-thread))
-      (funcall function)
-      (call-with-lock-held (cdr lock)
-                           (lambda ()
-                             (unwind-protect
-                                  (progn
-                                    (setf (car lock) (current-thread))
-                                    (funcall function))
-                               (setf (car lock) nil))))))
 
 (definterface current-thread ()
   "Return the currently executing thread."

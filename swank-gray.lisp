@@ -15,11 +15,11 @@
    (buffer :initform (make-string 8000))
    (fill-pointer :initform 0)
    (column :initform 0)
-   (lock :initform (make-recursive-lock :name "buffer write lock"))))
+   (lock :initform (make-lock :name "buffer write lock"))))
 
 (defmacro with-slime-output-stream (stream &body body)
   `(with-slots (lock output-fn buffer fill-pointer column) ,stream
-     (call-with-recursive-lock-held lock (lambda () ,@body))))
+     (call-with-lock-held lock (lambda () ,@body))))
 
 (defmethod stream-write-char ((stream slime-output-stream) char)
   (with-slime-output-stream stream

@@ -1235,13 +1235,6 @@ stack."
 
   (defimplementation call-with-lock-held (lock function)
     (declare (type function function))
-    (sb-thread:with-mutex (lock) (funcall function)))
-
-  (defimplementation make-recursive-lock (&key name)
-    (sb-thread:make-mutex :name name))
-
-  (defimplementation call-with-recursive-lock-held (lock function)
-    (declare (type function function))
     (sb-thread:with-recursive-lock (lock) (funcall function)))
 
   (defimplementation current-thread ()
@@ -1314,33 +1307,29 @@ stack."
     "How often to flush interactive streams. This value is passed
     directly to cl:sleep.")
 
-  (defvar *auto-flush-lock* (make-recursive-lock :name "auto flush"))
+  (defvar *auto-flush-lock* (sb-thread:make-mutex :name "auto flush"))
 
   (defvar *auto-flush-thread* nil)
 
   (defvar *auto-flush-streams* '())
   
   (defimplementation make-stream-interactive (stream)
-    (call-with-recursive-lock-held
-     *auto-flush-lock*
-     (lambda ()
-       (pushnew stream *auto-flush-streams*)
-       (unless *auto-flush-thread*
-         (setq *auto-flush-thread*
-               (sb-thread:make-thread #'flush-streams
-                                      :name "auto-flush-thread"))))))
+    (sb-thread:with-mutex (*auto-flush-lock*)
+      (pushnew stream *auto-flush-streams*)
+      (unless *auto-flush-thread*
+        (setq *auto-flush-thread*
+              (sb-thread:make-thread #'flush-streams
+                                     :name "auto-flush-thread")))))
 
   (defun flush-streams ()
     (loop
-     (call-with-recursive-lock-held
-      *auto-flush-lock*
-      (lambda ()
-        (setq *auto-flush-streams*
-              (remove-if (lambda (x)
-                           (not (and (open-stream-p x)
-                                     (output-stream-p x))))
-                         *auto-flush-streams*))
-        (mapc #'finish-output *auto-flush-streams*)))
+     (sb-thread:with-mutex (*auto-flush-lock*)
+       (setq *auto-flush-streams*
+             (remove-if (lambda (x)
+                          (not (and (open-stream-p x)
+                                    (output-stream-p x))))
+                        *auto-flush-streams*))
+       (mapc #'finish-output *auto-flush-streams*))
      (sleep *auto-flush-interval*)))
 
   )
