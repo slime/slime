@@ -937,7 +937,8 @@ Depending on the impleimentaion, this function may never return."
   "Return an Emacs-parsable object to identify THREAD.
 
 Ids should be comparable with equal, i.e.:
- (equal (thread-id <t1>) (thread-id <t2>)) <==> (eq <t1> <t2>)")
+ (equal (thread-id <t1>) (thread-id <t2>)) <==> (eq <t1> <t2>)"
+  thread)
 
 (definterface find-thread (id)
   "Return the thread for ID.

@@ -3,6 +3,8 @@
 	* swank-backend.lisp (make-recursive-lock)
 	(call-with-recursive-lock-held): Deleted.  Make the default locks
 	"recursive" instead.
+	(thread-id): Add a default implementation which works
+	with the default implementation of current-thread.
 
 	* swank-gray.lisp (stream-write-string): New method.
 
