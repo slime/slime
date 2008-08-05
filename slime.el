@@ -928,14 +928,13 @@ READ-ONLY makes the buffer read-only.
 If REUSEP is t, an already existing buffer won't be killed."
   `(let ((standard-output
 	  (slime-temp-buffer ,name #',mode ,reusep ,emacs-snapshot))
-	 (connection% ,(if (eq connection t)
-				'(slime-connection)
-			      connection))
+	 (connection% ,(if (eq connection t) '(slime-connection) connection))
 	 (package% ,package))
      (with-current-buffer standard-output
        (setq slime-buffer-package package%)
        ,@(if connection '((setq slime-buffer-connection connection%)))
        ,@body
+       (assert (eq (current-buffer) standard-output))
        ,@(if read-only '((setq buffer-read-only t))))))
 
 (put 'slime-with-output-to-temp-buffer 'lisp-indent-function 2)
@@ -9134,7 +9133,8 @@ SWANK> " t))
                                           (return-from outta 42))))
                                  (dotimes (i ,times) 
                                    (break)
-                                   (sleep 0.2)))))))))
+                                   (sleep 0.2))))))
+           )))
     (dolist (test tests)
       (let ((name       (car test))
             (definition (cdr test)))

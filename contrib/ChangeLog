@@ -1,3 +1,13 @@
+2008-08-05  Michael Weber  <michaelw+slime@foldr.org>
+
+	* slime-typeout-frame.el (slime-typeout-message-aux): prevent
+	typeout messages from scribbling into any buffer which happens to
+	be in the typeout window
+	(slime-typeout-buffer): new function; changed buffer name to
+	"*SLIME Typeout*"
+	(slime-make-typeout-frame): use it
+	(slime-ensure-typeout-frame): ensure typeout buffer is visible
+
 2008-08-04  Adam Bozanich <adam.boz@gmail.com>
 
 	* slime-asdf.el: Load swank-asdf.

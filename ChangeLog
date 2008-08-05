@@ -1,5 +1,8 @@
 2008-08-05  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-with-output-to-temp-buffer): Make sure that we
+	don't make the wrong buffer read-only.
+
 	* swank-lispworks.lisp (make-stream-interactive): Run our own
 	thread to periodically flush streams instead of relying on
 	soft-force-output.

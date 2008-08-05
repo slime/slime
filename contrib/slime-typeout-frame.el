@@ -8,8 +8,7 @@
 ;; Add something like this to your .emacs: 
 ;;
 ;;   (add-to-list 'load-path "<directory-of-this-file>")
-;;   (add-hook 'slime-load-hook (lambda () (require 'slime-typeout-frame)))
-;;
+;;   (slime-setup '(slime-typeout-frame))
 
 
 ;;;; Typeout frame
@@ -24,14 +23,20 @@
   '((height . 10) (minibuffer . nil))
   "The typeout frame properties (passed to `make-frame').")
 
+(defun slime-typeout-buffer ()
+  (with-current-buffer (get-buffer-create "*SLIME Typeout*")
+    (setq buffer-read-only t)
+    (current-buffer)))
+
 (defun slime-typeout-active-p ()
   (and slime-typeout-window
        (window-live-p slime-typeout-window)))
 
 (defun slime-typeout-message-aux (format-string &rest format-args)
   (slime-ensure-typeout-frame)
-  (with-current-buffer (window-buffer slime-typeout-window)
-    (let ((msg (apply #'format format-string format-args)))
+  (with-current-buffer (slime-typeout-buffer)
+    (let ((inhibit-read-only t)
+          (msg (apply #'format format-string format-args)))
       (unless (string= msg "")
 	(erase-buffer)
 	(insert msg)))))
@@ -50,13 +55,16 @@
   (let ((frame (make-frame slime-typeout-frame-properties)))
     (save-selected-window
       (select-window (frame-selected-window frame))
-      (switch-to-buffer "*SLIME-Typeout*")
+      (switch-to-buffer (slime-typeout-buffer))
       (setq slime-typeout-window (selected-window)))))
 
 (defun slime-ensure-typeout-frame ()
   "Create the typeout frame unless it already exists."
   (interactive)
-  (unless (slime-typeout-active-p)
+  (if (slime-typeout-active-p)
+      (save-selected-window
+        (select-window slime-typeout-window)
+        (switch-to-buffer (slime-typeout-buffer)))
     (slime-make-typeout-frame)))
 
 (defun slime-typeout-autodoc-message (doc)
