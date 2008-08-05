@@ -194,6 +194,7 @@ EXCEPT is a list of symbol names which should be ignored."
 (defvar *gray-stream-symbols*
   '(:fundamental-character-output-stream
     :stream-write-char
+    :stream-write-string
     :stream-fresh-line
     :stream-force-output
     :stream-finish-output

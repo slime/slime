@@ -32,6 +32,29 @@
       (finish-output stream)))
   char)
 
+(defmethod stream-write-string ((stream slime-output-stream) string
+                                &optional start end)
+  (with-slime-output-stream stream
+    (let* ((start (or start 0))
+           (end (or end (length string)))
+           (len (length buffer))
+           (count (- end start))
+           (free (- len fill-pointer)))
+      (when (>= count free)
+        (stream-finish-output stream))
+      (cond ((< count len)
+             (replace buffer string :start1 fill-pointer
+                      :start2 start :end2 end)
+             (incf fill-pointer count))
+            (t
+             (funcall output-fn (subseq string start end))))
+      (let ((last-newline (position #\newline string :from-end t
+                                    :start start :end end)))
+        (setf column (if last-newline 
+                         (- end last-newline 1)
+                         (+ column count))))))
+  string)
+              
 (defmethod stream-line-column ((stream slime-output-stream))
   (with-slime-output-stream stream column))
 
