@@ -1,3 +1,14 @@
+2008-08-06  Nikodemus Siivola <nikodemus@random-state.net>
+
+	* swank-sbcl.lisp (handle-notification-condition): resignal
+	warnings as-is before replacing with COMPILER-CONDITION so that
+	handlers higher up the stack can muffle them should they choose
+	to. This silences redefinition warnings for definitions inside
+	EVAL-WHEN :COMPILE-TOPLEVEL in newish SBCLs when compiling the
+	file for a second time.
+	(call-with-compilation-hooks): STYLE-WARNINGs are WARNINGs, and
+	don't need a separate handler.
+
 2008-08-05  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-with-output-to-temp-buffer): Make sure that we

@@ -313,10 +313,13 @@ This traps all compiler conditions at a lower-level than using
 C:*COMPILER-NOTIFICATION-FUNCTION*. The advantage is that we get to
 craft our own error messages, which can omit a lot of redundant
 information."
-  (let ((context (sb-c::find-error-context nil)))
-    (unless (eq condition *previous-compiler-condition*)
-      (setq *previous-compiler-condition* condition)
-      (signal-compiler-condition condition context))))
+  (unless (or (eq condition *previous-compiler-condition*))
+    ;; First resignal warnings, so that outer handlers -- which may choose to
+    ;; muffle this -- get a chance to run.
+    (when (typep condition 'warning)
+      (signal condition))
+    (setq *previous-compiler-condition* condition)
+    (signal-compiler-condition condition (sb-c::find-error-context nil))))
 
 (defun signal-compiler-condition (condition context)
   (signal (make-condition
@@ -409,7 +412,6 @@ compiler state."
   (handler-bind ((sb-c:fatal-compiler-error #'handle-file-compiler-termination)
                  (sb-c:compiler-error  #'handle-notification-condition)
                  (sb-ext:compiler-note #'handle-notification-condition)
-                 (style-warning        #'handle-notification-condition)
                  (warning              #'handle-notification-condition))
     (funcall function)))
 
