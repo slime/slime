@@ -5865,11 +5865,9 @@ arg, you're interactively asked for parameters of the search."
     (slime-eval-async
      `(swank:apropos-list-for-emacs ,string ,only-external-p
                                     ,case-sensitive-p ',package)
-     (lexical-let ((string string)
-                   (package buffer-package)
-                   (summary (slime-apropos-summary string case-sensitive-p
-                                                   package only-external-p)))
-       (lambda (r) (slime-show-apropos r string package summary))))))
+     (slime-rcurry #'slime-show-apropos string buffer-package
+                   (slime-apropos-summary string case-sensitive-p
+                                          package only-external-p)))))
 
 (defun slime-apropos-all ()
   "Shortcut for (slime-apropos <string> nil nil)"
@@ -5894,7 +5892,9 @@ With prefix argument include internal symbols."
           (setq header-line-format summary)
         (insert summary "\n\n"))
       (slime-set-truncate-lines)
-      (slime-print-apropos plists))))
+      (slime-print-apropos plists)
+      (set-syntax-table lisp-mode-syntax-table)
+      (goto-char (point-min)))))
 
 (eval-when-compile (require 'apropos))
 

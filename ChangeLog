@@ -11,6 +11,11 @@
 
 2008-08-06  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-show-apropos): Use lisp-syntax-table to make
+	M-. more useful.
+
+2008-08-06  Helmut Eller  <heller@common-lisp.net>
+
 	Queue interrupts in various places.
 
 	* swank-backend.lisp (*pending-slime-interrupts*): New variable.
