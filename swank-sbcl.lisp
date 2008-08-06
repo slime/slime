@@ -1304,10 +1304,11 @@ stack."
     (receive-if (constantly t)))
 
   (defimplementation receive-if (test)
-    (let ((mbox (mailbox (current-thread))))
+    (let* ((mbox (mailbox (current-thread)))
+           (mutex (mailbox.mutex mbox)))
       (loop
        (check-slime-interrupts)
-       (sb-thread:with-mutex ((mailbox.mutex mbox))
+       (sb-thread:with-mutex (mutex)
          (let* ((q (mailbox.queue mbox))
                 (tail (member-if test q)))
            (when tail 
