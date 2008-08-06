@@ -9,6 +9,23 @@
 	(call-with-compilation-hooks): STYLE-WARNINGs are WARNINGs, and
 	don't need a separate handler.
 
+2008-08-06  Helmut Eller  <heller@common-lisp.net>
+
+	Queue interrupts in various places.
+
+	* swank-backend.lisp (*pending-slime-interrupts*): New variable.
+	(check-slime-interrupts): New function.
+
+	* swank-lispworks.lisp (receive-if): Use it.
+
+	* swank-sbcl.lisp, swank-openmcl.lisp: Ditto.
+
+	* swank.lisp (*slime-interrupts-enabled*): New variable.
+	(with-slime-interrupts, without-slime-interrupts): New macros.
+	(invoke-or-queue-interrupt): New function.
+	(interrupt-worker-thread, eval-for-emacs, swank-debugger-hook)
+	(debug-nth-thread, wait-for-event, read-from-emacs): Use them.
+
 2008-08-05  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-with-output-to-temp-buffer): Make sure that we

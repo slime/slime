@@ -849,14 +849,43 @@ of the toplevel restart."
                                   (swank-error.backtrace e)))))))
            (progn ,@body))))))
 
-(defslimefun simple-break ()
+(defvar *slime-interrupts-enabled*)
+
+(defmacro with-slime-interrupts (&body body)
+  `(progn
+     (check-slime-interrupts)
+     (let ((*slime-interrupts-enabled* t)
+           (*pending-slime-interrupts* '()))
+       (multiple-value-prog1 (progn ,@body) 
+         (check-slime-interrupts)))))
+
+(defmacro without-slime-interrupts (&body body)
+  `(progn
+     (check-slime-interrupts)
+     (let ((*slime-interrupts-enabled* nil)
+           (*pending-slime-interrupts* '()))
+       (multiple-value-prog1 (progn ,@body)
+         (check-slime-interrupts)))))
+
+(defun invoke-or-queue-interrupt (function)
+  (cond ((not (boundp '*slime-interrupts-enabled*))
+         (without-slime-interrupts
+           (funcall function)))
+        (*slime-interrupts-enabled*
+         (funcall function))
+        ((cddr *pending-slime-interrupts*)
+         (simple-break "Two many queued interrupts"))
+        (t
+         (push function *pending-slime-interrupts*))))
+
+(defslimefun simple-break (&optional (message "Interrupt from Emacs"))
   (with-simple-restart  (continue "Continue from interrupt.")
     (call-with-debugger-hook
      #'swank-debugger-hook
      (lambda ()
        (invoke-debugger 
-        (make-condition 'simple-error 
-                        :format-control "Interrupt from Emacs")))))
+        (make-condition 'simple-error :format-control "~a"
+                        :format-arguments (list message))))))
   nil)
 
 ;;;;;; Thread based communication
@@ -899,7 +928,9 @@ of the toplevel restart."
 (defun interrupt-worker-thread (id)
   (let ((thread (or (find-worker-thread id)
                     (repl-thread *emacs-connection*))))
-    (interrupt-thread thread #'simple-break)))
+    (interrupt-thread thread
+                      (lambda () 
+                        (invoke-or-queue-interrupt #'simple-break)))))
 
 (defun thread-for-evaluation (id)
   "Find or create a thread to evaluate the next request."
@@ -1321,11 +1352,21 @@ NIL if streams are not globally redirected.")
     (funcall function)))
 
 (defun call-with-thread-description (description thunk)
-  (let* ((thread (current-thread))
-         (old-description (thread-description thread)))
-    (set-thread-description thread description)
-    (unwind-protect (funcall thunk)
-      (set-thread-description thread old-description))))
+  ;; For `M-x slime-list-threads': Display what threads
+  ;; created by swank are currently doing.
+  (flet ((request-to-string (req)
+           (remove #\Newline
+                   (string-trim '(#\Space #\Tab)
+                                (prin1-to-string req))))
+         (truncate-string (str n)
+           (format nil "~A..." (subseq str 0 (min (length str) n)))))
+    (let* ((thread (current-thread))
+           (old-description (thread-description thread)))
+      (set-thread-description thread 
+                              (truncate-string (request-to-string description)
+                                               55))
+      (unwind-protect (funcall thunk)
+        (set-thread-description thread old-description)))))
 
 (defmacro with-thread-description (description &body body)
   `(call-with-thread-description ,description #'(lambda () ,@body)))
@@ -1334,29 +1375,22 @@ NIL if streams are not globally redirected.")
 
 (defun read-from-emacs ()
   "Read and process a request from Emacs."
-  (flet ((request-to-string (req)
-           (remove #\Newline
-                   (string-trim '(#\Space #\Tab)
-                                (prin1-to-string req))))
-         (truncate-string (str n)
-           (if (> (length str) n)
-               (format nil "~A..." (subseq str 0 n))
-               str)))
-    (let ((request (funcall (connection.read *emacs-connection*))))
-      (if (eq *communication-style* :spawn)
-          ;; For `M-x slime-list-threads': Display what threads
-          ;; created by swank are currently doing.
-          (with-thread-description (truncate-string (request-to-string request) 55)
-            (apply #'funcall request))
-          (destructure-case request
+  (let ((request (without-slime-interrupts
+                   (funcall (connection.read *emacs-connection*)))))
+    (if (eq *communication-style* :spawn)
+        (with-thread-description request 
+          (apply #'funcall request))
+        (destructure-case request
             ((:call &rest args) (apply #'funcall args))
             (t (setf *event-queue* 
-                     (nconc *event-queue* (list request)))))))))
+                     (nconc *event-queue* (list request))))))))
 
 (defun wait-for-event (pattern)
   (log-event "wait-for-event: %S~%" pattern)
   (case (connection.communication-style *emacs-connection*)
-    (:spawn (receive-if (lambda (e) (event-match-p e pattern))))
+    (:spawn 
+     (without-slime-interrupts
+       (receive-if (lambda (e) (event-match-p e pattern)))))
     (t (wait-for-event/event-loop pattern))))
 
 (defun wait-for-event/event-loop (pattern)
@@ -1760,7 +1794,7 @@ Errors are trapped and invoke our debugger."
               (check-type *buffer-readtable* readtable)
               ;; APPLY would be cleaner than EVAL. 
               ;;(setq result (apply (car form) (cdr form)))
-              (setq result (eval form))
+              (setq result (with-slime-interrupts (eval form)))
               (run-hook *pre-reply-hook*)
               (setq ok t))
          (send-to-emacs `(:return ,(current-thread)
@@ -2006,11 +2040,12 @@ Sends a message to Emacs declaring that the debugger has been entered,
 then waits to handle further requests from Emacs. Eventually returns
 after Emacs causes a restart to be invoked."
   (declare (ignore hook))
-  (cond (*emacs-connection*
-         (debug-in-emacs condition))
-        ((default-connection)
-         (with-connection ((default-connection))
-           (debug-in-emacs condition)))))
+  (without-slime-interrupts
+    (cond (*emacs-connection*
+           (debug-in-emacs condition))
+          ((default-connection)
+           (with-connection ((default-connection))
+             (debug-in-emacs condition))))))
 
 (defvar *global-debugger* t
   "Non-nil means the Swank debugger hook will be installed globally.")
@@ -2991,8 +3026,10 @@ a time.")
   (let ((connection *emacs-connection*))
     (interrupt-thread (nth-thread index)
                       (lambda ()
-			(with-connection (connection)
-			  (simple-break))))))
+                        (invoke-or-queue-interrupt
+                         (lambda ()
+                           (with-connection (connection)
+                             (simple-break))))))))
 
 (defslimefun kill-nth-thread (index)
   (kill-thread (nth-thread index)))

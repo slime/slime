@@ -32,6 +32,9 @@
            #:unbound-slot-filler
            #:declaration-arglist
            #:type-specifier-arglist
+           ;; interrupt macro for the backend
+           #:*pending-slime-interrupts*
+           #:check-slime-interrupts
            ;; inspector related symbols
            #:emacs-inspect
            #:label-value-line
@@ -1008,6 +1011,16 @@ but that thread may hold it more than once."
 
 (definterface receive-if (predicate)
   "Return the first message satisfiying PREDICATE.")
+
+(defvar *pending-slime-interrupts*)
+
+(defun check-slime-interrupts ()
+  "Execute pending interrupts if any.
+This should be called periodically in operations which
+can take a long time to complete."
+  (when (and (boundp '*pending-slime-interrupts*)
+             *pending-slime-interrupts*)
+    (funcall (pop *pending-slime-interrupts*))))
 
 (definterface toggle-trace (spec)
   "Toggle tracing of the function(s) given with SPEC.

@@ -751,32 +751,31 @@ function names like \(SETF GET)."
   (let* ((mbox (mailbox mp:*current-process*))
          (lock (mailbox.mutex mbox)))
     (loop
-     (mp:process-wait "receive" #'mailbox.queue mbox)
-     (mp:without-interrupts
-       (mp:with-lock (lock "receive/try" 0.1)
-         (when (mailbox.queue mbox)
-           (return (pop (mailbox.queue mbox)))))))))
+     (check-slime-interrupts)
+     (mp:with-lock (lock "receive/try")
+       (when (mailbox.queue mbox)
+         (return (pop (mailbox.queue mbox)))))
+     (mp:process-wait-with-timeout "receive" 0.2 #'mailbox.queue mbox))))
 
 (defimplementation receive-if (test)
   (let* ((mbox (mailbox mp:*current-process*))
          (lock (mailbox.mutex mbox)))
     (loop
-     (mp:process-wait "receive-if"
-                      (lambda () (some test (mailbox.queue mbox))))
-     (mp:without-interrupts
-       (mp:with-lock (lock "receive-if/try" 0.1)
-         (let* ((q (mailbox.queue mbox))
-                (tail (member-if test q)))
-           (when tail
-             (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
-             (return (car tail)))))))))
+     (check-slime-interrupts)
+     (mp:with-lock (lock "receive-if/try")
+       (let* ((q (mailbox.queue mbox))
+              (tail (member-if test q)))
+         (when tail
+           (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
+           (return (car tail)))))
+     (mp:process-wait-with-timeout 
+      "receive-if" 0.2 (lambda () (some test (mailbox.queue mbox)))))))
 
 (defimplementation send (thread message)
   (let ((mbox (mailbox thread)))
-    (mp:without-interrupts
-      (mp:with-lock ((mailbox.mutex mbox))
-        (setf (mailbox.queue mbox)
-              (nconc (mailbox.queue mbox) (list message)))))))
+    (mp:with-lock ((mailbox.mutex mbox))
+      (setf (mailbox.queue mbox)
+            (nconc (mailbox.queue mbox) (list message))))))
 
 ;;; Some intergration with the lispworks environment
 

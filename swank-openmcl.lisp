@@ -961,23 +961,19 @@ out IDs for.")
 (defimplementation receive ()
   (receive-if (constantly t)))
 
-(defvar *in-receive-if* nil)
-
 (defimplementation receive-if (test)
   (let* ((mbox (mailbox ccl:*current-process*))
          (mutex (mailbox.mutex mbox)))
-    (loop 
+    (loop
+     (check-slime-interrupts)
      (ccl:with-lock-grabbed (mutex)
        (let* ((q (mailbox.queue mbox))
               (tail (member-if test q)))
          (when tail 
            (setf (mailbox.queue mbox) 
                  (nconc (ldiff q tail) (cdr tail)))
-           (when *in-receive-if*
-             (ccl:signal-semaphore (mailbox.semaphore mbox)))
            (return (car tail)))))
-     (let ((*in-receive-if* t))
-       (ccl:wait-on-semaphore (mailbox.semaphore mbox))))))
+     (ccl:timed-wait-on-semaphore (mailbox.semaphore mbox) 0.2))))
 
 (defimplementation quit-lisp ()
   (ccl::quit))

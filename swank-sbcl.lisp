@@ -1281,27 +1281,22 @@ stack."
         (sb-thread:condition-broadcast (mailbox.waitqueue mbox)))))
 
   (defimplementation receive ()
-    (let* ((mbox (mailbox (current-thread)))
-           (mutex (mailbox.mutex mbox)))
-      (sb-thread:with-mutex (mutex)
-        (loop
-         (let ((q (mailbox.queue mbox)))
-           (cond (q (return (pop (mailbox.queue mbox))))
-                 (t (sb-thread:condition-wait (mailbox.waitqueue mbox)
-                                              mutex))))))))
+    (receive-if (constantly t)))
 
   (defimplementation receive-if (test)
-    (let* ((mbox (mailbox (current-thread)))
-           (mutex (mailbox.mutex mbox)))
-      (sb-thread:with-mutex (mutex)
-        (loop
+    (let ((mbox (mailbox (current-thread))))
+      (loop
+       (check-slime-interrupts)
+       (sb-thread:with-mutex ((mailbox.mutex mbox))
          (let* ((q (mailbox.queue mbox))
                 (tail (member-if test q)))
-           (cond (tail 
-                  (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
-                  (return (car tail)))
-                 (t (sb-thread:condition-wait (mailbox.waitqueue mbox)
-                                              mutex))))))))
+           (when tail 
+             (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
+             (return (car tail))))
+         (handler-case (sb-ext:with-timeout 0.2
+                         (sb-thread:condition-wait (mailbox.waitqueue mbox)
+                                                   mutex))
+           (sb-ext:timeout ()))))))
 
   ;; Auto-flush streams
 
