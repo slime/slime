@@ -451,6 +451,7 @@ compiler state."
 
 (defimplementation swank-compile-string (string &key buffer position directory
                                                 debug)
+  (declare (ignorable debug))
   (let ((*buffer-name* buffer)
         (*buffer-offset* position)
         (*buffer-substring* string)
@@ -1226,12 +1227,31 @@ stack."
     
     (defimplementation thread-description (thread)
       (sb-thread:with-mutex (*thread-descr-map-lock*)
-        (or (gethash thread *thread-description-map*) "")))
+        (or (gethash thread *thread-description-map*)
+            (short-backtrace thread 6 10))))
 
     (defimplementation set-thread-description (thread description)
       (sb-thread:with-mutex (*thread-descr-map-lock*)
-        (setf (gethash thread *thread-description-map*) description))))
-  
+        (setf (gethash thread *thread-description-map*) description)))
+
+    (defun short-backtrace (thread start count)
+      (let ((self (current-thread))
+            (tag (get-internal-real-time)))
+        (sb-thread:interrupt-thread
+         thread
+         (lambda ()
+           (let* ((frames (nthcdr start (sb-debug:backtrace-as-list count))))
+             (send self (cons tag frames)))))
+        (handler-case
+            (sb-ext:with-timeout 0.1
+              (let ((frames (cdr (receive-if (lambda (msg) 
+                                               (eq (car msg) tag)))))
+                    (*print-pretty* nil))
+                (format nil "~{~a~^ <- ~}" (mapcar #'car frames))))
+          (sb-ext:timeout () ""))))
+
+    )
+
   (defimplementation make-lock (&key name)
     (sb-thread:make-mutex :name name))
 

@@ -11,6 +11,9 @@
 
 2008-08-06  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-sbcl.lisp (short-backtrace): New function.
+	(thread-description): Use it.
+
 	* slime.el (slime-show-apropos): Use lisp-syntax-table to make
 	M-. more useful.
 
