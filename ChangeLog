@@ -1,3 +1,13 @@
+2008-08-07  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Previously, M-p at the REPL deleted the input if no match could be
+	found in the history. Now the input is untouched.
+
+	* slime.el (slime-repl-history-replace): Ditch delete-at-end-p
+	argument.
+	(slime-repl-next-input, slime-repl-previous-input): Adapted.
+	(slime-repl-forward-input, slime-repl-backward-input): Ditto.
+
 2008-08-07  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-with-temp-buffer): Renamed from

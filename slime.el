@@ -3275,12 +3275,10 @@ Empty strings and duplicates are ignored."
 (defvar slime-repl-history-pattern nil
   "The regexp most recently used for finding input history.")
 
-(defun slime-repl-history-replace (direction &optional regexp delete-at-end-p)
+(defun slime-repl-history-replace (direction &optional regexp)
   "Replace the current input with the next line in DIRECTION.
 DIRECTION is 'forward' or 'backward' (in the history list).
-If REGEXP is non-nil, only lines matching REGEXP are considered.
-If DELETE-AT-END-P is non-nil then remove the string if the end of the
-history is reached."
+If REGEXP is non-nil, only lines matching REGEXP are considered."
   (setq slime-repl-history-pattern regexp)
   (let* ((min-pos -1)
          (max-pos (length slime-repl-input-history))
@@ -3300,9 +3298,7 @@ history is reached."
            (setq msg "Wrapped history")))
     (when (or (<= pos min-pos) (<= max-pos pos))
       (when regexp
-        (setq msg (concat msg "; no matching item")))
-      (when delete-at-end-p
-        (slime-repl-replace-input "")))
+        (setq msg (concat msg "; no matching item"))))
     ;;(message "%s [%d %d %s]" msg start-pos pos regexp)
     (message "%s%s" msg (cond ((not regexp) "")
                               (t (format "; current regexp: %s" regexp))))
@@ -3335,23 +3331,23 @@ If the `last-command' was a history navigation command use the
 same search pattern for this command.
 Otherwise use the current input as search pattern."
   (interactive)
-  (slime-repl-history-replace 'backward (slime-repl-history-pattern t) t))
+  (slime-repl-history-replace 'backward (slime-repl-history-pattern t)))
 
 (defun slime-repl-next-input ()
   "Cycle forwards through input history.
 See `slime-repl-previous-input'."
   (interactive)
-  (slime-repl-history-replace 'forward (slime-repl-history-pattern t) t))
+  (slime-repl-history-replace 'forward (slime-repl-history-pattern t)))
 
 (defun slime-repl-forward-input ()
   "Cycle forwards through input history."
   (interactive)
-  (slime-repl-history-replace 'forward (slime-repl-history-pattern) t))
+  (slime-repl-history-replace 'forward (slime-repl-history-pattern)))
 
 (defun slime-repl-backward-input ()
   "Cycle backwards through input history."
   (interactive)
-  (slime-repl-history-replace 'backward (slime-repl-history-pattern) t))
+  (slime-repl-history-replace 'backward (slime-repl-history-pattern)))
 
 (defun slime-repl-previous-matching-input (regexp)
   (interactive "sPrevious element matching (regexp): ")
