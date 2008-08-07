@@ -2097,34 +2097,28 @@ The `symbol-value' of each element is a type tag.")
                 (make-mailbox)))))
   
   (defimplementation send (thread message)
+    (check-slime-interrupts)
     (let* ((mbox (mailbox thread)))
-      (sys:without-interrupts
-        (mp:with-lock-held ((mailbox.mutex mbox))
-          (setf (mailbox.queue mbox)
-                (nconc (mailbox.queue mbox) (list message)))))))
+      (mp:with-lock-held ((mailbox.mutex mbox))
+        (setf (mailbox.queue mbox)
+              (nconc (mailbox.queue mbox) (list message))))))
   
   (defimplementation receive ()
-    (let* ((mbox (mailbox mp:*current-process*)))
-      (loop
-       (mp:process-wait "receive" #'mailbox.queue mbox)
-       (sys:without-interrupts
-         (mp:with-lock-held ((mailbox.mutex mbox))
-           (when (mailbox.queue mbox)
-             (return (pop (mailbox.queue mbox)))))))))
+    (receive-if (constantly t)))
 
   (defimplementation receive-if (test)
     (let ((mbox (mailbox mp:*current-process*)))
       (loop
-       (mp:process-wait "receive-if" 
-                        (lambda () (some test (mailbox.queue mbox))))
-       (sys:without-interrupts
-         (mp:with-lock-held ((mailbox.mutex mbox))
-           (let* ((q (mailbox.queue mbox))
-                  (tail (member-if test q)))
-             (when tail
-               (setf (mailbox.queue mbox) 
-                     (nconc (ldiff q tail) (cdr tail)))
-               (return (car tail)))))))))
+       (check-slime-interrupts)
+       (mp:with-lock-held ((mailbox.mutex mbox))
+         (let* ((q (mailbox.queue mbox))
+                (tail (member-if test q)))
+           (when tail
+             (setf (mailbox.queue mbox) 
+                   (nconc (ldiff q tail) (cdr tail)))
+             (return (car tail)))))
+       (mp:process-wait-with-timeout 
+        "receive-if" 0.5 (lambda () (some test (mailbox.queue mbox)))))))
                    
 
   ) ;; #+mp

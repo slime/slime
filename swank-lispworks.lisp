@@ -34,7 +34,7 @@
 
 (when (fboundp 'dspec::define-dspec-alias)
   (dspec::define-dspec-alias defimplementation (name args &rest body)
-    `(defmethod ,name ,args ,@body)))
+    `(defun ,name ,args ,@body)))
 
 ;;; TCP server
 
@@ -748,14 +748,7 @@ function names like \(SETF GET)."
               (make-mailbox)))))
 
 (defimplementation receive ()
-  (let* ((mbox (mailbox mp:*current-process*))
-         (lock (mailbox.mutex mbox)))
-    (loop
-     (check-slime-interrupts)
-     (mp:with-lock (lock "receive/try")
-       (when (mailbox.queue mbox)
-         (return (pop (mailbox.queue mbox)))))
-     (mp:process-wait-with-timeout "receive" 0.2 #'mailbox.queue mbox))))
+  (receive-if (constantly t)))
 
 (defimplementation receive-if (test)
   (let* ((mbox (mailbox mp:*current-process*))

@@ -1969,44 +1969,27 @@ The `symbol-value' of each element is a type tag.")
 (defimplementation send (thread message)
   (let* ((mbox (mailbox thread))
          (lock (mailbox-lock mbox)))
-    (sys:without-interrupts
-      (thread:with-lock-held (lock "Mailbox Send")
-        (setf (mailbox-queue mbox) (nconc (mailbox-queue mbox)
-                                          (list message)))))
-    (mp:process-wakeup thread)
-    message))
-  
+    (thread:with-lock-held (lock "Mailbox Send")
+      (setf (mailbox-queue mbox) (nconc (mailbox-queue mbox)
+                                        (list message))))
+    (mp:process-wakeup thread)))
+
 (defimplementation receive ()
-  (let* ((mbox (mailbox thread:*thread*))
-         (lock (mailbox-lock mbox)))
-    (loop
-     (mp:process-wait-with-timeout "Mailbox read wait" 1
-                                   #'(lambda () (mailbox-queue mbox)))
-     (multiple-value-bind (message winp)
-	 (sys:without-interrupts
-           (mp:with-lock-held (lock "Mailbox read")
-             (let ((queue (mailbox-queue mbox)))
-               (cond (queue
-                      (setf (mailbox-queue mbox) (cdr queue))
-                      (values (car queue) t))
-                     (t
-                      (values nil nil))))))
-       (when winp
-         (return message))))))
+  (receive-if (constantly t)))
 
 (defimplementation receive-if (test)
   (let ((mbox (mailbox thread:*thread*)))
     (loop
-     (mp:process-wait "receive-if" 
-                      (lambda () (some test (mailbox-queue mbox))))
-     (sys:without-interrupts
-       (mp:with-lock-held ((mailbox-lock mbox))
-         (let* ((q (mailbox-queue mbox))
-                (tail (member-if test q)))
-           (when tail
-             (setf (mailbox-queue mbox) 
-                   (nconc (ldiff q tail) (cdr tail)))
-             (return (car tail)))))))))
+     (check-slime-interrupts)
+     (mp:with-lock-held ((mailbox-lock mbox))
+       (let* ((q (mailbox-queue mbox))
+              (tail (member-if test q)))
+         (when tail
+           (setf (mailbox-queue mbox) 
+                 (nconc (ldiff q tail) (cdr tail)))
+           (return (car tail)))))
+     (mp:process-wait-with-timeout
+      "Mailbox read wait" 0.5 (lambda () (some test (mailbox-queue mbox)))))))
 
 
 

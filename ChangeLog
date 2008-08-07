@@ -1,3 +1,8 @@
+2008-08-07  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-allegro.lisp, swank-cmucl.lisp,
+	swank-scl.lisp (receive-if): Periodically check for interrupts.
+
 2008-08-06  Nikodemus Siivola <nikodemus@random-state.net>
 
 	* swank-sbcl.lisp (handle-notification-condition): resignal

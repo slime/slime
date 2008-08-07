@@ -6333,7 +6333,8 @@ expand the LOOP form. See comment in the source of this function."
      (lambda (expansion)
        (slime-with-output-to-temp-buffer
            ;; reusep for preserving `undo' functionality.
-           ("*SLIME Macroexpansion*" :mode lisp-mode :reusep t :connection t) package
+           ("*SLIME Macroexpansion*" :mode lisp-mode 
+            :reusep t :connection t :read-only nil) package
          (slime-mode 1)
          (slime-macroexpansion-minor-mode 1)
          (erase-buffer)
