@@ -1,3 +1,8 @@
+2008-08-07  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-mdot-fu.el: Works for LET bindings now also.
+	(def-slime-test find-local-definitions.1): New test case.
+
 2008-08-05  Michael Weber  <michaelw+slime@foldr.org>
 
 	* slime-typeout-frame.el (slime-typeout-message-aux): prevent
