@@ -663,7 +663,7 @@
 (defstruct (mailbox (:conc-name mailbox.)) 
   (lock (mp:make-process-lock :name "process mailbox"))
   (queue '() :type list)
-  (gate (mp:make-gate)))
+  (gate (mp:make-gate nil)))
 
 (defun mailbox (thread)
   "Return THREAD's mailbox."
