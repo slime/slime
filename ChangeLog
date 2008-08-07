@@ -1,5 +1,10 @@
 2008-08-07  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (def-slime-test narrowing): Adapted to recent changes
+	of `slime-with-output-to-temp-buffer'.
+
+2008-08-07  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	Mode-Line will now display a buffer's connection, and a buffer's
 	package. Furthermore, stale connections will also be indicated.
 

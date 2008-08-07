@@ -8668,9 +8668,11 @@ BODY returns true if the check succeeds."
 
       (slime-with-output-to-temp-buffer (random-buffer-name) nil
         (slime-check ("Checking that we're in Slime's temp buffer `%s'" random-buffer-name)
-          (equal (buffer-name (current-buffer)) random-buffer-name))
-        (slime-temp-buffer-quit))
-      (kill-buffer random-buffer-name)
+          (equal (buffer-name (current-buffer)) random-buffer-name)))
+      (with-current-buffer random-buffer-name
+        ;; Notice that we cannot quit the buffer within the the extent
+        ;; of slime-with-output-to-temp-buffer.
+        (slime-temp-buffer-quit t)) 
       (slime-check ("Checking that we've got back from `%s'" random-buffer-name)
         (and (eq (current-buffer) tmpbuffer)
              (= (point) defun-pos)))
