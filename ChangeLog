@@ -1,3 +1,32 @@
+2008-08-07  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Mode-Line will now display a buffer's connection, and a buffer's
+	package. Furthermore, stale connections will also be indicated.
+
+	* slime.el: (slime-update-modeline-package): Renamed to
+	`slime-extended-modeline'.
+	(slime-modeline-string),
+	(slime-modeline-connection-name),
+	(slime-modeline-connection-state): New variables.
+	(slime-update-modeline-package): Renamed to
+	`slime-compute-modeline-package'.
+	(slime-compute-modeline-connection): New.
+	(sime-compute-modeline-connection-state): New.
+	(slime-compute-modeline-string): New.
+	(slime-update-modeline-string): New.
+	(slime-shall-we-update-modeline-p): New.
+	(slime-update-modeline): New. Run periodically by idle timer.
+
+	(slime-mode, slime-temp-buffer-mode): Install extended mode-line.
+
+	(slime-stale-connection-p, slime-debugged-connection-p): New.
+	(slime-compute-connection-state): New.
+	(slime-connection-state-as-string): New.
+	(slime-state-name): Removed.
+	(slime-set-state): Removed.
+
+	(slime-length>): Fix typecase.
+
 2008-08-07  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-allegro.lisp, swank-cmucl.lisp,
