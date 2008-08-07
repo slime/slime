@@ -1,3 +1,8 @@
+2008-08-07  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-with-temp-buffer): By default, no longer inherit
+	the current connection.
+
 2008-08-07  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	Previously, M-p at the REPL deleted the input if no match could be

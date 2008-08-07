@@ -963,8 +963,8 @@ Buffer local in temp-buffers."))
    "The emacs snapshot \"fingerprint\" after displaying the buffer."))
 
 ;; Interface
-(defmacro* slime-with-temp-buffer ((name package &key (connection t)
-                                         emacs-snapshot)
+(defmacro* slime-with-temp-buffer ((name &optional package
+                                         connection emacs-snapshot)
                                    &rest body)
   "Similar to `with-output-to-temp-buffer'.
 Bind standard-output and initialize some buffer-local variables.
@@ -978,7 +978,7 @@ the buffer.  If t, the current connection is taken.
 If EMACS-SNAPSHOT is non-NIL, it's used to restore the previous
 state of Emacs after closing the temporary buffer. Otherwise, the
 current state will be saved and later restored."
-  `(let* ((vars% (list ,package
+  `(let* ((vars% (list ,(if (eq package t) '(slime-current-package) package)
                        ,(if (eq connection t) '(slime-connection) connection)
                        ,(or emacs-snapshot '(slime-current-emacs-snapshot))))
           (standard-output (slime-temp-buffer ,name vars%)))
@@ -3615,7 +3615,7 @@ expansion will be added to the REPL's history.)"
 
 (defun slime-list-repl-short-cuts ()
   (interactive)
-  (slime-with-temp-buffer ("*slime-repl-help*" nil)
+  (slime-with-temp-buffer ("*slime-repl-help*")
     (let ((table (sort* (copy-list slime-repl-shortcut-table) #'string<
                         :key (lambda (x) 
                                (car (slime-repl-shortcut.names x))))))
@@ -4121,8 +4121,7 @@ Each newlines and following indentation is replaced by a single space."
   "Show the compiler notes NOTES in tree view."
   (interactive (list (slime-compiler-notes)))
   (with-temp-message "Preparing compiler note tree..."
-    (slime-with-temp-buffer ("*SLIME Compiler-Notes*" nil
-                                       :emacs-snapshot emacs-snapshot)
+    (slime-with-temp-buffer ("*SLIME Compiler-Notes*" nil nil emacs-snapshot)
       (erase-buffer)
       (slime-compiler-notes-mode)
       (when (null notes)
@@ -5529,7 +5528,7 @@ in Lisp when committed with \\[slime-edit-value-commit]."
 
 (defun slime-edit-value-callback (form-string current-value package)
   (let ((name (generate-new-buffer-name (format "*Edit %s*" form-string))))
-    (with-current-buffer (slime-with-temp-buffer (name package) 
+    (with-current-buffer (slime-with-temp-buffer (name package t)
                            (current-buffer))
       (lisp-mode)
       (slime-mode 1)
@@ -5931,7 +5930,7 @@ With prefix argument include internal symbols."
 (defun slime-show-apropos (plists string package summary)
   (if (null plists)
       (message "No apropos matches for %S" string)
-    (slime-with-temp-buffer ("*SLIME Apropos*" package)
+    (slime-with-temp-buffer ("*SLIME Apropos*" package t)
       (apropos-mode)
       (if (boundp 'header-line-format)
           (setq header-line-format summary)
@@ -6388,7 +6387,7 @@ This variable specifies both what was expanded and how.")
 
 (defun slime-create-macroexpansion-buffer ()
   (let ((name "*SLIME Macroexpansion*"))
-    (slime-with-temp-buffer (name (slime-current-package)) 
+    (slime-with-temp-buffer (name t t)
       (lisp-mode)
       (slime-mode 1)
       (slime-macroexpansion-minor-mode 1)
@@ -7494,7 +7493,7 @@ was called originally."
 (defun slime-list-connections ()
   "Display a list of all connections."
   (interactive)
-  (slime-with-temp-buffer ("*SLIME Connections*" nil)
+  (slime-with-temp-buffer ("*SLIME Connections*")
     (slime-connection-list-mode)
     (slime-draw-connection-list)))
 
@@ -8657,7 +8656,7 @@ BODY returns true if the check succeeds."
       (slime-check "Checking that narrowing succeeded."
        (slime-buffer-narrowed-p))
 
-      (slime-with-temp-buffer (random-buffer-name nil)
+      (slime-with-temp-buffer (random-buffer-name)
         (slime-check ("Checking that we're in Slime's temp buffer `%s'" random-buffer-name)
           (equal (buffer-name (current-buffer)) random-buffer-name)))
       (with-current-buffer random-buffer-name
