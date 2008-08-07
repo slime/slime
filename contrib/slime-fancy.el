@@ -70,4 +70,13 @@
 (require 'slime-references)
 (slime-references-init)
 
+;; Makes M-. work on local definitions, too.
+(require 'slime-mdot-fu)
+(slime-mdot-fu-init)
+
+;; Add/Remove a symbol at point from the relevant DEFPACKAGE form
+;; via C-c x.
+(require 'slime-package-fu)
+(slime-package-fu-init)
+
 (provide 'slime-fancy)

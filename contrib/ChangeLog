@@ -1,5 +1,9 @@
 2008-08-07  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-fancy.el: Add slime-mdot-fu and slime-package-fu.
+
+2008-08-07  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-mdot-fu.el: Works for LET bindings now also.
 	(def-slime-test find-local-definitions.1): New test case.
 
