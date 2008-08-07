@@ -963,10 +963,9 @@ Buffer local in temp-buffers."))
    "The emacs snapshot \"fingerprint\" after displaying the buffer."))
 
 ;; Interface
-(defmacro* slime-with-output-to-temp-buffer ((name &key mode connection
-						   (read-only t)
-						   reusep emacs-snapshot)
-					     package &rest body)
+(defmacro* slime-with-temp-buffer ((name package &key (connection t)
+                                         emacs-snapshot)
+                                   &rest body)
   "Similar to `with-output-to-temp-buffer'.
 Bind standard-output and initialize some buffer-local variables.
 
@@ -976,52 +975,41 @@ CONNECTION is the value for `slime-buffer-connection'.
 If nil, no explicit connection is associated with
 the buffer.  If t, the current connection is taken.
 
-MODE is the major mode the buffer should be set to.
-READ-ONLY makes the buffer read-only.
-
-If REUSEP is t, an already existing buffer won't be killed."
-  `(let ((standard-output
-	  (slime-temp-buffer ,name #',mode ,reusep ,emacs-snapshot))
-	 (connection% ,(if (eq connection t) '(slime-connection) connection))
-	 (package% ,package))
-     (with-current-buffer standard-output
-       (setq slime-buffer-package package%)
-       ,@(if connection '((setq slime-buffer-connection connection%)))
-       ,@body
-       (assert (eq (current-buffer) standard-output))
-       ,@(if read-only '((setq buffer-read-only t))))))
-
-(put 'slime-with-output-to-temp-buffer 'lisp-indent-function 2)
-
-(defun slime-temp-buffer (name mode reusep emacs-snapshot)
-  "Return a temporary buffer called NAME in MODE.
-The buffer also uses the minor-mode `slime-temp-buffer-mode'. Pressing
-`q' in the buffer will restore the window configuration to the way it
-is when the buffer was created, i.e. when this function was called.
-
-If REUSEP is true and a buffer does already exist with name NAME,
-then the buffer will be reused instead of being killed.
-
 If EMACS-SNAPSHOT is non-NIL, it's used to restore the previous
 state of Emacs after closing the temporary buffer. Otherwise, the
-current state will be saved and later restored.
-"
-  (let ((snapshot (or emacs-snapshot (slime-current-emacs-snapshot))))
-    (when (and (not reusep) (get-buffer name))
-      (kill-buffer (get-buffer name)))
-    (with-current-buffer (get-buffer-create name)
-      (when mode
-        (let ((original-configuration slime-temp-buffer-saved-emacs-snapshot)
-              (original-fingerprint slime-temp-buffer-saved-fingerprint))
-          (funcall mode)
-          (setq slime-temp-buffer-saved-emacs-snapshot original-configuration)
-          (setq slime-temp-buffer-saved-fingerprint original-fingerprint)))
-      (slime-temp-buffer-mode 1)
-      (setq slime-temp-buffer-saved-emacs-snapshot snapshot)
-      (setq slime-temp-buffer-saved-fingerprint
-            (slime-current-emacs-snapshot-fingerprint))
-      (pop-to-buffer (current-buffer))
-      (current-buffer))))
+current state will be saved and later restored."
+  `(let* ((vars% (list ,package
+                       ,(if (eq connection t) '(slime-connection) connection)
+                       ,(or emacs-snapshot '(slime-current-emacs-snapshot))))
+          (standard-output (slime-temp-buffer ,name vars%)))
+     (with-current-buffer standard-output
+       (prog1 (progn ,@body)
+         (assert (eq (current-buffer) standard-output))
+         (setq buffer-read-only t)
+         (slime-init-temp-buffer vars%)))))
+
+(put 'slime-with-temp-buffer 'lisp-indent-function 1)
+
+(defun slime-temp-buffer (name buffer-vars)
+  "Return a temporary buffer called NAME in MODE.
+The buffer also uses the minor-mode `slime-temp-buffer-mode'.
+Pressing `q' in the buffer will restore the window configuration
+to the way it is when the buffer was created, i.e. when this
+function was called."
+  (when (and (get-buffer name) (kill-buffer (get-buffer name))))
+  (with-current-buffer (get-buffer-create name)
+    (set-syntax-table lisp-mode-syntax-table)
+    (prog1 (pop-to-buffer (current-buffer))
+      (slime-init-temp-buffer buffer-vars))))
+
+(defun slime-init-temp-buffer (buffer-vars)
+  (slime-temp-buffer-mode 1)
+  (setq slime-temp-buffer-saved-fingerprint
+        (slime-current-emacs-snapshot-fingerprint))
+  (multiple-value-setq (slime-buffer-package 
+                        slime-buffer-connection
+                        slime-temp-buffer-saved-emacs-snapshot)
+    buffer-vars))
 
 (define-minor-mode slime-temp-buffer-mode 
   "Mode for displaying read only stuff"
@@ -3631,7 +3619,7 @@ expansion will be added to the REPL's history.)"
 
 (defun slime-list-repl-short-cuts ()
   (interactive)
-  (slime-with-output-to-temp-buffer ("*slime-repl-help*") nil
+  (slime-with-temp-buffer ("*slime-repl-help*" nil)
     (let ((table (sort* (copy-list slime-repl-shortcut-table) #'string<
                         :key (lambda (x) 
                                (car (slime-repl-shortcut.names x))))))
@@ -4137,11 +4125,10 @@ Each newlines and following indentation is replaced by a single space."
   "Show the compiler notes NOTES in tree view."
   (interactive (list (slime-compiler-notes)))
   (with-temp-message "Preparing compiler note tree..."
-    (slime-with-output-to-temp-buffer ("*SLIME Compiler-Notes*"
-                                       :mode slime-compiler-notes-mode
+    (slime-with-temp-buffer ("*SLIME Compiler-Notes*" nil
                                        :emacs-snapshot emacs-snapshot)
-        nil
       (erase-buffer)
+      (slime-compiler-notes-mode)
       (when (null notes)
         (insert "[no notes]"))
       (dolist (tree (slime-compiler-notes-to-tree notes))
@@ -5395,15 +5382,15 @@ Show the output buffer if the evaluation causes any output."
                                (t (message "%s" value)))))
                      fn)))
 
-(defun slime-show-description (string package)
-  (slime-with-output-to-temp-buffer ("*SLIME Description*") package 
-    (princ string)))
-
 (defun slime-eval-describe (form)
   "Evaluate FORM in Lisp and display the result in a new buffer."
-  (lexical-let ((package (slime-current-package)))
-    (slime-eval-with-transcript
-     form (lambda (string) (slime-show-description string package)))))
+  (slime-eval-async form (slime-rcurry #'slime-show-description
+                                       (slime-current-package))))
+
+(defun slime-show-description (string package)
+  (slime-with-temp-buffer ("*SLIME Description*" package)
+    (princ string)
+    (goto-char (point-min))))
 
 (defun slime-insert-transcript-delimiter (string)
   (with-current-buffer (slime-output-buffer)
@@ -5546,11 +5533,13 @@ in Lisp when committed with \\[slime-edit-value-commit]."
 
 (defun slime-edit-value-callback (form-string current-value package)
   (let ((name (generate-new-buffer-name (format "*Edit %s*" form-string))))
-    (slime-with-output-to-temp-buffer (name :mode lisp-mode :connection t
-                                            :read-only nil) package
+    (with-current-buffer (slime-with-temp-buffer (name package) 
+                           (current-buffer))
+      (lisp-mode)
       (slime-mode 1)
       (slime-temp-buffer-mode -1)       ; don't want binding of 'q'
       (slime-edit-value-mode 1)
+      (setq buffer-read-only nil)
       (setq slime-edit-form-string form-string)
       (insert current-value))))
 
@@ -5946,9 +5935,8 @@ With prefix argument include internal symbols."
 (defun slime-show-apropos (plists string package summary)
   (if (null plists)
       (message "No apropos matches for %S" string)
-    (slime-with-output-to-temp-buffer ("*SLIME Apropos*" :mode apropos-mode
-                                                         :connection t)
-        package
+    (slime-with-temp-buffer ("*SLIME Apropos*" package)
+      (apropos-mode)
       (if (boundp 'header-line-format)
           (setq header-line-format summary)
         (insert summary "\n\n"))
@@ -6353,12 +6341,13 @@ When displaying XREF information, this goes to the next reference."
            (define-key slime-macroexpansion-minor-mode-map mapping to))))
   (remap 'slime-macroexpand-1 'slime-macroexpand-1-inplace)
   (remap 'slime-macroexpand-all 'slime-macroexpand-all-inplace)
-  (remap 'undo '(lambda (&optional arg)
-                 (interactive)
-                 (let ((buffer-read-only nil))
-                   (when (fboundp 'slime-remove-edits)
-                     (slime-remove-edits (point-min) (point-max)))
-                   (undo arg)))))
+  (remap 'advertised-undo 
+         '(lambda (&optional arg)
+            (interactive)
+            (let ((inhibit-read-only t))
+              (when (fboundp 'slime-remove-edits)
+                (slime-remove-edits (point-min) (point-max)))
+              (undo arg)))))
 
 (defun slime-sexp-at-point-for-macroexpansion ()
   "Essentially like SLIME-SEXP-AT-POINT-OR-ERROR, but behaves a
@@ -6381,28 +6370,33 @@ expand the LOOP form. See comment in the source of this function."
     (list string bounds)))
 
 (defvar slime-eval-macroexpand-expression nil
-  "Specifies the last macroexpansion preformed. This variable
-  specifies both what was expanded and how.")
+  "Specifies the last macroexpansion preformed. 
+This variable specifies both what was expanded and how.")
 
 (defun slime-eval-macroexpand (expander &optional string)
-  (unless string
-    (setf string (first (slime-sexp-at-point-for-macroexpansion))))
-  (setf slime-eval-macroexpand-expression `(,expander ,string))
-  (lexical-let ((package (slime-current-package)))
-    (slime-eval-async 
-     slime-eval-macroexpand-expression
-     (lambda (expansion)
-       (slime-with-output-to-temp-buffer
-           ;; reusep for preserving `undo' functionality.
-           ("*SLIME Macroexpansion*" :mode lisp-mode 
-            :reusep t :connection t :read-only nil) package
-         (slime-mode 1)
-         (slime-macroexpansion-minor-mode 1)
-         (erase-buffer)
-         (insert expansion)
-         (goto-char (point-min))
-         (indent-sexp)
-         (font-lock-fontify-buffer))))))
+  (let ((string (or string
+                    (car (slime-sexp-at-point-for-macroexpansion)))))
+    (setq slime-eval-macroexpand-expression `(,expander ,string))
+    (slime-eval-async slime-eval-macroexpand-expression 
+                      (slime-rcurry #'slime-show-macroexpansion 
+                                    (slime-create-macroexpansion-buffer)))))
+
+(defun slime-show-macroexpansion (expansion buffer)
+  (pop-to-buffer buffer)
+  (let ((inhibit-read-only t))
+    (erase-buffer)
+    (insert expansion)
+    (goto-char (point-min))
+    (indent-sexp)
+    (font-lock-fontify-buffer)))
+
+(defun slime-create-macroexpansion-buffer ()
+  (let ((name "*SLIME Macroexpansion*"))
+    (slime-with-temp-buffer (name (slime-current-package)) 
+      (lisp-mode)
+      (slime-mode 1)
+      (slime-macroexpansion-minor-mode 1)
+      (current-buffer))))
 
 (defun slime-eval-macroexpand-inplace (expander)
   "Substitutes the current sexp at place with its macroexpansion.
@@ -6466,8 +6460,9 @@ CL:MACROEXPAND."
 (defun slime-macroexpand-again ()
   "Reperform the last macroexpansion."
   (interactive)
-  (slime-eval-macroexpand (first slime-eval-macroexpand-expression)
-                          (second slime-eval-macroexpand-expression)))
+  (slime-eval-async slime-eval-macroexpand-expression 
+                    (slime-rcurry #'slime-show-macroexpansion
+                                  (current-buffer))))
 
 
 ;;;; Subprocess control
@@ -7503,8 +7498,8 @@ was called originally."
 (defun slime-list-connections ()
   "Display a list of all connections."
   (interactive)
-  (slime-with-output-to-temp-buffer ("*SLIME Connections*" 
-                                     :mode slime-connection-list-mode) nil
+  (slime-with-temp-buffer ("*SLIME Connections*" nil)
+    (slime-connection-list-mode)
     (slime-draw-connection-list)))
 
 (defun slime-update-connection-list ()
@@ -8666,7 +8661,7 @@ BODY returns true if the check succeeds."
       (slime-check "Checking that narrowing succeeded."
        (slime-buffer-narrowed-p))
 
-      (slime-with-output-to-temp-buffer (random-buffer-name) nil
+      (slime-with-temp-buffer (random-buffer-name nil)
         (slime-check ("Checking that we're in Slime's temp buffer `%s'" random-buffer-name)
           (equal (buffer-name (current-buffer)) random-buffer-name)))
       (with-current-buffer random-buffer-name

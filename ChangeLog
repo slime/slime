@@ -1,3 +1,10 @@
+2008-08-07  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-with-temp-buffer): Renamed from
+	slime-with-output-to-temp-buffer.  Initialize the buffer local
+	buffer variables before and after running BODY, so that we don't
+	need the mode argument.
+
 2008-08-07  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (def-slime-test narrowing): Adapted to recent changes
