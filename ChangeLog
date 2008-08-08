@@ -28,7 +28,7 @@
 2008-08-07  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-with-temp-buffer): Renamed from
-	slime-with-output-to-temp-buffer. Initialize the buffer local
+	slime-with-output-to-temp-buffer.  Initialize the buffer local
 	buffer variables before and after running BODY, so that we don't
 	need the mode argument.
 
