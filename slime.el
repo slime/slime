@@ -1015,9 +1015,18 @@ function was called."
   "Mode for displaying read only stuff"
   nil
   (" Slime-Tmp" slime-modeline-string)
-  '(("q" . slime-temp-buffer-quit)
+  '(("q" . slime-temp-buffer-quit-function)
     ("\C-c\C-z" . slime-switch-to-output-buffer)
     ("\M-." . slime-edit-definition)))
+
+(make-variable-buffer-local
+ (defvar slime-temp-buffer-quit-function 'slime-temp-buffer-quit
+   "The function that is used to quit a temporary popup buffer."))
+
+(defun slime-temp-buffer-quit-function (&optional kill-buffer-p)
+  "Wrapper to invoke the value of `slime-temp-buffer-quit-function'."
+  (interactive)
+  (funcall slime-temp-buffer-quit-function kill-buffer-p))
 
 ;; Interface
 (defun slime-temp-buffer-quit (&optional kill-buffer-p)
@@ -7377,20 +7386,31 @@ was called originally."
 
 ;;;; Thread control panel
 
+(defvar slime-threads-buffer-name "*SLIME Threads*")
+
 (defun slime-list-threads ()
   "Display a list of threads."
   (interactive)
-  (let ((threads (slime-eval '(swank:list-threads))))
-    (with-current-buffer (get-buffer-create "*slime-threads*")
+  (let ((name slime-threads-buffer-name))
+    (slime-with-temp-buffer (name nil t)
       (slime-thread-control-mode)
+      (setq slime-temp-buffer-quit-function 'slime-quit-threads-buffer)
+      (slime-update-threads-buffer))))
+
+(defun slime-quit-threads-buffer (&optional _)
+  (slime-eval-async `(swank:quit-thread-browser))
+  (slime-temp-buffer-quit t))
+
+(defun slime-update-threads-buffer ()
+  (interactive)
+  (let ((threads (slime-eval '(swank:list-threads))))
+    (with-current-buffer slime-threads-buffer-name
       (let ((inhibit-read-only t))
         (erase-buffer)
         (loop for idx from 0 
               for (id name status desc) in threads
               do (slime-thread-insert idx name status desc id))
-        (goto-char (point-min))
-        (setq buffer-read-only t)
-        (pop-to-buffer (current-buffer))))))
+        (goto-char (point-min))))))
 
 (defun slime-thread-insert (idx name status summary id)
   (slime-propertize-region `(thread-id ,idx)
@@ -7407,24 +7427,20 @@ was called originally."
 ;;;;; Major mode
 
 (define-derived-mode slime-thread-control-mode fundamental-mode
-  "Slime-Threads"
+  "Threads"
   "SLIME Thread Control Panel Mode.
 
-\\{slime-thread-control-mode-map}"
+\\{slime-thread-control-mode-map}
+\\{slime-temp-buffer-mode-map}"
   (when slime-truncate-lines
     (set (make-local-variable 'truncate-lines) t)))
 
 (slime-define-keys slime-thread-control-mode-map
   ("a"         'slime-thread-attach)
   ("d"         'slime-thread-debug)
-  ("g"         'slime-list-threads)
-  ("k"         'slime-thread-kill)
-  ("q"         'slime-thread-quit))
+  ("g"         'slime-update-threads-buffer)
+  ("k"         'slime-thread-kill))
 
-(defun slime-thread-quit ()
-  (interactive)
-  (slime-eval-async `(swank:quit-thread-browser))
-  (kill-buffer (current-buffer)))
 
 (defun slime-thread-kill ()
   (interactive)
@@ -7988,7 +8004,7 @@ switch-to-buffer."
 (def-slime-selector-method ?t
   "SLIME threads buffer."
   (slime-list-threads)
-  "*slime-threads*")
+  slime-threads-buffer-name)
 
 (defun slime-recently-visited-buffer (mode)
   "Return the most recently visited buffer whose major-mode is MODE.

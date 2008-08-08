@@ -1,3 +1,17 @@
+2008-08-08  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el: Make the threads browser use `slime-with-temp-buffer'.
+
+	(slime-temp-buffer-quit-function): New buffer-local
+	variable. Defaults to `slime-temp-buffer-quit'.
+	(slime-temp-buffer-mode): `q' invokes above variable now.
+
+	(slime-threads-buffer-name): New variable.
+	(slime-list-threads): Use slime-with-temp-buffer.
+	(slime-update-threads-buffer): New. Lifted from
+	slime-list-threads.
+	(slime-thread-quit): Renamed to slime-quit-threads-buffer.
+
 2008-08-08  Helmut Eller  <heller@common-lisp.net>
 
 	Spawn the auto-flush thread in the front end.
