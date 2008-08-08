@@ -1,5 +1,14 @@
 2008-08-08  Helmut Eller  <heller@common-lisp.net>
 
+	Spawn the auto-flush thread in the front end.
+	This removes some copy&paste code in various backends.
+
+	* swank.lisp (auto-flush-loop): New function.
+	(open-streams): Use it.
+	* swank-backend.lisp (make-stream-interactive): Deleted.
+
+2008-08-08  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (test disconnect): Call slime-inferior-process
 	with explicit connection argument to avoid clashes with
 	buffer-local connections.

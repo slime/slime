@@ -124,9 +124,6 @@
     (:class
      (describe (find-class symbol)))))
 
-(defimplementation make-stream-interactive (stream)
-  (setf (interactive-stream-p stream) t))
-
 ;;;; Debugger
 
 (defvar *sldb-topframe*)

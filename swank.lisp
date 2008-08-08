@@ -725,7 +725,9 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
              (io (make-two-way-stream in out))
              (repl-results (make-output-stream-for-target connection
                                                           :repl-result)))
-        (mapc #'make-stream-interactive (list in out io))
+        (when (eq (connection.communication-style connection) :spawn)
+          (spawn (lambda () (auto-flush-loop out)) 
+                 :name "auto-flush-thread"))
         (values dedicated-output in out io repl-results)))))
 
 ;; FIXME: if wait-for-event aborts the event will stay in the queue forever.
@@ -915,6 +917,16 @@ of the toplevel restart."
           (t
            (setf (connection.repl-thread connection)
                  (spawn-repl-thread connection "new-repl-thread"))))))
+
+(defvar *auto-flush-interval* 0.2)
+
+(defun auto-flush-loop (stream)
+  (loop
+   (when (not (and (open-stream-p stream) 
+                   (output-stream-p stream)))
+     (return nil))
+   (finish-output stream)
+   (sleep *auto-flush-interval*)))
 
 (defun find-worker-thread (id)
   (etypecase id

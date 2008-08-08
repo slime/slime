@@ -787,29 +787,6 @@ function names like \(SETF GET)."
     (defmethod env-internals:environment-display-debugger (env)
       *debug-io*)))
 
-(defvar *auto-flush-interval* 0.15)
-(defvar *auto-flush-lock* (mp:make-lock :name "auto-flush-lock"))
-(defvar *auto-flush-thread* nil)
-(defvar *auto-flush-streams* '())
-  
-(defimplementation make-stream-interactive (stream)
-  (mp:with-lock (*auto-flush-lock*)
-    (pushnew stream *auto-flush-streams*)
-    (unless *auto-flush-thread*
-      (setq *auto-flush-thread*
-            (mp:process-run-function "auto-flush-thread [SWANK]" () 
-                                     #'flush-streams)))))
-
-(defun flush-streams ()
-  (loop
-   (mp:with-lock (*auto-flush-lock*)
-     (setq *auto-flush-streams*
-           (remove-if (lambda (x)
-                        (not (and (open-stream-p x)
-                                  (output-stream-p x))))
-                      *auto-flush-streams*))
-     (mapc #'finish-output *auto-flush-streams*))
-   (sleep *auto-flush-interval*)))
 
 (defmethod env-internals:confirm-p ((e slime-env) &optional msg &rest args)
   (apply (swank-sym :y-or-n-p-in-emacs) msg args))

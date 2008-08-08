@@ -537,40 +537,8 @@
           ;interrupt-process will halt this if it takes longer than 1sec
           (sleep 1)))))
 
-  ;; Auto-flush streams
-  (defvar *auto-flush-interval* 0.15
-    "How often to flush interactive streams. This valu is passed
-    directly to cl:sleep.")
-
-  (defvar *auto-flush-lock* (make-lock :name "auto flush"))
-
-  (defvar *auto-flush-thread* nil)
-
-  (defvar *auto-flush-streams* '())
-
-  (defimplementation make-stream-interactive (stream)
-    (mp:with-lock (*auto-flush-lock*)
-      (pushnew stream *auto-flush-streams*)
-      (unless *auto-flush-thread*
-        (setq *auto-flush-thread*
-              (spawn #'flush-streams
-                     :name "auto-flush-thread")))))
-
   (defmethod stream-finish-output ((stream stream))
     (finish-output stream))
-
-  (defun flush-streams ()
-    (loop
-     (mp:with-lock (*auto-flush-lock*)
-       (setq *auto-flush-streams*
-             (remove-if (lambda (x)
-                          (not (and (open-stream-p x)
-                                    (output-stream-p x))))
-                        *auto-flush-streams*))
-       (dolist (i *auto-flush-streams*)
-         (ignore-errors (stream-finish-output i))
-         (ignore-errors (finish-output i))))
-     (sleep *auto-flush-interval*)))
 
   )
 

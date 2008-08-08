@@ -349,11 +349,6 @@
          (input  (make-slime-input-stream input-fn output)))
     (values input output)))
 
-(defimplementation make-stream-interactive (stream)
-  (when (or (typep stream 'slime-input-stream)
-            (typep stream 'slime-output-stream))
-    (setf (slot-value stream 'interactive) t)))
-
 
 ;;;; Compilation Commands
 

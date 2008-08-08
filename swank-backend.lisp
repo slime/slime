@@ -453,15 +453,6 @@ Output should be forced to OUTPUT-FN before calling INPUT-FN.
 
 The streams are returned as two values.")
 
-(definterface make-stream-interactive (stream)
-  "Do any necessary setup to make STREAM work interactively.
-This is called for each stream used for interaction with the user
-\(e.g. *standard-output*). An implementation could setup some
-implementation-specific functions to control output flushing at the
-like."
-  (declare (ignore stream))
-  nil)
-
 
 ;;;; Documentation
 

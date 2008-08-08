@@ -193,11 +193,6 @@
 (defimplementation emacs-connected ()
   (setq ccl::*interactive-abort-process* ccl::*current-process*))
 
-(defimplementation make-stream-interactive (stream)
-  (typecase stream
-    (ccl:fundamental-output-stream 
-     (push stream ccl::*auto-flush-streams*))))
-
 ;;; Unix signals
 
 (defimplementation call-without-interrupts (fn)
