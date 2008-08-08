@@ -1,3 +1,13 @@
+2008-08-08  Helmut Eller  <heller@common-lisp.net>
+
+	Use wait-for-event instead of catch/throw where needed.
+
+	* swank.lisp (read-user-input-from-emacs, y-or-n-p-in-emacs)
+	(eval-in-emacs): Use wait-for-event.
+	(make-tag): Replaces intern-catch-tag.
+	(take-input): Deleted.
+	(dispatch-event): Remove some redundancy.
+
 2008-08-08  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el: Make xref buffers use `slime-with-popup-buffer',

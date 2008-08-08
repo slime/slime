@@ -367,6 +367,9 @@ The package is deleted before returning."
 (defun use-threads-p ()
   (eq (connection.communication-style *emacs-connection*) :spawn))
 
+(defun current-thread-id ()
+  (thread-id (current-thread)))
+
 
 ;;;;; Logging
 
@@ -752,7 +755,7 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
         (with-simple-restart (abort "Abort sending output to Emacs.")
           (when (or (= i max) (> l (* 80 20 5)))
             (setf tag (mod (1+ tag) 1000))
-            (send-to-emacs `(:ping ,(thread-id (current-thread)) ,tag))
+            (send-to-emacs `(:ping ,(current-thread-id) ,tag))
             (wait-for-event `(:emacs-pong ,tag))
             (setf i 0) 
             (setf l 0))
@@ -976,45 +979,32 @@ of the toplevel restart."
              (repl-loop connection)))
          :name name))
 
-(defun dispatch-event (event &optional (socket-io (current-socket-io)))
+(defun dispatch-event (event)
   "Handle an event triggered either by Emacs or within Lisp."
   (log-event "dispatch-event: ~s~%" event)
-  (flet ((send (thread event) (send-event thread event)))
   (destructure-case event
     ((:emacs-rex form package thread-id id)
      (let ((thread (thread-for-evaluation thread-id)))
        (push thread *active-threads*)
-       (send thread `(:call eval-for-emacs ,form ,package ,id))))
+       (send-event thread `(:emacs-rex ,form ,package ,id))))
     ((:return thread &rest args)
      (let ((tail (member thread *active-threads*)))
        (setq *active-threads* (nconc (ldiff *active-threads* tail)
-                                     (cdr tail))))
-     (encode-message `(:return ,@args) socket-io))
+				     (cdr tail))))
+     (encode-message `(:return ,@args) (current-socket-io)))
     ((:emacs-interrupt thread-id)
      (interrupt-worker-thread thread-id))
-    (((:debug :debug-condition :debug-activate :debug-return)
-      thread &rest args)
-     (encode-message `(,(car event) ,(thread-id thread) ,@args) socket-io))
-    ((:read-string thread &rest args)
-     (encode-message `(:read-string ,(thread-id thread) ,@args) socket-io))
-    ((:y-or-n-p thread &rest args)
-     (encode-message `(:y-or-n-p ,(thread-id thread) ,@args) socket-io))
-    ((:read-aborted thread &rest args)
-     (encode-message `(:read-aborted ,(thread-id thread) ,@args) socket-io))
-    ((:emacs-return-string thread-id tag string)
-     (send (find-thread thread-id) `(:call take-input ,tag ,string)))
-    ((:eval thread &rest args)
-     (encode-message `(:eval ,(thread-id thread) ,@args) socket-io))
-    ((:emacs-return thread-id tag value)
-     (send (find-thread thread-id) `(:call take-input ,tag ,value)))
-    ((:emacs-pong thread-id tag)
-     (send (find-thread thread-id) `(:emacs-pong ,tag)))
-    (((:write-string :presentation-start :presentation-end
-                     :new-package :new-features :ed :%apply :indentation-update
-                     :eval-no-wait :background-message :inspect :ping)
+    (((:write-string
+       :debug :debug-condition :debug-activate :debug-return
+       :presentation-start :presentation-end
+       :new-package :new-features :ed :%apply :indentation-update
+       :eval :eval-no-wait :background-message :inspect :ping
+       :y-or-n-p :read-string :read-aborted)
       &rest _)
      (declare (ignore _))
-     (encode-message event socket-io)))))
+     (encode-message event (current-socket-io)))
+    (((:emacs-pong :emacs-return :emacs-return-string) thread-id &rest args)
+     (send-event (find-thread thread-id) (cons (car event) args)))))
 
 (defvar *event-queue* '())
 
@@ -1053,14 +1043,12 @@ of the toplevel restart."
                           *event-queue*)))
      (when tail 
        (setq *event-queue* 
-             (nconc (ldiff *event-queue* tail) (cdr tail)))
+	     (nconc (ldiff *event-queue* tail) (cdr tail)))
        (return (car tail))))
-   ;; could also say: (dispatch-event (read-event))
-   (let ((event (read-event)))
-     (cond ((event-match-p event pattern) (return event))
-           (t (dispatch-event event))))))
+   (dispatch-event (read-event))))
 
 (defun event-match-p (event pattern)
+  (log-event "event-match-p: ~s ~s~%" event pattern)
   (cond ((or (keywordp pattern) (numberp pattern) (stringp pattern)
 	     (member pattern '(nil t)))
 	 (equal event pattern))
@@ -1392,7 +1380,7 @@ NIL if streams are not globally redirected.")
 
 (defun read-from-emacs ()
   "Read and process a request from Emacs."
-  (apply #'funcall (cdr (wait-for-event `(:call . _)))))
+  (apply #'eval-for-emacs (cdr (wait-for-event `(:emacs-rex . _)))))
 
 (defun decode-message (stream)
   "Read an S-expression from STREAM using the SLIME protocol."
@@ -1448,36 +1436,29 @@ NIL if streams are not globally redirected.")
 (defun clear-user-input  ()
   (clear-input (connection.user-input *emacs-connection*)))
 
-(defvar *read-input-catch-tag* 0)
+(defvar *tag-counter* 0)
 
-(defun intern-catch-tag (tag)
-  ;; fixnums aren't eq in ABCL, so we use intern to create tags
-  (intern (format nil "~D" tag) :swank))
+(defun make-tag () 
+  (setq *tag-counter* (mod (1+ *tag-counter*) (expt 2 22))))
 
 (defun read-user-input-from-emacs ()
-  (let ((tag (incf *read-input-catch-tag*)))
+  (let ((tag (make-tag)))
     (force-output)
-    (send-to-emacs `(:read-string ,(current-thread) ,tag))
+    (send-to-emacs `(:read-string ,(current-thread-id) ,tag))
     (let ((ok nil))
       (unwind-protect
-           (prog1 (catch (intern-catch-tag tag)
-                    (loop (read-from-emacs)))
+           (prog1 (caddr (wait-for-event `(:emacs-return-string ,tag value)))
              (setq ok t))
         (unless ok 
-          (send-to-emacs `(:read-aborted ,(current-thread) ,tag)))))))
+          (send-to-emacs `(:read-aborted ,(current-thread-id) ,tag)))))))
 
 (defun y-or-n-p-in-emacs (format-string &rest arguments)
   "Like y-or-n-p, but ask in the Emacs minibuffer."
-  (let ((tag (incf *read-input-catch-tag*))
+  (let ((tag (make-tag))
         (question (apply #'format nil format-string arguments)))
     (force-output)
-    (send-to-emacs `(:y-or-n-p ,(current-thread) ,tag ,question))
-    (catch (intern-catch-tag tag)
-      (loop (read-from-emacs)))))
-
-(defslimefun take-input (tag input)
-  "Return the string INPUT to the continuation TAG."
-  (throw (intern-catch-tag tag) input))
+    (send-to-emacs `(:y-or-n-p ,(current-thread-id) ,tag ,question))
+    (caddr (wait-for-event `(:emacs-return ,tag result)))))
 
 (defun process-form-for-emacs (form)
   "Returns a string which emacs will read as equivalent to
@@ -1507,15 +1488,13 @@ converted to lower case."
          (send-to-emacs `(:eval-no-wait ,(process-form-for-emacs form))))
         (t
          (force-output)
-         (let* ((tag (incf *read-input-catch-tag*))
-                (value (catch (intern-catch-tag tag)
-                         (send-to-emacs 
-                          `(:eval ,(current-thread) ,tag 
-                            ,(process-form-for-emacs form)))
-                         (loop (read-from-emacs)))))
-           (destructure-case value
-             ((:ok value) value)
-             ((:abort) (abort)))))))
+         (let ((tag (make-tag)))
+	   (send-to-emacs `(:eval ,(current-thread-id) ,tag 
+				  ,(process-form-for-emacs form)))
+	   (let ((value (caddr (wait-for-event `(:emacs-return ,tag result)))))
+	     (destructure-case value
+	       ((:ok value) value)
+	       ((:abort) (abort))))))))
 
 (defvar *swank-wire-protocol-version* nil
   "The version of the swank/slime communication protocol.")
@@ -2057,23 +2036,23 @@ after Emacs causes a restart to be invoked."
   (unwind-protect
        (catch 'sldb-enter-default-debugger
          (send-to-emacs
-          (list* :debug (current-thread) level
+          (list* :debug (current-thread-id) level
                  (debugger-info-for-emacs 0 *sldb-initial-frames*)))
          (loop (catch 'sldb-loop-catcher
                  (with-simple-restart (abort "Return to sldb level ~D." level)
-                   (send-to-emacs (list :debug-activate (current-thread)
+                   (send-to-emacs (list :debug-activate (current-thread-id)
                                         level))
                    (handler-bind ((sldb-condition #'handle-sldb-condition))
                      (read-from-emacs))))))
-    (send-to-emacs `(:debug-return
-                     ,(current-thread) ,level ,*sldb-stepping-p*))))
+    (send-to-emacs `(:debug-return 
+		     ,(current-thread-id) ,level ,*sldb-stepping-p*))))
 
 (defun handle-sldb-condition (condition)
   "Handle an internal debugger condition.
 Rather than recursively debug the debugger (a dangerous idea!), these
 conditions are simply reported."
   (let ((real-condition (original-condition condition)))
-    (send-to-emacs `(:debug-condition ,(current-thread)
+    (send-to-emacs `(:debug-condition ,(current-thread-id)
                                       ,(princ-to-string real-condition))))
   (throw 'sldb-loop-catcher nil))
 
