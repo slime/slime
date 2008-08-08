@@ -1043,7 +1043,7 @@ last activated the buffer."
         (slime-set-emacs-snapshot snapshot)
         (bury-buffer))
     (when kill-buffer-p
-      (kill-buffer popup-buffer))))
+      (kill-buffer popup-buffer)))
 
 ;;;;; Filename translation
 ;;;
