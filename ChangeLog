@@ -1,5 +1,14 @@
 2008-08-08  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el: Make xref buffers use `slime-with-popup-buffer',
+	nee `slime-with-temp-buffer'.
+
+	(slime-with-xref-buffer): Rewritten using a popup buffer.
+	(slime-init-xref-buffer): Removed.
+	(slime-display-xref-buffer): Removed.
+
+2008-08-08  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el: Rename slime's temp-buffer to popup-buffer.
 
 2008-08-08  Tobias C. Rittweiler  <tcr@freebits.de>
