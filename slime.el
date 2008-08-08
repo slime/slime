@@ -500,7 +500,7 @@ The string is periodically updated by an idle timer."))
 
 (defun slime-shall-we-update-modeline-p ()
   (and slime-extended-modeline 
-       (or slime-mode slime-temp-buffer-mode)))
+       (or slime-mode slime-popup-buffer-mode)))
 
 (defun slime-update-modeline ()
   (when (slime-shall-we-update-modeline-p)
@@ -953,21 +953,22 @@ sensitive to the point moving and they can't be restored."
 ;;;;; Temporary popup buffers
 
 (make-variable-buffer-local
- (defvar slime-temp-buffer-saved-emacs-snapshot nil
-   "The snapshot of the current state in Emacs before the temp-buffer
+ (defvar slime-popup-buffer-saved-emacs-snapshot nil
+   "The snapshot of the current state in Emacs before the popup-buffer
 was displayed, so that this state can be restored later on.
-Buffer local in temp-buffers."))
+Buffer local in popup-buffers."))
 
 (make-variable-buffer-local
- (defvar slime-temp-buffer-saved-fingerprint nil
+ (defvar slime-popup-buffer-saved-fingerprint nil
    "The emacs snapshot \"fingerprint\" after displaying the buffer."))
 
 ;; Interface
-(defmacro* slime-with-temp-buffer ((name &optional package
-                                         connection emacs-snapshot)
-                                   &rest body)
+(defmacro* slime-with-popup-buffer ((name &optional package
+                                          connection emacs-snapshot)
+                                    &rest body)
   "Similar to `with-output-to-temp-buffer'.
 Bind standard-output and initialize some buffer-local variables.
+Restore window configuration when closed.
 
 NAME is the name of the buffer to be created.
 PACKAGE is the value `slime-buffer-package'.
@@ -981,18 +982,18 @@ current state will be saved and later restored."
   `(let* ((vars% (list ,(if (eq package t) '(slime-current-package) package)
                        ,(if (eq connection t) '(slime-connection) connection)
                        ,(or emacs-snapshot '(slime-current-emacs-snapshot))))
-          (standard-output (slime-temp-buffer ,name vars%)))
+          (standard-output (slime-popup-buffer ,name vars%)))
      (with-current-buffer standard-output
        (prog1 (progn ,@body)
          (assert (eq (current-buffer) standard-output))
          (setq buffer-read-only t)
-         (slime-init-temp-buffer vars%)))))
+         (slime-init-popup-buffer vars%)))))
 
-(put 'slime-with-temp-buffer 'lisp-indent-function 1)
+(put 'slime-with-popup-buffer 'lisp-indent-function 1)
 
-(defun slime-temp-buffer (name buffer-vars)
+(defun slime-popup-buffer (name buffer-vars)
   "Return a temporary buffer called NAME.
-The buffer also uses the minor-mode `slime-temp-buffer-mode'.
+The buffer also uses the minor-mode `slime-popup-buffer-mode'.
 Pressing `q' in the buffer will restore the window configuration
 to the way it is when the buffer was created, i.e. when this
 function was called."
@@ -1000,49 +1001,49 @@ function was called."
   (with-current-buffer (get-buffer-create name)
     (set-syntax-table lisp-mode-syntax-table)
     (prog1 (pop-to-buffer (current-buffer))
-      (slime-init-temp-buffer buffer-vars))))
+      (slime-init-popup-buffer buffer-vars))))
 
-(defun slime-init-temp-buffer (buffer-vars)
-  (slime-temp-buffer-mode 1)
-  (setq slime-temp-buffer-saved-fingerprint
+(defun slime-init-popup-buffer (buffer-vars)
+  (slime-popup-buffer-mode 1)
+  (setq slime-popup-buffer-saved-fingerprint
         (slime-current-emacs-snapshot-fingerprint))
   (multiple-value-setq (slime-buffer-package 
                         slime-buffer-connection
-                        slime-temp-buffer-saved-emacs-snapshot)
+                        slime-popup-buffer-saved-emacs-snapshot)
     buffer-vars))
 
-(define-minor-mode slime-temp-buffer-mode 
+(define-minor-mode slime-popup-buffer-mode 
   "Mode for displaying read only stuff"
   nil
   (" Slime-Tmp" slime-modeline-string)
-  '(("q" . slime-temp-buffer-quit-function)
+  '(("q" . slime-popup-buffer-quit-function)
     ("\C-c\C-z" . slime-switch-to-output-buffer)
     ("\M-." . slime-edit-definition)))
 
 (make-variable-buffer-local
- (defvar slime-temp-buffer-quit-function 'slime-temp-buffer-quit
+ (defvar slime-popup-buffer-quit-function 'slime-popup-buffer-quit
    "The function that is used to quit a temporary popup buffer."))
 
-(defun slime-temp-buffer-quit-function (&optional kill-buffer-p)
-  "Wrapper to invoke the value of `slime-temp-buffer-quit-function'."
+(defun slime-popup-buffer-quit-function (&optional kill-buffer-p)
+  "Wrapper to invoke the value of `slime-popup-buffer-quit-function'."
   (interactive)
-  (funcall slime-temp-buffer-quit-function kill-buffer-p))
+  (funcall slime-popup-buffer-quit-function kill-buffer-p))
 
 ;; Interface
-(defun slime-temp-buffer-quit (&optional kill-buffer-p)
+(defun slime-popup-buffer-quit (&optional kill-buffer-p)
   "Get rid of the current (temp) buffer without asking.
 Restore the window configuration unless it was changed since we
 last activated the buffer."
   (interactive)
-  (let ((snapshot slime-temp-buffer-saved-emacs-snapshot)
-        (temp-buffer (current-buffer)))
-    (setq slime-temp-buffer-saved-emacs-snapshot nil)
+  (let ((snapshot slime-popup-buffer-saved-emacs-snapshot)
+        (popup-buffer (current-buffer)))
+    (setq slime-popup-buffer-saved-emacs-snapshot nil)
     (if (and snapshot (equalp (slime-current-emacs-snapshot-fingerprint)
-                              slime-temp-buffer-saved-fingerprint))
+                              slime-popup-buffer-saved-fingerprint))
         (slime-set-emacs-snapshot snapshot)
         (bury-buffer))
     (when kill-buffer-p
-      (kill-buffer temp-buffer))))
+      (kill-buffer popup-buffer))))
 
 ;;;;; Filename translation
 ;;;
@@ -3625,7 +3626,7 @@ expansion will be added to the REPL's history.)"
 
 (defun slime-list-repl-short-cuts ()
   (interactive)
-  (slime-with-temp-buffer ("*slime-repl-help*")
+  (slime-with-popup-buffer ("*slime-repl-help*")
     (let ((table (sort* (copy-list slime-repl-shortcut-table) #'string<
                         :key (lambda (x) 
                                (car (slime-repl-shortcut.names x))))))
@@ -4131,7 +4132,7 @@ Each newlines and following indentation is replaced by a single space."
   "Show the compiler notes NOTES in tree view."
   (interactive (list (slime-compiler-notes)))
   (with-temp-message "Preparing compiler note tree..."
-    (slime-with-temp-buffer ("*SLIME Compiler-Notes*" nil nil emacs-snapshot)
+    (slime-with-popup-buffer ("*SLIME Compiler-Notes*" nil nil emacs-snapshot)
       (erase-buffer)
       (slime-compiler-notes-mode)
       (when (null notes)
@@ -4205,7 +4206,7 @@ keys."
   "Compiler-Notes"
   "\\<slime-compiler-notes-mode-map>\
 \\{slime-compiler-notes-mode-map}
-\\{slime-temp-buffer-mode-map}
+\\{slime-popup-buffer-mode-map}
 "
   (slime-set-truncate-lines))
 
@@ -5395,7 +5396,7 @@ Show the output buffer if the evaluation causes any output."
                                        (slime-current-package))))
 
 (defun slime-show-description (string package)
-  (slime-with-temp-buffer ("*SLIME Description*" package)
+  (slime-with-popup-buffer ("*SLIME Description*" package)
     (princ string)
     (goto-char (point-min))))
 
@@ -5540,11 +5541,11 @@ in Lisp when committed with \\[slime-edit-value-commit]."
 
 (defun slime-edit-value-callback (form-string current-value package)
   (let ((name (generate-new-buffer-name (format "*Edit %s*" form-string))))
-    (with-current-buffer (slime-with-temp-buffer (name package t)
+    (with-current-buffer (slime-with-popup-buffer (name package t)
                            (current-buffer))
       (lisp-mode)
       (slime-mode 1)
-      (slime-temp-buffer-mode -1)       ; don't want binding of 'q'
+      (slime-popup-buffer-mode -1)       ; don't want binding of 'q'
       (slime-edit-value-mode 1)
       (setq buffer-read-only nil)
       (setq slime-edit-form-string form-string)
@@ -5562,7 +5563,7 @@ in Lisp when committed with \\[slime-edit-value-commit]."
                                                       ,value)
                           (lambda (_)
                             (with-current-buffer buffer
-                              (slime-temp-buffer-quit t))))))))
+                              (slime-popup-buffer-quit t))))))))
 
 ;;;; Tracing
 
@@ -5942,7 +5943,7 @@ With prefix argument include internal symbols."
 (defun slime-show-apropos (plists string package summary)
   (if (null plists)
       (message "No apropos matches for %S" string)
-    (slime-with-temp-buffer ("*SLIME Apropos*" package t)
+    (slime-with-popup-buffer ("*SLIME Apropos*" package t)
       (apropos-mode)
       (if (boundp 'header-line-format)
           (setq header-line-format summary)
@@ -6399,7 +6400,7 @@ This variable specifies both what was expanded and how.")
 
 (defun slime-create-macroexpansion-buffer ()
   (let ((name "*SLIME Macroexpansion*"))
-    (slime-with-temp-buffer (name t t)
+    (slime-with-popup-buffer (name t t)
       (lisp-mode)
       (slime-mode 1)
       (slime-macroexpansion-minor-mode 1)
@@ -7394,14 +7395,14 @@ was called originally."
   "Display a list of threads."
   (interactive)
   (let ((name slime-threads-buffer-name))
-    (slime-with-temp-buffer (name nil t)
+    (slime-with-popup-buffer (name nil t)
       (slime-thread-control-mode)
-      (setq slime-temp-buffer-quit-function 'slime-quit-threads-buffer)
+      (setq slime-popup-buffer-quit-function 'slime-quit-threads-buffer)
       (slime-update-threads-buffer))))
 
 (defun slime-quit-threads-buffer (&optional _)
   (slime-eval-async `(swank:quit-thread-browser))
-  (slime-temp-buffer-quit t))
+  (slime-popup-buffer-quit t))
 
 (defun slime-update-threads-buffer ()
   (interactive)
@@ -7433,7 +7434,7 @@ was called originally."
   "SLIME Thread Control Panel Mode.
 
 \\{slime-thread-control-mode-map}
-\\{slime-temp-buffer-mode-map}"
+\\{slime-popup-buffer-mode-map}"
   (when slime-truncate-lines
     (set (make-local-variable 'truncate-lines) t)))
 
@@ -7470,7 +7471,7 @@ was called originally."
   "SLIME Connection List Mode.
 
 \\{slime-connection-list-mode-map}
-\\{slime-temp-buffer-mode-map}"
+\\{slime-popup-buffer-mode-map}"
   (when slime-truncate-lines
     (set (make-local-variable 'truncate-lines) t)))
 
@@ -7516,7 +7517,7 @@ was called originally."
 (defun slime-list-connections ()
   "Display a list of all connections."
   (interactive)
-  (slime-with-temp-buffer (slime-connections-buffer-name)
+  (slime-with-popup-buffer (slime-connections-buffer-name)
     (slime-connection-list-mode)
     (slime-draw-connection-list)))
 
@@ -8679,13 +8680,13 @@ BODY returns true if the check succeeds."
       (slime-check "Checking that narrowing succeeded."
        (slime-buffer-narrowed-p))
 
-      (slime-with-temp-buffer (random-buffer-name)
+      (slime-with-popup-buffer (random-buffer-name)
         (slime-check ("Checking that we're in Slime's temp buffer `%s'" random-buffer-name)
           (equal (buffer-name (current-buffer)) random-buffer-name)))
       (with-current-buffer random-buffer-name
         ;; Notice that we cannot quit the buffer within the the extent
         ;; of slime-with-output-to-temp-buffer.
-        (slime-temp-buffer-quit t)) 
+        (slime-popup-buffer-quit t)) 
       (slime-check ("Checking that we've got back from `%s'" random-buffer-name)
         (and (eq (current-buffer) tmpbuffer)
              (= (point) defun-pos)))

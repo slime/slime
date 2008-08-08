@@ -1,5 +1,9 @@
 2008-08-08  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el: Rename slime's temp-buffer to popup-buffer.
+
+2008-08-08  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (slime-compiler-notes-mode, slime-connection-ist-mode):
 	Add slime-temp-buffer-mode-map to docstring.
 
