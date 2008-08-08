@@ -875,31 +875,31 @@ of the toplevel restart."
            (funcall function)))
         (*slime-interrupts-enabled*
          (funcall function))
-        ((cddr *pending-slime-interrupts*)
+        ((cdr *pending-slime-interrupts*)
          (simple-break "Two many queued interrupts"))
         (t
          (push function *pending-slime-interrupts*))))
 
-(defslimefun simple-break (&optional (message "Interrupt from Emacs"))
-  (with-simple-restart  (continue "Continue from interrupt.")
-    (call-with-debugger-hook
-     #'swank-debugger-hook
-     (lambda ()
-       (invoke-debugger 
-        (make-condition 'simple-error :format-control "~a"
-                        :format-arguments (list message))))))
-  nil)
+(defslimefun simple-break (&optional (fstring "Interrupt from Emacs")
+                                     &rest args)
+  (call-with-debugger-hook
+   #'swank-debugger-hook
+   (lambda ()
+     (cerror "Return from break." "~?" fstring args))))
 
 ;;;;;; Thread based communication
 
 (defvar *active-threads* '())
 
-(defun read-loop (control-thread input-stream connection)
+(defun read-loop (connection)
   (with-reader-error-handler (connection)
-    (loop (send control-thread (decode-message input-stream)))))
+    (let ((input-stream (connection.socket-io connection))
+          (control-thread (connection.control-thread connection)))
+      (loop (send control-thread (decode-message input-stream))))))
 
-(defun dispatch-loop (socket-io connection)
-  (let ((*emacs-connection* connection))
+(defun dispatch-loop (connection)
+  (let ((*emacs-connection* connection)
+        (socket-io (connection.socket-io connection)))
     (handler-bind ((error (lambda (e)
                             (if *debug-on-swank-error*
                                 (invoke-debugger e)
@@ -1007,26 +1007,18 @@ of the toplevel restart."
      (encode-message event socket-io))))
 
 (defun spawn-threads-for-connection (connection)
-  (macrolet ((without-debugger-hook (&body body) 
-               `(call-with-debugger-hook nil (lambda () ,@body))))
-    (let* ((socket-io (connection.socket-io connection))
-           (control-thread (spawn (lambda ()
-                                    (without-debugger-hook
-                                     (dispatch-loop socket-io connection)))
-                                  :name "control-thread")))
-      (setf (connection.control-thread connection) control-thread)
-      (let ((reader-thread (spawn (lambda () 
-                                    (let ((go (receive)))
-                                      (assert (eq go 'accept-input)))
-                                    (without-debugger-hook
-                                     (read-loop control-thread socket-io
-                                                connection)))
-                                  :name "reader-thread"))
-            (repl-thread (spawn-repl-thread connection "repl-thread")))
-        (setf (connection.repl-thread connection) repl-thread)
-        (setf (connection.reader-thread connection) reader-thread)
-        (send reader-thread 'accept-input)
-        connection))))
+  (setf (connection.control-thread connection) 
+        (spawn (lambda () (control-thread connection))
+               :name "control-thread"))
+  connection)
+
+(defun control-thread (connection)
+  (with-connection-slots connection
+    (setf control-thread (current-thread))
+    (setf repl-thread (spawn-repl-thread connection "repl-thread"))
+    (setf reader-thread (spawn (lambda () (read-loop connection)) 
+                               :name "reader-thread"))
+  (dispatch-loop connection)))
 
 (defun cleanup-connection-threads (connection)
   (let ((threads (list (connection.repl-thread connection)
