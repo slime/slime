@@ -6391,6 +6391,7 @@ This variable specifies both what was expanded and how.")
       (lisp-mode)
       (slime-mode 1)
       (slime-macroexpansion-minor-mode 1)
+      (setq font-lock-keywords-case-fold-search t)
       (current-buffer))))
 
 (defun slime-eval-macroexpand-inplace (expander)

@@ -1,3 +1,9 @@
+2008-08-08  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-create-macroexpansion-buffer): Make fontifying
+	case insensitive as the result from macroexpansion is most likely
+	printed all upper-case.
+
 2008-08-07  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-with-temp-buffer): By default, no longer inherit
