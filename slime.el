@@ -991,7 +991,7 @@ current state will be saved and later restored."
 (put 'slime-with-temp-buffer 'lisp-indent-function 1)
 
 (defun slime-temp-buffer (name buffer-vars)
-  "Return a temporary buffer called NAME in MODE.
+  "Return a temporary buffer called NAME.
 The buffer also uses the minor-mode `slime-temp-buffer-mode'.
 Pressing `q' in the buffer will restore the window configuration
 to the way it is when the buffer was created, i.e. when this
@@ -1021,8 +1021,9 @@ function was called."
 
 ;; Interface
 (defun slime-temp-buffer-quit (&optional kill-buffer-p)
-  "Get rid of the current (temp) buffer without asking. Restore the
-window configuration unless it was changed since we last activated the buffer."
+  "Get rid of the current (temp) buffer without asking.
+Restore the window configuration unless it was changed since we
+last activated the buffer."
   (interactive)
   (let ((snapshot slime-temp-buffer-saved-emacs-snapshot)
         (temp-buffer (current-buffer)))
@@ -9305,7 +9306,8 @@ Reconnect afterwards."
       (while (member hook slime-connected-hook)
         (sit-for 0.5)
         (slime-accept-process-output nil 0.1)))
-    (slime-test-expect "We are connected again" p (slime-inferior-process))))
+    (slime-test-expect "We are connected again" p 
+                       (slime-inferior-process slime-default-connection))))
     
 
 ;;;; Utilities

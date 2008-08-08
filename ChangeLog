@@ -1,3 +1,9 @@
+2008-08-08  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (test disconnect): Call slime-inferior-process
+	with explicit connection argument to avoid clashes with
+	buffer-local connections.
+
 2008-08-08  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-create-macroexpansion-buffer): Make fontifying
