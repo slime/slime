@@ -1,3 +1,12 @@
+2008-08-08  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el: Fixing `q' in Xref buffers.
+
+	(slime-popup-buffer-snapshot-unchanged-p): New.
+	(slime-popup-buffer-restore-snapshot): New.
+	(slime-xref-quit): Can't use slime-popup-buffer directly. Instead
+	implement its own quit behaviour using the above functions.
+
 2008-08-08  Helmut Eller  <heller@common-lisp.net>
 
 	Use wait-for-event instead of catch/throw where needed.

@@ -1035,15 +1035,22 @@ function was called."
 Restore the window configuration unless it was changed since we
 last activated the buffer."
   (interactive)
-  (let ((snapshot slime-popup-buffer-saved-emacs-snapshot)
-        (popup-buffer (current-buffer)))
-    (setq slime-popup-buffer-saved-emacs-snapshot nil)
-    (if (and snapshot (equalp (slime-current-emacs-snapshot-fingerprint)
-                              slime-popup-buffer-saved-fingerprint))
-        (slime-set-emacs-snapshot snapshot)
+  (let ((popup-buffer (current-buffer)))
+    (if (slime-popup-buffer-snapshot-unchanged-p)
+        (slime-popup-buffer-restore-snapshot)
         (bury-buffer))
+    (setq slime-popup-buffer-saved-emacs-snapshot nil)
     (when kill-buffer-p
       (kill-buffer popup-buffer))))
+
+(defun slime-popup-buffer-snapshot-unchanged-p ()
+  (let ((snapshot slime-popup-buffer-saved-emacs-snapshot))
+    (and snapshot (equalp (slime-current-emacs-snapshot-fingerprint)
+                          slime-popup-buffer-saved-fingerprint))))
+
+(defun slime-popup-buffer-restore-snapshot ()
+  (slime-set-emacs-snapshot slime-popup-buffer-saved-emacs-snapshot))
+
 
 ;;;;; Filename translation
 ;;;
@@ -6077,14 +6084,17 @@ If CREATE is non-nil, create it if necessary."
   "Kill the current xref buffer and restore the window configuration."
   (interactive)
   (slime-xref-cleanup)
-  (slime-popup-buffer-quit))
+  ;; We can't simply use `slime-popup-buffer-quit' because we also
+  ;; want the Xref window be deleted.
+  (if (slime-popup-buffer-snapshot-unchanged-p)
+      (slime-popup-buffer-restore-snapshot)
+    (let ((buffer (current-buffer)))
+      (delete-windows-on buffer)
+      (kill-buffer buffer))))
 
 (defun slime-xref-cleanup ()
   "Delete overlays created by xref mode and kill the xref buffer."
-  (sldb-delete-overlays)
-  (let ((buffer (current-buffer)))
-    (delete-windows-on buffer)
-    (kill-buffer buffer)))
+  (sldb-delete-overlays))
 
 (defun slime-insert-xrefs (xref-alist)
   "Insert XREF-ALIST in the current-buffer.
@@ -6208,7 +6218,7 @@ source-location."
   "Goto the cross-referenced location at point."
   (interactive)
   (let ((location (slime-xref-location-at-point)))
-    (slime-xref-cleanup)
+    (slime-xref-quit)
     (slime-pop-to-location location)))
 
 (defun slime-show-xref ()
