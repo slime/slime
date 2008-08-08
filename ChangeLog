@@ -1,5 +1,11 @@
 2008-08-08  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-connections-buffer-name): New variable.
+	(slime-list-connections): Use it.
+	(def-slime-selector ?c): Ditto
+
+2008-08-08  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el: Make the threads browser use `slime-with-temp-buffer'.
 
 	(slime-temp-buffer-quit-function): New buffer-local

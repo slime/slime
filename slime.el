@@ -7508,10 +7508,12 @@ was called originally."
   (slime-select-connection (slime-connection-at-point))
   (slime-update-connection-list))
 
+(defvar slime-connections-buffer-name "*SLIME Connections*")
+
 (defun slime-list-connections ()
   "Display a list of all connections."
   (interactive)
-  (slime-with-temp-buffer ("*SLIME Connections*")
+  (slime-with-temp-buffer (slime-connections-buffer-name)
     (slime-connection-list-mode)
     (slime-draw-connection-list)))
 
@@ -7999,7 +8001,7 @@ switch-to-buffer."
 (def-slime-selector-method ?c
   "SLIME connections buffer."
   (slime-list-connections)
-  "*SLIME Connections*")
+  slime-connections-buffer-name)
 
 (def-slime-selector-method ?t
   "SLIME threads buffer."
