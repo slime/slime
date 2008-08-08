@@ -4204,7 +4204,9 @@ keys."
 (define-derived-mode slime-compiler-notes-mode fundamental-mode 
   "Compiler-Notes"
   "\\<slime-compiler-notes-mode-map>\
-\\{slime-compiler-notes-mode-map}"
+\\{slime-compiler-notes-mode-map}
+\\{slime-temp-buffer-mode-map}
+"
   (slime-set-truncate-lines))
 
 (slime-define-keys slime-compiler-notes-mode-map
@@ -7467,7 +7469,8 @@ was called originally."
   "Slime-Connections"
   "SLIME Connection List Mode.
 
-\\{slime-connection-list-mode-map}"
+\\{slime-connection-list-mode-map}
+\\{slime-temp-buffer-mode-map}"
   (when slime-truncate-lines
     (set (make-local-variable 'truncate-lines) t)))
 
