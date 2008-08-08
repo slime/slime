@@ -223,10 +223,6 @@ Backend code should treat the connection structure as opaque.")
   ;; (SERVE-REQUESTS <this-connection>) serves all pending requests
   ;; from Emacs.
   (serve-requests   (missing-arg) :type function)
-  ;; (READ) is called to read and return one message from Emacs.
-  (read             (missing-arg) :type function)
-  ;; (SEND OBJECT) is called to send one message to Emacs.
-  (send             (missing-arg) :type function)
   ;; (CLEANUP <this-connection>) is called when the connection is
   ;; closed.
   (cleanup          nil :type (or null function))
@@ -276,10 +272,13 @@ recently established one."
              (princ (swank-error.condition condition) stream))))
 
 (defun make-swank-error (condition)
-  (let ((bt (ignore-errors 
-              (call-with-debugging-environment 
-               (lambda () (backtrace 0 nil))))))
-    (make-condition 'swank-error :condition condition :backtrace bt)))
+  (make-condition 'swank-error :condition condition 
+                  :backtrace (safe-backtrace)))
+
+(defun safe-backtrace ()
+  (ignore-errors 
+    (call-with-debugging-environment 
+     (lambda () (backtrace 0 nil)))))
 
 (add-hook *new-connection-hook* 'notify-backend-of-connection)
 (defun notify-backend-of-connection (connection)
@@ -338,6 +337,17 @@ corresponding values in the CDR of VALUE."
                '()
                `((t (error "destructure-case failed: ~S" ,tmp))))))))
 
+(defmacro with-struct* ((conc-name get obj) &body body)
+  (let ((var (gensym)))
+    `(let ((,var ,obj))
+       (macrolet ((,get (slot)
+                    (let ((getter (intern (concatenate 'string
+                                                       ',(string conc-name)
+                                                       (string slot))
+                                          (symbol-package ',conc-name))))
+                      `(,getter ,',var))))
+         ,@body))))
+
 (defmacro with-temp-package (var &body body)
   "Execute BODY with VAR bound to a temporary package.
 The package is deleted before returning."
@@ -353,6 +363,9 @@ The package is deleted before returning."
         (unless (gethash ,var ,seen-ht)
           (setf (gethash ,var ,seen-ht) t)
           ,@body)))))
+
+(defun use-threads-p ()
+  (eq (connection.communication-style *emacs-connection*) :spawn))
 
 
 ;;;;; Logging
@@ -802,7 +815,7 @@ of the toplevel restart."
 (defun current-socket-io ()
   (connection.socket-io *emacs-connection*))
 
-(defun close-connection (c &optional condition backtrace)
+(defun close-connection (c condition backtrace)
   (format *log-output* "~&;; swank:close-connection: ~A~%" condition)
   (let ((cleanup (connection.cleanup c)))
     (when cleanup
@@ -836,20 +849,20 @@ of the toplevel restart."
   want to debug swank internals.")
 
 (defmacro with-reader-error-handler ((connection) &body body)
-  (let ((con (gensym))
-        (blck (gensym)))
-    `(let ((,con ,connection))
-       (block ,blck
-         (handler-bind ((swank-error
-                         (lambda (e)
-                           (if *debug-on-swank-error*
-                               (invoke-debugger e)
-                               (return-from ,blck
-                                 (close-connection 
-                                  ,con 
-                                  (swank-error.condition e)
-                                  (swank-error.backtrace e)))))))
-           (progn ,@body))))))
+  (let ((var (gensym)))
+  `(let ((,var ,connection))
+     (handler-case (progn ,@body)
+       (swank-error (condition)
+         (close-connection ,var
+                           (swank-error.condition condition)
+                           (swank-error.backtrace condition)))))))
+  
+(defmacro with-panic-handler (&body body)
+  `(handler-bind ((serious-condition
+                   (lambda (condition)
+                     (close-connection *emacs-connection* condition 
+                                       (safe-backtrace)))))
+     . ,body))
 
 (defvar *slime-interrupts-enabled*)
 
@@ -892,31 +905,15 @@ of the toplevel restart."
 (defvar *active-threads* '())
 
 (defun read-loop (connection)
-  (with-reader-error-handler (connection)
-    (let ((input-stream (connection.socket-io connection))
-          (control-thread (connection.control-thread connection)))
+  (let ((input-stream (connection.socket-io connection))
+        (control-thread (connection.control-thread connection)))
+    (with-reader-error-handler (connection)
       (loop (send control-thread (decode-message input-stream))))))
 
 (defun dispatch-loop (connection)
-  (let ((*emacs-connection* connection)
-        (socket-io (connection.socket-io connection)))
-    (handler-bind ((error (lambda (e)
-                            (if *debug-on-swank-error*
-                                (invoke-debugger e)
-                                (return-from dispatch-loop
-                                  (close-connection connection e))))))
-      (loop (dispatch-event (receive) socket-io)))))
-
-(defun repl-thread (connection)
-  (let ((thread (connection.repl-thread connection)))
-    (when (not thread)
-      (log-event "ERROR: repl-thread is nil"))
-    (assert thread)
-    (cond ((thread-alive-p thread)
-           thread)
-          (t
-           (setf (connection.repl-thread connection)
-                 (spawn-repl-thread connection "new-repl-thread"))))))
+  (let ((*emacs-connection* connection))
+    (with-panic-handler
+      (loop (dispatch-event (read-event))))))
 
 (defvar *auto-flush-interval* 0.2)
 
@@ -928,19 +925,30 @@ of the toplevel restart."
    (finish-output stream)
    (sleep *auto-flush-interval*)))
 
+(defun find-repl-thread (connection)
+  (cond ((not (use-threads-p))
+         (current-thread))
+        (t
+         (let ((thread (connection.repl-thread connection)))
+           (assert thread)
+           (cond ((thread-alive-p thread) thread)
+                 (t
+                  (setf (connection.repl-thread connection)
+                        (spawn-repl-thread connection "new-repl-thread"))))))))
+
 (defun find-worker-thread (id)
   (etypecase id
     ((member t)
      (car *active-threads*))
     ((member :repl-thread) 
-     (repl-thread *emacs-connection*))
+     (find-repl-thread *emacs-connection*))
     (fixnum 
      (find-thread id))))
 
 (defun interrupt-worker-thread (id)
   (let ((thread (or (find-worker-thread id)
-                    (repl-thread *emacs-connection*))))
-    (interrupt-thread thread
+                    (find-repl-thread *emacs-connection*))))
+    (signal-interrupt thread
                       (lambda () 
                         (invoke-or-queue-interrupt #'simple-break)))))
 
@@ -949,9 +957,10 @@ of the toplevel restart."
   (let ((c *emacs-connection*))
     (etypecase id
       ((member t)
-       (spawn-worker-thread c))
+       (cond ((use-threads-p) (spawn-worker-thread c))
+             (t (current-thread))))
       ((member :repl-thread)
-       (repl-thread c))
+       (find-repl-thread c))
       (fixnum
        (find-thread id)))))
 
@@ -967,9 +976,10 @@ of the toplevel restart."
              (repl-loop connection)))
          :name name))
 
-(defun dispatch-event (event socket-io)
+(defun dispatch-event (event &optional (socket-io (current-socket-io)))
   "Handle an event triggered either by Emacs or within Lisp."
-  (log-event "DISPATCHING: ~S~%" event)
+  (log-event "dispatch-event: ~s~%" event)
+  (flet ((send (thread event) (send-event thread event)))
   (destructure-case event
     ((:emacs-rex form package thread-id id)
      (let ((thread (thread-for-evaluation thread-id)))
@@ -1004,7 +1014,62 @@ of the toplevel restart."
                      :eval-no-wait :background-message :inspect :ping)
       &rest _)
      (declare (ignore _))
-     (encode-message event socket-io))))
+     (encode-message event socket-io)))))
+
+(defvar *event-queue* '())
+
+(defun send-event (thread event)
+  (log-event "send-event: ~s ~s~%" thread event)
+  (cond ((use-threads-p) (send thread event))
+        (t (setf *event-queue* (nconc *event-queue* (list event))))))
+
+(defun read-event ()
+  (log-event "read-event: ~a~%" (current-socket-io))
+  (cond ((use-threads-p) (receive))
+        (t (decode-message (current-socket-io)))))
+
+(defun send-to-emacs (event)
+  "Send EVENT to Emacs."
+  (cond ((use-threads-p) 
+         (send (connection.control-thread *emacs-connection*) event))
+        (t (dispatch-event event))))
+
+(defun signal-interrupt (thread interrupt)  
+  (log-event "singal-interrupt~%")
+  (cond ((use-threads-p) (interrupt-thread thread interrupt))
+        (t (funcall interrupt))))
+
+(defun wait-for-event (pattern)
+  (log-event "wait-for-event: ~s~%" pattern)
+  (cond ((use-threads-p) 
+         (without-slime-interrupts
+           (receive-if (lambda (e) (event-match-p e pattern)))))
+        (t 
+         (wait-for-event/event-loop pattern))))
+
+(defun wait-for-event/event-loop (pattern)
+  (loop 
+   (let ((tail (member-if (lambda (e) (event-match-p e pattern))
+                          *event-queue*)))
+     (when tail 
+       (setq *event-queue* 
+             (nconc (ldiff *event-queue* tail) (cdr tail)))
+       (return (car tail))))
+   ;; could also say: (dispatch-event (read-event))
+   (let ((event (read-event)))
+     (cond ((event-match-p event pattern) (return event))
+           (t (dispatch-event event))))))
+
+(defun event-match-p (event pattern)
+  (cond ((or (keywordp pattern) (numberp pattern) (stringp pattern)
+	     (member pattern '(nil t)))
+	 (equal event pattern))
+	((symbolp pattern) t)
+	((consp pattern)
+         (and (consp event)
+              (and (event-match-p (car event) (car pattern))
+                   (event-match-p (cdr event) (cdr pattern)))))
+	(t (error "Invalid pattern: ~S" pattern))))
 
 (defun spawn-threads-for-connection (connection)
   (setf (connection.control-thread connection) 
@@ -1013,12 +1078,12 @@ of the toplevel restart."
   connection)
 
 (defun control-thread (connection)
-  (with-connection-slots connection
-    (setf control-thread (current-thread))
-    (setf repl-thread (spawn-repl-thread connection "repl-thread"))
-    (setf reader-thread (spawn (lambda () (read-loop connection)) 
-                               :name "reader-thread"))
-  (dispatch-loop connection)))
+  (with-struct* (connection. @ connection)
+    (setf (@ control-thread) (current-thread))
+    (setf (@ repl-thread) (spawn-repl-thread connection "repl-thread"))
+    (setf (@ reader-thread) (spawn (lambda () (read-loop connection)) 
+                                   :name "reader-thread"))
+    (dispatch-loop connection)))
 
 (defun cleanup-connection-threads (connection)
   (let ((threads (list (connection.repl-thread connection)
@@ -1099,49 +1164,7 @@ of the toplevel restart."
          (with-reader-error-handler (connection)
            (loop
             (handle-request connection))))
-    (close-connection connection)))
-
-(defun read-from-socket-io ()
-  (let ((event (decode-message (current-socket-io))))
-    (log-event "DISPATCHING: ~S~%" event)
-    (destructure-case event
-      ((:emacs-rex form package thread id)
-       (declare (ignore thread))
-       `(:call eval-for-emacs ,form ,package ,id))
-      ((:emacs-interrupt thread)
-       (declare (ignore thread))
-       '(:call simple-break))
-      ((:emacs-return-string thread tag string)
-       (declare (ignore thread))
-       `(:call take-input ,tag ,string))
-      ((:emacs-return thread tag value)
-       (declare (ignore thread))
-       `(:call take-input ,tag ,value))
-      ((:emacs-pong thread tag)
-       (declare (ignore thread))
-       `(:emacs-pong ,tag)))))
-
-(defun send-to-socket-io (event) 
-  (log-event "DISPATCHING: ~S~%" event)
-  (flet ((send (o) 
-           (without-interrupts 
-             (encode-message o (current-socket-io)))))
-    (destructure-case event
-      (((:debug-activate :debug :debug-return :read-string :read-aborted 
-                         :y-or-n-p :eval)
-        thread &rest args)
-       (declare (ignore thread))
-       (send `(,(car event) 0 ,@args)))
-      ((:return thread &rest args)
-       (declare (ignore thread))
-       (send `(:return ,@args)))
-      (((:write-string :new-package :new-features :debug-condition
-                       :presentation-start :presentation-end
-                       :indentation-update :ed :%apply :eval-no-wait
-                       :background-message :inspect :ping)
-        &rest _)
-       (declare (ignore _))
-       (send event)))))
+    (close-connection connection nil (safe-backtrace))))
 
 (defun initialize-streams-for-connection (connection)
   (multiple-value-bind (dedicated in out io repl-results) 
@@ -1159,26 +1182,18 @@ of the toplevel restart."
          (let ((c (ecase style
                     (:spawn
                      (make-connection :socket-io socket-io
-                                      :read #'read-from-control-thread
-                                      :send #'send-to-control-thread
                                       :serve-requests #'spawn-threads-for-connection
                                       :cleanup #'cleanup-connection-threads))
                     (:sigio
                      (make-connection :socket-io socket-io
-                                      :read #'read-from-socket-io
-                                      :send #'send-to-socket-io
                                       :serve-requests #'install-sigio-handler
                                       :cleanup #'deinstall-sigio-handler))
                     (:fd-handler
                      (make-connection :socket-io socket-io
-                                      :read #'read-from-socket-io
-                                      :send #'send-to-socket-io
                                       :serve-requests #'install-fd-handler
                                       :cleanup #'deinstall-fd-handler))
                     ((nil)
                      (make-connection :socket-io socket-io
-                                      :read #'read-from-socket-io
-                                      :send #'send-to-socket-io
                                       :serve-requests #'simple-serve-requests))
                     )))
            (setf (connection.communication-style c) style)
@@ -1375,58 +1390,9 @@ NIL if streams are not globally redirected.")
 (defmacro with-thread-description (description &body body)
   `(call-with-thread-description ,description #'(lambda () ,@body)))
 
-(defvar *event-queue* '())
-
 (defun read-from-emacs ()
   "Read and process a request from Emacs."
-  (let ((request (without-slime-interrupts
-                   (funcall (connection.read *emacs-connection*)))))
-    (if (eq *communication-style* :spawn)
-        (with-thread-description request 
-          (apply #'funcall request))
-        (destructure-case request
-            ((:call &rest args) (apply #'funcall args))
-            (t (setf *event-queue* 
-                     (nconc *event-queue* (list request))))))))
-
-(defun wait-for-event (pattern)
-  (log-event "wait-for-event: %S~%" pattern)
-  (case (connection.communication-style *emacs-connection*)
-    (:spawn 
-     (without-slime-interrupts
-       (receive-if (lambda (e) (event-match-p e pattern)))))
-    (t (wait-for-event/event-loop pattern))))
-
-(defun wait-for-event/event-loop (pattern)
-  (loop 
-   (let ((tail (member-if (lambda (e) (event-match-p e pattern)) 
-                          *event-queue*)))
-     (cond (tail 
-            (setq *event-queue* 
-                  (nconc (ldiff *event-queue* tail) (cdr tail)))
-            (return (car tail)))
-           (t
-            (let ((event (read-from-socket-io)))
-              (cond ((event-match-p event pattern) (return event))
-                    ((eq (car event) :call)
-                     (apply #'funcall (cdr event)))
-                    (t 
-                     (setf *event-queue* 
-                           (nconc *event-queue* (list event)))))))))))
-
-(defun event-match-p (event pattern)
-  (cond ((or (keywordp pattern) (numberp pattern) (stringp pattern)
-	     (member pattern '(nil t)))
-	 (equal event pattern))
-	((symbolp pattern) t)
-	((consp pattern)
-         (and (consp event)
-              (and (event-match-p (car event) (car pattern))
-                   (event-match-p (cdr event) (cdr pattern)))))
-	(t (error "Invalid pattern: ~S" pattern))))
-
-(defun read-from-control-thread ()
-  (cdr (receive-if (lambda (e) (event-match-p e '(:call . _))))))
+  (apply #'funcall (cdr (wait-for-event `(:call . _)))))
 
 (defun decode-message (stream)
   "Read an S-expression from STREAM using the SLIME protocol."
@@ -1454,15 +1420,8 @@ NIL if streams are not globally redirected.")
 (defvar *slime-features* nil
   "The feature list that has been sent to Emacs.")
 
-(defun send-to-emacs (object)
-  "Send OBJECT to Emacs."
-  (funcall (connection.send *emacs-connection*) object))
-
 (defun send-oob-to-emacs (object)
   (send-to-emacs object))
-
-(defun send-to-control-thread (object)
-  (send (connection.control-thread *emacs-connection*) object))
 
 (defun encode-message (message stream)
   (let* ((string (prin1-to-string-for-emacs message))

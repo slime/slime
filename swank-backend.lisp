@@ -937,7 +937,8 @@ Ids should be comparable with equal, i.e.:
 (definterface find-thread (id)
   "Return the thread for ID.
 ID should be an id previously obtained with THREAD-ID.
-Can return nil if the thread no longer exists.")
+Can return nil if the thread no longer exists."
+  (current-thread))
 
 (definterface thread-name (thread)
    "Return the name of THREAD.
@@ -998,7 +999,8 @@ but that thread may hold it more than once."
   "Send OBJECT to thread THREAD.")
 
 (definterface receive ()
-  "Return the next message from current thread's mailbox.")
+  "Return the next message from current thread's mailbox."
+  (receive-if (constantly t)))
 
 (definterface receive-if (predicate)
   "Return the first message satisfiying PREDICATE.")

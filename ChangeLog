@@ -29,6 +29,16 @@
 
 2008-08-08  Helmut Eller  <heller@common-lisp.net>
 
+	Unify event dispatching for single and multi-threaded cases.
+
+	* swank.lisp (send-to-control-thread,read-from-control-thread)
+	(send-to-socket-io,read-from-socket-io): Deleted.
+	(send-event, read-event, send-to-emacs)
+	(signal-interrupt, use-threads-p): New functions.
+	And more random changes.
+
+2008-08-08  Helmut Eller  <heller@common-lisp.net>
+
 	Spawn the auto-flush thread in the front end.
 	This removes some copy&paste code in various backends.
 
