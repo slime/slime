@@ -965,7 +965,7 @@ Buffer local in popup-buffers."))
 ;; Interface
 (defmacro* slime-with-popup-buffer ((name &optional package
                                           connection emacs-snapshot)
-                                    &rest body)
+                                    &body body)
   "Similar to `with-output-to-temp-buffer'.
 Bind standard-output and initialize some buffer-local variables.
 Restore window configuration when closed.
@@ -1039,7 +1039,7 @@ last activated the buffer."
         (popup-buffer (current-buffer)))
     (setq slime-popup-buffer-saved-emacs-snapshot nil)
     (if (and snapshot (equalp (slime-current-emacs-snapshot-fingerprint)
-                              slime-popup-buffer-saved-fingerprint))
+                              slime-popup-buffer-saved-fingerprint)))
         (slime-set-emacs-snapshot snapshot)
         (bury-buffer))
     (when kill-buffer-p
@@ -6018,7 +6018,7 @@ With prefix argument include internal symbols."
 (defvar slime-xref-saved-emacs-snapshot nil
   "Buffer local variable in xref windows.")
 
-(define-derived-mode slime-xref-mode lisp-mode "xref"
+(define-derived-mode slime-xref-mode lisp-mode "Xref"
   "slime-xref-mode: Major mode for cross-referencing.
 \\<slime-xref-mode-map>\
 The most important commands:
@@ -6026,7 +6026,9 @@ The most important commands:
 \\[slime-show-xref]	- Display referenced source and keep xref window.
 \\[slime-goto-xref]	- Jump to referenced source and dismiss xref window.
 
-\\{slime-xref-mode-map}"
+\\{slime-xref-mode-map}
+\\{slime-popup-buffer-mode-map}
+"
   (setq font-lock-defaults nil)
   (setq delayed-mode-hooks nil)
   (slime-mode -1))
@@ -6036,7 +6038,6 @@ The most important commands:
   ([return] 'slime-show-xref)
   ("\C-m" 'slime-show-xref)
   (" " 'slime-goto-xref)
-  ("q" 'slime-xref-quit)
   ("n" 'slime-next-line/not-add-newlines)
   ("p" 'previous-line)
   ("\C-c\C-c" 'slime-recompile-xref)
@@ -6046,13 +6047,6 @@ The most important commands:
   (interactive)
   (let ((next-line-add-newlines nil))
     (next-line 1)))
-
-;; FIXME: binding SLDB keys in xref buffer? -luke
-(dolist (spec slime-keys)
-  (destructuring-bind (key command &key sldb prefixed &allow-other-keys) spec
-    (when sldb
-      (let ((key (if prefixed (concat slime-prefix-key key) key)))
-        (define-key slime-xref-mode-map key command)))))
 
 
 ;;;;; XREF results buffer and window management
@@ -6064,46 +6058,33 @@ If CREATE is non-nil, create it if necessary."
                (buffer-list))
       (error "No XREF buffer")))
 
-(defun slime-init-xref-buffer (package ref-type symbol)
-  "Initialize the current buffer for displaying XREF information."
-  (slime-xref-mode)
-  (setq buffer-read-only nil)
-  (erase-buffer)
-  (setq slime-buffer-package package)
-  (slime-set-truncate-lines))
-
-;; XXX: unused function
-(defun slime-display-xref-buffer ()
-  "Display the XREF results buffer in a window and select it."
-  (let* ((buffer (slime-xref-buffer))
-         (window (get-buffer-window buffer)))
-    (if (and window (window-live-p window))
-        (select-window window)
-      (select-window (display-buffer buffer t))
-      (shrink-window-if-larger-than-buffer))))
-
-(defmacro* slime-with-xref-buffer ((package ref-type symbol &key emacs-snapshot) 
+(defmacro* slime-with-xref-buffer ((xref-type symbol &optional package emacs-snapshot)  
                                    &body body)
   "Execute BODY in a xref buffer, then show that buffer."
-  (let ((type (gensym "TYPE+")) (sym      (gensym "SYM+"))
-        (pkg  (gensym "PKG+"))  (snapshot (gensym "SNAPSHOT+")))
-    `(let ((,type ,ref-type) (,sym ,symbol) (,pkg ,package))
-       ;; We don't want the the xref buffer to be the current buffer
-       ;; in the snapshot, so we gotta take the snapshot here.
-       (let ((,snapshot (or ,emacs-snapshot (slime-current-emacs-snapshot))))
-         (with-current-buffer (get-buffer-create 
-                               (format "*XREF[%s: %s]*" ,type ,sym))
-           (prog2 (progn
-                    (slime-init-xref-buffer ,pkg ,type ,sym)
-                    (make-local-variable 'slime-xref-saved-emacs-snapshot)
-                    (setq slime-xref-saved-emacs-snapshot ,snapshot))
-               (progn ,@body)
-             (setq buffer-read-only t)
-             (select-window (or (get-buffer-window (current-buffer) t)
-                                (display-buffer (current-buffer) t)))
-             (shrink-window-if-larger-than-buffer)))))))
+  (let ((xref-buffer-name (format "*XREF[%s: %s]*" xref-type symbol)))
+    `(slime-with-popup-buffer (,xref-buffer-name ,package t ,emacs-snapshot)
+       (slime-xref-mode)
+       (slime-set-truncate-lines)
+       (setq slime-popup-buffer-quit-function 'slime-xref-quit)
+       (erase-buffer)
+       (prog1 (progn ,@body)
+         (assert (equal (buffer-name) ,xref-buffer-name))
+         (shrink-window-if-larger-than-buffer)))))
 
 (put 'slime-with-xref-buffer 'lisp-indent-function 1)
+
+(defun slime-xref-quit (&optional _)
+  "Kill the current xref buffer and restore the window configuration."
+  (interactive)
+  (slime-xref-cleanup)
+  (slime-popup-buffer-quit))
+
+(defun slime-xref-cleanup ()
+  "Delete overlays created by xref mode and kill the xref buffer."
+  (sldb-delete-overlays)
+  (let ((buffer (current-buffer)))
+    (delete-windows-on buffer)
+    (kill-buffer buffer)))
 
 (defun slime-insert-xrefs (xref-alist)
   "Insert XREF-ALIST in the current-buffer.
@@ -6127,7 +6108,7 @@ source-location."
   (if (null xrefs)
       (message "No references found for %s." symbol)
     (setq slime-next-location-function 'slime-goto-next-xref)
-    (slime-with-xref-buffer (package type symbol :emacs-snapshot emacs-snapshot)
+    (slime-with-xref-buffer (type symbol package emacs-snapshot)
       (slime-insert-xrefs xrefs)
       (goto-char (point-min))
       (forward-line)
@@ -6259,17 +6240,6 @@ When displaying XREF information, this goes to the next reference."
     (error "No context for finding locations."))
   (funcall slime-next-location-function))
 
-(defun slime-xref-quit ()
-  "Kill the current xref buffer and restore the window configuration."
-  (interactive)
-  (let ((snapshot slime-xref-saved-emacs-snapshot))
-    (slime-xref-cleanup)
-    (slime-set-emacs-snapshot snapshot)))
-
-(defun foo (&optional p)
-  (interactive "p")
-  (message "%S" p))
-
 (defun slime-recompile-xref (&optional raw-prefix-arg)
   (interactive "P")
   (let* ((prefix-arg (and raw-prefix-arg (prefix-numeric-value raw-prefix-arg)))
@@ -6327,13 +6297,6 @@ When displaying XREF information, this goes to the next reference."
                                  ((t)   :success)
                                  ((nil) :failure)
                                  (t     result))))))))
-
-(defun slime-xref-cleanup ()
-  "Delete overlays created by xref mode and kill the xref buffer."
-  (sldb-delete-overlays)
-  (let ((buffer (current-buffer)))
-    (delete-windows-on buffer)
-    (kill-buffer buffer)))
 
 
 ;;;; Macroexpansion
