@@ -1039,11 +1039,11 @@ last activated the buffer."
         (popup-buffer (current-buffer)))
     (setq slime-popup-buffer-saved-emacs-snapshot nil)
     (if (and snapshot (equalp (slime-current-emacs-snapshot-fingerprint)
-                              slime-popup-buffer-saved-fingerprint)))
+                              slime-popup-buffer-saved-fingerprint))
         (slime-set-emacs-snapshot snapshot)
         (bury-buffer))
     (when kill-buffer-p
-      (kill-buffer popup-buffer)))
+      (kill-buffer popup-buffer))))
 
 ;;;;; Filename translation
 ;;;
