@@ -5094,7 +5094,9 @@ alist but ignores CDRs."
   (mapcar (lambda (x) (cons x nil)) list))
 
 (defun slime-simple-completions (prefix)
-  (slime-eval `(swank:simple-completions ,prefix ',(slime-current-package))))
+  (let ((slime-current-thread t))
+    (slime-eval
+     `(swank:simple-completions ,prefix ',(slime-current-package)))))
 
 
 ;;;; Edit definition

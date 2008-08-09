@@ -27,7 +27,9 @@
 	(sldb-break-with-default-debugger): Invoke the native debugger
 	on top of the slime debugger.
 
-	* slime.el (sldb-setup): Always pop to the debugger buffer.
+	* slime.el (slime-simple-completions): Bind slime-current-thread
+	to t so that completion is peformed in a fresh thread.
+	(sldb-setup): Always pop to the debugger buffer.
 	(sldb-activate): Optionally select the window.
 
 	* swank-sbcl.lisp (sb-thread::get-foreground): Override this
