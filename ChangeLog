@@ -18,6 +18,11 @@
 
 2008-08-09  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-quit-lisp): Optionally send kill signal.
+	(slime-quit-connection-at-point): Disconnect after some timeout.
+
+2008-08-09  Helmut Eller  <heller@common-lisp.net>
+
 	Fixes for heap dumping.
 
 	* swank.lisp (*log-output*): Don't initialize at load-time,
