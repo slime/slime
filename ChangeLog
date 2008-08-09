@@ -16,6 +16,10 @@
 	(slime-xref-quit): Can't use slime-popup-buffer directly. Instead
 	implement its own quit behaviour using the above functions.
 
+2008-08-09  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-lispworks.lisp (disassemble-frame): Implemented.
+
 2008-08-08  Helmut Eller  <heller@common-lisp.net>
 
 	Use wait-for-event instead of catch/throw where needed.

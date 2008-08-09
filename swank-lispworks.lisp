@@ -220,10 +220,10 @@ Return NIL if the symbol is unbound."
 (defmethod env-internals:environment-display-debugger ((env slime-env))
   *debug-io*)
 
-(defimplementation call-with-debugger-hook (hook fun)
-  (let ((*debugger-hook* hook))
-    (env:with-environment ((slime-env hook '()))
-      (funcall fun))))
+;;(defimplementation call-with-debugger-hook (hook fun)
+;;  (let ((*debugger-hook* hook))
+;;    (env:with-environment ((slime-env hook '()))
+;;      (funcall fun))))
 
 (defimplementation install-debugger-globally (function)
   (setq *debugger-hook* function)
@@ -345,6 +345,12 @@ Return NIL if the symbol is unbound."
 (defimplementation restart-frame (frame-number)
   (let ((frame (nth-frame frame-number)))
     (dbg::restart-frame frame :same-args t)))
+
+(defimplementation disassemble-frame (frame-number)
+  (let* ((frame (nth-frame frame-number)))
+    (when (dbg::call-frame-p frame)
+      (let ((function (dbg::get-call-frame-function frame)))
+        (disassemble function)))))
 
 ;;; Definition finding
 
