@@ -32,9 +32,15 @@
 (defun swank-mop:eql-specializer-object (eql-spec)
   (second eql-spec))
 
-(when (fboundp 'dspec::define-dspec-alias)
-  (dspec::define-dspec-alias defimplementation (name args &rest body)
-    `(defun ,name ,args ,@body)))
+(eval-when (:compile-toplevel :execute :load-toplevel)
+  (defvar *original-defimplementation* (macro-function 'defimplementation))
+  (defmacro defimplementation (&whole whole name args &body body 
+                               &environment env)
+    (declare (ignore args body))
+    `(progn
+       (dspec:record-definition '(defun ,name) (dspec:location)
+                                :check-redefinition-p nil)
+       ,(funcall *original-defimplementation* whole env))))
 
 ;;; TCP server
 
@@ -212,26 +218,9 @@ Return NIL if the symbol is unbound."
                  :io-bindings io-bindings
                  :debugger-hoook hook))
 
-(defmethod env-internals:environment-display-notifier
-    ((env slime-env) &key restarts condition)
-  (declare (ignore restarts))
-  (funcall (slot-value env 'debugger-hook) condition *debugger-hook*))
-
-(defmethod env-internals:environment-display-debugger ((env slime-env))
-  *debug-io*)
-
-(defimplementation call-with-debugger-hook (hook fun)
-  (let ((*debugger-hook* hook))
-    (env:with-environment ((slime-env hook '()))
-      (funcall fun))))
-
-(defimplementation install-debugger-globally (function)
-  (setq *debugger-hook* function)
-  (setf (env:environment) (slime-env function '())))
-
 (defmethod env-internals:environment-display-notifier 
     ((env slime-env) &key restarts condition)
-  (declare (ignore restarts))
+  (declare (ignore restarts condition))
   ;;(funcall (swank-sym :swank-debugger-hook) condition *debugger-hook*)
   (values t nil)
   )
@@ -241,6 +230,15 @@ Return NIL if the symbol is unbound."
 
 (defmethod env-internals:confirm-p ((e slime-env) &optional msg &rest args)
   (apply (swank-sym :y-or-n-p-in-emacs) msg args))
+
+(defimplementation call-with-debugger-hook (hook fun)
+  (let ((*debugger-hook* hook))
+    (env:with-environment ((slime-env hook '()))
+      (funcall fun))))
+
+(defimplementation install-debugger-globally (function)
+  (setq *debugger-hook* function)
+  (setf (env:environment) (slime-env function '())))
 
 (defvar *sldb-top-frame*)
 
