@@ -746,14 +746,17 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
                  :name "auto-flush-thread"))
         (values dedicated-output in out io repl-results)))))
 
+(defvar *maximum-pipelined-output-chunks* 20)
+
 ;; FIXME: if wait-for-event aborts the event will stay in the queue forever.
 (defun make-output-function (connection)
   "Create function to send user output to Emacs."
-  (let ((max 100) (i 0) (tag 0) (l 0))
+  (let ((i 0) (tag 0) (l 0))
     (lambda (string)
       (with-connection (connection)
         (with-simple-restart (abort "Abort sending output to Emacs.")
-          (when (or (= i max) (> l (* 80 20 5)))
+          (when (or (= i *maximum-pipelined-output-chunks*) 
+                    (> l (* 80 20 5)))
             (setf tag (mod (1+ tag) 1000))
             (send-to-emacs `(:ping ,(current-thread-id) ,tag))
             (wait-for-event `(:emacs-pong ,tag))

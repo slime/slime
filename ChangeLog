@@ -18,6 +18,10 @@
 
 2008-08-09  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (*maximum-pipelined-output-chunks*): New variable
+
+2008-08-09  Helmut Eller  <heller@common-lisp.net>
+
 	Display the "Use default debugger" restart more prominently.
 
 	* swank.lisp (swank-debugger-hook): Bind a user visible restart
