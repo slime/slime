@@ -220,14 +220,27 @@ Return NIL if the symbol is unbound."
 (defmethod env-internals:environment-display-debugger ((env slime-env))
   *debug-io*)
 
-;;(defimplementation call-with-debugger-hook (hook fun)
-;;  (let ((*debugger-hook* hook))
-;;    (env:with-environment ((slime-env hook '()))
-;;      (funcall fun))))
+(defimplementation call-with-debugger-hook (hook fun)
+  (let ((*debugger-hook* hook))
+    (env:with-environment ((slime-env hook '()))
+      (funcall fun))))
 
 (defimplementation install-debugger-globally (function)
   (setq *debugger-hook* function)
   (setf (env:environment) (slime-env function '())))
+
+(defmethod env-internals:environment-display-notifier 
+    ((env slime-env) &key restarts condition)
+  (declare (ignore restarts))
+  ;;(funcall (swank-sym :swank-debugger-hook) condition *debugger-hook*)
+  (values t nil)
+  )
+
+(defmethod env-internals:environment-display-debugger ((env slime-env))
+  *debug-io*)
+
+(defmethod env-internals:confirm-p ((e slime-env) &optional msg &rest args)
+  (apply (swank-sym :y-or-n-p-in-emacs) msg args))
 
 (defvar *sldb-top-frame*)
 
@@ -783,19 +796,7 @@ function names like \(SETF GET)."
 (defimplementation emacs-connected ()
   (when (eq (eval (swank-sym :*communication-style*))
             nil)
-    (set-sigint-handler))
-  ;; pop up the slime debugger by default
-  (let ((lw:*handle-warn-on-redefinition* :warn))
-    (defmethod env-internals:environment-display-notifier 
-        (env &key restarts condition)
-      (declare (ignore restarts))
-      (funcall (swank-sym :swank-debugger-hook) condition *debugger-hook*))
-    (defmethod env-internals:environment-display-debugger (env)
-      *debug-io*)))
-
-
-(defmethod env-internals:confirm-p ((e slime-env) &optional msg &rest args)
-  (apply (swank-sym :y-or-n-p-in-emacs) msg args))
+    (set-sigint-handler)))
       
 
 ;;;; Weak hashtables

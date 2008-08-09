@@ -1983,13 +1983,18 @@ then waits to handle further requests from Emacs. Eventually returns
 after Emacs causes a restart to be invoked."
   (declare (ignore hook))
   (without-slime-interrupts
-    (cond (*emacs-connection*
-           (debug-in-emacs condition))
-          ((default-connection)
-           (with-connection ((default-connection))
-             (debug-in-emacs condition))))))
+    (restart-case 
+        (cond (*emacs-connection*
+               (debug-in-emacs condition))
+              ((default-connection)
+               (with-connection ((default-connection))
+                 (debug-in-emacs condition))))
+      (default-debugger (&optional v)
+        :report "Use default debugger." (declare (ignore v))
+        (let ((*debugger-hook* nil))
+          (invoke-debugger condition))))))
 
-(defvar *global-debugger* t
+(defvar *global-debugger* nil
   "Non-nil means the Swank debugger hook will be installed globally.")
 
 (add-hook *new-connection-hook* 'install-debugger)
@@ -2034,18 +2039,18 @@ after Emacs causes a restart to be invoked."
 
 (defun sldb-loop (level)
   (unwind-protect
-       (catch 'sldb-enter-default-debugger
-         (send-to-emacs
-          (list* :debug (current-thread-id) level
-                 (debugger-info-for-emacs 0 *sldb-initial-frames*)))
-         (loop (catch 'sldb-loop-catcher
-                 (with-simple-restart (abort "Return to sldb level ~D." level)
-                   (send-to-emacs (list :debug-activate (current-thread-id)
-                                        level))
-                   (handler-bind ((sldb-condition #'handle-sldb-condition))
-                     (read-from-emacs))))))
-    (send-to-emacs `(:debug-return 
-		     ,(current-thread-id) ,level ,*sldb-stepping-p*))))
+       (loop
+        (with-simple-restart (abort "Return to sldb level ~D." level)
+          (send-to-emacs 
+           (list* :debug (current-thread-id) level
+                  (debugger-info-for-emacs 0 *sldb-initial-frames*)))
+          (loop 
+           (send-to-emacs (list :debug-activate (current-thread-id) level nil))
+           (handler-case (read-from-emacs)
+             (sldb-condition (c) 
+               (handle-sldb-condition c))))))
+    (send-to-emacs `(:debug-return
+                     ,(current-thread-id) ,level ,*sldb-stepping-p*))))
 
 (defun handle-sldb-condition (condition)
   "Handle an internal debugger condition.
@@ -2053,8 +2058,7 @@ Rather than recursively debug the debugger (a dangerous idea!), these
 conditions are simply reported."
   (let ((real-condition (original-condition condition)))
     (send-to-emacs `(:debug-condition ,(current-thread-id)
-                                      ,(princ-to-string real-condition))))
-  (throw 'sldb-loop-catcher nil))
+                                      ,(princ-to-string real-condition)))))
 
 (defvar *sldb-condition-printer* #'format-sldb-condition
   "Function called to print a condition to an SLDB buffer.")
@@ -2089,8 +2093,11 @@ format suitable for Emacs."
 ;;;;; SLDB entry points
 
 (defslimefun sldb-break-with-default-debugger ()
-  "Invoke the default debugger by returning from our debugger-loop."
-  (throw 'sldb-enter-default-debugger nil))
+  "Invoke the default debugger."
+  (call-with-debugger-hook
+   nil (lambda () (invoke-debugger *swank-debugger-condition*)))
+  (send-to-emacs 
+   (list :debug-activate (current-thread-id) *sldb-level* t)))
 
 (defslimefun backtrace (start end)
   "Return a list ((I FRAME) ...) of frames from START to END.

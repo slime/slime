@@ -2331,9 +2331,9 @@ Debugged requests are ignored."
                         (funcall (cdr rec) value))
                    (t
                     (error "Unexpected reply: %S %S" id value)))))
-          ((:debug-activate thread level)
+          ((:debug-activate thread level select)
            (assert thread)
-           (sldb-activate thread level))
+           (sldb-activate thread level select))
           ((:debug thread level condition restarts frames conts)
            (assert thread)
            (sldb-setup thread level condition restarts frames conts))
@@ -6727,26 +6727,33 @@ CONTS is a list of pending Emacs continuations."
       (setq sldb-backtrace-start-marker (point-marker))
       (save-excursion
         (sldb-insert-frames (sldb-prune-initial-frames frames) t))
-      (run-hooks 'sldb-hook)
-      (pop-to-buffer (current-buffer))
-      (sldb-recenter-region (point-min) (point))
-      (setq buffer-read-only t)
-      (when (and slime-stack-eval-tags
-                 ;; (y-or-n-p "Enter recursive edit? ")
-                 )
-        (message "Entering recursive edit..")
-        (recursive-edit)))))
+      (run-hooks 'sldb-hook))
+    (pop-to-buffer (current-buffer))
+    (sldb-recenter-region (point-min) (point))
+    (setq buffer-read-only t)
+    (when (and slime-stack-eval-tags
+               ;; (y-or-n-p "Enter recursive edit? ")
+               )
+      (message "Entering recursive edit..")
+      (recursive-edit))))
 
-(defun sldb-activate (thread level)
+(defun sldb-activate (thread level select)
   "Display the debugger buffer for THREAD.
 If LEVEL isn't the same as in the buffer, reinitialize the buffer."
-  (unless (let ((b (sldb-find-buffer thread)))
-            (and b (with-current-buffer b (equal sldb-level level))))
-    (slime-rex (thread level)
-        ('(swank:debugger-info-for-emacs 0 10)
-         nil thread)
-      ((:ok result)
-       (apply #'sldb-setup thread level result)))))
+  (or (let ((buffer (sldb-find-buffer thread)))
+        (when buffer
+          (with-current-buffer buffer
+            (when (equal sldb-level level)
+              (when select (pop-to-buffer (current-buffer)))
+              t))))
+      (sldb-reinitialize thread level)))
+
+(defun sldb-reinitialize (thread level)
+  (slime-rex (thread level)
+      ('(swank:debugger-info-for-emacs 0 10)
+       nil thread)
+    ((:ok result)
+     (apply #'sldb-setup thread level result))))
 
 (defun sldb-exit (thread level &optional stepping)
   "Exit from the debug level LEVEL."

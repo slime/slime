@@ -18,6 +18,26 @@
 
 2008-08-09  Helmut Eller  <heller@common-lisp.net>
 
+	Display the "Use default debugger" restart more prominently.
+
+	* swank.lisp (swank-debugger-hook): Bind a user visible restart
+	to invoke the native debugger.
+	(*global-debugger*): Make this nil by default.
+	(sldb-loop): Minor cleanups.
+	(sldb-break-with-default-debugger): Invoke the native debugger
+	on top of the slime debugger.
+
+	* slime.el (sldb-setup): Always pop to the debugger buffer.
+	(sldb-activate): Optionally select the window.
+
+	* swank-sbcl.lisp (sb-thread::get-foreground): Override this
+	as the default implementation is unusable for Slime.
+
+	* swank-lispworks.lisp (environment-display-notifier): Just
+	return t.
+
+2008-08-09  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-lispworks.lisp (disassemble-frame): Implemented.
 
 2008-08-08  Helmut Eller  <heller@common-lisp.net>
