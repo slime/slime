@@ -1448,7 +1448,7 @@ The default condition handler for timer functions (see
   "Display the REPL buffer instead of the *inferior-lisp* buffer."
   (let* ((buffer (if (slime-process) 
                      (process-buffer (slime-process))))
-         (window (if buffer (get-buffer-window buffer)))
+         (window (if buffer (get-buffer-window buffer t)))
          (repl-buffer (slime-output-buffer t))
          (repl-window (get-buffer-window repl-buffer)))
     (when buffer
@@ -2488,8 +2488,7 @@ Debugged requests are ignored."
   (goto-char (point-max))
   (slime-mark-output-start)
   (slime-mark-input-start)
-  (slime-repl-insert-prompt)
-  (pop-to-buffer (current-buffer)))
+  (slime-repl-insert-prompt))
 
 (defun slime-repl-insert-banner ()
   (when (zerop (buffer-size))

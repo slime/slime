@@ -1,3 +1,12 @@
+2008-08-09  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	M-x slime doesn't destroy the window layout anymore when you
+	switch windows/frames while the connection is being set up.
+
+	* slime.el (slime-hide-inferior-lisp-buffer): Search for the
+	inferior-lisp buffer's window in all frames.
+	(slime-repl-update-banner): Do not pop to the REPL buffer.
+
 2008-08-08  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el: Fixing `q' in Xref buffers.
