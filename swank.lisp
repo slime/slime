@@ -374,12 +374,18 @@ The package is deleted before returning."
 ;;;;; Logging
 
 (defvar *log-events* nil)
-(defvar *log-output* 
-  (labels ((ref (x)
+(defvar *log-output* nil) ; should be nil for image dumpers
+
+(defun init-log-output ()
+  (labels ((deref (x)
              (cond ((typep x 'synonym-stream)
-                    (ref (symbol-value (synonym-stream-symbol x))))
+                    (deref (symbol-value (synonym-stream-symbol x))))
                    (t x))))
-    (ref *error-output*)))
+    (unless *log-output*
+      (setq *log-output* (deref *error-output*)))))
+
+(add-hook *after-init-hook* 'init-log-output)
+
 (defvar *event-history* (make-array 40 :initial-element nil)
   "A ring buffer to record events for better error messages.")
 (defvar *event-history-index* 0)
@@ -611,6 +617,7 @@ connections, otherwise it will be closed after the first."
 
 (defun setup-server (port announce-fn style dont-close external-format)
   (declare (type function announce-fn))
+  (init-log-output)
   (let* ((socket (create-socket *loopback-interface* port))
          (local-port (local-port socket)))
     (funcall announce-fn local-port)

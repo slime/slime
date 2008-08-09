@@ -18,6 +18,13 @@
 
 2008-08-09  Helmut Eller  <heller@common-lisp.net>
 
+	Fixes for heap dumping.
+
+	* swank.lisp (*log-output*): Don't initialize at load-time,
+	otherwise the stream would end up in a heap image.
+
+2008-08-09  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-lispworks.lisp (defimplementation): Record location.
 
 2008-08-09  Helmut Eller  <heller@common-lisp.net>
