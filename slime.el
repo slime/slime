@@ -2319,7 +2319,6 @@ Debugged requests are ignored."
           ((:write-string output &optional target)
            (slime-write-string output target))
           ((:emacs-rex form package thread continuation)
-           (slime-check-eval-form form)
            (when (and (slime-use-sigint-for-interrupt) (slime-busy-p))
              (message "; pipelined request... %S" form))
            (let ((id (incf (slime-continuation-counter))))
