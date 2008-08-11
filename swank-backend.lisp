@@ -998,11 +998,11 @@ but that thread may hold it more than once."
 (definterface send (thread object)
   "Send OBJECT to thread THREAD.")
 
-(definterface receive ()
+(definterface receive (&optional timeout)
   "Return the next message from current thread's mailbox."
-  (receive-if (constantly t)))
+  (receive-if (constantly t) timeout))
 
-(definterface receive-if (predicate)
+(definterface receive-if (predicate &optional timeout)
   "Return the first message satisfiying PREDICATE.")
 
 (defvar *pending-slime-interrupts*)

@@ -764,12 +764,10 @@ function names like \(SETF GET)."
         (setf (getf (mp:process-plist thread) 'mailbox)
               (make-mailbox)))))
 
-(defimplementation receive ()
-  (receive-if (constantly t)))
-
-(defimplementation receive-if (test)
+(defimplementation receive-if (test &optional timeout)
   (let* ((mbox (mailbox mp:*current-process*))
          (lock (mailbox.mutex mbox)))
+    (assert (or (not timeout) (eq timeout t)))
     (loop
      (check-slime-interrupts)
      (mp:with-lock (lock "receive-if/try")
@@ -778,6 +776,7 @@ function names like \(SETF GET)."
          (when tail
            (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
            (return (car tail)))))
+     (when (eq timeout t) (return (values nil t)))
      (mp:process-wait-with-timeout 
       "receive-if" 0.2 (lambda () (some test (mailbox.queue mbox)))))))
 

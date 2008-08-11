@@ -1300,12 +1300,10 @@ stack."
               (nconc (mailbox.queue mbox) (list message)))
         (sb-thread:condition-broadcast (mailbox.waitqueue mbox)))))
 
-  (defimplementation receive ()
-    (receive-if (constantly t)))
-
-  (defimplementation receive-if (test)
+  (defimplementation receive-if (test &optional timeout)
     (let* ((mbox (mailbox (current-thread)))
            (mutex (mailbox.mutex mbox)))
+      (assert (or (not timeout) (eq timeout t)))
       (loop
        (check-slime-interrupts)
        (sb-thread:with-mutex (mutex)
@@ -1314,6 +1312,7 @@ stack."
            (when tail 
              (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
              (return (car tail))))
+         (when (eq timeout t) (return (values nil t)))
          (handler-case (sb-ext:with-timeout 0.2
                          (sb-thread:condition-wait (mailbox.waitqueue mbox)
                                                    mutex))
