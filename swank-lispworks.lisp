@@ -221,8 +221,8 @@ Return NIL if the symbol is unbound."
 (defmethod env-internals:environment-display-notifier 
     ((env slime-env) &key restarts condition)
   (declare (ignore restarts condition))
-  ;;(funcall (swank-sym :swank-debugger-hook) condition *debugger-hook*)
-  (values t nil)
+  (funcall (swank-sym :swank-debugger-hook) condition *debugger-hook*)
+  ;;  nil
   )
 
 (defmethod env-internals:environment-display-debugger ((env slime-env))
