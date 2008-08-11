@@ -8438,7 +8438,8 @@ Return the number of failed tests."
             (if slime-test-debug-on-error
                 (let ((debug-on-error t)
                       (debug-on-quit t))
-                  (apply function input))
+                  (catch 'skip
+                    (apply function input)))
               (let ((should-fail-p
                      (slime-test-should-fail-p slime-current-test)))
                 (condition-case err
@@ -8554,7 +8555,7 @@ conditions (assertions)."
       `(progn
          (defun ,fname ,args
            ,doc
-           (slime-sync)
+           (slime-sync-to-top-level 0.3)
            ,@body)
          (setq slime-tests 
                (append (remove* ',name slime-tests :key 'slime-test.name)
@@ -8702,12 +8703,11 @@ BODY returns true if the check succeeds."
       )) 
   (slime-check-top-level))
 
-
 (def-slime-test find-definition
     (name buffer-package snippet)
     "Find the definition of a function or macro in swank.lisp."
-    '(("read-from-emacs" "SWANK" "(defun read-from-emacs ")
-      ("swank::read-from-emacs" "CL-USER" "(defun read-from-emacs ")
+    '(("start-server" "SWANK" "(defun start-server ")
+      ("swank::start-server" "CL-USER" "(defun start-server ")
       ("swank:start-server" "CL-USER" "(defun start-server "))
   (switch-to-buffer "*scratch*")        ; not buffer of definition
   (slime-check-top-level)
@@ -9096,7 +9096,6 @@ SWANK> ")
 4)
 \(+ 2 3 4)
 SWANK> "))
-  (slime-sync-to-top-level 2)
   (with-current-buffer (slime-output-buffer)
     (setf (slime-lisp-package-prompt-string) "SWANK"))
   (kill-buffer (slime-output-buffer))
@@ -9183,47 +9182,35 @@ SWANK> " t))
                        (not (not (get-buffer-window (current-buffer)))))))
 
 (def-slime-test break 
-    (times)
-    "Test if BREAK invokes SLDB."
-    '((1) (2) (3))
-  (slime-accept-process-output nil 1)
-  (slime-check-top-level)
-  (let ((tests
-         `((cl-user::foo . (defun cl-user::foo () 
-                             (dotimes (i ,times) 
-                               (break)
-                               (sleep 0.2))))
+    (times exp)
+    "Test whether BREAK invokes SLDB."
+    (let ((exp1 '(break))
+          (exp2 
            ;; Backends should arguably make sure that BREAK does not
            ;; depend on *DEBUGGER-HOOK*.
-           (cl-user::bar . (defun cl-user::bar ()
-                             (block outta
-                               (let ((*debugger-hook*
-                                      #'(lambda (c hook)
-                                          (declare (ignore c hook))
-                                          (return-from outta 42))))
-                                 (dotimes (i ,times) 
-                                   (break)
-                                   (sleep 0.2))))))
-           )))
-    (dolist (test tests)
-      (let ((name       (car test))
-            (definition (cdr test)))
-        (slime-compile-string (prin1-to-string definition)  0)
-        (slime-sync-to-top-level 2)
-        (slime-eval-async `(,name))
-        (dotimes (i times)
-          (slime-wait-condition "Debugger visible" 
-                                (lambda () 
-                                  (and (slime-sldb-level= 1)
-                                       (get-buffer-window 
-                                        (sldb-get-default-buffer))))
-                                2)
-          (with-current-buffer (sldb-get-default-buffer)
-            (sldb-continue))
-          (slime-wait-condition "sldb closed" 
-                                (lambda () (not (sldb-get-default-buffer)))
-                                0.2)))
-      (slime-sync-to-top-level 2))))
+           '(block outta
+              (let ((*debugger-hook* (lambda (c h) (return-from outta 42))))
+                (break)))))
+      `((1 ,exp1) (2 ,exp1) (3 ,exp1)
+        (1 ,exp2) (2 ,exp2) (3 ,exp2)))
+  (slime-accept-process-output nil 0.2)
+  (slime-check-top-level)
+  (slime-eval-async 
+   `(cl:eval (cl:read-from-string 
+              ,(prin1-to-string `(dotimes (i ,times) ,exp (sleep 0.2))))))
+  (dotimes (i times)
+    (slime-wait-condition "Debugger visible" 
+                          (lambda () 
+                            (and (slime-sldb-level= 1)
+                                 (get-buffer-window 
+                                  (sldb-get-default-buffer))))
+                          1)
+    (with-current-buffer (sldb-get-default-buffer)
+      (sldb-continue))
+    (slime-wait-condition "sldb closed" 
+                          (lambda () (not (sldb-get-default-buffer)))
+                          0.2))
+  (slime-sync-to-top-level 1))
 
 (def-slime-test locally-bound-debugger-hook
     ()

@@ -2,6 +2,7 @@
 
 	* slime.el (slime-execute-tests): Call slime-test-should-fail-p
 	before executing the test (which may close the connection).
+	(def-slime-test): Use slime-sync-to-top-level with a timeout.
 
 2008-08-10  Helmut Eller  <heller@common-lisp.net>
 
