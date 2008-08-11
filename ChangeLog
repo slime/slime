@@ -1,5 +1,8 @@
 2008-08-11  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-abcl.lisp (preferred-communication-style): Return nil
+	until we implement receive-if.
+
 	* swank-openmcl.lisp (receive-if): Support timeout argument.
 	* swank-allegro.lisp (receive-if): Ditto.
 

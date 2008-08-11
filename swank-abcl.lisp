@@ -117,13 +117,10 @@
 
 
 (defimplementation preferred-communication-style ()
-  :spawn)
-
-
+  nil)
 
 (defimplementation create-socket (host port)
   (ext:make-server-socket port))
-
 
 (defimplementation local-port (socket)
   (java:jcall (java:jmethod "java.net.ServerSocket" "getLocalPort") socket))
@@ -511,18 +508,39 @@ part of *sysdep-pathnames* in swank.loader.lisp.
 (defimplementation kill-thread (thread)
   (ext:destroy-thread thread))
 
+(defstruct mailbox 
+  (mutex (ext:make-mutex))
+  (queue '()))
+
 (defun mailbox (thread)
   "Return THREAD's mailbox."
   (ext:with-thread-lock (*thread-props-lock*)
     (or (getf (gethash thread *thread-props*) 'mailbox)
         (setf (getf (gethash thread *thread-props*) 'mailbox)
-              (ext:make-mailbox)))))
+              (make-mailbox)))))
 
 (defimplementation send (thread object)
-  (ext:mailbox-send (mailbox thread) object))
+  (let ((mbox (mailbox thread)))
+    (ext:with-mutex ((mailbox-mutex mbox))
+      (setf (mailbox-queue mbox) 
+            (nconc (mailbox-queue mbox) (list message))))))
 
-(defimplementation receive ()
-  (ext:mailbox-read (mailbox (ext:current-thread))))
+#+(or)
+(defimplementation receive-if (thread &optional timeout)
+  (let* ((mbox (mailbox (current-thread))))
+    (assert (or (not timeout) (eq timeout t)))
+    (loop
+     (check-slime-interrupts)
+     (ext:with-mutex ((mailbox-mutex mbox))
+       (let* ((q (mailbox-queue mbox))
+              (tail (member-if test q)))
+         (when tail 
+           (setf (mailbox-queue mbox) (nconc (ldiff q tail) (cdr tail)))
+           (return (car tail))))
+       (when (eq timeout t) (return (values nil t)))
+       ;;(java:jcall (java:jmethod "java.lang.Object" "wait") 
+       ;;            (mailbox-mutex mbox) 1000)
+       ))))
 
 (defimplementation quit-lisp ()
   (ext:exit))
