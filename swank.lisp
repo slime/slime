@@ -2017,7 +2017,7 @@ after Emacs causes a restart to be invoked."
   (let ((*debugger-hook* nil))
     (invoke-debugger condition)))
   
-(defvar *global-debugger* nil
+(defvar *global-debugger* t
   "Non-nil means the Swank debugger hook will be installed globally.")
 
 (add-hook *new-connection-hook* 'install-debugger)

@@ -1,3 +1,7 @@
+2008-08-11  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (*global-debugger*): Change default back to t.
+
 2008-08-10  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-ecl.lisp (thread-id): Assign an non-nil id to unknown
