@@ -2011,7 +2011,7 @@ after Emacs causes a restart to be invoked."
   (restart-case (invoke-slime-debugger condition)
     (default-debugger (&optional v)
       :report "Use default debugger." (declare (ignore v))
-      (invoke-default-debugger))))
+      (invoke-default-debugger condition))))
 
 (defun invoke-default-debugger (condition)
   (let ((*debugger-hook* nil))
