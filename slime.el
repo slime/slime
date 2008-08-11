@@ -3768,9 +3768,7 @@ expansion will be added to the REPL's history.)"
 (defun slime-restart-inferior-lisp ()
   (interactive)
   (assert (slime-inferior-process) () "No inferior lisp process")
-  (slime-eval-async '(swank:quit-lisp))
-  (set-process-filter (slime-connection) nil)
-  (set-process-sentinel (slime-connection) 'slime-restart-sentinel))
+  (slime-quit-lisp-internal (slime-connection) 'slime-restart-sentinel t))
 
 (defun slime-restart-sentinel (process message)
   "Restart the inferior lisp process.
@@ -6465,15 +6463,18 @@ CL:MACROEXPAND."
 (defun slime-quit-lisp (&optional kill)
   "Quit lisp, kill the inferior process and associated buffers."
   (interactive "P")
-  (slime-eval-async '(swank:quit-lisp))
-  (let* ((connection (slime-connection))
-         (process (slime-inferior-process connection)))
-    (kill-buffer (slime-output-buffer))
-    (set-process-filter connection  nil)
-    (set-process-sentinel connection 'slime-quit-sentinel)
-    (when (and kill process)
-      (sleep-for 0.2)
-      (kill-process process))))
+  (slime-quit-lisp-internal (slime-connection) 'slime-quit-sentinel kill))
+
+(defun slime-quit-lisp-internal (connection sentinel kill)
+  (let ((slime-dispatching-connection connection))
+    (slime-eval-async '(swank:quit-lisp))
+    (let* ((process (slime-inferior-process connection)))
+      (kill-buffer (slime-output-buffer))
+      (set-process-filter connection  nil)
+      (set-process-sentinel connection sentinel)
+      (when (and kill process)
+        (sleep-for 0.2)
+        (kill-process process)))))
 
 (defun slime-quit-sentinel (process message)
   (assert (process-status process) 'closed)

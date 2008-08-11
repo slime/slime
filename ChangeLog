@@ -7,6 +7,8 @@
 	(slime-run-tests): Save repl-history in /tmp.
 	(slime-repl-mode): Ignore persistent history if
 	slime-repl-history-file is nil.
+	(slime-quit-lisp-internal): New function.
+	(slime-quit-lisp, slime-restart-inferior-lisp): Use it
 
 2008-08-10  Helmut Eller  <heller@common-lisp.net>
 
