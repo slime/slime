@@ -112,6 +112,12 @@
                          (or external-format :iso-latin-1-unix)
                          (or buffering :full)))
 
+(defimplementation install-sigint-handler (function)
+  (sb-sys:enable-interrupt sb-unix:sigint 
+                           (lambda (&rest args)
+                             (declare (ignore args))
+                             (funcall function))))
+
 (defvar *sigio-handlers* '()
   "List of (key . fn) pairs to be called on SIGIO.")
 

@@ -302,6 +302,17 @@ that the calling thread is the one that interacts with Emacs."
 (definterface getpid ()
   "Return the (Unix) process ID of this superior Lisp.")
 
+(definterface install-sigint-handler (function)
+  "Call FUNCTION on SIGINT (instead of invoking the debugger).
+Return old signal handler."
+  nil)
+
+(definterface call-with-user-break-handler (handler function)
+  "Install the break handler HANDLER while executing FUNCTION."
+  (let ((old-handler (install-sigint-handler handler)))
+    (unwind-protect (funcall function)
+      (install-sigint-handler old-handler))))
+
 (definterface lisp-implementation-type-name ()
   "Return a short name for the Lisp implementation."
   (lisp-implementation-type))

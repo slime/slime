@@ -71,6 +71,18 @@
 
 ;;;; Unix signals
 
+(defimplementation install-sigint-handler (handler)
+  (let ((old-handler (symbol-function 'si:terminal-interrupt)))
+    (setf (symbol-function 'si:terminal-interrupt)
+          (if (consp handler)
+              (car handler)
+              (lambda (&rest args)
+                (declare (ignore args))
+                (funcall handler)
+                (continue))))
+    (list old-handler)))
+
+
 (defimplementation getpid ()
   (si:getpid))
 

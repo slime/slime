@@ -99,6 +99,14 @@
       #+win32 ((ext:getenv "PID")) ; where does that come from?
       (t -1))))
 
+(defimplementation call-with-user-break-handler (handler function)
+  (handler-bind ((system::simple-interrupt-condition
+                  (lambda (c)
+                    (declare (ignore c))
+                    (funcall handler)
+                    (continue))))
+    (funcall function)))
+
 (defimplementation lisp-implementation-type-name ()
   "clisp")
 

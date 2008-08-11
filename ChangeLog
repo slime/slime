@@ -1,5 +1,20 @@
 2008-08-11  Helmut Eller  <heller@common-lisp.net>
 
+	Improve interrupt safety for single-threaded lisps.
+
+	* slime.el (slime-interrupt): Send a :emacs-interrupt message
+	together with SIGINT.  SIGINT now means "check for new events"
+	instead of "invoke the debugger".
+
+	* swank-backend.lisp (install-sigint-handler)
+	(call-with-user-break-handler): New functions.
+
+	* swank.lisp (simple-serve-requests,install-fd-handler): Use it.
+	(read-packet, read-char): New function. Check for interrupts.
+	(wait-for-event/event-loop): Check for interrupts.
+
+2008-08-11  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-abcl.lisp (preferred-communication-style): Return nil
 	until we implement receive-if.
 

@@ -236,7 +236,10 @@ Backend code should treat the connection structure as opaque.")
   ;; The communication style used.
   (communication-style nil :type (member nil :spawn :sigio :fd-handler))
   ;; The coding system for network streams.
-  (coding-system ))
+  coding-system
+  ;; The SIGINT handler we should restore when the connection is
+  ;; closed.
+  saved-sigint-handler)
 
 (defun print-connection (conn stream depth)
   (declare (ignore depth))
@@ -317,6 +320,45 @@ Do not set this to T unless you want to debug swank internals.")
 
 ;;;;; Helper macros
 
+(defvar *slime-interrupts-enabled*)
+
+(defmacro with-slime-interrupts (&body body)
+  `(progn
+     (check-slime-interrupts)
+     (let ((*slime-interrupts-enabled* t)
+           (*pending-slime-interrupts* '()))
+       (multiple-value-prog1 (progn ,@body) 
+         (check-slime-interrupts)))))
+
+(defmacro without-slime-interrupts (&body body)
+  `(progn
+     (check-slime-interrupts)
+     (let ((*slime-interrupts-enabled* nil)
+           (*pending-slime-interrupts* '()))
+       (multiple-value-prog1 (progn ,@body)
+         (check-slime-interrupts)))))
+
+(defun invoke-or-queue-interrupt (function)
+  (cond ((not (boundp '*slime-interrupts-enabled*))
+         (without-slime-interrupts
+           (funcall function)))
+        (*slime-interrupts-enabled*
+         (funcall function))
+        ((cdr *pending-slime-interrupts*)
+         (simple-break "Two many queued interrupts"))
+        (t
+         (push function *pending-slime-interrupts*))))
+
+(defslimefun simple-break (&optional (datum "Interrupt from Emacs") &rest args)
+  (with-simple-restart (continue "Continue from break.")
+    (invoke-slime-debugger (coerce-to-condition datum args))))
+
+(defun coerce-to-condition (datum args)
+  (etypecase datum
+    (string (make-condition 'simple-error :format-control datum 
+                            :format-arguments args))
+    (symbol (apply #'make-condition datum args))))
+
 (defmacro with-io-redirection ((connection) &body body)
   "Execute BODY I/O redirection to CONNECTION.
 If *REDIRECT-IO* is true then all standard I/O streams are redirected."
@@ -333,9 +375,10 @@ If *REDIRECT-IO* is true then all standard I/O streams are redirected."
 
 (defun call-with-connection (connection function)
   (let ((*emacs-connection* connection))
-    (with-swank-error-handler (*emacs-connection*)
-      (with-io-redirection (*emacs-connection*)
-        (call-with-debugger-hook #'swank-debugger-hook function)))))
+    (without-slime-interrupts
+      (with-swank-error-handler (*emacs-connection*)
+        (with-io-redirection (*emacs-connection*)
+          (call-with-debugger-hook #'swank-debugger-hook function))))))
 
 (defmacro without-interrupts (&body body)
   `(call-without-interrupts (lambda () ,@body)))
@@ -869,6 +912,7 @@ The processing is done in the extent of the toplevel restart."
   (connection.socket-io *emacs-connection*))
 
 (defun close-connection (c condition backtrace)
+  (let ((*debugger-hook* nil))
   (format *log-output* "~&;; swank:close-connection: ~A~%" condition)
   (let ((cleanup (connection.cleanup c)))
     (when cleanup
@@ -894,43 +938,8 @@ The processing is done in the extent of the toplevel restart."
             (ignore-errors (stream-external-format (connection.socket-io c)))
             (connection.communication-style c)
             *use-dedicated-output-stream*)
-    (finish-output *log-output*)))
+    (finish-output *log-output*))))
 
-(defvar *slime-interrupts-enabled*)
-
-(defmacro with-slime-interrupts (&body body)
-  `(progn
-     (check-slime-interrupts)
-     (let ((*slime-interrupts-enabled* t)
-           (*pending-slime-interrupts* '()))
-       (multiple-value-prog1 (progn ,@body) 
-         (check-slime-interrupts)))))
-
-(defmacro without-slime-interrupts (&body body)
-  `(progn
-     (check-slime-interrupts)
-     (let ((*slime-interrupts-enabled* nil)
-           (*pending-slime-interrupts* '()))
-       (multiple-value-prog1 (progn ,@body)
-         (check-slime-interrupts)))))
-
-(defun invoke-or-queue-interrupt (function)
-  (cond ((not (boundp '*slime-interrupts-enabled*))
-         (without-slime-interrupts
-           (funcall function)))
-        (*slime-interrupts-enabled*
-         (funcall function))
-        ((cdr *pending-slime-interrupts*)
-         (simple-break "Two many queued interrupts"))
-        (t
-         (push function *pending-slime-interrupts*))))
-
-(defslimefun simple-break (&optional (fstring "Interrupt from Emacs")
-                                     &rest args)
-  (call-with-debugger-hook
-   #'swank-debugger-hook
-   (lambda ()
-     (cerror "Return from break." "~?" fstring args))))
 
 ;;;;;; Thread based communication
 
@@ -1033,7 +1042,9 @@ The processing is done in the extent of the toplevel restart."
      (declare (ignore _))
      (encode-message event (current-socket-io)))
     (((:emacs-pong :emacs-return :emacs-return-string) thread-id &rest args)
-     (send-event (find-thread thread-id) (cons (car event) args)))))
+     (send-event (find-thread thread-id) (cons (car event) args)))
+    (((:end-of-stream))
+     (close-connection *emacs-connection* nil (safe-backtrace)))))
 
 (defvar *event-queue* '())
 
@@ -1048,6 +1059,7 @@ The processing is done in the extent of the toplevel restart."
 
 (defun send-to-emacs (event)
   "Send EVENT to Emacs."
+  ;;(log-event "send-to-emacs: ~a" event)
   (cond ((use-threads-p) 
          (send (connection.control-thread *emacs-connection*) event))
         (t (dispatch-event event))))
@@ -1068,6 +1080,7 @@ The processing is done in the extent of the toplevel restart."
 (defun wait-for-event/event-loop (pattern timeout)
   (assert (or (not timeout) (eq timeout t)))
   (loop 
+   (check-slime-interrupts)
    (let ((tail (member-if (lambda (e) (event-match-p e pattern))
                           *event-queue*)))
      (when tail 
@@ -1119,48 +1132,49 @@ The processing is done in the extent of the toplevel restart."
 ;;;;;; Signal driven IO
 
 (defun install-sigio-handler (connection)
-  (let ((client (connection.socket-io connection)))
-    (flet ((handler ()
-	     (cond ((null *swank-state-stack*)
-                    (handle-requests connection t))
-		   ((eq (car *swank-state-stack*) :read-next-form))
-		   (t (process-requests t nil)))))
-      (add-sigio-handler client #'handler)
-      (handler))))
+  (add-sigio-handler (connection.socket-io connection) 
+                     (lambda () (process-io-interrupt connection)))
+  (handle-or-process-requests connection))
+
+(defun process-io-interrupt (connection)
+  (log-event "process-io-interrupt~%")
+  (invoke-or-queue-interrupt
+   (lambda () (handle-or-process-requests connection))))
+
+(defun handle-or-process-requests (connection)
+  (log-event "handle-or-process-requests: ~a~%" *swank-state-stack*)
+  (cond ((null *swank-state-stack*)
+         (handle-requests connection t))
+        ((eq (car *swank-state-stack*) :read-next-form))
+        (t (process-requests t nil))))
 
 (defun deinstall-sigio-handler (connection)
-  (remove-sigio-handlers (connection.socket-io connection)))
+  (log-event "deinstall-sigio-handler...~%")
+  (remove-sigio-handlers (connection.socket-io connection))  
+  (log-event "deinstall-sigio-handler...done~%"))
 
 ;;;;;; SERVE-EVENT based IO
 
 (defun install-fd-handler (connection)
-  (let ((client (connection.socket-io connection)))
-    (flet ((handler ()   
-	     (cond ((null *swank-state-stack*)
-                    (handle-requests connection t))
-		   ((eq (car *swank-state-stack*) :read-next-form))
-		   (t (process-requests t nil)))))
-      ;;;; handle sigint
-      ;;(install-debugger-globally
-      ;; (lambda (c h)
-      ;;   (with-reader-error-handler (connection)
-      ;;     (block debugger
-      ;;       (with-connection (connection)
-      ;;	 (swank-debugger-hook c h)
-      ;;	 (return-from debugger))
-      ;;       (abort)))))
-      (add-fd-handler client #'handler)
-      (handler))))
+  (add-fd-handler (connection.socket-io connection)
+                  (lambda () (handle-or-process-requests connection)))
+  (setf (connection.saved-sigint-handler connection)
+        (install-sigint-handler (lambda () (process-io-interrupt connection))))
+  (handle-or-process-requests connection))
 
 (defun deinstall-fd-handler (connection)
-  (remove-fd-handlers (connection.socket-io connection)))
+  (remove-fd-handlers (connection.socket-io connection))
+  (install-sigint-handler (connection.saved-sigint-handler connection)))
 
 ;;;;;; Simple sequential IO
 
 (defun simple-serve-requests (connection)
   (unwind-protect 
-       (with-simple-restart (close-connection "Close SLIME connection")
-         (handle-requests connection))
+       (call-with-user-break-handler
+        (lambda () (process-io-interrupt connection))
+        (lambda ()
+          (with-simple-restart (close-connection "Close SLIME connection")
+            (handle-requests connection))))
     (close-connection connection nil (safe-backtrace))))
 
 (defun initialize-streams-for-connection (connection)
@@ -1390,23 +1404,29 @@ NIL if streams are not globally redirected.")
 (defun decode-message (stream &optional timeout)
   "Read an S-expression from STREAM using the SLIME protocol."
   (assert (or (not timeout) (eq timeout t)))
-  (when (and (eq timeout t) (not (input-available-p stream)))
-    (return-from decode-message (values nil t)))
+  ;;(log-event "decode-message~%")
   (let ((*swank-state-stack* (cons :read-next-form *swank-state-stack*)))
     (handler-bind ((error (lambda (c) (error (make-swank-error c)))))
-      (let* ((length (decode-message-length stream))
-             (string (make-string length))
-             (pos (read-sequence string stream)))
-        (assert (= pos length) ()
-                "Short read: length=~D  pos=~D" length pos)
-        (log-event "READ: ~S~%" string)
-        (values (read-form string) nil)))))
+      (let ((c (read-char-no-hang stream nil)))
+        (cond ((and (not c) timeout) (values nil t))
+              (t
+               (and c (unread-char c stream))
+               (values (read-form (read-packet stream)) nil)))))))
 
-(defun decode-message-length (stream)
-  (let ((buffer (make-string 6)))
-    (dotimes (i 6)
-      (setf (aref buffer i) (read-char stream)))
-    (parse-integer buffer :radix #x10)))
+(defun read-packet (stream)
+  (peek-char nil stream) ; wait while queuing interrupts
+  (check-slime-interrupts)
+  (let* ((header (read-chunk stream 6))
+         (length (parse-integer header :radix #x10))
+         (payload (read-chunk stream length)))
+    (log-event "READ: ~S~%" payload)
+    payload))
+
+(defun read-chunk (stream length)
+  (let* ((buffer (make-string length))
+         (count (read-sequence buffer stream)))
+    (assert (= count length) () "Short read: length=~D  count=~D" length count)
+    buffer))
 
 (defun read-form (string)
   (with-standard-io-syntax

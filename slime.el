@@ -6454,8 +6454,9 @@ CL:MACROEXPAND."
 (defun slime-interrupt ()
   "Interrupt Lisp."
   (interactive)
-  (cond ((slime-use-sigint-for-interrupt) (slime-send-sigint))
-        (t (slime-dispatch-event `(:emacs-interrupt ,slime-current-thread)))))
+  (slime-dispatch-event `(:emacs-interrupt ,slime-current-thread))
+  (when (slime-use-sigint-for-interrupt)
+    (slime-send-sigint)))
 
 (defun slime-quit ()
   (error "Not implemented properly.  Use `slime-interrupt' instead."))

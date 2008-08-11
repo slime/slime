@@ -139,6 +139,11 @@
 
 ;;;;; Signal-driven I/O
 
+(defimplementation install-sigint-handler (function)
+  (sys:enable-interrupt :sigint (lambda (signal code scp)
+                                  (declare (ignore signal code scp))
+                                  (funcall function))))
+
 (defvar *sigio-handlers* '()
   "List of (key . function) pairs.
 All functions are called on SIGIO, and the key is used for removing
@@ -155,19 +160,28 @@ specific functions.")
 (defun fcntl (fd command arg)
   "fcntl(2) - manipulate a file descriptor."
   (multiple-value-bind (ok error) (unix:unix-fcntl fd command arg)
-    (unless ok (error "fcntl: ~A" (unix:get-unix-error-msg error)))))
+    (cond (ok)
+          (t (error "fcntl: ~A" (unix:get-unix-error-msg error))))))
 
 (defimplementation add-sigio-handler (socket fn)
   (set-sigio-handler)
   (let ((fd (socket-fd socket)))
     (fcntl fd unix:f-setown (unix:unix-getpid))
-    (fcntl fd unix:f-setfl unix:fasync)
+    (let ((old-flags (fcntl fd unix:f-getfl 0)))
+      (fcntl fd unix:f-setfl (logior old-flags unix:fasync)))
     (push (cons fd fn) *sigio-handlers*)))
 
 (defimplementation remove-sigio-handlers (socket)
   (let ((fd (socket-fd socket)))
-    (setf *sigio-handlers* (remove fd *sigio-handlers* :key #'car))
-    (sys:invalidate-descriptor fd)))
+    (unless (assoc fd *sigio-handlers*)
+      (setf *sigio-handlers* (remove fd *sigio-handlers* :key #'car))
+      (let ((old-flags (fcntl fd unix:f-getfl 0)))
+        (fcntl fd unix:f-setfl (logandc2 old-flags unix:fasync)))
+      (sys:invalidate-descriptor fd))
+    #+(or)
+    (when (null *sigio-handlers*)
+      (sys:default-interrupt :sigio))
+    ))
 
 ;;;;; SERVE-EVENT
 
