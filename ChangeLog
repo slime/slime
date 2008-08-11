@@ -10,7 +10,8 @@
 	(call-with-user-break-handler): New functions.
 
 	* swank.lisp (simple-serve-requests,install-fd-handler): Use it.
-	(read-packet, read-char): New function. Check for interrupts.
+	(read-packet): New function. Check for interrupts.
+	(decode-message): Use it.
 	(wait-for-event/event-loop): Check for interrupts.
 
 2008-08-11  Helmut Eller  <heller@common-lisp.net>
