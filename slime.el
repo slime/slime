@@ -1371,11 +1371,13 @@ Return the created process."
 
 (defun slime-swank-port-file ()
   "Filename where the SWANK server writes its TCP port number."
-  (concat (file-name-as-directory
-           (cond ((fboundp 'temp-directory) (temp-directory))
-                 ((boundp 'temporary-file-directory) temporary-file-directory)
-                 (t "/tmp/")))
+  (concat (file-name-as-directory (slime-temp-directory))
           (format "slime.%S" (emacs-pid))))
+
+(defun slime-temp-directory ()
+  (cond ((fboundp 'temp-directory) (temp-directory))
+        ((boundp 'temporary-file-directory) temporary-file-directory)
+        (t "/tmp/")))
 
 (defun slime-delete-swank-port-file (&optional quiet)
   (condition-case data
@@ -2840,8 +2842,9 @@ joined together."))
   (setq slime-current-thread :repl-thread)
   (set (make-local-variable 'scroll-conservatively) 20)
   (set (make-local-variable 'scroll-margin) 0)
-  (slime-repl-safe-load-history)
-  (add-local-hook 'kill-buffer-hook 'slime-repl-safe-save-merged-history)
+  (when slime-repl-history-file
+    (slime-repl-safe-load-history)
+    (add-local-hook 'kill-buffer-hook 'slime-repl-safe-save-merged-history))
   (add-hook 'kill-emacs-hook 'slime-repl-save-all-histories)
   (slime-setup-command-hooks)
   ;; At the REPL, we define beginning-of-defun and end-of-defun to be
@@ -8391,7 +8394,9 @@ that succeeded initially folded away."
   (assert (slime-at-top-level-p) () "Pending RPCs or open debuggers.")
   (slime-create-test-results-buffer)
   (unwind-protect
-      (slime-execute-tests)
+      (let ((slime-repl-history-file 
+             (expand-file-name "slime-repl-history" (slime-temp-directory))))
+        (slime-execute-tests))
     (pop-to-buffer slime-test-buffer-name)
     (goto-char (point-min))
     (hide-body)
