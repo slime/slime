@@ -441,6 +441,7 @@
       (incf *thread-id-counter*)))
 
   (defparameter *thread-id-map* (make-hash-table))
+  (defparameter *id-thread-map* (make-hash-table))
 
   (defvar *thread-id-map-lock*
     (mp:make-lock :name "thread id map lock"))
@@ -454,19 +455,22 @@
 	#'(lambda ()
 	    (unwind-protect
 	      (mp:with-lock (*thread-id-map-lock*)
-	        (setf (gethash id *thread-id-map*) thread))
+	        (setf (gethash id *thread-id-map*) thread)
+                (setf (gethash thread *id-thread-map*) id))
 	      (funcall fn)
 	      (mp:with-lock (*thread-id-map-lock*)
+                (remhash thread *id-thread-map*)
                 (remhash id *thread-id-map*)))))
       (mp:process-enable thread)))
 
   (defimplementation thread-id (thread)
     (block thread-id
       (mp:with-lock (*thread-id-map-lock*)
-        (loop for id being the hash-key in *thread-id-map*
-              using (hash-value thread-pointer)
-              do (if (eq thread thread-pointer)
-		   (return-from thread-id id))))))
+        (or (gethash thread *id-thread-map*)
+            (let ((id (next-thread-id)))
+              (setf (gethash id *thread-id-map*) thread)
+              (setf (gethash thread *id-thread-map*) id)
+              id)))))
 
   (defimplementation find-thread (id)
     (mp:with-lock (*thread-id-map-lock*)
