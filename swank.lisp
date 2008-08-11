@@ -22,6 +22,7 @@
            #:ed-in-emacs
            #:inspect-in-emacs
            #:print-indentation-lossage
+           #:invoke-slime-debugger
            #:swank-debugger-hook
            #:emacs-inspect
            ;;#:inspect-slot-for-emacs
@@ -1986,23 +1987,25 @@ be dropped, if we are too busy with other things."
 
 ;;;; Debugger
 
-(defun swank-debugger-hook (condition hook)
-  "Debugger function for binding *DEBUGGER-HOOK*.
-Sends a message to Emacs declaring that the debugger has been entered,
+(defun invoke-slime-debugger (condition)
+  "Sends a message to Emacs declaring that the debugger has been entered,
 then waits to handle further requests from Emacs. Eventually returns
 after Emacs causes a restart to be invoked."
-  (declare (ignore hook))
   (without-slime-interrupts
-    (restart-case 
-        (cond (*emacs-connection*
-               (debug-in-emacs condition))
-              ((default-connection)
-               (with-connection ((default-connection))
-                 (debug-in-emacs condition))))
-      (default-debugger (&optional v)
-        :report "Use default debugger." (declare (ignore v))
-        (let ((*debugger-hook* nil))
-          (invoke-debugger condition))))))
+    (cond (*emacs-connection*
+           (debug-in-emacs condition))
+          ((default-connection)
+           (with-connection ((default-connection))
+             (debug-in-emacs condition))))))
+
+(defun swank-debugger-hook (condition hook)
+  "Debugger function for binding *DEBUGGER-HOOK*."
+  (declare (ignore hook))
+  (restart-case (invoke-slime-debugger condition)
+    (default-debugger (&optional v)
+      :report "Use default debugger." (declare (ignore v))
+      (let ((*debugger-hook* nil))
+        (invoke-debugger condition)))))
 
 (defvar *global-debugger* nil
   "Non-nil means the Swank debugger hook will be installed globally.")

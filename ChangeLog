@@ -1,3 +1,9 @@
+2008-08-10  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (invoke-slime-debugger): New function.
+	Analagous to cl:invoke-debugger.
+	(swank-debugger-hook): Use it.
+
 2008-08-09  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-quit-lisp): Optionally send kill signal.
