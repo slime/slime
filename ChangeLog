@@ -1,5 +1,10 @@
 2008-08-10  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-execute-tests): Call slime-test-should-fail-p
+	before executing the test (which may close the connection).
+
+2008-08-10  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (wait-for-event): Add timeout argument.  This is used
 	for :fd-handler and :sigio style where we only process events as
 	long as we don't block.

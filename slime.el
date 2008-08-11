@@ -2221,11 +2221,11 @@ or nil if nothing suitable can be found.")
            (sexp package)
          ((:ok value)
           (unless (member tag slime-stack-eval-tags)
-            (error "tag = %S eval-tags = %S sexp = %S"
+            (error "Reply to canceled synchronous eval request tag=%S sexp=%S"
                    tag slime-stack-eval-tags sexp))
           (throw tag (list #'identity value)))
          ((:abort)
-          (throw tag (list #'error "Synchronous Lisp Evaluation aborted."))))
+          (throw tag (list #'error "Synchronous Lisp Evaluation aborted"))))
        (let ((debug-on-quit t)
              (inhibit-quit nil)
              (conn (slime-connection)))
@@ -8388,7 +8388,7 @@ is setup, unless the user already set one explicitly."
 The results are presented in an outline-mode buffer, with the tests
 that succeeded initially folded away."
   (interactive)
-  (assert (not (slime-busy-p)))
+  (assert (slime-at-top-level-p) () "Pending RPCs or open debuggers.")
   (slime-create-test-results-buffer)
   (unwind-protect
       (slime-execute-tests)
@@ -8439,26 +8439,29 @@ Return the number of failed tests."
                 (let ((debug-on-error t)
                       (debug-on-quit t))
                   (apply function input))
-              (condition-case err
-                  (apply function input)
-                (error
-                 (cond ((slime-test-should-fail-p slime-current-test)
-                        (incf slime-expected-failures)
-                        (slime-test-failure "ERROR (expected)"
-                                            (format "%S" err)))
-                       (t
-                        (incf slime-unexpected-failures)
-                        (slime-print-check-error err)))))))))
-      (let ((summary (cond ((and (zerop slime-expected-failures)
-                                 (zerop slime-unexpected-failures))
-                            (format "All %S tests completed successfully."
-                                    slime-total-tests))
-                           (t
-                            (format "Failed on %S (%S expected) of %S tests."
-                                    (+ slime-expected-failures
-                                       slime-unexpected-failures)
-                                    slime-expected-failures
-                                    slime-total-tests)))))
+              (let ((should-fail-p
+                     (slime-test-should-fail-p slime-current-test)))
+                (condition-case err
+                    (apply function input)
+                  (error
+                   (cond (should-fail-p
+                          (incf slime-expected-failures)
+                          (slime-test-failure "ERROR (expected)"
+                                              (format "%S" err)))
+                         (t
+                          (incf slime-unexpected-failures)
+                          (slime-print-check-error err))))))))))
+      (let ((summary 
+             (cond ((and (zerop slime-expected-failures)
+                         (zerop slime-unexpected-failures))
+                    (format "All %S tests completed successfully."
+                            slime-total-tests))
+                   (t
+                    (format "Failed on %S (%S expected) of %S tests."
+                            (+ slime-expected-failures
+                               slime-unexpected-failures)
+                            slime-expected-failures
+                            slime-total-tests)))))
         (save-excursion
           (with-current-buffer slime-test-buffer-name
             (goto-char (point-min))
@@ -9214,13 +9217,13 @@ SWANK> " t))
                                   (and (slime-sldb-level= 1)
                                        (get-buffer-window 
                                         (sldb-get-default-buffer))))
-                                5)
+                                2)
           (with-current-buffer (sldb-get-default-buffer)
             (sldb-continue))
           (slime-wait-condition "sldb closed" 
                                 (lambda () (not (sldb-get-default-buffer)))
                                 0.2)))
-      (slime-sync-to-top-level 5))))
+      (slime-sync-to-top-level 2))))
 
 (def-slime-test locally-bound-debugger-hook
     ()
@@ -9310,15 +9313,15 @@ Reconnect afterwards."
     (with-current-buffer (process-buffer p)
       (assert (< (buffer-size) 500) nil "Unusual output"))
     (slime-inferior-connect p (slime-inferior-lisp-args p))
-    (lexical-let ((hook nil))
+    (lexical-let ((hook nil) (p p))
       (setq hook (lambda ()
+                   (slime-test-expect 
+                    "We are connected again" p (slime-inferior-process))
                    (remove-hook 'slime-connected-hook hook)))
       (add-hook 'slime-connected-hook hook)
       (while (member hook slime-connected-hook)
         (sit-for 0.5)
-        (slime-accept-process-output nil 0.1)))
-    (slime-test-expect "We are connected again" p 
-                       (slime-inferior-process slime-default-connection))))
+        (slime-accept-process-output nil 0.1)))))
     
 
 ;;;; Utilities
