@@ -676,11 +676,9 @@
             (nconc (mailbox.queue mbox) (list message)))
       (mp:open-gate (mailbox.gate mbox)))))
 
-(defimplementation receive ()
-  (receive-if (constantly t)))
-
-(defimplementation receive-if (test)
+(defimplementation receive-if (test &optional timeout)
   (let ((mbox (mailbox mp:*current-process*)))
+    (assert (or (not timeout) (eq timeout t)))
     (loop
      (check-slime-interrupts)
      (mp:with-process-lock ((mailbox.lock mbox))
@@ -690,8 +688,9 @@
            (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
            (return (car tail)))
          (mp:close-gate (mailbox.gate mbox))))
-    (mp:process-wait-with-timeout "receive-if" 0.5
-                                  #'mp:gate-open-p (mailbox.gate mbox)))))
+     (when (eq timeout t) (return (values nil t)))
+     (mp:process-wait-with-timeout "receive-if" 0.5
+                                   #'mp:gate-open-p (mailbox.gate mbox)))))
 
 (defimplementation quit-lisp ()
   (excl:exit 0 :quiet t))

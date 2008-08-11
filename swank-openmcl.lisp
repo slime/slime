@@ -953,12 +953,10 @@ out IDs for.")
             (nconc (mailbox.queue mbox) (list message)))
       (ccl:signal-semaphore (mailbox.semaphore mbox)))))
 
-(defimplementation receive ()
-  (receive-if (constantly t)))
-
-(defimplementation receive-if (test)
+(defimplementation receive-if (test &optional timeout)
   (let* ((mbox (mailbox ccl:*current-process*))
          (mutex (mailbox.mutex mbox)))
+    (assert (or (not timeout) (eq timeout t)))
     (loop
      (check-slime-interrupts)
      (ccl:with-lock-grabbed (mutex)
@@ -968,6 +966,7 @@ out IDs for.")
            (setf (mailbox.queue mbox) 
                  (nconc (ldiff q tail) (cdr tail)))
            (return (car tail)))))
+     (when (eq timeout t) (return (values nil t)))
      (ccl:timed-wait-on-semaphore (mailbox.semaphore mbox) 0.2))))
 
 (defimplementation quit-lisp ()
