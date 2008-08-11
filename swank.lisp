@@ -281,6 +281,32 @@ recently established one."
     (call-with-debugging-environment 
      (lambda () (backtrace 0 nil)))))
 
+(defvar *debug-on-swank-error* nil
+  "When non-nil invoke the system debugger on swank internal errors.
+Do not set this to T unless you want to debug swank internals.")
+
+(defmacro with-swank-error-handler ((connection) &body body)
+  (let ((var (gensym)))
+  `(let ((,var ,connection))
+     (handler-case 
+         (handler-bind ((swank-error 
+                         (lambda (condition)
+                           (when *debug-on-swank-error*
+                             (invoke-default-debugger condition)))))
+           (progn ,@body))
+       (swank-error (condition)
+         (close-connection ,var
+                           (swank-error.condition condition)
+                           (swank-error.backtrace condition)))))))
+  
+(defmacro with-panic-handler ((connection) &body body)
+  (let ((var (gensym)))
+  `(let ((,var ,connection))
+     (handler-bind ((serious-condition
+                     (lambda (condition)
+                       (close-connection ,var condition (safe-backtrace)))))
+       . ,body))))
+
 (add-hook *new-connection-hook* 'notify-backend-of-connection)
 (defun notify-backend-of-connection (connection)
   (declare (ignore connection))
@@ -305,10 +331,11 @@ If *REDIRECT-IO* is true then all standard I/O streams are redirected."
   "Execute BODY in the context of CONNECTION."
   `(call-with-connection ,connection (lambda () ,@body)))
 
-(defun call-with-connection (connection fun)
+(defun call-with-connection (connection function)
   (let ((*emacs-connection* connection))
-    (with-io-redirection (*emacs-connection*)
-      (call-with-debugger-hook #'swank-debugger-hook fun))))
+    (with-swank-error-handler (*emacs-connection*)
+      (with-io-redirection (*emacs-connection*)
+        (call-with-debugger-hook #'swank-debugger-hook function)))))
 
 (defmacro without-interrupts (&body body)
   `(call-without-interrupts (lambda () ,@body)))
@@ -822,13 +849,12 @@ The processing is done in the extent of the toplevel restart."
   (assert (null *swank-state-stack*))
   (let ((*swank-state-stack* '(:handle-request)))
     (with-connection (connection)
-      (progn ; with-reader-error-handler (connection)
-        (loop 
-         (with-simple-restart (abort "Return to SLIME's top level.")
-           (let* ((*sldb-quit-restart* (find-restart 'abort))
-                  (timeout? (process-requests timeout just-one)))
-             (when (or just-one timeout?) 
-               (return)))))))))
+      (loop 
+       (with-simple-restart (abort "Return to SLIME's top level.")
+         (let* ((*sldb-quit-restart* (find-restart 'abort))
+                (timeout? (process-requests timeout just-one)))
+           (when (or just-one timeout?) 
+             (return))))))))
 
 (defun process-requests (timeout just-one)
   "Read and process requests from Emacs."
@@ -869,27 +895,6 @@ The processing is done in the extent of the toplevel restart."
             (connection.communication-style c)
             *use-dedicated-output-stream*)
     (finish-output *log-output*)))
-
-(defvar *debug-on-swank-error* nil
-  "When non-nil internal swank errors will drop to a
-  debugger (not an sldb buffer). Do not set this to T unless you
-  want to debug swank internals.")
-
-(defmacro with-reader-error-handler ((connection) &body body)
-  (let ((var (gensym)))
-  `(let ((,var ,connection))
-     (handler-case (progn ,@body)
-       (swank-error (condition)
-         (close-connection ,var
-                           (swank-error.condition condition)
-                           (swank-error.backtrace condition)))))))
-  
-(defmacro with-panic-handler (&body body)
-  `(handler-bind ((serious-condition
-                   (lambda (condition)
-                     (close-connection *emacs-connection* condition 
-                                       (safe-backtrace)))))
-     . ,body))
 
 (defvar *slime-interrupts-enabled*)
 
@@ -934,12 +939,12 @@ The processing is done in the extent of the toplevel restart."
 (defun read-loop (connection)
   (let ((input-stream (connection.socket-io connection))
         (control-thread (connection.control-thread connection)))
-    (with-reader-error-handler (connection)
+    (with-swank-error-handler (connection)
       (loop (send control-thread (decode-message input-stream))))))
 
 (defun dispatch-loop (connection)
   (let ((*emacs-connection* connection))
-    (with-panic-handler
+    (with-panic-handler (connection)
       (loop (dispatch-event (read-event))))))
 
 (defvar *auto-flush-interval* 0.2)
@@ -1038,7 +1043,6 @@ The processing is done in the extent of the toplevel restart."
         (t (setf *event-queue* (nconc *event-queue* (list event))))))
 
 (defun read-event (&optional timeout)
-  (log-event "read-event: ~a~%" (current-socket-io))
   (cond ((use-threads-p) (receive timeout))
         (t (decode-message (current-socket-io) timeout))))
 
@@ -1071,12 +1075,10 @@ The processing is done in the extent of the toplevel restart."
 	     (nconc (ldiff *event-queue* tail) (cdr tail)))
        (return (car tail))))
    (multiple-value-bind (event timeout?) (read-event timeout)
-     (log-event "read-event-> ~a ~a~%" event timeout?)
      (when timeout? (return (values nil t)))
      (dispatch-event event))))
 
 (defun event-match-p (event pattern)
-  (log-event "event-match-p: ~s ~s~%" event pattern)
   (cond ((or (keywordp pattern) (numberp pattern) (stringp pattern)
 	     (member pattern '(nil t)))
 	 (equal event pattern))
@@ -2009,9 +2011,12 @@ after Emacs causes a restart to be invoked."
   (restart-case (invoke-slime-debugger condition)
     (default-debugger (&optional v)
       :report "Use default debugger." (declare (ignore v))
-      (let ((*debugger-hook* nil))
-        (invoke-debugger condition)))))
+      (invoke-default-debugger))))
 
+(defun invoke-default-debugger (condition)
+  (let ((*debugger-hook* nil))
+    (invoke-debugger condition)))
+  
 (defvar *global-debugger* nil
   "Non-nil means the Swank debugger hook will be installed globally.")
 
