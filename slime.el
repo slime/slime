@@ -8421,9 +8421,8 @@ that succeeded initially folded away."
                        slime-tests)))
     (read (completing-read "Test: " alist nil t))))
 
-(defun slime-test-should-fail-p (test)
-  (member (slime-lisp-implementation-name)
-          (slime-test.fails-for test)))
+(defun slime-test-should-fail-p ()
+  (member slime-lisp-under-test (slime-test.fails-for slime-current-test)))
 
 (defun slime-execute-tests ()
   "Execute each test case with each input.
@@ -8432,7 +8431,8 @@ Return the number of failed tests."
     (let ((slime-total-tests 0)
           (slime-expected-passes 0)
           (slime-unexpected-failures 0)
-          (slime-expected-failures 0))
+          (slime-expected-failures 0)
+          (slime-lisp-under-test (slime-lisp-implementation-name)))
       (dolist (slime-current-test slime-tests)
         (with-struct (slime-test. name (function fname) inputs) 
             slime-current-test
@@ -8446,18 +8446,16 @@ Return the number of failed tests."
                       (debug-on-quit t))
                   (catch 'skip
                     (apply function input)))
-              (let ((should-fail-p
-                     (slime-test-should-fail-p slime-current-test)))
-                (condition-case err
-                    (apply function input)
-                  (error
-                   (cond (should-fail-p
-                          (incf slime-expected-failures)
-                          (slime-test-failure "ERROR (expected)"
-                                              (format "%S" err)))
-                         (t
-                          (incf slime-unexpected-failures)
-                          (slime-print-check-error err))))))))))
+              (condition-case err
+                  (apply function input)
+                (error
+                 (cond ((slime-test-should-fail-p)
+                        (incf slime-expected-failures)
+                        (slime-test-failure "ERROR (expected)"
+                                            (format "%S" err)))
+                       (t
+                        (incf slime-unexpected-failures)
+                        (slime-print-check-error err)))))))))
       (let ((summary 
              (cond ((and (zerop slime-expected-failures)
                          (zerop slime-unexpected-failures))
@@ -8482,8 +8480,13 @@ Exits Emacs when finished. The exit code is the number of failed tests."
   (let ((slime-test-debug-on-error nil))
     (slime)
     ;; Block until we are up and running.
-    (while (not (slime-connected-p))
-      (sit-for 1))
+    (let ((i 0))
+      (while (not (slime-connected-p))
+        (incf i)
+        (when (> i 30)
+          (with-temp-file results-file (insert "Failed to connect."))
+          (kill-emacs 255))
+        (sit-for 1)))
     (slime-sync-to-top-level 5)
     (switch-to-buffer "*scratch*")
     (let ((failed-tests (slime-run-tests)))
@@ -8580,7 +8583,7 @@ BODY returns true if the check succeeds."
                            (cons `(format ,@test-name)))))
        (if (progn ,@body)
            (slime-print-check-ok ,check-name)
-         (cond ((slime-test-should-fail-p slime-current-test)
+         (cond ((slime-test-should-fail-p)
                 (incf slime-expected-failures)
                 (slime-test-failure "FAIL (expected)" ,check-name))
                (t
@@ -9312,9 +9315,10 @@ Reconnect afterwards."
                     "We are connected again" p (slime-inferior-process))
                    (remove-hook 'slime-connected-hook hook)))
       (add-hook 'slime-connected-hook hook)
-      (while (member hook slime-connected-hook)
-        (sit-for 0.5)
-        (slime-accept-process-output nil 0.1)))))
+      (slime-wait-condition "Lisp restarted" 
+                            (lambda () 
+                              (not (member hook slime-connected-hook)))
+                            5))))
     
 
 ;;;; Utilities

@@ -9,6 +9,8 @@
 	slime-repl-history-file is nil.
 	(slime-quit-lisp-internal): New function.
 	(slime-quit-lisp, slime-restart-inferior-lisp): Use it
+	(slime-batch-test): Exit, if the Lisp isn't up and running after
+	30 secs.
 
 2008-08-10  Helmut Eller  <heller@common-lisp.net>
 
