@@ -1,5 +1,16 @@
 2008-08-12  Helmut Eller  <heller@common-lisp.net>
 
+	Add a dump-image function to the loader.
+
+	* swank-loader.lisp (dump-image): New.
+
+	* swank-backend.lisp (save-image): New interface.
+
+	* swank-cmucl.lisp, swank-clisp.lisp, swank-sbcl.lisp
+	(save-image): Implemented.
+
+2008-08-12  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-repl-send-input): Disable modification hooks
 	when marking old input.
 	(slime-check-version): Use y-or-n-p.

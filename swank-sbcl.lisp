@@ -112,6 +112,7 @@
                          (or external-format :iso-latin-1-unix)
                          (or buffering :full)))
 
+#-win32
 (defimplementation install-sigint-handler (function)
   (sb-sys:enable-interrupt sb-unix:sigint 
                            (lambda (&rest args)
@@ -1402,3 +1403,17 @@ stack."
 (defimplementation hash-table-weakness (hashtable)
   #+#.(swank-backend::sbcl-with-weak-hash-tables)
   (sb-ext:hash-table-weakness hashtable))
+
+#-win32
+(defimplementation save-image (filename &optional restart-function)
+  (let ((pid (sb-posix:fork)))
+    (cond ((= pid 0) 
+           (let ((args `(,filename 
+                         ,@(if restart-function
+                               `((:toplevel ,restart-function))))))
+             (apply #'sb-ext:save-lisp-and-die args)))
+          (t
+           (multiple-value-bind (rpid status) (sb-posix:waitpid pid 0)
+             (assert (= pid rpid))
+             (assert (and (sb-posix:wifexited status)
+                          (zerop (sb-posix:wexitstatus status)))))))))

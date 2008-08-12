@@ -2267,6 +2267,98 @@ The `symbol-value' of each element is a type tag.")
 (defimplementation make-weak-key-hash-table (&rest args)
   (apply #'make-hash-table :weak-p t args))
 
+
+;;; Save image
+
+(defimplementation save-image (filename &optional restart-function)
+  (multiple-value-bind (pid error) (unix:unix-fork)
+    (when (not pid) (error "fork: ~A" (unix:get-unix-error-msg error)))
+    (cond ((= pid 0)
+           (let ((args `(,filename 
+                         ,@(if restart-function
+                               `((:init-function ,restart-function))))))
+             (apply #'ext:save-lisp args)))
+          (t 
+           (let ((status (waitpid pid)))
+             (destructuring-bind (&key exited? status &allow-other-keys) status
+               (assert (and exited? (equal status 0)) ()
+                       "Invalid exit status: ~a" status)))))))
+
+(defun waitpid (pid)
+  (alien:with-alien ((status c-call:int))
+    (let ((code (alien:alien-funcall 
+                 (alien:extern-alien 
+                  waitpid (alien:function unix::pid-t 
+                                          unix::pid-t
+                                          (* c-call:int) c-call:int))
+                 pid (alien:addr status) 0)))
+      (cond ((= code -1) (error "waitpid: ~A" (unix:get-unix-error-msg)))
+            (t (assert (= code pid))
+               (decode-wait-status status))))))
+
+(defun decode-wait-status (status)
+  (let ((output (with-output-to-string (s)
+                  (call-program (list (process-status-program)
+                                      (format nil "~d" status))
+                                :output s))))
+    (read-from-string output)))
+
+(defun call-program (args &key output)
+  (destructuring-bind (program &rest args) args
+    (let ((process (ext:run-program program args :output output)))
+      (when (not program) (error "fork failed"))
+      (unless (and (eq (ext:process-status process) :exited)
+                   (= (ext:process-exit-code process) 0))
+        (error "Non-zero exit status")))))
+
+(defvar *process-status-program* nil)
+    
+(defun process-status-program ()
+  (or *process-status-program*
+      (setq *process-status-program*
+            (compile-process-status-program))))
+
+(defun compile-process-status-program ()
+  (let ((infile (system::pick-temporary-file-name
+                 "/tmp/process-status~d~c.c")))
+    (with-open-file (stream infile :direction :output :if-exists :supersede)
+      (format stream "
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <assert.h>
+
+#define FLAG(value) (value ? \"t\" : \"nil\")
+
+int main (int argc, char** argv) {
+  assert (argc == 2);
+  { 
+    char* endptr = NULL;
+    char* arg = argv[1];
+    long int status = strtol (arg, &endptr, 10);
+    assert (endptr != arg && *endptr == '\\0');
+    printf (\"(:exited? %s :status %d :signal? %s :signal %d :coredump? %s\"
+	    \" :stopped? %s :stopsig %d)\\n\",
+	    FLAG(WIFEXITED(status)), WEXITSTATUS(status),
+	    FLAG(WIFSIGNALED(status)), WTERMSIG(status),
+	    FLAG(WCOREDUMP(status)),
+	    FLAG(WIFSTOPPED(status)), WSTOPSIG(status));
+    fflush (NULL);
+    return 0;
+  }
+}
+")
+      (finish-output stream))
+    (let* ((outfile (system::pick-temporary-file-name))
+           (args (list "cc" "-o" outfile infile)))
+      (warn "Running cc: ~{~a ~}~%" args)
+      (call-program args :output t)
+      (delete-file infile)
+      outfile)))
+
+;; (save-image "/tmp/x.core")
+
 ;; Local Variables:
 ;; pbook-heading-regexp:    "^;;;\\(;+\\)"
 ;; pbook-commentary-regexp: "^;;;\\($\\|[^;]\\)"

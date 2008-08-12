@@ -21,6 +21,7 @@
 (cl:defpackage :swank-loader
   (:use :cl)
   (:export :init
+           :dump-image
            :*source-directory*
            :*fasl-directory*))
 
@@ -224,6 +225,10 @@ If LOAD is true, load the fasl file."
   (load-user-init-file)
   (eval `(pushnew 'compile-contribs ,(q "swank::*after-init-hook*")))
   (funcall (q "swank::init")))
+
+(defun dump-image (filename)
+  (init :setup nil)
+  (funcall (q "swank-backend:save-image") filename))
 
 (defun init (&key delete reload load-contribs (setup t))
   (when (and delete (find-package :swank))

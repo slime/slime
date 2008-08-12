@@ -1097,3 +1097,12 @@ SPEC can be:
     (values             . (&rest typespecs))
     (vector             . (&optional element-type size))
     ))
+
+;;; Heap dumps
+
+(definterface save-image (filename &optional restart-function)
+  "Save a heap image to the file FILENAME.
+RESTART-FUNCTION, if non-nil, should be called when the image is loaded.")
+
+
+  
