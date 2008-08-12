@@ -2,6 +2,8 @@
 
 	* slime-clipboard.el (slime-clipboard-insert-ref): Set
 	read-nonsticky to t to work better with kill/yank.
+	* swank-clipboard.lisp (:swank-clipboard): List exports to avoid
+	compiler warnings.
 
 2008-08-12  Helmut Eller  <heller@common-lisp.net>
 
