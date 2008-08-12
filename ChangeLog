@@ -1,5 +1,10 @@
 2008-08-12  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-repl-send-input): Disable modification hooks
+	when marking old input.
+
+2008-08-12  Helmut Eller  <heller@common-lisp.net>
+
 	Finally handle reader-errors without disconnecting.
 
 	* swank.lisp (decode-message): Convert reader-error conditions

@@ -3112,10 +3112,11 @@ If NEWLINE is true then add a newline at the end of the input."
     (when newline 
       (insert "\n")
       (slime-repl-show-maximum-output))
-    (add-text-properties slime-repl-input-start-mark 
-                         (point)
-                         `(slime-repl-old-input
-                           ,(incf slime-repl-old-input-counter)))
+    (let ((inhibit-modification-hooks t))
+      (add-text-properties slime-repl-input-start-mark 
+                           (point)
+                           `(slime-repl-old-input
+                             ,(incf slime-repl-old-input-counter))))
     (let ((overlay (make-overlay slime-repl-input-start-mark end)))
       ;; These properties are on an overlay so that they won't be taken
       ;; by kill/yank.
