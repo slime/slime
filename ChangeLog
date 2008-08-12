@@ -1,5 +1,9 @@
 2008-08-11  Helmut Eller  <heller@common-lisp.net>
 
+	* test.sh: Use batch mode by default.
+
+2008-08-11  Helmut Eller  <heller@common-lisp.net>
+
 	Improve interrupt safety for single-threaded lisps.
 
 	* slime.el (slime-interrupt): Send a :emacs-interrupt message

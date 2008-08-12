@@ -14,16 +14,23 @@
 # are disclaimed.
 
 function usage () {
-    echo "Usage: $name [-v] [-r] <emacs> <lisp>"
+    echo <<EOF 
+Usage: $name [-b] [-s] [-r]  <emacs> <lisp>"
+-b  disable batch mode
+-s  use screen to hide emacs
+-r  show results file
+EOF
     exit 1
 }
 
 name=$0
+batch_mode=-batch
 
-while getopts vr opt; do
+while getopts vrb opt; do
     case $opt in
-	v) verbose=true;;
+	s) use_screen=true;;
 	r) dump_results=true;;
+	b) batch_mode="";;
 	*) usage;;
     esac
 done
@@ -50,14 +57,14 @@ mkdir $testdir
 cp -r $slimedir/*.{el,lisp} ChangeLog $slimedir/contrib  $testdir
 mkfifo $dribble
 
-cmd=($emacs -nw -q -no-site-file --no-site-file
+cmd=($emacs -nw -q -no-site-file $batch_mode --no-site-file
        --eval "(setq debug-on-quit t)"
        --eval "(add-to-list 'load-path \"$testdir\")"
        --eval "(require 'slime)"
        --eval "(setq inferior-lisp-program \"$lisp\")"
        --eval "(slime-batch-test \"$results\")")
 
-if [ "$verbose" = true ]; then
+if [ "$use_screen" = "" ]; then
     "${cmd[@]}"
     echo $? > $statusfile
 else 
