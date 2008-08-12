@@ -1,3 +1,10 @@
+2008-08-12  Helmut Eller  <heller@common-lisp.net>
+
+	Add a simple object clipboard.
+
+	* swank-clipboard.lisp: New file.
+	* slime-clipboard.el: New file.
+
 2008-08-07  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-fancy.el: Add slime-mdot-fu and slime-package-fu.
