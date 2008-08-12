@@ -142,7 +142,7 @@ ALIST is a list of the form ((VAR . VAL) ...)."
      (defun ,name ,arglist ,@rest)
      ;; see <http://www.franz.com/support/documentation/6.2/doc/pages/variables/compiler/s_cltl1-compile-file-toplevel-compatibility-p_s.htm>
      (eval-when (:compile-toplevel :load-toplevel :execute)
-       (export ',name :swank))))
+       (export ',name (symbol-package ',name)))))
 
 (defun missing-arg ()
   "A function that the compiler knows will never to return a value.
@@ -1601,16 +1601,17 @@ buffer are best read in this package.  See also FROM-STRING and TO-STRING.")
 (define-special *buffer-readtable*
     "Readtable associated with the current buffer")
 
-(defmacro with-buffer-syntax ((&rest _) &body body)
+(defmacro with-buffer-syntax ((&optional package) &body body)
   "Execute BODY with appropriate *package* and *readtable* bindings.
 
 This should be used for code that is conceptionally executed in an
 Emacs buffer."
-  (destructuring-bind () _
-    `(call-with-buffer-syntax (lambda () ,@body))))
+  `(call-with-buffer-syntax ,package (lambda () ,@body)))
 
-(defun call-with-buffer-syntax (fun)
-  (let ((*package* *buffer-package*))
+(defun call-with-buffer-syntax (package fun)
+  (let ((*package* (if package 
+                       (guess-buffer-package package) 
+                       *buffer-package*)))
     ;; Don't shadow *readtable* unnecessarily because that prevents
     ;; the user from assigning to it.
     (if (eq *readtable* *buffer-readtable*)
@@ -1634,6 +1635,12 @@ gracefully."
 (defun from-string (string)
   "Read string in the *BUFFER-PACKAGE*"
   (with-buffer-syntax ()
+    (let ((*read-suppress* nil))
+      (read-from-string string))))
+
+(defun parse-string (string package)
+  "Read STRING in PACKAGE."
+  (with-buffer-syntax (package)
     (let ((*read-suppress* nil))
       (read-from-string string))))
 

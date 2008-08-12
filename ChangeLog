@@ -1,5 +1,10 @@
 2008-08-12  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (with-buffer-syntax): Take package as argument.
+	(defslimefun): Derive the package for exporting from the symbol.
+
+2008-08-12  Helmut Eller  <heller@common-lisp.net>
+
 	Let SIGINT create a synthetic event.
 
 	* swank.lisp (install-fd-handler,simple-serve-requests): Dispatch
