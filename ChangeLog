@@ -1,5 +1,15 @@
 2008-08-12  Helmut Eller  <heller@common-lisp.net>
 
+	Finally handle reader-errors without disconnecting.
+
+	* swank.lisp (decode-message): Convert reader-error conditions
+	into :reader-error events.
+	(dispatch-event): Send :reader-error events to Emacs.
+
+	* slime.el (slime-dispatch-event): Display reader-errors.
+
+2008-08-12  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (with-buffer-syntax): Take package as argument.
 	(defslimefun): Derive the package for exporting from the symbol.
 

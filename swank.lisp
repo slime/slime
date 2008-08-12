@@ -1044,7 +1044,11 @@ The processing is done in the extent of the toplevel restart."
     (((:emacs-pong :emacs-return :emacs-return-string) thread-id &rest args)
      (send-event (find-thread thread-id) (cons (car event) args)))
     (((:end-of-stream))
-     (close-connection *emacs-connection* nil (safe-backtrace)))))
+     (close-connection *emacs-connection* nil (safe-backtrace)))
+    ((:reader-error packet condition)
+     (encode-message `(:reader-error ,packet 
+                                     ,(safe-condition-message condition))
+                     (current-socket-io)))))
 
 (defvar *event-queue* '())
 
@@ -1418,7 +1422,10 @@ NIL if streams are not globally redirected.")
         (cond ((and (not c) timeout) (values nil t))
               (t
                (and c (unread-char c stream))
-               (values (read-form (read-packet stream)) nil)))))))
+               (let ((packet (read-packet stream)))
+                 (handler-case (values (read-form packet) nil)
+                   (reader-error (c) 
+                     `(:reader-error ,packet ,c))))))))))
 
 (defun read-packet (stream)
   (peek-char nil stream) ; wait while queuing interrupts

@@ -2005,8 +2005,9 @@ This is automatically synchronized from Lisp.")
 (defun slime-check-version (version conn)
   (or (equal version slime-protocol-version)
       (equal slime-protocol-version 'ignore)
-      (yes-or-no-p (format "Version mismatch: %S vs. %S.  Continue? "
-                           slime-protocol-version version))
+      (yes-or-no-p 
+       (format "Version mismatch: %S (emacs) vs. %S (lisp). Continue? "
+               slime-protocol-version version))
       (slime-net-close conn)
       (top-level)))
 
@@ -2381,7 +2382,13 @@ Debugged requests are ignored."
            (assert thread)
            (message "%s" message))
           ((:ping thread tag)
-           (slime-send `(:emacs-pong ,thread ,tag)))))))
+           (slime-send `(:emacs-pong ,thread ,tag)))
+          ((:reader-error packet condition)
+           (slime-with-popup-buffer ("*Slime Error*")
+             (princ (format "Invalid protocol message:\n%s\n\n%S"
+                            condition packet))
+             (goto-char (point-min)))
+           (error "Invalid protocol message"))))))
 
 (defun slime-send (sexp)
   "Send SEXP directly over the wire on the current connection."
