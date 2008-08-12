@@ -126,7 +126,7 @@
     (slime-insert-propertized
      `(display ,(format "#@%d%s" ref string)
 	       modification-hooks (slime-clipboard-ref-modified)
-	       rear-nonsticky '(modification-hooks))
+	       rear-nonsticky t)
      (format "(swank-clipboard::clipboard-ref %d)" ref))))
 
 (defun slime-clipboard-ref-modified (start end)
@@ -134,9 +134,10 @@
     (let ((inhibit-modification-hooks t))
       (save-excursion
 	(goto-char start)
-	(destructuring-bind (start end) (slime-property-bounds 'display)
-	  (remove-list-of-text-properties start end 
-					  '(display modification-hooks)))))))
+	(destructuring-bind (dstart dend) (slime-property-bounds 'display)
+	  (unless (and (= start dstart) (= end dend))
+	    (remove-list-of-text-properties 
+	     dstart dend '(display modification-hooks))))))))
 
 ;; Read a entry number.
 ;; Written in CPS because the display the clipboard before reading.

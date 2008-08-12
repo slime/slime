@@ -1,5 +1,10 @@
 2008-08-12  Helmut Eller  <heller@common-lisp.net>
 
+	* slime-clipboard.el (slime-clipboard-insert-ref): Set
+	read-nonsticky to t to work better with kill/yank.
+
+2008-08-12  Helmut Eller  <heller@common-lisp.net>
+
 	Add a simple object clipboard.
 
 	* swank-clipboard.lisp: New file.
