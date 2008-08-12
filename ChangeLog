@@ -2,6 +2,7 @@
 
 	* slime.el (slime-repl-send-input): Disable modification hooks
 	when marking old input.
+	(slime-check-version): Use y-or-n-p.
 
 2008-08-12  Helmut Eller  <heller@common-lisp.net>
 

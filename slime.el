@@ -2005,8 +2005,8 @@ This is automatically synchronized from Lisp.")
 (defun slime-check-version (version conn)
   (or (equal version slime-protocol-version)
       (equal slime-protocol-version 'ignore)
-      (yes-or-no-p 
-       (format "Version mismatch: %S (emacs) vs. %S (lisp). Continue? "
+      (y-or-n-p 
+       (format "Versions differ: %s (slime) vs. %s (swank). Continue? "
                slime-protocol-version version))
       (slime-net-close conn)
       (top-level)))
