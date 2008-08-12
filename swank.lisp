@@ -1159,7 +1159,11 @@ The processing is done in the extent of the toplevel restart."
   (add-fd-handler (connection.socket-io connection)
                   (lambda () (handle-or-process-requests connection)))
   (setf (connection.saved-sigint-handler connection)
-        (install-sigint-handler (lambda () (process-io-interrupt connection))))
+        (install-sigint-handler 
+         (lambda () 
+           (invoke-or-queue-interrupt
+            (lambda () 
+              (dispatch-event `(:emacs-interrupt ,(current-thread-id))))))))
   (handle-or-process-requests connection))
 
 (defun deinstall-fd-handler (connection)
@@ -1171,7 +1175,10 @@ The processing is done in the extent of the toplevel restart."
 (defun simple-serve-requests (connection)
   (unwind-protect 
        (call-with-user-break-handler
-        (lambda () (process-io-interrupt connection))
+        (lambda () 
+          (invoke-or-queue-interrupt 
+           (lambda () 
+             (dispatch-event `(:emacs-interrupt ,(current-thread-id))))))
         (lambda ()
           (with-simple-restart (close-connection "Close SLIME connection")
             (handle-requests connection))))
@@ -1762,26 +1769,23 @@ Fall back to the the current if no such package exists."
   "Bind *BUFFER-PACKAGE* to BUFFER-PACKAGE and evaluate FORM.
 Return the result to the continuation ID.
 Errors are trapped and invoke our debugger."
-  (call-with-debugger-hook
-   #'swank-debugger-hook
-   (lambda ()
-     (let (ok result)
-       (unwind-protect
-            (let ((*buffer-package* (guess-buffer-package buffer-package))
-                  (*buffer-readtable* (guess-buffer-readtable buffer-package))
-                  (*pending-continuations* (cons id *pending-continuations*)))
-              (check-type *buffer-package* package)
-              (check-type *buffer-readtable* readtable)
-              ;; APPLY would be cleaner than EVAL. 
-              ;;(setq result (apply (car form) (cdr form)))
-              (setq result (with-slime-interrupts (eval form)))
-              (run-hook *pre-reply-hook*)
-              (setq ok t))
-         (send-to-emacs `(:return ,(current-thread)
-                                  ,(if ok
-                                       `(:ok ,result)
-                                       `(:abort))
-                                  ,id)))))))
+  (let (ok result)
+    (unwind-protect
+         (let ((*buffer-package* (guess-buffer-package buffer-package))
+               (*buffer-readtable* (guess-buffer-readtable buffer-package))
+               (*pending-continuations* (cons id *pending-continuations*)))
+           (check-type *buffer-package* package)
+           (check-type *buffer-readtable* readtable)
+           ;; APPLY would be cleaner than EVAL. 
+           ;;(setq result (apply (car form) (cdr form)))
+           (setq result (with-slime-interrupts (eval form)))
+           (run-hook *pre-reply-hook*)
+           (setq ok t))
+      (send-to-emacs `(:return ,(current-thread)
+                               ,(if ok
+                                    `(:ok ,result)
+                                    `(:abort))
+                               ,id)))))
 
 (defvar *echo-area-prefix* "=> "
   "A prefix that `format-values-for-echo-area' should use.")
@@ -2027,8 +2031,9 @@ after Emacs causes a restart to be invoked."
 
 (defun swank-debugger-hook (condition hook)
   "Debugger function for binding *DEBUGGER-HOOK*."
-  (declare (ignore hook))
-  (restart-case (invoke-slime-debugger condition)
+  (restart-case 
+      (call-with-debugger-hook 
+       hook (lambda () (invoke-slime-debugger condition)))
     (default-debugger (&optional v)
       :report "Use default debugger." (declare (ignore v))
       (invoke-default-debugger condition))))

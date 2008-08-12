@@ -1,3 +1,13 @@
+2008-08-12  Helmut Eller  <heller@common-lisp.net>
+
+	Let SIGINT create a synthetic event.
+
+	* swank.lisp (install-fd-handler,simple-serve-requests): Dispatch
+	a :emacs-interrupt event in the SIGINT handler.
+
+	* slime.el (slime-interrupt): Send nothing over the wire when
+	SIGINT is used.
+
 2008-08-11  Helmut Eller  <heller@common-lisp.net>
 
 	* test.sh: Use batch mode by default.
