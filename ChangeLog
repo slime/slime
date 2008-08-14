@@ -1,3 +1,27 @@
+2008-08-14  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Xref buffers: `q', and `SPC' will push onto the find-definition
+	stack such that M-, will work afterwards.
+
+	* slime.el (defstruct slime-emacs-snapshot): Also save the point
+	explicitly.  It is implicitly stored already in the
+	window-configuration, but inaccessible therein.
+	(slime-current-emacs-snapshot, slime-set-emacs-snapshot): Adapted.
+	(slime-push-definition-stack-from-snapshot): New. Reason for above
+	changes.
+
+	(slime-with-popup-buffer): Make sure that the current
+	emacs-snapshot is taken, not only when the :emacs-snapshot
+	argument is NIL at expansion time, but also on runtime.
+
+	(slime-with-xref-buffer): The name of the Xref buffer was created
+	at expansion time, but must be computed at runtime. Fix that.
+	(slime-xref-quit): Use `slime-push-definition-stack-from-snapshot'
+	(sime-xref-goto): Adapted to also push onto the stack.
+
+	* slime.el (slime-compute-modeline-package): Cleaned up.
+	(slime-update-modeline-string): Ditto.
+
 2008-08-12  Helmut Eller  <heller@common-lisp.net>
 
 	Add a dump-image function to the loader.

@@ -190,7 +190,8 @@ The default is nil, as this feature can be a security risk."
 
 (defcustom slime-find-definitions-function 'slime-find-definitions-rpc
   "Function to find definitions for a name.
-The function is called with the definition name, a string, as its argument."
+The function is called with the definition name, a string, as its
+argument."
   :type 'function
   :group 'slime-mode
   :options '(slime-find-definitions-rpc
@@ -211,7 +212,8 @@ The function is called with the definition name, a string, as its argument."
                  (const :tag "Fuzzy" slime-fuzzy-complete-symbol)))
 
 (defcustom slime-when-complete-filename-expand nil
-  "Use comint-replace-by-expanded-filename instead of comint-dynamic-complete-as-filename to complete file names"
+  "Use comint-replace-by-expanded-filename instead of
+comint-dynamic-complete-as-filename to complete file names"
   :group 'slime-mode
   :type 'boolean)
 
@@ -446,11 +448,8 @@ The string is periodically updated by an idle timer."))
 
 (defun slime-compute-modeline-package ()
   (when (memq major-mode slime-lisp-modes)
-    (let* ((pkg (slime-current-package))
-           (pretty-pkg ))
-      (if pkg
-          (slime-pretty-package-name pkg)
-          nil))))
+    (when-let (package (slime-current-package))
+      (slime-pretty-package-name package))))
 
 (defun slime-pretty-package-name (name)
   "Return a pretty version of a package name NAME."
@@ -484,19 +483,19 @@ The string is periodically updated by an idle timer."))
 (defun slime-update-modeline-string ()
   (let ((old-pkg   slime-modeline-package)
         (old-conn  slime-modeline-connection-name)
-        (old-state slime-modeline-connection-state))
-    (let ((new-pkg   (slime-compute-modeline-package))
-          (new-conn  (slime-compute-modeline-connection))
-          (new-state (slime-compute-modeline-connection-state)))
-      (when (or (not (equal old-pkg   new-pkg))
-                (not (equal old-conn  new-conn))
-                (not (equal old-state new-state)))
-        (setq slime-modeline-package new-pkg)
-        (setq slime-modeline-connection-name new-conn)
-        (setq slime-modeline-connection-state new-state)
-        (setq slime-modeline-string
-              (slime-compute-modeline-string new-conn new-state new-pkg))
-        (force-mode-line-update t)))))
+        (old-state slime-modeline-connection-state)
+        (new-pkg   (slime-compute-modeline-package))
+        (new-conn  (slime-compute-modeline-connection))
+        (new-state (slime-compute-modeline-connection-state)))
+    (when (or (not (equal old-pkg   new-pkg))
+              (not (equal old-conn  new-conn))
+              (not (equal old-state new-state)))
+      (setq slime-modeline-package new-pkg)
+      (setq slime-modeline-connection-name new-conn)
+      (setq slime-modeline-connection-state new-state)
+      (setq slime-modeline-string
+            (slime-compute-modeline-string new-conn new-state new-pkg))
+      (force-mode-line-update t))))
 
 (defun slime-shall-we-update-modeline-p ()
   (and slime-extended-modeline 
@@ -508,8 +507,9 @@ The string is periodically updated by an idle timer."))
 
 (run-with-idle-timer 0.2 0.2 'slime-update-modeline)
 
-;; Setup the mode-line to say when we're in slime-mode, and which CL
-;; package we think the current buffer belongs to.
+;; Setup the mode-line to say when we're in slime-mode, which
+;; connection is active, and which CL package we think the current
+;; buffer belongs to.
 (add-to-list 'minor-mode-alist
              '(slime-mode
                (" Slime" slime-modeline-string)))
@@ -901,7 +901,10 @@ Assumes all insertions are made at point."
   narrowedp beg end)
 
 (defstruct (slime-emacs-snapshot (:conc-name slime-emacs-snapshot.))
-  window-configuration narrowing-configuration)
+  ;; We explicitly store the value of point even though it's implicitly
+  ;; stored in the window-configuration because Emacs provides no
+  ;; way to access the things stored in a window configuration.
+  window-configuration narrowing-configuration point-marker)
 
 (defun slime-current-narrowing-configuration (&optional buffer)
   (with-current-buffer (or buffer (current-buffer))
@@ -923,15 +926,18 @@ currently active frame if FRAME is not given respectively."
           (current-buffer))
     (make-slime-emacs-snapshot
      :window-configuration    (current-window-configuration frame)
-     :narrowing-configuration (slime-current-narrowing-configuration))))
+     :narrowing-configuration (slime-current-narrowing-configuration)
+     :point-marker            (point-marker))))
 
 (defun slime-set-emacs-snapshot (snapshot)
   "Restores the state of Emacs according to the information saved
 in SNAPSHOT."
   (let ((window-cfg    (slime-emacs-snapshot.window-configuration snapshot))
-        (narrowing-cfg (slime-emacs-snapshot.narrowing-configuration snapshot)))
+        (narrowing-cfg (slime-emacs-snapshot.narrowing-configuration snapshot))
+        (marker        (slime-emacs-snapshot.point-marker snapshot)))
     (set-window-configuration window-cfg) ; restores previously current buffer.
-    (slime-set-narrowing-configuration narrowing-cfg)))
+    (slime-set-narrowing-configuration narrowing-cfg)
+    (goto-char (marker-position marker))))
 
 (defun slime-current-emacs-snapshot-fingerprint (&optional frame)
   "Return a fingerprint of the current emacs snapshot.
@@ -981,7 +987,8 @@ state of Emacs after closing the temporary buffer. Otherwise, the
 current state will be saved and later restored."
   `(let* ((vars% (list ,(if (eq package t) '(slime-current-package) package)
                        ,(if (eq connection t) '(slime-connection) connection)
-                       ,(or emacs-snapshot '(slime-current-emacs-snapshot))))
+                       ;; Defer the decision for NILness until runtime.
+                       (or ,emacs-snapshot (slime-current-emacs-snapshot))))
           (standard-output (slime-popup-buffer ,name vars%)))
      (with-current-buffer standard-output
        (prog1 (progn ,@body)
@@ -1044,12 +1051,12 @@ last activated the buffer."
       (kill-buffer popup-buffer))))
 
 (defun slime-popup-buffer-snapshot-unchanged-p ()
-  (let ((snapshot slime-popup-buffer-saved-emacs-snapshot))
-    (and snapshot (equalp (slime-current-emacs-snapshot-fingerprint)
-                          slime-popup-buffer-saved-fingerprint))))
+  (equalp (slime-current-emacs-snapshot-fingerprint)
+          slime-popup-buffer-saved-fingerprint))
 
 (defun slime-popup-buffer-restore-snapshot ()
-  (slime-set-emacs-snapshot slime-popup-buffer-saved-emacs-snapshot))
+  (let ((snapshot slime-popup-buffer-saved-emacs-snapshot))
+    (assert snapshot) (slime-set-emacs-snapshot snapshot)))
 
 
 ;;;;; Filename translation
@@ -5113,6 +5120,11 @@ alist but ignores CDRs."
 (defvar slime-find-definition-history-ring (make-ring 20)
   "History ring recording the definition-finding \"stack\".")
 
+(defun slime-push-definition-stack-from-snapshot (emacs-snapshot)
+  (with-struct (slime-emacs-snapshot. narrowing-configuration point-marker)
+      emacs-snapshot
+    (slime-push-definition-stack point-marker narrowing-configuration)))
+
 (defun slime-push-definition-stack (&optional marker narrowing-configuration)
   "Add MARKER and NARROWING-CONFIGURATION to the edit-definition history stack.
 If MARKER is nil, use the current point. If NARROWING-CONFIGURATION is nil, 
@@ -5187,7 +5199,7 @@ function name is prompted."
           ((slime-length= xrefs 1)      ; ((:error "..."))
            (error "%s" (cadr (slime-xref.location (car xrefs)))))
           (t
-           (slime-push-definition-stack)
+           ;; Xref buffers will themselves push onto the find-definition stack.
            (slime-show-xrefs file-alist 'definition name
                              (slime-current-package))))))
 
@@ -5310,7 +5322,8 @@ The result is a (possibly empty) list of definitions."
 (defun slime-check-eval-in-emacs-enabled ()
   "Raise an error if `slime-enable-evaluate-in-emacs' isn't true."
   (unless slime-enable-evaluate-in-emacs
-    (error "slime-eval-in-emacs disabled for security. Set slime-enable-evaluate-in-emacs true to enable it.")))
+    (error (concat "slime-eval-in-emacs disabled for security."
+                   "Set slime-enable-evaluate-in-emacs true to enable it."))))
 
 
 ;;;; `ED'
@@ -6068,6 +6081,21 @@ The most important commands:
 
 ;;;;; XREF results buffer and window management
 
+(defmacro* slime-with-xref-buffer ((xref-type symbol &optional package emacs-snapshot)  
+                                   &body body)
+  "Execute BODY in a xref buffer, then show that buffer."
+  `(let ((xref-buffer-name% (format "*XREF[%s: %s]*" ,xref-type ,symbol)))
+     (slime-with-popup-buffer (xref-buffer-name% ,package t ,emacs-snapshot)
+       (slime-xref-mode)
+       (slime-set-truncate-lines)
+       (setq slime-popup-buffer-quit-function 'slime-xref-quit)
+       (erase-buffer)
+       (prog1 (progn ,@body)
+         (assert (equal (buffer-name) xref-buffer-name%))
+         (shrink-window-if-larger-than-buffer)))))
+
+(put 'slime-with-xref-buffer 'lisp-indent-function 1)
+
 (defun slime-xref-buffer ()
   "Return the XREF results buffer.
 If CREATE is non-nil, create it if necessary."
@@ -6075,20 +6103,10 @@ If CREATE is non-nil, create it if necessary."
                (buffer-list))
       (error "No XREF buffer")))
 
-(defmacro* slime-with-xref-buffer ((xref-type symbol &optional package emacs-snapshot)  
-                                   &body body)
-  "Execute BODY in a xref buffer, then show that buffer."
-  (let ((xref-buffer-name (format "*XREF[%s: %s]*" xref-type symbol)))
-    `(slime-with-popup-buffer (,xref-buffer-name ,package t ,emacs-snapshot)
-       (slime-xref-mode)
-       (slime-set-truncate-lines)
-       (setq slime-popup-buffer-quit-function 'slime-xref-quit)
-       (erase-buffer)
-       (prog1 (progn ,@body)
-         (assert (equal (buffer-name) ,xref-buffer-name))
-         (shrink-window-if-larger-than-buffer)))))
-
-(put 'slime-with-xref-buffer 'lisp-indent-function 1)
+(defun slime-xref-saved-snapshot ()
+  (let ((snapshot ))
+    (assert snapshot)
+    snaptshot))
 
 (defun slime-xref-quit (&optional _)
   "Kill the current xref buffer and restore the window configuration."
@@ -6098,13 +6116,17 @@ If CREATE is non-nil, create it if necessary."
   ;; want the Xref window be deleted.
   (if (slime-popup-buffer-snapshot-unchanged-p)
       (slime-popup-buffer-restore-snapshot)
-    (let ((buffer (current-buffer)))
+    (let ((snapshot slime-popup-buffer-saved-emacs-snapshot)
+          (buffer   (current-buffer)))
+      ;; Make M-, work after Xref'ing.
+      (slime-push-definition-stack-from-snapshot snapshot)
       (delete-windows-on buffer)
       (kill-buffer buffer))))
 
 (defun slime-xref-cleanup ()
   "Delete overlays created by xref mode and kill the xref buffer."
   (sldb-delete-overlays))
+
 
 (defun slime-insert-xrefs (xref-alist)
   "Insert XREF-ALIST in the current-buffer.
@@ -6227,9 +6249,11 @@ source-location."
 (defun slime-goto-xref ()
   "Goto the cross-referenced location at point."
   (interactive)
-  (let ((location (slime-xref-location-at-point)))
-    (slime-xref-quit)
-    (slime-pop-to-location location)))
+  ;; Notice: We implement it this way so `slime-show-xref' changes the
+  ;; the window snapshot such that `slime-xref-quit' will push onto
+  ;; the find-definition-stack.
+  (slime-show-xref)
+  (slime-xref-quit))
 
 (defun slime-show-xref ()
   "Display the xref at point in the other window."
@@ -7089,9 +7113,10 @@ This is 0 if START and END at the same line."
         (slime-show-source-location source-location))))))
 
 (defun slime-show-source-location (source-location &optional no-highlight-p)
-  (slime-goto-source-location source-location)
-  (unless no-highlight-p (sldb-highlight-sexp))
-  (slime-show-buffer-position (point)))
+  (save-selected-window   ; show the location, but don't hijack focus.
+    (slime-goto-source-location source-location)
+    (unless no-highlight-p (sldb-highlight-sexp))
+    (slime-show-buffer-position (point))))
 
 (defun sldb-highlight-sexp (&optional start end)
   "Highlight the first sexp after point."
