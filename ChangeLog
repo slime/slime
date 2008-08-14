@@ -1,5 +1,16 @@
 2008-08-14  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	`C-c C-z' now selects an REPL displayed in another frame instead
+	of splitting the current frame, and displaying the REPL in the
+	newly created window.
+
+	* slime.el (slime-switch-to-output-buffer-search-all-frames): New
+	variable to customize this behaviour, as it may not be optimal for
+	people using multiple screens at once.
+	(slime-switch-to-output-buffer): Adapted accordingly.
+
+2008-08-14  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	Xref buffers: `M-,' in an Xref buffer will now revert to an Emacs
 	state as of before the Xref command.
 

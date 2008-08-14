@@ -2697,14 +2697,30 @@ See `slime-output-target-to-marker'."
           (insert-before-markers string)
           (set-marker marker (point)))))))
 
+(defvar slime-switch-to-output-buffer-search-all-frames t
+  "If t search for an already existing REPL window in all frames,
+and if found, select that window instead of creating a new one.
+
+If you use multiple screens, you may want to set this to nil such
+that a window on a different screen won't be selected under the
+hood.")
+
 (defun slime-switch-to-output-buffer (&optional connection)
-  "Select the output buffer, preferably in a different window."
+  "Select the output buffer: If a REPL is already displayed, just
+set focus to that window. Otherwise, try to make a new window
+displaying the REPL."
   (interactive)
-  (let ((slime-dispatching-connection (or connection 
-                                          slime-dispatching-connection)))
-    (set-buffer (slime-output-buffer))
-    (unless (eq (current-buffer) (window-buffer))
-      (pop-to-buffer (current-buffer) t))
+  (let ((slime-dispatching-connection (or connection
+                                           slime-dispatching-connection)))
+    (let* ((repl-buffer (slime-output-buffer))
+           (all-frames-p slime-switch-to-output-buffer-search-all-frames)
+           (repl-window (get-buffer-window repl-buffer all-frames-p)))
+      (if repl-window
+          (progn (select-frame-set-input-focus (window-frame repl-window))
+                 (select-window repl-window))
+        (set-buffer repl-buffer)
+        (unless (eq (current-buffer) (window-buffer))
+          (pop-to-buffer (current-buffer) t))))
     (goto-char (point-max))))
 
 
