@@ -1,5 +1,14 @@
 2008-08-14  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	Xref buffers: `M-,' in an Xref buffer will now revert to an Emacs
+	state as of before the Xref command.
+
+	* slime.el (slime-xref-mode-map): Add `slime-xref-retract' as `M-,'
+	(slime-xref-retract): New. Restores the emacs snapshot unconditionally.
+	(slime-xref-quit): Use it.
+
+2008-08-14  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	Xref buffers: `q', and `SPC' will push onto the find-definition
 	stack such that M-, will work afterwards.
 

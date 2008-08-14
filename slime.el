@@ -6071,7 +6071,8 @@ The most important commands:
   ("n" 'slime-next-line/not-add-newlines)
   ("p" 'previous-line)
   ("\C-c\C-c" 'slime-recompile-xref)
-  ("\C-c\C-k" 'slime-recompile-all-xrefs))
+  ("\C-c\C-k" 'slime-recompile-all-xrefs)
+  ("\M-," 'slime-xref-retract))
 
 (defun slime-next-line/not-add-newlines ()
   (interactive)
@@ -6103,19 +6104,15 @@ If CREATE is non-nil, create it if necessary."
                (buffer-list))
       (error "No XREF buffer")))
 
-(defun slime-xref-saved-snapshot ()
-  (let ((snapshot ))
-    (assert snapshot)
-    snaptshot))
-
 (defun slime-xref-quit (&optional _)
-  "Kill the current xref buffer and restore the window configuration."
+  "Kill the current xref buffer, restore the window configuration
+if appropriate."
   (interactive)
   (slime-xref-cleanup)
   ;; We can't simply use `slime-popup-buffer-quit' because we also
   ;; want the Xref window be deleted.
   (if (slime-popup-buffer-snapshot-unchanged-p)
-      (slime-popup-buffer-restore-snapshot)
+      (slime-xref-retract)
     (let ((snapshot slime-popup-buffer-saved-emacs-snapshot)
           (buffer   (current-buffer)))
       ;; Make M-, work after Xref'ing.
@@ -6123,9 +6120,18 @@ If CREATE is non-nil, create it if necessary."
       (delete-windows-on buffer)
       (kill-buffer buffer))))
 
+(defun slime-xref-retract ()
+  "Leave the Xref buffer, and make everything as of before."
+  (interactive)
+  (slime-xref-cleanup)
+  (let ((buffer (current-buffer)))
+    (slime-popup-buffer-restore-snapshot)
+    (kill-buffer buffer)))
+
 (defun slime-xref-cleanup ()
   "Delete overlays created by xref mode and kill the xref buffer."
   (sldb-delete-overlays))
+
 
 
 (defun slime-insert-xrefs (xref-alist)
