@@ -1,5 +1,11 @@
 2008-08-15  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-popup-buffer-quit): Fix regression; we have to
+	invoke `bury-buffer' without an argument to make it switch buffers
+	for us (for the case when the snapshot wasn't restored.)
+
+2008-08-15  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (slime-list-compiler-notes): Only shrink if notes tree
 	isn't displayed as being collapsed.
 

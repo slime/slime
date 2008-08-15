@@ -1046,9 +1046,10 @@ last activated the buffer."
     (when (slime-popup-buffer-snapshot-unchanged-p)
       (slime-popup-buffer-restore-snapshot))
     (setq slime-popup-buffer-saved-emacs-snapshot nil)
-    (if kill-buffer-p
-        (kill-buffer popup-buffer)
-        (bury-buffer popup-buffer))))
+    (with-current-buffer popup-buffer
+      ;; This will switch to another buffer if snapshot wasn't restored.
+      (bury-buffer)
+      (when kill-buffer-p (kill-buffer)))))
 
 (defun slime-popup-buffer-snapshot-unchanged-p ()
   (equalp (slime-current-emacs-snapshot-fingerprint)
