@@ -1043,12 +1043,12 @@ Restore the window configuration unless it was changed since we
 last activated the buffer."
   (interactive)
   (let ((popup-buffer (current-buffer)))
-    (if (slime-popup-buffer-snapshot-unchanged-p)
-        (slime-popup-buffer-restore-snapshot)
-        (bury-buffer))
+    (when (slime-popup-buffer-snapshot-unchanged-p)
+      (slime-popup-buffer-restore-snapshot))
     (setq slime-popup-buffer-saved-emacs-snapshot nil)
-    (when kill-buffer-p
-      (kill-buffer popup-buffer))))
+    (if kill-buffer-p
+        (kill-buffer popup-buffer)
+        (bury-buffer popup-buffer))))
 
 (defun slime-popup-buffer-snapshot-unchanged-p ()
   (equalp (slime-current-emacs-snapshot-fingerprint)
@@ -4178,6 +4178,7 @@ Each newlines and following indentation is replaced by a single space."
       (dolist (tree (slime-compiler-notes-to-tree notes))
         (slime-tree-insert tree "")
         (insert "\n"))
+      (shrink-window-if-larger-than-buffer)
       (goto-char (point-min)))))
 
 (defun slime-alistify (list key test)
