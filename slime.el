@@ -4175,11 +4175,14 @@ Each newlines and following indentation is replaced by a single space."
       (slime-compiler-notes-mode)
       (when (null notes)
         (insert "[no notes]"))
-      (dolist (tree (slime-compiler-notes-to-tree notes))
-        (slime-tree-insert tree "")
-        (insert "\n"))
-      (shrink-window-if-larger-than-buffer)
-      (goto-char (point-min)))))
+      (let ((collapsed-p))
+        (dolist (tree (slime-compiler-notes-to-tree notes))
+          (when (slime-tree.collapsed-p tree) (setf collapsed-p t))
+          (slime-tree-insert tree "")
+          (insert "\n"))
+        (unless collapsed-p
+          (shrink-window-if-larger-than-buffer))
+        (goto-char (point-min))))))
 
 (defun slime-alistify (list key test)
   "Partition the elements of LIST into an alist.
