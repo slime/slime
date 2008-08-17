@@ -4,6 +4,7 @@
 	(slime-inspector-mode-map): Bind it to ".".
 	(sldb-highlight-sexp): Use slime-flash-region rather than a
 	permanent overlay.
+	(slime-popup-buffer-quit): Must call bury-buffer without argument.
 
 	* swank.lisp (find-source-location-for-emacs): New function.
 

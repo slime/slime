@@ -1047,7 +1047,7 @@ last activated the buffer."
       (slime-popup-buffer-restore-snapshot))
     (setq slime-popup-buffer-saved-emacs-snapshot nil)
     (cond (kill-buffer-p (kill-buffer buffer))
-          (t (bury-buffer buffer)))))
+          (t (with-current-buffer buffer (bury-buffer))))))
 
 (defun slime-popup-buffer-snapshot-unchanged-p ()
   (equalp (slime-current-emacs-snapshot-fingerprint)
