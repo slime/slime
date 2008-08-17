@@ -1,3 +1,13 @@
+2008-08-18  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (install-fd-handler): Bind *emacs-connection* with
+	with-connection, for case when the signal hander is called out of
+	the blue.
+	(swank-debugger-hook): Don't assume that the hook argument is
+	#'swank-debugger-hook itself.
+
+	* test.sh (usage): Use cat rather not echo for here-documents.
+
 2008-08-17  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-inspector-show-source): New command.

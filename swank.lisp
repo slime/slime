@@ -1167,7 +1167,8 @@ The processing is done in the extent of the toplevel restart."
          (lambda () 
            (invoke-or-queue-interrupt
             (lambda () 
-              (dispatch-event `(:emacs-interrupt ,(current-thread-id))))))))
+              (with-connection (connection)
+                (dispatch-event `(:emacs-interrupt ,(current-thread-id)))))))))
   (handle-or-process-requests connection))
 
 (defun deinstall-fd-handler (connection)
@@ -2045,9 +2046,10 @@ after Emacs causes a restart to be invoked."
 
 (defun swank-debugger-hook (condition hook)
   "Debugger function for binding *DEBUGGER-HOOK*."
+  (declare (ignore hook))
   (restart-case 
       (call-with-debugger-hook 
-       hook (lambda () (invoke-slime-debugger condition)))
+       #'swank-debugger-hook (lambda () (invoke-slime-debugger condition)))
     (default-debugger (&optional v)
       :report "Use default debugger." (declare (ignore v))
       (invoke-default-debugger condition))))

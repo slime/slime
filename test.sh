@@ -14,11 +14,11 @@
 # are disclaimed.
 
 function usage () {
-    echo <<EOF 
+    cat <<EOF
 Usage: $name [-b] [-s] [-r]  <emacs> <lisp>"
--b  disable batch mode
--s  use screen to hide emacs
--r  show results file
+  -b  disable batch mode
+  -s  use screen to hide emacs
+  -r  show results file
 EOF
     exit 1
 }
@@ -26,7 +26,7 @@ EOF
 name=$0
 batch_mode=-batch
 
-while getopts vrb opt; do
+while getopts srb opt; do
     case $opt in
 	s) use_screen=true;;
 	r) dump_results=true;;
