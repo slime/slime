@@ -3,6 +3,11 @@
 	* slime.el (slime-add-local-hook): Renamed from add-local-hook.
 	(slime-switch-to-output-buffer): Drop the connection argument.  It
 	was never used.
+	(slime-switch-to-output-buffer-search-all-frames): Deleted. Use
+	display-buffer-reuse-frames instead.
+	(slime-switch-to-output-buffer): Use pop-to-buffer to select the
+	window and frame.  Have to set the input-focus manually, though.
+	Might be some window manager issue.
 
 2008-08-15  Tobias C. Rittweiler  <tcr@freebits.de>
 
@@ -25,9 +30,9 @@
 
 2008-08-17  B.Scott Michel <scooter.phd@gmail.com>
 
-       * swank-loader.lisp (dump-image): Move this function to the end of
-       the file to stop SBCL from reporting two times the same false
-       alarm.
+	* swank-loader.lisp (dump-image): Move this function to the end of
+	the file to stop SBCL from reporting two times the same false
+	alarm.
 
 2008-08-15  Tobias C. Rittweiler  <tcr@freebits.de>
 

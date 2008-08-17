@@ -2696,35 +2696,15 @@ See `slime-output-target-to-marker'."
           (insert-before-markers string)
           (set-marker marker (point)))))))
 
-(defvar slime-switch-to-output-buffer-search-all-frames t
-  "If t search for an already existing REPL window in all frames,
-and if found, select that window instead of creating a new one.
-
-If you use multiple screens, you may want to set this to nil such
-that a window on a different screen won't be selected under the
-hood.")
-
 (defun slime-switch-to-output-buffer ()
-  "Select the output buffer: If a REPL is already displayed, just
-set focus to that window. Otherwise, try to make a new window
-displaying the REPL."
+  "Select the output buffer, when possible in an existing window.
+
+Hint: You can use `display-buffer-reuse-frames' and
+`special-display-buffer-names' to customize the frame in which
+the buffer should appear."
   (interactive)
-  (let ((slime-dispatching-connection (or connection
-                                           slime-dispatching-connection)))
-    (let* ((repl-buffer (slime-output-buffer))
-           (all-frames-p slime-switch-to-output-buffer-search-all-frames)
-           (repl-window (get-buffer-window repl-buffer all-frames-p)))
-      ;; FIXME: I don't think that this function should set the
-      ;; buffer. We currently do it, because the programmatic
-      ;; invocations of this function expect this.
-      (set-buffer repl-buffer)
-      (if repl-window
-          (progn (select-frame-set-input-focus (window-frame repl-window))
-                 (select-window repl-window))
-        (unless (eq (current-buffer) (window-buffer))
-          (pop-to-buffer (current-buffer) t))))
-    (assert (eq (current-buffer) repl-buffer))
-    (goto-char (point-max))))
+  (pop-to-buffer (slime-output-buffer))
+  (goto-char (point-max)))
 
 
 ;;;; REPL
