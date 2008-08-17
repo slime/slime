@@ -1,3 +1,9 @@
+2008-08-15  B.Scott Michel <scooter.phd@gmail.com>
+
+       * swank-loader.lisp (dump-image): Move this function to the end of
+       the file to stop SBCL from reporting two times the same false
+       alarm.
+
 2008-08-15  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-popup-buffer-quit): Fix regression; we have to

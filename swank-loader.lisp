@@ -226,10 +226,6 @@ If LOAD is true, load the fasl file."
   (eval `(pushnew 'compile-contribs ,(q "swank::*after-init-hook*")))
   (funcall (q "swank::init")))
 
-(defun dump-image (filename)
-  (init :setup nil)
-  (funcall (q "swank-backend:save-image") filename))
-
 (defun init (&key delete reload load-contribs (setup t))
   (when (and delete (find-package :swank))
     (mapc #'delete-package '(:swank :swank-io-package :swank-backend)))
@@ -241,3 +237,7 @@ If LOAD is true, load the fasl file."
     (compile-contribs :load t))
   (when setup
     (setup)))
+
+(defun dump-image (filename)
+  (init :setup nil)
+  (funcall (q "swank-backend:save-image") filename))
