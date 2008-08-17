@@ -7132,10 +7132,7 @@ This is 0 if START and END at the same line."
   (sldb-delete-overlays)
   (let ((start (or start (point)))
 	(end (or end (save-excursion (ignore-errors (forward-sexp)) (point)))))
-    (push (make-overlay start (1+ start)) sldb-overlays)
-    (push (make-overlay (1- end) end) sldb-overlays))
-  (dolist (overlay sldb-overlays)
-    (overlay-put overlay 'face 'secondary-selection)))
+    (slime-flash-region start end)))
 
 (defun sldb-delete-overlays ()
   (mapc #'delete-overlay sldb-overlays)
@@ -7867,6 +7864,13 @@ If ARG is negative, move forwards."
                          (error "No part at point"))))
   (slime-eval-describe `(swank:pprint-inspector-part ,part)))
 
+(defun slime-inspector-show-source (part)
+  (interactive (list (or (get-text-property (point) 'slime-part-number)
+                         (error "No part at point"))))
+  (slime-eval-async 
+   `(swank:find-source-location-for-emacs '(:inspector ,part))
+   #'slime-show-source-location))
+  
 (defun slime-inspector-reinspect ()
   (interactive)
   (slime-eval-async `(swank:inspector-reinspect)
@@ -7940,7 +7944,8 @@ If ARG is negative, move forwards."
   ("\C-i" 'slime-inspector-next-inspectable-object)
   ([(shift tab)] 'slime-inspector-previous-inspectable-object) ; Emacs translates S-TAB
   ([backtab]     'slime-inspector-previous-inspectable-object) ; to BACKTAB on X.
-  ("\M-." 'slime-edit-definition))
+  ("\M-." 'slime-edit-definition)
+  ("." 'slime-inspector-show-source))
 
 
 ;;;; Buffer selector

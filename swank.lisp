@@ -2742,6 +2742,19 @@ Include the nicknames if NICKNAMES is true."
 (defslimefun find-definition-for-thing (thing)
   (find-source-location thing))
 
+(defslimefun find-source-location-for-emacs (spec)
+  (find-source-location (value-spec-ref spec)))
+
+(defun value-spec-ref (spec)
+  (destructure-case spec
+    ((:string string package)
+     (with-buffer-syntax (package)
+       (eval (read-from-string string))))
+    ((:inspector part) 
+     (inspector-nth-part part))
+    ((:sldb frame var)
+     (frame-var-value frame var))))
+  
 (defslimefun find-definitions-for-emacs (name)
   "Return a list ((DSPEC LOCATION) ...) of definitions for NAME.
 DSPEC is a string and LOCATION a source location. NAME is a string."
