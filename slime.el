@@ -666,8 +666,8 @@ This list of flushed between commands."))
 
 (defun slime-setup-command-hooks ()
   "Setup a buffer-local `pre-command-hook' to call `slime-pre-command-hook'."
-  (add-local-hook 'pre-command-hook 'slime-pre-command-hook) 
-  (add-local-hook 'post-command-hook 'slime-post-command-hook))
+  (slime-add-local-hook 'pre-command-hook 'slime-pre-command-hook)
+  (slime-add-local-hook 'post-command-hook 'slime-post-command-hook))
 
 
 ;;;; Framework'ey bits
@@ -1042,14 +1042,12 @@ function was called."
 Restore the window configuration unless it was changed since we
 last activated the buffer."
   (interactive)
-  (let ((popup-buffer (current-buffer)))
+  (let ((buffer (current-buffer)))
     (when (slime-popup-buffer-snapshot-unchanged-p)
       (slime-popup-buffer-restore-snapshot))
     (setq slime-popup-buffer-saved-emacs-snapshot nil)
-    (with-current-buffer popup-buffer
-      ;; This will switch to another buffer if snapshot wasn't restored.
-      (bury-buffer)
-      (when kill-buffer-p (kill-buffer)))))
+    (cond (kill-buffer-p (kill-buffer buffer))
+          (t (bury-buffer buffer)))))
 
 (defun slime-popup-buffer-snapshot-unchanged-p ()
   (equalp (slime-current-emacs-snapshot-fingerprint)
@@ -1057,8 +1055,8 @@ last activated the buffer."
 
 (defun slime-popup-buffer-restore-snapshot ()
   (let ((snapshot slime-popup-buffer-saved-emacs-snapshot))
-    (assert snapshot) (slime-set-emacs-snapshot snapshot)))
-
+    (assert snapshot) 
+    (slime-set-emacs-snapshot snapshot)))
 
 ;;;;; Filename translation
 ;;;
@@ -2233,7 +2231,7 @@ or nil if nothing suitable can be found.")
          ((:ok value)
           (unless (member tag slime-stack-eval-tags)
             (error "Reply to canceled synchronous eval request tag=%S sexp=%S"
-                   tag slime-stack-eval-tags sexp))
+                   tag sexp))
           (throw tag (list #'identity value)))
          ((:abort)
           (throw tag (list #'error "Synchronous Lisp Evaluation aborted"))))
@@ -2706,7 +2704,7 @@ If you use multiple screens, you may want to set this to nil such
 that a window on a different screen won't be selected under the
 hood.")
 
-(defun slime-switch-to-output-buffer (&optional connection)
+(defun slime-switch-to-output-buffer ()
   "Select the output buffer: If a REPL is already displayed, just
 set focus to that window. Otherwise, try to make a new window
 displaying the REPL."
@@ -2725,6 +2723,7 @@ displaying the REPL."
                  (select-window repl-window))
         (unless (eq (current-buffer) (window-buffer))
           (pop-to-buffer (current-buffer) t))))
+    (assert (eq (current-buffer) repl-buffer))
     (goto-char (point-max))))
 
 
@@ -2878,7 +2877,8 @@ joined together."))
   (set (make-local-variable 'scroll-margin) 0)
   (when slime-repl-history-file
     (slime-repl-safe-load-history)
-    (add-local-hook 'kill-buffer-hook 'slime-repl-safe-save-merged-history))
+    (slime-add-local-hook 'kill-buffer-hook 
+                          'slime-repl-safe-save-merged-history))
   (add-hook 'kill-emacs-hook 'slime-repl-save-all-histories)
   (slime-setup-command-hooks)
   ;; At the REPL, we define beginning-of-defun and end-of-defun to be
@@ -4971,9 +4971,8 @@ Return true if the configuration was saved."
     t))
 
 (defun slime-complete-delay-restoration ()
-  (make-local-hook 'pre-command-hook)
-  (add-hook 'pre-command-hook
-            'slime-complete-maybe-restore-window-configuration))
+  (slime-add-local-hook 'pre-command-hook
+                        'slime-complete-maybe-restore-window-configuration))
 
 (defun slime-complete-forget-window-configuration ()
   (setq slime-complete-saved-window-configuration nil)
@@ -6680,7 +6679,7 @@ Full list of commands:
   (slime-set-truncate-lines)
   ;; Make original slime-connection "sticky" for SLDB commands in this buffer
   (setq slime-buffer-connection (slime-connection))
-  (add-local-hook 'kill-buffer-hook 'sldb-delete-overlays))
+  (slime-add-local-hook 'kill-buffer-hook 'sldb-delete-overlays))
 
 (slime-define-keys sldb-mode-map
   ("h"    'describe-mode)
@@ -8442,6 +8441,8 @@ is setup, unless the user already set one explicitly."
 (defvar slime-test-buffer-name "*Tests*"
   "The name of the buffer used to display test results.")
 
+(defvar slime-lisp-under-test nil
+  "The name of Lisp currently executing the tests.")
 
 ;; dynamically bound during a single test
 (defvar slime-current-test)
@@ -9658,6 +9659,13 @@ will return \"\"."
                                 ;; Emacs 21 uses microsecs; Emacs 22 millisecs
                                 (if timeout (truncate (* timeout 1000000)))))))
 
+(defun slime-add-local-hook (hook function &optional append)
+  (cond ((featurep 'xemacs) (add-local-hook hook function append))
+        ((< emacs-major-version 21)
+         (make-local-hook hook)
+         (add-hook hook function append t))
+        (t (add-hook hook function append t))))
+
 (slime-defun-if-undefined next-single-char-property-change
     (position prop &optional object limit)
   (let ((limit (typecase limit
@@ -9930,15 +9938,6 @@ If they are not, position point at the first syntax error found."
   `(save-selected-window
      (select-window ,window)
      ,@body))
-
-;;; Stuff only available in XEmacs
-(slime-defun-if-undefined add-local-hook (hook function &optional append)
-  (make-local-hook hook)
-  (add-hook hook function append t))
-
-(slime-defun-if-undefined remove-local-hook (hook function)
-  (if (local-variable-p hook (current-buffer))
-      (remove-hook hook function t)))
 
 
 ;;;; Finishing up
