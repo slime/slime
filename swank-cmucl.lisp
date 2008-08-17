@@ -2288,8 +2288,7 @@ The `symbol-value' of each element is a type tag.")
   (alien:with-alien ((status c-call:int))
     (let ((code (alien:alien-funcall 
                  (alien:extern-alien 
-                  waitpid (alien:function unix::pid-t 
-                                          unix::pid-t
+                  waitpid (alien:function c-call:int c-call:int
                                           (* c-call:int) c-call:int))
                  pid (alien:addr status) 0)))
       (cond ((= code -1) (error "waitpid: ~A" (unix:get-unix-error-msg)))

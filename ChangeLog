@@ -1,7 +1,10 @@
 2008-08-17  Helmut Eller  <heller@common-lisp.net>
 
-       * swank-sbcl.lisp (sb-thread::get-foreground): Don't override.
-       Let SBCL people fix this.
+	* swank-cmucl.lisp (waitpid): Don't use unix::pid-t, it's only
+	defined for Linux.
+
+	* swank-sbcl.lisp (sb-thread::get-foreground): Don't override.
+	Let SBCL people fix this.
 
 2008-08-17  B.Scott Michel <scooter.phd@gmail.com>
 
