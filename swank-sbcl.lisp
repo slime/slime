@@ -1324,20 +1324,6 @@ stack."
                          (sb-thread:condition-wait (mailbox.waitqueue mbox)
                                                    mutex))
            (sb-ext:timeout ()))))))
-
-  #-non-broken-terminal-sessions
-  (progn
-    (defvar *native-wait-for-terminal* #'sb-thread::get-foreground)
-    (sb-ext:with-unlocked-packages (sb-thread) 
-      (defun sb-thread::get-foreground ()
-        (ignore-errors
-          (format *debug-io* ";; SWANK: sb-thread::get-foreground ...~%")
-          (finish-output *debug-io*))
-        (or (and (typep *debug-io* 'two-way-stream)
-                 (typep (two-way-stream-input-stream *debug-io*)
-                        'slime-input-stream))
-            (funcall *native-wait-for-terminal*)))))
-
   )
 
 (defimplementation quit-lisp ()
