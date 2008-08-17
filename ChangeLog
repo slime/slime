@@ -1,3 +1,14 @@
+2008-08-15  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-switch-to-output-buffer): Fix regression
+	discovered by Ariel Badichi. Programmatic invocation of this
+	function expect this function to also set-buffer to the REPL
+	buffer. Even though that's ugly, we do it for now, and declare it
+	to be a FIXME.
+	(slime-dispatch-event): Don't use `message' for the pipelined
+	request message, but `slime-display-oneliner' which will truncate
+	the form to be displayed.
+
 2008-08-17  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-cmucl.lisp (waitpid): Don't use unix::pid-t, it's only

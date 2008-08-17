@@ -2331,7 +2331,7 @@ Debugged requests are ignored."
            (slime-write-string output target))
           ((:emacs-rex form package thread continuation)
            (when (and (slime-use-sigint-for-interrupt) (slime-busy-p))
-             (message "; pipelined request... %S" form))
+             (slime-display-oneliner "; pipelined request... %S" form))
            (let ((id (incf (slime-continuation-counter))))
              (push (cons id continuation) (slime-rex-continuations))
              (slime-send `(:emacs-rex ,form ,package ,thread ,id))))
@@ -2716,10 +2716,13 @@ displaying the REPL."
     (let* ((repl-buffer (slime-output-buffer))
            (all-frames-p slime-switch-to-output-buffer-search-all-frames)
            (repl-window (get-buffer-window repl-buffer all-frames-p)))
+      ;; FIXME: I don't think that this function should set the
+      ;; buffer. We currently do it, because the programmatic
+      ;; invocations of this function expect this.
+      (set-buffer repl-buffer)
       (if repl-window
           (progn (select-frame-set-input-focus (window-frame repl-window))
                  (select-window repl-window))
-        (set-buffer repl-buffer)
         (unless (eq (current-buffer) (window-buffer))
           (pop-to-buffer (current-buffer) t))))
     (goto-char (point-max))))
