@@ -858,8 +858,8 @@ even on Common Lisp implementations without weak hash tables."
 	    (lambda ()
 	      ;; Respect the syntax text properties of presentation.
 	      (set (make-local-variable 'parse-sexp-lookup-properties) t)
-	      (add-local-hook 'after-change-functions 
-			      'slime-after-change-function)))
+	      (slime-add-local-hook 'after-change-functions 
+                                    'slime-after-change-function)))
   (add-hook 'slime-event-hooks 'slime-dispatch-presentation-event)
   (setq slime-write-string-function 'slime-presentation-write)
   (add-hook 'slime-repl-return-hooks 'slime-presentation-on-return-pressed)

@@ -1,3 +1,8 @@
+2008-08-18  Ariel Badichi  <abadichi@bezeqint.net>
+
+	* slime-fuzzy.el: Rename `add-local-hook' to `slime-add-local-hook'.
+	* slime-presentations.el: Ditto.
+
 2008-08-12  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-clipboard.el (slime-clipboard-insert-ref): Set

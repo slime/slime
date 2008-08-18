@@ -359,7 +359,7 @@ done."
       (when (boundp 'window-configuration-change-hook)
         (add-hook 'window-configuration-change-hook
                   'slime-fuzzy-window-configuration-change))
-      (add-local-hook 'kill-buffer-hook 'slime-fuzzy-abort)
+      (slime-add-local-hook 'kill-buffer-hook 'slime-fuzzy-abort)
       (setq buffer-quit-function 'slime-fuzzy-abort)) ; M-Esc Esc
     (when slime-fuzzy-completion-in-place
       ;; switch back to the original buffer
