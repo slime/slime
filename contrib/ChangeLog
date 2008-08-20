@@ -1,3 +1,10 @@
+2008-08-20  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-fontifying-fu.el: New contrib; fontify with-foo and do-foo
+	like standard macros.
+
+	* slime-fancy.el: Add slime-fontifying-fu.
+
 2008-08-20  Luís Oliveira  <loliveira@common-lisp.net>
 
 	* contrib/slime-indentation.el: fix indentation of IF forms.

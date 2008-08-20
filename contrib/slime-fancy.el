@@ -79,4 +79,8 @@
 (require 'slime-package-fu)
 (slime-package-fu-init)
 
+;; Fontify with-foo and do-foo like standard macros.
+(require 'slime-fontifying-fu)
+(slime-fontifying-fu-init)
+
 (provide 'slime-fancy)
