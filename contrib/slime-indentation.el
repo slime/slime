@@ -1065,7 +1065,7 @@ stored."
 	  (flet		((&whole 4 &rest (&whole 1 (&whole 4 &rest 1) &body))
 			 &body))
 	  (labels . flet) (macrolet . flet)
-	  (if		(&rest 2))
+	  (if		(&rest 4))
 	  ;; FIXME: Which of those do I really want?
 	  ;; (lambda	((&whole 4 &rest 1) &body))
 	  (lambda	((&whole 4 &rest 1)

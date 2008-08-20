@@ -1,3 +1,7 @@
+2008-08-20  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* contrib/slime-indentation.el: fix indentation of IF forms.
+
 2008-08-18  Ariel Badichi  <abadichi@bezeqint.net>
 
 	* slime-fuzzy.el: Rename `add-local-hook' to `slime-add-local-hook'.
