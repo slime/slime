@@ -2878,20 +2878,32 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
                   (print-unreadable-object ((istate.object istate)
                                            s :type t :identity t))))
         :id (assign-index (istate.object istate) (istate.parts istate))
-        :content (content-range (inspector-content istate) 0 500)))
+        :content (prepare-range istate 0 500)))
 
-(defun inspector-content (istate)
-  (loop for part in (istate.content istate) collect 
-        (etypecase part
-          (string part)
-          (cons (destructure-case part
-                  ((:newline) 
-                   '#.(string #\newline))
-                  ((:value obj &optional str) 
-                   (value-part obj str (istate.parts istate)))
-                  ((:action label lambda &key (refreshp t)) 
-                   (action-part label lambda refreshp 
-                                (istate.actions istate))))))))
+(defun prepare-range (istate start end)
+  (let* ((range (content-range (istate.content istate) start end))
+         (ps (loop for part in range append (prepare-part part istate))))
+    (list ps 
+          (if (< (length ps) (- end start))
+              (+ start (length ps))
+              (+ end 1000))
+          start end)))
+
+(defun prepare-part (part istate)
+  (let ((newline '#.(string #\newline)))
+    (etypecase part
+      (string (list part))
+      (cons (destructure-case part
+              ((:newline) (list newline))
+              ((:value obj &optional str) 
+               (list (value-part obj str (istate.parts istate))))
+              ((:action label lambda &key (refreshp t)) 
+               (action-part label lambda refreshp 
+                            (istate.actions istate)))
+              ((:line label value)
+               (list (princ-to-string label) ": "
+                     (value-part value nil (istate.parts istate))
+                     newline)))))))
 
 (defun value-part (object string parts)
   (list :value 
@@ -2922,8 +2934,10 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
    ".."))
 
 (defun content-range (list start end)
-  (let* ((len (length list)) (end (min len end)))
-    (list (subseq list start end) len start end)))
+  (typecase list
+    (list (let ((len (length list)))
+            (subseq list start (min len end))))
+    (lcons (llist-range list start end))))
 
 (defslimefun inspector-nth-part (index)
   (aref (istate.parts *istate*) index))
@@ -2933,7 +2947,7 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
     (inspect-object (inspector-nth-part index))))
 
 (defslimefun inspector-range (from to)
-  (content-range (inspector-content *istate*) from to))
+  (prepare-range *istate* from to))
 
 (defslimefun inspector-call-nth-action (index &rest args)
   (destructuring-bind (fun refreshp) (aref (istate.actions *istate*) index)
@@ -2994,6 +3008,51 @@ Return nil if there's no previous object."
     (reset-inspector)
     (inspect-object (frame-var-value frame var))))
 
+;;;;; Lazy lists 
+
+(defstruct (lcons (:constructor %lcons (car %cdr))
+                  (:predicate lcons?))
+  car 
+  (%cdr nil :type (or null lcons function))
+  (forced? nil))
+
+(defmacro lcons (car cdr)
+  `(%lcons ,car (lambda () ,cdr)))
+
+(defmacro lcons* (car cdr &rest more)
+  (cond ((null more) `(lcons ,car ,cdr))
+        (t `(lcons ,car (lcons* ,cdr ,@more)))))
+
+(defun lcons-cdr (lcons)
+  (with-struct* (lcons- @ lcons) 
+    (cond ((@ forced?)
+           (@ %cdr))
+          (t
+           (let ((value (funcall (@ %cdr))))
+             (setf (@ forced?) t
+                   (@ %cdr) value))))))
+
+(defun llist-range (llist start end)
+  (llist-take (llist-skip llist start) (- end start)))
+
+(defun llist-skip (lcons index)
+  (do ((i 0 (1+ i))
+       (l lcons (lcons-cdr l)))
+      ((or (= i index) (null l))
+       l)))
+
+(defun llist-take (lcons count)
+  (let ((result '()))
+    (do ((i 0 (1+ i))
+         (l lcons (lcons-cdr l)))
+        ((or (= i count)
+             (null l)))
+      (push (lcons-car l) result))
+    (nreverse result)))
+
+(defun iline (label value)
+  `(:line ,label ,value))
+
 ;;;;; Lists
 
 (defmethod emacs-inspect ((o cons))
@@ -3005,10 +3064,6 @@ Return nil if there's no previous object."
   (label-value-line* 
    ('car (car cons))
    ('cdr (cdr cons))))
-
-;; (inspect-list '#1=(a #1# . #1# ))
-;; (inspect-list (list* 'a 'b 'c))
-;; (inspect-list (make-list 10000))
 
 (defun inspect-list (list)
   (multiple-value-bind (length tail) (safe-length list)
@@ -3045,6 +3100,8 @@ Return NIL if LIST is circular."
 
 ;;;;; Hashtables
 
+
+
 (defmethod emacs-inspect ((ht hash-table))
   (append
    (label-value-line*
@@ -3071,17 +3128,19 @@ Return NIL if LIST is circular."
 ;;;;; Arrays
 
 (defmethod emacs-inspect ((array array))
-  (append
-   (label-value-line*
-    ("Dimensions" (array-dimensions array))
-    ("Element type" (array-element-type array))
-    ("Total size" (array-total-size array))
-    ("Adjustable" (adjustable-array-p array)))
-   (when (array-has-fill-pointer-p array)
-     (label-value-line "Fill pointer" (fill-pointer array)))
-   '("Contents:" (:newline))
-   (loop for i below (array-total-size array)
-         append (label-value-line i (row-major-aref array i)))))
+  (lcons*
+   (iline "Dimensions" (array-dimensions array))
+   (iline "Element type" (array-element-type array))
+   (iline "Total size" (array-total-size array))
+   (iline "Adjustable" (adjustable-array-p array))
+   (iline "Fill pointer" (if (array-has-fill-pointer-p array)
+                             (fill-pointer array)))
+   "Contents:" '(:newline)
+   (labels ((k (i max)
+              (cond ((= i max) '())
+                    (t (lcons (iline i (row-major-aref array i))
+                              (k (1+ i) max))))))
+     (k 0 (array-total-size array)))))
 
 ;;;;; Chars
 

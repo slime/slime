@@ -1,5 +1,16 @@
 2008-08-22  Helmut Eller  <heller@common-lisp.net>
 
+	Use lazy lists in the inspector.
+
+	* swank.lisp (lcons): New data type.
+	(lcons*, lcons-car, lcons-cdr, llist-range): New functions.
+	(emacs-inspect array): Use lazy lists.
+	(istate>elisp): The istate.content is now be a lazy list.
+	(iline): New utility.
+	(prepare-range, prepare-part): Replaces inspector-content.
+
+2008-08-22  Helmut Eller  <heller@common-lisp.net>
+
 	Implement streams with a length limit.
 	Use them to truncate printer output in backtraces.
 
