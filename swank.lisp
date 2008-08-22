@@ -109,10 +109,28 @@ Redirection is done while Lisp is processing a request for Emacs.")
     (*print-right-margin*     . 65))
   "A set of printer variables used in the debugger.")
 
+(defvar *backtrace-pprint-dispatch-table*
+  (let ((table (copy-pprint-dispatch nil)))
+    (flet ((escape-string (stream string)
+             (write-char #\" stream)
+             (loop for c across string do
+                   (case c
+                     (#\" (write-string "\\\"" stream))
+                     (#\newline (write-string "\\n" stream))
+                     (#\return (write-string "\\r" stream))
+                     (t (write-char c stream))))
+             (write-char #\" stream)))
+      (set-pprint-dispatch 'string  #'escape-string 0 table)
+      table)))
+
 (defvar *backtrace-printer-bindings*
-  `((*print-pretty*           . nil)
+  `((*print-pretty*           . t)
+    (*print-readably*         . nil)
     (*print-level*            . 4)
-    (*print-length*           . 6))
+    (*print-length*           . 6)
+    (*print-lines*            . 1)
+    (*print-right-margin*     . 200)
+    (*print-pprint-dispatch*  . ,*backtrace-pprint-dispatch-table*))
   "Pretter settings for printing backtraces.")
 
 (defvar *default-worker-thread-bindings* '()

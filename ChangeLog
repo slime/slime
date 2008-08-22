@@ -1,3 +1,10 @@
+2008-08-22  Helmut Eller  <heller@common-lisp.net>
+
+	In backtraces, escape newlines in strings as \n.
+
+	* swank.lisp (*backtrace-pprint-dispatch-table*): New.
+	(*backtrace-printer-bindings*): Use it.
+
 2008-08-22  Stas Boukarev <stassats@gmail.com>
 
 	* metering.lisp: Add deftypes for time-type and cons-type, which
