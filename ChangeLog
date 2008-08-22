@@ -1,3 +1,18 @@
+2008-08-22  Helmut Eller  <heller@common-lisp.net>
+
+	Collect most of the inspector state in a structrure.
+	Truncate the printer output more aggressively.
+
+	* swank.lisp (inspector-state): New structure.
+	(*istate*): New variable holds the current state.
+	(inspect-object, inspector-content, inspector-nth-part)
+	(inspector-range, inspector-call-nth-action, describe-inspectee):
+	Use it.
+	(inspector-pop, inspector-next): Implemented forward/backward a
+	bit differently.
+	(emacs-inspect/printer-bindings, istate>elisp): New functions.
+	(to-line, truncate-string): New functions.
+
 2008-08-18  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (install-fd-handler): Bind *emacs-connection* with

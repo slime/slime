@@ -1934,6 +1934,12 @@ Return the full package-name and the string to use in the prompt."
         (string (write-string s out))
         (character (write-char s out))))))
 
+(defun truncate-string (string width &optional ellipsis)
+  (let ((len (length string)))
+    (cond ((< len width) string)
+          (ellipsis (cat (subseq string 0 width) ellipsis))
+          (t (subseq string 0 width)))))
+
 (defun package-string-for-prompt (package)
   "Return the shortest nickname (or canonical name) of PACKAGE."
   (unparse-name
@@ -2789,113 +2795,130 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
 
 ;;;; Inspecting
 
-(defvar *inspectee*)
-(defvar *inspectee-content*)
-(defvar *inspectee-parts*) 
-(defvar *inspectee-actions*)
-(defvar *inspector-stack*)
+(defstruct (inspector-state (:conc-name istate.))
+  object 
+  (parts (make-array 10 :adjustable t :fill-pointer 0))
+  (actions (make-array 10 :adjustable t :fill-pointer 0))
+  content
+  next previous)
+
+(defvar *istate* nil)
 (defvar *inspector-history*)
 
 (defun reset-inspector ()
-  (setq *inspectee* nil
-        *inspectee-content* nil
-        *inspectee-parts* (make-array 10 :adjustable t :fill-pointer 0)
-        *inspectee-actions* (make-array 10 :adjustable t :fill-pointer 0)
-        *inspector-stack* '()
+  (setq *istate* nil
         *inspector-history* (make-array 10 :adjustable t :fill-pointer 0)))
-
+  
 (defslimefun init-inspector (string)
   (with-buffer-syntax ()
     (reset-inspector)
     (inspect-object (eval (read-from-string string)))))
 
 (defun inspect-object (o)
-  (push (setq *inspectee* o) *inspector-stack*)
-  (unless (find o *inspector-history*)
-    (vector-push-extend o *inspector-history*))
-  (let ((*print-pretty* nil) ; print everything in the same line
-        (*print-circle* t)
-        (*print-readably* nil))
-    (setq *inspectee-content* (inspector-content (emacs-inspect o))))
-  (list :title (with-output-to-string (s)
-                 (print-unreadable-object (o s :type t :identity t)))
-        :id (assign-index o *inspectee-parts*)
-        :content (content-range *inspectee-content* 0 500)))
+  (let ((previous *istate*)
+        (content (emacs-inspect/printer-bindings o)))
+    (unless (find o *inspector-history*)
+      (vector-push-extend o *inspector-history*))
+    (setq *istate* (make-inspector-state :object o :previous previous 
+                                         :content content))
+    (if previous (setf (istate.next previous) *istate*))
+    (istate>elisp *istate*)))
 
-(defun inspector-content (specs)
-  (loop for part in specs collect 
+(defun emacs-inspect/printer-bindings (object)
+  (let ((*print-lines* 1) (*print-right-margin* 75)
+        (*print-pretty* t) (*print-readably* nil))
+    (emacs-inspect object)))
+
+(defun istate>elisp (istate)
+  (list :title (with-output-to-string (s)
+                 (print-unreadable-object ((istate.object istate)
+                                           s :type t :identity t)))
+        :id (assign-index (istate.object istate) (istate.parts istate))
+        :content (content-range (inspector-content istate) 0 500)))
+
+(defun inspector-content (istate)
+  (loop for part in (istate.content istate) collect 
         (etypecase part
           (string part)
           (cons (destructure-case part
                   ((:newline) 
                    '#.(string #\newline))
                   ((:value obj &optional str) 
-                   (value-part obj str))
+                   (value-part obj str (istate.parts istate)))
                   ((:action label lambda &key (refreshp t)) 
-                   (action-part label lambda refreshp)))))))
+                   (action-part label lambda refreshp 
+                                (istate.actions istate))))))))
+
+(defun value-part (object string parts)
+  (list :value 
+        (or string (print-part-to-string object))
+        (assign-index object parts)))
+
+(defun action-part (label lambda refreshp actions)
+  (list :action label (assign-index (list lambda refreshp) actions)))
 
 (defun assign-index (object vector)
   (let ((index (fill-pointer vector)))
     (vector-push-extend object vector)
     index))
 
-(defun value-part (object string)
-  (list :value 
-        (or string (print-part-to-string object))
-        (assign-index object *inspectee-parts*)))
-
-(defun action-part (label lambda refreshp)
-  (list :action label (assign-index (list lambda refreshp)
-                                    *inspectee-actions*)))
-
 (defun print-part-to-string (value)
-  (let ((string (to-string value))
-        (pos (position value *inspector-history*)))
+  (let* ((string (to-line value))
+         (pos (position value *inspector-history*)))
     (if pos
         (format nil "#~D=~A" pos string)
         string)))
+
+;; Print OBJECT to a single line. Return the string.
+(defun to-line  (object &optional (width 75))
+  (truncate-string
+   (with-output-to-string (*standard-output*)
+     (write object :right-margin width :lines 1))
+   80 ".."))
 
 (defun content-range (list start end)
   (let* ((len (length list)) (end (min len end)))
     (list (subseq list start end) len start end)))
 
 (defslimefun inspector-nth-part (index)
-  (aref *inspectee-parts* index))
+  (aref (istate.parts *istate*) index))
 
 (defslimefun inspect-nth-part (index)
   (with-buffer-syntax ()
     (inspect-object (inspector-nth-part index))))
 
 (defslimefun inspector-range (from to)
-  (content-range *inspectee-content* from to))
+  (content-range (inspector-content *istate*) from to))
 
 (defslimefun inspector-call-nth-action (index &rest args)
-  (destructuring-bind (fun refreshp) (aref *inspectee-actions* index)
+  (destructuring-bind (fun refreshp) (aref (istate.actions *istate*) index)
     (apply fun args)
     (if refreshp
-        (inspect-object (pop *inspector-stack*))
+        (inspector-reinspect)
         ;; tell emacs that we don't want to refresh the inspector buffer
         nil)))
 
 (defslimefun inspector-pop ()
-  "Drop the inspector stack and inspect the second element.
-Return nil if there's no second element."
+  "Inspect the previous object.
+Return nil if there's no previous object."
   (with-buffer-syntax ()
-    (cond ((cdr *inspector-stack*)
-           (pop *inspector-stack*)
-           (inspect-object (pop *inspector-stack*)))
+    (cond ((istate.previous *istate*)
+           (setq *istate* (istate.previous *istate*))
+           (istate>elisp *istate*))
           (t nil))))
 
 (defslimefun inspector-next ()
-  "Inspect the next element in the *inspector-history*."
+  "Inspect the next element in the history of inspected objects.."
   (with-buffer-syntax ()
-    (let ((pos (position *inspectee* *inspector-history*)))
-      (cond ((= (1+ pos) (length *inspector-history*))
-             nil)
-            (t (inspect-object (aref *inspector-history* (1+ pos))))))))
+    (cond ((istate.next *istate*)
+           (setq *istate* (istate.next *istate*))
+           (istate>elisp *istate*))
+          (t nil))))
 
 (defslimefun inspector-reinspect ()
-  (inspect-object *inspectee*))
+  (setf (istate.content *istate*)
+        (emacs-inspect/printer-bindings (istate.object *istate*)))
+  (istate>elisp *istate*))
 
 (defslimefun quit-inspector ()
   (reset-inspector)
@@ -2904,7 +2927,7 @@ Return nil if there's no second element."
 (defslimefun describe-inspectee ()
   "Describe the currently inspected object."
   (with-buffer-syntax ()
-    (describe-to-string *inspectee*)))
+    (describe-to-string (istate.object *istate*))))
 
 (defslimefun pprint-inspector-part (index)
   "Pretty-print the currently inspected object."
