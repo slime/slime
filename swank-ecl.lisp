@@ -12,6 +12,7 @@
 
 (defvar *tmp*)
 
+(eval-when (:compile-toplevel)
 (if (find-package :gray)
   (import-from :gray *gray-stream-symbols* :swank-backend)
   (import-from :ext *gray-stream-symbols* :swank-backend))
@@ -21,12 +22,13 @@
    :eql-specializer-object
    :generic-function-declarations
    :specializer-direct-methods
-   :compute-applicable-methods-using-classes))
+   :compute-applicable-methods-using-classes)))
 
 
 ;;;; TCP Server
 
-(require 'sockets)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (require 'sockets))
 
 (defun resolve-hostname (name)
   (car (sb-bsd-sockets:host-ent-addresses
@@ -218,23 +220,24 @@
 
 ;;; Debugging
 
-(import
- '(si::*break-env*
-   si::*ihs-top*
-   si::*ihs-current*
-   si::*ihs-base*
-   si::*frs-base*
-   si::*frs-top*
-   si::*tpl-commands*
-   si::*tpl-level*
-   si::frs-top
-   si::ihs-top
-   si::ihs-fun
-   si::ihs-env
-   si::sch-frs-base
-   si::set-break-env
-   si::set-current-ihs
-   si::tpl-commands))
+(eval-when (:compile-toplevel)
+  (import
+   '(si::*break-env*
+     si::*ihs-top*
+     si::*ihs-current*
+     si::*ihs-base*
+     si::*frs-base*
+     si::*frs-top*
+     si::*tpl-commands*
+     si::*tpl-level*
+     si::frs-top
+     si::ihs-top
+     si::ihs-fun
+     si::ihs-env
+     si::sch-frs-base
+     si::set-break-env
+     si::set-current-ihs
+     si::tpl-commands)))
 
 (defvar *backtrace* '())
 
