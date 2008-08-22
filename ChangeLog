@@ -1,5 +1,12 @@
 2008-08-22  Helmut Eller  <heller@common-lisp.net>
 
+	Some focus handling in multiframe setups.
+
+	* slime.el (slime-pop-to-buffer): New function.
+	(slime-switch-to-output-buffer): Use it.
+
+2008-08-22  Helmut Eller  <heller@common-lisp.net>
+
 	Use lazy lists in the inspector.
 
 	* swank.lisp (lcons): New data type.

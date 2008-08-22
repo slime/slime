@@ -2703,7 +2703,7 @@ Hint: You can use `display-buffer-reuse-frames' and
 `special-display-buffer-names' to customize the frame in which
 the buffer should appear."
   (interactive)
-  (pop-to-buffer (slime-output-buffer))
+  (slime-pop-to-buffer (slime-output-buffer))
   (goto-char (point-max)))
 
 
@@ -9643,6 +9643,18 @@ will return \"\"."
                                 (if timeout (truncate timeout))
                                 ;; Emacs 21 uses microsecs; Emacs 22 millisecs
                                 (if timeout (truncate (* timeout 1000000)))))))
+
+(defun slime-pop-to-buffer (buffer &optional other-window norecord)
+  "Select buffer BUFFER in some window.
+This is like `pop-to-buffer' but also sets the input focus
+for (somewhat) better multiframe support."
+  (set-buffer buffer)
+  (let ((window (display-buffer buffer other-window)))
+    (select-window window norecord)
+    ;; select-window doesn't set the input focus
+    (when (and (not (featurep 'xemacs)) (>= emacs-major-version 22))
+      (select-frame-set-input-focus (window-frame window))))
+  buffer)
 
 (defun slime-add-local-hook (hook function &optional append)
   (cond ((featurep 'xemacs) (add-local-hook hook function append))
