@@ -173,6 +173,12 @@
     (:euc-jp "euc-jp" "euc-jp-unix")
     (:us-ascii "us-ascii" "us-ascii-unix")))
 
+;; C.f. R.M.Kreuter in <20536.1219412774@progn.net> on sbcl-general, 2008-08-22.
+(defvar *physical-pathname-host* (pathname-host (user-homedir-pathname)))
+
+(defimplementation parse-emacs-filename (filename)
+  (sb-ext:parse-native-namestring filename *physical-pathname-host*))
+
 (defimplementation find-external-format (coding-system)
   (car (rassoc-if (lambda (x) (member coding-system x :test #'equal))
                   *external-format-to-coding-system*)))
@@ -429,14 +435,14 @@ compiler state."
 
 (defvar *trap-load-time-warnings* nil)
 
-(defimplementation swank-compile-file (filename load-p external-format)
+(defimplementation swank-compile-file (pathname load-p external-format)
   (handler-case
       (let ((output-file (with-compilation-hooks ()
-                           (compile-file filename 
+                           (compile-file pathname 
                                          :external-format external-format))))
         (when output-file
           ;; Cache the latest source file for definition-finding.
-          (source-cache-get filename (file-write-date filename))
+          (source-cache-get pathname (file-write-date pathname))
           (when load-p
             (load output-file))))
     (sb-c:fatal-compiler-error () nil)))

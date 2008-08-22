@@ -2377,9 +2377,10 @@ Record compiler notes signalled as `compiler-condition's."
       (let ((*compile-print* nil))
         (swank-compiler 
          (lambda ()
-           (swank-compile-file filename load-p
-                               (or (guess-external-format filename)
-                                   :default))))))))
+           (let ((pathname (parse-emacs-filename filename)))
+             (swank-compile-file pathname load-p
+                                 (or (guess-external-format pathname)
+                                     :default)))))))))
 
 (defslimefun compile-string-for-emacs (string buffer position directory debug)
   "Compile STRING (exerpted from BUFFER at POSITION).
@@ -2404,17 +2405,18 @@ Record compiler notes signalled as `compiler-condition's."
         (file-newer-p source-file fasl-file))))
 
 (defslimefun compile-file-if-needed (filename loadp)
-  (cond ((requires-compile-p filename)
-         (compile-file-for-emacs filename loadp))
-        (loadp
-         (load (compile-file-pathname filename))
-         nil)))
+  (let ((pathname (parse-emacs-filename filename)))
+    (cond ((requires-compile-p pathname)
+           (compile-file-for-emacs pathname loadp))
+          (loadp
+           (load (compile-file-pathname pathname))
+           nil))))
 
 
 ;;;; Loading
 
 (defslimefun load-file (filename)
-  (to-string (load filename)))
+  (to-string (load (parse-emacs-filename filename))))
 
 
 ;;;;; swank-require
@@ -2423,7 +2425,9 @@ Record compiler notes signalled as `compiler-condition's."
   "Load the module MODULE."
   (dolist (module (if (listp modules) modules (list modules)))
     (unless (member (string module) *modules* :test #'string=)
-      (require module (or filename (module-filename module)))))
+      (require module (if filename
+                          (parse-emacs-filename filename)
+                          (module-filename module)))))
   *modules*)
 
 (defvar *find-module* 'find-module
