@@ -196,6 +196,12 @@ specific functions.")
 ;;;; Stream handling
 ;;; XXX: How come we don't use Gray streams in CMUCL too? -luke (15/May/2004)
 
+(defimplementation make-output-stream (write-string)
+  (make-slime-output-stream write-string))
+
+(defimplementation make-input-stream (read-string)
+  (make-slime-input-stream read-string))
+
 (defimplementation make-fn-streams (input-fn output-fn)
   (let* ((output (make-slime-output-stream output-fn))
          (input  (make-slime-input-stream input-fn output)))

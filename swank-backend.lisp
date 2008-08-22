@@ -458,6 +458,14 @@ Return nil if the file contains no special markers."
 
 ;;;; Streams
 
+(definterface make-output-stream (write-string)
+  "Return a new character output stream.
+The stream calls WRITE-STRING when output is ready.")
+
+(definterface make-input-stream (read-string)
+  "Return a new character input stream.
+The stream calls READ-STRING when input is needed.")
+
 (definterface make-fn-streams (input-fn output-fn)
    "Return character input and output streams backended by functions.
 When input is needed, INPUT-FN is called with no arguments to

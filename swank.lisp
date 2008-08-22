@@ -1485,11 +1485,11 @@ NIL if streams are not globally redirected.")
 (defun encode-message (message stream)
   (let* ((string (prin1-to-string-for-emacs message))
          (length (length string)))
+    (assert (<= length #xffffff))
     (log-event "WRITE: ~A~%" string)
-    (without-interrupts
-      (let ((*print-pretty* nil))
-        (format stream "~6,'0x" length))
-      (write-string string stream))
+    (let ((*print-pretty* nil))
+      (format stream "~6,'0x" length))
+    (write-string string stream)
     ;;(terpri stream)
     (finish-output stream)))
 
@@ -1958,6 +1958,27 @@ Return the full package-name and the string to use in the prompt."
           (ellipsis (cat (subseq string 0 width) ellipsis))
           (t (subseq string 0 width)))))
 
+(defun call/truncated-output-to-string (length function 
+                                        &optional (ellipsis ".."))
+  "Call FUNCTION with a new stream, return the output written to the stream.
+If FUNCTION tries to write more than LENGTH characters, it will be
+aborted and return immediately with the output written so far."
+  (let ((buffer (make-string (+ length (length ellipsis))))
+        (fill-pointer 0))
+    (block buffer-full
+      (flet ((write-output (string)
+               (let* ((free (- length fill-pointer))
+                      (count (min free (length string))))
+                 (replace buffer string :start1 fill-pointer :end2 count)
+                 (incf fill-pointer count)
+                 (when (> (length string) free)
+                   (replace buffer ellipsis :start1 fill-pointer)
+                   (return-from buffer-full buffer)))))
+        (let ((stream (make-output-stream #'write-output)))
+          (funcall function stream)
+          (finish-output stream)
+          (subseq buffer 0 fill-pointer))))))
+
 (defun package-string-for-prompt (package)
   "Return the shortest nickname (or canonical name) of PACKAGE."
   (unparse-name
@@ -2191,13 +2212,16 @@ format suitable for Emacs."
   "Return a list ((I FRAME) ...) of frames from START to END.
 I is an integer describing and FRAME a string."
   (loop for frame in (compute-backtrace start end)
-        for i from start
-        collect (list i (with-output-to-string (stream)
-                          (handler-case
-                              (with-bindings *backtrace-printer-bindings*
-                                (print-frame frame stream))
-                            (t ()
-                              (format stream "[error printing frame]")))))))
+        for i from start collect 
+        (list i 
+              (call/truncated-output-to-string 
+               100
+               (lambda (stream)
+                 (handler-case
+                     (with-bindings *backtrace-printer-bindings*
+                       (print-frame frame stream))
+                   (t ()
+                     (format stream "[error printing frame]"))))))))
 
 (defslimefun debugger-info-for-emacs (start end)
   "Return debugger state, with stack frames from START to END.
@@ -2283,7 +2307,7 @@ the local variables in the frame INDEX."
     (mapcar (lambda (frame-locals)
               (destructuring-bind (&key name id value) frame-locals
                 (list :name (prin1-to-string name) :id id
-                      :value (to-string value))))
+                      :value (to-line value))))
             (frame-locals index))))
 
 (defslimefun frame-catch-tags-for-emacs (frame-index)
@@ -2848,9 +2872,11 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
     (emacs-inspect object)))
 
 (defun istate>elisp (istate)
-  (list :title (with-output-to-string (s)
-                 (print-unreadable-object ((istate.object istate)
-                                           s :type t :identity t)))
+  (list :title (call/truncated-output-to-string
+                200
+                (lambda (s)
+                  (print-unreadable-object ((istate.object istate)
+                                           s :type t :identity t))))
         :id (assign-index (istate.object istate) (istate.parts istate))
         :content (content-range (inspector-content istate) 0 500)))
 
@@ -2889,10 +2915,11 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
 
 ;; Print OBJECT to a single line. Return the string.
 (defun to-line  (object &optional (width 75))
-  (truncate-string
-   (with-output-to-string (*standard-output*)
+  (call/truncated-output-to-string
+   width
+   (lambda (*standard-output*)
      (write object :right-margin width :lines 1))
-   80 ".."))
+   ".."))
 
 (defun content-range (list start end)
   (let* ((len (length list)) (end (min len end)))

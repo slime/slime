@@ -1,5 +1,17 @@
 2008-08-22  Helmut Eller  <heller@common-lisp.net>
 
+	Implement streams with a length limit.
+	Use them to truncate printer output in backtraces.
+
+	* swank-backend.lisp (make-output-stream, make-input-stream):
+	Split make-fn-streams up into two functions.
+
+	* swank.lisp (call/truncated-output-to-string): New function.
+	(backtrace, istate>elisp, to-line): Use it.
+	(frame-locals-for-emacs): Use to-line.
+
+2008-08-22  Helmut Eller  <heller@common-lisp.net>
+
 	In backtraces, escape newlines in strings as \n.
 
 	* swank.lisp (*backtrace-pprint-dispatch-table*): New.
