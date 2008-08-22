@@ -46,7 +46,7 @@
 
 2008-08-22  Helmut Eller  <heller@common-lisp.net>
 
-	Collect most of the inspector state in a structrure.
+	Collect most of the inspector state in a structure.
 	Truncate the printer output more aggressively.
 
 	* swank.lisp (inspector-state): New structure.
@@ -58,6 +58,23 @@
 	bit differently.
 	(emacs-inspect/printer-bindings, istate>elisp): New functions.
 	(to-line, truncate-string): New functions.
+
+2008-08-22  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Compiling a file `let*.lisp' on SBCL via C-c C-k resulted in an
+	error, because it parsed the asterisk to a wild pathname. Fix
+	that.
+
+	* swank-backend.lisp (definterface parse-emacs-filename): New.
+	PARSE-NAMESTRING by default.
+
+	* swank-sbcl.lisp (defimplementation parse-emacs-filename): Use
+	SB-EXT:PARSE-NATIVE-NAMESTRING.
+
+	* swank.lisp (compile-file-for-emacs): Use PARSE-EMACS-FILENAME.
+	(compile-file-if-needed): Ditto.
+	(load-file): Ditto.
+	(swank-require): Ditto.
 
 2008-08-18  Helmut Eller  <heller@common-lisp.net>
 
