@@ -60,7 +60,7 @@
 ;;; 01-APR-05 lgorrie   Removed support for all Lisps except CLISP and OpenMCL.
 ;;;                     Purely to cut down on stale code (e.g. #+cltl2) in this
 ;;;                     version that is bundled with SLIME.
-;;;                     
+;;; 22-Aug-08 stas      Define TIME-TYPE for Clozure CL.
 ;;;
 
 ;;; ********************************
@@ -400,6 +400,11 @@ Estimated total monitoring overhead: 0.88 seconds
    "You may want to supply implementation-specific get-time functions."))
 
 (defconstant time-units-per-second internal-time-units-per-second)
+
+#+openmcl
+(progn
+ (deftype time-type () 'unsigned-byte)
+ (deftype consing-type () 'unsigned-byte))
 
 (defmacro get-time ()
   `(the time-type (get-internal-run-time)))

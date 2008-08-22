@@ -1,3 +1,8 @@
+2008-08-22  Stas Boukarev <stassats@gmail.com>
+
+	* metering.lisp: Add deftypes for time-type and cons-type, which
+	are not defined in newer versions of CCL.
+
 2008-08-22  Stelian Ionescu <sionescu@common-lisp.net>
 
 	* swank-ecl.lisp: Add a few EVAL-WHENs to fix compilation.
