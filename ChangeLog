@@ -1,3 +1,8 @@
+2008-08-25  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-compute-modeline-package): Used `when-let' before its definition.
+	(slime-compute-modeline-string): Display "PKG:" before "CON:".
+
 2008-08-22  Helmut Eller  <heller@common-lisp.net>
 
 	Some focus handling in multiframe setups.

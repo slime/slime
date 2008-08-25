@@ -448,8 +448,10 @@ The string is periodically updated by an idle timer."))
 
 (defun slime-compute-modeline-package ()
   (when (memq major-mode slime-lisp-modes)
-    (when-let (package (slime-current-package))
-      (slime-pretty-package-name package))))
+    ;; WHEN-LET is defined later.
+    (let ((package (slime-current-package)))
+      (when package
+        (slime-pretty-package-name package)))))
 
 (defun slime-pretty-package-name (name)
   "Return a pretty version of a package name NAME."
@@ -474,10 +476,10 @@ The string is periodically updated by an idle timer."))
 
 (defun slime-compute-modeline-string (conn state pkg)
   (concat (when (or conn pkg)             "[")
+          (when pkg                       (format "PKG:%s" pkg))
+          (when (and (or conn state) pkg) ", ")
           (when conn                      (format "CON:%s" conn))
           (when state                     (format "{%s}" state))
-          (when (and (or conn state) pkg) ", ")
-          (when pkg                       (format "PKG:%s" pkg))
           (when (or conn pkg)             "]")))
 
 (defun slime-update-modeline-string ()
