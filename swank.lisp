@@ -1159,9 +1159,11 @@ The processing is done in the extent of the toplevel restart."
   (handle-or-process-requests connection))
 
 (defun process-io-interrupt (connection)
-  (log-event "process-io-interrupt~%")
-  (invoke-or-queue-interrupt
-   (lambda () (handle-or-process-requests connection))))
+  (log-event "process-io-interrupt ~d ...~%" *io-interupt-level*)
+  (let ((*io-interupt-level* (1+ *io-interupt-level*)))
+    (invoke-or-queue-interrupt
+     (lambda () (handle-or-process-requests connection))))
+  (log-event "process-io-interrupt ~d ... done ~%" *io-interupt-level*))
 
 (defun handle-or-process-requests (connection)
   (log-event "handle-or-process-requests: ~a~%" *swank-state-stack*)
@@ -2093,12 +2095,8 @@ after Emacs causes a restart to be invoked."
 (defun swank-debugger-hook (condition hook)
   "Debugger function for binding *DEBUGGER-HOOK*."
   (declare (ignore hook))
-  (restart-case 
-      (call-with-debugger-hook 
-       #'swank-debugger-hook (lambda () (invoke-slime-debugger condition)))
-    (default-debugger (&optional v)
-      :report "Use default debugger." (declare (ignore v))
-      (invoke-default-debugger condition))))
+  (call-with-debugger-hook #'swank-debugger-hook
+                           (lambda () (invoke-slime-debugger condition))))
 
 (defun invoke-default-debugger (condition)
   (let ((*debugger-hook* nil))

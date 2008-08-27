@@ -6,6 +6,7 @@
 2008-08-27  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (decode-message): Don't ignore EOF.
+	(swank-debugger-hook): Remove the default-debugger restart.
 
 2008-08-22  Helmut Eller  <heller@common-lisp.net>
 
