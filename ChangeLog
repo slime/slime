@@ -3,7 +3,12 @@
 	* slime.el (slime-compute-modeline-package): Used `when-let' before its definition.
 	(slime-compute-modeline-string): Display "PKG:" before "CON:".
 
-2008-08-27 Anton Vodonosov <avodonosov@yandex.ru>
+2008-08-27  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (sldb-setup): Insert "No backtrace" if the backtrace is
+	empty.
+
+2008-08-27  Anton Vodonosov <avodonosov@yandex.ru>
 
 	* swank-ecl.lisp: Add :load-toplevel and :execute to EVAL-WHENs to
 	fix loading.

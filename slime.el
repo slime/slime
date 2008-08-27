@@ -6779,7 +6779,9 @@ CONTS is a list of pending Emacs continuations."
       (insert "\n" (in-sldb-face section "Backtrace:") "\n")
       (setq sldb-backtrace-start-marker (point-marker))
       (save-excursion
-        (sldb-insert-frames (sldb-prune-initial-frames frames) t))
+        (if frames 
+            (sldb-insert-frames (sldb-prune-initial-frames frames) t)
+          (insert "[No backtrace]")))
       (run-hooks 'sldb-hook))
     (pop-to-buffer (current-buffer))
     (sldb-recenter-region (point-min) (point))
