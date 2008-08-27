@@ -1190,6 +1190,7 @@ The processing is done in the extent of the toplevel restart."
   (handle-or-process-requests connection))
 
 (defun deinstall-fd-handler (connection)
+  (log-event "deinstall-fd-handler~%")
   (remove-fd-handlers (connection.socket-io connection))
   (install-sigint-handler (connection.saved-sigint-handler connection)))
 
@@ -1437,7 +1438,7 @@ NIL if streams are not globally redirected.")
   ;;(log-event "decode-message~%")
   (let ((*swank-state-stack* (cons :read-next-form *swank-state-stack*)))
     (handler-bind ((error (lambda (c) (error (make-swank-error c)))))
-      (let ((c (read-char-no-hang stream nil)))
+      (let ((c (read-char-no-hang stream)))
         (cond ((and (not c) timeout) (values nil t))
               (t
                (and c (unread-char c stream))
