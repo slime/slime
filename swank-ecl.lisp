@@ -12,7 +12,7 @@
 
 (defvar *tmp*)
 
-(eval-when (:compile-toplevel)
+(eval-when (:compile-toplevel :load-toplevel :execute)
 (if (find-package :gray)
   (import-from :gray *gray-stream-symbols* :swank-backend)
   (import-from :ext *gray-stream-symbols* :swank-backend))
@@ -220,7 +220,7 @@
 
 ;;; Debugging
 
-(eval-when (:compile-toplevel)
+(eval-when (:compile-toplevel :load-toplevel :execute)
   (import
    '(si::*break-env*
      si::*ihs-top*
