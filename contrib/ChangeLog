@@ -1,3 +1,9 @@
+2008-08-27  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-arglists.lisp (variable-desc-for-echo-area): Limit the
+	length to one line to avoid (some) problems with big or circular
+	values.  Reported by Stas Boukarev.
+
 2008-08-22  Stelian Ionescu <sionescu@common-lisp.net>
 
 	* swank-listener-hooks.lisp: Add missing IN-PACKAGE.

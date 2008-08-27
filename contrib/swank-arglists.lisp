@@ -476,9 +476,11 @@ If OPERATOR is non-nil, put it in front of the arglist."
   (with-buffer-syntax ()
     (let ((sym (parse-symbol variable-name)))
       (if (and sym (boundp sym))
-          (let ((*print-pretty* nil) (*print-level* 4)
-                (*print-length* 10) (*print-circle* t))
-             (format nil "~A => ~A" sym (symbol-value sym)))))))
+          (let ((*print-pretty* t) (*print-level* 4)
+                (*print-length* 10) (*print-lines* 1))
+	    (call/truncated-output-to-string 
+	     75 (lambda (s)
+		  (format s "~A => ~A" sym (symbol-value sym)))))))))
 
 (defun decode-required-arg (arg)
   "ARG can be a symbol or a destructuring pattern."
