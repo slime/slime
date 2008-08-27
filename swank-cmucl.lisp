@@ -169,19 +169,19 @@ specific functions.")
     (fcntl fd unix:f-setown (unix:unix-getpid))
     (let ((old-flags (fcntl fd unix:f-getfl 0)))
       (fcntl fd unix:f-setfl (logior old-flags unix:fasync)))
+    (assert (not (assoc fd *sigio-handlers*)))
     (push (cons fd fn) *sigio-handlers*)))
 
 (defimplementation remove-sigio-handlers (socket)
   (let ((fd (socket-fd socket)))
-    (unless (assoc fd *sigio-handlers*)
+    (when (assoc fd *sigio-handlers*)
       (setf *sigio-handlers* (remove fd *sigio-handlers* :key #'car))
       (let ((old-flags (fcntl fd unix:f-getfl 0)))
         (fcntl fd unix:f-setfl (logandc2 old-flags unix:fasync)))
       (sys:invalidate-descriptor fd))
-    #+(or)
+    (assert (not (assoc fd *sigio-handlers*)))
     (when (null *sigio-handlers*)
-      (sys:default-interrupt :sigio))
-    ))
+      (sys:default-interrupt :sigio))))
 
 ;;;;; SERVE-EVENT
 

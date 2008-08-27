@@ -5,6 +5,8 @@
 
 2008-08-27  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-cmucl.lisp (remove-sigio-handlers): Fix thinko.
+
 	* swank.lisp (decode-message): Don't ignore EOF.
 	(swank-debugger-hook): Remove the default-debugger restart.
 

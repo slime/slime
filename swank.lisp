@@ -357,6 +357,7 @@ Do not set this to T unless you want to debug swank internals.")
          (check-slime-interrupts)))))
 
 (defun invoke-or-queue-interrupt (function)
+  (log-event "invoke-or-queue-interrupt: ~a" function)
   (cond ((not (boundp '*slime-interrupts-enabled*))
          (without-slime-interrupts
            (funcall function)))
@@ -365,6 +366,7 @@ Do not set this to T unless you want to debug swank internals.")
         ((cdr *pending-slime-interrupts*)
          (simple-break "Two many queued interrupts"))
         (t
+         (log-event "queue-interrupt: ~a" function)
          (push function *pending-slime-interrupts*))))
 
 (defslimefun simple-break (&optional (datum "Interrupt from Emacs") &rest args)
@@ -931,6 +933,7 @@ The processing is done in the extent of the toplevel restart."
 
 (defun close-connection (c condition backtrace)
   (let ((*debugger-hook* nil))
+    (log-event "close-connection: ~a ...~%" condition)
   (format *log-output* "~&;; swank:close-connection: ~A~%" condition)
   (let ((cleanup (connection.cleanup c)))
     (when cleanup
@@ -956,8 +959,8 @@ The processing is done in the extent of the toplevel restart."
             (ignore-errors (stream-external-format (connection.socket-io c)))
             (connection.communication-style c)
             *use-dedicated-output-stream*)
-    (finish-output *log-output*))))
-
+    (finish-output *log-output*))
+  (log-event "close-connection ~a ... done.~%" condition)))
 
 ;;;;;; Thread based communication
 
@@ -1158,6 +1161,8 @@ The processing is done in the extent of the toplevel restart."
                      (lambda () (process-io-interrupt connection)))
   (handle-or-process-requests connection))
 
+(defvar *io-interupt-level* 0)
+
 (defun process-io-interrupt (connection)
   (log-event "process-io-interrupt ~d ...~%" *io-interupt-level*)
   (let ((*io-interupt-level* (1+ *io-interupt-level*)))
@@ -1174,7 +1179,7 @@ The processing is done in the extent of the toplevel restart."
 
 (defun deinstall-sigio-handler (connection)
   (log-event "deinstall-sigio-handler...~%")
-  (remove-sigio-handlers (connection.socket-io connection))  
+  (remove-sigio-handlers (connection.socket-io connection))
   (log-event "deinstall-sigio-handler...done~%"))
 
 ;;;;;; SERVE-EVENT based IO
