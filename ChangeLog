@@ -1,3 +1,9 @@
+2008-08-30  Mark Evenson <evenson@panix.com>
+
+	* swank-abcl.lisp (make-output-stream, make-input-stream):
+	provides the (trivial) definitions for MAKE-OUTPUT-STREAM and
+	MAKE-INPUT-STREAM for ABCL.
+
 2008-08-27  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (sldb-setup): Insert "No backtrace" if the backtrace is
