@@ -1,5 +1,9 @@
 2008-08-30  Michael Weber  <michaelw+slime@foldr.org>
 
+	* swank-gray.lisp (make-input-stream): fixed typos
+
+2008-08-30  Michael Weber  <michaelw+slime@foldr.org>
+
 	* swank-backend.lisp (*gray-stream-symbols*): added symbols
 	stream-peek-char, stream-read-line, stream-file-position
 
