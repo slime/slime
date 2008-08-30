@@ -1,5 +1,8 @@
 2008-08-30  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-sbcl.lisp (receive-if): Add #+/-linux to avoid yet more
+	WITH-TIMEOUT related problems.
+
 	* swank-gray.lisp (slime-input-stream): Remove the output stream
 	slot.  Most of the time we can just call force-output.
 

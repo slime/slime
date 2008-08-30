@@ -1326,10 +1326,15 @@ stack."
              (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
              (return (car tail))))
          (when (eq timeout t) (return (values nil t)))
+         ;; FIXME: with-timeout doesn't work properly on Darwin
+         #+linux
          (handler-case (sb-ext:with-timeout 0.2
                          (sb-thread:condition-wait (mailbox.waitqueue mbox)
                                                    mutex))
-           (sb-ext:timeout ()))))))
+           (sb-ext:timeout ()))
+         #-linux  
+         (sb-thread:condition-wait (mailbox.waitqueue mbox)
+                                   mutex)))))
   )
 
 (defimplementation quit-lisp ()
