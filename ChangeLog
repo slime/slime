@@ -1,5 +1,10 @@
 2008-08-30  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (prepare-part): Also wrap action elements
+	in a list.  Reported by Ariel Badichi and Madhu.
+
+2008-08-30  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-pop-to-buffer): Drop the norecord argument,
 	since we can't support it easily in Emacs 21.
 	Reported by Christophe Rhodes.

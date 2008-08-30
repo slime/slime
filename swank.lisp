@@ -2902,8 +2902,8 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
               ((:value obj &optional str) 
                (list (value-part obj str (istate.parts istate))))
               ((:action label lambda &key (refreshp t)) 
-               (action-part label lambda refreshp 
-                            (istate.actions istate)))
+               (list (action-part label lambda refreshp
+                                  (istate.actions istate))))
               ((:line label value)
                (list (princ-to-string label) ": "
                      (value-part value nil (istate.parts istate))
