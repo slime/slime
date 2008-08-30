@@ -1,5 +1,7 @@
 2008-08-30  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el [test](inspector): New test.
+
 	* swank.lisp (prepare-part): Also wrap action elements
 	in a list.  Reported by Ariel Badichi and Madhu.
 

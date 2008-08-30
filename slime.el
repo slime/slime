@@ -9243,6 +9243,31 @@ SWANK> " t))
                        visiblep
                        (not (not (get-buffer-window (current-buffer)))))))
 
+(def-slime-test inspector
+    (exp)
+    "Test basic inspector workingness."
+    '(((let ((h (make-hash-table)))
+         (loop for i below 10 do (setf (gethash i h) i))
+         h))
+      ((make-array 10))
+      ((make-list 10))
+      ('cons)
+      (#'cons))
+  (slime-inspect (prin1-to-string exp))
+  (assert (not (slime-inspector-visible-p)))
+  (slime-wait-condition "Inspector visible" #'slime-inspector-visible-p 5)
+  (with-current-buffer (window-buffer (selected-window))
+    (slime-inspector-quit))
+  (slime-wait-condition "Inspector closed" 
+                        (lambda () (not (slime-inspector-visible-p)))
+                        5)
+  (slime-sync-to-top-level 1))
+
+(defun slime-inspector-visible-p ()
+  (let ((buffer (window-buffer (selected-window))))
+    (string-match "\\*Slime Inspector\\*" 
+                  (buffer-name buffer))))
+
 (def-slime-test break 
     (times exp)
     "Test whether BREAK invokes SLDB."
