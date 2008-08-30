@@ -1,5 +1,8 @@
 2008-08-30  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-gray.lisp (slime-input-stream): Remove the output stream
+	slot.  Most of the time we can just call force-output.
+
 	* slime.el [test](inspector): New test.
 
 	* swank.lisp (prepare-part): Also wrap action elements
