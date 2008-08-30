@@ -203,6 +203,9 @@ EXCEPT is a list of symbol names which should be ignored."
     :stream-finish-output
     :fundamental-character-input-stream
     :stream-read-char
+    :stream-peek-char
+    :stream-read-line
+    :stream-file-position
     :stream-listen
     :stream-unread-char
     :stream-clear-input
