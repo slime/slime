@@ -1,3 +1,9 @@
+2008-08-30  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-pop-to-buffer): Drop the norecord argument,
+	since we can't support it easily in Emacs 21.
+	Reported by Christophe Rhodes.
+
 2008-08-30  Michael Weber  <michaelw+slime@foldr.org>
 
 	* swank-gray.lisp (make-input-stream): fixed typos

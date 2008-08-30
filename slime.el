@@ -9648,15 +9648,18 @@ will return \"\"."
                                 ;; Emacs 21 uses microsecs; Emacs 22 millisecs
                                 (if timeout (truncate (* timeout 1000000)))))))
 
-(defun slime-pop-to-buffer (buffer &optional other-window norecord)
+(defun slime-pop-to-buffer (buffer &optional other-window)
   "Select buffer BUFFER in some window.
 This is like `pop-to-buffer' but also sets the input focus
 for (somewhat) better multiframe support."
   (set-buffer buffer)
-  (let ((window (display-buffer buffer other-window)))
-    (select-window window norecord)
+  (let ((old-frame (selected-frame))
+        (window (display-buffer buffer other-window)))
+    (select-window window)
     ;; select-window doesn't set the input focus
-    (when (and (not (featurep 'xemacs)) (>= emacs-major-version 22))
+    (when (and (not (featurep 'xemacs))
+               (>= emacs-major-version 22)
+               (not (eq old-frame (selected-frame))))
       (select-frame-set-input-focus (window-frame window))))
   buffer)
 
