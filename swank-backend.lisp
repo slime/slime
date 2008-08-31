@@ -469,17 +469,6 @@ The stream calls WRITE-STRING when output is ready.")
   "Return a new character input stream.
 The stream calls READ-STRING when input is needed.")
 
-(definterface make-fn-streams (input-fn output-fn)
-   "Return character input and output streams backended by functions.
-When input is needed, INPUT-FN is called with no arguments to
-return a string.
-When output is ready, OUTPUT-FN is called with the output as its
-argument.
-
-Output should be forced to OUTPUT-FN before calling INPUT-FN.
-
-The streams are returned as two values.")
-
 
 ;;;; Documentation
 

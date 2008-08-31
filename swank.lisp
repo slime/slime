@@ -824,25 +824,26 @@ if the file doesn't exist; otherwise the first line of the file."
 (defun open-streams (connection)
   "Return the 5 streams for IO redirection:
 DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
-  (let ((output-fn (make-output-function connection))
-        (input-fn
-         (lambda () 
-           (with-connection (connection)
-             (with-simple-restart (abort-read
-                                   "Abort reading input from Emacs.")
-               (read-user-input-from-emacs))))))
-    (multiple-value-bind (in out) (make-fn-streams input-fn output-fn)
-      (let* ((dedicated-output (if *use-dedicated-output-stream*
-                                   (open-dedicated-output-stream
-                                    (connection.socket-io connection))))
-             (out (or dedicated-output out))
-             (io (make-two-way-stream in out))
-             (repl-results (make-output-stream-for-target connection
-                                                          :repl-result)))
-        (when (eq (connection.communication-style connection) :spawn)
-          (spawn (lambda () (auto-flush-loop out)) 
-                 :name "auto-flush-thread"))
-        (values dedicated-output in out io repl-results)))))
+  (let* ((output-fn (make-output-function connection))
+         (input-fn
+          (lambda () 
+            (with-connection (connection)
+              (with-simple-restart (abort-read
+                                    "Abort reading input from Emacs.")
+                (read-user-input-from-emacs)))))
+         (dedicated-output (if *use-dedicated-output-stream*
+                               (open-dedicated-output-stream
+                                (connection.socket-io connection))))
+         (out (make-output-stream output-fn))
+         (in (make-input-stream input-fn))
+         (out (or dedicated-output out))
+         (io (make-two-way-stream in out))
+         (repl-results (make-output-stream-for-target connection
+                                                      :repl-result)))
+    (when (eq (connection.communication-style connection) :spawn)
+      (spawn (lambda () (auto-flush-loop out))
+             :name "auto-flush-thread"))
+    (values dedicated-output in out io repl-results)))
 
 (defvar *maximum-pipelined-output-chunks* 20)
 
@@ -874,10 +875,7 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
 
 (defun make-output-stream-for-target (connection target)
   "Create a stream that sends output to a specific TARGET in Emacs."
-  (nth-value 1 (make-fn-streams 
-                (lambda ()
-                  (error "Should never be called"))
-                (make-output-function-for-target connection target))))
+  (make-output-stream (make-output-function-for-target connection target)))
 
 (defun open-dedicated-output-stream (socket-io)
   "Open a dedicated output connection to the Emacs on SOCKET-IO.

@@ -202,11 +202,6 @@ specific functions.")
 (defimplementation make-input-stream (read-string)
   (make-slime-input-stream read-string))
 
-(defimplementation make-fn-streams (input-fn output-fn)
-  (let* ((output (make-slime-output-stream output-fn))
-         (input  (make-slime-input-stream input-fn output)))
-    (values input output)))
-
 (defstruct (slime-output-stream
              (:include lisp::lisp-stream
                        (lisp::misc #'sos/misc)
@@ -298,16 +293,12 @@ specific functions.")
                        (lisp::misc #'sis/misc))
              (:conc-name sis.)
              (:print-function %print-slime-output-stream)
-             (:constructor make-slime-input-stream (input-fn sos)))
+             (:constructor make-slime-input-stream (input-fn)))
   (input-fn nil :type function)
-  ;; We know our sibling output stream, so that we can force it before
-  ;; requesting input.
-  (sos      nil :type slime-output-stream)
   (buffer   ""  :type string)
   (index    0   :type kernel:index))
 
 (defun sis/in (stream eof-errorp eof-value)
-  (finish-output (sis.sos stream))
   (let ((index (sis.index stream))
 	(buffer (sis.buffer stream)))
     (when (= index (length buffer))

@@ -100,19 +100,17 @@
    (index :initarg :index :initform 0 :type fixnum)
    (position :initarg :position :initform 0 :type integer)
    (interactive :initarg :interactive :initform nil :type (member nil t))
-   (output-stream :initarg :output-stream :initform nil)
    (input-fn :initarg :input-fn :type function)
    ))
 
-(defun make-slime-input-stream (input-fn &optional output-stream)
+(defun make-slime-input-stream (input-fn)
   (declare (function input-fn))
   (make-instance 'slime-input-stream
                  :in-buffer (make-string 256)
                  :in-head 0 :in-tail 0
                  :out-buffer ""
                  :buffer "" :index 0
-                 :input-fn input-fn
-                 :output-stream output-stream))
+                 :input-fn input-fn))
 
 (defmethod print-object ((s slime-input-stream) stream)
   (print-unreadable-object (s stream :type t)))
@@ -202,11 +200,8 @@
            (incf (slot-value stream 'position) copy)
 	   copy)
 	  (waitp
-           (let ((output-stream (slot-value stream 'output-stream))
-                 (input-fn (slot-value stream 'input-fn)))
+           (let ((input-fn (slot-value stream 'input-fn)))
              (declare (type function input-fn))
-             (when output-stream
-               (force-output output-stream))
              (let ((new-input (funcall input-fn)))
                (cond ((zerop (length new-input))
                       -1)
@@ -344,10 +339,11 @@
 
 ;;;
 
-(defimplementation make-fn-streams (input-fn output-fn)
-  (let* ((output (make-slime-output-stream output-fn))
-         (input  (make-slime-input-stream input-fn output)))
-    (values input output)))
+(defimplementation make-output-stream (output-fn)
+  (make-slime-output-stream output-fn))
+
+(defimplementation make-input-stream (input-fn)
+  (make-slime-input-stream input-fn))
 
 
 ;;;; Compilation Commands

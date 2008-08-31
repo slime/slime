@@ -2,6 +2,8 @@
 
 	* swank-backend.lisp (*gray-stream-symbols*): Remove
 	stream-file-position because it's called stream-position in CCL.
+	(make-input-stream): Remove make-fn-streams.
+	Update callers accordingly.
 
 2008-08-30  Helmut Eller  <heller@common-lisp.net>
 
