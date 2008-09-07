@@ -185,7 +185,7 @@ Globals are recognised purely by *this-naming-convention*."
       (if local-arglist
 	  `(swank:format-arglist-for-echo-area ,local-arglist
 	     :operator ,(first (first ops))
-	     :highlight ,(first indices)
+	     :highlight ,(if (zerop (first indices)) nil (first indices))
 	     :print-right-margin ,width
 	     :print-lines ,height)
 	  `(swank:arglist-for-echo-area ',ops 
