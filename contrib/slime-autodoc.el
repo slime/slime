@@ -17,6 +17,7 @@
 ;;
 
 (require 'slime-parse)
+(require 'slime-enclosing-context)
 
 (defvar slime-use-autodoc-mode t
   "When non-nil always enable slime-autodoc-mode in slime-mode.")
@@ -88,8 +89,8 @@ The value is (SYMBOL-NAME . DOCUMENTATION).")
   "Print some apropos information about the code at point, if applicable."
   (destructuring-bind (cache-key retrieve-form) (slime-autodoc-thing-at-point)
     (let ((cached (slime-get-cached-autodoc cache-key)))
-      (if cached 
-          (slime-autodoc-message cached)
+      (if cached
+	  (slime-autodoc-message cached)
         ;; Asynchronously fetch, cache, and display documentation
         (slime-eval-async 
          retrieve-form
@@ -146,21 +147,10 @@ messages."
     (if global
         (values (slime-qualify-cl-symbol-name global)
                 `(swank:variable-desc-for-echo-area ,global))
-      (multiple-value-bind (operators arg-indices points)
-          (slime-enclosing-form-specs)
-        (values (mapcar* (lambda (designator arg-index)
-                           (cons
-                            (if (symbolp designator)
-                                (slime-qualify-cl-symbol-name designator)
-                              designator)
-                            arg-index))
-                         operators arg-indices)
-                (multiple-value-bind (width height)
-                    (slime-autodoc-message-dimensions)
-                  `(swank:arglist-for-echo-area ',operators
-                                                :arg-indices ',arg-indices
-                                                :print-right-margin ,width
-                                                :print-lines ,height)))))))
+	(multiple-value-bind (operators arg-indices points)
+	    (slime-enclosing-form-specs)
+	  (values (slime-make-autodoc-cache-key operators arg-indices points)
+		  (slime-make-autodoc-swank-form operators arg-indices points))))))
 
 (defun slime-autodoc-global-at-point ()
   "Return the global variable name at point, if any."
@@ -179,6 +169,38 @@ Default value assumes +this+ or *that* naming conventions."
 Globals are recognised purely by *this-naming-convention*."
   (and (< (length name) 80) ; avoid overflows in regexp matcher
        (string-match slime-global-variable-name-regexp name)))
+
+(defun slime-make-autodoc-cache-key (ops indices points)
+  (mapcar* (lambda (designator arg-index)
+	     (let ((designator (if (symbolp designator)
+				   (slime-qualify-cl-symbol-name designator)
+				   designator)))
+	       `(,designator . ,arg-index)))
+	   operators arg-indices))
+
+(defun slime-make-autodoc-swank-form (ops indices points)
+  (multiple-value-bind (width height)
+      (slime-autodoc-message-dimensions)
+    (let ((local-arglist (slime-autodoc-local-arglist ops indices points)))
+      (if local-arglist
+	  `(swank:format-arglist-for-echo-area ,local-arglist
+	     :operator ,(first (first ops))
+	     :highlight ,(first indices)
+	     :print-right-margin ,width
+	     :print-lines ,height)
+	  `(swank:arglist-for-echo-area ',ops 
+	     :arg-indices ',indices
+	     :print-right-margin ,width
+	     :print-lines ,height)))))
+
+(defun slime-autodoc-local-arglist (ops indices points)
+  (let* ((cur-op      (first ops))
+	 (cur-op-name (first cur-op)))
+    (multiple-value-bind (bound-fn-names arglists)
+	(slime-find-bound-functions ops indices points)
+      (when-let (pos (position cur-op-name bound-fn-names :test 'equal))
+	(nth pos arglists)))))
+
 
 (defun slime-get-cached-autodoc (symbol-name)
   "Return the cached autodoc documentation for SYMBOL-NAME, or nil."

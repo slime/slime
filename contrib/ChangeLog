@@ -1,4 +1,18 @@
-2008-07-09  Tobias C. Rittweiler  <tcr@freebits.de>
+2008-09-07  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Slime-autodoc now also displays arglists of local functions.
+
+	* swank-arglists.lisp (defslimefun format-arglist-for-echo-area):
+	New RPC.
+
+	* slime-autodoc.el (slime-make-autodoc-cache-key): New; extracted
+	from slime-autodoc-thing-at-point.
+	(slime-make-autodoc-swank-form): New; partially extracted from
+	slime-autodoc-thing-at-point. Use `slime-autodoc-local-arglist'.
+	(slime-autodoc-local-arglist): New function.
+	(slime-autodoc-thing-at-point): Use the two new functions.
+
+2008-09-07  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-enclosing-context.el: New utility contrib on top of
 	`slime-parse' to extract some context around point, like bound
