@@ -1,3 +1,11 @@
+2008-07-09  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-enclosing-context.el: New utility contrib on top of
+	`slime-parse' to extract some context around point, like bound
+	variables or bound functions.
+
+	* slime-mdot-fu.el: Move context stuff out to the new contrib.
+
 2008-08-27  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-arglists.lisp (variable-desc-for-echo-area): Limit the
