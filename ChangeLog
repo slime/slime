@@ -1,3 +1,10 @@
+2008-09-09  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	A package "Foo.Bar.1.0" was truncated to "0>" as REPL
+	prompt. It'll now be displayed as "Bar.1.0>".
+
+	* swank.lisp (auto-abbreviated-package-name): Adapted accordingly.
+
 2008-08-31  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-backend.lisp (*gray-stream-symbols*): Remove

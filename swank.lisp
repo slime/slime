@@ -2003,11 +2003,21 @@ aborted and return immediately with the output written so far."
 
 N.B. this is not an actual package name or nickname."
   (when *auto-abbreviate-dotted-packages*
-    (let ((last-dot (position #\. (package-name package) :from-end t)))
-      (when last-dot (subseq (package-name package) (1+ last-dot))))))
+    (loop with package-name = (package-name package)
+          with offset = nil
+          do (let ((last-dot-pos (position #\. package-name :end offset :from-end t)))
+               (unless last-dot-pos
+                 (return nil))
+               ;; If a dot chunk contains only numbers, that chunk most
+               ;; likely represents a version number; so we collect the
+               ;; next chunks, too, until we find one with meat.
+               (let ((name (subseq package-name (1+ last-dot-pos) offset)))
+                 (if (notevery #'digit-char-p name)
+                     (return (subseq package-name (1+ last-dot-pos)))
+                     (setq offset last-dot-pos)))))))
 
 (defun shortest-package-nickname (package)
-  "Return the shortest nickname (or canonical name) of PACKAGE."
+  "Return the shortest nickname of PACKAGE."
   (loop for name in (cons (package-name package) (package-nicknames package))
         for shortest = name then (if (< (length name) (length shortest))
                                    name
