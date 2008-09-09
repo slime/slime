@@ -400,6 +400,24 @@ If *REDIRECT-IO* is true then all standard I/O streams are redirected."
         (with-io-redirection (*emacs-connection*)
           (call-with-debugger-hook #'swank-debugger-hook function))))))
 
+(defun call-with-retry-restart (msg thunk)
+  (let ((%ok    (gensym "OK+"))
+	(%retry (gensym "RETRY+")))
+    (restart-bind
+	((retry
+	  (lambda () (throw %retry nil))
+	   :report-function
+	   (lambda (stream)
+	     (write msg :stream stream))))
+      (catch %ok
+	(loop (catch %retry (throw %ok (funcall thunk))))))))
+
+(defmacro with-retry-restart ((&key (msg "Retry.")) &body body)
+  (check-type msg string)
+  `(call-with-retry-restart ,msg #'(lambda () ,@body)))
+
+;;; FIXME: Can this be removed with the introduction of
+;;;        WITH/WITHOUT-SLIME-INTERRUPTS.
 (defmacro without-interrupts (&body body)
   `(call-without-interrupts (lambda () ,@body)))
 
@@ -460,6 +478,7 @@ The package is deleted before returning."
 
 (defun current-thread-id ()
   (thread-id (current-thread)))
+
 
 
 ;;;;; Logging
@@ -1795,22 +1814,6 @@ Return nil if no package matches."
 
 ;;;; Evaluation
 
-(defun call-with-retry-restart (msg thunk)
-  (let ((%ok    (gensym "OK+"))
-	(%retry (gensym "RETRY+")))
-    (restart-bind
-	((retry
-	  (lambda () (throw %retry nil))
-	   :report-function
-	   (lambda (stream)
-	     (write msg :stream stream))))
-      (catch %ok
-	(loop (catch %retry (throw %ok (funcall thunk))))))))
-
-(defmacro with-retry-restart ((&key (msg "Retry.")) &body body)
-  (check-type msg string)
-  `(call-with-retry-restart ,msg #'(lambda () ,@body)))
-
 (defvar *pending-continuations* '()
   "List of continuations for Emacs. (thread local)")
 
@@ -1831,11 +1834,9 @@ Errors are trapped and invoke our debugger."
                (*pending-continuations* (cons id *pending-continuations*)))
            (check-type *buffer-package* package)
            (check-type *buffer-readtable* readtable)
-           ;; We provide a general RETRY restart because RESTART-FRAME
-           ;; works only on functions compiled with high debug settings,
-           ;; and most aren't.
-           (with-retry-restart (:msg "Retry SLIME evaluation request.")
-             (setq result (with-slime-interrupts (eval form))))
+           ;; APPLY would be cleaner than EVAL. 
+           ;;(setq result (apply (car form) (cdr form)))
+           (setq result (with-slime-interrupts (eval form)))
            (run-hook *pre-reply-hook*)
            (setq ok t))
       (send-to-emacs `(:return ,(current-thread)
@@ -1859,18 +1860,20 @@ Errors are trapped and invoke our debugger."
 
 (defslimefun interactive-eval (string)
   (with-buffer-syntax ()
-    (let ((values (multiple-value-list (eval (from-string string)))))
-      (fresh-line)
-      (finish-output)
-      (format-values-for-echo-area values))))
+    (with-retry-restart (:msg "Retry SLIME interactive evaluation request.")
+      (let ((values (multiple-value-list (eval (from-string string)))))
+        (fresh-line)
+        (finish-output)
+        (format-values-for-echo-area values)))))
 
 (defslimefun eval-and-grab-output (string)
   (with-buffer-syntax ()
-    (let* ((s (make-string-output-stream))
-           (*standard-output* s)
-           (values (multiple-value-list (eval (from-string string)))))
-      (list (get-output-stream-string s) 
-            (format nil "~{~S~^~%~}" values)))))
+    (with-retry-restart (:msg "Retry SLIME evaluation request.")
+      (let* ((s (make-string-output-stream))
+             (*standard-output* s)
+             (values (multiple-value-list (eval (from-string string)))))
+        (list (get-output-stream-string s) 
+              (format nil "~{~S~^~%~}" values))))))
 
 (defun eval-region (string)
   "Evaluate STRING.
@@ -1888,16 +1891,18 @@ last form."
 
 (defslimefun interactive-eval-region (string)
   (with-buffer-syntax ()
-    (format-values-for-echo-area (eval-region string))))
+    (with-retry-restart (:msg "Retry SLIME interactive evaluation request.")
+      (format-values-for-echo-area (eval-region string)))))
 
 (defslimefun re-evaluate-defvar (form)
   (with-buffer-syntax ()
-    (let ((form (read-from-string form)))
-      (destructuring-bind (dv name &optional value doc) form
-	(declare (ignore value doc))
-	(assert (eq dv 'defvar))
-	(makunbound name)
-	(prin1-to-string (eval form))))))
+    (with-retry-restart (:msg "Retry SLIME evaluation request.")
+      (let ((form (read-from-string form)))
+        (destructuring-bind (dv name &optional value doc) form
+          (declare (ignore value doc))
+          (assert (eq dv 'defvar))
+          (makunbound name)
+          (prin1-to-string (eval form)))))))
 
 (defvar *swank-pprint-bindings*
   `((*print-pretty*   . t) 
@@ -1921,7 +1926,8 @@ Used by pprint-eval.")
   
 (defslimefun pprint-eval (string)
   (with-buffer-syntax ()
-    (swank-pprint (multiple-value-list (eval (read-from-string string))))))
+    (with-retry-restart (:msg "Retry SLIME evaluation request.")
+      (swank-pprint (multiple-value-list (eval (read-from-string string)))))))
 
 (defslimefun set-package (name)
   "Set *package* to the package named NAME.
@@ -1943,13 +1949,14 @@ Return the full package-name and the string to use in the prompt."
 (defun repl-eval (string)
   (clear-user-input)
   (with-buffer-syntax ()
-    (track-package 
-     (lambda ()
-       (multiple-value-bind (values last-form) (eval-region string)
-         (setq *** **  ** *  * (car values)
-               /// //  // /  / values
-               +++ ++  ++ +  + last-form)
-         (funcall *send-repl-results-function* values)))))
+    (with-retry-restart (:msg "Retry SLIME REPL evaluation request.")
+      (track-package 
+       (lambda ()
+         (multiple-value-bind (values last-form) (eval-region string)
+           (setq *** **  ** *  * (car values)
+                 /// //  // /  / values
+                 +++ ++  ++ +  + last-form)
+           (funcall *send-repl-results-function* values))))))
   nil)
 
 (defun track-package (fun)
@@ -2322,13 +2329,16 @@ has changed, ignore the request."
      ,form))
 
 (defslimefun eval-string-in-frame (string index)
-  (to-string (eval-in-frame (wrap-sldb-vars (from-string string))
-                            index)))
+  (to-string
+   (with-retry-restart (:msg "Retry SLIME evaluation request.")
+     (eval-in-frame (wrap-sldb-vars (from-string string))
+                    index))))
 
 (defslimefun pprint-eval-string-in-frame (string index)
   (swank-pprint
-   (multiple-value-list 
-    (eval-in-frame (wrap-sldb-vars (from-string string)) index))))
+   (with-retry-restart (:msg "Retry SLIME evaluation request.")
+     (multiple-value-list 
+      (eval-in-frame (wrap-sldb-vars (from-string string)) index)))))
 
 (defslimefun frame-locals-for-emacs (index)
   "Return a property list ((&key NAME ID VALUE) ...) describing
@@ -2883,8 +2893,9 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
   
 (defslimefun init-inspector (string)
   (with-buffer-syntax ()
-    (reset-inspector)
-    (inspect-object (eval (read-from-string string)))))
+    (with-retry-restart (:msg "Retry SLIME inspection request.")
+      (reset-inspector)
+      (inspect-object (eval (read-from-string string))))))
 
 (defun inspect-object (o)
   (let ((previous *istate*)
@@ -3025,8 +3036,9 @@ Return nil if there's no previous object."
 
 (defslimefun inspect-in-frame (string index)
   (with-buffer-syntax ()
-    (reset-inspector)
-    (inspect-object (eval-in-frame (from-string string) index))))
+    (with-retry-restart (:msg "Retry SLIME inspection request.")
+      (reset-inspector)
+      (inspect-object (eval-in-frame (from-string string) index)))))
 
 (defslimefun inspect-current-condition ()
   (with-buffer-syntax ()

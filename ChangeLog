@@ -1,3 +1,19 @@
+2008-09-10  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank.lisp (eval-for-emacs): Remove WITH-RETRY-RESTART again for
+	simplicity reasons.
+
+	(interactive-eval): Add WITH-RETRY-RESTART.
+	(eval-and-grab-output): Ditto.
+	(interactive-eval-region): Ditto.
+	(re-evaluate-defvar): Ditto.
+	(pprint-eval): Ditto.
+	(repl-eval): Ditto.
+	(eval-string-in-frame): Ditto.
+	(pprint-eval-string-in-frame): Ditto.
+	(init-inspector): Ditto.
+	(inspect-in-frame): Ditto.
+
 2008-09-09  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	A RETRY restart is provided for all Slime evaluation requests.
