@@ -205,7 +205,9 @@ EXCEPT is a list of symbol names which should be ignored."
     :stream-read-char
     :stream-peek-char
     :stream-read-line
-    :stream-file-position
+    ;; STREAM-FILE-POSITION is not available on all implementations, or
+    ;; partially under a different name.
+    ; :stream-file-posiion
     :stream-listen
     :stream-unread-char
     :stream-clear-input

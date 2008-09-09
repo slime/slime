@@ -1,5 +1,10 @@
 2008-09-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-backend.lisp (*gray-stream-symbols*): Comment out
+	STREAM-FILE-POSITION.
+
+2008-09-10  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank.lisp (eval-for-emacs): Remove WITH-RETRY-RESTART again for
 	simplicity reasons.
 
