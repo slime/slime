@@ -1795,6 +1795,22 @@ Return nil if no package matches."
 
 ;;;; Evaluation
 
+(defun call-with-retry-restart (msg thunk)
+  (let ((%ok    (gensym "OK+"))
+	(%retry (gensym "RETRY+")))
+    (restart-bind
+	((retry
+	  (lambda () (throw %retry nil))
+	   :report-function
+	   (lambda (stream)
+	     (write msg :stream stream))))
+      (catch %ok
+	(loop (catch %retry (throw %ok (funcall thunk))))))))
+
+(defmacro with-retry-restart ((&key (msg "Retry.")) &body body)
+  (check-type msg string)
+  `(call-with-retry-restart ,msg #'(lambda () ,@body)))
+
 (defvar *pending-continuations* '()
   "List of continuations for Emacs. (thread local)")
 
@@ -1815,9 +1831,11 @@ Errors are trapped and invoke our debugger."
                (*pending-continuations* (cons id *pending-continuations*)))
            (check-type *buffer-package* package)
            (check-type *buffer-readtable* readtable)
-           ;; APPLY would be cleaner than EVAL. 
-           ;;(setq result (apply (car form) (cdr form)))
-           (setq result (with-slime-interrupts (eval form)))
+           ;; We provide a general RETRY restart because RESTART-FRAME
+           ;; works only on functions compiled with high debug settings,
+           ;; and most aren't.
+           (with-retry-restart (:msg "Retry SLIME evaluation request.")
+             (setq result (with-slime-interrupts (eval form))))
            (run-hook *pre-reply-hook*)
            (setq ok t))
       (send-to-emacs `(:return ,(current-thread)
@@ -2418,7 +2436,7 @@ more than once) will be collected into this unit."
 (defun swank-compiler (function)
   (let ((notes-p))
     (multiple-value-bind (result usecs)
-        (with-simple-restart (abort "Abort SLIME compilation.")
+        (with-simple-restart (abort-compilation "Abort SLIME compilation request.")
           (handler-bind ((compiler-condition #'(lambda (c)
                                                  (setf notes-p t)
                                                  (record-note-for-condition c))))

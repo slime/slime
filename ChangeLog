@@ -1,5 +1,22 @@
 2008-09-09  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	A RETRY restart is provided for all Slime evaluation requests.
+
+	The rationale is that restarting from a frame is mostly only
+	possible for functions compiled with high debug settings; most
+	functions aren't, however.
+
+	[Alternatively, we could make EVAL-FOR-EMACS be compiled with a
+	high debug level, so it'll become restartable. That would be
+	non-obvious to the user, though, and would only work on those
+	implementations that implement SWANK-BACKEND:RESTART-FRAME.]
+
+	* swank.lisp (call-with-retry-restart): New function.
+	(with-retry-restart): New macro.
+	(eval-for-emacs): Use WITH-RETRY-RESTART.
+
+2008-09-09  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	A package "Foo.Bar.1.0" was truncated to "0>" as REPL
 	prompt. It'll now be displayed as "Bar.1.0>".
 
