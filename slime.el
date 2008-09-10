@@ -3868,23 +3868,23 @@ final, no matter where the point is."
         ((< n 0) 0)
         (t n)))
 
-(defstruct (slime-compilation-unit
+(defstruct (slime-compilation-result
              (:type list)
-             (:conc-name slime-compilation-unit.)
+             (:conc-name slime-compilation-result.)
              (:constructor nil)
              (:copier nil))
   tag notes results durations)
 
-(defvar slime-last-compilation-unit nil
+(defvar slime-last-compilation-result nil
   "The result of the most recently issued compilation.")
 
 (defun slime-compiler-notes ()
   "Return all compiler notes, warnings, and errors."
-  (slime-compilation-unit.notes slime-last-compilation-unit))
+  (slime-compilation-result.notes slime-last-compilation-result))
 
 (defun slime-compiler-results ()
   "Return the results of the most recently issued compilations."
-  (slime-compilation-unit.results slime-last-compilation-unit))
+  (slime-compilation-result.results slime-last-compilation-result))
 
 
 (defun slime-compile-and-load-file ()
@@ -3959,11 +3959,11 @@ compile with a debug setting of that number."
     (lambda (result)
       (slime-compilation-finished result buffer snapshot))))
 
-(defun slime-compilation-finished (compilation-unit buffer &optional emacs-snapshot)
-  (with-struct (slime-compilation-unit. notes durations) compilation-unit
+(defun slime-compilation-finished (compilation-result buffer &optional emacs-snapshot)
+  (with-struct (slime-compilation-result. notes durations) compilation-result
     (with-current-buffer buffer
       (setf slime-compilation-just-finished t)
-      (setf slime-last-compilation-unit compilation-unit)
+      (setf slime-last-compilation-result compilation-result)
       (slime-show-note-counts notes (reduce #'+ durations))
       (when slime-highlight-compiler-notes
         (slime-highlight-notes notes)))
