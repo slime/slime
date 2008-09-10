@@ -1,5 +1,11 @@
 2008-09-11  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-popup-buffer-restore-snapshot): Make sure that
+	the buffer-local variable containing the popup buffer's snapshot
+	is set to nil in the right buffer.
+
+2008-09-11  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	Reimplement recompilation support. The previous implementation
 	involving specials was subtly broken with the :fd-handler
 	communcation-style, because of serve-event's polite interplay with
