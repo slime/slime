@@ -3945,16 +3945,13 @@ compile with a debug setting of that number."
 
 (defun slime-compile-string (string start-offset)
   (slime-eval-async 
-   (slime-make-compile-expression-for-swank string start-offset)
+   `(swank:compile-string-for-emacs
+     ,string
+     ,(buffer-name)
+     ,start-offset
+     ,(if (buffer-file-name) (file-name-directory (buffer-file-name)))
+     ',slime-compilation-debug-level)
    (slime-make-compilation-finished-continuation (current-buffer))))
-
-(defun slime-make-compile-expression-for-swank (string start-offset) 
-  `(swank:compile-string-for-emacs
-    ,string
-    ,(buffer-name)
-    ,start-offset
-    ,(if (buffer-file-name) (file-name-directory (buffer-file-name)))
-    ',slime-compilation-debug-level))
 
 (defun slime-make-compilation-finished-continuation (current-buffer &optional emacs-snapshot)
   (lexical-let ((buffer current-buffer) (snapshot emacs-snapshot))
@@ -4033,31 +4030,25 @@ PREDICATE is executed in the buffer to test."
     (slime-compile-defun debug-level)))
 
 (defun slime-recompile-locations (locations &optional debug-level)
-  (flet ((make-compile-expr (loc)
-           (save-excursion
-             (slime-pop-to-location loc 'excursion)
-             (multiple-value-bind (start end) (slime-region-for-defun-at-point)
-               ;; FIXME: Kludge. The slime-eval-async may send a buffer-package
-               ;; that is not necessarily the same as the one the LOC points to.
-               `(cl:let ((swank::*buffer-package* (swank::guess-buffer-package 
-                                                   ,(slime-current-package))))
-                  ,(slime-make-compile-expression-for-swank
-                    (buffer-substring-no-properties start end)
-                    start))))))
-    (let ((slime-compilation-debug-level debug-level))
+  (let (strings buffers packages positions directories)
+    (flet ((push-location-data (loc)
+             (save-excursion
+               (slime-pop-to-location loc 'excursion)
+               (multiple-value-bind (start end) (slime-region-for-defun-at-point)
+                 (push (buffer-substring-no-properties start end) strings)
+                 (push (buffer-name) buffers)
+                 (push (slime-current-package) packages)
+                 (push start positions)
+                 (push (if (buffer-file-name)
+                           (file-name-directory (buffer-file-name))
+                           nil)
+                       directories)))))
+      (mapc #'push-location-data locations)
       (slime-eval-async 
-       `(swank:with-swank-compilation-unit (:override t) 
-          ;; We have to compile each location separately because of
-          ;; buffer and offset tracking during notes generation.
-          ,@(loop for loc in locations 
-                  collect (make-compile-expr loc)))
+       `(swank:compile-multiple-strings-for-emacs
+         ',(nreverse strings)   ',(nreverse buffers)     ',(nreverse packages)
+         ',(nreverse positions) ',(nreverse directories)  ,debug-level)
        (slime-make-compilation-finished-continuation (current-buffer))))))
-
-;;; FIXME: implement:
-
-;; (defun slime-recompile-symbol-at-point (name)
-;;   (interactive (list (slime-read-symbol-name "Name: ")))
-;; )
 
 
 

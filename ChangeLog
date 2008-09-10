@@ -1,3 +1,27 @@
+2008-09-11  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Reimplement recompilation support. The previous implementation
+	involving specials was subtly broken with the :fd-handler
+	communcation-style, because of serve-event's polite interplay with
+	specials. (Cf. my slime-devel post "Per event bindings" on 2008-08-17.)
+
+	* swank.lisp (with-swank-compilation-unit): Removed.
+	(record-note-for-condition): Removed.
+	(defstruct swank-compilation-unit): Renamed to
+	`swank-compilation-result'.
+	(swank-compilation-unit-for-emacs): Renamed to
+	`swank-compilation-result-for-emacs'.
+	(swank-compiler): Takes additional argument, the
+	swank-compilation-result where caught notes should be accumulated
+	into.
+	(defslimefun compile-file-for-emacs): Adapted accordingly.
+	(defslimefun compile-string-for-emacs): Ditto.
+	(defslimefun compile-multiple-strings-for-emacs): New RPC call.
+
+	* slime.el (slime-make-compile-expression-for-swank): Removed.
+	(slime-compile-string): Don't use above function anymore. Adapted.
+	(slime-recompile-locations): Rewritten to use new RPC call above.
+
 2008-09-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-backend.lisp (*gray-stream-symbols*): Comment out
