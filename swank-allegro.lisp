@@ -572,17 +572,6 @@
 
 ;;;; Inspecting
 
-#+no
-;; use the one below that calls allegro-inspect instead
-;;?? remove
-(defmethod emacs-inspect ((f function))
-          (append
-           (label-value-line "Name" (function-name f))
-           `("Formals" ,(princ-to-string (arglist f)) (:newline))
-           (let ((doc (documentation (excl::external-fn_symdef f) 'function)))
-             (when doc
-               `("Documentation:" (:newline) ,doc)))))
-
 (excl:without-redefinition-warnings
 (defmethod emacs-inspect ((o t))
   (allegro-inspect o)))
