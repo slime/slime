@@ -1,3 +1,7 @@
+2008-09-11  Helmut Eller  <heller@common-lisp.net>
+
+	* doc/slime-refcard.tex: Fix typos.
+
 2008-09-11  Gary King <gwking@metabang.com>
 
 	* swank-allegro.lisp (fspec-definition-locations): add declare
