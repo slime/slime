@@ -1,3 +1,13 @@
+2008-09-11  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-cmucl.lisp (slime-output-stream): Remove last-flush-time
+	slot.
+	(sos/flush): Renamed from sos/misc-force-output.  Don't try to be
+	clever: no timestamps and no line buffering.
+	(sos/write-char, sos/write-string): Renamed from sos/out
+	resp. sos/sout.  Call output-fn outside without-interrupts.
+	(sos/reset-buffer): New function.
+
 2008-09-11  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-compilation-unit): Renamed to

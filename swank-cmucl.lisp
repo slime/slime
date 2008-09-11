@@ -205,67 +205,59 @@ specific functions.")
 (defstruct (slime-output-stream
              (:include lisp::lisp-stream
                        (lisp::misc #'sos/misc)
-                       (lisp::out #'sos/out)
-                       (lisp::sout #'sos/sout))
+                       (lisp::out #'sos/write-char)
+                       (lisp::sout #'sos/write-string))
              (:conc-name sos.)
              (:print-function %print-slime-output-stream)
              (:constructor make-slime-output-stream (output-fn)))
   (output-fn nil :type function)
-  (buffer (make-string 8000) :type string)
+  (buffer (make-string 4000) :type string)
   (index 0 :type kernel:index)
-  (column 0 :type kernel:index)
-  (last-flush-time (get-internal-real-time) :type unsigned-byte))
+  (column 0 :type kernel:index))
 
 (defun %print-slime-output-stream (s stream d)
   (declare (ignore d))
   (print-unreadable-object (s stream :type t :identity t)))
 
-(defun sos/out (stream char)
-  (system:without-interrupts 
-    (let ((buffer (sos.buffer stream))
-          (index (sos.index stream)))
-      (setf (schar buffer index) char)
-      (setf (sos.index stream) (1+ index))
-      (incf (sos.column stream))
-      (when (char= #\newline char)
-        (setf (sos.column stream) 0)
-        (force-output stream))
-      (when (= index (1- (length buffer)))
-        (finish-output stream)))
-    char))
+(defun sos/write-char (stream char)
+  (let ((pending-output nil))
+    (system:without-interrupts 
+      (let ((buffer (sos.buffer stream))
+            (index (sos.index stream)))
+        (setf (schar buffer index) char)
+        (setf (sos.index stream) (1+ index))
+        (incf (sos.column stream))
+        (when (char= #\newline char)
+          (setf (sos.column stream) 0)
+          #+(or)(setq pending-output (sos/reset-buffer stream))
+          )
+        (when (= index (1- (length buffer)))
+          (setq pending-output (sos/reset-buffer stream)))))
+    (when pending-output
+      (funcall (sos.output-fn stream) pending-output)))
+  char)
 
-(defun sos/sout (stream string start end)
-  (system:without-interrupts 
-    (loop for i from start below end 
-          do (sos/out stream (aref string i)))))
+(defun sos/write-string (stream string start end)
+  (loop for i from start below end 
+        do (sos/write-char stream (aref string i))))
 
-(defun log-stream-op (stream operation)
-  stream operation
-  #+(or)
-  (progn 
-    (format sys:*tty* "~S @ ~D ~A~%" operation 
-            (sos.index stream)
-            (/ (- (get-internal-real-time) (sos.last-flush-time stream))
-             (coerce internal-time-units-per-second 'double-float)))
-    (finish-output sys:*tty*)))
-  
+(defun sos/flush (stream)
+  (let ((string (sos/reset-buffer stream)))
+    (when string
+      (funcall (sos.output-fn stream) string))
+    nil))
+
+(defun sos/reset-buffer (stream)
+  (system:without-interrupts 
+    (let ((end (sos.index stream)))
+      (unless (zerop end)
+        (prog1 (subseq (sos.buffer stream) 0 end)
+          (setf (sos.index stream) 0))))))
+
 (defun sos/misc (stream operation &optional arg1 arg2)
   (declare (ignore arg1 arg2))
   (case operation
-    (:finish-output
-     (log-stream-op stream operation)
-     (system:without-interrupts 
-       (let ((end (sos.index stream)))
-         (unless (zerop end)
-           (let ((s (subseq (sos.buffer stream) 0 end)))
-             (setf (sos.index stream) 0)
-             (funcall (sos.output-fn stream) s))
-           (setf (sos.last-flush-time stream) (get-internal-real-time)))))
-     nil)
-    (:force-output
-     (log-stream-op stream operation)
-     (sos/misc-force-output stream)
-     nil)
+    ((:force-output :finish-output) (sos/flush stream))
     (:charpos (sos.column stream))
     (:line-length 75)
     (:file-position nil)
@@ -273,19 +265,6 @@ specific functions.")
     (:get-command nil)
     (:close nil)
     (t (format *terminal-io* "~&~Astream: ~S~%" stream operation))))
-
-(defun sos/misc-force-output (stream)
-  (system:without-interrupts 
-    (unless (or (zerop (sos.index stream))
-                (loop with buffer = (sos.buffer stream)
-                      for i from 0 below (sos.index stream)
-                      always (char= (aref buffer i) #\newline)))
-      (let ((last (sos.last-flush-time stream))
-            (now (get-internal-real-time)))
-        (when (> (/ (- now last)
-                    (coerce internal-time-units-per-second 'double-float))
-                 0.1)
-          (finish-output stream))))))
 
 (defstruct (slime-input-stream
              (:include string-stream
