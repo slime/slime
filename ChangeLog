@@ -1,3 +1,12 @@
+2008-09-11  Gary King <gwking@metabang.com>
+
+	* swank-allegro.lisp (fspec-definition-locations): add declare
+	ignores to prevent warnings
+
+	(emacs-inspect): remove first definition on function since it
+	was being overwritten by the next one. Wrap the method on t with
+	a excl:without-redefinition-warnings to prevent warning.
+
 2008-09-11  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-cmucl.lisp (slime-output-stream): Remove last-flush-time

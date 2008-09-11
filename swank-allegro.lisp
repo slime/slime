@@ -402,12 +402,14 @@
    ((and (listp fspec)
          (eql (car fspec) :top-level-form))
     (destructuring-bind (top-level-form file &optional position) fspec 
+      (declare (ignore top-level-form))
       (list
        (list (list nil fspec)
              (make-location (list :buffer file)
                             (list :position position t))))))
    ((and (listp fspec) (eq (car fspec) :internal))
     (destructuring-bind (_internal next _n) fspec
+      (declare (ignore _internal _n))
       (fspec-definition-locations next)))
    (t
     (let ((defs (excl::find-source-file fspec)))
@@ -570,6 +572,9 @@
 
 ;;;; Inspecting
 
+#+no
+;; use the one below that calls allegro-inspect instead
+;;?? remove
 (defmethod emacs-inspect ((f function))
           (append
            (label-value-line "Name" (function-name f))
@@ -578,8 +583,9 @@
              (when doc
                `("Documentation:" (:newline) ,doc)))))
 
+(excl:without-redefinition-warnings
 (defmethod emacs-inspect ((o t))
-  (allegro-inspect o))
+  (allegro-inspect o)))
 
 (defmethod emacs-inspect ((o function))
   (allegro-inspect o))
