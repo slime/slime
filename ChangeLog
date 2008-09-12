@@ -1,3 +1,38 @@
+2008-09-12  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	New faces: `sldb-restartable-frame-line-face',
+	           `sldb-non-restartable-frame-line-face'.
+
+	The former is the face for frames that are surely restartable, the
+	latter for frames that are surely not restartable. If
+	restartability of a frame cannot be reliably determined, the face
+	`sldb-frame-line-face' is used.
+
+	At the moment, determination of frame restartability is supported
+	by the SBCL backend only.
+
+	* slime.el (sldb-frame.string): New.
+	(sldb-frame.number): New.
+	(sldb-frame.plist): New.
+	(sldb-prune-initial-frames): Use them.
+	(sldb-insert-frames): Ditto.
+	(sldb-compute-frame-face): New.
+	(sldb-insert-frame): Use `sldb-compute-frame-face' to insert
+	frames with one of the faces described above.
+
+	* swank.lisp (defslimefun backtrace): Changed return value; each
+	frame is now accompanied with a PLIST which at the moment can
+	contain :RESTARTABLE NIL/T/:UNKNOWN depending on whether the frame
+	is restartable, or not.
+
+	* swank-backend.lisp (defstruct swank-frame): New structure.
+	(compute-backtrace): Is now supposed to return a list of SWANK-FRAMEs.
+	(print-frame): Renamed to PRINT-SWANK-FRAME.
+
+	* swank-sbcl.lisp, swank-cmucl.lisp, swank-lispworks.lisp,
+	* swank-allegro.lisp, swank-scl.lisp, swank-openmcl.lisp,
+	* swank-abcl.lisp, swank-clisp.lisp: Adapted to swank-backend changes.
+
 2008-09-11  Helmut Eller  <heller@common-lisp.net>
 
 	* doc/slime-refcard.tex: Fix typos.

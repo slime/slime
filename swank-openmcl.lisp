@@ -538,25 +538,25 @@ condition."
       (format nil "~{ ~A~}" (nreverse result)))))
 
 
-;; XXX should return something less stringy
-;; alanr May 13, 2004: put #<> around anonymous functions in the backtrace.
-
 (defimplementation compute-backtrace (start-frame-number end-frame-number)
   (let (result)
-    (map-backtrace (lambda (frame-number p  context lfun pc)
-		     (declare (ignore  frame-number))
-                     (push (with-output-to-string (s)
-                             (format s "(~A~A)"
-                                     (if (ccl::function-name lfun)
-					 (ccl::%lfun-name-string lfun)
-					 lfun)
-                                     (frame-arguments p context lfun pc)))
+    (map-backtrace (lambda (frame-number p context lfun pc)
+                     (declare (ignore frame-number))
+                     (push (make-swank-frame :%frame (list :openmcl-frame p context lfun pc)
+                                             :restartable :unknown)
                            result))
                    start-frame-number end-frame-number)
     (nreverse result)))
 
-(defimplementation print-frame (frame stream)
-  (princ frame stream))
+(defimplementation print-swank-frame (swank-frame stream)
+  (let ((frame (swank-frame.%frame swank-frame)))
+    (assert (eq (first frame) :openmcl-frame))
+    (destructuring-bind (p context lfun pc) (rest frame)
+      (format stream "(~A~A)"
+              (if (ccl::function-name lfun)
+                  (ccl::%lfun-name-string lfun)
+                  lfun)
+              (frame-arguments p context lfun pc)))))
 
 (defimplementation frame-locals (index)
   (block frame-locals

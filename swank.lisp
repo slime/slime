@@ -2245,19 +2245,26 @@ format suitable for Emacs."
    (list :debug-activate (current-thread-id) *sldb-level* t)))
 
 (defslimefun backtrace (start end)
-  "Return a list ((I FRAME) ...) of frames from START to END.
-I is an integer describing and FRAME a string."
-  (loop for frame in (compute-backtrace start end)
-        for i from start collect 
-        (list i 
-              (call/truncated-output-to-string 
-               100
-               (lambda (stream)
-                 (handler-case
-                     (with-bindings *backtrace-printer-bindings*
-                       (print-frame frame stream))
-                   (t ()
-                     (format stream "[error printing frame]"))))))))
+  "Return a list ((I FRAME PLIST) ...) of frames from START to END.
+
+I is an integer, and can be used to reference the corresponding frame
+from Emacs; FRAME is a string representation of an implementation's
+frame."
+  (flet ((print-swank-frame-to-string (frame)
+           (call/truncated-output-to-string 
+            100
+            (lambda (stream)
+              (handler-case
+                  (with-bindings *backtrace-printer-bindings*
+                    (print-swank-frame frame stream))
+                (t ()
+                  (format stream "[error printing frame]")))))))
+    (loop for frame in (compute-backtrace start end)
+          for i from start collect 
+          (list i (print-swank-frame-to-string frame)
+                (list :restartable (let ((r (swank-frame.restartable frame)))
+                                     (check-type r (member nil t :unknown))
+                                     r))))))
 
 (defslimefun debugger-info-for-emacs (start end)
   "Return debugger state, with stack frames from START to END.
@@ -2266,9 +2273,11 @@ The result is a list:
 where
   condition   ::= (description type [extra])
   restart     ::= (name description)
-  stack-frame ::= (number description)
+  stack-frame ::= (number description [plist])
   extra       ::= (:references and other random things)
   cont        ::= continutation
+  plist       ::= (:restartable {nil | t | :unknown})
+
 condition---a pair of strings: message, and type.  If show-source is
 not nil it is a frame number for which the source should be displayed.
 
@@ -2288,7 +2297,7 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
    \"[Condition of type DIVISION-BY-ZERO]\")
   ((\"ABORT\" \"Return to Slime toplevel.\")
    (\"ABORT\" \"Return to Top-Level.\"))
-  ((0 \"(KERNEL::INTEGER-/-INTEGER 1 0)\"))
+  ((0 \"(KERNEL::INTEGER-/-INTEGER 1 0)\" (:restartable nil)))
   (4))"
   (list (debugger-condition-for-emacs)
         (format-restarts-for-emacs)

@@ -262,7 +262,7 @@
 
 (defun sbcl-source-file-p (filename)
   (when filename
-    (loop for (_ pattern) in (logical-pathname-translations "SYS")
+    (loop for (nil pattern) in (logical-pathname-translations "SYS")
           thereis (pathname-match-p filename pattern))))
 
 (defun guess-readtable-for-filename (filename)
@@ -849,11 +849,16 @@ stack."
   (let ((end (or end most-positive-fixnum)))
     (loop for f = (nth-frame start) then (sb-di:frame-down f)
 	  for i from start below end
-	  while f
-	  collect f)))
+	  while f collect (make-swank-frame
+                           :%frame f
+                           :restartable (frame-restartable-p f)))))
 
-(defimplementation print-frame (frame stream)
-  (sb-debug::print-frame-call frame stream))
+(defimplementation print-swank-frame (swank-frame stream)
+  (sb-debug::print-frame-call (swank-frame.%frame swank-frame) stream))
+
+(defun frame-restartable-p (frame)
+  #+#.(swank-backend::sbcl-with-restart-frame)
+  (sb-debug:frame-has-debug-tag-p frame))
 
 ;;;; Code-location -> source-location translation
 

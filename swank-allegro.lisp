@@ -163,11 +163,10 @@
   (let ((end (or end most-positive-fixnum)))
     (loop for f = (nth-frame start) then (next-frame f)
 	  for i from start below end
-	  while f
-	  collect f)))
+	  while f collect (make-swank-frame :%frame f :restartable :unknown))))
 
-(defimplementation print-frame (frame stream)
-  (debugger:output-frame stream frame :moderate))
+(defimplementation print-swank-frame (frame stream)
+  (debugger:output-frame stream (swank-frame.%frame frame) :moderate))
 
 (defimplementation frame-locals (index)
   (let ((frame (nth-frame index)))

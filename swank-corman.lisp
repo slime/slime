@@ -176,10 +176,11 @@
     (funcall fn)))
 
 (defimplementation compute-backtrace (start end)
-  (subseq *stack-trace* start (min end (length *stack-trace*))))
+  (loop for f in (subseq *stack-trace* start (min end (length *stack-trace*)))
+	collect (make-swank-frame :%frame f :restartable :unknown)))
 
-(defimplementation print-frame (frame stream)
-  (format stream "~S" frame))
+(defimplementation print-swank-frame (frame stream)
+  (format stream "~S" (swank-frame.%frame frame)))
 
 (defun get-frame-debug-info (frame)
   (or (frame-debug-info frame)

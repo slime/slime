@@ -323,6 +323,10 @@ PROPERTIES specifies any default face properties."
   (restart-number "restart numbers (correspond to keystrokes to invoke)"
                   '(:bold t))
   (frame-line     "function names and arguments in the backtrace")
+  (restartable-frame-line
+   "frames which are surely restartable")
+  (non-restartable-frame-line
+   "frames which are surely not restartable")
   (detailed-frame-line
    "function names and arguments in a detailed (expanded) frame")
   (local-name     "local variable names")
@@ -6750,7 +6754,7 @@ The buffer is chosen more or less randomly."
   "Setup a new SLDB buffer.
 CONDITION is a string describing the condition to debug.
 RESTARTS is a list of strings (NAME DESCRIPTION) for each available restart.
-FRAMES is a list (NUMBER DESCRIPTION) describing the initial
+FRAMES is a list (NUMBER DESCRIPTION &optional PLIST) describing the initial
 portion of the backtrace. Frames are numbered from 0.
 CONTS is a list of pending Emacs continuations."
   (with-current-buffer (sldb-get-buffer thread)
@@ -6856,14 +6860,22 @@ RESTARTS should be alist ((NAME DESCRIPTION) ...)."
          (in-sldb-face restart string))
         (insert "\n")))
 
+(defun sldb-frame.string (frame)
+  (destructuring-bind (_ str &optional _) frame str))
+
+(defun sldb-frame.number (frame)
+  (destructuring-bind (n _ &optional _) frame n))
+
+(defun sldb-frame.plist (frame)
+  (destructuring-bind (_ _ &optional plist) frame plist))
+
 (defun sldb-prune-initial-frames (frames)
   "Return the prefix of FRAMES to initially present to the user.
 Regexp heuristics are used to avoid showing SWANK-internal frames."
   (let* ((case-fold-search t)
          (rx "^\\([() ]\\|lambda\\)*swank\\>"))
     (or (loop for frame in frames
-              for (_ string) = frame
-              until (string-match rx string)
+              until (string-match rx (sldb-frame.string frame))
               collect frame)
         frames)))
 
@@ -6872,29 +6884,39 @@ Regexp heuristics are used to avoid showing SWANK-internal frames."
 If MORE is non-nil, more frames are on the Lisp stack."
   (mapc #'sldb-insert-frame frames)
   (when more
-    (destructuring-bind ((num _)) (last frames)
-      (slime-insert-propertized
-       `(,@nil sldb-default-action sldb-fetch-more-frames
-               sldb-previous-frame-number ,num
-               point-entered sldb-fetch-more-frames
-               start-open t
-               face sldb-section-face
-               mouse-face highlight)
-       " --more--")
-      (insert "\n"))))
+    (slime-insert-propertized
+     `(,@nil sldb-default-action sldb-fetch-more-frames
+             sldb-previous-frame-number ,(sldb-frame.number (first (last frames)))
+             point-entered sldb-fetch-more-frames
+             start-open t
+             face sldb-section-face
+             mouse-face highlight)
+     " --more--")
+    (insert "\n")))
+
+(defun sldb-compute-frame-face (frame)
+  (let ((restartable (getf (sldb-frame.plist frame) :restartable)))
+    (cond ((eq restartable 't)
+           'sldb-restartable-frame-line-face)
+          ((eq restartable :unknown)
+           'sldb-frame-line-face)
+          ((eq restartable 'nil)
+           'sldb-non-restartable-frame-line-face)
+          (t (error "fall through")))))
 
 (defun sldb-insert-frame (frame &optional face)
   "Insert FRAME with FACE at point.
-If FACE is nil use `sldb-frame-line-face'."
-  (destructuring-bind (number string) frame
-    (let ((props `(frame ,frame sldb-default-action sldb-toggle-details)))
-      (slime-propertize-region props
-        (slime-propertize-region '(mouse-face highlight)
-          (insert " " (in-sldb-face frame-label (format "%2d:" number)) " ")
-          (slime-insert-indented
-           (slime-add-face (or face 'sldb-frame-line-face)
-                           string)))
-        (insert "\n")))))
+If FACE is nil, `sldb-compute-frame-face' is used to determine the face."
+  (setq face (or face (sldb-compute-frame-face frame)))
+  (let ((number (sldb-frame.number frame))
+        (string (sldb-frame.string frame))
+        (props `(frame ,frame sldb-default-action sldb-toggle-details)))
+    (slime-propertize-region props
+      (slime-propertize-region '(mouse-face highlight)
+        (insert " " (in-sldb-face frame-label (format "%2d:" number)) " ")
+        (slime-insert-indented
+         (slime-add-face face string)))
+      (insert "\n"))))
 
 (defun sldb-fetch-more-frames (&rest ignore)
   "Fetch more backtrace frames.
@@ -7174,9 +7196,9 @@ The details include local variable bindings and CATCH-tags."
   (let* ((frame (get-text-property (point) 'frame))
          (num (car frame))
          (catches (sldb-catch-tags num))
-         (locals (sldb-frame-locals num)))
+         (locals  (sldb-frame-locals num))
     (destructuring-bind (start end) (sldb-frame-region)
-      (list start end frame locals catches))))
+      (list start end frame locals catches)))))
 
 (defvar sldb-insert-frame-variable-value-function 'sldb-insert-frame-variable-value)
 

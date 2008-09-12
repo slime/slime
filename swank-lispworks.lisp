@@ -291,7 +291,8 @@ Return NIL if the symbol is unbound."
 	((or (not frame) (= i end)) (nreverse backtrace))
       (when (interesting-frame-p frame)
 	(incf i)
-	(push frame backtrace)))))
+	(push (make-swank-frame :%frame frame :restartable :unknown)
+              backtrace)))))
 
 (defun frame-actual-args (frame)
   (let ((*break-on-signals* nil))
@@ -303,12 +304,13 @@ Return NIL if the symbol is unbound."
                    (error (e) (format nil "<~A>" arg))))))
             (dbg::call-frame-arglist frame))))
 
-(defimplementation print-frame (frame stream)
-  (cond ((dbg::call-frame-p frame)
-         (format stream "~S ~S"
-                 (dbg::call-frame-function-name frame)
-                 (frame-actual-args frame)))
-        (t (princ frame stream))))
+(defimplementation print-swank-frame (swank-frame stream)
+  (let ((frame (swank-frame.%frame swank-frame)))
+    (cond ((dbg::call-frame-p frame)
+           (format stream "~S ~S"
+                   (dbg::call-frame-function-name frame)
+                   (frame-actual-args frame)))
+          (t (princ frame stream)))))
 
 (defun frame-vars (frame)
   (first (dbg::frame-locals-format-list frame #'list 75 0)))
