@@ -1,3 +1,11 @@
+2008-09-12  Helmut Eller  <heller@common-lisp.net>
+
+	For Lispworks, parse the $LWHOME/lwdoc file.
+
+	* swank-lispworks.lisp (lwdoc, lookup-lwdoc, parse-lwdoc-record):
+	New functions.
+	(describe-symbol-for-emacs): Use it.
+
 2008-09-12  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	In an SLDB buffer, `C-c C-c' will now recompile the source behind
