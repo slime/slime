@@ -1,5 +1,17 @@
 2008-09-12  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	In an SLDB buffer, `C-c C-c' will now recompile the source behind
+	a frame. In particular, `C-u C-c C-c' will recompile the frame
+	with high debug settings.
+
+	* slime.el (sldb-recompile-frame-source): New function.
+	(sldb-mode-map): Bind `C-c C-c' to it.
+
+	* slime.el (sldb-overlays, sldb-delete-overlays, slime-xref-cleanup):
+	Removed. Sldb-overlays weren't created anymore since 2008-08-17.
+
+2008-09-12  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	New faces: `sldb-restartable-frame-line-face',
 	           `sldb-non-restartable-frame-line-face'.
 

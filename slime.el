@@ -6109,7 +6109,6 @@ If CREATE is non-nil, create it if necessary."
   "Kill the current xref buffer, restore the window configuration
 if appropriate."
   (interactive)
-  (slime-xref-cleanup)
   ;; We can't simply use `slime-popup-buffer-quit' because we also
   ;; want the Xref window be deleted.
   (if (slime-popup-buffer-snapshot-unchanged-p)
@@ -6124,16 +6123,9 @@ if appropriate."
 (defun slime-xref-retract ()
   "Leave the Xref buffer, and make everything as of before."
   (interactive)
-  (slime-xref-cleanup)
   (let ((buffer (current-buffer)))
     (slime-popup-buffer-restore-snapshot)
     (kill-buffer buffer)))
-
-(defun slime-xref-cleanup ()
-  "Delete overlays created by xref mode and kill the xref buffer."
-  (sldb-delete-overlays))
-
-
 
 (defun slime-insert-xrefs (xref-alist)
   "Insert XREF-ALIST in the current-buffer.
@@ -6656,8 +6648,7 @@ Full list of commands:
   (set-syntax-table sldb-mode-syntax-table)
   (slime-set-truncate-lines)
   ;; Make original slime-connection "sticky" for SLDB commands in this buffer
-  (setq slime-buffer-connection (slime-connection))
-  (slime-add-local-hook 'kill-buffer-hook 'sldb-delete-overlays))
+  (setq slime-buffer-connection (slime-connection)))
 
 (slime-define-keys sldb-mode-map
   ("h"    'describe-mode)
@@ -6692,6 +6683,7 @@ Full list of commands:
   ("P"    'sldb-print-condition)
   ("C"    'sldb-inspect-condition)
   (":"    'slime-interactive-eval)
+  ("\C-c\C-c" 'sldb-recompile-frame-source)
   ("\C-c\C-d" slime-doc-map))
 
 ;; Inherit bindings from slime-mode
@@ -6817,6 +6809,8 @@ If LEVEL isn't the same as in the buffer, reinitialize the buffer."
       (setq sldb-level nil))
     (when (and (= level 1) (not stepping))
       (kill-buffer sldb))))
+
+;;;;;; SLDB buffer insertion
 
 (defun sldb-insert-condition (condition)
   "Insert the text for CONDITION.
@@ -7119,16 +7113,12 @@ This is 0 if START and END at the same line."
 
 ;;;;;; SLDB show source
 
-(defvar sldb-overlays '()
-  "List of overlays created in source code buffers to highlight expressions.")
-
 (defun sldb-show-source ()
   "Highlight the frame at point's expression in a source code buffer."
   (interactive)
   (sldb-show-frame-source (sldb-frame-number-at-point)))
 
 (defun sldb-show-frame-source (frame-number)
-  (sldb-delete-overlays)
   (slime-eval-async
    `(swank:frame-source-location-for-emacs ,frame-number)
    (lambda (source-location)
@@ -7147,14 +7137,10 @@ This is 0 if START and END at the same line."
 
 (defun sldb-highlight-sexp (&optional start end)
   "Highlight the first sexp after point."
-  (sldb-delete-overlays)
   (let ((start (or start (point)))
 	(end (or end (save-excursion (ignore-errors (forward-sexp)) (point)))))
     (slime-flash-region start end)))
 
-(defun sldb-delete-overlays ()
-  (mapc #'delete-overlay sldb-overlays)
-  (setq sldb-overlays '()))
 
 
 ;;;;;; SLDB toggle details
@@ -7196,9 +7182,9 @@ The details include local variable bindings and CATCH-tags."
   (let* ((frame (get-text-property (point) 'frame))
          (num (car frame))
          (catches (sldb-catch-tags num))
-         (locals  (sldb-frame-locals num))
+         (locals  (sldb-frame-locals num)))
     (destructuring-bind (start end) (sldb-frame-region)
-      (list start end frame locals catches)))))
+      (list start end frame locals catches))))
 
 (defvar sldb-insert-frame-variable-value-function 'sldb-insert-frame-variable-value)
 
@@ -7431,6 +7417,28 @@ was called originally."
         ((list 'swank:restart-frame number))
       ((:ok value) (message "%s" value))
       ((:abort)))))
+
+
+;;;;;; SLDB recompilation commands
+
+(defun sldb-recompile-frame-source (&optional raw-prefix-arg)
+  (interactive "P")
+  (slime-eval-async
+   `(swank:frame-source-location-for-emacs ,(sldb-frame-number-at-point))
+   (lexical-let ((debug-level (slime-normalize-optimization-level
+                               (and raw-prefix-arg 
+                                    (prefix-numeric-value raw-prefix-arg)))))
+     (lambda (source-location)
+       (destructure-case source-location
+         ((:error message)
+          (message "%s" message)
+          (ding))
+         (t
+          (slime-recompile-location source-location debug-level)))))))
+
+
+
+
 
 
 ;;;; Thread control panel
