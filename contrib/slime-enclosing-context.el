@@ -54,7 +54,7 @@ points where their bindings are established as second value."
 		 (ignore-errors
 		   (loop 
 		    (down-list) 
-		    (push (slime-symbol-name-at-point) binding-names)
+		    (push (slime-parse-symbol-name-at-point 1) binding-names)
 		    (push (save-excursion (backward-up-list) (point)) 
 			  binding-start-points)
 		    (up-list)))))
@@ -79,14 +79,47 @@ points where their bindings are established as second value."
 		 (ignore-errors
 		   (loop 
 		    (down-list) 
-		    (push (slime-symbol-name-at-point) names)
-		    (slime-end-of-symbol) 
-		    (push (slime-parse-sexp-at-point 1 t) arglists)
-		    (push (save-excursion (backward-up-list) (point)) 
-			  start-points)
+		    (destructuring-bind (name arglist)
+			(slime-ensure-list (slime-parse-sexp-at-point 2))
+		      (assert (slime-has-symbol-syntax-p name)) (assert arglist)
+		      (push name names)
+		      (push arglist arglists)
+		      (push (save-excursion (backward-up-list) (point)) 
+			    start-points))
 		    (up-list)))))
       (values (nreverse names)
 	      (nreverse arglists) 
 	      (nreverse start-points)))))
+
+
+(def-slime-test enclosing-context.1
+    (buffer-sexpr wished-bound-names wished-bound-functions)
+    "Check that finding local definitions work."
+    '(("(flet ((,nil ()))
+	 (let ((bar 13)
+	       (,foo 42))
+	   *HERE*))" 
+       (",nil" "bar" ",foo")
+       ((",nil" "()"))))
+  (slime-check-top-level)
+  (with-temp-buffer
+    (let ((tmpbuf (current-buffer)))
+      (lisp-mode)
+      (insert buffer-sexpr)
+      (search-backward "*HERE*")
+      (multiple-value-bind (bound-names points) 
+	  (slime-enclosing-bound-names)
+	(slime-check "Check enclosing bound names"
+	  (loop for name in wished-bound-names
+		always (member name bound-names))))
+      (multiple-value-bind (fn-names fn-arglists points) 
+	  (slime-enclosing-bound-functions)
+	(slime-check "Check enclosing bound functions"
+	  (loop for (name arglist) in wished-bound-functions
+		always (and (member name fn-names)
+			    (member arglist fn-arglists)))))
+      )))
+
+
 
 (provide 'slime-enclosing-context)

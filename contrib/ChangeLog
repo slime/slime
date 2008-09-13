@@ -1,3 +1,16 @@
+2008-09-13  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-parse.el (slime-has-symbol-syntax-p): New.
+	(slime-parse-symbol-name-at-point): New; works on top of
+	`slime-parse-sexp-at-point'.
+	(slime-enclosing-form-specs): Use it.
+
+	* slime-enclosing-context.el (slime-find-bound-names): Use
+	`slime-parse-symbol-name-at-point'.
+	(slime-find-bound-functions): Ditto.
+	(def-slime-test enclosing-context.1): New test case. Thanks to
+	John Pallister for reporting this bug.
+
 2008-09-11  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-asdf.lisp (operate-on-system-for-emacs): Adapted to recent

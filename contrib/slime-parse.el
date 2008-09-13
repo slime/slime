@@ -63,6 +63,17 @@ If SKIP-BLANKS-P is true, leading whitespaces &c are skipped.
               (first result)
               (nreverse result)))))))
 
+(defun slime-has-symbol-syntax-p (string)
+  (if (and string (not (zerop (length string))))
+      (member (char-syntax (aref string 0)) 
+	      '(?w ?_ ?\' ?\\))))
+
+(defun slime-parse-symbol-name-at-point (&optional n skip-blanks-p)
+  (let ((symbols (slime-parse-sexp-at-point n skip-blanks-p)))
+    (if (every #'slime-has-symbol-syntax-p (slime-ensure-list symbols))
+	symbols
+	nil)))
+
 (defun slime-incomplete-sexp-at-point (&optional n)
   (interactive "p") (or n (setq n 1))
   (buffer-substring-no-properties (save-excursion (backward-up-list n) (point))
@@ -291,16 +302,17 @@ Examples:
               (when (member (char-syntax (char-after)) '(?\( ?')) 
                 (incf level)
                 (forward-char 1)
-                (let ((name (slime-symbol-name-at-point)))
+                (let ((name (slime-parse-symbol-name-at-point 1 nil)))
                   (cond
                     (name
                      (save-restriction
                        (widen) ; to allow looking-ahead/back in extended parsing.
                        (multiple-value-bind (new-result new-indices new-points)
-                           (slime-parse-extended-operator-name initial-point
-                                                               (cons `(,name) result) ; minimal form spec
-                                                               (cons arg-index arg-indices)
-                                                               (cons (point) points))
+                           (slime-parse-extended-operator-name 
+			    initial-point
+			    (cons `(,name) result) ; minimal form spec
+			    (cons arg-index arg-indices)
+			    (cons (point) points))
                          (setq result new-result)
                          (setq arg-indices new-indices)
                          (setq points new-points))))
