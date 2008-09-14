@@ -2347,7 +2347,7 @@ Debugged requests are ignored."
                         (funcall (cdr rec) value))
                    (t
                     (error "Unexpected reply: %S %S" id value)))))
-          ((:debug-activate thread level select)
+          ((:debug-activate thread level &optional select)
            (assert thread)
            (sldb-activate thread level select))
           ((:debug thread level condition restarts frames conts)
@@ -6807,8 +6807,24 @@ If LEVEL isn't the same as in the buffer, reinitialize the buffer."
       (let ((inhibit-read-only t))
         (erase-buffer))
       (setq sldb-level nil))
-    (when (and (= level 1) (not stepping))
-      (kill-buffer sldb))))
+    (cond ((and (= level 1) (not stepping))
+           (kill-buffer sldb))
+          (t (sldb-maybe-kill-buffer thread (slime-connection))))))
+
+;; If we return to a lower debug level we wait a little before closing
+;; the debugger window.  We also send a ping, just in case Lisp was
+;; interrupted in swank:wait-for-input.
+(defun sldb-maybe-kill-buffer (thread connection)
+  (slime-eval-async `(swank:ping nil))
+  (run-with-idle-timer
+   0.3 nil 
+   (lambda (thead connection)
+     (when-let (sldb (sldb-find-buffer thread connection))
+       (with-current-buffer sldb
+         (when (not sldb-level)
+           (kill-buffer sldb)))))
+   thread connection))
+
 
 ;;;;;; SLDB buffer insertion
 

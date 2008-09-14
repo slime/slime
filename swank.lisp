@@ -285,6 +285,9 @@ recently established one."
   "Return the value of *SWANK-STATE-STACK*."
   *swank-state-stack*)
 
+(defslimefun ping (tag)
+  tag)
+
 ;; A conditions to include backtrace information
 (define-condition swank-error (error) 
   ((condition :initarg :condition :reader swank-error.condition)
@@ -342,18 +345,18 @@ Do not set this to T unless you want to debug swank internals.")
 (defmacro with-slime-interrupts (&body body)
   `(progn
      (check-slime-interrupts)
-     (let ((*slime-interrupts-enabled* t)
-           (*pending-slime-interrupts* '()))
-       (multiple-value-prog1 (progn ,@body) 
-         (check-slime-interrupts)))))
+     (multiple-value-prog1
+         (let ((*slime-interrupts-enabled* t))
+           ,@body)
+       (check-slime-interrupts))))
 
 (defmacro without-slime-interrupts (&body body)
   `(progn
      (check-slime-interrupts)
-     (let ((*slime-interrupts-enabled* nil)
-           (*pending-slime-interrupts* '()))
-       (multiple-value-prog1 (progn ,@body)
-         (check-slime-interrupts)))))
+     (multiple-value-prog1
+         (let ((*slime-interrupts-enabled* t))
+           ,@body)
+       (check-slime-interrupts))))
 
 (defun invoke-or-queue-interrupt (function)
   (log-event "invoke-or-queue-interrupt: ~a" function)
@@ -362,11 +365,14 @@ Do not set this to T unless you want to debug swank internals.")
            (funcall function)))
         (*slime-interrupts-enabled*
          (funcall function))
-        ((cdr *pending-slime-interrupts*)
-         (simple-break "Two many queued interrupts"))
         (t
-         (log-event "queue-interrupt: ~a" function)
-         (push function *pending-slime-interrupts*))))
+         (setq *pending-slime-interrupts*
+               (nconc *pending-slime-interrupts*
+                      (list function)))
+         (cond ((cdr *pending-slime-interrupts*)
+                (check-slime-interrupts))
+               (t
+                (log-event "queue-interrupt: ~a" function))))))
 
 (defslimefun simple-break (&optional (datum "Interrupt from Emacs") &rest args)
   (with-simple-restart (continue "Continue from break.")
@@ -393,11 +399,13 @@ If *REDIRECT-IO* is true then all standard I/O streams are redirected."
   `(call-with-connection ,connection (lambda () ,@body)))
 
 (defun call-with-connection (connection function)
-  (let ((*emacs-connection* connection))
-    (without-slime-interrupts
-      (with-swank-error-handler (*emacs-connection*)
-        (with-io-redirection (*emacs-connection*)
-          (call-with-debugger-hook #'swank-debugger-hook function))))))
+  (if (eq *emacs-connection* connection)
+      (funcall function)
+      (let ((*emacs-connection* connection))
+        (without-slime-interrupts
+          (with-swank-error-handler (*emacs-connection*)
+            (with-io-redirection (*emacs-connection*)
+              (call-with-debugger-hook #'swank-debugger-hook function)))))))
 
 (defun call-with-retry-restart (msg thunk)
   (let ((%ok    (gensym "OK+"))
@@ -991,7 +999,7 @@ The processing is done in the extent of the toplevel restart."
 (defun dispatch-loop (connection)
   (let ((*emacs-connection* connection))
     (with-panic-handler (connection)
-      (loop (dispatch-event (read-event))))))
+      (loop (dispatch-event (receive))))))
 
 (defvar *auto-flush-interval* 0.2)
 
@@ -1088,15 +1096,14 @@ The processing is done in the extent of the toplevel restart."
                      (current-socket-io)))))
 
 (defvar *event-queue* '())
+(defvar *events-enqueued* 0)
 
 (defun send-event (thread event)
   (log-event "send-event: ~s ~s~%" thread event)
   (cond ((use-threads-p) (send thread event))
-        (t (setf *event-queue* (nconc *event-queue* (list event))))))
-
-(defun read-event (&optional timeout)
-  (cond ((use-threads-p) (receive timeout))
-        (t (decode-message (current-socket-io) timeout))))
+        (t (setf *event-queue* (nconc *event-queue* (list event)))
+           (setf *events-enqueued* (mod (1+ *events-enqueued*)
+                                        most-positive-fixnum)))))
 
 (defun send-to-emacs (event)
   "Send EVENT to Emacs."
@@ -1112,25 +1119,37 @@ The processing is done in the extent of the toplevel restart."
 
 (defun wait-for-event (pattern &optional timeout)
   (log-event "wait-for-event: ~s ~s~%" pattern timeout)
-  (cond ((use-threads-p) 
-         (without-slime-interrupts
-           (receive-if (lambda (e) (event-match-p e pattern)) timeout)))
-        (t 
-         (wait-for-event/event-loop pattern timeout))))
+  (without-slime-interrupts
+    (cond ((use-threads-p) 
+           (receive-if (lambda (e) (event-match-p e pattern)) timeout))
+          (t 
+           (wait-for-event/event-loop pattern timeout)))))
 
 (defun wait-for-event/event-loop (pattern timeout)
   (assert (or (not timeout) (eq timeout t)))
   (loop 
    (check-slime-interrupts)
-   (let ((tail (member-if (lambda (e) (event-match-p e pattern))
-                          *event-queue*)))
-     (when tail 
-       (setq *event-queue* 
-	     (nconc (ldiff *event-queue* tail) (cdr tail)))
-       (return (car tail))))
-   (multiple-value-bind (event timeout?) (read-event timeout)
-     (when timeout? (return (values nil t)))
-     (dispatch-event event))))
+   (let ((event (poll-for-event pattern)))
+     (when event (return (car event))))
+   (let ((events-enqueued *events-enqueued*)
+         (ready (wait-for-input (list (current-socket-io)) timeout)))
+     (cond ((and timeout (not ready))
+            (return (values nil t)))
+           ((or (/= events-enqueued *events-enqueued*)
+                (eq ready :interrupt))
+            ;; rescan event queue, interrupts may enqueue new events 
+            )
+           (t
+            (assert (equal ready (list (current-socket-io))))
+            (dispatch-event (decode-message (current-socket-io))))))))
+
+(defun poll-for-event (pattern)
+  (let ((tail (member-if (lambda (e) (event-match-p e pattern))
+                         *event-queue*)))
+    (when tail 
+      (setq *event-queue* (nconc (ldiff *event-queue* tail)
+                                 (cdr tail)))
+      tail)))
 
 (defun event-match-p (event pattern)
   (cond ((or (keywordp pattern) (numberp pattern) (stringp pattern)
@@ -1209,8 +1228,11 @@ The processing is done in the extent of the toplevel restart."
            (invoke-or-queue-interrupt
             (lambda () 
               (with-connection (connection)
-                (dispatch-event `(:emacs-interrupt ,(current-thread-id)))))))))
+                (dispatch-interrupt-event)))))))
   (handle-or-process-requests connection))
+
+(defun dispatch-interrupt-event ()
+  (dispatch-event `(:emacs-interrupt ,(current-thread-id))))
 
 (defun deinstall-fd-handler (connection)
   (log-event "deinstall-fd-handler~%")
@@ -1223,9 +1245,7 @@ The processing is done in the extent of the toplevel restart."
   (unwind-protect 
        (call-with-user-break-handler
         (lambda () 
-          (invoke-or-queue-interrupt 
-           (lambda () 
-             (dispatch-event `(:emacs-interrupt ,(current-thread-id))))))
+          (invoke-or-queue-interrupt #'dispatch-interrupt-event))
         (lambda ()
           (with-simple-restart (close-connection "Close SLIME connection")
             (handle-requests connection))))
@@ -1455,24 +1475,17 @@ NIL if streams are not globally redirected.")
 (defmacro with-thread-description (description &body body)
   `(call-with-thread-description ,description #'(lambda () ,@body)))
 
-(defun decode-message (stream &optional timeout)
+(defun decode-message (stream)
   "Read an S-expression from STREAM using the SLIME protocol."
-  (assert (or (not timeout) (eq timeout t)))
   ;;(log-event "decode-message~%")
   (let ((*swank-state-stack* (cons :read-next-form *swank-state-stack*)))
     (handler-bind ((error (lambda (c) (error (make-swank-error c)))))
-      (let ((c (read-char-no-hang stream)))
-        (cond ((and (not c) timeout) (values nil t))
-              (t
-               (and c (unread-char c stream))
-               (let ((packet (read-packet stream)))
-                 (handler-case (values (read-form packet) nil)
-                   (reader-error (c) 
-                     `(:reader-error ,packet ,c))))))))))
+      (let ((packet (read-packet stream)))
+        (handler-case (values (read-form packet) nil)
+          (reader-error (c) 
+            `(:reader-error ,packet ,c)))))))
 
 (defun read-packet (stream)
-  (peek-char nil stream) ; wait while queuing interrupts
-  (check-slime-interrupts)
   (let* ((header (read-chunk stream 6))
          (length (parse-integer header :radix #x10))
          (payload (read-chunk stream length)))

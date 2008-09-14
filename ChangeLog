@@ -1,3 +1,31 @@
+2008-09-14  Helmut Eller  <heller@common-lisp.net>
+
+	Introduce a WAIT-FOR-INPUT backend function.
+	CMUCL's blocking input functions READ-CHAR etc.
+	are hard to use with interrupts.  In the backend
+	we have a more realistic chance to get interrupts working.
+
+	* swank-backend.lisp (wait-for-input): New function.
+
+	* swank-cmucl.lisp, swank-clisp.lisp (wait-for-input): Implement
+	it.
+
+	* swank.lisp (wait-for-event/event-loop): Use WAIT-FOR-INPUT and
+	rescan the event-queue if WAIT-FOR-INPUT was interrupted.
+	(reader-event): Deleted. Merged into wait-for-event/event-loop
+	resp.  dispatch-loop.
+	(decode-message): Drop the timeout argument.
+	(*events-enqueued*): A counter to quickly detect new events after
+	a wait.
+	(call-with-connection): If the argument is already the current
+	connection, don't rebind anything.
+	(without-slime-interrupts, with-slime-interrupts): Don't rebind
+	*pending-slime-interrupts*. Just to be save.
+
+	* slime.el (sldb-maybe-kill-buffer): New function, to handle
+	the case when the debugger was interrupted in WAIT-FOR-INPUT and
+	we want to return to the previous debug level.
+
 2008-09-12  Helmut Eller  <heller@common-lisp.net>
 
 	For Lispworks, parse the $LWHOME/lwdoc file.

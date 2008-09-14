@@ -104,6 +104,8 @@
                   (lambda (c)
                     (declare (ignore c))
                     (funcall handler)
+                    (when (find-restart 'socket-status)
+                      (invoke-restart (find-restart 'socket-status)))
                     (continue))))
     (funcall function)))
 
@@ -133,6 +135,22 @@
                         :buffered nil ;; XXX should be t
                         :element-type 'character
                         :external-format external-format))
+
+(defimplementation wait-for-input (streams &optional timeout)
+  (assert (member timeout '(nil t)))
+  (let ((streams (mapcar (lambda (s) (list* s :input nil)) streams)))
+    (loop
+     (cond (*pending-slime-interrupts* (return :interrupt))
+           (timeout 
+            (socket:socket-status streams 0 0)
+            (return (loop for (s _ . x) in streams
+                          if x collect s)))
+           (t
+            (with-simple-restart (socket-status "Return from socket-status.")
+              (socket:socket-status streams 0 500000))
+            (let ((ready (loop for (s _ . x) in streams
+                               if x collect s)))
+              (when ready (return ready))))))))
 
 ;;;; Coding systems
 

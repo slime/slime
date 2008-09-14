@@ -192,6 +192,30 @@ specific functions.")
 (defimplementation remove-fd-handlers (socket)
   (sys:invalidate-descriptor (socket-fd socket)))
 
+(defimplementation wait-for-input (streams &optional timeout)
+  (assert (member timeout '(nil t)))
+  (loop
+   (let ((ready (remove-if-not #'listen streams)))
+     (when ready (return ready)))
+   (when timeout (return nil))
+   (if *pending-slime-interrupts* (return :interrupt))
+   (let* ((f (constantly t))
+          (handlers (loop for s in streams
+                          collect (add-one-shot-handler s f))))
+     (unwind-protect
+          (sys:serve-event 0.2)
+       (mapc #'sys:remove-fd-handler handlers)))))
+
+(defun add-one-shot-handler (stream function)
+  (let (handler)
+    (setq handler (sys:add-fd-handler (sys:fd-stream-fd stream) :input
+                                      (lambda (fd)
+                                        (declare (ignore fd))
+                                        (sys:remove-fd-handler handler)
+                                        (funcall function stream))))))
+
+
+
 
 ;;;; Stream handling
 ;;; XXX: How come we don't use Gray streams in CMUCL too? -luke (15/May/2004)

@@ -1027,15 +1027,43 @@ but that thread may hold it more than once."
 (definterface receive-if (predicate &optional timeout)
   "Return the first message satisfiying PREDICATE.")
 
-(defvar *pending-slime-interrupts*)
+(defvar *pending-slime-interrupts* '())
 
 (defun check-slime-interrupts ()
   "Execute pending interrupts if any.
 This should be called periodically in operations which
 can take a long time to complete."
-  (when (and (boundp '*pending-slime-interrupts*)
-             *pending-slime-interrupts*)
+  (when (and *pending-slime-interrupts*)
     (funcall (pop *pending-slime-interrupts*))))
+
+(definterface wait-for-input (streams &optional timeout)
+  "Wait for input on a list of streams.  Return those that are ready.
+STREAMS is a list of streams
+TIMEOUT nil, t, or real number. If TIMEOUT is t, return
+those streams which are ready immediately, without waiting.
+If TIMEOUT is a number and no streams is ready after TIMEOUT seconds,
+return nil.
+
+Return :interrupt if an interrupt occurs while waiting."
+  (assert (= (length streams) 1))
+  (let ((stream (car streams)))
+    (case timeout
+      ((nil)
+       (cond (*pending-slime-interrupts* :interrupt)
+             (t (peek-char nil stream nil nil) 
+                streams)))
+      ((t) 
+       (let ((c (read-char-no-hang stream nil nil)))
+         (cond (c 
+                (unread-char c stream) 
+                streams)
+               (t '()))))
+      (t 
+       (loop
+        (if *pending-slime-interrupts* (return :interrupt))
+        (when (wait-for-input streams t) (return streams))
+        (sleep 0.1)
+        (when (<= (decf timeout 0.1) 0) (return nil)))))))
 
 (definterface toggle-trace (spec)
   "Toggle tracing of the function(s) given with SPEC.
