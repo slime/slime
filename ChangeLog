@@ -1,7 +1,12 @@
 2008-09-15  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-lispworks.lisp (describe-symbol-for-emacs): Revert last
+	change.
+
+2008-09-15  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (sldb-loop): Send a :sldb-return event to ourselfes
-	when returning to inform the debug session at the lower level.
+	to inform the debug session at the lower level.
 	(wait-for-event): Drop the report-interrupt argument.  No longer
 	needed.
 	(event-match-p): Add an OR pattern operator.  Used to wait for

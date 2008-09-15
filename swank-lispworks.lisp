@@ -154,12 +154,7 @@ Return NIL if the symbol is unbound."
                (let ((pos (position #\newline string)))
                  (if (null pos) string (subseq string 0 pos))))
              (doc (kind &optional (sym symbol))
-               (let ((string (or
-                              (documentation sym kind)
-                              (lwdoc (symbol-name sym)
-                                     (package-name (symbol-package sym))
-                                     kind))))
-                     
+               (let ((string (or (documentation sym kind))))
                  (if string 
                      (first-line string)
                      :not-documented)))
@@ -212,66 +207,6 @@ Return NIL if the symbol is unbound."
       (format t "~%~%Variable documentation:~%~A"  doc)))
   (when (fboundp sym)
     (describe-function sym)))
-
-(defvar *lwdoc-types*
-  '(("%FUN-DOCUMENTATION" . function)
-    ("%VAR-DOCUMENTATION" . variable)
-    ("%SETF-DOCUMENTATION" . setf)
-    ("%STRUCT-DOCUMENTATION" . structure)))
-
-;; (lwdoc 'cons 'common-lisp 't)
-(defun lwdoc (name package type)
-  "Search in $LWHOME/lwdoc for entries matching NAME and PACKAGE."
-  (lw:when-let (doc (lookup-lwdoc name package))
-    (destructuring-bind (kind description) doc
-      (when (or (eq type t)
-                (eq (cdr (assoc kind *lwdoc-types* :test #'string-equal))
-                    type))
-        description))))
-
-(defun lookup-lwdoc (name package)
-  (when (probe-file (sys:lispworks-file "lwdoc"))
-    (with-open-file (file (sys:lispworks-file "lwdoc"))
-      (lwdoc-search file 0 (file-length file) package name))))
-
-;; Use binary search, assuming that the entries are ordered alphabetically
-(defun lwdoc-search (file min max package name)
-  (declare (optimize (sys:interruptable 3)))
-  (let ((pos (+ min (floor (- max min) 2))))
-    (and (< min (1- max))
-         (let ((record (parse-lwdoc-record file pos)))
-           (and record
-                (destructuring-bind (rpackage rname kind doc) record
-                  ;;(format t "~d ~d ~a ~a~%" min max rpackage rname)
-                  (ecase (cond ((string-equal package rpackage)
-                                (cond ((string-equal name rname) '=)
-                                      ((string-lessp name rname) '<)
-                                      (t '>)))
-                               ((string-lessp package rpackage) '<)
-                               (t '>))
-                    (= (list kind doc))
-                    (< (lwdoc-search file min pos package name))
-                    (> (lwdoc-search file pos max package name)))))))))
-
-(defun parse-lwdoc-record (file position)
-  (declare (optimize (sys:interruptable 3)))
-  (file-position file position)
-  (when (peek-char #\null file nil nil)
-    ;; Search previous #\null or beginning of file
-    (do* ((end (file-position file))
-          (start end (max (- start 10) 0)))
-         (nil)
-      (file-position file start)
-      (when (= start 0) (return))
-      (peek-char #\null file)
-      (when (< (file-position file) end) (return)))
-    (peek-char #\" file)
-    (let ((key (read file)) 
-          (doc (read file)))
-      (peek-char #\null file)
-      (read-char file)
-      (append (lw:split-sequence ":" key :coalesce-separators t)
-              (list doc)))))
 
 ;;; Debugging
 
