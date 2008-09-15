@@ -340,23 +340,23 @@ Do not set this to T unless you want to debug swank internals.")
 
 ;;;;; Helper macros
 
+;; If true execute interrupts, otherwise queue them.
+;; Note: `with-connection' binds *pending-slime-interrupts*.
 (defvar *slime-interrupts-enabled*)
 
-(defmacro with-slime-interrupts (&body body)
+(defmacro with-interrupts-enabled% (flag body)
   `(progn
      (check-slime-interrupts)
      (multiple-value-prog1
-         (let ((*slime-interrupts-enabled* t))
+         (let ((*slime-interrupts-enabled* ,flag))
            ,@body)
        (check-slime-interrupts))))
 
+(defmacro with-slime-interrupts (&body body)
+  `(with-interrupts-enabled% t ,body))
+
 (defmacro without-slime-interrupts (&body body)
-  `(progn
-     (check-slime-interrupts)
-     (multiple-value-prog1
-         (let ((*slime-interrupts-enabled* t))
-           ,@body)
-       (check-slime-interrupts))))
+  `(with-interrupts-enabled% nil ,body))
 
 (defun invoke-or-queue-interrupt (function)
   (log-event "invoke-or-queue-interrupt: ~a" function)
@@ -401,7 +401,8 @@ If *REDIRECT-IO* is true then all standard I/O streams are redirected."
 (defun call-with-connection (connection function)
   (if (eq *emacs-connection* connection)
       (funcall function)
-      (let ((*emacs-connection* connection))
+      (let ((*emacs-connection* connection)
+            (*pending-slime-interrupts* '()))
         (without-slime-interrupts
           (with-swank-error-handler (*emacs-connection*)
             (with-io-redirection (*emacs-connection*)
@@ -946,8 +947,9 @@ The processing is done in the extent of the toplevel restart."
 (defun process-requests (timeout just-one)
   "Read and process requests from Emacs."
   (loop
-   (multiple-value-bind (event timeout?)
-       (wait-for-event `(:emacs-rex . _) timeout)
+   (multiple-value-bind (event timeout? interrupt?)
+       (wait-for-event `(:emacs-rex . _) timeout just-one)
+     (when interrupt? (return nil))
      (when timeout? (return t))
      (apply #'eval-for-emacs (cdr event))
      (when just-one (return nil)))))
@@ -1117,18 +1119,21 @@ The processing is done in the extent of the toplevel restart."
   (cond ((use-threads-p) (interrupt-thread thread interrupt))
         (t (funcall interrupt))))
 
-(defun wait-for-event (pattern &optional timeout)
+(defun wait-for-event (pattern &optional timeout report-interrupts)
   (log-event "wait-for-event: ~s ~s~%" pattern timeout)
   (without-slime-interrupts
     (cond ((use-threads-p) 
            (receive-if (lambda (e) (event-match-p e pattern)) timeout))
           (t 
-           (wait-for-event/event-loop pattern timeout)))))
+           (wait-for-event/event-loop pattern timeout report-interrupts)))))
 
-(defun wait-for-event/event-loop (pattern timeout)
+(defun wait-for-event/event-loop (pattern timeout report-interrupts)
   (assert (or (not timeout) (eq timeout t)))
   (loop 
-   (check-slime-interrupts)
+   (when *pending-slime-interrupts*
+     (check-slime-interrupts)
+     (when report-interrupts (return (values nil nil t)))
+     (when timeout (return (values nil t))))
    (let ((event (poll-for-event pattern)))
      (when event (return (car event))))
    (let ((events-enqueued *events-enqueued*)

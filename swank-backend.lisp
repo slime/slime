@@ -1027,14 +1027,20 @@ but that thread may hold it more than once."
 (definterface receive-if (predicate &optional timeout)
   "Return the first message satisfiying PREDICATE.")
 
-(defvar *pending-slime-interrupts* '())
+;; List of delayed interrupts.  
+;; This should only have thread-local bindings, so no init form.
+(defvar *pending-slime-interrupts*)
 
-(defun check-slime-interrupts ()
+(defun check-slime-interrupts (&optional test-only)
   "Execute pending interrupts if any.
 This should be called periodically in operations which
-can take a long time to complete."
-  (when (and *pending-slime-interrupts*)
-    (funcall (pop *pending-slime-interrupts*))))
+can take a long time to complete.
+Return a boolean indicating whether any interrupts are queued."
+  (when (and (boundp '*pending-slime-interrupts*)
+             *pending-slime-interrupts*)
+    (unless test-only
+      (funcall (pop *pending-slime-interrupts*)))
+    t))
 
 (definterface wait-for-input (streams &optional timeout)
   "Wait for input on a list of streams.  Return those that are ready.
