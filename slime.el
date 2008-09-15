@@ -1412,9 +1412,9 @@ Return the created process."
   (let ((file (slime-swank-port-file))) 
     (unless (active-minibuffer-window)
       (message "Polling %S.. (Abort with `M-x slime-abort-connection'.)" file))
-    (slime-cancel-connect-retry-timer)
     (cond ((and (file-exists-p file)
                 (> (nth 7 (file-attributes file)) 0)) ; file size
+           (slime-cancel-connect-retry-timer)
            (let ((port (slime-read-swank-port))
                  (args (slime-inferior-lisp-args process)))
              (slime-delete-swank-port-file 'message)
@@ -1422,6 +1422,7 @@ Return the created process."
                                      (plist-get args :coding-system))))
                (slime-set-inferior-process c process))))
           ((and retries (zerop retries))
+           (slime-cancel-connect-retry-timer)
            (message "Failed to connect to Swank."))
           (t
            (when (and (file-exists-p file) 
@@ -1429,11 +1430,13 @@ Return the created process."
              (message "(Zero length port file)")
              ;; the file may be in the filesystem but not yet written
              (unless retries (setq retries 3)))
-           (setq slime-connect-retry-timer
-                 (run-with-timer 0.3 nil
-                                 #'slime-timer-call #'slime-attempt-connection 
-                                 process (and retries (1- retries)) 
-                                 (1+ attempt)))))))
+           (unless slime-connect-retry-timer
+             (setq slime-connect-retry-timer
+                   (run-with-timer
+                    0.3 0.3
+                    #'slime-timer-call #'slime-attempt-connection 
+                    process (and retries (1- retries)) 
+                    (1+ attempt))))))))
     
 (defun slime-timer-call (fun &rest args)
   "Call function FUN with ARGS, reporting all errors.
@@ -8747,9 +8750,7 @@ BODY returns true if the check succeeds."
       sldb-level)))
 
 (defun slime-sldb-level= (level)
-  (when-let (sldb (sldb-get-default-buffer))
-    (with-current-buffer sldb
-      (equal sldb-level level))))
+  (equal level (sldb-level)))
 
 (def-slime-test narrowing
     ()
@@ -8828,7 +8829,8 @@ BODY returns true if the check succeeds."
 
 (def-slime-test find-definition.2
     (buffer-content buffer-package snippet)
-    "Check that we're able to find definitions even when confronted with nasty #.-fu."
+    "Check that we're able to find definitions even when
+confronted with nasty #.-fu."
     '(("#.(prog1 nil (defvar *foobar* 42))
 
        (defun .foo. (x)
@@ -8861,8 +8863,8 @@ BODY returns true if the check succeeds."
     (prefix expected-completions)
     "Find the completions of a symbol-name prefix."
     '(("cl:compile" (("cl:compile" "cl:compile-file" "cl:compile-file-pathname"
-                      "cl:compiled-function" "cl:compiled-function-p" "cl:compiler-macro"
-                      "cl:compiler-macro-function")
+                      "cl:compiled-function" "cl:compiled-function-p" 
+                      "cl:compiler-macro" "cl:compiler-macro-function")
                      "cl:compile"))
       ("cl:foobar" (nil ""))
       ("swank::compile-file" (("swank::compile-file" 
@@ -9354,6 +9356,7 @@ SWANK> " t))
    0)
   (slime-sync-to-top-level 2)
   (slime-eval-async '(cl-user::quux))
+  ;; FIXME: slime-wait-condition returns immediately if the test returns true
   (slime-wait-condition "Checking that Debugger does not popup" 
                         (lambda () 
                           (not (sldb-get-default-buffer)))
@@ -9407,6 +9410,28 @@ X
 #\\X
 SWANK> " (buffer-string))))
 
+(def-slime-test interrupt-in-debugger (interrupts continues)
+    "Let's see what happens if we interrupt the debugger.
+INTERRUPTS ... number of nested interrupts
+CONTINUES  ... how often the continue restart should be invoked"
+    '((1 0) (2 1) (4 2))
+  (slime-check "No debugger" (not (sldb-get-default-buffer)))
+  (dotimes (i interrupts)
+    (slime-interrupt)
+    (let ((level (1+ i)))
+      (slime-wait-condition (format "Debug level %d reachend" lx1evel)
+                            (lambda () (equal (sldb-level) level))
+                            2)))
+  (dotimes (i continues)
+    (sldb-continue)
+    (let ((level (- interrupts (1+ i))))
+      (slime-wait-condition (format "Return to debug level %d" level)
+                            (lambda () (equal (sldb-level) level))
+                            2)))
+  (when (sldb-get-default-buffer)
+    (sldb-quit))
+  (slime-sync-to-top-level 1))
+    
 (def-slime-test disconnect
     ()
     "Close the connetion.

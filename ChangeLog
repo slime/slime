@@ -1,3 +1,20 @@
+2008-09-15  Helmut Eller  <heller@common-lisp.net>
+
+	Interrupt related hacking.
+
+	* swank-backend.lisp (*pending-slime-interrupts*): Should be
+	thread-local.  Leave global value unbound.
+
+	* swank.lisp (with-interrupts-enabled%): New helper macro.
+	(with-slime-interrupts, without-slime-interrupts): Use it.
+	(call-with-connection): Bind *pending-slime-interrupts* here.
+	(wait-for-event): Add a report-interrupt argument.  Currently used
+	by the debugger to detect when a nested debugger session, which
+	was triggered by an interrupt in wait-for-event, returns.  Doesn't
+	work well, though.
+
+	* slime.el (slime-test-interrupt-in-debugger): New test.
+
 2008-09-14  Helmut Eller  <heller@common-lisp.net>
 
 	Introduce a WAIT-FOR-INPUT backend function.
