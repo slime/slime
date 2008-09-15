@@ -1031,15 +1031,14 @@ but that thread may hold it more than once."
 ;; This should only have thread-local bindings, so no init form.
 (defvar *pending-slime-interrupts*)
 
-(defun check-slime-interrupts (&optional test-only)
+(defun check-slime-interrupts ()
   "Execute pending interrupts if any.
 This should be called periodically in operations which
 can take a long time to complete.
-Return a boolean indicating whether any interrupts are queued."
+Return a boolean indicating whether any interrupts was processed."
   (when (and (boundp '*pending-slime-interrupts*)
              *pending-slime-interrupts*)
-    (unless test-only
-      (funcall (pop *pending-slime-interrupts*)))
+    (funcall (pop *pending-slime-interrupts*))
     t))
 
 (definterface wait-for-input (streams &optional timeout)
@@ -1055,7 +1054,7 @@ Return :interrupt if an interrupt occurs while waiting."
   (let ((stream (car streams)))
     (case timeout
       ((nil)
-       (cond (*pending-slime-interrupts* :interrupt)
+       (cond ((check-slime-interrupts) :interrupt)
              (t (peek-char nil stream nil nil) 
                 streams)))
       ((t) 
@@ -1066,7 +1065,7 @@ Return :interrupt if an interrupt occurs while waiting."
                (t '()))))
       (t 
        (loop
-        (if *pending-slime-interrupts* (return :interrupt))
+        (if (check-slime-interrupts) (return :interrupt))
         (when (wait-for-input streams t) (return streams))
         (sleep 0.1)
         (when (<= (decf timeout 0.1) 0) (return nil)))))))

@@ -1,5 +1,25 @@
 2008-09-15  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (sldb-loop): Send a :sldb-return event to ourselfes
+	when returning to inform the debug session at the lower level.
+	(wait-for-event): Drop the report-interrupt argument.  No longer
+	needed.
+	(event-match-p): Add an OR pattern operator.  Used to wait for
+	different events simultaneously.
+
+	(read-packet): Use peek-char to detect EOF. read-sequence wouldn't
+	work.
+
+	* slime.el (slime-test-interrupt-in-debugger): Call sldb-quit and
+	sldb-continue in the right buffer.
+
+	* swank-backend.lisp (wait-for-input):
+	* swank-cmucl.lisp (wait-for-input):
+	* swank-clisp.lisp (wait-for-input): Use the idiom
+	"(when (check-slime-interrupts) (return :interrupt))".
+
+2008-09-15  Helmut Eller  <heller@common-lisp.net>
+
 	Interrupt related hacking.
 
 	* swank-backend.lisp (*pending-slime-interrupts*): Should be

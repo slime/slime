@@ -140,7 +140,7 @@
   (assert (member timeout '(nil t)))
   (let ((streams (mapcar (lambda (s) (list* s :input nil)) streams)))
     (loop
-     (cond (*pending-slime-interrupts* (return :interrupt))
+     (cond ((check-slime-interrupts) (return :interrupt))
            (timeout 
             (socket:socket-status streams 0 0)
             (return (loop for (s _ . x) in streams

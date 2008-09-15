@@ -6818,7 +6818,6 @@ If LEVEL isn't the same as in the buffer, reinitialize the buffer."
 ;; the debugger window.  We also send a ping, just in case Lisp was
 ;; interrupted in swank:wait-for-input.
 (defun sldb-maybe-kill-buffer (thread connection)
-  (slime-eval-async `(swank:ping nil))
   (run-with-idle-timer
    0.3 nil 
    (lambda (thead connection)
@@ -7339,6 +7338,7 @@ This way you can still see what the error was after exiting SLDB."
 (defun sldb-quit ()
   "Quit to toplevel."
   (interactive)
+  (assert sldb-restarts () "sldb-quit called outside of sldb buffer")
   (slime-rex () ('(swank:throw-to-toplevel))
     ((:ok _) (error "sldb-quit returned"))
     ((:abort))))
@@ -7346,6 +7346,7 @@ This way you can still see what the error was after exiting SLDB."
 (defun sldb-continue ()
   "Invoke the \"continue\" restart."
   (interactive)
+  (assert sldb-restarts () "sldb-continue called outside of sldb buffer")
   (slime-rex ()
       ('(swank:sldb-continue))
     ((:ok _)
@@ -9419,16 +9420,17 @@ CONTINUES  ... how often the continue restart should be invoked"
   (dotimes (i interrupts)
     (slime-interrupt)
     (let ((level (1+ i)))
-      (slime-wait-condition (format "Debug level %d reachend" lx1evel)
+      (slime-wait-condition (format "Debug level %d reachend" level)
                             (lambda () (equal (sldb-level) level))
                             2)))
   (dotimes (i continues)
-    (sldb-continue)
+    (with-current-buffer (sldb-get-default-buffer)
+      (sldb-continue))
     (let ((level (- interrupts (1+ i))))
       (slime-wait-condition (format "Return to debug level %d" level)
                             (lambda () (equal (sldb-level) level))
                             2)))
-  (when (sldb-get-default-buffer)
+  (with-current-buffer (sldb-get-default-buffer)
     (sldb-quit))
   (slime-sync-to-top-level 1))
     

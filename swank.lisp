@@ -947,9 +947,8 @@ The processing is done in the extent of the toplevel restart."
 (defun process-requests (timeout just-one)
   "Read and process requests from Emacs."
   (loop
-   (multiple-value-bind (event timeout? interrupt?)
-       (wait-for-event `(:emacs-rex . _) timeout just-one)
-     (when interrupt? (return nil))
+   (multiple-value-bind (event timeout?)
+       (wait-for-event `(:emacs-rex . _) timeout)
      (when timeout? (return t))
      (apply #'eval-for-emacs (cdr event))
      (when just-one (return nil)))))
@@ -1119,21 +1118,18 @@ The processing is done in the extent of the toplevel restart."
   (cond ((use-threads-p) (interrupt-thread thread interrupt))
         (t (funcall interrupt))))
 
-(defun wait-for-event (pattern &optional timeout report-interrupts)
+(defun wait-for-event (pattern &optional timeout)
   (log-event "wait-for-event: ~s ~s~%" pattern timeout)
   (without-slime-interrupts
     (cond ((use-threads-p) 
            (receive-if (lambda (e) (event-match-p e pattern)) timeout))
           (t 
-           (wait-for-event/event-loop pattern timeout report-interrupts)))))
+           (wait-for-event/event-loop pattern timeout)))))
 
-(defun wait-for-event/event-loop (pattern timeout report-interrupts)
+(defun wait-for-event/event-loop (pattern timeout)
   (assert (or (not timeout) (eq timeout t)))
   (loop 
-   (when *pending-slime-interrupts*
-     (check-slime-interrupts)
-     (when report-interrupts (return (values nil nil t)))
-     (when timeout (return (values nil t))))
+   (check-slime-interrupts)
    (let ((event (poll-for-event pattern)))
      (when event (return (car event))))
    (let ((events-enqueued *events-enqueued*)
@@ -1162,10 +1158,12 @@ The processing is done in the extent of the toplevel restart."
 	 (equal event pattern))
 	((symbolp pattern) t)
 	((consp pattern)
-         (and (consp event)
-              (and (event-match-p (car event) (car pattern))
-                   (event-match-p (cdr event) (cdr pattern)))))
-	(t (error "Invalid pattern: ~S" pattern))))
+         (case (car pattern)
+           ((or) (some (lambda (p) (event-match-p event p)) (cdr pattern)))
+           (t (and (consp event)
+                   (and (event-match-p (car event) (car pattern))
+                        (event-match-p (cdr event) (cdr pattern)))))))
+        (t (error "Invalid pattern: ~S" pattern))))
 
 (defun spawn-threads-for-connection (connection)
   (setf (connection.control-thread connection) 
@@ -1490,7 +1488,10 @@ NIL if streams are not globally redirected.")
           (reader-error (c) 
             `(:reader-error ,packet ,c)))))))
 
+;; use peek-char to detect EOF, read-sequence may return 0 instead of
+;; signaling a condition.
 (defun read-packet (stream)
+  (peek-char nil stream) 
   (let* ((header (read-chunk stream 6))
          (length (parse-integer header :radix #x10))
          (payload (read-chunk stream length)))
@@ -2207,13 +2208,22 @@ after Emacs causes a restart to be invoked."
           (send-to-emacs 
            (list* :debug (current-thread-id) level
                   (debugger-info-for-emacs 0 *sldb-initial-frames*)))
+          (send-to-emacs 
+           (list :debug-activate (current-thread-id) level nil))
           (loop 
-           (send-to-emacs (list :debug-activate (current-thread-id) level nil))
-           (handler-case (process-requests nil t)
+           (handler-case 
+               (destructure-case (wait-for-event 
+                                  `(or (:emacs-rex . _)
+                                       (:sldb-return ,(1+ level))))
+                 ((:emacs-rex &rest args) (apply #'eval-for-emacs args))
+                 ((:sldb-return _) (declare (ignore _)) (return nil))) 
              (sldb-condition (c) 
                (handle-sldb-condition c))))))
     (send-to-emacs `(:debug-return
-                     ,(current-thread-id) ,level ,*sldb-stepping-p*))))
+                     ,(current-thread-id) ,level ,*sldb-stepping-p*))
+    (wait-for-event `(:sldb-return ,(1+ level)) t) ; clean event-queue
+    (when (> level 1)
+      (send-event (current-thread) `(:sldb-return ,level)))))
 
 (defun handle-sldb-condition (condition)
   "Handle an internal debugger condition.

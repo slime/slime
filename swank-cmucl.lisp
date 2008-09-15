@@ -198,7 +198,7 @@ specific functions.")
    (let ((ready (remove-if-not #'listen streams)))
      (when ready (return ready)))
    (when timeout (return nil))
-   (if *pending-slime-interrupts* (return :interrupt))
+   (when (check-slime-interrupts) (return :interrupt))
    (let* ((f (constantly t))
           (handlers (loop for s in streams
                           collect (add-one-shot-handler s f))))
