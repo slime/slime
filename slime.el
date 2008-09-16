@@ -5799,7 +5799,7 @@ Point is placed before the first expression in the list."
 (defun slime-end-of-list (&optional up)
   (backward-up-list (or up 1))
   (forward-list 1)
-  (backward-down-list 1))
+  (down-list -1))
 
 (defun slime-parse-toplevel-form ()
   (ignore-errors                        ; (foo)

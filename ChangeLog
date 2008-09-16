@@ -1,3 +1,9 @@
+2008-09-16  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-end-of-list): `backward-down-list' was used
+	there which is defined by paredit.el.
+	Use `(down-list -1)' instead.
+
 2008-09-15  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-lispworks.lisp (describe-symbol-for-emacs): Revert last
