@@ -2667,16 +2667,25 @@ hashtable `slime-output-target-to-marker'; output is inserted at this marker."
   ;; insert the string STRING in the output buffer
   (with-current-buffer (slime-output-buffer)
     (slime-with-output-end-mark 
-     (slime-insert-propertized '(face slime-repl-output-face
-                                      rear-nonsticky (face))
-                               string)
-     (set-marker slime-output-end (point))
+     (slime-repl-insert-at-markers slime-output-start slime-output-end
+                                   string '(face slime-repl-output-face
+                                                 rear-nonsticky (face)))
+     (goto-char slime-output-end)
      (when (and (= (point) slime-repl-prompt-start-mark)
                 (not (bolp)))
        (insert "\n")
        (set-marker slime-output-end (1- (point))))
-     (when (< slime-repl-input-start-mark (point))
-       (set-marker slime-repl-input-start-mark (point))))))
+     (assert (<= (point) slime-repl-input-start-mark)))))
+
+(defun slime-repl-insert-at-markers (marker1 marker2 string &optional props)
+  (goto-char marker2)
+  (let ((start (point)))
+    (insert-before-markers string)
+    (cond ((< marker1 marker2))
+          ((= marker1 marker2) (set-marker marker1 start))
+          (t (assert (<= marker1 marker2))))
+    (when props
+      (add-text-properties start marker2 props))))
 
 (defun slime-repl-emit-result (string &optional bol)
   ;; insert STRING and mark it as evaluation result
@@ -2965,7 +2974,6 @@ joined together."))
     (set-marker slime-repl-input-end-mark (point-max))
     (set-marker slime-repl-prompt-start-mark prompt-start)
     (goto-char slime-repl-prompt-start-mark)
-    (slime-mark-output-start)
     (goto-char (point-max)))
   (slime-repl-show-maximum-output))
 
@@ -5464,8 +5472,10 @@ Show the output buffer if the evaluation causes any output."
 
 (defun slime-insert-transcript-delimiter (string)
   (with-current-buffer (slime-output-buffer)
-    (slime-with-output-end-mark
-     (unless (bolp) (insert-before-markers "\n"))
+    (goto-char (point-max))
+    (unless (bolp) (insert-before-markers "\n"))
+    (slime-mark-output-start)
+    (slime-mark-input-start)
      (slime-propertize-region '(slime-transcript-delimiter t)
        (insert-before-markers
         ";;;; " (subst-char-in-string ?\n ?\ 
@@ -9286,15 +9296,18 @@ SWANK> foo"))
 (def-slime-test interactive-eval-output
     (input result-contents visiblep)
     "Test simple commands in the minibuffer."
-    '(("(+ 1 2)" ";;;; (+ 1 2) ...
-SWANK> " nil)
-      ("(princ 10)" ";;;; (princ 10) ...
+    '(("(+ 1 2)" "SWANK> 
+;;;; (+ 1 2) ...
+" nil)
+      ("(princ 10)" "SWANK> 
+;;;; (princ 10) ...
 10
-SWANK> " t)
+" t)
       ("(princ \"ßäëïöüáéíóúàèìòùâêîôûãõøçğåæ\")"
-       ";;;; (princ \"ßäëïöüáéíóúàèìòùâêîôûãõøçğåæ\") ...
+       "SWANK> 
+;;;; (princ \"ßäëïöüáéíóúàèìòùâêîôûãõøçğåæ\") ...
 ßäëïöüáéíóúàèìòùâêîôûãõøçğåæ
-SWANK> " t))
+" t))
   (when (and (fboundp 'string-to-multibyte)
              (with-current-buffer (process-buffer (slime-connection))
                enable-multibyte-characters))
