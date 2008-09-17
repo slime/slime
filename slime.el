@@ -5481,7 +5481,7 @@ Show the output buffer if the evaluation causes any output."
         ";;;; " (subst-char-in-string ?\n ?\ 
                                       (substring string 0 
                                                  (min 60 (length string))))
-        " ...\n")))))
+        " ...\n"))))
 
 (defun slime-display-buffer-region (buffer start end &optional other-window)
   "Like `display-buffer', but only display the specified region."
