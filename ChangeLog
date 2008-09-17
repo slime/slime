@@ -1,8 +1,8 @@
-2008-09-16  Tobias C. Rittweiler  <tcr@freebits.de>
+2008-09-17  Helmut Eller  <heller@common-lisp.net>
 
-	* slime.el (slime-end-of-list): `backward-down-list' was used
-	there which is defined by paredit.el.
-	Use `(down-list -1)' instead.
+	* slime.el (slime-test-find-top-level-restart): New function.
+	[def-slime-test] (interrupt-at-toplevel, interrupt-in-debugger):
+	Use it.
 
 2008-09-16  Helmut Eller  <heller@common-lisp.net>
 
@@ -33,6 +33,12 @@
 
 	* swank-lispworks.lisp (skip-comments): New function.
 	(dspec-stream-position): Use it.
+
+2008-09-16  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-end-of-list): `backward-down-list' was used
+	there which is defined by paredit.el.
+	Use `(down-list -1)' instead.
 
 2008-09-15  Helmut Eller  <heller@common-lisp.net>
 
