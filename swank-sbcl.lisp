@@ -601,7 +601,7 @@ This is useful when debugging the definition-finding code.")
            (make-location `(:file ,namestring)
                           ;; /file positions/ in Common Lisp start
                           ;; from 0, in Emacs they start from 1.
-                          `(:position (1+ ,pos))
+                          `(:position ,(1+ pos))
                           `(:snippet ,snippet))))))))
 
 (defun string-path-snippet (string form-path position)
