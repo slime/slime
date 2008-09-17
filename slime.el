@@ -2663,6 +2663,10 @@ hashtable `slime-output-target-to-marker'; output is inserted at this marker."
     (:repl-result (slime-repl-emit-result string))
     (t (slime-emit-string string target))))
 
+(defvar slime-repl-popup-on-output nil
+  "Display the output buffer when some output is written.
+This is set to nil after displaying the buffer.")
+
 (defun slime-repl-emit (string)
   ;; insert the string STRING in the output buffer
   (with-current-buffer (slime-output-buffer)
@@ -2675,7 +2679,10 @@ hashtable `slime-output-target-to-marker'; output is inserted at this marker."
                 (not (bolp)))
        (insert "\n")
        (set-marker slime-output-end (1- (point))))
-     (assert (<= (point) slime-repl-input-start-mark)))))
+     (assert (<= (point) slime-repl-input-start-mark))
+     (when slime-repl-popup-on-output
+       (setq slime-repl-popup-on-output nil)
+       (display-buffer (current-buffer))))))
 
 (defun slime-repl-insert-at-markers (marker1 marker2 string &optional props)
   (goto-char marker2)
@@ -5427,8 +5434,7 @@ inserted in the current buffer."
   (interactive (list (slime-read-from-minibuffer "Slime Eval: ")))
   (slime-insert-transcript-delimiter string)
   (cond ((not current-prefix-arg)
-         (slime-eval-with-transcript `(swank:interactive-eval ,string) 
-                                     'slime-display-eval-result))
+         (slime-eval-with-transcript `(swank:interactive-eval ,string)))
         (t
          (slime-eval-print string))))
 
@@ -5444,21 +5450,15 @@ inserted in the current buffer."
                           (destructuring-bind (output value) result
                             (insert output value)))))))
 
-(defun slime-eval-with-transcript (form &optional fn)
-  "Send FROM and PACKAGE to Lisp and pass the result to FN.
-Display the result in the message area, if FN is nil.
-Show the output buffer if the evaluation causes any output."
-  (with-current-buffer (slime-output-buffer)
-    (slime-with-output-end-mark 
-     (slime-mark-output-start)))
-  (slime-eval-async form
-                    (slime-rcurry 
-                     (lambda (value fn)
-                       (with-current-buffer (slime-output-buffer)
-                         (slime-show-last-output)
-                         (cond (fn (funcall fn value))
-                               (t (message "%s" value)))))
-                     fn)))
+(defun slime-eval-with-transcript (form)
+  "Eval FROM in Lisp.  Display output, if any, caused by the evaluation."
+  (setq slime-repl-popup-on-output t)
+  (slime-eval-async 
+   form
+   (lambda (value)
+     (run-with-timer 0.2 nil (lambda ()
+                               (setq slime-repl-popup-on-output nil)))
+     (slime-display-eval-result value))))
 
 (defun slime-eval-describe (form)
   "Evaluate FORM in Lisp and display the result in a new buffer."

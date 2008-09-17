@@ -5,10 +5,22 @@
 
 2008-09-17  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-repl-popup-on-output): New variable.
+	(slime-repl-emit): Honor slime-repl-popup-on-output.
+	(slime-eval-with-transcript): Use slime-repl-popup-on-output.
+	Also remove the function argument, as it was only used once
+	and that was slime-message.
+
+2008-09-17  Helmut Eller  <heller@common-lisp.net>
+
+	(*pre-reply-hook*): Add 'force-user-output.
+
+2008-09-17  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (send-user-output): Lifted from make-output-function.
 	Make this a top-level function for easier redefinition.
 
-	(*pre-reply-hook*): Add 'force-user-output.
+2008-09-17  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-test-find-top-level-restart): New function.
 	[def-slime-test] (interrupt-at-toplevel, interrupt-in-debugger):
