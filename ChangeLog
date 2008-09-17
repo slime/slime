@@ -8,6 +8,8 @@
 	* swank.lisp (send-user-output): Lifted from make-output-function.
 	Make this a top-level function for easier redefinition.
 
+	(*pre-reply-hook*): Add 'force-user-output.
+
 	* slime.el (slime-test-find-top-level-restart): New function.
 	[def-slime-test] (interrupt-at-toplevel, interrupt-in-debugger):
 	Use it.

@@ -1551,6 +1551,8 @@ NIL if streams are not globally redirected.")
 (defun force-user-output ()
   (force-output (connection.user-io *emacs-connection*)))
 
+(add-hook *pre-reply-hook* 'force-user-output)
+
 (defun clear-user-input  ()
   (clear-input (connection.user-input *emacs-connection*)))
 
