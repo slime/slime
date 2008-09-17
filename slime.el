@@ -1816,7 +1816,8 @@ Return nil if there's no connection."
 Signal an error if there's no connection."
   (let ((conn (slime-current-connection)))
     (cond ((and (not conn) slime-net-processes)
-           (error "No default connection selected."))
+           (or (slime-auto-select-connection)
+               (error "No default connection selected.")))
           ((not conn)
            (or (slime-auto-connect)
                (error "Not connected.")))
@@ -1836,6 +1837,21 @@ Signal an error if there's no connection."
              (sleep-for 1))
            (slime-connection)))
         (t nil)))
+
+(defvar slime-auto-select-connection 'ask)
+
+(defun slime-auto-select-connection ()
+  (let* ((c0 (car slime-net-processes))
+         (c (cond ((eq slime-auto-select-connection 'always) c0)
+                  ((and (eq slime-auto-select-connection 'ask)
+                        (y-or-n-p 
+                         (format "No default connection selected.  %s %s? "
+                                 "Switch to" (slime-connection-name c0))))
+                   c0))))
+    (when c
+      (slime-select-connection c)
+      (message "Switching to connection: %s" (slime-connection-name c))
+      c)))
 
 (defun slime-select-connection (process)
   "Make PROCESS the default connection."
@@ -4661,16 +4677,15 @@ you should check twice before modifying.")
   ;; Return the number of \r\n eol markers that we need to cross when
   ;; moving N chars forward.  N is the number of chars but \r\n are
   ;; counted as 2 separate chars.
-  (let* ((eol-type (coding-system-eol-type buffer-file-coding-system)))
-    (ecase eol-type
-      ((0 2) 0)
-      ((1) 
-       (save-excursion 
-         (do ((pos (+ (point) n))
-              (count 0 (1+ count)))
-             ((>= (point) pos) (1- count))
-           (forward-line)
-           (decf pos)))))))
+  (case (coding-system-eol-type buffer-file-coding-system)
+    ((0 2) 0)
+    ((1) 
+     (save-excursion 
+       (do ((pos (+ (point) n))
+            (count 0 (1+ count)))
+           ((>= (point) pos) (1- count))
+         (forward-line)
+         (decf pos))))))
 
 (defun slime-search-method-location (name specializers qualifiers)
   ;; Look for a sequence of words (def<something> method name

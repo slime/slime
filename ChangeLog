@@ -6,6 +6,13 @@
 
 2008-09-16  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-connection): Optionally select a new default
+	connection.
+	(slime-auto-select-connection): New variable.
+	(slime-auto-select-connection): New function.
+
+2008-09-16  Helmut Eller  <heller@common-lisp.net>
+
 	Adjust positions in files with CRLF style end-on-line markers.
 
 	* slime.el (slime-eol-conversion-fixup): New function.
