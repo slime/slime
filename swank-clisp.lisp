@@ -559,7 +559,7 @@ Execute BODY with NAME's function slot set to FUNCTION."
                           (list ':line lineno1)))
           (*buffer-name*
            (make-location (list ':buffer *buffer-name*)
-                          (list ':position *buffer-offset*)))
+                          (list ':offset *buffer-offset* 0)))
           (t
            (list :error "No error location available")))))
 

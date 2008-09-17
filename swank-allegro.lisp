@@ -255,7 +255,7 @@
     (cond (*buffer-name*
            (make-location 
             (list :buffer *buffer-name*)
-            (list :position *buffer-start-position*)))
+            (list :offset *buffer-start-position* 0)))
           (loc
            (destructuring-bind (file . pos) loc
              (make-location
@@ -366,7 +366,7 @@
          (start (and part
                      (scm::source-part-start part)))
          (pos (if start
-                  (list :position (1+ (- start (count-cr file start))))
+                  (list :position (1+ start))
                   (list :function-name (string (fspec-primary-name fspec))))))
     (make-location (list :file (namestring (truename file)))
                    pos)))
@@ -375,7 +375,7 @@
   (let ((pos (position #\; filename :from-end t)))
     (make-location
      (list :buffer (subseq filename 0 pos))
-     (list :position (parse-integer (subseq filename (1+ pos)))))))
+     (list :offset (parse-integer (subseq filename (1+ pos))) 0))))
 
 (defun find-fspec-location (fspec type file top-level)
   (etypecase file
@@ -404,8 +404,9 @@
       (declare (ignore top-level-form))
       (list
        (list (list nil fspec)
-             (make-location (list :buffer file)
-                            (list :position position t))))))
+             (make-location (list :buffer file) ; FIXME: should use :file
+                            (list :position position)
+                            (list :align t))))))
    ((and (listp fspec) (eq (car fspec) :internal))
     (destructuring-bind (_internal next _n) fspec
       (declare (ignore _internal _n))

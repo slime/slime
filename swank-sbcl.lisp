@@ -371,17 +371,15 @@ information."
 (defun locate-compiler-note (file source-path source)
   (cond ((and (not (eq file :lisp)) *buffer-name*)
          ;; Compiling from a buffer
-         (let ((position (+ *buffer-offset*
-                            (source-path-string-position
-                             source-path *buffer-substring*))))
-           (make-location (list :buffer *buffer-name*)
-                          (list :position position))))
+         (make-location (list :buffer *buffer-name*)
+                        (list :offset  *buffer-offset* 
+                              (source-path-string-position
+                               source-path *buffer-substring*))))
         ((and (pathnamep file) (null *buffer-name*))
          ;; Compiling from a file
          (make-location (list :file (namestring file))
-                        (list :position
-                              (1+ (source-path-file-position
-                                   source-path file)))))
+                        (list :position (1+ (source-path-file-position
+                                             source-path file)))))
         ((and (eq file :lisp) (stringp source))
          ;; Compiling macro generated code
          (make-location (list :source-form source)
@@ -590,7 +588,7 @@ This is useful when debugging the definition-finding code.")
                          character-offset))
                 (snippet (string-path-snippet emacs-string form-path pos)))
            (make-location `(:buffer ,emacs-buffer)
-                          `(:position ,(+ pos emacs-position))
+                          `(:offset ,emacs-position ,pos)
                           `(:snippet ,snippet))))
         ((not pathname)
          `(:error ,(format nil "Source definition of ~A ~A not found"
@@ -603,7 +601,7 @@ This is useful when debugging the definition-finding code.")
            (make-location `(:file ,namestring)
                           ;; /file positions/ in Common Lisp start
                           ;; from 0, in Emacs they start from 1.
-                          `(:position ,(1+ pos))
+                          `(:position (1+ ,pos))
                           `(:snippet ,snippet))))))))
 
 (defun string-path-snippet (string form-path position)
@@ -905,7 +903,7 @@ stack."
 (defun lisp-source-location (code-location)
   (let ((source (prin1-to-string
                  (sb-debug::code-location-source-form code-location 100))))
-    (make-location `(:source-form ,source) '(:position 0))))
+    (make-location `(:source-form ,source) '(:position 1))))
 
 (defun emacs-buffer-source-location (code-location plist)
   (if (code-location-has-debug-block-info-p code-location)
@@ -916,7 +914,7 @@ stack."
                (snipped (with-input-from-string (s emacs-string)
                           (read-snippet s pos))))
           (make-location `(:buffer ,emacs-buffer)
-                         `(:position ,(+ emacs-position pos))
+                         `(:offset ,emacs-position ,pos)
                          `(:snippet ,snipped))))
       (fallback-source-location code-location)))
 
@@ -930,7 +928,7 @@ stack."
         (let* ((pos (stream-source-position code-location s))
                (snippet (read-snippet s pos)))
           (make-location `(:file ,filename)
-                         `(:position ,(1+ pos))
+                         `(:position ,pos)
                          `(:snippet ,snippet)))))))
 
 (defun code-location-debug-source-name (code-location)

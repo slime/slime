@@ -4627,11 +4627,12 @@ you should check twice before modifying.")
 
 (defun slime-goto-location-position (position)
   (destructure-case position
-    ((:position pos &optional align-p)
-     (goto-char pos)
-     (when align-p
-       (slime-forward-sexp)
-       (beginning-of-sexp)))
+    ((:position pos)
+     (goto-char 1)
+     (forward-char (- (1- pos) (slime-eol-conversion-fixup (1- pos)))))
+    ((:offset start offset)
+     (goto-char start)
+     (forward-char offset))
     ((:line start &optional column)
      (goto-line start)
      (cond (column (move-to-column column))
@@ -4654,13 +4655,22 @@ you should check twice before modifying.")
             (goto-char start-position)
             (slime-forward-positioned-source-path source-path))
            (t
-            (slime-forward-source-path source-path))))
-    ;; Goes to "start" then looks for the anchor text, then moves
-    ;; delta from that position.
-    ((:text-anchored start text delta)
-     (goto-char start)
-     (slime-isearch text)
-     (forward-char delta))))
+            (slime-forward-source-path source-path))))))
+
+(defun slime-eol-conversion-fixup (n)
+  ;; Return the number of \r\n eol markers that we need to cross when
+  ;; moving N chars forward.  N is the number of chars but \r\n are
+  ;; counted as 2 separate chars.
+  (let* ((eol-type (coding-system-eol-type buffer-file-coding-system)))
+    (ecase eol-type
+      ((0 2) 0)
+      ((1) 
+       (save-excursion 
+         (do ((pos (+ (point) n))
+              (count 0 (1+ count)))
+             ((>= (point) pos) (1- count))
+           (forward-line)
+           (decf pos)))))))
 
 (defun slime-search-method-location (name specializers qualifiers)
   ;; Look for a sequence of words (def<something> method name
@@ -4710,11 +4720,11 @@ are supported:
              | (:source-form <string>)
              | (:zip <file> <entry>)
 
-<position> ::= (:position <fixnum> [<align>]) ; 1 based
+<position> ::= (:position <fixnum>) ; 1 based (for files)
+             | (:offset <start> <offset>) ; start+offset (for C-c C-c)
              | (:line <line> [<column>])
              | (:function-name <string>)
              | (:source-path <list> <start-position>) 
-             | (:text-anchored <fixnum> <string> <fixnum>) 
              | (:method <name string> <specializer strings> . <qualifiers strings>)"
   (destructure-case location
     ((:location buffer position hints)
@@ -4738,7 +4748,10 @@ are supported:
       (when-let (snippet (getf hints :snippet))
         (slime-isearch snippet))
       (when-let (fname (getf hints :call-site))
-        (slime-search-call-site fname)))
+        (slime-search-call-site fname))
+      (when (getf hints :align)
+        (slime-forward-sexp)
+        (beginning-of-sexp)))
     (point)))
 
 

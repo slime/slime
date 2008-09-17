@@ -317,7 +317,7 @@
                :location (cond (*buffer-name*
                                 (make-location 
                                  (list :buffer *buffer-name*)
-                                 (list :position *buffer-start-position*)))
+                                 (list :offset *buffer-start-position* 0)))
                                (loc
                                 (destructuring-bind (file . pos) loc
                                   (make-location
@@ -385,8 +385,8 @@
     `(((,symbol)
        (:location 
         (:file ,(namestring (ext:source-pathname symbol)))
-        (:position ,(or (ext:source-file-position symbol) 0) t)
-        (:snippet nil))))))
+        (:position ,(or (ext:source-file-position symbol) 1))
+        (:align t))))))
 
 
 (defimplementation find-definitions (symbol)

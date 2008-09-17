@@ -455,7 +455,7 @@
          (pos (c::compiler-read-error-position condition)))
     (cond ((and (eq file :stream) *buffer-name*)
            (make-location (list :buffer *buffer-name*)
-                          (list :position (+ *buffer-start-position* pos))))
+                          (list :offset *buffer-start-position* pos)))
           ((and (pathnamep file) (not *buffer-name*))
            (make-location (list :file (unix-truename file))
                           (list :position (1+ pos))))
@@ -480,17 +480,15 @@
 (defun locate-compiler-note (file source source-path)
   (cond ((and (eq file :stream) *buffer-name*)
          ;; Compiling from a buffer
-         (let ((position (+ *buffer-start-position*
-                            (source-path-string-position
-                             source-path *buffer-substring*))))
-           (make-location (list :buffer *buffer-name*)
-                          (list :position position))))
+	 (make-location (list :buffer *buffer-name*)
+			(list :offset *buffer-start-position*
+			      (source-path-string-position
+			       source-path *buffer-substring*))))
         ((and (pathnamep file) (null *buffer-name*))
          ;; Compiling from a file
          (make-location (list :file (unix-truename file))
-                        (list :position
-                              (1+ (source-path-file-position
-                                   source-path file)))))
+                        (list :position (1+ (source-path-file-position
+					     source-path file)))))
         ((and (eq file :lisp) (stringp source))
          ;; No location known, but we have the source form.
          ;; XXX How is this case triggered?  -luke (16/May/2004) 
@@ -712,7 +710,7 @@
     (with-input-from-string (s source-code)
       (make-location (list :file (unix-truename filename))
                      (list :position (1+ (code-location-stream-position
-                                          code-location s)))
+					  code-location s)))
                      `(:snippet ,(read-snippet s))))))
 
 (defun location-in-stream (code-location debug-source)
@@ -727,7 +725,7 @@
                     string)))
     (make-location
      (list :buffer (getf info :emacs-buffer))
-     (list :position (+ (getf info :emacs-buffer-offset) position))
+     (list :offset (getf info :emacs-buffer-offset) position)
      (list :snippet (with-input-from-string (s string)
                       (file-position s position)
                       (read-snippet s))))))

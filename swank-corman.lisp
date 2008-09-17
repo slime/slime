@@ -356,7 +356,7 @@
                                    (cond (*buffer-name*
                                           (make-location
                                            (list :buffer *buffer-name*)
-                                           (list :position *buffer-position*)))
+                                           (list :offset *buffer-position* 0)))
                                          (*compile-filename*
                                           (make-location
                                            (list :file *compile-filename*)

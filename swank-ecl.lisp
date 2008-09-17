@@ -122,7 +122,7 @@
    :location
    (if *buffer-name*
        (make-location (list :buffer *buffer-name*)
-                      (list :position *buffer-start-position*))
+                      (list :offset *buffer-start-position* 0))
        ;; ;; compiler::*current-form*
        ;; (if compiler::*current-function*
        ;;     (make-location (list :file *compile-filename*)

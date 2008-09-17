@@ -300,11 +300,13 @@ condition."
              (if *buffer-name*
                  (make-location
                   (list :buffer *buffer-name*)
-                  (list :position position t))
+                  (list :offset position 0)
+                  (list :align t))
                  (if (ccl::compiler-warning-file-name condition)
                      (make-location
                       (list :file (namestring (truename (ccl::compiler-warning-file-name condition))))
-                      (list :position position t))))))))
+                      (list :position position)
+                      (list :align t))))))))
 
 (defun temp-file-name ()
   "Return a temporary file name to compile strings into."

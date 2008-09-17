@@ -459,14 +459,14 @@ Return NIL if the symbol is unbound."
              (delete-file binary-filename))))
     (delete-file filename)))
 
-(defun dspec-buffer-position (dspec offset)
+(defun dspec-function-name-position (dspec fallback)
   (etypecase dspec
     (cons (let ((name (dspec:dspec-primary-name dspec)))
             (typecase name
               ((or symbol string) 
                (list :function-name (string name)))
-              (t (list :position offset)))))
-    (null (list :position offset))
+              (t fallback))))
+    (null fallback)
     (symbol (list :function-name (string dspec)))))
 
 (defmacro with-fairly-standard-io-syntax (&body body)
@@ -480,10 +480,17 @@ Return NIL if the symbol is unbound."
               (*readtable* ,readtable))
           ,@body)))))
 
+(defun skip-comments (stream)
+  (let ((pos0 (file-position stream)))
+    (cond ((equal (ignore-errors (list (read-delimited-list #\( stream)))
+                  '(()))
+           (file-position stream (1- (file-position stream))))
+          (t (file-position stream pos0)))))
+
 #-(or lispworks4.1 lispworks4.2) ; no dspec:parse-form-dspec prior to 4.3
 (defun dspec-stream-position (stream dspec)
   (with-fairly-standard-io-syntax
-    (loop (let* ((pos (file-position stream))
+    (loop (let* ((pos (progn (skip-comments stream) (file-position stream)))
                  (form (read stream nil '#1=#:eof)))
             (when (eq form '#1#)
               (return nil))
@@ -517,8 +524,8 @@ Return NIL if the symbol is unbound."
              #-(or lispworks4.1 lispworks4.2)
              (dspec-stream-position stream dspec)))
         (if pos
-            (list :position (1+ pos) t)
-            (dspec-buffer-position dspec 1))))))
+            (list :position (1+ pos))
+            (dspec-function-name-position dspec `(:position 1)))))))
 
 (defun emacs-buffer-location-p (location)
   (and (consp location)
@@ -540,7 +547,7 @@ Return NIL if the symbol is unbound."
      (destructuring-bind (_ buffer offset string) location
        (declare (ignore _ string))
        (make-location `(:buffer ,buffer)
-                      (dspec-buffer-position dspec offset)
+                      (dspec-function-name-position dspec `(:offset ,offset 0))
                       hints)))))
 
 (defun make-dspec-progenitor-location (dspec location)

@@ -4,6 +4,29 @@
 	there which is defined by paredit.el.
 	Use `(down-list -1)' instead.
 
+2008-09-16  Helmut Eller  <heller@common-lisp.net>
+
+	Adjust positions in files with CRLF style end-on-line markers.
+
+	* slime.el (slime-eol-conversion-fixup): New function.
+	(slime-goto-location-position): Use it.  Also add a new position
+	type :offset, so that we don't adjust offsets in strings that were
+	sent over the wire (which uses LF eol-convention).
+
+	* swank-abcl.lisp
+	* swank-allegro.lisp
+	* swank-clisp.lisp
+	* swank-cmucl.lisp
+	* swank-corman.lisp
+	* swank-ecl.lisp
+	* swank-lispworks.lisp
+	* swank-openmcl.lisp
+	* swank-sbcl.lisp
+	* swank-scl.lisp: Create :offset style positions where needed.
+
+	* swank-lispworks.lisp (skip-comments): New function.
+	(dspec-stream-position): Use it.
+
 2008-09-15  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-lispworks.lisp (describe-symbol-for-emacs): Revert last
