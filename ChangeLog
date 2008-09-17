@@ -1,3 +1,13 @@
+2008-09-18  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-eval-with-transcript): Accept some more arguments
+	so that we can also use it for compile-file.
+	(slime-eval-with-transcript-cont): New. Insert prompt.
+	(slime-compile-file): Use slime-eval-with-transcript.
+	(slime-repl-show-maximum-output): Update window point.
+	(slime-repl-insert-prompt): Don't use insert-before-markers.
+	(slime-repl-emit): No longer use slime-with-output-end-mark.
+
 2008-09-17  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-sbcl.lisp (make-definition-source-location): Fix typo
