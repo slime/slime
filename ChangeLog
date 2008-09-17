@@ -5,6 +5,9 @@
 
 2008-09-17  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (send-user-output): Lifted from make-output-function.
+	Make this a top-level function for easier redefinition.
+
 	* slime.el (slime-test-find-top-level-restart): New function.
 	[def-slime-test] (interrupt-at-toplevel, interrupt-in-debugger):
 	Use it.

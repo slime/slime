@@ -872,25 +872,29 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
              :name "auto-flush-thread"))
     (values dedicated-output in out io repl-results)))
 
-(defvar *maximum-pipelined-output-chunks* 20)
-
 ;; FIXME: if wait-for-event aborts the event will stay in the queue forever.
 (defun make-output-function (connection)
   "Create function to send user output to Emacs."
   (let ((i 0) (tag 0) (l 0))
     (lambda (string)
       (with-connection (connection)
-        (with-simple-restart (abort "Abort sending output to Emacs.")
-          (when (or (= i *maximum-pipelined-output-chunks*) 
-                    (> l (* 80 20 5)))
-            (setf tag (mod (1+ tag) 1000))
-            (send-to-emacs `(:ping ,(current-thread-id) ,tag))
-            (wait-for-event `(:emacs-pong ,tag))
-            (setf i 0) 
-            (setf l 0))
-          (incf i)
-          (incf l (length string))
-          (send-to-emacs `(:write-string ,string)))))))
+        (multiple-value-setq (i tag l) 
+          (send-user-output string i tag l))))))
+
+(defvar *maximum-pipelined-output-chunks* 50)
+(defvar *maximum-pipelined-output-length* (* 80 20 5))
+(defun send-user-output (string pcount tag plength)
+  ;; send output with flow control
+  (when (or (> pcount *maximum-pipelined-output-chunks*) 
+            (> plength *maximum-pipelined-output-length*))
+    (setf tag (mod (1+ tag) 1000))
+    (send-to-emacs `(:ping ,(current-thread-id) ,tag))
+    (with-simple-restart (abort "Abort sending output to Emacs.")
+      (wait-for-event `(:emacs-pong ,tag)))
+    (setf pcount 0) 
+    (setf plength 0))
+  (send-to-emacs `(:write-string ,string))
+  (values (1+ pcount) tag (+ plength (length string))))
 
 (defun make-output-function-for-target (connection target)
   "Create a function to send user output to a specific TARGET in Emacs."
