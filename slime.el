@@ -5452,7 +5452,7 @@ inserted in the current buffer."
                             (setq slime-repl-popup-on-output nil)))
   (with-current-buffer (slime-output-buffer)
     (save-excursion
-      (let ((output-start slime-repl-input-start-mark))
+      (let ((output-start (marker-position slime-repl-input-start-mark)))
         (slime-repl-insert-prompt)
         (slime-mark-output-start output-start)))
     (slime-repl-show-maximum-output)
@@ -9322,6 +9322,10 @@ SWANK> *" t)))
 SWANK> *" nil)
       ("(progn (princ 10) (finish-output) (abort))" "SWANK> 
 ;;;; (progn (princ 10) (finish-output) (abort)) ...
+10
+SWANK> *" t)
+      ("(progn (princ 10) (abort))" "SWANK> 
+;;;; (progn (princ 10) (abort)) ...
 10
 SWANK> *" t))
   (with-current-buffer (slime-output-buffer)
