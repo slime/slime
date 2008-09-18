@@ -16,23 +16,24 @@
 function usage () {
     cat <<EOF
 Usage: $name [-b] [-s] [-r]  <emacs> <lisp>"
-  -r  show results file
+  -b  use batch mode
   -s  use screen to hide emacs
-  -B  disable batch mode
+  -R  don't show results file
   -T  no temp directory (use slime in current directory)
 EOF
     exit 1
 }
 
 name=$0
-batch_mode=-batch # command line arg for emacs
+batch_mode="" # command line arg for emacs
 use_temp_dir=true
+dump_results=false
 
-while getopts srBT opt; do
+while getopts bsRT opt; do
     case $opt in
+	b) batch_mode="-batch";;
 	s) use_screen=true;;
-	r) dump_results=true;;
-	B) batch_mode="";;
+	R) dump_results=false;;
 	T) use_temp_dir=false;;
 	*) usage;;
     esac
