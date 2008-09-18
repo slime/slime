@@ -2544,31 +2544,6 @@ Debugged requests are ignored."
           slime-repl-package-stack '())
     (slime-repl-update-banner)))
 
-(defvar slime-show-last-output-function 
-  'slime-maybe-display-output-buffer
-  "*This function is called when a evaluation request is finished.
-It is called in the slime-output buffer and receives the region of the
-output as arguments.")
-
-(defun slime-show-last-output-region (start end)
-  (when (< start end)
-    (slime-display-buffer-region (current-buffer) (1- start)
-                                 slime-repl-input-start-mark)))
-
-(defun slime-maybe-display-output-buffer (start end)
-  (when (and (< start end)
-             (not (get-buffer-window (current-buffer) t)))
-    (display-buffer (current-buffer)))
-  (when (eobp)
-    (slime-repl-show-maximum-output t)))
-
-(defun slime-show-last-output ()
-  "Show the output from the last Lisp evaluation."
-  (with-current-buffer (slime-output-buffer)
-    (let ((start slime-output-start)
-          (end slime-output-end))
-      (funcall slime-show-last-output-function start end))))
-
 (defun slime-display-output-buffer ()
   "Display the output buffer and scroll to bottom."
   (with-current-buffer (slime-output-buffer)
@@ -2985,7 +2960,7 @@ joined together."))
     (goto-char (point-max)))
   (slime-repl-show-maximum-output))
 
-(defun slime-repl-show-maximum-output (&optional force)
+(defun slime-repl-show-maximum-output ()
   "Put the end of the buffer at the bottom of the window."
   (assert (eobp))
   (let ((win (get-buffer-window (current-buffer))))

@@ -5,6 +5,13 @@
 
 2008-09-18  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-show-last-output)
+	(slime-show-last-output-function)
+	(slime-show-last-output-region)
+	(slime-maybe-display-output-buffer): Delete unused code.
+
+2008-09-18  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-eval-with-transcript): Accept some more arguments
 	so that we can also use it for compile-file.
 	(slime-eval-with-transcript-cont): New. Insert prompt.
