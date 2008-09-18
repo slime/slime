@@ -1,3 +1,10 @@
+2008-09-19  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-save-marker): New marcro. Use it in combination
+	with insert-before-markers.
+	(slime-check-buffer-contents): Use {} resp. [] to describe the
+	position of output resp. input markers.
+
 2008-09-18  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-ecl.lisp: Forgot to update ECL's backend when introducing

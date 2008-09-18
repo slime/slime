@@ -2643,44 +2643,44 @@ hashtable `slime-output-target-to-marker'; output is inserted at this marker."
   "Display the output buffer when some output is written.
 This is set to nil after displaying the buffer.")
 
+(defmacro slime-save-marker (marker &rest body)
+  (let ((pos (gensym "pos")))
+  `(let ((,pos (marker-position ,marker)))
+     (prog1 (progn . ,body)
+       (set-marker ,marker ,pos)))))
+
+(put 'slime-save-marker 'lisp-indent-function 1)
+
 (defun slime-repl-emit (string)
   ;; insert the string STRING in the output buffer
   (with-current-buffer (slime-output-buffer)
     (save-excursion
-      (slime-repl-insert-at-markers slime-output-start slime-output-end
-                                    string '(face slime-repl-output-face
-                                                  rear-nonsticky (face)))
       (goto-char slime-output-end)
-      (when (and (= (point) slime-repl-prompt-start-mark)
-                 (not (bolp)))
-        (insert "\n")
-        (set-marker slime-output-end (1- (point))))
-      (assert (<= (point) slime-repl-input-start-mark))
-      (when slime-repl-popup-on-output
-        (setq slime-repl-popup-on-output nil)
-        (display-buffer (current-buffer))))
+      (slime-save-marker slime-output-start
+        (slime-propertize-region '(face slime-repl-output-face 
+                                        rear-nonsticky (face))
+          (insert-before-markers string)
+          (when (and (= (point) slime-repl-prompt-start-mark)
+                     (not (bolp)))
+            (insert-before-markers "\n")
+            (set-marker slime-output-end (1- (point)))))))
+    (when slime-repl-popup-on-output
+      (setq slime-repl-popup-on-output nil)
+      (display-buffer (current-buffer)))
     (when (eobp)
       (slime-repl-show-maximum-output))))
-
-(defun slime-repl-insert-at-markers (marker1 marker2 string &optional props)
-  (goto-char marker2)
-  (let ((start (point)))
-    (insert-before-markers string)
-    (cond ((< marker1 marker2))
-          ((= marker1 marker2) (set-marker marker1 start))
-          (t (assert (<= marker1 marker2))))
-    (when props
-      (add-text-properties start marker2 props))))
 
 (defun slime-repl-emit-result (string &optional bol)
   ;; insert STRING and mark it as evaluation result
   (with-current-buffer (slime-output-buffer)
     (save-excursion
-      (goto-char slime-repl-input-start-mark)
-      (when (and bol (not (bolp))) (insert-before-markers "\n"))
-      (slime-propertize-region `(face slime-repl-result-face
-                                      rear-nonsticky (face))
-        (insert-before-markers string)))))
+      (slime-save-marker slime-output-start
+        (slime-save-marker slime-output-end
+          (goto-char slime-repl-input-start-mark)
+          (when (and bol (not (bolp))) (insert-before-markers "\n"))
+          (slime-propertize-region `(face slime-repl-result-face
+                                          rear-nonsticky (face))
+            (insert-before-markers string)))))))
 
 (defvar slime-last-output-target-id 0
   "The last integer we used as a TARGET id.")
@@ -2804,7 +2804,6 @@ joined together."))
                       slime-repl-input-end-mark))
     (set markname (make-marker))
     (set-marker (symbol-value markname) (point)))
-  ;; (set-marker-insertion-type slime-output-end t)
   (set-marker-insertion-type slime-repl-input-end-mark t)
   (set-marker-insertion-type slime-repl-prompt-start-mark t))
 
@@ -2935,29 +2934,33 @@ joined together."))
 (defun slime-repl-show-abort ()
   (with-current-buffer (slime-output-buffer)
     (save-excursion
-      (goto-char slime-repl-input-start-mark)
-      (let ((output-start (point)))
-        (insert-before-markers "; Evaluation aborted.\n")
-        (slime-repl-insert-prompt)
-        (slime-mark-output-start output-start)))
+      (goto-char (slime-repl-insert-prompt))
+      (slime-save-marker slime-output-start
+        (slime-save-marker slime-output-end
+          (insert "; Evaluation aborted.\n"))))
     (slime-repl-show-maximum-output)))
 
 (defun slime-repl-insert-prompt ()
-  "Insert the prompt (before markers!)."
+  "Insert the prompt (before markers!).
+Set point after the prompt.  
+Return the position of the prompt beginning."
   (assert (= slime-repl-input-end-mark (point-max)))
   (goto-char slime-repl-input-start-mark)
-  (unless (bolp) (insert-before-markers "\n"))
-  (let ((prompt-start (point))
-        (prompt (format "%s> " (slime-lisp-package-prompt-string))))
-    (slime-propertize-region
-        '(face slime-repl-prompt-face read-only t intangible t
-               slime-repl-prompt t
-               ;; emacs stuff
-               rear-nonsticky (slime-repl-prompt read-only face intangible)
-               ;; xemacs stuff
-               start-open t end-open t)
-      (insert-before-markers prompt))
-    (set-marker slime-repl-prompt-start-mark prompt-start)))
+  (slime-save-marker slime-output-start
+    (slime-save-marker slime-output-end
+      (unless (bolp) (insert-before-markers "\n"))
+      (let ((prompt-start (point))
+            (prompt (format "%s> " (slime-lisp-package-prompt-string))))
+        (slime-propertize-region
+            '(face slime-repl-prompt-face read-only t intangible t
+                   slime-repl-prompt t
+                   ;; emacs stuff
+                   rear-nonsticky (slime-repl-prompt read-only face intangible)
+                   ;; xemacs stuff
+                   start-open t end-open t)
+          (insert-before-markers prompt))
+        (set-marker slime-repl-prompt-start-mark prompt-start)
+        prompt-start))))
 
 (defun slime-repl-show-maximum-output ()
   "Put the end of the buffer at the bottom of the window."
@@ -2992,10 +2995,9 @@ buffer."
   (set-marker slime-repl-input-start-mark (point) (current-buffer))
   (set-marker slime-repl-input-end-mark (point) (current-buffer)))
 
-(defun slime-mark-output-start (&optional position)
-  (let ((position (or position (point))))
-    (set-marker slime-output-start position)
-    (set-marker slime-output-end position)))
+(defun slime-mark-output-start ()
+  (set-marker slime-output-start (point))
+  (set-marker slime-output-end (point)))
 
 (defun slime-mark-output-end ()
   ;; Don't put slime-repl-output-face again; it would remove the
@@ -5451,10 +5453,7 @@ inserted in the current buffer."
   (run-with-timer 0.2 nil (lambda ()
                             (setq slime-repl-popup-on-output nil)))
   (with-current-buffer (slime-output-buffer)
-    (save-excursion
-      (let ((output-start (marker-position slime-repl-input-start-mark)))
-        (slime-repl-insert-prompt)
-        (slime-mark-output-start output-start)))
+    (save-excursion (slime-repl-insert-prompt))
     (slime-repl-show-maximum-output)
     (cond (ok (funcall cont result))
         (t (message "Evaluation aborted.")))))
@@ -9144,17 +9143,17 @@ Confirm that SUBFORM is correctly located."
     (input result-contents)
     "Test simple commands in the minibuffer."
     '(("(+ 1 2)" "SWANK> (+ 1 2)
-3
-SWANK> *")
+{}3
+SWANK> *[]")
       ("(princ 10)" "SWANK> (princ 10)
-1010
-SWANK> *")
+{10}10
+SWANK> *[]")
       ("(princ 10)(princ 20)" "SWANK> (princ 10)(princ 20)
-102020
-SWANK> *")
+{1020}20
+SWANK> *[]")
       ("(dotimes (i 10 77) (princ i) (terpri))" 
        "SWANK> (dotimes (i 10 77) (princ i) (terpri))
-0
+{0
 1
 2
 3
@@ -9164,34 +9163,64 @@ SWANK> *")
 7
 8
 9
-77
-SWANK> *")
+}77
+SWANK> *[]")
       ("(abort)" "SWANK> (abort)
-; Evaluation aborted.
-SWANK> *")
+{}; Evaluation aborted.
+SWANK> *[]")
       ("(progn (princ 10) (finish-output) (abort))" 
        "SWANK> (progn (princ 10) (finish-output) (abort))
-10; Evaluation aborted.
-SWANK> *")
-      ("(progn (princ 10) (abort))" "SWANK> (progn (princ 10) (abort))
-10; Evaluation aborted.
-SWANK> *"))
+{10}
+; Evaluation aborted.
+SWANK> *[]")
+      ("(values 1 2 3)" "SWANK> (values 1 2 3)
+{}1
+2
+3
+SWANK> *[]"))
   (with-current-buffer (slime-output-buffer)
     (setf (slime-lisp-package-prompt-string) "SWANK"))
   (kill-buffer (slime-output-buffer))
   (with-current-buffer (slime-output-buffer)
     (insert input)
     (slime-check-buffer-contents "Buffer contains input" 
-                                 (concat "SWANK> " input "*"))
+                                 (concat "{}SWANK> [" input "*]"))
     (call-interactively 'slime-repl-return)
     (slime-sync-to-top-level 5)
     (slime-check-buffer-contents "Buffer contains result" result-contents)))
 
 (defun slime-check-buffer-contents (msg expected)
-  (let ((point (position ?* expected))
-        (string (delete* ?* expected)))
-    (slime-test-expect (concat msg "[content]") string (buffer-string))
-    (slime-test-expect (concat msg "[point]") (1+ point) (point))))
+  (let* ((marks '((point . ?*) 
+                  (output-start . ?{) (output-end . ?}) 
+                  (repl-input-start-mark . ?\[) (repl-input-end-mark . ?\])))
+         (marks (remove-if-not (lambda (m) (position (cdr m) expected))
+                               marks))
+         (marks (sort (copy-sequence marks) 
+                      (lambda (x y)
+                        (< (position (cdr x) expected)
+                           (position (cdr y) expected)))))
+         (content (remove-if (lambda (c) (member* c marks :key #'cdr))
+                             expected))
+         (marks (do ((result '() (acons (caar m) (1+ (position (cdar m) s))
+                                        result))
+                     (m marks (cdr m))
+                     (s expected (remove* (cdar m) s)))
+                    ((null m) (reverse result)))))
+    (slime-test-expect (concat msg " [content]") content (buffer-string))
+    (slime-test-expect (concat msg " [point]") 
+                       (cdr (assoc 'point marks))
+                       (point))
+    (macrolet ((test-mark 
+                (mark)
+                `(when (assoc ',mark marks)
+                   (slime-test-expect (format "%s [%s]" msg ',mark)
+                                      (cdr (assoc ',mark marks))
+                                      ,(intern (format "slime-%s" mark))
+                                      #'=))))
+      (test-mark output-end)
+      (test-mark output-start)
+      (test-mark repl-input-end-mark)
+      (test-mark repl-input-start-mark))))
 
 (def-slime-test repl-return 
     (before after result-contents)
@@ -9282,14 +9311,14 @@ SWANK> "))
     "Ensure that user input is preserved correctly.
 In particular, input inserted while waiting for a result."
     '(("(sleep 0.1)" "foo*" "SWANK> (sleep 0.1)
-NIL
-SWANK> foo*")
+{}NIL
+SWANK> [foo*]")
       ("(sleep 0.1)" "*foo" "SWANK> (sleep 0.1)
-NIL
-SWANK> *foo")
+{}NIL
+SWANK> [*foo]")
       ("(progn (sleep 0.1) (abort))" "*foo" "SWANK> (progn (sleep 0.1) (abort))
-; Evaluation aborted.
-SWANK> *foo"))
+{}; Evaluation aborted.
+SWANK> [*foo]"))
   (when (slime-output-buffer)
     (kill-buffer (slime-output-buffer)))
   (setf (slime-lisp-package-prompt-string) "SWANK")
@@ -9302,38 +9331,50 @@ SWANK> *foo"))
     (slime-check-buffer-contents "Buffer contains result" final-contents)))
 
 (def-slime-test interactive-eval-output
-    (input result-contents visiblep)
+    (input result-contents visiblep &optional later)
     "Test simple commands in the minibuffer."
     `(("(+ 1 2)" "SWANK> 
 ;;;; (+ 1 2) ...
-SWANK> *" nil)
+{}SWANK> *[]" nil)
       ("(princ 10)" "SWANK> 
 ;;;; (princ 10) ...
-10
-SWANK> *" t)
-      ,@(when (eq window-system 'x)
-          '(("(princ \"ßäëïöüáéíóúàèìòùâêîôûãõøçðåæ\")"
-             "SWANK> 
-;;;; (princ \"ßäëïöüáéíóúàèìòùâêîôûãõøçðåæ\") ...
-ßäëïöüáéíóúàèìòùâêîôûãõøçðåæ
-SWANK> *" t)))
+{10}
+SWANK> *[]" t)
+      ("(princ 11)" "SWANK> 
+;;;; (princ 11) ...
+{1122}
+SWANK> *[]" t "22")
+;;       ,@(when (eq window-system 'x)
+;;           '(("(princ \"ßäëïöüáéíóúàèìòùâêîôûãõøçðåæ\")"
+;;              "SWANK> 
+;; ;;;; (princ \"ßäëïöüáéíóúàèìòùâêîôûãõøçðåæ\") ...
+;; ßäëïöüáéíóúàèìòùâêîôûãõøçðåæ
+;; SWANK> *" t)))
       ("(abort)" "SWANK> 
 ;;;; (abort) ...
-SWANK> *" nil)
+{}SWANK> *[]" nil)
       ("(progn (princ 10) (finish-output) (abort))" "SWANK> 
 ;;;; (progn (princ 10) (finish-output) (abort)) ...
-10
-SWANK> *" t)
-      ("(progn (princ 10) (abort))" "SWANK> 
-;;;; (progn (princ 10) (abort)) ...
-10
-SWANK> *" t))
+{10}
+SWANK> *[]" t)
+      ("(progn (princ 11) (finish-output) (abort))" "SWANK> 
+;;;; (progn (princ 11) (finish-output) (abort)) ...
+{1122}
+SWANK> *[]" t "22")
+      ("(+ 3 4)" "SWANK> 
+;;;; (+ 3 4) ...
+{22}
+SWANK> *[]" nil "22"))
   (with-current-buffer (slime-output-buffer)
     (setf (slime-lisp-package-prompt-string) "SWANK"))
   (kill-buffer (slime-output-buffer))
   (with-current-buffer (slime-output-buffer)
     (slime-interactive-eval input) 
-    (slime-sync-to-top-level 5)
+    (slime-sync-to-top-level 2)
+    (when later
+      (setq slime-repl-popup-on-output nil)
+      (slime-eval-async `(cl:write-string ,later))
+      (slime-sync-to-top-level 2))
     (slime-check-buffer-contents "Buffer contains result" result-contents)
     (unless noninteractive
       (sit-for 0.1)
