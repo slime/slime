@@ -3924,9 +3924,9 @@ See `slime-compile-and-load-file' for further details."
   (run-hook-with-args 'slime-before-compile-functions (point-min) (point-max))
   (let ((file (slime-to-lisp-filename (buffer-file-name))))
     (slime-eval-with-transcript
+     `(swank:compile-file-for-emacs ,file ,(if load t nil))
      (format "Compile file %s" file)
      slime-display-compilation-output
-     `(swank:compile-file-for-emacs ,file ,(if load t nil))
      (slime-rcurry #'slime-compilation-finished (current-buffer)))
     (message "Compiling %s..." file)))
 
@@ -5405,8 +5405,8 @@ Note: If a prefix argument is in effect then the result will be
 inserted in the current buffer."
   (interactive (list (slime-read-from-minibuffer "Slime Eval: ")))
   (cond ((not current-prefix-arg)
-         (slime-eval-with-transcript string t `(swank:interactive-eval ,string)
-                                     'slime-display-eval-result))
+         (slime-eval-with-transcript `(swank:interactive-eval ,string) 
+                                     string))
         (t
          (slime-eval-print string))))
 
@@ -5422,10 +5422,11 @@ inserted in the current buffer."
                           (destructuring-bind (output value) result
                             (insert output value)))))))
 
-(defun slime-eval-with-transcript (msg show-output form cont)
+(defun slime-eval-with-transcript (form &optional msg no-popups cont)
   "Eval FROM in Lisp.  Display output, if any, caused by the evaluation."
-  (slime-insert-transcript-delimiter msg)
-  (setq slime-repl-popup-on-output show-output)
+  (when msg (slime-insert-transcript-delimiter msg))
+  (setq slime-repl-popup-on-output (not no-popups))
+  (setq cont (or cont #'slime-display-eval-result))
   (slime-rex (cont) (form)
     ((:ok value) (slime-eval-with-transcript-cont t value cont))
     ((:abort) (slime-eval-with-transcript-cont nil nil nil))))
@@ -5514,7 +5515,7 @@ Use `slime-re-evaluate-defvar' if the from starts with '(defvar'"
 (defun slime-eval-region (start end)
   "Evaluate region."
   (interactive "r")
-  (slime-eval-with-transcript
+  (slime-eval-with-transcript 
    `(swank:interactive-eval-region 
      ,(buffer-substring-no-properties start end))))
 
@@ -5863,8 +5864,6 @@ Point is placed before the first expression in the list."
                                          (buffer-file-name))))))
   (let ((lisp-filename (slime-to-lisp-filename (expand-file-name filename))))
     (slime-eval-with-transcript `(swank:load-file ,lisp-filename))))
-
-
 
 
 ;;;; Profiling

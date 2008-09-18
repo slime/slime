@@ -19,6 +19,8 @@
 	(slime-eval-with-transcript-cont): Consistently use save-excursion
 	and insert-before-markers.  We always want to preserve the cursor
 	position in the input region (for type-ahead).
+	(slime-eval-with-transcript):  Change order of arguments to
+	make the common case easier to use.
 
 	(slime-batch-test): Use a timer.
 	(slime-check-buffer-contents): New function to test contents and
@@ -32,7 +34,7 @@
 	(interactive-eval, interactive-eval): Don't use fresh-line, as
 	that makes it harder to test the REPL code.
 
-	* test.sh (Usage): Add a -T switch to run slime in the current
+	* test.sh (usage): Add a -T switch to run slime in the current
 	directory without copying (and compiling) everything to a
 	temporary directory.
 
