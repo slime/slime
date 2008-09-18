@@ -3926,7 +3926,7 @@ See `slime-compile-and-load-file' for further details."
     (slime-eval-with-transcript
      `(swank:compile-file-for-emacs ,file ,(if load t nil))
      (format "Compile file %s" file)
-     slime-display-compilation-output
+     (not slime-display-compilation-output)
      (slime-rcurry #'slime-compilation-finished (current-buffer)))
     (message "Compiling %s..." file)))
 
