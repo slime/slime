@@ -16,21 +16,24 @@
 function usage () {
     cat <<EOF
 Usage: $name [-b] [-s] [-r]  <emacs> <lisp>"
-  -b  disable batch mode
-  -s  use screen to hide emacs
   -r  show results file
+  -s  use screen to hide emacs
+  -B  disable batch mode
+  -T  no temp directory (use slime in current directory)
 EOF
     exit 1
 }
 
 name=$0
-batch_mode=-batch
+batch_mode=-batch # command line arg for emacs
+use_temp_dir=true
 
-while getopts srb opt; do
+while getopts srBT opt; do
     case $opt in
 	s) use_screen=true;;
 	r) dump_results=true;;
-	b) batch_mode="";;
+	B) batch_mode="";;
+	T) use_temp_dir=false;;
 	*) usage;;
     esac
 done
@@ -44,18 +47,23 @@ emacs=$1; lisp=$2;
 # for the current lisp.
 
 slimedir=$(dirname $name)
-testdir=/tmp/slime-test.$$
-results=$testdir/results
-dribble=$testdir/dribble
-statusfile=$testdir/status
+tmpdir=/tmp/slime-test.$$
+if [ $use_temp_dir == true ] ; then
+    testdir=$tmpdir
+else
+    testdir=$(pwd)
+fi
+results=$tmpdir/results
+statusfile=$tmpdir/status
 
-test -d $testdir && rm -r $testdir
+test -d $tmpdir && rm -r $tmpdir
 
-trap "rm -r $testdir" EXIT	# remove temporary directory on exit
+trap "rm -r $tmpdir" EXIT	# remove temporary directory on exit
 
-mkdir $testdir
-cp -r $slimedir/*.{el,lisp} ChangeLog $slimedir/contrib  $testdir
-mkfifo $dribble
+mkdir $tmpdir
+if [ $use_temp_dir == true ] ; then 
+    cp -r $slimedir/*.{el,lisp} ChangeLog $slimedir/contrib  $tmpdir
+fi
 
 cmd=($emacs -nw -q -no-site-file $batch_mode --no-site-file
        --eval "(setq debug-on-quit t)"

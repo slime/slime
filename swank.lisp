@@ -946,7 +946,8 @@ The processing is done in the extent of the toplevel restart."
          (let* ((*sldb-quit-restart* (find-restart 'abort))
                 (timeout? (process-requests timeout just-one)))
            (when (or just-one timeout?) 
-             (return))))))))
+             (return))))
+       (force-user-output)))))
 
 (defun process-requests (timeout just-one)
   "Read and process requests from Emacs."
@@ -1886,7 +1887,6 @@ Errors are trapped and invoke our debugger."
   (with-buffer-syntax ()
     (with-retry-restart (:msg "Retry SLIME interactive evaluation request.")
       (let ((values (multiple-value-list (eval (from-string string)))))
-        (fresh-line)
         (finish-output)
         (format-values-for-echo-area values)))))
 
@@ -1991,7 +1991,6 @@ Return the full package-name and the string to use in the prompt."
                              (package-string-for-prompt *package*)))))))
 
 (defun send-repl-results-to-emacs (values)    
-  (fresh-line)
   (finish-output)
   (if (null values)
       (send-to-emacs `(:write-string "; No value" :repl-result))

@@ -5,10 +5,36 @@
 
 2008-09-18  Helmut Eller  <heller@common-lisp.net>
 
+	Some cleanups for the REPL code.
+
 	* slime.el (slime-show-last-output)
 	(slime-show-last-output-function)
 	(slime-show-last-output-region)
-	(slime-maybe-display-output-buffer): Delete unused code.
+	(slime-maybe-display-output-buffer)
+	(slime-repl-last-input-start-mark): Delete unused code.
+
+	(slime-repl-emit-result, slime-repl-insert-prompt)
+	(slime-repl-show-abort, slime-repl-insert-result)
+	(slime-insert-transcript-delimiter)
+	(slime-eval-with-transcript-cont): Consistently use save-excursion
+	and insert-before-markers.  We always want to preserve the cursor
+	position in the input region (for type-ahead).
+
+	(slime-batch-test): Use a timer.
+	(slime-check-buffer-contents): New function to test contents and
+	current position.  Use it in various places.
+
+	(sldb-recenter-region, def-slime-test interactive-eval)
+	(def-slime-test interactive-eval-output): Act slightly differently
+	when the test suite is executed in batch mode (without terminal).
+
+	* swank.lisp (handle-requests): Flush output.
+	(interactive-eval, interactive-eval): Don't use fresh-line, as
+	that makes it harder to test the REPL code.
+
+	* test.sh (Usage): Add a -T switch to run slime in the current
+	directory without copying (and compiling) everything to a
+	temporary directory.
 
 2008-09-18  Helmut Eller  <heller@common-lisp.net>
 
