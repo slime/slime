@@ -15,7 +15,7 @@
 
 function usage () {
     cat <<EOF
-Usage: $name [-b] [-s] [-r]  <emacs> <lisp>"
+Usage: $name [-b] [-s] [-R] [-T]  <emacs> <lisp>"
   -b  use batch mode
   -s  use screen to hide emacs
   -R  don't show results file
