@@ -2935,10 +2935,11 @@ joined together."))
 (defun slime-repl-show-abort ()
   (with-current-buffer (slime-output-buffer)
     (save-excursion
-      (goto-char (slime-repl-insert-prompt))
       (slime-save-marker slime-output-start
         (slime-save-marker slime-output-end
-          (insert "; Evaluation aborted.\n"))))
+          (goto-char slime-output-end)
+          (insert-before-markers "; Evaluation aborted.\n")
+          (slime-repl-insert-prompt))))
     (slime-repl-show-maximum-output)))
 
 (defun slime-repl-insert-prompt ()
@@ -8498,6 +8499,10 @@ is setup, unless the user already set one explicitly."
 (defvar slime-lisp-under-test nil
   "The name of Lisp currently executing the tests.")
 
+(defvar slime-randomize-test-order t
+  "If t execute tests in random order.
+If nil, execute them in definition order.")
+
 ;; dynamically bound during a single test
 (defvar slime-current-test)
 (defvar slime-unexpected-failures)
@@ -8514,7 +8519,10 @@ that succeeded initially folded away."
   (slime-create-test-results-buffer)
   (unwind-protect
       (let ((slime-repl-history-file 
-             (expand-file-name "slime-repl-history" (slime-temp-directory))))
+             (expand-file-name "slime-repl-history" (slime-temp-directory)))
+            (slime-tests (if slime-randomize-test-order
+                             (slime-shuffle-list slime-tests)
+                           slime-tests)))
         (slime-execute-tests))
     (pop-to-buffer slime-test-buffer-name)
     (goto-char (point-min))
@@ -8541,6 +8549,18 @@ that succeeded initially folded away."
 
 (defun slime-test-should-fail-p ()
   (member slime-lisp-under-test (slime-test.fails-for slime-current-test)))
+
+(defun slime-shuffle-list (list)
+  (let* ((len (length list))
+         (taken (make-vector len nil))
+         (result (make-vector len nil)))
+    (dolist (e list)
+      (while (let ((i (random len)))
+               (cond ((aref taken i))
+                     (t (aset taken i t)
+                        (aset result i e)
+                        nil)))))
+    (append result '())))
 
 (defun slime-execute-tests ()
   "Execute each test case with each input.
@@ -9169,10 +9189,14 @@ SWANK> *[]")
       ("(abort)" "SWANK> (abort)
 {}; Evaluation aborted.
 SWANK> *[]")
-      ("(progn (princ 10) (finish-output) (abort))" 
-       "SWANK> (progn (princ 10) (finish-output) (abort))
-{10}
-; Evaluation aborted.
+      ("(progn (princ 10) (force-output) (abort))" 
+       "SWANK> (progn (princ 10) (force-output) (abort))
+{10}; Evaluation aborted.
+SWANK> *[]")
+      ("(progn (princ 10) (abort))" 
+       ;; output can be flushed after aborting
+       "SWANK> (progn (princ 10) (abort))
+{10}; Evaluation aborted.
 SWANK> *[]")
       ("(values 1 2 3)" "SWANK> (values 1 2 3)
 {}1

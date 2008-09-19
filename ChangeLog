@@ -7,6 +7,10 @@
 
 	(slime-repl-emit-result): Update window-point.
 
+	(slime-randomize-test-order): New variable.
+	(slime-shuffle-list): New function.
+	(slime-run-tests): Use it.
+
 2008-09-18  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-ecl.lisp: Forgot to update ECL's backend when introducing
