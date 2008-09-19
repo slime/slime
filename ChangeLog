@@ -5,6 +5,8 @@
 	(slime-check-buffer-contents): Use {} resp. [] to describe the
 	position of output resp. input markers.
 
+	(slime-repl-emit-result): Update window-point.
+
 2008-09-18  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-ecl.lisp: Forgot to update ECL's backend when introducing

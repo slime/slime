@@ -2680,7 +2680,8 @@ This is set to nil after displaying the buffer.")
           (when (and bol (not (bolp))) (insert-before-markers "\n"))
           (slime-propertize-region `(face slime-repl-result-face
                                           rear-nonsticky (face))
-            (insert-before-markers string)))))))
+            (insert-before-markers string)))))
+    (slime-repl-show-maximum-output)))
 
 (defvar slime-last-output-target-id 0
   "The last integer we used as a TARGET id.")
