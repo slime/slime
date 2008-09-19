@@ -594,7 +594,7 @@
                        :unsigned-long :unsigned-half-long 
                        :unsigned-3byte)
        (label-value-line name (inspect::component-ref-v object access type)))
-      ((:lisp :value)
+      ((:lisp :value :func)
        (label-value-line name (inspect::component-ref object access)))
       (:indirect 
        (destructuring-bind (prefix count ref set) access

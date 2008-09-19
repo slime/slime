@@ -1,5 +1,10 @@
 2008-09-19  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-allegro.lisp (frob-allegro-field-def): There seems to be a
+	new type :func handle it like :lisp.
+
+2008-09-19  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-save-marker): New marcro. Use it in combination
 	with insert-before-markers.
 	(slime-check-buffer-contents): Use {} resp. [] to describe the
