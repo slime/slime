@@ -1,5 +1,8 @@
 2008-09-19  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el ([def-slime-test] break): Split it up in two versions
+	to make the debugger-hook issue more explicit.
+
 	* swank-allegro.lisp (frob-allegro-field-def): There seems to be a
 	new type :func handle it like :lisp.
 

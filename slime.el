@@ -8718,6 +8718,8 @@ conditions (assertions)."
                                               :fails-for ',fails-for
                                               :inputs ,inputs))))))))
 
+(put 'def-slime-test 'lisp-indent-function 4)
+
 (defmacro slime-check (test-name &rest body)
   "Check a condition (assertion.)
 TEST-NAME can be a symbol, a string, or a (FORMAT-STRING . ARGS) list.
@@ -8747,7 +8749,6 @@ BODY returns true if the check succeeds."
 (defun slime-print-check-error (reason)
   (slime-test-failure "ERROR" (format "%S" reason)))
 
-(put 'def-slime-test 'lisp-indent-function 4)
 (put 'slime-check 'lisp-indent-function 1)
 
 
@@ -8804,10 +8805,9 @@ BODY returns true if the check succeeds."
 (defun slime-sldb-level= (level)
   (equal level (sldb-level)))
 
-(def-slime-test narrowing
-    ()
-    "Check that narrowing is properly sustained."
-    '(())
+(def-slime-test narrowing ()
+  "Check that narrowing is properly sustained."
+  '(())
   (slime-check-top-level)
   (let ((random-buffer-name (symbol-name (gensym)))
         (defun-pos) (tmpbuffer))
@@ -9438,18 +9438,11 @@ SWANK> *[]" nil "22"))
     (string-match "\\*Slime Inspector\\*" 
                   (buffer-name buffer))))
 
-(def-slime-test break 
+(def-slime-test break
     (times exp)
     "Test whether BREAK invokes SLDB."
-    (let ((exp1 '(break))
-          (exp2 
-           ;; Backends should arguably make sure that BREAK does not
-           ;; depend on *DEBUGGER-HOOK*.
-           '(block outta
-              (let ((*debugger-hook* (lambda (c h) (return-from outta 42))))
-                (break)))))
-      `((1 ,exp1) (2 ,exp1) (3 ,exp1)
-        (1 ,exp2) (2 ,exp2) (3 ,exp2)))
+    (let ((exp1 '(break)))
+      `((1 ,exp1) (2 ,exp1) (3 ,exp1)))
   (slime-accept-process-output nil 0.2)
   (slime-check-top-level)
   (slime-eval-async 
@@ -9468,6 +9461,17 @@ SWANK> *[]" nil "22"))
                           (lambda () (not (sldb-get-default-buffer)))
                           0.2))
   (slime-sync-to-top-level 1))
+
+(def-slime-test (break2 ("cmucl" "allegro"))
+    (times exp)
+    "Backends should arguably make sure that BREAK does not depend
+on *DEBUGGER-HOOK*."
+    (let ((exp2 
+           '(block outta
+              (let ((*debugger-hook* (lambda (c h) (return-from outta 42))))
+                (break)))))
+      `((1 ,exp2) (2 ,exp2) (3 ,exp2)))
+  (slime-test-break times exp))
 
 (def-slime-test locally-bound-debugger-hook
     ()
