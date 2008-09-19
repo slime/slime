@@ -8612,7 +8612,7 @@ Return the number of failed tests."
         (message "%s" summary)
         slime-unexpected-failures))))
 
-(defun slime-batch-test (results-file)
+(defun slime-batch-test (results-file &optional test-name randomize)
   "Run the test suite in batch-mode.
 Exits Emacs when finished. The exit code is the number of failed tests."
   (let ((slime-test-debug-on-error nil))
@@ -8632,7 +8632,9 @@ Exits Emacs when finished. The exit code is the number of failed tests."
           (kill-emacs 252))))
     (slime-sync-to-top-level 5)
     (switch-to-buffer "*scratch*")
-    (let ((failed-tests (slime-run-tests)))
+    (let ((slime-randomize-test-order (when randomize (random t) t))
+          (failed-tests (cond (test-name (slime-run-one-test test-name))
+                              (t (slime-run-tests)))))
       (with-current-buffer slime-test-buffer-name
         (slime-delete-hidden-outline-text)
         (goto-char (point-min))

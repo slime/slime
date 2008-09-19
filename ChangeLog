@@ -10,6 +10,9 @@
 	(slime-randomize-test-order): New variable.
 	(slime-shuffle-list): New function.
 	(slime-run-tests): Use it.
+	(slime-batch-test): Accept test-name and randomize arguments.
+
+	* test.sh (usage): Accept -n and -S options.
 
 2008-09-18  Tobias C. Rittweiler  <tcr@freebits.de>
 

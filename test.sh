@@ -15,24 +15,30 @@
 
 function usage () {
     cat <<EOF
-Usage: $name [-b] [-s] [-R] [-T]  <emacs> <lisp>"
+Usage: $name [-bsRTS] [-n <name>] <emacs> <lisp>"
   -b  use batch mode
   -s  use screen to hide emacs
   -R  don't show results file
   -T  no temp directory (use slime in current directory)
+  -S  don't execute tests in random order (use default ordering)
+  -n <name>  run only the test with name <name>
 EOF
     exit 1
 }
 
 name=$0
 batch_mode="" # command line arg for emacs
+dump_results=true
 use_temp_dir=true
-dump_results=false
+test_name=nil
+randomize=t
 
-while getopts bsRT opt; do
+while getopts bsRTn: opt; do
     case $opt in
 	b) batch_mode="-batch";;
 	s) use_screen=true;;
+	n) test_name="'$OPTARG";;
+	S) randomize=nil;;
 	R) dump_results=false;;
 	T) use_temp_dir=false;;
 	*) usage;;
@@ -63,7 +69,7 @@ trap "rm -r $tmpdir" EXIT	# remove temporary directory on exit
 
 mkdir $tmpdir
 if [ $use_temp_dir == true ] ; then 
-    cp -r $slimedir/*.{el,lisp} ChangeLog $slimedir/contrib  $tmpdir
+    cp -r $slimedir/*.{el,lisp} ChangeLog $slimedir/contrib $tmpdir
 fi
 
 cmd=($emacs -nw -q -no-site-file $batch_mode --no-site-file
@@ -71,7 +77,7 @@ cmd=($emacs -nw -q -no-site-file $batch_mode --no-site-file
        --eval "(add-to-list 'load-path \"$testdir\")"
        --eval "(require 'slime)"
        --eval "(setq inferior-lisp-program \"$lisp\")"
-       --eval "(slime-batch-test \"$results\")")
+       --eval "(slime-batch-test \"$results\" $test_name $randomize)")
 
 if [ "$use_screen" = "" ]; then
     "${cmd[@]}"
