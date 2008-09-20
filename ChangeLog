@@ -1,5 +1,16 @@
 2008-09-20  Helmut Eller  <heller@common-lisp.net>
 
+	Fix BREAK and backtraces after interrupts.
+
+	* swank-openmcl.lisp (*sldb-stack-top-hint*): New variable.
+	(call-with-debugging-environment, break-in-sldb)
+	(interrupt-thread): Use it.
+	(*process-to-stack-top*, record-stack-top)
+	(grab-stack-top): Deleted. Use *sldb-stack-top-hint* instead.
+	(backtrace-context): Deleted. Use %current-tcr directly.
+
+2008-09-20  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-openmcl.lisp (call-with-debugging-environment): Don't set
 	*debugger-hook* to nil.
 

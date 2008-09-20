@@ -204,62 +204,6 @@
 (defimplementation lisp-implementation-type-name ()
   "openmcl")
 
-(defvar *break-in-sldb* t)
-
-
-(let ((ccl::*warn-if-redefine-kernel* nil))
-  (ccl::advise
-   ccl::cbreak-loop
-   (if (and *break-in-sldb* 
-            (find ccl::*current-process*
-                  (symbol-value (intern (string :*connections*) :swank))
-                  :key (intern (string :connection.repl-thread) :swank)))
-       (apply 'break-in-sldb ccl::arglist)
-       (:do-it))
-   :when :around
-   :name sldb-break))
-
-(defun break-in-sldb (&optional string &rest args)
-  (let ((c (make-condition 'simple-condition
-                           :format-control (or string "Break")
-                           :format-arguments args)))
-    (let ((previous-f nil)
-          (previous-f2 nil))
-      (block find-frame
-        (map-backtrace  
-         #'(lambda(frame-number p context lfun pc)
-             (declare (ignore frame-number context pc))
-             (when (eq  previous-f2 'break-in-sldb) 
-               (record-stack-top p)
-               (return-from find-frame))
-             (setq previous-f2 previous-f)
-             (setq previous-f (ccl::lfun-name lfun)))))
-      (restart-case (invoke-debugger c)
-        (continue () :report (lambda (stream) (write-string "Resume interrupted evaluation" stream)) t))
-      )))
-
-; In previous version the code that recorded the function that had an
-; error or which was interrupted was not thread safe. This code repairs that by
-; associating the frame pointer with a process via the *process-to-stack-top* hash.
-
-(defvar *process-to-stack-top* (make-hash-table :test 'eql))
-
-(defun record-stack-top (frame)
-  (setf (gethash (ccl::process-serial-number ccl::*current-process*) *process-to-stack-top* )
-        frame))
-          
-(defun grab-stack-top ()
-  (let ((psn (ccl::process-serial-number ccl::*current-process*)))
-    (ccl::without-interrupts
-      (prog1
-          (gethash  psn *process-to-stack-top*)
-        (setf (gethash psn *process-to-stack-top*) nil)))))
-
-(defmethod ccl::application-error :before (application condition error-pointer)
-  (declare (ignore application condition))
-  (record-stack-top error-pointer)
-  nil)
-
 ;;; Evaluation
 
 (defimplementation arglist (fname)
@@ -476,26 +420,24 @@ condition."
   (ccl::start-xref))
 
 (defvar *sldb-stack-top* nil)
+(defvar *sldb-stack-top-hint* nil)
+(defvar *break-in-sldb* nil)
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let* (;;(*debugger-hook* nil)
-         (*sldb-stack-top* (grab-stack-top))
-         (ccl::*signal-printing-errors* nil)) ; don't let error while printing error take us down
-    (funcall debugger-loop-fn)))
-
-(defun backtrace-context ()
-  (if (and (= ccl::*openmcl-major-version* 0)
-           (<= ccl::*openmcl-minor-version* 14)
-           (< ccl::*openmcl-revision* 2))
-      (ccl::%current-tcr)
-      nil))
+         (*sldb-stack-top* (or *sldb-stack-top-hint*
+                               (ccl::%get-frame-ptr)))
+         (*sldb-stack-top-hint* nil)
+         ;; don't let error while printing error take us down
+         (ccl::*signal-printing-errors* nil))
+    (funcall debugger-loop-xfn)))
 
 (defun map-backtrace (function &optional
                       (start-frame-number 0)
                       (end-frame-number most-positive-fixnum))
   "Call FUNCTION passing information about each stack frame
  from frames START-FRAME-NUMBER to END-FRAME-NUMBER."
-  (let ((context (backtrace-context))
+  (let ((context (ccl::%current-tcr))
         (frame-number 0)
         (top-stack-frame (or *sldb-stack-top*
                              (ccl::%get-frame-ptr))))
@@ -718,6 +660,20 @@ at least the filename containing it."
        (ccl::apply-in-frame p lfun 
                             (ccl::frame-supplied-args p lfun pc nil context))))))
 
+(let ((ccl::*warn-if-redefine-kernel* nil))
+  (ccl::advise
+   ccl::cbreak-loop
+   (if *break-in-sldb* 
+       (apply #'break-in-sldb ccl::arglist)
+       (:do-it))
+   :when :around
+   :name sldb-break))
+
+(defun break-in-sldb (&optional string &rest args)
+  (let ((*sldb-stack-top-hint* (or *sldb-stack-top-hint*
+                                   (ccl::%get-frame-ptr))))
+    (apply #'cerror "Continue from break" (or string "Break") args)))
+
 ;;; Utilities
 
 (defimplementation describe-symbol-for-emacs (symbol)
@@ -914,23 +870,13 @@ out IDs for.")
 (defimplementation kill-thread (thread)
   (ccl:process-kill thread))
 
-;; September  5, 2004 alanr. record the frame interrupted
-(defimplementation interrupt-thread (thread fn)
+(defimplementation interrupt-thread (thread function)
   (ccl:process-interrupt 
    thread 
-   (lambda(&rest args)
-     (let ((previous-f nil))
-       (block find-frame
-         (map-backtrace  
-          #'(lambda(frame-number p context lfun pc)
-              (declare (ignore frame-number context pc))
-              (when (eq  previous-f 'ccl::%pascal-functions%) 
-                (record-stack-top p)
-                (return-from find-frame))
-              (setq previous-f (ccl::lfun-name lfun)))))
-       (apply fn args)))))
-
-
+   (lambda ()
+     (let ((*sldb-stack-top-hint* (ccl::%get-frame-ptr)))
+       (funcall function)))))
+  
 (defun mailbox (thread)
   (ccl:with-lock-grabbed (*known-processes-lock*)
     (let ((probe (rassoc thread *known-processes* :key #'car)))
