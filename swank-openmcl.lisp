@@ -478,7 +478,7 @@ condition."
 (defvar *sldb-stack-top* nil)
 
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
-  (let* ((*debugger-hook* nil)
+  (let* (;;(*debugger-hook* nil)
          (*sldb-stack-top* (grab-stack-top))
          (ccl::*signal-printing-errors* nil)) ; don't let error while printing error take us down
     (funcall debugger-loop-fn)))

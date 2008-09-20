@@ -1,3 +1,8 @@
+2008-09-20  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-openmcl.lisp (call-with-debugging-environment): Don't set
+	*debugger-hook* to nil.
+
 2008-09-19  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el ([def-slime-test] break): Split it up in two versions
