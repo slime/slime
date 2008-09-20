@@ -764,7 +764,7 @@ at least the filename containing it."
              for l below count
              for (value label) = (multiple-value-list 
                                   (inspector::line-n i l))
-             collect `(:value ,label ,(string-capitalize (format nil "~a" label)))
+             collect (if label (format nil "~(~a~)" label) i)
              collect " = "
              collect `(:value ,value)
              collect '(:newline))))
@@ -774,10 +774,13 @@ at least the filename containing it."
   (if (or (uvector-inspector-p o)
           (not (ccl:uvectorp o)))
       (call-next-method)
-      (append (call-next-method)
-                 `((:newline)
-                   (:value ,(make-instance 'uvector-inspector :object o)
-                           "Underlying UVECTOR")))))
+      (let ((value (call-next-method)))
+        (cond ((listp value)
+               (append value
+                       `((:newline)
+                         (:value ,(make-instance 'uvector-inspector :object o)
+                                 "Underlying UVECTOR"))))
+              (t value)))))
 
 (defclass uvector-inspector ()
   ((object :initarg :object)))
@@ -787,13 +790,11 @@ at least the filename containing it."
   (:method ((object uvector-inspector)) t))
 
 (defmethod emacs-inspect ((uv uvector-inspector))
-  (with-slots (object)
-      uv
-            (loop
-               for index below (ccl::uvsize object)
-               collect (format nil "~D: " index)
-               collect `(:value ,(ccl::uvref object index))
-               collect `(:newline))))
+  (with-slots (object) uv
+    (loop for index below (ccl::uvsize object)
+          collect (format nil "~D: " index)
+          collect `(:value ,(ccl::uvref object index))
+          collect `(:newline))))
 
 (defun closure-closed-over-values (closure)
   (let ((howmany (nth-value 8 (ccl::function-args (ccl::closure-function closure)))))
@@ -874,7 +875,8 @@ out IDs for.")
   (ccl:process-interrupt 
    thread 
    (lambda ()
-     (let ((*sldb-stack-top-hint* (ccl::%get-frame-ptr)))
+     (let ((*sldb-stack-top-hint* (or *sldb-stack-top-hint*
+                                      (ccl::%get-frame-ptr))))
        (funcall function)))))
   
 (defun mailbox (thread)

@@ -1,5 +1,15 @@
 2008-09-20  Helmut Eller  <heller@common-lisp.net>
 
+	Fix inspecting of arrays.
+
+	* swank-openmcl.lisp (emacs-inspect :around (t)): call-next-method
+	may return a lazy list.  Detect that case and only append to
+	ordinary lists.
+	(emacs-inspect (t)): Don't mark labels as inspectable. Just print
+	them.
+
+2008-09-20  Helmut Eller  <heller@common-lisp.net>
+
 	Fix BREAK and backtraces after interrupts.
 
 	* swank-openmcl.lisp (*sldb-stack-top-hint*): New variable.
