@@ -1,5 +1,13 @@
 2008-09-20  Helmut Eller  <heller@common-lisp.net>
 
+	* test.sh: Parse the -S option as advertized.
+
+	* slime.el (slime-randomize-test-order): Add the * to the
+	docstring.
+	([def-slime-test] break2): Also CCL is expected to fail here.
+
+2008-09-20  Helmut Eller  <heller@common-lisp.net>
+
 	Fix some of the bugs that I introduced with the last commits.
 
 	* swank-openmcl.lisp (call-with-debugging-environment): Fix typo.
@@ -15,7 +23,7 @@
 	(thread-alive-p): Implemented with ccl::process-exhausted-p.
 
 	(source-locations): Use labels for helper functions.
-	(function-source-location): No implemented on top of
+	(function-source-location): Now implemented on top of
 	source-locations.
 
 2008-09-20  Helmut Eller  <heller@common-lisp.net>

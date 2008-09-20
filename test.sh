@@ -33,7 +33,7 @@ use_temp_dir=true
 test_name=nil
 randomize=t
 
-while getopts bsRTn: opt; do
+while getopts bsRTSn: opt; do
     case $opt in
 	b) batch_mode="-batch";;
 	s) use_screen=true;;

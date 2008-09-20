@@ -8500,7 +8500,7 @@ is setup, unless the user already set one explicitly."
   "The name of Lisp currently executing the tests.")
 
 (defvar slime-randomize-test-order t
-  "If t execute tests in random order.
+  "*If t execute tests in random order.
 If nil, execute them in definition order.")
 
 ;; dynamically bound during a single test
@@ -9462,7 +9462,7 @@ SWANK> *[]" nil "22"))
                           0.2))
   (slime-sync-to-top-level 1))
 
-(def-slime-test (break2 ("cmucl" "allegro"))
+(def-slime-test (break2 ("cmucl" "allegro" "ccl"))
     (times exp)
     "Backends should arguably make sure that BREAK does not depend
 on *DEBUGGER-HOOK*."
