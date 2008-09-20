@@ -1,5 +1,32 @@
 2008-09-20  Helmut Eller  <heller@common-lisp.net>
 
+	Fix some of the bugs that I introduced with the last commits.
+
+	* swank-openmcl.lisp (call-with-debugging-environment): Fix typo.
+	(call-with-debugger-hook): Bind *break-in-sldb*.
+	(backtrace-context): Return nil, not tcr!
+	(map-backtrace): Remove the stack< test. Only test for nil.
+	(lisp-implementation-type-name): Return "ccl".
+
+	(emacs-inspect (t)): Fix typo.
+
+	(kill-thread): Use join-process. Otherwise we get strange
+	"process-reset" errors when disconnecting.
+	(thread-alive-p): Implemented with ccl::process-exhausted-p.
+
+	(source-locations): Use labels for helper functions.
+	(function-source-location): No implemented on top of
+	source-locations.
+
+2008-09-20  Helmut Eller  <heller@common-lisp.net>
+
+	Fix frame-source-location-for-emacs for CCL.
+
+	* swank-openmcl.lisp (source-locations): New function.
+	(create-source-location): New function.
+	(frame-source-location-for-emacs): Use it.
+
+2008-09-20  Helmut Eller  <heller@common-lisp.net>
 	Fix inspecting of arrays.
 
 	* swank-openmcl.lisp (emacs-inspect :around (t)): call-next-method

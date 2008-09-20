@@ -202,7 +202,7 @@
   (ccl::getpid))
 
 (defimplementation lisp-implementation-type-name ()
-  "openmcl")
+  "ccl")
 
 ;;; Evaluation
 
@@ -430,21 +430,27 @@ condition."
          (*sldb-stack-top-hint* nil)
          ;; don't let error while printing error take us down
          (ccl::*signal-printing-errors* nil))
-    (funcall debugger-loop-xfn)))
+    (funcall debugger-loop-fn)))
+
+(defimplementation call-with-debugger-hook (hook fun)
+  (let ((*debugger-hook* hook)
+        (*break-in-sldb* t))
+    (funcall fun)))
+
+(defun backtrace-context ()
+  nil)
 
 (defun map-backtrace (function &optional
                       (start-frame-number 0)
                       (end-frame-number most-positive-fixnum))
   "Call FUNCTION passing information about each stack frame
  from frames START-FRAME-NUMBER to END-FRAME-NUMBER."
-  (let ((context (ccl::%current-tcr))
+  (let ((context (backtrace-context))
         (frame-number 0)
         (top-stack-frame (or *sldb-stack-top*
                              (ccl::%get-frame-ptr))))
-    (do* ((p top-stack-frame (ccl::parent-frame p context))
-          (q (ccl::last-frame-ptr context)))
-         ((or (null p) (eq p q) (ccl::%stack< q p context))
-          (values))
+    (do ((p top-stack-frame (ccl::parent-frame p context)))
+        ((null p))
       (multiple-value-bind (lfun pc) (ccl::cfp-lfun p)
         (when lfun
           (if (and (>= frame-number start-frame-number)
@@ -595,19 +601,44 @@ condition."
                             (canonicalize-location file symbol))))))
 
 (defun function-source-location (function)
-  (multiple-value-bind (info name)
-      (ccl::edit-definition-p function)
-    (cond ((not info) (list :error (format nil "No source info available for ~A" function)))
-          ((typep (caar info) 'ccl::method)
-           `(:location 
-             (:file ,(remove-filename-quoting (namestring (translate-logical-pathname (cdr (car info))) )))
-             (:method  ,(princ-to-string (ccl::method-name (caar info)))
-                       ,(mapcar 'princ-to-string
-                                (mapcar #'specializer-name
-                                        (ccl::method-specializers (caar info))))
-                       ,@(mapcar 'princ-to-string (ccl::method-qualifiers (caar info))))
-             nil))
-          (t (canonicalize-location (second (first info)) name (third (first info)))))))
+  (or (car (source-locations function))
+      (list :error (format nil "No source info available for ~A" function))))
+
+;; source-locations THING => LOCATIONS NAMES
+;; LOCATIONS ... a list of source-locations.  Most "specific" first.
+;; NAMES     ... a list of names.
+(labels ((str (obj) (princ-to-string obj))
+         (str* (list) (mapcar #'princ-to-string list))
+         (filename (file) (namestring (truename file)))
+         (src-loc (file pos)
+           (assert (or (null file) (stringp file) (pathnamep file)))
+           (etypecase file
+             (null `(:error "No source-file info available"))
+             ((or string pathname)
+              (handler-case (make-location `(:file ,(filename file)) pos)
+                (error (c) `(:error ,(princ-to-string c))))))))
+  
+  (defun source-locations (thing)
+    (multiple-value-bind (files name) (ccl::edit-definition-p thing)
+      (let ((locs '())  (names '()))
+        (loop for (type . file) in files do
+              (etypecase type
+                ((member function macro variable compiler-macro 
+                         ccl:defcallback ccl::x8664-vinsn)
+                 (push (src-loc file (list :function-name (str name))) 
+                       locs)
+                 (push (list type name) names))
+                (method
+                 (let* ((m type)
+                        (name (ccl::method-name m))
+                        (specs (ccl::method-specializers m))
+                        (specs (mapcar #'specializer-name specs))
+                        (quals (ccl::method-qualifiers m)))
+                   (push (src-loc file (list :method (str name) (str* specs) 
+                                             (str* quals)))
+                         locs)
+                   (push `(method ,name ,quals ,specs) names)))))
+        (values (nreverse locs) (nreverse names))))))
 
 (defimplementation frame-source-location-for-emacs (index)
   "Return to Emacs the location of the source code for the
@@ -764,7 +795,7 @@ at least the filename containing it."
              for l below count
              for (value label) = (multiple-value-list 
                                   (inspector::line-n i l))
-             collect (if label (format nil "~(~a~)" label) i)
+             collect (format nil "~(~a~)" (or label l))
              collect " = "
              collect `(:value ,value)
              collect '(:newline))))
@@ -868,8 +899,14 @@ out IDs for.")
 (defimplementation all-threads ()
   (ccl:all-processes))
 
+;; our thread-alive-p implementation will not work well if we don't
+;; wait.  join-process should have a timeout argument.
 (defimplementation kill-thread (thread)
-  (ccl:process-kill thread))
+  (ccl:process-kill thread)
+  (ccl:join-process thread))
+
+(defimplementation thread-alive-p (thread)
+  (not (ccl::process-exhausted-p thread)))
 
 (defimplementation interrupt-thread (thread function)
   (ccl:process-interrupt 
@@ -887,13 +924,10 @@ out IDs for.")
                  (setq *known-processes*
                        (acons (ccl::process-serial-number thread) 
                               (list thread mailbox)
-                              (remove-if 
-                               (lambda(entry) 
-                                 (string= (ccl::process-whostate (second entry)) "Exhausted")) 
-                               *known-processes*)
-                              ))
+                              (remove-if  #'ccl::process-exhausted-p
+					  *known-processes*)))
                  mailbox))))))
-          
+
 (defimplementation send (thread message)
   (assert message)
   (let* ((mbox (mailbox thread))
