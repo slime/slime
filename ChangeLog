@@ -1,3 +1,8 @@
+2008-09-20  Ariel Badichi <abadichi@bezeqint.net>
+
+	* slime.el (slime-with-output-end-mark):
+	slime-repl-show-maximum-output no longer accepts any arguments.
+
 2008-09-20  Helmut Eller  <heller@common-lisp.net>
 
 	* test.sh: Parse the -S option as advertized.

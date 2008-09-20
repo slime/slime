@@ -2572,8 +2572,7 @@ update window-point afterwards.  If point is initially not at
               (goto-char slime-output-end)
               (funcall body..))))
      (when updatep..
-       (slime-repl-show-maximum-output 
-        (> (- slime-output-end slime-output-start) 1000)))))
+       (slime-repl-show-maximum-output))))
 
 (defun slime-output-filter (process string)
   (with-current-buffer (process-buffer process)
@@ -2667,8 +2666,7 @@ This is set to nil after displaying the buffer.")
     (when slime-repl-popup-on-output
       (setq slime-repl-popup-on-output nil)
       (display-buffer (current-buffer)))
-    (when (eobp)
-      (slime-repl-show-maximum-output))))
+    (slime-repl-show-maximum-output)))
 
 (defun slime-repl-emit-result (string &optional bol)
   ;; insert STRING and mark it as evaluation result
