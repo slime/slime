@@ -924,8 +924,10 @@ out IDs for.")
                  (setq *known-processes*
                        (acons (ccl::process-serial-number thread) 
                               (list thread mailbox)
-                              (remove-if  #'ccl::process-exhausted-p
-					  *known-processes*)))
+                              (remove-if  
+                               (lambda (entry)
+                                 (ccl::process-exhausted-p (cadr entry)))
+                               *known-processes*)))
                  mailbox))))))
 
 (defimplementation send (thread message)
