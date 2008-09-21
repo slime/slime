@@ -1,5 +1,10 @@
 2008-09-21  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-eol-conversion-fixup): Return 0 (not nil) for
+	anyting other than CRLF conventions.
+
+2008-09-21  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-openmcl.lisp: Try to remove the first few internal frames
 	from backtraces.
 	(guess-stack-top): New function.

@@ -4667,14 +4667,15 @@ you should check twice before modifying.")
   ;; moving N chars forward.  N is the number of chars but \r\n are
   ;; counted as 2 separate chars.
   (case (coding-system-eol-type buffer-file-coding-system)
-    ((0 2) 0)
     ((1) 
      (save-excursion 
        (do ((pos (+ (point) n))
             (count 0 (1+ count)))
            ((>= (point) pos) (1- count))
          (forward-line)
-         (decf pos))))))
+         (decf pos))))
+    (t 0)))
+
 
 (defun slime-search-method-location (name specializers qualifiers)
   ;; Look for a sequence of words (def<something> method name
