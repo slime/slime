@@ -111,14 +111,16 @@ Redirection is done while Lisp is processing a request for Emacs.")
 (defvar *backtrace-pprint-dispatch-table*
   (let ((table (copy-pprint-dispatch nil)))
     (flet ((escape-string (stream string)
-             (write-char #\" stream)
-             (loop for c across string do
-                   (case c
-                     (#\" (write-string "\\\"" stream))
-                     (#\newline (write-string "\\n" stream))
-                     (#\return (write-string "\\r" stream))
-                     (t (write-char c stream))))
-             (write-char #\" stream)))
+             (cond (*print-escape* 
+                    (write-char #\" stream)
+                    (loop for c across string do
+                          (case c
+                            (#\" (write-string "\\\"" stream))
+                            (#\newline (write-string "\\n" stream))
+                            (#\return (write-string "\\r" stream))
+                            (t (write-char c stream))))
+                    (write-char #\" stream))
+                   (t (write-string string)))))
       (set-pprint-dispatch 'string  #'escape-string 0 table)
       table)))
 

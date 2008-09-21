@@ -1,3 +1,8 @@
+2008-09-21  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (*backtrace-pprint-dispatch-table*):
+	Honor *print-escape*.
+
 2008-09-20  Ariel Badichi <abadichi@bezeqint.net>
 
 	* slime.el (slime-with-output-end-mark):
