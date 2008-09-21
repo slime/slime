@@ -1,5 +1,16 @@
 2008-09-21  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-openmcl.lisp: Try to remove the first few internal frames
+	from backtraces.
+	(guess-stack-top): New function.
+	(call-with-debugging-environment): Use it
+
+	(frame-arguments): Return a list instead of a string.  Don't quote
+	symbols.
+	(source-locations): Recognize (:internal FOO) functions.
+
+2008-09-21  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (*backtrace-pprint-dispatch-table*):
 	Honor *print-escape*.
 

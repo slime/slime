@@ -426,7 +426,7 @@ condition."
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (let* (;;(*debugger-hook* nil)
          (*sldb-stack-top* (or *sldb-stack-top-hint*
-                               (ccl::%get-frame-ptr)))
+                               (guess-stack-top 2)))
          (*sldb-stack-top-hint* nil)
          ;; don't let error while printing error take us down
          (ccl::*signal-printing-errors* nil))
@@ -439,6 +439,24 @@ condition."
 
 (defun backtrace-context ()
   nil)
+
+(labels ((error-entry? (frame)
+           (let ((fun (ccl::cfp-lfun frame)))
+             (or (eq fun #'ccl::%error)
+                 (eq fun #'ccl::%pascal-functions%)))))
+
+  (defun guess-stack-top (offset)
+    ;; search the beginning of the stack for some well known functions
+    (do ((ctx (backtrace-context))
+         (result (ccl::%get-frame-ptr))
+         (i 0 (1+ i))
+         (frame (ccl::%get-frame-ptr) (ccl::parent-frame frame ctx))
+         (last nil frame))
+        (nil)
+      (cond ((or (not frame) (or (> i (+ offset 7))))
+             (return result))
+            ((or (= i offset) (and last (error-entry? last)))
+             (setq result frame))))))
 
 (defun map-backtrace (function &optional
                       (start-frame-number 0)
@@ -458,35 +476,16 @@ condition."
               (funcall function frame-number p context lfun pc))
           (incf frame-number))))))
 
-;; May 13, 2004 alanr: use prin1 instead of princ so I see " around strings. Write ' in front of symbol names and lists.
-;; Sept  6, 2004 alanr: use builtin ccl::frame-supplied-args
-
 (defun frame-arguments (p context lfun pc)
-  "Returns a string representing the arguments of a frame."
+  "Returns a list representing the arguments of a frame."
   (multiple-value-bind (args types names)
       (ccl::frame-supplied-args p lfun pc nil context)
-    (let ((result nil))
-      (loop named loop
-         for var = (cond
-                     ((null args)
-                      (return-from loop))
-                     ((atom args)
-                      (prog1
-                          args
-                        (setf args nil)))
-                     (t (pop args)))
+    (loop for value in args
           for type in types
           for name in names
-          do
-          (when (or (symbolp var) (listp var)) (setq var (list 'quote var)))
-          (cond ((equal type "keyword")
-                 (push (format nil "~S ~A" 
-                               (intern (symbol-name name) "KEYWORD")
-                               (prin1-to-string var))
-                       result))
-                (t   (push (prin1-to-string var) result))))
-      (format nil "~{ ~A~}" (nreverse result)))))
-
+          append (cond ((equal type "keyword")
+                        (list (intern (symbol-name name) "KEYWORD") value))
+                       (t (list value))))))
 
 (defimplementation compute-backtrace (start-frame-number end-frame-number)
   (let (result)
@@ -502,10 +501,8 @@ condition."
   (let ((frame (swank-frame.%frame swank-frame)))
     (assert (eq (first frame) :openmcl-frame))
     (destructuring-bind (p context lfun pc) (rest frame)
-      (format stream "(~A~A)"
-              (if (ccl::function-name lfun)
-                  (ccl::%lfun-name-string lfun)
-                  lfun)
+      (format stream "(~S~{ ~S~})"
+              (or (ccl::function-name lfun) lfun)
               (frame-arguments p context lfun pc)))))
 
 (defimplementation frame-locals (index)
@@ -609,36 +606,44 @@ condition."
 ;; NAMES     ... a list of names.
 (labels ((str (obj) (princ-to-string obj))
          (str* (list) (mapcar #'princ-to-string list))
+         (unzip (list) (values (mapcar #'car list) (mapcar #'cdr list)))
          (filename (file) (namestring (truename file)))
          (src-loc (file pos)
-           (assert (or (null file) (stringp file) (pathnamep file)))
            (etypecase file
              (null `(:error "No source-file info available"))
              ((or string pathname)
               (handler-case (make-location `(:file ,(filename file)) pos)
-                (error (c) `(:error ,(princ-to-string c))))))))
-  
+                (error (c) `(:error ,(princ-to-string c)))))))
+         (fallback (thing)
+           (cond ((functionp thing)
+                  (let ((name (ccl::function-name thing)))
+                    (and (consp name) (eq (car name) :internal)
+                         (ccl::edit-definition-p (second name))))))))
+
+  ;; FIXME: reorder result, e.g. if THING is a function then return
+  ;; the locations for type 'function before those with type
+  ;; 'variable.  (Otherwise the debugger jumps to compiler-macros
+  ;; instead of functions :-)
   (defun source-locations (thing)
     (multiple-value-bind (files name) (ccl::edit-definition-p thing)
-      (let ((locs '())  (names '()))
-        (loop for (type . file) in files do
-              (etypecase type
-                ((member function macro variable compiler-macro 
-                         ccl:defcallback ccl::x8664-vinsn)
-                 (push (src-loc file (list :function-name (str name))) 
-                       locs)
-                 (push (list type name) names))
-                (method
-                 (let* ((m type)
-                        (name (ccl::method-name m))
-                        (specs (ccl::method-specializers m))
-                        (specs (mapcar #'specializer-name specs))
-                        (quals (ccl::method-qualifiers m)))
-                   (push (src-loc file (list :method (str name) (str* specs) 
-                                             (str* quals)))
-                         locs)
-                   (push `(method ,name ,quals ,specs) names)))))
-        (values (nreverse locs) (nreverse names))))))
+      (when (null files) 
+        (multiple-value-setq (files name) (fallback thing)))
+      (unzip
+       (loop for (type . file) in files collect
+             (etypecase type
+               ((member function macro variable compiler-macro 
+                        ccl:defcallback ccl::x8664-vinsn)
+                (cons (src-loc file (list :function-name (str name))) 
+                      (list type name)))
+               (method
+                (let* ((met type)
+                       (name (ccl::method-name met))
+                       (specs (ccl::method-specializers met))
+                       (specs (mapcar #'specializer-name specs))
+                       (quals (ccl::method-qualifiers met)))
+                  (cons (src-loc file (list :method (str name) 
+                                            (str* specs) (str* quals)))
+                        `(method ,name ,quals ,specs))))))))))
 
 (defimplementation frame-source-location-for-emacs (index)
   "Return to Emacs the location of the source code for the
