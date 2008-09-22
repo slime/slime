@@ -186,4 +186,3 @@ be treated as a paragraph.  This is useful for filling docstrings."
   (define-key slime-mode-map "\C-c\M-q" 'slime-reindent-defun))
 
 (provide 'slime-editing-commands)
-(defun
