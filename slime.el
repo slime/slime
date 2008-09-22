@@ -1099,7 +1099,7 @@ last activated the buffer."
 (defvar slime-lisp-implementations nil
   "*A list of known Lisp implementations.
 The list should have the form: 
-  ((NAME (PROGRAM PROGRAM-ARGS...) &key INIT CODING-SYSTEM) ...)
+  ((NAME (PROGRAM PROGRAM-ARGS...) &key INIT CODING-SYSTEM ENV) ...)
 
 NAME is a symbol for the implementation.
 PROGRAM and PROGRAM-ARGS are strings used to start the Lisp process.
@@ -1108,6 +1108,7 @@ INIT is a function that should return a string to load and start
   arguments.  INIT defaults to `slime-init-command'. 
 CODING-SYSTEM a symbol for the coding system. The default is 
   slime-net-coding-system
+ENV environment variables for the subprocess (see `process-environment').
 
 Here's an example: 
  ((cmucl (\"/opt/cmucl/bin/lisp\" \"-quiet\") :init slime-init-command)
@@ -2735,8 +2736,8 @@ the buffer should appear."
 ;;    ^            ^                      ^       ^           ^
 ;;    output-start output-end  prompt-start       input-start point-max
 ;;
-;; input-start is a right inserting markers marker, because
-;; we want it to say behind when the user inserts text.
+;; input-start is a right inserting marker, because
+;; we want it to stay behind when the user inserts text.
 ;;
 ;; We maintain the following invariant:
 ;;
@@ -8604,9 +8605,9 @@ Exits Emacs when finished. The exit code is the number of failed tests."
           (kill-emacs 252))))
     (slime-sync-to-top-level 5)
     (switch-to-buffer "*scratch*")
-    (let ((slime-randomize-test-order (when randomize (random t) t))
-          (failed-tests (cond (test-name (slime-run-one-test test-name))
-                              (t (slime-run-tests)))))
+    (let* ((slime-randomize-test-order (when randomize (random t) t))
+           (failed-tests (cond (test-name (slime-run-one-test test-name))
+                               (t (slime-run-tests)))))
       (with-current-buffer slime-test-buffer-name
         (slime-delete-hidden-outline-text)
         (goto-char (point-min))
