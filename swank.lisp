@@ -1823,10 +1823,11 @@ Return the package or nil."
 (defun guess-package (string)
   "Guess which package corresponds to STRING.
 Return nil if no package matches."
-  (or (find-package string)
-      (parse-package string)
-      (if (find #\! string) ; for SBCL
-          (guess-package (substitute #\- #\! string)))))
+  (when string
+    (or (find-package string)
+        (parse-package string)
+        (if (find #\! string)           ; for SBCL
+            (guess-package (substitute #\- #\! string))))))
 
 (defvar *readtable-alist* (default-readtable-alist)
   "An alist mapping package names to readtables.")

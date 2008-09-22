@@ -1,3 +1,9 @@
+2008-09-22  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* swank.lisp (guess-package): Return NIL if string designator is
+	NIL: makes files without IN-PACKAGE forms more *BREAK-ON-SIGNALS*
+	friendly.
+
 2008-09-22  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-sbcl.lisp (wait-for-input): Implement this in backend,
