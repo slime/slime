@@ -1,3 +1,13 @@
+2008-09-22  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-sbcl.lisp (wait-for-input): Implement this in backend,
+	since read-char-no-hang doesn't work in fd-handlers.
+	(install-sigint-handler): Go through invoke-interruption and
+	with-interrupts to support nested interrupts.
+
+	* slime.el (slime-lisp-implementations): Mention :env keyword
+	in docstring.
+
 2008-09-21  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-repl-input-end-mark): Deleted. It was always at

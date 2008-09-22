@@ -117,7 +117,10 @@
   (sb-sys:enable-interrupt sb-unix:sigint 
                            (lambda (&rest args)
                              (declare (ignore args))
-                             (funcall function))))
+                             (sb-sys:invoke-interruption 
+                              (lambda ()
+                                (sb-sys:with-interrupts 
+                                  (funcall function)))))))
 
 (defvar *sigio-handlers* '()
   "List of (key . fn) pairs to be called on SIGIO.")
@@ -164,6 +167,35 @@
     (fixnum socket)
     (sb-bsd-sockets:socket (sb-bsd-sockets:socket-file-descriptor socket))
     (file-stream (sb-sys:fd-stream-fd socket))))
+
+(defvar *wait-for-input-called*)
+
+(defimplementation wait-for-input (streams &optional timeout)
+  (assert (member timeout '(nil t)))
+  (when (boundp '*wait-for-input-called*)
+    (setq *wait-for-input-called* t))
+  (let ((*wait-for-input-called* nil))
+    (loop
+     (let ((ready (remove-if-not #'listen streams)))
+       (when ready (return ready)))
+     (when timeout (return nil))
+     (when (check-slime-interrupts) (return :interrupt))
+     (when *wait-for-input-called* (return :interrupt))
+     (let* ((f (constantly t))
+            (handlers (loop for s in streams
+                            collect (add-one-shot-handler s f))))
+       (unwind-protect
+            (sb-sys:serve-event 0.2)
+         (mapc #'sb-sys:remove-fd-handler handlers))))))
+
+(defun add-one-shot-handler (stream function)
+  (let (handler)
+    (setq handler 
+          (sb-sys:add-fd-handler (sb-sys:fd-stream-fd stream) :input
+                                 (lambda (fd)
+                                   (declare (ignore fd))
+                                   (sb-sys:remove-fd-handler handler)
+                                   (funcall function stream))))))
 
 (defvar *external-format-to-coding-system*
   '((:iso-8859-1 
