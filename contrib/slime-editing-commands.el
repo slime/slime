@@ -25,8 +25,7 @@
 
 (defun slime-end-of-defun ()
   (interactive)
-  (if (and (boundp 'slime-repl-input-end-mark)
-           slime-repl-input-end-mark)
+  (if (eq major 'slime-repl-mode)
       (slime-repl-end-of-defun)
       (end-of-defun)))
 
@@ -187,3 +186,4 @@ be treated as a paragraph.  This is useful for filling docstrings."
   (define-key slime-mode-map "\C-c\M-q" 'slime-reindent-defun))
 
 (provide 'slime-editing-commands)
+(defun

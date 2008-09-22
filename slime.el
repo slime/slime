@@ -2733,14 +2733,14 @@ the buffer should appear."
 ;; 
 ;;    ... output ...    ... result ...    prompt> ... input ...
 ;;    ^            ^                      ^       ^           ^
-;;    output-start output-end  prompt-start       input-start input-end  
+;;    output-start output-end  prompt-start       input-start point-max
 ;;
-;; output-start and input-start are right inserting markers;
-;; output-end and input-end left inserting.
+;; input-start is a right inserting markers marker, because
+;; we want it to say behind when the user inserts text.
 ;;
 ;; We maintain the following invariant:
 ;;
-;;  output-start <= output-end <= input-start <= input-end.
+;;  output-start <= output-end <= input-start.
 ;;
 ;; This invariant is important, because we must be prepared for
 ;; asynchronous output and asynchronous reads.  ("Asynchronous" means,
@@ -2748,29 +2748,22 @@ the buffer should appear."
 ;;
 ;; All output is inserted at the output-end marker.  Some care must be
 ;; taken when output-end and input-start are at the same position: if
-;; we blindly insert at that point, we break the invariant stated
-;; above, because the output-end marker is left inserting.  The macro
-;; `slime-with-output-end-mark' handles this complication by moving
-;; the input-start marker to an appropriate place.  The macro also
-;; updates window-point if necessary, and tries to keep the prompt in
-;; the first column by inserting a newline.
+;; we insert at that point, we must move the right markers.  We should
+;; also not leave (window-)point in the middle of the new output.  The
+;; idiom we use is a combination to slime-save-marker,
+;; insert-before-markers, and manually updating window-point
+;; afterwards.
 ;;
 ;; A "synchronous" evaluation request proceeds as follows: the user
-;; inserts some text between input-start and input-end and then hits
-;; return.  We send the text between the input markers to Lisp, move
-;; the output and input makers to the line after the input and wait.
-;; When we receive the result, we insert it together with a prompt
-;; between the output-end and input-start mark.
-;; `slime-repl-insert-prompt' does this.
+;; inserts some text between input-start and point-max and then hits
+;; return.  We send that region to Lisp, move the output and input
+;; makers to the line after the input and wait.  When we receive the
+;; result, we insert it together with a prompt between the output-end
+;; and input-start mark.  See `slime-repl-insert-prompt'.
 ;;
 ;; It is possible that some output for such an evaluation request
 ;; arrives after the result.  This output is inserted before the
-;; result (and before the prompt).  Output that doesn't belong the
-;; evaluation request should not be inserted before the result, but
-;; immediately before the prompt.  To achieve this, we move the
-;; output-end mark to prompt-start after a short delay (by starting a
-;; timer in `slime-repl-insert-prompt').  In summary: synchronous
-;; output should go before the result, asynchronous before the prompt.
+;; result (and before the prompt). 
 ;;
 ;; If we are in "reading" state, e.g., during a call to Y-OR-N-P,
 ;; there is no prompt between output-end and input-start.
@@ -2789,7 +2782,6 @@ the buffer should appear."
 
  (defvar slime-repl-prompt-start-mark)
  (defvar slime-repl-input-start-mark)
- (defvar slime-repl-input-end-mark)
  (defvar slime-repl-old-input-counter 0
    "Counter used to generate unique `slime-repl-old-input' properties.
 This property value must be unique to avoid having adjacent inputs be
@@ -2799,12 +2791,9 @@ joined together."))
   (dolist (markname '(slime-output-start
                       slime-output-end
                       slime-repl-prompt-start-mark
-                      slime-repl-input-start-mark
-                      slime-repl-input-end-mark))
+                      slime-repl-input-start-mark))
     (set markname (make-marker))
-    (set-marker (symbol-value markname) (point)))
-  (set-marker-insertion-type slime-repl-input-end-mark t)
-  (set-marker-insertion-type slime-repl-prompt-start-mark t))
+    (set-marker (symbol-value markname) (point))))
 
 ;;;;; REPL mode setup
 
@@ -2828,7 +2817,6 @@ joined together."))
   ([(control return)] 'slime-repl-closing-return)
   ("\C-a" 'slime-repl-bol)
   ([home] 'slime-repl-bol)
-  ("\C-e" 'slime-repl-eol)
   ("\M-p" 'slime-repl-previous-input)
   ((kbd "C-<up>") 'slime-repl-backward-input)
   ("\M-n" 'slime-repl-next-input)
@@ -2944,7 +2932,6 @@ joined together."))
   "Insert the prompt (before markers!).
 Set point after the prompt.  
 Return the position of the prompt beginning."
-  (assert (= slime-repl-input-end-mark (point-max)))
   (goto-char slime-repl-input-start-mark)
   (slime-save-marker slime-output-start
     (slime-save-marker slime-output-end
@@ -2981,9 +2968,9 @@ buffer."
                                         until-point-p)
       (buffer-substring-no-properties
        slime-repl-input-start-mark 
-       (if (and until-point-p (<= (point) slime-repl-input-end-mark))
-           (point)
-         slime-repl-input-end-mark))))
+       (if until-point-p 
+           (point) 
+         (point-max)))))
 
 (defun slime-property-position (text-property &optional object)
   "Return the first position of TEXT-PROPERTY, or nil."
@@ -2992,8 +2979,7 @@ buffer."
     (next-single-property-change 0 text-property object)))
   
 (defun slime-mark-input-start ()
-  (set-marker slime-repl-input-start-mark (point) (current-buffer))
-  (set-marker slime-repl-input-end-mark (point) (current-buffer)))
+  (set-marker slime-repl-input-start-mark (point) (current-buffer)))
 
 (defun slime-mark-output-start ()
   (set-marker slime-output-start (point))
@@ -3015,23 +3001,13 @@ buffer."
         (t (beginning-of-line 1)))
   (slime-preserve-zmacs-region))
 
-(defun slime-repl-eol ()
-  "Go to the end of line or the prompt."
-  (interactive)
-  (if (and (<= (point) slime-repl-input-end-mark)
-           (slime-same-line-p (point) slime-repl-input-end-mark))
-      (goto-char slime-repl-input-end-mark)
-    (end-of-line 1))
-  (slime-preserve-zmacs-region))
-
 (defun slime-preserve-zmacs-region ()
   "In XEmacs, ensure that the zmacs-region stays active after this command."
   (when (boundp 'zmacs-region-stays)
     (set 'zmacs-region-stays t)))
 
 (defun slime-repl-in-input-area-p ()
-   (and (<= slime-repl-input-start-mark (point))
-        (<= (point) slime-repl-input-end-mark)))
+   (<= slime-repl-input-start-mark (point)))
 
 (defun slime-repl-at-prompt-start-p ()
   ;; This will not work on non-current prompts.
@@ -3050,13 +3026,14 @@ buffer."
     (beginning-of-defun))
   t)
 
+;; FIXME: this looks very strange
 (defun slime-repl-end-of-defun ()
   "Move to next of defun."
   (interactive)
   ;; C.f. SLIME-REPL-BEGINNING-OF-DEFUN.
-  (if (and (not (= (point) slime-repl-input-end-mark)) 
+  (if (and (not (= (point) (point-max))) 
            (slime-repl-in-input-area-p))
-      (goto-char slime-repl-input-end-mark)
+      (goto-char (point-max))
     (end-of-defun))
   t)
 
@@ -3100,7 +3077,6 @@ With prefix argument send the input even if the parenthesis are not
 balanced."
   (interactive "P")
   (slime-check-connected)
-  (assert (<= (point) slime-repl-input-end-mark))
   (cond (end-of-input
          (slime-repl-send-input))
         (slime-repl-read-mode ; bad style?
@@ -3110,26 +3086,25 @@ balanced."
          (slime-repl-grab-old-input end-of-input)
          (slime-repl-recenter-if-needed))
         ((run-hook-with-args-until-success 'slime-repl-return-hooks))
-        ((slime-input-complete-p slime-repl-input-start-mark
-                                 slime-repl-input-end-mark)
+        ((slime-input-complete-p slime-repl-input-start-mark (point-max))
          (slime-repl-send-input t))
         (t 
          (slime-repl-newline-and-indent)
          (message "[input not complete]"))))
 
 (defun slime-repl-recenter-if-needed ()
-  "Make sure that slime-repl-input-end-mark is visible."
-  (unless (pos-visible-in-window-p slime-repl-input-end-mark)
+  "Make sure that (point) is visible."
+  (unless (pos-visible-in-window-p (point-max))
     (save-excursion
-      (goto-char slime-repl-input-end-mark)
+      (goto-char (point-max))
       (recenter -1))))
 
 (defun slime-repl-send-input (&optional newline)
   "Goto to the end of the input and send the current input.
 If NEWLINE is true then add a newline at the end of the input."
-  (when (< (point) slime-repl-input-start-mark)
+  (unless (slime-repl-in-input-area-p)
     (error "No input at point."))
-  (goto-char slime-repl-input-end-mark)
+  (goto-char (point-max))
   (let ((end (point))) ; end of input, without the newline
     (slime-repl-add-to-input-history 
      (buffer-substring slime-repl-input-start-mark end))
@@ -3147,7 +3122,7 @@ If NEWLINE is true then add a newline at the end of the input."
       (overlay-put overlay 'read-only t)
       (overlay-put overlay 'face 'slime-repl-input-face)))
   (let ((input (slime-repl-current-input)))
-    (goto-char slime-repl-input-end-mark)
+    (goto-char (point-max))
     (slime-mark-input-start)
     (slime-mark-output-start)
     (slime-repl-send-string input)))
@@ -3163,10 +3138,10 @@ text property `slime-repl-old-input'."
           (offset (- (point) beg)))
       ;; Append the old input or replace the current input
       (cond (replace (goto-char slime-repl-input-start-mark))
-            (t (goto-char slime-repl-input-end-mark)
+            (t (goto-char (point-max))
                (unless (eq (char-before) ?\ )
                  (insert " "))))
-      (delete-region (point) slime-repl-input-end-mark)
+      (delete-region (point) (point-max))
       (save-excursion 
         (insert old-input)
         (when (equal (char-before) ?\n) 
@@ -3219,7 +3194,7 @@ earlier in the buffer."
           (t t))))
 
 (defun slime-repl-delete-current-input ()
-  (delete-region slime-repl-input-start-mark slime-repl-input-end-mark))
+  (delete-region slime-repl-input-start-mark (point-max)))
 
 (defun slime-repl-kill-input ()
   "Kill all text from the prompt to point."
@@ -4676,7 +4651,6 @@ you should check twice before modifying.")
          (decf pos))))
     (t 0)))
 
-
 (defun slime-search-method-location (name specializers qualifiers)
   ;; Look for a sequence of words (def<something> method name
   ;; qualifers specializers don't look for "T" since it isn't requires
@@ -5438,7 +5412,6 @@ inserted in the current buffer."
   (with-current-buffer (slime-output-buffer)
     (save-excursion
       (goto-char slime-repl-input-start-mark)
-      (assert (= (point-max) slime-repl-input-end-mark))
       (unless (bolp) (insert-before-markers "\n"))
       (slime-propertize-region '(slime-transcript-delimiter t)
         (insert-before-markers
@@ -9217,8 +9190,8 @@ SWANK> *[]"))
 
 (defun slime-check-buffer-contents (msg expected)
   (let* ((marks '((point . ?*) 
-                  (output-start . ?{) (output-end . ?}) 
-                  (repl-input-start-mark . ?\[) (repl-input-end-mark . ?\])))
+                  (slime-output-start . ?{) (slime-output-end . ?}) 
+                  (slimerepl-input-start-mark . ?\[) (point-max . ?\])))
          (marks (remove-if-not (lambda (m) (position (cdr m) expected))
                                marks))
          (marks (sort (copy-sequence marks) 
@@ -9231,22 +9204,22 @@ SWANK> *[]"))
                                         result))
                      (m marks (cdr m))
                      (s expected (remove* (cdar m) s)))
-                    ((null m) (reverse result)))))
+                    ((null m) (reverse result))))
+         (point (point))
+         (point-max (point-max)))
     (slime-test-expect (concat msg " [content]") content (buffer-string))
-    (slime-test-expect (concat msg " [point]") 
-                       (cdr (assoc 'point marks))
-                       (point))
     (macrolet ((test-mark 
                 (mark)
                 `(when (assoc ',mark marks)
                    (slime-test-expect (format "%s [%s]" msg ',mark)
                                       (cdr (assoc ',mark marks))
-                                      ,(intern (format "slime-%s" mark))
+                                      ,mark
                                       #'=))))
-      (test-mark output-end)
-      (test-mark output-start)
-      (test-mark repl-input-end-mark)
-      (test-mark repl-input-start-mark))))
+      (test-mark point)
+      (test-mark slime-output-end)
+      (test-mark slime-output-start)
+      (test-mark slime-repl-input-start-mark)
+      (test-mark point-max))))
 
 (def-slime-test repl-return 
     (before after result-contents)

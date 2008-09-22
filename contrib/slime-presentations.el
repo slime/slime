@@ -671,10 +671,10 @@ output; otherwise the new input is appended."
     (let ((old-output (buffer-substring beg end))) ;;keep properties
       ;; Append the old input or replace the current input
       (cond (replace (goto-char slime-repl-input-start-mark))
-            (t (goto-char slime-repl-input-end-mark)
+            (t (goto-char (point-max))
                (unless (eq (char-before) ?\ )
                  (insert " "))))
-      (delete-region (point) slime-repl-input-end-mark)
+      (delete-region (point) (point-max))
       (let ((inhibit-read-only t))
         (insert old-output)))))
 
@@ -793,10 +793,8 @@ output; otherwise the new input is appended."
 The input is the region from after the last prompt to the end of
 buffer. Presentations of old results are expanded into code."
   (slime-buffer-substring-with-reified-output  slime-repl-input-start-mark
-                                               (if (and until-point-p
-                                                        (<= (point) slime-repl-input-end-mark))
-                                                   (point)
-                                                   slime-repl-input-end-mark)))    
+					       (point-max)))
+
 (defun slime-presentation-on-return-pressed ()
   (cond ((and (car (slime-presentation-around-or-before-point (point)))
 	      (< (point) slime-repl-input-start-mark))

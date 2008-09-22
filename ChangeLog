@@ -1,5 +1,11 @@
 2008-09-21  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-repl-input-end-mark): Deleted. It was always at
+	the end of buffer. Use point-max instead.
+	(slime-repl-eol): Removed.  The usual end-of-line does the same.
+
+2008-09-21  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-eol-conversion-fixup): Return 0 (not nil) for
 	anyting other than CRLF conventions.
 
