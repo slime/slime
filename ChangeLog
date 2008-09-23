@@ -1,3 +1,11 @@
+2008-09-23  Douglas Crosher <dcrosher@common-lisp.net>
+
+	* swank-scl.lisp: update for Scieneer CL 1.3.8.
+
+	* swank.lisp (ed-in-emacs): customize for the SCL.
+
+	* swank.lisp (signal-interrupt): fix typo.
+
 2008-09-22  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* swank.lisp (guess-package): Return NIL if string designator is

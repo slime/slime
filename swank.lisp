@@ -1121,7 +1121,7 @@ The processing is done in the extent of the toplevel restart."
         (t (dispatch-event event))))
 
 (defun signal-interrupt (thread interrupt)  
-  (log-event "singal-interrupt~%")
+  (log-event "signal-interrupt~%")
   (cond ((use-threads-p) (interrupt-thread thread interrupt))
         (t (funcall interrupt))))
 
@@ -2088,7 +2088,9 @@ Returns true if it actually called emacs, or NIL if not."
   (flet ((pathname-or-string-p (thing)
            (or (pathnamep thing) (typep thing 'string)))
          (canonicalize-filename (filename)
-           (namestring (or (probe-file filename) filename))))
+           (let ((file-name (or (probe-file filename) filename)))
+             #-scl (namestring file-name)
+             #+scl (ext:unix-namestring file-name nil))))
     (let ((target
            (cond ((and (listp what) (pathname-or-string-p (first what)))
                   (cons (canonicalize-filename (car what)) (cdr what)))
