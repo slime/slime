@@ -690,16 +690,12 @@ output; otherwise the new input is appended."
     (?r slime-copy-presentation-at-point-to-repl)
     (?p slime-previous-presentation)
     (?n slime-next-presentation)
-    (?  slime-mark-presentation)))
+    (?\  slime-mark-presentation)))
 
 (defun slime-presentation-init-keymaps ()
   (setq slime-presentation-command-map (make-sparse-keymap))
-  (loop for (key command) in slime-presentation-bindings
-        do (progn
-             ;; We bind both unmodified and with control.
-             (define-key slime-presentation-command-map (vector key) command)
-             (let ((modified (slime-control-modified-char key)))
-	       (define-key slime-presentation-command-map (vector modified) command))))
+  (slime-define-both-key-bindings slime-presentation-command-map 
+				  slime-presentation-bindings)
   (define-key slime-presentation-command-map "\M-o" 'slime-clear-presentations)
   ;; C-c C-v is the prefix for the presentation-command map.
   (slime-define-key "\C-v" slime-presentation-command-map :prefixed t)

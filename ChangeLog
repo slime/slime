@@ -3,6 +3,10 @@
 	* slime.el (slime-prefix-map): New keymap.
 	(slime-define-key): Use it.  Also drop unused :inferior arg.
 	(slime-inspector-mode-map): Bind C-c to slime-prefix-map.
+	(slime-define-both-key-bindings): New function.  Factor of
+	slime-init-keymaps.
+	(slime-init-keymaps): Use it.
+	(slime-control-modified-char): Deleted.
 
 2008-09-23  Douglas Crosher <dcrosher@common-lisp.net>
 

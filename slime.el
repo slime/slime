@@ -630,30 +630,21 @@ If PREFIXED is non-nil, `slime-prefix-key' is prepended to KEY."
         do (apply #'slime-define-key key command :allow-other-keys t keys))
   ;; Documentation
   (setq slime-doc-map (make-sparse-keymap))
-  (loop for (key command) in slime-doc-bindings
-        do (progn
-             ;; We bind both unmodified and with control.
-             (define-key slime-doc-map (vector key) command)
-             (unless (equal key ?h)     ; But don't bind C-h
-               (let ((modified (slime-control-modified-char key)))
-                 (define-key slime-doc-map (vector modified) command)))))
+  (slime-define-both-key-bindings slime-doc-map slime-doc-bindings)
   ;; C-c C-d is the prefix for the doc map.
   (slime-define-key "\C-d" slime-doc-map :prefixed t)
   ;; Who-xref
   (setq slime-who-map (make-sparse-keymap))
-  (loop for (key command) in slime-who-bindings
-        do (progn
-             ;; We bind both unmodified and with control.
-             (define-key slime-who-map (vector key) command)
-             (let ((modified (slime-control-modified-char key)))
-                 (define-key slime-who-map (vector modified) command))))
+  (slime-define-both-key-bindings slime-who-map slime-who-bindings)
   ;; C-c C-w is the prefix for the who-xref map.
   (slime-define-key "\C-w" slime-who-map :prefixed t))
 
-(defun slime-control-modified-char (char)
-  "Return the control-modified version of CHAR."
-  ;; Maybe better to just bitmask it?
-  (read (format "?\\C-%c" char)))
+(defun slime-define-both-key-bindings (keymap bindings)
+  (loop for (char command) in bindings do
+        ;; We bind both unmodified and with control.
+        (define-key keymap `[,char] command)
+        (unless (equal char ?h)     ; But don't bind C-h
+          (define-key keymap `[(control ,char)] command))))
 
 (slime-init-keymaps)
 
