@@ -613,7 +613,7 @@ The string is periodically updated by an idle timer."))
   "The prefix key to use in SLIME keybinding sequences.")
 
 (defvar slime-prefix-map (make-sparse-keymap)
-  "Keymap for prefixed with `slime-prefix-key'.")
+  "Keymap for commands prefixed with `slime-prefix-key'.")
 
 (defun* slime-define-key (key command &key prefixed)
   "Define a keybinding of KEY for COMMAND.
