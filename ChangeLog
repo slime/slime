@@ -1,3 +1,7 @@
+2008-09-24  Knut Olav Bøhmer <knut-olav.bohmer@telenor.com>
+
+	* slime.el (slime-cycle-connections): New command.
+
 2008-09-24  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-prefix-map): New keymap.

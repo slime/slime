@@ -1854,6 +1854,17 @@ Signal an error if there's no connection."
   "Make PROCESS the default connection."
   (setq slime-default-connection process))
 
+(defun slime-cycle-connections ()
+  "Change current slime connection, and make it buffer local."
+  (interactive)
+  (let* ((tail (or (cdr (member (slime-current-connection)
+                                slime-net-processes))
+                   slime-net-processes))
+         (p (car tail)))
+    (slime-select-connection p)
+    (setq slime-buffer-connection p)
+    (message "Lisp: %s %s" (slime-connection-name p) (process-contact p))))
+
 (defmacro* slime-with-connection-buffer ((&optional process) &rest body)
   "Execute BODY in the process-buffer of PROCESS.
 If PROCESS is not specified, `slime-connection' is used.
