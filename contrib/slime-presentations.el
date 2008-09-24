@@ -702,7 +702,7 @@ output; otherwise the new input is appended."
 	       (define-key slime-presentation-command-map (vector modified) command))))
   (define-key slime-presentation-command-map "\M-o" 'slime-clear-presentations)
   ;; C-c C-v is the prefix for the presentation-command map.
-  (slime-define-key "\C-v" slime-presentation-command-map :prefixed t :inferior t)
+  (slime-define-key "\C-v" slime-presentation-command-map :prefixed t)
   (define-key slime-repl-mode-map "\C-c\C-v" slime-presentation-command-map)
   (define-key sldb-mode-map "\C-c\C-v" slime-presentation-command-map)
   (define-key slime-inspector-mode-map "\C-c\C-v" slime-presentation-command-map))

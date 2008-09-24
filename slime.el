@@ -612,16 +612,20 @@ The string is periodically updated by an idle timer."))
 (defvar slime-prefix-key "\C-c"
   "The prefix key to use in SLIME keybinding sequences.")
 
-(defun* slime-define-key (key command &key prefixed inferior)
+(defvar slime-prefix-map (make-sparse-keymap)
+  "Keymap for prefixed with `slime-prefix-key'.")
+
+(defun* slime-define-key (key command &key prefixed)
   "Define a keybinding of KEY for COMMAND.
 If PREFIXED is non-nil, `slime-prefix-key' is prepended to KEY."
-  (when prefixed
-    (setq key (concat slime-prefix-key key)))
-  (define-key slime-mode-map key command))
+  (cond (prefixed (define-key slime-prefix-map key command))
+        (t (define-key slime-mode-map key command))))
 
 (defun slime-init-keymaps ()
   "(Re)initialize the keymaps for `slime-mode'."
   (interactive)
+  (setq slime-prefix-map (make-sparse-keymap))
+  (define-key slime-mode-map slime-prefix-key slime-prefix-map)
   (loop for (key command . keys) in slime-keys
         do (apply #'slime-define-key key command :allow-other-keys t keys))
   ;; Documentation
@@ -634,7 +638,7 @@ If PREFIXED is non-nil, `slime-prefix-key' is prepended to KEY."
                (let ((modified (slime-control-modified-char key)))
                  (define-key slime-doc-map (vector modified) command)))))
   ;; C-c C-d is the prefix for the doc map.
-  (slime-define-key "\C-d" slime-doc-map :prefixed t :inferior t)
+  (slime-define-key "\C-d" slime-doc-map :prefixed t)
   ;; Who-xref
   (setq slime-who-map (make-sparse-keymap))
   (loop for (key command) in slime-who-bindings
@@ -644,7 +648,7 @@ If PREFIXED is non-nil, `slime-prefix-key' is prepended to KEY."
              (let ((modified (slime-control-modified-char key)))
                  (define-key slime-who-map (vector modified) command))))
   ;; C-c C-w is the prefix for the who-xref map.
-  (slime-define-key "\C-w" slime-who-map :prefixed t :inferior t))
+  (slime-define-key "\C-w" slime-who-map :prefixed t))
 
 (defun slime-control-modified-char (char)
   "Return the control-modified version of CHAR."
@@ -7988,7 +7992,8 @@ If ARG is negative, move forwards."
   ([(shift tab)] 'slime-inspector-previous-inspectable-object) ; Emacs translates S-TAB
   ([backtab]     'slime-inspector-previous-inspectable-object) ; to BACKTAB on X.
   ("\M-." 'slime-edit-definition)
-  ("." 'slime-inspector-show-source))
+  ("." 'slime-inspector-show-source)
+  (slime-prefix-key slime-prefix-map))
 
 
 ;;;; Buffer selector
