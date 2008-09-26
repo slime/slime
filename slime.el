@@ -1862,7 +1862,8 @@ Signal an error if there's no connection."
                    slime-net-processes))
          (p (car tail)))
     (slime-select-connection p)
-    (setq slime-buffer-connection p)
+    (unless (eq major-mode 'slime-repl-mode)
+      (setq slime-buffer-connection p))
     (message "Lisp: %s %s" (slime-connection-name p) (process-contact p))))
 
 (defmacro* slime-with-connection-buffer ((&optional process) &rest body)

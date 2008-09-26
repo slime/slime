@@ -1,3 +1,8 @@
+2008-09-25  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-cycle-connections): Do not make the new
+	connection buffer-local if we're currently in a REPL buffer.
+
 2008-09-24  Knut Olav Bøhmer <knut-olav.bohmer@telenor.com>
 
 	* slime.el (slime-cycle-connections): New command.
