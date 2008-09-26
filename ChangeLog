@@ -1,4 +1,12 @@
-2008-09-25  Tobias C. Rittweiler  <tcr@freebits.de>
+2008-09-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Improve ECL's arglist support somewhat.
+
+	* swank-ecl.lisp (grovel-docstring-for-arglist): New function.
+	(arglist): Use it. Now also try to find an arglist for special
+	operators, and macros.
+
+2008-09-26  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-cycle-connections): Do not make the new
 	connection buffer-local if we're currently in a REPL buffer.

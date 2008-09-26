@@ -170,31 +170,45 @@
 
 ;;;; Documentation
 
+(defun grovel-docstring-for-arglist (name type)
+  (flet ((compute-arglist-offset (docstring)
+           (when docstring
+             (let ((pos1 (search "Args: " docstring)))
+               (if pos1
+                   (+ pos1 6)
+                   (let ((pos2 (search "Syntax: " docstring)))
+                     (when pos2
+                       (+ pos2 8))))))))
+    (let* ((docstring (si::get-documentation name type))
+           (pos (compute-arglist-offset docstring)))
+      (if pos
+          (multiple-value-bind (arglist errorp)
+              (ignore-errors
+                (values (read-from-string docstring t nil :start pos)))
+            (if errorp :not-available (cdr arglist)))
+          :not-available ))))
+
 (defimplementation arglist (name)
-  (or (functionp name) (setf name (symbol-function name)))
-  (if (functionp name)
-      (typecase name 
-        (generic-function
-         (clos::generic-function-lambda-list name))
-        (compiled-function
-         ; most of the compiled functions have an Args: line in their docs
-         (with-input-from-string (s (or
-                                     (si::get-documentation
-                                      (si:compiled-function-name name) 'function)
-                                     ""))
-           (do ((line (read-line s nil) (read-line s nil)))
-               ((not line) :not-available)
-             (ignore-errors
-               (if (string= (subseq line 0 6) "Args: ")
-                   (return-from nil
-                     (read-from-string (subseq line 6))))))))
-         ;
-        (function
-         (let ((fle (function-lambda-expression name)))
-           (case (car fle)
-             (si:lambda-block (caddr fle))
-             (t               :not-available)))))
-      :not-available))
+  (cond ((special-operator-p name)
+         (grovel-docstring-for-arglist name 'function))
+        ((macro-function name)
+         (grovel-docstring-for-arglist name 'function))
+        ((or (functionp name) (fboundp name))
+         (multiple-value-bind (name fndef)
+             (if (functionp name)
+                 (values (function-name name) name)
+                 (values name (fdefinition name)))
+           (typecase fndef
+             (generic-function
+              (clos::generic-function-lambda-list fndef))
+             (compiled-function
+              (grovel-docstring-for-arglist name 'function))
+             (function
+              (let ((fle (function-lambda-expression fndef)))
+                (case (car fle)
+                  (si:lambda-block (caddr fle))
+                  (t               :not-available)))))))
+        (t :not-available)))
 
 (defimplementation function-name (f)
   (si:compiled-function-name f))
