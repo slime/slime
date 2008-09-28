@@ -4153,8 +4153,6 @@ Each newlines and following indentation is replaced by a single space."
           (when (slime-tree.collapsed-p tree) (setf collapsed-p t))
           (slime-tree-insert tree "")
           (insert "\n"))
-        (unless collapsed-p
-          (shrink-window-if-larger-than-buffer))
         (goto-char (point-min))))))
 
 (defun slime-alistify (list key test)
