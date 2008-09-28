@@ -1,3 +1,13 @@
+2008-09-28  Helmut Eller  <heller@common-lisp.net>
+
+	Stop handling events in worker threads after sldb-quit.
+
+	* swank.lisp (with-top-level-restart): New macro.
+	(handle-requests, spawn-worker-thread): Use it.
+	(process-requests): Drop the just-one argument.
+	(handle-or-process-requests): Deleted. Call handle-requests
+	directly.
+
 2008-09-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	Improve ECL's arglist support somewhat.

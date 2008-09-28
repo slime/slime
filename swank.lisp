@@ -934,31 +934,42 @@ This is an optimized way for Lisp to deliver output to Emacs."
       (when socket
         (close-socket socket)))))
 
-(defvar *sldb-quit-restart* 'abort
-  "What restart should swank attempt to invoke when the user sldb-quits.")
+;; The restart that will be invoked when the user calls sldb-quit.
+;; This restart will be named "abort" because many people press "a"
+;; instead of "q" in the debugger.
+(defvar *sldb-quit-restart*)
 
-(defun handle-requests (connection &optional timeout just-one)
-  "Read and process requests.  
+;; Establish a top-level restart and execute BODY.
+;; Execute K if the restart is invoked.
+(defmacro with-top-level-restart ((connection k) &body body)
+  `(with-connection (,connection)
+     (restart-case 
+         (let ((*sldb-quit-restart* (find-restart 'abort)))
+           . ,body)
+       (abort (&optional v)
+         :report "Return to SLIME's top level."
+         (declare (ignore v))
+         (force-user-output)
+         ,k))))
+
+(defun handle-requests (connection &optional timeout)
+  "Read and process :emacs-rex requests.
 The processing is done in the extent of the toplevel restart."
-  (assert (null *swank-state-stack*))
-  (let ((*swank-state-stack* '(:handle-request)))
-    (with-connection (connection)
-      (loop 
-       (with-simple-restart (abort "Return to SLIME's top level.")
-         (let* ((*sldb-quit-restart* (find-restart 'abort))
-                (timeout? (process-requests timeout just-one)))
-           (when (or just-one timeout?) 
-             (return))))
-       (force-user-output)))))
+  (cond ((boundp '*sldb-quit-restart*)
+         (process-requests timeout))
+        (t 
+         (tagbody
+            start
+            (with-top-level-restart (connection (go start))
+              (process-requests timeout))))))
 
-(defun process-requests (timeout just-one)
+(defun process-requests (timeout)
   "Read and process requests from Emacs."
   (loop
    (multiple-value-bind (event timeout?)
        (wait-for-event `(:emacs-rex . _) timeout)
-     (when timeout? (return t))
-     (apply #'eval-for-emacs (cdr event))
-     (when just-one (return nil)))))
+    (when timeout? (return))
+    (apply #'eval-for-emacs (cdr event)))))
 
 (defun current-socket-io ()
   (connection.socket-io *emacs-connection*))
@@ -1061,7 +1072,9 @@ The processing is done in the extent of the toplevel restart."
 (defun spawn-worker-thread (connection)
   (spawn (lambda () 
            (with-bindings *default-worker-thread-bindings*
-             (handle-requests connection nil t)))
+             (with-top-level-restart (connection nil)
+               (apply #'eval-for-emacs 
+                      (cdr (wait-for-event `(:emacs-rex . _)))))))
          :name "worker"))
 
 (defun spawn-repl-thread (connection name)
@@ -1204,7 +1217,7 @@ The processing is done in the extent of the toplevel restart."
 (defun install-sigio-handler (connection)
   (add-sigio-handler (connection.socket-io connection) 
                      (lambda () (process-io-interrupt connection)))
-  (handle-or-process-requests connection))
+  (handle-requests connection t))
 
 (defvar *io-interupt-level* 0)
 
@@ -1212,15 +1225,8 @@ The processing is done in the extent of the toplevel restart."
   (log-event "process-io-interrupt ~d ...~%" *io-interupt-level*)
   (let ((*io-interupt-level* (1+ *io-interupt-level*)))
     (invoke-or-queue-interrupt
-     (lambda () (handle-or-process-requests connection))))
+     (lambda () (handle-requests connection t))))
   (log-event "process-io-interrupt ~d ... done ~%" *io-interupt-level*))
-
-(defun handle-or-process-requests (connection)
-  (log-event "handle-or-process-requests: ~a~%" *swank-state-stack*)
-  (cond ((null *swank-state-stack*)
-         (handle-requests connection t))
-        ((eq (car *swank-state-stack*) :read-next-form))
-        (t (process-requests t nil))))
 
 (defun deinstall-sigio-handler (connection)
   (log-event "deinstall-sigio-handler...~%")
@@ -1231,7 +1237,7 @@ The processing is done in the extent of the toplevel restart."
 
 (defun install-fd-handler (connection)
   (add-fd-handler (connection.socket-io connection)
-                  (lambda () (handle-or-process-requests connection)))
+                  (lambda () (handle-requests connection t)))
   (setf (connection.saved-sigint-handler connection)
         (install-sigint-handler 
          (lambda () 
@@ -1239,7 +1245,7 @@ The processing is done in the extent of the toplevel restart."
             (lambda () 
               (with-connection (connection)
                 (dispatch-interrupt-event)))))))
-  (handle-or-process-requests connection))
+  (handle-requests connection t))
 
 (defun dispatch-interrupt-event ()
   (dispatch-event `(:emacs-interrupt ,(current-thread-id))))
