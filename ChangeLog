@@ -1,3 +1,9 @@
+2008-10-04  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-sbcl.lisp: Add support for WHO-SPECIALIZES. This requires
+	a patch for SBCL's SB-INTROSPECT contrib which I sent upstream a
+	few minutes ago.
+
 2008-10-04  Alain Picard <Alain.Picard@accenture.com>
 
 	UTF-8 support for Lispworks.

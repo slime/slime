@@ -731,7 +731,9 @@ Return NIL if the symbol is unbound."
   (defxref who-binds)
   (defxref who-sets)
   (defxref who-references)
-  (defxref who-macroexpands))
+  (defxref who-macroexpands)
+  #+#.(swank-backend::sbcl-with-symbol 'who-specializes 'sb-introspect)
+  (defxref who-specializes))
 
 (defun source-location-for-xref-data (xref-data)
   (let ((name (car xref-data))
