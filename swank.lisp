@@ -2094,9 +2094,7 @@ Returns true if it actually called emacs, or NIL if not."
   (flet ((pathname-or-string-p (thing)
            (or (pathnamep thing) (typep thing 'string)))
          (canonicalize-filename (filename)
-           (let ((file-name (or (probe-file filename) filename)))
-             #-scl (namestring file-name)
-             #+scl (ext:unix-namestring file-name nil))))
+           (pathname-to-filename (or (probe-file filename) filename))))
     (let ((target
            (cond ((and (listp what) (pathname-or-string-p (first what)))
                   (cons (canonicalize-filename (car what)) (cdr what)))
@@ -2437,24 +2435,22 @@ the local variables in the frame INDEX."
 
 ;;;; Compilation Commands.
 
-(defstruct (:swank-compilation-result
+(defstruct (:compilation-result
              (:type list) :named
-             (:conc-name swank-compilation-result.)
-             (:constructor make-swank-compilation-result ()))
-  notes      ; 
-  results    ; one result is of type (MEMBER T NIL :COMPLAINED)
-  durations  ;
-  )
+             (:constructor make-compilation-result (notes successp duration)))
+  notes
+  (successp nil :type boolean)
+  (duration 0.0 :type float))
 
-(defun measure-time-interval (fn)
-  "Call FN and return the first return value and the elapsed time.
-The time is measured in microseconds."
-  (declare (type function fn))
+(defun measure-time-interval (fun)
+  "Call FUN and return the first return value and the elapsed time.
+The time is measured in seconds."
+  (declare (type function fun))
   (let ((before (get-internal-real-time)))
     (values
-     (funcall fn)
-     (* (- (get-internal-real-time) before)
-        (/ 1000000 internal-time-units-per-second)))))
+     (funcall fun)
+     (/ (- (get-internal-real-time) before)
+        (coerce internal-time-units-per-second 'float)))))
 
 (defun make-compiler-note (condition)
   "Make a compiler note data structure from a compiler-condition."
@@ -2466,81 +2462,53 @@ The time is measured in microseconds."
          (let ((s (short-message condition)))
            (if s (list :short-message s)))))
 
-(defun swank-compilation-result-for-emacs (old)
-  "Make a Swank-Compilation-Unit suitable for Emacs."
-  (let ((new (make-swank-compilation-result)))
-    (with-struct (swank-compilation-result. notes results durations) old
-      (setf (swank-compilation-result.notes new)   (reverse notes))
-      (setf (swank-compilation-result.results new) (reverse results))
-      (setf (swank-compilation-result.durations new)
-            (reverse (mapcar #'(lambda (usecs) (/ usecs 1000000.0)) durations))))
-    new))
-
-(defun swank-compiler (swank-compilation-result function)
-  (let ((swank-result swank-compilation-result))
-    (multiple-value-bind (result usecs)
-        (with-simple-restart (abort-compilation "Abort SLIME compilation request.")
-          (handler-bind ((compiler-condition
-                          #'(lambda (c)
-                              (push (make-compiler-note c)
-                                    (swank-compilation-result.notes swank-result)))))
-            (measure-time-interval function)))
-      (when (eql usecs t) (setf usecs 0)) ; compilation aborted.      
-      (when result
-        (let ((notes-p (swank-compilation-result.notes swank-result)))
-          (setf result (if notes-p :complained t))))
-      (push result (swank-compilation-result.results swank-result))
-      (push usecs  (swank-compilation-result.durations swank-result))
-      swank-result)))
+(defun collect-notes (function)
+  (let ((notes '()))
+    (multiple-value-bind (successp seconds)
+        (handler-bind ((compiler-condition
+                        (lambda (c) (push (make-compiler-note c) notes))))
+          (measure-time-interval function))
+      (make-compilation-result (reverse notes) successp seconds))))
 
 (defslimefun compile-file-for-emacs (filename load-p)
   "Compile FILENAME and, when LOAD-P, load the result.
 Record compiler notes signalled as `compiler-condition's."
   (with-buffer-syntax ()
-    (swank-compilation-result-for-emacs
-     (swank-compiler (make-swank-compilation-result)
-                     (lambda ()
-                       (let ((pathname (parse-emacs-filename filename))
-                             (*compile-print* nil) (*compile-verbose* t))
-                         (swank-compile-file pathname load-p
-                                             (or (guess-external-format pathname)
-                                                 :default))))))))
+    (collect-notes
+     (lambda ()
+       (let ((pathname (filename-to-pathname filename))
+             (*compile-print* nil) (*compile-verbose* t))
+         (swank-compile-file pathname load-p
+                             (or (guess-external-format pathname)
+                                 :default)))))))
 
 (defslimefun compile-string-for-emacs (string buffer position directory debug)
   "Compile STRING (exerpted from BUFFER at POSITION).
 Record compiler notes signalled as `compiler-condition's."
   (with-buffer-syntax ()
-    (swank-compilation-result-for-emacs
-     (swank-compiler (make-swank-compilation-result)
-                     (lambda () 
-                       (let ((*compile-print* t) (*compile-verbose* nil))
-                         (swank-compile-string string
-                                               :buffer buffer
-                                               :position position 
-                                               :directory directory
-                                               :debug debug)))))))
+    (collect-notes
+     (lambda () 
+       (let ((*compile-print* t) (*compile-verbose* nil))
+         (swank-compile-string string
+                               :buffer buffer
+                               :position position 
+                               :directory directory
+                               :debug debug))))))
 
-(defslimefun compile-multiple-strings-for-emacs
-    (strings buffers packages positions directories debug)
-  "Compile STRING (exerpted from BUFFER at POSITION).
+(defslimefun compile-multiple-strings-for-emacs (strings debug)
+  "Compile STRINGS (exerpted from BUFFER at POSITION).
 Record compiler notes signalled as `compiler-condition's."
-  (let ((swank-compilation-result (make-swank-compilation-result)))
-    (loop for string in strings
-          for buffer in buffers
-          for package in packages
-          for position in positions
-          for directory in directories do
-          (swank-compiler swank-compilation-result
-                          (lambda ()
-                            (with-buffer-syntax (package)
-                              (let ((*compile-print* t) (*compile-verbose* nil))
-                                (swank-compile-string string
-                                                      :buffer buffer
-                                                      :position position 
-                                                      :directory directory
-                                                      :debug debug))))))
-    (swank-compilation-result-for-emacs swank-compilation-result)))
-  
+  (loop for (string buffer package position directory) in strings collect
+        (collect-notes
+         (lambda ()
+           (with-buffer-syntax (package)
+             (let ((*compile-print* t) (*compile-verbose* nil))
+               (swank-compile-string string
+                                     :buffer buffer
+                                     :position position 
+                                     :directory directory
+                                     :debug debug)))))))
+
 (defun file-newer-p (new-file old-file)
   "Returns true if NEW-FILE is newer than OLD-FILE."
   (> (file-write-date new-file) (file-write-date old-file)))
@@ -2551,18 +2519,20 @@ Record compiler notes signalled as `compiler-condition's."
         (file-newer-p source-file fasl-file))))
 
 (defslimefun compile-file-if-needed (filename loadp)
-  (let ((pathname (parse-emacs-filename filename)))
+  (let ((pathname (filename-to-pathname filename)))
     (cond ((requires-compile-p pathname)
            (compile-file-for-emacs pathname loadp))
-          (loadp
-           (load (compile-file-pathname pathname))
-           nil))))
+          (t
+           (collect-notes
+            (lambda ()
+              (or (not loadp)
+                  (load (compile-file-pathname pathname)))))))))
 
 
 ;;;; Loading
 
 (defslimefun load-file (filename)
-  (to-string (load (parse-emacs-filename filename))))
+  (to-string (load (filename-to-pathname filename))))
 
 
 ;;;;; swank-require
@@ -2572,7 +2542,7 @@ Record compiler notes signalled as `compiler-condition's."
   (dolist (module (if (listp modules) modules (list modules)))
     (unless (member (string module) *modules* :test #'string=)
       (require module (if filename
-                          (parse-emacs-filename filename)
+                          (filename-to-pathname filename)
                           (module-filename module)))))
   *modules*)
 

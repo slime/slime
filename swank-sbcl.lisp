@@ -208,7 +208,7 @@
 ;; C.f. R.M.Kreuter in <20536.1219412774@progn.net> on sbcl-general, 2008-08-22.
 (defvar *physical-pathname-host* (pathname-host (user-homedir-pathname)))
 
-(defimplementation parse-emacs-filename (filename)
+(defimplementation filename-to-pathname (filename)
   (sb-ext:parse-native-namestring filename *physical-pathname-host*))
 
 (defimplementation find-external-format (coding-system)

@@ -63,7 +63,7 @@ returns it if it's in `system-names'."
            system)
   (slime-repl-shortcut-eval-async
    `(swank:operate-on-system-for-emacs ,system ,operation ,@keyword-args)
-   (slime-make-compilation-finished-continuation (current-buffer))))
+   #'slime-compilation-finished))
 
 (defslime-repl-shortcut slime-repl-load/force-system ("force-load-system")
   (:handler (lambda ()

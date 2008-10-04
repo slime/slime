@@ -321,9 +321,25 @@ Return old signal handler."
     (unwind-protect (funcall function)
       (install-sigint-handler old-handler))))
 
+(definterface quit-lisp ()
+  "Exit the current lisp image.")
+
 (definterface lisp-implementation-type-name ()
   "Return a short name for the Lisp implementation."
   (lisp-implementation-type))
+
+
+;; pathnames are sooo useless
+
+(definterface filename-to-pathname (filename)
+  "Return a pathname for FILENAME.
+A filename in Emacs may for example contain asterisks which should not
+be translated to wildcards."
+  (parse-namestring filename))
+
+(definterface pathname-to-filename (pathname)
+  "Return the filename for PATHNAME."
+  (namestring pathname))
 
 (definterface default-directory ()
   "Return the default directory."
@@ -335,6 +351,7 @@ This is used to resolve filenames without directory component."
   (setf *default-pathname-defaults* (truename (merge-pathnames directory)))
   (default-directory))
 
+
 (definterface call-with-syntax-hooks (fn)
   "Call FN with hooks to handle special syntax."
   (funcall fn))
@@ -342,9 +359,6 @@ This is used to resolve filenames without directory component."
 (definterface default-readtable-alist ()
   "Return a suitable initial value for SWANK:*READTABLE-ALIST*."
   '())
-
-(definterface quit-lisp ()
-  "Exit the current lisp image.")
 
 
 ;;;; Compilation
@@ -414,11 +428,6 @@ Should return T on successfull compilation, NIL otherwise.")
 
    (location :initarg :location
              :accessor location)))
-
-(definterface parse-emacs-filename (filename)
-  "Return a PATHNAME for FILENAME. A filename in Emacs may for example
-contain asterisks which should not be translated to wildcards."
-  (parse-namestring filename))
 
 (definterface find-external-format (coding-system)
   "Return a \"external file format designator\" for CODING-SYSTEM.

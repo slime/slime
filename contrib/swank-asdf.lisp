@@ -15,10 +15,9 @@
 (defslimefun operate-on-system-for-emacs (system-name operation &rest keywords)
   "Compile and load SYSTEM using ASDF.
 Record compiler notes signalled as `compiler-condition's."
-  (swank-compilation-result-for-emacs
-   (swank-compiler (make-swank-compilation-result)
-		   (lambda ()
-		     (apply #'operate-on-system system-name operation keywords)))))
+   (collect-notes
+    (lambda ()
+      (apply #'operate-on-system system-name operation keywords))))
 
 (defun operate-on-system (system-name operation-name &rest keyword-args)
   "Perform OPERATION-NAME on SYSTEM-NAME using ASDF.

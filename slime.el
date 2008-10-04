@@ -1067,7 +1067,7 @@ last activated the buffer."
 ;;; these functions. This way users who run Emacs and Lisp on separate
 ;;; machines have a chance to integrate file operations somehow.
 
-(defvar slime-to-lisp-filename-function #'identity)
+(defvar slime-to-lisp-filename-function #'convert-standard-filename)
 (defvar slime-from-lisp-filename-function #'identity)
 
 (defun slime-to-lisp-filename (filename)
@@ -3772,7 +3772,7 @@ expansion will be added to the REPL's history.)"
               (slime-repl-shortcut-eval-async
                `(swank:compile-file-if-needed 
                  ,(slime-to-lisp-filename filename) t)
-               (slime-make-compilation-finished-continuation (current-buffer)))))
+               #'slime-compilation-finished)))
   (:one-liner "Compile (if neccessary) and load a lisp file."))
 
 (defslime-repl-shortcut nil  ("restart-inferior-lisp")
@@ -3847,13 +3847,8 @@ region that will be compiled.")
   :type 'hook
   :options '(slime-maybe-list-compiler-notes
              slime-list-compiler-notes
-             slime-maybe-show-xrefs-for-notes))
-
-(defcustom slime-goto-first-note-after-compilation nil
-  "When T next-note will always goto to the first note in a
-final, no matter where the point is."
-  :group 'slime-mode
-  :type 'boolean)
+             slime-maybe-show-xrefs-for-notes
+             slime-goto-first-note))
 
 (defvar slime-compilation-debug-level nil
   "When non-nil compile defuns with this debug optimization level.")
@@ -3869,7 +3864,7 @@ final, no matter where the point is."
              (:conc-name slime-compilation-result.)
              (:constructor nil)
              (:copier nil))
-  tag notes results durations)
+  tag notes successp duration)
 
 (defvar slime-last-compilation-result nil
   "The result of the most recently issued compilation.")
@@ -3877,11 +3872,6 @@ final, no matter where the point is."
 (defun slime-compiler-notes ()
   "Return all compiler notes, warnings, and errors."
   (slime-compilation-result.notes slime-last-compilation-result))
-
-(defun slime-compiler-results ()
-  "Return the results of the most recently issued compilations."
-  (slime-compilation-result.results slime-last-compilation-result))
-
 
 (defun slime-compile-and-load-file ()
   "Compile and load the buffer's file and highlight compiler notes.
@@ -3912,7 +3902,7 @@ See `slime-compile-and-load-file' for further details."
      `(swank:compile-file-for-emacs ,file ,(if load t nil))
      (format "Compile file %s" file)
      (not slime-display-compilation-output)
-     (slime-rcurry #'slime-compilation-finished (current-buffer)))
+     #'slime-compilation-finished)
     (message "Compiling %s..." file)))
 
 (defun slime-compile-defun (&optional raw-prefix-arg)
@@ -3947,29 +3937,17 @@ compile with a debug setting of that number."
      ,start-offset
      ,(if (buffer-file-name) (file-name-directory (buffer-file-name)))
      ',slime-compilation-debug-level)
-   (slime-make-compilation-finished-continuation (current-buffer))))
+   #'slime-compilation-finished))
 
-(defun slime-make-compilation-finished-continuation (current-buffer &optional emacs-snapshot)
-  (lexical-let ((buffer current-buffer) (snapshot emacs-snapshot))
-    (lambda (result)
-      (slime-compilation-finished result buffer snapshot))))
+(defun slime-compilation-finished (result)
+  (with-struct (slime-compilation-result. notes duration successp) result
+    (setf slime-last-compilation-result result)
+    (slime-show-note-counts notes duration successp)
+    (when slime-highlight-compiler-notes
+      (slime-highlight-notes notes))
+    (run-hook-with-args 'slime-compilation-finished-hook notes)))
 
-(defun slime-compilation-finished (compilation-result buffer &optional emacs-snapshot)
-  (with-struct (slime-compilation-result. notes durations) compilation-result
-    (with-current-buffer buffer
-      (setf slime-compilation-just-finished t)
-      (setf slime-last-compilation-result compilation-result)
-      (slime-show-note-counts notes (reduce #'+ durations))
-      (when slime-highlight-compiler-notes
-        (slime-highlight-notes notes)))
-    (run-hook-with-args 'slime-compilation-finished-hook notes emacs-snapshot)))
-
-(defun slime-note-count-string (severity count &optional suppress-if-zero)
-  (cond ((and (zerop count) suppress-if-zero)
-         "")
-        (t (format "%2d %s%s " count severity (if (= count 1) "" "s")))))
-
-(defun slime-show-note-counts (notes &optional secs)
+(defun slime-show-note-counts (notes secs successp)
   (let ((nerrors 0) (nwarnings 0) (nstyle-warnings 0) (nnotes 0))
     (dolist (note notes)
       (ecase (slime-note.severity note)
@@ -3977,13 +3955,18 @@ compile with a debug setting of that number."
         (:warning             (incf nwarnings))
         (:style-warning       (incf nstyle-warnings))
         (:note                (incf nnotes))))
-    (message "Compilation finished:%s%s%s%s%s"
+    (message "Compilation %s:%s%s%s%s%s"
+             (if successp "finished" "failed")
              (slime-note-count-string "error" nerrors)
              (slime-note-count-string "warning" nwarnings)
              (slime-note-count-string "style-warning" nstyle-warnings t)
              (slime-note-count-string "note" nnotes)
              (if secs (format "[%.2f secs]" secs) ""))))
 
+(defun slime-note-count-string (severity count &optional suppress-if-zero)
+  (cond ((and (zerop count) suppress-if-zero)
+         "")
+        (t (format "%2d %s%s " count severity (if (= count 1) "" "s")))))
 
 (defun slime-highlight-notes (notes)
   "Highlight compiler notes, warnings, and errors in the buffer."
@@ -3994,7 +3977,6 @@ compile with a debug setting of that number."
         (widen)                  ; highlight notes on the whole buffer
         (slime-remove-old-overlays)
         (mapc #'slime-overlay-note (slime-merge-notes-for-display notes))))))
-
 
 (defun slime-remove-old-overlays ()
   "Delete the existing Slime overlays in the current buffer."
@@ -4022,30 +4004,26 @@ PREDICATE is executed in the buffer to test."
 
 (defun slime-recompile-location (location &optional debug-level)
   (save-excursion
-    (slime-pop-to-location location 'excursion)
+    (slime-goto-source-location location)
     (slime-compile-defun debug-level)))
 
-(defun slime-recompile-locations (locations &optional debug-level)
-  (let (strings buffers packages positions directories)
-    (flet ((push-location-data (loc)
-             (save-excursion
-               (slime-pop-to-location loc 'excursion)
-               (multiple-value-bind (start end) (slime-region-for-defun-at-point)
-                 (push (buffer-substring-no-properties start end) strings)
-                 (push (buffer-name) buffers)
-                 (push (slime-current-package) packages)
-                 (push start positions)
-                 (push (if (buffer-file-name)
+(defun slime-recompile-locations (locations debug-level cont)
+  (slime-eval-async 
+   `(swank:compile-multiple-strings-for-emacs
+     ',(loop for loc in locations collect
+             (save-excursion 
+               (slime-goto-source-location loc)
+               (destructuring-bind (start end)
+                   (slime-region-for-defun-at-point)
+                 (list (buffer-substring-no-properties start end)
+                       (buffer-name)
+                       (slime-current-package)
+                       start
+                       (if (buffer-file-name)
                            (file-name-directory (buffer-file-name))
-                           nil)
-                       directories)))))
-      (mapc #'push-location-data locations)
-      (slime-eval-async 
-       `(swank:compile-multiple-strings-for-emacs
-         ',(nreverse strings)   ',(nreverse buffers)     ',(nreverse packages)
-         ',(nreverse positions) ',(nreverse directories)  ,debug-level)
-       (slime-make-compilation-finished-continuation (current-buffer))))))
-
+                         nil)))))
+     ,debug-level)
+   cont))
 
 
 ;;;;; Merging together compiler notes in the same location.
@@ -4120,30 +4098,28 @@ Each newlines and following indentation is replaced by a single space."
               (setf xrefs (acons fn (list node) xrefs))))))
     xrefs))
 
-(defun slime-maybe-show-xrefs-for-notes (&optional notes emacs-snapshot)
+(defun slime-maybe-show-xrefs-for-notes (notes)
   "Show the compiler notes NOTES if they come from more than one file."
-  (let* ((notes (or notes (slime-compiler-notes))) 
-         (xrefs (slime-xrefs-for-notes notes)))
+  (let ((xrefs (slime-xrefs-for-notes notes)))
     (when (slime-length> xrefs 1)          ; >1 file
       (slime-show-xrefs
-       xrefs 'definition "Compiler notes" (slime-current-package)
-       emacs-snapshot))))
+       xrefs 'definition "Compiler notes" (slime-current-package)))))
 
 (defun slime-note-has-location-p (note)
   (not (eq ':error (car (slime-note.location note)))))
 
-(defun slime-maybe-list-compiler-notes (notes &optional emacs-snapshot)
+(defun slime-maybe-list-compiler-notes (notes)
   "Show the compiler notes if appropriate."
   ;; don't pop up a buffer if all notes are already annotated in the
   ;; buffer itself
   (unless (every #'slime-note-has-location-p notes)
-    (slime-list-compiler-notes notes emacs-snapshot)))
+    (slime-list-compiler-notes notes)))
 
-(defun slime-list-compiler-notes (notes &optional emacs-snapshot)
+(defun slime-list-compiler-notes (notes)
   "Show the compiler notes NOTES in tree view."
   (interactive (list (slime-compiler-notes)))
   (with-temp-message "Preparing compiler note tree..."
-    (slime-with-popup-buffer ("*SLIME Compiler-Notes*" nil nil emacs-snapshot)
+    (slime-with-popup-buffer ("*SLIME Compiler-Notes*")
       (erase-buffer)
       (slime-compiler-notes-mode)
       (when (null notes)
@@ -4790,19 +4766,10 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
 
 ;;;;; Visiting and navigating the overlays of compiler notes
 
-(defvar slime-compilation-just-finished nil
-  "A buffer local variable which is T when we've just compiled a
-buffer and haven't yet started navigating its notes.")
-(make-variable-buffer-local 'slime-compilation-just-finished)
-
 (defun slime-next-note ()
   "Go to and describe the next compiler note in the buffer."
   (interactive)
   (let ((here (point)))
-    (when (and slime-goto-first-note-after-compilation
-               slime-compilation-just-finished)
-      (goto-char (point-min))
-      (setf slime-compilation-just-finished nil))
     (slime-find-next-note)
     (if (slime-note-at-point)
         (slime-show-note (slime-note-at-point))
@@ -4814,16 +4781,20 @@ buffer and haven't yet started navigating its notes.")
   "Go to and describe the previous compiler note in the buffer."
   (interactive)
   (let ((here (point)))
-    (when (and slime-goto-first-note-after-compilation
-               slime-compilation-just-finished)
-      (goto-char (point-max))
-      (setf slime-compilation-just-finished nil))
     (slime-find-previous-note)
     (if (slime-note-at-point)
         (slime-show-note (slime-note-at-point))
         (progn
           (goto-char here)
           (message "No previous note.")))))
+
+(defun slime-goto-first-note (&rest ignore)
+  "Go to the first note in the buffer."
+  (let ((point (point)))
+    (goto-char (point-min))
+    (cond ((slime-find-next-note)
+           (slime-show-note (slime-note-at-point)))
+          (t (goto-char point)))))
 
 (defun slime-remove-notes ()
   "Remove compiler-note annotations from the current buffer."
@@ -5236,8 +5207,7 @@ FILE-ALIST is an alist of the form ((FILENAME . (XREF ...)) ...)."
   (ecase where
     ((nil)     (switch-to-buffer (current-buffer)))
     (window    (pop-to-buffer (current-buffer) t))
-    (frame     (let ((pop-up-frames t)) (pop-to-buffer (current-buffer) t)))
-    (excursion nil))) ; NOP, slime-goto-source-location did set-buffer.
+    (frame     (let ((pop-up-frames t)) (pop-to-buffer (current-buffer) t)))))
 
 (defun slime-find-definitions (name)
   "Find definitions for NAME."
@@ -6289,41 +6259,48 @@ When displaying XREF information, this goes to the next reference."
 
 (defun slime-recompile-xref (&optional raw-prefix-arg)
   (interactive "P")
-  (let* ((prefix-arg (and raw-prefix-arg (prefix-numeric-value raw-prefix-arg)))
+  (let* ((prefix-arg (and raw-prefix-arg 
+                          (prefix-numeric-value raw-prefix-arg)))
          (debug-level (slime-normalize-optimization-level prefix-arg)))
     (let ((location (slime-xref-location-at-point))
           (dspec    (slime-xref-dspec-at-point)))
-      (add-hook 'slime-compilation-finished-hook 
-                (slime-make-xref-recompilation-cont (list dspec))
-                nil)
-      (slime-recompile-location location debug-level))))
+      (slime-recompile-locations 
+       (list location) debug-level
+       (slime-rcurry #'slime-xref-recompilation-cont
+                     (list dspec) (current-buffer))))))
 
 (defun slime-recompile-all-xrefs (&optional raw-prefix-arg)
   (interactive "P")
-  (let* ((prefix-arg (and raw-prefix-arg (prefix-numeric-value raw-prefix-arg)))
+  (let* ((prefix-arg (and raw-prefix-arg 
+                          (prefix-numeric-value raw-prefix-arg)))
          (debug-level (slime-normalize-optimization-level prefix-arg)))
     (let ((dspecs) (locations))
       (dolist (xref (slime-all-xrefs))
         (when (slime-xref-has-location-p xref)
           (push (slime-xref.dspec xref) dspecs)
           (push (slime-xref.location xref) locations)))
-      (add-hook 'slime-compilation-finished-hook 
-                (slime-make-xref-recompilation-cont dspecs)
-                nil)
-      (slime-recompile-locations locations debug-level))))
+      (slime-recompile-locations 
+       locations debug-level 
+       (slime-rcurry #'slime-xref-recompilation-cont
+                     dspecs (current-buffer))))))
 
-(defun slime-make-xref-recompilation-cont (dspecs)
+(defun slime-xref-recompilation-cont (results dspecs buffer)
   ;; Extreme long-windedness to insert status of recompilation;
   ;; sometimes Elisp resembles more of an Ewwlisp.
-  (lexical-let ((dspecs dspecs) (buffer (current-buffer)))
-    (labels ((recompilation-cont (&rest args)
-               (with-current-buffer buffer
-                 (remove-hook 'slime-compilation-finished-hook
-                              #'recompilation-cont)
-                 (save-excursion
-                   (slime-xref-insert-recompilation-flags 
-                    dspecs (slime-compiler-results))))))
-      #'recompilation-cont)))
+  (with-current-buffer buffer
+    (slime-compilation-finished (slime-aggregate-compilation-results results))
+    (save-excursion
+      (slime-xref-insert-recompilation-flags 
+       dspecs (loop for r in results collect
+                    (or (slime-compilation-result.successp r)
+                        (and (slime-compilation-result.notes r)
+                             :complained)))))))
+
+(defun slime-aggregate-compilation-results (results)
+  `(:complilation-result
+    ,(reduce #'append (mapcar #'slime-compilation-result.notes results))
+    ,(every #'slime-compilation-result.successp results)
+    ,(reduce #'+ (mapcar #'slime-compilation-result.duration results))))
 
 (defun slime-xref-insert-recompilation-flags (dspecs compilation-results)
   (let* ((buffer-read-only nil)
@@ -7457,10 +7434,6 @@ was called originally."
           (ding))
          (t
           (slime-recompile-location source-location debug-level)))))))
-
-
-
-
 
 
 ;;;; Thread control panel

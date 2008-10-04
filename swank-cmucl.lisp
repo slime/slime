@@ -371,11 +371,13 @@ NIL if we aren't compiling from a buffer.")
           (ext:*ignore-extra-close-parentheses* nil))
       (multiple-value-bind (output-file warnings-p failure-p)
           (compile-file filename)
-        (unless failure-p
-          ;; Cache the latest source file for definition-finding.
-          (source-cache-get filename (file-write-date filename))
-          (when load-p (load output-file)))
-        (values output-file warnings-p failure-p)))))
+        (declare (ignore warnings-p))
+        (cond (failure-p nil)
+              (load-p
+               ;; Cache the latest source file for definition-finding.
+               (source-cache-get filename (file-write-date filename))
+               (load output-file))
+              ((not failure-p)))))))
 
 (defimplementation swank-compile-string (string &key buffer position directory
                                                 debug)
@@ -383,14 +385,15 @@ NIL if we aren't compiling from a buffer.")
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)
           (*buffer-start-position* position)
-          (*buffer-substring* string))
+          (*buffer-substring* string)
+          (source-info (list :emacs-buffer buffer 
+                             :emacs-buffer-offset position
+                             :emacs-buffer-string string)))
       (with-input-from-string (stream string)
-        (ext:compile-from-stream 
-         stream 
-         :source-info `(:emacs-buffer ,buffer 
-                        :emacs-buffer-offset ,position
-                        :emacs-buffer-string ,string))))))
-
+        (let ((failurep (ext:compile-from-stream stream :source-info 
+                                                source-info)))
+          (not failurep))))))
+  
 
 ;;;;; Trapping notes
 ;;;

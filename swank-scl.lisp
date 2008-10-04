@@ -1306,6 +1306,9 @@ Signal an error if no constructor can be found."
 (defimplementation default-directory ()
   (namestring (ext:default-directory)))
 
+(defimplementation pathname-to-filename (pathname)
+  (ext:unix-namestring pathname nil))
+
 (defimplementation call-without-interrupts (fn)
   (funcall fn))
 

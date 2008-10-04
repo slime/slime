@@ -4,6 +4,45 @@
 	a patch for SBCL's SB-INTROSPECT contrib which I sent upstream a
 	few minutes ago.
 
+2008-10-04  Helmut Eller  <heller@common-lisp.net>
+
+	Some cleanups for compilation commands.
+
+	* slime.el ([defstruct] slime-compilation-result): Rename result
+	slot as successp.
+	(slime-make-compilation-finished-continuation): Deleted.
+	slime-eval-async preserves the current buffer and preserving the
+	window-configuration was always a questionable feature.
+	(slime-compilation-finished): Simplified.
+	(slime-show-note-counts): Also show the success/failure flag.
+	(slime-recompile-locations): Take a continuation as argument
+	rather than messing around with compilation-finished-hooks.
+	(slime-aggregate-compilation-results): New function.
+	(slime-xref-recompilation-cont): Renamed from
+	slime-make-xref-recompilation-cont.
+	(slime-compiler-results): Deleted.
+	(slime-goto-first-note-after-compilation): Replaced with hook
+	function slime-goto-first-note.
+	(slime-compilation-just-finished): Deleted.
+	(slime-to-lisp-filename-function): Use convert-standard-filename.
+	* swank.lisp ([defstruct] compilation-result): Renamed from
+	swank-compilation-result.
+	(measure-time-interval): Return seconds as float.
+	(collect-notes): Renamed from swank-compiler.  Return a single
+	compilation-result.
+	(compile-multiple-strings-for-emacs): Return a list of
+	compilation-results instead of a single result with merged notes.
+
+	* swank-backend.lisp (filename-to-pathname): Renamed from
+	parse-emacs-filename.  Updated callers.
+	(pathname-to-filename): New function.  Use it where appropriate.
+
+	* swank-scl.lisp (pathname-to-filename): Implement it in the
+	backend to get rid of the #+scl in swank.lisp.
+
+	* swank-cmucl.lisp (swank-compile-file, swank-compile-string):
+	Return t on success.
+
 2008-10-04  Alain Picard <Alain.Picard@accenture.com>
 
 	UTF-8 support for Lispworks.
