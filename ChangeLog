@@ -6,6 +6,16 @@
 	worthwhile. On the cases where it's desired, the user can just use
 	`C-x -' himself to shrink the notes buffer.
 
+2008-10-04  Alain Picard <Alain.Picard@accenture.com>
+
+	UTF-8 support for Lispworks.
+
+	* swank-lispworks.lisp (accept-connection): Use flexi-streams
+	for utf-8.
+	(make-flexi-stream): New function.
+	(*temp-file-format*): New variable
+	(compile-from-temp-file): Use it.
+
 2008-09-28  Helmut Eller  <heller@common-lisp.net>
 
 	Stop handling events in worker threads after sldb-quit.

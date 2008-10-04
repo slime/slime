@@ -73,11 +73,34 @@
 
 (defimplementation accept-connection (socket 
                                       &key external-format buffering timeout)
-  (declare (ignore buffering timeout external-format))
+  (declare (ignore buffering))
   (let* ((fd (comm::get-fd-from-socket socket)))
     (assert (/= fd -1))
-    (make-instance 'comm:socket-stream :socket fd :direction :io 
-                   :element-type 'base-char)))
+    (assert (valid-external-format-p external-format))
+    (cond ((member (first external-format) '(:latin-1 :ascii))
+           (make-instance 'comm:socket-stream
+                          :socket fd
+                          :direction :io
+                          :read-timeout timeout
+                          :element-type 'base-char))
+          (t
+           (make-flexi-stream 
+            (make-instance 'comm:socket-stream
+                           :socket fd
+                           :direction :io
+                           :read-timeout timeout
+                           :element-type '(unsigned-byte 8))
+            external-format)))))
+
+(defun make-flexi-stream (stream external-format)
+  (unless (member :flexi-streams *features*)
+    (error "Cannot use external format ~A without having installed flexi-streams in the inferior-lisp."
+           external-format))
+  (funcall (read-from-string "FLEXI-STREAMS:MAKE-FLEXI-STREAM")
+           stream
+           :external-format
+           (apply (read-from-string "FLEXI-STREAMS:MAKE-EXTERNAL-FORMAT")
+                  external-format)))
 
 (defun set-sigint-handler ()
   ;; Set SIGINT handler on Swank request handler thread.
@@ -86,6 +109,10 @@
                            (make-sigint-handler mp:*current-process*)))
 
 ;;; Coding Systems
+
+(defun valid-external-format-p (external-format)
+  (member external-format *external-format-to-coding-system*
+          :test #'equal :key #'car))
 
 (defvar *external-format-to-coding-system*
   '(((:latin-1 :eol-style :lf) 
@@ -448,13 +475,20 @@ Return NIL if the symbol is unbound."
 		  :location location
 		  :original-condition condition)))
 
+(defvar *temp-file-format* '(:utf-8 :eol-style :lf))
+
 (defun compile-from-temp-file (string filename)
   (unwind-protect
        (progn
-	 (with-open-file (s filename :direction :output :if-exists :supersede)
+	 (with-open-file (s filename :direction :output
+                                     :if-exists :supersede
+                                     :external-format *temp-file-format*)
+
 	   (write-string string s)
 	   (finish-output s))
-	 (let ((binary-filename (compile-file filename :load t)))
+	 (let ((binary-filename 
+                (compile-file filename :load t
+                              :external-format *temp-file-format*)))
            (when binary-filename
              (delete-file binary-filename))))
     (delete-file filename)))
