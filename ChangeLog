@@ -1,3 +1,7 @@
+2008-10-07  Nikodemus Siivola <nikodemus@random-state.net>
+
+	* swank.lisp: (*backtrace-printer-bindings*) export.
+
 2008-10-04  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-sbcl.lisp: Add support for WHO-SPECIALIZES. This requires

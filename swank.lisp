@@ -37,10 +37,11 @@
            #:*readtable-alist*
            #:*globally-redirect-io*
            #:*global-debugger*
-           #:*sldb-printer-bindings*
-           #:*swank-pprint-bindings*
+           #:*backtrace-printer-bindings*
            #:*default-worker-thread-bindings*
            #:*macroexpand-printer-bindings*
+           #:*sldb-printer-bindings*
+           #:*swank-pprint-bindings*
            #:*record-repl-results*
            #:*debug-on-swank-error*
            ;; These are re-exported directly from the backend:
