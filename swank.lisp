@@ -44,6 +44,7 @@
            #:*swank-pprint-bindings*
            #:*record-repl-results*
            #:*debug-on-swank-error*
+           #:*inspector-verbose*
            ;; These are re-exported directly from the backend:
            #:buffer-first-change
            #:frame-source-location-for-emacs
@@ -2905,9 +2906,11 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
 
 
 ;;;; Inspecting
+(defvar *inspector-verbose* nil)
 
 (defstruct (inspector-state (:conc-name istate.))
-  object 
+  object
+  (verbose *inspector-verbose*)
   (parts (make-array 10 :adjustable t :fill-pointer 0))
   (actions (make-array 10 :adjustable t :fill-pointer 0))
   content
@@ -2942,11 +2945,16 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
     (emacs-inspect object)))
 
 (defun istate>elisp (istate)
-  (list :title (call/truncated-output-to-string
-                200
-                (lambda (s)
-                  (print-unreadable-object ((istate.object istate)
-                                           s :type t :identity t))))
+  (list :title (if (istate.verbose istate)
+                   (let ((*print-escape* t)
+                         (*print-circle* t)
+                         (*print-array* nil))
+                     (to-string (istate.object istate)))
+                   (call/truncated-output-to-string
+                    200
+                    (lambda (s)
+                      (print-unreadable-object
+                          ((istate.object istate) s :type t :identity t)))))
         :id (assign-index (istate.object istate) (istate.parts istate))
         :content (prepare-range istate 0 500)))
 
@@ -3014,7 +3022,8 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
 
 (defslimefun inspect-nth-part (index)
   (with-buffer-syntax ()
-    (inspect-object (inspector-nth-part index))))
+    (let ((*inspector-verbose* (istate.verbose *istate*)))
+      (inspect-object (inspector-nth-part index)))))
 
 (defslimefun inspector-range (from to)
   (prepare-range *istate* from to))
@@ -3047,6 +3056,11 @@ Return nil if there's no previous object."
 (defslimefun inspector-reinspect ()
   (setf (istate.content *istate*)
         (emacs-inspect/printer-bindings (istate.object *istate*)))
+  (istate>elisp *istate*))
+
+(defslimefun inspector-toggle-verbose ()
+  "Toggle verbosity of inspected object."
+  (setf (istate.verbose *istate*) (not (istate.verbose *istate*)))
   (istate>elisp *istate*))
 
 (defslimefun quit-inspector ()

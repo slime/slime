@@ -7899,6 +7899,13 @@ If ARG is negative, move forwards."
                       (lambda (parts)
                         (slime-open-inspector parts point)))))
 
+(defun slime-inspector-toggle-verbose ()
+  (interactive)
+  (slime-eval-async `(swank:inspector-toggle-verbose)
+                    (lexical-let ((point (slime-inspector-position)))
+                      (lambda (parts)
+                        (slime-open-inspector parts point)))))
+
 (defun slime-inspector-insert-more-button (index previous)
   (slime-insert-propertized 
    (list 'slime-range-button (list index previous)
@@ -7962,6 +7969,7 @@ If ARG is negative, move forwards."
   ("p" 'slime-inspector-pprint)
   ("q" 'slime-inspector-quit)
   ("g" 'slime-inspector-reinspect)
+  ("v" 'slime-inspector-toggle-verbose)
   ("\C-i" 'slime-inspector-next-inspectable-object)
   ([(shift tab)] 'slime-inspector-previous-inspectable-object) ; Emacs translates S-TAB
   ([backtab]     'slime-inspector-previous-inspectable-object) ; to BACKTAB on X.
@@ -8369,6 +8377,7 @@ is setup, unless the user already set one explicitly."
                 (slime-inspector-reinspect "Reinspect current object")
                 (slime-inspector-pop "Return to previous object")
                 (slime-inspector-copy-down "Send object at point to REPL")
+                (slime-inspector-toggle-verbose "Toggle verbose mode")
                 (slime-inspector-quit "Quit")))
     (:title "Finding Definitions"
      :map slime-mode-map

@@ -1186,6 +1186,10 @@ value. If point is on an action then call that action.
 @kbditem{d, slime-inspector-describe}
 Describe the slot at point.
 
+@kbditem{v, slime-inspector-toggle-verbose}
+Toggle between verbose and terse mode. Default is determined by
+`swank:*inspector-verbose*'.
+
 @kbditem{l, slime-inspector-pop}
 Go back to the previous object (return from @kbd{RET}).
 
