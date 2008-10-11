@@ -22,6 +22,9 @@
 	(emacs-inspect [code-component]): Try to detect
 	byte-code-components.
 
+	(inspect-alien-record, mv-function-end-breakpoint-values): Avoid
+	compiler warnigns.
+
 2008-10-04  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-sbcl.lisp: Add support for WHO-SPECIALIZES. This requires

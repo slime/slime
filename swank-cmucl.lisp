@@ -1682,7 +1682,7 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 (defun breakpoint-values (breakpoint)
   "Return the list of return values for a return point."
   (flet ((1st (sc) (sigcontext-object sc (car vm::register-arg-offsets))))
-    (let ((sc (locally (declare (optimize (ext:inhibit-warnings 3)))
+    (let ((sc (locally (declare (optimize (speed 0)))
                 (alien:sap-alien *breakpoint-sigcontext* (* unix:sigcontext))))
           (cl (di:breakpoint-what breakpoint)))
       (ecase (di:code-location-kind cl)
@@ -1706,7 +1706,7 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 (defun mv-function-end-breakpoint-values (sigcontext)
   (let ((sym (find-symbol "FUNCTION-END-BREAKPOINT-VALUES/STANDARD" :di)))
     (cond (sym (funcall sym sigcontext))
-          (t (di::get-function-end-breakpoint-values sigcontext)))))
+          (t (funcall 'di::get-function-end-breakpoint-values sigcontext)))))
 
 (defun debug-function-returns (debug-fun)
   "Return the return style of DEBUG-FUN."
@@ -1990,6 +1990,7 @@ The `symbol-value' of each element is a type tag.")
         (:name name))
        (loop for field in fields 
              append (let ((slot (alien::alien-record-field-name field)))
+                      (declare (optimize (speed 0)))
                       (label-value-line slot (alien:slot alien slot))))))))
 
 (defun inspect-alien-pointer (alien)
