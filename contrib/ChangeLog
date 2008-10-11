@@ -5,6 +5,12 @@
 	slime-scratch-file is set, use 'find-file' instead of
 	`get-buffer-create' to obtain the buffer.
 
+2008-10-11  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-kawa.scm (compile-file-for-emacs, wrap-compilation)
+	(compile-string-for-emacs): Return a :compilation-result as
+	expected by Emacs.
+
 2008-09-13  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-parse.el (slime-has-symbol-syntax-p): New.
