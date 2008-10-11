@@ -2739,8 +2739,10 @@ keybindings.
 
 @anchor{slime-scratch}
 The @SLIME{} scratch buffer, in contrib package @code{slime-scratch},
-imitates Emacs' usual @code{*scratch*} buffer.  It's just like any
-other Lisp buffer, except for the command bound to @kbd{C-j}.
+imitates Emacs' usual @code{*scratch*} buffer.
+If @code{slime-scratch-file} is set, it is used to back the scratch
+buffer, making it persistent. The buffer is like any other Lisp
+buffer, except for the command bound to @kbd{C-j}.
 
 @table @kbd
 

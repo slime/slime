@@ -28,10 +28,15 @@
   (unless (eq (current-buffer) (window-buffer))
     (pop-to-buffer (current-buffer) t)))
 
+(defvar slime-scratch-file nil)
+
 (defun slime-scratch-buffer ()
   "Return the scratch buffer, create it if necessary."
   (or (get-buffer "*slime-scratch*")
-      (with-current-buffer (get-buffer-create "*slime-scratch*")
+      (with-current-buffer (if slime-scratch-file
+                               (find-file slime-scratch-file)
+                             (get-buffer-create "*slime-scratch*"))
+        (rename-buffer "*slime-scratch*")
 	(lisp-mode)
 	(use-local-map slime-scratch-mode-map)
 	(slime-mode t)
