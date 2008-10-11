@@ -1932,22 +1932,24 @@ The `symbol-value' of each element is a type tag.")
    (loop for i from vm:code-constants-offset 
          below (kernel:get-header-data o)
          append (label-value-line i (kernel:code-header-ref o i)))
-   `("Code:" (:newline)
-             , (with-output-to-string (s)
-                 (cond ((c::compiled-debug-info-p (kernel:%code-debug-info o))
-                        (disassem:disassemble-code-component o :stream s))
-                       ((c::debug-info-p (kernel:%code-debug-info o))
-                        (let ((*standard-output* s))
-                          (c:disassem-byte-component o)))
-                       (t
-                        (disassem:disassemble-memory 
-                         (disassem::align 
-                          (+ (logandc2 (kernel:get-lisp-obj-address o)
-                                       vm:lowtag-mask)
-                             (* vm:code-constants-offset vm:word-bytes))
-                          (ash 1 vm:lowtag-bits))
-                         (ash (kernel:%code-code-size o) vm:word-shift)
-                         :stream s)))))))
+   `("Code:" 
+     (:newline)
+     , (with-output-to-string (*standard-output*)
+         (cond ((c::compiled-debug-info-p (kernel:%code-debug-info o))
+                (disassem:disassemble-code-component o))
+               ((or
+                 (c::debug-info-p (kernel:%code-debug-info o))
+                 (consp (kernel:code-header-ref 
+                         o vm:code-trace-table-offset-slot)))
+                (c:disassem-byte-component o))
+               (t
+                (disassem:disassemble-memory 
+                 (disassem::align 
+                  (+ (logandc2 (kernel:get-lisp-obj-address o)
+                               vm:lowtag-mask)
+                     (* vm:code-constants-offset vm:word-bytes))
+                  (ash 1 vm:lowtag-bits))
+                 (ash (kernel:%code-code-size o) vm:word-shift))))))))
 
 (defmethod emacs-inspect ((o kernel:fdefn))
   (label-value-line*
