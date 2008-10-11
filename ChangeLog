@@ -14,6 +14,14 @@
 
 	* swank.lisp (*backtrace-printer-bindings*): export.
 
+2008-10-05  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-cmucl.lisp (list-callers): Do a full GC before calling
+	map-allocated-objects. That's needed because map-allocated-objects
+	seems to cons even if it's inlined.
+	(emacs-inspect [code-component]): Try to detect
+	byte-code-components.
+
 2008-10-04  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-sbcl.lisp: Add support for WHO-SPECIALIZES. This requires

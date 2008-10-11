@@ -584,113 +584,87 @@ This is a workaround for a CMUCL bug: XREF records are cumulative."
 ;;; strategy would be to use the disassembler to find actual
 ;;; call-sites.
 
-(declaim (inline map-code-constants))
-(defun map-code-constants (code fn)
-  "Call FN for each constant in CODE's constant pool."
-  (check-type code kernel:code-component)
-  (loop for i from vm:code-constants-offset below (kernel:get-header-data code)
-	do (funcall fn (kernel:code-header-ref code i))))
+(labels ((make-stack () (make-array 100 :fill-pointer 0 :adjustable t))
+         (map-cpool (code fun)
+           (declare (type kernel:code-component code) (type function fun))
+           (loop for i from vm:code-constants-offset 
+                 below (kernel:get-header-data code)
+                 do (funcall fun (kernel:code-header-ref code i))))
 
-(defun function-callees (function)
-  "Return FUNCTION's callees as a list of functions."
-  (let ((callees '()))
-    (map-code-constants 
-     (vm::find-code-object function)
-     (lambda (obj)
-       (when (kernel:fdefn-p obj)
-	 (push (kernel:fdefn-function obj) callees))))
-    callees))
+         (callees (fun)
+           (let ((callees (make-stack)))
+             (map-cpool (vm::find-code-object fun)
+                        (lambda (o)
+                          (when (kernel:fdefn-p o)
+                            (vector-push-extend (kernel:fdefn-function o)
+                                                callees))))
+             (coerce callees 'list)))
 
-(declaim (ext:maybe-inline map-allocated-code-components))
-(defun map-allocated-code-components (spaces fn)
-  "Call FN for each allocated code component in one of SPACES.  FN
-receives the object as argument.  SPACES should be a list of the
-symbols :dynamic, :static, or :read-only."
-  (dolist (space spaces)
-    (declare (inline vm::map-allocated-objects)
-             (optimize (ext:inhibit-warnings 3)))
-    (vm::map-allocated-objects
-     (lambda (obj header size)
-       (declare (type fixnum size) (ignore size))
-       (when (= vm:code-header-type header)
-	 (funcall fn obj)))
-     space)))
+         (callers (fun)
+           (declare (function fun))
+           (let ((callers (make-stack)))
+             (ext:gc :full t)
+             ;; scan :dynamic first to avoid the need for even more gcing
+             (dolist (space '(:dynamic :read-only :static))
+               (vm::map-allocated-objects
+                (lambda (obj header size)
+                  (declare (type fixnum header) (ignore size))
+                  (when (= vm:code-header-type header)
+                    (map-cpool obj
+                               (lambda (c)
+                                 (when (and (kernel:fdefn-p c)
+                                            (eq (kernel:fdefn-function c) fun))
+                                   (vector-push-extend obj callers))))))
+                space)
+               (ext:gc))
+             (coerce callers 'list)))
 
-(declaim (ext:maybe-inline map-caller-code-components))
-(defun map-caller-code-components (function spaces fn)
-  "Call FN for each code component with a fdefn for FUNCTION in its
-constant pool."
-  (let ((function (coerce function 'function)))
-    (declare (inline map-allocated-code-components))
-    (map-allocated-code-components
-     spaces 
-     (lambda (obj)
-       (map-code-constants 
-	obj 
-	(lambda (constant)
-	  (when (and (kernel:fdefn-p constant)
-		     (eq (kernel:fdefn-function constant)
-			 function))
-	    (funcall fn obj))))))))
+         (entry-points (code)
+           (loop for entry = (kernel:%code-entry-points code) 
+                 then (kernel::%function-next entry)
+                 while entry
+                 collect entry))
+           
+         (guess-main-entry-point (entry-points)
+           (or (find-if (lambda (fun)
+                          (ext:valid-function-name-p 
+                           (kernel:%function-name fun)))
+                        entry-points)
+               (car entry-points)))
 
-(defun function-callers (function &optional (spaces '(:read-only :static 
-						      :dynamic)))
-  "Return FUNCTION's callers.  The result is a list of code-objects."
-  (let ((referrers '()))
-    (declare (inline map-caller-code-components))
-    ;;(ext:gc :full t)
-    (map-caller-code-components function spaces 
-                                (lambda (code) (push code referrers)))
-    referrers))
+         (fun-dspec (fun)
+           (list (kernel:%function-name fun) (function-location fun)))
+         
+         (code-dspec (code)
+           (let ((eps (entry-points code))
+                 (di (kernel:%code-debug-info code)))
+             (cond (eps (fun-dspec (guess-main-entry-point eps)))
+                   (di (list (c::debug-info-name di)
+                             (debug-info-function-name-location di)))
+                   (t (list (princ-to-string code)
+                            `(:error "No src-loc available")))))))
+  (declare (inline map-cpool))
 
-(defun debug-info-definitions (debug-info)
-  "Return the defintions for a debug-info.  This should only be used
-for code-object without entry points, i.e., byte compiled
-code (are theree others?)"
-  ;; This mess has only been tested with #'ext::skip-whitespace, a
-  ;; byte-compiled caller of #'read-char .
-  (check-type debug-info (and (not c::compiled-debug-info) c::debug-info))
-  (let ((name (c::debug-info-name debug-info))
-        (source (c::debug-info-source debug-info)))
-    (destructuring-bind (first) source 
-      (ecase (c::debug-source-from first)
-        (:file 
-         (list (list name
-                     (make-location 
-                      (list :file (unix-truename (c::debug-source-name first)))
-                      (list :function-name (string name))))))))))
+  (defimplementation list-callers (symbol)
+    (mapcar #'code-dspec (callers (coerce symbol 'function) )))
 
-(defun code-component-entry-points (code)
-  "Return a list ((NAME LOCATION) ...) of function definitons for
-the code omponent CODE."
-  (let ((names '()))
-    (do ((f (kernel:%code-entry-points code) (kernel::%function-next f)))
-        ((not f))
-      (let ((name (kernel:%function-name f)))
-        (when (ext:valid-function-name-p name)
-          (push (list name (function-location f)) names))))
-    names))
+  (defimplementation list-callees (symbol)
+    (mapcar #'fun-dspec (callees symbol))))
 
-(defimplementation list-callers (symbol)
-  "Return a list ((NAME LOCATION) ...) of callers."
-  (let ((components (function-callers symbol))
-        (xrefs '()))
-    (dolist (code components)
-      (let* ((entry (kernel:%code-entry-points code))
-             (defs (if entry
-                       (code-component-entry-points code)
-                       ;; byte compiled stuff
-                       (debug-info-definitions 
-                        (kernel:%code-debug-info code)))))
-        (setq xrefs (nconc defs xrefs))))
-    xrefs))
+(defun test-list-callers (count)
+  (let ((funsyms '()))
+    (do-all-symbols (s)
+      (when (and (fboundp s)
+                 (functionp (symbol-function s))
+                 (not (macro-function s))
+                 (not (special-operator-p s)))
+        (push s funsyms)))
+    (let ((len (length funsyms)))
+      (dotimes (i count)
+        (let ((sym (nth (random len) funsyms)))
+          (format t "~s -> ~a~%" sym (mapcar #'car (list-callers sym))))))))
 
-(defimplementation list-callees (symbol)
-  (let ((fns (function-callees symbol)))
-    (mapcar (lambda (fn)
-              (list (kernel:%function-name fn)
-                    (function-location fn)))
-            fns)))
+;; (test-list-callers 100)
 
 
 ;;;; Resolving source locations
@@ -1960,8 +1934,11 @@ The `symbol-value' of each element is a type tag.")
          append (label-value-line i (kernel:code-header-ref o i)))
    `("Code:" (:newline)
              , (with-output-to-string (s)
-                 (cond ((kernel:%code-debug-info o)
+                 (cond ((c::compiled-debug-info-p (kernel:%code-debug-info o))
                         (disassem:disassemble-code-component o :stream s))
+                       ((c::debug-info-p (kernel:%code-debug-info o))
+                        (let ((*standard-output* s))
+                          (c:disassem-byte-component o)))
                        (t
                         (disassem:disassemble-memory 
                          (disassem::align 
