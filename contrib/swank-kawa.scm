@@ -758,6 +758,7 @@
 
 (defslimefun operator-arglist (#!rest y) '())
 (defslimefun buffer-first-change (#!rest y) '())
+(defslimefun swank-require (#!rest y) '())
 
 ;;;; M-.
 

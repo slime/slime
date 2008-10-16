@@ -1,3 +1,8 @@
+2008-10-16  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-kawa.scm (swank-require): Add a dummy definition to avoid
+	errors at startup.
+
 2008-10-11  Nikodemus Siivola <nikodemus@random-state.net>
 
 	* slime-scratch.el (slime-scratch-file): New variable.

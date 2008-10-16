@@ -122,7 +122,7 @@ Redirection is done while Lisp is processing a request for Emacs.")
                             (#\return (write-string "\\r" stream))
                             (t (write-char c stream))))
                     (write-char #\" stream))
-                   (t (write-string string)))))
+                   (t (write-string string stream)))))
       (set-pprint-dispatch 'string  #'escape-string 0 table)
       table)))
 
