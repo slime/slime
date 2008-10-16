@@ -3,6 +3,13 @@
 	* swank-backend.lisp (swank-compile-file): Return the same
 	values as COMPILE-FILE.  Update backends accordingly.
 
+	* swank-lispworks.lisp (with-swank-compilation-unit): Return the
+	values of BODY.
+	(compile-from-temp-file): Return T on success.
+
+	* swank.lisp (collect-notes): Check return type of
+	FUNCTION.
+
 2008-10-16  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-openmcl.lisp (frame-catch-tags): Disabled as it prevents

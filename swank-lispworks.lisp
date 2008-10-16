@@ -419,9 +419,11 @@ Return NIL if the symbol is unbound."
   (lw:rebinding (location)
     `(let ((compiler::*error-database* '()))
        (with-compilation-unit ,options
-         ,@body
-         (signal-error-data-base compiler::*error-database* ,location)
-         (signal-undefined-functions compiler::*unknown-functions* ,location)))))
+         (multiple-value-prog1 (progn ,@body)
+           (signal-error-data-base compiler::*error-database* 
+                                   ,location)
+           (signal-undefined-functions compiler::*unknown-functions* 
+                                       ,location))))))
 
 (defimplementation swank-compile-file (filename load-p external-format)
   (with-swank-compilation-unit (filename)
@@ -487,11 +489,13 @@ Return NIL if the symbol is unbound."
 
 	   (write-string string s)
 	   (finish-output s))
-	 (let ((binary-filename 
-                (compile-file filename :load t
-                              :external-format *temp-file-format*)))
+         (multiple-value-bind (binary-filename warnings? failure?)
+             (compile-file filename :load t
+                           :external-format *temp-file-format*)
+           (declare (ignore warnings?))
            (when binary-filename
-             (delete-file binary-filename))))
+             (delete-file binary-filename))
+           (not failure?)))
     (delete-file filename)))
 
 (defun dspec-function-name-position (dspec fallback)
