@@ -612,7 +612,8 @@ Execute BODY with NAME's function slot set to FUNCTION."
     (let ((*buffer-name* buffer)
           (*buffer-offset* position))
       (funcall (compile nil (read-from-string
-                             (format nil "(~S () ~A)" 'lambda string)))))))
+                             (format nil "(~S () ~A)" 'lambda string))))
+      t)))
 
 ;;;; Portable XREF from the CMU AI repository.
 

@@ -353,7 +353,8 @@
             (*buffer-start-position* position)
             (*buffer-string* string))
         (funcall (compile nil (read-from-string
-                               (format nil "(~S () ~A)" 'lambda string))))))))
+                               (format nil "(~S () ~A)" 'lambda string))))
+        t))))
 
 #|
 ;;;; Definition Finding

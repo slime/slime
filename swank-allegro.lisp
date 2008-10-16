@@ -301,14 +301,16 @@
    (lambda (stream filename)
        (write-string string stream)
        (finish-output stream)
-       (let ((binary-filename
-              (excl:without-redefinition-warnings
-                ;; Suppress Allegro's redefinition warnings; they are
-                ;; pointless when we are compiling via a temporary
-                ;; file.
-                (compile-file filename :load-after-compile t))))
+       (multiple-value-bind (binary-filename warnings? failure?)
+         (excl:without-redefinition-warnings
+             ;; Suppress Allegro's redefinition warnings; they are
+             ;; pointless when we are compiling via a temporary
+             ;; file.
+             (compile-file filename :load-after-compile t))
+         (declare (ignore warnings?))
          (when binary-filename
-           (delete-file binary-filename))))))
+           (delete-file binary-filename))
+         (not failure?)))))
 
 (defimplementation swank-compile-string (string &key buffer position directory
                                                 debug)

@@ -5,8 +5,10 @@
 
 	* swank-lispworks.lisp (with-swank-compilation-unit): Return the
 	values of BODY.
-	(compile-from-temp-file): Return T on success.
-
+	(compile-from-temp-file)
+	* swank-allegro.lisp (compile-from-temp-file)
+	* swank-clisp.lisp (swank-compile-string)
+	* swank-abcl.lisp (swank-compile-string): Return T on success.
 	* swank.lisp (collect-notes): Check return type of
 	FUNCTION.
 

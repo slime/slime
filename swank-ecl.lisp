@@ -143,9 +143,7 @@
   (declare (ignore external-format))
   (with-compilation-hooks ()
     (let ((*buffer-name* nil))
-      (multiple-value-bind (fn warn fail) 
-          (compile-file *compile-filename*)
-        (values fn warn (or fail (and load-p (not (load fn)))))))))
+      (compile-file *compile-filename* :load t))))
 
 (defimplementation swank-compile-string (string &key buffer position directory
                                                 debug)
@@ -155,7 +153,7 @@
           (*buffer-start-position* position)
           (*buffer-string* string))
       (with-input-from-string (s string)
-        (compile-from-stream s :load t)))))
+        (not (nth-value 2 (compile-from-stream s :load t)))))))
 
 (defun compile-from-stream (stream &rest args)
   (let ((file (si::mkstemp "TMP:ECLXXXXXX")))
