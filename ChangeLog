@@ -1,3 +1,8 @@
+2008-10-16  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-openmcl.lisp (frame-catch-tags): Disabled as it prevents
+	FRAME-LOCALS from working in lx8632.
+
 2008-10-10  Nikodemus Siivola <nikodemus@random-state.net>
 
 	* slime.el (slime-inspector-toggle-verbose): New function.
