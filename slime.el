@@ -8967,6 +8967,26 @@ Confirm that SUBFORM is correctly located."
              subform)))
   (slime-check-top-level))
 
+(def-slime-test (compile-file ("allegro" "lispworks" "clisp"))
+    (string)
+    "Insert STRING in a file, and compile it."
+    `((,(pp-to-string '(defun foo () nil))))
+  (let ((filename "/tmp/slime-tmp-file.lisp"))
+    (with-temp-file filename
+      (insert string))
+    (let ((cell (cons nil nil)))
+      (slime-eval-async
+       `(swank:compile-file-for-emacs ,filename nil)
+       (slime-rcurry (lambda (result cell)
+                       (setcar cell t)
+                       (setcdr cell result))
+                     cell))
+      (slime-wait-condition "Compilation finished" (lambda () (car cell))
+                            0.5)
+      (let ((result (cdr cell)))
+        (slime-check "Compilation successfull" 
+          (eq (slime-compilation-result.successp result) t))))))
+
 (def-slime-test async-eval-debugging (depth)
   "Test recursive debugging of asynchronous evaluation requests."
   '((1) (2) (3))

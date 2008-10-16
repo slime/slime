@@ -467,14 +467,15 @@ compiler state."
 
 (defimplementation swank-compile-file (pathname load-p external-format)
   (handler-case
-      (let ((output-file (with-compilation-hooks ()
-                           (compile-file pathname 
-                                         :external-format external-format))))
-        (when output-file
-          ;; Cache the latest source file for definition-finding.
-          (source-cache-get pathname (file-write-date pathname))
-          (when load-p
-            (load output-file))))
+      (multiple-value-bind (output-file warnigns-p failure-p)
+          (with-compilation-hooks ()
+            (compile-file pathname :external-format external-format))
+        (values output-file warnings-p
+                (or failure-p
+                    (when load-p
+                      ;; Cache the latest source file for definition-finding.
+                      (source-cache-get pathname (file-write-date pathname))
+                      (not (load output-file))))))
     (sb-c:fatal-compiler-error () nil)))
 
 ;;;; compile-string

@@ -338,8 +338,10 @@
       (let ((*buffer-name* nil)
             (*compile-filename* filename))
         (multiple-value-bind (fn warn fail) (compile-file filename)
-          (when (and load-p (not fail))
-            (load fn)))))))
+          (values fn warn
+                  (or fail 
+                      (and load-p 
+                           (not (load fn))))))))))
 
 (defimplementation swank-compile-string (string &key buffer position directory
                                                 debug)

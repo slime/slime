@@ -444,11 +444,12 @@
           (ext:*ignore-extra-close-parentheses* nil))
       (multiple-value-bind (output-file warnings-p failure-p)
           (compile-file filename :external-format external-format)
-        (unless failure-p
-          ;; Cache the latest source file for definition-finding.
-          (source-cache-get filename (file-write-date filename))
-          (when load-p (load output-file)))
-        (values output-file warnings-p failure-p)))))
+        (values output-file warnings-p
+                (or failure-p
+                    (when load-p
+                      ;; Cache the latest source file for definition-finding.
+                      (source-cache-get filename (file-write-date filename))
+                      (not (load output-file)))))))))
 
 (defimplementation swank-compile-string (string &key buffer position directory
                                                 debug)

@@ -1,5 +1,10 @@
 2008-10-16  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-backend.lisp (swank-compile-file): Return the same
+	values as COMPILE-FILE.  Update backends accordingly.
+
+2008-10-16  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-openmcl.lisp (frame-catch-tags): Disabled as it prevents
 	FRAME-LOCALS from working in lx8632.
 

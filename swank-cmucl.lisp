@@ -371,13 +371,12 @@ NIL if we aren't compiling from a buffer.")
           (ext:*ignore-extra-close-parentheses* nil))
       (multiple-value-bind (output-file warnings-p failure-p)
           (compile-file filename)
-        (declare (ignore warnings-p))
-        (cond (failure-p nil)
-              (load-p
-               ;; Cache the latest source file for definition-finding.
-               (source-cache-get filename (file-write-date filename))
-               (load output-file))
-              ((not failure-p)))))))
+        (values output-file warnings-p
+                (or failure-p
+                    (when load-p
+                      ;; Cache the latest source file for definition-finding.
+                      (source-cache-get filename (file-write-date filename))
+                      (not (load output-file)))))))))
 
 (defimplementation swank-compile-string (string &key buffer position directory
                                                 debug)

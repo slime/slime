@@ -425,7 +425,8 @@ Return NIL if the symbol is unbound."
 
 (defimplementation swank-compile-file (filename load-p external-format)
   (with-swank-compilation-unit (filename)
-    (compile-file filename :load load-p :external-format external-format)))
+    (compile-file filename :load load-p 
+                  :external-format external-format)))
 
 (defvar *within-call-with-compilation-hooks* nil
   "Whether COMPILE-FILE was called from within CALL-WITH-COMPILATION-HOOKS.")

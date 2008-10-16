@@ -371,9 +371,11 @@ This is used to resolve filenames without directory component."
   (declare (ignore ignore))
   `(call-with-compilation-hooks (lambda () (progn ,@body))))
 
-(definterface swank-compile-string (string &key buffer position directory debug)
-  "Compile source from STRING.  During compilation, compiler
-conditions must be trapped and resignalled as COMPILER-CONDITIONs.
+(definterface swank-compile-string (string &key buffer position directory 
+                                           debug)
+  "Compile source from STRING.
+During compilation, compiler conditions must be trapped and
+resignalled as COMPILER-CONDITIONs.
 
 If supplied, BUFFER and POSITION specify the source location in Emacs.
 
@@ -397,7 +399,8 @@ If LOAD-P is true, load the file after compilation.
 EXTERNAL-FORMAT is a value returned by find-external-format or
 :default.
 
-Should return T on successfull compilation, NIL otherwise.")
+Should return OUTPUT-TRUENAME, WARNINGS-P and FAILURE-p
+like `compile-file'")
 
 (deftype severity () 
   '(member :error :read-error :warning :style-warning :note))

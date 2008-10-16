@@ -598,11 +598,12 @@ Execute BODY with NAME's function slot set to FUNCTION."
 (defimplementation swank-compile-file (filename load-p external-format)
   (with-compilation-hooks ()
     (with-compilation-unit ()
-      (let ((fasl-file (compile-file filename
-                                     :external-format external-format)))
-        (when (and load-p fasl-file)
-          (load fasl-file))
-        nil))))
+      (multiple-value-bind (fasl-file warningsp failurep)
+          (compile-file filename :external-format external-format)
+        (values fasl-file warningsp
+                (or failurep 
+                    (and load-p 
+                         (not (load fasl-file)))))))))
 
 (defimplementation swank-compile-string (string &key buffer position directory
                                          debug)

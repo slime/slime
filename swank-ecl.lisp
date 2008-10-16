@@ -145,7 +145,7 @@
     (let ((*buffer-name* nil))
       (multiple-value-bind (fn warn fail) 
           (compile-file *compile-filename*)
-        (when load-p (unless fail (load fn)))))))
+        (values fn warn (or fail (and load-p (not (load fn)))))))))
 
 (defimplementation swank-compile-string (string &key buffer position directory
                                                 debug)
