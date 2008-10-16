@@ -2480,9 +2480,12 @@ Record compiler notes signalled as `compiler-condition's."
      (lambda ()
        (let ((pathname (filename-to-pathname filename))
              (*compile-print* nil) (*compile-verbose* t))
-         (swank-compile-file pathname load-p
-                             (or (guess-external-format pathname)
-                                 :default)))))))
+         (multiple-value-bind (output-pathname warnings? failure?)
+             (swank-compile-file pathname load-p
+                                 (or (guess-external-format pathname)
+                                     :default))
+           (declare (ignore output-pathname warnings?))
+           (not failure?)))))))
 
 (defslimefun compile-string-for-emacs (string buffer position directory debug)
   "Compile STRING (exerpted from BUFFER at POSITION).
