@@ -349,7 +349,7 @@ Return NIL if the symbol is unbound."
   (let* ((bt *sldb-backtrace*)
          (len (length bt)))
     (loop for f in (subseq bt start (min (or end len) len))
-          collect (make-swank-frame :%frame f :restartable :unknown))))
+          collect f)))
 
 ;;; CLISP's REPL sets up an ABORT restart that kills SWANK.  Here we
 ;;; can omit that restart so that users don't select it by mistake.
@@ -358,9 +358,8 @@ Return NIL if the symbol is unbound."
   ;; list, hopefully that's our unwanted ABORT restart.
   (butlast (compute-restarts condition)))
 
-(defimplementation print-swank-frame (swank-frame stream)
-  (let* ((frame (swank-frame.%frame swank-frame))
-         (str (frame-to-string frame)))
+(defimplementation print-frame (frame stream)
+  (let* ((str (frame-to-string frame)))
     (write-string (extract-frame-line str)
                   stream)))
 

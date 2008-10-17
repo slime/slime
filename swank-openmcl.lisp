@@ -492,19 +492,17 @@ condition."
   (let (result)
     (map-backtrace (lambda (frame-number p context lfun pc)
                      (declare (ignore frame-number))
-                     (push (make-swank-frame :%frame (list :openmcl-frame p context lfun pc)
-                                             :restartable :unknown)
+                     (push (list :frame p context lfun pc)
                            result))
                    start-frame-number end-frame-number)
     (nreverse result)))
 
-(defimplementation print-swank-frame (swank-frame stream)
-  (let ((frame (swank-frame.%frame swank-frame)))
-    (assert (eq (first frame) :openmcl-frame))
-    (destructuring-bind (p context lfun pc) (rest frame)
-      (format stream "(~S~{ ~S~})"
-              (or (ccl::function-name lfun) lfun)
-              (frame-arguments p context lfun pc)))))
+(defimplementation print-frame (frame stream)
+  (assert (eq (first frame) :frame))
+  (destructuring-bind (p context lfun pc) (rest frame)
+    (format stream "(~S~{ ~S~})"
+            (or (ccl::function-name lfun) lfun)
+            (frame-arguments p context lfun pc)))))
 
 (defimplementation frame-locals (index)
   (block frame-locals
@@ -963,7 +961,7 @@ out IDs for.")
                  (nconc (ldiff q tail) (cdr tail)))
            (return (car tail)))))
      (when (eq timeout t) (return (values nil t)))
-     (ccl:timed-wait-on-semaphore (mailbox.semaphore mbox) 0.2))))
+     (ccl:timed-wait-on-semaphore (mailbox.semaphore mbox) 1))))
 
 (defimplementation quit-lisp ()
   (ccl::quit))

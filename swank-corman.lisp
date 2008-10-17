@@ -177,10 +177,10 @@
 
 (defimplementation compute-backtrace (start end)
   (loop for f in (subseq *stack-trace* start (min end (length *stack-trace*)))
-	collect (make-swank-frame :%frame f :restartable :unknown)))
+	collect f))
 
-(defimplementation print-swank-frame (frame stream)
-  (format stream "~S" (swank-frame.%frame frame)))
+(defimplementation print-frame (frame stream)
+  (format stream "~S" frame))
 
 (defun get-frame-debug-info (frame)
   (or (frame-debug-info frame)
@@ -370,9 +370,10 @@
   (declare (ignore external-format))
   (with-compilation-hooks ()
     (let ((*buffer-name* nil))
-      (compile-file *compile-filename*)
-      (when load-p
-        (load (compile-file-pathname *compile-filename*))))))
+      (multiple-value-bind (output-file warnings? failure?)
+	  (compile-file *compile-filename*)
+	(values output-file warnings?
+		(or failure? (and load-p (load output-file))))))))
 
 (defimplementation swank-compile-string (string &key buffer position directory
                                                 debug)
@@ -382,7 +383,8 @@
           (*buffer-position* position)
           (*buffer-string* string))
       (funcall (compile nil (read-from-string
-                             (format nil "(~S () ~A)" 'lambda string)))))))
+                             (format nil "(~S () ~A)" 'lambda string))))
+      t)))
 
 ;;;; Inspecting
 

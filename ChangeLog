@@ -1,3 +1,16 @@
+2008-10-17  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-backend.lisp (frame-restartable-p): New function.
+	(swank-frame): Deleted. Update implemenetations accordingly.
+	(print-frame): Renamed back from print-swank-frame.
+
+	* swank.lisp (backends): Don't clutter the backtrace with
+	'(:restartable :unknown).  For practical purposes :unknown is the
+	same as nil.
+
+	* slime.el (sldb-compute-frame-face): Only accept nil or t for
+	the :restartable prop.
+
 2008-10-16  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-backend.lisp (swank-compile-file): Return the same

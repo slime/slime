@@ -20,9 +20,6 @@
            #:condition
            #:severity
            #:with-compilation-hooks
-           #:swank-frame
-           #:swank-frame-p
-           #:swank-frame.restartable
            #:location
            #:location-p
            #:location-buffer
@@ -656,13 +653,9 @@ what the default implementation does."
 ;;; The following functions in this section are supposed to be called
 ;;; within the dynamic contour of CALL-WITH-DEBUGGING-ENVIRONMENT only.
 
-(defstruct (swank-frame (:conc-name swank-frame.))
-  %frame
-  restartable)
-
 (definterface compute-backtrace (start end)
    "Returns a backtrace of the condition currently being debugged,
-that is an ordered list consisting of swank-frames. ``Ordered list''
+that is an ordered list consisting of frames. ``Ordered list''
 means that an integer I can be mapped back to the i-th frame of this
 backtrace.
 
@@ -671,8 +664,13 @@ returned. Frame zero is defined as the frame which invoked the
 debugger. If END is nil, return the frames from START to the end of
 the stack.")
 
-(definterface print-swank-frame (frame stream)
+(definterface print-frame (frame stream)
   "Print frame to stream.")
+
+(definterface frame-restartable-p (frame)
+  "Is the frame FRAME restartable?.
+Return T if `restart-frame' can safely be called on the frame."
+  nil)
 
 (definterface frame-source-location-for-emacs (frame-number)
   "Return the source location for the frame associated to FRAME-NUMBER.")

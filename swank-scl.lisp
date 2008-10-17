@@ -1354,11 +1354,10 @@ Signal an error if no constructor can be found."
   (let ((end (or end most-positive-fixnum)))
     (loop for f = (nth-frame start) then (frame-down f)
 	  for i from start below end
-	  while f collect (make-swank-frame :%frame f :restartable :unknown))))
+	  while f collect f)))
 
-(defimplementation print-swank-frame (swank-frame stream)
-  (let ((frame (swank-frame.%frame swank-frame))
-        (*standard-output* stream))
+(defimplementation print-frame (frame stream)
+  (let ((*standard-output* stream))
     (handler-case 
         (debug::print-frame-call frame :verbosity 1 :number nil)
       (error (e)

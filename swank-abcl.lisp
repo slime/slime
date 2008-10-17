@@ -253,11 +253,11 @@
 (defimplementation compute-backtrace (start end)
   (let ((end (or end most-positive-fixnum)))
     (loop for f in (subseq (backtrace-as-list-ignoring-swank-calls) start end)
-          collect (make-swank-frame :%frame f :restartable :unknown))))
+          collect f)))
 
-(defimplementation print-swank-frame (frame stream)
+(defimplementation print-frame (frame stream)
   (write-string (string-trim '(#\space #\newline)
-                             (prin1-to-string (swank-frame.%frame frame)))
+                             (prin1-to-string frame))
                 stream))
 
 (defimplementation frame-locals (index)

@@ -882,16 +882,14 @@ stack."
   (let ((end (or end most-positive-fixnum)))
     (loop for f = (nth-frame start) then (sb-di:frame-down f)
 	  for i from start below end
-	  while f collect (make-swank-frame
-                           :%frame f
-                           :restartable (frame-restartable-p f)))))
+	  while f collect f)))
 
-(defimplementation print-swank-frame (swank-frame stream)
-  (sb-debug::print-frame-call (swank-frame.%frame swank-frame) stream))
+(defimplementation print-frame (frame stream)
+  (sb-debug::print-frame-call frame stream))
 
-(defun frame-restartable-p (frame)
+(defimplementation frame-restartable-p (frame)
   #+#.(swank-backend::sbcl-with-restart-frame)
-  (sb-debug:frame-has-debug-tag-p frame))
+  (not (null (sb-debug:frame-has-debug-tag-p frame))))
 
 ;;;; Code-location -> source-location translation
 

@@ -316,7 +316,7 @@
   (when (numberp end)
     (setf end (min end (length *backtrace*))))
   (loop for f in (subseq *backtrace* start end)
-        collect (make-swank-frame :%frame f :restartable :unknown)))
+        collect f))
 
 (defun frame-name (frame)
   (let ((x (first frame)))
@@ -356,9 +356,8 @@
 	       ))))
     (values functions blocks variables)))
 
-(defimplementation print-swank-frame (swank-frame stream)
-  (let ((frame (swank-frame.%frame swank-frame)))
-    (format stream "~A" (first frame))))
+(defimplementation print-frame (frame stream)
+  (format stream "~A" (first frame)))
 
 (defimplementation frame-source-location-for-emacs (frame-number)
   (nth-value 1 (frame-function (elt *backtrace* frame-number))))

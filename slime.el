@@ -6876,7 +6876,8 @@ If MORE is non-nil, more frames are on the Lisp stack."
   (when more
     (slime-insert-propertized
      `(,@nil sldb-default-action sldb-fetch-more-frames
-             sldb-previous-frame-number ,(sldb-frame.number (first (last frames)))
+             sldb-previous-frame-number 
+             ,(sldb-frame.number (first (last frames)))
              point-entered sldb-fetch-more-frames
              start-open t
              face sldb-section-face
@@ -6885,14 +6886,9 @@ If MORE is non-nil, more frames are on the Lisp stack."
     (insert "\n")))
 
 (defun sldb-compute-frame-face (frame)
-  (let ((restartable (getf (sldb-frame.plist frame) :restartable)))
-    (cond ((eq restartable 't)
-           'sldb-restartable-frame-line-face)
-          ((eq restartable :unknown)
-           'sldb-frame-line-face)
-          ((eq restartable 'nil)
-           'sldb-non-restartable-frame-line-face)
-          (t (error "fall through")))))
+  (ecase (plist-get (sldb-frame.plist frame) :restartable)
+    ((nil) 'sldb-frame-line-face)
+    ((t) 'sldb-restartable-frame-line-face)))
 
 (defun sldb-insert-frame (frame &optional face)
   "Insert FRAME with FACE at point.

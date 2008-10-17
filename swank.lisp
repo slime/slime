@@ -2294,21 +2294,21 @@ format suitable for Emacs."
 I is an integer, and can be used to reference the corresponding frame
 from Emacs; FRAME is a string representation of an implementation's
 frame."
-  (flet ((print-swank-frame-to-string (frame)
-           (call/truncated-output-to-string 
-            100
-            (lambda (stream)
-              (handler-case
-                  (with-bindings *backtrace-printer-bindings*
-                    (print-swank-frame frame stream))
-                (t ()
-                  (format stream "[error printing frame]")))))))
-    (loop for frame in (compute-backtrace start end)
-          for i from start collect 
-          (list i (print-swank-frame-to-string frame)
-                (list :restartable (let ((r (swank-frame.restartable frame)))
-                                     (check-type r (member nil t :unknown))
-                                     r))))))
+  (loop for frame in (compute-backtrace start end)
+        for i from start collect 
+        (list* i (frame-to-string frame)
+               (ecase (frame-restartable-p frame)
+                 ((nil) nil)
+                 ((t) `((:restartable t)))))))
+
+(defun frame-to-string (frame)
+  (with-bindings *backtrace-printer-bindings*
+    (call/truncated-output-to-string 
+     (* (or *print-lines* 1) (or *print-right-margin* 100))
+     (lambda (stream)
+       (handler-case (print-frame frame stream)
+         (serious-condition ()
+           (format stream "[error printing frame]")))))))
 
 (defslimefun debugger-info-for-emacs (start end)
   "Return debugger state, with stack frames from START to END.
