@@ -413,16 +413,8 @@ If *REDIRECT-IO* is true then all standard I/O streams are redirected."
               (call-with-debugger-hook #'swank-debugger-hook function)))))))
 
 (defun call-with-retry-restart (msg thunk)
-  (let ((%ok    (gensym "OK+"))
-	(%retry (gensym "RETRY+")))
-    (restart-bind
-	((retry
-	  (lambda () (throw %retry nil))
-	   :report-function
-	   (lambda (stream)
-	     (write msg :stream stream))))
-      (catch %ok
-	(loop (catch %retry (throw %ok (funcall thunk))))))))
+  (loop (with-simple-restart (retry "~a" msg)
+          (return (funcall thunk)))))
 
 (defmacro with-retry-restart ((&key (msg "Retry.")) &body body)
   (check-type msg string)

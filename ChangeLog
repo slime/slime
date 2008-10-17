@@ -1,10 +1,15 @@
 2008-10-17  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (call-with-retry-restart): Implement this a little
+	less confusing.
+
+2008-10-17  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-backend.lisp (frame-restartable-p): New function.
 	(swank-frame): Deleted. Update implemenetations accordingly.
 	(print-frame): Renamed back from print-swank-frame.
 
-	* swank.lisp (backends): Don't clutter the backtrace with
+	* swank.lisp (backtrace): Don't clutter the backtrace with
 	'(:restartable :unknown).  For practical purposes :unknown is the
 	same as nil.
 
