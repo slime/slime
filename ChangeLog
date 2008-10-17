@@ -1,5 +1,10 @@
 2008-10-17  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-backend.lisp (compute-sane-restarts): Deleted. Use plain
+	compute restarts instead.
+
+2008-10-17  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (call-with-retry-restart): Implement this a little
 	less confusing.
 

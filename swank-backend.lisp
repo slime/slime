@@ -643,13 +643,6 @@ debug the debugger! Instead, such conditions can be reported to the
 user without (re)entering the debugger by wrapping them as
 `sldb-condition's."))
 
-(definterface compute-sane-restarts (condition)
-  "This is an opportunity for Lisps such as CLISP to remove
-unwanted restarts from the output of CL:COMPUTE-RESTARTS,
-otherwise it should simply call CL:COMPUTE-RESTARTS, which is
-what the default implementation does."
-  (compute-restarts condition))
-
 ;;; The following functions in this section are supposed to be called
 ;;; within the dynamic contour of CALL-WITH-DEBUGGING-ENVIRONMENT only.
 

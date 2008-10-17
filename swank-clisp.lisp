@@ -351,13 +351,6 @@ Return NIL if the symbol is unbound."
     (loop for f in (subseq bt start (min (or end len) len))
           collect f)))
 
-;;; CLISP's REPL sets up an ABORT restart that kills SWANK.  Here we
-;;; can omit that restart so that users don't select it by mistake.
-(defimplementation compute-sane-restarts (condition)
-  ;; The outermost restart is specified to be the last element of the
-  ;; list, hopefully that's our unwanted ABORT restart.
-  (butlast (compute-restarts condition)))
-
 (defimplementation print-frame (frame stream)
   (let* ((str (frame-to-string frame)))
     (write-string (extract-frame-line str)

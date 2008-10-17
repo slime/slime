@@ -2196,7 +2196,7 @@ after Emacs causes a restart to be invoked."
 
 (defun debug-in-emacs (condition)
   (let ((*swank-debugger-condition* condition)
-        (*sldb-restarts* (compute-sane-restarts condition))
+        (*sldb-restarts* (compute-restarts condition))
         (*package* (or (and (boundp '*buffer-package*)
                             (symbol-value '*buffer-package*))
                        *package*))
