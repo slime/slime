@@ -502,7 +502,7 @@ condition."
   (destructuring-bind (p context lfun pc) (rest frame)
     (format stream "(~S~{ ~S~})"
             (or (ccl::function-name lfun) lfun)
-            (frame-arguments p context lfun pc)))))
+            (frame-arguments p context lfun pc))))
 
 (defimplementation frame-locals (index)
   (block frame-locals
