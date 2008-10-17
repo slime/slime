@@ -1,5 +1,9 @@
 2008-10-17  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-sbcl.lisp (swank-compile-file): Fix typo.
+
+2008-10-17  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-backend.lisp (compute-sane-restarts): Deleted. Use plain
 	compute restarts instead.
 

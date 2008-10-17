@@ -467,7 +467,7 @@ compiler state."
 
 (defimplementation swank-compile-file (pathname load-p external-format)
   (handler-case
-      (multiple-value-bind (output-file warnigns-p failure-p)
+      (multiple-value-bind (output-file warnings-p failure-p)
           (with-compilation-hooks ()
             (compile-file pathname :external-format external-format))
         (values output-file warnings-p
