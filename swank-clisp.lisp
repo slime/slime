@@ -513,10 +513,6 @@ Return two values: NAME and VALUE"
   (not (mismatch pattern string :end2 (min (length pattern)
                                            (length string)))))
 
-(defimplementation frame-catch-tags (index)
-  (declare (ignore index))
-  nil)
-
 (defimplementation return-from-frame (index form)
   (sys::return-from-eval-frame (nth-frame index) form))
 

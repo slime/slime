@@ -1,3 +1,13 @@
+2008-10-19  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (frame-locals-and-catch-tags): New function.
+	Fetch locals and catch tags with a single RPC.
+
+	* slime.el (sldb-frame-details): Use it.
+
+	* swank-backend.lisp (frame-catch-tags): Provide a default
+	implementation.  Delete the dummy defs in various backends.
+
 2008-10-19  Mark Evenson <evenson@panix.com>
 
 	* swank-abcl.lisp (handle-compiler-warning): Report source

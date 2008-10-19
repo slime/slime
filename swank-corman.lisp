@@ -203,10 +203,6 @@
     (let ((cl::*compiler-environment* (get-frame-debug-info frame)))
       (eval form))))
 
-(defimplementation frame-catch-tags (index)
-  (declare (ignore index))
-  nil)
-
 (defimplementation frame-var-value (frame-number var)
   (let ((vars (frame-variables (elt *frame-trace* frame-number))))
     (when vars

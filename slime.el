@@ -7173,13 +7173,13 @@ The details include local variable bindings and CATCH-tags."
 (defun sldb-frame-details ()
   ;; Return a list (START END FRAME LOCALS CATCHES) for frame at point.
   (let* ((frame (get-text-property (point) 'frame))
-         (num (car frame))
-         (catches (sldb-catch-tags num))
-         (locals  (sldb-frame-locals num)))
+         (num (car frame)))
     (destructuring-bind (start end) (sldb-frame-region)
-      (list start end frame locals catches))))
+      (list* start end frame 
+             (slime-eval `(swank:frame-locals-and-catch-tags ,num))))))
 
-(defvar sldb-insert-frame-variable-value-function 'sldb-insert-frame-variable-value)
+(defvar sldb-insert-frame-variable-value-function 
+  'sldb-insert-frame-variable-value)
 
 (defun sldb-insert-locals (vars prefix frame)
   "Insert VARS and add PREFIX at the beginning of each inserted line.
@@ -7225,12 +7225,6 @@ This way you can still see what the error was after exiting SLDB."
   (slime-write-string (format "%s\n%s\n"
                                (first sldb-condition)
                                (second sldb-condition))))
-
-(defun sldb-frame-locals (frame)
-  (slime-eval `(swank:frame-locals-for-emacs ,frame)))
-
-(defun sldb-catch-tags (frame)
-  (slime-eval `(swank:frame-catch-tags-for-emacs ,frame)))
 
 
 ;;;;;; SLDB eval and inspect

@@ -262,10 +262,6 @@
 (defimplementation frame-locals (index)
   `(,(list :name "??" :id 0 :value "??")))
 
-(defimplementation frame-catch-tags (index)
-  (declare (ignore index))
-  nil)
-
 #+nil
 (defimplementation disassemble-frame (index)
   (disassemble (debugger:frame-function (nth-frame index))))

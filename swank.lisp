@@ -2385,18 +2385,20 @@ has changed, ignore the request."
      (multiple-value-list 
       (eval-in-frame (wrap-sldb-vars (from-string string)) index)))))
 
-(defslimefun frame-locals-for-emacs (index)
-  "Return a property list ((&key NAME ID VALUE) ...) describing
-the local variables in the frame INDEX."
-  (with-bindings *backtrace-printer-bindings*
-    (mapcar (lambda (frame-locals)
-              (destructuring-bind (&key name id value) frame-locals
-                (list :name (prin1-to-string name) :id id
-                      :value (to-line value))))
-            (frame-locals index))))
+(defslimefun frame-locals-and-catch-tags (index)
+  "Return a list (LOCALS TAGS) for vars and catch tags in the frame INDEX.
+LOCALS is a list of the form ((&key NAME ID VALUE) ...).
+TAGS has is a list of strings."
+  (list (frame-locals-for-emacs index)
+        (mapcar #'to-string (frame-catch-tags index))))
 
-(defslimefun frame-catch-tags-for-emacs (frame-index)
-  (mapcar #'to-string (frame-catch-tags frame-index)))
+(defun frame-locals-for-emacs (index)
+  (with-bindings *backtrace-printer-bindings*
+    (loop for var in (frame-locals index)
+          collect (destructuring-bind (&key name id value) var
+                    (list :name (prin1-to-string name) 
+                          :id id
+                          :value (to-line value))))))
 
 (defslimefun sldb-disassemble (index)
   (with-output-to-string (*standard-output*)

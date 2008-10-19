@@ -527,7 +527,7 @@ condition."
              (return-from frame-locals (nreverse result)))))))))
 
 
-#+(or)
+#+(or) ;; Doesn't work well on x86-32
 (defimplementation frame-catch-tags (index &aux my-frame)
   (block frame-catch-tags
     (map-backtrace 
@@ -549,8 +549,6 @@ condition."
                                ((and (listp tag)
                                      (typep (car tag) 'restart))
                                 `(:restart ,(restart-name (car tag)))))))))))))
-
-(defimplementation frame-catch-tags (index &aux my-frame) nil)
 
 (defimplementation disassemble-frame (the-frame-number)
   (let ((function-to-disassemble nil))

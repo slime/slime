@@ -178,10 +178,6 @@
 (defimplementation frame-var-value (frame var)
   (let ((frame (nth-frame frame)))
     (debugger:frame-var-value frame var)))
-        
-(defimplementation frame-catch-tags (index)
-  (declare (ignore index))
-  nil)
 
 (defimplementation disassemble-frame (index)
   (disassemble (debugger:frame-function (nth-frame index))))

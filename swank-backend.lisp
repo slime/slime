@@ -670,7 +670,8 @@ Return T if `restart-frame' can safely be called on the frame."
 
 (definterface frame-catch-tags (frame-number)
   "Return a list of catch tags for being printed in a debugger stack
-frame.")
+frame."
+  '())
 
 (definterface frame-locals (frame-number)
   "Return a list of ((&key NAME ID VALUE) ...) where each element of
