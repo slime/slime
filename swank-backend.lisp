@@ -663,6 +663,7 @@ the stack.")
 (definterface frame-restartable-p (frame)
   "Is the frame FRAME restartable?.
 Return T if `restart-frame' can safely be called on the frame."
+  (declare (ignore frame))
   nil)
 
 (definterface frame-source-location-for-emacs (frame-number)
