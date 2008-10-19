@@ -1,3 +1,9 @@
+2008-10-19  Mark Evenson <evenson@panix.com>
+
+	* swank-abcl.lisp (handle-compiler-warning): Report source
+	location position when we can.
+	Use NAMESTRING for *compile-filename*.
+
 2008-10-19  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-clisp.lisp (filename-to-pathname, parse-cygwin-filename):

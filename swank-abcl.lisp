@@ -127,7 +127,6 @@
 (defimplementation local-port (socket)
   (java:jcall (java:jmethod "java.net.ServerSocket" "getLocalPort") socket))
 
-
 (defimplementation close-socket (socket)
   (ext:server-socket-close socket))
 
@@ -263,7 +262,6 @@
 (defimplementation frame-locals (index)
   `(,(list :name "??" :id 0 :value "??")))
 
-
 (defimplementation frame-catch-tags (index)
   (declare (ignore index))
   nil)
@@ -306,8 +304,11 @@
 (in-package :swank-backend)
 
 (defun handle-compiler-warning (condition)
-  (let ((loc nil));(getf (slot-value condition 'excl::plist) :loc)))
-    (unless (member condition *abcl-signaled-conditions*) ; filter condition signaled more than once.
+  (let ((loc (when (and jvm::*compile-file-pathname* 
+                        system::*source-position*)
+               (cons jvm::*compile-file-pathname* system::*source-position*))))
+    ;; filter condition signaled more than once.
+    (unless (member condition *abcl-signaled-conditions*) 
       (push condition *abcl-signaled-conditions*) 
       (signal (make-condition
                'compiler-condition
@@ -325,7 +326,7 @@
                                    (list :position (1+ pos)))))
                                (t  
                                 (make-location
-                                 (list :file *compile-filename*)
+                                 (list :file (namestring *compile-filename*))
                                  (list :position 1)))))))))
 
 (defvar *abcl-signaled-conditions*)
