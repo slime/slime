@@ -671,6 +671,7 @@ Return T if `restart-frame' can safely be called on the frame."
 (definterface frame-catch-tags (frame-number)
   "Return a list of catch tags for being printed in a debugger stack
 frame."
+  (declare (ignore frame-number))
   '())
 
 (definterface frame-locals (frame-number)
