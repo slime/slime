@@ -116,6 +116,47 @@
   (setf (ext:default-directory) directory)
   (namestring (setf *default-pathname-defaults* (ext:default-directory))))
 
+(defimplementation filename-to-pathname (string)
+  (cond ((member :cygwin *features*)
+         (parse-cygwin-filename string))
+        (t (parse-namestring string))))
+
+(defun parse-cygwin-filename (string)
+  (multiple-value-bind (match _ drive absolute)
+      (regexp:match "^(([a-zA-Z\\]+):)?([\\/])?" string :extended t)
+    (declare (ignore _))
+    (assert (and match (if drive absolute t)) ()
+            "Invalid filename syntax: ~a" string)
+    (let* ((sans-prefix (subseq string (regexp:match-end match)))
+           (path (remove "" (regexp:regexp-split "[\\/]" sans-prefix)))
+           (path (loop for name in path collect
+                       (cond ((equal name "..") ':back)
+                             (t name))))
+           (directoryp (or (equal string "")
+                           (find (aref string (1- (length string))) "\\/"))))
+      (multiple-value-bind (file type)
+          (cond ((and (not directoryp) (last path))
+                 (let* ((file (car (last path)))
+                        (pos (position #\. file :from-end t)))
+                   (cond ((and pos (> pos 0)) 
+                          (values (subseq file 0 pos)
+                                  (subseq file (1+ pos))))
+                         (t file)))))
+        (make-pathname :host nil
+                       :device nil
+                       :directory (cons 
+                                   (if absolute :absolute :relative)
+                                   (let ((path (if directoryp 
+                                                   path 
+                                                   (butlast path))))
+                                     (if drive
+                                         (cons 
+                                          (regexp:match-string string drive)
+                                          path)
+                                         path)))
+                       :name file 
+                       :type type)))))
+
 ;;;; TCP Server
 
 (defimplementation create-socket (host port)

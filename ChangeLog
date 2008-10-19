@@ -1,3 +1,8 @@
+2008-10-19  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-clisp.lisp (filename-to-pathname, parse-cygwin-filename):
+	Accept Windows and Unix filenames when :CYGWIN is in *features*.
+
 2008-10-17  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-sbcl.lisp (swank-compile-file): Fix typo.
