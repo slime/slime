@@ -1,3 +1,10 @@
+2008-10-19  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-mit-scheme.scm (swank:frame-locals-and-catch-tags)
+	* swank-kawa.scm (dispatch-events)
+	* swank-goo.goo (frame-locals-and-catch-tags): Update
+	backends for the new swank:frame-locals-and-catch-tags.
+
 2008-10-16  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-kawa.scm (swank-require): Add a dummy definition to avoid

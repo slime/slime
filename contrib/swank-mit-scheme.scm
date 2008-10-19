@@ -395,7 +395,6 @@
 
 ;;; Some unimplemented stuff.
 (define (swank:buffer-first-change . _) nil)
-(define (swank:frame-catch-tags-for-emacs . _) nil)
 (define (swank:filename-to-modulename . _) nil)
 
 ;; M-. is beyond my capabilities.
@@ -525,8 +524,9 @@
 	  ((< i from) (loop (1+ i) l (stream-cdr s)))
 	  (else (loop (1+ i) (cons (stream-car s) l) (stream-cdr s))))))
 
-(define (swank:frame-locals-for-emacs _ frame)
-  (map frame-var>elisp (frame-vars (sldb-get-frame frame))))
+(define (swank:frame-locals-and-catch-tags _ frame)
+  (list (map frame-var>elisp (frame-vars (sldb-get-frame frame)))
+	'()))
   
 (define (frame-vars frame)
   (with-values (lambda () (stack-frame/debugging-info frame))

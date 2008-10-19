@@ -228,14 +228,14 @@
                                     start
                                     (if (isa? end <int>) end #f))))
 
-(defslimefun frame-locals-for-emacs (frame-idx)
+(defslimefun frame-locals-and-catch-tags (frame-idx)
   (def frame (nth-frame frame-idx))
-  (map-keyed (fun (i name) 
-               (lst ':name (sym-name name) ':id 0 
-                    ':value (safe-write-to-string (frame-var-value frame i))))
-             (frame-var-names frame)))
-
-(defslimefun frame-catch-tags-for-emacs (frame-idx) '())
+  (list
+   (map-keyed (fun (i name) 
+                (lst ':name (sym-name name) ':id 0 
+                     ':value (safe-write-to-string (frame-var-value frame i))))
+              (frame-var-names frame))
+   '()))
 
 (defslimefun inspect-frame-var (frame-idx var-idx)
   (reset-inspector)
