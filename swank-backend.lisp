@@ -310,6 +310,7 @@ that the calling thread is the one that interacts with Emacs."
 (definterface install-sigint-handler (function)
   "Call FUNCTION on SIGINT (instead of invoking the debugger).
 Return old signal handler."
+  (declare (ignore function))
   nil)
 
 (definterface call-with-user-break-handler (handler function)
@@ -966,6 +967,7 @@ Ids should be comparable with equal, i.e.:
   "Return the thread for ID.
 ID should be an id previously obtained with THREAD-ID.
 Can return nil if the thread no longer exists."
+  (declare (ignore id))
   (current-thread))
 
 (definterface thread-name (thread)
