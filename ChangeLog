@@ -1,3 +1,8 @@
+2008-10-20  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el: Require some packages, apropos, at compile time to
+	suppress some "undefined function" warnings.
+
 2008-10-19  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (frame-locals-and-catch-tags): New function.

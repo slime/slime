@@ -64,6 +64,20 @@
 (when (featurep 'xemacs)
   (require 'overlay))
 (require 'easymenu)
+(eval-when-compile
+  (require 'arc-mode)
+  (require 'apropos)
+  (require 'outline)
+  (require 'etags))
+
+(eval-and-compile 
+  (defvar slime-path
+    (let ((path (or (locate-library "slime") load-file-name)))
+      (and path (file-name-directory path)))
+    "Directory containing the Slime package.
+This is used to load the supporting Common Lisp library, Swank.
+The default value is automatically computed from the location of the
+Emacs Lisp package."))
 
 (defvar slime-lisp-modes '(lisp-mode))
 
@@ -84,15 +98,6 @@ CONTRIBS is a list of contrib packages to load."
   (slime-mode 1)
   (set (make-local-variable 'lisp-indent-function)
        'common-lisp-indent-function))
-
-(eval-and-compile 
-  (defvar slime-path
-    (let ((path (or (locate-library "slime") load-file-name)))
-      (and path (file-name-directory path)))
-    "Directory containing the Slime package.
-This is used to load the supporting Common Lisp library, Swank.
-The default value is automatically computed from the location of the
-Emacs Lisp package."))
 
 (eval-and-compile
   (defun slime-changelog-date ()
@@ -4549,7 +4554,6 @@ you should check twice before modifying.")
                                  (file-name-directory guessed-target))
                                (file-name-nondirectory target-filename)))))))
 
-
 (defun slime-goto-location-buffer (buffer)
   (flet ((file-truename-safe (filename) (and filename (file-truename filename))))
     (destructure-case buffer
@@ -5957,8 +5961,6 @@ With prefix argument include internal symbols."
       (slime-print-apropos plists)
       (set-syntax-table lisp-mode-syntax-table)
       (goto-char (point-min)))))
-
-(eval-when-compile (require 'apropos))
 
 (defvar slime-apropos-label-properties
   (progn
