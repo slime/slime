@@ -207,7 +207,11 @@
              (debugger:environment-of-frame frame)))))
 
 (defimplementation frame-restartable-p (frame)
-  (debugger:frame-retryable-p frame))
+  (handler-case (debugger:frame-retryable-p frame)
+    (serious-condition (c)
+      (funcall (read-from-string "swank::background-message")
+               "~a ~a" frame (princ-to-string c))
+      nil)))
 
 (defimplementation restart-frame (frame-number)
   (let ((frame (nth-frame frame-number)))
