@@ -1,3 +1,8 @@
+2008-10-21  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-editing-commands.el (slime-end-of-defun): Use 'major-mode
+	instead of 'major.  Reported by S.P.Tseng.
+
 2008-10-19  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-mit-scheme.scm (swank:frame-locals-and-catch-tags)

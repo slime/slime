@@ -25,7 +25,7 @@
 
 (defun slime-end-of-defun ()
   (interactive)
-  (if (eq major 'slime-repl-mode)
+  (if (eq major-mode 'slime-repl-mode)
       (slime-repl-end-of-defun)
       (end-of-defun)))
 
