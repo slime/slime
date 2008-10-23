@@ -17,7 +17,8 @@
 Record compiler notes signalled as `compiler-condition's."
    (collect-notes
     (lambda ()
-      (apply #'operate-on-system system-name operation keywords))))
+      (apply #'operate-on-system system-name operation keywords)
+      t)))
 
 (defun operate-on-system (system-name operation-name &rest keyword-args)
   "Perform OPERATION-NAME on SYSTEM-NAME using ASDF.
