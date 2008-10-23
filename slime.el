@@ -3816,6 +3816,25 @@ Also rearrange windows."
     (switch-to-buffer buffer)
     (goto-char (point-max))))
 
+(defun slime-redirect-inferior-output (&optional noerror)
+  "Redirect output of the inferior-process to the REPL buffer."
+  (interactive)
+  (let ((proc (slime-inferior-process)))
+    (cond (proc
+           (let ((filter (slime-rcurry #'slime-inferior-output-filter 
+                                       (slime-current-connection))))
+             (set-process-filter proc filter)))
+	  (noerror)
+	  (t (error "No inferior lisp process")))))
+
+(defun slime-inferior-output-filter (proc string conn)
+  (cond ((eq (process-status conn) 'closed)
+         (message "Connection closed.  Removing inferior output filter.")
+         (message "Lost output: %S" string)
+         (set-process-filter proc nil))
+        (t
+         (slime-output-filter conn string))))
+
 
 ;;;;; Cleanup after a quit
 
