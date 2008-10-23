@@ -1,5 +1,8 @@
 2008-10-23  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-jolt.k: New backend.
+
+2008-10-23  Helmut Eller  <heller@common-lisp.net>
 	* swank-asdf.lisp (operate-on-system-for-emacs): Always T to
 	collect-notes.  Reported by Mark Evenson.
 
