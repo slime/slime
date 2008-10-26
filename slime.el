@@ -64,7 +64,7 @@
 (when (featurep 'xemacs)
   (require 'overlay))
 (require 'easymenu)
-(eval-when-compile
+(eval-when (compile)
   (require 'arc-mode)
   (require 'apropos)
   (require 'outline)

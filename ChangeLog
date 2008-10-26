@@ -1,3 +1,9 @@
+2008-10-26  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el: Fix change from 2008-10-20.
+	Use (eval-when (compile)...) instead of (eval-when-compile ...),
+	because the latter is more like (eval-when (compile eval) ...).
+
 2008-10-23  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-redirect-inferior-output): New command.
