@@ -87,16 +87,18 @@ else
     screen -S $session -m -D \
 	bash -c "\"\$@\"; echo \$? > $statusfile" "" "${cmd[@]}" &
     screenpid=$!
-    trap "screen -S $session -X quit" SIGINT
+    trap "screen -S $session -X quit" SIGINT SIGQUIT
     wait $screenpid
 fi
 
 if [ -f "$statusfile" ]; then
-    [ "$dump_results" = true ] && cat $results;
-    echo $(cat $statusfile) "test(s) failed."
+    [ "$dump_results" = true ] && cat $results
+    status=$(cat $statusfile)
+    echo $status "test(s) failed."
 else
     # Tests crashed
     echo crashed
+    status=255
 fi
 
 exit $status

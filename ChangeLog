@@ -1,5 +1,7 @@
 2008-10-26  Helmut Eller  <heller@common-lisp.net>
 
+	* test.sh: Return the number of failed tests as exit code.
+
 	* slime.el: Fix change from 2008-10-20.
 	Use (eval-when (compile)...) instead of (eval-when-compile ...),
 	because the latter is more like (eval-when (compile eval) ...).
