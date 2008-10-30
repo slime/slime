@@ -1,5 +1,10 @@
 2008-10-30  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-sbcl.lisp (wait-for-input): Return streams which are at
+	EOF.
+
+2008-10-30  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-popup-buffer-quit): Call bury-buffer with
 	explicit argument for compatibility with XEmacs.
 

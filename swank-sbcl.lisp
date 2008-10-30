@@ -176,13 +176,22 @@
     (setq *wait-for-input-called* t))
   (let ((*wait-for-input-called* nil))
     (loop
-     (let ((ready (remove-if-not #'listen streams)))
+     (let ((ready (remove-if (lambda (s)
+                               (let ((c (read-char-no-hang s nil :eof)))
+                                 (case c
+                                   ((nil) t)
+                                   ((:eof) nil)
+                                   (t 
+                                    (unread-char c s)
+                                    nil))))
+                             streams)))
        (when ready (return ready)))
      (when timeout (return nil))
      (when (check-slime-interrupts) (return :interrupt))
      (when *wait-for-input-called* (return :interrupt))
      (let* ((f (constantly t))
             (handlers (loop for s in streams
+                            do (assert (open-stream-p s))
                             collect (add-one-shot-handler s f))))
        (unwind-protect
             (sb-sys:serve-event 0.2)
