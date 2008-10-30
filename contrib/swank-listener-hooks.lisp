@@ -77,7 +77,8 @@
 		   /// //  // /  / values))
 	   (setq +++ ++  ++ +  + last-form)
 	   (unless (eq *slime-repl-suppress-output* t)
-	     (funcall *send-repl-results-function* values))))))))
+	     (funcall *send-repl-results-function* values)))))))
+  nil)
 
 (setq *listener-eval-function* '%listener-eval)
 

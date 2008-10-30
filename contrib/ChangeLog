@@ -1,3 +1,7 @@
+2008-10-30  Ivan Shvedunov <ivan4th@gmail.com>
+
+	* swank-listener-hooks.lisp (%listener-eval): Return nil.
+
 2008-10-23  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-jolt.k: New backend.
