@@ -1,3 +1,8 @@
+2008-10-30  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-popup-buffer-quit): Call bury-buffer with
+	explicit argument for compatibility with XEmacs.
+
 2008-10-30  Ivan Shvedunov <ivan4th@gmail.com>
 
 	* slime.el (slime-repl-history-pattern): Use the part of input

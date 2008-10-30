@@ -1052,10 +1052,9 @@ last activated the buffer."
   (let ((buffer (current-buffer)))
     (when (slime-popup-buffer-snapshot-unchanged-p)
       (slime-popup-buffer-restore-snapshot))
-    (with-current-buffer buffer
-      (setq slime-popup-buffer-saved-emacs-snapshot nil) ; buffer-local var!
-      (cond (kill-buffer-p (kill-buffer nil))
-            (t (bury-buffer))))))
+    (setq slime-popup-buffer-saved-emacs-snapshot nil) ; buffer-local var!
+    (cond (kill-buffer-p (kill-buffer buffer))
+          (t (bury-buffer buffer)))))
 
 (defun slime-popup-buffer-snapshot-unchanged-p ()
   (equalp (slime-current-emacs-snapshot-fingerprint)
