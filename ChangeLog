@@ -1,3 +1,9 @@
+2008-10-30  Ivan Shvedunov <ivan4th@gmail.com>
+
+	* slime.el (slime-repl-history-pattern): Use the part of input
+	between its start and (point) as history search pattern.
+	Previously we used the entire input.
+
 2008-10-26  Helmut Eller  <heller@common-lisp.net>
 
 	* test.sh: Return the number of failed tests as exit code.

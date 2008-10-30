@@ -3403,7 +3403,9 @@ See `slime-repl-previous-input'."
   (cond ((slime-repl-history-search-in-progress-p)
          slime-repl-history-pattern)
         (use-current-input
-         (let ((str (slime-repl-current-input)))
+         (assert (<= slime-repl-input-start-mark (point)))
+         (let ((str (buffer-substring-no-properties
+                     slime-repl-input-start-mark (point))))
            (cond ((string-match "^[ \n]*$" str) nil)
                  (t (concat "^" (regexp-quote str))))))
         (t nil)))
