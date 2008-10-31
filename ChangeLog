@@ -1,5 +1,10 @@
 2008-10-31  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-repl-history-pattern): Simplify as suggested by
+	Knut Olav Bøhmer and Michael Weber.
+
+2008-10-31  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-eval-with-transcript)
 	(slime-eval-with-transcript-cont): Restore the current buffer,
 	before calling cont.
@@ -12,8 +17,8 @@
 
 2008-10-31  Helmut Eller  <heller@common-lisp.net>
 
-	* swank.lisp (debug-in-emacs): Bind *sldb-quit-restart*
-	here, if necessary to the next abort retstart.
+	* swank.lisp (debug-in-emacs): Bind *sldb-quit-restart* here. If
+	necessary, use the current abort retstart.
 
 2008-10-30  Helmut Eller  <heller@common-lisp.net>
 

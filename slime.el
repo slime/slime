@@ -2978,11 +2978,10 @@ The input is the region from after the last prompt to the end of
 buffer."
   (or (run-hook-with-args-until-success 'slime-repl-current-input-hooks 
                                         until-point-p)
-      (buffer-substring-no-properties
-       slime-repl-input-start-mark 
-       (if until-point-p 
-           (point) 
-         (point-max)))))
+      (buffer-substring-no-properties slime-repl-input-start-mark 
+                                      (if until-point-p 
+                                          (point) 
+                                        (point-max)))))
 
 (defun slime-property-position (text-property &optional object)
   "Return the first position of TEXT-PROPERTY, or nil."
@@ -3403,8 +3402,7 @@ See `slime-repl-previous-input'."
          slime-repl-history-pattern)
         (use-current-input
          (assert (<= slime-repl-input-start-mark (point)))
-         (let ((str (buffer-substring-no-properties
-                     slime-repl-input-start-mark (point))))
+         (let ((str (slime-repl-current-input t)))
            (cond ((string-match "^[ \n]*$" str) nil)
                  (t (concat "^" (regexp-quote str))))))
         (t nil)))
