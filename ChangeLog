@@ -1,5 +1,11 @@
 2008-10-31  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-lispworks.lisp (describe-function): Don't use
+	string-upcase on lambda-list-argruments, because not all elements
+	must be symbols.
+
+2008-10-31  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (debug-in-emacs): Bind *sldb-quit-restart*
 	here, if necessary to the next abort retstart.
 

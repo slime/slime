@@ -217,10 +217,9 @@ Return NIL if the symbol is unbound."
 
 (defun describe-function (symbol)
   (cond ((fboundp symbol)
-         (format t "~%(~A~{ ~A~})~%~%~:[(not documented)~;~:*~A~]~%"
-                 (string-downcase symbol)
-                 (mapcar #'string-upcase 
-                         (lispworks:function-lambda-list symbol))
+         (format t "(~A ~/pprint-fill/)~%~%~:[(not documented)~;~:*~A~]~%"
+                 symbol
+                 (lispworks:function-lambda-list symbol)
                  (documentation symbol 'function))
          (describe (fdefinition symbol)))
         (t (format t "~S is not fbound" symbol))))
