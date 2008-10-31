@@ -121,12 +121,10 @@ Two special return values:
 		    #+sbcl
 		    (let ()
 		      (declare (notinline sb-pretty::pretty-stream-target))
-		      (or (and (typep stream 'sb-impl::indenting-stream)
-			       (slime-stream-p (sb-impl::indenting-stream-stream stream)))
-			  (and (typep stream (find-symbol "PRETTY-STREAM" 'sb-pretty))
-			       (find-symbol "ENQUEUE-ANNOTATION" 'sb-pretty)
-			       (not *use-dedicated-output-stream*)
-			       (slime-stream-p (sb-pretty::pretty-stream-target stream)))))
+		      (and (typep stream (find-symbol "PRETTY-STREAM" 'sb-pretty))
+                           (find-symbol "ENQUEUE-ANNOTATION" 'sb-pretty)
+                           (not *use-dedicated-output-stream*)
+                           (slime-stream-p (sb-pretty::pretty-stream-target stream))))
 		    #+allegro
 		    (and (typep stream 'excl:xp-simple-stream)
 			 (slime-stream-p (excl::stream-output-handle stream)))

@@ -1,3 +1,9 @@
+2008-10-31  Nikodemus Siivola <nikodemus@random-state.net>
+
+	* swank-presentation-streams.liso (slime-stream-p): delete
+	references to SB-IMPL::INDENTING-STREAM, which is unused in SBCL
+	and liable to go away.
+
 2008-10-30  Ivan Shvedunov  <ivan4th@gmail.com>
 
 	* swank-listener-hooks.lisp (%listener-eval): Return nil.
