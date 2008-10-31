@@ -1,3 +1,8 @@
+2008-10-31  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (debug-in-emacs): Bind *sldb-quit-restart*
+	here, if necessary to the next abort retstart.
+
 2008-10-30  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-sbcl.lisp (wait-for-input): Return streams which are at

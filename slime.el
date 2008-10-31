@@ -9503,16 +9503,8 @@ on *DEBUGGER-HOOK*."
                                (get-buffer-window (sldb-get-default-buffer))))
                         5)
   (with-current-buffer (sldb-get-default-buffer)
-    (sldb-invoke-restart (slime-test-find-top-level-restart)))
+    (sldb-quit))
   (slime-sync-to-top-level 5))
-
-(defun slime-test-find-top-level-restart ()
-  (let ((case-fold-search t))
-    (or (loop for i from 0  for (name str) in sldb-restarts 
-              when (string-match "SLIME's top level" str) return i)
-        (loop for i from 0  for (name str) in sldb-restarts 
-              when (and (string-match "abort" name) (string-match "top" str))
-              return i))))
 
 (def-slime-test interrupt-in-blocking-read
     ()
@@ -9565,7 +9557,7 @@ CONTINUES  ... how often the continue restart should be invoked"
                             (lambda () (equal (sldb-level) level))
                             2)))
   (with-current-buffer (sldb-get-default-buffer)
-    (sldb-invoke-restart (slime-test-find-top-level-restart)))
+    (sldb-quit))
   (slime-sync-to-top-level 1))
     
 (def-slime-test disconnect
