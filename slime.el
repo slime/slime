@@ -5404,9 +5404,9 @@ inserted in the current buffer."
   (when msg (slime-insert-transcript-delimiter msg))
   (setq slime-repl-popup-on-output (not no-popups))
   (setq cont (or cont #'slime-display-eval-result))
-  (slime-rex (cont) (form)
-    ((:ok value) (slime-eval-with-transcript-cont t value cont))
-    ((:abort) (slime-eval-with-transcript-cont nil nil nil))))
+  (slime-rex (cont (buffer (current-buffer))) (form)
+    ((:ok value) (slime-eval-with-transcript-cont t value cont buffer))
+    ((:abort) (slime-eval-with-transcript-cont nil nil nil buffer))))
 
 (defun slime-insert-transcript-delimiter (string)
   (with-current-buffer (slime-output-buffer)
@@ -5423,14 +5423,15 @@ inserted in the current buffer."
       (slime-mark-output-start))
     (slime-repl-show-maximum-output)))
 
-(defun slime-eval-with-transcript-cont (ok result cont)
+(defun slime-eval-with-transcript-cont (ok result cont buffer)
   (run-with-timer 0.2 nil (lambda ()
                             (setq slime-repl-popup-on-output nil)))
   (with-current-buffer (slime-output-buffer)
     (save-excursion (slime-repl-insert-prompt))
-    (slime-repl-show-maximum-output)
+    (slime-repl-show-maximum-output))
+  (with-current-buffer buffer
     (cond (ok (funcall cont result))
-        (t (message "Evaluation aborted.")))))
+          (t (message "Evaluation aborted.")))))
 
 (defun slime-eval-describe (form)
   "Evaluate FORM in Lisp and display the result in a new buffer."

@@ -1,5 +1,11 @@
 2008-10-31  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-eval-with-transcript)
+	(slime-eval-with-transcript-cont): Restore the current buffer,
+	before calling cont.
+
+2008-10-31  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-lispworks.lisp (describe-function): Don't use
 	string-upcase on lambda-list-argruments, because not all elements
 	must be symbols.
