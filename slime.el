@@ -1050,11 +1050,13 @@ Restore the window configuration unless it was changed since we
 last activated the buffer."
   (interactive)
   (let ((buffer (current-buffer)))
-    (when (slime-popup-buffer-snapshot-unchanged-p)
-      (slime-popup-buffer-restore-snapshot))
+    ;;(when (slime-popup-buffer-snapshot-unchanged-p)
+    ;;  (slime-popup-buffer-restore-snapshot))
     (setq slime-popup-buffer-saved-emacs-snapshot nil) ; buffer-local var!
-    (cond (kill-buffer-p (kill-buffer buffer))
-          (t (bury-buffer buffer)))))
+    (delete-windows-on buffer (selected-frame))
+    (bury-buffer buffer) 
+    (when kill-buffer-p
+      (kill-buffer buffer))))
 
 (defun slime-popup-buffer-snapshot-unchanged-p ()
   (equalp (slime-current-emacs-snapshot-fingerprint)
@@ -6393,12 +6395,11 @@ This variable specifies both what was expanded and how.")
   (let ((string (or string
                     (car (slime-sexp-at-point-for-macroexpansion)))))
     (setq slime-eval-macroexpand-expression `(,expander ,string))
-    (slime-eval-async slime-eval-macroexpand-expression 
-                      (slime-rcurry #'slime-show-macroexpansion 
-                                    (slime-create-macroexpansion-buffer)))))
+    (slime-eval-async slime-eval-macroexpand-expression
+                      #'slime-show-macroexpansion)))
 
-(defun slime-show-macroexpansion (expansion buffer)
-  (pop-to-buffer buffer)
+(defun slime-show-macroexpansion (expansion &optional buffer)
+  (pop-to-buffer (or buffer (slime-create-macroexpansion-buffer)))
   (let ((inhibit-read-only t))
     (erase-buffer)
     (insert expansion)

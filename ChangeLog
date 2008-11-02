@@ -1,5 +1,10 @@
 2008-11-02  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-popup-buffer-quit): Always delete windows and
+	bury the buffer.
+
+2008-11-02  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-backend.lisp (slime-interrupt-queued): New condition.
 	* swank.lisp (invoke-or-queue-interrupt): Raise it here.
 	* swank-cmucl.lisp (wait-for-input): Make fd readable in condition
