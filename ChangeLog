@@ -1,3 +1,8 @@
+2008-11-02  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el ([test] find-definition.2, [test] compile-defun):
+	Expect to fail for CCL.
+
 2008-10-31  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-repl-history-pattern): Simplify as suggested by

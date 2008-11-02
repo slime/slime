@@ -8851,7 +8851,7 @@ BODY returns true if the check succeeds."
            (= orig-pos (point)))))
     (slime-check-top-level))
 
-(def-slime-test find-definition.2
+(def-slime-test (find-definition.2 ("ccl" "allegro"))
     (buffer-content buffer-package snippet)
     "Check that we're able to find definitions even when
 confronted with nasty #.-fu."
@@ -8915,7 +8915,7 @@ Confirm that EXPECTED-ARGLIST is displayed."
       ("swank::compile-string-for-emacs"
        "(swank::compile-string-for-emacs string buffer position directory debug)")
       ("swank::connection.socket-io"
-       "(swank::connection.socket-io \\(struct\\(ure\\)?\\|object\\|instance\\))")
+       "(swank::connection.socket-io \\(struct\\(ure\\)?\\|object\\|instance\\|x\\))")
       ("cl:lisp-implementation-type" "(cl:lisp-implementation-type )")
       ("cl:class-name" 
        "(cl:class-name \\(class\\|object\\|instance\\|structure\\))"))
@@ -8927,7 +8927,7 @@ Confirm that EXPECTED-ARGLIST is displayed."
                        #'string-match))
   (slime-check-top-level))
 
-(def-slime-test (compile-defun ("allegro" "lispworks" "clisp"))
+(def-slime-test (compile-defun ("allegro" "lispworks" "clisp" "ccl"))
     (program subform)
     "Compile PROGRAM containing errors.
 Confirm that SUBFORM is correctly located."
