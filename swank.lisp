@@ -376,7 +376,8 @@ Do not set this to T unless you want to debug swank internals.")
          (cond ((cdr *pending-slime-interrupts*)
                 (check-slime-interrupts))
                (t
-                (log-event "queue-interrupt: ~a" function))))))
+                (log-event "queue-interrupt: ~a" function)
+                (signal 'slime-interrupt-queued))))))
 
 (defslimefun simple-break (&optional (datum "Interrupt from Emacs") &rest args)
   (with-simple-restart (continue "Continue from break.")

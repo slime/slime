@@ -1,5 +1,12 @@
 2008-11-02  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-backend.lisp (slime-interrupt-queued): New condition.
+	* swank.lisp (invoke-or-queue-interrupt): Raise it here.
+	* swank-cmucl.lisp (wait-for-input): Make fd readable in condition
+	handler so that we can call serve-events without timeout.
+
+2008-11-02  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el ([test] find-definition.2, [test] compile-defun):
 	Expect to fail for CCL.
 

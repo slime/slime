@@ -35,6 +35,7 @@
            ;; interrupt macro for the backend
            #:*pending-slime-interrupts*
            #:check-slime-interrupts
+           #:slime-interrupt-queued
            ;; inspector related symbols
            #:emacs-inspect
            #:label-value-line
@@ -1048,6 +1049,12 @@ Return a boolean indicating whether any interrupts was processed."
              *pending-slime-interrupts*)
     (funcall (pop *pending-slime-interrupts*))
     t))
+
+(define-condition slime-interrupt-queued () ()
+  (:documentation 
+   "Non-serious condition signalled when an interrupt
+occurs while interrupt handling is disabled.
+Backends can use this to abort blocking operations."))
 
 (definterface wait-for-input (streams &optional timeout)
   "Wait for input on a list of streams.  Return those that are ready.

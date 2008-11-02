@@ -198,14 +198,18 @@ specific functions.")
    (let ((ready (remove-if-not #'listen streams)))
      (when ready (return ready)))
    (when timeout (return nil))
-   (when (check-slime-interrupts) (return :interrupt))
-   (let* (#+(or)(lisp::*descriptor-handlers* '()) ; ignore other handlers
-          (f (constantly t))
-          (handlers (loop for s in streams
-                          collect (add-one-shot-handler s f))))
-     (unwind-protect
-          (sys:serve-event 0.2)
-       (mapc #'sys:remove-fd-handler handlers)))))
+   (multiple-value-bind (in out) (make-pipe)
+     (let* ((f (constantly t))
+            (handlers (loop for s in (cons in streams)
+                            collect (add-one-shot-handler s f))))
+       (unwind-protect
+            (handler-bind ((slime-interrupt-queued 
+                            (lambda (c) c (write-char #\! out))))
+              (when (check-slime-interrupts) (return :interrupt))
+              (sys:serve-event))
+         (mapc #'sys:remove-fd-handler handlers)
+         (close in)
+         (close out))))))
 
 (defun add-one-shot-handler (stream function)
   (let (handler)
@@ -215,7 +219,10 @@ specific functions.")
                                         (sys:remove-fd-handler handler)
                                         (funcall function stream))))))
 
-
+(defun make-pipe ()
+  (multiple-value-bind (in out) (unix:unix-pipe)
+    (values (sys:make-fd-stream in :input t :buffering :none)
+            (sys:make-fd-stream out :output t :buffering :none))))
 
 
 ;;;; Stream handling
@@ -2111,7 +2118,8 @@ The `symbol-value' of each element is a type tag.")
              (return (car tail)))))
        (when (eq timeout t) (return (values nil t)))
        (mp:process-wait-with-timeout 
-        "receive-if" 0.5 (lambda () (some test (mailbox.queue mbox)))))))
+        "receive-if" 0.5 
+        (lambda () (some test (mailbox.queue mbox)))))))
                    
 
   ) ;; #+mp
