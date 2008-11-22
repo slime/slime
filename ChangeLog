@@ -1,3 +1,16 @@
+2008-11-22  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (invoke-default-debugger): New condition type.
+	(swank-debugger-hook): Handle invoke-default-debugger conditions.
+	(sldb-break-with-default-debugger): Signal invoke-default-debugger
+	to transfer control to the default debugger.
+	New argument DONT-UNWIND to invoke the native debugger without
+	unwinding the stack.
+	* slime.el (sldb-break-with-default-debugger): By default,
+	unwind the stack before invoke the native debugger.
+	With prefix argument, run the native debugger in the
+	dynamic environment of SLDB.
+
 2008-11-02  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el ([test] package-updating): Allegro returns "||" as

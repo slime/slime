@@ -7370,11 +7370,13 @@ use the restart at point."
   (sldb-invoke-restart (position restart-name sldb-restarts 
                                  :test 'string= :key 'first)))
 
-(defun sldb-break-with-default-debugger ()
+(defun sldb-break-with-default-debugger (&optional dont-unwind)
   "Enter default debugger."
-  (interactive)
+  (interactive "P")
   (slime-rex ()
-      ('(swank:sldb-break-with-default-debugger) nil slime-current-thread)
+      ((list 'swank:sldb-break-with-default-debugger 
+             (not (not dont-unwind)))
+       nil slime-current-thread)
     ((:abort))))
 
 (defun sldb-step ()

@@ -2157,11 +2157,15 @@ after Emacs causes a restart to be invoked."
            (with-connection ((default-connection))
              (debug-in-emacs condition))))))
 
+(define-condition invoke-default-debugger () ())
 (defun swank-debugger-hook (condition hook)
   "Debugger function for binding *DEBUGGER-HOOK*."
   (declare (ignore hook))
-  (call-with-debugger-hook #'swank-debugger-hook
-                           (lambda () (invoke-slime-debugger condition))))
+  (handler-case
+      (call-with-debugger-hook #'swank-debugger-hook
+                               (lambda () (invoke-slime-debugger condition)))
+    (invoke-default-debugger ()
+      (invoke-default-debugger condition))))
 
 (defun invoke-default-debugger (condition)
   (let ((*debugger-hook* nil))
@@ -2277,12 +2281,12 @@ format suitable for Emacs."
 
 ;;;;; SLDB entry points
 
-(defslimefun sldb-break-with-default-debugger ()
+(defslimefun sldb-break-with-default-debugger (dont-unwind)
   "Invoke the default debugger."
-  (call-with-debugger-hook
-   nil (lambda () (invoke-debugger *swank-debugger-condition*)))
-  (send-to-emacs 
-   (list :debug-activate (current-thread-id) *sldb-level* t)))
+  (cond (dont-unwind 
+         (invoke-default-debugger *swank-debugger-condition*))
+        (t
+         (signal 'invoke-default-debugger))))
 
 (defslimefun backtrace (start end)
   "Return a list ((I FRAME PLIST) ...) of frames from START to END.
