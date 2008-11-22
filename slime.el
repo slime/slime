@@ -516,11 +516,11 @@ The string is periodically updated by an idle timer."))
        (or slime-mode slime-popup-buffer-mode)))
 
 (defun slime-update-all-modelines ()
-  (dolist (buffer (buffer-list))
-    (with-current-buffer buffer
+  (dolist (window (window-list))
+    (with-current-buffer (window-buffer window)
       (when (slime-shall-we-update-modeline-p)
-        (slime-update-modeline-string))))
-  (force-mode-line-update t))
+        (slime-update-modeline-string)
+        (force-mode-line-update)))))
 
 (defvar slime-modeline-update-timer nil)
 
@@ -528,7 +528,7 @@ The string is periodically updated by an idle timer."))
   (when slime-modeline-update-timer
     (cancel-timer slime-modeline-update-timer))
   (setq slime-modeline-update-timer
-        (run-with-idle-timer 0.2 0.2 'slime-update-all-modelines)))
+        (run-with-idle-timer 0.5 0.5 'slime-update-all-modelines)))
 
 (slime-restart-or-init-modeline-update-timer)
 
@@ -7029,13 +7029,13 @@ Called on the `point-entered' text-property hook."
 
 (defun slime-show-buffer-position (position)
   "Ensure sure that the POSITION in the current buffer is visible."
-  (save-selected-window
-    (let ((w (select-window (or (get-buffer-window (current-buffer) t)
-                                (display-buffer (current-buffer) t)))))
+  (let ((window (display-buffer (current-buffer) t)))
+    (save-selected-window
+      (select-window window)
       (goto-char position)
-      (push-mark)
+      ;;(push-mark)
       (unless (pos-visible-in-window-p)
-        (slime-recenter-window w sldb-show-location-recenter-arg)))))
+        (slime-recenter-window window sldb-show-location-recenter-arg)))))
 
 (defun slime-recenter-window (window line)
   "Set window-start in WINDOW LINE lines before point."

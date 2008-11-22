@@ -1,3 +1,10 @@
+2008-11-22  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-update-all-modelines): Only walk through
+	widnow-list not buffer-list.
+	(slime-restart-or-init-modeline-update-timer): Inrease the timer
+	interval to 0.5 seconds.
+
 2008-11-22  Gábor Melis  <mega@retes.hu>
 
 	Reincarnate "eval..." (almost)
