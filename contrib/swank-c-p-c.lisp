@@ -136,7 +136,7 @@ Return these values:
       (tokenize-symbol string)
     (if package-name
 	(let ((package (guess-package (if (equal package-name "")
-					  "KEYWORD"
+					  (symbol-name :keyword)
 					  package-name))))
 	  (values name package-name package internal-p))
 	(let ((package (guess-package default-package-name)))

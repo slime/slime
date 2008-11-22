@@ -1,3 +1,9 @@
+2008-11-22  Geoff Wozniak <geoff@wozniak.ca>
+
+	* swank-c-p-c.lisp (parse-completion-arguments): Change the
+	package identifier from the string "KEYWORD" to the
+	form (symbol-name :keyword) for ACL's "modern" mode.
+
 2008-10-31  Nikodemus Siivola <nikodemus@random-state.net>
 
 	* swank-presentation-streams.liso (slime-stream-p): delete
