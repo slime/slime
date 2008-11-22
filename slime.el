@@ -481,8 +481,11 @@ The string is periodically updated by an idle timer."))
 (defun slime-compute-modeline-connection-state ()
   (let ((new-state (slime-compute-connection-state (slime-current-connection))))
     (if (eq new-state :connected)
-        nil ; normal case, so don't display anything in the mode line.
-        (slime-connection-state-as-string new-state))))
+        (let ((n (length (slime-rex-continuations))))
+          (if (= n 0)
+              nil
+            n))
+      (slime-connection-state-as-string new-state))))
 
 (defun slime-compute-modeline-string (conn state pkg)
   (concat (when (or conn pkg)             "[")
@@ -506,19 +509,41 @@ The string is periodically updated by an idle timer."))
       (setq slime-modeline-connection-name new-conn)
       (setq slime-modeline-connection-state new-state)
       (setq slime-modeline-string
-            (slime-compute-modeline-string new-conn new-state new-pkg))
-      (force-mode-line-update t))))
+            (slime-compute-modeline-string new-conn new-state new-pkg)))))
 
 (defun slime-shall-we-update-modeline-p ()
   (and slime-extended-modeline 
        (or slime-mode slime-popup-buffer-mode)))
 
-(defun slime-update-modeline ()
-  (when (slime-shall-we-update-modeline-p)
-    (slime-update-modeline-string)))
+(defun slime-update-all-modelines ()
+  (dolist (buffer (buffer-list))
+    (with-current-buffer buffer
+      (when (slime-shall-we-update-modeline-p)
+        (slime-update-modeline-string))))
+  (force-mode-line-update t))
 
-(run-with-idle-timer 0.2 0.2 'slime-update-modeline)
+(defvar slime-modeline-update-timer nil)
 
+(defun slime-restart-or-init-modeline-update-timer ()
+  (when slime-modeline-update-timer
+    (cancel-timer slime-modeline-update-timer))
+  (setq slime-modeline-update-timer
+        (run-with-idle-timer 0.2 0.2 'slime-update-all-modelines)))
+
+(slime-restart-or-init-modeline-update-timer)
+
+(defun slime-recompute-modelines (delay)
+  (cond (delay
+         ;; Minimize flashing of modeline due to short lived
+         ;; requests such as those of autodoc.
+         (slime-restart-or-init-modeline-update-timer))
+        (t
+         ;; Must do this ourselves since emacs may have
+         ;; been idling long enough that
+         ;; SLIME-MODELINE-UPDATE-TIMER is not going to
+         ;; trigger by itself.
+         (slime-update-all-modelines))))
+  
 ;; Setup the mode-line to say when we're in slime-mode, which
 ;; connection is active, and which CL package we think the current
 ;; buffer belongs to.
@@ -2373,11 +2398,13 @@ Debugged requests are ignored."
              (slime-display-oneliner "; pipelined request... %S" form))
            (let ((id (incf (slime-continuation-counter))))
              (push (cons id continuation) (slime-rex-continuations))
-             (slime-send `(:emacs-rex ,form ,package ,thread ,id))))
+             (slime-send `(:emacs-rex ,form ,package ,thread ,id))
+             (slime-recompute-modelines t)))
           ((:return value id)
            (let ((rec (assq id (slime-rex-continuations))))
              (cond (rec (setf (slime-rex-continuations)
                               (remove rec (slime-rex-continuations)))
+                        (slime-recompute-modelines nil)
                         (funcall (cdr rec) value))
                    (t
                     (error "Unexpected reply: %S %S" id value)))))

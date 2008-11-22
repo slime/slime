@@ -1,3 +1,13 @@
+2008-11-22  Gábor Melis  <mega@retes.hu>
+
+	* slime.el (slime-compute-modeline-connection-state): Return the
+	number of outstanding requests if connected.
+	(slime-update-all-modelines): Renamed from slime-update-modelines,
+	loops through all slime buffers.
+	(slime-restart-or-init-modeline-update-timer): New function.
+	(slime-dispatch-event): Arrange for modelines to be updated on
+	:EMACS-REX and :RETURN.
+
 2008-11-22  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (invoke-default-debugger): New condition type.
