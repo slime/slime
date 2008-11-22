@@ -9140,7 +9140,7 @@ Confirm that SUBFORM is correctly located."
     (package-name nicknames)
     "Test if slime-lisp-package is updated."
     '(("COMMON-LISP" ("CL"))
-      ("KEYWORD" ("" "KEYWORD"))
+      ("KEYWORD" ("" "KEYWORD" "||"))
       ("COMMON-LISP-USER" ("CL-USER")))
   (with-current-buffer (slime-output-buffer)
     (let ((p (slime-eval 

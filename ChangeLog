@@ -1,5 +1,10 @@
 2008-11-02  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el ([test] package-updating): Allegro returns "||" as
+	prompt for the keyword package.  I guess that's acceptable.
+
+2008-11-02  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-popup-buffer-quit): Always delete windows and
 	bury the buffer.
 
