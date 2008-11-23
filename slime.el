@@ -1021,26 +1021,24 @@ current state will be saved and later restored."
                        ,(if (eq connection t) '(slime-connection) connection)
                        ;; Defer the decision for NILness until runtime.
                        (or ,emacs-snapshot (slime-current-emacs-snapshot))))
-          (standard-output (slime-popup-buffer ,name vars%)))
+          (standard-output (slime-make-popup-buffer ,name vars%)))
      (with-current-buffer standard-output
        (prog1 (progn ,@body)
          (assert (eq (current-buffer) standard-output))
          (setq buffer-read-only t)
-         (slime-init-popup-buffer vars%)))))
+         (slime-init-popup-buffer vars%)
+         (slime-display-popup-buffer)))))
 
 (put 'slime-with-popup-buffer 'lisp-indent-function 1)
 
-(defun slime-popup-buffer (name buffer-vars)
+(defun slime-make-popup-buffer (name buffer-vars)
   "Return a temporary buffer called NAME.
-The buffer also uses the minor-mode `slime-popup-buffer-mode'.
-Pressing `q' in the buffer will restore the window configuration
-to the way it is when the buffer was created, i.e. when this
-function was called."
+The buffer also uses the minor-mode `slime-popup-buffer-mode'."
   (when (and (get-buffer name) (kill-buffer (get-buffer name))))
   (with-current-buffer (get-buffer-create name)
     (set-syntax-table lisp-mode-syntax-table)
-    (prog1 (pop-to-buffer (current-buffer))
-      (slime-init-popup-buffer buffer-vars))))
+    (slime-init-popup-buffer buffer-vars)
+    (current-buffer)))
 
 (defun slime-init-popup-buffer (buffer-vars)
   (slime-popup-buffer-mode 1)
@@ -1050,6 +1048,19 @@ function was called."
                         slime-buffer-connection
                         slime-popup-buffer-saved-emacs-snapshot)
     buffer-vars))
+
+(defun slime-display-popup-buffer ()
+  "Display the current buffer.
+Save the selected-window in a buffer-local variable, so that we
+can restore it later."
+  (let ((selected-window (selected-window))
+        (windows))
+    (walk-windows (lambda (w) (push w windows)) nil t)
+    (prog1 (pop-to-buffer (current-buffer))
+      (set (make-local-variable 'slime-popup-buffer-restore-info)
+           (list (unless (memq (selected-window) windows)
+                   (selected-window))
+                 selected-window)))))
 
 (define-minor-mode slime-popup-buffer-mode 
   "Mode for displaying read only stuff"
@@ -1078,8 +1089,13 @@ last activated the buffer."
     ;;(when (slime-popup-buffer-snapshot-unchanged-p)
     ;;  (slime-popup-buffer-restore-snapshot))
     (setq slime-popup-buffer-saved-emacs-snapshot nil) ; buffer-local var!
-    (delete-windows-on buffer (selected-frame))
-    (bury-buffer buffer) 
+    (destructuring-bind (created-window selected-window) 
+        slime-popup-buffer-restore-info
+      (bury-buffer)
+      (when (eq created-window (selected-window))
+        (delete-window created-window))
+      (when (window-live-p selected-window)
+        (select-window selected-window)))
     (when kill-buffer-p
       (kill-buffer buffer))))
 
@@ -5599,16 +5615,17 @@ in Lisp when committed with \\[slime-edit-value-commit]."
   '(("\C-c\C-c" . slime-edit-value-commit)))
 
 (defun slime-edit-value-callback (form-string current-value package)
-  (let ((name (generate-new-buffer-name (format "*Edit %s*" form-string))))
-    (with-current-buffer (slime-with-popup-buffer (name package t)
-                           (current-buffer))
-      (lisp-mode)
-      (slime-mode 1)
-      (slime-popup-buffer-mode -1)       ; don't want binding of 'q'
-      (slime-edit-value-mode 1)
-      (setq buffer-read-only nil)
-      (setq slime-edit-form-string form-string)
-      (insert current-value))))
+  (let* ((name (generate-new-buffer-name (format "*Edit %s*" form-string)))
+         (buffer (slime-with-popup-buffer (name package t)
+                  (lisp-mode)
+                  (slime-mode 1)
+                  (slime-popup-buffer-mode -1) ; don't want binding of 'q'
+                  (slime-edit-value-mode 1)
+                  (setq slime-edit-form-string form-string)
+                  (insert current-value)
+                  (current-buffer))))
+    (with-current-buffer buffer
+      (setq buffer-read-only nil))))
 
 (defun slime-edit-value-commit ()
   "Commit the edited value to the Lisp image.

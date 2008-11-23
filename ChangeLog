@@ -1,3 +1,18 @@
+2008-11-23  Helmut Eller  <heller@common-lisp.net>
+
+	`q' in temp buffers should only delete the window if it was newly
+	created for the buffer.
+
+	* slime.el (slime-display-popup-buffer): New function.  Recognize
+	if the window didn't exist before.  Save the created window and
+	the selected window in buffer local variables.
+	(slime-make-popup-buffer): Renamed from slime-popup-buffer.
+	(slime-popup-buffer-quit): Delete the created window (if needed)
+	and restore the old selected window.  Don't touch other windows.
+
+	(slime-edit-value-callback): Calling lisp-mode deletes all local
+	variables.  We need to that inside with-popup-buffer.
+
 2008-11-22  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-update-all-modelines): Only walk through
