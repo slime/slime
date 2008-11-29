@@ -1,3 +1,9 @@
+2008-11-29  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-package-fu.el (slime-goto-package-source-definition):
+	`(slime-pop-to-location loc 'excursion)' no longer exists; use
+	`(slime-goto-source-location loc)' instead.
+
 2008-11-22  Geoff Wozniak <geoff@wozniak.ca>
 
 	* swank-c-p-c.lisp (parse-completion-arguments): Change the

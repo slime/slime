@@ -67,7 +67,7 @@
 places the cursor at the start of the DEFPACKAGE form."
   (flet ((try (location)
 	   (when (slime-location-p location)
-	     (slime-pop-to-location location 'excursion)
+	     (slime-goto-source-location location)
 	     t)))
     (or (try (slime-find-package-definition-rpc package))
 	(try (slime-find-package-definition-regexp package))
