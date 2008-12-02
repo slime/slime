@@ -2352,7 +2352,12 @@ or nil if nothing suitable can be found.")
   (not (memq conn slime-net-processes)))
 
 (defun slime-debugged-connection-p (conn)
-  (and (sldb-debugged-continuations conn) t))
+  ;; This previously was (AND (SLDB-DEBUGGED-CONTINUATIONS CONN) T),
+  ;; but an SLDB buffer may exist without having continuations
+  ;; attached to it, e.g. the one resulting from `slime-interrupt'.
+  (loop for b in (sldb-buffers)
+        thereis (with-current-buffer b
+                  (eq slime-buffer-connection conn))))
 
 (defun slime-busy-p (&optional conn)
   "True if Lisp has outstanding requests.

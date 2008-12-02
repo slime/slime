@@ -1,3 +1,10 @@
+2008-12-02  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Modeline wouldn't display {debugged..} after `slime-interrupt'.
+
+	* slime.el (slime-debugged-connection-p): Can't rely on
+	`sldb-debugged-continuations' to be non-null in every SLDB buffer.
+
 2008-11-23  Helmut Eller  <heller@common-lisp.net>
 
 	`q' in temp buffers should only delete the window if it was newly
