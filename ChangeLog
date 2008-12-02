@@ -1,3 +1,11 @@
+2008-11-30  Gábor Melis  <mega@retes.hu>
+
+      * slime.el (slime-compute-modeline-connection-state): Print the
+      number of debugged requests if non-zero.
+      (slime-connection-state-as-string): Removed unused branches.
+      (slime-compute-connection-state): Removed :debugged branch making
+      most likely return :connected instead.
+
 2008-12-02  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	Modeline wouldn't display {debugged..} after `slime-interrupt'.

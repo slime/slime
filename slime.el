@@ -479,12 +479,17 @@ The string is periodically updated by an idle timer."))
         (slime-connection-name conn))))
 
 (defun slime-compute-modeline-connection-state ()
-  (let ((new-state (slime-compute-connection-state (slime-current-connection))))
+  (let* ((conn (slime-current-connection))
+         (new-state (slime-compute-connection-state conn)))
     (if (eq new-state :connected)
-        (let ((n (length (slime-rex-continuations))))
-          (if (= n 0)
-              nil
-            n))
+        (let ((n (length (slime-rex-continuations)))
+              (m (length (sldb-debugged-continuations conn))))
+          (cond ((= n 0)
+                 nil)
+                ((= m 0)
+                 n)
+                (t
+                 (format "%s/%s" (- n m) m))))
       (slime-connection-state-as-string new-state))))
 
 (defun slime-compute-modeline-string (conn state pkg)
@@ -1929,21 +1934,17 @@ If PROCESS is not specified, `slime-connection' is used.
 (defun slime-compute-connection-state (conn)
   (cond ((null conn) :disconnected) 
         ((slime-stale-connection-p conn) :stale)
-        ((slime-debugged-connection-p conn) :debugged)
-        ((and (slime-use-sigint-for-interrupt conn) 
+        ((and (slime-use-sigint-for-interrupt conn)
               (slime-busy-p conn)) :busy)
         ((eq slime-buffer-connection conn) :local)
         (t :connected)))
 
 (defun slime-connection-state-as-string (state)
   (case state
-    (:connected       "")
     (:disconnected    "not connected")
     (:busy            "busy..")
-    (:debugged        "debugged..")
     (:stale           "stale")
-    (:local           "local")
-    ))
+    (:local           "local")))
 
 ;;; Connection-local variables:
 
