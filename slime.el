@@ -482,14 +482,17 @@ The string is periodically updated by an idle timer."))
   (let* ((conn (slime-current-connection))
          (new-state (slime-compute-connection-state conn)))
     (if (eq new-state :connected)
-        (let ((n (length (slime-rex-continuations)))
-              (m (length (sldb-debugged-continuations conn))))
-          (cond ((= n 0)
-                 nil)
-                ((= m 0)
-                 n)
-                (t
-                 (format "%s/%s" (- n m) m))))
+        (let ((rex-cs  (length (slime-rex-continuations)))
+              (sldb-cs (length (sldb-debugged-continuations conn)))
+              ;; There can be SLDB buffers which have no continuations
+              ;; attached to it, e.g. the one resulting from
+              ;; `slime-interrupt'.
+              (sldbs   (length (sldb-buffers conn))))
+          (if (= sldbs 0)
+              (format "%s" rex-cs)
+              (format "%s/%s"
+                      (if (= rex-cs 0) 0 (- rex-cs sldb-cs)) 
+                      sldbs)))
       (slime-connection-state-as-string new-state))))
 
 (defun slime-compute-modeline-string (conn state pkg)
@@ -2352,6 +2355,7 @@ or nil if nothing suitable can be found.")
 (defun slime-stale-connection-p (conn)
   (not (memq conn slime-net-processes)))
 
+;; UNUSED
 (defun slime-debugged-connection-p (conn)
   ;; This previously was (AND (SLDB-DEBUGGED-CONTINUATIONS CONN) T),
   ;; but an SLDB buffer may exist without having continuations
@@ -6759,9 +6763,13 @@ Full list of commands:
 
 ;;;;; SLDB buffer creation & update
 
-(defun sldb-buffers ()
-  "Return a list of all sldb buffers."
-  (slime-filter-buffers (lambda () (eq major-mode 'sldb-mode))))
+(defun sldb-buffers (&optional connection)
+  "Return a list of all sldb buffers (belonging to CONNECITON.)"
+  (if connection
+      (slime-filter-buffers (lambda ()
+                              (and (eq slime-buffer-connection connection)
+                                   (eq major-mode 'sldb-mode))))
+      (slime-filter-buffers (lambda () (eq major-mode 'sldb-mode)))))
 
 (defun sldb-find-buffer (thread &optional connection)
   (let ((connection (or connection (slime-connection))))
