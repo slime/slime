@@ -5692,6 +5692,8 @@ The result is a string."
          (slime-read-from-minibuffer "(Un)trace: "))
         ((stringp spec)
          (slime-read-from-minibuffer "(Un)trace: " spec))
+        ((symbolp spec)    ; `slime-extract-context' can return symbols.
+         (slime-read-from-minibuffer "(Un)trace: " (prin1-to-string spec)))
         (t
          (destructure-case spec
            ((setf n)

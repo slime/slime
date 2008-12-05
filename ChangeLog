@@ -1,3 +1,7 @@
+2008-12-05  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-trace-query): SPEC argument can be a symbol.
+
 2008-12-02  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-compute-modeline-connection-state): Fix
