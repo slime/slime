@@ -1,5 +1,15 @@
 2008-12-05  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-macroexpansion-minor-mode-map): Bind keybindings
+	of `undo' to `slime-macroexpansion-undo'.
+	(slime-show-macroexpansion): Renamed to
+	`slime-initialize-macroexpansion-buffer'
+	(slime-initialize-macroexpansion-buffer): Make sure that the user
+	can't undo past the initial insertion.
+	(slime-macroexpand-undo): New function. Tries to undo-only.
+
+2008-12-05  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (slime-trace-query): SPEC argument can be a symbol.
 
 2008-12-02  Tobias C. Rittweiler  <tcr@freebits.de>

@@ -6415,13 +6415,8 @@ When displaying XREF information, this goes to the next reference."
            (define-key slime-macroexpansion-minor-mode-map mapping to))))
   (remap 'slime-macroexpand-1 'slime-macroexpand-1-inplace)
   (remap 'slime-macroexpand-all 'slime-macroexpand-all-inplace)
-  (remap 'advertised-undo 
-         '(lambda (&optional arg)
-            (interactive)
-            (let ((inhibit-read-only t))
-              (when (fboundp 'slime-remove-edits)
-                (slime-remove-edits (point-min) (point-max)))
-              (undo arg)))))
+  (remap 'advertised-undo 'slime-macroexpand-undo)
+  (remap 'undo 'slime-macroexpand-undo))
 
 (defun slime-sexp-at-point-for-macroexpansion ()
   "Essentially like SLIME-SEXP-AT-POINT-OR-ERROR, but behaves a
@@ -6452,11 +6447,12 @@ This variable specifies both what was expanded and how.")
                     (car (slime-sexp-at-point-for-macroexpansion)))))
     (setq slime-eval-macroexpand-expression `(,expander ,string))
     (slime-eval-async slime-eval-macroexpand-expression
-                      #'slime-show-macroexpansion)))
+                      #'slime-initialize-macroexpansion-buffer)))
 
-(defun slime-show-macroexpansion (expansion &optional buffer)
+(defun slime-initialize-macroexpansion-buffer (expansion &optional buffer)
   (pop-to-buffer (or buffer (slime-create-macroexpansion-buffer)))
-  (let ((inhibit-read-only t))
+  (let ((inhibit-read-only t)
+        (buffer-undo-list t)) ; Make the initial insertion not be undoable.
     (erase-buffer)
     (insert expansion)
     (goto-char (point-min))
@@ -6535,8 +6531,20 @@ CL:MACROEXPAND."
   "Reperform the last macroexpansion."
   (interactive)
   (slime-eval-async slime-eval-macroexpand-expression 
-                    (slime-rcurry #'slime-show-macroexpansion
+                    (slime-rcurry #'slime-initialize-macroexpansion-buffer
                                   (current-buffer))))
+
+(defun slime-macroexpand-undo (&optional arg)
+  (interactive)
+  (flet ((undo-only (arg)
+           ;; Emacs 22.x introduced `undo-only' which works by binding
+           ;; `undo-no-redo' to t. We do it this way so we don't break
+           ;; prior Emacs versions.
+           (let ((undo-no-redo t)) (undo arg))))
+    (let ((inhibit-read-only t))
+      (when (fboundp 'slime-remove-edits)
+        (slime-remove-edits (point-min) (point-max)))
+      (undo-only arg))))
 
 
 ;;;; Subprocess control
