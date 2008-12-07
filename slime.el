@@ -9732,10 +9732,10 @@ package is used."
         s
       (format "%s::%s"
               (let* ((package (or (slime-current-package) (slime-lisp-package))))
-                ;; package is a string like ":cl-user" or "CL-USER".
-                (if (and package (string-match "^:" package))
-                    (substring package 1)
-                  package))
+                ;; package is a string like ":cl-user" or "CL-USER", or "\"CL-USER\"".
+                (if package
+                    (slime-pretty-package-name package)
+                  "CL-USER"))
               (slime-cl-symbol-name s)))))
 
 ;;;;; Moving, CL idiosyncracies aware (reader conditionals &c.)
