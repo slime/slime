@@ -1891,6 +1891,7 @@ Errors are trapped and invoke our debugger."
   (with-buffer-syntax ()
     (with-retry-restart (:msg "Retry SLIME interactive evaluation request.")
       (let ((values (multiple-value-list (eval (from-string string)))))
+        (fresh-line)
         (finish-output)
         (format-values-for-echo-area values)))))
 
@@ -1912,6 +1913,8 @@ last form."
       (loop
        (let ((form (read stream nil stream)))
          (when (eq form stream)
+           (fresh-line)
+           (finish-output)
            (return (values values -)))
          (setq - form)
          (setq values (multiple-value-list (eval form)))

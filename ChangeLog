@@ -1,5 +1,13 @@
 2008-12-09  Helmut Eller  <heller@common-lisp.net>
 
+	Reset the stream column to 0 after eval requests.
+
+	* swank.lisp (interactive-eval, eval-region): Use FRESH-LINE
+	to reset the stream column.
+	* slime.el (test repl-test): Adjust test accordingly.
+
+2008-12-09  Helmut Eller  <heller@common-lisp.net>
+
 	Be a bit more careful when computing the toplevel restart.
 
 	* swank.lisp (throw-to-toplevel): Test *sldb-quit-restart* for

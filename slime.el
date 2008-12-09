@@ -9232,10 +9232,12 @@ Confirm that SUBFORM is correctly located."
 {}3
 SWANK> *[]")
       ("(princ 10)" "SWANK> (princ 10)
-{10}10
+{10
+}10
 SWANK> *[]")
       ("(princ 10)(princ 20)" "SWANK> (princ 10)(princ 20)
-{1020}20
+{1020
+}20
 SWANK> *[]")
       ("(dotimes (i 10 77) (princ i) (terpri))" 
        "SWANK> (dotimes (i 10 77) (princ i) (terpri))
@@ -9263,10 +9265,32 @@ SWANK> *[]")
        "SWANK> (progn (princ 10) (abort))
 {10}; Evaluation aborted.
 SWANK> *[]")
+      ("(if (fresh-line) 1 0)"
+       "SWANK> (if (fresh-line) 1 0)
+{
+}1
+SWANK> *[]")
       ("(values 1 2 3)" "SWANK> (values 1 2 3)
 {}1
 2
 3
+SWANK> *[]")
+      ("(with-standard-io-syntax
+         (write (make-list 15 :initial-element '(1 . 2)) :pretty t) 0)"
+       "SWANK> (with-standard-io-syntax
+         (write (make-list 15 :initial-element '(1 . 2)) :pretty t) 0)
+{((1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2)
+ (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2))
+}0
+SWANK> *[]")
+      ;; Two times to test the effect of FRESH-LINE.
+      ("(with-standard-io-syntax
+         (write (make-list 15 :initial-element '(1 . 2)) :pretty t) 0)"
+       "SWANK> (with-standard-io-syntax
+         (write (make-list 15 :initial-element '(1 . 2)) :pretty t) 0)
+{((1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2)
+ (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2) (1 . 2))
+}0
 SWANK> *[]"))
   (with-current-buffer (slime-output-buffer)
     (setf (slime-lisp-package-prompt-string) "SWANK"))
