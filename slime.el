@@ -488,18 +488,18 @@ The string is periodically updated by an idle timer."))
               ;; attached to it, e.g. the one resulting from
               ;; `slime-interrupt'.
               (sldbs   (length (sldb-buffers conn))))
-          (if (= sldbs 0)
-              (format "%s" rex-cs)
-              (format "%s/%s"
-                      (if (= rex-cs 0) 0 (- rex-cs sldb-cs)) 
-                      sldbs)))
+          (cond ((and (= sldbs 0) (zerop rex-cs)) nil)
+                ((= sldbs 0) (format "%s" rex-cs))
+                (t (format "%s/%s"
+                           (if (= rex-cs 0) 0 (- rex-cs sldb-cs)) 
+                           sldbs))))
       (slime-connection-state-as-string new-state))))
 
 (defun slime-compute-modeline-string (conn state pkg)
   (concat (when (or conn pkg)             "[")
-          (when pkg                       (format "PKG:%s" pkg))
+          (when pkg                       (format "%s" pkg))
           (when (and (or conn state) pkg) ", ")
-          (when conn                      (format "CON:%s" conn))
+          (when conn                      (format "%s" conn))
           (when state                     (format "{%s}" state))
           (when (or conn pkg)             "]")))
 

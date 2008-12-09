@@ -1,4 +1,12 @@
-2008-12-09   David Reitter <david.reitter@gmail.com>
+2008-12-09  Helmut Eller  <heller@common-lisp.net>
+
+	Make the modeline a bit shorter.
+
+	* slime.el (slime-compute-modeline-string): Remove PKG: and CON:
+	to save space.
+	(slime-compute-modeline-connection-state): Don't include zeros.
+
+2008-12-09  David Reitter <david.reitter@gmail.com>
 
 	* slime.el (slime-repl-mode): Use `run-mode-hooks' rather than
 	just `run-hooks'.  That way, after-change-major-mode-hook is
