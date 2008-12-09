@@ -178,13 +178,14 @@
        'ok))))
 
 (define-syntax mif
-  (syntax-rules (unquote quote _ ::)
+  (syntax-rules (quote unquote _)
     ((mif ('x value) then else)
      (if (equal? 'x value) then else))
     ((mif (,x value) then else)
      (if (eq? x value) then else))
     ((mif (() value) then else)
      (if (eq? value '()) then else))
+    #|  This variant produces no lambdas but breaks the compiler
     ((mif ((p . ps) value) then else)
      (let ((tmp value)
            (fail? :: <int> 0)
@@ -198,6 +199,18 @@
                 (set! fail? -1)))
            (set! fail? -1))
        (if (= fail? 0) result else)))
+    |#
+    ((mif ((p . ps) value) then else)
+     (let ((fail (lambda () else))
+           (tmp value))
+       (if (instance? tmp <pair>)
+           (let ((tmp :: <pair> tmp))
+             (mif (p tmp:car)
+                  (mif (ps tmp:cdr)
+                       then
+                       (fail))
+                  (fail)))
+           (fail))))
     ((mif (_ value) then else)
      then)
     ((mif (var value) then else)
@@ -335,6 +348,10 @@
 (define-variable *the-vm* #f)
 (define-variable *last-exception* #f)
 (define-variable *last-stacktrace* #f)
+
+;; FIXME: this needs factorization.  But I guess the whole idea of
+;; using bidirectional channels just sucks.  Mailboxes owned by a
+;; single thread to which everybody can send are much easier to use.
 
 (df dispatch-events ((s <socket>))
   (mlet* ((charset "iso-8859-1")
@@ -1570,7 +1587,7 @@
     (! attach pa args)))
 
 (df getpid ()
-  (let ((p (make-process (command-parse "echo -n $PPID") #!null)))
+  (let ((p (make-process (command-parse "echo $PPID") #!null)))
     (! waitFor p)
     (! read-line (<java.io.BufferedReader> (<in> (! get-input-stream p))))))
 

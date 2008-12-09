@@ -1,3 +1,10 @@
+2008-12-09  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-kawa.scm (mif): Avoid assignments because that triggers a
+	bug/regression in the compiler.
+	(getpid): Don't use the -n with echo.  It's not standard and also
+	not needed here.
+
 2008-11-29  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-package-fu.el (slime-goto-package-source-definition):
