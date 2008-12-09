@@ -7399,7 +7399,7 @@ This way you can still see what the error was after exiting SLDB."
   (interactive)
   (assert sldb-restarts () "sldb-quit called outside of sldb buffer")
   (slime-rex () ('(swank:throw-to-toplevel))
-    ((:ok _) (error "sldb-quit returned"))
+    ((:ok x) (error "sldb-quit returned [%s]" x))
     ((:abort))))
 
 (defun sldb-continue ()

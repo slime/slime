@@ -1,5 +1,13 @@
 2008-12-09  Helmut Eller  <heller@common-lisp.net>
 
+	Be a bit more careful when computing the toplevel restart.
+
+	* swank.lisp (throw-to-toplevel): Test *sldb-quit-restart* for
+	nilness.
+	* sldb-quit (sldb-quit): Show the returned value in brackets.
+
+2008-12-09  Helmut Eller  <heller@common-lisp.net>
+
 	Make the modeline a bit shorter.
 
 	* slime.el (slime-compute-modeline-string): Remove PKG: and CON:

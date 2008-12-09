@@ -2363,9 +2363,10 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
 (defslimefun throw-to-toplevel ()
   "Invoke the ABORT-REQUEST restart abort an RPC from Emacs.
 If we are not evaluating an RPC then ABORT instead."
-  (let ((restart (find-restart *sldb-quit-restart*)))
+  (let ((restart (and *sldb-quit-restart*
+                      (find-restart *sldb-quit-restart*))))
     (cond (restart (invoke-restart restart))
-          (t "Toplevel restart found"))))
+          (t "No toplevel restart active"))))
 
 (defslimefun invoke-nth-restart-for-emacs (sldb-level n)
   "Invoke the Nth available restart.
@@ -2909,6 +2910,7 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
 
 
 ;;;; Inspecting
+
 (defvar *inspector-verbose* nil)
 
 (defstruct (inspector-state (:conc-name istate.))
