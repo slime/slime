@@ -1,9 +1,15 @@
+2008-12-09   David Reitter <david.reitter@gmail.com>
+
+	* slime.el (slime-repl-mode): Use `run-mode-hooks' rather than
+	just `run-hooks'.  That way, after-change-major-mode-hook is
+	called automatically.
+
 2008-12-07  Nikodemus Siivola <nikodemus@random-state.net>
 
 	* slime.el (slime-qualify-cl-symbol-name): Clean up the package
 	name using `slime-pretty-package-name', so that packages named with
 	strings are not left with the extra doublequotes.
-	
+
 2008-12-05  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-macroexpansion-minor-mode-map): Bind keybindings

@@ -2939,7 +2939,7 @@ joined together."))
        'slime-repl-mode-beginning-of-defun)
   (set (make-local-variable 'end-of-defun-function) 
        'slime-repl-mode-end-of-defun)
-  (run-hooks 'slime-repl-mode-hook))
+  (run-mode-hooks 'slime-repl-mode-hook))
 
 (defun slime-repl-buffer (&optional create connection)
   "Get the REPL buffer for the current connection; optionally create."
