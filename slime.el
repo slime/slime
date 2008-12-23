@@ -2939,7 +2939,7 @@ joined together."))
        'slime-repl-mode-beginning-of-defun)
   (set (make-local-variable 'end-of-defun-function) 
        'slime-repl-mode-end-of-defun)
-  (run-mode-hooks 'slime-repl-mode-hook))
+  (slime-run-mode-hooks 'slime-repl-mode-hook))
 
 (defun slime-repl-buffer (&optional create connection)
   "Get the REPL buffer for the current connection; optionally create."
@@ -9978,6 +9978,11 @@ for (somewhat) better multiframe support."
          (make-local-hook hook)
          (add-hook hook function append t))
         (t (add-hook hook function append t))))
+
+(defun slime-run-mode-hooks (&rest hooks)
+  (if (fboundp 'run-mode-hooks) 
+      (apply #'run-mode-hooks hooks)
+    (apply #'run-hooks hooks)))
 
 (slime-defun-if-undefined next-single-char-property-change
     (position prop &optional object limit)

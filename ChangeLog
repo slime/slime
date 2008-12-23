@@ -1,3 +1,9 @@
+2008-12-23  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-run-mode-hooks): Wrapper for Emacs21.
+	(slime-repl-mode): Use it.
+	Reported by Peter Denno.
+
 2008-12-23  Sven Van Caekenberghe <sven@beta9.be>
 
 	* swank.lisp (connection): Add a slot to store the
