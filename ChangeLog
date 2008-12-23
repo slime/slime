@@ -1,3 +1,12 @@
+2008-12-23  Sven Van Caekenberghe <sven@beta9.be>
+
+	* swank.lisp (connection): Add a slot to store the
+	auto-flush-thread.
+	(cleanup-connection-threads): Also kill the auto-flush-thread.
+
+	(stop-server): list-threads returns the thread name in second
+	position and not in first position.
+
 2008-12-23  Willem Broekema <metawilm@gmail.com>
 
 	* slime.el (sldb-insert-restarts): Make the space before each

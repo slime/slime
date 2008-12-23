@@ -241,6 +241,7 @@ Backend code should treat the connection structure as opaque.")
   reader-thread
   control-thread
   repl-thread
+  auto-flush-thread
   ;; Callback functions:
   ;; (SERVE-REQUESTS <this-connection>) serves all pending requests
   ;; from Emacs.
@@ -762,9 +763,8 @@ connections, otherwise it will be closed after the first."
        (let ((thread-position
               (position-if 
                (lambda (x) 
-                 (string-equal (first x)
-                               (concatenate 'string "Swank "
-                                            (princ-to-string port))))
+                 (string-equal (second x)
+                               (cat "Swank " (princ-to-string port))))
                (list-threads))))
          (when thread-position
            (kill-nth-thread thread-position)
@@ -865,8 +865,9 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
          (repl-results (make-output-stream-for-target connection
                                                       :repl-result)))
     (when (eq (connection.communication-style connection) :spawn)
-      (spawn (lambda () (auto-flush-loop out))
-             :name "auto-flush-thread"))
+      (setf (connection.auto-flush-thread connection)
+            (spawn (lambda () (auto-flush-loop out))
+                   :name "auto-flush-thread")))
     (values dedicated-output in out io repl-results)))
 
 ;; FIXME: if wait-for-event aborts the event will stay in the queue forever.
@@ -1197,7 +1198,8 @@ The processing is done in the extent of the toplevel restart."
 (defun cleanup-connection-threads (connection)
   (let ((threads (list (connection.repl-thread connection)
                        (connection.reader-thread connection)
-                       (connection.control-thread connection))))
+                       (connection.control-thread connection)
+                       (connection.auto-flush-thread connection))))
     (dolist (thread threads)
       (when (and thread 
                  (thread-alive-p thread)
