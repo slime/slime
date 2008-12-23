@@ -6927,15 +6927,14 @@ EXTRAS is currently used for the stepper."
 
 (defun sldb-insert-restarts (restarts)
   "Insert RESTARTS and add the needed text props
-RESTARTS should be alist ((NAME DESCRIPTION) ...)."
+RESTARTS should be a list ((NAME DESCRIPTION) ...)."
   (loop for (name string) in restarts
         for number from 0 do
-        (insert " ")
         (slime-insert-propertized
          `(,@nil restart-number ,number
                  sldb-default-action sldb-invoke-restart
                  mouse-face highlight)
-         (in-sldb-face restart-number (number-to-string number))
+         " " (in-sldb-face restart-number (number-to-string number))
          ": ["  (in-sldb-face restart-type name) "] "
          (in-sldb-face restart string))
         (insert "\n")))

@@ -1,3 +1,9 @@
+2008-12-23  Willem Broekema <metawilm@gmail.com>
+
+	* slime.el (sldb-insert-restarts): Make the space before each
+	restart also propertized, consistent with how each line in the
+	backtrace is fully sensitive.
+
 2008-12-09  Helmut Eller  <heller@common-lisp.net>
 
 	Reset the stream column to 0 after eval requests.
