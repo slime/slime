@@ -71,11 +71,14 @@ A prefix argument disables this behaviour."
 
 (defun inferior-slime-init-keymap ()
   (let ((map inferior-slime-mode-map))
-    (define-key map [return] 'inferior-slime-return)
-    (define-key map [(control return)] 'inferior-slime-closing-return)
-    (define-key map [(meta control ?m)] 'inferior-slime-closing-return)
-    (define-key map "\C-c\C-d" slime-doc-map)
-    (define-key map "\C-c\C-w" slime-who-map)
+    (slime-define-keys map
+      ([return]			'inferior-slime-return)
+      ([(control return)]	'inferior-slime-closing-return)
+      ([(meta control ?m)]	'inferior-slime-closing-return)
+      ("\t"			'slime-indent-and-complete-symbol)
+      (" "			'slime-space)
+      ("\C-c\C-d" slime-doc-map)
+      ("\C-c\C-w" slime-who-map))
     (loop for (key command . keys) in slime-keys do
 	  (destructuring-bind (&key prefixed inferior &allow-other-keys) keys
 	    (when prefixed
@@ -84,5 +87,11 @@ A prefix argument disables this behaviour."
 	      (define-key map key command))))))
 
 (inferior-slime-init-keymap)
+
+(defun inferior-slime-hook-function ()
+  (inferior-slime-mode))
+
+(defun inferior-slime-init ()
+  (add-hook 'slime-inferior-process-start-hook 'inferior-slime-hook-function))
 
 (provide 'inferior-slime)
