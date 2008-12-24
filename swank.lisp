@@ -493,12 +493,24 @@ The package is deleted before returning."
 (defvar *log-output* nil) ; should be nil for image dumpers
 
 (defun init-log-output ()
-  (labels ((deref (x)
-             (cond ((typep x 'synonym-stream)
-                    (deref (symbol-value (synonym-stream-symbol x))))
-                   (t x))))
-    (unless *log-output*
-      (setq *log-output* (deref *error-output*)))))
+  (unless *log-output*
+    (setq *log-output* (real-output-stream *error-output*))))
+
+(defun real-input-stream (stream)
+  (typecase stream
+    (synonym-stream 
+     (real-input-stream (symbol-value (synonym-stream-symbol stream))))
+    (two-way-stream
+     (real-input-stream (two-way-stream-input-stream stream)))
+    (t stream)))
+
+(defun real-output-stream (stream)
+  (typecase stream
+    (synonym-stream 
+     (real-output-stream (symbol-value (synonym-stream-symbol stream))))
+    (two-way-stream
+     (real-output-stream (two-way-stream-output-stream stream)))
+    (t stream)))
 
 (add-hook *after-init-hook* 'init-log-output)
 
@@ -1261,8 +1273,48 @@ The processing is done in the extent of the toplevel restart."
           (invoke-or-queue-interrupt #'dispatch-interrupt-event))
         (lambda ()
           (with-simple-restart (close-connection "Close SLIME connection")
-            (handle-requests connection))))
+            ;;(handle-requests connection)
+            (let* ((stdin (real-input-stream *standard-input*))
+                   (*standard-input* (make-repl-input-stream connection 
+                                                             stdin)))
+              (simple-repl)))))
     (close-connection connection nil (safe-backtrace))))
+
+(defun simple-repl ()
+  (loop
+   (with-simple-restart (abort "Abort")
+     (format t "~&~a> " (package-string-for-prompt *package*))
+     (force-output)
+     (let ((form (read)))
+       (fresh-line)
+       (let ((- form)
+             (values (multiple-value-list (eval form))))
+         (setq *** **  ** *  * (car values)
+               /// //  // /  / values
+               +++ ++  ++ +  + form)
+         (cond ((null values) (format t "~&; No values"))
+               (t (mapc (lambda (v) (format t "~&~s" v)) values))))))))
+
+(defun make-repl-input-stream (connection stdin)
+  (make-input-stream
+   (lambda ()
+     (loop
+      (let* ((socket (connection.socket-io connection))
+             (inputs (list socket stdin))
+             (ready (wait-for-input inputs)))
+        (cond ((eq ready :interrupt)
+               (check-slime-interrupts))
+              ((member socket ready)
+               (handle-requests connection t))
+              ((member stdin ready)
+               (return (read-non-blocking stdin)))
+              (t (assert (null ready)))))))))
+
+(defun read-non-blocking (stream)
+  (with-output-to-string (str)
+    (loop (let ((c (read-char-no-hang stream)))
+            (unless c (return))
+            (write-char c str)))))
 
 (defun initialize-streams-for-connection (connection)
   (multiple-value-bind (dedicated in out io repl-results) 

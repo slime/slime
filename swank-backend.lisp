@@ -1065,25 +1065,37 @@ If TIMEOUT is a number and no streams is ready after TIMEOUT seconds,
 return nil.
 
 Return :interrupt if an interrupt occurs while waiting."
-  (assert (= (length streams) 1))
-  (let ((stream (car streams)))
-    (case timeout
-      ((nil)
-       (cond ((check-slime-interrupts) :interrupt)
-             (t (peek-char nil stream nil nil) 
-                streams)))
-      ((t) 
-       (let ((c (read-char-no-hang stream nil nil)))
-         (cond (c 
-                (unread-char c stream) 
-                streams)
-               (t '()))))
-      (t 
-       (loop
-        (if (check-slime-interrupts) (return :interrupt))
-        (when (wait-for-input streams t) (return streams))
-        (sleep 0.1)
-        (when (<= (decf timeout 0.1) 0) (return nil)))))))
+  (assert (member timeout '(nil t)))
+  (cond ((null (cdr streams)) 
+         (wait-for-one-stream (car streams) timeout))
+        (t
+         (wait-for-streams streams timeout))))
+
+(defun wait-for-streams (streams timeout)
+  (flet ((readyp (s)
+           (let ((c (read-char-no-hang s nil :eof)))
+             (or (eq c :eof)
+                 (and c (progn (unread-char c s) t))
+                 c))))
+    (loop
+     (let ((ready (remove-if-not #'readyp streams)))
+       (when ready (return ready)))
+     (when timeout (return nil))
+     (when (check-slime-interrupts) (return :interrupt))
+     (sleep 0.1))))
+
+(defun wait-for-one-stream (stream timeout)
+  (ecase timeout
+    ((nil)
+     (cond ((check-slime-interrupts) :interrupt)
+           (t (peek-char nil stream nil nil) 
+              (list stream))))
+    ((t) 
+     (let ((c (read-char-no-hang stream nil nil)))
+       (cond (c 
+              (unread-char c stream) 
+              (list stream))
+             (t '()))))))
 
 (definterface toggle-trace (spec)
   "Toggle tracing of the function(s) given with SPEC.

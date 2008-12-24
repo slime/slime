@@ -200,7 +200,7 @@ specific functions.")
    (when timeout (return nil))
    (multiple-value-bind (in out) (make-pipe)
      (let* ((f (constantly t))
-            (handlers (loop for s in (cons in streams)
+            (handlers (loop for s in (cons in (mapcar #'to-fd-stream streams))
                             collect (add-one-shot-handler s f))))
        (unwind-protect
             (handler-bind ((slime-interrupt-queued 
@@ -211,6 +211,15 @@ specific functions.")
          (close in)
          (close out))))))
 
+(defun to-fd-stream (stream)
+  (etypecase stream
+    (sys:fd-stream stream)
+    (synonym-stream 
+     (to-fd-stream 
+      (symbol-value (synonym-stream-symbol stream))))
+    (two-way-stream 
+     (to-fd-stream (two-way-stream-input-stream stream)))))
+     
 (defun add-one-shot-handler (stream function)
   (let (handler)
     (setq handler (sys:add-fd-handler (sys:fd-stream-fd stream) :input

@@ -1,5 +1,23 @@
 2008-12-23  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-set-connection-info): Don't create a repl
+	buffer.
+	(slime-start-lisp): Bind process-connection-type to nil to avoid
+	problems witht CLISPs readline code.
+
+	* swank.lisp (read-non-blocking, make-repl-input-stream)
+	(simple-repl): New functions.
+	(simple-serve-requests): Use it.
+
+	* swank-backend.lisp (wait-for-one-stream, wait-for-streams): New
+	functions.
+	(wait-for-input): Use it to support wainting on multiple streams.
+
+	* swank-cmucl.lisp (to-fd-stream): New function.
+	(wait-for-input): Use it.
+
+2008-12-23  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-run-mode-hooks): Wrapper for Emacs21.
 	(slime-repl-mode): Use it.
 	Reported by Peter Denno.
