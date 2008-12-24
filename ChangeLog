@@ -1,5 +1,11 @@
 2008-12-23  Helmut Eller  <heller@common-lisp.net>
 
+	Move most of the REPL mode to contrib.
+	Disable some commands that depend on the
+	existence of a REPL buffer.
+
+2008-12-23  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-set-connection-info): Don't create a repl
 	buffer.
 	(slime-start-lisp): Bind process-connection-type to nil to avoid
