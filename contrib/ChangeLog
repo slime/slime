@@ -1,3 +1,8 @@
+2008-12-23  Helmut Eller  <heller@common-lisp.net>
+2008-12-23  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-fancy.el: Add slime-repl.
+
 2008-12-09  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-kawa.scm (mif): Avoid assignments because that triggers a
