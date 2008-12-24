@@ -1,5 +1,10 @@
 2008-12-23  Helmut Eller  <heller@common-lisp.net>
 
+	* slime-repl.el (slime-repl-connected-hook-function): Create
+	a repl at startup.  Well, initialize stream redirection.
+
+2008-12-23  Helmut Eller  <heller@common-lisp.net>
+
 	Move i/o related event handlers to slime-repl.el.
 
 	* slime-repl.el (slime-repl-event-hook-function): Handle some

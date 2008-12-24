@@ -390,6 +390,9 @@ joined together."))
       (let ((key (if prefixed (concat slime-prefix-key key) key)))
         (define-key slime-repl-mode-map key command)))))
 
+(slime-define-keys slime-mode-map
+  ("\C-c\C-z" 'slime-switch-to-output-buffer))
+
 (slime-define-keys slime-repl-mode-map
   ("\C-m" 'slime-repl-return)
   ([return] 'slime-repl-return)
@@ -1453,7 +1456,8 @@ expansion will be added to the REPL's history.)"
 
 (defun slime-repl-connected-hook-function ()
   (slime-hide-inferior-lisp-buffer)
-  (slime-init-output-buffer (slime-connection)))
+  (slime-init-output-buffer (slime-connection))
+  (slime-eval-async '(swank:create-repl nil)))
 
 (defun slime-repl-event-hook-function (event)
   (destructure-case event
@@ -1470,9 +1474,8 @@ expansion will be added to the REPL's history.)"
     (t nil)))
 
 (defun slime-repl-init ()
-  (add-hook 'slime-connected-hook 'slime-repl-connected-hook-function)
   (add-hook 'slime-event-hooks 'slime-repl-event-hook-function)
-  )
+  (add-hook 'slime-connected-hook 'slime-repl-connected-hook-function))
 
 (def-slime-test package-updating
     (package-name nicknames)

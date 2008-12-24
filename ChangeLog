@@ -1,5 +1,16 @@
 2008-12-23  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (connection.env): New slot. To hold dynamic variable
+	bindings for this connection.
+	(with-io-redirection): Use it.
+	(create-repl): New function.  Currently only redirects IO for the
+	connection.  Could potentially be used to create multiple
+	listeners, each with a set of streams and corresponding buffers.
+	(*redirect-io*, maybe-call-with-io-redirection)
+	(call-with-redirected-io): Deleted.
+
+2008-12-23  Helmut Eller  <heller@common-lisp.net>
+
 	Move most of the REPL mode to contrib.
 	Disable some commands that depend on the
 	existence of a REPL buffer.

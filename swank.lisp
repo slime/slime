@@ -90,10 +90,6 @@
 (defvar *swank-debug-p* t
   "When true, print extra debugging information.")
 
-(defvar *redirect-io* t
-  "When non-nil redirect Lisp standard I/O to Emacs.
-Redirection is done while Lisp is processing a request for Emacs.")
-
 (defvar *sldb-printer-bindings*
   `((*print-pretty*           . t)
     (*print-level*            . 4)
@@ -226,6 +222,8 @@ Backend code should treat the connection structure as opaque.")
   (user-input       nil :type (or stream null))
   (user-output      nil :type (or stream null))
   (user-io          nil :type (or stream null))
+  ;; Bindings used for this connection (usually streams)
+  env
   ;; A stream that we use for *trace-output*; if nil, we user user-output.
   (trace-output     nil :type (or stream null))
   ;; A stream where we send REPL results.
@@ -391,14 +389,9 @@ Do not set this to T unless you want to debug swank internals.")
     (symbol (apply #'make-condition datum args))))
 
 (defmacro with-io-redirection ((connection) &body body)
-  "Execute BODY I/O redirection to CONNECTION.
-If *REDIRECT-IO* is true then all standard I/O streams are redirected."
-  `(maybe-call-with-io-redirection ,connection (lambda () ,@body)))
-
-(defun maybe-call-with-io-redirection (connection fun)
-  (if *redirect-io*
-      (call-with-redirected-io connection fun)
-      (funcall fun)))
+  "Execute BODY I/O redirection to CONNECTION. "
+  `(with-bindings (connection.env ,connection)
+     . ,body))
       
 (defmacro with-connection ((connection) &body body)
   "Execute BODY in the context of CONNECTION."
@@ -1202,7 +1195,6 @@ The processing is done in the extent of the toplevel restart."
 (defun control-thread (connection)
   (with-struct* (connection. @ connection)
     (setf (@ control-thread) (current-thread))
-    (setf (@ repl-thread) (spawn-repl-thread connection "repl-thread"))
     (setf (@ reader-thread) (spawn (lambda () (read-loop connection)) 
                                    :name "reader-thread"))
     (dispatch-loop connection)))
@@ -1316,16 +1308,6 @@ The processing is done in the extent of the toplevel restart."
             (unless c (return))
             (write-char c str)))))
 
-(defun initialize-streams-for-connection (connection)
-  (multiple-value-bind (dedicated in out io repl-results) 
-      (open-streams connection)
-    (setf (connection.dedicated-output connection) dedicated
-          (connection.user-io connection)          io
-          (connection.user-output connection)      out
-          (connection.user-input connection)       in
-          (connection.repl-results connection)     repl-results)
-    connection))
-
 (defun create-connection (socket-io style)
   (let ((success nil))
     (unwind-protect
@@ -1347,7 +1329,6 @@ The processing is done in the extent of the toplevel restart."
                                       :serve-requests #'simple-serve-requests))
                     )))
            (setf (connection.communication-style c) style)
-           (initialize-streams-for-connection c)
            (setf success t)
            c)
       (unless success
@@ -1504,21 +1485,32 @@ NIL if streams are not globally redirected.")
 ;;; We always redirect the standard streams to Emacs while evaluating
 ;;; an RPC. This is done with simple dynamic bindings.
 
-(defun call-with-redirected-io (connection function)
-  "Call FUNCTION with I/O streams redirected via CONNECTION."
-  (declare (type function function))
-  (let* ((io  (connection.user-io connection))
-         (in  (connection.user-input connection))
-         (out (connection.user-output connection))
-         (trace (or (connection.trace-output connection) out))
-         (*standard-output* out)
-         (*error-output* out)
-         (*trace-output* trace)
-         (*debug-io* io)
-         (*query-io* io)
-         (*standard-input* in)
-         (*terminal-io* io))
-    (funcall function)))
+(defslimefun create-repl (target)
+  (assert (eq target nil))
+  (let ((conn *emacs-connection*))
+    (initialize-streams-for-connection conn)
+    (with-struct* (connection. @ conn)
+      (setf (@ env)
+            `((*standard-output* . ,(@ user-output))
+              (*standard-input* . ,(@ user-input))
+              (*trace-output* . ,(or (@ trace-output) (@ user-output)))
+              (*error-output* . ,(@ user-output))
+              (*debug-io* . ,(@ user-io))
+              (*query-io* . ,(@ user-io))
+              (*terminal-io* . ,(@ user-io))))
+      (when (eq (@ communication-style) :spawn)
+        (setf (@ repl-thread) (spawn-repl-thread conn "repl-thread")))
+      t)))
+
+(defun initialize-streams-for-connection (connection)
+  (multiple-value-bind (dedicated in out io repl-results) 
+      (open-streams connection)
+    (setf (connection.dedicated-output connection) dedicated
+          (connection.user-io connection)          io
+          (connection.user-output connection)      out
+          (connection.user-input connection)       in
+          (connection.repl-results connection)     repl-results)
+    connection))
 
 (defun call-with-thread-description (description thunk)
   ;; For `M-x slime-list-threads': Display what threads
@@ -1536,6 +1528,9 @@ NIL if streams are not globally redirected.")
                                                55))
       (unwind-protect (funcall thunk)
         (set-thread-description thread old-description)))))
+
+
+
 
 (defmacro with-thread-description (description &body body)
   `(call-with-thread-description ,description #'(lambda () ,@body)))
