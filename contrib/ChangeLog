@@ -1,5 +1,12 @@
 2008-12-23  Helmut Eller  <heller@common-lisp.net>
 
+	Move i/o related event handlers to slime-repl.el.
+
+	* slime-repl.el (slime-repl-event-hook-function): Handle some
+	events here.
+
+2008-12-23  Helmut Eller  <heller@common-lisp.net>
+
 	* slime-editing-commands.el (slime-editing-commands-init): Bind
 	slime-close-all-parens-in-sexp.
 

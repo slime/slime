@@ -1451,12 +1451,28 @@ expansion will be added to the REPL's history.)"
            (pop-to-buffer repl-buffer)
            (goto-char (point-max))))))
 
-(defun slime-repl-connected-hook ()
+(defun slime-repl-connected-hook-function ()
   (slime-hide-inferior-lisp-buffer)
   (slime-init-output-buffer (slime-connection)))
 
+(defun slime-repl-event-hook-function (event)
+  (destructure-case event
+    ((:write-string output &optional target)
+     (slime-write-string output target)
+     t)
+    ((:read-string thread tag)
+     (assert thread)
+     (slime-repl-read-string thread tag)
+     t)
+    ((:open-dedicated-output-stream port)
+     (slime-open-stream-to-lisp port)
+     t)
+    (t nil)))
+
 (defun slime-repl-init ()
-  (add-hook 'slime-connected-hook 'slime-repl-connected-hook))
+  (add-hook 'slime-connected-hook 'slime-repl-connected-hook-function)
+  (add-hook 'slime-event-hooks 'slime-repl-event-hook-function)
+  )
 
 (def-slime-test package-updating
     (package-name nicknames)
