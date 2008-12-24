@@ -1,5 +1,10 @@
 2008-12-23  Helmut Eller  <heller@common-lisp.net>
 
+	* slime-editing-commands.el (slime-editing-commands-init): Bind
+	slime-close-all-parens-in-sexp.
+
+2008-12-23  Helmut Eller  <heller@common-lisp.net>
+
 	* inferior-slime.el (inferior-slime-hook-function): New function.
 	(inferior-slime-init): Automatically enable it in the
 	*inferior-lisp* buffer.
