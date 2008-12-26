@@ -1014,10 +1014,37 @@ can restore it later."
         (windows))
     (walk-windows (lambda (w) (push w windows)) nil t)
     (prog1 (pop-to-buffer (current-buffer))
-      (set (make-local-variable 'slime-popup-buffer-restore-info)
-           (list (unless (memq (selected-window) windows)
-                   (selected-window))
-                 selected-window)))))
+      (unless (local-variable-p 'slime-popup-buffer-restore-info)
+        (set (make-local-variable 'slime-popup-buffer-restore-info)
+             (list (unless (memq (selected-window) windows)
+                     (selected-window))
+                   selected-window))))))
+
+(defun slime-close-popup-window ()
+  (assert (local-variable-p 'slime-popup-buffer-restore-info))
+  (destructuring-bind (created-window selected-window)
+      slime-popup-buffer-restore-info
+    (bury-buffer)
+    (when (and (eq created-window (selected-window))
+               (not (eq (next-window created-window) created-window)))
+      (delete-window created-window))
+    (when (window-live-p selected-window)
+      (select-window selected-window)))
+  (kill-local-variable 'slime-popup-buffer-restore-info))
+
+(defmacro slime-save-local-variables (vars &rest body)
+  `(let ((vals (cons (mapcar (lambda (var)
+                               (if (local-variable-p var)
+                                   (cons var (eval var))))
+                             ',vars)
+                     (progn . ,body))))
+     (prog1 (cdr vals)
+       (mapc (lambda (var+val)
+               (when (consp var+val)
+                 (set (make-local-variable (car var+val)) (cdr var+val))))
+             (car vals)))))
+
+(put 'slime-save-local-variables 'lisp-indent-function 1)
 
 (define-minor-mode slime-popup-buffer-mode 
   "Mode for displaying read only stuff"
@@ -1046,13 +1073,7 @@ last activated the buffer."
     ;;(when (slime-popup-buffer-snapshot-unchanged-p)
     ;;  (slime-popup-buffer-restore-snapshot))
     (setq slime-popup-buffer-saved-emacs-snapshot nil) ; buffer-local var!
-    (destructuring-bind (created-window selected-window) 
-        slime-popup-buffer-restore-info
-      (bury-buffer)
-      (when (eq created-window (selected-window))
-        (delete-window created-window))
-      (when (window-live-p selected-window)
-        (select-window selected-window)))
+    (slime-close-popup-window)
     (when kill-buffer-p
       (kill-buffer buffer))))
 
@@ -2082,11 +2103,7 @@ Can return nil if there's no process object for the connection."
   "*If true, don't send background requests if Lisp is already busy.")
 
 (defun slime-background-activities-enabled-p ()
-  (and (or slime-mode 
-           (eq major-mode 'sldb-mode)
-           ;;(eq major-mode 'slime-repl-mode)
-           )
-       (let ((con (slime-current-connection)))
+  (and (let ((con (slime-current-connection)))
          (and con
               (eq (process-status con) 'open)))
        (or (not (slime-busy-p))
@@ -4110,10 +4127,12 @@ inserted in the current buffer."
   ;;(with-current-buffer (slime-output-buffer)
   ;;  (save-excursion (slime-repl-insert-prompt))
   ;;  (slime-repl-show-maximum-output))
-  (with-current-buffer buffer
-    (cond (ok (funcall cont result))
-          (t (message "Evaluation aborted.")))))
-
+  (cond ((not ok)
+         (message "Evaluation aborted."))
+        (t
+         (with-current-buffer buffer
+           (funcall cont result)))))
+        
 (defun slime-eval-describe (form)
   "Evaluate FORM in Lisp and display the result in a new buffer."
   (slime-eval-async form (slime-rcurry #'slime-show-description
@@ -5183,9 +5202,6 @@ CL:MACROEXPAND."
  (defvar sldb-condition nil
    "A list (DESCRIPTION TYPE) describing the condition being debugged.")
 
- (defvar sldb-saved-window-configuration nil
-   "Window configuration before the debugger was initially entered.")
-
  (defvar sldb-restarts nil
    "List of (NAME DESCRIPTION) for each available restart.")
 
@@ -5378,9 +5394,8 @@ CONTS is a list of pending Emacs continuations."
   (with-current-buffer (sldb-get-buffer thread)
     (unless (equal sldb-level level)
       (setq buffer-read-only nil)
-      (sldb-mode)
-      (unless sldb-saved-window-configuration
-        (setq sldb-saved-window-configuration (current-window-configuration)))
+      (slime-save-local-variables (slime-popup-buffer-restore-info)
+        (sldb-mode))
       (setq slime-current-thread thread)
       (setq sldb-level level)
       (setq mode-name (format "sldb[%d]" sldb-level))
@@ -5397,7 +5412,7 @@ CONTS is a list of pending Emacs continuations."
             (sldb-insert-frames (sldb-prune-initial-frames frames) t)
           (insert "[No backtrace]")))
       (run-hooks 'sldb-hook))
-    (pop-to-buffer (current-buffer))
+    (slime-display-popup-buffer)
     (sldb-recenter-region (point-min) (point))
     (setq buffer-read-only t)
     (when (and slime-stack-eval-tags
@@ -5428,27 +5443,10 @@ If LEVEL isn't the same as in the buffer, reinitialize the buffer."
   "Exit from the debug level LEVEL."
   (when-let (sldb (sldb-find-buffer thread))
     (with-current-buffer sldb
-      (unless stepping
-        (set-window-configuration sldb-saved-window-configuration))
-      (let ((inhibit-read-only t))
-        (erase-buffer))
-      (setq sldb-level nil))
-    (cond ((and (= level 1) (not stepping))
-           (kill-buffer sldb))
-          (t (sldb-maybe-kill-buffer thread (slime-connection))))))
-
-;; If we return to a lower debug level we wait a little before closing
-;; the debugger window.  We also send a ping, just in case Lisp was
-;; interrupted in swank:wait-for-input.
-(defun sldb-maybe-kill-buffer (thread connection)
-  (run-with-idle-timer
-   0.3 nil 
-   (lambda (thead connection)
-     (when-let (sldb (sldb-find-buffer thread connection))
-       (with-current-buffer sldb
-         (when (not sldb-level)
-           (kill-buffer sldb)))))
-   thread connection))
+      (cond (stepping
+             (setq sldb-level nil))
+            (t
+             (slime-popup-buffer-quit t))))))
 
 
 ;;;;;; SLDB buffer insertion

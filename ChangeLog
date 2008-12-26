@@ -1,3 +1,17 @@
+2008-12-25  Helmut Eller  <heller@common-lisp.net>
+
+	Don't restore window configs in sldb.
+	That doesn't work in the native repl, because output
+	may have moved point.
+
+	* slime.el (sldb-setup, sldb-exit): Use temp buffer code.
+	(slime-display-popup-buffer): Don't overwrite existing
+	variables.
+	(slime-close-popup-window): Factored out from
+	slime-popup-buffer-quit.
+	(slime-save-local-variables): New macro.
+	(sldb-maybe-kill-buffer, sldb-saved-window-configuration): Deleted.
+
 2008-12-23  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (connection.env): New slot. To hold dynamic variable
