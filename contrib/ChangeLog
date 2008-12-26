@@ -1,3 +1,9 @@
+2008-12-25  Helmut Eller  <heller@common-lisp.net>
+
+	* inferior-slime.el (inferior-slime-switch-to-repl-buffer): New
+	function.
+	(inferior-slime-init): Bind it to a selector key.
+
 2008-12-23  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-repl.el (slime-repl-connected-hook-function): Create

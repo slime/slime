@@ -91,7 +91,13 @@ A prefix argument disables this behaviour."
 (defun inferior-slime-hook-function ()
   (inferior-slime-mode))
 
+(defun inferior-slime-switch-to-repl-buffer ()
+  (switch-to-buffer (process-buffer (slime-inferior-process))))
+
 (defun inferior-slime-init ()
-  (add-hook 'slime-inferior-process-start-hook 'inferior-slime-hook-function))
+  (add-hook 'slime-inferior-process-start-hook 'inferior-slime-hook-function)
+  (def-slime-selector-method ?r
+    "SLIME Read-Eval-Print-Loop."
+    (inferior-slime-switch-to-repl-buffer)))
 
 (provide 'inferior-slime)
