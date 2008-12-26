@@ -1,3 +1,8 @@
+2008-12-26  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-repl.el (slime-repl-connected-hook-function): Create a
+	repl thread before creating a repl buffer.
+
 2008-12-25  Helmut Eller  <heller@common-lisp.net>
 
 	* inferior-slime.el (inferior-slime-switch-to-repl-buffer): New

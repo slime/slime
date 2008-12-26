@@ -32,9 +32,6 @@
 ;;   mode includes many commands for interacting with the Common Lisp
 ;;   process.
 ;;
-;;   Common Lisp REPL (Read-Eval-Print Loop) written in Emacs Lisp,
-;;   similar to `ielm'.
-;;
 ;;   Common Lisp debugger written in Emacs Lisp. The debugger pops up
 ;;   an Emacs buffer similar to the Emacs/Elisp debugger.
 ;;

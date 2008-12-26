@@ -1,3 +1,24 @@
+;;; slime-repl.el --- Read-Eval-Print Loop written in Emacs Lisp
+;;
+;; Original Author: Helmut Eller
+;; Contributors: to many to mention
+;; License: GNU GPL (same license as Emacs)
+;;
+;;; Description:
+;;
+;; This file implements a Lisp Listener along with some niceties like
+;; a persistent history and various "shortcut" commands.  Nothing here
+;; depends on comint.el; I/O is multiplexed over SLIME's socket.
+;;
+;; This used to be the default REPL for SLIME, but it was hard to
+;; maintain.
+;;
+;;; Installation:
+;;
+;; Call slime-setup and include 'slime-repl as argument: 
+;;
+;;  (slime-setup '(slime-repl [others conribs ...]))
+;;
 
 ;;;;; slime-repl
 
@@ -1455,9 +1476,9 @@ expansion will be added to the REPL's history.)"
            (goto-char (point-max))))))
 
 (defun slime-repl-connected-hook-function ()
+  (slime-eval '(swank:create-repl nil))
   (slime-hide-inferior-lisp-buffer)
-  (slime-init-output-buffer (slime-connection))
-  (slime-eval-async '(swank:create-repl nil)))
+  (slime-init-output-buffer (slime-connection)))
 
 (defun slime-repl-event-hook-function (event)
   (destructure-case event
