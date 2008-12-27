@@ -124,6 +124,7 @@
                   (unless (eq major-mode 'slime-repl-mode) 
                     (slime-repl-mode))
                   (setq slime-buffer-connection connection)
+		  (setq slime-buffer-package (slime-lisp-package connection))
                   (slime-reset-repl-markers)
                   (unless noprompt 
                     (slime-repl-insert-prompt))
@@ -375,6 +376,17 @@ the buffer should appear."
 ;; there is no prompt between output-end and input-start.
 ;;
 
+;; FIXME: slime-lisp-package should be local in a REPL buffer
+(slime-def-connection-var slime-lisp-package
+    "COMMON-LISP-USER"
+  "The current package name of the Superior lisp.
+This is automatically synchronized from Lisp.")
+
+(slime-def-connection-var slime-lisp-package-prompt-string
+    "CL-USER"
+  "The current package name of the Superior lisp.
+This is automatically synchronized from Lisp.")
+
 (slime-make-variables-buffer-local
  (defvar slime-repl-package-stack nil
    "The stack of packages visited in this repl.")
@@ -413,6 +425,10 @@ joined together."))
 
 (slime-define-keys slime-mode-map
   ("\C-c\C-z" 'slime-switch-to-output-buffer))
+
+(slime-define-keys slime-connection-list-mode-map
+  ((kbd "RET") 'slime-goto-connection)
+  ([return] 'slime-goto-connection))
 
 (slime-define-keys slime-repl-mode-map
   ("\C-m" 'slime-repl-return)
@@ -1436,6 +1452,12 @@ expansion will be added to the REPL's history.)"
             (setq default-directory dir)))))
     (message "package: %s  default-directory: %s" (car package) directory)))
 
+(defun slime-goto-connection ()
+  "Switch to the REPL buffer for the connection at point."
+  (interactive)
+  (let ((slime-dispatching-connection (slime-connection-at-point)))
+    (switch-to-buffer (slime-output-buffer))))
+
 (defvar slime-repl-easy-menu
   (let ((C '(slime-connected-p)))
     `("REPL"
@@ -1479,7 +1501,9 @@ expansion will be added to the REPL's history.)"
            (goto-char (point-max))))))
 
 (defun slime-repl-connected-hook-function ()
-  (slime-eval '(swank:create-repl nil))
+  (multiple-value-setq ((slime-lisp-package) 
+			(slime-lisp-package-prompt-string))
+    (slime-eval '(swank:create-repl nil)))
   (slime-hide-inferior-lisp-buffer)
   (slime-init-output-buffer (slime-connection)))
 
@@ -1494,6 +1518,14 @@ expansion will be added to the REPL's history.)"
      t)
     ((:open-dedicated-output-stream port)
      (slime-open-stream-to-lisp port)
+     t)
+    ((:new-package package prompt-string)
+     (setf (slime-lisp-package) package)
+     (setf (slime-lisp-package-prompt-string) prompt-string)
+     (let ((buffer (slime-connection-output-buffer)))
+       (when (buffer-live-p buffer)
+	 (with-current-buffer buffer
+	   (setq slime-buffer-package package))))
      t)
     (t nil)))
 

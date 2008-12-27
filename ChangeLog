@@ -1,3 +1,10 @@
+2008-12-27  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el: Move slime-lisp-package and
+	slime-lisp-package-prompt-string to slime-repl.el
+
+	* swank.lisp (create-repl): Return initial package and prompt.
+
 2008-12-25  Helmut Eller  <heller@common-lisp.net>
 
 	Don't restore window configs in sldb.

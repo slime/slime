@@ -1943,16 +1943,6 @@ This is automatically synchronized from Lisp.")
 (slime-def-connection-var slime-lisp-modules '()
   "The strings of Lisp's *MODULES*.")
 
-(slime-def-connection-var slime-lisp-package
-    "COMMON-LISP-USER"
-  "The current package name of the Superior lisp.
-This is automatically synchronized from Lisp.")
-
-(slime-def-connection-var slime-lisp-package-prompt-string
-    "CL-USER"
-  "The current package name of the Superior lisp.
-This is automatically synchronized from Lisp.")
-
 (slime-def-connection-var slime-pid nil
   "The process id of the Lisp process.")
 
@@ -2017,9 +2007,6 @@ This is automatically synchronized from Lisp.")
             (slime-communication-style) style
             (slime-lisp-features) features
             (slime-lisp-modules) modules)
-      (destructuring-bind (&key name prompt) package
-        (setf (slime-lisp-package) name
-              (slime-lisp-package-prompt-string) prompt))
       (destructuring-bind (&key type name version) lisp-implementation
         (setf (slime-lisp-implementation-type) type
               (slime-lisp-implementation-version) version
@@ -2202,15 +2189,11 @@ deal with that."
 (defun slime-current-package ()
   "Return the Common Lisp package in the current context.
 If `slime-buffer-package' has a value then return that, otherwise
-search for and read an `in-package' form.
-
-The REPL buffer is a special case: its package is `slime-lisp-package'."
-  (cond ;;((eq major-mode 'slime-repl-mode)
-        ;; (slime-lisp-package))
-        (slime-buffer-package)
-        (t (save-restriction
-             (widen)
-             (slime-find-buffer-package)))))
+search for and read an `in-package' form."
+  (or slime-buffer-package
+      (save-restriction
+        (widen)
+        (slime-find-buffer-package))))
 
 (defvar slime-find-buffer-package-function 'slime-search-buffer-package
   "*Function to use for `slime-find-buffer-package'.  
@@ -2380,10 +2363,6 @@ Debugged requests are ignored."
            (slime-y-or-n-p thread tag question))
           ((:emacs-return-string thread tag string)
            (slime-send `(:emacs-return-string ,thread ,tag ,string)))
-          ;;
-          ((:new-package package prompt-string)
-           (setf (slime-lisp-package) package)
-           (setf (slime-lisp-package-prompt-string) prompt-string))
           ((:new-features features)
            (setf (slime-lisp-features) features))
           ((:indentation-update info)
@@ -3879,8 +3858,8 @@ function name is prompted."
 (defun slime-edit-definition-cont (xrefs name where)
   (destructuring-bind (1loc file-alist) (slime-analyze-xrefs xrefs)
     (cond ((null xrefs) 
-           (error "No known definition for: %s (in %s)" 
-                  name (or (slime-current-package) (slime-lisp-package))))
+           (error "No known definition for: %s (in %s)"
+                  name (slime-current-package)))
           (1loc
            (slime-push-definition-stack)
            (slime-pop-to-location (slime-xref.location (car xrefs)) where))
@@ -6156,8 +6135,6 @@ was called originally."
     (set (make-local-variable 'truncate-lines) t)))
 
 (slime-define-keys slime-connection-list-mode-map
-  ;;((kbd "RET") 'slime-goto-connection)
-  ;;([return] 'slime-goto-connection)
   ("d"         'slime-connection-list-make-default)
   ("g"         'slime-update-connection-list)
   ((kbd "C-k") 'slime-quit-connection-at-point)
@@ -6166,12 +6143,6 @@ was called originally."
 (defun slime-connection-at-point ()
   (or (get-text-property (point) 'slime-connection)
       (error "No connection at point")))
-
-;;(defun slime-goto-connection ()
-;;  "Switch to the REPL buffer for the connection at point."
-;;  (interactive)
-;;  (let ((slime-dispatching-connection (slime-connection-at-point)))
-;;    (switch-to-buffer (slime-output-buffer))))
 
 (defun slime-quit-connection-at-point (connection)
   (interactive (list (slime-connection-at-point)))
@@ -8007,7 +7978,7 @@ package is used."
     (if (slime-cl-symbol-package s)
         s
       (format "%s::%s"
-              (let* ((package (or (slime-current-package) (slime-lisp-package))))
+              (let* ((package (slime-current-package)))
                 ;; package is a string like ":cl-user" or "CL-USER", or "\"CL-USER\"".
                 (if package
                     (slime-pretty-package-name package)

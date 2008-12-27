@@ -1,5 +1,12 @@
 2008-12-27  Helmut Eller  <heller@common-lisp.net>
 
+	* slime-repl.el (slime-repl-event-hook-function): Handle
+	:new-package events here.
+	(slime-output-buffer): Initialize slime-buffer-package.
+	(slime-repl-connected-hook-function): Initialize slime-lisp-package.
+
+2008-12-27  Helmut Eller  <heller@common-lisp.net>
+
 	* slime-repl.el (slime-repl-quit): Kill the repl buffer before
 	quitting.  Reported by Volkan YAZICI.
 
