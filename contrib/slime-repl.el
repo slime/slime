@@ -1501,9 +1501,10 @@ expansion will be added to the REPL's history.)"
            (goto-char (point-max))))))
 
 (defun slime-repl-connected-hook-function ()
-  (multiple-value-setq ((slime-lisp-package) 
-			(slime-lisp-package-prompt-string))
-    (slime-eval '(swank:create-repl nil)))
+  (destructuring-bind (package prompt) 
+      (slime-eval '(swank:create-repl nil))
+    (setf (slime-lisp-package) package)
+    (setf (slime-lisp-package-prompt-string) prompt))
   (slime-hide-inferior-lisp-buffer)
   (slime-init-output-buffer (slime-connection)))
 
