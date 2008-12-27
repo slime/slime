@@ -17,6 +17,7 @@
 ;; NOTE: `system-name' is a predefined variable in Emacs.  Try to
 ;; avoid it as local variable name.
 
+(require 'slime-repl)
 (slime-require :swank-asdf)
 
 (defun slime-load-system (&optional system)

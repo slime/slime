@@ -1,3 +1,7 @@
+2008-12-27  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-asdf.el: Require slime-repl.
+
 2008-12-26  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-repl.el (slime-repl-connected-hook-function): Create a
