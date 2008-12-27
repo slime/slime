@@ -1310,7 +1310,10 @@ expansion will be added to the REPL's history.)"
   (:one-liner "Quit all Lisps and close all SLIME buffers."))
 
 (defslime-repl-shortcut slime-repl-quit ("quit")
-  (:handler 'slime-quit-lisp)
+  (:handler (lambda ()
+	      (interactive)
+	      (kill-buffer (slime-output-buffer))
+	      (slime-quit-lisp)))
   (:one-liner "Quit the current Lisp."))
 
 (defslime-repl-shortcut slime-repl-defparameter ("defparameter" "!")
