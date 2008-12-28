@@ -598,9 +598,68 @@ condition."
                       (list (list type symbol) 
                             (canonicalize-location file symbol))))))
 
+;; CCL commit r11373 | gz | 2008-11-16 16:35:28 +0100 (Sun, 16 Nov 2008)
+;; contains some interesting details:
+;; 
+;; Source location are recorded in CCL:SOURCE-NOTE's, which are objects
+;; with accessors CCL:SOURCE-NOTE-FILENAME, CCL:SOURCE-NOTE-START-POS,
+;; CCL:SOURCE-NOTE-END-POS and CCL:SOURCE-NOTE-TEXT.  The start and end
+;; positions are file positions (not character positions).  The text will
+;; be NIL unless text recording was on at read-time.  If the original
+;; file is still available, you can force missing source text to be read
+;; from the file at runtime via CCL:ENSURE-SOURCE-NOTE-TEXT.
+;; 
+;; Source-note's are associated with definitions (via record-source-file)
+;; and also stored in function objects (including anonymous and nested
+;; functions).  The former can be retrieved via
+;; CCL:FIND-DEFINITION-SOURCES, the latter via CCL:FUNCTION-SOURCE-NOTE.
+;; 
+;; The recording behavior is controlled by the new variable
+;; CCL:*SAVE-SOURCE-LOCATIONS*:
+;; 
+;;   If NIL, don't store source-notes in function objects, and store only
+;;   the filename for definitions (the latter only if
+;;   *record-source-file* is true).
+;; 
+;;   If T, store source-notes, including a copy of the original source
+;;   text, for function objects and definitions (the latter only if
+;;   *record-source-file* is true).
+;; 
+;;   If :NO-TEXT, store source-notes, but without saved text, for
+;;   function objects and defintions (the latter only if
+;;   *record-source-file* is true).  This is the default.
+;; 
+;; PC to source mapping is controlled by the new variable
+;; CCL:*RECORD-PC-MAPPING*.  If true (the default), functions store a
+;; compressed table mapping pc offsets to corresponding source locations.
+;; This can be retrieved by (CCL:FIND-SOURCE-NOTE-AT-PC function pc)
+;; which returns a source-note for the source at offset pc in the
+;; function.
+;; 
+;; Currently the only thing that makes use of any of this is the
+;; disassembler.  ILISP and current version of Slime still use
+;; backward-compatible functions that deal with filenames only.  The plan
+;; is to make Slime, and our IDE, use this eventually.
+
+#+#.(cl:if (cl:fboundp 'ccl::function-source-note) '(:or) '(:and))
 (defun function-source-location (function)
   (or (car (source-locations function))
       (list :error (format nil "No source info available for ~A" function))))
+
+#+#.(cl:if (cl:fboundp 'ccl::function-source-note) '(:and) '(:or))
+(progn
+  (defun function-source-location (function)
+    (let ((note (ccl:function-source-note function)))
+      (if note
+          (source-note-to-source-location note)
+          (list :error
+                (format nil "No source info available for ~A" function)))))
+
+  (defun source-note-to-source-location (note)
+    (let ((filename (namestring (truename (ccl:source-note-filename note)))))
+      (make-location
+       (list :file filename)
+       (list :position (ccl:source-note-start-pos note))))))
 
 ;; source-locations THING => LOCATIONS NAMES
 ;; LOCATIONS ... a list of source-locations.  Most "specific" first.
