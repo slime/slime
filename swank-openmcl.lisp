@@ -642,10 +642,14 @@ condition."
 ;; is to make Slime, and our IDE, use this eventually.
 
 #+#.(cl:if (cl:fboundp 'ccl::function-source-note) '(:or) '(:and))
-(defun function-source-location (function)
-  (or (car (source-locations function))
-      (list :error (format nil "No source info available for ~A" function))))
-
+(progn
+  (defun function-source-location (function)
+    (or (car (source-locations function))
+        (list :error (format nil "No source info available for ~A" function))))
+  
+  (defun pc-source-location (function pc)
+    (function-source-location function)))
+  
 #+#.(cl:if (cl:fboundp 'ccl::function-source-note) '(:and) '(:or))
 (progn
   (defun function-source-location (function)
@@ -655,11 +659,18 @@ condition."
           (list :error
                 (format nil "No source info available for ~A" function)))))
 
+  (defun pc-source-location (function pc)
+    (let ((note (ccl:find-source-note-at-pc function pc)))
+      (if note
+          (source-note-to-source-location note)
+          (list :error
+                (format nil "No source note at ~A:#~x" function pc)))))
+
   (defun source-note-to-source-location (note)
     (let ((filename (namestring (truename (ccl:source-note-filename note)))))
       (make-location
        (list :file filename)
-       (list :position (ccl:source-note-start-pos note))))))
+       (list :position (1+ (ccl:source-note-start-pos note)))))))
 
 ;; source-locations THING => LOCATIONS NAMES
 ;; LOCATIONS ... a list of source-locations.  Most "specific" first.
@@ -713,10 +724,10 @@ at least the filename containing it."
   (block frame-source-location-for-emacs
     (map-backtrace
      (lambda (frame-number p context lfun pc)
-       (declare (ignore p context pc))
+       (declare (ignore p context))
        (when (and (= frame-number index) lfun)
          (return-from frame-source-location-for-emacs
-           (function-source-location lfun)))))))
+           (pc-source-location lfun pc)))))))
 
 (defimplementation eval-in-frame (form index)
   (block eval-in-frame

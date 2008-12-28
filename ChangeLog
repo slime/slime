@@ -1,7 +1,13 @@
 2008-12-28  Helmut Eller  <heller@common-lisp.net>
 
+	Recent CCLs support much better source location recording.
+	Let's use the new features in SLIME.
+
 	* swank-openmcl.lisp (function-source-location): Use
 	ccl:function-source-note.
+	(pc-source-location): New function, based on
+	ccl:find-source-note-at-pc.
+	(frame-source-location-for-emacs): Use it.
 
 2008-12-27  Helmut Eller  <heller@common-lisp.net>
 
