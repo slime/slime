@@ -1,3 +1,8 @@
+2008-12-29  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-openmcl.lisp (find-definitions, source-locations): Use
+	ccl:find-definition-sources.
+
 2008-12-28  Helmut Eller  <heller@common-lisp.net>
 
 	Recent CCLs support much better source location recording.
