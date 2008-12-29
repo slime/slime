@@ -369,8 +369,8 @@ condition."
    :test 'equal))
 
 (defimplementation swank-compile-string (string &key buffer position directory
-                                                debug)
-  (declare (ignore directory debug))
+                                         debug)
+  (declare (ignore debug))
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)
           (*buffer-offset* position)
@@ -378,9 +378,21 @@ condition."
       (unwind-protect
            (with-open-file (s filename :direction :output :if-exists :error)
              (write-string string s))
-        (let ((binary-filename (compile-file filename :load t)))
+        (let ((binary-filename (compile-temp-file
+                                filename
+                                (if directory
+                                    (format nil "~a/~a" directory buffer))
+                                (1- position))))
           (delete-file binary-filename)))
       (delete-file filename))))
+
+(defun compile-temp-file (filename orig-file orig-offset)
+  (if (fboundp 'ccl::function-source-note)
+      (compile-file filename
+                    :load t
+                    :compile-file-original-truename orig-file
+                    :compile-file-original-buffer-offset orig-offset)
+      (compile-file filename :load t)))
 
 ;;; Profiling (alanr: lifted from swank-clisp)
 

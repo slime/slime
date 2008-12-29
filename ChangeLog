@@ -2,6 +2,8 @@
 
 	* swank-openmcl.lisp (find-definitions, source-locations): Use
 	ccl:find-definition-sources.
+	(swank-compile-string, compile-temp-file): Use new parameters to
+	compile-file to adjust source locations.
 
 2008-12-28  Helmut Eller  <heller@common-lisp.net>
 
