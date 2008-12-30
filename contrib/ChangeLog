@@ -1,5 +1,15 @@
 2008-12-30  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-sbcl-exts.el, swank-sbcl-exts.lisp: New contrib.
+
+	This is the place for SBCL specific extensions and customizations
+	that can't go into SBCL's swank-backend.
+
+	At the moment, it contains code to display arglist of instructions,
+	as in `(sb-assem:inst mov |'.
+
+2008-12-30  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank-arglists.lisp (defstruct arglist-dummy): Remove
 	:PRINT-OBJECT which made an arglist dummy look like a normal
 	symbol. This is just confusing. If an ARGLIST-DUMMY appears in an
