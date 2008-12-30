@@ -1,3 +1,17 @@
+2008-12-30  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-arglists.lisp (defstruct arglist-dummy): Remove
+	:PRINT-OBJECT which made an arglist dummy look like a normal
+	symbol. This is just confusing. If an ARGLIST-DUMMY appears in an
+	arglist, the relevant code should deal with this explicitly.
+	(with-availability): Renamed to WITH-AVAILABLE-ARGLIST.
+
+	* slime-parse.el (slime-parse-extended-operator-name): Pass the
+	fully qualified symbol (not just the name) to the parser function.
+	(slime-make-extended-operator-parser/look-ahead): Do not take the
+	operator name as first argument if point is located at the
+	operator name.
+
 2008-12-27  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-repl.el (slime-repl-event-hook-function): Handle

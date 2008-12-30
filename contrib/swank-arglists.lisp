@@ -117,10 +117,7 @@ For more information about the format of ``raw form specs'' and
 ;; This is a wrapper object around anything that came from Slime and
 ;; could not reliably be read. 
 (defstruct (arglist-dummy
-	     (:conc-name #:arglist-dummy.)
-	     (:print-object (lambda (struct stream)
-			      (with-struct (arglist-dummy. string-representation) struct
-				(write-string string-representation stream)))))
+	     (:conc-name #:arglist-dummy.))
   string-representation)
 
 (defun read-conversatively-for-autodoc (string)
@@ -1095,7 +1092,7 @@ Examples:
           (split-form-spec form-spec)
         (arglist-dispatch type operator arguments :remove-args remove-args))))
 
-(defmacro with-availability ((var) form &body body)
+(defmacro with-available-arglist ((var) form &body body)
   `(let ((,var ,form))
      (if (eql ,var :not-available)
          :not-available
@@ -1129,13 +1126,13 @@ Examples:
                              arguments &key (remove-args t))
   (when (and (listp arguments)
 	     (not (null arguments)) ;have generic function name
-	     (notany #'listp (rest arguments))) ;don't have arglist yet 
+	     (notany #'listp (rest arguments))) ;don't have arglist yet
     (let* ((gf-name (first arguments))
 	   (gf (and (valid-function-name-p gf-name)
 		    (fboundp gf-name)
 		    (fdefinition gf-name))))
       (when (typep gf 'generic-function)
-        (with-availability (arglist) (arglist gf)
+        (with-available-arglist (arglist) (arglist gf)
           (return-from arglist-dispatch
             (values (make-arglist :provided-args (if remove-args
                                                      nil
@@ -1161,7 +1158,7 @@ Examples:
 
 (defmethod arglist-dispatch ((operator-type (eql :declaration))
                              decl-identifier decl-args &key (remove-args t))
-  (with-availability (arglist)
+  (with-available-arglist (arglist)
       (declaration-arglist decl-identifier)
     (maybecall remove-args #'remove-actual-args
                (decode-arglist arglist) decl-args))
@@ -1171,7 +1168,7 @@ Examples:
 
 (defmethod arglist-dispatch ((operator-type (eql :type-specifier))
                              type-specifier specifier-args &key (remove-args t))
-  (with-availability (arglist)
+  (with-available-arglist (arglist)
       (type-specifier-arglist type-specifier)
     (maybecall remove-args #'remove-actual-args
                (decode-arglist arglist) specifier-args))
