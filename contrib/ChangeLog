@@ -1,5 +1,12 @@
 2008-12-30  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-repl.lisp (slime-repl-set-package): Set
+	`slime-buffer-package' to the new package name. Otherwise, a ,!p
+	repl command is not properly taken into account resulting in
+	misbehaviour of completion and arglist display.
+
+2008-12-30  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-sbcl-exts.el, swank-sbcl-exts.lisp: New contrib.
 
 	This is the place for SBCL specific extensions and customizations

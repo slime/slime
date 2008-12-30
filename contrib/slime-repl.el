@@ -853,6 +853,7 @@ earlier in the buffer."
           (slime-repl-shortcut-eval `(swank:set-package ,package))
         (setf (slime-lisp-package) name)
         (setf (slime-lisp-package-prompt-string) prompt-string)
+        (setf slime-buffer-package name)
         (slime-repl-insert-prompt)
         (insert unfinished-input)))))
 
