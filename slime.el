@@ -2530,14 +2530,20 @@ region that will be compiled.")
              slime-maybe-show-xrefs-for-notes
              slime-goto-first-note))
 
-(defvar slime-compilation-debug-level nil
+(defvar slime-compilation-policy nil
   "When non-nil compile defuns with this debug optimization level.")
 
-(defun slime-normalize-optimization-level (n)
-  (cond ((not n) nil)
-        ((> n 3) 3)
-        ((< n 0) 0)
-        (t n)))
+(defun slime-compute-policy (arg)
+  (flet ((between (min n max)
+           (if (< n min)
+               min
+               (if (> n max) max n))))
+    (let ((n (prefix-numeric-value arg)))
+      (cond ((not arg)   slime-compilation-policy)
+            ((plusp n)   `((cl:debug . ,(between 0 n 3))))
+            ((eq arg '-) `((cl:speed . 3)))
+            (t           `((cl:speed . ,(between 0 (abs n) 3))))))))
+
 
 (defstruct (slime-compilation-result
              (:type list)
@@ -2592,9 +2598,7 @@ If invoked with a simple prefix-arg (`C-u'), compile the defun
 with maximum debug setting. If invoked with a numeric prefix arg,
 compile with a debug setting of that number."
   (interactive "P")
-  (let* ((prefix-arg (and raw-prefix-arg (prefix-numeric-value raw-prefix-arg)))
-         (debug-level (slime-normalize-optimization-level prefix-arg)) 
-         (slime-compilation-debug-level debug-level))
+  (let ((slime-compilation-policy (slime-compute-policy raw-prefix-arg)))
     (apply #'slime-compile-region (slime-region-for-defun-at-point))))
 
 (defun slime-compile-region (start end)
@@ -2616,7 +2620,7 @@ compile with a debug setting of that number."
      ,(buffer-name)
      ,start-offset
      ,(if (buffer-file-name) (file-name-directory (buffer-file-name)))
-     ',slime-compilation-debug-level)
+     ',slime-compilation-policy)
    #'slime-compilation-finished))
 
 (defun slime-compilation-finished (result)
@@ -2682,12 +2686,12 @@ PREDICATE is executed in the buffer to test."
 
 ;;;;; Recompilation.
 
-(defun slime-recompile-location (location &optional debug-level)
+(defun slime-recompile-location (location)
   (save-excursion
     (slime-goto-source-location location)
-    (slime-compile-defun debug-level)))
+    (slime-compile-defun)))
 
-(defun slime-recompile-locations (locations debug-level cont)
+(defun slime-recompile-locations (locations cont)
   (slime-eval-async 
    `(swank:compile-multiple-strings-for-emacs
      ',(loop for loc in locations collect
@@ -2702,7 +2706,7 @@ PREDICATE is executed in the buffer to test."
                        (if (buffer-file-name)
                            (file-name-directory (buffer-file-name))
                          nil)))))
-     ,debug-level)
+     ',slime-compilation-policy)
    cont))
 
 
@@ -4916,28 +4920,24 @@ When displaying XREF information, this goes to the next reference."
 
 (defun slime-recompile-xref (&optional raw-prefix-arg)
   (interactive "P")
-  (let* ((prefix-arg (and raw-prefix-arg 
-                          (prefix-numeric-value raw-prefix-arg)))
-         (debug-level (slime-normalize-optimization-level prefix-arg)))
+  (let ((slime-compilation-policy (slime-compute-policy raw-prefix-arg)))
     (let ((location (slime-xref-location-at-point))
           (dspec    (slime-xref-dspec-at-point)))
       (slime-recompile-locations 
-       (list location) debug-level
+       (list location)
        (slime-rcurry #'slime-xref-recompilation-cont
                      (list dspec) (current-buffer))))))
 
 (defun slime-recompile-all-xrefs (&optional raw-prefix-arg)
   (interactive "P")
-  (let* ((prefix-arg (and raw-prefix-arg 
-                          (prefix-numeric-value raw-prefix-arg)))
-         (debug-level (slime-normalize-optimization-level prefix-arg)))
+  (let ((slime-compilation-policy (slime-compute-policy raw-prefix-arg)))
     (let ((dspecs) (locations))
       (dolist (xref (slime-all-xrefs))
         (when (slime-xref-has-location-p xref)
           (push (slime-xref.dspec xref) dspecs)
           (push (slime-xref.location xref) locations)))
       (slime-recompile-locations 
-       locations debug-level 
+       locations
        (slime-rcurry #'slime-xref-recompilation-cont
                      dspecs (current-buffer))))))
 
@@ -6034,16 +6034,14 @@ was called originally."
   (interactive "P")
   (slime-eval-async
    `(swank:frame-source-location-for-emacs ,(sldb-frame-number-at-point))
-   (lexical-let ((debug-level (slime-normalize-optimization-level
-                               (and raw-prefix-arg 
-                                    (prefix-numeric-value raw-prefix-arg)))))
+   (let ((slime-compilation-policy (slime-compute-policy raw-prefix-arg)))
      (lambda (source-location)
        (destructure-case source-location
          ((:error message)
           (message "%s" message)
           (ding))
          (t
-          (slime-recompile-location source-location debug-level)))))))
+          (slime-recompile-location source-location)))))))
 
 
 ;;;; Thread control panel

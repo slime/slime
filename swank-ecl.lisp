@@ -146,8 +146,8 @@
       (compile-file *compile-filename* :load t))))
 
 (defimplementation swank-compile-string (string &key buffer position directory
-                                                debug)
-  (declare (ignore directory debug))
+                                                policy)
+  (declare (ignore directory policy))
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)
           (*buffer-start-position* position)

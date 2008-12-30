@@ -1,3 +1,28 @@
+2008-12-30  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	As of now, `C-u C-c C-c' compiled a function with maximum debug
+	settings (SBCL only.)
+
+	Now, `M-- C-c C-c' will compile a function with maximum _speed_
+	settings (still SBCL only) --- useful to elicit compiler notes.
+
+	* slime.el (slime-compilation-debug-level): Renamed to
+	`slime-compilation-policy'.
+	(slime-normalize-optimization-level): Renamed to
+	`slime-compute-policy'.
+
+	* swank.lisp (compile-string-for-emacs): Takes a policy now.
+	(compile-multiple-strings-for-emacs): Ditto.
+
+	* swank-backend.lisp (swank-compile-string): Change :DEBUG key arg
+	to :POLICY.
+
+	* swank-scl.lisp, swank-openmcl.lisp, swank-lispworks.lisp
+	* swank-ecl.lisp, swank-corman.lisp, swank-cmucl.lisp,
+	* swank-clisp.lisp, swank-allegro.lisp, swank-sbcl.lisp:
+
+	Changed accordingly.
+
 2008-12-29  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-openmcl.lisp (find-definitions, source-locations): Use

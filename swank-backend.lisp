@@ -370,8 +370,8 @@ This is used to resolve filenames without directory component."
   (declare (ignore ignore))
   `(call-with-compilation-hooks (lambda () (progn ,@body))))
 
-(definterface swank-compile-string (string &key buffer position directory 
-                                           debug)
+(definterface swank-compile-string (string &key buffer position directory
+                                           policy)
   "Compile source from STRING.
 During compilation, compiler conditions must be trapped and
 resignalled as COMPILER-CONDITIONs.

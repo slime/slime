@@ -369,8 +369,8 @@ condition."
    :test 'equal))
 
 (defimplementation swank-compile-string (string &key buffer position directory
-                                         debug)
-  (declare (ignore debug))
+                                         policy)
+  (declare (ignore policy))
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)
           (*buffer-offset* position)

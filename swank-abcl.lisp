@@ -341,8 +341,8 @@
                            (not (load fn))))))))))
 
 (defimplementation swank-compile-string (string &key buffer position directory
-                                                debug)
-  (declare (ignore directory debug))
+                                                policy)
+  (declare (ignore directory policy))
   (let ((jvm::*resignal-compiler-warnings* t)
         (*abcl-signaled-conditions* nil))
     (handler-bind ((warning #'handle-compiler-warning))                 

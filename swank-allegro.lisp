@@ -316,8 +316,8 @@
          (not failure?)))))
 
 (defimplementation swank-compile-string (string &key buffer position directory
-                                                debug)
-  (declare (ignore debug))
+                                                policy)
+  (declare (ignore policy))
   ;; We store the source buffer in excl::*source-pathname* as a string
   ;; of the form <buffername>;<start-offset>.  Quite ugly encoding, but
   ;; the fasl file is corrupted if we use some other datatype.

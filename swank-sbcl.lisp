@@ -502,19 +502,27 @@ compiler state."
   "Return a temporary file name to compile strings into."
   (concatenate 'string (tmpnam nil) ".lisp"))
 
+(defun get-compiler-policy (default-policy)
+  (declare (ignorable default-policy))
+  #+#.(swank-backend::sbcl-with-symbol 'restrict-compiler-policy 'sb-ext)
+  (remove-duplicates (append default-policy (sb-ext:restrict-compiler-policy))
+                     :key #'car))
+
+(defun set-compiler-policy (policy)
+  (declare (ignorable policy))
+  #+#.(swank-backend::sbcl-with-symbol 'restrict-compiler-policy 'sb-ext)
+   (loop for (qual . value) in policy
+         do (sb-ext:restrict-compiler-policy qual value)))
+
 (defimplementation swank-compile-string (string &key buffer position directory
-                                                debug)
-  (declare (ignorable debug))
+                                                policy)
   (let ((*buffer-name* buffer)
         (*buffer-offset* position)
         (*buffer-substring* string)
         (filename (temp-file-name))
-        #+#.(swank-backend::sbcl-with-symbol 'restrict-compiler-policy 'sb-ext)
-        (old-min-debug (assoc 'debug (sb-ext:restrict-compiler-policy)))
-        )
-    #+#.(swank-backend::sbcl-with-symbol 'restrict-compiler-policy 'sb-ext)
-    (when debug
-      (sb-ext:restrict-compiler-policy 'debug debug))
+        (saved-policy (get-compiler-policy '((debug . 0) (speed . 0)))))
+    (when policy
+      (set-compiler-policy policy))
     (flet ((load-it (filename)
              (when filename (load filename)))
            (compile-it (cont)
@@ -532,9 +540,7 @@ compiler state."
                (compile-it #'load-it)
                (load-it (compile-it #'identity)))
         (ignore-errors
-          #+#.(swank-backend::sbcl-with-symbol
-               'restrict-compiler-policy 'sb-ext)
-          (sb-ext:restrict-compiler-policy 'debug (or old-min-debug 0))
+          (set-compiler-policy saved-policy)
           (delete-file filename)
           (delete-file (compile-file-pathname filename)))))))
 
