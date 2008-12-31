@@ -458,7 +458,12 @@ the flag if a symbol had to be interned."
 	     print-right-margin print-lines)
   "Formats ARGLIST (given as string) for Emacs' echo area."
   (declare (ignore operator highlight package print-right-margin print-lines))
-  (apply #'decoded-arglist-to-string (decode-arglist (read-from-string arglist)) args))
+  (handler-case
+      (apply #'decoded-arglist-to-string
+             (decode-arglist (read-from-string arglist))
+             args)
+    (error (e)
+      (format nil "ARGLIST (error): ~A" e))))
 
 (defun decoded-arglist-to-string (decoded-arglist
                                   &key operator highlight (package *package*)

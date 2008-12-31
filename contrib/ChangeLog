@@ -1,5 +1,10 @@
 2008-12-31  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-arglists.lisp (format-arglist-for-echo-area): Catch errors
+	and die gracefully.
+
+2008-12-31  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank-sbcl-exts.lisp: Wrap file in a big #+sbcl (PROGN ...), so
 	users can use the `slime-sbcl-exts' contrib in their .emacs
 	nevermind what implementation they actually use.
