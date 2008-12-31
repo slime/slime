@@ -1066,24 +1066,21 @@ return nil.
 
 Return :interrupt if an interrupt occurs while waiting."
   (assert (member timeout '(nil t)))
-  (cond ((null (cdr streams)) 
+  (cond #+(or)
+        ((null (cdr streams)) 
          (wait-for-one-stream (car streams) timeout))
         (t
          (wait-for-streams streams timeout))))
 
 (defun wait-for-streams (streams timeout)
-  (flet ((readyp (s)
-           (let ((c (read-char-no-hang s nil :eof)))
-             (or (eq c :eof)
-                 (and c (progn (unread-char c s) t))
-                 c))))
-    (loop
-     (let ((ready (remove-if-not #'readyp streams)))
-       (when ready (return ready)))
-     (when timeout (return nil))
-     (when (check-slime-interrupts) (return :interrupt))
-     (sleep 0.1))))
+  (loop
+   (when (check-slime-interrupts) (return :interrupt))
+   (let ((ready (remove-if-not #'stream-readable-p streams)))
+     (when ready (return ready)))
+   (when timeout (return nil))
+   (sleep 0.1)))
 
+;; Note: Usually we can't interrupt PEEK-CHAR cleanly.
 (defun wait-for-one-stream (stream timeout)
   (ecase timeout
     ((nil)
@@ -1096,6 +1093,12 @@ Return :interrupt if an interrupt occurs while waiting."
               (unread-char c stream) 
               (list stream))
              (t '()))))))
+
+(defun stream-readable-p (stream)
+  (let ((c (read-char-no-hang stream nil :eof)))
+    (cond ((not c) nil)
+          ((eq c :eof) t)
+          (t (unread-char c stream) t))))
 
 (definterface toggle-trace (spec)
   "Toggle tracing of the function(s) given with SPEC.

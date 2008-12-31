@@ -23,6 +23,20 @@
 
 	Changed accordingly.
 
+2008-12-31  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el ([test] find-definition.2): Also fails for Lispworks.
+	([test] interrupt-at-toplevel, [test] interrupt-in-debugger): Those
+	don't work well if there's no REPL thread.
+
+	* swank-backend.lisp (wait-for-input, wait-for-one-stream): Don't
+	use PEEK-CHAR because we can't interrupt that cleanly.
+	* swank.lisp (simple-serve-requests): Run the REPL inside
+	WITH-CONNECTION.
+	* swank-lispworks.lisp (emacs-connected): Don't install the signal
+	handler here ...
+	(install-sigint-handler): ... use this instead
+
 2008-12-29  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-openmcl.lisp (find-definitions, source-locations): Use

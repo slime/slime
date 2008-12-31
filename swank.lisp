@@ -362,17 +362,19 @@ Do not set this to T unless you want to debug swank internals.")
   `(with-interrupts-enabled% nil ,body))
 
 (defun invoke-or-queue-interrupt (function)
-  (log-event "invoke-or-queue-interrupt: ~a" function)
+  (log-event "invoke-or-queue-interrupt: ~a~%" function)
   (cond ((not (boundp '*slime-interrupts-enabled*))
          (without-slime-interrupts
            (funcall function)))
         (*slime-interrupts-enabled*
+         (log-event "interrupts-enabled~%")
          (funcall function))
         (t
          (setq *pending-slime-interrupts*
                (nconc *pending-slime-interrupts*
                       (list function)))
          (cond ((cdr *pending-slime-interrupts*)
+                (log-event "too many queued interrupts~%")
                 (check-slime-interrupts))
                (t
                 (log-event "queue-interrupt: ~a" function)
@@ -1036,8 +1038,8 @@ The processing is done in the extent of the toplevel restart."
          (current-thread))
         (t
          (let ((thread (connection.repl-thread connection)))
-           (assert thread)
-           (cond ((thread-alive-p thread) thread)
+           (cond ((not thread) nil)
+                 ((thread-alive-p thread) thread)
                  (t
                   (setf (connection.repl-thread connection)
                         (spawn-repl-thread connection "new-repl-thread"))))))))
@@ -1053,9 +1055,13 @@ The processing is done in the extent of the toplevel restart."
 
 (defun interrupt-worker-thread (id)
   (let ((thread (or (find-worker-thread id)
-                    (find-repl-thread *emacs-connection*))))
+                    (find-repl-thread *emacs-connection*)
+                    ;; FIXME: to something better here
+                    (spawn (lambda ()) :name "ephemeral"))))
+    (log-event "interrupt-worker-thread: ~a ~a~%" id thread)
+    (assert thread)
     (signal-interrupt thread
-                      (lambda () 
+                      (lambda ()
                         (invoke-or-queue-interrupt #'simple-break)))))
 
 (defun thread-for-evaluation (id)
@@ -1134,8 +1140,8 @@ The processing is done in the extent of the toplevel restart."
          (send (connection.control-thread *emacs-connection*) event))
         (t (dispatch-event event))))
 
-(defun signal-interrupt (thread interrupt)  
-  (log-event "signal-interrupt~%")
+(defun signal-interrupt (thread interrupt)
+  (log-event "signal-interrupt [~a]: ~a ~a~%" (use-threads-p) thread interrupt)
   (cond ((use-threads-p) (interrupt-thread thread interrupt))
         (t (funcall interrupt))))
 
@@ -1269,7 +1275,8 @@ The processing is done in the extent of the toplevel restart."
             (let* ((stdin (real-input-stream *standard-input*))
                    (*standard-input* (make-repl-input-stream connection 
                                                              stdin)))
-              (simple-repl)))))
+	      (with-connection (connection)
+		(simple-repl))))))
     (close-connection connection nil (safe-backtrace))))
 
 (defun simple-repl ()
@@ -2416,7 +2423,8 @@ Operation was KERNEL::DIVISION, operands (1 0).\"
 (defslimefun throw-to-toplevel ()
   "Invoke the ABORT-REQUEST restart abort an RPC from Emacs.
 If we are not evaluating an RPC then ABORT instead."
-  (let ((restart (and *sldb-quit-restart*
+  (let ((restart (and (boundp '*sldb-quit-restart*)
+                      (typep *sldb-quit-restart* 'restart)
                       (find-restart *sldb-quit-restart*))))
     (cond (restart (invoke-restart restart))
           (t "No toplevel restart active"))))

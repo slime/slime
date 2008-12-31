@@ -7413,7 +7413,7 @@ BODY returns true if the check succeeds."
            (= orig-pos (point)))))
     (slime-check-top-level))
 
-(def-slime-test (find-definition.2 ("ccl" "allegro"))
+(def-slime-test (find-definition.2 ("ccl" "allegro" "lispworks"))
     (buffer-content buffer-package snippet)
     "Check that we're able to find definitions even when
 confronted with nasty #.-fu."
@@ -7842,15 +7842,18 @@ on *DEBUGGER-HOOK*."
     "Let's see what happens if we send a user interrupt at toplevel."
     '(())
   (slime-check-top-level)
-  (slime-interrupt)
-  (slime-wait-condition "Debugger visible" 
-                        (lambda () 
-                          (and (slime-sldb-level= 1)
-                               (get-buffer-window (sldb-get-default-buffer))))
-                        5)
-  (with-current-buffer (sldb-get-default-buffer)
-    (sldb-quit))
-  (slime-sync-to-top-level 5))
+  (unless (and (eq (slime-communication-style) :spawn)
+               (not (featurep 'slime-repl)))
+    (slime-interrupt)
+    (slime-wait-condition 
+     "Debugger visible" 
+     (lambda () 
+       (and (slime-sldb-level= 1)
+            (get-buffer-window (sldb-get-default-buffer))))
+     5)
+    (with-current-buffer (sldb-get-default-buffer)
+      (sldb-quit))
+    (slime-sync-to-top-level 5)))
 
 (def-slime-test interrupt-in-debugger (interrupts continues)
     "Let's see what happens if we interrupt the debugger.
@@ -7858,6 +7861,11 @@ INTERRUPTS ... number of nested interrupts
 CONTINUES  ... how often the continue restart should be invoked"
     '((1 0) (2 1) (4 2))
   (slime-check "No debugger" (not (sldb-get-default-buffer)))
+  (when (and (eq (slime-communication-style) :spawn)
+             (not (featurep 'slime-repl)))
+    (slime-eval-async '(swank::without-slime-interrupts
+                        (swank::receive)))
+    (sit-for 0.2))
   (dotimes (i interrupts)
     (slime-interrupt)
     (let ((level (1+ i)))

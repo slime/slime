@@ -102,12 +102,6 @@
            (apply (read-from-string "FLEXI-STREAMS:MAKE-EXTERNAL-FORMAT")
                   external-format)))
 
-(defun set-sigint-handler ()
-  ;; Set SIGINT handler on Swank request handler thread.
-  #-win32
-  (sys::set-signal-handler +sigint+ 
-                           (make-sigint-handler mp:*current-process*)))
-
 ;;; Coding Systems
 
 (defun valid-external-format-p (external-format)
@@ -140,6 +134,20 @@
   (lambda (&rest args)
     (declare (ignore args))
     (mp:process-interrupt process #'sigint-handler)))
+
+(defun set-sigint-handler ()
+  ;; Set SIGINT handler on Swank request handler thread.
+  #-win32
+  (sys::set-signal-handler +sigint+ 
+                           (make-sigint-handler mp:*current-process*)))
+
+#-win32 
+(defimplementation install-sigint-handler (handler)
+  (sys::set-signal-handler +sigint+
+                           (let ((self mp:*current-process*))
+                             (lambda (&rest args)
+                               (declare (ignore args))
+                               (mp:process-interrupt self handler)))))
 
 (defimplementation call-without-interrupts (fn)
   (lw:without-interrupts (funcall fn)))
@@ -819,7 +827,7 @@ function names like \(SETF GET)."
            (return (car tail)))))
      (when (eq timeout t) (return (values nil t)))
      (mp:process-wait-with-timeout 
-      "receive-if" 0.2 (lambda () (some test (mailbox.queue mbox)))))))
+      "receive-if" 0.3 (lambda () (some test (mailbox.queue mbox)))))))
 
 (defimplementation send (thread message)
   (let ((mbox (mailbox thread)))
@@ -830,11 +838,6 @@ function names like \(SETF GET)."
 ;;; Some intergration with the lispworks environment
 
 (defun swank-sym (name) (find-symbol (string name) :swank))
-
-(defimplementation emacs-connected ()
-  (when (eq (eval (swank-sym :*communication-style*))
-            nil)
-    (set-sigint-handler)))
       
 
 ;;;; Weak hashtables
