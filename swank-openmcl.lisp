@@ -749,7 +749,7 @@ condition."
               (not (special-operator-p s))
               (functionp (symbol-function s)))
          (source-locations (symbol-function s)))
-     (loop for ((type . name) source . _) in (ccl:find-definition-sources s) 
+     (loop for ((type . name) source) in (ccl:find-definition-sources s)
            collect (cons (source-note-to-source-location 
                           source (lambda () "No source info available"))
                          (definition-name type name)))))

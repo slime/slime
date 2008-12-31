@@ -25,6 +25,13 @@
 
 2008-12-31  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-openmcl.lisp ([method] source-locations (symbol)): Drop
+	the unused _; the compiler dosn't like it.
+
+2008-12-31  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-openmcl.lisp ([method] source-locations (symbol)): 
+
 	* slime.el (slime-cd, slime-pwd): New commands.
 	(slime-change-directory): New function.
 	(slime-change-directory-hooks): New hook.
