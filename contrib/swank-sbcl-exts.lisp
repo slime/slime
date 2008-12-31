@@ -6,7 +6,14 @@
 ;;
 
 (in-package :swank)
-
+
+(swank-require :swank-arglists)
+
+;; We need to do this so users can place `slime-sbcl-exts' into their
+;; ~/.emacs, and still use any implementation they want.
+#+sbcl
+(progn
+  
 ;;; Display arglist of instructions.
 ;;;
 (defmethod compute-enriched-decoded-arglist ((operator-form (eql 'sb-assem:inst))
@@ -31,4 +38,6 @@
                           t))))))))
 
 
+) ; PROGN
+
 (provide :swank-sbcl-exts)

@@ -8,8 +8,12 @@
 (require 'slime-autodoc)
 (require 'slime-references)
 
-(push '("INST" . (slime-make-extended-operator-parser/look-ahead 1))
-      slime-extended-operator-name-parser-alist)
+(defun slime-enable-autodoc-for-sb-assem:inst ()
+  (push '("INST" . (slime-make-extended-operator-parser/look-ahead 1))
+        slime-extended-operator-name-parser-alist))
+
+(defun slime-sbcl-exts-init ()
+  (slime-enable-autodoc-for-sb-assem:inst))
 
 (slime-require :swank-sbcl-exts)
 
