@@ -25,6 +25,13 @@
 
 2008-12-31  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (maybe-redirect-global-io): Don't consider
+	connections without streams.
+	(*new-connection-hook*): Don't add MAYBE-REDIRECT-GLOBAL-IO.
+	(create-repl): Call MAYBE-REDIRECT-GLOBAL-IO here.
+
+2008-12-31  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-openmcl.lisp ([method] source-locations (symbol)): Drop
 	the unused _; the compiler dosn't like it.
 

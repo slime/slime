@@ -1468,8 +1468,9 @@ Assigns *CURRENT-<STREAM>* for all standard streams."
 NIL if streams are not globally redirected.")
 
 (defun maybe-redirect-global-io (connection)
-  "Consider globally redirecting to a newly-established CONNECTION."
-  (when (and *globally-redirect-io* (null *global-stdio-connection*))
+  "Consider globally redirecting to CONNECTION."
+  (when (and *globally-redirect-io* (null *global-stdio-connection*)
+             (connection.user-io connection))
     (setq *global-stdio-connection* connection)
     (globally-redirect-io-to-connection connection)))
 
@@ -1484,7 +1485,6 @@ NIL if streams are not globally redirected.")
         (progn (revert-global-io-redirection)
                (setq *global-stdio-connection* nil)))))
 
-(add-hook *new-connection-hook*    'maybe-redirect-global-io)
 (add-hook *connection-closed-hook* 'update-redirection-after-close)
 
 ;;;;; Redirection during requests
@@ -1505,6 +1505,7 @@ NIL if streams are not globally redirected.")
               (*debug-io*        . ,(@ user-io))
               (*query-io*        . ,(@ user-io))
               (*terminal-io*     . ,(@ user-io))))
+      (maybe-redirect-global-io conn)
       (when (use-threads-p)
         (setf (@ repl-thread) (spawn-repl-thread conn "repl-thread")))
       (list (package-name *package*)
