@@ -29,6 +29,12 @@
 	operator name as first argument if point is located at the
 	operator name.
 
+2008-12-31  Helmut Eller  <heller@common-lisp.net>
+
+	* inferior-slime.el (inferior-slime-change-directory): New
+	function.
+	(inferior-slime-init): Hook it in.
+
 2008-12-27  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-repl.el (slime-repl-event-hook-function): Handle

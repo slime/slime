@@ -4477,6 +4477,29 @@ Point is placed before the first expression in the list."
   (let ((lisp-filename (slime-to-lisp-filename (expand-file-name filename))))
     (slime-eval-with-transcript `(swank:load-file ,lisp-filename))))
 
+(defvar slime-change-directory-hooks nil
+  "Hook run by `slime-change-directory'.
+The functions are called with the new (absolute) directory.")
+
+(defun slime-change-directory (directory)
+  "Make DIRECTORY become Lisp's current directory.
+Return whatever swank:set-default-directory returns."
+  (let ((dir (expand-file-name directory)))
+    (prog1 (slime-eval `(swank:set-default-directory
+                         ,(slime-to-lisp-filename dir)))
+      (run-hook-with-args 'slime-change-directory-hooks dir))))
+ 
+(defun slime-cd (directory)
+  "Make DIRECTORY become Lisp's current directory.
+Return whatever swank:set-default-directory returns."
+  (interactive (list (read-directory-name "Directory: " nil nil t)))
+  (message "default-directory: %s" (slime-change-directory directory)))
+
+(defun slime-pwd ()
+  "Show Lisp's default directory."
+  (interactive)
+  (message "Directory %s" (slime-eval `(swank:default-directory))))
+
 
 ;;;; Profiling
 

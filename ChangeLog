@@ -25,6 +25,12 @@
 
 2008-12-31  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-cd, slime-pwd): New commands.
+	(slime-change-directory): New function.
+	(slime-change-directory-hooks): New hook.
+
+2008-12-31  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el ([test] find-definition.2): Also fails for Lispworks.
 	([test] interrupt-at-toplevel, [test] interrupt-in-debugger): Those
 	don't work well if there's no REPL thread.

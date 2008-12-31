@@ -69,6 +69,14 @@ A prefix argument disables this behaviour."
       (insert ")")))
   (comint-send-input))
 
+(defun inferior-slime-change-directory (directory)
+  "Set default-directory in the *inferior-lisp* buffer to DIRECTORY."
+  (let* ((proc (slime-process))
+	 (buffer (and proc (process-buffer proc))))
+    (when buffer 
+      (with-current-buffer buffer
+	(cd-absolute directory)))))
+
 (defun inferior-slime-init-keymap ()
   (let ((map inferior-slime-mode-map))
     (slime-define-keys map
@@ -89,13 +97,14 @@ A prefix argument disables this behaviour."
 (inferior-slime-init-keymap)
 
 (defun inferior-slime-hook-function ()
-  (inferior-slime-mode))
+  (inferior-slime-mode 1))
 
 (defun inferior-slime-switch-to-repl-buffer ()
   (switch-to-buffer (process-buffer (slime-inferior-process))))
 
 (defun inferior-slime-init ()
   (add-hook 'slime-inferior-process-start-hook 'inferior-slime-hook-function)
+  (add-hook 'slime-change-directory-hooks 'inferior-slime-change-directory)
   (def-slime-selector-method ?r
     "SLIME Read-Eval-Print-Loop."
     (inferior-slime-switch-to-repl-buffer)))
