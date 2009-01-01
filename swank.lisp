@@ -2204,6 +2204,20 @@ be dropped, if we are too busy with other things."
     (send-to-emacs `(:background-message 
                      ,(apply #'format nil format-string args)))))
 
+;; This is only used by the test suite.
+(defun sleep-for (seconds)
+  "Sleep at least SECONDS seconds.
+This is just like sleep but guarantees to sleep
+at least SECONDS."
+  (let* ((start (get-internal-real-time))
+         (end (+ start
+                 (* seconds internal-time-units-per-second))))
+    (loop
+     (let ((now (get-internal-real-time)))
+       (cond ((< end now) (return))
+             (t (sleep (/ (- end now)
+                          internal-time-units-per-second))))))))
+
 
 ;;;; Debugger
 

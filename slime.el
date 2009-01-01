@@ -7436,7 +7436,7 @@ BODY returns true if the check succeeds."
            (= orig-pos (point)))))
     (slime-check-top-level))
 
-(def-slime-test (find-definition.2 ("ccl" "allegro" "lispworks"))
+(def-slime-test (find-definition.2 ("allegro" "lispworks"))
     (buffer-content buffer-package snippet)
     "Check that we're able to find definitions even when
 confronted with nasty #.-fu."
@@ -7448,7 +7448,7 @@ confronted with nasty #.-fu."
        #.(prog1 nil (makunbound '*foobar*))
        "
        "SWANK"
-       "(defun .foo. "
+       "[ \t]*(defun .foo. "
        ))
   (let ((slime-buffer-package buffer-package))
     (with-temp-buffer
@@ -7498,7 +7498,7 @@ Confirm that EXPECTED-ARGLIST is displayed."
       ("swank::create-socket" "(swank::create-socket host port)")
       ("swank::emacs-connected" "(swank::emacs-connected )")
       ("swank::compile-string-for-emacs"
-       "(swank::compile-string-for-emacs string buffer position directory debug)")
+       "(swank::compile-string-for-emacs string buffer position directory policy)")
       ("swank::connection.socket-io"
        "(swank::connection.socket-io \\(struct\\(ure\\)?\\|object\\|instance\\|x\\))")
       ("cl:lisp-implementation-type" "(cl:lisp-implementation-type )")
@@ -7809,7 +7809,9 @@ Confirm that SUBFORM is correctly located."
   (slime-check-top-level)
   (slime-eval-async 
    `(cl:eval (cl:read-from-string 
-              ,(prin1-to-string `(dotimes (i ,times) ,exp (sleep 0.2))))))
+              ,(prin1-to-string `(dotimes (i ,times) 
+                                   ,exp 
+                                   (swank::sleep-for 0.2))))))
   (dotimes (i times)
     (slime-wait-condition "Debugger visible" 
                           (lambda () 

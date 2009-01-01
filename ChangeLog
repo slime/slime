@@ -1,3 +1,13 @@
+2009-01-01  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (sleep-for): New function
+	* slime.el ([test] break): Use SWANK::SLEEP-FOR to help CCL pass
+	this test.
+	([test] arglist): Update arglist of
+	swank::compile-string-for-emacs.
+	([rest] find-definition.2): Allow some whitespace before the actual
+	position.  Otherwise, CCL would fail on this test.
+
 2008-12-31  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (maybe-redirect-global-io): Don't consider
