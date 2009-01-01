@@ -1,3 +1,10 @@
+2009-01-01  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-eval-async, slime-dispatch-event): Canoncalize
+	return value. Previously they returned an arbitrary value which
+	was displayed to the minibuffer due to a bug in slime-autodoc. The
+	arbitrariness of the return value made debugging this a chore.
+
 2009-01-01  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-openmcl.lisp (frame-source-location-for-emacs)

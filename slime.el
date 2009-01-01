@@ -2263,7 +2263,13 @@ or nil if nothing suitable can be found.")
        (set-buffer buffer)
        (funcall cont result)))
     ((:abort)
-     (message "Evaluation aborted."))))
+     (message "Evaluation aborted.")))
+  ;; Guard against arbitrary return values which once upon a time
+  ;; showed up in the minibuffer spuriously (due to a bug in
+  ;; slime-autodoc.)  If this ever happens again, returning the
+  ;; following will make debugging much easier:
+  :slime-eval-async)
+
 
 ;;; These functions can be handy too:
 
@@ -2390,7 +2396,9 @@ Debugged requests are ignored."
              (princ (format "Invalid protocol message:\n%s\n\n%S"
                             condition packet))
              (goto-char (point-min)))
-           (error "Invalid protocol message"))))))
+           (error "Invalid protocol message")))))
+  ;; Canonicalized return value. See comment in `slime-eval-async'.
+  :slime-dispatch-event)
 
 (defun slime-send (sexp)
   "Send SEXP directly over the wire on the current connection."
