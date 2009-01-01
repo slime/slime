@@ -379,19 +379,28 @@ condition."
            (with-open-file (s filename :direction :output :if-exists :error)
              (write-string string s))
         (let ((binary-filename (compile-temp-file
-                                filename
-                                (if directory
-                                    (format nil "~a/~a" directory buffer))
-                                (1- position))))
+                                filename directory buffer position)))
           (delete-file binary-filename)))
       (delete-file filename))))
 
-(defun compile-temp-file (filename orig-file orig-offset)
+(defvar *temp-file-map* (make-hash-table :test #'equal)
+  "A mapping from tempfile names to Emacs buffer names.")
+
+(defun note-temp-file (filename directory buffer)
+  (cond (directory
+         (format nil "~a/~a" directory buffer))
+        (t
+         (setf (gethash filename *temp-file-map*) buffer)
+         filename)))
+
+(defun compile-temp-file (filename dir buffer offset)
   (if (fboundp 'ccl::function-source-note)
       (compile-file filename
                     :load t
-                    :compile-file-original-truename orig-file
-                    :compile-file-original-buffer-offset orig-offset)
+                    :compile-file-original-truename (note-temp-file filename 
+                                                                    dir
+                                                                    buffer)
+                    :compile-file-original-buffer-offset (1- offset))
       (compile-file filename :load t)))
 
 ;;; Profiling (alanr: lifted from swank-clisp)
@@ -721,15 +730,19 @@ condition."
        (format nil "No source note at PC: ~A:#x~x" function pc))))
 
   (defun source-note-to-source-location (note if-nil-thunk)
-    (cond (note
-           (handler-case
-               (let* ((file (ccl:source-note-filename note))
-                      (file (namestring (truename file))))
-                 (make-location
-                  (list :file file)
-                  (list :position (1+ (ccl:source-note-start-pos note)))))
-             (error (c) `(:error ,(princ-to-string c)))))
-          (t `(:error ,(funcall if-nil-thunk)))))
+    (labels ((filename-to-buffer (filename)
+               (cond ((probe-file filename)
+                      (list :file (namestring (truename filename))))
+                     ((gethash filename *temp-file-map*)
+                      (list :buffer (gethash filename *temp-file-map*)))
+                     (t (error "File ~s doesn't exist" filename)))))
+      (cond (note
+             (handler-case
+                 (make-location 
+                  (filename-to-buffer (ccl:source-note-filename note))
+                  (list :position (1+ (ccl:source-note-start-pos note))))
+               (error (c) `(:error ,(princ-to-string c)))))
+          (t `(:error ,(funcall if-nil-thunk))))))
 
   (defimplementation find-definitions (symbol)
     (loop for (loc . name) in (source-locations symbol)

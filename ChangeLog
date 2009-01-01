@@ -1,5 +1,14 @@
 2009-01-01  Helmut Eller  <heller@common-lisp.net>
 
+	For buffers without filename, map the name of the tempfile back to
+	the buffer name.
+
+	* swank-openmcl.lisp (*temp-file-map*): New variable.
+	(note-temp-file): New function.
+	(compile-temp-file, source-note-to-source-location): Use it.
+
+2009-01-01  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (sleep-for): New function
 	* slime.el ([test] break): Use SWANK::SLEEP-FOR to help CCL pass
 	this test.
