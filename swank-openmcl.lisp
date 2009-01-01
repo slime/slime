@@ -725,7 +725,8 @@ condition."
 
   (defun pc-source-location (function pc)
     (source-note-to-source-location
-     (ccl:find-source-note-at-pc function pc)
+     (or (ccl:find-source-note-at-pc function pc)
+         (ccl:function-source-note function))
      (lambda ()
        (format nil "No source note at PC: ~A:#x~x" function pc))))
 
@@ -789,7 +790,9 @@ at least the filename containing it."
        (declare (ignore p context))
        (when (and (= frame-number index) lfun)
          (return-from frame-source-location-for-emacs
-           (pc-source-location lfun pc)))))))
+           (if pc
+               (pc-source-location lfun pc)
+               (function-source-location lfun))))))))
 
 (defimplementation eval-in-frame (form index)
   (block eval-in-frame

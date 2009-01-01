@@ -1,5 +1,11 @@
 2009-01-01  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-openmcl.lisp (frame-source-location-for-emacs)
+	(pc-source-location): Fall back to the source-note of the function
+	if there is no source-note for a pc offset.
+
+2009-01-01  Helmut Eller  <heller@common-lisp.net>
+
 	For buffers without filename, map the name of the tempfile back to
 	the buffer name.
 
