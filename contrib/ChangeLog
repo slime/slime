@@ -1,3 +1,8 @@
+2009-01-01  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-autodoc.el: Autodoc is now implemented on top of ElDoc.
+	(Suggested by Madhu.)
+
 2008-12-31  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-arglists.lisp (format-arglist-for-echo-area): Catch errors
