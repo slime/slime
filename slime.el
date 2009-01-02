@@ -2368,6 +2368,8 @@ Debugged requests are ignored."
            (slime-channel-send (or (slime-find-channel id)
                                    (error "Invalid channel id: %S %S" id msg))
                                msg))
+          ((:emacs-channel-send id msg)
+           (slime-send `(:emacs-channel-send ,id ,msg)))
           ((:y-or-n-p thread tag question)
            (slime-y-or-n-p thread tag question))
           ((:emacs-return-string thread tag string)
@@ -2420,6 +2422,15 @@ Debugged requests are ignored."
 
 ;;;;; Channels
 
+;;; A channel implements a set of operations.  Those operations can be
+;;; invoked by sending messages to the channel.  Channels are used for
+;;; protocols which can't be expressed naturally with RPCs, e.g. if
+;;; operations don't return a meaningful result.
+;;;
+;;; A channel can be "remote" or "local".  Remote channels are
+;;; represented by integers.  Local channels are structures.  Messages
+;;; sent to a closed (remote) channel are ignored.
+
 (slime-def-connection-var slime-channels '()
   "Alist of the form (ID . CHANNEL).")
 
@@ -2428,13 +2439,14 @@ Debugged requests are ignored."
 
 (defstruct (slime-channel (:conc-name slime-channel.)
                           (:constructor 
-                           slime-make-channel% (operations name id)))
-  operations name id)
+                           slime-make-channel% (operations name id plist)))
+  operations name id plist)
 
 (defun slime-make-channel (operations &optional name)
   (let* ((id (incf (slime-channels-counter)))
-         (ch (slime-make-channel% operations name id)))
-    (push (cons (cons id ch) (slime-channels)))))
+         (ch (slime-make-channel% operations name id nil)))
+    (push (cons id ch) (slime-channels))
+    ch))
 
 (defun slime-close-channel (channel)
   (setf (slime-channels.operations channel) 'closed-channel)
@@ -2446,10 +2458,36 @@ Debugged requests are ignored."
   (cdr (assq id (slime-channels))))
 
 (defun slime-channel-send (channel message)
-  (apply (or (cdr (assq (car message)
-                        (slime-channel.operations channel)))
+  (apply (or (gethash (car message) (slime-channel.operations channel))
              (error "Unsupported operation: %S %S" message channel))
-         (cdr message)))
+         channel (cdr message)))
+
+(defun slime-channel-put (channel prop value)
+  (setf (slime-channel.plist channel) 
+        (plist-put (slime-channel.plist channel) prop value)))
+
+(defun slime-channel-get (channel prop)
+  (plist-get (slime-channel.plist channel) prop))
+
+(eval-and-compile 
+  (defun slime-channel-method-table-name (type)
+    (intern (format "slime-%s-channel-methods" type))))
+
+(defmacro slime-define-channel-type (name)
+  (let ((tab (slime-channel-method-table-name name)))
+    `(progn
+       (defvar ,tab)
+       (setq ,tab (make-hash-table :size 10)))))
+
+(defmacro slime-define-channel-method (type method args &rest body)
+  `(puthash ',method
+            (lambda (self . ,args) . ,body)
+            ,(slime-channel-method-table-name type)))
+
+(put 'slime-define-channel-method 'lisp-indent-function 3)
+
+(defun slime-send-to-remote-channel (channel-id msg)
+  (slime-dispatch-event `(:emacs-channel-send ,channel-id ,msg)))
 
 ;;;;; Event logging to *slime-events*
 ;;;

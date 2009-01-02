@@ -15,6 +15,22 @@
 
 2009-01-02  Helmut Eller  <heller@common-lisp.net>
 
+	Experimental implementation of "channels".
+	The idea is to support arbitrary protocols without
+	changes to the low level event dispatcher.
+
+	* slime.el (slime-make-channel, slime-close-channel)
+	(slime-channel-send, slime-send-to-remote-channel): New functions.
+	(slime-define-channel-type, slime-define-channel-method): New
+	macros.
+	(slime-dispatch-event): Support channel events.
+	* swank.lisp (channel, listener-channel): New classes.
+	(channel-send, send-to-remote-channel): New functions.
+	(create-listener): New function.  Test case for channel code.
+	(process-requests): Process channel events.
+
+(2009-01-02  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el ([test] arglist): Guard against nil.  ECL
 	returns nil most of the time.
 

@@ -970,9 +970,14 @@ The processing is done in the extent of the toplevel restart."
   "Read and process requests from Emacs."
   (loop
    (multiple-value-bind (event timeout?)
-       (wait-for-event `(:emacs-rex . _) timeout)
+       (wait-for-event `(or (:emacs-rex . _)
+                            (:emacs-channel-send . _))
+                       timeout)
     (when timeout? (return))
-    (apply #'eval-for-emacs (cdr event)))))
+    (destructure-case event
+      ((:emacs-rex &rest args) (apply #'eval-for-emacs args))
+      ((:emacs-channel-send channel (selector &rest args))
+       (channel-send channel selector args))))))
 
 (defun current-socket-io ()
   (connection.socket-io *emacs-connection*))
@@ -1116,6 +1121,9 @@ The processing is done in the extent of the toplevel restart."
      (encode-message event (current-socket-io)))
     (((:emacs-pong :emacs-return :emacs-return-string) thread-id &rest args)
      (send-event (find-thread thread-id) (cons (car event) args)))
+    ((:emacs-channel-send channel-id msg)
+     (let ((ch (find-channel channel-id)))
+       (send-event (channel-thread ch) `(:emacs-channel-send ,ch ,msg))))
     (((:end-of-stream))
      (close-connection *emacs-connection* nil (safe-backtrace)))
     ((:reader-error packet condition)
@@ -1520,6 +1528,123 @@ NIL if streams are not globally redirected.")
           (connection.user-input connection)       in
           (connection.repl-results connection)     repl-results)
     connection))
+
+
+;;; Channels
+
+(progn
+
+(defvar *channels* '())
+(defvar *channel-counter* 0)
+
+(defclass channel ()
+  ((id :reader channel-id)
+   (thread :initarg :thread :initform (current-thread) :reader channel-thread)
+   (name :initarg :name :initform nil)))
+
+(defmethod initialize-instance ((ch channel) &rest initargs)
+  (declare (ignore initargs))
+  (call-next-method)
+  (with-slots (id) ch
+    (setf id (incf *channel-counter*))
+    (push (cons id ch) *channels*)))
+
+(defmethod print-object ((c channel) stream)
+  (print-unreadable-object (c stream :type t)
+    (with-slots (id name) c
+      (format stream "~d ~a" id name))))
+
+(defun find-channel (id)
+  (cdr (assoc id *channels*)))
+
+(defgeneric channel-send (channel selector args))
+
+(defmacro define-channel-method (selector (channel &rest args) &body body)
+  `(defmethod channel-send (,channel (selector (eql ',selector)) args)
+     (destructuring-bind ,args args
+       . ,body)))
+
+(defun send-to-remote-channel (channel-id msg)
+  (send-to-emacs `(:channel-send ,channel-id ,msg)))
+
+(defclass listener-channel (channel)
+  ((remote :initarg :remote)
+   (env :initarg :env)))
+
+(defslimefun create-listener (remote)
+  (let* ((pkg *package*)
+         (conn *emacs-connection*)
+         (ch (make-instance 'listener-channel
+                            :remote remote
+                            :env (initial-listener-bindings remote))))
+
+    (with-slots (thread id) ch
+      (when (use-threads-p)
+        (setf thread (spawn-listener-thread ch conn)))
+      (list id
+            (thread-id thread)
+            (package-name pkg)
+            (package-string-for-prompt pkg)))))
+
+(defun initial-listener-bindings (remote)
+  `((*package* . ,*package*)
+    (*standard-output* 
+     . ,(make-listener-output-stream remote))
+    (*standard-input*
+     . ,(make-listener-input-stream remote))))
+
+(defun spawn-listener-thread (channel connection)
+  (spawn (lambda ()
+           (with-connection (connection)
+             (loop 
+              (destructure-case (wait-for-event `(:emacs-channel-send . _))
+                ((:emacs-channel-send c (selector &rest args))
+                 (assert (eq c channel))
+                 (channel-send channel selector args))))))
+         :name "swank-listener-thread"))
+
+(define-channel-method :eval ((c listener-channel) string)
+  (with-slots (remote env) c
+    (let ((aborted t))
+      (with-bindings env
+        (unwind-protect 
+             (let* ((form (read-from-string string))
+                    (value (eval form)))
+               (send-to-remote-channel remote 
+                                       `(:write-result
+                                         ,(prin1-to-string value)))
+               (setq aborted nil))
+          (force-output)
+          (setf env (loop for (sym) in env 
+                          collect (cons sym (symbol-value sym))))
+          (let ((pkg (package-name *package*))
+                (prompt (package-string-for-prompt *package*)))
+            (send-to-remote-channel remote 
+                                    (if aborted 
+                                        `(:evaluation-aborted ,pkg ,prompt)
+                                        `(:prompt ,pkg ,prompt)))))))))
+
+(defun make-listener-output-stream (remote)
+  (make-output-stream (lambda (string)
+                        (send-to-remote-channel remote
+                                                `(:write-string ,string)))))
+
+(defun make-listener-input-stream (remote)
+  (make-input-stream 
+   (lambda ()
+     (force-output)
+     (let ((tag (make-tag)))
+       (send-to-remote-channel remote 
+                               `(:read-string ,(current-thread-id) ,tag))
+       (let ((ok nil))
+         (unwind-protect
+              (prog1 (caddr (wait-for-event
+                             `(:emacs-return-string ,tag value)))
+                (setq ok t))
+           (unless ok
+             (send-to-remote-channel remote `(:read-aborted ,tag)))))))))
+
+)
 
 (defun call-with-thread-description (description thunk)
   ;; For `M-x slime-list-threads': Display what threads
@@ -2206,8 +2331,8 @@ be dropped, if we are too busy with other things."
 
 ;; This is only used by the test suite.
 (defun sleep-for (seconds)
-  "Sleep at least SECONDS seconds.
-This is just like sleep but guarantees to sleep
+  "Sleep for at least SECONDS seconds.
+This is just like cl:sleep but guarantees to sleep
 at least SECONDS."
   (let* ((start (get-internal-real-time))
          (end (+ start
