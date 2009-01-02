@@ -1,5 +1,9 @@
 2009-01-01  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-loader.lisp (*contribs*): Add `swank-sbcl-exts'.
+
+2009-01-01  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (slime-eval-async, slime-dispatch-event): Canoncalize
 	return value. Previously they returned an arbitrary value which
 	was displayed to the minibuffer due to a bug in slime-autodoc. The
