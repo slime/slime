@@ -2269,8 +2269,7 @@ or nil if nothing suitable can be found.")
   ;; slime-autodoc.)  If this ever happens again, returning the
   ;; following will make debugging much easier:
   :slime-eval-async)
-
-
+  
 ;;; These functions can be handy too:
 
 (defun slime-connected-p ()
@@ -2365,6 +2364,10 @@ Debugged requests are ignored."
            (sldb-exit thread level stepping))
           ((:emacs-interrupt thread)
            (slime-send `(:emacs-interrupt ,thread)))
+          ((:channel-send id msg)
+           (slime-channel-send (or (slime-find-channel id)
+                                   (error "Invalid channel id: %S %S" id msg))
+                               msg))
           ((:y-or-n-p thread tag question)
            (slime-y-or-n-p thread tag question))
           ((:emacs-return-string thread tag string)
@@ -2413,6 +2416,40 @@ Debugged requests are ignored."
 (defun slime-send-sigint ()
   (interactive)
   (signal-process (slime-pid) 'SIGINT))
+
+
+;;;;; Channels
+
+(slime-def-connection-var slime-channels '()
+  "Alist of the form (ID . CHANNEL).")
+
+(slime-def-connection-var slime-channels-counter 0
+  "Channel serial number counter.")
+
+(defstruct (slime-channel (:conc-name slime-channel.)
+                          (:constructor 
+                           slime-make-channel% (operations name id)))
+  operations name id)
+
+(defun slime-make-channel (operations &optional name)
+  (let* ((id (incf (slime-channels-counter)))
+         (ch (slime-make-channel% operations name id)))
+    (push (cons (cons id ch) (slime-channels)))))
+
+(defun slime-close-channel (channel)
+  (setf (slime-channels.operations channel) 'closed-channel)
+  (let ((probe (assq (slime-channel.id channel) (slime-channels))))
+    (cond (probe (setf (slime-channels) (delete probe (slime-channels))))
+          (t (error "Invalid channel: %s" channel)))))
+
+(defun slime-find-channel (id)
+  (cdr (assq id (slime-channels))))
+
+(defun slime-channel-send (channel message)
+  (apply (or (cdr (assq (car message)
+                        (slime-channel.operations channel)))
+             (error "Unsupported operation: %S %S" message channel))
+         (cdr message)))
 
 ;;;;; Event logging to *slime-events*
 ;;;

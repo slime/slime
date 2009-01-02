@@ -1105,8 +1105,8 @@ The processing is done in the extent of the toplevel restart."
      (encode-message `(:return ,@args) (current-socket-io)))
     ((:emacs-interrupt thread-id)
      (interrupt-worker-thread thread-id))
-    (((:write-string
-       :debug :debug-condition :debug-activate :debug-return
+    (((:write-string 
+       :debug :debug-condition :debug-activate :debug-return :channel-send
        :presentation-start :presentation-end
        :new-package :new-features :ed :%apply :indentation-update
        :eval :eval-no-wait :background-message :inspect :ping
