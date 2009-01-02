@@ -2,6 +2,19 @@
 
 * 3.0 (not released yet)
 
+** REPL no longer loaded by default
+SLIME has a REPL which communicates exclusively over SLIME's socket.
+This REPL is no longer loaded by default.  The default REPL is now the
+one by the Lisp implementation in the *inferior-lisp* buffer.  The
+simplest way to enable the old REPL is:
+
+  (slime-setup '(slime-repl))
+
+** Precise source tracking in Clozure CL
+Recent versions of the CCL compiler support source-location tracking.
+This makes the sldb-show-source command much more useful and M-. works
+better too.
+
 ** Environment variables for Lisp process
 slime-lisp-implementations can be used to specify a list of strings to
 augment the process environment of the Lisp process.  E.g.:
