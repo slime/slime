@@ -29,7 +29,7 @@
 	(create-listener): New function.  Test case for channel code.
 	(process-requests): Process channel events.
 
-(2009-01-02  Helmut Eller  <heller@common-lisp.net>
+2009-01-02  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el ([test] arglist): Guard against nil.  ECL
 	returns nil most of the time.
@@ -79,8 +79,6 @@
 	the unused _; the compiler dosn't like it.
 
 2008-12-31  Helmut Eller  <heller@common-lisp.net>
-
-	* swank-openmcl.lisp ([method] source-locations (symbol)): 
 
 	* slime.el (slime-cd, slime-pwd): New commands.
 	(slime-change-directory): New function.
