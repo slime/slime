@@ -1,18 +1,3 @@
-2009-01-01  Tobias C. Rittweiler  <tcr@freebits.de>
-
-	Arglists of user-defined types are now displayed by slime-autodoc
-	on SBCL.
-
-	  (deftype foo (x y) `(cons ,x ,y))
-	  (declare (type (foo |
-
-	* swank-sbcl.lisp ([method] type-specifier-arglist): Make use of
-	recently introduced SB-INTROSPECT:DEFTYPE-LAMBDA-LIST.
-
-2009-01-01  Tobias C. Rittweiler  <tcr@freebits.de>
-
-	* swank-loader.lisp (*contribs*): Add `swank-sbcl-exts'.
-
 2009-01-02  Helmut Eller  <heller@common-lisp.net>
 
 	Experimental implementation of "channels".
@@ -33,6 +18,21 @@
 
 	* slime.el ([test] arglist): Guard against nil.  ECL
 	returns nil most of the time.
+
+2009-01-01  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Arglists of user-defined types are now displayed by slime-autodoc
+	on SBCL.
+
+	  (deftype foo (x y) `(cons ,x ,y))
+	  (declare (type (foo |
+
+	* swank-sbcl.lisp ([method] type-specifier-arglist): Make use of
+	recently introduced SB-INTROSPECT:DEFTYPE-LAMBDA-LIST.
+
+2009-01-01  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-loader.lisp (*contribs*): Add `swank-sbcl-exts'.
 
 2009-01-01  Tobias C. Rittweiler  <tcr@freebits.de>
 
