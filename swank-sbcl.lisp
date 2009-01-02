@@ -354,6 +354,12 @@
                                   flags :key #'ensure-list))
           (call-next-method)))))
 
+#+#.(swank-backend::sbcl-with-symbol 'deftype-lambda-list 'sb-introspect)
+(defmethod type-specifier-arglist :around (typespec-operator)
+  (multiple-value-bind (arglist foundp)
+      (sb-introspect:deftype-lambda-list typespec-operator)
+    (if foundp arglist (call-next-method))))
+
 (defvar *buffer-name* nil)
 (defvar *buffer-offset*)
 (defvar *buffer-substring* nil)
