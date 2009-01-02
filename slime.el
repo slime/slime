@@ -7512,13 +7512,12 @@ Confirm that EXPECTED-ARGLIST is displayed."
       ("cl:lisp-implementation-type" "(cl:lisp-implementation-type )")
       ("cl:class-name" 
        "(cl:class-name \\(class\\|object\\|instance\\|structure\\))"))
-  (slime-check-top-level)
   (let ((arglist (slime-eval `(swank:operator-arglist ,function-name 
                                                       "swank"))))
     (slime-test-expect "Argument list is as expected"
-                       expected-arglist (downcase arglist)
-                       #'string-match))
-  (slime-check-top-level))
+                       expected-arglist (and arglist (downcase arglist))
+                       (lambda (pattern arglist)
+                         (and arglist (string-match pattern arglist))))))
 
 (def-slime-test (compile-defun ("allegro" "lispworks" "clisp" "ccl"))
     (program subform)

@@ -13,6 +13,11 @@
 
 	* swank-loader.lisp (*contribs*): Add `swank-sbcl-exts'.
 
+2009-01-02  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el ([test] arglist): Guard against nil.  ECL
+	returns nil most of the time.
+
 2009-01-01  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-eval-async, slime-dispatch-event): Canoncalize
