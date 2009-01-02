@@ -1,3 +1,7 @@
+2009-01-02  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-mrepl.el: New file.
+
 2009-01-01  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-autodoc.el: Autodoc is now implemented on top of ElDoc.
