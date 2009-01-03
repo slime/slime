@@ -177,6 +177,7 @@
                         :element-type 'character
                         :external-format external-format))
 
+#-win32
 (defimplementation wait-for-input (streams &optional timeout)
   (assert (member timeout '(nil t)))
   (let ((streams (mapcar (lambda (s) (list* s :input nil)) streams)))

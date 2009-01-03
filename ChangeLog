@@ -1,3 +1,7 @@
+2009-01-03  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-clisp.lisp (wait-for-input): Disable it for win32.
+
 2009-01-02  Helmut Eller  <heller@common-lisp.net>
 
 	Experimental implementation of "channels".
