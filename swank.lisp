@@ -1283,8 +1283,7 @@ The processing is done in the extent of the toplevel restart."
             (let* ((stdin (real-input-stream *standard-input*))
                    (*standard-input* (make-repl-input-stream connection 
                                                              stdin)))
-	      (with-connection (connection)
-		(simple-repl))))))
+              (simple-repl)))))
     (close-connection connection nil (safe-backtrace))))
 
 (defun simple-repl ()
@@ -1306,16 +1305,17 @@ The processing is done in the extent of the toplevel restart."
   (make-input-stream
    (lambda ()
      (loop
-      (let* ((socket (connection.socket-io connection))
-             (inputs (list socket stdin))
-             (ready (wait-for-input inputs)))
-        (cond ((eq ready :interrupt)
-               (check-slime-interrupts))
-              ((member socket ready)
-               (handle-requests connection t))
-              ((member stdin ready)
-               (return (read-non-blocking stdin)))
-              (t (assert (null ready)))))))))
+      (with-connection (connection)
+        (let* ((socket (connection.socket-io connection))
+               (inputs (list socket stdin))
+               (ready (wait-for-input inputs)))
+          (cond ((eq ready :interrupt)
+                 (check-slime-interrupts))
+                ((member socket ready)
+                 (handle-requests connection t))
+                ((member stdin ready)
+                 (return (read-non-blocking stdin)))
+                (t (assert (null ready))))))))))
 
 (defun read-non-blocking (stream)
   (with-output-to-string (str)

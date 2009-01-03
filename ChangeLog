@@ -1,5 +1,11 @@
 2009-01-03  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (simple-serve-requests, make-repl-input-stream):
+	Move the call to WITH-CONNECTION to the input stream to pick up
+	stream redirections.
+
+2009-01-03  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-clisp.lisp (wait-for-input): Disable it for win32.
 
 2009-01-02  Helmut Eller  <heller@common-lisp.net>
