@@ -4,6 +4,7 @@
 	(slime-check-location-buffer-name-sanity)
 	(slime-check-location-filename-sanity): Separated from
 	slime-goto-location-buffer.
+	(slime-line-number-at-pos): New compatibility function.
 
 2009-01-03  Helmut Eller  <heller@common-lisp.net>
 

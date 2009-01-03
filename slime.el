@@ -2905,7 +2905,7 @@ Each newlines and following indentation is replaced by a single space."
                (save-excursion
                  (slime-goto-source-location location)
                  (list (or (buffer-file-name) (buffer-name))
-                       (line-number-at-pos)
+                       (slime-line-number-at-pos)
                        (1+ (current-column)))))
            (format "%s:%d:%d:" (or filename "") line col)))
         (t "")))
@@ -6487,11 +6487,7 @@ position of point in the current buffer."
   ;; narrowed the buffer.
   (save-restriction
     (widen)
-    (cons (cond ((fboundp 'line-number)
-                 (line-number))         ; XEmacs
-                ((fboundp 'line-number-at-pos)
-                 (line-number-at-pos))  ; Recent GNU Emacs
-                (t (1+ (count-lines 1 (point-at-bol)))))
+    (cons (slime-line-number-at-pos)
           (current-column))))
 
 (defun slime-inspector-operate-on-point ()
@@ -8377,6 +8373,13 @@ for (somewhat) better multiframe support."
   (if (fboundp 'run-mode-hooks) 
       (apply #'run-mode-hooks hooks)
     (apply #'run-hooks hooks)))
+
+(defun slime-line-number-at-pos ()
+  (cond ((fboundp 'line-number)
+         (line-number))         ; XEmacs
+        ((fboundp 'line-number-at-pos)
+         (line-number-at-pos))  ; Recent GNU Emacs
+        (t (1+ (count-lines 1 (point-at-bol))))))
 
 (slime-defun-if-undefined next-single-char-property-change
     (position prop &optional object limit)
