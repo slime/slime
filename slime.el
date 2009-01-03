@@ -2894,7 +2894,8 @@ Each newlines and following indentation is replaced by a single space."
                                      1)
                           (slime-note.message note)))))
       (unless compilation-scroll-output 
-        (goto-char (point-min))))))
+        (goto-char (point-min)))
+      (setq next-error-last-buffer (current-buffer)))))
 
 (defun slime-compilation-loc (location)
   (cond ((slime-location-p location)
