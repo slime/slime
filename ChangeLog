@@ -1,5 +1,12 @@
 2009-01-03  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-goto-location-buffer): Don't goto point-min.
+	(slime-check-location-buffer-name-sanity)
+	(slime-check-location-filename-sanity): Separated from
+	slime-goto-location-buffer.
+
+2009-01-03  Helmut Eller  <heller@common-lisp.net>
+
 	By default, show compiler notes in a buffer with compilation-mode.
 
 	* slime.el (slime-show-compilation-log)
