@@ -1,5 +1,14 @@
 2009-01-03  Helmut Eller  <heller@common-lisp.net>
 
+	By default, show compiler notes in a buffer with compilation-mode.
+
+	* slime.el (slime-show-compilation-log)
+	(slime-maybe-show-compilation-log): New functions,
+	(slime-compilation-finished-hook): Change the default value
+	to 'slime-maybe-show-compilation-log.
+
+2009-01-03  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (simple-serve-requests, make-repl-input-stream):
 	Move the call to WITH-CONNECTION to the input stream to pick up
 	stream redirections.

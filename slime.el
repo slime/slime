@@ -2419,13 +2419,12 @@ Debugged requests are ignored."
   (interactive)
   (signal-process (slime-pid) 'SIGINT))
 
-
 ;;;;; Channels
 
 ;;; A channel implements a set of operations.  Those operations can be
 ;;; invoked by sending messages to the channel.  Channels are used for
-;;; protocols which can't be expressed naturally with RPCs, e.g. if
-;;; operations don't return a meaningful result.
+;;; protocols which can't be expressed naturally with RPCs, e.g. for
+;;; streaming data over the wire.
 ;;;
 ;;; A channel can be "remote" or "local".  Remote channels are
 ;;; represented by integers.  Local channels are structures.  Messages
@@ -2604,11 +2603,12 @@ This is only used by the repl command sayoonara."
 The function receive two arguments: the beginning and the end of the 
 region that will be compiled.")
 
-(defcustom slime-compilation-finished-hook 'slime-maybe-list-compiler-notes
+(defcustom slime-compilation-finished-hook 'slime-maybe-show-compilation-log
   "Hook called with a list of compiler notes after a compilation."
   :group 'slime-mode
   :type 'hook
-  :options '(slime-maybe-list-compiler-notes
+  :options '(slime-maybe-show-compilation-log
+             slime-maybe-list-compiler-notes
              slime-list-compiler-notes
              slime-maybe-show-xrefs-for-notes
              slime-goto-first-note))
@@ -2874,6 +2874,38 @@ Each newlines and following indentation is replaced by a single space."
 
 (defun slime-note-has-location-p (note)
   (not (eq ':error (car (slime-note.location note)))))
+
+(defun slime-maybe-show-compilation-log (notes)
+  "Show NOTES in a `compilation-mode' buffer, if NOTES isn't nil"
+  (unless (null notes)
+    (slime-show-compilation-log notes)))
+
+(defun slime-show-compilation-log (notes)
+  (interactive (list (slime-compiler-notes)))
+  (with-temp-message "Preparing compiler note tree..."
+    (slime-with-popup-buffer ("*SLIME Compilation*")
+      (compilation-mode)
+      (let ((inhibit-read-only t))
+        (insert (format "%d compiler notes:\n" (length notes)))
+        (dolist (note notes)
+          (insert (format "%s%s:\n%s\n"
+                          (slime-compilation-loc (slime-note.location note))
+                          (substring (symbol-name (slime-note.severity note))
+                                     1)
+                          (slime-note.message note)))))
+      (unless compilation-scroll-output 
+        (goto-char (point-min))))))
+
+(defun slime-compilation-loc (location)
+  (cond ((slime-location-p location)
+         (destructuring-bind (filename line col)
+             (save-excursion
+               (slime-goto-source-location location)
+               (list (or (buffer-file-name) (buffer-name))
+                     (line-number-at-pos)
+                     (1+ (current-column))))
+           (format "%s:%d:%d:" (or filename "") line col)))
+        (t "")))
 
 (defun slime-maybe-list-compiler-notes (notes)
   "Show the compiler notes if appropriate."
