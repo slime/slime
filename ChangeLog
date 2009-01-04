@@ -1,5 +1,13 @@
 2009-01-04  Helmut Eller  <heller@common-lisp.net>
 
+	Make it possible to limit the number of displayed restarts.
+
+	* slime.el (sldb-initial-restart-limit)
+	(sldb-insert-more-restarts): New.
+	(sldb-setup, sldb-insert-restarts): Use it.
+
+2009-01-04  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-local-variable-p): New function. XEmacs requires
 	two arguments.
 

@@ -5315,6 +5315,11 @@ CL:MACROEXPAND."
 (defvar sldb-hook nil
   "Hook run on entry to the debugger.")
 
+(defcustom sldb-initial-restart-limit 6
+  "Maximum number of restarts to display initially."
+  :group 'slime-debugger
+  :type 'integer)
+
 
 ;;;;; Local variables in the debugger buffer
 
@@ -5527,8 +5532,8 @@ CONTS is a list of pending Emacs continuations."
       (setq sldb-restarts restarts)
       (setq sldb-continuations conts)
       (sldb-insert-condition condition)
-      (insert "\n\n" (in-sldb-face section "Restarts:") "\n")
-      (sldb-insert-restarts restarts)
+      (insert "\n\n" (in-sldb-face section "Restarts:"))
+      (sldb-insert-restarts restarts 0 sldb-initial-restart-limit)
       (insert "\n" (in-sldb-face section "Backtrace:") "\n")
       (setq sldb-backtrace-start-marker (point-marker))
       (save-excursion
@@ -5602,19 +5607,34 @@ EXTRAS is currently used for the stepper."
            ;;(error "Unhandled extra element:" extra)
            )))))
 
-(defun sldb-insert-restarts (restarts)
+(defun sldb-insert-restarts (restarts start count)
   "Insert RESTARTS and add the needed text props
 RESTARTS should be a list ((NAME DESCRIPTION) ...)."
-  (loop for (name string) in restarts
-        for number from 0 do
+  (let* ((len (length restarts))
+         (end (if count (min (+ start count) len) len)))
+    (loop for (name string) in (subseq restarts start end)
+          for number from start do
+          (unless (bolp) (insert "\n"))
+          (slime-insert-propertized
+           `(,@nil restart-number ,number
+                   sldb-default-action sldb-invoke-restart
+                   mouse-face highlight)
+           " " (in-sldb-face restart-number (number-to-string number))
+           ": ["  (in-sldb-face restart-type name) "] "
+           (in-sldb-face restart string))
+          (insert "\n"))
+    (when (< end len)
+      (let ((pos (point)))
         (slime-insert-propertized
-         `(,@nil restart-number ,number
-                 sldb-default-action sldb-invoke-restart
-                 mouse-face highlight)
-         " " (in-sldb-face restart-number (number-to-string number))
-         ": ["  (in-sldb-face restart-type name) "] "
-         (in-sldb-face restart string))
-        (insert "\n")))
+         (list 'sldb-default-action 
+               (slime-rcurry #'sldb-insert-more-restarts restarts pos end))
+         " --more--\n")))))
+
+(defun sldb-insert-more-restarts (restarts position start)
+  (goto-char position)
+  (let ((inhibit-read-only t))
+    (delete-region position (1+ (line-end-position)))
+    (sldb-insert-restarts restarts start nil)))
 
 (defun sldb-frame.string (frame)
   (destructuring-bind (_ str &optional _) frame str))
