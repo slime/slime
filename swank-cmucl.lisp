@@ -479,16 +479,22 @@ the error-context redundant."
 Return a `location' record, or (:error REASON) on failure."
   (if (null context)
       (note-error-location)
-      (let ((file (c::compiler-error-context-file-name context))
-            (source (c::compiler-error-context-original-source context))
-            (path
-             (reverse (c::compiler-error-context-original-source-path context))))
-        (or (locate-compiler-note file source path)
+      (with-struct (c::compiler-error-context- file-name 
+                                               original-source
+                                               original-source-path) context
+        (or (locate-compiler-note file-name original-source 
+                                  (reverse original-source-path))
             (note-error-location)))))
 
 (defun note-error-location ()
   "Pseudo-location for notes that can't be located."
-  (list :error "No error location available."))
+  (cond (*compile-file-truename*
+         (make-location (list :file (unix-truename *compile-file-truename*))
+                        (list :eof)))
+        (*buffer-name*
+         (make-location (list :buffer *buffer-name*)
+                        (list :position *buffer-start-position*)))
+        (t (list :error "No error location available."))))
 
 (defun locate-compiler-note (file source source-path)
   (cond ((and (eq file :stream) *buffer-name*)

@@ -3423,7 +3423,9 @@ you should check twice before modifying.")
             (goto-char start-position)
             (slime-forward-positioned-source-path source-path))
            (t
-            (slime-forward-source-path source-path))))))
+            (slime-forward-source-path source-path))))
+    ((:eof)
+     (goto-char (point-max)))))
 
 (defun slime-eol-conversion-fixup (n)
   ;; Return the number of \r\n eol markers that we need to cross when
