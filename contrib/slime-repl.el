@@ -1805,4 +1805,12 @@ X
 #\\X
 SWANK> " (buffer-string))))
 
+(let ((byte-compile-warnings '()))
+  (mapc #'byte-compile
+	'(slime-repl-event-hook-function
+	  slime-write-string
+	  slime-repl-write-string
+	  slime-repl-emit
+	  slime-repl-show-maximum-output)))
+
 (provide 'slime-repl)

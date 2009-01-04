@@ -28,8 +28,13 @@
       (slime-repl-show-abort))))
 
 (slime-define-channel-method listener :write-string (string)
+  (slime-mrepl-write-string self string))
+
+(defun slime-mrepl-write-string (self string)
   (letf (((slime-connection-output-buffer) (slime-channel-get self 'buffer)))
     (slime-repl-emit string)))
+
+(byte-compile 'slime-mrepl-write-string)
 
 (slime-define-channel-method listener :read-string (thread tag)
   (letf (((slime-connection-output-buffer) (slime-channel-get self 'buffer)))
