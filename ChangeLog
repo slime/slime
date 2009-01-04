@@ -1,8 +1,13 @@
 2009-01-04  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-local-variable-p): New function. XEmacs requires
+	two arguments.
+
+2009-01-04  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-cmucl.lisp (note-error-location): If possible, include the
 	filename.
-	* slime.el (slime-goto-location-position): Add a :eof as position
+	* slime.el (slime-goto-location-position): Add :eof as position
 	kind.
 
 2009-01-03  Helmut Eller  <heller@common-lisp.net>

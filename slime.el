@@ -1011,14 +1011,14 @@ can restore it later."
         (windows))
     (walk-windows (lambda (w) (push w windows)) nil t)
     (prog1 (pop-to-buffer (current-buffer))
-      (unless (local-variable-p 'slime-popup-buffer-restore-info)
+      (unless (slime-local-variable-p 'slime-popup-buffer-restore-info)
         (set (make-local-variable 'slime-popup-buffer-restore-info)
              (list (unless (memq (selected-window) windows)
                      (selected-window))
                    selected-window))))))
 
 (defun slime-close-popup-window ()
-  (assert (local-variable-p 'slime-popup-buffer-restore-info))
+  (assert (slime-local-variable-p 'slime-popup-buffer-restore-info))
   (destructuring-bind (created-window selected-window)
       slime-popup-buffer-restore-info
     (bury-buffer)
@@ -1031,7 +1031,7 @@ can restore it later."
 
 (defmacro slime-save-local-variables (vars &rest body)
   `(let ((vals (cons (mapcar (lambda (var)
-                               (if (local-variable-p var)
+                               (if (slime-local-variable-p var)
                                    (cons var (eval var))))
                              ',vars)
                      (progn . ,body))))
@@ -8377,11 +8377,14 @@ for (somewhat) better multiframe support."
     (apply #'run-hooks hooks)))
 
 (defun slime-line-number-at-pos ()
-  (cond ((fboundp 'line-number)
+  (cond ((fboundp 'line-number-at-pos)
+         (line-number-at-pos))  ; Emacs 22
+        ((fboundp 'line-number)
          (line-number))         ; XEmacs
-        ((fboundp 'line-number-at-pos)
-         (line-number-at-pos))  ; Recent GNU Emacs
         (t (1+ (count-lines 1 (point-at-bol))))))
+
+(defun slime-local-variable-p (var &optional buffer)
+  (local-variable-p var (or buffer (current-buffer)))) ; XEmacs
 
 (slime-defun-if-undefined next-single-char-property-change
     (position prop &optional object limit)
