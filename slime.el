@@ -2886,16 +2886,15 @@ Each newlines and following indentation is replaced by a single space."
     (slime-with-popup-buffer ("*SLIME Compilation*")
       (compilation-mode)
       (let ((inhibit-read-only t))
-        (insert (format "%d compiler notes:\n" (length notes)))
+        (insert (format "cd %s\n%d compiler notes:\n" 
+                        default-directory (length notes)))
         (dolist (note notes)
           (insert (format "%s%s:\n%s\n"
                           (slime-compilation-loc (slime-note.location note))
                           (substring (symbol-name (slime-note.severity note))
                                      1)
                           (slime-note.message note)))))
-      (unless compilation-scroll-output 
-        (goto-char (point-min)))
-      (setq next-error-last-buffer (current-buffer)))))
+      (goto-char (point-min)))))
 
 (defun slime-compilation-loc (location)
   (cond ((slime-location-p location)
@@ -2907,7 +2906,7 @@ Each newlines and following indentation is replaced by a single space."
                  (list (or (buffer-file-name) (buffer-name))
                        (slime-line-number-at-pos)
                        (1+ (current-column)))))
-           (format "%s:%d:%d:" (or filename "") line col)))
+           (format "%s:%d:%d: " (or filename "") line col)))
         (t "")))
 
 (defun slime-maybe-list-compiler-notes (notes)
