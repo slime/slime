@@ -1,7 +1,20 @@
 2009-01-05  Helmut Eller  <heller@common-lisp.net>
 
+	Use keymap inheritance to share bindings in various modes.
+
+	* slime.el (slime-parent-map): New keymap.
+	(slime-mode-map, slime-popup-buffer-mode-map, sldb-mode-map)
+	(slime-inspector-mode-map): Use it.
+	(slime-parent-bindings, slime-prefix-bindings): New variables.
+	(slime-prefix-key, slime-define-key): Deleted.
+
+	Update contribs accordinly.
+
+2009-01-05  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-with-popup-buffer): New argment: select.
 	If nil (default) buffer will only be displayed but not selected.
+
 
 2009-01-05  Helmut Eller  <heller@common-lisp.net>
 

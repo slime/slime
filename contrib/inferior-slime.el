@@ -79,20 +79,13 @@ A prefix argument disables this behaviour."
 
 (defun inferior-slime-init-keymap ()
   (let ((map inferior-slime-mode-map))
+    (set-keymap-parent map slime-parent-map)
     (slime-define-keys map
       ([return]			'inferior-slime-return)
       ([(control return)]	'inferior-slime-closing-return)
       ([(meta control ?m)]	'inferior-slime-closing-return)
       ("\t"			'slime-indent-and-complete-symbol)
-      (" "			'slime-space)
-      ("\C-c\C-d" slime-doc-map)
-      ("\C-c\C-w" slime-who-map))
-    (loop for (key command . keys) in slime-keys do
-	  (destructuring-bind (&key prefixed inferior &allow-other-keys) keys
-	    (when prefixed
-	      (setq key (concat slime-prefix-key key)))
-	    (when inferior
-	      (define-key map key command))))))
+      (" "			'slime-space))))
 
 (inferior-slime-init-keymap)
 

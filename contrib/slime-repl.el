@@ -413,18 +413,17 @@ joined together."))
 
 (defvar slime-repl-mode-map)
 
-(setq slime-repl-mode-map (make-sparse-keymap))
-(set-keymap-parent slime-repl-mode-map lisp-mode-map)
+(let ((map (copy-keymap slime-parent-map)))
+  (set-keymap-parent map lisp-mode-map)
+  (setq slime-repl-mode-map (make-sparse-keymap))
+  (set-keymap-parent slime-repl-mode-map map))
 
-(dolist (spec slime-keys)
-  (destructuring-bind (key command &key inferior prefixed 
-                           &allow-other-keys) spec
-    (when inferior
-      (let ((key (if prefixed (concat slime-prefix-key key) key)))
-        (define-key slime-repl-mode-map key command)))))
+(slime-define-keys slime-prefix-map
+  ("\C-z" 'slime-switch-to-output-buffer)
+  ("\M-p" 'slime-repl-set-package))
 
-(slime-define-keys slime-mode-map
-  ("\C-c\C-z" 'slime-switch-to-output-buffer))
+(slime-define-keys slime-mode-map 
+  ("~" 'slime-sync-package-and-default-directory))
 
 (slime-define-keys slime-connection-list-mode-map
   ((kbd "RET") 'slime-goto-connection)
@@ -444,8 +443,8 @@ joined together."))
   ((kbd "C-<down>") 'slime-repl-forward-input)
   ("\M-r" 'slime-repl-previous-matching-input)
   ("\M-s" 'slime-repl-next-matching-input)
-  ("\C-c\C-c" 'slime-interrupt)
   ("\C-c\C-b" 'slime-interrupt)
+  ("\C-c\C-c" 'slime-interrupt)
   ("\C-c:"    'slime-interactive-eval)
   ("\C-c\C-e" 'slime-interactive-eval)
   ("\C-cE"     'slime-edit-value)

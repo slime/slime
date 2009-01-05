@@ -502,58 +502,67 @@ The string is periodically updated by an idle timer."))
 
 ;;;;; Key bindings
 
-;; See `slime-define-key' below for keyword meanings.
+(defvar slime-parent-map (make-sparse-keymap)
+  "Parent keymap parent for various Slime related modes.")
+
+(defvar slime-parent-bindings
+  '(("\M-."      slime-edit-definition)
+    ("\M-,"      slime-pop-find-definition-stack)
+    ("\C-x4." 	 slime-edit-definition-other-window)
+    ("\C-x5." 	 slime-edit-definition-other-frame)
+    ("\C-x\C-e"  slime-eval-last-expression)
+    ("\C-\M-x"   slime-eval-defun)
+    ("\C-c"	 slime-prefix-map)))
+
+(defvar slime-prefix-map (make-sparse-keymap)
+  "Keymap for commands prefixed with `slime-prefix-key'.")
+
+(defvar slime-prefix-bindings
+  '(("\C-r"  slime-eval-region)
+    (":"     slime-interactive-eval)
+    ("\C-e"  slime-interactive-eval)
+    ("E"     slime-edit-value)
+    ("\C-l"  slime-load-file)
+    ("\C-b"  slime-interrupt)
+    ("\M-d"  slime-disassemble-symbol)
+    ("\C-t"  slime-toggle-trace-fdefinition)
+    ("I"     slime-inspect)
+    ("\C-xt" slime-list-threads)
+    ("\C-xc" slime-list-connections)
+    ("<"     slime-list-callers)
+    (">"     slime-list-callees)
+    ("\C-d"  slime-doc-map)
+    ("\C-w"  slime-who-map)
+    ;;("\C-z" slime-switch-to-output-buffer :prefixed t :sldb t)
+    ))
+
 (defvar slime-keys
   '(;; Compiler notes
-    ("\M-p" slime-previous-note)
-    ("\M-n" slime-next-note)
-    ("\M-c" slime-remove-notes :prefixed t)
-    ("\C-k" slime-compile-and-load-file :prefixed t)
-    ("\M-k" slime-compile-file :prefixed t)
-    ("\C-c" slime-compile-defun :prefixed t)
-    ("\C-l" slime-load-file :prefixed t)
+    ("\M-p"       slime-previous-note)
+    ("\M-n"       slime-next-note)
+    ("\C-c\M-c"   slime-remove-notes)
+    ("\C-c\C-k"   slime-compile-and-load-file)
+    ("\C-c\M-k"   slime-compile-file)
+    ("\C-c\C-c"   slime-compile-defun)
     ;; Editing/navigating
-    ("\M-\C-i" slime-complete-symbol :inferior t)
-    ("\C-i" slime-complete-symbol :prefixed t :inferior t)
-    ("\M-." slime-edit-definition :inferior t :sldb t)
-    ("\C-x4." slime-edit-definition-other-window :inferior t :sldb t)
-    ("\C-x5." slime-edit-definition-other-frame :inferior t :sldb t)
-    ("\M-," slime-pop-find-definition-stack :inferior t :sldb t)
+    ("\M-\C-i"    slime-complete-symbol)
+    ("\C-c\C-i"   slime-complete-symbol)
     ;; Evaluating
-    ("\C-x\C-e" slime-eval-last-expression :inferior t)
-    ("\C-x\M-e" slime-eval-last-expression-display-output :inferior t)
-    ("\C-p" slime-pprint-eval-last-expression :prefixed t :inferior t)
-    ("\C-r" slime-eval-region :prefixed t :inferior t)
-    ("\C-\M-x" slime-eval-defun)
-    (":"    slime-interactive-eval :prefixed t :sldb t)
-    ("\C-e" slime-interactive-eval :prefixed t :sldb t :inferior t)
-    ("\C-y" slime-call-defun :prefixed t)
-    ("E"    slime-edit-value :prefixed t :sldb t :inferior t)
-    ;;("\C-z" slime-switch-to-output-buffer :prefixed t :sldb t)
-    ("\C-b" slime-interrupt :prefixed t :inferior t :sldb t)
-    ("\M-g" slime-quit :prefixed t :inferior t :sldb t)
+    ;;("\C-x\M-e" slime-eval-last-expression-display-output :inferior t)
+    ("\C-c\C-p"   slime-pprint-eval-last-expression)
+    ("\C-c\C-y"   slime-call-defun)
+    ;;("\M-g"     slime-quit :prefixed t :inferior t :sldb t)
     ;; Documentation
-    (" " slime-space :inferior t)
-    ("\C-f" slime-describe-function :prefixed t :inferior t :sldb t)
-    ("\M-d" slime-disassemble-symbol :prefixed t :inferior t :sldb t)
-    ("\C-t" slime-toggle-trace-fdefinition :prefixed t :sldb t)
-    ("\C-u" slime-undefine-function :prefixed t)
-    ("\C-m" slime-macroexpand-1 :prefixed t :inferior t)
-    ("\M-m" slime-macroexpand-all :prefixed t :inferior t)
-    ("\M-0" slime-restore-window-configuration :prefixed t :inferior t)
-    ([(control meta ?\.)] slime-next-location :inferior t)
-    ("~" slime-sync-package-and-default-directory :prefixed t :inferior t)
-    ;;("\M-p" slime-repl-set-package :prefixed t :inferior t)
-    ;; Cross reference
-    ("<" slime-list-callers :prefixed t :inferior t :sldb t)
-    (">" slime-list-callees :prefixed t :inferior t :sldb t)
-    ;; "Other"
-    ("\I"  slime-inspect :prefixed t :inferior t :sldb t)
-    ("\C-xt" slime-list-threads :prefixed t :inferior t :sldb t)
-    ("\C-xc" slime-list-connections :prefixed t :inferior t :sldb t)
+    (" "          slime-space)
+    ("\C-c\C-f"   slime-describe-function)
+    ("\C-c\C-u"   slime-undefine-function)
+    ("\C-c\C-m"   slime-macroexpand-1)
+    ("\C-c\M-m"   slime-macroexpand-all)
+    ("\C-c\M-0"   slime-restore-window-configuration)
+    ([?\C-\M-.]   slime-next-location)
     ;; ;; Shadow unwanted bindings from inf-lisp
-    ;; ("\C-a" slime-nop :prefixed t :inferior t :sldb t)
-    ;; ("\C-v" slime-nop :prefixed t :inferior t :sldb t)
+    ;; ("\C-a"    slime-nop :prefixed t :inferior t :sldb t)
+    ;; ("\C-v"    slime-nop :prefixed t :inferior t :sldb t)
     ))
 
 (defun slime-nop ()
@@ -585,36 +594,27 @@ The string is periodically updated by an idle timer."))
     (?m slime-who-macroexpands)
     (?a slime-who-specializes)))
 
-;; Maybe a good idea, maybe not..
-(defvar slime-prefix-key "\C-c"
-  "The prefix key to use in SLIME keybinding sequences.")
-
-(defvar slime-prefix-map (make-sparse-keymap)
-  "Keymap for commands prefixed with `slime-prefix-key'.")
-
-(defun* slime-define-key (key command &key prefixed)
-  "Define a keybinding of KEY for COMMAND.
-If PREFIXED is non-nil, `slime-prefix-key' is prepended to KEY."
-  (cond (prefixed (define-key slime-prefix-map key command))
-        (t (define-key slime-mode-map key command))))
-
 (defun slime-init-keymaps ()
   "(Re)initialize the keymaps for `slime-mode'."
   (interactive)
-  (setq slime-prefix-map (make-sparse-keymap))
-  (define-key slime-mode-map slime-prefix-key slime-prefix-map)
-  (loop for (key command . keys) in slime-keys
-        do (apply #'slime-define-key key command :allow-other-keys t keys))
   ;; Documentation
-  (setq slime-doc-map (make-sparse-keymap))
+  (define-prefix-command 'slime-doc-map)
   (slime-define-both-key-bindings slime-doc-map slime-doc-bindings)
-  ;; C-c C-d is the prefix for the doc map.
-  (slime-define-key "\C-d" slime-doc-map :prefixed t)
   ;; Who-xref
-  (setq slime-who-map (make-sparse-keymap))
+  (define-prefix-command 'slime-who-map)
   (slime-define-both-key-bindings slime-who-map slime-who-bindings)
-  ;; C-c C-w is the prefix for the who-xref map.
-  (slime-define-key "\C-w" slime-who-map :prefixed t))
+  ;; Prefix map
+  (define-prefix-command 'slime-prefix-map)
+  (loop for (key binding) in slime-prefix-bindings
+        do (define-key slime-prefix-map key binding))
+  ;; Parent map
+  (setq slime-parent-map (make-sparse-keymap))
+  (loop for (key binding) in slime-parent-bindings
+        do (define-key slime-parent-map key binding))
+  ;; Slime mode map
+  (set-keymap-parent slime-mode-map slime-parent-map)
+  (loop for (key command) in slime-keys
+        do (define-key slime-mode-map key command)))
 
 (defun slime-define-both-key-bindings (keymap bindings)
   (loop for (char command) in bindings do
@@ -1056,6 +1056,8 @@ can restore it later."
   '(("q" . slime-popup-buffer-quit-function)
     ;;("\C-c\C-z" . slime-switch-to-output-buffer)
     ("\M-." . slime-edit-definition)))
+
+(set-keymap-parent slime-popup-buffer-mode-map slime-parent-map)
 
 (make-variable-buffer-local
  (defvar slime-popup-buffer-quit-function 'slime-popup-buffer-quit
@@ -5422,6 +5424,8 @@ Full list of commands:
   ;; Make original slime-connection "sticky" for SLDB commands in this buffer
   (setq slime-buffer-connection (slime-connection)))
 
+(set-keymap-parent sldb-mode-map slime-parent-map)
+
 (slime-define-keys sldb-mode-map
   ("h"    'describe-mode)
   ("v"    'sldb-show-source)
@@ -5457,13 +5461,6 @@ Full list of commands:
   (":"    'slime-interactive-eval)
   ("\C-c\C-c" 'sldb-recompile-frame-source)
   ("\C-c\C-d" slime-doc-map))
-
-;; Inherit bindings from slime-mode
-(dolist (spec slime-keys)
-  (destructuring-bind (key command &key sldb prefixed &allow-other-keys) spec
-    (when sldb
-      (let ((key (if prefixed (concat slime-prefix-key key) key)))
-        (define-key sldb-mode-map key command)))))
 
 ;; Keys 0-9 are shortcuts to invoke particular restarts.
 (dotimes (number 10)
@@ -6726,6 +6723,8 @@ If ARG is negative, move forwards."
              (list (append i2 i1) l2 s2 e1))
             (t (error "Invalid chunks"))))))
 
+(set-keymap-parent slime-inspector-mode-map slime-parent-map)
+
 (slime-define-keys slime-inspector-mode-map
   ([return] 'slime-inspector-operate-on-point)
   ((kbd "M-RET") 'slime-inspector-copy-down)
@@ -6742,9 +6741,7 @@ If ARG is negative, move forwards."
   ("\C-i" 'slime-inspector-next-inspectable-object)
   ([(shift tab)] 'slime-inspector-previous-inspectable-object) ; Emacs translates S-TAB
   ([backtab]     'slime-inspector-previous-inspectable-object) ; to BACKTAB on X.
-  ("\M-." 'slime-edit-definition)
-  ("." 'slime-inspector-show-source)
-  (slime-prefix-key slime-prefix-map))
+  ("." 'slime-inspector-show-source))
 
 
 ;;;; Buffer selector
