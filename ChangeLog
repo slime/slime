@@ -1,5 +1,13 @@
 2009-01-05  Helmut Eller  <heller@common-lisp.net>
 
+	Create a compilation-log buffer so that next-error works but
+	don't display the buffer.
+
+	* slime.el (slime-create-compilation-log): New function.
+	(slime-compilation-finished-hook): Use it.
+
+2009-01-05  Helmut Eller  <heller@common-lisp.net>
+
 	Use keymap inheritance to share bindings in various modes.
 
 	* slime.el (slime-parent-map): New keymap.

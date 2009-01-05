@@ -2611,11 +2611,12 @@ This is only used by the repl command sayoonara."
 The function receive two arguments: the beginning and the end of the 
 region that will be compiled.")
 
-(defcustom slime-compilation-finished-hook 'slime-maybe-show-compilation-log
+(defcustom slime-compilation-finished-hook 'slime-create-compilation-log
   "Hook called with a list of compiler notes after a compilation."
   :group 'slime-mode
   :type 'hook
-  :options '(slime-maybe-show-compilation-log
+  :options '(slime-create-compilation-log
+             slime-show-compilation-log
              slime-maybe-list-compiler-notes
              slime-list-compiler-notes
              slime-maybe-show-xrefs-for-notes
@@ -2883,26 +2884,33 @@ Each newlines and following indentation is replaced by a single space."
 (defun slime-note-has-location-p (note)
   (not (eq ':error (car (slime-note.location note)))))
 
-(defun slime-maybe-show-compilation-log (notes)
-  "Show NOTES in a `compilation-mode' buffer, if NOTES isn't nil"
-  (unless (null notes)
-    (slime-show-compilation-log notes)))
+(defun slime-create-compilation-log (notes)
+  "Create a buffer for `next-error' to use."
+  (with-current-buffer (get-buffer-create "*SLIME Compilation*")
+    (let ((inhibit-read-only t))
+      (erase-buffer))
+    (slime-insert-compilation-log notes)))
 
 (defun slime-show-compilation-log (notes)
   (interactive (list (slime-compiler-notes)))
-  (with-temp-message "Preparing compiler note tree..."
-    (slime-with-popup-buffer ("*SLIME Compilation*")
-      (compilation-mode)
-      (let ((inhibit-read-only t))
-        (insert (format "cd %s\n%d compiler notes:\n" 
-                        default-directory (length notes)))
-        (dolist (note notes)
-          (insert (format "%s%s:\n%s\n"
-                          (slime-compilation-loc (slime-note.location note))
-                          (substring (symbol-name (slime-note.severity note))
-                                     1)
-                          (slime-note.message note)))))
-      (goto-char (point-min)))))
+  (slime-with-popup-buffer ("*SLIME Compilation*")
+    (slime-insert-compilation-log notes)))
+
+(defun slime-insert-compilation-log (notes)
+  "Insert NOTES in format suitable for `compilation-mode'."
+  (with-temp-message "Preparing compilation log..."
+    (compilation-mode)
+    (let ((inhibit-read-only t))
+      (insert (format "cd %s\n%d compiler notes:\n" 
+                      default-directory (length notes)))
+      (dolist (note notes)
+        (insert (format "%s%s:\n%s\n"
+                        (slime-compilation-loc (slime-note.location note))
+                        (substring (symbol-name (slime-note.severity note))
+                                   1)
+                        (slime-note.message note)))))
+    (goto-char (point-min))
+    (setq next-error-last-buffer (current-buffer))))
 
 (defun slime-compilation-loc (location)
   (cond ((slime-location-p location)
