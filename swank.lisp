@@ -90,20 +90,62 @@
 (defvar *swank-debug-p* t
   "When true, print extra debugging information.")
 
+;;;;; SLDB customized pprint dispatch table
+;;;
+;;; CLHS 22.1.3.4, and CLHS 22.1.3.6 do not specify *PRINT-LENGTH* to
+;;; affect the printing of strings and bit-vectors.
+;;;
+;;; We use a customized pprint dispatch table to do it for us.
+
+(declaim (special *sldb-string-length*))
+(declaim (special *sldb-bitvector-length*))
+
+(defvar *sldb-pprint-dispatch-table*
+  (let ((initial-table (copy-pprint-dispatch nil))
+        (result-table  (copy-pprint-dispatch nil)))
+    (flet ((sldb-bitvector-pprint (stream bitvector)
+             ;;; Truncate bit-vectors according to *SLDB-BITVECTOR-LENGTH*.
+             (if (or (not *print-array*) (not *print-length*))
+                 (let ((*print-pprint-dispatch* initial-table))
+                   (write bitvector :stream stream))
+                 (loop initially (write-string "#*" stream)
+                       for i from 0 and bit across bitvector do
+                       (when (= i *sldb-bitvector-length*)
+                         (write-string "..." stream)
+                         (loop-finish))
+                       (write bit :stream stream))))
+           (sldb-string-pprint (stream string)
+             ;;; Truncate strings according to *SLDB-STRING-LENGTH*.
+             (if (or (not *print-array*) (not *print-length*))
+                 (let ((*print-pprint-dispatch* initial-table))
+                   (write string :stream stream))
+                 (loop initially (write-char #\" stream)
+                       for i from 0 and char across string do
+                       (when (= i *sldb-string-length*)
+                         (write-string "..." stream)
+                         (loop-finish))
+                       (write-char char stream)
+                       finally (write-char #\" stream)))))
+      (set-pprint-dispatch 'bit-vector #'sldb-bitvector-pprint 0 result-table)
+      (set-pprint-dispatch 'string #'sldb-string-pprint 0 result-table)
+      result-table)))
+
 (defvar *sldb-printer-bindings*
   `((*print-pretty*           . t)
     (*print-level*            . 4)
     (*print-length*           . 10)
     (*print-circle*           . t)
     (*print-readably*         . nil)
-    (*print-pprint-dispatch*  . ,(copy-pprint-dispatch nil))
+    (*print-pprint-dispatch*  . ,*sldb-pprint-dispatch-table*)
     (*print-gensym*           . t)
     (*print-base*             . 10)
     (*print-radix*            . nil)
     (*print-array*            . t)
-    (*print-lines*            . 10)
+    (*print-lines*            . nil)
     (*print-escape*           . t)
-    (*print-right-margin*     . 65))
+    (*print-right-margin*     . 65)
+    (*sldb-bitvector-length*  . 25)
+    (*sldb-string-length*     . 50))
   "A set of printer variables used in the debugger.")
 
 (defvar *backtrace-pprint-dispatch-table*

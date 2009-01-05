@@ -1,3 +1,15 @@
+2009-01-05  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Do not truncate error messages in SLDB.
+
+	* swank.lisp (*sldb-bitvector-length*): Like *PRINT-LENGTH* for
+	bit-vectors.
+	(*sldb-string-length*): Likewise for strings.
+	(*sldb-pprint-dispatch-table*): Truncate bit-vectors / strings
+	according to the above variables.
+	(*sldb-printer-bindings*): Use the new variables. Bind
+	*PRINT-LINES* to NIL so error messages are not truncated.
+
 2009-01-04  Helmut Eller  <heller@common-lisp.net>
 
 	Make it possible to limit the number of displayed restarts.
