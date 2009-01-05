@@ -503,7 +503,7 @@ The string is periodically updated by an idle timer."))
 ;;;;; Key bindings
 
 (defvar slime-parent-map (make-sparse-keymap)
-  "Parent keymap parent for various Slime related modes.")
+  "Parent keymap for various Slime related modes.")
 
 (defvar slime-parent-bindings
   '(("\M-."      slime-edit-definition)

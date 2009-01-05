@@ -23,7 +23,6 @@
 	* slime.el (slime-with-popup-buffer): New argment: select.
 	If nil (default) buffer will only be displayed but not selected.
 
-
 2009-01-05  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-show-compilation-log): Insert two lines at
