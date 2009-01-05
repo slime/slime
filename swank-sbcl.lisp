@@ -335,6 +335,11 @@
 
 ;;; Utilities
 
+#+#.(swank-backend::sbcl-with-symbol 'function-lambda-list 'sb-introspect)
+(defimplementation arglist (fname)
+  (sb-introspect:function-lambda-list fname))
+
+#-#.(swank-backend::sbcl-with-symbol 'function-lambda-list 'sb-introspect)
 (defimplementation arglist (fname)
   (sb-introspect:function-arglist fname))
 

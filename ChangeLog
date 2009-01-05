@@ -1,5 +1,10 @@
 2009-01-05  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-sbcl.lisp (function-arglist):
+	SB-INTROSPECT:FUNCTION-ARGLIST is deprecated in bleeding edge sbcl.
+
+2009-01-05  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	Do not truncate error messages in SLDB.
 
 	* swank.lisp (*sldb-bitvector-length*): Like *PRINT-LENGTH* for
