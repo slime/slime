@@ -955,8 +955,8 @@ Buffer local in popup-buffers."))
    "The emacs snapshot \"fingerprint\" after displaying the buffer."))
 
 ;; Interface
-(defmacro* slime-with-popup-buffer ((name &optional package
-                                          connection emacs-snapshot)
+(defmacro* slime-with-popup-buffer ((name &optional package connection select
+                                          emacs-snapshot)
                                     &body body)
   "Similar to `with-output-to-temp-buffer'.
 Bind standard-output and initialize some buffer-local variables.
@@ -981,15 +981,17 @@ current state will be saved and later restored."
          (assert (eq (current-buffer) standard-output))
          (setq buffer-read-only t)
          (slime-init-popup-buffer vars%)
-         (slime-display-popup-buffer)))))
+         (slime-display-popup-buffer ,(or select 'nil))))))
 
 (put 'slime-with-popup-buffer 'lisp-indent-function 1)
 
 (defun slime-make-popup-buffer (name buffer-vars)
   "Return a temporary buffer called NAME.
 The buffer also uses the minor-mode `slime-popup-buffer-mode'."
-  (when (and (get-buffer name) (kill-buffer (get-buffer name))))
-  (with-current-buffer (get-buffer-create name)
+  (with-current-buffer (or (get-buffer name) (get-buffer-create name))
+    (kill-all-local-variables)
+    (setq buffer-read-only nil)
+    (erase-buffer)
     (set-syntax-table lisp-mode-syntax-table)
     (slime-init-popup-buffer buffer-vars)
     (current-buffer)))
@@ -1003,31 +1005,35 @@ The buffer also uses the minor-mode `slime-popup-buffer-mode'."
                         slime-popup-buffer-saved-emacs-snapshot)
     buffer-vars))
 
-(defun slime-display-popup-buffer ()
+(defun slime-display-popup-buffer (select)
   "Display the current buffer.
 Save the selected-window in a buffer-local variable, so that we
 can restore it later."
   (let ((selected-window (selected-window))
         (windows))
     (walk-windows (lambda (w) (push w windows)) nil t)
-    (prog1 (pop-to-buffer (current-buffer))
+    (let ((new-window (display-buffer (current-buffer))))
       (unless (slime-local-variable-p 'slime-popup-buffer-restore-info)
         (set (make-local-variable 'slime-popup-buffer-restore-info)
-             (list (unless (memq (selected-window) windows)
-                     (selected-window))
-                   selected-window))))))
+             (list (unless (memq new-window windows)
+                     new-window)
+                   selected-window)))
+      (when select
+        (select-window new-window))
+      (current-buffer))))
 
 (defun slime-close-popup-window ()
-  (assert (slime-local-variable-p 'slime-popup-buffer-restore-info))
-  (destructuring-bind (created-window selected-window)
-      slime-popup-buffer-restore-info
-    (bury-buffer)
-    (when (and (eq created-window (selected-window))
-               (not (eq (next-window created-window) created-window)))
-      (delete-window created-window))
-    (when (window-live-p selected-window)
-      (select-window selected-window)))
-  (kill-local-variable 'slime-popup-buffer-restore-info))
+  (cond ((slime-local-variable-p 'slime-popup-buffer-restore-info)
+         (destructuring-bind (created-window selected-window)
+             slime-popup-buffer-restore-info
+           (bury-buffer)
+           (when (and (eq created-window (selected-window))
+                      (not (eq (next-window created-window) created-window)))
+             (delete-window created-window))
+           (when (window-live-p selected-window)
+             (select-window selected-window)))
+         (kill-local-variable 'slime-popup-buffer-restore-info))
+        (t (bury-buffer))))
 
 (defmacro slime-save-local-variables (vars &rest body)
   `(let ((vals (cons (mapcar (lambda (var)
@@ -4350,7 +4356,7 @@ in Lisp when committed with \\[slime-edit-value-commit]."
 
 (defun slime-edit-value-callback (form-string current-value package)
   (let* ((name (generate-new-buffer-name (format "*Edit %s*" form-string)))
-         (buffer (slime-with-popup-buffer (name package t)
+         (buffer (slime-with-popup-buffer (name package t t)
                   (lisp-mode)
                   (slime-mode 1)
                   (slime-popup-buffer-mode -1) ; don't want binding of 'q'
@@ -4869,7 +4875,7 @@ The most important commands:
                                    &body body)
   "Execute BODY in a xref buffer, then show that buffer."
   `(let ((xref-buffer-name% (format "*XREF[%s: %s]*" ,xref-type ,symbol)))
-     (slime-with-popup-buffer (xref-buffer-name% ,package t ,emacs-snapshot)
+     (slime-with-popup-buffer (xref-buffer-name% ,package t t ,emacs-snapshot)
        (slime-xref-mode)
        (slime-set-truncate-lines)
        (setq slime-popup-buffer-quit-function 'slime-xref-quit)
@@ -5540,7 +5546,7 @@ CONTS is a list of pending Emacs continuations."
             (sldb-insert-frames (sldb-prune-initial-frames frames) t)
           (insert "[No backtrace]")))
       (run-hooks 'sldb-hook))
-    (slime-display-popup-buffer)
+    (slime-display-popup-buffer t)
     (sldb-recenter-region (point-min) (point))
     (setq buffer-read-only t)
     (when (and slime-stack-eval-tags
@@ -6782,17 +6788,19 @@ selects a buffer.
 BODY is a series of forms which are evaluated when the selector
 is chosen. The returned buffer is selected with
 switch-to-buffer."
-  `(setq slime-selector-methods
-         (sort* (cons (list ,key ,description
-                            (lambda () 
-                              (let ((buffer (progn ,@body)))
-                                (cond ((get-buffer buffer)
-                                       (switch-to-buffer buffer))
-                                      (t
-                                       (message "No such buffer: %S" buffer)
-                                       (ding))))))
-                      (remove* ,key slime-selector-methods :key #'car))
-                #'< :key #'car)))
+  (let ((method `(lambda () 
+                   (let ((buffer (progn ,@body)))
+                     (cond ((not (get-buffer buffer))
+                            (message "No such buffer: %S" buffer)
+                            (ding))
+                           ((get-buffer-window buffer)
+                            (select-window (get-buffer-window buffer)))
+                           (t
+                            (switch-to-buffer buffer)))))))
+    `(setq slime-selector-methods
+           (sort* (cons (list ,key ,description ,method)
+                        (remove* ,key slime-selector-methods :key #'car))
+                  #'< :key #'car))))
 
 (def-slime-selector-method ?? "Selector help buffer."
   (ignore-errors (kill-buffer "*Select Help*"))
