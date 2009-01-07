@@ -5778,7 +5778,9 @@ Called on the `point-entered' text-property hook."
       (goto-char position)
       ;;(push-mark)
       (unless (pos-visible-in-window-p)
-        (slime-recenter-window window sldb-show-location-recenter-arg)))))
+        (reposition-window)
+        ;;(slime-recenter-window window sldb-show-location-recenter-arg))
+      ))))
 
 (defun slime-recenter-window (window line)
   "Set window-start in WINDOW LINE lines before point."

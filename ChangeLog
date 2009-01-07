@@ -1,5 +1,9 @@
 2009-01-07  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-show-buffer-position): Use reposition-window.
+
+2009-01-07  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-keys): Remove the binding for C-c C-i. M-TAB
 	can also be pressed with M-C-i which is probably not taken
 	by the window manager.  ESC TAB would also work.  Maybe we
