@@ -1,3 +1,12 @@
+2009-01-07  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-repl.el (slime-mode-map): Bind C-c~ not ~.
+	Reported by James Wright.
+	(slime-repl-mode-map): Bind M-TAB.
+	Remove C-c C-k: compiling the REPL buffer doesn't work anyway.
+	Remove C-cC-b, C-c:, C-cE, C-cC-d, C-cC-w, C-M-x, C-cC-t, C-cC-l:
+	those are already bound in slime-parent-map.
+
 2009-01-04  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-repl.el, slime-mrepl.el: Byte-compile the output
