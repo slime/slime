@@ -7368,7 +7368,7 @@ Confirm that EXPECTED-ARGLIST is displayed."
       ("swank::create-socket" "(swank::create-socket host port)")
       ("swank::emacs-connected" "(swank::emacs-connected )")
       ("swank::compile-string-for-emacs"
-       "(swank::compile-string-for-emacs string buffer position directory policy)")
+       "(swank::compile-string-for-emacs string buffer position filename policy)")
       ("swank::connection.socket-io"
        "(swank::connection.socket-io \\(struct\\(ure\\)?\\|object\\|instance\\|x\\))")
       ("cl:lisp-implementation-type" "(cl:lisp-implementation-type )")
