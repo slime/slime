@@ -35,6 +35,12 @@ comletitions."
   :group 'slime-mode
   :type 'integer)
 
+(defcustom slime-when-complete-filename-expand nil
+  "Use comint-replace-by-expanded-filename instead of
+comint-dynamic-complete-as-filename to complete file names"
+  :group 'slime-mode
+  :type 'boolean)
+
 (defvar slime-fuzzy-target-buffer nil
   "The buffer that is the target of the completion activities.")
 (defvar slime-fuzzy-saved-window-configuration nil

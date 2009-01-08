@@ -1,3 +1,12 @@
+2009-01-08  Helmut Eller  <heller@common-lisp.net>
+
+	Remove some customization variables of questionale use.
+
+	* slime.el (slime-when-complete-filename-expand)
+	(slime-space-information-p, slime-display-compilation-output)
+	(sldb-show-location-recenter-arg, slime-recenter-window)
+	(slime-display-buffer-region): Deleted.
+
 2009-01-07  Helmut Eller  <heller@common-lisp.net>
 
 	Just use find-tag-marker-ring as stack for M-.

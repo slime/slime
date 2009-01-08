@@ -38,7 +38,7 @@
 ;;   Trapping compiler messages and creating annotations in the source
 ;;   file on the appropriate forms.
 ;;
-;; SLIME is compatible with GNU Emacs 20 and 21 and XEmacs 21. In
+;; SLIME is compatible with GNU Emacs 21, 22, 23 and XEmacs 21. In
 ;; order to run SLIME requires a supporting Lisp server called
 ;; Swank. Swank is distributed with slime.el and will automatically be
 ;; started in a normal installation.
@@ -214,17 +214,6 @@ argument."
                  (const :tag "Compound" slime-complete-symbol*)
                  (const :tag "Fuzzy" slime-fuzzy-complete-symbol)))
 
-(defcustom slime-when-complete-filename-expand nil
-  "Use comint-replace-by-expanded-filename instead of
-comint-dynamic-complete-as-filename to complete file names"
-  :group 'slime-mode
-  :type 'boolean)
-
-(defcustom slime-space-information-p t
-  "Have the SPC key offer arglist information."
-  :type 'boolean
-  :group 'slime-mode)
-
 ;;;;; slime-mode-faces
 
 (defgroup slime-mode-faces nil
@@ -335,7 +324,6 @@ PROPERTIES specifies any default face properties."
   (local-name     "local variable names")
   (local-value    "local variable values")
   (catch-tag      "catch tags"))
-
 
 
 ;;;; Minor modes
@@ -491,7 +479,7 @@ The string is periodically updated by an idle timer."))
          ;; SLIME-MODELINE-UPDATE-TIMER is not going to
          ;; trigger by itself.
          (slime-update-all-modelines))))
-  
+
 ;; Setup the mode-line to say when we're in slime-mode, which
 ;; connection is active, and which CL package we think the current
 ;; buffer belongs to.
@@ -631,7 +619,7 @@ This list of flushed between commands."))
 (defun slime-pre-command-hook ()
   "Execute all functions in `slime-pre-command-actions', then NIL it."
   (dolist (undo-fn slime-pre-command-actions)
-    (ignore-errors (funcall undo-fn)))
+    (funcall undo-fn))
   (setq slime-pre-command-actions nil))
 
 (defun slime-post-command-hook ()
@@ -2599,11 +2587,6 @@ This is only used by the repl command sayoonara."
 (defvar slime-highlight-compiler-notes t
   "*When non-nil annotate buffers with compilation notes etc.")
 
-(defcustom slime-display-compilation-output t
-  "Display the REPL buffer before compiling files."
-  :type '(choice (const :tag "Enable" t) (const :tag "Disable" nil))
-  :group 'slime-mode)
-
 (defvar slime-before-compile-functions nil
   "A list of function called before compiling a buffer or region.
 The function receive two arguments: the beginning and the end of the 
@@ -2674,10 +2657,8 @@ See `slime-compile-and-load-file' for further details."
     (save-buffer))
   (run-hook-with-args 'slime-before-compile-functions (point-min) (point-max))
   (let ((file (slime-to-lisp-filename (buffer-file-name))))
-    (slime-eval-with-transcript
+    (slime-eval-async
      `(swank:compile-file-for-emacs ,file ,(if load t nil))
-     (format "Compile file %s" file)
-     (not slime-display-compilation-output)
      #'slime-compilation-finished)
     (message "Compiling %s..." file)))
 
@@ -3688,8 +3669,7 @@ Designed to be bound to the SPC key.  Prefix argument can be used to insert
 more than one space."
   (interactive "p")
   (self-insert-command n)
-  (when (and slime-space-information-p
-             (slime-background-activities-enabled-p))
+  (when (slime-background-activities-enabled-p)
     (slime-echo-arglist)))
 
 (defvar slime-echo-arglist-function 'slime-show-arglist)
@@ -3853,12 +3833,10 @@ Perform completion more similar to Emacs' complete-symbol."
 
 (defun slime-maybe-complete-as-filename ()
   "If point is at a string starting with \", complete it as filename.
-Return nil iff if point is not at filename."
+Return nil if point is not at filename."
   (if (save-excursion (re-search-backward "\"[^ \t\n]+\\=" nil t))
       (let ((comint-completion-addsuffix '("/" . "\"")))
-        (if slime-when-complete-filename-expand
-            (comint-replace-by-expanded-filename)
-          (comint-dynamic-complete-as-filename))
+        (comint-replace-by-expanded-filename)
         t)
     nil))
 
@@ -3929,8 +3907,8 @@ alist but ignores CDRs."
 
 (defun slime-push-definition-stack ()
   "Add point to find-tag-marker-ring."
+  (require 'etags)
   (cond ((featurep 'xemacs)
-         (require 'etags)
          (push-tag-mark))
         (t (ring-insert find-tag-marker-ring (point-marker)))))
 
@@ -3972,7 +3950,8 @@ alist but ignores CDRs."
 If there's no name at point, or a prefix argument is given, then the
 function name is prompted."
   (interactive (list (slime-read-symbol-name "Name: ")))
-  (or (run-hook-with-args-until-success 'slime-edit-definition-hooks name where)
+  (or (run-hook-with-args-until-success 'slime-edit-definition-hooks 
+                                        name where)
       (slime-edit-definition-cont (slime-find-definitions name)
                                   name where)))
 
@@ -4187,11 +4166,9 @@ inserted in the current buffer."
 (defun slime-eval-print (string)
   "Eval STRING in Lisp; insert any output and the result at point."
   (slime-eval-async `(swank:eval-and-grab-output ,string)
-                    (lexical-let ((buffer (current-buffer)))
-                      (lambda (result)
-                        (with-current-buffer buffer
-                          (destructuring-bind (output value) result
-                            (insert output value)))))))
+                    (lambda (result)
+                      (destructuring-bind (output value) result
+                        (insert output value)))))
 
 (defun slime-eval-with-transcript (form &optional msg no-popups cont)
   "Eval FROM in Lisp.  Display output, if any, caused by the evaluation."
@@ -4240,23 +4217,6 @@ inserted in the current buffer."
     (princ string)
     (goto-char (point-min))))
 
-(defun slime-display-buffer-region (buffer start end &optional other-window)
-  "Like `display-buffer', but only display the specified region."
-  (let ((window-min-height 1))
-    (with-current-buffer buffer
-      (save-excursion
-        (save-restriction
-          (goto-char start)
-          (beginning-of-line)
-          (narrow-to-region (point) end)
-          (let ((window (display-buffer buffer other-window t)))
-            (set-window-start window (point))
-            (unless (or (one-window-p t)
-                        (/= (frame-width) (window-width)))
-              (set-window-text-height window (/ (1- (frame-height)) 2)))
-            (shrink-window-if-larger-than-buffer window)
-            window))))))
-  
 (defun slime-last-expression ()
   (buffer-substring-no-properties
    (save-excursion (backward-sexp) (point))
@@ -4977,13 +4937,11 @@ This is used by `slime-goto-next-xref'")
   "Make an XREF request to Lisp."
   (slime-eval-async
    `(swank:xref ',type ',symbol)
-   (lexical-let ((type type)
-                 (symbol symbol)
-                 (package (slime-current-package))
-                 (snapshot (slime-current-emacs-snapshot)))
-     (lambda (result)
-       (let ((file-alist (cadr (slime-analyze-xrefs result))))
-         (slime-show-xrefs file-alist type symbol package snapshot))))))
+   (slime-rcurry
+    (lambda (result type symbol package snapshot)
+      (let ((file-alist (cadr (slime-analyze-xrefs result))))
+         (slime-show-xrefs file-alist type symbol package snapshot)))
+    type symbol (slime-current-package) (slime-current-emacs-snapshot))))
 
 
 ;;;;; XREF navigation
@@ -5450,8 +5408,7 @@ Full list of commands:
   ("P"    'sldb-print-condition)
   ("C"    'sldb-inspect-condition)
   (":"    'slime-interactive-eval)
-  ("\C-c\C-c" 'sldb-recompile-frame-source)
-  ("\C-c\C-d" slime-doc-map))
+  ("\C-c\C-c" 'sldb-recompile-frame-source))
 
 ;; Keys 0-9 are shortcuts to invoke particular restarts.
 (dotimes (number 10)
@@ -5754,30 +5711,14 @@ Called on the `point-entered' text-property hook."
 
 ;; FIXME: these functions need factorization
 
-(defvar sldb-show-location-recenter-arg nil
-  "Argument to pass to `recenter' when displaying a source location.")
-
 (defun slime-show-buffer-position (position)
   "Ensure sure that the POSITION in the current buffer is visible."
   (let ((window (display-buffer (current-buffer) t)))
     (save-selected-window
       (select-window window)
       (goto-char position)
-      ;;(push-mark)
       (unless (pos-visible-in-window-p)
-        (reposition-window)
-        ;;(slime-recenter-window window sldb-show-location-recenter-arg))
-      ))))
-
-(defun slime-recenter-window (window line)
-  "Set window-start in WINDOW LINE lines before point."
-  (let* ((line (if (not line)
-                   (/ (window-height window) 2)
-                 line))
-         (start (save-excursion
-                  (loop repeat line do (forward-line -1))
-                  (point))))
-    (set-window-start window start)))
+        (reposition-window)))))
 
 (defun sldb-recenter-region (start end &optional center)
   "Make the region from START to END visible.
@@ -5915,7 +5856,6 @@ This is 0 if START and END at the same line."
 	(end (or end (save-excursion (ignore-errors (forward-sexp)) (point)))))
     (slime-flash-region start end)))
 
-
 
 ;;;;;; SLDB toggle details
 
@@ -6026,8 +5966,6 @@ VAR should be a plist with the keys :name, :id, and :value."
     (slime-eval-async `(swank:pprint-eval-string-in-frame ,string ,number)
 		      (lambda (result)
 			(slime-show-description result nil)))))
-
-
 
 (defun sldb-inspect-in-frame (string)
   "Prompt for an expression and inspect it in the selected frame."
@@ -6259,11 +6197,10 @@ was called originally."
     (set (make-local-variable 'truncate-lines) t)))
 
 (slime-define-keys slime-thread-control-mode-map
-  ("a"         'slime-thread-attach)
-  ("d"         'slime-thread-debug)
-  ("g"         'slime-update-threads-buffer)
-  ("k"         'slime-thread-kill))
-
+  ("a" 'slime-thread-attach)
+  ("d" 'slime-thread-debug)
+  ("g" 'slime-update-threads-buffer)
+  ("k" 'slime-thread-kill))
 
 (defun slime-thread-kill ()
   (interactive)
@@ -6848,10 +6785,6 @@ Only considers buffers that are not already visible."
                   (null (get-buffer-window buffer 'visible)))
         return buffer
         finally (error "Can't find unshown buffer in %S" mode)))
-
-
-;;;; Editing commands
-
 
 
 ;;;; Font Lock
