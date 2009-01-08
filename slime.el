@@ -927,15 +927,18 @@ sensitive to the point moving and they can't be restored."
 
 ;;;;; Temporary popup buffers
 
-(make-variable-buffer-local
- (defvar slime-popup-buffer-saved-emacs-snapshot nil
-   "The snapshot of the current state in Emacs before the popup-buffer
-was displayed, so that this state can be restored later on.
-Buffer local in popup-buffers."))
+(defvar slime-popup-restore-data nil
+  "Data needed when closing popup windows.
+This is buffer local variable.
+The format is (POPUP-WINDOW SELECTED-WINDOW OLD-BUFFER).
+POPUP-WINDOW is the window used to display the temp buffer.
+That window may have been reused or freshly created.
+SELECTED-WINDOW is the window that was selected before displaying
+the popup buffer.
+OLD-BUFFER is the buffer that was previously displayed in POPUP-WINDOW.
+OLD-BUFFER if nil if POPUP-WINDOW was newly created.
 
-(make-variable-buffer-local
- (defvar slime-popup-buffer-saved-fingerprint nil
-   "The emacs snapshot \"fingerprint\" after displaying the buffer."))
+See `view-return-to-alist' for a similar idea.")
 
 ;; Interface
 (defmacro* slime-with-popup-buffer ((name &optional package connection select
@@ -981,8 +984,8 @@ The buffer also uses the minor-mode `slime-popup-buffer-mode'."
 
 (defun slime-init-popup-buffer (buffer-vars)
   (slime-popup-buffer-mode 1)
-  (setq slime-popup-buffer-saved-fingerprint
-        (slime-current-emacs-snapshot-fingerprint))
+  ;;(setq slime-popup-buffer-saved-fingerprint
+  ;;      (slime-current-emacs-snapshot-fingerprint))
   (multiple-value-setq (slime-buffer-package 
                         slime-buffer-connection
                         slime-popup-buffer-saved-emacs-snapshot)
@@ -997,8 +1000,8 @@ can restore it later."
     (walk-windows (lambda (w) (push (cons w (window-buffer w)) old-windows))
                   nil t)
     (let ((new-window (display-buffer (current-buffer))))
-      (unless (slime-local-variable-p 'slime-popup-buffer-restore-info)
-        (set (make-local-variable 'slime-popup-buffer-restore-info)
+      (unless slime-popup-restore-data
+        (set (make-local-variable 'slime-popup-restore-data)
              (list new-window
                    selected-window
                    (cdr (find new-window old-windows :key #'car)))))
@@ -1007,19 +1010,18 @@ can restore it later."
       (current-buffer))))
 
 (defun slime-close-popup-window ()
-  (cond ((slime-local-variable-p 'slime-popup-buffer-restore-info)
-         (destructuring-bind (popup-window selected-window old-buffer)
-             slime-popup-buffer-restore-info
-           (bury-buffer)
-           (when (eq popup-window (selected-window))
-             (cond ((and (not old-buffer) (not (one-window-p)))
-                    (delete-window popup-window))
-                   ((and old-buffer (buffer-live-p old-buffer))
-                    (set-window-buffer popup-window old-buffer))))
-           (when (window-live-p selected-window)
-             (select-window selected-window)))
-         (kill-local-variable 'slime-popup-buffer-restore-info))
-        (t (bury-buffer))))
+  (when slime-popup-restore-data
+    (destructuring-bind (popup-window selected-window old-buffer)
+        slime-popup-restore-data
+      (bury-buffer)
+      (when (eq popup-window (selected-window))
+        (cond ((and (not old-buffer) (not (one-window-p)))
+               (delete-window popup-window))
+              ((and old-buffer (buffer-live-p old-buffer))
+               (set-window-buffer popup-window old-buffer))))
+      (when (window-live-p selected-window)
+        (select-window selected-window)))
+    (kill-local-variable 'slime-popup-restore-data)))
 
 (defmacro slime-save-local-variables (vars &rest body)
   `(let ((vals (cons (mapcar (lambda (var)
@@ -5473,7 +5475,7 @@ CONTS is a list of pending Emacs continuations."
   (with-current-buffer (sldb-get-buffer thread)
     (unless (equal sldb-level level)
       (setq buffer-read-only nil)
-      (slime-save-local-variables (slime-popup-buffer-restore-info)
+      (slime-save-local-variables (slime-popup-restore-data)
         (sldb-mode))
       (setq slime-current-thread thread)
       (setq sldb-level level)

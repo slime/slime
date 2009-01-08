@@ -1,5 +1,12 @@
 2009-01-08  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-popup-restore-data): Renamed from
+	slime-popup-buffer-restore-info.
+	(slime-popup-buffer-saved-fingerprint)
+	(slime-popup-buffer-saved-emacs-snapshot): Deleted.
+
+2009-01-08  Helmut Eller  <heller@common-lisp.net>
+
 	Remove some customization variables of questionale use.
 
 	* slime.el (slime-when-complete-filename-expand)
