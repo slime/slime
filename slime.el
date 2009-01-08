@@ -1005,26 +1005,29 @@ The buffer also uses the minor-mode `slime-popup-buffer-mode'."
 Save the selected-window in a buffer-local variable, so that we
 can restore it later."
   (let ((selected-window (selected-window))
-        (windows))
-    (walk-windows (lambda (w) (push w windows)) nil t)
+        (old-windows))
+    (walk-windows (lambda (w) (push (cons w (window-buffer w)) old-windows))
+                  nil t)
     (let ((new-window (display-buffer (current-buffer))))
       (unless (slime-local-variable-p 'slime-popup-buffer-restore-info)
         (set (make-local-variable 'slime-popup-buffer-restore-info)
-             (list (unless (memq new-window windows)
-                     new-window)
-                   selected-window)))
+             (list new-window
+                   selected-window
+                   (cdr (find new-window old-windows :key #'car)))))
       (when select
         (select-window new-window))
       (current-buffer))))
 
 (defun slime-close-popup-window ()
   (cond ((slime-local-variable-p 'slime-popup-buffer-restore-info)
-         (destructuring-bind (created-window selected-window)
+         (destructuring-bind (popup-window selected-window old-buffer)
              slime-popup-buffer-restore-info
            (bury-buffer)
-           (when (and (eq created-window (selected-window))
-                      (not (eq (next-window created-window) created-window)))
-             (delete-window created-window))
+           (when (eq popup-window (selected-window))
+             (cond ((and (not old-buffer) (not (one-window-p)))
+                    (delete-window popup-window))
+                   ((and old-buffer (buffer-live-p old-buffer))
+                    (set-window-buffer popup-window old-buffer))))
            (when (window-live-p selected-window)
              (select-window selected-window)))
          (kill-local-variable 'slime-popup-buffer-restore-info))
@@ -4006,7 +4009,7 @@ function name is prompted."
           ((slime-length= xrefs 1)      ; ((:error "..."))
            (error "%s" (cadr (slime-xref.location (car xrefs)))))
           (t
-           ;; Xref buffers will themselves push onto the find-definition stack.
+           (slime-push-definition-stack)
            (slime-show-xrefs file-alist 'definition name
                              (slime-current-package))))))
 
@@ -4884,11 +4887,8 @@ The most important commands:
      (slime-with-popup-buffer (xref-buffer-name% ,package t t ,emacs-snapshot)
        (slime-xref-mode)
        (slime-set-truncate-lines)
-       (setq slime-popup-buffer-quit-function 'slime-xref-quit)
        (erase-buffer)
-       (prog1 (progn ,@body)
-         (assert (equal (buffer-name) xref-buffer-name%))
-         (shrink-window-if-larger-than-buffer)))))
+       ,@body)))
 
 (put 'slime-with-xref-buffer 'lisp-indent-function 1)
 
@@ -5042,11 +5042,8 @@ source-location."
 (defun slime-goto-xref ()
   "Goto the cross-referenced location at point."
   (interactive)
-  ;; Notice: We implement it this way so `slime-show-xref' changes the
-  ;; the window snapshot such that `slime-xref-quit' will push onto
-  ;; the find-definition-stack.
   (slime-show-xref)
-  (slime-xref-quit))
+  (slime-popup-buffer-quit))
 
 (defun slime-show-xref ()
   "Display the xref at point in the other window."

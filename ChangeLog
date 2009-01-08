@@ -1,5 +1,19 @@
 2009-01-07  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-with-xref-buffer): Don't set
+	slime-popup-buffer-quit-function. Use the default.  Don't shrink
+	the window because it may have existed before creating the buffer
+	and we need to restore it.
+	(slime-goto-xref): Just use slime-popup-buffer-quit.
+	(slime-edit-definition-cont): Push definition stack here so that
+	we don't need to do anything special in slime-goto-xref.
+	(slime-display-popup-buffer): Also save the buffer that the popup
+	window was displaying before (if the window is not new).
+	(slime-close-popup-window): Restore the old buffer (if any) of the
+	popup window.
+
+2009-01-07  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-show-buffer-position): Use reposition-window.
 
 2009-01-07  Helmut Eller  <heller@common-lisp.net>
