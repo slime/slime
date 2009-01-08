@@ -7,7 +7,7 @@
 	* swank-backend.lisp (swank-compile-string): Pass the
 	buffer-file-name to Lisp, not only the directory.
 	Update callers accordingly.
-	([test] arglist): Update arglist.
+	* slime.el ([test] arglist): Update arglist.
 
 2009-01-08  Helmut Eller  <heller@common-lisp.net>
 

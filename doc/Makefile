@@ -33,6 +33,9 @@ slime.html: $(TEXI)
 html/index.html: $(TEXI)
 	makeinfo -o html --html $<
 
+html.tgz: html/index.html
+	tar -czf $@ html
+
 slime.pdf: $(TEXI)
 	texi2pdf $<
 
@@ -94,4 +97,4 @@ clean:
 	rm -f contributors.texi
 	rm -f slime.{aux,cp,cps,fn,fns,ky,kys,log,pg,tmp,toc,tp,vr,vrs}
 	rm -f slime.{info,pdf,dvi,ps,html}
-	rm -rf html
+	rm -rf html{,.tgz}

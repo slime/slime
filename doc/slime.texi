@@ -112,8 +112,7 @@ the manual for version @value{SLIMEVER}.
 @menu
 * Introduction::                
 * Getting started::             
-* slime-mode::                  
-* REPL::                        
+* SLIME mode::                  
 * Debugger::                    
 * Misc::                        
 * Customization::               
@@ -150,10 +149,21 @@ Setup Tuning
 * Multiple Lisps::              
 * Loading Swank faster::        
 
-Using slime-mode
+Using Slime mode
 
 * User-interface conventions::  
-* Commands::                    
+* Evaluation::                  
+* Compilation::                 
+* Completion::                  
+* Finding definitions::         
+* Documentation::               
+* Cross-reference::             
+* Macro-expansion::             
+* Disassembly::                 
+* Recovery::                    
+* Inspector::                   
+* Profiling::                   
+* Other::                       
 * Semantic indentation::        
 * Reader conditionals::         
 
@@ -163,32 +173,6 @@ User-interface conventions
 * Inferior-lisp::               
 * Multithreading::              
 * Key bindings::                
-
-Commands
-
-* Programming::                 
-* Compilation::                 
-* Evaluation::                  
-* Recovery::                    
-* Inspector::                   
-* Profiling::                   
-* Other::                       
-
-Programming commands
-
-* Completion::                  
-* Indentation::                 
-* Documentation::               
-* Cross-reference::             
-* Finding definitions::         
-* Macro-expansion::             
-* Disassembly::                 
-
-REPL: the ``top level''
-
-* REPL commands::               
-* Input Navigation::            
-* Shortcuts::                   
 
 SLDB: the SLIME debugger
 
@@ -233,6 +217,9 @@ Connecting to a remote lisp
 Contributed Packages
 
 * Loading Contribs::            
+* REPL::                        
+* slime-mrepl::                 
+* inferior-slime-mode::         
 * Compound Completion::         
 * Fuzzy Completion::            
 * slime-autodoc-mode::          
@@ -246,9 +233,14 @@ Contributed Packages
 * Documentation Links::         
 * Xref and Class Browser::      
 * Highlight Edits::             
-* inferior-slime-mode::         
 * Scratch Buffer::              
 * slime-fancy::                 
+
+REPL: the ``top level''
+
+* REPL commands::               
+* Input Navigation::            
+* Shortcuts::                   
 
 @end detailmenu
 @end menu
@@ -301,7 +293,7 @@ This chapter tells you how to get @SLIME{} up and running.
 
 @SLIME{} supports a wide range of operating systems and Lisp
 implementations. @SLIME{} runs on Unix systems, Mac OSX, and Microsoft
-Windows. GNU Emacs versions 20, 21 and 22 and XEmacs version 21 are
+Windows. GNU Emacs versions 21, 22, and 22 and XEmacs version 21 are
 supported.
 
 The supported Lisp implementations, roughly ordered from the
@@ -313,7 +305,7 @@ CMU Common Lisp (@acronym{CMUCL}), 19d or newer
 @item
 Steel Bank Common Lisp (@acronym{SBCL}), 1.0 or newer
 @item
-OpenMCL, version 0.14.3 or newer
+Clozure Common Lisp (@acronym{CCL}), version 1.3 or newer
 @item
 LispWorks, version 4.3 or newer
 @item
@@ -323,10 +315,12 @@ Allegro Common Lisp (@acronym{ACL}), version 6 or newer
 @item
 Armed Bear Common Lisp (@acronym{ABCL})
 @item
-Corman Common Lisp (@acronym{CCL}), version 2.51 or newer with the
+Corman Common Lisp, version 2.51 or newer with the
 patches from @url{http://www.grumblesmurf.org/lisp/corman-patches})
 @item
 Scieneer Common Lisp (@acronym{SCL}), version 1.2.7 or newer
+@item
+Embedded Common Lisp (@acronym{ECL})
 @end itemize
 
 Most features work uniformly across implementations, but some are
@@ -418,23 +412,29 @@ installation just requires a few lines in your @file{.emacs}:
 
 @vindex inferior-lisp-program
 @vindex load-path
+@vindex slime-setup
 @example 
-(setq inferior-lisp-program "@emph{the path to your Lisp system}")
-(add-to-list 'load-path "@emph{the path of your @file{slime} directory}")
+(setq inferior-lisp-program "/opt/sbcl/bin/sbcl") ; @emph{your Lisp system}
+(add-to-list 'load-path "~/hacking/lisp/slime/")  ; @emph{your SLIME directory}
 (require 'slime)
 (slime-setup)
 @end example
 
-@iftex
+@c @iftex
 The snippet above also appears in the @file{README} file. You can
 copy&paste it from there, but remember to fill in the appropriate
 paths.
-@end iftex
+@c @end iftex
+
+This is the minimal configuration with the fewest frills.  If the
+basic setup is working, you can try additional modules (@ref{Loading
+Contribs}).
 
 We recommend not loading the @acronym{ILISP} package into Emacs if you
 intend to use @SLIME{}. Doing so will add a lot of extra bindings to
 the keymap for Lisp source files that may be confusing and may not
 work correctly for a Lisp process started by @SLIME{}.
+
 
 @c ----------------------- 
 @node Running
@@ -448,11 +448,6 @@ created where you can enter Lisp expressions for evaluation.
 
 At this point @SLIME{} is up and running and you can start exploring.
 
-You can restart the @code{inferior-lisp} process using the function:
-@table @kbd
-@cmditem{slime-restart-inferior-lisp}
-@end table
-
 @node Setup Tuning
 @section Setup Tuning
 
@@ -461,6 +456,8 @@ to configure @SLIME{} for multiple Lisp systems.
 
 Please proceed with this section only if your basic setup works.  If
 you are happy with the basic setup, skip this section.
+
+For contrib modules @pxref{Loading Contribs}.
 
 @menu
 * Autoloading::                 
@@ -511,7 +508,7 @@ a negative prefix argument, @kbd{M-- M-x slime}, you can select a
 program from that list.  The elements of the list should look like
 
 @lisp
-(NAME (PROGRAM PROGRAM-ARGS...) &key CODING-SYSTEM INIT INIT-FUNCTION)
+(NAME (PROGRAM PROGRAM-ARGS...) &key CODING-SYSTEM INIT INIT-FUNCTION ENV)
 @end lisp
 
 @table @code
@@ -535,6 +532,14 @@ default, @code{slime-init-command} is used.  An example is shown in
 @itemx INIT-FUNCTION
 should be a function which takes no arguments.  It is called after 
 the connection is established. (See also @ref{slime-connected-hook}.)
+@item ENV
+specifies a list of environment variables for the subprocess. E.g.
+@lisp
+(sbcl-cvs ("/home/me/sbcl-cvs/src/runtime/sbcl" 
+           "--core" "/home/me/sbcl-cvs/output/sbcl.core")
+          :env ("SBCL_HOME=/home/me/sbcl-cvs/contrib/"))
+@end lisp
+initializes @code{SBCL_HOME} in the subprocess.
 @end table
 
 @node Loading Swank faster
@@ -566,7 +571,7 @@ want to update @SLIME{} or @acronym{SBCL}.  The steps to execute are:
 @example
 shell$ sbcl
 * (load ".../slime/swank-loader.lisp")
-* (save-lisp-and-die "sbcl.core-with-swank")
+* (swank-loader:dump-image "sbcl.core-with-swank")
 @end example
 
 @noindent
@@ -583,8 +588,8 @@ Then add this to your @file{.emacs}:
 @noindent
 Similar setups should also work for other Lisp implementations.
 
-@node slime-mode
-@chapter Using slime-mode
+@node SLIME mode
+@chapter Using Slime mode
 
 @SLIME{}'s commands are provided via @code{slime-mode}, a minor-mode
 used in conjunction with Emacs's @code{lisp-mode}. This chapter
@@ -592,7 +597,18 @@ describes the @code{slime-mode} and its relatives.
 
 @menu
 * User-interface conventions::  
-* Commands::                    
+* Evaluation::                  
+* Compilation::                 
+* Completion::                  
+* Finding definitions::         
+* Documentation::               
+* Cross-reference::             
+* Macro-expansion::             
+* Disassembly::                 
+* Recovery::                    
+* Inspector::                   
+* Profiling::                   
+* Other::                       
 * Semantic indentation::        
 * Reader conditionals::         
 @end menu
@@ -765,47 +781,128 @@ which binds @kbd{C-c ;} to the function
 @code{slime-insert-balanced-comments} in the REPL buffer.
 
 @c ----------------------- 
-@node Commands
-@section Commands
+@node Evaluation
+@section Evaluation commands
 
-@acronym{SLIME} commands are divided into the following general
-categories: @strong{Programming, Compilation, Evaluation, Recovery,
-Inspector, and Profiling}, discussed in separate sections below. There
-are also comprehensive indices to commands by function 
-(@pxref{Command Index}).
+These commands each evaluate a Common Lisp expression in a different
+way.  Usually they mimic commands for evaluating Emacs Lisp code.  By
+default they show their results in the echo area, but a prefix
+argument causes the results to be inserted in the current buffer.
 
-@menu
-* Programming::                 
-* Compilation::                 
-* Evaluation::                  
-* Recovery::                    
-* Inspector::                   
-* Profiling::                   
-* Other::                       
-@end menu
+@table @kbd
+
+@kbditem{C-x C-e, slime-eval-last-expression}
+
+Evaluate the expression before point and show the result in the echo
+area.
+
+@kbditem{C-M-x, slime-eval-defun}
+Evaluate the current toplevel form and show the result in the echo
+area.  `C-M-x' treats `defvar' expressions specially.  Normally,
+evaluating a `defvar' expression does nothing if the variable it
+defines already has a value.  But `C-M-x' unconditionally resets the
+variable to the initial value specified in the `defvar' expression.
+This special feature is convenient for debugging Lisp programs.
+
+@end table
+
+If @kbd{C-M-x} or @kbd{C-x C-e} is given a numeric argument, it
+inserts the value into the current buffer, rather than displaying it
+in the echo area.
+
+@table @kbd
+@kbditem{C-c :, slime-interactive-eval}
+Evaluate an expression read from the minibuffer.
+
+@kbditem{C-c C-r, slime-eval-region}
+Evaluate the region.
+
+@kbditem{C-c C-p, slime-pprint-eval-last-expression}
+Evaluate the expression before point and pretty-print the result in a
+fresh buffer.
+
+@kbditem{C-c E, slime-edit-value}
+Edit the value of a setf-able form in a new buffer @file{*Edit <form>*}.
+The value is inserted into a temporary buffer for editing and then set
+in Lisp when committed with @kbd{C-c C-c}.
+
+@kbditem{C-x M-e, slime-eval-last-expression-display-output}
+Display the output buffer and evaluate the expression preceding point.
+This is useful if the expression writes something to the output stream.
+
+@kbditem{C-c C-u, slime-undefine-function}
+Undefine the function, with @code{fmakunbound}, for the symbol at
+point.
+
+@end table
 
 @c ----------------------- 
-@node Programming
-@subsection Programming commands
+@node Compilation
+@section Compilation commands
 
-Programming commands are divided into the following categories:
-@strong{Completion, Documentation, Cross-reference, Finding
-definitions, Macro-expansion, and Disassembly}, discussed in
-separate sections below.
+@cindex Compilation
 
-@menu
-* Completion::                  
-* Indentation::                 
-* Documentation::               
-* Cross-reference::             
-* Finding definitions::         
-* Macro-expansion::             
-* Disassembly::                 
-@end menu
+@SLIME{} has fancy commands for compiling functions, files, and
+packages. The fancy part is that notes and warnings offered by the
+Lisp compiler are intercepted and annotated directly onto the
+corresponding expressions in the Lisp source buffer. (Give it a try to
+see what this means.)
 
-@c ----------------------- 
+@table @kbd
+@cindex Compiling Functions
+@kbditem{C-c C-c, slime-compile-defun}
+Compile the top-level form at point.  The region blinks shortly to
+give some feedback which part was choosen.
+
+With (positive) prefix argument the form is compiled with maximal
+debug settings.  With negative prefix argument it is compiled for
+speed.
+
+The code for the region is executed after compilation.  In principle,
+the command writes the region to a file, compiles that file, and loads
+the resulting code.
+
+@kbditem{C-c C-k, slime-compile-and-load-file}
+Compile and load the current buffer's source file.  If the compilation
+step failes, the file is not loaded.  It's not always easy to tell
+whether the compilation failed: occasionaly you may end up in the
+debugger during the load step.
+
+@kbditem{C-c M-k, slime-compile-file}
+Compile (but don't load) the current buffer's source file.
+
+@kbditem{C-c C-l, slime-load-file}
+Load a Lisp file.  This command uses the Common Lisp LOAD function.
+
+@cmditem{slime-compile-region}
+Compile the selected region.
+
+@end table
+
+The annotations are indicated as underlining on source forms. The
+compiler message associated with an annotation can be read either by
+placing the mouse over the text or with the selection commands below.
+
+@table @kbd
+@kbditem{M-n, slime-next-note}
+Move the point to the next compiler note and displays the note.
+
+@kbditem{M-p, slime-previous-note}
+Move the point to the previous compiler note and displays the note.
+
+@kbditem{C-c M-c, slime-remove-notes}
+Remove all annotations from the buffer.
+
+@kbditem{C-x `, next-error}
+Visit the next-error message.  This is not actually a @SLIME{} command
+but @SLIME{} creates a hidden buffer so that most of the Compilation
+mode commands (@inforef{Compilation Mode,, emacs}) work similarily for
+Lisp as for batch compilers.
+
+@end table
+
 @node Completion
-@subsubsection Completion commands
+@section Completion commands
 
 @cindex Completion
 @cindex Symbol Completion
@@ -817,30 +914,55 @@ completion tries harder.
 
 @table @kbd
 @kbditem{M-TAB,slime-complete-symbol}
-@itemx ESC TAB
-@itemx C-c C-i
-@itemx C-M-i
+@c @itemx ESC TAB
+@c @itemx C-M-i
 Complete the symbol at point. Note that three styles of completion are
 available in @SLIME{}; the default is similar to normal Emacs
 completion (@pxref{slime-complete-symbol-function}).
 
 @end table
 
-@node Indentation
-@subsubsection Indentation commands
+@c ----------------------- 
+@node Finding definitions
+@section Finding definitions (``Meta-Point'' commands).
+
+@cindex Meta-dot
+@cindex TAGS
+
+The familiar @kbd{M-.} command is provided. For generic functions this
+command finds all methods, and with some systems it does other fancy
+things (like tracing structure accessors to their @code{DEFSTRUCT}
+definition).
 
 @table @kbd
 
-@kbditem{C-M-q, indent-sexp}
-Indents the list immediately following point to match the level at point. 
+@kbditem{M-., slime-edit-definition}
+Go to the definition of the symbol at point.
 
-When given a prefix argument, the text around point will always
-be treated as a paragraph.  This is useful for filling docstrings."
+@item M-,
+@itemx M-*
+@itemx M-x slime-pop-find-definition-stack
+@kindex M-,
+@findex slime-pop-find-definition-stack
+Go back to the point where @kbd{M-.} was invoked. This gives multi-level
+backtracking when @kbd{M-.} has been used several times.
+
+@kbditem{C-x 4 ., slime-edit-definition-other-window}
+Like @code{slime-edit-definition} but switchs to the other window to
+edit the definition in.
+
+@kbditem{C-x 5 ., slime-edit-definition-other-frame}
+Like @code{slime-edit-definition} but opens another frame to edit the
+definition in.
+
+@cmditem{slime-edit-definition-with-etags}
+Use an ETAGS table to find definition at point.
+
 @end table
 
 @c ----------------------- 
 @node Documentation
-@subsubsection Documentation commands
+@section Documentation commands
 
 @SLIME{}'s online documentation commands follow the example of Emacs
 Lisp. The commands all share the common prefix @kbd{C-c C-d} and allow
@@ -889,7 +1011,7 @@ Lookup a @emph{format character} in the @cite{Common Lisp Hyperspec}.
 
 @c ----------------------- 
 @node Cross-reference
-@subsubsection Cross-reference commands
+@section Cross-reference commands
 
 @cindex xref
 @cindex Cross-referencing
@@ -944,49 +1066,9 @@ List callees of a function.
 
 @end table
 
-
-
-@c ----------------------- 
-@node Finding definitions
-@subsubsection Finding definitions (``Meta-Point'' commands).
-
-@cindex Meta-dot
-@cindex TAGS
-
-The familiar @kbd{M-.} command is provided. For generic functions this
-command finds all methods, and with some systems it does other fancy
-things (like tracing structure accessors to their @code{DEFSTRUCT}
-definition).
-
-@table @kbd
-
-@kbditem{M-., slime-edit-definition}
-Go to the definition of the symbol at point.
-
-@item M-,
-@itemx M-*
-@itemx M-x slime-pop-find-definition-stack
-@kindex M-,
-@findex slime-pop-find-definition-stack
-Go back to the point where @kbd{M-.} was invoked. This gives multi-level
-backtracking when @kbd{M-.} has been used several times.
-
-@kbditem{C-x 4 ., slime-edit-definition-other-window}
-Like @code{slime-edit-definition} but switchs to the other window to
-edit the definition in.
-
-@kbditem{C-x 5 ., slime-edit-definition-other-frame}
-Like @code{slime-edit-definition} but opens another frame to edit the
-definition in.
-
-@cmditem{slime-edit-definition-with-etags}
-Use an ETAGS table to find definition at point.
-
-@end table
-
 @c ----------------------- 
 @node Macro-expansion
-@subsubsection Macro-expansion commands
+@section Macro-expansion commands
 
 @cindex Macros
 
@@ -1012,7 +1094,7 @@ For additional minor-mode commands and discussion,
 
 @c ----------------------- 
 @node Disassembly
-@subsubsection Disassembly commands
+@section Disassembly commands
 
 @table @kbd
 
@@ -1030,121 +1112,15 @@ Untrace all functions.
 @end table
 
 @c ----------------------- 
-@node Compilation
-@subsection Compilation commands
-
-@cindex Compilation
-
-@SLIME{} has fancy commands for compiling functions, files, and
-packages. The fancy part is that notes and warnings offered by the
-Lisp compiler are intercepted and annotated directly onto the
-corresponding expressions in the Lisp source buffer. (Give it a try to
-see what this means.)
-
-@table @kbd
-@cindex Compiling Functions
-@kbditem{C-c C-c, slime-compile-defun}
-Compile the top-level form at point.
-
-@kbditem{C-c C-y, slime-call-defun}
-Insert a call to the function defined around point into the REPL.
-
-@kbditem{C-c C-k, slime-compile-and-load-file}
-Compile and load the current buffer's source file.
-
-@kbditem{C-c M-k, slime-compile-file}
-Compile (but don't load) the current buffer's source file.
-
-@kbditem{C-c C-l, slime-load-file}
-Load a source file and compile if necessary, without loading into a buffer..
-
-@kbditem{C-c C-z, slime-switch-to-output-buffer}
-Select the output buffer, preferably in a different window.
-
-@cmditem{slime-compile-region}
-Compile region at point.
-
-@end table
-
-The annotations are indicated as underlining on source forms. The
-compiler message associated with an annotation can be read either by
-placing the mouse over the text or with the selection commands below.
-
-@table @kbd
-@kbditem{M-n, slime-next-note}
-Move the point to the next compiler note and displays the note.
-
-@kbditem{M-p, slime-previous-note}
-Move the point to the previous compiler note and displays the note.
-
-@kbditem{C-c M-c, slime-remove-notes}
-Remove all annotations from the buffer.
-@end table
-
-@c ----------------------- 
-@node Evaluation
-@subsection Evaluation commands
-
-These commands each evaluate a Common Lisp expression in a different
-way.  Usually they mimic commands for evaluating Emacs Lisp code.  By
-default they show their results in the echo area, but a prefix
-argument causes the results to be inserted in the current buffer.
-
-@table @kbd
-
-@kbditem{C-x C-e, slime-eval-last-expression}
-
-Evaluate the expression before point and show the result in the echo
-area.
-
-@kbditem{C-M-x, slime-eval-defun}
-Evaluate the current toplevel form and show the result in the echo
-area.  `C-M-x' treats `defvar' expressions specially.  Normally,
-evaluating a `defvar' expression does nothing if the variable it
-defines already has a value.  But `C-M-x' unconditionally resets the
-variable to the initial value specified in the `defvar' expression.
-This special feature is convenient for debugging Lisp programs.
-
-@end table
-
-If @kbd{C-M-x} or @kbd{C-x C-e} is given a numeric argument, it
-inserts the value into the current buffer, rather than displaying it
-in the echo area.
-
-@table @kbd
-@kbditem{C-c :, slime-interactive-eval}
-Evaluate an expression read from the minibuffer.
-
-@kbditem{C-c C-r, slime-eval-region}
-Evaluate the region.
-
-@kbditem{C-c C-p, slime-pprint-eval-last-expression}
-Evaluate the expression before point and pretty-print the result in a
-fresh buffer.
-
-@kbditem{C-c E, slime-edit-value}
-Edit the value of a setf-able form in a new buffer @file{*Edit <form>*}.
-The value is inserted into a temporary buffer for editing and then set
-in Lisp when committed with @kbd{C-c C-c}.
-
-@kbditem{C-x M-e, slime-eval-last-expression-display-output}
-Display the output buffer and evaluate the expression preceding point.
-This is useful if the expression writes something to the output stream.
-
-@kbditem{C-c C-u, slime-undefine-function}
-Undefine the function, with @code{fmakunbound}, for the symbol at
-point.
-
-@end table
-
-
-@c ----------------------- 
 @node Recovery
-@subsection Abort/Recovery commands
+@section Abort/Recovery commands
 
 @table @kbd
 @kbditem{C-c C-b, slime-interrupt}
 Interrupt Lisp (send @code{SIGINT}).
+
+@cmditem{slime-restart-inferior-lisp}
+Restart the @code{inferior-lisp} process.
 
 @kbditem{C-c ~, slime-sync-package-and-default-directory}
 Synchronize the current package and working directory from Emacs to
@@ -1153,11 +1129,18 @@ Lisp.
 @kbditem{C-c M-p, slime-repl-set-package}
 Set the current package of the @acronym{REPL}.
 
+@cmditem{slime-cd}
+Set the current directory of the Lisp process.  This also
+changes the current directory of the REPL buffer.
+
+@cmditem{slime-pwd}
+Print the current directory of the Lisp process.
+
 @end table
 
 @c ----------------------- 
 @node Inspector
-@subsection Inspector commands
+@section Inspector commands
 
 The @SLIME{} inspector is a Emacs-based alternative to the
 standard @code{INSPECT} function. The inspector presents objects in
@@ -1207,7 +1190,7 @@ then be used to access the object in the REPL.
 
 @c ----------------------- 
 @node Profiling
-@subsection Profiling commands
+@section Profiling commands
 
 The profiling commands are based on CMUCL's profiler.  These are
 simple wrappers around functions which usually print something to the
@@ -1230,7 +1213,7 @@ Show list of currently profiled functions.
 
 @c ----------------------- 
 @node Other
-@subsection Shadowed Commands
+@section Shadowed Commands
 
 @table @kbd
 
@@ -1292,182 +1275,6 @@ be scanned for indentation information.
 @SLIME{} automatically evaluates reader-conditional expressions, like
 @code{#+linux}, in source buffers and ``grays out'' code that will be
 skipped for the current Lisp connection.
-
-
-@c ----------------------- 
-@node REPL
-@chapter REPL: the ``top level''
-
-@cindex Listener
-
-@SLIME{} uses a custom Read-Eval-Print Loop (@REPL{}, also known as a
-``top level'', or listener). The @REPL{} user-interface is written in
-Emacs Lisp, which gives more Emacs-integration than the traditional
-@code{comint}-based Lisp interaction:
-
-@itemize @bullet
-@item
-Conditions signalled in @REPL{} expressions are debugged with @SLDB{}.
-@item
-Return values are distinguished from printed output by separate Emacs
-faces (colours).
-@item
-Emacs manages the @REPL{} prompt with markers. This ensures that Lisp
-output is inserted in the right place, and doesn't get mixed up with
-user input.
-@end itemize
-
-@menu
-* REPL commands::               
-* Input Navigation::            
-* Shortcuts::                   
-@end menu
-
-@c ----------------------- 
-@node REPL commands
-@section REPL commands
-
-@table @kbd
-
-@kbditem{RET, slime-repl-return}
-Evaluate the current input in Lisp if it is complete. If incomplete,
-open a new line and indent. If a prefix argument is given then the
-input is evaluated without checking for completeness.
-
-@kbditem{C-RET, slime-repl-closing-return}
-Close any unmatched parenthesis and then evaluate the current input in
-Lisp. Also bound to @kbd{M-RET}.
-
-@kbditem{C-j, slime-repl-newline-and-indent}
-Open and indent a new line.
-
-@kbditem{C-a, slime-repl-bol}
-Go to the beginning of the line, but stop at the @REPL{} prompt.
-
-@c @anchor{slime-interrupt}
-@kbditem{C-c C-c, slime-interrupt}
-Interrupt the Lisp process with @code{SIGINT}.
-
-@c @kbditem{C-c M-g, slime-quit}
-@c Quit slime. 
-
-@kbditem{C-c M-o, slime-repl-clear-buffer}
-Clear the entire buffer, leaving only a prompt.
-
-@kbditem{C-c C-o, slime-repl-clear-output}
-Remove the output and result of the previous expression from the
-buffer.
-
-@end table
-
-@c ----------------------- 
-@node Input Navigation
-@section Input navigation
-
-@cindex Input History
-
-The input navigation (a.k.a. history) commands are modelled after
-@code{coming}-mode.  Be careful if you are used to Bash-like
-keybindings: @kbd{M-p} and @kbd{M-n} use the current input as search
-pattern and only work Bash-like if the current line is
-empty. @kbd{C-<up>} and @kbd{C-<up>} work like the up and down keys in
-Bash.
-
-@table @kbd
-
-@kbditempair{C-<up>, C-<down>,
-             slime-repl-forward-input, slime-repl-backward-input}
-Go to the next/previous history item.
-
-@kbditempair{M-n, M-p, slime-repl-next-input, slime-repl-previous-input}
-Search the next/previous item in the command history using the current
-input as search pattern.  If @kbd{M-n}/@kbd{M-n} is typed two times in
-a row, the second invocation uses the same search pattern (even if the
-current input has changed).
-
-@kbditempair{M-s, M-r,
-slime-repl-next-matching-input, slime-repl-previous-matching-input}
-Search forward/reverse through command history with regex
-
-@c @code{slime-repl-@{next,previous@}-input}@*
-@c @code{slime-repl-@{next,previous@}-matching-input}@*
-@c @code{comint}-style input history commands.
-
-@kbditempair{C-c C-n, C-c C-p, 
-slime-repl-next-prompt, slime-repl-previous-prompt} 
-Move between the current and previous prompts in the @REPL{} buffer.
-Pressing RET on a line with old input copies that line to the newest
-prompt.
-@end table
-
-@vindex slime-repl-wrap-history
-The variable @code{slime-repl-wrap-history} controls wrap around
-behaviour, i.e. whether cycling should restart at the beginning of the
-history if the end is reached.
-
-@c ----------------------- 
-@comment  node-name,  next,  previous,  up
-@node Shortcuts
-@section Shortcuts
-
-@cindex Shortcuts
-
-``Shortcuts'' are a special set of @REPL{} commands that are invoked
-by name. To invoke a shortcut you first press @kbd{,} (comma) at the
-@REPL{} prompt and then enter the shortcut's name when prompted.
-
-Shortcuts deal with things like switching between directories and
-compiling and loading Lisp systems. The set of shortcuts is listed
-below, and you can also use the @code{help}
-shortcut to list them interactively.
-
-@table @kbd
-@item change-directory (aka !d, cd)
-Change the current directory.
-
-@item change-package (aka !p)
-Change the current package.
-
-@item compile-and-load (aka cl)
-Compile (if neccessary) and load a lisp file.
-
-
-@item defparameter (aka !)
-Define a new global, special, variable.
-
-@item help (aka ?)
-Display the help.
-
-
-
-@item pop-directory (aka -d)
-Pop the current directory.
-
-@item pop-package (aka -p)
-Pop the top of the package stack.
-
-@item push-directory (aka +d, pushd)
-Push a new directory onto the directory stack.
-
-@item push-package (aka +p)
-Push a package onto the package stack.
-
-@item pwd
-Show the current directory.
-
-@item quit
-Quit the current Lisp.
-
-@item resend-form
-Resend the last form.
-
-@item restart-inferior-lisp
-Restart *inferior-lisp* and reconnect SLIME.
-
-@item sayoonara
-Quit all Lisps and close all SLIME buffers.
-
-@end table
 
 @c ----------------------- 
 @node Debugger
@@ -1818,7 +1625,7 @@ for different Lisps, see @ref{Multiple Lisps}.)
 * Hooks::                       
 @end menu
 
-@c ----------------------- 
+@c ----------------------- 
 @node Hooks
 @subsection Hooks
 
@@ -2198,6 +2005,9 @@ particular packages do.
 
 @menu
 * Loading Contribs::            
+* REPL::                        
+* slime-mrepl::                 
+* inferior-slime-mode::         
 * Compound Completion::         
 * Fuzzy Completion::            
 * slime-autodoc-mode::          
@@ -2211,7 +2021,6 @@ particular packages do.
 * Documentation Links::         
 * Xref and Class Browser::      
 * Highlight Edits::             
-* inferior-slime-mode::         
 * Scratch Buffer::              
 * slime-fancy::                 
 @end menu
@@ -2225,20 +2034,239 @@ particular packages do.
 
 Contrib packages aren't loaded by default.  You have to modify your
 setup a bit so that Emacs knows where to find them and which of them
-to load, i.e. you should add the contrib directory to
-Emacs' @code{load-path} and call @code{slime-setup} with the list of
-package-names.  For example, a setup to load the @code{slime-scratch}
-and @code{slime-editing-commands} looks like:
+to load.  Generally, you should call @code{slime-setup} with the list
+of package-names that you want to use.  For example, a setup to load
+the @code{slime-scratch} and @code{slime-editing-commands} packages
+looks like:
 
-@example 
-(add-to-list 'load-path ".../slime")          ; path for core 
-(add-to-list 'load-path ".../slime/contrib")  ; path for contribs
+@example
+(setq inferior-lisp-program "/opt/sbcl/bin/sbcl") ; @emph{your Lisp system}
+(add-to-list 'load-path "~/hacking/lisp/slime/")  ; @emph{your SLIME directory}
 (require 'slime-autoloads)
 (slime-setup '(slime-scratch slime-editing-commands))
 @end example
 
 After starting SLIME, the commands of both packages should be
 available.
+
+@c ----------------------- 
+@node REPL
+@section REPL: the ``top level''
+
+@cindex Listener
+
+@SLIME{} uses a custom Read-Eval-Print Loop (@REPL{}, also known as a
+``top level'', or listener). The @REPL{} user-interface is written in
+Emacs Lisp, which gives more Emacs-integration than the traditional
+@code{comint}-based Lisp interaction:
+
+@itemize @bullet
+@item
+Conditions signalled in @REPL{} expressions are debugged with @SLDB{}.
+@item
+Return values are distinguished from printed output by separate Emacs
+faces (colours).
+@item
+Emacs manages the @REPL{} prompt with markers. This ensures that Lisp
+output is inserted in the right place, and doesn't get mixed up with
+user input.
+@end itemize
+
+To load the REPL call @code{(slime-setup '(slime-repl))} in your
+@code{./emacs}.
+
+@table @kbd
+
+@kbditem{C-c C-z, slime-switch-to-output-buffer}
+Select the output buffer, preferably in a different window.
+
+@kbditem{C-c C-y, slime-call-defun}
+Insert a call to the function defined around point into the REPL.
+
+@end table
+
+@menu
+* REPL commands::               
+* Input Navigation::            
+* Shortcuts::                   
+@end menu
+
+@c ----------------------- 
+@node REPL commands
+@subsection REPL commands
+
+@table @kbd
+
+@kbditem{RET, slime-repl-return}
+Evaluate the current input in Lisp if it is complete. If incomplete,
+open a new line and indent. If a prefix argument is given then the
+input is evaluated without checking for completeness.
+
+@kbditem{C-RET, slime-repl-closing-return}
+Close any unmatched parenthesis and then evaluate the current input in
+Lisp. Also bound to @kbd{M-RET}.
+
+@kbditem{C-j, slime-repl-newline-and-indent}
+Open and indent a new line.
+
+@kbditem{C-a, slime-repl-bol}
+Go to the beginning of the line, but stop at the @REPL{} prompt.
+
+@c @anchor{slime-interrupt}
+@kbditem{C-c C-c, slime-interrupt}
+Interrupt the Lisp process with @code{SIGINT}.
+
+@c @kbditem{C-c M-g, slime-quit}
+@c Quit slime. 
+
+@kbditem{C-c M-o, slime-repl-clear-buffer}
+Clear the entire buffer, leaving only a prompt.
+
+@kbditem{C-c C-o, slime-repl-clear-output}
+Remove the output and result of the previous expression from the
+buffer.
+
+@end table
+
+@c ----------------------- 
+@node Input Navigation
+@subsection Input navigation
+
+@cindex Input History
+
+The input navigation (a.k.a. history) commands are modelled after
+@code{coming}-mode.  Be careful if you are used to Bash-like
+keybindings: @kbd{M-p} and @kbd{M-n} use the current input as search
+pattern and only work Bash-like if the current line is
+empty. @kbd{C-<up>} and @kbd{C-<up>} work like the up and down keys in
+Bash.
+
+@table @kbd
+
+@kbditempair{C-<up>, C-<down>,
+             slime-repl-forward-input, slime-repl-backward-input}
+Go to the next/previous history item.
+
+@kbditempair{M-n, M-p, slime-repl-next-input, slime-repl-previous-input}
+Search the next/previous item in the command history using the current
+input as search pattern.  If @kbd{M-n}/@kbd{M-n} is typed two times in
+a row, the second invocation uses the same search pattern (even if the
+current input has changed).
+
+@kbditempair{M-s, M-r,
+slime-repl-next-matching-input, slime-repl-previous-matching-input}
+Search forward/reverse through command history with regex
+
+@c @code{slime-repl-@{next,previous@}-input}@*
+@c @code{slime-repl-@{next,previous@}-matching-input}@*
+@c @code{comint}-style input history commands.
+
+@kbditempair{C-c C-n, C-c C-p, 
+slime-repl-next-prompt, slime-repl-previous-prompt} 
+Move between the current and previous prompts in the @REPL{} buffer.
+Pressing RET on a line with old input copies that line to the newest
+prompt.
+@end table
+
+@vindex slime-repl-wrap-history
+The variable @code{slime-repl-wrap-history} controls wrap around
+behaviour, i.e. whether cycling should restart at the beginning of the
+history if the end is reached.
+
+@c ----------------------- 
+@comment  node-name,  next,  previous,  up
+@node Shortcuts
+@subsection Shortcuts
+
+@cindex Shortcuts
+
+``Shortcuts'' are a special set of @REPL{} commands that are invoked
+by name. To invoke a shortcut you first press @kbd{,} (comma) at the
+@REPL{} prompt and then enter the shortcut's name when prompted.
+
+Shortcuts deal with things like switching between directories and
+compiling and loading Lisp systems. The set of shortcuts is listed
+below, and you can also use the @code{help}
+shortcut to list them interactively.
+
+@table @kbd
+@item change-directory (aka !d, cd)
+Change the current directory.
+
+@item change-package (aka !p)
+Change the current package.
+
+@item compile-and-load (aka cl)
+Compile (if neccessary) and load a lisp file.
+
+
+@item defparameter (aka !)
+Define a new global, special, variable.
+
+@item help (aka ?)
+Display the help.
+
+@item pop-directory (aka -d)
+Pop the current directory.
+
+@item pop-package (aka -p)
+Pop the top of the package stack.
+
+@item push-directory (aka +d, pushd)
+Push a new directory onto the directory stack.
+
+@item push-package (aka +p)
+Push a package onto the package stack.
+
+@item pwd
+Show the current directory.
+
+@item quit
+Quit the current Lisp.
+
+@item resend-form
+Resend the last form.
+
+
+@item restart-inferior-lisp
+Restart *inferior-lisp* and reconnect SLIME.
+
+@item sayoonara
+Quit all Lisps and close all SLIME buffers.
+
+@end table
+
+@node slime-mrepl
+@section Multiple REPLs
+
+The @code{slime-mrepl} package adds support for multiple listener
+buffers.  The command @kbd{M-x slime-open-listener} creates a new
+buffer.  In a multi-threaded Lisp, each listener is associated with a
+separate thread.  In a single-threaded Lisp it's also possible to
+create multiple listener buffers but the commands are executed
+sequentially by the same process.
+
+@node inferior-slime-mode
+@section @code{inferior-slime-mode}
+
+The @code{inferior-slime-mode} is a minor mode is intended to use with
+the @code{*inferior-lisp*} lisp buffer.  It provides some of the
+SLIME commands, like symbol completion and documentation lookup. It
+also tracks the current directory of the Lisp process.
+To install it, add something like this to user @file{.emacs}:
+
+@example
+(slime-setup '(inferior-slime-mode))
+@end example
+
+@table @kbd
+@cmditem{inferior-slime-mode}
+Turns inferior-slime-mode on or off.
+@end table
+
+@vindex inferior-slime-mode-map
+The variable @code{inferior-slime-mode-map} contains the extra
+keybindings.
 
 @node Compound Completion
 @section Compound Completion 
@@ -2711,28 +2739,6 @@ quickly find those functions which need to be recompiled (whith
 @cmditem{slime-highlight-edits-mode}
 Turns @code{slime-highlight-edits-mode} on or off.
 @end table
-
-@node inferior-slime-mode
-@section @code{inferior-slime-mode}
-
-The @code{inferior-slime-mode} is a minor mode is intended to use with
-a comint buffer.  It provides some of the SLIME commands, like symbol
-completion and documentation lookup.  To install it, add something
-like this to user @file{.emacs}:
-
-@example
-(slime-setup '(inferior-slime-mode))
-(add-hook 'inferior-lisp-mode-hook (lambda () (inferior-slime-mode 1)))
-@end example
-
-@table @kbd
-@cmditem{inferior-slime-mode}
-Turns inferior-slime-mode on or off.
-@end table
-
-@vindex inferior-slime-mode-map
-The variable @code{inferior-slime-mode-map} contains the extra
-keybindings.
 
 @node Scratch Buffer
 @section Scratch Buffer
