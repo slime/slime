@@ -376,8 +376,8 @@ Full set of commands:
   nil
   nil
   ;; Fake binding to coax `define-minor-mode' to create the keymap
-  '((" " 'undefined)))
-
+  '((" " 'undefined))
+  (slime-setup-command-hooks))
 
 (make-variable-buffer-local
  (defvar slime-modeline-string nil
@@ -4892,13 +4892,6 @@ The most important commands:
 
 (put 'slime-with-xref-buffer 'lisp-indent-function 1)
 
-(defun slime-xref-buffer ()
-  "Return the XREF results buffer.
-If CREATE is non-nil, create it if necessary."
-  (or (find-if (lambda (b) (string-match "*XREF\\[" (buffer-name b)))
-               (buffer-list))
-      (error "No XREF buffer")))
-
 (defun slime-xref-quit (&optional _)
   "Kill the current xref buffer, restore the window configuration
 if appropriate."
@@ -4938,16 +4931,21 @@ source-location."
 (defvar slime-next-location-function nil
   "Function to call for going to the next location.")
 
+(defvar slime-xref-last-buffer nil
+  "The most recent XREF results buffer.
+This is used by `slime-goto-next-xref'")
+
 (defun slime-show-xrefs (xrefs type symbol package &optional emacs-snapshot)
   "Show the results of an XREF query."
   (if (null xrefs)
       (message "No references found for %s." symbol)
-    (setq slime-next-location-function 'slime-goto-next-xref)
     (slime-with-xref-buffer (type symbol package emacs-snapshot)
       (slime-insert-xrefs xrefs)
       (goto-char (point-min))
       (forward-line)
-      (skip-chars-forward " \t"))))
+      (skip-chars-forward " \t")
+      (setq slime-next-location-function 'slime-goto-next-xref)
+      (setq slime-xref-last-buffer (current-buffer )))))
 
 
 ;;;;; XREF commands
@@ -5051,20 +5049,34 @@ source-location."
   (let ((location (slime-xref-location-at-point)))
     (slime-show-source-location location)))
       
-(defun slime-goto-next-xref ()
+(defun slime-goto-next-xref (&optional backward)
   "Goto the next cross-reference location."
-  (let ((location (with-current-buffer (slime-xref-buffer)
-                    (let ((w (display-buffer (current-buffer) t)))
-                      (goto-char (1+ (next-single-char-property-change 
-                                      (point) 'slime-location)))
-                      (set-window-point w (point)))
-                    (cond ((eobp)
-                           (message "No more xrefs.")
-                           nil)
-                          (t 
-                           (slime-xref-location-at-point))))))
-    (when location
-      (slime-pop-to-location location))))
+  (let ((location 
+         (and (buffer-live-p slime-xref-last-buffer)
+              (with-current-buffer slime-xref-last-buffer
+                (slime-search-property 'slime-location backward)))))
+    (cond ((slime-location-p location)
+           (slime-pop-to-location location))
+          ((null location)
+           (message "No more xrefs."))
+          (t ; error
+           (slime-goto-next-xref backward)))))
+
+(defun slime-search-property (prop &optional backward)
+  "Search the next text range where PROP is non-nil.
+If found, return the value of the property; otherwise return nil.
+If BACKWARD is non-nil, search backward."
+  (let ((fun (cond (backward #'previous-single-char-property-change)
+                   (t #'next-single-char-property-change)))
+        (test (lambda () (get-text-property (point) prop)))
+        (start (point)))
+    (while (progn 
+             (goto-char (funcall fun (point) prop))
+             (not (or (funcall test) 
+                      (eobp) 
+                      (bobp)))))
+    (or (funcall test)
+        (progn (goto-char start) nil))))
 
 (defun slime-next-location ()
   "Go to the next location, depending on context.

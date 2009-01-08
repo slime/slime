@@ -1,5 +1,15 @@
 2009-01-07  Helmut Eller  <heller@common-lisp.net>
 
+	Fix the slime-next-location command.
+
+	* slime.el (slime-xref-last-buffer): New variable.
+	(slime-show-xrefs): Initialize it.
+	(slime-goto-next-xref): Use it.
+	(slime-search-property): New function.
+	(slime-xref-buffer): Delted
+
+2009-01-07  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (*sldb-pprint-dispatch-table*): Honor *print-escape*
 
 2009-01-07  Helmut Eller  <heller@common-lisp.net>
