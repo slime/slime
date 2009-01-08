@@ -3,7 +3,10 @@
 	* slime.el (slime-popup-restore-data): Renamed from
 	slime-popup-buffer-restore-info.
 	(slime-popup-buffer-saved-fingerprint)
-	(slime-popup-buffer-saved-emacs-snapshot): Deleted.
+	(slime-popup-buffer-saved-emacs-snapshot)
+	(slime-popup-buffer-snapshot-unchanged-p)
+	(slime-popup-buffer-restore-snapshot)
+	(slime-xref-quit, slime-xref-retract): Deleted.
 
 2009-01-08  Helmut Eller  <heller@common-lisp.net>
 

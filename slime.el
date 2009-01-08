@@ -929,16 +929,20 @@ sensitive to the point moving and they can't be restored."
 
 (defvar slime-popup-restore-data nil
   "Data needed when closing popup windows.
-This is buffer local variable.
+This is used as buffer local variable.
 The format is (POPUP-WINDOW SELECTED-WINDOW OLD-BUFFER).
 POPUP-WINDOW is the window used to display the temp buffer.
 That window may have been reused or freshly created.
 SELECTED-WINDOW is the window that was selected before displaying
 the popup buffer.
 OLD-BUFFER is the buffer that was previously displayed in POPUP-WINDOW.
-OLD-BUFFER if nil if POPUP-WINDOW was newly created.
+OLD-BUFFER is nil if POPUP-WINDOW was newly created.
 
 See `view-return-to-alist' for a similar idea.")
+
+;; keep compiler quiet
+(defvar slime-buffer-package)
+(defvar slime-buffer-connection)
 
 ;; Interface
 (defmacro* slime-with-popup-buffer ((name &optional package connection select
@@ -984,11 +988,7 @@ The buffer also uses the minor-mode `slime-popup-buffer-mode'."
 
 (defun slime-init-popup-buffer (buffer-vars)
   (slime-popup-buffer-mode 1)
-  ;;(setq slime-popup-buffer-saved-fingerprint
-  ;;      (slime-current-emacs-snapshot-fingerprint))
-  (multiple-value-setq (slime-buffer-package 
-                        slime-buffer-connection
-                        slime-popup-buffer-saved-emacs-snapshot)
+  (multiple-value-setq (slime-buffer-package slime-buffer-connection)
     buffer-vars))
 
 (defun slime-display-popup-buffer (select)
@@ -1024,16 +1024,16 @@ can restore it later."
     (kill-local-variable 'slime-popup-restore-data)))
 
 (defmacro slime-save-local-variables (vars &rest body)
-  `(let ((vals (cons (mapcar (lambda (var)
-                               (if (slime-local-variable-p var)
-                                   (cons var (eval var))))
-                             ',vars)
-                     (progn . ,body))))
-     (prog1 (cdr vals)
+  (let ((vals (make-symbol "vals")))
+  `(let ((,vals (mapcar (lambda (var)
+                          (if (slime-local-variable-p var)
+                              (cons var (eval var))))
+                        ',vars)))
+     (prog1 (progn . ,body)
        (mapc (lambda (var+val)
                (when (consp var+val)
                  (set (make-local-variable (car var+val)) (cdr var+val))))
-             (car vals)))))
+             ,vals)))))
 
 (put 'slime-save-local-variables 'lisp-indent-function 1)
 
@@ -1063,21 +1063,9 @@ Restore the window configuration unless it was changed since we
 last activated the buffer."
   (interactive)
   (let ((buffer (current-buffer)))
-    ;;(when (slime-popup-buffer-snapshot-unchanged-p)
-    ;;  (slime-popup-buffer-restore-snapshot))
-    (setq slime-popup-buffer-saved-emacs-snapshot nil) ; buffer-local var!
     (slime-close-popup-window)
     (when kill-buffer-p
       (kill-buffer buffer))))
-
-(defun slime-popup-buffer-snapshot-unchanged-p ()
-  (equalp (slime-current-emacs-snapshot-fingerprint)
-          slime-popup-buffer-saved-fingerprint))
-
-(defun slime-popup-buffer-restore-snapshot ()
-  (let ((snapshot slime-popup-buffer-saved-emacs-snapshot))
-    (assert snapshot) 
-    (slime-set-emacs-snapshot snapshot)))
 
 ;;;;; Filename translation
 ;;;
@@ -4831,28 +4819,6 @@ The most important commands:
        ,@body)))
 
 (put 'slime-with-xref-buffer 'lisp-indent-function 1)
-
-(defun slime-xref-quit (&optional _)
-  "Kill the current xref buffer, restore the window configuration
-if appropriate."
-  (interactive)
-  ;; We can't simply use `slime-popup-buffer-quit' because we also
-  ;; want the Xref window be deleted.
-  (if (slime-popup-buffer-snapshot-unchanged-p)
-      (slime-xref-retract)
-    (let ((snapshot slime-popup-buffer-saved-emacs-snapshot)
-          (buffer   (current-buffer)))
-      ;; Make M-, work after Xref'ing.
-      (slime-push-definition-stack-from-snapshot snapshot)
-      (delete-windows-on buffer)
-      (kill-buffer buffer))))
-
-(defun slime-xref-retract ()
-  "Leave the Xref buffer, and make everything as of before."
-  (interactive)
-  (let ((buffer (current-buffer)))
-    (slime-popup-buffer-restore-snapshot)
-    (kill-buffer buffer)))
 
 (defun slime-insert-xrefs (xref-alist)
   "Insert XREF-ALIST in the current-buffer.
