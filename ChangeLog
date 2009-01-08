@@ -1,8 +1,12 @@
 2009-01-07  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-cmucl.lisp (frame-locals): Remove non-valid variables.
+
+2009-01-07  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-source-path-parser.lisp (make-source-recorder)
 	(source-path-source-position): Adjust the file-position before
-	entering it the table.
+	entering it in the table.
 
 2009-01-07  Helmut Eller  <heller@common-lisp.net>
 

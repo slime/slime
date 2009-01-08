@@ -1553,10 +1553,11 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
   (let* ((frame (nth-frame index))
 	 (loc (di:frame-code-location frame))
 	 (vars (frame-debug-vars frame)))
-    (loop for v across vars collect
-          (list :name (di:debug-variable-symbol v)
-                :id (di:debug-variable-id v)
-                :value (debug-var-value v frame loc)))))
+    (loop for v across vars 
+          when (eq (di:debug-variable-validity v loc) :valid)
+          collect (list :name (di:debug-variable-symbol v)
+                        :id (di:debug-variable-id v)
+                        :value (di:debug-variable-valid-value v frame)))))
 
 (defimplementation frame-var-value (frame var)
   (let* ((frame (nth-frame frame))
