@@ -1,6 +1,8 @@
 2009-01-07  Helmut Eller  <heller@common-lisp.net>
 
-	* swank-cmucl.lisp (frame-locals): Remove non-valid variables.
+	* swank-cmucl.lisp (frame-locals, frame-debug-vars): Remove
+	non-valid variables.
+	(debug-var-value): Compute the location from the frame arg.
 
 2009-01-07  Helmut Eller  <heller@common-lisp.net>
 
