@@ -253,8 +253,9 @@ Backend code should treat the connection structure as opaque.")
 ;;; Connection structures represent the network connections between
 ;;; Emacs and Lisp. Each has a socket stream, a set of user I/O
 ;;; streams that redirect to Emacs, and optionally a second socket
-;;; used solely to pipe user-output to Emacs (an optimization).
-;;;
+;;; used solely to pipe user-output to Emacs (an optimization).  This
+;;; is also the place where we keep everything that needs to be
+;;; freed/closed/killed when we disconnect.
 
 (defstruct (connection
              (:conc-name connection.)

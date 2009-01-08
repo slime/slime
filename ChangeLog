@@ -1,5 +1,9 @@
 2009-01-08  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el: Move the tree widget for compiler notes to contrib/.
+
+2009-01-08  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-backend.lisp (swank-compile-string): Pass the
 	buffer-file-name to Lisp, not only the directory.
 	Update callers accordingly.
