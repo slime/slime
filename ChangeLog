@@ -1,5 +1,11 @@
 2009-01-07  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-source-path-parser.lisp (make-source-recorder)
+	(source-path-source-position): Adjust the file-position before
+	entering it the table.
+
+2009-01-07  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-with-xref-buffer): Don't set
 	slime-popup-buffer-quit-function. Use the default.  Don't shrink
 	the window because it may have existed before creating the buffer

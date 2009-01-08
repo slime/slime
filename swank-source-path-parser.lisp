@@ -45,7 +45,7 @@ additionally stores the result together with the stream positions
 before and after of calling FN in the hashtable SOURCE-MAP."
   (declare (type function fn))
   (lambda (stream char)
-    (let ((start (file-position stream))
+    (let ((start (1- (file-position stream)))
 	  (values (multiple-value-list (funcall fn stream char)))
 	  (end (file-position stream)))
       ;(format t "[~D \"~{~A~^, ~}\" ~D ~D ~S]~%" start values end (char-code char) char)
@@ -144,5 +144,5 @@ of the deepest (i.e. smallest) possible form is returned."
 	  for positions = (gethash form source-map)
 	  until (and positions (null (cdr positions)))
 	  finally (destructuring-bind ((start . end)) positions
-		    (return (values (1- start) end))))))
+		    (return (values start end))))))
 
