@@ -2454,7 +2454,7 @@ Debugged requests are ignored."
     ch))
 
 (defun slime-close-channel (channel)
-  (setf (slime-channels.operations channel) 'closed-channel)
+  (setf (slime-channel.operations channel) 'closed-channel)
   (let ((probe (assq (slime-channel.id channel) (slime-channels))))
     (cond (probe (setf (slime-channels) (delete probe (slime-channels))))
           (t (error "Invalid channel: %s" channel)))))
@@ -3927,40 +3927,18 @@ alist but ignores CDRs."
 
 ;;;; Edit definition
 
-(defvar slime-find-definition-history-ring (make-ring 20)
-  "History ring recording the definition-finding \"stack\".")
-
-(defun slime-push-definition-stack-from-snapshot (emacs-snapshot)
-  (with-struct (slime-emacs-snapshot. narrowing-configuration point-marker)
-      emacs-snapshot
-    (slime-push-definition-stack point-marker narrowing-configuration)))
-
-(defun slime-push-definition-stack (&optional marker narrowing-configuration)
-  "Add MARKER and NARROWING-CONFIGURATION to the edit-definition history stack.
-If MARKER is nil, use the current point. If NARROWING-CONFIGURATION is nil, 
-look if the current buffer is narrowed, and if so use the relevant values."
-  (ring-insert-at-beginning slime-find-definition-history-ring 
-    (list (or marker (point-marker))
-          (or narrowing-configuration
-              (slime-current-narrowing-configuration)))))
+(defun slime-push-definition-stack ()
+  "Add point to find-tag-marker-ring."
+  (cond ((featurep 'xemacs)
+         (require 'etags)
+         (push-tag-mark))
+        (t (ring-insert find-tag-marker-ring (point-marker)))))
 
 (defun slime-pop-find-definition-stack ()
   "Pop the edit-definition stack and goto the location."
   (interactive)
-  (unless (ring-empty-p slime-find-definition-history-ring)
-    (destructuring-bind (marker narrowing-cfg)
-        (ring-remove slime-find-definition-history-ring)
-      (let ((buffer (marker-buffer marker))
-            (narrowedp  (slime-narrowing-configuration.narrowedp narrowing-cfg))
-            (narrow-beg (slime-narrowing-configuration.beg narrowing-cfg))
-            (narrow-end (slime-narrowing-configuration.end narrowing-cfg)))
-        (if (buffer-live-p buffer)
-            (progn (switch-to-buffer buffer)
-                   (goto-char (marker-position marker))
-                   (when narrowedp
-                     (narrow-to-region narrow-beg narrow-end)))
-            ;; If this buffer was deleted, recurse to try the next one
-            (slime-pop-find-definition-stack))))))
+  (cond ((featurep 'xemacs) (pop-tag-mark nil))
+        (t (pop-tag-mark))))
 
 (defstruct (slime-xref (:conc-name slime-xref.) (:type list))
   dspec location)

@@ -1,5 +1,13 @@
 2009-01-07  Helmut Eller  <heller@common-lisp.net>
 
+	Just use find-tag-marker-ring as stack for M-.
+
+	* slime.el (slime-push-definition-stack)
+	(slime-pop-find-definition-stack): Do whatever Emacs's standard
+	find-tag commands do.
+
+2009-01-07  Helmut Eller  <heller@common-lisp.net>
+
 	Fix the slime-next-location command.
 
 	* slime.el (slime-xref-last-buffer): New variable.
