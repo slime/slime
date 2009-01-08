@@ -628,9 +628,9 @@ function names like \(SETF GET)."
 		nil)))
 	   htab))
 
-(defimplementation swank-compile-string (string &key buffer position directory
-                                                policy)
-  (declare (ignore directory policy))
+(defimplementation swank-compile-string (string &key buffer position filename
+                                         policy)
+  (declare (ignore filename policy))
   (assert buffer)
   (assert position)
   (let* ((location (list :emacs-buffer buffer position string))

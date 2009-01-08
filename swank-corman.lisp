@@ -371,9 +371,9 @@
 	(values output-file warnings?
 		(or failure? (and load-p (load output-file))))))))
 
-(defimplementation swank-compile-string (string &key buffer position directory
-                                                policy)
-  (declare (ignore directory policy))
+(defimplementation swank-compile-string (string &key buffer position filename
+					 policy)
+  (declare (ignore filename policy))
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)
           (*buffer-position* position)

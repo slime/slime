@@ -1,5 +1,11 @@
 2009-01-08  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-backend.lisp (swank-compile-string): Pass the
+	buffer-file-name to Lisp, not only the directory.
+	Update callers accordingly.
+
+2009-01-08  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-popup-restore-data): Renamed from
 	slime-popup-buffer-restore-info.
 	(slime-popup-buffer-saved-fingerprint)

@@ -394,9 +394,9 @@ NIL if we aren't compiling from a buffer.")
                       (source-cache-get filename (file-write-date filename))
                       (not (load output-file)))))))))
 
-(defimplementation swank-compile-string (string &key buffer position directory
-                                                policy)
-  (declare (ignore directory policy))
+(defimplementation swank-compile-string (string &key buffer position filename
+                                         policy)
+  (declare (ignore filename policy))
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)
           (*buffer-start-position* position)

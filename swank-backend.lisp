@@ -370,7 +370,7 @@ This is used to resolve filenames without directory component."
   (declare (ignore ignore))
   `(call-with-compilation-hooks (lambda () (progn ,@body))))
 
-(definterface swank-compile-string (string &key buffer position directory
+(definterface swank-compile-string (string &key buffer position filename
                                            policy)
   "Compile source from STRING.
 During compilation, compiler conditions must be trapped and
@@ -381,11 +381,11 @@ If supplied, BUFFER and POSITION specify the source location in Emacs.
 Additionally, if POSITION is supplied, it must be added to source
 positions reported in compiler conditions.
 
-If DIRECTORY is specified it may be used by certain implementations to
+If FILENAME is specified it may be used by certain implementations to
 rebind *DEFAULT-PATHNAME-DEFAULTS* which may improve the recording of
 source information.
 
-If DEBUG is supplied, and non-NIL, it may be used by certain
+If POLICY is supplied, and non-NIL, it may be used by certain
 implementations to compile with a debug optimization quality of its
 value.
 

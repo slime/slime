@@ -315,8 +315,8 @@
            (delete-file binary-filename))
          (not failure?)))))
 
-(defimplementation swank-compile-string (string &key buffer position directory
-                                                policy)
+(defimplementation swank-compile-string (string &key buffer position filename
+                                         policy)
   (declare (ignore policy))
   ;; We store the source buffer in excl::*source-pathname* as a string
   ;; of the form <buffername>;<start-offset>.  Quite ugly encoding, but
@@ -326,14 +326,14 @@
           (*buffer-start-position* position)
           (*buffer-string* string)
           (*default-pathname-defaults*
-           (if directory (merge-pathnames (pathname directory))
+           (if directory (merge-pathnames (pathname filename))
                *default-pathname-defaults*)))
       (compile-from-temp-file
        (format nil "~S ~S~%~A" 
                `(in-package ,(package-name *package*))
                `(eval-when (:compile-toplevel :load-toplevel)
-                 (setq excl::*source-pathname*
-                  ',(format nil "~A;~D" buffer position)))
+                  (setq excl::*source-pathname*
+                        ',(or filename (format nil "~A;~D" buffer position))))
                string)))))
 
 ;;;; Definition Finding

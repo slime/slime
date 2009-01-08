@@ -525,12 +525,12 @@ compiler state."
    (loop for (qual . value) in policy
          do (sb-ext:restrict-compiler-policy qual value)))
 
-(defimplementation swank-compile-string (string &key buffer position directory
-                                                policy)
+(defimplementation swank-compile-string (string &key buffer position filename
+                                         policy)
   (let ((*buffer-name* buffer)
         (*buffer-offset* position)
         (*buffer-substring* string)
-        (filename (temp-file-name))
+        (temp-file-name (temp-file-name))
         (saved-policy (get-compiler-policy '((debug . 0) (speed . 0)))))
     (when policy
       (set-compiler-policy policy))
@@ -540,11 +540,11 @@ compiler state."
              (with-compilation-hooks ()
                (with-compilation-unit
                    (:source-plist (list :emacs-buffer buffer
-                                        :emacs-directory directory
+                                        :emacs-filename filename
                                         :emacs-string string
                                         :emacs-position position))
-                 (funcall cont (compile-file filename))))))
-      (with-open-file (s filename :direction :output :if-exists :error)
+                 (funcall cont (compile-file temp-file-name))))))
+      (with-open-file (s temp-file-name :direction :output :if-exists :error)
         (write-string string s))
       (unwind-protect
            (if *trap-load-time-warnings*
@@ -552,8 +552,8 @@ compiler state."
                (load-it (compile-it #'identity)))
         (ignore-errors
           (set-compiler-policy saved-policy)
-          (delete-file filename)
-          (delete-file (compile-file-pathname filename)))))))
+          (delete-file temp-file-name)
+          (delete-file (compile-file-pathname temp-file-name)))))))
 
 ;;;; Definitions
 

@@ -635,9 +635,9 @@ Execute BODY with NAME's function slot set to FUNCTION."
                     (and load-p 
                          (not (load fasl-file)))))))))
 
-(defimplementation swank-compile-string (string &key buffer position directory
+(defimplementation swank-compile-string (string &key buffer position filename
                                          policy)
-  (declare (ignore directory policy))
+  (declare (ignore filename policy))
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)
           (*buffer-offset* position))

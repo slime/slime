@@ -2680,7 +2680,7 @@ compile with a debug setting of that number."
      ,string
      ,(buffer-name)
      ,start-offset
-     ,(if (buffer-file-name) (file-name-directory (buffer-file-name)))
+     ,(if (buffer-file-name) (slime-to-lisp-filename (buffer-file-name)))
      ',slime-compilation-policy)
    #'slime-compilation-finished))
 

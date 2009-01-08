@@ -2736,7 +2736,7 @@ Record compiler notes signalled as `compiler-condition's."
            (declare (ignore output-pathname warnings?))
            (not failure?)))))))
 
-(defslimefun compile-string-for-emacs (string buffer position directory policy)
+(defslimefun compile-string-for-emacs (string buffer position filename policy)
   "Compile STRING (exerpted from BUFFER at POSITION).
 Record compiler notes signalled as `compiler-condition's."
   (with-buffer-syntax ()
@@ -2746,13 +2746,13 @@ Record compiler notes signalled as `compiler-condition's."
          (swank-compile-string string
                                :buffer buffer
                                :position position 
-                               :directory directory
+                               :filename filename
                                :policy policy))))))
 
 (defslimefun compile-multiple-strings-for-emacs (strings policy)
   "Compile STRINGS (exerpted from BUFFER at POSITION).
 Record compiler notes signalled as `compiler-condition's."
-  (loop for (string buffer package position directory) in strings collect
+  (loop for (string buffer package position filename) in strings collect
         (collect-notes
          (lambda ()
            (with-buffer-syntax (package)
@@ -2760,7 +2760,7 @@ Record compiler notes signalled as `compiler-condition's."
                (swank-compile-string string
                                      :buffer buffer
                                      :position position 
-                                     :directory directory
+                                     :filename filename
                                      :policy policy)))))))
 
 (defun file-newer-p (new-file old-file)
