@@ -326,14 +326,15 @@
           (*buffer-start-position* position)
           (*buffer-string* string)
           (*default-pathname-defaults*
-           (if directory (merge-pathnames (pathname filename))
+           (if filename 
+               (merge-pathnames (pathname filename))
                *default-pathname-defaults*)))
       (compile-from-temp-file
        (format nil "~S ~S~%~A" 
                `(in-package ,(package-name *package*))
                `(eval-when (:compile-toplevel :load-toplevel)
                   (setq excl::*source-pathname*
-                        ',(or filename (format nil "~A;~D" buffer position))))
+                        ',(format nil "~A;~D" buffer position)))
                string)))))
 
 ;;;; Definition Finding
