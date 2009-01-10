@@ -438,7 +438,7 @@ SPECIAL-OPERATOR groups."
 
 (defmethod emacs-inspect ((%container %package-symbols-container))
   (with-struct (%container. title description symbols grouping-kind) %container
-            `(,title (:newline) 
+            `(,title (:newline) (:newline)
 	      ,@description
               (:newline)
               "  " ,(ecase grouping-kind
@@ -459,18 +459,23 @@ SPECIAL-OPERATOR groups."
         (package-use-list     (package-use-list package))
         (package-used-by-list (package-used-by-list package))
         (shadowed-symbols     (package-shadowing-symbols package))
-        (present-symbols      '()) (present-symbols-length  0)
-        (internal-symbols     '()) (internal-symbols-length 0)
-        (external-symbols     '()) (external-symbols-length 0))
+        (present-symbols      '()) (present-symbols-length   0)
+        (internal-symbols     '()) (internal-symbols-length  0)
+        (inherited-symbols    '()) (inherited-symbols-length 0)
+        (external-symbols     '()) (external-symbols-length  0))
 
     (do-symbols* (sym package)
       (let ((status (symbol-status sym package)))
-        (when (not (eq status :inherited))
-          (push sym present-symbols) (incf present-symbols-length)
-          (if (eq status :internal)
-              (progn (push sym internal-symbols) (incf internal-symbols-length))                
-              (progn (push sym external-symbols) (incf external-symbols-length))))))
-    
+        (when (eq status :inherited)
+          (push sym inherited-symbols) (incf inherited-symbols-length)
+          (go :continue))
+        (push sym present-symbols) (incf present-symbols-length)
+        (cond ((eq status :internal)
+               (push sym internal-symbols) (incf internal-symbols-length))
+              (t
+               (push sym external-symbols) (incf external-symbols-length))))
+      :continue)
+
     (setf package-nicknames    (sort (copy-list package-nicknames)    #'string<)
           package-use-list     (sort (copy-list package-use-list)     #'string< :key #'package-name)
           package-used-by-list (sort (copy-list package-used-by-list) #'string< :key #'package-name)
@@ -478,7 +483,8 @@ SPECIAL-OPERATOR groups."
     
     (setf present-symbols      (sort present-symbols  #'string<)  ; SORT + STRING-LESSP
           internal-symbols     (sort internal-symbols #'string<)  ; conses on at least
-          external-symbols     (sort external-symbols #'string<)) ; SBCL 0.9.18.
+          external-symbols     (sort external-symbols #'string<)  ; SBCL 0.9.18.
+          inherited-symbols    (sort inherited-symbols #'string<))
 
     
      `(""                               ; dummy to preserve indentation.
@@ -539,6 +545,12 @@ SPECIAL-OPERATOR groups."
                              "which deliberately deviates from the CLHS glossary"     (:newline)
                              "entry of `internal' because it's assumed to be more"    (:newline)
                              "useful this way."                                       (:newline)))
+            (:newline)
+            ,(display-link "inherited" inherited-symbols  inherited-symbols-length
+                          :title (format nil "All inherited symbols of package \"~A\"" package-name)
+                          :description
+                          '("A symbol is considered inherited in a package if it" (:newline)
+                            "was made accessible via USE-PACKAGE."                (:newline)))
             (:newline)
             ,(display-link "shadowed" shadowed-symbols (length shadowed-symbols)
                            :title (format nil "All shadowed symbols of package \"~A\"" package-name)

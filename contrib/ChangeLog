@@ -1,3 +1,8 @@
+2009-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-fancy-inspector.lisp (emacs-inspect [package]): Also
+	display link to show all inherited symbols of a package.
+
 2009-01-07  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-repl.el (slime-mode-map): Bind C-c~ not ~.
