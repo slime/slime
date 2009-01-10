@@ -104,7 +104,7 @@ This file has been placed in the public domain.
 @top SLIME
 
 @SLIME{} is the ``Superior Lisp Interaction Mode for Emacs''. This is
-the manual for version @value{SLIMEVER}.
+the manual for version @value{SLIMEVER}. (Last updated @value{UPDATED})
 
 @insertcopying
 @end ifnottex
@@ -667,7 +667,7 @@ The buffer @code{*inferior-lisp*} contains the Lisp process's own
 top-level. This direct access to Lisp is useful for troubleshooting,
 and some degree of @SLIME{} integration is available using the
 @code{inferior-slime-mode}. However, in normal use we recommend using
-the fully-integrated @SLIME{} @REPL{} and ignoring the
+the fully-integrated @SLIME{} @REPL{} (@pxref{REPL}) and ignoring the
 @code{*inferior-lisp*} buffer.
 
 @c ----------------------- 

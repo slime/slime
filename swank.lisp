@@ -29,6 +29,7 @@
            ;; These are user-configurable variables:
            #:*communication-style*
            #:*dont-close*
+           #:*fasl-directory*
            #:*log-events*
            #:*log-output*
            #:*use-dedicated-output-stream*
@@ -2724,7 +2725,7 @@ The time is measured in seconds."
       (check-type successp boolean)
       (make-compilation-result (reverse notes) successp seconds))))
 
-(defslimefun compile-file-for-emacs (filename load-p)
+(defslimefun compile-file-for-emacs (filename load-p &optional options)
   "Compile FILENAME and, when LOAD-P, load the result.
 Record compiler notes signalled as `compiler-condition's."
   (with-buffer-syntax ()
@@ -2733,11 +2734,27 @@ Record compiler notes signalled as `compiler-condition's."
        (let ((pathname (filename-to-pathname filename))
              (*compile-print* nil) (*compile-verbose* t))
          (multiple-value-bind (output-pathname warnings? failure?)
-             (swank-compile-file pathname load-p
+             (swank-compile-file pathname
+                                 (fasl-pathname pathname options)
+                                 load-p
                                  (or (guess-external-format pathname)
                                      :default))
            (declare (ignore output-pathname warnings?))
            (not failure?)))))))
+
+(defvar *fasl-directory* nil
+  "Directory where swank should place fasl files.")
+
+(defun fasl-pathname (input-file options)
+  (cond ((getf options :fasl-directory)
+         (let* ((str (getf options :fasl-directory))
+                (dir (filename-to-pathname str)))
+           (assert (char= (aref str (1- (length str))) #\/))
+           (compile-file-pathname input-file :output-file dir)))
+        (*fasl-directory*
+         (compile-file-pathname input-file :output-file *fasl-directory*))
+        (t
+         (compile-file-pathname input-file))))
 
 (defslimefun compile-string-for-emacs (string buffer position filename policy)
   "Compile STRING (exerpted from BUFFER at POSITION).
