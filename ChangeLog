@@ -1,4 +1,4 @@
-2009-01-05  Tobias C. Rittweiler  <tcr@freebits.de>
+2009-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank.lisp (do-symbols*): Wrap body in TAGBODY.
 
