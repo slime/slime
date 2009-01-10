@@ -460,6 +460,10 @@ condition."
         (*break-in-sldb* t))
     (funcall fun)))
 
+(defimplementation install-debugger-globally (function)
+  (setq *debugger-hook* function)
+  (setq *break-in-sldb* t))
+
 (defun backtrace-context ()
   nil)
 

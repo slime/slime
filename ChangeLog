@@ -1,3 +1,7 @@
+2009-01-10  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-openmcl.lisp (install-debugger-globally): Set *break-in-sldb*.
+
 2009-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank.lisp (do-symbols*): Wrap body in TAGBODY.
