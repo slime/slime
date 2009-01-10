@@ -261,12 +261,15 @@ condition."
   (handler-bind ((ccl::compiler-warning 'handle-compiler-warning))
     (funcall function)))
 
-(defimplementation swank-compile-file (filename load-p external-format)
+(defimplementation swank-compile-file (input-file output-file
+                                       load-p external-format)
   (declare (ignore external-format))
   (with-compilation-hooks ()
     (let ((*buffer-name* nil)
           (*buffer-offset* nil))
-      (compile-file filename :load load-p))))
+      (compile-file input-file 
+                    :output-file output-file
+                    :load load-p))))
 
 (defimplementation frame-var-value (frame var)
   (block frame-var-value

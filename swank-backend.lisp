@@ -392,8 +392,9 @@ value.
 Should return T on successfull compilation, NIL otherwise.
 ")
 
-(definterface swank-compile-file (pathname load-p external-format)
-   "Compile PATHNAME signalling COMPILE-CONDITIONs.
+(definterface swank-compile-file (input-file output-file load-p 
+                                             external-format)
+   "Compile INPUT-FILE signalling COMPILE-CONDITIONs.
 If LOAD-P is true, load the file after compilation.
 EXTERNAL-FORMAT is a value returned by find-external-format or
 :default.

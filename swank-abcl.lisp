@@ -327,14 +327,16 @@
 
 (defvar *abcl-signaled-conditions*)
 
-(defimplementation swank-compile-file (filename load-p external-format)
+(defimplementation swank-compile-file (input-file output-file
+                                       load-p external-format)
   (declare (ignore external-format))
   (let ((jvm::*resignal-compiler-warnings* t)
         (*abcl-signaled-conditions* nil))
     (handler-bind ((warning #'handle-compiler-warning))
       (let ((*buffer-name* nil)
-            (*compile-filename* filename))
-        (multiple-value-bind (fn warn fail) (compile-file filename)
+            (*compile-filename* input-file))
+        (multiple-value-bind (fn warn fail) 
+            (compile-file input-file :output-file output-file)
           (values fn warn
                   (or fail 
                       (and load-p 

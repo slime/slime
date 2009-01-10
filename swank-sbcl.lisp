@@ -485,16 +485,19 @@ compiler state."
 
 (defvar *trap-load-time-warnings* nil)
 
-(defimplementation swank-compile-file (pathname load-p external-format)
+(defimplementation swank-compile-file (input-file output-file 
+                                       load-p external-format)
   (handler-case
       (multiple-value-bind (output-file warnings-p failure-p)
           (with-compilation-hooks ()
-            (compile-file pathname :external-format external-format))
+            (compile-file input-file :output-file output-file
+                          :external-format external-format))
         (values output-file warnings-p
                 (or failure-p
                     (when load-p
                       ;; Cache the latest source file for definition-finding.
-                      (source-cache-get pathname (file-write-date pathname))
+                      (source-cache-get input-file 
+                                        (file-write-date input-file))
                       (not (load output-file))))))
     (sb-c:fatal-compiler-error () nil)))
 

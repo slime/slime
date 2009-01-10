@@ -2756,6 +2756,10 @@ Record compiler notes signalled as `compiler-condition's."
         (t
          (compile-file-pathname input-file))))
 
+(pathname-to-filename
+ (compile-file-pathname "y.lisp" 
+                        :output-file (filename-to-pathname "/tmp/x/")))
+
 (defslimefun compile-string-for-emacs (string buffer position filename policy)
   "Compile STRING (exerpted from BUFFER at POSITION).
 Record compiler notes signalled as `compiler-condition's."

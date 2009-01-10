@@ -426,9 +426,12 @@ Return NIL if the symbol is unbound."
            (signal-undefined-functions compiler::*unknown-functions* 
                                        ,location))))))
 
-(defimplementation swank-compile-file (filename load-p external-format)
-  (with-swank-compilation-unit (filename)
-    (compile-file filename :load load-p 
+(defimplementation swank-compile-file (input-file output-file
+                                       load-p external-format)
+  (with-swank-compilation-unit (input-file)
+    (compile-file input-file 
+                  :output-file output-file
+                  :load load-p 
                   :external-format external-format)))
 
 (defvar *within-call-with-compilation-hooks* nil

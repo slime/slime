@@ -361,13 +361,14 @@
                                           (list :error "No location"))))))))
     (funcall fn)))
 
-(defimplementation swank-compile-file (*compile-filename* load-p
-				       external-format)
+(defimplementation swank-compile-file (input-file output-file 
+				       load-p external-format)
   (declare (ignore external-format))
   (with-compilation-hooks ()
-    (let ((*buffer-name* nil))
+    (let ((*buffer-name* nil)
+	  (*compile-filename* input-file))
       (multiple-value-bind (output-file warnings? failure?)
-	  (compile-file *compile-filename*)
+	  (compile-file input-file :output-file output-file)
 	(values output-file warnings?
 		(or failure? (and load-p (load output-file))))))))
 

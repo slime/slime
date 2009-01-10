@@ -625,11 +625,14 @@ Execute BODY with NAME's function slot set to FUNCTION."
                           :message (princ-to-string condition)
                           :location (compiler-note-location))))
 
-(defimplementation swank-compile-file (filename load-p external-format)
+(defimplementation swank-compile-file (input-file output-file
+                                       load-p external-format)
   (with-compilation-hooks ()
     (with-compilation-unit ()
       (multiple-value-bind (fasl-file warningsp failurep)
-          (compile-file filename :external-format external-format)
+          (compile-file input-file 
+                        :output-file output-file
+                        :external-format external-format)
         (values fasl-file warningsp
                 (or failurep 
                     (and load-p 

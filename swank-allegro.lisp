@@ -285,11 +285,14 @@
                  )
     (funcall function)))
 
-(defimplementation swank-compile-file (filename load-p external-format)
+(defimplementation swank-compile-file (input-file output-file 
+                                       load-p external-format)
   (with-compilation-hooks ()
     (let ((*buffer-name* nil)
-          (*compile-filename* filename))
-      (compile-file *compile-filename* :load-after-compile load-p
+          (*compile-filename* input-file))
+      (compile-file *compile-filename* 
+                    :output-file output-file
+                    :load-after-compile load-p
                     :external-format external-format))))
 
 (defun call-with-temp-file (fn)
