@@ -2632,6 +2632,10 @@ between compiler notes and to display their full details."
   (interactive)
   (slime-compile-file t))
 
+(defvar slime-compile-file-options '()
+  "Plist of additional options that C-c C-k should pass to Lisp.
+Currently only :fasl-directory is supported.")
+
 (defun slime-compile-file (&optional load)
   "Compile current buffer's file and highlight resulting compiler notes.
 
@@ -2648,7 +2652,8 @@ See `slime-compile-and-load-file' for further details."
   (run-hook-with-args 'slime-before-compile-functions (point-min) (point-max))
   (let ((file (slime-to-lisp-filename (buffer-file-name))))
     (slime-eval-async
-     `(swank:compile-file-for-emacs ,file ,(if load t nil))
+     `(swank:compile-file-for-emacs ,file ,(if load t nil) 
+                                    ',slime-compile-file-options)
      #'slime-compilation-finished)
     (message "Compiling %s..." file)))
 
