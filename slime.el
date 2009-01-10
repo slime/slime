@@ -3493,6 +3493,8 @@ more than one space."
   (when (slime-background-activities-enabled-p)
     (slime-echo-arglist)))
 
+(put 'slime-space 'delete-selection t) ; for delete-section-mode & CUA
+
 (defvar slime-echo-arglist-function 'slime-show-arglist)
 
 (defun slime-echo-arglist ()

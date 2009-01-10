@@ -2,6 +2,12 @@
 
 	* swank.lisp (do-symbols*): Wrap body in TAGBODY.
 
+2009-01-10  David Reitter <david.reitter@gmail.com>
+
+	* slime.el (slime-space): Declare `slime-space' to
+	`delete-selection-mode' and friends (CUA) so that their behavior
+	is the same as with normal insertion of a space.
+
 2009-01-10  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-backend.lisp (swank-compile-file): Take output-file as
