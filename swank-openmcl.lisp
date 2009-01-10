@@ -1094,6 +1094,9 @@ out IDs for.")
      (when (eq timeout t) (return (values nil t)))
      (ccl:timed-wait-on-semaphore (mailbox.semaphore mbox) 1))))
 
+(defimplementation set-default-initial-binding (var form)
+  (eval `(ccl::def-standard-initial-binding ,var ,form)))
+
 (defimplementation quit-lisp ()
   (ccl::quit))
 

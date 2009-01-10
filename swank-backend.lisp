@@ -1036,6 +1036,14 @@ but that thread may hold it more than once."
 (definterface receive-if (predicate &optional timeout)
   "Return the first message satisfiying PREDICATE.")
 
+(definterface set-default-initial-binding (var form)
+  "Initialize special variable VAR by default with FORM.
+
+Some implementations initialize certain variables in each newly
+created thread.  This function sets the form which is used to produce
+the initial value."
+  (set var (eval form)))
+
 ;; List of delayed interrupts.  
 ;; This should only have thread-local bindings, so no init form.
 (defvar *pending-slime-interrupts*)

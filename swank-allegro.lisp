@@ -693,6 +693,10 @@
      (mp:process-wait-with-timeout "receive-if" 0.5
                                    #'mp:gate-open-p (mailbox.gate mbox)))))
 
+(defimplementation set-default-initial-binding (var form)
+  (setq excl:*cl-default-special-bindings*
+        (acons var form excl:*cl-default-special-bindings*)))
+
 (defimplementation quit-lisp ()
   (excl:exit 0 :quiet t))
 

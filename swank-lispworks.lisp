@@ -753,11 +753,7 @@ function names like \(SETF GET)."
         (t (funcall continuation))))
 
 (defimplementation spawn (fn &key name)
-  (let ((mp:*process-initial-bindings* 
-         (remove (find-package :cl) 
-                 mp:*process-initial-bindings*
-                 :key (lambda (x) (symbol-package (car x))))))
-    (mp:process-run-function name () fn)))
+  (mp:process-run-function name () fn))
 
 (defvar *id-lock* (mp:make-lock))
 (defvar *thread-id-counter* 0)
@@ -834,6 +830,11 @@ function names like \(SETF GET)."
     (mp:with-lock ((mailbox.mutex mbox))
       (setf (mailbox.queue mbox)
             (nconc (mailbox.queue mbox) (list message))))))
+
+(defimplementation set-default-initial-binding (var form)
+  (setq mp:*process-initial-bindings* 
+        (acons var `(eval (quote ,form))
+               mp:*process-initial-bindings* )))
 
 ;;; Some intergration with the lispworks environment
 

@@ -2,6 +2,11 @@
 
 	* swank.lisp (do-symbols*): Wrap body in TAGBODY.
 
+2009-01-10  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-backend.lisp (set-default-initial-binding): New function.
+	* swank.lisp (setup-stream-indirection):  Use it
+
 2009-01-09  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-allegro.lisp (swank-compile-string): Don't use the

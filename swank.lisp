@@ -1457,7 +1457,9 @@ dynamic binding."
     (proclaim `(special ,current-stream-var))
     (set current-stream-var stream)
     ;; Assign the real binding as a synonym for the current one.
-    (set stream-var (make-synonym-stream current-stream-var))))
+    (let ((stream (make-synonym-stream current-stream-var)))
+      (set stream-var stream)
+      (set-default-initial-binding stream-var `(quote ,stream)))))
 
 (defun prefixed-var (prefix variable-symbol)
   "(PREFIXED-VAR \"FOO\" '*BAR*) => SWANK::*FOO-BAR*"
