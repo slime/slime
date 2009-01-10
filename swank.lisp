@@ -520,7 +520,7 @@ The package is deleted before returning."
       (do-symbols (,var ,package ,result-form)
         (unless (gethash ,var ,seen-ht)
           (setf (gethash ,var ,seen-ht) t)
-          ,@body)))))
+          (tagbody ,@body))))))
 
 (defun use-threads-p ()
   (eq (connection.communication-style *emacs-connection*) :spawn))
