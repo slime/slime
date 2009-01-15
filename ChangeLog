@@ -1,3 +1,9 @@
+2009-01-15  Martin Simmons  <martin@lispworks.com>
+
+	* swank-lispworks.lisp: wrapper functions for swank-mop
+ 	slot-boundp-using-class, slot-value-using-class and
+ 	slot-makunbound-using-class to account for MOP differences.
+	
 2009-01-10  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-openmcl.lisp (install-debugger-globally): Set *break-in-sldb*.

@@ -15,12 +15,32 @@
   (import-from :stream *gray-stream-symbols* :swank-backend))
 
 (import-swank-mop-symbols :clos '(:slot-definition-documentation
+                                  :slot-boundp-using-class
+                                  :slot-value-using-class
+                                  :slot-makunbound-using-class
                                   :eql-specializer
                                   :eql-specializer-object
                                   :compute-applicable-methods-using-classes))
 
 (defun swank-mop:slot-definition-documentation (slot)
   (documentation slot t))
+
+(defun swank-mop:slot-boundp-using-class (class object slotd)
+  (clos:slot-boundp-using-class class object
+                                (clos:slot-definition-name slotd)))
+
+(defun swank-mop:slot-value-using-class (class object slotd)
+  (clos:slot-value-using-class class object
+                               (clos:slot-definition-name slotd)))
+
+(defun (setf swank-mop:slot-value-using-class) (value class object slotd)
+  (setf (clos:slot-value-using-class class object
+                                     (clos:slot-definition-name slotd))
+        value))
+
+(defun swank-mop:slot-makunbound-using-class (class object slotd)
+  (clos:slot-makunbound-using-class class object
+                                    (clos:slot-definition-name slotd)))
 
 (defun swank-mop:compute-applicable-methods-using-classes (gf classes)
   (clos::compute-applicable-methods-from-classes gf classes))
