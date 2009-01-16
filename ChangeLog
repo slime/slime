@@ -6,6 +6,10 @@
 	
 2009-01-16  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-keys): Put C-c C-i and M-* back.
+
+2009-01-16  Helmut Eller  <heller@common-lisp.net>
+
 	* swank.lisp (pprint-eval): Also return the output produced during
 	evaluation.
 

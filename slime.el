@@ -546,7 +546,9 @@ The string is periodically updated by an idle timer."))
     ;; ;; Shadow unwanted bindings from inf-lisp
     ;; ("\C-a"    slime-nop :prefixed t :inferior t :sldb t)
     ;; ("\C-v"    slime-nop :prefixed t :inferior t :sldb t)
-    ))
+    ;; Obsolete, redundant bindings
+    ("\C-c\C-i" slime-complete-symbol)
+    ("\M-*" slime-edit-definition)))
 
 (defun slime-nop ()
   "The null command. Used to shadow currently-unused keybindings."
