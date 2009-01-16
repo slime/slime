@@ -1,3 +1,8 @@
+2009-01-16   David Reitter <david.reitter@gmail.com>
+
+	* slime-repl.el (slime-repl-clear-buffer): Call recenter with t as
+	argument (to avoid erasing the entire frame).
+
 2009-01-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-fancy-inspector.lisp (emacs-inspect [package]): Also
