@@ -6,6 +6,10 @@
 	
 2009-01-16  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-openmcl.lisp (break-in-sldb): Display the argument.
+
+2009-01-16  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-backend.lisp (warn-unimplemented-interfaces): Print the
 	names with pprint-fill.
 

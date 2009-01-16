@@ -846,10 +846,10 @@ at least the filename containing it."
    :when :around
    :name sldb-break))
 
-(defun break-in-sldb (&optional string &rest args)
+(defun break-in-sldb (x y &rest args)
   (let ((*sldb-stack-top-hint* (or *sldb-stack-top-hint*
                                    (ccl::%get-frame-ptr))))
-    (apply #'cerror "Continue from break" (or string "Break") args)))
+    (apply #'cerror y (if args "Break: ~a" x) args)))
 
 ;;; Utilities
 
