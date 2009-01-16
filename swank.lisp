@@ -2191,8 +2191,13 @@ Used by pprint-eval.")
   
 (defslimefun pprint-eval (string)
   (with-buffer-syntax ()
-    (with-retry-restart (:msg "Retry SLIME evaluation request.")
-      (swank-pprint (multiple-value-list (eval (read-from-string string)))))))
+    (let* ((s (make-string-output-stream))
+           (values 
+            (let ((*standard-output* s)
+                  (*trace-output* s))
+              (multiple-value-list (eval (read-from-string string))))))
+      (cat (get-output-stream-string s)
+           (swank-pprint values)))))
 
 (defslimefun set-package (name)
   "Set *package* to the package named NAME.
@@ -2755,10 +2760,6 @@ Record compiler notes signalled as `compiler-condition's."
          (compile-file-pathname input-file :output-file *fasl-directory*))
         (t
          (compile-file-pathname input-file))))
-
-(pathname-to-filename
- (compile-file-pathname "y.lisp" 
-                        :output-file (filename-to-pathname "/tmp/x/")))
 
 (defslimefun compile-string-for-emacs (string buffer position filename policy)
   "Compile STRING (exerpted from BUFFER at POSITION).
