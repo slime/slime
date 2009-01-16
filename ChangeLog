@@ -4,6 +4,11 @@
  	slot-boundp-using-class, slot-value-using-class and
  	slot-makunbound-using-class to account for MOP differences.
 	
+2009-01-16  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-backend.lisp (warn-unimplemented-interfaces): Print the
+	names with pprint-fill.
+
 2009-01-10  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-openmcl.lisp (install-debugger-globally): Set *break-in-sldb*.
