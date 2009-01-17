@@ -1,9 +1,16 @@
+2009-01-17  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Fix C-u C-c C-c in SLDB.
+
+	* slime.el (sldb-recompile-frame-source): Bind
+	`slime-compilation-policy' at the right place.
+
 2009-01-15  Martin Simmons  <martin@lispworks.com>
 
 	* swank-lispworks.lisp: wrapper functions for swank-mop
  	slot-boundp-using-class, slot-value-using-class and
  	slot-makunbound-using-class to account for MOP differences.
-	
+
 2009-01-16  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-keys): Put C-c C-i and M-* back.

@@ -5943,14 +5943,15 @@ was called originally."
   (interactive "P")
   (slime-eval-async
    `(swank:frame-source-location-for-emacs ,(sldb-frame-number-at-point))
-   (let ((slime-compilation-policy (slime-compute-policy raw-prefix-arg)))
+   (lexical-let ((policy (slime-compute-policy raw-prefix-arg)))
      (lambda (source-location)
        (destructure-case source-location
          ((:error message)
           (message "%s" message)
           (ding))
          (t
-          (slime-recompile-location source-location)))))))
+          (let ((slime-compilation-policy policy))
+            (slime-recompile-location source-location))))))))
 
 
 ;;;; Thread control panel
