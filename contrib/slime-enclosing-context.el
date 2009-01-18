@@ -47,7 +47,7 @@ points where their bindings are established as second value."
 	    for point in points
 	    do (when (and (slime-binding-op-p op) 
 			  ;; Are the bindings of OP in scope?
-			  (= index (slime-binding-op-body-pos op)))
+			  (>= index (slime-binding-op-body-pos op)))
 		 (goto-char point) 
 		 (forward-sexp (slime-binding-op-bindings-pos op))
 		 (down-list)
@@ -72,12 +72,14 @@ points where their bindings are established as second value."
 	    for point in points
 	    do (when (and (slime-binding-op-p op :function) 
 			  ;; Are the bindings of OP in scope?
-			  (= index (slime-binding-op-body-pos op)))
+			  (>= index (slime-binding-op-body-pos op)))
 		 (goto-char point)
 		 (forward-sexp (slime-binding-op-bindings-pos op))
 		 (down-list)
-		 (ignore-errors
-		   (loop 
+                 ;; If we're at the end of the bindings, an error will
+                 ;; be signalled by the `down-list' below.
+		 (ignore-errors 
+		   (loop
 		    (down-list) 
 		    (destructuring-bind (name arglist)
 			(slime-ensure-list (slime-parse-sexp-at-point 2))
@@ -100,7 +102,12 @@ points where their bindings are established as second value."
 	       (,foo 42))
 	   *HERE*))" 
        (",nil" "bar" ",foo")
-       ((",nil" "()"))))
+       ((",nil" "()")))
+      ("(flet ((foo ()))
+         (quux)
+         (bar *HERE*))"
+       ("foo")
+       (("foo" "()"))))
   (slime-check-top-level)
   (with-temp-buffer
     (let ((tmpbuf (current-buffer)))

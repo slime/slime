@@ -1,3 +1,16 @@
+2009-01-18  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Local M-. and local arglist display didn't work for
+
+	   (flet ((foo () ...))
+	     (some-form)
+	     |)
+
+	* slime-enclosing-context.el (slime-enclosing-bound-names),
+	(slime-enclosing-bound-functions): Correctly test for when point
+	is in scope of an FLET/LET/etc.
+	([test] enclosing-context.1): Test for this.
+
 2009-01-16   David Reitter <david.reitter@gmail.com>
 
 	* slime-repl.el (slime-repl-clear-buffer): Call recenter with t as
