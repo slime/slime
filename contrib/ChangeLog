@@ -1,3 +1,8 @@
+2009-01-23  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-repl.el (slime-repl-mode-map): Use the key bindings from
+	`slime-editing-keys'.
+
 2009-01-18  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	Local M-. and local arglist display didn't work for

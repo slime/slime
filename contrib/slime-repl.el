@@ -416,7 +416,9 @@ joined together."))
 (let ((map (copy-keymap slime-parent-map)))
   (set-keymap-parent map lisp-mode-map)
   (setq slime-repl-mode-map (make-sparse-keymap))
-  (set-keymap-parent slime-repl-mode-map map))
+  (set-keymap-parent slime-repl-mode-map map)
+  (loop for (key command) in slime-editing-keys
+        do (define-key slime-repl-mode-map key command)))
 
 (slime-define-keys slime-prefix-map
   ("\C-z" 'slime-switch-to-output-buffer)
