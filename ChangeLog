@@ -1,3 +1,10 @@
+2009-01-23  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-editing-keys): New variable; splitted from
+	`slime-keys'. Contains key bindings that are useful for buffers
+	where users can edit s-exprs, such as source buffers and the REPL.
+	(slime-keys): Use it.
+
 2009-01-17  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	Fix C-u C-c C-c in SLDB.

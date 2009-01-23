@@ -491,7 +491,7 @@ The string is periodically updated by an idle timer."))
 ;;;;; Key bindings
 
 (defvar slime-parent-map (make-sparse-keymap)
-  "Parent keymap for various Slime related modes.")
+  "Parent keymap for shared between all Slime related modes.")
 
 (defvar slime-parent-bindings
   '(("\M-."      slime-edit-definition)
@@ -500,6 +500,7 @@ The string is periodically updated by an idle timer."))
     ("\C-x5." 	 slime-edit-definition-other-frame)
     ("\C-x\C-e"  slime-eval-last-expression)
     ("\C-\M-x"   slime-eval-defun)
+    ;; Include PREFIX keys...
     ("\C-c"	 slime-prefix-map)))
 
 (defvar slime-prefix-map (make-sparse-keymap)
@@ -519,36 +520,42 @@ The string is periodically updated by an idle timer."))
     ("\C-xc" slime-list-connections)
     ("<"     slime-list-callers)
     (">"     slime-list-callees)
+    ;; Include DOC keys...
     ("\C-d"  slime-doc-map)
+    ;; Include XREF WHO-FOO keys...
     ("\C-w"  slime-who-map)
-    ;;("\C-z" slime-switch-to-output-buffer :prefixed t :sldb t)
     ))
 
-(defvar slime-keys
-  '(;; Compiler notes
-    ("\M-p"       slime-previous-note)
-    ("\M-n"       slime-next-note)
-    ("\C-c\M-c"   slime-remove-notes)
-    ("\C-c\C-k"   slime-compile-and-load-file)
-    ("\C-c\M-k"   slime-compile-file)
-    ("\C-c\C-c"   slime-compile-defun)
-    ;; Editing
+;;; These keys are useful for buffers where the user can insert and
+;;; edit s-exprs, e.g. for source buffers and the REPL.
+(defvar slime-editing-keys
+  '(;; Arglist display & completion
     ("\M-\t"      slime-complete-symbol)
     (" "          slime-space)
     ;; Evaluating
     ;;("\C-x\M-e" slime-eval-last-expression-display-output :inferior t)
     ("\C-c\C-p"   slime-pprint-eval-last-expression)
-    ;; Misc
-    ("\C-c\C-u"   slime-undefine-function)
+    ;; Macroexpand
     ("\C-c\C-m"   slime-macroexpand-1)
     ("\C-c\M-m"   slime-macroexpand-all)
+    ;; Misc
+    ("\C-c\C-u"   slime-undefine-function)
     ([?\C-\M-.]   slime-next-location)
-    ;; ;; Shadow unwanted bindings from inf-lisp
-    ;; ("\C-a"    slime-nop :prefixed t :inferior t :sldb t)
-    ;; ("\C-v"    slime-nop :prefixed t :inferior t :sldb t)
     ;; Obsolete, redundant bindings
     ("\C-c\C-i" slime-complete-symbol)
-    ("\M-*" slime-edit-definition)))
+    ("\M-*" slime-edit-definition)
+    ))
+
+(defvar slime-keys
+  (append slime-editing-keys
+          '( ;; Compiler notes
+            ("\M-p"       slime-previous-note)
+            ("\M-n"       slime-next-note)
+            ("\C-c\M-c"   slime-remove-notes)
+            ("\C-c\C-k"   slime-compile-and-load-file)
+            ("\C-c\M-k"   slime-compile-file)
+            ("\C-c\C-c"   slime-compile-defun)
+            )))
 
 (defun slime-nop ()
   "The null command. Used to shadow currently-unused keybindings."
