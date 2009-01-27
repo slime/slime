@@ -1,3 +1,10 @@
+2009-01-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-repl.el ([shortcut] quit): Quit the connection before
+	killing the REPL buffer; otherwise the default connection is
+	selected rather than the connection of the REPL buffer.
+	Reported by Stas Boukarev.
+
 2009-01-23  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-repl.el (slime-repl-mode-map): Use the key bindings from
