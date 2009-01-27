@@ -32,29 +32,16 @@
   ;; Generate a form suitable for testing for stepper support (0.9.17)
   ;; with #+.
   (defun sbcl-with-new-stepper-p ()
-    (if (find-symbol "ENABLE-STEPPING" "SB-IMPL")
-        '(:and)
-        '(:or)))
+    (with-symbol 'enable-stepping 'sb-impl))
   ;; Ditto for weak hash-tables
   (defun sbcl-with-weak-hash-tables ()
-    (if (find-symbol "HASH-TABLE-WEAKNESS" "SB-EXT")
-        '(:and)
-        '(:or)))
+    (with-symbol 'hash-table-weakness 'sb-ext))
   ;; And for xref support (1.0.1)
   (defun sbcl-with-xref-p ()
-    (if (find-symbol "WHO-CALLS" "SB-INTROSPECT")
-        '(:and)
-        '(:or)))
+    (with-symbol 'who-calls 'sb-introspect))
   ;; ... for restart-frame support (1.0.2)
   (defun sbcl-with-restart-frame ()
-    (if (find-symbol "FRAME-HAS-DEBUG-TAG-P" "SB-DEBUG")
-        '(:and)
-        '(:or)))
-  (defun sbcl-with-symbol (name package)
-    (if (find-symbol (string name) (string package))
-        '(:and)
-        '(:or)))
-  )
+    (with-symbol 'frame-has-debug-tag-p 'sb-debug)))
 
 ;;; swank-mop
 
@@ -335,11 +322,11 @@
 
 ;;; Utilities
 
-#+#.(swank-backend::sbcl-with-symbol 'function-lambda-list 'sb-introspect)
+#+#.(swank-backend::with-symbol 'function-lambda-list 'sb-introspect)
 (defimplementation arglist (fname)
   (sb-introspect:function-lambda-list fname))
 
-#-#.(swank-backend::sbcl-with-symbol 'function-lambda-list 'sb-introspect)
+#-#.(swank-backend::with-symbol 'function-lambda-list 'sb-introspect)
 (defimplementation arglist (fname)
   (sb-introspect:function-arglist fname))
 
@@ -359,7 +346,7 @@
                                   flags :key #'ensure-list))
           (call-next-method)))))
 
-#+#.(swank-backend::sbcl-with-symbol 'deftype-lambda-list 'sb-introspect)
+#+#.(swank-backend::with-symbol 'deftype-lambda-list 'sb-introspect)
 (defmethod type-specifier-arglist :around (typespec-operator)
   (multiple-value-bind (arglist foundp)
       (sb-introspect:deftype-lambda-list typespec-operator)
@@ -518,13 +505,13 @@ compiler state."
 
 (defun get-compiler-policy (default-policy)
   (declare (ignorable default-policy))
-  #+#.(swank-backend::sbcl-with-symbol 'restrict-compiler-policy 'sb-ext)
+  #+#.(swank-backend::with-symbol 'restrict-compiler-policy 'sb-ext)
   (remove-duplicates (append default-policy (sb-ext:restrict-compiler-policy))
                      :key #'car))
 
 (defun set-compiler-policy (policy)
   (declare (ignorable policy))
-  #+#.(swank-backend::sbcl-with-symbol 'restrict-compiler-policy 'sb-ext)
+  #+#.(swank-backend::with-symbol 'restrict-compiler-policy 'sb-ext)
    (loop for (qual . value) in policy
          do (sb-ext:restrict-compiler-policy qual value)))
 
@@ -762,7 +749,7 @@ Return NIL if the symbol is unbound."
   (defxref who-sets)
   (defxref who-references)
   (defxref who-macroexpands)
-  #+#.(swank-backend::sbcl-with-symbol 'who-specializes 'sb-introspect)
+  #+#.(swank-backend::with-symbol 'who-specializes 'sb-introspect)
   (defxref who-specializes))
 
 (defun source-location-for-xref-data (xref-data)
@@ -933,11 +920,11 @@ stack."
          (plist (sb-c::debug-source-plist dsource)))
     (if (getf plist :emacs-buffer)
         (emacs-buffer-source-location code-location plist)
-        #+#.(swank-backend::sbcl-with-symbol 'debug-source-from 'sb-di)
+        #+#.(swank-backend::with-symbol 'debug-source-from 'sb-di)
         (ecase (sb-di:debug-source-from dsource)
           (:file (file-source-location code-location))
           (:lisp (lisp-source-location code-location)))
-        #-#.(swank-backend::sbcl-with-symbol 'debug-source-from 'sb-di)
+        #-#.(swank-backend::with-symbol 'debug-source-from 'sb-di)
         (if (sb-di:debug-source-namestring dsource)
             (file-source-location code-location)
             (lisp-source-location code-location)))))
@@ -994,10 +981,10 @@ stack."
                          `(:snippet ,snippet)))))))
 
 (defun code-location-debug-source-name (code-location)
-  (namestring (truename (#+#.(swank-backend::sbcl-with-symbol
+  (namestring (truename (#+#.(swank-backend::with-symbol
                               'debug-source-name 'sb-di)
                              sb-c::debug-source-name
-                             #-#.(swank-backend::sbcl-with-symbol
+                             #-#.(swank-backend::with-symbol
                                   'debug-source-name 'sb-di)
                              sb-c::debug-source-namestring
                          (sb-di::code-location-debug-source code-location)))))

@@ -925,6 +925,10 @@ at least the filename containing it."
 	   (< (symbol-value s) 255))
       (setf (gethash (symbol-value s) *value2tag*) s)))
 
+#+#.(swank-backend::with-symbol 'macroexpand-all 'ccl)
+(defimplementation macroexpand-all (form)
+  (ccl:macroexpand-all form))
+
 ;;;; Inspection
 
 (defimplementation describe-primitive-type (thing)

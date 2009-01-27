@@ -245,6 +245,12 @@ EXCEPT is a list of symbol names which should be ignored."
                      (t (error "Malformed syntax in WITH-STRUCT: ~A" name))))
           ,@body)))))
 
+(defun with-symbol (name package)
+  "Generate a form suitable for testing with #+."
+  (if (find-symbol (string name) (string package))
+      '(:and)
+      '(:or)))
+
 
 ;;;; TCP server
 

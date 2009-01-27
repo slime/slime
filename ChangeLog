@@ -1,3 +1,13 @@
+2009-01-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-backend.lisp (with-symbol): New function, to be used with #+.
+
+	* swank-sbcl.lisp: Use WITH-SYMBOL and get rid of SBCL-WITH-SYMBOL.
+
+	* swank-openmcl.lisp (macroexpand-all): Implement it.
+
+	Patch by Stas Boukarev.
+
 2009-01-23  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-editing-keys): New variable; splitted from
@@ -9,7 +19,7 @@
 
 	Fix C-u C-c C-c in SLDB.
 
-	* slime.el (sldb-recompile-frame-source): Bind
+	* slime.el (sldb-recompile-frame-source): sind
 	`slime-compilation-policy' at the right place.
 
 2009-01-15  Martin Simmons  <martin@lispworks.com>
