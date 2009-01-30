@@ -1,3 +1,9 @@
+2009-01-30  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-clisp.lisp (fspec-location): Fix creation of source-location.
+
+	Patch by Carsten Blaauw.
+
 2009-01-30  Geo Carncross  <geocar@gmail.com>
 
 	* swank-ecl.lisp (grovel-docstring-for-arglist): Fix for arglist

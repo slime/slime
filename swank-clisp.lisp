@@ -307,8 +307,9 @@ Return NIL if the symbol is unbound."
 			  (make-location (list :file (namestring truename))
 					 (if (consp lines)
 					     (list* :line lines)
-					     (list :function-name (string fspec)))
-					 (list :snippet (format nil "~A" type))))
+					     (list :function-name (string name)))
+                                         (when (consp type)
+                                           (list :snippet (format nil "~A" type)))))
 			 (t (list :error (princ-to-string c))))))
 		(t (list :error (format nil "No source information available for: ~S"
 					fspec)))))))
