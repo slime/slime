@@ -184,7 +184,9 @@
           (multiple-value-bind (arglist errorp)
               (ignore-errors
                 (values (read-from-string docstring t nil :start pos)))
-            (if errorp :not-available (cdr arglist)))
+            (if (or errorp (not (listp arglist)))
+                :not-available
+                (cdr arglist)))
           :not-available ))))
 
 (defimplementation arglist (name)
