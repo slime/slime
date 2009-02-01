@@ -66,46 +66,93 @@ Otherwise NIL is returned."
            (eq (first form) 'setf)
            (symbolp (second form)))))
 
+(defmacro with-available-arglist ((var) form &body body)
+  `(let ((,var ,form))
+     (if (eql ,var :not-available)
+         :not-available
+         (progn ,@body))))
+
+;;; A ``raw form spec'' can be either: 
+;;; 
+;;;   i)   a list of strings representing a Common Lisp form
+;;; 
+;;;   ii)  a list of strings as of i), but which additionally 
+;;;        contains other raw form specs
+;;; 
+;;;   iii) one of:
+;;; 
+;;;      a)  (:declaration declspec) 
+;;; 
+;;;            where DECLSPEC is a raw form spec.
+;;; 
+;;;      b)  (:type-specifier typespec) 
+;;;        
+;;;            where TYPESPEC is a raw form spec.
+;;; 
+;;; 
+;;; A ``form spec'' is either
+;;; 
+;;;   1) a normal Common Lisp form
+;;; 
+;;;   2) a Common Lisp form with a list as its CAR specifying what namespace
+;;;      the operator is supposed to be interpreted in:
+;;; 
+;;;        a) ((:declaration decl-identifier) declarg1 declarg2 ...)
+;;; 
+;;;        b) ((:type-specifier typespec-op) typespec-arg1 typespec-arg2 ...)
+;;; 
+;;; 
+;;; Examples:
+;;; 
+;;;   ("defmethod")                       =>  (defmethod)
+;;;   ("cl:defmethod")                    =>  (cl:defmethod)
+;;;   ("defmethod" "print-object\)        =>  (defmethod print-object)
+;;; 
+;;;   ("foo" ("bar" ("quux")) "baz")      =>  (foo (bar (quux)) baz)
+;;; 
+;;;   (:declaration ("optimize"))         =>  ((:declaration optimize))
+;;;   (:declaration ("type" "string"))    =>  ((:declaration type) string)
+;;;   (:type-specifier ("float"))         =>  ((:type-specifier float))
+;;;   (:type-specifier ("float" 0 100))   =>  ((:type-specifier float) 0 100)
+;;;
+
 (defslimefun arglist-for-echo-area (raw-specs &key arg-indices
-                                                   print-right-margin print-lines)
+                                              print-right-margin print-lines)
   "Return the arglist for the first valid ``form spec'' in
 RAW-SPECS. A ``form spec'' is a superset of functions, macros,
-special-ops, declarations and type specifiers.
-
-For more information about the format of ``raw form specs'' and
-``form specs'', please see PARSE-FORM-SPEC."
+special-ops, declarations and type specifiers."
   (handler-case 
       (with-buffer-syntax ()
         (multiple-value-bind (form-spec position newly-interned-symbols)
             (parse-first-valid-form-spec raw-specs #'read-conversatively-for-autodoc)
-          (unwind-protect
-               (when form-spec
-                 (let ((arglist (arglist-from-form-spec form-spec :remove-args nil)))
-                   (unless (eql arglist :not-available)
-                     (multiple-value-bind (type operator arguments)
-                         (split-form-spec form-spec)
-                       (declare (ignore arguments))
-                       (multiple-value-bind (stringified-arglist)
-                           (decoded-arglist-to-string
-                            arglist
-                            :operator operator
-                            :print-right-margin print-right-margin
-                            :print-lines print-lines
-                            :highlight (let ((index (nth position arg-indices)))
-					 ;; don't highlight the operator
-					 (and index (not (zerop index)) index)))
-			 ;; Post formatting:
-                         (case type
-                           (:type-specifier (format nil "[Typespec] ~A" stringified-arglist))
-                           (:declaration
-			    (locally (declare (special *arglist-pprint-bindings*))
-			      (with-bindings *arglist-pprint-bindings*
-				(let ((op (%find-declaration-operator raw-specs position)))
-				  (if op
-				      (format nil "(~A ~A)" op stringified-arglist)
-				      (format nil "[Declaration] ~A" stringified-arglist))))))
-                           (t stringified-arglist)))))))
-            (mapc #'unintern-in-home-package newly-interned-symbols))))
+          (when form-spec
+            (unwind-protect
+                 (with-available-arglist (arglist)
+                     (arglist-from-form-spec form-spec :remove-args nil)
+                   (multiple-value-bind (type operator)
+                       (split-form-spec form-spec)
+                     (let* ((index (nth position arg-indices))
+                            (stringified-arglist
+                             (decoded-arglist-to-string
+                              arglist
+                              :operator operator
+                              :print-right-margin print-right-margin
+                              :print-lines print-lines
+                              ;; Do not highlight the operator:
+                              :highlight (and index (not (zerop index)) index))))
+                       ;; Post formatting:
+                       (case type
+                         (:type-specifier (format nil "[Typespec] ~A" stringified-arglist))
+                         (:declaration
+                          (locally (declare (special *arglist-pprint-bindings*))
+                            (with-bindings *arglist-pprint-bindings*
+                              ;; Try to print ``(declare (declspec))'' (or ``declaim'' etc.)
+                              (let ((op (%find-declaration-operator raw-specs position)))
+                                (if op
+                                    (format nil "(~A ~A)" op stringified-arglist)
+                                    (format nil "[Declaration] ~A" stringified-arglist))))))
+                         (t stringified-arglist)))))
+              (mapc #'unintern-in-home-package newly-interned-symbols)))))
     (error (cond)
       (format nil "ARGLIST (error): ~A" cond))
     ))
@@ -145,51 +192,7 @@ datum for subsequent logics to rely on."
   "Takes a raw (i.e. unparsed) form spec from SLIME and returns a
 proper form spec for further processing within SWANK. Returns NIL
 if RAW-SPEC could not be parsed. Symbols that had to be interned
-in course of the conversion, are returned as secondary return value.
-
-A ``raw form spec'' can be either: 
-
-  i)   a list of strings representing a Common Lisp form
-
-  ii)  a list of strings as of i), but which additionally 
-       contains other raw form specs
-
-  iii) one of:
-
-     a)  (:declaration declspec) 
-
-           where DECLSPEC is a raw form spec.
-
-     b)  (:type-specifier typespec) 
-       
-           where TYPESPEC is a raw form spec.
-
-
-A ``form spec'' is either
-
-  1) a normal Common Lisp form
-
-  2) a Common Lisp form with a list as its CAR specifying what namespace
-     the operator is supposed to be interpreted in:
-
-       a) ((:declaration decl-identifier) declarg1 declarg2 ...)
-
-       b) ((:type-specifier typespec-op) typespec-arg1 typespec-arg2 ...)
-
-
-Examples:
-
-  (\"defmethod\")                               =>  (defmethod)
-  (\"cl:defmethod\")                            =>  (cl:defmethod)
-  (\"defmethod\" \"print-object\")              =>  (defmethod print-object)
-
-  (\"foo\" (\"bar\" (\"quux\")) \"baz\"         =>  (foo (bar (quux)) baz)
-
-  (:declaration \"optimize\" \"(optimize)\")    =>  ((:declaration optimize))
-  (:declaration \"type\"     \"(type string)\") =>  ((:declaration type) string)
-  (:type-specifier \"float\" \"(float)\")       =>  ((:type-specifier float))
-  (:type-specifier \"float\" \"(float 0 100)\") =>  ((:type-specifier float) 0 100)
-"
+in course of the conversion, are returned as secondary return value."
   (flet ((parse-extended-spec (raw-extension extension-flag)
            (when (and (stringp (first raw-extension)) ; (:DECLARATION (("a" "b" ("c")) "d"))
                       (nth-value 1 (parse-symbol (first raw-extension))))
@@ -1097,12 +1100,6 @@ Examples:
           (split-form-spec form-spec)
         (arglist-dispatch type operator arguments :remove-args remove-args))))
 
-(defmacro with-available-arglist ((var) form &body body)
-  `(let ((,var ,form))
-     (if (eql ,var :not-available)
-         :not-available
-         (progn ,@body))))
-
 (defgeneric arglist-dispatch (operator-type operator arguments &key remove-args))
   
 (defmethod arglist-dispatch ((operator-type t) operator arguments &key (remove-args t))
@@ -1146,6 +1143,7 @@ Examples:
                                   :rest "body" :body-p t)
                     t))))))
   (call-next-method))
+
 
 (defmethod arglist-dispatch ((operator-type (eql :function)) (operator (eql 'eval-when))
                              arguments &key (remove-args t))

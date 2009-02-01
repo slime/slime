@@ -1,3 +1,10 @@
+2009-02-01  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-arglists.lisp (parse-form-spec): Moved most part of its
+	docstring into a comment.
+	(arglist-for-echo-area): Some minor code reorganization.  The
+	autodoc stuff in general could need some fair bit of refactoring.
+
 2009-01-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-repl.el ([shortcut] quit): Quit the connection before
