@@ -1,5 +1,23 @@
 2009-02-01  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	Add DEFMETHOD-style extended arglist display for
+	DEFINE-COMPILER-MACRO.
+
+	  (defun foo (x y &key k1 k2))
+	  (define-compiler-macro foo |)
+
+	* swank-arglists.lisp ([method] arglist-dispatch): Specialize
+	on (EQL 'DEFINE-COMPILER-MACRO).
+
+	* slime-parse.el (slime-extended-operator-name-parser-alist): Add
+	entry for DEFINE-COMPILER-MACRO.
+	(slime-make-extended-operator-parser/look-ahead): Collect up /at
+	most/ N sexps. Previously `(defmethod |)' would lead to a form
+	spec of ``("defmethod" ("defmethod"))''.
+	([test] enclosing-form-specs.1): Test for this.
+
+2009-02-01  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank-arglists.lisp (parse-form-spec): Moved most part of its
 	docstring into a comment.
 	(arglist-for-echo-area): Some minor code reorganization.  The

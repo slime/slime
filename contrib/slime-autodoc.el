@@ -233,7 +233,11 @@ If it's not in the cache, the cache will be updated asynchronously."
   (when slime-autodoc-mode
     (setq ad-return-value
           (and ad-return-value
+               ;; Display arglist only when the minibuffer is
+               ;; inactive, e.g. not on `C-x C-f'.
                (not (active-minibuffer-window))
+               ;; Display arglist only when inferior Lisp will be able
+               ;; to cope with the request.
                (slime-background-activities-enabled-p))))
   ad-return-value)
 

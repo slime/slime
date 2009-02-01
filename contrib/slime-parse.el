@@ -118,6 +118,7 @@ parsing, and are then returned back as multiple values."
     ("CERROR"         . (slime-make-extended-operator-parser/look-ahead 2))
     ("CHANGE-CLASS"   . (slime-make-extended-operator-parser/look-ahead 2))
     ("DEFMETHOD"      . (slime-make-extended-operator-parser/look-ahead 1))
+    ("DEFINE-COMPILER-MACRO" . (slime-make-extended-operator-parser/look-ahead 1))
     ("APPLY"          . (slime-make-extended-operator-parser/look-ahead 1))
     ("DECLARE"        . slime-parse-extended-operator/declare)
     ("DECLAIM"        . slime-parse-extended-operator/declare)
@@ -125,18 +126,21 @@ parsing, and are then returned back as multiple values."
 
 (defun slime-make-extended-operator-parser/look-ahead (steps)
   "Returns a parser that parses the current operator at point
-plus STEPS-many additional sexps on the right side of the
-operator."
+plus (at most) STEPS-many additional sexps on the right side of
+the operator."
   (lexical-let ((n steps))
     #'(lambda (name user-point current-forms current-indices current-points)
         (let ((old-forms (rest current-forms))
               (arg-idx   (first current-indices)))
-          (unless (zerop arg-idx)
+          (when (and (not (zerop arg-idx)) ; point is at CAR of form?
+                     (not (= (point)       ; point is at end of form?
+                             (save-excursion (slime-end-of-list)
+                                             (point)))))
             (let* ((args (slime-ensure-list (slime-parse-sexp-at-point n)))
                    (arg-specs (mapcar #'slime-make-form-spec-from-string args)))
-              (setq current-forms (cons `(,name ,@arg-specs) old-forms)))))
-        (values current-forms current-indices current-points)
-        )))
+              (setq current-forms (cons `(,name ,@arg-specs) old-forms))))
+          (values current-forms current-indices current-points)
+          ))))
 
 (defun slime-parse-extended-operator/declare
     (name user-point current-forms current-indices current-points)
@@ -346,6 +350,24 @@ Examples:
     (if string-start-pos
 	(goto-char string-start-pos)
 	(error "We're not within a string"))))
+
+(def-slime-test enclosing-form-specs.1
+    (buffer-sexpr wished-form-specs)
+    ""
+    '(("(defmethod *HERE*)" ("defmethod"))
+      ("(cerror foo *HERE*)" ("cerror" "foo")))
+  (slime-check-top-level)
+  (with-temp-buffer
+    (let ((tmpbuf (current-buffer)))
+      (lisp-mode)
+      (insert buffer-sexpr)
+      (search-backward "*HERE*")
+      (multiple-value-bind (specs) 
+	  (slime-enclosing-form-specs)
+	(slime-check "Check enclosing form specs"
+	  (equal specs wished-form-specs)))
+      )))
+
 
 (provide 'slime-parse)
 
