@@ -354,14 +354,15 @@ Examples:
 (def-slime-test enclosing-form-specs.1
     (buffer-sexpr wished-form-specs)
     ""
-    '(("(defmethod *HERE*)" ("defmethod"))
-      ("(cerror foo *HERE*)" ("cerror" "foo")))
+    '(("(defmethod *HERE*)" (("defmethod")))
+      ("(cerror foo *HERE*)" (("cerror" "foo"))))
   (slime-check-top-level)
   (with-temp-buffer
     (let ((tmpbuf (current-buffer)))
       (lisp-mode)
       (insert buffer-sexpr)
       (search-backward "*HERE*")
+      (delete-region (match-beginning 0) (match-end 0))
       (multiple-value-bind (specs) 
 	  (slime-enclosing-form-specs)
 	(slime-check "Check enclosing form specs"
