@@ -66,12 +66,6 @@ Otherwise NIL is returned."
            (eq (first form) 'setf)
            (symbolp (second form)))))
 
-(defmacro with-available-arglist ((var) form &body body)
-  `(let ((,var ,form))
-     (if (eql ,var :not-available)
-         :not-available
-         (progn ,@body))))
-
 ;;; A ``raw form spec'' can be either: 
 ;;; 
 ;;;   i)   a list of strings representing a Common Lisp form
@@ -127,31 +121,31 @@ special-ops, declarations and type specifiers."
             (parse-first-valid-form-spec raw-specs #'read-conversatively-for-autodoc)
           (when form-spec
             (unwind-protect
-                 (with-available-arglist (arglist)
-                     (arglist-from-form-spec form-spec :remove-args nil)
-                   (multiple-value-bind (type operator)
-                       (split-form-spec form-spec)
-                     (let* ((index (nth position arg-indices))
-                            (stringified-arglist
-                             (decoded-arglist-to-string
-                              arglist
-                              :operator operator
-                              :print-right-margin print-right-margin
-                              :print-lines print-lines
-                              ;; Do not highlight the operator:
-                              :highlight (and index (not (zerop index)) index))))
-                       ;; Post formatting:
-                       (case type
-                         (:type-specifier (format nil "[Typespec] ~A" stringified-arglist))
-                         (:declaration
-                          (locally (declare (special *arglist-pprint-bindings*))
-                            (with-bindings *arglist-pprint-bindings*
-                              ;; Try to print ``(declare (declspec))'' (or ``declaim'' etc.)
-                              (let ((op (%find-declaration-operator raw-specs position)))
-                                (if op
-                                    (format nil "(~A ~A)" op stringified-arglist)
-                                    (format nil "[Declaration] ~A" stringified-arglist))))))
-                         (t stringified-arglist)))))
+                 (let ((arglist (arglist-from-form-spec form-spec :remove-args nil)))
+                   (unless (eq arglist :not-available)
+                     (multiple-value-bind (type operator)
+                         (split-form-spec form-spec)
+                       (let* ((index (nth position arg-indices))
+                              (stringified-arglist
+                               (decoded-arglist-to-string
+                                arglist
+                                :operator operator
+                                :print-right-margin print-right-margin
+                                :print-lines print-lines
+                                ;; Do not highlight the operator:
+                                :highlight (and index (not (zerop index)) index))))
+                         ;; Post formatting:
+                         (case type
+                           (:type-specifier (format nil "[Typespec] ~A" stringified-arglist))
+                           (:declaration
+                            (locally (declare (special *arglist-pprint-bindings*))
+                              (with-bindings *arglist-pprint-bindings*
+                                ;; Try to print ``(declare (declspec))'' (or ``declaim'' etc.)
+                                (let ((op (%find-declaration-operator raw-specs position)))
+                                  (if op
+                                      (format nil "(~A ~A)" op stringified-arglist)
+                                      (format nil "[Declaration] ~A" stringified-arglist))))))
+                           (t stringified-arglist))))))
               (mapc #'unintern-in-home-package newly-interned-symbols)))))
     (error (cond)
       (format nil "ARGLIST (error): ~A" cond))
@@ -1099,6 +1093,13 @@ Examples:
       (multiple-value-bind (type operator arguments)
           (split-form-spec form-spec)
         (arglist-dispatch type operator arguments :remove-args remove-args))))
+
+
+(defmacro with-available-arglist ((var) form &body body)
+  `(let ((,var ,form))
+     (if (eql ,var :not-available)
+         :not-available
+         (progn ,@body))))
 
 (defgeneric arglist-dispatch (operator-type operator arguments &key remove-args))
   

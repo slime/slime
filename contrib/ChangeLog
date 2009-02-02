@@ -1,5 +1,11 @@
 2009-02-02  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-arglists.lisp (arglist-for-echo-area): Bleh, can't use
+	WITH-AVAILABLE-ARGLIST because we're supposed to return NIL, not
+	:NOT-AVAILABLE, in the failure case.
+
+2009-02-02  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-parse.el ([test] enclosing-form-specs.1): Fix test case.
 
 2009-02-01  Tobias C. Rittweiler  <tcr@freebits.de>
