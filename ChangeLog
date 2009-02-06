@@ -1,3 +1,9 @@
+2009-02-07  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-initialize-macroexpansion-buffer): Clear the
+	buffer-undo-list, so the user can't get expansions from earlier
+	macroexpansions into the buffer, screwing up badly.
+
 2009-01-30  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-clisp.lisp (fspec-location): Fix creation of source-location.

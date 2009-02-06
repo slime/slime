@@ -4948,6 +4948,8 @@ This variable specifies both what was expanded and how.")
 
 (defun slime-initialize-macroexpansion-buffer (expansion &optional buffer)
   (pop-to-buffer (or buffer (slime-create-macroexpansion-buffer)))
+  (setq buffer-undo-list nil) ; Get rid of undo information from
+                              ; previous expansions.
   (let ((inhibit-read-only t)
         (buffer-undo-list t)) ; Make the initial insertion not be undoable.
     (erase-buffer)
