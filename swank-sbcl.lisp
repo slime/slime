@@ -573,6 +573,15 @@ This is useful when debugging the definition-finding code.")
     :source-transform :define-source-transform)
   "Map SB-INTROSPECT definition type names to Slime-friendly forms")
 
+(defun definition-specifier (type name)
+  "Return a pretty specifier for NAME representing a definition of type TYPE."
+  (if (and (symbolp name)
+           (eq type :function)
+           (sb-int:info :function :ir1-convert name))
+      :def-ir1-translator
+      (getf *definition-types* type)))
+
+
 (defimplementation find-definitions (name)
   (loop for type in *definition-types* by #'cddr
         for locations = (sb-introspect:find-definition-sources-by-name
@@ -610,15 +619,18 @@ This is useful when debugging the definition-finding code.")
 
 
 (defun make-source-location-specification (type name source-location)
-  (list (list* (getf *definition-types* type)
-               name
-               (sb-introspect::definition-source-description source-location))
+  (list (make-dspec type name source-location)
         (if *debug-definition-finding*
             (make-definition-source-location source-location type name)
             (handler-case
                 (make-definition-source-location source-location type name)
               (error (e)
                 (list :error (format nil "Error: ~A" e)))))))
+
+(defun make-dspec (type name source-location)
+  (list* (definition-specifier type name)
+         name
+         (sb-introspect::definition-source-description source-location)))
 
 (defun make-definition-source-location (definition-source type name)
   (with-struct (sb-introspect::definition-source-

@@ -1,5 +1,14 @@
 2009-02-07  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	In Xref, list IR1-conversion functions with :DEF-IR1-TRANSLATOR as
+	prefix rather than DEFUN. (Test case: M-. on FUNCTION.)
+
+	* swank-sbcl.lisp (definition-specifier): New function.
+	(make-dspec): New function. Splitted from
+	MAKE-SOURCE-LOCATION-SPECIFICATION.
+
+2009-02-07  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (slime-initialize-macroexpansion-buffer): Clear the
 	buffer-undo-list, so the user can't get expansions from earlier
 	macroexpansions into the buffer, screwing up badly.
