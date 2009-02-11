@@ -1,5 +1,11 @@
 2009-02-11  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-current-tlf, slime-current-form-path): New
+	functions; can be handy when inspecting source-locations while
+	debugging M-.
+
+2009-02-11  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el: Barf if emacs-major-version <= 20. We support 21 and up.
 	(slime-emacs-20-p): Removed.
 
