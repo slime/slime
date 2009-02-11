@@ -1,3 +1,14 @@
+2009-02-11  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el: Barf if emacs-major-version <= 20. We support 21 and up.
+	(slime-emacs-20-p): Removed.
+
+	* slime.el (slime-forward-reader-comment): Removed.
+	(slime-forward-any-comment): New; superset of above.
+	(slime-forward-reader-conditional): Make it understand SBCL's
+	#!+,#!- so it works in source files of SBCL itself, too.
+	(slime-current-parser-state): New.
+
 2009-02-07  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	In Xref, list IR1-conversion functions with :DEF-IR1-TRANSLATOR as
