@@ -1,3 +1,7 @@
+2009-02-14  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.rb: New file.
+
 2009-02-02  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-arglists.lisp (arglist-for-echo-area): Bleh, can't use
