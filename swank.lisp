@@ -427,7 +427,8 @@ Do not set this to T unless you want to debug swank internals.")
                 (check-slime-interrupts))
                (t
                 (log-event "queue-interrupt: ~a" function)
-                (signal 'slime-interrupt-queued))))))
+                (when *interrupt-queued-handler*
+                  (funcall *interrupt-queued-handler*)))))))
 
 (defslimefun simple-break (&optional (datum "Interrupt from Emacs") &rest args)
   (with-simple-restart (continue "Continue from break.")
@@ -2366,7 +2367,9 @@ Returns true if it actually called emacs, or NIL if not."
 FORM is expected, but not required, to be SETF'able."
   ;; FIXME: Can we check FORM for setfability? -luke (12/Mar/2005)
   (with-buffer-syntax ()
-    (prin1-to-string (eval (read-from-string form)))))
+    (let* ((value (eval (read-from-string form)))
+           (*print-length* nil))
+      (prin1-to-string value))))
 
 (defslimefun commit-edited-value (form value)
   "Set the value of a setf'able FORM to VALUE.
@@ -2488,7 +2491,7 @@ after Emacs causes a restart to be invoked."
                                   `(or (:emacs-rex . _)
                                        (:sldb-return ,(1+ level))))
                  ((:emacs-rex &rest args) (apply #'eval-for-emacs args))
-                 ((:sldb-return _) (declare (ignore _)) (return nil))) 
+                 ((:sldb-return _) (declare (ignore _)) (return nil)))
              (sldb-condition (c) 
                (handle-sldb-condition c))))))
     (send-to-emacs `(:debug-return

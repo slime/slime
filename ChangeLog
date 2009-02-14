@@ -51,6 +51,17 @@
 
 	Patch by Stas Boukarev.
 
+2009-02-14  Helmut Eller  <heller@common-lisp.net>
+
+	Don't signal conditions in interrupt handler to
+	avoid problems with naive code like
+	 (handler-case foo (condition bar))
+
+	* swank-backend.lisp (*interrupt-queued-handler*): Use a dynamic
+	variable instead.
+	(slime-interrupt-queued): Deleted.
+	* swank-cmucl.lisp, swank.lisp: Ditto.
+
 2009-01-30  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-restart-or-init-modeline-update-timer): Don't

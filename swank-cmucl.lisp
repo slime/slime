@@ -203,8 +203,8 @@ specific functions.")
             (handlers (loop for s in (cons in (mapcar #'to-fd-stream streams))
                             collect (add-one-shot-handler s f))))
        (unwind-protect
-            (handler-bind ((slime-interrupt-queued 
-                            (lambda (c) c (write-char #\! out))))
+            (let ((*interrupt-queued-handler* (lambda () 
+                                                (write-char #\! out))))
               (when (check-slime-interrupts) (return :interrupt))
               (sys:serve-event))
          (mapc #'sys:remove-fd-handler handlers)
