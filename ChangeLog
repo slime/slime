@@ -1,3 +1,12 @@
+2009-02-14  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-reader-conditionals-regexp): New variable. Taken
+	from `slime-forward-reader-conditional'.
+	(slime-pretty-package-name): Fix modeline display for buffer
+	containing forms like (in-package "#+foo :A #-foo :B"). Also do
+	not call `read' on the name; the function does not need to return
+	a symbol, and `read' may choke on non-elisp syntax.
+
 2009-02-14  Helmut Eller  <heller@common-lisp.net>
 
 	Don't signal conditions in interrupt handler to
