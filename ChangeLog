@@ -51,6 +51,13 @@
 
 	Patch by Stas Boukarev.
 
+2009-01-30  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-restart-or-init-modeline-update-timer): Don't
+	run the timer repeatedly.
+	(slime-change-directory): Also change the directory in the
+	connection-buffer.
+
 2009-01-23  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-editing-keys): New variable; splitted from

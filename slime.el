@@ -468,7 +468,7 @@ The string is periodically updated by an idle timer."))
   (when slime-modeline-update-timer
     (cancel-timer slime-modeline-update-timer))
   (setq slime-modeline-update-timer
-        (run-with-idle-timer 0.5 0.5 'slime-update-all-modelines)))
+        (run-with-idle-timer 0.1 nil 'slime-update-all-modelines)))
 
 (slime-restart-or-init-modeline-update-timer)
 
@@ -4444,6 +4444,7 @@ Return whatever swank:set-default-directory returns."
   (let ((dir (expand-file-name directory)))
     (prog1 (slime-eval `(swank:set-default-directory
                          ,(slime-to-lisp-filename dir)))
+      (slime-with-connection-buffer nil (cd-absolute dir))
       (run-hook-with-args 'slime-change-directory-hooks dir))))
  
 (defun slime-cd (directory)
