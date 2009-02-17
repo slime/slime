@@ -1,3 +1,8 @@
+2009-02-17  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-repl.el (slime-repl-connected-hook-function): Bind
+	slime-current-thread to avoid problems with killed threads.
+
 2009-02-14  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.rb: New file.

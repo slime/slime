@@ -1499,7 +1499,8 @@ expansion will be added to the REPL's history.)"
 
 (defun slime-repl-connected-hook-function ()
   (destructuring-bind (package prompt) 
-      (slime-eval '(swank:create-repl nil))
+      (let ((slime-current-thread t))
+	(slime-eval '(swank:create-repl nil)))
     (setf (slime-lisp-package) package)
     (setf (slime-lisp-package-prompt-string) prompt))
   (slime-hide-inferior-lisp-buffer)
