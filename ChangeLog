@@ -1,3 +1,11 @@
+2009-02-17  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (dispatch-event [:emacs-rex]): Reply a :invalid-rpc
+	message if the specified thread doesn't exist.
+	* slime.el (slime-dispatch-event): Handle :invalid-rpc.
+	(slime-init-connection-state): Bind slime-current-thread
+	to avoid problems with dead threads.
+
 2009-02-14  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-reader-conditionals-regexp): New variable. Taken

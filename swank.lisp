@@ -1151,8 +1151,14 @@ The processing is done in the extent of the toplevel restart."
   (destructure-case event
     ((:emacs-rex form package thread-id id)
      (let ((thread (thread-for-evaluation thread-id)))
-       (push thread *active-threads*)
-       (send-event thread `(:emacs-rex ,form ,package ,id))))
+       (cond (thread 
+              (push thread *active-threads*)
+              (send-event thread `(:emacs-rex ,form ,package ,id)))
+             (t
+              (encode-message 
+               (list :invalid-rpc id
+                     (format nil "Thread not found: ~s" thread-id))
+               (current-socket-io))))))
     ((:return thread &rest args)
      (let ((tail (member thread *active-threads*)))
        (setq *active-threads* (nconc (ldiff *active-threads* tail)

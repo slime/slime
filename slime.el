@@ -1989,8 +1989,9 @@ This is automatically synchronized from Lisp.")
   ;; function may be called from a timer, and if we setup the REPL
   ;; from a timer then it mysteriously uses the wrong keymap for the
   ;; first command.
-  (slime-eval-async '(swank:connection-info)
-                    (slime-curry #'slime-set-connection-info proc)))
+  (let ((slime-current-thread t))
+    (slime-eval-async '(swank:connection-info)
+                    (slime-curry #'slime-set-connection-info proc))))
 
 (defun slime-set-connection-info (connection info)
   "Initialize CONNECTION with INFO received from Lisp."
@@ -2397,9 +2398,11 @@ Debugged requests are ignored."
              (princ (format "Invalid protocol message:\n%s\n\n%S"
                             condition packet))
              (goto-char (point-min)))
-           (error "Invalid protocol message")))))
-  ;; Canonicalized return value. See comment in `slime-eval-async'.
-  :slime-dispatch-event)
+           (error "Invalid protocol message"))
+          ((:invalid-rpc id message)
+           (setf (slime-rex-continuations)
+                 (remove* id (slime-rex-continuations) :key #'car))
+           (error "Invalid rpc: %s" message))))))
 
 (defun slime-send (sexp)
   "Send SEXP directly over the wire on the current connection."
