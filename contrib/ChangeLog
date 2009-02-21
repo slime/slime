@@ -1,3 +1,10 @@
+2009-02-21  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-package-fu.el: Removed misplaced comma, deleted some
+	end-of-line whitespace, added newline to the end of the file.
+
+	Patch by Robert Brown.
+
 2009-02-17  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-repl.el (slime-repl-connected-hook-function): Bind
