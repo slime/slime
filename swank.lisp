@@ -2895,6 +2895,9 @@ the filename of the module (or nil if the file doesn't exist).")
 (defslimefun swank-compiler-macroexpand (string)
   (apply-macro-expander #'compiler-macroexpand string))
 
+(defslimefun swank-format-string-expand (string)
+  (apply-macro-expander #'format-string-expand string))
+
 (defslimefun disassemble-symbol (name)
   (with-buffer-syntax ()
     (with-output-to-string (*standard-output*)

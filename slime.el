@@ -4962,6 +4962,18 @@ When displaying XREF information, this goes to the next reference."
   (remap 'advertised-undo 'slime-macroexpand-undo)
   (remap 'undo 'slime-macroexpand-undo))
 
+(defun slime-macroexpand-undo (&optional arg)
+  (interactive)
+  (flet ((undo-only (arg)
+           ;; Emacs 22.x introduced `undo-only' which works by binding
+           ;; `undo-no-redo' to t. We do it this way so we don't break
+           ;; prior Emacs versions.
+           (let ((undo-no-redo t)) (undo arg))))
+    (let ((inhibit-read-only t))
+      (when (fboundp 'slime-remove-edits)
+        (slime-remove-edits (point-min) (point-max)))
+      (undo-only arg))))
+
 (defun slime-sexp-at-point-for-macroexpansion ()
   "Essentially like SLIME-SEXP-AT-POINT-OR-ERROR, but behaves a
 bit more sanely in situations like ,(loop ...) where you want to
@@ -4992,6 +5004,13 @@ This variable specifies both what was expanded and how.")
     (setq slime-eval-macroexpand-expression `(,expander ,string))
     (slime-eval-async slime-eval-macroexpand-expression
                       #'slime-initialize-macroexpansion-buffer)))
+
+(defun slime-macroexpand-again ()
+  "Reperform the last macroexpansion."
+  (interactive)
+  (slime-eval-async slime-eval-macroexpand-expression 
+                    (slime-rcurry #'slime-initialize-macroexpansion-buffer
+                                  (current-buffer))))
 
 (defun slime-initialize-macroexpansion-buffer (expansion &optional buffer)
   (pop-to-buffer (or buffer (slime-create-macroexpansion-buffer)))
@@ -5073,25 +5092,11 @@ CL:MACROEXPAND."
   (interactive)
   (slime-eval-macroexpand 'swank:swank-compiler-macroexpand-1))
 
-(defun slime-macroexpand-again ()
-  "Reperform the last macroexpansion."
+(defun slime-format-string-expand ()
+  "Format the format-string at point, and display its expansion."
   (interactive)
-  (slime-eval-async slime-eval-macroexpand-expression 
-                    (slime-rcurry #'slime-initialize-macroexpansion-buffer
-                                  (current-buffer))))
-
-(defun slime-macroexpand-undo (&optional arg)
-  (interactive)
-  (flet ((undo-only (arg)
-           ;; Emacs 22.x introduced `undo-only' which works by binding
-           ;; `undo-no-redo' to t. We do it this way so we don't break
-           ;; prior Emacs versions.
-           (let ((undo-no-redo t)) (undo arg))))
-    (let ((inhibit-read-only t))
-      (when (fboundp 'slime-remove-edits)
-        (slime-remove-edits (point-min) (point-max)))
-      (undo-only arg))))
-
+  (slime-eval-macroexpand 'swank:swank-format-string-expand
+                          (slime-string-at-point-or-error)))
 
 ;;;; Subprocess control
 
@@ -8089,8 +8094,18 @@ The result is unspecified if there isn't a symbol under the point."
 
 (defun slime-sexp-at-point-or-error ()
   "Return the sexp at point as a string, othwise signal an error."
-  (or (slime-sexp-at-point)
-      (error "No expression at point.")))
+  (or (slime-sexp-at-point) (error "No expression at point.")))
+
+(defun slime-string-at-point ()
+  "Returns the string at point as a string, otherwise nil."
+  (let ((sexp (slime-sexp-at-point)))
+    (if (eql (char-syntax (aref sexp 0)) ?\")
+        sexp
+        nil)))
+
+(defun slime-string-at-point-or-error ()
+  "Return the sexp at point as a string, othwise signal an error."
+  (or (slime-string-at-point) (error "No string at point.")))
 
 (defun slime-input-complete-p (start end)
   "Return t if the region from START to END contains a complete sexp."

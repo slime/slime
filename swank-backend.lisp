@@ -581,6 +581,10 @@ NIL."
 		   (values new-form expanded)))))
     (frob form env)))
 
+(definterface format-string-expand (control-string)
+  "Expand the format string CONTROL-STRING."
+  (macroexpand `(formatter ,control-string)))
+
 (definterface describe-symbol-for-emacs (symbol)
    "Return a property list describing SYMBOL.
 
