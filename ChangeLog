@@ -1,5 +1,11 @@
 2009-02-24  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-forward-cruft): Forward whitespace, reader
+	conditonals, comments. Splitted from `slime-forward-sexp'.
+	(slime-pretty-package-name): Use it.
+
+2009-02-24  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	Re-checkin my change from 2009-02-14. It seems I didn't actually
 	commit it.
 

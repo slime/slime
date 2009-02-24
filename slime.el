@@ -407,12 +407,11 @@ The string is periodically updated by an idle timer."))
                      (with-temp-buffer
                        (insert name)
                        (goto-char (point-min))
-                       (slime-forward-sexp) ; skip reader conditionals
-                       (let ((old (point)))
-                         (backward-sexp)
-                         (buffer-substring-no-properties (point) old))))
-                    (t
-                     (error "FALL THROUGH")))))
+                       (slime-forward-cruft)
+                       (if (eobp)       ; Skipped all reader conditionals?
+                           name         ; If so, do nothing.
+                           (slime-pretty-package-name (slime-sexp-at-point)))))
+                    (t (error "FALL THROUGH")))))
     (format "%s" name)))
 
 (defun slime-compute-modeline-connection ()
@@ -7983,10 +7982,14 @@ package is used."
   "Like `forward-sexp', but understands reader-conditionals (#- and #+),
 and skips comments."
   (dotimes (i (or count 1))
-    (while (slime-point-moves-p (slime-forward-blanks)
-                                (slime-forward-any-comment)
-                                (slime-forward-reader-conditional)))
+    (slime-forward-cruft)
     (forward-sexp)))
+
+(defun slime-forward-cruft ()
+  "Move forward over whitespace, comments, reader conditionals."
+  (while (slime-point-moves-p (slime-forward-blanks)
+                              (slime-forward-any-comment)
+                              (slime-forward-reader-conditional))))
 
 (defun slime-forward-blanks ()
   "Move forward over all whitespace and newlines at point."
