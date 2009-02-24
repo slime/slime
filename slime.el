@@ -401,8 +401,19 @@ The string is periodically updated by an idle timer."))
                      (match-string 1 name))
                     ((string-match "^\"\\(.*\\)\"$" name) 
                      (match-string 1 name))
-                    (t name))))
-    (format "%s" (read name))))
+                    ((string-match slime-reader-conditionals-regexp name)
+                     ;; This is kind of a sledge hammer, but as it's a rare
+                     ;; case we don't care.
+                     (with-temp-buffer
+                       (insert name)
+                       (goto-char (point-min))
+                       (slime-forward-sexp) ; skip reader conditionals
+                       (let ((old (point)))
+                         (backward-sexp)
+                         (buffer-substring-no-properties (point) old))))
+                    (t
+                     (error "FALL THROUGH")))))
+    (format "%s" name)))
 
 (defun slime-compute-modeline-connection ()
   (let ((conn (slime-current-connection)))
@@ -7993,12 +8004,14 @@ within. This includes nested comments (#| ... |#)."
     (goto-char comment-start)
     (forward-comment (buffer-size))))
 
+(defvar slime-reader-conditionals-regexp
+  ;; #!+, #!- are SBCL specific reader-conditional syntax.
+  ;; We need this for the source files of SBCL itself.
+  (regexp-opt '("#+" "#-" "#!+" "#!-")))
+ 
 (defun slime-forward-reader-conditional ()
   "Move past any reader conditional (#+ or #-) at point."
-  (when (or (looking-at "#[\\+\\-]")
-            ;; #!+, #!- are SBCL specific reader-conditional syntax.
-            ;; We need this for the source files of SBCL itself.
-            (looking-at "#![\\+\\-]"))
+  (when (looking-at slime-reader-conditionals-regexp)
     (goto-char (match-end 0))
     (let* ((plus-conditional-p (eq (char-before) ?+))
            (result (slime-eval-feature-conditional (read (current-buffer)))))

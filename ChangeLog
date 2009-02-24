@@ -1,4 +1,9 @@
-2009-02-22  2009-02-14  Tobias C. Rittweiler  <tcr@freebits.de>
+2009-02-24  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Re-checkin my change from 2009-02-14. It seems I didn't actually
+	commit it.
+
+2009-02-22  Tobias C. Rittweiler  <tcr@freebits.de>
 
         `M-x slime-format-string-expand' displays the expansion of a
         format string.
