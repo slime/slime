@@ -1,3 +1,15 @@
+2009-02-22  2009-02-14  Tobias C. Rittweiler  <tcr@freebits.de>
+
+        `M-x slime-format-string-expand' displays the expansion of a
+        format string.
+
+        * slime.el (slime-string-at-point) New.
+        (slime-string-at-point-or-error): New.
+        (slime-format-string-expand): New; use them.
+
+        * swank-backend.lisp (format-string-expand): New interface.
+        * swank.lisp (swank-format-string-expand): New; use it.
+
 2009-02-17  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (dispatch-event [:emacs-rex]): Reply a :invalid-rpc
