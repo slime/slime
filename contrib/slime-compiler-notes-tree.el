@@ -1,4 +1,4 @@
-;; slime-complete-notes-tree.el --- Display compiler messages in tree layout.
+;; slime-compiler-notes-tree.el --- Display compiler messages in tree layout.
 ;;
 ;; Author: Helmut Eller
 ;; License: GNU GPL (same license as Emacs)
@@ -180,4 +180,4 @@ This is used for labels spanning multiple lines."
     (delete-char 1)
     (goto-char start-mark)))
 
-(provide 'slime-complete-notes-tree)
+(provide 'slime-compiler-notes-tree)
