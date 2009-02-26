@@ -1,5 +1,10 @@
 2009-02-26  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (sldb-backward-frame): Only move backward when we're
+	below the backtrace marker.
+
+2009-02-26  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank.lisp (debug-in-emacs): Moved (WITH-BINDINGS
 	*SLDB-PRINTER-BINDINGS* ...), from here...
 	(sldb-loop): ... to here. Otherwise results from a user doing an

@@ -5573,10 +5573,11 @@ Called on the `point-entered' text-property hook."
   (goto-char (next-single-char-property-change (point) 'frame)))
 
 (defun sldb-backward-frame ()
-  (goto-char (previous-single-char-property-change
-              (car (sldb-frame-region))
-              'frame
-              nil sldb-backtrace-start-marker)))
+  (when (> (point) sldb-backtrace-start-marker)
+    (goto-char (previous-single-char-property-change
+                (car (sldb-frame-region))
+                'frame
+                nil sldb-backtrace-start-marker))))
 
 (defun sldb-goto-last-frame ()
   (goto-char (point-max))
