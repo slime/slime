@@ -3476,6 +3476,12 @@ Return NIL if LIST is circular."
 ;;;;; Hashtables
 
 
+(defun hash-table-to-alist (ht)
+  (let ((result '()))
+    (maphash #'(lambda (key value)
+                 (setq result (acons key value result)))
+             ht)
+    result))
 
 (defmethod emacs-inspect ((ht hash-table))
   (append
@@ -3492,13 +3498,17 @@ Return NIL if LIST is circular."
      `((:action "[clear hashtable]" 
                 ,(lambda () (clrhash ht))) (:newline)
        "Contents: " (:newline)))
-   (loop for key being the hash-keys of ht
-         for value being the hash-values of ht
-         append `((:value ,key) " = " (:value ,value)
-                  " " (:action "[remove entry]"
-                               ,(let ((key key))
-                                     (lambda () (remhash key ht))))
-                  (:newline)))))
+   (let ((content (hash-table-to-alist ht)))
+     (cond ((every (lambda (x) (typep (first x) '(or string symbol))) content)
+            (setf content (sort content 'string< :key #'first)))
+           ((every (lambda (x) (typep (first x) 'number)) content)
+            (setf content (sort content '< :key #'first))))
+     (loop for (key . value) in content appending
+           `((:value ,key) " = " (:value ,value)
+             " " (:action "[remove entry]"
+                          ,(let ((key key))
+                                (lambda () (remhash key ht))))
+             (:newline))))))
 
 ;;;;; Arrays
 

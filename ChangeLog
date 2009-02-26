@@ -1,5 +1,13 @@
 2009-02-26  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank.lisp (hash-table-to-alist): New function.
+	([method] emacs-inspect (hash-table)): Sort keys if they're all
+	numbers, symbols, or strings.
+
+	Adapted from Willem Broekema.
+
+2009-02-26  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank-backend.lisp (warn-unimplemented-interfaces):
 	Bind *PRINT-PRETTY* to T. Otherwise no sugar formatting on CCL.
 
