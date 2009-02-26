@@ -2479,8 +2479,9 @@ after Emacs causes a restart to be invoked."
     (force-user-output)
     (call-with-debugging-environment
      (lambda ()
-       (with-bindings *sldb-printer-bindings*
-         (sldb-loop *sldb-level*))))))
+       ;; We used to have (WITH-BINDING *SLDB-PRINTER-BINDINGS* ...)
+       ;; here, but that truncated the result of an eval-in-frame.
+       (sldb-loop *sldb-level*)))))
 
 (defun sldb-loop (level)
   (unwind-protect
@@ -2488,7 +2489,8 @@ after Emacs causes a restart to be invoked."
         (with-simple-restart (abort "Return to sldb level ~D." level)
           (send-to-emacs 
            (list* :debug (current-thread-id) level
-                  (debugger-info-for-emacs 0 *sldb-initial-frames*)))
+                  (with-bindings *sldb-printer-bindings*
+                    (debugger-info-for-emacs 0 *sldb-initial-frames*))))
           (send-to-emacs 
            (list :debug-activate (current-thread-id) level nil))
           (loop 

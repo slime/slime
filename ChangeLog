@@ -1,5 +1,14 @@
 2009-02-26  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank.lisp (debug-in-emacs): Moved (WITH-BINDINGS
+	*SLDB-PRINTER-BINDINGS* ...), from here...
+	(sldb-loop): ... to here. Otherwise results from a user doing an
+	eval-in-frame were truncated.
+
+	Reported by Jeff Workman.
+
+2009-02-26  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank.lisp (hash-table-to-alist): New function.
 	([method] emacs-inspect (hash-table)): Sort keys if they're all
 	numbers, symbols, or strings.
