@@ -682,12 +682,13 @@ SPECIAL-OPERATOR groups."
                    `("Pathname: "
                      (:value ,(pathname stream))
                      (:newline) "  "
-                     (:action "[visit file and show current position]"
-                              ,(let ((pathname (pathname stream))
-                                     (position (file-position stream)))
-                                    (lambda ()
-                                      (ed-in-emacs `(,pathname :charpos ,position))))
-                              :refreshp nil)
+                     ,@(when (open-stream-p stream)
+                         `(:action "[visit file and show current position]"
+                                   ,(let ((pathname (pathname stream))
+                                          (position (file-position stream)))
+                                         (lambda ()
+                                           (ed-in-emacs `(,pathname :charpos ,position))))
+                                   :refreshp nil))
                      (:newline))
                    content)
           content))))
