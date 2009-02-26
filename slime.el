@@ -411,9 +411,10 @@ The string is periodically updated by an idle timer."))
                        (goto-char (point-min))
                        (slime-forward-cruft)
                        (if (eobp)       ; Skipped all reader conditionals?
-                           name         ; If so, do nothing.
+                           name         ; If so, return the garbage!
                            (slime-pretty-package-name (slime-sexp-at-point)))))
-                    (t (error "FALL THROUGH")))))
+                    (t ; Normal symbol, or some garbage.
+                     name))))
     (format "%s" name)))
 
 (defun slime-compute-modeline-connection ()
