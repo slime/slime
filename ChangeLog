@@ -1,5 +1,11 @@
 2009-02-26  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* doc/slime.texi: Fix typos, and add keybindings not listed there.
+
+	Patch by Stas Boukarev.
+
+2009-02-26  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (sldb-backward-frame): Only move backward when we're
 	below the backtrace marker.
 
