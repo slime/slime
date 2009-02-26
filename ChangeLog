@@ -1,7 +1,15 @@
-2009-02-25  Luís Oliveira  <loliveira@common-lisp.net>
+2009-02-26  Tobias C. Rittweiler  <tcr@freebits.de>
 
-	* contrib/slime-compiler-notes-tree.el: Fix typo in the `provide'
-	form.
+	* slime.el ([test] fancy-symbol-names): New, hopefully
+	comprehensive, test for funky symbol names.
+	(slime-check-fancy-symbol-name): Helper.
+	(slime-exit-vertical-bars): New function to move out from |foo|.
+	(slime-symbol-constituent-at): New predicate to test whether the
+	character at point is a valid symbol constituent.
+	(slime-beginning-of-symbol, slime-end-of-symbol): Rewritten using
+	above two functions and `forward-sexp' that correctly parses
+	escapes etc.
+	(slime-sexp-at-point): Consider thing at point a symbol first.
 
 2009-02-24  Tobias C. Rittweiler  <tcr@freebits.de>
 

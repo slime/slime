@@ -1,3 +1,4 @@
+
 ;;; slime.el --- Superior Lisp Interaction Mode for Emacs
 ;;
 ;;;; License
@@ -57,6 +58,7 @@
     (defalias 'define-minor-mode 'easy-mmode-define-minor-mode))
   (when (locate-library "hyperspec")
     (require 'hyperspec)))
+(require 'thingatpt)
 (require 'comint)
 (require 'timer)
 (require 'pp)
@@ -7313,9 +7315,56 @@ BODY returns true if the check succeeds."
 (defun slime-sldb-level= (level)
   (equal level (sldb-level)))
 
+(defun slime-check-fancy-symbol-name (buffer-offset symbol-name)
+  ;; We test that `slime-symbol-name-at-point' works at every
+  ;; character of the symbol name.
+  (dotimes (pt (length symbol-name))
+    (setq pt (+ buffer-offset pt))
+    (goto-char pt)
+    (slime-check ("Checking `%s' (%d)..." (buffer-string) pt)
+      (equal (slime-symbol-name-at-point) symbol-name))))
+
+(def-slime-test fancy-symbol-names (symbol-name)
+    "Check that we can cope with idiosyncratic symbol names."
+    '(("foobar") ("foo@bar") ("@foobar") ("foobar@") ("\\@foobar")
+      ("|asdf,@@@(foo[adsf])asdf!!!|::|fo||bar|asdf")
+      ("|asdf||foo||bar|")
+      ("\\|foo|bar|@asdf:foo|\\||")
+      ("\\\\\\\\foo|barfo\\\\|asdf")
+      )
+  (slime-check-top-level)
+  (with-temp-buffer
+    (lisp-mode)
+    (slime-test-message "*** fancy symbol-name at BOB and EOB:")
+    (insert symbol-name)
+    (slime-check-fancy-symbol-name (point-min) symbol-name)
+    (erase-buffer)
+
+    (slime-test-message "*** fancy symbol-name _not_ at BOB/EOB:")
+    (insert "(foo ") (insert symbol-name) (insert " bar)")
+    (slime-check-fancy-symbol-name (+ (point-min) 5) symbol-name)
+    (erase-buffer)
+
+    (unless (eq (aref symbol-name 0) ?\@) ; Skip on `@foobar'
+      (slime-test-message "*** fancy symbol-name with leading ,:")
+      (insert ",") (insert symbol-name)
+      (slime-check-fancy-symbol-name (+ (point-min) 1) symbol-name)
+      (erase-buffer))
+
+    (slime-test-message "*** fancy symbol-name with leading ,@:")
+    (insert ",@") (insert symbol-name)
+    (slime-check-fancy-symbol-name (+ (point-min) 2) symbol-name)
+    (erase-buffer)
+
+    (slime-test-message "*** fancy symbol-name wrapped in ():")
+    (insert "(") (insert symbol-name) (insert ")")
+    (slime-check-fancy-symbol-name (+ (point-min) 1) symbol-name)
+    (erase-buffer)
+    ))
+
 (def-slime-test narrowing ()
-  "Check that narrowing is properly sustained."
-  '(())
+    "Check that narrowing is properly sustained."
+    '()
   (slime-check-top-level)
   (let ((random-buffer-name (symbol-name (gensym)))
         (defun-pos) (tmpbuffer))
@@ -7360,7 +7409,7 @@ BODY returns true if the check succeeds."
                (= (point) defun-pos)))
 
         (slime-check "Checking that narrowing sustained after M-,"
-        (slime-buffer-narrowed-p)))
+          (slime-buffer-narrowed-p)))
       )) 
   (slime-check-top-level))
 
@@ -8056,24 +8105,54 @@ within. This includes nested comments (#| ... |#)."
         (beginning-of-defun)
         (list (point) end)))))
 
+(defun slime-exit-vertical-bars ()
+  "Move out from within vertical bars (|foo|) to the leading bar."
+  (let* ((parser-state (slime-current-parser-state))
+         (in-string-p  (nth 3 parser-state))
+         (string-start (nth 8 parser-state)))
+    (when (and in-string-p 
+               (eq (char-after string-start) ?\|))
+      (goto-char string-start))))
+
+(defun slime-symbol-constituent-at (pos)
+  "Is the character at position POS a valid symbol constituent?"
+  (when-let (char (char-after pos))                   ; nil when at eob.
+    (let* ((char-before   (or (char-before pos) ?\a)) ; nil when at bob.
+           (syntax        (char-syntax char))
+           (syntax-before (char-syntax char-before)))
+      ;; We assume we're not within vertical bars.
+      (or
+       (memq syntax '(?\w ?\_ ?\\))     ; usual suspects?
+       (eq char ?\|)
+       (eq syntax-before ?\\)           ; escaped?
+       (and (eq char ?\@)               ; ,@@foobar or foo@bar?
+            (not (eq char-before ?\,)))))))
+
+;;; `slime-beginning-of-symbol', and `slime-end-of-symbol' are written
+;;; to get a lot of funky CL-style symbol names right (see
+;;; `fancy-symbol-names' test.) To get them right, we have to use
+;;; `forward-sexp' as that one does properly heed escaping etc.
+;;;
 (defun slime-beginning-of-symbol ()
-  "Move point to the beginning of the current symbol."
-  (when (slime-point-moves-p
-          (while (slime-point-moves-p 
-                   (skip-syntax-backward "w_")
-                   (when (eq (char-before) ?|)
-                     (backward-char)))))
-    (when (eq (char-before) ?#) ; special case for things like "#<foo"
-      (forward-char))))
+  "Move to the beginning of the CL-style symbol at point."
+  (slime-exit-vertical-bars)
+  (let ((original-point (point)))
+    (while (slime-symbol-constituent-at (1- (point)))
+      (forward-sexp -1))
+    (when (/= (point) original-point)
+      ;; Move past initial , and ,@:
+      (while (not (slime-symbol-constituent-at (point)))
+        (forward-char 1)))))
 
 (defun slime-end-of-symbol ()
-  "Move point to the end of the current symbol."
-  (while (slime-point-moves-p 
-           (skip-syntax-forward "w_")
-           ;; | has the syntax as ", so we need to 
-           ;; treat it manually rather than via syntax. 
-           (when (looking-at "|")
-             (forward-char)))))
+  "Move to the end of the CL-style symbol at point."
+  ;; We call this for two purposes: (a) to move out from vertical
+  ;; bars, and (b) to get to a safe position (e.g. in "\|foo:|bar|" if
+  ;; point is at the first vertical bar, `forward-sexp' would not see
+  ;; the escape.)
+  (slime-beginning-of-symbol)
+  (while (slime-symbol-constituent-at (point))
+    (forward-sexp 1)))
 
 (put 'slime-symbol 'end-op 'slime-end-of-symbol)
 (put 'slime-symbol 'beginning-op 'slime-beginning-of-symbol)
@@ -8105,8 +8184,9 @@ The result is unspecified if there isn't a symbol under the point."
 
 (defun slime-sexp-at-point ()
   "Return the sexp at point as a string, otherwise nil."
-  (let ((string (thing-at-point 'sexp)))
-    (if string (substring-no-properties string) nil)))
+  (or (slime-symbol-name-at-point)
+      (let ((string (thing-at-point 'sexp)))
+        (if string (substring-no-properties string) nil))))
 
 (defun slime-sexp-at-point-or-error ()
   "Return the sexp at point as a string, othwise signal an error."
@@ -8532,7 +8612,10 @@ If they are not, position point at the first syntax error found."
           slime-print-apropos
           slime-show-note-counts
           slime-insert-propertized
-          slime-tree-insert)))
+          slime-tree-insert
+          slime-symbol-constituent-at
+          slime-beginning-of-symbol
+          slime-end-of-symbol)))
 
 (provide 'slime)
 (run-hooks 'slime-load-hook)
