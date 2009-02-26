@@ -1,3 +1,15 @@
+2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	C-c C-c on (defun foo () ,bar) did not result in a compiler note
+	overlay on SBCL.
+
+	* swank-sbcl.lisp (compiler-note-location): Make it take a
+	condition; if the condition is a READER-ERROR, the passed
+	compiler-error-context is very likely NIL---we have not proceeded
+	beyond reading, so we aren't within the compiler yet. In that
+	case, we use the stream position of the stream behind the
+	READER-ERROR instead.
+
 2009-02-26  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* doc/slime.texi: Fix typos, and add keybindings not listed there.

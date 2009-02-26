@@ -386,7 +386,7 @@ information."
            :short-message (brief-compiler-message-for-emacs condition)
            :references (condition-references (real-condition condition))
            :message (long-compiler-message-for-emacs condition context)
-           :location (compiler-note-location context))))
+           :location (compiler-note-location condition context))))
 
 (defun real-condition (condition)
   "Return the encapsulated condition or CONDITION itself."
@@ -399,13 +399,21 @@ information."
       (externalize-reference
        (sb-int:reference-condition-references condition))))
 
-(defun compiler-note-location (context)
-  (if context
-      (locate-compiler-note
-       (sb-c::compiler-error-context-file-name context)
-       (compiler-source-path context)
-       (sb-c::compiler-error-context-original-source context))
-      (list :error "No error location available")))
+(defun compiler-note-location (condition context)
+  (flet ((bailout ()
+           (list :error "No error location available")))
+    (cond (context
+           (locate-compiler-note
+            (sb-c::compiler-error-context-file-name context)
+            (compiler-source-path context)
+            (sb-c::compiler-error-context-original-source context)))
+          ((typep condition 'reader-error)
+           (let ((stream (stream-error-stream condition)))
+             (unless (open-stream-p stream) (bailout))
+             (make-location (list :buffer *buffer-name*)
+                            (list :offset *buffer-offset*
+                                  (file-position stream)))))
+          (t (bailout)))))
 
 (defun locate-compiler-note (file source-path source)
   (cond ((and (not (eq file :lisp)) *buffer-name*)
