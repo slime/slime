@@ -1,5 +1,10 @@
 2009-02-26  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-fancy-inspector.lisp (emacs-inspect (stream-error)): Do
+	not run FILE-POSITION on a closed stream.
+
+2009-02-26  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-parse.el (slime-parse-symbol-name-at-point):
 	Removed. Superfluous due to recent changes on
 	`slime-symbol-name-at-point'.
