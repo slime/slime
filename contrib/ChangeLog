@@ -1,3 +1,25 @@
+2009-02-26  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-parse.el (slime-parse-symbol-name-at-point):
+	Removed. Superfluous due to recent changes on
+	`slime-symbol-name-at-point'.
+	(slime-parse-sexp-at-point): Simplified; use
+	`slime-sexp-at-point'.
+	(slime-inside-string-p, slime-beginning-of-string): Use
+	`slime-current-parser-state'.
+	([test] enclosing-form-specs.1): Add some simple cases.
+
+	* slime-enclosing-context.el (slime-find-bound-names): Replace
+	`slime-parse-symbol-name-at-point' with
+	`slime-symbol-name-at-point'
+	(slime-find-bound-functions): No need for `slime-ensure-list'
+	anymore.
+	([test] enclosing-context.1): Adapted due to the changes.
+
+2009-02-25  Luís Oliveira  <loliveira@common-lisp.net>
+
+	* slime-compiler-notes-tree.el: Fix typo in the `provide' form.
+
 2009-02-21  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-package-fu.el: Removed misplaced comma, deleted some

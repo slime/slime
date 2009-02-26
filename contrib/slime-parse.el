@@ -27,11 +27,9 @@ one sexp to find out the context."
 	      (concat (slime-incomplete-sexp-at-point) ")"))))))))
 
 (defun slime-parse-sexp-at-point (&optional n skip-blanks-p)
-  "Return the sexp at point as a string, otherwise nil.
-If N is given and greater than 1, a list of all such sexps
-following the sexp at point is returned. (If there are not
-as many sexps as N, a list with < N sexps is returned.)
-
+  "Returns the sexps at point as a list of strings, otherwise nil.
+\(If there are not as many sexps as N, a list with < N sexps is
+returned.\) 
 If SKIP-BLANKS-P is true, leading whitespaces &c are skipped.
 "
   (interactive "p") (or n (setq n 1))
@@ -42,37 +40,24 @@ If SKIP-BLANKS-P is true, leading whitespaces &c are skipped.
                              (or (thing-at-point 'sexp)
                                  (slime-symbol-name-at-point)))))
              (if string (substring-no-properties string) nil))))
-    ;; `thing-at-point' depends upon the current syntax table; otherwise
-    ;; keywords like `:foo' are not recognized as sexps. (This function
-    ;; may be called from temporary buffers etc.)
-    (with-syntax-table lisp-mode-syntax-table
-      (save-excursion
-        (when skip-blanks-p ; e.g. `( foo bat)' where point is after ?\(.
-          (slime-forward-blanks))
-        (let ((result nil))
-          (dotimes (i n)
-            ;; `foo(bar baz)' where point is at ?\( or ?\).
-            (if (and (char-after) (member (char-syntax (char-after)) '(?\( ?\) ?\')))
-                (push (sexp-at-point :sexp-first) result)
-                (push (sexp-at-point :symbol-first) result))
-            (ignore-errors (forward-sexp) (slime-forward-blanks))
-            (save-excursion
-              (unless (slime-point-moves-p (ignore-errors (forward-sexp)))
-                (return))))
-          (if (slime-length= result 1)
-              (first result)
-              (nreverse result)))))))
+    (save-excursion
+      (when skip-blanks-p ; e.g. `( foo bat)' where point is after ?\(.
+        (slime-forward-blanks))
+      (let ((result nil))
+        (dotimes (i n)
+          (push (slime-sexp-at-point) result)
+          ;; Skip current sexp
+          (ignore-errors (forward-sexp) (slime-forward-blanks))
+          ;; Is there an additional sexp in front of us?
+          (save-excursion
+            (unless (slime-point-moves-p (ignore-errors (forward-sexp)))
+              (return))))
+        (nreverse result)))))
 
 (defun slime-has-symbol-syntax-p (string)
   (if (and string (not (zerop (length string))))
       (member (char-syntax (aref string 0)) 
 	      '(?w ?_ ?\' ?\\))))
-
-(defun slime-parse-symbol-name-at-point (&optional n skip-blanks-p)
-  (let ((symbols (slime-parse-sexp-at-point n skip-blanks-p)))
-    (if (every #'slime-has-symbol-syntax-p (slime-ensure-list symbols))
-	symbols
-	nil)))
 
 (defun slime-incomplete-sexp-at-point (&optional n)
   (interactive "p") (or n (setq n 1))
@@ -136,7 +121,7 @@ the operator."
                      (not (= (point)       ; point is at end of form?
                              (save-excursion (slime-end-of-list)
                                              (point)))))
-            (let* ((args (slime-ensure-list (slime-parse-sexp-at-point n)))
+            (let* ((args (slime-parse-sexp-at-point n))
                    (arg-specs (mapcar #'slime-make-form-spec-from-string args)))
               (setq current-forms (cons `(,name ,@arg-specs) old-forms))))
           (values current-forms current-indices current-points)
@@ -231,8 +216,7 @@ Examples:
 		  (mapcar #'(lambda (s)
 			      (assert (not (equal s string))) ; trap against
 			      (slime-make-form-spec-from-string s)) ;  endless recursion.
-			  (slime-ensure-list
-			   (slime-parse-sexp-at-point (1+ n) t))))))))))
+			  (slime-parse-sexp-at-point (1+ n) t)))))))))
 
 
 (defun slime-enclosing-form-specs (&optional max-levels)
@@ -310,7 +294,7 @@ Examples:
               (when (member (char-syntax (char-after)) '(?\( ?')) 
                 (incf level)
                 (forward-char 1)
-                (let ((name (slime-parse-symbol-name-at-point 1 nil)))
+                (let ((name (slime-symbol-name-at-point)))
                   (cond
                     (name
                      (save-restriction
@@ -339,23 +323,25 @@ Examples:
   (if (listp thing) thing (list thing)))
 
 (defun slime-inside-string-p ()
-  (let* ((toplevel-begin (save-excursion (beginning-of-defun) (point)))
-	 (parse-result (parse-partial-sexp toplevel-begin (point)))
-	 (inside-string-p  (nth 3 parse-result))
-	 (string-start-pos (nth 8 parse-result)))
-    (and inside-string-p string-start-pos)))
+  (nth 3 (slime-current-parser-state)))
 
 (defun slime-beginning-of-string ()
-  (let ((string-start-pos (slime-inside-string-p)))
-    (if string-start-pos
-	(goto-char string-start-pos)
-	(error "We're not within a string"))))
+  (let* ((parser-state (slime-current-parser-state))
+	 (inside-string-p  (nth 3 parser-state))
+	 (string-start-pos (nth 8 parser-state)))
+    (if inside-string-p
+        (goto-char string-start-pos)
+        (error "We're not within a string"))))
 
 (def-slime-test enclosing-form-specs.1
     (buffer-sexpr wished-form-specs)
     ""
-    '(("(defmethod *HERE*)" (("defmethod")))
-      ("(cerror foo *HERE*)" (("cerror" "foo"))))
+    '(("(defun *HERE*"           (("defun")))
+      ("(defun foo *HERE*"       (("defun")))
+      ("(defun foo (x y) *HERE*" (("defun")))
+      ("(defmethod *HERE*)"      (("defmethod")))
+      ("(defmethod foo *HERE*)"  (("defmethod" "foo")))
+      ("(cerror foo *HERE*)"     (("cerror" "foo"))))
   (slime-check-top-level)
   (with-temp-buffer
     (let ((tmpbuf (current-buffer)))
