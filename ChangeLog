@@ -1,5 +1,10 @@
 2009-02-26  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-current-form-path): Use
+	`slime-current-parser-state'.
+
+2009-02-26  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el ([test] fancy-symbol-names): New, hopefully
 	comprehensive, test for funky symbol names.
 	(slime-check-fancy-symbol-name): Helper.

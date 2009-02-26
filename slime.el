@@ -3102,7 +3102,7 @@ form to the atom at point, or nil if we're in front of a tlf."
     (save-excursion
       ;; Moving forward to get reader conditionals right.
       (loop for inner-pos = (point)
-            for outer-pos = (nth-value 1 (syntax-ppss))
+            for outer-pos = (nth-value 1 (slime-current-parser-state))
             while outer-pos do
             (goto-char outer-pos)
             (unless (eq (char-before) ?#) ; when at #(...) continue.
