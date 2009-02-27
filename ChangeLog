@@ -1,5 +1,17 @@
 2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-defun-if-undefined),
+	(slime-defmacro-if-undefined): Renamed to
+	`slime-DEFUN-if-undefined' and `slime-DEFMACRO-if-undefined' to
+	better differentiate between the two.
+
+	(slime-indulge-pretty-colors): New function. You can now put a
+	symbol on the plist of `slime-indulge-pretty-colors' to make the
+	symbol be fontified like `defun'. This is done for
+	`slime-def-connection-var', and the two symbols above.
+
+2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (slime-defmacro-if-undefined): New. Analogous to
 	`slime-defun-if-undefined'.
 	([portablity]] with-selected-window) Use it.

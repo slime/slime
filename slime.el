@@ -1932,14 +1932,7 @@ the binding for `slime-connection'."
        '(\, varname))))
 
 (put 'slime-def-connection-var 'lisp-indent-function 2)
-
-;; Let's indulge in some pretty colours.
-(unless (featurep 'xemacs)
-  (font-lock-add-keywords
-   'emacs-lisp-mode
-   '(("(\\(slime-def-connection-var\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"
-      (1 font-lock-keyword-face)
-      (2 font-lock-variable-name-face)))))
+(put 'slime-indulge-pretty-colors 'slime-def-connection-var t)
 
 (slime-def-connection-var slime-connection-number nil
   "Serial number of a connection.
@@ -8262,14 +8255,22 @@ will return \"\"."
       (assert (stringp result))
       result)))
 
-(defmacro slime-defun-if-undefined (name &rest rest)
+(defmacro slime-DEFUN-if-undefined (name &rest rest)
   ;; We can't decide at compile time whether NAME is properly
   ;; bound. So we delay the decision to runtime to ensure some
   ;; definition
   `(unless (fboundp ',name)
      (defun ,name ,@rest)))
 
-(put 'slime-defun-if-undefined 'lisp-indent-function 2)
+(put 'slime-DEFUN-if-undefined 'lisp-indent-function 2)
+(put 'slime-indulge-pretty-colors 'slime-DEFUN-if-undefined t)
+
+(defmacro slime-DEFMACRO-if-undefined (name &rest rest)
+  `(unless (fboundp ',name)
+     (defmacro ,name ,@rest)))
+
+(put 'slime-DEFMACRO-if-undefined 'lisp-indent-function 2)
+(put 'slime-indulge-pretty-colors 'slime-DEFMACRO-if-undefined t)
 
 (defmacro slime-defmacro-if-undefined (name &rest rest)
   `(unless (fboundp ',name)
@@ -8328,7 +8329,7 @@ for (somewhat) better multiframe support."
 (defun slime-local-variable-p (var &optional buffer)
   (local-variable-p var (or buffer (current-buffer)))) ; XEmacs
 
-(slime-defun-if-undefined next-single-char-property-change
+(slime-DEFUN-if-undefined next-single-char-property-change
     (position prop &optional object limit)
   (let ((limit (typecase limit
 		 (null nil)
@@ -8347,7 +8348,7 @@ for (somewhat) better multiframe support."
 			    (get-char-property pos prop object))) 
 		return pos))))))
 
-(slime-defun-if-undefined previous-single-char-property-change 
+(slime-DEFUN-if-undefined previous-single-char-property-change 
     (position prop &optional object limit)
   (let ((limit (typecase limit
 		 (null nil)
@@ -8370,27 +8371,27 @@ for (somewhat) better multiframe support."
                                 (get-char-property (1- pos) prop object))) 
                     return pos))))))))
 
-(slime-defun-if-undefined next-char-property-change (position &optional limit)
+(slime-DEFUN-if-undefined next-char-property-change (position &optional limit)
   (let ((tmp (next-overlay-change position)))
     (when tmp
       (setq tmp (min tmp limit)))
     (next-property-change position nil tmp)))
 
-(slime-defun-if-undefined previous-char-property-change 
+(slime-DEFUN-if-undefined previous-char-property-change 
     (position &optional limit)
   (let ((tmp (previous-overlay-change position)))
     (when tmp
       (setq tmp (max tmp limit)))
     (previous-property-change position nil tmp)))
         
-(slime-defun-if-undefined substring-no-properties (string &optional start end)
+(slime-DEFUN-if-undefined substring-no-properties (string &optional start end)
   (let* ((start (or start 0))
 	 (end (or end (length string)))
 	 (string (substring string start end)))
     (set-text-properties 0 (- end start) nil string)
     string))
 
-(slime-defun-if-undefined match-string-no-properties (num &optional string)
+(slime-DEFUN-if-undefined match-string-no-properties (num &optional string)
   (if (match-beginning num)
       (if string
 	  (substring-no-properties string (match-beginning num)
@@ -8398,7 +8399,7 @@ for (somewhat) better multiframe support."
 	(buffer-substring-no-properties (match-beginning num)
                                         (match-end num)))))
 
-(slime-defun-if-undefined set-window-text-height (window height)
+(slime-DEFUN-if-undefined set-window-text-height (window height)
   (let ((delta (- height (window-text-height window))))
     (unless (zerop delta)
       (let ((window-min-height 1))
@@ -8408,10 +8409,10 @@ for (somewhat) better multiframe support."
 	      (enlarge-window delta))
 	  (enlarge-window delta))))))
 
-(slime-defun-if-undefined window-text-height (&optional window)
+(slime-DEFUN-if-undefined window-text-height (&optional window)
   (1- (window-height window)))
 
-(slime-defun-if-undefined subst-char-in-string (fromchar tochar string 
+(slime-DEFUN-if-undefined subst-char-in-string (fromchar tochar string 
 						   &optional inplace)
   "Replace FROMCHAR with TOCHAR in STRING each time it occurs.
 Unless optional argument INPLACE is non-nil, return a new string."
@@ -8423,7 +8424,7 @@ Unless optional argument INPLACE is non-nil, return a new string."
 	  (aset newstr i tochar)))
     newstr))
 
-(slime-defun-if-undefined count-screen-lines 
+(slime-DEFUN-if-undefined count-screen-lines 
   (&optional beg end count-final-newline window)
   (unless beg
     (setq beg (point-min)))
@@ -8443,19 +8444,19 @@ Unless optional argument INPLACE is non-nil, return a new string."
         ;; XXX make this xemacs compatible
         (1+ (vertical-motion (buffer-size) window))))))
 
-(slime-defun-if-undefined seconds-to-time (seconds)
+(slime-DEFUN-if-undefined seconds-to-time (seconds)
   "Convert SECONDS (a floating point number) to a time value."
   (list (floor seconds 65536)
 	(floor (mod seconds 65536))
 	(floor (* (- seconds (ffloor seconds)) 1000000))))
 
-(slime-defun-if-undefined time-less-p (t1 t2)
+(slime-DEFUN-if-undefined time-less-p (t1 t2)
   "Say whether time value T1 is less than time value T2."
   (or (< (car t1) (car t2))
       (and (= (car t1) (car t2))
 	   (< (nth 1 t1) (nth 1 t2)))))
 
-(slime-defun-if-undefined time-add (t1 t2)
+(slime-DEFUN-if-undefined time-add (t1 t2)
   "Add two time values.  One should represent a time difference."
   (let ((high (car t1))
 	(low (if (consp (cdr t1)) (nth 1 t1) (cdr t1)))
@@ -8482,17 +8483,17 @@ Unless optional argument INPLACE is non-nil, return a new string."
 
     (list high low micro)))
 
-(slime-defun-if-undefined line-beginning-position (&optional n)
+(slime-DEFUN-if-undefined line-beginning-position (&optional n)
   (save-excursion
     (beginning-of-line n)
     (point)))
 
-(slime-defun-if-undefined line-end-position (&optional n)
+(slime-DEFUN-if-undefined line-end-position (&optional n)
   (save-excursion
     (end-of-line n)
     (point)))
 
-(slime-defun-if-undefined check-parens ()
+(slime-DEFUN-if-undefined check-parens ()
     "Verify that parentheses in the current buffer are balanced.
 If they are not, position point at the first syntax error found."
     (interactive)
@@ -8525,7 +8526,7 @@ If they are not, position point at the first syntax error found."
 	       (error "After quote"))
 	      (t (error "Shouldn't happen: parsing state: %S" state))))))
 
-(slime-defun-if-undefined read-directory-name (prompt 
+(slime-DEFUN-if-undefined read-directory-name (prompt 
                                                &optional dir default-dirname
                                                mustmatch initial)
   (unless dir
@@ -8540,14 +8541,14 @@ If they are not, position point at the first syntax error found."
           (t 
            (error "Not a directory: %s" file)))))
 
-(slime-defun-if-undefined check-coding-system (coding-system)
+(slime-DEFUN-if-undefined check-coding-system (coding-system)
   (or (eq coding-system 'binary)
       (error "No such coding system: %S" coding-system)))
 
-(slime-defun-if-undefined process-coding-system (process)
+(slime-DEFUN-if-undefined process-coding-system (process)
   '(binary . binary))
 
-(slime-defun-if-undefined set-process-coding-system 
+(slime-DEFUN-if-undefined set-process-coding-system 
     (process &optional decoding encoding))
 
 (unless (boundp 'temporary-file-directory)
@@ -8562,7 +8563,7 @@ If they are not, position point at the first syntax error found."
             (or (getenv "TMPDIR") (getenv "TMP") (getenv "TEMP") "/tmp"))))
     "The directory for writing temporary files."))
 
-(slime-defmacro-if-undefined with-temp-message (message &rest body)
+(slime-DEFMACRO-if-undefined with-temp-message (message &rest body)
   (let ((current-message (make-symbol "current-message"))
         (temp-message (make-symbol "with-temp-message")))
     `(let ((,temp-message ,message)
@@ -8575,6 +8576,11 @@ If they are not, position point at the first syntax error found."
               ,@body)
          (and ,temp-message ,current-message
               (message "%s" ,current-message))))))
+
+(slime-DEFMACRO-if-undefined with-selected-window (window &rest body)
+  `(save-selected-window
+     (select-window ,window)
+     ,@body))
 
 (defun slime-emacs-21-p ()
   (and (not (featurep 'xemacs))
@@ -8591,12 +8597,24 @@ If they are not, position point at the first syntax error found."
   (when (get-text-property (point) 'point-entered)
     (funcall (get-text-property (point) 'point-entered))))
 
-(slime-defmacro-if-undefined with-selected-window (window &rest body)
-  `(save-selected-window
-     (select-window ,window)
-     ,@body))
-
 
+;;;; slime.el in pretty colors
+
+;;; You can use (put 'slime-indulge-pretty-colors 'slime-def-foo t) to
+;;; have `slime-def-foo' be fontified like `defun'.
+
+(defun slime-indulge-pretty-colors (def-foo-symbol)
+  (let ((regexp (format "(\\(%S\\)\\s +\\(\\(\\w\\|\\s_\\)+\\)"
+                        def-foo-symbol)))
+    (font-lock-add-keywords
+     'emacs-lisp-mode
+     `((,regexp (1 font-lock-keyword-face)
+                (2 font-lock-variable-name-face))))))
+ 
+(unless (featurep 'xemacs)
+  (loop for (symbol flag) on (symbol-plist 'slime-indulge-pretty-colors) by 'cddr
+        when (eq flag 't) do (slime-indulge-pretty-colors symbol)))
+ 
 ;;;; Finishing up
 
 (require 'bytecomp)
