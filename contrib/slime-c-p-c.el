@@ -83,7 +83,7 @@ If false, move point to the end of the inserted text."
 (defun slime-complete-symbol*-fancy-bit ()
   "Do fancy tricks after completing a symbol.
 \(Insert a space or close-paren based on arglist information.)"
-  (let ((arglist (slime-get-arglist (slime-symbol-name-at-point))))
+  (let ((arglist (slime-get-arglist (slime-symbol-at-point))))
     (when arglist
       (let ((args
              ;; Don't intern these symbols

@@ -1,5 +1,12 @@
 2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-autodoc.el, slime-c-p-c.el, slime-enclosing-context.el
+	* slime-package-fu.el, slime-parse.el, slime-presentations.el
+	* slime-xref-browser: Rename `slime-symbol-name-at-point' to
+	`slime-symbol-at-point'
+
+2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-parse.el (slime-make-extended-operator-parser/look-ahead):
 	If there's no closing paren (no paredit!) we cannot determine the
 	end of the list. Check for this.

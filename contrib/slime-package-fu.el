@@ -99,7 +99,7 @@ places the cursor at the start of the DEFPACKAGE form."
       (while (ignore-errors (slime-goto-next-export-clause) t)
 	(let ((clause-end (save-excursion (forward-sexp) (point))))
 	  (when (and (search-forward symbol-name clause-end t)
-		     (equal (slime-symbol-name-at-point) symbol-name))
+		     (equal (slime-symbol-at-point) symbol-name))
 	    (return (point))))))))
 
 
@@ -170,7 +170,7 @@ the symbol again. Additionally performs an EXPORT/UNEXPORT of the
 symbol in the Lisp image if possible."
   (interactive)
   (let ((package (slime-current-package))
-	(symbol (slime-symbol-name-at-point)))
+	(symbol (slime-symbol-at-point)))
     (unless symbol (error "No symbol at point."))
     (cond (current-prefix-arg
 	   (if (slime-frob-defpackage-form package :unexport symbol)

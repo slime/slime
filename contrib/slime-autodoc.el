@@ -60,7 +60,7 @@
 
 (defun slime-autodoc-global-at-point ()
   "Return the global variable name at point, if any."
-  (when-let (name (slime-symbol-name-at-point))
+  (when-let (name (slime-symbol-at-point))
     (if (slime-global-variable-name-p name) name)))
 
 (defcustom slime-global-variable-name-regexp "^\\(.*:\\)?\\([*+]\\).+\\2$"

@@ -35,10 +35,10 @@ If SKIP-BLANKS-P is true, leading whitespaces &c are skipped.
   (interactive "p") (or n (setq n 1))
   (flet ((sexp-at-point (first-choice)
            (let ((string (if (eq first-choice :symbol-first)
-                             (or (slime-symbol-name-at-point)
+                             (or (slime-symbol-at-point)
                                  (thing-at-point 'sexp))
                              (or (thing-at-point 'sexp)
-                                 (slime-symbol-name-at-point)))))
+                                 (slime-symbol-at-point)))))
              (if string (substring-no-properties string) nil))))
     (save-excursion
       (when skip-blanks-p ; e.g. `( foo bat)' where point is after ?\(.
@@ -295,7 +295,7 @@ Examples:
               (when (member (char-syntax (char-after)) '(?\( ?')) 
                 (incf level)
                 (forward-char 1)
-                (let ((name (slime-symbol-name-at-point)))
+                (let ((name (slime-symbol-at-point)))
                   (cond
                     (name
                      (save-restriction

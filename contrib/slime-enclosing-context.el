@@ -54,7 +54,7 @@ points where their bindings are established as second value."
 		 (ignore-errors
 		   (loop 
 		    (down-list) 
-		    (push (slime-symbol-name-at-point) binding-names)
+		    (push (slime-symbol-at-point) binding-names)
 		    (push (save-excursion (backward-up-list) (point)) 
 			  binding-start-points)
 		    (up-list)))))
@@ -107,8 +107,8 @@ points where their bindings are established as second value."
        ;; latter is used for local autodoc. It does not seem too
        ;; important for local M-. to work on such names. \(The reason
        ;; that it does not work anymore, is that
-       ;; `slime-symbol-name-at-point' now does TRT and does not
-       ;; return a leading comma anymore.\)
+       ;; `slime-symbol-at-point' now does TRT and does not return a
+       ;; leading comma anymore.\)
        ("bar" nil nil)
        ((",nil" "()")))
       ("(flet ((foo ()))

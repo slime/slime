@@ -91,7 +91,7 @@ DSPEC can be used to expand the node."
   "Show the xref graph of a function in a tree widget."
   (interactive 
    (list (slime-read-from-minibuffer "Name: "
-                                     (slime-symbol-name-at-point))
+                                     (slime-symbol-at-point))
          (read (completing-read "Type: " (slime-bogus-completion-alist
                                           '(":callers" ":callees" ":calls"))
                                 nil t ":"))))

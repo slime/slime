@@ -820,9 +820,9 @@ The user is prompted if a prefix argument is in effect, if there is no
 symbol at point, or if QUERY is non-nil.
 
 This function avoids mistaking the REPL prompt for a symbol."
-  (cond ((or current-prefix-arg query (not (slime-symbol-name-at-point)))
-         (slime-read-from-minibuffer prompt (slime-symbol-name-at-point)))
-        (t (slime-symbol-name-at-point))))
+  (cond ((or current-prefix-arg query (not (slime-symbol-at-point)))
+         (slime-read-from-minibuffer prompt (slime-symbol-at-point)))
+        (t (slime-symbol-at-point))))
 
 ;; Interface
 (defmacro slime-propertize-region (props &rest body)
@@ -3580,7 +3580,7 @@ more than one space."
     (save-excursion
       (backward-up-list 1)
       (down-list 1)
-      (slime-symbol-name-at-point))))
+      (slime-symbol-at-point))))
 
 
 ;;;; Completion
@@ -4229,7 +4229,7 @@ in Lisp when committed with \\[slime-edit-value-commit]."
   (interactive "P")
   (let* ((spec (if using-context-p
                   (slime-extract-context)
-                 (slime-symbol-name-at-point)))
+                 (slime-symbol-at-point)))
          (spec (slime-trace-query spec)))
     (message "%s" (slime-eval `(swank:swank-toggle-trace ,spec)))))
 
@@ -4296,7 +4296,7 @@ the following cases (the . shows the point position):
  (define-compiler-macro n.ame (...) ...) -> (:define-compiler-macro name)
 
 For other contexts we return the symbol at point."
-  (let ((name (slime-symbol-name-at-point)))
+  (let ((name (slime-symbol-at-point)))
     (if name
         (let ((symbol (read name)))
           (or (progn ;;ignore-errors 
@@ -4474,7 +4474,7 @@ Return whatever swank:set-default-directory returns."
   "Toggle profiling for FNAME-STRING."
   (interactive (list (slime-read-from-minibuffer 
                       "(Un)Profile: "
-                      (slime-symbol-name-at-point))))
+                      (slime-symbol-at-point))))
   (slime-eval-async `(swank:toggle-profile-fdefinition ,fname-string)
                     (lambda (r) (message "%s" r))))
 
@@ -4519,7 +4519,7 @@ having names in the given package."
 
 (defun slime-hyperspec-lookup (symbol-name)
   "A wrapper for `hyperspec-lookup'"
-  (interactive (list (let* ((symbol-at-point (slime-symbol-name-at-point))
+  (interactive (list (let* ((symbol-at-point (slime-symbol-at-point))
                             (stripped-symbol 
                              (and symbol-at-point
                                   (downcase
@@ -7311,13 +7311,13 @@ BODY returns true if the check succeeds."
   (equal level (sldb-level)))
 
 (defun slime-check-fancy-symbol-name (buffer-offset symbol-name)
-  ;; We test that `slime-symbol-name-at-point' works at every
+  ;; We test that `slime-symbol-at-point' works at every
   ;; character of the symbol name.
   (dotimes (pt (length symbol-name))
     (setq pt (+ buffer-offset pt))
     (goto-char pt)
     (slime-check ("Checking `%s' (%d)..." (buffer-string) pt)
-      (equal (slime-symbol-name-at-point) symbol-name))))
+      (equal (slime-symbol-at-point) symbol-name))))
 
 (def-slime-test fancy-symbol-names (symbol-name)
     "Check that we can cope with idiosyncratic symbol names."
@@ -8160,8 +8160,7 @@ The result is unspecified if there isn't a symbol under the point."
 (defun slime-symbol-end-pos ()
   (save-excursion (slime-end-of-symbol) (point)))
 
-;; FIXME: rename this as slime-symbol-at-point.
-(defun slime-symbol-name-at-point ()
+(defun slime-symbol-at-point ()
   "Return the name of the symbol at point, otherwise nil."
   (save-restriction
     ;;;; Don't be tricked into grabbing the REPL prompt.
@@ -8179,7 +8178,7 @@ The result is unspecified if there isn't a symbol under the point."
 
 (defun slime-sexp-at-point ()
   "Return the sexp at point as a string, otherwise nil."
-  (or (slime-symbol-name-at-point)
+  (or (slime-symbol-at-point)
       (let ((string (thing-at-point 'sexp)))
         (if string (substring-no-properties string) nil))))
 
@@ -8604,7 +8603,7 @@ If they are not, position point at the first syntax error found."
 
 (when (slime-emacs-21-p)
   ;; ?\@ is a prefix char from 22 onward, and
-  ;; `slime-symbol-name-at-point' was written with that assumption.
+  ;; `slime-symbol-at-point' was written with that assumption.
   (modify-syntax-entry ?\@ "'   " lisp-mode-syntax-table))
 
 

@@ -1,5 +1,10 @@
 2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el: Rename `slime-symbol-name-at-point' to
+	`slime-symbol-at-point'.
+
+2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el ([portability] lisp-mode-syntax-table): On Emacs21,
 	make @ a prefix character like it's from Emacs22
 	onward. `slime-symbol-name-at-point' was written with that
