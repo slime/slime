@@ -8602,6 +8602,11 @@ If they are not, position point at the first syntax error found."
   (when (get-text-property (point) 'point-entered)
     (funcall (get-text-property (point) 'point-entered))))
 
+(when (slime-emacs-21-p)
+  ;; ?\@ is a prefix char from 22 onward, and
+  ;; `slime-symbol-name-at-point' was written with that assumption.
+  (modify-syntax-entry ?\@ "'   " lisp-mode-syntax-table))
+
 
 ;;;; slime.el in pretty colors
 
