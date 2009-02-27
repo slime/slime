@@ -185,9 +185,9 @@ handler executed without error."
        (message "bridge-handler \"%s\" failed %s (see bridge-last-failure)"
 		handler err)
        (setq bridge-last-failure
-	     (` ((funcall '(, handler) '(, proc) (, string))
-		 "Caused: "
-		 (, err))))))
+             `((funcall ',handler ',proc ,string)
+               "Caused: "
+               ,err))))
     (not failed)))
 
 ;;;%Handlers

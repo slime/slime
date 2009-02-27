@@ -840,7 +840,7 @@ even on Common Lisp implementations without weak hash tables."
 (defun slime-presentation-sldb-insert-frame-variable-value (value frame index)
   (slime-insert-presentation
    (in-sldb-face local-value value)
-   `(:frame-var ,slime-current-thread ,(car frame) ,i) t))
+   `(:frame-var ,slime-current-thread ,(car frame) ,index) t))
 
 ;;; Initialization
 

@@ -1,5 +1,14 @@
 2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* bridge.el: Replace old-style backquoting.
+
+	* slime-presentations.el
+	(slime-presentation-sldb-insert-frame-variable-value): Fix typo.
+
+	Patch by Stelian Ionescu.
+
+2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-autodoc.el, slime-c-p-c.el, slime-enclosing-context.el
 	* slime-package-fu.el, slime-parse.el, slime-presentations.el
 	* slime-xref-browser: Rename `slime-symbol-name-at-point' to
