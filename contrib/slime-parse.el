@@ -338,11 +338,10 @@ Examples:
 ;;;; Test cases
 
 (defun slime-check-enclosing-form-specs (wished-form-specs)
-  (multiple-value-bind (specs) 
-      (slime-enclosing-form-specs)
-    (slime-check 
-        ("Check enclosing form specs in `%s' (%d)" (buffer-string) (point))
-      (equal specs wished-form-specs))))
+  (slime-test-expect 
+   (format "Enclosing form specs correct in `%s' (at %d)" (buffer-string) (point))
+   wished-form-specs
+   (first (slime-enclosing-form-specs))))
 
 (def-slime-test enclosing-form-specs.1
     (buffer-sexpr wished-form-specs)
@@ -355,6 +354,8 @@ Examples:
       ("(cerror foo *HERE*"           (("cerror" "foo")))
       ("(cerror foo bar *HERE*"       (("cerror" "foo" "bar")))
       ("(make-instance foo *HERE*"    (("make-instance" "foo")))
+      ("(apply 'foo *HERE*"           (("apply" "'foo")))
+      ("(apply #'foo *HERE*"          (("apply" "#'foo")))
       ("(declare *HERE*"              (("declare")))
       ("(declare (optimize *HERE*"    ((:declaration ("optimize")) ("declare")))
       ("(declare (string *HERE*"      ((:declaration ("string")) ("declare")))
@@ -362,15 +363,14 @@ Examples:
       ("(declare ((vector bit *HERE*" ((:type-specifier ("vector" "bit")))))
   (slime-check-top-level)
   (with-temp-buffer
-    (let ((tmpbuf (current-buffer)))
-      (lisp-mode)
-      (insert buffer-sexpr)
-      (search-backward "*HERE*")
-      (delete-region (match-beginning 0) (match-end 0))
-      (slime-check-enclosing-form-specs wished-form-specs)
-      (insert ")") (backward-char)
-      (slime-check-enclosing-form-specs wished-form-specs)      
-      )))
+    (lisp-mode)
+    (insert buffer-sexpr)
+    (search-backward "*HERE*")
+    (delete-region (match-beginning 0) (match-end 0))
+    (slime-check-enclosing-form-specs wished-form-specs)
+    (insert ")") (backward-char)
+    (slime-check-enclosing-form-specs wished-form-specs)      
+    ))
 
 
 

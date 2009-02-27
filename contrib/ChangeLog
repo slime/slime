@@ -1,5 +1,11 @@
 2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-parse.el (slime-check-enclosing-form-specs): Use
+	`slime-test-expect' rather than `slime-check'.
+	([test] enclosing-form-specs.1): Add two more cases.
+
+2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* bridge.el: Replace old-style backquoting.
 
 	* slime-presentations.el
