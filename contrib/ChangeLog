@@ -1,5 +1,15 @@
 2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-arglists.lisp (read-conversatively-for-autodoc): Make it
+	understand sharpquote form, so contextual autodoc will work fo
+	`(apply #'foo ...)'.
+
+	* slime-autodoc.el ([test] autodoc.1): New test case, for the
+	above and more.
+	(slime-check-autodoc-at-point): New helper.
+
+2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-parse.el (slime-check-enclosing-form-specs): Use
 	`slime-test-expect' rather than `slime-check'.
 	([test] enclosing-form-specs.1): Add two more cases.
