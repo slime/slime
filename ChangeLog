@@ -1,5 +1,14 @@
 2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-defmacro-if-undefined): New. Analogous to
+	`slime-defun-if-undefined'.
+	([portablity]] with-selected-window) Use it.
+	([portability] with-temo-buffer): Likewise.
+
+	Patch by Theam Yong Chew.
+
+2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	C-c C-c on (defun foo () ,bar) did not result in a compiler note
 	overlay on SBCL.
 

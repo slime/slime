@@ -8271,6 +8271,13 @@ will return \"\"."
 
 (put 'slime-defun-if-undefined 'lisp-indent-function 2)
 
+(defmacro slime-defmacro-if-undefined (name &rest rest)
+  `(unless (fboundp ',name)
+     (defmacro ,name ,@rest)))
+
+(put 'slime-defmacro-if-undefined 'lisp-indent-function 2)
+
+
 (defvar slime-accept-process-output-supports-floats 
   (ignore-errors (accept-process-output nil 0.0) t))
 
@@ -8555,20 +8562,19 @@ If they are not, position point at the first syntax error found."
             (or (getenv "TMPDIR") (getenv "TMP") (getenv "TEMP") "/tmp"))))
     "The directory for writing temporary files."))
 
-(unless (fboundp 'with-temp-message)
-  (defmacro with-temp-message (message &rest body)
-    (let ((current-message (make-symbol "current-message"))
-          (temp-message (make-symbol "with-temp-message")))
-      `(let ((,temp-message ,message)
-             (,current-message))
-         (unwind-protect
-             (progn
-               (when ,temp-message
-                 (setq ,current-message (current-message))
-                 (message "%s" ,temp-message))
-               ,@body)
-           (and ,temp-message ,current-message
-                (message "%s" ,current-message)))))))
+(slime-defmacro-if-undefined with-temp-message (message &rest body)
+  (let ((current-message (make-symbol "current-message"))
+        (temp-message (make-symbol "with-temp-message")))
+    `(let ((,temp-message ,message)
+           (,current-message))
+       (unwind-protect
+            (progn
+              (when ,temp-message
+                (setq ,current-message (current-message))
+                (message "%s" ,temp-message))
+              ,@body)
+         (and ,temp-message ,current-message
+              (message "%s" ,current-message))))))
 
 (defun slime-emacs-21-p ()
   (and (not (featurep 'xemacs))
@@ -8585,7 +8591,7 @@ If they are not, position point at the first syntax error found."
   (when (get-text-property (point) 'point-entered)
     (funcall (get-text-property (point) 'point-entered))))
 
-(slime-defun-if-undefined with-selected-window (window &rest body)
+(slime-defmacro-if-undefined with-selected-window (window &rest body)
   `(save-selected-window
      (select-window ,window)
      ,@body))
