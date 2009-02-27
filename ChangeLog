@@ -1,5 +1,15 @@
 2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* hyperspec.el (common-lisp-hyperspec-symbols): Add links to
+	reader macros.
+
+	* slime.el (slime-reader-macro-at-point): New function.
+	(slime-hyperspec-lookup): Call it.
+
+	Adapted from Stas Boukarev.
+
+2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el: Rename `slime-symbol-name-at-point' to
 	`slime-symbol-at-point'.
 
