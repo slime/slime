@@ -1,5 +1,11 @@
 2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-current-parser-state): Wrap `syntax-ppss' in a
+	`save-match-data'. This issue has been reported to the Emacs
+	maintainers.
+
+2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (slime-defun-if-undefined),
 	(slime-defmacro-if-undefined): Renamed to
 	`slime-DEFUN-if-undefined' and `slime-DEFMACRO-if-undefined' to

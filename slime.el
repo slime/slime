@@ -8223,7 +8223,12 @@ The result is unspecified if there isn't a symbol under the point."
 
 (if (and (featurep 'emacs) (>= emacs-major-version 22))
     ;;;  N.B. The 2nd, and 6th return value cannot be relied upon.
-    (defun slime-current-parser-state () (syntax-ppss))
+    (defun slime-current-parser-state ()
+      ;; `syntax-ppss' does not save match data as it invokes
+      ;; `beginning-of-defun' implicitly which does not save match
+      ;; data. This issue has been reported to the Emacs maintainer on
+      ;; Feb27.
+      (save-match-data (syntax-ppss)))
     (defun slime-current-parser-state ()
       (let ((original-pos (point)))
         (save-excursion
