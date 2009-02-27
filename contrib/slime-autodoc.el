@@ -260,4 +260,47 @@ If it's not in the cache, the cache will be updated asynchronously."
 
 (slime-require :swank-arglists)
 
+;;;; Test cases
+
+(defun slime-check-autodoc-at-point (arglist)
+  (slime-test-expect (format "Autodoc in `%s' (at %d) is as expected" 
+                             (buffer-string) (point)) 
+                     arglist
+                     (slime-eval (second (slime-autodoc-thing-at-point)))
+                     'equal))
+
+(def-slime-test autodoc.1
+    (buffer-sexpr wished-arglist)
+    ""
+    '(("(swank::emacs-connected*HERE*"    "(emacs-connected)")
+      ("(swank::create-socket*HERE*"      "(create-socket host port)")
+      ("(swank::create-socket *HERE*"     "(create-socket ===> host <=== port)")
+      ("(swank::create-socket foo *HERE*" "(create-socket host ===> port <===)")
+
+      ("(swank::symbol-status foo *HERE*" 
+       "(symbol-status symbol &optional ===> (package (symbol-package symbol)) <===)")
+
+      ("(apply 'swank::eval-for-emacs*HERE*"
+       "(apply ===> 'eval-for-emacs <=== &optional form buffer-package id &rest args)")
+
+      ("(apply #'swank::eval-for-emacs*HERE*"
+       "(apply ===> #'eval-for-emacs <=== &optional form buffer-package id &rest args)")
+
+      ("(apply 'swank::eval-for-emacs foo *HERE*"
+       "(apply 'eval-for-emacs &optional form ===> buffer-package <=== id &rest args)")
+
+      ("(apply #'swank::eval-for-emacs foo *HERE*"
+       "(apply #'eval-for-emacs &optional form ===> buffer-package <=== id &rest args)"))
+  (slime-check-top-level)
+  (with-temp-buffer
+    (setq slime-buffer-package "COMMON-LISP-USER")
+    (lisp-mode)
+    (insert buffer-sexpr)
+    (search-backward "*HERE*")
+    (delete-region (match-beginning 0) (match-end 0))
+    (slime-check-autodoc-at-point wished-arglist)
+    (insert ")") (backward-char)
+    (slime-check-autodoc-at-point wished-arglist)
+    ))
+
 (provide 'slime-autodoc)

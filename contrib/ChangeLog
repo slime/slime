@@ -1,7 +1,7 @@
 2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-arglists.lisp (read-conversatively-for-autodoc): Make it
-	understand sharpquote form, so contextual autodoc will work fo
+	understand sharpquote forms, so contextual autodoc will work for
 	`(apply #'foo ...)'.
 
 	* slime-autodoc.el ([test] autodoc.1): New test case, for the

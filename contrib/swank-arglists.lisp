@@ -174,11 +174,20 @@ In such a case (that no symbol could be found), an object of type
 ARGLIST-DUMMY is returned instead, which works as a placeholder
 datum for subsequent logics to rely on."
   (let* ((string  (string-left-trim '(#\Space #\Tab #\Newline) string))
-	 (quoted? (eql (aref string 0) #\')))
+         (length  (length string))
+	 (prefix  (cond ((eql (aref string 0) #\') :quote)
+                        ((search "#'" string :end2 (min length 2)) :sharpquote)
+                        (t nil))))
     (multiple-value-bind (symbol found?)
-	(parse-symbol (if quoted? (subseq string 1) string))
+	(parse-symbol (case prefix
+                        (:quote      (subseq string 1))
+                        (:sharpquote (subseq string 2))
+                        (t string)))
       (if found?
-	  (if quoted? `(quote ,symbol) symbol)
+          (case prefix
+            (:quote      `(quote ,symbol))
+            (:sharpquote `(function ,symbol))
+            (t symbol))
 	  (make-arglist-dummy :string-representation string)))))
 
 
