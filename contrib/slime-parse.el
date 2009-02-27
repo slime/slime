@@ -119,8 +119,9 @@ the operator."
               (arg-idx   (first current-indices)))
           (when (and (not (zerop arg-idx)) ; point is at CAR of form?
                      (not (= (point)       ; point is at end of form?
-                             (save-excursion (slime-end-of-list)
-                                             (point)))))
+                             (save-excursion
+                               (ignore-errors (slime-end-of-list))
+                               (point)))))
             (let* ((args (slime-parse-sexp-at-point n))
                    (arg-specs (mapcar #'slime-make-form-spec-from-string args)))
               (setq current-forms (cons `(,name ,@arg-specs) old-forms))))
@@ -268,9 +269,9 @@ Examples:
       (save-excursion
         ;; Make sure we get the whole thing at point.
         (if (not (slime-inside-string-p))
-	    (slime-end-of-symbol)
-	  (slime-beginning-of-string)
-	  (forward-sexp))
+            (slime-end-of-symbol)
+          (slime-beginning-of-string)
+          (forward-sexp))
         (save-restriction
           ;; Don't parse more than 20000 characters before point, so we don't spend
           ;; too much time.
@@ -301,10 +302,10 @@ Examples:
                        (widen) ; to allow looking-ahead/back in extended parsing.
                        (multiple-value-bind (new-result new-indices new-points)
                            (slime-parse-extended-operator-name 
-			    initial-point
-			    (cons `(,name) result) ; minimal form spec
-			    (cons arg-index arg-indices)
-			    (cons (point) points))
+                            initial-point
+                            (cons `(,name) result) ; minimal form spec
+                            (cons arg-index arg-indices)
+                            (cons (point) points))
                          (setq result new-result)
                          (setq arg-indices new-indices)
                          (setq points new-points))))
@@ -333,15 +334,32 @@ Examples:
         (goto-char string-start-pos)
         (error "We're not within a string"))))
 
+
+;;;; Test cases
+
+(defun slime-check-enclosing-form-specs (wished-form-specs)
+  (multiple-value-bind (specs) 
+      (slime-enclosing-form-specs)
+    (slime-check 
+        ("Check enclosing form specs in `%s' (%d)" (buffer-string) (point))
+      (equal specs wished-form-specs))))
+
 (def-slime-test enclosing-form-specs.1
     (buffer-sexpr wished-form-specs)
-    ""
-    '(("(defun *HERE*"           (("defun")))
-      ("(defun foo *HERE*"       (("defun")))
-      ("(defun foo (x y) *HERE*" (("defun")))
-      ("(defmethod *HERE*)"      (("defmethod")))
-      ("(defmethod foo *HERE*)"  (("defmethod" "foo")))
-      ("(cerror foo *HERE*)"     (("cerror" "foo"))))
+    "Check that we correctly determine enclosing forms."
+    '(("(defun *HERE*"                (("defun")))
+      ("(defun foo *HERE*"            (("defun")))
+      ("(defun foo (x y) *HERE*"      (("defun")))
+      ("(defmethod *HERE*"            (("defmethod")))
+      ("(defmethod foo *HERE*"        (("defmethod" "foo")))
+      ("(cerror foo *HERE*"           (("cerror" "foo")))
+      ("(cerror foo bar *HERE*"       (("cerror" "foo" "bar")))
+      ("(make-instance foo *HERE*"    (("make-instance" "foo")))
+      ("(declare *HERE*"              (("declare")))
+      ("(declare (optimize *HERE*"    ((:declaration ("optimize")) ("declare")))
+      ("(declare (string *HERE*"      ((:declaration ("string")) ("declare")))
+      ("(declare ((vector *HERE*"     ((:type-specifier ("vector"))))
+      ("(declare ((vector bit *HERE*" ((:type-specifier ("vector" "bit")))))
   (slime-check-top-level)
   (with-temp-buffer
     (let ((tmpbuf (current-buffer)))
@@ -349,11 +367,11 @@ Examples:
       (insert buffer-sexpr)
       (search-backward "*HERE*")
       (delete-region (match-beginning 0) (match-end 0))
-      (multiple-value-bind (specs) 
-	  (slime-enclosing-form-specs)
-	(slime-check "Check enclosing form specs"
-	  (equal specs wished-form-specs)))
+      (slime-check-enclosing-form-specs wished-form-specs)
+      (insert ")") (backward-char)
+      (slime-check-enclosing-form-specs wished-form-specs)      
       )))
+
 
 
 (provide 'slime-parse)

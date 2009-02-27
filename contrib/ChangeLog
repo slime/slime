@@ -1,3 +1,11 @@
+2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-parse.el (slime-make-extended-operator-parser/look-ahead):
+	If there's no closing paren (no paredit!) we cannot determine the
+	end of the list. Check for this.
+	([test] enclosing-form-specs.1): Extend test case.
+	(slime-check-enclosing-form-specs): New helper.
+
 2009-02-26  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-fancy-inspector.lisp (emacs-inspect (stream-error)): Do
