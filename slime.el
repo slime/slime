@@ -7791,10 +7791,57 @@ Confirm that SUBFORM is correctly located."
                         5)
   (slime-sync-to-top-level 1))
 
-(defun slime-inspector-visible-p ()
+(defun slime-buffer-visible-p (name)
   (let ((buffer (window-buffer (selected-window))))
-    (string-match "\\*Slime Inspector\\*" 
-                  (buffer-name buffer))))
+    (string-match name (buffer-name buffer))))
+
+(defun slime-inspector-visible-p ()
+  (slime-buffer-visible-p "\\*Slime Inspector\\*" ))
+
+(defun slime-execute-as-command (name)
+  "Execute `name' as if it was done by the user through the
+Command Loop. Similiar to `call-interactively' but also pushes on
+the buffer's undo-list."
+  (undo-boundary)
+  (call-interactively name))
+
+(def-slime-test macroexpand 
+    (macro-defs bufcontent expansion1 search-str expansion2)
+    "foo"
+    '((("(defmacro qwertz (&body body) `(list :qwertz ',body))"
+        "(defmacro yxcv (&body body) `(list :yxcv (qwertz ,@body)))")
+       "(yxcv :A :B :C)"
+       "(LIST :YXCV (QWERTZ :A :B :C))"
+       "(QWERTZ"
+       "(LIST :YXCV (LIST :QWERTZ '(:A :B :C)))"))
+  (slime-check-top-level)
+  (setq slime-buffer-package ":swank")
+  (with-temp-buffer
+    (lisp-mode)
+    (dolist (def macro-defs) 
+      (slime-compile-string def 0)
+      (slime-sync-to-top-level 5))
+    (insert bufcontent)
+    (goto-char (point-min))
+    (slime-execute-as-command 'slime-macroexpand-1)
+    (slime-wait-condition "Macroexpansion buffer visible" 
+                          #'(lambda () (slime-buffer-visible-p "*SLIME Macroexpansion*"))
+                          5)
+    (with-current-buffer (get-buffer "*SLIME Macroexpansion*")
+      (slime-test-expect "Initial macroexpansion is correct"
+                         expansion1 (buffer-string))
+      (search-forward search-str)
+      (backward-up-list)
+      (slime-execute-as-command 'slime-macroexpand-1-inplace)
+      (slime-sync-to-top-level 3)
+      (slime-test-expect "In-place macroexpansion is correct"
+                         expansion2 (buffer-string))
+      (slime-execute-as-command 'slime-macroexpand-undo)
+      (slime-test-expect "Expansion after undo is correct"
+                         expansion1
+                         (buffer-string))
+      ))
+    (setq slime-buffer-package ":cl-user"))
 
 (def-slime-test break
     (times exp)

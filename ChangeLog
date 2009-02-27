@@ -1,5 +1,11 @@
 2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el ([test] macroexpand): New test case.
+	(slime-buffer-visible-p): New helper.
+	(slime-execute-as-command): New helper.
+
+2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* hyperspec.el (common-lisp-hyperspec-symbols): Add links to
 	reader macros.
 
