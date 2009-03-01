@@ -1,5 +1,12 @@
 2009-02-28  Stas Boukarev  <stassats@gmail.com>
 
+	* slime-asdf.el (slime-read-system-name): Display default value as
+	part of the prompt, instead of inserting it as an input
+	candidate.
+	(slime-find-asd): Do not call `file-name-sans-extension' twice.
+
+2009-02-28  Stas Boukarev  <stassats@gmail.com>
+
 	* swank-arglists.lisp (variable-desc-for-echo-area): Print
 	values of special variables with ~S, not with ~A.
 
