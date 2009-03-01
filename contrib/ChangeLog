@@ -1,3 +1,8 @@
+2009-02-28  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-arglists.lisp (variable-desc-for-echo-area): Print
+	values of special variables with ~S, not with ~A.
+
 2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-arglists.lisp (read-conversatively-for-autodoc): Make it

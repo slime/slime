@@ -496,7 +496,7 @@ If OPERATOR is non-nil, put it in front of the arglist."
                 (*print-length* 10) (*print-lines* 1))
 	    (call/truncated-output-to-string 
 	     75 (lambda (s)
-		  (format s "~A => ~A" sym (symbol-value sym)))))))))
+		  (format s "~A => ~S" sym (symbol-value sym)))))))))
 
 (defun decode-required-arg (arg)
   "ARG can be a symbol or a destructuring pattern."
