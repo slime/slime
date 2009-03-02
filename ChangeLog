@@ -1,3 +1,9 @@
+2009-03-02  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* hyperspec.el (common-lisp-hyperspec-symbols): Add entries for
+	reader macros even when `common-lisp-hyperspec-symbol-table' is
+	bound to some value.
+
 2009-02-27  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el ([test] macroexpand): New test case.
