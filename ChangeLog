@@ -1,5 +1,9 @@
 2009-03-03  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-pretty-package-name): Simplify.
+
+2009-03-03  Helmut Eller  <heller@common-lisp.net>
+
 	Use a separate key, C-c C-d #, to lookup reader-macros.
 
 	* hyperspec.el (common-lisp-hyperspec-lookup-reader-macro): New

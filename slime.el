@@ -399,23 +399,11 @@ The string is periodically updated by an idle timer."))
 
 (defun slime-pretty-package-name (name)
   "Return a pretty version of a package name NAME."
-  (let ((name (cond ((string-match "^#?:\\(.*\\)$" name)    
-                     (match-string 1 name))
-                    ((string-match "^\"\\(.*\\)\"$" name) 
-                     (match-string 1 name))
-                    ((string-match slime-reader-conditionals-regexp name)
-                     ;; This is kind of a sledge hammer, but as it's a rare
-                     ;; case we don't care.
-                     (with-temp-buffer
-                       (insert name)
-                       (goto-char (point-min))
-                       (slime-forward-cruft)
-                       (if (eobp)       ; Skipped all reader conditionals?
-                           name         ; If so, return the garbage!
-                           (slime-pretty-package-name (slime-sexp-at-point)))))
-                    (t ; Normal symbol, or some garbage.
-                     name))))
-    (format "%s" name)))
+  (cond ((string-match "^#?:\\(.*\\)$" name)    
+         (match-string 1 name))
+        ((string-match "^\"\\(.*\\)\"$" name) 
+         (match-string 1 name))
+        (t name)))
 
 (defun slime-compute-modeline-connection ()
   (let ((conn (slime-current-connection)))
