@@ -589,7 +589,8 @@ The string is periodically updated by an idle timer."))
     (?d slime-describe-symbol)
     (?f slime-describe-function)
     (?h slime-hyperspec-lookup)
-    (?~ common-lisp-hyperspec-format)))
+    (?~ common-lisp-hyperspec-format)
+    (?# common-lisp-hyperspec-lookup-reader-macro)))
   
 (defvar slime-who-map (make-sparse-keymap)
   "Keymap for who-xref commands. Bound to a prefix key.")
@@ -4519,9 +4520,7 @@ having names in the given package."
 
 (defun slime-hyperspec-lookup (symbol-name)
   "A wrapper for `hyperspec-lookup'"
-  (interactive (list (let* ((symbol-at-point 
-                             (or (slime-reader-macro-at-point)
-                                 (slime-symbol-at-point)))
+  (interactive (list (let* ((symbol-at-point (slime-symbol-at-point))
                             (stripped-symbol 
                              (and symbol-at-point
                                   (downcase
@@ -8245,13 +8244,6 @@ The result is unspecified if there isn't a symbol under the point."
 (defun slime-string-at-point-or-error ()
   "Return the sexp at point as a string, othwise signal an error."
   (or (slime-string-at-point) (error "No string at point.")))
-
-(defun slime-reader-macro-at-point ()
-  (let ((regexp "\\(#.?\\)\\|\\([\"',`';()]\\)"))
-    (save-match-data
-      (when (looking-back regexp)
-        (buffer-substring-no-properties (match-beginning 0) 
-                                        (match-end 0))))))
 
 (defun slime-input-complete-p (start end)
   "Return t if the region from START to END contains a complete sexp."

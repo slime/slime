@@ -1,3 +1,15 @@
+2009-03-03  Helmut Eller  <heller@common-lisp.net>
+
+	Use a separate key, C-c C-d #, to lookup reader-macros.
+
+	* hyperspec.el (common-lisp-hyperspec-lookup-reader-macro): New
+	command.
+	(common-lisp-hyperspec-reader-macros): New variable.
+	(common-lisp-hyperspec-reader-macro-at-point): Moved over from
+	slime.el
+	* slime.el (slime-doc-bindings): Bind C-c C-d #.
+	(slime-hyperspec-lookup): Don't consider reader-macros.
+
 2009-03-02  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* hyperspec.el (common-lisp-hyperspec-symbols): Add entries for

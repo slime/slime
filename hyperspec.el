@@ -1138,10 +1138,13 @@ If you copy the HyperSpec to another location, customize the variable
 ;;;
 ;;; 20090302 Tobias C Rittweiler, and Stas Boukarev
 
-;;; `common-lisp-hyperspec-symbol-table' (Data/Map_Sym.txt in particular)
-;;; does not contain entries for the reader macros. So we have to add these
-;;; in either cases of the if-expression above.
-(mapc (lambda (entry) (intern-clhs-symbol (car entry) (cadr entry)))
+(defvar common-lisp-hyperspec-reader-macros (make-hash-table :test #'equal))
+
+;;; Data/Map_Sym.txt in does not contain entries for the reader
+;;; macros. So we have to enumerate these explicitly.
+(mapc (lambda (entry) 
+	(puthash (car entry) (cadr entry) 
+		 common-lisp-hyperspec-reader-macros))
       '(("#" "02_dh.htm")
         ("##" "02_dhp.htm")
         ("#'" "02_dhb.htm")
@@ -1171,8 +1174,21 @@ If you copy the HyperSpec to another location, customize the variable
         (")" "02_db.htm")
         (";" "02_dd.htm")))
 
+(defun common-lisp-hyperspec-lookup-reader-macro (macro)
+  "Browse the CLHS entry for the reader-macro MACRO."
+  (interactive 
+   (list (completing-read "Look up reader-macro: " 
+			  common-lisp-hyperspec-reader-macros nil t
+			  (common-lisp-hyperspec-reader-macro-at-point))))
+  (browse-url
+   (concat common-lisp-hyperspec-root "Body/"
+	   (gethash macro common-lisp-hyperspec-reader-macros))))
 
-                
+(defun common-lisp-hyperspec-reader-macro-at-point ()
+  (let ((regexp "\\(#.?\\)\\|\\([\"',`';()]\\)"))
+    (when (looking-back regexp nil t)
+      (match-string-no-properties 0))))
+
 ;;; FORMAT character lookup by Frode Vatvedt Fjeld <frodef@acm.org> 20030902
 ;;;
 ;;; adjusted for ILISP by Nikodemus Siivola 20030903
