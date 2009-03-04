@@ -1,5 +1,9 @@
 2009-03-04  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-asdf.el: Really do the commit from entry 2009-02-28.
+
+2009-03-04  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-repl.el (slime-check-buffer-contents): Fix typo.
 	(with-canonicalized-slime-repl-buffer): Refactored from test
 	cases. A lot of test cases implemented this somewhat

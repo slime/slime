@@ -10,8 +10,8 @@
 ;;
 ;; Add something like this to your .emacs: 
 ;;
-;;   (add-to-list 'load-path ".../slime/contrib")
-;;   (add-hook 'slime-load-hook (lambda () (require 'slime-asdf)))
+;;   (add-to-list 'load-path "<directory-of-this-file>")
+;;   (slime-setup '(slime-asdf ... possibly other packages ...))
 ;;
 
 ;; NOTE: `system-name' is a predefined variable in Emacs.  Try to
@@ -31,26 +31,28 @@ buffer's working directory"
 (defvar slime-system-history nil
   "History list for ASDF system names.")
 
-(defun slime-read-system-name (&optional prompt initial-value)
+(defun slime-read-system-name (&optional prompt default-value)
   "Read a system name from the minibuffer, prompting with PROMPT."
-  (setq prompt (or prompt "System: "))
   (let* ((completion-ignore-case nil)
+         (prompt (or prompt "System"))
          (system-names (slime-eval `(swank:list-asdf-systems)))
-         (alist (slime-bogus-completion-alist system-names)))
-    (completing-read prompt alist nil nil
-                     (or initial-value (slime-find-asd system-names) "")
-                     'slime-system-history)))
+         (default-value (or default-value (slime-find-asd system-names)))
+         (prompt (concat prompt (if default-value
+                                    (format " (default `%s'): " default-value)
+                                    ": "))))
+    (completing-read prompt (slime-bogus-completion-alist system-names)
+                     nil nil nil
+                     'slime-system-history default-value)))
 
 (defun slime-find-asd (system-names)
   "Tries to find an ASDF system definition in the default
 directory or in the directory belonging to the current buffer and
 returns it if it's in `system-names'."
-  (let* ((asdf-systems-in-directory
-           (mapcar #'file-name-sans-extension
-                   (directory-files
-                    (file-name-directory (or default-directory
-                                             (buffer-file-name)))
-                    nil "\.asd$"))))
+  (let ((asdf-systems-in-directory
+         (directory-files
+          (file-name-directory (or default-directory
+                                   (buffer-file-name)))
+          nil "\.asd$")))
     (loop for system in asdf-systems-in-directory
           for candidate = (file-name-sans-extension system)
           when (find candidate system-names :test #'string-equal)
