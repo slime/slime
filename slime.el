@@ -7271,8 +7271,7 @@ BODY returns true if the check succeeds."
             (t
              ;; XXX if a process-filter enters a recursive-edit, we
              ;; hang forever
-             (save-excursion
-               (slime-accept-process-output nil 0.1)))))))
+             (slime-accept-process-output nil 0.1))))))
 
 (defun slime-sync-to-top-level (timeout)
   (slime-wait-condition "top-level" #'slime-at-top-level-p timeout))

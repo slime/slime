@@ -1,3 +1,9 @@
+2009-03-04  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-wait-condition): Remove `save-excursion'; it
+	made the `repl-test' test case fail because this test tries to set
+	point to the new prompt in vain.
+
 2009-03-03  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-pretty-package-name): Simplify.
