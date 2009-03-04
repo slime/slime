@@ -1,5 +1,13 @@
 2009-03-04  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-check-fancy-symbol-name): Use
+	`slime-test-expect' instead of `slime-check'.
+	([test] fancy-symbol-names): Extend test case; check for
+	"Foo" in #<Foo| {...}>.
+	(slime-symbol-constituent-at-pos): Check for #<.
+
+2009-03-04  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (slime-wait-condition): Remove `save-excursion'; it
 	made the `repl-test' test case fail because this test tries to set
 	point to the new prompt in vain.

@@ -7304,8 +7304,10 @@ BODY returns true if the check succeeds."
   (dotimes (pt (length symbol-name))
     (setq pt (+ buffer-offset pt))
     (goto-char pt)
-    (slime-check ("Checking `%s' (%d)..." (buffer-string) pt)
-      (equal (slime-symbol-at-point) symbol-name))))
+    (slime-test-expect (format "Check `%s' (at %d)..." (buffer-string) pt)
+                       symbol-name 
+                       (slime-symbol-at-point)
+                       #'equal)))
 
 (def-slime-test fancy-symbol-names (symbol-name)
     "Check that we can cope with idiosyncratic symbol names."
@@ -7314,7 +7316,7 @@ BODY returns true if the check succeeds."
       ("|asdf||foo||bar|")
       ("\\|foo|bar|@asdf:foo|\\||")
       ("\\\\\\\\foo|barfo\\\\|asdf")
-      )
+      ("\\#<Foo@Bar>") ("|#<|Foo@Bar|>|") ("|#<Foo@Bar>|"))
   (slime-check-top-level)
   (with-temp-buffer
     (lisp-mode)
@@ -7339,9 +7341,19 @@ BODY returns true if the check succeeds."
     (slime-check-fancy-symbol-name (+ (point-min) 2) symbol-name)
     (erase-buffer)
 
+    (slime-test-message "*** fancy symbol-name with leading `:")
+    (insert "`") (insert symbol-name)
+    (slime-check-fancy-symbol-name (+ (point-min) 1) symbol-name)
+    (erase-buffer)
+
     (slime-test-message "*** fancy symbol-name wrapped in ():")
     (insert "(") (insert symbol-name) (insert ")")
     (slime-check-fancy-symbol-name (+ (point-min) 1) symbol-name)
+    (erase-buffer)
+
+    (slime-test-message "*** fancy symbol-name wrapped in #<>:")
+    (insert "#<") (insert symbol-name) (insert " {DEADBEEF}>")
+    (slime-check-fancy-symbol-name (+ (point-min) 2) symbol-name)
     (erase-buffer)
     ))
 
@@ -8146,17 +8158,20 @@ within. This includes nested comments (#| ... |#)."
 
 (defun slime-symbol-constituent-at (pos)
   "Is the character at position POS a valid symbol constituent?"
+  ;; We assume we're not within vertical bars, otherwise boringly
+  ;; everything would be a constituent.
   (when-let (char (char-after pos))                   ; nil when at eob.
     (let* ((char-before   (or (char-before pos) ?\a)) ; nil when at bob.
            (syntax        (char-syntax char))
            (syntax-before (char-syntax char-before)))
-      ;; We assume we're not within vertical bars.
-      (or
-       (memq syntax '(?\w ?\_ ?\\))     ; usual suspects?
-       (eq char ?\|)
-       (eq syntax-before ?\\)           ; escaped?
-       (and (eq char ?\@)               ; ,@@foobar or foo@bar?
-            (not (eq char-before ?\,)))))))
+      (if (and (eq char-before ?\#) (eq char ?\<))    ; #< ?
+          nil
+          (or
+           (memq syntax '(?\w ?\_ ?\\))               ; usual suspects?
+           (eq char ?\|)                              ; |foo|::|bar|?
+           (eq syntax-before ?\\)                     ; escaped?
+           (and (eq char ?\@)                         ; ,@@foobar or foo@bar?
+                (not (eq char-before ?\,))))))))
 
 ;;; `slime-beginning-of-symbol', and `slime-end-of-symbol' are written
 ;;; to get a lot of funky CL-style symbol names right (see
