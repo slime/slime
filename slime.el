@@ -8270,8 +8270,12 @@ The result is unspecified if there isn't a symbol under the point."
 (when (featurep 'xemacs)
   (require 'overlay))
 
+(defun slime-emacs-21-p ()
+  (and (not (featurep 'xemacs))
+       (= emacs-major-version 21)))
+
 (if (and (featurep 'emacs) (>= emacs-major-version 22))
-    ;;;  N.B. The 2nd, and 6th return value cannot be relied upon.
+    ;;  N.B. The 2nd, and 6th return value cannot be relied upon.
     (defun slime-current-parser-state ()
       ;; `syntax-ppss' does not save match data as it invokes
       ;; `beginning-of-defun' implicitly which does not save match
@@ -8283,6 +8287,18 @@ The result is unspecified if there isn't a symbol under the point."
         (save-excursion
           (beginning-of-defun)
           (parse-partial-sexp (point) original-pos)))))
+
+;;; `getf', `get', `symbol-plist' do not work on malformed plists
+;;; on Emacs21. On later versions they do.
+(when (slime-emacs-21-p)
+  ;; Perhaps we should rather introduce a new `slime-getf' than
+  ;; redefining. But what about (setf getf)? (A redefinition is not
+  ;; necessary, except for consistency.)
+  (defun getf (plist property &optional default)
+    (loop for (prop . val) on plist 
+          when (eq prop property) return (car val)
+          finally (return default))))
+
 
 (defun slime-split-string (string &optional separators omit-nulls)
   "This is like `split-string' in Emacs22, but also works in 21."
@@ -8636,9 +8652,6 @@ If they are not, position point at the first syntax error found."
      (select-window ,window)
      ,@body))
 
-(defun slime-emacs-21-p ()
-  (and (not (featurep 'xemacs))
-       (= emacs-major-version 21)))
 
 (when (featurep 'xemacs)
   (add-hook 'sldb-hook 'sldb-xemacs-emulate-point-entered-hook))

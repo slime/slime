@@ -1,3 +1,9 @@
+2009-03-07  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el ([portability] getf): Redefine `getf' on Emacs21 to
+	work on malformed plists like it does on later Emacsen. This made
+	the `find-local-definitions' test case fail on Emacs21.
+
 2009-03-04  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-check-fancy-symbol-name): Use
