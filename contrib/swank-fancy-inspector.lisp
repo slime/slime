@@ -657,6 +657,12 @@ SPECIAL-OPERATOR groups."
                 (label-value-line "Digits" (float-digits f))
                 (label-value-line "Precision" (float-precision f)))))))
 
+(defun make-visit-file-thunk (stream)
+  (let ((pathname (pathname stream))
+        (position (file-position stream)))
+    (lambda ()
+      (ed-in-emacs `(,pathname :charpos ,position)))))
+
 (defmethod emacs-inspect ((stream file-stream))
   (multiple-value-bind (content)
       (call-next-method)
@@ -664,13 +670,11 @@ SPECIAL-OPERATOR groups."
              `("Pathname: "
                (:value ,(pathname stream))
                (:newline) "  "
-               (:action "[visit file and show current position]"
-                        ,(let ((pathname (pathname stream))
-                               (position (file-position stream)))
-                           (lambda ()
-                             (ed-in-emacs `(,pathname :charpos ,position))))
-                        :refreshp nil)
-               (:newline))
+               ,@(when (open-stream-p stream)
+                   `((:action "[visit file and show current position]"
+                              ,(make-visit-file-thunk stream)
+                              :refreshp nil)
+                     (:newline))))
              content)))
 
 (defmethod emacs-inspect ((condition stream-error))
@@ -684,12 +688,9 @@ SPECIAL-OPERATOR groups."
                      (:newline) "  "
                      ,@(when (open-stream-p stream)
                          `((:action "[visit file and show current position]"
-                                    ,(let ((pathname (pathname stream))
-                                           (position (file-position stream)))
-                                          (lambda ()
-                                            (ed-in-emacs `(,pathname :charpos ,position))))
-                                    :refreshp nil)))
-                     (:newline))
+                                    ,(make-visit-file-thunk stream)
+                                    :refreshp nil)
+                           (:newline))))
                    content)
           content))))
 
