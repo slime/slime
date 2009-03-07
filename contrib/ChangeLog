@@ -1,5 +1,12 @@
 2009-03-08  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-repl.el ([test] interrupt-in-blocking-read): Wrap
+	`with-canonicalized-slime-repl-buffer' around the whole
+	test. Otherwise the changed repl prompt doesn't extend to the
+	actual `slime-test-expect'.
+
+2009-03-08  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank-fancy-inspector.lisp (make-visit-file-thunk): New helper;
 	extracted from emacs-inspect [file-stream].
 	([method] emacs-inspect file-stream): Use it.

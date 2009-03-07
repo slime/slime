@@ -1781,25 +1781,25 @@ SWANK> [*foo]"))
   (with-canonicalized-slime-repl-buffer
     (insert "(read-char)")
     (call-interactively 'slime-repl-return)
-    (slime-wait-condition "reading" #'slime-reading-p 5))
-  (slime-interrupt)
-  (slime-wait-condition "Debugger visible" 
-                        (lambda () 
-                          (and (slime-sldb-level= 1)
-                               (get-buffer-window (sldb-get-default-buffer))))
-                        5)
-  (with-current-buffer (sldb-get-default-buffer)
-    (sldb-continue))
-  (slime-wait-condition "reading" #'slime-reading-p 5)
-  (with-current-buffer (slime-output-buffer)
-    (insert "X")
-    (call-interactively 'slime-repl-return)
-    (slime-sync-to-top-level 5)
-    (slime-test-expect "Buffer contains result" 
-                       "SWANK> (read-char)
+    (slime-wait-condition "reading" #'slime-reading-p 5)
+    (slime-interrupt)
+    (slime-wait-condition "Debugger visible" 
+                          (lambda () 
+                            (and (slime-sldb-level= 1)
+                                 (get-buffer-window (sldb-get-default-buffer))))
+                          5)
+    (with-current-buffer (sldb-get-default-buffer)
+      (sldb-continue))
+    (slime-wait-condition "reading" #'slime-reading-p 5)
+    (with-current-buffer (slime-output-buffer)
+      (insert "X")
+      (call-interactively 'slime-repl-return)
+      (slime-sync-to-top-level 5)
+      (slime-test-expect "Buffer contains result" 
+                         "SWANK> (read-char)
 X
 #\\X
-SWANK> " (buffer-string))))
+SWANK> " (buffer-string)))))
 
 (let ((byte-compile-warnings '()))
   (mapc #'byte-compile
