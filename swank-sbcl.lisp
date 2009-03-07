@@ -408,27 +408,40 @@ information."
             (compiler-source-path context)
             (sb-c::compiler-error-context-original-source context)))
           ((typep condition 'reader-error)
-           (let ((stream (stream-error-stream condition)))
-             (unless (open-stream-p stream) (bailout))
-             (make-location (list :buffer *buffer-name*)
-                            (list :offset *buffer-offset*
-                                  (file-position stream)))))
+           (let* ((stream (stream-error-stream condition))
+                  (file   (pathname stream)))
+             (unless (open-stream-p stream)
+               (bailout))
+             (if (compiling-from-buffer-p file)
+                 (make-location (list :buffer *buffer-name*)
+                                (list :offset *buffer-offset*
+                                      (file-position stream)))
+                 (progn
+                   (assert (compiling-from-file-p file))
+                   (make-location (list :file (namestring file))
+                                  (list :position (file-position stream)))))))
           (t (bailout)))))
 
+(defun compiling-from-buffer-p (filename)
+  (and (not (eq filename :lisp)) *buffer-name*))
+
+(defun compiling-from-file-p (filename)
+  (and (pathnamep filename) (null *buffer-name*)))
+
+(defun compiling-from-generated-code-p (filename source)
+  (and (eq filename :lisp) (stringp source)))
+
 (defun locate-compiler-note (file source-path source)
-  (cond ((and (not (eq file :lisp)) *buffer-name*)
-         ;; Compiling from a buffer
+  (cond ((compiling-from-buffer-p file)
          (make-location (list :buffer *buffer-name*)
                         (list :offset  *buffer-offset* 
                               (source-path-string-position
                                source-path *buffer-substring*))))
-        ((and (pathnamep file) (null *buffer-name*))
-         ;; Compiling from a file
+        ((compiling-from-file-p file)
          (make-location (list :file (namestring file))
                         (list :position (1+ (source-path-file-position
                                              source-path file)))))
-        ((and (eq file :lisp) (stringp source))
-         ;; Compiling macro generated code
+        ((compiling-from-generated-code-p file source)
          (make-location (list :source-form source)
                         (list :position 1)))
         (t

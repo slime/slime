@@ -1,3 +1,15 @@
+2009-03-08  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-sbcl.lisp (compiling-from-buffer-p),
+	(compiling-from-file-p)
+	(compiling-from-generated-code-p): New helpers; extracted from
+	LOCATE-COMPILER-NOTE.
+	(locate-compiler-note): Use them.
+	(compiler-note-location): Use them, too, to handle reader-errors
+	when compiling from file. This completes 2009-02-27.
+
+	Reported by Christian Lynbech.
+
 2009-03-07  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el ([portability] getf): Redefine `getf' on Emacs21 to
