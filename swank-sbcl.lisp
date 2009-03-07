@@ -382,6 +382,7 @@ information."
                        (sb-ext:compiler-note :note)
                        (style-warning        :style-warning)
                        (warning              :warning)
+                       (reader-error         :read-error)
                        (error                :error))
            :short-message (brief-compiler-message-for-emacs condition)
            :references (condition-references (real-condition condition))
@@ -413,11 +414,15 @@ information."
              (unless (open-stream-p stream)
                (bailout))
              (if (compiling-from-buffer-p file)
+                 ;; The stream position for e.g. "comma not inside backquote"
+                 ;; is at the character following the comma, :offset is 0-based,
+                 ;; hence the 1-.
                  (make-location (list :buffer *buffer-name*)
                                 (list :offset *buffer-offset*
-                                      (file-position stream)))
+                                      (1- (file-position stream))))
                  (progn
                    (assert (compiling-from-file-p file))
+                   ;; No 1- because :position is 1-based.
                    (make-location (list :file (namestring file))
                                   (list :position (file-position stream)))))))
           (t (bailout)))))

@@ -3006,14 +3006,11 @@ Return nil if there's no useful source location."
         ((:error _) _ nil)                 ; do nothing
         ((:location file pos _hints)
          (cond ((eq (car file) ':source-form) nil)
-               (t
-                (destructure-case pos
-                  ((:position pos &optional alignp)
-                   (if (eq (slime-note.severity note) :read-error)
-                       (values pos (1+ pos))
-                     (slime-choose-overlay-for-sexp location)))
-                  (t 
-                   (slime-choose-overlay-for-sexp location))))))))))
+               ((eq (slime-note.severity note) :read-error)
+                (let ((pos (slime-location-offset location)))
+                  (values pos (1+ pos))))
+               (t 
+                (slime-choose-overlay-for-sexp location))))))))
           
 (defun slime-choose-overlay-for-sexp (location)
   (slime-goto-source-location location)
@@ -6347,12 +6344,12 @@ that value.
           (t
            (error "No clickable part here")))))
 
-;;(defun slime-inspector-copy-down (number)
-;;  "Evaluate the slot at point via the REPL (to set `*')."
-;;  (interactive (list (or (get-text-property (point) 'slime-part-number)
-;;                         (error "No part at point"))))
-;;  (slime-repl-send-string (format "%s" `(swank:inspector-nth-part ,number)))
-;;  (slime-repl))
+;; (defun slime-inspector-copy-down (number)
+;;   "Evaluate the slot at point via the REPL (to set `*')."
+;;   (interactive (list (or (get-text-property (point) 'slime-part-number)
+;;                          (error "No part at point"))))
+;;   (slime-repl-send-string (format "%s" `(swank:inspector-nth-part ,number)))
+;;   (slime-repl))
 
 (defun slime-inspector-pop ()
   (interactive)

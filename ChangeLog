@@ -1,5 +1,15 @@
 2009-03-08  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-choose-overlay-region): Special case :read-error
+	notes regardless of position kind.
+
+	* swank-sbcl.lisp (signal-compiler-condition): Return :READ-ERROR
+	as severity for reader-errors.
+	(compiler-note-location): Fix off-by-one when compiling from
+	buffer.
+
+2009-03-08  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank-sbcl.lisp (compiling-from-buffer-p),
 	(compiling-from-file-p)
 	(compiling-from-generated-code-p): New helpers; extracted from
