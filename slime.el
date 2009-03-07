@@ -3808,11 +3808,11 @@ alist but ignores CDRs."
 
 (defun make-slime-buffer-location (buffer-name position &optional hints)
   `(:location (:buffer ,buffer-name) (:position ,position)
-              ,(if hints `(:hints ,hints) `(:hints))))
+              ,(when hints `(:hints ,hints))))
 
 (defun make-slime-file-location (file-name position &optional hints)
   `(:location (:file ,file-name) (:position ,position)
-              ,(if hints `(:hints ,hints) `(:hints))))
+              ,(when hints `(:hints ,hints))))
 
 ;;; The hooks are tried in order until one succeeds, otherwise the
 ;;; default implementation involving `slime-find-definitions-function'

@@ -1,5 +1,11 @@
 2009-03-08  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (make-slime-buffer-location, make-slime-file-location):
+	Do not default to (:hints), but to nil, as expected in the
+	slime-side source-location machinery.
+
+2009-03-08  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (slime-choose-overlay-region): Special case :read-error
 	notes regardless of position kind.
 
