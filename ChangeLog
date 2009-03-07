@@ -1,5 +1,13 @@
 2009-03-08  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-choose-overlay-for-read-error): Extraced and
+	extended from `slime-choose-overlay-region'. Differentiate between
+	symbol-related reader-errors (package not found &c) and
+	character-related reader-errors.
+	(slime-choose-overlay-region): Use it.
+
+2009-03-08  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (make-slime-buffer-location, make-slime-file-location):
 	Do not default to (:hints), but to nil, as expected in the
 	slime-side source-location machinery.

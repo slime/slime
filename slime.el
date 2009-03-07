@@ -3007,10 +3007,20 @@ Return nil if there's no useful source location."
         ((:location file pos _hints)
          (cond ((eq (car file) ':source-form) nil)
                ((eq (slime-note.severity note) :read-error)
-                (let ((pos (slime-location-offset location)))
-                  (values pos (1+ pos))))
+                (slime-choose-overlay-for-read-error location))
                (t 
                 (slime-choose-overlay-for-sexp location))))))))
+
+(defun slime-choose-overlay-for-read-error (location)
+  (let ((pos (slime-location-offset location)))
+    (save-excursion
+      (goto-char pos)
+      (let ((symbol (slime-symbol-at-point)))
+        (if symbol
+            ;; package not found, &c.
+            (values (slime-symbol-start-pos) (slime-symbol-end-pos))
+            ;; comma not inside backquote, unmatched right parenthesis, &c.
+            (values pos (1+ pos)))))))
           
 (defun slime-choose-overlay-for-sexp (location)
   (slime-goto-source-location location)
