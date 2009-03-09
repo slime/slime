@@ -1,4 +1,3 @@
-
 ;;; slime.el --- Superior Lisp Interaction Mode for Emacs
 ;;
 ;;;; License
@@ -4704,10 +4703,12 @@ The most important commands:
 
 ;;;;; XREF results buffer and window management
 
-(defmacro* slime-with-xref-buffer ((xref-type symbol &optional package emacs-snapshot)  
+(defmacro* slime-with-xref-buffer ((xref-type symbol &optional package 
+                                              emacs-snapshot)
                                    &body body)
   "Execute BODY in a xref buffer, then show that buffer."
-  `(let ((xref-buffer-name% (format "*XREF[%s: %s]*" ,xref-type ,symbol)))
+  `(let ((xref-buffer-name% (format "*slime xref[%s: %s]*" 
+                                    ,xref-type ,symbol)))
      (slime-with-popup-buffer (xref-buffer-name% ,package t t ,emacs-snapshot)
        (slime-xref-mode)
        (slime-set-truncate-lines)
