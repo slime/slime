@@ -94,6 +94,15 @@ points where their bindings are established as second value."
 	      (nreverse start-points)))))
 
 
+(defun slime-enclosing-bound-macros ()
+  (multiple-value-call #'slime-find-bound-macros (slime-enclosing-form-specs)))
+
+(defun slime-find-bound-macros (ops indices points)
+  ;; Kludgy!
+  (let ((slime-function-binding-ops-alist '((macrolet &bindings &body))))
+    (slime-find-bound-functions ops indices points)))
+
+
 (def-slime-test enclosing-context.1
     (buffer-sexpr wished-bound-names wished-bound-functions)
     "Check that finding local definitions work."

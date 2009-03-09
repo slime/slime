@@ -1,3 +1,19 @@
+2009-03-09  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-autodoc.el (slime-compute-autodoc-rpc-form):
+	New. Extracted from `slime-autodoc-thing-at-point'.
+	(slime-compute-autodoc-internal): New. Extracted from
+	`slime-compute-autodoc'.
+	(slime-compute-autodoc): Explicitly save match data.
+	(slime-autodoc-hook): New. Run everytime autodoc is computed.
+
+	* slime-enclosing-context.el (slime-enclosing-bound-macros): New.
+	(slime-find-bound-macros): New, too.
+
+	* slime-indentation-fu.el, swank-indentation-fu.lisp: New contrib
+	to properly indent &BODY arguments of local macro definitions.
+	Suggested by Lorenz Moesenlechner.
+
 2009-03-09  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-kawa.scm: Use foo: style keywords because :foo is now

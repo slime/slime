@@ -48,15 +48,19 @@
 ;;;; Autodocs (automatic context-sensitive help)
 
 (defun slime-autodoc-thing-at-point ()
+  "Not used; for debugging purposes."
+  (multiple-value-bind (operators arg-indices points)
+	    (slime-enclosing-form-specs)
+    (slime-compute-autodoc-rpc-form operators arg-indices points)))
+
+(defun slime-compute-autodoc-rpc-form (operators arg-indices points)
   "Return a cache key and a swank form."
   (let ((global (slime-autodoc-global-at-point)))
     (if global
         (values (slime-qualify-cl-symbol-name global)
                 `(swank:variable-desc-for-echo-area ,global))
-	(multiple-value-bind (operators arg-indices points)
-	    (slime-enclosing-form-specs)
-	  (values (slime-make-autodoc-cache-key operators arg-indices points)
-		  (slime-make-autodoc-swank-form operators arg-indices points))))))
+	(values (slime-make-autodoc-cache-key operators arg-indices points)
+                (slime-make-autodoc-swank-form operators arg-indices points)))))
 
 (defun slime-autodoc-global-at-point ()
   "Return the global variable name at point, if any."
@@ -192,24 +196,39 @@ Return DOCUMENTATION."
 
 ;;;; slime-autodoc-mode
 
-(defun slime-compute-autodoc ()
+(defvar slime-autodoc-hook '()
+  "If autodoc is enabled, this hook is run periodically in the
+background everytime a new autodoc is computed. The hook is
+applied to the result of `slime-enclosing-form-specs'.")
+
+(defun slime-compute-autodoc-internal ()
   "Returns the cached arglist information as string, or nil.
 If it's not in the cache, the cache will be updated asynchronously."
-  (multiple-value-bind (cache-key retrieve-form) (slime-autodoc-thing-at-point)
-    (let ((cached (slime-get-cached-autodoc cache-key)))
-      (if cached
-	  cached
-          ;; If nothing is in the cache, we first decline, and fetch
-          ;; the arglist information asynchronously.
-          (prog1 nil
-            (slime-eval-async retrieve-form
-              (lexical-let ((cache-key cache-key)) 
-                (lambda (doc)
-                  (let ((doc (if doc (slime-format-autodoc doc) "")))
-                    ;; Now that we've got our information, get it to
-                    ;; the user ASAP.
-                    (eldoc-message doc)
-                    (slime-store-into-autodoc-cache cache-key doc))))))))))
+  (multiple-value-bind (ops arg-indices points)
+      (slime-enclosing-form-specs)
+    (run-hook-with-args 'slime-autodoc-hook ops arg-indices points)
+    (multiple-value-bind (cache-key retrieve-form)
+        (slime-compute-autodoc-rpc-form ops arg-indices points)
+      (let ((cached (slime-get-cached-autodoc cache-key)))
+        (if cached
+            cached
+            ;; If nothing is in the cache, we first decline, and fetch
+            ;; the arglist information asynchronously.
+            (prog1 nil
+              (slime-eval-async retrieve-form
+                (lexical-let ((cache-key cache-key)) 
+                  (lambda (doc)
+                    (let ((doc (if doc (slime-format-autodoc doc) "")))
+                      ;; Now that we've got our information, get it to
+                      ;; the user ASAP.
+                      (eldoc-message doc)
+                      (slime-store-into-autodoc-cache cache-key doc)))))))))))
+
+(defun slime-compute-autodoc ()
+  (save-excursion
+    (save-match-data
+      (slime-compute-autodoc-internal))))
+
 
 (make-variable-buffer-local (defvar slime-autodoc-mode nil))
 
@@ -259,6 +278,8 @@ If it's not in the cache, the cache will be updated asynchronously."
     (remove-hook h 'slime-autodoc-maybe-enable)))
 
 (slime-require :swank-arglists)
+
+
 
 ;;;; Test cases
 
