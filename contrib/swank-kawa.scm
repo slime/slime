@@ -447,7 +447,7 @@
           )))))
 
 (df find-thread (id threads listener (vm <vm>))
-  (cond ((== id :repl-thread) listener)
+  (cond ((== id ':repl-thread) listener)
         ((== id 't) listener
          ;;(if (null? threads) 
          ;;    listener 
@@ -704,12 +704,12 @@
       (pack (source-error>elisp e)))))
 
 (df source-error>elisp ((e <source-error>) => <list>)
-  (list :message (to-string (@ message e))
-        :severity (case (integer->char (@ severity e))
-                    ((#\e #\f) :error)
-                    ((#\w) :warning)
-                    (else :note))
-        :location (error-loc>elisp e)))
+  (list ':message (to-string (@ message e))
+        ':severity (case (integer->char (@ severity e))
+                    ((#\e #\f) ':error)
+                    ((#\w) ':warning)
+                    (else ':note))
+        ':location (error-loc>elisp e)))
 
 (df error-loc>elisp ((e <source-error>))
   (cond ((nul? (@ filename e)) `(:error "No source location"))
