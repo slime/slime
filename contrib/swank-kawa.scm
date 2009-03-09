@@ -1299,7 +1299,7 @@
           (fun ((f <frame>))
             (let ((vars (ignore-errors (! visibleVariables f))))
               (pack (<faked-frame> 
-                     (ignore-errors (! location f))
+                     (or (ignore-errors (! location f)) #!null)
                      (ignore-errors (! getArgumentValues f))
                      (or vars #!null)
                      (or (and vars (ignore-errors (! get-values f vars)))

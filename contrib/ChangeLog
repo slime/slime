@@ -1,7 +1,8 @@
 2009-03-09  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-kawa.scm: Use foo: style keywords because :foo is now
-	a symbol.x
+	a symbol.
+	(copy-stack): Use null to mark absent src-loc information.
 
 2009-03-08  Tobias C. Rittweiler  <tcr@freebits.de>
 
