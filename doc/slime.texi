@@ -1007,10 +1007,13 @@ in a web browser. The Hyperspec is found either on the Web or in
 Note: this is one case where @kbd{C-c C-d h} is @emph{not} the same as
 @kbd{C-c C-d C-h}.
 
-@kbditem{C-c C-d ~, common-lisp-hyperspec-format}
+@kbditem{C-c C-d ~, hyperspec-lookup-format}
 Lookup a @emph{format character} in the @cite{Common Lisp Hyperspec}.
 @end table
 
+@kbditem{C-c C-d #, hyperspec-lookup-reader-macro}
+Lookup a @emph{reader macro} in the @cite{Common Lisp Hyperspec}.
+@end table
 
 @c ----------------------- 
 @node Cross-reference
