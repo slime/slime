@@ -1,3 +1,8 @@
+2009-03-09  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-kawa.scm: Use foo: style keywords because :foo is now
+	a symbol.x
+
 2009-03-08  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-repl.el ([test] interrupt-in-blocking-read): Wrap

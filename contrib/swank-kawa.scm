@@ -39,8 +39,8 @@
 (module-static #t)
 
 (module-compile-options
- :warn-invoke-unknown-method #t
- :warn-undefined-variable #t
+ warn-invoke-unknown-method: #t
+ warn-undefined-variable: #t
  )
 
 (require 'hash-table)
@@ -310,10 +310,10 @@
 (define-alias <env> <gnu.mapping.Environment>)
 
 (define-simple-class <chan> ()
-  (owner :: <thread> :init (java.lang.Thread:currentThread))
+  (owner :: <thread> init: (java.lang.Thread:currentThread))
   (peer :: <chan>)
-  (queue :: <queue> :init (<queue>))
-  (lock :init (<object>)))
+  (queue :: <queue> init: (<queue>))
+  (lock init: (<object>)))
 
 
 ;;;; Entry Points
@@ -479,7 +479,7 @@
                               (%read port rt)))))
 
 (df read-chunk ((in <in>) (len <int>) => <str>)
-  (let ((chars (<char[]> :length len)))
+  (let ((chars (<char[]> length: len)))
     (let loop ((offset :: <int> 0))
       (cond ((= offset len) (<str> chars))
             (#t (let ((count (! read in chars offset (- len offset))))
@@ -517,7 +517,7 @@
     (cond ((null? obj) (++ "nil"))
           ((string? obj) (pr obj))
           ((number? obj) (pr obj))
-          ((keyword? obj) (++ ":") (! append out (to-str obj)))
+          ;;((keyword? obj) (++ ":") (! append out (to-str obj)))
           ((symbol? obj) (pr obj))
           ((pair? obj)
            (++ "(")
@@ -606,6 +606,9 @@
                (log "listener-abort: ~s ~a\n" ex flag))
              (restart)))))))
 
+(defslimefun create-repl (env #!rest _)
+  (list "user" "user"))
+
 (defslimefun interactive-eval (env str)
   (values-for-echo-area (eval (read-from-string str) env)))
 
@@ -643,7 +646,8 @@
 
 ;;;; Compilation
 
-(defslimefun compile-file-for-emacs (env (filename <str>) load?)
+(defslimefun compile-file-for-emacs (env (filename <str>) load? 
+                                         #!optional options)
   (let ((zip (cat (path-sans-extension (filepath filename)) ".zip")))
     (wrap-compilation 
      (fun ((m <gnu.text.SourceMessages>))
@@ -785,8 +789,8 @@
     (('error msg) `((,name (:error ,msg))))))
 
 (define-simple-class <swank-location> (<location>)
-  (file :init #f)
-  (line :init #f)
+  (file init: #f)
+  (line init: #f)
   ((*init* file name) 
    (set (@ file (this)) file)
    (set (@ line (this)) line))
@@ -1021,10 +1025,10 @@
 ;;;; Inspector
 
 (define-simple-class <inspector-state> () 
-  (object :init #!null) 
-  (parts :: <java.util.ArrayList> :init (<java.util.ArrayList>) )
-  (stack :: <list> :init '())
-  (content :: <list> :init '()))
+  (object init: #!null) 
+  (parts :: <java.util.ArrayList> init: (<java.util.ArrayList>) )
+  (stack :: <list> init: '())
+  (content :: <list> init: '()))
 
 (df make-inspector (env (vm <vm>) => <chan>)
   (car (spawn/chan (fun (c) (inspector c env vm)))))
@@ -1062,12 +1066,12 @@
                           `("class: " (:value ,(! getClass obj)) "\n" 
                             ,@(inspect obj vm))
                           state))
-  (cond ((nul? obj) (list :title "#!null" :id 0 :content `()))
+  (cond ((nul? obj) (list ':title "#!null" ':id 0 ':content `()))
         (#t
-         (list :title (pprint-to-string obj) 
-               :id (assign-index obj state)
-               :content (let ((c (@ content state)))
-                          (content-range  c 0 (len c)))))))
+         (list ':title (pprint-to-string obj) 
+               ':id (assign-index obj state)
+               ':content (let ((c (@ content state)))
+                           (content-range  c 0 (len c)))))))
 
 (df inspect (obj vm)
   (let* ((obj (as <obj-ref> (vm-mirror vm obj))))
@@ -1120,7 +1124,7 @@
 ;;;; IO redirection
 
 (define-simple-class <swank-writer> (<java.io.Writer>)
-  (q :: <queue> :init (<queue> (as <int> 100)))
+  (q :: <queue> init: (<queue> (as <int> 100)))
   ((*init*) (invoke-special <java.io.Writer> (this) '*init*))
   ((write (buffer <char[]>) (from <int>) (to <int>)) :: <void>
    (synchronized (this)
@@ -1431,7 +1435,7 @@
                         (call-with-abort (fun () (vm-demirror vm x)))))))
       (map (fun (x)
              (mlet ((name value) x)
-               (list :name name :value (p value) :id 0)))
+               (list ':name name ':value (p value) ':id 0)))
            (%frame-locals tid n state)))))
 
 (df frame-local-var ((tid <int>) (frame <int>) (var <int>) state => <mirror>)
@@ -1625,7 +1629,7 @@
              (! invokeMethod o t met '() o:INVOKE_SINGLE_THREADED))))))
 
 (define-simple-class <swank-global-variable> ()
-  (var :allocation 'static))
+  (var allocation: 'static))
 
 (define-variable *global-get-mirror* #!null)
 (define-variable *global-set-mirror* #!null)
@@ -2088,7 +2092,7 @@
     (<vector> (apply vector (! sub-list s from to)))
     (<str> (! substring s from to))
     (<byte[]> (let* ((len (as <int> (- to from)))
-                     (t (<byte[]> :length len)))
+                     (t (<byte[]> length: len)))
                 (java.lang.System:arraycopy s from t 0 len)
                 t))))
 
