@@ -29,7 +29,7 @@
            ;; These are user-configurable variables:
            #:*communication-style*
            #:*dont-close*
-           #:*fasl-directory*
+           #:*fasl-pathname-function*
            #:*log-events*
            #:*log-output*
            #:*use-dedicated-output-stream*
@@ -2758,17 +2758,17 @@ Record compiler notes signalled as `compiler-condition's."
            (declare (ignore output-pathname warnings?))
            (not failure?)))))))
 
-(defvar *fasl-directory* nil
-  "Directory where swank should place fasl files.")
+(defvar *fasl-pathname-function* nil
+  "In non-nil, use this function to compute the name for fasl-files.")
 
 (defun fasl-pathname (input-file options)
-  (cond ((getf options :fasl-directory)
+  (cond (*fasl-pathname-function*
+         (funcall *fasl-pathname-function* input-file options))
+        ((getf options :fasl-directory)
          (let* ((str (getf options :fasl-directory))
                 (dir (filename-to-pathname str)))
            (assert (char= (aref str (1- (length str))) #\/))
            (compile-file-pathname input-file :output-file dir)))
-        (*fasl-directory*
-         (compile-file-pathname input-file :output-file *fasl-directory*))
         (t
          (compile-file-pathname input-file))))
 

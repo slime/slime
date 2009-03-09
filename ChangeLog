@@ -1,3 +1,10 @@
+2009-03-09  Helmut Eller  <heller@common-lisp.net>
+
+	Make fasl-pathname fully customizable not only the direcrory part.
+
+	* swank.lisp (*fasl-pathname-function*): New variable.
+	(*fasl-directory*): Deleted.
+
 2009-03-08  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-choose-overlay-for-read-error): Extraced and
