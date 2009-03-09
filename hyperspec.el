@@ -1177,12 +1177,17 @@ If you copy the HyperSpec to another location, customize the variable
 (defun common-lisp-hyperspec-lookup-reader-macro (macro)
   "Browse the CLHS entry for the reader-macro MACRO."
   (interactive 
-   (list (completing-read "Look up reader-macro: " 
-			  common-lisp-hyperspec-reader-macros nil t
-			  (common-lisp-hyperspec-reader-macro-at-point))))
+   (list 
+    (let ((completion-ignore-case t))
+      (completing-read "Look up reader-macro: " 
+		       common-lisp-hyperspec-reader-macros nil t
+		       (common-lisp-hyperspec-reader-macro-at-point)))))
   (browse-url
    (concat common-lisp-hyperspec-root "Body/"
 	   (gethash macro common-lisp-hyperspec-reader-macros))))
+
+(defalias 'hyperspec-lookup-reader-macro 
+  'common-lisp-hyperspec-lookup-reader-macro)
 
 (defun common-lisp-hyperspec-reader-macro-at-point ()
   (let ((regexp "\\(#.?\\)\\|\\([\"',`';()]\\)"))

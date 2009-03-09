@@ -1,5 +1,12 @@
 2009-03-09  Helmut Eller  <heller@common-lisp.net>
 
+	* hyperspec.el (common-lisp-hyperspec-lookup-reader-macro): Use
+	case-insensitive completion.
+	(hyperspec-lookup-reader-macro): New alias.
+	Suggested by Stas Boukarev.
+
+2009-03-09  Helmut Eller  <heller@common-lisp.net>
+
 	Make fasl-pathname fully customizable not only the direcrory part.
 
 	* swank.lisp (*fasl-pathname-function*): New variable.
