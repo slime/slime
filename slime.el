@@ -2471,12 +2471,16 @@ Debugged requests are ignored."
        (defvar ,tab)
        (setq ,tab (make-hash-table :size 10)))))
 
+(put 'slime-indulge-pretty-colors 'slime-define-channel-type t)
+
 (defmacro slime-define-channel-method (type method args &rest body)
   `(puthash ',method
             (lambda (self . ,args) . ,body)
             ,(slime-channel-method-table-name type)))
 
 (put 'slime-define-channel-method 'lisp-indent-function 3)
+(put 'slime-indulge-pretty-colors 'slime-define-channel-method t)
+
 
 (defun slime-send-to-remote-channel (channel-id msg)
   (slime-dispatch-event `(:emacs-channel-send ,channel-id ,msg)))
@@ -6735,10 +6739,10 @@ is setup, unless the user already set one explicitly."
   (dolist (info alist)
     (let ((symbol (intern (car info)))
           (indent (cdr info)))
+      (put symbol 'slime-indent indent)
       ;; Does the symbol have an indentation value that we set?
       (when (equal (get symbol 'common-lisp-indent-function)
                    (get symbol 'slime-indent))
-        (put symbol 'slime-indent indent)
         (put symbol 'common-lisp-indent-function indent))
       (run-hook-with-args 'slime-indentation-update-hooks symbol indent))))
 

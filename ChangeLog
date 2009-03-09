@@ -1,3 +1,11 @@
+2009-03-09  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-define-channel-type): Indulge in pretty colors.
+	(slime-define-channel-method): You, too!
+
+	(slime-handle-indentation-update): Always put an indentation
+	update on 'slime-indent; for slime-indentation-fu.
+
 2009-03-09  Anton Vodonosov <avodonosov@yandex.ru>
 
 	Use correct encoding and eol conventions for socket streams.
@@ -28,7 +36,7 @@
 
 2009-03-08  Tobias C. Rittweiler  <tcr@freebits.de>
 
-	* slime.el (slime-choose-overlay-for-read-error): Extraced and
+	* slime.el (slime-choose-overlay-for-read-error): Extracted and
 	extended from `slime-choose-overlay-region'. Differentiate between
 	symbol-related reader-errors (package not found &c) and
 	character-related reader-errors.
