@@ -980,7 +980,7 @@ argument list for the function at point, if there is one.
 @kbditem{C-c C-d d, slime-describe-symbol}
 Describe the symbol at point.
 
-@kbditem{C-c C-f, slime-describe-function}
+@kbditem{C-c C-d f, slime-describe-function}
 Describe the function at point.
 
 @kbditem{C-c C-d a, slime-apropos}
