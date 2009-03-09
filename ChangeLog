@@ -1,3 +1,17 @@
+2009-03-09  Anton Vodonosov <avodonosov@yandex.ru>
+
+	Use correct encoding and eol conventions for socket streams.
+
+	* swank-abcl.lisp (accept-connection): Honor external-format
+	argument.
+	(*external-format-to-coding-system*, find-external-format): New.
+
+2009-03-09  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-with-xref-buffer): Use buffer-names like
+	"*slime xref...*" so that slime-kill-all-buffers can pick
+	it up easily.
+
 2009-03-09  Helmut Eller  <heller@common-lisp.net>
 
 	* hyperspec.el (common-lisp-hyperspec-lookup-reader-macro): Use
