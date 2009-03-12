@@ -1009,7 +1009,6 @@ Note: this is one case where @kbd{C-c C-d h} is @emph{not} the same as
 
 @kbditem{C-c C-d ~, hyperspec-lookup-format}
 Lookup a @emph{format character} in the @cite{Common Lisp Hyperspec}.
-@end table
 
 @kbditem{C-c C-d #, hyperspec-lookup-reader-macro}
 Lookup a @emph{reader macro} in the @cite{Common Lisp Hyperspec}.
