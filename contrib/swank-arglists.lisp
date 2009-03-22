@@ -1158,8 +1158,6 @@ Examples:
 ;;;
 (defmethod arglist-dispatch ((operator-type (eql :function)) (operator (eql 'define-compiler-macro))
                              arguments &key (remove-args t))
-    (format t "ARGUMENTS = ~S~%" arguments)
-
   (when (and (listp arguments)
 	     (not (null arguments)) ;have function name
 	     (notany #'listp (rest arguments))) ;don't have arglist yet
