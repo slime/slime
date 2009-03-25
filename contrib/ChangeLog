@@ -1,3 +1,8 @@
+2009-03-25  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-repl.el (slime-repl-event-hook-function): Handle
+	:read-abort.   Reported by Stas Boukarev.
+
 2009-03-22  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-arglists.lisp ([method] arglist-dispatch): Forgot to
