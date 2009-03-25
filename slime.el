@@ -7821,9 +7821,9 @@ the buffer's undo-list."
     '((("(defmacro qwertz (&body body) `(list :qwertz ',body))"
         "(defmacro yxcv (&body body) `(list :yxcv (qwertz ,@body)))")
        "(yxcv :A :B :C)"
-       "(LIST :YXCV (QWERTZ :A :B :C))"
-       "(QWERTZ"
-       "(LIST :YXCV (LIST :QWERTZ '(:A :B :C)))"))
+       "(list :yxcv (qwertz :a :b :c))"
+       "(qwertz"
+       "(list :yxcv (list :qwertz '(:a :b :c)))"))
   (slime-check-top-level)
   (setq slime-buffer-package ":swank")
   (with-temp-buffer
@@ -7835,7 +7835,8 @@ the buffer's undo-list."
     (goto-char (point-min))
     (slime-execute-as-command 'slime-macroexpand-1)
     (slime-wait-condition "Macroexpansion buffer visible" 
-                          #'(lambda () (slime-buffer-visible-p "*SLIME Macroexpansion*"))
+                          (lambda () 
+                            (slime-buffer-visible-p "*SLIME Macroexpansion*"))
                           5)
     (with-current-buffer (get-buffer "*SLIME Macroexpansion*")
       (slime-test-expect "Initial macroexpansion is correct"
@@ -7849,8 +7850,7 @@ the buffer's undo-list."
       (slime-execute-as-command 'slime-macroexpand-undo)
       (slime-test-expect "Expansion after undo is correct"
                          expansion1
-                         (buffer-string))
-      ))
+                         (downcase (buffer-string)))))
     (setq slime-buffer-package ":cl-user"))
 
 (def-slime-test break
@@ -7900,9 +7900,9 @@ on *DEBUGGER-HOOK*."
    (prin1-to-string `(defun cl-user::quux ()
                        (block outta
                          (let ((*debugger-hook*
-                                #'(lambda (c hook)
-                                    (declare (ignore c hook))
-                                    (return-from outta 42))))
+                                (lambda (c hook)
+                                  (declare (ignore c hook))
+                                  (return-from outta 42))))
                            (error "FOO")))))
    0)
   (slime-sync-to-top-level 2)

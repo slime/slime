@@ -1,3 +1,7 @@
+2009-03-25  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el ([test] macroexpand): Ignore case.
+
 2009-03-09  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-define-channel-type): Indulge in pretty colors.
