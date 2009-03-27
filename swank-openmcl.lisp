@@ -271,21 +271,6 @@ condition."
                     :output-file output-file
                     :load load-p))))
 
-(defimplementation frame-var-value (frame var)
-  (block frame-var-value
-    (map-backtrace  
-     #'(lambda(frame-number p context lfun pc)
-         (when (= frame frame-number)
-           (return-from frame-var-value 
-             (multiple-value-bind (total vsp parent-vsp)
-                 (ccl::count-values-in-frame p context)
-               (loop for count below total
-                     with varcount = -1
-                     for (value nil name) = (multiple-value-list (ccl::nth-value-in-frame p count context lfun pc vsp parent-vsp))
-                     when name do (incf varcount)
-                     until (= varcount var)
-                     finally (return value)))))))))
-
 (defun xref-locations (relation name &optional (inverse nil))
   (flet ((function-source-location (entry)
            (multiple-value-bind (info name)
@@ -529,6 +514,21 @@ condition."
     (format stream "(~S~{ ~S~})"
             (or (ccl::function-name lfun) lfun)
             (frame-arguments p context lfun pc))))
+
+(defimplementation frame-var-value (frame var)
+  (block frame-var-value
+    (map-backtrace  
+     #'(lambda(frame-number p context lfun pc)
+         (when (= frame frame-number)
+           (return-from frame-var-value 
+             (multiple-value-bind (total vsp parent-vsp)
+                 (ccl::count-values-in-frame p context)
+               (loop for count below total
+                     with varcount = -1
+                     for (value nil name) = (multiple-value-list (ccl::nth-value-in-frame p count context lfun pc vsp parent-vsp))
+                     when name do (incf varcount)
+                     until (= varcount var)
+                     finally (return value)))))))))
 
 (defimplementation frame-locals (index)
   (block frame-locals
@@ -887,18 +887,14 @@ at least the filename containing it."
 (defimplementation toggle-trace (spec)
   "We currently ignore just about everything."
   (ecase (car spec)
-    (setf
-     (ccl::%trace spec))
-    (:defmethod
-     (ccl::%trace (second spec)))
-    (:defgeneric
-     (ccl::%trace (second spec)))
-    (:call
-     (toggle-trace (third spec)))
-    ;; mb: FIXME: shouldn't we warn that we're not doing anything for
-    ;; these two?
-    (:labels nil)
-    (:flet nil))
+    (setf 
+     (ccl:trace-function spec))
+    ((:defgeneric)
+     (ccl:trace-function (second spec)))
+    ((:defmethod)
+     (destructuring-bind (name qualifiers specializers) (cdr spec)
+       (ccl:trace-function 
+        (find-method (fdefinition name) qualifiers specializers)))))
   t)
 
 ;;; XREF

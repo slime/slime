@@ -1,5 +1,10 @@
 2009-03-27  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-openmcl.lisp (toggle-trace): Replace ccl::%trace with
+	ccl:trace-function.
+
+2009-03-27  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el ([test] macroexpand): Fix more case issues.
 
 2009-03-25  Helmut Eller  <heller@common-lisp.net>
