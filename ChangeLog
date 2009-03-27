@@ -1,5 +1,10 @@
 2009-03-27  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (encode-message): Handle errors during write, e.g.
+	closed sockets.
+
+2009-03-27  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-setup-contribs): Moved over from
 	slime-autoloads.el
 

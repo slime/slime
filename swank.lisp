@@ -1330,16 +1330,18 @@ The processing is done in the extent of the toplevel restart."
 
 (defun simple-serve-requests (connection)
   (unwind-protect 
-       (call-with-user-break-handler
-        (lambda () 
-          (invoke-or-queue-interrupt #'dispatch-interrupt-event))
-        (lambda ()
-          (with-simple-restart (close-connection "Close SLIME connection")
-            ;;(handle-requests connection)
-            (let* ((stdin (real-input-stream *standard-input*))
-                   (*standard-input* (make-repl-input-stream connection 
-                                                             stdin)))
-              (simple-repl)))))
+       (with-connection (connection)
+         (call-with-user-break-handler
+          (lambda () 
+            (invoke-or-queue-interrupt #'dispatch-interrupt-event))
+          (lambda ()
+            (with-simple-restart (close-connection "Close SLIME connection")
+              ;;(handle-requests connection)
+              (let* ((stdin (real-input-stream *standard-input*))
+                     (*standard-input* (make-repl-input-stream connection 
+                                                               stdin)))
+                (with-swank-error-handler (connection)
+                  (simple-repl)))))))
     (close-connection connection nil (safe-backtrace))))
 
 (defun simple-repl ()
@@ -1360,18 +1362,24 @@ The processing is done in the extent of the toplevel restart."
 (defun make-repl-input-stream (connection stdin)
   (make-input-stream
    (lambda ()
+     (log-event "pull-input: ~a ~a ~a~%"
+                (connection.socket-io connection)
+                (if (open-stream-p (connection.socket-io connection))
+                    :socket-open :socket-closed)
+                (if (open-stream-p stdin) 
+                    :stdin-open :stdin-closed))
      (loop
-      (with-connection (connection)
-        (let* ((socket (connection.socket-io connection))
-               (inputs (list socket stdin))
-               (ready (wait-for-input inputs)))
-          (cond ((eq ready :interrupt)
-                 (check-slime-interrupts))
-                ((member socket ready)
-                 (handle-requests connection t))
-                ((member stdin ready)
-                 (return (read-non-blocking stdin)))
-                (t (assert (null ready))))))))))
+      
+      (let* ((socket (connection.socket-io connection))
+             (inputs (list socket stdin))
+             (ready (wait-for-input inputs)))
+        (cond ((eq ready :interrupt)
+               (check-slime-interrupts))
+              ((member socket ready)
+               (handle-requests connection t))
+              ((member stdin ready)
+               (return (read-non-blocking stdin)))
+              (t (assert (null ready)))))))))
 
 (defun read-non-blocking (stream)
   (with-output-to-string (str)
@@ -1775,16 +1783,15 @@ NIL if streams are not globally redirected.")
   (send-to-emacs object))
 
 (defun encode-message (message stream)
-  (let* ((string (prin1-to-string-for-emacs message))
-         (length (length string)))
-    (assert (<= length #xffffff))
-    (log-event "WRITE: ~A~%" string)
-    (let ((*print-pretty* nil))
-      (format stream "~6,'0x" length))
-    (write-string string stream)
-    ;;(terpri stream)
-    (finish-output stream)))
-
+  (handler-bind ((error (lambda (c) (error (make-swank-error c)))))
+    (let* ((string (prin1-to-string-for-emacs message))
+           (length (length string))) 
+      (log-event "WRITE: ~A~%" string)
+      (let ((*print-pretty* nil))
+        (format stream "~6,'0x" length))
+      (write-string string stream)
+      (finish-output stream))))
+  
 (defun prin1-to-string-for-emacs (object)
   (with-standard-io-syntax
     (let ((*print-case* :downcase)
