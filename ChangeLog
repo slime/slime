@@ -2,6 +2,8 @@
 
 	* swank-openmcl.lisp (toggle-trace): Replace ccl::%trace with
 	ccl:trace-function.
+	(kill-thread): Use an implementation that doesn't raise a
+	serious-conditions.
 
 2009-03-27  Helmut Eller  <heller@common-lisp.net>
 
