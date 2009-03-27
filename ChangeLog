@@ -1,5 +1,9 @@
 2009-03-27  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-setup-contribs): Moved over from
+	slime-autoloads.el
+
+2009-03-27  Helmut Eller  <heller@common-lisp.net>
 	* swank-openmcl.lisp (toggle-trace): Replace ccl::%trace with
 	ccl:trace-function.
 	(kill-thread): Use an implementation that doesn't raise a

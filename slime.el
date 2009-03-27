@@ -82,15 +82,21 @@ The default value is automatically computed from the location of the
 Emacs Lisp package."))
 
 (defvar slime-lisp-modes '(lisp-mode))
+(defvar slime-setup-contribs nil)
 
 (defun slime-setup (&optional contribs)
   "Setup Emacs so that lisp-mode buffers always use SLIME.
 CONTRIBS is a list of contrib packages to load."
   (when (member 'lisp-mode slime-lisp-modes)
     (add-hook 'lisp-mode-hook 'slime-lisp-mode-hook))
-  (when contribs
+  (setq slime-setup-contribs contribs)
+  (slime-setup-contribs))
+
+(defun slime-setup-contribs ()
+  "Load and initialize contribs."
+  (when slime-setup-contribs
     (add-to-list 'load-path (expand-file-name "contrib" slime-path))
-    (dolist (c contribs)
+    (dolist (c slime-setup-contribs)
       (require c)
       (let ((init (intern (format "%s-init" c))))
         (when (fboundp init)

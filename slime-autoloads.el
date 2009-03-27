@@ -27,6 +27,9 @@
 (autoload 'slime-scheme-mode-hook "slime")
 
 (defvar slime-lisp-modes '(lisp-mode))
+(defvar slime-setup-contribs nil
+  "List of contribst to load.
+Modified my slime-setup.")
 
 (defun slime-setup (&optional contribs)
   "Setup Emacs so that lisp-mode buffers always use SLIME.
@@ -35,17 +38,6 @@ CONTRIBS is a list of contrib packages to load."
     (add-hook 'lisp-mode-hook 'slime-lisp-mode-hook))
   (setq slime-setup-contribs contribs)
   (add-hook 'slime-load-hook 'slime-setup-contribs))
-
-(defvar slime-setup-contribs nil)
-
-(defun slime-setup-contribs () 
-  (when slime-setup-contribs
-    (add-to-list 'load-path (expand-file-name "contrib" slime-path))
-    (dolist (c slime-setup-contribs)
-      (require c)
-      (let ((init (intern (format "%s-init" c))))
-        (when (fboundp init)
-          (funcall init))))))
 
 (provide 'slime-autoloads)
 
