@@ -1535,6 +1535,10 @@ expansion will be added to the REPL's history.)"
   (add-hook 'slime-event-hooks 'slime-repl-event-hook-function)
   (add-hook 'slime-connected-hook 'slime-repl-connected-hook-function))
 
+(defun slime-repl-remove-hooks ()
+  (remove-hook 'slime-event-hooks 'slime-repl-event-hook-function)
+  (remove-hook 'slime-connected-hook 'slime-repl-connected-hook-function))
+
 (def-slime-test package-updating
     (package-name nicknames)
     "Test if slime-lisp-package is updated."
