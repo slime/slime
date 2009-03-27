@@ -1,3 +1,9 @@
+2009-03-27  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-indentantion-fu.el (slime-indent-fu): Correctly deal with
+	MACROLETs that define macros with &BODY in their arglists.
+	([test] local-indentation.1): Updated to test against this case.
+
 2009-03-25  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-repl.el (slime-repl-event-hook-function): Handle

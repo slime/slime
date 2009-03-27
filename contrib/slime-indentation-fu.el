@@ -45,12 +45,16 @@
            (indent-spec   (if local-arglist
                               (slime-indentation-spec local-arglist)
                               (get (intern-soft form-operator) 'slime-indent))))
+      ;; If no &BODY appeared in the arglist, indent like a casual
+      ;; function invocation.
+      (unless indent-spec
+        (setq indent-spec 0))
       (slime-compute-indentation-column
        indent-spec path containing-form-start sexp-column normal-indent))))
 
 (defun slime-update-local-indentation (ops arg-indices points)
   (loop for name in (car (slime-find-bound-macros ops arg-indices points)) do 
-        (put (intern name) 'slime-local-indent t) 
+        (put (intern name) 'slime-local-indent t) ; unused at the moment, for debugging.
         (put (intern name) 'common-lisp-indent-function 'slime-indent-fu)))
 
 (defun slime-indentation-fu-init ()
@@ -62,7 +66,7 @@
 
 ;;; Tests.
 
-(def-slime-test local-indentation.1 (buffer-content)
+(def-slime-test local-indentation.1 (buffer-content point-markers)
         "Check that indentation of MACROLET bound macros work."
     '(("
 \(in-package :swank)
@@ -84,21 +88,26 @@
           y
         bar
         *HERE2*
-        14))))"))
+        14))))
+
+\(defun zabing (x y)
+  (let ((bar 42))
+    (macrolet ((barf (a b) `(progn ,a ,b)))
+      (barf x
+            *HERE3*))))"
+       ("*HERE3*" "*HERE2*" "*HERE1*")))
   (with-temp-buffer
     (lisp-mode)
     (slime-mode 1)
     (slime-autodoc-mode 1)
     (insert buffer-content)
     (slime-compile-region (point-min) (point-max))
-    (search-backward "*HERE2*")
-    (slime-compute-autodoc)             ; updates indentation implicitly
-    (slime-sync-to-top-level 3)
-    (beginning-of-defun)
-    (indent-sexp)
-    (search-backward "*HERE1*")
-    (beginning-of-defun)
-    (indent-sexp)
+    (dolist (marker point-markers)
+      (search-backward marker)
+      (slime-compute-autodoc)         ; updates indentation implicitly
+      (slime-sync-to-top-level 3)
+      (beginning-of-defun)
+      (indent-sexp))
     (slime-test-expect "Correct buffer content"
                        buffer-content
                        (substring-no-properties (buffer-string))))  
