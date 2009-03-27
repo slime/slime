@@ -7840,13 +7840,15 @@ the buffer's undo-list."
                           5)
     (with-current-buffer (get-buffer "*SLIME Macroexpansion*")
       (slime-test-expect "Initial macroexpansion is correct"
-                         expansion1 (buffer-string))
+                         expansion1 
+                         (downcase (buffer-string)))
       (search-forward search-str)
       (backward-up-list)
       (slime-execute-as-command 'slime-macroexpand-1-inplace)
       (slime-sync-to-top-level 3)
       (slime-test-expect "In-place macroexpansion is correct"
-                         expansion2 (buffer-string))
+                         expansion2 
+                         (downcase (buffer-string)))
       (slime-execute-as-command 'slime-macroexpand-undo)
       (slime-test-expect "Expansion after undo is correct"
                          expansion1
