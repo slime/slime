@@ -458,6 +458,9 @@ joined together."))
   ("\C-c\C-p" 'slime-repl-previous-prompt)
   ("\C-c\C-z" 'slime-nop))
 
+(slime-define-keys slime-inspector-mode-map
+  ((kbd "M-RET") 'slime-inspector-copy-down-to-repl))
+
 (def-slime-selector-method ?r
   "SLIME Read-Eval-Print-Loop."
   (slime-output-buffer))
@@ -1416,6 +1419,14 @@ expansion will be added to the REPL's history.)"
              (insert-call symbol))
             (t
              (error "Not in a function definition")))))))
+
+(defun slime-inspector-copy-down-to-repl (number)
+   "Evaluate the inspector slot at point via the REPL (to set `*')."
+   (interactive (list (or (get-text-property (point) 'slime-part-number)
+                          (error "No part at point"))))
+   (slime-repl-send-string (format "%s" `(swank:inspector-nth-part ,number)))
+   (slime-repl))
+
 
 (defun slime-set-default-directory (directory)
   "Make DIRECTORY become Lisp's current directory."
