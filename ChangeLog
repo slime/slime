@@ -1,7 +1,7 @@
 2009-04-03  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-sbcl.lisp (swank-compile-file): Return T for the FAILURE-P
-	return value in case of a FATA-COMPILER-ERROR.
+	return value in case of a FATAL-COMPILER-ERROR.
 
 	Reported by Philipp M. Schäfer
 
