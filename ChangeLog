@@ -1,3 +1,9 @@
+2009-04-03  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-inspector-mode-map): Remove binding for
+	M-RET. (It'll be added by the slime-repl contrib.)
+	(slime-inspector-copy-down): Removed.
+
 2009-03-27  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (encode-message): Handle errors during write, e.g.

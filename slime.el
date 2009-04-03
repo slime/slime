@@ -6365,13 +6365,6 @@ that value.
           (t
            (error "No clickable part here")))))
 
-;; (defun slime-inspector-copy-down (number)
-;;   "Evaluate the slot at point via the REPL (to set `*')."
-;;   (interactive (list (or (get-text-property (point) 'slime-part-number)
-;;                          (error "No part at point"))))
-;;   (slime-repl-send-string (format "%s" `(swank:inspector-nth-part ,number)))
-;;   (slime-repl))
-
 (defun slime-inspector-pop ()
   (interactive)
   (slime-eval-async 
@@ -6541,7 +6534,6 @@ If ARG is negative, move forwards."
 
 (slime-define-keys slime-inspector-mode-map
   ([return] 'slime-inspector-operate-on-point)
-  ((kbd "M-RET") 'slime-inspector-copy-down)
   ("\C-m"   'slime-inspector-operate-on-point)
   ([mouse-2] 'slime-inspector-operate-on-click)
   ("l" 'slime-inspector-pop)
