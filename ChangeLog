@@ -1,5 +1,12 @@
 2009-04-03  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-sbcl.lisp (swank-compile-file): Return T for the FAILURE-P
+	return value in case of a FATA-COMPILER-ERROR.
+
+	Reported by Philipp M. Schäfer
+
+2009-04-03  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (slime-inspector-mode-map): Remove binding for
 	M-RET. (It'll be added by the slime-repl contrib.)
 	(slime-inspector-copy-down): Removed.

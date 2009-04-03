@@ -485,10 +485,14 @@ compiler state."
 
 (defimplementation call-with-compilation-hooks (function)
   (declare (type function function))
-  (handler-bind ((sb-c:fatal-compiler-error #'handle-file-compiler-termination)
-                 (sb-c:compiler-error  #'handle-notification-condition)
-                 (sb-ext:compiler-note #'handle-notification-condition)
-                 (warning              #'handle-notification-condition))
+  (handler-bind
+      ;; N.B. Even though these handlers are called HANDLE-FOO they
+      ;; actually decline, i.e. the signalling of the original
+      ;; condition continues upward.
+      ((sb-c:fatal-compiler-error #'handle-file-compiler-termination)
+       (sb-c:compiler-error  #'handle-notification-condition)
+       (sb-ext:compiler-note #'handle-notification-condition)
+       (warning              #'handle-notification-condition))
     (funcall function)))
 
 (defun handle-file-compiler-termination (condition)
@@ -512,7 +516,8 @@ compiler state."
                       (source-cache-get input-file 
                                         (file-write-date input-file))
                       (not (load output-file))))))
-    (sb-c:fatal-compiler-error () nil)))
+    ;; N.B. This comes through despite of WITH-COMPILATION-HOOKS.
+    (sb-c:fatal-compiler-error () (values nil nil t))))
 
 ;;;; compile-string
 
