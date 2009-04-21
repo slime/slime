@@ -44,7 +44,8 @@
     (let* ((local-arglist (slime-enclosing-macro-arglist form-operator))
            (indent-spec   (if local-arglist
                               (slime-indentation-spec local-arglist)
-                              (get (intern-soft form-operator) 'slime-indent))))
+                              (get (intern-soft form-operator)
+                                   'slime-global-indent))))
       ;; If no &BODY appeared in the arglist, indent like a casual
       ;; function invocation.
       (unless indent-spec
@@ -53,9 +54,19 @@
        indent-spec path containing-form-start sexp-column normal-indent))))
 
 (defun slime-update-local-indentation (ops arg-indices points)
-  (loop for name in (car (slime-find-bound-macros ops arg-indices points)) do 
-        (put (intern name) 'slime-local-indent t) ; unused at the moment, for debugging.
-        (put (intern name) 'common-lisp-indent-function 'slime-indent-fu)))
+  (loop for name in (car (slime-find-bound-macros ops arg-indices points)) do
+        (let ((s (intern name)))
+          ;; N.B. cases to take into considerations: local macro is
+          ;; named like an already existing global macro; such a
+          ;; global macro is redefined with a different lambda-list;
+          ;; initially there's no global macro, but it's added later.
+          ;;
+          (put s 'slime-local-indent t)          ; unused at the moment, for debugging.
+          (unless (eq (get s 'common-lisp-indent-function) 'slime-indent-fu) 
+            (put s 'slime-global-indent (get s 'common-lisp-indent-function)))
+          (put s 'common-lisp-indent-function 'slime-indent-fu)
+          (put s 'slime-indent 'slime-indent-fu) ; for redefinition to be taken up
+          )))
 
 (defun slime-indentation-fu-init ()
   (add-hook 'slime-autodoc-hook 'slime-update-local-indentation))

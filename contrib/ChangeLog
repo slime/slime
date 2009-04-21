@@ -1,3 +1,11 @@
+2009-04-21  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-indentantion-fu.el (slime-update-local-indentation): Save
+	original global indentation spec in another symbol because we
+	cannot reuse 'slime-indent. Make sure that later redefinition of
+	global macros (which may affect the indentation spec) is taken
+	into consideration.
+
 2009-04-03  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-repl.el (slime-inspector-mode-map): Add binding for M-RET.
