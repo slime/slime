@@ -1,3 +1,9 @@
+2009-04-21  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-handle-indentation-update): Revert change from
+	2009-03-09; that was a thinko.
+	([test] indentation): Some basic test case for correct indentation.
+
 2009-04-03  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-sbcl.lisp (swank-compile-file): Return T for the FAILURE-P

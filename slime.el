@@ -6737,11 +6737,11 @@ is setup, unless the user already set one explicitly."
   (dolist (info alist)
     (let ((symbol (intern (car info)))
           (indent (cdr info)))
-      (put symbol 'slime-indent indent)
       ;; Does the symbol have an indentation value that we set?
       (when (equal (get symbol 'common-lisp-indent-function)
                    (get symbol 'slime-indent))
-        (put symbol 'common-lisp-indent-function indent))
+        (put symbol 'common-lisp-indent-function indent)
+        (put symbol 'slime-indent indent))
       (run-hook-with-args 'slime-indentation-update-hooks symbol indent))))
 
 
@@ -7852,6 +7852,44 @@ the buffer's undo-list."
                          expansion1
                          (downcase (buffer-string)))))
     (setq slime-buffer-package ":cl-user"))
+
+(def-slime-test indentation (buffer-content point-markers)
+        "Check indentation update to work correctly."
+    '(("
+\(in-package :swank)
+
+\(defmacro with-lolipop (&body body)
+  `(progn ,@body))
+
+\(defmacro lolipop (&body body)
+  `(progn ,@body))
+
+\(with-lolipop
+  1
+  2
+  42)
+
+\(lolipop
+  1
+  2
+  23)
+"
+       ("23" "42")))
+  (with-temp-buffer
+    (lisp-mode)
+    (slime-mode 1)
+    (insert buffer-content)
+    (slime-compile-region (point-min) (point-max))
+    (slime-sync-to-top-level 3)
+    (slime-update-indentation)
+    (slime-sync-to-top-level 3)
+    (dolist (marker point-markers)
+      (search-backward marker)
+      (beginning-of-defun)
+      (indent-sexp))
+    (slime-test-expect "Correct buffer content"
+                       buffer-content
+                       (substring-no-properties (buffer-string)))))
 
 (def-slime-test break
     (times exp)
