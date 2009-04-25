@@ -1,3 +1,12 @@
+2009-04-25  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-show-description): Put the connection name into
+	the buffer name for description buffers. So we can have multiple
+	description buffers open, one per connection.
+
+	Useful for comparing the output of DISASSEMBLE across
+	implementations.
+
 2009-04-21  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-handle-indentation-update): Revert change from

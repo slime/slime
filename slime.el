@@ -4107,9 +4107,12 @@ inserted in the current buffer."
                                        (slime-current-package))))
 
 (defun slime-show-description (string package)
-  (slime-with-popup-buffer ("*SLIME Description*" package)
-    (princ string)
-    (goto-char (point-min))))
+  ;; So we can have one description buffer open per connection. Useful
+  ;; for comparing the output of DISASSEMBLE across implementations.
+  (let ((bufname (format "*SLIME Description <%s>*" (slime-connection-name))))
+    (slime-with-popup-buffer (bufname package t)
+      (princ string)
+      (goto-char (point-min)))))
 
 (defun slime-last-expression ()
   (buffer-substring-no-properties
