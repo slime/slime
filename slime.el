@@ -6685,26 +6685,98 @@ Only considers buffers that are not already visible."
   "Find reader conditionalized forms where the test is false."
   (when (and slime-highlight-suppressed-forms
              (slime-connected-p)
-	     (re-search-forward "^\\([^;\n]*?[ \t(]\\)?#[-+]" limit t))
-    (ignore-errors
-      (let* ((start (- (point) 2))
-             (char (char-before))
-             (e (read (current-buffer)))
-             (val (slime-eval-feature-conditional e)))
-        (when (<= (point) limit)
-          (if (or (and (eq char ?+) (not val))
-                  (and (eq char ?-) val))
-              (progn 
-                (forward-sexp) (backward-sexp)
-                (slime-forward-sexp)
-                (assert (<= (point) limit))
-                (let ((md (match-data)))
-                  (fill md nil)
-                  (setf (first md) start)
-                  (setf (second md) (point))
-                  (set-match-data md)
-                  t))
-            (slime-search-suppressed-forms limit)))))))
+             (re-search-forward "^\\([^;\n]*?[ \t(]\\)?#[-+]" limit t))
+    (let* ((start (- (point) 2))
+           (char (char-before))
+           (e (read (current-buffer)))
+           (val (slime-eval-feature-conditional e)))
+      (when (<= (point) limit)
+        (if (or (and (eq char ?+) (not val))
+                (and (eq char ?-) val))
+            (progn
+              (forward-sexp) (backward-sexp)
+              (slime-forward-sexp)
+              ;; There was an `ignore-errors' form around all this
+              ;; because the following assertion was triggered
+              ;; regularly (resulting in the "non-deterministic"
+              ;; behaviour mentioned in the comment further below.)
+              ;; With extending the region properly, this assertion
+              ;; would truly mean a bug now.
+              (assert (<= (point) limit))
+              (let ((md (match-data)))
+                (fill md nil)
+                (setf (first md) start)
+                (setf (second md) (point))
+                (set-match-data md)
+                t))
+            (slime-search-suppressed-forms limit))))))
+
+(defun slime-region-for-extended-defun-at-point ()
+  "Like `slime-region-for-defun-at-point' except we take
+preceding reader conditionals into account."
+  (destructuring-bind (start end) (slime-region-for-defun-at-point)
+    (save-excursion
+      (goto-char start)
+      ;; At this point we want to watch out for a possibly preceding
+      ;; reader conditional..
+      (save-match-data 
+        (search-backward-regexp slime-reader-conditionals-regexp
+                                ;; We restrict the search to the
+                                ;; beginning of the /next/ defun.
+                                (save-excursion 
+                                  (beginning-of-defun) (point))
+                                t)
+        ;; We actually need to restrict the search to the end of the
+        ;; next defun, but we can't easily determine that end.
+        ;; (`forward-sexp' after the `beginning-of-defun' won't work for
+        ;; a conditionalized form at the top of a file.)
+        ;;
+        ;; As a result, we may be slipped into another defun here, so we
+        ;; have to check against that:
+        (if (zerop (nth 0 (slime-current-parser-state)))
+            (list (point) end)
+            (list start   end))))))
+
+;;; We'll push this onto `font-lock-extend-region-functions'. In past,
+;;; we didn't do so which made our reader-conditional font-lock magic
+;;; pretty unreliable (it wouldn't highlight all suppressed forms, and
+;;; worked quite non-deterministic in general.)
+;;;
+;;; Cf. _Elisp Manual_, 23.6.10 Multiline Font Lock Constructs.
+(defun slime-extend-region-for-font-lock ()
+  ;; We make sure that `font-lock-beg' and `font-lock-end' always
+  ;; point to the beginning or end of a defun. So we never miss a
+  ;; reader-conditional, or point in mid of one.
+  (let ((changedp nil))
+    (goto-char font-lock-beg)
+    (unless (zerop (nth 0 (slime-current-parser-state)))
+      ;; N.B. take initial reader-conditional into account, otherwise
+      ;; fontification wouldn't know the whole function definition may
+      ;; be suppressed. 
+      (setq font-lock-beg (first (slime-region-for-extended-defun-at-point)))
+      (setq changedp t))
+    (goto-char font-lock-end)
+    (unless (zerop (nth 0 (slime-current-parser-state)))
+      (setq font-lock-end (second (slime-region-for-defun-at-point)))
+      (setq changedp t))
+    changedp))
+
+
+;;; FIXME: This is supposed to be the value for
+;;; `font-lock-mark-block-function' (so M-o M-o will DTRT), but I
+;;; couldn't so far figure out how to customize that variable.
+;;; (N.B. `font-lock-defaults' may (in fact does) contain an explicit
+;;; binding of that variable.)
+(defun slime-mark-defun-for-font-lock ()
+  "Almost `mark-defun' but this function sets point to a possibly
+preceding reader-conditional so slime's reader-conditional aware
+font-lock magic has a chance to run."
+  (destructuring-bind (start end) 
+      (slime-region-for-extended-defun-at-point)
+    (goto-char end)
+    (push-mark)
+    (goto-char start)))
+
 
 (defun slime-activate-font-lock-magic ()
   (if (featurep 'xemacs)
@@ -6716,7 +6788,13 @@ Only considers buffers that are not already visible."
           (set sym (append (symbol-value sym) pattern))))
     (font-lock-add-keywords
      'lisp-mode
-     `((slime-search-suppressed-forms 0 ,''slime-reader-conditional-face t)))))
+     `((slime-search-suppressed-forms 0 ,''slime-reader-conditional-face t)))
+
+    (add-hook 'lisp-mode-hook 
+              #'(lambda () 
+                  (add-hook 'font-lock-extend-region-functions
+                            'slime-extend-region-for-font-lock t t)))
+    ))
 
 (when slime-highlight-suppressed-forms
   (slime-activate-font-lock-magic))
@@ -8766,7 +8844,12 @@ If they are not, position point at the first syntax error found."
           slime-tree-insert
           slime-symbol-constituent-at
           slime-beginning-of-symbol
-          slime-end-of-symbol)))
+          slime-end-of-symbol
+          ;; Used implicitly during fontification:
+          slime-region-for-defun-at-point
+          slime-region-for-extended-defun-at-point
+          slime-extend-region-for-font-lock
+          )))
 
 (provide 'slime)
 (run-hooks 'slime-load-hook)

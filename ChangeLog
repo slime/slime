@@ -1,3 +1,22 @@
+2009-04-28  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el: Fix fontification of suppressed (by reader
+	conditionals) forms. That is make it reliably and totally work.
+
+	(slime-region-for-extended-defun-at-point): New. Like
+	`slime-region-for-defun-at-point' but takes preceding reader
+	conditionals into account.
+	(slime-extend-region-for-font-lock): New. Make sure that
+	fontification operates on regions spanning a whole toplevel form
+	only. So we never operate within the context of a reader
+	conditional and we never miss any of those.
+	(slime-search-suppressed-forms): Remove ignore-errors; not needed
+	anymore now as we extend the region for fontification.
+	(slime-mark-defun-for-font-lock): New.
+	(slime-activate-font-lock-magic): Push
+	`slime-extend-region-for-font-lock' onto
+	`font-lock-extend-region-functions'.
+
 2009-04-25  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-show-description): Put the connection name into
