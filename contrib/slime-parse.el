@@ -107,7 +107,7 @@ parsing, and are then returned back as multiple values."
     ("APPLY"          . (slime-make-extended-operator-parser/look-ahead 1))
     ("DECLARE"        . slime-parse-extended-operator/declare)
     ("DECLAIM"        . slime-parse-extended-operator/declare)
-    ("PROCLAIM"       . slime-parse-extended-operator/declare)))
+    ("PROCLAIM"       . slime-parse-extended-operator/proclaim)))
 
 (defun slime-make-extended-operator-parser/look-ahead (steps)
   "Returns a parser that parses the current operator at point
@@ -128,14 +128,21 @@ the operator."
           (values current-forms current-indices current-points)
           ))))
 
+;;; FIXME: We display "(proclaim (optimize ...))" instead of the
+;;; correct "(proclaim '(optimize ...))".
+(defun slime-parse-extended-operator/proclaim (&rest args)
+  (when (looking-at "['`]")
+    (forward-char)
+    (apply #'slime-parse-extended-operator/declare args)))
+
 (defun slime-parse-extended-operator/declare
     (name user-point current-forms current-indices current-points)
-  (when (string= (thing-at-point 'char) "(")
+  (when (looking-at "(")
     (let ((orig-point (point)))
       (goto-char user-point)
       (slime-end-of-symbol)
-      ;; Head of CURRENT-FORMS is "declare" at this point, but we're
-      ;; interested in what comes next.
+      ;; Head of CURRENT-FORMS is "declare" (or similiar) at this
+      ;; point, but we're interested in what comes next.
       (let* ((decl-ops     (rest current-forms))
              (decl-indices (rest current-indices))
              (decl-points  (rest current-points))

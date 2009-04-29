@@ -1,3 +1,9 @@
+2009-04-30  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-parse.el (slime-parse-extended-operator/proclaim): New.
+	(slime-extended-oprator-name-parser-alist): Adapt tbe entry for
+	PROCLAIM.
+
 2009-04-21  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-indentantion-fu.el (slime-update-local-indentation): Save
