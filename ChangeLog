@@ -1,3 +1,16 @@
+2009-04-29  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el: Fix infinite loop during fontification introduced
+	by yesterday's changeset.
+
+	(slime-region-for-tlf-at-point): New. Like
+	`slime-region-for-defun-at-point' but tries harder to get the
+	toplevel form right.
+	(slime-region-for-extended-tlf-at-point): Previously
+	`slime-region-for-extended-defun-at-point'.
+	(slime-extend-region-for-font-lock): Use it.
+	(slime-mark-defun-for-font-lock): Ditto.
+
 2009-04-28  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el: Fix fontification of suppressed (by reader

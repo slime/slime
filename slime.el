@@ -6711,10 +6711,10 @@ Only considers buffers that are not already visible."
                 t))
             (slime-search-suppressed-forms limit))))))
 
-(defun slime-region-for-extended-defun-at-point ()
-  "Like `slime-region-for-defun-at-point' except we take
+(defun slime-region-for-extended-tlf-at-point ()
+  "Like `slime-region-for-tlf-at-point' except we take
 preceding reader conditionals into account."
-  (destructuring-bind (start end) (slime-region-for-defun-at-point)
+  (destructuring-bind (start end) (slime-region-for-tlf-at-point)
     (save-excursion
       (goto-char start)
       ;; At this point we want to watch out for a possibly preceding
@@ -6753,14 +6753,13 @@ preceding reader conditionals into account."
       ;; N.B. take initial reader-conditional into account, otherwise
       ;; fontification wouldn't know the whole function definition may
       ;; be suppressed. 
-      (setq font-lock-beg (first (slime-region-for-extended-defun-at-point)))
+      (setq font-lock-beg (first (slime-region-for-extended-tlf-at-point)))
       (setq changedp t))
     (goto-char font-lock-end)
     (unless (zerop (nth 0 (slime-current-parser-state)))
-      (setq font-lock-end (second (slime-region-for-defun-at-point)))
+      (setq font-lock-end (second (slime-region-for-tlf-at-point)))
       (setq changedp t))
     changedp))
-
 
 ;;; FIXME: This is supposed to be the value for
 ;;; `font-lock-mark-block-function' (so M-o M-o will DTRT), but I
@@ -6772,7 +6771,7 @@ preceding reader conditionals into account."
 preceding reader-conditional so slime's reader-conditional aware
 font-lock magic has a chance to run."
   (destructuring-bind (start end) 
-      (slime-region-for-extended-defun-at-point)
+      (slime-region-for-extended-tlf-at-point)
     (goto-char end)
     (push-mark)
     (goto-char start)))
@@ -8270,13 +8269,34 @@ within. This includes nested comments (#| ... |#)."
          (slime-region-for-defun-at-point)))
 
 (defun slime-region-for-defun-at-point ()
-  "Return the start and end position of the toplevel form at point."
+  "Return the start and end position of defun at point."
   (save-excursion
     (save-match-data
       (end-of-defun)
       (let ((end (point)))
         (beginning-of-defun)
         (list (point) end)))))
+
+;;; This may coincide with `slime-region-for-defun-at-point' but this
+;;; function really tries to find out the toplevel form not just a
+;;; form that begins at the 0th column. It's not guaranteed to work
+;;; reliably, though, as it relies on Emacs' parser state which is
+;;; context-sensitive. Works quite good when the buffer is processed
+;;; from top to bottom (e.g. during fontification.)
+(defun slime-region-for-tlf-at-point ()
+  "Return the start and end position of the toplevel form at point."
+  (save-excursion
+    (save-match-data
+      ;; Position us at the beginning of the current defun.
+      (end-of-defun) 
+      (beginning-of-defun)
+      (while (not (zerop (nth 0 (slime-current-parser-state))))
+        ;; We go upwards, not downwards, to hopefully give the parser
+        ;; state enough context to be accurate.
+        (beginning-of-defun))
+      (let ((start (point)))
+        (end-of-defun)
+        (list start (point))))))
 
 (defun slime-exit-vertical-bars ()
   "Move out from within vertical bars (|foo|) to the leading bar."
@@ -8407,13 +8427,13 @@ The result is unspecified if there isn't a symbol under the point."
 
 (if (and (featurep 'emacs) (>= emacs-major-version 22))
     ;;  N.B. The 2nd, and 6th return value cannot be relied upon.
-    (defun slime-current-parser-state ()
+    (defsubst slime-current-parser-state ()
       ;; `syntax-ppss' does not save match data as it invokes
       ;; `beginning-of-defun' implicitly which does not save match
       ;; data. This issue has been reported to the Emacs maintainer on
       ;; Feb27.
       (save-match-data (syntax-ppss)))
-    (defun slime-current-parser-state ()
+    (defsubst slime-current-parser-state ()
       (let ((original-pos (point)))
         (save-excursion
           (beginning-of-defun)
@@ -8846,9 +8866,14 @@ If they are not, position point at the first syntax error found."
           slime-beginning-of-symbol
           slime-end-of-symbol
           ;; Used implicitly during fontification:
-          slime-region-for-defun-at-point
-          slime-region-for-extended-defun-at-point
+          slime-current-parser-state
+          slime-forward-sexp
+          slime-forward-cruft
+          slime-forward-any-comment
+          slime-region-for-tlf-at-point
+          slime-region-for-extended-tlf-at-point
           slime-extend-region-for-font-lock
+          slime-search-suppressed-forms
           )))
 
 (provide 'slime)
