@@ -761,9 +761,6 @@ Return NIL if the symbol is unbound."
 		     (sb-int:info :setf :expander symbol))
 		 (doc 'setf)))
       (maybe-push
-       :class (when (find-class symbol nil)
-                (doc 'class)))
-      (maybe-push
        :type (if (sb-int:info :type :kind symbol)
 		 (doc 'type)))
       result)))

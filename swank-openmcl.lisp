@@ -878,9 +878,6 @@ at least the filename containing it."
                (when (fboundp setf-function-name)
                  (doc 'function setf-function-name))))
       (maybe-push
-       :class (when (find-class symbol nil)
-                (doc 'class)))
-      (maybe-push
        :type (when (ccl:type-specifier-p symbol)
                (doc 'type)))
       result)))
@@ -896,7 +893,7 @@ at least the filename containing it."
     (:class
      (describe (find-class symbol)))
     (:type
-     (describe symbol))))
+     (describe (or (find-class symbol nil) symbol)))))
 
 (defimplementation toggle-trace (spec)
   "We currently ignore just about everything."

@@ -5,10 +5,8 @@
 
 	* swank-openmcl.lisp ([eql 'optimize] declaration-arglist):
 	Implement it for CCL.
-	(describe-symbol-for-emacs): Add :CLASS and :TYPE.
+	(describe-symbol-for-emacs): Add :TYPE.
 	(describe-definition): Add :TYPE.
-
-	* swank-sbcl.lisp (describe-symbol-for-emacs): Add :CLASS.
 
 	Adapted from patch by Stas Boukarev.
 
