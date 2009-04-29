@@ -6749,14 +6749,14 @@ preceding reader conditionals into account."
   ;; reader-conditional, or point in mid of one.
   (let ((changedp nil))
     (goto-char font-lock-beg)
-    (unless (zerop (nth 0 (slime-current-parser-state)))
+    (when (plusp (nth 0 (slime-current-parser-state)))
       ;; N.B. take initial reader-conditional into account, otherwise
       ;; fontification wouldn't know the whole function definition may
       ;; be suppressed. 
       (setq font-lock-beg (first (slime-region-for-extended-tlf-at-point)))
       (setq changedp t))
     (goto-char font-lock-end)
-    (unless (zerop (nth 0 (slime-current-parser-state)))
+    (when (plusp (nth 0 (slime-current-parser-state)))
       (setq font-lock-end (second (slime-region-for-tlf-at-point)))
       (setq changedp t))
     changedp))
