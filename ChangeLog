@@ -1,3 +1,17 @@
+2009-04-30  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-backend.lisp ([default] declaration-arglist): Add
+	arglist of DECLARATION declaration.
+
+	* swank-openmcl.lisp ([eql 'optimize] declaration-arglist):
+	Implement it for CCL.
+	(describe-symbol-for-emacs): Add :CLASS and :TYPE.
+	(describe-definition): Add :TYPE.
+
+	* swank-sbcl.lisp (describe-symbol-for-emacs): Add :CLASS.
+
+	Adapted from patch by Stas Boukarev.
+
 2009-04-29  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-extend-region-for-font-lock): (nth 0

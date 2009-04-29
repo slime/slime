@@ -219,6 +219,12 @@
 (defimplementation function-name (function)
   (ccl:function-name function))
 
+(defmethod declaration-arglist ((decl-identifier (eql 'optimize)))
+  (let ((flags (ccl:declaration-information decl-identifier)))
+    (if flags
+        `(&any ,flags)
+        (call-next-method))))
+
 ;;; Compilation
 
 (defvar *buffer-offset* nil)
@@ -871,6 +877,12 @@ at least the filename containing it."
                                         `(setf ,symbol))))
                (when (fboundp setf-function-name)
                  (doc 'function setf-function-name))))
+      (maybe-push
+       :class (when (find-class symbol nil)
+                (doc 'class)))
+      (maybe-push
+       :type (when (ccl:type-specifier-p symbol)
+               (doc 'type)))
       result)))
 
 (defimplementation describe-definition (symbol namespace)
@@ -882,7 +894,9 @@ at least the filename containing it."
     (:setf
      (describe (ccl::setf-function-spec-name `(setf ,symbol))))
     (:class
-     (describe (find-class symbol)))))
+     (describe (find-class symbol)))
+    (:type
+     (describe symbol))))
 
 (defimplementation toggle-trace (spec)
   "We currently ignore just about everything."
