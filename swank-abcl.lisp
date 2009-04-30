@@ -132,8 +132,26 @@
 
 (defimplementation accept-connection (socket 
                                       &key external-format buffering timeout)
-  (declare (ignore buffering timeout external-format))
-  (ext:get-socket-stream (ext:socket-accept socket)))
+  (declare (ignore buffering timeout))
+  (ext:get-socket-stream (ext:socket-accept socket)
+                         :external-format external-format))
+
+;;;; External formats
+
+(defvar *external-format-to-coding-system*
+  '((:iso-8859-1 "latin-1" "iso-latin-1" "iso-8859-1")
+    ((:iso-8859-1 :eol-style :lf) "latin-1-unix" "iso-latin-1-unix" "iso-8859-1-unix")
+    (:utf-8 "utf-8")
+    ((:utf-8 :eol-style :lf) "utf-8-unix")
+    (:euc-jp "euc-jp")
+    ((:euc-jp :eol-style :lf) "euc-jp-unix")
+    (:us-ascii "us-ascii")
+    ((:us-ascii :eol-style :lf) "us-ascii-unix")))
+
+(defimplementation find-external-format (coding-system)
+  (car (rassoc-if (lambda (x)
+                    (member coding-system x :test #'equal))
+                  *external-format-to-coding-system*)))
 
 ;;;; Unix signals
 
