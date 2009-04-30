@@ -1,8 +1,20 @@
 2009-04-30  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-parse-extended-operator/check-type): New.
+	(slime-parse-extended-operator/the): New.
+	(slime-extended-operator-name-parser-alist): Add entries for
+	CHECK-TYPE, TYPEP, and THE.
+	([tes≈ß] enclosing-form-specs.1): Add tests for the new entries.
+
+	Adapted from patch by Stas Boukarev.
+
+2009-04-30  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-parse.el (slime-parse-extended-operator/proclaim): New.
-	(slime-extended-oprator-name-parser-alist): Adapt tbe entry for
+	(slime-extended-oprator-name-parser-alist): Adapt the entry for
 	PROCLAIM.
+
+	Adapted from patch by Stas Boukarev.
 
 2009-04-21  Tobias C. Rittweiler  <tcr@freebits.de>
 
@@ -165,7 +177,7 @@
 	anymore.
 	([test] enclosing-context.1): Adapted due to the changes.
 
-2009-02-25  LuÌs Oliveira  <loliveira@common-lisp.net>
+2009-02-25  Lu√≠s Oliveira  <loliveira@common-lisp.net>
 
 	* slime-compiler-notes-tree.el: Fix typo in the `provide' form.
 
@@ -510,7 +522,7 @@
 
 	* slime-fancy.el: Add slime-fontifying-fu.
 
-2008-08-20  LuÌs Oliveira  <loliveira@common-lisp.net>
+2008-08-20  Lu√≠s Oliveira  <loliveira@common-lisp.net>
 
 	* contrib/slime-indentation.el: fix indentation of IF forms.
 
@@ -597,7 +609,7 @@
 	(slime-qualify-cl-symbol-name): Moved back to `slime.el' as
 	they're still used there.
 
-2008-04-17  G·bor Melis <mega@retes.hu>
+2008-04-17  G√°bor Melis <mega@retes.hu>
 
 	* swank-fancy-inspector.lisp (inspect-slot-for-emacs):
 	slime-read-object has been gone for a long time, replaced with

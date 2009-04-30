@@ -72,8 +72,7 @@ OPS, INDICES and POINTS are updated to reflect the new values after
 parsing, and are then returned back as multiple values."
   ;; OPS, INDICES and POINTS are like the finally returned values of
   ;; SLIME-ENCLOSING-FORM-SPECS except that they're in reversed order,
-  ;; i.e. the leftmost (that is the latest) operator comes
-  ;; first.
+  ;; i.e. the leftmost operator comes first.
   (save-excursion
     (ignore-errors
       (let* ((current-op (first (first forms)))
@@ -107,7 +106,11 @@ parsing, and are then returned back as multiple values."
     ("APPLY"          . (slime-make-extended-operator-parser/look-ahead 1))
     ("DECLARE"        . slime-parse-extended-operator/declare)
     ("DECLAIM"        . slime-parse-extended-operator/declare)
-    ("PROCLAIM"       . slime-parse-extended-operator/proclaim)))
+    ("PROCLAIM"       . slime-parse-extended-operator/proclaim)
+    ("CHECK-TYPE"     . slime-parse-extended-operator/check-type)
+    ("TYPEP"          . slime-parse-extended-operator/check-type)
+    ("THE"            . slime-parse-extended-operator/the)))
+
 
 (defun slime-make-extended-operator-parser/look-ahead (steps)
   "Returns a parser that parses the current operator at point
@@ -138,35 +141,65 @@ the operator."
 (defun slime-parse-extended-operator/declare
     (name user-point current-forms current-indices current-points)
   (when (looking-at "(")
-    (let ((orig-point (point)))
-      (goto-char user-point)
-      (slime-end-of-symbol)
-      ;; Head of CURRENT-FORMS is "declare" (or similiar) at this
-      ;; point, but we're interested in what comes next.
-      (let* ((decl-ops     (rest current-forms))
-             (decl-indices (rest current-indices))
-             (decl-points  (rest current-points))
-             (decl-pos     (1- (first decl-points)))
-             (nesting      (slime-nesting-until-point decl-pos))
-             (declspec-str (concat (slime-incomplete-sexp-at-point nesting)
-                                   (make-string nesting ?\)))))
-        (save-match-data ; `(declare ((foo ...))' or `(declare (type (foo ...)))' ?
-          (if (or (eql 0 (string-match "\\s-*(\\((\\(\\sw\\|\\s_\\|\\s-\\)*)\\))$"
-                                       declspec-str))
-                  (eql 0 (string-match "\\s-*(type\\s-*\\((\\(\\sw\\|\\s_\\|\\s-\\)*)\\))$"
-                                       declspec-str)))
-              (let* ((typespec-str (match-string 1 declspec-str))
-                     (typespec (slime-make-form-spec-from-string typespec-str)))
-                (setq current-forms   (list `(:type-specifier ,typespec)))
-                (setq current-indices (list (second decl-indices)))
-                (setq current-points  (list (second decl-points))))
-              (let ((declspec (slime-make-form-spec-from-string declspec-str)))
-                (setq current-forms   (list `(,name) `(:declaration ,declspec)))
-                (setq current-indices (list (first current-indices)
-					    (first decl-indices)))
-                (setq current-points  (list (first current-points)
-					    (first decl-points)))))))))
+    (goto-char user-point)
+    (slime-end-of-symbol)
+    ;; Head of CURRENT-FORMS is "declare" (or similiar) at this
+    ;; point, but we're interested in what comes next.
+    (let* ((decl-indices (rest current-indices))
+           (decl-points  (rest current-points))
+           (decl-pos     (1- (first decl-points)))
+           (nesting      (slime-nesting-until-point decl-pos))
+           (declspec-str (concat (slime-incomplete-sexp-at-point nesting)
+                                 (make-string nesting ?\)))))
+      (save-match-data ; `(declare ((foo ...))' or `(declare (type (foo ...)))' ?
+        (if (or (eql 0 (string-match "\\s-*(\\((\\(\\sw\\|\\s_\\|\\s-\\)*)\\))$"
+                                     declspec-str))
+                (eql 0 (string-match "\\s-*(type\\s-*\\((\\(\\sw\\|\\s_\\|\\s-\\)*)\\))$"
+                                     declspec-str)))
+            (let* ((typespec-str (match-string 1 declspec-str))
+                   (typespec (slime-make-form-spec-from-string typespec-str)))
+              (setq current-forms   (list `(:type-specifier ,typespec)))
+              (setq current-indices (list (second decl-indices)))
+              (setq current-points  (list (second decl-points))))
+            (let ((declspec (slime-make-form-spec-from-string declspec-str)))
+              (setq current-forms   (list `(,name) `(:declaration ,declspec)))
+              (setq current-indices (list (first current-indices)
+                                          (first decl-indices)))
+              (setq current-points  (list (first current-points)
+                                          (first decl-points))))))))
   (values current-forms current-indices current-points))
+
+(defun slime-parse-extended-operator/check-type
+    (name user-point current-forms current-indices current-points)
+ (tcr:debugmsg "%S %S %S %S %S" name user-point current-forms current-indices current-points)
+  (let ((arg-idx        (first current-indices))
+        (typespec       (second current-forms))
+        (typespec-start (second current-points)))
+    (when (and (eql 2 arg-index)
+               typespec                   ; `(check-type ... (foo |' ?
+               (if (equalp name "typep")  ; `(typep ... '(foo |' ?
+                   (progn (goto-char (- typespec-start 2))
+                          (looking-at "['`]"))
+                   t))
+        ;; compound types VALUES and FUNCTION are not allowed in TYPEP
+        ;; (and consequently CHECK-TYPE.)
+        (unless (member (first typespec) '("values" "function"))
+          (setq current-forms   `((:type-specifier ,typespec)))
+          (setq current-indices (rest current-indices))
+          (setq current-points  (rest current-points))))
+    (values current-forms current-indices current-points)))
+
+(defun slime-parse-extended-operator/the
+    (name user-point current-forms current-indices current-points)
+  (let ((arg-idx  (first current-indices))
+        (typespec (second current-forms)))
+    (if (and (eql 1 arg-idx) typespec)  ; `(the (foo |' ?
+        (values `((:type-specifier ,typespec))
+                (rest current-indices)
+                (rest current-points))
+        (values current-forms current-indices current-points))))
+
+
 
 (defun slime-nesting-until-point (target-point)
   "Returns the nesting level between current point and TARGET-POINT.
@@ -353,21 +386,25 @@ Examples:
 (def-slime-test enclosing-form-specs.1
     (buffer-sexpr wished-form-specs)
     "Check that we correctly determine enclosing forms."
-    '(("(defun *HERE*"                (("defun")))
-      ("(defun foo *HERE*"            (("defun")))
-      ("(defun foo (x y) *HERE*"      (("defun")))
-      ("(defmethod *HERE*"            (("defmethod")))
-      ("(defmethod foo *HERE*"        (("defmethod" "foo")))
-      ("(cerror foo *HERE*"           (("cerror" "foo")))
-      ("(cerror foo bar *HERE*"       (("cerror" "foo" "bar")))
-      ("(make-instance foo *HERE*"    (("make-instance" "foo")))
-      ("(apply 'foo *HERE*"           (("apply" "'foo")))
-      ("(apply #'foo *HERE*"          (("apply" "#'foo")))
-      ("(declare *HERE*"              (("declare")))
-      ("(declare (optimize *HERE*"    ((:declaration ("optimize")) ("declare")))
-      ("(declare (string *HERE*"      ((:declaration ("string")) ("declare")))
-      ("(declare ((vector *HERE*"     ((:type-specifier ("vector"))))
-      ("(declare ((vector bit *HERE*" ((:type-specifier ("vector" "bit")))))
+    '(("(defun *HERE*"                  (("defun")))
+      ("(defun foo *HERE*"              (("defun")))
+      ("(defun foo (x y) *HERE*"        (("defun")))
+      ("(defmethod *HERE*"              (("defmethod")))
+      ("(defmethod foo *HERE*"          (("defmethod" "foo")))
+      ("(cerror foo *HERE*"             (("cerror" "foo")))
+      ("(cerror foo bar *HERE*"         (("cerror" "foo" "bar")))
+      ("(make-instance foo *HERE*"      (("make-instance" "foo")))
+      ("(apply 'foo *HERE*"             (("apply" "'foo")))
+      ("(apply #'foo *HERE*"            (("apply" "#'foo")))
+      ("(declare *HERE*"                (("declare")))
+      ("(declare (optimize *HERE*"      ((:declaration ("optimize")) ("declare")))
+      ("(declare (string *HERE*"        ((:declaration ("string")) ("declare")))
+      ("(declare ((vector *HERE*"       ((:type-specifier ("vector"))))
+      ("(declare ((vector bit *HERE*"   ((:type-specifier ("vector" "bit"))))
+      ("(proclaim '(optimize *HERE*"    ((:declaration ("optimize")) ("proclaim")))
+      ("(the (string *HERE*"            ((:type-specifier ("string"))))
+      ("(check-type foo (string *HERE*" ((:type-specifier ("string"))))
+      ("(typep foo '(string *HERE*"     ((:type-specifier ("string")))))
   (slime-check-top-level)
   (with-temp-buffer
     (lisp-mode)
