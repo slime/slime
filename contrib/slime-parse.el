@@ -171,7 +171,6 @@ the operator."
 
 (defun slime-parse-extended-operator/check-type
     (name user-point current-forms current-indices current-points)
- (tcr:debugmsg "%S %S %S %S %S" name user-point current-forms current-indices current-points)
   (let ((arg-idx        (first current-indices))
         (typespec       (second current-forms))
         (typespec-start (second current-points)))

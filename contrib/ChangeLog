@@ -1,6 +1,11 @@
+2009-05-01  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-parse.el (slime-parse-extended-operator/check-type):
+	Forgot to delete debugging code.
+
 2009-04-30  Tobias C. Rittweiler  <tcr@freebits.de>
 
-	* slime.el (slime-parse-extended-operator/check-type): New.
+	* slime-parse.el (slime-parse-extended-operator/check-type): New.
 	(slime-parse-extended-operator/the): New.
 	(slime-extended-operator-name-parser-alist): Add entries for
 	CHECK-TYPE, TYPEP, and THE.
