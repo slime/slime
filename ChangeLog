@@ -1,3 +1,21 @@
+2009-05-01  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-line-number-at-pos): Replaced with
+	`line-number-at-pos', and add that to the portability layer.
+	(display-warning): Add to the portability layer.
+	(slime-display-warning): New.
+
+	* slime.el: Implement a guard against infinite loops during
+	fontification. We detect and prevent those. If we detect one, we
+	emit a big warning to the user.
+
+	(slime-font-lock-region): New variable.
+	(slime-font-lock-region-changed-p): New helper.
+	(slime-extend-region-warn-infinite-loop): New helper.
+	(slime-compute-region-for-font-lock): Extracted from
+	`slime-extend-region-for-font-lock'.
+	(slime-extend-region-for-font-lock): Use it; add the guard.
+
 2009-04-30  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-abcl.lisp: Really commit Vodonosov's patch from

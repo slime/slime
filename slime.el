@@ -733,6 +733,9 @@ corresponding values in the CDR of VALUE."
 Single-line messages use the echo area."
   (apply slime-message-function format args))
 
+(defun slime-display-warning (message &rest args)
+  (display-warning 'slime (apply #'format message args)))
+
 (when (or (featurep 'xemacs))
   (setq slime-message-function 'slime-format-display-message))
 
@@ -2913,7 +2916,7 @@ Each newlines and following indentation is replaced by a single space."
                (save-excursion
                  (slime-goto-source-location location)
                  (list (or (buffer-file-name) (buffer-name))
-                       (slime-line-number-at-pos)
+                       (line-number-at-pos)
                        (1+ (current-column)))))
            (format "%s:%d:%d: " (or filename "") line col)))
         (t "")))
@@ -6328,7 +6331,7 @@ position of point in the current buffer."
   ;; narrowed the buffer.
   (save-restriction
     (widen)
-    (cons (slime-line-number-at-pos)
+    (cons (line-number-at-pos)
           (current-column))))
 
 (defun slime-inspector-operate-on-point ()
@@ -6668,6 +6671,8 @@ Only considers buffers that are not already visible."
 
 ;;;; Font Lock
 
+;;; Specially fontify forms suppressed by a reader conditional.
+
 (defcustom slime-highlight-suppressed-forms t
   "Display forms disabled by reader conditionals as comments."
   :type '(choice (const :tag "Enable" t) (const :tag "Disable" nil))
@@ -6737,29 +6742,70 @@ preceding reader conditionals into account."
             (list (point) end)
             (list start   end))))))
 
+(make-variable-buffer-local
+ (defvar slime-font-lock-region (cons -1 -1)
+   "These are the values of `font-lock-beg' and `font-lock-end' of
+the last font-lock extend-region phase."))
+
+(defun slime-font-lock-region-changed-p (font-lock-beg font-lock-end)
+  "Did `font-lock-beg', `font-lock-end' change since last extending phase?"
+  (destructuring-bind (old-beg . old-end) slime-font-lock-region
+     (or (/= old-beg font-lock-beg) 
+         (/= old-end font-lock-end))))
+
 ;;; We'll push this onto `font-lock-extend-region-functions'. In past,
 ;;; we didn't do so which made our reader-conditional font-lock magic
 ;;; pretty unreliable (it wouldn't highlight all suppressed forms, and
 ;;; worked quite non-deterministic in general.)
 ;;;
 ;;; Cf. _Elisp Manual_, 23.6.10 Multiline Font Lock Constructs.
+;;;
+;;; We make sure that `font-lock-beg' and `font-lock-end' always point
+;;; to the beginning or end of a toplevel form. So we never miss a
+;;; reader-conditional, or point in mid of one.
 (defun slime-extend-region-for-font-lock ()
-  ;; We make sure that `font-lock-beg' and `font-lock-end' always
-  ;; point to the beginning or end of a defun. So we never miss a
-  ;; reader-conditional, or point in mid of one.
+  (when (and slime-highlight-suppressed-forms (slime-connected-p))
+    (when (slime-font-lock-region-changed-p font-lock-beg font-lock-end)
+      ;; We're in a new extending phase, so reinitialize the values.
+      (setq slime-font-lock-region (cons -1 -1)))
+    (let (changedp)
+      (multiple-value-setq (changedp font-lock-beg font-lock-end)
+        (slime-compute-region-for-font-lock font-lock-beg font-lock-end))
+      (when changedp
+        ;; Guard against infinite loops:
+        (when (not (slime-font-lock-region-changed-p font-lock-beg font-lock-end))
+          (slime-extend-region-warn-infinite-loop)
+          (setq changedp nil))
+        ;; Update values. (N.B. cannot be done prior.)
+        (setq slime-font-lock-region (cons font-lock-beg font-lock-end)))
+      changedp)))
+
+(defun slime-compute-region-for-font-lock (beg end)
   (let ((changedp nil))
-    (goto-char font-lock-beg)
+    (goto-char beg)
     (when (plusp (nth 0 (slime-current-parser-state)))
       ;; N.B. take initial reader-conditional into account, otherwise
       ;; fontification wouldn't know the whole function definition may
       ;; be suppressed. 
-      (setq font-lock-beg (first (slime-region-for-extended-tlf-at-point)))
+      (setq beg (first (slime-region-for-extended-tlf-at-point)))
       (setq changedp t))
-    (goto-char font-lock-end)
+    (goto-char end)
     (when (plusp (nth 0 (slime-current-parser-state)))
-      (setq font-lock-end (second (slime-region-for-tlf-at-point)))
+      (setq end (second (slime-region-for-tlf-at-point)))
       (setq changedp t))
-    changedp))
+    (values changedp beg end)))
+
+(defun slime-extend-region-warn-infinite-loop ()
+  (slime-display-warning
+   "%S:%d:%d (pt=%d).
+Prevented infinite loop during fontification. This is a bug in Slime itself.
+Please report this to the mailinglist slime-devel@common-lisp.net and include
+your Emacs version, the guilty Lisp source file, and the header of this 
+message."
+   (buffer-name)
+   (line-number-at-pos)
+   (current-column)
+   (point)))
 
 ;;; FIXME: This is supposed to be the value for
 ;;; `font-lock-mark-block-function' (so M-o M-o will DTRT), but I
@@ -8493,12 +8539,6 @@ will return \"\"."
 (put 'slime-DEFMACRO-if-undefined 'lisp-indent-function 2)
 (put 'slime-indulge-pretty-colors 'slime-DEFMACRO-if-undefined t)
 
-(defmacro slime-defmacro-if-undefined (name &rest rest)
-  `(unless (fboundp ',name)
-     (defmacro ,name ,@rest)))
-
-(put 'slime-defmacro-if-undefined 'lisp-indent-function 2)
-
 
 (defvar slime-accept-process-output-supports-floats 
   (ignore-errors (accept-process-output nil 0.0) t))
@@ -8540,12 +8580,13 @@ for (somewhat) better multiframe support."
       (apply #'run-mode-hooks hooks)
     (apply #'run-hooks hooks)))
 
-(defun slime-line-number-at-pos ()
-  (cond ((fboundp 'line-number-at-pos)
-         (line-number-at-pos))  ; Emacs 22
-        ((fboundp 'line-number)
-         (line-number))         ; XEmacs
-        (t (1+ (count-lines 1 (point-at-bol))))))
+(if (featurep 'xemacs)
+  (slime-DEFUN-if-undefined line-number-at-pos (&optional pos)
+     (line-number pos))
+  (slime-DEFUN-if-undefined line-number-at-pos (&optional pos)
+     (save-excursion
+       (when pos (goto-char pos))
+       (1+ (count-lines 1 (point-at-bol))))))
 
 (defun slime-local-variable-p (var &optional buffer)
   (local-variable-p var (or buffer (current-buffer)))) ; XEmacs
@@ -8644,7 +8685,7 @@ Unless optional argument INPLACE is non-nil, return a new string."
       (if (eq (aref newstr i) fromchar)
 	  (aset newstr i tochar)))
     newstr))
-
+                          
 (slime-DEFUN-if-undefined count-screen-lines 
   (&optional beg end count-final-newline window)
   (unless beg
@@ -8771,6 +8812,11 @@ If they are not, position point at the first syntax error found."
 
 (slime-DEFUN-if-undefined set-process-coding-system 
     (process &optional decoding encoding))
+
+(slime-DEFUN-if-undefined display-warning  
+                          (type message &optional level buffer-name)
+  (slime-display-message (apply #'format (concat "Warning (%s): " message) type args)
+                         "*Warnings*"))
 
 (unless (boundp 'temporary-file-directory)
   (defvar temporary-file-directory
