@@ -180,8 +180,10 @@ Return DOCUMENTATION."
   "Fontify STRING as `font-lock-mode' does in Lisp mode."
   (with-current-buffer (get-buffer-create " *slime-fontify*")
     (erase-buffer)
-    (if (not (eq major-mode 'lisp-mode))
-        (lisp-mode))
+    (unless (eq major-mode 'lisp-mode)
+      (lisp-mode)
+      (slime-autodoc-mode -1)
+      (set (make-local-variable 'slime-highlight-suppressed-forms) nil))
     (insert string)
     (let ((font-lock-verbose nil))
       (font-lock-fontify-buffer))

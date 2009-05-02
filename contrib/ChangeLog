@@ -1,3 +1,9 @@
+2009-05-02  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-autodoc.el (slime-fontify-string): Deactivate autodoc
+	itself in the temporary help buffer. And deactivate slime's
+	font-lock magic.
+
 2009-05-01  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-parse.el (slime-parse-extended-operator/check-type):
