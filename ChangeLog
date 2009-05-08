@@ -1,5 +1,10 @@
 2009-05-08  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-search-suppressed-forms-internal): Not properly
+	factored out by earlier changeset.
+
+2009-05-08  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank.lisp (read-from-minibuffer-in-emacs): New.
 	([struct] istate): Add METADATA-PLIST slot.
 	(ensure-istate-metadata): New. To attach arbitrary metadata to an
