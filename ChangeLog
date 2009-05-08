@@ -1,3 +1,12 @@
+2009-05-08  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	#+#.foo confused the recent fontification changes. Fix that.
+
+	* slime.el (slime-search-suppressed-forms-internal): New. Split
+	from `slime-search-suppressed-forms'.
+	(slime-search-suppressed-forms): Catch `invalid-read-syntax'
+	errors.
+
 2009-05-01  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-line-number-at-pos): Replaced with

@@ -6686,35 +6686,56 @@ Only considers buffers that are not already visible."
   "Face for compiler notes while selected."
   :group 'slime-mode-faces)
 
+(defun slime-search-suppressed-forms-internal (limit)
+  (let* ((start (- (point) 2))
+         (char (char-before))
+         (e (read (current-buffer)))
+         (val (slime-eval-feature-conditional e)))
+    (when (<= (point) limit)
+      (if (or (and (eq char ?+) (not val))
+              (and (eq char ?-) val))
+          (progn
+            (forward-sexp) (backward-sexp)
+            (slime-forward-sexp)
+            ;; There was an `ignore-errors' form around all this
+            ;; because the following assertion was triggered
+            ;; regularly (resulting in the "non-deterministic"
+            ;; behaviour mentioned in the comment further below.)
+            ;; With extending the region properly, this assertion
+            ;; would truly mean a bug now.
+            (assert (<= (point) limit))
+            (let ((md (match-data)))
+              (fill md nil)
+              (setf (first md) start)
+              (setf (second md) (point))
+              (set-match-data md)
+              t))
+          (slime-search-suppressed-forms-internal limit)))))
+
 (defun slime-search-suppressed-forms (limit)
   "Find reader conditionalized forms where the test is false."
   (when (and slime-highlight-suppressed-forms
              (slime-connected-p)
              (re-search-forward "^\\([^;\n]*?[ \t(]\\)?#[-+]" limit t))
-    (let* ((start (- (point) 2))
-           (char (char-before))
-           (e (read (current-buffer)))
-           (val (slime-eval-feature-conditional e)))
-      (when (<= (point) limit)
-        (if (or (and (eq char ?+) (not val))
-                (and (eq char ?-) val))
-            (progn
-              (forward-sexp) (backward-sexp)
-              (slime-forward-sexp)
-              ;; There was an `ignore-errors' form around all this
-              ;; because the following assertion was triggered
-              ;; regularly (resulting in the "non-deterministic"
-              ;; behaviour mentioned in the comment further below.)
-              ;; With extending the region properly, this assertion
-              ;; would truly mean a bug now.
-              (assert (<= (point) limit))
-              (let ((md (match-data)))
-                (fill md nil)
-                (setf (first md) start)
-                (setf (second md) (point))
-                (set-match-data md)
-                t))
-            (slime-search-suppressed-forms limit))))))
+    (condition-case condition
+        (slime-search-suppressed-forms-internal limit)
+      (invalid-read-syntax nil)         ; ignore e.g. #+#.foo
+      (error 
+       (slime-display-warning
+        "%S:%d:%d (pt=%d).
+Caught error during fontification while searching for forms that
+are suppressed by reader-conditionals. The error was: %S.
+
+This is a bug in Slime itself. Please report this to the
+mailinglist slime-devel@common-lisp.net and include your Emacs
+version, the guilty Lisp source file, and the header of this
+message.
+"
+        (buffer-name)
+        (line-number-at-pos)
+        (current-column)
+        (point)
+        condition)))))
 
 (defun slime-region-for-extended-tlf-at-point ()
   "Like `slime-region-for-tlf-at-point' except we take
