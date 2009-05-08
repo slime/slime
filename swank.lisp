@@ -1868,6 +1868,13 @@ converted to lower case."
 	       ((:ok value) value)
 	       ((:abort) (abort))))))))
 
+;;; FIXME: This should not use EVAL-IN-EMACS but get its own events.
+(defun read-from-minibuffer-in-emacs (prompt &optional initial-value)
+  (eval-in-emacs
+   `(condition-case c
+        (slime-read-from-minibuffer ,prompt ,initial-value)
+      (quit nil))))
+
 (defvar *swank-wire-protocol-version* nil
   "The version of the swank/slime communication protocol.")
 
@@ -3212,6 +3219,7 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
   (verbose *inspector-verbose*)
   (parts (make-array 10 :adjustable t :fill-pointer 0))
   (actions (make-array 10 :adjustable t :fill-pointer 0))
+  metadata-plist
   content
   next previous)
 
@@ -3228,15 +3236,22 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
       (reset-inspector)
       (inspect-object (eval (read-from-string string))))))
 
+(defun ensure-istate-metadata (o indicator default)
+  (with-struct (istate. object metadata-plist) *istate*
+    (assert (eq object o))
+    (let ((data (getf metadata-plist indicator default)))
+      (setf (getf metadata-plist indicator) data)
+      data)))
+
 (defun inspect-object (o)
-  (let ((previous *istate*)
-        (content (emacs-inspect/printer-bindings o)))
-    (unless (find o *inspector-history*)
-      (vector-push-extend o *inspector-history*))
-    (setq *istate* (make-inspector-state :object o :previous previous 
-                                         :content content))
-    (if previous (setf (istate.next previous) *istate*))
-    (istate>elisp *istate*)))
+  ;; Set *ISTATE* first so EMACS-INSPECT can possibly look at it.
+  (setq *istate* (make-inspector-state :object o :previous *istate*))
+  (setf (istate.content *istate*) (emacs-inspect/printer-bindings o))
+  (unless (find o *inspector-history*)
+    (vector-push-extend o *inspector-history*))
+  (let ((previous (istate.previous *istate*)))
+    (if previous (setf (istate.next previous) *istate*)))
+  (istate>elisp *istate*))
 
 (defun emacs-inspect/printer-bindings (object)
   (let ((*print-lines* 1) (*print-right-margin* 75)

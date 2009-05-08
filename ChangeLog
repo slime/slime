@@ -1,5 +1,14 @@
 2009-05-08  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank.lisp (read-from-minibuffer-in-emacs): New.
+	([struct] istate): Add METADATA-PLIST slot.
+	(ensure-istate-metadata): New. To attach arbitrary metadata to an
+	inspector page.
+	(inspect-object): Adapted so methods on EMACS-INSPECT can look at
+	*ISTATE*.
+
+2009-05-08  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	#+#.foo confused the recent fontification changes. Fix that.
 
 	* slime.el (slime-search-suppressed-forms-internal): New. Split
