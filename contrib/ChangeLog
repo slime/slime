@@ -1,3 +1,16 @@
+2009-05-08  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	The inspector page for standard-objects does not append
+	"[set value]" and "[make unbound]" buttons after each entry
+	anymore. Instead we use a checklist.
+
+	* swank-fancy-inspector.lisp ([struct] inspector-checklist): New.
+	(make-checklist-button): New.
+	(do-checklist): New.
+	(slot-value-for-inspector): Previously `inspect-slot-for-emacs'.
+	(query-and-set-slot): New.
+	(all-slots-for-inspector): Adapted for changes described above.
+
 2009-05-02  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-autodoc.el (slime-fontify-string): Deactivate autodoc
