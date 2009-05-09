@@ -697,7 +697,8 @@ This is useful when debugging the definition-finding code.")
                           `(:snippet ,snippet))))))))
 
 (defun string-path-snippet (string form-path position)
-  (if form-path
+  (if (null form-path)
+      (read-snippet-from-string string)
       ;; If we have a form-path, use it to derive a more accurate
       ;; snippet, so that we can point to the individual form rather
       ;; than just the toplevel form.
@@ -705,8 +706,7 @@ This is useful when debugging the definition-finding code.")
           (let ((*read-suppress* t))
             (read-from-string string nil nil :start position))
         (declare (ignore data))
-        (subseq string position end))
-      string))    
+        (subseq string position (min end *source-snippet-size*)))))    
     
 (defun source-file-position (filename write-date form-path character-offset)
   (let ((source (get-source-code filename write-date))
@@ -717,9 +717,7 @@ This is useful when debugging the definition-finding code.")
           (or character-offset 0)))))
 
 (defun source-hint-snippet (filename write-date position)
-  (let ((source (get-source-code filename write-date)))
-    (with-input-from-string (s source)
-      (read-snippet s position))))
+  (read-snippet-from-string (get-source-code filename write-date) position))
 
 (defun function-source-location (function &optional name)
   (declare (type function function))
@@ -1003,8 +1001,7 @@ stack."
                                 &allow-other-keys)
           plist
         (let* ((pos (string-source-position code-location emacs-string))
-               (snipped (with-input-from-string (s emacs-string)
-                          (read-snippet s pos))))
+               (snipped (read-snippet-from-string emacs-string pos)))
           (make-location `(:buffer ,emacs-buffer)
                          `(:offset ,emacs-position ,pos)
                          `(:snippet ,snipped))))

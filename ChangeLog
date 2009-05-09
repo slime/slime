@@ -1,3 +1,12 @@
+2009-05-09  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-source-file-cache.lisp (read-snippet-from-string): New.
+
+	* swank-sbcl.lisp (source-hint-snippet): Use it.
+	(emacs-buffer-source-location): Use it, too.
+	(string-path-snippet): Ditto. Additionally: Make sure the returned
+	string is truncated by *SOURCE-SNIPPET-SIZE*.
+
 2009-05-08  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-search-suppressed-forms-internal): Not properly
