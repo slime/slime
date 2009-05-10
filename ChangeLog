@@ -1,3 +1,19 @@
+2009-05-10  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Font-lock magic barfed on #+(test).
+
+	* slime.el (slime-eval-feature-conditional): Renamed to
+	`slime-eval-feature-expression'.
+	(slime-unknown-feature-expression): New error symbol.
+	(slime-eval-feature-expression): Signal it.
+	(slime-search-suppressed-forms): Catch it.
+	(slime-compute-region-for-font-lock): Guard against unbalanced
+	parentheses.
+	(slime-initialize-lisp-buffer-for-test-suite): New helper.
+	([test] font-lock-magic): New test case.
+
+	Reported by Kalyanov Dmitry.
+
 2009-05-09  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-source-file-cache.lisp (read-snippet-from-string): New.
