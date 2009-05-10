@@ -1,5 +1,9 @@
 2009-05-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-compute-region-for-font-lock): Fix typo.
+
+2009-05-10  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	Font-lock magic barfed on #+(test).
 
 	* slime.el (slime-eval-feature-conditional): Renamed to

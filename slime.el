@@ -6805,7 +6805,9 @@ the last font-lock extend-region phase."))
 
 (defun slime-compute-region-for-font-lock (orig-beg orig-end)
   (condition-case nil
-      (let ((changedp nil) (beg orig-beg) (end (orig-end)))
+      (let ((changedp nil)
+            (beg orig-beg)
+            (end orig-end))
         (goto-char beg)
         (when (plusp (nth 0 (slime-current-parser-state)))
           ;; N.B. take initial reader-conditional into account, otherwise
