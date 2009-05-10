@@ -7569,7 +7569,8 @@ BODY returns true if the check succeeds."
 #+(and) (defun *NO* (x y) (+ x y))")
 
       ("#+(and) (defun *NO* (x y) #-(and) (+ *YES* y))")
-
+      ("#| #+(or) |# *NO*")
+      ("#| #+(or) x |# *NO*")
       )
   (slime-check-top-level)
   (with-temp-buffer

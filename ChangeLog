@@ -1,3 +1,7 @@
+2009-05-10  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el ([test] font-lock-magic): Add some hard cases.
+
 2009-05-10  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-compute-region-for-font-lock): Fix typo.
