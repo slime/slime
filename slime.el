@@ -9019,7 +9019,7 @@ If they are not, position point at the first syntax error found."
           slime-region-for-tlf-at-point
           slime-region-for-extended-tlf-at-point
           slime-extend-region-for-font-lock
-;          slime-search-suppressed-forms
+          slime-search-suppressed-forms
           )))
 
 (provide 'slime)
