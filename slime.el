@@ -8399,16 +8399,18 @@ within. This includes nested comments (#| ... |#)."
 
 (defun slime-eval-feature-expression (e)
   "Interpret a reader conditional expression."
-  (if (symbolp e)
-      (memq (slime-keywordify e) (slime-lisp-features))
-      (funcall (let ((head (slime-keywordify (car e))))
-                 (case head
-                   (:and #'every)
-                   (:or #'some)
-                   (:not (lambda (f l) (not (apply f l))))
-                   (t (signal 'slime-unknown-feature-expression head))))
-               #'slime-eval-feature-expression
-               (cdr e))))
+  (cond ((symbolp e)
+         (memq (slime-keywordify e) (slime-lisp-features)))
+        ((and (consp e) (symbolp (car e)))
+         (funcall (let ((head (slime-keywordify (car e))))
+                    (case head
+                      (:and #'every)
+                      (:or #'some)
+                      (:not (lambda (f l) (not (apply f l))))
+                      (t (signal 'slime-unknown-feature-expression head))))
+                  #'slime-eval-feature-expression
+                  (cdr e)))
+        (t (signal 'slime-unknown-feature-expression e))))
 
 ;;;;; Extracting Lisp forms from the buffer or user
 
