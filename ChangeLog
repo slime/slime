@@ -1,5 +1,16 @@
 2009-05-12  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	Make font-lock-magic test case pass.
+
+	* slime.el (slime-bug): New function.
+	(slime-search-suppressed-forms): Use it.
+	(slime-extend-region-warn-infinite-loop): Ditto.
+	(slime-search-suppressed-forms-internal): Check whether we're
+	inside a comment, or a string.
+	([test] font-lock-magic): Add another case.
+
+2009-05-12  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	Highlight reader-errors in the source buffers on Allegro.
 
 	* swank-allegro.lisp (*temp-file-header-end-position*): New
