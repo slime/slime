@@ -1,5 +1,10 @@
 2009-05-12  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-allegro.lisp (find-topframe): Hide SWANK related cruft
+	from showing up in backtraces in SLDB.
+
+2009-05-12  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (slime-display-warning): Add `warning' as warning type.
 	(slime-show-note-counts): If compilation failed, fontify the
 	message in red to be more visibly apparant.

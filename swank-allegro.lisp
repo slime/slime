@@ -143,10 +143,15 @@
   `(:ok ,(format nil "Set breakpoint at start of ~S" fname)))
 
 (defun find-topframe ()
-  (let ((skip-frames 3))
-    (do ((f (excl::int-newest-frame) (next-frame f))
-         (i 0 (1+ i)))
-        ((= i skip-frames) f))))
+  (let ((magic-symbol (intern (symbol-name :swank-debugger-hook)
+                              (find-package :swank)))
+        (top-frame (excl::int-newest-frame)))
+    (loop for frame = top-frame then (next-frame frame)
+          for name  = (debugger:frame-name frame)
+          for i from 0
+          when (eq name magic-symbol)
+            return (next-frame frame)
+          until (= i 10) finally (return top-frame))))
 
 (defun next-frame (frame)
   (let ((next (excl::int-next-older-frame frame)))
