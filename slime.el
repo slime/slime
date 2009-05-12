@@ -734,7 +734,7 @@ Single-line messages use the echo area."
   (apply slime-message-function format args))
 
 (defun slime-display-warning (message &rest args)
-  (display-warning 'slime (apply #'format message args)))
+  (display-warning '(slime warning) (apply #'format message args)))
 
 (when (or (featurep 'xemacs))
   (setq slime-message-function 'slime-format-display-message))
@@ -2727,8 +2727,11 @@ compile with a debug setting of that number."
         (:warning             (incf nwarnings))
         (:style-warning       (incf nstyle-warnings))
         (:note                (incf nnotes))))
-    (message "Compilation %s:%s%s%s%s%s"
-             (if successp "finished" "failed")
+    (message "%s:%s%s%s%s%s"
+             (if successp 
+                 "Compilation finished" 
+                 (slime-add-face '(:foreground "Red")
+                   "Compilation failed"))
              (slime-note-count-string "error" nerrors)
              (slime-note-count-string "warning" nwarnings)
              (slime-note-count-string "style-warning" nstyle-warnings t)
@@ -5204,6 +5207,8 @@ CL:MACROEXPAND."
 (defun slime-add-face (face string)
   (add-text-properties 0 (length string) (list 'face face) string)
   string)
+
+(put 'slime-add-face 'lisp-indent-function 1)
 
 
 ;;;;; sldb-mode

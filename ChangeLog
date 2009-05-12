@@ -1,3 +1,9 @@
+2009-05-12  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-display-warning): Add `warning' as warning type.
+	(slime-show-note-counts): If compilation failed, fontify the
+	message in red to be more visibly apparant.
+
 2009-05-11  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	(slime-eval-feature-expression): Guard for more erroneous
