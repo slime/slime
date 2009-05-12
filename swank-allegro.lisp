@@ -231,6 +231,7 @@
 (defvar *buffer-start-position*)
 (defvar *buffer-string*)
 (defvar *compile-filename* nil)
+(defvar *temp-file-header-end-position* nil)
 
 (defun compiler-note-p (object)
   (member (type-of object) '(excl::compiler-note compiler::compiler-note)))
@@ -246,7 +247,7 @@
 
 (defun handle-compiler-warning (condition)
   (declare (optimize (debug 3) (speed 0) (space 0)))
-  (cond ((and (not *buffer-name*) 
+   (cond ((and (not *buffer-name*) 
               (compiler-undefined-functions-called-warning-p condition))
          (handle-undefined-functions-warning condition))
         (t
@@ -254,9 +255,12 @@
           :original-condition condition
           :severity (etypecase condition
                       (warning :warning)
-                      (compiler-note :note))
+                      (compiler-note :note)
+                      (reader-error :read-error))
           :message (format nil "~A" condition)
-          :location (location-for-warning condition)))))
+          :location (if (typep condition 'reader-error) 
+                        (location-for-reader-error condition)
+                        (location-for-warning condition))))))
 
 (defun location-for-warning (condition)
   (let ((loc (getf (slot-value condition 'excl::plist) :loc)))
@@ -272,6 +276,18 @@
           (t
            (list :error "No error location available.")))))
 
+(defun location-for-reader-error (condition)
+  (let ((pos  (car (last (slot-value condition 'excl::format-arguments))))
+        (file (pathname (stream-error-stream condition))))
+    (if (integerp pos)
+        (if *buffer-name*
+            (make-location `(:buffer ,*buffer-name*)
+                           `(:offset ,*buffer-start-position*
+                                     ,(- pos *temp-file-header-end-position* 1)))
+            (make-location `(:file ,(namestring (truename file)))
+                           `(:position ,pos)))
+        (list :error "No error location available."))))
+
 (defun handle-undefined-functions-warning (condition)
   (let ((fargs (slot-value condition 'excl::format-arguments)))
     (loop for (fname . pos-file) in (car fargs) do
@@ -283,22 +299,23 @@
                                   fname)
                  :location (make-location (list :file file)
                                           (list :position (1+ pos))))))))
-
 (defimplementation call-with-compilation-hooks (function)
-  (handler-bind ((warning #'handle-compiler-warning)
-                 ;;(compiler-note #'handle-compiler-warning)
-                 )
+  (handler-bind ((warning       #'handle-compiler-warning)
+                 (compiler-note #'handle-compiler-warning)
+                 (reader-error  #'handle-compiler-warning))
     (funcall function)))
 
 (defimplementation swank-compile-file (input-file output-file 
                                        load-p external-format)
-  (with-compilation-hooks ()
-    (let ((*buffer-name* nil)
-          (*compile-filename* input-file))
-      (compile-file *compile-filename* 
-                    :output-file output-file
-                    :load-after-compile load-p
-                    :external-format external-format))))
+  (handler-case
+      (with-compilation-hooks ()
+        (let ((*buffer-name* nil)
+              (*compile-filename* input-file))
+          (compile-file *compile-filename* 
+                        :output-file output-file
+                        :load-after-compile load-p
+                        :external-format external-format)))
+    (reader-error () (values nil nil t))))
 
 (defun call-with-temp-file (fn)
   (let ((tmpname (system:make-temp-file-name)))
@@ -307,13 +324,15 @@
            (funcall fn file tmpname))
       (delete-file tmpname))))
 
-(defun compile-from-temp-file (string)
+(defun compile-from-temp-file (header string)
   (call-with-temp-file 
    (lambda (stream filename)
+     (write-string header stream)
+     (let ((*temp-file-header-end-position* (file-position stream)))
        (write-string string stream)
        (finish-output stream)
        (multiple-value-bind (binary-filename warnings? failure?)
-         (excl:without-redefinition-warnings
+           (excl:without-redefinition-warnings
              ;; Suppress Allegro's redefinition warnings; they are
              ;; pointless when we are compiling via a temporary
              ;; file.
@@ -321,7 +340,32 @@
          (declare (ignore warnings?))
          (when binary-filename
            (delete-file binary-filename))
-         (not failure?)))))
+         (not failure?))))))
+
+(defimplementation swank-compile-string (string &key buffer position filename
+                                         policy)
+  (declare (ignore policy))
+  (handler-case 
+      (with-compilation-hooks ()
+        (let ((*buffer-name* buffer)
+              (*buffer-start-position* position)
+              (*buffer-string* string)
+              (*default-pathname-defaults*
+               (if filename 
+                   (merge-pathnames (pathname filename))
+                   *default-pathname-defaults*)))
+          ;; We store the source buffer in excl::*source-pathname* as a
+          ;; string of the form <buffername>;<start-offset>.  Quite ugly
+          ;; encoding, but the fasl file is corrupted if we use some
+          ;; other datatype.
+          (compile-from-temp-file
+           (format nil "~S~%~S~%" 
+                   `(in-package ,(package-name *package*))
+                   `(eval-when (:compile-toplevel :load-toplevel)
+                      (setq excl::*source-pathname*
+                            ',(format nil "~A;~D" buffer position))))
+           string)))
+    (reader-error () (values nil nil t))))
 
 (defimplementation swank-compile-string (string &key buffer position filename
                                          policy)

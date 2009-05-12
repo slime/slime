@@ -1,5 +1,20 @@
 2009-05-12  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	Highlight reader-errors in the source buffers on Allegro.
+
+	* swank-allegro.lisp (*temp-file-header-end-position*): New
+	variable.
+	(call-with-compilation-hooks): Handle reader errors.
+	(handle-compiler-warning): Adapt it accordingly.
+	(location-for-reader-error): New.
+	(compile-from-temp-file): Now takes a header argument explicitly
+	so we can hold of the actual offset of the string we want to
+	compile. This is needed to translate back file-positions reported
+	in reader-errors.
+	(swank-compile-string, swank-compile-file): Adapted accordingly.
+
+2009-05-12  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank-allegro.lisp (find-topframe): Hide SWANK related cruft
 	from showing up in backtraces in SLDB.
 
