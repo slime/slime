@@ -6746,16 +6746,25 @@ Only considers buffers that are not already visible."
 (defun slime-search-suppressed-forms (limit)
   "Find reader conditionalized forms where the test is false."
   (when (and slime-highlight-suppressed-forms
-             (slime-connected-p))
+             (slime-connected-p)
+             (<= (point) limit))
     (condition-case condition
         (slime-search-suppressed-forms-internal limit)
-      (end-of-file                      nil) ; e.g. #+(
-      (invalid-read-syntax              nil) ; e.g. #+#.foo
-      (slime-unknown-feature-expression nil) ; e.g. #+(foo)
-      (scan-error                       nil) ; e.g. #| #+(or) #|
+      (end-of-file                      ; e.g. #+(
+       nil) 
+      ;; We found a reader conditional we couldn't process for some
+      ;; reason; however, there may still be other reader conditionals
+      ;; before `limit'.
+      (invalid-read-syntax              ; e.g. #+#.foo
+       (slime-search-suppressed-forms limit))
+      (scan-error                       ; e.g. #| #+(or) #|
+       (slime-search-suppressed-forms limit)) 
+      (slime-unknown-feature-expression ; e.g. #+(foo)
+       (slime-search-suppressed-forms limit)) 
       (error 
-       (slime-bug "Caught error during fontification while searching for forms that
-are suppressed by reader-conditionals. The error was: %S."
+       (slime-bug 
+        (concat "Caught error during fontification while searching for forms\n"
+                "that are suppressed by reader-conditionals. The error was: %S.")
         condition)))))
 
 (defun slime-region-for-extended-tlf-at-point ()
@@ -6766,34 +6775,29 @@ preceding reader conditionals into account."
       (goto-char start)
       ;; At this point we want to watch out for a possibly preceding
       ;; reader conditional..
-      (save-match-data 
-        (search-backward-regexp slime-reader-conditionals-regexp
-                                ;; We restrict the search to the
-                                ;; beginning of the /previous/ defun.
-                                (save-excursion 
-                                  (beginning-of-defun) (point))
-                                t)
-        ;; We actually need to restrict the search to the end of the
-        ;; previous defun, but we can't easily determine that end.
-        ;; (`forward-sexp' after the `beginning-of-defun' won't work for
-        ;; a conditionalized form at the top of a file.)
-        ;;
-        ;; As a result, we may be slipped into another defun here, so we
-        ;; have to check against that:
-        (if (zerop (nth 0 (slime-current-parser-state)))
-            (list (point) end)
-            (list start   end))))))
+      (let ((point (slime-search-backward-reader-conditional)))
+        (if point
+            (list point end)
+            (list start end))))))
 
-(make-variable-buffer-local
- (defvar slime-font-lock-region (cons -1 -1)
-   "These are the values of `font-lock-beg' and `font-lock-end' of
-the last font-lock extend-region phase."))
-
-(defun slime-font-lock-region-changed-p (font-lock-beg font-lock-end)
-  "Did `font-lock-beg', `font-lock-end' change since last extending phase?"
-  (destructuring-bind (old-beg . old-end) slime-font-lock-region
-     (or (/= old-beg font-lock-beg) 
-         (/= old-end font-lock-end))))
+(defun slime-search-backward-reader-conditional ()
+  (save-excursion
+    (save-match-data 
+      (and (search-backward-regexp slime-reader-conditionals-regexp
+                                   ;; We restrict the search to the
+                                   ;; beginning of the /previous/ defun.
+                                   (save-excursion 
+                                     (beginning-of-defun) (point))
+                                   t)
+           ;; We actually need to restrict the search to the end of the
+           ;; previous defun, but we can't easily determine that end.
+           ;; (`forward-sexp' after the `beginning-of-defun' won't work for
+           ;; a conditionalized form at the top of a file.)
+           ;;
+           ;; As a result, we may be slipped into another defun here, so we
+           ;; have to check against that:
+           (zerop (nth 0 (slime-current-parser-state)))
+           (point)))))
 
 ;;; We'll push this onto `font-lock-extend-region-functions'. In past,
 ;;; we didn't do so which made our reader-conditional font-lock magic
@@ -6807,47 +6811,31 @@ the last font-lock extend-region phase."))
 ;;; reader-conditional, or point in mid of one.
 (defun slime-extend-region-for-font-lock ()
   (when (and slime-highlight-suppressed-forms (slime-connected-p))
-    (when (slime-font-lock-region-changed-p font-lock-beg font-lock-end)
-      ;; We're in a new extending phase, so reinitialize the values.
-      (setq slime-font-lock-region (cons -1 -1)))
     (let (changedp)
       (multiple-value-setq (changedp font-lock-beg font-lock-end)
         (slime-compute-region-for-font-lock font-lock-beg font-lock-end))
-      (when changedp
-        ;; Guard against infinite loops:
-        (when (not (slime-font-lock-region-changed-p font-lock-beg font-lock-end))
-          (slime-extend-region-warn-infinite-loop)
-          (setq changedp nil))
-        ;; Update values. (N.B. cannot be done prior.)
-        (setq slime-font-lock-region (cons font-lock-beg font-lock-end)))
       changedp)))
 
 (defun slime-compute-region-for-font-lock (orig-beg orig-end)
   (condition-case nil
-      (let ((changedp nil)
-            (beg orig-beg)
+      (let ((beg orig-beg)
             (end orig-end))
         (goto-char beg)
-        (when (plusp (nth 0 (slime-current-parser-state)))
-          ;; N.B. take initial reader-conditional into account, otherwise
-          ;; fontification wouldn't know the whole function definition may
-          ;; be suppressed. 
-          (setq beg (first (slime-region-for-extended-tlf-at-point)))
-          (setq changedp t))
+        ;; N.B. take preceding reader-conditional into account (even
+        ;; when we're at the toplevel!), otherwise fontification
+        ;; wouldn't know the whole function definition may be
+        ;; suppressed.
+        (cond ((plusp (nth 0 (slime-current-parser-state)))
+               (setq beg (first (slime-region-for-extended-tlf-at-point))))
+              ((setq beg (or (search-backward-reader-conditional)
+                             orig-beg))))
         (goto-char end)
-        (when (plusp (nth 0 (slime-current-parser-state)))
-          (setq end (second (slime-region-for-tlf-at-point)))
-          (setq changedp t))
-        (values changedp beg end))
+        (when (or (plusp (nth 0 (slime-current-parser-state)))
+                  (search-backward-reader-conditional))
+          (setq end (second (slime-region-for-tlf-at-point))))
+        (values (or (/= beg orig-beg) (/= end orig-end)) beg end))
     (error   ; unbalanced parentheses: cannot determine beginning/end of tlf.
      (values nil orig-beg orig-end))))
-
-(defun slime-extend-region-warn-infinite-loop ()
-  (slime-bug
-   "Prevented infinite loop during fontification. This is a bug in Slime itself.
-Please report this to the mailinglist slime-devel@common-lisp.net and include
-your Emacs version, the guilty Lisp source file, and the header of this 
-message."))
 
 ;;; FIXME: This is supposed to be the value for
 ;;; `font-lock-mark-block-function' (so M-o M-o will DTRT), but I
@@ -7586,6 +7574,19 @@ BODY returns true if the check succeeds."
       ("#| #+(or) |# *NO*")
       ("#| #+(or) x |# *NO*")
       ("*NO* \"#| *NO* #+(or) x |# *NO*\" *NO*")
+      ("#+#.foo (defun foo (bar))
+#-(and) *YES* *NO* bar
+")
+      ("#+(foo) (defun foo (bar))
+#-(and) *YES* *NO* bar")
+      ("#| #+(or) |# *NO* foo
+#-(and) *YES* *NO*")
+      ("#- (and)
+\(*YES*)
+\(*NO*)
+#-(and)
+\(*YES*)
+\(*NO*)")
       )
   (slime-check-top-level)
   (with-temp-buffer
@@ -9040,6 +9041,7 @@ If they are not, position point at the first syntax error found."
           slime-region-for-tlf-at-point
           slime-region-for-extended-tlf-at-point
           slime-extend-region-for-font-lock
+          slime-search-backward-reader-conditional
           slime-search-suppressed-forms
           )))
 

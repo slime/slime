@@ -1,5 +1,23 @@
 2009-05-12  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-search-suppressed-forms): On errors, we have to
+	continue the search, otherwise there's a chance that we miss
+	reader conditionals in the current font-lock region.
+	(slime-search-backward-reader-conditional): New. Extracted from
+	`slime-region-for-extended-tlf-at-point'.
+	(slime-region-for-extended-tlf-at-point): Use it.
+	(slime-font-lock-region): Removed.
+	(slime-font-lock-region-changed-p): Removed.
+	(slime-extend-region-for-font-lock): Simplified.
+	(slime-compute-region-for-font-lock): Make sure that we never
+	return a flag indicating change when there was in fact no
+	change. This should make the explicit guard against infinite loop
+	superfluous.
+	(slime-extend-region-warn-infinite-loop): Removed.
+	([test] font-lock-magic): More cases.
+
+2009-05-12  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	Make font-lock-magic test case pass.
 
 	* slime.el (slime-bug): New function.
