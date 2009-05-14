@@ -1,5 +1,12 @@
 2009-05-14  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-region-for-tlf-at-point): Use
+	`(end-of-defun) (backward-sexp)' rather than
+	`(end-of-defun) (beginning-of-defun' to go to the start of the
+	current defun. The latter would fail on "() (a\nb\nc)".
+
+2009-05-14  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (slime-compute-region-for-font-lock): Fix typo.
 
 2009-05-13  Tobias C. Rittweiler  <tcr@freebits.de>

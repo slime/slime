@@ -6835,7 +6835,7 @@ preceding reader conditionals into account."
                   (slime-search-backward-reader-conditional))
           (setq end (second (slime-region-for-tlf-at-point))))
         (values (or (/= beg orig-beg) (/= end orig-end)) beg end))
-    (error   ; unbalanced parentheses: cannot determine beginning/end of tlf.
+    (error ; unbalanced parentheses: cannot determine beginning/end of tlf.
      (values nil orig-beg orig-end))))
 
 ;;; FIXME: This is supposed to be the value for
@@ -7541,7 +7541,9 @@ BODY returns true if the check succeeds."
       (setq lisp-mode-hook hook))))
 
 (def-slime-test font-lock-magic (buffer-content)
-    "foo"
+    "Some testing for the font-lock-magic. *YES* should be
+    highlighted as a suppressed form, *NO* should not."
+
     '(("(defun *NO* (x y) (+ x y))")
       ("(defun *NO*")
       ("\(
@@ -8458,7 +8460,7 @@ within. This includes nested comments (#| ... |#)."
     (save-match-data
       ;; Position us at the beginning of the current defun.
       (end-of-defun) 
-      (beginning-of-defun)
+      (backward-sexp)
       (while (not (zerop (nth 0 (slime-current-parser-state))))
         ;; We go upwards, not downwards, to hopefully give the parser
         ;; state enough context to be accurate.
