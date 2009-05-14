@@ -1,4 +1,8 @@
-2009-05-12  Tobias C. Rittweiler  <tcr@freebits.de>
+2009-05-14  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-compute-region-for-font-lock): Fix typo.
+
+2009-05-13  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-search-suppressed-forms): On errors, we have to
 	continue the search, otherwise there's a chance that we miss

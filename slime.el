@@ -809,12 +809,12 @@ Backtrace:
 %s
 --------------------------------------------------------------
 "
-        (buffer-name)
-        (line-number-at-pos)
-        (current-column)
-        (point)
-        (apply #'format message args)
-        (with-output-to-string (backtrace))))
+   (buffer-name)
+   (line-number-at-pos)
+   (current-column)
+   (point)
+   (apply #'format message args)
+   (with-output-to-string (backtrace))))
 
 ;; Interface
 (defun slime-set-truncate-lines ()
@@ -6781,6 +6781,7 @@ preceding reader conditionals into account."
             (list start end))))))
 
 (defun slime-search-backward-reader-conditional ()
+  "Search for a directly preceding reader conditional."
   (save-excursion
     (save-match-data 
       (and (search-backward-regexp slime-reader-conditionals-regexp
@@ -6825,13 +6826,13 @@ preceding reader conditionals into account."
         ;; when we're at the toplevel!), otherwise fontification
         ;; wouldn't know the whole function definition may be
         ;; suppressed.
-        (cond ((plusp (nth 0 (slime-current-parser-state)))
-               (setq beg (first (slime-region-for-extended-tlf-at-point))))
-              ((setq beg (or (search-backward-reader-conditional)
-                             orig-beg))))
+        (if (plusp (nth 0 (slime-current-parser-state)))
+            (setq beg (first (slime-region-for-extended-tlf-at-point)))
+            (setq beg (or (slime-search-backward-reader-conditional)
+                          orig-beg)))
         (goto-char end)
         (when (or (plusp (nth 0 (slime-current-parser-state)))
-                  (search-backward-reader-conditional))
+                  (slime-search-backward-reader-conditional))
           (setq end (second (slime-region-for-tlf-at-point))))
         (values (or (/= beg orig-beg) (/= end orig-end)) beg end))
     (error   ; unbalanced parentheses: cannot determine beginning/end of tlf.
