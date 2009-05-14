@@ -1,3 +1,21 @@
+2009-05-14  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Optionally sort slots displayed for STANDARD-OBJECTS not
+	alphabetically, but by inheritance. That is group the slots
+	according to the class they're direct slots of.
+
+	* swank-fancy-inspector.lisp ([struct] inspector-checklist): New
+	slot `count'.
+	(make-checklist-button): Adapted accordingly.
+	(reinitialize-checklist): New.
+	(box, ref, (setf ref)): New.
+	(all-slots-for-inspector): Add button to group slots by
+	inheritance rather than alphabetically. Adapted accordingly.
+	(list-all-slots-by-inheritance): New. Does the bulk work.
+	(make-slot-listing): Factored out from `all-slots-for-inspector'.
+	(slot-home-class-using-class): New helper.
+	(stable-sort-by-inheritance): Also new.
+
 2009-05-08  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	The inspector page for standard-objects does not append

@@ -164,13 +164,22 @@ See `methods-by-applicability'.")
 
 (defstruct (inspector-checklist (:conc-name checklist.)
                                  (:constructor %make-checklist (buttons)))
-  (buttons nil :type (or null simple-vector)))
+  (buttons nil :type (or null simple-vector))
+  (count   0))
 
 (defun make-checklist (n)
   (%make-checklist (make-array n :initial-element nil)))
 
-(defun make-checklist-button (i checklist)
-  (let ((buttons (checklist.buttons checklist)))
+(defun reinitialize-checklist (checklist)
+  ;; Along this counter the buttons are created, so we have to
+  ;; initialize it to 0 everytime the inspector page is redisplayed.
+  (setf (checklist.count checklist) 0)
+  checklist)
+
+(defun make-checklist-button (checklist)
+  (let ((buttons (checklist.buttons checklist))
+        (i (checklist.count checklist)))
+    (incf (checklist.count checklist))
     `(:action ,(if (svref buttons i)
                    "[X]"
                    "[ ]")
@@ -186,10 +195,18 @@ See `methods-by-applicability'.")
           (when (svref ,buttons ,idx)
             ,@body)))))
 
+(defun box (thing) (cons :box thing))
+(defun ref (box)
+  (assert (eq (car box) :box))
+  (cdr box))
+(defun (setf ref) (value box)
+  (assert (eq (car box) :box))
+  (setf (cdr box) value))
+
 (defgeneric all-slots-for-inspector (object)
   (:method ((object standard-object))
-    (let* ((class (class-of object))
-           (direct-slots (swank-mop:class-direct-slots class))
+    (let* ((class           (class-of object))
+           (direct-slots    (swank-mop:class-direct-slots class))
            (effective-slots (sort (copy-seq (swank-mop:class-slots class))
                                   #'string< :key #'swank-mop:slot-definition-name))
            (longest-slot-name-length
@@ -197,45 +214,111 @@ See `methods-by-applicability'.")
                   maximize (length (symbol-name
                                     (swank-mop:slot-definition-name slot)))))
            (checklist
-            (ensure-istate-metadata object :checklist
-                                    (make-checklist (length effective-slots)))))
-      (append '("--------------------" (:newline)
-                "All Slots:" (:newline))
-              (loop
-                for effective-slot :in effective-slots
-                for direct-slot    = (find (swank-mop:slot-definition-name effective-slot)
-                                           direct-slots :key #'swank-mop:slot-definition-name)
-                for slot-name      = (inspector-princ
-                                      (swank-mop:slot-definition-name effective-slot))
-                for padding-length = (- longest-slot-name-length
-                                        (length (symbol-name
-                                                 (swank-mop:slot-definition-name
-                                                  effective-slot))))
-                for i from 0
-                collect (make-checklist-button i checklist)
-                collect "  "
-                collect `(:value ,(if direct-slot
-                                      (list direct-slot effective-slot)
-                                      effective-slot)
-                                 ,slot-name)
-                collect (make-string padding-length :initial-element #\Space)
-                collect " = "
-                collect (slot-value-for-inspector class object effective-slot)
-                collect '(:newline))
+            (reinitialize-checklist
+             (ensure-istate-metadata object :checklist
+                                       (make-checklist (length effective-slots)))))
+           (grouping-kind
+            ;; We box the value so we can re-set it.
+            (ensure-istate-metadata object :grouping-kind (box :alphabetically)))
+           (effective-slots
+            ;; We need this rebinding because the this list must be in
+            ;; the same order as they checklist buttons are created.
+            (ecase (ref grouping-kind)
+              (:alphabetically effective-slots)
+              (:inheritance    (stable-sort-by-inheritance effective-slots class)))))
+      `("--------------------"
+        (:newline)
+        "  "
+        (:action ,(case (ref grouping-kind)
+                    (:alphabetically "[group slots by inheritance]")
+                    (:inheritance    "[group slots alphabetically]"))
+                 ,(lambda ()
+                    ;; We have to do this as the order of slots will
+                    ;; be sorted differently.
+                    (fill (checklist.buttons checklist) nil)
+                    (case (ref grouping-kind)
+                      (:alphabetically (setf (ref grouping-kind) :inheritance))
+                      (:inheritance    (setf (ref grouping-kind) :alphabetically))))
+                 :refreshp t)
+        (:newline)
+        ,@ (case (ref grouping-kind)
+             (:alphabetically
               `((:newline)
-                (:action "[set value]"
-                         ,(lambda ()
-                            (do-checklist (idx checklist)
-                              (query-and-set-slot class object (nth idx effective-slots))))
-                         :refreshp t)
-                "  "
-                (:action "[make unbound]"
-                         ,(lambda ()
-                            (do-checklist (idx checklist)
-                              (swank-mop:slot-makunbound-using-class
-                               class object (nth idx effective-slots))))
-                         :refreshp t)
-                )))))
+                "All Slots:"
+                (:newline)
+                ,@(make-slot-listing checklist object class
+                                     effective-slots direct-slots
+                                     longest-slot-name-length)))
+             (:inheritance
+              (list-all-slots-by-inheritance checklist object class
+                                             effective-slots direct-slots
+                                             longest-slot-name-length)))
+        (:newline)
+        (:action "[set value]"
+                 ,(lambda ()
+                    (do-checklist (idx checklist)
+                      (query-and-set-slot class object (nth idx effective-slots))))
+                 :refreshp t)
+        "  "
+        (:action "[make unbound]"
+                 ,(lambda ()
+                    (do-checklist (idx checklist)
+                      (swank-mop:slot-makunbound-using-class
+                       class object (nth idx effective-slots))))
+                 :refreshp t)
+        (:newline)
+        ))))
+
+(defun list-all-slots-by-inheritance (checklist object class effective-slots direct-slots
+                                      longest-slot-name-length)
+  (flet ((slot-home-class (slot)
+           (slot-home-class-using-class slot class)))
+    (let ((current-slots '()))
+      (append
+       (loop for slot in effective-slots
+             for previous-home-class = (slot-home-class slot) then home-class
+             for home-class = previous-home-class then (slot-home-class slot)
+             if (eq home-class previous-home-class)
+               do (push slot current-slots)
+             else
+               collect '(:newline)
+               and collect (format nil "~A:" (class-name previous-home-class))
+               and collect '(:newline)
+               and append (make-slot-listing checklist object class
+                                             (nreverse current-slots) direct-slots
+                                             longest-slot-name-length)
+               and do (setf current-slots (list slot)))
+       (and current-slots
+            `((:newline)
+              ,(format nil "~A:"
+                       (class-name (slot-home-class-using-class
+                                    (car current-slots) class)))
+              (:newline)
+              ,@(make-slot-listing checklist object class
+                                   (nreverse current-slots) direct-slots
+                                   longest-slot-name-length)))))))
+
+(defun make-slot-listing (checklist object class effective-slots direct-slots
+                          longest-slot-name-length)
+  (flet ((padding-for (slot-name)
+           (make-string (- longest-slot-name-length (length slot-name))
+                        :initial-element #\Space)))
+    (loop
+      for effective-slot :in effective-slots
+      for direct-slot = (find (swank-mop:slot-definition-name effective-slot)
+                              direct-slots :key #'swank-mop:slot-definition-name)
+      for slot-name   = (inspector-princ
+                         (swank-mop:slot-definition-name effective-slot))
+      collect (make-checklist-button checklist)
+      collect "  "
+      collect `(:value ,(if direct-slot
+                            (list direct-slot effective-slot)
+                            effective-slot)
+                       ,slot-name)
+      collect (padding-for slot-name)
+      collect " = "
+      collect (slot-value-for-inspector class object effective-slot)
+      collect '(:newline))))
 
 (defgeneric slot-value-for-inspector (class object slot)
   (:method (class object slot)
@@ -243,6 +326,18 @@ See `methods-by-applicability'.")
       (if boundp
           `(:value ,(swank-mop:slot-value-using-class class object slot))
           "#<unbound>"))))
+
+(defun slot-home-class-using-class (slot class)
+  (let ((slot-name (swank-mop:slot-definition-name slot)))
+    (loop for class in (reverse (swank-mop:class-precedence-list class))
+          thereis (and (member slot-name (swank-mop:class-direct-slots class)
+                               :key #'swank-mop:slot-definition-name :test #'eq)
+                       class))))
+
+(defun stable-sort-by-inheritance (slots class)
+  (stable-sort slots #'string< 
+               :key #'(lambda (s)
+                        (class-name (slot-home-class-using-class s class)))))
 
 (defun query-and-set-slot (class object slot)
   (let* ((slot-name (swank-mop:slot-definition-name slot))
