@@ -1,5 +1,12 @@
 2009-05-15  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-allegro.lisp (swank-compile-string): Forgot to remove old
+	definition in changeset 2009-05-12.
+
+	Patch by Stelian Ionescu.
+
+2009-05-15  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	Move font-lock-magic into contrib/slime-fontifying-fu.el.
 
 	* slime.el (slime-highlight-suppressed-forms),

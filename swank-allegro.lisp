@@ -367,28 +367,6 @@
            string)))
     (reader-error () (values nil nil t))))
 
-(defimplementation swank-compile-string (string &key buffer position filename
-                                         policy)
-  (declare (ignore policy))
-  ;; We store the source buffer in excl::*source-pathname* as a string
-  ;; of the form <buffername>;<start-offset>.  Quite ugly encoding, but
-  ;; the fasl file is corrupted if we use some other datatype.
-  (with-compilation-hooks ()
-    (let ((*buffer-name* buffer)
-          (*buffer-start-position* position)
-          (*buffer-string* string)
-          (*default-pathname-defaults*
-           (if filename 
-               (merge-pathnames (pathname filename))
-               *default-pathname-defaults*)))
-      (compile-from-temp-file
-       (format nil "~S ~S~%~A" 
-               `(in-package ,(package-name *package*))
-               `(eval-when (:compile-toplevel :load-toplevel)
-                  (setq excl::*source-pathname*
-                        ',(format nil "~A;~D" buffer position)))
-               string)))))
-
 ;;;; Definition Finding
 
 (defun fspec-primary-name (fspec)
