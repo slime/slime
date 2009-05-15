@@ -30,7 +30,7 @@
   :group 'slime-mode-faces)
 
 (defun slime-search-suppressed-forms-internal (limit)
-  (when (re-search-forward "^\\([^;\n]*?[ \t(]\\)?#[-+]" limit t)
+  (when (search-forward-regexp slime-reader-conditionals-regexp limit t)
     (if (let ((state (slime-current-parser-state)))
           (or (nth 3 state)             ; inside string?
               (nth 4 state)))           ; inside comment?
@@ -92,26 +92,28 @@ position, or nil."
   ;;; between the reader conditional and the point where we started is
   ;;; no other intervening sexp, and we check that the reader
   ;;; conditional is at the same nesting level.
-  (let ((orig-pt (point)))
-    (multiple-value-bind (reader-conditional-pt parser-state)
-        (save-excursion
-          (when-let (pt (search-backward-regexp slime-reader-conditionals-regexp
-                                                ;; We restrict the search to the
-                                                ;; beginning of the /previous/ defun.
-                                                (save-match-data
-                                                  (save-excursion
-                                                    (beginning-of-defun) (point)))
-                                                t))
-            (values pt (parse-partial-sexp (progn (goto-char (+ pt 2))
-                                                  (forward-sexp) ; skip feature expr.
-                                                  (point))
-                                           orig-pt))))
-      (let ((paren-depth  (nth 0 parser-state))
-            (last-sexp-pt (nth 2 parser-state)))
-        (if (and paren-depth (not (plusp paren-depth)) ; no opening parenthesis in between?
-                 (not last-sexp-pt))                   ; no complete sexp in between?
-            reader-conditional-pt
-            nil)))))
+  (condition-case nil
+      (let ((orig-pt (point)))
+        (multiple-value-bind (reader-conditional-pt parser-state)
+            (save-excursion
+              (when-let (pt (search-backward-regexp slime-reader-conditionals-regexp
+                                                    ;; We restrict the search to the
+                                                    ;; beginning of the /previous/ defun.
+                                                    (save-match-data
+                                                      (save-excursion
+                                                        (beginning-of-defun) (point)))
+                                                    t))
+                (values pt (parse-partial-sexp (progn (goto-char (+ pt 2))
+                                                      (forward-sexp) ; skip feature expr.
+                                                      (point))
+                                               orig-pt))))
+          (let ((paren-depth  (nth 0 parser-state))
+                (last-sexp-pt (nth 2 parser-state)))
+            (if (and paren-depth (not (plusp paren-depth)) ; no opening parenthesis in between?
+                     (not last-sexp-pt))                   ; no complete sexp in between?
+                reader-conditional-pt
+                nil))))
+    (scan-error nil)))                                     ; improper feature expression
 
 
 ;;; We'll push this onto `font-lock-extend-region-functions'. In past,

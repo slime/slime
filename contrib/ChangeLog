@@ -1,5 +1,12 @@
 2009-05-15  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-fontifying-fu.el (slime-search-suppressed-forms-internal):
+	Use `slime-reader-conditionals-regexp'.
+	(slime-search-directly-preceding-reader-conditional): Catch scan
+	errors due to improper feature expressions.
+
+2009-05-15  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-repl.el (with-canonicalized-slime-repl-buffer): XEmacs
 	chokes on symbol-names with an initial dot.
 
