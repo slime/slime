@@ -1,5 +1,12 @@
 2009-05-15  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-repl.el (with-canonicalized-slime-repl-buffer): XEmacs
+	chokes on symbol-names with an initial dot.
+
+	Patch by François-René Rideau.
+
+2009-05-15  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	Moved font-lock-magic from slime.el to slime-fontifying-fu.el.
 
 	N.B. slime-fontifying-fu is automatically loaded by
