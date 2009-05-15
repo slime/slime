@@ -1,5 +1,18 @@
 2009-05-15  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	Move font-lock-magic into contrib/slime-fontifying-fu.el.
+
+	* slime.el (slime-highlight-suppressed-forms),
+	(slime-reader-conditional-face),
+	(slime-search-suppressed-forms-internal),
+	(slime-search-suppressed-forms),
+	(slime-search-directly-preceding-reader-conditional),
+	(slime-extend-region-for-font-lock),
+	(slime-compute-region-for-font-lock),
+	(slime-activate-font-lock-magic): Moved.
+
+2009-05-15  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	Rewrote some parts of the font-lock-magic in face of its fragility
 	over the last days. Hopefully it'll be better now.
 
