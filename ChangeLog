@@ -1,3 +1,19 @@
+2009-05-15  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Rewrote some parts of the font-lock-magic in face of its fragility
+	over the last days. Hopefully it'll be better now.
+
+	* slime.el (slime-region-for-tlf-at-point): Removed. Not needed
+	anymore.
+	(slime-region-for-extended-tlf-at-point): Removed.
+	(slime-search-backward-reader-conditional): Removed.
+	(slime-search-directly-preceding-reader-conditional):
+	New. Similiar to the above.
+	(slime-extend-region-for-font-lock): Display bug message when
+	error is caught.
+	(slime-compute-region-for-font-lock): Rewritten.
+	([test] font-lock-magic): Another test case.
+
 2009-05-14  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-region-for-tlf-at-point): Use

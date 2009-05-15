@@ -6767,38 +6767,35 @@ Only considers buffers that are not already visible."
                 "that are suppressed by reader-conditionals. The error was: %S.")
         condition)))))
 
-(defun slime-region-for-extended-tlf-at-point ()
-  "Like `slime-region-for-tlf-at-point' except we take
-preceding reader conditionals into account."
-  (destructuring-bind (start end) (slime-region-for-tlf-at-point)
-    (save-excursion
-      (goto-char start)
-      ;; At this point we want to watch out for a possibly preceding
-      ;; reader conditional..
-      (let ((point (slime-search-backward-reader-conditional)))
-        (if point
-            (list point end)
-            (list start end))))))
 
-(defun slime-search-backward-reader-conditional ()
-  "Search for a directly preceding reader conditional."
-  (save-excursion
-    (save-match-data 
-      (and (search-backward-regexp slime-reader-conditionals-regexp
-                                   ;; We restrict the search to the
-                                   ;; beginning of the /previous/ defun.
-                                   (save-excursion 
-                                     (beginning-of-defun) (point))
-                                   t)
-           ;; We actually need to restrict the search to the end of the
-           ;; previous defun, but we can't easily determine that end.
-           ;; (`forward-sexp' after the `beginning-of-defun' won't work for
-           ;; a conditionalized form at the top of a file.)
-           ;;
-           ;; As a result, we may be slipped into another defun here, so we
-           ;; have to check against that:
-           (zerop (nth 0 (slime-current-parser-state)))
-           (point)))))
+(defun slime-search-directly-preceding-reader-conditional ()
+  "Search for a directly preceding reader conditional. Return its
+position, or nil."
+  ;;; We search for a preceding reader conditional. Then we check that
+  ;;; between the reader conditional and the point where we started is
+  ;;; no other intervening sexp, and we check that the reader
+  ;;; conditional is at the same nesting level.
+  (let ((orig-pt (point)))
+    (multiple-value-bind (reader-conditional-pt parser-state)
+        (save-excursion
+          (when-let (pt (search-backward-regexp slime-reader-conditionals-regexp
+                                                ;; We restrict the search to the
+                                                ;; beginning of the /previous/ defun.
+                                                (save-match-data
+                                                  (save-excursion
+                                                    (beginning-of-defun) (point)))
+                                                t))
+            (values pt (parse-partial-sexp (progn (goto-char (+ pt 2))
+                                                  (forward-sexp) ; skip feature expr.
+                                                  (point))
+                                           orig-pt))))
+      (let ((paren-depth  (nth 0 parser-state))
+            (last-sexp-pt (nth 2 parser-state)))
+        (if (and paren-depth (not (plusp paren-depth)) ; no opening parenthesis in between?
+                 (not last-sexp-pt))                   ; no complete sexp in between?
+            reader-conditional-pt
+            nil)))))
+
 
 ;;; We'll push this onto `font-lock-extend-region-functions'. In past,
 ;;; we didn't do so which made our reader-conditional font-lock magic
@@ -6812,46 +6809,38 @@ preceding reader conditionals into account."
 ;;; reader-conditional, or point in mid of one.
 (defun slime-extend-region-for-font-lock ()
   (when (and slime-highlight-suppressed-forms (slime-connected-p))
-    (let (changedp)
-      (multiple-value-setq (changedp font-lock-beg font-lock-end)
-        (slime-compute-region-for-font-lock font-lock-beg font-lock-end))
-      changedp)))
+    (condition-case c
+        (let (changedp)
+          (multiple-value-setq (changedp font-lock-beg font-lock-end)
+            (slime-compute-region-for-font-lock font-lock-beg font-lock-end))
+          changedp)
+      (error 
+       (slime-bug 
+        (concat "Caught error when trying to extend the region for fontification.\n"
+                "The error was: %S\n"
+                "Further: font-lock-beg=%d, font-lock-end=%d.")
+        c font-lock-beg font-lock-end)))))
 
 (defun slime-compute-region-for-font-lock (orig-beg orig-end)
-  (condition-case nil
-      (let ((beg orig-beg)
-            (end orig-end))
-        (goto-char beg)
-        ;; N.B. take preceding reader-conditional into account (even
-        ;; when we're at the toplevel!), otherwise fontification
-        ;; wouldn't know the whole function definition may be
-        ;; suppressed.
-        (if (plusp (nth 0 (slime-current-parser-state)))
-            (setq beg (first (slime-region-for-extended-tlf-at-point)))
-            (setq beg (or (slime-search-backward-reader-conditional)
-                          orig-beg)))
-        (goto-char end)
-        (when (or (plusp (nth 0 (slime-current-parser-state)))
-                  (slime-search-backward-reader-conditional))
-          (setq end (second (slime-region-for-tlf-at-point))))
-        (values (or (/= beg orig-beg) (/= end orig-end)) beg end))
-    (error ; unbalanced parentheses: cannot determine beginning/end of tlf.
-     (values nil orig-beg orig-end))))
-
-;;; FIXME: This is supposed to be the value for
-;;; `font-lock-mark-block-function' (so M-o M-o will DTRT), but I
-;;; couldn't so far figure out how to customize that variable.
-;;; (N.B. `font-lock-defaults' may (in fact does) contain an explicit
-;;; binding of that variable.)
-(defun slime-mark-defun-for-font-lock ()
-  "Almost `mark-defun' but this function sets point to a possibly
-preceding reader-conditional so slime's reader-conditional aware
-font-lock magic has a chance to run."
-  (destructuring-bind (start end) 
-      (slime-region-for-extended-tlf-at-point)
-    (goto-char end)
-    (push-mark)
-    (goto-char start)))
+  (interactive)
+  (flet ((beginning-of-tlf ()
+           (while (when-let (upper-pt (nth 1 (slime-current-parser-state)))
+                    (goto-char upper-pt)))))
+    (let ((beg orig-beg)
+          (end orig-end))
+      (goto-char beg)
+      (beginning-of-tlf)
+      (assert (not (plusp (nth 0 (slime-current-parser-state)))))
+      (setq beg (or (slime-search-directly-preceding-reader-conditional)
+                    (point)))
+      (goto-char end)
+      (when (search-backward-regexp slime-reader-conditionals-regexp beg t)
+        ;; Nested reader conditionals, yuck!
+        (while (when-let (pt (slime-search-directly-preceding-reader-conditional))
+                 (goto-char pt)))
+        (ignore-errors (slime-forward-reader-conditional))
+        (setq end (max end (point))))
+      (values (or (/= beg orig-beg) (/= end orig-end)) beg end))))
 
 
 (defun slime-activate-font-lock-magic ()
@@ -7546,6 +7535,7 @@ BODY returns true if the check succeeds."
 
     '(("(defun *NO* (x y) (+ x y))")
       ("(defun *NO*")
+      ("*NO*) #-(and) (*YES*) (*NO* *NO*")
       ("\(
 \(defun *NO*")
       ("\)
@@ -7590,6 +7580,19 @@ BODY returns true if the check succeeds."
 #-(and)
 \(*YES*)
 \(*NO*)")
+      ("#+nil (foo)
+
+#-(and)
+#+nil (
+       asdf *YES* a
+            fsdfad)
+
+\( asdf *YES*
+
+       )
+\(*NO*)
+
+")
       )
   (slime-check-top-level)
   (with-temp-buffer
@@ -8448,27 +8451,6 @@ within. This includes nested comments (#| ... |#)."
         (beginning-of-defun)
         (list (point) end)))))
 
-;;; This may coincide with `slime-region-for-defun-at-point' but this
-;;; function really tries to find out the toplevel form not just a
-;;; form that begins at the 0th column. It's not guaranteed to work
-;;; reliably, though, as it relies on Emacs' parser state which is
-;;; context-sensitive. Works quite good when the buffer is processed
-;;; from top to bottom (e.g. during fontification.)
-(defun slime-region-for-tlf-at-point ()
-  "Return the start and end position of the toplevel form at point."
-  (save-excursion
-    (save-match-data
-      ;; Position us at the beginning of the current defun.
-      (end-of-defun) 
-      (backward-sexp)
-      (while (not (zerop (nth 0 (slime-current-parser-state))))
-        ;; We go upwards, not downwards, to hopefully give the parser
-        ;; state enough context to be accurate.
-        (beginning-of-defun))
-      (let ((start (point)))
-        (end-of-defun)
-        (list start (point))))))
-
 (defun slime-exit-vertical-bars ()
   "Move out from within vertical bars (|foo|) to the leading bar."
   (let* ((parser-state (slime-current-parser-state))
@@ -9041,10 +9023,8 @@ If they are not, position point at the first syntax error found."
           slime-forward-sexp
           slime-forward-cruft
           slime-forward-any-comment
-          slime-region-for-tlf-at-point
-          slime-region-for-extended-tlf-at-point
           slime-extend-region-for-font-lock
-          slime-search-backward-reader-conditional
+          slime-search-directly-preceding-reader-conditional
           slime-search-suppressed-forms
           )))
 
