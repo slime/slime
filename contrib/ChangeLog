@@ -1,5 +1,10 @@
 2009-05-16  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-fontifying-fu.el (slime-beginning-of-tlf): Make sure to
+	skip outside of comments and strings first.
+
+2009-05-16  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	Optimize font-lock-magic.
 
 	* slime-fontifying-fu.el (slime-search-suppressed-forms-match-data):
