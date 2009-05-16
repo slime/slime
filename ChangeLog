@@ -5,6 +5,8 @@
 	disassembler output.
 	(function-source-location): Remove the old pre-1.3 version.
 
+	* swank.lisp (sldb-bitvector-pprint): Oops, all bits are true.
+
 2009-05-16  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-current-parser-state): Do not save

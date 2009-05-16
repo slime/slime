@@ -114,7 +114,7 @@
                        (when (= i *sldb-bitvector-length*)
                          (write-string "..." stream)
                          (loop-finish))
-                       (write-char (if bit #\1 #\0) stream))))
+                       (write-char (if (= bit 0) #\0 #\1) stream))))
            (sldb-string-pprint (stream string)
              ;;; Truncate strings according to *SLDB-STRING-LENGTH*.
              (cond ((not *print-escape*)
