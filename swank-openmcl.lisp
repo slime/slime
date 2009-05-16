@@ -368,7 +368,8 @@ condition."
   (with-compilation-hooks ()
     (let ((*buffer-name* buffer)
           (*buffer-offset* position)
-          (temp-file-name (temp-file-name)))
+          (temp-file-name (temp-file-name))
+          (ccl:*save-source-locations* t))
       (unwind-protect
            (progn
              (with-open-file (s temp-file-name :direction :output 
@@ -673,122 +674,67 @@ condition."
 ;; backward-compatible functions that deal with filenames only.  The plan
 ;; is to make Slime, and our IDE, use this eventually.
 
-#+#.(cl:if (cl:fboundp 'ccl::function-source-note) '(:or) '(:and))
-(progn
-  (defun function-source-location (function)
-    (or (car (source-locations function))
-        (list :error (format nil "No source info available for ~A" function))))
-  
-  (defun pc-source-location (function pc)
-    (function-source-location function))
+(defun function-source-location (function)
+  (source-note-to-source-location
+   (ccl:function-source-note function)
+   (lambda ()
+     (format nil "Function has no source note: ~A" function))))
 
-  ;; source-locations THING => LOCATIONS NAMES
-  ;; LOCATIONS ... a list of source-locations.  Most "specific" first.
-  ;; NAMES     ... a list of names.
-  (labels ((str (obj) (princ-to-string obj))
-           (str* (list) (mapcar #'princ-to-string list))
-           (unzip (list) (values (mapcar #'car list) (mapcar #'cdr list)))
-           (filename (file) (namestring (truename file)))
-           (src-loc (file pos)
-             (etypecase file
-               (null `(:error "No source-file info available"))
-               ((or string pathname)
-                (handler-case (make-location `(:file ,(filename file)) pos)
-                  (error (c) `(:error ,(princ-to-string c)))))))
-           (fallback (thing)
-             (cond ((functionp thing)
-                    (let ((name (ccl::function-name thing)))
-                      (and (consp name) (eq (car name) :internal)
-                           (ccl::edit-definition-p (second name))))))))
+(defun pc-source-location (function pc)
+  (source-note-to-source-location
+   (or (ccl:find-source-note-at-pc function pc)
+       (ccl:function-source-note function))
+   (lambda ()
+     (format nil "No source note at PC: ~A:#x~x" function pc))))
 
-    ;; FIXME: reorder result, e.g. if THING is a function then return
-    ;; the locations for type 'function before those with type
-    ;; 'variable.  (Otherwise the debugger jumps to compiler-macros
-    ;; instead of functions :-)
-    (defun source-locations (thing)
-      (multiple-value-bind (files name) (ccl::edit-definition-p thing)
-        (when (null files) 
-          (multiple-value-setq (files name) (fallback thing)))
-        (unzip
-         (loop for (type . file) in files collect
-               (etypecase type
-                 ((member function macro variable compiler-macro 
-                          ccl:defcallback ccl::x8664-vinsn)
-                  (cons (src-loc file (list :function-name (str name))) 
-                        (list type name)))
-                 (method
-                  (let* ((met type)
-                         (name (ccl::method-name met))
-                         (specs (ccl::method-specializers met))
-                         (specs (mapcar #'specializer-name specs))
-                         (quals (ccl::method-qualifiers met)))
-                    (cons (src-loc file (list :method (str name) 
-                                              (str* specs) (str* quals)))
-                          `(method ,name ,@quals ,specs)))))))))))
-
-#+#.(cl:if (cl:fboundp 'ccl::function-source-note) '(:and) '(:or))
-(progn
-  (defun function-source-location (function)
-    (source-note-to-source-location
-     (ccl:function-source-note function)
-     (lambda ()
-       (format nil "Function has no source note: ~A" function))))
-
-  (defun pc-source-location (function pc)
-    (source-note-to-source-location
-     (or (ccl:find-source-note-at-pc function pc)
-         (ccl:function-source-note function))
-     (lambda ()
-       (format nil "No source note at PC: ~A:#x~x" function pc))))
-
-  (defun source-note-to-source-location (note if-nil-thunk)
-    (labels ((filename-to-buffer (filename)
-               (cond ((probe-file filename)
-                      (list :file (namestring (truename filename))))
-                     ((gethash filename *temp-file-map*)
-                      (list :buffer (gethash filename *temp-file-map*)))
-                     (t (error "File ~s doesn't exist" filename)))))
-      (cond (note
-             (handler-case
-                 (make-location 
-                  (filename-to-buffer (ccl:source-note-filename note))
-                  (list :position (1+ (ccl:source-note-start-pos note))))
-               (error (c) `(:error ,(princ-to-string c)))))
+(defun source-note-to-source-location (note if-nil-thunk)
+  (labels ((filename-to-buffer (filename)
+             (cond ((probe-file filename)
+                    (list :file (namestring (truename filename))))
+                   ((gethash filename *temp-file-map*)
+                    (list :buffer (gethash filename *temp-file-map*)))
+                   (t (error "File ~s doesn't exist" filename)))))
+    (cond (note
+           (handler-case
+               (make-location 
+                (filename-to-buffer (ccl:source-note-filename note))
+                (list :position (1+ (ccl:source-note-start-pos note))))
+             (error (c) `(:error ,(princ-to-string c)))))
           (t `(:error ,(funcall if-nil-thunk))))))
 
-  (defimplementation find-definitions (symbol)
-    (loop for (loc . name) in (source-locations symbol)
-          collect (list name loc)))
+(defimplementation find-definitions (symbol)
+  (loop for (loc . name) in (source-locations symbol)
+        collect (list name loc)))
 
-  (defgeneric source-locations (thing))
+(defgeneric source-locations (thing))
 
-  (defmethod source-locations ((f function))
-    (list (cons (function-source-location f)
-                (list 'function (ccl:function-name f)))))
+(defmethod source-locations ((f function))
+  (list (cons (function-source-location f)
+              (list 'function (ccl:function-name f)))))
 
-  (defmethod source-locations ((s symbol))
-    (append
-     #+(or)
-     (if (and (fboundp s) 
-              (not (macro-function s))
-              (not (special-operator-p s))
-              (functionp (symbol-function s)))
-         (source-locations (symbol-function s)))
-     (loop for ((type . name) source) in (ccl:find-definition-sources s)
-           collect (cons (source-note-to-source-location 
-                          source (lambda () "No source info available"))
-                         (definition-name type name)))))
+(defmethod source-locations ((s symbol))
+  (append
+   #+(or)
+   (if (and (fboundp s) 
+            (not (macro-function s))
+            (not (special-operator-p s))
+            (functionp (symbol-function s)))
+       (source-locations (symbol-function s)))
+   (loop for ((type . name) source) in (ccl:find-definition-sources s)
+         collect (cons (source-note-to-source-location 
+                        source (lambda () "No source info available"))
+                       (definition-name type name)))))
 
-  (defgeneric definition-name (type name)
-    (:method ((type ccl::definition-type) name)
-      (list (ccl::definition-type-name type) name)))
+(defgeneric definition-name (type name)
+  (:method ((type ccl::definition-type) name)
+    (list (ccl::definition-type-name type) name)))
 
-  (defmethod definition-name ((type ccl::method-definition-type)
-                              (met method))
-    `(,(ccl::definition-type-name type)
-       ,(ccl::method-name met)
-       ,@(ccl::method-qualifiers met)
-       ,(mapcar #'specializer-name (ccl::method-specializers met)))))
+(defmethod definition-name ((type ccl::method-definition-type)
+                            (met method))
+  `(,(ccl::definition-type-name type)
+     ,(ccl::method-name met)
+     ,@(ccl::method-qualifiers met)
+     ,(mapcar #'specializer-name (ccl::method-specializers met))))
   
 (defimplementation frame-source-location-for-emacs (index)
   "Return to Emacs the location of the source code for the
