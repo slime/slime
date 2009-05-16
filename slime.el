@@ -8415,7 +8415,7 @@ The result is unspecified if there isn't a symbol under the point."
       ;; `beginning-of-defun' implicitly which does not save match
       ;; data. This issue has been reported to the Emacs maintainer on
       ;; Feb27.
-      (save-match-data (syntax-ppss)))
+      (syntax-ppss))
     (defsubst slime-current-parser-state ()
       (let ((original-pos (point)))
         (save-excursion
@@ -8850,12 +8850,10 @@ If they are not, position point at the first syntax error found."
           slime-end-of-symbol
           ;; Used implicitly during fontification:
           slime-current-parser-state
+          slime-eval-feature-expression
           slime-forward-sexp
           slime-forward-cruft
           slime-forward-any-comment
-          slime-extend-region-for-font-lock
-          slime-search-directly-preceding-reader-conditional
-          slime-search-suppressed-forms
           )))
 
 (provide 'slime)

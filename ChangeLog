@@ -1,3 +1,9 @@
+2009-05-16  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-current-parser-state): Do not save
+	match-data. This function is called so often that it makes a
+	difference.
+
 2009-05-16  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (*sldb-pprint-dispatch-table*): Be careful when
