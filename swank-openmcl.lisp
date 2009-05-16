@@ -522,81 +522,50 @@ condition."
             (or (ccl::function-name lfun) lfun)
             (frame-arguments p context lfun pc))))
 
+(defun call/frame (frame-number if-found)
+  (map-backtrace  
+   (lambda (fnumber p context lfun pc)
+     (when (= fnumber frame-number)
+       (return-from call/frame 
+         (funcall if-found p context lfun pc))))))
+
+(defmacro with-frame ((p context lfun pc) frame-number &body body)
+  `(call/frame ,frame-number (lambda (,p ,context ,lfun ,pc) . ,body)))
+
 (defimplementation frame-var-value (frame var)
-  (block frame-var-value
-    (map-backtrace  
-     #'(lambda(frame-number p context lfun pc)
-         (when (= frame frame-number)
-           (return-from frame-var-value 
-             (multiple-value-bind (total vsp parent-vsp)
-                 (ccl::count-values-in-frame p context)
-               (loop for count below total
-                     with varcount = -1
-                     for (value nil name) = (multiple-value-list (ccl::nth-value-in-frame p count context lfun pc vsp parent-vsp))
-                     when name do (incf varcount)
-                     until (= varcount var)
-                     finally (return value)))))))))
+  (with-frame (p context lfun pc) frame
+    (cadr (nth var (frame-visible-variables p context lfun pc)))))
 
 (defimplementation frame-locals (index)
-  (block frame-locals
-    (map-backtrace 
-     (lambda (frame-number p context lfun pc)
-       (when (= frame-number index)
-         (multiple-value-bind (count vsp parent-vsp)
-             (ccl::count-values-in-frame p context)
-           (let (result)
-             (dotimes (i count)
-               (multiple-value-bind (var type name)
-                   (ccl::nth-value-in-frame p i context lfun pc vsp parent-vsp)
-                 (declare (ignore type))
-                 (when name
-                   (push (list 
-                          :name name
-                          :id 0
-                          :value (if (typep var 'ccl::value-cell)
-                                     (ccl::uvref var 0)
-                                     var))
-                         result))))
-             (return-from frame-locals (nreverse result)))))))))
+  (with-frame (p context lfun pc) index
+    (loop for (name value) in (frame-visible-variables p context lfun pc)
+          collect (list :name name :value value :id 0))))
 
-
-#+(or) ;; Doesn't work well on x86-32
-(defimplementation frame-catch-tags (index &aux my-frame)
-  (block frame-catch-tags
-    (map-backtrace 
-     (lambda (frame-number p context lfun pc)
-       (declare (ignore pc lfun))
-       (if (= frame-number index) 
-           (setq my-frame p)
-           (when my-frame
-             (return-from frame-catch-tags
-               (loop for catch = (ccl::%catch-top (ccl::%current-tcr)) then (ccl::next-catch catch)
-                     while catch
-                     for csp = (ccl::uvref catch 3) ; ppc32::catch-frame.csp-cell) defined in arch.lisp
-                     for tag = (ccl::uvref catch 0) ; ppc32::catch-frame.catch-tag-cell)
-                     until (ccl::%stack< p csp context)
-                     when (ccl::%stack< my-frame csp context)
-                     collect (cond 
-                               ((symbolp tag)
-                                tag)
-                               ((and (listp tag)
-                                     (typep (car tag) 'restart))
-                                `(:restart ,(restart-name (car tag)))))))))))))
+(defun frame-visible-variables (p context lfun pc)
+  "Return a list ((NAME VALUE) ...) of the named variables for this frame."
+  (multiple-value-bind (count vsp parent-vsp) 
+      (ccl::count-values-in-frame p context)
+    (let (result)
+      (dotimes (i count)
+        (multiple-value-bind (var type name)
+            (ccl::nth-value-in-frame p i context lfun pc vsp parent-vsp)
+          (declare (ignore type))
+          (when name
+            (let ((value (typecase var
+                           (ccl::value-cell (ccl::uvref var 0))
+                           (t var))))
+              (push (list name value) result)))))
+      (reverse result))))
 
 (defimplementation disassemble-frame (the-frame-number)
-  (let ((function-to-disassemble nil))
-    (block find-frame
-      (map-backtrace
-       (lambda(frame-number p context lfun pc)
-         (declare (ignore p context pc))
-         (when (= frame-number the-frame-number)
-           (setq function-to-disassemble lfun)
-           (return-from find-frame)))))
+  (with-frame (p context lfun pc) the-frame-number
+    (declare (ignore p context pc))
     #+ppc (ccl::print-ppc-instructions 
            *standard-output* 
-           (ccl::function-to-dll-header function-to-disassemble)
+           (ccl::function-to-dll-header lfun)
            nil)
-    #+x86-64 (ccl::x8664-xdisassemble function-to-disassemble)))
+    #+x86-64 (ccl::x8664-xdisassemble lfun)
+    #+x8632-target (ccl::x8632-xdisassemble lfun)))
 
 ;;;
 

@@ -1,5 +1,15 @@
 2009-05-16  Helmut Eller  <heller@common-lisp.net>
 
+	Minor refactoring.
+
+	* swank-openmcl.lisp (call/frame, with-frame): New macro.
+	(frame-visible-variables): New helper.
+	(frame-var-value, frame-locals, disassemble-frame): Use it.
+	(frame-catch-tags): Removed.  Way to much code for such a rarely
+	used function.
+
+2009-05-16  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-openmcl.lisp (swank-compile-string): Store the source
 	code, by setting CCL:*SAVE-SOURCE-LOCATIONS* to T, for better
 	disassembler output.
