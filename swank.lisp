@@ -2292,7 +2292,7 @@ aborted and return immediately with the output written so far."
 
 (defun escape-string (string stream &key length (map '((#\" . "\\\"")
                                                        (#\\ . "\\\\"))))
-  "Write STRING to STREAM with surronded by double-quotes.
+  "Write STRING to STREAM surronded by double-quotes.
 LENGTH -- if non-nil truncate output after LENGTH chars.
 MAP -- rewrite the chars in STRING according this alist."
   (let ((limit (or length array-dimension-limit)))
