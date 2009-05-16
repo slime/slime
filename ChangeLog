@@ -1,3 +1,11 @@
+2009-05-16  Helmut Eller  <heller@common-lisp.net>
+
+	* swank.lisp (*sldb-pprint-dispatch-table*): Be careful when
+	calling WRITE recursively: set :circle to nil which avoids
+	interference with cycle-detection.
+	(escape-string): New helper function.
+	(*backtrace-pprint-dispatch-table*): Use it.
+
 2009-05-15  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-allegro.lisp (swank-compile-string): Forgot to remove old
