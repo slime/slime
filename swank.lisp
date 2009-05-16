@@ -2303,7 +2303,7 @@ MAP -- rewrite the chars in STRING according to this alist."
             (write-string "..." stream)
             (return))
           (let ((probe (assoc c map)))
-            (cond (probe (write-string (cadr probe) stream))
+            (cond (probe (write-string (cdr probe) stream))
                   (t (write-char c stream)))))
     (write-char #\" stream)))
 
