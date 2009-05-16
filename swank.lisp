@@ -2294,7 +2294,7 @@ aborted and return immediately with the output written so far."
                                                        (#\\ . "\\\\"))))
   "Write STRING to STREAM surronded by double-quotes.
 LENGTH -- if non-nil truncate output after LENGTH chars.
-MAP -- rewrite the chars in STRING according this alist."
+MAP -- rewrite the chars in STRING according to this alist."
   (let ((limit (or length array-dimension-limit)))
     (write-char #\" stream)
     (loop for c across string 
