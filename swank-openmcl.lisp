@@ -227,41 +227,20 @@
 
 ;;; Compilation
 
-(defvar *buffer-offset* nil)
-(defvar *buffer-name* nil)
-
-(defun condition-source-position (condition)
-  "Return the position in the source file of a compiler condition."
-  (+ 1
-     (or *buffer-offset* 0)
-     ;; alanr sometimes returned stream position nil.
-     (or (ccl::compiler-warning-stream-position condition) 0))) 
-
-
 (defun handle-compiler-warning (condition)
-  "Construct a compiler note for Emacs from a compiler warning
-condition."
+  "Resignal a ccl:compiler-warning as swank-backend:compiler-warning."
   (signal (make-condition
            'compiler-condition
            :original-condition condition
            :message (format nil "~A" condition)
-           :severity :warning
-           :location
-           (let ((position (condition-source-position condition)))
-             (if *buffer-name*
-                 (make-location
-                  (list :buffer *buffer-name*)
-                  (list :offset position 0)
-                  (list :align t))
-                 (if (ccl::compiler-warning-file-name condition)
-                     (make-location
-                      (list :file (namestring (truename (ccl::compiler-warning-file-name condition))))
-                      (list :position position)
-                      (list :align t))))))))
+           :severity (compiler-warning-severity condition)
+           :location (source-note-to-source-location 
+                      (ccl::compiler-warning-source-note condition)
+                      (lambda () "Unknown source")))))
 
-(defun temp-file-name ()
-  "Return a temporary file name to compile strings into."
-  (ccl:%get-cstring (#_tmpnam (ccl:%null-ptr))))
+(defgeneric compiler-warning-severity (condition))
+(defmethod compiler-warning-severity ((c ccl::compiler-warning)) :warning)
+(defmethod compiler-warning-severity ((c ccl::style-warning)) :style-warning)
 
 (defimplementation call-with-compilation-hooks (function)
   (handler-bind ((ccl::compiler-warning 'handle-compiler-warning))
@@ -269,13 +248,11 @@ condition."
 
 (defimplementation swank-compile-file (input-file output-file
                                        load-p external-format)
-  (declare (ignore external-format))
   (with-compilation-hooks ()
-    (let ((*buffer-name* nil)
-          (*buffer-offset* nil))
-      (compile-file input-file 
-                    :output-file output-file
-                    :load load-p))))
+    (compile-file input-file 
+                  :output-file output-file 
+                  :load load-p
+                  :external-format external-format)))
 
 (defun xref-locations (relation name &optional (inverse nil))
   (flet ((function-source-location (entry)
@@ -362,13 +339,15 @@ condition."
            (mapcan 'who-specializes (ccl::%class-direct-subclasses class)))
    :test 'equal))
 
+(defun temp-file-name ()
+  "Return a temporary file name to compile strings into."
+  (ccl:%get-cstring (#_tmpnam (ccl:%null-ptr))))
+
 (defimplementation swank-compile-string (string &key buffer position filename
                                          policy)
   (declare (ignore policy))
   (with-compilation-hooks ()
-    (let ((*buffer-name* buffer)
-          (*buffer-offset* position)
-          (temp-file-name (temp-file-name))
+    (let ((temp-file-name (temp-file-name))
           (ccl:*save-source-locations* t))
       (unwind-protect
            (progn

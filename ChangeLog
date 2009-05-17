@@ -1,3 +1,17 @@
+2009-05-17  Helmut Eller  <heller@common-lisp.net>
+
+	More precise compiler-message location.
+
+	* swank-openmcl.lisp (handle-compiler-warning): Use the
+	source-note slot of the condition as source location, which is
+	more precise than the stream-position slot.
+	(compiler-warning-severity): New function. The distinction between
+	warning and style-warning is rather arbitrary but let's try it.
+	(swank-compile-file): Pass the external-format arg down to
+	compile file.
+	(*buffer-name*, *buffer-offset*, condition-source-position):
+	Deleted. No longer used.
+
 2009-05-16  Helmut Eller  <heller@common-lisp.net>
 
 	Minor refactoring.
