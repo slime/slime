@@ -37,7 +37,7 @@
           (or (nth 3 state)             ; inside string?
               (nth 4 state)))           ; inside comment?
         (slime-search-suppressed-forms-internal limit)
-      (let* ((start (- (point) 2))
+      (let* ((start (match-beginning 0))
              (char (char-before))
              (e (read (current-buffer)))
              (val (slime-eval-feature-expression e)))
@@ -131,7 +131,7 @@ position, or nil."
           (multiple-value-setq (changedp font-lock-beg font-lock-end)
             (slime-compute-region-for-font-lock font-lock-beg font-lock-end))
           changedp)
-      (error 
+      (error
        (slime-bug 
         (concat "Caught error when trying to extend the region for fontification.\n"
                 "The error was: %S\n"
@@ -158,8 +158,9 @@ position, or nil."
     (goto-char beg)
     (inline (slime-beginning-of-tlf))
     (assert (not (plusp (nth 0 (slime-current-parser-state)))))
-    (setq beg (or (slime-search-directly-preceding-reader-conditional)
-                  (point)))
+    (setq beg (let ((pt (point))) 
+                (or (slime-search-directly-preceding-reader-conditional)
+                    pt)))
     (goto-char end)
     (when (search-backward-regexp slime-reader-conditionals-regexp beg t)
       ;; Nested reader conditionals, yuck!
