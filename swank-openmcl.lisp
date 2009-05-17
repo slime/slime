@@ -205,7 +205,7 @@
 (defimplementation lisp-implementation-type-name ()
   "ccl")
 
-;;; Evaluation
+;;; Arglist
 
 (defimplementation arglist (fname)
   (arglist% fname))
@@ -253,6 +253,42 @@
                   :output-file output-file 
                   :load load-p
                   :external-format external-format)))
+
+(defun temp-file-name ()
+  "Return a temporary file name to compile strings into."
+  (ccl:%get-cstring (#_tmpnam (ccl:%null-ptr))))
+
+(defimplementation swank-compile-string (string &key buffer position filename
+                                         policy)
+  (declare (ignore policy))
+  (with-compilation-hooks ()
+    (let ((temp-file-name (temp-file-name))
+          (ccl:*save-source-locations* t))
+      (unwind-protect
+           (progn
+             (with-open-file (s temp-file-name :direction :output 
+                                :if-exists :error)
+               (write-string string s))
+             (let ((binary-filename (compile-temp-file
+                                     temp-file-name filename buffer position)))
+               (delete-file binary-filename)))
+        (delete-file temp-file-name)))))
+
+(defvar *temp-file-map* (make-hash-table :test #'equal)
+  "A mapping from tempfile names to Emacs buffer names.")
+
+(defun compile-temp-file (temp-file-name buffer-file-name buffer-name offset)
+  (compile-file temp-file-name
+                :load t
+                :compile-file-original-truename 
+                (or buffer-file-name
+                    (progn 
+                      (setf (gethash temp-file-name *temp-file-map*)
+                            buffer-name)
+                      temp-file-name))
+                :compile-file-original-buffer-offset (1- offset)))
+
+;;; Cross-referencing
 
 (defun xref-locations (relation name &optional (inverse nil))
   (flet ((function-source-location (entry)
@@ -339,41 +375,6 @@
            (mapcan 'who-specializes (ccl::%class-direct-subclasses class)))
    :test 'equal))
 
-(defun temp-file-name ()
-  "Return a temporary file name to compile strings into."
-  (ccl:%get-cstring (#_tmpnam (ccl:%null-ptr))))
-
-(defimplementation swank-compile-string (string &key buffer position filename
-                                         policy)
-  (declare (ignore policy))
-  (with-compilation-hooks ()
-    (let ((temp-file-name (temp-file-name))
-          (ccl:*save-source-locations* t))
-      (unwind-protect
-           (progn
-             (with-open-file (s temp-file-name :direction :output 
-                                :if-exists :error)
-               (write-string string s))
-             (let ((binary-filename (compile-temp-file
-                                     temp-file-name filename buffer position)))
-               (delete-file binary-filename)))
-        (delete-file temp-file-name)))))
-
-(defvar *temp-file-map* (make-hash-table :test #'equal)
-  "A mapping from tempfile names to Emacs buffer names.")
-
-(defun compile-temp-file (temp-file-name buffer-file-name buffer-name offset)
-  (if (fboundp 'ccl::function-source-note)
-      (compile-file temp-file-name
-                    :load t
-                    :compile-file-original-truename 
-                    (or buffer-file-name
-                        (progn 
-                          (setf (gethash temp-file-name *temp-file-map*)
-                                buffer-name)
-                          temp-file-name))
-                    :compile-file-original-buffer-offset (1- offset))
-      (compile-file temp-file-name :load t)))
 
 ;;; Profiling (alanr: lifted from swank-clisp)
 

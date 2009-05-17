@@ -1,5 +1,10 @@
 2009-05-17  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-openmcl.lisp (compile-temp-file): Remove backward
+	compatibility code.
+
+2009-05-17  Helmut Eller  <heller@common-lisp.net>
+
 	More precise compiler-message location.
 
 	* swank-openmcl.lisp (handle-compiler-warning): Use the
