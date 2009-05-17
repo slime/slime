@@ -537,15 +537,49 @@
               (push (list name value) result)))))
       (reverse result))))
 
+(defimplementation frame-source-location-for-emacs (index)
+  (with-frame (p context lfun pc) index
+    (declare (ignore p context))
+    (if pc
+        (pc-source-location lfun pc)
+        (function-source-location lfun))))
+
+(defimplementation eval-in-frame (form index)
+  (with-frame (p context lfun pc) index
+    (let ((vars (frame-visible-variables p context lfun pc)))
+      (eval `(let ,(loop for (var val) in vars collect `(,var ',val))
+               (declare (ignorable ,@(mapcar #'car vars)))
+               ,form)))))
+
+(defimplementation return-from-frame (index form)
+  (let ((values (multiple-value-list (eval-in-frame form index))))
+    (with-frame (p context lfun pc) index
+       (declare (ignore context lfun pc))
+       (ccl::apply-in-frame p #'values values))))
+
+(defimplementation restart-frame (index)
+  (with-frame (p context lfun pc) index
+    (ccl::apply-in-frame p lfun 
+                         (ccl::frame-supplied-args p lfun pc nil context))))
+
+(let ((ccl::*warn-if-redefine-kernel* nil))
+  (ccl::advise
+   ccl::cbreak-loop
+   (if *break-in-sldb* 
+       (apply #'break-in-sldb ccl::arglist)
+       (:do-it))
+   :when :around
+   :name sldb-break))
+
+(defun break-in-sldb (x y &rest args)
+  (let ((*sldb-stack-top-hint* (or *sldb-stack-top-hint*
+                                   (ccl::%get-frame-ptr))))
+    (apply #'cerror y (if args "Break: ~a" x) args)))
+
 (defimplementation disassemble-frame (the-frame-number)
   (with-frame (p context lfun pc) the-frame-number
     (declare (ignore p context pc))
-    #+ppc (ccl::print-ppc-instructions 
-           *standard-output* 
-           (ccl::function-to-dll-header lfun)
-           nil)
-    #+x86-64 (ccl::x8664-xdisassemble lfun)
-    #+x8632-target (ccl::x8632-xdisassemble lfun)))
+    (disassemble lfun)))
 
 ;;;
 
@@ -684,73 +718,6 @@
      ,(ccl::method-name met)
      ,@(ccl::method-qualifiers met)
      ,(mapcar #'specializer-name (ccl::method-specializers met))))
-  
-(defimplementation frame-source-location-for-emacs (index)
-  "Return to Emacs the location of the source code for the
-function in a debugger frame.  In OpenMCL, we are not able to
-find the precise position of the frame, but we do attempt to give
-at least the filename containing it."
-  (block frame-source-location-for-emacs
-    (map-backtrace
-     (lambda (frame-number p context lfun pc)
-       (declare (ignore p context))
-       (when (and (= frame-number index) lfun)
-         (return-from frame-source-location-for-emacs
-           (if pc
-               (pc-source-location lfun pc)
-               (function-source-location lfun))))))))
-
-(defimplementation eval-in-frame (form index)
-  (block eval-in-frame
-    (map-backtrace
-     (lambda (frame-number p context lfun pc)
-       (when (= frame-number index)
-         (multiple-value-bind (count vsp parent-vsp)
-             (ccl::count-values-in-frame p context)
-           (let ((bindings nil))
-             (dotimes (i count)
-               (multiple-value-bind (var type name)
-                   (ccl::nth-value-in-frame p i context lfun pc vsp parent-vsp)
-                 (declare (ignore type))
-                 (when name
-                   (push (list name `',var) bindings))
-                 ))
-             (return-from eval-in-frame
-               (eval `(let ,bindings
-                        (declare (ignorable ,@(mapcar 'car bindings)))
-                        ,form)))
-             )))))))
-
-#+ppc
-(defimplementation return-from-frame (index form)
-  (let ((values (multiple-value-list (eval-in-frame form index))))
-    (map-backtrace
-     (lambda (frame-number p context lfun pc)
-       (declare (ignore context lfun pc))
-       (when (= frame-number index)
-         (ccl::apply-in-frame p #'values values))))))
-
-#+ppc
-(defimplementation restart-frame (index)
-  (map-backtrace
-   (lambda (frame-number p context lfun pc)
-     (when (= frame-number index)
-       (ccl::apply-in-frame p lfun 
-                            (ccl::frame-supplied-args p lfun pc nil context))))))
-
-(let ((ccl::*warn-if-redefine-kernel* nil))
-  (ccl::advise
-   ccl::cbreak-loop
-   (if *break-in-sldb* 
-       (apply #'break-in-sldb ccl::arglist)
-       (:do-it))
-   :when :around
-   :name sldb-break))
-
-(defun break-in-sldb (x y &rest args)
-  (let ((*sldb-stack-top-hint* (or *sldb-stack-top-hint*
-                                   (ccl::%get-frame-ptr))))
-    (apply #'cerror y (if args "Break: ~a" x) args)))
 
 ;;; Utilities
 

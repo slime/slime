@@ -2,6 +2,9 @@
 
 	* swank-openmcl.lisp (compile-temp-file): Remove backward
 	compatibility code.
+	(eval-in-frame, frame-source-location-for-emacs)
+	(return-from-frame, restart-frame)
+	(disassemble-frame): Simplify.
 
 2009-05-17  Helmut Eller  <heller@common-lisp.net>
 
