@@ -291,43 +291,13 @@
 ;;; Cross-referencing
 
 (defun xref-locations (relation name &optional (inverse nil))
-  (flet ((function-source-location (entry)
-           (multiple-value-bind (info name)
-               (ccl::edit-definition-p
-                (ccl::%db-key-from-xref-entry entry)
-                (if (eql (ccl::xref-entry-type entry)
-                         'macro)
-                  'function
-                  (ccl::xref-entry-type entry)))
-             (cond ((not info)
-                    (list :error
-                          (format nil "No source info available for ~A"
-                                  (ccl::xref-entry-name entry))))
-                   ((typep (caar info) 'ccl::method)
-                    `(:location 
-                      (:file ,(remove-filename-quoting
-                               (namestring (translate-logical-pathname
-                                            (cdr (car info))))))
-                      (:method
-                          ,(princ-to-string (ccl::method-name (caar info)))
-                        ,(mapcar 'princ-to-string
-                                 (mapcar #'specializer-name
-                                         (ccl::method-specializers
-                                          (caar info))))
-                        ,@(mapcar 'princ-to-string
-                                  (ccl::method-qualifiers (caar info))))
-                      nil))
-                   (t
-                    (canonicalize-location (cdr (first info)) name))))))
-    (declare (dynamic-extent #'function-source-location))
-    (loop for xref in (if inverse 
-                          (ccl::get-relation relation name
-                                             :wild :exhaustive t)
-                          (ccl::get-relation relation
-                                             :wild name :exhaustive t))
-       for function = (ccl::xref-entry-name xref)
-       collect `((function ,function)
-                 ,(function-source-location xref)))))
+  (loop for xref in (if inverse 
+                        (ccl::get-relation relation name
+                                           :wild :exhaustive t)
+                        (ccl::get-relation relation
+                                           :wild name :exhaustive t))
+        append (loop for (loc . name) in (source-locations xref)
+                     collect `(,name ,loc))))
 
 (defimplementation who-binds (name)
   (xref-locations :binds name))
@@ -353,13 +323,6 @@
     (xref-locations :macro-calls name t))
    :test 'equal))
 
-(defimplementation list-callees (name)
-  (remove-duplicates
-   (append
-   (xref-locations :direct-calls name t)
-   (xref-locations :macro-calls name nil))
-   :test 'equal))
-
 (defimplementation who-specializes (class)
   (if (symbolp class) (setq class (find-class class)))
   (remove-duplicates
@@ -375,6 +338,16 @@
            (mapcan 'who-specializes (ccl::%class-direct-subclasses class)))
    :test 'equal))
 
+
+(defimplementation list-callees (name)
+  (remove-duplicates
+   (append
+   (xref-locations :direct-calls name t)
+   (xref-locations :macro-calls name nil))
+   :test 'equal))
+
+(defimplementation list-callers (symbol)
+  (mapcan #'find-definitions (ccl::caller-functions symbol)))
 
 ;;; Profiling (alanr: lifted from swank-clisp)
 
@@ -581,39 +554,6 @@
     (declare (ignore p context pc))
     (disassemble lfun)))
 
-;;;
-
-(defun canonicalize-location (file symbol &optional snippet)
-  (etypecase file
-    ((or string pathname)
-     (multiple-value-bind (truename c) (ignore-errors (namestring (truename file)))
-       (cond (c (list :error (princ-to-string c)))
-             (t (make-location (list :file (remove-filename-quoting truename))
-                               (list :function-name (princ-to-string symbol))
-                               (if snippet
-                                   (list :snippet snippet)
-                                   '()))))))))
-
-(defun remove-filename-quoting (string)
-  (if (search "\\" string)
-      (read-from-string (format nil "\"~a\"" string))
-      string))
-
-(defun maybe-method-location (type)
-  (when (typep type 'ccl::method)
-    `((method ,(ccl::method-name type)
-              ,(mapcar #'specializer-name (ccl::method-specializers type))
-              ,@(ccl::method-qualifiers type))
-      ,(function-source-location (ccl::method-function type)))))
-
-(defimplementation find-definitions (symbol)
-  (let* ((info (ccl::get-source-files-with-types&classes symbol)))
-    (loop for (type . file) in info
-          when (not (equal "l1-boot-3" (pathname-name file))) ; alanr: This is a bug - there's nothing in there
-          collect (or (maybe-method-location type)
-                      (list (list type symbol) 
-                            (canonicalize-location file symbol))))))
-
 ;; CCL commit r11373 | gz | 2008-11-16 16:35:28 +0100 (Sun, 16 Nov 2008)
 ;; contains some interesting details:
 ;; 
@@ -682,13 +622,16 @@
                (make-location 
                 (filename-to-buffer (ccl:source-note-filename note))
                 (list :position (1+ (ccl:source-note-start-pos note))))
-             (error (c) `(:error ,(princ-to-string c)))))
+             (error (c) 
+               ;;(break "~a" c)
+               `(:error ,(princ-to-string c)))))
           (t `(:error ,(funcall if-nil-thunk))))))
 
 (defimplementation find-definitions (symbol)
   (loop for (loc . name) in (source-locations symbol)
         collect (list name loc)))
 
+;; Return a list ((LOC . NAME) ...) of possible src-locs.
 (defgeneric source-locations (thing))
 
 (defmethod source-locations ((f function))
@@ -708,9 +651,24 @@
                         source (lambda () "No source info available"))
                        (definition-name type name)))))
 
-(defgeneric definition-name (type name)
-  (:method ((type ccl::definition-type) name)
-    (list (ccl::definition-type-name type) name)))
+(defmethod source-locations ((m method))
+  (list (cons (function-source-location (ccl::method-function m))
+              (definition-name ccl::*method-definition-type* m))))
+
+(defmethod source-locations ((xe ccl::xref-entry))
+  (with-slots (ccl::name type method-qualifiers ccl::method-specializers) xe
+    (let ((name (case type
+                  (method 
+                   `(,ccl::name ,@method-qualifiers ,ccl::method-specializers))
+                  (t ccl::name))))
+      (loop for ((type . name) src) in (ccl:find-definition-sources name type)
+            collect (cons (source-note-to-source-location 
+                           src (lambda () "No source-note available"))
+                          (definition-name type name))))))
+    
+(defgeneric definition-name (type object)
+  (:method ((type ccl::definition-type) object)
+    (list (ccl::definition-type-name type) object)))
 
 (defmethod definition-name ((type ccl::method-definition-type)
                             (met method))
@@ -770,18 +728,6 @@
         (find-method (fdefinition name) qualifiers specializers)))))
   t)
 
-;;; XREF
-
-(defimplementation list-callers (symbol)
-  (loop for caller in (ccl::callers symbol)
-        append (multiple-value-bind (info name type specializers modifiers)
-                   (ccl::edit-definition-p caller)
-                 (loop for (nil . file) in info
-                       collect (list (if (eq t type)
-                                         name
-                                         `(,type ,name ,specializers
-                                           ,@modifiers))
-                                     (canonicalize-location file name))))))
 ;;; Macroexpansion
 
 (defvar *value2tag* (make-hash-table))
@@ -794,7 +740,6 @@
 	   (< (symbol-value s) 255))
       (setf (gethash (symbol-value s) *value2tag*) s)))
 
-#+#.(swank-backend::with-symbol 'macroexpand-all 'ccl)
 (defimplementation macroexpand-all (form)
   (ccl:macroexpand-all form))
 

@@ -4,7 +4,11 @@
 	compatibility code.
 	(eval-in-frame, frame-source-location-for-emacs)
 	(return-from-frame, restart-frame)
-	(disassemble-frame): Simplify.
+	(disassemble-frame, xref-locations): Simplify.
+	(list-callers): Use ccl::caller-functions which gives us more precise
+	src-locs than ccl::callers.
+	(canonicalize-location, remove-filename-quoting)
+	(maybe-method-location): Deleted.  No longer used.
 
 2009-05-17  Helmut Eller  <heller@common-lisp.net>
 
