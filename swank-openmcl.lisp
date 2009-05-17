@@ -286,14 +286,11 @@
 
 ;;; Cross-referencing
 
-(defun xref-locations (relation name &optional (inverse nil))
-  (loop for xref in (if inverse 
-                        (ccl::get-relation relation name
-                                           :wild :exhaustive t)
-                        (ccl::get-relation relation
-                                           :wild name :exhaustive t))
-        append (loop for (loc . name) in (source-locations xref)
-                     collect `(,name ,loc))))
+(defun xref-locations (relation name &optional inverse)
+  (mapcan #'find-definitions
+          (if inverse 
+              (ccl::get-relation relation name :wild :exhaustive t)
+              (ccl::get-relation relation :wild name :exhaustive t))))
 
 (defimplementation who-binds (name)
   (xref-locations :binds name))
@@ -320,9 +317,8 @@
    :test 'equal))
 
 (defimplementation who-specializes (class)
-  (mapcar (lambda (m)
-            (destructuring-bind ((loc . name)) (source-locations m)
-              (list name loc)))
+  (mapcar (lambda (m) 
+            (car (find-definitions m)))
           (ccl::%class.direct-methods (find-class class))))
 
 (defimplementation list-callees (name)
@@ -613,8 +609,8 @@
                `(:error ,(princ-to-string c)))))
           (t `(:error ,(funcall if-nil-thunk))))))
 
-(defimplementation find-definitions (symbol)
-  (loop for (loc . name) in (source-locations symbol)
+(defimplementation find-definitions (obj)
+  (loop for (loc . name) in (source-locations obj)
         collect (list name loc)))
 
 ;; Return a list ((LOC . NAME) ...) of possible src-locs.
