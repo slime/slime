@@ -2397,6 +2397,8 @@ Debugged requests are ignored."
                                msg))
           ((:emacs-channel-send id msg)
            (slime-send `(:emacs-channel-send ,id ,msg)))
+          ((:read-from-minibuffer thread tag prompt initial-value)
+           (slime-read-from-minibuffer-for-swank thread tag prompt initial-value))
           ((:y-or-n-p thread tag question)
            (slime-y-or-n-p thread tag question))
           ((:emacs-return-string thread tag string)
@@ -4072,6 +4074,11 @@ This is for use in the implementation of COMMON-LISP:ED."
 (defun slime-y-or-n-p (thread tag question)
   (slime-dispatch-event `(:emacs-return ,thread ,tag ,(y-or-n-p question))))
 
+(defun slime-read-from-minibuffer-for-swank (thread tag prompt initial-value)
+  (let ((answer (condition-case nil 
+                    (slime-read-from-minibuffer prompt initial-value)
+                  (quit nil))))
+    (slime-dispatch-event `(:emacs-return ,thread ,tag ,answer))))
 
 ;;;; Interactive evaluation.
 

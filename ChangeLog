@@ -1,3 +1,14 @@
+2009-05-17  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-dispatch-event): New event
+	`:read-from-minibuffer'.
+	(slime-read-from-minibuffer-for-swank): New.
+
+	* swank.lisp (dispatch-event): Pass through :read-from-minibuffer
+	event.
+	(read-from-minibuffer-in-emacs): Now uses new event rather than
+	eval-in-emacs.
+
 2009-05-17  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-openmcl.lisp (compile-temp-file): Remove backward

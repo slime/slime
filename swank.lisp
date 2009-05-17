@@ -1161,7 +1161,7 @@ The processing is done in the extent of the toplevel restart."
        :presentation-start :presentation-end
        :new-package :new-features :ed :%apply :indentation-update
        :eval :eval-no-wait :background-message :inspect :ping
-       :y-or-n-p :read-string :read-aborted)
+       :y-or-n-p :read-from-minibuffer :read-string :read-aborted)
       &rest _)
      (declare (ignore _))
      (encode-message event (current-socket-io)))
@@ -1820,7 +1820,18 @@ NIL if streams are not globally redirected.")
         (question (apply #'format nil format-string arguments)))
     (force-output)
     (send-to-emacs `(:y-or-n-p ,(current-thread-id) ,tag ,question))
-    (caddr (wait-for-event `(:emacs-return ,tag result)))))
+    (third (wait-for-event `(:emacs-return ,tag result)))))
+
+(defun read-from-minibuffer-in-emacs (prompt &optional initial-value)
+  "Ask user a question in Emacs' minibuffer. Returns \"\" when user
+entered nothing, returns NIL when user pressed C-g."
+  (check-type prompt string) (check-type initial-value (or null string))
+  (let ((tag (make-tag)))
+    (force-output)
+    (send-to-emacs `(:read-from-minibuffer ,(current-thread-id) ,tag
+                                           ,prompt ,initial-value))
+    (third (wait-for-event `(:emacs-return ,tag result)))))
+
 
 (defun process-form-for-emacs (form)
   "Returns a string which emacs will read as equivalent to
@@ -1857,13 +1868,6 @@ converted to lower case."
 	     (destructure-case value
 	       ((:ok value) value)
 	       ((:abort) (abort))))))))
-
-;;; FIXME: This should not use EVAL-IN-EMACS but get its own events.
-(defun read-from-minibuffer-in-emacs (prompt &optional initial-value)
-  (eval-in-emacs
-   `(condition-case c
-        (slime-read-from-minibuffer ,prompt ,initial-value)
-      (quit nil))))
 
 (defvar *swank-wire-protocol-version* nil
   "The version of the swank/slime communication protocol.")
