@@ -170,23 +170,19 @@
 
 (defimplementation accept-connection (socket &key external-format
                                              buffering timeout)
-  (declare (ignore buffering timeout
-                   #-openmcl-unicode-strings external-format))
-  #+openmcl-unicode-strings
+  (declare (ignore buffering timeout))
   (when external-format
     (let ((keys (ccl::socket-keys socket)))
       (setf (getf keys :external-format) external-format
             (slot-value socket 'ccl::keys) keys)))
   (ccl:accept-connection socket :wait t))
 
-#+openmcl-unicode-strings
 (defvar *external-format-to-coding-system*
   '((:iso-8859-1 
      "latin-1" "latin-1-unix" "iso-latin-1-unix" 
      "iso-8859-1" "iso-8859-1-unix")
     (:utf-8 "utf-8" "utf-8-unix")))
 
-#+openmcl-unicode-strings
 (defimplementation find-external-format (coding-system)
   (car (rassoc-if (lambda (x) (member coding-system x :test #'equal))
                   *external-format-to-coding-system*)))
@@ -324,20 +320,10 @@
    :test 'equal))
 
 (defimplementation who-specializes (class)
-  (if (symbolp class) (setq class (find-class class)))
-  (remove-duplicates
-   (append (mapcar (lambda(m)
-                     (let ((location (function-source-location (ccl::method-function m))))
-                       (if (eq (car location) :error)
-                           (setq location nil ))
-                       `((method ,(ccl::method-name m)
-                                 ,(mapcar #'specializer-name (ccl::method-specializers m))
-                                 ,@(ccl::method-qualifiers m))
-                         ,location)))
-                   (ccl::%class.direct-methods class))
-           (mapcan 'who-specializes (ccl::%class-direct-subclasses class)))
-   :test 'equal))
-
+  (mapcar (lambda (m)
+            (destructuring-bind ((loc . name)) (source-locations m)
+              (list name loc)))
+          (ccl::%class.direct-methods (find-class class))))
 
 (defimplementation list-callees (name)
   (remove-duplicates

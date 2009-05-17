@@ -9,6 +9,7 @@
 	src-locs than ccl::callers.
 	(canonicalize-location, remove-filename-quoting)
 	(maybe-method-location): Deleted.  No longer used.
+	(who-specializes): Simplify.
 
 2009-05-17  Helmut Eller  <heller@common-lisp.net>
 
