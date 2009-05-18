@@ -4146,11 +4146,15 @@ inserted in the current buffer."
   (slime-eval-async form (slime-rcurry #'slime-show-description
                                        (slime-current-package))))
 
+(defvar slime-description-autofocus nil
+  "If NIL (the default) Slime description buffers do not grab
+focus automatically.")
+
 (defun slime-show-description (string package)
   ;; So we can have one description buffer open per connection. Useful
   ;; for comparing the output of DISASSEMBLE across implementations.
   (let ((bufname (format "*SLIME Description <%s>*" (slime-connection-name))))
-    (slime-with-popup-buffer (bufname package t)
+    (slime-with-popup-buffer (bufname package t slime-description-autofocus)
       (princ string)
       (goto-char (point-min)))))
 

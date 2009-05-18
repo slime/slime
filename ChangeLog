@@ -1,3 +1,10 @@
+2009-05-18  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* slime.el (slime-description-autofocus): New variable.
+	(slime-show-description): Use it to decide if description
+	buffers should receive focus automatically.
+	* doc/slime.texi: Document it.
+
 2009-05-17  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-dispatch-event): New event
