@@ -594,10 +594,10 @@
 
 (defun source-note-to-source-location (note if-nil-thunk)
   (labels ((filename-to-buffer (filename)
-             (cond ((probe-file filename)
-                    (list :file (namestring (truename filename))))
-                   ((gethash filename *temp-file-map*)
+             (cond ((gethash filename *temp-file-map*)
                     (list :buffer (gethash filename *temp-file-map*)))
+                   ((probe-file filename)
+                    (list :file (namestring (truename filename))))
                    (t (error "File ~s doesn't exist" filename)))))
     (cond (note
            (handler-case

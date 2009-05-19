@@ -1,3 +1,12 @@
+2009-05-19  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-openmcl.lisp (source-note-to-source-location): Always
+	test *temp-file-map* first, because the temp-file might actually
+	exist during compilation but no longer when Emacs tries to open
+	it.
+	(slime-goto-location-buffer): Don't create buffers for
+	non-existent files.
+
 2009-05-18  Nikodemus Siivola  <nikodemus@random-state.net>
 
 	* slime.el (slime-description-autofocus): New variable.
