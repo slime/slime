@@ -80,7 +80,7 @@ subexpressions of the object to stream positions."
   (let* ((source-map (make-hash-table :test #'eq))
          (*readtable* (make-source-recording-readtable *readtable* source-map))
 	 (start (file-position stream))
-	 (form (read stream))
+	 (form (ignore-errors (read stream)))
 	 (end (file-position stream)))
     ;; ensure that at least FORM is in the source-map
     (unless (gethash form source-map)

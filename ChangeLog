@@ -1,3 +1,10 @@
+2009-05-19  Nikodemus Siivola  <nikodemus@random-state.net>
+
+	* swank-source-path-parser.lisp (read-and-record-source-map):
+	ignore errors during the call to READ, so that we don't the
+	current version of the form we are looking at contains eg.
+	uninternable symbols.
+
 2009-05-19  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-openmcl.lisp (source-note-to-source-location): Always
