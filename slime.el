@@ -327,7 +327,8 @@ PROPERTIES specifies any default face properties."
                   '(:bold t))
   (frame-line     "function names and arguments in the backtrace")
   (restartable-frame-line
-   "frames which are surely restartable")
+   "frames which are surely restartable"
+   '(:foreground "lime green"))
   (non-restartable-frame-line
    "frames which are surely not restartable")
   (detailed-frame-line
@@ -5520,6 +5521,9 @@ RESTARTS should be a list ((NAME DESCRIPTION) ...)."
 (defun sldb-frame.plist (frame)
   (destructuring-bind (_ _ &optional plist) frame plist))
 
+(defun sldb-frame-restartable-p (frame)
+  (and (plist-get (sldb-frame.plist frame) :restartable) t))
+
 (defun sldb-prune-initial-frames (frames)
   "Return the prefix of FRAMES to initially present to the user.
 Regexp heuristics are used to avoid showing SWANK-internal frames."
@@ -5547,9 +5551,9 @@ If MORE is non-nil, more frames are on the Lisp stack."
     (insert "\n")))
 
 (defun sldb-compute-frame-face (frame)
-  (ecase (plist-get (sldb-frame.plist frame) :restartable)
-    ((nil) 'sldb-frame-line-face)
-    ((t) 'sldb-restartable-frame-line-face)))
+  (if (sldb-frame-restartable-p frame)
+      'sldb-restartable-frame-line-face
+      'sldb-frame-line-face))
 
 (defun sldb-insert-frame (frame &optional face)
   "Insert FRAME with FACE at point.
@@ -5802,7 +5806,10 @@ The details include local variable bindings and CATCH-tags."
     (slime-save-coordinates start
       (delete-region start end)
       (slime-propertize-region `(frame ,frame details-visible-p t)
-        (sldb-insert-frame frame 'sldb-detailed-frame-line-face)
+        (sldb-insert-frame frame (if (sldb-frame-restartable-p frame)
+                                     'sldb-restartable-frame-line-face
+                                     ;; FIXME: can we somehow merge the two?
+                                     'sldb-detailed-frame-line-face))
         (let ((indent1 "      ")
               (indent2 "        "))
           (insert indent1 (in-sldb-face section
