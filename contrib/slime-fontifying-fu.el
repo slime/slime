@@ -124,13 +124,11 @@ position, or nil."
 ;;; to the beginning or end of a toplevel form. So we never miss a
 ;;; reader-conditional, or point in mid of one.
 (defun slime-extend-region-for-font-lock ()
-  (tcr:debugmsg "extend: pt=%S (%S, %S)" (point) font-lock-beg font-lock-end)
   (when slime-highlight-suppressed-forms
     (condition-case c
         (let (changedp)
           (multiple-value-setq (changedp font-lock-beg font-lock-end)
             (slime-compute-region-for-font-lock font-lock-beg font-lock-end))
-          (tcr:debugmsg "--> %S (%S, %S)" changedp font-lock-beg font-lock-end)
           changedp)
       (error
        (slime-bug 
