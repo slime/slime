@@ -1,3 +1,9 @@
+2009-05-20  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-fontifying-fu.el (slime-search-for-suppressed-forms):
+	Retrieve match data early now that `slime-current-parser-state'
+	does not save it anymore.
+
 2009-05-17  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-fontifying-fu.el (slime-search-for-suppressed-forms):
