@@ -1165,14 +1165,15 @@ Examples:
 	   (fn (and (valid-function-name-p fn-name)
 		    (fboundp fn-name)
 		    (fdefinition fn-name))))
-      (with-available-arglist (arglist) (arglist fn)
-        (return-from arglist-dispatch
-          (values (make-arglist :provided-args (if remove-args
-                                                   nil
-                                                   (list fn-name))
-                                :required-args (list arglist)
-                                :rest "body" :body-p t)
-                  t)))))
+      (when fn
+        (with-available-arglist (arglist) (arglist fn)
+          (return-from arglist-dispatch
+            (values (make-arglist :provided-args (if remove-args
+                                                     nil
+                                                     (list fn-name))
+                                  :required-args (list arglist)
+                                  :rest "body" :body-p t)
+                    t))))))
   (call-next-method))
 
 (defmethod arglist-dispatch ((operator-type (eql :function)) (operator (eql 'eval-when))

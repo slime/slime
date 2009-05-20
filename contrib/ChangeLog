@@ -1,5 +1,11 @@
 2009-05-20  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-arglists.lisp (arglist-dispatch [define-compiler-macro]):
+	guard against when we're in the body of a compiler-macro
+	definition for a function not yet compiled into the image.
+
+2009-05-20  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-fontifying-fu.el (slime-search-for-suppressed-forms):
 	Retrieve match data early now that `slime-current-parser-state'
 	does not save it anymore.
