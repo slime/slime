@@ -1,5 +1,14 @@
 2009-05-19  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (slime-symbol-at-point): Sometimes we can be too good,
+	e.g. in "|# (defun foo () (getf" the above would return nil
+	because the vertical bar is not terminated. The user probably
+	wants "getf" nontheless.
+
+	Reported by Madhu.
+
+2009-05-19  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (sldb-restartable-frame-line-face): Set a default value.
 	(sldb-frame-restartable-p): New.
 	(sldb-compute-frame-face): Use it.

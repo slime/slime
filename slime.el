@@ -8370,7 +8370,13 @@ The result is unspecified if there isn't a symbol under the point."
     ;;           (>= (point) slime-repl-input-start-mark))
     ;;  (narrow-to-region slime-repl-input-start-mark (point-max)))
     (save-excursion
-      (let ((string (thing-at-point 'slime-symbol)))
+      (let ((string (or (thing-at-point 'slime-symbol)
+                        ;; Sometimes we can be too good, e.g.  in "|#
+                        ;; (defun foo () (getf" the above would return
+                        ;; nil because the vertical bar is not
+                        ;; terminated. The user probably wants "getf"
+                        ;; nontheless.
+                        (thing-at-point 'symbol))))
         (and string
              ;; (thing-at-point 'symbol) returns "" instead of nil
              ;; when called from an empty (or narrowed-to-empty)
