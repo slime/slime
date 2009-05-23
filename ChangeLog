@@ -1,3 +1,11 @@
+2009-05-23  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-openmcl.lisp (break-in-sldb): Honor *break-on-signals*.
+	That means that we can't use SIGNAL here and we have to invoke
+	SLDB directly.
+	(condition-for-break): New helper.
+	Reported by Bill St. Clair.
+
 2009-05-19  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (slime-symbol-at-point): Sometimes we can be too good,

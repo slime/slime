@@ -517,19 +517,25 @@
     (ccl::apply-in-frame p lfun 
                          (ccl::frame-supplied-args p lfun pc nil context))))
 
-(let ((ccl::*warn-if-redefine-kernel* nil))
-  (ccl::advise
-   ccl::cbreak-loop
-   (if *break-in-sldb* 
-       (apply #'break-in-sldb ccl::arglist)
-       (:do-it))
-   :when :around
-   :name sldb-break))
+(ccl::advise ccl::cbreak-loop
+             (if *break-in-sldb* 
+                 (apply #'break-in-sldb ccl::arglist)
+                 (:do-it))
+             :when :around
+             :name sldb-break)
 
-(defun break-in-sldb (x y &rest args)
-  (let ((*sldb-stack-top-hint* (or *sldb-stack-top-hint*
-                                   (ccl::%get-frame-ptr))))
-    (apply #'cerror y (if args "Break: ~a" x) args)))
+(defun break-in-sldb (msg cont-string condition error-pointer)
+  (let ((*sldb-stack-top-hint* error-pointer))
+    (with-simple-restart (continue "~a" cont-string)
+      (funcall (read-from-string "SWANK:INVOKE-SLIME-DEBUGGER")
+               (condition-for-break condition msg)))))
+
+(defun condition-for-break (condition msg)
+  (cond ((and (eq (type-of condition) 'simple-condition)
+              (equal (simple-condition-format-control condition) ""))
+         (make-condition 'simple-condition :format-control "~a" 
+                         :format-arguments (list msg)))
+        (t condition)))
 
 (defimplementation disassemble-frame (the-frame-number)
   (with-frame (p context lfun pc) the-frame-number
