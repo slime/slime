@@ -3331,14 +3331,14 @@ you should check twice before modifying.")
     ((:function-name name)
      (let ((case-fold-search t)
            (name (regexp-quote name)))
-       (or 
-        (re-search-forward 
-         (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\S_" name) nil t)
-        (re-search-forward 
-         (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +(*%s\\S_" name) nil t)
-        (re-search-forward 
-         (format "[( \t]%s\\>\\(\\s \\|$\\)" name) nil t)))
-     (goto-char (match-beginning 0)))
+       (when (or 
+              (re-search-forward 
+               (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +%s\\S_" name) nil t)
+              (re-search-forward 
+               (format "\\s *(def\\(\\s_\\|\\sw\\)*\\s +(*%s\\S_" name) nil t)
+              (re-search-forward 
+               (format "[( \t]%s\\>\\(\\s \\|$\\)" name) nil t))
+         (goto-char (match-beginning 0))))
     ((:method name specializers &rest qualifiers)
      (slime-search-method-location name specializers qualifiers))
     ((:source-path source-path start-position)
