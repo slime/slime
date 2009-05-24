@@ -7359,6 +7359,53 @@ BODY returns true if the check succeeds."
     (insert "#<") (insert symbol-name) (insert " {DEADBEEF}>")
     (slime-check-fancy-symbol-name (+ (point-min) 2) symbol-name)
     (erase-buffer)
+
+    (slime-test-message "*** fancy symbol-name wrapped in #<>:")
+    (insert "#<") (insert symbol-name) (insert " {DEADBEEF}>")
+    (slime-check-fancy-symbol-name (+ (point-min) 2) symbol-name)
+    (erase-buffer)
+
+    (slime-test-message "*** fancy symbol-name wrapped in #| ... |#:")
+    (insert "#|\n") (insert symbol-name) (insert "\n|#")
+    (slime-check-fancy-symbol-name (+ (point-min) 4) symbol-name)
+    (erase-buffer)
+
+    (slime-test-message "*** fancy symbol-name after #| )))(( |# (1):")
+    (let ((pre-content "#| )))(( #|\n"))
+      (insert pre-content)
+      (insert symbol-name) 
+      (slime-check-fancy-symbol-name (+ (point-min) (length pre-content))
+                                     symbol-name)
+      (erase-buffer))
+
+    (slime-test-message "*** fancy symbol-name after #| )))(( |# (2):")
+    (let ((pre-content "#| )))(( #|"))  ; no newline
+      (insert pre-content)
+      (insert symbol-name) 
+      (slime-check-fancy-symbol-name (+ (point-min) (length pre-content))
+                                     symbol-name)
+      (erase-buffer))
+
+    (slime-test-message "*** fancy symbol-name wrapped in \"...\":")
+    (insert "\"\n") (insert symbol-name) (insert "\n\"")
+    (slime-check-fancy-symbol-name (+ (point-min) 3) symbol-name)
+    (erase-buffer)
+
+    (slime-test-message "*** fancy symbol-name after \" )))(( \" (1):")
+    (let ((pre-content "\" )))(( \"\n"))
+      (insert pre-content)
+      (insert symbol-name) 
+      (slime-check-fancy-symbol-name (+ (point-min) (length pre-content))
+                                     symbol-name)
+      (erase-buffer))
+
+    (slime-test-message "*** fancy symbol-name after \" )))(( \" (2):")
+    (let ((pre-content "\" )))(( \"")) ; no newline
+      (insert pre-content)
+      (insert symbol-name) 
+      (slime-check-fancy-symbol-name (+ (point-min) (length pre-content))
+                                     symbol-name)
+      (erase-buffer))
     ))
 
 (defun* slime-initialize-lisp-buffer-for-test-suite 

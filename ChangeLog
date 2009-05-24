@@ -1,6 +1,13 @@
 2009-05-24  Tobias C. Rittweiler  <tcr@freebits.de>
 
-	(slime-goto-location-position): Only go to match-beginning if
+	* slime.el ([test] fancy-symbol-names): Add cases involving #|
+	... |# style comments. Currently failing.
+
+	Reported by Madhu.
+
+2009-05-24  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-goto-location-position): Only go to match-beginning if
 	search succeeded.
 
 	Patch by Madhu.
