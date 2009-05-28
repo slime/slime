@@ -1312,6 +1312,10 @@ expansion will be added to the REPL's history.)"
 
 (defslime-repl-shortcut slime-repl-disconnect ("disconnect")
   (:handler 'slime-disconnect)
+  (:one-liner "Disconnect the current connection."))
+
+(defslime-repl-shortcut slime-repl-disconnect-all ("disconnect-all")
+  (:handler 'slime-disconnect-all)
   (:one-liner "Disconnect all connections."))
 
 (defslime-repl-shortcut slime-repl-sayoonara ("sayoonara")
