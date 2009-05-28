@@ -1263,13 +1263,13 @@ The rules for selecting the arguments are rather complicated:
   (apply #'slime-start options))
 
 (defun slime-connect (host port &optional coding-system)
-  "Connect to a running Swank server."
+  "Connect to a running Swank server. Returns the connection."
   (interactive (list (read-from-minibuffer "Host: " slime-lisp-host)
                      (read-from-minibuffer "Port: " (format "%d" slime-port)
                                            nil t)))
   (when (and (interactive-p) slime-net-processes
              (y-or-n-p "Close old connections first? "))
-    (slime-disconnect))
+    (slime-disconnect-all))
   (message "Connecting to Swank on port %S.." port)
   (let ((coding-system (or coding-system slime-net-coding-system)))
     (slime-check-coding-system coding-system)
@@ -2082,7 +2082,13 @@ This is automatically synchronized from Lisp.")
 
 ;;;;; Commands on connections
 
-(defun slime-disconnect ()
+(defun slime-disconnect (&optional connection)
+  "If CONNECTION is non-nil disconnect it, otherwise disconnect
+the current slime connection."
+  (interactive)
+  (slime-net-close (or connection (slime-connection))))
+
+(defun slime-disconnect-all ()
   "Disconnect all connections."
   (interactive)
   (mapc #'slime-net-close slime-net-processes))
@@ -6974,7 +6980,7 @@ is setup, unless the user already set one explicitly."
 ;;;; Test suite
 
 (defstruct (slime-test (:conc-name slime-test.))
-  name fname args doc inputs fails-for)
+  name fname args doc inputs fails-for style)
   
 (defvar slime-tests '()
   "Names of test functions.")
@@ -6987,6 +6993,9 @@ is setup, unless the user already set one explicitly."
 
 (defvar slime-failed-tests nil
   "Total number of failed tests during a test run.")
+
+(defvar slime-skipped-tests nil
+  "Total number of skipped tests during a test run.")
 
 (defvar slime-expected-failures nil
   "Total number of expected failures during a test run")
@@ -7065,44 +7074,49 @@ that succeeded initially folded away."
 Return the number of failed tests."
   (save-window-excursion
     (let ((slime-total-tests 0)
+          (slime-skipped-tests 0)
           (slime-expected-passes 0)
           (slime-unexpected-failures 0)
           (slime-expected-failures 0)
           (slime-lisp-under-test (slime-lisp-implementation-name)))
       (dolist (slime-current-test slime-tests)
-        (with-struct (slime-test. name (function fname) inputs) 
+        (with-struct (slime-test. name (function fname) inputs style) 
             slime-current-test
-          (slime-test-heading 1 "%s" name)
-          (dolist (input inputs)
-            (incf slime-total-tests)
-            (message "%s: %s" name input)
-            (slime-test-heading 2 "input: %s" input)
-            (if slime-test-debug-on-error
-                (let ((debug-on-error t)
-                      (debug-on-quit t))
-                  (catch 'skip
-                    (apply function input)))
-              (condition-case err
-                  (apply function input)
-                (error
-                 (cond ((slime-test-should-fail-p)
-                        (incf slime-expected-failures)
-                        (slime-test-failure "ERROR (expected)"
-                                            (format "%S" err)))
-                       (t
-                        (incf slime-unexpected-failures)
-                        (slime-print-check-error err)))))))))
+          (if (and style (not (memq (slime-communication-style) style)))
+              (incf slime-skipped-tests)  
+            (slime-test-heading 1 "%s" name)
+            (dolist (input inputs)
+              (incf slime-total-tests)
+              (message "%s: %s" name input)
+              (slime-test-heading 2 "input: %s" input)
+              (if slime-test-debug-on-error
+                  (let ((debug-on-error t)
+                        (debug-on-quit t))
+                    (catch 'skip
+                      (apply function input)))
+                  (condition-case err
+                      (apply function input)
+                    (error
+                     (cond ((slime-test-should-fail-p)
+                            (incf slime-expected-failures)
+                            (slime-test-failure "ERROR (expected)"
+                                                (format "%S" err)))
+                           (t
+                            (incf slime-unexpected-failures)
+                            (slime-print-check-error err))))))))))
       (let ((summary 
-             (cond ((and (zerop slime-expected-failures)
-                         (zerop slime-unexpected-failures))
-                    (format "All %S tests completed successfully."
-                            slime-total-tests))
-                   (t
-                    (format "Failed on %S (%S expected) of %S tests."
-                            (+ slime-expected-failures
-                               slime-unexpected-failures)
-                            slime-expected-failures
-                            slime-total-tests)))))
+             (concat (if (and (zerop slime-expected-failures)
+                              (zerop slime-unexpected-failures))
+                         (format "All %d tests completed successfully."
+                                 slime-total-tests)
+                         (format "Failed on %d (%d expected) of %d tests."
+                                 (+ slime-expected-failures
+                                    slime-unexpected-failures)
+                                 slime-expected-failures
+                                 slime-total-tests))
+                     (if (zerop slime-skipped-tests)
+                         ""
+                         (format " Skipped %d tests." slime-skipped-tests)))))
         (save-excursion
           (with-current-buffer slime-test-buffer-name
             (goto-char (point-min))
@@ -7194,15 +7208,25 @@ KEYWORD names the type of failure and STRING describes the reason."
 
 (defmacro def-slime-test (name args doc inputs &rest body)
   "Define a test case.
-NAME ::= SYMBOL | (SYMBOL (FAILS-FOR*)) is a symbol naming the test.
+NAME    ::= SYMBOL | (SYMBOL OPTION*) is a symbol naming the test.
+OPTION  ::= (:fails-for IMPLEMENTATION*) | (:style COMMUNICATION-STYLE*)
 ARGS is a lambda-list.
 DOC is a docstring.
 INPUTS is a list of argument lists, each tested separately.
 BODY is the test case. The body can use `slime-check' to test
 conditions (assertions)."
-  (multiple-value-bind (name fails-for) (etypecase name
-                                          (symbol (values name '()))
-                                          (cons name))
+  (multiple-value-bind (name fails-for style)
+      (etypecase name
+        (symbol (values name nil nil))
+        (cons   (let* ((opts  (rest name))
+                       (name  (first name))
+                       (fails-for (cdr (assq :fails-for opts)))
+                       (style (cdr (assq :style opts))))
+                  (tcr:debugmsg "opts=%S" opts)
+                  ;; :style and :fails-for only options, given no more than one time?
+                  (assert (null (remove* :style (remove* :fails-for opts :key #'car)
+                                         :key #'car)))
+                  (values name fails-for style))))
     (let ((fname (intern (format "slime-test-%s" name))))
       `(progn
          (defun ,fname ,args
@@ -7214,6 +7238,7 @@ conditions (assertions)."
                (append (remove* ',name slime-tests :key 'slime-test.name)
                        (list (make-slime-test :name ',name :fname ',fname
                                               :fails-for ',fails-for
+                                              :style ',style
                                               :inputs ,inputs))))))))
 
 (put 'def-slime-test 'lisp-indent-function 4)
@@ -7583,7 +7608,7 @@ BODY returns true if the check succeeds."
            (= orig-pos (point)))))
     (slime-check-top-level))
 
-(def-slime-test (find-definition.2 ("allegro" "lispworks"))
+(def-slime-test (find-definition.2 (:fails-for "allegro" "lispworks"))
     (buffer-content buffer-package snippet)
     "Check that we're able to find definitions even when
 confronted with nasty #.-fu."
@@ -7658,7 +7683,7 @@ Confirm that EXPECTED-ARGLIST is displayed."
                        (lambda (pattern arglist)
                          (and arglist (string-match pattern arglist))))))
 
-(def-slime-test (compile-defun ("allegro" "lispworks" "clisp" "ccl"))
+(def-slime-test (compile-defun (:fails-for "allegro" "lispworks" "clisp" "ccl"))
     (program subform)
     "Compile PROGRAM containing errors.
 Confirm that SUBFORM is correctly located."
@@ -7709,7 +7734,7 @@ Confirm that SUBFORM is correctly located."
              subform)))
   (slime-check-top-level))
 
-(def-slime-test (compile-file ("allegro" "lispworks" "clisp"))
+(def-slime-test (compile-file (:fails-for "allegro" "lispworks" "clisp"))
     (string)
     "Insert STRING in a file, and compile it."
     `((,(pp-to-string '(defun foo () nil))))
@@ -8059,7 +8084,7 @@ the buffer's undo-list."
                           0.2))
   (slime-sync-to-top-level 1))
 
-(def-slime-test (break2 ("cmucl" "allegro" "ccl"))
+(def-slime-test (break2 (:fails-for "cmucl" "allegro" "ccl"))
     (times exp)
     "Backends should arguably make sure that BREAK does not depend
 on *DEBUGGER-HOOK*."
@@ -8142,7 +8167,29 @@ CONTINUES  ... how often the continue restart should be invoked"
   (slime-sync-to-top-level 1))
 
 ;;; FIXME: reconnection is broken since the recent io-redirection changes.    
-(def-slime-test disconnect
+(def-slime-test (disconnect-one-connection (:style :spawn)) ()
+    "`slime-disconnect' should disconnect only the current connection"
+    '(())
+  (let ((connection-count (length slime-net-processes))
+        (old-connection slime-default-connection)
+        (slime-connected-hook nil))
+    (unwind-protect
+         (let ((slime-dispatching-connection 
+                (slime-connect "localhost" 
+                               ;; Here we assume that the request will
+                               ;; be evaluated in its own thread.
+                               (slime-eval `(swank:create-server 
+                                             :port 0 ; use random port
+                                             :style :spawn
+                                             :dont-close nil)))))
+           (slime-sync-to-top-level 3)
+           (slime-disconnect)
+           (slime-test-expect "Number of connections must remane the same"
+                              connection-count
+                              (length slime-net-processes)))
+      (slime-select-connection old-connection))))
+
+(def-slime-test disconnect-and-reconnect
     ()
     "Close the connetion.
 Confirm that the subprocess continues gracefully.
@@ -8170,6 +8217,8 @@ Reconnect afterwards."
                             (lambda () 
                               (not (member hook slime-connected-hook)))
                             5))))
+
+
     
 
 ;;;; Utilities

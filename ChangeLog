@@ -1,3 +1,20 @@
+2009-05-28  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el (slime-disconnect): Now only disconnects one
+	connection, current one by default, or given by argument.
+	(slime-disconnect-all): New. What `slime-disconnect' was before.
+	(def-slime-test): Changed: expected failures are now given
+	by (:fails-for ...) clauses. Extended: new clause (:style ...) to
+	have a test run only on a certain communication style. Updated
+	existing test cases accordingly.
+	([struct] slime-test): New slot `skipped'.
+	(slime-skipped-tests): New var.
+	(slime-execute-tests): Adapted accordingly.
+	([test] disconnect): Renamed to `disconnect-and-reconnect'
+	([test] disconnect-one-conneciton): New.
+
+	Adapted from patch by Stas Boukarev.
+
 2009-05-24  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el ([test] fancy-symbol-names): Add cases involving #|
