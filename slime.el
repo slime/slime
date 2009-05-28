@@ -2375,10 +2375,18 @@ Debugged requests are ignored."
           ((:emacs-rex form package thread continuation)
            (when (and (slime-use-sigint-for-interrupt) (slime-busy-p))
              (slime-display-oneliner "; pipelined request... %S" form))
-           (let ((id (incf (slime-continuation-counter))))
+           (let ((id (incf (slime-continuation-counter)))
+                 (send-ok nil))
              (push (cons id continuation) (slime-rex-continuations))
-             (slime-send `(:emacs-rex ,form ,package ,thread ,id))
-             (slime-recompute-modelines t)))
+             (unwind-protect 
+                  (progn 
+                    (slime-send `(:emacs-rex ,form ,package ,thread ,id))
+                    (setq send-ok t))
+               (unless send-ok
+                 (setf (slime-rex-continuations)
+                       (cdr (slime-rex-continuations)))
+                 (funcall continuation '(:abort)))
+               (slime-recompute-modelines t))))
           ((:return value id)
            (let ((rec (assq id (slime-rex-continuations))))
              (cond (rec (setf (slime-rex-continuations)
@@ -2403,6 +2411,7 @@ Debugged requests are ignored."
                                    (error "Invalid channel id: %S %S" id msg))
                                msg))
           ((:emacs-channel-send id msg)
+           ;; FIXME: Guard against errors like in :emacs-rex?
            (slime-send `(:emacs-channel-send ,id ,msg)))
           ((:read-from-minibuffer thread tag prompt initial-value)
            (slime-read-from-minibuffer-for-swank thread tag prompt initial-value))
