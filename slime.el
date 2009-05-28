@@ -7231,7 +7231,6 @@ conditions (assertions)."
                        (name  (first name))
                        (fails-for (cdr (assq :fails-for opts)))
                        (style (cdr (assq :style opts))))
-                  (tcr:debugmsg "opts=%S" opts)
                   ;; :style and :fails-for only options, given no more than one time?
                   (assert (null (remove* :style (remove* :fails-for opts :key #'car)
                                          :key #'car)))

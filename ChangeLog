@@ -1,5 +1,9 @@
 2009-05-28  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime.el (def-slime-test): Forgot to remove debugging code.
+
+2009-05-28  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime.el (slime-dispatch-event :emacs-rex): Make sure that we
 	pop the continuation on erroneous send.
 
