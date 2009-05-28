@@ -363,7 +363,7 @@ Do not set this to T unless you want to debug swank internals.")
          (close-connection ,var
                            (swank-error.condition condition)
                            (swank-error.backtrace condition)))))))
-  
+
 (defmacro with-panic-handler ((connection) &body body)
   (let ((var (gensym)))
   `(let ((,var ,connection))
@@ -1996,26 +1996,31 @@ considered to represent a symbol internal to some current package.)"
         (backslash nil)
         (vertical nil)
         (internp nil))
-    (loop for char across string
-       do (cond
+    (loop for char across string do
+          (cond
             (backslash
              (vector-push-extend char token)
              (setq backslash nil))
             ((char= char #\\) ; Quotes next character, even within |...|
              (setq backslash t))
             ((char= char #\|)
-             (setq vertical t))
+             (setq vertical (not vertical)))
             (vertical
              (vector-push-extend char token))
             ((char= char #\:)
-             (if package
-                 (setq internp t)
-                 (setq package token
-                       token (make-array (length string)
-                                         :element-type 'character
-                                         :fill-pointer 0))))
+             (cond ((and package internp)
+                    (error "More than two colons in ~S" string))
+                   (package
+                    (setq internp t))
+                   (t
+                    (setq package token
+                          token (make-array (length string)
+                                            :element-type 'character
+                                            :fill-pointer 0)))))
             (t
              (vector-push-extend (casify-char char) token))))
+    (when vertical
+      (error "Unclosed vertical bar in ~S" string))
     (values token package (or (not package) internp))))
 
 (defun untokenize-symbol (package-name internal-p symbol-name)
