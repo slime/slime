@@ -2375,18 +2375,10 @@ Debugged requests are ignored."
           ((:emacs-rex form package thread continuation)
            (when (and (slime-use-sigint-for-interrupt) (slime-busy-p))
              (slime-display-oneliner "; pipelined request... %S" form))
-           (let ((id (incf (slime-continuation-counter)))
-                 (send-ok nil))
+           (let ((id (incf (slime-continuation-counter))))
+             (slime-send `(:emacs-rex ,form ,package ,thread ,id))
              (push (cons id continuation) (slime-rex-continuations))
-             (unwind-protect 
-                  (progn 
-                    (slime-send `(:emacs-rex ,form ,package ,thread ,id))
-                    (setq send-ok t))
-               (unless send-ok
-                 (setf (slime-rex-continuations)
-                       (cdr (slime-rex-continuations)))
-                 (funcall continuation '(:abort)))
-               (slime-recompute-modelines t))))
+             (slime-recompute-modelines t)))
           ((:return value id)
            (let ((rec (assq id (slime-rex-continuations))))
              (cond (rec (setf (slime-rex-continuations)

@@ -1,5 +1,10 @@
 2009-06-04  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-dispatch-event [:emcas-rex]): Don't clutter
+	the main code-path with confusing error handling.
+
+2009-06-04  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-openmcl.lisp (*known-processes*, mailbox): Use a weak
 	hashtable to plug the memory leak.
 
