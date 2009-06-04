@@ -141,7 +141,17 @@ Norvig and Pitman's _Tutorial on Good Lisp Programming Style_:
 
 For Emacs Lisp, we try to follow the _Tips and Conventions_ in
 Appendix D of the GNU Emacs Lisp Reference Manual (see Info file
-`elisp', node `Tips').
+`elisp', node `Tips').  
+
+We use Emacs conventions for docstrings: the first line should be a
+complete sentence to make the output of `apropos' look good.  We also
+use imperative verbs.
+
+The biggest problem with SLIME's code base is feature creep.  Keep in
+mind that the Right Thing isn't always the Smart Thing.  If you can't
+find an elegant solution to a problem then you're probably solving the
+wrong problem.  It's often a good idea to simplify the problem and to
+ignore rarely needed cases.
 
 Remember that to rewrite a program better is the sincerest form of
 code appreciation. When you can see a way to rewrite a part of SLIME
