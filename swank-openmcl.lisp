@@ -517,6 +517,13 @@
     (ccl::apply-in-frame p lfun 
                          (ccl::frame-supplied-args p lfun pc nil context))))
 
+(defimplementation disassemble-frame (the-frame-number)
+  (with-frame (p context lfun pc) the-frame-number
+    (declare (ignore p context pc))
+    (disassemble lfun)))
+
+;; BREAK 
+
 (ccl::advise ccl::cbreak-loop
              (if *break-in-sldb* 
                  (apply #'break-in-sldb ccl::arglist)
@@ -537,10 +544,6 @@
                          :format-arguments (list msg)))
         (t condition)))
 
-(defimplementation disassemble-frame (the-frame-number)
-  (with-frame (p context lfun pc) the-frame-number
-    (declare (ignore p context pc))
-    (disassemble lfun)))
 
 ;; CCL commit r11373 | gz | 2008-11-16 16:35:28 +0100 (Sun, 16 Nov 2008)
 ;; contains some interesting details:
@@ -812,9 +815,9 @@
 
 ;;; Multiprocessing
 
-(defvar *known-processes* '()         ; FIXME: leakage. -luke
-  "Alist (ID . PROCESS MAILBOX) list of processes that we have handed
-out IDs for.")
+(defvar *known-processes* 
+  (make-hash-table :size 20 :weak :key :test #'eq)
+  "A map from threads to mailboxes.")
 
 (defvar *known-processes-lock* (ccl:make-lock "*known-processes-lock*"))
 
@@ -875,17 +878,8 @@ out IDs for.")
   
 (defun mailbox (thread)
   (ccl:with-lock-grabbed (*known-processes-lock*)
-    (let ((probe (rassoc thread *known-processes* :key #'car)))
-      (cond (probe (second (cdr probe)))
-            (t (let ((mailbox (make-mailbox)))
-                 (setq *known-processes*
-                       (acons (ccl::process-serial-number thread) 
-                              (list thread mailbox)
-                              (remove-if  
-                               (lambda (entry)
-                                 (ccl::process-exhausted-p (cadr entry)))
-                               *known-processes*)))
-                 mailbox))))))
+    (or (gethash thread *known-processes*)
+        (setf (gethash thread *known-processes*) (make-mailbox)))))
 
 (defimplementation send (thread message)
   (assert message)

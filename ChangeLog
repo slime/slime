@@ -45,6 +45,11 @@
 
 	Patch by Madhu.
 
+2009-05-24  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-openmcl.lisp (*known-processes*, mailbox): Use a weak
+	hashtable to plug the memory leak.
+
 2009-05-23  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-openmcl.lisp (break-in-sldb): Honor *break-on-signals*.
