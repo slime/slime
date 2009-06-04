@@ -1,3 +1,8 @@
+2009-06-04  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-openmcl.lisp (*known-processes*, mailbox): Use a weak
+	hashtable to plug the memory leak.
+
 2009-05-28  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el (def-slime-test): Forgot to remove debugging code.
@@ -44,11 +49,6 @@
 	search succeeded.
 
 	Patch by Madhu.
-
-2009-05-24  Helmut Eller  <heller@common-lisp.net>
-
-	* swank-openmcl.lisp (*known-processes*, mailbox): Use a weak
-	hashtable to plug the memory leak.
 
 2009-05-23  Helmut Eller  <heller@common-lisp.net>
 
