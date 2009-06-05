@@ -1,3 +1,13 @@
+2009-06-05  Helmut Eller  <heller@common-lisp.net>
+
+	Don't clutter compiler messages with source positions.  Especially
+	stuff like "In an anonymous lambda form inside an anonymous lambda
+	form inside an anonymous lambda form inside FOO: Undeclared free
+	variable X" is not helpful.
+
+	* swank-openmcl.lisp (compiler-warning-short-message): New GF.
+	(handle-compiler-warning): Use it.
+
 2009-06-04  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-dispatch-event [:emcas-rex]): Don't clutter

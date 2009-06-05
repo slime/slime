@@ -229,6 +229,7 @@
            'compiler-condition
            :original-condition condition
            :message (format nil "~A" condition)
+           :short-message (compiler-warning-short-message condition)
            :severity (compiler-warning-severity condition)
            :location (source-note-to-source-location 
                       (ccl::compiler-warning-source-note condition)
@@ -237,6 +238,24 @@
 (defgeneric compiler-warning-severity (condition))
 (defmethod compiler-warning-severity ((c ccl::compiler-warning)) :warning)
 (defmethod compiler-warning-severity ((c ccl::style-warning)) :style-warning)
+
+(defgeneric compiler-warning-short-message (condition))
+
+;; Pretty much the same as ccl::report-compiler-warning but
+;; without the source position and function name stuff.
+(defmethod compiler-warning-short-message ((c ccl::compiler-warning))
+  (with-accessors ((type ccl::compiler-warning-warning-type) 
+                   (args ccl::compiler-warning-args) 
+                   (nrefs ccl::compiler-warning-nrefs)) c
+    (with-output-to-string (stream)
+      (let ((format-string (cdr (assoc type ccl::*compiler-warning-formats*))))
+        (typecase format-string
+          (string (apply #'format stream format-string 
+                         (ccl::adjust-compiler-warning-args type args)))
+          (null (format stream "~A: ~S" type args))
+          (t (funcall format-string c stream)))
+        (when (and nrefs (/= nrefs 1))
+          (format stream " (~D references)" nrefs))))))
 
 (defimplementation call-with-compilation-hooks (function)
   (handler-bind ((ccl::compiler-warning 'handle-compiler-warning))
@@ -519,7 +538,7 @@
 
 (defimplementation disassemble-frame (the-frame-number)
   (with-frame (p context lfun pc) the-frame-number
-    (declare (ignore p context pc))
+    (format t "LFUN: ~a~%PC: ~a  FP: #x~x  CONTEXT: ~a~%" flun pc p context)
     (disassemble lfun)))
 
 ;; BREAK 
