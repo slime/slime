@@ -538,7 +538,7 @@
 
 (defimplementation disassemble-frame (the-frame-number)
   (with-frame (p context lfun pc) the-frame-number
-    (format t "LFUN: ~a~%PC: ~a  FP: #x~x  CONTEXT: ~a~%" flun pc p context)
+    (format t "LFUN: ~a~%PC: ~a  FP: #x~x  CONTEXT: ~a~%" lfun pc p context)
     (disassemble lfun)))
 
 ;; BREAK 

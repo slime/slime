@@ -8,6 +8,8 @@
 	* swank-openmcl.lisp (compiler-warning-short-message): New GF.
 	(handle-compiler-warning): Use it.
 
+	(disassemble-frame): Print current PC.
+
 2009-06-04  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-dispatch-event [:emcas-rex]): Don't clutter
