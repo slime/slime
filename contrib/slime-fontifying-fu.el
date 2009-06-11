@@ -165,12 +165,18 @@ position, or nil."
                     pt)))
     (goto-char end)
     (inline (slime-beginning-of-tlf)) ; `#+foo (progn ..#+bar (.. _END_ ..)..)'
-    (when (search-backward-regexp slime-reader-conditionals-regexp beg t)
-      ;; Nested reader conditionals, yuck!
-      (while (when-let (pt (slime-search-directly-preceding-reader-conditional))
-               (goto-char pt)))
-      (ignore-errors (slime-forward-reader-conditional))
-      (setq end (max end (point))))
+    (let ((found? (search-backward-regexp slime-reader-conditionals-regexp beg t)))
+      (unless found?
+        ;; the toplevel form isn't suppressed as a whole, so try and
+        ;; see at the tentative end position.
+        (goto-char end)
+        (setq found? (search-backward-regexp slime-reader-conditionals-regexp beg t)))
+      (when found?
+        ;; Nested reader conditionals, yuck!
+        (while (when-let (pt (slime-search-directly-preceding-reader-conditional))
+                 (goto-char pt)))
+        (ignore-errors (slime-forward-reader-conditional))
+        (setq end (max end (point)))))
     (values (or (/= beg orig-beg) (/= end orig-end)) beg end)))
 
 
