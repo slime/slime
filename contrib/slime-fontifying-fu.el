@@ -6,7 +6,7 @@
 ;;
 
 
-;;; Fontify WITH-FOO and DO-FOO like standard macros.
+;;; Fontify WITH-FOO, DO-FOO, and DEFINE-FOO like standard macros.
 ;;; Fontify CHECK-FOO like CHECK-TYPE.
 (defvar slime-additional-font-lock-keywords
  '(("(\\(\\(\\s_\\|\\w\\)*:\\(define-\\|do-\\|with-\\)\\(\\s_\\|\\w\\)*\\)" 1 font-lock-keyword-face) 
@@ -77,7 +77,10 @@
        (slime-search-suppressed-forms-internal limit)) 
       (slime-unknown-feature-expression ; e.g. #+(foo)
        (slime-search-suppressed-forms-internal limit)) 
-      (error 
+      (error
+       ;; If this reports `(cl-assertion-failed (<= (point) limit))',
+       ;; the actual culprit is `slime-extend-region-for-font-lock'
+       ;; which did not extend the region enough in this case.
        (slime-bug 
         (concat "Caught error during fontification while searching for forms\n"
                 "that are suppressed by reader-conditionals. The error was: %S.")
@@ -161,6 +164,7 @@ position, or nil."
                 (or (slime-search-directly-preceding-reader-conditional)
                     pt)))
     (goto-char end)
+    (inline (slime-beginning-of-tlf)) ; `#+foo (progn ..#+bar (.. _END_ ..)..)'
     (when (search-backward-regexp slime-reader-conditionals-regexp beg t)
       ;; Nested reader conditionals, yuck!
       (while (when-let (pt (slime-search-directly-preceding-reader-conditional))
@@ -202,6 +206,114 @@ position, or nil."
   ;;; extend-region hook.
   )
 
+
+(def-slime-test font-lock-magic (buffer-content)
+    "Some testing for the font-lock-magic. *YES* should be
+    highlighted as a suppressed form, *NO* should not."
+
+    '(("(defun *NO* (x y) (+ x y))")
+      ("(defun *NO*")
+      ("*NO*) #-(and) (*YES*) (*NO* *NO*")
+      ("\(
+\(defun *NO*")
+      ("\)
+\(defun *NO*
+    \(
+\)")
+      ("#+#.foo
+\(defun *NO* (x y) (+ x y))")
+      ("#+#.foo
+\(defun *NO* (x ")
+      ("#+(
+\(defun *NO* (x ")
+      ("#+(test)
+\(defun *NO* (x ")
+
+      ("(eval-when (...)
+\(defun *NO* (x ")
+
+      ("(eval-when (...)
+#+(and)
+\(defun *NO* (x ")
+
+      ("#-(and) (defun *YES* (x y) (+ x y))")
+      ("
+#-(and) (defun *YES* (x y) (+ x y))
+#+(and) (defun *NO* (x y) (+ x y))")
+
+      ("#+(and) (defun *NO* (x y) #-(and) (+ *YES* y))")
+      ("#| #+(or) |# *NO*")
+      ("#| #+(or) x |# *NO*")
+      ("*NO* \"#| *NO* #+(or) x |# *NO*\" *NO*")
+      ("#+#.foo (defun foo (bar))
+#-(and) *YES* *NO* bar
+")
+      ("#+(foo) (defun foo (bar))
+#-(and) *YES* *NO* bar")
+      ("#| #+(or) |# *NO* foo
+#-(and) *YES* *NO*")
+      ("#- (and)
+\(*YES*)
+\(*NO*)
+#-(and)
+\(*YES*)
+\(*NO*)")
+      ("#+nil (foo)
+
+#-(and)
+#+nil (
+       asdf *YES* a
+            fsdfad)
+
+\( asdf *YES*
+
+       )
+\(*NO*)
+
+")
+      ("*NO*
+
+#-(and) \(progn
+   #-(and)
+   (defun *YES* ...)
+
+   #+(and)
+   (defun *YES* ...)
+
+   (defun *YES* ...)
+
+   *YES*
+
+   *YES*
+
+   *YES*
+
+   *YES*
+\)
+
+*NO*"))
+  (slime-check-top-level)
+  (with-temp-buffer
+    (insert buffer-content)
+    (slime-initialize-lisp-buffer-for-test-suite
+     :autodoc t :font-lock-magic t)
+    ;; Can't use `font-lock-fontify-buffer' because for the case when
+    ;; `jit-lock-mode' is enabled. Jit-lock-mode fontifies only on
+    ;; actual display.
+    (font-lock-default-fontify-buffer)
+    (when (search-backward "*NO*" nil t)
+      (slime-test-expect "Not suppressed by reader conditional?"
+                         'slime-reader-conditional-face
+                         (get-text-property (point) 'face)
+                         #'(lambda (x y) (not (eq x y)))))
+    (goto-char (point-max))
+    (when (search-backward "*YES*" nil t)
+      (slime-test-expect "Suppressed by reader conditional?"
+                         'slime-reader-conditional-face
+                         (get-text-property (point) 'face)))))
+
+
+
 (provide 'slime-fontifying-fu)
 
 (let ((byte-compile-warnings '())) 
@@ -211,3 +323,4 @@ position, or nil."
           slime-search-directly-preceding-reader-conditional
           slime-search-suppressed-forms
           slime-beginning-of-tlf)))
+

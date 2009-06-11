@@ -1,5 +1,11 @@
 2009-05-28  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-fontifying-fu.el (slime-compute-region-for-font-lock): Fix
+	for `#+foo (... #+bar (... |) ...)'.
+	([test] font-lock-magic): Moved here.
+
+2009-05-28  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-repl.el (slime-repl-disconnect): Disconnect current connection.
 	(slime-repl-disconnect-all): New; disconnect all connections.
 
