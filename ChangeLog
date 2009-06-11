@@ -1,3 +1,7 @@
+2009-06-1  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime.el ([test] font-lock-magic): Moved to fontifying-fu contrib.
+
 2009-06-05  Helmut Eller  <heller@common-lisp.net>
 
 	Don't clutter compiler messages with source positions.  Especially
@@ -12,7 +16,7 @@
 
 2009-06-04  Helmut Eller  <heller@common-lisp.net>
 
-	* slime.el (slime-dispatch-event [:emcas-rex]): Don't clutter
+	* slime.el (slime-dispatch-event [:emacs-rex]): Don't clutter
 	the main code-path with confusing error handling.
 
 2009-06-04  Helmut Eller  <heller@common-lisp.net>
@@ -49,7 +53,7 @@
 	(slime-skipped-tests): New var.
 	(slime-execute-tests): Adapted accordingly.
 	([test] disconnect): Renamed to `disconnect-and-reconnect'
-	([test] disconnect-one-conneciton): New.
+	([test] disconnect-one-connection): New.
 
 	Adapted from patch by Stas Boukarev.
 
