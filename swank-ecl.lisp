@@ -10,6 +10,8 @@
 
 (in-package :swank-backend)
 
+(declaim (optimize (debug 3)))
+
 (defvar *tmp*)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -283,19 +285,25 @@
      (declare (ignore position))
      (if file (is-swank-source-p file)))))
 
+(defmacro find-ihs-top (x)
+  (if (< ext:+ecl-version-number+ 90601)
+      `(si::ihs-top ,x)
+      '(si::ihs-top)))
+
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
   (declare (type function debugger-loop-fn))
   (let* ((*tpl-commands* si::tpl-commands)
-         (*ihs-top* (ihs-top 'call-with-debugging-environment))
+         (*ihs-top* (find-ihs-top 'call-with-debugging-environment))
          (*ihs-current* *ihs-top*)
          (*frs-base* (or (sch-frs-base *frs-top* *ihs-base*) (1+ (frs-top))))
          (*frs-top* (frs-top))
          (*read-suppress* nil)
          (*tpl-level* (1+ *tpl-level*))
-         (*backtrace* (loop for ihs from *ihs-base* below *ihs-top*
+         (*backtrace* (loop for ihs from 0 below *ihs-top*
                             collect (list (si::ihs-fun ihs)
                                           (si::ihs-env ihs)
                                           nil))))
+    (declare (special *ihs-current*))
     (loop for f from *frs-base* until *frs-top*
           do (let ((i (- (si::frs-ihs f) *ihs-base* 1)))
                (when (plusp i)
@@ -312,7 +320,7 @@
 
 (defimplementation call-with-debugger-hook (hook fun)
   (let ((*debugger-hook* hook)
-        (*ihs-base*(si::ihs-top 'call-with-debugger-hook)))
+        (*ihs-base* (find-ihs-top 'call-with-debugger-hook)))
     (funcall fun)))
 
 (defimplementation compute-backtrace (start end)
@@ -346,10 +354,13 @@
   (let ((functions '())
         (blocks '())
         (variables '()))
-    (dolist (record (second frame))
+    #.(if (< ext:+ecl-version-number+ 90601)
+        '(setf frame (second frame))
+        '(setf frame (si::decode-ihs-env (second frame))))
+    (dolist (record frame)
       (let* ((record0 (car record))
 	     (record1 (cdr record)))
-	(cond ((symbolp record0)
+	(cond ((or (symbolp record0) (stringp record0))
 	       (setq variables (acons record0 record1 variables)))
 	      ((not (si::fixnump record0))
 	       (push record1 functions))
@@ -453,7 +464,9 @@
               `(:position ,pos)
               `(:snippet
                 ,(with-open-file (s file)
-                                 (skip-toplevel-forms pos s)
+                                 (if (< ext:+ecl-version-number+ 90601)
+                                     (skip-toplevel-forms pos s)
+                                     (file-position s pos))
                                  (skip-comments-and-whitespace s)
                                  (read-snippet s))))))))
    `(:error (format nil "Source definition of ~S not found" obj))))
