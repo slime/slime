@@ -64,27 +64,31 @@
   "Find reader conditionalized forms where the test is false."
   (when (and slime-highlight-suppressed-forms
              (slime-connected-p))
-    (condition-case condition
-        (slime-search-suppressed-forms-internal limit)
-      (end-of-file                      ; e.g. #+(
-       nil) 
-      ;; We found a reader conditional we couldn't process for some
-      ;; reason; however, there may still be other reader conditionals
-      ;; before `limit'.
-      (invalid-read-syntax              ; e.g. #+#.foo
-       (slime-search-suppressed-forms-internal limit))
-      (scan-error                       ; e.g. #| #+(or) #|
-       (slime-search-suppressed-forms-internal limit)) 
-      (slime-unknown-feature-expression ; e.g. #+(foo)
-       (slime-search-suppressed-forms-internal limit)) 
-      (error
-       ;; If this reports `(cl-assertion-failed (<= (point) limit))',
-       ;; the actual culprit is `slime-extend-region-for-font-lock'
-       ;; which did not extend the region enough in this case.
-       (slime-bug 
-        (concat "Caught error during fontification while searching for forms\n"
-                "that are suppressed by reader-conditionals. The error was: %S.")
-        condition)))))
+    (let ((result 'retry))
+      (while (eq result 'retry)
+        (condition-case condition
+            (setq result (slime-search-suppressed-forms-internal limit))
+          (end-of-file                      ; e.g. #+(
+           (setq result nil)) 
+          ;; We found a reader conditional we couldn't process for
+          ;; some reason; however, there may still be other reader
+          ;; conditionals before `limit'.
+          (invalid-read-syntax              ; e.g. #+#.foo
+           (setq result 'retry))
+          (scan-error                       ; e.g. #| #+(or) #|
+           (setq result 'retry)) 
+          (slime-unknown-feature-expression ; e.g. #+(foo)
+           (setq result 'retry)) 
+          (error
+           (setq result nil)
+           ;; If this reports `(cl-assertion-failed (<= (point) limit))',
+           ;; the actual culprit is `slime-extend-region-for-font-lock'
+           ;; which did not extend the region enough in this case.
+           (slime-bug 
+            (concat "Caught error during fontification while searching for forms\n"
+                    "that are suppressed by reader-conditionals. The error was: %S.")
+            condition))))
+      result)))
 
 
 (defun slime-search-directly-preceding-reader-conditional ()

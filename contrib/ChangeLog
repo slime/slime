@@ -1,4 +1,10 @@
-2009-05-28  Tobias C. Rittweiler  <tcr@freebits.de>
+2009-06-14  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-fontifying-fu.el (slime-search-suppressed-form): Retry the
+	search differently; handlers are not active anymore inside a
+	handler in `condition-case'.
+
+2009-06-12  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-fontifying-fu.el (slime-compute-region-for-font-lock): Fix
 	for `#+foo (... #+bar (... |) ...)'.
