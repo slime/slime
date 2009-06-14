@@ -1,3 +1,13 @@
+2009-06-14  Helmut Eller  <heller@common-lisp.net>
+
+	Some workarounds for SBCL on Windows.
+
+	* swank-sbcl.lisp (input-available-p): New function.
+	(wait-for-input): Use it.
+	([win32] handle-listen, has-buffered-input-p): New.
+	(temp-file-name, tempnam): Plain tmpnam(3) is next to useless on
+	Windows use tempnam(3) instead.
+
 2009-06-12  Geo Carncross  <geocar@gmail.com>
 
 	* swank-ecl.lisp: Support new environment changes in recent ECL/CVS
