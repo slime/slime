@@ -1,3 +1,11 @@
+2009-06-15  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-openmcl.lisp (emacs-inspect [t]): Honor the type returned
+	by inspector::line-n.
+	(emacs-inspect [compiled-lexical-closure]): Deleted. Let CCL's
+	inpector handle this case. Which does it better and it's less work
+	for us.
+
 2009-06-14  Helmut Eller  <heller@common-lisp.net>
 
 	Some workarounds for SBCL on Windows.

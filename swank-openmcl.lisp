@@ -761,19 +761,25 @@
 	(string (gethash typecode *value2tag*))
 	(string (nth typecode '(tag-fixnum tag-list tag-misc tag-imm))))))
 
+(defun comment-type-p (type)
+  (or (eq type :comment)
+      (and (consp type) (eq (car type) :comment))))
+
 (defmethod emacs-inspect ((o t))
-  (let* ((i (inspector::make-inspector o))
-	 (count (inspector::compute-line-count i))
-	 (lines 
-          (loop
-             for l below count
-             for (value label) = (multiple-value-list 
-                                  (inspector::line-n i l))
-             collect (format nil "~(~a~)" (or label l))
-             collect " = "
-             collect `(:value ,value)
-             collect '(:newline))))
-    lines))
+  (let* ((inspector::*inspector-disassembly* t)
+         (i (inspector::make-inspector o))
+	 (count (inspector::compute-line-count i)))
+    (loop for l from 0 below count append 
+          (multiple-value-bind (value label type) (inspector::line-n i l)
+            (etypecase type
+              ((member nil :normal) 
+               `(,(or label "") (:value ,value) (:newline)))
+              ((member :colon) 
+               (label-value-line label value))
+              ((member :static) 
+               (list (princ-to-string label) " " `(:value ,value) '(:newline)))
+              ((satisfies comment-type-p)
+               (list (princ-to-string label) '(:newline))))))))
 
 (defmethod emacs-inspect :around ((o t))
   (if (or (uvector-inspector-p o)
@@ -796,41 +802,8 @@
 
 (defmethod emacs-inspect ((uv uvector-inspector))
   (with-slots (object) uv
-    (loop for index below (ccl::uvsize object)
-          collect (format nil "~D: " index)
-          collect `(:value ,(ccl::uvref object index))
-          collect `(:newline))))
-
-(defun closure-closed-over-values (closure)
-  (let ((howmany (nth-value 8 (ccl::function-args (ccl::closure-function closure)))))
-    (loop for n below howmany
-	 collect
-	 (let* ((value (ccl::nth-immediate closure (+ 1 (- howmany n))))
-		(map (car (ccl::function-symbol-map (ccl::closure-function closure))))
-		(label (or (and map (svref map n)) n))
-		(cellp (ccl::closed-over-value-p value)))
-	   (list label (if cellp (ccl::closed-over-value value) value))))))
-
-(defmethod emacs-inspect ((c ccl::compiled-lexical-closure))
-  (list*
-   (format nil "A closure: ~a~%" c)
-   `(,@(if (arglist c)
-	   (list "Its argument list is: " 
-		 (funcall (intern "INSPECTOR-PRINC" 'swank) (arglist c))) 
-           ;; FIXME inspector-princ should load earlier
-	   (list "A function of no arguments"))
-     (:newline)
-     ,@(when (documentation c t)
-	 `("Documentation:" (:newline) ,(documentation c t) (:newline)))
-     ,(format nil "Closed over ~a values"  (length (closure-closed-over-values c)))
-     (:newline)
-     ,@(loop for (name value) in (closure-closed-over-values c)
-	    for count from 1
-	  append
-	  (label-value-line* ((format nil "~2,' d) ~a" count (string name)) value))))))
-
-
-
+    (loop for i below (ccl::uvsize object) append 
+          (label-value-line (princ-to-string i) (ccl::uvref object i)))))
 
 ;;; Multiprocessing
 
