@@ -1,5 +1,9 @@
 2009-06-15  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-openmcl.lisp: Explicitly require CCL version 1.3.
+
+2009-06-15  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-openmcl.lisp (emacs-inspect [t]): Honor the type returned
 	by inspector::line-n.
 	(emacs-inspect [compiled-lexical-closure]): Deleted. Let CCL's

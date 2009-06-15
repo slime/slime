@@ -52,6 +52,11 @@
 
 (in-package :swank-backend)
 
+(eval-when (:compile-toplevel :execute :load-toplevel)
+  (assert (and (= ccl::*openmcl-major-version* 1)
+               (>= ccl::*openmcl-minor-version* 3))
+          () "This file needs CCL version 1.3 or newer"))
+
 (import-from :ccl *gray-stream-symbols* :swank-backend)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
