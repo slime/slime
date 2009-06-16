@@ -1,3 +1,10 @@
+2009-06-16  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-fontifying-fu.el (slime-search-suppressed-form):
+	Additional exit constraint for the loop; make sure we'r still in
+	the limit.
+	(slime-compute-region-for-font-lock): Simplify.
+
 2009-06-14  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-fontifying-fu.el (slime-search-suppressed-form): Retry the

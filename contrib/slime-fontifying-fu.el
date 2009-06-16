@@ -45,7 +45,8 @@
                     (and (eq char ?-) val))
                 (progn
                   (forward-sexp) (backward-sexp)
-                  (slime-forward-sexp)
+                  ;; Try to suppress as far as possible.
+                  (ignore-errors (slime-forward-sexp))
                   ;; There was an `ignore-errors' form around all this
                   ;; because the following assertion was triggered
                   ;; regularly (resulting in the "non-deterministic"
@@ -65,7 +66,7 @@
   (when (and slime-highlight-suppressed-forms
              (slime-connected-p))
     (let ((result 'retry))
-      (while (eq result 'retry)
+      (while (and (eq result 'retry) (<= (point) limit))
         (condition-case condition
             (setq result (slime-search-suppressed-forms-internal limit))
           (end-of-file                      ; e.g. #+(
@@ -75,7 +76,7 @@
           ;; conditionals before `limit'.
           (invalid-read-syntax              ; e.g. #+#.foo
            (setq result 'retry))
-          (scan-error                       ; e.g. #| #+(or) #|
+          (scan-error                       ; e.g. #+nil (foo ...
            (setq result 'retry)) 
           (slime-unknown-feature-expression ; e.g. #+(foo)
            (setq result 'retry)) 
@@ -168,20 +169,14 @@ position, or nil."
                 (or (slime-search-directly-preceding-reader-conditional)
                     pt)))
     (goto-char end)
-    (inline (slime-beginning-of-tlf)) ; `#+foo (progn ..#+bar (.. _END_ ..)..)'
-    (let ((found? (search-backward-regexp slime-reader-conditionals-regexp beg t)))
-      (unless found?
-        ;; the toplevel form isn't suppressed as a whole, so try and
-        ;; see at the tentative end position.
-        (goto-char end)
-        (setq found? (search-backward-regexp slime-reader-conditionals-regexp beg t)))
-      (when found?
-        ;; Nested reader conditionals, yuck!
-        (while (when-let (pt (slime-search-directly-preceding-reader-conditional))
-                 (goto-char pt)))
-        (ignore-errors (slime-forward-reader-conditional))
-        (setq end (max end (point)))))
+    (while (search-backward-regexp slime-reader-conditionals-regexp beg t)
+      (setq end (max end (save-excursion 
+                           (ignore-errors (slime-forward-reader-conditional))
+                           (point)))))
     (values (or (/= beg orig-beg) (/= end orig-end)) beg end)))
+
+
+
 
 
 (defun slime-activate-font-lock-magic ()
