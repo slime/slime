@@ -7330,10 +7330,9 @@ BODY returns true if the check succeeds."
 (defun slime-check-fancy-symbol-name (buffer-offset symbol-name)
   ;; We test that `slime-symbol-at-point' works at every
   ;; character of the symbol name.
-  (dotimes (pt (length symbol-name))
-    (setq pt (+ buffer-offset pt))
-    (goto-char pt)
-    (slime-test-expect (format "Check `%s' (at %d)..." (buffer-string) pt)
+  (dotimes (i (length symbol-name))
+    (goto-char (+ buffer-offset i))
+    (slime-test-expect (format "Check `%s' (at %d)..." (buffer-string) (point))
                        symbol-name 
                        (slime-symbol-at-point)
                        #'equal)))

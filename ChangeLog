@@ -1,5 +1,10 @@
 2009-06-20  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-check-fancy-symbol-name): Don't update the loop
+	index inside the loop body.
+
+2009-06-20  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-openmcl.lisp (emacs-connected): Deleted. Setting
 	ccl::*interactive-abort-process* doesn't seem right.
 
