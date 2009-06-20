@@ -1,3 +1,8 @@
+2009-06-20  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-openmcl.lisp (emacs-connected): Deleted. Setting
+	ccl::*interactive-abort-process* doesn't seem right.
+
 2009-06-15  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-openmcl.lisp: Explicitly require CCL version 1.3.

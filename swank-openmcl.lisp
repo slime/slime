@@ -192,9 +192,6 @@
   (car (rassoc-if (lambda (x) (member coding-system x :test #'equal))
                   *external-format-to-coding-system*)))
 
-(defimplementation emacs-connected ()
-  (setq ccl::*interactive-abort-process* ccl::*current-process*))
-
 ;;; Unix signals
 
 (defimplementation call-without-interrupts (fn)
@@ -413,7 +410,9 @@
 
 (defimplementation install-debugger-globally (function)
   (setq *debugger-hook* function)
-  (setq *break-in-sldb* t))
+  (setq *break-in-sldb* t)
+  ;;(setq ccl::*interactive-abort-process* ccl::*current-process*)
+  )
 
 (defun backtrace-context ()
   nil)
@@ -623,7 +622,7 @@
    (or (ccl:find-source-note-at-pc function pc)
        (ccl:function-source-note function))
    (lambda ()
-     (format nil "No source note at PC: ~A:#x~x" function pc))))
+     (format nil "No source note at PC: ~a[~d]" function pc))))
 
 (defun source-note-to-source-location (note if-nil-thunk)
   (labels ((filename-to-buffer (filename)
