@@ -1,5 +1,9 @@
 2009-06-21  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-initialize-lisp-buffer-for-test-suite): Moved to
+	contrib/slime-fontifying-fu.el
+
+2009-06-21  Helmut Eller  <heller@common-lisp.net>
 	Don't try so hard to get symbol-at-point right.
 	The old implementation was complicated and didn't even pass it's
 	own test suite.  The new version is less ambitious but simpler.

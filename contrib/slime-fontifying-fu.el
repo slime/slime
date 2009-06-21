@@ -317,7 +317,21 @@ position, or nil."
                          'slime-reader-conditional-face
                          (get-text-property (point) 'face)))))
 
-
+(defun* slime-initialize-lisp-buffer-for-test-suite 
+    (&key (font-lock-magic t) (autodoc t))
+  (let ((hook lisp-mode-hook))
+    (unwind-protect
+         (progn 
+           (set (make-local-variable 'slime-highlight-suppressed-forms)
+                font-lock-magic)
+           (setq lisp-mode-hook nil)
+           (lisp-mode)
+           (slime-mode 1)
+           (when (boundp 'slime-autodoc-mode)
+             (if autodoc
+                 (slime-autodoc-mode 1)
+                 (slime-autodoc-mode -1))))
+      (setq lisp-mode-hook hook))))
 
 (provide 'slime-fontifying-fu)
 
@@ -328,4 +342,3 @@ position, or nil."
           slime-search-directly-preceding-reader-conditional
           slime-search-suppressed-forms
           slime-beginning-of-tlf)))
-

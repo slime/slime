@@ -7419,22 +7419,6 @@ BODY returns true if the check succeeds."
   slime-test-symbols
   (slime-check-symbol-at-point "\" )))(( \"" sym ""))
 
-(defun* slime-initialize-lisp-buffer-for-test-suite 
-    (&key (font-lock-magic t) (autodoc t))
-  (let ((hook lisp-mode-hook))
-    (unwind-protect
-         (progn 
-           (set (make-local-variable 'slime-highlight-suppressed-forms)
-                font-lock-magic)
-           (setq lisp-mode-hook nil)
-           (lisp-mode)
-           (slime-mode 1)
-           (when (boundp 'slime-autodoc-mode)
-             (if autodoc
-                 (slime-autodoc-mode 1)
-                 (slime-autodoc-mode -1))))
-      (setq lisp-mode-hook hook))))
-
 (def-slime-test narrowing ()
     "Check that narrowing is properly sustained."
     '()
