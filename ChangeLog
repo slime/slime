@@ -1,3 +1,8 @@
+2009-06-21  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-backend.lisp (frame-source-location): Renamed from
+	frame-source-location-for-emacs.
+
 2009-06-20  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-check-fancy-symbol-name): Don't update the loop

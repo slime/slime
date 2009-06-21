@@ -187,7 +187,7 @@
 (defimplementation disassemble-frame (index)
   (disassemble (debugger:frame-function (nth-frame index))))
 
-(defimplementation frame-source-location-for-emacs (index)
+(defimplementation frame-source-location (index)
   (let* ((frame (nth-frame index))
          (expr (debugger:frame-expression frame))
          (fspec (first expr)))

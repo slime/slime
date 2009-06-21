@@ -515,7 +515,7 @@
               (push (list name value) result)))))
       (reverse result))))
 
-(defimplementation frame-source-location-for-emacs (index)
+(defimplementation frame-source-location (index)
   (with-frame (p context lfun pc) index
     (declare (ignore p context))
     (if pc

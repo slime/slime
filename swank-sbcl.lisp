@@ -1118,7 +1118,7 @@ stack."
       (handler-case (code-location-source-location code-location)
         (error (c) (list :error (format nil "~A" c))))))
 
-(defimplementation frame-source-location-for-emacs (index)
+(defimplementation frame-source-location (index)
   (safe-source-location-for-emacs
    (sb-di:frame-code-location (nth-frame index))))
 

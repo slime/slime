@@ -681,7 +681,7 @@ Return T if `restart-frame' can safely be called on the frame."
   (declare (ignore frame))
   nil)
 
-(definterface frame-source-location-for-emacs (frame-number)
+(definterface frame-source-location (frame-number)
   "Return the source location for the frame associated to FRAME-NUMBER.")
 
 (definterface frame-catch-tags (frame-number)

@@ -208,7 +208,7 @@
     (when vars
       (second (elt vars var)))))
 
-(defimplementation frame-source-location-for-emacs (frame-number)
+(defimplementation frame-source-location (frame-number)
   (fspec-location (frame-function (elt *frame-trace* frame-number))))
 
 (defun break (&optional (format-control "Break") &rest format-arguments)

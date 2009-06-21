@@ -1367,7 +1367,7 @@ Signal an error if no constructor can be found."
       (error (e)
         (ignore-errors (princ e stream))))))
 
-(defimplementation frame-source-location-for-emacs (index)
+(defimplementation frame-source-location (index)
   (code-location-source-location (di:frame-code-location (nth-frame index))))
 
 (defimplementation eval-in-frame (form index)

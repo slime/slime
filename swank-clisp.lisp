@@ -521,7 +521,7 @@ Return two values: NAME and VALUE"
 (defimplementation restart-frame (index)
   (sys::redo-eval-frame (nth-frame index)))
 
-(defimplementation frame-source-location-for-emacs (index)
+(defimplementation frame-source-location (index)
   `(:error
     ,(format nil "frame-source-location not implemented. (frame: ~A)"
              (nth-frame index))))

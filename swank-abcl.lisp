@@ -284,7 +284,7 @@
 (defimplementation disassemble-frame (index)
   (disassemble (debugger:frame-function (nth-frame index))))
 
-(defimplementation frame-source-location-for-emacs (index)
+(defimplementation frame-source-location (index)
   (list :error (format nil "Cannot find source for frame: ~A"
                        (nth-frame index))))
 

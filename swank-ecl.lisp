@@ -373,7 +373,7 @@
 (defimplementation print-frame (frame stream)
   (format stream "~A" (first frame)))
 
-(defimplementation frame-source-location-for-emacs (frame-number)
+(defimplementation frame-source-location (frame-number)
   (nth-value 1 (frame-function (elt *backtrace* frame-number))))
 
 (defimplementation frame-catch-tags (frame-number)

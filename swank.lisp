@@ -48,7 +48,7 @@
            #:*inspector-verbose*
            ;; These are re-exported directly from the backend:
            #:buffer-first-change
-           #:frame-source-location-for-emacs
+           #:frame-source-location
            #:restart-frame
            #:sldb-step 
            #:sldb-break

@@ -383,7 +383,7 @@ Return NIL if the symbol is unbound."
       (declare (ignore _n _s _l))
       value)))
 
-(defimplementation frame-source-location-for-emacs (frame)
+(defimplementation frame-source-location (frame)
   (let ((frame (nth-frame frame))
         (callee (if (plusp frame) (nth-frame (1- frame)))))
     (if (dbg::call-frame-p frame)

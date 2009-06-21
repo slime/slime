@@ -5772,7 +5772,7 @@ This is 0 if START and END at the same line."
 
 (defun sldb-show-frame-source (frame-number)
   (slime-eval-async
-   `(swank:frame-source-location-for-emacs ,frame-number)
+   `(swank:frame-source-location ,frame-number)
    (lambda (source-location)
      (destructure-case source-location
        ((:error message)
@@ -6074,7 +6074,7 @@ was called originally."
 (defun sldb-recompile-frame-source (&optional raw-prefix-arg)
   (interactive "P")
   (slime-eval-async
-   `(swank:frame-source-location-for-emacs ,(sldb-frame-number-at-point))
+   `(swank:frame-source-location ,(sldb-frame-number-at-point))
    (lexical-let ((policy (slime-compute-policy raw-prefix-arg)))
      (lambda (source-location)
        (destructure-case source-location
