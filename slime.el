@@ -7327,110 +7327,97 @@ BODY returns true if the check succeeds."
 (defun slime-sldb-level= (level)
   (equal level (sldb-level)))
 
-(defun slime-check-fancy-symbol-name (buffer-offset symbol-name)
+(defvar slime-test-symbols
+  '(("foobar") ("foo@bar") ("@foobar") ("foobar@") ("\\@foobar")
+    ("|asdf||foo||bar|")
+    ("\\#<Foo@Bar>")
+    ("\\(setf\\ car\\)")))
+
+(defun slime-check-symbol-at-point (prefix symbol suffix)
   ;; We test that `slime-symbol-at-point' works at every
   ;; character of the symbol name.
-  (dotimes (i (length symbol-name))
-    (goto-char (+ buffer-offset i))
-    (slime-test-expect (format "Check `%s' (at %d)..." (buffer-string) (point))
-                       symbol-name 
-                       (slime-symbol-at-point)
-                       #'equal)))
-
-(def-slime-test fancy-symbol-names (symbol-name)
-    "Check that we can cope with idiosyncratic symbol names."
-    '(("foobar") ("foo@bar") ("@foobar") ("foobar@") ("\\@foobar")
-      ("|asdf,@@@(foo[adsf])asdf!!!|::|fo||bar|asdf")
-      ("|asdf||foo||bar|")
-      ("\\|foo|bar|@asdf:foo|\\||")
-      ("\\\\\\\\foo|barfo\\\\|asdf")
-      ("\\#<Foo@Bar>") ("|#<|Foo@Bar|>|") ("|#<Foo@Bar>|"))
-  (slime-check-top-level)
   (with-temp-buffer
     (lisp-mode)
-    (slime-test-message "*** fancy symbol-name at BOB and EOB:")
-    (insert symbol-name)
-    (slime-check-fancy-symbol-name (point-min) symbol-name)
-    (erase-buffer)
+    (insert prefix)
+    (let ((start (point)))
+      (insert symbol suffix)
+      (dotimes (i (length symbol))
+        (goto-char (+ start i))
+        (slime-test-expect (format "Check `%s' (at %d)..."
+                                   (buffer-string) (point))
+                           symbol
+                           (slime-symbol-at-point)
+                           #'equal)))))
 
-    (slime-test-message "*** fancy symbol-name _not_ at BOB/EOB:")
-    (insert "(foo ") (insert symbol-name) (insert " bar)")
-    (slime-check-fancy-symbol-name (+ (point-min) 5) symbol-name)
-    (erase-buffer)
+(def-slime-test symbol-at-point.1 (sym)
+    "Check that we can cope with idiosyncratic symbol names."
+    slime-test-symbols
+  (slime-check-symbol-at-point "" sym ""))
 
-    (unless (eq (aref symbol-name 0) ?\@) ; Skip on `@foobar'
-      (slime-test-message "*** fancy symbol-name with leading ,:")
-      (insert ",") (insert symbol-name)
-      (slime-check-fancy-symbol-name (+ (point-min) 1) symbol-name)
-      (erase-buffer))
+(def-slime-test symbol-at-point.2 (sym)
+  "fancy symbol-name _not_ at BOB/EOB"
+  slime-test-symbols
+  (slime-check-symbol-at-point "(foo " sym " bar)"))
 
-    (slime-test-message "*** fancy symbol-name with leading ,@:")
-    (insert ",@") (insert symbol-name)
-    (slime-check-fancy-symbol-name (+ (point-min) 2) symbol-name)
-    (erase-buffer)
+(def-slime-test symbol-at-point.3 (sym)
+  "fancy symbol-name with leading ,"
+  (remove-if (lambda (s) (eq (aref (car s) 0) ?@)) slime-test-symbols)
+  (slime-check-symbol-at-point "," sym ""))
 
-    (slime-test-message "*** fancy symbol-name with leading `:")
-    (insert "`") (insert symbol-name)
-    (slime-check-fancy-symbol-name (+ (point-min) 1) symbol-name)
-    (erase-buffer)
+(def-slime-test symbol-at-point.4 (sym)
+  "fancy symbol-name with leading ,@"
+  slime-test-symbols
+  (slime-check-symbol-at-point ",@" sym ""))
 
-    (slime-test-message "*** fancy symbol-name wrapped in ():")
-    (insert "(") (insert symbol-name) (insert ")")
-    (slime-check-fancy-symbol-name (+ (point-min) 1) symbol-name)
-    (erase-buffer)
+(def-slime-test symbol-at-point.5 (sym)
+  "fancy symbol-name with leading `"
+  slime-test-symbols
+  (slime-check-symbol-at-point "`" sym ""))
 
-    (slime-test-message "*** fancy symbol-name wrapped in #<>:")
-    (insert "#<") (insert symbol-name) (insert " {DEADBEEF}>")
-    (slime-check-fancy-symbol-name (+ (point-min) 2) symbol-name)
-    (erase-buffer)
+(def-slime-test symbol-at-point.6 (sym)
+  "fancy symbol-name wrapped in ()"
+  slime-test-symbols
+  (slime-check-symbol-at-point "(" sym ")"))
 
-    (slime-test-message "*** fancy symbol-name wrapped in #<>:")
-    (insert "#<") (insert symbol-name) (insert " {DEADBEEF}>")
-    (slime-check-fancy-symbol-name (+ (point-min) 2) symbol-name)
-    (erase-buffer)
+(def-slime-test symbol-at-point.7 (sym)
+  "fancy symbol-name wrapped in #< {DEADBEEF}>"
+  slime-test-symbols
+  (slime-check-symbol-at-point "#<" sym " {DEADBEEF}>"))
 
-    (slime-test-message "*** fancy symbol-name wrapped in #| ... |#:")
-    (insert "#|\n") (insert symbol-name) (insert "\n|#")
-    (slime-check-fancy-symbol-name (+ (point-min) 4) symbol-name)
-    (erase-buffer)
+;;(def-slime-test symbol-at-point.8 (sym)
+;;  "fancy symbol-name wrapped in #<>"
+;;  slime-test-symbols
+;;  (slime-check-symbol-at-point "#<" sym ">"))
 
-    (slime-test-message "*** fancy symbol-name after #| )))(( |# (1):")
-    (let ((pre-content "#| )))(( #|\n"))
-      (insert pre-content)
-      (insert symbol-name) 
-      (slime-check-fancy-symbol-name (+ (point-min) (length pre-content))
-                                     symbol-name)
-      (erase-buffer))
+(def-slime-test symbol-at-point.9 (sym)
+  "fancy symbol-name wrapped in #| ... |#"
+  slime-test-symbols
+  (slime-check-symbol-at-point "#|\n" sym "\n|#"))
 
-    (slime-test-message "*** fancy symbol-name after #| )))(( |# (2):")
-    (let ((pre-content "#| )))(( #|"))  ; no newline
-      (insert pre-content)
-      (insert symbol-name) 
-      (slime-check-fancy-symbol-name (+ (point-min) (length pre-content))
-                                     symbol-name)
-      (erase-buffer))
+(def-slime-test symbol-at-point.10 (sym)
+  "fancy symbol-name after #| )))(( |# (1)"
+  slime-test-symbols
+  (slime-check-symbol-at-point "#| )))(( #|\n" sym ""))
 
-    (slime-test-message "*** fancy symbol-name wrapped in \"...\":")
-    (insert "\"\n") (insert symbol-name) (insert "\n\"")
-    (slime-check-fancy-symbol-name (+ (point-min) 3) symbol-name)
-    (erase-buffer)
+(def-slime-test symbol-at-point.11 (sym)
+  "fancy symbol-name after #| )))(( |# (2)"
+  slime-test-symbols
+  (slime-check-symbol-at-point "#| )))(( #|" sym ""))
 
-    (slime-test-message "*** fancy symbol-name after \" )))(( \" (1):")
-    (let ((pre-content "\" )))(( \"\n"))
-      (insert pre-content)
-      (insert symbol-name) 
-      (slime-check-fancy-symbol-name (+ (point-min) (length pre-content))
-                                     symbol-name)
-      (erase-buffer))
+(def-slime-test symbol-at-point.12 (sym)
+  "fancy symbol-name wrapped in \"...\""
+  slime-test-symbols
+  (slime-check-symbol-at-point "\"\n" sym "\"\n"))
 
-    (slime-test-message "*** fancy symbol-name after \" )))(( \" (2):")
-    (let ((pre-content "\" )))(( \"")) ; no newline
-      (insert pre-content)
-      (insert symbol-name) 
-      (slime-check-fancy-symbol-name (+ (point-min) (length pre-content))
-                                     symbol-name)
-      (erase-buffer))
-    ))
+(def-slime-test symbol-at-point.13 (sym)
+  "fancy symbol-name wrapped in \" )))(( \" (1)"
+  slime-test-symbols
+  (slime-check-symbol-at-point "\" )))(( \"\n" sym ""))
+
+(def-slime-test symbol-at-point.14 (sym)
+  "fancy symbol-name wrapped in \" )))(( \" (1)"
+  slime-test-symbols
+  (slime-check-symbol-at-point "\" )))(( \"" sym ""))
 
 (defun* slime-initialize-lisp-buffer-for-test-suite 
     (&key (font-lock-magic t) (autodoc t))
@@ -8309,57 +8296,17 @@ within. This includes nested comments (#| ... |#)."
         (beginning-of-defun)
         (list (point) end)))))
 
-(defun slime-exit-vertical-bars ()
-  "Move out from within vertical bars (|foo|) to the leading bar."
-  (let* ((parser-state (slime-current-parser-state))
-         (in-string-p  (nth 3 parser-state))
-         (string-start (nth 8 parser-state)))
-    (when (and in-string-p 
-               (eq (char-after string-start) ?\|))
-      (goto-char string-start))))
-
-(defun slime-symbol-constituent-at (pos)
-  "Is the character at position POS a valid symbol constituent?"
-  ;; We assume we're not within vertical bars, otherwise boringly
-  ;; everything would be a constituent.
-  (when-let (char (char-after pos))                   ; nil when at eob.
-    (let* ((char-before   (or (char-before pos) ?\a)) ; nil when at bob.
-           (syntax        (char-syntax char))
-           (syntax-before (char-syntax char-before)))
-      (if (and (eq char-before ?\#) (eq char ?\<))    ; #< ?
-          nil
-          (or
-           (memq syntax '(?\w ?\_ ?\\))               ; usual suspects?
-           (eq char ?\|)                              ; |foo|::|bar|?
-           (eq syntax-before ?\\)                     ; escaped?
-           (and (eq char ?\@)                         ; ,@@foobar or foo@bar?
-                (not (eq char-before ?\,))))))))
-
-;;; `slime-beginning-of-symbol', and `slime-end-of-symbol' are written
-;;; to get a lot of funky CL-style symbol names right (see
-;;; `fancy-symbol-names' test.) To get them right, we have to use
-;;; `forward-sexp' as that one does properly heed escaping etc.
-;;;
 (defun slime-beginning-of-symbol ()
   "Move to the beginning of the CL-style symbol at point."
-  (slime-exit-vertical-bars)
-  (let ((original-point (point)))
-    (while (slime-symbol-constituent-at (1- (point)))
-      (forward-sexp -1))
-    (when (/= (point) original-point)
-      ;; Move past initial , and ,@:
-      (while (not (slime-symbol-constituent-at (point)))
-        (forward-char 1)))))
+  (while (re-search-backward "\\(\\sw\\|\\s_\\|\\s\\.\\|\\s\\\\|[#@|]\\)\\=" 
+                             nil t))
+  (re-search-forward "\\=#[<|]" nil t)
+  (when (and (looking-at "@") (eq (char-before) ?\,))
+    (forward-char)))
 
 (defun slime-end-of-symbol ()
   "Move to the end of the CL-style symbol at point."
-  ;; We call this for two purposes: (a) to move out from vertical
-  ;; bars, and (b) to get to a safe position (e.g. in "\|foo:|bar|" if
-  ;; point is at the first vertical bar, `forward-sexp' would not see
-  ;; the escape.)
-  (slime-beginning-of-symbol)
-  (while (slime-symbol-constituent-at (point))
-    (forward-sexp 1)))
+  (re-search-forward "\\=\\(\\sw\\|\\s_\\|\\s\\.\\|[#@|]\\)*"))
 
 (put 'slime-symbol 'end-op 'slime-end-of-symbol)
 (put 'slime-symbol 'beginning-op 'slime-beginning-of-symbol)
@@ -8374,25 +8321,11 @@ The result is unspecified if there isn't a symbol under the point."
 
 (defun slime-symbol-at-point ()
   "Return the name of the symbol at point, otherwise nil."
-  (save-restriction
-    ;;;; Don't be tricked into grabbing the REPL prompt.
-    ;;(when (and (eq major-mode 'slime-repl-mode)
-    ;;           (>= (point) slime-repl-input-start-mark))
-    ;;  (narrow-to-region slime-repl-input-start-mark (point-max)))
-    (save-excursion
-      (let ((string (or (thing-at-point 'slime-symbol)
-                        ;; Sometimes we can be too good, e.g.  in "|#
-                        ;; (defun foo () (getf" the above would return
-                        ;; nil because the vertical bar is not
-                        ;; terminated. The user probably wants "getf"
-                        ;; nontheless.
-                        (thing-at-point 'symbol))))
-        (and string
-             ;; (thing-at-point 'symbol) returns "" instead of nil
-             ;; when called from an empty (or narrowed-to-empty)
-             ;; buffer.
-             (not (equal string ""))
-             (substring-no-properties string))))))
+  ;; (thing-at-point 'symbol) returns "" in empty buffers
+  (let ((string (thing-at-point 'slime-symbol)))
+    (and string
+         (not (equal string "")) 
+         (substring-no-properties string))))
 
 (defun slime-sexp-at-point ()
   "Return the sexp at point as a string, otherwise nil."

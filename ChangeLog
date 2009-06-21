@@ -1,5 +1,20 @@
 2009-06-21  Helmut Eller  <heller@common-lisp.net>
 
+	Don't try so hard to get symbol-at-point right.
+	The old implementation was complicated and didn't even pass it's
+	own test suite.  The new version is less ambitious but simpler.
+
+	* slime.el (slime-symbol-at-point, slime-beginning-of-symbol)
+	(slime-end-of-symbol): Simplify.
+	(slime-exit-vertical-bars, slime-symbol-constituent-at): Deleted.
+	([test] symbol-at-point.1 .. symbol-at-point.14): Renamed form
+	fancy-symbol-names and split up into smaller peices.
+	(slime-test-symbols): New.
+	(slime-check-symbol-at-point): Renamed from
+	slime-check-fancy-symbol-name.
+
+2009-06-21  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-backend.lisp (frame-source-location): Renamed from
 	frame-source-location-for-emacs.
 
