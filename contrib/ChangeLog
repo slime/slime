@@ -1,3 +1,7 @@
+2009-06-23  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-ikarus.ss, swank-larceny.scm, swank-r6rs.scm: New files.
+
 2009-06-16  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-fontifying-fu.el (slime-search-suppressed-form):
