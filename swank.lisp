@@ -2384,13 +2384,20 @@ Returns true if it actually called emacs, or NIL if not."
            (send-oob-to-emacs `(:ed ,target))))
         (t nil)))))
 
-(defslimefun inspect-in-emacs (what)
-  "Inspect WHAT in Emacs."
+(defslimefun inspect-in-emacs (what &key wait)
+  "Inspect WHAT in Emacs. If WAIT is true (default NIL) blocks until the
+inspector has been closed in Emacs."
   (flet ((send-it ()
-           (with-buffer-syntax ()
-             (reset-inspector)
-             (send-oob-to-emacs `(:inspect ,(inspect-object what))))))
-    (cond 
+           (let ((tag (when wait (make-tag)))
+                 (thread (when wait (current-thread-id))))
+             (with-buffer-syntax ()
+               (reset-inspector)
+               (send-oob-to-emacs `(:inspect ,(inspect-object what)
+                                             ,thread
+                                             ,tag)))
+             (when wait
+               (wait-for-event `(:emacs-return ,tag result))))))
+    (cond
       (*emacs-connection*
        (send-it))
       ((default-connection)

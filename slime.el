@@ -2424,8 +2424,13 @@ Debugged requests are ignored."
            (slime-send `(:emacs-return ,thread ,tag ,value)))
           ((:ed what)
            (slime-ed what))
-          ((:inspect what)
-           (slime-open-inspector what))
+          ((:inspect what wait-thread wait-tag)
+           (let ((hook (when (and wait-thread wait-tag)
+                         (lexical-let ((thread wait-thread)
+                                       (tag wait-tag))
+                           (lambda ()
+                             (slime-send `(:emacs-return ,thread ,tag nil)))))))
+             (slime-open-inspector what nil hook)))
           ((:background-message message)
            (slime-background-message "%s" message))
           ((:debug-condition thread message)
@@ -6313,10 +6318,13 @@ was called originally."
 
 (defvar slime-inspector-insert-ispec-function 'slime-inspector-insert-ispec)
 
-(defun slime-open-inspector (inspected-parts &optional point)
+(defun slime-open-inspector (inspected-parts &optional point hook)
   "Display INSPECTED-PARTS in a new inspector window.
-Optionally set point to POINT."
+Optionally set point to POINT. If HOOK is provided, it is added to local
+KILL-BUFFER hooks for the inspector buffer."
   (with-current-buffer (slime-inspector-buffer)
+    (when hook
+      (add-hook 'kill-buffer-hook hook t t))
     (setq slime-buffer-connection (slime-current-connection))
     (let ((inhibit-read-only t))
       (erase-buffer)

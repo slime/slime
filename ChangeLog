@@ -1,3 +1,16 @@
+2009-06-24  Nikodemus Siivola <nikodemus@random-state.net>
+
+	Add :WAIT keyword argument to support blocking in
+	SWANK:INSPECT-IN-EMACS.
+
+	* swank.lisp (inspect-in-emacs): added keyword argument :wait.
+	
+	* slime.el (slime-dispatch-event): if swank requests response to
+	:inspect, add a hook to the inspector to signal swank once done.
+	(slime-open-inspector): add optional hook argument to be added as
+	local kill-buffer-hook.
+	
+
 2009-06-21  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-initialize-lisp-buffer-for-test-suite): Moved to
