@@ -471,6 +471,31 @@
                                  (read-snippet s))))))))
    `(:error (format nil "Source definition of ~S not found" obj))))
 
+;;;; Profiling
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (require 'profile))
+
+(defimplementation profile (fname)
+  (when fname (eval `(profile:profile ,fname))))
+
+(defimplementation unprofile (fname)
+  (when fname (eval `(profile:unprofile ,fname))))
+
+(defimplementation unprofile-all ()
+  (profile:unprofile-all)
+  "All functions unprofiled.")
+
+(defimplementation profile-report ()
+  (profile:report))
+
+(defimplementation profile-reset ()
+  (profile:reset)
+  "Reset profiling counters.")
+
+(defimplementation profiled-functions ()
+  (profile:profile))
+
 ;;;; Threads
 
 #+threads
