@@ -2,6 +2,11 @@
 
 	* swank-ecl.lisp: Profiling support by Marko Kocić
 
+2009-06-27  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-beginning-of-symbol): Skip over #., #-, and #+.
+	([test] symbol-at-point.15 .. 17): Test it.
+
 2009-06-24  Nikodemus Siivola <nikodemus@random-state.net>
 
 	Add :WAIT keyword argument to support blocking in

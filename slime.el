@@ -7427,6 +7427,21 @@ BODY returns true if the check succeeds."
   slime-test-symbols
   (slime-check-symbol-at-point "\" )))(( \"" sym ""))
 
+(def-slime-test symbol-at-point.15 (sym)
+  "symbol-at-point after #."
+  slime-test-symbols
+  (slime-check-symbol-at-point "#." sym ""))
+
+(def-slime-test symbol-at-point.16 (sym)
+  "symbol-at-point after #+"
+  slime-test-symbols
+  (slime-check-symbol-at-point "#+" sym ""))
+
+(def-slime-test symbol-at-point.17 (sym)
+  "symbol-at-point after #-"
+  slime-test-symbols
+  (slime-check-symbol-at-point "#-" sym ""))
+
 (def-slime-test narrowing ()
     "Check that narrowing is properly sustained."
     '()
@@ -8292,7 +8307,7 @@ within. This includes nested comments (#| ... |#)."
   "Move to the beginning of the CL-style symbol at point."
   (while (re-search-backward "\\(\\sw\\|\\s_\\|\\s\\.\\|\\s\\\\|[#@|]\\)\\=" 
                              nil t))
-  (re-search-forward "\\=#[<|]" nil t)
+  (re-search-forward "\\=#[-+.<|]" nil t)
   (when (and (looking-at "@") (eq (char-before) ?\,))
     (forward-char)))
 
