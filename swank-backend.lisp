@@ -1007,6 +1007,11 @@ user. They do not have to be unique."
   (declare (ignore thread description))
   "")
 
+(definterface thread-attributes (thread)
+  "Return a plist of implementation-dependent attributes for THREAD"
+  (declare (ignore thread))
+  '())
+
 (definterface make-lock (&key name)
    "Make a lock for thread synchronization.
 Only one thread may hold the lock (via CALL-WITH-LOCK-HELD) at a time

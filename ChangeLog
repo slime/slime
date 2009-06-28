@@ -1,3 +1,14 @@
+2009-06-28  Terje Norderhaug <terje@in-progress.com>
+
+	Generalize list-threads for implementation-dependent attributes.
+
+	* swank-backend.lisp (thread-attributes): New function.
+	* swank-openmcl (thread-attributes): Implement it.
+	* swank.lisp (list-threads): Return a table with the attribute
+	names as the first row and the new attributes in the last columns.
+	* slime.el (slime-update-threads-buffer): For now, ignore the
+	extra attributes.
+
 2009-06-28  Stelian Ionescu <stelian.ionescu-zeus@poste.it>
 
 	* slime.el (slime-compiler-macroexpand-inplace)

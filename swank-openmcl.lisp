@@ -843,6 +843,9 @@
 (defimplementation thread-status (thread)
   (format nil "~A" (ccl:process-whostate thread)))
 
+(defimplementation thread-attributes (thread)
+   (list :priority (ccl::process-priority thread)))
+
 (defimplementation make-lock (&key name)
   (ccl:make-lock name))
 

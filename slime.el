@@ -6122,7 +6122,7 @@ was called originally."
 
 (defun slime-update-threads-buffer ()
   (interactive)
-  (let ((threads (slime-eval '(swank:list-threads))))
+  (let ((threads (cdr (slime-eval '(swank:list-threads)))))
     (with-current-buffer slime-threads-buffer-name
       (let ((inhibit-read-only t))
         (erase-buffer)
