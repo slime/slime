@@ -139,12 +139,18 @@
     (sb-sys:invalidate-descriptor fd))
   (close socket))
 
-(defimplementation add-fd-handler (socket fn)
-  (declare (type function fn))
-  (let ((fd (socket-fd socket)))
-    (sb-sys:add-fd-handler fd :input (lambda (_)
-                                       _
-                                       (funcall fn)))))
+(defimplementation add-fd-handler (socket fun)
+  (let ((fd (socket-fd socket))
+        (handler nil))
+    (labels ((add ()
+               (setq handler (sb-sys:add-fd-handler fd :input #'run)))
+             (run (fd)
+               (sb-sys:remove-fd-handler handler) ; prevent recursion
+               (unwind-protect 
+                    (funcall fun)
+                 (when (sb-unix:unix-fstat fd) ; still open?
+                   (add)))))
+      (add))))
 
 (defimplementation remove-fd-handlers (socket)
   (sb-sys:invalidate-descriptor (socket-fd socket)))

@@ -1,3 +1,8 @@
+2009-06-28  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-sbcl.lisp (add-fd-handler): Avoid recursive invocation
+	of the handler, e.g. when read-sequence blocks.
+
 2009-06-28  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-openmcl.lisp (compiler-warning-short-message): In new
@@ -19,12 +24,11 @@
 	SWANK:INSPECT-IN-EMACS.
 
 	* swank.lisp (inspect-in-emacs): added keyword argument :wait.
-	
+
 	* slime.el (slime-dispatch-event): if swank requests response to
 	:inspect, add a hook to the inspector to signal swank once done.
 	(slime-open-inspector): add optional hook argument to be added as
 	local kill-buffer-hook.
-	
 
 2009-06-21  Helmut Eller  <heller@common-lisp.net>
 
@@ -32,6 +36,7 @@
 	contrib/slime-fontifying-fu.el
 
 2009-06-21  Helmut Eller  <heller@common-lisp.net>
+
 	Don't try so hard to get symbol-at-point right.
 	The old implementation was complicated and didn't even pass it's
 	own test suite.  The new version is less ambitious but simpler.
