@@ -5032,6 +5032,8 @@ When displaying XREF information, this goes to the next reference."
            (define-key slime-macroexpansion-minor-mode-map mapping to))))
   (remap 'slime-macroexpand-1 'slime-macroexpand-1-inplace)
   (remap 'slime-macroexpand-all 'slime-macroexpand-all-inplace)
+  (remap 'slime-compiler-macroexpand-1 'slime-compiler-macroexpand-1-inplace)
+  (remap 'slime-compiler-macroexpand 'slime-compiler-macroexpand-inplace)
   (remap 'advertised-undo 'slime-macroexpand-undo)
   (remap 'undo 'slime-macroexpand-undo))
 
@@ -5160,10 +5162,20 @@ CL:MACROEXPAND."
   (interactive)
   (slime-eval-macroexpand 'swank:swank-compiler-macroexpand))
 
+(defun slime-compiler-macroexpand-inplace ()
+  "Display the compiler-macro expansion of sexp at point."
+  (interactive)
+  (slime-eval-macroexpand-inplace 'swank:swank-compiler-macroexpand))
+
 (defun slime-compiler-macroexpand-1 ()
   "Display the compiler-macro expansion of sexp at point."
   (interactive)
   (slime-eval-macroexpand 'swank:swank-compiler-macroexpand-1))
+
+(defun slime-compiler-macroexpand-1-inplace ()
+  "Display the compiler-macro expansion of sexp at point."
+  (interactive)
+  (slime-eval-macroexpand-inplace 'swank:swank-compiler-macroexpand-1))
 
 (defun slime-format-string-expand ()
   "Format the format-string at point, and display its expansion."

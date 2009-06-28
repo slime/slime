@@ -1,3 +1,9 @@
+2009-06-28  Stelian Ionescu <stelian.ionescu-zeus@poste.it>
+
+	* slime.el (slime-compiler-macroexpand-inplace)
+	(slime-compiler-macroexpand-1-inplace): New commands.
+	(slime-macroexpansion-minor-mode-map): Bind them.
+
 2009-06-28  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-sbcl.lisp (add-fd-handler): Avoid recursive invocation
