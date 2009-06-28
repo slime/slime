@@ -1,3 +1,9 @@
+2009-06-28  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-openmcl.lisp (compiler-warning-short-message): In new
+	versions of CCL `compiler-warning-nrefs' slot
+	of the `compiler-warning' class is now a list, not an integer.
+
 2009-06-25  Geo Carncross  <geocar@gmail.com>
 
 	* swank-ecl.lisp: Profiling support by Marko Kocić

@@ -256,8 +256,10 @@
                          (ccl::adjust-compiler-warning-args type args)))
           (null (format stream "~A: ~S" type args))
           (t (funcall format-string c stream)))
-        (when (and nrefs (/= nrefs 1))
-          (format stream " (~D references)" nrefs))))))
+        (let ((nrefs (cond ((numberp nrefs) nrefs)
+                           ((consp nrefs) (length nrefs)))))
+          (when (and nrefs (/= nrefs 1))
+            (format stream " (~D references)" nrefs)))))))
 
 (defimplementation call-with-compilation-hooks (function)
   (handler-bind ((ccl::compiler-warning 'handle-compiler-warning))
