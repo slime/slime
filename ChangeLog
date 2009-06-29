@@ -1,3 +1,8 @@
+2009-06-29  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (open-streams): do not create unnecessary output stream
+	when using dedicated output stream. Thanks to Terje Norderhaug.
+
 2009-06-28  Terje Norderhaug <terje@in-progress.com>
 
 	Generalize list-threads for implementation-dependent attributes.

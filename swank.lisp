@@ -895,8 +895,7 @@ if the file doesn't exist; otherwise the first line of the file."
 (defun open-streams (connection)
   "Return the 5 streams for IO redirection:
 DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
-  (let* ((output-fn (make-output-function connection))
-         (input-fn
+  (let* ((input-fn
           (lambda () 
             (with-connection (connection)
               (with-simple-restart (abort-read
@@ -905,9 +904,9 @@ DEDICATED-OUTPUT INPUT OUTPUT IO REPL-RESULTS"
          (dedicated-output (if *use-dedicated-output-stream*
                                (open-dedicated-output-stream
                                 (connection.socket-io connection))))
-         (out (make-output-stream output-fn))
          (in (make-input-stream input-fn))
-         (out (or dedicated-output out))
+         (out (or dedicated-output
+                  (make-output-stream (make-output-function connection))))
          (io (make-two-way-stream in out))
          (repl-results (make-output-stream-for-target connection
                                                       :repl-result)))
