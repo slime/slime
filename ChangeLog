@@ -1,3 +1,8 @@
+2009-06-30  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-openmcl.lisp (arglist): Return :not-available if the arglist
+	cannot be obtained. Patch by Terje Norderhaug.
+
 2009-06-29  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (open-streams): do not create unnecessary output stream

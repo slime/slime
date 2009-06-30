@@ -206,7 +206,10 @@
 ;;; Arglist
 
 (defimplementation arglist (fname)
-  (arglist% fname))
+  (multiple-value-bind (arglist binding) (arglist% fname)
+    (if binding
+        arglist
+        :not-available)))
 
 (defmethod arglist% ((f symbol))
   (ccl:arglist f))
