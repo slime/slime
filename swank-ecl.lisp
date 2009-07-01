@@ -496,6 +496,11 @@
 (defimplementation profiled-functions ()
   (profile:profile))
 
+(defimplementation profile-package (package callers methods)
+  (declare (ignore callers methods))
+  (eval `(profile:profile ,(package-name (find-package package)))))
+
+
 ;;;; Threads
 
 #+threads

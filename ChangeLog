@@ -1,3 +1,7 @@
+2009-06-30  Geo Carncross  <geocar@gmail.com>
+
+	* swank-ecl.lisp: Package profiling support
+
 2009-06-30  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-openmcl.lisp (arglist): Return :not-available if the arglist
