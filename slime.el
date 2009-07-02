@@ -4055,40 +4055,24 @@ The result is a (possibly empty) list of definitions."
 
 WHAT can be:
   A filename (string),
-  A list (FILENAME LINE [COLUMN]),
-  A list (FILENAME :charpos CHARPOS),
-  A function name (symbol or cons),
+  A list (:filename FILENAME &key LINE COLUMN POSITION),
+  A function name (:function-name STRING)
   nil.
 
 This is for use in the implementation of COMMON-LISP:ED."
-  ;; Without `save-excursion' very strange things happen if you call
-  ;; (swank:ed-in-emacs X) from the REPL. -luke (18/Jan/2004)
-  (save-excursion
-    (when slime-ed-use-dedicated-frame
-      (unless (and slime-ed-frame (frame-live-p slime-ed-frame))
-        (setq slime-ed-frame (make-frame)))
-      (select-frame slime-ed-frame))
-    (cond ((stringp what)
-           (find-file (slime-from-lisp-filename what)))
-          ((and (consp what) (stringp (first what)))
-           (find-file (first (slime-from-lisp-filename what)))
-           (cond
-            ((eql (second what) :charpos)
-             (goto-char (third what)))
-            (t
-             (goto-line (second what))
-             ;; Find the correct column, without going past the end of
-             ;; the line.
-             (let ((col (third what)))
-               (while (and col
-                           (< (point) (point-at-eol))
-                           (/= (decf col) -1))
-                 (forward-char 1))))))
-          ((and what (symbolp what))
-           (slime-edit-definition (symbol-name what)))
-          ((consp what)
-           (slime-edit-definition (prin1-to-string what)))
-          (t nil))))                    ; nothing in particular
+  (when slime-ed-use-dedicated-frame
+    (unless (and slime-ed-frame (frame-live-p slime-ed-frame))
+      (setq slime-ed-frame (make-frame)))
+    (select-frame slime-ed-frame))
+  (when what
+    (destructure-case what
+      ((:filename file &key line column position)
+       (find-file (slime-from-lisp-filename file))
+       (when line (goto-line line))
+       (when column (move-to-column column))
+       (when position (goto-char position)))
+      ((:function-name name)
+       (slime-edit-definition name)))))
 
 (defun slime-y-or-n-p (thread tag question)
   (slime-dispatch-event `(:emacs-return ,thread ,tag ,(y-or-n-p question))))

@@ -2359,29 +2359,25 @@ N.B. this is not an actual package name or nickname."
 
 WHAT can be:
   A pathname or a string,
-  A list (PATHNAME-OR-STRING LINE [COLUMN]),
+  A list (PATHNAME-OR-STRING &key LINE COLUMN POSITION),
   A function name (symbol or cons),
-  NIL.
-
-Returns true if it actually called emacs, or NIL if not."
-  (flet ((pathname-or-string-p (thing)
-           (or (pathnamep thing) (typep thing 'string)))
-         (canonicalize-filename (filename)
+  NIL. "
+  (flet ((canonicalize-filename (filename)
            (pathname-to-filename (or (probe-file filename) filename))))
-    (let ((target
-           (cond ((and (listp what) (pathname-or-string-p (first what)))
-                  (cons (canonicalize-filename (car what)) (cdr what)))
-                 ((pathname-or-string-p what)
-                  (canonicalize-filename what))
-                 ((symbolp what) what)
-                 ((consp what) what)
-                 (t (return-from ed-in-emacs nil)))))
-      (cond
-        (*emacs-connection* (send-oob-to-emacs `(:ed ,target)))
-        ((default-connection)
-         (with-connection ((default-connection))
-           (send-oob-to-emacs `(:ed ,target))))
-        (t nil)))))
+    (let ((target 
+           (etypecase what
+             (null nil)
+             ((or string pathname) 
+              `(:filename ,(canonicalize-filename what)))
+             ((cons (or string pathname) *)
+              `(:filename ,(canonicalize-filename (car what)) ,@(cdr what)))
+             ((or symbol cons)
+              `(:function-name ,(prin1-to-string-for-emacs what))))))
+      (cond (*emacs-connection* (send-oob-to-emacs `(:ed ,target)))
+            ((default-connection)
+             (with-connection ((default-connection))
+               (send-oob-to-emacs `(:ed ,target))))
+            (t (error "No connection"))))))
 
 (defslimefun inspect-in-emacs (what &key wait)
   "Inspect WHAT in Emacs. If WAIT is true (default NIL) blocks until the
