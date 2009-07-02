@@ -790,6 +790,8 @@ earlier in the buffer."
     (lisp-indent-line)))
 
 (defun slime-repl-delete-current-input ()
+  "Delete all text from the prompt."
+  (interactive)
   (delete-region slime-repl-input-start-mark (point-max)))
 
 (defun slime-repl-kill-input ()

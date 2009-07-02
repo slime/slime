@@ -8309,7 +8309,8 @@ within. This includes nested comments (#| ... |#)."
 (defun slime-beginning-of-symbol ()
   "Move to the beginning of the CL-style symbol at point."
   (while (re-search-backward "\\(\\sw\\|\\s_\\|\\s\\.\\|\\s\\\\|[#@|]\\)\\=" 
-                             nil t))
+                             (when (> (point) 2000) (- (point) 2000))
+                             t))
   (re-search-forward "\\=#[-+.<|]" nil t)
   (when (and (looking-at "@") (eq (char-before) ?\,))
     (forward-char)))
