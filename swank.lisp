@@ -3002,10 +3002,9 @@ Returns a list of completions with package qualifiers if needed."
 
 (defslimefun operator-arglist (name package)
   (ignore-errors
-    (let ((args (arglist (parse-symbol name (guess-buffer-package package))))
-          (*print-escape* nil))
+    (let ((args (arglist (parse-symbol name (guess-buffer-package package)))))
       (cond ((eq args :not-available) nil)
-	    (t (format nil "(~a ~/pprint-fill/)" name args))))))
+	    (t (princ-to-string (cons name args)))))))
 
 
 ;;;; Documentation
