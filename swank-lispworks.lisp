@@ -859,6 +859,10 @@ function names like \(SETF GET)."
         (acons var `(eval (quote ,form))
                mp:*process-initial-bindings* )))
 
+(defimplementation thread-attributes (thread)
+  (list :priority (mp:process-priority thread)
+        :idle (mp:process-idle-time thread)))
+
 ;;; Some intergration with the lispworks environment
 
 (defun swank-sym (name) (find-symbol (string name) :swank))

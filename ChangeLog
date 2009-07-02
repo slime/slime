@@ -1,9 +1,13 @@
+2009-07-02  Terje Norderhaug <terje@in-progress.com>
+
+	* swank-lispworks.lisp (thread-attributes): Implemented.
+
 2009-07-02  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (ed-in-emacs): Handle symbols/function-names better.
 	* slime.el (slime-ed): Updated accordingly.
 
-2009-07-02  Helmut Eller  <heller@common-lisp.net>
+2009-07-02  Terje Norderhaug <terje@in-progress.com>
 
 	* swank.lisp (operator-arglist): Don't use pprint-fill
 	for people with wide screens.
