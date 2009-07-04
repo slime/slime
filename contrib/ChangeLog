@@ -1,3 +1,15 @@
+2009-07-04  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	Fix font-lock magic for s-code.lisp in the series package.
+
+	* slime-fontifying-fu.el (slime-beginning-of-tlf): Use
+	`syntax-ppss-toplevel-pos' on GNU Emacs. Old definition is
+	retained for systems where it's not available. Also wrap an
+	`ignore-errors' around the call to `up-list' in the old definition
+	to guard against unbalanced parentheses.
+
+	Reported by Stelian Ionescu, Raymond Toy.
+
 2009-07-02  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-repl-delete-current-input): Make it interactive.

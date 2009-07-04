@@ -145,19 +145,25 @@ position, or nil."
                 "Further: font-lock-beg=%d, font-lock-end=%d.")
         c font-lock-beg font-lock-end)))))
 
-(defun slime-beginning-of-tlf ()
-  (let* ((state (slime-current-parser-state))
-         (comment-start (nth 8 state)))
-    (when comment-start                 ; or string
-      (goto-char comment-start)
-      (setq state (slime-current-parser-state)))
-    (let ((depth (nth 0 state)))
-      (if (plusp depth)
-          (up-list (- depth))
-          (when-let (upper-pt (nth 1 state)) 
-            (goto-char upper-pt)
-            (while (when-let (upper-pt (nth 1 (slime-current-parser-state)))
-                     (goto-char upper-pt))))))))
+(when (fboundp 'syntax-ppss-toplevel-pos)
+  (defun slime-beginning-of-tlf ()
+    (when-let (pos (syntax-ppss-toplevel-pos (slime-current-parser-state)))
+      (goto-char pos))))
+
+(unless (fboundp 'syntax-ppss-toplevel-pos)
+  (defun slime-beginning-of-tlf ()
+    (let* ((state (slime-current-parser-state))
+           (comment-start (nth 8 state)))
+      (when comment-start               ; or string
+        (goto-char comment-start)
+        (setq state (slime-current-parser-state)))
+      (let ((depth (nth 0 state)))
+        (when (plusp depth)
+          (ignore-errors (up-list (- depth)))) ; ignore unbalanced parentheses
+        (when-let (upper-pt (nth 1 state)) 
+          (goto-char upper-pt)
+          (while (when-let (upper-pt (nth 1 (slime-current-parser-state)))
+                   (goto-char upper-pt))))))))
 
 (defun slime-compute-region-for-font-lock (orig-beg orig-end)
   (let ((beg orig-beg)
@@ -174,8 +180,6 @@ position, or nil."
                            (ignore-errors (slime-forward-reader-conditional))
                            (point)))))
     (values (or (/= beg orig-beg) (/= end orig-end)) beg end)))
-
-
 
 
 
