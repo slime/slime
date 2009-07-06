@@ -1,5 +1,11 @@
 2009-07-06  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-ecl.lisp (find-external-format): Copied from
+	swank-sbcl.lisp. A lot of backends seem to share the same
+	implementation, perhaps some refactoring is needed.
+
+2009-07-06  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank.lisp (make-repl-input-stream): Make sure to redirect
 	output from slime requests to the REPL buffer for
 	communication-style=NIL.

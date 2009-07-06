@@ -72,6 +72,16 @@
 (defimplementation preferred-communication-style ()
   (values nil))
 
+(defvar *external-format-to-coding-system*
+  '((:iso-8859-1
+     "latin-1" "latin-1-unix" "iso-latin-1-unix" 
+     "iso-8859-1" "iso-8859-1-unix")
+    (:utf-8 "utf-8" "utf-8-unix")))
+
+(defimplementation find-external-format (coding-system)
+  (car (rassoc-if (lambda (x) (member coding-system x :test #'equal))
+                  *external-format-to-coding-system*)))
+
 
 ;;;; Unix signals
 
