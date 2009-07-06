@@ -1,3 +1,9 @@
+2009-07-06  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank.lisp (make-repl-input-stream): Make sure to redirect
+	output from slime requests to the REPL buffer for
+	communication-style=NIL.
+
 2009-07-02  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-beginning-of-symbol): Limit searching to 2000
@@ -148,7 +154,7 @@
 	* swank-ecl.lisp: Support new environment changes in recent ECL/CVS
 	patch largely from ECL maintainer.
 
-2009-06-1  Tobias C. Rittweiler  <tcr@freebits.de>
+2009-06-11  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime.el ([test] font-lock-magic): Moved to fontifying-fu contrib.
 

@@ -1358,15 +1358,19 @@ The processing is done in the extent of the toplevel restart."
                 (if (open-stream-p stdin) 
                     :stdin-open :stdin-closed))
      (loop
-      
       (let* ((socket (connection.socket-io connection))
              (inputs (list socket stdin))
              (ready (wait-for-input inputs)))
         (cond ((eq ready :interrupt)
                (check-slime-interrupts))
               ((member socket ready)
-               (handle-requests connection t))
+               ;; A Slime request from Emacs is pending; make sure to
+               ;; redirect IO to the REPL buffer.
+               (with-io-redirection (connection)
+                 (handle-requests connection t)))
               ((member stdin ready)
+               ;; User typed something into the  *inferior-lisp* buffer,
+               ;; so do not redirect.
                (return (read-non-blocking stdin)))
               (t (assert (null ready)))))))))
 
