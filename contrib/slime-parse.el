@@ -235,6 +235,7 @@ Examples:
 	   ;; Do NEVER ever try to activate `lisp-mode' here with
 	   ;; `slime-use-autodoc-mode' enabled, as this function is used
 	   ;; to compute the current autodoc itself.
+           (set-syntax-table lisp-mode-syntax-table)
 	   (erase-buffer)
 	   (insert string)
 	   (when strip-operator-p ; `(OP arg1 arg2 ...)' ==> `(arg1 arg2 ...)'
