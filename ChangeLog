@@ -1,3 +1,8 @@
+2009-07-11  Stas Boukarev  <stassats@gmail.com>
+
+	* doc/Makefile (clean): Remove bash extensions. Patch by
+	Teemu Likonen.
+
 2009-07-06  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-ecl.lisp (find-external-format): Copied from
