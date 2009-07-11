@@ -149,7 +149,7 @@ Backends implement these functions using DEFIMPLEMENTATION."
          (let ((f (or (get ',name 'implementation)
                       (get ',name 'default))))
            (cond (f (apply f ,@(args-as-list args)))
-                 (t (error "~S not implementated" ',name)))))
+                 (t (error "~S not implemented" ',name)))))
        (pushnew ',name *interface-functions*)
        ,(if (null default-body)
             `(pushnew ',name *unimplemented-interfaces*)
