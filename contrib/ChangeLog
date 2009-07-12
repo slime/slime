@@ -16,6 +16,12 @@
 
 	Reported by Stelian Ionescu, Raymond Toy.
 
+2009-07-10  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-mit-scheme.scm (swank:create-repl): Implement it.
+	* swank-kawa.scm, swank-goo.scm, swank.rb (frame-source-location):
+	Renamed from frame-source-location-for-emacs.
+
 2009-07-02  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-repl-delete-current-input): Make it interactive.

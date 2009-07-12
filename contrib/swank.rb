@@ -170,7 +170,7 @@ $rpc_entries[:"swank:backtrace"] = lambda do |from, to|
   conn.sldb_backtrace(exc, from, to)
 end
 
-$rpc_entries[:"swank:frame-source-location-for-emacs"] = lambda do |frame|
+$rpc_entries[:"swank:frame-source-location"] = lambda do |frame|
   conn, exc = $sldb_context
   conn.frame_src_loc(exc, frame)
 end

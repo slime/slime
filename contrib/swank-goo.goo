@@ -245,7 +245,7 @@
   (reset-inspector)
   (inspect-object (@condition sldb-context)))
 
-(defslimefun frame-source-location-for-emacs (frame-idx)
+(defslimefun frame-source-location (frame-idx)
   (match (nth-frame frame-idx)
     ((,f ,@_)
      (or (emacs-src-loc f)

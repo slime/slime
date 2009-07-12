@@ -314,6 +314,13 @@
   (make-port-type `((write-substring ,repl-write-substring)
 		    (write-char ,repl-write-char)) #f))
 
+(define (swank:create-repl socket . _)
+  (let* ((env (user-env *buffer-package*))
+	 (name (format #f "~a" 
+		       (package/name (environment->package 
+				      (user-env *buffer-package*))))))
+    (list name name)))
+
 
 ;;;; Compilation
 
