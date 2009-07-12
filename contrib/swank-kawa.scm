@@ -19,7 +19,7 @@
       '((kawa ("java"
 	       "-cp" "/opt/kawa/kawa-svn:/opt/java/jdk1.6.0/lib/tools.jar"
 	       "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n"
-	       "kawa.repl")
+	       "kawa.repl" "-s")
               :init kawa-slime-init)))
 
 (defun kawa-slime-init (file _)
@@ -1015,11 +1015,8 @@
   (pprint-to-string (%macroexpand (read-from-string string))))
 
 (df %macroexpand (sexp)
-  (let* ((lang (<gnu.expr.Language>:getDefaultLanguage))
-	 (msgs (<gnu.text.SourceMessages>))
-	 (tr (<kawa.lang.Translator> lang msgs)))
-    (! pushNewModule tr (as <str> #!null))
-    (! parse tr `(lambda () ,sexp))))
+  (let ((tr :: kawa.lang.Translator (gnu.expr.Compilation:getCurrent)))
+    (! rewrite tr sexp)))
 
 
 ;;;; Inspector
@@ -1148,7 +1145,7 @@
          (flush (fun ()
                   (unless (zero? (! length builder))
                     (send out `(forward (:write-string ,(<str> builder))))
-                    (! setLength builder 0))))
+                    (set! builder:length 0)))) ; pure magic
          (closed #f))
     (while (not closed)
       (mcase (! poll q 200 <timeunit>:MILLISECONDS)
@@ -1289,7 +1286,8 @@
    (set (@ loc (this)) loc)
    (set (@ args (this)) args)
    (set (@ names (this)) names)
-   (set (@ values (this)) values))
+   (set (@ values (this)) values)
+   (set (@ self (this)) self))
   ((toString) :: <str>
    (format "#<ff ~a>" (src-loc>str loc))))
 
