@@ -585,7 +585,7 @@ The string is periodically updated by an idle timer."))
     ([?\C-\M-.]   slime-next-location)
     ;; Obsolete, redundant bindings
     ("\C-c\C-i" slime-complete-symbol)
-    ("\M-*" slime-edit-definition)
+    ;;("\M-*" pop-tag-mark) ; almost to clever
     ))
 
 (defvar slime-keys
