@@ -1,3 +1,15 @@
+2009-07-12  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-kawa.scm (swank-writer): Use set! for now, as the svn
+	version has problems to resolve setLength.
+	(<faked-frame>:init): Don't forget the self slot.
+
+2009-07-12  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-mit-scheme.scm (swank:create-repl): Implement it.
+	* swank-kawa.scm, swank-goo.scm, swank.rb (frame-source-location):
+	Renamed from frame-source-location-for-emacs.
+
 2009-07-11  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-parse.el (slime-make-form-spec-from-string):
@@ -15,12 +27,6 @@
 	to guard against unbalanced parentheses.
 
 	Reported by Stelian Ionescu, Raymond Toy.
-
-2009-07-10  Helmut Eller  <heller@common-lisp.net>
-
-	* swank-mit-scheme.scm (swank:create-repl): Implement it.
-	* swank-kawa.scm, swank-goo.scm, swank.rb (frame-source-location):
-	Renamed from frame-source-location-for-emacs.
 
 2009-07-02  Stas Boukarev  <stassats@gmail.com>
 
