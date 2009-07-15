@@ -6554,6 +6554,15 @@ If ARG is negative, move forwards."
          'face 'slime-inspector-action-face)
    (if previous " [--more--]\n" " [--more--]")))
 
+(defun slime-inspector-fetch-all ()
+  "Fetch all inspector contents and go to the end."
+  (interactive)
+  (let ((button (get-text-property (1- (point-max)) 'slime-range-button)))
+    (when button
+      (goto-char (1- (point-max)))
+      (let (slime-inspector-limit)
+        (slime-inspector-fetch-more button)))))
+
 (defun slime-inspector-fetch-more (button)
   (destructuring-bind (index prev) button
     (slime-inspector-fetch-chunk 
@@ -6615,7 +6624,8 @@ If ARG is negative, move forwards."
   ("\C-i" 'slime-inspector-next-inspectable-object)
   ([(shift tab)] 'slime-inspector-previous-inspectable-object) ; Emacs translates S-TAB
   ([backtab]     'slime-inspector-previous-inspectable-object) ; to BACKTAB on X.
-  ("." 'slime-inspector-show-source))
+  ("." 'slime-inspector-show-source)
+  (">" 'slime-inspector-fetch-all))
 
 
 ;;;; Buffer selector

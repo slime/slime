@@ -1,3 +1,13 @@
+2009-07-15  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-inspector-fetch-all): new command, bound to >
+	in the inspector buffer.
+
+	* doc/slime.texi (Frame Navigation): add description
+	of `sldb-end-of-backtrace' and `sldb-beginning-of-backtrace'.
+	(Inspector): add `slime-inspector-fetch-all'.
+
+
 2009-07-12  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-editing-keys): Don't override M-*. The default

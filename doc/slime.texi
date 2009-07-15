@@ -1225,6 +1225,9 @@ Pretty print in another buffer object at point.
 @kbditem{., slime-inspector-show-source}
 Find source of object at point.
 
+@kbditem{>, slime-inspector-fetch-all}
+Fetch all inspector contents and go to the end.
+
 @kbditem{M-RET, slime-inspector-copy-down}
 Store the value under point in the variable `*'.  This can
 then be used to access the object in the REPL.
@@ -1416,6 +1419,13 @@ Move between frames ``with sugar'': hide the details of the original
 frame and display the details and source code of the next. Sugared
 motion makes you see the details and source code for the current frame
 only.
+
+@kbditem{>, sldb-end-of-backtrace}
+Fetch the entire backtrace and go to the last frame.
+
+@kbditem{<, sldb-beginning-of-backtrace}
+Goto the first frame.
+
 @end table
 
 @node Stepping
