@@ -6557,9 +6557,9 @@ If ARG is negative, move forwards."
 (defun slime-inspector-fetch-all ()
   "Fetch all inspector contents and go to the end."
   (interactive)
-  (let ((button (get-text-property (1- (point-max)) 'slime-range-button)))
+  (goto-char (1- (point-max)))
+  (let ((button (get-text-property (point) 'slime-range-button)))
     (when button
-      (goto-char (1- (point-max)))
       (let (slime-inspector-limit)
         (slime-inspector-fetch-more button)))))
 
