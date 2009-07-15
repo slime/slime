@@ -18,24 +18,34 @@
 ;;;
 (defmethod compute-enriched-decoded-arglist ((operator-form (eql 'sb-assem:inst))
                                              argument-forms)
-  (if (null argument-forms)
-      (call-next-method)
-      (destructuring-bind (instruction &rest args) argument-forms
-        (declare (ignore args))
-        (let* ((instr-name
-                (if (arglist-dummy-p instruction)
-                    (string-upcase (arglist-dummy.string-representation instruction))
-                    (symbol-name instruction)))
-               (instr-fn (gethash instr-name sb-assem:*assem-instructions*)))
-          (if (not instr-fn)
-              (call-next-method)
-              (with-available-arglist (instr-arglist) (arglist instr-fn)
-                (let ((decoded-arglist (decode-arglist instr-arglist)))
-                  ;; The arglist of INST is (instruction ...INSTR-ARGLIST...).
-                  (push 'sb-assem::instruction (arglist.required-args decoded-arglist))
-                  (values decoded-arglist
-                          (list instr-name)
-                          t))))))))
+  (flet ((decode-instruction-arglist (instr-name instr-arglist)
+           (let ((decoded-arglist (decode-arglist instr-arglist)))
+             ;; The arglist of INST is (instruction ...INSTR-ARGLIST...).
+             (push 'sb-assem::instruction (arglist.required-args decoded-arglist))
+             (values decoded-arglist
+                     (list instr-name)
+                     t))))
+    (if (null argument-forms)
+        (call-next-method)
+        (destructuring-bind (instruction &rest args) argument-forms
+          (declare (ignore args))
+          (let* ((instr-name
+                  (if (arglist-dummy-p instruction)
+                      (string-upcase (arglist-dummy.string-representation instruction))
+                      (symbol-name instruction)))
+                 (instr-fn (gethash instr-name sb-assem:*assem-instructions*)))
+            (cond ((not instr-fn)
+                   (call-next-method))
+                  ((functionp instr-fn)
+                   (with-available-arglist (arglist) (arglist instr-fn)
+                     (decode-instruction-arglist instr-name arglist)))
+                  (t
+                   (assert (symbolp instr-fn))
+                   (with-available-arglist (arglist) (arglist instr-fn)
+                     ;; SB-ASSEM:INST invokes a symbolic INSTR-FN with
+                     ;; current segment and current vop implicitly.
+                     (decode-instruction-arglist instr-name (cddr arglist)))
+                   )))))))
 
 
 ) ; PROGN
