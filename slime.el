@@ -5057,7 +5057,8 @@ expand the LOOP form. See comment in the source of this function."
         (when (member char0 '(?\' ?\, ?\" ?\@))
           (setf string (substring string 1))
           (incf (car bounds)))))
-    (list string bounds)))
+    (list string (cons (set-marker (make-marker) (car bounds))
+                       (set-marker (make-marker) (cdr bounds))))))
 
 (defvar slime-eval-macroexpand-expression nil
   "Specifies the last macroexpansion preformed. 
