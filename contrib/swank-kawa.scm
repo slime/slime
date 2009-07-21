@@ -360,11 +360,7 @@
           ((in . _) (spawn/chan/catch (fun (c) (reader ins c))))
           ((out . _) (spawn/chan/catch (fun (c) (writer outs c))))
           ((dbg . _) (spawn/chan/catch vm-monitor))
-          (user-env 
-           (<gnu.mapping.InheritingEnvironment>
-            "user" (interaction-environment))
-           ;;(interaction-environment)
-           )
+          (user-env  (interaction-environment))
           (x (seq 
                (! set-flag user-env #t #|<env>:THREAD_SAFE|# 8)
                (! set-flag user-env #f #|<env>:DIRECT_INHERITED_ON_SET|# 16)))

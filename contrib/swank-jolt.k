@@ -117,8 +117,8 @@
 (df _>int (word) (! Integer value_: word))
 (df int>_ (i) (! i _integerValue))
 
-;; Fixnum operators.  Manual tagging/untagging would probably be
-;; efficent than invoking methods
+;; Fixnum operators.  Manual tagging/untagging would probably be more
+;; efficent than invoking methods.
 
 (df fix? (obj) (& obj 1))
 (df _>fix (n) (! SmallInteger value_: n))
@@ -965,6 +965,7 @@
 
 (df swank:operator-arglist () nil)
 (df swank:buffer-first-change () nil)
+(df swank:create-repl (_) '("jolt" "jolt"))
 
 (df min (x y) (if (<= x y) x y))
 

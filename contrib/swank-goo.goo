@@ -499,6 +499,10 @@
 
 (defslimefun ping () "PONG")
 
+(defslimefun create-repl (_)
+  (let ((name (sym-name (module-name (buffer-module)))))
+    `(,name ,name)))
+
 (defslimefun listener-eval (string)
   (clear-input in)
   `(:values ,(write-to-string (str-eval string (buffer-module)))))
