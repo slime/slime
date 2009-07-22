@@ -140,7 +140,7 @@ special-operator, or a package."
     (multiple-value-bind (name added-length)
 	(fuzzy-format-matching fuzzy-matching user-input-string)
       (list name
-	    score
+            (format nil "~,2f" score)
 	    (append package-chunks
 		    (mapcar #'(lambda (chunk)
 				;; Fix up chunk positions to account for possible

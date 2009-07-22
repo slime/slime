@@ -313,10 +313,9 @@ proper text properties."
       (put-text-property start (point) 'mouse-face 'highlight)
       (dotimes (i (- max-length (- end start)))
 	(insert " "))
-      (insert (format " %s %-8.2f"
+      (insert (format " %s %s\n"
 		      classification-string
-		      score))
-      (insert "\n")
+                      score))
       (put-text-property start (point) 'completion completion))))
 
 (defun slime-fuzzy-insert (text)
