@@ -1,3 +1,11 @@
+2009-07-26  Gail Zacharias <gz@clozure.com>
+
+	* swank-ccl.lisp: New file.  An updated version of
+	swank-openmcl.lisp in preparation for a slew of changes to CCL and
+	to honor the new name.
+
+	* swank-loader.lisp (*sysdep-files*): Use it.
+
 2009-07-21  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-sexp-at-point-for-macroexpansion): use markers
