@@ -1081,6 +1081,7 @@ can restore it later."
     (walk-windows (lambda (w) (push (cons w (window-buffer w)) old-windows))
                   nil t)
     (let ((new-window (display-buffer (current-buffer))))
+      (set-window-point new-window (point))
       (unless slime-popup-restore-data
         (set (make-local-variable 'slime-popup-restore-data)
              (list new-window
@@ -2652,11 +2653,12 @@ This is only used by the repl command sayoonara."
 The function receive two arguments: the beginning and the end of the 
 region that will be compiled.")
 
-(defcustom slime-compilation-finished-hook 'slime-create-compilation-log
+(defcustom slime-compilation-finished-hook 'slime-maybe-show-compilation-log
   "Hook called with a list of compiler notes after a compilation."
   :group 'slime-mode
   :type 'hook
-  :options '(slime-create-compilation-log
+  :options '(slime-display-compilation-log-as-needed
+             slime-create-compilation-log
              slime-show-compilation-log
              slime-maybe-list-compiler-notes
              slime-list-compiler-notes
@@ -2938,6 +2940,18 @@ Each newlines and following indentation is replaced by a single space."
       (erase-buffer))
     (slime-insert-compilation-log notes)))
 
+(defun slime-maybe-show-compilation-log (notes)
+  "Display the log on failed compilations or if NOTES is non-nil."
+  (with-struct (slime-compilation-result. notes duration successp)
+      slime-last-compilation-result
+    (when (or notes (not successp))
+      (slime-with-popup-buffer ("*SLIME Compilation*")
+        (slime-insert-compilation-log notes)
+        (let ((inhibit-read-only t))
+          (goto-char (point-max))
+          (insert "\nCompilation " (if successp "succeeded." "failed."))
+          (goto-char (point-min)))))))
+
 (defun slime-show-compilation-log (notes)
   (interactive (list (slime-compiler-notes)))
   (slime-with-popup-buffer ("*SLIME Compilation*")
@@ -2947,6 +2961,8 @@ Each newlines and following indentation is replaced by a single space."
   "Insert NOTES in format suitable for `compilation-mode'."
   (with-temp-message "Preparing compilation log..."
     (compilation-mode)
+    (set (make-local-variable 'compilation-skip-threshold) 0)
+    (set (make-local-variable 'compilation-skip-to-next-location) nil)
     (let ((inhibit-read-only t))
       (insert (format "cd %s\n%d compiler notes:\n" 
                       default-directory (length notes)))
@@ -2956,7 +2972,6 @@ Each newlines and following indentation is replaced by a single space."
                         (substring (symbol-name (slime-note.severity note))
                                    1)
                         (slime-note.message note)))))
-    (goto-char (point-min))
     (setq next-error-last-buffer (current-buffer))))
 
 (defun slime-compilation-loc (location)
