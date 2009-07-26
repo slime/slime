@@ -1,6 +1,19 @@
 2009-07-26  Helmut Eller  <heller@common-lisp.net>
 
-	* swank-sbcl.lisp (tempnam): Muffle efficientcy notes.
+	* slime.el (slime-maybe-show-compilation-log): New function.
+	(slime-compilation-finished-hook): Use it.  Now that the
+	compilation buffer gets not selected it's more acceptable to
+	display it more often.
+	(slime-insert-compilation-log): Set compilation-skip-threshold to
+	0 and compilation-skip-to-next-location to nil.  Seems to work
+	better for us.
+	(slime-with-popup-buffer): Synch window-point, otherwise it be at
+	the end of the buffer for reused buffers.
+	(slime-display-popup-buffer): Return the window.
+
+2009-07-26  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-sbcl.lisp (tempnam): Muffle efficiency notes.
 
 2009-07-26  Gail Zacharias <gz@clozure.com>
 

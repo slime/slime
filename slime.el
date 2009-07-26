@@ -1052,7 +1052,9 @@ current state will be saved and later restored."
          (assert (eq (current-buffer) standard-output))
          (setq buffer-read-only t)
          (slime-init-popup-buffer vars%)
-         (slime-display-popup-buffer ,(or select 'nil))))))
+         (set-window-point (slime-display-popup-buffer ,(or select 'nil))
+                           (point))
+         (current-buffer)))))
 
 (put 'slime-with-popup-buffer 'lisp-indent-function 1)
 
@@ -1081,7 +1083,6 @@ can restore it later."
     (walk-windows (lambda (w) (push (cons w (window-buffer w)) old-windows))
                   nil t)
     (let ((new-window (display-buffer (current-buffer))))
-      (set-window-point new-window (point))
       (unless slime-popup-restore-data
         (set (make-local-variable 'slime-popup-restore-data)
              (list new-window
@@ -1089,7 +1090,7 @@ can restore it later."
                    (cdr (find new-window old-windows :key #'car)))))
       (when select
         (select-window new-window))
-      (current-buffer))))
+      new-window)))
 
 (defun slime-close-popup-window ()
   (when slime-popup-restore-data
@@ -2657,7 +2658,7 @@ region that will be compiled.")
   "Hook called with a list of compiler notes after a compilation."
   :group 'slime-mode
   :type 'hook
-  :options '(slime-display-compilation-log-as-needed
+  :options '(slime-maybe-show-compilation-log
              slime-create-compilation-log
              slime-show-compilation-log
              slime-maybe-list-compiler-notes
