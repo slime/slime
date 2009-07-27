@@ -1,3 +1,8 @@
+2009-07-27  Geo Carncross  <geocar@gmail.com>
+
+	* swank-ecl.lisp: Support for older ECL installs
+	from patch by Mark Evenson
+
 2009-07-26  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-maybe-show-compilation-log): New function.
