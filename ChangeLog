@@ -1,3 +1,9 @@
+2009-07-27  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-ccl.lisp (source-note-to-source-location): keys of
+	*temp-file-map* are pathnames, not namestrings; convert
+	namestrings to pathnames before looking up.
+
 2009-07-27  Geo Carncross  <geocar@gmail.com>
 
 	* swank-ecl.lisp: Support for older ECL installs

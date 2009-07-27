@@ -584,7 +584,7 @@
                       (file-name (ccl:source-note-filename source))
                       (start-pos (ccl:source-note-start-pos source)))
                  (make-location
-                  (when file-name (filename-to-buffer file-name))
+                  (when file-name (filename-to-buffer (pathname file-name)))
                   (when start-pos (list :position (1+ start-pos)))
                   (when full-text (list :snippet (subseq full-text  0 (min 40 (length full-text))))))))
               ((and source name)
