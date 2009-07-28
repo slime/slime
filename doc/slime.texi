@@ -1508,6 +1508,10 @@ The most recently activated @SLDB{} buffer for the current connection.
 The most recently visited @code{lisp-mode} source buffer.
 @item s
 The @code{*slime-scratch*} buffer (@pxref{slime-scratch}).
+@item c
+SLIME connections buffer (@pxref{Multiple connections}).
+@item t
+SLIME threads buffer.
 @end table
 
 @code{slime-selector} doesn't have a key binding by default but we
