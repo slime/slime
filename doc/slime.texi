@@ -2020,8 +2020,8 @@ What we do is teach Emacs how to take a filename on the remote machine
 and translate it into something that tramp can understand and access
 (and vice versa). Assuming the remote machine's host name is
 @code{remote.example.com}, @code{cl:machine-instance} returns
-``remote'' and we login as the user ``user'' we can use @SLIME{}'s
-built-in mechanism to setup the proper translations by simply doing:
+``remote'' and we login as the user ``user'' we can use @code{slime-tramp}
+contrib to setup the proper translations by simply doing:
 
 @example
 (push (slime-create-filename-translator :machine-instance "remote.example.com"
