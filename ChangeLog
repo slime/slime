@@ -1,3 +1,10 @@
+2009-07-30  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-clisp.lisp: Clisp 2.48 experimentally supports threads. So
+	add infrastructure to use threads in Clisp's swank backend. We do
+	not make it the default, because it's not prime time yet. There
+	are still problems with GC, weak-pointers, and thread objects.
+
 2009-07-28  Stas Boukarev  <stassats@gmail.com>
 
 	* doc/slime.texi (slime-selector): mention t and c keys.

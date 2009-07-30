@@ -734,9 +734,126 @@ Execute BODY with NAME's function slot set to FUNCTION."
   #+lisp=cl (ext:quit)
   #-lisp=cl (lisp:quit))
 
-(defimplementation thread-id (thread)
-  (declare (ignore thread))
-  0)
+
+(defimplementation preferred-communication-style ()
+  nil)
+
+;;; FIXME
+;;;
+;;; Clisp 2.48 added experimental support for threads. Basically, you
+;;; can use :SPAWN now, BUT:
+;;; 
+;;;   - there are problems with GC, and threads stuffed into weak
+;;;     hash-tables as is the case for *THREAD-PLIST-TABLE*.
+;;;
+;;;     See test case at
+;;;       http://thread.gmane.org/gmane.lisp.clisp.devel/20429
+;;;
+;;;     Even though said to be fixed, it's not:
+;;;
+;;;       http://thread.gmane.org/gmane.lisp.clisp.devel/20429/focus=20443
+;;;
+;;;   - The DYNAMIC-FLET above is an implementation technique that's
+;;;     probably not sustainable in light of threads. This got to be
+;;;     rewritten.
+;;;
+;;; TCR (2009-07-30)
+
+#+#.(cl:if (cl:find-package "MP") '(:and) '(:or)) 
+(progn
+  (defimplementation spawn (fn &key name)
+    (mp:make-thread fn :name name))
+
+  (defvar *thread-plist-table-lock*
+    (mp:make-mutex :name "THREAD-PLIST-TABLE-LOCK"))
+
+  (defvar *thread-plist-table* (make-hash-table :weak :key)
+    "A hashtable mapping threads to a plist.")
+
+  (defvar *thread-id-counter* 0)
+
+  (defimplementation thread-id (thread)
+    (mp:with-mutex-lock (*thread-plist-table-lock*)
+      (or (getf (gethash thread *thread-plist-table*) 'thread-id)
+          (setf (getf (gethash thread *thread-plist-table*) 'thread-id)
+                (incf *thread-id-counter*)))))
+
+  (defimplementation find-thread (id)
+    (find id (all-threads)
+          :key (lambda (thread)
+                 (getf (gethash thread *thread-plist-table*) 'thread-id))))
+
+  (defimplementation thread-name (thread)
+    ;; To guard against returning #<UNBOUND>.
+    (princ-to-string (mp:thread-name thread)))
+
+  (defimplementation thread-status (thread)
+    (if (thread-alive-p thread)
+        "RUNNING"
+        "STOPPED"))
+
+  (defimplementation make-lock (&key name)
+    (mp:make-mutex :name name :recursive-p t))
+
+  (defimplementation call-with-lock-held (lock function)
+    (mp:with-mutex-lock (lock)
+      (funcall function)))
+
+  (defimplementation current-thread ()
+    (mp:current-thread))
+
+  (defimplementation all-threads ()
+    (mp:list-threads))
+
+  (defimplementation interrupt-thread (thread fn)
+    (mp:thread-interrupt thread :function fn))
+
+  (defimplementation kill-thread (thread)
+    (mp:thread-interrupt thread :function t))
+
+  (defimplementation thread-alive-p (thread)
+    (mp:thread-active-p thread))
+
+  (defvar *mailboxes-lock* (make-lock :name "MAILBOXES-LOCK"))
+  (defvar *mailboxes* (list))
+
+  (defstruct (mailbox (:conc-name mailbox.))
+    thread
+    (lock (make-lock :name "MAILBOX.LOCK"))
+    (waitqueue  (mp:make-exemption :name "MAILBOX.WAITQUEUE"))
+    (queue '() :type list))
+
+  (defun mailbox (thread)
+    "Return THREAD's mailbox."
+    (mp:with-mutex-lock (*mailboxes-lock*)
+      (or (find thread *mailboxes* :key #'mailbox.thread)
+          (let ((mb (make-mailbox :thread thread)))
+            (push mb *mailboxes*)
+            mb))))
+
+  (defimplementation send (thread message)
+    (let* ((mbox (mailbox thread))
+           (lock (mailbox.lock mbox)))
+      (mp:with-mutex-lock (lock)
+        (setf (mailbox.queue mbox)
+              (nconc (mailbox.queue mbox) (list message)))
+        (mp:exemption-broadcast (mailbox.waitqueue mbox)))))
+
+  (defimplementation receive-if (test &optional timeout)
+    (let* ((mbox (mailbox (current-thread)))
+           (lock (mailbox.lock mbox)))
+      (assert (or (not timeout) (eq timeout t)))
+      (loop
+       (check-slime-interrupts)
+       (mp:with-mutex-lock (lock)
+         (let* ((q (mailbox.queue mbox))
+                (tail (member-if test q)))
+           (when tail 
+             (setf (mailbox.queue mbox) (nconc (ldiff q tail) (cdr tail)))
+             (return (car tail))))
+         (when (eq timeout t) (return (values nil t)))
+         (mp:exemption-wait (mailbox.waitqueue mbox) lock :timeout 0.2))))))
+ 
 
 ;;;; Weak hashtables
 
