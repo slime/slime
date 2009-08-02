@@ -2774,10 +2774,10 @@ compile with a debug setting of that number."
   (let ((nerrors 0) (nwarnings 0) (nstyle-warnings 0) (nnotes 0))
     (dolist (note notes)
       (ecase (slime-note.severity note)
-	((:error :read-error) (incf nerrors))
-        (:warning             (incf nwarnings))
-        (:style-warning       (incf nstyle-warnings))
-        (:note                (incf nnotes))))
+	((:error :read-error)           (incf nerrors))
+        ((:warning)                     (incf nwarnings))
+        ((:redefinition :style-warning) (incf nstyle-warnings))
+        ((:note)                        (incf nnotes))))
     (message "%s:%s%s%s%s%s"
              (if successp 
                  "Compilation finished" 
@@ -2934,6 +2934,9 @@ Each newlines and following indentation is replaced by a single space."
 (defun slime-note-has-location-p (note)
   (not (eq ':error (car (slime-note.location note)))))
 
+(defun slime-redefinition-note-p (note)
+  (eq (slime-note.severity note) :redefinition))
+
 (defun slime-create-compilation-log (notes)
   "Create a buffer for `next-error' to use."
   (with-current-buffer (get-buffer-create "*SLIME Compilation*")
@@ -2945,7 +2948,8 @@ Each newlines and following indentation is replaced by a single space."
   "Display the log on failed compilations or if NOTES is non-nil."
   (with-struct (slime-compilation-result. notes duration successp)
       slime-last-compilation-result
-    (when (or notes (not successp))
+    (when (or (and notes (not (every #'slime-redefinition-note-p notes)))
+              (not successp))
       (slime-with-popup-buffer ("*SLIME Compilation*")
         (slime-insert-compilation-log notes)
         (let ((inhibit-read-only t))
@@ -2968,11 +2972,12 @@ Each newlines and following indentation is replaced by a single space."
       (insert (format "cd %s\n%d compiler notes:\n" 
                       default-directory (length notes)))
       (dolist (note notes)
-        (insert (format "%s%s:\n%s\n"
+        (insert (format "\n%s%s:\n"
                         (slime-compilation-loc (slime-note.location note))
-                        (substring (symbol-name (slime-note.severity note))
-                                   1)
-                        (slime-note.message note)))))
+                        (slime-severity-label (slime-note.severity note))))
+        (slime-with-rigid-indentation 2
+          (insert (slime-note.message note))
+          (insert "\n"))))
     (setq next-error-last-buffer (current-buffer))))
 
 (defun slime-compilation-loc (location)
@@ -3018,12 +3023,7 @@ keys."
   (plist-get note :location))
 
 (defun slime-severity-label (severity)
-  (ecase severity
-    (:note "Notes")
-    (:warning "Warnings")
-    (:error "Errors")
-    (:read-error "Read Errors")
-    (:style-warning "Style Warnings")))
+  (subseq (symbol-name severity) 1))
 
 
 ;;;;; Adding a single compiler note

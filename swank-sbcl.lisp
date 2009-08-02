@@ -1,4 +1,4 @@
-;;;; -*- Mode: lisp; indent-tabs-mode: nil -*-
+;;;;; -*- Mode: lisp; indent-tabs-mode: nil -*-
 ;;;
 ;;; swank-sbcl.lisp --- SLIME backend for SBCL.
 ;;;
@@ -407,6 +407,7 @@
       (sb-introspect:deftype-lambda-list typespec-operator)
     (if foundp arglist (call-next-method))))
 
+
 (defvar *buffer-name* nil)
 (defvar *buffer-offset*)
 (defvar *buffer-substring* nil)
@@ -435,6 +436,8 @@ information."
            :severity (etypecase condition
                        (sb-c:compiler-error  :error)
                        (sb-ext:compiler-note :note)
+                       (sb-kernel:redefinition-warning
+                                             :redefinition)
                        (style-warning        :style-warning)
                        (warning              :warning)
                        (reader-error         :read-error)

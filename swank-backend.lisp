@@ -13,8 +13,8 @@
 (defpackage :swank-backend
   (:use :common-lisp)
   (:export #:sldb-condition
-           #:original-condition
            #:compiler-condition
+           #:original-condition
            #:message
            #:short-message
            #:condition
@@ -410,7 +410,7 @@ Should return OUTPUT-TRUENAME, WARNINGS-P and FAILURE-p
 like `compile-file'")
 
 (deftype severity () 
-  '(member :error :read-error :warning :style-warning :note))
+  '(member :error :read-error :warning :style-warning :note :redefinition))
 
 ;; Base condition type for compiler errors, warnings and notes.
 (define-condition compiler-condition (condition)

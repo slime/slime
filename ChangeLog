@@ -1,3 +1,18 @@
+2009-08-02  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-backend.lisp (severity [type]): Allow :redefinition.
+
+	* swank-sbcl.lisp (signal-compiler-condition): Tag redefinitions.
+
+	* slime.el (slime-maybe-show-compilation-log): Do not show
+	compilation log if each note describes just a redefinition.
+	(slime-insert-compilation-log): Insert notes indented by 2
+	spaces. Insert some more newlines so the buffer appears more
+	structured.
+	(slime-show-note-counts): Add :redefinition to ecase.
+	(slime-redefinition-note-p): New.
+	(slime-severity-label): Was unused. Adapted to be usable.
+
 2009-07-30  Stas Boukarev  <stassats@gmail.com>
 
 	* doc/slime.texi (Setting up pathname translations): add that it is
