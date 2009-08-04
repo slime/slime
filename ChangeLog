@@ -1,3 +1,10 @@
+2009-08-04  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-sbcl.lisp (signal-compiler-condition): read
+	sb-kernel:redefinition-warning only if it exists.
+	Some older SBCLs don't have it (particularly included in the
+	stable Debian).
+
 2009-08-02  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-backend.lisp (severity [type]): Allow :redefinition.

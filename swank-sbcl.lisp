@@ -436,6 +436,7 @@ information."
            :severity (etypecase condition
                        (sb-c:compiler-error  :error)
                        (sb-ext:compiler-note :note)
+                       #+#.(swank-backend::with-symbol redefinition-warning sb-kernel)
                        (sb-kernel:redefinition-warning
                                              :redefinition)
                        (style-warning        :style-warning)
