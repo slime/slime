@@ -16,10 +16,16 @@
 	;;
 	;; Value 
 	(cond ((boundp symbol)
-               (label-value-line (if (constantp symbol)
-                                     "It is a constant of value"
-                                     "It is a global variable bound to")
-                                 (symbol-value symbol)))
+               (append
+                (label-value-line (if (constantp symbol)
+                                      "It is a constant of value"
+                                      "It is a global variable bound to")
+                                  (symbol-value symbol) :newline nil)
+                ;; unbinding constants might be not a good idea, but
+                ;; implementations usually provide a restart.
+                `(" " (:action "[unbind it]"
+                               ,(lambda () (makunbound symbol))))
+                '((:newline))))
 	      (t '("It is unbound." (:newline))))
 	(docstring-ispec "Documentation" symbol 'variable)
 	(multiple-value-bind (expansion definedp) (macroexpand symbol)
@@ -34,14 +40,20 @@
 			  (:value ,(macro-function symbol)))
 			`("It is a function: " 
 			  (:value ,(symbol-function symbol))))
-		    `(" " (:action "[make funbound]"
+		    `(" " (:action "[unbind it]"
 				   ,(lambda () (fmakunbound symbol))))
 		    `((:newline)))
 	    `("It has no function value." (:newline)))
 	(docstring-ispec "Function Documentation" symbol 'function)
-	(if (compiler-macro-function symbol)
-	    (label-value-line "It also names the compiler macro"
-			      (compiler-macro-function symbol)))
+	(when (compiler-macro-function symbol)
+          
+	    (append
+             (label-value-line "It also names the compiler macro"
+                               (compiler-macro-function symbol) :newline nil)
+             `(" " (:action "[remove it]"
+                            ,(lambda ()
+                                     (setf (compiler-macro-function symbol) nil)))
+                   (:newline))))
 	(docstring-ispec "Compiler Macro Documentation" 
 			 symbol 'compiler-macro)
 	;;
