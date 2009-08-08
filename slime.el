@@ -2812,11 +2812,9 @@ compile with a debug setting of that number."
         (save-restriction
           (widen)                ; remove overlays within the whole buffer.
           (goto-char (point-min))
-          (while (not (eobp))
-            (dolist (o (overlays-at (point)))
-              (when (overlay-get o 'slime)
-                (delete-overlay o)))
-            (goto-char (next-overlay-change (point)))))))))
+          (let ((o))
+            (while (setq o (slime-find-next-note))
+              (delete-overlay o))))))))
 
 (defun slime-filter-buffers (predicate)
   "Return a list of where PREDICATE returns true.
@@ -2972,12 +2970,14 @@ Each newlines and following indentation is replaced by a single space."
       (insert (format "cd %s\n%d compiler notes:\n" 
                       default-directory (length notes)))
       (dolist (note notes)
-        (insert (format "\n%s%s:\n"
-                        (slime-compilation-loc (slime-note.location note))
-                        (slime-severity-label (slime-note.severity note))))
-        (slime-with-rigid-indentation 2
-          (insert (slime-note.message note))
-          (insert "\n"))))
+        (let ((start (1+ (point))))     ; 1+ due to \n
+          (insert (format "\n%s%s:\n"
+                          (slime-compilation-loc (slime-note.location note))
+                          (slime-severity-label (slime-note.severity note))))
+          (slime-with-rigid-indentation 2
+            (insert (slime-note.message note))
+            (insert "\n"))
+          (slime-make-note-overlay note start (point)))))
     (setq next-error-last-buffer (current-buffer))))
 
 (defun slime-compilation-loc (location)
@@ -2992,6 +2992,23 @@ Each newlines and following indentation is replaced by a single space."
                        (1+ (current-column)))))
            (format "%s:%d:%d: " (or filename "") line col)))
         (t "")))
+
+(defun slime-goto-note-in-compilation-log (note)
+  "Try to find `note' in the compilation log, and display it to
+the user if it's there."
+  (with-current-buffer (get-buffer "*SLIME Compilation*")
+    (let ((origin (point))
+          (foundp nil))
+      (goto-char (point-min))
+      (let ((overlay))
+        (while (and (setq overlay (slime-find-next-note))
+                    (not foundp))
+          (let ((other-note (overlay-get overlay 'slime-note)))
+            (when (slime-notes-in-same-location-p note other-note)
+              (slime-show-buffer-position (overlay-start overlay) 'top)
+              (setq foundp t)))))
+      (unless foundp
+        (goto-char origin)))))
 
 (defun slime-alistify (list key test)
   "Partition the elements of LIST into an alist.
@@ -3043,6 +3060,11 @@ new overlay is created."
             (slime-merge-note-into-overlay overlay severity message)
             (slime-create-note-overlay note start end severity message))))))
 
+(defun slime-make-note-overlay (note start end)
+  (let ((overlay (make-overlay start end)))
+    (overlay-put overlay 'slime-note note)
+    overlay))
+
 (defun slime-create-note-overlay (note start end severity message)
   "Create an overlay representing a compiler note.
 The overlay has several properties:
@@ -3052,9 +3074,8 @@ The overlay has several properties:
   HELP-ECHO  - a string describing the note, both for future reference
                and for display as a tooltip (due to the special
                property name)."
-  (let ((overlay (make-overlay start end)))
+  (let ((overlay (slime-make-note-overlay note start end)))
     (flet ((putp (name value) (overlay-put overlay name value)))
-      (putp 'slime note)
       (putp 'face (slime-severity-face severity))
       (putp 'severity severity)
       (putp 'mouse-face 'highlight)
@@ -3534,10 +3555,10 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
 (defun slime-next-note ()
   "Go to and describe the next compiler note in the buffer."
   (interactive)
-  (let ((here (point)))
-    (slime-find-next-note)
-    (if (slime-note-at-point)
-        (slime-show-note (slime-note-at-point))
+  (let ((here (point))
+        (note (slime-find-next-note)))
+    (if note
+        (slime-show-note note)
         (progn
           (goto-char here)
           (message "No next note.")))))
@@ -3545,10 +3566,10 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
 (defun slime-previous-note ()
   "Go to and describe the previous compiler note in the buffer."
   (interactive)
-  (let ((here (point)))
-    (slime-find-previous-note)
-    (if (slime-note-at-point)
-        (slime-show-note (slime-note-at-point))
+  (let ((here (point))
+        (note (slime-find-previous-note)))
+    (if note
+        (slime-show-note note)
         (progn
           (goto-char here)
           (message "No previous note.")))))
@@ -3569,6 +3590,8 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
 (defun slime-show-note (overlay)
   "Present the details of a compiler note to the user."
   (slime-temporarily-highlight-note overlay)
+  (when (get-buffer-window "*SLIME Compilation*" t)
+    (slime-goto-note-in-compilation-log (overlay-get overlay 'slime-note)))
   (let ((message (get-char-property (point) 'help-echo)))
     (slime-message "%s" (if (zerop (length message)) "\"\"" message))))
 
@@ -3595,7 +3618,7 @@ The highlighting is automatically undone before the next Emacs command."
 
 (defun slime-note-overlay-p (overlay)
   "Return true if OVERLAY represents a compiler note."
-  (overlay-get overlay 'slime))
+  (overlay-get overlay 'slime-note))
 
 (defun slime-note-overlays-at-point ()
   "Return a list of all note overlays that are under the point."
@@ -3603,24 +3626,28 @@ The highlighting is automatically undone before the next Emacs command."
 
 (defun slime-find-next-note ()
   "Go to the next position with the `slime-note' text property.
-Retuns true if such a position is found."
+Retuns the note overlay if such a position is found, otherwise nil."
   (slime-find-note 'next-single-char-property-change))
 
 (defun slime-find-previous-note ()
   "Go to the next position with the `slime' text property.
-Returns true if such a position is found."
+Retuns the note overlay if such a position is found, otherwise nil."
   (slime-find-note 'previous-single-char-property-change))
 
 (defun slime-find-note (next-candidate-fn)
   "Seek out the beginning of a note.
-NEXT-CANDIDATE-FN is called to find each new position for consideration."
-  (let ((origin (point)))
-    (loop do (goto-char (funcall next-candidate-fn (point) 'slime))
-	  until (or (slime-note-at-point)
-		    (eobp)
-		    (bobp)))
-    (unless (slime-note-at-point)
-      (goto-char origin))))
+NEXT-CANDIDATE-FN is called to find each new position for consideration.
+Retuns the note overlay if such a position is found, otherwise nil.
+"
+  (let ((origin (point))
+        (overlay))
+    (loop do (goto-char (funcall next-candidate-fn (point) 'slime-note))
+          until (or (setq overlay (slime-note-at-point))
+                    (eobp)
+                    (bobp)))
+    (if overlay
+        overlay
+        (prog1 nil (goto-char origin)))))
 
 
 ;;;; Arglist Display
@@ -5672,14 +5699,16 @@ Called on the `point-entered' text-property hook."
 
 ;; FIXME: these functions need factorization
 
-(defun slime-show-buffer-position (position)
+(defun slime-show-buffer-position (position &optional recenter)
   "Ensure sure that the POSITION in the current buffer is visible."
-  (let ((window (display-buffer (current-buffer) t)))
+  (let ((window (display-buffer (current-buffer) t t)))
     (save-selected-window
       (select-window window)
       (goto-char position)
       (unless (pos-visible-in-window-p)
-        (reposition-window)))))
+        (reposition-window))
+      (cond ((eq recenter 'top)    (recenter 0))
+            ((eq recenter 'center) (recenter))))))
 
 (defun sldb-recenter-region (start end &optional center)
   "Make the region from START to END visible.

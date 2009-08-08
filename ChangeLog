@@ -1,3 +1,24 @@
+2009-08-08  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	M-n / M-p in a .lisp buffer now also jump to the respective note
+	in the compilation-log buffer if one is currently displayed to the
+	user.
+
+	* slime.el (slime-remove-old-overlays): Simplified.
+	(slime-insert-compilation-log): Add a note-overlay for each note
+	so we can find the right one when user uses M-n/M-p in .lisp
+	buffer.
+	(slime-goto-note-in-compilation-log): New.
+	(slime-make-note-overlay): Extracted from
+	`slime-create-note-overlay'.
+	(slime-next-note, slime-previous-note): Simplified.
+	(slime-show-note): Goto note in compilation-log if available.
+	(slime-note-overlay-p): Call overlay property `slime-note', not
+	just `slime'.
+	(slime-find-note): Likewise; also returns the overlay if found.
+	(slime-show-buffer-position): Optionally recenter position to the
+	top of the window.
+
 2009-08-04  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sbcl.lisp (signal-compiler-condition): read
