@@ -1,5 +1,9 @@
 2009-08-09  Stas Boukarev  <stassats@gmail.com>
 
+	* swank.asd (asdf:perform): don't call `swank-loader:init' with
+	:setup nil, because it doesn't get contribs compiled, and some other
+	configuration steps are omitted.
+
 	* slime.el (slime-profile-by-substring): new function for profiling
 	functions by matching a substring.
 
