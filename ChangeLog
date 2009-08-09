@@ -1,3 +1,22 @@
+2009-08-09  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	M-n/M-p in .lisp buffers do not show the note in the minibuffer
+	anymore if a compilation log is displayed to the user.
+
+	In the compilation log, sort and group the notes by line/column
+	number.
+
+	* slime.el (slime-insert-compilation-log): Sort the notes by their
+	line/column numbers; group notes of same location and display them
+	as one entry.
+	(slime-compilation-loc): Removed.
+	(slime-canonicalized-location),
+	(slime-canonicalized-location-to-string): Extracted from
+	`slime-compilation-loc'.
+	(slime-group-and-sort-notes): Does the sorting/grouping.
+	(slime-show-note): Do not show note in minibuffer if compilation
+	log is displayed to the user.
+
 2009-08-09  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.asd (asdf:perform): don't call `swank-loader:init' with

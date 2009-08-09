@@ -2962,36 +2962,71 @@ Each newlines and following indentation is replaced by a single space."
 
 (defun slime-insert-compilation-log (notes)
   "Insert NOTES in format suitable for `compilation-mode'."
-  (with-temp-message "Preparing compilation log..."
-    (compilation-mode)
-    (set (make-local-variable 'compilation-skip-threshold) 0)
-    (set (make-local-variable 'compilation-skip-to-next-location) nil)
-    (let ((inhibit-read-only t))
-      (insert (format "cd %s\n%d compiler notes:\n" 
-                      default-directory (length notes)))
-      (dolist (note notes)
-        (let ((start (1+ (point))))     ; 1+ due to \n
-          (insert (format "\n%s%s:\n"
-                          (slime-compilation-loc (slime-note.location note))
-                          (slime-severity-label (slime-note.severity note))))
-          (slime-with-rigid-indentation 2
-            (insert (slime-note.message note))
-            (insert "\n"))
-          (slime-make-note-overlay note start (point)))))
-    (setq next-error-last-buffer (current-buffer))))
+  (multiple-value-bind (grouped-notes canonicalized-locs-table)
+      (slime-group-and-sort-notes notes)
+    (with-temp-message "Preparing compilation log..."
+      (compilation-mode)
+      (set (make-local-variable 'compilation-skip-threshold) 0)
+      (set (make-local-variable 'compilation-skip-to-next-location) nil)
+      (let ((inhibit-read-only t))
+        (insert (format "cd %s\n%d compiler notes:\n" 
+                        default-directory (length notes)))
+        (dolist (notes grouped-notes)
+          (let ((loc (gethash (first notes) canonicalized-locs-table))
+                (start (1+ (point))))   ; 1+ due to \n
+            (insert 
+             (format "\n%s:\n" (slime-canonicalized-location-to-string loc)))
+            (dolist (note notes)
+              (insert (format "  %s:\n" (slime-severity-label 
+                                         (slime-note.severity note))))
+              (slime-with-rigid-indentation 4
+                (insert (slime-note.message note))
+                (insert "\n")))
+            (slime-make-note-overlay (first notes) start (point)))))
+      (setq next-error-last-buffer (current-buffer)))))
 
-(defun slime-compilation-loc (location)
-  (cond ((slime-location-p location)
-         (destructuring-bind (filename line col)
-             (save-excursion
-               (slime-goto-location-buffer (slime-location.buffer location))
-               (save-excursion
-                 (slime-goto-source-location location)
-                 (list (or (buffer-file-name) (buffer-name))
-                       (line-number-at-pos)
-                       (1+ (current-column)))))
-           (format "%s:%d:%d: " (or filename "") line col)))
-        (t "")))
+(defun slime-canonicalized-location (location)
+  "Takes a `slime-location' and returns a list consisting of
+file/buffer name, line, and column number."
+  (save-excursion
+    (slime-goto-location-buffer (slime-location.buffer location))
+    (save-excursion
+      (slime-goto-source-location location)
+      (list (or (buffer-file-name) (buffer-name))
+            (line-number-at-pos)
+            (1+ (current-column))))))
+
+(defun slime-canonicalized-location-to-string (loc)
+  (if loc
+      (destructuring-bind (filename line col) loc
+        (format "%s:%d:%d" (or filename "") line col))
+      (format "Unknown location")))
+
+(defun slime-group-and-sort-notes (notes)
+  "First sort, then group NOTES according to their canonicalized locs."
+  (let ((locs (make-hash-table :test #'eq)))
+    (mapc #'(lambda (note)
+              (let ((loc (slime-note.location note)))
+                (when (slime-location-p loc)
+                  (puthash note (slime-canonicalized-location loc) locs))))
+          notes)
+    (values (slime-group-similar 
+             #'(lambda (n1 n2)
+                 (equal (gethash n1 locs nil) (gethash n2 locs t)))
+             (let* ((bottom most-negative-fixnum) 
+                    (+default+ (list "" bottom bottom)))
+               (sort notes
+                     #'(lambda (n1 n2)
+                         (destructuring-bind (filename1 line1 col1) 
+                             (gethash n1 locs +default+)
+                           (destructuring-bind (filename2 line2 col2) 
+                               (gethash n2 locs +default+)
+                             (cond ((string-lessp filename1 filename2) t)
+                                   ((string-lessp filename2 filename1) nil)
+                                   ((< line1 line2) t)
+                                   ((> line1 line2) nil)
+                                   (t (< col1 col2)))))))))
+            locs)))
 
 (defun slime-goto-note-in-compilation-log (note)
   "Try to find `note' in the compilation log, and display it to
@@ -3590,10 +3625,10 @@ SEARCH-FN is either the symbol `search-forward' or `search-backward'."
 (defun slime-show-note (overlay)
   "Present the details of a compiler note to the user."
   (slime-temporarily-highlight-note overlay)
-  (when (get-buffer-window "*SLIME Compilation*" t)
-    (slime-goto-note-in-compilation-log (overlay-get overlay 'slime-note)))
-  (let ((message (get-char-property (point) 'help-echo)))
-    (slime-message "%s" (if (zerop (length message)) "\"\"" message))))
+  (if (get-buffer-window "*SLIME Compilation*" t)
+      (slime-goto-note-in-compilation-log (overlay-get overlay 'slime-note))
+      (let ((message (get-char-property (point) 'help-echo)))
+        (slime-message "%s" (if (zerop (length message)) "\"\"" message)))))
 
 (defun slime-temporarily-highlight-note (overlay)
   "Temporarily highlight a compiler note's overlay.
