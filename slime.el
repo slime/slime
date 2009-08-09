@@ -2967,7 +2967,6 @@ Each newlines and following indentation is replaced by a single space."
     (with-temp-message "Preparing compilation log..."
       (compilation-mode)
       (set (make-local-variable 'compilation-skip-threshold) 0)
-      (set (make-local-variable 'compilation-skip-to-next-location) nil)
       (let ((inhibit-read-only t))
         (insert (format "cd %s\n%d compiler notes:\n" 
                         default-directory (length notes)))

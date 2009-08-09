@@ -1,5 +1,16 @@
 2009-08-09  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	Make C-x ` work again.
+
+	M-n and C-x ` are now very similiar; but the former operates
+	relative to point in the source buffer, while the latter works
+	relative to the compilation log.
+
+	* slime.el (slime-insert-compilation-log): No do set
+	`compilation-skip-to-next-location'.
+
+2009-08-09  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	M-n/M-p in .lisp buffers do not show the note in the minibuffer
 	anymore if a compilation log is displayed to the user.
 
