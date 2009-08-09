@@ -1,3 +1,10 @@
+2009-08-09  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-profile-by-substring): new function for profiling
+	functions by matching a substring.
+
+	* swank.lisp (profile-by-substring): ditto.
+
 2009-08-08  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	M-n / M-p in a .lisp buffer now also jump to the respective note

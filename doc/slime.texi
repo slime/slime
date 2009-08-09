@@ -1252,6 +1252,8 @@ output buffer.
 Toggle profiling of a function.
 @cmditem{slime-profile-package}
 Profile all functions in a package.
+@cmditem{slime-profile-by-substring}
+Profile all functions which names contain a substring.
 @cmditem{slime-unprofile-all}
 Unprofile all functions.
 @cmditem{slime-profile-report}

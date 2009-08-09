@@ -4611,7 +4611,17 @@ having names in the given package."
   (slime-eval-async `(swank:profile-package ,package ,callers ,methods)
                     (lambda (r) (message "%s" r))))
 
-
+(defun slime-profile-by-substring (substring &optional package)
+  "Profile all functions which names contain SUBSTRING.
+If PACKAGE is NIL, then search in all packages."
+  (interactive (list
+                (slime-read-from-minibuffer 
+                 "Profile by matching substring: "
+                 (slime-symbol-at-point))
+                (slime-read-package-name "Package (RET for all packages): ")))
+  (let ((package (unless (equal package "") package)))
+    (slime-eval-async `(swank:profile-by-substring ,substring ,package)
+                      (lambda (r) (message "%s" r)) )))
 
 ;;;; Documentation
 
@@ -6887,6 +6897,7 @@ is setup, unless the user already set one explicitly."
       ("Profiling"
        [ "Toggle Profiling..."     slime-toggle-profile-fdefinition ,C ]
        [ "Profile Package"         slime-profile-package ,C]
+       [ "Profile by Substring"    slime-profile-by-substring ,C ]
        [ "Unprofile All"           slime-unprofile-all ,C ]
        [ "Show Profiled"           slime-profiled-functions ,C ]
        "--"

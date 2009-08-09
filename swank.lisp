@@ -3186,6 +3186,24 @@ Include the nicknames if NICKNAMES is true."
            (profile fname)
 	   (format nil "~S is now profiled." fname)))))
 
+(defslimefun profile-by-substring (substring package)
+  (let ((count 0))
+    (flet ((maybe-profile (symbol)
+             (when (and (fboundp symbol)
+                        (not (profiledp symbol))
+                        (search substring (symbol-name symbol) :test #'equalp))
+               (handler-case (progn
+                               (profile symbol)
+                               (incf count))
+                 (error (condition)
+                   (warn "~a" condition))))))
+      (if package
+          (do-symbols (symbol (parse-package package))
+            (maybe-profile symbol))
+          (do-all-symbols (symbol)
+            (maybe-profile symbol))))
+    (format nil "~a function~:p ~:*~[are~;is~:;are~] now profiled" count)))
+
 
 ;;;; Source Locations
 
