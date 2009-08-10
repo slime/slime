@@ -2771,28 +2771,21 @@ compile with a debug setting of that number."
     (run-hook-with-args 'slime-compilation-finished-hook notes)))
 
 (defun slime-show-note-counts (notes secs successp)
-  (let ((nerrors 0) (nwarnings 0) (nstyle-warnings 0) (nnotes 0))
-    (dolist (note notes)
-      (ecase (slime-note.severity note)
-	((:error :read-error)           (incf nerrors))
-        ((:warning)                     (incf nwarnings))
-        ((:redefinition :style-warning) (incf nstyle-warnings))
-        ((:note)                        (incf nnotes))))
-    (message "%s:%s%s%s%s%s"
-             (if successp 
-                 "Compilation finished" 
-                 (slime-add-face '(:foreground "Red")
-                   "Compilation failed"))
-             (slime-note-count-string "error" nerrors)
-             (slime-note-count-string "warning" nwarnings)
-             (slime-note-count-string "style-warning" nstyle-warnings t)
-             (slime-note-count-string "note" nnotes)
-             (if secs (format "[%.2f secs]" secs) ""))))
-
-(defun slime-note-count-string (severity count &optional suppress-if-zero)
-  (cond ((and (zerop count) suppress-if-zero)
-         "")
-        (t (format "%2d %s%s " count severity (if (= count 1) "" "s")))))
+  (message (concat 
+            (cond (successp "Compilation finished")
+                  (t (slime-add-face 'font-lock-warning-face
+                       "Compilation failed")))
+            (if (null notes) ". (No warnings)" ": ")
+            (mapconcat
+             (lambda (messages)
+               (destructuring-bind (sev . notes) messages
+                 (let ((len (length notes)))
+                   (format "%d %s%s" len (slime-severity-label sev) 
+                           (if (= len 1) "" "s")))))
+             (sort (slime-alistify notes #'slime-note.severity #'eq)
+                   (lambda (x y) (slime-severity< (car y) (car x))))
+             "  ")
+            (if secs (format "  [%.2f secs]" secs)))))
 
 (defun slime-highlight-notes (notes)
   "Highlight compiler notes, warnings, and errors in the buffer."
@@ -2944,16 +2937,16 @@ Each newlines and following indentation is replaced by a single space."
 
 (defun slime-maybe-show-compilation-log (notes)
   "Display the log on failed compilations or if NOTES is non-nil."
+  (slime-create-compilation-log notes)
   (with-struct (slime-compilation-result. notes duration successp)
       slime-last-compilation-result
-    (when (or (and notes (not (every #'slime-redefinition-note-p notes)))
-              (not successp))
-      (slime-with-popup-buffer ("*SLIME Compilation*")
-        (slime-insert-compilation-log notes)
+    (unless successp
+      (with-current-buffer "*SLIME Compilation*"
         (let ((inhibit-read-only t))
           (goto-char (point-max))
           (insert "\nCompilation " (if successp "succeeded." "failed."))
-          (goto-char (point-min)))))))
+          (goto-char (point-min))
+          (display-buffer (current-buffer)))))))
 
 (defun slime-show-compilation-log (notes)
   (interactive (list (slime-compiler-notes)))
@@ -2965,9 +2958,8 @@ Each newlines and following indentation is replaced by a single space."
   (multiple-value-bind (grouped-notes canonicalized-locs-table)
       (slime-group-and-sort-notes notes)
     (with-temp-message "Preparing compilation log..."
-      (compilation-mode)
-      (set (make-local-variable 'compilation-skip-threshold) 0)
-      (let ((inhibit-read-only t))
+      (let ((inhibit-read-only t)
+            (inhibit-modification-hooks t)) ; inefficient font-lock-hook
         (insert (format "cd %s\n%d compiler notes:\n" 
                         default-directory (length notes)))
         (dolist (notes grouped-notes)
@@ -2982,6 +2974,8 @@ Each newlines and following indentation is replaced by a single space."
                 (insert (slime-note.message note))
                 (insert "\n")))
             (slime-make-note-overlay (first notes) start (point)))))
+      (compilation-mode)
+      (set (make-local-variable 'compilation-skip-threshold) 0)
       (setq next-error-last-buffer (current-buffer)))))
 
 (defun slime-canonicalized-location (location)
@@ -2998,7 +2992,9 @@ file/buffer name, line, and column number."
 (defun slime-canonicalized-location-to-string (loc)
   (if loc
       (destructuring-bind (filename line col) loc
-        (format "%s:%d:%d" (or filename "") line col))
+        (format "%s:%d:%d" 
+                (if filename (file-relative-name filename) "") 
+                line col))
       (format "Unknown location")))
 
 (defun slime-group-and-sort-notes (notes)
@@ -3182,15 +3178,17 @@ Return nil if there's no useful source location."
     (:style-warning 'slime-style-warning-face)
     (:note          'slime-note-face)))
 
+(defvar slime-severity-order 
+  '(:note :style-warning :redefinition :warning :error :read-error))
+
+(defun slime-severity< (sev1 sev2)
+  "Return true if SEV1 is less severe than SEV2."
+  (< (position sev1 slime-severity-order)
+     (position sev2 slime-severity-order)))
+
 (defun slime-most-severe (sev1 sev2)
-  "Return the most servere of two conditions.
-Severity is ordered as :NOTE < :STYLE-WARNING < :WARNING < :ERROR."
-                                        ; Well, not exactly Smullyan..
-  (let ((order '(:note :style-warning :warning :error :read-error)))
-    (if (>= (position sev1 order) 
-            (position sev2 order))
-        sev1
-      sev2)))
+  "Return the most servere of two conditions."
+  (if (slime-severity< sev1 sev2) sev2 sev1))
 
 ;; XXX: unused function
 (defun slime-visit-source-path (source-path)
@@ -3384,7 +3382,8 @@ you should check twice before modifying.")
      (let ((filename (slime-from-lisp-filename filename)))
        (slime-check-location-filename-sanity filename)
        (set-buffer (or (get-file-buffer filename)
-                       (find-file-noselect filename)))))
+                       (let ((find-file-suppress-same-file-warnings t))
+                         (find-file-noselect filename))))))
     ((:buffer buffer-name)
      (slime-check-location-buffer-name-sanity buffer-name)
      (set-buffer buffer-name))
@@ -3671,17 +3670,15 @@ Retuns the note overlay if such a position is found, otherwise nil."
 (defun slime-find-note (next-candidate-fn)
   "Seek out the beginning of a note.
 NEXT-CANDIDATE-FN is called to find each new position for consideration.
-Retuns the note overlay if such a position is found, otherwise nil.
-"
+Return the note overlay if such a position is found, otherwise nil."
   (let ((origin (point))
         (overlay))
     (loop do (goto-char (funcall next-candidate-fn (point) 'slime-note))
           until (or (setq overlay (slime-note-at-point))
                     (eobp)
                     (bobp)))
-    (if overlay
-        overlay
-        (prog1 nil (goto-char origin)))))
+    (unless overlay (goto-char origin))
+    overlay))
 
 
 ;;;; Arglist Display
@@ -8921,7 +8918,6 @@ If they are not, position point at the first syntax error found."
           slime-net-decode-length
           slime-net-read
           slime-print-apropos
-          slime-show-note-counts
           slime-insert-propertized
           slime-tree-insert
           slime-symbol-constituent-at

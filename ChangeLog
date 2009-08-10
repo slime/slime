@@ -1,3 +1,16 @@
+2009-08-10  Helmut Eller  <heller@common-lisp.net>
+
+	Various compilation related changes.
+
+	* slime.el (slime-show-note-counts): Don't show 0 values.
+	(slime-severity<): New function.
+	(slime-maybe-show-compilation-log): Always create the log buffer
+	but display it only if the compilation failed.
+	(slime-insert-compilation-log): Disable the stupidly inefficient
+	font-lock-after-change-function.
+	(slime-canonicalized-location-to-string): Use relative filenames.
+	(slime-goto-location-buffer): Disable warnings about symlinks.
+
 2009-08-09  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	Make C-x ` work again.
