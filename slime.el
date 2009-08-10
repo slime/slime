@@ -909,13 +909,14 @@ Assumes all insertions are made at point."
 
 (defun slime-indent-rigidly (start end column)
   ;; Similar to `indent-rigidly' but doesn't inherit text props.
-  (save-excursion
-    (goto-char end)
-    (beginning-of-line)
-    (while (and (<= start (point))
-                (progn
-                  (save-excursion (insert-char ?\  column))
-                  (zerop (forward-line -1)))))))
+  (let ((indent (make-string column ?\ )))
+    (save-excursion
+      (goto-char end)
+      (beginning-of-line)
+      (while (and (<= start (point))
+                  (progn
+                    (insert-before-markers indent)
+                    (zerop (forward-line -1))))))))
 
 (defun slime-insert-indented (&rest strings)
   "Insert all arguments rigidly indented."
@@ -2944,7 +2945,7 @@ Each newlines and following indentation is replaced by a single space."
       (with-current-buffer "*SLIME Compilation*"
         (let ((inhibit-read-only t))
           (goto-char (point-max))
-          (insert "\nCompilation " (if successp "succeeded." "failed."))
+          (insert "Compilation " (if successp "succeeded." "failed."))
           (goto-char (point-min))
           (display-buffer (current-buffer)))))))
 
@@ -2960,23 +2961,29 @@ Each newlines and following indentation is replaced by a single space."
     (with-temp-message "Preparing compilation log..."
       (let ((inhibit-read-only t)
             (inhibit-modification-hooks t)) ; inefficient font-lock-hook
-        (insert (format "cd %s\n%d compiler notes:\n" 
+        (insert (format "cd %s\n%d compiler notes:\n\n"
                         default-directory (length notes)))
         (dolist (notes grouped-notes)
           (let ((loc (gethash (first notes) canonicalized-locs-table))
-                (start (1+ (point))))   ; 1+ due to \n
-            (insert 
-             (format "\n%s:\n" (slime-canonicalized-location-to-string loc)))
+                (start (point)))
+            (insert (slime-canonicalized-location-to-string loc) ":\n")
             (dolist (note notes)
-              (insert (format "  %s:\n" (slime-severity-label 
-                                         (slime-note.severity note))))
-              (slime-with-rigid-indentation 4
-                (insert (slime-note.message note))
-                (insert "\n")))
-            (slime-make-note-overlay (first notes) start (point)))))
+              (insert "  ")
+              (insert (slime-severity-label (slime-note.severity note)) ": ")
+              (slime-insert-block (slime-note.message note) 4)
+              (insert "\n"))
+            (insert "\n")
+            (slime-make-note-overlay (first notes) start (1- (point))))))
       (compilation-mode)
       (set (make-local-variable 'compilation-skip-threshold) 0)
       (setq next-error-last-buffer (current-buffer)))))
+
+(defun slime-insert-block (string indentation)
+  "Insert TEXT.  If it takes multiple lines, indent it."
+  (cond ((string-match "\n" string)
+         (insert "\n")
+         (slime-with-rigid-indentation indentation (insert string)))
+        (t (insert string))))
 
 (defun slime-canonicalized-location (location)
   "Takes a `slime-location' and returns a list consisting of
@@ -2993,7 +3000,11 @@ file/buffer name, line, and column number."
   (if loc
       (destructuring-bind (filename line col) loc
         (format "%s:%d:%d" 
-                (if filename (file-relative-name filename) "") 
+                (cond ((not filename) "")
+                      ((let ((rel (file-relative-name filename)))
+                         (if (< (length rel) (length filename))
+                             rel)))
+                      (t filename))
                 line col))
       (format "Unknown location")))
 

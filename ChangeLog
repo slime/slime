@@ -1,5 +1,14 @@
 2009-08-10  Helmut Eller  <heller@common-lisp.net>
 
+	Don't add linebreaks for one-line messages.
+
+	(slime-insert-block): New function.
+	(slime-insert-compilation-log): Use it.
+	(slime-indent-rigidly): Use insert-before-markers, otherwise point
+	ends up at before a bunch of inserted spaces.
+
+2009-08-10  Helmut Eller  <heller@common-lisp.net>
+
 	Various compilation related changes.
 
 	* slime.el (slime-show-note-counts): Don't show 0 values.
