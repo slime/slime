@@ -1,5 +1,10 @@
 2009-08-10  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-insert-note-group): Factored out from
+	slime-insert-compilation-log.
+	(slime-goto-location-position): Can't use goto-line.
+
+2009-08-10  Helmut Eller  <heller@common-lisp.net>
 	Separate context info from compiler message text.
 
 	* swank-backend.lisp (compiler-condition): Add a new slot
