@@ -430,8 +430,8 @@ NIL if we aren't compiling from a buffer.")
            'compiler-condition
            :original-condition condition
            :severity (severity-for-emacs condition)
-           :short-message (brief-compiler-message-for-emacs condition)
-           :message (long-compiler-message-for-emacs condition context)
+           :message (compiler-condition-message condition)
+           :source-context (compiler-error-context context)
            :location (if (read-error-p condition)
                          (read-error-location condition)
                          (compiler-note-location context)))))
@@ -447,22 +447,24 @@ NIL if we aren't compiling from a buffer.")
 (defun read-error-p (condition)
   (eq (type-of condition) 'c::compiler-read-error))
 
-(defun brief-compiler-message-for-emacs (condition)
+(defun compiler-condition-message (condition)
   "Briefly describe a compiler error for Emacs.
 When Emacs presents the message it already has the source popped up
 and the source form highlighted. This makes much of the information in
 the error-context redundant."
   (princ-to-string condition))
 
-(defun long-compiler-message-for-emacs (condition error-context)
-  "Describe a compiler error for Emacs including context information."
+(defun compiler-error-context (error-context)
+  "Describe context information for Emacs."
   (declare (type (or c::compiler-error-context null) error-context))
   (multiple-value-bind (enclosing source)
       (if error-context
           (values (c::compiler-error-context-enclosing-source error-context)
                   (c::compiler-error-context-source error-context)))
-    (format nil "~@[--> ~{~<~%--> ~1:;~A~> ~}~%~]~@[~{==>~%~A~^~%~}~]~A"
-            enclosing source condition)))
+    (if (or enclosing source)
+        (format nil "~@[--> ~{~<~%--> ~1:;~A ~>~}~%~]~
+                     ~@[==>~{~&~A~}~]"
+                enclosing source))))
 
 (defun read-error-location (condition)
   (let* ((finfo (car (c::source-info-current-file c::*source-info*)))

@@ -16,7 +16,7 @@
            #:compiler-condition
            #:original-condition
            #:message
-           #:short-message
+           #:source-context
            #:condition
            #:severity
            #:with-compilation-hooks
@@ -428,9 +428,12 @@ like `compile-file'")
    (message :initarg :message
             :accessor message)
 
-   (short-message :initarg :short-message
-                  :initform nil
-                  :accessor short-message)
+   ;; Macro expansion history etc. which may be helpful in some cases
+   ;; but is often very verbose.
+   (source-context :initarg :source-context
+                   :type (or null string)
+                   :initform nil
+                   :accessor source-context)
 
    (references :initarg :references
                :initform nil

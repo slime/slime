@@ -233,8 +233,8 @@
   (signal (make-condition
            'compiler-condition
            :original-condition condition
-           :message (format nil "~A" condition)
-           :short-message (compiler-warning-short-message condition)
+           :message (compiler-warning-short-message condition)
+           :source-context nil
            :severity (compiler-warning-severity condition)
            :location (source-note-to-source-location 
                       (ccl::compiler-warning-source-note condition)

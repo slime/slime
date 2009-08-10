@@ -1,5 +1,18 @@
 2009-08-10  Helmut Eller  <heller@common-lisp.net>
 
+	Separate context info from compiler message text.
+
+	* swank-backend.lisp (compiler-condition): Add a new slot
+	:source-context.  Remove :short-message.
+	* swank-cmucl.lisp, swank-sbcl.lisp, swank-scl.lisp,
+	swank-openmcl.lisp, swank-ccl.lisp: Update callers.
+	* swank.lisp (make-compiler-note): Use source-context slot.
+	* slime.el (slime-note.source-context): New.
+	(slime-insert-compilation-log): Use it.
+	(slime-note.short-message): Deleted.
+
+2009-08-10  Helmut Eller  <heller@common-lisp.net>
+
 	Don't add linebreaks for one-line messages.
 
 	(slime-insert-block): New function.

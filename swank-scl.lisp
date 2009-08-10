@@ -488,8 +488,8 @@
            'compiler-condition
            :original-condition condition
            :severity (severity-for-emacs condition)
-           :short-message (brief-compiler-message-for-emacs condition)
-           :message (long-compiler-message-for-emacs condition context)
+           :message (brief-compiler-message-for-emacs condition)
+           :source-context (compiler-error-context context)
            :location (if (read-error-p condition)
                          (read-error-location condition)
                          (compiler-note-location context)))))
@@ -512,15 +512,16 @@
   the error-context redundant."
   (princ-to-string condition))
 
-(defun long-compiler-message-for-emacs (condition error-context)
+(defun compiler-error-context (error-context)
   "Describe a compiler error for Emacs including context information."
   (declare (type (or c::compiler-error-context null) error-context))
   (multiple-value-bind (enclosing source)
       (if error-context
           (values (c::compiler-error-context-enclosing-source error-context)
                   (c::compiler-error-context-source error-context)))
-    (format nil "~@[--> ~{~<~%--> ~1:;~A~> ~}~%~]~@[~{==>~%~A~^~%~}~]~A"
-            enclosing source condition)))
+    (if (and enclosing source)
+        (format nil "~@[--> ~{~<~%--> ~1:;~A~> ~}~%~]~@[~{==>~%~A~^~%~}~]"
+                enclosing source))))
 
 (defun read-error-location (condition)
   (let* ((finfo (car (c::source-info-current-file c::*source-info*)))

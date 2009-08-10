@@ -2856,7 +2856,7 @@ This operation is \"lossy\" in the broad sense but not for display purposes."
   "Merge NOTES together. Keep the highest severity, concatenate the messages."
   (let* ((new-severity (reduce #'slime-most-severe notes
                                :key #'slime-note.severity))
-         (new-message (mapconcat #'slime-note.short-message notes "\n")))
+         (new-message (mapconcat #'slime-note.message notes "\n")))
     (let ((new-note (copy-list (car notes))))
       (setf (getf new-note :message) new-message)
       (setf (getf new-note :severity) new-severity)
@@ -2970,7 +2970,11 @@ Each newlines and following indentation is replaced by a single space."
             (dolist (note notes)
               (insert "  ")
               (insert (slime-severity-label (slime-note.severity note)) ": ")
-              (slime-insert-block (slime-note.message note) 4)
+              (slime-insert-block
+               (concat (slime-note.message note)
+                       (let ((ctx (slime-note.source-context note)))
+                         (if ctx (format "\n%s" ctx))))
+               4)
               (insert "\n"))
             (insert "\n")
             (slime-make-note-overlay (first notes) start (1- (point))))))
@@ -3073,9 +3077,8 @@ keys."
 (defun slime-note.message (note)
   (plist-get note :message))
 
-(defun slime-note.short-message (note)
-  (or (plist-get note :short-message)
-      (plist-get note :message)))
+(defun slime-note.source-context (note)
+  (plist-get note :source-context))
 
 (defun slime-note.location (note)
   (plist-get note :location))

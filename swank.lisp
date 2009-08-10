@@ -2765,8 +2765,8 @@ The time is measured in seconds."
          :severity (severity condition)
          :location (location condition)
          :references (references condition)
-         (let ((s (short-message condition)))
-           (if s (list :short-message s)))))
+         (let ((s (source-context condition)))
+           (if s (list :source-context s)))))
 
 (defun collect-notes (function)
   (let ((notes '()))

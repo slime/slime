@@ -443,9 +443,9 @@ information."
                        (warning              :warning)
                        (reader-error         :read-error)
                        (error                :error))
-           :short-message (brief-compiler-message-for-emacs condition)
            :references (condition-references (real-condition condition))
-           :message (long-compiler-message-for-emacs condition context)
+           :message (brief-compiler-message-for-emacs condition)
+           :source-context (compiler-error-context context)
            :location (compiler-note-location condition context))))
 
 (defun real-condition (condition)
@@ -519,16 +519,16 @@ the error-context redundant."
   (let ((sb-int:*print-condition-references* nil))
     (princ-to-string condition)))
 
-(defun long-compiler-message-for-emacs (condition error-context)
+(defun compiler-error-context (error-context)
   "Describe a compiler error for Emacs including context information."
   (declare (type (or sb-c::compiler-error-context null) error-context))
   (multiple-value-bind (enclosing source)
       (if error-context
           (values (sb-c::compiler-error-context-enclosing-source error-context)
                   (sb-c::compiler-error-context-source error-context)))
-    (let ((sb-int:*print-condition-references* nil))
-      (format nil "~@[--> ~{~<~%--> ~1:;~A~> ~}~%~]~@[~{==>~%~A~%~}~]~A"
-              enclosing source condition))))
+    (and (or enclosing source)
+         (format nil "~@[--> ~{~<~%--> ~1:;~A~> ~}~%~]~@[~{==>~%~A~%~}~]"
+                 enclosing source))))
 
 (defun compiler-source-path (context)
   "Return the source-path for the current compiler error.
