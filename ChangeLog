@@ -1,3 +1,8 @@
+2009-08-11  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-sbcl.lisp (swank-compile-string): Make sure that it
+	returns NIL on compilation failure.
+
 2009-08-10  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-insert-note-group): Factored out from

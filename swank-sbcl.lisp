@@ -629,7 +629,10 @@ compiler state."
                                         :emacs-filename filename
                                         :emacs-string string
                                         :emacs-position position))
-                 (funcall cont (compile-file temp-file-name))))))
+                 (multiple-value-bind (output-file warningsp failurep)
+                     (compile-file temp-file-name)
+                   (unless failurep
+                     (funcall cont output-file)))))))
       (with-open-file (s temp-file-name :direction :output :if-exists :error)
         (write-string string s))
       (unwind-protect
