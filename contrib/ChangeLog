@@ -1,3 +1,8 @@
+2009-08-11  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-autodoc.el (slime-arglist): Pass properly formed argument
+	in the rpc call.
+
 2009-08-09  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-fuzzy.el (slime-fuzzy-complete-symbol): change

@@ -37,12 +37,10 @@
 (defun slime-arglist (name)
   "Show the argument list for NAME."
   (interactive (list (slime-read-symbol-name "Arglist of: ")))
-  (slime-eval-async 
-   `(swank:arglist-for-echo-area (quote (,name)))
-   (lambda (arglist)
-     (if arglist
-         (message "%s" (slime-fontify-string arglist))
-       (error "Arglist not available")))))
+  (let ((arglist (slime-eval `(swank:arglist-for-echo-area '((,name))))))
+    (if arglist
+        (message "%s" (slime-fontify-string arglist))
+        (error "Arglist not available"))))
 
 
 ;;;; Autodocs (automatic context-sensitive help)
