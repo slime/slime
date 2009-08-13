@@ -1,3 +1,8 @@
+2009-08-13  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-auto-select-connection, slime-auto-connect):
+	Turn them into customizable variables.
+
 2009-08-11  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-sbcl.lisp (swank-compile-string): Make sure that it

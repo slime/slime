@@ -1867,7 +1867,13 @@ Signal an error if there's no connection."
            (error "Connection closed."))
           (t conn))))
 
-(defvar slime-auto-connect 'never)
+(defcustom slime-auto-connect 'never
+  "Controls auto connection when information from lisp process is needed.
+This doesn't mean it will connect right after Slime is loaded."
+  :group 'slime-mode
+  :type '(choice (const never)
+                 (const always)
+                 (const ask)))
 
 (defun slime-auto-connect ()
   (cond ((or (eq slime-auto-connect 'always)
@@ -1880,7 +1886,12 @@ Signal an error if there's no connection."
            (slime-connection)))
         (t nil)))
 
-(defvar slime-auto-select-connection 'ask)
+(defcustom slime-auto-select-connection 'ask
+  "Controls auto selection after the default connection was quited."
+  :group 'slime-mode
+  :type '(choice (const never)
+                 (const always)
+                 (const ask)))
 
 (defun slime-auto-select-connection ()
   (let* ((c0 (car slime-net-processes))
