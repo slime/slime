@@ -8,6 +8,17 @@
 	* swank-sbcl.lisp (swank-compile-string): Make sure that it
 	returns NIL on compilation failure.
 
+2009-08-15  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-choose-overlay-region): Don't return zero length
+	regions for :eof.
+	(slime-show-buffer-position): The second argument to
+	display-buffer means something completely different in
+	XEmacs. Don't use it.
+	(slime-severity-face): Handle :redefinition.
+	(slime-temporarily-highlight-note): Use a timer instead of the
+	post-command-hook.
+
 2009-08-10  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-insert-note-group): Factored out from

@@ -3028,35 +3028,8 @@ file/buffer name, line, and column number."
                 line col))
       (format "Unknown location")))
 
-(defun slime-group-and-sort-notes (notes)
-  "First sort, then group NOTES according to their canonicalized locs."
-  (let ((locs (make-hash-table :test #'eq)))
-    (mapc #'(lambda (note)
-              (let ((loc (slime-note.location note)))
-                (when (slime-location-p loc)
-                  (puthash note (slime-canonicalized-location loc) locs))))
-          notes)
-    (values (slime-group-similar 
-             #'(lambda (n1 n2)
-                 (equal (gethash n1 locs nil) (gethash n2 locs t)))
-             (let* ((bottom most-negative-fixnum) 
-                    (+default+ (list "" bottom bottom)))
-               (sort notes
-                     #'(lambda (n1 n2)
-                         (destructuring-bind (filename1 line1 col1) 
-                             (gethash n1 locs +default+)
-                           (destructuring-bind (filename2 line2 col2) 
-                               (gethash n2 locs +default+)
-                             (cond ((string-lessp filename1 filename2) t)
-                                   ((string-lessp filename2 filename1) nil)
-                                   ((< line1 line2) t)
-                                   ((> line1 line2) nil)
-                                   (t (< col1 col2)))))))))
-            locs)))
-
 (defun slime-goto-note-in-compilation-log (note)
-  "Try to find `note' in the compilation log, and display it to
-the user if it's there."
+  "Find `note' in the compilation log and display it."
   (with-current-buffer (get-buffer "*SLIME Compilation*")
     (let ((origin (point))
           (foundp nil))
@@ -3070,6 +3043,32 @@ the user if it's there."
               (setq foundp t)))))
       (unless foundp
         (goto-char origin)))))
+
+(defun slime-group-and-sort-notes (notes)
+  "First sort, then group NOTES according to their canonicalized locs."
+  (let ((locs (make-hash-table :test #'eq)))
+    (mapc (lambda (note)
+            (let ((loc (slime-note.location note)))
+              (when (slime-location-p loc)
+                (puthash note (slime-canonicalized-location loc) locs))))
+          notes)
+    (values (slime-group-similar 
+             (lambda (n1 n2)
+               (equal (gethash n1 locs nil) (gethash n2 locs t)))
+             (let* ((bottom most-negative-fixnum) 
+                    (+default+ (list "" bottom bottom)))
+               (sort notes
+                     (lambda (n1 n2)
+                       (destructuring-bind (filename1 line1 col1) 
+                           (gethash n1 locs +default+)
+                         (destructuring-bind (filename2 line2 col2) 
+                             (gethash n2 locs +default+)
+                           (cond ((string-lessp filename1 filename2) t)
+                                 ((string-lessp filename2 filename1) nil)
+                                 ((< line1 line2) t)
+                                 ((> line1 line2) nil)
+                                 (t (< col1 col2)))))))))
+            locs)))
 
 (defun slime-alistify (list key test)
   "Partition the elements of LIST into an alist.
@@ -3168,19 +3167,20 @@ Return nil if there's no useful source location."
          (cond ((eq (car file) ':source-form) nil)
                ((eq (slime-note.severity note) :read-error)
                 (slime-choose-overlay-for-read-error location))
-               (t 
+               ((equal pos '(:eof))
+                (list (1- (point-max)) (point-max)))
+               (t
                 (slime-choose-overlay-for-sexp location))))))))
 
 (defun slime-choose-overlay-for-read-error (location)
   (let ((pos (slime-location-offset location)))
     (save-excursion
       (goto-char pos)
-      (let ((symbol (slime-symbol-at-point)))
-        (if symbol
-            ;; package not found, &c.
-            (values (slime-symbol-start-pos) (slime-symbol-end-pos))
-            ;; comma not inside backquote, unmatched right parenthesis, &c.
-            (values pos (1+ pos)))))))
+      (cond ((slime-symbol-at-point)
+             ;; package not found, &c.
+             (values (slime-symbol-start-pos) (slime-symbol-end-pos)))
+            (t
+             (values pos (1+ pos)))))))
           
 (defun slime-choose-overlay-for-sexp (location)
   (slime-goto-source-location location)
@@ -3199,14 +3199,18 @@ Return nil if there's no useful source location."
   (save-excursion (goto-char (min pos1 pos2))
                   (<= (max pos1 pos2) (line-end-position))))
 
+(defvar slime-severity-face-plist 
+  '(:error         slime-error-face
+    :read-error    slime-error-face
+    :warning       slime-warning-face
+    :redefinition  slime-style-warning-face
+    :style-warning slime-style-warning-face
+    :note          slime-note-face))
+
 (defun slime-severity-face (severity)
   "Return the name of the font-lock face representing SEVERITY."
-  (ecase severity
-    (:error         'slime-error-face)
-    (:read-error    'slime-error-face)
-    (:warning       'slime-warning-face)
-    (:style-warning 'slime-style-warning-face)
-    (:note          'slime-note-face)))
+  (or (plist-get slime-severity-face-plist severity)
+      (error "No face for: %S" severity)))
 
 (defvar slime-severity-order 
   '(:note :style-warning :redefinition :warning :error :read-error))
@@ -3665,12 +3669,10 @@ The highlighting is designed to both make the relevant source more
 visible, and to highlight any further notes that are nested inside the
 current one.
 
-The highlighting is automatically undone before the next Emacs command."
-  (lexical-let ((old-face (overlay-get overlay 'face))
-                (overlay overlay))
-    (push (lambda () (overlay-put overlay 'face old-face))
-	  slime-pre-command-actions)
-    (overlay-put overlay 'face 'slime-highlight-face)))
+The highlighting is automatically undone with a timer."
+  (run-with-timer 0.2 nil
+                  #'overlay-put overlay 'face (overlay-get overlay 'face))
+  (overlay-put overlay 'face 'slime-highlight-face))
 
 
 ;;;;; Overlay lookup operations
@@ -5773,14 +5775,16 @@ Called on the `point-entered' text-property hook."
 
 (defun slime-show-buffer-position (position &optional recenter)
   "Ensure sure that the POSITION in the current buffer is visible."
-  (let ((window (display-buffer (current-buffer) t t)))
+  (let ((window (display-buffer (current-buffer) t)))
     (save-selected-window
       (select-window window)
       (goto-char position)
-      (unless (pos-visible-in-window-p)
-        (reposition-window))
-      (cond ((eq recenter 'top)    (recenter 0))
-            ((eq recenter 'center) (recenter))))))
+      (ecase recenter
+        (top (recenter 0))
+        (center (recenter))
+        ((nil)
+         (unless (pos-visible-in-window-p)
+           (reposition-window)))))))
 
 (defun sldb-recenter-region (start end &optional center)
   "Make the region from START to END visible.
