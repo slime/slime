@@ -571,7 +571,7 @@ The string is periodically updated by an idle timer."))
 ;;; These keys are useful for buffers where the user can insert and
 ;;; edit s-exprs, e.g. for source buffers and the REPL.
 (defvar slime-editing-keys
-  '(;; Arglist display & completion
+  `(;; Arglist display & completion
     ("\M-\t"      slime-complete-symbol)
     (" "          slime-space)
     ;; Evaluating
@@ -582,7 +582,7 @@ The string is periodically updated by an idle timer."))
     ("\C-c\M-m"   slime-macroexpand-all)
     ;; Misc
     ("\C-c\C-u"   slime-undefine-function)
-    ([?\C-\M-.]   slime-next-location)
+    (,(kbd "C-M-.")   slime-next-location)
     ;; Obsolete, redundant bindings
     ("\C-c\C-i" slime-complete-symbol)
     ;;("\M-*" pop-tag-mark) ; almost to clever
@@ -8652,7 +8652,8 @@ for (somewhat) better multiframe support."
       (with-current-buffer (or object (current-buffer))
 	(let ((initial-value (get-char-property position prop object))
 	      (limit (or limit (point-max))))
-	  (loop for pos = position then (next-char-property-change pos limit)
+	  (loop for pos = position then 
+                (next-single-property-change pos prop object limit)
 		if (>= pos limit) return limit
 		if (not (eq initial-value 
 			    (get-char-property pos prop object))) 
@@ -8675,7 +8676,7 @@ for (somewhat) better multiframe support."
             (let ((initial-value (get-char-property (1- position)
                                                     prop object)))
               (loop for pos = position then 
-                    (previous-char-property-change pos limit)
+                    (previous-single-property-change pos prop object limit)
                     if (<= pos limit) return limit
                     if (not (eq initial-value 
                                 (get-char-property (1- pos) prop object))) 

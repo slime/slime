@@ -1,5 +1,17 @@
 2009-08-15  Helmut Eller  <heller@common-lisp.net>
 
+	XEmacs fixes.
+
+	* slime.el (slime-editing-keys): Use (kbd "C-M-.") because XEmacs
+	translates [?\C-\M-.] to C-M-n.
+	(next-single-char-property-change)
+	(previous-single-char-property-change): Use
+	next-single-property-change because next-char-property-change gets
+	embarrisingly slow in XEmacs in font-locked buffers.
+	It never felt that slow in Emacs 20 though.
+
+2009-08-15  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-ccl.lisp (definition-name): Special case methods.
 
 	* slime.el (slime-choose-overlay-region): Don't return zero length
