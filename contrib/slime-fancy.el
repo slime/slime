@@ -21,8 +21,9 @@
 (slime-repl-init)
 
 ;; Better arglist display, can be turned off by customization.
-(require 'slime-autodoc)
-(slime-autodoc-init)
+(unless (featurep 'xemacs)
+  (require 'slime-autodoc)
+  (slime-autodoc-init))
 
 ;; Adds new commands and installs compound-prefix-completion as
 ;; default completion command.  Behaves similar to standard Emacs

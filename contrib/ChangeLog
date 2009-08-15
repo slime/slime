@@ -3,11 +3,18 @@
 	* slime-autodoc.el (slime-arglist): Pass properly formed argument
 	in the rpc call.
 
+2009-08-15  Helmut Eller  <heller@common-lisp.net>
+
+	Disable slime-autodoc for XEmacs.
+
+	* slime-autodoc.el, slime-fancy.el: XEmacs's version of eldoc
+	doesn't have the neccessary hooks.
+
 2009-08-09  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-fuzzy.el (slime-fuzzy-complete-symbol): change
-	`comint-completion-addsuffix' to not add space after completing
-	a filename.
+	`comint-completion-addsuffix' to not add space after completing a
+	filename.
 
 2009-08-05  Stas Boukarev  <stassats@gmail.com>
 

@@ -16,6 +16,10 @@
 ;;   (add-hook 'slime-load-hook (lambda () (require 'slime-autodoc)))
 ;;
 
+(eval-and-compile
+  (assert (not (featurep 'xemacs)) ()
+	  "slime-autodoc doesn't work with XEmacs"))
+
 (require 'slime-parse)
 (require 'slime-enclosing-context)
 
@@ -229,7 +233,6 @@ If it's not in the cache, the cache will be updated asynchronously."
     (save-match-data
       (slime-compute-autodoc-internal))))
 
-
 (make-variable-buffer-local (defvar slime-autodoc-mode nil))
 
 (defun slime-autodoc-mode (&optional arg)
@@ -238,14 +241,14 @@ If it's not in the cache, the cache will be updated asynchronously."
   (make-local-variable 'eldoc-idle-delay)
   (setq eldoc-documentation-function 'slime-compute-autodoc)
   (setq eldoc-idle-delay slime-autodoc-delay)
-  (if (eldoc-mode arg)
-      (progn 
-        (setq slime-echo-arglist-function 
-              #'(lambda () (eldoc-message (slime-compute-autodoc))))
-        (setq slime-autodoc-mode t))
-      (progn 
-        (setq slime-echo-arglist-function 'slime-show-arglist)
-        (setq slime-autodoc-mode nil))))
+  (eldoc-mode arg)
+  (cond (eldoc-mode
+	 (setq slime-echo-arglist-function 
+	       (lambda () (eldoc-message (slime-compute-autodoc))))
+	 (setq slime-autodoc-mode t))
+	(t
+	 (setq slime-echo-arglist-function 'slime-show-arglist)
+	 (setq slime-autodoc-mode nil))))
 
 (defadvice eldoc-display-message-no-interference-p 
     (after slime-autodoc-message-ok-p)
