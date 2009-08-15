@@ -1,13 +1,3 @@
-2009-08-13  Stas Boukarev  <stassats@gmail.com>
-
-	* slime.el (slime-auto-select-connection, slime-auto-connect):
-	Turn them into customizable variables.
-
-2009-08-11  Tobias C. Rittweiler  <tcr@freebits.de>
-
-	* swank-sbcl.lisp (swank-compile-string): Make sure that it
-	returns NIL on compilation failure.
-
 2009-08-15  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-ccl.lisp (definition-name): Special case methods.
@@ -20,6 +10,16 @@
 	(slime-severity-face): Handle :redefinition.
 	(slime-temporarily-highlight-note): Use a timer instead of the
 	post-command-hook.
+
+2009-08-13  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-auto-select-connection, slime-auto-connect):
+	Turn them into customizable variables.
+
+2009-08-11  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-sbcl.lisp (swank-compile-string): Make sure that it
+	returns NIL on compilation failure.
 
 2009-08-10  Helmut Eller  <heller@common-lisp.net>
 
