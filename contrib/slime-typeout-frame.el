@@ -42,12 +42,7 @@
 	(insert msg)))))
 
 (defun slime-typeout-message (format-string &rest format-args)
-  (apply #'slime-typeout-message-aux format-string format-args)
-  ;; Disable the timer for autodoc temporarily, as it would overwrite
-  ;; the current typeout message otherwise.
-  (when (and (featurep 'slime-autodoc) slime-autodoc-mode)
-    (slime-autodoc-stop-timer)
-    (add-hook 'pre-command-hook #'slime-autodoc-start-timer)))
+  (apply #'slime-typeout-message-aux format-string format-args))
 
 (defun slime-make-typeout-frame ()
   "Create a frame for displaying messages (e.g. arglists)."
@@ -69,6 +64,7 @@
 
 (defun slime-typeout-autodoc-message (doc)
   ;; No need for refreshing per `slime-autodoc-pre-command-refresh-echo-area'.
+  ;; FIXME: eldoc doesn't know anything about this
   (setq slime-autodoc-last-message "")
   (slime-typeout-message-aux "%s" doc))
 
@@ -84,18 +80,25 @@
 (defvar slime-typeout-frame-unbind-stack ())
 
 (defun slime-typeout-frame-init ()
-  (add-hook 'slime-connected-hook 'slime-ensure-typeout-frame)
-  (loop for (var value) in 
-	'((slime-message-function slime-typeout-message)
-	  (slime-background-message-function slime-typeout-message)
-	  (slime-autodoc-message-function slime-typeout-autodoc-message)
-	  (slime-autodoc-dimensions-function slime-typeout-autodoc-dimensions))
-	do (slime-typeout-frame-init-var var value)))
+  (unless (slime-typeout-tty-only-p)
+    (add-hook 'slime-connected-hook 'slime-ensure-typeout-frame)
+    (loop for (var value) in 
+	  '((slime-message-function slime-typeout-message)
+	    (slime-background-message-function slime-typeout-message)
+	    (slime-autodoc-message-function slime-typeout-autodoc-message)
+	    (slime-autodoc-dimensions-function
+	     slime-typeout-autodoc-dimensions))
+	  do (slime-typeout-frame-init-var var value))))
 
 (defun slime-typeout-frame-init-var (var value)
   (push (list var (if (boundp var) (symbol-value var) 'slime-unbound))
 	slime-typeout-frame-unbind-stack)
   (set var value))
+
+(defun slime-typeout-tty-only-p ()
+  (cond ((featurep 'xemacs)
+	 (null (remove 'tty (mapcar #'device-type (console-device-list)))))
+	(t (not (window-system)))))
 
 (defun slime-typeout-frame-unload ()
   (remove-hook 'slime-connected-hook 'slime-ensure-typeout-frame)

@@ -5,6 +5,14 @@
 
 2009-08-15  Helmut Eller  <heller@common-lisp.net>
 
+	* slime-typeout-frame.el (slime-typeout-message): Don't call
+	slime-autodoc-stop-timer which no longer exists since 2009-01-01.
+	(slime-typeout-frame-init): Don't create a frame in a tty-only
+	session.
+	(slime-typeout-tty-only-p): New predicate.
+
+2009-08-15  Helmut Eller  <heller@common-lisp.net>
+
 	Disable slime-autodoc for XEmacs.
 
 	* slime-autodoc.el, slime-fancy.el: XEmacs's version of eldoc
