@@ -572,7 +572,7 @@
   (log "listener: ~s ~s ~s ~s\n" 
        (current-thread) ((current-thread):hashCode) c env)
   (let ((out (make-swank-outport (rpc c `(get-channel)))))
-    (set (current-output-port) out)
+    ;;(set (current-output-port) out)
     (let ((vm (as <vm> (rpc c `(get-vm)))))
       (send c `(set-listener ,(vm-mirror vm (current-thread))))
       (enable-uncaught-exception-events vm))
@@ -644,18 +644,18 @@
 
 (defslimefun compile-file-for-emacs (env (filename <str>) load? 
                                          #!optional options)
-  (let ((zip (cat (path-sans-extension (filepath filename)) ".zip")))
+  (let ((jar (cat (path-sans-extension (filepath filename)) ".jar")))
     (wrap-compilation 
      (fun ((m <gnu.text.SourceMessages>))
        (kawa.lang.CompileFile:read filename m))
-     zip (if (lisp-bool load?) env #f) #f)))
+     jar (if (lisp-bool load?) env #f) #f)))
 
-(df wrap-compilation (f zip env delete?)
+(df wrap-compilation (f jar env delete?)
   (let ((start-time (current-time))
         (messages (<gnu.text.SourceMessages>)))
     (try-catch
      (let ((c (as <gnu.expr.Compilation> (f messages))))
-       (! compile-to-archive c (! get-module c) zip))
+       (! compile-to-archive c (! get-module c) jar))
      (ex <throwable>
          (log "error during compilation: ~a\n" ex)
          (! error messages (as <char> #\f)
@@ -664,10 +664,10 @@
     (let ((success? (zero? (! get-error-count messages))))
       (when (and env success?)
         (log "loading ...\n")
-        (eval `(load ,zip) env)
+        (eval `(load ,jar) env)
         (log "loading ... done.\n"))
       (when delete?
-        (ignore-errors (delete-file zip)))
+        (ignore-errors (delete-file jar)))
       (let ((end-time (current-time)))
         (list ':compilation-result 
               (compiler-notes-for-emacs messages)
@@ -767,6 +767,9 @@
 
 (defslimefun quit-lisp (env)
   (exit))
+
+;;(defslimefun set-default-directory (env newdir))
+
 
 ;;;; Dummy defs
 
@@ -2036,31 +2039,31 @@
     (format #t "; Heap~1,16t: ~10:d\n" heap)
     (format #t "; Non-Heap~1,16t: ~10:d\n" nheap)))
 
-(df javap (class #!key method signature)
-  (let* ((<is> <java.io.ByteArrayInputStream>)
-         (bytes
-          (typecase class
-            (<string> (read-bytes (<java.io.FileInputStream> (to-str class))))
-            (<byte[]> class)
-            (<symbol> (read-class-file class))))
-         (cdata (<sun.tools.javap.ClassData> (<is> bytes)))
-         (p (<sun.tools.javap.JavapPrinter> 
-	     (<is> bytes)
-             (current-output-port)
-             (<sun.tools.javap.JavapEnvironment>))))
-    (cond (method
-           (dolist ((m <sun.tools.javap.MethodData>)
-                    (array-to-list (! getMethods cdata)))
-             (when (and (equal (to-str method) (! getName m))
-                        (or (not signature) 
-                            (equal signature (! getInternalSig m))))
-               (! printMethodSignature p m (! getAccess m))
-               (! printExceptions p m)
-               (newline)
-               (! printVerboseHeader p m)
-               (! printcodeSequence p m))))
-          (#t (p:print)))
-    (values)))
+;; (df javap (class #!key method signature)
+;;   (let* ((<is> <java.io.ByteArrayInputStream>)
+;;          (bytes
+;;           (typecase class
+;;             (<string> (read-bytes (<java.io.FileInputStream> (to-str class))))
+;;             (<byte[]> class)
+;;             (<symbol> (read-class-file class))))
+;;          (cdata (<sun.tools.javap.ClassData> (<is> bytes)))
+;;          (p (<sun.tools.javap.JavapPrinter> 
+;; 	     (<is> bytes)
+;;              (current-output-port)
+;;              (<sun.tools.javap.JavapEnvironment>))))
+;;     (cond (method
+;;            (dolist ((m <sun.tools.javap.MethodData>)
+;;                     (array-to-list (! getMethods cdata)))
+;;              (when (and (equal (to-str method) (! getName m))
+;;                         (or (not signature) 
+;;                             (equal signature (! getInternalSig m))))
+;;                (! printMethodSignature p m (! getAccess m))
+;;                (! printExceptions p m)
+;;                (newline)
+;;                (! printVerboseHeader p m)
+;;                (! printcodeSequence p m))))
+;;           (#t (p:print)))
+;;     (values)))
 
 (df read-bytes ((is <java.io.InputStream>) => <byte[]>)
   (let ((os (<java.io.ByteArrayOutputStream>)))
