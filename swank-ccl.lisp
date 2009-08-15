@@ -617,7 +617,9 @@
        (lambda () "No source note available")))))
 
 (defun definition-name (type object)
-  (list (ccl:definition-type-name type) (ccl:name-of object)))
+  (case (ccl:definition-type-name type)
+    (method (ccl:name-of object))
+    (t (list (ccl:definition-type-name type) (ccl:name-of object)))))
 
 ;;; Utilities
 

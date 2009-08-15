@@ -10,6 +10,8 @@
 
 2009-08-15  Helmut Eller  <heller@common-lisp.net>
 
+	* swank-ccl.lisp (definition-name): Special case methods.
+
 	* slime.el (slime-choose-overlay-region): Don't return zero length
 	regions for :eof.
 	(slime-show-buffer-position): The second argument to
