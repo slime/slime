@@ -1,3 +1,10 @@
+2009-08-16  StanisBaw Halik <sthalik@test123.ltd.pl>
+
+	* swank.lisp (init-global-stream-redirection): Continue even if
+	streams are already redirected.  Useful for restarting Swank with
+	M-x slime when a REPL is already present.  Will most likeley
+	mess up the input stream in multi threaded setups, tho.
+
 2009-08-15  Helmut Eller  <heller@common-lisp.net>
 
 	XEmacs fixes.
