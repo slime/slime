@@ -1,3 +1,11 @@
+2009-08-18  Mark Evenson  <evenson@panix.com>
+
+	Restore working with abcl-0.15.
+
+	* swank-abcl.lisp: Remove the warm initialization code for
+	SWANK:COMPILER-CONDITION, as it is no longer needed for the
+	current release of ABCL. 
+
 2009-08-16  StanisBaw Halik <sthalik@test123.ltd.pl>
 
 	* swank.lisp (init-global-stream-redirection): Continue even if

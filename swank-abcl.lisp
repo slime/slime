@@ -567,11 +567,3 @@ part of *sysdep-pathnames* in swank.loader.lisp.
 
 (defimplementation quit-lisp ()
   (ext:exit))
-
-;; WORKAROUND: call/initialize accessors at load time
-(let ((c (make-condition 'compiler-condition 
-                          :original-condition nil
-                          :severity ':note :message "" :location nil))
-       (slots `(severity message short-message references location)))
-   (dolist (slot slots)
-     (funcall slot c)))
