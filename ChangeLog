@@ -1,5 +1,10 @@
 2009-08-18  Mark Evenson  <evenson@panix.com>
 
+	Add multithreading code for abcl-0.16. (Tobias Rittweiler)
+
+	* swank-abcl.lisp: A multithread implementation taking advantage
+	of the new synchronization primitives in abcl-0.16.  
+
 	Restore working with abcl-0.15.
 
 	* swank-abcl.lisp: Remove the warm initialization code for
