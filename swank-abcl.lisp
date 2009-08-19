@@ -16,7 +16,12 @@
 
 (defun sys::break (&optional (format-control "BREAK called") 
                    &rest format-arguments)
-  (let ((*saved-backtrace* (backtrace-as-list-ignoring-swank-calls)))
+  (let ((*saved-backtrace* 
+         #+#.(swank-backend::with-symbol 'backtrace 'sys) 
+         (sys:backtrace)
+         #-#.(swank-backend::with-symbol 'backtrace 'sys)
+         (ext:backtrace-as-list)
+         ))
     (with-simple-restart (continue "Return from BREAK.")
       (invoke-debugger
        (sys::%make-condition 'simple-condition
@@ -260,26 +265,45 @@
 
 (defvar *sldb-topframe*)
 
-(defun backtrace-as-list-ignoring-swank-calls ()
-  (let ((list (ext:backtrace-as-list)))
-    (subseq list (1+ (or (position (intern "SWANK-DEBUGGER-HOOK" 'swank) list :key 'car) -1)))))
-
 (defimplementation call-with-debugging-environment (debugger-loop-fn)
-  (let ((*sldb-topframe* (car (backtrace-as-list-ignoring-swank-calls)) #+nil (excl::int-newest-frame)))
+  (let* ((magic-token (intern "SWANK-DEBUGGER-HOOK" 'swank))
+         (*sldb-topframe* 
+          #+#.(swank-backend::with-symbol 'backtrace 'sys)
+          (second (member magic-token (sys:backtrace)
+                          :key #'(lambda (frame) 
+                                   (first (sys:frame-to-list frame)))))
+          #-#.(swank-backend::with-symbol 'backtrace 'sys)
+          (second (member magic-token (ext:backtrace-as-list)
+                          :key #'(lambda (frame) 
+                                   (first frame))))
+          ))
     (funcall debugger-loop-fn)))
 
+(defun backtrace (start end)
+  "A backtrace without initial SWANK frames."
+  (let ((backtrace 
+         #+#.(swank-backend::with-symbol 'backtrace 'sys)
+         (sys:backtrace)
+         #-#.(swank-backend::with-symbol 'backtrace 'sys)
+         (ext:backtrace-as-list)
+         ))
+    (subseq (or (member *sldb-topframe* backtrace) backtrace)
+            start end)))
+
 (defun nth-frame (index)
-  (nth index (backtrace-as-list-ignoring-swank-calls)))
+  (nth index (backtrace 0 nil)))
 
 (defimplementation compute-backtrace (start end)
   (let ((end (or end most-positive-fixnum)))
-    (loop for f in (subseq (backtrace-as-list-ignoring-swank-calls) start end)
-          collect f)))
+    (backtrace start end)))
 
 (defimplementation print-frame (frame stream)
-  (write-string (string-trim '(#\space #\newline)
-                             (prin1-to-string frame))
-                stream))
+  (write-string 
+   #+#.(swank-backend::with-symbol 'backtrace 'sys)
+   (sys:frame-to-string frame)
+   #-#.(swank-backend::with-symbol 'backtrace 'sys)
+   (string-trim '(#\space #\newline) (prin1-to-string frame))
+   stream))
 
 (defimplementation frame-locals (index)
   `(,(list :name "??" :id 0 :value "??")))

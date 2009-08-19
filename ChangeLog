@@ -1,3 +1,9 @@
+2009-08-19  Mark Evenson  <evenson@panix.com>
+
+	* swank-abcl.lisp: Accommodate the new Java/Lisp stack frame
+	abstraction in the upcoming abcl-0.16. (based on code from Tobias
+	Rittweiler).
+	
 2009-08-18  Mark Evenson  <evenson@panix.com>
 
 	Add multithreading code for abcl-0.16. (Tobias Rittweiler)
