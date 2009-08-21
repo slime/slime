@@ -1,21 +1,28 @@
+2009-08-21  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-transcript-start-hook)
+	(slime-transcript-stop-hook): New hooks.
+	(slime-eval-with-transcript): Use them.
+	(slime-eval-with-transcript-cont): Deleted.
+
 2009-08-19  Mark Evenson  <evenson@panix.com>
 
 	* swank-abcl.lisp: Accommodate the new Java/Lisp stack frame
 	abstraction in the upcoming abcl-0.16. (based on code from Tobias
 	Rittweiler).
-	
+
 2009-08-18  Mark Evenson  <evenson@panix.com>
 
 	Add multithreading code for abcl-0.16. (Tobias Rittweiler)
 
 	* swank-abcl.lisp: A multithread implementation taking advantage
-	of the new synchronization primitives in abcl-0.16.  
+	of the new synchronization primitives in abcl-0.16.
 
 	Restore working with abcl-0.15.
 
 	* swank-abcl.lisp: Remove the warm initialization code for
 	SWANK:COMPILER-CONDITION, as it is no longer needed for the
-	current release of ABCL. 
+	current release of ABCL.
 
 2009-08-16  StanisBaw Halik <sthalik@test123.ltd.pl>
 
