@@ -1,3 +1,8 @@
+2009-08-27  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-remove-old-overlays): delete notes at the very beginning
+	of the buffer too. Thanks to Nick Levine.
+
 2009-08-21  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-transcript-start-hook)

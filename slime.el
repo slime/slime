@@ -2811,13 +2811,15 @@ compile with a debug setting of that number."
 
 (defun slime-remove-old-overlays ()
   "Delete the existing Slime overlays in the current buffer."
-  (dolist (buffer (slime-filter-buffers (lambda () slime-mode)))
+  (dolist (buffer (slime-filter-buffers 'slime-mode))
     (with-current-buffer buffer
       (save-excursion
         (save-restriction
           (widen)                ; remove overlays within the whole buffer.
           (goto-char (point-min))
-          (let ((o))
+          (let ((o (slime-note-at-point)))
+            (when o
+              (delete-overlay o))
             (while (setq o (slime-find-next-note))
               (delete-overlay o))))))))
 
