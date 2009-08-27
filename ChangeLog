@@ -3,6 +3,15 @@
 	* slime.el (slime-remove-old-overlays): delete notes at the very beginning
 	of the buffer too. Thanks to Nick Levine.
 
+2009-08-22  Helmut Eller  <heller@common-lisp.net>
+
+	Speed up symbol completion.
+
+	* swank.lisp (all-completions): Don't call unparse-symbol
+	while matching.  That gets very slow in CCL's CCL package.
+	Just use symbol-name and compare with char-equal.
+	(prefix-match-p): Use char-equal.
+
 2009-08-21  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-transcript-start-hook)

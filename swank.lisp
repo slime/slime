@@ -2947,19 +2947,19 @@ the filename of the module (or nil if the file doesn't exist).")
 
 ;;;; Simple completion
 
-(defslimefun simple-completions (string package)
-  "Return a list of completions for the string STRING."
-  (let ((strings (all-completions string package #'prefix-match-p)))
+(defslimefun simple-completions (prefix package)
+  "Return a list of completions for the string PREFIX."
+  (let ((strings (all-completions prefix package)))
     (list strings (longest-common-prefix strings))))
 
-(defun all-completions (string package test)
-  (multiple-value-bind (name pname intern) (tokenize-symbol string)
+(defun all-completions (prefix package)
+  (multiple-value-bind (name pname intern) (tokenize-symbol prefix)
     (let* ((extern (and pname (not intern)))
-	   (pack (cond ((equal pname "") keyword-package)
-		       ((not pname) (guess-buffer-package package))
-		       (t (guess-package pname))))
-	   (test (lambda (sym) (funcall test name (unparse-symbol sym))))
-	   (syms (and pack (matching-symbols pack extern test))))
+	   (pkg (cond ((equal pname "") keyword-package)
+                      ((not pname) (guess-buffer-package package))
+                      (t (guess-package pname))))
+	   (test (lambda (sym) (prefix-match-p name (symbol-name sym))))
+	   (syms (and pkg (matching-symbols pkg extern test))))
       (format-completion-set (mapcar #'unparse-symbol syms) intern pname))))
 
 (defun matching-symbols (package external test)
@@ -2982,7 +2982,8 @@ the filename of the module (or nil if the file doesn't exist).")
 
 (defun prefix-match-p (prefix string)
   "Return true if PREFIX is a prefix of STRING."
-  (not (mismatch prefix string :end2 (min (length string) (length prefix)))))
+  (not (mismatch prefix string :end2 (min (length string) (length prefix))
+                 :test #'char-equal)))
 
 (defun longest-common-prefix (strings)
   "Return the longest string that is a common prefix of STRINGS."
