@@ -1,3 +1,9 @@
+2009-08-27  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-c-p-c.el (slime-contextual-completions): Detect characters properly.
+	(slime-completions-for-character): Append #\ to the character names.
+	This fixes character completion, reported by Nick Levine.
+
 2009-08-21  Helmut Eller  <heller@common-lisp.net>
 
 	* inferior-slime.el (inferior-slime-show-transcript)

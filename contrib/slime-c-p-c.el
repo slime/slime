@@ -127,8 +127,8 @@ current buffer."
             ;; If no matching keyword was found, do regular symbol
             ;; completion.
             ))))
-     ((and (> beg 2)
-           (string= (buffer-substring-no-properties (- beg 2) beg) "#\\"))
+     ((and (>= (length token) 2)
+           (string= (dbgmsg (subseq token 0 2)) "#\\"))
       ;; Character name completion
       (return-from slime-contextual-completions
         (slime-completions-for-character token))))
@@ -145,7 +145,12 @@ current buffer."
 					      ',arg-indices)))
 
 (defun slime-completions-for-character (prefix)
-  (slime-eval `(swank:completions-for-character ,prefix)))
+  (flet ((append-char-syntax (string) (concat "#\\" string)))
+    (let ((result (slime-eval `(swank:completions-for-character
+                                ,(subseq prefix 2)))))
+      (when (car result)
+        (list (mapcar 'append-char-syntax (car result))
+              (append-char-syntax (cadr result)))))))
 
 
 ;;; Complete form
