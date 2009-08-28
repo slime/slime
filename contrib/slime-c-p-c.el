@@ -128,7 +128,7 @@ current buffer."
             ;; completion.
             ))))
      ((and (>= (length token) 2)
-           (string= (dbgmsg (subseq token 0 2)) "#\\"))
+           (string= (subseq token 0 2) "#\\"))
       ;; Character name completion
       (return-from slime-contextual-completions
         (slime-completions-for-character token))))

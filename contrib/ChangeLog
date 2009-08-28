@@ -1,3 +1,7 @@
+2009-08-28  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-c-p-c.el (slime-contextual-completions): Remove debugging code.
+
 2009-08-27  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-c-p-c.el (slime-contextual-completions): Detect characters properly.
