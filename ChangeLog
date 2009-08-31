@@ -1,3 +1,11 @@
+2009-08-31  Helmut Eller  <heller@common-lisp.net>
+
+	Keep note overlays in a global variable.
+	That's simpler and cheaper than scanning all buffers.
+
+	* slime.el (slime-note-overlays): New variable.
+	(slime-make-note-overlay, slime-remove-old-overlays): Use it.
+
 2009-08-27  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-remove-old-overlays): delete notes at the very beginning

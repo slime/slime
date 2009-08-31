@@ -2809,19 +2809,13 @@ compile with a debug setting of that number."
         (slime-remove-old-overlays)
         (mapc #'slime-overlay-note (slime-merge-notes-for-display notes))))))
 
+(defvar slime-note-overlays '()
+  "List of overlays created by `slime-make-note-overlay'")
+
 (defun slime-remove-old-overlays ()
-  "Delete the existing Slime overlays in the current buffer."
-  (dolist (buffer (slime-filter-buffers (lambda () slime-mode)))
-    (with-current-buffer buffer
-      (save-excursion
-        (save-restriction
-          (widen)                ; remove overlays within the whole buffer.
-          (goto-char (point-min))
-          (let ((o (slime-note-at-point)))
-            (when o
-              (delete-overlay o))
-            (while (setq o (slime-find-next-note))
-              (delete-overlay o))))))))
+  "Delete the existing note overlays."
+  (mapc #'delete-overlay slime-note-overlays)
+  (setq slime-note-overlays '()))
 
 (defun slime-filter-buffers (predicate)
   "Return a list of where PREDICATE returns true.
@@ -3124,6 +3118,7 @@ new overlay is created."
 (defun slime-make-note-overlay (note start end)
   (let ((overlay (make-overlay start end)))
     (overlay-put overlay 'slime-note note)
+    (push overlay slime-note-overlays)
     overlay))
 
 (defun slime-create-note-overlay (note start end severity message)
