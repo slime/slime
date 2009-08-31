@@ -384,23 +384,6 @@
   (setq ccl:*select-interactive-process-hook* 'find-repl-thread)
   )
 
-(let ((ccl::*warn-if-redefine-kernel* nil))
-  ;; Everybody (error, cerror, break, invoke-debugger, and async interrupts) ends up
-  ;; in CCL::BREAK-LOOP, which implements the default debugger. Regardless of how it
-  ;; was entered, make sure it runs with the swank connection state established so
-  ;; that i/o happens via emacs and there is no contention for the terminal (stdin).
-  (ccl:advise
-   ccl::break-loop
-   (if (symbol-value (swank-sym *emacs-connection*))
-     (:do-it)
-     (let ((conn (funcall (swank-sym default-connection))))
-       (if conn
-         (funcall (swank-sym call-with-connection) conn
-                  (lambda () (:do-it)))
-         (:do-it))))
-   :when :around
-   :name swank-default-debugger-context))
-
 (defun map-backtrace (function &optional
                                (start-frame-number 0)
                                (end-frame-number most-positive-fixnum))

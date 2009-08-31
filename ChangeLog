@@ -1,5 +1,12 @@
 2009-08-31  Helmut Eller  <heller@common-lisp.net>
 
+	Don't advice ccl::break-loop.
+	Should not be necessary as we can now use ccl:*break-hook*.
+
+	* swank-ccl.lisp ([advice] ccl::break-loop): Deleted.
+
+2009-08-31  Helmut Eller  <heller@common-lisp.net>
+
 	Keep note overlays in a global variable.
 	That's simpler and cheaper than scanning all buffers.
 
