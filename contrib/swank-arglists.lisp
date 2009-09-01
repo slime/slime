@@ -502,7 +502,10 @@ If OPERATOR is non-nil, put it in front of the arglist."
   "ARG can be a symbol or a destructuring pattern."
   (etypecase arg
     (symbol arg)
-    (list   (decode-arglist arg))))
+    (list   (decode-arglist arg))
+    ;; Arglists for some forms in LispWorks, e.g. flet, contain strings.
+    #+lispworks
+    (string arg)))
 
 (defun encode-required-arg (arg)
   (etypecase arg
