@@ -184,13 +184,26 @@
 
 ;;;; Documentation
 
+(defun replace-strings-with-symbols (tree)
+  (mapcar (lambda (x)
+            (typecase x
+              (list
+               (replace-strings-with-symbols x))
+              (symbol
+               x)
+              (string
+               (intern x))
+              (t
+               (intern (write-to-string x)))))
+          tree))
+               
 (defimplementation arglist (symbol-or-function)
   (let ((arglist (lw:function-lambda-list symbol-or-function)))
     (etypecase arglist
       ((member :dont-know) 
        :not-available)
       (list
-       arglist))))
+       (replace-strings-with-symbols arglist)))))
 
 (defimplementation function-name (function)
   (nth-value 2 (function-lambda-expression function)))
