@@ -1,3 +1,10 @@
+2009-09-02  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-net-close): Do not query for process killing
+	confirmation before killing a connection buffer.
+	(slime-buffer-processes): New function for listing processes
+	associated with a buffer.
+
 2009-08-31  Helmut Eller  <heller@common-lisp.net>
 
 	Don't advice ccl::break-loop.

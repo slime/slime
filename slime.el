@@ -1693,6 +1693,12 @@ EVAL'd by Lisp."
         (and (not (multibyte-string-p string))
              (not (slime-coding-system-mulibyte-p coding-system))))))
 
+(defun slime-buffer-processes (buffer)
+  "List all processes associated with BUFFER."
+  (remove* buffer (process-list)
+           :key 'process-buffer
+           :test-not 'eq))
+
 (defun slime-net-close (process &optional debug)
   (setq slime-net-processes (remove process slime-net-processes))
   (when (eq process slime-default-connection)
@@ -1703,6 +1709,9 @@ EVAL'd by Lisp."
          (delete-process process))
         (t
          (run-hook-with-args 'slime-net-process-close-hooks process)
+         ;; there might be more than one process
+         (dolist (process (slime-buffer-processes (process-buffer process)))
+           (set-process-query-on-exit-flag process nil))
          ;; killing the buffer also closes the socket
          (kill-buffer (process-buffer process)))))
 
