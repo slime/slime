@@ -1,3 +1,11 @@
+2009-09-03  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-net-close): set-process-query-on-exit-flag
+	doesn't exist in XEmacs.
+	(slime-make-net-buffer): For now, disable querying here.
+	Could also close the socket before killing the buffer.
+	(slime-buffer-processes): Deleted.
+
 2009-09-02  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-lispworks.lisp (replace-strings-with-symbols): New function for
