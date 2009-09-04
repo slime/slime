@@ -1448,23 +1448,21 @@ expansion will be added to the REPL's history.)"
 (defun slime-sync-package-and-default-directory ()
   "Set Lisp's package and directory to the values in current buffer."
   (interactive)
-  (let ((package (slime-repl-shortcut-eval `(swank:set-package 
-                                             ,(slime-find-buffer-package))))
-	(directory (slime-from-lisp-filename
-                    (slime-repl-shortcut-eval `(swank:set-default-directory 
-                                                ,(slime-to-lisp-filename
-                                                  default-directory))))))
-    (let ((dir default-directory))
-      ;; Sync REPL dir
-      (with-current-buffer (slime-output-buffer)
-        (setq default-directory dir))
-      ;; Sync *inferior-lisp* dir
-      (let* ((proc (slime-process))
-             (buffer (and proc (process-buffer proc))))
-        (when buffer 
-          (with-current-buffer buffer
-            (setq default-directory dir)))))
-    (message "package: %s  default-directory: %s" (car package) directory)))
+  (let ((package (slime-current-package))
+        (directory default-directory))
+    (when package
+      (slime-repl-set-package package))
+    (slime-set-default-directory directory)
+    ;; Sync *inferior-lisp* dir
+    (let* ((proc (slime-process))
+           (buffer (and proc (process-buffer proc))))
+      (when buffer
+        (with-current-buffer buffer
+          (setq default-directory directory))))
+    (message "package: %s  default-directory: %s"
+             (with-current-buffer (slime-output-buffer)
+               (slime-lisp-package))
+             directory)))
 
 (defun slime-goto-connection ()
   "Switch to the REPL buffer for the connection at point."

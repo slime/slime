@@ -1,3 +1,9 @@
+2009-09-04  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-sync-package-and-default-directory):
+	Don't change package if it's unknown. Use existing functions for
+	changing package and directory.
+
 2009-09-02  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-arglists.lisp (decode-required-arg): Move LispWorks specific
