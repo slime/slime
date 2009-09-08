@@ -1,3 +1,8 @@
+2009-09-08  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-loader.lisp (lisp-version-string): Include "-ics" for
+	version with extended charsets.  Suggested by Scott L. Burson.
+
 2009-09-03  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-net-close): set-process-query-on-exit-flag
