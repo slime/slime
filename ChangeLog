@@ -1,3 +1,12 @@
+2009-09-12  Mark Evenson  <evenson@panix.com>
+
+	Provided by Alan Ruttenberg.
+
+	* swank-abcl.lisp (source-location): Make edit definition work.
+
+	* swank-abcl.lisp (arglist): Now works with generic functions.
+
+
 2009-09-08  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-loader.lisp (lisp-version-string): Include "-ics" for

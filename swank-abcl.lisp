@@ -213,7 +213,12 @@
 
 (defimplementation arglist (fun)
   (cond ((symbolp fun)
-         (multiple-value-bind (arglist present) (sys::arglist fun)
+         (multiple-value-bind (arglist present) 
+             (or (sys::arglist fun)
+                 (and (fboundp fun)
+                      (typep (symbol-function fun) 'standard-generic-function)
+                      (let ((it (mop::generic-function-lambda-list (symbol-function fun))))
+                        (values it it))))
            (if present arglist :not-available)))
         (t :not-available)))
 
@@ -430,12 +435,14 @@
 
 (defun source-location (symbol)
   (when (pathnamep (ext:source-pathname symbol))
-    `(((,symbol)
-       (:location 
-        (:file ,(namestring (ext:source-pathname symbol)))
-        (:position ,(or (ext:source-file-position symbol) 1))
-        (:align t))))))
-
+    (let ((pos (ext:source-file-position symbol)))
+      `(((,symbol)
+         (:location
+           (:file ,(namestring (ext:source-pathname symbol)))
+           ,(if (and pos (plusp pos))
+                (list :position pos t)
+                (list :function-name (string symbol)))
+           (:align t)))))))
 
 (defimplementation find-definitions (symbol)
   (source-location symbol))
