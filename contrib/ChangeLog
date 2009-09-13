@@ -1,3 +1,10 @@
+2009-09-13  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-autodoc.el (slime-fontify-string): do not call
+	(slime-autodoc-mode -1), there is no reason to do so.
+	And it won't mess slime-echo-arglist-function, which fixes
+	bug reported by Stanislaw Halik.
+
 2009-09-04  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-sync-package-and-default-directory):

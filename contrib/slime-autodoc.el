@@ -184,7 +184,6 @@ Return DOCUMENTATION."
     (erase-buffer)
     (unless (eq major-mode 'lisp-mode)
       (lisp-mode)
-      (slime-autodoc-mode -1)
       (set (make-local-variable 'slime-highlight-suppressed-forms) nil))
     (insert string)
     (let ((font-lock-verbose nil))
