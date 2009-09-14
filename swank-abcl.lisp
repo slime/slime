@@ -440,7 +440,7 @@
          (:location
            (:file ,(namestring (ext:source-pathname symbol)))
            ,(if (and pos (plusp pos))
-                (list :position pos t)
+                (list :position pos)
                 (list :function-name (string symbol)))
            (:align t)))))))
 
