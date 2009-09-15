@@ -183,8 +183,10 @@ Return DOCUMENTATION."
   (with-current-buffer (get-buffer-create " *slime-fontify*")
     (erase-buffer)
     (unless (eq major-mode 'lisp-mode)
-      (lisp-mode)
-      (set (make-local-variable 'slime-highlight-suppressed-forms) nil))
+      ;; Just calling (lisp-mode) will turn slime-mode on in that buffer,
+      ;; which may interfere with this function
+      (setq major-mode 'lisp-mode)
+      (lisp-mode-variables t))
     (insert string)
     (let ((font-lock-verbose nil))
       (font-lock-fontify-buffer))

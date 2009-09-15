@@ -1,3 +1,9 @@
+2009-09-15  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-autodoc.el (slime-fontify-string): setup *slime-fontify*
+	buffer without calling (lisp-mode) to avoid turning slime-mode there,
+	which may cause interference.
+
 2009-09-13  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-autodoc.el (slime-fontify-string): do not call
