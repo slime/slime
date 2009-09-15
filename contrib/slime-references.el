@@ -2,6 +2,7 @@
 ;;
 ;; Authors: Christophe Rhodes  <csr21@cantab.net>
 ;;          Luke Gorrie  <luke@bluetail.com>
+;;          Tobias C. Rittweiler <tcr@freebits.de>
 ;;
 ;; License: GNU GPL (same license as Emacs)
 ;;
@@ -17,52 +18,16 @@
   "Face for references."
   :group 'slime-debugger)
 
-(defun slime-note.references (note)
-  (plist-get note :references))
-
-(defun slime-tree-print-with-references (tree)
-  ;; for SBCL-style references
-  (slime-tree-default-printer tree)
-  (when-let (note (plist-get (slime-tree.plist tree) 'note))
-    (when-let (references (slime-note.references note))
-      (terpri (current-buffer))
-      (princ "See also:" (current-buffer))
-      (terpri (current-buffer))
-      (slime-tree-insert-references references))))
-
-(defun slime-tree-insert-references (references)
-  "Insert documentation references from a condition.
-See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
-  (loop for refs on references
-        for ref = (car refs)
-        do
-        (destructuring-bind (where type what) ref
-          ;; FIXME: this is poorly factored, and shares some code and
-          ;; data with sldb that it shouldn't: notably
-          ;; sldb-reference-face.  Probably the names of
-          ;; sldb-reference-foo should be altered to be not sldb
-          ;; specific.
-          (insert "  " (sldb-format-reference-source where) ", ")
-          (slime-insert-propertized (sldb-reference-properties ref)
-                                    (sldb-format-reference-node what))
-          (insert (format " [%s]" type))
-          (when (cdr refs)
-            (terpri (current-buffer))))))
-
 
-;;;;; SLDB references (rather SBCL specific)
+;;;;; SBCL-style references 
 
-(defun sldb-insert-references (references)
-  "Insert documentation references from a condition.
-See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
-  (dolist (ref references)
-    (destructuring-bind (where type what) ref
-      (insert "\n" (sldb-format-reference-source where) ", ")
-      (slime-insert-propertized (sldb-reference-properties ref)
-				(sldb-format-reference-node what))
-      (insert (format " [%s]" type)))))
+(defvar slime-references-local-keymap
+  (let ((map (make-sparse-keymap "local keymap for slime references")))
+    (define-key map [mouse-2] 'slime-lookup-reference-at-mouse)
+    (define-key map [return] 'slime-lookup-reference-at-point)
+    map))
 
-(defun sldb-reference-properties (reference)
+(defun slime-reference-properties (reference)
   "Return the properties for a reference.
 Only add clickability to properties we actually know how to lookup."
   (destructuring-bind (where type what) reference
@@ -70,65 +35,115 @@ Only add clickability to properties we actually know how to lookup."
             (and (eq where :ansi-cl)
                  (memq type '(:function :special-operator :macro
 			      :section :glossary :issue))))
-        `(sldb-default-action
-          sldb-lookup-reference
-          ;; FIXME: this is a hack!  slime-compiler-notes and sldb are a
-          ;; little too intimately entwined.
-          slime-compiler-notes-default-action sldb-lookup-reference
-          sldb-reference ,reference
-          face sldb-reference-face
-          mouse-face highlight))))
+        `(slime-reference ,reference
+          font-lock-face sldb-reference-face
+          follow-link t
+          mouse-face highlight
+          help-echo "mouse-2: visit documentation."
+          keymap ,slime-references-local-keymap))))
 
-(defun sldb-format-reference-source (where)
+(defun slime-insert-reference (reference)
+  "Insert documentation reference from a condition.
+See SWANK-BACKEND:CONDITION-REFERENCES for the datatype."
+  (destructuring-bind (where type what) reference
+    (insert "\n" (slime-format-reference-source where) ", ")
+    (slime-insert-propertized (slime-reference-properties reference)
+                              (slime-format-reference-node what))
+    (insert (format " [%s]" type))))
+
+(defun slime-insert-references (references)
+  (when references
+    (insert "\nSee also:")
+    (slime-with-rigid-indentation 2
+      (mapc #'slime-insert-reference references))))
+
+(defun slime-format-reference-source (where)
   (case where
     (:amop    "The Art of the Metaobject Protocol")
     (:ansi-cl "Common Lisp Hyperspec")
     (:sbcl    "SBCL Manual")
     (t        (format "%S" where))))
 
-(defun sldb-format-reference-node (what)
+(defun slime-format-reference-node (what)
   (if (listp what)
       (mapconcat #'prin1-to-string what ".")
     what))
 
-(defun sldb-lookup-reference ()
+(defun slime-lookup-reference-at-point ()
   "Browse the documentation reference at point."
-  (destructuring-bind (where type what)
-      (get-text-property (point) 'sldb-reference)
-    (case where
-      (:ansi-cl
-       (case type
-         (:section
-          (browse-url (funcall common-lisp-hyperspec-section-fun what)))
-         (:glossary
-          (browse-url (funcall common-lisp-glossary-fun what)))
-         (:issue
-          (browse-url (funcall 'common-lisp-issuex what)))
-         (t
-          (hyperspec-lookup what))))
-      (t
-       (let ((url (format "%s%s.html" slime-sbcl-manual-root
-                          (subst-char-in-string ?\  ?\- what))))
-         (browse-url url))))))
+  (interactive)
+  (let ((refs (get-text-property (point) 'slime-reference)))
+    (if (null refs)
+        (error "No references at point")
+        (destructuring-bind (where type what) refs
+          (case where
+            (:ansi-cl
+               (case type
+                 (:section
+                    (browse-url (funcall common-lisp-hyperspec-section-fun what)))
+                 (:glossary
+                    (browse-url (funcall common-lisp-glossary-fun what)))
+                 (:issue
+                    (browse-url (funcall 'common-lisp-issuex what)))
+                 (t
+                    (hyperspec-lookup what))))
+            (t
+               (let ((url (format "%s%s.html" slime-sbcl-manual-root
+                                  (subst-char-in-string ?\  ?\- what))))
+                 (browse-url url))))))))
+
+(defun slime-lookup-reference-at-mouse (event)
+  "Invoke the action pointed at by the mouse."
+  (interactive "e")
+  (destructuring-bind (mouse-1 (w pos . _) . _) event
+    (save-excursion
+      (goto-char pos)
+      (slime-lookup-reference-at-point))))
+
+;;;;; Hook into *SLIME COMPILATION*
+
+(defun slime-note.references (note)
+  (plist-get note :references))
+
+;;; FIXME: `compilation-mode' will swallow the `mouse-face'
+;;; etc. properties.
+(defadvice slime-note.message (after slime-note.message+references)
+  (setq ad-return-value 
+        (concat ad-return-value
+                (with-temp-buffer
+                  (slime-insert-references 
+                   (slime-note.references (ad-get-arg 0)))
+                  (buffer-string)))))
+
+;;;;; Hook into slime-compiler-notes-tree
+
+(defun slime-tree-print-with-references (tree)
+  ;; for SBCL-style references
+  (slime-tree-default-printer tree)
+  (when-let (note (plist-get (slime-tree.plist tree) 'note))
+    (when-let (references (slime-note.references note))
+      (terpri (current-buffer))
+      (slime-insert-references references))))
+
+;;;;; Hook into SLDB
 
 (defun sldb-maybe-insert-references (extra)
   (destructure-case extra
-    ((:references references)
-     (when references
-       (insert "\nSee also:")
-       (slime-with-rigid-indentation 2
-	 (sldb-insert-references references)))
-     t)
+    ((:references references) (slime-insert-references references) t)
     (t nil)))
 
-
+
 ;;; Initialization
 
 (defun slime-references-init ()
+  (ad-enable-advice 'slime-note.message 'after 'slime-note.message+references)
+  (ad-activate 'slime-note.message)
   (setq slime-tree-printer 'slime-tree-print-with-references)
   (add-hook 'sldb-extras-hooks 'sldb-maybe-insert-references))
 
 (defun slime-references-unload ()
+  (ad-disable-advice 'slime-note.message 'after 'slime-note.message+references)
+  (ad-deactivate 'slime-note.message)
   (setq slime-tree-printer 'slime-tree-default-printer)
   (remove-hook 'sldb-extras-hooks 'sldb-maybe-insert-references))
   
