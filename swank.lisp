@@ -3116,19 +3116,21 @@ that symbols accessible in the current package go first."
       (with-output-to-string (*standard-output*)
         (describe-definition (parse-symbol-or-lose name) kind)))))
 
-(defslimefun documentation-symbol (symbol-name &optional default)
+(defslimefun documentation-symbol (symbol-name)
   (with-buffer-syntax ()
     (multiple-value-bind (sym foundp) (parse-symbol symbol-name)
       (if foundp
           (let ((vdoc (documentation sym 'variable))
                 (fdoc (documentation sym 'function)))
-            (or (and (or vdoc fdoc)
-                     (concatenate 'string
-                                  fdoc
-                                  (and vdoc fdoc '(#\Newline #\Newline))
-                                  vdoc))
-                default))
-          default))))
+            (with-output-to-string (string)
+              (format string "Documentation for the symbol ~a:~2%" sym)
+              (unless (or vdoc fdoc)
+                (format string "Not documented." ))
+              (when vdoc
+                (format string "Variable:~% ~a~2%" vdoc))
+              (when fdoc
+                (format string "Function:~% ~a" fdoc))))
+          (format nil "No such symbol, ~a." symbol-name)))))
 
 
 ;;;; Package Commands

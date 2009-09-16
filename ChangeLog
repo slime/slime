@@ -1,3 +1,7 @@
+2009-09-16  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (documentation-symbol): Return more readable information.
+
 2009-09-14  Mark Evenson  <evenson@panix.com>
 
 	* swank-abcl.lisp (source-location): Fix typo.

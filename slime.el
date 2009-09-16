@@ -4696,7 +4696,7 @@ If PACKAGE is NIL, then search in all packages."
   (when (not symbol-name)
     (error "No symbol given"))
   (slime-eval-describe 
-   `(swank:documentation-symbol ,symbol-name "(not documented)")))
+   `(swank:documentation-symbol ,symbol-name)))
 
 (defun slime-describe-function (symbol-name)
   (interactive (list (slime-read-symbol-name "Describe symbol: ")))
