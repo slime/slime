@@ -1,3 +1,8 @@
+2009-09-17  Mark Evenson  <evenson@panix.com>
+
+	* swank-abcl.lisp (source-location): Emacs buffers start at 1,
+	whereas CL files start at 0 (Tobias Rittweiler).
+
 2009-09-16  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (documentation-symbol): Return more readable information.

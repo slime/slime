@@ -439,8 +439,8 @@
       `(((,symbol)
          (:location
            (:file ,(namestring (ext:source-pathname symbol)))
-           ,(if (and pos (plusp pos))
-                (list :position pos)
+           ,(if pos
+                (list :position (1+ pos))
                 (list :function-name (string symbol)))
            (:align t)))))))
 
