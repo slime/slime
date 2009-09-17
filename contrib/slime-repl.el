@@ -819,7 +819,8 @@ earlier in the buffer."
   (let ((inhibit-read-only t))
     (delete-region (point-min) slime-repl-prompt-start-mark)
     (delete-region slime-output-start slime-output-end)
-    (goto-char slime-repl-input-start-mark)
+    (when (< (point) slime-repl-input-start-mark)
+      (goto-char slime-repl-input-start-mark))
     (recenter t))
   (run-hooks 'slime-repl-clear-buffer-hook))
 
