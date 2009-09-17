@@ -16,7 +16,7 @@
 
 (defun sys::break (&optional (format-control "BREAK called") 
                    &rest format-arguments)
-  (let ((*saved-backtrace* 
+  (let ((sys::*saved-backtrace* 
          #+#.(swank-backend::with-symbol 'backtrace 'sys) 
          (sys:backtrace)
          #-#.(swank-backend::with-symbol 'backtrace 'sys)
@@ -47,11 +47,24 @@
 
 ;(defun class-finalized-p (class) t)
 
-(defun slot-definition-documentation (slot) #+nil (documentation slot 't))
-(defun slot-definition-type (slot) t)
-(defun class-prototype (class))
-(defun generic-function-declarations (gf))
-(defun specializer-direct-methods (spec) (mop::class-direct-methods spec))
+(defun slot-definition-documentation (slot)
+  (declare (ignore slot))
+  #+nil (documentation slot 't))
+
+(defun slot-definition-type (slot)
+  (declare (ignore slot))
+  t)
+
+(defun class-prototype (class)
+  (declare (ignore class))
+  nil)
+
+(defun generic-function-declarations (gf)
+  (declare (ignore gf))
+  nil)
+
+(defun specializer-direct-methods (spec)
+  (mop::class-direct-methods spec))
 
 (defun slot-definition-name (slot)
   (mop::%slot-definition-name slot))
@@ -66,9 +79,11 @@
   (mop::%method-function method))
 
 (defun slot-boundp-using-class (class object slotdef)
+  (declare (ignore class))
   (system::slot-boundp object (slot-definition-name slotdef)))
 
 (defun slot-value-using-class (class object slotdef)
+  (declare (ignore class))
   (system::slot-value object (slot-definition-name slotdef)))
 
 (import-to-swank-mop
@@ -281,7 +296,7 @@
           (second (member magic-token (ext:backtrace-as-list)
                           :key #'(lambda (frame) 
                                    (first frame))))
-          ))
+          ))    
     (funcall debugger-loop-fn)))
 
 (defun backtrace (start end)
@@ -389,9 +404,8 @@
         (multiple-value-bind (fn warn fail) 
             (compile-file input-file :output-file output-file)
           (values fn warn
-                  (or fail 
-                      (and load-p 
-                           (not (load fn))))))))))
+                  (and fn load-p
+                       (not (load fn)))))))))
 
 (defimplementation swank-compile-string (string &key buffer position filename
                                          policy)
