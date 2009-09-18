@@ -538,6 +538,7 @@ The string is periodically updated by an idle timer."))
 (defvar slime-parent-bindings
   '(("\M-."      slime-edit-definition)
     ("\M-,"      slime-pop-find-definition-stack)
+    ("\M-_"      slime-edit-callers)
     ("\C-x4." 	 slime-edit-definition-other-window)
     ("\C-x5." 	 slime-edit-definition-other-frame)
     ("\C-x\C-e"  slime-eval-last-expression)
@@ -4023,6 +4024,24 @@ function name is prompted."
            (slime-show-xrefs file-alist 'definition name
                              (slime-current-package))))))
 
+(defun slime-edit-callers (symbol)
+  "Quite similiar to `slime-who-calls' but only shows Xref buffer
+if needed for disambiguation. Also pushes onto the definition
+stack."
+  (interactive (list (slime-read-symbol-name "Edit callers of: ")))
+  (slime-xref :calls symbol 
+    #'(lambda (xrefs type symbol package snapshot)
+        (cond ((null xrefs)
+               (message "No xref information found for %s." symbol))
+              ((and (slime-length= xrefs 1)         ; one group
+                    (slime-length= (cdr xrefs) 1))  ; one ref in group
+               (destructuring-bind (_ . (_ loc)) (first xrefs)
+                 (slime-push-definition-stack)
+                 (slime-pop-to-location loc)))
+              (t
+               (slime-push-definition-stack)
+               (slime-pop-xref-buffer xrefs type symbol package snapshot))))))
+
 (defun slime-analyze-xrefs (xrefs)
   "Find common filenames in XREFS.
 Return a list (SINGLE-LOCATION FILE-ALIST).
@@ -4883,6 +4902,15 @@ source-location."
   ;; Remove the final newline to prevent accidental window-scrolling
   (backward-delete-char 1))
 
+(defun slime-pop-xref-buffer (xrefs type symbol package emacs-snapshot)
+  (slime-with-xref-buffer (type symbol package emacs-snapshot)
+    (slime-insert-xrefs xrefs)
+    (goto-char (point-min))
+    (forward-line)
+    (skip-chars-forward " \t")
+    (setq slime-next-location-function 'slime-goto-next-xref)
+    (setq slime-xref-last-buffer (current-buffer ))))
+
 (defvar slime-next-location-function nil
   "Function to call for going to the next location.")
 
@@ -4894,13 +4922,7 @@ This is used by `slime-goto-next-xref'")
   "Show the results of an XREF query."
   (if (null xrefs)
       (message "No references found for %s." symbol)
-    (slime-with-xref-buffer (type symbol package emacs-snapshot)
-      (slime-insert-xrefs xrefs)
-      (goto-char (point-min))
-      (forward-line)
-      (skip-chars-forward " \t")
-      (setq slime-next-location-function 'slime-goto-next-xref)
-      (setq slime-xref-last-buffer (current-buffer )))))
+      (slime-pop-xref-buffer xrefs type symbol package emacs-snapshot)))
 
 
 ;;;;; XREF commands
@@ -4950,15 +4972,19 @@ This is used by `slime-goto-next-xref'")
   (interactive (list (slime-read-symbol-name "List callees: ")))
   (slime-xref :callees symbol-name))
 
-(defun slime-xref (type symbol)
+(defun slime-xref (type symbol &optional continuation)
   "Make an XREF request to Lisp."
   (slime-eval-async
    `(swank:xref ',type ',symbol)
-   (slime-rcurry
-    (lambda (result type symbol package snapshot)
-      (let ((file-alist (cadr (slime-analyze-xrefs result))))
-         (slime-show-xrefs file-alist type symbol package snapshot)))
-    type symbol (slime-current-package) (slime-current-emacs-snapshot))))
+   (slime-rcurry (lexical-let ((cont continuation))
+                   (lambda (result type symbol package snapshot)
+                     (let ((file-alist (cadr (slime-analyze-xrefs result))))
+                       (funcall (or cont 'slime-show-xrefs)
+                                file-alist type symbol package snapshot))))
+                 type 
+                 symbol 
+                 (slime-current-package)
+                 (slime-current-emacs-snapshot))))
 
 
 ;;;;; XREF navigation
