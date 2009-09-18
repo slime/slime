@@ -1,5 +1,11 @@
 2009-09-18  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* slime.el (slime-parent-bindings): Define M-? as
+	`slime-edit-callers', too. My previous choice of M-_ was warped
+	due to my German layout.
+
+2009-09-18  Tobias C. Rittweiler <tcr@freebits.de>
+
 	New binding: M-_ (`slime-edit-callers').
 
 	Similiar to `slime-who-calls' but only creates an Xref buffer if

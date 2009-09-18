@@ -538,7 +538,8 @@ The string is periodically updated by an idle timer."))
 (defvar slime-parent-bindings
   '(("\M-."      slime-edit-definition)
     ("\M-,"      slime-pop-find-definition-stack)
-    ("\M-_"      slime-edit-callers)
+    ("\M-_"      slime-edit-callers)    ; for German layout
+    ("\M-?"      slime-edit-callers)    ; for USian layout
     ("\C-x4." 	 slime-edit-definition-other-window)
     ("\C-x5." 	 slime-edit-definition-other-frame)
     ("\C-x\C-e"  slime-eval-last-expression)
