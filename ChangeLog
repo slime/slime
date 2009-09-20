@@ -1,3 +1,30 @@
+2009-09-20  Tobias C. Rittweiler <tcr@freebits.de>
+
+	Generalize M-? (or M-_ respectively.)
+
+	It will now list:
+
+	  - call sites for functions,
+
+	  - macroexpand sites for macros,
+
+	  - binding, setting, referencing sites for variables,
+
+	  - specializing methods for classes.
+
+	* slime.el (slime-xref): Deal with :not-implemented.
+	(slime-xrefs): New. Makes RPC request to XREFS.
+	(slime-edit-callers): Renamed to `slime-edit-uses'.
+	(slime-edit-uses): Use slime-xrefs.
+
+	* swank-backend.lisp (who-*): Add default implementation which
+	returns :not-implemented.
+
+	* swank.lisp (xref-doit): Extracted from XREF.
+	(xref): Pass over :not-implemented to Emacs side.
+	(xrefs): New slime fun. To return results of multiple XREF
+	requests at once.
+
 2009-09-20  Mark Evenson  <evenson@panix.com>
 
 	Use *INVOKE-DEBUGGER-HOOK* introduced in ABCL by analogy to SBCL

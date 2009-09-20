@@ -3235,19 +3235,32 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
     (unless error
       (mapcar #'xref>elisp (find-definitions sexp)))))
 
+(defun xref-doit (type symbol)
+  (ecase type
+    (:calls (who-calls symbol))
+    (:calls-who (calls-who symbol))
+    (:references (who-references symbol))
+    (:binds (who-binds symbol))
+    (:sets (who-sets symbol))
+    (:macroexpands (who-macroexpands symbol))
+    (:specializes (who-specializes symbol))
+    (:callers (list-callers symbol))
+    (:callees (list-callees symbol))))
+
 (defslimefun xref (type name)
-  (let ((symbol (parse-symbol-or-lose name *buffer-package*)))
-    (mapcar #'xref>elisp
-            (ecase type
-              (:calls (who-calls symbol))
-              (:calls-who (calls-who symbol))
-              (:references (who-references symbol))
-              (:binds (who-binds symbol))
-              (:sets (who-sets symbol))
-              (:macroexpands (who-macroexpands symbol))
-              (:specializes (who-specializes symbol))
-              (:callers (list-callers symbol))
-              (:callees (list-callees symbol))))))
+  (with-buffer-syntax ()
+    (let* ((symbol (parse-symbol-or-lose name))
+           (xrefs  (xref-doit type symbol)))
+      (if (eq xrefs :not-implemented)
+          :not-implemented
+          (mapcar #'xref>elisp xrefs)))))
+
+(defslimefun xrefs (types name)
+  (loop for type in types
+        for xrefs = (xref type name)
+        when (and (not (eq :not-implemented xrefs))
+                  (not (null xrefs)))
+          collect (cons type xrefs)))
 
 (defun xref>elisp (xref)
   (destructuring-bind (name loc) xref
