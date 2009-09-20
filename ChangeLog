@@ -1,3 +1,11 @@
+2009-09-20  Mark Evenson  <evenson@panix.com>
+
+	Use *INVOKE-DEBUGGER-HOOK* introduced in ABCL by analogy to SBCL
+	 (Tobias Rittweiler).
+
+	* swank-abcl.lisp (sys::break): Conditionally redefine SYS::BREAK
+	only if SYS::INVOKE-DEUBBGER-HOOK is not present.
+
 2009-09-18  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el (slime-parent-bindings): Define M-? as

@@ -14,6 +14,10 @@
   (require :collect) ;just so that it doesn't spoil the flying letters
   (require :pprint))
 
+;;; The introduction of SYS::*INVOKE-DEBUGGER-HOOK* obliterates the
+;;; need for redefining BREAK. The following should thus be removed at
+;;; some point in the future.
+#-#.(swank-backend::with-symbol '*invoke-debugger-hook* 'sys)
 (defun sys::break (&optional (format-control "BREAK called") 
                    &rest format-arguments)
   (let ((sys::*saved-backtrace* 
@@ -282,6 +286,28 @@
 
 
 ;;;; Debugger
+
+;;; Copied from swank-sbcl.lisp.
+(defun make-invoke-debugger-hook (hook)
+  #'(lambda (condition old-hook)
+      ;; Notice that *INVOKE-DEBUGGER-HOOK* is tried before
+      ;; *DEBUGGER-HOOK*, so we have to make sure that the latter gets
+      ;; run when it was established locally by a user (i.e. changed
+      ;; meanwhile.)
+      (if *debugger-hook*
+          (funcall *debugger-hook* condition old-hook)
+          (funcall hook condition old-hook))))
+
+(defimplementation call-with-debugger-hook (hook fun)
+  (let ((*debugger-hook* hook)
+        #+#.(swank-backend::with-symbol '*invoke-debugger-hook* 'sys)
+        (sys::*invoke-debugger-hook* (make-invoke-debugger-hook hook)))
+    (funcall fun)))
+
+(defimplementation install-debugger-globally (function)
+  (setq *debugger-hook* function)
+  #+#.(swank-backend::with-symbol '*invoke-debugger-hook* 'sys)
+  (setq sys::*invoke-debugger-hook* (make-invoke-debugger-hook function)))
 
 (defvar *sldb-topframe*)
 
