@@ -344,7 +344,7 @@
     (backtrace start end)))
 
 (defimplementation print-frame (frame stream)
-  (write-string 
+  (write-string
    #+#.(swank-backend::with-symbol 'backtrace 'sys)
    (sys:frame-to-string frame)
    #-#.(swank-backend::with-symbol 'backtrace 'sys)
@@ -589,12 +589,12 @@ part of *sysdep-pathnames* in swank.loader.lisp.
   (defparameter *thread-description-map* (make-hash-table)) 
 
   (defimplementation thread-description (thread) 
-    (synchronized-on *thread-description-map*
+    (threads:synchronized-on *thread-description-map*
       (or (gethash thread *thread-description-map*)
-          "No description available.")))
+          "")))
 
   (defimplementation set-thread-description (thread description) 
-    (synchronized-on *thread-description-map*
+    (threads:synchronized-on *thread-description-map*
       (setf (gethash thread *thread-description-map*) description)))
 
   (defimplementation make-lock (&key name)

@@ -1,5 +1,10 @@
 2009-09-20  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank-abcl.lisp (thread-description): Fix typo.
+	(set-thread-description): Ditto.
+
+2009-09-20  Tobias C. Rittweiler <tcr@freebits.de>
+
 	Generalize M-? (or M-_ respectively.)
 
 	It will now list:
