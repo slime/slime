@@ -233,7 +233,8 @@ Contributed Packages
 * Documentation Links::         
 * Xref and Class Browser::      
 * Highlight Edits::             
-* Scratch Buffer::              
+* Scratch Buffer::
+* slime-sprof::
 * slime-fancy::                 
 
 REPL: the ``top level''
@@ -2096,7 +2097,8 @@ particular packages do.
 * Documentation Links::         
 * Xref and Class Browser::      
 * Highlight Edits::             
-* Scratch Buffer::              
+* Scratch Buffer::
+* slime-sprof::
 * slime-fancy::                 
 @end menu
 
@@ -2839,6 +2841,34 @@ the current buffer.
 Create a @file{*slime-scratch*} buffer. In this
 buffer you can enter Lisp expressions and evaluate them with
 @kbd{C-j}, like in Emacs's @file{*scratch*} buffer.
+
+@end table
+
+@node slime-sprof
+@section @code{slime-sprof}
+
+@code{slime-sprof} is a package for integrating SBCL's statistical profiler, sb-sprof.
+
+@table @kbd
+
+@cmditem{slime-sprof-start}
+Start profiling.
+
+@cmditem{slime-sprof-stop}
+Stop profiling.
+@cmditem{slime-sprof-browser}
+Report results of the profiling.
+@end table
+
+The following keys are defined in slime-sprof-browser mode:
+@table @kbd
+
+@kbditem{RET, slime-sprof-browser-toggle}
+Expand / collapse function details (callers, calls to)
+@kbditem{v, slime-sprof-browser-view-source}
+View function sources. 
+@kbditem{d, slime-sprof-browser-disassemble-function}
+Disassabmle function.
 
 @end table
 
