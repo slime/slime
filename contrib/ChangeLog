@@ -1,3 +1,9 @@
+2009-09-21  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-sprof.el, swank-sprof.lisp: New contrib for
+	integration with SBCL's sb-sprof profiler,
+	adopted from Juho Snellman's code.
+
 2009-09-17  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-repl-clear-buffer): Don't change cursor
