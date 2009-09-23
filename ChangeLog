@@ -1,3 +1,10 @@
+2009-09-22  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-ccl.lisp (find-definitions): For fbound symbols also
+	consider source-notes in the function object.  Useful if
+	the function slot was set with (setf (symbol-function ..))
+	and not by defun.
+
 2009-09-21  Stas Boukarev  <stassats@gmail.com>
 
 	* doc/slime.texi (slime-sprof): document slime-sprof contrib.

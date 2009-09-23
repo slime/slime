@@ -581,13 +581,17 @@
               (t `(:error ,(funcall if-nil-thunk))))
       (error (c) `(:error ,(princ-to-string c))))))
 
-(defimplementation find-definitions (obj)
-  (loop for ((type . name) . sources) in (ccl:find-definition-sources obj)
-        collect (list (definition-name type name)
-                      (source-note-to-source-location
-                       (find-if-not #'null sources)
-                       (lambda () "No source-note available")
-                       name))))
+(defimplementation find-definitions (name)
+  (let ((defs (or (ccl:find-definition-sources name)
+                  (and (symbolp name)
+                       (fboundp name)
+                       (ccl:find-definition-sources (symbol-function name))))))
+    (loop for ((type . name) . sources) in defs
+          collect (list (definition-name type name)
+                        (source-note-to-source-location
+                         (find-if-not #'null sources)
+                         (lambda () "No source-note available")
+                         name)))))
 
 (defimplementation find-source-location (obj)
   (let* ((defs (ccl:find-definition-sources obj))
