@@ -2868,7 +2868,7 @@ Expand / collapse function details (callers, calls to)
 @kbditem{v, slime-sprof-browser-view-source}
 View function sources. 
 @kbditem{d, slime-sprof-browser-disassemble-function}
-Disassabmle function.
+Disassemble function.
 
 @end table
 

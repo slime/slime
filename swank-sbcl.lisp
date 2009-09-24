@@ -631,6 +631,7 @@ compiler state."
                                         :emacs-position position))
                  (multiple-value-bind (output-file warningsp failurep)
                      (compile-file temp-file-name)
+                   (declare (ignore warningsp))
                    (unless failurep
                      (funcall cont output-file)))))))
       (with-open-file (s temp-file-name :direction :output :if-exists :error)

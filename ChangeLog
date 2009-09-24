@@ -1,3 +1,8 @@
+2009-09-24  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-sbcl.lisp (swank-compile-string): Ignore unused variable
+	warningsp.
+
 2009-09-23  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-sbcl.lisp (receive-if): Bind *break-on-signals* to
