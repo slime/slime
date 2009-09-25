@@ -1,3 +1,8 @@
+2009-09-25  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank-sbcl-exts.lisp: Add EVAL-WHEN to prevent subtle dependency
+	problem.
+
 2009-09-21  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-sprof.el, swank-sprof.lisp: New contrib for
