@@ -1,3 +1,10 @@
+2009-09-27  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank-sbcl.lisp (call-with-debugger-hook): Correctly deal with
+	case of HOOK being NIL.
+	(make-definition-source-location): Somewhat simplified.
+	(string-path-snippet): Removed, not needed anymore.
+
 2009-09-24  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sbcl.lisp (swank-compile-string): Ignore unused variable

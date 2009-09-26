@@ -742,15 +742,18 @@ This is useful when debugging the definition-finding code.")
         plist
       (cond
         (emacs-buffer
-         (let* ((*readtable* (guess-readtable-for-filename emacs-directory))
-                (pos (if form-path
-                         (with-debootstrapping
-                           (source-path-string-position form-path emacs-string))
-                         character-offset))
-                (snippet (string-path-snippet emacs-string form-path pos)))
-           (make-location `(:buffer ,emacs-buffer)
-                          `(:offset ,emacs-position ,pos)
-                          `(:snippet ,snippet))))
+         (let ((*readtable* (guess-readtable-for-filename emacs-directory)))
+           (multiple-value-bind (start end)
+               (if form-path
+                   (with-debootstrapping
+                     (source-path-string-position form-path emacs-string))
+                   (values character-offset most-positive-fixnum))
+             (make-location `(:buffer ,emacs-buffer)
+                            `(:offset ,emacs-position ,start)
+                            `(:snippet
+                              ,(subseq emacs-string
+                                       start
+                                       (min end (+ start *source-snippet-size*))))))))
         ((not pathname)
          `(:error ,(format nil "Source definition of ~A ~A not found"
                            (string-downcase type) name)))
@@ -765,18 +768,6 @@ This is useful when debugging the definition-finding code.")
                           `(:position ,(1+ pos))
                           `(:snippet ,snippet))))))))
 
-(defun string-path-snippet (string form-path position)
-  (if (null form-path)
-      (read-snippet-from-string string)
-      ;; If we have a form-path, use it to derive a more accurate
-      ;; snippet, so that we can point to the individual form rather
-      ;; than just the toplevel form.
-      (multiple-value-bind (data end)
-          (let ((*read-suppress* t))
-            (read-from-string string nil nil :start position))
-        (declare (ignore data))
-        (subseq string position (min end *source-snippet-size*)))))    
-    
 (defun source-file-position (filename write-date form-path character-offset)
   (let ((source (get-source-code filename write-date))
         (*readtable* (guess-readtable-for-filename filename)))
@@ -984,7 +975,7 @@ Return a list of the form (NAME LOCATION)."
 
 (defimplementation call-with-debugger-hook (hook fun)
   (let ((*debugger-hook* hook)
-        (sb-ext:*invoke-debugger-hook* (make-invoke-debugger-hook hook))
+        (sb-ext:*invoke-debugger-hook* (and hook (make-invoke-debugger-hook hook)))
         #+#.(swank-backend::sbcl-with-new-stepper-p)
         (sb-ext:*stepper-hook*
          (lambda (condition)
