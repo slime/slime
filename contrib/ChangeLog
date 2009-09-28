@@ -1,3 +1,8 @@
+2009-09-28  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-repl.el (slime-sync-package-and-default-directory):
+	Do not try to set package if it doesn't exists.
+
 2009-09-25  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank-sbcl-exts.lisp: Add EVAL-WHEN to prevent subtle dependency

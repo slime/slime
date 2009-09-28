@@ -1449,9 +1449,11 @@ expansion will be added to the REPL's history.)"
 (defun slime-sync-package-and-default-directory ()
   "Set Lisp's package and directory to the values in current buffer."
   (interactive)
-  (let ((package (slime-current-package))
-        (directory default-directory))
-    (when package
+  (let* ((package (slime-current-package))
+         (exists-p (or (null package)
+                       (slime-eval `(swank::guess-package ,package))))
+         (directory default-directory))
+    (when (and package exists-p)
       (slime-repl-set-package package))
     (slime-set-default-directory directory)
     ;; Sync *inferior-lisp* dir
@@ -1460,9 +1462,10 @@ expansion will be added to the REPL's history.)"
       (when buffer
         (with-current-buffer buffer
           (setq default-directory directory))))
-    (message "package: %s  default-directory: %s"
+    (message "package: %s%s  directory: %s"
              (with-current-buffer (slime-output-buffer)
                (slime-lisp-package))
+             (if exists-p "" (format " (package %s doesn't exist)" package))
              directory)))
 
 (defun slime-goto-connection ()
