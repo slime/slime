@@ -2228,7 +2228,7 @@ Used by pprint-eval.")
   "Set *package* to the package named NAME.
 Return the full package-name and the string to use in the prompt."
   (let ((p (guess-package name)))
-    (assert (packagep p))
+    (assert (packagep p) nil "Package ~a doesn't exist." name)
     (setq *package* p)
     (list (package-name p) (package-string-for-prompt p))))
 

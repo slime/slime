@@ -1,5 +1,8 @@
 2009-09-28  Stas Boukarev  <stassats@gmail.com>
 
+	* swank.lisp (set-package): Provide a more meaningful error
+	message when package doesn't exist.
+
 	* swank-lispworks.lisp (replace-strings-with-symbols): Didn't work on
 	non-proper lists. Reported by Madhu.
 
