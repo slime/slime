@@ -1451,7 +1451,7 @@ expansion will be added to the REPL's history.)"
   (interactive)
   (let* ((package (slime-current-package))
          (exists-p (or (null package)
-                       (slime-eval `(swank::guess-package ,package))))
+                       (slime-eval `(cl:packagep (swank::guess-package ,package)))))
          (directory default-directory))
     (when (and package exists-p)
       (slime-repl-set-package package))
