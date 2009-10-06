@@ -385,16 +385,17 @@
   )
 
 (defun map-backtrace (function &optional
-                               (start-frame-number 0)
-                               (end-frame-number most-positive-fixnum))
+                      (start-frame-number 0)
+                      end-frame-number)
   "Call FUNCTION passing information about each stack frame
  from frames START-FRAME-NUMBER to END-FRAME-NUMBER."
-  (ccl:map-call-frames function
-                       :origin ccl:*top-error-frame*
-                       :start-frame-number start-frame-number
-                       :count (- end-frame-number start-frame-number)
-                       :test (and (not t) ;(not (symbol-value (swank-sym *sldb-show-internal-frames*)))
-                                  'interesting-frame-p)))
+  (let ((end-frame-number (or end-frame-number most-positive-fixnum)))
+    (ccl:map-call-frames function
+                         :origin ccl:*top-error-frame*
+                         :start-frame-number start-frame-number
+                         :count (- end-frame-number start-frame-number)
+                         :test (and (not t) ;(not (symbol-value (swank-sym *sldb-show-internal-frames*)))
+                                    'interesting-frame-p))))
 
 ;; Exceptions
 (defvar *interesting-internal-frames* ())

@@ -1,3 +1,7 @@
+2009-10-06  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-ccl.lisp (map-backtrace): Handle null end-frame-number argument.
+
 2009-09-28  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (set-package): Provide a more meaningful error
