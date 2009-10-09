@@ -1,3 +1,7 @@
+2009-10-09  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-sprof.el: Slightly factor code, add menu entries.
+
 2009-09-29  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-repl.el (slime-sync-package-and-default-directory):

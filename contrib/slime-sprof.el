@@ -17,18 +17,7 @@
   "Mode for browsing profiler data\
 \\<slime-sprof-browser-mode-map>\
 \\{slime-sprof-browser-mode-map}"
-  (setq buffer-read-only t)
-  (let ((inhibit-read-only t))
-    (erase-buffer)
-    (insert (format "%4s %-54s %6s %6s %6s\n"
-                    "Rank"
-                    "Name"
-                    "Self%"
-                    "Cumul%"
-                    "Total%"))
-    (dolist (data graph)
-      (slime-sprof-browser-insert-line data 54)))
-  (goto-line 2))
+  (setq buffer-read-only t))
 
 (slime-define-keys slime-sprof-browser-mode-map
   ("h" 'describe-mode)
@@ -50,17 +39,38 @@
 
 ;; Reporting
 
+(defun slime-sprof-format (graph)
+  (with-current-buffer (slime-sprof-browser-buffer)
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (insert (format "%4s %-54s %6s %6s %6s\n"
+                      "Rank"
+                      "Name"
+                      "Self%"
+                      "Cumul%"
+                      "Total%"))
+      (dolist (data graph)
+        (slime-sprof-browser-insert-line data 54))))
+  (goto-line 2))
+
+(defun slime-sprof-update ()
+  (interactive)
+  (slime-eval-async `(swank:swank-sprof-get-call-graph)
+                    'slime-sprof-format))
+
 (defun slime-sprof-browser ()
   (interactive)
-  (lexical-let ((buffer (slime-sprof-browser-get-buffer)))
-    (slime-eval-async `(swank:swank-sprof-get-call-graph)
-                      (lambda (graph)
-                        (with-current-buffer buffer
-                          (switch-to-buffer buffer)
-                          (slime-sprof-browser-mode))))))
+  (switch-to-buffer (slime-sprof-browser-buffer))
+  (slime-sprof-update))
 
-(defun slime-sprof-browser-get-buffer ()
-  (get-buffer-create "*slime-sprof-browser*"))
+(defun slime-sprof-browser-buffer ()
+  (if (get-buffer "*slime-sprof-browser*")
+      (get-buffer "*slime-sprof-browser*")
+      (let ((connection (slime-connection)))
+        (with-current-buffer (get-buffer-create "*slime-sprof-browser*")
+          (slime-sprof-browser-mode)
+          (setq slime-buffer-connection connection)
+          (current-buffer)))))
 
 (defun slime-sprof-browser-insert-line (data name-length)
   (destructuring-bind (index name self cumul total)
@@ -190,5 +200,16 @@
             (ding))
            (t
             (slime-show-source-location source-location))))))))
+
+;;; Menu
+
+(defun slime-sprof-init ()
+  (let ((C '(and (slime-connected-p)
+             (equal (slime-lisp-implementation-type) "SBCL"))))
+    (setf (cdr (last (assoc "Profiling" slime-easy-menu)))
+          `("--"
+            [ "Start sb-sprof"  slime-sprof-start ,C ]
+            [ "Stop sb-sprof"   slime-sprof-stop ,C ]
+            [ "Report sb-sprof" slime-sprof-browser ,C ]))))
 
 (provide 'slime-sprof)

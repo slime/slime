@@ -7,12 +7,11 @@
 
 (in-package :swank)
 
-#+sbcl(progn
-
-#.(prog1 nil (require :sb-sprof))
-
+#-sbcl
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require :sb-sprof))
+
+#+sbcl(progn
 
 (defvar *call-graph* nil)
 (defvar *node-numbers* nil)
