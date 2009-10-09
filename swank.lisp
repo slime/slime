@@ -814,7 +814,7 @@ connections, otherwise it will be closed after the first."
                                (cat "Swank " (princ-to-string port))))
                (list-threads))))
          (when thread-position
-           (kill-nth-thread thread-position)
+           (kill-nth-thread (1- thread-position))
            (close-socket socket)
            (remf *listener-sockets* port))))
       ((:fd-handler :sigio)

@@ -1,3 +1,8 @@
+2009-10-09  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (stop-server): (list-threads) returns threads offset by 1,
+	don't kill the wrong thread.
+
 2009-10-06  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-ccl.lisp (map-backtrace): Handle null end-frame-number argument.
