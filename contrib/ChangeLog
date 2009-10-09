@@ -1,5 +1,12 @@
 2009-10-09  Stas Boukarev  <stassats@gmail.com>
 
+	* swank-sprof.lisp: Add ability to exclude functions which symbols
+	are from swank package.
+	* slime-sprof.el (slime-sprof-toggle-swank-exclusion): New function.
+	Bound to s in the slime-sprof buffer.
+	* slime-sprof.el (slime-sprof-exclude-swank): New variable for
+	controlling exclusion of swank functions.
+
 	* slime-sprof.el: Slightly factor code, add menu entries.
 
 2009-09-29  Stas Boukarev  <stassats@gmail.com>

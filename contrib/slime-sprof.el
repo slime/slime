@@ -12,6 +12,9 @@
 
 (slime-require :swank-sprof)
 
+(defvar slime-sprof-exclude-swank nil
+  "*Display swank functions in the report.")
+
 (define-derived-mode slime-sprof-browser-mode fundamental-mode
   "slprof"
   "Mode for browsing profiler data\
@@ -25,6 +28,7 @@
   ("d" 'slime-sprof-browser-disassemble-function)
   ("g" 'slime-sprof-browser-go-to)
   ("v" 'slime-sprof-browser-view-source)
+  ("s" 'slime-sprof-toggle-swank-exclusion)
   ((kbd "RET") 'slime-sprof-browser-toggle))
 
 ;; Start / stop profiling
@@ -53,9 +57,9 @@
         (slime-sprof-browser-insert-line data 54))))
   (goto-line 2))
 
-(defun slime-sprof-update ()
-  (interactive)
-  (slime-eval-async `(swank:swank-sprof-get-call-graph)
+(defun* slime-sprof-update (&optional (exclude-swank slime-sprof-exclude-swank))
+  (slime-eval-async `(swank:swank-sprof-get-call-graph
+                      :exclude-swank ,exclude-swank)
                     'slime-sprof-format))
 
 (defun slime-sprof-browser ()
@@ -71,6 +75,12 @@
           (slime-sprof-browser-mode)
           (setq slime-buffer-connection connection)
           (current-buffer)))))
+
+(defun slime-sprof-toggle-swank-exclusion ()
+  (interactive)
+  (setq slime-sprof-exclude-swank
+        (not slime-sprof-exclude-swank))
+  (slime-sprof-update))
 
 (defun slime-sprof-browser-insert-line (data name-length)
   (destructuring-bind (index name self cumul total)

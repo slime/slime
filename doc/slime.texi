@@ -2849,6 +2849,9 @@ buffer you can enter Lisp expressions and evaluate them with
 
 @code{slime-sprof} is a package for integrating SBCL's statistical profiler, sb-sprof.
 
+The variable @code{slime-sprof-exclude-swank} controls whether to
+display swank functions. The default value is NIL.
+
 @table @kbd
 
 @cmditem{slime-sprof-start}
@@ -2869,6 +2872,8 @@ Expand / collapse function details (callers, calls to)
 View function sources. 
 @kbditem{d, slime-sprof-browser-disassemble-function}
 Disassemble function.
+@kbditem{s, slime-sprof-toggle-swank-exclusion}
+Toggle exclusion of swank functions from the report.
 
 @end table
 
