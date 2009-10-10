@@ -1795,7 +1795,7 @@ The default request handling style is chosen according to the
 capabilities of your Lisp system. The general order of preference is
 @code{:SPAWN}, then @code{:SIGIO}, then @code{:FD-HANDLER}, with
 @code{NIL} as a last resort. You can check the default style by
-calling @code{SWANK-BACKEND:PREFERRED-COMMUNICATION-STYLE}. You can
+calling @code{SWANK-BACKEND::PREFERRED-COMMUNICATION-STYLE}. You can
 also override the default by setting
 @code{SWANK:*COMMUNICATION-STYLE*} in your Swank init file.
 
