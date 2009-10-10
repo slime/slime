@@ -69,16 +69,18 @@
       (while (and (eq result 'retry) (<= (point) limit))
         (condition-case condition
             (setq result (slime-search-suppressed-forms-internal limit))
-          (end-of-file                      ; e.g. #+(
+          (end-of-file                        ; e.g. #+(
            (setq result nil)) 
           ;; We found a reader conditional we couldn't process for
           ;; some reason; however, there may still be other reader
           ;; conditionals before `limit'.
-          (invalid-read-syntax              ; e.g. #+#.foo
+          (invalid-read-syntax                ; e.g. #+#.foo
            (setq result 'retry))
-          (scan-error                       ; e.g. #+nil (foo ...
+          (scan-error                         ; e.g. #+nil (foo ...
            (setq result 'retry)) 
-          (slime-unknown-feature-expression ; e.g. #+(foo)
+          (slime-incorrect-feature-expression ; e.g. #+(not foo bar)
+           (setq result 'retry))
+          (slime-unknown-feature-expression   ; e.g. #+(foo)
            (setq result 'retry)) 
           (error
            (setq result nil)
@@ -299,6 +301,17 @@ position, or nil."
 
    *YES*
 \)
+
+*NO*")
+      ("#-(not) *YES* *NO*
+
+*NO*
+
+#+(not) *NO* *NO*
+
+*NO*
+
+#+(not a b c) *NO* *NO*
 
 *NO*"))
   (slime-check-top-level)
