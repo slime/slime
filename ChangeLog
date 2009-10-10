@@ -1,3 +1,9 @@
+2009-10-10  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el (slime-length=): Fix (slime-length= '() 0).
+	(slime-eval-feature-expression): Fix. Couldn't handle (NOT)
+	and (NOT FOO BAR).
+
 2009-10-09  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (stop-server): (list-threads) returns threads offset by 1,

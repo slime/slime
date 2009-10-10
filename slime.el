@@ -8321,8 +8321,10 @@ keys."
   (etypecase seq
     (list
      (let ((list seq))
-       (setq list (nthcdr (1- n) list))
-       (and list (null (cdr list)))))
+       (if (and (null list) (zerop n))
+           t
+           (let ((tail (nthcdr (1- n) list)))
+             (and tail (null (cdr tail)))))))
     (sequence
      (= (length seq) n))))
 
@@ -8450,8 +8452,12 @@ within. This includes nested comments (#| ... |#)."
                 name 
               (concat ":" name)))))
 
+(put 'slime-incorrect-feature-expression
+     'error-conditions '(slime-incorrect-feature-expression error))
+
 (put 'slime-unknown-feature-expression
-     'error-conditions '(slime-unknown-feature-expression error))
+     'error-conditions '(slime-unknown-feature-expression 
+                         slime-incorrect-feature-expression))
 
 (defun slime-eval-feature-expression (e)
   "Interpret a reader conditional expression."
@@ -8462,11 +8468,18 @@ within. This includes nested comments (#| ... |#)."
                     (case head
                       (:and #'every)
                       (:or #'some)
-                      (:not (lambda (f l) (not (apply f l))))
+                      (:not 
+                         (lexical-let ((feature-expression e))
+                           (lambda (f l) 
+                             (cond 
+                               ((slime-length= l 0) t)
+                               ((slime-length= l 1) (not (apply f l)))
+                               (t (signal 'slime-incorrect-feature-expression 
+                                          feature-expression))))))
                       (t (signal 'slime-unknown-feature-expression head))))
                   #'slime-eval-feature-expression
                   (cdr e)))
-        (t (signal 'slime-unknown-feature-expression e))))
+        (t (signal 'slime-incorrect-feature-expression e))))
 
 ;;;;; Extracting Lisp forms from the buffer or user
 
