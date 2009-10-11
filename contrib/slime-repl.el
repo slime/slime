@@ -847,14 +847,15 @@ earlier in the buffer."
                             (p (and (not (equal p (slime-lisp-package))) p)))
                        (slime-read-package-name "Package: " p))))
   (with-current-buffer (slime-output-buffer)
-    (let ((unfinished-input (slime-repl-current-input)))
+    (let ((previouse-point (- (point) slime-repl-input-start-mark)))
       (destructuring-bind (name prompt-string)
           (slime-repl-shortcut-eval `(swank:set-package ,package))
         (setf (slime-lisp-package) name)
         (setf (slime-lisp-package-prompt-string) prompt-string)
         (setf slime-buffer-package name)
         (slime-repl-insert-prompt)
-        (insert unfinished-input)))))
+        (when (plusp previouse-point)
+          (goto-char (+ previouse-point slime-repl-input-start-mark)))))))
 
 
 ;;;;; History
