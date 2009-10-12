@@ -3,6 +3,9 @@
 ;;;; License
 ;;     Copyright (C) 2003  Eric Marsden, Luke Gorrie, Helmut Eller
 ;;     Copyright (C) 2004,2005,2006  Luke Gorrie, Helmut Eller
+;;     Copyright (C) 2007,2008,2009  Helmut Eller, Tobias C. Rittweiler
+;;
+;;     For a detailed list of contributors, see the manual.
 ;;
 ;;     This program is free software; you can redistribute it and/or
 ;;     modify it under the terms of the GNU General Public License as
@@ -26,22 +29,27 @@
 ;; main features are:
 ;;
 ;;   A socket-based communication/RPC interface between Emacs and
-;;   Lisp.
+;;   Lisp, enabling introspection and remote development.
 ;;
 ;;   The `slime-mode' minor-mode complementing `lisp-mode'. This new
 ;;   mode includes many commands for interacting with the Common Lisp
 ;;   process.
 ;;
-;;   Common Lisp debugger written in Emacs Lisp. The debugger pops up
+;;   A Common Lisp debugger written in Emacs Lisp. The debugger pops up
 ;;   an Emacs buffer similar to the Emacs/Elisp debugger.
+;;
+;;   A Common Lisp inspector to interactively look at run-time data.
 ;;
 ;;   Trapping compiler messages and creating annotations in the source
 ;;   file on the appropriate forms.
 ;;
-;; SLIME is compatible with GNU Emacs 21, 22, 23 and XEmacs 21. In
-;; order to run SLIME requires a supporting Lisp server called
-;; Swank. Swank is distributed with slime.el and will automatically be
-;; started in a normal installation.
+;; SLIME is compatible with GNU Emacs 22, and 23; the maintainers do
+;; not use XEmacs, and hence do not cater for its support. Patches
+;; tend to be accepted, though.
+;;
+;; In order to run SLIME, a supporting Lisp server called Swank is
+;; required. Swank is distributed with slime.el and will automatically
+;; be started in a normal installation.
 
 
 ;;;; Dependencies and setup
