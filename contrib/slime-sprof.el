@@ -20,7 +20,10 @@
   "Mode for browsing profiler data\
 \\<slime-sprof-browser-mode-map>\
 \\{slime-sprof-browser-mode-map}"
+  :syntax-table lisp-mode-syntax-table
   (setq buffer-read-only t))
+
+(set-keymap-parent slime-sprof-browser-mode-map slime-parent-map)
 
 (slime-define-keys slime-sprof-browser-mode-map
   ("h" 'describe-mode)
