@@ -1,3 +1,8 @@
+2009-10-15  Helmut Eller  <heller@common-lisp.net>
+
+	* slime-repl.el (slime-repl-find-buffer-package): New function.
+	(slime-repl-init): Initialize slime-find-buffer-package-function.
+
 2009-10-14  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-sprof.el (slime-sprof-browser-mode-map): Make

@@ -43,9 +43,8 @@
 ;;   Trapping compiler messages and creating annotations in the source
 ;;   file on the appropriate forms.
 ;;
-;; SLIME is compatible with GNU Emacs 22, and 23; the maintainers do
-;; not use XEmacs, and hence do not cater for its support. Patches
-;; tend to be accepted, though.
+;; SLIME should work with Emacs 22 and 23.  If it works on XEmacs,
+;; consider yourself lucky.
 ;;
 ;; In order to run SLIME, a supporting Lisp server called Swank is
 ;; required. Swank is distributed with slime.el and will automatically
@@ -2258,9 +2257,7 @@ search for and read an `in-package' form."
   (or slime-buffer-package
       (save-restriction
         (widen)
-        (slime-find-buffer-package))
-      (when (fboundp 'slime-lisp-package)
-        (slime-lisp-package))))
+        (slime-find-buffer-package))))
 
 (defvar slime-find-buffer-package-function 'slime-search-buffer-package
   "*Function to use for `slime-find-buffer-package'.  

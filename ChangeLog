@@ -1,3 +1,7 @@
+2009-10-15  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-current-package): Move REPL stuff to contrib.
+
 2009-10-15  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (slime-current-package): Return REPL's package,

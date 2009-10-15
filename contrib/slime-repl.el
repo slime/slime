@@ -1551,9 +1551,14 @@ expansion will be added to the REPL's history.)"
      t)
     (t nil)))
 
+(defun slime-repl-find-buffer-package ()
+  (or (slime-search-buffer-package)
+      (slime-lisp-package)))
+
 (defun slime-repl-init ()
   (add-hook 'slime-event-hooks 'slime-repl-event-hook-function)
-  (add-hook 'slime-connected-hook 'slime-repl-connected-hook-function))
+  (add-hook 'slime-connected-hook 'slime-repl-connected-hook-function)
+  (setq slime-find-buffer-package-function 'slime-repl-find-buffer-package))
 
 (defun slime-repl-remove-hooks ()
   (remove-hook 'slime-event-hooks 'slime-repl-event-hook-function)
