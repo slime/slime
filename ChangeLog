@@ -1,3 +1,8 @@
+2009-10-15  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-current-package): Return REPL's package,
+	if other are unavailable and if slime-repl is loaded.
+
 2009-10-12  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el: Update copyright.

@@ -2258,7 +2258,9 @@ search for and read an `in-package' form."
   (or slime-buffer-package
       (save-restriction
         (widen)
-        (slime-find-buffer-package))))
+        (slime-find-buffer-package))
+      (when (fboundp 'slime-lisp-package)
+        (slime-lisp-package))))
 
 (defvar slime-find-buffer-package-function 'slime-search-buffer-package
   "*Function to use for `slime-find-buffer-package'.  
