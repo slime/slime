@@ -1,3 +1,10 @@
+2009-10-19  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (slime-list-threads): Update information before
+	setting the mode, otherwise it messes up current connection.
+
+	* doc/slime.texi: fix typo.
+
 2009-10-19  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank.lisp (without-printing-errors): New macro.

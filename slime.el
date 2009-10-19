@@ -1060,18 +1060,17 @@ current state will be saved and later restored."
      (with-current-buffer standard-output
        (prog1 (progn ,@body)
          (assert (eq (current-buffer) standard-output))
-         (setq buffer-read-only t)
          (slime-init-popup-buffer vars%)
+         (setq buffer-read-only t)
          (set-window-point (slime-display-popup-buffer ,(or select 'nil))
-                           (point))
-         (current-buffer)))))
+                           (point))))))
 
 (put 'slime-with-popup-buffer 'lisp-indent-function 1)
 
 (defun slime-make-popup-buffer (name buffer-vars)
   "Return a temporary buffer called NAME.
 The buffer also uses the minor-mode `slime-popup-buffer-mode'."
-  (with-current-buffer (or (get-buffer name) (get-buffer-create name))
+  (with-current-buffer (get-buffer-create name)
     (kill-all-local-variables)
     (setq buffer-read-only nil)
     (erase-buffer)
@@ -6227,9 +6226,9 @@ was called originally."
   (interactive)
   (let ((name slime-threads-buffer-name))
     (slime-with-popup-buffer (name nil t)
+      (slime-update-threads-buffer)
       (slime-thread-control-mode)
-      (setq slime-popup-buffer-quit-function 'slime-quit-threads-buffer)
-      (slime-update-threads-buffer))))
+      (setq slime-popup-buffer-quit-function 'slime-quit-threads-buffer))))
 
 (defun slime-quit-threads-buffer (&optional _)
   (slime-eval-async `(swank:quit-thread-browser))
