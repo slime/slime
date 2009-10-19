@@ -64,4 +64,17 @@ already knows."
           (list-all-systems-in-central-registry)
           :test #'string=))
 
+(defun asdf-module-files (module)
+  (mapcan #'(lambda (component)
+              (typecase component
+                (asdf:cl-source-file
+                 (list (asdf:component-pathname component)))
+                (asdf:module
+                 (asdf-module-files component))))
+          (asdf:module-components module)))
+
+(defslimefun asdf-system-files (system)
+  (mapcar #'namestring
+          (asdf-module-files (asdf:find-system system))))
+
 (provide :swank-asdf)

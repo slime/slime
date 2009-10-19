@@ -68,6 +68,15 @@ returns it if it's in `system-names'."
    `(swank:operate-on-system-for-emacs ,system ,operation ,@keyword-args)
    #'slime-compilation-finished))
 
+(defun slime-open-system (name &optional load)
+  (interactive (list (slime-read-system-name)
+                     (y-or-n-p "Load it? ")))
+  (when load
+    (slime-load-system name))
+  (slime-repl-shortcut-eval-async
+   `(swank:asdf-system-files ,name)
+   (lambda (files) (mapc 'find-file files))))
+
 (defslime-repl-shortcut slime-repl-load/force-system ("force-load-system")
   (:handler (lambda ()
               (interactive)
