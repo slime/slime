@@ -780,7 +780,7 @@ You can assign or change default key bindings globally using the
 which binds @kbd{C-c s} to the function @code{slime-selector}.
 
 Alternatively, if you want to assign or change a key binding in just a
-particular slime mode, you can use the @code{global-set-key} function
+particular slime mode, you can use the @code{define-key} function
 in your @file{~/.emacs} file like this:
 @example
 (define-key slime-repl-mode-map (kbd "C-c ;") 
