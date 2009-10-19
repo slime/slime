@@ -1,3 +1,13 @@
+2009-10-19  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank.lisp (without-printing-errors): New macro.
+	(to-string): Use it.
+	(to-line): Use it, too. This fixes printing error occuring during
+	inspecting to prevent the inspector from displaying something
+	useful.
+
+	Reported by xristos@suspicious.org.
+
 2009-10-15  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (slime-current-package): Move REPL stuff to contrib.

@@ -1952,18 +1952,42 @@ Emacs buffer."
         (let ((*readtable* *buffer-readtable*))
           (call-with-syntax-hooks fun)))))
 
+(defmacro without-printing-errors ((&key object stream
+                                        (msg "<<error printing object>>"))
+                                  &body body)
+  "Catches errors during evaluation of BODY and prints MSG instead."
+  `(handler-case (progn ,@body) 
+     (serious-condition ()
+       ,(cond ((and stream object)
+               (let ((gstream (gensym "STREAM+")))
+                 `(let ((,gstream ,stream))
+                    (print-unreadable-object (,object ,gstream :type t :identity t)
+                      (write-string ,msg ,gstream)))))
+              (stream
+               `(write-string ,msg ,stream))
+              (object
+               `(with-output-to-string (s)
+                  (print-unreadable-object (,object s :type t :identity t)
+                    (write-string ,msg  s))))
+              (t msg)))))
+
 (defun to-string (object)
   "Write OBJECT in the *BUFFER-PACKAGE*.
 The result may not be readable. Handles problems with PRINT-OBJECT methods
 gracefully."
   (with-buffer-syntax ()
     (let ((*print-readably* nil))
-      (handler-case
-          (prin1-to-string object)
-        (error ()
-          (with-output-to-string (s)
-            (print-unreadable-object (object s :type t :identity t)
-              (princ "<<error printing object>>" s))))))))
+      (without-printing-errors (:object object :stream nil)
+        (prin1-to-string object)))))
+
+(defun to-line  (object &optional (width 75))
+  "Print OBJECT to a single line. Return the string."
+  (without-printing-errors (:object object :stream nil)
+    (call/truncated-output-to-string
+     width
+     (lambda (*standard-output*)
+       (write object :right-margin width :lines 1))
+     "..")))
 
 (defun from-string (string)
   "Read string in the *BUFFER-PACKAGE*"
@@ -2300,6 +2324,7 @@ aborted and return immediately with the output written so far."
                    (replace buffer ellipsis :start1 fill-pointer)
                    (return-from buffer-full buffer)))))
         (let ((stream (make-output-stream #'write-output)))
+          
           (funcall function stream)
           (finish-output stream)
           (subseq buffer 0 fill-pointer))))))
@@ -3374,13 +3399,7 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
         (format nil "#~D=~A" pos string)
         string)))
 
-;; Print OBJECT to a single line. Return the string.
-(defun to-line  (object &optional (width 75))
-  (call/truncated-output-to-string
-   width
-   (lambda (*standard-output*)
-     (write object :right-margin width :lines 1))
-   ".."))
+
 
 (defun content-range (list start end)
   (typecase list
