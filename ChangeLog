@@ -1,5 +1,10 @@
 2009-10-19  Stas Boukarev  <stassats@gmail.com>
 
+	* swank-sbcl.lisp (thread-description): Remove it and supporting code,
+	because it didn't really work.
+
+	* swank.lisp (with-thread-description): Remove unused macro.
+
 	* slime.el (slime-list-threads): Update information before
 	setting the mode, otherwise it messes up current connection.
 

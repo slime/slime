@@ -1593,8 +1593,6 @@ NIL if streams are not globally redirected.")
 
 ;;; Channels
 
-(progn
-
 (defvar *channels* '())
 (defvar *channel-counter* 0)
 
@@ -1705,30 +1703,7 @@ NIL if streams are not globally redirected.")
            (unless ok
              (send-to-remote-channel remote `(:read-aborted ,tag)))))))))
 
-)
-
-(defun call-with-thread-description (description thunk)
-  ;; For `M-x slime-list-threads': Display what threads
-  ;; created by swank are currently doing.
-  (flet ((request-to-string (req)
-           (remove #\Newline
-                   (string-trim '(#\Space #\Tab)
-                                (prin1-to-string req))))
-         (truncate-string (str n)
-           (format nil "~A..." (subseq str 0 (min (length str) n)))))
-    (let* ((thread (current-thread))
-           (old-description (thread-description thread)))
-      (set-thread-description thread 
-                              (truncate-string (request-to-string description)
-                                               55))
-      (unwind-protect (funcall thunk)
-        (set-thread-description thread old-description)))))
-
-
-
-
-(defmacro with-thread-description (description &body body)
-  `(call-with-thread-description ,description #'(lambda () ,@body)))
+
 
 (defun decode-message (stream)
   "Read an S-expression from STREAM using the SLIME protocol."

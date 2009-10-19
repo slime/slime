@@ -1380,43 +1380,9 @@ stack."
 
   (defimplementation thread-status (thread)
     (if (sb-thread:thread-alive-p thread)
-        "RUNNING"
-        "STOPPED"))
-  #+#.(swank-backend::sbcl-with-weak-hash-tables)
-  (progn
-    (defparameter *thread-description-map*
-      (make-weak-key-hash-table))
-
-    (defvar *thread-descr-map-lock*
-      (sb-thread:make-mutex :name "thread description map lock"))
-    
-    (defimplementation thread-description (thread)
-      (sb-thread:with-mutex (*thread-descr-map-lock*)
-        (or (gethash thread *thread-description-map*)
-            (short-backtrace thread 6 10))))
-
-    (defimplementation set-thread-description (thread description)
-      (sb-thread:with-mutex (*thread-descr-map-lock*)
-        (setf (gethash thread *thread-description-map*) description)))
-
-    (defun short-backtrace (thread start count)
-      (let ((self (current-thread))
-            (tag (get-internal-real-time)))
-        (sb-thread:interrupt-thread
-         thread
-         (lambda ()
-           (let* ((frames (nthcdr start (sb-debug:backtrace-as-list count))))
-             (send self (cons tag frames)))))
-        (handler-case
-            (sb-ext:with-timeout 0.1
-              (let ((frames (cdr (receive-if (lambda (msg) 
-                                               (eq (car msg) tag)))))
-                    (*print-pretty* nil))
-                (format nil "~{~a~^ <- ~}" (mapcar #'car frames))))
-          (sb-ext:timeout () ""))))
-
-    )
-
+        "Running"
+        "Stopped"))
+  
   (defimplementation make-lock (&key name)
     (sb-thread:make-mutex :name name))
 
