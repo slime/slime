@@ -1,3 +1,11 @@
+2009-10-19  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-asdf.el (slime-open-system): New command for opening all files
+	in a system.
+
+	* swank-asdf.lisp (asdf-system-files): New function for listing all
+	files in a system.
+
 2009-10-15  Helmut Eller  <heller@common-lisp.net>
 
 	* slime-repl.el (slime-repl-find-buffer-package): New function.
