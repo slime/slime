@@ -33,26 +33,19 @@ returned.\)
 If SKIP-BLANKS-P is true, leading whitespaces &c are skipped.
 "
   (interactive "p") (or n (setq n 1))
-  (flet ((sexp-at-point (first-choice)
-           (let ((string (if (eq first-choice :symbol-first)
-                             (or (slime-symbol-at-point)
-                                 (thing-at-point 'sexp))
-                             (or (thing-at-point 'sexp)
-                                 (slime-symbol-at-point)))))
-             (if string (substring-no-properties string) nil))))
-    (save-excursion
-      (when skip-blanks-p ; e.g. `( foo bat)' where point is after ?\(.
-        (slime-forward-blanks))
-      (let ((result nil))
-        (dotimes (i n)
-          (push (slime-sexp-at-point) result)
-          ;; Skip current sexp
-          (ignore-errors (forward-sexp) (slime-forward-blanks))
-          ;; Is there an additional sexp in front of us?
-          (save-excursion
-            (unless (slime-point-moves-p (ignore-errors (forward-sexp)))
-              (return))))
-        (nreverse result)))))
+  (save-excursion
+    (when skip-blanks-p ; e.g. `( foo bat)' where point is after ?\(.
+      (slime-forward-blanks))
+    (let ((result nil))
+      (dotimes (i n)
+        ;; Is there an additional sexp in front of us?
+        (save-excursion
+          (unless (slime-point-moves-p (ignore-errors (forward-sexp)))
+            (return)))
+        (push (slime-sexp-at-point) result)
+        ;; Skip current sexp
+        (ignore-errors (forward-sexp) (slime-forward-blanks)))
+      (nreverse result))))
 
 (defun slime-has-symbol-syntax-p (string)
   (if (and string (not (zerop (length string))))
@@ -128,8 +121,7 @@ the operator."
             (let* ((args (slime-parse-sexp-at-point n))
                    (arg-specs (mapcar #'slime-make-form-spec-from-string args)))
               (setq current-forms (cons `(,name ,@arg-specs) old-forms))))
-          (values current-forms current-indices current-points)
-          ))))
+          (values current-forms current-indices current-points)))))
 
 ;;; FIXME: We display "(proclaim (optimize ...))" instead of the
 ;;; correct "(proclaim '(optimize ...))".

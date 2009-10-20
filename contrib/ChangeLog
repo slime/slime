@@ -1,3 +1,8 @@
+2009-10-20  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-parse.el (slime-parse-sexp-at-point): Remove unused flet.
+	Check for existence of a sexp before trying to parse, not after.
+
 2009-10-19  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-asdf.el (slime-open-system): New command for opening all files
