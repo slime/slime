@@ -1,3 +1,8 @@
+2009-10-20  Martin Simmons  <martin@lispworks.com>
+
+	* swank-lispworks.lisp (call-without-interrupts): Discourage use.
+	(interesting-frame-p): Never show open frame bogons.
+
 2009-10-19  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-sbcl.lisp (thread-description): Remove it and supporting code,
