@@ -115,16 +115,20 @@ CONTRIBS is a list of contrib packages to load."
        'common-lisp-indent-function))
 
 (eval-and-compile
-  (defun slime-changelog-date ()
+  (defun slime-changelog-date (&optional interactivep)
     "Return the datestring of the latest entry in the ChangeLog file.
 Return nil if the ChangeLog file cannot be found."
-    (let ((changelog (concat slime-path "ChangeLog")))
-      (if (file-exists-p changelog)
-          (with-temp-buffer 
-            (insert-file-contents-literally changelog nil 0 100)
-            (goto-char (point-min))
-            (symbol-name (read (current-buffer))))
-        nil))))
+    (interactive "p")
+    (let ((changelog (concat slime-path "ChangeLog"))
+          (date nil))
+      (when (file-exists-p changelog)
+        (with-temp-buffer 
+          (insert-file-contents-literally changelog nil 0 100)
+          (goto-char (point-min))
+          (setq date (symbol-name (read (current-buffer))))))
+      (when interactivep
+        (message "Slime ChangeLog dates %s." date))
+      date)))
 
 (defvar slime-protocol-version nil)
 (setq slime-protocol-version
