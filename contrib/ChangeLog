@@ -2,6 +2,10 @@
 
 	* slime-asdf.el (slime-browse-system): Open the parent directory of
 	an .asd file, not just files defined in it.
+	(slime-open-system): Open files in another window.
+
+	* swank-asdf.lisp (asdf-system-files): Put file with the same name as
+	a system at the first place.
 
 2009-10-21  Stas Boukarev  <stassats@gmail.com>
 

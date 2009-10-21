@@ -74,8 +74,14 @@ already knows."
           (asdf:module-components module)))
 
 (defslimefun asdf-system-files (system)
-  (mapcar #'namestring
-          (asdf-module-files (asdf:find-system system))))
+  (let* ((files (mapcar #'namestring
+                        (asdf-module-files (asdf:find-system system))))
+         (main-file (find system files
+                          :test #'string-equal
+                          :key #'pathname-name)))
+    (if main-file
+        (cons main-file (remove main-file files :test #'equalp))
+        files)))
 
 (defslimefun asdf-system-loaded-p (system)
   (gethash 'asdf:load-op

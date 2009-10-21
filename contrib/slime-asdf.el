@@ -78,7 +78,11 @@ returns it if it's in `system-names'."
     (slime-load-system name))
   (slime-eval-async
    `(swank:asdf-system-files ,name)
-   (lambda (files) (mapc 'find-file files))))
+   (lambda (files)
+     (when files
+       (let ((files (nreverse files)))
+         (find-file-other-window (car files))
+         (mapc 'find-file (cdr files)))))))
 
 (defun slime-browse-system (name)
   "Browse files in an ASDF system using Dired."
