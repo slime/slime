@@ -1,3 +1,10 @@
+2009-10-21  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-asdf.el (slime-browse-system): New command for browsing
+	files in asdf using Dired.
+
+	* swank-asdf.lisp (asdf-system-loaded-p): New function.
+
 2009-10-20  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-parse.el (slime-parse-sexp-at-point): Remove unused flet.

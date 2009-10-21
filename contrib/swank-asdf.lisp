@@ -77,4 +77,8 @@ already knows."
   (mapcar #'namestring
           (asdf-module-files (asdf:find-system system))))
 
+(defslimefun asdf-system-loaded-p (system)
+  (gethash 'asdf:load-op
+           (asdf::component-operation-times (asdf:find-system system))))
+
 (provide :swank-asdf)

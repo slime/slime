@@ -1,3 +1,7 @@
+2009-10-21  Stas Boukarev  <stassats@gmail.com>
+
+	* doc/slime.texi (ASDF): Document new commands.
+
 2009-10-20  Martin Simmons  <martin@lispworks.com>
 
 	* swank-lispworks.lisp (call-without-interrupts): Discourage use.
