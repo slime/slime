@@ -2522,8 +2522,8 @@ Compile and load an ASDF system.  The default system name is taken
 from the first file matching *.asd in the current directory.
 @cmditem{slime-open-system NAME &optional LOAD}
 Open all files in a system, optionally load it if LOAD is non-nil.
-@cmditem{slime-browse-system NAME &optional LOAD}
-Browse files in a system using Dired, optionally load it if LOAD is non-nil.
+@cmditem{slime-browse-system NAME}
+Browse files in a system using Dired.
 @end table
 
 The package also installs some new REPL shortcuts (@pxref{Shortcuts}):

@@ -1,5 +1,10 @@
 2009-10-21  Stas Boukarev  <stassats@gmail.com>
 
+	* slime-asdf.el (slime-browse-system): Open the parent directory of
+	an .asd file, not just files defined in it.
+
+2009-10-21  Stas Boukarev  <stassats@gmail.com>
+
 	* slime-asdf.el (slime-browse-system): New command for browsing
 	files in asdf using Dired.
 

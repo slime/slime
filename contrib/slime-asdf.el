@@ -80,21 +80,16 @@ returns it if it's in `system-names'."
    `(swank:asdf-system-files ,name)
    (lambda (files) (mapc 'find-file files))))
 
-(defun slime-browse-system (name &optional load)
+(defun slime-browse-system (name)
   "Browse files in an ASDF system using Dired."
   (interactive (list (slime-read-system-name)))
-  (when (or load
-            (and (called-interactively-p)
-                 (not (slime-eval `(swank:asdf-system-loaded-p ,name)))
-                 (y-or-n-p "Load it? ")))
-    (slime-load-system name))
-  (slime-eval-async
-   `(swank:asdf-system-files ,name)
-   (lexical-let ((name name))
-     (lambda (files)
-       (when files
-         (dired (cons (format "ASDF system %s" name)
-                      files)))))))
+  (slime-eval-async 
+   `(cl:directory-namestring
+     (cl:truename
+      (asdf:system-definition-pathname (asdf:find-system ,name))))
+   (lambda (directory)
+     (when directory
+       (dired directory)))))
 
 (defslime-repl-shortcut slime-repl-load/force-system ("force-load-system")
   (:handler (lambda ()
