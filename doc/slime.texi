@@ -2520,6 +2520,10 @@ you will get errors about missing symbols.
 @cmditem{slime-load-system NAME}
 Compile and load an ASDF system.  The default system name is taken
 from the first file matching *.asd in the current directory.
+@cmditem{slime-open-system NAME &optional LOAD}
+Open all files in a system, optionally load it if LOAD is non-nil.
+@cmditem{slime-browse-system NAME &optional LOAD}
+Browse files in a system using Dired, optionally load it if LOAD is non-nil.
 @end table
 
 The package also installs some new REPL shortcuts (@pxref{Shortcuts}):
@@ -2533,6 +2537,10 @@ Compile (but not load) an ASDF system.
 Recompile (but not load) an ASDF system.
 @item force-load-system
 Recompile and load an ASDF system.
+@item open-system
+Open all files in a system.
+@item browse-system
+Browse files in a system using Dired.
 @end table
 
 @node Banner
