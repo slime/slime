@@ -2487,10 +2487,14 @@ Debugged requests are ignored."
   (slime-net-send sexp (slime-connection)))
 
 (defun slime-reset ()
-  "Clear all pending continuations."
+  "Clear all pending continuations and erase connection buffer."
   (interactive)
   (setf (slime-rex-continuations) '())
-  (mapc #'kill-buffer (sldb-buffers)))
+  (mapc #'kill-buffer (sldb-buffers))
+  ;; Due to character encoding errors, a half-processed RPC result may
+  ;; get stuck in the connection buffer and keep Slime choking.
+  (slime-with-connection-buffer ()
+    (erase-buffer)))
 
 (defun slime-send-sigint ()
   (interactive)

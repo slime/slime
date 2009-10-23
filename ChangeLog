@@ -1,3 +1,11 @@
+2009-10-23  Tobias C. Rittweiler <tcr@freebits.de>
+
+	When ever Slime seems to get stuck (e.g. after some character
+	encoding confusion), `M-x slime-reset' should hopefully bring it
+	into a functional state again.
+
+	* slime.el (slime-reset): Erase connection buffer.
+
 2009-10-21  Tobias C. Rittweiler <tcr@freebits.de>
 
 	Make M-x slime-changelog-date work.
