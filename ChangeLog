@@ -1,5 +1,17 @@
 2009-10-23  Tobias C. Rittweiler <tcr@freebits.de>
 
+	Restarts in SLDB are now numbered reversely. The rationale is that
+	always-existing restarts are likely to be associated with the same
+	number now.
+
+	* slime.el (sldb-insert-restarts): Number restart reversely.
+	(sldb-restart-number-for-swank): New; recompute the unreversed
+	number for the swank side.
+	(sldb-restart-number-at-point): Previously `sldb-restart-at-point'.
+	(sldb-invoke-restart): Adapted accordingly.
+
+2009-10-23  Tobias C. Rittweiler <tcr@freebits.de>
+
 	When ever Slime seems to get stuck (e.g. after some character
 	encoding confusion), `M-x slime-reset' should hopefully bring it
 	into a functional state again.
