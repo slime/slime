@@ -1,3 +1,27 @@
+2009-10-24  Tobias C. Rittweiler <tcr@freebits.de>
+
+	New command C-M-, to go to previous xref location.
+
+	[Old command C-M-. to go to next xref location.]
+
+	Xref buffers are not automatically selected anymore; it's more
+	ergonomic to cycle through them via C-M-. and C-M-, from
+	within the source buffer.
+
+	* slime.el (slime-search-property): Simplify slightly.
+	(slime-find-next-note): Use it.
+	(slime-find-previous-note): Use it, too.
+	(slime-find-note): Deleted.
+	(slime-editing-keys): Add C-M-,.
+	(slime-previous-location-function): New variable.
+	(slime-previous-location): New command.
+	(slime-with-xref-buffer): Do not select Xref buffer.
+	(slime-show-xref-buffer): Adapted accordingly.
+	(slime-goto-next-xref): Highlight current item on C-M-. and C-M-,.
+	(slime-goto-previous-xref): New.
+	(slime-highlight-sexp): Renamed from `sldb-highlight-sexp'.
+	(slime-highlight-line): New.
+
 2009-10-24  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el (sldb-insert-restarts): Insert the proper numbers for

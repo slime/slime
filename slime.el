@@ -596,6 +596,7 @@ The string is periodically updated by an idle timer."))
     ;; Misc
     ("\C-c\C-u"   slime-undefine-function)
     (,(kbd "C-M-.")   slime-next-location)
+    (,(kbd "C-M-,")   slime-previous-location)
     ;; Obsolete, redundant bindings
     ("\C-c\C-i" slime-complete-symbol)
     ;;("\M-*" pop-tag-mark) ; almost to clever
@@ -3670,25 +3671,12 @@ The highlighting is automatically undone with a timer."
 (defun slime-find-next-note ()
   "Go to the next position with the `slime-note' text property.
 Retuns the note overlay if such a position is found, otherwise nil."
-  (slime-find-note 'next-single-char-property-change))
+  (slime-search-property 'slime-note))
 
 (defun slime-find-previous-note ()
-  "Go to the next position with the `slime' text property.
+  "Go to the next position with the `slime-note' text property.
 Retuns the note overlay if such a position is found, otherwise nil."
-  (slime-find-note 'previous-single-char-property-change))
-
-(defun slime-find-note (next-candidate-fn)
-  "Seek out the beginning of a note.
-NEXT-CANDIDATE-FN is called to find each new position for consideration.
-Return the note overlay if such a position is found, otherwise nil."
-  (let ((origin (point))
-        (overlay))
-    (loop do (goto-char (funcall next-candidate-fn (point) 'slime-note))
-          until (or (setq overlay (slime-note-at-point))
-                    (eobp)
-                    (bobp)))
-    (unless overlay (goto-char origin))
-    overlay))
+  (slime-search-property 'slime-note t))
 
 
 ;;;; Arglist Display
@@ -4863,7 +4851,10 @@ The most important commands:
   "Execute BODY in a xref buffer, then show that buffer."
   `(let ((xref-buffer-name% (format "*slime xref[%s: %s]*" 
                                     ,xref-type ,symbol)))
-     (slime-with-popup-buffer (xref-buffer-name% ,package t t ,emacs-snapshot)
+     ;; Do not select the xref buffer; it's most often more ergonomic
+     ;; to move through the xref buffer implicitly from the source
+     ;; buffer by using C-M-. and C-M-,.
+     (slime-with-popup-buffer (xref-buffer-name% ,package t nil ,emacs-snapshot)
        (slime-xref-mode)
        (slime-set-truncate-lines)
        (erase-buffer)
@@ -4889,13 +4880,15 @@ source-location."
   (slime-with-xref-buffer (type symbol package emacs-snapshot)
     (slime-insert-xrefs xrefs)
     (goto-char (point-min))
-    (forward-line)
-    (skip-chars-forward " \t")
     (setq slime-next-location-function 'slime-goto-next-xref)
-    (setq slime-xref-last-buffer (current-buffer ))))
+    (setq slime-previous-location-function 'slime-goto-previous-xref)
+    (setq slime-xref-last-buffer (current-buffer))))
 
 (defvar slime-next-location-function nil
   "Function to call for going to the next location.")
+
+(defvar slime-previous-location-function nil
+  "Function to call for going to the previous location.")
 
 (defvar slime-xref-last-buffer nil
   "The most recent XREF results buffer.
@@ -5036,35 +5029,49 @@ This is used by `slime-goto-next-xref'")
   (interactive)
   (let ((location (slime-xref-location-at-point)))
     (slime-show-source-location location)))
-      
+
 (defun slime-goto-next-xref (&optional backward)
   "Goto the next cross-reference location."
-  (let ((location 
-         (and (buffer-live-p slime-xref-last-buffer)
-              (with-current-buffer slime-xref-last-buffer
-                (slime-search-property 'slime-location backward)))))
-    (cond ((slime-location-p location)
-           (slime-pop-to-location location))
-          ((null location)
-           (message "No more xrefs."))
-          (t ; error
-           (slime-goto-next-xref backward)))))
+  (if (not (buffer-live-p slime-xref-last-buffer))
+      (error "No XREF buffer alive.")
+    (multiple-value-bind (location pos)
+        (with-current-buffer slime-xref-last-buffer
+          (values (slime-search-property 'slime-location backward)
+                  (point)))
+      (cond ((slime-location-p location)
+             (slime-pop-to-location location)
+             ;; We do this here because changing the location can take
+             ;; a while when Emacs needs to read a file from disk.
+             (with-current-buffer slime-xref-last-buffer
+               (slime-show-buffer-position pos)
+               (slime-highlight-line 0.35)))
+            ((null location)
+             (message (if backward "No previous xref" "No next xref.")))
+            (t ; error location
+             (slime-goto-next-xref backward))))))
+
+(defun slime-goto-previous-xref ()
+  "Goto the previous cross-reference location."
+  (slime-goto-next-xref t))
 
 (defun slime-search-property (prop &optional backward)
   "Search the next text range where PROP is non-nil.
 If found, return the value of the property; otherwise return nil.
 If BACKWARD is non-nil, search backward."
-  (let ((fun (cond (backward #'previous-single-char-property-change)
-                   (t #'next-single-char-property-change)))
-        (test (lambda () (get-text-property (point) prop)))
-        (start (point)))
+  (let ((next-candidate (if backward 
+                            #'previous-single-char-property-change
+                            #'next-single-char-property-change))
+        (start (point))
+        (prop-value))
     (while (progn 
-             (goto-char (funcall fun (point) prop))
-             (not (or (funcall test) 
+             (goto-char (funcall next-candidate (point) prop))
+             (not (or (setq prop-value (get-text-property (point) prop)) 
                       (eobp) 
                       (bobp)))))
-    (or (funcall test)
-        (progn (goto-char start) nil))))
+    (if prop-value
+        prop-value
+     (goto-char start)
+     nil)))
 
 (defun slime-next-location ()
   "Go to the next location, depending on context.
@@ -5073,6 +5080,14 @@ When displaying XREF information, this goes to the next reference."
   (when (null slime-next-location-function)
     (error "No context for finding locations."))
   (funcall slime-next-location-function))
+
+(defun slime-previous-location ()
+  "Go to the previous location, depending on context.
+When displaying XREF information, this goes to the previous reference."
+  (interactive)
+  (when (null slime-previous-location-function)
+    (error "No context for finding locations."))
+  (funcall slime-previous-location-function))
 
 (defun slime-recompile-xref (&optional raw-prefix-arg)
   (interactive "P")
@@ -5791,7 +5806,7 @@ Called on the `point-entered' text-property hook."
       (select-window window)
       (goto-char position)
       (ecase recenter
-        (top (recenter 0))
+        (top    (recenter 0))
         (center (recenter))
         ((nil)
          (unless (pos-visible-in-window-p)
@@ -5924,14 +5939,19 @@ This is 0 if START and END at the same line."
 (defun slime-show-source-location (source-location &optional no-highlight-p)
   (save-selected-window   ; show the location, but don't hijack focus.
     (slime-goto-source-location source-location)
-    (unless no-highlight-p (sldb-highlight-sexp))
+    (unless no-highlight-p (slime-highlight-sexp))
     (slime-show-buffer-position (point))))
 
-(defun sldb-highlight-sexp (&optional start end)
+(defun slime-highlight-sexp (&optional start end)
   "Highlight the first sexp after point."
   (let ((start (or start (point)))
 	(end (or end (save-excursion (ignore-errors (forward-sexp)) (point)))))
     (slime-flash-region start end)))
+
+(defun slime-highlight-line (&optional timeout)
+  (slime-flash-region (+ (line-beginning-position) (current-indentation)) 
+                      (line-end-position)
+                      timeout))
 
 
 ;;;;;; SLDB toggle details
