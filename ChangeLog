@@ -1,3 +1,12 @@
+2009-10-24  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (sldb-insert-restarts): Insert the proper numbers for
+	the --more-- button.
+	(sldb-restart-number-at-point): Rename back to
+	sldb-restart-at-point.  Don't use
+	confisingly-verbose-names-for-no-good-reason.
+	(sldb-restart-number-for-swank): Deleted.
+
 2009-10-23  Tobias C. Rittweiler <tcr@freebits.de>
 
 	Restarts in SLDB are now numbered reversely. The rationale is that

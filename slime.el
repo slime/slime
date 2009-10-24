@@ -5485,7 +5485,7 @@ Full list of commands:
     (eval `(defun ,fname ()
              ,docstring
              (interactive)
-             (sldb-invoke-restart (sldb-restart-number-for-swank ,number))))
+             (sldb-invoke-restart (- (length sldb-restarts) number 1))))
     (define-key sldb-mode-map (number-to-string number) fname)))
 
 
@@ -5630,17 +5630,15 @@ EXTRAS is currently used for the stepper."
 RESTARTS should be a list ((NAME DESCRIPTION) ...)."
   (let* ((len (length restarts))
          (end (if count (min (+ start count) len) len)))
-    ;; N.B. We deliberately number the restarts reversely so always
-    ;; existing restarts (e.g. SWANK's RETRY restart) will likely get
-    ;; the same numeric value.
     (loop for (name string) in (subseq restarts start end)
-          for number from (1- len) downto start
+          for number from start  
+          for i downfrom (- len start 1)
           do (unless (bolp) (insert "\n"))
              (slime-insert-propertized
-               `(,@nil sldb-restart-number ,number
+               `(,@nil restart ,number
                        sldb-default-action sldb-invoke-restart
                        mouse-face highlight)
-               " " (in-sldb-face restart-number (number-to-string number))
+               " " (in-sldb-face restart-number (number-to-string i))
                ": ["  (in-sldb-face restart-type name) "] "
                (in-sldb-face restart string))
              (insert "\n"))
@@ -5656,10 +5654,6 @@ RESTARTS should be a list ((NAME DESCRIPTION) ...)."
   (let ((inhibit-read-only t))
     (delete-region position (1+ (line-end-position)))
     (sldb-insert-restarts restarts start nil)))
-
-;;; Fix up the reverse ordering. Cf. `sldb-insert-restarts'.
-(defun sldb-restart-number-for-swank (restart-number)
-  (- (length sldb-restarts) (1+ restart-number)))
 
 (defun sldb-frame.string (frame)
   (destructuring-bind (_ str &optional _) frame str))
@@ -5739,11 +5733,9 @@ Called on the `point-entered' text-property hook."
 
 ;;;;;; SLDB examining text props
 
-(defun sldb-restart-number-at-point ()
-  (let ((n (get-text-property (point) 'sldb-restart-number)))
-    (unless n
-      (error "No restart at point"))
-    (sldb-restart-number-for-swank n)))
+(defun sldb-restart-at-point ()
+  (or (get-text-property (point) 'restart)
+      (error "No restart at point")))
 
 (defun sldb-frame-number-at-point ()
   (let ((frame (get-text-property (point) 'frame)))
@@ -6141,7 +6133,7 @@ VAR should be a plist with the keys :name, :id, and :value."
 Optional NUMBER (index into `sldb-restarts') specifies the
 restart to invoke, otherwise use the restart at point."
   (interactive)
-  (let ((restart (or number (sldb-restart-number-at-point))))
+  (let ((restart (or number (sldb-restart-at-point))))
     (slime-rex ()
         ((list 'swank:invoke-nth-restart-for-emacs sldb-level restart))
       ((:ok value) (message "Restart returned: %s" value))
