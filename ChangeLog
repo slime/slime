@@ -1,5 +1,10 @@
 2009-10-24  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank-ccl.lisp (who-specializes): Do not signal an error if
+	argument does not name a class.
+
+2009-10-24  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank.lisp (xref): Deal with non-yet-interned names gracefully.
 
 2009-10-24  Tobias C. Rittweiler <tcr@freebits.de>

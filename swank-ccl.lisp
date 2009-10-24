@@ -303,11 +303,14 @@
    :test 'equal))
 
 (defimplementation who-specializes (class)
-  (delete-duplicates
-   (mapcar (lambda (m) 
-             (car (find-definitions m)))
-           (ccl:specializer-direct-methods (if (symbolp class) (find-class class) class)))
-   :test 'equal))
+  (when (symbolp class)
+    (setq class (find-class class nil)))
+  (when class
+    (delete-duplicates
+     (mapcar (lambda (m) 
+               (car (find-definitions m)))
+             (ccl:specializer-direct-methods class))
+     :test 'equal)))
 
 (defimplementation list-callees (name)
   (remove-duplicates
