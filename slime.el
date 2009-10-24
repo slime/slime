@@ -3671,12 +3671,12 @@ The highlighting is automatically undone with a timer."
 (defun slime-find-next-note ()
   "Go to the next position with the `slime-note' text property.
 Retuns the note overlay if such a position is found, otherwise nil."
-  (slime-search-property 'slime-note))
+  (slime-search-property 'slime-note nil #'slime-note-at-point))
 
 (defun slime-find-previous-note ()
   "Go to the next position with the `slime-note' text property.
 Retuns the note overlay if such a position is found, otherwise nil."
-  (slime-search-property 'slime-note t))
+  (slime-search-property 'slime-note t #'slime-note-at-point))
 
 
 ;;;; Arglist Display
@@ -5054,18 +5054,22 @@ This is used by `slime-goto-next-xref'")
   "Goto the previous cross-reference location."
   (slime-goto-next-xref t))
 
-(defun slime-search-property (prop &optional backward)
+(defun slime-search-property (prop &optional backward prop-value-fn)
   "Search the next text range where PROP is non-nil.
-If found, return the value of the property; otherwise return nil.
+If found, call PROP-VALUE-FN if given, or return the value of the
+property; otherwise return nil.
 If BACKWARD is non-nil, search backward."
   (let ((next-candidate (if backward 
                             #'previous-single-char-property-change
                             #'next-single-char-property-change))
+        (prop-value-fn  (or prop-value-fn
+                            #'(lambda ()
+                                (get-text-property (point) prop))))
         (start (point))
         (prop-value))
     (while (progn 
              (goto-char (funcall next-candidate (point) prop))
-             (not (or (setq prop-value (get-text-property (point) prop)) 
+             (not (or (setq prop-value (funcall prop-value-fn)) 
                       (eobp) 
                       (bobp)))))
     (if prop-value

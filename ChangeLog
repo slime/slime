@@ -1,5 +1,12 @@
 2009-10-24  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* slime.el (slime-search-property): Add parameter to get value at
+	point propery changed.
+	(slime-find-next-note): Use it.
+	(slime-find-previous-note): Ditto.
+
+2009-10-24  Tobias C. Rittweiler <tcr@freebits.de>
+
 	New command C-M-, to go to previous xref location.
 
 	[Old command C-M-. to go to next xref location.]
