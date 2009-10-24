@@ -1968,7 +1968,7 @@ gracefully."
   "Read string in the *BUFFER-PACKAGE*"
   (with-buffer-syntax ()
     (let ((*read-suppress* nil))
-      (read-from-string string))))
+      (values (read-from-string string)))))
 
 (defun parse-string (string package)
   "Read STRING in PACKAGE."
@@ -3231,7 +3231,7 @@ Include the nicknames if NICKNAMES is true."
 (defslimefun find-definitions-for-emacs (name)
   "Return a list ((DSPEC LOCATION) ...) of definitions for NAME.
 DSPEC is a string and LOCATION a source location. NAME is a string."
-  (multiple-value-bind (sexp error) (ignore-errors (values (from-string name)))
+  (multiple-value-bind (sexp error) (ignore-errors (from-string name))
     (unless error
       (mapcar #'xref>elisp (find-definitions sexp)))))
 
@@ -3248,12 +3248,12 @@ DSPEC is a string and LOCATION a source location. NAME is a string."
     (:callees (list-callees symbol))))
 
 (defslimefun xref (type name)
-  (with-buffer-syntax ()
-    (let* ((symbol (parse-symbol-or-lose name))
-           (xrefs  (xref-doit type symbol)))
-      (if (eq xrefs :not-implemented)
-          :not-implemented
-          (mapcar #'xref>elisp xrefs)))))
+  (multiple-value-bind (sexp error) (ignore-errors (from-string name))
+    (unless error
+      (let ((xrefs  (xref-doit type sexp)))
+        (if (eq xrefs :not-implemented)
+            :not-implemented
+            (mapcar #'xref>elisp xrefs))))))
 
 (defslimefun xrefs (types name)
   (loop for type in types

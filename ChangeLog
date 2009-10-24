@@ -1,5 +1,9 @@
 2009-10-24  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* swank.lisp (xref): Deal with non-yet-interned names gracefully.
+
+2009-10-24  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* slime.el (slime-search-property): Add parameter to get value at
 	point propery changed.
 	(slime-find-next-note): Use it.
