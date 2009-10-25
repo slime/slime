@@ -5385,7 +5385,10 @@ CL:MACROEXPAND."
    "Current debug level (recursion depth) displayed in buffer.")
 
  (defvar sldb-backtrace-start-marker nil
-   "Marker placed at the beginning of the backtrace text.")
+   "Marker placed at the first frame of the backtrace.")
+
+ (defvar sldb-restart-list-start-marker nil
+  "Marker placed at the first restart in the restart list.")
 
  (defvar sldb-continuations nil
    "List of ids for pending continuation."))
@@ -5463,13 +5466,15 @@ Full list of commands:
 (set-keymap-parent sldb-mode-map slime-parent-map)
 
 (slime-define-keys sldb-mode-map
-  ("h"    'describe-mode)
-  ("v"    'sldb-show-source)
+
   ((kbd "RET") 'sldb-default-action)
   ("\C-m"      'sldb-default-action)
   ([return] 'sldb-default-action)
   ([mouse-2]  'sldb-default-action/mouse)
   ([follow-link] 'mouse-face)
+  ("\C-i" 'sldb-cycle)
+  ("h"    'describe-mode)
+  ("v"    'sldb-show-source)
   ("e"    'sldb-eval-in-frame)
   ("d"    'sldb-pprint-eval-in-frame)
   ("D"    'sldb-disassemble)
@@ -5504,7 +5509,7 @@ Full list of commands:
     (eval `(defun ,fname ()
              ,docstring
              (interactive)
-             (sldb-invoke-restart (- (length sldb-restarts) number 1))))
+             (sldb-invoke-restart ,number)))
     (define-key sldb-mode-map (number-to-string number) fname)))
 
 
@@ -5569,7 +5574,8 @@ CONTS is a list of pending Emacs continuations."
       (setq sldb-restarts restarts)
       (setq sldb-continuations conts)
       (sldb-insert-condition condition)
-      (insert "\n\n" (in-sldb-face section "Restarts:"))
+      (insert "\n\n" (in-sldb-face section "Restarts:") "\n")
+      (setq sldb-restart-list-start-marker (point-marker))
       (sldb-insert-restarts restarts 0 sldb-initial-restart-limit)
       (insert "\n" (in-sldb-face section "Backtrace:") "\n")
       (setq sldb-backtrace-start-marker (point-marker))
@@ -5651,13 +5657,11 @@ RESTARTS should be a list ((NAME DESCRIPTION) ...)."
          (end (if count (min (+ start count) len) len)))
     (loop for (name string) in (subseq restarts start end)
           for number from start  
-          for i downfrom (- len start 1)
-          do (unless (bolp) (insert "\n"))
-             (slime-insert-propertized
+          do (slime-insert-propertized
                `(,@nil restart ,number
                        sldb-default-action sldb-invoke-restart
                        mouse-face highlight)
-               " " (in-sldb-face restart-number (number-to-string i))
+               " " (in-sldb-face restart-number (number-to-string number))
                ": ["  (in-sldb-face restart-type name) "] "
                (in-sldb-face restart string))
              (insert "\n"))
@@ -5903,6 +5907,17 @@ This is 0 if START and END at the same line."
       (goto-char pos)
       (let ((fn (get-text-property (point) 'sldb-default-action)))
 	(if fn (funcall fn))))))
+
+(defun sldb-cycle ()
+  "Cycle between restart list and backtrace."
+  (interactive)
+  (let ((pt (point)))
+    (cond ((< pt sldb-restart-list-start-marker)
+           (goto-char sldb-restart-list-start-marker))
+          ((< pt sldb-backtrace-start-marker)
+           (goto-char sldb-backtrace-start-marker))
+          (t
+           (goto-char sldb-restart-list-start-marker)))))
 
 (defun sldb-end-of-backtrace ()
   "Fetch the entire backtrace and go to the last frame."
@@ -6164,10 +6179,10 @@ restart to invoke, otherwise use the restart at point."
       ((:abort)))))
 
 (defun sldb-invoke-restart-by-name (restart-name)
-  (interactive (list (completing-read "Restart: "
-                                      sldb-restarts nil t
-                                      ""
-                                      'sldb-invoke-restart-by-name)))
+  (interactive (list (let ((completion-ignore-case t))
+                       (completing-read "Restart: " sldb-restarts nil t
+                                        ""
+                                        'sldb-invoke-restart-by-name))))
   (sldb-invoke-restart (position restart-name sldb-restarts 
                                  :test 'string= :key 'first)))
 

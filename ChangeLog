@@ -1,3 +1,20 @@
+2009-10-25  Tobias C. Rittweiler <tcr@freebits.de>
+
+	Revert the reversed numbering of restarts in sldb.
+
+	New command `sldb-cycle' ([tab]) in sldb will cycle between
+	restart list and backtrace.
+
+	Make sldb-invoke-restart-by-name case-insensitive.
+
+	* slime.el (sldb-mode-map): Bind Tab to `sldb-cycle'.
+	(sldb-restart-list-start-marker): New variable.
+	(sldb-setup): Store marker in it.
+	(sldb-cycle): New command to cycle between restart list and
+	backtrace.
+	(sldb-invoke-restart-by-name): Make completion case-insensitive.
+	(sldb-insert-restarts): Revert to old behaviour.
+
 2009-10-24  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* swank-ccl.lisp (who-specializes): Do not signal an error if
