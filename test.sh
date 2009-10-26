@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Run the SLIME test suite inside screen, saving the results to a file.
 

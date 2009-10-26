@@ -1,3 +1,7 @@
+2009-10-26  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* test.sh: Shebang on bash, not just on sh.
+
 2009-10-25  Tobias C. Rittweiler <tcr@freebits.de>
 
 	Revert the reversed numbering of restarts in sldb.
