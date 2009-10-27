@@ -1,3 +1,7 @@
+2009-10-27  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el: Fix some docstrings and comments.
+
 2009-10-26  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* test.sh: Shebang on bash, not just on sh.
