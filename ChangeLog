@@ -5,6 +5,7 @@
 	([test] arglist): Update expected results for slightly changed
 	printer settings.
 	([test] indentation): Install common-lisp-indent-function.
+	([undefun] display-warning): Fix it.
 
 	* test.sh: Don't copy contribs. Slime should work without them.
 	* swank-loader.lisp (setup): Compile contribs only if directory

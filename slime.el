@@ -74,7 +74,8 @@
   (require 'arc-mode)
   (require 'apropos)
   (require 'outline)
-  (require 'etags))
+  (require 'etags)
+  (require 'compile))
 
 (eval-and-compile 
   (defvar slime-path
@@ -8867,10 +8868,10 @@ If they are not, position point at the first syntax error found."
     (process &optional decoding encoding))
 
 ;; For Emacs 21
-(slime-DEFUN-if-undefined display-warning 
+(slime-DEFUN-if-undefined display-warning
     (type message &optional level buffer-name)
   (with-output-to-temp-buffer "*Warnings*"
-    (princ (apply #'format (concat "Warning (%s): " message) type args))))
+    (princ (format "Warning (%s %s): %s" type level message))))
 
 (unless (boundp 'temporary-file-directory)
   (defvar temporary-file-directory
