@@ -778,44 +778,6 @@ Single-line messages use the echo area."
 (defun slime-display-warning (message &rest args)
   (display-warning '(slime warning) (apply #'format message args)))
 
-(when (or (featurep 'xemacs))
-  (setq slime-message-function 'slime-format-display-message))
-
-(defun slime-format-display-message (format &rest args)
-  (slime-display-message (apply #'format format args) "*SLIME Note*"))
-
-(defun slime-display-message (message buffer-name) 
-  "Display MESSAGE in the echo area or in BUFFER-NAME.
-Use the echo area if MESSAGE needs only a single line.  If the MESSAGE
-requires more than one line display it in BUFFER-NAME and add a hook
-to `slime-pre-command-actions' to remove the window before the next
-command."
-  (when (get-buffer-window buffer-name) (delete-windows-on buffer-name))
-  (cond ((or (string-match "\n" message)
-             (> (length message) (1- (frame-width))))
-         (lexical-let ((buffer (get-buffer-create buffer-name)))
-           (with-current-buffer buffer
-             (erase-buffer)
-             (insert message)
-             (goto-char (point-min))
-             (let ((win (slime-create-message-window)))
-               (set-window-buffer win (current-buffer))
-               (shrink-window-if-larger-than-buffer
-                (display-buffer (current-buffer)))))
-           (push (lambda () (delete-windows-on buffer) (bury-buffer buffer))
-                 slime-pre-command-actions)))
-        (t (message "%s" message))))
-
-(defun slime-create-message-window ()
-  "Create a window at the bottom of the frame, above the minibuffer."
-  (let ((previous (previous-window (minibuffer-window))))
-    (when (<= (window-height previous) (* 2 window-min-height))
-      (save-selected-window 
-        (select-window previous)
-        (enlarge-window (- (1+ (* 2 window-min-height))
-                           (window-height previous)))))
-    (split-window previous)))
-
 (defvar slime-background-message-function 'slime-display-oneliner)
 
 ;; Interface
@@ -8904,10 +8866,11 @@ If they are not, position point at the first syntax error found."
 (slime-DEFUN-if-undefined set-process-coding-system 
     (process &optional decoding encoding))
 
-(slime-DEFUN-if-undefined display-warning  
-                          (type message &optional level buffer-name)
-  (slime-display-message (apply #'format (concat "Warning (%s): " message) type args)
-                         "*Warnings*"))
+;; For Emacs 21
+(slime-DEFUN-if-undefined display-warning 
+    (type message &optional level buffer-name)
+  (with-output-to-temp-buffer "*Warnings*"
+    (princ (apply #'format (concat "Warning (%s): " message) type args))))
 
 (unless (boundp 'temporary-file-directory)
   (defvar temporary-file-directory

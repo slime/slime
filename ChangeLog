@@ -1,3 +1,11 @@
+2009-10-28  Helmut Eller  <heller@common-lisp.net>
+
+	* slime.el (slime-format-display-message, slime-display-message)
+	(slime-create-message-window): Deleted.  The trick with the
+	pre-command-hook doesn't work in XEmacs 21.5.  So use the standard
+	message function.  One day XEmacs will learn how to resize the
+	minibuffer, but until then we have to live with one-line messages.
+
 2009-10-27  Helmut Eller  <heller@common-lisp.net>
 
 	* slime.el: Fix some docstrings and comments.
