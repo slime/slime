@@ -156,13 +156,6 @@ debugger backtraces and apropos listings."
   :type 'boolean
   :group 'slime-ui)
 
-(defcustom slime-extended-modeline t
-  "If non-nil, display various information in the mode line of a
-Lisp buffer. The information includes the current connection of
-that buffer, the buffer package, and some state indication."
-  :type 'boolean
-  :group 'slime-ui)
-
 (defcustom slime-kill-without-query-p nil
   "If non-nil, kill SLIME processes without query when quitting Emacs.
 This applies to the *inferior-lisp* buffer and the network connections."
@@ -417,31 +410,39 @@ Full set of commands:
   nil
   ;; Fake binding to coax `define-minor-mode' to create the keymap
   '((" " 'undefined))
-  (slime-setup-command-hooks))
+  (slime-setup-command-hooks)
+  (slime-recompute-modelines))
 
+
+;;;;;; Modeline
+
+;; For XEmacs only
 (make-variable-buffer-local
  (defvar slime-modeline-string nil
-   "The string that should be displayed in the modeline if
-`slime-extended-modeline' is true, and which indicates the
-current connection, package and state of a Lisp buffer.
-The string is periodically updated by an idle timer."))
+   "The string that should be displayed in the modeline."))
 
+(add-to-list 'minor-mode-alist
+             `(slime-mode ,(if (featurep 'xemacs)
+                               'slime-modeline-string
+                             '(:eval (slime-modeline-string)))))
 
-;;; These are used to keep track of old values, so we can determine
-;;; whether the mode line has changed, and should be updated.
-(make-variable-buffer-local
- (defvar slime-modeline-package nil))
-(make-variable-buffer-local
- (defvar slime-modeline-connection-name nil))
-(make-variable-buffer-local
- (defvar slime-modeline-connection-state nil))
-
-(defun slime-compute-modeline-package ()
-  (when (memq major-mode slime-lisp-modes)
-    ;; WHEN-LET is defined later.
-    (let ((package (slime-current-package)))
-      (when package
-        (slime-pretty-package-name package)))))
+(defun slime-modeline-string ()
+  "Return the string to display in the modeline.
+\"Slime\" only appears if we aren't connected.  If connected,
+include package-name, connection-name, and possibly some state
+information."
+  (let* ((conn (slime-current-connection))
+         (local (and conn (eq conn slime-buffer-connection)))
+         (pkg (slime-current-package)))
+    (cond ((not conn) (and slime-mode " Slime"))
+          ((concat " "
+                   (if local "{" "[")
+                   (if pkg (slime-pretty-package-name pkg) "?")
+                   " "
+                   ;; ignore errors for closed connections
+                   (ignore-errors (slime-connection-name conn))
+                   (slime-modeline-state-string conn)
+                   (if local "}" "]"))))))
 
 (defun slime-pretty-package-name (name)
   "Return a pretty version of a package name NAME."
@@ -451,92 +452,23 @@ The string is periodically updated by an idle timer."))
          (match-string 1 name))
         (t name)))
 
-(defun slime-compute-modeline-connection ()
-  (let ((conn (slime-current-connection)))
-    (if (or (null conn) (slime-stale-connection-p conn)) 
-        nil
-        (slime-connection-name conn))))
+(defun slime-modeline-state-string (conn)
+  "Return a string possibly describing CONN's state."
+  (cond ((not (eq (process-status conn) 'open))
+         (format " %s" (process-status conn)))
+        ((let ((pending (length (slime-rex-continuations conn)))
+               (sldbs (length (sldb-buffers conn))))
+           (cond ((and (zerop sldbs) (zerop pending)) nil)
+                 ((zerop sldbs) (format " %s" pending))
+                 (t (format " %s/%s" pending sldbs)))))))
 
-(defun slime-compute-modeline-connection-state ()
-  (let* ((conn (slime-current-connection))
-         (new-state (slime-compute-connection-state conn)))
-    (if (eq new-state :connected)
-        (let ((rex-cs  (length (slime-rex-continuations)))
-              (sldb-cs (length (sldb-debugged-continuations conn)))
-              ;; There can be SLDB buffers which have no continuations
-              ;; attached to it, e.g. the one resulting from
-              ;; `slime-interrupt'.
-              (sldbs   (length (sldb-buffers conn))))
-          (cond ((and (= sldbs 0) (zerop rex-cs)) nil)
-                ((= sldbs 0) (format "%s" rex-cs))
-                (t (format "%s/%s"
-                           (if (= rex-cs 0) 0 (- rex-cs sldb-cs)) 
-                           sldbs))))
-      (slime-connection-state-as-string new-state))))
-
-(defun slime-compute-modeline-string (conn state pkg)
-  (concat (when (or conn pkg)             "[")
-          (when pkg                       (format "%s" pkg))
-          (when (and (or conn state) pkg) ", ")
-          (when conn                      (format "%s" conn))
-          (when state                     (format "{%s}" state))
-          (when (or conn pkg)             "]")))
-
-(defun slime-update-modeline-string ()
-  (let ((old-pkg   slime-modeline-package)
-        (old-conn  slime-modeline-connection-name)
-        (old-state slime-modeline-connection-state)
-        (new-pkg   (slime-compute-modeline-package))
-        (new-conn  (slime-compute-modeline-connection))
-        (new-state (slime-compute-modeline-connection-state)))
-    (when (or (not (equal old-pkg   new-pkg))
-              (not (equal old-conn  new-conn))
-              (not (equal old-state new-state)))
-      (setq slime-modeline-package new-pkg)
-      (setq slime-modeline-connection-name new-conn)
-      (setq slime-modeline-connection-state new-state)
-      (setq slime-modeline-string
-            (slime-compute-modeline-string new-conn new-state new-pkg)))))
-
-(defun slime-shall-we-update-modeline-p ()
-  (and slime-extended-modeline 
-       (or slime-mode slime-popup-buffer-mode)))
-
-(defun slime-update-all-modelines ()
-  (dolist (window (window-list))
-    (with-current-buffer (window-buffer window)
-      (when (slime-shall-we-update-modeline-p)
-        (slime-update-modeline-string)
-        (force-mode-line-update)))))
-
-(defvar slime-modeline-update-timer nil)
-
-(defun slime-restart-or-init-modeline-update-timer ()
-  (when slime-modeline-update-timer
-    (cancel-timer slime-modeline-update-timer))
-  (setq slime-modeline-update-timer
-        (run-with-idle-timer 0.1 nil 'slime-update-all-modelines)))
-
-(slime-restart-or-init-modeline-update-timer)
-
-(defun slime-recompute-modelines (delay)
-  (cond (delay
-         ;; Minimize flashing of modeline due to short lived
-         ;; requests such as those of autodoc.
-         (slime-restart-or-init-modeline-update-timer))
-        (t
-         ;; Must do this ourselves since emacs may have
-         ;; been idling long enough that
-         ;; SLIME-MODELINE-UPDATE-TIMER is not going to
-         ;; trigger by itself.
-         (slime-update-all-modelines))))
-
-;; Setup the mode-line to say when we're in slime-mode, which
-;; connection is active, and which CL package we think the current
-;; buffer belongs to.
-(add-to-list 'minor-mode-alist
-             '(slime-mode
-               (" Slime" slime-modeline-string)))
+(defun slime-recompute-modelines ()
+  (when (featurep 'xemacs)
+    (dolist (buffer (buffer-list))
+      (with-current-buffer buffer
+        (when (or slime-mode slime-popup-buffer-mode)
+          (setq slime-modeline-string (slime-modeline-string)))))
+    (force-mode-line-update t)))
 
 
 ;;;;; Key bindings
@@ -1099,10 +1031,16 @@ can restore it later."
 (define-minor-mode slime-popup-buffer-mode 
   "Mode for displaying read only stuff"
   nil
-  (" Slime-Tmp" slime-modeline-string)
+  nil
   '(("q" . slime-popup-buffer-quit-function)
     ;;("\C-c\C-z" . slime-switch-to-output-buffer)
     ("\M-." . slime-edit-definition)))
+
+(add-to-list 'minor-mode-alist
+             `(slime-popup-buffer-mode
+               ,(if (featurep 'xemacs)
+                    'slime-modeline-string
+                  '(:eval (slime-modeline-string)))))
 
 (set-keymap-parent slime-popup-buffer-mode-map slime-parent-map)
 
@@ -1907,21 +1845,6 @@ If PROCESS is not specified, `slime-connection' is used.
 
 (put 'slime-with-connection-buffer 'lisp-indent-function 1)
 
-(defun slime-compute-connection-state (conn)
-  (cond ((null conn) :disconnected) 
-        ((slime-stale-connection-p conn) :stale)
-        ((and (slime-use-sigint-for-interrupt conn)
-              (slime-busy-p conn)) :busy)
-        ((eq slime-buffer-connection conn) :local)
-        (t :connected)))
-
-(defun slime-connection-state-as-string (state)
-  (case state
-    (:disconnected    "not connected")
-    (:busy            "busy..")
-    (:stale           "stale")
-    (:local           "local")))
-
 ;;; Connection-local variables:
 
 (defmacro slime-def-connection-var (varname &rest initial-value-and-doc)
@@ -2369,12 +2292,12 @@ Debugged requests are ignored."
            (let ((id (incf (slime-continuation-counter))))
              (slime-send `(:emacs-rex ,form ,package ,thread ,id))
              (push (cons id continuation) (slime-rex-continuations))
-             (slime-recompute-modelines t)))
+             (slime-recompute-modelines)))
           ((:return value id)
            (let ((rec (assq id (slime-rex-continuations))))
              (cond (rec (setf (slime-rex-continuations)
                               (remove rec (slime-rex-continuations)))
-                        (slime-recompute-modelines nil)
+                        (slime-recompute-modelines)
                         (funcall (cdr rec) value))
                    (t
                     (error "Unexpected reply: %S %S" id value)))))

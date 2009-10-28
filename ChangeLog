@@ -1,5 +1,21 @@
 2009-10-28  Helmut Eller  <heller@common-lisp.net>
 
+	Simpler modeline code.
+
+	* slime.el (slime-modeline-string): Renamed from
+	slime-compute-modeline-string.
+	(slime-modeline-state-string): Renamed from
+	slime-compute-connection-state
+	(slime-modeline-package, slime-modeline-connection-name)
+	(slime-modeline-connection-state)
+	(slime-extended-modeline,slime-compute-modeline-package)
+	(slime-update-modeline-string, slime-shall-we-update-modeline-p
+	(slime-update-all-modelines, slime-modeline-update-timer)
+	(slime-restart-or-init-modeline-update-timer)
+	(slime-connection-state-as-string): Deleted.
+
+2009-10-28  Helmut Eller  <heller@common-lisp.net>
+
 	* slime.el (slime-disconnect): Don't reference connection.  Left
 	over from last change.
 	([test] arglist): Update expected results for slightly changed
