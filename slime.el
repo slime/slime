@@ -2076,7 +2076,7 @@ This is automatically synchronized from Lisp.")
 (defun slime-disconnect ()
   "Close the current connection."
   (interactive)
-  (slime-net-close (or connection (slime-connection))))
+  (slime-net-close (slime-connection)))
 
 (defun slime-disconnect-all ()
   "Disconnect all connections."
@@ -7710,12 +7710,12 @@ confronted with nasty #.-fu."
 Confirm that EXPECTED-ARGLIST is displayed."
     '(("swank::operator-arglist" "(swank::operator-arglist name package)")
       ("swank::create-socket" "(swank::create-socket host port)")
-      ("swank::emacs-connected" "(swank::emacs-connected )")
+      ("swank::emacs-connected" "(swank::emacs-connected)")
       ("swank::compile-string-for-emacs"
        "(swank::compile-string-for-emacs string buffer position filename policy)")
       ("swank::connection.socket-io"
        "(swank::connection.socket-io \\(struct\\(ure\\)?\\|object\\|instance\\|x\\))")
-      ("cl:lisp-implementation-type" "(cl:lisp-implementation-type )")
+      ("cl:lisp-implementation-type" "(cl:lisp-implementation-type)")
       ("cl:class-name" 
        "(cl:class-name \\(class\\|object\\|instance\\|structure\\))"))
   (let ((arglist (slime-eval `(swank:operator-arglist ,function-name 
@@ -8031,7 +8031,7 @@ the buffer's undo-list."
        ("23" "42")))
   (with-temp-buffer
     (lisp-mode)
-    (slime-mode 1)
+    (slime-lisp-mode-hook)
     (insert buffer-content)
     (slime-compile-region (point-min) (point-max))
     (slime-sync-to-top-level 3)

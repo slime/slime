@@ -1,5 +1,11 @@
 2009-10-28  Helmut Eller  <heller@common-lisp.net>
 
+	* slime.el (slime-disconnect): Don't reference connection.  Left
+	over from last change.
+	([test] arglist): Update expected results for slightly changed
+	printer settings.
+	([test] indentation): Install common-lisp-indent-function.
+
 	* test.sh: Don't copy contribs. Slime should work without them.
 	* swank-loader.lisp (setup): Compile contribs only if directory
 	exists.
