@@ -2230,9 +2230,6 @@ or nil if nothing suitable can be found.")
     (error "Not connected. Use `%s' to start a Lisp."
            (substitute-command-keys "\\[slime]"))))
 
-(defun slime-stale-connection-p (conn)
-  (not (memq conn slime-net-processes)))
-
 ;; UNUSED
 (defun slime-debugged-connection-p (conn)
   ;; This previously was (AND (SLDB-DEBUGGED-CONTINUATIONS CONN) T),

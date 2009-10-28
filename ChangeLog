@@ -9,10 +9,11 @@
 	(slime-modeline-package, slime-modeline-connection-name)
 	(slime-modeline-connection-state)
 	(slime-extended-modeline,slime-compute-modeline-package)
-	(slime-update-modeline-string, slime-shall-we-update-modeline-p
+	(slime-update-modeline-string, slime-shall-we-update-modeline-p)
 	(slime-update-all-modelines, slime-modeline-update-timer)
 	(slime-restart-or-init-modeline-update-timer)
-	(slime-connection-state-as-string): Deleted.
+	(slime-connection-state-as-string): Deleted
+	(slime-stale-connection-p): Deleted.
 
 2009-10-28  Helmut Eller  <heller@common-lisp.net>
 
