@@ -226,7 +226,8 @@ If LOAD is true, load the fasl file."
 (defun setup ()
   (load-site-init-file *source-directory*)
   (load-user-init-file)
-  (eval `(pushnew 'compile-contribs ,(q "swank::*after-init-hook*")))
+  (when (probe-file (contrib-dir *source-directory*))
+    (eval `(pushnew 'compile-contribs ,(q "swank::*after-init-hook*"))))
   (funcall (q "swank::init")))
 
 (defun init (&key delete reload load-contribs (setup t))
