@@ -1,3 +1,13 @@
+2009-10-31  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	`M-x slime-visit-sbcl-bug' will open a browser to visit SBCL's bug
+	tracker at Launchpad that describes the bug number at
+	point (#nnnnnn).
+
+	* slime-sbcl-exts.el (slime-visit-sbcl-bug): New.
+	(slime-read-sbcl-bug): New.
+	(slime-sbcl-bug-at-point): New.
+
 2009-10-21  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-asdf.el (slime-browse-system): Open the parent directory of
