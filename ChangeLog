@@ -1,3 +1,9 @@
+2009-10-30  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-loader.lisp (setup): Use EXT:PROBE-DIRECTORY on Clisp,
+	because PROBE-FILE doesn't want to work on directories.
+	Patch by Dirk Sondermann.
+
 2009-10-30  Helmut Eller  <heller@common-lisp.net>
 
 	* swank-openmcl.lisp: Removed. 1.4 is out so no longer needed.
