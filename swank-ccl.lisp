@@ -52,14 +52,6 @@
 
 (in-package :swank-backend)
 
-;; Backward compatibility
-(eval-when (:compile-toplevel)
-  (unless (fboundp 'ccl:compute-applicable-methods-using-classes)
-    (compile-file (make-pathname :name "swank-openmcl" :type "lisp" :defaults swank-loader::*source-directory*)
-                  :output-file (make-pathname :name "swank-ccl" :defaults swank-loader::*fasl-directory*)
-                  :verbose t)
-    (invoke-restart (find-restart 'ccl::skip-compile-file))))
-
 (eval-when (:compile-toplevel :execute :load-toplevel)
   (assert (and (= ccl::*openmcl-major-version* 1)
                (>= ccl::*openmcl-minor-version* 4))
