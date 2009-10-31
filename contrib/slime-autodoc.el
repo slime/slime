@@ -31,7 +31,7 @@
   :type 'boolean
   :group 'slime-ui)
 
-(defcustom slime-autodoc-delay 0.2
+(defcustom slime-autodoc-delay 0.3
   "*Delay before autodoc messages are fetched and displayed, in seconds."
   :type 'number
   :group 'slime-ui)
@@ -53,16 +53,23 @@
   "Not used; for debugging purposes."
   (multiple-value-bind (operators arg-indices points)
 	    (slime-enclosing-form-specs)
-    (slime-compute-autodoc-rpc-form operators arg-indices points)))
+    (slime-make-autodoc-rpc-form operators arg-indices points)))
 
-(defun slime-compute-autodoc-rpc-form (operators arg-indices points)
+;; TODO: get rid of args
+(defun slime-make-autodoc-rpc-form (operators arg-indices points)
   "Return a cache key and a swank form."
-  (let ((global (slime-autodoc-global-at-point)))
-    (if global
-        (values (slime-qualify-cl-symbol-name global)
-                `(swank:variable-desc-for-echo-area ,global))
-	(values (slime-make-autodoc-cache-key operators arg-indices points)
-                (slime-make-autodoc-swank-form operators arg-indices points)))))
+  (unless (slime-inside-string-or-comment-p)
+    (let ((global (slime-autodoc-global-at-point)))
+      (if global
+          (values (slime-qualify-cl-symbol-name global)
+                  `(swank:variable-desc-for-echo-area ,global))
+          (let ((buffer-form (slime-parse-form-upto-point 10)))
+            (values buffer-form
+                    (multiple-value-bind (width height)
+                        (slime-autodoc-message-dimensions)
+                      `(swank:arglist-for-echo-area ',buffer-form
+                        :print-right-margin ,width
+                        :print-lines ,height))))))))
 
 (defun slime-autodoc-global-at-point ()
   "Return the global variable name at point, if any."
@@ -81,37 +88,6 @@ Default value assumes +this+ or *that* naming conventions."
 Globals are recognised purely by *this-naming-convention*."
   (and (< (length name) 80) ; avoid overflows in regexp matcher
        (string-match slime-global-variable-name-regexp name)))
-
-(defun slime-make-autodoc-cache-key (ops indices points)
-  (mapcar* (lambda (designator arg-index)
-	     (let ((designator (if (symbolp designator)
-				   (slime-qualify-cl-symbol-name designator)
-				   designator)))
-	       `(,designator . ,arg-index)))
-	   operators arg-indices))
-
-(defun slime-make-autodoc-swank-form (ops indices points)
-  (multiple-value-bind (width height)
-      (slime-autodoc-message-dimensions)
-    (let ((local-arglist (slime-autodoc-local-arglist ops indices points)))
-      (if local-arglist
-	  `(swank:format-arglist-for-echo-area ,local-arglist
-	     :operator ,(first (first ops))
-	     :highlight ,(if (zerop (first indices)) nil (first indices))
-	     :print-right-margin ,width
-	     :print-lines ,height)
-	  `(swank:arglist-for-echo-area ',ops 
-	     :arg-indices ',indices
-	     :print-right-margin ,width
-	     :print-lines ,height)))))
-
-(defun slime-autodoc-local-arglist (ops indices points)
-  (let* ((cur-op      (first ops))
-	 (cur-op-name (first cur-op)))
-    (multiple-value-bind (bound-fn-names arglists)
-	(slime-find-bound-functions ops indices points)
-      (when-let (pos (position cur-op-name bound-fn-names :test 'equal))
-	(nth pos arglists)))))
 
 (defvar slime-autodoc-dimensions-function nil)
 
@@ -221,7 +197,7 @@ If it's not in the cache, the cache will be updated asynchronously."
     (when (slime-autodoc-worthwhile-p ops)
       (run-hook-with-args 'slime-autodoc-hook ops arg-indices points)
       (multiple-value-bind (cache-key retrieve-form)
-	  (slime-compute-autodoc-rpc-form ops arg-indices points)
+	  (slime-make-autodoc-rpc-form ops arg-indices points)
 	(let ((cached (slime-get-cached-autodoc cache-key)))
 	  (if cached
 	      cached
@@ -231,7 +207,10 @@ If it's not in the cache, the cache will be updated asynchronously."
               (slime-eval-async retrieve-form
                 (lexical-let ((cache-key cache-key)) 
                   (lambda (doc)
-                    (let ((doc (if doc (slime-format-autodoc doc) "")))
+                    (let ((doc (if (or (null doc)
+				       (eq doc :not-available))
+				   ""
+				   (slime-format-autodoc doc))))
                       ;; Now that we've got our information, get it to
                       ;; the user ASAP.
                       (eldoc-message doc)

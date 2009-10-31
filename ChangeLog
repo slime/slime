@@ -1,5 +1,17 @@
 2009-10-31  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* slime.el (slime-inside-string-p, slime-inside-comment-p)
+	(slime-inside-string-or-comment-p): New.
+
+	* swank-match.lisp: New file. Contains very simple pattern matcher
+	from the CMU AI archive.
+
+	* swank-loader.lisp: Compile swank-match.lisp.
+
+	* swank.lisp: Make SWANK package use new SWANK-MATCH package.
+
+2009-10-31  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* swank.lisp (find-symbol-with-status): New.
 	(parse-symbol): Use it to correctly parse symbols where only one
 	colon is given. Consequences: Autodoc won't display an arglist on

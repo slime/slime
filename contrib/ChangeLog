@@ -1,5 +1,14 @@
 2009-10-31  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-autodoc.el, swank-arglists.lisp: Large parts were
+	rewritten. Autodoc is now able to highlight &key parameters, and
+	parameters in nested arglists.
+
+	* slime-parse.el, slime-c-p-c.el, slime-highlighting-edits.el:
+	Adapted to changes.
+
+2009-10-31  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-autodoc.el (slime-autodoc-worthwile-p): New helper.
 	(slime-compute-autodoc-internal): Use it to only perform an RPC
 	request if it's worthwhile to do so. For example, don't do it if

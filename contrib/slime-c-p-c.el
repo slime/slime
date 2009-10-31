@@ -112,21 +112,18 @@ current buffer."
   (let ((token (buffer-substring-no-properties beg end)))
     (cond
      ((and (< beg (point-max))
-               (string= (buffer-substring-no-properties beg (1+ beg)) ":"))
+           (string= (buffer-substring-no-properties beg (1+ beg)) ":"))
       ;; Contextual keyword completion
-      (multiple-value-bind (operator-names arg-indices points)
-          (save-excursion 
-            (goto-char beg)
-            (slime-enclosing-form-specs))
-        (when operator-names
-          (let ((completions 
-                 (slime-completions-for-keyword operator-names token
-                                                arg-indices)))
-            (when (first completions)
-              (return-from slime-contextual-completions completions))
-            ;; If no matching keyword was found, do regular symbol
-            ;; completion.
-            ))))
+      (let ((completions 
+             (slime-completions-for-keyword token
+                                            (save-excursion 
+                                              (goto-char beg)
+                                              (slime-parse-form-upto-point)))))
+        (when (first completions)
+          (return-from slime-contextual-completions completions))
+        ;; If no matching keyword was found, do regular symbol
+        ;; completion.
+        ))
      ((and (>= (length token) 2)
            (string= (subseq token 0 2) "#\\"))
       ;; Character name completion
@@ -138,11 +135,8 @@ current buffer."
 (defun slime-completions (prefix)
   (slime-eval `(swank:completions ,prefix ',(slime-current-package))))
 
-(defun slime-completions-for-keyword (operator-designator prefix
-                                                          arg-indices)
-  (slime-eval `(swank:completions-for-keyword ',operator-designator
-					      ,prefix
-					      ',arg-indices)))
+(defun slime-completions-for-keyword (prefix buffer-form)
+  (slime-eval `(swank:completions-for-keyword ,prefix ',buffer-form)))
 
 (defun slime-completions-for-character (prefix)
   (flet ((append-char-syntax (string) (concat "#\\" string)))
@@ -160,17 +154,14 @@ current buffer."
 This is a superset of the functionality of `slime-insert-arglist'."
   (interactive)
   ;; Find the (possibly incomplete) form around point.
-  (let ((form-string (slime-incomplete-form-at-point)))
-    (let ((result (slime-eval `(swank:complete-form ',form-string))))
+  (let ((buffer-form (slime-parse-form-upto-point)))
+    (let ((result (slime-eval `(swank:complete-form ',buffer-form))))
       (if (eq result :not-available)
-          (error "Could not generate completion for the form `%s'" form-string)
+          (error "Could not generate completion for the form `%s'" buffer-form)
           (progn
-            (just-one-space)
+            (just-one-space (if (looking-back "\\s(") 0 1))
             (save-excursion
-              ;; SWANK:COMPLETE-FORM always returns a closing
-              ;; parenthesis; but we only want to insert one if it's
-              ;; really necessary (thinking especially of paredit.el.)
-              (insert (substring result 0 -1))
+              (insert result)
               (let ((slime-close-parens-limit 1))
                 (slime-close-all-parens-in-sexp)))
             (save-excursion

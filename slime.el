@@ -8218,6 +8218,18 @@ keys."
           until (= (point) (point-max))
           maximizing column)))
 
+(defun slime-inside-string-p ()
+  (nth 3 (slime-current-parser-state)))
+
+(defun slime-inside-comment-p ()
+  (nth 4 (slime-current-parser-state)))
+
+(defun slime-inside-string-or-comment-p ()
+  (let ((state (slime-current-parser-state)))
+    (or (nth 3 state) (nth 4 state))))
+
+
+
 ;;;;; CL symbols vs. Elisp symbols.
 
 (defun slime-cl-symbol-name (symbol)

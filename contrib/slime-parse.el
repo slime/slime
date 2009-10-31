@@ -8,23 +8,8 @@
 ;;
 
 (defun slime-incomplete-form-at-point ()
-  "Looks for a ``raw form spec'' around point to be processed by
-SWANK::PARSE-FORM-SPEC. It is similiar to
-SLIME-INCOMPLETE-SEXP-AT-POINT but looks further back than just
-one sexp to find out the context."
-  (multiple-value-bind (operators arg-indices points)
-      (slime-enclosing-form-specs)
-    (if (null operators)
-        ""
-        (let ((op        (first operators))
-	      (op-start  (first points))
-	      (arg-index (first arg-indices)))
-          (destructure-case (slime-ensure-list op)
-            ((:declaration declspec) op)
-            ((:type-specifier typespec) op)
-            (t 
-	     (slime-make-form-spec-from-string 
-	      (concat (slime-incomplete-sexp-at-point) ")"))))))))
+  (slime-make-form-spec-from-string 
+   (concat (slime-incomplete-sexp-at-point) ")")))
 
 (defun slime-parse-sexp-at-point (&optional n skip-blanks-p)
   "Returns the sexps at point as a list of strings, otherwise nil.
@@ -246,11 +231,39 @@ Examples:
 		 string
                 (let ((n (first (last indices))))
 		  (goto-char (1+ (point-min))) ; `(|OP arg1 ... argN)'
-		  (mapcar #'(lambda (s)
-			      (assert (not (equal s string))) ; trap against
-			      (slime-make-form-spec-from-string s)) ;  endless recursion.
-			  (slime-parse-sexp-at-point (1+ n) t)))))))))
+		  (let ((subsexps (slime-parse-sexp-at-point (1+ n) t)))
+		    (mapcar #'(lambda (s)
+				(assert (not (equal s string)))       ; trap against
+				(slime-make-form-spec-from-string s)) ;  endless recursion.
+			    subsexps
+			    )))))))))
 
+(defun slime-make-form-spec-from-string (string &optional strip-operator-p)
+  (cond ((slime-length= string 0) "")                    ; ""
+	((equal string "()") '())                        ; "()"
+	((eql (char-syntax (aref string 0)) ?\') string) ; "'(foo)", "#(foo)" &c
+	((not (eql (aref string 0) ?\()) string)         ; "foo"
+	(t                                               ; "(op arg1 arg2 ...)"
+	 (with-temp-buffer
+	   ;; Do NEVER ever try to activate `lisp-mode' here with
+	   ;; `slime-use-autodoc-mode' enabled, as this function is used
+	   ;; to compute the current autodoc itself.
+	   (set-syntax-table lisp-mode-syntax-table)
+	   (erase-buffer)
+	   (insert string)
+	   (goto-char (1+ (point-min)))
+	   (let ((subsexps))
+	     (while (ignore-errors (slime-forward-sexp) t)
+	       (backward-sexp)
+	       (push (slime-sexp-at-point) subsexps)
+	       (forward-sexp))
+             (mapcar #'(lambda (s)
+                         (assert (not (equal s string)))      
+                         (slime-make-form-spec-from-string s))
+                     (nreverse subsexps)))))))
+
+;;; TODO: With the rewrite of autodoc, this function like pretty much
+;;; everything else in this file, is obsolete.
 
 (defun slime-enclosing-form-specs (&optional max-levels)
   "Return the list of ``raw form specs'' of all the forms 
@@ -351,12 +364,52 @@ Examples:
      (nreverse arg-indices)
      (nreverse points))))
 
+(defun slime-parse-form-upto-point (&optional max-levels)
+  ;; We assert this, because `slime-incomplete-form-at-point' blows up
+  ;; inside a comment.
+  (assert (not (slime-inside-string-or-comment-p)))
+  (save-excursion
+    (let ((char-after  (char-after))
+          (char-before (char-before))
+          (marker-suffix (list 'swank::%cursor-marker%)))
+      (cond ((and char-after (eq (char-syntax char-after) ?\())
+             ;; We're at the start of some expression, so make sure
+             ;; that SWANK::%CURSOR-MARKER% will come after that
+             ;; expression.
+             (ignore-errors (forward-sexp)))
+            ((and char-before (eq (char-syntax char-before) ?\ ))
+             ;; We're after some expression, so we have to make sure
+             ;; that %CURSOR-MARKER% does not come directly after that
+             ;; expression.
+             (push "" marker-suffix))
+            ((and char-before (eq (char-syntax char-before) ?\())
+             ;; We're directly after an opening parenthesis, so we
+             ;; have to make sure that something comes before
+             ;; %CURSOR-MARKER%..
+             (push "" marker-suffix))
+            (t
+             ;; We're at a symbol, so make sure we get the whole symbol.
+             (slime-end-of-symbol)))
+      (let ((forms '())
+            (levels (or max-levels 5)))
+        (condition-case nil
+            (let ((form (slime-incomplete-form-at-point)))
+              (setq forms (list (nconc form marker-suffix)))
+              (up-list -1)
+              (dotimes (i (1- levels))
+                (push (slime-incomplete-form-at-point) forms)
+                (up-list -1)))
+          ;; At head of toplevel form.
+          (scan-error nil))
+        (when forms
+          ;; Squeeze list of forms into tree structure again
+          (reduce #'(lambda (form tree)
+                      (nconc form (list tree)))
+                  forms :from-end t))))))
+
 
 (defun slime-ensure-list (thing)
   (if (listp thing) thing (list thing)))
-
-(defun slime-inside-string-p ()
-  (nth 3 (slime-current-parser-state)))
 
 (defun slime-beginning-of-string ()
   (let* ((parser-state (slime-current-parser-state))

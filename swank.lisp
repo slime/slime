@@ -13,7 +13,7 @@
 ;;; available to us here via the `SWANK-BACKEND' package.
 
 (defpackage :swank
-  (:use :cl :swank-backend)
+  (:use :cl :swank-backend :swank-match)
   (:export #:startup-multiprocessing
            #:start-server 
            #:create-server
@@ -478,11 +478,11 @@ corresponding values in the CDR of VALUE."
 	    (,operands (cdr ,tmp)))
        (case ,operator
          ,@(loop for (pattern . body) in patterns collect 
-                   (if (eq pattern t)
-                       `(t ,@body)
-                       (destructuring-bind (op &rest rands) pattern
-                         `(,op (destructuring-bind ,rands ,operands 
-                                 ,@body)))))
+                 (if (eq pattern t)
+                     `(t ,@body)
+                     (destructuring-bind (op &rest rands) pattern
+                       `(,op (destructuring-bind ,rands ,operands 
+                               ,@body)))))
          ,@(if (eq (caar (last patterns)) t)
                '()
                `((t (error "destructure-case failed: ~S" ,tmp))))))))
@@ -1232,6 +1232,7 @@ The processing is done in the extent of the toplevel restart."
                                  (cdr tail)))
       tail)))
 
+;;; FIXME: Make this use SWANK-MATCH.
 (defun event-match-p (event pattern)
   (cond ((or (keywordp pattern) (numberp pattern) (stringp pattern)
 	     (member pattern '(nil t)))
