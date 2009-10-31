@@ -2048,15 +2048,26 @@ considered to represent a symbol internal to some current package.)"
                  (char-downcase char)
                  (char-upcase char)))))
 
+
+(defun find-symbol-with-status (symbol-name status &optional (package *package*))
+  (multiple-value-bind (symbol flag) (find-symbol symbol-name package)
+    (if (and flag (eq flag status))
+        (values symbol flag)
+        (values nil nil))))
+
 (defun parse-symbol (string &optional (package *package*))
   "Find the symbol named STRING.
 Return the symbol and a flag indicating whether the symbols was found."
-  (multiple-value-bind (sname pname) (tokenize-symbol-thoroughly string)
+  (multiple-value-bind (sname pname internalp)
+      (tokenize-symbol-thoroughly string)
     (let ((package (cond ((string= pname "") keyword-package)
                          (pname              (find-package pname))
                          (t                  package))))
       (if package
-          (multiple-value-bind (symbol flag) (find-symbol sname package)
+          (multiple-value-bind (symbol flag)
+              (if internalp
+                  (find-symbol sname package)
+                  (find-symbol-with-status sname ':external package))
             (values symbol flag sname package))
           (values nil nil nil nil)))))
 

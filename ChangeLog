@@ -1,3 +1,10 @@
+2009-10-31  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* swank.lisp (find-symbol-with-status): New.
+	(parse-symbol): Use it to correctly parse symbols where only one
+	colon is given. Consequences: Autodoc won't display an arglist on
+	`(foo:bar |' if BAR is not exported from FOO.
+
 2009-10-31  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (list-threads): Remove thread-description.  Wasn't
