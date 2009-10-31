@@ -3623,21 +3623,20 @@ synchronization issues (yet).  There can only be one thread listing at
 a time.")
 
 (defslimefun list-threads ()
-  "Return a list (LABELS (ID NAME STATUS DESCRIPTION ATTRS ...) ...).
+  "Return a list (LABELS (ID NAME STATUS ATTRS ...) ...).
 LABELS is a list of attribute names and the remaining lists are the
 corresponding attribute values per thread."
   (setq *thread-list* (all-threads))
   (let* ((plist (thread-attributes (car *thread-list*)))
          (labels (loop for (key) on plist by #'cddr 
                        collect key)))
-    `((:id :name :status :description ,@labels)
+    `((:id :name :status ,@labels)
       ,@(loop for thread in *thread-list*
               for name = (thread-name thread)
               for attributes = (thread-attributes thread)
               collect (list* (thread-id thread)
-                             (if (symbolp name) (symbol-name name) name)
+                             (string name)
                              (thread-status thread)
-                             (thread-description thread)
                              (loop for label in labels
                                    collect (getf attributes label)))))))
 

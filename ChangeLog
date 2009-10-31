@@ -1,5 +1,15 @@
 2009-10-31  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (list-threads): Remove thread-description.  Wasn't
+	used anymore.
+	* swank-backend.lisp (thread-description, set-thread-description):
+	Deleted.
+	* swank-abcl.lisp: Update accordingly.
+	* slime.el (slime-update-threads-buffer, slime-thread-insert):
+	Update accordingly.
+
+2009-10-31  Helmut Eller  <heller@common-lisp.net>
+
 	* swank-ccl.lisp (kill-thread): Don't signal conditions.
 	* swank-backend.lisp (kill-thread): Update docstring.
 

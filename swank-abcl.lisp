@@ -585,18 +585,6 @@ part of *sysdep-pathnames* in swank.loader.lisp.
   (defimplementation thread-status (thread)
     (format nil "Thread is ~:[dead~;alive~]" (threads:thread-alive-p thread)))
 
-  ;; XXX should be a weak hash table
-  (defparameter *thread-description-map* (make-hash-table)) 
-
-  (defimplementation thread-description (thread) 
-    (threads:synchronized-on *thread-description-map*
-      (or (gethash thread *thread-description-map*)
-          "")))
-
-  (defimplementation set-thread-description (thread description) 
-    (threads:synchronized-on *thread-description-map*
-      (setf (gethash thread *thread-description-map*) description)))
-
   (defimplementation make-lock (&key name)
     (declare (ignore name))
     (threads:make-thread-lock))

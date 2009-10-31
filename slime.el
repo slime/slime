@@ -6161,20 +6161,19 @@ was called originally."
       (let ((inhibit-read-only t))
         (erase-buffer)
         (loop for idx from 0 
-              for (id name status desc) in threads
-              do (slime-thread-insert idx name status desc id))
+              for (id name status) in threads
+              do (slime-thread-insert idx name status id))
         (goto-char (point-min))))))
 
-(defun slime-thread-insert (idx name status summary id)
+(defun slime-thread-insert (idx name status id)
   (slime-propertize-region `(thread-id ,idx)
     (insert (format "%3s: " id))
     (slime-insert-propertized '(face bold) name)
     (insert-char ?\  (- 30 (current-column)))
-    (let ((summary-start (point)))
+    (let ((start (point)))
       (insert " " status)
-      (insert " " summary)
       (unless (bolp) (insert "\n"))
-      (indent-rigidly summary-start (point) 2))))
+      (indent-rigidly start (point) 2))))
 
 
 ;;;;; Major mode
