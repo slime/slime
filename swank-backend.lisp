@@ -1057,7 +1057,9 @@ but that thread may hold it more than once."
   "Cause THREAD to execute FN.")
 
 (definterface kill-thread (thread)
-  "Kill THREAD."
+  "Terminate THREAD immediately.
+Don't execute unwind-protected sections, don't raise conditions.
+(Do not pass go, do not collect $200.)"
   (declare (ignore thread))
   nil)
 

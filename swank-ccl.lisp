@@ -720,10 +720,14 @@
   (queue '() :type list))
 
 (defimplementation spawn (fun &key name)
-  (ccl:process-run-function 
-   (or name "Anonymous (Swank)")
-   fun))
-
+  (flet ((entry ()
+           (handler-bind ((ccl:process-reset (lambda (c) 
+                                               (return-from entry c))))
+             (funcall fun))))
+    (ccl:process-run-function 
+     (or name "Anonymous (Swank)")
+     #'entry)))
+  
 (defimplementation thread-id (thread)
   (ccl:process-serial-number thread))
 
@@ -753,7 +757,8 @@
   (ccl:all-processes))
 
 (defimplementation kill-thread (thread)
-  (ccl:process-kill thread))
+  ;;(ccl:process-kill thread) ; doesn't cut it
+  (ccl::process-initial-form-exited thread :kill))
 
 (defimplementation thread-alive-p (thread)
   (not (ccl:process-exhausted-p thread)))

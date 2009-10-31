@@ -1,3 +1,8 @@
+2009-10-31  Helmut Eller  <heller@common-lisp.net>
+
+	* swank-ccl.lisp (kill-thread): Don't signal conditions.
+	* swank-backend.lisp (kill-thread): Update docstring.
+
 2009-10-30  Stas Boukarev  <stassats@gmail.com>
 
 	* swank-loader.lisp (setup): Use EXT:PROBE-DIRECTORY on Clisp,
