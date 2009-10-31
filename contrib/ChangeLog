@@ -1,5 +1,16 @@
 2009-10-31  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-autodoc.el (slime-autodoc-worthwile-p): New helper.
+	(slime-compute-autodoc-internal): Use it to only perform an RPC
+	request if it's worthwhile to do so. For example, don't do it if
+	the user only typed a single opening parenthesis.
+
+	* swank-arglists.lisp (variable-desc-for-echo-area):
+	Bind *PRINT-READABLY* to NIL as global variables may contain
+	objects which can't be printed readably.
+
+2009-10-31  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank-c-p-c.lisp (completion-set): Split into
 	`symbol-completion-set', and `package-completion-set'.
 	(completions): Updated accordingly. Also: complete packages

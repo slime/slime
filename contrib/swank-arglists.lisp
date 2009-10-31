@@ -498,7 +498,8 @@ If OPERATOR is non-nil, put it in front of the arglist."
     (let ((sym (parse-symbol variable-name)))
       (if (and sym (boundp sym))
           (let ((*print-pretty* t) (*print-level* 4)
-                (*print-length* 10) (*print-lines* 1))
+                (*print-length* 10) (*print-lines* 1)
+		(*print-readably* nil))
 	    (call/truncated-output-to-string 
 	     75 (lambda (s)
 		  (format s "~A => ~S" sym (symbol-value sym)))))))))

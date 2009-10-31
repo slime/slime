@@ -206,17 +206,25 @@ Return DOCUMENTATION."
 background everytime a new autodoc is computed. The hook is
 applied to the result of `slime-enclosing-form-specs'.")
 
+(defun slime-autodoc-worthwhile-p (ops)
+  ;; Prevent an RPC call for when the user solely typed in an opening
+  ;; parenthesis.
+  (and (not (null ops))
+       (or (not (null (first ops)))
+	   (slime-length> ops 1))))
+
 (defun slime-compute-autodoc-internal ()
   "Returns the cached arglist information as string, or nil.
 If it's not in the cache, the cache will be updated asynchronously."
   (multiple-value-bind (ops arg-indices points)
       (slime-enclosing-form-specs)
-    (run-hook-with-args 'slime-autodoc-hook ops arg-indices points)
-    (multiple-value-bind (cache-key retrieve-form)
-        (slime-compute-autodoc-rpc-form ops arg-indices points)
-      (let ((cached (slime-get-cached-autodoc cache-key)))
-        (if cached
-            cached
+    (when (slime-autodoc-worthwhile-p ops)
+      (run-hook-with-args 'slime-autodoc-hook ops arg-indices points)
+      (multiple-value-bind (cache-key retrieve-form)
+	  (slime-compute-autodoc-rpc-form ops arg-indices points)
+	(let ((cached (slime-get-cached-autodoc cache-key)))
+	  (if cached
+	      cached
             ;; If nothing is in the cache, we first decline, and fetch
             ;; the arglist information asynchronously.
             (prog1 nil
@@ -227,7 +235,7 @@ If it's not in the cache, the cache will be updated asynchronously."
                       ;; Now that we've got our information, get it to
                       ;; the user ASAP.
                       (eldoc-message doc)
-                      (slime-store-into-autodoc-cache cache-key doc)))))))))))
+                      (slime-store-into-autodoc-cache cache-key doc))))))))))))
 
 (defun slime-compute-autodoc ()
   (save-excursion
