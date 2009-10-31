@@ -1,5 +1,13 @@
 2009-10-31  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-arglists.lisp (extra-keywords :around): Sort keyword
+	parameters such that implementation-internal stuff is shown last.
+	(compose): New helper.
+	(make-package-comparator): New.
+	(sort-extra-keywords): New.
+
+2009-10-31  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	`M-x slime-visit-sbcl-bug' will open a browser to visit SBCL's bug
 	tracker at Launchpad that describes the bug number at
 	point (#nnnnnn).

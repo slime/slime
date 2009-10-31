@@ -12,6 +12,11 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (swank-require :swank-c-p-c))
 
+(defun compose (&rest functions)
+  "Compose FUNCTIONS right-associatively, returning a function"
+  #'(lambda (x)
+      (reduce #'funcall functions :initial-value x :from-end t)))
+
 (defun length= (seq n)
   "Test for whether SEQ contains N number of elements. I.e. it's equivalent
  to (= (LENGTH SEQ) N), but besides being more concise, it may also be more
@@ -147,8 +152,8 @@ special-ops, declarations and type specifiers."
                                       (format nil "[Declaration] ~A" stringified-arglist))))))
                            (t stringified-arglist))))))
               (mapc #'unintern-in-home-package newly-interned-symbols)))))
-    (error (cond)
-      (format nil "ARGLIST (error): ~A" cond))
+    (error (condition)
+      (format nil "ARGLIST (error): ~A" condition))
     ))
 
 (defun %find-declaration-operator (raw-specs position)
@@ -790,6 +795,50 @@ symbol) when applied to the (unevaluated) ARGS.
 As a secondary value, return whether other keys are allowed.  
 As a tertiary value, return the initial sublist of ARGS that was needed 
 to determine the extra keywords."))
+
+;;; We make sure that symbol-from-KEYWORD-using keywords come before
+;;; symbol-from-arbitrary-package-using keywords. And we sort the
+;;; latter according to how their home-packages relate to *PACKAGE*.
+;;;
+;;; Rationale is to show those key parameters first which make most
+;;; sense in the current context. And in particular: to put
+;;; implementation-internal stuff last.
+;;;
+;;; This matters tremendeously on Allegro in combination with
+;;; AllegroCache as that does some evil tinkering with initargs,
+;;; obfuscating the arglist of MAKE-INSTANCE.
+;;;
+
+(defmethod extra-keywords :around (op &rest args)
+  (declare (ignorable op args))
+  (sort-extra-keywords (call-next-method)))
+
+(defun make-package-comparator (reference-packages)
+  "Returns a two-argument test function which compares packages
+according to their used-by relation with REFERENCE-PACKAGES. Packages
+will be sorted first which appear first in the PACKAGE-USE-LIST of the
+reference packages."
+  (let ((package-use-table (make-hash-table :test 'eq)))
+    ;; Walk the package dependency graph breadth-fist, and fill
+    ;; PACKAGE-USE-TABLE accordingly.
+    (loop with queue = (copy-list reference-packages)
+	  with bfn   = 0		; Breadth-First Number
+	  for p      = (pop queue) 
+	  unless (gethash p package-use-table)
+	    do      (setf (gethash p package-use-table) (shiftf bfn (1+ bfn)))
+	    and do  (setf queue (nconc queue (copy-list (package-use-list p))))
+	  while queue)
+    #'(lambda (p1 p2)
+	(let ((bfn1 (gethash p1 package-use-table))
+	      (bfn2 (gethash p2 package-use-table)))
+	  (cond ((and bfn1 bfn2) (<= bfn1 bfn2))
+		(bfn1            bfn1)
+		(bfn2            nil)	; p2 is used, p1 not
+		(t (string<= (package-name p1) (package-name p2))))))))
+
+(defun sort-extra-keywords (kwds)
+  (stable-sort kwds (make-package-comparator (list keyword-package *package*))
+               :key (compose #'symbol-package #'keyword-arg.keyword)))
 
 (defun keywords-of-operator (operator)
   "Return a list of KEYWORD-ARGs that OPERATOR accepts.
