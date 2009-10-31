@@ -1329,8 +1329,8 @@ by adding a template for the missing arguments."
 			    (keyword-name
 			     (tokenize-symbol keyword-string))
 			    (matching-keywords
-			     (find-matching-symbols-in-list keyword-name keywords
-							    #'compound-prefix-match))
+			     (find-matching-symbols-in-list 
+			      keyword-name keywords (make-compound-prefix-matcher #\-)))
 			    (converter (completion-output-symbol-converter keyword-string))
 			    (strings
 			     (mapcar converter

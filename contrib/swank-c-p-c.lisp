@@ -41,29 +41,39 @@ format. The cases are as follows:
   PKG:FOO  - Symbols with matching prefix and external in package PKG.
   PKG::FOO - Symbols with matching prefix and accessible in package PKG.
 "
-  (let ((completion-set (completion-set string default-package-name
-                                        #'compound-prefix-match)))
-    (when completion-set
-      (list completion-set (longest-compound-prefix completion-set)))))
+  (multiple-value-bind (name package-name package internal-p)
+      (parse-completion-arguments string default-package-name)
+    (let* ((symbol-set  (symbol-completion-set 
+			 name package-name package internal-p
+			 (make-compound-prefix-matcher #\-)))
+	   (package-set (package-completion-set 
+			 name package-name package internal-p
+			 (make-compound-prefix-matcher '(#\. #\-))))
+	   (completion-set
+	    (format-completion-set (nconc symbol-set package-set) 
+				   internal-p package-name)))
+      (when completion-set
+	(list completion-set (longest-compound-prefix completion-set))))))
+
 
 ;;;;; Find completion set
 
-(defun completion-set (string default-package-name matchp)
+(defun symbol-completion-set (name package-name package internal-p matchp)
   "Return the set of completion-candidates as strings."
-  (multiple-value-bind (name package-name package internal-p)
-      (parse-completion-arguments string default-package-name)
-    (let* ((symbols (mapcar (completion-output-symbol-converter name)
-                            (and package
-                                 (mapcar #'symbol-name
-                                         (find-matching-symbols name
-                                                                package
-                                                                (and (not internal-p)
-                                                                     package-name)
-                                                                matchp)))))
-           (packs (mapcar (completion-output-package-converter name)
-                          (and (not package-name)
-                               (find-matching-packages name matchp)))))
-      (format-completion-set (nconc symbols packs) internal-p package-name))))
+  (mapcar (completion-output-symbol-converter name)
+	  (and package
+	       (mapcar #'symbol-name
+		       (find-matching-symbols name
+					      package
+					      (and (not internal-p)
+						   package-name)
+					      matchp)))))
+
+(defun package-completion-set (name package-name package internal-p matchp)
+  (declare (ignore package internal-p))
+  (mapcar (completion-output-package-converter name)
+	  (and (not package-name)
+	       (find-matching-packages name matchp))))
 
 (defun find-matching-symbols (string package external test)
   "Return a list of symbols in PACKAGE matching STRING.
@@ -97,13 +107,13 @@ TEST is called with two strings."
 (defun find-matching-packages (name matcher)
   "Return a list of package names matching NAME with MATCHER.
 MATCHER is a two-argument predicate."
-  (let ((to-match (string-upcase name)))
-    (remove-if-not (lambda (x) (funcall matcher to-match x))
+  (let ((converter (completion-output-package-converter name)))
+    (remove-if-not (lambda (x)
+                     (funcall matcher name (funcall converter x)))
                    (mapcar (lambda (pkgname)
                              (concatenate 'string pkgname ":"))
                            (loop for package in (list-all-packages)
-                                 collect (package-name package)
-                                 append (package-nicknames package))))))
+                                 nconcing (package-names package))))))
 
 
 ;; PARSE-COMPLETION-ARGUMENTS return table:
@@ -212,24 +222,23 @@ compound-prefix of `target', and otherwise NIL.
 Viewing each of `prefix' and `target' as a series of substrings
 delimited by DELIMETER, if each substring of `prefix' is a prefix
 of the corresponding substring in `target' then we call `prefix'
-a compound-prefix of `target'."
-  (lambda (prefix target)
-    (declare (type simple-string prefix target))
-    (loop for ch across prefix
-          with tpos = 0
-          always (and (< tpos (length target))
-                      (if (char= ch delimeter)
-                          (setf tpos (position #\- target :start tpos))
-                          (funcall test ch (aref target tpos))))
-          do (incf tpos))))
+a compound-prefix of `target'.
 
-(defun compound-prefix-match (prefix target)
-  "Examples:
-\(compound-prefix-match \"foo\" \"foobar\") => t
-\(compound-prefix-match \"m--b\" \"multiple-value-bind\") => t
-\(compound-prefix-match \"m-v-c\" \"multiple-value-bind\") => NIL
-"
-  (funcall (make-compound-prefix-matcher #\-) prefix target))
+DELIMETER may be a character, or a list of characters."
+  (let ((delimeters (etypecase delimeter
+		      (character (list delimeter))
+		      (cons      (assert (every #'characterp delimeter))
+			         delimeter))))
+    (lambda (prefix target)
+      (declare (type simple-string prefix target))
+      (loop for ch across prefix
+	    with tpos = 0
+	    always (and (< tpos (length target))
+			(let ((delimeter (car (member ch delimeters :test test))))
+			  (if delimeter
+			      (setf tpos (position delimeter target :start tpos))
+			      (funcall test ch (aref target tpos)))))
+	    do (incf tpos)))))
 
 
 ;;;;; Extending the input string by completion

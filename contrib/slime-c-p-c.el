@@ -201,4 +201,22 @@ This is a superset of the functionality of `slime-insert-arglist'."
   (while slime-c-p-c-init-undo-stack
     (eval (pop slime-c-p-c-init-undo-stack))))
 
+(def-slime-test complete-symbol*
+    (prefix expected-completions)
+    "Find the completions of a symbol-name prefix."
+    '(("cl:compile" (("cl:compile" "cl:compile-file" "cl:compile-file-pathname"
+                      "cl:compiled-function" "cl:compiled-function-p" 
+                      "cl:compiler-macro" "cl:compiler-macro-function")
+                     "cl:compile"))
+      ("cl:foobar" nil)
+      ("swank::compile-file" (("swank::compile-file" 
+                               "swank::compile-file-for-emacs"
+                               "swank::compile-file-if-needed"
+                               "swank::compile-file-pathname")
+                              "swank::compile-file"))
+      ("cl:m-v-l" (("cl:multiple-value-list" "cl:multiple-values-limit") "cl:multiple-value"))
+      ("common-lisp" (("common-lisp-user:" "common-lisp:") "common-lisp")))
+  (let ((completions (slime-completions prefix)))
+    (slime-test-expect "Completion set" expected-completions completions)))
+
 (provide 'slime-c-p-c)

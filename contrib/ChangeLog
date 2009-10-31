@@ -1,5 +1,21 @@
 2009-10-31  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-c-p-c.lisp (completion-set): Split into
+	`symbol-completion-set', and `package-completion-set'.
+	(completions): Updated accordingly. Also: complete packages
+	"hyphenated" by dots.
+	(find-matching-packages): Heed readtable-case.
+	(make-compound-prefix-matcher): Make it possible to pass list of
+	delimeters.
+	(compound-prefix-match): Deleted.
+
+	* swank-arglists.lisp (completions-for-keyword): Adapted so it
+	does not use `compound-prefix-match'.
+
+	* slime-c-p-c.el (complete-symbol* [test]): New test case.
+
+2009-10-31  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* swank-arglists.lisp (extra-keywords :around): Sort keyword
 	parameters such that implementation-internal stuff is shown last.
 	(compose): New helper.
