@@ -1,5 +1,9 @@
 2009-10-31  Tobias C. Rittweiler <tcr@freebits.de>
 
+	* slime.el (slime-bug): Deleted.
+
+2009-10-31  Tobias C. Rittweiler <tcr@freebits.de>
+
 	* slime.el (slime-inside-string-p, slime-inside-comment-p)
 	(slime-inside-string-or-comment-p): New.
 

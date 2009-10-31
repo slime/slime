@@ -732,27 +732,6 @@ It should be used for \"background\" messages such as argument lists."
                            (or (position ?\n string) most-positive-fixnum)
                            (1- (frame-width)))))
 
-(defun slime-bug (message &rest args)
-  (slime-display-warning 
-"%S:%d:%d (pt=%d).
-%s
-
-This is a bug in Slime itself. Please report this to the
-mailinglist slime-devel@common-lisp.net and include your Emacs
-version, the guilty Lisp source file, the header of this
-message, and the following backtrace.
-
-Backtrace:
-%s
---------------------------------------------------------------
-"
-   (buffer-name)
-   (line-number-at-pos)
-   (current-column)
-   (point)
-   (apply #'format message args)
-   (with-output-to-string (backtrace))))
-
 ;; Interface
 (defun slime-set-truncate-lines ()
   "Apply `slime-truncate-lines' to the current buffer."

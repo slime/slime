@@ -43,16 +43,14 @@
           (when (<= (point) limit)
             (if (or (and (eq char ?+) (not val))
                     (and (eq char ?-) val))
-                (progn
+                ;; If `slime-extend-region-for-font-lock' did not
+                ;; fully extend the region, the assertion below may
+                ;; fail. This should only happen on XEmacs and older
+                ;; versions of GNU Emacs.
+                (ignore-errors
                   (forward-sexp) (backward-sexp)
                   ;; Try to suppress as far as possible.
-                  (ignore-errors (slime-forward-sexp))
-                  ;; There was an `ignore-errors' form around all this
-                  ;; because the following assertion was triggered
-                  ;; regularly (resulting in the "non-deterministic"
-                  ;; behaviour mentioned in the comment further below.)
-                  ;; With extending the region properly, this assertion
-                  ;; would truly mean a bug now.
+                  (slime-forward-sexp)
                   (assert (<= (point) limit))
                   (let ((md (match-data nil slime-search-suppressed-forms-match-data)))
                     (setf (first md) start)
@@ -84,10 +82,7 @@
            (setq result 'retry)) 
           (error
            (setq result nil)
-           ;; If this reports `(cl-assertion-failed (<= (point) limit))',
-           ;; the actual culprit is `slime-extend-region-for-font-lock'
-           ;; which did not extend the region enough in this case.
-           (slime-bug 
+           (slime-display-warning
             (concat "Caught error during fontification while searching for forms\n"
                     "that are suppressed by reader-conditionals. The error was: %S.")
             condition))))
@@ -141,7 +136,7 @@ position, or nil."
             (slime-compute-region-for-font-lock font-lock-beg font-lock-end))
           changedp)
       (error
-       (slime-bug 
+       (slime-display-warning
         (concat "Caught error when trying to extend the region for fontification.\n"
                 "The error was: %S\n"
                 "Further: font-lock-beg=%d, font-lock-end=%d.")

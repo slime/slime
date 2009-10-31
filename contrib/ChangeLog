@@ -1,5 +1,12 @@
 2009-10-31  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* slime-fontifying-fu.el (slime-search-suppressed-forms-internal):
+	Wrap form in `ignore-errors' again. People have been guinea pigs
+	long enough. Suppression of reader-conditionalized forms seems to
+	work pretty reliably now.
+
+2009-10-31  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-autodoc.el, swank-arglists.lisp: Large parts were
 	rewritten. Autodoc is now able to highlight &key parameters, and
 	parameters in nested arglists.
