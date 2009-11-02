@@ -1,3 +1,11 @@
+2009-11-02  Helmut Eller  <heller@common-lisp.net>
+
+	CCL's lap-functions don't have source-notes but the name often
+	has.  E.g. ccl::%fixnum-truncate.  Use names as last resort.
+
+	* swank-ccl.lisp (function-name-source-note): New function.
+	(pc-source-location): Use it.
+
 2009-11-02  Stas Boukarev  <stassats@gmail.com>
 
 	* swank.lisp (tokenize-symbol-thoroughly): Return NIL

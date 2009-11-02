@@ -537,7 +537,8 @@
 
 (defun function-source-location (function)
   (source-note-to-source-location
-   (ccl:function-source-note function)
+   (or (ccl:function-source-note function)
+       (function-name-source-note function))
    (lambda ()
      (format nil "Function has no source note: ~A" function))
    (ccl:function-name function)))
@@ -545,10 +546,18 @@
 (defun pc-source-location (function pc)
   (source-note-to-source-location
    (or (ccl:find-source-note-at-pc function pc)
-       (ccl:function-source-note function))
+       (ccl:function-source-note function)
+       (function-name-source-note function))
    (lambda ()
      (format nil "No source note at PC: ~a[~d]" function pc))
    (ccl:function-name function)))
+
+(defun function-name-source-note (fun)
+  (let ((defs (ccl:find-definition-sources (ccl:function-name fun) 'function)))
+    (and defs
+         (destructuring-bind ((type . name) srcloc . srclocs) (car defs)
+           (declare (ignore type name srclocs))
+           srcloc))))
 
 (defun source-note-to-source-location (source if-nil-thunk &optional name)
   (labels ((filename-to-buffer (filename)
@@ -720,14 +729,9 @@
   (queue '() :type list))
 
 (defimplementation spawn (fun &key name)
-  (flet ((entry ()
-           (handler-bind ((ccl:process-reset (lambda (c) 
-                                               (return-from entry c))))
-             (funcall fun))))
-    (ccl:process-run-function 
-     (or name "Anonymous (Swank)")
-     #'entry)))
-  
+  (ccl:process-run-function (or name "Anonymous (Swank)")
+                            fun))
+
 (defimplementation thread-id (thread)
   (ccl:process-serial-number thread))
 
