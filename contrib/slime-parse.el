@@ -9,7 +9,7 @@
 
 (defun slime-incomplete-form-at-point ()
   (slime-make-form-spec-from-string 
-   (concat (slime-incomplete-sexp-at-point) ")")))
+   (concat (slime-incomplete-sexp-at-point) " )")))
 
 (defun slime-parse-sexp-at-point (&optional n skip-blanks-p)
   "Returns the sexps at point as a list of strings, otherwise nil.

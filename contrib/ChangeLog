@@ -1,3 +1,10 @@
+2009-11-02  Stas Boukarev  <stassats@gmail.com>
+
+	* slime-parse.el (slime-incomplete-form-at-point): Concatenate " )"
+	not just ")", because the form's last char may be \, and the parenthesis
+	will be escaped.
+	That fixes a bug reported by Ariel Badichi.
+
 2009-10-31  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* slime-fontifying-fu.el (slime-search-suppressed-forms-internal):
