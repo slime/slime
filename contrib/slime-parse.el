@@ -8,8 +8,8 @@
 ;;
 
 (defun slime-incomplete-form-at-point ()
-  (slime-make-form-spec-from-string 
-   (concat (slime-incomplete-sexp-at-point) " )")))
+  (slime-make-form-spec-from-string
+   (concat (slime-incomplete-sexp-at-point) ")")))
 
 (defun slime-parse-sexp-at-point (&optional n skip-blanks-p)
   "Returns the sexps at point as a list of strings, otherwise nil.
@@ -39,8 +39,9 @@ If SKIP-BLANKS-P is true, leading whitespaces &c are skipped.
 
 (defun slime-incomplete-sexp-at-point (&optional n)
   (interactive "p") (or n (setq n 1))
-  (buffer-substring-no-properties (save-excursion (backward-up-list n) (point))
-                                  (point)))
+  (buffer-substring-no-properties 
+   (save-excursion (backward-up-list n) (point))
+   (point)))
 
 
 (defun slime-parse-extended-operator-name (user-point forms indices points)
@@ -191,54 +192,9 @@ TARGET-POINT should always be placed just before a `?\('.)"
           0))))
 
 (defun slime-make-form-spec-from-string (string &optional strip-operator-p)
-  "If STRIP-OPERATOR-P is T and STRING is the string
-representation of a form, the string representation of this form
-is stripped from the form. This can be important to avoid mutual
-recursion between this function, `slime-enclosing-form-specs' and
-`slime-parse-extended-operator-name'.
+  "Example: \"(foo (bar 1 (baz :quux)) 'toto)\" 
 
-Examples:
-
-  \"(foo (bar 1 (baz :quux)) 'toto)\" 
-
-      => (\"foo\" (\"bar\" \"1\" (\"baz\" \":quux\")) \"'toto\")
-"
-  (cond ((slime-length= string 0) "")                    ; ""
-	((equal string "()") '())                        ; "()"
-	((eql (char-syntax (aref string 0)) ?\') string) ; "'(foo)", "#(foo)" &c
-	((not (eql (aref string 0) ?\()) string)         ; "foo"
-	(t                                               ; "(op arg1 arg2 ...)"
-	 (with-temp-buffer
-	   ;; Do NEVER ever try to activate `lisp-mode' here with
-	   ;; `slime-use-autodoc-mode' enabled, as this function is used
-	   ;; to compute the current autodoc itself.
-           (set-syntax-table lisp-mode-syntax-table)
-	   (erase-buffer)
-	   (insert string)
-	   (when strip-operator-p ; `(OP arg1 arg2 ...)' ==> `(arg1 arg2 ...)'
-	     (goto-char (point-min))
-	     (when (string= (thing-at-point 'char) "(")
-	       (ignore-errors (forward-char 1)
-			      (forward-sexp)
-			      (slime-forward-blanks))
-	       (delete-region (point-min) (point))
-	       (insert "(")))
-	   (goto-char (1- (point-max))) ; `(OP arg1 ... argN|)'
-	   (assert (eql (char-after) ?\)))
-	   (multiple-value-bind (forms indices points)
-	       (slime-enclosing-form-specs 1)
-	     (if (null forms)
-		 string
-                (let ((n (first (last indices))))
-		  (goto-char (1+ (point-min))) ; `(|OP arg1 ... argN)'
-		  (let ((subsexps (slime-parse-sexp-at-point (1+ n) t)))
-		    (mapcar #'(lambda (s)
-				(assert (not (equal s string)))       ; trap against
-				(slime-make-form-spec-from-string s)) ;  endless recursion.
-			    subsexps
-			    )))))))))
-
-(defun slime-make-form-spec-from-string (string &optional strip-operator-p)
+            => (\"foo\" (\"bar\" \"1\" (\"baz\" \":quux\")) \"'toto\")"
   (cond ((slime-length= string 0) "")                    ; ""
 	((equal string "()") '())                        ; "()"
 	((eql (char-syntax (aref string 0)) ?\') string) ; "'(foo)", "#(foo)" &c
@@ -253,7 +209,12 @@ Examples:
 	   (insert string)
 	   (goto-char (1+ (point-min)))
 	   (let ((subsexps))
-	     (while (ignore-errors (slime-forward-sexp) t)
+	     (while (condition-case nil 
+			(slime-point-moves-p (slime-forward-sexp))
+		      (scan-error nil)	; can't move any further
+		      (error t))        ; unknown feature expression etc.
+	       ;; We first move back for (FOO)'BAR where point is at
+	       ;; the quote character.
 	       (backward-sexp)
 	       (push (slime-sexp-at-point) subsexps)
 	       (forward-sexp))
@@ -364,48 +325,61 @@ Examples:
      (nreverse arg-indices)
      (nreverse points))))
 
+(defun slime-compare-char-syntax (get-char-fn syntax &optional unescaped)
+  "Returns t if the character that `get-char-fn' yields has
+characer syntax of `syntax'. If `unescaped' is true, it's ensured
+that the character is not escaped."
+  (let ((char        (funcall get-char-fn (point)))
+	(char-before (funcall get-char-fn (1- (point)))))
+    (if (and char (eq (char-syntax char) (coerce syntax 'character)))
+	(if unescaped
+	    (or (null char-before)
+		(not (eq (char-syntax char-before) ?\\)))
+	    t)
+        nil)))
+
+(defconst slime-cursor-marker 'swank::%cursor-marker%)
+
 (defun slime-parse-form-upto-point (&optional max-levels)
   ;; We assert this, because `slime-incomplete-form-at-point' blows up
   ;; inside a comment.
   (assert (not (slime-inside-string-or-comment-p)))
   (save-excursion
-    (let ((char-after  (char-after))
-          (char-before (char-before))
-          (marker-suffix (list 'swank::%cursor-marker%)))
-      (cond ((and char-after (eq (char-syntax char-after) ?\())
-             ;; We're at the start of some expression, so make sure
-             ;; that SWANK::%CURSOR-MARKER% will come after that
-             ;; expression.
-             (ignore-errors (forward-sexp)))
-            ((and char-before (eq (char-syntax char-before) ?\ ))
-             ;; We're after some expression, so we have to make sure
-             ;; that %CURSOR-MARKER% does not come directly after that
-             ;; expression.
-             (push "" marker-suffix))
-            ((and char-before (eq (char-syntax char-before) ?\())
-             ;; We're directly after an opening parenthesis, so we
-             ;; have to make sure that something comes before
-             ;; %CURSOR-MARKER%..
-             (push "" marker-suffix))
-            (t
-             ;; We're at a symbol, so make sure we get the whole symbol.
-             (slime-end-of-symbol)))
+    (let ((suffix (list slime-cursor-marker)))
+      (cond ((slime-compare-char-syntax #'char-after "(" t)
+	     ;; We're at the start of some expression, so make sure
+	     ;; that SWANK::%CURSOR-MARKER% will come after that
+	     ;; expression.
+	     (ignore-errors (forward-sexp)))
+	    ((slime-compare-char-syntax #'char-before " " t)
+	     ;; We're after some expression, so we have to make sure
+	     ;; that %CURSOR-MARKER% does not come directly after that
+	     ;; expression.
+	     (push "" suffix))
+	    ((slime-compare-char-syntax #'char-before "(" t)
+	     ;; We're directly after an opening parenthesis, so we
+	     ;; have to make sure that something comes before
+	     ;; %CURSOR-MARKER%..
+	     (push "" suffix))
+	    (t
+	     ;; We're at a symbol, so make sure we get the whole symbol.
+	     (slime-end-of-symbol)))
       (let ((forms '())
-            (levels (or max-levels 5)))
-        (condition-case nil
-            (let ((form (slime-incomplete-form-at-point)))
-              (setq forms (list (nconc form marker-suffix)))
-              (up-list -1)
-              (dotimes (i (1- levels))
-                (push (slime-incomplete-form-at-point) forms)
-                (up-list -1)))
-          ;; At head of toplevel form.
-          (scan-error nil))
-        (when forms
-          ;; Squeeze list of forms into tree structure again
-          (reduce #'(lambda (form tree)
-                      (nconc form (list tree)))
-                  forms :from-end t))))))
+	    (levels (or max-levels 5)))
+	(condition-case nil
+	    (let ((form (slime-incomplete-form-at-point)))
+	      (setq forms (list (nconc form suffix)))
+	      (up-list -1)
+	      (dotimes (i (1- levels))
+		(push (slime-incomplete-form-at-point) forms)
+		(up-list -1)))
+	  ;; At head of toplevel form.
+	  (scan-error nil))
+	(when forms
+	  ;; Squeeze list of forms into tree structure again
+	  (reduce #'(lambda (form tree)
+		      (nconc form (list tree)))
+		  forms :from-end t))))))
 
 
 (defun slime-ensure-list (thing)
@@ -461,7 +435,38 @@ Examples:
     (slime-check-enclosing-form-specs wished-form-specs)      
     ))
 
+(defun slime-check-buffer-form (result-form)
+  (slime-test-expect 
+   (format "Buffer form correct in `%s' (at %d)" (buffer-string) (point))
+   result-form
+   (slime-parse-form-upto-point 10)))
 
+(def-slime-test form-up-to-point.1
+    (buffer-sexpr result-form)
+    ""
+    '(("(char= #\\(*HERE*"            ("char=" "#\\(" swank::%cursor-marker%))
+      ("(char= #\\( *HERE*"           ("char=" "#\\(" "" swank::%cursor-marker%))
+      ("(char= #\\) *HERE*"           ("char=" "#\\)" "" swank::%cursor-marker%))
+                                      ;; The #\) here is an accident of 
+                                      ;; the implementation.
+      ("(char= #\\*HERE*"             ("char=" "#\\)" swank::%cursor-marker%))
+      ("(defun*HERE*"                 ("defun" swank::%cursor-marker%))
+      ("(defun foo*HERE*"             ("defun" "foo" swank::%cursor-marker%))
+      ("(defun foo (x y)*HERE*"       ("defun" "foo" ("x" "y") swank::%cursor-marker%))
+      ("(defun foo (x y*HERE*"        ("defun" "foo" ("x" "y" swank::%cursor-marker%)))
+      ("(apply 'foo*HERE*"            ("apply" "'foo" swank::%cursor-marker%))
+      ("(apply #'foo*HERE*"           ("apply" "#'foo" swank::%cursor-marker%))
+      ("(declare ((vector bit *HERE*" ("declare" (("vector" "bit" "" swank::%cursor-marker%)))))
+  (slime-check-top-level)
+  (with-temp-buffer
+    (lisp-mode)
+    (insert buffer-sexpr)
+    (search-backward "*HERE*")
+    (delete-region (match-beginning 0) (match-end 0))
+    (slime-check-buffer-form result-form)
+    (insert ")") (backward-char)
+    (slime-check-buffer-form result-form)      
+    ))
 
 (provide 'slime-parse)
 

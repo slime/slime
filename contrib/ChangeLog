@@ -1,3 +1,12 @@
+2009-11-02  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-parse.el (slime-make-form-spec-from-string): Break out of
+	the loop if we're at unbalanced parentheses.
+	(slime-compare-character-syntax): New helper.
+	(slime-parse-form-upto-point): Use it.
+	(slime-incomplete-form-at-point): Revert change.
+	([test] form-upto-point.1): New test case.
+
 2009-11-02  Stas Boukarev  <stassats@gmail.com>
 
 	* slime-parse.el (slime-incomplete-form-at-point): Concatenate " )"
