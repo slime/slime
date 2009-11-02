@@ -65,28 +65,6 @@
   (:documentation
    "Dummy class created so that swank.lisp will compile and load."))
 
-;; #+#.(cl:if (cl:find-package "LINUX") '(and) '(or))
-;; (progn
-;;   (defmacro with-blocked-signals ((&rest signals) &body body)
-;;     (ext:with-gensyms ("SIGPROCMASK" ret mask)
-;;       `(multiple-value-bind (,ret ,mask)
-;;            (linux:sigprocmask-set-n-save
-;;             ,linux:SIG_BLOCK
-;;             ,(do ((sigset (linux:sigset-empty)
-;;                           (linux:sigset-add sigset (the fixnum (pop signals)))))
-;;                  ((null signals) sigset)))
-;;          (linux:check-res ,ret 'linux:sigprocmask-set-n-save)
-;;          (unwind-protect
-;;               (progn ,@body)
-;;            (linux:sigprocmask-set ,linux:SIG_SETMASK ,mask nil)))))
-
-;;   (defimplementation call-without-interrupts (fn)
-;;     (with-blocked-signals (#.linux:SIGINT) (funcall fn))))
-
-;; #+#.(cl:if (cl:find-package "LINUX") '(or) '(and))
-(defimplementation call-without-interrupts (fn)
-  (funcall fn))
-
 (let ((getpid (or (find-symbol "PROCESS-ID" :system)
                   ;; old name prior to 2005-03-01, clisp <= 2.33.2
                   (find-symbol "PROGRAM-ID" :system)

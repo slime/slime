@@ -308,10 +308,6 @@ that the calling thread is the one that interacts with Emacs."
 
 (defconstant +sigint+ 2)
 
-(definterface call-without-interrupts (fn)
-  "Call FN in a context where interrupts are disabled."
-  (funcall fn))
-
 (definterface getpid ()
   "Return the (Unix) process ID of this superior Lisp.")
 

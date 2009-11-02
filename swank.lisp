@@ -457,11 +457,6 @@ Do not set this to T unless you want to debug swank internals.")
   (check-type msg string)
   `(call-with-retry-restart ,msg #'(lambda () ,@body)))
 
-;;; FIXME: Can this be removed with the introduction of
-;;;        WITH/WITHOUT-SLIME-INTERRUPTS.
-(defmacro without-interrupts (&body body)
-  `(call-without-interrupts (lambda () ,@body)))
-
 (defmacro destructure-case (value &rest patterns)
   "Dispatch VALUE to one of PATTERNS.
 A cross between `case' and `destructuring-bind'.

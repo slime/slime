@@ -71,9 +71,6 @@
 
 ;;;; Unix signals
 
-(defimplementation call-without-interrupts (fn)
-  (excl:without-interrupts (funcall fn)))
-
 (defimplementation getpid ()
   (excl::getpid))
 

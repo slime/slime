@@ -282,11 +282,6 @@
             (return (sb-bsd-sockets:socket-accept socket))
           (sb-bsd-sockets:interrupted-error ()))))
 
-(defimplementation call-without-interrupts (fn)
-  (declare (type function fn))
-  (sb-sys:without-interrupts (funcall fn)))
-
-
 
 ;;;; Support for SBCL syntax
 

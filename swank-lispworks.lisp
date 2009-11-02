@@ -169,9 +169,6 @@
                                (declare (ignore args))
                                (mp:process-interrupt self handler)))))
 
-(defimplementation call-without-interrupts (fn)
-  (error "Don't use without-interrupts -- consider without-slime-interrupts instead."))
-  
 (defimplementation getpid ()
   #+win32 (win32:get-current-process-id)
   #-win32 (system::getpid))

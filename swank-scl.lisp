@@ -1315,9 +1315,6 @@ Signal an error if no constructor can be found."
 (defimplementation pathname-to-filename (pathname)
   (ext:unix-namestring pathname nil))
 
-(defimplementation call-without-interrupts (fn)
-  (funcall fn))
-
 (defimplementation getpid ()
   (unix:unix-getpid))
 

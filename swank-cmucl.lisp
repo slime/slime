@@ -1478,9 +1478,6 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
 (defimplementation default-directory ()
   (namestring (ext:default-directory)))
 
-(defimplementation call-without-interrupts (fn)
-  (sys:without-interrupts (funcall fn)))
-
 (defimplementation getpid ()
   (unix:unix-getpid))
 

@@ -183,9 +183,6 @@
 
 ;;;; Unix signals
 
-(defimplementation call-without-interrupts (fn)
-  (funcall fn))
-
 (defimplementation getpid ()
   (handler-case 
       (let* ((runtime 

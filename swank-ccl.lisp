@@ -155,12 +155,6 @@
 
 ;;; Unix signals
 
-(defimplementation call-without-interrupts (fn)
-  ;; This prevents the current thread from being interrupted, but it doesn't
-  ;; keep other threads from running concurrently, so it's not an appropriate
-  ;; replacement for locking.
-  (ccl:without-interrupts (funcall fn)))
-
 (defimplementation getpid ()
   (ccl::getpid))
 

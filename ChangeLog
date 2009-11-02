@@ -1,5 +1,11 @@
 2009-11-02  Helmut Eller  <heller@common-lisp.net>
 
+	* swank.lisp (without-interrupts): Removed. No longer used.
+	* swank-backend.lisp (call-without-interrupts): Removed.
+	Update backends accoringly.
+
+2009-11-02  Helmut Eller  <heller@common-lisp.net>
+
 	CCL's lap-functions don't have source-notes but the name often
 	has.  E.g. ccl::%fixnum-truncate.  Use names as last resort.
 
