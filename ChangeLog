@@ -1,3 +1,11 @@
+2009-11-02  Stas Boukarev  <stassats@gmail.com>
+
+	* swank.lisp (tokenize-symbol-thoroughly): Return NIL
+	instead of throwing an error.
+	(parse-symbol): Handle null result of tokenize-symbol-thoroughly.
+
+	This fixes a bug reported by Derrell Piper.
+
 2009-10-31  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el (slime-bug): Deleted.

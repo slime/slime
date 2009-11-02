@@ -2014,7 +2014,7 @@ considered to represent a symbol internal to some current package.)"
              (vector-push-extend char token))
             ((char= char #\:)
              (cond ((and package internp)
-                    (error "More than two colons in ~S" string))
+                    (return-from tokenize-symbol-thoroughly))
                    (package
                     (setq internp t))
                    (t
@@ -2024,9 +2024,8 @@ considered to represent a symbol internal to some current package.)"
                                             :fill-pointer 0)))))
             (t
              (vector-push-extend (casify-char char) token))))
-    (when vertical
-      (error "Unclosed vertical bar in ~S" string))
-    (values token package (or (not package) internp))))
+    (unless vertical
+          (values token package (or (not package) internp)))))
 
 (defun untokenize-symbol (package-name internal-p symbol-name)
   "The inverse of TOKENIZE-SYMBOL.
@@ -2061,16 +2060,17 @@ considered to represent a symbol internal to some current package.)"
 Return the symbol and a flag indicating whether the symbols was found."
   (multiple-value-bind (sname pname internalp)
       (tokenize-symbol-thoroughly string)
-    (let ((package (cond ((string= pname "") keyword-package)
-                         (pname              (find-package pname))
-                         (t                  package))))
-      (if package
-          (multiple-value-bind (symbol flag)
-              (if internalp
-                  (find-symbol sname package)
-                  (find-symbol-with-status sname ':external package))
-            (values symbol flag sname package))
-          (values nil nil nil nil)))))
+    (when sname
+     (let ((package (cond ((string= pname "") keyword-package)
+                          (pname              (find-package pname))
+                          (t                  package))))
+       (if package
+           (multiple-value-bind (symbol flag)
+               (if internalp
+                   (find-symbol sname package)
+                   (find-symbol-with-status sname ':external package))
+             (values symbol flag sname package))
+           (values nil nil nil nil))))))
 
 (defun parse-symbol-or-lose (string &optional (package *package*))
   (multiple-value-bind (symbol status) (parse-symbol string package)
