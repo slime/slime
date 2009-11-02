@@ -1,3 +1,8 @@
+2009-11-02  Tobias C. Rittweiler <tcr@freebits.de>
+
+	* slime.el (slime-end-of-symbol): Make sure not to move on #'foo.
+	([test] sexp-at-point.1): New test case.
+
 2009-11-02  Helmut Eller  <heller@common-lisp.net>
 
 	* swank.lisp (without-interrupts): Removed. No longer used.

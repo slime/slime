@@ -7470,10 +7470,26 @@ BODY returns true if the check succeeds."
   slime-test-symbols
   (slime-check-symbol-at-point "#+" sym ""))
 
-(def-slime-test symbol-at-point.17 (sym)
-  "symbol-at-point after #-"
-  slime-test-symbols
-  (slime-check-symbol-at-point "#-" sym ""))
+
+(def-slime-test sexp-at-point.1 (string)
+  "symbol-at-point after #'"
+  '(("foo")
+    ("#:foo")
+    ("#'foo")
+    ("#'(lambda (x) x)")
+    ("#\\space")
+    ("#\\(")
+    ("#\\)"))
+  (with-temp-buffer
+    (lisp-mode)
+    (insert string)
+    (goto-char (point-min))
+    (slime-test-expect (format "Check sexp `%s' (at %d)..."
+                               (buffer-string) (point))
+                       string
+                       (slime-sexp-at-point)
+                       #'equal)))
+
 
 (def-slime-test narrowing ()
     "Check that narrowing is properly sustained."
@@ -8363,7 +8379,7 @@ within. This includes nested comments (#| ... |#)."
 
 (defun slime-end-of-symbol ()
   "Move to the end of the CL-style symbol at point."
-  (re-search-forward "\\=\\(\\sw\\|\\s_\\|\\s\\.\\|[#@|]\\)*"))
+  (re-search-forward "\\=\\(\\sw\\|\\s_\\|\\s\\.\\|#:\\|[@|]\\)*"))
 
 (put 'slime-symbol 'end-op 'slime-end-of-symbol)
 (put 'slime-symbol 'beginning-op 'slime-beginning-of-symbol)
