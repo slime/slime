@@ -170,7 +170,7 @@ Otherwise NIL is returned."
   (assert (loop for clause in clauses
 		thereis (member (car clause) +lambda-list-keywords+)))
   (flet ((parse-clauses (clauses)
-	   (let* ((size    (load-time-value (length +lambda-list-keywords+)))
+	   (let* ((size    (length +lambda-list-keywords+))
 		  (initial (make-hash-table :test #'eq :size size))
 		  (main    (make-hash-table :test #'eq :size size))
 		  (final   (make-hash-table :test #'eq :size size)))

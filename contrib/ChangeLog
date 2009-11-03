@@ -1,5 +1,9 @@
 2009-11-02  Tobias C. Rittweiler  <tcr@freebits.de>
 
+	* swank-arglists.lisp (do-decoded-arglists): Remove L-V-T.
+
+2009-11-02  Tobias C. Rittweiler  <tcr@freebits.de>
+
 	* slime-parse.el (slime-make-form-spec-from-string): Break out of
 	the loop if we're at unbalanced parentheses.
 	(slime-compare-character-syntax): New helper.
