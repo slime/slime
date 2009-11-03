@@ -6,7 +6,7 @@
 	* swank.lisp (collect-notes): LOAD returns generalized boolean,
 	not just boolean, but make-compilation-result accepts only booleans
 	for its second argument.
-	
+
 	Both bugs reported by Derrell Piper.
 
 2009-11-02  Tobias C. Rittweiler <tcr@freebits.de>
