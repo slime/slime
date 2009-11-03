@@ -1,3 +1,16 @@
+2009-11-03  Helmut Eller  <heller@common-lisp.net>
+
+	Ask gdb for source lines of foreign functions.
+
+	* swank-cmucl.lisp (frame-source-location): Handle foreign
+	frames with gdb.
+	(frame-ip): Handle bogus frames (on x86)
+	(disassemble-frame): Use gdb for foreign frames.
+	(foreign-frame-p, foreign-frame-source-location): New functions.
+	(gdb-command, gdb-exec, parse-gdb-line-info, read-word)
+	(whitespacep, with-temporary-file, call/temporary-file): New
+	helpers.
+
 2009-11-03  Stas Boukarev  <stassats@gmail.com>
 
 	* slime.el (sldb-setup): Do (set-syntax-table lisp-mode-syntax-table)

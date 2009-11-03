@@ -1535,7 +1535,9 @@ A utility for debugging DEBUG-FUNCTION-ARGLIST."
         (ignore-errors (princ e stream))))))
 
 (defimplementation frame-source-location (index)
-  (code-location-source-location (di:frame-code-location (nth-frame index))))
+  (let ((frame (nth-frame index)))
+    (cond ((foreign-frame-p frame) (foreign-frame-source-location frame))
+          ((code-location-source-location (di:frame-code-location frame))))))
 
 (defimplementation eval-in-frame (form index)
   (di:eval-in-frame (nth-frame index) form))
@@ -1807,8 +1809,14 @@ Try to create a informative message."
                        (sys:sap-int
                         (sys:sap+ (kernel:code-instructions component) pc)))))
              (values ip pc)))
-          ((or di::bogus-debug-function di::interpreted-debug-function)
-           -1)))))
+          (di::interpreted-debug-function -1)
+          (di::bogus-debug-function
+           #-x86 -1
+           #+x86
+           (let ((fp (di::frame-pointer (di:frame-up frame))))
+             (multiple-value-bind (ra ofp) (di::x86-call-context fp)
+               (declare (ignore ofp))
+               (values ra 0))))))))
 
 (defun frame-registers (frame)
   "Return the lisp registers CSP, CFP, IP, OCFP, LRA for FRAME-NUMBER."
@@ -1825,16 +1833,16 @@ Try to create a informative message."
                          (integer p)
                          (sys:system-area-pointer (sys:sap-int p)))))
       (apply #'format t "~
-CSP  =  ~X
-CFP  =  ~X
-IP   =  ~X
-OCFP =  ~X
-LRA  =  ~X~%" (mapcar #'fixnum 
+~8X  Stack Pointer
+~8X  Frame Pointer
+~8X  Instruction Pointer
+~8X  Saved Frame Pointer
+~8X  Saved Instruction Pointer~%" (mapcar #'fixnum 
                       (multiple-value-list (frame-registers frame)))))))
 
+(defvar *gdb-program-name* "/usr/bin/gdb")
 
 (defimplementation disassemble-frame (frame-number)
-  "Return a string with the disassembly of frames code."
   (print-frame-registers frame-number)
   (terpri)
   (let* ((frame (di::frame-real-frame (nth-frame frame-number)))
@@ -1847,7 +1855,84 @@ LRA  =  ~X~%" (mapcar #'fixnum
              (disassemble fun)
              (disassem:disassemble-code-component component))))
       (di::bogus-debug-function
-       (format t "~%[Disassembling bogus frames not implemented]")))))
+       (cond ((probe-file *gdb-program-name*)
+              (let ((ip (sys:sap-int (frame-ip frame))))
+                (princ (gdb-command "disas 0x~x" ip))))
+             (t
+              (format t "~%[Disassembling bogus frames not implemented]")))))))
+
+(defmacro with-temporary-file ((stream filename) &body body)
+  `(call/temporary-file (lambda (,stream ,filename) . ,body)))
+  
+(defun call/temporary-file (fun)
+  (let ((name (system::pick-temporary-file-name)))
+    (unwind-protect
+         (with-open-file (stream name :direction :output :if-exists :supersede)
+           (funcall fun stream name))
+      (delete-file name))))
+
+(defun gdb-command (format-string &rest args)
+  (let ((str (gdb-exec (format nil "attach ~d~%~a~%detach" 
+                               (getpid)
+                               (apply #'format nil format-string args)))))
+    (subseq str (1+ (position #\newline str)))))
+
+(defun gdb-exec (cmd)
+  (with-temporary-file (file filename)
+    (write-string cmd file)
+    (force-output file)
+    (let* ((output (make-string-output-stream))
+           (proc (ext:run-program "gdb" `("-batch" "-x" ,filename) 
+                                  :wait t
+                                  :output output)))
+      (assert (eq (ext:process-status proc) :exited))
+      (assert (eq (ext:process-exit-code proc) 0))
+      (get-output-stream-string output))))
+
+(defun foreign-frame-p (frame)
+  #-x86 nil
+  #+x86 (let ((ip (frame-ip frame)))
+          (and (sys:system-area-pointer-p ip)
+               (multiple-value-bind (pc code)
+                   (di::compute-lra-data-from-pc ip)
+                 (declare (ignore pc))
+                 (not code)))))
+
+(defun foreign-frame-source-location (frame)
+  (let ((ip (sys:sap-int (frame-ip frame))))
+    (cond ((probe-file *gdb-program-name*)
+           (parse-gdb-line-info (gdb-command "info line *0x~x" ip)))
+          (t `(:error "no srcloc available for ~a" frame)))))
+
+;; The output of gdb looks like:
+;; Line 215 of "../../src/lisp/x86-assem.S" 
+;;    starts at address 0x805318c <Ldone+11>
+;;    and ends at 0x805318e <Ldone+13>.
+;; The ../../ are fixed up with the "target:" search list which might
+;; be wrong sometimes.
+(defun parse-gdb-line-info (string)
+  (with-input-from-string (*standard-input* string)
+    (let ((w1 (read-word)))
+      (cond ((equal w1 "Line")
+             (let ((line (read-word)))
+               (assert (equal (read-word) "of"))
+               (let ((file (read-word)))
+                 (make-location (list :file 
+                                      (unix-truename 
+                                       (merge-pathnames 
+                                        (read-from-string file)
+                                        (format nil "~a/lisp/"
+                                                (unix-truename "target:")))))
+                                (list :line (parse-integer line))))))
+            (t `(:error ,string))))))
+
+(defun read-word (&optional (stream *standard-input*))
+  (peek-char t stream)
+  (concatenate 'string (loop until (whitespacep (peek-char nil stream))
+                             collect (read-char stream))))
+
+(defun whitespacep (char)
+  (member char '(#\space #\newline)))
 
 
 ;;;; Inspecting
