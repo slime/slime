@@ -5444,7 +5444,8 @@ CONTS is a list of pending Emacs continuations."
         (if frames 
             (sldb-insert-frames (sldb-prune-initial-frames frames) t)
           (insert "[No backtrace]")))
-      (run-hooks 'sldb-hook))
+      (run-hooks 'sldb-hook)
+      (set-syntax-table lisp-mode-syntax-table))
     (slime-display-popup-buffer t)
     (sldb-recenter-region (point-min) (point))
     (setq buffer-read-only t)

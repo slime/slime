@@ -1,7 +1,12 @@
 2009-11-03  Stas Boukarev  <stassats@gmail.com>
 
-	* slime.el (sldb-backward-frame): If the point is at the end of the buffer,
-	there is no property, handle this case.
+	* slime.el (sldb-setup): Do (set-syntax-table lisp-mode-syntax-table)
+	otherwise functions used by autodoc do not work properly.
+
+2009-11-03  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (sldb-backward-frame): If the point is at the end of
+	the buffer, there is no property, handle this case.
 
 	* swank.lisp (collect-notes): LOAD returns generalized boolean,
 	not just boolean, but make-compilation-result accepts only booleans
