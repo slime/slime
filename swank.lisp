@@ -2783,8 +2783,7 @@ The time is measured in seconds."
         (handler-bind ((compiler-condition
                         (lambda (c) (push (make-compiler-note c) notes))))
           (measure-time-interval function))
-      (check-type successp boolean)
-      (make-compilation-result (reverse notes) successp seconds))))
+      (make-compilation-result (reverse notes) (and successp t) seconds))))
 
 (defslimefun compile-file-for-emacs (filename load-p &optional options)
   "Compile FILENAME and, when LOAD-P, load the result.

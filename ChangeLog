@@ -1,3 +1,14 @@
+2009-11-03  Stas Boukarev  <stassats@gmail.com>
+
+	* slime.el (sldb-backward-frame): If the point is at the end of the buffer,
+	there is no property, handle this case.
+
+	* swank.lisp (collect-notes): LOAD returns generalized boolean,
+	not just boolean, but make-compilation-result accepts only booleans
+	for its second argument.
+	
+	Both bugs reported by Derrell Piper.
+
 2009-11-02  Tobias C. Rittweiler <tcr@freebits.de>
 
 	* slime.el (slime-end-of-symbol): Make sure not to move on #'foo.

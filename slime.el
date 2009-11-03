@@ -5649,7 +5649,9 @@ Called on the `point-entered' text-property hook."
 (defun sldb-backward-frame ()
   (when (> (point) sldb-backtrace-start-marker)
     (goto-char (previous-single-char-property-change
-                (car (sldb-frame-region))
+                (if (get-text-property (point) 'frame)
+                    (car (sldb-frame-region))
+                    (point))
                 'frame
                 nil sldb-backtrace-start-marker))))
 
