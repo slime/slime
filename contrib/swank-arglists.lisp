@@ -298,7 +298,7 @@ Otherwise NIL is returned."
                          (init
                           (format t "~:@<(~S ..) ~S~@:>" keyword init))
                          ((not (keywordp keyword))
-                          (format t "~:@<~S ..~@:>" keyword))
+                          (format t "~:@<(~S ..)~@:>" keyword))
                          (t
                           (princ-arg keyword))))))
           (&key :finally
