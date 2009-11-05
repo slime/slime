@@ -1,3 +1,11 @@
+2009-11-05  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* swank-arglists.lisp (print-decoded-arglist): Fix printing of
+	&any and &key parameters.
+	(test-print-arglist): Slightly adapted.
+
+	* slime-autodoc ([test] autodoc.1): Slightly adapted.
+
 2009-11-02  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-arglists.lisp (do-decoded-arglists): Remove L-V-T.

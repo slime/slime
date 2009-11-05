@@ -257,18 +257,18 @@ Otherwise NIL is returned."
     (let ((index 0))
       (pprint-logical-block (nil nil :prefix "(" :suffix ")")
         (when operator
-          (print-arg operator))
+          (princ-arg operator))
         (do-decoded-arglist (remove-given-args arglist provided-args)
           (&provided (arg)
              (space)
-             (print-arg arg)
+             (princ-arg arg)
              (incf index))
           (&required (arg)
              (space)
              (if (arglist-p arg)
                  (print-arglist-recursively arg :index index)
                  (with-highlighting (:index index)
-                   (print-arg arg)))
+                   (princ-arg arg)))
              (incf index))
           (&optional :initially
              (when (arglist.optional-args arglist)
@@ -280,7 +280,7 @@ Otherwise NIL is returned."
                  (print-arglist-recursively arg :index index)
                  (with-highlighting (:index index)
                    (if (null init-value)
-                       (print-arg arg)
+                       (princ-arg arg)
                        (format t "~:@<~A ~S~@:>" arg init-value))))
              (incf index))
           (&key :initially
@@ -293,9 +293,14 @@ Otherwise NIL is returned."
                    (prin1 keyword) (space)
                    (print-arglist-recursively arg :index keyword))
                  (with-highlighting (:index keyword)
-                   (if init
-                       (format t "~:@<~A ~S~@:>" (if keyword keyword arg) init)
-                       (print-arg keyword)))))
+                   (cond ((and init (keywordp keyword))
+                          (format t "~:@<~A ~S~@:>" arg init))
+                         (init
+                          (format t "~:@<(~S ..) ~S~@:>" keyword init))
+                         ((not (keywordp keyword))
+                          (format t "~:@<~S ..~@:>" keyword))
+                         (t
+                          (princ-arg keyword))))))
           (&key :finally
              (when (arglist.allow-other-keys-p arglist)
                (space)
@@ -306,7 +311,7 @@ Otherwise NIL is returned."
                (princ '&any)))
           (&any (arg)
              (space)
-             (print-arg arg))
+             (prin1-arg arg))
           (&rest (args bodyp)
              (space)
              (princ (if bodyp '&body '&rest))
@@ -314,14 +319,19 @@ Otherwise NIL is returned."
              (if (arglist-p args)
                  (print-arglist-recursively args :index index)
                  (with-highlighting (:index index)
-                   (print-arg args))))
+                   (princ-arg args))))
           ;; FIXME: add &UNKNOWN-JUNK?
           )))))
 
-(defun print-arg (arg)
+(defun princ-arg (arg)
   (princ (if (arglist-dummy-p arg)
              (arglist-dummy.string-representation arg)
              arg)))
+
+(defun prin1-arg (arg)
+  (if (arglist-dummy-p arg)
+      (princ (arglist-dummy.string-representation arg))
+      (prin1 arg)))
 
 (defun print-decoded-arglist-as-template (decoded-arglist &key
                                           (prefix "(") (suffix ")"))
@@ -1343,7 +1353,7 @@ datum for subsequent logics to rely on."
     (test '(&whole x y z) "(y z)")
     (test '(x &aux y z) "(x)")
     (test '(x &environment env y) "(x y)")
-    (test '(&key ((function f))) "(&key ((function f)))")
+    (test '(&key ((function f))) "(&key ((function ..)))")
     (test '(eval-when (&any :compile-toplevel :load-toplevel :execute) &body body)
 	  "(eval-when (&any :compile-toplevel :load-toplevel :execute) &body body)")
     (test '(declare (optimize &any (speed 1) (safety 1)))

@@ -293,10 +293,10 @@ If it's not in the cache, the cache will be updated asynchronously."
        "(symbol-status symbol &optional ===> (package (symbol-package symbol)) <===)")
 
       ("(apply 'swank::eval-for-emacs*HERE*"
-       "(apply ===> 'eval-for-emacs <=== &optional form buffer-package id &rest args)")
+       "(apply 'eval-for-emacs &optional form buffer-package id &rest args)")
 
       ("(apply #'swank::eval-for-emacs*HERE*"
-       "(apply ===> #'eval-for-emacs <=== &optional form buffer-package id &rest args)")
+       "(apply #'eval-for-emacs &optional form buffer-package id &rest args)")
 
       ("(apply 'swank::eval-for-emacs foo *HERE*"
        "(apply 'eval-for-emacs &optional form ===> buffer-package <=== id &rest args)")
