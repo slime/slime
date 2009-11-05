@@ -1,3 +1,11 @@
+2009-11-05  Tobias C. Rittweiler <tcr@freebits.de>
+
+	Make C-c C-c operate on region if mark is active (and Transient
+	Mark mode is enabled.)
+
+	* slime.el (slime-compile-defun): Operate on region if
+	transient-mark-mode is active.
+
 2009-11-03  Helmut Eller  <heller@common-lisp.net>
 
 	Ask gdb for source lines of foreign functions.

@@ -2615,7 +2615,9 @@ with maximum debug setting. If invoked with a numeric prefix arg,
 compile with a debug setting of that number."
   (interactive "P")
   (let ((slime-compilation-policy (slime-compute-policy raw-prefix-arg)))
-    (apply #'slime-compile-region (slime-region-for-defun-at-point))))
+    (if (use-region-p)
+        (slime-compile-region (region-beginning) (region-end))
+        (apply #'slime-compile-region (slime-region-for-defun-at-point)))))
 
 (defun slime-compile-region (start end)
   "Compile the region."
@@ -8572,6 +8574,15 @@ for (somewhat) better multiframe support."
 
 (defun slime-local-variable-p (var &optional buffer)
   (local-variable-p var (or buffer (current-buffer)))) ; XEmacs
+
+(slime-DEFUN-if-undefined region-active-p ()
+  (and transient-mark-mode mark-active))
+
+(if (featurep 'xemacs)
+    (slime-DEFUN-if-undefined use-region-p ()
+      (region-active-p))
+    (slime-DEFUN-if-undefined use-region-p ()
+      (and transient-mark-mode mark-active)))
 
 (slime-DEFUN-if-undefined next-single-char-property-change
     (position prop &optional object limit)
