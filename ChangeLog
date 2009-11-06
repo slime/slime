@@ -1,3 +1,10 @@
+2009-11-06  Stas Boukarev  <stassats@gmail.com>
+
+	* swank-ecl.lisp (grovel-docstring-for-arglist): ECL's arglists
+	for macros include macro name at the first place, unlike arglists
+	for functions. cdr arglists only for macros and special operators.
+	Reported by Andy Hefner.
+
 2009-11-05  Tobias C. Rittweiler <tcr@freebits.de>
 
 	Make C-c C-c operate on region if mark is active (and Transient

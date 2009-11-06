@@ -198,7 +198,11 @@
                 (values (read-from-string docstring t nil :start pos)))
             (if (or errorp (not (listp arglist)))
                 :not-available
-                (cdr arglist)))
+                ; ECL for some reason includes macro name at the first place
+                (if (or (macro-function name)
+                        (special-operator-p name)) 
+                    (cdr arglist)
+                    arglist)))
           :not-available ))))
 
 (defimplementation arglist (name)
