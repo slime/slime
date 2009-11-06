@@ -1,10 +1,18 @@
+2009-11-06  Tobias C. Rittweiler  <tcr@freebits.de>
+
+	* slime-autodoc.el (slime-arglist): Adapted to new code.
+	(slime-retrieve-arglist): New.
+
+	* slime-c-p-c.el (slime-get-arglist): Deleted.
+	(slime-complete-symbol*-fancy-bit): Use `slime-retrieve-arglist'.
+
 2009-11-05  Tobias C. Rittweiler  <tcr@freebits.de>
 
 	* swank-arglists.lisp (print-decoded-arglist): Fix printing of
 	&any and &key parameters.
 	(test-print-arglist): Slightly adapted.
 
-	* slime-autodoc ([test] autodoc.1): Slightly adapted.
+	* slime-autodoc.el ([test] autodoc.1): Slightly adapted.
 
 2009-11-02  Tobias C. Rittweiler  <tcr@freebits.de>
 

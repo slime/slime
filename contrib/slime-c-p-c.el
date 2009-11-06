@@ -21,6 +21,7 @@
 (require 'slime)
 (require 'slime-parse)
 (require 'slime-editing-commands)
+(require 'slime-autodoc)
 
 (defcustom slime-c-p-c-unambiguous-prefix-p t
   "If true, set point after the unambigous prefix.
@@ -83,7 +84,7 @@ If false, move point to the end of the inserted text."
 (defun slime-complete-symbol*-fancy-bit ()
   "Do fancy tricks after completing a symbol.
 \(Insert a space or close-paren based on arglist information.)"
-  (let ((arglist (slime-get-arglist (slime-symbol-at-point))))
+  (let ((arglist (slime-retrieve-arglist (slime-symbol-at-point))))
     (when arglist
       (let ((args
              ;; Don't intern these symbols
@@ -101,10 +102,6 @@ If false, move point to the end of the inserted text."
                        (slime-background-activities-enabled-p)
                        (not (minibuffer-window-active-p (minibuffer-window))))
               (slime-echo-arglist))))))))
-
-(defun slime-get-arglist (symbol-name)
-  "Return the argument list for SYMBOL-NAME."
-  (slime-eval `(swank:arglist-for-echo-area (quote (,symbol-name)))))
 
 (defun* slime-contextual-completions (beg end) 
   "Return a list of completions of the token from BEG to END in the
@@ -173,7 +170,6 @@ This is a superset of the functionality of `slime-insert-arglist'."
 (defvar slime-c-p-c-init-undo-stack nil)
 
 (defun slime-c-p-c-init ()
-  (slime-require :swank-arglists)
   ;; save current state for unload
   (push 
    `(progn

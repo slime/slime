@@ -37,14 +37,26 @@
   :group 'slime-ui)
 
 
-;;; FIXME: unused?
+
 (defun slime-arglist (name)
   "Show the argument list for NAME."
-  (interactive (list (slime-read-symbol-name "Arglist of: ")))
-  (let ((arglist (slime-eval `(swank:arglist-for-echo-area '((,name))))))
-    (if arglist
-        (message "%s" (slime-fontify-string arglist))
-        (error "Arglist not available"))))
+  (interactive (list (slime-read-symbol-name "Arglist of: " t)))
+  (let ((arglist (slime-eval `(swank:arglist-for-echo-area 
+                               '(,name ,slime-cursor-marker)))))
+    (if (eq arglist :not-available)
+        (and errorp (error "Arglist not available"))
+        (message "%s" (slime-fontify-string arglist)))))
+
+(defun slime-retrieve-arglist (name)
+  (let* ((name (etypecase name
+                 (string name)
+                 (symbol (symbol-name name))))
+         (arglist 
+          (slime-eval `(swank:arglist-for-echo-area 
+                        '(,name ,slime-cursor-marker)))))
+    (if (eq arglist :not-available)
+        nil
+        arglist)))
 
 
 ;;;; Autodocs (automatic context-sensitive help)
