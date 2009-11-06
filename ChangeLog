@@ -4,6 +4,8 @@
 	for macros include macro name at the first place, unlike arglists
 	for functions. cdr arglists only for macros and special operators.
 	Reported by Andy Hefner.
+	(find-source-location): Missing comma before error message formatting.
+	Patch by Andy Hefner.
 
 2009-11-05  Tobias C. Rittweiler <tcr@freebits.de>
 

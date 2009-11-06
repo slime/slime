@@ -495,7 +495,7 @@
                                  (skip-toplevel-forms pos s)
                                  (skip-comments-and-whitespace s)
                                  (read-snippet s))))))))
-   `(:error (format nil "Source definition of ~S not found" obj))))
+   `(:error ,(format nil "Source definition of ~S not found" obj))))
 
 ;;;; Profiling
 
